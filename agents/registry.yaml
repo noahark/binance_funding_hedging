@@ -1,0 +1,116 @@
+version: 1
+
+description: >
+  Local registry for model adapters and agency-style skills. Skill names are
+  stable local identifiers; they may be mapped to external role definitions such
+  as agency-agents, but this repository keeps the active routing explicit.
+
+controllers:
+  default:
+    id: glm52_controller
+    adapter: claude_glm
+    model: "glm-5.2[1m]"
+    role: orchestrator
+    can_accept_final: false
+    notes:
+      - "Use local claude-glm adapter without recording expanded environment."
+      - "Controller passes raw artifact paths to reviewers."
+
+adapters:
+  claude_glm:
+    kind: claude_code_alias
+    invocation_owner: runner
+    prompt_mode: claude_print
+    supports_write: true
+    supports_read_only: true
+    timeout_seconds: 3000
+    secret_handling: "never_log_expanded_environment"
+
+  claude:
+    kind: claude_code
+    invocation_owner: runner
+    prompt_mode: claude_print
+    supports_write: true
+    supports_read_only: true
+    timeout_seconds: 1800
+
+  codex:
+    kind: codex_cli
+    invocation_owner: runner
+    development_command: "codex -C <repo> exec <prompt>"
+    review_command: "codex -C <repo> review --base <base> <prompt>"
+    warning: "codex -p is --profile, not prompt"
+    supports_write: true
+    supports_read_only: true
+    timeout_seconds: 1800
+
+  kimi:
+    kind: kimi_code
+    invocation_owner: controller
+    supports_write: true
+    supports_read_only: false
+    notes:
+      - "Use as implementation subagent only when workflow explicitly allows it."
+
+  grok:
+    kind: grok_cli
+    invocation_owner: runner
+    supports_write: true
+    supports_read_only: true
+    timeout_seconds: 1800
+
+skills:
+  product_strategist:
+    source: local
+    purpose: "Turn product intent into bounded requirements, non-goals, and acceptance criteria."
+    allowed_modes: [read_write_docs]
+
+  software_architect:
+    source: local_or_agency_agents
+    purpose: "Design module boundaries, data flow, technical risks, and test strategy."
+    allowed_modes: [read_write_docs, read_only]
+
+  task_planner:
+    source: local_or_agency_agents
+    purpose: "Split a stage into small implementation tasks with file boundaries and dependencies."
+    allowed_modes: [read_write_docs]
+
+  senior_developer:
+    source: local_or_agency_agents
+    purpose: "Implement bounded code changes with tests."
+    allowed_modes: [write_code]
+
+  minimal_change_engineer:
+    source: local_or_agency_agents
+    purpose: "Fix review findings with the smallest traceable patch."
+    allowed_modes: [write_code]
+
+  code_reviewer:
+    source: local_or_agency_agents
+    purpose: "Review raw artifacts for correctness, regressions, missing tests, and contract drift."
+    allowed_modes: [read_only]
+
+  reality_checker:
+    source: local
+    purpose: "Final verification that evidence matches claims and verdict JSON is schema-valid."
+    allowed_modes: [read_only]
+
+  test_strategist:
+    source: local_or_agency_agents
+    purpose: "Design deterministic tests, replay fixtures, and acceptance checks."
+    allowed_modes: [read_write_docs, read_only]
+
+  security_reviewer:
+    source: local_or_agency_agents
+    purpose: "Check credential handling, unsafe commands, and sensitive output leakage."
+    allowed_modes: [read_only]
+
+model_policies:
+  no_self_review: true
+  reviewer_requires_raw_artifacts: true
+  invalid_json_verdict: BLOCKED
+  default_max_rework: 3
+
+rotation_defaults:
+  designers: [codex, claude]
+  final_reviewers: [claude, codex]

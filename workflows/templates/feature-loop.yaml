@@ -1,0 +1,196 @@
+version: 1
+name: feature-loop
+description: >
+  Template for one bounded funding hedging development loop. The controller is
+  GLM5.2 through Claude Code. The first manual loop is deferred until product
+  requirements and test strategy are agreed.
+
+controller:
+  registry_ref: controllers.default
+  can_accept_final: false
+
+guards:
+  require_git_repo: true
+  fail_closed_on_invalid_json: true
+  reviewer_uses_raw_artifacts: true
+  max_rework_per_stage: 3
+  no_self_review:
+    final_reviewer_not_designer: true
+    reviewer_not_implementer: true
+  human_gate_required_for:
+    - product_financial_semantics
+    - real_trading
+    - credentials
+    - destructive_data_action
+    - public_deployment
+    - changing_risk_limits
+
+artifacts:
+  root: reports/agent-runs
+  template: reports/agent-runs/_template
+  required_files:
+    - 00-task.md
+    - 10-design.md
+    - 20-implementation.md
+    - 30-review-1.md
+    - 40-fix-report.md
+    - 50-review-2.md
+    - 60-test-output.txt
+    - 70-handoff.md
+    - status.json
+
+rotation:
+  designers:
+    - codex
+    - claude
+  final_reviewers:
+    - claude
+    - codex
+
+inputs:
+  product_docs:
+    - docs/product-brief.md
+    - docs/architecture.md
+  workflow_docs:
+    - AGENTS.md
+    - agents/registry.yaml
+    - schemas/review-verdict.schema.json
+
+stages:
+  - id: stage-design
+    actor: rotation.designers
+    skill: software_architect
+    mode: read_write_docs
+    writes:
+      - "reports/agent-runs/{{stage_id}}/00-task.md"
+      - "reports/agent-runs/{{stage_id}}/10-design.md"
+    acceptance:
+      - "Scope, non-goals, file boundaries, tests, and human gates are explicit."
+      - "Designer identity is recorded in status.json."
+
+  - id: task-breakdown
+    actor: controller
+    skill: task_planner
+    mode: read_write_docs
+    reads:
+      - "reports/agent-runs/{{stage_id}}/00-task.md"
+      - "reports/agent-runs/{{stage_id}}/10-design.md"
+    writes:
+      - "reports/agent-runs/{{stage_id}}/70-handoff.md"
+      - "reports/agent-runs/{{stage_id}}/status.json"
+    acceptance:
+      - "Implementation tasks have clear owners, dependencies, and file boundaries."
+
+  - id: implementation
+    actor_pool:
+      - model: grok
+        skill: senior_developer
+      - model: claude_glm
+        skill: senior_developer
+      - model: kimi
+        skill: minimal_change_engineer
+    mode: write_code
+    max_parallel: 1
+    reads:
+      - "AGENTS.md"
+      - "reports/agent-runs/{{stage_id}}/00-task.md"
+      - "reports/agent-runs/{{stage_id}}/10-design.md"
+      - "reports/agent-runs/{{stage_id}}/status.json"
+    writes:
+      - "source files within task boundary"
+      - "tests within task boundary"
+      - "reports/agent-runs/{{stage_id}}/20-implementation.md"
+    acceptance:
+      - "Changed files match task boundaries or deviations are explained."
+      - "Implementation report lists design decisions and tests run."
+
+  - id: test
+    actor: controller
+    skill: test_strategist
+    mode: run_commands
+    writes:
+      - "reports/agent-runs/{{stage_id}}/60-test-output.txt"
+      - "reports/agent-runs/{{stage_id}}/status.json"
+    commands:
+      - "{{project.test_command}}"
+      - "{{project.lint_command}}"
+    acceptance:
+      - "Tests are run against current git state."
+      - "Failures block final review unless failure triage is the task."
+
+  - id: review-1
+    actor: eligible_rotation.final_reviewers
+    skill: code_reviewer
+    mode: read_only
+    requires_raw_artifacts:
+      - "workflow YAML"
+      - "00-task.md"
+      - "10-design.md"
+      - "git diff or patch"
+      - "20-implementation.md"
+      - "60-test-output.txt"
+      - "relevant source files"
+    writes:
+      - "reports/agent-runs/{{stage_id}}/30-review-1.md"
+    output_contract:
+      schema: schemas/review-verdict.schema.json
+      invalid_json: BLOCKED
+    transitions:
+      ACCEPT: review-2
+      REWORK: fix
+      BLOCKED: blocked
+
+  - id: fix
+    actor: original_implementer_or_eligible_pool
+    skill: minimal_change_engineer
+    mode: write_code
+    max_rework: "{{guards.max_rework_per_stage}}"
+    reads:
+      - "reports/agent-runs/{{stage_id}}/30-review-1.md"
+      - "reports/agent-runs/{{stage_id}}/50-review-2.md"
+    writes:
+      - "reports/agent-runs/{{stage_id}}/40-fix-report.md"
+      - "source files within finding scope"
+      - "tests within finding scope"
+    transitions:
+      done: test
+      limit_exceeded: blocked
+
+  - id: review-2
+    actor: next_eligible_rotation.final_reviewers
+    skill: reality_checker
+    mode: read_only
+    requires:
+      - "reviewer != designer"
+      - "reviewer != implementer"
+    requires_raw_artifacts:
+      - "workflow YAML"
+      - "00-task.md"
+      - "10-design.md"
+      - "git diff or patch"
+      - "20-implementation.md"
+      - "40-fix-report.md"
+      - "60-test-output.txt"
+      - "30-review-1.md"
+      - "relevant source files"
+    writes:
+      - "reports/agent-runs/{{stage_id}}/50-review-2.md"
+    output_contract:
+      schema: schemas/review-verdict.schema.json
+      invalid_json: BLOCKED
+    transitions:
+      ACCEPT: accepted
+      REWORK: fix
+      BLOCKED: blocked
+
+terminal_states:
+  accepted:
+    controller_action:
+      - "update status.json"
+      - "update 70-handoff.md"
+      - "wait for next human-approved stage or workflow instruction"
+  blocked:
+    controller_action:
+      - "update status.json"
+      - "update 70-handoff.md"
+      - "report blocker and stop loop"

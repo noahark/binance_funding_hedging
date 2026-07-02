@@ -1,0 +1,6 @@
+# Test Output
+
+Record command, working directory, timestamp, git state, exit code, and output.
+
+Do not record credentials, tokens, cookies, private keys, or full environment
+dumps.
