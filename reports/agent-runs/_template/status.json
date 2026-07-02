@@ -15,11 +15,8 @@
     "rationale": []
   },
   "direction_panel": {
-    "codex": "not_started",
-    "claude": "not_started",
-    "glm52": "not_started",
-    "kimi27": "not_started",
-    "grok_build": "not_started"
+    "panel_key": null,
+    "members": {}
   },
   "direction_synthesis": {
     "provider": "codex",

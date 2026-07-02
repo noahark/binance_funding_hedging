@@ -20,16 +20,18 @@ reports/agent-runs/<stage-id>/
 Use `_template/` when creating a new stage.
 
 Direction files are required only for milestone or user-requested direction
-freeze rounds:
+freeze rounds. Each registered panel member for the round writes one draft:
 
 ```text
-01-direction-codex.md
-02-direction-claude.md
-03-direction-glm52.md
-04-direction-kimi27.md
-05-direction-grok-build.md
+direction-drafts/<model-id>.md
+direction-drafts/<model-id>.unavailable.md   (when a member is unavailable)
 06-direction-synthesis.md
 ```
+
+The panel roster is declared in `agents/registry.yaml` under
+`direction_panels.<stage_key>` (stage-id with `-` replaced by `_`), falling
+back to `direction_panels.default`. Record the panel key used in
+`status.json`.
 
 Drafts and intermediate outputs must remain in the stage directory. Approved
 project documents are promoted into fixed paths under `docs/`:
@@ -49,11 +51,7 @@ docs/planning/DECISIONS.md
 |---|---|---|
 | `00-intake.md` | Controller | User discussion summary, complexity classification, routing decision |
 | `00-task.md` | Designer | Scope, non-goals, acceptance criteria, file boundaries |
-| `01-direction-codex.md` | GPT/Codex | Conditional independent direction and requirement draft |
-| `02-direction-claude.md` | Claude | Independent direction and requirement draft |
-| `03-direction-glm52.md` | GLM5.2 | Independent direction and requirement draft |
-| `04-direction-kimi27.md` | Kimi 2.7 | Independent direction and requirement draft |
-| `05-direction-grok-build.md` | Grok Build | Independent direction and requirement draft |
+| `direction-drafts/<model-id>.md` | Registered panel member | Independent direction and requirement draft, or `.unavailable.md` note |
 | `06-direction-synthesis.md` | GPT/Codex | Conditional final synthesized direction for user review |
 | `10-design.md` | Designer | Architecture, task split, risks, test strategy |
 | `11-adr.md` | Designer | Stage decision context, alternatives, tradeoffs, reviewer notes |

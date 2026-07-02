@@ -7,11 +7,8 @@
 
 ## Inputs
 
-- `01-direction-codex.md`
-- `02-direction-claude.md`
-- `03-direction-glm52.md`
-- `04-direction-kimi27.md`
-- `05-direction-grok-build.md`
+- `direction-drafts/<model-id>.md` for each registered panel member
+- `direction-drafts/<model-id>.unavailable.md` when a member was unavailable
 
 ## Final Proposed Direction
 
@@ -19,11 +16,7 @@ Summarize the direction for user review.
 
 ## Accepted Ideas By Source
 
-- GPT/Codex:
-- Claude:
-- GLM5.2:
-- Kimi 2.7:
-- Grok Build:
+- <model-id>:
 
 ## Rejected Or Deferred Ideas
 
