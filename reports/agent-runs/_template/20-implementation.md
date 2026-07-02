@@ -22,6 +22,10 @@ Commands and summaries. Full output belongs in `60-test-output.txt`.
 
 - None
 
+## Deviations From ADR
+
+- None
+
 ## Remaining Work
 
 - None

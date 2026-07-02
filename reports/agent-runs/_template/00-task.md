@@ -29,8 +29,8 @@ Forbidden or out-of-scope files:
 
 ## Human Gates
 
-List any product, financial, credential, destructive, trading, or deployment
-decision that requires human approval.
+List any product, domain, credential, destructive, external-side-effect, or
+deployment decision that requires human approval.
 
 ## Designer
 

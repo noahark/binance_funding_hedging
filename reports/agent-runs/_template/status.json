@@ -6,6 +6,26 @@
   "implementer": null,
   "reviewer_1": null,
   "reviewer_2": null,
+  "complexity": {
+    "classification": null,
+    "direction_panel_required": null,
+    "existing_synthesis_covers_task": null,
+    "user_approved_lightweight_route": false,
+    "lightweight_skip_allowed": false,
+    "rationale": []
+  },
+  "direction_panel": {
+    "codex": "not_started",
+    "claude": "not_started",
+    "glm52": "not_started",
+    "kimi27": "not_started",
+    "grok_build": "not_started"
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "not_started",
+    "user_approved": false
+  },
   "base_sha": null,
   "head_sha": null,
   "diff_fingerprint": null,
@@ -14,14 +34,33 @@
     "status": "not_run",
     "commands": []
   },
-  "review": {
+  "review_1": {
+    "reviewer": null,
+    "provider": "grok",
+    "model": "grok-build",
     "open_p0_p1": null,
     "verdict": null,
-    "json_schema_valid": null
+    "json_schema_valid": null,
+    "diff_fingerprint": null
+  },
+  "review_2": {
+    "reviewer": null,
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
+    "fallback_reason": null,
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null
   },
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [],
-  "next_action": "design",
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "next_action": "complexity-evaluator",
   "updated_at": null
 }

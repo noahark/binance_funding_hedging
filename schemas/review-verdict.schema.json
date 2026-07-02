@@ -1,7 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.funding-hedging/schemas/review-verdict.schema.json",
+  "$id": "https://local.ai-project-harness/schemas/review-verdict.schema.json",
   "title": "Review Verdict",
+  "description": "Strict reviewer verdict. diff_fingerprint is head_sha + ':' + sha256(git diff --binary <base_sha>..HEAD). Missing or invalid JSON fails closed as non-accepting evidence and cannot pass a gate.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -39,6 +40,7 @@
     },
     "diff_fingerprint": {
       "type": "string",
+      "description": "head_sha + ':' + sha256(git diff --binary <base_sha>..HEAD)",
       "minLength": 1
     },
     "reviewed_artifacts": {
@@ -70,7 +72,17 @@
     },
     "next_action": {
       "type": "string",
-      "enum": ["continue", "fix", "human_gate", "blocked"]
+      "enum": [
+        "continue",
+        "fix",
+        "human_gate",
+        "retry",
+        "fallback",
+        "decision_models_exhausted",
+        "development_models_exhausted",
+        "stage_accepted_waiting_user",
+        "human_escalation_required"
+      ]
     }
   },
   "$defs": {

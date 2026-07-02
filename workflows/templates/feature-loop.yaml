@@ -1,7 +1,7 @@
 version: 1
 name: feature-loop
 description: >
-  Template for one bounded funding hedging development loop. The controller is
+  Template for one bounded project development loop. The controller is
   GLM5.2 through Claude Code. The first manual loop is deferred until product
   requirements and test strategy are agreed.
 
@@ -18,8 +18,9 @@ guards:
     final_reviewer_not_designer: true
     reviewer_not_implementer: true
   human_gate_required_for:
-    - product_financial_semantics
-    - real_trading
+    - direction_synthesis_approval
+    - product_domain_semantics
+    - external_side_effects
     - credentials
     - destructive_data_action
     - public_deployment
@@ -29,8 +30,10 @@ artifacts:
   root: reports/agent-runs
   template: reports/agent-runs/_template
   required_files:
+    - 00-intake.md
     - 00-task.md
     - 10-design.md
+    - 11-adr.md
     - 20-implementation.md
     - 30-review-1.md
     - 40-fix-report.md
@@ -38,25 +41,232 @@ artifacts:
     - 60-test-output.txt
     - 70-handoff.md
     - status.json
+  direction_files_required_for_milestone_freeze:
+    - 01-direction-codex.md
+    - 02-direction-claude.md
+    - 03-direction-glm52.md
+    - 04-direction-kimi27.md
+    - 05-direction-grok-build.md
+    - 06-direction-synthesis.md
 
 rotation:
+  complexity_evaluator:
+    provider: claude_glm
+    model: "glm-5.2[1m]"
+    skill: complexity_evaluator
+    output: "00-intake.md"
+  direction_panel_scope: milestone_or_user_requested
+  direction_panel_skip_allowed_when:
+    - user_approved_lightweight_route
+    - existing_synthesis_covers_task
+  direction_panel:
+    - provider: codex
+      model: gpt
+      skill: product_strategist
+      output: "01-direction-codex.md"
+    - provider: claude
+      model: claude
+      skill: product_strategist
+      output: "02-direction-claude.md"
+    - provider: claude_glm
+      model: "glm-5.2[1m]"
+      skill: product_strategist
+      output: "03-direction-glm52.md"
+    - provider: kimi
+      model: "kimi-2.7"
+      skill: product_strategist
+      output: "04-direction-kimi27.md"
+    - provider: grok
+      model: "grok-build"
+      skill: product_strategist
+      output: "05-direction-grok-build.md"
+  direction_synthesizer:
+    provider: codex
+    model: gpt
+    skill: product_strategist
+    output: "06-direction-synthesis.md"
   designers:
     - codex
     - claude
-  final_reviewers:
-    - claude
-    - codex
+  review_1:
+    provider: grok
+    model: "grok-build"
+  review_2:
+    primary: codex
+    fallback: claude
+    fallback_only_on:
+      - quota_exhausted
+      - auth_failure
+      - service_unavailable
+      - anti_self_review_ineligible
+      - invalid_verdict_json
+  policy:
+    # Review-1 is an independent Grok quality pass. Review-2 is the final gate.
+    review_1_may_equal_designer: true
+    review_2_must_differ_from_designer: true
+    review_1_identity_granularity: model
+    review_2_identity_granularity: provider
+    same_provider_different_model_allowed_for_review_1: true
+    do_not_seek_second_opinion_after_valid_review_2_verdict: true
+  complexity_routing:
+    LOW:
+      route: stage-design
+      direction_panel_required: false
+      requires_one_of:
+        - user_approved_lightweight_route
+        - existing_synthesis_covers_task
+    MEDIUM:
+      route: stage-design
+      direction_panel_required: false
+      requires_one_of:
+        - user_approved_lightweight_route
+        - existing_synthesis_covers_task
+    HIGH:
+      route: direction-drafts
+      direction_panel_required: true
+      user_override_allowed: true
+    MILESTONE:
+      route: direction-drafts
+      direction_panel_required: true
+      user_override_allowed: false
+
+stop_conditions:
+  decision_models_exhausted:
+    description: "Both GPT/Codex and Claude are quota-exhausted or unavailable for decision/final review."
+    terminal: true
+  development_models_exhausted:
+    description: "All development models are quota-exhausted or unavailable for implementation/fix tasks."
+    terminal: true
+  stage_accepted_waiting_user:
+    description: "The stage passes review; stop and wait for the user to start the next multi-model direction round."
+    terminal: true
+  human_escalation_required:
+    description: "Human decision is required for rework limit, unresolved BLOCKED verdict, missing evidence, invalid verdict JSON after retry/fallback, or human gate."
+    terminal: true
 
 inputs:
   product_docs:
-    - docs/product-brief.md
-    - docs/architecture.md
+    - docs/product/PRD.md
+    - docs/architecture/ARCHITECTURE.md
+    - docs/development/DEVELOPMENT_GUIDE.md
+    - docs/planning/ROADMAP.md
+    - docs/planning/DECISIONS.md
   workflow_docs:
     - AGENTS.md
     - agents/registry.yaml
+    - agents/skills/UPSTREAM.md
     - schemas/review-verdict.schema.json
 
 stages:
+  - id: complexity-evaluator
+    run_when:
+      - "after user requirement discussion"
+      - "before deciding whether to run five-model direction drafting"
+    actor: rotation.complexity_evaluator
+    skill: complexity_evaluator
+    mode: read_write_docs
+    writes:
+      - "reports/agent-runs/{{stage_id}}/00-intake.md"
+      - "reports/agent-runs/{{stage_id}}/status.json"
+    classification:
+      allowed_values: [LOW, MEDIUM, HIGH, MILESTONE]
+    routing:
+      LOW:
+        if:
+          any:
+            - user_approved_lightweight_route
+            - existing_synthesis_covers_task
+        then: stage-design
+        else: human_escalation_required
+      MEDIUM:
+        if:
+          any:
+            - user_approved_lightweight_route
+            - existing_synthesis_covers_task
+        then: stage-design
+        else: human_escalation_required
+      HIGH: direction-drafts
+      MILESTONE: direction-drafts
+      user_override:
+        HIGH: stage-design
+        LOW: direction-drafts
+        MEDIUM: direction-drafts
+    acceptance:
+      - "Classification includes rationale, direction-panel requirement, and human gates."
+      - "LOW/MEDIUM tasks can skip five-model drafting only when user-approved or covered by existing synthesis; otherwise ask the user to confirm."
+      - "MILESTONE tasks always enter five-model direction drafting."
+    transitions:
+      stage_design: stage-design
+      direction_drafts: direction-drafts
+      human_gate: human_escalation_required
+
+  - id: direction-drafts
+    run_when:
+      - "milestone direction or requirements are being frozen"
+      - "user requests a multi-model direction round"
+      - "complexity-evaluator output requires direction panel"
+    skip_allowed_when:
+      - "user explicitly approves a lightweight task"
+      - "an existing direction synthesis covers the task"
+    actor_panel: rotation.direction_panel
+    skill: product_strategist
+    mode: read_write_docs
+    writes:
+      - "reports/agent-runs/{{stage_id}}/01-direction-codex.md"
+      - "reports/agent-runs/{{stage_id}}/02-direction-claude.md"
+      - "reports/agent-runs/{{stage_id}}/03-direction-glm52.md"
+      - "reports/agent-runs/{{stage_id}}/04-direction-kimi27.md"
+      - "reports/agent-runs/{{stage_id}}/05-direction-grok-build.md"
+    acceptance:
+      - "Each listed model has an independent direction draft or an explicit quota/unavailable note."
+      - "Drafts preserve source model identity and are not replaced by controller summaries."
+
+  - id: direction-synthesis
+    actor: rotation.direction_synthesizer
+    skill: product_strategist
+    mode: read_write_docs
+    reads:
+      - "reports/agent-runs/{{stage_id}}/01-direction-codex.md"
+      - "reports/agent-runs/{{stage_id}}/02-direction-claude.md"
+      - "reports/agent-runs/{{stage_id}}/03-direction-glm52.md"
+      - "reports/agent-runs/{{stage_id}}/04-direction-kimi27.md"
+      - "reports/agent-runs/{{stage_id}}/05-direction-grok-build.md"
+    writes:
+      - "reports/agent-runs/{{stage_id}}/06-direction-synthesis.md"
+    acceptance:
+      - "GPT/Codex synthesizes, attributes, and formats the final direction for user review."
+      - "Synthesis lists accepted ideas, rejected/deferred ideas, frozen requirements, and open human decisions."
+      - "Development remains paused until user approval."
+      - "Synthesis remains in reports until approved; canonical docs are updated only after approval."
+    transitions:
+      user_approved: promote-approved-docs
+      decision_models_exhausted: decision_models_exhausted
+      human_gate: human_escalation_required
+
+  - id: promote-approved-docs
+    run_when:
+      - "after user approval of direction synthesis"
+      - "before stage design if canonical docs need updates"
+    actor: controller
+    skill: product_strategist
+    mode: read_write_docs
+    reads:
+      - "reports/agent-runs/{{stage_id}}/06-direction-synthesis.md"
+    writes:
+      - "docs/product/PRD.md"
+      - "docs/architecture/ARCHITECTURE.md"
+      - "docs/architecture/ADR/"
+      - "docs/development/DEVELOPMENT_GUIDE.md"
+      - "docs/planning/ROADMAP.md"
+      - "docs/planning/DECISIONS.md"
+    acceptance:
+      - "Only user-approved synthesis and decisions are promoted."
+      - "No raw model draft is copied into canonical docs without consolidation."
+      - "Open questions remain marked and are not converted into approved requirements."
+    transitions:
+      done: stage-design
+      human_gate: human_escalation_required
+
   - id: stage-design
     actor: rotation.designers
     skill: software_architect
@@ -64,8 +274,10 @@ stages:
     writes:
       - "reports/agent-runs/{{stage_id}}/00-task.md"
       - "reports/agent-runs/{{stage_id}}/10-design.md"
+      - "reports/agent-runs/{{stage_id}}/11-adr.md"
     acceptance:
       - "Scope, non-goals, file boundaries, tests, and human gates are explicit."
+      - "ADR records design context, alternatives, tradeoffs, and reviewer notes."
       - "Designer identity is recorded in status.json."
 
   - id: task-breakdown
@@ -75,6 +287,7 @@ stages:
     reads:
       - "reports/agent-runs/{{stage_id}}/00-task.md"
       - "reports/agent-runs/{{stage_id}}/10-design.md"
+      - "reports/agent-runs/{{stage_id}}/11-adr.md"
     writes:
       - "reports/agent-runs/{{stage_id}}/70-handoff.md"
       - "reports/agent-runs/{{stage_id}}/status.json"
@@ -84,6 +297,7 @@ stages:
   - id: implementation
     actor_pool:
       - model: grok
+        required_model: "grok-composer-2.5-fast"
         skill: senior_developer
       - model: claude_glm
         skill: senior_developer
@@ -93,8 +307,10 @@ stages:
     max_parallel: 1
     reads:
       - "AGENTS.md"
+      - "agents/developer-discipline.md"
       - "reports/agent-runs/{{stage_id}}/00-task.md"
       - "reports/agent-runs/{{stage_id}}/10-design.md"
+      - "reports/agent-runs/{{stage_id}}/11-adr.md"
       - "reports/agent-runs/{{stage_id}}/status.json"
     writes:
       - "source files within task boundary"
@@ -119,26 +335,41 @@ stages:
       - "Failures block final review unless failure triage is the task."
 
   - id: review-1
-    actor: eligible_rotation.final_reviewers
+    actor:
+      provider: grok
+      model: "grok-build"
     skill: code_reviewer
     mode: read_only
+    adapter_requirements:
+      grok: "Use Grok Build in plan/read-only mode with a schema-bound custom prompt. If unavailable, fail closed and do not pass review-1."
     requires_raw_artifacts:
       - "workflow YAML"
       - "00-task.md"
       - "10-design.md"
+      - "11-adr.md"
+      - "06-direction-synthesis.md when present"
       - "git diff or patch"
       - "20-implementation.md"
+      - "40-fix-report.md when present"
       - "60-test-output.txt"
       - "relevant source files"
+    identity_rules:
+      reviewer_model_must_differ_from_implementer_model: true
+      same_provider_different_model_allowed: true
+      reviewer_may_equal_designer: true
     writes:
       - "reports/agent-runs/{{stage_id}}/30-review-1.md"
     output_contract:
       schema: schemas/review-verdict.schema.json
-      invalid_json: BLOCKED
+      invalid_json:
+        first: retry_same_model_once
+        then: human_escalation_required
     transitions:
       ACCEPT: review-2
       REWORK: fix
-      BLOCKED: blocked
+      BLOCKED: human_escalation_required
+      human_gate: human_escalation_required
+      model_unavailable: human_escalation_required
 
   - id: fix
     actor: original_implementer_or_eligible_pool
@@ -146,6 +377,12 @@ stages:
     mode: write_code
     max_rework: "{{guards.max_rework_per_stage}}"
     reads:
+      - "AGENTS.md"
+      - "agents/developer-discipline.md"
+      - "reports/agent-runs/{{stage_id}}/00-task.md"
+      - "reports/agent-runs/{{stage_id}}/10-design.md"
+      - "reports/agent-runs/{{stage_id}}/11-adr.md"
+      - "reports/agent-runs/{{stage_id}}/06-direction-synthesis.md when present"
       - "reports/agent-runs/{{stage_id}}/30-review-1.md"
       - "reports/agent-runs/{{stage_id}}/50-review-2.md"
     writes:
@@ -154,19 +391,38 @@ stages:
       - "tests within finding scope"
     transitions:
       done: test
-      limit_exceeded: blocked
+      limit_exceeded: human_escalation_required
+      development_models_exhausted: development_models_exhausted
 
   - id: review-2
-    actor: next_eligible_rotation.final_reviewers
+    actor:
+      primary: codex
+      fallback: claude
+      fallback_only_on:
+        - quota_exhausted
+        - auth_failure
+        - service_unavailable
+        - anti_self_review_ineligible
+        - invalid_verdict_json
     skill: reality_checker
     mode: read_only
+    adapter_requirements:
+      codex: "Use read-only codex exec with a schema-bound custom prompt, not codex review."
+      claude: "Use read-only/plan Claude invocation with schema-bound custom prompt."
     requires:
       - "reviewer != designer"
       - "reviewer != implementer"
+    identity_rules:
+      reviewer_provider_must_differ_from_designer_provider: true
+      reviewer_provider_must_differ_from_implementer_provider: true
+      fallback_to_claude_if_codex_ineligible: true
+      stop_if_claude_unavailable: true
     requires_raw_artifacts:
       - "workflow YAML"
       - "00-task.md"
       - "10-design.md"
+      - "11-adr.md"
+      - "06-direction-synthesis.md when present"
       - "git diff or patch"
       - "20-implementation.md"
       - "40-fix-report.md"
@@ -177,20 +433,38 @@ stages:
       - "reports/agent-runs/{{stage_id}}/50-review-2.md"
     output_contract:
       schema: schemas/review-verdict.schema.json
-      invalid_json: BLOCKED
+      invalid_json:
+        first: retry_same_model_once
+        then: fallback_if_allowed
+        exhausted: human_escalation_required
     transitions:
-      ACCEPT: accepted
+      ACCEPT: stage_accepted_waiting_user
       REWORK: fix
-      BLOCKED: blocked
+      BLOCKED: human_escalation_required
+      decision_models_exhausted: decision_models_exhausted
+      human_gate: human_escalation_required
 
 terminal_states:
-  accepted:
+  stage_accepted_waiting_user:
     controller_action:
       - "update status.json"
       - "update 70-handoff.md"
-      - "wait for next human-approved stage or workflow instruction"
-  blocked:
+      - "stop and wait for the user to start the next multi-model direction round"
+  decision_models_exhausted:
     controller_action:
       - "update status.json"
       - "update 70-handoff.md"
-      - "report blocker and stop loop"
+      - "report GPT/Codex and Claude decision model exhaustion"
+      - "stop loop"
+  development_models_exhausted:
+    controller_action:
+      - "update status.json"
+      - "update 70-handoff.md"
+      - "report all development model exhaustion"
+      - "stop loop"
+  human_escalation_required:
+    controller_action:
+      - "update status.json"
+      - "update 70-handoff.md"
+      - "report why automation cannot proceed safely"
+      - "stop loop and wait for user decision"

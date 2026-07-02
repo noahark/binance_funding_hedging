@@ -10,8 +10,11 @@
 
 ## Artifact Index
 
+- Intake:
 - Task:
+- Direction synthesis:
 - Design:
+- ADR:
 - Implementation:
 - Review 1:
 - Fix report:

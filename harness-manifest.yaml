@@ -1,0 +1,44 @@
+version: 1
+
+description: >
+  Sync manifest for AI Project Harness. Files listed under harness_owned may be
+  updated from this template repository into a target project. Files listed under
+  install_only are copied during first install only, then owned by the target
+  project.
+
+harness_owned:
+  - AGENTS.md
+  - CLAUDE.md
+  - harness-manifest.yaml
+  - agents/developer-discipline.md
+  - agents/registry.yaml
+  - agents/skills/
+  - workflows/
+  - schemas/
+  - scripts/install-harness.sh
+  - scripts/update-project-harness.sh
+  - reports/agent-runs/README.md
+  - reports/agent-runs/_template/
+  - docs/README.md
+  - docs/harness-design.md
+  - docs/architecture/ADR/0000-template.md
+
+install_only:
+  - docs/product/PRD.md
+  - docs/architecture/ARCHITECTURE.md
+  - docs/development/DEVELOPMENT_GUIDE.md
+  - docs/planning/ROADMAP.md
+  - docs/planning/DECISIONS.md
+
+project_owned_after_install:
+  - README.md
+  - .gitignore
+  - docs/product/PRD.md
+  - docs/architecture/ARCHITECTURE.md
+  - docs/development/DEVELOPMENT_GUIDE.md
+  - docs/planning/ROADMAP.md
+  - docs/planning/DECISIONS.md
+
+generated_or_runtime:
+  - .harness-version
+  - reports/agent-runs/<stage-id>/
