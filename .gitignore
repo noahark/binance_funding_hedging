@@ -27,3 +27,7 @@ secrets/
 *.log
 tmp/
 reports/agent-runs/**/raw-transcripts/
+
+# Local reference inputs; keep available on disk but do not commit.
+llms-full.txt
+币安套费率策略，逐仓杠杆.js

@@ -85,6 +85,87 @@ adapters:
     supports_read_only: true
     timeout_seconds: 1800
 
+direction_panels:
+  key_mapping:
+    stage_id_to_panel_key: "replace '-' with '_'"
+    example: "2026-07-initial-direction -> 2026_07_initial_direction"
+    stage_record_required: "00-intake.md or status.json must record the active direction panel key before synthesis."
+
+  default:
+    description: "Default milestone direction panel. Individual stages may override or extend this before drafting starts."
+    output_dir: "reports/agent-runs/{{stage_id}}/direction-drafts"
+    member_output_template: "{{model_id}}.md"
+    unavailable_output_template: "{{model_id}}.unavailable.md"
+    synthesizer:
+      id: codex
+      provider: codex
+      model: gpt
+      skill: product_strategist
+      output: "06-direction-synthesis.md"
+    members:
+      - id: codex
+        provider: codex
+        model: gpt
+        skill: product_strategist
+      - id: claude
+        provider: claude
+        model: claude
+        skill: product_strategist
+      - id: glm52
+        provider: claude_glm
+        model: "glm-5.2[1m]"
+        skill: product_strategist
+      - id: kimi27
+        provider: kimi
+        model: "kimi-2.7"
+        skill: product_strategist
+      - id: grok-build
+        provider: grok
+        model: "grok-build"
+        skill: product_strategist
+
+  2026_07_initial_direction:
+    description: "Actual panel used for the initial Binance funding hedging direction round."
+    output_dir: "reports/agent-runs/2026-07-initial-direction/direction-drafts"
+    collection_mode: mixed_runner_and_user_supplied
+    synthesizer:
+      id: codex
+      provider: codex
+      model: gpt
+      skill: product_strategist
+      output: "06-direction-synthesis.md"
+    members:
+      - id: deepseek
+        source: user_supplied_external
+        provider: deepseek
+        model: "DeepSeek V4"
+        output: "deepseek.md"
+      - id: fable5
+        source: user_supplied_external
+        provider: anthropic
+        model: "Claude Fable 5"
+        output: "fable5.md"
+      - id: gemini3.1pro
+        source: user_supplied_external
+        provider: google
+        model: "Gemini 3.1 Pro"
+        output: "gemini3.1pro.md"
+      - id: glm52
+        provider: claude_glm
+        model: "glm-5.2[1m]"
+        skill: product_strategist
+        output: "glm52.md"
+      - id: kimi27
+        provider: kimi
+        model: "kimi-2.7"
+        skill: product_strategist
+        output: "kimi27.md"
+      - id: grok-build
+        provider: grok
+        model: "grok-build"
+        skill: product_strategist
+        output: "grok-build.md"
+
 skills:
   product_strategist:
     source: local
@@ -204,6 +285,11 @@ rotation_defaults:
   direction_panel_skip_allowed_when:
     - user_approved_lightweight_route
     - existing_synthesis_covers_task
+  direction_panel:
+    registry_ref: direction_panels.default
+    output_dir: "reports/agent-runs/{{stage_id}}/direction-drafts"
+    member_output_template: "{{model_id}}.md"
+    unavailable_output_template: "{{model_id}}.unavailable.md"
   complexity_levels:
     LOW:
       direction_panel_required: false
@@ -225,22 +311,6 @@ rotation_defaults:
       direction_panel_required: true
       route: direction-drafts
       user_override_allowed: false
-  direction_panel:
-    - provider: codex
-      model: gpt
-      output: "01-direction-codex.md"
-    - provider: claude
-      model: claude
-      output: "02-direction-claude.md"
-    - provider: claude_glm
-      model: "glm-5.2[1m]"
-      output: "03-direction-glm52.md"
-    - provider: kimi
-      model: "kimi-2.7"
-      output: "04-direction-kimi27.md"
-    - provider: grok
-      model: "grok-build"
-      output: "05-direction-grok-build.md"
   direction_synthesizer:
     provider: codex
     output: "06-direction-synthesis.md"

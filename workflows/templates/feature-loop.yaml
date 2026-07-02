@@ -42,11 +42,7 @@ artifacts:
     - 70-handoff.md
     - status.json
   direction_files_required_for_milestone_freeze:
-    - 01-direction-codex.md
-    - 02-direction-claude.md
-    - 03-direction-glm52.md
-    - 04-direction-kimi27.md
-    - 05-direction-grok-build.md
+    - direction-drafts/*.md
     - 06-direction-synthesis.md
 
 rotation:
@@ -60,26 +56,17 @@ rotation:
     - user_approved_lightweight_route
     - existing_synthesis_covers_task
   direction_panel:
-    - provider: codex
-      model: gpt
-      skill: product_strategist
-      output: "01-direction-codex.md"
-    - provider: claude
-      model: claude
-      skill: product_strategist
-      output: "02-direction-claude.md"
-    - provider: claude_glm
-      model: "glm-5.2[1m]"
-      skill: product_strategist
-      output: "03-direction-glm52.md"
-    - provider: kimi
-      model: "kimi-2.7"
-      skill: product_strategist
-      output: "04-direction-kimi27.md"
-    - provider: grok
-      model: "grok-build"
-      skill: product_strategist
-      output: "05-direction-grok-build.md"
+    registry_ref: direction_panels.default
+    output_dir: "reports/agent-runs/{{stage_id}}/direction-drafts"
+    member_output_template: "{{model_id}}.md"
+    unavailable_output_template: "{{model_id}}.unavailable.md"
+    source_override_allowed_from:
+      - "approved stage intake"
+      - "agents/registry.yaml direction_panels.<stage_key>"
+    stage_key_mapping: "replace '-' with '_' when deriving a registry panel key from stage_id"
+    active_panel_key_must_be_recorded_in:
+      - "00-intake.md"
+      - "status.json"
   direction_synthesizer:
     provider: codex
     model: gpt
@@ -161,7 +148,7 @@ stages:
   - id: complexity-evaluator
     run_when:
       - "after user requirement discussion"
-      - "before deciding whether to run five-model direction drafting"
+      - "before deciding whether to run registered direction-panel drafting"
     actor: rotation.complexity_evaluator
     skill: complexity_evaluator
     mode: read_write_docs
@@ -193,8 +180,8 @@ stages:
         MEDIUM: direction-drafts
     acceptance:
       - "Classification includes rationale, direction-panel requirement, and human gates."
-      - "LOW/MEDIUM tasks can skip five-model drafting only when user-approved or covered by existing synthesis; otherwise ask the user to confirm."
-      - "MILESTONE tasks always enter five-model direction drafting."
+      - "LOW/MEDIUM tasks can skip registered direction-panel drafting only when user-approved or covered by existing synthesis; otherwise ask the user to confirm."
+      - "MILESTONE tasks always enter registered direction-panel drafting."
     transitions:
       stage_design: stage-design
       direction_drafts: direction-drafts
@@ -212,29 +199,24 @@ stages:
     skill: product_strategist
     mode: read_write_docs
     writes:
-      - "reports/agent-runs/{{stage_id}}/01-direction-codex.md"
-      - "reports/agent-runs/{{stage_id}}/02-direction-claude.md"
-      - "reports/agent-runs/{{stage_id}}/03-direction-glm52.md"
-      - "reports/agent-runs/{{stage_id}}/04-direction-kimi27.md"
-      - "reports/agent-runs/{{stage_id}}/05-direction-grok-build.md"
+      - "reports/agent-runs/{{stage_id}}/direction-drafts/<model-id>.md"
+      - "reports/agent-runs/{{stage_id}}/direction-drafts/<model-id>.unavailable.md when unavailable"
     acceptance:
-      - "Each listed model has an independent direction draft or an explicit quota/unavailable note."
+      - "Each registered panel member has an independent direction draft or an explicit quota/unavailable note."
       - "Drafts preserve source model identity and are not replaced by controller summaries."
+      - "The active panel membership is recorded in the stage intake or registry before synthesis."
 
   - id: direction-synthesis
     actor: rotation.direction_synthesizer
     skill: product_strategist
     mode: read_write_docs
     reads:
-      - "reports/agent-runs/{{stage_id}}/01-direction-codex.md"
-      - "reports/agent-runs/{{stage_id}}/02-direction-claude.md"
-      - "reports/agent-runs/{{stage_id}}/03-direction-glm52.md"
-      - "reports/agent-runs/{{stage_id}}/04-direction-kimi27.md"
-      - "reports/agent-runs/{{stage_id}}/05-direction-grok-build.md"
+      - "reports/agent-runs/{{stage_id}}/direction-drafts/*.md"
+      - "reports/agent-runs/{{stage_id}}/direction-drafts/*.unavailable.md"
     writes:
       - "reports/agent-runs/{{stage_id}}/06-direction-synthesis.md"
     acceptance:
-      - "GPT/Codex synthesizes, attributes, and formats the final direction for user review."
+      - "The configured synthesizer, normally GPT/Codex, synthesizes, attributes, and formats the final direction for user review."
       - "Synthesis lists accepted ideas, rejected/deferred ideas, frozen requirements, and open human decisions."
       - "Development remains paused until user approval."
       - "Synthesis remains in reports until approved; canonical docs are updated only after approval."
