@@ -118,8 +118,12 @@ implementation or fix tasks unless the user explicitly re-enables it.
 
 ### Reviewers
 
-Review-1 is assigned to Grok Build with the `code_reviewer` skill. Review-2 is
-the final gate and uses GPT/Codex first, then Claude only if GPT/Codex is
+Review-1 uses a cross-review pool with the `code_reviewer` skill. If the
+implementer is `claude_glm`, review-1 uses Kimi. If the implementer is Kimi,
+review-1 uses Claude-GLM. For any other implementer, the controller chooses the
+first available reviewer from the registered cross-review pool that does not
+share provider identity with the implementer. Review-2 is the final gate and
+uses GPT/Codex first, then Claude only if GPT/Codex is
 unavailable, quota-exhausted, or ineligible under the anti-self-review gate. If
 Claude is also unavailable or quota-exhausted, the workflow stops with
 `decision_models_exhausted`.
@@ -136,9 +140,9 @@ read-only. They must inspect raw artifacts:
 
 Self-review identity is checked at two granularities:
 
-- `review-1` uses model-level isolation. Same provider with a different model is
-  allowed when there is no shared session, prompt transcript, or tool state. This
-  permits Grok Composer 2.5 implementation to be reviewed by Grok Build.
+- `review-1` uses provider-level cross-review isolation. It must not share
+  provider identity, session state, prompt transcript, or tool state with the
+  implementer of the reviewed task.
 - `review-2` uses provider-level isolation for final decisioning. The final
   reviewer must not share the designer or implementer provider.
 
@@ -199,8 +203,9 @@ dispatching the fix.
 - Review-2 fallback from GPT/Codex to Claude is allowed only for quota,
   authentication, service availability, or anti-self-review ineligibility. Do
   not ask Claude for a second opinion after a valid GPT/Codex verdict.
-- Review-1 uses the configured Grok Build model. If the adapter cannot access that
-  model, fail closed instead of silently using another Grok model.
+- Review-1 uses the configured cross-review pool. Grok is not a default review
+  gate and must not be substituted into review-1 unless the user explicitly
+  enables it for the stage.
 
 ## Standard Loop
 
@@ -293,8 +298,9 @@ Key reminders:
 - `codex -p` is a profile flag, not a prompt flag.
 - Claude review uses the configured Claude adapter model, currently
   `claude-fable-5`, unless the registry or user changes it.
-- Grok review-1 uses `grok-build`; Grok development, when explicitly enabled,
-  uses `grok-composer-2.5-fast`.
+- Review-1 uses Kimi and Claude-GLM as a cross-review pool. Grok development,
+  when explicitly enabled, uses `grok-composer-2.5-fast`; Grok is not a default
+  review gate.
 - Kimi development uses the local Kimi Code adapter default, normally
   `kimi-for-coding`/`kimi` with no pinned `-m` so it follows the configured
   latest model.

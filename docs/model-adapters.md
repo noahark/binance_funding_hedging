@@ -146,8 +146,9 @@ claiming the provider is GLM.
 
 Purpose:
 
-- Review-1 with Grok Build and the `code_reviewer` skill.
+- Direction drafts and optional experiments when explicitly enabled.
 - Development only when explicitly enabled, using Composer 2.5.
+- Not a default Harness review gate.
 
 Observed local model names:
 
@@ -160,9 +161,9 @@ Availability check:
 grok models
 ```
 
-If `grok-build` is missing, review-1 fails closed with `model_unavailable` and
-routes to `human_escalation_required`. Do not silently use another Grok model
-for review-1.
+Do not silently use Grok as review-1. The default review-1 gate is the
+Kimi/Claude-GLM cross-review pool. If a stage explicitly enables Grok review,
+the runner must still fail closed on timeout, invalid JSON, or missing model.
 
 Command templates:
 
@@ -170,7 +171,7 @@ Command templates:
 # Interactive Grok Build session in the repository.
 grok --cwd <repo> --model grok-build
 
-# Review-1, read-only/plan mode. Runner enforces the 900 second timeout.
+# Optional review, read-only/plan mode. Runner enforces the stage timeout.
 grok --cwd <repo> --model grok-build \
   --permission-mode plan \
   --effort high \
@@ -190,8 +191,9 @@ grok --cwd <repo> --model grok-composer-2.5-fast \
   --prompt-file <prompt-file>
 ```
 
-If review-1 has no schema-valid verdict after 900 seconds, or the CLI process
-hangs, record `model_unavailable` and route to `human_escalation_required`.
+If an explicitly enabled Grok review has no schema-valid verdict after the stage
+timeout, or the CLI process hangs, record `model_unavailable` and route to
+`human_escalation_required`.
 
 ## Kimi
 

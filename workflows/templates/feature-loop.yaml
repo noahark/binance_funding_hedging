@@ -79,8 +79,15 @@ rotation:
     - codex
     - claude
   review_1:
-    provider: grok
-    model: "grok-build"
+    cross_review_pool:
+      - provider: kimi
+        model: "kimi-2.7"
+      - provider: claude_glm
+        model: "glm-5.2[1m]"
+    selection:
+      implementer_provider_claude_glm: kimi
+      implementer_provider_kimi: claude_glm
+      default_preference: [kimi, claude_glm]
   review_2:
     primary: codex
     fallback: claude
@@ -91,12 +98,13 @@ rotation:
       - anti_self_review_ineligible
       - invalid_verdict_json
   policy:
-    # Review-1 is an independent Grok quality pass. Review-2 is the final gate.
+    # Review-1 is a cross-review quality pass. Review-2 is the final gate.
     review_1_may_equal_designer: true
     review_2_must_differ_from_designer: true
-    review_1_identity_granularity: model
+    review_1_identity_granularity: provider
     review_2_identity_granularity: provider
-    same_provider_different_model_allowed_for_review_1: true
+    review_1_provider_must_differ_from_implementer_provider: true
+    review_1_requires_fresh_read_only_session: true
     do_not_seek_second_opinion_after_valid_review_2_verdict: true
   complexity_routing:
     LOW:
@@ -282,13 +290,15 @@ stages:
 
   - id: implementation
     actor_pool:
-      - model: grok
-        required_model: "grok-composer-2.5-fast"
-        skill: senior_developer
       - model: claude_glm
         skill: senior_developer
       - model: kimi
         skill: minimal_change_engineer
+    optional_actor_pool:
+      - model: grok
+        required_model: "grok-composer-2.5-fast"
+        skill: senior_developer
+        requires_user_enablement: true
     mode: write_code
     max_parallel: 1
     reads:
@@ -331,12 +341,13 @@ stages:
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring the reviewer unavailable."
     actor:
-      provider: grok
-      model: "grok-build"
+      selection: rotation.review_1
     skill: code_reviewer
     mode: read_only
     adapter_requirements:
-      grok: "Use Grok Build in plan/read-only mode with a schema-bound custom prompt. Verify with `grok models`; a controller session without a Grok tool is not enough to mark unavailable. If grok-build is unavailable or no schema-valid verdict arrives within 900 seconds, fail closed and do not pass review-1."
+      kimi: "Use Kimi in --plan/read-only mode with a schema-bound custom prompt. Prefer the local configured Kimi Code default model unless the stage pins kimi-2.7."
+      claude_glm: "Use a fresh read-only Claude-GLM session with a schema-bound custom prompt. Do not reuse the implementation/controller transcript as review evidence."
+      grok: "Grok is not a default review-1 gate. Use only when the user explicitly enables it for the stage."
     requires_raw_artifacts:
       - "workflow YAML"
       - "00-task.md"
@@ -349,8 +360,8 @@ stages:
       - "60-test-output.txt"
       - "relevant source files"
     identity_rules:
-      reviewer_model_must_differ_from_implementer_model: true
-      same_provider_different_model_allowed: true
+      reviewer_provider_must_differ_from_implementer_provider: true
+      reviewer_session_must_be_fresh: true
       reviewer_may_equal_designer: true
     writes:
       - "reports/agent-runs/{{stage_id}}/30-review-1.md"

@@ -92,10 +92,11 @@ adapters:
     plan_command: "kimi --plan -p \"$(cat <prompt-file>)\""
     yolo_command: "kimi -y -p \"$(cat <prompt-file>)\""
     supports_write: true
-    supports_read_only: false
+    supports_read_only: true
     notes:
       - "Use as implementation subagent only when workflow explicitly allows it."
       - "If the local wrapper is named kimi-for-coding, substitute that binary for kimi."
+      - "Use --plan plus a read-only prompt for review-1 cross-review tasks."
 
   grok:
     kind: grok_cli
@@ -103,24 +104,23 @@ adapters:
     invocation_owner: runner
     binary: grok
     development_model: "grok-composer-2.5-fast"
-    review_1_model: "grok-build"
+    optional_review_model: "grok-build"
     direction_model: "grok-build"
     observed_available_models:
       - "grok-build"
       - "grok-composer-2.5-fast"
     availability_check_command: "grok models"
-    if_review_1_model_unavailable: human_escalation_required
     interactive_command: "grok --cwd <repo> --model grok-build"
     development_command: "grok --cwd <repo> --model grok-composer-2.5-fast --permission-mode acceptEdits --check --effort high --prompt-file <prompt-file>"
     yolo_command: "grok --cwd <repo> --model grok-composer-2.5-fast --permission-mode bypassPermissions --always-approve --prompt-file <prompt-file>"
-    review_1_command: "grok --cwd <repo> --model grok-build --permission-mode plan --effort high --prompt-file <prompt-file>"
-    review_1_timeout_seconds: 900
+    optional_review_command: "grok --cwd <repo> --model grok-build --permission-mode plan --effort high --prompt-file <prompt-file>"
+    optional_review_timeout_seconds: 900
     supports_write: true
     supports_read_only: true
     timeout_seconds: 1800
     notes:
-      - "A controller session lacking Grok tools is not enough to mark Grok unavailable; the runner must try the CLI adapter."
-      - "If review-1 produces no schema-valid verdict within 900 seconds, route model_unavailable -> human_escalation_required."
+      - "Grok is not a default Harness review gate. Use only for direction drafts, experiments, or explicit user-enabled tasks."
+      - "Do not silently substitute Grok Build for cross-review review-1."
 
 direction_panels:
   key_mapping:
@@ -304,9 +304,17 @@ model_policies:
   default_max_rework: 3
   diff_fingerprint: "head_sha + ':' + sha256(git diff --binary <base_sha>..HEAD)"
   final_reviewer_must_differ_from_designer: true
-  review_1_identity_granularity: model
+  review_1_identity_granularity: provider
   review_2_identity_granularity: provider
-  review_1_model_required: "grok-build"
+  review_1_cross_review_pool:
+    - kimi
+    - claude_glm
+  review_1_selection_rules:
+    - "If implementer provider is claude_glm, review-1 uses kimi."
+    - "If implementer provider is kimi, review-1 uses claude_glm."
+    - "For other implementers, choose the first available reviewer from the pool that does not share provider identity with the implementer."
+    - "Review-1 must use a fresh read-only/plan session and raw artifacts."
+  grok_default_gate: false
   grok_development_model: "grok-composer-2.5-fast"
   review_2_fallback_allowed_on:
     - quota_exhausted
@@ -356,14 +364,22 @@ rotation_defaults:
     provider: codex
     output: "06-direction-synthesis.md"
   review_1:
-    provider: grok
-    model: "grok-build"
+    cross_review_pool:
+      - provider: kimi
+        model: "kimi-2.7"
+      - provider: claude_glm
+        model: "glm-5.2[1m]"
+    selection:
+      implementer_provider_claude_glm: kimi
+      implementer_provider_kimi: claude_glm
+      default_preference: [kimi, claude_glm]
   review_2:
     primary: codex
     fallback: claude
   review_policy:
     review_1_may_equal_designer: true
     final_review_2_must_differ_from_designer: true
-    review_1_model_must_differ_from_implementer_model: true
+    review_1_provider_must_differ_from_implementer_provider: true
+    review_1_requires_fresh_read_only_session: true
     review_2_provider_must_differ_from_implementer_provider: true
     review_2_fallback_allowed_only_on_listed_reasons: true

@@ -143,8 +143,9 @@ its own summary. Development starts only after user approval of the synthesis.
 Lightweight bugfixes or mechanical follow-up tasks may skip this panel when the
 user explicitly approves the shortcut or an existing synthesis covers the task.
 
-Implementation can use multiple registered implementers, but Grok implementation
-uses Composer 2.5:
+Implementation can use multiple registered implementers. The default pool uses
+Claude-GLM and Kimi. Grok implementation is optional and only used when the user
+explicitly enables it for a stage; when enabled it uses Composer 2.5:
 
 ```text
 grok --model grok-composer-2.5-fast
@@ -157,7 +158,11 @@ that model unless the user explicitly re-enables it.
 
 Review routing is fixed:
 
-1. `review-1`: Grok Build with `code_reviewer`.
+1. `review-1`: cross-review with `code_reviewer`.
+   - If implementer is `claude_glm`, review-1 uses Kimi.
+   - If implementer is Kimi, review-1 uses Claude-GLM.
+   - Otherwise choose the first available reviewer from the cross-review pool
+     that does not share provider identity with the implementer.
 2. `review-2`: GPT/Codex with `reality_checker`.
 3. If GPT/Codex is quota-exhausted, unavailable, auth-failed, or ineligible
    under anti-self-review, use Claude.
@@ -167,9 +172,8 @@ Review routing is fixed:
 Do not ask Claude for a second opinion after a valid GPT/Codex review-2 verdict.
 Fallback is only for availability, quota, auth, or anti-self-review eligibility.
 
-Current local `grok models` output has been observed to expose both
-`grok-build` and `grok-composer-2.5-fast`. The runner must check availability
-before review-1 and fail closed if the configured model is unavailable.
+Grok remains available for direction drafts or explicit experiments, but it is
+not a required review gate.
 
 ## Controller
 
@@ -240,8 +244,9 @@ Known command semantics:
 - Codex `-p` means profile, not prompt.
 - Claude Code print mode uses `claude -p "<prompt>"`.
 - Claude review uses `claude-fable-5` by default.
-- Grok review-1 uses `grok-build`; Grok development uses
-  `grok-composer-2.5-fast` only when workflow-enabled.
+- Review-1 uses the Kimi / Claude-GLM cross-review pool.
+- Grok development uses `grok-composer-2.5-fast` only when explicitly
+  workflow-enabled by the user.
 - Kimi development uses the local Kimi Code default model, normally through
   `kimi-for-coding` or `kimi`.
 - Local `claude-glm` must be invoked without recording its expanded auth
@@ -270,8 +275,9 @@ with a narrative summary.
 For a given stage:
 
 - `review_2` final reviewer must differ from `designer`.
-- `review_1` uses model-level isolation: Grok Composer 2.5 implementation may be
-  reviewed by Grok Build, provided there is no shared session or transcript.
+- `review_1` uses provider-level cross-review isolation: it must not share
+  provider identity, session state, prompt transcript, or tool state with the
+  implementer.
 - `review_2` uses provider-level isolation: the final reviewer must not share
   provider identity with the designer or implementer.
 - Provider identity means model vendor, not CLI wrapper. `claude_glm` is
