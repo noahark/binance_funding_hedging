@@ -7,7 +7,7 @@ Status: ready for backend contract discovery
 Initial reset base SHA: `0c2bfcbf86db8a7b0da69702b56f714210eb5174`
 
 Actual review base for contract discovery:
-`a2b8a0d094e946b3d1663494b8eefda835ab4b53`
+`2bb47ad13065827ed1ee91d5d0e231cd312fdc0a`
 
 The contract discovery diff must be computed from this base.
 

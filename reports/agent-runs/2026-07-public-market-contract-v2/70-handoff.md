@@ -1,5 +1,66 @@
 # Handoff: Public Market Contract V2
 
+## Checkpoint: contract discovery frozen for review_1
+
+Status: `review_1`. Implementer: Claude-GLM (`glm-5.2[1m]`).
+
+Branch: `main`. Review base (`base_sha`):
+`2bb47ad13065827ed1ee91d5d0e231cd312fdc0a`. The contract discovery products are
+committed locally (not pushed) as the review baseline; HEAD advances past
+`base_sha`, so the standard diff is non-empty.
+
+`head_sha` and `diff_fingerprint` are recorded in `status.json` immediately after
+the product commit. A commit cannot embed its own sha or fingerprint
+(self-referential hash has no fixed point), so this handoff does not duplicate
+those literal values. Review uses the standard formula:
+
+```text
+diff_fingerprint = head_sha + ":" + sha256(git diff --binary <base_sha>..HEAD)
+```
+
+Reproduce the hash with:
+
+```text
+git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..HEAD | shasum -a 256
+```
+
+Produced artifacts (review inputs):
+
+- `api-field-matrix.md` — field matrix, endpoint auth matrix, margin/funding/
+  bStock conclusions, observed enums.
+- `api-sample-index.md` — raw sample inventory and reproducibility commands.
+- `20-implementation.md` — implementation report and evidence-integrity note.
+- `60-test-output.txt` — raw schema validation, negative tests, generator
+  reproducibility, live no-key auth matrix.
+- `reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/*.json` —
+  real public samples plus the two margin no-key error bodies.
+- `reports/api-samples/public-market-contract-v2/20260703T051738Z/normalized/` —
+  `build-normalized-sample.py` and the schema-valid `public-market-snapshot.json`.
+- `docs/api/public-market-contract.md` — verified findings frozen.
+- `schemas/api/public-market/snapshot.schema.json` — unchanged; sample validates.
+
+Key conclusions: margin `sapi` endpoints require an API key (not used in Phase 1);
+`lastFundingRate` settled-vs-estimate is `ambiguous`; `TRADIFI_PERPETUAL` -> `BSTOCK`;
+`asset_tag` independent of `route_class`.
+
+Test status: schema validation PASS (jsonschema Draft202012Validator); 10/10
+negative tests reject; generator reproducible.
+
+review-1 (Grok Build, `code_reviewer`, read-only, 900s) inputs must include the
+raw artifacts, raw samples, `60-test-output.txt`, `api-field-matrix.md`,
+`docs/api/public-market-contract.md`, the schema, and the standard git diff
+(`git diff --binary <base_sha>..HEAD`). review-1 reviews raw artifacts and the
+standard diff only; it must not trust this controller summary as evidence. If
+Grok Build produces no schema-valid verdict or the CLI hangs past 900s, mark
+`model_unavailable` and route to `human_escalation_required`.
+
+Open follow-ups (non-blocking): settle-time sample for `lastFundingRate`;
+private borrowability validation in Phase 2.
+
+Next action: `route_to_review_1_grok_build`. Backend implementation stays gated
+until review passes; Kimi frontend work stays gated until the contract is
+accepted.
+
 ## Claude-GLM Backend Contract Prompt
 
 Use this prompt to start the next backend contract task:
@@ -12,10 +73,10 @@ Goal: verify Binance public endpoint request/response fields and freeze the
 Phase 1 backend-to-frontend public market snapshot contract.
 
 Actual review base:
-a2b8a0d094e946b3d1663494b8eefda835ab4b53
+2bb47ad13065827ed1ee91d5d0e231cd312fdc0a
 
 All implementation/review diffs for this contract discovery task must use:
-git diff --binary a2b8a0d094e946b3d1663494b8eefda835ab4b53..HEAD
+git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..HEAD
 
 Read:
 - AGENTS.md

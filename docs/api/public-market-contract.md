@@ -1,6 +1,9 @@
 # Public Market API Contract
 
-Status: draft contract v0.1
+Status: contract v0.1, response shape unchanged. Binance public fields verified
+2026-07-03 by Claude-GLM against live no-key public calls and `llms-full.txt`.
+Verified findings are recorded below in "Verified Findings" and in
+`reports/agent-runs/2026-07-public-market-contract-v2/api-field-matrix.md`.
 
 Owner: Claude-GLM for field verification and backend implementation. Kimi may
 start frontend integration only after this contract and the matching JSON schema
@@ -45,6 +48,47 @@ record it as out of Phase 1 instead of using it.
 | Spot | `GET /api/v3/exchangeInfo` | Spot symbols, `status`, filters, and public spot/margin indicators if present. |
 | Margin | `GET /sapi/v1/margin/allPairs` | Candidate cross-margin pair support only if verified as public/no-key or explicitly marked as out of Phase 1. |
 | Margin | `GET /sapi/v1/margin/isolated/allPairs` | Historical FMZ isolated-margin comparison only unless the new Portfolio Margin route model explicitly needs it. Verify auth requirements before use. |
+
+## Verified Findings
+
+Frozen 2026-07-03. Evidence: raw public samples under
+`reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/` and live
+no-key HTTP checks in
+`reports/agent-runs/2026-07-public-market-contract-v2/60-test-output.txt`.
+
+Endpoint auth (no API key used):
+
+- `GET /fapi/v1/exchangeInfo`, `/fapi/v1/premiumIndex`, `/fapi/v1/fundingRate`,
+  and `GET /api/v3/exchangeInfo` are public/no-key (HTTP 200 without key) and are
+  allowed in Phase 1.
+- `GET /sapi/v1/margin/allPairs` and `GET /sapi/v1/margin/isolated/allPairs`
+  require an API key: without a key they return HTTP 400 with
+  `{"code":-2014,"msg":"API-key format invalid."}`. Phase 1 forbids keys, so they
+  are not used.
+
+Margin conclusion: because the `sapi` margin pair lists require a key,
+`margin_public.source` is `"unverified"` and `public_cross_margin_pair` is `null`
+for every row. `MARGIN_SPOT_CANDIDATE` classification uses only the PUBLIC spot
+field `isMarginTradingAllowed` from `/api/v3/exchangeInfo`, which is a candidate
+signal only. `negative_funding_status` for those rows stays
+`PRIVATE_BORROW_VALIDATION_REQUIRED`.
+
+Funding semantics: `nextFundingTime` is the millisecond epoch of the next
+scheduled funding settlement (clear). `lastFundingRate` is documented by Binance
+as "the most recently updated funding rate"; the settled-vs-estimate distinction
+is `ambiguous`, so the field must be displayed as "最近资金费率（最近更新值）" and
+must not be labeled as a guaranteed settled or upcoming rate. Settled past rates
+come from `/fapi/v1/fundingRate` (`funding_history`).
+
+bStock / TRADIFI: `contractType == "TRADIFI_PERPETUAL"` maps to
+`asset_tag = "BSTOCK"` (118 observed symbols, all tokenized equities/ETFs/
+commodities, all without a spot leg). `contractType == "PERPETUAL"` maps to
+`CRYPTO`. `asset_tag` is independent of `route_class`; the sample contains
+`MSTRUSDT` / `TSLAUSDT` rows that are `BSTOCK` + `PERP_ONLY_EXCLUDED`.
+
+Spot min notional: all 3625 observed spot symbols use the new `NOTIONAL` filter
+(`minNotional` key); the legacy `MIN_NOTIONAL` filter is 0 observed. The backend
+extractor reads `NOTIONAL.minNotional`.
 
 ## Required Claude-GLM Outputs
 
@@ -181,15 +225,25 @@ Priority for `negative_funding_status`:
 
 ## Open Verification Items
 
-- Confirm whether `GET /sapi/v1/margin/allPairs` is public/no-key in current
-  Binance docs and live behavior.
-- Confirm whether `GET /sapi/v1/margin/isolated/allPairs` has the same auth
-  requirements, and whether isolated-margin pair support is relevant to the new
-  Portfolio Margin strategy or only to the old FMZ reference strategy.
-- If margin-pair endpoints require an API key or are not public/no-key, Phase 1
-  must keep `margin_public.source = "unverified"` and avoid producing
-  `MARGIN_SPOT_CANDIDATE` from private or semi-private evidence.
-- Confirm the exact semantics of `premiumIndex.lastFundingRate` and
-  `nextFundingTime`; do not label the field as settled funding unless proven.
-- Confirm whether all `TRADIFI_PERPETUAL` symbols should be tagged `BSTOCK` or
-  whether a narrower rule is needed.
+Resolution status as of 2026-07-03 (see "Verified Findings" and
+`api-field-matrix.md` for evidence):
+
+- RESOLVED: `GET /sapi/v1/margin/allPairs` requires an API key (HTTP 400 code
+  `-2014` without key). Phase 1 does not use it.
+- RESOLVED: `GET /sapi/v1/margin/isolated/allPairs` has the same key requirement
+  and is treated as historical FMZ/isolated-margin context only. The Portfolio
+  Margin route model does not need it in Phase 1.
+- RESOLVED: because the margin endpoints require a key, Phase 1 keeps
+  `margin_public.source = "unverified"` and does not produce
+  `MARGIN_SPOT_CANDIDATE` from the `sapi` lists. It uses only the public spot
+  `isMarginTradingAllowed` field.
+- PARTIALLY RESOLVED: `nextFundingTime` is clear. `lastFundingRate` is
+  "most recently updated funding rate" and its settled-vs-estimate meaning is
+  `ambiguous`; it is not labeled as settled funding.
+- RESOLVED: all observed `TRADIFI_PERPETUAL` symbols are tagged `BSTOCK`; no
+  narrower rule is needed.
+
+Remaining (non-blocking, later phase):
+
+- Settle-time sample to remove the `lastFundingRate` ambiguity.
+- Private borrowability validation for `MARGIN_SPOT_CANDIDATE`.

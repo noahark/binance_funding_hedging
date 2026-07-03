@@ -1,0 +1,22 @@
+{
+  "endpoint": "GET https://api.binance.com/api/v3/exchangeInfo (public, no API key)",
+  "note": "Metadata summary only. The full 17.2MB response body is intentionally NOT committed; field shapes are proven by api-v3-exchangeInfo-curated-BTCETHXVG.json. Full enumeration uses the same public no-key endpoint.",
+  "http_status_observed": 200,
+  "response_size_bytes_observed": 17249896,
+  "total_symbols": 3625,
+  "status_distribution": {
+    "TRADING": 1356,
+    "BREAK": 2269
+  },
+  "isMarginTradingAllowed_distribution": {
+    "True": 778,
+    "False": 2847
+  },
+  "filter_usage": {
+    "NOTIONAL_new": 3625,
+    "MIN_NOTIONAL_legacy": 0
+  },
+  "usdt_pairs_total": 680,
+  "usdt_pairs_isMarginTradingAllowed_true": 424,
+  "spot_min_notional_source_field": "filters[?(@.filterType=='NOTIONAL')].minNotional (new format observed on 100% of symbols); legacy MIN_NOTIONAL.minNotional = 0 observed"
+}

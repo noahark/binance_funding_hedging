@@ -1,9 +1,13 @@
 {
   "stage_id": "2026-07-public-market-contract-v2",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "feature-loop",
   "designer": "codex",
-  "implementer": null,
+  "implementer": {
+    "provider": "claude_glm",
+    "model": "glm-5.2[1m]",
+    "scope": "Binance public API field verification and public market contract freeze"
+  },
   "reviewer_1": null,
   "reviewer_2": null,
   "complexity": {
@@ -26,13 +30,41 @@
     "status": "approved_prior_stage",
     "user_approved": true
   },
-  "base_sha": "a2b8a0d094e946b3d1663494b8eefda835ab4b53",
+  "base_sha": "2bb47ad13065827ed1ee91d5d0e231cd312fdc0a",
   "head_sha": null,
+  "commit_state": "committed",
   "diff_fingerprint": null,
-  "changed_files": [],
+  "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..HEAD)",
+  "diff_fingerprint_note": "head_sha and diff_fingerprint are backfilled into this file immediately AFTER the product commit, because a commit cannot embed its own sha or fingerprint (self-referential hash has no fixed point). The product commit advances HEAD past base_sha, so the standard formula over the committed diff is non-empty and byte-exact reproducible. Reviewer reproduces with: git diff --binary <base_sha>..HEAD | shasum -a 256.",
+  "changed_files": [
+    "docs/api/public-market-contract.md",
+    "reports/agent-runs/2026-07-public-market-contract-v2/00-intake.md",
+    "reports/agent-runs/2026-07-public-market-contract-v2/70-handoff.md",
+    "reports/agent-runs/2026-07-public-market-contract-v2/api-field-matrix.md",
+    "reports/agent-runs/2026-07-public-market-contract-v2/api-sample-index.md",
+    "reports/agent-runs/2026-07-public-market-contract-v2/status.json",
+    "reports/agent-runs/2026-07-public-market-contract-v2/20-implementation.md",
+    "reports/agent-runs/2026-07-public-market-contract-v2/60-test-output.txt",
+    "reports/api-samples/public-market-contract-v2/20260703T051738Z/normalized/build-normalized-sample.py",
+    "reports/api-samples/public-market-contract-v2/20260703T051738Z/normalized/public-market-snapshot.json",
+    "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/api-v3-exchangeInfo-curated-BTCETHXVG.json",
+    "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/api-v3-exchangeInfo-full-summary.json",
+    "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/fapi-v1-exchangeInfo.json",
+    "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/fapi-v1-fundingRate-BTCUSDT-limit10.json",
+    "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/fapi-v1-premiumIndex.json",
+    "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/sapi-v1-margin-allPairs-nokey.json",
+    "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/sapi-v1-margin-isolated-allPairs-nokey.json"
+  ],
   "tests": {
-    "status": "not_run",
-    "commands": []
+    "status": "pass",
+    "schema_validation": "PASS (jsonschema Draft202012Validator, 0 errors)",
+    "negative_tests": "10/10 tampered samples correctly rejected",
+    "commands": [
+      "python3 -m pip install --user jsonschema",
+      "python3 validate normalized sample against schemas/api/public-market/snapshot.schema.json (see 60-test-output.txt)",
+      "curl no-key auth checks for all six endpoints (see 60-test-output.txt)"
+    ],
+    "raw_output_file": "reports/agent-runs/2026-07-public-market-contract-v2/60-test-output.txt"
   },
   "model_routing": {
     "backend_contract_owner": {
@@ -62,12 +94,23 @@
       "Review prompts must pass raw artifact paths and raw diff paths, not controller paraphrases."
     ]
   },
+  "verified_findings": {
+    "margin_endpoints_require_api_key": true,
+    "margin_conclusion": "Phase 1 does not use /sapi/v1/margin/allPairs or isolated/allPairs; margin_public.source stays 'unverified'; MARGIN_SPOT_CANDIDATE uses only public spot isMarginTradingAllowed.",
+    "last_funding_rate_semantics": "ambiguous (documented as most recently updated funding rate; settled-vs-estimate not proven)",
+    "next_funding_time_semantics": "clear (ms epoch of next funding settlement)",
+    "bstock_rule": "contractType == TRADIFI_PERPETUAL -> asset_tag = BSTOCK (118 observed); asset_tag independent of route_class",
+    "schema_modified": false,
+    "contract_shape_changed": false
+  },
   "review_1": {
     "reviewer": null,
     "provider": "grok",
     "model": "grok-build",
+    "skill": "code_reviewer",
+    "mode": "read_only",
     "timeout_seconds": 900,
-    "unavailable_policy": "If Grok Build produces no usable verdict or the CLI process is still running after 900 seconds, mark review-1 model_unavailable and route to human_escalation_required.",
+    "unavailable_policy": "If Grok Build produces no schema-valid verdict or the CLI process is still running after 900 seconds, mark review-1 model_unavailable and route to human_escalation_required.",
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
@@ -96,6 +139,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "dispatch_claude_glm_backend_contract_discovery",
-  "updated_at": "2026-07-03T04:58:52Z"
+  "next_action": "route_to_review_1_grok_build",
+  "updated_at": "2026-07-03T05:25:42Z"
 }

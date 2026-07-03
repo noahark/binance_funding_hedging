@@ -1,0 +1,63 @@
+=== test run: 2026-07-03T05:20:15Z ===
+=== tooling ===
+Python 3.9.6
+jq-1.7.1-apple
+jsonschema 4.25.1
+
+=== 1. raw sample inventory ===
+total 2512
+drwxr-xr-x@ 9 ark  staff      288  7月  3 13:17 .
+drwxr-xr-x@ 4 ark  staff      128  7月  3 13:17 ..
+-rw-r--r--@ 1 ark  staff    25731  7月  3 13:17 api-v3-exchangeInfo-curated-BTCETHXVG.json
+-rw-r--r--@ 1 ark  staff      898  7月  3 13:17 api-v3-exchangeInfo-full-summary.json
+-rw-r--r--@ 1 ark  staff  1010490  7月  3 13:17 fapi-v1-exchangeInfo.json
+-rw-r--r--@ 1 ark  staff     1051  7月  3 13:17 fapi-v1-fundingRate-BTCUSDT-limit10.json
+-rw-r--r--@ 1 ark  staff   226321  7月  3 13:17 fapi-v1-premiumIndex.json
+-rw-r--r--@ 1 ark  staff       46  7月  3 13:17 sapi-v1-margin-allPairs-nokey.json
+-rw-r--r--@ 1 ark  staff       46  7月  3 13:17 sapi-v1-margin-isolated-allPairs-nokey.json
+
+=== 2. normalized sample present ===
+total 40
+drwxr-xr-x@ 4 ark  staff   128  7月  3 13:19 .
+drwxr-xr-x@ 4 ark  staff   128  7月  3 13:17 ..
+-rw-r--r--@ 1 ark  staff  6997  7月  3 13:18 build-normalized-sample.py
+-rw-r--r--@ 1 ark  staff  8900  7月  3 13:19 public-market-snapshot.json
+
+=== 3. schema validation: normalized sample (authoritative) ===
+RESULT: PASS ; schema = https://local.binance-funding-hedging/schemas/api/public-market/snapshot.schema.json
+meta: schema_version= public-market-snapshot/v1 rows= 6 data_time= 2026-07-03T05:11:29Z
+schema_exit=0
+
+=== 4. negative test: schema must REJECT tampered sample (proves constraints are real) ===
+  bad asset_tag enum: errors=1 -> OK(rejected)
+  bad route_class enum: errors=1 -> OK(rejected)
+  bad negative_funding_status enum: errors=1 -> OK(rejected)
+  missing required futures.step_size: errors=1 -> OK(rejected)
+  wrong schema_version const: errors=1 -> OK(rejected)
+  wrong quote_asset const: errors=1 -> OK(rejected)
+  decimal_string violation (mark_price non-numeric): errors=1 -> OK(rejected)
+  additionalProperties (extra top-level key): errors=1 -> OK(rejected)
+  next_funding_time must be integer: errors=1 -> OK(rejected)
+  summary counts must be integer: errors=1 -> OK(rejected)
+RESULT: negative tests done
+
+=== 5. generator reproducibility: re-run, re-validate, diff vs committed output ===
+wrote public-market-snapshot.json rows= 6
+re-run validation: PASS
+
+=== 6. auth matrix (live, no API key) ===
+-- GET /fapi/v1/exchangeInfo (no key) --
+  http=200
+-- GET /fapi/v1/premiumIndex (no key) --
+  http=200
+-- GET /fapi/v1/fundingRate?symbol=BTCUSDT (no key) --
+  http=200
+-- GET /api/v3/exchangeInfo (no key) --
+curl: (28) Operation timed out after 25003 milliseconds with 14455384 out of 17249896 bytes received
+  http=200
+-- GET /sapi/v1/margin/allPairs (no key) --
+{"code":-2014,"msg":"API-key format invalid."}  http=400 body=
+-- GET /sapi/v1/margin/isolated/allPairs (no key) --
+{"code":-2014,"msg":"API-key format invalid."}  http=400 body=
+
+=== end test run ===

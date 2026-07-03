@@ -1,0 +1,298 @@
+{
+  "schema_version": "public-market-snapshot/v1",
+  "generated_at": "2026-07-03T05:17:38Z",
+  "data_time": "2026-07-03T05:11:29Z",
+  "source_sample_id": "20260703T051738Z",
+  "summary": {
+    "total_rows": 6,
+    "route_counts": {
+      "MARGIN_SPOT_CANDIDATE": 2,
+      "SPOT_ONLY_CANDIDATE": 1,
+      "PERP_ONLY_EXCLUDED": 3
+    },
+    "asset_tag_counts": {
+      "CRYPTO": 4,
+      "BSTOCK": 2
+    },
+    "negative_funding_status_counts": {
+      "PRIVATE_BORROW_VALIDATION_REQUIRED": 2,
+      "DISABLED_SPOT_ONLY": 1,
+      "DISABLED_PERP_ONLY": 3
+    }
+  },
+  "rows": [
+    {
+      "symbol": "BTCUSDT",
+      "base_asset": "BTC",
+      "quote_asset": "USDT",
+      "asset_tag": "CRYPTO",
+      "asset_tag_source": "futures_contractType_perpetual",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "MARGIN_SPOT_CANDIDATE",
+      "positive_funding_enabled": true,
+      "negative_funding_status": "PRIVATE_BORROW_VALIDATION_REQUIRED",
+      "futures": {
+        "symbol": "BTCUSDT",
+        "status": "TRADING",
+        "contract_type": "PERPETUAL",
+        "mark_price": "61509.44731159",
+        "index_price": "61531.44260870",
+        "last_funding_rate": "0.00010000",
+        "next_funding_time": 1783065600000,
+        "min_notional": "50",
+        "step_size": "0.001"
+      },
+      "spot": {
+        "symbol": "BTCUSDT",
+        "status": "TRADING",
+        "exists": true,
+        "min_notional": "5.00000000",
+        "step_size": "0.00001000"
+      },
+      "margin_public": {
+        "public_cross_margin_pair": null,
+        "source": "unverified"
+      },
+      "funding_history": [
+        {
+          "funding_time": 1782777600000,
+          "funding_rate": "0.00006175"
+        },
+        {
+          "funding_time": 1782806400000,
+          "funding_rate": "0.00008349"
+        },
+        {
+          "funding_time": 1782835200005,
+          "funding_rate": "0.00003327"
+        },
+        {
+          "funding_time": 1782864000000,
+          "funding_rate": "0.00005532"
+        },
+        {
+          "funding_time": 1782892800000,
+          "funding_rate": "0.00001853"
+        },
+        {
+          "funding_time": 1782921600000,
+          "funding_rate": "0.00007073"
+        },
+        {
+          "funding_time": 1782950400000,
+          "funding_rate": "0.00008001"
+        },
+        {
+          "funding_time": 1782979200000,
+          "funding_rate": "0.00005238"
+        },
+        {
+          "funding_time": 1783008000000,
+          "funding_rate": "0.00005261"
+        },
+        {
+          "funding_time": 1783036800000,
+          "funding_rate": "0.00010000"
+        }
+      ],
+      "ui_flags": [
+        "MARGIN_PUBLIC_UNVERIFIED"
+      ]
+    },
+    {
+      "symbol": "ETHUSDT",
+      "base_asset": "ETH",
+      "quote_asset": "USDT",
+      "asset_tag": "CRYPTO",
+      "asset_tag_source": "futures_contractType_perpetual",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "MARGIN_SPOT_CANDIDATE",
+      "positive_funding_enabled": true,
+      "negative_funding_status": "PRIVATE_BORROW_VALIDATION_REQUIRED",
+      "futures": {
+        "symbol": "ETHUSDT",
+        "status": "TRADING",
+        "contract_type": "PERPETUAL",
+        "mark_price": "1705.47151938",
+        "index_price": "1705.97627907",
+        "last_funding_rate": "0.00008142",
+        "next_funding_time": 1783065600000,
+        "min_notional": "20",
+        "step_size": "0.001"
+      },
+      "spot": {
+        "symbol": "ETHUSDT",
+        "status": "TRADING",
+        "exists": true,
+        "min_notional": "5.00000000",
+        "step_size": "0.00010000"
+      },
+      "margin_public": {
+        "public_cross_margin_pair": null,
+        "source": "unverified"
+      },
+      "funding_history": [],
+      "ui_flags": [
+        "MARGIN_PUBLIC_UNVERIFIED"
+      ]
+    },
+    {
+      "symbol": "XVGUSDT",
+      "base_asset": "XVG",
+      "quote_asset": "USDT",
+      "asset_tag": "CRYPTO",
+      "asset_tag_source": "futures_contractType_perpetual",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "SPOT_ONLY_CANDIDATE",
+      "positive_funding_enabled": true,
+      "negative_funding_status": "DISABLED_SPOT_ONLY",
+      "futures": {
+        "symbol": "XVGUSDT",
+        "status": "TRADING",
+        "contract_type": "PERPETUAL",
+        "mark_price": "0.00224783",
+        "index_price": "0.00223871",
+        "last_funding_rate": "0.00121150",
+        "next_funding_time": 1783065600000,
+        "min_notional": "5",
+        "step_size": "1"
+      },
+      "spot": {
+        "symbol": "XVGUSDT",
+        "status": "TRADING",
+        "exists": true,
+        "min_notional": "5.00000000",
+        "step_size": "1.00000000"
+      },
+      "margin_public": {
+        "public_cross_margin_pair": null,
+        "source": "unverified"
+      },
+      "funding_history": [],
+      "ui_flags": [
+        "MARGIN_PUBLIC_UNVERIFIED"
+      ]
+    },
+    {
+      "symbol": "XMRUSDT",
+      "base_asset": "XMR",
+      "quote_asset": "USDT",
+      "asset_tag": "CRYPTO",
+      "asset_tag_source": "futures_contractType_perpetual",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "PERP_ONLY_EXCLUDED",
+      "positive_funding_enabled": false,
+      "negative_funding_status": "DISABLED_PERP_ONLY",
+      "futures": {
+        "symbol": "XMRUSDT",
+        "status": "TRADING",
+        "contract_type": "PERPETUAL",
+        "mark_price": "316.58133333",
+        "index_price": "316.49857143",
+        "last_funding_rate": "0.00010000",
+        "next_funding_time": 1783065600000,
+        "min_notional": "5",
+        "step_size": "0.001"
+      },
+      "spot": {
+        "symbol": null,
+        "status": null,
+        "exists": false,
+        "min_notional": null,
+        "step_size": null
+      },
+      "margin_public": {
+        "public_cross_margin_pair": null,
+        "source": "unverified"
+      },
+      "funding_history": [],
+      "ui_flags": [
+        "MARGIN_PUBLIC_UNVERIFIED",
+        "PERP_ONLY_NO_SPOT_LEG"
+      ]
+    },
+    {
+      "symbol": "MSTRUSDT",
+      "base_asset": "MSTR",
+      "quote_asset": "USDT",
+      "asset_tag": "BSTOCK",
+      "asset_tag_source": "futures_contractType_tradifi_perpetual",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "PERP_ONLY_EXCLUDED",
+      "positive_funding_enabled": false,
+      "negative_funding_status": "DISABLED_PERP_ONLY",
+      "futures": {
+        "symbol": "MSTRUSDT",
+        "status": "TRADING",
+        "contract_type": "TRADIFI_PERPETUAL",
+        "mark_price": "102.70000000",
+        "index_price": "102.42797782",
+        "last_funding_rate": "0.00000000",
+        "next_funding_time": 1783065600000,
+        "min_notional": "5",
+        "step_size": "0.01"
+      },
+      "spot": {
+        "symbol": null,
+        "status": null,
+        "exists": false,
+        "min_notional": null,
+        "step_size": null
+      },
+      "margin_public": {
+        "public_cross_margin_pair": null,
+        "source": "unverified"
+      },
+      "funding_history": [],
+      "ui_flags": [
+        "MARGIN_PUBLIC_UNVERIFIED",
+        "PERP_ONLY_NO_SPOT_LEG",
+        "TRADIFI_BSTOCK"
+      ]
+    },
+    {
+      "symbol": "TSLAUSDT",
+      "base_asset": "TSLA",
+      "quote_asset": "USDT",
+      "asset_tag": "BSTOCK",
+      "asset_tag_source": "futures_contractType_tradifi_perpetual",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "PERP_ONLY_EXCLUDED",
+      "positive_funding_enabled": false,
+      "negative_funding_status": "DISABLED_PERP_ONLY",
+      "futures": {
+        "symbol": "TSLAUSDT",
+        "status": "TRADING",
+        "contract_type": "TRADIFI_PERPETUAL",
+        "mark_price": "396.15000000",
+        "index_price": "396.17087769",
+        "last_funding_rate": "0.00000000",
+        "next_funding_time": 1783065600000,
+        "min_notional": "5",
+        "step_size": "0.01"
+      },
+      "spot": {
+        "symbol": null,
+        "status": null,
+        "exists": false,
+        "min_notional": null,
+        "step_size": null
+      },
+      "margin_public": {
+        "public_cross_margin_pair": null,
+        "source": "unverified"
+      },
+      "funding_history": [],
+      "ui_flags": [
+        "MARGIN_PUBLIC_UNVERIFIED",
+        "PERP_ONLY_NO_SPOT_LEG",
+        "TRADIFI_BSTOCK"
+      ]
+    }
+  ],
+  "warnings": [
+    "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
+    "premiumIndex.lastFundingRate is documented by Binance as the most recently updated funding rate; whether it equals the last settled rate or a forward estimate is not proven from local docs, so do not label it as a guaranteed settled or upcoming value.",
+    "All 118 observed TRADIFI_PERPETUAL symbols have no spot leg, so they are PERP_ONLY_EXCLUDED with asset_tag=BSTOCK; asset_tag is independent of route_class."
+  ]
+}
