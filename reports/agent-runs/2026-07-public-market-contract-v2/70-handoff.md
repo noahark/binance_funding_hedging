@@ -3,6 +3,8 @@
 ## Checkpoint: contract discovery frozen for review_1
 
 Status: `review_1`. Implementer: Claude-GLM (`glm-5.2[1m]`).
+Current review-1 reviewer: Kimi (`kimi-2.7`) under the Kimi/Claude-GLM
+cross-review policy.
 
 Branch: `main` (local only, not pushed; `ahead of origin/main`). Review baseline:
 
@@ -54,21 +56,37 @@ Key conclusions: margin `sapi` endpoints require an API key (not used in Phase 1
 Test status: schema validation PASS (jsonschema Draft202012Validator); 10/10
 negative tests reject; generator reproducible.
 
-review-1 (Grok Build, `code_reviewer`, read-only, 900s) inputs must include the
-raw artifacts, raw samples, `60-test-output.txt`, `api-field-matrix.md`,
-`docs/api/public-market-contract.md`, the schema, and the standard git diff
-(`git diff --binary <base_sha>..<head_sha> -- . ":(exclude)<stage>/status.json"`).
-review-1 reviews raw artifacts and the standard diff only; it must not trust
-this controller summary as evidence. If
-Grok Build produces no schema-valid verdict or the CLI hangs past 900s, mark
-`model_unavailable` and route to `human_escalation_required`.
+review-1 now uses cross-review. Because the implementer is `claude_glm`, the
+updated Harness selects Kimi (`kimi-2.7`) with the `code_reviewer` skill in
+read-only/plan mode. Inputs include the raw artifacts, raw samples,
+`60-test-output.txt`, `api-field-matrix.md`, `docs/api/public-market-contract.md`,
+the schema, and the standard git diff (`git diff --binary <base_sha>..<head_sha>
+-- . ":(exclude)<stage>/status.json"`). review-1 reviews raw artifacts and the
+standard diff only; it must not trust this controller summary as evidence.
+
+### Historical Grok review-1 dispatch result: `model_unavailable`
+
+Dispatched Grok Build review-1 (prompt file
+`reports/agent-runs/2026-07-public-market-contract-v2/review-1-grok-timeout.prompt.md`;
+command per `docs/model-adapters.md`). The runner-level adapter check passed
+first (`grok models` -> `grok-build (default)` + `grok-composer-2.5-fast`;
+logged in with grok.com), and `validate-stage.py --phase pre-review` PASSED — so
+this is **not** `adapter_missing`. The dispatched `grok` process then hung:
+`state=S`, `%CPU=0.0`, **0 bytes captured output** after ~1052s, no working
+child process; no schema-valid verdict within the 900s timeout. The controller
+stopped the process. This failure is preserved as historical dispatch evidence in
+`30-review-1.md`; raw captured output (empty) is in
+`review-1-grok-timeout.raw-output.txt`.
+
+After user approval, the Harness default was changed so Grok is no longer a
+review gate. The human escalation is resolved by re-routing this stage to Kimi
+review-1.
 
 Open follow-ups (non-blocking): settle-time sample for `lastFundingRate`;
 private borrowability validation in Phase 2.
 
-Next action: `route_to_review_1_grok_build`. Backend implementation stays gated
-until review passes; Kimi frontend work stays gated until the contract is
-accepted.
+Next action: `route_to_review_1_kimi_cross_review`. Backend implementation stays
+gated; Kimi frontend work stays gated until the contract is accepted.
 
 ## Claude-GLM Backend Contract Prompt
 
