@@ -98,3 +98,38 @@ controller summaries; Task B review-1 uses a fresh read-only Claude-GLM session
 本地北京时间: 2026-07-03 23:19:31 CST
 下一步模型: Claude-GLM (controller / Task A implementer)
 下一步任务: Commit `H_intake` (stage evidence), then implement Task A (contract amendment + `resolve_spot_leg` + `build_rows` + synthetic fixture + tests) → `H_A`.
+
+---
+
+## Review outcome (completed — appended after the gates ran)
+
+The "Review routing (planned)" section above was the plan; the actual outcomes:
+
+- **Task A review-1** (Kimi, cross-review): **ACCEPT** — `30-review-1-backend.md`;
+  fingerprint recomputed independently and matching `tasks.A`; `classify.py` diff
+  empty; 52 pytest passed; `float()` clean. Raw: `review-1-task-a-kimi.raw-output.txt`.
+- **Task B review-1** (fresh read-only Claude-GLM Agent session, cross-review):
+  **ACCEPT** — `30-review-1-frontend.md`; isolated context (did not inherit the
+  controller/Task-A transcript); fingerprint matching `tasks.B`; self-check 11/11.
+- **Stage review-2** (Codex/GPT `gpt5.5` xhigh, `final_reviewer`,
+  `reviewer_prior_involvement=direction_synthesis`, strong-reviewer override):
+  **ACCEPT** — `50-review-2.md`; raw `review-2-codex.raw-output.txt`. Dispatched
+  via the user-directed `codex exec --model gpt-5.5` on the locally-configured
+  default provider (proxy2233=402 payment_required, proxy6651=403
+  subscription_not_found; Fable5/Anthropic unreachable). `--output-schema` was
+  unusable on the route (OpenAI strict mode rejects the verdict schema shape),
+  so the verdict was emitted as a fenced json block and controller-validated
+  post-hoc (jsonschema valid; fingerprint matches `status.diff_fingerprint`).
+- **`scripts/validate-stage.py --phase pre-accept`**: **PASSED**
+  (status `stage_accepted_waiting_user`).
+
+Stage state: `stage_accepted_waiting_user`, `can_accept_final=false`. The
+controller does NOT declare final acceptance; the stage awaits the user. The
+impl-v1 P1 finding `bstocks_b_suffix_spot_margin_alias` is closed
+(`resolved_by_stage`, this stage id + head `0842820`); impl-v1 review
+verdicts/diff_fingerprint unchanged; impl-v1 pre-accept still PASSED. Both
+stages await user final acceptance together.
+
+本地北京时间: 2026-07-04 00:33:00 CST
+下一步模型: user (final acceptance decision)
+下一步任务: User reviews this stage + impl-v1 and decides final acceptance. No further automated work; controller holds.
