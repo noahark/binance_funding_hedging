@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>费率行情 · Funding Hedge Workstation</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7f6;
+      --surface: #ffffff;
+      --surface-2: #eef3f2;
+      --surface-3: #e8edf5;
+      --line: #d7dfde;
+      --line-strong: #aebcba;
+      --text: #1b2528;
+      --muted: #59686c;
+      --faint: #7a898c;
+      --brand: #0f766e;
+      --brand-dark: #0b5d58;
+      --brand-soft: #d9f2ee;
+      --accent: #8b5cf6;
+      --accent-soft: #eee7ff;
+      --warn: #b7791f;
+      --warn-soft: #fff1cf;
+      --danger: #b42318;
+      --danger-soft: #ffe3df;
+      --success: #0f7a4f;
+      --success-soft: #dcfce7;
+      --info: #0f5d8f;
+      --info-soft: #e1f1ff;
+      --shadow: 0 14px 40px rgba(17, 24, 39, 0.08);
+      --radius: 8px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+      padding: var(--space-5);
+      background: #172322;
+      color: #f7fbfa;
+    }
+
+    .brand { display: grid; gap: var(--space-1); }
+    .brand-mark {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .brand-icon {
+      display: inline-grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: var(--radius);
+      background: #24534e;
+    }
+    .brand-subtitle {
+      margin-left: 46px;
+      color: #b8c8c5;
+      font-size: 12px;
+    }
+
+    .nav { display: grid; gap: var(--space-2); }
+    .nav-button {
+      width: 100%;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: 0 var(--space-3);
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: #dce8e6;
+      text-align: left;
+    }
+    .nav-button:hover, .nav-button:focus-visible {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.07);
+    }
+    .nav-button.active {
+      border-color: rgba(99, 230, 208, 0.36);
+      background: #d9f2ee;
+      color: #123331;
+    }
+
+    .icon {
+      display: inline-grid;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      color: currentColor;
+      flex: 0 0 auto;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      display: grid;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.05);
+      color: #d8e5e3;
+      font-size: 12px;
+    }
+
+    .content {
+      min-width: 0;
+      padding: var(--space-5);
+      display: grid;
+      gap: var(--space-5);
+      align-content: start;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
+    .title-block { display: grid; gap: var(--space-1); }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 24px; line-height: 1.2; }
+    h2 { font-size: 18px; line-height: 1.25; }
+    h3 { font-size: 15px; line-height: 1.25; }
+    .subtitle { color: var(--muted); font-size: 13px; }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      justify-content: flex-end;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 var(--space-3);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge.success { border-color: #a8dbc0; background: var(--success-soft); color: var(--success); }
+    .badge.warn { border-color: #ecd28d; background: var(--warn-soft); color: var(--warn); }
+    .badge.danger { border-color: #ffc0b8; background: var(--danger-soft); color: var(--danger); }
+    .badge.info { border-color: #b8daf4; background: var(--info-soft); color: var(--info); }
+    .badge.accent { border-color: #d4c5f9; background: var(--accent-soft); color: var(--accent); }
+    .badge.muted { border-color: var(--line-strong); background: var(--surface-2); color: var(--muted); }
+    .badge.compact { min-height: 22px; padding: 0 8px; font-size: 11px; }
+
+    .panel {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .panel.flat { box-shadow: none; }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: var(--space-4);
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    .panel-title { display: grid; gap: var(--space-1); min-width: 0; }
+    .panel-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .panel-body { padding: var(--space-4); }
+
+    .warning-list {
+      display: grid;
+      gap: var(--space-3);
+    }
+    .warning-item {
+      display: flex;
+      gap: var(--space-3);
+      align-items: flex-start;
+      color: var(--warn);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .warning-item svg { flex: 0 0 auto; margin-top: 1px; }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+    .control {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .control label { color: var(--muted); font-size: 12px; font-weight: 700; }
+    input, select {
+      min-height: 40px;
+      padding: 0 var(--space-3);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: #ffffff;
+      color: var(--text);
+    }
+    input:focus, select:focus, button:focus-visible {
+      outline: 3px solid rgba(15, 118, 110, 0.24);
+      outline-offset: 2px;
+    }
+
+    .btn {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: 0 var(--space-3);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .btn.primary { border-color: var(--brand-dark); background: var(--brand); color: #ffffff; }
+    .btn.ghost { border-color: transparent; background: transparent; }
+    .btn.compact { min-height: 32px; padding: 0 var(--space-2); font-size: 12px; }
+
+    .summary-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+    }
+
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1080px;
+    }
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    th {
+      color: var(--muted);
+      background: var(--surface-2);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    tbody tr:hover { background: #f8fbfa; }
+    tbody tr.bstock { background: #faf7ff; }
+    tbody tr.bstock:hover { background: #f3effc; }
+
+    .mono { font-family: var(--mono); font-size: 12px; }
+    .positive { color: var(--success); font-weight: 700; }
+    .negative { color: var(--danger); font-weight: 700; }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+
+    .status-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      border-radius: var(--radius);
+      font-size: 13px;
+    }
+    .status-banner.error { background: var(--danger-soft); color: var(--danger); }
+    .status-banner.info { background: var(--info-soft); color: var(--info); }
+    .status-banner.loading { background: var(--surface-2); color: var(--muted); }
+
+    .empty-state {
+      padding: var(--space-8) var(--space-4);
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .footer-note {
+      color: var(--faint);
+      font-size: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; padding: var(--space-4); }
+      .sidebar-footer { display: none; }
+    }
+    @media (max-width: 760px) {
+      .content { padding: var(--space-3); }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .badge-row { justify-content: flex-start; }
+      .panel-header { align-items: flex-start; flex-direction: column; }
+      .panel-actions { justify-content: flex-start; }
+      h1 { font-size: 21px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="主导航">
+      <div class="brand">
+        <div class="brand-mark">
+          <span class="brand-icon" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24" fill="none">
+              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span>Funding Hedge</span>
+        </div>
+        <div class="brand-subtitle">Manual PM Workstation</div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-button active" aria-current="page">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 17 9 8l4 6 3-5 4 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          费率行情
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div>运行约束</div>
+        <strong>公开行情 · 只读展示 · 不连接 Binance</strong>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div class="title-block">
+          <h1>公开市场费率行情</h1>
+          <p class="subtitle">只读展示公共行情快照，不含交易、持仓或账户功能</p>
+        </div>
+        <div class="badge-row" aria-label="运行约束">
+          <span class="badge success">Public Only</span>
+          <span class="badge info">Read-only</span>
+          <span class="badge warn">Manual Refresh</span>
+        </div>
+      </header>
+
+      <section class="panel" id="warnings-panel" style="display:none;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>契约告警</h2>
+            <p class="subtitle">来自后端快照服务的公开验证限制，展示层不得弱化或隐藏</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="warning-list" id="warnings-list"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>市场表</h2>
+            <p class="subtitle" id="data-source-label">数据源: /api/public-market/snapshot</p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn compact" id="btn-offline" type="button">加载离线 fixture</button>
+            <button class="btn compact primary" id="btn-refresh" type="button">手动刷新</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="controls" style="margin-bottom: var(--space-4);">
+            <div class="control">
+              <label for="filter-search">搜索</label>
+              <input id="filter-search" type="text" placeholder="symbol / base" />
+            </div>
+            <div class="control">
+              <label for="filter-asset">资产标签</label>
+              <select id="filter-asset">
+                <option value="">全部</option>
+                <option value="CRYPTO">CRYPTO</option>
+                <option value="BSTOCK">BSTOCK</option>
+                <option value="UNKNOWN">UNKNOWN</option>
+              </select>
+            </div>
+            <div class="control">
+              <label for="filter-route">路由分类</label>
+              <select id="filter-route">
+                <option value="">全部</option>
+                <option value="MARGIN_SPOT_CANDIDATE">PM 现货候选</option>
+                <option value="SPOT_ONLY_CANDIDATE">仅现货候选</option>
+                <option value="PERP_ONLY_EXCLUDED">仅合约（排除）</option>
+              </select>
+            </div>
+            <div class="control">
+              <label>
+                <input id="filter-show-perp-only" type="checkbox" />
+                显示 PERP_ONLY_EXCLUDED
+              </label>
+            </div>
+          </div>
+
+          <div class="summary-row" id="summary-row" style="margin-bottom: var(--space-4);"></div>
+
+          <div id="status-area"></div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>标的</th>
+                  <th>资产标签</th>
+                  <th>路由分类</th>
+                  <th>最近更新的资金费率</th>
+                  <th>下一次结算时间 (北京)</th>
+                  <th>标记价格 / 指数价格</th>
+                  <th>负费率状态</th>
+                  <th>UI 标记</th>
+                </tr>
+              </thead>
+              <tbody id="market-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer-note" id="footer-note"></footer>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const REQUIRED_ROW_FIELDS = [
+        'symbol', 'base_asset', 'quote_asset', 'asset_tag', 'asset_tag_source',
+        'asset_tag_confidence', 'route_class', 'positive_funding_enabled',
+        'negative_funding_status', 'futures', 'spot', 'margin_public',
+        'funding_history', 'ui_flags'
+      ];
+
+      const state = {
+        snapshot: null,
+        source: 'api',
+        blocked: false,
+        blockedReason: '',
+        filters: {
+          search: '',
+          assetTag: '',
+          routeClass: '',
+          showPerpOnly: false
+        }
+      };
+
+      const els = {
+        warningsPanel: document.getElementById('warnings-panel'),
+        warningsList: document.getElementById('warnings-list'),
+        dataSourceLabel: document.getElementById('data-source-label'),
+        btnRefresh: document.getElementById('btn-refresh'),
+        btnOffline: document.getElementById('btn-offline'),
+        filterSearch: document.getElementById('filter-search'),
+        filterAsset: document.getElementById('filter-asset'),
+        filterRoute: document.getElementById('filter-route'),
+        filterShowPerpOnly: document.getElementById('filter-show-perp-only'),
+        summaryRow: document.getElementById('summary-row'),
+        statusArea: document.getElementById('status-area'),
+        tableBody: document.getElementById('market-table-body'),
+        footerNote: document.getElementById('footer-note')
+      };
+
+      function formatBeijing(ms) {
+        if (typeof ms !== 'number' || Number.isNaN(ms)) return '—';
+        const d = new Date(ms);
+        const parts = new Intl.DateTimeFormat('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+          hour12: false
+        }).formatToParts(d);
+        const get = (type) => parts.find(p => p.type === type)?.value;
+        return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+      }
+
+      function formatFundingRate(str) {
+        if (str === undefined || str === null || str === '') return '—';
+        const n = Number(str);
+        if (Number.isNaN(n)) return String(str);
+        const sign = n > 0 ? '+' : (n < 0 ? '' : '');
+        return `${sign}${(n * 100).toFixed(4)}%`;
+      }
+
+      function formatPrice(str) {
+        if (str === undefined || str === null || str === '') return '—';
+        const n = Number(str);
+        if (Number.isNaN(n)) return String(str);
+        const [intPart, fracPart] = String(str).split('.');
+        const intFormatted = Number(intPart).toLocaleString('en-US');
+        return fracPart !== undefined ? `${intFormatted}.${fracPart}` : intFormatted;
+      }
+
+      function classForFundingRate(str) {
+        const n = Number(str);
+        if (Number.isNaN(n) || n === 0) return 'muted';
+        return n > 0 ? 'positive' : 'negative';
+      }
+
+      function badgeForRouteClass(rc) {
+        switch (rc) {
+          case 'MARGIN_SPOT_CANDIDATE': return '<span class="badge success">PM 现货候选</span>';
+          case 'SPOT_ONLY_CANDIDATE': return '<span class="badge info">仅现货候选</span>';
+          case 'PERP_ONLY_EXCLUDED': return '<span class="badge muted">仅合约（排除）</span>';
+          default: return `<span class="badge">${rc}</span>`;
+        }
+      }
+
+      function badgeForNegativeFundingStatus(ns) {
+        switch (ns) {
+          case 'PRIVATE_BORROW_VALIDATION_REQUIRED': return '<span class="badge warn">需验证借币</span>';
+          case 'DISABLED_BSTOCK': return '<span class="badge danger">BSTOCK 禁用</span>';
+          case 'DISABLED_SPOT_ONLY': return '<span class="badge warn">仅现货禁用</span>';
+          case 'DISABLED_PERP_ONLY': return '<span class="badge muted">仅合约禁用</span>';
+          default: return `<span class="badge">${ns}</span>`;
+        }
+      }
+
+      function badgeForAssetTag(tag) {
+        switch (tag) {
+          case 'BSTOCK': return '<span class="badge accent">BSTOCK</span>';
+          case 'CRYPTO': return '<span class="badge">CRYPTO</span>';
+          case 'UNKNOWN': return '<span class="badge warn">UNKNOWN</span>';
+          default: return `<span class="badge">${tag}</span>`;
+        }
+      }
+
+      function renderWarnings(warnings) {
+        if (!Array.isArray(warnings) || warnings.length === 0) {
+          els.warningsPanel.style.display = 'none';
+          return;
+        }
+        els.warningsPanel.style.display = '';
+        els.warningsList.innerHTML = warnings.map(w => `
+          <div class="warning-item">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>${escapeHtml(w)}</span>
+          </div>
+        `).join('');
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function validateContract(snapshot) {
+        if (!snapshot || typeof snapshot !== 'object') {
+          return { ok: false, reason: '返回内容不是 JSON 对象' };
+        }
+        if (!Array.isArray(snapshot.rows)) {
+          return { ok: false, reason: '缺少 rows 数组，无法渲染市场表' };
+        }
+        if (!Array.isArray(snapshot.warnings)) {
+          return { ok: false, reason: '缺少 warnings 数组' };
+        }
+        for (let i = 0; i < snapshot.rows.length; i++) {
+          const row = snapshot.rows[i];
+          for (const f of REQUIRED_ROW_FIELDS) {
+            if (!(f in row)) {
+              return { ok: false, reason: `rows[${i}] 缺少契约字段 ${f}` };
+            }
+          }
+          if (!row.futures || !('last_funding_rate' in row.futures) || !('next_funding_time' in row.futures)) {
+            return { ok: false, reason: `rows[${i}].futures 缺少 last_funding_rate 或 next_funding_time` };
+          }
+        }
+        return { ok: true };
+      }
+
+      function setStatus(type, message) {
+        els.statusArea.innerHTML = `<div class="status-banner ${type}">${escapeHtml(message)}</div>`;
+      }
+      function clearStatus() {
+        els.statusArea.innerHTML = '';
+      }
+
+      function filteredRows() {
+        if (!state.snapshot) return [];
+        const q = state.filters.search.trim().toUpperCase();
+        return state.snapshot.rows.filter(row => {
+          if (q && !row.symbol.toUpperCase().includes(q) && !row.base_asset.toUpperCase().includes(q)) return false;
+          if (state.filters.assetTag && row.asset_tag !== state.filters.assetTag) return false;
+          if (state.filters.routeClass && row.route_class !== state.filters.routeClass) return false;
+          if (!state.filters.showPerpOnly && row.route_class === 'PERP_ONLY_EXCLUDED') return false;
+          return true;
+        });
+      }
+
+      function renderSummary() {
+        if (!state.snapshot) {
+          els.summaryRow.innerHTML = '';
+          return;
+        }
+        const rows = filteredRows();
+        const s = state.snapshot.summary || {};
+        const parts = [
+          `共 ${rows.length} 行`,
+          `路由: ${countString(s.route_counts)}`,
+          `资产: ${countString(s.asset_tag_counts)}`,
+          `负费率: ${countString(s.negative_funding_status_counts)}`
+        ];
+        els.summaryRow.innerHTML = parts.map(p => `<span class="badge">${escapeHtml(p)}</span>`).join('');
+      }
+
+      function countString(counts) {
+        if (!counts || typeof counts !== 'object') return '—';
+        return Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(' / ') || '—';
+      }
+
+      function renderTable() {
+        if (state.blocked) {
+          els.tableBody.innerHTML = `
+            <tr>
+              <td colspan="8">
+                <div class="empty-state">
+                  <strong>集成阻塞</strong><br/>
+                  ${escapeHtml(state.blockedReason)}
+                </div>
+              </td>
+            </tr>`;
+          renderSummary();
+          return;
+        }
+
+        const rows = filteredRows();
+        if (rows.length === 0) {
+          els.tableBody.innerHTML = `
+            <tr>
+              <td colspan="8"><div class="empty-state">没有符合筛选条件的数据</div></td>
+            </tr>`;
+          renderSummary();
+          return;
+        }
+
+        els.tableBody.innerHTML = rows.map(row => {
+          const isBstock = row.asset_tag === 'BSTOCK';
+          const rateClass = classForFundingRate(row.futures.last_funding_rate);
+          const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
+            ? row.ui_flags.map(f => `<span class="badge compact">${escapeHtml(f)}</span>`).join(' ')
+            : '<span class="muted small">—</span>';
+          return `
+            <tr class="${isBstock ? 'bstock' : ''}">
+              <td class="mono">${escapeHtml(row.symbol)}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span></td>
+              <td>${badgeForAssetTag(row.asset_tag)}</td>
+              <td>${badgeForRouteClass(row.route_class)}</td>
+              <td class="${rateClass}">${formatFundingRate(row.futures.last_funding_rate)}</td>
+              <td>${formatBeijing(row.futures.next_funding_time)}</td>
+              <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
+              <td>${badgeForNegativeFundingStatus(row.negative_funding_status)}</td>
+              <td>${uiFlags}</td>
+            </tr>
+          `;
+        }).join('');
+        renderSummary();
+      }
+
+      function renderFooter() {
+        if (!state.snapshot) {
+          els.footerNote.textContent = '';
+          return;
+        }
+        const generated = state.snapshot.generated_at || '—';
+        const dataTime = state.snapshot.data_time || '—';
+        els.footerNote.textContent = `生成时间: ${generated} · 数据时间: ${dataTime} · 数据非实时，手动刷新后更新`;
+      }
+
+      function applyFiltersAndRender() {
+        renderTable();
+        renderFooter();
+      }
+
+      async function loadApi() {
+        setStatus('loading', '正在请求 /api/public-market/snapshot ...');
+        state.source = 'api';
+        els.dataSourceLabel.textContent = '数据源: /api/public-market/snapshot';
+        try {
+          const res = await fetch('/api/public-market/snapshot');
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status} ${res.statusText}`);
+          }
+          const data = await res.json();
+          ingestSnapshot(data);
+        } catch (err) {
+          state.snapshot = null;
+          state.blocked = true;
+          state.blockedReason = `请求后端失败: ${err.message}。如需离线自检，可点击“加载离线 fixture”。`;
+          renderWarnings([]);
+          applyFiltersAndRender();
+        }
+      }
+
+      async function loadFixture() {
+        setStatus('loading', '正在加载离线 fixture ...');
+        state.source = 'fixture';
+        els.dataSourceLabel.textContent = '数据源: ./fixture/public-market-snapshot.json（离线自检）';
+        try {
+          const res = await fetch('./fixture/public-market-snapshot.json');
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status} ${res.statusText}`);
+          }
+          const data = await res.json();
+          ingestSnapshot(data);
+        } catch (err) {
+          state.snapshot = null;
+          state.blocked = true;
+          state.blockedReason = `加载 fixture 失败: ${err.message}`;
+          renderWarnings([]);
+          applyFiltersAndRender();
+        }
+      }
+
+      function ingestSnapshot(data) {
+        const validation = validateContract(data);
+        if (!validation.ok) {
+          state.snapshot = null;
+          state.blocked = true;
+          state.blockedReason = validation.reason;
+          renderWarnings([]);
+          applyFiltersAndRender();
+          return;
+        }
+        state.snapshot = data;
+        state.blocked = false;
+        state.blockedReason = '';
+        renderWarnings(data.warnings);
+        clearStatus();
+        applyFiltersAndRender();
+      }
+
+      function bindEvents() {
+        els.btnRefresh.addEventListener('click', loadApi);
+        els.btnOffline.addEventListener('click', loadFixture);
+        els.filterSearch.addEventListener('input', () => {
+          state.filters.search = els.filterSearch.value;
+          applyFiltersAndRender();
+        });
+        els.filterAsset.addEventListener('change', () => {
+          state.filters.assetTag = els.filterAsset.value;
+          applyFiltersAndRender();
+        });
+        els.filterRoute.addEventListener('change', () => {
+          state.filters.routeClass = els.filterRoute.value;
+          applyFiltersAndRender();
+        });
+        els.filterShowPerpOnly.addEventListener('change', () => {
+          state.filters.showPerpOnly = els.filterShowPerpOnly.checked;
+          applyFiltersAndRender();
+        });
+      }
+
+      bindEvents();
+      loadApi();
+    })();
+  </script>
+</body>
+</html>
