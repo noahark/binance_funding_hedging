@@ -118,3 +118,49 @@ $ node frontend/self-check.js
 [PASS] 列名/文案符合契约
 [PASS] 无交易按钮/开仓票据
 全部自检通过
+
+## Section 5 — bStock alias recheck on LIVE public raw (Task C evidence-backfill)
+
+Evidence-backfill round (2026-07-04). The original Section 4 integration used a
+synthetic offline fixture only. Per the new AGENTS.md Hard Gates rule (a contract
+amendment must carry raw public samples; synthetic fixtures supplement, never
+replace fact evidence), this section drives the REAL backend pipeline
+(`backend/domain/snapshot.build_rows` + `assemble_snapshot`) with captured LIVE
+Binance public exchangeInfo. No API key / signed / private / order / borrow /
+repay / transfer / websocket calls; see
+`reports/api-samples/public-market-bstock-alias-v1/20260703T170827Z/`.
+
+`premium_by_sym` and `funding_history_by_sym` are empty on purpose: those feeds
+do not affect alias resolution, `route_class`, or `negative_funding_status`, so
+the alias verification does not require live premium/funding capture.
+
+$ .venv/bin/python reports/api-samples/public-market-bstock-alias-v1/20260703T170827Z/verify-on-live-raw.py
+build_rows on live raw: 16 rows (15 bStock futures + 1 negative control)
+
+futures     contractType         spot_leg     route                  match_type               neg_status         pos_fund
+-------------------------------------------------------------------------------------------------------------------------
+AMDUSDT     TRADIFI_PERPETUAL    AMDBUSDT     MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+BTCUSDT     PERPETUAL            BTCUSDT      MARGIN_SPOT_CANDIDATE  exact_symbol             PRIVATE_BORROW_VALIDATION_REQUIRED True
+CRCLUSDT    TRADIFI_PERPETUAL    CRCLBUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+EWYUSDT     TRADIFI_PERPETUAL    EWYBUSDT     MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+INTCUSDT    TRADIFI_PERPETUAL    INTCBUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+LITEUSDT    TRADIFI_PERPETUAL    LITEBUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+METAUSDT    TRADIFI_PERPETUAL    METABUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+MSFTUSDT    TRADIFI_PERPETUAL    MSFTBUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+MSTRUSDT    TRADIFI_PERPETUAL    MSTRBUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+MUUSDT      TRADIFI_PERPETUAL    MUBUSDT      MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+NVDAUSDT    TRADIFI_PERPETUAL    NVDABUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+PLTRUSDT    TRADIFI_PERPETUAL    PLTRBUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+QQQUSDT     TRADIFI_PERPETUAL    QQQBUSDT     MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+SNDKUSDT    TRADIFI_PERPETUAL    SNDKBUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+SPCXUSDT    TRADIFI_PERPETUAL    SPCXBUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+TSLAUSDT    TRADIFI_PERPETUAL    TSLABUSDT    MARGIN_SPOT_CANDIDATE  bstock_b_suffix_alias    DISABLED_BSTOCK    True
+
+assembled snapshot jsonschema-valid against amended snapshot.schema.json: total_rows=16; route_counts={'MARGIN_SPOT_CANDIDATE': 16}; negative_funding_status_counts={'DISABLED_BSTOCK': 15, 'PRIVATE_BORROW_VALIDATION_REQUIRED': 1}
+
+RESULT: PASS — 15/15 bStocks resolve to MARGIN_SPOT_CANDIDATE via baseAsset+B+quoteAsset alias against live raw; BTCUSDT negative control exact-matches (alias does not pollute crypto).
+
+Section 5 result: PASS — live Binance public exchangeInfo confirms the bStock
+baseAsset+B+quoteAsset alias rule through the real backend pipeline; the BTCUSDT
+negative control proves the alias does not pollute normal crypto exact matches.
+This closes the prior "verified only against synthetic fixtures" residual.

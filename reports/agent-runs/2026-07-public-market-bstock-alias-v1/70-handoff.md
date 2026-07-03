@@ -133,3 +133,60 @@ stages await user final acceptance together.
 本地北京时间: 2026-07-04 00:33:00 CST
 下一步模型: user (final acceptance decision)
 下一步任务: User reviews this stage + impl-v1 and decides final acceptance. No further automated work; controller holds.
+
+---
+
+## Evidence-backfill round (2026-07-04) — review-2 recheck trigger
+
+After the stage reached `stage_accepted_waiting_user`, a user-directed
+evidence-backfill round grounded the bStock alias amendment in LIVE public
+evidence, not only the synthetic fixture. The prior review-2 ACCEPT (bound to
+head `0842820`, synthetic-only scope) is preserved verbatim as `review_2_prior`
+in `status.json`; it is NOT deleted or altered.
+
+Backfill changes (all in-scope for the recheck; `base_sha=d240e43` unchanged):
+
+1. Harness adapter corrections + new Hard Gates rule (commit `0578191`): a
+   contract amendment must carry raw public samples; synthetic fixtures only
+   supplement. Claude/Fable5 probes must strip GLM/Zhipu env vars first and must
+   not record a GLM-endpoint failure as Anthropic/Fable5 unavailable.
+2. Live public capture (commit `9f4764c`):
+   `reports/api-samples/public-market-bstock-alias-v1/20260703T170827Z/` —
+   anonymous `/fapi/v1/exchangeInfo` + `/api/v3/exchangeInfo` (no key / signed /
+   private / order / borrow / repay / transfer / websocket). `evidence-index.md`
+   cross-verifies the 15 user-listed bStocks: 15/15 spot legs present with
+   `isMarginTradingAllowed=true`, 15/15 futures legs with
+   `contractType=TRADIFI_PERPETUAL`, 15/15 satisfy
+   `futures_baseAsset+"B"+quoteAsset == spot_symbol`.
+3. Live-raw alias recheck (this commit): drives the REAL
+   `backend/domain/snapshot.build_rows` + `assemble_snapshot` with the live
+   exchangeInfo. 15/15 bStocks → `MARGIN_SPOT_CANDIDATE` +
+   `bstock_b_suffix_alias` + `DISABLED_BSTOCK`; BTCUSDT negative control
+   exact-matches (alias does not pollute crypto); assembled snapshot
+   jsonschema-valid against the amended `snapshot.schema.json`. Section 5 of
+   `60-test-output.txt`: PASS.
+
+Stage `head_sha` advanced to the backfill head; `diff_fingerprint` recomputed
+(`base_sha=d240e43` unchanged). `status` returned to `review_2` (recheck
+pending). `scripts/validate-stage.py --phase pre-review` PASSED; `--phase
+pre-accept` is expected to FAIL until the Codex/GPT recheck returns ACCEPT
+(review_2 rebinds to the new head/fingerprint). The controller does NOT declare
+final acceptance.
+
+### Open items (carry forward; do NOT block this evidence backfill)
+
+Deferred to a later position-opening planning contract's pre-trade verification,
+not this alias-amendment stage:
+
+- **bStock token vs US-equity 1:1 equivalence** is NOT proven from public
+  exchangeInfo alone. Whether one bStock token tracks one share of the
+  underlying US equity, and any redemption/conversion constraints, must be
+  verified before any position is opened.
+- **bStock spot session vs perpetual 7x24**: the spot/margin leg may not trade
+  24/7 (equity-market sessions), while the TRADIFI perpetual runs 7x24. The
+  resulting funding/price-gap and hedge-continuity implications must be assessed
+  before opening positions.
+
+本地北京时间: 2026-07-04 01:15:23 CST
+下一步模型: Codex/GPT (review-2 recheck)
+下一步任务: Codex review-2 recheck on the expanded scope (`base d240e43..backfill head`) via `codex exec --model gpt-5.5`. On ACCEPT, rebind `review_2` to the new head/fingerprint, set `status=stage_accepted_waiting_user`, run pre-accept (must PASS). Controller holds; does not declare final acceptance.
