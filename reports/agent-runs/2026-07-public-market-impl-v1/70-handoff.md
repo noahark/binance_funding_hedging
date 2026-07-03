@@ -1,14 +1,17 @@
 # Handoff: Public Market Implementation V1
 
-## Checkpoint: Task A (backend) implemented and committed (H_A)
+## Checkpoint: Tasks A + B + C implemented; H_C pending, then review-1
 
-Status: `implementing`. `H_intake` (stage evidence, task base) is committed
-(`32f6f0f`); Task A (backend snapshot service) is implemented, offline-tested,
-and committed as `H_A` (`a40b204`) with its task-level `diff_fingerprint`
-recorded in `status.json.tasks.A`. Task B (frontend) is in the worktree
-(Kimi-authored) and will be committed next as `H_B`. The controller does not
-declare final acceptance (`can_accept_final: false`); only schema-valid
-task-level review-1, stage-level review-2, and `pre-accept` advance the stage.
+Status: `implementing`. `H_intake` (`32f6f0f`), `H_A` backend (`a40b204`), and
+`H_B` frontend (`c1e33b6`) are committed with task-level fingerprints recorded
+in `status.json.tasks.{A,B}`. Task C integration verification passed
+(`60-test-output.txt` Section 4, INTEGRATION OK); the stage-level summary
+(`20-implementation.md`) and integration sample are staged for `H_C`. Next:
+commit `H_C`, fill the stage-level top-level fingerprint, and dispatch
+task-level review-1 (A→Kimi, B→fresh read-only Claude-GLM). The controller
+does not declare final acceptance (`can_accept_final: false`); only
+schema-valid task-level review-1, stage-level review-2, and `pre-accept`
+advance the stage.
 
 Prerequisite stage `2026-07-public-market-contract-v2` is ACCEPT and frozen
 (head `a25e431`, `diff_fingerprint` `53484d21…`). The frozen contract doc, the
@@ -50,11 +53,12 @@ other task's files. The controller achieves this by committing in order:
    `head_sha=H_A`. **DONE: `a40b204`; fingerprint
    `a40b204…d72:5148a473…1e93`; tests pass (39 pytest + float audit + smoke).**
 3. `H_B` — Task B: `frontend/**` + `20-implementation-frontend.md`. Task B
-   `base_sha=H_A`, `head_sha=H_B`. **Kimi writes frontend into the worktree and
-   does NOT `git commit`; the controller commits Task B** so the order holds.
-   NEXT.
-4. `H_C` — Task C: integration evidence + final `status.json`/handoff update.
-   Stage-level top-level `base_sha=H_intake`, `head_sha=H_C`.
+   `base_sha=fc018ea` (Task-A checkpoint), `head_sha=H_B`. **DONE: `c1e33b6`;
+   fingerprint `c1e33b6…414:4bebeb52…6bde`; Node self-check 10 PASS.**
+4. `H_C` — Task C: `20-implementation.md` (stage summary) +
+   `60-test-output.txt` Section 4 + `integration-snapshot-*.json` + final
+   `status.json`/handoff. Stage-level top-level `base_sha=H_intake`,
+   `head_sha=H_C`. NEXT.
 
 Same fingerprint formula at both scopes; no second protocol
 (see `11-adr.md` ADR-6).
@@ -85,6 +89,6 @@ transcript).
 - `status.json` is the authoritative machine state; this handoff is a human
   navigation aid.
 
-本地北京时间: 2026-07-03 21:10:47 CST
+本地北京时间: 2026-07-03 21:34:45 CST
 下一步模型: Claude-GLM (controller)
-下一步任务: Commit Task B frontend (H_B) 并运行 Task C 集成验证；随后派发任务级 review-1（Task A→Kimi，Task B→fresh read-only Claude-GLM）与阶段级 review-2（Codex）。Controller 不声明最终验收。
+下一步任务: Commit H_C（阶段汇总 + 集成证据 + status）→ 填阶段级顶层指纹 → 派发任务级 review-1（Task A→Kimi，Task B→fresh read-only Claude-GLM）→ 阶段级 review-2（Codex）。Controller 不声明最终验收。

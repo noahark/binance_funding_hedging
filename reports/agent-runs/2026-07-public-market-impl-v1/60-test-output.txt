@@ -31,3 +31,21 @@ Notes:
   keeps the server in-process (a background thread) and connects via urllib from
   the same process — equivalent real HTTP, run with the sandbox network disabled
   (local self-connect only). smoke_server.py is committed and reproducible.
+## Section 4 — Task C integration verification (backend HTTP + frontend, offline)
+command: single-process http.server thread + urllib (sandbox loopback disabled)
+
+[1] GET /api/public-market/snapshot -> HTTP 200, schema-valid; saved integration-snapshot-20260703T051738Z.json (757763 bytes)
+[2] GET / -> HTTP 200, frontend index.html 27982 bytes
+[3] front/back contract: index.html references same-origin /api/public-market/snapshot
+[4] backend 688-row market is a SUPERSET of the fixture's 6 curated symbols; all 6 classify identically (route_class/asset_tag/negative_funding_status)
+    note: fixture == frozen contract-v2 6-symbol curated sample; backend serves the full eligible market (688 TRADING perpetuals/TRADIFI). Summary equality is NOT expected; the 6-symbol subset alignment IS the contract check.
+[5] data_time reproducible across backend rebuild and fixture: 2026-07-03T05:11:29Z
+[6] schema_version aligned: public-market-snapshot/v1
+[7] three contract warnings preserved: 3
+INTEGRATION OK
+
+Task C notes:
+- Integration sample saved as integration-snapshot-20260703T051738Z.json (full
+  688-row backend output, schema-valid). The frontend fixture is the frozen
+  contract-v2 6-symbol curated sample; the backend serves the full eligible
+  market, so summaries differ by design — the 6 curated symbols align exactly.

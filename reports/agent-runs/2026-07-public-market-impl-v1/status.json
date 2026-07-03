@@ -67,25 +67,30 @@
       "reviewer_1_planned": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "code_reviewer", "output": "30-review-1-frontend.md", "fresh_session_required": true, "note": "Must use a fresh read-only Claude-GLM session; the controller/implementer transcript for Task A must not be reused as review evidence."},
       "scope": ["frontend/**", "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-frontend.md"],
       "forbidden": ["backend/**", "schemas/api/public-market/**", "docs/api/public-market-contract.md", "reports/api-samples/public-market-contract-v2/**", "docs/**", "agents/**", "workflows/**", "scripts/**"],
-      "status": "not_started",
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "tests": {"status": "pending", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-frontend.md"},
-      "review_1": null,
-      "dispatch": {"prompt_file": "reports/agent-runs/2026-07-public-market-impl-v1/task-b-kimi-frontend.prompt.md", "status": "not_dispatched"}
+      "status": "implemented_pending_review_1",
+      "commit": "H_B",
+      "base_sha": "fc018eaae463053f500e9bd412c5f74356de7f20",
+      "head_sha": "c1e33b6f1bbb4e67f71db8552a49b35d43700414",
+      "diff_fingerprint": "c1e33b6f1bbb4e67f71db8552a49b35d43700414:4bebeb5229021546f78a60fd0effa3f92cb565d3873cdb70795f954a1fb46bde",
+      "diff_files_count": 4,
+      "diff_files_note": "frontend/index.html + fixture/public-market-snapshot.json + self-check.js + 20-implementation-frontend.md; status.json excluded. base=fc018ea (Task-A checkpoint) so the diff is frontend-only.",
+      "tests": {"status": "pass", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-frontend.md", "detail": "Node self-check.js: 10 PASS (default fetch /api/public-market/snapshot, data-source label, warnings render, PERP_ONLY_EXCLUDED default-hidden renders 3 then 6 when toggled, BSTOCK badge, time conversion, contract copy, NO trade button/open ticket). Fixture byte-identical to frozen normalized sample."},
+      "review_1": {"status": "not_started", "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "fresh_session_required": true}, "output": "30-review-1-frontend.md"},
+      "dispatch": {"prompt_file": "reports/agent-runs/2026-07-public-market-impl-v1/task-b-kimi-frontend.prompt.md", "status": "completed_in_worktree_committed_by_controller", "commit": "c1e33b6"}
     },
     "C": {
       "name": "Integration verification (controller, no product code)",
       "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "test_strategist"},
       "scope": ["reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt", "reports/agent-runs/2026-07-public-market-impl-v1/integration-snapshot-*.json"],
       "forbidden_any_product_code": true,
-      "status": "not_started",
+      "status": "implemented",
       "depends_on": ["A", "B"],
       "base_sha": null,
       "head_sha": null,
       "diff_fingerprint": null,
-      "tests": {"status": "pending", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt"}
+      "diff_fingerprint_note": "Task C writes reports only (no product code); base/head/fingerprint filled after the H_C commit (base=H_B c1e33b6).",
+      "tests": {"status": "pass", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt", "integration_sample": "reports/agent-runs/2026-07-public-market-impl-v1/integration-snapshot-20260703T051738Z.json", "detail": "Section 4: backend HTTP /api/public-market/snapshot schema-valid (688 rows); frontend index served (27982 B); front/back contract aligned; backend 688-row market is a superset of the fixture's 6 curated symbols and all 6 classify identically; data_time reproducible (2026-07-03T05:11:29Z); 3 contract warnings preserved. INTEGRATION OK."},
+      "findings": ["fixture == frozen contract-v2 6-symbol curated sample (6 rows); backend serves the full eligible TRADING perpetuals/TRADIFI market (688 rows). Summary totals differ by design; the contract check is the 6-symbol subset alignment (route_class/asset_tag/negative_funding_status), which matches exactly."]
     }
   },
   "model_routing": {
@@ -140,6 +145,6 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Task A committed (H_A a40b204) and recorded; awaiting task-level review-1 by Kimi. Next: commit Task B frontend (H_B; Kimi worktree already done), then integration Task C, then task-level review-1 (A->Kimi, B->fresh GLM) and stage review-2 (Codex).",
-  "updated_at": "2026-07-03T13:10:47Z"
+  "next_action": "Tasks A, B, C implemented (H_A a40b204, H_B c1e33b6; Task C integration INTEGRATION OK). Next: commit H_C (stage summary + integration evidence + status), fill stage-level top-level fingerprint, then dispatch task-level review-1 (A->Kimi, B->fresh read-only Claude-GLM) and stage review-2 (Codex). Controller does not declare final acceptance.",
+  "updated_at": "2026-07-03T13:34:45Z"
 }
