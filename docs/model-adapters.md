@@ -51,7 +51,7 @@ Purpose:
 Default model policy:
 
 - Use the locally configured GPT/Codex default for this Harness:
-  `gpt5.5` with `xhigh` reasoning effort.
+  `gpt-5.5` with `xhigh` reasoning effort.
 - If the local Codex CLI encodes effort through a profile or config file, the
   adapter must use that profile/config. Do not confuse `-p` with prompt input;
   Codex `-p` means profile.
@@ -63,18 +63,18 @@ Command templates:
 
 ```bash
 # Non-interactive write-capable execution.
-codex -C <repo> -m gpt5.5 -s workspace-write -a never exec - < <prompt-file>
+codex exec -C <repo> -m gpt-5.5 -s workspace-write - < <prompt-file>
 
 # Yolo execution, only when explicitly authorized.
-codex -C <repo> -m gpt5.5 -s danger-full-access -a never exec - < <prompt-file>
+codex exec -C <repo> -m gpt-5.5 --yolo - < <prompt-file>
 
 # Schema-bound read-only review.
-codex -C <repo> -m gpt5.5 -s read-only -a never exec \
+codex exec -C <repo> -m gpt-5.5 -s read-only \
   --output-schema schemas/review-verdict.schema.json \
   - < <prompt-file>
 
 # Free-form review is allowed only outside schema-bound Harness gates.
-codex -C <repo> review --base <base_sha> - < <prompt-file>
+codex exec review --base <base_sha> - < <prompt-file>
 ```
 
 Review-2 Harness gates use `codex exec`, not `codex review`, because the verdict
@@ -115,6 +115,22 @@ If `claude --json-schema` is not usable in the local version, the prompt must
 still require the strict JSON verdict at the end and the runner must validate the
 captured output against the schema.
 
+### Probing Anthropic availability when auth may be re-routed
+
+Before recording Claude/Fable5 (Anthropic) as unavailable, confirm the probe
+actually reached an Anthropic endpoint. In environments where the `claude` CLI
+auth is overridden to a non-Anthropic provider (for example `zhipu_glm`), a
+probe such as `claude --model claude-fable-5` fails at the GLM endpoint with
+that provider's own error (for example "model not found" / error 1211) — that is
+NOT evidence that Fable5 is absent from Anthropic.
+
+Strip the GLM/Zhipu environment variables and auth overrides from the probe
+shell first, or run the probe in an Anthropic-authenticated environment. A
+failure caused by re-routing to the GLM endpoint must be recorded as "Anthropic
+endpoint not probed (auth re-routed to GLM/Zhipu)", not as "Fable5 model
+unavailable". Do not propagate a GLM-endpoint failure into an Anthropic/
+Fable5-unavailable conclusion elsewhere in the stage record.
+
 ## Claude-GLM
 
 Purpose:
@@ -132,15 +148,27 @@ Command templates:
 ```bash
 # Availability check. This may require an interactive shell profile.
 type claude-glm
+zsh -lic 'type claude-glm'
 
 # Non-interactive controller or implementation prompt, if the local alias
 # supports Claude-compatible print mode.
-claude-glm -p "$(cat <prompt-file>)"
+claude-glm --model glm-5.2 -p "$(cat <prompt-file>)"
+
+# Read-only/plan review.
+claude-glm --model glm-5.2 --permission-mode plan -p "$(cat <prompt-file>)"
+
+# Yolo execution, only when explicitly authorized.
+claude-glm --model glm-5.2 --dangerously-skip-permissions -p "$(cat <prompt-file>)"
 ```
 
 If the alias is not available to the runner, stop at adapter setup and ask the
 operator to expose the wrapper. Do not fall back to Anthropic Claude while
 claiming the provider is GLM.
+
+Observed on 2026-07-04: in this repository's shell, `claude-glm` is defined by
+the interactive zsh profile and may not be visible to non-interactive shells.
+Runner scripts should either load the same profile or use `zsh -lic '<command>'`.
+Never record the expanded alias environment; it contains credentials.
 
 ## Grok
 
@@ -204,10 +232,9 @@ Purpose:
 
 Default model policy:
 
-- Use the local `kimi-for-coding`/Kimi Code default. The local CLI defaults to
-  the configured current model when `-m` is omitted.
-- Do not pin a stale model unless the stage explicitly requires reproducibility
-  over automatic latest-model routing.
+- Use the Kimi Code latest coding alias explicitly:
+  `--model kimi-code/kimi-for-coding`.
+- Observed on 2026-07-04, this resolves to Kimi K2.5 in this local CLI.
 
 Command templates:
 
@@ -215,14 +242,16 @@ Command templates:
 # Availability check.
 command -v kimi || command -v kimi-for-coding
 
-# Non-interactive prompt with the default configured model.
-kimi -p "$(cat <prompt-file>)"
+# Non-interactive prompt with the latest Kimi coding model alias.
+kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"
 
-# Plan/read-only-style session.
-kimi --plan -p "$(cat <prompt-file>)"
+# Plan/read-only-style interactive session. Current Kimi CLI rejects combining
+# --plan with -p/--prompt, so do not use this as a one-shot prompt command.
+kimi --model kimi-code/kimi-for-coding --plan
 
-# Yolo execution, only when explicitly authorized.
-kimi -y -p "$(cat <prompt-file>)"
+# Yolo interactive session, only when explicitly authorized. Current Kimi CLI
+# rejects combining -y/--yolo with -p/--prompt.
+kimi --model kimi-code/kimi-for-coding -y
 
 # Resume or continue when the workflow explicitly references a session.
 kimi -S <session-id>
@@ -232,6 +261,9 @@ kimi -c
 If the local wrapper is named `kimi-for-coding`, the adapter may substitute that
 binary for `kimi`. The workflow should still record provider identity as
 `moonshot_kimi`.
+
+Do not use `kimi --plan -p ...` or `kimi -y -p ...`; the current CLI returns
+`Cannot combine --prompt with --plan/--yolo`.
 
 ## Dispatch Failure Semantics
 

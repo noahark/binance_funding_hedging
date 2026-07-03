@@ -206,6 +206,12 @@ dispatching the fix.
 - Model claims are not evidence. Evidence is raw diff, test output, artifacts,
   schema-valid verdicts, and committed repository state. Uncommitted state is
   allowed only for in-progress checkpoints before a review gate.
+- A contract amendment (modifying a previously frozen contract) must carry raw
+  public samples that ground the change, landed under
+  `reports/api-samples/<stage>/`. Synthetic fixtures may supplement coverage but
+  never replace fact evidence. A stage that amends a contract from synthetic
+  fixtures alone must record the missing live sample as a follow-up and re-enter
+  review when the live sample is added.
 - Before dispatching `review-1`, dispatching `review-2`, or writing an accepted
   terminal state, run `scripts/validate-stage.py <stage-id> --phase <phase>` and
   preserve the output in the stage evidence.
@@ -356,9 +362,9 @@ Key reminders:
 - Review-1 uses Kimi and Claude-GLM as a cross-review pool. Grok development,
   when explicitly enabled, uses `grok-composer-2.5-fast`; Grok is not a default
   review gate.
-- Kimi development uses the local Kimi Code adapter default, normally
-  `kimi-for-coding`/`kimi` with no pinned `-m` so it follows the configured
-  latest model.
+- Kimi development uses the explicit latest coding alias:
+  `kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"`.
+  The current Kimi CLI does not allow `--plan` or `-y` together with `-p`.
 - `claude-glm` is a local shell alias/function. Invoke through an adapter and do
   not record its expanded environment.
 - YAML files describe intent and routing. Command details belong in adapters or

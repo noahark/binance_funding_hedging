@@ -32,15 +32,18 @@ adapters:
     invocation_owner: runner
     prompt_mode: claude_print
     binary: claude-glm
-    availability_check_command: "type claude-glm"
-    noninteractive_command: "claude-glm -p \"$(cat <prompt-file>)\""
+    availability_check_command: "zsh -lic 'type claude-glm'"
+    noninteractive_command: "claude-glm --model glm-5.2 -p \"$(cat <prompt-file>)\""
+    read_only_review_command: "claude-glm --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
+    yolo_command: "claude-glm --model glm-5.2 --dangerously-skip-permissions -p \"$(cat <prompt-file>)\""
     supports_write: true
     supports_read_only: true
     timeout_seconds: 3000
     secret_handling: "never_log_expanded_environment"
     notes:
-      - "This may be a shell alias/function. Runner scripts must load the shell profile or use an absolute wrapper path."
+      - "This may be a shell alias/function. Runner scripts must load the shell profile, use zsh -lic, or use an absolute wrapper path."
       - "If the alias is missing, do not substitute Anthropic Claude while claiming GLM provider identity."
+      - "Never log the expanded alias environment; it contains credentials."
 
   claude:
     kind: claude_code
@@ -65,13 +68,13 @@ adapters:
     provider_identity: openai
     invocation_owner: runner
     binary: codex
-    default_model: "gpt5.5"
+    default_model: "gpt-5.5"
     default_reasoning_effort: xhigh
     availability_check_command: "command -v codex"
-    development_command: "codex -C <repo> -m gpt5.5 -s workspace-write -a never exec - < <prompt-file>"
-    yolo_command: "codex -C <repo> -m gpt5.5 -s danger-full-access -a never exec - < <prompt-file>"
-    schema_review_command: "codex -C <repo> -m gpt5.5 -s read-only -a never exec --output-schema schemas/review-verdict.schema.json - < <prompt-file>"
-    freeform_review_command: "codex -C <repo> review --base <base> <prompt>"
+    development_command: "codex exec -C <repo> -m gpt-5.5 -s workspace-write - < <prompt-file>"
+    yolo_command: "codex exec -C <repo> -m gpt-5.5 --yolo - < <prompt-file>"
+    schema_review_command: "codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>"
+    freeform_review_command: "codex exec review --base <base> - < <prompt-file>"
     warning: "codex -p is --profile, not prompt"
     supports_write: true
     supports_read_only: true
@@ -86,17 +89,17 @@ adapters:
     invocation_owner: controller
     binary_candidates: [kimi-for-coding, kimi]
     availability_check_command: "command -v kimi || command -v kimi-for-coding"
-    default_model_policy: "use local Kimi Code configured default/latest model; omit -m unless stage pins a model"
-    design_model: "kimi-2.7"
-    noninteractive_command: "kimi -p \"$(cat <prompt-file>)\""
-    plan_command: "kimi --plan -p \"$(cat <prompt-file>)\""
-    yolo_command: "kimi -y -p \"$(cat <prompt-file>)\""
+    default_model_policy: "use explicit latest Kimi coding alias: --model kimi-code/kimi-for-coding"
+    design_model: "kimi-code/kimi-for-coding"
+    noninteractive_command: "kimi --model kimi-code/kimi-for-coding -p \"$(cat <prompt-file>)\""
+    plan_command: "kimi --model kimi-code/kimi-for-coding --plan"
+    yolo_command: "kimi --model kimi-code/kimi-for-coding -y"
     supports_write: true
     supports_read_only: true
     notes:
       - "Use as implementation subagent only when workflow explicitly allows it."
       - "If the local wrapper is named kimi-for-coding, substitute that binary for kimi."
-      - "Use --plan plus a read-only prompt for review-1 cross-review tasks."
+      - "Current CLI rejects combining --plan or -y with -p/--prompt; one-shot review prompts must use noninteractive_command with read-only instructions."
 
   grok:
     kind: grok_cli

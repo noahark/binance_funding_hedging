@@ -394,7 +394,7 @@ stages:
     skill: code_reviewer
     mode: read_only
     adapter_requirements:
-      kimi: "Use Kimi in --plan/read-only mode with a schema-bound custom prompt. Prefer the local configured Kimi Code default model unless the stage pins kimi-2.7."
+      kimi: "Use Kimi one-shot prompt mode with `--model kimi-code/kimi-for-coding -p` and a read-only/schema-bound prompt. Current Kimi CLI rejects combining --plan or -y with -p."
       claude_glm: "Use a fresh read-only Claude-GLM session with a schema-bound custom prompt. Do not reuse the implementation/controller transcript as review evidence."
       grok: "Grok is not a default review-1 gate. Use only when the user explicitly enables it for the stage."
     requires_raw_artifacts:
