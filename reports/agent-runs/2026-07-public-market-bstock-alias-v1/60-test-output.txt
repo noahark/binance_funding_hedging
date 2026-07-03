@@ -83,8 +83,38 @@ GET /fixture/public-market-snapshot.json -> HTTP 200, bytes=8900
 SMOKE OK
 
 ================================================================
-## Section 4 — integration verification (Task C, appended later)
+## Section 4 — integration verification (Task C)
 ================================================================
 
-(pending Task C: offline synthetic-fixture run through GET /api/public-market/snapshot
-+ jsonschema validation of the bStock alias row.)
+Command: .venv/bin/python reports/agent-runs/2026-07-public-market-bstock-alias-v1/task-c-integration-check.py
+
+Loads the synthetic bstock-alias-raw fixture, runs the same domain pipeline the
+service uses (filter TRADING eligible -> build_rows -> assemble_snapshot), then
+jsonschema-validates and asserts the bStock alias rows.
+
+[PASS] assembled snapshot is schema-valid (match_type included)
+[INFO] rows=4 symbols=['AAPLUSDT', 'BTCUSDT', 'NVDAUSDT', 'TSLAUSDT']
+[PASS] TSLAUSDT -> alias TSLABUSDT, MARGIN_SPOT_CANDIDATE, DISABLED_BSTOCK
+[PASS] AAPLUSDT (neg rate) -> alias candidate, neg still DISABLED_BSTOCK
+[PASS] BTCUSDT -> exact_symbol, alias did not fire
+[PASS] NVDAUSDT -> no spot leg, match_type null, PERP_ONLY_EXCLUDED
+[PASS] summary aggregates from rows
+[PASS] TSLAUSDT alias row carries funding_history (2 entries)
+[INFO] dumped integration snapshot -> reports/agent-runs/2026-07-public-market-bstock-alias-v1/integration-snapshot-bstock-alias.json
+
+Task C integration check: ALL PASS
+
+Frontend self-check (Task B), reproduced independently by the controller:
+$ node frontend/self-check.js
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] warnings 可见且内容已渲染
+[PASS] 默认隐藏 PERP_ONLY_EXCLUDED，渲染 4 行
+[PASS] 显示 PERP_ONLY_EXCLUDED 后渲染全部 6 行
+[PASS] BSTOCK 行标识正确
+[PASS] alias 行显示实际现货腿与 B 后缀别名标识
+[PASS] 时间转换正确
+[PASS] 列名/文案符合契约
+[PASS] 无交易按钮/开仓票据
+全部自检通过
