@@ -289,6 +289,13 @@ Allowed verdicts:
 - `REWORK`
 - `BLOCKED`
 
+When the verdict is `REWORK`, the JSON must include `fix_start_prompt`. This is
+a ready-to-send prompt for the fix implementer. It should carry raw review and
+artifact paths, ordered findings, required fixes, file boundaries, forbidden
+paths, exact verification commands, and the expected `40-fix-report.md`
+finding-to-fix mapping. The controller may add routing metadata, but it should
+not rewrite the evidence into a looser summary before dispatching the fix.
+
 Invalid or missing JSON is treated as non-accepting evidence. It cannot pass a
 gate and must route to retry, fallback, fix, or an allowed terminal stop reason.
 

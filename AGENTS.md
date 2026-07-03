@@ -143,6 +143,13 @@ Reviewer output must end with a strict JSON verdict matching
 review attempt is non-accepting and must route to retry, fallback, fix, or one
 of the allowed terminal stop reasons.
 
+If a reviewer returns `REWORK`, the verdict JSON must include
+`fix_start_prompt`: a ready-to-send repair prompt for the fix implementer. The
+prompt must preserve raw artifact paths, findings, required fixes, file
+boundaries, exact test commands, and acceptance criteria. The controller may add
+mechanical routing metadata, but must not hide or rewrite reviewer evidence when
+dispatching the fix.
+
 ## Hard Gates
 
 - Git is required. No git repository means no diff fingerprint and no review.
@@ -190,7 +197,8 @@ The intended loop is:
 7. Implement the bounded task.
 8. Run deterministic tests, lint, type checks, or replay checks.
 9. Review raw artifacts.
-10. Fix if review returns `REWORK`.
+10. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
+   to launch the fix task.
 11. Repeat until accepted, then stop and wait for the user to start the next
    multi-model direction round.
 

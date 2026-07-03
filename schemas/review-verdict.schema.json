@@ -2,9 +2,24 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local.ai-project-harness/schemas/review-verdict.schema.json",
   "title": "Review Verdict",
-  "description": "Strict reviewer verdict. diff_fingerprint is head_sha + ':' + sha256(git diff --binary <base_sha>..HEAD). Missing or invalid JSON fails closed as non-accepting evidence and cannot pass a gate.",
+  "description": "Strict reviewer verdict. diff_fingerprint is head_sha + ':' + sha256(git diff --binary <base_sha>..HEAD). Missing or invalid JSON fails closed as non-accepting evidence and cannot pass a gate. REWORK verdicts must include fix_start_prompt so the controller can immediately dispatch a bounded fix task without re-summarizing the review.",
   "type": "object",
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "REWORK"
+          }
+        },
+        "required": ["verdict"]
+      },
+      "then": {
+        "required": ["fix_start_prompt"]
+      }
+    }
+  ],
   "required": [
     "schema_version",
     "stage_id",
@@ -69,6 +84,11 @@
         "type": "string"
       },
       "default": []
+    },
+    "fix_start_prompt": {
+      "type": "string",
+      "description": "Required when verdict is REWORK. A ready-to-send prompt for the fix implementer. It must preserve raw artifact paths, findings, required fixes, file boundaries, test commands, and success criteria. It must not hide reviewer evidence behind a controller summary.",
+      "minLength": 1
     },
     "next_action": {
       "type": "string",

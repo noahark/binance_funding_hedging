@@ -102,5 +102,8 @@ Terminal stop reasons are limited to:
 - `diff_fingerprint` is
   `head_sha + ":" + sha256(git diff --binary <base_sha>..HEAD)`.
 - `review_1` and `review_2` verdicts are tracked separately.
+- A `REWORK` verdict must include `fix_start_prompt`, a ready-to-send prompt
+  for the fix implementer that preserves raw artifact paths, findings, required
+  fixes, file boundaries, and verification commands.
 - A stage is not accepted until `status.json`, `70-handoff.md`, test output, and
   schema-valid review verdicts agree.

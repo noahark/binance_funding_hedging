@@ -16,6 +16,7 @@ These overrides have higher priority than the vendored role text below, but lowe
 - Do not record credentials, tokens, cookies, private keys, or expanded auth environments.
 - Read-only role: do not modify files, run destructive commands, commit, merge, or push.
 - The response must end with one strict JSON object matching `schemas/review-verdict.schema.json`.
+- If the verdict is `REWORK`, include a ready-to-send `fix_start_prompt` in the verdict JSON and a matching human-readable "Fix Start Prompt" section before the JSON.
 - If evidence is missing or the JSON contract cannot be satisfied, return `BLOCKED`.
 
 # Vendored Role Text

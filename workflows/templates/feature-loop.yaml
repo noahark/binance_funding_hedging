@@ -343,6 +343,22 @@ stages:
       - "reports/agent-runs/{{stage_id}}/30-review-1.md"
     output_contract:
       schema: schemas/review-verdict.schema.json
+      rework_requires_fix_start_prompt: true
+      fix_start_prompt:
+        required_when: "verdict == REWORK"
+        purpose: "Ready-to-send prompt for the fix implementer."
+        must_include:
+          - "stage_id and diff_fingerprint under review"
+          - "raw review file path and raw verdict JSON path"
+          - "ordered findings with severity, file/line evidence, impact, and recommendation"
+          - "required_fixes from the verdict"
+          - "allowed file boundaries for the fix"
+          - "forbidden paths and side effects"
+          - "exact test/lint/typecheck commands to run after the fix"
+          - "expected 40-fix-report.md finding-to-fix mapping"
+        must_not:
+          - "replace raw reviewer evidence with a controller summary"
+          - "broaden scope beyond the reviewed findings"
       invalid_json:
         first: retry_same_model_once
         then: human_escalation_required
@@ -367,6 +383,7 @@ stages:
       - "reports/agent-runs/{{stage_id}}/06-direction-synthesis.md when present"
       - "reports/agent-runs/{{stage_id}}/30-review-1.md"
       - "reports/agent-runs/{{stage_id}}/50-review-2.md"
+      - "reviewer-provided fix_start_prompt from the active REWORK verdict"
     writes:
       - "reports/agent-runs/{{stage_id}}/40-fix-report.md"
       - "source files within finding scope"
@@ -415,6 +432,22 @@ stages:
       - "reports/agent-runs/{{stage_id}}/50-review-2.md"
     output_contract:
       schema: schemas/review-verdict.schema.json
+      rework_requires_fix_start_prompt: true
+      fix_start_prompt:
+        required_when: "verdict == REWORK"
+        purpose: "Ready-to-send prompt for the fix implementer."
+        must_include:
+          - "stage_id and diff_fingerprint under review"
+          - "raw review file path and raw verdict JSON path"
+          - "ordered findings with severity, file/line evidence, impact, and recommendation"
+          - "required_fixes from the verdict"
+          - "allowed file boundaries for the fix"
+          - "forbidden paths and side effects"
+          - "exact test/lint/typecheck commands to run after the fix"
+          - "expected 40-fix-report.md finding-to-fix mapping"
+        must_not:
+          - "replace raw reviewer evidence with a controller summary"
+          - "broaden scope beyond the reviewed findings"
       invalid_json:
         first: retry_same_model_once
         then: fallback_if_allowed

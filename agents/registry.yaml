@@ -224,6 +224,7 @@ skills:
     local_overrides:
       - "Read-only. Do not modify files."
       - "Response must end with schema-valid JSON verdict."
+      - "REWORK verdict must include fix_start_prompt for the fix implementer."
 
   reality_checker:
     source: agency_agents
@@ -236,6 +237,7 @@ skills:
       - "Read-only. Do not modify files."
       - "Default to BLOCKED unless raw evidence is sufficient."
       - "Response must end with schema-valid JSON verdict."
+      - "REWORK verdict must include fix_start_prompt for the fix implementer."
 
   test_strategist:
     source: local
@@ -255,10 +257,12 @@ skills:
     local_overrides:
       - "Read-only. Do not modify files."
       - "Response must end with schema-valid JSON verdict when used as a gate."
+      - "REWORK verdict must include fix_start_prompt for the fix implementer."
 
 model_policies:
   no_self_review: true
   reviewer_requires_raw_artifacts: true
+  rework_verdict_requires_fix_start_prompt: true
   invalid_json_verdict: retry_once_then_fallback_or_human_escalation
   default_max_rework: 3
   diff_fingerprint: "head_sha + ':' + sha256(git diff --binary <base_sha>..HEAD)"
