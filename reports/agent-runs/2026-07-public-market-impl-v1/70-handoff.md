@@ -1,5 +1,22 @@
 # Handoff: Public Market Implementation V1
 
+## Post-Review New Finding: bStocks B-Suffix Alias Blocks Final User Acceptance
+
+After review-2 accepted this stage against the frozen contract, a live Binance
+check confirmed a new bStocks case not covered by `public-market-contract-v2`.
+Futures TRADIFI symbols use the non-`B` equity symbol (`TSLAUSDT`, `MSTRUSDT`,
+`NVDAUSDT`), while the newly supported bStocks spot/margin assets use a `B`
+suffix (`TSLABUSDT`, `MSTRBUSDT`, `NVDABUSDT`). The current backend joins spot
+by exact symbol, so the 15 announced bStocks still classify as
+`PERP_ONLY_EXCLUDED` with `spot.symbol=null`.
+
+Evidence and required amendment are recorded in
+`post-review-bstocks-alias-finding.md`. The `review-2` verdict remains valid for
+the frozen reviewed contract, but user final acceptance should wait until a
+follow-up contract amendment and implementation repair add the bStock
+`baseAsset + "B" + quoteAsset` spot-leg alias rule, dynamic collateral fields,
+and frontend display of futures symbol vs actual bStock spot symbol.
+
 ## Checkpoint: Review-2 COMPLETE (Codex ACCEPT, final gate) — all gates passed; pre-accept next
 
 Stage-level review-2 (final gate) is complete: Codex/GPT (gpt-5.5, xhigh,

@@ -370,6 +370,24 @@
     "raw_output_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt",
     "detail": "pytest 39 passed (offline frozen fixtures); float() audit clean; single-process http.server smoke OK; node frontend/self-check.js 10/10 PASS; integration Section 4 INTEGRATION OK. Independently re-run by the reviewers: Kimi (pytest 39 + SMOKE OK), fresh Claude-GLM (self-check 10/10), Codex (PYTHONDONTWRITEBYTECODE=1 pytest 39/39 + self-check PASS)."
   },
+  "post_review_findings": [
+    {
+      "id": "bstocks_b_suffix_spot_margin_alias",
+      "severity": "P1_contract_amendment_required",
+      "status": "open",
+      "recorded_at": "2026-07-03T14:44:49Z",
+      "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/post-review-bstocks-alias-finding.md",
+      "summary": "Binance now exposes bStocks spot/margin pairs with a B suffix (e.g. TSLABUSDT) while TRADIFI futures remain non-B symbols (e.g. TSLAUSDT). Current backend exact-symbol join leaves the 15 announced bStocks as PERP_ONLY_EXCLUDED with spot.symbol=null.",
+      "impact": "Review-2 remains valid for the frozen reviewed contract, but user final acceptance should wait until the public-market contract and implementation add a bStock alias rule and dynamic collateral fields.",
+      "required_follow_up": [
+        "Amend contract: TRADIFI/BSTOCK spot leg lookup must try futures.baseAsset + 'B' + futures.quoteAsset before declaring PERP_ONLY.",
+        "Expose actual bStock spot symbol and match source, e.g. spot.match_type=bstock_b_suffix_alias.",
+        "Keep negative-funding execution disabled for bStocks because borrowing is not currently supported.",
+        "Represent collateral ratio as dynamic/unknown until a signed or page-backed collateral ratio source is integrated; do not hard-code a percentage.",
+        "Repair backend classification/tests and frontend display before final user acceptance."
+      ]
+    }
+  ],
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [],
@@ -378,7 +396,7 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "Review-1 (Task A->Kimi ACCEPT + Task B->fresh Claude-GLM ACCEPT) and review-2 (Codex/GPT gpt5.5 xhigh ACCEPT, final_reviewer, direction_synthesis strong-reviewer disclosure override) BOTH COMPLETE: all schema-valid, stage + 3 task fingerprints independently recomputed by reviewers and matching status.json, zero findings, zero rework. validate-stage.py --phase pre-review PASSED. Next: run validate-stage.py --phase pre-accept; the controller holds the stage at stage_accepted_waiting_user and does NOT declare final acceptance (can_accept_final=false) — awaiting user final acceptance.",
-  "updated_at": "2026-07-03T14:28:00Z",
+  "next_action": "Review-1 and review-2 accepted this stage against the frozen contract and validate-stage.py --phase pre-accept PASSED. However a post-review live Binance finding opened P1 contract amendment bstocks_b_suffix_spot_margin_alias: user final acceptance should wait until the bStock B-suffix spot/margin alias rule and dynamic collateral fields are added and reviewed.",
+  "updated_at": "2026-07-03T14:44:49Z",
   "review_2_commit": "c9f8788"
 }

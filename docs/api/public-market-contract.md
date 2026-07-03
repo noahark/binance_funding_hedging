@@ -81,10 +81,27 @@ must not be labeled as a guaranteed settled or upcoming rate. Settled past rates
 come from `/fapi/v1/fundingRate` (`funding_history`).
 
 bStock / TRADIFI: `contractType == "TRADIFI_PERPETUAL"` maps to
-`asset_tag = "BSTOCK"` (118 observed symbols, all tokenized equities/ETFs/
-commodities, all without a spot leg). `contractType == "PERPETUAL"` maps to
-`CRYPTO`. `asset_tag` is independent of `route_class`; the sample contains
-`MSTRUSDT` / `TSLAUSDT` rows that are `BSTOCK` + `PERP_ONLY_EXCLUDED`.
+`asset_tag = "BSTOCK"`. `contractType == "PERPETUAL"` maps to `CRYPTO`.
+`asset_tag` is independent of `route_class`.
+
+Post-review amendment required (2026-07-03): Binance added 15 bStocks assets as
+Margin collateral and opened corresponding bStocks margin pairs. The TRADIFI
+futures symbols use the underlying equity symbol (`TSLAUSDT`, `MSTRUSDT`,
+`NVDAUSDT`), while spot/margin bStocks symbols add a `B` suffix (`TSLABUSDT`,
+`MSTRBUSDT`, `NVDABUSDT`). Therefore the route rule cannot rely only on exact
+futures/spot symbol equality. The next contract revision must define a bStock
+spot-leg alias rule:
+
+- normal crypto: join by exact symbol (`BTCUSDT` -> `BTCUSDT`);
+- `TRADIFI_PERPETUAL` / `BSTOCK`: first try
+  `futures.baseAsset + "B" + futures.quoteAsset`
+  (`TSLAUSDT` -> `TSLABUSDT`);
+- if the alias spot pair exists and public `isMarginTradingAllowed=true`, mark
+  the row as a positive-funding candidate while preserving `asset_tag=BSTOCK`;
+- negative-funding execution remains disabled for bStocks because Binance states
+  borrowing is not currently supported;
+- the API should expose the actual spot leg symbol and a machine-visible match
+  source, for example `spot.match_type = "bstock_b_suffix_alias"`.
 
 Spot min notional: all 3625 observed spot symbols use the new `NOTIONAL` filter
 (`minNotional` key); the legacy `MIN_NOTIONAL` filter is 0 observed. The backend
