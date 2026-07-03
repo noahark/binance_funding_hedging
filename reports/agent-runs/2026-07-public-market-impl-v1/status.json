@@ -59,7 +59,7 @@
       "diff_files_count": 21,
       "diff_files_note": "19 backend/** files + 20-implementation-backend.md + 60-test-output.txt; status.json excluded from hash.",
       "tests": {"status": "pass", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt", "detail": "39 pytest passed (offline frozen fixtures); float() audit clean; single-process http.server smoke OK (schema-valid snapshot 688 rows + index + fixture). Live HTTP path not exercised this stage."},
-      "review_1": {"status": "not_started", "owner": {"provider": "kimi", "model": "kimi-2.7"}, "output": "30-review-1-backend.md"}
+      "review_1": {"status": "dispatched", "owner": {"provider": "kimi", "model": "kimi-2.7"}, "output": "30-review-1-backend.md", "dispatch_prompt": "reports/agent-runs/2026-07-public-market-impl-v1/review-1-task-a-kimi.prompt.md", "subject": {"base_sha": "32f6f0f7e7a2406cc01e5364ef3557dbfcd2155c", "head_sha": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72", "diff_fingerprint": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93"}}
     },
     "B": {
       "name": "Frontend market-table workstation",
@@ -75,7 +75,7 @@
       "diff_files_count": 4,
       "diff_files_note": "frontend/index.html + fixture/public-market-snapshot.json + self-check.js + 20-implementation-frontend.md; status.json excluded. base=fc018ea (Task-A checkpoint) so the diff is frontend-only.",
       "tests": {"status": "pass", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-frontend.md", "detail": "Node self-check.js: 10 PASS (default fetch /api/public-market/snapshot, data-source label, warnings render, PERP_ONLY_EXCLUDED default-hidden renders 3 then 6 when toggled, BSTOCK badge, time conversion, contract copy, NO trade button/open ticket). Fixture byte-identical to frozen normalized sample."},
-      "review_1": {"status": "not_started", "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "fresh_session_required": true}, "output": "30-review-1-frontend.md"},
+      "review_1": {"status": "dispatched", "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "fresh_session_required": true}, "output": "30-review-1-frontend.md", "dispatch_prompt": "reports/agent-runs/2026-07-public-market-impl-v1/review-1-task-b-glm-fresh.prompt.md", "subject": {"base_sha": "fc018eaae463053f500e9bd412c5f74356de7f20", "head_sha": "c1e33b6f1bbb4e67f71db8552a49b35d43700414", "diff_fingerprint": "c1e33b6f1bbb4e67f71db8552a49b35d43700414:4bebeb5229021546f78a60fd0effa3f92cb565d3873cdb70795f954a1fb46bde"}},
       "dispatch": {"prompt_file": "reports/agent-runs/2026-07-public-market-impl-v1/task-b-kimi-frontend.prompt.md", "status": "completed_in_worktree_committed_by_controller", "commit": "c1e33b6"}
     },
     "C": {
