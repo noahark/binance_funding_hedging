@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-contract-v2",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "feature-loop",
   "designer": "codex",
   "implementer": {
@@ -117,18 +117,21 @@
     "contract_shape_changed": false
   },
   "review_1": {
-    "reviewer": null,
+    "reviewer": {
+      "provider": "kimi",
+      "model": "kimi-2.7"
+    },
     "provider": "kimi",
     "model": "kimi-2.7",
     "skill": "code_reviewer",
     "mode": "read_only",
     "selection_reason": "implementer provider is claude_glm, so the updated Harness cross-review policy selects Kimi for review-1.",
     "unavailable_policy": "If Kimi is unavailable or cannot return a schema-valid verdict after retry, route to human_escalation_required instead of self-reviewing with Claude-GLM.",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "fix_start_prompt_present": null,
+    "open_p0_p1": "none (one non-blocking P3: negative schema tests not replayable from a committed script; required_fixes empty)",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "d73eb10187f34696aec4aea8f596c0d3578a1dcf:de0c199bd7b9121ec2539c6a891f3167043bc1f4412704c3276fe6171b3fdd46",
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "previous_verdict": {
       "reviewer": "kimi",
@@ -141,19 +144,29 @@
     },
     "prior_dispatch_failures": [
       {
-      "attempted_at": "2026-07-03T06:31:17Z",
-      "provider": "grok",
-      "model": "grok-build",
-      "command": "grok --cwd <repo> --model grok-build --permission-mode plan --effort high --prompt-file reports/agent-runs/2026-07-public-market-contract-v2/review-1-grok-timeout.prompt.md",
-      "adapter_preflight": "grok models -> grok-build (default) + grok-composer-2.5-fast available; logged in with grok.com. scripts/validate-stage.py --phase pre-review PASSED (status=review_1, diff_fingerprint=e0ae8c5c...).",
-      "outcome": "model_unavailable",
-      "outcome_reason": "No schema-valid verdict within the 900s timeout and the CLI hung. grok process state=S (sleeping/idle), %CPU=0.0, ~0 bytes captured output after ~1052s elapsed, no working child process. Controller stopped the process after the timeout.",
-      "captured_output_file": "reports/agent-runs/2026-07-public-market-contract-v2/review-1-grok-timeout.raw-output.txt",
-      "captured_output_bytes": 0,
-      "process_pid": 57075,
-      "stopped_at": "2026-07-03T06:48:49Z"
+        "attempted_at": "2026-07-03T06:31:17Z",
+        "provider": "grok",
+        "model": "grok-build",
+        "command": "grok --cwd <repo> --model grok-build --permission-mode plan --effort high --prompt-file reports/agent-runs/2026-07-public-market-contract-v2/review-1-grok-timeout.prompt.md",
+        "adapter_preflight": "grok models -> grok-build (default) + grok-composer-2.5-fast available; logged in with grok.com. scripts/validate-stage.py --phase pre-review PASSED (status=review_1, diff_fingerprint=e0ae8c5c...).",
+        "outcome": "model_unavailable",
+        "outcome_reason": "No schema-valid verdict within the 900s timeout and the CLI hung. grok process state=S (sleeping/idle), %CPU=0.0, ~0 bytes captured output after ~1052s elapsed, no working child process. Controller stopped the process after the timeout.",
+        "captured_output_file": "reports/agent-runs/2026-07-public-market-contract-v2/review-1-grok-timeout.raw-output.txt",
+        "captured_output_bytes": 0,
+        "process_pid": 57075,
+        "stopped_at": "2026-07-03T06:48:49Z"
       }
-    ]
+    ],
+    "verdict_at": "2026-07-03T07:57:43Z",
+    "controller_verification": {
+      "verified_at": "2026-07-03T07:57:43Z",
+      "fingerprint_recomputed": "de0c199bd7b9121ec2539c6a891f3167043bc1f4412704c3276fe6171b3fdd46",
+      "fingerprint_matches_verdict": true,
+      "verdict_schema_valid": true,
+      "verdict_schema_errors": 0,
+      "identity_compliant": "kimi (moonshot_kimi) differs from implementer (claude_glm / zhipu_glm) and designer (codex / openai); provider-level cross-review isolation satisfied.",
+      "note": "Controller and implementer share provider (claude_glm), so the controller independently recomputed the diff fingerprint and schema-validated the verdict rather than trusting the reviewer or its own summary."
+    }
   },
   "review_2": {
     "reviewer": null,
@@ -177,6 +190,6 @@
     "resolved_by": "user approved replacing Grok review-1 with Kimi/Claude-GLM cross-review; current stage re-routed to Kimi review-1."
   },
   "terminal_reason": null,
-  "next_action": "route_to_review_1_kimi_recheck",
-  "updated_at": "2026-07-03T07:37:46Z"
+  "next_action": "route_to_review_2",
+  "updated_at": "2026-07-03T07:57:43Z"
 }

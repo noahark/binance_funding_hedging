@@ -2,9 +2,9 @@
 
 ## Checkpoint: contract discovery frozen for review_1
 
-Status: `review_1`. Implementer: Claude-GLM (`glm-5.2[1m]`).
-Current review-1 reviewer: Kimi (`kimi-2.7`) under the Kimi/Claude-GLM
-cross-review policy.
+Status: `review_2` (review-1 accepted by Kimi `kimi-2.7`; awaiting review-2
+dispatch). Implementer: Claude-GLM (`glm-5.2[1m]`). Review-1 used the
+Kimi/Claude-GLM cross-review policy.
 
 Branch: `main` (local only, not pushed; `ahead of origin/main`). Review baseline:
 
@@ -99,9 +99,36 @@ The evidence note now points reviewers to the committed subject range recorded i
 `status.json` / this handoff and no longer describes `HEAD == base`, worktree
 fingerprints, or untracked-file hashing.
 
-Next action: `route_to_review_1_kimi_recheck`. Ask Kimi to re-run review-1
-against the updated fingerprint above. Backend implementation stays gated; Kimi
-frontend work stays gated until the contract is accepted.
+### Kimi review-1 recheck result: `ACCEPT`
+
+Kimi re-ran review-1 against the updated committed subject range
+(`2bb47ad..d73eb10`, excluding `status.json`) and returned a schema-valid
+`ACCEPT` verdict. Because the controller and implementer share provider
+(`claude_glm`), the controller independently re-derived the evidence instead of
+trusting the reviewer: recomputed `sha256(git diff --binary 2bb47ad..d73eb10 -- .
+":(exclude)<stage>/status.json")` = `de0c199b…`, which matches the
+`diff_fingerprint` Kimi recorded; and validated the verdict JSON against
+`schemas/review-verdict.schema.json` (0 errors). Identity is compliant: Kimi
+(`moonshot_kimi`) differs from both implementer (`claude_glm`/`zhipu_glm`) and
+designer (`codex`/`openai`).
+
+The recheck carries one non-blocking **P3**: the ten negative schema tests in
+`60-test-output.txt` are not replayable from a committed script (only the
+positive-sample generator is committed). `required_fixes` is empty. Two residual
+risks are carried forward: `lastFundingRate` settled-vs-estimate ambiguity, and
+`MARGIN_SPOT_CANDIDATE` private borrowability (Phase 2). The full verdict JSON is
+at the end of `30-review-1.md`.
+
+The review subject stays `d73eb10` for review-2 as well (review-1 and review-2
+examine the same fixed product). This acceptance-logging commit advances `HEAD`
+past `head_sha`, so review-2 must use the recorded `base_sha..head_sha`, not the
+moving `HEAD`.
+
+Next action: `route_to_review_2` (final gate). Per the anti-self-review policy,
+review-2 cannot use Codex (the stage designer); it uses Claude
+(`claude-fable-5`, `reality_checker`, read-only) as the final reviewer, falling
+back to `decision_models_exhausted` if Claude is unavailable. Backend
+implementation and Kimi frontend remain gated until review-2 accepts.
 
 ## Claude-GLM Backend Contract Prompt
 
