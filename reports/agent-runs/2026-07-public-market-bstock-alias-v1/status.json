@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-bstock-alias-v1",
-  "status": "designing",
+  "status": "implemented",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stage_id": "2026-07-public-market-impl-v1",
@@ -36,10 +36,10 @@
     {"provider": "claude_glm", "model": "glm-5.2[1m]", "task": "A", "scope": "contract amendment + backend/**"},
     {"provider": "kimi", "model": "kimi-2.7", "task": "B", "scope": "frontend/**"}
   ],
-  "base_sha": "",
-  "head_sha": "",
+  "base_sha": "d240e43e75034a6718ede79bc295d39e77cd860e",
+  "head_sha": "0842820ff21d30f563d25a3ff914cd705e6d9002",
   "commit_state": "committed",
-  "diff_fingerprint": "",
+  "diff_fingerprint": "0842820ff21d30f563d25a3ff914cd705e6d9002:24ce862a277987871fadbeb7e46ee3e59db923904ff28468ac84482ac48fb9ac",
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
   "diff_fingerprint_note": "Two scopes, one protocol. Filled progressively: task-level base/head/fingerprint in tasks.<id> at H_A/H_B; stage-level top-level base/head/fingerprint at H_C. status.json excluded from hash. Same formula as impl-v1; no second protocol.",
   "commit_order_strategy": "H_intake (this commit: intake/task/design/adr/handoff/status + Fable5 unavailable record) -> H_A (contract schema/doc + backend + tests) -> H_B (frontend) -> H_C (integration + stage-level fingerprint + status/handoff finalize). Controller commits serially so each task's base..head diff is owner-scoped.",
@@ -118,11 +118,11 @@
         "reports/agent-runs/2026-07-public-market-bstock-alias-v1/integration-snapshot-*.json"
       ],
       "forbidden_any_product_code": true,
-      "status": "planned",
+      "status": "implemented",
       "depends_on": ["A", "B"],
-      "base_sha": "",
-      "head_sha": "",
-      "diff_fingerprint": ""
+      "base_sha": "a57581e",
+      "head_sha": "0842820ff21d30f563d25a3ff914cd705e6d9002",
+      "diff_fingerprint": "0842820ff21d30f563d25a3ff914cd705e6d9002:a46639a3405026a0320d8264d6a50993c55d6885d7cadcef4fed33e6d8c27576"
     }
   },
   "model_routing": {
@@ -176,12 +176,12 @@
     "The formal local page must load data from the same-origin /api/public-market/snapshot.",
     "Tests offline only; no live HTTP this stage."
   ],
-  "tests": {"status": "pending"},
+  "tests": {"status": "passed"},
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Task A (H_A=1f94c84) and Task B (H_B=5968c49) implemented; per-task fingerprints bound. Next: Task C integration verification (offline synthetic-fixture snapshot run + jsonschema + stage-level top-level diff_fingerprint) -> H_C, then validate --phase pre-review + dispatch review-1 (A->Kimi, B->fresh Claude-GLM) and review-2 (Codex, direction_synthesis override).",
-  "updated_at": "2026-07-03T15:52:17Z"
+  "next_action": "All tasks implemented (A=H_A 1f94c84, B=H_B 5968c49, C=H_C 0842820); per-task + stage-level diff_fingerprints bound; tests passed. Next: validate --phase pre-review, then dispatch review-1 (A->Kimi, B->fresh Claude-GLM) and review-2 (Codex, direction_synthesis override), then validate --phase pre-accept and hold at stage_accepted_waiting_user (controller does not declare accepted).",
+  "updated_at": "2026-07-03T15:54:48Z"
 }
