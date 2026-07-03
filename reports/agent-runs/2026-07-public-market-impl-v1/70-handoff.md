@@ -1,6 +1,28 @@
 # Handoff: Public Market Implementation V1
 
-## Checkpoint: Tasks A + B + C implemented; H_C pending, then review-1
+## Checkpoint: Review-1 COMPLETE — Task A→Kimi ACCEPT, Task B→fresh Claude-GLM ACCEPT; stage review-2 next
+
+Task-level review-1 is complete and both verdicts are ACCEPT, schema-valid,
+with fingerprints independently recomputed and matching `status.json`, and
+zero findings / zero rework:
+
+- Task A (backend, implementer `claude_glm`) → reviewer Kimi (`kimi-2.7`):
+  `30-review-1-backend.md`. Recomputed `5148a473…1e93` == recorded. 21-file
+  boundary clean. 10/10 behavior-rule checkpoints pass. Independent rerun:
+  39 pytest passed + SMOKE OK. `float()` audit clean.
+- Task B (frontend, implementer `kimi`) → reviewer fresh read-only
+  Claude-GLM (`glm-5.2[1m]`, `--no-session-persistence`, not the controller
+  transcript): `30-review-1-frontend.md`. Recomputed `4bebeb52…6bde` ==
+  recorded. 4-file boundary clean. 8/8 checkpoints pass. Independent rerun:
+  `node frontend/self-check.js` 10/10 PASS. Fresh session confirmed (no
+  "Restored session" in raw-output).
+
+Both verdict JSON objects validate against `schemas/review-verdict.schema.json`.
+Next: commit review-1 evidence, then stage-level review-2 (Codex/GPT), then
+`pre-accept`. The controller does not declare final acceptance.
+
+The original Tasks-A+B+C-implemented checkpoint (now superseded) follows for
+historical navigation.
 
 Status: `implementing`. `H_intake` (`32f6f0f`), `H_A` backend (`a40b204`), and
 `H_B` frontend (`c1e33b6`) are committed with task-level fingerprints recorded
@@ -89,6 +111,6 @@ transcript).
 - `status.json` is the authoritative machine state; this handoff is a human
   navigation aid.
 
-本地北京时间: 2026-07-03 21:34:45 CST
-下一步模型: Claude-GLM (controller)
-下一步任务: Commit H_C（阶段汇总 + 集成证据 + status）→ 填阶段级顶层指纹 → 派发任务级 review-1（Task A→Kimi，Task B→fresh read-only Claude-GLM）→ 阶段级 review-2（Codex）。Controller 不声明最终验收。
+本地北京时间: 2026-07-03 22:03 CST
+下一步模型: Codex/GPT (review-2)
+下一步任务: Commit review-1 证据（30-review-1-{backend,frontend}.md + 两个 raw-output + status + handoff）→ 派发阶段级 review-2（Codex/GPT，无关决策审查者；设计者 Fable5 已披露；两个实现者 claude_glm/kimi 均禁止 review-2）→ pre-accept（validate-stage.py）。Controller 不声明最终验收。

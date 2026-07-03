@@ -1,0 +1,294 @@
+• I need act as reviewer_1. Read-only. Need to recompute fingerprint and inspect files, then write review to 30-review-1-backend.md and end reply with JSON verdict. Must not modify files (only write review file? The instruction says write your review to 30-review-1-backend.md — that's a file creation in reports/agent-runs/stage. Is that allowed? It says read-only / plan mode. Do not modify any files. But output contract requires writing review to 30-review-1-backend.md. This is an allowed output artifact? Reviewer output must be written. Since reviewer role produces report; likely allowed. The boundary says may read anything, may NOT modify any file. But need write review. Probably writing the review report is expected. Need use tools to read, bash for git diff. Also read schema. Then produce verdict.
+
+  Plan:
+  1. Check git status, compute diff fingerprint, list diff names.
+  2. Read status.json and task/design/adr/impl/test-output.
+  3. Read backend files and schemas/docs/sample.
+  4. Run grep for float(. Run pytest, smoke if possible.
+  5. Write 30-review-1-backend.md with findings and verdict.
+  6. Reply with summary and JSON.
+
+  Need use Bash for git commands. Need cwd repo root. Let's start parallel reads and bash.
+
+• I’ll recompute the Task-A fingerprint, inspect the raw artifacts, and run the checks before writing the review.5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93  -
+backend/__init__.py
+backend/adapters/__init__.py
+backend/adapters/binance_public.py
+backend/app/__init__.py
+backend/app/server.py
+backend/config.py
+backend/domain/__init__.py
+backend/domain/classify.py
+backend/domain/normalize.py
+backend/domain/snapshot.py
+backend/services/__init__.py
+backend/services/snapshot_service.py
+backend/tests/__init__.py
+backend/tests/conftest.py
+backend/tests/smoke_server.py
+backend/tests/test_classify.py
+backend/tests/test_negative_schema.py
+backend/tests/test_normalize.py
+backend/tests/test_snapshot.py
+reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-backend.md
+reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt
+a40b204 Implement backend snapshot service (Task A)
+• Fingerprint recomputed matches expected. Diff names are 21 files? Count: backend __init__ 1, adapters __init__ 2, binance_public 3, app __init__ 4, server 5, config 6, domain __init__ 7, classify 8, normalize 9, snapshot 10, services __init__ 11, snapshot_service 12, tests __init__ 13, conftest 14, smoke_server 15, test_classify 16, test_negative_schema 17, test_normalize 18, test_snapshot 19, 20-impl 20, 60-test-output 21. Good. No frontend/schema/doc/sample path appears. Wait schemas/api and docs/api not in diff. Good.
+
+  Now read raw artifacts. Use parallel Read calls.Need read backend source files and tests. Also frozen sample and integration snapshot maybe. Need run tests/grep. Let's read all backend files in parallel.Now read tests and frozen sample. Also need run grep float and tests. Let's read tests.Now need run tests and grep. Also inspect integration snapshot maybe not needed but to verify reproducible offline output. Also verify frozen raw sample exists, curated file. Need run pytest and smoke. Let's run in parallel..
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+                                  [100%]
+
+39 passed in 0.61s
+GET /api/public-market/snapshot -> HTTP 200, schema-valid
+  rows=688 warnings=3 total_rows=688
+  data_time=2026-07-03T05:11:29Z generated_at=2026-07-03T05:17:38Z source_sample_id=20260703T051738Z
+GET / -> HTTP 200, frontend index.html bytes=27982
+GET /fixture/public-market-snapshot.json -> HTTP 200, bytes=8900
+SMOKE OK
+Tests pass 39, smoke OK, grep no float. Good.
+
+  Need verify behavior rules more deeply. Let's inspect subtle issues:
+
+  1. Eligible filter: implemented in snapshot_service lines 61-66: status TRADING and contractType in eligible. Good. Test covers.
+
+  2. asset_tag independent of route_class. Good.
+
+  3. route_class: classify_route uses contract_type not eligible -> PERP_ONLY_EXCLUDED (but service filters eligible before, so only PERPETUAL/TRADIFI). spot_symbol None -> PERP_ONLY_EXCLUDED. spot_margin_allowed True -> MARGIN_SPOT_CANDIDATE else SPOT_ONLY. margin_public.source always "unverified". Good.
+
+  4. negative_funding_status priority: explicit order. MSTR/TSLA route PERP_ONLY and asset_tag BSTOCK => first condition returns DISABLED_PERP_ONLY. Good.
+
+  5. Decimal discipline: ranking uses Decimal. Decimal fields serialized as strings from raw JSON. No float in source. Config has request_timeout: float = 15.0, but that's a timeout not price/rate/quantity. The review rule says float() must not appear on any price/rate/quantity path. There is no float() call. The type annotation float in config and client timeout is acceptable. grep confirmed no float().
+
+  But there is potential issue: `_abs_rate` uses `Decimal(str(rate_str))`. If rate_str is already string. fine. `abs(Decimal(...))`. Good.
+
+  6. funding_history top-N default N=20. Config default top_n=20. Service uses top_symbols_by_abs_rate. Offline uses all frozen fixtures. Test asserts top cap. Good.
+
+  7. summary == aggregation over rows: assemble_snapshot uses _counts from rows. Test cross-checks. Good.
+
+  8. Three contract warnings preserved verbatim. snapshot.py CONTRACT_WARNINGS list. Need verify warnings are exactly the three expected. They look verbatim from contract? Let's compare with contract doc warnings? Contract doc doesn't list warnings verbatim, but frozen normalized sample has warnings. Implementation warnings match frozen sample exactly? Let's compare line by line.
+
+  Implementation warning 1:
+  "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification."
+  Frozen sample warning 1 identical.
+
+  Warning 2 impl:
+  "premiumIndex.lastFundingRate is documented by Binance as the most recently updated funding rate; whether it equals the last settled rate or a forward estimate is not proven from local docs, so do not label it as a guaranteed settled or upcoming value."
+  Frozen sample warning 2 identical.
+
+  Warning 3 impl:
+  "All 118 observed TRADIFI_PERPETUAL symbols have no spot leg, so they are PERP_ONLY_EXCLUDED with asset_tag=BSTOCK; asset_tag is independent of route_class."
+  Frozen sample warning 3 identical. Good.
+
+  9. Validation gate: SnapshotService.get_snapshot validates before caching; server catches exception and returns 503. Good. There is no explicit test for validation failure path, but behavior present.
+
+  10. Reproducible offline output: data_time matches frozen sample; 6 curated symbols align. Tests cover.
+
+  Need check frozen raw sample files exist and that offline mode reads them. Not critical.
+
+  Need check integration snapshot maybe 688 rows and summary counts. Could compare with smoke output: rows=688, warnings=3. Good.
+
+  Need check status.json tasks.A diff_fingerprint matches recomputed. Yes.
+
+  Need check 21 expected files. Yes 21.
+
+  Need consider P0/P1 issues? Let's deeply inspect code for potential correctness/safety defects.
+
+  Potential issues:
+
+  - In snapshot.py, `positive_funding_enabled` is True for MARGIN_SPOT_CANDIDATE and SPOT_ONLY_CANDIDATE. Is that per contract? Contract doesn't explicitly mention positive_funding_enabled semantics, but schema has boolean. Fine.
+
+  - In classify.py, for non-perpetual contract types returns PERP_ONLY_EXCLUDED. Since upstream filters eligible, not used. But if called independently, fine.
+
+  - In snapshot_service, data_time uses max time from premium_index. In offline, if no premium time? Frozen sample has times. Good.
+
+  - `iso_from_ms` uses `datetime.fromtimestamp(seconds, tz=timezone.utc)`. On some platforms, fromtimestamp with large values might have issues but ok.
+
+  - `request_timeout: float = 15.0` in config is a float default but not `float()` call. The rule says `float()` must not appear. Annotation no call. Acceptable.
+
+  - In adapters, `_http_get` uses json.loads; returns floats for numbers if any numeric fields not strings. But Binance returns prices/rates as strings; integers like time are numeric. json.loads will parse integer times as int, fine. For rates as strings, no float. Could there be any numeric price field? Contract says decimal fields are strings. If raw has some numeric (like maybe `count`?), not used. Fine.
+
+  - `BinancePublicClient.fetch_raw` offline: reads curated spot file `api-v3-exchangeInfo-curated-BTCETHXVG.json`. That's a curated file with only BTC, ETH, XVG? Wait file name says curated-BTCETHXVG. This means spot_by_sym only contains BTCUSDT, ETHUSDT, XVGUSDT (and maybe other symbols in curated file). For XMR no spot -> PERP_ONLY_EXCLUDED. For MSTR/TSLA no spot -> PERP_ONLY_EXCLUDED. Good. But what about other CRYPTO symbols in the full futures market? They won't have spot entries, so route_class PERP_ONLY_EXCLUDED for all except BTC/ETH/XVG. That's fine for offline test; live uses full spot exchangeInfo.
+
+  - However, in offline mode, `positive_funding_enabled` for most symbols will be false. Fine.
+
+  - Test `test_summary_aggregates_from_rows` passes.
+
+  - `test_top_symbols_by_abs_rate_ranks_and_caps` uses top_n=5. Good.
+
+  - `test_btcusdt_top_symbol_has_funding_history` asserts 10 entries. Good.
+
+  - `test_only_fixture_symbols_have_funding_history` asserts nonempty == ["BTCUSDT"]. Since offline funding_by_sym only has BTCUSDT fixture. Good.
+
+  - The smoke server output rows=688. Need ensure total_rows count from filtered eligible. In offline futures exchangeInfo has 688 eligible symbols? Yes.
+
+  - Schema validation: Need check that `positive_funding_enabled` is in row schema? Schema properties for row include positive_funding_enabled. Yes.
+
+  - `ui_flags` array of strings; no enum, fine.
+
+  - `margin_public.public_cross_margin_pair` boolean or null. Good.
+
+  - `spot.min_notional` and step_size may be null for no spot. Schema allows null. Good.
+
+  - In server, `_serve_static` path traversal check uses `candidate.relative_to(self.frontend_dir.resolve())`. If frontend_dir doesn't exist? It exists.
+
+  - `_handle_snapshot` catches all Exception and returns 503. This includes validation errors, fetch errors. Good. But returns snapshot_unavailable with detail str(exc). Could leak internal details but local only. Not a blocker.
+
+  - There is no `Cache-Control` on static; fine.
+
+  - `SnapshotService._cache` is in-memory tuple. Good.
+
+  - The review instruction says: "Re-run the test suite yourself if you can". Done.
+
+  - Need verify the diff_fingerprint recorded is exactly expected: recomputed hash matched. Need combine with head_sha. We computed `5148a473...1e93` from git diff. Expected `a40b204...:5148a473...1e93`. So diff_fingerprint = `a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93`.
+
+  - Need check status.json tasks.A diff_fingerprint matches. It does.
+
+  - The top-level status.json head_sha is ce00489, stage-level fingerprint differs because includes frontend and integration. Task A head_sha a40b204. Good.
+
+  - Note: status.json at HEAD is after H_C, so it includes Task B and C info. That's fine; it's excluded from hash anyway.
+
+  - The review asks to confirm diff contains only Task-A files; yes.
+
+  - Review-1 output file: `30-review-1-backend.md`. Need write it in reports/agent-runs/2026-07-public-market-impl-v1/. This is the review report. I should include narrative and the verdict JSON? The output contract says write review to 30-review-1-backend.md and end your reply with a single JSON verdict object. Does the file need to contain the JSON? Likely yes, the report ends with JSON. The instruction: "Write your review to `30-review-1-backend.md` and end your reply with a single JSON verdict object". So I should write the markdown report including the JSON block at end. Then final assistant message should also end with same JSON block. Need ensure the JSON validates schema. The schema has `additionalProperties: false`. But verdict object may include `residual_risks` which is in properties, optional. It includes `reviewer_prior_involvement_notes` optional. `required_fixes` required, can be empty array. `findings` required array. `reviewed_artifacts` required. Good.
+
+  Need decide reviewer_prior_involvement: "none". But note I'm Task B implementer in same stage, but had no involvement in Task A's design/breakdown/direction. Schema enum includes none, direction_synthesis, breakdown, design. So "none" is correct. In notes disclose Task B implementer identity. The prompt says disclose this in reviewer_prior_involvement_notes. Good.
+
+  Need write 30-review-1-backend.md. Need include reviewed artifacts paths, findings empty, residual_risks, maybe summary of checks.
+
+  Before writing, maybe verify the JSON schema validation with our intended verdict. Could use python to validate. Also maybe run `scripts/validate-stage.py`? The prompt says before dispatching review-1, run validate-stage.py <stage-id> --phase <phase>. But I'm reviewer, not controller. However the instruction in AGENTS says before dispatching review-1, dispatching review-2, or writing accepted terminal state, run validate-stage.py. We are not dispatching; we are the reviewer. But to be safe maybe run validate-stage.py --phase pre-review? The prompt for reviewer says "If you find a genuine defect return REWORK". It doesn't ask to run validator. But I can run it to check. However validate-stage.py may expect status and diff fingerprints; not necessary. The reviewer raw artifacts include status.json; it's fine.
+
+  Let's run a quick python validation of verdict skeleton to ensure schema accepts. But we can craft carefully.
+
+  Need also inspect 70-handoff.md? Not required but maybe exists. Not necessary.
+
+  Potential issue: The review file is under reports/agent-runs/stage. The diff for Task A was base..head; the review report is not in that diff (created now after H_A? Actually H_A commit didn't include review report). Status.json review_1 output file is 30-review-1-backend.md. It should be created as part of review evidence, maybe committed later by controller. Writing it now is allowed. It's a new file not in diff; doesn't affect Task A fingerprint. Good.
+
+  Let's create verdict content. Need include local Beijing time and next model/next task in report footer per AGENTS. Use date command.
+
+  Need get date in CST? Beijing time = UTC+8. Current ISO 2026-07-03T13:50:28Z, so Beijing 21:50:28. But we need run date command to get actual local. Use `date` maybe returns local timezone? The system is macOS, likely CST? Let's run date + format.2026-07-03 21:52:29 CST
+2026-07-03 21:52:29 CST
+Good.
+
+  Now write 30-review-1-backend.md. Include sections: recomputed fingerprint, boundary check, behavior rule checkpoints, tests run, findings (none), residual risks, verdict JSON.
+
+  Need be careful not to include any findings beyond empty. Since no defects.
+
+  The report should end with JSON block. Also final assistant reply ends with JSON block. The prompt says "end your reply with a single JSON verdict object". So after writing file, my message will include a brief summary and then the JSON block. The file also can include JSON. That's okay.
+
+  Need ensure `reviewed_artifacts` lists all paths inspected. Include raw artifacts and source files. Let's list them concisely.
+
+  Potential issue: Schema `reviewed_artifacts` minItems 1, items strings. Good.
+
+  `residual_risks`: include the two known non-blocking residuals.
+
+  `required_fixes`: [].
+
+  `findings`: [].
+
+  `next_action`: "continue".
+
+  `reviewer_prior_involvement`: "none".
+
+  `reviewer_prior_involvement_notes`: "I am the Task B (frontend) implementer for this stage, but I had no involvement in Task A's direction synthesis, development breakdown, or design, and I did not write or fix any Task A code. Per the cross-review pool, Task A implementer is claude_glm and reviewer_1 is kimi."
+
+  Need mention in report.
+
+  Let's write file.Need validate the JSON against schema. Use python.Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+                 ^^^^^^^
+AttributeError: 'str' object has no attribute 'read'
+My python one-liner used json.load on string. Need fix.verdict JSON valid
+Good. Now final reply should be concise, mention file written and result, and end with JSON verdict block. The prompt says end reply with single JSON verdict object fenced in ```json. The file already contains JSON. In final message, we can include summary and then JSON. Need ensure final block is exactly JSON.
+
+Task A backend snapshot service review complete. The recomputed fingerprint matches `status.json`, the diff boundary is clean (21 files, all backend + its report), all 39 pytest cases pass, the smoke test passes, and the `float()` audit is clean.
+
+  Review written to:
+  `reports/agent-runs/2026-07-public-market-impl-v1/30-review-1-backend.md`
+
+  ```json
+  {
+    "schema_version": 1,
+    "stage_id": "2026-07-public-market-impl-v1",
+    "role": "first_reviewer",
+    "model": "kimi-2.7",
+    "verdict": "ACCEPT",
+    "diff_fingerprint": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "I am the Task B (frontend) implementer for this stage, but I had no involvement in Task A's direction synthesis, development breakdown, or design, and I did not write or fix any Task A code. Cross-review pool assigned Task A review-1 to Kimi because the implementer is claude_glm.",
+    "reviewed_artifacts": [
+      "reports/agent-runs/2026-07-public-market-impl-v1/00-task.md",
+      "reports/agent-runs/2026-07-public-market-impl-v1/10-design.md",
+      "reports/agent-runs/2026-07-public-market-impl-v1/11-adr.md",
+      "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-backend.md",
+      "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt",
+      "reports/agent-runs/2026-07-public-market-impl-v1/status.json",
+      "backend/config.py",
+      "backend/adapters/binance_public.py",
+      "backend/domain/classify.py",
+      "backend/domain/normalize.py",
+      "backend/domain/snapshot.py",
+      "backend/services/snapshot_service.py",
+      "backend/app/server.py",
+      "backend/tests/conftest.py",
+      "backend/tests/test_classify.py",
+      "backend/tests/test_normalize.py",
+      "backend/tests/test_snapshot.py",
+      "backend/tests/test_negative_schema.py",
+      "backend/tests/smoke_server.py",
+      "schemas/api/public-market/snapshot.schema.json",
+      "docs/api/public-market-contract.md",
+      "reports/api-samples/public-market-contract-v2/20260703T051738Z/normalized/public-market-snapshot.json",
+      "git diff --binary 32f6f0f7e7a2406cc01e5364ef3557dbfcd2155c..a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72 -- . ':(exclude)reports/agent-runs/2026-07-public-market-impl-v1/status.json'"
+    ],
+    "findings": [],
+    "required_fixes": [],
+    "residual_risks": [
+      "The live HTTP path is not exercised this stage; all tests and the smoke run offline against frozen fixtures. Live request counts and rate-limit headroom are design figures from public docs + top-N design, not measured.",
+      "The server smoke is single-process (background thread + same-process urllib) because the Harness sandbox blocks cross-process loopback TCP. It exercises the real handler and socket."
+    ],
+    "next_action": "continue"
+  }
+  ```
+
+To resume this session: kimi -r session_5d857687-aa8c-4fe4-94bd-2bd6757bd265
+KIMI_EXIT=0
