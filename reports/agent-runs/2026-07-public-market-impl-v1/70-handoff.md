@@ -1,12 +1,14 @@
 # Handoff: Public Market Implementation V1
 
-## Checkpoint: stage started, building evidence + dispatching tasks
+## Checkpoint: Task A (backend) implemented and committed (H_A)
 
-Status: `implementing`. Stage evidence is being committed as the task base
-(`H_intake`); Task B (frontend) is dispatched to Kimi; Task A (backend) is
-implemented by Claude-GLM (the controller). The controller does not declare
-final acceptance (`can_accept_final: false`); only schema-valid task-level
-review-1, stage-level review-2, and `pre-accept` advance the stage.
+Status: `implementing`. `H_intake` (stage evidence, task base) is committed
+(`32f6f0f`); Task A (backend snapshot service) is implemented, offline-tested,
+and committed as `H_A` (`a40b204`) with its task-level `diff_fingerprint`
+recorded in `status.json.tasks.A`. Task B (frontend) is in the worktree
+(Kimi-authored) and will be committed next as `H_B`. The controller does not
+declare final acceptance (`can_accept_final: false`); only schema-valid
+task-level review-1, stage-level review-2, and `pre-accept` advance the stage.
 
 Prerequisite stage `2026-07-public-market-contract-v2` is ACCEPT and frozen
 (head `a25e431`, `diff_fingerprint` `53484d21…`). The frozen contract doc, the
@@ -42,12 +44,15 @@ other task's files. The controller achieves this by committing in order:
 
 1. `H_intake` — stage evidence (intake, task, design, ADR, status, handoff,
    Task B dispatch prompt, the Fable5 breakdown). This is the task base.
+   **DONE: `32f6f0f`.**
 2. `H_A` — Task A: `backend/**` + `20-implementation-backend.md` +
-   `60-test-output.txt` (Task A pytest). Task A `base_sha=H_intake`,
-   `head_sha=H_A`.
+   `60-test-output.txt` (Task A pytest + smoke). Task A `base_sha=H_intake`,
+   `head_sha=H_A`. **DONE: `a40b204`; fingerprint
+   `a40b204…d72:5148a473…1e93`; tests pass (39 pytest + float audit + smoke).**
 3. `H_B` — Task B: `frontend/**` + `20-implementation-frontend.md`. Task B
    `base_sha=H_A`, `head_sha=H_B`. **Kimi writes frontend into the worktree and
    does NOT `git commit`; the controller commits Task B** so the order holds.
+   NEXT.
 4. `H_C` — Task C: integration evidence + final `status.json`/handoff update.
    Stage-level top-level `base_sha=H_intake`, `head_sha=H_C`.
 
@@ -80,6 +85,6 @@ transcript).
 - `status.json` is the authoritative machine state; this handoff is a human
   navigation aid.
 
-本地北京时间: 2026-07-03 20:36:32 CST
+本地北京时间: 2026-07-03 21:10:47 CST
 下一步模型: Claude-GLM (controller)
-下一步任务: Commit stage evidence (H_intake, the task base), dispatch Task B to Kimi, then implement Task A backend.
+下一步任务: Commit Task B frontend (H_B) 并运行 Task C 集成验证；随后派发任务级 review-1（Task A→Kimi，Task B→fresh read-only Claude-GLM）与阶段级 review-2（Codex）。Controller 不声明最终验收。

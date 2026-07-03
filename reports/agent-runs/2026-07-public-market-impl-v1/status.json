@@ -51,12 +51,15 @@
       "reviewer_1_planned": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer", "output": "30-review-1-backend.md"},
       "scope": ["backend/**", "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-backend.md"],
       "forbidden": ["frontend/**", "schemas/api/public-market/**", "docs/api/public-market-contract.md", "reports/api-samples/public-market-contract-v2/**", "docs/**", "agents/**", "workflows/**", "scripts/**"],
-      "status": "in_progress",
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "tests": {"status": "pending", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt"},
-      "review_1": null
+      "status": "implemented_pending_review_1",
+      "commit": "H_A",
+      "base_sha": "32f6f0f7e7a2406cc01e5364ef3557dbfcd2155c",
+      "head_sha": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72",
+      "diff_fingerprint": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93",
+      "diff_files_count": 21,
+      "diff_files_note": "19 backend/** files + 20-implementation-backend.md + 60-test-output.txt; status.json excluded from hash.",
+      "tests": {"status": "pass", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt", "detail": "39 pytest passed (offline frozen fixtures); float() audit clean; single-process http.server smoke OK (schema-valid snapshot 688 rows + index + fixture). Live HTTP path not exercised this stage."},
+      "review_1": {"status": "not_started", "owner": {"provider": "kimi", "model": "kimi-2.7"}, "output": "30-review-1-backend.md"}
     },
     "B": {
       "name": "Frontend market-table workstation",
@@ -137,6 +140,6 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "commit stage evidence (task base), dispatch Task B to Kimi, implement Task A backend",
-  "updated_at": "2026-07-03T12:36:32Z"
+  "next_action": "Task A committed (H_A a40b204) and recorded; awaiting task-level review-1 by Kimi. Next: commit Task B frontend (H_B; Kimi worktree already done), then integration Task C, then task-level review-1 (A->Kimi, B->fresh GLM) and stage review-2 (Codex).",
+  "updated_at": "2026-07-03T13:10:47Z"
 }
