@@ -1,0 +1,90 @@
+{
+  "_synthetic": "Offline synthetic spot fixture for the bStock B-suffix alias amendment stage (2026-07-public-market-bstock-alias-v1). NOT live data. TSLABUSDT/AAPLBUSDT are the B-suffix spot legs for futures TSLAUSDT/AAPLUSDT (isMarginTradingAllowed=true); BTCUSDT is the exact match for futures BTCUSDT. There is intentionally NO NVDABUSDT and NO NVDAUSDT so the NVDA futures row resolves no spot leg. Field shapes mirror the frozen curated spot sample.",
+  "timezone": "UTC",
+  "serverTime": 1783055489000,
+  "rateLimits": [],
+  "exchangeFilters": [],
+  "symbols": [
+    {
+      "symbol": "TSLABUSDT",
+      "status": "TRADING",
+      "baseAsset": "TSLAB",
+      "baseAssetPrecision": 8,
+      "quoteAsset": "USDT",
+      "quotePrecision": 8,
+      "quoteAssetPrecision": 8,
+      "baseCommissionPrecision": 8,
+      "quoteCommissionPrecision": 8,
+      "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET"],
+      "icebergAllowed": true,
+      "ocoAllowed": true,
+      "otoAllowed": true,
+      "opoAllowed": true,
+      "quoteOrderQtyMarketAllowed": true,
+      "allowTrailingStop": true,
+      "cancelReplaceAllowed": true,
+      "isSpotTradingAllowed": true,
+      "isMarginTradingAllowed": true,
+      "filters": [
+        {"filterType": "PRICE_FILTER", "minPrice": "0.01000000", "maxPrice": "1000000.00000000", "tickSize": "0.01000000"},
+        {"filterType": "LOT_SIZE", "minQty": "0.00010000", "maxQty": "9000.00000000", "stepSize": "0.00010000"},
+        {"filterType": "NOTIONAL", "minNotional": "5.00000000", "applyMinToMarket": false},
+        {"filterType": "ICEBERG_PARTS", "limit": 10}
+      ]
+    },
+    {
+      "symbol": "AAPLBUSDT",
+      "status": "TRADING",
+      "baseAsset": "AAPLB",
+      "baseAssetPrecision": 8,
+      "quoteAsset": "USDT",
+      "quotePrecision": 8,
+      "quoteAssetPrecision": 8,
+      "baseCommissionPrecision": 8,
+      "quoteCommissionPrecision": 8,
+      "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET"],
+      "icebergAllowed": true,
+      "ocoAllowed": true,
+      "otoAllowed": true,
+      "opoAllowed": true,
+      "quoteOrderQtyMarketAllowed": true,
+      "allowTrailingStop": true,
+      "cancelReplaceAllowed": true,
+      "isSpotTradingAllowed": true,
+      "isMarginTradingAllowed": true,
+      "filters": [
+        {"filterType": "PRICE_FILTER", "minPrice": "0.01000000", "maxPrice": "1000000.00000000", "tickSize": "0.01000000"},
+        {"filterType": "LOT_SIZE", "minQty": "0.01000000", "maxQty": "9000.00000000", "stepSize": "0.01000000"},
+        {"filterType": "NOTIONAL", "minNotional": "5.00000000", "applyMinToMarket": false},
+        {"filterType": "ICEBERG_PARTS", "limit": 10}
+      ]
+    },
+    {
+      "symbol": "BTCUSDT",
+      "status": "TRADING",
+      "baseAsset": "BTC",
+      "baseAssetPrecision": 8,
+      "quoteAsset": "USDT",
+      "quotePrecision": 8,
+      "quoteAssetPrecision": 8,
+      "baseCommissionPrecision": 8,
+      "quoteCommissionPrecision": 8,
+      "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET"],
+      "icebergAllowed": true,
+      "ocoAllowed": true,
+      "otoAllowed": true,
+      "opoAllowed": true,
+      "quoteOrderQtyMarketAllowed": true,
+      "allowTrailingStop": true,
+      "cancelReplaceAllowed": true,
+      "isSpotTradingAllowed": true,
+      "isMarginTradingAllowed": true,
+      "filters": [
+        {"filterType": "PRICE_FILTER", "minPrice": "0.01000000", "maxPrice": "1000000.00000000", "tickSize": "0.01000000"},
+        {"filterType": "LOT_SIZE", "minQty": "0.00001000", "maxQty": "9000.00000000", "stepSize": "0.00001000"},
+        {"filterType": "NOTIONAL", "minNotional": "5.00000000", "applyMinToMarket": false},
+        {"filterType": "ICEBERG_PARTS", "limit": 10}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "_synthetic": "Offline synthetic funding-rate history for TSLAUSDT; NOT live data. Decimal values serialized as strings straight from JSON.",
+    "symbol": "TSLAUSDT",
+    "fundingTime": 1782777600000,
+    "fundingRate": "0.00005000",
+    "markPrice": "248.00000000"
+  },
+  {
+    "symbol": "TSLAUSDT",
+    "fundingTime": 1782799200000,
+    "fundingRate": "0.00007000",
+    "markPrice": "249.00000000"
+  }
+]

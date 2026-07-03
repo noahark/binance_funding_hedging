@@ -217,6 +217,10 @@
             "exists": {
               "type": "boolean"
             },
+            "match_type": {
+              "type": ["string", "null"],
+              "enum": ["exact_symbol", "bstock_b_suffix_alias", null]
+            },
             "min_notional": {
               "anyOf": [
                 {

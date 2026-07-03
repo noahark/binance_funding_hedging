@@ -10,14 +10,14 @@ from decimal import Decimal, InvalidOperation
 from typing import Dict, List
 
 from .classify import classify_route, negative_funding_status
-from .normalize import asset_tag_for, filter_of
+from .normalize import asset_tag_for, filter_of, resolve_spot_leg
 
 SCHEMA_VERSION = "public-market-snapshot/v1"
 
 CONTRACT_WARNINGS = [
     "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
     "premiumIndex.lastFundingRate is documented by Binance as the most recently updated funding rate; whether it equals the last settled rate or a forward estimate is not proven from local docs, so do not label it as a guaranteed settled or upcoming value.",
-    "All 118 observed TRADIFI_PERPETUAL symbols have no spot leg, so they are PERP_ONLY_EXCLUDED with asset_tag=BSTOCK; asset_tag is independent of route_class.",
+    "TRADIFI_PERPETUAL (bStock) spot legs are joined via the baseAsset+B+quoteAsset alias (e.g. futures TSLAUSDT -> spot TSLABUSDT); bStock collateral ratio is dynamic/unknown and is not hard-coded; asset_tag is independent of route_class.",
 ]
 
 
@@ -66,7 +66,9 @@ def build_rows(
         sym = obj["symbol"]
         contract_type = obj.get("contractType", "")
         asset_tag, asset_src, asset_conf = asset_tag_for(contract_type)
-        spot = spot_by_sym.get(sym)
+        spot, match_type = resolve_spot_leg(
+            contract_type, obj.get("baseAsset", ""), "USDT", spot_by_sym
+        )
         spot_margin = bool(spot and spot.get("isMarginTradingAllowed"))
         route = classify_route(
             contract_type, spot.get("symbol") if spot else None, spot_margin
@@ -117,6 +119,7 @@ def build_rows(
                     "symbol": spot["symbol"] if spot else None,
                     "status": spot["status"] if spot else None,
                     "exists": spot is not None,
+                    "match_type": match_type,
                     "min_notional": filter_of(spot, "NOTIONAL", "minNotional")
                     if spot
                     else None,

@@ -84,24 +84,39 @@ bStock / TRADIFI: `contractType == "TRADIFI_PERPETUAL"` maps to
 `asset_tag = "BSTOCK"`. `contractType == "PERPETUAL"` maps to `CRYPTO`.
 `asset_tag` is independent of `route_class`.
 
-Post-review amendment required (2026-07-03): Binance added 15 bStocks assets as
-Margin collateral and opened corresponding bStocks margin pairs. The TRADIFI
-futures symbols use the underlying equity symbol (`TSLAUSDT`, `MSTRUSDT`,
-`NVDAUSDT`), while spot/margin bStocks symbols add a `B` suffix (`TSLABUSDT`,
-`MSTRBUSDT`, `NVDABUSDT`). Therefore the route rule cannot rely only on exact
-futures/spot symbol equality. The next contract revision must define a bStock
-spot-leg alias rule:
+Frozen amendment (2026-07-03, stage `2026-07-public-market-bstock-alias-v1`):
+Binance added bStocks assets as Margin collateral and opened corresponding
+bStocks spot/margin pairs. The TRADIFI futures symbols use the underlying equity
+symbol (`TSLAUSDT`, `MSTRUSDT`, `NVDAUSDT`), while the spot/margin bStocks
+symbols add a `B` suffix (`TSLABUSDT`, `MSTRBUSDT`, `NVDABUSDT`). The route rule
+therefore cannot rely only on exact futures/spot symbol equality. The frozen
+spot-leg resolution rule is implemented in
+`backend/domain/normalize.py:resolve_spot_leg`:
 
-- normal crypto: join by exact symbol (`BTCUSDT` -> `BTCUSDT`);
-- `TRADIFI_PERPETUAL` / `BSTOCK`: first try
-  `futures.baseAsset + "B" + futures.quoteAsset`
-  (`TSLAUSDT` -> `TSLABUSDT`);
-- if the alias spot pair exists and public `isMarginTradingAllowed=true`, mark
-  the row as a positive-funding candidate while preserving `asset_tag=BSTOCK`;
-- negative-funding execution remains disabled for bStocks because Binance states
-  borrowing is not currently supported;
-- the API should expose the actual spot leg symbol and a machine-visible match
-  source, for example `spot.match_type = "bstock_b_suffix_alias"`.
+1. normal crypto: join by exact symbol (`BTCUSDT` -> `BTCUSDT`) ->
+   `spot.match_type = "exact_symbol"`;
+2. `TRADIFI_PERPETUAL` / `BSTOCK`: first try exact, then try the alias
+   `futures.baseAsset + "B" + futures.quoteAsset` (`TSLAUSDT` -> `TSLABUSDT`);
+   on alias hit `spot.match_type = "bstock_b_suffix_alias"`. The alias fires ONLY
+   for `TRADIFI_PERPETUAL`, so normal crypto exact matching is never polluted;
+3. no spot leg found -> `spot.exists = false`, `spot.match_type = null`, route
+   `PERP_ONLY_EXCLUDED`.
+
+Consequences (driven entirely by the existing classifier, unchanged this stage):
+
+- if the alias spot pair exists and public `isMarginTradingAllowed=true`, the row
+  becomes `MARGIN_SPOT_CANDIDATE` with `positive_funding_enabled=true`, while
+  `asset_tag` stays `BSTOCK`;
+- bStock negative-funding execution remains disabled: the existing
+  `negative_funding_status` priority ranks `asset_tag=BSTOCK` ahead of the
+  candidate route, so a bStock row resolves to `DISABLED_BSTOCK` (Binance states
+  borrowing is not currently supported for bStocks) even though its candidate
+  route is open;
+- the bStock collateral ratio is dynamic/unknown in Phase 1; no ratio is
+  hard-coded and `margin_public.source` stays `"unverified"`.
+
+The actual spot leg symbol and machine-visible match source are exposed as
+`spot.symbol` and `spot.match_type` (see Enums).
 
 Spot min notional: all 3625 observed spot symbols use the new `NOTIONAL` filter
 (`minNotional` key); the legacy `MIN_NOTIONAL` filter is 0 observed. The backend
@@ -184,6 +199,7 @@ Each `rows[]` item must include:
     "symbol": "BTCUSDT",
     "status": "TRADING",
     "exists": true,
+    "match_type": "exact_symbol",
     "min_notional": "0",
     "step_size": "0"
   },
@@ -230,6 +246,14 @@ Priority for `negative_funding_status`:
 3. `SPOT_ONLY_CANDIDATE` -> `DISABLED_SPOT_ONLY`
 4. `MARGIN_SPOT_CANDIDATE` -> `PRIVATE_BORROW_VALIDATION_REQUIRED`
 
+This priority is unchanged by the bStock alias amendment; BSTOCK stays in
+position 2, so a bStock candidate row still resolves to `DISABLED_BSTOCK`.
+
+`spot.match_type` (nullable; `null` when `spot.exists = false`):
+
+- `exact_symbol`
+- `bstock_b_suffix_alias`
+
 ## Frontend Integration Rules
 
 - Kimi must consume only `GET /api/public-market/snapshot` or matching fixture
@@ -257,8 +281,12 @@ Resolution status as of 2026-07-03 (see "Verified Findings" and
 - PARTIALLY RESOLVED: `nextFundingTime` is clear. `lastFundingRate` is
   "most recently updated funding rate" and its settled-vs-estimate meaning is
   `ambiguous`; it is not labeled as settled funding.
-- RESOLVED: all observed `TRADIFI_PERPETUAL` symbols are tagged `BSTOCK`; no
-  narrower rule is needed.
+- RESOLVED (amended 2026-07-03, stage `2026-07-public-market-bstock-alias-v1`):
+  `TRADIFI_PERPETUAL` symbols are tagged `BSTOCK`, and their spot legs are joined
+  via the `baseAsset + "B" + quoteAsset` alias. The positive-funding candidate
+  route is open when the alias spot pair has `isMarginTradingAllowed=true`;
+  bStock negative funding stays `DISABLED_BSTOCK`. The bStock collateral ratio
+  remains dynamic/unknown (not hard-coded).
 
 Remaining (non-blocking, later phase):
 

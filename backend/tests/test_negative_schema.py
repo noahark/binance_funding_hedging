@@ -35,6 +35,7 @@ BASE_ROW = {
         "symbol": "BTCUSDT",
         "status": "TRADING",
         "exists": True,
+        "match_type": "exact_symbol",
         "min_notional": "5",
         "step_size": "0.001",
     },
@@ -114,3 +115,17 @@ def test_reject_missing_required_field(schema):
 
 def test_reject_extra_property(schema):
     _expect_rejected(schema, lambda r: r["futures"].__setitem__("unexpected", "x"))
+
+
+def test_reject_invalid_match_type(schema):
+    _expect_rejected(schema, lambda r: r["spot"].__setitem__("match_type", "whatever"))
+
+
+def test_match_type_null_is_valid(schema):
+    # match_type is nullable: a row with no spot leg legitimately carries null.
+    row = copy.deepcopy(BASE_ROW)
+    row["spot"]["exists"] = False
+    row["spot"]["symbol"] = None
+    row["spot"]["status"] = None
+    row["spot"]["match_type"] = None
+    jsonschema.validate(_snapshot_with(row), schema)  # must NOT raise

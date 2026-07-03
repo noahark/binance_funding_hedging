@@ -1,0 +1,90 @@
+# Test Output — Stage 2026-07-public-market-bstock-alias-v1
+
+Raw, replayable command output. Section 1-3 = Task A (backend); Section 4 =
+Task C (integration, appended later by the controller).
+
+Reproduce: `.venv/bin/python -m pytest backend/tests -q` from repo root.
+
+================================================================
+## Section 1 — full backend suite (Task A)
+================================================================
+
+Command: .venv/bin/python -m pytest backend/tests -q
+
+$PY -m pytest backend/tests -q
+....................................................                     [100%]
+52 passed in 0.79s
+
+================================================================
+## Section 2 — focused: normalize + snapshot + negative_schema (Task A)
+================================================================
+
+Command: .venv/bin/python -m pytest backend/tests/test_normalize.py backend/tests/test_snapshot.py backend/tests/test_negative_schema.py -v
+
+backend/tests/test_normalize.py::test_asset_tag_tradifi_maps_to_bstock PASSED [  2%]
+backend/tests/test_normalize.py::test_asset_tag_perpetual_maps_to_crypto PASSED [  4%]
+backend/tests/test_normalize.py::test_asset_tag_unmapped_is_unknown PASSED [  6%]
+backend/tests/test_normalize.py::test_filter_of_futures_min_notional_and_lot_size PASSED [  9%]
+backend/tests/test_normalize.py::test_filter_of_spot_notional_filter PASSED [ 11%]
+backend/tests/test_normalize.py::test_filter_of_missing_or_none PASSED   [ 13%]
+backend/tests/test_normalize.py::test_iso_from_ms_matches_frozen_data_time PASSED [ 16%]
+backend/tests/test_normalize.py::test_iso_from_ms_ignores_subsecond_part PASSED [ 18%]
+backend/tests/test_normalize.py::test_resolve_spot_leg_exact_symbol PASSED [ 20%]
+backend/tests/test_normalize.py::test_resolve_spot_leg_bstock_alias_for_tradifi PASSED [ 23%]
+backend/tests/test_normalize.py::test_resolve_spot_leg_alias_not_triggered_for_perpetual PASSED [ 25%]
+backend/tests/test_normalize.py::test_resolve_spot_leg_none_when_no_spot PASSED [ 27%]
+backend/tests/test_normalize.py::test_resolve_spot_leg_exact_beats_alias_for_tradifi PASSED [ 30%]
+backend/tests/test_snapshot.py::test_offline_snapshot_validates PASSED   [ 32%]
+backend/tests/test_snapshot.py::test_classification_matches_frozen_six PASSED [ 34%]
+backend/tests/test_snapshot.py::test_summary_aggregates_from_rows PASSED [ 37%]
+backend/tests/test_snapshot.py::test_three_contract_warnings_preserved PASSED [ 39%]
+backend/tests/test_snapshot.py::test_btcusdt_top_symbol_has_funding_history PASSED [ 41%]
+backend/tests/test_snapshot.py::test_only_fixture_symbols_have_funding_history PASSED [ 44%]
+backend/tests/test_snapshot.py::test_top_symbols_by_abs_rate_ranks_and_caps PASSED [ 46%]
+backend/tests/test_snapshot.py::test_decimal_fields_are_strings_not_floats PASSED [ 48%]
+backend/tests/test_snapshot.py::test_no_non_trading_or_non_perpetual_leakage PASSED [ 51%]
+backend/tests/test_snapshot.py::test_get_snapshot_is_schema_valid_and_cached PASSED [ 53%]
+backend/tests/test_snapshot.py::test_data_time_matches_frozen_sample PASSED [ 55%]
+backend/tests/test_snapshot.py::test_bstock_alias_classification PASSED  [ 58%]
+backend/tests/test_snapshot.py::test_bstock_negative_rate_still_disabled PASSED [ 60%]
+backend/tests/test_snapshot.py::test_crypto_exact_match_not_aliased PASSED [ 62%]
+backend/tests/test_snapshot.py::test_bstock_no_spot_match_type_null PASSED [ 65%]
+backend/tests/test_snapshot.py::test_bstock_alias_snapshot_validates PASSED [ 67%]
+backend/tests/test_snapshot.py::test_bstock_alias_has_funding_history PASSED [ 69%]
+backend/tests/test_negative_schema.py::test_base_row_is_valid PASSED     [ 72%]
+backend/tests/test_negative_schema.py::test_reject_wrong_quote_asset PASSED [ 74%]
+backend/tests/test_negative_schema.py::test_reject_invalid_asset_tag PASSED [ 76%]
+backend/tests/test_negative_schema.py::test_reject_invalid_route_class PASSED [ 79%]
+backend/tests/test_negative_schema.py::test_reject_invalid_negative_status PASSED [ 81%]
+backend/tests/test_negative_schema.py::test_reject_float_mark_price PASSED [ 83%]
+backend/tests/test_negative_schema.py::test_reject_float_funding_rate PASSED [ 86%]
+backend/tests/test_negative_schema.py::test_reject_non_numeric_decimal_string PASSED [ 88%]
+backend/tests/test_negative_schema.py::test_reject_negative_next_funding_time PASSED [ 90%]
+backend/tests/test_negative_schema.py::test_reject_missing_required_field PASSED [ 93%]
+backend/tests/test_negative_schema.py::test_reject_extra_property PASSED [ 95%]
+backend/tests/test_negative_schema.py::test_reject_invalid_match_type PASSED [ 97%]
+backend/tests/test_negative_schema.py::test_match_type_null_is_valid PASSED [100%]
+
+============================== 43 passed in 0.77s ==============================
+
+================================================================
+## Section 3 — float() audit + smoke (Task A)
+================================================================
+
+Command: grep -RnE '\bfloat\(' backend --include='*.py'
+CLEAN  (no float() anywhere in backend)
+
+Command: .venv/bin/python backend/tests/smoke_server.py
+GET /api/public-market/snapshot -> HTTP 200, schema-valid
+  rows=688 warnings=3 total_rows=688
+  data_time=2026-07-03T05:11:29Z generated_at=2026-07-03T05:17:38Z source_sample_id=20260703T051738Z
+GET / -> HTTP 200, frontend index.html bytes=27982
+GET /fixture/public-market-snapshot.json -> HTTP 200, bytes=8900
+SMOKE OK
+
+================================================================
+## Section 4 — integration verification (Task C, appended later)
+================================================================
+
+(pending Task C: offline synthetic-fixture run through GET /api/public-market/snapshot
++ jsonschema validation of the bStock alias row.)

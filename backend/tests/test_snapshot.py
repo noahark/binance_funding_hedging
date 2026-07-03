@@ -164,3 +164,81 @@ def test_get_snapshot_is_schema_valid_and_cached(schema):
 def test_data_time_matches_frozen_sample(raw_inputs, frozen_normalized):
     snap = SnapshotService(Config(offline=True)).build_snapshot()
     assert snap["data_time"] == frozen_normalized["data_time"]
+
+
+# --- bStock B-suffix alias amendment (2026-07-public-market-bstock-alias-v1) ---
+# These tests run against the synthetic bstock-alias-raw fixture: the frozen
+# curated spot set has no bStock, so the alias join is only exercised here.
+
+
+def test_bstock_alias_classification(bstock_raw_inputs):
+    rows, _ = _build_snapshot(bstock_raw_inputs)
+    by_sym = {r["symbol"]: r for r in rows}
+    tsla = by_sym["TSLAUSDT"]
+    # Alias-joined spot leg -> candidate route; BSTOCK still disables negative.
+    assert tsla["route_class"] == "MARGIN_SPOT_CANDIDATE"
+    assert tsla["asset_tag"] == "BSTOCK"
+    assert tsla["positive_funding_enabled"] is True
+    assert tsla["negative_funding_status"] == "DISABLED_BSTOCK"
+    assert tsla["spot"]["symbol"] == "TSLABUSDT"
+    assert tsla["spot"]["match_type"] == "bstock_b_suffix_alias"
+    assert tsla["spot"]["exists"] is True
+
+
+def test_bstock_negative_rate_still_disabled(bstock_raw_inputs):
+    # A bStock with a margin spot leg but a negative funding rate keeps
+    # negative_funding_status=DISABLED_BSTOCK (cannot borrow/short a bStock),
+    # while the candidate route itself stays open (positive_funding_enabled True).
+    rows, _ = _build_snapshot(bstock_raw_inputs)
+    by_sym = {r["symbol"]: r for r in rows}
+    aapl = by_sym["AAPLUSDT"]
+    assert aapl["route_class"] == "MARGIN_SPOT_CANDIDATE"
+    assert aapl["negative_funding_status"] == "DISABLED_BSTOCK"
+    assert aapl["positive_funding_enabled"] is True
+    assert aapl["spot"]["symbol"] == "AAPLBUSDT"
+    assert aapl["spot"]["match_type"] == "bstock_b_suffix_alias"
+
+
+def test_crypto_exact_match_not_aliased(bstock_raw_inputs):
+    # Normal crypto must use exact_symbol; the alias never fires for PERPETUAL.
+    rows, _ = _build_snapshot(bstock_raw_inputs)
+    by_sym = {r["symbol"]: r for r in rows}
+    btc = by_sym["BTCUSDT"]
+    assert btc["route_class"] == "MARGIN_SPOT_CANDIDATE"
+    assert btc["asset_tag"] == "CRYPTO"
+    assert btc["spot"]["symbol"] == "BTCUSDT"
+    assert btc["spot"]["match_type"] == "exact_symbol"
+
+
+def test_bstock_no_spot_match_type_null(bstock_raw_inputs):
+    # A TRADIFI futures symbol with neither exact nor B-suffix spot -> no leg.
+    rows, _ = _build_snapshot(bstock_raw_inputs)
+    by_sym = {r["symbol"]: r for r in rows}
+    nvda = by_sym["NVDAUSDT"]
+    assert nvda["route_class"] == "PERP_ONLY_EXCLUDED"
+    assert nvda["spot"]["exists"] is False
+    assert nvda["spot"]["symbol"] is None
+    assert nvda["spot"]["match_type"] is None
+    assert nvda["negative_funding_status"] == "DISABLED_PERP_ONLY"
+
+
+def test_bstock_alias_snapshot_validates(schema, bstock_raw_inputs):
+    rows, data_time = _build_snapshot(bstock_raw_inputs)
+    from backend.domain.snapshot import assemble_snapshot
+
+    snap = assemble_snapshot(
+        rows,
+        generated_at="2026-07-03T05:17:38Z",
+        data_time=data_time,
+        source_sample_id="bstock-alias-synthetic",
+    )
+    jsonschema.validate(snap, schema)
+
+
+def test_bstock_alias_has_funding_history(bstock_raw_inputs):
+    rows, _ = _build_snapshot(bstock_raw_inputs)
+    by_sym = {r["symbol"]: r for r in rows}
+    tsla = by_sym["TSLAUSDT"]
+    assert len(tsla["funding_history"]) == 2
+    assert all(isinstance(e["funding_rate"], str) for e in tsla["funding_history"])
+    assert all(isinstance(e["funding_time"], int) for e in tsla["funding_history"])

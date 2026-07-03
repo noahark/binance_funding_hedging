@@ -21,6 +21,10 @@ FROZEN_SAMPLE = (
     REPO_ROOT
     / "reports/api-samples/public-market-contract-v2/20260703T051738Z/normalized/public-market-snapshot.json"
 )
+# Synthetic offline fixture for the bStock B-suffix alias amendment
+# (2026-07-public-market-bstock-alias-v1). The frozen curated spot fixture has
+# no bStock, so this synthetic set exercises the alias join without live HTTP.
+BSTOCK_RAW_DIR = REPO_ROOT / "backend/tests/fixtures/bstock-alias-raw"
 _FUNDING_RATE_RE = re.compile(r"fapi-v1-fundingRate-(.+)-limit\d+\.json$")
 
 
@@ -56,3 +60,28 @@ def raw_inputs() -> dict:
 @pytest.fixture(scope="session")
 def frozen_normalized() -> dict:
     return json.loads(FROZEN_SAMPLE.read_text())
+
+
+@pytest.fixture(scope="session")
+def bstock_raw_inputs() -> dict:
+    """Synthetic offline raw inputs for the bStock B-suffix alias amendment.
+
+    Same shape as :func:`raw_inputs` but reading the synthetic
+    ``bstock-alias-raw`` fixture (no bStock exists in the frozen curated set).
+    Still offline; no network.
+    """
+    def load(name: str):
+        return json.loads((BSTOCK_RAW_DIR / name).read_text())
+
+    funding = {}
+    for path in sorted(BSTOCK_RAW_DIR.glob("fapi-v1-fundingRate-*-limit*.json")):
+        match = _FUNDING_RATE_RE.search(path.name)
+        if match:
+            funding[match.group(1)] = json.loads(path.read_text())
+
+    return {
+        "futures": load("fapi-v1-exchangeInfo.json"),
+        "premium": load("fapi-v1-premiumIndex.json"),
+        "spot": load("api-v3-exchangeInfo.json"),
+        "funding": funding,
+    }

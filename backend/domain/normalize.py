@@ -43,3 +43,37 @@ def iso_from_ms(ms_epoch: int) -> str:
     return datetime.fromtimestamp(seconds, tz=timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
+
+
+def resolve_spot_leg(
+    contract_type: str,
+    base_asset: str,
+    quote_asset: str,
+    spot_by_sym: dict,
+) -> tuple:
+    """Resolve the public spot leg for a futures symbol.
+
+    Returns ``(spot_obj|None, match_type|None)``:
+
+    1. ``exact_symbol`` — ``spot_by_sym[base_asset + quote_asset]`` (normal
+       crypto; futures symbol equals spot symbol).
+    2. ``bstock_b_suffix_alias`` — only when ``contract_type ==
+       "TRADIFI_PERPETUAL"``: ``spot_by_sym[base_asset + "B" + quote_asset]``.
+       Binance bStocks use a "B"-suffixed spot/margin symbol, e.g. futures
+       ``TSLAUSDT`` -> spot ``TSLABUSDT``.
+    3. ``(None, None)`` — no public spot leg.
+
+    The alias is gated on ``TRADIFI_PERPETUAL`` so normal crypto exact-symbol
+    matching is never polluted. ``asset_tag_for`` already marks TRADIFI as
+    ``BSTOCK``; the existing ``negative_funding_status`` priority then yields
+    ``DISABLED_BSTOCK`` for a bStock even when its route is
+    ``MARGIN_SPOT_CANDIDATE`` — no classifier change is needed.
+    """
+    exact = spot_by_sym.get(base_asset + quote_asset)
+    if exact is not None:
+        return exact, "exact_symbol"
+    if contract_type == "TRADIFI_PERPETUAL":
+        alias = spot_by_sym.get(base_asset + "B" + quote_asset)
+        if alias is not None:
+            return alias, "bstock_b_suffix_alias"
+    return None, None
