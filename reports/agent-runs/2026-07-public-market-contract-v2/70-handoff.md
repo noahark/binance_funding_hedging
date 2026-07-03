@@ -2,17 +2,17 @@
 
 ## Checkpoint: contract discovery frozen for review_1
 
-Status: `fixing`. Implementer: Claude-GLM (`glm-5.2[1m]`).
+Status: `review_1`. Implementer: Claude-GLM (`glm-5.2[1m]`).
 Current review-1 reviewer: Kimi (`kimi-2.7`) under the Kimi/Claude-GLM
 cross-review policy.
 
 Branch: `main` (local only, not pushed; `ahead of origin/main`). Review baseline:
 
 - `base_sha`: `2bb47ad13065827ed1ee91d5d0e231cd312fdc0a`
-- `head_sha`: `1943e8b55c1cfdba018e8eae07428861e444e016` (commit
-  `Freeze public market contract discovery`)
+- `head_sha`: `d73eb10187f34696aec4aea8f596c0d3578a1dcf` (commit
+  `Fix contract evidence fingerprint note`)
 - `diff_fingerprint`:
-  `1943e8b55c1cfdba018e8eae07428861e444e016:e0ae8c5cc404b0b0ebe45c8f637b6c30689337572a7248e9816181e34301311d`
+  `d73eb10187f34696aec4aea8f596c0d3578a1dcf:de0c199bd7b9121ec2539c6a891f3167043bc1f4412704c3276fe6171b3fdd46`
 
 The contract discovery products are committed locally as the review baseline;
 `head_sha` is the reviewed subject commit. Later Harness commits may advance the
@@ -31,7 +31,7 @@ diff_fingerprint = head_sha + ":" + sha256(git diff --binary <base_sha>..<head_s
 Reproduce the hash with:
 
 ```text
-git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..1943e8b55c1cfdba018e8eae07428861e444e016 -- . ":(exclude)reports/agent-runs/2026-07-public-market-contract-v2/status.json" | shasum -a 256
+git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..d73eb10187f34696aec4aea8f596c0d3578a1dcf -- . ":(exclude)reports/agent-runs/2026-07-public-market-contract-v2/status.json" | shasum -a 256
 ```
 
 Produced artifacts (review inputs):
@@ -92,9 +92,16 @@ Kimi review-1 completed with a schema-valid `REWORK` verdict. It found one P1:
 fingerprint protocol (`HEAD == base`, working-tree hash, untracked files). The
 contract artifacts themselves were otherwise judged materially sound.
 
-Next action: `fix_review_1_findings`. Fix only the stale evidence-integrity note
-in `20-implementation.md`, then return to Kimi review-1. Backend implementation
-stays gated; Kimi frontend work stays gated until the contract is accepted.
+### Fix result
+
+The P1 was fixed in `20-implementation.md` and mapped in `40-fix-report.md`.
+The evidence note now points reviewers to the committed subject range recorded in
+`status.json` / this handoff and no longer describes `HEAD == base`, worktree
+fingerprints, or untracked-file hashing.
+
+Next action: `route_to_review_1_kimi_recheck`. Ask Kimi to re-run review-1
+against the updated fingerprint above. Backend implementation stays gated; Kimi
+frontend work stays gated until the contract is accepted.
 
 ## Claude-GLM Backend Contract Prompt
 
@@ -111,7 +118,7 @@ Actual review base:
 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a
 
 All implementation/review diffs for this contract discovery task must use:
-git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..1943e8b55c1cfdba018e8eae07428861e444e016 -- . ":(exclude)reports/agent-runs/2026-07-public-market-contract-v2/status.json"
+git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..d73eb10187f34696aec4aea8f596c0d3578a1dcf -- . ":(exclude)reports/agent-runs/2026-07-public-market-contract-v2/status.json"
 
 Read:
 - AGENTS.md
