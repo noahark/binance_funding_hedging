@@ -1,4 +1,4 @@
-# Handoff (FINAL — stage accepted, awaiting user)
+# Handoff (FINAL — stage accepted + committed; awaiting next direction round)
 
 Stage ID: `2026-07-public-market-discovery`
 
@@ -6,19 +6,23 @@ Stage ID: `2026-07-public-market-discovery`
 
 - Stage: `2026-07-public-market-discovery`
 - Status: **`stage_accepted_waiting_user`** — review-2 (mandatory provider-level isolation
-  gate) returned ACCEPT. Implementation is complete and controller-verified but UNCOMMITTED.
+  gate) returned ACCEPT. Implementation is complete, controller-verified, and **COMMITTED**
+  (`c53664e` on `main`, per explicit user approval).
 - Branch: `main`
-- HEAD: `d8e12dd6ce3b5dc9e63a6d81176da5f5ce0704eb` (== base; implementation UNCOMMITTED)
-- Working tree: `backend/**`, `pyproject.toml`, `reports/api-samples/**`, stage artifacts
-  untracked/intent-to-add; `prototypes/fake-ui/index.html` modified. No harness/docs files
-  touched.
+- HEAD: `c53664e722f534fbff5a427df3c1e6f2e785953e` (base `d8e12dd6…`; implementation committed)
+- Working tree: clean. Committed in `c53664e` (50 files): `backend/**`, `pyproject.toml`,
+  `prototypes/fake-ui/index.html`, `reports/api-samples/**` (incl. the ~1.15M-line
+  `spot_exchange_info.json`), and this stage's report set. No harness/docs files touched.
+  `raw-transcripts/` remain local (gitignored).
 
-## Diff Fingerprint (current, post-fix #2)
+## Diff Fingerprint (committed)
 
-- `d8e12dd6ce3b5dc9e63a6d81176da5f5ce0704eb:46ea7835bc4b88e92f514ca733c82b66e612faaafb9a591053da613ef6d1d8ac`
-- History: pre-fix `…:7e089ca5…` → post-fix #1 `…:9db37ac5…` → post-fix #2 `…:46ea7835…`.
-- Computed over working-tree diff vs base via `git add -N` (no commit made; AGENTS commit
-  policy — commit only when the user asks). Code-only diff: `raw-transcripts/impl-code.diff`.
+- Implementation scope (backend, pyproject.toml, fake-ui, api-samples), `base..HEAD`:
+  `46ea7835bc4b88e92f514ca733c82b66e612faaafb9a591053da613ef6d1d8ac` — **byte-identical**
+  to the review-2 round-2 ACCEPT diff (controller re-verified post-commit over `c53664e`).
+- Full `base..HEAD` (impl + stage reports): `83bd9c02724e81122b2c92ed6105c3c9546ac79382b2a39dbdf3cd5e2a2782e8`.
+- History: pre-fix `…:7e089ca5…` → post-fix #1 `…:9db37ac5…` → post-fix #2 `…:46ea7835…` (committed).
+- Code-only diff captured at review time: `raw-transcripts/impl-code.diff` (local, gitignored).
 
 ## Loop Summary (converged in 2 rework rounds; max 3)
 
@@ -58,17 +62,14 @@ rework_count: 2 of 3.
 
 ## Open Items for the User
 
-1. **Commit approval + strategy.** Implementation is uncommitted. The live capture at
-   `reports/api-samples/public-market/20260702T163929Z/spot_exchange_info.json` is ~1.15M
-   lines — decide whether to commit it whole, trim it, or `.gitignore` the live captures
-   (keep the small `sample-index.json`). Controller will not commit without explicit
-   instruction.
+1. **Commit.** ✅ Done — `c53664e` on `main`, per explicit user approval ("全部提交"). The
+   full live capture (incl. the ~1.15M-line `spot_exchange_info.json`) was committed whole.
 2. **Next direction round.** This stage is the first implementation loop (public market
    discovery). The next multi-model direction round is started by the user.
 
 ## Blockers
 
-- None. Stage is acceptance-ready pending user commit decision.
+- None. Stage accepted, verified, and committed.
 
 ## Identity Chain (anti-self-review)
 

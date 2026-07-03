@@ -37,9 +37,20 @@
     "fallback_provider": "claude"
   },
   "base_sha": "d8e12dd6ce3b5dc9e63a6d81176da5f5ce0704eb",
-  "head_sha": "d8e12dd6ce3b5dc9e63a6d81176da5f5ce0704eb",
+  "head_sha": "c53664e722f534fbff5a427df3c1e6f2e785953e",
   "diff_fingerprint": "d8e12dd6ce3b5dc9e63a6d81176da5f5ce0704eb:46ea7835bc4b88e92f514ca733c82b66e612faaafb9a591053da613ef6d1d8ac",
-  "diff_fingerprint_note": "POST-FIX #2 fingerprint. uncommitted; over working-tree diff vs base via git add -N (no commit made, per AGENTS commit policy). base==HEAD until user approves commit. History: pre-fix 7e089ca5 -> post-fix1 9db37ac5 -> post-fix2 46ea7835.",
+  "diff_fingerprint_note": "Implementation scope (backend, pyproject.toml, fake-ui, api-samples) fingerprints to 46ea7835... over base..HEAD — byte-identical to the review-2 round-2 ACCEPT diff (controller-verified post-commit over c53664e). Full base..HEAD diff (impl + stage reports) is 83bd9c02.... History: pre-fix 7e089ca5 -> post-fix1 9db37ac5 -> post-fix2 46ea7835 (committed).",
+  "commit": {
+    "sha": "c53664e722f534fbff5a427df3c1e6f2e785953e",
+    "branch": "main",
+    "base_sha": "d8e12dd6ce3b5dc9e63a6d81176da5f5ce0704eb",
+    "impl_fingerprint": "46ea7835bc4b88e92f514ca733c82b66e612faaafb9a591053da613ef6d1d8ac",
+    "full_tree_fingerprint": "83bd9c02724e81122b2c92ed6105c3c9546ac79382b2a39dbdf3cd5e2a2782e8",
+    "files": 50,
+    "approved_by_user": "全部提交 (commit all, incl. ~1.15M-line spot_exchange_info.json)",
+    "committed_at": "2026-07-03T02:18:47Z",
+    "policy": "AGENTS commit policy — committed only after explicit user approval"
+  },
   "changed_files": [
     "backend/**",
     "pyproject.toml",
@@ -169,6 +180,6 @@
   "rework_count": 2,
   "max_rework": 3,
   "blockers": [],
-  "next_action": "STAGE ACCEPTED (review-2 ACCEPT, round 2). Terminal state stage_accepted_waiting_user: implementation complete + controller-verified (34 tests, both P1s fixed, hard constraints clean) but UNCOMMITTED. STOP and wait for user: (a) commit approval + strategy for the large live spot_exchange_info.json (~1.15M lines), and (b) start of the next multi-model direction round. Controller does NOT self-declare final acceptance or commit without the user.",
-  "updated_at": "2026-07-02T18:26:34Z"
+  "next_action": "STAGE ACCEPTED + COMMITTED (review-2 ACCEPT, round 2; commit c53664e on main). Implementation controller-verified (34 tests, both P1s fixed, hard constraints clean) and committed per explicit user approval (\"全部提交\", incl. the ~1.15M-line spot_exchange_info.json). Committed implementation is byte-identical to the reviewed ACCEPT diff (impl fingerprint 46ea7835). STOP and wait for user to start the next multi-model direction round. Controller does NOT self-declare the next stage or begin it without the user.",
+  "updated_at": "2026-07-03T02:18:47Z"
 }
