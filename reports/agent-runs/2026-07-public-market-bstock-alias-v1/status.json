@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-bstock-alias-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stage_id": "2026-07-public-market-impl-v1",
@@ -237,12 +237,35 @@
     "next_action": "stage_review_2",
     "summary_file": "30-review-1.md"
   },
+  "review_2": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "0842820ff21d30f563d25a3ff914cd705e6d9002:24ce862a277987871fadbeb7e46ee3e59db923904ff28468ac84482ac48fb9ac",
+    "status": "stage_accepted_waiting_user",
+    "role": "final_reviewer",
+    "provider": "codex", "model": "gpt5.5", "effort": "xhigh",
+    "sandbox": "read-only",
+    "output": "50-review-2.md",
+    "raw_output": "review-2-codex.raw-output.txt",
+    "dispatch_prompt": "review-2-codex.prompt.md",
+    "reviewed_at": "2026-07-03T16:29:01Z",
+    "reviewer_prior_involvement": "direction_synthesis",
+    "override": "strong_reviewer_disclosure",
+    "fingerprint_matches": true,
+    "findings": 0,
+    "required_fixes": 0,
+    "schema_validation": "Controller post-hoc jsonschema validation of the verdict block -> VALID. codex --output-schema was unusable on this route: the OpenAI structured-output endpoint rejected schemas/review-verdict.schema.json's shape (invalid_json_schema: 'required' must include every key in properties). The reviewer emitted a fenced json verdict by prompt instruction; the controller extracts and validates it post-hoc.",
+    "routing": "User-directed invocation form `codex exec --model gpt-5.5` on the locally-configured default provider (openai) — the one available gpt5.5 route at dispatch time. Provider probes: default route AVAILABLE; proxy2233 -> 402 payment_required ('没有有效的订单，请购买token套餐'); proxy6651 -> 403 subscription_not_found. Fable5/Anthropic unreachable (claude CLI auth -> zhipu_glm, --model claude-fable-5 -> error 1211). Both implementers (claude_glm, kimi) hard-banned. No model downgrade from gpt5.5.",
+    "scope": "Stage-level final gate reviewing the whole stage (Task A contract amendment + backend + tests; Task B frontend; Task C integration), binding to the stage top-level diff_fingerprint. Codex independently recomputed the stage + Task A + Task B fingerprints from raw git diff (all match), verified clean boundaries, classify.py unchanged, alias semantic closure, decimal discipline, schema amendment (match_type nullable + not required), frontend guard, and offline integration; re-ran node frontend/self-check.js -> 11/11 and the backend suite (capture/cache disabled in read-only sandbox) -> 52 passed. See 50-review-2.md + review-2-codex.raw-output.txt.",
+    "summary_file": "50-review-2.md"
+  },
   "tests": {"status": "passed"},
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Review-1 PASSED (both tasks ACCEPT, fingerprints match, schema valid); status=review_2. Next: dispatch stage-level review-2 to Codex (gpt5.5 xhigh, direction_synthesis strong-reviewer override; Fable5 unavailable; both implementers hard-banned). On review-2 ACCEPT: validate --phase pre-accept, then hold at stage_accepted_waiting_user (controller does not declare accepted; can_accept_final=false).",
-  "updated_at": "2026-07-03T16:03:12Z"
+  "next_action": "Review-2 (final gate) ACCEPT by Codex/GPT gpt5.5 (direction_synthesis strong-reviewer override; fingerprint independently recomputed and matching; schema post-hoc validated; 0 findings); status=stage_accepted_waiting_user. Next: commit review-2 evidence, run scripts/validate-stage.py --phase pre-accept (must PASS), then backfill impl-v1 finding bstocks_b_suffix_spot_margin_alias -> resolved_by_stage (referencing this stage id + head 0842820; excluded from impl-v1 hash). Controller does NOT declare final acceptance (can_accept_final=false); both stages await user acceptance.",
+  "can_accept_final": false,
+  "updated_at": "2026-07-03T16:31:00Z"
 }
