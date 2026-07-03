@@ -4,24 +4,32 @@
 
 Status: `review_1`. Implementer: Claude-GLM (`glm-5.2[1m]`).
 
-Branch: `main`. Review base (`base_sha`):
-`2bb47ad13065827ed1ee91d5d0e231cd312fdc0a`. The contract discovery products are
-committed locally (not pushed) as the review baseline; HEAD advances past
-`base_sha`, so the standard diff is non-empty.
+Branch: `main` (local only, not pushed; `ahead of origin/main`). Review baseline:
 
-`head_sha` and `diff_fingerprint` are recorded in `status.json` immediately after
-the product commit. A commit cannot embed its own sha or fingerprint
-(self-referential hash has no fixed point), so this handoff does not duplicate
-those literal values. Review uses the standard formula:
+- `base_sha`: `2bb47ad13065827ed1ee91d5d0e231cd312fdc0a`
+- `head_sha`: `1943e8b55c1cfdba018e8eae07428861e444e016` (commit
+  `Freeze public market contract discovery`)
+- `diff_fingerprint`:
+  `1943e8b55c1cfdba018e8eae07428861e444e016:e0ae8c5cc404b0b0ebe45c8f637b6c30689337572a7248e9816181e34301311d`
+
+The contract discovery products are committed locally as the review baseline;
+`head_sha` is the reviewed subject commit. Later Harness commits may advance the
+working branch, so review must use the recorded `base_sha..head_sha` range, not
+the moving symbolic `HEAD`.
+
+`head_sha` and `diff_fingerprint` are recorded in `status.json` (and above) after
+the product commit. A commit cannot embed a hash of a file that contains that
+same hash, so the standard fingerprint excludes this stage's `status.json`.
+Review uses the standard formula:
 
 ```text
-diff_fingerprint = head_sha + ":" + sha256(git diff --binary <base_sha>..HEAD)
+diff_fingerprint = head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")
 ```
 
 Reproduce the hash with:
 
 ```text
-git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..HEAD | shasum -a 256
+git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..1943e8b55c1cfdba018e8eae07428861e444e016 -- . ":(exclude)reports/agent-runs/2026-07-public-market-contract-v2/status.json" | shasum -a 256
 ```
 
 Produced artifacts (review inputs):
@@ -49,8 +57,9 @@ negative tests reject; generator reproducible.
 review-1 (Grok Build, `code_reviewer`, read-only, 900s) inputs must include the
 raw artifacts, raw samples, `60-test-output.txt`, `api-field-matrix.md`,
 `docs/api/public-market-contract.md`, the schema, and the standard git diff
-(`git diff --binary <base_sha>..HEAD`). review-1 reviews raw artifacts and the
-standard diff only; it must not trust this controller summary as evidence. If
+(`git diff --binary <base_sha>..<head_sha> -- . ":(exclude)<stage>/status.json"`).
+review-1 reviews raw artifacts and the standard diff only; it must not trust
+this controller summary as evidence. If
 Grok Build produces no schema-valid verdict or the CLI hangs past 900s, mark
 `model_unavailable` and route to `human_escalation_required`.
 
@@ -76,7 +85,7 @@ Actual review base:
 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a
 
 All implementation/review diffs for this contract discovery task must use:
-git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..HEAD
+git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..1943e8b55c1cfdba018e8eae07428861e444e016 -- . ":(exclude)reports/agent-runs/2026-07-public-market-contract-v2/status.json"
 
 Read:
 - AGENTS.md

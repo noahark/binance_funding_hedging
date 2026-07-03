@@ -31,20 +31,20 @@
     "user_approved": true
   },
   "base_sha": "2bb47ad13065827ed1ee91d5d0e231cd312fdc0a",
-  "head_sha": null,
+  "head_sha": "1943e8b55c1cfdba018e8eae07428861e444e016",
   "commit_state": "committed",
-  "diff_fingerprint": null,
-  "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..HEAD)",
-  "diff_fingerprint_note": "head_sha and diff_fingerprint are backfilled into this file immediately AFTER the product commit, because a commit cannot embed its own sha or fingerprint (self-referential hash has no fixed point). The product commit advances HEAD past base_sha, so the standard formula over the committed diff is non-empty and byte-exact reproducible. Reviewer reproduces with: git diff --binary <base_sha>..HEAD | shasum -a 256.",
+  "diff_fingerprint": "1943e8b55c1cfdba018e8eae07428861e444e016:e0ae8c5cc404b0b0ebe45c8f637b6c30689337572a7248e9816181e34301311d",
+  "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
+  "diff_fingerprint_note": "Review uses the committed subject range recorded in this file, not the moving symbolic HEAD. status.json is excluded from the hash because it stores the fingerprint. Reviewer reproduces with: git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/2026-07-public-market-contract-v2/status.json' | shasum -a 256.",
   "changed_files": [
     "docs/api/public-market-contract.md",
     "reports/agent-runs/2026-07-public-market-contract-v2/00-intake.md",
+    "reports/agent-runs/2026-07-public-market-contract-v2/20-implementation.md",
+    "reports/agent-runs/2026-07-public-market-contract-v2/60-test-output.txt",
     "reports/agent-runs/2026-07-public-market-contract-v2/70-handoff.md",
     "reports/agent-runs/2026-07-public-market-contract-v2/api-field-matrix.md",
     "reports/agent-runs/2026-07-public-market-contract-v2/api-sample-index.md",
     "reports/agent-runs/2026-07-public-market-contract-v2/status.json",
-    "reports/agent-runs/2026-07-public-market-contract-v2/20-implementation.md",
-    "reports/agent-runs/2026-07-public-market-contract-v2/60-test-output.txt",
     "reports/api-samples/public-market-contract-v2/20260703T051738Z/normalized/build-normalized-sample.py",
     "reports/api-samples/public-market-contract-v2/20260703T051738Z/normalized/public-market-snapshot.json",
     "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/api-v3-exchangeInfo-curated-BTCETHXVG.json",
@@ -140,5 +140,5 @@
   },
   "terminal_reason": null,
   "next_action": "route_to_review_1_grok_build",
-  "updated_at": "2026-07-03T05:25:42Z"
+  "updated_at": "2026-07-03T06:18:08Z"
 }
