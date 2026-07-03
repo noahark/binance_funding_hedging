@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-bstock-alias-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stage_id": "2026-07-public-market-impl-v1",
@@ -82,7 +82,24 @@
       "commit": "H_A",
       "base_sha": "d240e43e75034a6718ede79bc295d39e77cd860e",
       "head_sha": "1f94c842a67ac75b170f796b17cb08172457b5d7",
-      "diff_fingerprint": "1f94c842a67ac75b170f796b17cb08172457b5d7:fe6d0bd9d16ea2e75c54b59ed9469f206c5e733dc4d159ba35c959d63ad4c815"
+      "diff_fingerprint": "1f94c842a67ac75b170f796b17cb08172457b5d7:fe6d0bd9d16ea2e75c54b59ed9469f206c5e733dc4d159ba35c959d63ad4c815",
+      "review_1": {
+        "status": "ACCEPT",
+        "owner": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer"},
+        "output": "30-review-1-backend.md",
+        "raw_output": "review-1-task-a-kimi.raw-output.txt",
+        "dispatch_prompt": "review-1-backend-kimi-prompt.md",
+        "verdict": "ACCEPT",
+        "verdict_diff_fingerprint": "1f94c842a67ac75b170f796b17cb08172457b5d7:fe6d0bd9d16ea2e75c54b59ed9469f206c5e733dc4d159ba35c959d63ad4c815",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "task_b_frontend_implementer",
+        "findings": [],
+        "required_fixes": [],
+        "reviewed_at": "2026-07-04T00:00:28Z",
+        "independent_test_rerun": "pytest backend/tests -q -> 52 passed; grep float( clean",
+        "next_action": "continue"
+      }
     },
     "B": {
       "name": "Frontend bStock alias display",
@@ -107,7 +124,24 @@
       "depends_on": ["A"],
       "base_sha": "6ea4504",
       "head_sha": "5968c499d990c3dfaa54f5fd8b38172b9a0a0ddb",
-      "diff_fingerprint": "5968c499d990c3dfaa54f5fd8b38172b9a0a0ddb:8c5d685eb8a51ea3261cb85cda97cfa000b2fb66ccddf49d3b0f0031a4b7c7d0"
+      "diff_fingerprint": "5968c499d990c3dfaa54f5fd8b38172b9a0a0ddb:8c5d685eb8a51ea3261cb85cda97cfa000b2fb66ccddf49d3b0f0031a4b7c7d0",
+      "review_1": {
+        "status": "ACCEPT",
+        "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "code_reviewer", "fresh_session_required": true},
+        "output": "30-review-1-frontend.md",
+        "dispatch_prompt": "review-1-frontend-glm-prompt.md",
+        "fresh_session": true,
+        "verdict": "ACCEPT",
+        "verdict_diff_fingerprint": "5968c499d990c3dfaa54f5fd8b38172b9a0a0ddb:8c5d685eb8a51ea3261cb85cda97cfa000b2fb66ccddf49d3b0f0031a4b7c7d0",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "task_a_backend_implementer_and_controller",
+        "findings": [],
+        "required_fixes": [],
+        "reviewed_at": "2026-07-03T16:05:00Z",
+        "independent_test_rerun": "node frontend/self-check.js -> 11/11 PASS",
+        "next_action": "continue"
+      }
     },
     "C": {
       "name": "Integration verification (controller, no product code)",
@@ -176,12 +210,39 @@
     "The formal local page must load data from the same-origin /api/public-market/snapshot.",
     "Tests offline only; no live HTTP this stage."
   ],
+  "review_1": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "0842820ff21d30f563d25a3ff914cd705e6d9002:24ce862a277987871fadbeb7e46ee3e59db923904ff28468ac84482ac48fb9ac",
+    "status": "both_tasks_ACCEPT",
+    "scope": "Task-level review-1 (Task A backend by Kimi + Task B frontend by a fresh read-only Claude-GLM Agent session). The stage-level review_1 verdict aggregates both task verdicts (both ACCEPT) and binds to the stage-level top-level diff_fingerprint, as required by scripts/validate-stage.py validate_acceptance. Per-task fingerprints live in tasks.A/tasks.B; detailed reviews are 30-review-1-backend.md and 30-review-1-frontend.md; 30-review-1.md is the stage-level summary.",
+    "task_A": {
+      "provider": "kimi", "model": "kimi-2.7", "verdict": "ACCEPT",
+      "output": "30-review-1-backend.md", "raw_output": "review-1-task-a-kimi.raw-output.txt",
+      "reviewed_at": "2026-07-04T00:00:28Z",
+      "diff_fingerprint": "1f94c842a67ac75b170f796b17cb08172457b5d7:fe6d0bd9d16ea2e75c54b59ed9469f206c5e733dc4d159ba35c959d63ad4c815",
+      "fingerprint_matches": true, "schema_valid": true, "findings": 0
+    },
+    "task_B": {
+      "provider": "claude_glm", "model": "glm-5.2[1m]", "verdict": "ACCEPT",
+      "output": "30-review-1-frontend.md", "fresh_session": true,
+      "reviewed_at": "2026-07-03T16:05:00Z",
+      "diff_fingerprint": "5968c499d990c3dfaa54f5fd8b38172b9a0a0ddb:8c5d685eb8a51ea3261cb85cda97cfa000b2fb66ccddf49d3b0f0031a4b7c7d0",
+      "fingerprint_matches": true, "schema_valid": true, "findings": 0
+    },
+    "both_schema_valid": true,
+    "both_fingerprints_match": true,
+    "findings_total": 0,
+    "required_fixes_total": 0,
+    "next_action": "stage_review_2",
+    "summary_file": "30-review-1.md"
+  },
   "tests": {"status": "passed"},
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "All tasks implemented (A=H_A 1f94c84, B=H_B 5968c49, C=H_C 0842820); per-task + stage-level diff_fingerprints bound; tests passed. Next: validate --phase pre-review, then dispatch review-1 (A->Kimi, B->fresh Claude-GLM) and review-2 (Codex, direction_synthesis override), then validate --phase pre-accept and hold at stage_accepted_waiting_user (controller does not declare accepted).",
-  "updated_at": "2026-07-03T15:54:48Z"
+  "next_action": "Review-1 PASSED (both tasks ACCEPT, fingerprints match, schema valid); status=review_2. Next: dispatch stage-level review-2 to Codex (gpt5.5 xhigh, direction_synthesis strong-reviewer override; Fable5 unavailable; both implementers hard-banned). On review-2 ACCEPT: validate --phase pre-accept, then hold at stage_accepted_waiting_user (controller does not declare accepted; can_accept_final=false).",
+  "updated_at": "2026-07-03T16:03:12Z"
 }
