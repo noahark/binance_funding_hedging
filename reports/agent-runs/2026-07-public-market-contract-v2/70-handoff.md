@@ -1,10 +1,17 @@
 # Handoff: Public Market Contract V2
 
-## Checkpoint: contract discovery re-entered review_2
+## Checkpoint: stage accepted, waiting for user
 
-Status: `review_2` (Codex/GPT review-2 recheck `ACCEPT`; terminal acceptance is
-not written yet). Review-1 stands at `ACCEPT` (Kimi `kimi-2.7`) on the older
-pre-clean-subject fingerprint.
+Status: `stage_accepted_waiting_user`. Review-1 `ACCEPT` (Kimi `kimi-2.7`) and
+review-2 `ACCEPT` (Codex/GPT `gpt5.5`) now both bind to the clean
+contract-stage subject `a25e431:53484d21…`, matching `status.diff_fingerprint`.
+Kimi re-ran review-1 on the clean subject at 2026-07-03T11:45:51Z to align the
+verdict fingerprint after the review-2 evidence-boundary repair; the controller
+independently recomputed the fingerprint (`53484d21…`) and schema-validated the
+verdict (0 errors). `scripts/validate-stage.py 2026-07-public-market-contract-v2
+--phase pre-accept` PASSED. The controller does not declare final acceptance
+(`can_accept_final: false`); the stage is stopped, waiting for the user to start
+the next direction round or implementation.
 Implementer: Claude-GLM (`glm-5.2[1m]`). The previous Claude/Fable5 review-2
 dispatch failed at runner level and is preserved as evidence in
 `review-2-claude-dispatch-failure.md` plus
@@ -163,17 +170,21 @@ paths, and the normalized sample re-validates. `status.json.review_2` records
 `fallback_reason`, and
 `unrelated_reviewer_unavailable_evidence=reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch-failure.md`.
 
-Next action: `controller_pre_accept_reconcile_review_1_fingerprint`.
+Review-1 fingerprint reconciled (2026-07-03T11:45:51Z). Kimi re-ran review-1 on
+the clean subject and returned schema-valid `ACCEPT` with
+`diff_fingerprint=a25e431:53484d21…`, recorded in `30-review-1.md` and
+corroborated by the stdout verdict in
+`review-1-kimi-recheck.raw-output.txt`. The controller did not silently rewrite
+Kimi's verdict; it dispatched a fresh Kimi recheck on the clean subject. Both
+`status.review_1.diff_fingerprint` and `status.review_2.diff_fingerprint` now
+equal `status.diff_fingerprint`.
 
-Reason: `status.review_1.diff_fingerprint` still points to Kimi's earlier
-accepted subject (`d73eb10:de0c199b...`), while the clean review subject is now
-`a25e431:53484d...`. Do not silently rewrite Kimi's verdict fingerprint. The
-controller must either get a Kimi review-1 recheck for the clean subject, or
-make an explicit Harness-approved equivalence decision before terminal
-pre-accept validation.
+`scripts/validate-stage.py 2026-07-public-market-contract-v2 --phase pre-accept`
+PASSED, and `status.json` records `status=stage_accepted_waiting_user`.
 
-Backend implementation and Kimi frontend remain gated until terminal
-`stage_accepted_waiting_user` is written after pre-accept validation.
+Backend implementation and Kimi frontend remain gated until the user starts the
+next direction round or implementation; the controller does not declare final
+acceptance (`can_accept_final: false`).
 
 ## Claude-GLM Backend Contract Prompt
 
@@ -329,6 +340,6 @@ Required fix:
 The ready-to-send fix prompt is in `50-review-2.md` under
 `fix_start_prompt`.
 
-本地北京时间: 2026-07-03 18:47:33 CST
-下一步模型: Claude-GLM
-下一步任务: Fix review-2 P1 evidence-boundary contamination, update status/handoff/fix report, and re-run pre-review validation.
+本地北京时间: 2026-07-03 19:45:51 CST
+下一步模型: Human
+下一步任务: Stage accepted (`stage_accepted_waiting_user`) after review-1 fingerprint reconciliation (Kimi clean-subject recheck ACCEPT) and `pre-accept` validation PASSED. Wait for the user to start the next direction round or frontend/backend implementation; the controller does not declare final acceptance (`can_accept_final: false`).

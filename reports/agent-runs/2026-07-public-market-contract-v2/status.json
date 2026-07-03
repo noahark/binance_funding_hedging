@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-contract-v2",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "feature-loop",
   "designer": "codex",
   "implementer": {
@@ -142,17 +142,36 @@
     "open_p0_p1": "none (one non-blocking P3: negative schema tests not replayable from a committed script; required_fixes empty)",
     "verdict": "ACCEPT",
     "json_schema_valid": true,
-    "diff_fingerprint": "d73eb10187f34696aec4aea8f596c0d3578a1dcf:de0c199bd7b9121ec2539c6a891f3167043bc1f4412704c3276fe6171b3fdd46",
+    "diff_fingerprint": "a25e4316019197fd3e09bd6827b8aa7c4e2ce36f:53484d21b25373e524ae6abfd8c05883b4cd2c471ccc45f0e98aef51691b41bf",
     "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
+    "recheck_reason": "After the review-2 evidence-boundary repair narrowed the review subject to a clean contract-stage base, Kimi re-ran review-1 on the clean subject to align the verdict fingerprint with status.diff_fingerprint. The clean subject contains the same contract artifacts; no Binance contract semantics changed.",
+    "recheck_prompt": "reports/agent-runs/2026-07-public-market-contract-v2/review-1-kimi-recheck.prompt.md",
+    "recheck_raw_output": "reports/agent-runs/2026-07-public-market-contract-v2/review-1-kimi-recheck.raw-output.txt",
+    "recheck_history": [
+      {
+        "verdict_at": "2026-07-03T05:57:43Z",
+        "reviewer": "kimi",
+        "verdict": "REWORK",
+        "diff_fingerprint": "1943e8b55c1cfdba018e8eae07428861e444e016:e0ae8c5cc404b0b0ebe45c8f637b6c30689337572a7248e9816181e34301311d",
+        "finding_count": 1,
+        "note": "P1: stale worktree-fingerprint language in 20-implementation.md. Fixed in 40-fix-report.md."
+      },
+      {
+        "verdict_at": "2026-07-03T07:57:43Z",
+        "reviewer": "kimi",
+        "verdict": "ACCEPT",
+        "diff_fingerprint": "d73eb10187f34696aec4aea8f596c0d3578a1dcf:de0c199bd7b9121ec2539c6a891f3167043bc1f4412704c3276fe6171b3fdd46",
+        "note": "ACCEPT on the pre-clean wide subject 2bb47ad..d73eb10, which later bound out-of-scope Harness files removed by the review-2 evidence-boundary repair."
+      }
+    ],
     "previous_verdict": {
       "reviewer": "kimi",
-      "verdict": "REWORK",
+      "verdict": "ACCEPT",
       "json_schema_valid": true,
-      "diff_fingerprint": "1943e8b55c1cfdba018e8eae07428861e444e016:e0ae8c5cc404b0b0ebe45c8f637b6c30689337572a7248e9816181e34301311d",
-      "finding_count": 1,
-      "review_file": "reports/agent-runs/2026-07-public-market-contract-v2/30-review-1.md",
-      "fixed_in": "reports/agent-runs/2026-07-public-market-contract-v2/40-fix-report.md"
+      "diff_fingerprint": "d73eb10187f34696aec4aea8f596c0d3578a1dcf:de0c199bd7b9121ec2539c6a891f3167043bc1f4412704c3276fe6171b3fdd46",
+      "note": "Kimi ACCEPT on the pre-clean wide subject before the review-2 evidence-boundary repair.",
+      "review_file": "reports/agent-runs/2026-07-public-market-contract-v2/30-review-1.md"
     },
     "prior_dispatch_failures": [
       {
@@ -169,15 +188,15 @@
         "stopped_at": "2026-07-03T06:48:49Z"
       }
     ],
-    "verdict_at": "2026-07-03T07:57:43Z",
+    "verdict_at": "2026-07-03T11:45:51Z",
     "controller_verification": {
-      "verified_at": "2026-07-03T07:57:43Z",
-      "fingerprint_recomputed": "de0c199bd7b9121ec2539c6a891f3167043bc1f4412704c3276fe6171b3fdd46",
+      "verified_at": "2026-07-03T11:45:51Z",
+      "fingerprint_recomputed": "53484d21b25373e524ae6abfd8c05883b4cd2c471ccc45f0e98aef51691b41bf",
       "fingerprint_matches_verdict": true,
       "verdict_schema_valid": true,
       "verdict_schema_errors": 0,
       "identity_compliant": "kimi (moonshot_kimi) differs from implementer (claude_glm / zhipu_glm) and designer (codex / openai); provider-level cross-review isolation satisfied.",
-      "note": "Controller and implementer share provider (claude_glm), so the controller independently recomputed the diff fingerprint and schema-validated the verdict rather than trusting the reviewer or its own summary."
+      "note": "Controller and implementer share provider (claude_glm), so the controller independently recomputed the clean-subject diff fingerprint (53484d21...) and schema-validated Kimi's recheck verdict against schemas/review-verdict.schema.json (0 errors) rather than trusting the reviewer or its own summary."
     }
   },
   "review_2": {
@@ -218,7 +237,8 @@
       "contract_semantics_changed": false,
       "normalized_sample_revalidated": "PASS (6 rows, source_sample_id=20260703T051738Z)",
       "fix_report": "reports/agent-runs/2026-07-public-market-contract-v2/40-fix-report.md",
-      "awaiting_recheck": true
+      "awaiting_recheck": false,
+      "recheck_verdict": "ACCEPT (Codex/GPT review-2 recheck on the clean subject, 2026-07-03T11:30:35Z; recorded in 50-review-2.md)"
     },
     "invalid_json_attempts": 0,
     "prior_dispatch_attempt": {
@@ -251,7 +271,7 @@
     "reason": null,
     "resolved_by": "User approved re-entering review-2 under the strong-reviewer disclosure override after the Claude/Fable5 dispatch failure evidence was recorded."
   },
-  "terminal_reason": null,
-  "next_action": "controller_pre_accept_reconcile_review_1_fingerprint",
-  "updated_at": "2026-07-03T11:30:35Z"
+  "terminal_reason": "stage_accepted_waiting_user",
+  "next_action": "await_user_next_direction_round",
+  "updated_at": "2026-07-03T11:45:51Z"
 }
