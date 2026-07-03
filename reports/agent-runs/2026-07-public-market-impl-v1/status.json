@@ -374,8 +374,28 @@
     {
       "id": "bstocks_b_suffix_spot_margin_alias",
       "severity": "P1_contract_amendment_required",
-      "status": "open",
+      "status": "resolved_by_stage",
       "recorded_at": "2026-07-03T14:44:49Z",
+      "resolved_by_stage": {
+        "stage_id": "2026-07-public-market-bstock-alias-v1",
+        "stage_head_sha": "0842820ff21d30f563d25a3ff914cd705e6d9002",
+        "stage_base_sha": "d240e43e75034a6718ede79bc295d39e77cd860e",
+        "stage_diff_fingerprint": "0842820ff21d30f563d25a3ff914cd705e6d9002:24ce862a277987871fadbeb7e46ee3e59db923904ff28468ac84482ac48fb9ac",
+        "closure_conditions_met": {
+          "stage_review_1_verdict": "ACCEPT (both tasks; Kimi on backend, fresh Claude-GLM on frontend)",
+          "stage_review_2_verdict": "ACCEPT (Codex/GPT gpt5.5 final_reviewer, direction_synthesis strong-reviewer override)",
+          "stage_pre_accept_validation": "PASSED (scripts/validate-stage.py --phase pre-accept)"
+        },
+        "follow_up_coverage": [
+          "Contract amended: snapshot.schema.json spot.match_type (nullable enum [exact_symbol, bstock_b_suffix_alias, null], not required); public-market-contract.md bStock note upgraded to frozen amendment (2026-07-03) with the resolve_spot_leg rule.",
+          "Backend resolve_spot_leg tries baseAsset+quoteAsset exact first, then (TRADIFI_PERPETUAL only) baseAsset+'B'+quoteAsset alias; spot.match_type exposed; CONTRACT_WARNINGS[2] updated.",
+          "classify.py UNCHANGED; the alias join yields MARGIN_SPOT_CANDIDATE (positive rate candidate) while negative_funding_status stays DISABLED_BSTOCK (cannot borrow) via the existing asset_tag priority — negative-funding execution remains disabled.",
+          "margin_public.source stays 'unverified'; no collateral ratio hard-coded (dynamic/unknown).",
+          "Backend classification/tests + frontend display repaired and independently reviewed (review-1 both ACCEPT, review-2 ACCEPT)."
+        ],
+        "resolved_at": "2026-07-03T16:32:00Z",
+        "note": "Finding-status update only. impl-v1 review_1/review_2 verdicts and diff_fingerprint are NOT altered (status.json is excluded from impl-v1's hash; this is a finding-state transition, not a tampering with review conclusions). impl-v1 remains stage_accepted_waiting_user; both stages await user final acceptance together."
+      },
       "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/post-review-bstocks-alias-finding.md",
       "summary": "Binance now exposes bStocks spot/margin pairs with a B suffix (e.g. TSLABUSDT) while TRADIFI futures remain non-B symbols (e.g. TSLAUSDT). Current backend exact-symbol join leaves the 15 announced bStocks as PERP_ONLY_EXCLUDED with spot.symbol=null.",
       "impact": "Review-2 remains valid for the frozen reviewed contract, but user final acceptance should wait until the public-market contract and implementation add a bStock alias rule and dynamic collateral fields.",
@@ -396,7 +416,7 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "Review-1 and review-2 accepted this stage against the frozen contract and validate-stage.py --phase pre-accept PASSED. However a post-review live Binance finding opened P1 contract amendment bstocks_b_suffix_spot_margin_alias: user final acceptance should wait until the bStock B-suffix spot/margin alias rule and dynamic collateral fields are added and reviewed.",
-  "updated_at": "2026-07-03T14:44:49Z",
+  "next_action": "Review-1 and review-2 accepted this stage against the frozen contract and validate-stage.py --phase pre-accept PASSED. The post-review P1 finding bstocks_b_suffix_spot_margin_alias is now resolved_by_stage 2026-07-public-market-bstock-alias-v1 (head 0842820): that stage amended the contract + repaired backend/frontend/tests and passed its own review-1 (both ACCEPT) + review-2 (Codex ACCEPT) + pre-accept. impl-v1's own review_1/review_2 verdicts and diff_fingerprint are unchanged. impl-v1 remains stage_accepted_waiting_user; both stages await user final acceptance together (controller does not declare accepted).",
+  "updated_at": "2026-07-03T16:32:00Z",
   "review_2_commit": "c9f8788"
 }
