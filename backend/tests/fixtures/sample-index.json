@@ -1,0 +1,38 @@
+{
+  "captured_at": "2026-07-03T10:15:00+00:00",
+  "data_timestamp": "1700000000000",
+  "funding_field_semantics": {
+    "lastFundingRate": "most recently updated funding rate (not a guaranteed prediction of the upcoming settlement)",
+    "nextFundingTime": "next funding settlement time, epoch ms",
+    "docs_citation": "Binance API docs: dapi/v1/premiumIndex field descriptions (lastFundingRate, nextFundingTime)"
+  },
+  "files": [
+    {
+      "endpoint": "GET /fapi/v1/exchangeInfo",
+      "url": "https://fapi.binance.com/fapi/v1/exchangeInfo",
+      "file": "fapi_exchange_info.json",
+      "http_status": 200,
+      "byte_size": 0,
+      "sha256": "fixture",
+      "symbol": null
+    },
+    {
+      "endpoint": "GET /api/v3/exchangeInfo",
+      "url": "https://api.binance.com/api/v3/exchangeInfo",
+      "file": "spot_exchange_info.json",
+      "http_status": 200,
+      "byte_size": 0,
+      "sha256": "fixture",
+      "symbol": null
+    },
+    {
+      "endpoint": "GET /fapi/v1/premiumIndex",
+      "url": "https://fapi.binance.com/fapi/v1/premiumIndex",
+      "file": "fapi_premium_index.json",
+      "http_status": 200,
+      "byte_size": 0,
+      "sha256": "fixture",
+      "symbol": null
+    }
+  ]
+}

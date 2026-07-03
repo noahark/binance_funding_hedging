@@ -1,0 +1,32 @@
+[
+  {
+    "symbol": "BTCUSDT",
+    "lastFundingRate": "0.00031200",
+    "nextFundingTime": 1700003600000
+  },
+  {
+    "symbol": "ETHUSDT",
+    "lastFundingRate": "-0.00024800",
+    "nextFundingTime": 1700003600000
+  },
+  {
+    "symbol": "TSLAUSDT",
+    "lastFundingRate": "0.00045900",
+    "nextFundingTime": 1700003600000
+  },
+  {
+    "symbol": "SPOTONLYUSDT",
+    "lastFundingRate": "0.00010000",
+    "nextFundingTime": 1700003600000
+  },
+  {
+    "symbol": "PERPONLYUSDT",
+    "lastFundingRate": "0.00005000",
+    "nextFundingTime": 1700003600000
+  },
+  {
+    "symbol": "STALEUSDT",
+    "lastFundingRate": "0.00020000",
+    "nextFundingTime": 1699999000000
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "symbol": "0GUSDT",
+    "fundingTime": 1782878400001,
+    "fundingRate": "0.00005000",
+    "markPrice": "0.20480000"
+  },
+  {
+    "symbol": "0GUSDT",
+    "fundingTime": 1782892800000,
+    "fundingRate": "-0.00012567",
+    "markPrice": "0.20255232"
+  },
+  {
+    "symbol": "0GUSDT",
+    "fundingTime": 1782907200000,
+    "fundingRate": "-0.00011360",
+    "markPrice": "0.20120000"
+  },
+  {
+    "symbol": "0GUSDT",
+    "fundingTime": 1782921600000,
+    "fundingRate": "-0.00004067",
+    "markPrice": "0.20400000"
+  },
+  {
+    "symbol": "0GUSDT",
+    "fundingTime": 1782936000000,
+    "fundingRate": "-0.00007347",
+    "markPrice": "0.20140000"
+  },
+  {
+    "symbol": "0GUSDT",
+    "fundingTime": 1782950400000,
+    "fundingRate": "-0.00047781",
+    "markPrice": "0.20473803"
+  },
+  {
+    "symbol": "0GUSDT",
+    "fundingTime": 1782964800003,
+    "fundingRate": "0.00005000",
+    "markPrice": "0.20740000"
+  },
+  {
+    "symbol": "0GUSDT",
+    "fundingTime": 1782979200000,
+    "fundingRate": "-0.00002994",
+    "markPrice": "0.21030000"
+  },
+  {
+    "symbol": "0GUSDT",
+    "fundingTime": 1782993600005,
+    "fundingRate": "-0.00002088",
+    "markPrice": "0.21115000"
+  },
+  {
+    "symbol": "0GUSDT",
+    "fundingTime": 1783008000000,
+    "fundingRate": "-0.00008948",
+    "markPrice": "0.21017879"
+  }
+]

@@ -1,0 +1,1 @@
+"""Pure domain functions for public market discovery."""

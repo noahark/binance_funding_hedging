@@ -1,0 +1,62 @@
+[
+  {
+    "symbol": "1000BONKUSDT",
+    "fundingTime": 1782878400001,
+    "fundingRate": "0.00004953",
+    "markPrice": "0.00419100"
+  },
+  {
+    "symbol": "1000BONKUSDT",
+    "fundingTime": 1782892800000,
+    "fundingRate": "0.00004045",
+    "markPrice": "0.00413400"
+  },
+  {
+    "symbol": "1000BONKUSDT",
+    "fundingTime": 1782907200000,
+    "fundingRate": "0.00004587",
+    "markPrice": "0.00415600"
+  },
+  {
+    "symbol": "1000BONKUSDT",
+    "fundingTime": 1782921600000,
+    "fundingRate": "0.00005000",
+    "markPrice": "0.00435501"
+  },
+  {
+    "symbol": "1000BONKUSDT",
+    "fundingTime": 1782936000000,
+    "fundingRate": "-0.00001510",
+    "markPrice": "0.00428500"
+  },
+  {
+    "symbol": "1000BONKUSDT",
+    "fundingTime": 1782950400000,
+    "fundingRate": "0.00002786",
+    "markPrice": "0.00425183"
+  },
+  {
+    "symbol": "1000BONKUSDT",
+    "fundingTime": 1782964800003,
+    "fundingRate": "0.00005000",
+    "markPrice": "0.00434200"
+  },
+  {
+    "symbol": "1000BONKUSDT",
+    "fundingTime": 1782979200000,
+    "fundingRate": "0.00003008",
+    "markPrice": "0.00426053"
+  },
+  {
+    "symbol": "1000BONKUSDT",
+    "fundingTime": 1782993600005,
+    "fundingRate": "0.00005000",
+    "markPrice": "0.00440197"
+  },
+  {
+    "symbol": "1000BONKUSDT",
+    "fundingTime": 1783008000000,
+    "fundingRate": "0.00004119",
+    "markPrice": "0.00433100"
+  }
+]
