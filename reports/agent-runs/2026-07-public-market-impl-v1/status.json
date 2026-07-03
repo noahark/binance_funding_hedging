@@ -1,0 +1,142 @@
+{
+  "stage_id": "2026-07-public-market-impl-v1",
+  "status": "implementing",
+  "workflow": "stage-delivery",
+  "designer": {
+    "provider": "claude",
+    "model": "claude-fable-5",
+    "scope": "Development detail breakdown for public market implementation (fable5-detail-breakdown.md). This is design involvement for review-2 disclosure."
+  },
+  "breakdown_author": {
+    "provider": "claude",
+    "model": "claude-fable-5",
+    "breakdown_file": "reports/agent-runs/2026-07-public-market-impl-v1/fable5-detail-breakdown.md",
+    "design_involvement": true
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "approved_prior_stage",
+    "user_approved": true,
+    "note": "The user-approved direction synthesis and the frozen contract stage cover this implementation stage; no new direction panel was run."
+  },
+  "implementers": [
+    {"provider": "claude_glm", "model": "glm-5.2[1m]", "task": "A", "scope": "backend/**"},
+    {"provider": "kimi", "model": "kimi-2.7", "task": "B", "scope": "frontend/**"}
+  ],
+  "reviewer_1": null,
+  "reviewer_2": null,
+  "base_sha": null,
+  "head_sha": null,
+  "commit_state": "uncommitted_in_progress",
+  "diff_fingerprint": null,
+  "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
+  "diff_fingerprint_note": "Two scopes, one protocol. Task-level base/head/fingerprint recorded per task in status.json.tasks.<id> for task-level review-1 over each task's owner-scoped commit range. The stage-level top-level base/head/fingerprint (filled once all tasks are committed) covers the whole stage implementation diff and is the value review-2 and pre-accept bind to. status.json is excluded from the hash. Implementers may work in parallel, but commits are serialized by the controller so each task's base..head diff contains only that task's files.",
+  "commit_order_strategy": "Controller commits serially to keep task fingerprints clean: H_intake (stage evidence, the task base) -> H_A (backend) -> H_B (frontend) -> H_C (integration evidence + status update). Kimi writes frontend/ and 20-implementation-frontend.md into the worktree only and does NOT git commit; the controller commits Task B. This guarantees Task A's base..head diff is backend-only and Task B's is frontend-only.",
+  "complexity": {
+    "classification": "HIGH",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "Implementation stage: the contract is frozen and the approved direction synthesis already covers Phase 1 public market discovery.",
+      "Multi-task (backend + frontend + integration), so a development breakdown was required and produced by Fable5 before coding.",
+      "No new human gate: public data only, 127.0.0.1 binding, no order/borrow/repay/transfer, no API keys."
+    ]
+  },
+  "tasks": {
+    "A": {
+      "name": "Backend public-market snapshot service",
+      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "senior_developer"},
+      "reviewer_1_planned": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer", "output": "30-review-1-backend.md"},
+      "scope": ["backend/**", "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-backend.md"],
+      "forbidden": ["frontend/**", "schemas/api/public-market/**", "docs/api/public-market-contract.md", "reports/api-samples/public-market-contract-v2/**", "docs/**", "agents/**", "workflows/**", "scripts/**"],
+      "status": "in_progress",
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "tests": {"status": "pending", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt"},
+      "review_1": null
+    },
+    "B": {
+      "name": "Frontend market-table workstation",
+      "owner": {"provider": "kimi", "model": "kimi-2.7", "skill": "minimal_change_engineer"},
+      "reviewer_1_planned": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "code_reviewer", "output": "30-review-1-frontend.md", "fresh_session_required": true, "note": "Must use a fresh read-only Claude-GLM session; the controller/implementer transcript for Task A must not be reused as review evidence."},
+      "scope": ["frontend/**", "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-frontend.md"],
+      "forbidden": ["backend/**", "schemas/api/public-market/**", "docs/api/public-market-contract.md", "reports/api-samples/public-market-contract-v2/**", "docs/**", "agents/**", "workflows/**", "scripts/**"],
+      "status": "not_started",
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "tests": {"status": "pending", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-frontend.md"},
+      "review_1": null,
+      "dispatch": {"prompt_file": "reports/agent-runs/2026-07-public-market-impl-v1/task-b-kimi-frontend.prompt.md", "status": "not_dispatched"}
+    },
+    "C": {
+      "name": "Integration verification (controller, no product code)",
+      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "test_strategist"},
+      "scope": ["reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt", "reports/agent-runs/2026-07-public-market-impl-v1/integration-snapshot-*.json"],
+      "forbidden_any_product_code": true,
+      "status": "not_started",
+      "depends_on": ["A", "B"],
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "tests": {"status": "pending", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt"}
+    }
+  },
+  "model_routing": {
+    "backend_owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "scope": "Task A: backend snapshot service"},
+    "frontend_owner": {"provider": "kimi", "model": "kimi-2.7", "scope": "Task B: frontend market table"},
+    "excluded_for_core_work": [
+      {"provider": "grok", "reason": "Archived Grok backend implementation is not trusted as active base; only __pycache__ residue remains after the contract-first reset. Grok stays excluded from implementation and review."}
+    ],
+    "review_1_task_A": {"provider": "kimi", "model": "kimi-2.7", "reason": "implementer is claude_glm; cross-review selects Kimi."},
+    "review_1_task_B": {"provider": "claude_glm", "model": "glm-5.2[1m]", "reason": "implementer is kimi; cross-review selects Claude-GLM in a fresh read-only session (not the controller transcript)."},
+    "review_2_stage": {"primary": {"provider": "codex", "model": "gpt"}, "reason": "Stage designer/breakdown author is Fable5 (anthropic); Codex has no design involvement this stage and is the unrelated decision reviewer. Both implementers (zhipu_glm, kimi) wrote code and are barred from review-2."}
+  },
+  "evidence_policy": {
+    "controller_and_backend_implementer_same_model": true,
+    "controller_provider": "claude_glm",
+    "backend_implementer_provider": "claude_glm",
+    "frontend_implementer_provider": "kimi",
+    "required_mitigation": [
+      "Reviewers must recompute diff_fingerprint from base_sha and raw git diff, not controller summaries.",
+      "Test output must contain replayable raw command output.",
+      "Review prompts must pass raw artifact paths and raw diff paths, not controller paraphrases.",
+      "Task B review-1 must use a fresh read-only Claude-GLM session; the Task A controller transcript is not review evidence."
+    ]
+  },
+  "frozen_inputs": {
+    "contract_stage": "2026-07-public-market-contract-v2",
+    "contract_head_sha": "a25e4316019197fd3e09bd6827b8aa7c4e2ce36f",
+    "contract_diff_fingerprint": "a25e4316019197fd3e09bd6827b8aa7c4e2ce36f:53484d21b25373e524ae6abfd8c05883b4cd2c471ccc45f0e98aef51691b41bf",
+    "schema": "schemas/api/public-market/snapshot.schema.json",
+    "contract_doc": "docs/api/public-market-contract.md",
+    "frozen_raw_samples": "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/",
+    "frozen_normalized_sample": "reports/api-samples/public-market-contract-v2/20260703T051738Z/normalized/public-market-snapshot.json",
+    "frontend_visual_baseline": "prototypes/fake-ui/index.html"
+  },
+  "hard_constraints": [
+    "No API key, signed endpoint, private account endpoint, user data stream.",
+    "No order, borrow, repay, transfer, websocket.",
+    "schemas/api/public-market/**, docs/api/public-market-contract.md, reports/api-samples/public-market-contract-v2/** are read-only.",
+    "Backend writes only backend/** and its own report.",
+    "Frontend writes only frontend/** and its own report.",
+    "No planning calculator UI, manual-open ticket, order button, account status, or position management this stage.",
+    "The formal local page must load data from the same-origin /api/public-market/snapshot; fixture is for tests only.",
+    "funding_history default top-N=20; do not change without explicit user change.",
+    "Tests and CI are always offline; no network."
+  ],
+  "tests": {
+    "status": "pending",
+    "raw_output_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt"
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {"required": false, "reason": null},
+  "terminal_reason": null,
+  "next_action": "commit stage evidence (task base), dispatch Task B to Kimi, implement Task A backend",
+  "updated_at": "2026-07-03T12:36:32Z"
+}
