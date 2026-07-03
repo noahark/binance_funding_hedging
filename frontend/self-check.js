@@ -114,13 +114,13 @@ setTimeout(() => {
     }
     console.log('[PASS] warnings 可见且内容已渲染');
 
-    // 4. 默认隐藏 PERP_ONLY_EXCLUDED，应渲染 3 行
+    // 4. 默认隐藏 PERP_ONLY_EXCLUDED，应渲染 4 行（BTC/ETH/XVG/TSLA）
     const tbody = elements['market-table-body'].innerHTML;
     const rowCount = (tbody.match(/<tr/g) || []).length;
-    if (rowCount !== 3) {
-      throw new Error(`默认筛选后期望 3 行数据，实际 ${rowCount} 行`);
+    if (rowCount !== 4) {
+      throw new Error(`默认筛选后期望 4 行数据，实际 ${rowCount} 行`);
     }
-    console.log('[PASS] 默认隐藏 PERP_ONLY_EXCLUDED，渲染 3 行');
+    console.log('[PASS] 默认隐藏 PERP_ONLY_EXCLUDED，渲染 4 行');
 
     // 5. 打开“显示 PERP_ONLY_EXCLUDED”后应渲染全部 6 行
     const cb = elements['filter-show-perp-only'];
@@ -140,13 +140,22 @@ setTimeout(() => {
     }
     console.log('[PASS] BSTOCK 行标识正确');
 
-    // 7. 时间转换正确 (fixture 第一行 next_funding_time 北京时间为 2026-07-03 16:00:00)
+    // 7. alias 行显示实际现货 symbol 与 B 后缀别名徽章
+    if (!tbodyAll.includes('TSLABUSDT')) {
+      throw new Error('未渲染实际现货 symbol TSLABUSDT');
+    }
+    if (!tbodyAll.includes('B 后缀别名')) {
+      throw new Error('未渲染 B 后缀别名标识');
+    }
+    console.log('[PASS] alias 行显示实际现货腿与 B 后缀别名标识');
+
+    // 8. 时间转换正确 (fixture 第一行 next_funding_time 北京时间为 2026-07-03 16:00:00)
     if (!tbodyAll.includes('2026-07-03 16:00:00')) {
       throw new Error('下一次结算时间未正确转换为北京时间');
     }
     console.log('[PASS] 时间转换正确');
 
-    // 7. 列名/文案符合契约
+    // 9. 列名/文案符合契约
     const htmlUpper = html.toUpperCase();
     if (htmlUpper.includes('已结算') || htmlUpper.includes('预测')) {
       throw new Error('页面文案包含禁止的“已结算”或“预测”');
@@ -156,7 +165,7 @@ setTimeout(() => {
     }
     console.log('[PASS] 列名/文案符合契约');
 
-    // 8. 无交易按钮/开仓票据
+    // 10. 无交易按钮/开仓票据
     if (html.includes('手动开仓') || html.includes('下单') || html.includes('开仓')) {
       throw new Error('页面不应包含交易按钮或开仓票据');
     }

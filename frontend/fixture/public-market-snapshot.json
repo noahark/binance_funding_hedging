@@ -6,9 +6,9 @@
   "summary": {
     "total_rows": 6,
     "route_counts": {
-      "MARGIN_SPOT_CANDIDATE": 2,
+      "MARGIN_SPOT_CANDIDATE": 3,
       "SPOT_ONLY_CANDIDATE": 1,
-      "PERP_ONLY_EXCLUDED": 3
+      "PERP_ONLY_EXCLUDED": 2
     },
     "asset_tag_counts": {
       "CRYPTO": 4,
@@ -17,7 +17,8 @@
     "negative_funding_status_counts": {
       "PRIVATE_BORROW_VALIDATION_REQUIRED": 2,
       "DISABLED_SPOT_ONLY": 1,
-      "DISABLED_PERP_ONLY": 3
+      "DISABLED_BSTOCK": 1,
+      "DISABLED_PERP_ONLY": 2
     }
   },
   "rows": [
@@ -46,6 +47,7 @@
         "symbol": "BTCUSDT",
         "status": "TRADING",
         "exists": true,
+        "match_type": "exact_symbol",
         "min_notional": "5.00000000",
         "step_size": "0.00001000"
       },
@@ -124,6 +126,7 @@
         "symbol": "ETHUSDT",
         "status": "TRADING",
         "exists": true,
+        "match_type": "exact_symbol",
         "min_notional": "5.00000000",
         "step_size": "0.00010000"
       },
@@ -161,6 +164,7 @@
         "symbol": "XVGUSDT",
         "status": "TRADING",
         "exists": true,
+        "match_type": "exact_symbol",
         "min_notional": "5.00000000",
         "step_size": "1.00000000"
       },
@@ -198,6 +202,7 @@
         "symbol": null,
         "status": null,
         "exists": false,
+        "match_type": null,
         "min_notional": null,
         "step_size": null
       },
@@ -236,6 +241,7 @@
         "symbol": null,
         "status": null,
         "exists": false,
+        "match_type": null,
         "min_notional": null,
         "step_size": null
       },
@@ -257,26 +263,27 @@
       "asset_tag": "BSTOCK",
       "asset_tag_source": "futures_contractType_tradifi_perpetual",
       "asset_tag_confidence": "HIGH",
-      "route_class": "PERP_ONLY_EXCLUDED",
-      "positive_funding_enabled": false,
-      "negative_funding_status": "DISABLED_PERP_ONLY",
+      "route_class": "MARGIN_SPOT_CANDIDATE",
+      "positive_funding_enabled": true,
+      "negative_funding_status": "DISABLED_BSTOCK",
       "futures": {
         "symbol": "TSLAUSDT",
         "status": "TRADING",
         "contract_type": "TRADIFI_PERPETUAL",
         "mark_price": "396.15000000",
         "index_price": "396.17087769",
-        "last_funding_rate": "0.00000000",
+        "last_funding_rate": "0.00010000",
         "next_funding_time": 1783065600000,
         "min_notional": "5",
         "step_size": "0.01"
       },
       "spot": {
-        "symbol": null,
-        "status": null,
-        "exists": false,
-        "min_notional": null,
-        "step_size": null
+        "symbol": "TSLABUSDT",
+        "status": "TRADING",
+        "exists": true,
+        "match_type": "bstock_b_suffix_alias",
+        "min_notional": "5.00000000",
+        "step_size": "0.00010000"
       },
       "margin_public": {
         "public_cross_margin_pair": null,
@@ -285,7 +292,6 @@
       "funding_history": [],
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED",
-        "PERP_ONLY_NO_SPOT_LEG",
         "TRADIFI_BSTOCK"
       ]
     }
@@ -293,6 +299,6 @@
   "warnings": [
     "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
     "premiumIndex.lastFundingRate is documented by Binance as the most recently updated funding rate; whether it equals the last settled rate or a forward estimate is not proven from local docs, so do not label it as a guaranteed settled or upcoming value.",
-    "All 118 observed TRADIFI_PERPETUAL symbols have no spot leg, so they are PERP_ONLY_EXCLUDED with asset_tag=BSTOCK; asset_tag is independent of route_class."
+    "TRADIFI_PERPETUAL (bStock) spot legs are joined via the baseAsset+B+quoteAsset alias (e.g. futures TSLAUSDT -> spot TSLABUSDT); bStock collateral ratio is dynamic/unknown and is not hard-coded; asset_tag is independent of route_class."
   ]
 }

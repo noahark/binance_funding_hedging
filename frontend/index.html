@@ -699,9 +699,12 @@
           const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
             ? row.ui_flags.map(f => `<span class="badge compact">${escapeHtml(f)}</span>`).join(' ')
             : '<span class="muted small">—</span>';
+          const spotAlias = row.spot && row.spot.match_type === 'bstock_b_suffix_alias' && row.spot.symbol && row.spot.symbol !== row.symbol
+            ? `<br/><span class="muted small">现货腿: ${escapeHtml(row.spot.symbol)}</span> <span class="badge compact info">B 后缀别名</span>`
+            : '';
           return `
             <tr class="${isBstock ? 'bstock' : ''}">
-              <td class="mono">${escapeHtml(row.symbol)}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span></td>
+              <td class="mono">${escapeHtml(row.symbol)}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span>${spotAlias}</td>
               <td>${badgeForAssetTag(row.asset_tag)}</td>
               <td>${badgeForRouteClass(row.route_class)}</td>
               <td class="${rateClass}">${formatFundingRate(row.futures.last_funding_rate)}</td>
