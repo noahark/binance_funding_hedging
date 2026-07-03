@@ -153,10 +153,23 @@ dispatching the fix.
 ## Hard Gates
 
 - Git is required. No git repository means no diff fingerprint and no review.
-- Diff fingerprint is defined as
-  `head_sha + ":" + sha256(git diff --binary <base_sha>..HEAD)`.
+- Review gates require a committed repository state. The controller is
+  authorized to create local stage commits before review; this does not imply
+  user approval to push, merge, deploy, or mark the stage accepted.
+- Diff fingerprint is defined as a single committed-state scheme:
+  `head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")`.
+  `status.json` is excluded because it records the fingerprint and would
+  otherwise be self-referential. Do not invent alternate fingerprint fields or
+  worktree fingerprint protocols.
 - Model claims are not evidence. Evidence is raw diff, test output, artifacts,
-  schema-valid verdicts, and committed or uncommitted repository state.
+  schema-valid verdicts, and committed repository state. Uncommitted state is
+  allowed only for in-progress checkpoints before a review gate.
+- Before dispatching `review-1`, dispatching `review-2`, or writing an accepted
+  terminal state, run `scripts/validate-stage.py <stage-id> --phase <phase>` and
+  preserve the output in the stage evidence.
+- Unknown status values, unknown fingerprint protocols, or controller-invented
+  state machine transitions fail closed and route to `human_escalation_required`
+  unless the Harness schema, docs, and validator are updated first.
 - Final reviewer must not be the stage designer.
 - Reviewer must not be the implementer of the reviewed task.
 - Reviewer input must be raw artifacts and file paths, not only controller
@@ -196,7 +209,9 @@ The intended loop is:
 6. Split implementation tasks.
 7. Implement the bounded task.
 8. Run deterministic tests, lint, type checks, or replay checks.
-9. Review raw artifacts.
+9. Commit the bounded stage artifacts locally, compute the standard
+   `diff_fingerprint`, run `scripts/validate-stage.py <stage-id> --phase
+   pre-review`, then review raw artifacts.
 10. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
    to launch the fix task.
 11. Repeat until accepted, then stop and wait for the user to start the next
@@ -250,6 +265,9 @@ another model to continue, update:
 
 The checkpoint must include current branch, HEAD if available, git status,
 changed files, test status, open findings, blockers, and next action.
+
+Checkpoints before review may be uncommitted. Review gates may not be
+uncommitted.
 
 ## Local Command Notes
 

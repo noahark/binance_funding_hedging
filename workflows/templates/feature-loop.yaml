@@ -11,6 +11,9 @@ controller:
 
 guards:
   require_git_repo: true
+  require_committed_state_before_review: true
+  forbid_worktree_fingerprint: true
+  validate_stage_script: "scripts/validate-stage.py"
   fail_closed_on_invalid_json: true
   reviewer_uses_raw_artifacts: true
   max_rework_per_stage: 3
@@ -326,6 +329,10 @@ stages:
       - "Failures block final review unless failure triage is the task."
 
   - id: review-1
+    preflight:
+      - "Controller must locally commit reviewed artifacts before dispatch."
+      - "status.json status must be review_1."
+      - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
     actor:
       provider: grok
       model: "grok-build"
@@ -407,6 +414,10 @@ stages:
       development_models_exhausted: development_models_exhausted
 
   - id: review-2
+    preflight:
+      - "Controller must locally commit reviewed artifacts before dispatch."
+      - "status.json status must be review_2."
+      - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
     actor:
       primary: codex
       fallback: claude
@@ -474,6 +485,8 @@ stages:
 
 terminal_states:
   stage_accepted_waiting_user:
+    preflight:
+      - "Run scripts/validate-stage.py {{stage_id}} --phase pre-accept before writing the terminal state."
     controller_action:
       - "update status.json"
       - "update 70-handoff.md"
