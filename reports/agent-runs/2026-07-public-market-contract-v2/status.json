@@ -9,7 +9,13 @@
     "scope": "Binance public API field verification and public market contract freeze"
   },
   "reviewer_1": null,
-  "reviewer_2": null,
+  "reviewer_2": {
+    "provider": "codex",
+    "model": "gpt5.5",
+    "role": "final_reviewer",
+    "reviewer_prior_involvement": "design",
+    "selection_reason": "User approved re-entering review-2 under the strong-reviewer disclosure override after Claude/Fable5 failed runner-level availability and provider-isolation checks."
+  },
   "complexity": {
     "classification": "MEDIUM",
     "direction_panel_required": false,
@@ -169,17 +175,51 @@
     }
   },
   "review_2": {
-    "reviewer": null,
-    "primary_provider": "claude",
-    "fallback_provider": null,
-    "fallback_reason": "anti_self_review_ineligible: stage designer is codex, so codex cannot serve as final review-2 for this stage.",
-    "availability_note": "If Claude is quota-exhausted or unavailable, the stage routes to decision_models_exhausted because codex is designer-ineligible and no third final reviewer is registered.",
+    "reviewer": {
+      "provider": "codex",
+      "model": "gpt5.5"
+    },
+    "provider": "codex",
+    "model": "gpt5.5",
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
+    "fallback_reason": "Claude/Fable5 failed runner-level review-2 dispatch on two grounds: service_unavailable (claude-fable-5 rejected by the active gateway, API Error 400 模型不存在) and provider-isolation failure (local claude runtime resolves to zhipu_glm through ANTHROPIC_BASE_URL=https://open.bigmodel.cn/api/anthropic, same provider as implementer claude_glm). User approved re-entering review-2 under the new strong-reviewer disclosure override, allowing Codex to final-review despite prior design involvement.",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "Codex/GPT participated as stage designer/synthesizer. Under the 2026-07-03 stage-delivery Harness update, this is allowed only as a disclosed strong-reviewer override after the unrelated decision model is unavailable. The review must treat user-approved synthesis and PRD as higher authority than stage design.",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch-failure.md",
+    "design_conflict_override": {
+      "used": true,
+      "reason": "No unrelated decision reviewer is available: Claude/Fable5 failed runner-level dispatch and provider isolation; Codex did not implement or fix any reviewed delivery code.",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch-failure.md"
+    },
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
     "diff_fingerprint": null,
     "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0,
+    "prior_dispatch_attempt": {
+      "attempted_at": "2026-07-03T08:15:32Z",
+      "adapter": "claude",
+      "adapter_binary": "/Users/ark/.local/bin/claude",
+      "adapter_declared_provider_identity": "anthropic",
+      "dispatched_model": "claude-fable-5",
+      "runtime_provider_observed": "zhipu_glm",
+      "runtime_provider_evidence": "ANTHROPIC_BASE_URL = https://open.bigmodel.cn/api/anthropic (Zhipu BigModel Anthropic-compatible endpoint); ANTHROPIC_AUTH_TOKEN set (redacted, never logged).",
+      "command": "claude --model claude-fable-5 --permission-mode plan --json-schema \"$(cat schemas/review-verdict.schema.json)\" -p \"$(cat reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch.prompt.md)\"",
+      "prompt_file": "reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch.prompt.md",
+      "background_task_id": "birc9183w",
+      "exit_code": 1,
+      "runner_error": "API Error: 400 [1211][模型不存在，请检查模型代码。] (active gateway rejected claude-fable-5)",
+      "captured_output_file": "reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch.raw-output.txt",
+      "captured_output_bytes": 290,
+      "fallback_conditions_hit": [
+        "service_unavailable",
+        "anti_self_review_ineligible"
+      ],
+      "anti_self_review_reason": "Runtime provider of the local claude binary is zhipu_glm (same model vendor as implementer claude_glm), so using it for review-2 would be implementation-provider self-review."
+    }
   },
   "rework_count": 1,
   "max_rework": 3,
@@ -187,9 +227,9 @@
   "human_escalation": {
     "required": false,
     "reason": null,
-    "resolved_by": "user approved replacing Grok review-1 with Kimi/Claude-GLM cross-review; current stage re-routed to Kimi review-1."
+    "resolved_by": "User approved re-entering review-2 under the strong-reviewer disclosure override after the Claude/Fable5 dispatch failure evidence was recorded."
   },
   "terminal_reason": null,
-  "next_action": "route_to_review_2",
-  "updated_at": "2026-07-03T07:57:43Z"
+  "next_action": "run_review_2_codex_disclosure_override",
+  "updated_at": "2026-07-03T10:43:35Z"
 }

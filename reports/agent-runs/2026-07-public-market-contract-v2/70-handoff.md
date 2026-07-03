@@ -1,10 +1,19 @@
 # Handoff: Public Market Contract V2
 
-## Checkpoint: contract discovery frozen for review_1
+## Checkpoint: contract discovery re-entered review_2
 
-Status: `review_2` (review-1 accepted by Kimi `kimi-2.7`; awaiting review-2
-dispatch). Implementer: Claude-GLM (`glm-5.2[1m]`). Review-1 used the
-Kimi/Claude-GLM cross-review policy.
+Status: `review_2`. Review-1 stands at `ACCEPT` (Kimi `kimi-2.7`).
+Implementer: Claude-GLM (`glm-5.2[1m]`). The previous Claude/Fable5 review-2
+dispatch failed at runner level and is preserved as evidence in
+`review-2-claude-dispatch-failure.md` plus
+`review-2-claude-dispatch.raw-output.txt`.
+
+Per the 2026-07-03 stage-delivery Harness update, the user approved re-entering
+review-2 under the strong-reviewer disclosure override: Codex/GPT may perform
+final review despite prior stage design involvement because the unrelated
+decision reviewer (Claude/Fable5) is unavailable and Codex did not implement or
+fix any reviewed delivery code. The review must treat the user-approved
+direction synthesis and PRD as higher authority than `00-task.md`/`10-design.md`.
 
 Branch: `main` (local only, not pushed; `ahead of origin/main`). Review baseline:
 
@@ -124,11 +133,11 @@ examine the same fixed product). This acceptance-logging commit advances `HEAD`
 past `head_sha`, so review-2 must use the recorded `base_sha..head_sha`, not the
 moving `HEAD`.
 
-Next action: `route_to_review_2` (final gate). Per the anti-self-review policy,
-review-2 cannot use Codex (the stage designer); it uses Claude
-(`claude-fable-5`, `reality_checker`, read-only) as the final reviewer, falling
-back to `decision_models_exhausted` if Claude is unavailable. Backend
-implementation and Kimi frontend remain gated until review-2 accepts.
+Next action: `run_review_2_codex_disclosure_override` (final gate).
+`status.json.review_2` records `reviewer_prior_involvement=design`,
+`fallback_reason`, and
+`unrelated_reviewer_unavailable_evidence=reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch-failure.md`.
+Backend implementation and Kimi frontend remain gated until review-2 accepts.
 
 ## Claude-GLM Backend Contract Prompt
 
@@ -221,6 +230,44 @@ Expected UI:
 
 ## Review Routing Note
 
-For this stage, `review-2` must use Claude as the final reviewer because Codex
-is the stage designer. If Claude is unavailable, stop with
-`decision_models_exhausted`; do not fall back to Codex for final review.
+For this stage, `review-2` now uses Codex/GPT as a disclosed strong-reviewer
+override. Prior involvement is `design`. The unrelated decision model
+Claude/Fable5 is unavailable; evidence is preserved in
+`review-2-claude-dispatch-failure.md` and
+`review-2-claude-dispatch.raw-output.txt`. Codex/GPT is eligible because it did
+not implement or fix any reviewed delivery code.
+
+### Historical Claude/Fable5 review-2 dispatch result: unavailable
+
+Review-2 was dispatched to Claude `claude-fable-5` (`reality_checker`,
+read-only/plan) per `docs/model-adapters.md` and registry
+`adapters.claude.read_only_review_command` (background task `birc9183w`, exit
+code 1). The dispatch failed at the runner level with two independent,
+disqualifying causes:
+
+1. `service_unavailable` — the active gateway rejected the model:
+   `API Error: 400 [1211][模型不存在，请检查模型代码。]`.
+2. `anti_self_review_ineligible` — the local `claude` binary is hijacked by
+   `ANTHROPIC_BASE_URL=https://open.bigmodel.cn/api/anthropic` (Zhipu BigModel),
+   so its runtime provider is `zhipu_glm`, identical to the implementer
+   (`claude_glm`). Per AGENTS.md, provider identity is the model vendor, not the
+   CLI wrapper; using it for review-2 would be a self-review.
+
+The review-2 fallback chain (`registry.yaml` `review_2: {primary: codex,
+fallback: claude}`) is exhausted: `codex` is excluded as the stage designer
+(`final_review_2_must_differ_from_designer`), and `claude` is unavailable for
+the two reasons above. No third final reviewer is registered, and the controller
+did not silently substitute another model into review-2. Full evidence, the
+runner-level adapter check, and the frozen-subject reproduce command are in
+`review-2-claude-dispatch-failure.md`; the raw dispatch output (290 bytes) is in
+`review-2-claude-dispatch.raw-output.txt`.
+
+The frozen contract (`2bb47ad..d73eb10`, fingerprint `de0c199b…`) is unchanged.
+The historical dispatch failure is no longer terminal because the user approved
+the new disclosure override path. The controller still cannot declare final
+acceptance; only schema-valid review-2 and pre-accept validation can advance the
+stage.
+
+本地北京时间: 2026-07-03 18:43:35 CST
+下一步模型: Codex/GPT
+下一步任务: Run review-2 under strong-reviewer disclosure override against raw artifacts and the frozen 2bb47ad..d73eb10 diff.

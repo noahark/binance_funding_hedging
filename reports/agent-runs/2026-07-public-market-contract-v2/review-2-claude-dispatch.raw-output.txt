@@ -1,0 +1,2 @@
+⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.ai login · Unset it to load your organization's connectors
+API Error: 400 [1211][模型不存在，请检查模型代码。][202607031608327097993616204a51]
