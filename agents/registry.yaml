@@ -302,7 +302,7 @@ model_policies:
   rework_verdict_requires_fix_start_prompt: true
   invalid_json_verdict: retry_once_then_fallback_or_human_escalation
   default_max_rework: 3
-  diff_fingerprint: "head_sha + ':' + sha256(git diff --binary <base_sha>..HEAD)"
+  diff_fingerprint: "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')"
   final_reviewer_must_differ_from_designer: true
   review_1_identity_granularity: provider
   review_2_identity_granularity: provider

@@ -292,7 +292,7 @@ For a given stage:
 The Harness fingerprint for a review candidate is:
 
 ```text
-head_sha + ":" + sha256(git diff --binary <base_sha>..HEAD)
+head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")
 ```
 
 Reviewer verdict JSON must echo this value. If code changes after review, the
