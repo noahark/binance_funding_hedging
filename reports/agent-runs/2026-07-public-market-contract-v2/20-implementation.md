@@ -46,11 +46,12 @@ repay/transfer/websocket execution path was used or introduced.
 Because Claude-GLM is both controller and backend contract implementer for this
 stage, reviewer trust must not rely on this report. Reviewers must:
 
-- Recompute `diff_fingerprint`. Changes are uncommitted (HEAD == base), so the
-  literal `git diff --binary <base>..HEAD` is empty; the recorded value in
-  `status.json` is sha256 over the full working-tree state versus base including
-  untracked new files, excluding `status.json` itself (self-referential). See the
-  exact reproduce command in `status.json.diff_fingerprint_note` and `70-handoff.md`.
+- Recompute `diff_fingerprint` from the committed subject range recorded in
+  `status.json` and `70-handoff.md`; do not use the moving symbolic `HEAD`.
+  The standard Harness formula is:
+  `head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")`.
+  Use the exact reproduce command in `status.json.diff_fingerprint_note` and
+  `70-handoff.md`.
 - Inspect raw artifacts directly:
   `reports/api-samples/public-market-contract-v2/20260703T051738Z/raw/*.json`.
 - Re-run the validation in `60-test-output.txt` (commands are replayable; the
