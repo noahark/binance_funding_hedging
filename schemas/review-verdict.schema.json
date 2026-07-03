@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local.ai-project-harness/schemas/review-verdict.schema.json",
   "title": "Review Verdict",
-  "description": "Strict reviewer verdict. diff_fingerprint is head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json'). Missing or invalid JSON fails closed as non-accepting evidence and cannot pass a gate. REWORK verdicts must include fix_start_prompt so the controller can immediately dispatch a bounded fix task without re-summarizing the review.",
+  "description": "Strict reviewer verdict. diff_fingerprint is head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json'). Missing or invalid JSON fails closed as non-accepting evidence and cannot pass a gate. REWORK verdicts must include fix_start_prompt so the controller can immediately dispatch a bounded fix task without re-summarizing the review. reviewer_prior_involvement discloses whether the reviewer participated in direction synthesis, development breakdown, or design before reviewing.",
   "type": "object",
   "additionalProperties": false,
   "allOf": [
@@ -27,6 +27,7 @@
     "model",
     "verdict",
     "diff_fingerprint",
+    "reviewer_prior_involvement",
     "reviewed_artifacts",
     "findings",
     "required_fixes",
@@ -57,6 +58,15 @@
       "type": "string",
       "description": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
       "minLength": 1
+    },
+    "reviewer_prior_involvement": {
+      "type": "string",
+      "description": "Highest known prior participation by this reviewer/provider in the reviewed stage before this review. Prior implementation or fix authorship is not allowed for review-2 and must be caught by the workflow/validator, not normalized away here.",
+      "enum": ["none", "direction_synthesis", "breakdown", "design"]
+    },
+    "reviewer_prior_involvement_notes": {
+      "type": "string",
+      "description": "Optional human-readable disclosure of the prior involvement and the evidence path or fallback reason when a strong-reviewer override is used."
     },
     "reviewed_artifacts": {
       "type": "array",

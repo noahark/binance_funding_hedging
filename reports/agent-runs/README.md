@@ -8,8 +8,10 @@ reports/agent-runs/<stage-id>/
   00-task.md
   10-design.md
   11-adr.md
+  12-development-breakdown.md   (MEDIUM/HIGH/MILESTONE stages)
   20-implementation.md
   30-review-1.md
+  30-review-1-<task-id>.md   (optional for multi-task stages)
   40-fix-report.md
   50-review-2.md
   60-test-output.txt
@@ -55,8 +57,10 @@ docs/planning/DECISIONS.md
 | `06-direction-synthesis.md` | GPT/Codex | Conditional final synthesized direction for user review |
 | `10-design.md` | Designer | Architecture, task split, risks, test strategy |
 | `11-adr.md` | Designer | Stage decision context, alternatives, tradeoffs, reviewer notes |
+| `12-development-breakdown.md` | Breakdown author | Implementation boundaries, contracts, tests, owner split, review focus |
 | `20-implementation.md` | Implementer | Changed files, decisions, tests, remaining work |
 | `30-review-1.md` | Reviewer | First review findings and strict JSON verdict |
+| `30-review-1-<task-id>.md` | Reviewer | Task-specific cross-review verdict for multi-task stages |
 | `40-fix-report.md` | Implementer | Fix mapping and retest evidence |
 | `50-review-2.md` | Final reviewer | Final raw-artifact review and strict JSON verdict |
 | `60-test-output.txt` | Controller | Raw or scrubbed command output |
@@ -116,8 +120,35 @@ Terminal stop reasons are limited to:
 - Run `scripts/validate-stage.py <stage-id> --phase pre-accept` before writing
   `accepted` or `stage_accepted_waiting_user`.
 - `review_1` and `review_2` verdicts are tracked separately.
+- Multi-task stages should record each implementation task in
+  `status.json.tasks` with owner, reviewer, base_sha, head_sha,
+  diff_fingerprint, review verdict, and test evidence path. Task-specific
+  cross-review files should use `30-review-1-<task-id>.md`.
 - A `REWORK` verdict must include `fix_start_prompt`, a ready-to-send prompt
   for the fix implementer that preserves raw artifact paths, findings, required
   fixes, file boundaries, and verification commands.
+- All review verdict JSON objects must include `reviewer_prior_involvement`.
+- A final reviewer may overlap with the designer, direction synthesizer, or
+  development breakdown author only through the strong-reviewer disclosure
+  override: the status must record prior involvement, fallback reason, and an
+  existing evidence file proving the unrelated decision model was unavailable.
+- A final reviewer must never share provider identity with any implementation
+  or fix author for the reviewed code.
+- The same model may emit invalid verdict JSON at most twice for a gate; after
+  two invalid attempts, route that model as unavailable for the gate.
 - A stage is not accepted until `status.json`, `70-handoff.md`, test output, and
   schema-valid review verdicts agree.
+
+## Report Footer
+
+Model-facing reports and handoffs should end with:
+
+```text
+本地北京时间: YYYY-MM-DD HH:MM:SS CST
+下一步模型: <model-or-human>
+下一步任务: <specific next task>
+```
+
+The timestamp must be copied from a local `date` command. Do not guess it from
+model memory. For strict JSON verdict files, place the footer before the final
+JSON block or in schema-approved fields so the verdict remains parseable.

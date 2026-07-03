@@ -9,7 +9,7 @@ This is a new project. The current priority is to build a lightweight Harness fo
 requirements, design, implementation, review, fix, and evidence tracking before
 the target product is implemented.
 
-The first manual loop is not started yet.
+The first manual stage delivery run is not started yet.
 
 ## Authority Order
 
@@ -105,6 +105,13 @@ Development does not begin until the user approves or edits the synthesis.
 After user approval, the stage designer creates the next stage scope, file
 boundaries, non-goals, acceptance criteria, and test strategy.
 
+For `MEDIUM`, `HIGH`, and `MILESTONE` stages, a development breakdown author
+then narrows implementation boundaries before coding starts. The default
+breakdown author is Claude/Fable5 unless the registry or user selects another
+model. The breakdown must record owner split, allowed files, forbidden files,
+API/data contracts, test evidence, risk points, and review focus. This is design
+involvement for review-2 disclosure purposes.
+
 ### Implementers
 
 Implementers can be Kimi subagents, Claude-GLM, Grok, or another explicitly
@@ -123,13 +130,17 @@ implementer is `claude_glm`, review-1 uses Kimi. If the implementer is Kimi,
 review-1 uses Claude-GLM. For any other implementer, the controller chooses the
 first available reviewer from the registered cross-review pool that does not
 share provider identity with the implementer. Review-2 is the final gate and
-uses GPT/Codex first, then Claude only if GPT/Codex is
-unavailable, quota-exhausted, or ineligible under the anti-self-review gate. If
-Claude is also unavailable or quota-exhausted, the workflow stops with
-`decision_models_exhausted`.
+uses GPT/Codex first, then Claude when GPT/Codex is unavailable,
+quota-exhausted, or when the workflow's strong-reviewer override is required.
+If both decision models are unavailable and no override path is valid, the
+workflow stops with `decision_models_exhausted`.
 
-A stage's final reviewer must not be its designer or implementer. Reviewers are
-read-only. They must inspect raw artifacts:
+A reviewer must not be the implementer or fix author of the reviewed code. This
+is a hard ban with no disclosure override. A stage's final reviewer should
+preferably differ from its designer, direction synthesizer, or development
+breakdown author. Codex/GPT and Claude/Fable5 may perform final review despite
+prior design involvement only through the strong-reviewer disclosure override
+defined below. Reviewers are read-only. They must inspect raw artifacts:
 
 - Workflow YAML and `00-task.md`.
 - `10-design.md`, `11-adr.md`, and `06-direction-synthesis.md` when present.
@@ -143,11 +154,31 @@ Self-review identity is checked at two granularities:
 - `review-1` uses provider-level cross-review isolation. It must not share
   provider identity, session state, prompt transcript, or tool state with the
   implementer of the reviewed task.
-- `review-2` uses provider-level isolation for final decisioning. The final
-  reviewer must not share the designer or implementer provider.
+- `review-2` uses provider-level isolation from all implementation and fix
+  authors. The final reviewer must not share the provider identity of any model
+  that wrote delivery code in the reviewed stage.
+- `review-2` prefers provider-level isolation from the designer, direction
+  synthesizer, and development breakdown author. If no unrelated decision model
+  is available after a runner-level check, Codex/GPT or Claude/Fable5 may review
+  with a recorded design-involvement disclosure.
 
 Provider identity means model vendor, not CLI wrapper. `claude_glm` is
 `zhipu_glm`, not Anthropic, even though it is accessed through Claude Code.
+
+Strong-reviewer disclosure override:
+
+- It applies only to prior direction synthesis, development breakdown, or stage
+  design involvement. It never applies to implementation or fix authorship.
+- It is allowed only after the unrelated decision model fails a runner-level
+  availability check for quota, authentication, service, timeout, or repeated
+  invalid verdict output. The failure evidence path must be recorded.
+- The review verdict must include `reviewer_prior_involvement` and the stage
+  status must record the fallback reason and evidence file.
+- The review-2 prompt must treat the user's approved direction synthesis, PRD,
+  and product documents as the top-level requirements. The design and breakdown
+  artifacts are reviewed evidence, not the highest authority.
+- `scripts/validate-stage.py` must fail acceptance if these disclosure fields or
+  evidence paths are missing.
 
 Reviewer output must end with a strict JSON verdict matching
 `schemas/review-verdict.schema.json`. If the JSON is missing or invalid, the
@@ -181,8 +212,12 @@ dispatching the fix.
 - Unknown status values, unknown fingerprint protocols, or controller-invented
   state machine transitions fail closed and route to `human_escalation_required`
   unless the Harness schema, docs, and validator are updated first.
-- Final reviewer must not be the stage designer.
-- Reviewer must not be the implementer of the reviewed task.
+- Final reviewer should differ from the stage designer, direction synthesizer,
+  or breakdown author. Codex/GPT and Claude/Fable5 may use the documented
+  strong-reviewer disclosure override when no unrelated decision model is
+  available.
+- Reviewer must not be the implementer or fix author of the reviewed task. This
+  has no override.
 - Reviewer input must be raw artifacts and file paths, not only controller
   summaries.
 - Invalid verdict JSON fails closed as non-accepting evidence. It cannot pass a
@@ -200,16 +235,17 @@ dispatching the fix.
 - Model dispatch must use `docs/model-adapters.md` and `agents/registry.yaml`.
   A controller session lacking a built-in tool for a model is not sufficient to
   mark that model unavailable; the runner-level adapter check must fail.
-- Review-2 fallback from GPT/Codex to Claude is allowed only for quota,
-  authentication, service availability, or anti-self-review ineligibility. Do
-  not ask Claude for a second opinion after a valid GPT/Codex verdict.
+- Review-2 fallback or strong-reviewer override is allowed only for quota,
+  authentication, service availability, timeout, repeated invalid verdict JSON,
+  or design-conflict ineligibility of the preferred unrelated reviewer. Do not
+  ask Claude for a second opinion after a valid GPT/Codex verdict.
 - Review-1 uses the configured cross-review pool. Grok is not a default review
   gate and must not be substituted into review-1 unless the user explicitly
   enables it for the stage.
 
-## Standard Loop
+## Standard Stage Delivery
 
-The intended loop is:
+The intended stage delivery flow is:
 
 1. After user requirement discussion, classify the work as `LOW`, `MEDIUM`,
    `HIGH`, or `MILESTONE`.
@@ -221,16 +257,18 @@ The intended loop is:
    raw drafts into a final direction and requirements document for user review.
 4. Wait for user approval before development starts.
 5. Design stage scope and acceptance criteria.
-6. Split implementation tasks.
-7. Implement the bounded task.
-8. Run deterministic tests, lint, type checks, or replay checks.
-9. Commit the bounded stage artifacts locally, compute the standard
+6. Run development detail breakdown for `MEDIUM`, `HIGH`, or `MILESTONE`
+   stages.
+7. Split implementation tasks.
+8. Implement the bounded task.
+9. Run deterministic tests, lint, type checks, or replay checks.
+10. Commit the bounded stage artifacts locally, compute the standard
    `diff_fingerprint`, run `scripts/validate-stage.py <stage-id> --phase
    pre-review`, then review raw artifacts.
-10. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
+11. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
    to launch the fix task.
-11. Repeat until accepted, then stop and wait for the user to start the next
-   multi-model direction round.
+12. Repeat only within the bounded stage until accepted, then stop and wait for
+   the user to start the next multi-model direction round.
 
 Lightweight bugfixes or mechanical follow-up tasks may skip the direction panel
 when the user explicitly approves that shortcut or an existing synthesis already
@@ -265,7 +303,24 @@ Other failures, including invalid JSON, failed tests, missing artifacts, or a
 single model failure, are routed to retry, fix, fallback, or evidence collection
 inside the active workflow before escalating to one of these terminal reasons.
 
-The first manual loop is intentionally deferred.
+The first manual stage delivery run is intentionally deferred.
+
+## Output Footer
+
+Every model-facing report, handoff, review narrative, and significant
+controller response should end with:
+
+```text
+本地北京时间: YYYY-MM-DD HH:MM:SS CST
+下一步模型: <model-or-human>
+下一步任务: <specific next task>
+```
+
+The timestamp must come from a local `date` command, not from model memory.
+This footer is a human navigation aid; `status.json` remains the authoritative
+machine-readable state. For strict JSON verdicts, place the footer before the
+final JSON block or inside schema-approved fields so the final JSON contract
+remains parseable.
 
 ## Checkpoint Requirements
 

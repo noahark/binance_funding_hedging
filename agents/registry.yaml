@@ -301,9 +301,21 @@ model_policies:
   reviewer_requires_raw_artifacts: true
   rework_verdict_requires_fix_start_prompt: true
   invalid_json_verdict: retry_once_then_fallback_or_human_escalation
+  invalid_json_max_attempts_per_model: 2
   default_max_rework: 3
   diff_fingerprint: "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')"
-  final_reviewer_must_differ_from_designer: true
+  final_reviewer_should_differ_from_designer: true
+  final_reviewer_design_conflict_override:
+    allowed_for_strong_reviewers: [codex, claude]
+    requires:
+      - "unrelated decision model failed a runner-level availability or schema-valid verdict check"
+      - "fallback_reason recorded in status.json"
+      - "unrelated reviewer unavailable evidence file exists"
+      - "reviewer_prior_involvement recorded in the verdict and status.json"
+      - "review-2 prompt reviews against user-approved synthesis and PRD, not only 00-task.md/10-design.md"
+    never_allowed_when:
+      - "reviewer provider wrote implementation code"
+      - "reviewer provider wrote fix code"
   review_1_identity_granularity: provider
   review_2_identity_granularity: provider
   review_1_cross_review_pool:
@@ -320,8 +332,13 @@ model_policies:
     - quota_exhausted
     - auth_failure
     - service_unavailable
+    - timeout
     - anti_self_review_ineligible
     - invalid_verdict_json
+  future_review_2_fallback_candidates:
+    - provider: google
+      model: "Gemini 3.1 Pro"
+      trigger: "Enable only if design-conflict overrides become frequent or the user explicitly approves a third decision model."
   terminal_stop_reasons:
     - decision_models_exhausted
     - development_models_exhausted
@@ -363,6 +380,12 @@ rotation_defaults:
   direction_synthesizer:
     provider: codex
     output: "06-direction-synthesis.md"
+  development_breakdown:
+    provider: claude
+    model: "claude-fable-5"
+    skill: task_planner
+    output: "12-development-breakdown.md"
+    required_for: [MEDIUM, HIGH, MILESTONE]
   review_1:
     cross_review_pool:
       - provider: kimi
@@ -378,8 +401,11 @@ rotation_defaults:
     fallback: claude
   review_policy:
     review_1_may_equal_designer: true
-    final_review_2_must_differ_from_designer: true
+    final_review_2_should_differ_from_designer: true
+    final_review_2_design_conflict_override_allowed: true
     review_1_provider_must_differ_from_implementer_provider: true
     review_1_requires_fresh_read_only_session: true
     review_2_provider_must_differ_from_implementer_provider: true
+    review_2_provider_must_differ_from_fix_author_provider: true
+    review_2_disclosure_required_when_reviewer_participated_in_design: true
     review_2_fallback_allowed_only_on_listed_reasons: true

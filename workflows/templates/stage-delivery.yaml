@@ -1,9 +1,9 @@
 version: 1
-name: feature-loop
+name: stage-delivery
 description: >
-  Template for one bounded project development loop. The controller is
-  GLM5.2 through Claude Code. The first manual loop is deferred until product
-  requirements and test strategy are agreed.
+  Template for one bounded quality-gated project delivery stage. The
+  controller is GLM5.2 through Claude Code. The first manual stage delivery run
+  is deferred until product requirements and test strategy are agreed.
 
 controller:
   registry_ref: controllers.default
@@ -18,8 +18,16 @@ guards:
   reviewer_uses_raw_artifacts: true
   max_rework_per_stage: 3
   no_self_review:
-    final_reviewer_not_designer: true
+    final_reviewer_prefer_not_designer: true
+    final_reviewer_design_conflict_override_allowed_for: [codex, claude]
     reviewer_not_implementer: true
+    final_reviewer_not_code_author: true
+    design_conflict_override_requires:
+      - "unrelated decision model failed a runner-level check"
+      - "fallback_reason recorded in status.json"
+      - "unrelated reviewer failure evidence file exists"
+      - "reviewer_prior_involvement recorded in verdict and status.json"
+      - "review-2 prompt reviews against user-approved synthesis and PRD, not only stage design"
   human_gate_required_for:
     - direction_synthesis_approval
     - product_domain_semantics
@@ -44,6 +52,9 @@ artifacts:
     - 60-test-output.txt
     - 70-handoff.md
     - status.json
+  conditional_files:
+    medium_high_milestone:
+      - 12-development-breakdown.md
   direction_files_required_for_milestone_freeze:
     - direction-drafts/*.md
     - 06-direction-synthesis.md
@@ -75,6 +86,12 @@ rotation:
     model: gpt
     skill: product_strategist
     output: "06-direction-synthesis.md"
+  development_breakdown:
+    provider: claude
+    model: "claude-fable-5"
+    skill: task_planner
+    output: "12-development-breakdown.md"
+    required_for: [MEDIUM, HIGH, MILESTONE]
   designers:
     - codex
     - claude
@@ -95,16 +112,21 @@ rotation:
       - quota_exhausted
       - auth_failure
       - service_unavailable
+      - timeout
       - anti_self_review_ineligible
       - invalid_verdict_json
   policy:
     # Review-1 is a cross-review quality pass. Review-2 is the final gate.
     review_1_may_equal_designer: true
-    review_2_must_differ_from_designer: true
+    review_2_should_differ_from_designer: true
+    review_2_design_conflict_override_allowed: true
     review_1_identity_granularity: provider
     review_2_identity_granularity: provider
     review_1_provider_must_differ_from_implementer_provider: true
     review_1_requires_fresh_read_only_session: true
+    review_2_provider_must_differ_from_any_code_author_provider: true
+    review_2_disclosure_required_when_reviewer_participated_in_design: true
+    invalid_verdict_json_max_attempts_per_model: 2
     do_not_seek_second_opinion_after_valid_review_2_verdict: true
   complexity_routing:
     LOW:
@@ -274,6 +296,30 @@ stages:
       - "ADR records design context, alternatives, tradeoffs, and reviewer notes."
       - "Designer identity is recorded in status.json."
 
+  - id: development-breakdown
+    run_when:
+      - "after stage-design"
+      - "before implementation for MEDIUM, HIGH, and MILESTONE stages"
+    skip_allowed_when:
+      - "complexity is LOW and user approved lightweight route"
+    actor: rotation.development_breakdown
+    skill: task_planner
+    mode: read_write_docs
+    reads:
+      - "reports/agent-runs/{{stage_id}}/00-task.md"
+      - "reports/agent-runs/{{stage_id}}/10-design.md"
+      - "reports/agent-runs/{{stage_id}}/11-adr.md"
+      - "reports/agent-runs/{{stage_id}}/06-direction-synthesis.md when present"
+      - "docs/product/PRD.md"
+      - "docs/architecture/ARCHITECTURE.md when present"
+    writes:
+      - "reports/agent-runs/{{stage_id}}/12-development-breakdown.md"
+      - "reports/agent-runs/{{stage_id}}/status.json"
+    acceptance:
+      - "Breakdown defines backend/frontend ownership, file boundaries, API/data contracts, tests, risk points, and do-not-touch areas."
+      - "Breakdown author identity is recorded in status.json.breakdown_author."
+      - "Breakdown is design involvement for review-2 disclosure purposes."
+
   - id: task-breakdown
     actor: controller
     skill: task_planner
@@ -282,11 +328,13 @@ stages:
       - "reports/agent-runs/{{stage_id}}/00-task.md"
       - "reports/agent-runs/{{stage_id}}/10-design.md"
       - "reports/agent-runs/{{stage_id}}/11-adr.md"
+      - "reports/agent-runs/{{stage_id}}/12-development-breakdown.md when present"
     writes:
       - "reports/agent-runs/{{stage_id}}/70-handoff.md"
       - "reports/agent-runs/{{stage_id}}/status.json"
     acceptance:
       - "Implementation tasks have clear owners, dependencies, and file boundaries."
+      - "For multi-task stages, status.json records each task with owner, reviewer, base_sha/head_sha/diff_fingerprint, review verdict, and test evidence path."
 
   - id: implementation
     actor_pool:
@@ -307,6 +355,7 @@ stages:
       - "reports/agent-runs/{{stage_id}}/00-task.md"
       - "reports/agent-runs/{{stage_id}}/10-design.md"
       - "reports/agent-runs/{{stage_id}}/11-adr.md"
+      - "reports/agent-runs/{{stage_id}}/12-development-breakdown.md when present"
       - "reports/agent-runs/{{stage_id}}/status.json"
     writes:
       - "source files within task boundary"
@@ -353,6 +402,7 @@ stages:
       - "00-task.md"
       - "10-design.md"
       - "11-adr.md"
+      - "12-development-breakdown.md when present"
       - "06-direction-synthesis.md when present"
       - "git diff or patch"
       - "20-implementation.md"
@@ -385,6 +435,7 @@ stages:
           - "broaden scope beyond the reviewed findings"
       invalid_json:
         first: retry_same_model_once
+        max_attempts_per_model: 2
         then: human_escalation_required
     transitions:
       ACCEPT: review-2
@@ -427,6 +478,7 @@ stages:
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring Codex or Claude unavailable."
+      - "If the selected final reviewer participated in direction synthesis, breakdown, or design, record the design-conflict override evidence before dispatch."
     actor:
       primary: codex
       fallback: claude
@@ -434,26 +486,41 @@ stages:
         - quota_exhausted
         - auth_failure
         - service_unavailable
+        - timeout
         - anti_self_review_ineligible
         - invalid_verdict_json
+      strong_reviewer_override:
+        eligible_models: [codex, claude]
+        allowed_only_when:
+          - "the preferred unrelated decision model failed runner-level availability or schema-valid verdict checks"
+          - "the failure evidence file is recorded in status.json"
+          - "the reviewer did not implement or fix any reviewed delivery code"
     skill: reality_checker
     mode: read_only
     adapter_requirements:
       codex: "Use read-only codex exec with the configured GPT/Codex adapter default and a schema-bound custom prompt, not codex review."
       claude: "Use read-only/plan Claude invocation with claude-fable-5 by default and a schema-bound custom prompt."
     requires:
-      - "reviewer != designer"
-      - "reviewer != implementer"
+      - "reviewer provider != any implementation or fix author provider"
+      - "prefer reviewer provider != designer provider"
+      - "designer-provider overlap requires the strong-reviewer disclosure override"
     identity_rules:
-      reviewer_provider_must_differ_from_designer_provider: true
+      reviewer_provider_should_differ_from_designer_provider: true
       reviewer_provider_must_differ_from_implementer_provider: true
-      fallback_to_claude_if_codex_ineligible: true
+      reviewer_provider_must_differ_from_fix_author_provider: true
+      designer_overlap_requires_reviewer_prior_involvement: true
+      designer_overlap_requires_fallback_reason_and_evidence: true
+      design_conflict_override_allowed_for_strong_reviewers: [codex, claude]
+      fallback_to_claude_if_codex_unavailable_or_design_conflicted: true
       stop_if_claude_unavailable: true
     requires_raw_artifacts:
       - "workflow YAML"
+      - "docs/product/PRD.md"
+      - "docs/architecture/ARCHITECTURE.md when present"
       - "00-task.md"
       - "10-design.md"
       - "11-adr.md"
+      - "12-development-breakdown.md when present"
       - "06-direction-synthesis.md when present"
       - "git diff or patch"
       - "20-implementation.md"
@@ -461,10 +528,15 @@ stages:
       - "60-test-output.txt"
       - "30-review-1.md"
       - "relevant source files"
+    override_prompt_requirements:
+      - "When reviewer_prior_involvement is not none, review the stage design and breakdown as evidence under review."
+      - "Use the user-approved synthesis, PRD, and product documents as higher authority than 00-task.md/10-design.md/11-adr.md."
+      - "Disclose the prior involvement in the narrative and in the strict JSON verdict."
     writes:
       - "reports/agent-runs/{{stage_id}}/50-review-2.md"
     output_contract:
       schema: schemas/review-verdict.schema.json
+      reviewer_prior_involvement_required: true
       rework_requires_fix_start_prompt: true
       fix_start_prompt:
         required_when: "verdict == REWORK"
@@ -483,6 +555,7 @@ stages:
           - "broaden scope beyond the reviewed findings"
       invalid_json:
         first: retry_same_model_once
+        max_attempts_per_model: 2
         then: fallback_if_allowed
         exhausted: human_escalation_required
     transitions:
@@ -505,16 +578,16 @@ terminal_states:
       - "update status.json"
       - "update 70-handoff.md"
       - "report GPT/Codex and Claude decision model exhaustion"
-      - "stop loop"
+      - "stop stage delivery"
   development_models_exhausted:
     controller_action:
       - "update status.json"
       - "update 70-handoff.md"
       - "report all development model exhaustion"
-      - "stop loop"
+      - "stop stage delivery"
   human_escalation_required:
     controller_action:
       - "update status.json"
       - "update 70-handoff.md"
       - "report why automation cannot proceed safely"
-      - "stop loop and wait for user decision"
+      - "stop stage delivery and wait for user decision"

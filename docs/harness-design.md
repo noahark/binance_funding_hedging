@@ -2,8 +2,8 @@
 
 ## Purpose
 
-The Harness coordinates long-running project development through
-explicit workflow files, role skills, evidence capture, and review gates.
+The Harness coordinates long-running project development through explicit
+stage-delivery files, role skills, evidence capture, and review gates.
 
 It is designed to prevent three failure modes:
 
@@ -18,12 +18,12 @@ This repository currently implements only the document-level Harness contract:
 - `AGENTS.md`
 - `agents/registry.yaml`
 - `docs/model-adapters.md`
-- `workflows/templates/feature-loop.yaml`
+- `workflows/templates/stage-delivery.yaml`
 - `schemas/review-verdict.schema.json`
 - `reports/agent-runs/README.md`
 - `reports/agent-runs/_template/`
 
-The first manual loop is intentionally not started.
+The first manual stage delivery run is intentionally not started.
 
 ## Architecture
 
@@ -35,7 +35,7 @@ workflow YAML
     -> asks GPT/Codex to synthesize the direction for user review
     -> waits for user approval before development
     -> creates stage blackboard
-    -> dispatches designer / implementer / reviewer
+    -> dispatches designer / breakdown author / implementer / reviewer
     -> collects raw evidence
     -> validates strict JSON verdicts
     -> updates status and handoff
@@ -164,13 +164,14 @@ Review routing is fixed:
    - Otherwise choose the first available reviewer from the cross-review pool
      that does not share provider identity with the implementer.
 2. `review-2`: GPT/Codex with `reality_checker`.
-3. If GPT/Codex is quota-exhausted, unavailable, auth-failed, or ineligible
-   under anti-self-review, use Claude.
+3. If GPT/Codex is quota-exhausted, unavailable, auth-failed, or the
+   strong-reviewer disclosure override is required, use Claude.
 4. If Claude is also unavailable or quota-exhausted, stop with
    `decision_models_exhausted`.
 
 Do not ask Claude for a second opinion after a valid GPT/Codex review-2 verdict.
-Fallback is only for availability, quota, auth, or anti-self-review eligibility.
+Fallback or strong-reviewer override is only for availability, quota, auth,
+timeout, repeated invalid verdict JSON, or design-conflict eligibility.
 
 Grok remains available for direction drafts or explicit experiments, but it is
 not a required review gate.
@@ -274,18 +275,45 @@ with a narrative summary.
 
 For a given stage:
 
-- `review_2` final reviewer must differ from `designer`.
 - `review_1` uses provider-level cross-review isolation: it must not share
   provider identity, session state, prompt transcript, or tool state with the
   implementer.
-- `review_2` uses provider-level isolation: the final reviewer must not share
-  provider identity with the designer or implementer.
+- `review_2` uses provider-level isolation from every implementation and fix
+  author. A model provider that wrote delivery code or fix code for the stage is
+  unconditionally ineligible for final review.
+- `review_2` should use a reviewer that differs from the designer, direction
+  synthesizer, and development breakdown author. This is a preference, not a
+  hard terminal blocker for Codex/GPT and Claude/Fable5.
+- Codex/GPT and Claude/Fable5 may use a strong-reviewer disclosure override
+  after an unrelated decision model fails a runner-level check. The stage must
+  record `reviewer_prior_involvement`, `fallback_reason`, and an existing
+  evidence file for the unavailable unrelated model.
+- In an override review, the prompt must use the user-approved synthesis, PRD,
+  and product docs as the top-level requirements. Stage design and breakdown
+  artifacts are evidence under review, not the highest authority.
 - Provider identity means model vendor, not CLI wrapper. `claude_glm` is
   `zhipu_glm`, not Anthropic, even though it is accessed through Claude Code.
 - `review_1` may equal the designer; `review_2` is the actual final gate.
-- If a rotation selects an ineligible final reviewer, the controller must choose
-  the next eligible model. If both GPT/Codex and Claude are unavailable or
-  ineligible, stop with `decision_models_exhausted`.
+- If a rotation selects an implementation/fix author as final reviewer, the
+  controller must choose another reviewer. There is no override. If all
+  decision models are unavailable and no valid design-conflict override applies,
+  stop with `decision_models_exhausted`.
+
+## Development Breakdown
+
+For `MEDIUM`, `HIGH`, and `MILESTONE` stages, add a development detail
+breakdown before implementation starts. The default breakdown author is
+Claude/Fable5 unless the registry or user selects another model. The breakdown
+author narrows ambiguity and reduces implementation drift; it does not write
+delivery code in that role.
+
+The breakdown records file boundaries, API/data contracts, owner split,
+required evidence, tests, risk points, and explicit non-goals. Because this is
+design involvement, a breakdown author who later performs final review must use
+the strong-reviewer disclosure override.
+
+`LOW` tasks may skip this step when covered by an existing synthesis or
+explicitly approved by the user.
 
 ## Diff Fingerprint
 
@@ -318,6 +346,29 @@ not rewrite the evidence into a looser summary before dispatching the fix.
 
 Invalid or missing JSON is treated as non-accepting evidence. It cannot pass a
 gate and must route to retry, fallback, fix, or an allowed terminal stop reason.
+The same model may emit invalid verdict JSON at most twice for one gate; after
+two invalid attempts, treat that model as unavailable for the gate.
+
+All verdict JSON objects must include `reviewer_prior_involvement` with one of:
+
+- `none`
+- `direction_synthesis`
+- `breakdown`
+- `design`
+
+## Report Footer
+
+Model-facing reports, handoffs, reviews, and significant controller responses
+should end with:
+
+```text
+本地北京时间: YYYY-MM-DD HH:MM:SS CST
+下一步模型: <model-or-human>
+下一步任务: <specific next task>
+```
+
+The timestamp must come from a local `date` command. The footer helps human
+handoff, but `status.json` remains authoritative.
 
 ## Testing Priority
 
@@ -335,8 +386,8 @@ critical behavior, such as:
 - replay or regression baselines
 - failure handling and recovery paths
 
-Without these checks, the loop becomes model-reviewing-model and cannot prove
-domain correctness.
+Without these checks, the workflow becomes model-reviewing-model and cannot
+prove domain correctness.
 
 ## Deferred Work
 
@@ -344,6 +395,6 @@ Not implemented yet:
 
 - A runner.
 - Automatic model invocation.
-- Manual first loop execution.
+- Manual first stage delivery execution.
 - Git commits for bootstrap.
 - Product PRD and technical stack decisions.

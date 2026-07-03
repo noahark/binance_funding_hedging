@@ -24,6 +24,9 @@ harness_owned:
   - docs/model-adapters.md
   - docs/architecture/ADR/0000-template.md
 
+removed_harness_owned:
+  - workflows/templates/feature-loop.yaml
+
 install_only:
   - docs/product/PRD.md
   - docs/architecture/ARCHITECTURE.md
