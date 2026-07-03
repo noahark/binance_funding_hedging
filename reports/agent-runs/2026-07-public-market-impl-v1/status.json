@@ -25,10 +25,10 @@
   ],
   "reviewer_1": null,
   "reviewer_2": null,
-  "base_sha": null,
-  "head_sha": null,
-  "commit_state": "uncommitted_in_progress",
-  "diff_fingerprint": null,
+  "base_sha": "32f6f0f7e7a2406cc01e5364ef3557dbfcd2155c",
+  "head_sha": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4",
+  "commit_state": "committed_pending_reviews",
+  "diff_fingerprint": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4:7fdbbf17ec989f5da63d38e9b26a5aaff57fdfb2fd73564a0a1be06deb27ce0e",
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
   "diff_fingerprint_note": "Two scopes, one protocol. Task-level base/head/fingerprint recorded per task in status.json.tasks.<id> for task-level review-1 over each task's owner-scoped commit range. The stage-level top-level base/head/fingerprint (filled once all tasks are committed) covers the whole stage implementation diff and is the value review-2 and pre-accept bind to. status.json is excluded from the hash. Implementers may work in parallel, but commits are serialized by the controller so each task's base..head diff contains only that task's files.",
   "commit_order_strategy": "Controller commits serially to keep task fingerprints clean: H_intake (stage evidence, the task base) -> H_A (backend) -> H_B (frontend) -> H_C (integration evidence + status update). Kimi writes frontend/ and 20-implementation-frontend.md into the worktree only and does NOT git commit; the controller commits Task B. This guarantees Task A's base..head diff is backend-only and Task B's is frontend-only.",
@@ -85,10 +85,11 @@
       "forbidden_any_product_code": true,
       "status": "implemented",
       "depends_on": ["A", "B"],
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "diff_fingerprint_note": "Task C writes reports only (no product code); base/head/fingerprint filled after the H_C commit (base=H_B c1e33b6).",
+      "base_sha": "c1e33b6f1bbb4e67f71db8552a49b35d43700414",
+      "head_sha": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4",
+      "diff_fingerprint": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4:378c91d744c7ffd9de7e5d6d8b872738b3731d6f33961f6e43991b0a937f3d5d",
+      "diff_files_count": 4,
+      "diff_fingerprint_note": "20-implementation.md + 60-test-output.txt + 70-handoff.md + integration-snapshot-20260703T051738Z.json; status.json excluded. base=H_B c1e33b6.",
       "tests": {"status": "pass", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt", "integration_sample": "reports/agent-runs/2026-07-public-market-impl-v1/integration-snapshot-20260703T051738Z.json", "detail": "Section 4: backend HTTP /api/public-market/snapshot schema-valid (688 rows); frontend index served (27982 B); front/back contract aligned; backend 688-row market is a superset of the fixture's 6 curated symbols and all 6 classify identically; data_time reproducible (2026-07-03T05:11:29Z); 3 contract warnings preserved. INTEGRATION OK."},
       "findings": ["fixture == frozen contract-v2 6-symbol curated sample (6 rows); backend serves the full eligible TRADING perpetuals/TRADIFI market (688 rows). Summary totals differ by design; the contract check is the 6-symbol subset alignment (route_class/asset_tag/negative_funding_status), which matches exactly."]
     }
@@ -145,6 +146,6 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Tasks A, B, C implemented (H_A a40b204, H_B c1e33b6; Task C integration INTEGRATION OK). Next: commit H_C (stage summary + integration evidence + status), fill stage-level top-level fingerprint, then dispatch task-level review-1 (A->Kimi, B->fresh read-only Claude-GLM) and stage review-2 (Codex). Controller does not declare final acceptance.",
-  "updated_at": "2026-07-03T13:34:45Z"
+  "next_action": "Stage committed through H_C (ce00489); stage-level fingerprint 7fdbbf17…ce0e and Task C fingerprint 378c91d7…3d5d recorded. Next: dispatch task-level review-1 (Task A->Kimi, Task B->fresh read-only Claude-GLM), then stage review-2 (Codex), then pre-accept. Controller does not declare final acceptance.",
+  "updated_at": "2026-07-03T13:37:43Z"
 }
