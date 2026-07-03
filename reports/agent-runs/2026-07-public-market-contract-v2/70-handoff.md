@@ -2,8 +2,9 @@
 
 ## Checkpoint: contract discovery re-entered review_2
 
-Status: `review_2` (review-2 P1 evidence-boundary fix applied; awaiting
-Codex/GPT review-2 recheck). Review-1 stands at `ACCEPT` (Kimi `kimi-2.7`).
+Status: `review_2` (Codex/GPT review-2 recheck `ACCEPT`; terminal acceptance is
+not written yet). Review-1 stands at `ACCEPT` (Kimi `kimi-2.7`) on the older
+pre-clean-subject fingerprint.
 Implementer: Claude-GLM (`glm-5.2[1m]`). The previous Claude/Fable5 review-2
 dispatch failed at runner level and is preserved as evidence in
 `review-2-claude-dispatch-failure.md` plus
@@ -149,11 +150,30 @@ now contains only contract-stage paths; no Binance contract semantics changed
 `diff_fingerprint`, and `changed_files` in `status.json` now agree with the
 actual raw diff and the `00-task.md` boundaries.
 
-Next action: `route_to_review_2` (Codex/GPT recheck under the same disclosure
-override). `status.json.review_2` records `reviewer_prior_involvement=design`,
+Codex/GPT review-2 recheck under the disclosure override returned schema-valid
+`ACCEPT` for the clean subject:
+
+```text
+a25e4316019197fd3e09bd6827b8aa7c4e2ce36f:53484d21b25373e524ae6abfd8c05883b4cd2c471ccc45f0e98aef51691b41bf
+```
+
+The clean subject passes `pre-review`, has no out-of-scope Harness governance
+paths, and the normalized sample re-validates. `status.json.review_2` records
+`reviewer_prior_involvement=design`,
 `fallback_reason`, and
 `unrelated_reviewer_unavailable_evidence=reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch-failure.md`.
-Backend implementation and Kimi frontend remain gated until review-2 accepts.
+
+Next action: `controller_pre_accept_reconcile_review_1_fingerprint`.
+
+Reason: `status.review_1.diff_fingerprint` still points to Kimi's earlier
+accepted subject (`d73eb10:de0c199b...`), while the clean review subject is now
+`a25e431:53484d...`. Do not silently rewrite Kimi's verdict fingerprint. The
+controller must either get a Kimi review-1 recheck for the clean subject, or
+make an explicit Harness-approved equivalence decision before terminal
+pre-accept validation.
+
+Backend implementation and Kimi frontend remain gated until terminal
+`stage_accepted_waiting_user` is written after pre-accept validation.
 
 ## Claude-GLM Backend Contract Prompt
 

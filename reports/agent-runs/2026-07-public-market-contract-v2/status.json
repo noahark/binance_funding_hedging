@@ -198,13 +198,13 @@
       "reason": "No unrelated decision reviewer is available: Claude/Fable5 failed runner-level dispatch and provider isolation; Codex did not implement or fix any reviewed delivery code.",
       "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch-failure.md"
     },
-    "open_p0_p1": "fixed: P1 evidence-boundary contamination repaired on a clean committed base; contract semantics unchanged; awaiting review-2 recheck under the disclosure override",
-    "verdict": "REWORK",
+    "open_p0_p1": "none",
+    "verdict": "ACCEPT",
     "json_schema_valid": true,
-    "diff_fingerprint": "d73eb10187f34696aec4aea8f596c0d3578a1dcf:de0c199bd7b9121ec2539c6a891f3167043bc1f4412704c3276fe6171b3fdd46",
-    "verdict_at": "2026-07-03T10:47:33Z",
-    "fix_start_prompt_present": true,
-    "fix_start_prompt_source": "reports/agent-runs/2026-07-public-market-contract-v2/50-review-2.md",
+    "diff_fingerprint": "a25e4316019197fd3e09bd6827b8aa7c4e2ce36f:53484d21b25373e524ae6abfd8c05883b4cd2c471ccc45f0e98aef51691b41bf",
+    "verdict_at": "2026-07-03T11:30:35Z",
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": null,
     "fix_applied": {
       "applied_at": "2026-07-03T11:20:43Z",
       "finding": "P1: review subject included out-of-scope Harness changes not disclosed in 20-implementation.md or status.changed_files",
@@ -252,6 +252,6 @@
     "resolved_by": "User approved re-entering review-2 under the strong-reviewer disclosure override after the Claude/Fable5 dispatch failure evidence was recorded."
   },
   "terminal_reason": null,
-  "next_action": "route_to_review_2",
-  "updated_at": "2026-07-03T11:20:43Z"
+  "next_action": "controller_pre_accept_reconcile_review_1_fingerprint",
+  "updated_at": "2026-07-03T11:30:35Z"
 }
