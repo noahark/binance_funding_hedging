@@ -62,25 +62,51 @@ The normalized sample uses only real observed values from the captured payloads;
 `generated_at` is the capture timestamp and `data_time` is derived from the
 premiumIndex `time` field.
 
-## Files changed (relative to review base)
+## Files changed (clean contract-stage review subject)
 
-- `reports/agent-runs/2026-07-public-market-contract-v2/api-field-matrix.md`
-  (was a TBD template; now frozen).
-- `reports/agent-runs/2026-07-public-market-contract-v2/api-sample-index.md`
-  (was a TBD template; now frozen).
-- `reports/agent-runs/2026-07-public-market-contract-v2/20-implementation.md`
-  (new).
-- `reports/agent-runs/2026-07-public-market-contract-v2/60-test-output.txt`
-  (new).
-- `reports/agent-runs/2026-07-public-market-contract-v2/status.json`
-  (checkpoint).
-- `reports/agent-runs/2026-07-public-market-contract-v2/70-handoff.md`
-  (checkpoint).
-- `reports/api-samples/public-market-contract-v2/20260703T051738Z/**` (new).
-- `docs/api/public-market-contract.md` (frozen verified findings; no schema or
-  contract-shape change).
-- `schemas/api/public-market/snapshot.schema.json` — not modified. The existing
-  schema already validates the normalized sample; no change was required.
+Review-2 found that the prior frozen diff `2bb47ad..d73eb10` bound unrelated
+Harness governance changes (e.g. `AGENTS.md`, `agents/registry.yaml`,
+`docs/model-adapters.md`, `scripts/validate-stage.py`, the
+`workflows/templates/feature-loop.yaml` -> `stage-delivery.yaml` rename,
+`schemas/review-verdict.schema.json`, `reports/agent-runs/_template/**`,
+`reports/agent-runs/README.md`, `harness-manifest.yaml`, `.harness-version`)
+into the review subject, while this report and `status.changed_files` claimed a
+narrower set. The evidence boundary has been repaired: the review subject is now
+defined by a clean committed base whose **standard** Harness diff contains only
+the contract-stage paths allowed by `00-task.md`. The standard fingerprint
+formula is unchanged
+(`head_sha + ":" + sha256(git diff --binary <base>..<head> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")`);
+no second protocol and no worktree fingerprint are used.
+
+The clean base commit is a normal committed tree built from the head tree by
+reverting contract-stage paths to the `2bb47ad` review-base state and leaving
+out-of-scope paths at the head version. As a result the out-of-scope files
+cancel out of `diff base..head`, leaving only contract-stage paths.
+
+The authoritative `base_sha`, `head_sha`, `diff_fingerprint`, and `changed_files`
+are recorded in `status.json`. Reviewers reproduce the hash with the base/head
+values from `status.json`:
+
+```text
+git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/2026-07-public-market-contract-v2/status.json" | shasum -a 256
+```
+
+Paths in the clean review subject — all within the `00-task.md` allowed
+boundaries:
+
+- `docs/api/public-market-contract.md` (frozen verified findings; no contract
+  semantics changed in this fix).
+- `schemas/api/public-market/snapshot.schema.json` (not modified; already
+  validates the normalized sample).
+- `reports/agent-runs/2026-07-public-market-contract-v2/**` (intake, task,
+  design, adr, implementation report, review-1, fix report, test output,
+  handoff, field matrix, sample index, review dispatch evidence, status).
+- `reports/api-samples/public-market-contract-v2/**` (raw public samples, the
+  two margin no-key error bodies, normalized snapshot, reproducible generator).
+
+Out-of-scope Harness governance changes are deliberately excluded from this
+review subject by the clean base; they are governed separately and are not part
+of this bounded contract stage.
 
 ## Test status
 

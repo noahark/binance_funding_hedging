@@ -2,7 +2,8 @@
 
 ## Checkpoint: contract discovery re-entered review_2
 
-Status: `fixing`. Review-1 stands at `ACCEPT` (Kimi `kimi-2.7`).
+Status: `review_2` (review-2 P1 evidence-boundary fix applied; awaiting
+Codex/GPT review-2 recheck). Review-1 stands at `ACCEPT` (Kimi `kimi-2.7`).
 Implementer: Claude-GLM (`glm-5.2[1m]`). The previous Claude/Fable5 review-2
 dispatch failed at runner level and is preserved as evidence in
 `review-2-claude-dispatch-failure.md` plus
@@ -17,11 +18,16 @@ direction synthesis and PRD as higher authority than `00-task.md`/`10-design.md`
 
 Branch: `main` (local only, not pushed; `ahead of origin/main`). Review baseline:
 
-- `base_sha`: `2bb47ad13065827ed1ee91d5d0e231cd312fdc0a`
-- `head_sha`: `d73eb10187f34696aec4aea8f596c0d3578a1dcf` (commit
-  `Fix contract evidence fingerprint note`)
-- `diff_fingerprint`:
-  `d73eb10187f34696aec4aea8f596c0d3578a1dcf:de0c199bd7b9121ec2539c6a891f3167043bc1f4412704c3276fe6171b3fdd46`
+- `base_sha`: the clean contract-stage base commit recorded in `status.json`.
+- `head_sha`: the contract-stage subject commit recorded in `status.json`.
+- `diff_fingerprint`: recorded in `status.json`; recomputes from `base..head`.
+
+The earlier frozen range `2bb47ad..d73eb10` was replaced because review-2 found
+it bound unrelated Harness governance changes into the contract review subject.
+The clean base is built from the head tree by reverting contract-stage paths to
+the `2bb47ad` review-base state and leaving out-of-scope Harness paths at the
+head version, so the standard diff `base..head` contains only contract-stage
+paths (no second fingerprint protocol, no worktree fingerprint).
 
 The contract discovery products are committed locally as the review baseline;
 `head_sha` is the reviewed subject commit. Later Harness commits may advance the
@@ -37,10 +43,10 @@ Review uses the standard formula:
 diff_fingerprint = head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")
 ```
 
-Reproduce the hash with:
+Reproduce the hash with the base/head values from `status.json`:
 
 ```text
-git diff --binary 2bb47ad13065827ed1ee91d5d0e231cd312fdc0a..d73eb10187f34696aec4aea8f596c0d3578a1dcf -- . ":(exclude)reports/agent-runs/2026-07-public-market-contract-v2/status.json" | shasum -a 256
+git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/2026-07-public-market-contract-v2/status.json" | shasum -a 256
 ```
 
 Produced artifacts (review inputs):
@@ -128,19 +134,23 @@ risks are carried forward: `lastFundingRate` settled-vs-estimate ambiguity, and
 `MARGIN_SPOT_CANDIDATE` private borrowability (Phase 2). The full verdict JSON is
 at the end of `30-review-1.md`.
 
-The review subject stays `d73eb10` for review-2 as well (review-1 and review-2
-examine the same fixed product). This acceptance-logging commit advances `HEAD`
-past `head_sha`, so review-2 must use the recorded `base_sha..head_sha`, not the
-moving `HEAD`.
-
 Codex/GPT review-2 was run under the disclosure override and returned
-schema-valid `REWORK`. The blocking P1 is evidence-boundary contamination:
-the frozen review diff `2bb47ad..d73eb10` includes Harness governance files that
-are outside `00-task.md` file boundaries and are omitted from
-`20-implementation.md` / `status.changed_files`.
+schema-valid `REWORK`. The blocking P1 was evidence-boundary contamination: the
+frozen review diff `2bb47ad..d73eb10` included Harness governance files outside
+`00-task.md` boundaries that were omitted from `20-implementation.md` /
+`status.changed_files`.
 
-Next action: `fix_review_2_p1_evidence_boundary`.
-`status.json.review_2` records `reviewer_prior_involvement=design`,
+### Review-2 P1 fix: evidence boundary repaired
+
+The fix rebuilt the review subject on a clean committed base (see the review
+baseline above and `40-fix-report.md`). The standard Harness diff `base..head`
+now contains only contract-stage paths; no Binance contract semantics changed
+(normalized sample re-validated PASS). `base_sha`, `head_sha`,
+`diff_fingerprint`, and `changed_files` in `status.json` now agree with the
+actual raw diff and the `00-task.md` boundaries.
+
+Next action: `route_to_review_2` (Codex/GPT recheck under the same disclosure
+override). `status.json.review_2` records `reviewer_prior_involvement=design`,
 `fallback_reason`, and
 `unrelated_reviewer_unavailable_evidence=reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch-failure.md`.
 Backend implementation and Kimi frontend remain gated until review-2 accepts.
