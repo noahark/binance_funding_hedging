@@ -29,6 +29,9 @@ Hard constraints:
 - No order, borrow, repay, transfer, or execution path.
 - Do not use Grok for implementation or fixes in this stage.
 - Do not create backend implementation modules yet; contract discovery first.
+- Before dispatch, record the current git `HEAD` as the review base for this
+  stage. Reviewers must recompute `diff_fingerprint` from raw git diff and must
+  not rely on Claude-GLM controller summaries as evidence.
 
 Write:
 - reports/agent-runs/2026-07-public-market-contract-v2/api-field-matrix.md
@@ -42,6 +45,9 @@ Required checks:
 - Every frontend-visible field has source endpoint + raw JSON path + observed type.
 - Record auth/security status for every endpoint.
 - Verify whether GET /sapi/v1/margin/allPairs is public/no-key before using it.
+- Also verify GET /sapi/v1/margin/isolated/allPairs and record whether it is
+  relevant only as historical FMZ/isolated-margin context or still needed for
+  the new Portfolio Margin route model.
 - Verify premiumIndex.lastFundingRate semantics; mark ambiguous if not proven.
 - Keep asset_tag independent from route_class.
 - Produce a normalized sample that validates against the schema.
@@ -76,3 +82,9 @@ Expected UI:
   negative-funding status.
 - Manual-open ticket shell wired to contract fields only.
 ```
+
+## Review Routing Note
+
+For this stage, `review-2` must use Claude as the final reviewer because Codex
+is the stage designer. If Claude is unavailable, stop with
+`decision_models_exhausted`; do not fall back to Codex for final review.

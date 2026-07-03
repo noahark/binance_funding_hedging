@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-contract-v2",
-  "status": "contract_discovery_ready",
+  "status": "implementing",
   "workflow": "feature-loop",
   "designer": "codex",
   "implementer": null,
@@ -26,7 +26,7 @@
     "status": "approved_prior_stage",
     "user_approved": true
   },
-  "base_sha": "0c2bfcbf86db8a7b0da69702b56f714210eb5174",
+  "base_sha": "11d55044c1188cfd983379e77173ec462cfcc672",
   "head_sha": null,
   "diff_fingerprint": null,
   "changed_files": [],
@@ -52,10 +52,22 @@
       }
     ]
   },
+  "evidence_policy": {
+    "controller_and_backend_implementer_same_model": true,
+    "controller_provider": "claude_glm",
+    "backend_implementer_provider": "claude_glm",
+    "required_mitigation": [
+      "Reviewers must recompute diff_fingerprint from base_sha and raw git diff instead of trusting controller summaries.",
+      "60-test-output.txt must contain replayable raw command output or an explicit skipped-test reason.",
+      "Review prompts must pass raw artifact paths and raw diff paths, not controller paraphrases."
+    ]
+  },
   "review_1": {
     "reviewer": null,
     "provider": "grok",
     "model": "grok-build",
+    "timeout_seconds": 900,
+    "unavailable_policy": "If Grok Build produces no usable verdict or the CLI process is still running after 900 seconds, mark review-1 model_unavailable and route to human_escalation_required.",
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
@@ -65,9 +77,10 @@
   },
   "review_2": {
     "reviewer": null,
-    "primary_provider": "codex",
-    "fallback_provider": "claude",
-    "fallback_reason": null,
+    "primary_provider": "claude",
+    "fallback_provider": null,
+    "fallback_reason": "anti_self_review_ineligible: stage designer is codex, so codex cannot serve as final review-2 for this stage.",
+    "availability_note": "If Claude is quota-exhausted or unavailable, the stage routes to decision_models_exhausted because codex is designer-ineligible and no third final reviewer is registered.",
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
@@ -84,5 +97,5 @@
   },
   "terminal_reason": null,
   "next_action": "dispatch_claude_glm_backend_contract_discovery",
-  "updated_at": "2026-07-03T04:20:00Z"
+  "updated_at": "2026-07-03T04:35:18Z"
 }

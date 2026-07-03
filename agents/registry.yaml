@@ -84,6 +84,8 @@ adapters:
     supports_write: true
     supports_read_only: true
     timeout_seconds: 1800
+    review_1_timeout_seconds: 900
+    stalled_process_policy: "For review-1, no usable verdict or a still-running CLI process after 900 seconds is model_unavailable."
 
 direction_panels:
   key_mapping:
@@ -329,6 +331,7 @@ rotation_defaults:
   review_1:
     provider: grok
     model: "grok-build"
+    timeout_seconds: 900
   review_2:
     primary: codex
     fallback: claude

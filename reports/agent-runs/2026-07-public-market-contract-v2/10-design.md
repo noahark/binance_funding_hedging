@@ -46,3 +46,13 @@ Kimi must:
 - Backend implementation review must use raw samples and schema validation.
 - Frontend review must check Chinese copy, no Binance direct calls, and schema
   compatibility.
+- Because Claude-GLM is both the controller and backend contract implementer for
+  this stage, reviewers must not trust controller summaries as evidence. They
+  must recompute the diff fingerprint from `base_sha` and raw git diff, inspect
+  raw artifacts directly, and verify that `60-test-output.txt` contains
+  replayable command output or an explicit skipped-test reason.
+- `review-2` is assigned to Claude for this stage because Codex designed the
+  stage and is final-review ineligible by anti-self-review rules. If Claude is
+  unavailable, route to `decision_models_exhausted`.
+- If Grok Build is used for `review-1`, a still-running or no-verdict CLI after
+  900 seconds is `model_unavailable` and routes to human escalation.

@@ -43,7 +43,8 @@ record it as out of Phase 1 instead of using it.
 | USDⓈ-M Futures | `GET /fapi/v1/premiumIndex` | Mark price, index price, current funding-rate field, and next funding time. |
 | USDⓈ-M Futures | `GET /fapi/v1/fundingRate` | Recent funding history for ranked or sampled symbols. |
 | Spot | `GET /api/v3/exchangeInfo` | Spot symbols, `status`, filters, and public spot/margin indicators if present. |
-| Margin | `GET /sapi/v1/margin/allPairs` | Candidate public cross-margin pair support only if verified as public/no-key. |
+| Margin | `GET /sapi/v1/margin/allPairs` | Candidate cross-margin pair support only if verified as public/no-key or explicitly marked as out of Phase 1. |
+| Margin | `GET /sapi/v1/margin/isolated/allPairs` | Historical FMZ isolated-margin comparison only unless the new Portfolio Margin route model explicitly needs it. Verify auth requirements before use. |
 
 ## Required Claude-GLM Outputs
 
@@ -182,6 +183,12 @@ Priority for `negative_funding_status`:
 
 - Confirm whether `GET /sapi/v1/margin/allPairs` is public/no-key in current
   Binance docs and live behavior.
+- Confirm whether `GET /sapi/v1/margin/isolated/allPairs` has the same auth
+  requirements, and whether isolated-margin pair support is relevant to the new
+  Portfolio Margin strategy or only to the old FMZ reference strategy.
+- If margin-pair endpoints require an API key or are not public/no-key, Phase 1
+  must keep `margin_public.source = "unverified"` and avoid producing
+  `MARGIN_SPOT_CANDIDATE` from private or semi-private evidence.
 - Confirm the exact semantics of `premiumIndex.lastFundingRate` and
   `nextFundingTime`; do not label the field as settled funding unless proven.
 - Confirm whether all `TRADIFI_PERPETUAL` symbols should be tagged `BSTOCK` or

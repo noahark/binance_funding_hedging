@@ -16,6 +16,7 @@ Status: template, to be completed by Claude-GLM
 | `GET /fapi/v1/fundingRate` | TBD | TBD | TBD | TBD | Funding history. |
 | `GET /api/v3/exchangeInfo` | TBD | TBD | TBD | TBD | Spot metadata. |
 | `GET /sapi/v1/margin/allPairs` | TBD | TBD | TBD | TBD | Use only if verified public/no-key. |
+| `GET /sapi/v1/margin/isolated/allPairs` | TBD | TBD | TBD | TBD | Verify for historical isolated-margin comparison; do not use for Portfolio Margin routing unless explicitly justified. |
 
 ## Required Semantic Checks
 

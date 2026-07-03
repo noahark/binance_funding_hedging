@@ -332,7 +332,8 @@ stages:
     skill: code_reviewer
     mode: read_only
     adapter_requirements:
-      grok: "Use Grok Build in plan/read-only mode with a schema-bound custom prompt. If unavailable, fail closed and do not pass review-1."
+      grok: "Use Grok Build in plan/read-only mode with a schema-bound custom prompt. If unavailable, fail closed and do not pass review-1. A still-running or no-verdict Grok CLI process after 900 seconds is model_unavailable."
+    timeout_seconds: 900
     requires_raw_artifacts:
       - "workflow YAML"
       - "00-task.md"
