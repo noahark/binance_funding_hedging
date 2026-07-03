@@ -1,5 +1,30 @@
 # Handoff: Public Market Implementation V1
 
+## Checkpoint: Review-2 COMPLETE (Codex ACCEPT, final gate) — all gates passed; pre-accept next
+
+Stage-level review-2 (final gate) is complete: Codex/GPT (gpt-5.5, xhigh,
+provider proxy2233, read-only sandbox) returned **ACCEPT**, schema-valid, with
+the stage `diff_fingerprint` `7fdbbf17…ce0e` independently recomputed and
+matching, all three task fingerprints matching, task boundaries clean, and
+every backend/frontend/integration checkpoint passing — zero findings, zero
+rework. `reviewer_prior_involvement = direction_synthesis` (Codex was the prior
+direction synthesizer for the covering contract-v2; strong-reviewer disclosure
+override invoked; implementer/fix-author hard ban satisfied). Independent test
+rerun by Codex: `node frontend/self-check.js` PASS;
+`PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest backend/tests -q` 39/39.
+
+Schema-bound `--output-schema` was unavailable (review-verdict.schema.json's
+optional fields are incompatible with OpenAI strict response_format), so per
+AGENTS.md Codex ran free-form and the controller jsonschema-validated the
+emitted verdict (PASS). Details: `50-review-2.md` + `review-2-codex.raw-output.txt`.
+
+All Harness gates now pass (`validate-stage.py --phase pre-review` PASSED).
+Next: `validate-stage.py --phase pre-accept`. The controller holds the stage at
+`stage_accepted_waiting_user` and does **NOT** declare final acceptance
+(`can_accept_final: false`) — awaiting user final acceptance.
+
+The review-1 checkpoint (already complete) follows for historical navigation.
+
 ## Checkpoint: Review-1 COMPLETE — Task A→Kimi ACCEPT, Task B→fresh Claude-GLM ACCEPT; stage review-2 next
 
 Task-level review-1 is complete and both verdicts are ACCEPT, schema-valid,
@@ -111,6 +136,6 @@ transcript).
 - `status.json` is the authoritative machine state; this handoff is a human
   navigation aid.
 
-本地北京时间: 2026-07-03 22:03 CST
-下一步模型: Codex/GPT (review-2)
-下一步任务: Commit review-1 证据（30-review-1-{backend,frontend}.md + 两个 raw-output + status + handoff）→ 派发阶段级 review-2（Codex/GPT，无关决策审查者；设计者 Fable5 已披露；两个实现者 claude_glm/kimi 均禁止 review-2）→ pre-accept（validate-stage.py）。Controller 不声明最终验收。
+本地北京时间: 2026-07-03 22:28 CST
+下一步模型: 用户 (final acceptance)
+下一步任务: validate-stage.py --phase pre-accept（已提交 review-2 证据，status.json/70-handoff.md 待最终 commit）→ 阶段停在 stage_accepted_waiting_user，等待用户最终接受（controller 不声明 accepted，can_accept_final=false）。所有 gate 已通过：review-1（Task A→Kimi ACCEPT + Task B→fresh Claude-GLM ACCEPT）+ review-2（Codex/GPT gpt5.5 xhigh ACCEPT，final_reviewer，direction_synthesis 披露 override）。review-2 evidence commit: c9f8788。

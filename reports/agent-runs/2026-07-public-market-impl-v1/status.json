@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-impl-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "designer": {
     "provider": "claude",
@@ -20,14 +20,88 @@
     "note": "The user-approved direction synthesis and the frozen contract stage cover this implementation stage; no new direction panel was run."
   },
   "implementers": [
-    {"provider": "claude_glm", "model": "glm-5.2[1m]", "task": "A", "scope": "backend/**"},
-    {"provider": "kimi", "model": "kimi-2.7", "task": "B", "scope": "frontend/**"}
+    {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "task": "A",
+      "scope": "backend/**"
+    },
+    {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "task": "B",
+      "scope": "frontend/**"
+    }
   ],
-  "review_1": {"verdict": "ACCEPT", "json_schema_valid": true, "diff_fingerprint": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4:7fdbbf17ec989f5da63d38e9b26a5aaff57fdfb2fd73564a0a1be06deb27ce0e", "status": "both_tasks_ACCEPT", "scope": "Task-level review-1 (Task A backend by Kimi + Task B frontend by a fresh read-only Claude-GLM session). The stage-level review_1 verdict aggregates both task verdicts (both ACCEPT) and binds to the stage-level top-level diff_fingerprint, as required by scripts/validate-stage.py validate_acceptance. Per-task fingerprints live in task_A/task_B below; the two detailed review files are 30-review-1-backend.md and 30-review-1-frontend.md, with 30-review-1.md as the stage-level summary.", "task_A": {"provider": "kimi", "model": "kimi-2.7", "verdict": "ACCEPT", "output": "30-review-1-backend.md", "raw_output": "review-1-task-a-kimi.raw-output.txt", "reviewed_at": "2026-07-03T13:52:29Z", "diff_fingerprint": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93", "fingerprint_matches": true, "schema_valid": true, "findings": 0}, "task_B": {"provider": "claude_glm", "model": "glm-5.2[1m]", "verdict": "ACCEPT", "output": "30-review-1-frontend.md", "raw_output": "review-1-task-b-glm-fresh.raw-output.txt", "fresh_session": true, "reviewed_at": "2026-07-03T14:03:26Z", "diff_fingerprint": "c1e33b6f1bbb4e67f71db8552a49b35d43700414:4bebeb5229021546f78a60fd0effa3f92cb565d3873cdb70795f954a1fb46bde", "fingerprint_matches": true, "schema_valid": true, "findings": 0}, "both_schema_valid": true, "both_fingerprints_match": true, "findings_total": 0, "required_fixes_total": 0, "next_action": "stage_review_2", "summary_file": "30-review-1.md", "note": "Both task-level review-1 verdicts ACCEPT, schema-valid, fingerprints independently recomputed (kimi->5148a473...1e93, glm->4bebeb52...6bde) and matching status.json.tasks.{A,B}. Zero rework. The stage-level review_1 verdict=ACCEPT binds to the stage diff_fingerprint 7fdbbf17...ce0e. Next: stage-level review-2."},
-  "review_2": null,
+  "review_1": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4:7fdbbf17ec989f5da63d38e9b26a5aaff57fdfb2fd73564a0a1be06deb27ce0e",
+    "status": "both_tasks_ACCEPT",
+    "scope": "Task-level review-1 (Task A backend by Kimi + Task B frontend by a fresh read-only Claude-GLM session). The stage-level review_1 verdict aggregates both task verdicts (both ACCEPT) and binds to the stage-level top-level diff_fingerprint, as required by scripts/validate-stage.py validate_acceptance. Per-task fingerprints live in task_A/task_B below; the two detailed review files are 30-review-1-backend.md and 30-review-1-frontend.md, with 30-review-1.md as the stage-level summary.",
+    "task_A": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "verdict": "ACCEPT",
+      "output": "30-review-1-backend.md",
+      "raw_output": "review-1-task-a-kimi.raw-output.txt",
+      "reviewed_at": "2026-07-03T13:52:29Z",
+      "diff_fingerprint": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93",
+      "fingerprint_matches": true,
+      "schema_valid": true,
+      "findings": 0
+    },
+    "task_B": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "verdict": "ACCEPT",
+      "output": "30-review-1-frontend.md",
+      "raw_output": "review-1-task-b-glm-fresh.raw-output.txt",
+      "fresh_session": true,
+      "reviewed_at": "2026-07-03T14:03:26Z",
+      "diff_fingerprint": "c1e33b6f1bbb4e67f71db8552a49b35d43700414:4bebeb5229021546f78a60fd0effa3f92cb565d3873cdb70795f954a1fb46bde",
+      "fingerprint_matches": true,
+      "schema_valid": true,
+      "findings": 0
+    },
+    "both_schema_valid": true,
+    "both_fingerprints_match": true,
+    "findings_total": 0,
+    "required_fixes_total": 0,
+    "next_action": "stage_review_2",
+    "summary_file": "30-review-1.md",
+    "note": "Both task-level review-1 verdicts ACCEPT, schema-valid, fingerprints independently recomputed (kimi->5148a473...1e93, glm->4bebeb52...6bde) and matching status.json.tasks.{A,B}. Zero rework. The stage-level review_1 verdict=ACCEPT binds to the stage diff_fingerprint 7fdbbf17...ce0e. Next: stage-level review-2."
+  },
+  "review_2": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4:7fdbbf17ec989f5da63d38e9b26a5aaff57fdfb2fd73564a0a1be06deb27ce0e",
+    "role": "final_reviewer",
+    "model": "gpt5.5",
+    "provider": "codex",
+    "effort": "xhigh",
+    "reviewer_prior_involvement": "direction_synthesis",
+    "override": "strong_reviewer_disclosure",
+    "output": "50-review-2.md",
+    "raw_output": "review-2-codex.raw-output.txt",
+    "dispatch_prompt": "review-2-codex.prompt.md",
+    "reviewed_at": "2026-07-03T14:24:07Z",
+    "findings": 0,
+    "required_fixes": [],
+    "next_action": "continue",
+    "schema_bound_mode": "free_form_with_controller_jsonschema_validation",
+    "schema_bound_fallback_reason": "schemas/review-verdict.schema.json declares optional fields (findings[].file/line) incompatible with OpenAI strict response_format ('required must include every key'); AGENTS.md binds only that the verdict JSON validates against the schema, so the controller ran Codex free-form and jsonschema-validated the emitted verdict (PASS) as the equivalent schema-bound path.",
+    "runner_level_check": "Codex CLI available (/Users/ark/.local/bin/codex, v0.142.2); auth=ChatGPT login; default_profile codex-6651 (config gpt-5.5 + xhigh). -m gpt5.5 alone routed to ChatGPT provider (gpt5.5 unsupported); -p codex-6651 rejected (legacy [profiles.X] table conflict in 0.142.2); default_profile auto-load (provider proxy2233, gpt-5.5, xhigh) succeeded. Evidence: review-2-codex.raw-output.txt header + this field.",
+    "independent_test_rerun": "node frontend/self-check.js PASS; PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -s -p no:cacheprovider backend/tests -q -> 39/39 passed (Codex bypassed read-only sandbox no-writebytecode); smoke rerun blocked by read-only sandbox loopback bind, consistent with committed 60-test-output.txt evidence.",
+    "note": "Codex/GPT (gpt-5.5, xhigh, proxy2233) final-gate review = ACCEPT. Independently recomputed the stage diff_fingerprint (7fdbbf17...ce0e) and the three task fingerprints; all match status.json. Task boundaries clean. No forbidden interaction, Decimal discipline clean, same-origin frontend default confirmed, frozen inputs untouched, schema-valid snapshot with contract warnings preserved. review-2 evidence committed at c9f8788.",
+    "fallback_evidence": {
+      "codex-6651": "review-2-codex-6651.raw-output.txt (403 SUBSCRIPTION_NOT_FOUND)",
+      "claude": "review-2-claude.raw-output.txt (timeout, no output)"
+    }
+  },
   "base_sha": "32f6f0f7e7a2406cc01e5364ef3557dbfcd2155c",
   "head_sha": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4",
-  "commit_state": "committed_pending_reviews",
+  "commit_state": "committed",
   "diff_fingerprint": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4:7fdbbf17ec989f5da63d38e9b26a5aaff57fdfb2fd73564a0a1be06deb27ce0e",
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
   "diff_fingerprint_note": "Two scopes, one protocol. Task-level base/head/fingerprint recorded per task in status.json.tasks.<id> for task-level review-1 over each task's owner-scoped commit range. The stage-level top-level base/head/fingerprint (filled once all tasks are committed) covers the whole stage implementation diff and is the value review-2 and pre-accept bind to. status.json is excluded from the hash. Implementers may work in parallel, but commits are serialized by the controller so each task's base..head diff contains only that task's files.",
@@ -47,10 +121,31 @@
   "tasks": {
     "A": {
       "name": "Backend public-market snapshot service",
-      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "senior_developer"},
-      "reviewer_1_planned": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer", "output": "30-review-1-backend.md"},
-      "scope": ["backend/**", "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-backend.md"],
-      "forbidden": ["frontend/**", "schemas/api/public-market/**", "docs/api/public-market-contract.md", "reports/api-samples/public-market-contract-v2/**", "docs/**", "agents/**", "workflows/**", "scripts/**"],
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "senior_developer"
+      },
+      "reviewer_1_planned": {
+        "provider": "kimi",
+        "model": "kimi-2.7",
+        "skill": "code_reviewer",
+        "output": "30-review-1-backend.md"
+      },
+      "scope": [
+        "backend/**",
+        "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-backend.md"
+      ],
+      "forbidden": [
+        "frontend/**",
+        "schemas/api/public-market/**",
+        "docs/api/public-market-contract.md",
+        "reports/api-samples/public-market-contract-v2/**",
+        "docs/**",
+        "agents/**",
+        "workflows/**",
+        "scripts/**"
+      ],
       "status": "implemented_pending_review_1",
       "commit": "H_A",
       "base_sha": "32f6f0f7e7a2406cc01e5364ef3557dbfcd2155c",
@@ -58,15 +153,67 @@
       "diff_fingerprint": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93",
       "diff_files_count": 21,
       "diff_files_note": "19 backend/** files + 20-implementation-backend.md + 60-test-output.txt; status.json excluded from hash.",
-      "tests": {"status": "pass", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt", "detail": "39 pytest passed (offline frozen fixtures); float() audit clean; single-process http.server smoke OK (schema-valid snapshot 688 rows + index + fixture). Live HTTP path not exercised this stage."},
-      "review_1": {"status": "ACCEPT", "owner": {"provider": "kimi", "model": "kimi-2.7"}, "output": "30-review-1-backend.md", "raw_output": "reports/agent-runs/2026-07-public-market-impl-v1/review-1-task-a-kimi.raw-output.txt", "dispatch_prompt": "reports/agent-runs/2026-07-public-market-impl-v1/review-1-task-a-kimi.prompt.md", "subject": {"base_sha": "32f6f0f7e7a2406cc01e5364ef3557dbfcd2155c", "head_sha": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72", "diff_fingerprint": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93"}, "verdict": "ACCEPT", "verdict_diff_fingerprint": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93", "verdict_fingerprint_matches": true, "schema_valid": true, "reviewer_prior_involvement": "none", "findings": [], "required_fixes": [], "next_action": "continue", "reviewed_at": "2026-07-03T13:52:29Z", "independent_test_rerun": "39 pytest passed + SMOKE OK", "note": "Kimi independently recomputed fingerprint (5148a473…1e93, matches status.json), boundary clean (21 files all backend/** + report + test-output, no leakage), all 10 behavior-rule checkpoints pass, float() audit clean (grep returns none), summary-aggregation and negative_funding_status priority (MSTR/TSLA->DISABLED_PERP_ONLY) verified. Fresh dispatch via 'kimi -p' (no --plan). KIMI_EXIT=0."}
+      "tests": {
+        "status": "pass",
+        "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt",
+        "detail": "39 pytest passed (offline frozen fixtures); float() audit clean; single-process http.server smoke OK (schema-valid snapshot 688 rows + index + fixture). Live HTTP path not exercised this stage."
+      },
+      "review_1": {
+        "status": "ACCEPT",
+        "owner": {
+          "provider": "kimi",
+          "model": "kimi-2.7"
+        },
+        "output": "30-review-1-backend.md",
+        "raw_output": "reports/agent-runs/2026-07-public-market-impl-v1/review-1-task-a-kimi.raw-output.txt",
+        "dispatch_prompt": "reports/agent-runs/2026-07-public-market-impl-v1/review-1-task-a-kimi.prompt.md",
+        "subject": {
+          "base_sha": "32f6f0f7e7a2406cc01e5364ef3557dbfcd2155c",
+          "head_sha": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72",
+          "diff_fingerprint": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93"
+        },
+        "verdict": "ACCEPT",
+        "verdict_diff_fingerprint": "a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72:5148a4734c59cdd4c50e8388464a0b7867d772f8b61054c8eb82a173263d1e93",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "none",
+        "findings": [],
+        "required_fixes": [],
+        "next_action": "continue",
+        "reviewed_at": "2026-07-03T13:52:29Z",
+        "independent_test_rerun": "39 pytest passed + SMOKE OK",
+        "note": "Kimi independently recomputed fingerprint (5148a473…1e93, matches status.json), boundary clean (21 files all backend/** + report + test-output, no leakage), all 10 behavior-rule checkpoints pass, float() audit clean (grep returns none), summary-aggregation and negative_funding_status priority (MSTR/TSLA->DISABLED_PERP_ONLY) verified. Fresh dispatch via 'kimi -p' (no --plan). KIMI_EXIT=0."
+      }
     },
     "B": {
       "name": "Frontend market-table workstation",
-      "owner": {"provider": "kimi", "model": "kimi-2.7", "skill": "minimal_change_engineer"},
-      "reviewer_1_planned": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "code_reviewer", "output": "30-review-1-frontend.md", "fresh_session_required": true, "note": "Must use a fresh read-only Claude-GLM session; the controller/implementer transcript for Task A must not be reused as review evidence."},
-      "scope": ["frontend/**", "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-frontend.md"],
-      "forbidden": ["backend/**", "schemas/api/public-market/**", "docs/api/public-market-contract.md", "reports/api-samples/public-market-contract-v2/**", "docs/**", "agents/**", "workflows/**", "scripts/**"],
+      "owner": {
+        "provider": "kimi",
+        "model": "kimi-2.7",
+        "skill": "minimal_change_engineer"
+      },
+      "reviewer_1_planned": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "code_reviewer",
+        "output": "30-review-1-frontend.md",
+        "fresh_session_required": true,
+        "note": "Must use a fresh read-only Claude-GLM session; the controller/implementer transcript for Task A must not be reused as review evidence."
+      },
+      "scope": [
+        "frontend/**",
+        "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-frontend.md"
+      ],
+      "forbidden": [
+        "backend/**",
+        "schemas/api/public-market/**",
+        "docs/api/public-market-contract.md",
+        "reports/api-samples/public-market-contract-v2/**",
+        "docs/**",
+        "agents/**",
+        "workflows/**",
+        "scripts/**"
+      ],
       "status": "implemented_pending_review_1",
       "commit": "H_B",
       "base_sha": "fc018eaae463053f500e9bd412c5f74356de7f20",
@@ -74,35 +221,116 @@
       "diff_fingerprint": "c1e33b6f1bbb4e67f71db8552a49b35d43700414:4bebeb5229021546f78a60fd0effa3f92cb565d3873cdb70795f954a1fb46bde",
       "diff_files_count": 4,
       "diff_files_note": "frontend/index.html + fixture/public-market-snapshot.json + self-check.js + 20-implementation-frontend.md; status.json excluded. base=fc018ea (Task-A checkpoint) so the diff is frontend-only.",
-      "tests": {"status": "pass", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-frontend.md", "detail": "Node self-check.js: 10 PASS (default fetch /api/public-market/snapshot, data-source label, warnings render, PERP_ONLY_EXCLUDED default-hidden renders 3 then 6 when toggled, BSTOCK badge, time conversion, contract copy, NO trade button/open ticket). Fixture byte-identical to frozen normalized sample."},
-      "review_1": {"status": "ACCEPT", "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "fresh_session_required": true}, "output": "30-review-1-frontend.md", "raw_output": "reports/agent-runs/2026-07-public-market-impl-v1/review-1-task-b-glm-fresh.raw-output.txt", "dispatch_prompt": "reports/agent-runs/2026-07-public-market-impl-v1/review-1-task-b-glm-fresh.prompt.md", "subject": {"base_sha": "fc018eaae463053f500e9bd412c5f74356de7f20", "head_sha": "c1e33b6f1bbb4e67f71db8552a49b35d43700414", "diff_fingerprint": "c1e33b6f1bbb4e67f71db8552a49b35d43700414:4bebeb5229021546f78a60fd0effa3f92cb565d3873cdb70795f954a1fb46bde"}, "verdict": "ACCEPT", "verdict_diff_fingerprint": "c1e33b6f1bbb4e67f71db8552a49b35d43700414:4bebeb5229021546f78a60fd0effa3f92cb565d3873cdb70795f954a1fb46bde", "verdict_fingerprint_matches": true, "schema_valid": true, "reviewer_prior_involvement": "none", "findings": [], "required_fixes": [], "next_action": "continue", "reviewed_at": "2026-07-03T14:03:26Z", "independent_test_rerun": "node frontend/self-check.js 10/10 PASS", "output_capture_note": "Reviewer ran in plan mode (cannot write files) via a fresh session (--no-session-persistence); the controller captured the narrative + JSON verdict block verbatim into 30-review-1-frontend.md without altering content.", "note": "GLM independently recomputed fingerprint (4bebeb52…6bde, matches status.json), boundary clean (4 files all frontend/** + report, no leakage), all 8 checkpoints pass (same-origin default /api/public-market/snapshot, fixture byte-identical, only 'borrow' hit is PRIVATE_BORROW_VALIDATION_REQUIRED badge, UI copy 最近更新的资金费率, schema-compatible string decimals, no planning/order/account UI, self-check 10 PASS, row-count-agnostic). Fresh session confirmed (no 'Restored session' in raw-output)."},
-      "dispatch": {"prompt_file": "reports/agent-runs/2026-07-public-market-impl-v1/task-b-kimi-frontend.prompt.md", "status": "completed_in_worktree_committed_by_controller", "commit": "c1e33b6"}
+      "tests": {
+        "status": "pass",
+        "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/20-implementation-frontend.md",
+        "detail": "Node self-check.js: 10 PASS (default fetch /api/public-market/snapshot, data-source label, warnings render, PERP_ONLY_EXCLUDED default-hidden renders 3 then 6 when toggled, BSTOCK badge, time conversion, contract copy, NO trade button/open ticket). Fixture byte-identical to frozen normalized sample."
+      },
+      "review_1": {
+        "status": "ACCEPT",
+        "owner": {
+          "provider": "claude_glm",
+          "model": "glm-5.2[1m]",
+          "fresh_session_required": true
+        },
+        "output": "30-review-1-frontend.md",
+        "raw_output": "reports/agent-runs/2026-07-public-market-impl-v1/review-1-task-b-glm-fresh.raw-output.txt",
+        "dispatch_prompt": "reports/agent-runs/2026-07-public-market-impl-v1/review-1-task-b-glm-fresh.prompt.md",
+        "subject": {
+          "base_sha": "fc018eaae463053f500e9bd412c5f74356de7f20",
+          "head_sha": "c1e33b6f1bbb4e67f71db8552a49b35d43700414",
+          "diff_fingerprint": "c1e33b6f1bbb4e67f71db8552a49b35d43700414:4bebeb5229021546f78a60fd0effa3f92cb565d3873cdb70795f954a1fb46bde"
+        },
+        "verdict": "ACCEPT",
+        "verdict_diff_fingerprint": "c1e33b6f1bbb4e67f71db8552a49b35d43700414:4bebeb5229021546f78a60fd0effa3f92cb565d3873cdb70795f954a1fb46bde",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "none",
+        "findings": [],
+        "required_fixes": [],
+        "next_action": "continue",
+        "reviewed_at": "2026-07-03T14:03:26Z",
+        "independent_test_rerun": "node frontend/self-check.js 10/10 PASS",
+        "output_capture_note": "Reviewer ran in plan mode (cannot write files) via a fresh session (--no-session-persistence); the controller captured the narrative + JSON verdict block verbatim into 30-review-1-frontend.md without altering content.",
+        "note": "GLM independently recomputed fingerprint (4bebeb52…6bde, matches status.json), boundary clean (4 files all frontend/** + report, no leakage), all 8 checkpoints pass (same-origin default /api/public-market/snapshot, fixture byte-identical, only 'borrow' hit is PRIVATE_BORROW_VALIDATION_REQUIRED badge, UI copy 最近更新的资金费率, schema-compatible string decimals, no planning/order/account UI, self-check 10 PASS, row-count-agnostic). Fresh session confirmed (no 'Restored session' in raw-output)."
+      },
+      "dispatch": {
+        "prompt_file": "reports/agent-runs/2026-07-public-market-impl-v1/task-b-kimi-frontend.prompt.md",
+        "status": "completed_in_worktree_committed_by_controller",
+        "commit": "c1e33b6"
+      }
     },
     "C": {
       "name": "Integration verification (controller, no product code)",
-      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "test_strategist"},
-      "scope": ["reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt", "reports/agent-runs/2026-07-public-market-impl-v1/integration-snapshot-*.json"],
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "test_strategist"
+      },
+      "scope": [
+        "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt",
+        "reports/agent-runs/2026-07-public-market-impl-v1/integration-snapshot-*.json"
+      ],
       "forbidden_any_product_code": true,
       "status": "implemented",
-      "depends_on": ["A", "B"],
+      "depends_on": [
+        "A",
+        "B"
+      ],
       "base_sha": "c1e33b6f1bbb4e67f71db8552a49b35d43700414",
       "head_sha": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4",
       "diff_fingerprint": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4:378c91d744c7ffd9de7e5d6d8b872738b3731d6f33961f6e43991b0a937f3d5d",
       "diff_files_count": 4,
       "diff_fingerprint_note": "20-implementation.md + 60-test-output.txt + 70-handoff.md + integration-snapshot-20260703T051738Z.json; status.json excluded. base=H_B c1e33b6.",
-      "tests": {"status": "pass", "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt", "integration_sample": "reports/agent-runs/2026-07-public-market-impl-v1/integration-snapshot-20260703T051738Z.json", "detail": "Section 4: backend HTTP /api/public-market/snapshot schema-valid (688 rows); frontend index served (27982 B); front/back contract aligned; backend 688-row market is a superset of the fixture's 6 curated symbols and all 6 classify identically; data_time reproducible (2026-07-03T05:11:29Z); 3 contract warnings preserved. INTEGRATION OK."},
-      "findings": ["fixture == frozen contract-v2 6-symbol curated sample (6 rows); backend serves the full eligible TRADING perpetuals/TRADIFI market (688 rows). Summary totals differ by design; the contract check is the 6-symbol subset alignment (route_class/asset_tag/negative_funding_status), which matches exactly."]
+      "tests": {
+        "status": "pass",
+        "evidence_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt",
+        "integration_sample": "reports/agent-runs/2026-07-public-market-impl-v1/integration-snapshot-20260703T051738Z.json",
+        "detail": "Section 4: backend HTTP /api/public-market/snapshot schema-valid (688 rows); frontend index served (27982 B); front/back contract aligned; backend 688-row market is a superset of the fixture's 6 curated symbols and all 6 classify identically; data_time reproducible (2026-07-03T05:11:29Z); 3 contract warnings preserved. INTEGRATION OK."
+      },
+      "findings": [
+        "fixture == frozen contract-v2 6-symbol curated sample (6 rows); backend serves the full eligible TRADING perpetuals/TRADIFI market (688 rows). Summary totals differ by design; the contract check is the 6-symbol subset alignment (route_class/asset_tag/negative_funding_status), which matches exactly."
+      ]
     }
   },
   "model_routing": {
-    "backend_owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "scope": "Task A: backend snapshot service"},
-    "frontend_owner": {"provider": "kimi", "model": "kimi-2.7", "scope": "Task B: frontend market table"},
+    "backend_owner": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "scope": "Task A: backend snapshot service"
+    },
+    "frontend_owner": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "scope": "Task B: frontend market table"
+    },
     "excluded_for_core_work": [
-      {"provider": "grok", "reason": "Archived Grok backend implementation is not trusted as active base; only __pycache__ residue remains after the contract-first reset. Grok stays excluded from implementation and review."}
+      {
+        "provider": "grok",
+        "reason": "Archived Grok backend implementation is not trusted as active base; only __pycache__ residue remains after the contract-first reset. Grok stays excluded from implementation and review."
+      }
     ],
-    "review_1_task_A": {"provider": "kimi", "model": "kimi-2.7", "reason": "implementer is claude_glm; cross-review selects Kimi."},
-    "review_1_task_B": {"provider": "claude_glm", "model": "glm-5.2[1m]", "reason": "implementer is kimi; cross-review selects Claude-GLM in a fresh read-only session (not the controller transcript)."},
-    "review_2_stage": {"primary": {"provider": "codex", "model": "gpt5.5", "effort": "xhigh"}, "reviewer_prior_involvement": "direction_synthesis", "override": "strong_reviewer_disclosure", "runner_level_check": "Decision-model pool for review-2 = {GPT/Codex, Anthropic}. Implementers claude_glm (zhipu) and kimi wrote delivery code -> hard-banned from review-2 (no override). Designer + breakdown_author = Fable5 (anthropic) -> prior design+breakdown involvement. direction_synthesis = codex (status=approved_prior_stage, covers this implementation stage; no new direction panel ran this stage, direction_panel_required=false). No decision model is provider-unrelated to ALL of {designer, direction_synthesizer, breakdown_author}: both decision vendors are involved (Codex=direction, Anthropic Fable5=design+breakdown) and both implementers are hard-banned. Per AGENTS.md ('review-2 prefers provider-level isolation... if no unrelated decision model is available after a runner-level check, Codex/GPT or Claude/Fable5 may review with a recorded design-involvement disclosure'), Codex reviews via the strong-reviewer disclosure override. Codex (prior direction_synthesis only) carries lighter involvement than Fable5 (design+breakdown), so Codex is selected. Codex CLI verified available at /Users/ark/.local/bin/codex. Evidence: this status.json.model_routing.review_2_stage + the disclosure section of review-2-codex.prompt.md + 50-review-2.md.", "reason": "Review-2 final reviewer = Codex/GPT (gpt5.5, xhigh). Codex is the prior direction_synthesizer for the covering contract stage (user-approved, approved_prior_stage; no new direction panel this stage). Codex has NO design, breakdown, or code-authorship involvement this stage. Because no provider-unrelated decision model exists, Codex reviews via the strong-reviewer disclosure override (AGENTS.md 'GPT/Codex first' path) with reviewer_prior_involvement=direction_synthesis; the verdict must disclose the prior direction synthesis. Fallback (if Codex unavailable/invalid): Fable5 with design+breakdown disclosure, else decision_models_exhausted."}
+    "review_1_task_A": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "reason": "implementer is claude_glm; cross-review selects Kimi."
+    },
+    "review_1_task_B": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "reason": "implementer is kimi; cross-review selects Claude-GLM in a fresh read-only session (not the controller transcript)."
+    },
+    "review_2_stage": {
+      "primary": {
+        "provider": "codex",
+        "model": "gpt5.5",
+        "effort": "xhigh"
+      },
+      "reviewer_prior_involvement": "direction_synthesis",
+      "override": "strong_reviewer_disclosure",
+      "runner_level_check": "Decision-model pool for review-2 = {GPT/Codex, Anthropic}. Implementers claude_glm (zhipu) and kimi wrote delivery code -> hard-banned from review-2 (no override). Designer + breakdown_author = Fable5 (anthropic) -> prior design+breakdown involvement. direction_synthesis = codex (status=approved_prior_stage, covers this implementation stage; no new direction panel ran this stage, direction_panel_required=false). No decision model is provider-unrelated to ALL of {designer, direction_synthesizer, breakdown_author}: both decision vendors are involved (Codex=direction, Anthropic Fable5=design+breakdown) and both implementers are hard-banned. Per AGENTS.md ('review-2 prefers provider-level isolation... if no unrelated decision model is available after a runner-level check, Codex/GPT or Claude/Fable5 may review with a recorded design-involvement disclosure'), Codex reviews via the strong-reviewer disclosure override. Codex (prior direction_synthesis only) carries lighter involvement than Fable5 (design+breakdown), so Codex is selected. Codex CLI verified available at /Users/ark/.local/bin/codex. Evidence: this status.json.model_routing.review_2_stage + the disclosure section of review-2-codex.prompt.md + 50-review-2.md.",
+      "reason": "Review-2 final reviewer = Codex/GPT (gpt5.5, xhigh). Codex is the prior direction_synthesizer for the covering contract stage (user-approved, approved_prior_stage; no new direction panel this stage). Codex has NO design, breakdown, or code-authorship involvement this stage. Because no provider-unrelated decision model exists, Codex reviews via the strong-reviewer disclosure override (AGENTS.md 'GPT/Codex first' path) with reviewer_prior_involvement=direction_synthesis; the verdict must disclose the prior direction synthesis. Fallback (if Codex unavailable/invalid): Fable5 with design+breakdown disclosure, else decision_models_exhausted."
+    }
   },
   "evidence_policy": {
     "controller_and_backend_implementer_same_model": true,
@@ -138,14 +366,19 @@
     "Tests and CI are always offline; no network."
   ],
   "tests": {
-    "status": "pending",
-    "raw_output_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt"
+    "status": "pass",
+    "raw_output_file": "reports/agent-runs/2026-07-public-market-impl-v1/60-test-output.txt",
+    "detail": "pytest 39 passed (offline frozen fixtures); float() audit clean; single-process http.server smoke OK; node frontend/self-check.js 10/10 PASS; integration Section 4 INTEGRATION OK. Independently re-run by the reviewers: Kimi (pytest 39 + SMOKE OK), fresh Claude-GLM (self-check 10/10), Codex (PYTHONDONTWRITEBYTECODE=1 pytest 39/39 + self-check PASS)."
   },
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [],
-  "human_escalation": {"required": false, "reason": null},
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
   "terminal_reason": null,
-  "next_action": "Task-level review-1 COMPLETE: Task A (Kimi) ACCEPT + Task B (fresh read-only Claude-GLM) ACCEPT, both schema-valid, fingerprints independently recomputed (5148a473…1e93 / 4bebeb52…6bde) and matching status.json, zero findings / zero rework. Next: commit review-1 evidence (30-review-1-{backend,frontend}.md + raw-outputs + status), then dispatch stage-level review-2 (Codex/GPT, unrelated decision reviewer; designer Fable5 disclosed), then pre-accept (validate-stage.py). Controller does not declare final acceptance.",
-  "updated_at": "2026-07-03T14:03:26Z"
+  "next_action": "Review-1 (Task A->Kimi ACCEPT + Task B->fresh Claude-GLM ACCEPT) and review-2 (Codex/GPT gpt5.5 xhigh ACCEPT, final_reviewer, direction_synthesis strong-reviewer disclosure override) BOTH COMPLETE: all schema-valid, stage + 3 task fingerprints independently recomputed by reviewers and matching status.json, zero findings, zero rework. validate-stage.py --phase pre-review PASSED. Next: run validate-stage.py --phase pre-accept; the controller holds the stage at stage_accepted_waiting_user and does NOT declare final acceptance (can_accept_final=false) — awaiting user final acceptance.",
+  "updated_at": "2026-07-03T14:28:00Z",
+  "review_2_commit": "c9f8788"
 }
