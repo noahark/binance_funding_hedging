@@ -1,0 +1,20 @@
+- `reviewed_artifacts`: the paths you actually inspected
+- `findings`: ordered by severity (P0 first); empty array allowed for ACCEPT
+- `required_fixes`: empty for ACCEPT; concrete for REWORK
+- `residual_risks`: the live-HTTP / single-process-smoke / 6-vs-688-row notes
+- `next_action`: `continue` for ACCEPT, `fix` for REWORK
+
+If `verdict` is `REWORK`, you MUST include `fix_start_prompt` with raw paths,
+ordered findings, required fixes, allowed boundaries, forbidden paths, and the
+exact post-fix commands (`pytest`, `smoke_server.py`, `node frontend/self-check.js`).
+
+Emit the JSON verdict as the final block of your reply, fenced in ```json.
+
+2026-07-03T14:27:58.528924Z ERROR codex_models_manager::manager: failed to refresh available models: unexpected status 403 Forbidden: {"code":"SUBSCRIPTION_NOT_FOUND","message":"No active subscription found for this group"}, url: https://ai.egoagent.xyz/v1/models?client_version=0.142.2, cf-ray: a15692ee2e540dad-HKG, request id: 126eb162-4710-4915-a2e1-8e15a7a03280
+ERROR: Reconnecting... 1/5
+ERROR: Reconnecting... 2/5
+ERROR: Reconnecting... 3/5
+ERROR: Reconnecting... 4/5
+ERROR: Reconnecting... 5/5
+ERROR: unexpected status 403 Forbidden: {"code":"SUBSCRIPTION_NOT_FOUND","message":"No active subscription found for this group"}, url: https://ai.egoagent.xyz/v1/responses, cf-ray: a15693588bd785d4-HKG, request id: e5c3ef34-0ffd-45f1-9182-c6c64dc0e9ff
+ERROR: unexpected status 403 Forbidden: {"code":"SUBSCRIPTION_NOT_FOUND","message":"No active subscription found for this group"}, url: https://ai.egoagent.xyz/v1/responses, cf-ray: a15693588bd785d4-HKG, request id: e5c3ef34-0ffd-45f1-9182-c6c64dc0e9ff
