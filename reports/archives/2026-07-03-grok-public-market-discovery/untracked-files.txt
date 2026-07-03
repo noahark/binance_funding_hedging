@@ -1,0 +1,2 @@
+backend/tests/test_symbols.py
+reports/agent-runs/2026-07-public-market-discovery/51-review-3-gpt.md

@@ -1,0 +1,7 @@
+0c2bfcb (HEAD -> main) Update harness rework review contract
+6ac835a Record stage commit binding for 2026-07-public-market-discovery
+c53664e Implement public-market discovery + candidate classification
+d8e12dd Align stage template and blackboard README with registered direction panel
+ef6afc5 Freeze initial direction and public market phase
+4a74586 Update project harness from template
+6cc4606 (origin/main) Bootstrap harness documentation

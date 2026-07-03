@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.binance-funding-hedging/schemas/api/public-market/snapshot.schema.json",
+  "title": "Public Market Snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "data_time",
+    "source_sample_id",
+    "summary",
+    "rows",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "public-market-snapshot/v1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "data_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_sample_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_rows",
+        "route_counts",
+        "asset_tag_counts",
+        "negative_funding_status_counts"
+      ],
+      "properties": {
+        "total_rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "route_counts": {
+          "$ref": "#/$defs/counts"
+        },
+        "asset_tag_counts": {
+          "$ref": "#/$defs/counts"
+        },
+        "negative_funding_status_counts": {
+          "$ref": "#/$defs/counts"
+        }
+      }
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/row"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "decimal_string": {
+      "type": "string",
+      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol",
+        "base_asset",
+        "quote_asset",
+        "asset_tag",
+        "asset_tag_source",
+        "asset_tag_confidence",
+        "route_class",
+        "positive_funding_enabled",
+        "negative_funding_status",
+        "futures",
+        "spot",
+        "margin_public",
+        "funding_history",
+        "ui_flags"
+      ],
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_asset": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quote_asset": {
+          "const": "USDT"
+        },
+        "asset_tag": {
+          "enum": [
+            "CRYPTO",
+            "BSTOCK",
+            "UNKNOWN"
+          ]
+        },
+        "asset_tag_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "asset_tag_confidence": {
+          "enum": [
+            "HIGH",
+            "MEDIUM",
+            "LOW"
+          ]
+        },
+        "route_class": {
+          "enum": [
+            "MARGIN_SPOT_CANDIDATE",
+            "SPOT_ONLY_CANDIDATE",
+            "PERP_ONLY_EXCLUDED"
+          ]
+        },
+        "positive_funding_enabled": {
+          "type": "boolean"
+        },
+        "negative_funding_status": {
+          "enum": [
+            "PRIVATE_BORROW_VALIDATION_REQUIRED",
+            "DISABLED_BSTOCK",
+            "DISABLED_SPOT_ONLY",
+            "DISABLED_PERP_ONLY"
+          ]
+        },
+        "futures": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "symbol",
+            "status",
+            "contract_type",
+            "mark_price",
+            "index_price",
+            "last_funding_rate",
+            "next_funding_time",
+            "min_notional",
+            "step_size"
+          ],
+          "properties": {
+            "symbol": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "contract_type": {
+              "type": "string"
+            },
+            "mark_price": {
+              "$ref": "#/$defs/decimal_string"
+            },
+            "index_price": {
+              "$ref": "#/$defs/decimal_string"
+            },
+            "last_funding_rate": {
+              "$ref": "#/$defs/decimal_string"
+            },
+            "next_funding_time": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "min_notional": {
+              "$ref": "#/$defs/decimal_string"
+            },
+            "step_size": {
+              "$ref": "#/$defs/decimal_string"
+            }
+          }
+        },
+        "spot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "symbol",
+            "status",
+            "exists",
+            "min_notional",
+            "step_size"
+          ],
+          "properties": {
+            "symbol": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "exists": {
+              "type": "boolean"
+            },
+            "min_notional": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/decimal_string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "step_size": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/decimal_string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "margin_public": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "public_cross_margin_pair",
+            "source"
+          ],
+          "properties": {
+            "public_cross_margin_pair": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "source": {
+              "type": "string"
+            }
+          }
+        },
+        "funding_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "funding_time",
+              "funding_rate"
+            ],
+            "properties": {
+              "funding_time": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "funding_rate": {
+                "$ref": "#/$defs/decimal_string"
+              }
+            }
+          }
+        },
+        "ui_flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

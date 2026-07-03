@@ -285,6 +285,14 @@ model_policies:
 
 rotation_defaults:
   designers: [codex, claude]
+  implementation_pool:
+    - model: claude_glm
+      preferred_for: [backend_contract, backend_api, binance_adapter, domain_logic]
+    - model: kimi
+      preferred_for: [frontend_ui, backend_api_integration]
+  excluded_implementation_models:
+    - model: grok
+      reason: "Excluded from core public-market implementation after archived unreliable implementation and stalled CLI fix rounds."
   direction_panel_scope: milestone_or_user_requested
   direction_panel_skip_allowed_when:
     - user_approved_lightweight_route

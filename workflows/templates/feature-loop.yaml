@@ -278,13 +278,22 @@ stages:
 
   - id: implementation
     actor_pool:
-      - model: grok
-        required_model: "grok-composer-2.5-fast"
-        skill: senior_developer
       - model: claude_glm
         skill: senior_developer
+        preferred_for:
+          - backend_contract
+          - backend_api
+          - binance_adapter
+          - domain_logic
       - model: kimi
         skill: minimal_change_engineer
+        preferred_for:
+          - frontend_ui
+          - backend_api_integration
+    excluded_actor_pool:
+      - model: grok
+        required_model: "grok-composer-2.5-fast"
+        reason: "Excluded from core implementation for the current public-market phase after archived unreliable implementation and stalled CLI fix rounds."
     mode: write_code
     max_parallel: 1
     reads:
@@ -374,6 +383,9 @@ stages:
     skill: minimal_change_engineer
     mode: write_code
     max_rework: "{{guards.max_rework_per_stage}}"
+    routing_notes:
+      - "For the current public-market phase, backend fixes route to claude_glm and frontend fixes route to kimi."
+      - "Do not route core backend, contract, or fix tasks to grok unless the user explicitly re-enables it."
     reads:
       - "AGENTS.md"
       - "agents/developer-discipline.md"

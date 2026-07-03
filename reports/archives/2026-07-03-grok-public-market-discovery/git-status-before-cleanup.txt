@@ -1,0 +1,14 @@
+## main...origin/main [ahead 6]
+ M backend/domain/symbols.py
+ M backend/tests/fixtures/candidate-classification.csv
+ M backend/tests/fixtures/candidate-classification.json
+ M backend/tests/fixtures/fapi_exchange_info.json
+ M backend/tests/fixtures/fapi_premium_index.json
+ M backend/tests/test_regenerate_classification.py
+ M prototypes/fake-ui/index.html
+ M reports/agent-runs/2026-07-public-market-discovery/40-fix-report.md
+ M reports/api-samples/public-market/20260702T163929Z/candidate-classification.csv
+ M reports/api-samples/public-market/20260702T163929Z/candidate-classification.json
+?? backend/tests/test_symbols.py
+?? reports/agent-runs/2026-07-public-market-discovery/51-review-3-gpt.md
+?? reports/archives/

@@ -1,1 +1,0 @@
-"""External adapters (public network boundary only)."""
