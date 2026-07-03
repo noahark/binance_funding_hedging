@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-contract-v2",
-  "status": "review_1",
+  "status": "fixing",
   "workflow": "feature-loop",
   "designer": "codex",
   "implementer": {
@@ -115,19 +115,19 @@
     "contract_shape_changed": false
   },
   "review_1": {
-    "reviewer": null,
+    "reviewer": "kimi",
     "provider": "kimi",
     "model": "kimi-2.7",
     "skill": "code_reviewer",
     "mode": "read_only",
     "selection_reason": "implementer provider is claude_glm, so the updated Harness cross-review policy selects Kimi for review-1.",
     "unavailable_policy": "If Kimi is unavailable or cannot return a schema-valid verdict after retry, route to human_escalation_required instead of self-reviewing with Claude-GLM.",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
+    "open_p0_p1": 1,
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "1943e8b55c1cfdba018e8eae07428861e444e016:e0ae8c5cc404b0b0ebe45c8f637b6c30689337572a7248e9816181e34301311d",
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "reports/agent-runs/2026-07-public-market-contract-v2/30-review-1.md",
     "prior_dispatch_failures": [
       {
       "attempted_at": "2026-07-03T06:31:17Z",
@@ -157,7 +157,7 @@
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null
   },
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {
@@ -166,6 +166,6 @@
     "resolved_by": "user approved replacing Grok review-1 with Kimi/Claude-GLM cross-review; current stage re-routed to Kimi review-1."
   },
   "terminal_reason": null,
-  "next_action": "route_to_review_1_kimi_cross_review",
-  "updated_at": "2026-07-03T06:59:45Z"
+  "next_action": "fix_review_1_findings",
+  "updated_at": "2026-07-03T07:35:14Z"
 }

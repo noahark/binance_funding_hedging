@@ -2,7 +2,7 @@
 
 ## Checkpoint: contract discovery frozen for review_1
 
-Status: `review_1`. Implementer: Claude-GLM (`glm-5.2[1m]`).
+Status: `fixing`. Implementer: Claude-GLM (`glm-5.2[1m]`).
 Current review-1 reviewer: Kimi (`kimi-2.7`) under the Kimi/Claude-GLM
 cross-review policy.
 
@@ -85,8 +85,16 @@ review-1.
 Open follow-ups (non-blocking): settle-time sample for `lastFundingRate`;
 private borrowability validation in Phase 2.
 
-Next action: `route_to_review_1_kimi_cross_review`. Backend implementation stays
-gated; Kimi frontend work stays gated until the contract is accepted.
+### Kimi review-1 result: `REWORK`
+
+Kimi review-1 completed with a schema-valid `REWORK` verdict. It found one P1:
+`20-implementation.md` still described the obsolete uncommitted worktree
+fingerprint protocol (`HEAD == base`, working-tree hash, untracked files). The
+contract artifacts themselves were otherwise judged materially sound.
+
+Next action: `fix_review_1_findings`. Fix only the stale evidence-integrity note
+in `20-implementation.md`, then return to Kimi review-1. Backend implementation
+stays gated; Kimi frontend work stays gated until the contract is accepted.
 
 ## Claude-GLM Backend Contract Prompt
 
