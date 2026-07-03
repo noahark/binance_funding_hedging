@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-contract-v2",
-  "status": "review_2",
+  "status": "fixing",
   "workflow": "feature-loop",
   "designer": "codex",
   "implementer": {
@@ -192,12 +192,12 @@
       "reason": "No unrelated decision reviewer is available: Claude/Fable5 failed runner-level dispatch and provider isolation; Codex did not implement or fix any reviewed delivery code.",
       "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch-failure.md"
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
+    "open_p0_p1": "one P1: frozen review subject includes out-of-scope Harness changes not disclosed in 20-implementation.md or status.changed_files",
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "d73eb10187f34696aec4aea8f596c0d3578a1dcf:de0c199bd7b9121ec2539c6a891f3167043bc1f4412704c3276fe6171b3fdd46",
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "reports/agent-runs/2026-07-public-market-contract-v2/50-review-2.md",
     "invalid_json_attempts": 0,
     "prior_dispatch_attempt": {
       "attempted_at": "2026-07-03T08:15:32Z",
@@ -230,6 +230,6 @@
     "resolved_by": "User approved re-entering review-2 under the strong-reviewer disclosure override after the Claude/Fable5 dispatch failure evidence was recorded."
   },
   "terminal_reason": null,
-  "next_action": "run_review_2_codex_disclosure_override",
-  "updated_at": "2026-07-03T10:43:35Z"
+  "next_action": "fix_review_2_p1_evidence_boundary",
+  "updated_at": "2026-07-03T10:47:33Z"
 }

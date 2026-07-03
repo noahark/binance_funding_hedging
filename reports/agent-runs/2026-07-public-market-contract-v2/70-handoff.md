@@ -2,7 +2,7 @@
 
 ## Checkpoint: contract discovery re-entered review_2
 
-Status: `review_2`. Review-1 stands at `ACCEPT` (Kimi `kimi-2.7`).
+Status: `fixing`. Review-1 stands at `ACCEPT` (Kimi `kimi-2.7`).
 Implementer: Claude-GLM (`glm-5.2[1m]`). The previous Claude/Fable5 review-2
 dispatch failed at runner level and is preserved as evidence in
 `review-2-claude-dispatch-failure.md` plus
@@ -133,7 +133,13 @@ examine the same fixed product). This acceptance-logging commit advances `HEAD`
 past `head_sha`, so review-2 must use the recorded `base_sha..head_sha`, not the
 moving `HEAD`.
 
-Next action: `run_review_2_codex_disclosure_override` (final gate).
+Codex/GPT review-2 was run under the disclosure override and returned
+schema-valid `REWORK`. The blocking P1 is evidence-boundary contamination:
+the frozen review diff `2bb47ad..d73eb10` includes Harness governance files that
+are outside `00-task.md` file boundaries and are omitted from
+`20-implementation.md` / `status.changed_files`.
+
+Next action: `fix_review_2_p1_evidence_boundary`.
 `status.json.review_2` records `reviewer_prior_involvement=design`,
 `fallback_reason`, and
 `unrelated_reviewer_unavailable_evidence=reports/agent-runs/2026-07-public-market-contract-v2/review-2-claude-dispatch-failure.md`.
@@ -268,6 +274,31 @@ the new disclosure override path. The controller still cannot declare final
 acceptance; only schema-valid review-2 and pre-accept validation can advance the
 stage.
 
-本地北京时间: 2026-07-03 18:43:35 CST
-下一步模型: Codex/GPT
-下一步任务: Run review-2 under strong-reviewer disclosure override against raw artifacts and the frozen 2bb47ad..d73eb10 diff.
+### Codex/GPT review-2 result: `REWORK`
+
+Review file: `50-review-2.md`
+
+Result: schema-valid `REWORK`.
+
+Blocking finding:
+
+- P1: frozen review subject includes out-of-scope Harness changes not disclosed
+  in stage evidence.
+
+Required fix:
+
+- Repair the contract stage evidence boundary so the recorded
+  `base_sha`/`head_sha`/`diff_fingerprint` and `changed_files` agree with the
+  actual raw diff and the task file boundaries.
+- Preferred: create or identify a clean committed review subject whose standard
+  Harness diff contains only allowed contract-stage paths plus explicit
+  review/fix evidence.
+- If a clean pair cannot be produced without inventing a second fingerprint
+  protocol, stop and route to `human_escalation_required`.
+
+The ready-to-send fix prompt is in `50-review-2.md` under
+`fix_start_prompt`.
+
+本地北京时间: 2026-07-03 18:47:33 CST
+下一步模型: Claude-GLM
+下一步任务: Fix review-2 P1 evidence-boundary contamination, update status/handoff/fix report, and re-run pre-review validation.
