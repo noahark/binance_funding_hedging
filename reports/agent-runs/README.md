@@ -105,6 +105,12 @@ Terminal stop reasons are limited to:
   `head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")`.
   `status.json` is excluded because it stores the fingerprint. Do not use
   worktree fingerprints or alternate fingerprint fields.
+- Review prompts and reviewer commands must use the recorded
+  `<base_sha>..<head_sha>` range, not a moving `HEAD`, because unrelated Harness
+  commits may be added after a stage is frozen.
+- Model dispatch must follow `docs/model-adapters.md`. A controller session that
+  lacks a built-in tool for a model must not skip the runner-level CLI adapter
+  check.
 - Run `scripts/validate-stage.py <stage-id> --phase pre-review` before
   dispatching `review-1` or `review-2`.
 - Run `scripts/validate-stage.py <stage-id> --phase pre-accept` before writing

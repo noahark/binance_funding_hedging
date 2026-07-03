@@ -21,6 +21,7 @@ harness_owned:
   - reports/agent-runs/_template/
   - docs/README.md
   - docs/harness-design.md
+  - docs/model-adapters.md
   - docs/architecture/ADR/0000-template.md
 
 install_only:

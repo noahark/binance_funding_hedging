@@ -11,6 +11,7 @@ Canonical paths:
 - `docs/development/DEVELOPMENT_GUIDE.md` - approved developer guide
 - `docs/planning/ROADMAP.md` - approved roadmap
 - `docs/planning/DECISIONS.md` - approved product/business/technical decisions
+- `docs/model-adapters.md` - Harness-owned local model CLI adapter runbook
 
 Rule: drafts go to `reports/agent-runs/<stage-id>/`; approved decisions are
 promoted into this directory through the workflow.

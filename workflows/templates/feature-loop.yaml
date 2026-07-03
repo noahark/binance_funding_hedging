@@ -144,6 +144,7 @@ inputs:
   workflow_docs:
     - AGENTS.md
     - agents/registry.yaml
+    - docs/model-adapters.md
     - agents/skills/UPSTREAM.md
     - schemas/review-verdict.schema.json
 
@@ -281,22 +282,13 @@ stages:
 
   - id: implementation
     actor_pool:
-      - model: claude_glm
-        skill: senior_developer
-        preferred_for:
-          - backend_contract
-          - backend_api
-          - binance_adapter
-          - domain_logic
-      - model: kimi
-        skill: minimal_change_engineer
-        preferred_for:
-          - frontend_ui
-          - backend_api_integration
-    excluded_actor_pool:
       - model: grok
         required_model: "grok-composer-2.5-fast"
-        reason: "Excluded from core implementation for the current public-market phase after archived unreliable implementation and stalled CLI fix rounds."
+        skill: senior_developer
+      - model: claude_glm
+        skill: senior_developer
+      - model: kimi
+        skill: minimal_change_engineer
     mode: write_code
     max_parallel: 1
     reads:
@@ -310,6 +302,9 @@ stages:
       - "source files within task boundary"
       - "tests within task boundary"
       - "reports/agent-runs/{{stage_id}}/20-implementation.md"
+    routing_rules:
+      - "Apply status.json.model_routing stage-specific owner and exclusion rules before generic actor_pool selection."
+      - "A model listed in status.json.model_routing.excluded_for_core_work is ineligible for current-stage implementation even if it appears in this generic actor_pool."
     acceptance:
       - "Changed files match task boundaries or deviations are explained."
       - "Implementation report lists design decisions and tests run."
@@ -333,14 +328,15 @@ stages:
       - "Controller must locally commit reviewed artifacts before dispatch."
       - "status.json status must be review_1."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
+      - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
+      - "Check docs/model-adapters.md and agents/registry.yaml before declaring the reviewer unavailable."
     actor:
       provider: grok
       model: "grok-build"
     skill: code_reviewer
     mode: read_only
     adapter_requirements:
-      grok: "Use Grok Build in plan/read-only mode with a schema-bound custom prompt. If unavailable, fail closed and do not pass review-1. A still-running or no-verdict Grok CLI process after 900 seconds is model_unavailable."
-    timeout_seconds: 900
+      grok: "Use Grok Build in plan/read-only mode with a schema-bound custom prompt. Verify with `grok models`; a controller session without a Grok tool is not enough to mark unavailable. If grok-build is unavailable or no schema-valid verdict arrives within 900 seconds, fail closed and do not pass review-1."
     requires_raw_artifacts:
       - "workflow YAML"
       - "00-task.md"
@@ -391,9 +387,9 @@ stages:
     skill: minimal_change_engineer
     mode: write_code
     max_rework: "{{guards.max_rework_per_stage}}"
-    routing_notes:
-      - "For the current public-market phase, backend fixes route to claude_glm and frontend fixes route to kimi."
-      - "Do not route core backend, contract, or fix tasks to grok unless the user explicitly re-enables it."
+    routing_rules:
+      - "Apply status.json.model_routing stage-specific owner and exclusion rules before generic fix selection."
+      - "Do not send fixes to a model excluded from current-stage core work unless the user explicitly re-enables it."
     reads:
       - "AGENTS.md"
       - "agents/developer-discipline.md"
@@ -418,6 +414,8 @@ stages:
       - "Controller must locally commit reviewed artifacts before dispatch."
       - "status.json status must be review_2."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
+      - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
+      - "Check docs/model-adapters.md and agents/registry.yaml before declaring Codex or Claude unavailable."
     actor:
       primary: codex
       fallback: claude
@@ -430,8 +428,8 @@ stages:
     skill: reality_checker
     mode: read_only
     adapter_requirements:
-      codex: "Use read-only codex exec with a schema-bound custom prompt, not codex review."
-      claude: "Use read-only/plan Claude invocation with schema-bound custom prompt."
+      codex: "Use read-only codex exec with the configured GPT/Codex adapter default and a schema-bound custom prompt, not codex review."
+      claude: "Use read-only/plan Claude invocation with claude-fable-5 by default and a schema-bound custom prompt."
     requires:
       - "reviewer != designer"
       - "reviewer != implementer"

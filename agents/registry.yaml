@@ -31,46 +31,77 @@ adapters:
     provider_identity: zhipu_glm
     invocation_owner: runner
     prompt_mode: claude_print
+    binary: claude-glm
+    availability_check_command: "type claude-glm"
+    noninteractive_command: "claude-glm -p \"$(cat <prompt-file>)\""
     supports_write: true
     supports_read_only: true
     timeout_seconds: 3000
     secret_handling: "never_log_expanded_environment"
+    notes:
+      - "This may be a shell alias/function. Runner scripts must load the shell profile or use an absolute wrapper path."
+      - "If the alias is missing, do not substitute Anthropic Claude while claiming GLM provider identity."
 
   claude:
     kind: claude_code
     provider_identity: anthropic
     invocation_owner: runner
     prompt_mode: claude_print
+    binary: claude
+    default_review_model: "claude-fable-5"
+    availability_check_command: "command -v claude"
+    read_only_review_command: "claude --model claude-fable-5 --permission-mode plan --json-schema \"$(cat schemas/review-verdict.schema.json)\" -p \"$(cat <prompt-file>)\""
+    development_command: "claude --model claude-fable-5 --permission-mode acceptEdits -p \"$(cat <prompt-file>)\""
+    yolo_command: "claude --model claude-fable-5 --permission-mode bypassPermissions -p \"$(cat <prompt-file>)\""
     supports_write: true
     supports_read_only: true
     timeout_seconds: 1800
+    notes:
+      - "Use fable5 for Claude review unless user or registry explicitly changes it."
+      - "If --json-schema is unavailable locally, validate the captured final JSON verdict with the runner."
 
   codex:
     kind: codex_cli
     provider_identity: openai
     invocation_owner: runner
-    development_command: "codex -C <repo> exec <prompt>"
-    schema_review_command: "codex -C <repo> -s read-only exec <prompt>"
+    binary: codex
+    default_model: "gpt5.5"
+    default_reasoning_effort: xhigh
+    availability_check_command: "command -v codex"
+    development_command: "codex -C <repo> -m gpt5.5 -s workspace-write -a never exec - < <prompt-file>"
+    yolo_command: "codex -C <repo> -m gpt5.5 -s danger-full-access -a never exec - < <prompt-file>"
+    schema_review_command: "codex -C <repo> -m gpt5.5 -s read-only -a never exec --output-schema schemas/review-verdict.schema.json - < <prompt-file>"
     freeform_review_command: "codex -C <repo> review --base <base> <prompt>"
     warning: "codex -p is --profile, not prompt"
     supports_write: true
     supports_read_only: true
     timeout_seconds: 1800
+    notes:
+      - "If xhigh effort is implemented through a local profile/config, the runner must apply that profile/config."
+      - "Do not silently downgrade model or reasoning effort; route through fallback rules."
 
   kimi:
     kind: kimi_code
     provider_identity: moonshot_kimi
     invocation_owner: controller
+    binary_candidates: [kimi-for-coding, kimi]
+    availability_check_command: "command -v kimi || command -v kimi-for-coding"
+    default_model_policy: "use local Kimi Code configured default/latest model; omit -m unless stage pins a model"
     design_model: "kimi-2.7"
+    noninteractive_command: "kimi -p \"$(cat <prompt-file>)\""
+    plan_command: "kimi --plan -p \"$(cat <prompt-file>)\""
+    yolo_command: "kimi -y -p \"$(cat <prompt-file>)\""
     supports_write: true
     supports_read_only: false
     notes:
       - "Use as implementation subagent only when workflow explicitly allows it."
+      - "If the local wrapper is named kimi-for-coding, substitute that binary for kimi."
 
   grok:
     kind: grok_cli
     provider_identity: xai_grok
     invocation_owner: runner
+    binary: grok
     development_model: "grok-composer-2.5-fast"
     review_1_model: "grok-build"
     direction_model: "grok-build"
@@ -79,13 +110,17 @@ adapters:
       - "grok-composer-2.5-fast"
     availability_check_command: "grok models"
     if_review_1_model_unavailable: human_escalation_required
-    development_command: "grok --cwd <repo> --model grok-composer-2.5-fast -p <prompt> --permission-mode acceptEdits --check --effort high"
-    review_1_command: "grok --cwd <repo> --model grok-build -p <prompt> --permission-mode plan"
+    interactive_command: "grok --cwd <repo> --model grok-build"
+    development_command: "grok --cwd <repo> --model grok-composer-2.5-fast --permission-mode acceptEdits --check --effort high --prompt-file <prompt-file>"
+    yolo_command: "grok --cwd <repo> --model grok-composer-2.5-fast --permission-mode bypassPermissions --always-approve --prompt-file <prompt-file>"
+    review_1_command: "grok --cwd <repo> --model grok-build --permission-mode plan --effort high --prompt-file <prompt-file>"
+    review_1_timeout_seconds: 900
     supports_write: true
     supports_read_only: true
     timeout_seconds: 1800
-    review_1_timeout_seconds: 900
-    stalled_process_policy: "For review-1, no usable verdict or a still-running CLI process after 900 seconds is model_unavailable."
+    notes:
+      - "A controller session lacking Grok tools is not enough to mark Grok unavailable; the runner must try the CLI adapter."
+      - "If review-1 produces no schema-valid verdict within 900 seconds, route model_unavailable -> human_escalation_required."
 
 direction_panels:
   key_mapping:
@@ -287,14 +322,6 @@ model_policies:
 
 rotation_defaults:
   designers: [codex, claude]
-  implementation_pool:
-    - model: claude_glm
-      preferred_for: [backend_contract, backend_api, binance_adapter, domain_logic]
-    - model: kimi
-      preferred_for: [frontend_ui, backend_api_integration]
-  excluded_implementation_models:
-    - model: grok
-      reason: "Excluded from core public-market implementation after archived unreliable implementation and stalled CLI fix rounds."
   direction_panel_scope: milestone_or_user_requested
   direction_panel_skip_allowed_when:
     - user_approved_lightweight_route
@@ -331,7 +358,6 @@ rotation_defaults:
   review_1:
     provider: grok
     model: "grok-build"
-    timeout_seconds: 900
   review_2:
     primary: codex
     fallback: claude

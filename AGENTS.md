@@ -19,11 +19,13 @@ When documents conflict, use this order:
 2. `workflows/templates/*.yaml` - executable workflow contracts.
 3. `schemas/*.schema.json` - machine-readable output contracts.
 4. `agents/registry.yaml` - model, adapter, and skill routing.
-5. `agents/skills/*.md` - role skill prompts and local overrides.
-6. `agents/developer-discipline.md` - developer execution discipline for
+5. `docs/model-adapters.md` - local CLI adapter commands and availability
+   checks.
+6. `agents/skills/*.md` - role skill prompts and local overrides.
+7. `agents/developer-discipline.md` - developer execution discipline for
    implementation and fix work.
-7. `reports/agent-runs/<stage>/` - current stage facts and evidence.
-8. `docs/*.md` - product, architecture, and design notes.
+8. `reports/agent-runs/<stage>/` - current stage facts and evidence.
+9. `docs/*.md` - product, architecture, and design notes.
 
 `agents/developer-discipline.md` is subordinate to the hard gates above. It
 should guide developer behavior only when it does not conflict with this file,
@@ -109,6 +111,11 @@ Implementers can be Kimi subagents, Claude-GLM, Grok, or another explicitly
 registered model. Implementers may write code only within the active task scope
 and file boundary.
 
+The generic workflow actor pool is only an eligibility list. Stage-specific
+owner and exclusion rules in `status.json.model_routing` must be applied before
+dispatch. A model excluded from current-stage core work must not receive
+implementation or fix tasks unless the user explicitly re-enables it.
+
 ### Reviewers
 
 Review-1 is assigned to Grok Build with the `code_reviewer` skill. Review-2 is
@@ -186,6 +193,9 @@ dispatching the fix.
 - Codex review nodes use `codex exec` in read-only mode with a custom prompt
   when strict JSON verdict output is required. Do not rely on `codex review`
   for schema-constrained verdicts.
+- Model dispatch must use `docs/model-adapters.md` and `agents/registry.yaml`.
+  A controller session lacking a built-in tool for a model is not sufficient to
+  mark that model unavailable; the runner-level adapter check must fail.
 - Review-2 fallback from GPT/Codex to Claude is allowed only for quota,
   authentication, service availability, or anti-self-review ineligibility. Do
   not ask Claude for a second opinion after a valid GPT/Codex verdict.
@@ -271,10 +281,23 @@ uncommitted.
 
 ## Local Command Notes
 
+`docs/model-adapters.md` is the local command runbook. It records the currently
+observed command forms for Codex, Claude, Claude-GLM, Grok, and Kimi, including
+read-only review, write-capable development, and explicit yolo/bypass modes.
+
+Key reminders:
+
 - Codex prompt execution uses `codex exec`.
 - Codex free-form review may use `codex review`, but schema-bound Harness
   review nodes use read-only `codex exec` with the review prompt.
 - `codex -p` is a profile flag, not a prompt flag.
+- Claude review uses the configured Claude adapter model, currently
+  `claude-fable-5`, unless the registry or user changes it.
+- Grok review-1 uses `grok-build`; Grok development, when explicitly enabled,
+  uses `grok-composer-2.5-fast`.
+- Kimi development uses the local Kimi Code adapter default, normally
+  `kimi-for-coding`/`kimi` with no pinned `-m` so it follows the configured
+  latest model.
 - `claude-glm` is a local shell alias/function. Invoke through an adapter and do
   not record its expanded environment.
 - YAML files describe intent and routing. Command details belong in adapters or

@@ -17,6 +17,7 @@ This repository currently implements only the document-level Harness contract:
 
 - `AGENTS.md`
 - `agents/registry.yaml`
+- `docs/model-adapters.md`
 - `workflows/templates/feature-loop.yaml`
 - `schemas/review-verdict.schema.json`
 - `reports/agent-runs/README.md`
@@ -149,6 +150,11 @@ uses Composer 2.5:
 grok --model grok-composer-2.5-fast
 ```
 
+The generic actor pool does not override a stage-specific routing decision. If
+`status.json.model_routing.excluded_for_core_work` excludes a model for the
+active stage, the controller must not dispatch implementation or fix work to
+that model unless the user explicitly re-enables it.
+
 Review routing is fixed:
 
 1. `review-1`: Grok Build with `code_reviewer`.
@@ -209,7 +215,8 @@ collection work.
 ## Model Adapters
 
 Workflow YAML must not directly interpolate shell commands for model execution.
-Adapters own the command details.
+Adapters own the command details. `docs/model-adapters.md` is the local command
+runbook and must be checked before marking a model unavailable.
 
 Required adapter behaviors:
 
@@ -225,11 +232,18 @@ Required adapter behaviors:
 
 Known command semantics:
 
-- Codex non-interactive development: `codex -C <repo> exec "<prompt>"`
-- Codex schema-bound review: `codex -C <repo> -s read-only exec "<prompt>"`
+- Codex default Harness model: `gpt5.5` with `xhigh` reasoning effort, as
+  configured locally by the adapter/profile.
+- Codex non-interactive development: `codex -C <repo> exec - < <prompt-file>`
+- Codex schema-bound review: `codex -C <repo> -s read-only exec - < <prompt-file>`
 - Codex free-form review: `codex -C <repo> review --base <base> "<prompt>"`
 - Codex `-p` means profile, not prompt.
 - Claude Code print mode uses `claude -p "<prompt>"`.
+- Claude review uses `claude-fable-5` by default.
+- Grok review-1 uses `grok-build`; Grok development uses
+  `grok-composer-2.5-fast` only when workflow-enabled.
+- Kimi development uses the local Kimi Code default model, normally through
+  `kimi-for-coding` or `kimi`.
 - Local `claude-glm` must be invoked without recording its expanded auth
   environment.
 
