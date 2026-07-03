@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-bstock-alias-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stage_id": "2026-07-public-market-impl-v1",
@@ -214,7 +214,8 @@
   "review_1": {
     "verdict": "ACCEPT",
     "json_schema_valid": true,
-    "diff_fingerprint": "0842820ff21d30f563d25a3ff914cd705e6d9002:24ce862a277987871fadbeb7e46ee3e59db923904ff28468ac84482ac48fb9ac",
+    "diff_fingerprint": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1:9d6569d15b987c10eaa008b8b9b344f11c70aeaea7fe84d82dbb6030c89f0aba",
+    "diff_fingerprint_rebound_note": "Stage-level fingerprint re-bound from head 0842820 to head b189440 after the evidence-backfill round advanced the stage head. This is a mechanical rebind from head movement, NOT a re-review: the backfill touched no product code (git diff 0842820..b189440 -- backend frontend schemas docs/api is empty), so the Task A/B task-level review-1 verdicts (d240e43..1f94c84 / 6ea4504..5968c49, both ACCEPT) remain valid.",
     "status": "both_tasks_ACCEPT",
     "scope": "Task-level review-1 (Task A backend by Kimi + Task B frontend by a fresh read-only Claude-GLM Agent session). The stage-level review_1 verdict aggregates both task verdicts (both ACCEPT) and binds to the stage-level top-level diff_fingerprint, as required by scripts/validate-stage.py validate_acceptance. Per-task fingerprints live in tasks.A/tasks.B; detailed reviews are 30-review-1-backend.md and 30-review-1-frontend.md; 30-review-1.md is the stage-level summary.",
     "task_A": {
@@ -264,21 +265,35 @@
     "routing_correction": "Per the new Fable5 probe hygiene rule (docs/model-adapters.md + AGENTS.md, 2026-07-04), the 'Fable5/Anthropic unreachable (claude CLI auth -> zhipu_glm, error 1211)' line in routing should be read as 'Anthropic endpoint not probed (auth re-routed to GLM/Zhipu)' — a GLM-endpoint failure is not Fable5-unavailable evidence. Recorded as a correction; the original routing text is left intact."
   },
   "review_2": {
-    "status": "recheck_pending",
-    "trigger": "Evidence-backfill round expanded the reviewed scope beyond the prior ACCEPT (head 0842820). Per the new Hard Gates rule, the bStock alias contract amendment now carries live public samples; a recheck must rebind review_2 to the new head/diff_fingerprint before the stage can return to stage_accepted_waiting_user.",
-    "scope_added_this_backfill": [
-      "commit 0578191: Harness adapter corrections + new Hard Gates rule (contract amendments must carry raw public samples; synthetic fixtures only supplement) + Claude/Fable5 probe hygiene (strip GLM/Zhipu env first).",
-      "commit 9f4764c: live public capture reports/api-samples/public-market-bstock-alias-v1/20260703T170827Z/ (anonymous /fapi/v1/exchangeInfo + /api/v3/exchangeInfo; no key/signed/private/order/borrow/repay/transfer/websocket); evidence-index.md cross-verifies 15/15 user-listed bStocks.",
-      "commit b189440: live-raw alias recheck verify-on-live-raw.py (drives real build_rows; 15/15 bStocks -> MARGIN_SPOT_CANDIDATE + bstock_b_suffix_alias + DISABLED_BSTOCK; BTCUSDT negative control exact-matches); 60-test-output.txt Section 5 PASS; 70-handoff.md backfill record + open items."
-    ],
-    "recheck_range": "base_sha d240e43e75034a6718ede79bc295d39e77cd860e .. head_sha b1894406cf50173fc110f92b63fc3fe2f7ad7fc1 (reports/agent-runs/2026-07-public-market-bstock-alias-v1/status.json excluded)",
-    "expected_diff_fingerprint": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1:9d6569d15b987c10eaa008b8b9b344f11c70aeaea7fe84d82dbb6030c89f0aba",
-    "dispatch_form": "codex exec --model gpt-5.5 (user-specified; locally-configured default provider; read-only sandbox).",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1:9d6569d15b987c10eaa008b8b9b344f11c70aeaea7fe84d82dbb6030c89f0aba",
+    "status": "stage_accepted_waiting_user",
+    "role": "final_reviewer",
+    "provider": "codex", "model": "gpt-5.5", "effort": "xhigh",
+    "sandbox": "read-only",
+    "kind": "recheck_after_evidence_backfill",
+    "output": "50-review-2-recheck.md",
+    "raw_output": "review-2-recheck-codex.raw-output.txt",
+    "dispatch_prompt": "review-2-recheck-codex.prompt.md",
+    "reviewed_at": "2026-07-03T17:27:36Z",
     "reviewer_prior_involvement": "direction_synthesis",
     "override": "strong_reviewer_disclosure",
-    "live_evidence_result": "PASS — 15/15 bStocks resolve to MARGIN_SPOT_CANDIDATE via baseAsset+B+quoteAsset alias on live raw; BTCUSDT negative control exact-matches (alias does not pollute crypto); assembled snapshot jsonschema-valid against the amended snapshot.schema.json. See 60-test-output.txt Section 5 and reports/api-samples/public-market-bstock-alias-v1/20260703T170827Z/evidence-index.md.",
-    "pending_since": "2026-07-03T17:15:23Z",
-    "note": "Until the Codex/GPT recheck returns ACCEPT, validate-stage.py --phase pre-accept is expected to FAIL (review_2.verdict is not yet bound to ACCEPT). pre-review PASSES (status=review_2, clean committed worktree, diff_fingerprint recompute matches)."
+    "fingerprint_matches": true,
+    "findings": 0,
+    "required_fixes": 0,
+    "recheck_range": "base_sha d240e43e75034a6718ede79bc295d39e77cd860e .. head_sha b1894406cf50173fc110f92b63fc3fe2f7ad7fc1 (reports/agent-runs/2026-07-public-market-bstock-alias-v1/status.json excluded)",
+    "backfill_product_code_isolated": "git diff --stat 0842820..b189440 -- backend frontend schemas docs/api is empty (only docs/model-adapters.md Harness doc changed); classify.py unchanged over d240e43..b189440; backend 52 passed + frontend 11/11 (Codex reran).",
+    "live_evidence_result": "PASS — 15/15 bStocks resolve to MARGIN_SPOT_CANDIDATE via baseAsset+B+quoteAsset alias on live raw; BTCUSDT negative control exact-matches; snapshot jsonschema-valid. Public exchangeInfo only; headers carry no auth material; raw sha256 match evidence-index.md.",
+    "schema_validation": "Controller post-hoc jsonschema validation (Draft 2020-12 + format checker) of the extracted verdict block -> VALID. codex --output-schema unusable on this route (same as prior review-2); verdict emitted as fenced json by instruction.",
+    "routing": "codex exec --model gpt-5.5 -s read-only on the locally-configured default provider (user-specified form). Fable5/Anthropic not probed on an Anthropic endpoint (claude CLI auth re-routed to GLM/Zhipu) -> recorded as 'Anthropic endpoint not probed', not Fable5 unavailable, per the new probe hygiene rule. Both implementers hard-banned. No model downgrade.",
+    "residual_risks": [
+      "bStock token vs US-equity 1:1 equivalence unproven by public exchangeInfo; deferred to position-opening planning (see open_items).",
+      "bStock spot/margin session vs TRADIFI perpetual 7x24; funding/gap/continuity implications deferred to pre-trade planning (see open_items).",
+      "At recheck time the recheck prompt/output files were untracked, so a live pre-review rerun failed only on those artifacts; committed in this finalize."
+    ],
+    "summary_file": "50-review-2-recheck.md",
+    "supersedes": "review_2_prior (prior ACCEPT on head 0842820, synthetic-only scope; preserved verbatim)"
   },
   "evidence_backfill": {
     "round": "2026-07-04 evidence backfill (user-directed)",
@@ -303,7 +318,7 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Evidence-backfill round (2026-07-04) added live public samples + live-raw recheck (15/15 bStocks PASS) + Harness corrections; stage scope expanded, head advanced to b189440, diff_fingerprint recomputed, status returned to review_2 (recheck pending). Next: dispatch Codex/GPT review-2 recheck via `codex exec --model gpt-5.5` on base d240e43..b189440. On ACCEPT: rebind review_2 to the new head/fingerprint, set status=stage_accepted_waiting_user, run pre-accept (must PASS). Prior review_2 ACCEPT preserved as review_2_prior (not altered). Controller does NOT declare final acceptance.",
+  "next_action": "Review-2 recheck (Codex/GPT gpt5.5, direction_synthesis strong-reviewer override) ACCEPT on head b189440; fingerprint independently recomputed and matching (b189440:9d6569d1...); schema post-hoc validated; 0 findings; backfill product-code isolation verified. review_2 rebinds to b189440; review_1 stage-level fingerprint mechanically re-bound to b189440 (task-level verdicts unchanged, no product code touched by backfill); status=stage_accepted_waiting_user. Next: run scripts/validate-stage.py --phase pre-accept (must PASS), then hold. Controller does NOT declare final acceptance (can_accept_final=false); stage awaits user.",
   "can_accept_final": false,
-  "updated_at": "2026-07-03T17:15:23Z"
+  "updated_at": "2026-07-03T17:29:45Z"
 }
