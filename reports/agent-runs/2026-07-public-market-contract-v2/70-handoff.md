@@ -11,6 +11,12 @@ stage_id=2026-07-public-market-contract-v2.
 Goal: verify Binance public endpoint request/response fields and freeze the
 Phase 1 backend-to-frontend public market snapshot contract.
 
+Actual review base:
+a2b8a0d094e946b3d1663494b8eefda835ab4b53
+
+All implementation/review diffs for this contract discovery task must use:
+git diff --binary a2b8a0d094e946b3d1663494b8eefda835ab4b53..HEAD
+
 Read:
 - AGENTS.md
 - agents/developer-discipline.md
@@ -29,9 +35,9 @@ Hard constraints:
 - No order, borrow, repay, transfer, or execution path.
 - Do not use Grok for implementation or fixes in this stage.
 - Do not create backend implementation modules yet; contract discovery first.
-- Before dispatch, record the current git `HEAD` as the review base for this
-  stage. Reviewers must recompute `diff_fingerprint` from raw git diff and must
-  not rely on Claude-GLM controller summaries as evidence.
+- Reviewers must recompute `diff_fingerprint` from raw git diff using the
+  actual review base above and must not rely on Claude-GLM controller summaries
+  as evidence.
 
 Write:
 - reports/agent-runs/2026-07-public-market-contract-v2/api-field-matrix.md

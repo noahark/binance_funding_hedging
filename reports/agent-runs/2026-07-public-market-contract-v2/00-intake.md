@@ -4,7 +4,12 @@ Stage ID: `2026-07-public-market-contract-v2`
 
 Status: ready for backend contract discovery
 
-Base SHA: `0c2bfcbf86db8a7b0da69702b56f714210eb5174`
+Initial reset base SHA: `0c2bfcbf86db8a7b0da69702b56f714210eb5174`
+
+Actual review base for contract discovery:
+`a2b8a0d094e946b3d1663494b8eefda835ab4b53`
+
+The contract discovery diff must be computed from this base.
 
 ## User Decision
 
