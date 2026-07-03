@@ -78,11 +78,11 @@
         "workflows/**",
         "scripts/**"
       ],
-      "status": "planned",
+      "status": "implemented",
       "commit": "H_A",
-      "base_sha": "",
-      "head_sha": "",
-      "diff_fingerprint": ""
+      "base_sha": "d240e43e75034a6718ede79bc295d39e77cd860e",
+      "head_sha": "1f94c842a67ac75b170f796b17cb08172457b5d7",
+      "diff_fingerprint": "1f94c842a67ac75b170f796b17cb08172457b5d7:fe6d0bd9d16ea2e75c54b59ed9469f206c5e733dc4d159ba35c959d63ad4c815"
     },
     "B": {
       "name": "Frontend bStock alias display",
@@ -182,6 +182,6 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Stage evidence committed at H_intake (status=designing). Next: Task A (contract amendment + backend bStock alias repair) -> H_A. Fable5 breakdown unavailable this session -> controller-direct design (user_approved_lightweight_route); re-runnable if an Anthropic-authed environment is provided.",
-  "updated_at": "2026-07-03T15:19:31Z"
+  "next_action": "Task A implemented at H_A (1f94c84); tasks.A diff_fingerprint bound. Next: Task B frontend (owner Kimi) -> H_B, then Task C integration + stage-level fingerprint -> H_C, then validate --phase pre-review + dispatch review-1 (A->Kimi, B->fresh Claude-GLM). Fable5 breakdown unavailable this session -> controller-direct design (user_approved_lightweight_route).",
+  "updated_at": "2026-07-03T15:40:38Z"
 }
