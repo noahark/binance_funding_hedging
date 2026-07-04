@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-ui-cn-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
@@ -50,9 +50,9 @@
     }
   ],
   "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
-  "head_sha": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
+  "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
   "commit_state": "committed",
-  "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:6e6e2d4d7ee28dc6547c727b6a4c99779605686e38af2586a42ac49171114854",
+  "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:4b8c8de25458e88a9dd8d5f8ab03db0f563305c59492fae548d69683978c4608",
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
   "diff_fingerprint_note": "Two scopes, one protocol; task-level in tasks.<id> at H_A/H_B, stage-level top-level at H_C; status.json excluded from hash. Same formula as prior stages. NOTE: H_intake physically = b84a342 (intake/task/design/status + live funding-semantics evidence) + d3d6e7c (Fable5 pre-written Task B dispatch prompt task-b-kimi-frontend.prompt.md + controller-start-prompt.md update; intake/design scope, no product code). base_sha anchored at b84a342 per user directive, so d3d6e7c's intake artifacts ride in the stage diff (legitimate intake/design scope, not product code; reviewers recompute from base_sha + raw git diff).",
   "commit_order_strategy": "H_intake (this commit: intake/task/design/status + live funding-semantics evidence under reports/api-samples/<stage-id>/) -> H_A (warnings wording + doc + tests) -> H_B (frontend) -> H_C (integration + stage-level fingerprint + finalize). Controller commits serially so each task's base..head diff is owner-scoped.",
@@ -137,7 +137,8 @@
         "reviewed_at": "2026-07-04T05:52:00Z",
         "independent_test_rerun": "git diff d3d6e7c..dba4c12 -- snapshot.py = single -1/+1 string; pytest backend/tests -q -> 54 passed; grep float( clean; verify-funding-semantics.py PASS",
         "next_action": "continue"
-      }
+      },
+      "rework_round1_note": "Stage head advanced to 7592b2c by Task B rework; Task A code unchanged since dba4c12. Task A round-0 review-1 (Kimi ACCEPT) retained; NOT re-reviewed."
     },
     "B": {
       "name": "Frontend Chinese-first + funding column merge + flags de-noise",
@@ -167,11 +168,11 @@
         "workflows/**",
         "scripts/**"
       ],
-      "status": "accepted_by_review_2",
-      "commit": "0fd0d17e2835f445cee2195a8ba366df55084123",
+      "status": "in_review_1_round1",
+      "commit": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
       "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
-      "head_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
-      "diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835",
+      "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
+      "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:9caf18e6e9e7f67b28698cd0df6cad9e22d181fd9236e81be33d07e9e3f9f8e6",
       "diff_files_count": 4,
       "diff_files_note": "frontend/index.html (column merge + CN i18n + string-shift formatFundingRate + ui_flags de-noise + 数据说明), frontend/fixture/public-market-snapshot.json (warnings[1] synced), frontend/self-check.js (+formatter/数据说明 assertions), 20-implementation-frontend.md (report)",
       "tests": {
@@ -182,6 +183,22 @@
         "A"
       ],
       "review_1": {
+        "round": 1,
+        "status": "pending_fresh_glm_review",
+        "owner": {
+          "provider": "claude_glm",
+          "model": "glm-5.2[1m]",
+          "fresh_session_required": true
+        },
+        "subject": {
+          "base_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
+          "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
+          "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
+          "scope": "frontend/** (rework fix diff)"
+        },
+        "verdict": "pending"
+      },
+      "review_1_round0": {
         "status": "ACCEPT",
         "owner": {
           "provider": "claude_glm",
@@ -216,7 +233,27 @@
         "required_fixes": [],
         "reviewed_at": "2026-07-04T05:53:00Z",
         "independent_test_rerun": "node frontend/self-check.js -> 14/14 PASS; fixture.warnings[1] byte-identical to backend build_snapshot()['warnings'][1] (diff exit=0)",
-        "next_action": "continue"
+        "next_action": "continue",
+        "round": 0,
+        "bound_to_head": "0fd0d17e2835f445cee2195a8ba366df55084123",
+        "superseded_by": "rework_round_1"
+      },
+      "rework_round1": {
+        "trigger": "user_directed external post-review (Fable5): P3 residuals (asset-tag raw enums, English sidebar) + user UI decisions 2026-07-04",
+        "fix_start_prompt": "fix-start-prompt-ui-round1.md",
+        "entered_at_commit": "a263ce64fd46d192e5476c704861fb405bc09c67",
+        "base_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
+        "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
+        "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
+        "cumulative_frontend_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:9caf18e6e9e7f67b28698cd0df6cad9e22d181fd9236e81be33d07e9e3f9f8e6",
+        "changes": [
+          "enum bilingual 'ENGLISH(中文)' for route/asset-tag/negative-funding-status columns + filter <option>s (supersedes round-1 pure-Chinese rule per user decision)",
+          "remove offline-fixture button (#btn-offline) + loadFixture() + 'fixture' data-source branch + prompt copy",
+          "60s frontend auto-refresh (AUTO_REFRESH_MS=60000, aligned with backend Config.cache_ttl_seconds=60) + countdown near market table",
+          "sidebar brand 'Funding Hedge' -> '资金费率对冲'"
+        ],
+        "red_lines_honored": "formatFundingRate/formatBeijing* untouched; no parseFloat; no new Number() on the rate-percent path (only pre-existing formatPrice/classForFundingRate); no new deps; no direct Binance; same-origin /api/public-market/snapshot only; backend/schemas/docs/api-samples untouched; frontend/fixture/public-market-snapshot.json unchanged",
+        "self_check": "18/18 PASS (was 14/14; +5 assertions)"
       }
     },
     "C": {
@@ -246,7 +283,8 @@
       "tests": {
         "status": "pass",
         "note": "rows field-identical to 548ae0d (647==647, only warnings[1] differs); pytest 54 passed; frontend self-check 14/14; float() audit clean; schema VALID"
-      }
+      },
+      "rework_round1_note": "Stage head advanced to 7592b2c by Task B rework; Task C evidence unchanged. Covered by stage-level review-2 round-1 (Codex rebind)."
     }
   },
   "model_routing": {
@@ -317,7 +355,7 @@
   ],
   "tests": {
     "status": "pass",
-    "note": "Task C integration: rows field-identical to 548ae0d (647==647, only warnings[1] differs); pytest 54 passed; frontend self-check 14/14; float() audit clean; schema VALID"
+    "note": "Rework round 1 (frontend only): node frontend/self-check.js 18/18 PASS (was 14/14; +5); backend unchanged -> pytest 54 passed, rows field-identical to 548ae0d (647==647), schema VALID."
   },
   "rework_count": 1,
   "max_rework": 3,
@@ -326,11 +364,101 @@
     "required": false,
     "reason": null
   },
-  "terminal_reason": "review-1 (both tasks ACCEPT) + review-2 (Codex gpt-5.5 ACCEPT, direction_synthesis disclosure) + pre-accept gate PASSED. Controller stops here per can_accept_final=false; awaits user external acceptance.",
-  "next_action": "Rework round 1 (user-directed): P3 fixes + user UI decisions per fix-start-prompt-ui-round1.md — enum display 'ENGLISH(中文)' for route/asset/negative columns + filter options, remove offline-fixture button/path, 60s auto-refresh with countdown near the market table, sidebar 'Funding Hedge' -> '资金费率对冲'. All frontend/** (Kimi). Then review-1 (fresh read-only Claude-GLM) on the fix diff, review-2 (Codex gpt-5.5, direction_synthesis disclosure; Anthropic excluded as designer) rebinding to the new head, fingerprints rebound, status -> review_1 -> review_2 -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "terminal_reason": "REWORK ROUND 1 IN PROGRESS: round-0 terminal state (head 9b0e62c) superseded by user-directed Task B frontend rework (H_fix 7592b2c). Re-reviewing (review-1 fresh GLM on fix diff + review-2 Codex rebind). Not terminal.",
+  "next_action": "Rework round 1 (user-directed): Task B frontend rework LANDED at H_fix 7592b2c (enum bilingual + auto-refresh + fixture-button removal + sidebar CN). status=review_1. Next: fresh read-only Claude-GLM review-1 on fix diff 0fd0d17..7592b2c (Task A round-0 ACCEPT retained, backend unchanged); then Codex gpt-5.5 review-2 rebind to new head 7592b2c; then pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T07:52:12Z",
+  "updated_at": "2026-07-04T08:20:00Z",
   "review_1": {
+    "round": 1,
+    "verdict": "pending",
+    "json_schema_valid": null,
+    "status": "task_B_rework_in_review_task_A_round0_retained",
+    "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:4b8c8de25458e88a9dd8d5f8ab03db0f563305c59492fae548d69683978c4608",
+    "scope": "Rework round 1 is Task-B-scoped (frontend only). Task A (backend) code is unchanged since dba4c12, so Task A's round-0 review-1 (Kimi ACCEPT, bound to 9b0e62c) remains valid and is NOT re-reviewed. Task B (frontend) was reworked per fix-start-prompt-ui-round1.md, so Task B is re-reviewed by a fresh read-only Claude-GLM session on the fix diff 0fd0d17..7592b2c (frontend/**). Aggregate verdict pending until Task B round-1 completes.",
+    "task_A": {
+      "round": 0,
+      "verdict": "ACCEPT",
+      "retained": true,
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
+      "note": "Task A code (snapshot.py CONTRACT_WARNINGS[1] + contract doc + tests) is NOT in the rework round-1 diff; round-0 Kimi ACCEPT stands unchanged."
+    },
+    "task_B": {
+      "round": 1,
+      "status": "pending_fresh_glm_review",
+      "reviewer": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "fresh_session_required": true
+      },
+      "subject": {
+        "base_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
+        "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
+        "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
+        "scope": "frontend/** (rework fix diff)"
+      },
+      "cumulative_frontend_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:9caf18e6e9e7f67b28698cd0df6cad9e22d181fd9236e81be33d07e9e3f9f8e6",
+      "round0_verdict": "ACCEPT (bound to head 0fd0d17; preserved in tasks.B.review_1_round0)"
+    },
+    "next_action": "dispatch fresh read-only Claude-GLM review-1 on fix diff; then review-2 Codex rebind"
+  },
+  "review_2": {
+    "round": 1,
+    "verdict": "pending",
+    "json_schema_valid": null,
+    "status": "pending_codex_rebind_new_head",
+    "role": "final_reviewer",
+    "model": "gpt5.5",
+    "provider": "codex",
+    "effort": "xhigh",
+    "reviewer_prior_involvement": "direction_synthesis",
+    "override": "strong_reviewer_disclosure",
+    "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:4b8c8de25458e88a9dd8d5f8ab03db0f563305c59492fae548d69683978c4608",
+    "subject": {
+      "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
+      "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff"
+    },
+    "note": "Stage head advanced to 7592b2c by Task B rework round 1. Codex gpt-5.5 re-runs the stage-level final gate, recomputes the stage fingerprint (7592b2c:4b8c8de2...), and rebinds to the new head. Anthropic/Fable5 excluded (designer); both implementers hard-banned; Codex direction_synthesis disclosure override (same path as round-0 / impl-v1 / bstock-alias-v1).",
+    "next_action": "dispatch after review-1 round-1 ACCEPT"
+  },
+  "post_review_findings": [
+    {
+      "id": "asset_tag_enum_direct_display",
+      "severity": "P3_cosmetic",
+      "status": "open",
+      "recorded_at": "2026-07-04T07:52:12Z",
+      "reviewer": {
+        "provider": "anthropic",
+        "model": "claude-fable-5",
+        "kind": "user_directed_external_post_review",
+        "prior_involvement": "designer_breakdown_author"
+      },
+      "summary": "badgeForAssetTag renders CRYPTO/UNKNOWN/BSTOCK raw enums in the 资产标签 column (violated the round-1 dispatch's no-raw-English-enum rule); sidebar brand 'Funding Hedge' still English (review-1 P3, out-of-diff). Both cosmetic, no functional impact; review-1/review-2 ACCEPT verdicts on head 9b0e62c preserved verbatim.",
+      "resolution_route": "rework round 1 per fix-start-prompt-ui-round1.md; NOTE the user's new enum-display decision (English + Chinese parens) supersedes the round-1 pure-Chinese rule, so the fix implements the new scheme rather than translating enums away."
+    }
+  ],
+  "user_decisions": [
+    {
+      "decided_at": "2026-07-04",
+      "topic": "state enum display scheme",
+      "decision": "路由分类/资产标签/负费率状态三列及筛选下拉统一为「英文枚举(中文解释)」格式(全角括号),取代上一轮'主表纯中文'规则。",
+      "consequence": "Precise enum values stay visible (match API/docs) with Chinese explanations inline; supersedes the round-1 dispatch rule '主表不得英文枚举直出' for these three columns."
+    },
+    {
+      "decided_at": "2026-07-04",
+      "topic": "offline fixture button",
+      "decision": "删除页面「加载离线 fixture」按钮及代码路径;fixture 文件与 self-check 数据源用途保留。",
+      "consequence": "UI loses the offline demo path; self-check unaffected (reads the file directly)."
+    },
+    {
+      "decided_at": "2026-07-04",
+      "topic": "auto refresh + countdown",
+      "decision": "前端每 60 秒自动刷新(对齐后端 Config.cache_ttl_seconds=60),市场表附近显示下次刷新倒计时;手动刷新保留并重置倒计时。",
+      "consequence": "Previously manual-refresh-only. No API/schema change: polling is frontend-local; backend TTL cache unchanged."
+    }
+  ],
+  "review_1_round0": {
     "verdict": "ACCEPT",
     "json_schema_valid": true,
     "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:6e6e2d4d7ee28dc6547c727b6a4c99779605686e38af2586a42ac49171114854",
@@ -368,9 +496,13 @@
     "required_fixes_total": 0,
     "next_action": "stage_review_2",
     "summary_file": "30-review-1.md",
-    "note": "Both task-level review-1 verdicts ACCEPT, schema-valid, fingerprints independently recomputed by the reviewers (kimi->8afc3dcf..., glm->5552ed82...) and matching status.json.tasks.{A,B}. Zero rework. Task B carries 1 P3 non-blocking finding (pre-existing sidebar wordmark, out of scope, leave as-is). The stage-level review_1 verdict=ACCEPT binds to the stage diff_fingerprint 6e6e2d4d.... Next: stage-level review-2 (Codex gpt-5.5, direction_synthesis disclosure)."
+    "note": "Both task-level review-1 verdicts ACCEPT, schema-valid, fingerprints independently recomputed by the reviewers (kimi->8afc3dcf..., glm->5552ed82...) and matching status.json.tasks.{A,B}. Zero rework. Task B carries 1 P3 non-blocking finding (pre-existing sidebar wordmark, out of scope, leave as-is). The stage-level review_1 verdict=ACCEPT binds to the stage diff_fingerprint 6e6e2d4d.... Next: stage-level review-2 (Codex gpt-5.5, direction_synthesis disclosure).",
+    "round": 0,
+    "bound_to_head": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
+    "superseded_by": "rework_round_1",
+    "superseded_reason": "Stage head advanced 9b0e62c -> 7592b2c by Task B rework round 1 (frontend enum bilingual + auto-refresh + fixture-button removal + sidebar CN). Round-0 ACCEPT preserved verbatim as history; NOT bound to the current head."
   },
-  "review_2": {
+  "review_2_round0": {
     "verdict": "ACCEPT",
     "json_schema_valid": true,
     "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:6e6e2d4d7ee28dc6547c727b6a4c99779605686e38af2586a42ac49171114854",
@@ -394,42 +526,10 @@
     "next_action": "continue",
     "runner_level_check": "Codex CLI v0.142.2 (/Users/ark/.local/bin/codex); invoked 'codex exec -s read-only <prompt>' relying on default_profile auto-load, which routed model=gpt-5.5, effort=xhigh, sandbox=read-only, approval=never. Provider this run = openai (impl-v1 used proxy2233 — the default_profile provider differs across runs, but gpt-5.5 was accepted and produced a complete review). No -m flag (per impl-v1 lesson: '-m gpt5.5' alone mis-routes to ChatGPT provider). Verdict independently jsonschema-validated by Codex against schemas/review-verdict.schema.json (Codex printed 'verdict schema VALID').",
     "independent_test_rerun": "node frontend/self-check.js -> 14/14 PASS; PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -s -p no:cacheprovider backend/tests -q -> 54 passed (Codex ran with -s / capture-disabled because read-only sandbox has no writable temp dir, preventing the exact default pytest invocation pre-collection; result equivalent); offline snapshot jsonschema VALID (647 rows, 3 warnings).",
-    "note": "Codex/GPT gpt-5.5 final-gate review = ACCEPT. Independently recomputed the stage fingerprint (6e6e2d4d...) and the three task fingerprints (8afc3dcf / 5552ed82 / 28670f98); all match status.json. Diff owner-scoped (Task A = warning string + doc + tests + report; Task B = frontend/** + report; Task C = controller evidence, no product code). snapshot.py single CONTRACT_WARNINGS[1] string replacement; frontend rate formatter string-shift only; no forbidden interaction; security grep hits explanatory display text only; read-only inputs (schemas/api-samples) untouched; contract doc touched only by Task A. review-1 scrutinized (both ACCEPT) and material claims independently confirmed. Zero findings, zero required fixes. Same direction_synthesis disclosure path as impl-v1 / bstock-alias-v1."
-  },
-  "post_review_findings": [
-    {
-      "id": "asset_tag_enum_direct_display",
-      "severity": "P3_cosmetic",
-      "status": "open",
-      "recorded_at": "2026-07-04T07:52:12Z",
-      "reviewer": {
-        "provider": "anthropic",
-        "model": "claude-fable-5",
-        "kind": "user_directed_external_post_review",
-        "prior_involvement": "designer_breakdown_author"
-      },
-      "summary": "badgeForAssetTag renders CRYPTO/UNKNOWN/BSTOCK raw enums in the 资产标签 column (violated the round-1 dispatch's no-raw-English-enum rule); sidebar brand 'Funding Hedge' still English (review-1 P3, out-of-diff). Both cosmetic, no functional impact; review-1/review-2 ACCEPT verdicts on head 9b0e62c preserved verbatim.",
-      "resolution_route": "rework round 1 per fix-start-prompt-ui-round1.md; NOTE the user's new enum-display decision (English + Chinese parens) supersedes the round-1 pure-Chinese rule, so the fix implements the new scheme rather than translating enums away."
-    }
-  ],
-  "user_decisions": [
-    {
-      "decided_at": "2026-07-04",
-      "topic": "state enum display scheme",
-      "decision": "路由分类/资产标签/负费率状态三列及筛选下拉统一为「英文枚举(中文解释)」格式(全角括号),取代上一轮'主表纯中文'规则。",
-      "consequence": "Precise enum values stay visible (match API/docs) with Chinese explanations inline; supersedes the round-1 dispatch rule '主表不得英文枚举直出' for these three columns."
-    },
-    {
-      "decided_at": "2026-07-04",
-      "topic": "offline fixture button",
-      "decision": "删除页面「加载离线 fixture」按钮及代码路径;fixture 文件与 self-check 数据源用途保留。",
-      "consequence": "UI loses the offline demo path; self-check unaffected (reads the file directly)."
-    },
-    {
-      "decided_at": "2026-07-04",
-      "topic": "auto refresh + countdown",
-      "decision": "前端每 60 秒自动刷新(对齐后端 Config.cache_ttl_seconds=60),市场表附近显示下次刷新倒计时;手动刷新保留并重置倒计时。",
-      "consequence": "Previously manual-refresh-only. No API/schema change: polling is frontend-local; backend TTL cache unchanged."
-    }
-  ]
+    "note": "Codex/GPT gpt-5.5 final-gate review = ACCEPT. Independently recomputed the stage fingerprint (6e6e2d4d...) and the three task fingerprints (8afc3dcf / 5552ed82 / 28670f98); all match status.json. Diff owner-scoped (Task A = warning string + doc + tests + report; Task B = frontend/** + report; Task C = controller evidence, no product code). snapshot.py single CONTRACT_WARNINGS[1] string replacement; frontend rate formatter string-shift only; no forbidden interaction; security grep hits explanatory display text only; read-only inputs (schemas/api-samples) untouched; contract doc touched only by Task A. review-1 scrutinized (both ACCEPT) and material claims independently confirmed. Zero findings, zero required fixes. Same direction_synthesis disclosure path as impl-v1 / bstock-alias-v1.",
+    "round": 0,
+    "bound_to_head": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
+    "superseded_by": "rework_round_1",
+    "superseded_reason": "Stage head advanced 9b0e62c -> 7592b2c; round-0 Codex ACCEPT preserved verbatim as history; NOT bound to the current head."
+  }
 }
