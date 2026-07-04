@@ -1,10 +1,11 @@
+=== backend: python3 -m pytest backend/tests/ -v ===
 ============================= test session starts ==============================
 platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0 -- /Library/Developer/CommandLineTools/usr/bin/python3
 cachedir: .pytest_cache
 rootdir: /Users/ark/Desktop/ai code/funding_hedging
 plugins: asyncio-1.2.0, anyio-4.8.0
 asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collecting ... collected 95 items
+collecting ... collected 96 items
 
 backend/tests/test_classify.py::test_route_margin_spot_candidate PASSED  [  1%]
 backend/tests/test_classify.py::test_route_spot_only_candidate PASSED    [  2%]
@@ -24,11 +25,11 @@ backend/tests/test_negative_schema.py::test_reject_float_mark_price PASSED [ 15%
 backend/tests/test_negative_schema.py::test_reject_float_funding_rate PASSED [ 16%]
 backend/tests/test_negative_schema.py::test_reject_non_numeric_decimal_string PASSED [ 17%]
 backend/tests/test_negative_schema.py::test_reject_negative_next_funding_time PASSED [ 18%]
-backend/tests/test_negative_schema.py::test_reject_missing_required_field PASSED [ 20%]
-backend/tests/test_negative_schema.py::test_reject_extra_property PASSED [ 21%]
-backend/tests/test_negative_schema.py::test_reject_invalid_match_type PASSED [ 22%]
-backend/tests/test_negative_schema.py::test_match_type_null_is_valid PASSED [ 23%]
-backend/tests/test_normalize.py::test_asset_tag_tradifi_maps_to_bstock PASSED [ 24%]
+backend/tests/test_negative_schema.py::test_reject_missing_required_field PASSED [ 19%]
+backend/tests/test_negative_schema.py::test_reject_extra_property PASSED [ 20%]
+backend/tests/test_negative_schema.py::test_reject_invalid_match_type PASSED [ 21%]
+backend/tests/test_negative_schema.py::test_match_type_null_is_valid PASSED [ 22%]
+backend/tests/test_normalize.py::test_asset_tag_tradifi_maps_to_bstock PASSED [ 23%]
 backend/tests/test_normalize.py::test_asset_tag_perpetual_maps_to_crypto PASSED [ 25%]
 backend/tests/test_normalize.py::test_asset_tag_unmapped_is_unknown PASSED [ 26%]
 backend/tests/test_normalize.py::test_filter_of_futures_min_notional_and_lot_size PASSED [ 27%]
@@ -43,16 +44,16 @@ backend/tests/test_normalize.py::test_resolve_spot_leg_none_when_no_spot PASSED 
 backend/tests/test_normalize.py::test_resolve_spot_leg_exact_beats_alias_for_tradifi PASSED [ 36%]
 backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[0.00010000-8-0.00030000] PASSED [ 37%]
 backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[0.00010000-4-0.00060000] PASSED [ 38%]
-backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[-0.00005000-4--0.00030000] PASSED [ 40%]
-backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[0.00002000-1-0.00048000] PASSED [ 41%]
-backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[-0.00000000-8-0.00000000] PASSED [ 42%]
-backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[-8-None] PASSED [ 43%]
-backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[None-8-None] PASSED [ 44%]
-backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_no_float_no_scientific PASSED [ 45%]
-backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_bad_input_is_none PASSED [ 46%]
-backend/tests/test_phase2_borrow_sort.py::test_sort_abs_daily_desc_nulls_last_symbol_tiebreak PASSED [ 47%]
-backend/tests/test_phase2_borrow_sort.py::test_sort_single_period_lower_but_daily_higher_ranks_first PASSED [ 48%]
-backend/tests/test_phase2_borrow_sort.py::test_sort_all_null_keeps_symbol_asc PASSED [ 49%]
+backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[-0.00005000-4--0.00030000] PASSED [ 39%]
+backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[0.00002000-1-0.00048000] PASSED [ 40%]
+backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[-0.00000000-8-0.00000000] PASSED [ 41%]
+backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[-8-None] PASSED [ 42%]
+backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_vectors[None-8-None] PASSED [ 43%]
+backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_no_float_no_scientific PASSED [ 44%]
+backend/tests/test_phase2_borrow_sort.py::test_daily_funding_rate_bad_input_is_none PASSED [ 45%]
+backend/tests/test_phase2_borrow_sort.py::test_sort_abs_daily_desc_nulls_last_symbol_tiebreak PASSED [ 46%]
+backend/tests/test_phase2_borrow_sort.py::test_sort_single_period_lower_but_daily_higher_ranks_first PASSED [ 47%]
+backend/tests/test_phase2_borrow_sort.py::test_sort_all_null_keeps_symbol_asc PASSED [ 48%]
 backend/tests/test_phase2_borrow_sort.py::test_sort_does_not_mutate_input PASSED [ 50%]
 backend/tests/test_phase2_borrow_sort.py::test_borrow_validation_disabled_state PASSED [ 51%]
 backend/tests/test_phase2_borrow_sort.py::test_borrow_validation_verified_not_listed_data_null PASSED [ 52%]
@@ -62,10 +63,11 @@ backend/tests/test_phase2_borrow_sort.py::test_borrow_validation_portfolio_faile
 backend/tests/test_phase2_borrow_sort.py::test_borrow_validation_each_state_validates_in_full_snapshot PASSED [ 56%]
 backend/tests/test_phase2_borrow_sort.py::test_offline_full_snapshot_validates_v02_schema PASSED [ 57%]
 backend/tests/test_phase2_borrow_sort.py::test_offline_private_channel_disabled_all_rows_verified_false PASSED [ 58%]
-backend/tests/test_phase2_borrow_sort.py::test_offline_build_rows_defaults_8h_without_funding_info PASSED [ 60%]
-backend/tests/test_phase2_borrow_sort.py::test_offline_snapshot_rows_sorted_abs_daily_desc_nulls_last PASSED [ 61%]
-backend/tests/test_phase2_borrow_sort.py::test_offline_get_snapshot_no_private_http_and_cached PASSED [ 62%]
-backend/tests/test_phase2_borrow_sort.py::test_frozen_v01_normalized_validates_under_v02_schema PASSED [ 63%]
+backend/tests/test_phase2_borrow_sort.py::test_offline_build_rows_defaults_8h_without_funding_info PASSED [ 59%]
+backend/tests/test_phase2_borrow_sort.py::test_offline_snapshot_rows_sorted_abs_daily_desc_nulls_last PASSED [ 60%]
+backend/tests/test_phase2_borrow_sort.py::test_offline_get_snapshot_no_private_http_and_cached PASSED [ 61%]
+backend/tests/test_phase2_borrow_sort.py::test_frozen_v01_normalized_validates_under_v02_schema PASSED [ 62%]
+backend/tests/test_phase2_borrow_sort.py::test_live_fundinginfo_failure_degrades_to_8h_with_warning PASSED [ 63%]
 backend/tests/test_private_client.py::test_single_hmac_exit_in_product_code PASSED [ 64%]
 backend/tests/test_private_client.py::test_urlopen_only_in_designated_http_clients PASSED [ 65%]
 backend/tests/test_private_client.py::test_whitelist_rejects_unknown_path PASSED [ 66%]
@@ -76,11 +78,11 @@ backend/tests/test_private_client.py::test_whitelist_matches_status_json_endpoin
 backend/tests/test_private_client.py::test_gate_fires_before_signature_construction PASSED [ 71%]
 backend/tests/test_private_client.py::test_disabled_when_env_missing PASSED [ 72%]
 backend/tests/test_private_client.py::test_audit_log_has_no_credentials PASSED [ 73%]
-backend/tests/test_private_client.py::test_rate_limit_backoff_retries_once_then_succeeds PASSED [ 74%]
-backend/tests/test_private_client.py::test_rate_limit_429_also_retries PASSED [ 75%]
-backend/tests/test_private_client.py::test_classic_reference_degrades_on_endpoint_failure PASSED [ 76%]
-backend/tests/test_private_client.py::test_max_borrowable_degrades_on_endpoint_failure PASSED [ 77%]
-backend/tests/test_private_client.py::test_classic_reference_maps_raw_fields PASSED [ 78%]
+backend/tests/test_private_client.py::test_rate_limit_backoff_retries_once_then_succeeds PASSED [ 75%]
+backend/tests/test_private_client.py::test_rate_limit_429_also_retries PASSED [ 76%]
+backend/tests/test_private_client.py::test_classic_reference_degrades_on_endpoint_failure PASSED [ 77%]
+backend/tests/test_private_client.py::test_max_borrowable_degrades_on_endpoint_failure PASSED [ 78%]
+backend/tests/test_private_client.py::test_classic_reference_maps_raw_fields PASSED [ 79%]
 backend/tests/test_private_client.py::test_max_borrowable_maps_raw_fields PASSED [ 80%]
 backend/tests/test_snapshot.py::test_offline_snapshot_validates PASSED   [ 81%]
 backend/tests/test_snapshot.py::test_classification_matches_frozen_six PASSED [ 82%]
@@ -102,4 +104,28 @@ backend/tests/test_snapshot.py::test_bstock_alias_has_funding_history PASSED [ 9
 backend/tests/test_snapshot.py::test_build_rows_usdc_perp_exact_match_not_aliased_to_usdt PASSED [ 98%]
 backend/tests/test_snapshot.py::test_service_universe_filter_excludes_non_usdt_quote PASSED [100%]
 
-============================== 95 passed in 2.87s ==============================
+============================== 96 passed in 3.09s ==============================
+
+=== frontend: node frontend/self-check.js ===
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认渲染 4 行
+[PASS] 拆列存在，合并列消失
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 结算间隔标注 4h/8h
+[PASS] 无排序控件 DOM
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 优雅降级：新字段缺失不白屏，日费率 —，间隔不显示
+
+全部自检通过

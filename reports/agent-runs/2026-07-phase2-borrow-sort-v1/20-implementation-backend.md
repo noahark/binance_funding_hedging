@@ -143,6 +143,54 @@ rows 非空前缀 abs-daily 单调 DESC。
 - **设计层待决**：bounded portfolio 选样策略（§3.1 上报），留 review/用户决策。
 
 ---
-本地北京时间: 2026-07-04 22:08 CST
+
+## 7. Review-1 round-1 REWORK fix（E1 fundingInfo live 降级）
+
+### 7.1 finding（fresh Kimi review-1，bookkeeper 独立核实成立）
+
+- **P1 — live `/fapi/v1/fundingInfo` 失败不降级**（原 `_fetch_live`）：fundingInfo
+  GET 无 try/except，`_http_get` urlopen 零捕获 → live 模式任何失败 propagate →
+  snapshot 崩溃（503），违反 design §2 E1「缺省全 8h + warning」+ §3「fundingInfo
+  → 全 8h 默认…断言不崩溃」降级契约。offline 分支（空 dict）降级正确，**live
+  分支漏降级**。review-1 verdict 见 `30-review-1-backend.md`（REWORK，
+  `fix_start_prompt` 齐）。
+- 另有 P2（validate-stage worktree-clean，review artifacts 未 commit）——bookkeeper
+  处置项，非产品 fix。
+
+### 7.2 fix 范围（最小、向后兼容、未触碰 schema/contract/耦合面三项）
+
+- `backend/adapters/binance_public.py`：`_fetch_live` fundingInfo GET 包
+  `try/except (urllib.error.URLError, OSError, ValueError)` → 空
+  `funding_interval_by_sym` + warning 字符串；`_fetch_offline` 加空 `warnings`；
+  `import urllib.error`。其余公开端点（exchangeInfo/premiumIndex/spot）保持
+  raise-on-failure（非可降级默认）。
+- `backend/domain/snapshot.py`：`assemble_snapshot` 加 keyword
+  `extra_warnings: Optional[List[str]] = None`，`warnings = CONTRACT_WARNINGS +
+  extra_warnings`（additive；schema `snapshot.warnings` 是开放 array，**无需改
+  schema/contract**）。
+- `backend/services/snapshot_service.py`：`build_snapshot` 读 `raw["warnings"]`
+  透传 `extra_warnings` 给 `assemble_snapshot`。
+
+### 7.3 新增测试
+
+- `test_live_fundinginfo_failure_degrades_to_8h_with_warning`：monkeypatch
+  `urllib.request.urlopen`，fundingInfo URL raise `HTTPError(503)`，其余 URL 返回
+  fixture；断言 `funding_interval_by_sym == {}` + `warnings` 含 fundingInfo/8h +
+  `build_rows` 全 8h + `assemble_snapshot` 透传降级 warning（additive，contract
+  warnings 保留）。
+
+### 7.4 测试结果
+
+- `python3 -m pytest backend/tests/ -v` → **96 passed**（既有 95 + 新 1），零回归。
+- `node frontend/self-check.js` → 20/20 PASS。可重放输出见 `60-test-output.txt`。
+
+### 7.5 纪律
+
+- 未 commit、未碰 `status.json`（实现终端纪律；bookkeeper 单写）。
+- 改动只留工作树，待 bookkeeper 串行落盘（round-2 H_A2）+ 重算 fingerprint +
+  review-1 round 2。
+
+---
+本地北京时间: 2026-07-04 22:08 CST（round-1 实现收尾）/ 23:55 CST（round-1 REWORK fix）
 下一步模型: kimi（嵌入预审 Task A，fresh 只读）‖ claude_glm（嵌入预审 Task B，fresh 只读）
 下一步任务: bookkeeper 生成 embedded-review-a-round1.diff.patch + 调度双嵌入预审

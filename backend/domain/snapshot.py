@@ -166,6 +166,7 @@ def assemble_snapshot(
     data_time: str,
     source_sample_id: str,
     private_channel_status: str = "disabled",
+    extra_warnings: Optional[List[str]] = None,
 ) -> dict:
     """Assemble the full snapshot. ``summary`` is aggregated from ``rows``.
 
@@ -173,6 +174,9 @@ def assemble_snapshot(
     channel returned a classic reference; otherwise ``"disabled"`` (env missing or
     endpoint failure), in which case every row's ``borrow_validation.verified``
     is false with null data fields.
+
+    ``extra_warnings`` are runtime degradation warnings (e.g. the E1 fundingInfo
+    fallback) appended after the fixed ``CONTRACT_WARNINGS``.
     """
     return {
         "schema_version": SCHEMA_VERSION,
@@ -187,7 +191,7 @@ def assemble_snapshot(
             "negative_funding_status_counts": _counts(rows, "negative_funding_status"),
         },
         "rows": rows,
-        "warnings": list(CONTRACT_WARNINGS),
+        "warnings": list(CONTRACT_WARNINGS) + list(extra_warnings or []),
     }
 
 

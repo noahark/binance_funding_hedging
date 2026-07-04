@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List
@@ -74,6 +75,7 @@ class BinancePublicClient:
             # No frozen fundingInfo sample in the contract-v2 raw dir; offline
             # mode falls back to the Binance 8h default for every symbol.
             "funding_interval_by_sym": {},
+            "warnings": [],
         }
 
     def _offline_funding_index(self, d: Path) -> Dict[str, List[dict]]:
@@ -95,18 +97,32 @@ class BinancePublicClient:
         self._bump("GET /api/v3/exchangeInfo")
         spot_ei = self._http_get(f"{self.spot_base_url}/api/v3/exchangeInfo")
         self._bump("GET /fapi/v1/fundingInfo")
-        funding_info = self._http_get(f"{self.futures_base_url}/fapi/v1/fundingInfo")
-        funding_interval_by_sym = {
-            x["symbol"]: int(x["fundingIntervalHours"])
-            for x in funding_info
-            if isinstance(x, dict) and "symbol" in x and "fundingIntervalHours" in x
-        }
+        # E1 failure mode (10-design §2): /fapi/v1/fundingInfo is a public,
+        # best-effort input. Any HTTP/transport/parse failure degrades to the
+        # all-8h default + a warning surfaced into snapshot.warnings, instead of
+        # propagating and failing the whole snapshot (503). The other public
+        # inputs are NOT degradable — they still raise on failure.
+        funding_interval_by_sym: Dict[str, int] = {}
+        warnings: List[str] = []
+        try:
+            funding_info = self._http_get(f"{self.futures_base_url}/fapi/v1/fundingInfo")
+            funding_interval_by_sym = {
+                x["symbol"]: int(x["fundingIntervalHours"])
+                for x in funding_info
+                if isinstance(x, dict) and "symbol" in x and "fundingIntervalHours" in x
+            }
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            warnings.append(
+                f"GET /fapi/v1/fundingInfo failed ({type(exc).__name__}); "
+                "degraded every row to the 8h funding-interval default."
+            )
         return {
             "futures_exchange_info": futures_ei,
             "premium_index": premium,
             "spot_exchange_info": spot_ei,
             "funding_history_by_sym": {},
             "funding_interval_by_sym": funding_interval_by_sym,
+            "warnings": warnings,
         }
 
     def fetch_funding_rate(self, symbol: str) -> List[dict]:

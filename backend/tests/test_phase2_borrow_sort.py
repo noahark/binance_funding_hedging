@@ -284,3 +284,89 @@ def test_frozen_v01_normalized_validates_under_v02_schema(schema, frozen_normali
     # The v0.1 fixture has none of the v0.2 fields; they are all optional, so it
     # must still validate. Locks the additive-only / backward-compatible guarantee.
     jsonschema.validate(frozen_normalized, schema)
+
+
+# --- §2 E1 fundingInfo live-failure degradation (review-1 REWORK fix) ---
+def test_live_fundinginfo_failure_degrades_to_8h_with_warning(monkeypatch, raw_inputs):
+    """E1 (10-design §2): a live /fapi/v1/fundingInfo failure degrades every row
+    to funding_interval_hours=8 and surfaces a warning into snapshot.warnings,
+    instead of propagating and failing the whole snapshot (503)."""
+    import email.message
+    import json as _json
+    import urllib.error
+    from pathlib import Path
+
+    from backend.adapters.binance_public import BinancePublicClient
+    from backend.domain.snapshot import assemble_snapshot
+
+    client = BinancePublicClient(
+        offline=False,
+        offline_dir=Path("/nonexistent"),  # unused on the live path
+        futures_base_url="https://fapi.example",
+        spot_base_url="https://api.example",
+        user_agent="test/1.0",
+        timeout=5.0,
+    )
+
+    class _FakeResp:
+        def __init__(self, payload):
+            self._body = _json.dumps(payload).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return self._body
+
+    def fake_urlopen(req, timeout=None):
+        url = req.full_url if hasattr(req, "full_url") else str(req)
+        if "fundingInfo" in url:
+            raise urllib.error.HTTPError(
+                url, 503, "fundingInfo unavailable", email.message.Message(), None
+            )
+        if url.endswith("/fapi/v1/exchangeInfo"):
+            return _FakeResp(raw_inputs["futures"])
+        if url.endswith("/fapi/v1/premiumIndex"):
+            return _FakeResp(raw_inputs["premium"])
+        if url.endswith("/api/v3/exchangeInfo"):
+            return _FakeResp(raw_inputs["spot"])
+        raise AssertionError(f"unexpected url: {url}")
+
+    monkeypatch.setattr(
+        "backend.adapters.binance_public.urllib.request.urlopen", fake_urlopen
+    )
+
+    raw = client.fetch_raw()
+
+    # E1 degradation: empty interval map + a fundingInfo/8h warning.
+    assert raw["funding_interval_by_sym"] == {}
+    assert len(raw["warnings"]) == 1
+    assert "fundingInfo" in raw["warnings"][0] and "8h" in raw["warnings"][0]
+
+    # The degraded map drives all-8h rows (same path as the offline default).
+    elig = _eligible(raw_inputs["futures"])
+    premium = {p["symbol"]: p for p in raw_inputs["premium"]}
+    spot = {s["symbol"]: s for s in raw_inputs["spot"]["symbols"]}
+    rows = build_rows(
+        elig,
+        premium,
+        spot,
+        raw_inputs["funding"],
+        funding_interval_by_sym=raw["funding_interval_by_sym"],
+    )
+    assert rows
+    assert all(r["funding_interval_hours"] == 8 for r in rows)
+
+    # assemble_snapshot surfaces the degradation warning additively (contract
+    # warnings still present).
+    snap = assemble_snapshot(
+        rows,
+        generated_at="2026-07-04T00:00:00Z",
+        data_time="2026-07-04T00:00:00Z",
+        source_sample_id="test",
+        extra_warnings=raw["warnings"],
+    )
+    assert any("fundingInfo" in s and "8h" in s for s in snap["warnings"])

@@ -92,6 +92,7 @@ class SnapshotService:
         }
         funding_by_sym = dict(raw.get("funding_history_by_sym", {}))
         funding_interval_by_sym = raw.get("funding_interval_by_sym", {})
+        fetch_warnings = raw.get("warnings", [])
 
         if not self.client.offline:
             # Top-N bounds LIVE /fapi/v1/fundingRate call volume. Offline uses
@@ -164,6 +165,7 @@ class SnapshotService:
             data_time=iso_from_ms(data_time_ms),
             source_sample_id=source_sample_id,
             private_channel_status=private_channel_status,
+            extra_warnings=fetch_warnings,
         )
 
     def request_log(self) -> dict:
