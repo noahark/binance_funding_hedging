@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-bstock-alias-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stage_id": "2026-07-public-market-impl-v1",
@@ -37,9 +37,9 @@
     {"provider": "kimi", "model": "kimi-2.7", "task": "B", "scope": "frontend/**"}
   ],
   "base_sha": "d240e43e75034a6718ede79bc295d39e77cd860e",
-  "head_sha": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1",
+  "head_sha": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9",
   "commit_state": "committed",
-  "diff_fingerprint": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1:9d6569d15b987c10eaa008b8b9b344f11c70aeaea7fe84d82dbb6030c89f0aba",
+  "diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
   "diff_fingerprint_note": "Two scopes, one protocol. Filled progressively: task-level base/head/fingerprint in tasks.<id> at H_A/H_B; stage-level top-level base/head/fingerprint at H_C. status.json excluded from hash. Same formula as impl-v1; no second protocol.",
   "commit_order_strategy": "H_intake (this commit: intake/task/design/adr/handoff/status + Fable5 unavailable record) -> H_A (contract schema/doc + backend + tests) -> H_B (frontend) -> H_C (integration + stage-level fingerprint + status/handoff finalize). Controller commits serially so each task's base..head diff is owner-scoped.",
@@ -78,11 +78,11 @@
         "workflows/**",
         "scripts/**"
       ],
-      "status": "implemented",
+      "status": "fix_applied_pending_review_1",
       "commit": "H_A",
       "base_sha": "d240e43e75034a6718ede79bc295d39e77cd860e",
-      "head_sha": "1f94c842a67ac75b170f796b17cb08172457b5d7",
-      "diff_fingerprint": "1f94c842a67ac75b170f796b17cb08172457b5d7:fe6d0bd9d16ea2e75c54b59ed9469f206c5e733dc4d159ba35c959d63ad4c815",
+      "head_sha": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9",
+      "diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
       "review_1": {
         "status": "ACCEPT",
         "owner": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer"},
@@ -294,7 +294,7 @@
     ],
     "summary_file": "50-review-2-recheck.md",
     "supersedes": "review_2_prior (prior ACCEPT on head 0842820, synthetic-only scope; preserved verbatim)",
-    "post_review_finding_note": "This ACCEPT (head b189440) is preserved verbatim but is challenged by post_review_findings[spot_leg_quote_asset_hardcode] (user-directed external post-review by anthropic/claude-fable-5, 2026-07-04): the reviewed fixtures/live checks covered only USDT-quoted symbols, missing a call-site regression affecting 39 non-USDT live rows. Stage re-entered fixing (rework 1/3); after the fix, review-2 must re-run and rebind to the new head."
+    "post_review_finding_note": "This ACCEPT (head b189440) is preserved verbatim but is challenged by post_review_findings[spot_leg_quote_asset_hardcode] (user-directed external post-review by anthropic/claude-fable-5, 2026-07-04): the reviewed fixtures/live checks covered only USDT-quoted symbols, missing a call-site regression affecting 39 non-USDT live rows. Rework round 1 applied the fix (H_fix 548ae0d, 2026-07-04); this ACCEPT is superseded by the pending rework re-review, which must rebind to head 548ae0d (diff_fingerprint 548ae0d:97ac2539...)."
   },
   "evidence_backfill": {
     "round": "2026-07-04 evidence backfill (user-directed)",
@@ -326,7 +326,7 @@
     {
       "id": "spot_leg_quote_asset_hardcode",
       "severity": "P1_regression_fix_required",
-      "status": "open",
+      "status": "fix_applied_pending_review",
       "recorded_at": "2026-07-04T02:27:11Z",
       "reviewer": {
         "provider": "anthropic",
@@ -349,13 +349,40 @@
       "user_decision_folded_in": "2026-07-04: USDT-only universe (see user_decisions); the previously-deferred quote_asset const inconsistency is resolved inside this rework round."
     }
   ],
+  "rework": {
+    "round": 1,
+    "max_rounds": 3,
+    "finding_id": "spot_leg_quote_asset_hardcode",
+    "fix_commit": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9",
+    "fix_diff_range": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1..548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9",
+    "fix_applied_at": "2026-07-04T02:54:31Z",
+    "fix_report": "reports/agent-runs/2026-07-public-market-bstock-alias-v1/40-fix-report.md",
+    "changes": [
+      "backend/domain/snapshot.py:70 call site passes obj.get(\"quoteAsset\",\"\") (was literal \"USDT\"); resolve_spot_leg + classify.py unchanged.",
+      "backend/services/snapshot_service.py universe filter adds quoteAsset==\"USDT\" (user decision 2026-07-04, Phase 1 USDT-only; honors frozen schema const; no schema/doc change).",
+      "Synthetic fixture +BTCUSDC (futures + spot); two new tests (build_rows exact-not-aliased; service-level universe exclusion).",
+      "Live-raw replay (60-test-output.txt Section 6): 648 all-USDT rows, zero exact_symbol mismatch, 15/15 bStock alias."
+    ],
+    "verification": {
+      "pytest": "54 passed (52 + 2 rework tests)",
+      "grep_float": "CLEAN (no float() in backend/domain backend/services)",
+      "frontend_self_check": "11/11 PASS (frontend untouched)",
+      "validate_checkpoint": "PASSED (status=fixing at checkpoint time)"
+    },
+    "status": "fix_applied_pending_review_1",
+    "superseded_verdicts": {
+      "review_1_top": "both_tasks_ACCEPT (bound to tasks.A 1f94c84 / tasks.B 5968c49) — task-A re-review pending on the fix diff b189440..548ae0d.",
+      "review_2": "ACCEPT recheck (head b189440) — challenged by this finding; re-review pending bound to head 548ae0d."
+    },
+    "next_review_routing": "review-1 task-level (Kimi) on the fix diff; then review-2 final gate with the decision pool re-evaluated (Fable5/anthropic reachable since 2026-07-04 with NO prior involvement -> eligible as a provider-unrelated decision model; both implementers claude_glm/kimi hard-banned)."
+  },
   "tests": {"status": "passed"},
   "rework_count": 1,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Rework round 1 (user-directed): fix post_review_findings[spot_leg_quote_asset_hardcode] per fix-start-prompt-spot-leg-quote-asset.md — (1) snapshot.py:70 call site passes the row's real quoteAsset; (2) per user decision 2026-07-04, snapshot_service.py universe filter adds quoteAsset==\"USDT\" (Phase 1 USDT-only, honors schema const); (3) USDC-perp regression fixture/tests (service-level exclusion + build_rows-level exact match); (4) offline replay against committed live raw (648 all-USDT rows, no exact_symbol mismatch, 15/15 bStock alias); (5) 40-fix-report.md. Then review-1 re-verdict on the fix diff, review-2 re-run bound to the new head (Fable5/anthropic now reachable; re-evaluate the decision pool per AGENTS.md), fingerprints rebound, status -> review_1 -> review_2 -> stage_accepted_waiting_user. Controller does NOT declare final acceptance (can_accept_final=false).",
+  "next_action": "Rework round 1 fix APPLIED (H_fix 548ae0d, 2026-07-04): snapshot.py:70 call site passes the row's real quoteAsset; snapshot_service.py universe filter adds quoteAsset==\"USDT\" (user decision 2026-07-04); USDC-perp regression fixture + two-layer tests; live-raw replay = 648 all-USDT rows / zero exact_symbol mismatch / 15/15 bStock alias; 40-fix-report.md written. Fingerprints rebound to 548ae0d:97ac2539.... NEXT: dispatch review-1 (Kimi, task-level) on the fix diff b189440..548ae0d, then review-2 final gate with the decision pool re-evaluated per AGENTS.md (Fable5/anthropic reachable since 2026-07-04 with no prior involvement -> eligible provider-unrelated decision model; both implementers hard-banned). Status -> review_1 -> review_2 -> stage_accepted_waiting_user. Controller does NOT declare final acceptance (can_accept_final=false).",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T02:27:11Z"
+  "updated_at": "2026-07-04T02:54:31Z"
 }
