@@ -1,0 +1,3274 @@
+[
+  {
+    "assetName": "BTC",
+    "assetFullName": "Bitcoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ETH",
+    "assetFullName": "Ethereum",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "XRP",
+    "assetFullName": "Ripple",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BNB",
+    "assetFullName": "Binance Coin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0.0001"
+  },
+  {
+    "assetName": "TRX",
+    "assetFullName": "TRON",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "USDT",
+    "assetFullName": "Tether",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LINK",
+    "assetFullName": "ChainLink",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ADA",
+    "assetFullName": "Cardano",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ONT",
+    "assetFullName": "Ontology",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "USDC",
+    "assetFullName": "USD Coin Price",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ETC",
+    "assetFullName": "Ethereum Classic",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LTC",
+    "assetFullName": "Litecoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "XLM",
+    "assetFullName": "Stellar Lumens",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NEO",
+    "assetFullName": "NEO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ATOM",
+    "assetFullName": "Cosmos",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DASH",
+    "assetFullName": "Dash",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ZEC",
+    "assetFullName": "Zcash",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BAT",
+    "assetFullName": "Basic Attention Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "IOST",
+    "assetFullName": "IOST",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "VET",
+    "assetFullName": "VeChain",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "QTUM",
+    "assetFullName": "Qtum",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "IOTA",
+    "assetFullName": "MIOTA",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "XTZ",
+    "assetFullName": "Tezos",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BCH",
+    "assetFullName": "Bitcoin Cash",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RVN",
+    "assetFullName": "Ravencoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ZIL",
+    "assetFullName": "Zilliqa",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ONE",
+    "assetFullName": "Harmony",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ANKR",
+    "assetFullName": "Ankr",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CELR",
+    "assetFullName": "Celer Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TFUEL",
+    "assetFullName": "Theta Fuel",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "IOTX",
+    "assetFullName": "IoTeX",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HBAR",
+    "assetFullName": "Hedera Hashgraph",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SC",
+    "assetFullName": "Siacoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BNT",
+    "assetFullName": "Bancor",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DOT",
+    "assetFullName": "Polkadot",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ALGO",
+    "assetFullName": "Algorand",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ZRX",
+    "assetFullName": "ZRX",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "THETA",
+    "assetFullName": "Theta Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "COMP",
+    "assetFullName": "Compound",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "KNC",
+    "assetFullName": "KyberNetwork",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "KAVA",
+    "assetFullName": "KAVA",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BAND",
+    "assetFullName": "BAND",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "1"
+  },
+  {
+    "assetName": "DOGE",
+    "assetFullName": "Dogecoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RLC",
+    "assetFullName": "iExecRLC",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SNX",
+    "assetFullName": "Synthetix Network Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "YFI",
+    "assetFullName": "yearn.finance",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CRV",
+    "assetFullName": "Curve",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SUSHI",
+    "assetFullName": "Sushi",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "UNI",
+    "assetFullName": "Uniswap",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MANA",
+    "assetFullName": "Decentraland",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "STORJ",
+    "assetFullName": "STORJ",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "UMA",
+    "assetFullName": "UMA",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "JST",
+    "assetFullName": "JST",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AVAX",
+    "assetFullName": "AVAX",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DIA",
+    "assetFullName": "DIA",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NEAR",
+    "assetFullName": "NEAR",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FIL",
+    "assetFullName": "filecoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TRB",
+    "assetFullName": "TRB",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RSR",
+    "assetFullName": "RSR",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AAVE",
+    "assetFullName": "Aave",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SAND",
+    "assetFullName": "The Sandbox",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CHZ",
+    "assetFullName": "Chiliz",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ARPA",
+    "assetFullName": "ARPA Chain",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "COTI",
+    "assetFullName": "COTI",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FET",
+    "assetFullName": "Fetch.AI",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CHR",
+    "assetFullName": "Chromia",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NMR",
+    "assetFullName": "Numeraire",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GRT",
+    "assetFullName": "GRT",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "KSM",
+    "assetFullName": "Kusama",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ROSE",
+    "assetFullName": "Oasis Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "STX",
+    "assetFullName": "Stacks",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ENJ",
+    "assetFullName": "Enjin Coin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RUNE",
+    "assetFullName": "THORChain",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SKL",
+    "assetFullName": "SKALE Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "INJ",
+    "assetFullName": "Injective Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CTSI",
+    "assetFullName": "Cartesi",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "OGN",
+    "assetFullName": "OriginToken",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "EGLD",
+    "assetFullName": "Elrond eGold",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "1INCH",
+    "assetFullName": "1inch",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DODO",
+    "assetFullName": "DODO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CKB",
+    "assetFullName": "CKB",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CAKE",
+    "assetFullName": "PancakeSwap",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SOL",
+    "assetFullName": "Solana",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GLM",
+    "assetFullName": "Golem",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "XVS",
+    "assetFullName": "Venus",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SUPER",
+    "assetFullName": "SuperFarm",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GTC",
+    "assetFullName": "Gitcoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PUNDIX",
+    "assetFullName": "Pundi X",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AUDIO",
+    "assetFullName": "Audius",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SLP",
+    "assetFullName": "Smooth Love Potion",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FLOW",
+    "assetFullName": "FLOW",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FTT",
+    "assetFullName": "FTX Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AR",
+    "assetFullName": "Arweave",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DYDX",
+    "assetFullName": "dYdX",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MASK",
+    "assetFullName": "Mask Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AXS",
+    "assetFullName": "Axie Infinity",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LUNA",
+    "assetFullName": "Terra",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SHIB",
+    "assetFullName": "SHIBA INU",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "WIN",
+    "assetFullName": "WINkLink",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ENS",
+    "assetFullName": "Ethereum Name Service",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ALICE",
+    "assetFullName": "My Neighbor Alice",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TLM",
+    "assetFullName": "Alien Worlds",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ICP",
+    "assetFullName": "Internet Computer",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "C98",
+    "assetFullName": "Coin98",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GALA",
+    "assetFullName": "Gala",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ONG",
+    "assetFullName": "Ontology Gas",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HIVE",
+    "assetFullName": "Hive",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "WAXP",
+    "assetFullName": "WAX",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RAY",
+    "assetFullName": "Raydium",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MINA",
+    "assetFullName": "Mina",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "XEC",
+    "assetFullName": "eCash",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "JASMY",
+    "assetFullName": "JasmyCoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LPT",
+    "assetFullName": "Livepeer",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AGLD",
+    "assetFullName": "Adventure Gold",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BICO",
+    "assetFullName": "Biconomy",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DUSK",
+    "assetFullName": "Dusk Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SFP",
+    "assetFullName": "SafePal",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "YGG",
+    "assetFullName": "Yield Guild Games",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FLUX",
+    "assetFullName": "Flux",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ICX",
+    "assetFullName": "ICON",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CELO",
+    "assetFullName": "Celo",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MTL",
+    "assetFullName": "Metal",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PEOPLE",
+    "assetFullName": "ConstitutionDAO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "QNT",
+    "assetFullName": "Quant",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PYR",
+    "assetFullName": "Vulcan Forged PYR",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SUN",
+    "assetFullName": "SUN",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PAXG",
+    "assetFullName": "PAX Gold",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RARE",
+    "assetFullName": "SuperRare",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TWT",
+    "assetFullName": "Trust Wallet Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RAD",
+    "assetFullName": "Radicle",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CVC",
+    "assetFullName": "Civic",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "QI",
+    "assetFullName": "BENQI",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GMT",
+    "assetFullName": "Green Metaverse Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "APE",
+    "assetFullName": "ApeCoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MBL",
+    "assetFullName": "MovieBloc",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ASTR",
+    "assetFullName": "Astar",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "API3",
+    "assetFullName": "API3",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CTK",
+    "assetFullName": "CertiK",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NEXO",
+    "assetFullName": "Nexo",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "WOO",
+    "assetFullName": "WOO Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "OP",
+    "assetFullName": "Optimism",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LDO",
+    "assetFullName": "Lido DAO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FIDA",
+    "assetFullName": "Bonfida",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AUCTION",
+    "assetFullName": "Auction",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "IMX",
+    "assetFullName": "Immutable X",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SPELL",
+    "assetFullName": "Spell Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "STG",
+    "assetFullName": "Stargate Finance",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BEL",
+    "assetFullName": "Bella Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AVA",
+    "assetFullName": "Travala.com",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DEXE",
+    "assetFullName": "DeXe",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LUNC",
+    "assetFullName": "Terra Classic Price",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SANTOS",
+    "assetFullName": "Santos FC Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "USTC",
+    "assetFullName": "TerraClassicUSD",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GMX",
+    "assetFullName": "GMX",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LAZIO",
+    "assetFullName": "Lazio Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PORTO",
+    "assetFullName": "FC Porto Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ACH",
+    "assetFullName": "Alchemy Pay",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "STRAX",
+    "assetFullName": "Stratis",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "REQ",
+    "assetFullName": "Request Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "POLYX",
+    "assetFullName": "Polymesh",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "APT",
+    "assetFullName": "Aptos",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PHA",
+    "assetFullName": "Phala.Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "OSMO",
+    "assetFullName": "Osmosis",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GLMR",
+    "assetFullName": "Glimmer",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MAGIC",
+    "assetFullName": "MAGIC",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HFT",
+    "assetFullName": "Hashflow",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CFX",
+    "assetFullName": "Conflux Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ZEN",
+    "assetFullName": "Horizen",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SSV",
+    "assetFullName": "SSV Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LQTY",
+    "assetFullName": "Liquity",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "USDP",
+    "assetFullName": "Pax Dollar",
+    "isBorrowable": false,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GNS",
+    "assetFullName": "Gains Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "JOE",
+    "assetFullName": "JOE",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RIF",
+    "assetFullName": "RSK Infrastructure Framework",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SYN",
+    "assetFullName": "Synapse",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ID",
+    "assetFullName": "Space ID",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ARB",
+    "assetFullName": "Arbitrum",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "EDU",
+    "assetFullName": "Open Campus",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SUI",
+    "assetFullName": "Sui",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FLOKI",
+    "assetFullName": "FLOKI",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PEPE",
+    "assetFullName": "Pepe",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MAV",
+    "assetFullName": "Maverick Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PENDLE",
+    "assetFullName": "Pendle",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ARKM",
+    "assetFullName": "Arkham",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "WLD",
+    "assetFullName": "Worldcoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "T",
+    "assetFullName": "Threshold",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FDUSD",
+    "assetFullName": "First Digital USD",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RPL",
+    "assetFullName": "Rocket Pool",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SEI",
+    "assetFullName": "Sei",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CYBER",
+    "assetFullName": "CyberConnect",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "VTHO",
+    "assetFullName": "VeThor Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "WBETH",
+    "assetFullName": "Wrapped Beacon ETH",
+    "isBorrowable": false,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CVX",
+    "assetFullName": "Convex",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ARK",
+    "assetFullName": "Ark Price",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GAS",
+    "assetFullName": "NeoGas",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TIA",
+    "assetFullName": "Celestia",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "POWR",
+    "assetFullName": "Powerledger",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "STEEM",
+    "assetFullName": "Steem",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MEME",
+    "assetFullName": "Memecoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ILV",
+    "assetFullName": "Illuvium",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ORDI",
+    "assetFullName": "Ordinals",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SCRT",
+    "assetFullName": "Secret",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MOVR",
+    "assetFullName": "Moonriver",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BEAMX",
+    "assetFullName": "Beam (Formerly Merit Circle)",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "OG",
+    "assetFullName": "OG Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AMP",
+    "assetFullName": "AMP",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LSK",
+    "assetFullName": "Lisk",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BLUR",
+    "assetFullName": "Blur",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "VIC",
+    "assetFullName": "Viction",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "VANRY",
+    "assetFullName": "Vanar",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "JTO",
+    "assetFullName": "JITO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GNO",
+    "assetFullName": "Gnosis",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BTTC",
+    "assetFullName": "BitTorrent",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "1000SATS",
+    "assetFullName": "1000*SATS (Ordinals)",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BONK",
+    "assetFullName": "Bonk",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ACE",
+    "assetFullName": "Fusionist",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "XAI",
+    "assetFullName": "Xai",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MANTA",
+    "assetFullName": "Manta",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ALT",
+    "assetFullName": "AltLayer",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PROM",
+    "assetFullName": "Prometeus",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TKO",
+    "assetFullName": "Tokocrypto",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "JUP",
+    "assetFullName": "Jupiter",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PYTH",
+    "assetFullName": "Pyth Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RONIN",
+    "assetFullName": "Ronin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DYM",
+    "assetFullName": "Dymension",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PIXEL",
+    "assetFullName": "PIXELS",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "STRK",
+    "assetFullName": "Starknet",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ADX",
+    "assetFullName": "AdEx",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PORTAL",
+    "assetFullName": "Portal",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AXL",
+    "assetFullName": "Axelar",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ACM",
+    "assetFullName": "AC Milan Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CITY",
+    "assetFullName": "Manchester City Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DCR",
+    "assetFullName": "Decred",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ALPINE",
+    "assetFullName": "Alpine F1 Team Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PSG",
+    "assetFullName": "Paris Saint-Germain Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "QKC",
+    "assetFullName": "QuarkChain",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "WIF",
+    "assetFullName": "Dogwifhat",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "METIS",
+    "assetFullName": "MetisDAO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AEVO",
+    "assetFullName": "AEVO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BOME",
+    "assetFullName": "BOOK OF MEME",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ETHFI",
+    "assetFullName": "ether.fi",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "WBTC",
+    "assetFullName": "Wrapped Bitcoin",
+    "isBorrowable": false,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ENA",
+    "assetFullName": "Ethena",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "W",
+    "assetFullName": "Wormhole",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ASR",
+    "assetFullName": "AS Roma Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ATM",
+    "assetFullName": "Atlético de Madrid Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "JUV",
+    "assetFullName": "Juventus Fan Token",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TNSR",
+    "assetFullName": "Tensor",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SAGA",
+    "assetFullName": "Saga",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TAO",
+    "assetFullName": "Bittensor",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "REZ",
+    "assetFullName": "Renzo",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BB",
+    "assetFullName": "BounceBit",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NOT",
+    "assetFullName": "Notcoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "IO",
+    "assetFullName": "IO.NET",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ZK",
+    "assetFullName": "zkSync",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LISTA",
+    "assetFullName": "LISTA",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ZRO",
+    "assetFullName": "LayerZero",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "1"
+  },
+  {
+    "assetName": "G",
+    "assetFullName": "Gravity",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BANANA",
+    "assetFullName": "Banana Gun",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RENDER",
+    "assetFullName": "Render",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DOGS",
+    "assetFullName": "Dogs",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "EURI",
+    "assetFullName": "Eurite",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "POL",
+    "assetFullName": "Polygon",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "1MBABYDOGE",
+    "assetFullName": "Baby Doge Coin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NEIRO",
+    "assetFullName": "Neiro",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TURBO",
+    "assetFullName": "Turbo",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CATI",
+    "assetFullName": "Catizen",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HMSTR",
+    "assetFullName": "Hamster Kombat",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "EIGEN",
+    "assetFullName": "EigenLayer",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BNSOL",
+    "assetFullName": "Binance Staked SOL",
+    "isBorrowable": false,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "1"
+  },
+  {
+    "assetName": "LUMIA",
+    "assetFullName": "Lumia",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SCR",
+    "assetFullName": "Scroll",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "KAIA",
+    "assetFullName": "Kaia",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "COW",
+    "assetFullName": "CoW Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CETUS",
+    "assetFullName": "Cetus Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PNUT",
+    "assetFullName": "Peanut the Squirrel",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ACT",
+    "assetFullName": "Act I : The AI Prophecy",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ACX",
+    "assetFullName": "Across Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ORCA",
+    "assetFullName": "Orca",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MOVE",
+    "assetFullName": "Movement",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ME",
+    "assetFullName": "Magic Eden",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "VELODROME",
+    "assetFullName": "Velodrome Finance",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "VANA",
+    "assetFullName": "Vana",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "1000CAT",
+    "assetFullName": "1000*Simons Cat",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PENGU",
+    "assetFullName": "PENGU",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "USUAL",
+    "assetFullName": "USUAL",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BIO",
+    "assetFullName": "Bio Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AIXBT",
+    "assetFullName": "aixbt by Virtuals",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CGPT",
+    "assetFullName": "ChainGPT",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "COOKIE",
+    "assetFullName": "COOKIE DAO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "S",
+    "assetFullName": "Sonic",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SOLV",
+    "assetFullName": "Solv Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TRUMP",
+    "assetFullName": "OFFICIAL TRUMP",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ANIME",
+    "assetFullName": "Animecoin",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BERA",
+    "assetFullName": "BERACHAIN",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "1000CHEEMS",
+    "assetFullName": "1000*cheems.pet",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TST",
+    "assetFullName": "Test",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LAYER",
+    "assetFullName": "Solayer",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HEI",
+    "assetFullName": "Heima",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "KAITO",
+    "assetFullName": "KAITO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SHELL",
+    "assetFullName": "MyShell",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GPS",
+    "assetFullName": "GoPlus Security",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RED",
+    "assetFullName": "RedStone",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "EPIC",
+    "assetFullName": "Epic Chain",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BMT",
+    "assetFullName": "Bubblemaps",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FORM",
+    "assetFullName": "Four",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NIL",
+    "assetFullName": "Nillion",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PARTI",
+    "assetFullName": "Particle Network",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BANANAS31",
+    "assetFullName": "Banana For Scale",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "1"
+  },
+  {
+    "assetName": "MUBARAK",
+    "assetFullName": "Mubarak",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "1"
+  },
+  {
+    "assetName": "TUT",
+    "assetFullName": "Tutorial",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "1"
+  },
+  {
+    "assetName": "GUN",
+    "assetFullName": "GUNZ",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BROCCOLI714",
+    "assetFullName": "CZ'S Dog (broccoli.gg)",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BABY",
+    "assetFullName": "Babylon",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "VIRTUAL",
+    "assetFullName": "Virtuals Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BIGTIME",
+    "assetFullName": "BIG TIME",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ONDO",
+    "assetFullName": "Ondo",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "KERNEL",
+    "assetFullName": "KernelDAO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "WCT",
+    "assetFullName": "WalletConnect",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HYPER",
+    "assetFullName": "Hyperlane",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "INIT",
+    "assetFullName": "Initia",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SIGN",
+    "assetFullName": "Sign",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "STO",
+    "assetFullName": "StakeStone",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "KMNO",
+    "assetFullName": "Kamino Finance",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "1"
+  },
+  {
+    "assetName": "SYRUP",
+    "assetFullName": "Maple Financ",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "1"
+  },
+  {
+    "assetName": "SXT",
+    "assetFullName": "Space and Time",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NXPC",
+    "assetFullName": "Nexpace",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AWE",
+    "assetFullName": "AWE",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HAEDAL",
+    "assetFullName": "HAEDAL",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "USD1",
+    "assetFullName": "USD1",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HUMA",
+    "assetFullName": "HUMA",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "A",
+    "assetFullName": "Vaulta",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SOPH",
+    "assetFullName": "Sophon",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RESOLV",
+    "assetFullName": "RESOLV",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HOME",
+    "assetFullName": "Defi App",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SPK",
+    "assetFullName": "Spark",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NEWT",
+    "assetFullName": "Newton Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SAHARA",
+    "assetFullName": "Sahara AI",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LA",
+    "assetFullName": "Lagrange",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ERA",
+    "assetFullName": "Caldera",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "C",
+    "assetFullName": "Chainbase",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TREE",
+    "assetFullName": "Treehouse",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TOWNS",
+    "assetFullName": "Towns Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PROVE",
+    "assetFullName": "Succinct",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BFUSD",
+    "assetFullName": "BFUSD",
+    "isBorrowable": false,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PLUME",
+    "assetFullName": "PLUME",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "DOLO",
+    "assetFullName": "Dolomite",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MITO",
+    "assetFullName": "Mitosis",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "WLFI",
+    "assetFullName": "World Liberty Financial",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SOMI",
+    "assetFullName": "Somnia",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "OPEN",
+    "assetFullName": "OpenLedger",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "USDE",
+    "assetFullName": "USDe",
+    "isBorrowable": false,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "LINEA",
+    "assetFullName": "Linea",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HOLO",
+    "assetFullName": "Holoworld AI",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "PUMP",
+    "assetFullName": "Pump.Fun",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AVNT",
+    "assetFullName": "Avantis",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ZKC",
+    "assetFullName": "Boundless",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SKY",
+    "assetFullName": "Sky",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BARD",
+    "assetFullName": "Lombard",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "0G",
+    "assetFullName": "Zero Gravity",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "HEMI",
+    "assetFullName": "Hemi",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "XPL",
+    "assetFullName": "Plasma",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MIRA",
+    "assetFullName": "Mira",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FF",
+    "assetFullName": "Falcon",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "EDEN",
+    "assetFullName": "OpenEden",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NOM",
+    "assetFullName": "Nomina",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "2Z",
+    "assetFullName": "DoubleZero",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MORPHO",
+    "assetFullName": "Morpho",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ASTER",
+    "assetFullName": "ASTER",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "WAL",
+    "assetFullName": "Walrus",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "EUL",
+    "assetFullName": "Euler",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ENSO",
+    "assetFullName": "Enso",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "YB",
+    "assetFullName": "Yield Basis",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ZBT",
+    "assetFullName": "Zerobase",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "TURTLE",
+    "assetFullName": "Turtle",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GIGGLE",
+    "assetFullName": "Giggle Fund",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "F",
+    "assetFullName": "SynFutures",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "KITE",
+    "assetFullName": "KITE",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MMT",
+    "assetFullName": "Momentum",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SAPIEN",
+    "assetFullName": "SAPIEN",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ALLO",
+    "assetFullName": "Allora",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BANK",
+    "assetFullName": "Lorenzo Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MET",
+    "assetFullName": "Meteora",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AT",
+    "assetFullName": "APRO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "BREV",
+    "assetFullName": "Brevis",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ZKP",
+    "assetFullName": "zkPass",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "币安人生",
+    "assetFullName": "币安人生",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FRAX",
+    "assetFullName": "Frax Finance",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "U",
+    "assetFullName": "United Stables",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "FOGO",
+    "assetFullName": "FOGO",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "SENT",
+    "assetFullName": "Sentient",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RLUSD",
+    "assetFullName": "Ripple USD",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ZAMA",
+    "assetFullName": "ZAMA",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ESP",
+    "assetFullName": "Espresso",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MANTRA",
+    "assetFullName": "MANTRA",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "ROBO",
+    "assetFullName": "Fabric Protocol",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "OPN",
+    "assetFullName": "OPINION",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "NIGHT",
+    "assetFullName": "Midnight",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CFG",
+    "assetFullName": "Centrifuge",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "KAT",
+    "assetFullName": "Katana",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "XAUT",
+    "assetFullName": "Tether Gold",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "USDS",
+    "assetFullName": "USDS",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "CHIP",
+    "assetFullName": "CHIP",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "MEGA",
+    "assetFullName": "MegaETH",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "AIGENSYN",
+    "assetFullName": "Gensyn",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GENIUS",
+    "assetFullName": "Genius Terminal",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "OPG",
+    "assetFullName": "OpenGradient",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "RE",
+    "assetFullName": "Re",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  },
+  {
+    "assetName": "GRAM",
+    "assetFullName": "Gram",
+    "isBorrowable": true,
+    "isMortgageable": true,
+    "userMinBorrow": "0",
+    "userMinRepay": "0"
+  }
+]

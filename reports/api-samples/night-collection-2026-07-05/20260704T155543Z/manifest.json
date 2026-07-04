@@ -1,0 +1,176 @@
+{
+  "generated_at": "2026-07-04T15:56:44Z",
+  "source": "night-collection-2026-07-05",
+  "records": [
+    {
+      "type": "public",
+      "name": "futures_exchangeInfo",
+      "method": "GET",
+      "url_stripped": "https://fapi.binance.com/fapi/v1/exchangeInfo",
+      "saved_json": "raw/fapi-v1-exchangeInfo.json",
+      "saved_headers": "raw/fapi-v1-exchangeInfo.headers",
+      "fetched_at": "2026-07-04T15:56:45Z"
+    },
+    {
+      "type": "public",
+      "name": "premium_index",
+      "method": "GET",
+      "url_stripped": "https://fapi.binance.com/fapi/v1/premiumIndex",
+      "saved_json": "raw/fapi-v1-premiumIndex.json",
+      "saved_headers": "raw/fapi-v1-premiumIndex.headers",
+      "fetched_at": "2026-07-04T15:56:46Z"
+    },
+    {
+      "type": "public",
+      "name": "funding_info",
+      "method": "GET",
+      "url_stripped": "https://fapi.binance.com/fapi/v1/fundingInfo",
+      "saved_json": "raw/fapi-v1-fundingInfo.json",
+      "saved_headers": "raw/fapi-v1-fundingInfo.headers",
+      "fetched_at": "2026-07-04T15:56:48Z"
+    },
+    {
+      "type": "public",
+      "name": "spot_exchangeInfo",
+      "method": "GET",
+      "url_stripped": "https://api.binance.com/api/v3/exchangeInfo",
+      "saved_json": "raw/api-v3-exchangeInfo.json",
+      "saved_headers": "raw/api-v3-exchangeInfo.headers",
+      "fetched_at": "2026-07-04T15:56:51Z"
+    },
+    {
+      "type": "public",
+      "name": "funding_rate_BTCUSDT",
+      "method": "GET",
+      "url_stripped": "https://fapi.binance.com/fapi/v1/fundingRate",
+      "saved_json": "raw/fapi-v1-fundingRate-BTCUSDT-limit20.json",
+      "saved_headers": "raw/fapi-v1-fundingRate-BTCUSDT-limit20.headers",
+      "fetched_at": "2026-07-04T15:56:52Z"
+    },
+    {
+      "type": "public",
+      "name": "funding_rate_ETHUSDT",
+      "method": "GET",
+      "url_stripped": "https://fapi.binance.com/fapi/v1/fundingRate",
+      "saved_json": "raw/fapi-v1-fundingRate-ETHUSDT-limit20.json",
+      "saved_headers": "raw/fapi-v1-fundingRate-ETHUSDT-limit20.headers",
+      "fetched_at": "2026-07-04T15:56:53Z"
+    },
+    {
+      "type": "public",
+      "name": "funding_rate_SOLUSDT",
+      "method": "GET",
+      "url_stripped": "https://fapi.binance.com/fapi/v1/fundingRate",
+      "saved_json": "raw/fapi-v1-fundingRate-SOLUSDT-limit20.json",
+      "saved_headers": "raw/fapi-v1-fundingRate-SOLUSDT-limit20.headers",
+      "fetched_at": "2026-07-04T15:56:54Z"
+    },
+    {
+      "type": "public",
+      "name": "funding_rate_XRPUSDT",
+      "method": "GET",
+      "url_stripped": "https://fapi.binance.com/fapi/v1/fundingRate",
+      "saved_json": "raw/fapi-v1-fundingRate-XRPUSDT-limit20.json",
+      "saved_headers": "raw/fapi-v1-fundingRate-XRPUSDT-limit20.headers",
+      "fetched_at": "2026-07-04T15:56:56Z"
+    },
+    {
+      "type": "public",
+      "name": "funding_rate_DOGEUSDT",
+      "method": "GET",
+      "url_stripped": "https://fapi.binance.com/fapi/v1/fundingRate",
+      "saved_json": "raw/fapi-v1-fundingRate-DOGEUSDT-limit20.json",
+      "saved_headers": "raw/fapi-v1-fundingRate-DOGEUSDT-limit20.headers",
+      "fetched_at": "2026-07-04T15:56:57Z"
+    },
+    {
+      "type": "public",
+      "name": "funding_rate_BNBUSDT",
+      "method": "GET",
+      "url_stripped": "https://fapi.binance.com/fapi/v1/fundingRate",
+      "saved_json": "raw/fapi-v1-fundingRate-BNBUSDT-limit20.json",
+      "saved_headers": "raw/fapi-v1-fundingRate-BNBUSDT-limit20.headers",
+      "fetched_at": "2026-07-04T15:56:58Z"
+    },
+    {
+      "type": "private",
+      "name": "classic_allPairs",
+      "method": "GET",
+      "url_stripped": "https://api.binance.com/sapi/v1/margin/allPairs",
+      "saved_json": "raw/classic_allPairs.json",
+      "saved_headers": null,
+      "fetched_at": "2026-07-04T15:56:59Z",
+      "audit": {
+        "logical_endpoint": "/sapi/v1/margin/allPairs",
+        "method": "GET",
+        "http_status": 200,
+        "error": null,
+        "latency_ms": 602.8
+      }
+    },
+    {
+      "type": "private",
+      "name": "classic_allAssets",
+      "method": "GET",
+      "url_stripped": "https://api.binance.com/sapi/v1/margin/allAssets",
+      "saved_json": "raw/classic_allAssets.json",
+      "saved_headers": null,
+      "fetched_at": "2026-07-04T15:57:01Z",
+      "audit": {
+        "logical_endpoint": "/sapi/v1/margin/allAssets",
+        "method": "GET",
+        "http_status": 200,
+        "error": null,
+        "latency_ms": 748.4
+      }
+    },
+    {
+      "type": "private",
+      "name": "classic_crossMarginData",
+      "method": "GET",
+      "url_stripped": "https://api.binance.com/sapi/v1/margin/crossMarginData",
+      "saved_json": "raw/classic_crossMarginData.json",
+      "saved_headers": null,
+      "fetched_at": "2026-07-04T15:57:02Z",
+      "audit": {
+        "logical_endpoint": "/sapi/v1/margin/crossMarginData",
+        "method": "GET",
+        "http_status": 200,
+        "error": null,
+        "latency_ms": 410.6
+      }
+    },
+    {
+      "type": "private",
+      "name": "portfolio_maxBorrowable_BTC",
+      "method": "GET",
+      "url_stripped": "https://papi.binance.com/papi/v1/margin/maxBorrowable",
+      "saved_json": "raw/portfolio_maxBorrowable_BTC.json",
+      "saved_headers": null,
+      "fetched_at": "2026-07-04T15:57:04Z",
+      "audit": {
+        "logical_endpoint": "/papi/v1/margin/maxBorrowable",
+        "method": "GET",
+        "http_status": 200,
+        "error": null,
+        "latency_ms": 543.1
+      }
+    },
+    {
+      "type": "private",
+      "name": "portfolio_maxBorrowable_ETH",
+      "method": "GET",
+      "url_stripped": "https://papi.binance.com/papi/v1/margin/maxBorrowable",
+      "saved_json": "raw/portfolio_maxBorrowable_ETH.json",
+      "saved_headers": null,
+      "fetched_at": "2026-07-04T15:57:06Z",
+      "audit": {
+        "logical_endpoint": "/papi/v1/margin/maxBorrowable",
+        "method": "GET",
+        "http_status": 200,
+        "error": null,
+        "latency_ms": 743.2
+      }
+    }
+  ]
+}

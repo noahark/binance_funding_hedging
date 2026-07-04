@@ -1,0 +1,6022 @@
+[
+  {
+    "vipLevel": 0,
+    "coin": "AGLD",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0020837",
+    "yearlyInterest": "0.7605501",
+    "borrowLimit": "18000",
+    "marginablePairs": [
+      "AGLDUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SCR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00128825",
+    "yearlyInterest": "0.47021291",
+    "borrowLimit": "170000",
+    "marginablePairs": [
+      "SCRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GLM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00251255",
+    "yearlyInterest": "0.91708214",
+    "borrowLimit": "23000",
+    "marginablePairs": [
+      "GLMUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RAY",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00152406",
+    "yearlyInterest": "0.55628009",
+    "borrowLimit": "13000",
+    "marginablePairs": [
+      "RAYUSDT",
+      "RAYUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NEAR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00023492",
+    "yearlyInterest": "0.08574502",
+    "borrowLimit": "130000",
+    "marginablePairs": [
+      "NEARUSDT",
+      "NEARUSDC",
+      "NEARUSD1",
+      "NEARU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AUDIO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00237219",
+    "yearlyInterest": "0.86584876",
+    "borrowLimit": "210000",
+    "marginablePairs": [
+      "AUDIOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "WLD",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00033666",
+    "yearlyInterest": "0.12288159",
+    "borrowLimit": "22000",
+    "marginablePairs": [
+      "WLDUSDT",
+      "WLDUSDC",
+      "WLDU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ETHFI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00031743",
+    "yearlyInterest": "0.11586261",
+    "borrowLimit": "29000",
+    "marginablePairs": [
+      "ETHFIUSDT",
+      "ETHFIUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FDUSD",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0008172",
+    "yearlyInterest": "0.29827833",
+    "borrowLimit": "250000",
+    "marginablePairs": [
+      "BTCFDUSD",
+      "ETHFDUSD",
+      "FDUSDUSDT",
+      "SOLFDUSD",
+      "XRPFDUSD",
+      "BNBFDUSD",
+      "DOGEFDUSD",
+      "FDUSDUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ZRO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00093315",
+    "yearlyInterest": "0.34060103",
+    "borrowLimit": "12000",
+    "marginablePairs": [
+      "ZROUSDT",
+      "ZROUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "VELODROME",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00127095",
+    "yearlyInterest": "0.4638974",
+    "borrowLimit": "230000",
+    "marginablePairs": [
+      "VELODROMEUSDT",
+      "VELODROMEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ZRX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00202522",
+    "yearlyInterest": "0.73920598",
+    "borrowLimit": "28000",
+    "marginablePairs": [
+      "ZRXUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SANTOS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00139403",
+    "yearlyInterest": "0.50882066",
+    "borrowLimit": "6300",
+    "marginablePairs": [
+      "SANTOSUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BCH",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00097225",
+    "yearlyInterest": "0.35487",
+    "borrowLimit": "260",
+    "marginablePairs": [
+      "BCHBTC",
+      "BCHUSDT",
+      "BCHUSDC",
+      "BCHU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "JST",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.001092",
+    "yearlyInterest": "0.39857952",
+    "borrowLimit": "110000",
+    "marginablePairs": [
+      "JSTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GMT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00159101",
+    "yearlyInterest": "0.58071828",
+    "borrowLimit": "920000",
+    "marginablePairs": [
+      "GMTUSDT",
+      "GMTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00003896",
+    "yearlyInterest": "0.01421861",
+    "borrowLimit": "5400",
+    "marginablePairs": [
+      "ARUSDT",
+      "ARUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GMX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00162382",
+    "yearlyInterest": "0.59269297",
+    "borrowLimit": "350",
+    "marginablePairs": [
+      "GMXUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00156463",
+    "yearlyInterest": "0.57108844",
+    "borrowLimit": "15000",
+    "marginablePairs": [
+      "ATUSDC",
+      "ATUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SEI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00088572",
+    "yearlyInterest": "0.32328736",
+    "borrowLimit": "200000",
+    "marginablePairs": [
+      "SEIUSDT",
+      "SEIUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BB",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00077816",
+    "yearlyInterest": "0.28402944",
+    "borrowLimit": "300000",
+    "marginablePairs": [
+      "BBUSDT",
+      "BBUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "A",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00065338",
+    "yearlyInterest": "0.23848457",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "AUSDT",
+      "AUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "C",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00199335",
+    "yearlyInterest": "0.72757289",
+    "borrowLimit": "130000",
+    "marginablePairs": [
+      "CUSDT",
+      "CUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "JTO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00050301",
+    "yearlyInterest": "0.18359759",
+    "borrowLimit": "12000",
+    "marginablePairs": [
+      "JTOUSDT",
+      "JTOUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CFG",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0015774",
+    "yearlyInterest": "0.57575148",
+    "borrowLimit": "45000",
+    "marginablePairs": [
+      "CFGUSDT",
+      "CFGUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "F",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0027955",
+    "yearlyInterest": "1.02035903",
+    "borrowLimit": "960000",
+    "marginablePairs": [
+      "FUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "G",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00118262",
+    "yearlyInterest": "0.43165652",
+    "borrowLimit": "2500000",
+    "marginablePairs": [
+      "GUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GNO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00216361",
+    "yearlyInterest": "0.78971767",
+    "borrowLimit": "10",
+    "marginablePairs": [
+      "GNOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RLUSD",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00009224",
+    "yearlyInterest": "0.03366793",
+    "borrowLimit": "500000",
+    "marginablePairs": [
+      "RLUSDUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GNS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00189249",
+    "yearlyInterest": "0.69075764",
+    "borrowLimit": "3100",
+    "marginablePairs": [
+      "GNSUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "VANRY",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00149239",
+    "yearlyInterest": "0.54472379",
+    "borrowLimit": "780000",
+    "marginablePairs": [
+      "VANRYUSDT",
+      "VANRYUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BIGTIME",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00286929",
+    "yearlyInterest": "1.04728923",
+    "borrowLimit": "370000",
+    "marginablePairs": [
+      "BIGTIMEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "S",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00042994",
+    "yearlyInterest": "0.15692848",
+    "borrowLimit": "410000",
+    "marginablePairs": [
+      "SUSDC",
+      "SUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CHIP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00164006",
+    "yearlyInterest": "0.59862154",
+    "borrowLimit": "330000",
+    "marginablePairs": [
+      "CHIPUSDC",
+      "CHIPUSDT",
+      "CHIPU",
+      "CHIPUSD1"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "T",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00212857",
+    "yearlyInterest": "0.77692903",
+    "borrowLimit": "820000",
+    "marginablePairs": [
+      "TUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CFX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00004014",
+    "yearlyInterest": "0.01464969",
+    "borrowLimit": "230000",
+    "marginablePairs": [
+      "CFXUSDT",
+      "CFXUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "XPL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0014185",
+    "yearlyInterest": "0.5177508",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "XPLUSDC",
+      "XPLUSDT",
+      "XPLUSD1",
+      "XPLU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "U",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0000461",
+    "yearlyInterest": "0.01682532",
+    "borrowLimit": "500000",
+    "marginablePairs": [
+      "UUSDC",
+      "UUSDT",
+      "BTCU",
+      "BNBU",
+      "SOLU",
+      "ETHU",
+      "USD1U",
+      "SUIU",
+      "XRPU",
+      "ASTERU",
+      "DOGEU",
+      "ADAU",
+      "PEPEU",
+      "PAXGU",
+      "ZECU",
+      "LTCU",
+      "LINKU",
+      "AVAXU",
+      "OPNU",
+      "BCHU",
+      "NEARU",
+      "TRXU",
+      "WLFIU",
+      "UNIU",
+      "TAOU",
+      "AAVEU",
+      "XAUTU",
+      "APTU",
+      "ENAU",
+      "FETU",
+      "NIGHTU",
+      "TRUMPU",
+      "WLDU",
+      "ORDIU",
+      "GIGGLEU",
+      "ENJU",
+      "币安人生U",
+      "AVNTU",
+      "BIOU",
+      "CHIPU",
+      "KATU",
+      "MEGAU",
+      "XLMU",
+      "XPLU",
+      "REU",
+      "GRAMU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MEGA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00547944",
+    "yearlyInterest": "1.9999956",
+    "borrowLimit": "210000",
+    "marginablePairs": [
+      "MEGAUSDT",
+      "MEGAUSDC",
+      "MEGAU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "W",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00049246",
+    "yearlyInterest": "0.17974845",
+    "borrowLimit": "990000",
+    "marginablePairs": [
+      "WUSDT",
+      "WUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SFP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.000814",
+    "yearlyInterest": "0.29710974",
+    "borrowLimit": "8700",
+    "marginablePairs": [
+      "SFPUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DIA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00075574",
+    "yearlyInterest": "0.27584574",
+    "borrowLimit": "18000",
+    "marginablePairs": [
+      "DIAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ACE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00088506",
+    "yearlyInterest": "0.32304855",
+    "borrowLimit": "52000",
+    "marginablePairs": [
+      "ACEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "JUP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00107842",
+    "yearlyInterest": "0.39362238",
+    "borrowLimit": "47000",
+    "marginablePairs": [
+      "JUPUSDT",
+      "JUPUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ACH",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00062758",
+    "yearlyInterest": "0.22906807",
+    "borrowLimit": "1100000",
+    "marginablePairs": [
+      "ACHUSDT",
+      "ACHUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BEL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00241615",
+    "yearlyInterest": "0.88189623",
+    "borrowLimit": "58000",
+    "marginablePairs": [
+      "BELUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "JUV",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00119572",
+    "yearlyInterest": "0.43643817",
+    "borrowLimit": "12000",
+    "marginablePairs": [
+      "JUVUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MINA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00153457",
+    "yearlyInterest": "0.56011874",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "MINAUSDT",
+      "MINAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ACM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00111007",
+    "yearlyInterest": "0.40517382",
+    "borrowLimit": "9400",
+    "marginablePairs": [
+      "ACMUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "KITE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00173315",
+    "yearlyInterest": "0.63259932",
+    "borrowLimit": "83000",
+    "marginablePairs": [
+      "KITEUSDC",
+      "KITEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "VTHO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00086719",
+    "yearlyInterest": "0.31652472",
+    "borrowLimit": "16000000",
+    "marginablePairs": [
+      "VTHOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TIA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00087405",
+    "yearlyInterest": "0.3190292",
+    "borrowLimit": "26000",
+    "marginablePairs": [
+      "TIAUSDT",
+      "TIAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RED",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00187552",
+    "yearlyInterest": "0.68456558",
+    "borrowLimit": "87000",
+    "marginablePairs": [
+      "REDUSDC",
+      "REDUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ACT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00152187",
+    "yearlyInterest": "0.55548101",
+    "borrowLimit": "400000",
+    "marginablePairs": [
+      "ACTUSDT",
+      "ACTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "WOO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0012076",
+    "yearlyInterest": "0.44077561",
+    "borrowLimit": "130000",
+    "marginablePairs": [
+      "WOOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ACX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00206212",
+    "yearlyInterest": "0.7526722",
+    "borrowLimit": "71000",
+    "marginablePairs": [
+      "ACXUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "1MBABYDOGE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00161927",
+    "yearlyInterest": "0.59103269",
+    "borrowLimit": "20000000",
+    "marginablePairs": [
+      "1MBABYDOGEUSDT",
+      "1MBABYDOGEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BLUR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00059011",
+    "yearlyInterest": "0.21538834",
+    "borrowLimit": "250000",
+    "marginablePairs": [
+      "BLURUSDT",
+      "BLURUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "STRK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0012178",
+    "yearlyInterest": "0.44449532",
+    "borrowLimit": "340000",
+    "marginablePairs": [
+      "STRKUSDT",
+      "STRKUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ADA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0001335",
+    "yearlyInterest": "0.04872773",
+    "borrowLimit": "1700000",
+    "marginablePairs": [
+      "ADABTC",
+      "ADAUSDT",
+      "ADAUSDC",
+      "ADAU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "VIRTUAL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0015363",
+    "yearlyInterest": "0.56075132",
+    "borrowLimit": "93000",
+    "marginablePairs": [
+      "VIRTUALUSDC",
+      "VIRTUALUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "STORJ",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00239155",
+    "yearlyInterest": "0.87291754",
+    "borrowLimit": "40000",
+    "marginablePairs": [
+      "STORJUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "REQ",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00211947",
+    "yearlyInterest": "0.7736057",
+    "borrowLimit": "46000",
+    "marginablePairs": [
+      "REQUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RARE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00183868",
+    "yearlyInterest": "0.67111935",
+    "borrowLimit": "570000",
+    "marginablePairs": [
+      "RAREUSDT",
+      "RAREUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PAXG",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00001782",
+    "yearlyInterest": "0.00650611",
+    "borrowLimit": "10",
+    "marginablePairs": [
+      "PAXGUSDT",
+      "PAXGUSDC",
+      "PAXGUSD1",
+      "PAXGU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "REZ",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00113983",
+    "yearlyInterest": "0.41603931",
+    "borrowLimit": "1100000",
+    "marginablePairs": [
+      "REZUSDT",
+      "REZUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BROCCOLI714",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00118133",
+    "yearlyInterest": "0.43118724",
+    "borrowLimit": "430000",
+    "marginablePairs": [
+      "BROCCOLI714USDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GPS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00089164",
+    "yearlyInterest": "0.32544914",
+    "borrowLimit": "510000",
+    "marginablePairs": [
+      "GPSUSDC",
+      "GPSUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CHR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00102623",
+    "yearlyInterest": "0.37457411",
+    "borrowLimit": "140000",
+    "marginablePairs": [
+      "CHRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CHZ",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0006158",
+    "yearlyInterest": "0.22476605",
+    "borrowLimit": "570000",
+    "marginablePairs": [
+      "CHZUSDT",
+      "CHZUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ADX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00200368",
+    "yearlyInterest": "0.7313414",
+    "borrowLimit": "110000",
+    "marginablePairs": [
+      "ADXUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "XRP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0001067",
+    "yearlyInterest": "0.03894678",
+    "borrowLimit": "730000",
+    "marginablePairs": [
+      "XRPBTC",
+      "XRPUSDT",
+      "XRPETH",
+      "XRPUSDC",
+      "XRPFDUSD",
+      "XRPUSD1",
+      "XRPU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "JASMY",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00066453",
+    "yearlyInterest": "0.24255494",
+    "borrowLimit": "2000000",
+    "marginablePairs": [
+      "JASMYUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FLOKI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00085266",
+    "yearlyInterest": "0.31121915",
+    "borrowLimit": "460000000",
+    "marginablePairs": [
+      "FLOKIUSDT",
+      "FLOKIUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FIDA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00253932",
+    "yearlyInterest": "0.9268535",
+    "borrowLimit": "230000",
+    "marginablePairs": [
+      "FIDAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SAND",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0002496",
+    "yearlyInterest": "0.09110223",
+    "borrowLimit": "120000",
+    "marginablePairs": [
+      "SANDUSDT",
+      "SANDUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AVNT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00220387",
+    "yearlyInterest": "0.80441373",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "AVNTUSDT",
+      "AVNTUSDC",
+      "AVNTU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "UMA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00097189",
+    "yearlyInterest": "0.35474008",
+    "borrowLimit": "6200",
+    "marginablePairs": [
+      "UMAUSDT",
+      "UMAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SCRT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00201555",
+    "yearlyInterest": "0.73567575",
+    "borrowLimit": "48000",
+    "marginablePairs": [
+      "SCRTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "COOKIE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0023033",
+    "yearlyInterest": "0.84070291",
+    "borrowLimit": "280000",
+    "marginablePairs": [
+      "COOKIEUSDC",
+      "COOKIEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TKO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0003289",
+    "yearlyInterest": "0.12004768",
+    "borrowLimit": "43000",
+    "marginablePairs": [
+      "TKOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MUBARAK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00097989",
+    "yearlyInterest": "0.3576587",
+    "borrowLimit": "490000",
+    "marginablePairs": [
+      "MUBARAKUSDT",
+      "MUBARAKUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ENA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00088876",
+    "yearlyInterest": "0.32439734",
+    "borrowLimit": "650000",
+    "marginablePairs": [
+      "ENAUSDT",
+      "ENAUSDC",
+      "ENAU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SOLV",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00049762",
+    "yearlyInterest": "0.18163091",
+    "borrowLimit": "1200000",
+    "marginablePairs": [
+      "SOLVUSDT",
+      "SOLVUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FF",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00157667",
+    "yearlyInterest": "0.57548341",
+    "borrowLimit": "110000",
+    "marginablePairs": [
+      "FFUSDC",
+      "FFUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ENJ",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00127151",
+    "yearlyInterest": "0.4641021",
+    "borrowLimit": "200000",
+    "marginablePairs": [
+      "ENJUSDT",
+      "ENJUSDC",
+      "ENJU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TOWNS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0017533",
+    "yearlyInterest": "0.63995589",
+    "borrowLimit": "2800000",
+    "marginablePairs": [
+      "TOWNSUSDT",
+      "TOWNSUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GRT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00009941",
+    "yearlyInterest": "0.03628334",
+    "borrowLimit": "220000",
+    "marginablePairs": [
+      "GRTUSDT",
+      "GRTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BABY",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00312663",
+    "yearlyInterest": "1.14121932",
+    "borrowLimit": "790000",
+    "marginablePairs": [
+      "BABYUSDC",
+      "BABYUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TFUEL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00203574",
+    "yearlyInterest": "0.74304419",
+    "borrowLimit": "220000",
+    "marginablePairs": [
+      "TFUELUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ENS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00009482",
+    "yearlyInterest": "0.03460874",
+    "borrowLimit": "5100",
+    "marginablePairs": [
+      "ENSUSDT",
+      "ENSUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "KAIA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0005917",
+    "yearlyInterest": "0.21597212",
+    "borrowLimit": "290000",
+    "marginablePairs": [
+      "KAIAUSDT",
+      "KAIAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "UNI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00011072",
+    "yearlyInterest": "0.04041255",
+    "borrowLimit": "17000",
+    "marginablePairs": [
+      "UNIUSDT",
+      "UNIUSDC",
+      "UNIU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TLM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00332166",
+    "yearlyInterest": "1.21240486",
+    "borrowLimit": "2900000",
+    "marginablePairs": [
+      "TLMUSDT",
+      "TLMUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CKB",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00113936",
+    "yearlyInterest": "0.41586535",
+    "borrowLimit": "3500000",
+    "marginablePairs": [
+      "CKBUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LUNC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00004731",
+    "yearlyInterest": "0.0172685",
+    "borrowLimit": "160000000",
+    "marginablePairs": [
+      "LUNCUSDT",
+      "LUNCUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SOMI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00171765",
+    "yearlyInterest": "0.62694225",
+    "borrowLimit": "64000",
+    "marginablePairs": [
+      "SOMIUSDC",
+      "SOMIUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "XTZ",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00155152",
+    "yearlyInterest": "0.566306",
+    "borrowLimit": "33000",
+    "marginablePairs": [
+      "XTZUSDT",
+      "XTZUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LUNA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00121055",
+    "yearlyInterest": "0.44185226",
+    "borrowLimit": "110000",
+    "marginablePairs": [
+      "LUNAUSDT",
+      "LUNAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FORM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00067543",
+    "yearlyInterest": "0.2465321",
+    "borrowLimit": "27000",
+    "marginablePairs": [
+      "FORMUSDT",
+      "FORMUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ENSO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00174767",
+    "yearlyInterest": "0.63789897",
+    "borrowLimit": "16000",
+    "marginablePairs": [
+      "ENSOUSDT",
+      "ENSOUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BIO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00138508",
+    "yearlyInterest": "0.50555527",
+    "borrowLimit": "210000",
+    "marginablePairs": [
+      "BIOUSDT",
+      "BIOUSDC",
+      "BIOU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HOLO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00170567",
+    "yearlyInterest": "0.62256954",
+    "borrowLimit": "140000",
+    "marginablePairs": [
+      "HOLOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RIF",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00219757",
+    "yearlyInterest": "0.80211389",
+    "borrowLimit": "140000",
+    "marginablePairs": [
+      "RIFUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MIRA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00251181",
+    "yearlyInterest": "0.91681187",
+    "borrowLimit": "150000",
+    "marginablePairs": [
+      "MIRAUSDT",
+      "MIRAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SKL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00113102",
+    "yearlyInterest": "0.41282209",
+    "borrowLimit": "1100000",
+    "marginablePairs": [
+      "SKLUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GTC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00272514",
+    "yearlyInterest": "0.99467717",
+    "borrowLimit": "43000",
+    "marginablePairs": [
+      "GTCUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HOME",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00213176",
+    "yearlyInterest": "0.77809068",
+    "borrowLimit": "550000",
+    "marginablePairs": [
+      "HOMEUSDC",
+      "HOMEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SKY",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00122952",
+    "yearlyInterest": "0.44877355",
+    "borrowLimit": "200000",
+    "marginablePairs": [
+      "SKYUSDT",
+      "SKYUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FLOW",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00010992",
+    "yearlyInterest": "0.04011986",
+    "borrowLimit": "160000",
+    "marginablePairs": [
+      "FLOWUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "XVS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00107486",
+    "yearlyInterest": "0.39232381",
+    "borrowLimit": "780",
+    "marginablePairs": [
+      "XVSUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "STEEM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00214876",
+    "yearlyInterest": "0.78429651",
+    "borrowLimit": "96000",
+    "marginablePairs": [
+      "STEEMUSDT",
+      "STEEMUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MEME",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00175849",
+    "yearlyInterest": "0.64184908",
+    "borrowLimit": "11000000",
+    "marginablePairs": [
+      "MEMEUSDT",
+      "MEMEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MANTRA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0015094",
+    "yearlyInterest": "0.55093208",
+    "borrowLimit": "610000",
+    "marginablePairs": [
+      "MANTRAUSDT",
+      "MANTRAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SLP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00096972",
+    "yearlyInterest": "0.35394765",
+    "borrowLimit": "4300000",
+    "marginablePairs": [
+      "SLPUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TURTLE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00214779",
+    "yearlyInterest": "0.78394474",
+    "borrowLimit": "82000",
+    "marginablePairs": [
+      "TURTLEUSDC",
+      "TURTLEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NXPC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00133801",
+    "yearlyInterest": "0.488373",
+    "borrowLimit": "34000",
+    "marginablePairs": [
+      "NXPCUSDC",
+      "NXPCUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ID",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00264056",
+    "yearlyInterest": "0.96380612",
+    "borrowLimit": "220000",
+    "marginablePairs": [
+      "IDUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BREV",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00200213",
+    "yearlyInterest": "0.73077678",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "BREVUSDT",
+      "BREVUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GUN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0019166",
+    "yearlyInterest": "0.69955969",
+    "borrowLimit": "1700000",
+    "marginablePairs": [
+      "GUNUSDT",
+      "GUNUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LAZIO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0014445",
+    "yearlyInterest": "0.52724251",
+    "borrowLimit": "4100",
+    "marginablePairs": [
+      "LAZIOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "IO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00139636",
+    "yearlyInterest": "0.50967145",
+    "borrowLimit": "47000",
+    "marginablePairs": [
+      "IOUSDT",
+      "IOUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DOT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00013771",
+    "yearlyInterest": "0.05026511",
+    "borrowLimit": "61000",
+    "marginablePairs": [
+      "DOTUSDT",
+      "DOTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "1INCH",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00096848",
+    "yearlyInterest": "0.35349355",
+    "borrowLimit": "57000",
+    "marginablePairs": [
+      "1INCHUSDT",
+      "1INCHUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "INIT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00386409",
+    "yearlyInterest": "1.41039184",
+    "borrowLimit": "58000",
+    "marginablePairs": [
+      "INITUSDC",
+      "INITUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MITO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0024975",
+    "yearlyInterest": "0.91158607",
+    "borrowLimit": "140000",
+    "marginablePairs": [
+      "MITOUSDC",
+      "MITOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ERA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00233634",
+    "yearlyInterest": "0.85276506",
+    "borrowLimit": "42000",
+    "marginablePairs": [
+      "ERAUSDC",
+      "ERAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ASTER",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00116127",
+    "yearlyInterest": "0.4238636",
+    "borrowLimit": "16000",
+    "marginablePairs": [
+      "ASTERUSDT",
+      "ASTERUSDC",
+      "ASTERUSD1",
+      "ASTERU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PNUT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00097651",
+    "yearlyInterest": "0.35642476",
+    "borrowLimit": "160000",
+    "marginablePairs": [
+      "PNUTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TURBO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00207403",
+    "yearlyInterest": "0.75702227",
+    "borrowLimit": "2400000",
+    "marginablePairs": [
+      "TURBOUSDT",
+      "TURBOUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "POWR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00281712",
+    "yearlyInterest": "1.02824921",
+    "borrowLimit": "18000",
+    "marginablePairs": [
+      "POWRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MAV",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00111697",
+    "yearlyInterest": "0.40769359",
+    "borrowLimit": "300000",
+    "marginablePairs": [
+      "MAVUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FTT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00030404",
+    "yearlyInterest": "0.11097592",
+    "borrowLimit": "4400",
+    "marginablePairs": [
+      "FTTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RLC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00112077",
+    "yearlyInterest": "0.40907967",
+    "borrowLimit": "5800",
+    "marginablePairs": [
+      "RLCUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PHA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0015445",
+    "yearlyInterest": "0.56374082",
+    "borrowLimit": "320000",
+    "marginablePairs": [
+      "PHAUSDT",
+      "PHAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BEAMX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00201381",
+    "yearlyInterest": "0.73503991",
+    "borrowLimit": "2800000",
+    "marginablePairs": [
+      "BEAMXUSDT",
+      "BEAMXUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AIGENSYN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00258164",
+    "yearlyInterest": "0.94229973",
+    "borrowLimit": "440000",
+    "marginablePairs": [
+      "AIGENSYNUSDT",
+      "AIGENSYNUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ARKM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00035139",
+    "yearlyInterest": "0.12825642",
+    "borrowLimit": "88000",
+    "marginablePairs": [
+      "ARKMUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ATOM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00016244",
+    "yearlyInterest": "0.05929183",
+    "borrowLimit": "21000",
+    "marginablePairs": [
+      "ATOMUSDT",
+      "ATOMUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PENDLE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00013395",
+    "yearlyInterest": "0.04889166",
+    "borrowLimit": "39000",
+    "marginablePairs": [
+      "PENDLEUSDT",
+      "PENDLEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "币安人生",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00125104",
+    "yearlyInterest": "0.45663049",
+    "borrowLimit": "14000",
+    "marginablePairs": [
+      "币安人生USDT",
+      "币安人生USDC",
+      "币安人生USD1",
+      "币安人生U"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MBL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00258947",
+    "yearlyInterest": "0.94515581",
+    "borrowLimit": "9600000",
+    "marginablePairs": [
+      "MBLUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SNX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00041928",
+    "yearlyInterest": "0.15303706",
+    "borrowLimit": "27000",
+    "marginablePairs": [
+      "SNXUSDT",
+      "SNXUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SAHARA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00140344",
+    "yearlyInterest": "0.51225614",
+    "borrowLimit": "710000",
+    "marginablePairs": [
+      "SAHARAUSDC",
+      "SAHARAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BFUSD",
+    "transferIn": true,
+    "borrowable": false,
+    "dailyInterest": "0",
+    "yearlyInterest": "0",
+    "borrowLimit": "0",
+    "marginablePairs": [
+      "BFUSDUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ESP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00547944",
+    "yearlyInterest": "1.9999956",
+    "borrowLimit": "150000",
+    "marginablePairs": [
+      "ESPUSDT",
+      "ESPUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "API3",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00208303",
+    "yearlyInterest": "0.76030423",
+    "borrowLimit": "22000",
+    "marginablePairs": [
+      "API3USDT",
+      "API3USDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "QKC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00236295",
+    "yearlyInterest": "0.86247676",
+    "borrowLimit": "950000",
+    "marginablePairs": [
+      "QKCUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BMT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00188267",
+    "yearlyInterest": "0.68717339",
+    "borrowLimit": "220000",
+    "marginablePairs": [
+      "BMTUSDC",
+      "BMTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ROSE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00041611",
+    "yearlyInterest": "0.15187875",
+    "borrowLimit": "1500000",
+    "marginablePairs": [
+      "ROSEUSDT",
+      "ROSEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "COW",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00133522",
+    "yearlyInterest": "0.48735376",
+    "borrowLimit": "19000",
+    "marginablePairs": [
+      "COWUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GLMR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00167749",
+    "yearlyInterest": "0.61228524",
+    "borrowLimit": "210000",
+    "marginablePairs": [
+      "GLMRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PORTAL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00216711",
+    "yearlyInterest": "0.79099379",
+    "borrowLimit": "290000",
+    "marginablePairs": [
+      "PORTALUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SOL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00015121",
+    "yearlyInterest": "0.05519244",
+    "borrowLimit": "30000",
+    "marginablePairs": [
+      "SOLBTC",
+      "SOLUSDT",
+      "SOLFDUSD",
+      "SOLETH",
+      "SOLUSDC",
+      "BNSOLSOL",
+      "SOLBNB",
+      "SOLUSD1",
+      "SOLU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PROVE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0030975",
+    "yearlyInterest": "1.1305889",
+    "borrowLimit": "52000",
+    "marginablePairs": [
+      "PROVEUSDC",
+      "PROVEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SOPH",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00223504",
+    "yearlyInterest": "0.8157913",
+    "borrowLimit": "960000",
+    "marginablePairs": [
+      "SOPHUSDT",
+      "SOPHUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CITY",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00191748",
+    "yearlyInterest": "0.69988016",
+    "borrowLimit": "9700",
+    "marginablePairs": [
+      "CITYUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00197051",
+    "yearlyInterest": "0.71923722",
+    "borrowLimit": "110000",
+    "marginablePairs": [
+      "LAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ETC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00003607",
+    "yearlyInterest": "0.01316473",
+    "borrowLimit": "6600",
+    "marginablePairs": [
+      "ETCUSDT",
+      "ETCUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "OGN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00231061",
+    "yearlyInterest": "0.8433721",
+    "borrowLimit": "210000",
+    "marginablePairs": [
+      "OGNUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CGPT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00097586",
+    "yearlyInterest": "0.35619009",
+    "borrowLimit": "250000",
+    "marginablePairs": [
+      "CGPTUSDC",
+      "CGPTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CELR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00118155",
+    "yearlyInterest": "0.43126446",
+    "borrowLimit": "1600000",
+    "marginablePairs": [
+      "CELRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BNB",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00008207",
+    "yearlyInterest": "0.0299544",
+    "borrowLimit": "450",
+    "marginablePairs": [
+      "BNBBTC",
+      "BNBUSDT",
+      "BNBETH",
+      "BNBFDUSD",
+      "BNBUSDC",
+      "SOLBNB",
+      "BNBUSD1",
+      "BNBU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ETH",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00006321",
+    "yearlyInterest": "0.02307149",
+    "borrowLimit": "2000",
+    "marginablePairs": [
+      "ETHBTC",
+      "ETHUSDT",
+      "XRPETH",
+      "BNBETH",
+      "ETHUSDC",
+      "ETHFDUSD",
+      "WBETHETH",
+      "SOLETH",
+      "ETHUSD1",
+      "ETHU",
+      "ETHUSDS"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NEO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00085262",
+    "yearlyInterest": "0.31120664",
+    "borrowLimit": "2300",
+    "marginablePairs": [
+      "NEOUSDT",
+      "NEOUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CELO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00331395",
+    "yearlyInterest": "1.20959316",
+    "borrowLimit": "59000",
+    "marginablePairs": [
+      "CELOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AUCTION",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00143958",
+    "yearlyInterest": "0.52544655",
+    "borrowLimit": "980",
+    "marginablePairs": [
+      "AUCTIONUSDT",
+      "AUCTIONUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MANTA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00149953",
+    "yearlyInterest": "0.547329",
+    "borrowLimit": "92000",
+    "marginablePairs": [
+      "MANTAUSDT",
+      "MANTAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LAYER",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00174167",
+    "yearlyInterest": "0.63571",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "LAYERUSDT",
+      "LAYERUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CETUS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00083021",
+    "yearlyInterest": "0.30302621",
+    "borrowLimit": "110000",
+    "marginablePairs": [
+      "CETUSUSDT",
+      "CETUSUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TRB",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00109674",
+    "yearlyInterest": "0.40031126",
+    "borrowLimit": "590",
+    "marginablePairs": [
+      "TRBUSDT",
+      "TRBUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BNT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00201056",
+    "yearlyInterest": "0.73385266",
+    "borrowLimit": "5800",
+    "marginablePairs": [
+      "BNTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ALT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0018062",
+    "yearlyInterest": "0.65926241",
+    "borrowLimit": "870000",
+    "marginablePairs": [
+      "ALTUSDT",
+      "ALTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ORDI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00029871",
+    "yearlyInterest": "0.10902871",
+    "borrowLimit": "3100",
+    "marginablePairs": [
+      "ORDIUSDT",
+      "ORDIUSDC",
+      "ORDIU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SPK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00094684",
+    "yearlyInterest": "0.34559672",
+    "borrowLimit": "590000",
+    "marginablePairs": [
+      "SPKUSDT",
+      "SPKUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ME",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00258317",
+    "yearlyInterest": "0.94285594",
+    "borrowLimit": "110000",
+    "marginablePairs": [
+      "MEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TRX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00030312",
+    "yearlyInterest": "0.11063958",
+    "borrowLimit": "150000",
+    "marginablePairs": [
+      "TRXBTC",
+      "TRXUSDT",
+      "TRXUSDC",
+      "TRXU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SIGN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00177443",
+    "yearlyInterest": "0.64766538",
+    "borrowLimit": "420000",
+    "marginablePairs": [
+      "SIGNUSDT",
+      "SIGNUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "EUL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00189815",
+    "yearlyInterest": "0.69282485",
+    "borrowLimit": "5800",
+    "marginablePairs": [
+      "EULUSDC",
+      "EULUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ORCA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00204808",
+    "yearlyInterest": "0.74754833",
+    "borrowLimit": "3600",
+    "marginablePairs": [
+      "ORCAUSDT",
+      "ORCAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AMP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00233887",
+    "yearlyInterest": "0.85368674",
+    "borrowLimit": "7400000",
+    "marginablePairs": [
+      "AMPUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "EDEN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00237328",
+    "yearlyInterest": "0.86624608",
+    "borrowLimit": "160000",
+    "marginablePairs": [
+      "EDENUSDT",
+      "EDENUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "USTC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00084946",
+    "yearlyInterest": "0.31005158",
+    "borrowLimit": "650000",
+    "marginablePairs": [
+      "USTCUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BERA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00211631",
+    "yearlyInterest": "0.77245147",
+    "borrowLimit": "46000",
+    "marginablePairs": [
+      "BERAUSDC",
+      "BERAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TST",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00259865",
+    "yearlyInterest": "0.94850842",
+    "borrowLimit": "270000",
+    "marginablePairs": [
+      "TSTUSDT",
+      "TSTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "VANA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00143207",
+    "yearlyInterest": "0.52270459",
+    "borrowLimit": "5200",
+    "marginablePairs": [
+      "VANAUSDT",
+      "VANAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PLUME",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00121051",
+    "yearlyInterest": "0.44183655",
+    "borrowLimit": "1000000",
+    "marginablePairs": [
+      "PLUMEUSDC",
+      "PLUMEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "EGLD",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00070154",
+    "yearlyInterest": "0.25606365",
+    "borrowLimit": "1200",
+    "marginablePairs": [
+      "EGLDUSDT",
+      "EGLDUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TRUMP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00078487",
+    "yearlyInterest": "0.28647656",
+    "borrowLimit": "6100",
+    "marginablePairs": [
+      "TRUMPUSDC",
+      "TRUMPUSDT",
+      "TRUMPU",
+      "TRUMPUSD1"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MET",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00200838",
+    "yearlyInterest": "0.73305908",
+    "borrowLimit": "63000",
+    "marginablePairs": [
+      "METUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SPELL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00201825",
+    "yearlyInterest": "0.73666126",
+    "borrowLimit": "15000000",
+    "marginablePairs": [
+      "SPELLUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PUNDIX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00218185",
+    "yearlyInterest": "0.79637534",
+    "borrowLimit": "46000",
+    "marginablePairs": [
+      "PUNDIXUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "KAT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00205425",
+    "yearlyInterest": "0.74980125",
+    "borrowLimit": "2000000",
+    "marginablePairs": [
+      "KATUSDC",
+      "KATUSDT",
+      "KATU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AEVO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00037577",
+    "yearlyInterest": "0.1371559",
+    "borrowLimit": "210000",
+    "marginablePairs": [
+      "AEVOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CRV",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0002636",
+    "yearlyInterest": "0.09621303",
+    "borrowLimit": "52000",
+    "marginablePairs": [
+      "CRVUSDT",
+      "CRVUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FLUX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0015165",
+    "yearlyInterest": "0.5535225",
+    "borrowLimit": "49000",
+    "marginablePairs": [
+      "FLUXUSDT",
+      "FLUXUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RPL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00322814",
+    "yearlyInterest": "1.17827126",
+    "borrowLimit": "970",
+    "marginablePairs": [
+      "RPLUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "QNT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00026815",
+    "yearlyInterest": "0.09787612",
+    "borrowLimit": "100",
+    "marginablePairs": [
+      "QNTUSDT",
+      "QNTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MAGIC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0015984",
+    "yearlyInterest": "0.58341601",
+    "borrowLimit": "110000",
+    "marginablePairs": [
+      "MAGICUSDT",
+      "MAGICUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LDO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00007333",
+    "yearlyInterest": "0.02676553",
+    "borrowLimit": "89000",
+    "marginablePairs": [
+      "LDOUSDT",
+      "LDOUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ALICE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00135238",
+    "yearlyInterest": "0.49362005",
+    "borrowLimit": "62000",
+    "marginablePairs": [
+      "ALICEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "OG",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00091042",
+    "yearlyInterest": "0.3323017",
+    "borrowLimit": "2700",
+    "marginablePairs": [
+      "OGUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "OP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.000098",
+    "yearlyInterest": "0.03576823",
+    "borrowLimit": "500000",
+    "marginablePairs": [
+      "OPUSDT",
+      "OPUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NIL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00199406",
+    "yearlyInterest": "0.72783117",
+    "borrowLimit": "300000",
+    "marginablePairs": [
+      "NILUSDC",
+      "NILUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TUT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00176517",
+    "yearlyInterest": "0.64428798",
+    "borrowLimit": "420000",
+    "marginablePairs": [
+      "TUTUSDT",
+      "TUTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "APE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00038178",
+    "yearlyInterest": "0.13935021",
+    "borrowLimit": "73000",
+    "marginablePairs": [
+      "APEUSDT",
+      "APEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SSV",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00030576",
+    "yearlyInterest": "0.11160204",
+    "borrowLimit": "1300",
+    "marginablePairs": [
+      "SSVUSDT",
+      "SSVUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CTK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00147467",
+    "yearlyInterest": "0.53825447",
+    "borrowLimit": "15000",
+    "marginablePairs": [
+      "CTKUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ARPA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00138497",
+    "yearlyInterest": "0.50551435",
+    "borrowLimit": "290000",
+    "marginablePairs": [
+      "ARPAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "APT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00007848",
+    "yearlyInterest": "0.02864495",
+    "borrowLimit": "17000",
+    "marginablePairs": [
+      "APTUSDT",
+      "APTUSDC",
+      "APTU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "STG",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00168587",
+    "yearlyInterest": "0.61534433",
+    "borrowLimit": "31000",
+    "marginablePairs": [
+      "STGUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SHIB",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00001873",
+    "yearlyInterest": "0.00683792",
+    "borrowLimit": "11000000000",
+    "marginablePairs": [
+      "SHIBUSDT",
+      "SHIBUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "IOTX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00092059",
+    "yearlyInterest": "0.3360162",
+    "borrowLimit": "740000",
+    "marginablePairs": [
+      "IOTXUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "STO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00443913",
+    "yearlyInterest": "1.62028162",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "STOUSDC",
+      "STOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "STX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00021573",
+    "yearlyInterest": "0.07874288",
+    "borrowLimit": "40000",
+    "marginablePairs": [
+      "STXUSDT",
+      "STXUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "0G",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0017874",
+    "yearlyInterest": "0.65239932",
+    "borrowLimit": "46000",
+    "marginablePairs": [
+      "0GUSDT",
+      "0GUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "QI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00045117",
+    "yearlyInterest": "0.16467835",
+    "borrowLimit": "1400000",
+    "marginablePairs": [
+      "QIUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PYTH",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00030813",
+    "yearlyInterest": "0.1124679",
+    "borrowLimit": "290000",
+    "marginablePairs": [
+      "PYTHUSDT",
+      "PYTHUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FRAX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00138364",
+    "yearlyInterest": "0.50502995",
+    "borrowLimit": "8800",
+    "marginablePairs": [
+      "FRAXUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BANK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00196425",
+    "yearlyInterest": "0.71695125",
+    "borrowLimit": "270000",
+    "marginablePairs": [
+      "BANKUSDC",
+      "BANKUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "IOST",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00150186",
+    "yearlyInterest": "0.54817771",
+    "borrowLimit": "2300000",
+    "marginablePairs": [
+      "IOSTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SUI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00003977",
+    "yearlyInterest": "0.01451462",
+    "borrowLimit": "360000",
+    "marginablePairs": [
+      "SUIUSDT",
+      "SUIUSDC",
+      "SUIBTC",
+      "SUIUSD1",
+      "SUIU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "WBETH",
+    "transferIn": true,
+    "borrowable": false,
+    "dailyInterest": "0.00547944",
+    "yearlyInterest": "1.9999956",
+    "borrowLimit": "0",
+    "marginablePairs": [
+      "WBETHUSDT",
+      "WBETHETH"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CAKE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00031699",
+    "yearlyInterest": "0.11570084",
+    "borrowLimit": "7400",
+    "marginablePairs": [
+      "CAKEUSDT",
+      "CAKEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BAND",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00138302",
+    "yearlyInterest": "0.50480384",
+    "borrowLimit": "9000",
+    "marginablePairs": [
+      "BANDUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "POL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00042749",
+    "yearlyInterest": "0.15603339",
+    "borrowLimit": "700000",
+    "marginablePairs": [
+      "POLUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ZBT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00236137",
+    "yearlyInterest": "0.86189858",
+    "borrowLimit": "96000",
+    "marginablePairs": [
+      "ZBTUSDC",
+      "ZBTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SUN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00091441",
+    "yearlyInterest": "0.33376029",
+    "borrowLimit": "570000",
+    "marginablePairs": [
+      "SUNUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ASTR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.001452",
+    "yearlyInterest": "0.52998065",
+    "borrowLimit": "1300000",
+    "marginablePairs": [
+      "ASTRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TWT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00028455",
+    "yearlyInterest": "0.10386204",
+    "borrowLimit": "14000",
+    "marginablePairs": [
+      "TWTUSDT",
+      "TWTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RSR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00029824",
+    "yearlyInterest": "0.10885801",
+    "borrowLimit": "4800000",
+    "marginablePairs": [
+      "RSRUSDT",
+      "RSRUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PARTI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00151601",
+    "yearlyInterest": "0.5533428",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "PARTIUSDC",
+      "PARTIUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BTC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00001094",
+    "yearlyInterest": "0.00399244",
+    "borrowLimit": "100",
+    "marginablePairs": [
+      "BNBBTC",
+      "TRXBTC",
+      "XRPBTC",
+      "ETHBTC",
+      "BTCUSDT",
+      "LINKBTC",
+      "ADABTC",
+      "BTCUSDC",
+      "LTCBTC",
+      "ZECBTC",
+      "BCHBTC",
+      "DOGEBTC",
+      "AVAXBTC",
+      "SOLBTC",
+      "ARBBTC",
+      "BTCFDUSD",
+      "WBTCBTC",
+      "SUIBTC",
+      "BTCUSD1",
+      "BTCU",
+      "BTCUSDS"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "IOTA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00036478",
+    "yearlyInterest": "0.13314346",
+    "borrowLimit": "280000",
+    "marginablePairs": [
+      "IOTAUSDT",
+      "IOTAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CVC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00146442",
+    "yearlyInterest": "0.53451495",
+    "borrowLimit": "150000",
+    "marginablePairs": [
+      "CVCUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ARB",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00005261",
+    "yearlyInterest": "0.01920311",
+    "borrowLimit": "670000",
+    "marginablePairs": [
+      "ARBBTC",
+      "ARBUSDT",
+      "ARBUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00547944",
+    "yearlyInterest": "1.9999956",
+    "borrowLimit": "16000",
+    "marginablePairs": [
+      "REUSDC",
+      "REUSDT",
+      "REUSD1",
+      "REU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AIXBT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00131799",
+    "yearlyInterest": "0.48106606",
+    "borrowLimit": "200000",
+    "marginablePairs": [
+      "AIXBTUSDT",
+      "AIXBTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ARK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00252236",
+    "yearlyInterest": "0.92066107",
+    "borrowLimit": "16000",
+    "marginablePairs": [
+      "ARKUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RONIN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00234915",
+    "yearlyInterest": "0.8574397",
+    "borrowLimit": "56000",
+    "marginablePairs": [
+      "RONINUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "1000CAT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00169635",
+    "yearlyInterest": "0.61916918",
+    "borrowLimit": "1900000",
+    "marginablePairs": [
+      "1000CATUSDT",
+      "1000CATUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CVX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00089805",
+    "yearlyInterest": "0.3277891",
+    "borrowLimit": "2400",
+    "marginablePairs": [
+      "CVXUSDT",
+      "CVXUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ONE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00037297",
+    "yearlyInterest": "0.13613269",
+    "borrowLimit": "1400000",
+    "marginablePairs": [
+      "ONEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RENDER",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00030248",
+    "yearlyInterest": "0.11040623",
+    "borrowLimit": "32000",
+    "marginablePairs": [
+      "RENDERUSDC",
+      "RENDERUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ONG",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0016844",
+    "yearlyInterest": "0.61480541",
+    "borrowLimit": "70000",
+    "marginablePairs": [
+      "ONGUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ANKR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00149422",
+    "yearlyInterest": "0.54539193",
+    "borrowLimit": "670000",
+    "marginablePairs": [
+      "ANKRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SUSHI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00036678",
+    "yearlyInterest": "0.13387477",
+    "borrowLimit": "36000",
+    "marginablePairs": [
+      "SUSHIUSDT",
+      "SUSHIUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PUMP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00162116",
+    "yearlyInterest": "0.59172489",
+    "borrowLimit": "6900000",
+    "marginablePairs": [
+      "PUMPUSDT",
+      "PUMPUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ALGO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00012048",
+    "yearlyInterest": "0.04397511",
+    "borrowLimit": "360000",
+    "marginablePairs": [
+      "ALGOUSDT",
+      "ALGOUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00038025",
+    "yearlyInterest": "0.13879188",
+    "borrowLimit": "2100000",
+    "marginablePairs": [
+      "SCUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ONT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00162292",
+    "yearlyInterest": "0.59236703",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "ONTUSDT",
+      "ONTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DYM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00168453",
+    "yearlyInterest": "0.61485321",
+    "borrowLimit": "400000",
+    "marginablePairs": [
+      "DYMUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BTTC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00152756",
+    "yearlyInterest": "0.55755836",
+    "borrowLimit": "11000000000",
+    "marginablePairs": [
+      "BTTCUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ASR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00162017",
+    "yearlyInterest": "0.59136215",
+    "borrowLimit": "4800",
+    "marginablePairs": [
+      "ASRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BNSOL",
+    "transferIn": true,
+    "borrowable": false,
+    "dailyInterest": "0.00547944",
+    "yearlyInterest": "1.9999956",
+    "borrowLimit": "0",
+    "marginablePairs": [
+      "BNSOLSOL",
+      "BNSOLUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MANA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00021918",
+    "yearlyInterest": "0.08000089",
+    "borrowLimit": "80000",
+    "marginablePairs": [
+      "MANAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "2Z",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.001791",
+    "yearlyInterest": "0.65371501",
+    "borrowLimit": "120000",
+    "marginablePairs": [
+      "2ZUSDC",
+      "2ZUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HYPER",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00089883",
+    "yearlyInterest": "0.32807475",
+    "borrowLimit": "120000",
+    "marginablePairs": [
+      "HYPERUSDC",
+      "HYPERUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "OPEN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00190036",
+    "yearlyInterest": "0.69363018",
+    "borrowLimit": "63000",
+    "marginablePairs": [
+      "OPENUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GENIUS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00063259",
+    "yearlyInterest": "0.23089675",
+    "borrowLimit": "26000",
+    "marginablePairs": [
+      "GENIUSUSDT",
+      "GENIUSUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "WLFI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00110911",
+    "yearlyInterest": "0.4048259",
+    "borrowLimit": "4300000",
+    "marginablePairs": [
+      "WLFIUSDC",
+      "WLFIUSDT",
+      "WLFIUSD1",
+      "WLFIU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NMR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00183168",
+    "yearlyInterest": "0.66856147",
+    "borrowLimit": "380",
+    "marginablePairs": [
+      "NMRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GRAM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00859084",
+    "yearlyInterest": "3.13565525",
+    "borrowLimit": "6250",
+    "marginablePairs": [
+      "GRAMUSDC",
+      "GRAMUSDT",
+      "GRAMUSD1",
+      "GRAMU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DODO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0010355",
+    "yearlyInterest": "0.3779593",
+    "borrowLimit": "270000",
+    "marginablePairs": [
+      "DODOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ICP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00061939",
+    "yearlyInterest": "0.22607579",
+    "borrowLimit": "4600",
+    "marginablePairs": [
+      "ICPUSDT",
+      "ICPUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ZEC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00113965",
+    "yearlyInterest": "0.41597103",
+    "borrowLimit": "130",
+    "marginablePairs": [
+      "ZECUSDT",
+      "ZECBTC",
+      "ZECUSDC",
+      "ZECUSD1",
+      "ZECU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RESOLV",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00198381",
+    "yearlyInterest": "0.72409024",
+    "borrowLimit": "520000",
+    "marginablePairs": [
+      "RESOLVUSDT",
+      "RESOLVUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ATM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0013069",
+    "yearlyInterest": "0.47701685",
+    "borrowLimit": "1700",
+    "marginablePairs": [
+      "ATMUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TNSR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00174939",
+    "yearlyInterest": "0.63852639",
+    "borrowLimit": "290000",
+    "marginablePairs": [
+      "TNSRUSDT",
+      "TNSRUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ICX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00149859",
+    "yearlyInterest": "0.54698596",
+    "borrowLimit": "77000",
+    "marginablePairs": [
+      "ICXUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "POLYX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00256337",
+    "yearlyInterest": "0.93562884",
+    "borrowLimit": "110000",
+    "marginablePairs": [
+      "POLYXUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "KMNO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00222818",
+    "yearlyInterest": "0.81328515",
+    "borrowLimit": "290000",
+    "marginablePairs": [
+      "KMNOUSDC",
+      "KMNOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "XAI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0014535",
+    "yearlyInterest": "0.53052751",
+    "borrowLimit": "680000",
+    "marginablePairs": [
+      "XAIUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ZEN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00055985",
+    "yearlyInterest": "0.20434467",
+    "borrowLimit": "2400",
+    "marginablePairs": [
+      "ZENUSDT",
+      "ZENUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "OPG",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00092647",
+    "yearlyInterest": "0.33816044",
+    "borrowLimit": "64000",
+    "marginablePairs": [
+      "OPGUSDC",
+      "OPGUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DUSK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00128386",
+    "yearlyInterest": "0.46860897",
+    "borrowLimit": "26000",
+    "marginablePairs": [
+      "DUSKUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DOGE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00010111",
+    "yearlyInterest": "0.03690559",
+    "borrowLimit": "4800000",
+    "marginablePairs": [
+      "DOGEBTC",
+      "DOGEUSDT",
+      "DOGEFDUSD",
+      "DOGEUSDC",
+      "DOGEUSD1",
+      "DOGEU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HBAR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00005576",
+    "yearlyInterest": "0.02035319",
+    "borrowLimit": "3500000",
+    "marginablePairs": [
+      "HBARUSDT",
+      "HBARUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RVN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00112778",
+    "yearlyInterest": "0.4116406",
+    "borrowLimit": "740000",
+    "marginablePairs": [
+      "RVNUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "OPN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00203722",
+    "yearlyInterest": "0.74358575",
+    "borrowLimit": "150000",
+    "marginablePairs": [
+      "OPNUSDC",
+      "OPNUSD1",
+      "OPNUSDT",
+      "OPNU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SXT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00122569",
+    "yearlyInterest": "0.44737833",
+    "borrowLimit": "1100000",
+    "marginablePairs": [
+      "SXTUSDC",
+      "SXTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PEPE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00006867",
+    "yearlyInterest": "0.02506524",
+    "borrowLimit": "21000000000",
+    "marginablePairs": [
+      "PEPEUSDT",
+      "PEPEUSDC",
+      "PEPEUSD1",
+      "PEPEU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ONDO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00058807",
+    "yearlyInterest": "0.21464374",
+    "borrowLimit": "160000",
+    "marginablePairs": [
+      "ONDOUSDC",
+      "ONDOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DOGS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00045385",
+    "yearlyInterest": "0.16565553",
+    "borrowLimit": "120000000",
+    "marginablePairs": [
+      "DOGSUSDT",
+      "DOGSUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CTSI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00176749",
+    "yearlyInterest": "0.64513291",
+    "borrowLimit": "69000",
+    "marginablePairs": [
+      "CTSIUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LINEA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0017037",
+    "yearlyInterest": "0.6218514",
+    "borrowLimit": "3700000",
+    "marginablePairs": [
+      "LINEAUSDC",
+      "LINEAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "KAVA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00170081",
+    "yearlyInterest": "0.620796",
+    "borrowLimit": "130000",
+    "marginablePairs": [
+      "KAVAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SHELL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0024252",
+    "yearlyInterest": "0.88519806",
+    "borrowLimit": "130000",
+    "marginablePairs": [
+      "SHELLUSDC",
+      "SHELLUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "OSMO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00242241",
+    "yearlyInterest": "0.88417939",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "OSMOUSDT",
+      "OSMOUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "C98",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00032044",
+    "yearlyInterest": "0.11696015",
+    "borrowLimit": "290000",
+    "marginablePairs": [
+      "C98USDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PSG",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00220041",
+    "yearlyInterest": "0.80314832",
+    "borrowLimit": "7400",
+    "marginablePairs": [
+      "PSGUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SYN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0033336",
+    "yearlyInterest": "1.216764",
+    "borrowLimit": "23000",
+    "marginablePairs": [
+      "SYNUSDT",
+      "SYNUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AVA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00103178",
+    "yearlyInterest": "0.37659885",
+    "borrowLimit": "29000",
+    "marginablePairs": [
+      "AVAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NOM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0022457",
+    "yearlyInterest": "0.81968044",
+    "borrowLimit": "6400000",
+    "marginablePairs": [
+      "NOMUSDT",
+      "NOMUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BARD",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00210168",
+    "yearlyInterest": "0.76711389",
+    "borrowLimit": "45000",
+    "marginablePairs": [
+      "BARDUSDT",
+      "BARDUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "STRAX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00471381",
+    "yearlyInterest": "1.72054167",
+    "borrowLimit": "520000",
+    "marginablePairs": [
+      "STRAXUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NOT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00039996",
+    "yearlyInterest": "0.14598592",
+    "borrowLimit": "16000000",
+    "marginablePairs": [
+      "NOTUSDT",
+      "NOTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MMT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00186663",
+    "yearlyInterest": "0.68131934",
+    "borrowLimit": "40000",
+    "marginablePairs": [
+      "MMTUSDC",
+      "MMTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GAS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00159349",
+    "yearlyInterest": "0.58162524",
+    "borrowLimit": "2900",
+    "marginablePairs": [
+      "GASUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BOME",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00030204",
+    "yearlyInterest": "0.11024566",
+    "borrowLimit": "12000000",
+    "marginablePairs": [
+      "BOMEUSDT",
+      "BOMEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "THETA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00010327",
+    "yearlyInterest": "0.0376942",
+    "borrowLimit": "41000",
+    "marginablePairs": [
+      "THETAUSDT",
+      "THETAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "WAL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00193711",
+    "yearlyInterest": "0.70704529",
+    "borrowLimit": "140000",
+    "marginablePairs": [
+      "WALUSDC",
+      "WALUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "EURI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.000343",
+    "yearlyInterest": "0.12519435",
+    "borrowLimit": "10000",
+    "marginablePairs": [
+      "EURIUSDT",
+      "EURIUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NEXO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0014156",
+    "yearlyInterest": "0.51669304",
+    "borrowLimit": "5700",
+    "marginablePairs": [
+      "NEXOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MASK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00145395",
+    "yearlyInterest": "0.53069176",
+    "borrowLimit": "11000",
+    "marginablePairs": [
+      "MASKUSDT",
+      "MASKUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AWE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00172337",
+    "yearlyInterest": "0.62902874",
+    "borrowLimit": "57000",
+    "marginablePairs": [
+      "AWEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AAVE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00012414",
+    "yearlyInterest": "0.04531252",
+    "borrowLimit": "2700",
+    "marginablePairs": [
+      "AAVEUSDT",
+      "AAVEUSDC",
+      "AAVEU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ZAMA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0021521",
+    "yearlyInterest": "0.78551544",
+    "borrowLimit": "320000",
+    "marginablePairs": [
+      "ZAMAUSDC",
+      "ZAMAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BONK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00034083",
+    "yearlyInterest": "0.12440424",
+    "borrowLimit": "12000000000",
+    "marginablePairs": [
+      "BONKUSDT",
+      "BONKUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "YFI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00035437",
+    "yearlyInterest": "0.12934371",
+    "borrowLimit": "1",
+    "marginablePairs": [
+      "YFIUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LQTY",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00174129",
+    "yearlyInterest": "0.63556914",
+    "borrowLimit": "15000",
+    "marginablePairs": [
+      "LQTYUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SAPIEN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00190373",
+    "yearlyInterest": "0.69486001",
+    "borrowLimit": "79000",
+    "marginablePairs": [
+      "SAPIENUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BICO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0012528",
+    "yearlyInterest": "0.457272",
+    "borrowLimit": "510000",
+    "marginablePairs": [
+      "BICOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HEI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00164389",
+    "yearlyInterest": "0.60001997",
+    "borrowLimit": "58000",
+    "marginablePairs": [
+      "HEIUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PIXEL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00162013",
+    "yearlyInterest": "0.59134748",
+    "borrowLimit": "1200000",
+    "marginablePairs": [
+      "PIXELUSDT",
+      "PIXELUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NEWT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00258819",
+    "yearlyInterest": "0.94469001",
+    "borrowLimit": "150000",
+    "marginablePairs": [
+      "NEWTUSDC",
+      "NEWTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ALLO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00214393",
+    "yearlyInterest": "0.78253548",
+    "borrowLimit": "33000",
+    "marginablePairs": [
+      "ALLOUSDC",
+      "ALLOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AXL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00170832",
+    "yearlyInterest": "0.62353782",
+    "borrowLimit": "86000",
+    "marginablePairs": [
+      "AXLUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HMSTR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00211728",
+    "yearlyInterest": "0.77280781",
+    "borrowLimit": "32000000",
+    "marginablePairs": [
+      "HMSTRUSDT",
+      "HMSTRUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "XEC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00085331",
+    "yearlyInterest": "0.3114584",
+    "borrowLimit": "220000000",
+    "marginablePairs": [
+      "XECUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "YGG",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0003558",
+    "yearlyInterest": "0.12986853",
+    "borrowLimit": "100000",
+    "marginablePairs": [
+      "YGGUSDT",
+      "YGGUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PEOPLE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00125658",
+    "yearlyInterest": "0.45864996",
+    "borrowLimit": "820000",
+    "marginablePairs": [
+      "PEOPLEUSDT",
+      "PEOPLEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ZIL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00090211",
+    "yearlyInterest": "0.32927017",
+    "borrowLimit": "1100000",
+    "marginablePairs": [
+      "ZILUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SYRUP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0008346",
+    "yearlyInterest": "0.30462719",
+    "borrowLimit": "72000",
+    "marginablePairs": [
+      "SYRUPUSDC",
+      "SYRUPUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AXS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00074053",
+    "yearlyInterest": "0.27029437",
+    "borrowLimit": "10000",
+    "marginablePairs": [
+      "AXSUSDT",
+      "AXSUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "YB",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0017051",
+    "yearlyInterest": "0.622363",
+    "borrowLimit": "21000",
+    "marginablePairs": [
+      "YBUSDT",
+      "YBUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "WCT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00178775",
+    "yearlyInterest": "0.65252898",
+    "borrowLimit": "230000",
+    "marginablePairs": [
+      "WCTUSDT",
+      "WCTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "COMP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00129237",
+    "yearlyInterest": "0.47171562",
+    "borrowLimit": "520",
+    "marginablePairs": [
+      "COMPUSDT",
+      "COMPUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HAEDAL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00197788",
+    "yearlyInterest": "0.72192641",
+    "borrowLimit": "250000",
+    "marginablePairs": [
+      "HAEDALUSDT",
+      "HAEDALUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HFT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00155937",
+    "yearlyInterest": "0.56917079",
+    "borrowLimit": "400000",
+    "marginablePairs": [
+      "HFTUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RUNE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0008255",
+    "yearlyInterest": "0.30130664",
+    "borrowLimit": "25000",
+    "marginablePairs": [
+      "RUNEUSDT",
+      "RUNEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PENGU",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00115633",
+    "yearlyInterest": "0.42206218",
+    "borrowLimit": "1600000",
+    "marginablePairs": [
+      "PENGUUSDT",
+      "PENGUUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BANANAS31",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00182661",
+    "yearlyInterest": "0.66671382",
+    "borrowLimit": "560000",
+    "marginablePairs": [
+      "BANANAS31USDT",
+      "BANANAS31USDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ALPINE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00142038",
+    "yearlyInterest": "0.51843941",
+    "borrowLimit": "9300",
+    "marginablePairs": [
+      "ALPINEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "EPIC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00203774",
+    "yearlyInterest": "0.74377603",
+    "borrowLimit": "22000",
+    "marginablePairs": [
+      "EPICUSDT",
+      "EPICUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ZK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00133511",
+    "yearlyInterest": "0.48731526",
+    "borrowLimit": "990000",
+    "marginablePairs": [
+      "ZKUSDT",
+      "ZKUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DEXE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0014626",
+    "yearlyInterest": "0.53385064",
+    "borrowLimit": "280",
+    "marginablePairs": [
+      "DEXEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LISTA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00119776",
+    "yearlyInterest": "0.43718064",
+    "borrowLimit": "51000",
+    "marginablePairs": [
+      "LISTAUSDT",
+      "LISTAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "AVAX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00010773",
+    "yearlyInterest": "0.03932081",
+    "borrowLimit": "38000",
+    "marginablePairs": [
+      "AVAXBTC",
+      "AVAXUSDT",
+      "AVAXUSDC",
+      "AVAXU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ZKC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00207684",
+    "yearlyInterest": "0.75804661",
+    "borrowLimit": "220000",
+    "marginablePairs": [
+      "ZKCUSDT",
+      "ZKCUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "USUAL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00079916",
+    "yearlyInterest": "0.29169294",
+    "borrowLimit": "660000",
+    "marginablePairs": [
+      "USUALUSDT",
+      "USUALUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BANANA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00178178",
+    "yearlyInterest": "0.65035068",
+    "borrowLimit": "860",
+    "marginablePairs": [
+      "BANANAUSDT",
+      "BANANAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ZKP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00223728",
+    "yearlyInterest": "0.81660809",
+    "borrowLimit": "130000",
+    "marginablePairs": [
+      "ZKPUSDC",
+      "ZKPUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "KNC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00214337",
+    "yearlyInterest": "0.78233124",
+    "borrowLimit": "19000",
+    "marginablePairs": [
+      "KNCUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HUMA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00079028",
+    "yearlyInterest": "0.28845325",
+    "borrowLimit": "400000",
+    "marginablePairs": [
+      "HUMAUSDT",
+      "HUMAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NEIRO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00041214",
+    "yearlyInterest": "0.15043278",
+    "borrowLimit": "160000000",
+    "marginablePairs": [
+      "NEIROUSDT",
+      "NEIROUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PROM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00165645",
+    "yearlyInterest": "0.60460392",
+    "borrowLimit": "2100",
+    "marginablePairs": [
+      "PROMUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CATI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00164026",
+    "yearlyInterest": "0.59869493",
+    "borrowLimit": "84000",
+    "marginablePairs": [
+      "CATIUSDT",
+      "CATIUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FOGO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00193456",
+    "yearlyInterest": "0.70611517",
+    "borrowLimit": "640000",
+    "marginablePairs": [
+      "FOGOUSDC",
+      "FOGOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LPT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00090695",
+    "yearlyInterest": "0.331037",
+    "borrowLimit": "2800",
+    "marginablePairs": [
+      "LPTUSDT",
+      "LPTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "KAITO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00141105",
+    "yearlyInterest": "0.51503232",
+    "borrowLimit": "17000",
+    "marginablePairs": [
+      "KAITOUSDC",
+      "KAITOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HIVE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00202984",
+    "yearlyInterest": "0.74089132",
+    "borrowLimit": "58000",
+    "marginablePairs": [
+      "HIVEUSDT",
+      "HIVEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "XAUT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00066353",
+    "yearlyInterest": "0.24218907",
+    "borrowLimit": "10",
+    "marginablePairs": [
+      "XAUTU",
+      "XAUTUSDT",
+      "XAUTUSDC",
+      "XAUTUSD1"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PORTO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00206695",
+    "yearlyInterest": "0.7544368",
+    "borrowLimit": "3800",
+    "marginablePairs": [
+      "PORTOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "PYR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00124498",
+    "yearlyInterest": "0.45441859",
+    "borrowLimit": "16000",
+    "marginablePairs": [
+      "PYRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "WAXP",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00254475",
+    "yearlyInterest": "0.92883434",
+    "borrowLimit": "710000",
+    "marginablePairs": [
+      "WAXPUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ROBO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00163345",
+    "yearlyInterest": "0.59620934",
+    "borrowLimit": "430000",
+    "marginablePairs": [
+      "ROBOUSDT",
+      "ROBOUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DOLO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00273396",
+    "yearlyInterest": "0.99789528",
+    "borrowLimit": "160000",
+    "marginablePairs": [
+      "DOLOUSDC",
+      "DOLOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FET",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00026629",
+    "yearlyInterest": "0.09719753",
+    "borrowLimit": "280000",
+    "marginablePairs": [
+      "FETUSDT",
+      "FETUSDC",
+      "FETU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GIGGLE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00149292",
+    "yearlyInterest": "0.54491746",
+    "borrowLimit": "390",
+    "marginablePairs": [
+      "GIGGLEUSDT",
+      "GIGGLEUSDC",
+      "GIGGLEU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "HEMI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00246481",
+    "yearlyInterest": "0.89965654",
+    "borrowLimit": "1100000",
+    "marginablePairs": [
+      "HEMIUSDC",
+      "HEMIUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TAO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00017398",
+    "yearlyInterest": "0.06350172",
+    "borrowLimit": "40",
+    "marginablePairs": [
+      "TAOUSDT",
+      "TAOUSDC",
+      "TAOU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MORPHO",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00139775",
+    "yearlyInterest": "0.51017884",
+    "borrowLimit": "5700",
+    "marginablePairs": [
+      "MORPHOUSDC",
+      "MORPHOUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "VET",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0000345",
+    "yearlyInterest": "0.01259228",
+    "borrowLimit": "730000",
+    "marginablePairs": [
+      "VETUSDT",
+      "VETUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MTL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00265155",
+    "yearlyInterest": "0.96781736",
+    "borrowLimit": "4200",
+    "marginablePairs": [
+      "MTLUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "USDT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00010117",
+    "yearlyInterest": "0.03692587",
+    "borrowLimit": "500000",
+    "marginablePairs": [
+      "BNBUSDT",
+      "BTCUSDT",
+      "ETHUSDT",
+      "TRXUSDT",
+      "XRPUSDT",
+      "LINKUSDT",
+      "ONTUSDT",
+      "ADAUSDT",
+      "ETCUSDT",
+      "LTCUSDT",
+      "XLMUSDT",
+      "USDCUSDT",
+      "NEOUSDT",
+      "ATOMUSDT",
+      "DASHUSDT",
+      "ZECUSDT",
+      "BATUSDT",
+      "IOSTUSDT",
+      "VETUSDT",
+      "QTUMUSDT",
+      "IOTAUSDT",
+      "XTZUSDT",
+      "BCHUSDT",
+      "RVNUSDT",
+      "ZILUSDT",
+      "ONEUSDT",
+      "ANKRUSDT",
+      "CELRUSDT",
+      "TFUELUSDT",
+      "IOTXUSDT",
+      "HBARUSDT",
+      "SCUSDT",
+      "BNTUSDT",
+      "DOTUSDT",
+      "ALGOUSDT",
+      "ZRXUSDT",
+      "THETAUSDT",
+      "COMPUSDT",
+      "KNCUSDT",
+      "KAVAUSDT",
+      "BANDUSDT",
+      "DOGEUSDT",
+      "RLCUSDT",
+      "SNXUSDT",
+      "YFIUSDT",
+      "CRVUSDT",
+      "SUSHIUSDT",
+      "UNIUSDT",
+      "MANAUSDT",
+      "STORJUSDT",
+      "UMAUSDT",
+      "JSTUSDT",
+      "AVAXUSDT",
+      "DIAUSDT",
+      "NEARUSDT",
+      "FILUSDT",
+      "TRBUSDT",
+      "RSRUSDT",
+      "AAVEUSDT",
+      "SANDUSDT",
+      "CHZUSDT",
+      "ARPAUSDT",
+      "COTIUSDT",
+      "FETUSDT",
+      "CHRUSDT",
+      "NMRUSDT",
+      "GRTUSDT",
+      "KSMUSDT",
+      "ROSEUSDT",
+      "STXUSDT",
+      "ENJUSDT",
+      "RUNEUSDT",
+      "SKLUSDT",
+      "INJUSDT",
+      "CTSIUSDT",
+      "OGNUSDT",
+      "EGLDUSDT",
+      "1INCHUSDT",
+      "DODOUSDT",
+      "CKBUSDT",
+      "CAKEUSDT",
+      "SOLUSDT",
+      "SUPERUSDT",
+      "XVSUSDT",
+      "GTCUSDT",
+      "PUNDIXUSDT",
+      "AUDIOUSDT",
+      "SLPUSDT",
+      "FTTUSDT",
+      "ARUSDT",
+      "DYDXUSDT",
+      "AXSUSDT",
+      "LUNAUSDT",
+      "SHIBUSDT",
+      "WINUSDT",
+      "ENSUSDT",
+      "ALICEUSDT",
+      "TLMUSDT",
+      "ICPUSDT",
+      "C98USDT",
+      "FLOWUSDT",
+      "GALAUSDT",
+      "ONGUSDT",
+      "HIVEUSDT",
+      "WAXPUSDT",
+      "MINAUSDT",
+      "JASMYUSDT",
+      "LPTUSDT",
+      "AGLDUSDT",
+      "BICOUSDT",
+      "DUSKUSDT",
+      "SFPUSDT",
+      "YGGUSDT",
+      "FLUXUSDT",
+      "ICXUSDT",
+      "CELOUSDT",
+      "MTLUSDT",
+      "PEOPLEUSDT",
+      "QNTUSDT",
+      "PYRUSDT",
+      "SUNUSDT",
+      "PAXGUSDT",
+      "RAREUSDT",
+      "TWTUSDT",
+      "RADUSDT",
+      "CVCUSDT",
+      "QIUSDT",
+      "GMTUSDT",
+      "APEUSDT",
+      "MBLUSDT",
+      "API3USDT",
+      "CTKUSDT",
+      "NEXOUSDT",
+      "WOOUSDT",
+      "ASTRUSDT",
+      "OPUSDT",
+      "LDOUSDT",
+      "FIDAUSDT",
+      "AUCTIONUSDT",
+      "IMXUSDT",
+      "SPELLUSDT",
+      "STGUSDT",
+      "BELUSDT",
+      "AVAUSDT",
+      "DEXEUSDT",
+      "LUNCUSDT",
+      "SANTOSUSDT",
+      "GMXUSDT",
+      "LAZIOUSDT",
+      "PORTOUSDT",
+      "ACHUSDT",
+      "STRAXUSDT",
+      "REQUSDT",
+      "POLYXUSDT",
+      "APTUSDT",
+      "PHAUSDT",
+      "OSMOUSDT",
+      "GLMRUSDT",
+      "MASKUSDT",
+      "MAGICUSDT",
+      "HFTUSDT",
+      "ZENUSDT",
+      "CFXUSDT",
+      "SSVUSDT",
+      "LQTYUSDT",
+      "USTCUSDT",
+      "GNSUSDT",
+      "JOEUSDT",
+      "RIFUSDT",
+      "SYNUSDT",
+      "IDUSDT",
+      "ARBUSDT",
+      "EDUUSDT",
+      "SUIUSDT",
+      "FLOKIUSDT",
+      "PEPEUSDT",
+      "MAVUSDT",
+      "PENDLEUSDT",
+      "XECUSDT",
+      "ARKMUSDT",
+      "WLDUSDT",
+      "TUSDT",
+      "FDUSDUSDT",
+      "RPLUSDT",
+      "SEIUSDT",
+      "CYBERUSDT",
+      "VTHOUSDT",
+      "WBETHUSDT",
+      "CVXUSDT",
+      "ARKUSDT",
+      "GLMUSDT",
+      "GASUSDT",
+      "TIAUSDT",
+      "POWRUSDT",
+      "STEEMUSDT",
+      "MEMEUSDT",
+      "ILVUSDT",
+      "ORDIUSDT",
+      "RAYUSDT",
+      "SCRTUSDT",
+      "MOVRUSDT",
+      "BEAMXUSDT",
+      "OGUSDT",
+      "AMPUSDT",
+      "LSKUSDT",
+      "VICUSDT",
+      "BLURUSDT",
+      "VANRYUSDT",
+      "JTOUSDT",
+      "GNOUSDT",
+      "BTTCUSDT",
+      "1000SATSUSDT",
+      "BONKUSDT",
+      "ACEUSDT",
+      "XAIUSDT",
+      "MANTAUSDT",
+      "ALTUSDT",
+      "PROMUSDT",
+      "TKOUSDT",
+      "JUPUSDT",
+      "PYTHUSDT",
+      "RONINUSDT",
+      "DYMUSDT",
+      "PIXELUSDT",
+      "STRKUSDT",
+      "ADXUSDT",
+      "PORTALUSDT",
+      "AXLUSDT",
+      "WIFUSDT",
+      "PSGUSDT",
+      "METISUSDT",
+      "AEVOUSDT",
+      "BOMEUSDT",
+      "DCRUSDT",
+      "ETHFIUSDT",
+      "WBTCUSDT",
+      "ENAUSDT",
+      "WUSDT",
+      "JUVUSDT",
+      "ATMUSDT",
+      "ASRUSDT",
+      "TNSRUSDT",
+      "SAGAUSDT",
+      "TAOUSDT",
+      "ALPINEUSDT",
+      "CITYUSDT",
+      "ACMUSDT",
+      "QKCUSDT",
+      "REZUSDT",
+      "BBUSDT",
+      "NOTUSDT",
+      "IOUSDT",
+      "ZKUSDT",
+      "LISTAUSDT",
+      "ZROUSDT",
+      "GUSDT",
+      "BANANAUSDT",
+      "RENDERUSDT",
+      "DOGSUSDT",
+      "EURIUSDT",
+      "POLUSDT",
+      "TURBOUSDT",
+      "NEIROUSDT",
+      "1MBABYDOGEUSDT",
+      "CATIUSDT",
+      "HMSTRUSDT",
+      "EIGENUSDT",
+      "BNSOLUSDT",
+      "LUMIAUSDT",
+      "SCRUSDT",
+      "KAIAUSDT",
+      "CETUSUSDT",
+      "COWUSDT",
+      "PNUTUSDT",
+      "ACTUSDT",
+      "ORCAUSDT",
+      "ACXUSDT",
+      "MOVEUSDT",
+      "MEUSDT",
+      "VELODROMEUSDT",
+      "VANAUSDT",
+      "1000CATUSDT",
+      "PENGUUSDT",
+      "USUALUSDT",
+      "BIOUSDT",
+      "AIXBTUSDT",
+      "COOKIEUSDT",
+      "CGPTUSDT",
+      "SUSDT",
+      "SOLVUSDT",
+      "TRUMPUSDT",
+      "ANIMEUSDT",
+      "BERAUSDT",
+      "1000CHEEMSUSDT",
+      "TSTUSDT",
+      "LAYERUSDT",
+      "HEIUSDT",
+      "KAITOUSDT",
+      "SHELLUSDT",
+      "GPSUSDT",
+      "REDUSDT",
+      "EPICUSDT",
+      "BMTUSDT",
+      "FORMUSDT",
+      "NILUSDT",
+      "PARTIUSDT",
+      "TUTUSDT",
+      "MUBARAKUSDT",
+      "BANANAS31USDT",
+      "GUNUSDT",
+      "BROCCOLI714USDT",
+      "BABYUSDT",
+      "VIRTUALUSDT",
+      "BIGTIMEUSDT",
+      "ONDOUSDT",
+      "KERNELUSDT",
+      "WCTUSDT",
+      "HYPERUSDT",
+      "INITUSDT",
+      "SIGNUSDT",
+      "STOUSDT",
+      "KMNOUSDT",
+      "SYRUPUSDT",
+      "SXTUSDT",
+      "NXPCUSDT",
+      "AWEUSDT",
+      "HAEDALUSDT",
+      "USD1USDT",
+      "HUMAUSDT",
+      "AUSDT",
+      "SOPHUSDT",
+      "RESOLVUSDT",
+      "HOMEUSDT",
+      "SPKUSDT",
+      "NEWTUSDT",
+      "SAHARAUSDT",
+      "LAUSDT",
+      "ERAUSDT",
+      "CUSDT",
+      "TREEUSDT",
+      "TOWNSUSDT",
+      "PROVEUSDT",
+      "BFUSDUSDT",
+      "PLUMEUSDT",
+      "DOLOUSDT",
+      "MITOUSDT",
+      "WLFIUSDT",
+      "SOMIUSDT",
+      "OPENUSDT",
+      "USDEUSDT",
+      "LINEAUSDT",
+      "HOLOUSDT",
+      "PUMPUSDT",
+      "AVNTUSDT",
+      "ZKCUSDT",
+      "SKYUSDT",
+      "BARDUSDT",
+      "0GUSDT",
+      "HEMIUSDT",
+      "XPLUSDT",
+      "MIRAUSDT",
+      "FFUSDT",
+      "EDENUSDT",
+      "NOMUSDT",
+      "2ZUSDT",
+      "MORPHOUSDT",
+      "ASTERUSDT",
+      "WALUSDT",
+      "EULUSDT",
+      "ENSOUSDT",
+      "YBUSDT",
+      "ZBTUSDT",
+      "TURTLEUSDT",
+      "FUSDT",
+      "GIGGLEUSDT",
+      "KITEUSDT",
+      "MMTUSDT",
+      "SAPIENUSDT",
+      "ALLOUSDT",
+      "METUSDT",
+      "BANKUSDT",
+      "ATUSDT",
+      "BREVUSDT",
+      "ZKPUSDT",
+      "币安人生USDT",
+      "FRAXUSDT",
+      "UUSDT",
+      "FOGOUSDT",
+      "SENTUSDT",
+      "RLUSDUSDT",
+      "ZAMAUSDT",
+      "ESPUSDT",
+      "MANTRAUSDT",
+      "ROBOUSDT",
+      "OPNUSDT",
+      "NIGHTUSDT",
+      "CFGUSDT",
+      "KATUSDT",
+      "XAUTUSDT",
+      "USDSUSDT",
+      "CHIPUSDT",
+      "MEGAUSDT",
+      "AIGENSYNUSDT",
+      "GENIUSUSDT",
+      "OPGUSDT",
+      "REUSDT",
+      "TSLABUSDT",
+      "SPCXBUSDT",
+      "MUBUSDT",
+      "NVDABUSDT",
+      "CRCLBUSDT",
+      "SNDKBUSDT",
+      "EWYBUSDT",
+      "INTCBUSDT",
+      "MSTRBUSDT",
+      "AMDBUSDT",
+      "QQQBUSDT",
+      "PLTRBUSDT",
+      "MSFTBUSDT",
+      "METABUSDT",
+      "LITEBUSDT",
+      "GRAMUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "USDS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00017712",
+    "yearlyInterest": "0.0646488",
+    "borrowLimit": "250000",
+    "marginablePairs": [
+      "ETHUSDS",
+      "USDSUSDT",
+      "BTCUSDS"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "USDP",
+    "transferIn": true,
+    "borrowable": false,
+    "dailyInterest": "0.00124965",
+    "yearlyInterest": "0.45612227",
+    "borrowLimit": "0",
+    "marginablePairs": []
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DASH",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00070312",
+    "yearlyInterest": "0.25663881",
+    "borrowLimit": "310",
+    "marginablePairs": [
+      "DASHUSDT",
+      "DASHUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SAGA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00221831",
+    "yearlyInterest": "0.80968392",
+    "borrowLimit": "550000",
+    "marginablePairs": [
+      "SAGAUSDT",
+      "SAGAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ILV",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00107834",
+    "yearlyInterest": "0.39359538",
+    "borrowLimit": "880",
+    "marginablePairs": [
+      "ILVUSDT",
+      "ILVUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "NIGHT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00113805",
+    "yearlyInterest": "0.41538826",
+    "borrowLimit": "330000",
+    "marginablePairs": [
+      "NIGHTUSDC",
+      "NIGHTUSDT",
+      "NIGHTU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "EDU",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0020403",
+    "yearlyInterest": "0.74470976",
+    "borrowLimit": "180000",
+    "marginablePairs": [
+      "EDUUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "JOE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00118125",
+    "yearlyInterest": "0.43115626",
+    "borrowLimit": "51000",
+    "marginablePairs": [
+      "JOEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LSK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0018444",
+    "yearlyInterest": "0.67320781",
+    "borrowLimit": "27000",
+    "marginablePairs": [
+      "LSKUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LUMIA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00094997",
+    "yearlyInterest": "0.34673949",
+    "borrowLimit": "36000",
+    "marginablePairs": [
+      "LUMIAUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "USD1",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00030432",
+    "yearlyInterest": "0.1110768",
+    "borrowLimit": "1000000",
+    "marginablePairs": [
+      "USD1USDT",
+      "WLFIUSD1",
+      "USD1USDC",
+      "SOLUSD1",
+      "BNBUSD1",
+      "ETHUSD1",
+      "BTCUSD1",
+      "SUIUSD1",
+      "DOGEUSD1",
+      "XRPUSD1",
+      "ZECUSD1",
+      "ASTERUSD1",
+      "PEPEUSD1",
+      "LTCUSD1",
+      "USD1U",
+      "PAXGUSD1",
+      "OPNUSD1",
+      "NEARUSD1",
+      "TRUMPUSD1",
+      "币安人生USD1",
+      "CHIPUSD1",
+      "XAUTUSD1",
+      "XLMUSD1",
+      "XPLUSD1",
+      "REUSD1",
+      "GRAMUSD1"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DCR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00199338",
+    "yearlyInterest": "0.72758486",
+    "borrowLimit": "220",
+    "marginablePairs": [
+      "DCRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "WIF",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00125255",
+    "yearlyInterest": "0.4571797",
+    "borrowLimit": "57000",
+    "marginablePairs": [
+      "WIFUSDT",
+      "WIFUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "IMX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00088202",
+    "yearlyInterest": "0.3219388",
+    "borrowLimit": "54000",
+    "marginablePairs": [
+      "IMXUSDT",
+      "IMXUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "USDE",
+    "transferIn": true,
+    "borrowable": false,
+    "dailyInterest": "0",
+    "yearlyInterest": "0",
+    "borrowLimit": "0",
+    "marginablePairs": [
+      "USDEUSDT",
+      "USDEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "TREE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00260263",
+    "yearlyInterest": "0.94995973",
+    "borrowLimit": "110000",
+    "marginablePairs": [
+      "TREEUSDC",
+      "TREEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "USDC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00012587",
+    "yearlyInterest": "0.04594127",
+    "borrowLimit": "500000",
+    "marginablePairs": [
+      "BTCUSDC",
+      "USDCUSDT",
+      "ETHUSDC",
+      "LTCUSDC",
+      "XRPUSDC",
+      "BNBUSDC",
+      "SOLUSDC",
+      "INJUSDC",
+      "OPUSDC",
+      "DOTUSDC",
+      "ORDIUSDC",
+      "ARBUSDC",
+      "AVAXUSDC",
+      "ADAUSDC",
+      "DOGEUSDC",
+      "WLDUSDC",
+      "SUIUSDC",
+      "LINKUSDC",
+      "PEPEUSDC",
+      "SHIBUSDC",
+      "NEARUSDC",
+      "ALTUSDC",
+      "PENDLEUSDC",
+      "BCHUSDC",
+      "FILUSDC",
+      "NEOUSDC",
+      "WIFUSDC",
+      "TIAUSDC",
+      "BOMEUSDC",
+      "BONKUSDC",
+      "ENAUSDC",
+      "ETHFIUSDC",
+      "CRVUSDC",
+      "FETUSDC",
+      "FLOKIUSDC",
+      "NOTUSDC",
+      "ZROUSDC",
+      "ENSUSDC",
+      "ATOMUSDC",
+      "CFXUSDC",
+      "SAGAUSDC",
+      "ICPUSDC",
+      "BBUSDC",
+      "SEIUSDC",
+      "YGGUSDC",
+      "STRKUSDC",
+      "TRBUSDC",
+      "RUNEUSDC",
+      "ZKUSDC",
+      "UNIUSDC",
+      "GALAUSDC",
+      "ARUSDC",
+      "1000SATSUSDC",
+      "PEOPLEUSDC",
+      "RENDERUSDC",
+      "LDOUSDC",
+      "PIXELUSDC",
+      "MANTAUSDC",
+      "STXUSDC",
+      "JTOUSDC",
+      "IOUSDC",
+      "ONTUSDC",
+      "BLURUSDC",
+      "REZUSDC",
+      "APTUSDC",
+      "ALGOUSDC",
+      "TNSRUSDC",
+      "JUPUSDC",
+      "DOGSUSDC",
+      "RAREUSDC",
+      "AAVEUSDC",
+      "TRXUSDC",
+      "NEIROUSDC",
+      "ACTUSDC",
+      "CATIUSDC",
+      "TAOUSDC",
+      "RAYUSDC",
+      "HBARUSDC",
+      "FDUSDUSDC",
+      "MEMEUSDC",
+      "EIGENUSDC",
+      "APEUSDC",
+      "TURBOUSDC",
+      "HMSTRUSDC",
+      "DYDXUSDC",
+      "CETUSUSDC",
+      "1MBABYDOGEUSDC",
+      "XLMUSDC",
+      "SANDUSDC",
+      "KAIAUSDC",
+      "XTZUSDC",
+      "WUSDC",
+      "RSRUSDC",
+      "PYTHUSDC",
+      "CHZUSDC",
+      "ORCAUSDC",
+      "TLMUSDC",
+      "HIVEUSDC",
+      "PENGUUSDC",
+      "1000CATUSDC",
+      "MOVEUSDC",
+      "BIOUSDC",
+      "USUALUSDC",
+      "PHAUSDC",
+      "STEEMUSDC",
+      "COOKIEUSDC",
+      "CGPTUSDC",
+      "AIXBTUSDC",
+      "SUSDC",
+      "TRUMPUSDC",
+      "ANIMEUSDC",
+      "BERAUSDC",
+      "TSTUSDC",
+      "LAYERUSDC",
+      "CAKEUSDC",
+      "KAITOUSDC",
+      "SHELLUSDC",
+      "GPSUSDC",
+      "REDUSDC",
+      "OSMOUSDC",
+      "EGLDUSDC",
+      "VELODROMEUSDC",
+      "SYNUSDC",
+      "EURIUSDC",
+      "BMTUSDC",
+      "VANRYUSDC",
+      "IOTAUSDC",
+      "EPICUSDC",
+      "NILUSDC",
+      "FORMUSDC",
+      "PARTIUSDC",
+      "MUBARAKUSDC",
+      "BANANAS31USDC",
+      "TUTUSDC",
+      "VANAUSDC",
+      "BEAMXUSDC",
+      "THETAUSDC",
+      "QNTUSDC",
+      "BANANAUSDC",
+      "GUNUSDC",
+      "AUCTIONUSDC",
+      "BABYUSDC",
+      "VIRTUALUSDC",
+      "ONDOUSDC",
+      "KERNELUSDC",
+      "WCTUSDC",
+      "HYPERUSDC",
+      "INITUSDC",
+      "SIGNUSDC",
+      "VETUSDC",
+      "API3USDC",
+      "PAXGUSDC",
+      "ACHUSDC",
+      "GMTUSDC",
+      "ZENUSDC",
+      "STOUSDC",
+      "KMNOUSDC",
+      "SYRUPUSDC",
+      "SXTUSDC",
+      "ENJUSDC",
+      "NXPCUSDC",
+      "HAEDALUSDC",
+      "HUMAUSDC",
+      "AUSDC",
+      "SOPHUSDC",
+      "RESOLVUSDC",
+      "HOMEUSDC",
+      "SPKUSDC",
+      "SUSHIUSDC",
+      "FLUXUSDC",
+      "MASKUSDC",
+      "NEWTUSDC",
+      "SAHARAUSDC",
+      "LPTUSDC",
+      "ERAUSDC",
+      "COMPUSDC",
+      "AXSUSDC",
+      "CUSDC",
+      "ROSEUSDC",
+      "GRTUSDC",
+      "ETCUSDC",
+      "TREEUSDC",
+      "CVXUSDC",
+      "LISTAUSDC",
+      "TOWNSUSDC",
+      "PROVEUSDC",
+      "MAGICUSDC",
+      "ILVUSDC",
+      "PLUMEUSDC",
+      "CYBERUSDC",
+      "DOLOUSDC",
+      "MITOUSDC",
+      "UMAUSDC",
+      "SSVUSDC",
+      "WLFIUSDC",
+      "SOMIUSDC",
+      "USDEUSDC",
+      "LINEAUSDC",
+      "PUMPUSDC",
+      "AVNTUSDC",
+      "ZKCUSDC",
+      "SKYUSDC",
+      "BARDUSDC",
+      "0GUSDC",
+      "HEMIUSDC",
+      "XPLUSDC",
+      "MIRAUSDC",
+      "TWTUSDC",
+      "IMXUSDC",
+      "FFUSDC",
+      "EDENUSDC",
+      "NOMUSDC",
+      "2ZUSDC",
+      "MORPHOUSDC",
+      "SNXUSDC",
+      "ASTERUSDC",
+      "WALUSDC",
+      "EULUSDC",
+      "ENSOUSDC",
+      "YBUSDC",
+      "ZBTUSDC",
+      "TURTLEUSDC",
+      "GIGGLEUSDC",
+      "KITEUSDC",
+      "MMTUSDC",
+      "ALLOUSDC",
+      "BANKUSDC",
+      "SOLVUSDC",
+      "MINAUSDC",
+      "ZECUSDC",
+      "DASHUSDC",
+      "USD1USDC",
+      "1INCHUSDC",
+      "ATUSDC",
+      "LUNCUSDC",
+      "LUNAUSDC",
+      "BREVUSDC",
+      "ZKPUSDC",
+      "币安人生USDC",
+      "UUSDC",
+      "FOGOUSDC",
+      "SENTUSDC",
+      "ZAMAUSDC",
+      "ESPUSDC",
+      "MANTRAUSDC",
+      "ROBOUSDC",
+      "OPNUSDC",
+      "NIGHTUSDC",
+      "CFGUSDC",
+      "KATUSDC",
+      "XAUTUSDC",
+      "CHIPUSDC",
+      "MEGAUSDC",
+      "AIGENSYNUSDC",
+      "GENIUSUSDC",
+      "OPGUSDC",
+      "REUSDC",
+      "GRAMUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LTC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00008065",
+    "yearlyInterest": "0.02943629",
+    "borrowLimit": "5800",
+    "marginablePairs": [
+      "LTCBTC",
+      "LTCUSDT",
+      "LTCUSDC",
+      "LTCUSD1",
+      "LTCU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "METIS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00103982",
+    "yearlyInterest": "0.37953336",
+    "borrowLimit": "1400",
+    "marginablePairs": [
+      "METISUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "WIN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00008701",
+    "yearlyInterest": "0.03175801",
+    "borrowLimit": "70000000",
+    "marginablePairs": [
+      "WINUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SENT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00330677",
+    "yearlyInterest": "1.2069703",
+    "borrowLimit": "770000",
+    "marginablePairs": [
+      "SENTUSDT",
+      "SENTUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "INJ",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00028473",
+    "yearlyInterest": "0.10392533",
+    "borrowLimit": "2100",
+    "marginablePairs": [
+      "INJUSDT",
+      "INJUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "DYDX",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00016844",
+    "yearlyInterest": "0.06148233",
+    "borrowLimit": "65000",
+    "marginablePairs": [
+      "DYDXUSDT",
+      "DYDXUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "KERNEL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0030819",
+    "yearlyInterest": "1.12489262",
+    "borrowLimit": "61000",
+    "marginablePairs": [
+      "KERNELUSDC",
+      "KERNELUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "1000SATS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0003295",
+    "yearlyInterest": "0.12026763",
+    "borrowLimit": "520000000",
+    "marginablePairs": [
+      "1000SATSUSDT",
+      "1000SATSUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "XLM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00014754",
+    "yearlyInterest": "0.05385167",
+    "borrowLimit": "280000",
+    "marginablePairs": [
+      "XLMUSDT",
+      "XLMUSDC",
+      "XLMU",
+      "XLMUSD1"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "LINK",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0000155",
+    "yearlyInterest": "0.00565771",
+    "borrowLimit": "34000",
+    "marginablePairs": [
+      "LINKBTC",
+      "LINKUSDT",
+      "LINKUSDC",
+      "LINKU"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "QTUM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00095162",
+    "yearlyInterest": "0.34734008",
+    "borrowLimit": "2900",
+    "marginablePairs": [
+      "QTUMUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "CYBER",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0016452",
+    "yearlyInterest": "0.60049963",
+    "borrowLimit": "13000",
+    "marginablePairs": [
+      "CYBERUSDT",
+      "CYBERUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "SUPER",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00220343",
+    "yearlyInterest": "0.80425373",
+    "borrowLimit": "69000",
+    "marginablePairs": [
+      "SUPERUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "EIGEN",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00056586",
+    "yearlyInterest": "0.20653817",
+    "borrowLimit": "42000",
+    "marginablePairs": [
+      "EIGENUSDT",
+      "EIGENUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "KSM",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00118715",
+    "yearlyInterest": "0.43331097",
+    "borrowLimit": "1000",
+    "marginablePairs": [
+      "KSMUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "FIL",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00008293",
+    "yearlyInterest": "0.03026878",
+    "borrowLimit": "69000",
+    "marginablePairs": [
+      "FILUSDT",
+      "FILUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "ANIME",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00259276",
+    "yearlyInterest": "0.94635748",
+    "borrowLimit": "1100000",
+    "marginablePairs": [
+      "ANIMEUSDC",
+      "ANIMEUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "GALA",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00012401",
+    "yearlyInterest": "0.04526306",
+    "borrowLimit": "4400000",
+    "marginablePairs": [
+      "GALAUSDT",
+      "GALAUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "VIC",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.001677",
+    "yearlyInterest": "0.61210508",
+    "borrowLimit": "87000",
+    "marginablePairs": [
+      "VICUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "RAD",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00168428",
+    "yearlyInterest": "0.61476059",
+    "borrowLimit": "17000",
+    "marginablePairs": [
+      "RADUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MOVE",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00182355",
+    "yearlyInterest": "0.66559496",
+    "borrowLimit": "590000",
+    "marginablePairs": [
+      "MOVEUSDT",
+      "MOVEUSDC"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "BAT",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.0011894",
+    "yearlyInterest": "0.43413147",
+    "borrowLimit": "75000",
+    "marginablePairs": [
+      "BATUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "1000CHEEMS",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00128082",
+    "yearlyInterest": "0.46750079",
+    "borrowLimit": "15000000",
+    "marginablePairs": [
+      "1000CHEEMSUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "MOVR",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00254022",
+    "yearlyInterest": "0.92718147",
+    "borrowLimit": "3000",
+    "marginablePairs": [
+      "MOVRUSDT"
+    ]
+  },
+  {
+    "vipLevel": 0,
+    "coin": "COTI",
+    "transferIn": true,
+    "borrowable": true,
+    "dailyInterest": "0.00064414",
+    "yearlyInterest": "0.23511117",
+    "borrowLimit": "310000",
+    "marginablePairs": [
+      "COTIUSDT"
+    ]
+  }
+]

@@ -1,0 +1,122 @@
+[
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782604800000,
+    "fundingRate": "0.00000000",
+    "markPrice": "557.44000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782633600013,
+    "fundingRate": "0.00000000",
+    "markPrice": "556.70000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782662400000,
+    "fundingRate": "0.00000000",
+    "markPrice": "554.76891167"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782691200006,
+    "fundingRate": "0.00000000",
+    "markPrice": "551.43000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782720000013,
+    "fundingRate": "0.00000652",
+    "markPrice": "553.88000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782748800004,
+    "fundingRate": "0.00001584",
+    "markPrice": "552.23000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782777600000,
+    "fundingRate": "0.00004028",
+    "markPrice": "559.83000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782806400000,
+    "fundingRate": "0.00000000",
+    "markPrice": "552.60641553"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782835200005,
+    "fundingRate": "0.00000000",
+    "markPrice": "545.21000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782864000000,
+    "fundingRate": "0.00008374",
+    "markPrice": "546.84000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782892800000,
+    "fundingRate": "0.00001081",
+    "markPrice": "547.13983877"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782921600000,
+    "fundingRate": "0.00000000",
+    "markPrice": "554.84000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782950400000,
+    "fundingRate": "0.00005254",
+    "markPrice": "550.79339107"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1782979200000,
+    "fundingRate": "0.00004503",
+    "markPrice": "549.68002802"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1783008000000,
+    "fundingRate": "0.00010499",
+    "markPrice": "562.81736515"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1783036800000,
+    "fundingRate": "0.00004190",
+    "markPrice": "559.18000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1783065600007,
+    "fundingRate": "0.00005653",
+    "markPrice": "562.05954983"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1783094400000,
+    "fundingRate": "0.00012910",
+    "markPrice": "566.15000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1783123200000,
+    "fundingRate": "0.00019594",
+    "markPrice": "574.23000000"
+  },
+  {
+    "symbol": "BNBUSDT",
+    "fundingTime": 1783152000000,
+    "fundingRate": "0.00012176",
+    "markPrice": "570.06055682"
+  }
+]

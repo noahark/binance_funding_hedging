@@ -1,0 +1,122 @@
+[
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782604800000,
+    "fundingRate": "-0.00000075",
+    "markPrice": "0.07445816"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782633600013,
+    "fundingRate": "-0.00003176",
+    "markPrice": "0.07375453"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782662400000,
+    "fundingRate": "-0.00002157",
+    "markPrice": "0.07355000"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782691200006,
+    "fundingRate": "-0.00002792",
+    "markPrice": "0.07316645"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782720000013,
+    "fundingRate": "0.00002851",
+    "markPrice": "0.07276000"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782748800004,
+    "fundingRate": "-0.00000947",
+    "markPrice": "0.07279104"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782777600000,
+    "fundingRate": "0.00001590",
+    "markPrice": "0.07339128"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782806400000,
+    "fundingRate": "-0.00000288",
+    "markPrice": "0.07236185"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782835200005,
+    "fundingRate": "-0.00000634",
+    "markPrice": "0.07069044"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782864000000,
+    "fundingRate": "0.00008955",
+    "markPrice": "0.07204091"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782892800000,
+    "fundingRate": "0.00004431",
+    "markPrice": "0.07146192"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782921600000,
+    "fundingRate": "0.00006791",
+    "markPrice": "0.07334364"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782950400000,
+    "fundingRate": "0.00000027",
+    "markPrice": "0.07218889"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1782979200000,
+    "fundingRate": "0.00002435",
+    "markPrice": "0.07250568"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1783008000000,
+    "fundingRate": "0.00010000",
+    "markPrice": "0.07449000"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1783036800000,
+    "fundingRate": "0.00004714",
+    "markPrice": "0.07415000"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1783065600007,
+    "fundingRate": "0.00010000",
+    "markPrice": "0.07527000"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1783094400000,
+    "fundingRate": "0.00010000",
+    "markPrice": "0.07631874"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1783123200000,
+    "fundingRate": "0.00010000",
+    "markPrice": "0.07751413"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "fundingTime": 1783152000000,
+    "fundingRate": "0.00010000",
+    "markPrice": "0.07691000"
+  }
+]
