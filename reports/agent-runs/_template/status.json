@@ -16,6 +16,7 @@
     "r10_dispatch_tail_required": false,
     "r4_diff_reconciliation_required": false
   },
+  "embedded_reviews": {},
   "designer": null,
   "direction_synthesizer": null,
   "breakdown_author": null,
@@ -40,12 +41,6 @@
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
-      },
-      "embedded_reviews": {
-        "required": false,
-        "rounds": [],
-        "passed": null,
-        "escalation_reason": null
       }
     }
   ],

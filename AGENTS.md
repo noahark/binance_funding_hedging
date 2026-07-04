@@ -384,9 +384,10 @@ Key reminders:
 - Review-1 uses Kimi and Claude-GLM as a cross-review pool. Grok development,
   when explicitly enabled, uses `grok-composer-2.5-fast`; Grok is not a default
   review gate.
-- Kimi development uses the local Kimi Code adapter default, normally
-  `kimi-for-coding`/`kimi` with no pinned `-m` so it follows the configured
-  latest model.
+- Kimi one-shot execution uses the explicit latest coding alias:
+  `kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"`.
+- Current Kimi CLI behavior rejects combining `--plan` or `-y` with `-p`; do
+  not document or dispatch those combinations as one-shot prompt commands.
 - `claude-glm` is a local shell alias/function. Invoke through an adapter and do
   not record its expanded environment.
 - YAML files describe intent and routing. Command details belong in adapters or

@@ -412,12 +412,46 @@ stages:
       - "The implementing terminal only executes a prewritten adapter command; it must not rewrite the review prompt or select different artifacts."
       - "The reviewer session must be fresh and read-only/plan mode."
       - "Local embedded review/fix loops are capped at two rounds and do not count as stage rework_count."
-      - "PASS may proceed to bookkeeper serial landing; BLOCKER escalates to the bookkeeper instead of inventing a contract change."
+      - "A scope-contained BLOCKER routes to a local implementation fix, then embedded review round 2."
+      - "Round 2 is the cap. A second BLOCKER, scope/contract dispute, missing evidence, or unsafe fix requirement escalates to bookkeeper-decision."
+      - "Model unavailable, adapter missing, timeout, or invalid pre-review output routes to bookkeeper-decision, not directly to a terminal stop."
       - "The bookkeeper must re-generate and reconcile each task diff before committing, per R4."
     transitions:
       PASS: test
-      BLOCKER: human_escalation_required
-      model_unavailable: human_escalation_required
+      BLOCKER:
+        if:
+          all:
+            - "round < 2"
+            - "finding_within_task_scope"
+            - "no_contract_or_schema_change_required"
+        then: implementation
+        else: bookkeeper-decision
+      model_unavailable: bookkeeper-decision
+
+  - id: bookkeeper-decision
+    run_when:
+      - "embedded-cross-review-checkpoint cannot continue automatically"
+      - "a model adapter is unavailable during an embedded checkpoint"
+      - "a checkpoint BLOCKER exceeds the local two-round cap or requires scope/contract judgment"
+    actor: bookkeeper
+    skill: task_planner
+    mode: read_write_docs
+    reads:
+      - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.raw-output.md"
+      - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.diff.patch"
+      - "reports/agent-runs/{{stage_id}}/20-implementation*.md"
+      - "reports/agent-runs/{{stage_id}}/status.json"
+    writes:
+      - "reports/agent-runs/{{stage_id}}/70-handoff.md"
+      - "reports/agent-runs/{{stage_id}}/status.json"
+    acceptance:
+      - "Bookkeeper records whether to run a scope-contained local fix, reassign the checkpoint reviewer, revise the task packet, or escalate to a terminal human gate."
+      - "Bookkeeper does not convert embedded pre-review output into a formal review-1 verdict."
+    transitions:
+      scope_fix_allowed: implementation
+      reviewer_reassigned: embedded-cross-review-checkpoint
+      task_packet_revision_required: task-breakdown
+      human_gate: human_escalation_required
 
   - id: test
     actor: bookkeeper
@@ -445,7 +479,7 @@ stages:
     skill: code_reviewer
     mode: read_only
     adapter_requirements:
-      kimi: "Use Kimi in --plan/read-only mode with a schema-bound custom prompt. Prefer the local configured Kimi Code default model unless the stage pins kimi-2.7."
+      kimi: "Use Kimi with --model kimi-code/kimi-for-coding for one-shot prompt execution. For read-only review, enforce read-only behavior in the prompt and wrapper; current Kimi CLI rejects combining --plan or -y with -p."
       claude_glm: "Use a fresh read-only Claude-GLM session with a schema-bound custom prompt. Do not reuse the implementation/bookkeeper transcript as review evidence."
       grok: "Grok is not a default review-1 gate. Use only when the user explicitly enables it for the stage."
     requires_raw_artifacts:

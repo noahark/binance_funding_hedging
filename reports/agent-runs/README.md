@@ -148,6 +148,10 @@ Terminal stop reasons are limited to:
   `status.json.tasks` with owner, reviewer, base_sha, head_sha,
   diff_fingerprint, review verdict, and test evidence path. Task-specific
   cross-review files should use `30-review-1-<task-id>.md`.
+- Parallel-mode embedded checkpoint history belongs in the top-level
+  `status.json.embedded_reviews` object, using the rich structure defined in
+  `docs/parallel-development-mode.md` section 5. Do not duplicate a second
+  embedded review schema under `tasks[]`.
 - A `REWORK` verdict must include `fix_start_prompt`, a ready-to-send prompt
   for the fix implementer that preserves raw artifact paths, findings, required
   fixes, file boundaries, and verification commands.
