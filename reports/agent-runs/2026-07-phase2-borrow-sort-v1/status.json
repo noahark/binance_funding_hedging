@@ -1,38 +1,105 @@
 {
   "stage_id": "2026-07-phase2-borrow-sort-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery + docs/parallel-development-mode.md (ADOPTED-TRIAL, first trial)",
   "prerequisite": "Phase 2 direction baseline FROZEN (docs/phase2-direction-draft.md @ 11dec26, Codex ACCEPT-FREEZE); user approved stage design 2026-07-04",
   "complexity": "MILESTONE",
   "direction_panel": "equivalence ruling by Codex synthesis (3 independent reviews + Gemini research + Fable5 revision); applies to this milestone only",
-  "designer": {"provider": "anthropic", "model": "claude-fable-5", "role": "designer/breakdown/prompt author; review-2 default recusal"},
-  "breakdown_author": {"provider": "anthropic", "model": "claude-fable-5"},
-  "direction_synthesis": {"provider": "codex", "model": "gpt5.5", "disclosure": "review-2 reviewer_prior_involvement=direction_synthesis"},
+  "designer": {
+    "provider": "anthropic",
+    "model": "claude-fable-5",
+    "role": "designer/breakdown/prompt author; review-2 default recusal"
+  },
+  "breakdown_author": {
+    "provider": "anthropic",
+    "model": "claude-fable-5"
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "model": "gpt5.5",
+    "disclosure": "review-2 reviewer_prior_involvement=direction_synthesis"
+  },
   "bookkeeper": {
     "session": "claude_glm controller (user-designated single local execution session)",
     "dual_hat_disclosure": "bookkeeper and Task A implementer share the claude_glm model; same mitigation set as impl-v1/ui-cn-v1 evidence_policy"
   },
   "implementers": {
-    "task_a": {"provider": "zhipu_glm", "model": "glm-5.2", "scope": "backend private channel + borrow_validation + fundingInfo sort"},
-    "task_b": {"provider": "moonshot_kimi", "model": "kimi-2.7", "scope": "frontend column split + daily-rate visibility, zero sort logic"}
+    "task_a": {
+      "provider": "zhipu_glm",
+      "model": "glm-5.2",
+      "scope": "backend private channel + borrow_validation + fundingInfo sort"
+    },
+    "task_b": {
+      "provider": "moonshot_kimi",
+      "model": "kimi-2.7",
+      "scope": "frontend column split + daily-rate visibility, zero sort logic"
+    }
   },
-  "base_sha": null,
-  "head_sha": null,
-  "commit_state": "H_intake committed; 5-endpoint discovery captured (all HTTP 200, E5 PASSED); base anchors at this commit; base_sha bound on first fingerprint bind (a commit cannot self-reference its sha; follows bstock-alias-v1 convention)",
-  "diff_fingerprint": null,
+  "base_sha": "4d47ad2d3f2068e86b634b5e39d5063dc4ed526f",
+  "head_sha": "cc25148aa7924e7bb89364f4bba7c8fe978e91f9",
+  "commit_state": "H_A (d8a1164, backend) + H_B (cc25148, frontend) committed serially; diff_fingerprint bound (base=4d47ad2..head=cc25148); embedded pre-review round 1 both PASS (checkpoint per R5, not review gate); rework_count=0",
+  "diff_fingerprint": "cc25148aa7924e7bb89364f4bba7c8fe978e91f9:9dc905d56fd003b1b5ebfa31cdebedd363b49f57ddd488b5bef85ac73f3fcb3a",
   "diff_fingerprint_formula": "head_sha + \":\" + sha256(git diff --binary <base_sha>..<head_sha> -- . \":(exclude)reports/agent-runs/2026-07-phase2-borrow-sort-v1/status.json\")",
   "tasks": {
-    "A": {"dispatch": "task-a-glm-backend.prompt.md", "pre_review_prompt": "pre-review-task-a-by-kimi.prompt.md"},
-    "B": {"dispatch": "task-b-kimi-frontend.prompt.md", "pre_review_prompt": "pre-review-task-b-by-glm.prompt.md"}
+    "A": {
+      "dispatch": "task-a-glm-backend.prompt.md",
+      "pre_review_prompt": "pre-review-task-a-by-kimi.prompt.md"
+    },
+    "B": {
+      "dispatch": "task-b-kimi-frontend.prompt.md",
+      "pre_review_prompt": "pre-review-task-b-by-glm.prompt.md"
+    }
   },
   "embedded_reviews": {
-    "A": {"task_id": "A", "scope": "backend", "implementer": "claude_glm", "reviewer": "kimi (fresh read-only session)", "prompt_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/pre-review-task-a-by-kimi.prompt.md", "max_rounds": 2, "round_artifacts": []},
-    "B": {"task_id": "B", "scope": "frontend", "implementer": "kimi", "reviewer": "claude_glm (fresh read-only session)", "prompt_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/pre-review-task-b-by-glm.prompt.md", "max_rounds": 2, "round_artifacts": []},
+    "A": {
+      "task_id": "A",
+      "scope": "backend",
+      "implementer": "claude_glm",
+      "reviewer": "kimi (fresh read-only session)",
+      "prompt_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/pre-review-task-a-by-kimi.prompt.md",
+      "max_rounds": 2,
+      "round_artifacts": [
+        {
+          "round": 1,
+          "dispatch_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/pre-review-task-a-by-kimi.prompt.md (RECEIPT 回填: kimi --model kimi-code/kimi-for-coding -p fresh read-only, 2026-07-04T22:50-22:53+0800)",
+          "worktree_diff_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-a-round1.diff.patch",
+          "raw_output_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-a-round1.raw-output.md",
+          "fix_report_path": null,
+          "outcome": "PASS_no_blocker"
+        }
+      ]
+    },
+    "B": {
+      "task_id": "B",
+      "scope": "frontend",
+      "implementer": "kimi",
+      "reviewer": "claude_glm (fresh read-only session)",
+      "prompt_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/pre-review-task-b-by-glm.prompt.md",
+      "max_rounds": 2,
+      "round_artifacts": [
+        {
+          "round": 1,
+          "dispatch_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/pre-review-task-b-by-glm.prompt.md (RECEIPT 回填: claude-glm --model glm-5.2 --permission-mode plan -p fresh read-only, 2026-07-04T22:35-22:51+0800)",
+          "worktree_diff_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.diff.patch",
+          "raw_output_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.raw-output.md",
+          "fix_report_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.fix-note.md",
+          "outcome": "PASS_no_blocker"
+        }
+      ]
+    },
     "note": "embedded pre-reviews are uncommitted checkpoints, NOT review gates; do not increment rework_count; each round archives reviewer-visible diff.patch (not a fingerprint) + dispatch + raw output + fix note"
   },
   "model_routing": {
-    "review_1": {"task_a": "kimi (fresh session, committed fingerprint)", "task_b": "claude_glm (fresh read-only session, committed fingerprint)"},
-    "review_2": {"provider": "codex", "model": "gpt5.5", "reviewer_prior_involvement": "direction_synthesis", "note": "implementers hard-banned; Fable5 recused (designer/breakdown)"}
+    "review_1": {
+      "task_a": "kimi (fresh session, committed fingerprint)",
+      "task_b": "claude_glm (fresh read-only session, committed fingerprint)"
+    },
+    "review_2": {
+      "provider": "codex",
+      "model": "gpt5.5",
+      "reviewer_prior_involvement": "direction_synthesis",
+      "note": "implementers hard-banned; Fable5 recused (designer/breakdown)"
+    }
   },
   "hard_constraints": [
     "Signed requests: HMAC-SHA256 GET only, whitelist (method, exact-path) pairs listed in endpoint_whitelist below; deny-by-default enforced in private_client before signature creation.",
@@ -48,10 +115,22 @@
     "Implementer terminals never commit and never touch status.json (bookkeeper single-writer)."
   ],
   "endpoint_whitelist": [
-    ["GET", "/sapi/v1/margin/allPairs"],
-    ["GET", "/sapi/v1/margin/allAssets"],
-    ["GET", "/sapi/v1/margin/crossMarginData"],
-    ["GET", "/papi/v1/margin/maxBorrowable"]
+    [
+      "GET",
+      "/sapi/v1/margin/allPairs"
+    ],
+    [
+      "GET",
+      "/sapi/v1/margin/allAssets"
+    ],
+    [
+      "GET",
+      "/sapi/v1/margin/crossMarginData"
+    ],
+    [
+      "GET",
+      "/papi/v1/margin/maxBorrowable"
+    ]
   ],
   "evidence_policy": {
     "controller_and_backend_implementer_same_model": true,
@@ -66,7 +145,11 @@
   },
   "frozen_inputs": {
     "direction_baseline": "docs/phase2-direction-draft.md @ 11dec26 (FROZEN)",
-    "coupling_surface": ["funding_interval_hours", "daily_funding_rate", "rows ordering (abs daily desc, nulls last, symbol asc)"],
+    "coupling_surface": [
+      "funding_interval_hours",
+      "daily_funding_rate",
+      "rows ordering (abs daily desc, nulls last, symbol asc)"
+    ],
     "direction_evidence": "reports/api-samples/phase2-direction-v1/20260704T2030Z/ (sha256 33f61539...)"
   },
   "tests": {
@@ -81,24 +164,46 @@
     "Any coupling-surface change request during implementation (mode R3)",
     "Any R1-R9 parallel-mode red-line breach -> record breach, fall back to serial"
   ],
-  "next_action": "controller (bookkeeper) executes controller-start-prompt.md: H_intake commit (packet + discovery evidence) -> parallel dispatch A/B",
+  "next_action": "Phase 4 正式 review-1 (committed fingerprint): 用 review-prompts-templates.md 填 base_sha/head_sha/diff_fingerprint 后派 A->fresh Kimi、B->fresh Claude-GLM 只读会话独立重算指纹出 schema 合规 verdict; review-2 -> Codex (direction_synthesis disclosure)",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T13:34:06Z",
+  "updated_at": "2026-07-04T15:20:49Z",
   "h_intake": {
     "discovery_evidence_dir": "reports/api-samples/2026-07-phase2-borrow-sort-v1/20260704T133406Z",
     "discovery_script": "scripts/discovery-capture-phase2.py",
     "captured_at_utc": "2026-07-04T13:34:06Z",
     "endpoints_captured": [
-      ["GET", "/fapi/v1/fundingInfo"],
-      ["GET", "/sapi/v1/margin/allPairs"],
-      ["GET", "/sapi/v1/margin/allAssets"],
-      ["GET", "/sapi/v1/margin/crossMarginData"],
-      ["GET", "/papi/v1/margin/maxBorrowable"]
+      [
+        "GET",
+        "/fapi/v1/fundingInfo"
+      ],
+      [
+        "GET",
+        "/sapi/v1/margin/allPairs"
+      ],
+      [
+        "GET",
+        "/sapi/v1/margin/allAssets"
+      ],
+      [
+        "GET",
+        "/sapi/v1/margin/crossMarginData"
+      ],
+      [
+        "GET",
+        "/papi/v1/margin/maxBorrowable"
+      ]
     ],
     "total_http_calls": 6,
     "e5_gate": "PASSED",
-    "max_borrowable_samples": ["BTC", "ETH"],
-    "funding_interval_distribution": {"8h": 269, "4h": 440, "1h": 2},
+    "max_borrowable_samples": [
+      "BTC",
+      "ETH"
+    ],
+    "funding_interval_distribution": {
+      "8h": 269,
+      "4h": 440,
+      "1h": 2
+    },
     "note": "amounts in account-level maxBorrowable responses redacted to <AMOUNT> at capture; URL query strings stripped; no key/secret/signature archived"
   }
 }
