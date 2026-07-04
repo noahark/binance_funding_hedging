@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-ui-cn-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
@@ -169,7 +169,7 @@
         "workflows/**",
         "scripts/**"
       ],
-      "status": "accepted_by_review_1_round2",
+      "status": "accepted_by_review_2_round2",
       "commit": "ee9296c705d3590adb01bf2fff433e32e834523e",
       "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
       "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e",
@@ -323,6 +323,17 @@
         ],
         "red_lines_honored": "formatFundingRate/formatBeijing* untouched; no new deps; no direct Binance; same-origin /api/public-market/snapshot only; no btn-offline/loadFixture reintroduced; backend/schemas/docs/api-samples/fixture untouched; startAutoRefresh() first-create logic unchanged; no visibility/pause/backoff added",
         "self_check": "20/20 PASS (round-1 19 + round-2 timer-reschedule); backend pytest 54 passed (unchanged)"
+      },
+      "review_2_round2": {
+        "verdict": "ACCEPT",
+        "reviewer": {
+          "provider": "codex",
+          "model": "gpt5.5",
+          "effort": "xhigh"
+        },
+        "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81",
+        "finding_resolved": "round-1 P2 (manual-refresh timer not rescheduled) RESOLVED by H_fix2",
+        "output": "50-review-2-round2.md"
       }
     },
     "C": {
@@ -434,10 +445,10 @@
     "required": false,
     "reason": null
   },
-  "terminal_reason": "REWORK ROUND 2 REVIEW PHASE: review-1 round-2 ACCEPT; awaiting review-2 round-2. Not terminal.",
-  "next_action": "Rework round 2 (2/3): review-1 round-2 (fresh GLM) = ACCEPT (findings empty, f4073da5 matched). status=review_2. Dispatch review-2 round-2 (Codex gpt-5.5 xhigh, direction_synthesis disclosure) rebind to ee9296c:f4637f8a — verify the round-2 timer-sync fix resolves the round-1 P2. Then pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "terminal_reason": "REWORK ROUND 2 COMPLETE: both review gates ACCEPT on ee9296c; awaiting pre-accept gate, then user final acceptance. Controller terminal state = stage_accepted_waiting_user (can_accept_final=false).",
+  "next_action": "Rework round 2 COMPLETE: review-1 round-2 (fresh GLM) ACCEPT + review-2 round-2 (Codex) ACCEPT, both bound to ee9296c:f4637f8a. The round-1 P2 (manual-refresh timer not rescheduled) is resolved. status=stage_accepted_waiting_user. Controller runs validate-stage --phase pre-accept (final gate) and STOPS here. Controller does NOT declare final acceptance (can_accept_final=false); final acceptance is the user's gate. Round history: round-0 ACCEPT (9b0e62c), round-1 review-2 REWORK (7592b2c), round-2 ACCEPT (ee9296c).",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T09:26:00Z",
+  "updated_at": "2026-07-04T09:34:00Z",
   "review_1": {
     "round": 2,
     "verdict": "ACCEPT",
@@ -497,9 +508,9 @@
   },
   "review_2": {
     "round": 2,
-    "verdict": "pending",
-    "json_schema_valid": null,
-    "status": "pending_review_2_round2",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "status": "accepted",
     "role": "final_reviewer",
     "model": "gpt5.5",
     "provider": "codex",
@@ -511,8 +522,22 @@
       "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
       "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e"
     },
-    "note": "Round-2 review-2 pending (Codex rebind). Will recompute stage fingerprint ee9296c:f4637f8a and verify the round-2 timer-sync fix resolves the round-1 P2 (manual-refresh timer reschedule). Round-1 REWORK preserved under review_2_round1; round-0 ACCEPT under review_2_round0.",
-    "next_action": "dispatch_review_2_round2"
+    "note": "Codex gpt-5.5 final-gate review-2 round-2 = ACCEPT (findings empty). Independently recomputed stage fingerprint (ee9296c:f4637f8a, MATCH) + task fingerprints (A 8afc3dcf unchanged, B round-2 fix f4073da5, cumulative 1ccb1c0d). The round-1 P2 (manual-refresh timer not rescheduled) is RESOLVED: loadApi finally now clearInterval + recreate the 60000ms timer anchored to nextRefreshAt, 1s countdown independent. Fresh checks: self-check 20/20 (runtime-mock timer-reschedule); pytest 54 (capture-disabled via -s, read-only sandbox); offline schema VALID (647 rows, 3 warnings). Verdict jsonschema self-validated by Codex. All hard constraints, red lines, decimal discipline hold. -> pre-accept -> stage_accepted_waiting_user.",
+    "next_action": "stage_accepted_waiting_user",
+    "output": "50-review-2-round2.md",
+    "raw_output": "review-2-codex-round2.raw-output.txt",
+    "dispatch_prompt": "review-2-codex-round2.prompt.md",
+    "reviewed_at": "2026-07-04T09:33:07Z",
+    "findings": [],
+    "required_fixes": [],
+    "residual_risks": [
+      "Single mid-period lastFundingRate public snapshot evidence (drift); carry-forward, unchanged by this timer fix.",
+      "Frontend self-check uses the frozen fixture; live endpoint serves the full market; rendering row-count-agnostic; offline schema validation covered 647 rows.",
+      "Spec prose/table parenthesis inconsistency (spec-side); unchanged by this fix.",
+      "Wide stage range includes independent process/bookkeeping content (docs/parallel-development-mode.md, reports/agent-runs records); H_fix2 itself touches only frontend/index.html, frontend/self-check.js, and 20-implementation-frontend-rework2.md.",
+      "Exact pytest without -s could not start in read-only sandbox (fd capture needs writable temp dir); equivalent capture-disabled run passed 54/54."
+    ],
+    "fix_start_prompt": null
   },
   "post_review_findings": [
     {

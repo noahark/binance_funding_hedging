@@ -1,0 +1,3511 @@
+Reading prompt from stdin...
+OpenAI Codex v0.142.2
+--------
+workdir: /Users/ark/Desktop/ai code/funding_hedging
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 019f2c76-9d9a-77e1-82dd-d7237f0a1daa
+--------
+user
+# Review-2 round 2 (stage-level, FINAL GATE) — public-market-ui-cn-v1 rework
+
+You are Codex/GPT (`gpt5.5`, xhigh), acting as `reviewer_2` — the **final
+review gate** for **rework round 2** — in **read-only** sandbox mode. Do not
+modify any file.
+
+Stage: `2026-07-public-market-ui-cn-v1` (Binance public-market snapshot
+workstation, public data only). This is a **rework round 2** of a stage whose
+**round-1 final gate (you, Codex) returned REWORK** on exactly one P2:
+
+> Manual refresh resets the displayed countdown target, but it does not
+> reschedule the actual 60s auto-refresh interval, so the next automatic fetch
+> can happen before the displayed "下次刷新" reaches zero. There was no
+> `clearInterval`/reschedule anywhere in `frontend/index.html`.
+
+Rework round 2 (`fix-start-prompt-ui-round2.md`, entered at `b20b219`) landed
+`H_fix2` (`ee9296c`) — Kimi (Task B owner) added, in `loadApi()`'s `finally`,
+**after** `nextRefreshAt = Date.now() + AUTO_REFRESH_MS`:
+`if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);`
+then `refreshState.refreshTimer = setInterval(() => { if (!refreshState.isRefreshing) loadApi(); }, AUTO_REFRESH_MS);`
+keeping the 1s countdown timer independent. `startAutoRefresh()` is unchanged.
+
+This round is **LOW complexity**: no logic/schema/payload change beyond that
+one frontend behavior fix + its self-check coverage. The API payload (rows +
+warnings) is **frozen**; only Task B's frontend timer behavior changed.
+
+## Disclosure: prior direction-synthesis involvement (strong-reviewer override)
+
+You (Codex/GPT) are the **prior direction synthesizer** for the covering
+contract stage (`2026-07-public-market-contract-v2`), whose user-approved
+direction synthesis covers Phase 1 public market. You therefore have **prior
+direction-synthesis involvement**, not `none`.
+
+You have **NO** stage-design, development-breakdown, implementation, or
+fix-authorship involvement this stage or this round:
+- Designer + breakdown author = Anthropic/Fable5.
+- Task A implementer = `claude_glm` (round-0; unchanged this round).
+- Task B implementer = `kimi` (round-0 + rework rounds 1 and 2).
+- Task C integration = the stage controller (`claude_glm`), no product code.
+- Rework round-2 reviewer_1 = fresh read-only Claude-GLM session (ACCEPT, findings empty).
+
+The review-2 implementer/fix-author hard ban is satisfied. Per AGENTS.md, no
+provider-unrelated decision model exists, so you review via the
+**strong-reviewer disclosure override** — identical to round-0 / round-1 /
+impl-v1 / bstock-alias-v1.
+
+**You MUST set `reviewer_prior_involvement: "direction_synthesis"`** and
+disclose the above in `reviewer_prior_involvement_notes`.
+
+## Review subject (recompute this yourself — do not trust this summary)
+
+Stage-level commit range (rework round 2):
+
+- base_sha: `b84a34235aa5b37bb0ce83f23ac35e4e5e686899` (`H_intake`)
+- head_sha: `ee9296c705d3590adb01bf2fff433e32e834523e` (`H_fix2`, rework round 2)
+
+Recompute the stage `diff_fingerprint` from a clean shell in the repo root:
+
+```bash
+git diff --binary b84a34235aa5b37bb0ce83f23ac35e4e5e686899..ee9296c705d3590adb01bf2fff433e32e834523e -- . ':(exclude)reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json' | shasum -a 256
+```
+
+Expected (recorded in `status.json.diff_fingerprint`):
+
+```text
+ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81
+```
+
+If your recomputed value differs, that is a P0/P1 finding — return REWORK.
+
+### NOTE on the stage diff scope (important — do not misread)
+
+`b84a342..ee9296c` is a **wide** range. It legitimately contains, beyond the
+product code, several classes of non-product files:
+
+- **Round-0 / round-1 review evidence** (`30-review-1*.md`, `50-review-2*.md`,
+  `review-*-*.raw-output.txt`, `review-*-*.prompt.md`) — historical review records.
+- **`docs/parallel-development-mode.md`** — a DRAFT methodology doc from
+  independent parallel commits (`6894577`/`eba5bc0`/`6e945c8`), explicitly marked
+  non-normative. It is NOT part of this stage's Task A/B/C work and NOT Kimi's rework.
+- **Task C controller evidence** (`60-test-output.txt`, `20-implementation*.md`,
+  `11-adr.md`, `70-handoff.md`) and rework entries (`fix-start-prompt-ui-round{1,2}.md`).
+
+The **product code** in this range is unchanged from round-1 except Task B
+frontend (round-2 timer-sync). Verify the product-code boundary yourself:
+`git show ee9296c --stat` (`H_fix2` relative to its parent `b20b219`) must be only
+`frontend/index.html` + `frontend/self-check.js` + `20-implementation-frontend-rework2.md`.
+
+### Task-level fingerprints (rework round 2)
+
+- **Task A** (`b84a342..dba4c12`): `dba4c12:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318` — UNCHANGED. Round-0 Kimi ACCEPT retained.
+- **Task B rework round-2 fix** (`7592b2c..ee9296c -- frontend/`): `ee9296c:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226`.
+- **Task B cumulative frontend** (`dba4c12..ee9296c -- frontend/`): `ee9296c:1ccb1c0d1ee3d0f059ecd90371019596a330ffc02754fe9b05f159828fb49d7a`.
+
+## What to verify (each is a checkpoint)
+
+### A. Hard constraints (security/safety — any breach is REWORK)
+
+1. **No live HTTP during A/B/C or the rework.** No API key, signed endpoint,
+   private account endpoint, user data stream, order/borrow/repay/transfer/websocket.
+   `grep -RniE 'apikey|api_key|secret|signature|userDataStream|listenKey|/sapi/|/fapi/v1/order|websocket' backend frontend` (expect none functional).
+2. **rows / API payload frozen.** The ONLY API-payload change in the whole stage
+   is `warnings[1]` text (from round-0 Task A). The rework round-2 (Task B) does
+   NOT touch the API payload. Confirm `classify.py` / `normalize.py` /
+   `snapshot_service.py` / `schemas/**` are NOT in the rework round-2 diff
+   (`7592b2c..ee9296c`). Task C asserts rows field-identical to `548ae0d` (647==647).
+3. **Read-only inputs untouched.** `schemas/api/public-market/**` and
+   `reports/api-samples/**` must NOT appear in the round-2 product diff
+   (`git diff 7592b2c..ee9296c -- schemas/ reports/api-samples/` → empty). (Note:
+   `docs/parallel-development-mode.md` IS in the wide stage range but is an
+   independent parallel DRAFT methodology doc, not a contract/schema/api-sample.)
+4. **Same-origin frontend; no forbidden interaction.** Default load + auto-refresh
+   + manual refresh all fetch the relative `/api/public-market/snapshot`. No
+   order/buy/sell/borrow-action/repay/transfer/open-position/account UI.
+
+### B. THE ROUND-2 FIX — does it resolve YOUR round-1 P2?
+
+5. **Timer reschedule present & correct** in `frontend/index.html` `loadApi`'s
+   `finally`: AFTER `nextRefreshAt = Date.now() + AUTO_REFRESH_MS`,
+   `if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);`
+   then `refreshState.refreshTimer = setInterval(() => { if (!refreshState.isRefreshing) loadApi(); }, AUTO_REFRESH_MS);`.
+   Order matters (clear + recreate must follow the nextRefreshAt reset).
+6. **Countdown timer independent**: the only `clearInterval` in the file targets
+   `refreshState.refreshTimer`, NEVER `refreshState.countdownTimer`.
+   `grep -n 'clearInterval' frontend/index.html` → exactly the refreshTimer clear.
+7. **startAutoRefresh() unchanged**: still creates the first 60000ms `refreshTimer`
+   + the 1000ms `countdownTimer`; no `visibilitychange`/`requestIdleCallback`/
+   retry/backoff added.
+8. **Behavioral invariant**: after the fix, the actual next auto-fetch instant
+   == `nextRefreshAt` == the moment the countdown display hits 0, for EVERY
+   `loadApi()` completion (manual / auto / success / failure). Confirm the P2 you
+   raised in round-1 is genuinely resolved (not just papered over).
+9. **`formatFundingRate` / `formatBeijing*` UNCHANGED** (red line).
+   `git diff 7592b2c..ee9296c -- frontend/index.html | grep -E '^[+-].*(formatFundingRate|formatBeijing)'` → empty.
+10. **No reintroduction** of `#btn-offline` / `loadFixture()` / `'fixture'` branch.
+11. **fixture unchanged**: `git diff 7592b2c..ee9296c -- frontend/fixture/` → empty.
+12. **No new deps; no direct Binance.**
+
+### C. Integration & test evidence
+
+13. Re-run yourself: `node frontend/self-check.js` (expect **20/20 PASS** — round-1
+    19 + round-2 timer-reschedule). Confirm the new assertion is a **genuine runtime
+    mock** (mocked `setInterval`/`clearInterval` recording id+delay and observing
+    cleared/recreated ids), NOT a source string/regex check.
+14. `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider backend/tests -q`
+    (expect 54 passed; backend unchanged in round 2). Offline snapshot jsonschema VALID.
+15. **Review-1 round-2 scrutiny**: fresh GLM ACCEPT (findings empty) on the round-2
+    fix diff. Confirm the material claims hold independently.
+16. **Prior verdicts still valid**: Task A backend unchanged -> round-0 Kimi ACCEPT
+    stands; round-1 review-1 ACCEPT preserved under `review_1_round1`; round-1
+    review-2 REWORK (the one you raised) preserved under `review_2_round1`; round-0
+    verdicts under `_round0`. Only the round-2 verdict binds to the current head.
+
+### D. Residuals (carry forward, do not block)
+
+- Single mid-period lastFundingRate snapshot evidence (round-0 residual).
+- Frontend tested on the frozen fixture; live endpoint serves the full market.
+- Spec prose/table paren inconsistency (spec-side, not a product defect).
+- `docs/parallel-development-mode.md` parallel DRAFT in the stage diff (independent commits, non-product).
+- Wide range diff includes process bookkeeping commits (review records, rework entries).
+
+If you find a genuine correctness/safety/boundary defect, or the round-1 P2 is
+NOT actually resolved, return `REWORK` with a `fix_start_prompt`. Otherwise
+return `ACCEPT`.
+
+## Boundary (read-only)
+
+You may read anything. You may NOT modify any file. You may NOT be swayed by
+controller/review-1 narratives — recompute fingerprints and re-check rules
+yourself against the raw code, the raw diff, and the frozen contract.
+
+## Output contract (strict)
+
+Emit your review narrative, then a single JSON verdict object that validates
+against `schemas/review-verdict.schema.json`. Use:
+
+- `schema_version`: `1`; `stage_id`: `2026-07-public-market-ui-cn-v1`
+- `role`: `final_reviewer` (or `second_reviewer` if the schema enum requires it)
+- `model`: `gpt5.5`; `verdict`: `ACCEPT`/`REWORK`/`BLOCKED`
+- `diff_fingerprint`: your recomputed **stage-level** value (`ee9296c…:<sha256>`)
+- `reviewer_prior_involvement`: **`direction_synthesis`** (disclose in notes)
+- `reviewed_artifacts`, `findings[]`, `required_fixes[]`, `residual_risks[]`, `next_action`
+
+Emit the JSON verdict as the final block of your reply, fenced in ```json.
+
+codex
+I’ll do this as a read-only final gate: recompute the committed fingerprint first, then inspect the round-2 diff and raw artifacts before rerunning the frontend and backend checks.
+  → Recompute stage and task fingerprints from git diffs
+  • Inspect round-2 frontend diff, safety boundaries, and prior artifacts
+  • Run frontend/backend verification commands
+  • Validate verdict shape and emit final JSON
+exec
+/bin/zsh -lc "git diff --binary b84a34235aa5b37bb0ce83f23ac35e4e5e686899..ee9296c705d3590adb01bf2fff433e32e834523e -- . ':(exclude)reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json' | shasum -a 256" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-p7EHHfKj' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-T6SbswWJ' (errno=Operation not permitted)
+f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81  -
+
+exec
+/bin/zsh -lc 'git rev-parse --show-toplevel && git status --short && git rev-parse HEAD' in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-SZMiuhhw' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-DpXf9G1d' (errno=Operation not permitted)
+/Users/ark/Desktop/ai code/funding_hedging
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-UwduKEvc' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-oC9E7lsK' (errno=Operation not permitted)
+?? reports/agent-runs/2026-07-public-market-ui-cn-v1/review-2-codex-round2.prompt.md
+?? reports/agent-runs/2026-07-public-market-ui-cn-v1/review-2-codex-round2.raw-output.txt
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-tQAG45ne' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-S0fJgFzp' (errno=Operation not permitted)
+cbdaddfd1addc260c0314429f1fcc2e12086518d
+
+exec
+/bin/zsh -lc "sed -n '1,240p' schemas/review-verdict.schema.json" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.ai-project-harness/schemas/review-verdict.schema.json",
+  "title": "Review Verdict",
+  "description": "Strict reviewer verdict. diff_fingerprint is head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json'). Missing or invalid JSON fails closed as non-accepting evidence and cannot pass a gate. REWORK verdicts must include fix_start_prompt so the controller can immediately dispatch a bounded fix task without re-summarizing the review. reviewer_prior_involvement discloses whether the reviewer participated in direction synthesis, development breakdown, or design before reviewing.",
+  "type": "object",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "REWORK"
+          }
+        },
+        "required": ["verdict"]
+      },
+      "then": {
+        "required": ["fix_start_prompt"]
+      }
+    }
+  ],
+  "required": [
+    "schema_version",
+    "stage_id",
+    "role",
+    "model",
+    "verdict",
+    "diff_fingerprint",
+    "reviewer_prior_involvement",
+    "reviewed_artifacts",
+    "findings",
+    "required_fixes",
+    "next_action"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "stage_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string",
+      "enum": ["designer_review", "first_reviewer", "final_reviewer", "reality_checker"]
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["ACCEPT", "REWORK", "BLOCKED"]
+    },
+    "diff_fingerprint": {
+      "type": "string",
+      "description": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
+      "minLength": 1
+    },
+    "reviewer_prior_involvement": {
+      "type": "string",
+      "description": "Highest known prior participation by this reviewer/provider in the reviewed stage before this review. Prior implementation or fix authorship is not allowed for review-2 and must be caught by the workflow/validator, not normalized away here.",
+      "enum": ["none", "direction_synthesis", "breakdown", "design"]
+    },
+    "reviewer_prior_involvement_notes": {
+      "type": "string",
+      "description": "Optional human-readable disclosure of the prior involvement and the evidence path or fallback reason when a strong-reviewer override is used."
+    },
+    "reviewed_artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "required_fixes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "residual_risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "fix_start_prompt": {
+      "type": "string",
+      "description": "Required when verdict is REWORK. A ready-to-send prompt for the fix implementer. It must preserve raw artifact paths, findings, required fixes, file boundaries, test commands, and success criteria. It must not hide reviewer evidence behind a controller summary.",
+      "minLength": 1
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "continue",
+        "fix",
+        "human_gate",
+        "retry",
+        "fallback",
+        "decision_models_exhausted",
+        "development_models_exhausted",
+        "stage_accepted_waiting_user",
+        "human_escalation_required"
+      ]
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "title", "evidence", "impact", "recommendation"],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": ["P0", "P1", "P2", "P3"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "impact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommendation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
+
+exec
+/bin/zsh -lc 'git show --stat --oneline ee9296c705d3590adb01bf2fff433e32e834523e' in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-DQQQvAKL' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-4zRna3Xr' (errno=Operation not permitted)
+ee9296c H_fix2: align auto-refresh timer with countdown (rework r2)
+ frontend/index.html                                |   6 +
+ frontend/self-check.js                             |  33 ++++-
+ .../20-implementation-frontend-rework2.md          | 143 +++++++++++++++++++++
+ 3 files changed, 181 insertions(+), 1 deletion(-)
+
+codex
+The stage fingerprint recomputes to the expected hash. I also see the repo working tree is not clean because review prompt/output files are untracked, and current `HEAD` is later than `ee9296c`; I’m keeping all product checks pinned to the requested commit range and checking whether later state only contains review bookkeeping.
+exec
+/bin/zsh -lc 'git log --oneline --decorate --graph -n 12' in /Users/ark/Desktop/ai code/funding_hedging
+exec
+/bin/zsh -lc "git diff --name-status b84a34235aa5b37bb0ce83f23ac35e4e5e686899..ee9296c705d3590adb01bf2fff433e32e834523e -- . ':(exclude)reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json' | sed -n '1,260p'" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-N6dWQrHI' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-dWDzB41K' (errno=Operation not permitted)
+M	backend/domain/snapshot.py
+M	backend/tests/test_snapshot.py
+M	docs/api/public-market-contract.md
+A	docs/parallel-development-mode.md
+M	frontend/fixture/public-market-snapshot.json
+M	frontend/index.html
+M	frontend/self-check.js
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/11-adr.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-backend.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend-rework1.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend-rework2.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-backend.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-frontend-round1.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-frontend.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/50-review-2-round1.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/50-review-2.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/60-test-output.txt
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/70-handoff.md
+M	reports/agent-runs/2026-07-public-market-ui-cn-v1/controller-start-prompt.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/fix-start-prompt-ui-round1.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/fix-start-prompt-ui-round2.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-frontend-round1.prompt.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-frontend-round1.raw-output.txt
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-task-a-kimi.prompt.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-task-a-kimi.raw-output.txt
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-task-b-glm-fresh.prompt.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-task-b-glm-fresh.raw-output.txt
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-2-codex-round1.prompt.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-2-codex-round1.raw-output.txt
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-2-codex.prompt.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-2-codex.raw-output.txt
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/task-b-kimi-frontend.prompt.md
+A	reports/agent-runs/harness-parallel-mode-v1/gpt-review-round1.raw-output.md
+A	reports/agent-runs/harness-parallel-mode-v1/gpt-review-round2.raw-output.md
+
+exec
+/bin/zsh -lc "git diff --name-status 7592b2c..ee9296c -- frontend backend schemas reports/api-samples docs | sed -n '1,240p'" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-uUjvUOIF' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-hx9NPK9R' (errno=Operation not permitted)
+M	docs/parallel-development-mode.md
+M	frontend/index.html
+M	frontend/self-check.js
+
+exec
+/bin/zsh -lc "git diff --binary 7592b2c..ee9296c -- frontend/ | shasum -a 256 && git diff --binary dba4c12..ee9296c -- frontend/ | shasum -a 256 && git diff --binary b84a342..dba4c12 -- . ':(exclude)reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json' | shasum -a 256" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 114ms:
+* cbdaddf (HEAD -> main) Record review-1 round-2 ACCEPT (timer-sync fix)
+* 670795c Bookkeep rework round 2: fingerprints + review reset (status=review_1)
+* ee9296c H_fix2: align auto-refresh timer with countdown (rework r2)
+* b20b219 Enter rework round 2 (P2 timer-sync)
+* 533d708 Record review-2 round-1 REWORK (P2 timer-sync)
+* 6e945c8 Parallel-mode spec -> ADOPTED-TRIAL (GPT review round 2 confirmed)
+* 0557d05 Add review-1 round-1 evidence (fresh GLM ACCEPT) for ui-cn-v1 rework
+* 6894577 Parallel-mode spec DRAFT-2: absorb GPT review round 1 (5 findings)
+* 87877a9 Bookkeep rework round 1: rebind head 7592b2c, status review_1, fingerprints
+* 7592b2c Land Task B rework round 1: enum bilingual + auto-refresh + fixture-button removal + sidebar CN
+* eba5bc0 Draft parallel_development_with_embedded_cross_review mode spec (DRAFT-1)
+* a263ce6 Enter rework round 1: P3 enum-display residuals + user UI decisions
+
+ succeeded in 117ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-nOsD74xj' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-E2CKmzIC' (errno=Operation not permitted)
+8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318  -
+
+exec
+/bin/zsh -lc 'git diff 7592b2c..ee9296c -- schemas/ reports/api-samples/' in /Users/ark/Desktop/ai code/funding_hedging
+exec
+/bin/zsh -lc "git diff --name-status ee9296c705d3590adb01bf2fff433e32e834523e..HEAD -- frontend backend schemas reports/api-samples docs reports/agent-runs/2026-07-public-market-ui-cn-v1 | sed -n '1,240p'" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-9nBkrwDH' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-i3ct7YFM' (errno=Operation not permitted)
+
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-R8usscnI' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-X5H2e97I' (errno=Operation not permitted)
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-frontend-round2.md
+M	reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-frontend-round2.prompt.md
+A	reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-frontend-round2.raw-output.txt
+M	reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json
+
+exec
+/bin/zsh -lc "git diff 7592b2c..ee9296c -- backend/domain/classify.py backend/domain/normalize.py backend/domain/snapshot_service.py schemas/ | sed -n '1,220p'" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-DqWhWcbT' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-ZHWUXlKj' (errno=Operation not permitted)
+
+exec
+/bin/zsh -lc "rg -n -i 'apikey|api_key|secret|signature|userDataStream|listenKey|/sapi/|/fapi/v1/order|websocket' backend frontend" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+frontend/fixture/public-market-snapshot.json:300:    "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
+backend/domain/snapshot.py:18:    "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
+
+codex
+The round-2 schema and API-sample diffs are empty, and there are no backend domain changes in `7592b2c..ee9296c`. The only `/sapi/` hits are warning text in the frozen snapshot/fixture, not callable code; I’m checking the fetch paths and timer behavior directly now.
+exec
+/bin/zsh -lc "rg -n \"loadApi|startAutoRefresh|nextRefreshAt|refreshTimer|countdownTimer|clearInterval|setInterval|fetch\\(|/api/public-market/snapshot|btn-offline|loadFixture|fixture|formatFundingRate|formatBeijing|visibilitychange|requestIdleCallback|backoff|retry\" frontend/index.html" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+452:            <p class="subtitle" id="data-source-label">数据源: /api/public-market/snapshot</p>
+533:        nextRefreshAt: Date.now() + AUTO_REFRESH_MS,
+534:        refreshTimer: null,
+535:        countdownTimer: null
+570:      function formatBeijing(ms) {
+583:      function formatBeijingShort(ms) {
+595:      function formatFundingRate(str) {
+631:        const remaining = Math.max(0, Math.ceil((refreshState.nextRefreshAt - Date.now()) / 1000));
+635:      function startAutoRefresh() {
+636:        refreshState.refreshTimer = setInterval(() => {
+637:          if (!refreshState.isRefreshing) loadApi();
+639:        refreshState.countdownTimer = setInterval(updateCountdown, 1000);
+813:          const rateText = formatFundingRate(row.futures.last_funding_rate);
+814:          const timeText = formatBeijingShort(row.futures.next_funding_time);
+815:          const fullTime = formatBeijing(row.futures.next_funding_time);
+856:      async function loadApi() {
+859:        setStatus('loading', '正在请求 /api/public-market/snapshot ...');
+861:        els.dataSourceLabel.textContent = '数据源: /api/public-market/snapshot';
+863:          const res = await fetch('/api/public-market/snapshot');
+877:          refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+881:          if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);
+882:          refreshState.refreshTimer = setInterval(() => {
+883:            if (!refreshState.isRefreshing) loadApi();
+907:        els.btnRefresh.addEventListener('click', loadApi);
+927:        formatFundingRate,
+928:        formatBeijing,
+929:        formatBeijingShort
+933:      loadApi();
+934:      startAutoRefresh();
+
+exec
+/bin/zsh -lc "git diff 7592b2c..ee9296c -- frontend/index.html frontend/self-check.js | sed -n '1,260p'" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-InZzhtJ7' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-sRWD3XEh' (errno=Operation not permitted)
+diff --git a/frontend/index.html b/frontend/index.html
+index 2163ff1..349bd71 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -876,6 +876,12 @@
+           refreshState.isRefreshing = false;
+           refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+           updateCountdown();
++          // 手动刷新或自动刷新完成后，把 60s 自动刷新计时器与倒计时显示对齐到同一目标，
++          // 否则手动刷新只重置显示而不重置实际下一次 fetch（见 review-2 round-1 REWORK）。
++          if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);
++          refreshState.refreshTimer = setInterval(() => {
++            if (!refreshState.isRefreshing) loadApi();
++          }, AUTO_REFRESH_MS);
+         }
+       }
+ 
+diff --git a/frontend/self-check.js b/frontend/self-check.js
+index b74ebb1..e4d6b2b 100644
+--- a/frontend/self-check.js
++++ b/frontend/self-check.js
+@@ -27,6 +27,19 @@ console.log('[PASS] 内联脚本语法检查');
+ 
+ let fetchUrl = null;
+ 
++// mock setInterval / clearInterval，记录调用以便验证自动刷新计时器重调度
++let intervalIdSeq = 0;
++const intervalCalls = [];     // { id, delay, callback }
++const clearedIntervalIds = new Set();
++global.setInterval = (callback, delay) => {
++  const id = ++intervalIdSeq;
++  intervalCalls.push({ id, delay, callback });
++  return id;
++};
++global.clearInterval = (id) => {
++  clearedIntervalIds.add(id);
++};
++
+ function makeElement(id) {
+   const el = {
+     id,
+@@ -88,7 +101,7 @@ global.fetch = async (url) => {
+ eval(script);
+ 
+ // 等待 async 渲染
+-setTimeout(() => {
++setTimeout(async () => {
+   try {
+     // 1. 默认请求 /api/public-market/snapshot
+     if (fetchUrl !== '/api/public-market/snapshot') {
+@@ -283,6 +296,24 @@ setTimeout(() => {
+     }
+     console.log('[PASS] 侧栏品牌已中文化');
+ 
++    // 19. 手动刷新后 60s 自动刷新计时器被重调度，1s 倒计时计时器保持独立
++    const initialRefreshTimer = intervalCalls.slice().reverse().find(c => c.delay === 60000);
++    const initialCountdownTimer = intervalCalls.slice().reverse().find(c => c.delay === 1000);
++    if (!initialRefreshTimer) throw new Error('未找到初始 60000ms 自动刷新计时器');
++    if (!initialCountdownTimer) throw new Error('未找到初始 1000ms 倒计时计时器');
++    await Promise.all((elements['btn-refresh'].listeners.click || []).map(h => h()));
++    if (!clearedIntervalIds.has(initialRefreshTimer.id)) {
++      throw new Error('手动刷新完成后，旧的 60000ms 自动刷新计时器未被 clearInterval');
++    }
++    if (clearedIntervalIds.has(initialCountdownTimer.id)) {
++      throw new Error('手动刷新完成后，1000ms 倒计时计时器不应被 clearInterval');
++    }
++    const newRefreshTimer = intervalCalls.slice().reverse().find(c => c.delay === 60000);
++    if (!newRefreshTimer || newRefreshTimer.id === initialRefreshTimer.id) {
++      throw new Error('手动刷新完成后，未重新创建 60000ms 自动刷新计时器');
++    }
++    console.log('[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立');
++
+     console.log('\n全部自检通过');
+     process.exit(0);
+   } catch (err) {
+
+exec
+/bin/zsh -lc "sed -n '1,260p' frontend/index.html" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>资金费率对冲工作台</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7f6;
+      --surface: #ffffff;
+      --surface-2: #eef3f2;
+      --surface-3: #e8edf5;
+      --line: #d7dfde;
+      --line-strong: #aebcba;
+      --text: #1b2528;
+      --muted: #59686c;
+      --faint: #7a898c;
+      --brand: #0f766e;
+      --brand-dark: #0b5d58;
+      --brand-soft: #d9f2ee;
+      --accent: #8b5cf6;
+      --accent-soft: #eee7ff;
+      --warn: #b7791f;
+      --warn-soft: #fff1cf;
+      --danger: #b42318;
+      --danger-soft: #ffe3df;
+      --success: #0f7a4f;
+      --success-soft: #dcfce7;
+      --info: #0f5d8f;
+      --info-soft: #e1f1ff;
+      --shadow: 0 14px 40px rgba(17, 24, 39, 0.08);
+      --radius: 8px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+      padding: var(--space-5);
+      background: #172322;
+      color: #f7fbfa;
+    }
+
+    .brand { display: grid; gap: var(--space-1); }
+    .brand-mark {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .brand-icon {
+      display: inline-grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: var(--radius);
+      background: #24534e;
+    }
+    .brand-subtitle {
+      margin-left: 46px;
+      color: #b8c8c5;
+      font-size: 12px;
+    }
+
+    .nav { display: grid; gap: var(--space-2); }
+    .nav-button {
+      width: 100%;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: 0 var(--space-3);
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: #dce8e6;
+      text-align: left;
+    }
+    .nav-button:hover, .nav-button:focus-visible {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.07);
+    }
+    .nav-button.active {
+      border-color: rgba(99, 230, 208, 0.36);
+      background: #d9f2ee;
+      color: #123331;
+    }
+
+    .icon {
+      display: inline-grid;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      color: currentColor;
+      flex: 0 0 auto;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      display: grid;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.05);
+      color: #d8e5e3;
+      font-size: 12px;
+    }
+
+    .content {
+      min-width: 0;
+      padding: var(--space-5);
+      display: grid;
+      gap: var(--space-5);
+      align-content: start;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
+    .title-block { display: grid; gap: var(--space-1); }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 24px; line-height: 1.2; }
+    h2 { font-size: 18px; line-height: 1.25; }
+    h3 { font-size: 15px; line-height: 1.25; }
+    .subtitle { color: var(--muted); font-size: 13px; }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      justify-content: flex-end;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 var(--space-3);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge.success { border-color: #a8dbc0; background: var(--success-soft); color: var(--success); }
+    .badge.warn { border-color: #ecd28d; background: var(--warn-soft); color: var(--warn); }
+    .badge.danger { border-color: #ffc0b8; background: var(--danger-soft); color: var(--danger); }
+    .badge.info { border-color: #b8daf4; background: var(--info-soft); color: var(--info); }
+    .badge.accent { border-color: #d4c5f9; background: var(--accent-soft); color: var(--accent); }
+    .badge.muted { border-color: var(--line-strong); background: var(--surface-2); color: var(--muted); }
+    .badge.compact { min-height: 22px; padding: 0 8px; font-size: 11px; }
+
+    .panel {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .panel.flat { box-shadow: none; }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: var(--space-4);
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    .panel-title { display: grid; gap: var(--space-1); min-width: 0; }
+    .panel-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .panel-body { padding: var(--space-4); }
+
+    .info-list {
+      display: grid;
+      gap: var(--space-3);
+    }
+    .info-item {
+      display: flex;
+      gap: var(--space-3);
+      align-items: flex-start;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .info-item svg { flex: 0 0 auto; margin-top: 1px; }
+    .info-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    details {
+      margin-top: var(--space-3);
+      padding: var(--space-3);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    summary { cursor: pointer; font-weight: 600; }
+    details pre {
+      margin: var(--space-3) 0 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--mono);
+    }
+    .warning-list {
+      display: grid;
+      gap: var(--space-3);
+
+exec
+/bin/zsh -lc "sed -n '1,260p' frontend/self-check.js" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+/**
+ * 前端自检脚本：在 Node 环境下用 mock DOM 运行 index.html 的内联脚本，
+ * 加载 fixture 数据并断言市场表渲染结果。
+ *
+ * 运行: node frontend/self-check.js
+ */
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+
+const root = __dirname;
+const htmlPath = path.join(root, 'index.html');
+const fixturePath = path.join(root, 'fixture', 'public-market-snapshot.json');
+
+const html = fs.readFileSync(htmlPath, 'utf8');
+const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+
+// 提取内联 JS
+const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+if (!scriptMatch) throw new Error('未找到内联脚本');
+const script = scriptMatch[1];
+
+// 语法检查
+new Function(script);
+console.log('[PASS] 内联脚本语法检查');
+
+let fetchUrl = null;
+
+// mock setInterval / clearInterval，记录调用以便验证自动刷新计时器重调度
+let intervalIdSeq = 0;
+const intervalCalls = [];     // { id, delay, callback }
+const clearedIntervalIds = new Set();
+global.setInterval = (callback, delay) => {
+  const id = ++intervalIdSeq;
+  intervalCalls.push({ id, delay, callback });
+  return id;
+};
+global.clearInterval = (id) => {
+  clearedIntervalIds.add(id);
+};
+
+function makeElement(id) {
+  const el = {
+    id,
+    _innerHTML: '',
+    _textContent: '',
+    _display: '',
+    _value: '',
+    _checked: false,
+    listeners: {},
+    get innerHTML() { return this._innerHTML; },
+    set innerHTML(v) { this._innerHTML = String(v); },
+    get textContent() { return this._textContent; },
+    set textContent(v) { this._textContent = String(v); },
+    get style() {
+      const self = this;
+      return {
+        get display() { return self._display; },
+        set display(v) { self._display = String(v); }
+      };
+    },
+    get value() { return this._value; },
+    set value(v) { this._value = String(v); },
+    get checked() { return this._checked; },
+    set checked(v) { this._checked = Boolean(v); },
+    addEventListener(type, handler) {
+      (this.listeners[type] = this.listeners[type] || []).push(handler);
+    }
+  };
+  return el;
+}
+
+const elements = {};
+const ids = [
+  'warnings-panel', 'warnings-list', 'warnings-raw', 'warnings-raw-content', 'margin-public-note',
+  'data-source-label', 'btn-refresh', 'refresh-countdown',
+  'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only',
+  'summary-row', 'status-area', 'market-table-body', 'footer-note'
+];
+ids.forEach(id => { elements[id] = makeElement(id); });
+
+global.document = {
+  getElementById: (id) => {
+    if (!elements[id]) throw new Error(`未 mock 的元素: ${id}`);
+    return elements[id];
+  }
+};
+
+global.fetch = async (url) => {
+  fetchUrl = String(url);
+  return {
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    json: async () => fixture
+  };
+};
+
+// 运行脚本
+eval(script);
+
+// 等待 async 渲染
+setTimeout(async () => {
+  try {
+    // 1. 默认请求 /api/public-market/snapshot
+    if (fetchUrl !== '/api/public-market/snapshot') {
+      throw new Error(`默认请求地址错误: ${fetchUrl}`);
+    }
+    console.log('[PASS] 默认请求 /api/public-market/snapshot');
+
+    // 2. 数据源标签
+    const sourceLabel = elements['data-source-label'].textContent;
+    if (!sourceLabel.includes('/api/public-market/snapshot')) {
+      throw new Error(`数据源标签错误: ${sourceLabel}`);
+    }
+    console.log('[PASS] 数据源标签显示后端 API');
+
+    // 3. 数据说明区可见且渲染三条中文说明
+    const warningsDisplay = elements['warnings-panel'].style.display;
+    if (warningsDisplay === 'none') throw new Error('数据说明面板被隐藏');
+    const marginNote = elements['margin-public-note'].innerHTML;
+    if (!marginNote.includes('杠杆可借性未经私有验证')) {
+      throw new Error('页面级杠杆可借性说明未渲染');
+    }
+    const warningsHtml = elements['warnings-list'].innerHTML;
+    if (!warningsHtml.includes('isMarginTradingAllowed') || !warningsHtml.includes('已结算历史') || !warningsHtml.includes('bStock')) {
+      throw new Error('数据说明中文内容未渲染');
+    }
+    const rawText = elements['warnings-raw-content'].textContent;
+    if (!rawText.includes('lastFundingRate') || !rawText.includes('fapi/v1/fundingRate')) {
+      throw new Error('数据说明英文原文未渲染');
+    }
+    console.log('[PASS] 数据说明区可见且内容已渲染');
+
+    // 4. 默认隐藏 PERP_ONLY_EXCLUDED，应渲染 4 行（BTC/ETH/XVG/TSLA）
+    const tbody = elements['market-table-body'].innerHTML;
+    const rowCount = (tbody.match(/<tr/g) || []).length;
+    if (rowCount !== 4) {
+      throw new Error(`默认筛选后期望 4 行数据，实际 ${rowCount} 行`);
+    }
+    console.log('[PASS] 默认隐藏 PERP_ONLY_EXCLUDED，渲染 4 行');
+
+    // 5. 打开“显示 PERP_ONLY_EXCLUDED”后应渲染全部 6 行
+    const cb = elements['filter-show-perp-only'];
+    cb.checked = true;
+    (cb.listeners.change || []).forEach(h => h());
+    const tbodyAll = elements['market-table-body'].innerHTML;
+    const rowCountAll = (tbodyAll.match(/<tr/g) || []).length;
+    if (rowCountAll !== 6) {
+      throw new Error(`显示 PERP_ONLY_EXCLUDED 后期望 6 行数据，实际 ${rowCountAll} 行`);
+    }
+    console.log('[PASS] 显示 PERP_ONLY_EXCLUDED 后渲染全部 6 行');
+
+    // 6. BSTOCK 标识
+    const bstockCount = (tbodyAll.match(/class="bstock"/g) || []).length;
+    if (bstockCount !== 2) {
+      throw new Error(`期望 2 行 BSTOCK 标识，实际 ${bstockCount}`);
+    }
+    console.log('[PASS] BSTOCK 行标识正确');
+
+    // 7. alias 行显示实际现货 symbol 与 B 后缀别名徽章
+    if (!tbodyAll.includes('TSLABUSDT')) {
+      throw new Error('未渲染实际现货 symbol TSLABUSDT');
+    }
+    if (!tbodyAll.includes('B 后缀别名')) {
+      throw new Error('未渲染 B 后缀别名标识');
+    }
+    console.log('[PASS] alias 行显示实际现货腿与 B 后缀别名标识');
+
+    // 8. 时间转换正确 (fixture 第一行 next_funding_time 北京时间为 16:00)
+    if (!tbodyAll.includes('16:00')) {
+      throw new Error('下一次结算时间未正确转换为北京时间 HH:mm');
+    }
+    console.log('[PASS] 时间转换正确');
+
+    // 9. 列名/文案符合契约
+    if (!html.includes('资金费率/结算时间')) {
+      throw new Error('缺少“资金费率/结算时间”列名');
+    }
+    if (html.includes('最近更新的资金费率')) {
+      throw new Error('仍保留旧的“最近更新的资金费率”列名');
+    }
+    if (html.includes('UI 标记')) {
+      throw new Error('仍保留旧的“UI 标记”列名');
+    }
+    console.log('[PASS] 列名/文案符合契约');
+
+    // 10. 无交易按钮/开仓票据
+    if (html.includes('手动开仓') || html.includes('下单') || html.includes('开仓')) {
+      throw new Error('页面不应包含交易按钮或开仓票据');
+    }
+    console.log('[PASS] 无交易按钮/开仓票据');
+
+    // 11. 资金费率字符串移位格式化（7 个必测样例）
+    const helpers = globalThis.__appHelpers;
+    if (!helpers || typeof helpers.formatFundingRate !== 'function') {
+      throw new Error('格式化辅助函数未暴露');
+    }
+    const rateCases = [
+      ['0.00010000', '+0.01%'],
+      ['-0.00005000', '-0.005%'],
+      ['0.00000000', '0%'],
+      ['-0.00000000', '0%'],
+      ['0', '0%'],
+      ['0.00008556', '+0.008556%'],
+      ['', '—']
+    ];
+    for (const [input, expected] of rateCases) {
+      const actual = helpers.formatFundingRate(input);
+      if (actual !== expected) {
+        throw new Error(`formatFundingRate(${JSON.stringify(input)}) 期望 ${expected}，实际 ${actual}`);
+      }
+    }
+    console.log('[PASS] 资金费率格式化 7 个样例');
+
+    // 12. 数据说明中文条目数与 API warnings 数组长度一致
+    const chineseItems = [
+      '杠杆交易对官方清单需 API key（当前无 key 阶段），杠杆可借性未经私有验证；候选判断使用公开现货 isMarginTradingAllowed 字段。',
+      '表中资金费率为本周期实时预估值，将于所示结算时间收取，结算前会漂移；已结算历史以 /fapi/v1/fundingRate 为准。',
+      'bStock（美股）合约的现货腿按 baseAsset+B+quoteAsset 别名连接（如 TSLAUSDT → TSLABUSDT）；质押率动态未知，未做任何硬编码。'
+    ];
+    if (chineseItems.length !== fixture.warnings.length) {
+      throw new Error(`数据说明中文条目数 ${chineseItems.length} 与 API warnings 长度 ${fixture.warnings.length} 不一致`);
+    }
+    console.log('[PASS] 数据说明条目数与 API warnings 一致');
+
+    // 13. MARGIN_PUBLIC_UNVERIFIED 不做行内 badge，其他枚举原值进 title
+    if (tbodyAll.includes('MARGIN_PUBLIC_UNVERIFIED')) {
+      throw new Error('MARGIN_PUBLIC_UNVERIFIED 不应作为行内 badge 直出');
+    }
+    if (!tbodyAll.includes('title="PERP_ONLY_NO_SPOT_LEG"') || !tbodyAll.includes('title="TRADIFI_BSTOCK"')) {
+      throw new Error('枚举原值未放入 title 属性');
+    }
+    console.log('[PASS] 提示标记映射正确');
+
+    // 14. 离线 fixture 按钮及文案已删除
+    if (html.includes('btn-offline')) {
+      throw new Error('仍保留 btn-offline 元素 id');
+    }
+    if (html.includes('加载离线 fixture')) {
+      throw new Error('仍保留“加载离线 fixture”按钮文案');
+    }
+    console.log('[PASS] 离线 fixture 按钮及文案已删除');
+
+    // 15. 自动刷新 60s 与倒计时元素
+    if (!html.includes('60000')) {
+      throw new Error('未找到 60000 自动刷新间隔常量');
+    }
+    if (!html.includes('下次刷新')) {
+      throw new Error('未找到“下次刷新”倒计时文案');
+    }
+    if (!html.includes('Config.cache_ttl_seconds=60')) {
+      throw new Error('未注明与后端缓存 TTL 对齐的注释');
+    }
+    console.log('[PASS] 自动刷新 60s 与倒计时元素存在');
+
+    // 16. 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式
+    const enumDisplayChecks = [
+      ['MARGIN_SPOT_CANDIDATE(杠杆现货候选)', '路由分类'],
+
+exec
+/bin/zsh -lc "sed -n '520,945p' frontend/index.html" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+      'use strict';
+
+      const REQUIRED_ROW_FIELDS = [
+        'symbol', 'base_asset', 'quote_asset', 'asset_tag', 'asset_tag_source',
+        'asset_tag_confidence', 'route_class', 'positive_funding_enabled',
+        'negative_funding_status', 'futures', 'spot', 'margin_public',
+        'funding_history', 'ui_flags'
+      ];
+
+      const AUTO_REFRESH_MS = 60000; // 与后端 Config.cache_ttl_seconds=60 对齐
+
+      const refreshState = {
+        isRefreshing: false,
+        nextRefreshAt: Date.now() + AUTO_REFRESH_MS,
+        refreshTimer: null,
+        countdownTimer: null
+      };
+
+      const state = {
+        snapshot: null,
+        source: 'api',
+        blocked: false,
+        blockedReason: '',
+        filters: {
+          search: '',
+          assetTag: '',
+          routeClass: '',
+          showPerpOnly: false
+        }
+      };
+
+      const els = {
+        warningsPanel: document.getElementById('warnings-panel'),
+        warningsList: document.getElementById('warnings-list'),
+        warningsRaw: document.getElementById('warnings-raw'),
+        warningsRawContent: document.getElementById('warnings-raw-content'),
+        marginPublicNote: document.getElementById('margin-public-note'),
+        dataSourceLabel: document.getElementById('data-source-label'),
+        btnRefresh: document.getElementById('btn-refresh'),
+        refreshCountdown: document.getElementById('refresh-countdown'),
+        filterSearch: document.getElementById('filter-search'),
+        filterAsset: document.getElementById('filter-asset'),
+        filterRoute: document.getElementById('filter-route'),
+        filterShowPerpOnly: document.getElementById('filter-show-perp-only'),
+        summaryRow: document.getElementById('summary-row'),
+        statusArea: document.getElementById('status-area'),
+        tableBody: document.getElementById('market-table-body'),
+        footerNote: document.getElementById('footer-note')
+      };
+
+      function formatBeijing(ms) {
+        if (typeof ms !== 'number' || Number.isNaN(ms) || ms === 0) return '—';
+        const d = new Date(ms);
+        const parts = new Intl.DateTimeFormat('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+          hour12: false
+        }).formatToParts(d);
+        const get = (type) => parts.find(p => p.type === type)?.value;
+        return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+      }
+
+      function formatBeijingShort(ms) {
+        if (typeof ms !== 'number' || Number.isNaN(ms) || ms === 0) return '—';
+        const d = new Date(ms);
+        const parts = new Intl.DateTimeFormat('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          hour: '2-digit', minute: '2-digit',
+          hour12: false
+        }).formatToParts(d);
+        const get = (type) => parts.find(p => p.type === type)?.value;
+        return `${get('hour')}:${get('minute')}`;
+      }
+
+      function formatFundingRate(str) {
+        if (str === undefined || str === null || str === '') return '—';
+        const m = String(str).match(/^(-?)(\d+)\.?(\d*)$/);
+        if (!m) return '—';
+        const [, sign, intPart, fracPart] = m;
+        const firstTwo = (fracPart + '00').slice(0, 2);
+        const newIntRaw = intPart + firstTwo;
+        const newInt = newIntRaw.replace(/^0+/, '') || '0';
+        const remainingFrac = fracPart.slice(2).replace(/0+$/, '');
+        const isZero = newInt === '0' && remainingFrac === '';
+        if (isZero) return '0%';
+        const value = remainingFrac ? `${newInt}.${remainingFrac}` : newInt;
+        const finalSign = sign ? '-' : '+';
+        return `${finalSign}${value}%`;
+      }
+
+      function formatPrice(str) {
+        if (str === undefined || str === null || str === '') return '—';
+        const n = Number(str);
+        if (Number.isNaN(n)) return String(str);
+        const [intPart, fracPart] = String(str).split('.');
+        const intFormatted = Number(intPart).toLocaleString('en-US');
+        return fracPart !== undefined ? `${intFormatted}.${fracPart}` : intFormatted;
+      }
+
+      function classForFundingRate(str) {
+        const n = Number(str);
+        if (Number.isNaN(n) || n === 0) return 'muted';
+        return n > 0 ? 'positive' : 'negative';
+      }
+
+      function updateCountdown() {
+        if (refreshState.isRefreshing) {
+          els.refreshCountdown.textContent = '刷新中…';
+          return;
+        }
+        const remaining = Math.max(0, Math.ceil((refreshState.nextRefreshAt - Date.now()) / 1000));
+        els.refreshCountdown.textContent = `下次刷新: ${remaining}s`;
+      }
+
+      function startAutoRefresh() {
+        refreshState.refreshTimer = setInterval(() => {
+          if (!refreshState.isRefreshing) loadApi();
+        }, AUTO_REFRESH_MS);
+        refreshState.countdownTimer = setInterval(updateCountdown, 1000);
+      }
+
+      function badgeForRouteClass(rc) {
+        const map = {
+          'MARGIN_SPOT_CANDIDATE': 'MARGIN_SPOT_CANDIDATE(杠杆现货候选)',
+          'SPOT_ONLY_CANDIDATE': 'SPOT_ONLY_CANDIDATE(仅现货候选)',
+          'PERP_ONLY_EXCLUDED': 'PERP_ONLY_EXCLUDED(仅合约，排除)'
+        };
+        const cls = rc === 'MARGIN_SPOT_CANDIDATE' ? 'success' : rc === 'SPOT_ONLY_CANDIDATE' ? 'info' : 'muted';
+        return `<span class="badge ${cls}">${escapeHtml(map[rc] || rc)}</span>`;
+      }
+
+      function badgeForUiFlag(flag) {
+        switch (flag) {
+          case 'PERP_ONLY_NO_SPOT_LEG':
+            return '<span class="badge compact muted" title="PERP_ONLY_NO_SPOT_LEG">无现货腿</span>';
+          case 'TRADIFI_BSTOCK':
+            return '<span class="badge compact accent" title="TRADIFI_BSTOCK">bStock</span>';
+          default:
+            return `<span class="badge compact muted" title="${escapeHtml(flag)}">${escapeHtml(flag)}</span>`;
+        }
+      }
+
+      function badgeForNegativeFundingStatus(ns) {
+        const map = {
+          'PRIVATE_BORROW_VALIDATION_REQUIRED': 'PRIVATE_BORROW_VALIDATION_REQUIRED(需私有借币验证)',
+          'DISABLED_BSTOCK': 'DISABLED_BSTOCK(禁用:bStock 不可借)',
+          'DISABLED_SPOT_ONLY': 'DISABLED_SPOT_ONLY(禁用:无杠杆)',
+          'DISABLED_PERP_ONLY': 'DISABLED_PERP_ONLY(禁用:无现货腿)'
+        };
+        const cls = ns === 'PRIVATE_BORROW_VALIDATION_REQUIRED' ? 'warn' : ns === 'DISABLED_BSTOCK' ? 'danger' : ns === 'DISABLED_SPOT_ONLY' ? 'warn' : 'muted';
+        return `<span class="badge ${cls}">${escapeHtml(map[ns] || ns)}</span>`;
+      }
+
+      function badgeForAssetTag(tag) {
+        const map = {
+          'BSTOCK': 'BSTOCK(美股代币)',
+          'CRYPTO': 'CRYPTO(加密货币)',
+          'UNKNOWN': 'UNKNOWN(未知)'
+        };
+        const cls = tag === 'BSTOCK' ? 'accent' : tag === 'UNKNOWN' ? 'warn' : '';
+        return `<span class="badge ${cls}">${escapeHtml(map[tag] || tag)}</span>`;
+      }
+
+      const WARNING_CHINESE = [
+        '杠杆交易对官方清单需 API key（当前无 key 阶段），杠杆可借性未经私有验证；候选判断使用公开现货 isMarginTradingAllowed 字段。',
+        '表中资金费率为本周期实时预估值，将于所示结算时间收取，结算前会漂移；已结算历史以 /fapi/v1/fundingRate 为准。',
+        'bStock（美股）合约的现货腿按 baseAsset+B+quoteAsset 别名连接（如 TSLAUSDT → TSLABUSDT）；质押率动态未知，未做任何硬编码。'
+      ];
+
+      function renderWarnings(warnings) {
+        if (!Array.isArray(warnings) || warnings.length === 0) {
+          els.warningsPanel.style.display = 'none';
+          return;
+        }
+        els.warningsPanel.style.display = '';
+        els.marginPublicNote.innerHTML = `
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 16v-4m0-4h.01M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>杠杆可借性未经私有验证（当前为公开数据阶段）</span>
+        `;
+        els.warningsList.innerHTML = WARNING_CHINESE.map((cn, i) => `
+          <div class="info-item">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 15v-2m0-6v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>${escapeHtml(cn)}</span>
+          </div>
+        `).join('');
+        els.warningsRawContent.textContent = warnings.map((w, i) => `[${i + 1}] ${w}`).join('\n\n');
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function validateContract(snapshot) {
+        if (!snapshot || typeof snapshot !== 'object') {
+          return { ok: false, reason: '返回内容不是 JSON 对象' };
+        }
+        if (!Array.isArray(snapshot.rows)) {
+          return { ok: false, reason: '缺少 rows 数组，无法渲染市场表' };
+        }
+        if (!Array.isArray(snapshot.warnings)) {
+          return { ok: false, reason: '缺少 warnings 数组' };
+        }
+        for (let i = 0; i < snapshot.rows.length; i++) {
+          const row = snapshot.rows[i];
+          for (const f of REQUIRED_ROW_FIELDS) {
+            if (!(f in row)) {
+              return { ok: false, reason: `rows[${i}] 缺少契约字段 ${f}` };
+            }
+          }
+          if (!row.futures || !('last_funding_rate' in row.futures) || !('next_funding_time' in row.futures)) {
+            return { ok: false, reason: `rows[${i}].futures 缺少 last_funding_rate 或 next_funding_time` };
+          }
+        }
+        return { ok: true };
+      }
+
+      function setStatus(type, message) {
+        els.statusArea.innerHTML = `<div class="status-banner ${type}">${escapeHtml(message)}</div>`;
+      }
+      function clearStatus() {
+        els.statusArea.innerHTML = '';
+      }
+
+      function filteredRows() {
+        if (!state.snapshot) return [];
+        const q = state.filters.search.trim().toUpperCase();
+        return state.snapshot.rows.filter(row => {
+          if (q && !row.symbol.toUpperCase().includes(q) && !row.base_asset.toUpperCase().includes(q)) return false;
+          if (state.filters.assetTag && row.asset_tag !== state.filters.assetTag) return false;
+          if (state.filters.routeClass && row.route_class !== state.filters.routeClass) return false;
+          if (!state.filters.showPerpOnly && row.route_class === 'PERP_ONLY_EXCLUDED') return false;
+          return true;
+        });
+      }
+
+      function renderSummary() {
+        if (!state.snapshot) {
+          els.summaryRow.innerHTML = '';
+          return;
+        }
+        const rows = filteredRows();
+        const s = state.snapshot.summary || {};
+        const parts = [
+          `共 ${rows.length} 行`,
+          `路由: ${countString(s.route_counts)}`,
+          `资产: ${countString(s.asset_tag_counts)}`,
+          `负费率: ${countString(s.negative_funding_status_counts)}`
+        ];
+        els.summaryRow.innerHTML = parts.map(p => `<span class="badge">${escapeHtml(p)}</span>`).join('');
+      }
+
+      function countString(counts) {
+        if (!counts || typeof counts !== 'object') return '—';
+        return Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(' / ') || '—';
+      }
+
+      function renderTable() {
+        if (state.blocked) {
+          els.tableBody.innerHTML = `
+            <tr>
+              <td colspan="7">
+                <div class="empty-state">
+                  <strong>集成阻塞</strong><br/>
+                  ${escapeHtml(state.blockedReason)}
+                </div>
+              </td>
+            </tr>`;
+          renderSummary();
+          return;
+        }
+
+        const rows = filteredRows();
+        if (rows.length === 0) {
+          els.tableBody.innerHTML = `
+            <tr>
+              <td colspan="7"><div class="empty-state">没有符合筛选条件的数据</div></td>
+            </tr>`;
+          renderSummary();
+          return;
+        }
+
+        els.tableBody.innerHTML = rows.map(row => {
+          const isBstock = row.asset_tag === 'BSTOCK';
+          const rateClass = classForFundingRate(row.futures.last_funding_rate);
+          const rateText = formatFundingRate(row.futures.last_funding_rate);
+          const timeText = formatBeijingShort(row.futures.next_funding_time);
+          const fullTime = formatBeijing(row.futures.next_funding_time);
+          const rawRate = row.futures.last_funding_rate;
+          const cellTitle = fullTime === '—'
+            ? '结算时间未知 · 原始费率 ' + escapeHtml(rawRate) + ' · 预估值，结算时最终确定'
+            : `北京时间 ${fullTime} 结算 · 原始费率 ${escapeHtml(rawRate)} · 预估值，结算时最终确定`;
+          const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
+            ? row.ui_flags.filter(f => f !== 'MARGIN_PUBLIC_UNVERIFIED').map(badgeForUiFlag).join(' ')
+            : '<span class="muted small">—</span>';
+          const spotAlias = row.spot && row.spot.match_type === 'bstock_b_suffix_alias' && row.spot.symbol && row.spot.symbol !== row.symbol
+            ? `<br/><span class="muted small">现货腿: ${escapeHtml(row.spot.symbol)}</span> <span class="badge compact info">B 后缀别名</span>`
+            : '';
+          return `
+            <tr class="${isBstock ? 'bstock' : ''}">
+              <td class="mono">${escapeHtml(row.symbol)}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span>${spotAlias}</td>
+              <td>${badgeForAssetTag(row.asset_tag)}</td>
+              <td>${badgeForRouteClass(row.route_class)}</td>
+              <td class="${rateClass}" title="${escapeHtml(cellTitle)}">${rateText} / ${timeText}</td>
+              <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
+              <td>${badgeForNegativeFundingStatus(row.negative_funding_status)}</td>
+              <td>${uiFlags}</td>
+            </tr>
+          `;
+        }).join('');
+        renderSummary();
+      }
+
+      function renderFooter() {
+        if (!state.snapshot) {
+          els.footerNote.textContent = '';
+          return;
+        }
+        const generated = state.snapshot.generated_at || '—';
+        const dataTime = state.snapshot.data_time || '—';
+        els.footerNote.textContent = `生成时间: ${generated} · 数据时间: ${dataTime} · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）`;
+      }
+
+      function applyFiltersAndRender() {
+        renderTable();
+        renderFooter();
+      }
+
+      async function loadApi() {
+        refreshState.isRefreshing = true;
+        updateCountdown();
+        setStatus('loading', '正在请求 /api/public-market/snapshot ...');
+        state.source = 'api';
+        els.dataSourceLabel.textContent = '数据源: /api/public-market/snapshot';
+        try {
+          const res = await fetch('/api/public-market/snapshot');
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status} ${res.statusText}`);
+          }
+          const data = await res.json();
+          ingestSnapshot(data);
+        } catch (err) {
+          state.snapshot = null;
+          state.blocked = true;
+          state.blockedReason = `请求后端失败: ${err.message}。`;
+          renderWarnings([]);
+          applyFiltersAndRender();
+        } finally {
+          refreshState.isRefreshing = false;
+          refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+          updateCountdown();
+          // 手动刷新或自动刷新完成后，把 60s 自动刷新计时器与倒计时显示对齐到同一目标，
+          // 否则手动刷新只重置显示而不重置实际下一次 fetch（见 review-2 round-1 REWORK）。
+          if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);
+          refreshState.refreshTimer = setInterval(() => {
+            if (!refreshState.isRefreshing) loadApi();
+          }, AUTO_REFRESH_MS);
+        }
+      }
+
+      function ingestSnapshot(data) {
+        const validation = validateContract(data);
+        if (!validation.ok) {
+          state.snapshot = null;
+          state.blocked = true;
+          state.blockedReason = validation.reason;
+          renderWarnings([]);
+          applyFiltersAndRender();
+          return;
+        }
+        state.snapshot = data;
+        state.blocked = false;
+        state.blockedReason = '';
+        renderWarnings(data.warnings);
+        clearStatus();
+        applyFiltersAndRender();
+      }
+
+      function bindEvents() {
+        els.btnRefresh.addEventListener('click', loadApi);
+        els.filterSearch.addEventListener('input', () => {
+          state.filters.search = els.filterSearch.value;
+          applyFiltersAndRender();
+        });
+        els.filterAsset.addEventListener('change', () => {
+          state.filters.assetTag = els.filterAsset.value;
+          applyFiltersAndRender();
+        });
+        els.filterRoute.addEventListener('change', () => {
+          state.filters.routeClass = els.filterRoute.value;
+          applyFiltersAndRender();
+        });
+        els.filterShowPerpOnly.addEventListener('change', () => {
+          state.filters.showPerpOnly = els.filterShowPerpOnly.checked;
+          applyFiltersAndRender();
+        });
+      }
+
+      globalThis.__appHelpers = {
+        formatFundingRate,
+        formatBeijing,
+        formatBeijingShort
+      };
+
+      bindEvents();
+      loadApi();
+      startAutoRefresh();
+    })();
+  </script>
+</body>
+</html>
+
+exec
+/bin/zsh -lc "sed -n '260,380p' frontend/self-check.js" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+      ['MARGIN_SPOT_CANDIDATE(杠杆现货候选)', '路由分类'],
+      ['SPOT_ONLY_CANDIDATE(仅现货候选)', '路由分类'],
+      ['PERP_ONLY_EXCLUDED(仅合约，排除)', '路由分类'],
+      ['CRYPTO(加密货币)', '资产标签'],
+      ['BSTOCK(美股代币)', '资产标签'],
+      ['PRIVATE_BORROW_VALIDATION_REQUIRED(需私有借币验证)', '负费率状态'],
+      ['DISABLED_BSTOCK(禁用:bStock 不可借)', '负费率状态'],
+      ['DISABLED_SPOT_ONLY(禁用:无杠杆)', '负费率状态'],
+      ['DISABLED_PERP_ONLY(禁用:无现货腿)', '负费率状态']
+    ];
+    for (const [expected, column] of enumDisplayChecks) {
+      if (!tbodyAll.includes(expected)) {
+        throw new Error(`${column} 列未渲染预期格式: ${expected}`);
+      }
+    }
+    console.log('[PASS] 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式');
+
+    // 17. 筛选下拉 option 文本使用同格式
+    const filterOptions = [
+      'CRYPTO(加密货币)',
+      'BSTOCK(美股代币)',
+      'UNKNOWN(未知)',
+      'MARGIN_SPOT_CANDIDATE(杠杆现货候选)',
+      'SPOT_ONLY_CANDIDATE(仅现货候选)',
+      'PERP_ONLY_EXCLUDED(仅合约，排除)'
+    ];
+    for (const opt of filterOptions) {
+      if (!html.includes(opt)) {
+        throw new Error(`筛选下拉缺少 option 文案: ${opt}`);
+      }
+    }
+    console.log('[PASS] 筛选下拉 option 使用「英文枚举(中文解释)」格式');
+
+    // 18. 侧栏品牌已中文化
+    if (!html.includes('资金费率对冲')) {
+      throw new Error('侧栏品牌未改为“资金费率对冲”');
+    }
+    console.log('[PASS] 侧栏品牌已中文化');
+
+    // 19. 手动刷新后 60s 自动刷新计时器被重调度，1s 倒计时计时器保持独立
+    const initialRefreshTimer = intervalCalls.slice().reverse().find(c => c.delay === 60000);
+    const initialCountdownTimer = intervalCalls.slice().reverse().find(c => c.delay === 1000);
+    if (!initialRefreshTimer) throw new Error('未找到初始 60000ms 自动刷新计时器');
+    if (!initialCountdownTimer) throw new Error('未找到初始 1000ms 倒计时计时器');
+    await Promise.all((elements['btn-refresh'].listeners.click || []).map(h => h()));
+    if (!clearedIntervalIds.has(initialRefreshTimer.id)) {
+      throw new Error('手动刷新完成后，旧的 60000ms 自动刷新计时器未被 clearInterval');
+    }
+    if (clearedIntervalIds.has(initialCountdownTimer.id)) {
+      throw new Error('手动刷新完成后，1000ms 倒计时计时器不应被 clearInterval');
+    }
+    const newRefreshTimer = intervalCalls.slice().reverse().find(c => c.delay === 60000);
+    if (!newRefreshTimer || newRefreshTimer.id === initialRefreshTimer.id) {
+      throw new Error('手动刷新完成后，未重新创建 60000ms 自动刷新计时器');
+    }
+    console.log('[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立');
+
+    console.log('\n全部自检通过');
+    process.exit(0);
+  } catch (err) {
+    console.error('\n[FAIL]', err.message);
+    process.exit(1);
+  }
+}, 50);
+
+exec
+/bin/zsh -lc 'git diff 7592b2c..ee9296c -- frontend/fixture/' in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-tIduOjq5' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-XJLRz0aj' (errno=Operation not permitted)
+
+exec
+/bin/zsh -lc "git diff 7592b2c..ee9296c -- frontend/index.html | grep -E '"'^[+-].*(formatFundingRate|formatBeijing)'"' || true" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-NRR0hB7Y' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-IfJSVyqw' (errno=Operation not permitted)
+
+exec
+/bin/zsh -lc "rg -n \"fetch\\(|XMLHttpRequest|EventSource|WebSocket|https?://|binance|order|buy|sell|borrow|repay|transfer|open-position|account|下单|买入|卖出|借|还|转账|开仓|btn-offline|loadFixture|source = 'fixture'|fixture\" frontend/index.html" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+45:    * { box-sizing: border-box; }
+91:      border: 1px solid rgba(255, 255, 255, 0.18);
+92:      border-radius: var(--radius);
+109:      border: 1px solid transparent;
+110:      border-radius: var(--radius);
+117:      border-color: rgba(255, 255, 255, 0.16);
+121:      border-color: rgba(99, 230, 208, 0.36);
+140:      border: 1px solid rgba(255, 255, 255, 0.12);
+141:      border-radius: var(--radius);
+180:      border: 1px solid var(--line);
+181:      border-radius: 999px;
+188:    .badge.success { border-color: #a8dbc0; background: var(--success-soft); color: var(--success); }
+189:    .badge.warn { border-color: #ecd28d; background: var(--warn-soft); color: var(--warn); }
+190:    .badge.danger { border-color: #ffc0b8; background: var(--danger-soft); color: var(--danger); }
+191:    .badge.info { border-color: #b8daf4; background: var(--info-soft); color: var(--info); }
+192:    .badge.accent { border-color: #d4c5f9; background: var(--accent-soft); color: var(--accent); }
+193:    .badge.muted { border-color: var(--line-strong); background: var(--surface-2); color: var(--muted); }
+198:      border: 1px solid var(--line);
+199:      border-radius: var(--radius);
+210:      border-bottom: 1px solid var(--line);
+244:      border: 1px solid var(--line);
+245:      border-radius: var(--radius);
+287:      border: 1px solid var(--line-strong);
+288:      border-radius: var(--radius);
+304:      border: 1px solid var(--line-strong);
+305:      border-radius: var(--radius);
+311:    .btn.primary { border-color: var(--brand-dark); background: var(--brand); color: #ffffff; }
+312:    .btn.ghost { border-color: transparent; background: transparent; }
+324:      border-collapse: collapse;
+329:      border-bottom: 1px solid var(--line);
+355:      border-radius: var(--radius);
+665:          'PRIVATE_BORROW_VALIDATION_REQUIRED': 'PRIVATE_BORROW_VALIDATION_REQUIRED(需私有借币验证)',
+666:          'DISABLED_BSTOCK': 'DISABLED_BSTOCK(禁用:bStock 不可借)',
+685:        '杠杆交易对官方清单需 API key（当前无 key 阶段），杠杆可借性未经私有验证；候选判断使用公开现货 isMarginTradingAllowed 字段。',
+700:          <span>杠杆可借性未经私有验证（当前为公开数据阶段）</span>
+863:          const res = await fetch('/api/public-market/snapshot');
+
+exec
+/bin/zsh -lc 'rg -n "clearInterval|setInterval|startAutoRefresh|visibilitychange|requestIdleCallback|retry|backoff" frontend/index.html' in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+635:      function startAutoRefresh() {
+636:        refreshState.refreshTimer = setInterval(() => {
+639:        refreshState.countdownTimer = setInterval(updateCountdown, 1000);
+881:          if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);
+882:          refreshState.refreshTimer = setInterval(() => {
+934:      startAutoRefresh();
+
+exec
+/bin/zsh -lc 'git diff 7592b2c..ee9296c -- frontend/index.html | rg -n "btn-offline|loadFixture|fixture|formatFundingRate|formatBeijing|fetch|setInterval|clearInterval|nextRefreshAt|countdownTimer|refreshTimer"' in /Users/ark/Desktop/ai code/funding_hedging
+exec
+/bin/zsh -lc "rg -n \"https?://|binance|/api/public-market/snapshot|/sapi/|/fapi/|api_key|apikey|secret|signature|listenKey|userDataStream|WebSocket|websocket|order|borrow|repay|transfer\" backend frontend --glob '"'!frontend/fixture/public-market-snapshot.json'"'" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+frontend/self-check.js:106:    // 1. 默认请求 /api/public-market/snapshot
+frontend/self-check.js:107:    if (fetchUrl !== '/api/public-market/snapshot') {
+frontend/self-check.js:110:    console.log('[PASS] 默认请求 /api/public-market/snapshot');
+frontend/self-check.js:114:    if (!sourceLabel.includes('/api/public-market/snapshot')) {
+frontend/self-check.js:220:      '表中资金费率为本周期实时预估值，将于所示结算时间收取，结算前会漂移；已结算历史以 /fapi/v1/fundingRate 为准。',
+backend/services/snapshot_service.py:17:from ..adapters.binance_public import BinancePublicClient
+backend/services/snapshot_service.py:75:            # Top-N bounds LIVE /fapi/v1/fundingRate call volume. Offline uses
+frontend/index.html:45:    * { box-sizing: border-box; }
+frontend/index.html:91:      border: 1px solid rgba(255, 255, 255, 0.18);
+frontend/index.html:92:      border-radius: var(--radius);
+frontend/index.html:109:      border: 1px solid transparent;
+frontend/index.html:110:      border-radius: var(--radius);
+frontend/index.html:117:      border-color: rgba(255, 255, 255, 0.16);
+frontend/index.html:121:      border-color: rgba(99, 230, 208, 0.36);
+frontend/index.html:140:      border: 1px solid rgba(255, 255, 255, 0.12);
+frontend/index.html:141:      border-radius: var(--radius);
+frontend/index.html:180:      border: 1px solid var(--line);
+frontend/index.html:181:      border-radius: 999px;
+frontend/index.html:188:    .badge.success { border-color: #a8dbc0; background: var(--success-soft); color: var(--success); }
+frontend/index.html:189:    .badge.warn { border-color: #ecd28d; background: var(--warn-soft); color: var(--warn); }
+frontend/index.html:190:    .badge.danger { border-color: #ffc0b8; background: var(--danger-soft); color: var(--danger); }
+frontend/index.html:191:    .badge.info { border-color: #b8daf4; background: var(--info-soft); color: var(--info); }
+frontend/index.html:192:    .badge.accent { border-color: #d4c5f9; background: var(--accent-soft); color: var(--accent); }
+frontend/index.html:193:    .badge.muted { border-color: var(--line-strong); background: var(--surface-2); color: var(--muted); }
+frontend/index.html:198:      border: 1px solid var(--line);
+frontend/index.html:199:      border-radius: var(--radius);
+frontend/index.html:210:      border-bottom: 1px solid var(--line);
+frontend/index.html:244:      border: 1px solid var(--line);
+frontend/index.html:245:      border-radius: var(--radius);
+frontend/index.html:287:      border: 1px solid var(--line-strong);
+frontend/index.html:288:      border-radius: var(--radius);
+frontend/index.html:304:      border: 1px solid var(--line-strong);
+frontend/index.html:305:      border-radius: var(--radius);
+frontend/index.html:311:    .btn.primary { border-color: var(--brand-dark); background: var(--brand); color: #ffffff; }
+frontend/index.html:312:    .btn.ghost { border-color: transparent; background: transparent; }
+frontend/index.html:324:      border-collapse: collapse;
+frontend/index.html:329:      border-bottom: 1px solid var(--line);
+frontend/index.html:355:      border-radius: var(--radius);
+frontend/index.html:452:            <p class="subtitle" id="data-source-label">数据源: /api/public-market/snapshot</p>
+frontend/index.html:686:        '表中资金费率为本周期实时预估值，将于所示结算时间收取，结算前会漂移；已结算历史以 /fapi/v1/fundingRate 为准。',
+frontend/index.html:859:        setStatus('loading', '正在请求 /api/public-market/snapshot ...');
+frontend/index.html:861:        els.dataSourceLabel.textContent = '数据源: /api/public-market/snapshot';
+frontend/index.html:863:          const res = await fetch('/api/public-market/snapshot');
+backend/domain/snapshot.py:18:    "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
+backend/domain/snapshot.py:19:    "premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period and is charged at nextFundingTime; it drifts until settlement (mid-period divergence from settled history evidenced under reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/). Settled history comes from /fapi/v1/fundingRate; do not present the estimate as a settled value.",
+backend/domain/snapshot.py:39:    /fapi/v1/fundingRate call volume.
+backend/tests/smoke_server.py:43:        base = f"http://{cfg.bind_host}:{cfg.bind_port}"
+backend/tests/smoke_server.py:48:        snap = json.loads(get("/api/public-market/snapshot"))
+backend/tests/smoke_server.py:51:        print("GET /api/public-market/snapshot -> HTTP 200, schema-valid")
+backend/domain/classify.py:3:The negative_funding_status priority is an explicit ordered sequence and is NOT
+backend/domain/classify.py:33:    """Ordered priority (do not reorder):
+backend/adapters/binance_public.py:88:        self._bump("GET /fapi/v1/exchangeInfo")
+backend/adapters/binance_public.py:89:        futures_ei = self._http_get(f"{self.futures_base_url}/fapi/v1/exchangeInfo")
+backend/adapters/binance_public.py:90:        self._bump("GET /fapi/v1/premiumIndex")
+backend/adapters/binance_public.py:91:        premium = self._http_get(f"{self.futures_base_url}/fapi/v1/premiumIndex")
+backend/adapters/binance_public.py:108:        self._bump("GET /fapi/v1/fundingRate")
+backend/adapters/binance_public.py:109:        url = f"{self.futures_base_url}/fapi/v1/fundingRate?symbol={symbol}&limit=20"
+backend/tests/fixtures/bstock-alias-raw/api-v3-exchangeInfo.json:18:      "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET"],
+backend/tests/fixtures/bstock-alias-raw/api-v3-exchangeInfo.json:45:      "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET"],
+backend/tests/fixtures/bstock-alias-raw/api-v3-exchangeInfo.json:72:      "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET"],
+backend/tests/fixtures/bstock-alias-raw/api-v3-exchangeInfo.json:99:      "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET"],
+backend/__init__.py:4:endpoints, no order/borrow/repay/transfer paths. The service binds 127.0.0.1.
+backend/tests/conftest.py:19:SCHEMA_PATH = REPO_ROOT / "schemas/api/public-market/snapshot.schema.json"
+backend/tests/test_snapshot.py:195:    # negative_funding_status=DISABLED_BSTOCK (cannot borrow/short a bStock),
+backend/app/server.py:4:  GET /api/public-market/snapshot  -> snapshot JSON; HTTP 503 on validation
+backend/app/server.py:33:        if path == "/api/public-market/snapshot":
+backend/app/server.py:92:        f"serving public-market snapshot on http://{config.bind_host}:{config.bind_port}"
+backend/config.py:18:SCHEMA_PATH = REPO_ROOT / "schemas/api/public-market/snapshot.schema.json"
+backend/config.py:34:    futures_base_url: str = "https://fapi.binance.com"
+backend/config.py:35:    spot_base_url: str = "https://api.binance.com"
+
+ succeeded in 101ms:
+7:           refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+10:+          // 否则手动刷新只重置显示而不重置实际下一次 fetch（见 review-2 round-1 REWORK）。
+11:+          if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);
+12:+          refreshState.refreshTimer = setInterval(() => {
+
+codex
+The frontend fix is in the expected place: `nextRefreshAt` is reset first, then the active 60s interval is cleared and recreated; the 1s countdown interval is untouched. I’m now validating the recorded review state and rerunning the executable checks.
+exec
+/bin/zsh -lc "sed -n '1,260p' reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+{
+  "stage_id": "2026-07-public-market-ui-cn-v1",
+  "status": "review_2",
+  "workflow": "stage-delivery",
+  "prerequisite": {
+    "stages": [
+      {
+        "stage_id": "2026-07-public-market-impl-v1",
+        "stage_status": "accepted",
+        "head_sha": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4"
+      },
+      {
+        "stage_id": "2026-07-public-market-bstock-alias-v1",
+        "stage_status": "accepted",
+        "head_sha": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9"
+      }
+    ],
+    "acceptance_commit": "6d8c0c4"
+  },
+  "designer": {
+    "provider": "anthropic",
+    "model": "claude-fable-5",
+    "scope": "Full design record (00-intake.md, 00-task.md, 10-design.md) + intake evidence capture. No 11-adr.md (no new architecture decision; rationale in 00-task.md)."
+  },
+  "breakdown_author": {
+    "provider": "anthropic",
+    "model": "claude-fable-5",
+    "available": true,
+    "availability_note": "Fable5 reachable as of 2026-07-04; earlier 'Fable5 unavailable' records (claude CLI auth re-routed to GLM/Zhipu) no longer apply. First stage with Fable5 as actual designer/breakdown author.",
+    "design_involvement": true
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "approved_prior_stage",
+    "user_approved": true,
+    "note": "No new direction panel: the user explicitly decided the 5-point product wording in-session on 2026-07-04 (GPT draft -> Fable5 review with live evidence -> user confirmed '开工'). Direction authority = the user's recorded decisions in 00-intake.md."
+  },
+  "implementers": [
+    {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "task": "A",
+      "scope": "CONTRACT_WARNINGS[1] wording + contract doc paragraph + tests"
+    },
+    {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "task": "B",
+      "scope": "frontend/**"
+    }
+  ],
+  "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
+  "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e",
+  "commit_state": "committed",
+  "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81",
+  "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
+  "diff_fingerprint_note": "Two scopes, one protocol; task-level in tasks.<id> at H_A/H_B, stage-level top-level at H_C; status.json excluded from hash. Same formula as prior stages. NOTE: H_intake physically = b84a342 (intake/task/design/status + live funding-semantics evidence) + d3d6e7c (Fable5 pre-written Task B dispatch prompt task-b-kimi-frontend.prompt.md + controller-start-prompt.md update; intake/design scope, no product code). base_sha anchored at b84a342 per user directive, so d3d6e7c's intake artifacts ride in the stage diff (legitimate intake/design scope, not product code; reviewers recompute from base_sha + raw git diff).",
+  "commit_order_strategy": "H_intake (this commit: intake/task/design/status + live funding-semantics evidence under reports/api-samples/<stage-id>/) -> H_A (warnings wording + doc + tests) -> H_B (frontend) -> H_C (integration + stage-level fingerprint + finalize). Controller commits serially so each task's base..head diff is owner-scoped.",
+  "complexity": {
+    "classification": "LOW",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "rationale": [
+      "Wording amendment (evidence-backed, no logic change) + frontend display/i18n polish; user decided the product wording explicitly.",
+      "Multi-task, so design is recorded before coding (Fable5-authored this stage).",
+      "No new human gate: offline-only tasks; the only live capture happened at intake (anonymous public GET, precedent-compliant)."
+    ]
+  },
+  "tasks": {
+    "A": {
+      "name": "lastFundingRate warning semantic amendment",
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "senior_developer"
+      },
+      "reviewer_1_planned": {
+        "provider": "kimi",
+        "model": "kimi-2.7",
+        "skill": "code_reviewer",
+        "output": "30-review-1-backend.md"
+      },
+      "scope": [
+        "backend/domain/snapshot.py",
+        "docs/api/public-market-contract.md",
+        "backend/tests/**",
+        "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-backend.md"
+      ],
+      "scope_constraint": "snapshot.py: ONLY the CONTRACT_WARNINGS[1] string. contract doc: ONLY the lastFundingRate paragraph + its Open Verification Items entry.",
+      "forbidden": [
+        "frontend/**",
+        "schemas/**",
+        "backend/domain/classify.py",
+        "backend/domain/normalize.py",
+        "backend/services/**",
+        "backend/adapters/**",
+        "reports/api-samples/**",
+        "agents/**",
+        "workflows/**",
+        "scripts/**"
+      ],
+      "status": "accepted_by_review_2",
+      "commit": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+      "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
+      "head_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+      "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
+      "diff_files_count": 4,
+      "diff_files_note": "snapshot.py (CONTRACT_WARNINGS[1] string only, -1/+1), docs/api/public-market-contract.md (lastFundingRate paragraph + Open Verification Items entry), backend/tests/test_snapshot.py (warnings[1] assertions), 20-implementation-backend.md (report)",
+      "tests": {
+        "status": "pass",
+        "note": "54 passed; float() audit clean"
+      },
+      "review_1": {
+        "status": "ACCEPT",
+        "owner": {
+          "provider": "kimi",
+          "model": "kimi-2.7",
+          "skill": "code_reviewer"
+        },
+        "output": "30-review-1-backend.md",
+        "dispatch_prompt": "review-1-task-a-kimi.prompt.md",
+        "raw_output": "review-1-task-a-kimi.raw-output.txt",
+        "subject": {
+          "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
+          "head_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+          "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318"
+        },
+        "verdict": "ACCEPT",
+        "verdict_diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "none",
+        "reviewer_prior_involvement_notes": "Kimi (kimi-2.7) is the Task B (frontend) implementer in this same stage, but had no Task A direction_synthesis/breakdown/design/implementation involvement. Task A was implemented by claude_glm (glm-5.2[1m]).",
+        "findings": [],
+        "required_fixes": [],
+        "reviewed_at": "2026-07-04T05:52:00Z",
+        "independent_test_rerun": "git diff d3d6e7c..dba4c12 -- snapshot.py = single -1/+1 string; pytest backend/tests -q -> 54 passed; grep float( clean; verify-funding-semantics.py PASS",
+        "next_action": "continue"
+      },
+      "rework_round1_note": "Stage head advanced to 7592b2c by Task B rework; Task A code unchanged since dba4c12. Task A round-0 review-1 (Kimi ACCEPT) retained; NOT re-reviewed.",
+      "rework_round2_note": "Stage head advanced to ee9296c by Task B rework round 2; Task A code unchanged since dba4c12. Task A round-0 review-1 (Kimi ACCEPT) retained; NOT re-reviewed."
+    },
+    "B": {
+      "name": "Frontend Chinese-first + funding column merge + flags de-noise",
+      "owner": {
+        "provider": "kimi",
+        "model": "kimi-2.7",
+        "skill": "minimal_change_engineer"
+      },
+      "reviewer_1_planned": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "code_reviewer",
+        "output": "30-review-1-frontend.md",
+        "fresh_session_required": true,
+        "note": "Fresh read-only Claude-GLM session; must not reuse the controller/Task A transcript."
+      },
+      "scope": [
+        "frontend/**",
+        "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend.md"
+      ],
+      "forbidden": [
+        "backend/**",
+        "schemas/**",
+        "docs/**",
+        "reports/api-samples/**",
+        "agents/**",
+        "workflows/**",
+        "scripts/**"
+      ],
+      "status": "accepted_by_review_1_round2",
+      "commit": "ee9296c705d3590adb01bf2fff433e32e834523e",
+      "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+      "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e",
+      "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:1ccb1c0d1ee3d0f059ecd90371019596a330ffc02754fe9b05f159828fb49d7a",
+      "diff_files_count": 4,
+      "diff_files_note": "frontend/index.html (column merge + CN i18n + string-shift formatFundingRate + ui_flags de-noise + 数据说明), frontend/fixture/public-market-snapshot.json (warnings[1] synced), frontend/self-check.js (+formatter/数据说明 assertions), 20-implementation-frontend.md (report)",
+      "tests": {
+        "status": "pass",
+        "note": "node frontend/self-check.js 14/14 PASS (incl. 7 funding-rate formatter cases + 数据说明 count + ui_flags mapping)"
+      },
+      "depends_on": [
+        "A"
+      ],
+      "review_1": {
+        "round": 2,
+        "status": "ACCEPT",
+        "verdict": "ACCEPT",
+        "owner": {
+          "provider": "claude_glm",
+          "model": "glm-5.2[1m]",
+          "fresh_session_required": true
+        },
+        "fresh_session": true,
+        "output": "30-review-1-frontend-round2.md",
+        "raw_output": "review-1-frontend-round2.raw-output.txt",
+        "dispatch_prompt": "review-1-frontend-round2.prompt.md",
+        "subject": {
+          "base_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
+          "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e",
+          "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
+          "scope": "frontend/** (rework round-2 fix diff)"
+        },
+        "verdict_diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "none",
+        "findings": [],
+        "required_fixes": [],
+        "reviewed_at": "2026-07-04T09:25:00Z",
+        "next_action": "continue"
+      },
+      "review_1_round0": {
+        "status": "ACCEPT",
+        "owner": {
+          "provider": "claude_glm",
+          "model": "glm-5.2[1m]",
+          "skill": "code_reviewer",
+          "fresh_session_required": true
+        },
+        "output": "30-review-1-frontend.md",
+        "dispatch_prompt": "review-1-task-b-glm-fresh.prompt.md",
+        "raw_output": "review-1-task-b-glm-fresh.raw-output.txt",
+        "fresh_session": true,
+        "subject": {
+          "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+          "head_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
+          "diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835"
+        },
+        "verdict": "ACCEPT",
+        "verdict_diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "none",
+        "reviewer_prior_involvement_notes": "Fresh isolated read-only claude_glm session acting as reviewer_1. Controller and Task A implementer share the provider; this review is permitted because Task B was authored by kimi (provider-level cross-review) and the reviewer is a fresh session with no prior involvement in Task B direction/breakdown/design/implementation.",
+        "findings": [
+          {
+            "severity": "P3",
+            "title": "Pre-existing sidebar brand wordmark 'Funding Hedge' remains English (out of Task-B scope, non-blocking)",
+            "file": "frontend/index.html",
+            "line": 398,
+            "resolution": "leave as-is (surgical-changes discipline; pre-existing per 'git show dba4c12:frontend/index.html' L363, NOT in 10-design.md section-4 CN-ification checklist); surfaced for a future i18n-polish stage to decide"
+          }
+        ],
+        "required_fixes": [],
+        "reviewed_at": "2026-07-04T05:53:00Z",
+        "independent_test_rerun": "node frontend/self-check.js -> 14/14 PASS; fixture.warnings[1] byte-identical to backend build_snapshot()['warnings'][1] (diff exit=0)",
+        "next_action": "continue",
+        "round": 0,
+        "bound_to_head": "0fd0d17e2835f445cee2195a8ba366df55084123",
+        "superseded_by": "rework_round_1"
+      },
+      "rework_round1": {
+        "trigger": "user_directed external post-review (Fable5): P3 residuals (asset-tag raw enums, English sidebar) + user UI decisions 2026-07-04",
+        "fix_start_prompt": "fix-start-prompt-ui-round1.md",
+        "entered_at_commit": "a263ce64fd46d192e5476c704861fb405bc09c67",
+        "base_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
+        "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
+        "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
+
+exec
+/bin/zsh -lc "sed -n '1,220p' reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend-rework2.md" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+# 20-implementation-frontend-rework2.md
+
+阶段: `2026-07-public-market-ui-cn-v1`  
+任务: Task B frontend rework round 2 (2/3)  
+修复目标: P2 — 手动刷新后 60s 自动刷新计时器与倒计时显示同步  
+执行模型: Kimi  
+
+## 改动清单
+
+### 1. `frontend/index.html` — `loadApi()` finally 块新增计时器重调度
+
+位置: `frontend/index.html:875-884`（`loadApi` 的 `finally` 块）。
+
+在原有:
+
+```js
+refreshState.isRefreshing = false;
+refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+updateCountdown();
+```
+
+之后新增:
+
+```js
+// 手动刷新或自动刷新完成后，把 60s 自动刷新计时器与倒计时显示对齐到同一目标，
+// 否则手动刷新只重置显示而不重置实际下一次 fetch（见 review-2 round-1 REWORK）。
+if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);
+refreshState.refreshTimer = setInterval(() => {
+  if (!refreshState.isRefreshing) loadApi();
+}, AUTO_REFRESH_MS);
+```
+
+逐行说明:
+
+- `if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);`
+  - 清除旧的 60000ms 自动刷新 interval。无论本次 `loadApi()` 是手动点击触发还是 `refreshTimer` 自动触发，旧周期都必须失效。
+- `refreshState.refreshTimer = setInterval(() => { if (!refreshState.isRefreshing) loadApi(); }, AUTO_REFRESH_MS);`
+  - 以当前时刻为起点重新创建 60000ms interval，保证下一次自动 fetch 发生在 `nextRefreshAt`（倒计时归零时刻）。
+
+约束遵守情况:
+
+- `refreshState.countdownTimer`（1000ms）保持独立，未 clear、未 recreate，倒计时逻辑未并入同一个 interval。
+- `startAutoRefresh()` 首次创建逻辑未改动，仍负责启动第一个 60000ms timer 与 1000ms countdown timer。
+- 未引入 `visibilitychange`、`requestIdleCallback`、Promise 重试、退避等额外机制。
+- `AUTO_REFRESH_MS = 60000`、`nextRefreshAt` 语义、`updateCountdown()`、倒计时文案均保持不变。
+
+### 2. `frontend/self-check.js` — 新增 timer-reschedule 运行时断言
+
+位置:
+
+- mock 注入: `frontend/self-check.js:24-39`（`eval(script)` 之前）。
+- timer 断言: `frontend/self-check.js:286-303`（原有 19 项断言之后）。
+
+新增内容:
+
+```js
+// mock setInterval / clearInterval，记录调用以便验证自动刷新计时器重调度
+let intervalIdSeq = 0;
+const intervalCalls = [];     // { id, delay, callback }
+const clearedIntervalIds = new Set();
+global.setInterval = (callback, delay) => {
+  const id = ++intervalIdSeq;
+  intervalCalls.push({ id, delay, callback });
+  return id;
+};
+global.clearInterval = (id) => {
+  clearedIntervalIds.add(id);
+};
+```
+
+以及断言:
+
+```js
+// 19. 手动刷新后 60s 自动刷新计时器被重调度，1s 倒计时计时器保持独立
+const initialRefreshTimer = intervalCalls.slice().reverse().find(c => c.delay === 60000);
+const initialCountdownTimer = intervalCalls.slice().reverse().find(c => c.delay === 1000);
+if (!initialRefreshTimer) throw new Error('未找到初始 60000ms 自动刷新计时器');
+if (!initialCountdownTimer) throw new Error('未找到初始 1000ms 倒计时计时器');
+await Promise.all((elements['btn-refresh'].listeners.click || []).map(h => h()));
+if (!clearedIntervalIds.has(initialRefreshTimer.id)) {
+  throw new Error('手动刷新完成后，旧的 60000ms 自动刷新计时器未被 clearInterval');
+}
+if (clearedIntervalIds.has(initialCountdownTimer.id)) {
+  throw new Error('手动刷新完成后，1000ms 倒计时计时器不应被 clearInterval');
+}
+const newRefreshTimer = intervalCalls.slice().reverse().find(c => c.delay === 60000);
+if (!newRefreshTimer || newRefreshTimer.id === initialRefreshTimer.id) {
+  throw new Error('手动刷新完成后，未重新创建 60000ms 自动刷新计时器');
+}
+console.log('[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立');
+```
+
+说明:
+
+- mock 在运行内联脚本前注入，返回递增整数 id，不实际等待 60s。
+- 记录每次 `setInterval` 的 `(id, delay, callback)` 与每次 `clearInterval` 的 id。
+- 通过触发 `#btn-refresh` 的 click 处理器模拟手动刷新，并 `await` 其完成。
+- 断言:
+  1. 旧的 60000ms `refreshTimer` id 出现在 `clearInterval` 记录中；
+  2. 1000ms `countdownTimer` id 未被 `clearInterval`；
+  3. 重新创建了一个新的 60000ms interval。
+
+## self-check 输出原文
+
+```text
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认隐藏 PERP_ONLY_EXCLUDED，渲染 4 行
+[PASS] 显示 PERP_ONLY_EXCLUDED 后渲染全部 6 行
+[PASS] BSTOCK 行标识正确
+[PASS] alias 行显示实际现货腿与 B 后缀别名标识
+[PASS] 时间转换正确
+[PASS] 列名/文案符合契约
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] 数据说明条目数与 API warnings 一致
+[PASS] 提示标记映射正确
+[PASS] 离线 fixture 按钮及文案已删除
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式
+[PASS] 筛选下拉 option 使用「英文枚举(中文解释)」格式
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+
+全部自检通过
+```
+
+结果: `20/20 PASS`（round 1 的 19 项 + round 2 的 timer-reschedule 覆盖）。
+
+## 未执行事项
+
+- 未执行 `git commit`（controller 将提交 `H_fix2`）。
+- 未改动 `backend/**`、`schemas/**`、`docs/**`、`reports/api-samples/**`、`agents/**`、`workflows/**`、`scripts/**`。
+- 未重新引入 `#btn-offline` / `loadFixture()` / `'fixture'` 数据源分支。
+- `frontend/fixture/public-market-snapshot.json` 未改动。
+
+---
+
+本地北京时间: 2026-07-04 17:10:01 CST  
+下一步模型: controller（提交 `H_fix2` 并触发 review-1 / review-2）  
+下一步任务: 等待 controller 完成 stage fingerprint 重算与 review 调度
+
+exec
+/bin/zsh -lc "sed -n '1,260p' reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-frontend-round2.md" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+# Review-1 round 2 (task-level, Task B rework round 2) — public-market-ui-cn-v1
+
+- **Stage**: `2026-07-public-market-ui-cn-v1`
+- **Reviewer**: `reviewer_1` = fresh, read-only Claude-GLM session (`glm-5.2[1m]`)
+- **Review subject**: Task B rework round 2 — frontend timer-sync fix
+  (`H_fix2`, head `ee9296c`), diff range `7592b2c..ee9296c`, scoped to `frontend/**`
+- **`reviewer_prior_involvement`**: `none` (fresh isolated context; no prior
+  involvement in this stage's Task B direction/breakdown/design/implementation/rework)
+- **Date**: 2026-07-04 17:25 CST
+- **Verdict**: **ACCEPT**
+
+## Recomputed fingerprint (recomputed from a clean shell — not trusted from summary)
+
+```bash
+git diff --binary 7592b2c740975dc0a6ad2a4b3a17d5a8474494ff..ee9296c705d3590adb01bf2fff433e32e834523e -- frontend/ | shasum -a 256
+```
+
+Recomputed:
+
+```text
+f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226
+```
+
+Full value (head_sha:sha256):
+
+```text
+ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226
+```
+
+Matches `status.json.tasks.B.rework_round2.diff_fingerprint` exactly, and matches
+the prompt's expected value. ✓ (checkpoint 1)
+
+## The fix under review
+
+`frontend/index.html` `loadApi()` `finally` (L875–885). Pre-fix `finally` only did
+`isRefreshing=false` + `nextRefreshAt=Date.now()+AUTO_REFRESH_MS` + `updateCountdown()`.
+The round-2 patch appends, **after** the `nextRefreshAt` reset (order verified):
+
+```js
+refreshState.isRefreshing = false;
+refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+updateCountdown();
+// 手动刷新或自动刷新完成后，把 60s 自动刷新计时器与倒计时显示对齐到同一目标，
+// 否则手动刷新只重置显示而不重置实际下一次 fetch（见 review-2 round-1 REWORK）。
+if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);
+refreshState.refreshTimer = setInterval(() => {
+  if (!refreshState.isRefreshing) loadApi();
+}, AUTO_REFRESH_MS);
+```
+
+This is **verbatim** the required fix from `fix-start-prompt-ui-round2.md` §修复要求.
+
+## Does it resolve the review-2 round-1 P2? — YES
+
+The P2 (per `50-review-2-round1.md`): `startAutoRefresh()` created one 60000ms
+`setInterval`; the manual-refresh path (`btnRefresh`→`loadApi`) only reset
+`nextRefreshAt` (display), never `clearInterval`/reschedule → display target and
+actual next fetch diverged (manual refresh at T+50s showed T+110s while the
+original timer still fired at T+60s).
+
+The fix makes every `loadApi()` completion (manual / auto / success / failure)
+clear the old 60000ms timer and recreate it, anchored to the same
+`nextRefreshAt` just written. Post-fix invariant (required by the spec): **the
+actual next auto-fetch instant == `nextRefreshAt` == the moment the countdown
+display hits 0**. The P2 is resolved. ✓
+
+## Checkpoint verification (all 12 hold)
+
+1. **fingerprint matches** `f4073da5…` — recomputed & matched `status.json`. ✓
+2. **fix present & correct** — `loadApi` `finally` (L881–884) contains
+   `if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);`
+   then a new `setInterval(..., AUTO_REFRESH_MS)`, **after** the `nextRefreshAt`
+   reset (L877). Order verified. ✓
+3. **countdown independent** — the only `clearInterval` in `frontend/index.html`
+   is at L881 and targets `refreshState.refreshTimer` only; `countdownTimer` is
+   never cleared anywhere in the file (`grep clearInterval` → 1 hit, L881). ✓
+4. **startAutoRefresh unchanged** — L635–640 still creates the first `refreshTimer`
+   (60000ms, L636–638) and the `countdownTimer` (1000ms, L639); only `loadApi`'s
+   `finally` gained the reschedule. No `visibilitychange`/`requestIdleCallback`/
+   retry/backoff added (range-diff grep empty). ✓
+5. **Red line** —
+   `git diff 7592b2c..ee9296c -- frontend/index.html | grep -E '^[+-].*(formatFundingRate|formatBeijing)'`
+   → empty. `formatFundingRate`/`formatBeijing`/`formatBeijingShort` untouched. ✓
+6. **No reintroduction** — range-diff grep for `btn-offline`/`loadFixture`/
+   `'fixture'` branch in added lines → empty. ✓
+7. **Same-origin fetch preserved** — only `fetch('/api/public-market/snapshot')`
+   (L863); no external `<script src>`, no `import`/`require`, no `binance`/direct
+   Binance call. ✓
+8. **fixture unchanged** —
+   `git diff 7592b2c..ee9296c -- frontend/fixture/` → empty. ✓
+9. **No product-boundary crossing** —
+   `git diff --stat 7592b2c..ee9296c -- backend/ schemas/ reports/api-samples/ docs/api/`
+   → empty. **Note (non-blocking, see residual risks):** the *range* diff
+   `7592b2c..ee9296c` is wider than the checkpoint's literal "only
+   `frontend/index.html` + `frontend/self-check.js`" wording because the range
+   spans intermediate process-bookkeeping commits (`6e945c8` ADOPTED-TRIAL,
+   `6894577` DRAFT-2, `533d708`/`b20b219` rework entry/record). The non-frontend
+   content is exclusively: `docs/parallel-development-mode.md` (parallel-dev-mode
+   spec evolution — a process/methodology doc, **not** the API contract
+   `docs/api/public-market-contract.md`, and explicitly flagged in
+   `50-review-2-round1.md` residual risks as "independent non-product methodology
+   doc") and `reports/agent-runs/**` review/status records. The `H_fix2` commit
+   (`ee9296c`) itself touches only the 3 spec-allowed paths
+   (`frontend/index.html`, `frontend/self-check.js`,
+   `20-implementation-frontend-rework2.md`). The authoritative fix fingerprint is
+   scoped to `-- frontend/` and matches. **No product boundary is crossed.** ✓
+10. **self-check 20/20 PASS** — `node frontend/self-check.js` run by this reviewer;
+    20 `[PASS]` lines including the new
+    `[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立`. The new
+    assertion is a **genuine runtime mock**, not a source string/regex check:
+    `global.setInterval` (L34–38) records `{id,delay,callback}` + returns
+    incrementing integer ids; `global.clearInterval` (L39–41) records cleared ids
+    in a `Set`; assertion 19 (L299–315) finds the initial 60000ms + 1000ms timers,
+    fires `#btn-refresh` click handlers to completion, then asserts the old
+    60000ms id is cleared, the 1000ms id is NOT cleared, and a new 60000ms id
+    exists. ✓
+11. **Decimal discipline** — the fix touches only timestamps/timer ids; range-diff
+    grep for added `parseFloat`/`Number(` on any path → empty. ✓
+12. **No forbidden interaction** — range-diff grep for
+    order/buy/sell/borrow/repay/transfer/account UI (CN + EN) → empty. ✓
+
+## Independent re-verification notes
+
+- **Trace of the runtime mock** (confirms assertion 19 is sound): after `eval(script)`,
+  `startAutoRefresh()` creates `refreshTimer` (60000ms) + `countdownTimer` (1000ms);
+  the initial `loadApi()`'s `finally` (microtask, after `startAutoRefresh`) clears
+  that first `refreshTimer` and creates a new one. The assertion captures the
+  *current* 60000ms timer id, simulates a manual refresh, and confirms that id is
+  cleared + a new one created while the 1000ms id is untouched — exactly the
+  fix behavior.
+- **Self-rescheduling is benign**: because every `loadApi()` finally recreates the
+  60000ms timer, auto-refresh now re-anchors on each cycle (60s between
+  completions, no drift). The old timer is always cleared before the new one is
+  created — no leak, no double-fire. The `if (refreshState.refreshTimer)` guard
+  is safe (timer is set by `startAutoRefresh` before any `finally` runs).
+- **`ee9296c` commit scope** = `frontend/index.html` (+6), `frontend/self-check.js`
+  (+33/-1), `20-implementation-frontend-rework2.md` (+143, process report) — all
+  within the rework spec's allowed-write list.
+
+## Findings
+
+None blocking. The reviewed fix is correct, minimal, surgical, and confined to
+`frontend/**` product code (+ a process implementation report). All hard
+constraints and red lines hold.
+
+## Required fixes
+
+None (verdict ACCEPT).
+
+## Residual risks (carry-forward, non-blocking)
+
+1. **Range-diff width vs checkpoint 9 literal wording** — the *range*
+   `7592b2c..ee9296c` includes process bookkeeping (`docs/parallel-development-mode.md`
+   spec evolution + `reports/agent-runs/**` review/status records) from intermediate
+   commits. This is expected workflow noise, not a product boundary breach (backend /
+   schemas / `docs/api/` / `reports/api-samples/` are clean; `ee9296c` itself and the
+   `-- frontend/`-scoped fingerprint are confined). Flagged for controller awareness;
+   no action needed for this fix.
+2. **Frontend self-check runs on a frozen fixture**; the live endpoint serves the
+   full market — inherited residual from prior rounds, unchanged by this fix.
+3. **`lastFundingRate` single mid-period snapshot** (drift) — inherited accepted
+   residual, untouched by this round.
+4. **Spec prose/table paren inconsistency** (spec-side) — inherited, untouched.
+
+## Verdict
+
+**ACCEPT** — the round-2 fix correctly and minimally resolves the review-2 round-1
+P2 (manual refresh now reschedules the actual 60000ms auto-refresh timer to the
+same target as the displayed `nextRefreshAt`, while keeping the 1s countdown timer
+independent), the self-check adds genuine runtime-mock coverage, and all red lines
+/ boundaries / decimal discipline hold. Recommend proceeding to review-2 (Codex
+rebind on new head `ee9296c`).
+
+---
+
+本地北京时间: 2026-07-04 17:25 CST
+下一步模型: Claude-GLM (controller)
+下一步任务: 汇总 review-1 round-2，调度 review-2 Codex rebind 新 head ee9296c
+
+exec
+/bin/zsh -lc "sed -n '1,220p' reports/agent-runs/2026-07-public-market-ui-cn-v1/60-test-output.txt" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+# Task C — Integration test output
+# Stage: 2026-07-public-market-ui-cn-v1
+# Owner: controller (claude_glm / glm-5.2[1m], test_strategist) — NO product code
+# Mode: offline-only (Config(offline=True), frozen raw; no live HTTP)
+# Goal: assert warnings[1] == new evidenced wording AND rows field-identical to
+#       the accepted 548ae0d baseline (bstock-alias-v1). ANY rows diff -> BLOCKED.
+# Date: 2026-07-04 13:35 CST
+
+## Section 1 — backend pytest
+
+$ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider backend/tests -q
+......................................................  [100%]
+54 passed in 0.63s
+
+(Includes `test_three_contract_warnings_preserved` with the new warnings[1]
+assertions: `"real-time estimate" in w1` and the evidence-path keyword
+`"2026-07-public-market-ui-cn-v1/20260704T044945Z" in w1`.)
+
+## Section 2 — frontend self-check
+
+$ node frontend/self-check.js
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认隐藏 PERP_ONLY_EXCLUDED，渲染 4 行
+[PASS] 显示 PERP_ONLY_EXCLUDED 后渲染全部 6 行
+[PASS] BSTOCK 行标识正确
+[PASS] alias 行显示实际现货腿与 B 后缀别名标识
+[PASS] 时间转换正确
+[PASS] 列名/文案符合契约
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] 数据说明条目数与 API warnings 一致
+[PASS] 提示标记映射正确
+
+全部自检通过   (14/14 PASS)
+
+## Section 3 — float() audit (decimal discipline)
+
+$ grep -rn "float(" backend/domain backend/services
+CLEAN
+
+## Section 4 — served warnings[1] (new evidenced wording)
+
+$ .venv/bin/python -c "from backend.config import Config; from backend.services.snapshot_service import SnapshotService; print(SnapshotService(Config(offline=True)).build_snapshot()['warnings'][1])"
+premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period and is charged at nextFundingTime; it drifts until settlement (mid-period divergence from settled history evidenced under reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/). Settled history comes from /fapi/v1/fundingRate; do not present the estimate as a settled value.
+
+## Section 5 — rows field-identity vs accepted 548ae0d baseline (BLOCKING CHECK)
+
+Method: `git worktree add --detach /tmp/ui-cn-baseline 548ae0d` (bstock-alias-v1
+accepted head); build the snapshot using the **548ae0d backend code**
+(`sys.path.insert(0,'/tmp/ui-cn-baseline')` so the worktree's snapshot.py is loaded
+— verified by printing `backend.domain.snapshot.__file__`) over the **SAME frozen
+raw** (Config.offline FROZEN_RAW_DIR, unchanged this stage); compare every row
+field vs the current (0fd0d17) build.
+
+Replay (read-only; worktree removed after):
+  git worktree add --detach /tmp/ui-cn-baseline 548ae0d
+  .venv/bin/python -c "
+    import sys; sys.path.insert(0,'/tmp/ui-cn-baseline')
+    from backend.config import Config
+    from backend.services.snapshot_service import SnapshotService
+    import json
+    json.dump(SnapshotService(Config(offline=True)).build_snapshot(), open('/tmp/snap_baseline.json','w'), ensure_ascii=False)"
+  .venv/bin/python -c "
+    from backend.config import Config
+    from backend.services.snapshot_service import SnapshotService
+    import json
+    json.dump(SnapshotService(Config(offline=True)).build_snapshot(), open('/tmp/snap_current.json','w'), ensure_ascii=False)"
+  .venv/bin/python -c "
+    import json
+    b=json.load(open('/tmp/snap_baseline.json')); c=json.load(open('/tmp/snap_current.json'))
+    print('ROWS IDENTICAL:', b['rows']==c['rows'])
+    print('w[1] differs (expected):', b['warnings'][1]!=c['warnings'][1])"
+  git worktree remove /tmp/ui-cn-baseline --force
+
+Result (captured 2026-07-04):
+  snapshot.py loaded from: /tmp/ui-cn-baseline/backend/domain/snapshot.py   (548ae0d code)
+  baseline w[1]: premiumIndex.lastFundingRate is documented by Binance as the most recently updated funding rate...
+  current  w[1]: premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period...
+  baseline rows: 647 | current rows: 647
+  ROWS IDENTICAL: True
+  SUMMARY IDENTICAL: True
+  schema_version identical: True
+  warnings[0] identical: True
+  warnings[1] identical: False   (expected — the only allowed API payload change)
+  warnings[2] identical: True
+  => rows are field-identical to the accepted 548ae0d build; ONLY warnings[1] text
+     differs. NOT BLOCKED.
+
+## Section 6 — schema validation
+
+$ .venv/bin/python -c "from backend.config import Config; from backend.services.snapshot_service import SnapshotService; import json, jsonschema; snap=SnapshotService(Config(offline=True)).build_snapshot(); jsonschema.validate(snap, json.load(open('schemas/api/public-market/snapshot.schema.json'))); print('VALID')"
+schema VALID (Draft 2020-12); rows=647 warnings=3 schema_version=public-market-snapshot/v1
+
+## Conclusion
+
+Task C PASS. `warnings[1]` is the new evidenced wording; rows are byte-for-byte
+field-identical to the accepted 548ae0d build (zero structure/value drift); the
+schema is valid; backend tests (54) and frontend self-check (14) are green; the
+float() audit is clean. No live HTTP / key / signed / order / borrow / repay /
+transfer / websocket was issued (offline replay only). Ready for review-1.
+
+codex
+Review-1 round 2 independently accepted the same timer fix and explicitly validated the runtime mock. The older integration log still reflects the pre-rework self-check count, so I’ll rely on fresh command output and the round-2 implementation/review records for the current 20/20 frontend evidence.
+exec
+/bin/zsh -lc "sed -n '260,620p' reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+        "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
+        "cumulative_frontend_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:9caf18e6e9e7f67b28698cd0df6cad9e22d181fd9236e81be33d07e9e3f9f8e6",
+        "changes": [
+          "enum bilingual 'ENGLISH(中文)' for route/asset-tag/negative-funding-status columns + filter <option>s (supersedes round-1 pure-Chinese rule per user decision)",
+          "remove offline-fixture button (#btn-offline) + loadFixture() + 'fixture' data-source branch + prompt copy",
+          "60s frontend auto-refresh (AUTO_REFRESH_MS=60000, aligned with backend Config.cache_ttl_seconds=60) + countdown near market table",
+          "sidebar brand 'Funding Hedge' -> '资金费率对冲'"
+        ],
+        "red_lines_honored": "formatFundingRate/formatBeijing* untouched; no parseFloat; no new Number() on the rate-percent path (only pre-existing formatPrice/classForFundingRate); no new deps; no direct Binance; same-origin /api/public-market/snapshot only; backend/schemas/docs/api-samples untouched; frontend/fixture/public-market-snapshot.json unchanged",
+        "self_check": "18/18 PASS (was 14/14; +5 assertions)"
+      },
+      "review_2_round1": {
+        "verdict": "REWORK",
+        "finding": "P2: manual refresh resets countdown display (nextRefreshAt) but not the 60000ms refresh interval (no clearInterval/reschedule)",
+        "reviewer": {
+          "provider": "codex",
+          "model": "gpt5.5",
+          "effort": "xhigh"
+        },
+        "fix_start_prompt": "fix-start-prompt-ui-round2.md",
+        "round0_verdict_note": "round-0 review-2 (head 9b0e62c) ACCEPT preserved under review_2_round0; round-1 review-2 REWORK is bound to head 7592b2c."
+      },
+      "review_1_round1": {
+        "round": 1,
+        "status": "ACCEPT",
+        "owner": {
+          "provider": "claude_glm",
+          "model": "glm-5.2[1m]",
+          "fresh_session_required": true
+        },
+        "output": "30-review-1-frontend-round1.md",
+        "raw_output": "review-1-frontend-round1.raw-output.txt",
+        "dispatch_prompt": "review-1-frontend-round1.prompt.md",
+        "fresh_session": true,
+        "subject": {
+          "base_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
+          "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
+          "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9"
+        },
+        "verdict": "ACCEPT",
+        "verdict_diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "none",
+        "findings": [],
+        "required_fixes": [],
+        "reviewed_at": "2026-07-04T08:36:00Z",
+        "next_action": "continue",
+        "bound_to_head": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
+        "superseded_by": "rework_round_2",
+        "superseded_reason": "Task B frontend reworked again (round 2); round-1 review-1 ACCEPT (47cdfcc2) preserved."
+      },
+      "rework_round2": {
+        "trigger": "review-2 round-1 REWORK (Codex gpt-5.5): P2 — manual refresh resets countdown display but not the 60000ms auto-refresh interval (no clearInterval/reschedule)",
+        "fix_start_prompt": "fix-start-prompt-ui-round2.md",
+        "entered_at_commit": "b20b219",
+        "base_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
+        "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e",
+        "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
+        "cumulative_frontend_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:1ccb1c0d1ee3d0f059ecd90371019596a330ffc02754fe9b05f159828fb49d7a",
+        "changes": [
+          "frontend/index.html loadApi finally: after nextRefreshAt reset, clearInterval(refreshState.refreshTimer) + recreate 60000ms setInterval; 1s countdown timer kept independent",
+          "frontend/self-check.js: inject setInterval/clearInterval mocks (record id+delay) + assertion that manual refresh clears old 60000ms timer, creates a new one, and leaves the 1000ms countdown untouched"
+        ],
+        "red_lines_honored": "formatFundingRate/formatBeijing* untouched; no new deps; no direct Binance; same-origin /api/public-market/snapshot only; no btn-offline/loadFixture reintroduced; backend/schemas/docs/api-samples/fixture untouched; startAutoRefresh() first-create logic unchanged; no visibility/pause/backoff added",
+        "self_check": "20/20 PASS (round-1 19 + round-2 timer-reschedule); backend pytest 54 passed (unchanged)"
+      }
+    },
+    "C": {
+      "name": "Integration verification (controller, no product code)",
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "test_strategist"
+      },
+      "scope": [
+        "reports/agent-runs/2026-07-public-market-ui-cn-v1/60-test-output.txt",
+        "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation.md"
+      ],
+      "forbidden_any_product_code": true,
+      "status": "accepted_by_review_2",
+      "depends_on": [
+        "A",
+        "B"
+      ],
+      "blocking_check": "Offline snapshot rows must be field-identical to the accepted 548ae0d build (only warnings[1] text may differ); ANY rows diff -> BLOCKED.",
+      "commit": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
+      "base_sha": "cc6ff1d557f8cb5f423196f0206543c951d36309",
+      "head_sha": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
+      "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:28670f9807d372bfb60816e4839f230ea94aa50bab70197be971281eddd09a40",
+      "diff_files_count": 4,
+      "diff_files_note": "60-test-output.txt (replayable rows-baseline command), 20-implementation.md (Task C integration report), 11-adr.md (minimal, no new architecture decision), 70-handoff.md (handoff) — controller bookkeeping, no product code",
+      "tests": {
+        "status": "pass",
+        "note": "rows field-identical to 548ae0d (647==647, only warnings[1] differs); pytest 54 passed; frontend self-check 14/14; float() audit clean; schema VALID"
+      },
+      "rework_round1_note": "Stage head advanced to 7592b2c by Task B rework; Task C evidence unchanged. Covered by stage-level review-2 round-1 (Codex rebind).",
+      "rework_round2_note": "Stage head advanced to ee9296c by Task B rework round 2; Task C evidence unchanged. Covered by stage-level review-2 round-2 (Codex rebind)."
+    }
+  },
+  "model_routing": {
+    "backend_owner": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "scope": "Task A"
+    },
+    "frontend_owner": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "scope": "Task B"
+    },
+    "excluded_for_core_work": [
+      {
+        "provider": "grok",
+        "reason": "Grok stays excluded from implementation and review (per prior stages)."
+      },
+      {
+        "provider": "anthropic",
+        "reason": "Fable5 is designer/breakdown author this stage -> design involvement -> excluded from review-2 final gate."
+      }
+    ],
+    "review_1_task_A": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "reason": "implementer is claude_glm; cross-review selects Kimi."
+    },
+    "review_1_task_B": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "reason": "implementer is kimi; fresh read-only Claude-GLM session."
+    },
+    "review_2_stage": {
+      "primary": {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh"
+      },
+      "reviewer_prior_involvement": "direction_synthesis",
+      "override": "strong_reviewer_disclosure",
+      "runner_level_check": "Decision pool = {GPT/Codex, Anthropic}. Anthropic (Fable5) is the designer this stage -> design involvement -> excluded. Both implementers hard-banned. Codex has no design/breakdown/code involvement this stage; its only prior involvement is the user-approved direction synthesis of the covering contract stage -> direction_synthesis disclosure override, same path as impl-v1/bstock-alias-v1. Fallback if Codex unavailable/invalid: decision_models_exhausted."
+    }
+  },
+  "evidence_policy": {
+    "controller_and_backend_implementer_same_model": true,
+    "required_mitigation": [
+      "Reviewers recompute diff_fingerprint from base_sha and raw git diff, not controller summaries.",
+      "Test output must contain replayable raw command output.",
+      "Review prompts pass raw artifact paths and raw diff paths.",
+      "Task B review-1 uses a fresh read-only Claude-GLM session.",
+      "Intake evidence (api-samples/<stage-id>/) is read-only during the stage; reviewers verify sha256 against evidence-index.md."
+    ]
+  },
+  "frozen_inputs": {
+    "accepted_baseline": "6d8c0c4 (both prior stages accepted; snapshot rows structure frozen this stage — only warnings[1] text may change in the API payload)",
+    "intake_evidence": "reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/ (premiumIndex + fundingRate captures, evidence-index.md sha256, verify-funding-semantics.py PASS)"
+  },
+  "hard_constraints": [
+    "No API key, signed endpoint, private account endpoint, user data stream.",
+    "No order, borrow, repay, transfer, websocket.",
+    "No live HTTP during A/B/C (intake evidence already captured).",
+    "rows structure and all row values unchanged; only warnings[1] text changes in the API payload.",
+    "classify.py / normalize.py / snapshot_service.py logic untouched.",
+    "Frontend: single file, no new deps, same-origin /api/public-market/snapshot only, no direct Binance calls.",
+    "Rate percent formatting MUST be string-shift based; parseFloat/Number*100 is forbidden (decimal discipline at the display layer).",
+    "UI Chinese-first per user decision 2026-07-04: no raw English enums in the main table; technical terms (USDT, bStock, API) allowed."
+  ],
+  "tests": {
+    "status": "pass",
+    "note": "Rework round 2 (frontend timer-sync only): node frontend/self-check.js 20/20 PASS (round-1 19 + round-2 timer-reschedule). backend unchanged -> pytest 54 passed; rows field-identical to 548ae0d (647==647); schema VALID."
+  },
+  "rework_count": 2,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": "REWORK ROUND 2 REVIEW PHASE: review-1 round-2 ACCEPT; awaiting review-2 round-2. Not terminal.",
+  "next_action": "Rework round 2 (2/3): review-1 round-2 (fresh GLM) = ACCEPT (findings empty, f4073da5 matched). status=review_2. Dispatch review-2 round-2 (Codex gpt-5.5 xhigh, direction_synthesis disclosure) rebind to ee9296c:f4637f8a — verify the round-2 timer-sync fix resolves the round-1 P2. Then pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "can_accept_final": false,
+  "updated_at": "2026-07-04T09:26:00Z",
+  "review_1": {
+    "round": 2,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "status": "both_tasks_ACCEPT",
+    "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81",
+    "scope": "Rework round 2 (Task-B-scoped, frontend timer-sync only). Task A backend unchanged since dba4c12 -> round-0 Kimi ACCEPT retained, not re-reviewed. Task B frontend reworked again (H_fix2 ee9296c) to align the 60000ms auto-refresh timer with the countdown display (review-2 round-1 P2 fix) -> re-reviewed by a fresh read-only Claude-GLM session on the fix diff 7592b2c..ee9296c (frontend/**) -> ACCEPT, findings empty.",
+    "task_A": {
+      "round": 0,
+      "verdict": "ACCEPT",
+      "retained": true,
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
+      "note": "Task A code unchanged since dba4c12; round-0 Kimi ACCEPT stands across all rework rounds."
+    },
+    "task_B": {
+      "round": 2,
+      "verdict": "ACCEPT",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "fresh_session": true,
+      "output": "30-review-1-frontend-round2.md",
+      "raw_output": "review-1-frontend-round2.raw-output.txt",
+      "dispatch_prompt": "review-1-frontend-round2.prompt.md",
+      "reviewed_at": "2026-07-04T09:25:00Z",
+      "subject": {
+        "base_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
+        "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e",
+        "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
+        "scope": "frontend/** (rework round-2 fix diff: timer reschedule in loadApi finally + self-check runtime mock)"
+      },
+      "verdict_diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
+      "verdict_fingerprint_matches": true,
+      "schema_valid": true,
+      "reviewer_prior_involvement": "none",
+      "reviewer_prior_involvement_notes": "Fresh isolated read-only claude_glm session; no prior Task B direction/breakdown/design/implementation/rework involvement. Same provider as controller + Task A implementer, but cross-review (Task B authored by kimi) + fresh-session isolation.",
+      "findings": [],
+      "required_fixes": [],
+      "residual_risks": [
+        "Range diff 7592b2c..ee9296c is wider than checkpoint-9 literal wording because the range spans intermediate process-bookkeeping commits (6e945c8, 6894577, 533d708, b20b219); non-frontend content is exclusively docs/parallel-development-mode.md (process doc) + reports/agent-runs/** records. backend/schemas/docs/api/reports/api-samples clean; ee9296c itself + frontend-scoped fingerprint confined. No product boundary crossed.",
+        "Frontend self-check runs on frozen fixture; live endpoint serves full market (inherited).",
+        "lastFundingRate single mid-period snapshot (drift) — inherited accepted residual.",
+        "Spec prose/table paren inconsistency (spec-side) — inherited."
+      ],
+      "independent_test_rerun": "git diff 7592b2c..ee9296c -- frontend/ | shasum -a 256 = f4073da5 (MATCH); node frontend/self-check.js -> 20/20 PASS (incl. runtime-mock timer-reschedule assertion); grep formatFundingRate/formatBeijing in +/- lines empty; grep clearInterval -> 1 hit (L881, refreshTimer only); startAutoRefresh unchanged; fixture unchanged; backend/schemas/docs/api/reports/api-samples untouched.",
+      "next_action": "continue"
+    },
+    "both_schema_valid": true,
+    "both_fingerprints_match": true,
+    "findings_total": 0,
+    "required_fixes_total": 0,
+    "summary_file": "30-review-1.md",
+    "reviewed_at": "2026-07-04T09:25:00Z",
+    "next_action": "stage_review_2",
+    "note": "Rework round-2 review-1 = ACCEPT (fresh GLM, findings empty). Task A round-0 ACCEPT retained (backend unchanged); Task B round-2 ACCEPT (rework fix diff f4073da5 independently recomputed & matched). The review-2 round-1 P2 (manual-refresh timer not rescheduled) is resolved. Stage-level review_1 binds to stage fingerprint ee9296c:f4637f8a. Next: stage-level review-2 round-2 (Codex gpt-5.5, direction_synthesis disclosure) rebind to ee9296c."
+  },
+  "review_2": {
+    "round": 2,
+    "verdict": "pending",
+    "json_schema_valid": null,
+    "status": "pending_review_2_round2",
+    "role": "final_reviewer",
+    "model": "gpt5.5",
+    "provider": "codex",
+    "effort": "xhigh",
+    "reviewer_prior_involvement": "direction_synthesis",
+    "override": "strong_reviewer_disclosure",
+    "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81",
+    "subject": {
+      "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
+      "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e"
+    },
+    "note": "Round-2 review-2 pending (Codex rebind). Will recompute stage fingerprint ee9296c:f4637f8a and verify the round-2 timer-sync fix resolves the round-1 P2 (manual-refresh timer reschedule). Round-1 REWORK preserved under review_2_round1; round-0 ACCEPT under review_2_round0.",
+    "next_action": "dispatch_review_2_round2"
+  },
+  "post_review_findings": [
+    {
+      "id": "asset_tag_enum_direct_display",
+      "severity": "P3_cosmetic",
+      "status": "open",
+      "recorded_at": "2026-07-04T07:52:12Z",
+      "reviewer": {
+        "provider": "anthropic",
+        "model": "claude-fable-5",
+        "kind": "user_directed_external_post_review",
+        "prior_involvement": "designer_breakdown_author"
+      },
+      "summary": "badgeForAssetTag renders CRYPTO/UNKNOWN/BSTOCK raw enums in the 资产标签 column (violated the round-1 dispatch's no-raw-English-enum rule); sidebar brand 'Funding Hedge' still English (review-1 P3, out-of-diff). Both cosmetic, no functional impact; review-1/review-2 ACCEPT verdicts on head 9b0e62c preserved verbatim.",
+      "resolution_route": "rework round 1 per fix-start-prompt-ui-round1.md; NOTE the user's new enum-display decision (English + Chinese parens) supersedes the round-1 pure-Chinese rule, so the fix implements the new scheme rather than translating enums away."
+    }
+  ],
+  "user_decisions": [
+    {
+      "decided_at": "2026-07-04",
+      "topic": "state enum display scheme",
+      "decision": "路由分类/资产标签/负费率状态三列及筛选下拉统一为「英文枚举(中文解释)」格式(全角括号),取代上一轮'主表纯中文'规则。",
+      "consequence": "Precise enum values stay visible (match API/docs) with Chinese explanations inline; supersedes the round-1 dispatch rule '主表不得英文枚举直出' for these three columns."
+    },
+    {
+      "decided_at": "2026-07-04",
+      "topic": "offline fixture button",
+      "decision": "删除页面「加载离线 fixture」按钮及代码路径;fixture 文件与 self-check 数据源用途保留。",
+      "consequence": "UI loses the offline demo path; self-check unaffected (reads the file directly)."
+    },
+    {
+      "decided_at": "2026-07-04",
+      "topic": "auto refresh + countdown",
+      "decision": "前端每 60 秒自动刷新(对齐后端 Config.cache_ttl_seconds=60),市场表附近显示下次刷新倒计时;手动刷新保留并重置倒计时。",
+      "consequence": "Previously manual-refresh-only. No API/schema change: polling is frontend-local; backend TTL cache unchanged."
+    }
+  ],
+  "review_1_round0": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:6e6e2d4d7ee28dc6547c727b6a4c99779605686e38af2586a42ac49171114854",
+    "status": "both_tasks_ACCEPT",
+    "scope": "Task-level review-1 (Task A backend by Kimi + Task B frontend by a fresh read-only Claude-GLM session). The stage-level review_1 verdict aggregates both task verdicts (both ACCEPT) and binds to the stage-level top-level diff_fingerprint, as required by scripts/validate-stage.py validate_acceptance. Per-task fingerprints live in tasks.{A,B}.review_1; detailed review files are 30-review-1-backend.md and 30-review-1-frontend.md; 30-review-1.md is the stage-level summary. Task C (controller integration verification, no product code) is NOT a cross-review subject; it is covered by the stage-level review-2.",
+    "task_A": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "verdict": "ACCEPT",
+      "output": "30-review-1-backend.md",
+      "raw_output": "review-1-task-a-kimi.raw-output.txt",
+      "reviewed_at": "2026-07-04T05:52:00Z",
+      "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
+      "fingerprint_matches": true,
+      "schema_valid": true,
+      "findings": 0
+    },
+    "task_B": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "verdict": "ACCEPT",
+      "output": "30-review-1-frontend.md",
+      "raw_output": "review-1-task-b-glm-fresh.raw-output.txt",
+      "fresh_session": true,
+      "reviewed_at": "2026-07-04T05:53:00Z",
+      "diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835",
+      "fingerprint_matches": true,
+      "schema_valid": true,
+      "findings": 1,
+      "findings_note": "1 P3 non-blocking: pre-existing sidebar wordmark 'Funding Hedge' (frontend/index.html:398), out of Task-B scope, leave as-is per surgical-changes."
+    },
+    "both_schema_valid": true,
+    "both_fingerprints_match": true,
+    "findings_total": 1,
+    "required_fixes_total": 0,
+    "next_action": "stage_review_2",
+    "summary_file": "30-review-1.md",
+    "note": "Both task-level review-1 verdicts ACCEPT, schema-valid, fingerprints independently recomputed by the reviewers (kimi->8afc3dcf..., glm->5552ed82...) and matching status.json.tasks.{A,B}. Zero rework. Task B carries 1 P3 non-blocking finding (pre-existing sidebar wordmark, out of scope, leave as-is). The stage-level review_1 verdict=ACCEPT binds to the stage diff_fingerprint 6e6e2d4d.... Next: stage-level review-2 (Codex gpt-5.5, direction_synthesis disclosure).",
+    "round": 0,
+    "bound_to_head": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
+    "superseded_by": "rework_round_1",
+    "superseded_reason": "Stage head advanced 9b0e62c -> 7592b2c by Task B rework round 1 (frontend enum bilingual + auto-refresh + fixture-button removal + sidebar CN). Round-0 ACCEPT preserved verbatim as history; NOT bound to the current head."
+  },
+  "review_2_round0": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:6e6e2d4d7ee28dc6547c727b6a4c99779605686e38af2586a42ac49171114854",
+    "role": "final_reviewer",
+    "model": "gpt5.5",
+    "provider": "codex",
+    "effort": "xhigh",
+    "reviewer_prior_involvement": "direction_synthesis",
+    "override": "strong_reviewer_disclosure",
+    "output": "50-review-2.md",
+    "raw_output": "review-2-codex.raw-output.txt",
+    "dispatch_prompt": "review-2-codex.prompt.md",
+    "reviewed_at": "2026-07-04T06:07:00Z",
+    "findings": 0,
+    "required_fixes": [],
+    "residual_risks": [
+      "The lastFundingRate evidence is a single mid-period public snapshot (divergence + 15-min drift); read-only intake evidence, not re-fetched during A/B/C.",
+      "Frontend self-check uses the frozen 6-row fixture; live endpoint serves the full market; rendering is row-count-agnostic; offline schema validation covered 647 rows.",
+      "Sidebar wordmark 'Funding Hedge' remains English; review-1 P3 (pre-existing, out of scope); reviewer agrees carry forward, not fixed in this surgical stage."
+    ],
+    "next_action": "continue",
+    "runner_level_check": "Codex CLI v0.142.2 (/Users/ark/.local/bin/codex); invoked 'codex exec -s read-only <prompt>' relying on default_profile auto-load, which routed model=gpt-5.5, effort=xhigh, sandbox=read-only, approval=never. Provider this run = openai (impl-v1 used proxy2233 — the default_profile provider differs across runs, but gpt-5.5 was accepted and produced a complete review). No -m flag (per impl-v1 lesson: '-m gpt5.5' alone mis-routes to ChatGPT provider). Verdict independently jsonschema-validated by Codex against schemas/review-verdict.schema.json (Codex printed 'verdict schema VALID').",
+    "independent_test_rerun": "node frontend/self-check.js -> 14/14 PASS; PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -s -p no:cacheprovider backend/tests -q -> 54 passed (Codex ran with -s / capture-disabled because read-only sandbox has no writable temp dir, preventing the exact default pytest invocation pre-collection; result equivalent); offline snapshot jsonschema VALID (647 rows, 3 warnings).",
+
+exec
+/bin/zsh -lc "sed -n '1,220p' reports/agent-runs/2026-07-public-market-ui-cn-v1/fix-start-prompt-ui-round2.md" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+# Fix Start Prompt — rework round 2（P2：自动刷新计时器与倒计时显示同步）
+
+（controller 原样转发给 Kimi;所有改动均在 `frontend/**`,Task B owner 不变。
+阶段 `2026-07-public-market-ui-cn-v1`,rework_count=2/3,status=fixing。）
+
+## 被复审的 diff 与本轮起点
+
+- 上轮 stage head:`7592b2c`(rework round 1 的 `H_fix`,fingerprint
+  `7592b2c:4b8c8de2...`;review-1 round-1 fresh GLM ACCEPT、review-2 round-0 Codex
+  ACCEPT 均原样保留在 `review_1_round0` / `review_2_round0` / `30-review-1.md`)。
+- 本轮触发:**review-2 round-1(Codex gpt-5.5 xhigh,final gate)= REWORK**,1 个
+  P2 阻断发现。controller 已独立复核成立(grep 确认 `frontend/index.html` 全文
+  无 `clearInterval`/`clearTimeout`)。
+
+## Finding(P2,阻断,本轮唯一修复目标)
+
+**手动刷新重置了倒计时显示,但没有重置实际的 60s 自动刷新计时器。**
+
+- `startAutoRefresh()`(index.html:635-639)在启动时**仅创建一次**
+  `setInterval(() => { if (!refreshState.isRefreshing) loadApi(); }, AUTO_REFRESH_MS)`
+  (即 `refreshState.refreshTimer`),以及一个独立的 1s `setInterval(updateCountdown, 1000)`
+  (即 `countdownTimer`)。
+- 手动刷新入口 `els.btnRefresh.addEventListener('click', loadApi)`(index.html:901)
+  只调用 `loadApi()`。
+- `loadApi()` 的 `finally`(index.html:876-877)执行
+  `refreshState.isRefreshing = false;` 与
+  `refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;`,但**没有**
+  `clearInterval` / 重新调度 `refreshTimer`。
+- 后果:页面在 T=0 启动,`refreshTimer` 在 T=60 触发;用户在 T=50 点手动刷新,
+  `nextRefreshAt` 被重置为 T=110(倒计时显示回到 60s),但原 `refreshTimer` 仍按
+  原始周期在 T=60 触发 → 倒计时显示还有约 50s 时,自动刷新已经发生。
+  这违反用户决策 C(「手动刷新按钮保留:点击立即 fetch 并将倒计时重置为 60」)
+  的**完整**意图:重置必须同时作用于显示与实际下一次自动 fetch。
+
+## 修复要求(最小、外科)
+
+在 `frontend/index.html` 的 `loadApi()` `finally` 块中,**在**
+`refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;` **之后**,加上:
+
+```js
+// 手动刷新或自动刷新完成后,把 60s 自动刷新计时器与倒计时显示对齐到同一目标,
+// 否则手动刷新只重置显示而不重置实际下一次 fetch(见 review-2 round-1 REWORK)。
+if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);
+refreshState.refreshTimer = setInterval(() => {
+  if (!refreshState.isRefreshing) loadApi();
+}, AUTO_REFRESH_MS);
+```
+
+约束:
+
+- **`refreshState.countdownTimer`(1s)保持独立、不动**——不要 clear/recreate 它,
+  也不要把倒计时并入同一个 interval。
+- `startAutoRefresh()`(index.html:635-639)的首次创建逻辑**保持不变**(它仍然负责
+  在启动时创建第一个 60000ms timer 与 1s countdown timer)。
+- 不要引入 `visibilitychange`/`requestIdleCallback`/Promise 重试/退避等任何额外机制
+  ——本轮只修这一处对齐,不扩范围。
+- 不要改 `AUTO_REFRESH_MS = 60000`、不要改 `nextRefreshAt` 的语义、不要改
+  `updateCountdown()`、不要改倒计时「下次刷新: Xs」/「刷新中…」文案。
+- 修复后行为应是:**任何 `loadApi()` 完成(无论成功/失败/手动触发/自动触发),
+  下一次自动 fetch 时刻 == `nextRefreshAt`(倒计时显示归零的时刻)**。
+
+## 边界(红线,逐字沿用 round 1)
+
+允许写:`frontend/index.html`、`frontend/self-check.js`、
+`reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend-rework2.md`。
+
+禁止:`backend/**`、`schemas/**`、`docs/**`、`reports/api-samples/**`、
+`agents/**`、`workflows/**`、`scripts/**`;无新依赖;无直接 Binance 调用;
+**不得重新引入** `#btn-offline` / `loadFixture()` / `'fixture'` 数据源分支
+(round 1 已删除);**同源 `fetch('/api/public-market/snapshot')` 保留不变**;
+**`formatFundingRate` / `formatBeijing` / `formatBeijingShort` 不得改动**;
+`frontend/fixture/public-market-snapshot.json` 不得改动。
+
+越界即 REWORK。
+
+## self-check 同步(round 2 新增覆盖)
+
+`frontend/self-check.js` 已是「Node 下用 mock DOM 运行 index.html 内联脚本」的
+运行时风格(已 mock `global.fetch` 返回 fixture)。**沿用这一风格**新增对
+计时器同步的覆盖:
+
+1. 在运行内联脚本**之前**,注入 mock:
+   - `global.setInterval`(若尚未 mock):记录每次调用的 `(id, delay, callback)`,
+     返回递增整数 id(不要真的定时——测试不应等待 60s)。
+   - `global.clearInterval`:记录被 clear 的 id 集合。
+2. 运行内联脚本 → `startAutoRefresh()` 会创建一个 60000ms 的 `refreshTimer`
+   与一个 1000ms 的 `countdownTimer`。记录它们的 id。
+3. 模拟一次手动刷新(通过已 mock 的 DOM 触发 `#btn-refresh` 的 click 处理器,
+   或等价地直接调用 `loadApi()` 完成路径——按现有 self-check 触发刷新的方式
+   保持一致),让其跑到 `finally`。
+4. 断言(round 2 核心):
+   - 手动刷新完成后,旧的 **60000ms** `refreshTimer` 的 id 出现在 `clearInterval`
+     记录中;
+   - 同时新建了一个 **60000ms** 的 interval(新的 `refreshTimer`);
+   - **1000ms 的 `countdownTimer` 没有**被 clear(保持独立)。
+   - 失败时给出清晰错误信息,指出哪一条不满足。
+5. 既有全部断言(round 1 的 19 项)全部保持通过;不要删改它们。
+
+完成后预期:`node frontend/self-check.js` ≥ 20/20 PASS(round 1 的 19 项 +
+round 2 的 timer-reschedule 覆盖)。若你的实现需要拆成多个断言,数量可多于 1,
+但必须真实运行(运行时 mock),不要退化为纯字符串/正则断言。
+
+## 完成后必跑
+
+```bash
+node frontend/self-check.js        # 全 PASS(≥20)
+```
+
+报告 `20-implementation-frontend-rework2.md`:改动清单(逐行说明 finally 块的新增
+语句 + self-check 新增的 mock/断言)+ self-check 输出原文。
+
+## 收尾(controller,无需 Kimi 执行)
+
+H_fix2 提交 → 重算 task-B(rework round-2 fix)与 stage 级 fingerprint →
+review-1(全新只读 Claude-GLM 会话,只审 round-2 fix diff `frontend/**`)→
+review-2(Codex gpt-5.5 xhigh,`direction_synthesis` disclosure,重新绑定 round-2
+head,recompute stage fingerprint)→ `validate-stage.py --phase pre-accept` →
+`stage_accepted_waiting_user`;controller 不声明最终验收。
+
+本地北京时间: 2026-07-04 17:05 CST
+下一步模型: Kimi(rework round 2,Task B timer sync)
+
+exec
+/bin/zsh -lc "sed -n '1,260p' reports/agent-runs/2026-07-public-market-ui-cn-v1/50-review-2-round1.md" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+# Review-2 round 1 (stage-level, FINAL GATE) — public-market-ui-cn-v1 rework
+
+- **Stage**: `2026-07-public-market-ui-cn-v1`
+- **Reviewer**: Codex/GPT `gpt5.5` (xhigh), `final_reviewer`, read-only sandbox
+- **Verdict**: **REWORK** — 1× P2 finding, `next_action: fix`
+- **Stage diff_fingerprint** (recomputed & matched): `7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:4b8c8de25458e88a9dd8d5f8ab03db0f563305c59492fae548d69683978c4608`
+- **Disclosure**: `reviewer_prior_involvement: direction_synthesis` (strong-reviewer override)
+- **Date**: 2026-07-04 16:59 CST
+
+## Reviewer narrative (Codex final message)
+
+> Verdict: REWORK.
+>
+> Most hard checks passed: fingerprint matches, frontend-only product scope
+> holds for `H_fix`, no payload/schema drift in the rework, self-check passes,
+> backend tests pass with capture disabled in this read-only sandbox, and
+> same-origin fetch is preserved. I found one blocking frontend behavior defect:
+> manual refresh resets the displayed countdown target, but it does not
+> reschedule the actual 60s auto-refresh interval, so the next automatic fetch
+> can happen before the displayed "下次刷新" reaches zero.
+
+## Finding (P2, blocking)
+
+**Manual refresh resets the countdown display but not the actual auto-refresh
+timer** — `frontend/index.html:635`.
+
+- `startAutoRefresh()` (L635-639) creates one `setInterval(loadApi, 60000)`
+  (`refreshTimer`) + one `setInterval(updateCountdown, 1000)` (`countdownTimer`).
+- The manual-refresh handler (`btnRefresh` L901) only calls `loadApi()`.
+- `loadApi()`'s `finally` block (L875-878) sets `refreshState.nextRefreshAt =
+  Date.now() + AUTO_REFRESH_MS` and calls `updateCountdown()`, but there is **no
+  `clearInterval`/timer reschedule anywhere in the file** (controller grep
+  confirmed: zero `clearInterval`/`clearTimeout` in `frontend/index.html`).
+- **Consequence**: a manual refresh at T+50s resets the displayed countdown
+  target to T+110s, but the original interval still fires at T+60s → the UI can
+  show "下次刷新" with ~50s remaining while an automatic refresh fires
+  immediately. This violates **user decision C** ("手动刷新按钮保留：点击立即
+  fetch 并将倒计时重置为 60") — the reset is display-only, not aligned with the
+  actual next auto-fetch.
+
+## Independent re-verification (by Codex, controller-confirmed)
+
+- **Fingerprints**: stage `b84a342..7592b2c` = `4b8c8de2…` (matches
+  `status.json.diff_fingerprint`); task A `8afc3dcf` (unchanged), task B rework
+  fix `47cdfcc2…`, cumulative frontend `9caf18e6…` — all recomputed & matched.
+- **Product scope**: `H_fix` (`git show 7592b2c --stat`) = only
+  `frontend/index.html` + `frontend/self-check.js` + rework1 report. Backend /
+  schemas / api-samples untouched.
+- **Hard constraints**: no live HTTP, no API key/signed/private/order paths;
+  rows / API payload frozen (only `warnings[1]` text from round-0 Task A);
+  same-origin fetch preserved.
+- **Decimal discipline**: `formatFundingRate`/`formatBeijing*` unchanged; no
+  `parseFloat`; `Number(` only in `formatPrice`/`classForFundingRate`.
+- **Tests**: self-check 19/19; backend pytest 54 passed (capture-disabled,
+  read-only sandbox); offline snapshot schema VALID (647 rows, 3 warnings).
+- **Controller due-diligence**: grep confirmed zero `clearInterval`/`clearTimeout`
+  in `frontend/index.html` → finding holds.
+
+## Required fixes
+
+1. In `frontend/index.html`, make the actual auto-refresh timer use the same
+   `nextRefreshAt` target shown in the countdown. Minimal fix: in `loadApi`'s
+   `finally` block, after setting `nextRefreshAt`, `clearInterval(refreshState.refreshTimer)`
+   and recreate the 60000ms timer; keep the 1s countdown interval separate.
+2. Preserve same-origin `fetch('/api/public-market/snapshot')`; do not reintroduce
+   `btn-offline`/`loadFixture`/`'fixture'` branch; do NOT modify
+   `formatFundingRate`/`formatBeijing`/`formatBeijingShort`; no backend/schema/
+   docs-contract/api-samples changes.
+3. Extend `frontend/self-check.js` to cover the manual-refresh timer reset
+   (mock `setInterval`/`clearInterval`; assert a manual refresh invalidates the
+   old 60s timer and schedules a new one).
+4. Rerun: `node frontend/self-check.js`;
+   `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider backend/tests -q`;
+   offline snapshot jsonschema validation.
+
+## Residual risks (carry forward)
+
+- Single mid-period lastFundingRate snapshot evidence (drift); accepted residual.
+- Frontend self-check on frozen fixture; live endpoint serves full market.
+- Spec prose/table paren inconsistency (spec-side).
+- `docs/parallel-development-mode.md` in the wide stage diff is an independent
+  non-product methodology doc.
+- Live worktree has untracked review-2 capture files; controller commits evidence
+  before pre-accept.
+
+## JSON verdict
+
+```json
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-public-market-ui-cn-v1",
+  "role": "final_reviewer",
+  "model": "gpt5.5",
+  "verdict": "REWORK",
+  "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:4b8c8de25458e88a9dd8d5f8ab03db0f563305c59492fae548d69683978c4608",
+  "reviewer_prior_involvement": "direction_synthesis",
+  "findings": [
+    {
+      "severity": "P2",
+      "title": "Manual refresh resets the countdown display but not the actual auto-refresh timer",
+      "file": "frontend/index.html",
+      "line": 635,
+      "evidence": "startAutoRefresh creates one 60000ms setInterval (L635-639); btnRefresh (L901) only calls loadApi(); loadApi finally updates nextRefreshAt (L877) but there is no clearInterval/timer reschedule anywhere (grep confirmed). A manual refresh at T+50s resets the countdown target to T+110s while the original interval still fires at T+60s.",
+      "impact": "UI can show 'next refresh' with ~50s remaining while an automatic refresh fires immediately. Violates user decision C (manual refresh resets the 60s countdown): reset is display-only, not aligned with the actual next auto-fetch.",
+      "recommendation": "Reschedule the auto-refresh timer whenever loadApi completes (incl. manual refresh + failure), so displayed nextRefreshAt and actual next fetch share the same 60s target."
+    }
+  ],
+  "required_fixes": [
+    "frontend/index.html: in loadApi finally after setting nextRefreshAt, clearInterval(refreshTimer) + recreate 60000ms timer; keep 1s countdown interval separate.",
+    "Preserve same-origin fetch; no btn-offline/loadFixture reintroduction; no formatFundingRate/formatBeijing changes; no backend/schema/docs/api-samples changes.",
+    "frontend/self-check.js: add manual-refresh timer-reset coverage (mock setInterval/clearInterval).",
+    "Rerun: node frontend/self-check.js; pytest backend/tests; offline snapshot jsonschema."
+  ],
+  "residual_risks": [
+    "lastFundingRate single mid-period snapshot (drift); accepted residual.",
+    "Frontend self-check on frozen fixture; live endpoint full market.",
+    "Spec prose/table paren inconsistency (spec-side).",
+    "docs/parallel-development-mode.md independent non-product doc in stage diff.",
+    "Live worktree has untracked review-2 capture; commit before pre-accept."
+  ],
+  "next_action": "fix"
+}
+```
+
+---
+
+Raw output: `review-2-codex-round1.raw-output.txt`; dispatch prompt:
+`review-2-codex-round1.prompt.md`. The verdict was emitted by Codex and is
+internally consistent with `schemas/review-verdict.schema.json`.
+
+## Next
+
+**Rework round 2 (2/3)**: dispatch Kimi (Task B owner) per
+`fix-start-prompt-ui-round2.md` to sync the auto-refresh timer with the
+displayed countdown, add self-check coverage. Then re-review-1 (fresh GLM) +
+re-review-2 (Codex rebind) + pre-accept → `stage_accepted_waiting_user`.
+
+本地北京时间: 2026-07-04 17:00 CST
+下一步模型: Kimi (rework round 2, Task B timer sync)
+
+exec
+/bin/zsh -lc "sed -n '1,220p' reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-frontend-round2.raw-output.txt" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.ai login · Unset it to load your organization's connectors
+Review report 已写入 `30-review-1-frontend-round2.md`。审查完成。
+
+## 审查结论摘要(fresh read-only reviewer_1,glm-5.2[1m])
+
+**Verdict: ACCEPT**
+
+逐条核对 12 个 checkpoint,全部成立:
+
+| # | Checkpoint | 结果 |
+|---|---|---|
+| 1 | fingerprint 重算 | `f4073da5…` ✓ 与 status.json / prompt 期望逐字一致 |
+| 2 | 修复正确性 | `loadApi` finally(L881–884)在 `nextRefreshAt` 重置**之后** `clearInterval` + 新 `setInterval(…, AUTO_REFRESH_MS)`,顺序正确,与 spec 逐字一致 |
+| 3 | 倒计时独立 | 全文唯一 `clearInterval`(L881)只针对 `refreshTimer`,`countdownTimer` 从不清除 |
+| 4 | startAutoRefresh 未改 | L635–640 仍首次创建 60000ms + 1000ms timer;无 visibilitychange/requestIdleCallback/retry/backoff |
+| 5 | 红线函数 | `formatFundingRate`/`formatBeijing*` 未动(grep 空) |
+| 6 | 无 reintroduction | 无 `#btn-offline`/`loadFixture`/`'fixture'` 分支 |
+| 7 | 同源 fetch | 仅 `fetch('/api/public-market/snapshot')`,无新依赖、无直接 Binance |
+| 8 | fixture 未改 | `frontend/fixture/` diff 空 |
+| 9 | 无产品越界 | `backend/`/`schemas/`/`docs/api/`/`reports/api-samples/` 全部不在范围 diff |
+| 10 | self-check 20/20 | 新断言为**真正运行时 mock**(mock setInterval/clearInterval 记 id+delay,观察 cleared/recreated ids),非源码字符串/正则 |
+| 11 | Decimal 纪律 | 仅触及时间戳/timer id,无 `parseFloat`/新 `Number(` |
+| 12 | 无禁止交互 | 无 order/buy/sell/borrow/repay/transfer/account UI |
+
+修复正确解决了 review-2 round-1 的 P2:手动刷新现在会让实际 60000ms 自动刷新计时器与显示的 `nextRefreshAt` 对齐到同一目标,1s 倒计时计时器保持独立。范围 diff 中的非 frontend 内容均为流程簿记(`docs/parallel-development-mode.md` spec 演进 + review/status 记录),review-2 已明确标注其为「独立非产品方法论文档」,`H_fix2` 提交本身只触及 spec 允许的 3 个路径——非产品越界(记为 residual risk 供 controller 知悉)。
+
+```json
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-public-market-ui-cn-v1",
+  "role": "first_reviewer",
+  "model": "glm-5.2[1m]",
+  "verdict": "ACCEPT",
+  "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
+  "reviewer_prior_involvement": "none",
+  "reviewer_prior_involvement_notes": "Fresh isolated read-only Claude-GLM session. No prior involvement in this stage's Task B direction/breakdown/design/implementation/rework.",
+  "reviewed_artifacts": [
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/fix-start-prompt-ui-round2.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/50-review-2-round1.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend-rework2.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json",
+    "schemas/review-verdict.schema.json"
+  ],
+  "findings": [],
+  "required_fixes": [],
+  "residual_risks": [
+    "Range diff 7592b2c..ee9296c is wider than checkpoint 9's literal 'only frontend/index.html + frontend/self-check.js' wording because the range spans intermediate process-bookkeeping commits (6e945c8 ADOPTED-TRIAL, 6894577 DRAFT-2, 533d708/b20b219 rework entry/record). Non-frontend content is exclusively docs/parallel-development-mode.md (parallel-dev-mode spec evolution — a process/methodology doc, NOT the API contract docs/api/public-market-contract.md, explicitly flagged in 50-review-2-round1.md as 'independent non-product methodology doc') and reports/agent-runs/** review/status records. backend/ schemas/ docs/api/ reports/api-samples/ are clean; the ee9296c commit itself and the -- frontend/-scoped fingerprint are confined. No product boundary crossed; no action needed for this fix.",
+    "Frontend self-check runs on a frozen fixture; the live endpoint serves the full market — inherited residual, unchanged by this fix.",
+    "lastFundingRate single mid-period snapshot (drift) — inherited accepted residual, untouched.",
+    "Spec prose/table paren inconsistency (spec-side) — inherited, untouched."
+  ],
+  "next_action": "continue"
+}
+```
+
+本地北京时间: 2026-07-04 17:25 CST
+下一步模型: Claude-GLM (controller)
+下一步任务: 汇总 review-1 round-2，调度 review-2 Codex rebind 新 head ee9296c
+
+codex
+The raw round-1 REWORK and round-2 fix prompt line up with the implemented change. I’m running the required self-check, backend pytest, and an offline schema validation now; if pytest cannot use the read-only sandbox’s temp paths, I’ll capture that explicitly.
+  ✓ Recompute stage and task fingerprints from git diffs
+  ✓ Inspect round-2 frontend diff, safety boundaries, and prior artifacts
+  → Run frontend/backend verification commands
+  • Validate verdict shape and emit final JSON
+exec
+/bin/zsh -lc "date '+%Y-%m-%d %H:%M:%S %Z'" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+2026-07-04 17:32:21 CST
+
+exec
+/bin/zsh -lc 'node frontend/self-check.js' in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认隐藏 PERP_ONLY_EXCLUDED，渲染 4 行
+[PASS] 显示 PERP_ONLY_EXCLUDED 后渲染全部 6 行
+[PASS] BSTOCK 行标识正确
+[PASS] alias 行显示实际现货腿与 B 后缀别名标识
+[PASS] 时间转换正确
+[PASS] 列名/文案符合契约
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] 数据说明条目数与 API warnings 一致
+[PASS] 提示标记映射正确
+[PASS] 离线 fixture 按钮及文案已删除
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式
+[PASS] 筛选下拉 option 使用「英文枚举(中文解释)」格式
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+
+全部自检通过
+
+exec
+/bin/zsh -lc 'PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider backend/tests -q' in /Users/ark/Desktop/ai code/funding_hedging
+exec
+/bin/zsh -lc ".venv/bin/python -c \"from backend.config import Config; from backend.services.snapshot_service import SnapshotService; import json, jsonschema; snap=SnapshotService(Config(offline=True)).build_snapshot(); jsonschema.validate(snap, json.load(open('schemas/api/public-market/snapshot.schema.json'))); print('schema VALID; rows=%d warnings=%d schema_version=%s' % (len(snap['rows']), len(snap['warnings']), snap.get('schema_version')))\"" in /Users/ark/Desktop/ai code/funding_hedging
+ exited 1 in 149ms:
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pytest/__main__.py", line 9, in <module>
+    raise SystemExit(pytest.console_main())
+                     ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py", line 201, in console_main
+    code = main()
+           ^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py", line 156, in main
+    config = _prepareconfig(args, plugins)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py", line 341, in _prepareconfig
+    config = pluginmanager.hook.pytest_cmdline_parse(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pluggy/_callers.py", line 167, in _multicall
+    raise exception
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/helpconfig.py", line 105, in pytest_cmdline_parse
+    config = yield
+             ^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py", line 1140, in pytest_cmdline_parse
+    self.parse(args)
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py", line 1494, in parse
+    self._preparse(args, addopts=addopts)
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py", line 1398, in _preparse
+    self.hook.pytest_load_initial_conftests(
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pluggy/_callers.py", line 167, in _multicall
+    raise exception
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/warnings.py", line 151, in pytest_load_initial_conftests
+    return (yield)
+            ^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/pluggy/_callers.py", line 116, in _multicall
+    next(function_gen)  # first yield
+    ^^^^^^^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/capture.py", line 169, in pytest_load_initial_conftests
+    capman.start_global_capturing()
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/capture.py", line 771, in start_global_capturing
+    self._global_capturing = _get_multicapture(self._method)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/capture.py", line 712, in _get_multicapture
+    return MultiCapture(in_=FDCapture(0), out=FDCapture(1), err=FDCapture(2))
+                                              ^^^^^^^^^^^^
+  File "/Users/ark/Desktop/ai code/funding_hedging/.venv/lib/python3.11/site-packages/_pytest/capture.py", line 491, in __init__
+    TemporaryFile(buffering=0),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/tempfile.py", line 628, in TemporaryFile
+    prefix, suffix, dir, output_type = _sanitize_params(prefix, suffix, dir)
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/tempfile.py", line 127, in _sanitize_params
+    dir = gettempdir()
+          ^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/tempfile.py", line 316, in gettempdir
+    return _os.fsdecode(_gettempdir())
+                        ^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/tempfile.py", line 309, in _gettempdir
+    tempdir = _get_default_tempdir()
+              ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/tempfile.py", line 224, in _get_default_tempdir
+    raise FileNotFoundError(_errno.ENOENT,
+FileNotFoundError: [Errno 2] No usable temporary directory found in ['/var/folders/tt/73pl2lrx5ldc5c4hl9wy9qt40000gn/T/', '/tmp', '/var/tmp', '/usr/tmp', '/Users/ark/Desktop/ai code/funding_hedging']
+
+ succeeded in 250ms:
+schema VALID; rows=647 warnings=3 schema_version=public-market-snapshot/v1
+
+codex
+The exact pytest command failed before collection because this read-only sandbox has no usable temp directory for pytest’s default fd capture. That is an environment limitation, not a test failure; I’m rerunning with `-s` to disable capture, which is the same workaround used in the prior Codex final gate here.
+exec
+/bin/zsh -lc "rg -n \"float\\(|parseFloat|Number\\(\" backend/domain backend/services frontend/index.html frontend/self-check.js" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+frontend/index.html:613:        const n = Number(str);
+frontend/index.html:616:        const intFormatted = Number(intPart).toLocaleString('en-US');
+frontend/index.html:621:        const n = Number(str);
+
+exec
+/bin/zsh -lc 'PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -s -p no:cacheprovider backend/tests -q' in /Users/ark/Desktop/ai code/funding_hedging
+exec
+/bin/zsh -lc 'git diff --stat 7592b2c..ee9296c -- backend/ schemas/ reports/api-samples/ docs/api/ frontend/fixture/' in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-IIY18Dbi' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-LGNRGMZA' (errno=Operation not permitted)
+
+exec
+/bin/zsh -lc 'git diff --stat ee9296c705d3590adb01bf2fff433e32e834523e''^..ee9296c705d3590adb01bf2fff433e32e834523e' in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-CGEanm1U' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-LtxexHFH' (errno=Operation not permitted)
+ frontend/index.html                                |   6 +
+ frontend/self-check.js                             |  33 ++++-
+ .../20-implementation-frontend-rework2.md          | 143 +++++++++++++++++++++
+ 3 files changed, 181 insertions(+), 1 deletion(-)
+
+ succeeded in 874ms:
+......................................................
+54 passed in 0.77s
+
+codex
+The capture-disabled pytest run passed all 54 backend tests, and the offline schema check is valid with 647 rows and 3 warnings. I’m doing one final status/date/verdict-schema pass before emitting the final JSON.
+exec
+/bin/zsh -lc "date '+%Y-%m-%d %H:%M:%S %Z'" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+2026-07-04 17:33:07 CST
+
+exec
+/bin/zsh -lc 'git status --short' in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-JQ0OWmw9' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-9UWEgFiX' (errno=Operation not permitted)
+?? reports/agent-runs/2026-07-public-market-ui-cn-v1/review-2-codex-round2.prompt.md
+?? reports/agent-runs/2026-07-public-market-ui-cn-v1/review-2-codex-round2.raw-output.txt
+
+exec
+/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -c 'import json, pathlib; from jsonschema import validate; schema=json.loads(pathlib.Path(\"schemas/review-verdict.schema.json\").read_text()); verdict=json.loads(\"\"\"{\"schema_version\":1,\"stage_id\":\"2026-07-public-market-ui-cn-v1\",\"role\":\"final_reviewer\",\"model\":\"gpt5.5\",\"verdict\":\"ACCEPT\",\"diff_fingerprint\":\"ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81\",\"reviewer_prior_involvement\":\"direction_synthesis\",\"reviewer_prior_involvement_notes\":\"Strong-reviewer disclosure override: Codex/GPT previously performed direction synthesis for the covering contract stage 2026-07-public-market-contract-v2, but had no stage design, development breakdown, implementation, or fix authorship involvement in 2026-07-public-market-ui-cn-v1. Anthropic/Fable5 was designer/breakdown author; claude_glm and kimi authored product/fix code. No provider-unrelated decision model is available for this final gate.\",\"reviewed_artifacts\":[\"schemas/review-verdict.schema.json\",\"reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json\",\"reports/agent-runs/2026-07-public-market-ui-cn-v1/fix-start-prompt-ui-round2.md\",\"reports/agent-runs/2026-07-public-market-ui-cn-v1/50-review-2-round1.md\",\"reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-frontend-round2.md\",\"reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-frontend-round2.raw-output.txt\",\"reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend-rework2.md\",\"reports/agent-runs/2026-07-public-market-ui-cn-v1/60-test-output.txt\",\"frontend/index.html\",\"frontend/self-check.js\",\"frontend/fixture/public-market-snapshot.json\",\"backend/domain/snapshot.py\",\"backend/services/snapshot_service.py\",\"schemas/api/public-market/snapshot.schema.json\",\"git diff --binary b84a34235aa5b37bb0ce83f23ac35e4e5e686899..ee9296c705d3590adb01bf2fff433e32e834523e -- . :(exclude)reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json\",\"git diff 7592b2c740975dc0a6ad2a4b3a17d5a8474494ff..ee9296c705d3590adb01bf2fff433e32e834523e -- frontend/\"],\"findings\":[],\"required_fixes\":[],\"residual_risks\":[\"Single mid-period lastFundingRate public snapshot evidence remains a carry-forward residual; unchanged by this timer fix.\",\"Frontend self-check uses the frozen fixture while the live endpoint serves the full market; rendering is row-count agnostic and backend offline schema validation covered 647 rows.\",\"Spec prose/table parenthesis inconsistency remains spec-side only; unchanged by this fix.\",\"The wide stage range includes independent process/bookkeeping content such as docs/parallel-development-mode.md and reports/agent-runs records; H_fix2 itself touches only frontend/index.html, frontend/self-check.js, and 20-implementation-frontend-rework2.md.\",\"The exact pytest command without -s could not start in this read-only sandbox because pytest fd capture needed a writable temp directory; the same test set passed 54/54 with capture disabled via -s.\"],\"next_action\":\"stage_accepted_waiting_user\"}\"\"\"); validate(verdict, schema); print(\"verdict schema VALID\")'" in /Users/ark/Desktop/ai code/funding_hedging
+ succeeded in 0ms:
+verdict schema VALID
+
+codex
+The final verdict object validates against `schemas/review-verdict.schema.json`. I’m ready to return the ACCEPT narrative with the JSON verdict as the final block.
+  ✓ Recompute stage and task fingerprints from git diffs
+  ✓ Inspect round-2 frontend diff, safety boundaries, and prior artifacts
+  ✓ Run frontend/backend verification commands
+  ✓ Validate verdict shape and emit final JSON
+codex
+Verdict: ACCEPT.
+
+I recomputed the stage fingerprint as `ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81`, matching `status.json`. The round-2 product change is confined to the intended timer fix in `frontend/index.html` plus runtime self-check coverage; `H_fix2` itself touches only `frontend/index.html`, `frontend/self-check.js`, and the implementation report.
+
+The round-1 P2 is resolved: `loadApi()` now resets `nextRefreshAt`, then clears and recreates `refreshState.refreshTimer`, while the 1s `countdownTimer` remains independent. `startAutoRefresh()` is unchanged, same-origin fetch is preserved, no fixture/offline button path returned, and the formatter red lines were not touched.
+
+Fresh checks:
+- `node frontend/self-check.js` passed 20/20, including the runtime mocked timer-reschedule assertion.
+- Exact pytest command without `-s` could not start because pytest fd capture needs a writable temp directory in this read-only sandbox.
+- Equivalent capture-disabled run passed: `54 passed`.
+- Offline snapshot jsonschema validation passed: `rows=647`, `warnings=3`.
+
+本地北京时间: 2026-07-04 17:33:07 CST
+下一步模型: human/controller
+下一步任务: record review-2 round-2 ACCEPT and move stage to accepted waiting user
+
+```json
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-public-market-ui-cn-v1",
+  "role": "final_reviewer",
+  "model": "gpt5.5",
+  "verdict": "ACCEPT",
+  "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81",
+  "reviewer_prior_involvement": "direction_synthesis",
+  "reviewer_prior_involvement_notes": "Strong-reviewer disclosure override: Codex/GPT previously performed direction synthesis for the covering contract stage 2026-07-public-market-contract-v2, but had no stage design, development breakdown, implementation, or fix authorship involvement in 2026-07-public-market-ui-cn-v1. Anthropic/Fable5 was designer/breakdown author; claude_glm and kimi authored product/fix code. No provider-unrelated decision model is available for this final gate.",
+  "reviewed_artifacts": [
+    "schemas/review-verdict.schema.json",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/fix-start-prompt-ui-round2.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/50-review-2-round1.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-frontend-round2.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-frontend-round2.raw-output.txt",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend-rework2.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/60-test-output.txt",
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "frontend/fixture/public-market-snapshot.json",
+    "backend/domain/snapshot.py",
+    "backend/services/snapshot_service.py",
+    "schemas/api/public-market/snapshot.schema.json",
+    "git diff --binary b84a34235aa5b37bb0ce83f23ac35e4e5e686899..ee9296c705d3590adb01bf2fff433e32e834523e -- . :(exclude)reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json",
+    "git diff 7592b2c740975dc0a6ad2a4b3a17d5a8474494ff..ee9296c705d3590adb01bf2fff433e32e834523e -- frontend/"
+  ],
+  "findings": [],
+  "required_fixes": [],
+  "residual_risks": [
+    "Single mid-period lastFundingRate public snapshot evidence remains a carry-forward residual; unchanged by this timer fix.",
+    "Frontend self-check uses the frozen fixture while the live endpoint serves the full market; rendering is row-count agnostic and backend offline schema validation covered 647 rows.",
+    "Spec prose/table parenthesis inconsistency remains spec-side only; unchanged by this fix.",
+    "The wide stage range includes independent process/bookkeeping content such as docs/parallel-development-mode.md and reports/agent-runs records; H_fix2 itself touches only frontend/index.html, frontend/self-check.js, and 20-implementation-frontend-rework2.md.",
+    "The exact pytest command without -s could not start in this read-only sandbox because pytest fd capture needed a writable temp directory; the same test set passed 54/54 with capture disabled via -s."
+  ],
+  "next_action": "stage_accepted_waiting_user"
+}
+```
+tokens used
+146,164
+Verdict: ACCEPT.
+
+I recomputed the stage fingerprint as `ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81`, matching `status.json`. The round-2 product change is confined to the intended timer fix in `frontend/index.html` plus runtime self-check coverage; `H_fix2` itself touches only `frontend/index.html`, `frontend/self-check.js`, and the implementation report.
+
+The round-1 P2 is resolved: `loadApi()` now resets `nextRefreshAt`, then clears and recreates `refreshState.refreshTimer`, while the 1s `countdownTimer` remains independent. `startAutoRefresh()` is unchanged, same-origin fetch is preserved, no fixture/offline button path returned, and the formatter red lines were not touched.
+
+Fresh checks:
+- `node frontend/self-check.js` passed 20/20, including the runtime mocked timer-reschedule assertion.
+- Exact pytest command without `-s` could not start because pytest fd capture needs a writable temp directory in this read-only sandbox.
+- Equivalent capture-disabled run passed: `54 passed`.
+- Offline snapshot jsonschema validation passed: `rows=647`, `warnings=3`.
+
+本地北京时间: 2026-07-04 17:33:07 CST
+下一步模型: human/controller
+下一步任务: record review-2 round-2 ACCEPT and move stage to accepted waiting user
+
+```json
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-public-market-ui-cn-v1",
+  "role": "final_reviewer",
+  "model": "gpt5.5",
+  "verdict": "ACCEPT",
+  "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81",
+  "reviewer_prior_involvement": "direction_synthesis",
+  "reviewer_prior_involvement_notes": "Strong-reviewer disclosure override: Codex/GPT previously performed direction synthesis for the covering contract stage 2026-07-public-market-contract-v2, but had no stage design, development breakdown, implementation, or fix authorship involvement in 2026-07-public-market-ui-cn-v1. Anthropic/Fable5 was designer/breakdown author; claude_glm and kimi authored product/fix code. No provider-unrelated decision model is available for this final gate.",
+  "reviewed_artifacts": [
+    "schemas/review-verdict.schema.json",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/fix-start-prompt-ui-round2.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/50-review-2-round1.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-frontend-round2.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/review-1-frontend-round2.raw-output.txt",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend-rework2.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/60-test-output.txt",
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "frontend/fixture/public-market-snapshot.json",
+    "backend/domain/snapshot.py",
+    "backend/services/snapshot_service.py",
+    "schemas/api/public-market/snapshot.schema.json",
+    "git diff --binary b84a34235aa5b37bb0ce83f23ac35e4e5e686899..ee9296c705d3590adb01bf2fff433e32e834523e -- . :(exclude)reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json",
+    "git diff 7592b2c740975dc0a6ad2a4b3a17d5a8474494ff..ee9296c705d3590adb01bf2fff433e32e834523e -- frontend/"
+  ],
+  "findings": [],
+  "required_fixes": [],
+  "residual_risks": [
+    "Single mid-period lastFundingRate public snapshot evidence remains a carry-forward residual; unchanged by this timer fix.",
+    "Frontend self-check uses the frozen fixture while the live endpoint serves the full market; rendering is row-count agnostic and backend offline schema validation covered 647 rows.",
+    "Spec prose/table parenthesis inconsistency remains spec-side only; unchanged by this fix.",
+    "The wide stage range includes independent process/bookkeeping content such as docs/parallel-development-mode.md and reports/agent-runs records; H_fix2 itself touches only frontend/index.html, frontend/self-check.js, and 20-implementation-frontend-rework2.md.",
+    "The exact pytest command without -s could not start in this read-only sandbox because pytest fd capture needed a writable temp directory; the same test set passed 54/54 with capture disabled via -s."
+  ],
+  "next_action": "stage_accepted_waiting_user"
+}
+```
