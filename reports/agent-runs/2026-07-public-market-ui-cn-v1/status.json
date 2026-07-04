@@ -32,9 +32,9 @@
     {"provider": "kimi", "model": "kimi-2.7", "task": "B", "scope": "frontend/**"}
   ],
   "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
-  "head_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+  "head_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
   "commit_state": "committed",
-  "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
+  "diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:3451565850f20c641a53f30499d8488a84c7e1da7e335ac4a96e123751a43fb2",
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
   "diff_fingerprint_note": "Two scopes, one protocol; task-level in tasks.<id> at H_A/H_B, stage-level top-level at H_C; status.json excluded from hash. Same formula as prior stages. NOTE: H_intake physically = b84a342 (intake/task/design/status + live funding-semantics evidence) + d3d6e7c (Fable5 pre-written Task B dispatch prompt task-b-kimi-frontend.prompt.md + controller-start-prompt.md update; intake/design scope, no product code). base_sha anchored at b84a342 per user directive, so d3d6e7c's intake artifacts ride in the stage diff (legitimate intake/design scope, not product code; reviewers recompute from base_sha + raw git diff).",
   "commit_order_strategy": "H_intake (this commit: intake/task/design/status + live funding-semantics evidence under reports/api-samples/<stage-id>/) -> H_A (warnings wording + doc + tests) -> H_B (frontend) -> H_C (integration + stage-level fingerprint + finalize). Controller commits serially so each task's base..head diff is owner-scoped.",
@@ -93,7 +93,14 @@
         "reports/api-samples/**",
         "agents/**", "workflows/**", "scripts/**"
       ],
-      "status": "planned",
+      "status": "implemented_pending_review_1",
+      "commit": "0fd0d17e2835f445cee2195a8ba366df55084123",
+      "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+      "head_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
+      "diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835",
+      "diff_files_count": 4,
+      "diff_files_note": "frontend/index.html (column merge + CN i18n + string-shift formatFundingRate + ui_flags de-noise + 数据说明), frontend/fixture/public-market-snapshot.json (warnings[1] synced), frontend/self-check.js (+formatter/数据说明 assertions), 20-implementation-frontend.md (report)",
+      "tests": {"status": "pass", "note": "node frontend/self-check.js 14/14 PASS (incl. 7 funding-rate formatter cases + 数据说明 count + ui_flags mapping)"},
       "depends_on": ["A"]
     },
     "C": {
@@ -155,7 +162,7 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Task A (H_A dba4c12) implemented: CONTRACT_WARNINGS[1] evidenced wording + contract doc paragraph + Open Verification Items entry + tests; 54 passed; float() clean; status=implementing. Next: dispatch Task B (Kimi) per task-b-kimi-frontend.prompt.md -> H_B, then Task C (integration) -> H_C, review-1 (cross: A->Kimi, B->fresh read-only Claude-GLM) -> review-2 (Codex gpt-5.5, direction_synthesis disclosure) -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "next_action": "Task A (H_A dba4c12) + Task B (H_B 0fd0d17) implemented: CONTRACT_WARNINGS[1] evidenced wording + contract doc + tests (54 passed); frontend CN-first + funding/settlement column merge + string-shift rate formatter (self-check 14/14). status=implementing. Next: Task C (integration: offline snapshot rows field-identical to 548ae0d baseline + warnings[1] new text; any rows diff -> BLOCKED) -> H_C, review-1 (cross: A->Kimi, B->fresh read-only Claude-GLM) -> review-2 (Codex gpt-5.5, direction_synthesis disclosure) -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T05:30:00Z"
+  "updated_at": "2026-07-04T05:40:00Z"
 }
