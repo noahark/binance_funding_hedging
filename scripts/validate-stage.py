@@ -155,6 +155,26 @@ def provider_identity(value: Any) -> str | None:
     return PROVIDER_IDENTITIES.get(text, text)
 
 
+def normalize_tasks(status_doc: dict[str, Any]) -> tuple[list[Any], list[str]]:
+    """Return tasks as a list while accepting legacy dict-keyed status files."""
+    raw = status_doc.get("tasks", [])
+    if raw is None:
+        return [], []
+    if isinstance(raw, list):
+        return raw, []
+    if isinstance(raw, dict):
+        normalized: list[Any] = []
+        for key, value in raw.items():
+            if isinstance(value, dict):
+                task = dict(value)
+                task.setdefault("id", str(key))
+                normalized.append(task)
+            else:
+                normalized.append({"id": str(key), "_invalid_task_value": value})
+        return normalized, []
+    return [], ["tasks must be a list or object when present"]
+
+
 def collect_implementer_identities(status_doc: dict[str, Any]) -> set[str]:
     identities: set[str] = set()
     implementer = status_doc.get("implementer")
@@ -170,15 +190,14 @@ def collect_implementer_identities(status_doc: dict[str, Any]) -> set[str]:
                 if identity:
                     identities.add(identity)
 
-    tasks = status_doc.get("tasks", [])
-    if isinstance(tasks, list):
-        for task in tasks:
-            if not isinstance(task, dict):
-                continue
-            for key in ("owner", "implementer", "fix_author"):
-                identity = provider_identity(task.get(key))
-                if identity:
-                    identities.add(identity)
+    tasks, _ = normalize_tasks(status_doc)
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        for key in ("owner", "implementer", "fix_author"):
+            identity = provider_identity(task.get(key))
+            if identity:
+                identities.add(identity)
     return identities
 
 
@@ -227,7 +246,9 @@ def evidence_path_exists(root: Path, stage_dir: Path, value: Any) -> bool:
 def validate_parallel_mode(root: Path, stage_dir: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
     errors: list[str] = []
 
-    for task in status_doc.get("tasks", []) or []:
+    tasks, task_shape_errors = normalize_tasks(status_doc)
+    errors.extend(task_shape_errors)
+    for task in tasks:
         if isinstance(task, dict) and "embedded_reviews" in task:
             errors.append("parallel-mode embedded_reviews must be top-level status.embedded_reviews, not tasks[].embedded_reviews")
 
@@ -423,11 +444,10 @@ def validate_review_identity(root: Path, stage_dir: Path, status_doc: dict[str, 
 
 def validate_tasks(root: Path, stage_dir: Path, status_doc: dict[str, Any], task_id: str | None) -> list[str]:
     errors: list[str] = []
-    tasks = status_doc.get("tasks", [])
-    if tasks is None:
+    tasks, task_shape_errors = normalize_tasks(status_doc)
+    errors.extend(task_shape_errors)
+    if task_shape_errors:
         return errors
-    if not isinstance(tasks, list):
-        return ["tasks must be a list when present"]
 
     selected = tasks
     if task_id:
@@ -440,6 +460,9 @@ def validate_tasks(root: Path, stage_dir: Path, status_doc: dict[str, Any], task
             errors.append("each task entry must be an object")
             continue
         prefix = f"task {task.get('id', '<missing-id>')}"
+        if "_invalid_task_value" in task:
+            errors.append(f"{prefix}: task value must be an object")
+            continue
         owner_identity = provider_identity(task.get("owner") or task.get("implementer"))
         review = task.get("review_1", {})
         reviewer_identity = review_provider_identity(review) if isinstance(review, dict) else None
