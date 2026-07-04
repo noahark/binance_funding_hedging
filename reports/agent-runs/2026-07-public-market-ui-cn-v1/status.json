@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-ui-cn-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
@@ -169,7 +169,7 @@
         "workflows/**",
         "scripts/**"
       ],
-      "status": "in_review_1_round2",
+      "status": "accepted_by_review_1_round2",
       "commit": "ee9296c705d3590adb01bf2fff433e32e834523e",
       "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
       "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e",
@@ -185,21 +185,31 @@
       ],
       "review_1": {
         "round": 2,
-        "status": "pending",
+        "status": "ACCEPT",
+        "verdict": "ACCEPT",
         "owner": {
           "provider": "claude_glm",
           "model": "glm-5.2[1m]",
           "fresh_session_required": true
         },
         "fresh_session": true,
+        "output": "30-review-1-frontend-round2.md",
+        "raw_output": "review-1-frontend-round2.raw-output.txt",
+        "dispatch_prompt": "review-1-frontend-round2.prompt.md",
         "subject": {
           "base_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
           "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e",
           "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
           "scope": "frontend/** (rework round-2 fix diff)"
         },
-        "verdict": "pending",
-        "next_action": "dispatch"
+        "verdict_diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "none",
+        "findings": [],
+        "required_fixes": [],
+        "reviewed_at": "2026-07-04T09:25:00Z",
+        "next_action": "continue"
       },
       "review_1_round0": {
         "status": "ACCEPT",
@@ -424,17 +434,17 @@
     "required": false,
     "reason": null
   },
-  "terminal_reason": "REWORK ROUND 2 REVIEW PHASE: H_fix2 committed; awaiting review-1/review-2 round-2. Not terminal.",
-  "next_action": "Rework round 2 (2/3) REVIEW PHASE: H_fix2 (ee9296c) committed; fingerprints recomputed (stage f4637f8a, task-B fix f4073da5, cumulative 1ccb1c0d, task-A 8afc3dcf unchanged). status=review_1. Dispatch review-1 round-2 (fresh read-only Claude-GLM) on fix diff 7592b2c..ee9296c (frontend/**) -> review-2 round-2 (Codex rebind to ee9296c:f4637f8a) -> pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "terminal_reason": "REWORK ROUND 2 REVIEW PHASE: review-1 round-2 ACCEPT; awaiting review-2 round-2. Not terminal.",
+  "next_action": "Rework round 2 (2/3): review-1 round-2 (fresh GLM) = ACCEPT (findings empty, f4073da5 matched). status=review_2. Dispatch review-2 round-2 (Codex gpt-5.5 xhigh, direction_synthesis disclosure) rebind to ee9296c:f4637f8a — verify the round-2 timer-sync fix resolves the round-1 P2. Then pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T09:15:00Z",
+  "updated_at": "2026-07-04T09:26:00Z",
   "review_1": {
     "round": 2,
-    "verdict": "pending",
-    "json_schema_valid": null,
-    "status": "pending_review_1_round2",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "status": "both_tasks_ACCEPT",
     "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4637f8a13f8bd35ddc7ac0243fc9037afed9380442b630f2fd5518ae7be1d81",
-    "scope": "Rework round 2 (Task-B-scoped, frontend timer-sync only). Task A backend unchanged since dba4c12 -> round-0 Kimi ACCEPT retained, not re-reviewed. Task B frontend reworked again (H_fix2 ee9296c) to align the 60000ms auto-refresh timer with the countdown display (review-2 round-1 P2 fix) -> re-reviewed by a fresh read-only Claude-GLM session on the fix diff 7592b2c..ee9296c (frontend/**).",
+    "scope": "Rework round 2 (Task-B-scoped, frontend timer-sync only). Task A backend unchanged since dba4c12 -> round-0 Kimi ACCEPT retained, not re-reviewed. Task B frontend reworked again (H_fix2 ee9296c) to align the 60000ms auto-refresh timer with the countdown display (review-2 round-1 P2 fix) -> re-reviewed by a fresh read-only Claude-GLM session on the fix diff 7592b2c..ee9296c (frontend/**) -> ACCEPT, findings empty.",
     "task_A": {
       "round": 0,
       "verdict": "ACCEPT",
@@ -446,21 +456,44 @@
     },
     "task_B": {
       "round": 2,
-      "verdict": "pending",
+      "verdict": "ACCEPT",
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
       "fresh_session": true,
+      "output": "30-review-1-frontend-round2.md",
+      "raw_output": "review-1-frontend-round2.raw-output.txt",
+      "dispatch_prompt": "review-1-frontend-round2.prompt.md",
+      "reviewed_at": "2026-07-04T09:25:00Z",
       "subject": {
         "base_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
         "head_sha": "ee9296c705d3590adb01bf2fff433e32e834523e",
         "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
-        "scope": "frontend/** (rework round-2 fix diff: timer reschedule in loadApi finally + self-check mock)"
+        "scope": "frontend/** (rework round-2 fix diff: timer reschedule in loadApi finally + self-check runtime mock)"
       },
-      "note": "Pending: fresh read-only Claude-GLM session re-reviews the round-2 fix diff."
+      "verdict_diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
+      "verdict_fingerprint_matches": true,
+      "schema_valid": true,
+      "reviewer_prior_involvement": "none",
+      "reviewer_prior_involvement_notes": "Fresh isolated read-only claude_glm session; no prior Task B direction/breakdown/design/implementation/rework involvement. Same provider as controller + Task A implementer, but cross-review (Task B authored by kimi) + fresh-session isolation.",
+      "findings": [],
+      "required_fixes": [],
+      "residual_risks": [
+        "Range diff 7592b2c..ee9296c is wider than checkpoint-9 literal wording because the range spans intermediate process-bookkeeping commits (6e945c8, 6894577, 533d708, b20b219); non-frontend content is exclusively docs/parallel-development-mode.md (process doc) + reports/agent-runs/** records. backend/schemas/docs/api/reports/api-samples clean; ee9296c itself + frontend-scoped fingerprint confined. No product boundary crossed.",
+        "Frontend self-check runs on frozen fixture; live endpoint serves full market (inherited).",
+        "lastFundingRate single mid-period snapshot (drift) — inherited accepted residual.",
+        "Spec prose/table paren inconsistency (spec-side) — inherited."
+      ],
+      "independent_test_rerun": "git diff 7592b2c..ee9296c -- frontend/ | shasum -a 256 = f4073da5 (MATCH); node frontend/self-check.js -> 20/20 PASS (incl. runtime-mock timer-reschedule assertion); grep formatFundingRate/formatBeijing in +/- lines empty; grep clearInterval -> 1 hit (L881, refreshTimer only); startAutoRefresh unchanged; fixture unchanged; backend/schemas/docs/api/reports/api-samples untouched.",
+      "next_action": "continue"
     },
-    "next_action": "dispatch_review_1_round2",
+    "both_schema_valid": true,
+    "both_fingerprints_match": true,
+    "findings_total": 0,
+    "required_fixes_total": 0,
     "summary_file": "30-review-1.md",
-    "note": "Round-2 review-1 pending. Round-1 review-1 ACCEPT preserved under review_1_round1; round-0 review-1 ACCEPT preserved under review_1_round0. Stage-level review_1 will rebind to ee9296c:f4637f8a once the fresh-GLM review completes."
+    "reviewed_at": "2026-07-04T09:25:00Z",
+    "next_action": "stage_review_2",
+    "note": "Rework round-2 review-1 = ACCEPT (fresh GLM, findings empty). Task A round-0 ACCEPT retained (backend unchanged); Task B round-2 ACCEPT (rework fix diff f4073da5 independently recomputed & matched). The review-2 round-1 P2 (manual-refresh timer not rescheduled) is resolved. Stage-level review_1 binds to stage fingerprint ee9296c:f4637f8a. Next: stage-level review-2 round-2 (Codex gpt-5.5, direction_synthesis disclosure) rebind to ee9296c."
   },
   "review_2": {
     "round": 2,

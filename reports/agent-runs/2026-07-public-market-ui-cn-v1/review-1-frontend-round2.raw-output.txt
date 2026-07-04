@@ -1,0 +1,60 @@
+⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.ai login · Unset it to load your organization's connectors
+Review report 已写入 `30-review-1-frontend-round2.md`。审查完成。
+
+## 审查结论摘要(fresh read-only reviewer_1,glm-5.2[1m])
+
+**Verdict: ACCEPT**
+
+逐条核对 12 个 checkpoint,全部成立:
+
+| # | Checkpoint | 结果 |
+|---|---|---|
+| 1 | fingerprint 重算 | `f4073da5…` ✓ 与 status.json / prompt 期望逐字一致 |
+| 2 | 修复正确性 | `loadApi` finally(L881–884)在 `nextRefreshAt` 重置**之后** `clearInterval` + 新 `setInterval(…, AUTO_REFRESH_MS)`,顺序正确,与 spec 逐字一致 |
+| 3 | 倒计时独立 | 全文唯一 `clearInterval`(L881)只针对 `refreshTimer`,`countdownTimer` 从不清除 |
+| 4 | startAutoRefresh 未改 | L635–640 仍首次创建 60000ms + 1000ms timer;无 visibilitychange/requestIdleCallback/retry/backoff |
+| 5 | 红线函数 | `formatFundingRate`/`formatBeijing*` 未动(grep 空) |
+| 6 | 无 reintroduction | 无 `#btn-offline`/`loadFixture`/`'fixture'` 分支 |
+| 7 | 同源 fetch | 仅 `fetch('/api/public-market/snapshot')`,无新依赖、无直接 Binance |
+| 8 | fixture 未改 | `frontend/fixture/` diff 空 |
+| 9 | 无产品越界 | `backend/`/`schemas/`/`docs/api/`/`reports/api-samples/` 全部不在范围 diff |
+| 10 | self-check 20/20 | 新断言为**真正运行时 mock**(mock setInterval/clearInterval 记 id+delay,观察 cleared/recreated ids),非源码字符串/正则 |
+| 11 | Decimal 纪律 | 仅触及时间戳/timer id,无 `parseFloat`/新 `Number(` |
+| 12 | 无禁止交互 | 无 order/buy/sell/borrow/repay/transfer/account UI |
+
+修复正确解决了 review-2 round-1 的 P2:手动刷新现在会让实际 60000ms 自动刷新计时器与显示的 `nextRefreshAt` 对齐到同一目标,1s 倒计时计时器保持独立。范围 diff 中的非 frontend 内容均为流程簿记(`docs/parallel-development-mode.md` spec 演进 + review/status 记录),review-2 已明确标注其为「独立非产品方法论文档」,`H_fix2` 提交本身只触及 spec 允许的 3 个路径——非产品越界(记为 residual risk 供 controller 知悉)。
+
+```json
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-public-market-ui-cn-v1",
+  "role": "first_reviewer",
+  "model": "glm-5.2[1m]",
+  "verdict": "ACCEPT",
+  "diff_fingerprint": "ee9296c705d3590adb01bf2fff433e32e834523e:f4073da548a299234daba3bc0296cf82433fd71438313f7fdba8943a93442226",
+  "reviewer_prior_involvement": "none",
+  "reviewer_prior_involvement_notes": "Fresh isolated read-only Claude-GLM session. No prior involvement in this stage's Task B direction/breakdown/design/implementation/rework.",
+  "reviewed_artifacts": [
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/fix-start-prompt-ui-round2.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/50-review-2-round1.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend-rework2.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json",
+    "schemas/review-verdict.schema.json"
+  ],
+  "findings": [],
+  "required_fixes": [],
+  "residual_risks": [
+    "Range diff 7592b2c..ee9296c is wider than checkpoint 9's literal 'only frontend/index.html + frontend/self-check.js' wording because the range spans intermediate process-bookkeeping commits (6e945c8 ADOPTED-TRIAL, 6894577 DRAFT-2, 533d708/b20b219 rework entry/record). Non-frontend content is exclusively docs/parallel-development-mode.md (parallel-dev-mode spec evolution — a process/methodology doc, NOT the API contract docs/api/public-market-contract.md, explicitly flagged in 50-review-2-round1.md as 'independent non-product methodology doc') and reports/agent-runs/** review/status records. backend/ schemas/ docs/api/ reports/api-samples/ are clean; the ee9296c commit itself and the -- frontend/-scoped fingerprint are confined. No product boundary crossed; no action needed for this fix.",
+    "Frontend self-check runs on a frozen fixture; the live endpoint serves the full market — inherited residual, unchanged by this fix.",
+    "lastFundingRate single mid-period snapshot (drift) — inherited accepted residual, untouched.",
+    "Spec prose/table paren inconsistency (spec-side) — inherited, untouched."
+  ],
+  "next_action": "continue"
+}
+```
+
+本地北京时间: 2026-07-04 17:25 CST
+下一步模型: Claude-GLM (controller)
+下一步任务: 汇总 review-1 round-2，调度 review-2 Codex rebind 新 head ee9296c
