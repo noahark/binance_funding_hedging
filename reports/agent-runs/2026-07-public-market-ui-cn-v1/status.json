@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-ui-cn-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
@@ -319,7 +319,7 @@
     "status": "pass",
     "note": "Task C integration: rows field-identical to 548ae0d (647==647, only warnings[1] differs); pytest 54 passed; frontend self-check 14/14; float() audit clean; schema VALID"
   },
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {
@@ -327,9 +327,9 @@
     "reason": null
   },
   "terminal_reason": "review-1 (both tasks ACCEPT) + review-2 (Codex gpt-5.5 ACCEPT, direction_synthesis disclosure) + pre-accept gate PASSED. Controller stops here per can_accept_final=false; awaits user external acceptance.",
-  "next_action": "review-2 (Codex gpt-5.5) = ACCEPT, findings empty; stage-level diff_fingerprint 6e6e2d4d recomputed & matched. All gates passed (checkpoint + pre-review + pre-accept). status=stage_accepted_waiting_user. Controller does NOT declare final acceptance (can_accept_final=false) — awaits user external review/acceptance.",
+  "next_action": "Rework round 1 (user-directed): P3 fixes + user UI decisions per fix-start-prompt-ui-round1.md — enum display 'ENGLISH(中文)' for route/asset/negative columns + filter options, remove offline-fixture button/path, 60s auto-refresh with countdown near the market table, sidebar 'Funding Hedge' -> '资金费率对冲'. All frontend/** (Kimi). Then review-1 (fresh read-only Claude-GLM) on the fix diff, review-2 (Codex gpt-5.5, direction_synthesis disclosure; Anthropic excluded as designer) rebinding to the new head, fingerprints rebound, status -> review_1 -> review_2 -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T06:08:00Z",
+  "updated_at": "2026-07-04T07:52:12Z",
   "review_1": {
     "verdict": "ACCEPT",
     "json_schema_valid": true,
@@ -395,5 +395,41 @@
     "runner_level_check": "Codex CLI v0.142.2 (/Users/ark/.local/bin/codex); invoked 'codex exec -s read-only <prompt>' relying on default_profile auto-load, which routed model=gpt-5.5, effort=xhigh, sandbox=read-only, approval=never. Provider this run = openai (impl-v1 used proxy2233 — the default_profile provider differs across runs, but gpt-5.5 was accepted and produced a complete review). No -m flag (per impl-v1 lesson: '-m gpt5.5' alone mis-routes to ChatGPT provider). Verdict independently jsonschema-validated by Codex against schemas/review-verdict.schema.json (Codex printed 'verdict schema VALID').",
     "independent_test_rerun": "node frontend/self-check.js -> 14/14 PASS; PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -s -p no:cacheprovider backend/tests -q -> 54 passed (Codex ran with -s / capture-disabled because read-only sandbox has no writable temp dir, preventing the exact default pytest invocation pre-collection; result equivalent); offline snapshot jsonschema VALID (647 rows, 3 warnings).",
     "note": "Codex/GPT gpt-5.5 final-gate review = ACCEPT. Independently recomputed the stage fingerprint (6e6e2d4d...) and the three task fingerprints (8afc3dcf / 5552ed82 / 28670f98); all match status.json. Diff owner-scoped (Task A = warning string + doc + tests + report; Task B = frontend/** + report; Task C = controller evidence, no product code). snapshot.py single CONTRACT_WARNINGS[1] string replacement; frontend rate formatter string-shift only; no forbidden interaction; security grep hits explanatory display text only; read-only inputs (schemas/api-samples) untouched; contract doc touched only by Task A. review-1 scrutinized (both ACCEPT) and material claims independently confirmed. Zero findings, zero required fixes. Same direction_synthesis disclosure path as impl-v1 / bstock-alias-v1."
-  }
+  },
+  "post_review_findings": [
+    {
+      "id": "asset_tag_enum_direct_display",
+      "severity": "P3_cosmetic",
+      "status": "open",
+      "recorded_at": "2026-07-04T07:52:12Z",
+      "reviewer": {
+        "provider": "anthropic",
+        "model": "claude-fable-5",
+        "kind": "user_directed_external_post_review",
+        "prior_involvement": "designer_breakdown_author"
+      },
+      "summary": "badgeForAssetTag renders CRYPTO/UNKNOWN/BSTOCK raw enums in the 资产标签 column (violated the round-1 dispatch's no-raw-English-enum rule); sidebar brand 'Funding Hedge' still English (review-1 P3, out-of-diff). Both cosmetic, no functional impact; review-1/review-2 ACCEPT verdicts on head 9b0e62c preserved verbatim.",
+      "resolution_route": "rework round 1 per fix-start-prompt-ui-round1.md; NOTE the user's new enum-display decision (English + Chinese parens) supersedes the round-1 pure-Chinese rule, so the fix implements the new scheme rather than translating enums away."
+    }
+  ],
+  "user_decisions": [
+    {
+      "decided_at": "2026-07-04",
+      "topic": "state enum display scheme",
+      "decision": "路由分类/资产标签/负费率状态三列及筛选下拉统一为「英文枚举(中文解释)」格式(全角括号),取代上一轮'主表纯中文'规则。",
+      "consequence": "Precise enum values stay visible (match API/docs) with Chinese explanations inline; supersedes the round-1 dispatch rule '主表不得英文枚举直出' for these three columns."
+    },
+    {
+      "decided_at": "2026-07-04",
+      "topic": "offline fixture button",
+      "decision": "删除页面「加载离线 fixture」按钮及代码路径;fixture 文件与 self-check 数据源用途保留。",
+      "consequence": "UI loses the offline demo path; self-check unaffected (reads the file directly)."
+    },
+    {
+      "decided_at": "2026-07-04",
+      "topic": "auto refresh + countdown",
+      "decision": "前端每 60 秒自动刷新(对齐后端 Config.cache_ttl_seconds=60),市场表附近显示下次刷新倒计时;手动刷新保留并重置倒计时。",
+      "consequence": "Previously manual-refresh-only. No API/schema change: polling is frontend-local; backend TTL cache unchanged."
+    }
+  ]
 }

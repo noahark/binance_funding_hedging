@@ -71,3 +71,26 @@ Controller 不声明最终验收，等用户外部 review。
 
 本地北京时间: 2026-07-04 13:36 CST
 下一步模型: review-1（cross-review）
+
+---
+
+## Rework round 1（2026-07-04,用户指示)
+
+用户外部复核(Fable5)确认上轮全部硬性核验通过,但发现 P3 残留(资产标签列
+CRYPTO/UNKNOWN 枚举直出;侧栏 Funding Hedge 英文),用户指示走一轮 P3,并
+同时新增三项 UI 决策(见 status.json.user_decisions):
+
+1. 状态枚举展示改「英文枚举(中文解释)」——路由/资产/负费率三列 + 筛选下拉,
+   **取代上一轮"主表纯中文"规则**;
+2. 删除「加载离线 fixture」按钮及代码路径(fixture 文件与 self-check 保留);
+3. 前端 60s 自动刷新(对齐后端 TTL)+ 市场表旁倒计时;手动刷新保留并重置。
+
+派工:`fix-start-prompt-ui-round1.md`(全部 frontend/**,Kimi)。上轮
+review-1/review-2 ACCEPT(head 9b0e62c)原样保留;fix 后重审并绑定新 head。
+status=fixing,rework_count=1/3。
+
+本地北京时间: 2026-07-04 15:52 CST
+下一步模型: Claude-GLM (controller) → Kimi (fix 实现)
+下一步任务: controller 原样转发 fix-start-prompt-ui-round1.md 给 Kimi;完成后
+H_fix → 指纹重算 → review-1(fresh GLM)→ review-2(Codex 重绑)→
+stage_accepted_waiting_user。
