@@ -395,7 +395,7 @@
               <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </span>
-          <span>Funding Hedge</span>
+          <span>资金费率对冲</span>
         </div>
         <div class="brand-subtitle">公开数据 · 只读</div>
       </div>
@@ -424,7 +424,7 @@
         <div class="badge-row" aria-label="运行约束">
           <span class="badge success">公开数据</span>
           <span class="badge info">只读</span>
-          <span class="badge warn">手动刷新</span>
+          <span class="badge warn">自动刷新 60s</span>
         </div>
       </header>
 
@@ -452,7 +452,7 @@
             <p class="subtitle" id="data-source-label">数据源: /api/public-market/snapshot</p>
           </div>
           <div class="panel-actions">
-            <button class="btn compact" id="btn-offline" type="button">加载离线 fixture</button>
+            <span class="badge muted" id="refresh-countdown">下次刷新: 60s</span>
             <button class="btn compact primary" id="btn-refresh" type="button">手动刷新</button>
           </div>
         </div>
@@ -466,18 +466,18 @@
               <label for="filter-asset">资产标签</label>
               <select id="filter-asset">
                 <option value="">全部</option>
-                <option value="CRYPTO">CRYPTO</option>
-                <option value="BSTOCK">BSTOCK</option>
-                <option value="UNKNOWN">UNKNOWN</option>
+                <option value="CRYPTO">CRYPTO(加密货币)</option>
+                <option value="BSTOCK">BSTOCK(美股代币)</option>
+                <option value="UNKNOWN">UNKNOWN(未知)</option>
               </select>
             </div>
             <div class="control">
               <label for="filter-route">路由分类</label>
               <select id="filter-route">
                 <option value="">全部</option>
-                <option value="MARGIN_SPOT_CANDIDATE">杠杆现货候选</option>
-                <option value="SPOT_ONLY_CANDIDATE">仅现货候选</option>
-                <option value="PERP_ONLY_EXCLUDED">仅合约（排除）</option>
+                <option value="MARGIN_SPOT_CANDIDATE">MARGIN_SPOT_CANDIDATE(杠杆现货候选)</option>
+                <option value="SPOT_ONLY_CANDIDATE">SPOT_ONLY_CANDIDATE(仅现货候选)</option>
+                <option value="PERP_ONLY_EXCLUDED">PERP_ONLY_EXCLUDED(仅合约，排除)</option>
               </select>
             </div>
             <div class="control">
@@ -526,6 +526,15 @@
         'funding_history', 'ui_flags'
       ];
 
+      const AUTO_REFRESH_MS = 60000; // 与后端 Config.cache_ttl_seconds=60 对齐
+
+      const refreshState = {
+        isRefreshing: false,
+        nextRefreshAt: Date.now() + AUTO_REFRESH_MS,
+        refreshTimer: null,
+        countdownTimer: null
+      };
+
       const state = {
         snapshot: null,
         source: 'api',
@@ -547,7 +556,7 @@
         marginPublicNote: document.getElementById('margin-public-note'),
         dataSourceLabel: document.getElementById('data-source-label'),
         btnRefresh: document.getElementById('btn-refresh'),
-        btnOffline: document.getElementById('btn-offline'),
+        refreshCountdown: document.getElementById('refresh-countdown'),
         filterSearch: document.getElementById('filter-search'),
         filterAsset: document.getElementById('filter-asset'),
         filterRoute: document.getElementById('filter-route'),
@@ -614,13 +623,30 @@
         return n > 0 ? 'positive' : 'negative';
       }
 
-      function badgeForRouteClass(rc) {
-        switch (rc) {
-          case 'MARGIN_SPOT_CANDIDATE': return '<span class="badge success">杠杆现货候选</span>';
-          case 'SPOT_ONLY_CANDIDATE': return '<span class="badge info">仅现货候选</span>';
-          case 'PERP_ONLY_EXCLUDED': return '<span class="badge muted">仅合约（排除）</span>';
-          default: return `<span class="badge">${escapeHtml(rc)}</span>`;
+      function updateCountdown() {
+        if (refreshState.isRefreshing) {
+          els.refreshCountdown.textContent = '刷新中…';
+          return;
         }
+        const remaining = Math.max(0, Math.ceil((refreshState.nextRefreshAt - Date.now()) / 1000));
+        els.refreshCountdown.textContent = `下次刷新: ${remaining}s`;
+      }
+
+      function startAutoRefresh() {
+        refreshState.refreshTimer = setInterval(() => {
+          if (!refreshState.isRefreshing) loadApi();
+        }, AUTO_REFRESH_MS);
+        refreshState.countdownTimer = setInterval(updateCountdown, 1000);
+      }
+
+      function badgeForRouteClass(rc) {
+        const map = {
+          'MARGIN_SPOT_CANDIDATE': 'MARGIN_SPOT_CANDIDATE(杠杆现货候选)',
+          'SPOT_ONLY_CANDIDATE': 'SPOT_ONLY_CANDIDATE(仅现货候选)',
+          'PERP_ONLY_EXCLUDED': 'PERP_ONLY_EXCLUDED(仅合约，排除)'
+        };
+        const cls = rc === 'MARGIN_SPOT_CANDIDATE' ? 'success' : rc === 'SPOT_ONLY_CANDIDATE' ? 'info' : 'muted';
+        return `<span class="badge ${cls}">${escapeHtml(map[rc] || rc)}</span>`;
       }
 
       function badgeForUiFlag(flag) {
@@ -635,22 +661,24 @@
       }
 
       function badgeForNegativeFundingStatus(ns) {
-        switch (ns) {
-          case 'PRIVATE_BORROW_VALIDATION_REQUIRED': return '<span class="badge warn">需验证借币</span>';
-          case 'DISABLED_BSTOCK': return '<span class="badge danger">BSTOCK 禁用</span>';
-          case 'DISABLED_SPOT_ONLY': return '<span class="badge warn">仅现货禁用</span>';
-          case 'DISABLED_PERP_ONLY': return '<span class="badge muted">仅合约禁用</span>';
-          default: return `<span class="badge">${ns}</span>`;
-        }
+        const map = {
+          'PRIVATE_BORROW_VALIDATION_REQUIRED': 'PRIVATE_BORROW_VALIDATION_REQUIRED(需私有借币验证)',
+          'DISABLED_BSTOCK': 'DISABLED_BSTOCK(禁用:bStock 不可借)',
+          'DISABLED_SPOT_ONLY': 'DISABLED_SPOT_ONLY(禁用:无杠杆)',
+          'DISABLED_PERP_ONLY': 'DISABLED_PERP_ONLY(禁用:无现货腿)'
+        };
+        const cls = ns === 'PRIVATE_BORROW_VALIDATION_REQUIRED' ? 'warn' : ns === 'DISABLED_BSTOCK' ? 'danger' : ns === 'DISABLED_SPOT_ONLY' ? 'warn' : 'muted';
+        return `<span class="badge ${cls}">${escapeHtml(map[ns] || ns)}</span>`;
       }
 
       function badgeForAssetTag(tag) {
-        switch (tag) {
-          case 'BSTOCK': return '<span class="badge accent">BSTOCK</span>';
-          case 'CRYPTO': return '<span class="badge">CRYPTO</span>';
-          case 'UNKNOWN': return '<span class="badge warn">UNKNOWN</span>';
-          default: return `<span class="badge">${tag}</span>`;
-        }
+        const map = {
+          'BSTOCK': 'BSTOCK(美股代币)',
+          'CRYPTO': 'CRYPTO(加密货币)',
+          'UNKNOWN': 'UNKNOWN(未知)'
+        };
+        const cls = tag === 'BSTOCK' ? 'accent' : tag === 'UNKNOWN' ? 'warn' : '';
+        return `<span class="badge ${cls}">${escapeHtml(map[tag] || tag)}</span>`;
       }
 
       const WARNING_CHINESE = [
@@ -817,7 +845,7 @@
         }
         const generated = state.snapshot.generated_at || '—';
         const dataTime = state.snapshot.data_time || '—';
-        els.footerNote.textContent = `生成时间: ${generated} · 数据时间: ${dataTime} · 数据非实时，手动刷新后更新`;
+        els.footerNote.textContent = `生成时间: ${generated} · 数据时间: ${dataTime} · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）`;
       }
 
       function applyFiltersAndRender() {
@@ -826,6 +854,8 @@
       }
 
       async function loadApi() {
+        refreshState.isRefreshing = true;
+        updateCountdown();
         setStatus('loading', '正在请求 /api/public-market/snapshot ...');
         state.source = 'api';
         els.dataSourceLabel.textContent = '数据源: /api/public-market/snapshot';
@@ -839,29 +869,13 @@
         } catch (err) {
           state.snapshot = null;
           state.blocked = true;
-          state.blockedReason = `请求后端失败: ${err.message}。如需离线自检，可点击“加载离线 fixture”。`;
+          state.blockedReason = `请求后端失败: ${err.message}。`;
           renderWarnings([]);
           applyFiltersAndRender();
-        }
-      }
-
-      async function loadFixture() {
-        setStatus('loading', '正在加载离线 fixture ...');
-        state.source = 'fixture';
-        els.dataSourceLabel.textContent = '数据源: ./fixture/public-market-snapshot.json（离线自检）';
-        try {
-          const res = await fetch('./fixture/public-market-snapshot.json');
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status} ${res.statusText}`);
-          }
-          const data = await res.json();
-          ingestSnapshot(data);
-        } catch (err) {
-          state.snapshot = null;
-          state.blocked = true;
-          state.blockedReason = `加载 fixture 失败: ${err.message}`;
-          renderWarnings([]);
-          applyFiltersAndRender();
+        } finally {
+          refreshState.isRefreshing = false;
+          refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+          updateCountdown();
         }
       }
 
@@ -885,7 +899,6 @@
 
       function bindEvents() {
         els.btnRefresh.addEventListener('click', loadApi);
-        els.btnOffline.addEventListener('click', loadFixture);
         els.filterSearch.addEventListener('input', () => {
           state.filters.search = els.filterSearch.value;
           applyFiltersAndRender();
@@ -912,6 +925,7 @@
 
       bindEvents();
       loadApi();
+      startAutoRefresh();
     })();
   </script>
 </body>

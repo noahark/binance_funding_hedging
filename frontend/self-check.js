@@ -61,7 +61,7 @@ function makeElement(id) {
 const elements = {};
 const ids = [
   'warnings-panel', 'warnings-list', 'warnings-raw', 'warnings-raw-content', 'margin-public-note',
-  'data-source-label', 'btn-refresh', 'btn-offline',
+  'data-source-label', 'btn-refresh', 'refresh-countdown',
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only',
   'summary-row', 'status-area', 'market-table-body', 'footer-note'
 ];
@@ -220,6 +220,68 @@ setTimeout(() => {
       throw new Error('枚举原值未放入 title 属性');
     }
     console.log('[PASS] 提示标记映射正确');
+
+    // 14. 离线 fixture 按钮及文案已删除
+    if (html.includes('btn-offline')) {
+      throw new Error('仍保留 btn-offline 元素 id');
+    }
+    if (html.includes('加载离线 fixture')) {
+      throw new Error('仍保留“加载离线 fixture”按钮文案');
+    }
+    console.log('[PASS] 离线 fixture 按钮及文案已删除');
+
+    // 15. 自动刷新 60s 与倒计时元素
+    if (!html.includes('60000')) {
+      throw new Error('未找到 60000 自动刷新间隔常量');
+    }
+    if (!html.includes('下次刷新')) {
+      throw new Error('未找到“下次刷新”倒计时文案');
+    }
+    if (!html.includes('Config.cache_ttl_seconds=60')) {
+      throw new Error('未注明与后端缓存 TTL 对齐的注释');
+    }
+    console.log('[PASS] 自动刷新 60s 与倒计时元素存在');
+
+    // 16. 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式
+    const enumDisplayChecks = [
+      ['MARGIN_SPOT_CANDIDATE(杠杆现货候选)', '路由分类'],
+      ['SPOT_ONLY_CANDIDATE(仅现货候选)', '路由分类'],
+      ['PERP_ONLY_EXCLUDED(仅合约，排除)', '路由分类'],
+      ['CRYPTO(加密货币)', '资产标签'],
+      ['BSTOCK(美股代币)', '资产标签'],
+      ['PRIVATE_BORROW_VALIDATION_REQUIRED(需私有借币验证)', '负费率状态'],
+      ['DISABLED_BSTOCK(禁用:bStock 不可借)', '负费率状态'],
+      ['DISABLED_SPOT_ONLY(禁用:无杠杆)', '负费率状态'],
+      ['DISABLED_PERP_ONLY(禁用:无现货腿)', '负费率状态']
+    ];
+    for (const [expected, column] of enumDisplayChecks) {
+      if (!tbodyAll.includes(expected)) {
+        throw new Error(`${column} 列未渲染预期格式: ${expected}`);
+      }
+    }
+    console.log('[PASS] 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式');
+
+    // 17. 筛选下拉 option 文本使用同格式
+    const filterOptions = [
+      'CRYPTO(加密货币)',
+      'BSTOCK(美股代币)',
+      'UNKNOWN(未知)',
+      'MARGIN_SPOT_CANDIDATE(杠杆现货候选)',
+      'SPOT_ONLY_CANDIDATE(仅现货候选)',
+      'PERP_ONLY_EXCLUDED(仅合约，排除)'
+    ];
+    for (const opt of filterOptions) {
+      if (!html.includes(opt)) {
+        throw new Error(`筛选下拉缺少 option 文案: ${opt}`);
+      }
+    }
+    console.log('[PASS] 筛选下拉 option 使用「英文枚举(中文解释)」格式');
+
+    // 18. 侧栏品牌已中文化
+    if (!html.includes('资金费率对冲')) {
+      throw new Error('侧栏品牌未改为“资金费率对冲”');
+    }
+    console.log('[PASS] 侧栏品牌已中文化');
 
     console.log('\n全部自检通过');
     process.exit(0);
