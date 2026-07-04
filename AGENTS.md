@@ -17,15 +17,17 @@ When documents conflict, use this order:
 
 1. `AGENTS.md` - repository-level agent rules and safety gates.
 2. `workflows/templates/*.yaml` - executable workflow contracts.
-3. `schemas/*.schema.json` - machine-readable output contracts.
-4. `agents/registry.yaml` - model, adapter, and skill routing.
-5. `docs/model-adapters.md` - local CLI adapter commands and availability
+3. `docs/parallel-development-mode.md` - optional parallel implementation and
+   embedded cross-review mode contract.
+4. `schemas/*.schema.json` - machine-readable output contracts.
+5. `agents/registry.yaml` - model, adapter, and skill routing.
+6. `docs/model-adapters.md` - local CLI adapter commands and availability
    checks.
-6. `agents/skills/*.md` - role skill prompts and local overrides.
-7. `agents/developer-discipline.md` - developer execution discipline for
+7. `agents/skills/*.md` - role skill prompts and local overrides.
+8. `agents/developer-discipline.md` - developer execution discipline for
    implementation and fix work.
-8. `reports/agent-runs/<stage>/` - current stage facts and evidence.
-9. `docs/*.md` - product, architecture, and design notes.
+9. `reports/agent-runs/<stage>/` - current stage facts and evidence.
+10. `docs/*.md` - product, architecture, and design notes.
 
 `agents/developer-discipline.md` is subordinate to the hard gates above. It
 should guide developer behavior only when it does not conflict with this file,
@@ -56,20 +58,31 @@ content into `docs/` only after user approval.
 
 ## Roles
 
-### Controller
+### Orchestrator And Bookkeeper
 
-Default controller: GLM5.2 through Claude Code, invoked through the local
-`claude-glm` adapter.
+The orchestrator is an abstract workflow concept: `AGENTS.md`, workflow YAML,
+schemas, and active stage files define the state machine. It is not a specific
+model, terminal, or transcript.
 
-The controller may:
+The bookkeeper, also called the stage operator, is the single write authority
+for stage state, evidence commits, review dispatch, and handoff files. The
+default bookkeeper should be an independent local execution session rather than
+one of the implementation terminals. GLM5.2 through Claude Code
+(`claude-glm`) may be assigned as bookkeeper only when the stage explicitly
+records that assignment. If the same session must act as both implementer and
+bookkeeper, disclose it in `status.json` and `70-handoff.md`; review-2 must
+evaluate that dual-hat risk.
+
+The bookkeeper may:
 
 - Read workflow YAML and stage files.
 - Create and update `reports/agent-runs/<stage>/`.
 - Dispatch work to implementation and review models.
 - Collect raw artifacts and verify that required evidence exists.
 - Update `status.json` and `70-handoff.md`.
+- Create local evidence commits before formal review gates.
 
-The controller must not:
+The bookkeeper must not:
 
 - Declare final acceptance.
 - Hide, summarize, or rewrite implementation evidence before review.
@@ -78,7 +91,7 @@ The controller must not:
 
 ### Designers
 
-Before a milestone direction or requirement set is frozen, the controller must
+Before a milestone direction or requirement set is frozen, the bookkeeper must
 run the registered direction panel for that round. The panel is declared in the
 workflow/registry or in the approved stage intake before drafting starts.
 When a registry panel key is derived from a stage id, replace hyphens with
@@ -94,7 +107,7 @@ reports/agent-runs/<stage-id>/direction-drafts/<model-id>.md
 
 If a registered model is unavailable or quota-exhausted, the stage must record
 `direction-drafts/<model-id>.unavailable.md` with the reason. Drafts preserve
-source model identity and must not be replaced by controller summaries.
+source model identity and must not be replaced by bookkeeper summaries.
 
 The configured direction synthesizer, normally GPT/Codex, reads the raw draft
 files and produces `06-direction-synthesis.md` for user review. The synthesizer
@@ -127,7 +140,7 @@ implementation or fix tasks unless the user explicitly re-enables it.
 
 Review-1 uses a cross-review pool with the `code_reviewer` skill. If the
 implementer is `claude_glm`, review-1 uses Kimi. If the implementer is Kimi,
-review-1 uses Claude-GLM. For any other implementer, the controller chooses the
+review-1 uses Claude-GLM. For any other implementer, the bookkeeper chooses the
 first available reviewer from the registered cross-review pool that does not
 share provider identity with the implementer. Review-2 is the final gate and
 uses GPT/Codex first, then Claude when GPT/Codex is unavailable,
@@ -188,14 +201,14 @@ of the allowed terminal stop reasons.
 If a reviewer returns `REWORK`, the verdict JSON must include
 `fix_start_prompt`: a ready-to-send repair prompt for the fix implementer. The
 prompt must preserve raw artifact paths, findings, required fixes, file
-boundaries, exact test commands, and acceptance criteria. The controller may add
+boundaries, exact test commands, and acceptance criteria. The bookkeeper may add
 mechanical routing metadata, but must not hide or rewrite reviewer evidence when
 dispatching the fix.
 
 ## Hard Gates
 
 - Git is required. No git repository means no diff fingerprint and no review.
-- Review gates require a committed repository state. The controller is
+- Review gates require a committed repository state. The bookkeeper is
   authorized to create local stage commits before review; this does not imply
   user approval to push, merge, deploy, or mark the stage accepted.
 - Diff fingerprint is defined as a single committed-state scheme:
@@ -206,16 +219,16 @@ dispatching the fix.
 - Model claims are not evidence. Evidence is raw diff, test output, artifacts,
   schema-valid verdicts, and committed repository state. Uncommitted state is
   allowed only for in-progress checkpoints before a review gate.
-- A contract amendment (modifying a previously frozen contract) must carry raw
-  public samples that ground the change, landed under
-  `reports/api-samples/<stage>/`. Synthetic fixtures may supplement coverage but
-  never replace fact evidence. A stage that amends a contract from synthetic
-  fixtures alone must record the missing live sample as a follow-up and re-enter
-  review when the live sample is added.
+- A contract amendment that modifies a previously frozen contract must carry
+  raw public samples that ground the change, landed under
+  `reports/api-samples/<stage>/`. Synthetic fixtures may supplement coverage
+  but never replace fact evidence. A stage that amends a contract from
+  synthetic fixtures alone must record the missing live sample as a follow-up
+  and re-enter review when the live sample is added.
 - Before dispatching `review-1`, dispatching `review-2`, or writing an accepted
   terminal state, run `scripts/validate-stage.py <stage-id> --phase <phase>` and
   preserve the output in the stage evidence.
-- Unknown status values, unknown fingerprint protocols, or controller-invented
+- Unknown status values, unknown fingerprint protocols, or bookkeeper/model-invented
   state machine transitions fail closed and route to `human_escalation_required`
   unless the Harness schema, docs, and validator are updated first.
 - Final reviewer should differ from the stage designer, direction synthesizer,
@@ -224,7 +237,7 @@ dispatching the fix.
   available.
 - Reviewer must not be the implementer or fix author of the reviewed task. This
   has no override.
-- Reviewer input must be raw artifacts and file paths, not only controller
+- Reviewer input must be raw artifacts and file paths, not only bookkeeper
   summaries.
 - Invalid verdict JSON fails closed as non-accepting evidence. It cannot pass a
   gate and must route to retry, fallback, fix, or an allowed terminal stop
@@ -239,7 +252,7 @@ dispatching the fix.
   when strict JSON verdict output is required. Do not rely on `codex review`
   for schema-constrained verdicts.
 - Model dispatch must use `docs/model-adapters.md` and `agents/registry.yaml`.
-  A controller session lacking a built-in tool for a model is not sufficient to
+  A bookkeeper or implementation session lacking a built-in tool for a model is not sufficient to
   mark that model unavailable; the runner-level adapter check must fail.
 - Review-2 fallback or strong-reviewer override is allowed only for quota,
   authentication, service availability, timeout, repeated invalid verdict JSON,
@@ -248,6 +261,12 @@ dispatching the fix.
 - Review-1 uses the configured cross-review pool. Grok is not a default review
   gate and must not be substituted into review-1 unless the user explicitly
   enables it for the stage.
+- Stages using `docs/parallel-development-mode.md` must follow that document's
+  R1-R10 rules. In particular, implementation task prompts must include the R10
+  dispatch tail, `next_dispatch` entries marked `executor: self` must be
+  executed or escalated before the implementer reports completion, and the
+  bookkeeper must perform R4 diff reconciliation before creating H_A/H_B
+  evidence commits.
 
 ## Standard Stage Delivery
 
@@ -268,12 +287,15 @@ The intended stage delivery flow is:
 7. Split implementation tasks.
 8. Implement the bounded task.
 9. Run deterministic tests, lint, type checks, or replay checks.
-10. Commit the bounded stage artifacts locally, compute the standard
+10. For parallel development stages, run embedded cross-review checkpoints from
+   `docs/parallel-development-mode.md` before the formal review gate; these
+   checkpoints do not replace committed-state review-1.
+11. Commit the bounded stage artifacts locally, compute the standard
    `diff_fingerprint`, run `scripts/validate-stage.py <stage-id> --phase
    pre-review`, then review raw artifacts.
-11. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
+12. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
    to launch the fix task.
-12. Repeat only within the bounded stage until accepted, then stop and wait for
+13. Repeat only within the bounded stage until accepted, then stop and wait for
    the user to start the next multi-model direction round.
 
 Lightweight bugfixes or mechanical follow-up tasks may skip the direction panel
@@ -314,7 +336,7 @@ The first manual stage delivery run is intentionally deferred.
 ## Output Footer
 
 Every model-facing report, handoff, review narrative, and significant
-controller response should end with:
+bookkeeper response should end with:
 
 ```text
 本地北京时间: YYYY-MM-DD HH:MM:SS CST
@@ -362,9 +384,9 @@ Key reminders:
 - Review-1 uses Kimi and Claude-GLM as a cross-review pool. Grok development,
   when explicitly enabled, uses `grok-composer-2.5-fast`; Grok is not a default
   review gate.
-- Kimi development uses the explicit latest coding alias:
-  `kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"`.
-  The current Kimi CLI does not allow `--plan` or `-y` together with `-p`.
+- Kimi development uses the local Kimi Code adapter default, normally
+  `kimi-for-coding`/`kimi` with no pinned `-m` so it follows the configured
+  latest model.
 - `claude-glm` is a local shell alias/function. Invoke through an adapter and do
   not record its expanded environment.
 - YAML files describe intent and routing. Command details belong in adapters or

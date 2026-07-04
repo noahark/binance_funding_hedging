@@ -7,8 +7,8 @@ stage-delivery files, role skills, evidence capture, and review gates.
 
 It is designed to prevent three failure modes:
 
-1. A controller model claiming completion without raw evidence.
-2. Reviewers judging a controller's summary instead of the real diff and tests.
+1. A stage operator claiming completion without raw evidence.
+2. Reviewers judging a bookkeeper's summary instead of the real diff and tests.
 3. A model reviewing its own design or implementation.
 
 ## Current Scope
@@ -18,6 +18,7 @@ This repository currently implements only the document-level Harness contract:
 - `AGENTS.md`
 - `agents/registry.yaml`
 - `docs/model-adapters.md`
+- `docs/parallel-development-mode.md`
 - `workflows/templates/stage-delivery.yaml`
 - `schemas/review-verdict.schema.json`
 - `reports/agent-runs/README.md`
@@ -29,7 +30,8 @@ The first manual stage delivery run is intentionally not started.
 
 ```text
 workflow YAML
-  -> GLM5.2 controller through Claude Code
+  -> abstract orchestrator state machine
+    -> single bookkeeper / stage operator execution session
     -> evaluates complexity after user requirement discussion
     -> collects independent direction drafts
     -> asks GPT/Codex to synthesize the direction for user review
@@ -41,7 +43,9 @@ workflow YAML
     -> updates status and handoff
 ```
 
-The controller is an orchestrator, not an acceptance authority.
+The orchestrator is not a model. It is the workflow contract. The bookkeeper is
+the only stage state writer and evidence committer, but it is not an acceptance
+authority.
 
 ## Documentation Paths
 
@@ -114,7 +118,7 @@ Current agency-backed skills:
 ## Model Routing
 
 Direction and requirement freeze happens before milestone development. The
-controller first classifies the requested work:
+bookkeeper first classifies the requested work:
 
 - `LOW`: mechanical changes such as logging fields, copy changes, or test-only
   edits.
@@ -138,7 +142,7 @@ For direction-panel tasks:
 6. GPT/Codex reads all five raw drafts, synthesizes the final direction, and
    formats it for user review.
 
-The controller may index the files but must not replace the source drafts with
+The bookkeeper may index the files but must not replace the source drafts with
 its own summary. Development starts only after user approval of the synthesis.
 Lightweight bugfixes or mechanical follow-up tasks may skip this panel when the
 user explicitly approves the shortcut or an existing synthesis covers the task.
@@ -153,7 +157,7 @@ grok --model grok-composer-2.5-fast
 
 The generic actor pool does not override a stage-specific routing decision. If
 `status.json.model_routing.excluded_for_core_work` excludes a model for the
-active stage, the controller must not dispatch implementation or fix work to
+active stage, the bookkeeper must not dispatch implementation or fix work to
 that model unless the user explicitly re-enables it.
 
 Review routing is fixed:
@@ -176,14 +180,20 @@ timeout, repeated invalid verdict JSON, or design-conflict eligibility.
 Grok remains available for direction drafts or explicit experiments, but it is
 not a required review gate.
 
-## Controller
+## Orchestrator And Bookkeeper
 
-The default controller is GLM5.2 accessed through Claude Code using the local
-`claude-glm` adapter. The reason for using it as controller is the large context
-window, which is useful for reading workflow files, stage reports, and historical
-handoffs.
+The orchestrator is the contract made of `AGENTS.md`, workflow YAML, schemas,
+and the active stage files. It has no session identity and cannot write code or
+accept a stage.
 
-Controller responsibilities:
+The bookkeeper, also called the stage operator, is the single local execution
+session that writes `status.json`, creates committed evidence, runs validators,
+and dispatches formal review gates. The default should be independent from the
+implementation terminals. GLM5.2 through Claude Code may still be assigned as
+bookkeeper when the user chooses it, but that is an explicit stage assignment,
+not the framework default.
+
+Bookkeeper responsibilities:
 
 - Select the next stage from workflow state.
 - Coordinate direction draft collection and GPT/Codex synthesis.
@@ -192,13 +202,44 @@ Controller responsibilities:
 - Validate output contracts.
 - Update stage status.
 - Stop on blockers or invalid machine-readable outputs.
+- Commit bounded evidence locally before formal review gates.
 
-Controller restrictions:
+Bookkeeper restrictions:
 
 - No final acceptance.
-- No reviewer prompt based only on controller summary.
+- No reviewer prompt based only on bookkeeper summary.
 - No credential or environment leakage into reports.
 - No silent skip of tests, review, or schema validation.
+
+If a bookkeeper must also implement part of a stage, the overlap must be
+recorded in `status.json` and `70-handoff.md`, and review-2 must evaluate the
+dual-hat risk. This should be exceptional; the preferred pattern is a neutral
+bookkeeper plus separate implementation terminals.
+
+## Parallel Development Mode
+
+`docs/parallel-development-mode.md` defines the adopted trial mode for stages
+with separable backend/frontend or similarly independent tasks. It is optional
+and stage-scoped.
+
+The intended pattern is:
+
+1. The designer/breakdown author writes task prompts, file boundaries,
+   prewritten cross-review prompts, and R10 dispatch tails before coding starts.
+2. GLM/Claude-GLM and Kimi, or other assigned implementers, develop in separate
+   terminals without touching git or `status.json`.
+3. Each implementation terminal immediately executes its own `next_dispatch`
+   when marked `executor: self`, launching a fresh read-only opposite-model
+   embedded pre-review through the adapter command written in the prompt.
+4. Local pre-review/fix loops are capped at two rounds. They are checkpoints,
+   not formal review-1 verdicts, because they happen before committed evidence.
+5. The bookkeeper re-generates each task diff, reconciles it with the
+   implementer-produced diff, creates H_A/H_B evidence commits in order, then
+   dispatches formal review-1 against committed fingerprints.
+
+This mode improves wall-clock time without changing the evidence model:
+committed-state fingerprints, validator checks, formal review-1, and review-2
+remain mandatory.
 
 ## Terminal Stop Reasons
 
@@ -237,10 +278,10 @@ Required adapter behaviors:
 
 Known command semantics:
 
-- Codex default Harness model: `gpt5.5` with `xhigh` reasoning effort, as
+- Codex default Harness model: `gpt-5.5` with high reasoning effort, as
   configured locally by the adapter/profile.
-- Codex non-interactive development: `codex -C <repo> exec - < <prompt-file>`
-- Codex schema-bound review: `codex -C <repo> -s read-only exec - < <prompt-file>`
+- Codex non-interactive development: `codex exec -C <repo> -m gpt-5.5 --yolo "<prompt>"`
+- Codex schema-bound review: `codex exec -C <repo> -m gpt-5.5 --sandbox read-only "<prompt>"`
 - Codex free-form review: `codex -C <repo> review --base <base> "<prompt>"`
 - Codex `-p` means profile, not prompt.
 - Claude Code print mode uses `claude -p "<prompt>"`.
@@ -248,8 +289,8 @@ Known command semantics:
 - Review-1 uses the Kimi / Claude-GLM cross-review pool.
 - Grok development uses `grok-composer-2.5-fast` only when explicitly
   workflow-enabled by the user.
-- Kimi development uses the local Kimi Code default model, normally through
-  `kimi-for-coding` or `kimi`.
+- Kimi development uses `kimi --model kimi-code/kimi-for-coding -p "<prompt>"`
+  unless a stage explicitly pins another model.
 - Local `claude-glm` must be invoked without recording its expanded auth
   environment.
 
@@ -268,8 +309,13 @@ Every review receives raw artifacts:
 - relevant source files
 - previous review files
 
-The controller may provide an index of paths, but must not replace raw artifacts
+The bookkeeper may provide an index of paths, but must not replace raw artifacts
 with a narrative summary.
+
+Contract amendments have an additional evidence rule: if a stage changes a
+previously frozen API or data contract, it must attach raw public samples under
+`reports/api-samples/<stage>/`. Synthetic fixtures may supplement coverage, but
+they cannot be the only fact basis for the amendment.
 
 ## Anti-Self-Review
 
@@ -295,7 +341,7 @@ For a given stage:
   `zhipu_glm`, not Anthropic, even though it is accessed through Claude Code.
 - `review_1` may equal the designer; `review_2` is the actual final gate.
 - If a rotation selects an implementation/fix author as final reviewer, the
-  controller must choose another reviewer. There is no override. If all
+  bookkeeper must choose another reviewer. There is no override. If all
   decision models are unavailable and no valid design-conflict override applies,
   stop with `decision_models_exhausted`.
 
@@ -341,7 +387,7 @@ When the verdict is `REWORK`, the JSON must include `fix_start_prompt`. This is
 a ready-to-send prompt for the fix implementer. It should carry raw review and
 artifact paths, ordered findings, required fixes, file boundaries, forbidden
 paths, exact verification commands, and the expected `40-fix-report.md`
-finding-to-fix mapping. The controller may add routing metadata, but it should
+finding-to-fix mapping. The bookkeeper may add routing metadata, but it should
 not rewrite the evidence into a looser summary before dispatching the fix.
 
 Invalid or missing JSON is treated as non-accepting evidence. It cannot pass a
@@ -358,7 +404,7 @@ All verdict JSON objects must include `reviewer_prior_involvement` with one of:
 
 ## Report Footer
 
-Model-facing reports, handoffs, reviews, and significant controller responses
+Model-facing reports, handoffs, reviews, and significant bookkeeper responses
 should end with:
 
 ```text

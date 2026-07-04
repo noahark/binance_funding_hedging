@@ -14,16 +14,34 @@ agency_agents:
     - "Vendored files are adapted under agents/skills/ with project overrides."
     - "Upstream Identity & Memory sections were removed."
 
-controllers:
+bookkeepers:
   default:
-    id: glm52_controller
+    id: independent_stage_bookkeeper
+    role: bookkeeper
+    assignment_policy: "stage intake or user selects an independent local execution session"
+    can_accept_final: false
+    default_must_be_independent_from_implementers: true
+    notes:
+      - "Bookkeeper is the single writer for status.json, handoff files, validation logs, and evidence commits."
+      - "Bookkeeper passes raw artifact paths to reviewers."
+      - "GLM5.2 through claude-glm can be assigned as bookkeeper only when the stage records that assignment."
+      - "If bookkeeper also implements, disclose the dual-hat role in status.json and 70-handoff.md."
+  glm52_candidate:
+    id: glm52_bookkeeper_candidate
     adapter: claude_glm
     model: "glm-5.2[1m]"
-    role: orchestrator
+    role: bookkeeper
     can_accept_final: false
     notes:
-      - "Use local claude-glm adapter without recording expanded environment."
-      - "Controller passes raw artifact paths to reviewers."
+      - "Use only when explicitly assigned by stage intake or user."
+      - "Do not assume GLM is bookkeeper just because it is backend implementer."
+
+controllers:
+  default:
+    alias_for: bookkeepers.default
+    deprecated: true
+    notes:
+      - "Legacy name kept only for old stage artifacts. New stages should use bookkeepers.default."
 
 adapters:
   claude_glm:
@@ -86,7 +104,7 @@ adapters:
   kimi:
     kind: kimi_code
     provider_identity: moonshot_kimi
-    invocation_owner: controller
+    invocation_owner: runner
     binary_candidates: [kimi-for-coding, kimi]
     availability_check_command: "command -v kimi || command -v kimi-for-coding"
     default_model_policy: "use explicit latest Kimi coding alias: --model kimi-code/kimi-for-coding"

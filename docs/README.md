@@ -11,7 +11,10 @@ Canonical paths:
 - `docs/development/DEVELOPMENT_GUIDE.md` - approved developer guide
 - `docs/planning/ROADMAP.md` - approved roadmap
 - `docs/planning/DECISIONS.md` - approved product/business/technical decisions
+- `docs/harness-design.md` - Harness architecture and evidence model
 - `docs/model-adapters.md` - Harness-owned local model CLI adapter runbook
+- `docs/parallel-development-mode.md` - adopted trial mode for parallel
+  implementation with embedded cross-review checkpoints
 
 Rule: drafts go to `reports/agent-runs/<stage-id>/`; approved decisions are
 promoted into this directory through the workflow.

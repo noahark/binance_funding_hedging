@@ -22,6 +22,7 @@ harness_owned:
   - docs/README.md
   - docs/harness-design.md
   - docs/model-adapters.md
+  - docs/parallel-development-mode.md
   - docs/architecture/ADR/0000-template.md
 
 removed_harness_owned:

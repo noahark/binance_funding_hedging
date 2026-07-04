@@ -2,12 +2,20 @@ version: 1
 name: stage-delivery
 description: >
   Template for one bounded quality-gated project delivery stage. The
-  controller is GLM5.2 through Claude Code. The first manual stage delivery run
-  is deferred until product requirements and test strategy are agreed.
+  orchestrator is the abstract workflow state machine; the bookkeeper is the
+  single writer for stage state, evidence commits, and formal review dispatch.
+  The first manual stage delivery run is deferred until product requirements
+  and test strategy are agreed.
 
-controller:
-  registry_ref: controllers.default
+orchestrator:
+  type: abstract_workflow_semantics
   can_accept_final: false
+
+bookkeeper:
+  registry_ref: bookkeepers.default
+  default_must_be_independent_from_implementers: true
+  can_accept_final: false
+  compatibility_alias: controller
 
 guards:
   require_git_repo: true
@@ -16,6 +24,9 @@ guards:
   validate_stage_script: "scripts/validate-stage.py"
   fail_closed_on_invalid_json: true
   reviewer_uses_raw_artifacts: true
+  parallel_mode_contract: "docs/parallel-development-mode.md"
+  require_r10_dispatch_tail_when_parallel_mode: true
+  require_r4_diff_reconciliation_before_parallel_task_commits: true
   max_rework_per_stage: 3
   no_self_review:
     final_reviewer_prefer_not_designer: true
@@ -55,6 +66,12 @@ artifacts:
   conditional_files:
     medium_high_milestone:
       - 12-development-breakdown.md
+    parallel_development_with_embedded_cross_review:
+      - "embedded-review-<task-id>-round<N>.diff.patch"
+      - "embedded-review-<task-id>-round<N>.prompt-for-<reviewer>.md"
+      - "embedded-review-<task-id>-round<N>.raw-output.md"
+      - "embedded-review-<task-id>-round<N>.fix-note.md when fixed"
+      - "pre-review-task-<task-id>-by-<reviewer>.prompt.md"
   direction_files_required_for_milestone_freeze:
     - direction-drafts/*.md
     - 06-direction-synthesis.md
@@ -173,6 +190,7 @@ inputs:
     - docs/planning/DECISIONS.md
   workflow_docs:
     - AGENTS.md
+    - docs/parallel-development-mode.md
     - agents/registry.yaml
     - docs/model-adapters.md
     - agents/skills/UPSTREAM.md
@@ -237,7 +255,7 @@ stages:
       - "reports/agent-runs/{{stage_id}}/direction-drafts/<model-id>.unavailable.md when unavailable"
     acceptance:
       - "Each registered panel member has an independent direction draft or an explicit quota/unavailable note."
-      - "Drafts preserve source model identity and are not replaced by controller summaries."
+      - "Drafts preserve source model identity and are not replaced by bookkeeper summaries."
       - "The active panel membership is recorded in the stage intake or registry before synthesis."
 
   - id: direction-synthesis
@@ -263,7 +281,7 @@ stages:
     run_when:
       - "after user approval of direction synthesis"
       - "before stage design if canonical docs need updates"
-    actor: controller
+    actor: bookkeeper
     skill: product_strategist
     mode: read_write_docs
     reads:
@@ -321,7 +339,7 @@ stages:
       - "Breakdown is design involvement for review-2 disclosure purposes."
 
   - id: task-breakdown
-    actor: controller
+    actor: bookkeeper
     skill: task_planner
     mode: read_write_docs
     reads:
@@ -335,6 +353,7 @@ stages:
     acceptance:
       - "Implementation tasks have clear owners, dependencies, and file boundaries."
       - "For multi-task stages, status.json records each task with owner, reviewer, base_sha/head_sha/diff_fingerprint, review verdict, and test evidence path."
+      - "For parallel development stages, dispatch packets include R10 self-executing next_dispatch commands and exact artifact paths."
 
   - id: implementation
     actor_pool:
@@ -348,7 +367,7 @@ stages:
         skill: senior_developer
         requires_user_enablement: true
     mode: write_code
-    max_parallel: 1
+    max_parallel: "stage_defined"
     reads:
       - "AGENTS.md"
       - "agents/developer-discipline.md"
@@ -361,15 +380,47 @@ stages:
       - "source files within task boundary"
       - "tests within task boundary"
       - "reports/agent-runs/{{stage_id}}/20-implementation.md"
+      - "parallel-mode embedded review artifacts when R10 next_dispatch is executed"
     routing_rules:
       - "Apply status.json.model_routing stage-specific owner and exclusion rules before generic actor_pool selection."
       - "A model listed in status.json.model_routing.excluded_for_core_work is ineligible for current-stage implementation even if it appears in this generic actor_pool."
+      - "When docs/parallel-development-mode.md applies, the implementer must execute or escalate any next_dispatch marked executor:self before reporting completion."
     acceptance:
       - "Changed files match task boundaries or deviations are explained."
       - "Implementation report lists design decisions and tests run."
+      - "Parallel-mode implementation reports include the R10 receipt block, embedded review output path, and PASS/BLOCKER disposition."
+
+  - id: embedded-cross-review-checkpoint
+    run_when:
+      - "docs/parallel-development-mode.md applies"
+      - "an implementation task dispatch packet declares next_dispatch with executor:self"
+      - "before the bookkeeper creates H_A/H_B committed evidence"
+    actor: implementing_terminal
+    skill: code_reviewer
+    mode: read_only_checkpoint
+    status_effect: "remain implementing; this is not formal review-1"
+    reads:
+      - "prewritten prompt path from the implementation task's R10 dispatch tail"
+      - "task-local diff.patch generated by the exact R10 command"
+      - "raw artifacts listed in the prompt"
+    writes:
+      - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.diff.patch"
+      - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.prompt-for-<reviewer>.md"
+      - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.raw-output.md"
+      - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.fix-note.md when fixed"
+    rules:
+      - "The implementing terminal only executes a prewritten adapter command; it must not rewrite the review prompt or select different artifacts."
+      - "The reviewer session must be fresh and read-only/plan mode."
+      - "Local embedded review/fix loops are capped at two rounds and do not count as stage rework_count."
+      - "PASS may proceed to bookkeeper serial landing; BLOCKER escalates to the bookkeeper instead of inventing a contract change."
+      - "The bookkeeper must re-generate and reconcile each task diff before committing, per R4."
+    transitions:
+      PASS: test
+      BLOCKER: human_escalation_required
+      model_unavailable: human_escalation_required
 
   - id: test
-    actor: controller
+    actor: bookkeeper
     skill: test_strategist
     mode: run_commands
     writes:
@@ -384,7 +435,7 @@ stages:
 
   - id: review-1
     preflight:
-      - "Controller must locally commit reviewed artifacts before dispatch."
+      - "Bookkeeper must locally commit reviewed artifacts before dispatch."
       - "status.json status must be review_1."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
@@ -394,8 +445,8 @@ stages:
     skill: code_reviewer
     mode: read_only
     adapter_requirements:
-      kimi: "Use Kimi one-shot prompt mode with `--model kimi-code/kimi-for-coding -p` and a read-only/schema-bound prompt. Current Kimi CLI rejects combining --plan or -y with -p."
-      claude_glm: "Use a fresh read-only Claude-GLM session with a schema-bound custom prompt. Do not reuse the implementation/controller transcript as review evidence."
+      kimi: "Use Kimi in --plan/read-only mode with a schema-bound custom prompt. Prefer the local configured Kimi Code default model unless the stage pins kimi-2.7."
+      claude_glm: "Use a fresh read-only Claude-GLM session with a schema-bound custom prompt. Do not reuse the implementation/bookkeeper transcript as review evidence."
       grok: "Grok is not a default review-1 gate. Use only when the user explicitly enables it for the stage."
     requires_raw_artifacts:
       - "workflow YAML"
@@ -431,7 +482,7 @@ stages:
           - "exact test/lint/typecheck commands to run after the fix"
           - "expected 40-fix-report.md finding-to-fix mapping"
         must_not:
-          - "replace raw reviewer evidence with a controller summary"
+          - "replace raw reviewer evidence with a bookkeeper summary"
           - "broaden scope beyond the reviewed findings"
       invalid_json:
         first: retry_same_model_once
@@ -473,7 +524,7 @@ stages:
 
   - id: review-2
     preflight:
-      - "Controller must locally commit reviewed artifacts before dispatch."
+      - "Bookkeeper must locally commit reviewed artifacts before dispatch."
       - "status.json status must be review_2."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
@@ -551,7 +602,7 @@ stages:
           - "exact test/lint/typecheck commands to run after the fix"
           - "expected 40-fix-report.md finding-to-fix mapping"
         must_not:
-          - "replace raw reviewer evidence with a controller summary"
+          - "replace raw reviewer evidence with a bookkeeper summary"
           - "broaden scope beyond the reviewed findings"
       invalid_json:
         first: retry_same_model_once
@@ -569,24 +620,24 @@ terminal_states:
   stage_accepted_waiting_user:
     preflight:
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-accept before writing the terminal state."
-    controller_action:
+    bookkeeper_action:
       - "update status.json"
       - "update 70-handoff.md"
       - "stop and wait for the user to start the next multi-model direction round"
   decision_models_exhausted:
-    controller_action:
+    bookkeeper_action:
       - "update status.json"
       - "update 70-handoff.md"
       - "report GPT/Codex and Claude decision model exhaustion"
       - "stop stage delivery"
   development_models_exhausted:
-    controller_action:
+    bookkeeper_action:
       - "update status.json"
       - "update 70-handoff.md"
       - "report all development model exhaustion"
       - "stop stage delivery"
   human_escalation_required:
-    controller_action:
+    bookkeeper_action:
       - "update status.json"
       - "update 70-handoff.md"
       - "report why automation cannot proceed safely"

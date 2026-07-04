@@ -7,6 +7,8 @@
 - Branch:
 - HEAD:
 - Git status:
+- Bookkeeper:
+- Parallel mode:
 
 ## Artifact Index
 
@@ -16,6 +18,7 @@
 - Design:
 - ADR:
 - Implementation:
+- Embedded review checkpoints:
 - Review 1:
 - Fix report:
 - Review 2:

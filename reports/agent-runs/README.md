@@ -10,6 +10,11 @@ reports/agent-runs/<stage-id>/
   11-adr.md
   12-development-breakdown.md   (MEDIUM/HIGH/MILESTONE stages)
   20-implementation.md
+  embedded-review-<task-id>-round<N>.diff.patch      (parallel-mode checkpoint)
+  embedded-review-<task-id>-round<N>.prompt-for-<reviewer>.md
+  embedded-review-<task-id>-round<N>.raw-output.md
+  embedded-review-<task-id>-round<N>.fix-note.md     (when fixed)
+  pre-review-task-<task-id>-by-<reviewer>.prompt.md
   30-review-1.md
   30-review-1-<task-id>.md   (optional for multi-task stages)
   40-fix-report.md
@@ -51,7 +56,7 @@ docs/planning/DECISIONS.md
 
 | File | Owner | Purpose |
 |---|---|---|
-| `00-intake.md` | Controller | User discussion summary, complexity classification, routing decision |
+| `00-intake.md` | Bookkeeper / stage operator | User discussion summary, complexity classification, routing decision |
 | `00-task.md` | Designer | Scope, non-goals, acceptance criteria, file boundaries |
 | `direction-drafts/<model-id>.md` | Registered panel member | Independent direction and requirement draft, or `.unavailable.md` note |
 | `06-direction-synthesis.md` | GPT/Codex | Conditional final synthesized direction for user review |
@@ -59,16 +64,19 @@ docs/planning/DECISIONS.md
 | `11-adr.md` | Designer | Stage decision context, alternatives, tradeoffs, reviewer notes |
 | `12-development-breakdown.md` | Breakdown author | Implementation boundaries, contracts, tests, owner split, review focus |
 | `20-implementation.md` | Implementer | Changed files, decisions, tests, remaining work |
+| `embedded-review-<task-id>-round<N>.*` | Implementer-dispatched fresh reviewer | Pre-commit embedded cross-review checkpoint; not formal review-1 |
+| `pre-review-task-<task-id>-by-<reviewer>.prompt.md` | Designer / bookkeeper | Prewritten prompt used by the implementation terminal's R10 dispatch tail |
 | `30-review-1.md` | Reviewer | First review findings and strict JSON verdict |
 | `30-review-1-<task-id>.md` | Reviewer | Task-specific cross-review verdict for multi-task stages |
 | `40-fix-report.md` | Implementer | Fix mapping and retest evidence |
 | `50-review-2.md` | Final reviewer | Final raw-artifact review and strict JSON verdict |
-| `60-test-output.txt` | Controller | Raw or scrubbed command output |
-| `70-handoff.md` | Controller | Current facts, artifact index, next action |
-| `status.json` | Controller | Machine-readable stage status |
+| `60-test-output.txt` | Bookkeeper / stage operator | Raw or scrubbed command output |
+| `70-handoff.md` | Bookkeeper / stage operator | Current facts, artifact index, next action |
+| `status.json` | Bookkeeper / stage operator | Machine-readable stage status |
 
 Reviewers must not edit implementation reports. Implementers must not edit
-review files. Only the controller updates `status.json`.
+formal review files. Only the bookkeeper updates `status.json`, git commits,
+and committed review fingerprints.
 
 ## Status Values
 
@@ -102,6 +110,9 @@ Terminal stop reasons are limited to:
 - Store enough output to reproduce the conclusion.
 - Scrub credentials and tokens before committing reports.
 - Mark stale or skipped tests explicitly.
+- Contract amendments that change previously frozen API/data contracts must
+  include raw public samples under `reports/api-samples/<stage>/`. Synthetic
+  fixtures can cover edge cases but cannot replace fact evidence.
 - Before review, commit the stage artifacts locally. Local review commits are
   Harness evidence; they do not imply push, merge, deploy, or final acceptance.
 - Record `base_sha`, `head_sha`, and `diff_fingerprint` before review.
@@ -112,9 +123,22 @@ Terminal stop reasons are limited to:
 - Review prompts and reviewer commands must use the recorded
   `<base_sha>..<head_sha>` range, not a moving `HEAD`, because unrelated Harness
   commits may be added after a stage is frozen.
-- Model dispatch must follow `docs/model-adapters.md`. A controller session that
-  lacks a built-in tool for a model must not skip the runner-level CLI adapter
-  check.
+- Model dispatch must follow `docs/model-adapters.md`. A bookkeeper or
+  implementation session that lacks a built-in tool for a model must not skip
+  the runner-level CLI adapter check.
+- For stages using `docs/parallel-development-mode.md`, every implementation
+  task prompt must include the R10 dispatch tail: exact self-test commands,
+  exact diff command, exact prewritten cross-review adapter command, artifact
+  paths, PASS/BLOCKER handling, and receipt block.
+- A `next_dispatch` marked `executor: self` is executable work, not a note. The
+  implementation terminal must execute it or write an escalation reason before
+  reporting completion.
+- Embedded cross-review checkpoints happen before committed review gates. They
+  may catch and fix local issues, but they do not replace formal review-1 after
+  the bookkeeper creates committed H_A/H_B evidence.
+- Before committing task evidence in a parallel-mode stage, the bookkeeper must
+  regenerate the task diff and reconcile it with the implementer-produced
+  `embedded-review-*.diff.patch`. Differences require a fix note or escalation.
 - Run `scripts/validate-stage.py <stage-id> --phase pre-review` before
   dispatching `review-1` or `review-2`.
 - Run `scripts/validate-stage.py <stage-id> --phase pre-accept` before writing

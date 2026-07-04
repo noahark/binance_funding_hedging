@@ -1,8 +1,8 @@
 # Model Adapters
 
 This document records local command knowledge that the workflow YAML should not
-inline. Controllers and human operators must consult this file before declaring a
-model unavailable.
+inline. Bookkeepers, stage operators, implementation terminals, and human
+operators must consult this file before declaring a model unavailable.
 
 The registry remains the machine-readable source of routing truth:
 `agents/registry.yaml`.
@@ -17,7 +17,8 @@ The registry remains the machine-readable source of routing truth:
 - Yolo/bypass modes require explicit user or runner authorization. They are not
   default review modes.
 - A model is unavailable only after the runner-level adapter check fails. A
-  controller session lacking a built-in tool for that model is not enough.
+  bookkeeper or implementation session lacking a built-in tool for that model is
+  not enough.
 - For review gates, use `base_sha` and `head_sha` from `status.json`. Do not use
   the moving symbolic `HEAD` when unrelated Harness commits may have happened
   after the reviewed stage commit.
@@ -135,7 +136,7 @@ Fable5-unavailable conclusion elsewhere in the stage record.
 
 Purpose:
 
-- Default controller through GLM5.2 with large context.
+- Eligible bookkeeper/stage-operator model when explicitly assigned.
 - Backend/contract implementation when explicitly selected for the stage.
 
 Provider identity:
@@ -150,7 +151,7 @@ Command templates:
 type claude-glm
 zsh -lic 'type claude-glm'
 
-# Non-interactive controller or implementation prompt, if the local alias
+# Non-interactive bookkeeper or implementation prompt, if the local alias
 # supports Claude-compatible print mode.
 claude-glm --model glm-5.2 -p "$(cat <prompt-file>)"
 

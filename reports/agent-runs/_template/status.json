@@ -2,6 +2,20 @@
   "stage_id": "<stage-id>",
   "status": "planned",
   "workflow": "stage-delivery",
+  "bookkeeper": {
+    "id": null,
+    "provider": null,
+    "model": null,
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
   "designer": null,
   "direction_synthesizer": null,
   "breakdown_author": null,
@@ -26,6 +40,12 @@
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
+      },
+      "embedded_reviews": {
+        "required": false,
+        "rounds": [],
+        "passed": null,
+        "escalation_reason": null
       }
     }
   ],
