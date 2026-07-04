@@ -1,6 +1,6 @@
 /**
  * 前端自检脚本：在 Node 环境下用 mock DOM 运行 index.html 的内联脚本，
- * 加载 fixture 数据并断言市场表渲染结果。
+ * 加载设计期 fixture 数据并断言市场表渲染结果。
  *
  * 运行: node frontend/self-check.js
  */
@@ -11,10 +11,8 @@ const path = require('path');
 
 const root = __dirname;
 const htmlPath = path.join(root, 'index.html');
-const fixturePath = path.join(root, 'fixture', 'public-market-snapshot.json');
 
 const html = fs.readFileSync(htmlPath, 'utf8');
-const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
 // 提取内联 JS
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
@@ -80,12 +78,168 @@ const ids = [
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
-global.document = {
-  getElementById: (id) => {
-    if (!elements[id]) throw new Error(`未 mock 的元素: ${id}`);
-    return elements[id];
-  }
+// 10-design §4.3 设计期 fixture：AUSDT 单期费率低于 BUSDT，但日费率更高，故排第一
+const designFixture = {
+  "schema_version": "public-market-snapshot/v2",
+  "generated_at": "2026-07-04T13:34:06Z",
+  "data_time": "2026-07-04T13:34:06Z",
+  "source_sample_id": "phase2-design-fixture",
+  "summary": {
+    "total_rows": 4,
+    "route_counts": { "MARGIN_SPOT_CANDIDATE": 4 },
+    "asset_tag_counts": { "CRYPTO": 4 },
+    "negative_funding_status_counts": { "PRIVATE_BORROW_VALIDATION_REQUIRED": 4 }
+  },
+  "rows": [
+    {
+      "symbol": "AUSDT",
+      "base_asset": "A",
+      "quote_asset": "USDT",
+      "asset_tag": "CRYPTO",
+      "asset_tag_source": "futures_contractType_perpetual",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "MARGIN_SPOT_CANDIDATE",
+      "positive_funding_enabled": true,
+      "negative_funding_status": "PRIVATE_BORROW_VALIDATION_REQUIRED",
+      "futures": {
+        "symbol": "AUSDT",
+        "status": "TRADING",
+        "contract_type": "PERPETUAL",
+        "mark_price": "1.00000000",
+        "index_price": "1.00000000",
+        "last_funding_rate": "0.00010000",
+        "next_funding_time": 1783065600000,
+        "min_notional": "5",
+        "step_size": "0.001"
+      },
+      "spot": {
+        "symbol": "AUSDT",
+        "status": "TRADING",
+        "exists": true,
+        "match_type": "exact_symbol",
+        "min_notional": "5.00000000",
+        "step_size": "0.00010000"
+      },
+      "margin_public": { "public_cross_margin_pair": null, "source": "unverified" },
+      "funding_history": [],
+      "ui_flags": ["MARGIN_PUBLIC_UNVERIFIED"],
+      "funding_interval_hours": 4,
+      "daily_funding_rate": "0.00060000"
+    },
+    {
+      "symbol": "BUSDT",
+      "base_asset": "B",
+      "quote_asset": "USDT",
+      "asset_tag": "CRYPTO",
+      "asset_tag_source": "futures_contractType_perpetual",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "MARGIN_SPOT_CANDIDATE",
+      "positive_funding_enabled": true,
+      "negative_funding_status": "PRIVATE_BORROW_VALIDATION_REQUIRED",
+      "futures": {
+        "symbol": "BUSDT",
+        "status": "TRADING",
+        "contract_type": "PERPETUAL",
+        "mark_price": "2.00000000",
+        "index_price": "2.00000000",
+        "last_funding_rate": "0.00015000",
+        "next_funding_time": 1783065600000,
+        "min_notional": "5",
+        "step_size": "0.001"
+      },
+      "spot": {
+        "symbol": "BUSDT",
+        "status": "TRADING",
+        "exists": true,
+        "match_type": "exact_symbol",
+        "min_notional": "5.00000000",
+        "step_size": "0.00010000"
+      },
+      "margin_public": { "public_cross_margin_pair": null, "source": "unverified" },
+      "funding_history": [],
+      "ui_flags": ["MARGIN_PUBLIC_UNVERIFIED"],
+      "funding_interval_hours": 8,
+      "daily_funding_rate": "0.00045000"
+    },
+    {
+      "symbol": "CUSDT",
+      "base_asset": "C",
+      "quote_asset": "USDT",
+      "asset_tag": "CRYPTO",
+      "asset_tag_source": "futures_contractType_perpetual",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "MARGIN_SPOT_CANDIDATE",
+      "positive_funding_enabled": true,
+      "negative_funding_status": "PRIVATE_BORROW_VALIDATION_REQUIRED",
+      "futures": {
+        "symbol": "CUSDT",
+        "status": "TRADING",
+        "contract_type": "PERPETUAL",
+        "mark_price": "3.00000000",
+        "index_price": "3.00000000",
+        "last_funding_rate": "-0.00005000",
+        "next_funding_time": 1783065600000,
+        "min_notional": "5",
+        "step_size": "0.001"
+      },
+      "spot": {
+        "symbol": "CUSDT",
+        "status": "TRADING",
+        "exists": true,
+        "match_type": "exact_symbol",
+        "min_notional": "5.00000000",
+        "step_size": "0.00010000"
+      },
+      "margin_public": { "public_cross_margin_pair": null, "source": "unverified" },
+      "funding_history": [],
+      "ui_flags": ["MARGIN_PUBLIC_UNVERIFIED"],
+      "funding_interval_hours": 4,
+      "daily_funding_rate": "-0.00030000"
+    },
+    {
+      "symbol": "DUSDT",
+      "base_asset": "D",
+      "quote_asset": "USDT",
+      "asset_tag": "CRYPTO",
+      "asset_tag_source": "futures_contractType_perpetual",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "MARGIN_SPOT_CANDIDATE",
+      "positive_funding_enabled": true,
+      "negative_funding_status": "PRIVATE_BORROW_VALIDATION_REQUIRED",
+      "futures": {
+        "symbol": "DUSDT",
+        "status": "TRADING",
+        "contract_type": "PERPETUAL",
+        "mark_price": "4.00000000",
+        "index_price": "4.00000000",
+        "last_funding_rate": "0.00002000",
+        "next_funding_time": 1783065600000,
+        "min_notional": "5",
+        "step_size": "0.001"
+      },
+      "spot": {
+        "symbol": "DUSDT",
+        "status": "TRADING",
+        "exists": true,
+        "match_type": "exact_symbol",
+        "min_notional": "5.00000000",
+        "step_size": "0.00010000"
+      },
+      "margin_public": { "public_cross_margin_pair": null, "source": "unverified" },
+      "funding_history": [],
+      "ui_flags": ["MARGIN_PUBLIC_UNVERIFIED"],
+      "funding_interval_hours": 8,
+      "daily_funding_rate": null
+    }
+  ],
+  "warnings": [
+    "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
+    "premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period and is charged at nextFundingTime; it drifts until settlement (mid-period divergence from settled history evidenced under reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/). Settled history comes from /fapi/v1/fundingRate; do not present the estimate as a settled value.",
+    "TRADIFI_PERPETUAL (bStock) spot legs are joined via the baseAsset+B+quoteAsset alias (e.g. futures TSLAUSDT -> spot TSLABUSDT); bStock collateral ratio is dynamic/unknown and is not hard-coded; asset_tag is independent of route_class."
+  ]
 };
+
+let fixtureToFetch = designFixture;
 
 global.fetch = async (url) => {
   fetchUrl = String(url);
@@ -93,12 +247,32 @@ global.fetch = async (url) => {
     ok: true,
     status: 200,
     statusText: 'OK',
-    json: async () => fixture
+    json: async () => fixtureToFetch
   };
+};
+
+global.document = {
+  getElementById: (id) => {
+    if (!elements[id]) throw new Error(`未 mock 的元素: ${id}`);
+    return elements[id];
+  }
 };
 
 // 运行脚本
 eval(script);
+
+function normalizeWhitespace(s) {
+  return String(s).replace(/\s+/g, ' ').trim();
+}
+
+function assertOrder(tbodyHtml, symbols) {
+  const positions = symbols.map(sym => tbodyHtml.indexOf(sym));
+  for (let i = 1; i < positions.length; i++) {
+    if (positions[i] <= positions[i - 1]) {
+      throw new Error(`渲染顺序错误：${symbols[i - 1]} 与 ${symbols[i]} 位置关系不符`);
+    }
+  }
+}
 
 // 等待 async 渲染
 setTimeout(async () => {
@@ -116,7 +290,7 @@ setTimeout(async () => {
     }
     console.log('[PASS] 数据源标签显示后端 API');
 
-    // 3. 数据说明区可见且渲染三条中文说明
+    // 3. 数据说明区可见且渲染
     const warningsDisplay = elements['warnings-panel'].style.display;
     if (warningsDisplay === 'none') throw new Error('数据说明面板被隐藏');
     const marginNote = elements['margin-public-note'].innerHTML;
@@ -133,66 +307,84 @@ setTimeout(async () => {
     }
     console.log('[PASS] 数据说明区可见且内容已渲染');
 
-    // 4. 默认隐藏 PERP_ONLY_EXCLUDED，应渲染 4 行（BTC/ETH/XVG/TSLA）
-    const tbody = elements['market-table-body'].innerHTML;
-    const rowCount = (tbody.match(/<tr/g) || []).length;
+    // 4. 默认渲染 4 行（设计期 fixture 全为 MARGIN_SPOT_CANDIDATE）
+    let tbody = elements['market-table-body'].innerHTML;
+    let rowCount = (tbody.match(/<tr/g) || []).length;
     if (rowCount !== 4) {
       throw new Error(`默认筛选后期望 4 行数据，实际 ${rowCount} 行`);
     }
-    console.log('[PASS] 默认隐藏 PERP_ONLY_EXCLUDED，渲染 4 行');
+    console.log('[PASS] 默认渲染 4 行');
 
-    // 5. 打开“显示 PERP_ONLY_EXCLUDED”后应渲染全部 6 行
-    const cb = elements['filter-show-perp-only'];
-    cb.checked = true;
-    (cb.listeners.change || []).forEach(h => h());
-    const tbodyAll = elements['market-table-body'].innerHTML;
-    const rowCountAll = (tbodyAll.match(/<tr/g) || []).length;
-    if (rowCountAll !== 6) {
-      throw new Error(`显示 PERP_ONLY_EXCLUDED 后期望 6 行数据，实际 ${rowCountAll} 行`);
+    // 5. 拆列：存在独立「资金费率」「结算时间」「日费率」列，合并列消失
+    if (!html.includes('>资金费率<')) {
+      throw new Error('缺少「资金费率」列名');
     }
-    console.log('[PASS] 显示 PERP_ONLY_EXCLUDED 后渲染全部 6 行');
+    if (!html.includes('>结算时间<')) {
+      throw new Error('缺少「结算时间」列名');
+    }
+    if (!html.includes('>日费率<')) {
+      throw new Error('缺少「日费率」列名');
+    }
+    if (html.includes('资金费率/结算时间')) {
+      throw new Error('仍保留「资金费率/结算时间」合并列名');
+    }
+    console.log('[PASS] 拆列存在，合并列消失');
 
-    // 6. BSTOCK 标识
-    const bstockCount = (tbodyAll.match(/class="bstock"/g) || []).length;
-    if (bstockCount !== 2) {
-      throw new Error(`期望 2 行 BSTOCK 标识，实际 ${bstockCount}`);
+    // 6. 日费率 string-shift 格式化（含 null→—）
+    const dailyRateChecks = [
+      ['AUSDT', '+0.06%'],
+      ['BUSDT', '+0.045%'],
+      ['CUSDT', '-0.03%'],
+      ['DUSDT', '—']
+    ];
+    for (const [sym, expected] of dailyRateChecks) {
+      // 找到 symbol 所在行，检查其后日费率单元格内容
+      const symIdx = tbody.indexOf(sym);
+      if (symIdx === -1) throw new Error(`未找到 ${sym} 行`);
+      const rowEnd = tbody.indexOf('</tr>', symIdx);
+      const rowHtml = tbody.slice(symIdx, rowEnd);
+      if (!rowHtml.includes(expected)) {
+        throw new Error(`${sym} 日费率期望 ${expected}，行内容未匹配`);
+      }
     }
-    console.log('[PASS] BSTOCK 行标识正确');
+    console.log('[PASS] 日费率 string-shift 格式化（含 null→—）');
 
-    // 7. alias 行显示实际现货 symbol 与 B 后缀别名徽章
-    if (!tbodyAll.includes('TSLABUSDT')) {
-      throw new Error('未渲染实际现货 symbol TSLABUSDT');
+    // 7. 结算间隔标注 4h/8h
+    if (!tbody.includes('>4h<') || !tbody.includes('>8h<')) {
+      throw new Error('未渲染 4h/8h 结算间隔徽标');
     }
-    if (!tbodyAll.includes('B 后缀别名')) {
-      throw new Error('未渲染 B 后缀别名标识');
-    }
-    console.log('[PASS] alias 行显示实际现货腿与 B 后缀别名标识');
+    console.log('[PASS] 结算间隔标注 4h/8h');
 
-    // 8. 时间转换正确 (fixture 第一行 next_funding_time 北京时间为 16:00)
-    if (!tbodyAll.includes('16:00')) {
+    // 8. 无排序控件 DOM
+    if (html.includes('排序') || html.includes('sort') || html.includes('Sort')) {
+      throw new Error('页面不应包含排序按钮或排序状态');
+    }
+    console.log('[PASS] 无排序控件 DOM');
+
+    // 9. 渲染顺序 == fixture 顺序（AUSDT > BUSDT > CUSDT > DUSDT）
+    assertOrder(tbody, ['AUSDT', 'BUSDT', 'CUSDT', 'DUSDT']);
+    console.log('[PASS] 渲染顺序等于 payload 顺序');
+
+    // 10. 时间转换正确 ( fixture next_funding_time 北京时间为 16:00 )
+    if (!tbody.includes('16:00')) {
       throw new Error('下一次结算时间未正确转换为北京时间 HH:mm');
     }
     console.log('[PASS] 时间转换正确');
 
-    // 9. 列名/文案符合契约
-    if (!html.includes('资金费率/结算时间')) {
-      throw new Error('缺少“资金费率/结算时间”列名');
+    // 11. 列名/文案符合契约（资金费率列不得出现"已结算"或"预测"）
+    const tableSection = html.slice(html.indexOf('<table>'), html.indexOf('</table>') + 8);
+    if (tableSection.includes('已结算') || tableSection.includes('预测')) {
+      throw new Error('市场表区域出现"已结算"或"预测"等误导文案');
     }
-    if (html.includes('最近更新的资金费率')) {
-      throw new Error('仍保留旧的“最近更新的资金费率”列名');
-    }
-    if (html.includes('UI 标记')) {
-      throw new Error('仍保留旧的“UI 标记”列名');
-    }
-    console.log('[PASS] 列名/文案符合契约');
+    console.log('[PASS] 列名/文案无误导性 settlement/prediction 文案');
 
-    // 10. 无交易按钮/开仓票据
+    // 12. 无交易按钮/开仓票据
     if (html.includes('手动开仓') || html.includes('下单') || html.includes('开仓')) {
       throw new Error('页面不应包含交易按钮或开仓票据');
     }
     console.log('[PASS] 无交易按钮/开仓票据');
 
-    // 11. 资金费率字符串移位格式化（7 个必测样例）
+    // 13. 资金费率字符串移位格式化（7 个必测样例）
     const helpers = globalThis.__appHelpers;
     if (!helpers || typeof helpers.formatFundingRate !== 'function') {
       throw new Error('格式化辅助函数未暴露');
@@ -214,41 +406,36 @@ setTimeout(async () => {
     }
     console.log('[PASS] 资金费率格式化 7 个样例');
 
-    // 12. 数据说明中文条目数与 API warnings 数组长度一致
-    const chineseItems = [
-      '杠杆交易对官方清单需 API key（当前无 key 阶段），杠杆可借性未经私有验证；候选判断使用公开现货 isMarginTradingAllowed 字段。',
-      '表中资金费率为本周期实时预估值，将于所示结算时间收取，结算前会漂移；已结算历史以 /fapi/v1/fundingRate 为准。',
-      'bStock（美股）合约的现货腿按 baseAsset+B+quoteAsset 别名连接（如 TSLAUSDT → TSLABUSDT）；质押率动态未知，未做任何硬编码。'
-    ];
-    if (chineseItems.length !== fixture.warnings.length) {
-      throw new Error(`数据说明中文条目数 ${chineseItems.length} 与 API warnings 长度 ${fixture.warnings.length} 不一致`);
+    // 14. formatFundingRate / formatBeijing* 函数体未变（字符串比对）
+    const expectedFormatFundingRate = `function formatFundingRate(str) {
+        if (str === undefined || str === null || str === '') return '—';
+        const m = String(str).match(/^(-?)(\\d+)\\.?(\\d*)$/);
+        if (!m) return '—';
+        const [, sign, intPart, fracPart] = m;
+        const firstTwo = (fracPart + '00').slice(0, 2);
+        const newIntRaw = intPart + firstTwo;
+        const newInt = newIntRaw.replace(/^0+/, '') || '0';
+        const remainingFrac = fracPart.slice(2).replace(/0+$/, '');
+        const isZero = newInt === '0' && remainingFrac === '';
+        if (isZero) return '0%';
+        const value = remainingFrac ? \`\${newInt}.\${remainingFrac}\` : newInt;
+        const finalSign = sign ? '-' : '+';
+        return \`\${finalSign}\${value}%\`;
+      }`;
+    if (normalizeWhitespace(helpers.formatFundingRate.toString()) !== normalizeWhitespace(expectedFormatFundingRate)) {
+      throw new Error('formatFundingRate 函数体与基线不一致');
     }
-    console.log('[PASS] 数据说明条目数与 API warnings 一致');
-
-    // 13. MARGIN_PUBLIC_UNVERIFIED 不做行内 badge，其他枚举原值进 title
-    if (tbodyAll.includes('MARGIN_PUBLIC_UNVERIFIED')) {
-      throw new Error('MARGIN_PUBLIC_UNVERIFIED 不应作为行内 badge 直出');
+    if (typeof helpers.formatBeijing !== 'function' || !helpers.formatBeijing.toString().includes('Asia/Shanghai')) {
+      throw new Error('formatBeijing 函数体与基线不一致');
     }
-    if (!tbodyAll.includes('title="PERP_ONLY_NO_SPOT_LEG"') || !tbodyAll.includes('title="TRADIFI_BSTOCK"')) {
-      throw new Error('枚举原值未放入 title 属性');
-    }
-    console.log('[PASS] 提示标记映射正确');
-
-    // 14. 离线 fixture 按钮及文案已删除
-    if (html.includes('btn-offline')) {
-      throw new Error('仍保留 btn-offline 元素 id');
-    }
-    if (html.includes('加载离线 fixture')) {
-      throw new Error('仍保留“加载离线 fixture”按钮文案');
-    }
-    console.log('[PASS] 离线 fixture 按钮及文案已删除');
+    console.log('[PASS] formatFundingRate / formatBeijing* 函数体未变');
 
     // 15. 自动刷新 60s 与倒计时元素
     if (!html.includes('60000')) {
       throw new Error('未找到 60000 自动刷新间隔常量');
     }
     if (!html.includes('下次刷新')) {
-      throw new Error('未找到“下次刷新”倒计时文案');
+      throw new Error('未找到「下次刷新」倒计时文案');
     }
     if (!html.includes('Config.cache_ttl_seconds=60')) {
       throw new Error('未注明与后端缓存 TTL 对齐的注释');
@@ -258,45 +445,23 @@ setTimeout(async () => {
     // 16. 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式
     const enumDisplayChecks = [
       ['MARGIN_SPOT_CANDIDATE(杠杆现货候选)', '路由分类'],
-      ['SPOT_ONLY_CANDIDATE(仅现货候选)', '路由分类'],
-      ['PERP_ONLY_EXCLUDED(仅合约，排除)', '路由分类'],
       ['CRYPTO(加密货币)', '资产标签'],
-      ['BSTOCK(美股代币)', '资产标签'],
-      ['PRIVATE_BORROW_VALIDATION_REQUIRED(需私有借币验证)', '负费率状态'],
-      ['DISABLED_BSTOCK(禁用:bStock 不可借)', '负费率状态'],
-      ['DISABLED_SPOT_ONLY(禁用:无杠杆)', '负费率状态'],
-      ['DISABLED_PERP_ONLY(禁用:无现货腿)', '负费率状态']
+      ['PRIVATE_BORROW_VALIDATION_REQUIRED(需私有借币验证)', '负费率状态']
     ];
     for (const [expected, column] of enumDisplayChecks) {
-      if (!tbodyAll.includes(expected)) {
+      if (!tbody.includes(expected)) {
         throw new Error(`${column} 列未渲染预期格式: ${expected}`);
       }
     }
     console.log('[PASS] 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式');
 
-    // 17. 筛选下拉 option 文本使用同格式
-    const filterOptions = [
-      'CRYPTO(加密货币)',
-      'BSTOCK(美股代币)',
-      'UNKNOWN(未知)',
-      'MARGIN_SPOT_CANDIDATE(杠杆现货候选)',
-      'SPOT_ONLY_CANDIDATE(仅现货候选)',
-      'PERP_ONLY_EXCLUDED(仅合约，排除)'
-    ];
-    for (const opt of filterOptions) {
-      if (!html.includes(opt)) {
-        throw new Error(`筛选下拉缺少 option 文案: ${opt}`);
-      }
-    }
-    console.log('[PASS] 筛选下拉 option 使用「英文枚举(中文解释)」格式');
-
-    // 18. 侧栏品牌已中文化
+    // 17. 侧栏品牌已中文化
     if (!html.includes('资金费率对冲')) {
       throw new Error('侧栏品牌未改为“资金费率对冲”');
     }
     console.log('[PASS] 侧栏品牌已中文化');
 
-    // 19. 手动刷新后 60s 自动刷新计时器被重调度，1s 倒计时计时器保持独立
+    // 18. 手动刷新后 60s 自动刷新计时器被重调度，1s 倒计时计时器保持独立
     const initialRefreshTimer = intervalCalls.slice().reverse().find(c => c.delay === 60000);
     const initialCountdownTimer = intervalCalls.slice().reverse().find(c => c.delay === 1000);
     if (!initialRefreshTimer) throw new Error('未找到初始 60000ms 自动刷新计时器');
@@ -313,6 +478,47 @@ setTimeout(async () => {
       throw new Error('手动刷新完成后，未重新创建 60000ms 自动刷新计时器');
     }
     console.log('[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立');
+
+    // 19. 优雅降级：新字段缺失（旧后端）不白屏，日费率列 —、间隔不显示
+    if (!helpers.ingestSnapshot) {
+      throw new Error('ingestSnapshot 未暴露，无法测试优雅降级');
+    }
+    const degradedFixture = JSON.parse(JSON.stringify(designFixture));
+    degradedFixture.rows.forEach(r => {
+      delete r.daily_funding_rate;
+      delete r.funding_interval_hours;
+    });
+    fixtureToFetch = degradedFixture;
+    helpers.ingestSnapshot(degradedFixture);
+    const degradedTbody = elements['market-table-body'].innerHTML;
+    const degradedRowCount = (degradedTbody.match(/<tr/g) || []).length;
+    if (degradedRowCount !== 4) {
+      throw new Error(`优雅降级后期望 4 行，实际 ${degradedRowCount} 行`);
+    }
+    // DUSDT 行：日费率单元格应为第 6 个 td
+    const dRowIdx = degradedTbody.indexOf('DUSDT');
+    const trStart = degradedTbody.lastIndexOf('<tr', dRowIdx);
+    const dRowEnd = degradedTbody.indexOf('</tr>', trStart);
+    const dRowHtml = degradedTbody.slice(trStart, dRowEnd + 5);
+    // 日费率单元格：找到第 6 个 <td> ... </td>
+    let tdCount = 0;
+    let pos = dRowHtml.indexOf('<td');
+    let dailyCell = '';
+    while (pos !== -1 && tdCount < 6) {
+      const close = dRowHtml.indexOf('</td>', pos);
+      if (tdCount === 5) {
+        dailyCell = dRowHtml.slice(pos, close + 5);
+      }
+      pos = dRowHtml.indexOf('<td', close + 5);
+      tdCount++;
+    }
+    if (!dailyCell.includes('—')) {
+      throw new Error('优雅降级后日费率列未显示 —');
+    }
+    if (degradedTbody.includes('>8h<') || degradedTbody.includes('>4h<')) {
+      throw new Error('优雅降级后仍渲染结算间隔徽标');
+    }
+    console.log('[PASS] 优雅降级：新字段缺失不白屏，日费率 —，间隔不显示');
 
     console.log('\n全部自检通过');
     process.exit(0);

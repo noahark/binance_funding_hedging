@@ -1,13 +1,17 @@
 <!-- ============ RECEIPT（审计元数据，bookkeeper 填写；非任务内容） ============
-status: pending            # pending | running | done | blocked
+status: done            # pending | running | done | blocked
 target_model: kimi (Task B implementer)
-adapter_cmd: 用户粘贴 PROMPT BODY 至 Kimi 终端（H_intake 后即可，
-             不必等 Task A）
-started_at:
-completed_at:
-session_id:
+adapter_cmd: 用户粘贴 PROMPT BODY 至 Kimi 终端，或 `kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-phase2-borrow-sort-v1/task-b-kimi-frontend.prompt.md)"`；H_intake 已完成，可立即并行启动（不必等 Task A）
+started_at: 2026-07-04T13:30Z (UTC) / 21:30 CST（用户提前将 PROMPT BODY 交付 Kimi 终端，先于 controller 派工记录；见 finding #1）
+completed_at: 2026-07-04T13:42Z (UTC) / 21:42 CST（Kimi 实现完成；node frontend/self-check.js 20 PASS）
+session_id: kimi fresh implementer session (n/a; 自检输出落 20-implementation-frontend.md)
 outputs:                   # 20-implementation-frontend.md / self-check 结果
-next_dispatch: pre-review-task-b-by-glm.prompt.md（嵌入预审 round 1）
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/20-implementation-frontend.md
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.diff.patch
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.prompt-for-glm.md
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.raw-output.md
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.fix-note.md
+next_dispatch: pre-review-task-b-by-glm.prompt.md（已执行 round 1，PASS 无 blocker）→ bookkeeper 串行落盘 H_B
 ======================================================================== -->
 
 --- PROMPT BODY（不可变任务正文，自此行以下原样执行） ---

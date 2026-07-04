@@ -499,7 +499,9 @@
                   <th>标的</th>
                   <th>资产标签</th>
                   <th>路由分类</th>
-                  <th title="本周期实时预估 / 北京时间">资金费率/结算时间</th>
+                  <th title="本周期实时预估">资金费率</th>
+                  <th>结算时间</th>
+                  <th title="按结算间隔年化">日费率</th>
                   <th>标记价格 / 指数价格</th>
                   <th>负费率状态</th>
                   <th>提示标记</th>
@@ -786,7 +788,7 @@
         if (state.blocked) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="7">
+              <td colspan="9">
                 <div class="empty-state">
                   <strong>集成阻塞</strong><br/>
                   ${escapeHtml(state.blockedReason)}
@@ -801,7 +803,7 @@
         if (rows.length === 0) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="7"><div class="empty-state">没有符合筛选条件的数据</div></td>
+              <td colspan="9"><div class="empty-state">没有符合筛选条件的数据</div></td>
             </tr>`;
           renderSummary();
           return;
@@ -814,9 +816,16 @@
           const timeText = formatBeijingShort(row.futures.next_funding_time);
           const fullTime = formatBeijing(row.futures.next_funding_time);
           const rawRate = row.futures.last_funding_rate;
-          const cellTitle = fullTime === '—'
-            ? '结算时间未知 · 原始费率 ' + escapeHtml(rawRate) + ' · 预估值，结算时最终确定'
-            : `北京时间 ${fullTime} 结算 · 原始费率 ${escapeHtml(rawRate)} · 预估值，结算时最终确定`;
+          const rateTitle = `原始费率 ${escapeHtml(rawRate)} · 本周期实时预估，结算前会漂移`;
+          const dailyRateClass = classForFundingRate(row.daily_funding_rate);
+          const dailyRateText = formatFundingRate(row.daily_funding_rate);
+          const intervalHours = row.funding_interval_hours;
+          const intervalBadge = (typeof intervalHours === 'number' && [1, 4, 8].includes(intervalHours))
+            ? `<span class="badge compact muted">${intervalHours}h</span>`
+            : '';
+          const dailyRateCell = dailyRateText === '—' && !intervalBadge
+            ? '—'
+            : `${dailyRateText}${intervalBadge ? ' ' + intervalBadge : ''}`;
           const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
             ? row.ui_flags.filter(f => f !== 'MARGIN_PUBLIC_UNVERIFIED').map(badgeForUiFlag).join(' ')
             : '<span class="muted small">—</span>';
@@ -828,7 +837,9 @@
               <td class="mono">${escapeHtml(row.symbol)}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span>${spotAlias}</td>
               <td>${badgeForAssetTag(row.asset_tag)}</td>
               <td>${badgeForRouteClass(row.route_class)}</td>
-              <td class="${rateClass}" title="${escapeHtml(cellTitle)}">${rateText} / ${timeText}</td>
+              <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
+              <td title="${escapeHtml(fullTime)}">${timeText}</td>
+              <td class="${dailyRateClass}">${dailyRateCell}</td>
               <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
               <td>${badgeForNegativeFundingStatus(row.negative_funding_status)}</td>
               <td>${uiFlags}</td>
@@ -926,7 +937,8 @@
       globalThis.__appHelpers = {
         formatFundingRate,
         formatBeijing,
-        formatBeijingShort
+        formatBeijingShort,
+        ingestSnapshot
       };
 
       bindEvents();

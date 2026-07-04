@@ -1,12 +1,16 @@
 <!-- ============ RECEIPT（审计元数据，bookkeeper 填写；非任务内容） ============
-status: pending            # pending | running | done | blocked
+status: done                 # pending | running | done | blocked
 target_model: claude_glm (FRESH read-only session; 不得复用 controller/Task A 上下文)
-adapter_cmd: 用户或 controller 以全新只读 GLM 会话执行 PROMPT BODY + 当轮 diff.patch 路径
-started_at:
-completed_at:
-session_id:
-outputs:                   # embedded-review-b-round<N>.raw-output.md
-next_dispatch: 无 blocker → bookkeeper 串行落盘；有 blocker → Task B 修复后 round 2（封顶）
+adapter_cmd: zsh -lic 'cd "/Users/ark/Desktop/ai code/funding_hedging" && claude-glm --model glm-5.2 --permission-mode plan -p "$(cat reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.prompt-for-glm.md)"'
+started_at: 2026-07-04T22:35:38+0800
+completed_at: 2026-07-04T22:51:00+0800
+session_id: claude-glm-fresh-plan-20260704-2235
+outputs:                   # embedded-review-b-round1.raw-output.md
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.diff.patch
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.prompt-for-glm.md
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.raw-output.md
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-b-round1.fix-note.md
+next_dispatch: 无 blocker → bookkeeper 串行落盘 H_B
 ======================================================================== -->
 
 --- PROMPT BODY（不可变任务正文，自此行以下原样执行） ---
