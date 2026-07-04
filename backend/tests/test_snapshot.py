@@ -242,3 +242,60 @@ def test_bstock_alias_has_funding_history(bstock_raw_inputs):
     assert len(tsla["funding_history"]) == 2
     assert all(isinstance(e["funding_rate"], str) for e in tsla["funding_history"])
     assert all(isinstance(e["funding_time"], int) for e in tsla["funding_history"])
+
+
+# --- rework round 1: spot-leg quoteAsset call-site fix (2026-07-04) ---
+# P1 finding spot_leg_quote_asset_hardcode: snapshot.py:70 passed the literal
+# "USDT" to resolve_spot_leg, so non-USDT-quoted perpetuals resolved the wrong
+# spot leg (e.g. BTCUSDC -> BTCUSDT) labeled exact_symbol. The two tests below
+# pin both the call-site fix (build_rows level, isolated from the filter) and
+# the user-decision universe filter (service level). See 40-fix-report.md.
+
+
+def test_build_rows_usdc_perp_exact_match_not_aliased_to_usdt(bstock_raw_inputs):
+    """build_rows level: feeding the USDC-quoted BTCUSDC futures row DIRECTLY
+    (bypassing the universe filter) resolves spot.symbol=='BTCUSDC' /
+    match_type=='exact_symbol' via the row's real quoteAsset — never the BTCUSDT
+    spot leg. Validates the snapshot.py:70 call-site fix independently of the
+    filter (the USDC row is filtered out in production, so this isolates the
+    call site)."""
+    futures = bstock_raw_inputs["futures"]
+    btcusdc = next(s for s in futures["symbols"] if s["symbol"] == "BTCUSDC")
+    spot = {s["symbol"]: s for s in bstock_raw_inputs["spot"]["symbols"]}
+    rows = build_rows([btcusdc], {}, spot, {})
+    row = {r["symbol"]: r for r in rows}["BTCUSDC"]
+    assert row["spot"]["symbol"] == "BTCUSDC"
+    assert row["spot"]["match_type"] == "exact_symbol"
+    assert row["spot"]["exists"] is True
+    # Pre-fix this resolved to the USDT-quoted BTC pair (spot.symbol=="BTCUSDT").
+    assert row["spot"]["symbol"] != "BTCUSDT"
+
+
+def test_service_universe_filter_excludes_non_usdt_quote(bstock_raw_inputs):
+    """Service level: the universe filter (quoteAsset=='USDT', user decision
+    2026-07-04) excludes the USDC-quoted BTCUSDC futures row even though its
+    spot pair exists. Every retained row is USDT-quoted, honoring the frozen
+    schema row.quote_asset const 'USDT'. Validates the filter via the real
+    SnapshotService pipeline with a stub client injecting the bstock fixture."""
+
+    class _StubClient:
+        offline = True
+        request_log: dict = {}
+
+        def fetch_raw(self):
+            return {
+                "futures_exchange_info": bstock_raw_inputs["futures"],
+                "premium_index": bstock_raw_inputs["premium"],
+                "spot_exchange_info": bstock_raw_inputs["spot"],
+                "funding_history_by_sym": bstock_raw_inputs["funding"],
+            }
+
+    service = SnapshotService(Config(offline=True))
+    service.client = _StubClient()
+    snap = service.build_snapshot()
+    syms = {r["symbol"] for r in snap["rows"]}
+    assert "BTCUSDC" not in syms  # excluded by quoteAsset=='USDT'
+    assert "BTCUSDT" in syms  # USDT-quoted, retained
+    # All retained rows honor the frozen schema row.quote_asset const 'USDT'.
+    for r in snap["rows"]:
+        assert r["quote_asset"] == "USDT"

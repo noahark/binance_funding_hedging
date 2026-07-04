@@ -130,6 +130,37 @@
         {"filterType": "MIN_NOTIONAL", "notional": "5"},
         {"filterType": "PERCENT_PRICE", "multiplierDecimal": "4", "multiplierDown": "0.9700", "multiplierUp": "1.0300"}
       ]
+    },
+    {
+      "symbol": "BTCUSDC",
+      "pair": "BTCUSDC",
+      "contractType": "PERPETUAL",
+      "deliveryDate": 4133404800000,
+      "onboardDate": 1569398400000,
+      "status": "TRADING",
+      "maintMarginPercent": "2.5000",
+      "requiredMarginPercent": "5.0000",
+      "baseAsset": "BTC",
+      "quoteAsset": "USDC",
+      "marginAsset": "USDC",
+      "pricePrecision": 2,
+      "quantityPrecision": 3,
+      "baseAssetPrecision": 8,
+      "quotePrecision": 8,
+      "underlyingType": "COIN",
+      "underlyingSubType": ["Cryptocurrency"],
+      "triggerProtect": "0.0500",
+      "liquidationFee": "0.005000",
+      "marketTakeBound": "0.05",
+      "maxMoveOrderLimit": 10000,
+      "filters": [
+        {"filterType": "PRICE_FILTER", "minPrice": "556.80", "tickSize": "0.10", "maxPrice": "4529764"},
+        {"filterType": "LOT_SIZE", "stepSize": "0.001", "minQty": "0.001", "maxQty": "1000"},
+        {"filterType": "MARKET_LOT_SIZE", "stepSize": "0.001", "minQty": "0.001", "maxQty": "120"},
+        {"filterType": "MAX_NUM_ORDERS", "limit": 200},
+        {"filterType": "MIN_NOTIONAL", "notional": "50"},
+        {"filterType": "PERCENT_PRICE", "multiplierDecimal": "4", "multiplierDown": "0.9500", "multiplierUp": "1.0500"}
+      ]
     }
   ]
 }

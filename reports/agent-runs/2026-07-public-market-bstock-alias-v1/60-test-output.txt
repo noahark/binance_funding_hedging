@@ -164,3 +164,95 @@ Section 5 result: PASS — live Binance public exchangeInfo confirms the bStock
 baseAsset+B+quoteAsset alias rule through the real backend pipeline; the BTCUSDT
 negative control proves the alias does not pollute normal crypto exact matches.
 This closes the prior "verified only against synthetic fixtures" residual.
+
+================================================================
+## Section 6 — rework round 1: quoteAsset call-site fix + USDT-only universe
+================================================================
+
+Rework round 1 (2026-07-04, user-directed after the P1 post-review finding
+`spot_leg_quote_asset_hardcode` by anthropic/claude-fable-5). The fix is two
+lines and changes no contract:
+  - backend/domain/snapshot.py:70 now passes obj.get("quoteAsset","") (was the
+    literal "USDT") to resolve_spot_leg. resolve_spot_leg and classify.py are
+    UNCHANGED; snapshot.py:99 "quote_asset":"USDT" output stays (true for every
+    retained row).
+  - backend/services/snapshot_service.py universe filter adds quoteAsset=="USDT"
+    (user decision 2026-07-04: Phase 1 = USDT-quoted only; honors the frozen
+    schema row.quote_asset const; no schema/doc change).
+
+This section replays the fix against the SAME committed LIVE public raw used by
+Section 5 (NO new HTTP; reports/api-samples/public-market-bstock-alias-v1/
+20260703T170827Z/raw/). It asserts: (a) universe==648 all-USDT rows (43
+non-USDT excluded); (b) ZERO rows with match_type=="exact_symbol" and
+spot.symbol != futures.symbol (the pre-fix bug matched e.g. BTCUSDC->BTCUSDT,
+ETHBTC->ETHUSDT, and flipped PNUTUSDC SPOT_ONLY->MARGIN_SPOT); (c) 15/15 bStock
+alias unchanged. ELIGIBLE_CONTRACT_TYPES is imported from the service so the
+filter constants are not duplicated.
+
+$ .venv/bin/python - <<'EOF'
+import json, pathlib, subprocess, sys
+ROOT = pathlib.Path(subprocess.check_output(["git","rev-parse","--show-toplevel"], text=True).strip())
+sys.path.insert(0, str(ROOT))
+from backend.services.snapshot_service import ELIGIBLE_CONTRACT_TYPES
+from backend.domain.snapshot import build_rows
+
+RAW = ROOT / "reports/api-samples/public-market-bstock-alias-v1/20260703T170827Z/raw"
+FAPI = json.loads((RAW/"fapi-v1-exchangeInfo.json").read_text())
+SPOT = json.loads((RAW/"api-v3-exchangeInfo.json").read_text())
+spot_by_sym = {s["symbol"]: s for s in SPOT["symbols"]}
+
+eligible = [s for s in FAPI["symbols"]
+            if s.get("status")=="TRADING"
+            and s.get("contractType") in ELIGIBLE_CONTRACT_TYPES]
+quote_dist = {}
+for s in eligible:
+    q = s.get("quoteAsset"); quote_dist[q] = quote_dist.get(q,0)+1
+universe = [s for s in eligible if s.get("quoteAsset")=="USDT"]
+non_usdt = len(eligible) - len(universe)
+
+rows = build_rows(universe, {}, spot_by_sym, {})
+failures = []
+if len(universe) != 648: failures.append(f"universe size: expected 648, got {len(universe)}")
+if non_usdt != 43: failures.append(f"non-USDT excluded: expected 43, got {non_usdt}")
+if any(s.get("quoteAsset")!="USDT" for s in universe): failures.append("universe contains non-USDT rows")
+mismatches = [r for r in rows if r["spot"].get("match_type")=="exact_symbol" and r["spot"].get("symbol")!=r["symbol"]]
+if mismatches: failures.append(f"{len(mismatches)} exact_symbol mismatch rows")
+BSTOCKS = ["CRCLB","MUB","NVDAB","SNDKB","TSLAB","SPCXB","AMDB","EWYB","INTCB","MSTRB","LITEB","METAB","MSFTB","PLTRB","QQQB"]
+EXPECTED = {b[:-1]+"USDT": b+"USDT" for b in BSTOCKS}
+by_sym = {r["symbol"]: r for r in rows}
+bstock_ok = sum(1 for f in EXPECTED if f in by_sym and by_sym[f]["spot"]["match_type"]=="bstock_b_suffix_alias")
+for fsym, exp_spot in EXPECTED.items():
+    r = by_sym.get(fsym)
+    if not r or r["spot"]["match_type"]!="bstock_b_suffix_alias" or r["spot"]["symbol"]!=exp_spot or r["negative_funding_status"]!="DISABLED_BSTOCK":
+        failures.append(f"bStock {fsym} regression")
+print(f"eligible universe (TRADING perpetuals/TRADIFI): {len(eligible)} (quoteAsset dist: {dict(sorted(quote_dist.items(), key=lambda x:-x[1]))})")
+print(f"  USDT={quote_dist.get('USDT',0)}  non-USDT excluded by filter={non_usdt}")
+print(f"universe after quoteAsset=='USDT' filter: {len(universe)} rows, all-USDT={all(s.get('quoteAsset')=='USDT' for s in universe)}")
+print(f"build_rows rows: {len(rows)}")
+print(f"exact_symbol mismatch rows (spot.symbol != futures.symbol): {len(mismatches)}")
+print(f"bStock alias resolved via bstock_b_suffix_alias: {bstock_ok}/{len(EXPECTED)}")
+print()
+if failures:
+    print(f"RESULT: FAIL ({len(failures)} assertion(s))")
+    for f in failures: print(f"  - {f}")
+    sys.exit(1)
+print("RESULT: PASS — universe=648 all-USDT (43 non-USDT excluded); zero exact_symbol mismatch; 15/15 bStock alias unchanged.")
+EOF
+eligible universe (TRADING perpetuals/TRADIFI): 691 (quoteAsset dist: {'USDT': 648, 'USDC': 38, 'USD1': 2, 'U': 2, 'BTC': 1})
+  USDT=648  non-USDT excluded by filter=43
+universe after quoteAsset=='USDT' filter: 648 rows, all-USDT=True
+build_rows rows: 648
+exact_symbol mismatch rows (spot.symbol != futures.symbol): 0
+bStock alias resolved via bstock_b_suffix_alias: 15/15
+
+RESULT: PASS — universe=648 all-USDT (43 non-USDT excluded); zero exact_symbol mismatch; 15/15 bStock alias unchanged.
+
+Section 6 result: PASS — after the call-site fix (real quoteAsset) + the
+USDT-only universe filter, the live raw yields 648 all-USDT rows with ZERO
+exact_symbol mismatches. The 43 non-USDT-quoted perpetuals (incl. BTCUSDC,
+ETHBTC, PNUTUSDC, BTCU/ETHU/BTCUSD1/ETHUSD1) — which previously resolved a
+wrong spot leg labeled exact_symbol, and in PNUTUSDC's case flipped the route
+SPOT_ONLY_CANDIDATE -> MARGIN_SPOT_CANDIDATE — are now excluded upstream by
+the universe filter, and the call site is contract-faithful (passes the row's
+real quoteAsset) so the bug cannot recur for any retained row. The 15/15 bStock
+alias closure is unchanged from Section 5.

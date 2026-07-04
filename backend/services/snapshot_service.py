@@ -1,7 +1,7 @@
 """Snapshot service.
 
-Pipeline: fetch raw -> filter TRADING perpetuals/TRADIFI -> normalize/classify
--> assemble -> jsonschema-validate. In-memory TTL cache so repeated requests
+Pipeline: fetch raw -> filter TRADING USDT-quoted perpetuals/TRADIFI
+-> normalize/classify -> assemble -> jsonschema-validate. In-memory TTL cache so repeated requests
 within TTL do not refetch. Never serves an invalid snapshot: on validation
 failure it raises and the caller maps that to HTTP 503.
 """
@@ -63,6 +63,7 @@ class SnapshotService:
             for s in raw["futures_exchange_info"].get("symbols", [])
             if s.get("status") == "TRADING"
             and s.get("contractType") in ELIGIBLE_CONTRACT_TYPES
+            and s.get("quoteAsset") == "USDT"
         ]
         premium_by_sym = {p["symbol"]: p for p in raw["premium_index"]}
         spot_by_sym = {

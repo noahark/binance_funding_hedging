@@ -67,7 +67,7 @@ def build_rows(
         contract_type = obj.get("contractType", "")
         asset_tag, asset_src, asset_conf = asset_tag_for(contract_type)
         spot, match_type = resolve_spot_leg(
-            contract_type, obj.get("baseAsset", ""), "USDT", spot_by_sym
+            contract_type, obj.get("baseAsset", ""), obj.get("quoteAsset", ""), spot_by_sym
         )
         spot_margin = bool(spot and spot.get("isMarginTradingAllowed"))
         route = classify_route(
