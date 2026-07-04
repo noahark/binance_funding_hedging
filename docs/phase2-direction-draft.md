@@ -1,7 +1,7 @@
 # Phase 2 方向草案：私有只读验证 + 资金费率排序
 
-状态: DRAFT-2（Fable5 修订，2026-07-04；吸收 GPT/GLM/Kimi 三方 round-1
-REWORK 评审 + Gemini 端点考证 + 用户排序 UI 新决策）
+状态: DRAFT-2.1（Fable5 修订，2026-07-04；DRAFT-2 基础上按用户决策改为
+后端排序 + 日费率归一化，删除前端排序按钮；待 Codex MILESTONE 合成）
 
 **复杂度申报: MILESTONE**（引入 API key、签名端点、安全红线修订、契约修订，
 符合 AGENTS.md 里程碑标准；流程安排见 §7）。
@@ -22,10 +22,14 @@ Round-1 需求评审（2026-07-04，三方独立，均 REWORK）已落档于
 ## 2. 目标与任务切分
 
 - **Task A（后端，backend discovery + contract）**：私有只读签名通道基建 +
-  杠杆可借性市场级/账户级验证 + 借币利率 → `borrow_validation` 契约块。
-- **Task B（前端，仅排序）**：资金费率列排序（见 §6）。**不包含**私有验证
-  结果展示——该展示等 Task A 契约冻结后作为下一阶段（吸收 GPT/Kimi 对
-  耦合风险的一致意见；Task B 因此与 Task A 零契约耦合）。
+  杠杆可借性市场级/账户级验证 + 借币利率 → `borrow_validation` 契约块；
+  另含一项**公开数据**扩展：接入 `/fapi/v1/fundingInfo`（匿名 GET）做结算
+  间隔归一化，快照 rows 按 abs(日费率) 降序返回（见 §6）。
+- **Task B（前端，拆列 + 新列展示）**：费率/时间拆列 + 日费率与结算间隔
+  展示（见 §6）。**无排序逻辑**（后端已排序）。**不包含**私有验证结果
+  展示——该展示等 Task A 契约冻结后作为下一阶段（吸收 GPT/Kimi 对耦合
+  风险的一致意见）。Task B 对 Task A 的唯一契约依赖是两个公开数据新字段
+  （结构简单、fundingInfo 已实抓、H_intake 冻结）。
 - 非目标：任何交易/划转能力；净收益模型；开仓规划；私有数据前端展示。
 
 ## 3. 安全红线修订（吸收三方全部加固要求）
@@ -142,27 +146,41 @@ Phase 2 修订为：
 - **契约版本**：`docs/api/public-market-contract.md` bump v0.1 → v0.2，
   附 Phase 2 amendment 变更记录（Kimi P3）。
 - `papi base_url` 进 Config（端点族已由证据确认，不再是过度配置）。
+- **公开数据扩展：结算间隔归一化 + 后端排序**（2026-07-04 用户决策，
+  源自旧策略脚本 `币安套费率策略，逐仓杠杆.js` 行为回顾）：
+  - 接入 `GET /fapi/v1/fundingInfo`（公开匿名 GET，Phase 1 边界内）取各
+    交易对 `fundingIntervalHours`；未在 fundingInfo 中列出的交易对按
+    Binance 默认 8h。禁止硬编码符号清单（旧脚本的做法，本项目红线）。
+  - row 新增字段：`funding_interval_hours`（int）与
+    `daily_funding_rate`（string，= lastFundingRate × 24/间隔，十进制
+    字符串运算或等价精度安全方式，禁 float 串接展示层）。
+  - **快照 rows 由后端按 abs(daily_funding_rate) 降序排序后返回**（与
+    旧脚本 LogStatus 行为一致）。排序为后端职责，前端零排序逻辑。
+  - 排序依据（2026-07-04 live fundingInfo）：全市场 440 对 4h / 269 对
+    8h / 2 对 1h 结算——单期费率跨交易对不可比，日费率归一化是排名
+    正确性的必要条件，非优化项。
+  - fundingInfo 随快照同周期缓存或更长 TTL（间隔变更低频）。
 
-## 6. Task B 设计要点（前端，仅排序）
+## 6. Task B 设计要点（前端，拆列 + 排名展示）
 
-**用户新决策（2026-07-04，取代 ui-cn-v1 的合并列方案）**：
+**用户决策演进（2026-07-04）**：先裁定拆列 + 排序箭头（取代 ui-cn-v1 合并
+列）；随后回顾旧策略脚本确认其为「自动绝对值日费率降序、无交互控件」，
+最终裁定**采用后端固定排序、删除排序按钮**。DRAFT-2 的前端比较器方案
+（字符串十进制比较器、三态切换、带符号排序）整体作废，不再实现。
 
 - **拆列**：「资金费率/结算时间」合并列拆回两个独立列「资金费率」与
-  「结算时间」（合并展示导致排序语义不清，用户裁定拆开）。两列的既有
-  格式化规则不变（string-shift 费率、北京时间 HH:mm）。
-- **排序控件**：资金费率列表头后加排序箭头按钮，点击三态循环：
-  **倒序（降序）→ 正序（升序）→ 默认（原始顺序）**，当前态有视觉指示。
-- **排序值**：按**带符号**费率值排序（GPT 建议采纳：绝对值降序会把尚未
-  验证可执行的负费率行顶到最前；正费率才是当前可执行方向）。绝对值排序
-  不做，待负费率路径验证后再议。
-- **比较器**：纯字符串十进制比较器（符号 → 整数位 → 小数位；GLM/Kimi
-  多数意见，与 display 层同源、零浮点争议），配回归单测：全部合规
-  fundingRate 字符串边界集（负值/0/-0/前导零/不同小数位）的排序结果
-  与十进制语义一致。display 层 string-shift 红线不变。
-- **状态保持**：排序态在 60s 自动刷新后保持（与筛选状态同一存储模式）；
-  刷新后行集合增删须容错。
-- **范围红线**：本任务不引入 `borrow_validation`/`margin_private` 任何
-  字段消费；不改 formatFundingRate/formatBeijing*。
+  「结算时间」。两列既有格式化规则不变（string-shift 费率、北京时间
+  HH:mm）。
+- **排序**：无前端排序逻辑、无排序按钮。表格按后端返回顺序渲染
+  （= abs(日费率) 降序，§5）。60s 自动刷新天然保持顺序。
+- **排名依据可见性**：新增「日费率」列（展示 `daily_funding_rate`，
+  string-shift 格式化）与结算间隔标注（如列头注或间隔徽标，`4h/8h/1h`），
+  避免「单期费率小的排在前」造成困惑。具体展示形态实现阶段定，原则：
+  排名键必须对用户可见。
+- **范围红线**：本任务不引入 `borrow_validation` 任何字段消费；不改
+  formatFundingRate/formatBeijing* 的既有逻辑（新列可复用调用它们）。
+- 对 Task A 的契约依赖仅 `funding_interval_hours` + `daily_funding_rate`
+  两个公开数据字段 + rows 有序性约定，H_intake 冻结（含 fixture 样例）。
 
 ## 7. 流程（MILESTONE 路由）
 
@@ -173,10 +191,11 @@ Phase 2 修订为：
   synthesis/ratification round，其产出落档为 `06-direction-synthesis.md`
   等效物，用户批准后进入 stage design。
 - **实施结构**：单阶段双任务，按 `docs/parallel-development-mode.md`
-  （ADOPTED-TRIAL）首次试运行——Task A（GLM 后端）‖ Task B（Kimi 前端，
-  仅排序）。两任务零契约耦合（§2），Kimi round-1 对并行的反对理由
-  （B 依赖 A 契约漂移）已随 Task B 剥离私有展示而消解；GPT 的条件
-  （"limited to sorting only"）即本方案。R9 dispatch packet 由 Fable5 出。
+  （ADOPTED-TRIAL）首次试运行——Task A（GLM 后端）‖ Task B（Kimi 前端）。
+  私有展示已剥离（GPT/Kimi round-1 的核心反对点消解）；剩余耦合仅两个
+  公开数据字段 + rows 有序性（§6），结构简单、fundingInfo 已实抓、
+  H_intake 冻结 schema+fixture 后漂移风险低，满足并行模式适用条件。
+  R9 dispatch packet 由 Fable5 出。
 - **硬门**：H_intake 完成 §4 discovery 实抓并冻结端点矩阵后，Task A 才可
   进入实现；Task B 不受此门约束可先行。
 - 私有验证结果的前端展示 = 下一阶段（契约冻结后），届时 `MARGIN_PUBLIC_UNVERIFIED`
@@ -185,8 +204,9 @@ Phase 2 修订为：
 ## 8. 已决结论与遗留
 
 已决（本轮吸收，正文已含）：安全技术门清单（§3.3）；端点族 `/papi`（§4）；
-独立块 + 枚举零改动（§5）；VIP0 取档（§5）；拆列 + 三态排序箭头 + 带符号
-排序 + 字符串比较器（§6）；并行试运行且 Task B 仅排序（§7）。
+独立块 + 枚举零改动（§5）；VIP0 取档（§5）；fundingInfo 归一化 + 后端
+abs(日费率) 降序排序（§5）；拆列 + 无排序按钮 + 日费率/间隔展示（§6）；
+并行试运行、Task B 零私有耦合（§7）。
 
 待用户拍板：
 1. §7 MILESTONE 等效履行提案（三方评审替代 panel、Codex 做最终合成）；
@@ -211,3 +231,9 @@ Phase 2 修订为：
   取档规则（§5）；用户新决策——拆列 + 排序箭头三态切换（§6，取代合并列）；
   带符号排序默认（GPT）；字符串比较器（GLM/Kimi）；MILESTONE 申报 + 等效
   panel 提案（Kimi P1）；Task B 剥离私有展示实现零耦合并行（§7）。
+- DRAFT-2.1 (2026-07-04, Fable5): 用户回顾旧策略脚本（LogStatus 自动按
+  abs(dailyFundingRate) 降序、按结算间隔归一化、无交互控件）后裁定：
+  排序改为**后端固定排序**，删除排序按钮与前端比较器方案；Task A 新增
+  公开 fundingInfo 接入 + `funding_interval_hours`/`daily_funding_rate`
+  字段（live 核实 440 对 4h/269 对 8h/2 对 1h，归一化为排名正确性必要
+  条件）；Task B 改为拆列 + 日费率/间隔展示、零排序逻辑。待 Codex 合成。
