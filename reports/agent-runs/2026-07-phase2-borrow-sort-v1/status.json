@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-phase2-borrow-sort-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery + docs/parallel-development-mode.md (ADOPTED-TRIAL, first trial)",
   "prerequisite": "Phase 2 direction baseline FROZEN (docs/phase2-direction-draft.md @ 11dec26, Codex ACCEPT-FREEZE); user approved stage design 2026-07-04",
   "complexity": "MILESTONE",
@@ -37,7 +37,7 @@
   },
   "base_sha": "4d47ad2d3f2068e86b634b5e39d5063dc4ed526f",
   "head_sha": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0",
-  "commit_state": "review-1 round-1: A=REWORK(E1 fundingInfo live degradation, P1) fixed in H_A2 2a793a9 (96 passed); B=ACCEPT (2x P3 non-blocking); diff_fingerprint re-bound base=4d47ad2..head=2a793a9; rework_count=1; round-2 pending",
+  "commit_state": "review-1 COMPLETE: A round-2 ACCEPT (E1 fix H_A2 2a793a9 re-reviewed by fresh Kimi session_bc79ad49, fingerprint 2a793a9:9b92cc45 MATCH, 96+20 self-rerun pass); B round-1 ACCEPT stands (backend-only fix, no frontend impact). rework_count=1 (round-1 E1, fixed). Next: review-2 (Codex, user-submitted, direction_synthesis disclosure).",
   "diff_fingerprint": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0:9b92cc4595982f0e09ce33d179019fa54a370aa30aeeaa977772eca33fb433e9",
   "diff_fingerprint_formula": "head_sha + \":\" + sha256(git diff --binary <base_sha>..<head_sha> -- . \":(exclude)reports/agent-runs/2026-07-phase2-borrow-sort-v1/status.json\")",
   "tasks": {
@@ -164,9 +164,9 @@
     "Any coupling-surface change request during implementation (mode R3)",
     "Any R1-R9 parallel-mode red-line breach -> record breach, fall back to serial"
   ],
-  "next_action": "review-1 round-2: re-review Task A E1 fix (H_A2 2a793a9, new fingerprint 2a793a9:9b92cc45) via fresh Kimi read-only; Task B round-1 ACCEPT stands (backend-only fix). Round-2 ACCEPT -> review-2 (Codex, user-submitted, direction_synthesis).",
+  "next_action": "review-2 (final gate): Codex gpt5.5, user-submitted read-only (codex exec -s read-only), reviewer_prior_involvement=direction_synthesis (disclosed). dispatch review-2-task-c-by-codex.prompt.md (base=4d47ad2, head=2a793a9). review-2 ACCEPT -> stage_accepted_waiting_user (pre-accept gate).",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T16:05:00Z",
+  "updated_at": "2026-07-04T16:16:00Z",
   "h_intake": {
     "discovery_evidence_dir": "reports/api-samples/2026-07-phase2-borrow-sort-v1/20260704T133406Z",
     "discovery_script": "scripts/discovery-capture-phase2.py",
@@ -227,8 +227,22 @@
           "verdict_path": "30-review-1-frontend.md",
           "findings": "2x P3 non-blocking (self-check regression net narrowed F1; role template bug F2)"
         }
+      },
+      {
+        "round": 2,
+        "head_sha": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0",
+        "diff_fingerprint": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0:9b92cc4595982f0e09ce33d179019fa54a370aa30aeeaa977772eca33fb433e9",
+        "scope": "Task A E1 fix re-review only (B round-1 ACCEPT, no round-2)",
+        "task_a": {
+          "reviewer": "kimi (fresh read-only session_bc79ad49, != round-1 session_bfdbafa6)",
+          "verdict": "ACCEPT",
+          "verdict_path": "30-review-1-round2-backend.md",
+          "verification": "fingerprint three-way MATCH (reviewer recompute = bookkeeper recompute = status.json); reviewer independently re-ran pytest 96 passed + node self-check 20 PASS; fix touched only 4 files (binance_public/snapshot/snapshot_service/test); schema unchanged (warnings open array)",
+          "findings": "none (zero regression confirmed)"
+        }
       }
     ],
-    "note": "round-1 A=REWORK(E1) fixed in H_A2 2a793a9, rework_count=1; B=ACCEPT no rework; round-2 re-reviews A fix on new fingerprint 2a793a9:9b92cc45; B round-1 ACCEPT stands (backend-only fix, no frontend impact)"
+    "note": "review-1 COMPLETE. round-1: A=REWORK(E1 fundingInfo live degradation P1) fixed in H_A2 2a793a9 (96 passed); B=ACCEPT (2x P3 non-blocking). round-2: A=ACCEPT (E1 fix re-reviewed by fresh Kimi, fingerprint 2a793a9:9b92cc45 MATCH, 96+20 self-rerun, zero regression); B round-1 ACCEPT stands (backend-only fix, no frontend impact, no round-2 needed). rework_count=1. Proceeding to review-2 (Codex final gate).",
+    "outcome": "PASSED"
   }
 }
