@@ -71,6 +71,9 @@ class BinancePublicClient:
             "premium_index": premium,
             "spot_exchange_info": spot_ei,
             "funding_history_by_sym": self._offline_funding_index(d),
+            # No frozen fundingInfo sample in the contract-v2 raw dir; offline
+            # mode falls back to the Binance 8h default for every symbol.
+            "funding_interval_by_sym": {},
         }
 
     def _offline_funding_index(self, d: Path) -> Dict[str, List[dict]]:
@@ -91,11 +94,19 @@ class BinancePublicClient:
         premium = self._http_get(f"{self.futures_base_url}/fapi/v1/premiumIndex")
         self._bump("GET /api/v3/exchangeInfo")
         spot_ei = self._http_get(f"{self.spot_base_url}/api/v3/exchangeInfo")
+        self._bump("GET /fapi/v1/fundingInfo")
+        funding_info = self._http_get(f"{self.futures_base_url}/fapi/v1/fundingInfo")
+        funding_interval_by_sym = {
+            x["symbol"]: int(x["fundingIntervalHours"])
+            for x in funding_info
+            if isinstance(x, dict) and "symbol" in x and "fundingIntervalHours" in x
+        }
         return {
             "futures_exchange_info": futures_ei,
             "premium_index": premium,
             "spot_exchange_info": spot_ei,
             "funding_history_by_sym": {},
+            "funding_interval_by_sym": funding_interval_by_sym,
         }
 
     def fetch_funding_rate(self, symbol: str) -> List[dict]:

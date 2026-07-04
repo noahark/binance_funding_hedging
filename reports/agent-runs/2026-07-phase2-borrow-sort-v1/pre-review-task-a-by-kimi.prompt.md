@@ -1,12 +1,15 @@
 <!-- ============ RECEIPT（审计元数据，bookkeeper 填写；非任务内容） ============
-status: pending            # pending | running | done | blocked
+status: done            # pending | running | done | blocked
 target_model: kimi (FRESH read-only session; 不得复用 Task B 实现会话上下文)
-adapter_cmd: 用户粘贴 PROMPT BODY + 当轮 diff.patch 路径至全新 Kimi 会话
-started_at:
-completed_at:
-session_id:
-outputs:                   # embedded-review-a-round<N>.raw-output.md
-next_dispatch: 无 blocker → bookkeeper 串行落盘；有 blocker → Task A 修复后 round 2（封顶）
+adapter_cmd: kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-a-round1.prompt-for-kimi.md)"
+started_at: 2026-07-04T22:50+0800（CST）
+completed_at: 2026-07-04T22:53+0800（CST；raw-output 末尾时间戳）
+session_id: kimi fresh read-only session (n/a; 391 行 raw-output 已落档)
+outputs:                   # embedded-review-a-round1.raw-output.md
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-a-round1.diff.patch
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-a-round1.prompt-for-kimi.md
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-a-round1.raw-output.md
+next_dispatch: 无 blocker（round 1 PASS）→ bookkeeper 串行落盘 H_A
 ======================================================================== -->
 
 --- PROMPT BODY（不可变任务正文，自此行以下原样执行） ---

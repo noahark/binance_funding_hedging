@@ -33,8 +33,13 @@ class Config:
     frontend_dir: Path = FRONTEND_DIR
     futures_base_url: str = "https://fapi.binance.com"
     spot_base_url: str = "https://api.binance.com"
+    sapi_base_url: str = "https://api.binance.com"
+    papi_base_url: str = "https://papi.binance.com"
     user_agent: str = "funding-hedging-public-market/1.0"
     request_timeout: float = 15.0
+    borrow_check_top_n: int = 10
+    private_channel_ttl_seconds: int = 3600
+    private_recv_window: int = 10000
 
 
 DEFAULT = Config()

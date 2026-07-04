@@ -1,12 +1,17 @@
 <!-- ============ RECEIPT（审计元数据，bookkeeper 填写；非任务内容） ============
-status: pending            # pending | running | done | blocked
-target_model: claude_glm (Task A implementer)
-adapter_cmd: controller 在 H_intake 完成后交付 PROMPT BODY
-started_at:
-completed_at:
-session_id:
+status: done            # pending | running | done | blocked
+target_model: claude_glm (Task A implementer; dual-hat with controller/bookkeeper)
+adapter_cmd: controller 交付 PROMPT BODY 至本会话 dual-hat 执行；H_intake 已完成（base 锚定 commit 4d47ad2, validate checkpoint PASSED, status=implementing）
+started_at: 2026-07-04T13:45Z (UTC) / 21:45 CST
+completed_at: 2026-07-04T14:08Z (UTC) / 22:08 CST
+session_id: claude_glm controller session (dual-hat; evidence_policy mitigation per status.json)
 outputs:                   # 20-implementation-backend.md / 自测结果摘要
-next_dispatch: pre-review-task-a-by-kimi.prompt.md（嵌入预审 round 1）
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/20-implementation-backend.md
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/60-test-output.txt (pytest 95 passed)
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-a-round1.diff.patch
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-a-round1.prompt-for-kimi.md
+  - reports/agent-runs/2026-07-phase2-borrow-sort-v1/embedded-review-a-round1.raw-output.md
+next_dispatch: pre-review-task-a-by-kimi.prompt.md（已执行 round 1，PASS 无 blocker）→ bookkeeper 串行落盘 H_A
 ======================================================================== -->
 
 --- PROMPT BODY（不可变任务正文，自此行以下原样执行） ---

@@ -65,6 +65,10 @@
       "items": {
         "type": "string"
       }
+    },
+    "private_channel": {
+      "type": "string",
+      "enum": ["enabled", "disabled"]
     }
   },
   "$defs": {
@@ -287,7 +291,66 @@
           "items": {
             "type": "string"
           }
+        },
+        "funding_interval_hours": {
+          "type": "integer",
+          "enum": [1, 4, 8]
+        },
+        "daily_funding_rate": {
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "borrow_validation": {
+          "$ref": "#/$defs/borrow_validation"
         }
+      }
+    },
+    "borrow_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verified", "classic_margin", "portfolio_account", "checked_at", "error"],
+      "properties": {
+        "verified": { "type": "boolean" },
+        "classic_margin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pair_listed", "asset_borrowable", "daily_interest_vip0", "source"],
+          "properties": {
+            "pair_listed": { "type": ["boolean", "null"] },
+            "asset_borrowable": { "type": ["boolean", "null"] },
+            "daily_interest_vip0": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "source": { "type": "string" }
+          }
+        },
+        "portfolio_account": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_borrowable", "borrow_limit", "source"],
+          "properties": {
+            "max_borrowable": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "borrow_limit": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "source": { "type": "string" }
+          }
+        },
+        "checked_at": { "type": ["string", "null"] },
+        "error": { "type": ["string", "null"] }
       }
     }
   }

@@ -1,6 +1,8 @@
 # Public Market API Contract
 
-Status: contract v0.1, response shape unchanged. Binance public fields verified
+Status: contract v0.2 (Phase 2 amendment, additive). The v0.1 response shape is
+preserved; the Phase 2 additions are documented in "Phase 2 Amendment (v0.2)" at
+the end of this file. Binance public fields verified
 2026-07-03 by Claude-GLM against live no-key public calls and `llms-full.txt`.
 Verified findings are recorded below in "Verified Findings" and in
 `reports/agent-runs/2026-07-public-market-contract-v2/api-field-matrix.md`.
@@ -298,3 +300,71 @@ Remaining (non-blocking, later phase):
 
 - Settle-time sample to remove the `lastFundingRate` ambiguity.
 - Private borrowability validation for `MARGIN_SPOT_CANDIDATE`.
+
+## Phase 2 Amendment (v0.2, stage `2026-07-phase2-borrow-sort-v1`)
+
+Frozen 2026-07-04. Response shape extended additively (backward-compatible: the
+v0.1 field set and enums are unchanged). Evidence: H_intake discovery under
+`reports/api-samples/2026-07-phase2-borrow-sort-v1/20260704T133406Z/`
+(`evidence-index.md` + sha256 table + redacted samples); raw-field freeze in
+`reports/agent-runs/2026-07-phase2-borrow-sort-v1/10-design.md §2.A`.
+
+### New public row fields
+
+- `funding_interval_hours`: int ∈ {1, 4, 8}. Source `GET /fapi/v1/fundingInfo`
+  (public, no key). Symbols listed in the response use their
+  `fundingIntervalHours`; unlisted symbols default to 8 (Binance default). Offline
+  mode (no frozen fundingInfo sample) -> all symbols 8h.
+- `daily_funding_rate`: string (8-place, same format as `last_funding_rate`) or
+  null. Computed `Decimal(lastFundingRate) × (24 / interval)` — Decimal-only, no
+  float; `quantize(Decimal('1E-8'))`, no scientific notation; negative zero is
+  normalized to `0.00000000`. Missing/empty `lastFundingRate` -> null.
+
+### Row order (frozen)
+
+`rows` are returned sorted by `abs(Decimal(daily_funding_rate))` DESC; rows with
+null `daily_funding_rate` sort last; ties break by `symbol` ASC. This is a
+deterministic total order and IS the payload order. The frontend must not reorder
+(filters only hide).
+
+### New private block `borrow_validation` (frontend does not consume this stage)
+
+Three states:
+
+1. private channel disabled or request failed: `verified=false`, all data fields
+   null, `error` carries the reason;
+2. verified, pair not in the classic list: `verified=true`, `pair_listed=false`,
+   asset/interest fields null;
+3. verified, pair listed: `verified=true`, `pair_listed=true` + asset/interest.
+
+`checked_at` is the request-success moment (not the data-effective moment). All
+numeric fields are strings.
+
+`portfolio_account` is populated only for the bounded candidate set — the top-N
+`MARGIN_SPOT_CANDIDATE` + `CRYPTO` baseAssets by abs daily rate (default N=10,
+`Config.borrow_check_top_n`). Other rows keep null amount fields (the block is
+still present with its `source`). bStock rows are excluded from account-level
+probing (`asset_tag != CRYPTO`).
+
+Raw-to-contract field mapping (raw camelCase -> contract snake_case; raw key
+names frozen in 10-design §2.A — note E3 keys on `assetName`, E4 on `coin`, not
+`asset`):
+
+- `classic_margin.pair_listed` <- `allPairs[].isMarginTrade` (matched by symbol);
+- `classic_margin.asset_borrowable` <- `allAssets[].isBorrowable` (key `assetName`);
+- `classic_margin.daily_interest_vip0` <- `crossMarginData[].dailyInterest` where
+  `vipLevel == 0` (key `coin`); only the VIP0 tier is present in the captured
+  account shape;
+- `portfolio_account.max_borrowable` <- `maxBorrowable.amount`;
+- `portfolio_account.borrow_limit` <- `maxBorrowable.borrowLimit`.
+
+### Snapshot metadata
+
+- `private_channel` (top-level): `"enabled"` | `"disabled"`. `"enabled"` iff the
+  private borrow-validation channel returned a classic reference.
+
+### Regression red lines (unchanged)
+
+`negative_funding_status` / `route_class` / `asset_tag` enums and their priority
+order, `classify.py`, and `normalize.py` are unchanged. `borrow_validation` is a
+parallel output block and never alters classification or route derivation.
