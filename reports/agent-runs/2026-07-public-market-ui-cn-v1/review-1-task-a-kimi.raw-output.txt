@@ -1,0 +1,271 @@
+• Let me start by reading the required files and recomputing the fingerprint. I need to be thorough and verify each checkpoint.
+
+• I’ll recompute the Task-A fingerprint and inspect the raw artifacts directly.8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318  -
+backend/domain/snapshot.py
+backend/tests/test_snapshot.py
+docs/api/public-market-contract.md
+reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-backend.md
+• Let me analyze the results so far:
+
+  1. Fingerprint recomputed: `8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318` - matches expected.
+  2. `git show --name-only dba4c12` returns exactly 4 files: snapshot.py, test_snapshot.py, public-market-contract.md, 20-implementation-backend.md. Good.
+  3. Need to read the actual product files and diffs, evidence, and run tests.
+
+  Let me continue with reads and diffs.diff --git a/backend/domain/snapshot.py b/backend/domain/snapshot.py
+index 97f6fc3..b7dadd9 100644
+--- a/backend/domain/snapshot.py
++++ b/backend/domain/snapshot.py
+@@ -16,7 +16,7 @@ SCHEMA_VERSION = "public-market-snapshot/v1"
+ 
+ CONTRACT_WARNINGS = [
+     "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
+-    "premiumIndex.lastFundingRate is documented by Binance as the most recently updated funding rate; whether it equals the last settled rate or a forward estimate is not proven from local docs, so do not label it as a guaranteed settled or upcoming value.",
++    "premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period and is charged at nextFundingTime; it drifts until settlement (mid-period divergence from settled history evidenced under reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/). Settled history comes from /fapi/v1/fundingRate; do not present the estimate as a settled value.",
+     "TRADIFI_PERPETUAL (bStock) spot legs are joined via the baseAsset+B+quoteAsset alias (e.g. futures TSLAUSDT -> spot TSLABUSDT); bStock collateral ratio is dynamic/unknown and is not hard-coded; asset_tag is independent of route_class.",
+ ]
+ 
+diff --git a/docs/api/public-market-contract.md b/docs/api/public-market-contract.md
+index 821dc0f..1301781 100644
+--- a/docs/api/public-market-contract.md
++++ b/docs/api/public-market-contract.md
+@@ -74,11 +74,13 @@ signal only. `negative_funding_status` for those rows stays
+ `PRIVATE_BORROW_VALIDATION_REQUIRED`.
+ 
+ Funding semantics: `nextFundingTime` is the millisecond epoch of the next
+-scheduled funding settlement (clear). `lastFundingRate` is documented by Binance
+-as "the most recently updated funding rate"; the settled-vs-estimate distinction
+-is `ambiguous`, so the field must be displayed as "最近资金费率（最近更新值）" and
+-must not be labeled as a guaranteed settled or upcoming rate. Settled past rates
+-come from `/fapi/v1/fundingRate` (`funding_history`).
++scheduled funding settlement (clear). `lastFundingRate` is the real-time
++estimate for the CURRENT funding period and is charged at `nextFundingTime`; it
++drifts until settlement — mid-period divergence from settled history is evidenced
++under `reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/`
++(cycle-mid ETHUSDT/SOLUSDT estimate != latest settled record; 15-min drift
++observed in-session). Settled history comes from `/fapi/v1/fundingRate`
++(`funding_history`); the estimate must not be presented as a settled value.
+ 
+ bStock / TRADIFI: `contractType == "TRADIFI_PERPETUAL"` maps to
+ `asset_tag = "BSTOCK"`. `contractType == "PERPETUAL"` maps to `CRYPTO`.
+@@ -278,9 +280,13 @@ Resolution status as of 2026-07-03 (see "Verified Findings" and
+   `margin_public.source = "unverified"` and does not produce
+   `MARGIN_SPOT_CANDIDATE` from the `sapi` lists. It uses only the public spot
+   `isMarginTradingAllowed` field.
+-- PARTIALLY RESOLVED: `nextFundingTime` is clear. `lastFundingRate` is
+-  "most recently updated funding rate" and its settled-vs-estimate meaning is
+-  `ambiguous`; it is not labeled as settled funding.
++- RESOLVED (2026-07-04, stage `2026-07-public-market-ui-cn-v1`): `nextFundingTime`
++  is clear. `lastFundingRate` is the real-time estimate for the current funding
++  period, charged at `nextFundingTime`, drifting until settlement; proven by the
++  mid-period divergence evidence under
++  `reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/`
++  (`verify-funding-semantics.py` PASS). It is not a settled value; settled history
++  comes from `/fapi/v1/fundingRate`.
+ - RESOLVED (amended 2026-07-03, stage `2026-07-public-market-bstock-alias-v1`):
+   `TRADIFI_PERPETUAL` symbols are tagged `BSTOCK`, and their spot legs are joined
+   via the `baseAsset + "B" + quoteAsset` alias. The positive-funding candidate
+diff --git a/backend/tests/test_snapshot.py b/backend/tests/test_snapshot.py
+index f95b47b..a620a72 100644
+--- a/backend/tests/test_snapshot.py
++++ b/backend/tests/test_snapshot.py
+@@ -89,8 +89,13 @@ def test_three_contract_warnings_preserved(raw_inputs):
+     assert len(snap["warnings"]) == 3
+     joined = "\n".join(snap["warnings"])
+     assert "-2014" in joined  # margin endpoints require API key
+-    assert "lastFundingRate" in joined  # funding-rate semantics ambiguity
+-    assert "TRADIFI_PERPETUAL" in joined  # BSTOCK has no spot leg
++    assert "lastFundingRate" in joined  # funding-rate semantics (real-time estimate)
++    assert "TRADIFI_PERPETUAL" in joined  # BSTOCK alias spot-leg rule
++    # warnings[1] is the evidenced lastFundingRate semantics amendment (Task A,
++    # stage 2026-07-public-market-ui-cn-v1): real-time estimate + evidence path.
++    w1 = snap["warnings"][1]
++    assert "real-time estimate" in w1
++    assert "2026-07-public-market-ui-cn-v1/20260704T044945Z" in w1
+ 
+ 
+ def test_btcusdt_top_symbol_has_funding_history(raw_inputs):
+Good progress. Let me verify:
+
+  1. ✅ Fingerprint matches.
+  2. ✅ dba4c12 touches exactly 4 files: snapshot.py, test_snapshot.py, public-market-contract.md, 20-implementation-backend.md.
+  3. ✅ snapshot.py diff is exactly one line change (warnings[1]).
+  4. Need to verify wording matches 00-task.md. Let me compare exactly.
+
+  Expected from 00-task.md:
+  "premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period and is charged at nextFundingTime; it drifts until settlement (mid-period divergence from settled history evidenced under reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/). Settled history comes from /fapi/v1/fundingRate; do not present the estimate as a settled value."
+
+  Actual in snapshot.py:
+  "premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period and is charged at nextFundingTime; it drifts until settlement (mid-period divergence from settled history evidenced under reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/). Settled history comes from /fapi/v1/fundingRate; do not present the estimate as a settled value."
+
+  They match exactly. ✅
+
+  5. Contract doc changes only those two spots. Diff confirms only the funding semantics paragraph and Open Verification Items entry. ✅
+
+  6. Forbidden files diff empty. ✅
+
+  7. Tests - need to run pytest and float audit.
+
+  8. Need to check evidence dir exists with evidence-index.md and verify-funding-semantics.py PASS.
+
+  Let me run tests and check evidence.....
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+.
+                   [100%]
+
+54 passed in 0.67s
+total 24
+drwxr-xr-x@  6 ark  staff   192  7月  4 12:51 .
+drwxr-xr-x@  3 ark  staff    96  7月  4 12:49 ..
+-rw-r--r--@  1 ark  staff  2278  7月  4 12:51 evidence-index.md
+drwxr-xr-x@ 12 ark  staff   384  7月  4 12:49 raw
+-rw-r--r--@  1 ark  staff  2878  7月  4 12:50 verify-funding-semantics.py
+-rw-r--r--@  1 ark  staff   638  7月  4 12:50 verify-output.txt
+Good. Tests pass (54 passed). Float audit returned exit code 1 which means no matches found (grep returns 1 when no matches). That's expected and means CLEAN.
+
+  Need to run verify-funding-semantics.py to confirm PASS. Also need to check verify-output.txt.
+
+  Let me also check the schema says reviewer_prior_involvement_notes is not required, but I should include it. residual_risks is not required but should include it.
+
+  Let me run the verify script and read verify-output.txt.BTCUSDT   lastFundingRate=   0.00010000 | settled=   0.00010000 @ 07-04 00:00 UTC | next=07-04 08:00 UTC | equal=True
+ETHUSDT   lastFundingRate=   0.00008538 | settled=   0.00009748 @ 07-04 00:00 UTC | next=07-04 08:00 UTC | equal=False
+SOLUSDT   lastFundingRate=   0.00006761 | settled=   0.00007283 @ 07-04 00:00 UTC | next=07-04 08:00 UTC | equal=False
+TSLAUSDT  lastFundingRate=   0.00000000 | settled=   0.00000000 @ 07-04 00:00 UTC | next=07-04 08:00 UTC | equal=True
+PASS: 2/4 symbols diverge mid-period (ETHUSDT, SOLUSDT); lastFundingRate is NOT a settled-history echo -> in-period real-time estimate, charged at nextFundingTime.
+EXIT 0
+2c84bd4194b0f7f94b48d5e913e8de5431470880a8352e70761971ac49c91cf5  -
+All checks pass:
+
+  1. ✅ Fingerprint recomputed matches: `dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318`
+  2. ✅ dba4c12 touches exactly 4 files expected.
+  3. ✅ snapshot.py diff is exactly one line change (warnings[1]).
+  4. ✅ Warnings[1] wording matches 00-task.md verbatim.
+  5. ✅ Contract doc diff touches only funding semantics paragraph and Open Verification Items entry.
+  6. ✅ Forbidden files diff is empty.
+  7. ✅ Tests: 54 passed.
+  8. ✅ Float audit: clean (grep exit 1 = no matches).
+  9. ✅ Evidence verify-funding-semantics.py PASS (exit 0).
+  10. ✅ Evidence path matches actual capture dir.
+
+  So verdict is ACCEPT.
+
+  Now I need to write the review to `reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-backend.md` and include the JSON verdict. But wait — the instructions say "Do not modify any files" in read-only / plan mode. Yet they also say "Write your review to `reports/agent-runs/.../30-review-1-backend.md`". This is a contradiction. In the context of a reviewer role, writing the review file is the expected output artifact. The "do not modify any files" likely refers to not modifying product files. I should write the review file as instructed.
+
+  But wait — system says I am in plan mode? No, the user said "acting as reviewer_1 ... in read-only / plan mode". But the tool instructions say EnterPlanMode enters plan mode. I don't think I'm actually in plan mode unless I called EnterPlanMode. The user is just instructing me to act read-only for product files but write the review file. I should write the review file.
+
+  Actually, re-reading: "You are Kimi (`kimi-2.7`), acting as `reviewer_1` with the `code_reviewer` skill, in **read-only / plan mode**. Do not modify any files." But then "Write your review to `reports/agent-runs/.../30-review-1-backend.md`". The review file is the deliverable. I should write it. The "do not modify any files" means do not modify the product/source files being reviewed.
+
+  Let me write the review file and then reply with the JSON verdict. I'll need to get the current date/time CST for the footer. The system date is 2026-07-04T05:50:50.911Z which is UTC. CST is UTC+8, so 13:50:50 CST. But the instructions say to use `date` command. Let me run date to get local time.
+
+  Actually I can just use the date command output. Let me run `date` and `date -d ...` or `date +'%Y-%m-%d %H:%M:%S %Z'` in macOS.2026-07-04 13:51:57 CST
+Good. Now I'll write the review file. I need to be careful to write it as a reviewer report with the findings, and end my reply with the JSON verdict.
+
+  The report should include:
+  - Summary of what was reviewed
+  - Checkpoint-by-checkpoint verification
+  - Fingerprint recomputed
+  - Disclosure
+  - Footer with timestamp and next model/task
+  - Then the JSON verdict block
+
+  Let me compose the file content.I have written the review file. Now I need to end my reply with the JSON verdict as the final block. Let me provide a concise summary and then the JSON verdict.
+
+  The instructions say: "Write your review to ... and end your reply with a single JSON verdict object that validates against schemas/review-verdict.schema.json."
+
+  So my final response should have a brief text summary and then the JSON block.
+
+Task A review complete. All checkpoints pass:
+
+  - Recomputed `diff_fingerprint` matches `status.json.tasks.A`.
+  - `dba4c12` touches only the 4 expected files.
+  - `snapshot.py` changes only `CONTRACT_WARNINGS[1]` (single `-`/`+` line).
+  - Wording matches `00-task.md:51-57` verbatim.
+  - Contract doc updates only the funding-semantics paragraph and the Open Verification Items entry.
+  - Forbidden-file diff is empty.
+  - `pytest backend/tests -q` → 54 passed.
+  - `float(` audit clean.
+  - Evidence script `verify-funding-semantics.py` PASS.
+
+  Review report written to `reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-backend.md`.
+
+  ```json
+  {
+    "schema_version": 1,
+    "stage_id": "2026-07-public-market-ui-cn-v1",
+    "role": "first_reviewer",
+    "model": "kimi-2.7",
+    "verdict": "ACCEPT",
+    "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "I (Kimi, kimi-2.7) am the Task B implementer in this same stage, but I had no involvement in Task A's direction synthesis, development breakdown, design, implementation, or fix authorship. Task A was implemented by Claude-GLM (glm-5.2[1m]).",
+    "reviewed_artifacts": [
+      "reports/agent-runs/2026-07-public-market-ui-cn-v1/00-task.md",
+      "reports/agent-runs/2026-07-public-market-ui-cn-v1/10-design.md",
+      "reports/agent-runs/2026-07-public-market-ui-cn-v1/11-adr.md",
+      "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-backend.md",
+      "reports/agent-runs/2026-07-public-market-ui-cn-v1/60-test-output.txt",
+      "reports/agent-runs/2026-07-public-market-ui-cn-v1/status.json",
+      "backend/domain/snapshot.py",
+      "backend/tests/test_snapshot.py",
+      "docs/api/public-market-contract.md",
+      "reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/evidence-index.md",
+      "reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/verify-funding-semantics.py",
+      "reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/verify-output.txt"
+    ],
+    "findings": [],
+    "required_fixes": [],
+    "residual_risks": [
+      "The lastFundingRate evidence capture is a single mid-period snapshot proving divergence plus 15-minute drift; it is read-only intake evidence and was not re-fetched this stage."
+    ],
+    "next_action": "continue"
+  }
+  ```
+
+To resume this session: kimi -r session_c0138cd3-d815-4c37-a18d-990f78cc7d5d

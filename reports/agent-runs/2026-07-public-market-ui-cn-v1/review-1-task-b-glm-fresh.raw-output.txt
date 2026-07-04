@@ -1,0 +1,81 @@
+# Review-1 (Task B) — fresh read-only Claude-GLM session raw output
+
+- Reviewer: `glm-5.2[1m]` (fresh, isolated Agent subagent; `reviewer_1`, `code_reviewer` skill)
+- Stage: `2026-07-public-market-ui-cn-v1`
+- Subject: Task B (frontend, Kimi-authored), `dba4c12..0fd0d17`
+- Mode: read-only (created only `30-review-1-frontend.md`; touched no product/contract code)
+- Date: 2026-07-04 CST
+
+> This file is the reviewer's final-message transcript (the fresh subagent's
+> stdout). The full review report it authored is `30-review-1-frontend.md`;
+> this is the accompanying raw output / verdict capture.
+
+---
+
+Review complete. Summary and verdict follow.
+
+**Verdict: ACCEPT.** All 9 checkpoints pass; the recomputed Task-B
+`diff_fingerprint` matches `status.json.tasks.B` exactly; the diff is bounded
+to the 4 expected frontend/report files with no boundary crossing;
+`node frontend/self-check.js` returns 14/14 PASS. The single most important
+thing I verified independently is the DECIMAL DISCIPLINE rule:
+`formatFundingRate` (`frontend/index.html:586-600`) is pure string manipulation
+(regex split, slice, pad, trim leading/trailing zeros, `-0`->`0%` collapse), and
+the only three `Number(` calls in the file (lines 604, 607, 612) live in
+`formatPrice` and `classForFundingRate` — explicitly off the rate-percent path
+per ADR-3. I also confirmed byte-identity between
+`frontend/fixture/public-market-snapshot.json` `warnings[1]` and the backend
+`SnapshotService(...).build_snapshot()['warnings'][1]` (diff exit=0), and that
+`WARNING_CHINESE[1]` reflects the new evidenced "real-time estimate, drifts
+until settlement" wording (not the old "ambiguous" framing). One P3 non-blocking
+note: the sidebar brand wordmark "Funding Hedge" is pre-existing (verified via
+`git show dba4c12`) and outside the design's CN checklist, so leaving it
+untouched is correct.
+
+**Recomputed Task-B diff_fingerprint:**
+
+```
+0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835
+```
+
+**JSON verdict:**
+
+```json
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-public-market-ui-cn-v1",
+  "role": "first_reviewer",
+  "model": "glm-5.2[1m]",
+  "verdict": "ACCEPT",
+  "diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835",
+  "reviewer_prior_involvement": "none",
+  "reviewer_prior_involvement_notes": "Fresh, isolated, read-only claude_glm session acting as reviewer_1 with the code_reviewer skill. I have NOT read the controller transcript, the Task A (backend) implementer transcript, or any prior review of this stage; I worked only from the raw artifact paths listed in review-1-task-b-glm-fresh.prompt.md. Disclosure: the stage controller and the Task A implementer are also claude_glm (same provider). This review is permitted because Task B was authored by kimi (provider-level cross-review) and I am a fresh session with no prior involvement in Task B direction, breakdown, design, or implementation.",
+  "reviewed_artifacts": [
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/00-task.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/10-design.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/11-adr.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend.md",
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "frontend/fixture/public-market-snapshot.json",
+    "schemas/api/public-market/snapshot.schema.json",
+    "docs/api/public-market-contract.md"
+  ],
+  "findings": [
+    {
+      "severity": "P3",
+      "title": "Pre-existing sidebar brand wordmark remains English (out of Task-B scope, non-blocking)",
+      "file": "frontend/index.html",
+      "line": 398,
+      "evidence": "git show dba4c12:frontend/index.html shows '<span>Funding Hedge</span>' at L363 in the base commit; Task B leaves it unchanged at L398 in head. The 10-design.md section-4 CN-ification checklist enumerates only <title>, page header h1, subtitle, the three top badges (Public Only / Read-only / Manual Refresh), and the PM->杠杆 rename — the sidebar brand wordmark is not in that list.",
+      "impact": "Cosmetic only; no functional impact. The design checklist's required CN items (title 资金费率对冲工作台, h1, 公开数据/只读/手动刷新 badges, 杠杆现货候选 rename) are all complete.",
+      "recommendation": "Leave as-is for this stage (surgical-changes discipline: do not modify pre-existing code outside the task scope). A future i18n-polish stage may decide whether the brand wordmark should be localized."
+    }
+  ],
+  "required_fixes": [],
+  "residual_risks": [
+    "Fixture-vs-live row count: the frozen fixture carries 6 rows while the live /api/public-market/snapshot endpoint serves the full market. Rendering is row-count-agnostic (renderTable iterates filteredRows() with no hardcoded count; empty/blocked states use colspan=\"7\" matching the merged-column count), so this is acceptable and non-blocking per the prompt's known-residual note."
+  ],
+  "next_action": "continue"
+}
+```

@@ -4,8 +4,16 @@
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
-      {"stage_id": "2026-07-public-market-impl-v1", "stage_status": "accepted", "head_sha": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4"},
-      {"stage_id": "2026-07-public-market-bstock-alias-v1", "stage_status": "accepted", "head_sha": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9"}
+      {
+        "stage_id": "2026-07-public-market-impl-v1",
+        "stage_status": "accepted",
+        "head_sha": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4"
+      },
+      {
+        "stage_id": "2026-07-public-market-bstock-alias-v1",
+        "stage_status": "accepted",
+        "head_sha": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9"
+      }
     ],
     "acceptance_commit": "6d8c0c4"
   },
@@ -28,8 +36,18 @@
     "note": "No new direction panel: the user explicitly decided the 5-point product wording in-session on 2026-07-04 (GPT draft -> Fable5 review with live evidence -> user confirmed '开工'). Direction authority = the user's recorded decisions in 00-intake.md."
   },
   "implementers": [
-    {"provider": "claude_glm", "model": "glm-5.2[1m]", "task": "A", "scope": "CONTRACT_WARNINGS[1] wording + contract doc paragraph + tests"},
-    {"provider": "kimi", "model": "kimi-2.7", "task": "B", "scope": "frontend/**"}
+    {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "task": "A",
+      "scope": "CONTRACT_WARNINGS[1] wording + contract doc paragraph + tests"
+    },
+    {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "task": "B",
+      "scope": "frontend/**"
+    }
   ],
   "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
   "head_sha": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
@@ -52,8 +70,17 @@
   "tasks": {
     "A": {
       "name": "lastFundingRate warning semantic amendment",
-      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "senior_developer"},
-      "reviewer_1_planned": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer", "output": "30-review-1-backend.md"},
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "senior_developer"
+      },
+      "reviewer_1_planned": {
+        "provider": "kimi",
+        "model": "kimi-2.7",
+        "skill": "code_reviewer",
+        "output": "30-review-1-backend.md"
+      },
       "scope": [
         "backend/domain/snapshot.py",
         "docs/api/public-market-contract.md",
@@ -69,50 +96,146 @@
         "backend/services/**",
         "backend/adapters/**",
         "reports/api-samples/**",
-        "agents/**", "workflows/**", "scripts/**"
+        "agents/**",
+        "workflows/**",
+        "scripts/**"
       ],
-      "status": "implemented_pending_review_1",
+      "status": "accepted_by_review_1",
       "commit": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
       "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
       "head_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
       "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
       "diff_files_count": 4,
       "diff_files_note": "snapshot.py (CONTRACT_WARNINGS[1] string only, -1/+1), docs/api/public-market-contract.md (lastFundingRate paragraph + Open Verification Items entry), backend/tests/test_snapshot.py (warnings[1] assertions), 20-implementation-backend.md (report)",
-      "tests": {"status": "pass", "note": "54 passed; float() audit clean"}
+      "tests": {
+        "status": "pass",
+        "note": "54 passed; float() audit clean"
+      },
+      "review_1": {
+        "status": "ACCEPT",
+        "owner": {
+          "provider": "kimi",
+          "model": "kimi-2.7",
+          "skill": "code_reviewer"
+        },
+        "output": "30-review-1-backend.md",
+        "dispatch_prompt": "review-1-task-a-kimi.prompt.md",
+        "raw_output": "review-1-task-a-kimi.raw-output.txt",
+        "subject": {
+          "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
+          "head_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+          "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318"
+        },
+        "verdict": "ACCEPT",
+        "verdict_diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "none",
+        "reviewer_prior_involvement_notes": "Kimi (kimi-2.7) is the Task B (frontend) implementer in this same stage, but had no Task A direction_synthesis/breakdown/design/implementation involvement. Task A was implemented by claude_glm (glm-5.2[1m]).",
+        "findings": [],
+        "required_fixes": [],
+        "reviewed_at": "2026-07-04T05:52:00Z",
+        "independent_test_rerun": "git diff d3d6e7c..dba4c12 -- snapshot.py = single -1/+1 string; pytest backend/tests -q -> 54 passed; grep float( clean; verify-funding-semantics.py PASS",
+        "next_action": "continue"
+      }
     },
     "B": {
       "name": "Frontend Chinese-first + funding column merge + flags de-noise",
-      "owner": {"provider": "kimi", "model": "kimi-2.7", "skill": "minimal_change_engineer"},
-      "reviewer_1_planned": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "code_reviewer", "output": "30-review-1-frontend.md", "fresh_session_required": true, "note": "Fresh read-only Claude-GLM session; must not reuse the controller/Task A transcript."},
+      "owner": {
+        "provider": "kimi",
+        "model": "kimi-2.7",
+        "skill": "minimal_change_engineer"
+      },
+      "reviewer_1_planned": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "code_reviewer",
+        "output": "30-review-1-frontend.md",
+        "fresh_session_required": true,
+        "note": "Fresh read-only Claude-GLM session; must not reuse the controller/Task A transcript."
+      },
       "scope": [
         "frontend/**",
         "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend.md"
       ],
       "forbidden": [
-        "backend/**", "schemas/**", "docs/**",
+        "backend/**",
+        "schemas/**",
+        "docs/**",
         "reports/api-samples/**",
-        "agents/**", "workflows/**", "scripts/**"
+        "agents/**",
+        "workflows/**",
+        "scripts/**"
       ],
-      "status": "implemented_pending_review_1",
+      "status": "accepted_by_review_1",
       "commit": "0fd0d17e2835f445cee2195a8ba366df55084123",
       "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
       "head_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
       "diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835",
       "diff_files_count": 4,
       "diff_files_note": "frontend/index.html (column merge + CN i18n + string-shift formatFundingRate + ui_flags de-noise + 数据说明), frontend/fixture/public-market-snapshot.json (warnings[1] synced), frontend/self-check.js (+formatter/数据说明 assertions), 20-implementation-frontend.md (report)",
-      "tests": {"status": "pass", "note": "node frontend/self-check.js 14/14 PASS (incl. 7 funding-rate formatter cases + 数据说明 count + ui_flags mapping)"},
-      "depends_on": ["A"]
+      "tests": {
+        "status": "pass",
+        "note": "node frontend/self-check.js 14/14 PASS (incl. 7 funding-rate formatter cases + 数据说明 count + ui_flags mapping)"
+      },
+      "depends_on": [
+        "A"
+      ],
+      "review_1": {
+        "status": "ACCEPT",
+        "owner": {
+          "provider": "claude_glm",
+          "model": "glm-5.2[1m]",
+          "skill": "code_reviewer",
+          "fresh_session_required": true
+        },
+        "output": "30-review-1-frontend.md",
+        "dispatch_prompt": "review-1-task-b-glm-fresh.prompt.md",
+        "raw_output": "review-1-task-b-glm-fresh.raw-output.txt",
+        "fresh_session": true,
+        "subject": {
+          "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+          "head_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
+          "diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835"
+        },
+        "verdict": "ACCEPT",
+        "verdict_diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "none",
+        "reviewer_prior_involvement_notes": "Fresh isolated read-only claude_glm session acting as reviewer_1. Controller and Task A implementer share the provider; this review is permitted because Task B was authored by kimi (provider-level cross-review) and the reviewer is a fresh session with no prior involvement in Task B direction/breakdown/design/implementation.",
+        "findings": [
+          {
+            "severity": "P3",
+            "title": "Pre-existing sidebar brand wordmark 'Funding Hedge' remains English (out of Task-B scope, non-blocking)",
+            "file": "frontend/index.html",
+            "line": 398,
+            "resolution": "leave as-is (surgical-changes discipline; pre-existing per 'git show dba4c12:frontend/index.html' L363, NOT in 10-design.md section-4 CN-ification checklist); surfaced for a future i18n-polish stage to decide"
+          }
+        ],
+        "required_fixes": [],
+        "reviewed_at": "2026-07-04T05:53:00Z",
+        "independent_test_rerun": "node frontend/self-check.js -> 14/14 PASS; fixture.warnings[1] byte-identical to backend build_snapshot()['warnings'][1] (diff exit=0)",
+        "next_action": "continue"
+      }
     },
     "C": {
       "name": "Integration verification (controller, no product code)",
-      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "test_strategist"},
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "test_strategist"
+      },
       "scope": [
         "reports/agent-runs/2026-07-public-market-ui-cn-v1/60-test-output.txt",
         "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation.md"
       ],
       "forbidden_any_product_code": true,
-      "status": "implemented_pending_review_1",
-      "depends_on": ["A", "B"],
+      "status": "review_1_not_applicable_no_product_code",
+      "depends_on": [
+        "A",
+        "B"
+      ],
       "blocking_check": "Offline snapshot rows must be field-identical to the accepted 548ae0d build (only warnings[1] text may differ); ANY rows diff -> BLOCKED.",
       "commit": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
       "base_sha": "cc6ff1d557f8cb5f423196f0206543c951d36309",
@@ -120,20 +243,49 @@
       "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:28670f9807d372bfb60816e4839f230ea94aa50bab70197be971281eddd09a40",
       "diff_files_count": 4,
       "diff_files_note": "60-test-output.txt (replayable rows-baseline command), 20-implementation.md (Task C integration report), 11-adr.md (minimal, no new architecture decision), 70-handoff.md (handoff) — controller bookkeeping, no product code",
-      "tests": {"status": "pass", "note": "rows field-identical to 548ae0d (647==647, only warnings[1] differs); pytest 54 passed; frontend self-check 14/14; float() audit clean; schema VALID"}
+      "tests": {
+        "status": "pass",
+        "note": "rows field-identical to 548ae0d (647==647, only warnings[1] differs); pytest 54 passed; frontend self-check 14/14; float() audit clean; schema VALID"
+      }
     }
   },
   "model_routing": {
-    "backend_owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "scope": "Task A"},
-    "frontend_owner": {"provider": "kimi", "model": "kimi-2.7", "scope": "Task B"},
+    "backend_owner": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "scope": "Task A"
+    },
+    "frontend_owner": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "scope": "Task B"
+    },
     "excluded_for_core_work": [
-      {"provider": "grok", "reason": "Grok stays excluded from implementation and review (per prior stages)."},
-      {"provider": "anthropic", "reason": "Fable5 is designer/breakdown author this stage -> design involvement -> excluded from review-2 final gate."}
+      {
+        "provider": "grok",
+        "reason": "Grok stays excluded from implementation and review (per prior stages)."
+      },
+      {
+        "provider": "anthropic",
+        "reason": "Fable5 is designer/breakdown author this stage -> design involvement -> excluded from review-2 final gate."
+      }
     ],
-    "review_1_task_A": {"provider": "kimi", "model": "kimi-2.7", "reason": "implementer is claude_glm; cross-review selects Kimi."},
-    "review_1_task_B": {"provider": "claude_glm", "model": "glm-5.2[1m]", "reason": "implementer is kimi; fresh read-only Claude-GLM session."},
+    "review_1_task_A": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "reason": "implementer is claude_glm; cross-review selects Kimi."
+    },
+    "review_1_task_B": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "reason": "implementer is kimi; fresh read-only Claude-GLM session."
+    },
     "review_2_stage": {
-      "primary": {"provider": "codex", "model": "gpt-5.5", "effort": "xhigh"},
+      "primary": {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh"
+      },
       "reviewer_prior_involvement": "direction_synthesis",
       "override": "strong_reviewer_disclosure",
       "runner_level_check": "Decision pool = {GPT/Codex, Anthropic}. Anthropic (Fable5) is the designer this stage -> design involvement -> excluded. Both implementers hard-banned. Codex has no design/breakdown/code involvement this stage; its only prior involvement is the user-approved direction synthesis of the covering contract stage -> direction_synthesis disclosure override, same path as impl-v1/bstock-alias-v1. Fallback if Codex unavailable/invalid: decision_models_exhausted."
@@ -163,13 +315,59 @@
     "Rate percent formatting MUST be string-shift based; parseFloat/Number*100 is forbidden (decimal discipline at the display layer).",
     "UI Chinese-first per user decision 2026-07-04: no raw English enums in the main table; technical terms (USDT, bStock, API) allowed."
   ],
-  "tests": {"status": "pass", "note": "Task C integration: rows field-identical to 548ae0d (647==647, only warnings[1] differs); pytest 54 passed; frontend self-check 14/14; float() audit clean; schema VALID"},
+  "tests": {
+    "status": "pass",
+    "note": "Task C integration: rows field-identical to 548ae0d (647==647, only warnings[1] differs); pytest 54 passed; frontend self-check 14/14; float() audit clean; schema VALID"
+  },
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [],
-  "human_escalation": {"required": false, "reason": null},
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
   "terminal_reason": null,
-  "next_action": "Task A (H_A dba4c12) + Task B (H_B 0fd0d17) + Task C (H_C 9b0e62c) implemented: CONTRACT_WARNINGS[1] evidenced wording + contract doc + tests (54 passed); frontend CN-first + funding/settlement column merge + string-shift rate formatter (self-check 14/14); integration rows field-identical to 548ae0d baseline (647==647, only warnings[1] differs; NOT BLOCKED). status=review_1. Next: pre-review gate -> review-1 (cross: A->Kimi, B->fresh read-only Claude-GLM) -> review-2 (Codex gpt-5.5, direction_synthesis disclosure) -> pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "next_action": "review-1 both_tasks_ACCEPT (Task A->Kimi ACCEPT, findings empty; Task B->fresh read-only Claude-GLM ACCEPT, 1 P3 non-blocking pre-existing sidebar wordmark out of scope). Zero rework. Next: stage-level review-2 (Codex gpt-5.5, reviewer_prior_involvement=direction_synthesis, strong-reviewer disclosure override; Anthropic/Fable5 excluded as designer, both implementers claude_glm+kimi hard-ban) -> pre-accept gate -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T05:41:12Z"
+  "updated_at": "2026-07-04T05:54:00Z",
+  "review_1": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:6e6e2d4d7ee28dc6547c727b6a4c99779605686e38af2586a42ac49171114854",
+    "status": "both_tasks_ACCEPT",
+    "scope": "Task-level review-1 (Task A backend by Kimi + Task B frontend by a fresh read-only Claude-GLM session). The stage-level review_1 verdict aggregates both task verdicts (both ACCEPT) and binds to the stage-level top-level diff_fingerprint, as required by scripts/validate-stage.py validate_acceptance. Per-task fingerprints live in tasks.{A,B}.review_1; detailed review files are 30-review-1-backend.md and 30-review-1-frontend.md; 30-review-1.md is the stage-level summary. Task C (controller integration verification, no product code) is NOT a cross-review subject; it is covered by the stage-level review-2.",
+    "task_A": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "verdict": "ACCEPT",
+      "output": "30-review-1-backend.md",
+      "raw_output": "review-1-task-a-kimi.raw-output.txt",
+      "reviewed_at": "2026-07-04T05:52:00Z",
+      "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
+      "fingerprint_matches": true,
+      "schema_valid": true,
+      "findings": 0
+    },
+    "task_B": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "verdict": "ACCEPT",
+      "output": "30-review-1-frontend.md",
+      "raw_output": "review-1-task-b-glm-fresh.raw-output.txt",
+      "fresh_session": true,
+      "reviewed_at": "2026-07-04T05:53:00Z",
+      "diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:5552ed82f3bb57bdacb1d6f8c981cdc13829603ff865a6458547d6112f8e9835",
+      "fingerprint_matches": true,
+      "schema_valid": true,
+      "findings": 1,
+      "findings_note": "1 P3 non-blocking: pre-existing sidebar wordmark 'Funding Hedge' (frontend/index.html:398), out of Task-B scope, leave as-is per surgical-changes."
+    },
+    "both_schema_valid": true,
+    "both_fingerprints_match": true,
+    "findings_total": 1,
+    "required_fixes_total": 0,
+    "next_action": "stage_review_2",
+    "summary_file": "30-review-1.md",
+    "note": "Both task-level review-1 verdicts ACCEPT, schema-valid, fingerprints independently recomputed by the reviewers (kimi->8afc3dcf..., glm->5552ed82...) and matching status.json.tasks.{A,B}. Zero rework. Task B carries 1 P3 non-blocking finding (pre-existing sidebar wordmark, out of scope, leave as-is). The stage-level review_1 verdict=ACCEPT binds to the stage diff_fingerprint 6e6e2d4d.... Next: stage-level review-2 (Codex gpt-5.5, direction_synthesis disclosure)."
+  }
 }
