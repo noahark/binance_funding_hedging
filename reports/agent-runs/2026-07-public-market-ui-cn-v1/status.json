@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-ui-cn-v1",
-  "status": "review_2",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
@@ -168,7 +168,7 @@
         "workflows/**",
         "scripts/**"
       ],
-      "status": "accepted_by_review_1_round1",
+      "status": "rework_required_round2",
       "commit": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
       "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
       "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
@@ -265,6 +265,17 @@
         ],
         "red_lines_honored": "formatFundingRate/formatBeijing* untouched; no parseFloat; no new Number() on the rate-percent path (only pre-existing formatPrice/classForFundingRate); no new deps; no direct Binance; same-origin /api/public-market/snapshot only; backend/schemas/docs/api-samples untouched; frontend/fixture/public-market-snapshot.json unchanged",
         "self_check": "18/18 PASS (was 14/14; +5 assertions)"
+      },
+      "review_2_round1": {
+        "verdict": "REWORK",
+        "finding": "P2: manual refresh resets countdown display (nextRefreshAt) but not the 60000ms refresh interval (no clearInterval/reschedule)",
+        "reviewer": {
+          "provider": "codex",
+          "model": "gpt5.5",
+          "effort": "xhigh"
+        },
+        "fix_start_prompt": "fix-start-prompt-ui-round2.md",
+        "round0_verdict_note": "round-0 review-2 (head 9b0e62c) ACCEPT preserved under review_2_round0; round-1 review-2 REWORK is bound to head 7592b2c."
       }
     },
     "C": {
@@ -368,17 +379,17 @@
     "status": "pass",
     "note": "Rework round 1 (frontend only): node frontend/self-check.js 19/19 PASS (round-0 14 + rework +5 = 19; Kimi's report said 18 by miscount, reviewer + controller both confirm 19). backend unchanged -> pytest 54 passed, rows field-identical to 548ae0d (647==647), schema VALID."
   },
-  "rework_count": 1,
+  "rework_count": 2,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
   },
-  "terminal_reason": "REWORK ROUND 1 IN PROGRESS: round-0 terminal state (head 9b0e62c) superseded by user-directed Task B frontend rework (H_fix 7592b2c). Re-reviewing (review-1 fresh GLM on fix diff + review-2 Codex rebind). Not terminal.",
-  "next_action": "Rework round 1: review-1 (fresh GLM) ACCEPT, findings empty; Task A round-0 ACCEPT retained (backend unchanged). status=review_2. Next: stage-level review-2 (Codex gpt-5.5, direction_synthesis disclosure) rebind to new head 7592b2c (recompute stage fingerprint 4b8c8de2...). Then pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "terminal_reason": "REWORK ROUND 2 REQUIRED: review-2 round-1 REWORK (P2 timer-sync). Not terminal.",
+  "next_action": "Rework round 2 (2/3): review-2 (Codex) round-1 = REWORK (1x P2: manual refresh resets countdown display but not the actual 60s auto-refresh interval — no clearInterval/reschedule). status=fixing. Dispatch Kimi (Task B owner) per fix-start-prompt-ui-round2.md to sync the auto-refresh timer with the displayed countdown (clear+recreate 60000ms timer in loadApi finally) + add self-check coverage. Then re-review-1 (fresh GLM) + re-review-2 (Codex rebind) + pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T08:37:00Z",
+  "updated_at": "2026-07-04T09:01:00Z",
   "review_1": {
     "round": 1,
     "verdict": "ACCEPT",
@@ -437,9 +448,9 @@
   },
   "review_2": {
     "round": 1,
-    "verdict": "pending",
-    "json_schema_valid": null,
-    "status": "pending_codex_rebind_new_head",
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "status": "rework_required_round2",
     "role": "final_reviewer",
     "model": "gpt5.5",
     "provider": "codex",
@@ -451,8 +462,37 @@
       "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
       "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff"
     },
-    "note": "Stage head advanced to 7592b2c by Task B rework round 1. Codex gpt-5.5 re-runs the stage-level final gate, recomputes the stage fingerprint (7592b2c:4b8c8de2...), and rebinds to the new head. Anthropic/Fable5 excluded (designer); both implementers hard-banned; Codex direction_synthesis disclosure override (same path as round-0 / impl-v1 / bstock-alias-v1).",
-    "next_action": "dispatch after review-1 round-1 ACCEPT"
+    "note": "Codex gpt-5.5 final-gate review-2 round-1 = REWORK (1x P2). Independently recomputed stage fingerprint (7592b2c:4b8c8de2..., MATCH) and task fingerprints (A 8afc3dcf unchanged, B rework fix 47cdfcc2..., cumulative 9caf18e6...). Most hard checks PASSED: fingerprint match, frontend-only product scope for H_fix, no payload/schema drift, self-check 19/19, backend 54 passed (capture-disabled in read-only sandbox), same-origin fetch preserved. ONE blocking frontend behavior defect: manual refresh resets countdown display but not the actual 60s interval (no clearInterval). Controller verified the finding holds (grep: no clearInterval/clearTimeout in frontend/index.html). Rework round 2 (2/3) -> Kimi fixes timer sync + adds self-check, then re-review-1 (fresh GLM) + re-review-2 (Codex rebind).",
+    "next_action": "fix",
+    "output": "50-review-2-round1.md",
+    "raw_output": "review-2-codex-round1.raw-output.txt",
+    "dispatch_prompt": "review-2-codex-round1.prompt.md",
+    "reviewed_at": "2026-07-04T09:00:00Z",
+    "findings": [
+      {
+        "severity": "P2",
+        "title": "Manual refresh resets the countdown display but not the actual auto-refresh timer",
+        "file": "frontend/index.html",
+        "line": 635,
+        "evidence": "startAutoRefresh creates one 60000ms setInterval (L635-639); btnRefresh (L901) only calls loadApi(); loadApi finally updates refreshState.nextRefreshAt (L877) but there is no clearInterval/timer reschedule anywhere in the file (grep confirmed: no clearInterval/clearTimeout). A manual refresh at T+50s resets the countdown target to T+110s while the original interval still fires at T+60s.",
+        "impact": "The UI can show 'next refresh' with ~50s remaining while an automatic refresh fires immediately. This violates user decision C ('manual refresh resets the 60s countdown'): the reset is display-only, not aligned with the actual next auto-fetch.",
+        "recommendation": "Reschedule the auto-refresh timer whenever loadApi completes (incl. manual refresh + failure), so the displayed nextRefreshAt and the actual next fetch share the same 60s target."
+      }
+    ],
+    "required_fixes": [
+      "In frontend/index.html, make the actual auto-refresh timer use the same nextRefreshAt target as the countdown. Minimal fix: in loadApi's finally block, after setting nextRefreshAt, clearInterval(refreshState.refreshTimer) and recreate the 60000ms timer; keep the 1s countdown interval separate.",
+      "Preserve same-origin fetch('/api/public-market/snapshot'); do not reintroduce btn-offline/loadFixture/'fixture' branch; do NOT modify formatFundingRate/formatBeijing/formatBeijingShort; no backend/schema/docs-contract/api-samples changes.",
+      "Extend frontend/self-check.js to cover the manual-refresh timer reset (mock setInterval/clearInterval; assert a manual refresh invalidates the old 60s timer and schedules a new one).",
+      "Rerun: node frontend/self-check.js; PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider backend/tests -q; offline snapshot jsonschema validation."
+    ],
+    "residual_risks": [
+      "lastFundingRate evidence is a single mid-period snapshot with drift; accepted residual, not a rework blocker.",
+      "Frontend self-check uses frozen fixture; live endpoint serves full market; rendering row-count-agnostic; offline schema covered 647 rows.",
+      "Spec prose (full-width parens) vs table (half-width) inconsistency; implementation matches tables.",
+      "docs/parallel-development-mode.md in the wide stage diff is an independent non-product methodology doc.",
+      "Live worktree has untracked review-2 capture files; controller commits review evidence before pre-accept."
+    ],
+    "fix_start_prompt": "fix-start-prompt-ui-round2.md (controller-authored from Codex's fix_start_prompt)"
   },
   "post_review_findings": [
     {
