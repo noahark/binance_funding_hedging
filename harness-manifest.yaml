@@ -17,6 +17,7 @@ harness_owned:
   - schemas/
   - scripts/install-harness.sh
   - scripts/update-project-harness.sh
+  - scripts/validate-stage.py
   - reports/agent-runs/README.md
   - reports/agent-runs/_template/
   - docs/README.md

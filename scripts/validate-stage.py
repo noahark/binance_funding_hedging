@@ -2,7 +2,7 @@
 """Validate Harness stage state before review or acceptance.
 
 This script is intentionally dependency-free. It turns the Harness evidence
-rules into an executable gate so model controllers cannot pass review by
+rules into an executable gate so stage operators cannot pass review by
 inventing status values or fingerprint protocols.
 """
 
@@ -35,6 +35,26 @@ ALLOWED_STATUSES = {
 
 PRE_REVIEW_STATUSES = {"review_1", "review_2"}
 PRE_ACCEPT_STATUSES = {"accepted", "stage_accepted_waiting_user"}
+REVIEWER_PRIOR_INVOLVEMENTS = {"none", "direction_synthesis", "breakdown", "design"}
+PROVIDER_IDENTITIES = {
+    "codex": "openai",
+    "gpt": "openai",
+    "openai": "openai",
+    "claude": "anthropic",
+    "anthropic": "anthropic",
+    "fable5": "anthropic",
+    "claude_glm": "zhipu_glm",
+    "glm52": "zhipu_glm",
+    "zhipu_glm": "zhipu_glm",
+    "kimi": "moonshot_kimi",
+    "kimi27": "moonshot_kimi",
+    "moonshot_kimi": "moonshot_kimi",
+    "grok": "xai_grok",
+    "xai_grok": "xai_grok",
+    "gemini": "google",
+    "gemini3.1pro": "google",
+    "google": "google",
+}
 
 
 class ValidationError(Exception):
@@ -119,6 +139,175 @@ def truthy(value: Any) -> bool:
     return value is True or str(value).lower() in {"true", "valid", "pass", "passed", "accept"}
 
 
+def provider_identity(value: Any) -> str | None:
+    """Return normalized model-vendor identity from status fields."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        for key in ("runtime_provider_identity", "provider_identity", "provider", "id", "model"):
+            found = provider_identity(value.get(key))
+            if found:
+                return found
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return PROVIDER_IDENTITIES.get(text, text)
+
+
+def collect_implementer_identities(status_doc: dict[str, Any]) -> set[str]:
+    identities: set[str] = set()
+    implementer = status_doc.get("implementer")
+    identity = provider_identity(implementer)
+    if identity:
+        identities.add(identity)
+
+    for key in ("implementers", "fix_authors"):
+        values = status_doc.get(key, [])
+        if isinstance(values, list):
+            for item in values:
+                identity = provider_identity(item)
+                if identity:
+                    identities.add(identity)
+
+    tasks = status_doc.get("tasks", [])
+    if isinstance(tasks, list):
+        for task in tasks:
+            if not isinstance(task, dict):
+                continue
+            for key in ("owner", "implementer", "fix_author"):
+                identity = provider_identity(task.get(key))
+                if identity:
+                    identities.add(identity)
+    return identities
+
+
+def collect_designer_identities(status_doc: dict[str, Any]) -> set[str]:
+    identities: set[str] = set()
+    for key in ("designer", "direction_synthesizer", "breakdown_author"):
+        identity = provider_identity(status_doc.get(key))
+        if identity:
+            identities.add(identity)
+
+    design = status_doc.get("design", {})
+    if isinstance(design, dict):
+        for key in ("designer", "direction_synthesizer", "breakdown_author"):
+            identity = provider_identity(design.get(key))
+            if identity:
+                identities.add(identity)
+    return identities
+
+
+def review_provider_identity(review: dict[str, Any]) -> str | None:
+    for key in ("reviewer", "provider", "selected_provider", "primary_provider"):
+        identity = provider_identity(review.get(key))
+        if identity:
+            return identity
+    return None
+
+
+def evidence_path_exists(root: Path, stage_dir: Path, value: Any) -> bool:
+    if not value:
+        return False
+    values = value if isinstance(value, list) else [value]
+    for item in values:
+        if not item:
+            continue
+        path = Path(str(item))
+        candidates = []
+        if path.is_absolute():
+            candidates.append(path)
+        else:
+            candidates.extend([root / path, stage_dir / path])
+        if any(candidate.exists() for candidate in candidates):
+            return True
+    return False
+
+
+def validate_parallel_mode(root: Path, stage_dir: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
+    errors: list[str] = []
+
+    for task in status_doc.get("tasks", []) or []:
+        if isinstance(task, dict) and "embedded_reviews" in task:
+            errors.append("parallel-mode embedded_reviews must be top-level status.embedded_reviews, not tasks[].embedded_reviews")
+
+    parallel_mode = status_doc.get("parallel_mode", {})
+    if parallel_mode in (None, {}):
+        return errors
+    if not isinstance(parallel_mode, dict):
+        return ["parallel_mode must be an object when present"]
+    if not truthy(parallel_mode.get("enabled")):
+        embedded = status_doc.get("embedded_reviews", {})
+        if embedded not in ({}, None):
+            errors.append("embedded_reviews should be empty unless parallel_mode.enabled is true")
+        return errors
+
+    contract = parallel_mode.get("contract") or "docs/parallel-development-mode.md"
+    if not evidence_path_exists(root, stage_dir, contract):
+        errors.append(f"parallel_mode.contract does not exist: {contract}")
+    if not truthy(parallel_mode.get("r10_dispatch_tail_required")):
+        errors.append("parallel_mode.enabled requires r10_dispatch_tail_required=true")
+    if not truthy(parallel_mode.get("r4_diff_reconciliation_required")):
+        errors.append("parallel_mode.enabled requires r4_diff_reconciliation_required=true")
+
+    embedded = status_doc.get("embedded_reviews")
+    if not isinstance(embedded, dict):
+        errors.append("parallel_mode.enabled requires top-level embedded_reviews object")
+        return errors
+    if phase in {"pre-review", "pre-accept"} and not embedded:
+        errors.append("parallel_mode pre-review/pre-accept requires at least one embedded_reviews entry")
+
+    for key, entry in embedded.items():
+        prefix = f"embedded_reviews.{key}"
+        if not isinstance(entry, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        rounds = entry.get("rounds")
+        if phase in {"pre-review", "pre-accept"} and (not isinstance(rounds, int) or rounds < 1):
+            errors.append(f"{prefix}.rounds must be an integer >= 1 before review")
+
+        for field in ("task_id", "scope", "implementer", "reviewer", "prompt_path"):
+            if field not in entry:
+                errors.append(f"{prefix} missing {field}")
+        if entry.get("prompt_path") and not evidence_path_exists(root, stage_dir, entry.get("prompt_path")):
+            errors.append(f"{prefix}.prompt_path does not exist: {entry.get('prompt_path')}")
+
+        artifacts = entry.get("round_artifacts", [])
+        if not isinstance(artifacts, list):
+            errors.append(f"{prefix}.round_artifacts must be a list")
+            continue
+        if isinstance(rounds, int) and rounds > 0 and len(artifacts) < rounds:
+            errors.append(f"{prefix}.round_artifacts has fewer entries than rounds")
+
+        for artifact in artifacts:
+            if not isinstance(artifact, dict):
+                errors.append(f"{prefix}.round_artifacts entries must be objects")
+                continue
+            round_no = artifact.get("round", "?")
+            for path_field in ("dispatch_path", "worktree_diff_path", "raw_output_path"):
+                path_value = artifact.get(path_field)
+                if not path_value:
+                    errors.append(f"{prefix}.round_artifacts[{round_no}] missing {path_field}")
+                elif not evidence_path_exists(root, stage_dir, path_value):
+                    errors.append(f"{prefix}.round_artifacts[{round_no}].{path_field} does not exist: {path_value}")
+            fix_report = artifact.get("fix_report_path")
+            if fix_report and not evidence_path_exists(root, stage_dir, fix_report):
+                errors.append(f"{prefix}.round_artifacts[{round_no}].fix_report_path does not exist: {fix_report}")
+
+        if phase == "pre-accept":
+            formal = entry.get("formal_review")
+            if not isinstance(formal, dict):
+                errors.append(f"{prefix}.formal_review is required before acceptance")
+            else:
+                for field in ("output", "base_sha", "head_sha", "diff_fingerprint", "verdict"):
+                    if not formal.get(field):
+                        errors.append(f"{prefix}.formal_review missing {field}")
+                if formal.get("output") and not evidence_path_exists(root, stage_dir, formal.get("output")):
+                    errors.append(f"{prefix}.formal_review.output does not exist: {formal.get('output')}")
+
+    return errors
+
+
 def validate_common(root: Path, stage_dir: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
     errors: list[str] = []
     status = status_doc.get("status")
@@ -172,15 +361,107 @@ def validate_common(root: Path, stage_dir: Path, status_doc: dict[str, Any], pha
     return errors
 
 
-def validate_required_files(stage_dir: Path, phase: str) -> list[str]:
+def validate_required_files(stage_dir: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
     required = ["00-task.md", "10-design.md", "11-adr.md", "20-implementation.md", "60-test-output.txt", "70-handoff.md"]
+    complexity = status_doc.get("complexity", {})
+    classification = complexity.get("classification") if isinstance(complexity, dict) else None
+    if status_doc.get("workflow") == "stage-delivery" and classification in {"MEDIUM", "HIGH", "MILESTONE"}:
+        required.append("12-development-breakdown.md")
     if phase == "pre-accept":
         required += ["30-review-1.md", "50-review-2.md"]
     missing = [name for name in required if not (stage_dir / name).exists()]
     return [f"missing required stage file: {name}" for name in missing]
 
 
-def validate_acceptance(status_doc: dict[str, Any]) -> list[str]:
+def validate_review_identity(root: Path, stage_dir: Path, status_doc: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    implementer_identities = collect_implementer_identities(status_doc)
+    designer_identities = collect_designer_identities(status_doc)
+
+    review_1 = status_doc.get("review_1", {})
+    if isinstance(review_1, dict):
+        identity = review_provider_identity(review_1)
+        if identity and identity in implementer_identities:
+            errors.append("review_1 provider identity must differ from implementation/fix author provider identity")
+
+    review_2 = status_doc.get("review_2", {})
+    if not isinstance(review_2, dict):
+        return errors
+
+    reviewer_identity = review_provider_identity(review_2)
+    if reviewer_identity and reviewer_identity in implementer_identities:
+        errors.append("review_2 provider identity must differ from every implementation/fix author provider identity; no override is allowed")
+
+    if reviewer_identity and reviewer_identity in designer_identities:
+        involvement = review_2.get("reviewer_prior_involvement")
+        if involvement not in REVIEWER_PRIOR_INVOLVEMENTS or involvement == "none":
+            errors.append("review_2 designer-overlap override requires reviewer_prior_involvement to be direction_synthesis, breakdown, or design")
+        if not review_2.get("fallback_reason"):
+            errors.append("review_2 designer-overlap override requires fallback_reason")
+
+        override = review_2.get("design_conflict_override", {})
+        evidence = None
+        if isinstance(override, dict):
+            evidence = (
+                override.get("unrelated_reviewer_unavailable_evidence")
+                or override.get("evidence_file")
+                or override.get("evidence_files")
+            )
+        evidence = evidence or review_2.get("unrelated_reviewer_unavailable_evidence") or review_2.get("override_evidence_file")
+        if not evidence_path_exists(root, stage_dir, evidence):
+            errors.append("review_2 designer-overlap override requires an existing unrelated reviewer unavailable evidence file")
+
+    for key in ("review_1", "review_2"):
+        review = status_doc.get(key, {})
+        if not isinstance(review, dict):
+            continue
+        attempts = review.get("invalid_json_attempts")
+        if isinstance(attempts, int) and attempts > 2:
+            errors.append(f"{key}.invalid_json_attempts exceeds the per-model limit of 2")
+    return errors
+
+
+def validate_tasks(root: Path, stage_dir: Path, status_doc: dict[str, Any], task_id: str | None) -> list[str]:
+    errors: list[str] = []
+    tasks = status_doc.get("tasks", [])
+    if tasks is None:
+        return errors
+    if not isinstance(tasks, list):
+        return ["tasks must be a list when present"]
+
+    selected = tasks
+    if task_id:
+        selected = [task for task in tasks if isinstance(task, dict) and task.get("id") == task_id]
+        if not selected:
+            return [f"task not found in status.json tasks: {task_id}"]
+
+    for task in selected:
+        if not isinstance(task, dict):
+            errors.append("each task entry must be an object")
+            continue
+        prefix = f"task {task.get('id', '<missing-id>')}"
+        owner_identity = provider_identity(task.get("owner") or task.get("implementer"))
+        review = task.get("review_1", {})
+        reviewer_identity = review_provider_identity(review) if isinstance(review, dict) else None
+        if owner_identity and reviewer_identity and owner_identity == reviewer_identity:
+            errors.append(f"{prefix}: review_1 provider identity must differ from owner/implementer provider identity")
+
+        for field in ("base_sha", "head_sha", "diff_fingerprint"):
+            if task.get(field) and not isinstance(task.get(field), str):
+                errors.append(f"{prefix}: {field} must be a string")
+        if task.get("base_sha") and task.get("head_sha") and task.get("diff_fingerprint"):
+            try:
+                require_commit(root, task["base_sha"], f"{prefix}.base_sha")
+                require_commit(root, task["head_sha"], f"{prefix}.head_sha")
+                expected = compute_diff_fingerprint(root, stage_dir, task["base_sha"], task["head_sha"])
+                if task["diff_fingerprint"] != expected:
+                    errors.append(f"{prefix}: diff_fingerprint mismatch: recorded={task['diff_fingerprint']}, expected={expected}")
+            except ValidationError as exc:
+                errors.append(str(exc))
+    return errors
+
+
+def validate_acceptance(root: Path, stage_dir: Path, status_doc: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     tests = status_doc.get("tests", {})
     if not isinstance(tests, dict) or str(tests.get("status", "")).lower() not in {"pass", "passed"}:
@@ -196,6 +477,8 @@ def validate_acceptance(status_doc: dict[str, Any]) -> list[str]:
             errors.append(f"{key}.json_schema_valid must be true")
         if review.get("diff_fingerprint") != status_doc.get("diff_fingerprint"):
             errors.append(f"{key}.diff_fingerprint must match status.diff_fingerprint")
+    errors.extend(validate_review_identity(root, stage_dir, status_doc))
+    errors.extend(validate_tasks(root, stage_dir, status_doc, None))
     return errors
 
 
@@ -203,6 +486,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate an AI Project Harness stage")
     parser.add_argument("stage", help="stage id or path under reports/agent-runs")
     parser.add_argument("--phase", choices=["pre-review", "pre-accept", "checkpoint"], default="checkpoint")
+    parser.add_argument("--task", help="optional task id for task-level fingerprint and cross-review checks")
     args = parser.parse_args()
 
     try:
@@ -217,10 +501,14 @@ def main() -> int:
             except ValidationError as exc:
                 errors.append(str(exc))
         errors.extend(validate_common(root, stage_dir, status_doc, args.phase))
+        errors.extend(validate_parallel_mode(root, stage_dir, status_doc, args.phase))
         if args.phase in {"pre-review", "pre-accept"}:
-            errors.extend(validate_required_files(stage_dir, args.phase))
+            errors.extend(validate_required_files(stage_dir, status_doc, args.phase))
+            errors.extend(validate_tasks(root, stage_dir, status_doc, args.task))
+            if args.phase == "pre-review":
+                errors.extend(validate_review_identity(root, stage_dir, status_doc))
         if args.phase == "pre-accept":
-            errors.extend(validate_acceptance(status_doc))
+            errors.extend(validate_acceptance(root, stage_dir, status_doc))
 
         if errors:
             print("STAGE VALIDATION FAILED")
