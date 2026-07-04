@@ -1,0 +1,5 @@
+BTCUSDT   lastFundingRate=   0.00010000 | settled=   0.00010000 @ 07-04 00:00 UTC | next=07-04 08:00 UTC | equal=True
+ETHUSDT   lastFundingRate=   0.00008538 | settled=   0.00009748 @ 07-04 00:00 UTC | next=07-04 08:00 UTC | equal=False
+SOLUSDT   lastFundingRate=   0.00006761 | settled=   0.00007283 @ 07-04 00:00 UTC | next=07-04 08:00 UTC | equal=False
+TSLAUSDT  lastFundingRate=   0.00000000 | settled=   0.00000000 @ 07-04 00:00 UTC | next=07-04 08:00 UTC | equal=True
+PASS: 2/4 symbols diverge mid-period (ETHUSDT, SOLUSDT); lastFundingRate is NOT a settled-history echo -> in-period real-time estimate, charged at nextFundingTime.

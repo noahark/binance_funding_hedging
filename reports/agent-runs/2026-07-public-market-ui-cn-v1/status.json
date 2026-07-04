@@ -1,0 +1,154 @@
+{
+  "stage_id": "2026-07-public-market-ui-cn-v1",
+  "status": "designing",
+  "workflow": "stage-delivery",
+  "prerequisite": {
+    "stages": [
+      {"stage_id": "2026-07-public-market-impl-v1", "stage_status": "accepted", "head_sha": "ce004892231db40bf5d8ebb39ac4a4e56d0703b4"},
+      {"stage_id": "2026-07-public-market-bstock-alias-v1", "stage_status": "accepted", "head_sha": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9"}
+    ],
+    "acceptance_commit": "6d8c0c4"
+  },
+  "designer": {
+    "provider": "anthropic",
+    "model": "claude-fable-5",
+    "scope": "Full design record (00-intake.md, 00-task.md, 10-design.md) + intake evidence capture. No 11-adr.md (no new architecture decision; rationale in 00-task.md)."
+  },
+  "breakdown_author": {
+    "provider": "anthropic",
+    "model": "claude-fable-5",
+    "available": true,
+    "availability_note": "Fable5 reachable as of 2026-07-04; earlier 'Fable5 unavailable' records (claude CLI auth re-routed to GLM/Zhipu) no longer apply. First stage with Fable5 as actual designer/breakdown author.",
+    "design_involvement": true
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "approved_prior_stage",
+    "user_approved": true,
+    "note": "No new direction panel: the user explicitly decided the 5-point product wording in-session on 2026-07-04 (GPT draft -> Fable5 review with live evidence -> user confirmed '开工'). Direction authority = the user's recorded decisions in 00-intake.md."
+  },
+  "implementers": [
+    {"provider": "claude_glm", "model": "glm-5.2[1m]", "task": "A", "scope": "CONTRACT_WARNINGS[1] wording + contract doc paragraph + tests"},
+    {"provider": "kimi", "model": "kimi-2.7", "task": "B", "scope": "frontend/**"}
+  ],
+  "base_sha": "",
+  "head_sha": "",
+  "commit_state": "committed",
+  "diff_fingerprint": "",
+  "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
+  "diff_fingerprint_note": "Two scopes, one protocol; task-level in tasks.<id> at H_A/H_B, stage-level top-level at H_C; status.json excluded from hash. Same formula as prior stages.",
+  "commit_order_strategy": "H_intake (this commit: intake/task/design/status + live funding-semantics evidence under reports/api-samples/<stage-id>/) -> H_A (warnings wording + doc + tests) -> H_B (frontend) -> H_C (integration + stage-level fingerprint + finalize). Controller commits serially so each task's base..head diff is owner-scoped.",
+  "complexity": {
+    "classification": "LOW",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "rationale": [
+      "Wording amendment (evidence-backed, no logic change) + frontend display/i18n polish; user decided the product wording explicitly.",
+      "Multi-task, so design is recorded before coding (Fable5-authored this stage).",
+      "No new human gate: offline-only tasks; the only live capture happened at intake (anonymous public GET, precedent-compliant)."
+    ]
+  },
+  "tasks": {
+    "A": {
+      "name": "lastFundingRate warning semantic amendment",
+      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "senior_developer"},
+      "reviewer_1_planned": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer", "output": "30-review-1-backend.md"},
+      "scope": [
+        "backend/domain/snapshot.py",
+        "docs/api/public-market-contract.md",
+        "backend/tests/**",
+        "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-backend.md"
+      ],
+      "scope_constraint": "snapshot.py: ONLY the CONTRACT_WARNINGS[1] string. contract doc: ONLY the lastFundingRate paragraph + its Open Verification Items entry.",
+      "forbidden": [
+        "frontend/**",
+        "schemas/**",
+        "backend/domain/classify.py",
+        "backend/domain/normalize.py",
+        "backend/services/**",
+        "backend/adapters/**",
+        "reports/api-samples/**",
+        "agents/**", "workflows/**", "scripts/**"
+      ],
+      "status": "planned"
+    },
+    "B": {
+      "name": "Frontend Chinese-first + funding column merge + flags de-noise",
+      "owner": {"provider": "kimi", "model": "kimi-2.7", "skill": "minimal_change_engineer"},
+      "reviewer_1_planned": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "code_reviewer", "output": "30-review-1-frontend.md", "fresh_session_required": true, "note": "Fresh read-only Claude-GLM session; must not reuse the controller/Task A transcript."},
+      "scope": [
+        "frontend/**",
+        "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation-frontend.md"
+      ],
+      "forbidden": [
+        "backend/**", "schemas/**", "docs/**",
+        "reports/api-samples/**",
+        "agents/**", "workflows/**", "scripts/**"
+      ],
+      "status": "planned",
+      "depends_on": ["A"]
+    },
+    "C": {
+      "name": "Integration verification (controller, no product code)",
+      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "test_strategist"},
+      "scope": [
+        "reports/agent-runs/2026-07-public-market-ui-cn-v1/60-test-output.txt",
+        "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation.md"
+      ],
+      "forbidden_any_product_code": true,
+      "status": "planned",
+      "depends_on": ["A", "B"],
+      "blocking_check": "Offline snapshot rows must be field-identical to the accepted 548ae0d build (only warnings[1] text may differ); ANY rows diff -> BLOCKED."
+    }
+  },
+  "model_routing": {
+    "backend_owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "scope": "Task A"},
+    "frontend_owner": {"provider": "kimi", "model": "kimi-2.7", "scope": "Task B"},
+    "excluded_for_core_work": [
+      {"provider": "grok", "reason": "Grok stays excluded from implementation and review (per prior stages)."},
+      {"provider": "anthropic", "reason": "Fable5 is designer/breakdown author this stage -> design involvement -> excluded from review-2 final gate."}
+    ],
+    "review_1_task_A": {"provider": "kimi", "model": "kimi-2.7", "reason": "implementer is claude_glm; cross-review selects Kimi."},
+    "review_1_task_B": {"provider": "claude_glm", "model": "glm-5.2[1m]", "reason": "implementer is kimi; fresh read-only Claude-GLM session."},
+    "review_2_stage": {
+      "primary": {"provider": "codex", "model": "gpt-5.5", "effort": "xhigh"},
+      "reviewer_prior_involvement": "direction_synthesis",
+      "override": "strong_reviewer_disclosure",
+      "runner_level_check": "Decision pool = {GPT/Codex, Anthropic}. Anthropic (Fable5) is the designer this stage -> design involvement -> excluded. Both implementers hard-banned. Codex has no design/breakdown/code involvement this stage; its only prior involvement is the user-approved direction synthesis of the covering contract stage -> direction_synthesis disclosure override, same path as impl-v1/bstock-alias-v1. Fallback if Codex unavailable/invalid: decision_models_exhausted."
+    }
+  },
+  "evidence_policy": {
+    "controller_and_backend_implementer_same_model": true,
+    "required_mitigation": [
+      "Reviewers recompute diff_fingerprint from base_sha and raw git diff, not controller summaries.",
+      "Test output must contain replayable raw command output.",
+      "Review prompts pass raw artifact paths and raw diff paths.",
+      "Task B review-1 uses a fresh read-only Claude-GLM session.",
+      "Intake evidence (api-samples/<stage-id>/) is read-only during the stage; reviewers verify sha256 against evidence-index.md."
+    ]
+  },
+  "frozen_inputs": {
+    "accepted_baseline": "6d8c0c4 (both prior stages accepted; snapshot rows structure frozen this stage — only warnings[1] text may change in the API payload)",
+    "intake_evidence": "reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/ (premiumIndex + fundingRate captures, evidence-index.md sha256, verify-funding-semantics.py PASS)"
+  },
+  "hard_constraints": [
+    "No API key, signed endpoint, private account endpoint, user data stream.",
+    "No order, borrow, repay, transfer, websocket.",
+    "No live HTTP during A/B/C (intake evidence already captured).",
+    "rows structure and all row values unchanged; only warnings[1] text changes in the API payload.",
+    "classify.py / normalize.py / snapshot_service.py logic untouched.",
+    "Frontend: single file, no new deps, same-origin /api/public-market/snapshot only, no direct Binance calls.",
+    "Rate percent formatting MUST be string-shift based; parseFloat/Number*100 is forbidden (decimal discipline at the display layer).",
+    "UI Chinese-first per user decision 2026-07-04: no raw English enums in the main table; technical terms (USDT, bStock, API) allowed."
+  ],
+  "tests": {"status": "pending"},
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {"required": false, "reason": null},
+  "terminal_reason": null,
+  "next_action": "H_intake committed (status=designing; Fable5-authored breakdown + live funding-semantics evidence). Next: controller (Claude-GLM) dispatches Task A per controller-start-prompt.md -> H_A, then Task B -> H_B, Task C -> H_C, review-1 (cross) -> review-2 (Codex, direction_synthesis disclosure) -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "can_accept_final": false,
+  "updated_at": "2026-07-04T04:55:00Z"
+}

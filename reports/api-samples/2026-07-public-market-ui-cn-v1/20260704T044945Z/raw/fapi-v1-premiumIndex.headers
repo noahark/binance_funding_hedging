@@ -1,0 +1,27 @@
+HTTP/1.0 200 Connection established
+
+HTTP/2 200 
+content-type: application/json
+content-length: 182424
+date: Sat, 04 Jul 2026 04:49:45 GMT
+x-xss-protection: 1; mode=block
+server: Tengine
+vary: Accept-Encoding
+x-mbx-used-weight-1m: 34
+x-response-time: 0ms
+access-control-allow-origin: *
+access-control-allow-methods: GET, POST, PUT, DELETE, OPTIONS
+access-control-allow-credentials: true
+access-control-allow-headers: *,clienttype,Content-Type,lang,x-ui-request-trace,bnc-uuid
+content-security-policy: default-src 'self'
+cache-control: no-cache, no-store, must-revalidate
+expires: 0
+pragma: no-cache
+strict-transport-security: max-age=31536000; includeSubdomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-cache: Miss from cloudfront
+via: 1.1 9a42545af7c0e831606287d59d6ced80.cloudfront.net (CloudFront)
+x-amz-cf-pop: HKG61-P1
+x-amz-cf-id: EZBRWzv_jNkLIrFVugNFngXe9FVES5na68QC4I02tElbD237XvyakQ==
+
