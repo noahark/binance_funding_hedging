@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>费率行情 · Funding Hedge Workstation</title>
+  <title>资金费率对冲工作台</title>
   <style>
     :root {
       color-scheme: light;
@@ -220,6 +220,41 @@
     }
     .panel-body { padding: var(--space-4); }
 
+    .info-list {
+      display: grid;
+      gap: var(--space-3);
+    }
+    .info-item {
+      display: flex;
+      gap: var(--space-3);
+      align-items: flex-start;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .info-item svg { flex: 0 0 auto; margin-top: 1px; }
+    .info-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    details {
+      margin-top: var(--space-3);
+      padding: var(--space-3);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    summary { cursor: pointer; font-weight: 600; }
+    details pre {
+      margin: var(--space-3) 0 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--mono);
+    }
     .warning-list {
       display: grid;
       gap: var(--space-3);
@@ -362,7 +397,7 @@
           </span>
           <span>Funding Hedge</span>
         </div>
-        <div class="brand-subtitle">Manual PM Workstation</div>
+        <div class="brand-subtitle">公开数据 · 只读</div>
       </div>
 
       <nav class="nav">
@@ -383,25 +418,30 @@
     <main class="content">
       <header class="topbar">
         <div class="title-block">
-          <h1>公开市场费率行情</h1>
-          <p class="subtitle">只读展示公共行情快照，不含交易、持仓或账户功能</p>
+          <h1>资金费率对冲工作台</h1>
+          <p class="subtitle">公开数据 · 只读</p>
         </div>
         <div class="badge-row" aria-label="运行约束">
-          <span class="badge success">Public Only</span>
-          <span class="badge info">Read-only</span>
-          <span class="badge warn">Manual Refresh</span>
+          <span class="badge success">公开数据</span>
+          <span class="badge info">只读</span>
+          <span class="badge warn">手动刷新</span>
         </div>
       </header>
 
       <section class="panel" id="warnings-panel" style="display:none;">
         <div class="panel-header">
           <div class="panel-title">
-            <h2>契约告警</h2>
-            <p class="subtitle">来自后端快照服务的公开验证限制，展示层不得弱化或隐藏</p>
+            <h2>数据说明</h2>
+            <p class="subtitle">来自后端快照服务的公开验证限制与展示约定</p>
           </div>
         </div>
         <div class="panel-body">
-          <div class="warning-list" id="warnings-list"></div>
+          <div class="info-note" id="margin-public-note" style="margin-bottom: var(--space-3);"></div>
+          <div class="info-list" id="warnings-list"></div>
+          <details id="warnings-raw">
+            <summary>API 返回的英文原文（可审计）</summary>
+            <pre id="warnings-raw-content"></pre>
+          </details>
         </div>
       </section>
 
@@ -435,7 +475,7 @@
               <label for="filter-route">路由分类</label>
               <select id="filter-route">
                 <option value="">全部</option>
-                <option value="MARGIN_SPOT_CANDIDATE">PM 现货候选</option>
+                <option value="MARGIN_SPOT_CANDIDATE">杠杆现货候选</option>
                 <option value="SPOT_ONLY_CANDIDATE">仅现货候选</option>
                 <option value="PERP_ONLY_EXCLUDED">仅合约（排除）</option>
               </select>
@@ -459,11 +499,10 @@
                   <th>标的</th>
                   <th>资产标签</th>
                   <th>路由分类</th>
-                  <th>最近更新的资金费率</th>
-                  <th>下一次结算时间 (北京)</th>
+                  <th title="本周期实时预估 / 北京时间">资金费率/结算时间</th>
                   <th>标记价格 / 指数价格</th>
                   <th>负费率状态</th>
-                  <th>UI 标记</th>
+                  <th>提示标记</th>
                 </tr>
               </thead>
               <tbody id="market-table-body"></tbody>
@@ -503,6 +542,9 @@
       const els = {
         warningsPanel: document.getElementById('warnings-panel'),
         warningsList: document.getElementById('warnings-list'),
+        warningsRaw: document.getElementById('warnings-raw'),
+        warningsRawContent: document.getElementById('warnings-raw-content'),
+        marginPublicNote: document.getElementById('margin-public-note'),
         dataSourceLabel: document.getElementById('data-source-label'),
         btnRefresh: document.getElementById('btn-refresh'),
         btnOffline: document.getElementById('btn-offline'),
@@ -517,7 +559,7 @@
       };
 
       function formatBeijing(ms) {
-        if (typeof ms !== 'number' || Number.isNaN(ms)) return '—';
+        if (typeof ms !== 'number' || Number.isNaN(ms) || ms === 0) return '—';
         const d = new Date(ms);
         const parts = new Intl.DateTimeFormat('zh-CN', {
           timeZone: 'Asia/Shanghai',
@@ -529,12 +571,32 @@
         return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
       }
 
+      function formatBeijingShort(ms) {
+        if (typeof ms !== 'number' || Number.isNaN(ms) || ms === 0) return '—';
+        const d = new Date(ms);
+        const parts = new Intl.DateTimeFormat('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          hour: '2-digit', minute: '2-digit',
+          hour12: false
+        }).formatToParts(d);
+        const get = (type) => parts.find(p => p.type === type)?.value;
+        return `${get('hour')}:${get('minute')}`;
+      }
+
       function formatFundingRate(str) {
         if (str === undefined || str === null || str === '') return '—';
-        const n = Number(str);
-        if (Number.isNaN(n)) return String(str);
-        const sign = n > 0 ? '+' : (n < 0 ? '' : '');
-        return `${sign}${(n * 100).toFixed(4)}%`;
+        const m = String(str).match(/^(-?)(\d+)\.?(\d*)$/);
+        if (!m) return '—';
+        const [, sign, intPart, fracPart] = m;
+        const firstTwo = (fracPart + '00').slice(0, 2);
+        const newIntRaw = intPart + firstTwo;
+        const newInt = newIntRaw.replace(/^0+/, '') || '0';
+        const remainingFrac = fracPart.slice(2).replace(/0+$/, '');
+        const isZero = newInt === '0' && remainingFrac === '';
+        if (isZero) return '0%';
+        const value = remainingFrac ? `${newInt}.${remainingFrac}` : newInt;
+        const finalSign = sign ? '-' : '+';
+        return `${finalSign}${value}%`;
       }
 
       function formatPrice(str) {
@@ -554,10 +616,21 @@
 
       function badgeForRouteClass(rc) {
         switch (rc) {
-          case 'MARGIN_SPOT_CANDIDATE': return '<span class="badge success">PM 现货候选</span>';
+          case 'MARGIN_SPOT_CANDIDATE': return '<span class="badge success">杠杆现货候选</span>';
           case 'SPOT_ONLY_CANDIDATE': return '<span class="badge info">仅现货候选</span>';
           case 'PERP_ONLY_EXCLUDED': return '<span class="badge muted">仅合约（排除）</span>';
-          default: return `<span class="badge">${rc}</span>`;
+          default: return `<span class="badge">${escapeHtml(rc)}</span>`;
+        }
+      }
+
+      function badgeForUiFlag(flag) {
+        switch (flag) {
+          case 'PERP_ONLY_NO_SPOT_LEG':
+            return '<span class="badge compact muted" title="PERP_ONLY_NO_SPOT_LEG">无现货腿</span>';
+          case 'TRADIFI_BSTOCK':
+            return '<span class="badge compact accent" title="TRADIFI_BSTOCK">bStock</span>';
+          default:
+            return `<span class="badge compact muted" title="${escapeHtml(flag)}">${escapeHtml(flag)}</span>`;
         }
       }
 
@@ -580,20 +653,33 @@
         }
       }
 
+      const WARNING_CHINESE = [
+        '杠杆交易对官方清单需 API key（当前无 key 阶段），杠杆可借性未经私有验证；候选判断使用公开现货 isMarginTradingAllowed 字段。',
+        '表中资金费率为本周期实时预估值，将于所示结算时间收取，结算前会漂移；已结算历史以 /fapi/v1/fundingRate 为准。',
+        'bStock（美股）合约的现货腿按 baseAsset+B+quoteAsset 别名连接（如 TSLAUSDT → TSLABUSDT）；质押率动态未知，未做任何硬编码。'
+      ];
+
       function renderWarnings(warnings) {
         if (!Array.isArray(warnings) || warnings.length === 0) {
           els.warningsPanel.style.display = 'none';
           return;
         }
         els.warningsPanel.style.display = '';
-        els.warningsList.innerHTML = warnings.map(w => `
-          <div class="warning-item">
+        els.marginPublicNote.innerHTML = `
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 16v-4m0-4h.01M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>杠杆可借性未经私有验证（当前为公开数据阶段）</span>
+        `;
+        els.warningsList.innerHTML = WARNING_CHINESE.map((cn, i) => `
+          <div class="info-item">
             <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 15v-2m0-6v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <span>${escapeHtml(w)}</span>
+            <span>${escapeHtml(cn)}</span>
           </div>
         `).join('');
+        els.warningsRawContent.textContent = warnings.map((w, i) => `[${i + 1}] ${w}`).join('\n\n');
       }
 
       function escapeHtml(s) {
@@ -672,7 +758,7 @@
         if (state.blocked) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="8">
+              <td colspan="7">
                 <div class="empty-state">
                   <strong>集成阻塞</strong><br/>
                   ${escapeHtml(state.blockedReason)}
@@ -687,7 +773,7 @@
         if (rows.length === 0) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="8"><div class="empty-state">没有符合筛选条件的数据</div></td>
+              <td colspan="7"><div class="empty-state">没有符合筛选条件的数据</div></td>
             </tr>`;
           renderSummary();
           return;
@@ -696,8 +782,15 @@
         els.tableBody.innerHTML = rows.map(row => {
           const isBstock = row.asset_tag === 'BSTOCK';
           const rateClass = classForFundingRate(row.futures.last_funding_rate);
+          const rateText = formatFundingRate(row.futures.last_funding_rate);
+          const timeText = formatBeijingShort(row.futures.next_funding_time);
+          const fullTime = formatBeijing(row.futures.next_funding_time);
+          const rawRate = row.futures.last_funding_rate;
+          const cellTitle = fullTime === '—'
+            ? '结算时间未知 · 原始费率 ' + escapeHtml(rawRate) + ' · 预估值，结算时最终确定'
+            : `北京时间 ${fullTime} 结算 · 原始费率 ${escapeHtml(rawRate)} · 预估值，结算时最终确定`;
           const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
-            ? row.ui_flags.map(f => `<span class="badge compact">${escapeHtml(f)}</span>`).join(' ')
+            ? row.ui_flags.filter(f => f !== 'MARGIN_PUBLIC_UNVERIFIED').map(badgeForUiFlag).join(' ')
             : '<span class="muted small">—</span>';
           const spotAlias = row.spot && row.spot.match_type === 'bstock_b_suffix_alias' && row.spot.symbol && row.spot.symbol !== row.symbol
             ? `<br/><span class="muted small">现货腿: ${escapeHtml(row.spot.symbol)}</span> <span class="badge compact info">B 后缀别名</span>`
@@ -707,8 +800,7 @@
               <td class="mono">${escapeHtml(row.symbol)}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span>${spotAlias}</td>
               <td>${badgeForAssetTag(row.asset_tag)}</td>
               <td>${badgeForRouteClass(row.route_class)}</td>
-              <td class="${rateClass}">${formatFundingRate(row.futures.last_funding_rate)}</td>
-              <td>${formatBeijing(row.futures.next_funding_time)}</td>
+              <td class="${rateClass}" title="${escapeHtml(cellTitle)}">${rateText} / ${timeText}</td>
               <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
               <td>${badgeForNegativeFundingStatus(row.negative_funding_status)}</td>
               <td>${uiFlags}</td>
@@ -811,6 +903,12 @@
           applyFiltersAndRender();
         });
       }
+
+      globalThis.__appHelpers = {
+        formatFundingRate,
+        formatBeijing,
+        formatBeijingShort
+      };
 
       bindEvents();
       loadApi();

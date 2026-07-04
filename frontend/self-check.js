@@ -60,7 +60,8 @@ function makeElement(id) {
 
 const elements = {};
 const ids = [
-  'warnings-panel', 'warnings-list', 'data-source-label', 'btn-refresh', 'btn-offline',
+  'warnings-panel', 'warnings-list', 'warnings-raw', 'warnings-raw-content', 'margin-public-note',
+  'data-source-label', 'btn-refresh', 'btn-offline',
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only',
   'summary-row', 'status-area', 'market-table-body', 'footer-note'
 ];
@@ -102,17 +103,22 @@ setTimeout(() => {
     }
     console.log('[PASS] 数据源标签显示后端 API');
 
-    // 3. warnings 可见
+    // 3. 数据说明区可见且渲染三条中文说明
     const warningsDisplay = elements['warnings-panel'].style.display;
-    if (warningsDisplay === 'none' || warningsDisplay === '') {
-      // style.display 被设为 '' 表示使用 CSS 默认，即可见；'none' 为隐藏
-      if (warningsDisplay === 'none') throw new Error('warnings 面板被隐藏');
+    if (warningsDisplay === 'none') throw new Error('数据说明面板被隐藏');
+    const marginNote = elements['margin-public-note'].innerHTML;
+    if (!marginNote.includes('杠杆可借性未经私有验证')) {
+      throw new Error('页面级杠杆可借性说明未渲染');
     }
     const warningsHtml = elements['warnings-list'].innerHTML;
-    if (!warningsHtml.includes('margin') && !warningsHtml.includes('lastFundingRate') && !warningsHtml.includes('TRADIFI_PERPETUAL')) {
-      throw new Error('warnings 内容未渲染');
+    if (!warningsHtml.includes('isMarginTradingAllowed') || !warningsHtml.includes('已结算历史') || !warningsHtml.includes('bStock')) {
+      throw new Error('数据说明中文内容未渲染');
     }
-    console.log('[PASS] warnings 可见且内容已渲染');
+    const rawText = elements['warnings-raw-content'].textContent;
+    if (!rawText.includes('lastFundingRate') || !rawText.includes('fapi/v1/fundingRate')) {
+      throw new Error('数据说明英文原文未渲染');
+    }
+    console.log('[PASS] 数据说明区可见且内容已渲染');
 
     // 4. 默认隐藏 PERP_ONLY_EXCLUDED，应渲染 4 行（BTC/ETH/XVG/TSLA）
     const tbody = elements['market-table-body'].innerHTML;
@@ -149,19 +155,21 @@ setTimeout(() => {
     }
     console.log('[PASS] alias 行显示实际现货腿与 B 后缀别名标识');
 
-    // 8. 时间转换正确 (fixture 第一行 next_funding_time 北京时间为 2026-07-03 16:00:00)
-    if (!tbodyAll.includes('2026-07-03 16:00:00')) {
-      throw new Error('下一次结算时间未正确转换为北京时间');
+    // 8. 时间转换正确 (fixture 第一行 next_funding_time 北京时间为 16:00)
+    if (!tbodyAll.includes('16:00')) {
+      throw new Error('下一次结算时间未正确转换为北京时间 HH:mm');
     }
     console.log('[PASS] 时间转换正确');
 
     // 9. 列名/文案符合契约
-    const htmlUpper = html.toUpperCase();
-    if (htmlUpper.includes('已结算') || htmlUpper.includes('预测')) {
-      throw new Error('页面文案包含禁止的“已结算”或“预测”');
+    if (!html.includes('资金费率/结算时间')) {
+      throw new Error('缺少“资金费率/结算时间”列名');
     }
-    if (!html.includes('最近更新的资金费率')) {
-      throw new Error('缺少“最近更新的资金费率”列名');
+    if (html.includes('最近更新的资金费率')) {
+      throw new Error('仍保留旧的“最近更新的资金费率”列名');
+    }
+    if (html.includes('UI 标记')) {
+      throw new Error('仍保留旧的“UI 标记”列名');
     }
     console.log('[PASS] 列名/文案符合契约');
 
@@ -170,6 +178,48 @@ setTimeout(() => {
       throw new Error('页面不应包含交易按钮或开仓票据');
     }
     console.log('[PASS] 无交易按钮/开仓票据');
+
+    // 11. 资金费率字符串移位格式化（7 个必测样例）
+    const helpers = globalThis.__appHelpers;
+    if (!helpers || typeof helpers.formatFundingRate !== 'function') {
+      throw new Error('格式化辅助函数未暴露');
+    }
+    const rateCases = [
+      ['0.00010000', '+0.01%'],
+      ['-0.00005000', '-0.005%'],
+      ['0.00000000', '0%'],
+      ['-0.00000000', '0%'],
+      ['0', '0%'],
+      ['0.00008556', '+0.008556%'],
+      ['', '—']
+    ];
+    for (const [input, expected] of rateCases) {
+      const actual = helpers.formatFundingRate(input);
+      if (actual !== expected) {
+        throw new Error(`formatFundingRate(${JSON.stringify(input)}) 期望 ${expected}，实际 ${actual}`);
+      }
+    }
+    console.log('[PASS] 资金费率格式化 7 个样例');
+
+    // 12. 数据说明中文条目数与 API warnings 数组长度一致
+    const chineseItems = [
+      '杠杆交易对官方清单需 API key（当前无 key 阶段），杠杆可借性未经私有验证；候选判断使用公开现货 isMarginTradingAllowed 字段。',
+      '表中资金费率为本周期实时预估值，将于所示结算时间收取，结算前会漂移；已结算历史以 /fapi/v1/fundingRate 为准。',
+      'bStock（美股）合约的现货腿按 baseAsset+B+quoteAsset 别名连接（如 TSLAUSDT → TSLABUSDT）；质押率动态未知，未做任何硬编码。'
+    ];
+    if (chineseItems.length !== fixture.warnings.length) {
+      throw new Error(`数据说明中文条目数 ${chineseItems.length} 与 API warnings 长度 ${fixture.warnings.length} 不一致`);
+    }
+    console.log('[PASS] 数据说明条目数与 API warnings 一致');
+
+    // 13. MARGIN_PUBLIC_UNVERIFIED 不做行内 badge，其他枚举原值进 title
+    if (tbodyAll.includes('MARGIN_PUBLIC_UNVERIFIED')) {
+      throw new Error('MARGIN_PUBLIC_UNVERIFIED 不应作为行内 badge 直出');
+    }
+    if (!tbodyAll.includes('title="PERP_ONLY_NO_SPOT_LEG"') || !tbodyAll.includes('title="TRADIFI_BSTOCK"')) {
+      throw new Error('枚举原值未放入 title 属性');
+    }
+    console.log('[PASS] 提示标记映射正确');
 
     console.log('\n全部自检通过');
     process.exit(0);
