@@ -1,0 +1,87 @@
+{
+  "stage_id": "2026-07-phase2-borrow-sort-v1",
+  "status": "planned",
+  "workflow": "stage-delivery + docs/parallel-development-mode.md (ADOPTED-TRIAL, first trial)",
+  "prerequisite": "Phase 2 direction baseline FROZEN (docs/phase2-direction-draft.md @ 11dec26, Codex ACCEPT-FREEZE); user approved stage design 2026-07-04",
+  "complexity": "MILESTONE",
+  "direction_panel": "equivalence ruling by Codex synthesis (3 independent reviews + Gemini research + Fable5 revision); applies to this milestone only",
+  "designer": {"provider": "anthropic", "model": "claude-fable-5", "role": "designer/breakdown/prompt author; review-2 default recusal"},
+  "breakdown_author": {"provider": "anthropic", "model": "claude-fable-5"},
+  "direction_synthesis": {"provider": "codex", "model": "gpt5.5", "disclosure": "review-2 reviewer_prior_involvement=direction_synthesis"},
+  "bookkeeper": {
+    "session": "claude_glm controller (user-designated single local execution session)",
+    "dual_hat_disclosure": "bookkeeper and Task A implementer share the claude_glm model; same mitigation set as impl-v1/ui-cn-v1 evidence_policy"
+  },
+  "implementers": {
+    "task_a": {"provider": "zhipu_glm", "model": "glm-5.2", "scope": "backend private channel + borrow_validation + fundingInfo sort"},
+    "task_b": {"provider": "moonshot_kimi", "model": "kimi-2.7", "scope": "frontend column split + daily-rate visibility, zero sort logic"}
+  },
+  "base_sha": null,
+  "head_sha": null,
+  "commit_state": "pre-H_intake; base_sha anchors at the H_intake commit (this packet + discovery evidence)",
+  "diff_fingerprint": null,
+  "diff_fingerprint_formula": "head_sha + \":\" + sha256(git diff --binary <base_sha>..<head_sha> -- . \":(exclude)reports/agent-runs/2026-07-phase2-borrow-sort-v1/status.json\")",
+  "tasks": {
+    "A": {"dispatch": "task-a-glm-backend.prompt.md", "pre_review_prompt": "pre-review-task-a-by-kimi.prompt.md"},
+    "B": {"dispatch": "task-b-kimi-frontend.prompt.md", "pre_review_prompt": "pre-review-task-b-by-glm.prompt.md"}
+  },
+  "embedded_reviews": {
+    "A": {"task_id": "A", "scope": "backend", "implementer": "claude_glm", "reviewer": "kimi (fresh read-only session)", "prompt_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/pre-review-task-a-by-kimi.prompt.md", "max_rounds": 2, "round_artifacts": []},
+    "B": {"task_id": "B", "scope": "frontend", "implementer": "kimi", "reviewer": "claude_glm (fresh read-only session)", "prompt_path": "reports/agent-runs/2026-07-phase2-borrow-sort-v1/pre-review-task-b-by-glm.prompt.md", "max_rounds": 2, "round_artifacts": []},
+    "note": "embedded pre-reviews are uncommitted checkpoints, NOT review gates; do not increment rework_count; each round archives reviewer-visible diff.patch (not a fingerprint) + dispatch + raw output + fix note"
+  },
+  "model_routing": {
+    "review_1": {"task_a": "kimi (fresh session, committed fingerprint)", "task_b": "claude_glm (fresh read-only session, committed fingerprint)"},
+    "review_2": {"provider": "codex", "model": "gpt5.5", "reviewer_prior_involvement": "direction_synthesis", "note": "implementers hard-banned; Fable5 recused (designer/breakdown)"}
+  },
+  "hard_constraints": [
+    "Signed requests: HMAC-SHA256 GET only, whitelist (method, exact-path) pairs listed in endpoint_whitelist below; deny-by-default enforced in private_client before signature creation.",
+    "PERMANENT BAN (phase-independent): order, borrow execution, repay, transfer, withdraw, listenKey/user data stream, websocket, any POST/PUT/DELETE or trade-semantic endpoint.",
+    "BINANCE_API_KEY/BINANCE_API_SECRET via environment variables only; never in repo, logs, reports, prompts, or archived URLs (strip entire query string when archiving).",
+    "private_client.py is the repo's single HMAC exit point (grep-asserted by test).",
+    "Account-level responses redacted at capture time; redaction script committed and testable.",
+    "classify.py / normalize.py logic untouched; negative_funding_status & route_class enums and priority order unchanged; existing 54 backend tests keep passing.",
+    "rows returned pre-sorted by abs(daily_funding_rate) desc, nulls last, symbol asc tie-break; frontend must not re-sort.",
+    "Decimal-string discipline: daily_funding_rate computed with decimal.Decimal (no float); frontend display via string-shift only (parseFloat/Number*100 forbidden).",
+    "Frontend: single file, no new deps, same-origin API only, no borrow_validation consumption this stage; formatFundingRate/formatBeijing* logic unchanged.",
+    "reports/api-samples/** read-only outside this stage's own capture directory.",
+    "Implementer terminals never commit and never touch status.json (bookkeeper single-writer)."
+  ],
+  "endpoint_whitelist": [
+    ["GET", "/sapi/v1/margin/allPairs"],
+    ["GET", "/sapi/v1/margin/allAssets"],
+    ["GET", "/sapi/v1/margin/crossMarginData"],
+    ["GET", "/papi/v1/margin/maxBorrowable"]
+  ],
+  "evidence_policy": {
+    "controller_and_backend_implementer_same_model": true,
+    "required_mitigation": [
+      "Reviewers recompute diff_fingerprint from base_sha and raw git diff, not controller summaries.",
+      "Test output must contain replayable raw command output.",
+      "Review prompts pass raw artifact paths and raw diff paths.",
+      "Task B reviews use fresh read-only Claude-GLM sessions (no controller/Task A transcript reuse).",
+      "Discovery samples carry sha256 evidence-index; contract v0.2 amendment cites raw sample paths.",
+      "Embedded pre-review rounds archive the reviewer-visible diff.patch verbatim."
+    ]
+  },
+  "frozen_inputs": {
+    "direction_baseline": "docs/phase2-direction-draft.md @ 11dec26 (FROZEN)",
+    "coupling_surface": ["funding_interval_hours", "daily_funding_rate", "rows ordering (abs daily desc, nulls last, symbol asc)"],
+    "direction_evidence": "reports/api-samples/phase2-direction-v1/20260704T2030Z/ (sha256 33f61539...)"
+  },
+  "tests": {
+    "backend": "pytest backend/tests (existing 54 + new: whitelist negatives, single-HMAC grep, direct-HTTP guard, degradation, daily-rate vectors, ordering, three-state schema, v0.2 jsonschema live+offline)",
+    "frontend": "node frontend/self-check.js (column split, daily-rate string-shift, interval badge, no-sort-control DOM, payload-order rendering, formatter immutability, graceful degradation on missing fields)"
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": [
+    "E5 /papi/v1/margin/maxBorrowable discovery capture fails (account shape contradicts docs) -> BLOCKED, user decision; silent fallback forbidden",
+    "Any coupling-surface change request during implementation (mode R3)",
+    "Any R1-R9 parallel-mode red-line breach -> record breach, fall back to serial"
+  ],
+  "next_action": "controller (bookkeeper) executes controller-start-prompt.md: H_intake commit (packet + discovery evidence) -> parallel dispatch A/B",
+  "can_accept_final": false,
+  "updated_at": "2026-07-04T13:05:00Z"
+}
