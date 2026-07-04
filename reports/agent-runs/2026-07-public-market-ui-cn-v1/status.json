@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-ui-cn-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
@@ -446,9 +446,9 @@
     "reason": null
   },
   "terminal_reason": "REWORK ROUND 2 COMPLETE: both review gates ACCEPT on ee9296c; awaiting pre-accept gate, then user final acceptance. Controller terminal state = stage_accepted_waiting_user (can_accept_final=false).",
-  "next_action": "Rework round 2 COMPLETE: review-1 round-2 (fresh GLM) ACCEPT + review-2 round-2 (Codex) ACCEPT, both bound to ee9296c:f4637f8a. The round-1 P2 (manual-refresh timer not rescheduled) is resolved. status=stage_accepted_waiting_user. Controller runs validate-stage --phase pre-accept (final gate) and STOPS here. Controller does NOT declare final acceptance (can_accept_final=false); final acceptance is the user's gate. Round history: round-0 ACCEPT (9b0e62c), round-1 review-2 REWORK (7592b2c), round-2 ACCEPT (ee9296c).",
+  "next_action": "stage closed; carry-forward open_items deferred to position-opening planning",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T09:34:00Z",
+  "updated_at": "2026-07-04T09:51:00Z",
   "review_1": {
     "round": 2,
     "verdict": "ACCEPT",
@@ -543,7 +543,7 @@
     {
       "id": "asset_tag_enum_direct_display",
       "severity": "P3_cosmetic",
-      "status": "open",
+      "status": "resolved",
       "recorded_at": "2026-07-04T07:52:12Z",
       "reviewer": {
         "provider": "anthropic",
@@ -552,7 +552,9 @@
         "prior_involvement": "designer_breakdown_author"
       },
       "summary": "badgeForAssetTag renders CRYPTO/UNKNOWN/BSTOCK raw enums in the 资产标签 column (violated the round-1 dispatch's no-raw-English-enum rule); sidebar brand 'Funding Hedge' still English (review-1 P3, out-of-diff). Both cosmetic, no functional impact; review-1/review-2 ACCEPT verdicts on head 9b0e62c preserved verbatim.",
-      "resolution_route": "rework round 1 per fix-start-prompt-ui-round1.md; NOTE the user's new enum-display decision (English + Chinese parens) supersedes the round-1 pure-Chinese rule, so the fix implements the new scheme rather than translating enums away."
+      "resolution_route": "rework round 1 per fix-start-prompt-ui-round1.md; NOTE the user's new enum-display decision (English + Chinese parens) supersedes the round-1 pure-Chinese rule, so the fix implements the new scheme rather than translating enums away.",
+      "resolved_at": "2026-07-04T09:51:00Z",
+      "resolution": "Fixed in rework round 1 (H_fix 7592b2c): badgeForAssetTag/route/negative-funding columns and filter dropdowns now render 英文枚举(中文解释); sidebar brand sinicized. Verified by Fable5 external post-review on head ee9296c (grep + node frontend/self-check.js all PASS)."
     }
   ],
   "user_decisions": [
@@ -573,6 +575,12 @@
       "topic": "auto refresh + countdown",
       "decision": "前端每 60 秒自动刷新(对齐后端 Config.cache_ttl_seconds=60),市场表附近显示下次刷新倒计时;手动刷新保留并重置倒计时。",
       "consequence": "Previously manual-refresh-only. No API/schema change: polling is frontend-local; backend TTL cache unchanged."
+    },
+    {
+      "decided_at": "2026-07-04",
+      "topic": "final acceptance of stage 2026-07-public-market-ui-cn-v1",
+      "decision": "用户验收通过(可以验收)。head ee9296c, fingerprint ee9296c...:f4637f8a...; review_1+review_2 round-2 双 ACCEPT; Fable5 外部复核通过(指纹独立复算一致、P2 timer-sync 修复逻辑独立确认、4 项 UI 决议逐项验证、保护函数零改动、self-check 全 PASS、pre-accept gate PASSED)。",
+      "consequence": "Stage closed at rework_count 2/3. P3 finding asset_tag_enum_direct_display closed as resolved. Carry-forward open_items (bStock equivalence, spot session hours, non-USDT quotes) remain deferred, non-blocking."
     }
   ],
   "review_1_round0": {
