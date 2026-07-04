@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-phase2-borrow-sort-v1",
-  "status": "planned",
+  "status": "implementing",
   "workflow": "stage-delivery + docs/parallel-development-mode.md (ADOPTED-TRIAL, first trial)",
   "prerequisite": "Phase 2 direction baseline FROZEN (docs/phase2-direction-draft.md @ 11dec26, Codex ACCEPT-FREEZE); user approved stage design 2026-07-04",
   "complexity": "MILESTONE",
@@ -18,7 +18,7 @@
   },
   "base_sha": null,
   "head_sha": null,
-  "commit_state": "pre-H_intake; base_sha anchors at the H_intake commit (this packet + discovery evidence)",
+  "commit_state": "H_intake committed; 5-endpoint discovery captured (all HTTP 200, E5 PASSED); base anchors at this commit; base_sha bound on first fingerprint bind (a commit cannot self-reference its sha; follows bstock-alias-v1 convention)",
   "diff_fingerprint": null,
   "diff_fingerprint_formula": "head_sha + \":\" + sha256(git diff --binary <base_sha>..<head_sha> -- . \":(exclude)reports/agent-runs/2026-07-phase2-borrow-sort-v1/status.json\")",
   "tasks": {
@@ -83,5 +83,22 @@
   ],
   "next_action": "controller (bookkeeper) executes controller-start-prompt.md: H_intake commit (packet + discovery evidence) -> parallel dispatch A/B",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T13:05:00Z"
+  "updated_at": "2026-07-04T13:34:06Z",
+  "h_intake": {
+    "discovery_evidence_dir": "reports/api-samples/2026-07-phase2-borrow-sort-v1/20260704T133406Z",
+    "discovery_script": "scripts/discovery-capture-phase2.py",
+    "captured_at_utc": "2026-07-04T13:34:06Z",
+    "endpoints_captured": [
+      ["GET", "/fapi/v1/fundingInfo"],
+      ["GET", "/sapi/v1/margin/allPairs"],
+      ["GET", "/sapi/v1/margin/allAssets"],
+      ["GET", "/sapi/v1/margin/crossMarginData"],
+      ["GET", "/papi/v1/margin/maxBorrowable"]
+    ],
+    "total_http_calls": 6,
+    "e5_gate": "PASSED",
+    "max_borrowable_samples": ["BTC", "ETH"],
+    "funding_interval_distribution": {"8h": 269, "4h": 440, "1h": 2},
+    "note": "amounts in account-level maxBorrowable responses redacted to <AMOUNT> at capture; URL query strings stripped; no key/secret/signature archived"
+  }
 }

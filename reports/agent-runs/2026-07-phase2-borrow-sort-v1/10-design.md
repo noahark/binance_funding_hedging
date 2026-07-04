@@ -81,6 +81,74 @@ fallback 端点仅在 discovery 证实 E4 不可用后经簿记补入）。raw J
 字段名、单位由 discovery 实抓样本冻结进本文件的附录（controller 在
 H_intake 补写，属 intake 范畴）。E5 响应为账户级：落档前按脱敏规则处理。
 
+### 2.A Discovery 字段冻结附录（H_intake controller 据实抓补写）
+
+署名：controller/bookkeeper（claude_glm 本地会话，dual-hat 已披露）。
+补写时间：2026-07-04 21:34 CST。证据目录：`reports/api-samples/
+2026-07-phase2-borrow-sort-v1/20260704T133406Z/`（`evidence-index.md` +
+sha256 全表 + 脱敏样本 + 脚本 `scripts/discovery-capture-phase2.py`）。
+实抓结果：**五端点全部 HTTP 200，E5 gate PASSED**（账户形态 = Portfolio
+Margin 普通版，`/papi` 可访问；BTC/ETH 两样本均成功；无任何 fallback）。
+
+每端点冻结字段（raw JSON path / 类型 / 单位 / 契约映射）：
+
+**E1 `GET /fapi/v1/fundingInfo`（公开匿名，无签名）**
+- 响应：`list[711]`。
+- `[i].symbol`：str（如 `BTCUSDT`）—— 匹配键。
+- `[i].fundingIntervalHours`：**int，单位=小时，∈{1,4,8}** —— 结算间隔。
+- `[i].adjustedFundingRateCap|Floor`：str、`[i].disclaimer`：bool、
+  `[i].updateTime`：null —— 不用。
+- 契约映射：`row.funding_interval_hours` ← `[i].fundingIntervalHours`
+  （按 symbol 匹配；未列出按默认 **8**）。实抓分布 `8h:269 / 4h:440 / 1h:2`
+  （与方向基线 live 核实一致；fundingInfo sha256 前缀 `33f61539…` 与方向
+  阶段旧样本一致 → 间隔表自方向阶段以来稳定）。
+
+**E2 `GET /sapi/v1/margin/allPairs`（签名，市场级）**
+- 响应：`list[760]`。
+- `[i].symbol`：str（如 `BTCUSDT`）、`[i].base|quote`：str —— 匹配键。
+- `[i].isMarginTrade`：**bool** —— 经典杠杆对可交易。
+- `[i].isBuyAllowed|isSellAllowed`：bool、`[i].id`：int —— 不用。
+- 契约映射：`borrow_validation.classic_margin.pair_listed` ←
+  `[i].isMarginTrade`（按 symbol 或 base+quote 匹配）。
+
+**E3 `GET /sapi/v1/margin/allAssets`（签名，市场级）**
+- 响应：`list[409]`。
+- `[i].assetName`：str（如 `BTC`）—— **匹配键（注意 raw 字段为 `assetName`，
+  非 `asset`）**。
+- `[i].isBorrowable`：**bool** —— 经典可借参考。
+- `[i].isMortgageable`：bool、`[i].userMinBorrow|userMinRepay`：str(amount)
+  —— 实现不消费。
+- 契约映射：`borrow_validation.classic_margin.asset_borrowable` ←
+  `[i].isBorrowable`（按 assetName 匹配）。
+
+**E4 `GET /sapi/v1/margin/crossMarginData`（签名，市场级 VIP 分档表）**
+- 响应：`list[408]`。
+- `[i].coin`：str（如 `BTC`）—— **匹配键（注意 raw 字段为 `coin`，非 `asset`）**。
+- `[i].vipLevel`：int —— 本账户实抓**仅返回 `0` 档**（每 coin 一条 VIP0 记录）。
+- `[i].dailyInterest`：**str，单位=日利率（小数串，如 "0.0005"）** —— VIP0
+  基准日利率。
+- `[i].yearlyInterest`：str(rate)、`[i].borrowLimit`：str(amount)、
+  `[i].transferIn|borrowable`：bool、`[i].marginablePairs`：list[str] —— 不用。
+- 契约映射：`borrow_validation.classic_margin.daily_interest_vip0` ←
+  `[i].dailyInterest` where `vipLevel==0`（按 coin 匹配）。取档规则：取 VIP0
+  基准档（实抓仅含 VIP0，无歧义；用户实际适用利率留后续账户级阶段）。
+
+**E5 `GET /papi/v1/margin/maxBorrowable?asset=<ASSET>`（签名，账户级，脱敏）**
+- 参数：`asset`（必填，baseAsset，如 `BTC`）。
+- 响应：`object`，仅两字段：`.amount`（str，**单位=该资产最大可借数量**）+
+  `.borrowLimit`（str，**单位=该资产借款限额**）。
+- 注：响应**不含 asset 字段**（asset 为请求参数）；BTC/ETH 两样本脱敏后结构
+  相同、sha 一致属预期（文件名带 asset 区分样本）。
+- 契约映射：`borrow_validation.portfolio_account.max_borrowable` ← `.amount`；
+  `borrow_limit` ← `.borrowLimit`。
+- 落档脱敏：`amount`/`borrowLimit` → 字面 `<AMOUNT>`（保留 str 类型与键名）。
+
+**字段命名差异提示（实现必遵）**：raw 为 camelCase（`amount`/`borrowLimit`/
+`dailyInterest`/`fundingIntervalHours`/`assetName`/`coin`/`isMarginTrade`/
+`isBorrowable`）。实现装配层负责 raw → snake_case 契约映射，**不得**把 raw
+名泄露进 snapshot 输出；匹配键严格按上列 raw 字段名（误用 `asset` 会导致
+E3/E4 查询落空）。
+
 ## 3. Task A 实现要点（backend，claude_glm）
 
 ### 3.1 允许/禁止文件

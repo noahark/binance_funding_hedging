@@ -1,11 +1,15 @@
 <!-- ============ RECEIPT（审计元数据，执行者填写；非任务内容） ============
-status: pending            # pending | running | done | blocked
+status: running            # pending | running | done | blocked
 target_model: claude_glm (controller/bookkeeper session)
 adapter_cmd: 用户粘贴 PROMPT BODY 至 claude-glm controller 终端
-started_at:
+started_at: 2026-07-04T13:24Z (UTC) / 21:24 CST
 completed_at:
-session_id:
+session_id: claude_glm controller session (dual-hat with Task A implementer)
 outputs:                   # H_intake commit sha / discovery 证据目录 / 派工时间
+  - h_intake: discovery 证据 reports/api-samples/2026-07-phase2-borrow-sort-v1/20260704T133406Z/ (5 endpoints, E5 PASSED)
+  - script: scripts/discovery-capture-phase2.py
+  - 10-design §2.A 字段冻结附录（controller 据实抓补写）
+  - status: planned -> implementing
 next_dispatch: task-a-glm-backend.prompt.md + task-b-kimi-frontend.prompt.md（并行）
 ======================================================================== -->
 
