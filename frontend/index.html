@@ -876,6 +876,12 @@
           refreshState.isRefreshing = false;
           refreshState.nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
           updateCountdown();
+          // 手动刷新或自动刷新完成后，把 60s 自动刷新计时器与倒计时显示对齐到同一目标，
+          // 否则手动刷新只重置显示而不重置实际下一次 fetch（见 review-2 round-1 REWORK）。
+          if (refreshState.refreshTimer) clearInterval(refreshState.refreshTimer);
+          refreshState.refreshTimer = setInterval(() => {
+            if (!refreshState.isRefreshing) loadApi();
+          }, AUTO_REFRESH_MS);
         }
       }
 

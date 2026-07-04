@@ -27,6 +27,19 @@ console.log('[PASS] 内联脚本语法检查');
 
 let fetchUrl = null;
 
+// mock setInterval / clearInterval，记录调用以便验证自动刷新计时器重调度
+let intervalIdSeq = 0;
+const intervalCalls = [];     // { id, delay, callback }
+const clearedIntervalIds = new Set();
+global.setInterval = (callback, delay) => {
+  const id = ++intervalIdSeq;
+  intervalCalls.push({ id, delay, callback });
+  return id;
+};
+global.clearInterval = (id) => {
+  clearedIntervalIds.add(id);
+};
+
 function makeElement(id) {
   const el = {
     id,
@@ -88,7 +101,7 @@ global.fetch = async (url) => {
 eval(script);
 
 // 等待 async 渲染
-setTimeout(() => {
+setTimeout(async () => {
   try {
     // 1. 默认请求 /api/public-market/snapshot
     if (fetchUrl !== '/api/public-market/snapshot') {
@@ -282,6 +295,24 @@ setTimeout(() => {
       throw new Error('侧栏品牌未改为“资金费率对冲”');
     }
     console.log('[PASS] 侧栏品牌已中文化');
+
+    // 19. 手动刷新后 60s 自动刷新计时器被重调度，1s 倒计时计时器保持独立
+    const initialRefreshTimer = intervalCalls.slice().reverse().find(c => c.delay === 60000);
+    const initialCountdownTimer = intervalCalls.slice().reverse().find(c => c.delay === 1000);
+    if (!initialRefreshTimer) throw new Error('未找到初始 60000ms 自动刷新计时器');
+    if (!initialCountdownTimer) throw new Error('未找到初始 1000ms 倒计时计时器');
+    await Promise.all((elements['btn-refresh'].listeners.click || []).map(h => h()));
+    if (!clearedIntervalIds.has(initialRefreshTimer.id)) {
+      throw new Error('手动刷新完成后，旧的 60000ms 自动刷新计时器未被 clearInterval');
+    }
+    if (clearedIntervalIds.has(initialCountdownTimer.id)) {
+      throw new Error('手动刷新完成后，1000ms 倒计时计时器不应被 clearInterval');
+    }
+    const newRefreshTimer = intervalCalls.slice().reverse().find(c => c.delay === 60000);
+    if (!newRefreshTimer || newRefreshTimer.id === initialRefreshTimer.id) {
+      throw new Error('手动刷新完成后，未重新创建 60000ms 自动刷新计时器');
+    }
+    console.log('[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立');
 
     console.log('\n全部自检通过');
     process.exit(0);
