@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-ui-cn-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
@@ -32,9 +32,9 @@
     {"provider": "kimi", "model": "kimi-2.7", "task": "B", "scope": "frontend/**"}
   ],
   "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
-  "head_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
+  "head_sha": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
   "commit_state": "committed",
-  "diff_fingerprint": "0fd0d17e2835f445cee2195a8ba366df55084123:3451565850f20c641a53f30499d8488a84c7e1da7e335ac4a96e123751a43fb2",
+  "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:6e6e2d4d7ee28dc6547c727b6a4c99779605686e38af2586a42ac49171114854",
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
   "diff_fingerprint_note": "Two scopes, one protocol; task-level in tasks.<id> at H_A/H_B, stage-level top-level at H_C; status.json excluded from hash. Same formula as prior stages. NOTE: H_intake physically = b84a342 (intake/task/design/status + live funding-semantics evidence) + d3d6e7c (Fable5 pre-written Task B dispatch prompt task-b-kimi-frontend.prompt.md + controller-start-prompt.md update; intake/design scope, no product code). base_sha anchored at b84a342 per user directive, so d3d6e7c's intake artifacts ride in the stage diff (legitimate intake/design scope, not product code; reviewers recompute from base_sha + raw git diff).",
   "commit_order_strategy": "H_intake (this commit: intake/task/design/status + live funding-semantics evidence under reports/api-samples/<stage-id>/) -> H_A (warnings wording + doc + tests) -> H_B (frontend) -> H_C (integration + stage-level fingerprint + finalize). Controller commits serially so each task's base..head diff is owner-scoped.",
@@ -111,9 +111,16 @@
         "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation.md"
       ],
       "forbidden_any_product_code": true,
-      "status": "planned",
+      "status": "implemented_pending_review_1",
       "depends_on": ["A", "B"],
-      "blocking_check": "Offline snapshot rows must be field-identical to the accepted 548ae0d build (only warnings[1] text may differ); ANY rows diff -> BLOCKED."
+      "blocking_check": "Offline snapshot rows must be field-identical to the accepted 548ae0d build (only warnings[1] text may differ); ANY rows diff -> BLOCKED.",
+      "commit": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
+      "base_sha": "cc6ff1d557f8cb5f423196f0206543c951d36309",
+      "head_sha": "9b0e62c4ef72691084443947e9bcdd4408480b6c",
+      "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:28670f9807d372bfb60816e4839f230ea94aa50bab70197be971281eddd09a40",
+      "diff_files_count": 4,
+      "diff_files_note": "60-test-output.txt (replayable rows-baseline command), 20-implementation.md (Task C integration report), 11-adr.md (minimal, no new architecture decision), 70-handoff.md (handoff) — controller bookkeeping, no product code",
+      "tests": {"status": "pass", "note": "rows field-identical to 548ae0d (647==647, only warnings[1] differs); pytest 54 passed; frontend self-check 14/14; float() audit clean; schema VALID"}
     }
   },
   "model_routing": {
@@ -156,13 +163,13 @@
     "Rate percent formatting MUST be string-shift based; parseFloat/Number*100 is forbidden (decimal discipline at the display layer).",
     "UI Chinese-first per user decision 2026-07-04: no raw English enums in the main table; technical terms (USDT, bStock, API) allowed."
   ],
-  "tests": {"status": "pending"},
+  "tests": {"status": "pass", "note": "Task C integration: rows field-identical to 548ae0d (647==647, only warnings[1] differs); pytest 54 passed; frontend self-check 14/14; float() audit clean; schema VALID"},
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Task A (H_A dba4c12) + Task B (H_B 0fd0d17) implemented: CONTRACT_WARNINGS[1] evidenced wording + contract doc + tests (54 passed); frontend CN-first + funding/settlement column merge + string-shift rate formatter (self-check 14/14). status=implementing. Next: Task C (integration: offline snapshot rows field-identical to 548ae0d baseline + warnings[1] new text; any rows diff -> BLOCKED) -> H_C, review-1 (cross: A->Kimi, B->fresh read-only Claude-GLM) -> review-2 (Codex gpt-5.5, direction_synthesis disclosure) -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "next_action": "Task A (H_A dba4c12) + Task B (H_B 0fd0d17) + Task C (H_C 9b0e62c) implemented: CONTRACT_WARNINGS[1] evidenced wording + contract doc + tests (54 passed); frontend CN-first + funding/settlement column merge + string-shift rate formatter (self-check 14/14); integration rows field-identical to 548ae0d baseline (647==647, only warnings[1] differs; NOT BLOCKED). status=review_1. Next: pre-review gate -> review-1 (cross: A->Kimi, B->fresh read-only Claude-GLM) -> review-2 (Codex gpt-5.5, direction_synthesis disclosure) -> pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T05:40:00Z"
+  "updated_at": "2026-07-04T05:41:12Z"
 }
