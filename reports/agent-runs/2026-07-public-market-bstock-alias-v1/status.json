@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-bstock-alias-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stage_id": "2026-07-public-market-impl-v1",
@@ -78,7 +78,7 @@
         "workflows/**",
         "scripts/**"
       ],
-      "status": "fix_applied_pending_review_1",
+      "status": "fix_accepted_pending_review_2",
       "commit": "H_A",
       "base_sha": "d240e43e75034a6718ede79bc295d39e77cd860e",
       "head_sha": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9",
@@ -86,18 +86,22 @@
       "review_1": {
         "status": "ACCEPT",
         "owner": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer"},
-        "output": "30-review-1-backend.md",
-        "raw_output": "review-1-task-a-kimi.raw-output.txt",
-        "dispatch_prompt": "review-1-backend-kimi-prompt.md",
+        "kind": "rework_round_1_fix_re_review",
+        "output": "30-review-1-fix.md",
+        "raw_output": "review-1-fix-kimi.raw-output.txt",
+        "dispatch_prompt": "review-1-fix-kimi-prompt.md",
         "verdict": "ACCEPT",
-        "verdict_diff_fingerprint": "1f94c842a67ac75b170f796b17cb08172457b5d7:fe6d0bd9d16ea2e75c54b59ed9469f206c5e733dc4d159ba35c959d63ad4c815",
+        "verdict_diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
         "verdict_fingerprint_matches": true,
         "schema_valid": true,
-        "reviewer_prior_involvement": "task_b_frontend_implementer",
+        "reviewer_prior_involvement": "none",
+        "reviewer_prior_involvement_notes": "Kimi is the Task B (frontend) implementer and performed the original Task A review-1, but the reviewed object here is the rework round 1 fix diff (authored by claude_glm). Kimi had no direction_synthesis/breakdown/design involvement and did not author the fix. The reviewer_prior_involvement enum tracks only direction/breakdown/design (implementation is allowed for review-1 and not tracked), hence 'none'.",
         "findings": [],
         "required_fixes": [],
-        "reviewed_at": "2026-07-04T00:00:28Z",
-        "independent_test_rerun": "pytest backend/tests -q -> 52 passed; grep float( clean",
+        "residual_observations": ["The fix delta b189440..548ae0d also carries review-2-recheck evidence files + the rework-intake finding/fix-start-prompt (committed in intermediate commits 07ca2bc/ee54429); these are reports/agent-runs/<stage>/ bookkeeping and evidence, not product code — no boundary violation. Product-code boundaries (normalize.py/classify.py/schemas/docs/frontend/api-samples) verified clean."],
+        "reviewed_at": "2026-07-04T03:13:00Z",
+        "independent_test_rerun": "pytest backend/tests -q -> 54 passed (52 + 2 rework tests); grep float( clean",
+        "pre_rework_verdict": {"verdict": "ACCEPT", "bound_head": "1f94c84", "output": "30-review-1-backend.md", "raw_output": "review-1-task-a-kimi.raw-output.txt", "superseded_by": "rework round 1 fix re-review"},
         "next_action": "continue"
       }
     },
@@ -214,16 +218,17 @@
   "review_1": {
     "verdict": "ACCEPT",
     "json_schema_valid": true,
-    "diff_fingerprint": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1:9d6569d15b987c10eaa008b8b9b344f11c70aeaea7fe84d82dbb6030c89f0aba",
-    "diff_fingerprint_rebound_note": "Stage-level fingerprint re-bound from head 0842820 to head b189440 after the evidence-backfill round advanced the stage head. This is a mechanical rebind from head movement, NOT a re-review: the backfill touched no product code (git diff 0842820..b189440 -- backend frontend schemas docs/api is empty), so the Task A/B task-level review-1 verdicts (d240e43..1f94c84 / 6ea4504..5968c49, both ACCEPT) remain valid.",
+    "diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
+    "diff_fingerprint_rebound_note": "Rework round 1 (2026-07-04) re-bound the stage-level fingerprint from head b189440 to head 548ae0d (H_fix). Task A was re-reviewed on the fix diff b189440..548ae0d (Kimi, ACCEPT, output 30-review-1-fix.md; the pre-rework Task A verdict on head 1f94c84 is superseded and preserved in tasks.A.review_1.pre_rework_verdict). Task B (frontend) was NOT touched by the fix (git diff b189440..548ae0d -- frontend is empty), so its review-1 verdict on head 5968c49 remains valid. The stage-level review_1 aggregate is both_tasks_ACCEPT bound to the new head 548ae0d.",
     "status": "both_tasks_ACCEPT",
     "scope": "Task-level review-1 (Task A backend by Kimi + Task B frontend by a fresh read-only Claude-GLM Agent session). The stage-level review_1 verdict aggregates both task verdicts (both ACCEPT) and binds to the stage-level top-level diff_fingerprint, as required by scripts/validate-stage.py validate_acceptance. Per-task fingerprints live in tasks.A/tasks.B; detailed reviews are 30-review-1-backend.md and 30-review-1-frontend.md; 30-review-1.md is the stage-level summary.",
     "task_A": {
-      "provider": "kimi", "model": "kimi-2.7", "verdict": "ACCEPT",
-      "output": "30-review-1-backend.md", "raw_output": "review-1-task-a-kimi.raw-output.txt",
-      "reviewed_at": "2026-07-04T00:00:28Z",
-      "diff_fingerprint": "1f94c842a67ac75b170f796b17cb08172457b5d7:fe6d0bd9d16ea2e75c54b59ed9469f206c5e733dc4d159ba35c959d63ad4c815",
-      "fingerprint_matches": true, "schema_valid": true, "findings": 0
+      "provider": "kimi", "model": "kimi-2.7", "verdict": "ACCEPT", "kind": "rework_round_1_fix_re_review",
+      "output": "30-review-1-fix.md", "raw_output": "review-1-fix-kimi.raw-output.txt",
+      "reviewed_at": "2026-07-04T03:13:00Z",
+      "diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
+      "fingerprint_matches": true, "schema_valid": true, "findings": 0,
+      "pre_rework_verdict": "ACCEPT on head 1f94c84 (output 30-review-1-backend.md; superseded by rework round 1)"
     },
     "task_B": {
       "provider": "claude_glm", "model": "glm-5.2[1m]", "verdict": "ACCEPT",
@@ -326,7 +331,7 @@
     {
       "id": "spot_leg_quote_asset_hardcode",
       "severity": "P1_regression_fix_required",
-      "status": "fix_applied_pending_review",
+      "status": "fix_review_1_accepted_pending_review_2",
       "recorded_at": "2026-07-04T02:27:11Z",
       "reviewer": {
         "provider": "anthropic",
@@ -369,12 +374,29 @@
       "frontend_self_check": "11/11 PASS (frontend untouched)",
       "validate_checkpoint": "PASSED (status=fixing at checkpoint time)"
     },
-    "status": "fix_applied_pending_review_1",
+    "status": "review_1_accepted_pending_review_2",
+    "review_1_rework": {
+      "reviewer": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer"},
+      "kind": "rework_round_1_fix_re_review",
+      "reviewed_range": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1..548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9 (product-code focus: snapshot.py:70 call site, snapshot_service.py universe filter, +BTCUSDC fixture, +2 tests, live-raw replay Section 6)",
+      "verdict": "ACCEPT",
+      "verdict_diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
+      "verdict_fingerprint_matches": true,
+      "schema_valid": true,
+      "reviewer_prior_involvement": "none",
+      "findings": 0,
+      "required_fixes": 0,
+      "output": "reports/agent-runs/2026-07-public-market-bstock-alias-v1/30-review-1-fix.md",
+      "raw_output": "reports/agent-runs/2026-07-public-market-bstock-alias-v1/review-1-fix-kimi.raw-output.txt",
+      "dispatch_prompt": "reports/agent-runs/2026-07-public-market-bstock-alias-v1/review-1-fix-kimi-prompt.md",
+      "independent_test_rerun": "pytest backend/tests -q -> 54 passed; grep float( clean",
+      "reviewed_at": "2026-07-04T03:13:00Z"
+    },
     "superseded_verdicts": {
-      "review_1_top": "both_tasks_ACCEPT (bound to tasks.A 1f94c84 / tasks.B 5968c49) — task-A re-review pending on the fix diff b189440..548ae0d.",
+      "review_1_top": "Task A re-reviewed on the rework fix diff b189440..548ae0d (Kimi, ACCEPT, 2026-07-04, head 548ae0d); the pre-rework Task A verdict on head 1f94c84 is superseded and preserved in tasks.A.review_1.pre_rework_verdict. Task B (frontend) was untouched by the fix, so its verdict on head 5968c49 stands; the stage-level review_1 aggregate is both_tasks_ACCEPT bound to head 548ae0d.",
       "review_2": "ACCEPT recheck (head b189440) — challenged by this finding; re-review pending bound to head 548ae0d."
     },
-    "next_review_routing": "review-1 task-level (Kimi) on the fix diff; then review-2 final gate with the decision pool re-evaluated (Fable5/anthropic reachable since 2026-07-04 with NO prior involvement -> eligible as a provider-unrelated decision model; both implementers claude_glm/kimi hard-banned)."
+    "next_review_routing": "review-1 (rework fix re-review) DONE: Kimi ACCEPT on b189440..548ae0d (head 548ae0d). NEXT review-2 final gate, bound to head 548ae0d. Per AGENTS.md review-2 uses GPT/Codex first (Codex = prior direction_synthesis; strong-reviewer disclosure override, reviewer_prior_involvement=direction_synthesis). Fable5/anthropic was reached for the post-review finding (user-directed, in an Anthropic-authed environment) but the controller shell's claude CLI still re-routes to GLM/Zhipu, so Fable5 is a fallback only if Codex fails its runner-level check (probed per model-adapters.md hygiene, not recorded as 'Fable5 unavailable'). Both implementers (claude_glm, kimi) hard-banned from review-2."
   },
   "tests": {"status": "passed"},
   "rework_count": 1,
@@ -382,7 +404,7 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Rework round 1 fix APPLIED (H_fix 548ae0d, 2026-07-04): snapshot.py:70 call site passes the row's real quoteAsset; snapshot_service.py universe filter adds quoteAsset==\"USDT\" (user decision 2026-07-04); USDC-perp regression fixture + two-layer tests; live-raw replay = 648 all-USDT rows / zero exact_symbol mismatch / 15/15 bStock alias; 40-fix-report.md written. Fingerprints rebound to 548ae0d:97ac2539.... NEXT: dispatch review-1 (Kimi, task-level) on the fix diff b189440..548ae0d, then review-2 final gate with the decision pool re-evaluated per AGENTS.md (Fable5/anthropic reachable since 2026-07-04 with no prior involvement -> eligible provider-unrelated decision model; both implementers hard-banned). Status -> review_1 -> review_2 -> stage_accepted_waiting_user. Controller does NOT declare final acceptance (can_accept_final=false).",
+  "next_action": "Rework round 1 fix APPLIED + review-1 (rework re-review) DONE: H_fix 548ae0d; Kimi re-reviewed the fix diff b189440..548ae0d -> ACCEPT (30-review-1-fix.md), fingerprint 548ae0d:97ac2539... matches, schema valid, 0 findings. NEXT: dispatch review-2 final gate bound to head 548ae0d (Codex/gpt-5.5, direction_synthesis strong-reviewer override; Fable5 fallback only if Codex fails its runner-level check, probed per model-adapters.md hygiene). Status review_1 -> review_2 -> stage_accepted_waiting_user. Controller does NOT declare final acceptance (can_accept_final=false).",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T02:54:31Z"
+  "updated_at": "2026-07-04T03:17:21Z"
 }
