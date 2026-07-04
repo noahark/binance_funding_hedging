@@ -36,9 +36,9 @@
     }
   },
   "base_sha": "4d47ad2d3f2068e86b634b5e39d5063dc4ed526f",
-  "head_sha": "cc25148aa7924e7bb89364f4bba7c8fe978e91f9",
-  "commit_state": "H_A (d8a1164, backend) + H_B (cc25148, frontend) committed serially; diff_fingerprint bound (base=4d47ad2..head=cc25148); embedded pre-review round 1 both PASS (checkpoint per R5, not review gate); rework_count=0",
-  "diff_fingerprint": "cc25148aa7924e7bb89364f4bba7c8fe978e91f9:9dc905d56fd003b1b5ebfa31cdebedd363b49f57ddd488b5bef85ac73f3fcb3a",
+  "head_sha": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0",
+  "commit_state": "review-1 round-1: A=REWORK(E1 fundingInfo live degradation, P1) fixed in H_A2 2a793a9 (96 passed); B=ACCEPT (2x P3 non-blocking); diff_fingerprint re-bound base=4d47ad2..head=2a793a9; rework_count=1; round-2 pending",
+  "diff_fingerprint": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0:9b92cc4595982f0e09ce33d179019fa54a370aa30aeeaa977772eca33fb433e9",
   "diff_fingerprint_formula": "head_sha + \":\" + sha256(git diff --binary <base_sha>..<head_sha> -- . \":(exclude)reports/agent-runs/2026-07-phase2-borrow-sort-v1/status.json\")",
   "tasks": {
     "A": {
@@ -156,7 +156,7 @@
     "backend": "pytest backend/tests (existing 54 + new: whitelist negatives, single-HMAC grep, direct-HTTP guard, degradation, daily-rate vectors, ordering, three-state schema, v0.2 jsonschema live+offline)",
     "frontend": "node frontend/self-check.js (column split, daily-rate string-shift, interval badge, no-sort-control DOM, payload-order rendering, formatter immutability, graceful degradation on missing fields)"
   },
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": [
@@ -164,9 +164,9 @@
     "Any coupling-surface change request during implementation (mode R3)",
     "Any R1-R9 parallel-mode red-line breach -> record breach, fall back to serial"
   ],
-  "next_action": "Phase 4 正式 review-1 (committed fingerprint): 用 review-prompts-templates.md 填 base_sha/head_sha/diff_fingerprint 后派 A->fresh Kimi、B->fresh Claude-GLM 只读会话独立重算指纹出 schema 合规 verdict; review-2 -> Codex (direction_synthesis disclosure)",
+  "next_action": "review-1 round-2: re-review Task A E1 fix (H_A2 2a793a9, new fingerprint 2a793a9:9b92cc45) via fresh Kimi read-only; Task B round-1 ACCEPT stands (backend-only fix). Round-2 ACCEPT -> review-2 (Codex, user-submitted, direction_synthesis).",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T15:20:49Z",
+  "updated_at": "2026-07-04T16:05:00Z",
   "h_intake": {
     "discovery_evidence_dir": "reports/api-samples/2026-07-phase2-borrow-sort-v1/20260704T133406Z",
     "discovery_script": "scripts/discovery-capture-phase2.py",
@@ -205,5 +205,30 @@
       "1h": 2
     },
     "note": "amounts in account-level maxBorrowable responses redacted to <AMOUNT> at capture; URL query strings stripped; no key/secret/signature archived"
+  },
+  "review_1": {
+    "gate": "review_1",
+    "current_round": 2,
+    "rounds": [
+      {
+        "round": 1,
+        "head_sha": "cc25148aa7924e7bb89364f4bba7c8fe978e91f9",
+        "diff_fingerprint": "cc25148aa7924e7bb89364f4bba7c8fe978e91f9:9dc905d56fd003b1b5ebfa31cdebedd363b49f57ddd488b5bef85ac73f3fcb3a",
+        "task_a": {
+          "reviewer": "kimi (fresh read-only session_bfdbafa6)",
+          "verdict": "REWORK",
+          "verdict_path": "30-review-1-backend.md",
+          "top_finding": "P1 live /fapi/v1/fundingInfo failure does not degrade to 8h+warning (design §2 E1)",
+          "fix": "committed H_A2 2a793a9 (binance_public try/except + snapshot extra_warnings + snapshot_service passthrough + test, 96 passed)"
+        },
+        "task_b": {
+          "reviewer": "claude_glm (fresh read-only plan-mode)",
+          "verdict": "ACCEPT",
+          "verdict_path": "30-review-1-frontend.md",
+          "findings": "2x P3 non-blocking (self-check regression net narrowed F1; role template bug F2)"
+        }
+      }
+    ],
+    "note": "round-1 A=REWORK(E1) fixed in H_A2 2a793a9, rework_count=1; B=ACCEPT no rework; round-2 re-reviews A fix on new fingerprint 2a793a9:9b92cc45; B round-1 ACCEPT stands (backend-only fix, no frontend impact)"
   }
 }
