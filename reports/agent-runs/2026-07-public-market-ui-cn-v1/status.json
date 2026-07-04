@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-ui-cn-v1",
-  "status": "designing",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
@@ -31,12 +31,12 @@
     {"provider": "claude_glm", "model": "glm-5.2[1m]", "task": "A", "scope": "CONTRACT_WARNINGS[1] wording + contract doc paragraph + tests"},
     {"provider": "kimi", "model": "kimi-2.7", "task": "B", "scope": "frontend/**"}
   ],
-  "base_sha": "",
-  "head_sha": "",
+  "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
+  "head_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
   "commit_state": "committed",
-  "diff_fingerprint": "",
+  "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')",
-  "diff_fingerprint_note": "Two scopes, one protocol; task-level in tasks.<id> at H_A/H_B, stage-level top-level at H_C; status.json excluded from hash. Same formula as prior stages.",
+  "diff_fingerprint_note": "Two scopes, one protocol; task-level in tasks.<id> at H_A/H_B, stage-level top-level at H_C; status.json excluded from hash. Same formula as prior stages. NOTE: H_intake physically = b84a342 (intake/task/design/status + live funding-semantics evidence) + d3d6e7c (Fable5 pre-written Task B dispatch prompt task-b-kimi-frontend.prompt.md + controller-start-prompt.md update; intake/design scope, no product code). base_sha anchored at b84a342 per user directive, so d3d6e7c's intake artifacts ride in the stage diff (legitimate intake/design scope, not product code; reviewers recompute from base_sha + raw git diff).",
   "commit_order_strategy": "H_intake (this commit: intake/task/design/status + live funding-semantics evidence under reports/api-samples/<stage-id>/) -> H_A (warnings wording + doc + tests) -> H_B (frontend) -> H_C (integration + stage-level fingerprint + finalize). Controller commits serially so each task's base..head diff is owner-scoped.",
   "complexity": {
     "classification": "LOW",
@@ -71,7 +71,14 @@
         "reports/api-samples/**",
         "agents/**", "workflows/**", "scripts/**"
       ],
-      "status": "planned"
+      "status": "implemented_pending_review_1",
+      "commit": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+      "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
+      "head_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
+      "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
+      "diff_files_count": 4,
+      "diff_files_note": "snapshot.py (CONTRACT_WARNINGS[1] string only, -1/+1), docs/api/public-market-contract.md (lastFundingRate paragraph + Open Verification Items entry), backend/tests/test_snapshot.py (warnings[1] assertions), 20-implementation-backend.md (report)",
+      "tests": {"status": "pass", "note": "54 passed; float() audit clean"}
     },
     "B": {
       "name": "Frontend Chinese-first + funding column merge + flags de-noise",
@@ -148,7 +155,7 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "H_intake committed (status=designing; Fable5-authored breakdown + live funding-semantics evidence). Next: controller (Claude-GLM) dispatches Task A per controller-start-prompt.md -> H_A, then Task B -> H_B, Task C -> H_C, review-1 (cross) -> review-2 (Codex, direction_synthesis disclosure) -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "next_action": "Task A (H_A dba4c12) implemented: CONTRACT_WARNINGS[1] evidenced wording + contract doc paragraph + Open Verification Items entry + tests; 54 passed; float() clean; status=implementing. Next: dispatch Task B (Kimi) per task-b-kimi-frontend.prompt.md -> H_B, then Task C (integration) -> H_C, review-1 (cross: A->Kimi, B->fresh read-only Claude-GLM) -> review-2 (Codex gpt-5.5, direction_synthesis disclosure) -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T04:55:00Z"
+  "updated_at": "2026-07-04T05:30:00Z"
 }
