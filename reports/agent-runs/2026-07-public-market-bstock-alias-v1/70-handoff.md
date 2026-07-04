@@ -224,3 +224,13 @@ Records:
 本地北京时间: 2026-07-04 10:27:11 CST
 下一步模型: Claude-GLM (controller / Task A owner)
 下一步任务: Execute rework round 1 per `fix-start-prompt-spot-leg-quote-asset.md`; then review-1 re-verdict on the fix diff, review-2 re-run bound to the new head (re-evaluate the decision pool now that Fable5 is reachable), fingerprints rebound, status -> review_1 -> review_2 -> stage_accepted_waiting_user.
+
+### User decision (2026-07-04): USDT-only universe, folded into rework round 1
+
+用户决策：Phase 1 快照仅覆盖 USDT 计价交易对，其他稳定币计价（USDC/USD1/U/...）
+推迟到未来阶段。universe 过滤新增 `quoteAsset == "USDT"`——兑现既有冻结 schema
+的 `row.quote_asset const "USDT"` 声明，不构成合约修订（schema/docs 不动）。
+该项与 P1 调用点修复一并纳入 rework 第 1 轮 required_fixes；
+`fix-start-prompt-spot-leg-quote-asset.md` 与 `status.json`（`user_decisions`、
+`post_review_findings`、`open_items`、`next_action`）已同步更新。live raw 复验
+预期：universe 648 行全 USDT，无 exact_symbol 错配，15/15 bStock alias 不变。

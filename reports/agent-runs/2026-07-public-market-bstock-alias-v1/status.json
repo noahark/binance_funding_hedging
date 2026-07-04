@@ -311,9 +311,17 @@
     "items": [
       "bStock token vs US-equity 1:1 equivalence is NOT proven from public exchangeInfo alone; whether one bStock token tracks one share of the underlying US equity, and any redemption/conversion constraints, must be verified before any position is opened.",
       "bStock spot/margin session may not trade 24/7 (equity-market sessions) while the TRADIFI perpetual runs 7x24; the resulting funding/price-gap and hedge-continuity implications must be assessed before opening positions.",
-      "PRE-EXISTING (impl-v1, user decision required): snapshot.schema.json declares row.quote_asset={\"const\":\"USDT\"} but the universe filter admits non-USDT perpetuals (43 on live raw: 38 USDC, 2 USD1, 2 U, 1 BTC) and build_rows hardcodes the field to \"USDT\" (snapshot.py:99), so the value lies for those rows. Options: (a) filter universe to quoteAsset==USDT to honor the const (removes 43 rows), or (b) widen the contract to multi-quote. NOT part of rework round 1 (scope decision)."
+      "RESOLVED BY USER DECISION (2026-07-04): quote_asset const vs unfiltered universe — user chose option (a): Phase 1 snapshot covers USDT-quoted pairs ONLY; the universe filter gains quoteAsset==\"USDT\" (honors the existing frozen schema const, removes 43 non-USDT rows from live snapshots). Non-USDT stablecoin-quoted pairs (USDC/USD1/U/...) are deferred to a future stage/contract amendment. Folded into rework round 1 required_fixes; no schema/doc change needed (const already declares USDT-only)."
     ]
   },
+  "user_decisions": [
+    {
+      "decided_at": "2026-07-04",
+      "topic": "snapshot universe quote-asset scope",
+      "decision": "USDT-quoted pairs only for Phase 1; add quoteAsset==\"USDT\" to the universe filter. Other stablecoin-quoted pairs (USDC/USD1/U/...) deferred to a future stage.",
+      "consequence": "Honors the existing frozen snapshot.schema.json row.quote_asset const \"USDT\" (no contract amendment). 43 non-USDT rows disappear from live snapshots (648 remain on the 20260703T170827Z raw). Folded into rework round 1."
+    }
+  ],
   "post_review_findings": [
     {
       "id": "spot_leg_quote_asset_hardcode",
@@ -332,11 +340,13 @@
       "summary": "backend/domain/snapshot.py:70 passes the literal \"USDT\" as quote_asset to resolve_spot_leg instead of obj.get(\"quoteAsset\"); with no upstream quoteAsset filter, 39 of 43 non-USDT-quoted live perpetuals get a wrong spot leg labeled exact_symbol (e.g. BTCUSDC->BTCUSDT, ETHBTC->ETHUSDT) and PNUTUSDC's route flips SPOT_ONLY_CANDIDATE->MARGIN_SPOT_CANDIDATE. Violates the stage's own frozen contract wording (exact = futures symbol equals spot symbol; alias uses futures.quoteAsset). resolve_spot_leg itself and the 15/15 bStock alias closure are correct.",
       "impact": "Hedge-leg identity, spot min_notional/step_size and margin flags sourced from the wrong pair for 39 live rows; one route misclassification. Verified offline against this stage's own captured live raw (20260703T170827Z). review-1/review-2 ACCEPT verdicts are preserved verbatim; their fixtures and live checks covered only USDT-quoted symbols.",
       "required_fixes": [
-        "snapshot.py:70 call site passes obj.get(\"quoteAsset\", \"\") (resolve_spot_leg and classify.py unchanged).",
-        "Synthetic fixture adds a USDC-quoted PERPETUAL (futures BTCUSDC + spot BTCUSDC + spot BTCUSDT); regression asserts spot.symbol==BTCUSDC, match_type==exact_symbol, never BTCUSDT.",
-        "Offline replay against committed live raw asserts zero rows with match_type==exact_symbol and spot.symbol != futures.symbol; output appended to 60-test-output.txt.",
+        "snapshot.py:70 call site passes obj.get(\"quoteAsset\", \"\") (resolve_spot_leg and classify.py unchanged; keeps the call site contract-faithful for future non-USDT stages).",
+        "USER DECISION 2026-07-04: snapshot_service.py universe filter adds quoteAsset==\"USDT\" (Phase 1 = USDT-quoted only; honors the frozen schema const; removes 43 non-USDT rows).",
+        "Synthetic fixture adds a USDC-quoted PERPETUAL (futures BTCUSDC + spot BTCUSDC + spot BTCUSDT). Service-level test: BTCUSDC row is EXCLUDED from the snapshot. build_rows-level test: passing the USDC row directly resolves spot.symbol==BTCUSDC / match_type==exact_symbol, never BTCUSDT (validates the call-site fix independently of the filter).",
+        "Offline replay against committed live raw asserts: universe==648 all-USDT rows; zero rows with match_type==exact_symbol and spot.symbol != futures.symbol; 15/15 bStock alias unchanged; output appended to 60-test-output.txt.",
         "40-fix-report.md finding-to-fix mapping; then review-1 re-verdict on the fix diff and review-2 re-run bound to the new head."
-      ]
+      ],
+      "user_decision_folded_in": "2026-07-04: USDT-only universe (see user_decisions); the previously-deferred quote_asset const inconsistency is resolved inside this rework round."
     }
   ],
   "tests": {"status": "passed"},
@@ -345,7 +355,7 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Rework round 1 (user-directed): fix post_review_findings[spot_leg_quote_asset_hardcode] per fix-start-prompt-spot-leg-quote-asset.md — snapshot.py:70 call site passes the row's real quoteAsset, USDC-perp regression fixture/tests, offline replay against committed live raw, 40-fix-report.md. Then review-1 re-verdict on the fix diff, review-2 re-run bound to the new head (Fable5/anthropic now reachable; re-evaluate the decision pool per AGENTS.md), fingerprints rebound, status -> review_1 -> review_2 -> stage_accepted_waiting_user. Controller does NOT declare final acceptance (can_accept_final=false).",
+  "next_action": "Rework round 1 (user-directed): fix post_review_findings[spot_leg_quote_asset_hardcode] per fix-start-prompt-spot-leg-quote-asset.md — (1) snapshot.py:70 call site passes the row's real quoteAsset; (2) per user decision 2026-07-04, snapshot_service.py universe filter adds quoteAsset==\"USDT\" (Phase 1 USDT-only, honors schema const); (3) USDC-perp regression fixture/tests (service-level exclusion + build_rows-level exact match); (4) offline replay against committed live raw (648 all-USDT rows, no exact_symbol mismatch, 15/15 bStock alias); (5) 40-fix-report.md. Then review-1 re-verdict on the fix diff, review-2 re-run bound to the new head (Fable5/anthropic now reachable; re-evaluate the decision pool per AGENTS.md), fingerprints rebound, status -> review_1 -> review_2 -> stage_accepted_waiting_user. Controller does NOT declare final acceptance (can_accept_final=false).",
   "can_accept_final": false,
   "updated_at": "2026-07-04T02:27:11Z"
 }
