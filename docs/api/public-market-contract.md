@@ -74,11 +74,13 @@ signal only. `negative_funding_status` for those rows stays
 `PRIVATE_BORROW_VALIDATION_REQUIRED`.
 
 Funding semantics: `nextFundingTime` is the millisecond epoch of the next
-scheduled funding settlement (clear). `lastFundingRate` is documented by Binance
-as "the most recently updated funding rate"; the settled-vs-estimate distinction
-is `ambiguous`, so the field must be displayed as "最近资金费率（最近更新值）" and
-must not be labeled as a guaranteed settled or upcoming rate. Settled past rates
-come from `/fapi/v1/fundingRate` (`funding_history`).
+scheduled funding settlement (clear). `lastFundingRate` is the real-time
+estimate for the CURRENT funding period and is charged at `nextFundingTime`; it
+drifts until settlement — mid-period divergence from settled history is evidenced
+under `reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/`
+(cycle-mid ETHUSDT/SOLUSDT estimate != latest settled record; 15-min drift
+observed in-session). Settled history comes from `/fapi/v1/fundingRate`
+(`funding_history`); the estimate must not be presented as a settled value.
 
 bStock / TRADIFI: `contractType == "TRADIFI_PERPETUAL"` maps to
 `asset_tag = "BSTOCK"`. `contractType == "PERPETUAL"` maps to `CRYPTO`.
@@ -278,9 +280,13 @@ Resolution status as of 2026-07-03 (see "Verified Findings" and
   `margin_public.source = "unverified"` and does not produce
   `MARGIN_SPOT_CANDIDATE` from the `sapi` lists. It uses only the public spot
   `isMarginTradingAllowed` field.
-- PARTIALLY RESOLVED: `nextFundingTime` is clear. `lastFundingRate` is
-  "most recently updated funding rate" and its settled-vs-estimate meaning is
-  `ambiguous`; it is not labeled as settled funding.
+- RESOLVED (2026-07-04, stage `2026-07-public-market-ui-cn-v1`): `nextFundingTime`
+  is clear. `lastFundingRate` is the real-time estimate for the current funding
+  period, charged at `nextFundingTime`, drifting until settlement; proven by the
+  mid-period divergence evidence under
+  `reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/`
+  (`verify-funding-semantics.py` PASS). It is not a settled value; settled history
+  comes from `/fapi/v1/fundingRate`.
 - RESOLVED (amended 2026-07-03, stage `2026-07-public-market-bstock-alias-v1`):
   `TRADIFI_PERPETUAL` symbols are tagged `BSTOCK`, and their spot legs are joined
   via the `baseAsset + "B" + quoteAsset` alias. The positive-funding candidate

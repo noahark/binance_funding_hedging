@@ -89,8 +89,13 @@ def test_three_contract_warnings_preserved(raw_inputs):
     assert len(snap["warnings"]) == 3
     joined = "\n".join(snap["warnings"])
     assert "-2014" in joined  # margin endpoints require API key
-    assert "lastFundingRate" in joined  # funding-rate semantics ambiguity
-    assert "TRADIFI_PERPETUAL" in joined  # BSTOCK has no spot leg
+    assert "lastFundingRate" in joined  # funding-rate semantics (real-time estimate)
+    assert "TRADIFI_PERPETUAL" in joined  # BSTOCK alias spot-leg rule
+    # warnings[1] is the evidenced lastFundingRate semantics amendment (Task A,
+    # stage 2026-07-public-market-ui-cn-v1): real-time estimate + evidence path.
+    w1 = snap["warnings"][1]
+    assert "real-time estimate" in w1
+    assert "2026-07-public-market-ui-cn-v1/20260704T044945Z" in w1
 
 
 def test_btcusdt_top_symbol_has_funding_history(raw_inputs):
