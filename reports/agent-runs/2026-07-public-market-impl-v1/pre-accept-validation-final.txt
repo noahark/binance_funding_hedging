@@ -1,0 +1,6 @@
+# Pre-accept validation (run on clean committed tree BEFORE writing status=accepted, 2026-07-04 11:47 CST)
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-public-market-impl-v1
+phase=pre-accept
+status=stage_accepted_waiting_user
+diff_fingerprint=ce004892231db40bf5d8ebb39ac4a4e56d0703b4:7fdbbf17ec989f5da63d38e9b26a5aaff57fdfb2fd73564a0a1be06deb27ce0e

@@ -1,0 +1,6 @@
+# Pre-accept validation (run on clean committed tree BEFORE writing status=accepted, 2026-07-04 11:47 CST)
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-public-market-bstock-alias-v1
+phase=pre-accept
+status=stage_accepted_waiting_user
+diff_fingerprint=548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f

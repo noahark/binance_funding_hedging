@@ -156,3 +156,15 @@ transcript).
 本地北京时间: 2026-07-03 22:28 CST
 下一步模型: 用户 (final acceptance)
 下一步任务: validate-stage.py --phase pre-accept（已提交 review-2 证据，status.json/70-handoff.md 待最终 commit）→ 阶段停在 stage_accepted_waiting_user，等待用户最终接受（controller 不声明 accepted，can_accept_final=false）。所有 gate 已通过：review-1（Task A→Kimi ACCEPT + Task B→fresh Claude-GLM ACCEPT）+ review-2（Codex/GPT gpt5.5 xhigh ACCEPT，final_reviewer，direction_synthesis 披露 override）。review-2 evidence commit: c9f8788。
+
+---
+
+## User final acceptance (2026-07-04)
+
+用户于 2026-07-04 11:47 CST 对 impl-v1（head `ce00489`）与
+`2026-07-public-market-bstock-alias-v1`（最终 head `548ae0d`，含 evidence
+backfill 与 rework round 1）一并给出最终验收。`status=accepted`。
+P1 finding `bstocks_b_suffix_spot_margin_alias` 的 `resolved_by_stage` 引用按
+verbatim 保留纪律停在关闭时点 head `0842820`；alias 闭环已在 548ae0d 由该阶段
+rework review-2 + live-raw 重放再次确认。pre-accept 校验输出留档于
+`pre-accept-validation-final.txt`。本阶段终结；下一轮多模型方向盘启动新阶段。

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-impl-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "designer": {
     "provider": "claude",
@@ -416,7 +416,16 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "Review-1 and review-2 accepted this stage against the frozen contract and validate-stage.py --phase pre-accept PASSED. The post-review P1 finding bstocks_b_suffix_spot_margin_alias is now resolved_by_stage 2026-07-public-market-bstock-alias-v1 (head 0842820): that stage amended the contract + repaired backend/frontend/tests and passed its own review-1 (both ACCEPT) + review-2 (Codex ACCEPT) + pre-accept. impl-v1's own review_1/review_2 verdicts and diff_fingerprint are unchanged. impl-v1 remains stage_accepted_waiting_user; both stages await user final acceptance together (controller does not declare accepted).",
-  "updated_at": "2026-07-03T16:32:00Z",
-  "review_2_commit": "c9f8788"
+  "next_action": "TERMINAL: user final acceptance recorded 2026-07-04 (both stages accepted together). No further stage work; next multi-model direction round starts a new stage.",
+  "updated_at": "2026-07-04T03:47:36Z",
+  "review_2_commit": "c9f8788",
+  "user_final_acceptance": {
+    "accepted": true,
+    "accepted_by": "user",
+    "accepted_at": "2026-07-04T03:47:36Z",
+    "accepted_at_local": "2026-07-04 11:47 CST",
+    "scope": "Final user acceptance of impl-v1 at head ce00489, accepted TOGETHER with stage 2026-07-public-market-bstock-alias-v1 (final head 548ae0d, after rework round 1).",
+    "note": "P1 finding bstocks_b_suffix_spot_margin_alias resolved_by_stage bstock-alias-v1; the resolved_by_stage reference intentionally stays at the closure-time head 0842820 (verbatim-preservation discipline); alias closure re-confirmed at final head 548ae0d by that stage's rework review-2 + live-raw replay.",
+    "pre_accept_validation": "pre-accept-validation-final.txt (PASSED on clean committed tree before writing this terminal state)"
+  }
 }

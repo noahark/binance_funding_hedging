@@ -234,3 +234,16 @@ Records:
 `fix-start-prompt-spot-leg-quote-asset.md` 与 `status.json`（`user_decisions`、
 `post_review_findings`、`open_items`、`next_action`）已同步更新。live raw 复验
 预期：universe 648 行全 USDT，无 exact_symbol 错配，15/15 bStock alias 不变。
+
+---
+
+## User final acceptance (2026-07-04)
+
+用户于 2026-07-04 11:47 CST 给出最终验收（与 impl-v1 一并 accept）。
+`status=accepted`，绑定 head `548ae0d`（fingerprint `548ae0d:97ac2539...`），
+覆盖原始修订、2026-07-04 evidence backfill 与 rework round 1（P1
+`spot_leg_quote_asset_hardcode` 修复 + 用户决策 USDT-only universe）。外部评审
+（anthropic/claude-fable-5）已独立复验 rework（54 tests、live-raw 重放 648 全
+USDT / 0 错配 / 15/15 alias）。carry-forward open_items（bStock 1:1 等价性、
+现货 session vs 7x24、非 USDT 计价）继续挂起，验收不关闭它们。pre-accept 校验
+输出留档于 `pre-accept-validation-final.txt`。本阶段终结。

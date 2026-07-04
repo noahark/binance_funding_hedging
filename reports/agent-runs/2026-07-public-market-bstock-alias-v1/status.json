@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-bstock-alias-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stage_id": "2026-07-public-market-impl-v1",
@@ -33,8 +33,18 @@
     "note": "The user-approved direction synthesis (2026_07_initial_direction) and prior stages cover Phase 1 public market; the user explicitly specified the 6 amendment points. No new direction panel run this stage."
   },
   "implementers": [
-    {"provider": "claude_glm", "model": "glm-5.2[1m]", "task": "A", "scope": "contract amendment + backend/**"},
-    {"provider": "kimi", "model": "kimi-2.7", "task": "B", "scope": "frontend/**"}
+    {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "task": "A",
+      "scope": "contract amendment + backend/**"
+    },
+    {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "task": "B",
+      "scope": "frontend/**"
+    }
   ],
   "base_sha": "d240e43e75034a6718ede79bc295d39e77cd860e",
   "head_sha": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9",
@@ -58,8 +68,17 @@
   "tasks": {
     "A": {
       "name": "Contract amendment + backend bStock alias repair",
-      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "senior_developer"},
-      "reviewer_1_planned": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer", "output": "30-review-1-backend.md"},
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "senior_developer"
+      },
+      "reviewer_1_planned": {
+        "provider": "kimi",
+        "model": "kimi-2.7",
+        "skill": "code_reviewer",
+        "output": "30-review-1-backend.md"
+      },
       "scope": [
         "schemas/api/public-market/snapshot.schema.json",
         "docs/api/public-market-contract.md",
@@ -85,7 +104,11 @@
       "diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
       "review_1": {
         "status": "ACCEPT",
-        "owner": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer"},
+        "owner": {
+          "provider": "kimi",
+          "model": "kimi-2.7",
+          "skill": "code_reviewer"
+        },
         "kind": "rework_round_1_fix_re_review",
         "output": "30-review-1-fix.md",
         "raw_output": "review-1-fix-kimi.raw-output.txt",
@@ -98,17 +121,36 @@
         "reviewer_prior_involvement_notes": "Kimi is the Task B (frontend) implementer and performed the original Task A review-1, but the reviewed object here is the rework round 1 fix diff (authored by claude_glm). Kimi had no direction_synthesis/breakdown/design involvement and did not author the fix. The reviewer_prior_involvement enum tracks only direction/breakdown/design (implementation is allowed for review-1 and not tracked), hence 'none'.",
         "findings": [],
         "required_fixes": [],
-        "residual_observations": ["The fix delta b189440..548ae0d also carries review-2-recheck evidence files + the rework-intake finding/fix-start-prompt (committed in intermediate commits 07ca2bc/ee54429); these are reports/agent-runs/<stage>/ bookkeeping and evidence, not product code — no boundary violation. Product-code boundaries (normalize.py/classify.py/schemas/docs/frontend/api-samples) verified clean."],
+        "residual_observations": [
+          "The fix delta b189440..548ae0d also carries review-2-recheck evidence files + the rework-intake finding/fix-start-prompt (committed in intermediate commits 07ca2bc/ee54429); these are reports/agent-runs/<stage>/ bookkeeping and evidence, not product code — no boundary violation. Product-code boundaries (normalize.py/classify.py/schemas/docs/frontend/api-samples) verified clean."
+        ],
         "reviewed_at": "2026-07-04T03:13:00Z",
         "independent_test_rerun": "pytest backend/tests -q -> 54 passed (52 + 2 rework tests); grep float( clean",
-        "pre_rework_verdict": {"verdict": "ACCEPT", "bound_head": "1f94c84", "output": "30-review-1-backend.md", "raw_output": "review-1-task-a-kimi.raw-output.txt", "superseded_by": "rework round 1 fix re-review"},
+        "pre_rework_verdict": {
+          "verdict": "ACCEPT",
+          "bound_head": "1f94c84",
+          "output": "30-review-1-backend.md",
+          "raw_output": "review-1-task-a-kimi.raw-output.txt",
+          "superseded_by": "rework round 1 fix re-review"
+        },
         "next_action": "continue"
       }
     },
     "B": {
       "name": "Frontend bStock alias display",
-      "owner": {"provider": "kimi", "model": "kimi-2.7", "skill": "minimal_change_engineer"},
-      "reviewer_1_planned": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "code_reviewer", "output": "30-review-1-frontend.md", "fresh_session_required": true, "note": "Fresh read-only Claude-GLM session; must not reuse the controller/Task A transcript."},
+      "owner": {
+        "provider": "kimi",
+        "model": "kimi-2.7",
+        "skill": "minimal_change_engineer"
+      },
+      "reviewer_1_planned": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "code_reviewer",
+        "output": "30-review-1-frontend.md",
+        "fresh_session_required": true,
+        "note": "Fresh read-only Claude-GLM session; must not reuse the controller/Task A transcript."
+      },
       "scope": [
         "frontend/**",
         "reports/agent-runs/2026-07-public-market-bstock-alias-v1/20-implementation-frontend.md"
@@ -125,13 +167,20 @@
       ],
       "status": "implemented",
       "commit": "H_B",
-      "depends_on": ["A"],
+      "depends_on": [
+        "A"
+      ],
       "base_sha": "6ea4504",
       "head_sha": "5968c499d990c3dfaa54f5fd8b38172b9a0a0ddb",
       "diff_fingerprint": "5968c499d990c3dfaa54f5fd8b38172b9a0a0ddb:8c5d685eb8a51ea3261cb85cda97cfa000b2fb66ccddf49d3b0f0031a4b7c7d0",
       "review_1": {
         "status": "ACCEPT",
-        "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "code_reviewer", "fresh_session_required": true},
+        "owner": {
+          "provider": "claude_glm",
+          "model": "glm-5.2[1m]",
+          "skill": "code_reviewer",
+          "fresh_session_required": true
+        },
         "output": "30-review-1-frontend.md",
         "dispatch_prompt": "review-1-frontend-glm-prompt.md",
         "fresh_session": true,
@@ -149,7 +198,11 @@
     },
     "C": {
       "name": "Integration verification (controller, no product code)",
-      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "skill": "test_strategist"},
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "skill": "test_strategist"
+      },
       "scope": [
         "reports/agent-runs/2026-07-public-market-bstock-alias-v1/60-test-output.txt",
         "reports/agent-runs/2026-07-public-market-bstock-alias-v1/20-implementation.md",
@@ -157,22 +210,48 @@
       ],
       "forbidden_any_product_code": true,
       "status": "implemented",
-      "depends_on": ["A", "B"],
+      "depends_on": [
+        "A",
+        "B"
+      ],
       "base_sha": "a57581e",
       "head_sha": "0842820ff21d30f563d25a3ff914cd705e6d9002",
       "diff_fingerprint": "0842820ff21d30f563d25a3ff914cd705e6d9002:a46639a3405026a0320d8264d6a50993c55d6885d7cadcef4fed33e6d8c27576"
     }
   },
   "model_routing": {
-    "backend_and_contract_owner": {"provider": "claude_glm", "model": "glm-5.2[1m]", "scope": "Task A: contract amendment + backend"},
-    "frontend_owner": {"provider": "kimi", "model": "kimi-2.7", "scope": "Task B: frontend"},
+    "backend_and_contract_owner": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "scope": "Task A: contract amendment + backend"
+    },
+    "frontend_owner": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "scope": "Task B: frontend"
+    },
     "excluded_for_core_work": [
-      {"provider": "grok", "reason": "Grok stays excluded from implementation and review (per prior stages)."}
+      {
+        "provider": "grok",
+        "reason": "Grok stays excluded from implementation and review (per prior stages)."
+      }
     ],
-    "review_1_task_A": {"provider": "kimi", "model": "kimi-2.7", "reason": "implementer is claude_glm; cross-review selects Kimi."},
-    "review_1_task_B": {"provider": "claude_glm", "model": "glm-5.2[1m]", "reason": "implementer is kimi; cross-review selects a fresh read-only Claude-GLM session (not the controller/Task A transcript)."},
+    "review_1_task_A": {
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "reason": "implementer is claude_glm; cross-review selects Kimi."
+    },
+    "review_1_task_B": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "reason": "implementer is kimi; cross-review selects a fresh read-only Claude-GLM session (not the controller/Task A transcript)."
+    },
     "review_2_stage": {
-      "primary": {"provider": "codex", "model": "gpt5.5", "effort": "xhigh"},
+      "primary": {
+        "provider": "codex",
+        "model": "gpt5.5",
+        "effort": "xhigh"
+      },
       "reviewer_prior_involvement": "direction_synthesis",
       "override": "strong_reviewer_disclosure",
       "runner_level_check": "Decision-model pool for review-2 = {GPT/Codex, Anthropic}. Implementers claude_glm (zhipu) and kimi wrote delivery code -> hard-banned from review-2 (no override). This stage's designer/breakdown author = controller (claude_glm), because Fable5 (anthropic) is unreachable (claude CLI auth -> zhipu_glm, error 1211 'model not found'); so Fable5 has NO involvement this stage and there is no anthropic design-involvement disclosure. direction_synthesis = codex (status=approved_prior_stage, covers this stage; no new direction panel). Codex has NO design/breakdown/code-authorship involvement this stage. Per AGENTS.md, because no provider-unrelated decision model is available (Codex=prior direction only; Fable5 unavailable; both implementers hard-banned), Codex reviews via the strong-reviewer disclosure override with reviewer_prior_involvement=direction_synthesis. Evidence: fable5-detail-breakdown.unavailable.md + this field + the disclosure section of the review-2 dispatch prompt.",
@@ -223,19 +302,30 @@
     "status": "both_tasks_ACCEPT",
     "scope": "Task-level review-1 (Task A backend by Kimi + Task B frontend by a fresh read-only Claude-GLM Agent session). The stage-level review_1 verdict aggregates both task verdicts (both ACCEPT) and binds to the stage-level top-level diff_fingerprint, as required by scripts/validate-stage.py validate_acceptance. Per-task fingerprints live in tasks.A/tasks.B; detailed reviews are 30-review-1-backend.md and 30-review-1-frontend.md; 30-review-1.md is the stage-level summary.",
     "task_A": {
-      "provider": "kimi", "model": "kimi-2.7", "verdict": "ACCEPT", "kind": "rework_round_1_fix_re_review",
-      "output": "30-review-1-fix.md", "raw_output": "review-1-fix-kimi.raw-output.txt",
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "verdict": "ACCEPT",
+      "kind": "rework_round_1_fix_re_review",
+      "output": "30-review-1-fix.md",
+      "raw_output": "review-1-fix-kimi.raw-output.txt",
       "reviewed_at": "2026-07-04T03:13:00Z",
       "diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
-      "fingerprint_matches": true, "schema_valid": true, "findings": 0,
+      "fingerprint_matches": true,
+      "schema_valid": true,
+      "findings": 0,
       "pre_rework_verdict": "ACCEPT on head 1f94c84 (output 30-review-1-backend.md; superseded by rework round 1)"
     },
     "task_B": {
-      "provider": "claude_glm", "model": "glm-5.2[1m]", "verdict": "ACCEPT",
-      "output": "30-review-1-frontend.md", "fresh_session": true,
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "verdict": "ACCEPT",
+      "output": "30-review-1-frontend.md",
+      "fresh_session": true,
       "reviewed_at": "2026-07-03T16:05:00Z",
       "diff_fingerprint": "5968c499d990c3dfaa54f5fd8b38172b9a0a0ddb:8c5d685eb8a51ea3261cb85cda97cfa000b2fb66ccddf49d3b0f0031a4b7c7d0",
-      "fingerprint_matches": true, "schema_valid": true, "findings": 0
+      "fingerprint_matches": true,
+      "schema_valid": true,
+      "findings": 0
     },
     "both_schema_valid": true,
     "both_fingerprints_match": true,
@@ -250,7 +340,9 @@
     "diff_fingerprint": "0842820ff21d30f563d25a3ff914cd705e6d9002:24ce862a277987871fadbeb7e46ee3e59db923904ff28468ac84482ac48fb9ac",
     "status": "stage_accepted_waiting_user",
     "role": "final_reviewer",
-    "provider": "codex", "model": "gpt5.5", "effort": "xhigh",
+    "provider": "codex",
+    "model": "gpt5.5",
+    "effort": "xhigh",
     "sandbox": "read-only",
     "output": "50-review-2.md",
     "raw_output": "review-2-codex.raw-output.txt",
@@ -275,7 +367,9 @@
     "diff_fingerprint": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1:9d6569d15b987c10eaa008b8b9b344f11c70aeaea7fe84d82dbb6030c89f0aba",
     "status": "stage_accepted_waiting_user",
     "role": "final_reviewer",
-    "provider": "codex", "model": "gpt-5.5", "effort": "xhigh",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "effort": "xhigh",
     "sandbox": "read-only",
     "kind": "recheck_after_evidence_backfill",
     "output": "50-review-2-recheck.md",
@@ -308,7 +402,9 @@
     "diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
     "status": "stage_accepted_waiting_user",
     "role": "final_reviewer",
-    "provider": "codex", "model": "gpt-5.5", "effort": "xhigh",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "effort": "xhigh",
     "sandbox": "read-only",
     "kind": "rework_round_1_after_p1_fix",
     "finding_id": "spot_leg_quote_asset_hardcode",
@@ -339,10 +435,30 @@
     "round": "2026-07-04 evidence backfill (user-directed)",
     "reason": "Ground the bStock alias contract amendment in live public fact evidence, per the new Hard Gates rule (AGENTS.md: contract amendments must carry raw public samples; synthetic fixtures supplement, never replace).",
     "live_capture_dir": "reports/api-samples/public-market-bstock-alias-v1/20260703T170827Z/",
-    "live_endpoints": ["https://fapi.binance.com/fapi/v1/exchangeInfo", "https://api.binance.com/api/v3/exchangeInfo"],
+    "live_endpoints": [
+      "https://fapi.binance.com/fapi/v1/exchangeInfo",
+      "https://api.binance.com/api/v3/exchangeInfo"
+    ],
     "no_credentials_used": true,
-    "not_called": ["signed endpoints", "API key", "private account endpoints", "user data stream", "listenKey", "/sapi/*", "/fapi/v1/order", "/dapi/v1/order", "borrow", "repay", "transfer", "websocket"],
-    "commits": ["0578191 Harness corrections", "9f4764c live capture", "b189440 live-raw recheck + handoff + open items"],
+    "not_called": [
+      "signed endpoints",
+      "API key",
+      "private account endpoints",
+      "user data stream",
+      "listenKey",
+      "/sapi/*",
+      "/fapi/v1/order",
+      "/dapi/v1/order",
+      "borrow",
+      "repay",
+      "transfer",
+      "websocket"
+    ],
+    "commits": [
+      "0578191 Harness corrections",
+      "9f4764c live capture",
+      "b189440 live-raw recheck + handoff + open items"
+    ],
     "result": "PASS (15/15 bStock alias on live raw; BTCUSDT negative control; jsonschema-valid snapshot). Prior synthetic-only residual closed."
   },
   "open_items": {
@@ -410,7 +526,11 @@
     },
     "status": "review_2_accepted_stage_waiting_user",
     "review_1_rework": {
-      "reviewer": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer"},
+      "reviewer": {
+        "provider": "kimi",
+        "model": "kimi-2.7",
+        "skill": "code_reviewer"
+      },
       "kind": "rework_round_1_fix_re_review",
       "reviewed_range": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1..548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9 (product-code focus: snapshot.py:70 call site, snapshot_service.py universe filter, +BTCUSDC fixture, +2 tests, live-raw replay Section 6)",
       "verdict": "ACCEPT",
@@ -431,7 +551,13 @@
       "review_2": "REVIEWED by Codex (gpt-5.5, direction_synthesis strong-reviewer override) on the rework fix, bound to head 548ae0d -> ACCEPT (50-review-2-rework.md); the b189440 recheck ACCEPT's challenge (post_review_finding_note) is now resolved by the fix. The b189440 recheck is preserved verbatim as review_2_recheck_prior."
     },
     "review_2_rework": {
-      "reviewer": {"provider": "codex", "model": "gpt-5.5", "effort": "xhigh", "sandbox": "read-only", "role": "final_reviewer"},
+      "reviewer": {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "sandbox": "read-only",
+        "role": "final_reviewer"
+      },
       "kind": "rework_round_1_after_p1_fix",
       "finding_id": "spot_leg_quote_asset_hardcode",
       "reviewed_range": "base d240e43 .. head 548ae0d (fix delta focus b189440..548ae0d; status.json excluded)",
@@ -450,13 +576,28 @@
     },
     "next_review_routing": "DONE. Rework round 1: review-1 (Kimi) ACCEPT + review-2 (Codex/gpt-5.5, direction_synthesis strong-reviewer override) ACCEPT, both bound to head 548ae0d (diff_fingerprint 548ae0d:97ac2539...). P1 finding spot_leg_quote_asset_hardcode closed. No further review routing. Stage -> stage_accepted_waiting_user; controller does NOT declare final acceptance (can_accept_final=false)."
   },
-  "tests": {"status": "passed"},
+  "tests": {
+    "status": "passed"
+  },
   "rework_count": 1,
   "max_rework": 3,
   "blockers": [],
-  "human_escalation": {"required": false, "reason": null},
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
   "terminal_reason": null,
-  "next_action": "Rework round 1 COMPLETE: H_fix 548ae0d; review-1 (Kimi) ACCEPT + review-2 (Codex/gpt-5.5, direction_synthesis strong-reviewer override) ACCEPT, both bound to head 548ae0d (diff_fingerprint 548ae0d:97ac2539...), schema-valid, 0 findings. P1 finding spot_leg_quote_asset_hardcode RESOLVED. Status -> stage_accepted_waiting_user. validate-stage --phase pre-accept PASSED. STAGE HOLDS FOR THE USER: the controller does NOT declare final acceptance (can_accept_final=false). Carry-forward open_items (bStock 1:1 equity equivalence; spot/margin session vs perpetual 7x24; non-USDT multi-quote deferred) do not block this stage.",
+  "next_action": "TERMINAL: user final acceptance recorded 2026-07-04 (both stages accepted together). can_accept_final stays false (controller-permission flag; acceptance was declared by the user, not the controller). No further stage work; next multi-model direction round starts a new stage.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T03:31:00Z"
+  "updated_at": "2026-07-04T03:47:36Z",
+  "user_final_acceptance": {
+    "accepted": true,
+    "accepted_by": "user",
+    "accepted_at": "2026-07-04T03:47:36Z",
+    "accepted_at_local": "2026-07-04 11:47 CST",
+    "scope": "Final user acceptance at head 548ae0d (diff_fingerprint 548ae0d:97ac2539...), covering the original amendment (H_intake..H_C), the 2026-07-04 evidence backfill, and rework round 1 (P1 spot_leg_quote_asset_hardcode fix + USDT-only universe per user decision). Accepted TOGETHER with prerequisite stage 2026-07-public-market-impl-v1 (head ce00489).",
+    "reviewer_sign_off": "External post-review reviewer (anthropic/claude-fable-5) independently re-verified the rework on 2026-07-04: fingerprint recomputed matching, pytest 54 passed, float() clean, frontend self-check pass, live-raw replay 648 all-USDT rows / 0 exact_symbol mismatch / 15/15 bStock alias, finding resolved_by_rework_review_2.",
+    "pre_accept_validation": "pre-accept-validation-final.txt (PASSED on clean committed tree before writing this terminal state)",
+    "carry_forward_open_items": "open_items (bStock 1:1 equivalence, spot session vs 7x24, non-USDT quotes) remain deferred to later position-opening planning; acceptance does NOT close them."
+  }
 }
