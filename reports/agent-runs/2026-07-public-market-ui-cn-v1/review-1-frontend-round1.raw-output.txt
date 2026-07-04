@@ -1,0 +1,56 @@
+================================================================================
+REVIEW-1 ROUND 1 — Task B rework (frontend)
+Reviewer: fresh read-only Claude-GLM session (glm-5.2[1m]), reviewer_prior_involvement: none
+Stage: 2026-07-public-market-ui-cn-v1
+Subject: git diff --binary 0fd0d17..7592b2c -- frontend/  (rework fix diff)
+Dispatch prompt: review-1-frontend-round1.prompt.md
+Full report: 30-review-1-frontend-round1.md
+================================================================================
+
+审查报告已写入 reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-frontend-round1.md。
+
+## 结论：通过 (ACCEPT)
+
+**关键结论（均由我独立重算/重跑，未采信实现者自述）：**
+
+- **指纹匹配 (CP1)**：重算 `git diff --binary 0fd0d17..7592b2c -- frontend/ | shasum -a 256` = `47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9`，与 status.json 期望一致。
+- **自检 (CP9)**：实跑 `node frontend/self-check.js` → 19/19 PASS（prompt 标的 "18/18" 是旧计数，rework 新增 5 条断言后实为 19 条全绿）。
+- **11 个 checkpoint 全部 PASS**：红线函数未动、无 parseFloat、Number( 仅在 formatPrice/classForFundingRate（3 处）、无新依赖、无直连 Binance（仅 L414 免责文案）、fixture 字节未改、产品代码边界仅 frontend/、10 枚举双语全映射且默认值经 escapeHtml 包裹、warnings 文本冻结、无禁止交互。
+- **4 项 rework 改动全部正确实现**：A 双语枚举 / B 删除离线按钮 / C 60s 自动刷新+倒计时 / D 侧栏中文化。
+- **round-0 P3（资产标签列直出英文枚举 + 侧栏英文）已解决**。
+
+**标点字节审计（重点核验）**：spec 散文写"全角括号"，但 spec 自身表格与 review prompt 表格都用半角括号（`0x28/0x29`，已 xxd 验证）；实现遵循具体表格（半角括号 + PERP 项全角逗号 `，`），与我的 review 指令中的期望字符串逐字节一致，self-check 也断言相同字符串并通过。结论：实现合规，"全角括号"散文是 spec 内部矛盾，**非产品缺陷，不计 finding**。
+
+**残留观察（非阻塞，无需修复）**：(1) spec 散文/表格括号矛盾（spec 侧）；(2) rework diff 含 `docs/parallel-development-mode.md`（DRAFT 方法论，显式标注无规范效力）+ reports/ 过程产物——非产品代码，backend/schemas/reports/api-samples/ 受保护区均未触；(3) 自动刷新未做 visibility 暂停（spec 明示不要求）。
+
+```json
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-public-market-ui-cn-v1",
+  "role": "first_reviewer",
+  "model": "glm-5.2[1m]",
+  "verdict": "ACCEPT",
+  "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
+  "reviewer_prior_involvement": "none",
+  "reviewed_artifacts": [
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "frontend/fixture/public-market-snapshot.json",
+    "git diff 0fd0d17..7592b2c -- frontend/",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/fix-start-prompt-ui-round1.md",
+    "reports/agent-runs/2026-07-public-market-ui-cn-v1/30-review-1-frontend.md"
+  ],
+  "findings": [],
+  "required_fixes": [],
+  "residual_risks": [
+    "Spec prose ('全角括号') contradicts its own table examples (half-width parens 0x28/0x29); implementation matches the tables and the review-prompt expected strings exactly. Spec-side inconsistency, not a product defect — suggest controller reconcile prose in future spec templates.",
+    "Rework diff touches docs/parallel-development-mode.md (DRAFT-1 methodology doc, marked non-normative) and reports/agent-runs/…/* process artifacts; product-code boundary (frontend/**) and protected areas (backend/, schemas/, reports/api-samples/) are intact, but checkpoint-7 prose literally lists docs/ as out-of-diff.",
+    "Auto-refresh polls every 60s with no visibility-pause; acceptable per spec (backend cache hit, low cost), noted for completeness."
+  ],
+  "next_action": "continue"
+}
+```
+
+本地北京时间: 2026-07-04 16:36 CST
+下一步模型: Claude-GLM (controller)
+下一步任务: 汇总 review-1 round-1，调度 review-2 Codex rebind 新 head

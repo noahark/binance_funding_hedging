@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-ui-cn-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
@@ -168,7 +168,7 @@
         "workflows/**",
         "scripts/**"
       ],
-      "status": "in_review_1_round1",
+      "status": "accepted_by_review_1_round1",
       "commit": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
       "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
       "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
@@ -184,19 +184,30 @@
       ],
       "review_1": {
         "round": 1,
-        "status": "pending_fresh_glm_review",
+        "status": "ACCEPT",
         "owner": {
           "provider": "claude_glm",
           "model": "glm-5.2[1m]",
           "fresh_session_required": true
         },
+        "output": "30-review-1-frontend-round1.md",
+        "raw_output": "review-1-frontend-round1.raw-output.txt",
+        "dispatch_prompt": "review-1-frontend-round1.prompt.md",
+        "fresh_session": true,
         "subject": {
           "base_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
           "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
-          "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
-          "scope": "frontend/** (rework fix diff)"
+          "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9"
         },
-        "verdict": "pending"
+        "verdict": "ACCEPT",
+        "verdict_diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
+        "verdict_fingerprint_matches": true,
+        "schema_valid": true,
+        "reviewer_prior_involvement": "none",
+        "findings": [],
+        "required_fixes": [],
+        "reviewed_at": "2026-07-04T08:36:00Z",
+        "next_action": "continue"
       },
       "review_1_round0": {
         "status": "ACCEPT",
@@ -355,7 +366,7 @@
   ],
   "tests": {
     "status": "pass",
-    "note": "Rework round 1 (frontend only): node frontend/self-check.js 18/18 PASS (was 14/14; +5); backend unchanged -> pytest 54 passed, rows field-identical to 548ae0d (647==647), schema VALID."
+    "note": "Rework round 1 (frontend only): node frontend/self-check.js 19/19 PASS (round-0 14 + rework +5 = 19; Kimi's report said 18 by miscount, reviewer + controller both confirm 19). backend unchanged -> pytest 54 passed, rows field-identical to 548ae0d (647==647), schema VALID."
   },
   "rework_count": 1,
   "max_rework": 3,
@@ -365,16 +376,16 @@
     "reason": null
   },
   "terminal_reason": "REWORK ROUND 1 IN PROGRESS: round-0 terminal state (head 9b0e62c) superseded by user-directed Task B frontend rework (H_fix 7592b2c). Re-reviewing (review-1 fresh GLM on fix diff + review-2 Codex rebind). Not terminal.",
-  "next_action": "Rework round 1 (user-directed): Task B frontend rework LANDED at H_fix 7592b2c (enum bilingual + auto-refresh + fixture-button removal + sidebar CN). status=review_1. Next: fresh read-only Claude-GLM review-1 on fix diff 0fd0d17..7592b2c (Task A round-0 ACCEPT retained, backend unchanged); then Codex gpt-5.5 review-2 rebind to new head 7592b2c; then pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "next_action": "Rework round 1: review-1 (fresh GLM) ACCEPT, findings empty; Task A round-0 ACCEPT retained (backend unchanged). status=review_2. Next: stage-level review-2 (Codex gpt-5.5, direction_synthesis disclosure) rebind to new head 7592b2c (recompute stage fingerprint 4b8c8de2...). Then pre-accept -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T08:20:00Z",
+  "updated_at": "2026-07-04T08:37:00Z",
   "review_1": {
     "round": 1,
-    "verdict": "pending",
-    "json_schema_valid": null,
-    "status": "task_B_rework_in_review_task_A_round0_retained",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "status": "both_tasks_ACCEPT",
     "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:4b8c8de25458e88a9dd8d5f8ab03db0f563305c59492fae548d69683978c4608",
-    "scope": "Rework round 1 is Task-B-scoped (frontend only). Task A (backend) code is unchanged since dba4c12, so Task A's round-0 review-1 (Kimi ACCEPT, bound to 9b0e62c) remains valid and is NOT re-reviewed. Task B (frontend) was reworked per fix-start-prompt-ui-round1.md, so Task B is re-reviewed by a fresh read-only Claude-GLM session on the fix diff 0fd0d17..7592b2c (frontend/**). Aggregate verdict pending until Task B round-1 completes.",
+    "scope": "Rework round 1 (Task-B-scoped). Task A backend unchanged since dba4c12 -> round-0 Kimi ACCEPT retained, not re-reviewed. Task B frontend reworked (H_fix 7592b2c) -> re-reviewed by a fresh read-only Claude-GLM session on the fix diff 0fd0d17..7592b2c (frontend/**) -> ACCEPT, findings empty. The round-0 P3 (asset-tag raw enums + English sidebar) is resolved. Stage-level review_1 binds to the stage diff_fingerprint (7592b2c:4b8c8de2...) per validate_acceptance; task-level fingerprint (rework fix = 47cdfcc2...) lives in task_B.subject.diff_fingerprint.",
     "task_A": {
       "round": 0,
       "verdict": "ACCEPT",
@@ -382,26 +393,47 @@
       "provider": "kimi",
       "model": "kimi-2.7",
       "diff_fingerprint": "dba4c12ce61745ef393142af2255a3fc519bf4eb:8afc3dcf42da591bb171f6622937455315d78e1f2167cb672c4cad96a7d38318",
-      "note": "Task A code (snapshot.py CONTRACT_WARNINGS[1] + contract doc + tests) is NOT in the rework round-1 diff; round-0 Kimi ACCEPT stands unchanged."
+      "note": "Task A code unchanged since dba4c12; round-0 Kimi ACCEPT stands."
     },
     "task_B": {
       "round": 1,
-      "status": "pending_fresh_glm_review",
-      "reviewer": {
-        "provider": "claude_glm",
-        "model": "glm-5.2[1m]",
-        "fresh_session_required": true
-      },
+      "verdict": "ACCEPT",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "fresh_session": true,
+      "output": "30-review-1-frontend-round1.md",
+      "raw_output": "review-1-frontend-round1.raw-output.txt",
+      "dispatch_prompt": "review-1-frontend-round1.prompt.md",
+      "reviewed_at": "2026-07-04T08:36:00Z",
       "subject": {
         "base_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
         "head_sha": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff",
         "diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
         "scope": "frontend/** (rework fix diff)"
       },
-      "cumulative_frontend_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:9caf18e6e9e7f67b28698cd0df6cad9e22d181fd9236e81be33d07e9e3f9f8e6",
-      "round0_verdict": "ACCEPT (bound to head 0fd0d17; preserved in tasks.B.review_1_round0)"
+      "verdict_diff_fingerprint": "7592b2c740975dc0a6ad2a4b3a17d5a8474494ff:47cdfcc2a1716d929ad7098bf870b268b24d372085e837e932ae34bd8260e1a9",
+      "verdict_fingerprint_matches": true,
+      "schema_valid": true,
+      "reviewer_prior_involvement": "none",
+      "reviewer_prior_involvement_notes": "Fresh isolated read-only claude_glm session; no prior Task B direction/breakdown/design/implementation/rework involvement. Same provider as controller + Task A implementer, but cross-review (Task B authored by kimi) + fresh-session isolation.",
+      "findings": [],
+      "required_fixes": [],
+      "independent_test_rerun": "git diff 0fd0d17..7592b2c -- frontend/ | shasum -a 256 = 47cdfcc2... (MATCH); node frontend/self-check.js -> 19/19 PASS; grep formatFundingRate/formatBeijing in +/- lines empty; grep parseFloat empty; Number( only in formatPrice/classForFundingRate; no new deps; no direct Binance; fixture unchanged; backend/schemas/api-samples untouched.",
+      "residual_risks": [
+        "Spec prose ('全角括号') vs its own table (half-width parens) inconsistency — spec-side, not a product defect; implementation matches the tables byte-for-byte.",
+        "0fd0d17..7592b2c full-range diff touches docs/parallel-development-mode.md (DRAFT-1 methodology doc, marked non-normative) + reports/ process artifacts; these are independent parallel commits (6894577/eba5bc0), NOT Kimi's rework (H_fix 7592b2c touches only frontend/** + its report). Product-code boundary + protected areas intact.",
+        "Auto-refresh has no visibility-pause; acceptable per spec (backend cache hit, low cost)."
+      ],
+      "next_action": "continue"
     },
-    "next_action": "dispatch fresh read-only Claude-GLM review-1 on fix diff; then review-2 Codex rebind"
+    "next_action": "stage_review_2",
+    "both_schema_valid": true,
+    "both_fingerprints_match": true,
+    "findings_total": 0,
+    "required_fixes_total": 0,
+    "summary_file": "30-review-1.md",
+    "reviewed_at": "2026-07-04T08:36:00Z",
+    "note": "Rework round-1 review-1 = ACCEPT (fresh GLM, findings empty). Task A round-0 ACCEPT retained (backend unchanged); Task B round-1 ACCEPT (rework fix diff 47cdfcc2 independently recomputed & matched). Round-0 P3 resolved. Stage-level review_1 binds to stage fingerprint 4b8c8de2. Next: stage-level review-2 (Codex gpt-5.5, direction_synthesis disclosure) rebind to new head 7592b2c."
   },
   "review_2": {
     "round": 1,
