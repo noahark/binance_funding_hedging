@@ -1,0 +1,103 @@
+# Task C — Integration test output
+# Stage: 2026-07-public-market-ui-cn-v1
+# Owner: controller (claude_glm / glm-5.2[1m], test_strategist) — NO product code
+# Mode: offline-only (Config(offline=True), frozen raw; no live HTTP)
+# Goal: assert warnings[1] == new evidenced wording AND rows field-identical to
+#       the accepted 548ae0d baseline (bstock-alias-v1). ANY rows diff -> BLOCKED.
+# Date: 2026-07-04 13:35 CST
+
+## Section 1 — backend pytest
+
+$ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider backend/tests -q
+......................................................  [100%]
+54 passed in 0.63s
+
+(Includes `test_three_contract_warnings_preserved` with the new warnings[1]
+assertions: `"real-time estimate" in w1` and the evidence-path keyword
+`"2026-07-public-market-ui-cn-v1/20260704T044945Z" in w1`.)
+
+## Section 2 — frontend self-check
+
+$ node frontend/self-check.js
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认隐藏 PERP_ONLY_EXCLUDED，渲染 4 行
+[PASS] 显示 PERP_ONLY_EXCLUDED 后渲染全部 6 行
+[PASS] BSTOCK 行标识正确
+[PASS] alias 行显示实际现货腿与 B 后缀别名标识
+[PASS] 时间转换正确
+[PASS] 列名/文案符合契约
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] 数据说明条目数与 API warnings 一致
+[PASS] 提示标记映射正确
+
+全部自检通过   (14/14 PASS)
+
+## Section 3 — float() audit (decimal discipline)
+
+$ grep -rn "float(" backend/domain backend/services
+CLEAN
+
+## Section 4 — served warnings[1] (new evidenced wording)
+
+$ .venv/bin/python -c "from backend.config import Config; from backend.services.snapshot_service import SnapshotService; print(SnapshotService(Config(offline=True)).build_snapshot()['warnings'][1])"
+premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period and is charged at nextFundingTime; it drifts until settlement (mid-period divergence from settled history evidenced under reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/). Settled history comes from /fapi/v1/fundingRate; do not present the estimate as a settled value.
+
+## Section 5 — rows field-identity vs accepted 548ae0d baseline (BLOCKING CHECK)
+
+Method: `git worktree add --detach /tmp/ui-cn-baseline 548ae0d` (bstock-alias-v1
+accepted head); build the snapshot using the **548ae0d backend code**
+(`sys.path.insert(0,'/tmp/ui-cn-baseline')` so the worktree's snapshot.py is loaded
+— verified by printing `backend.domain.snapshot.__file__`) over the **SAME frozen
+raw** (Config.offline FROZEN_RAW_DIR, unchanged this stage); compare every row
+field vs the current (0fd0d17) build.
+
+Replay (read-only; worktree removed after):
+  git worktree add --detach /tmp/ui-cn-baseline 548ae0d
+  .venv/bin/python -c "
+    import sys; sys.path.insert(0,'/tmp/ui-cn-baseline')
+    from backend.config import Config
+    from backend.services.snapshot_service import SnapshotService
+    import json
+    json.dump(SnapshotService(Config(offline=True)).build_snapshot(), open('/tmp/snap_baseline.json','w'), ensure_ascii=False)"
+  .venv/bin/python -c "
+    from backend.config import Config
+    from backend.services.snapshot_service import SnapshotService
+    import json
+    json.dump(SnapshotService(Config(offline=True)).build_snapshot(), open('/tmp/snap_current.json','w'), ensure_ascii=False)"
+  .venv/bin/python -c "
+    import json
+    b=json.load(open('/tmp/snap_baseline.json')); c=json.load(open('/tmp/snap_current.json'))
+    print('ROWS IDENTICAL:', b['rows']==c['rows'])
+    print('w[1] differs (expected):', b['warnings'][1]!=c['warnings'][1])"
+  git worktree remove /tmp/ui-cn-baseline --force
+
+Result (captured 2026-07-04):
+  snapshot.py loaded from: /tmp/ui-cn-baseline/backend/domain/snapshot.py   (548ae0d code)
+  baseline w[1]: premiumIndex.lastFundingRate is documented by Binance as the most recently updated funding rate...
+  current  w[1]: premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period...
+  baseline rows: 647 | current rows: 647
+  ROWS IDENTICAL: True
+  SUMMARY IDENTICAL: True
+  schema_version identical: True
+  warnings[0] identical: True
+  warnings[1] identical: False   (expected — the only allowed API payload change)
+  warnings[2] identical: True
+  => rows are field-identical to the accepted 548ae0d build; ONLY warnings[1] text
+     differs. NOT BLOCKED.
+
+## Section 6 — schema validation
+
+$ .venv/bin/python -c "from backend.config import Config; from backend.services.snapshot_service import SnapshotService; import json, jsonschema; snap=SnapshotService(Config(offline=True)).build_snapshot(); jsonschema.validate(snap, json.load(open('schemas/api/public-market/snapshot.schema.json'))); print('VALID')"
+schema VALID (Draft 2020-12); rows=647 warnings=3 schema_version=public-market-snapshot/v1
+
+## Conclusion
+
+Task C PASS. `warnings[1]` is the new evidenced wording; rows are byte-for-byte
+field-identical to the accepted 548ae0d build (zero structure/value drift); the
+schema is valid; backend tests (54) and frontend self-check (14) are green; the
+float() audit is clean. No live HTTP / key / signed / order / borrow / repay /
+transfer / websocket was issued (offline replay only). Ready for review-1.
