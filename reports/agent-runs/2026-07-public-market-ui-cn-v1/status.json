@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-ui-cn-v1",
-  "status": "review_1",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stages": [
@@ -100,7 +100,7 @@
         "workflows/**",
         "scripts/**"
       ],
-      "status": "accepted_by_review_1",
+      "status": "accepted_by_review_2",
       "commit": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
       "base_sha": "b84a34235aa5b37bb0ce83f23ac35e4e5e686899",
       "head_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
@@ -167,7 +167,7 @@
         "workflows/**",
         "scripts/**"
       ],
-      "status": "accepted_by_review_1",
+      "status": "accepted_by_review_2",
       "commit": "0fd0d17e2835f445cee2195a8ba366df55084123",
       "base_sha": "dba4c12ce61745ef393142af2255a3fc519bf4eb",
       "head_sha": "0fd0d17e2835f445cee2195a8ba366df55084123",
@@ -231,7 +231,7 @@
         "reports/agent-runs/2026-07-public-market-ui-cn-v1/20-implementation.md"
       ],
       "forbidden_any_product_code": true,
-      "status": "review_1_not_applicable_no_product_code",
+      "status": "accepted_by_review_2",
       "depends_on": [
         "A",
         "B"
@@ -326,10 +326,10 @@
     "required": false,
     "reason": null
   },
-  "terminal_reason": null,
-  "next_action": "review-1 both_tasks_ACCEPT (Task A->Kimi ACCEPT, findings empty; Task B->fresh read-only Claude-GLM ACCEPT, 1 P3 non-blocking pre-existing sidebar wordmark out of scope). Zero rework. Next: stage-level review-2 (Codex gpt-5.5, reviewer_prior_involvement=direction_synthesis, strong-reviewer disclosure override; Anthropic/Fable5 excluded as designer, both implementers claude_glm+kimi hard-ban) -> pre-accept gate -> stage_accepted_waiting_user. Controller does NOT declare final acceptance.",
+  "terminal_reason": "review-1 (both tasks ACCEPT) + review-2 (Codex gpt-5.5 ACCEPT, direction_synthesis disclosure) + pre-accept gate PASSED. Controller stops here per can_accept_final=false; awaits user external acceptance.",
+  "next_action": "review-2 (Codex gpt-5.5) = ACCEPT, findings empty; stage-level diff_fingerprint 6e6e2d4d recomputed & matched. All gates passed (checkpoint + pre-review + pre-accept). status=stage_accepted_waiting_user. Controller does NOT declare final acceptance (can_accept_final=false) — awaits user external review/acceptance.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T05:54:00Z",
+  "updated_at": "2026-07-04T06:08:00Z",
   "review_1": {
     "verdict": "ACCEPT",
     "json_schema_valid": true,
@@ -369,5 +369,31 @@
     "next_action": "stage_review_2",
     "summary_file": "30-review-1.md",
     "note": "Both task-level review-1 verdicts ACCEPT, schema-valid, fingerprints independently recomputed by the reviewers (kimi->8afc3dcf..., glm->5552ed82...) and matching status.json.tasks.{A,B}. Zero rework. Task B carries 1 P3 non-blocking finding (pre-existing sidebar wordmark, out of scope, leave as-is). The stage-level review_1 verdict=ACCEPT binds to the stage diff_fingerprint 6e6e2d4d.... Next: stage-level review-2 (Codex gpt-5.5, direction_synthesis disclosure)."
+  },
+  "review_2": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "9b0e62c4ef72691084443947e9bcdd4408480b6c:6e6e2d4d7ee28dc6547c727b6a4c99779605686e38af2586a42ac49171114854",
+    "role": "final_reviewer",
+    "model": "gpt5.5",
+    "provider": "codex",
+    "effort": "xhigh",
+    "reviewer_prior_involvement": "direction_synthesis",
+    "override": "strong_reviewer_disclosure",
+    "output": "50-review-2.md",
+    "raw_output": "review-2-codex.raw-output.txt",
+    "dispatch_prompt": "review-2-codex.prompt.md",
+    "reviewed_at": "2026-07-04T06:07:00Z",
+    "findings": 0,
+    "required_fixes": [],
+    "residual_risks": [
+      "The lastFundingRate evidence is a single mid-period public snapshot (divergence + 15-min drift); read-only intake evidence, not re-fetched during A/B/C.",
+      "Frontend self-check uses the frozen 6-row fixture; live endpoint serves the full market; rendering is row-count-agnostic; offline schema validation covered 647 rows.",
+      "Sidebar wordmark 'Funding Hedge' remains English; review-1 P3 (pre-existing, out of scope); reviewer agrees carry forward, not fixed in this surgical stage."
+    ],
+    "next_action": "continue",
+    "runner_level_check": "Codex CLI v0.142.2 (/Users/ark/.local/bin/codex); invoked 'codex exec -s read-only <prompt>' relying on default_profile auto-load, which routed model=gpt-5.5, effort=xhigh, sandbox=read-only, approval=never. Provider this run = openai (impl-v1 used proxy2233 — the default_profile provider differs across runs, but gpt-5.5 was accepted and produced a complete review). No -m flag (per impl-v1 lesson: '-m gpt5.5' alone mis-routes to ChatGPT provider). Verdict independently jsonschema-validated by Codex against schemas/review-verdict.schema.json (Codex printed 'verdict schema VALID').",
+    "independent_test_rerun": "node frontend/self-check.js -> 14/14 PASS; PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -s -p no:cacheprovider backend/tests -q -> 54 passed (Codex ran with -s / capture-disabled because read-only sandbox has no writable temp dir, preventing the exact default pytest invocation pre-collection; result equivalent); offline snapshot jsonschema VALID (647 rows, 3 warnings).",
+    "note": "Codex/GPT gpt-5.5 final-gate review = ACCEPT. Independently recomputed the stage fingerprint (6e6e2d4d...) and the three task fingerprints (8afc3dcf / 5552ed82 / 28670f98); all match status.json. Diff owner-scoped (Task A = warning string + doc + tests + report; Task B = frontend/** + report; Task C = controller evidence, no product code). snapshot.py single CONTRACT_WARNINGS[1] string replacement; frontend rate formatter string-shift only; no forbidden interaction; security grep hits explanatory display text only; read-only inputs (schemas/api-samples) untouched; contract doc touched only by Task A. review-1 scrutinized (both ACCEPT) and material claims independently confirmed. Zero findings, zero required fixes. Same direction_synthesis disclosure path as impl-v1 / bstock-alias-v1."
   }
 }
