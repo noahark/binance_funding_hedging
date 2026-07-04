@@ -5,12 +5,17 @@ adapter_cmd: 用户粘贴 PROMPT BODY 至 claude-glm controller 终端
 started_at: 2026-07-04T13:24Z (UTC) / 21:24 CST
 completed_at:
 session_id: claude_glm controller session (dual-hat with Task A implementer)
-outputs:                   # H_intake commit sha / discovery 证据目录 / 派工时间
-  - h_intake: discovery 证据 reports/api-samples/2026-07-phase2-borrow-sort-v1/20260704T133406Z/ (5 endpoints, E5 PASSED)
+outputs:                   # Phase 1-3 产物（Phase 4 review-1 待调度）
+  - h_intake: 4d47ad2 (discovery 证据 reports/api-samples/2026-07-phase2-borrow-sort-v1/20260704T133406Z/, 5 endpoints, E5 PASSED)
   - script: scripts/discovery-capture-phase2.py
-  - 10-design §2.A 字段冻结附录（controller 据实抓补写）
-  - status: planned -> implementing
-next_dispatch: task-a-glm-backend.prompt.md + task-b-kimi-frontend.prompt.md（并行）
+  - 10-design §2.A 字段冻结附录
+  - Phase 1 实现: H_A d8a1164 (backend, claude_glm dual-hat) + H_B cc25148 (frontend, kimi-2.7)
+  - Phase 2 嵌入预审: A<-Kimi PASS, B<-GLM PASS, 均无 blocker (round 1)
+  - Phase 3 落盘: H_bind 59e0eab (fingerprint 绑定 + status=review_1) + H_docs f168204 (stage-delivery required files)
+  - diff_fingerprint: cc25148:9dc905d5... (base=4d47ad2, shasum 独立复算一致)
+  - 测试: pytest 95 passed + node self-check 20 PASS
+  - validate-stage: checkpoint PASSED + pre-review PASSED
+next_dispatch: Phase 4 正式 review-1（用 review-prompts-templates.md 填指纹后派 A->fresh Kimi、B->fresh GLM 只读会话出 schema verdict）
 ======================================================================== -->
 
 --- PROMPT BODY（不可变任务正文，自此行以下原样执行） ---
