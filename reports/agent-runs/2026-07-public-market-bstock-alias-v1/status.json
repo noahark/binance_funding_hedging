@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-bstock-alias-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stage_id": "2026-07-public-market-impl-v1",
@@ -293,7 +293,8 @@
       "At recheck time the recheck prompt/output files were untracked, so a live pre-review rerun failed only on those artifacts; committed in this finalize."
     ],
     "summary_file": "50-review-2-recheck.md",
-    "supersedes": "review_2_prior (prior ACCEPT on head 0842820, synthetic-only scope; preserved verbatim)"
+    "supersedes": "review_2_prior (prior ACCEPT on head 0842820, synthetic-only scope; preserved verbatim)",
+    "post_review_finding_note": "This ACCEPT (head b189440) is preserved verbatim but is challenged by post_review_findings[spot_leg_quote_asset_hardcode] (user-directed external post-review by anthropic/claude-fable-5, 2026-07-04): the reviewed fixtures/live checks covered only USDT-quoted symbols, missing a call-site regression affecting 39 non-USDT live rows. Stage re-entered fixing (rework 1/3); after the fix, review-2 must re-run and rebind to the new head."
   },
   "evidence_backfill": {
     "round": "2026-07-04 evidence backfill (user-directed)",
@@ -309,16 +310,42 @@
     "deferred_to": "later position-opening planning contract pre-trade verification (do NOT block this evidence backfill)",
     "items": [
       "bStock token vs US-equity 1:1 equivalence is NOT proven from public exchangeInfo alone; whether one bStock token tracks one share of the underlying US equity, and any redemption/conversion constraints, must be verified before any position is opened.",
-      "bStock spot/margin session may not trade 24/7 (equity-market sessions) while the TRADIFI perpetual runs 7x24; the resulting funding/price-gap and hedge-continuity implications must be assessed before opening positions."
+      "bStock spot/margin session may not trade 24/7 (equity-market sessions) while the TRADIFI perpetual runs 7x24; the resulting funding/price-gap and hedge-continuity implications must be assessed before opening positions.",
+      "PRE-EXISTING (impl-v1, user decision required): snapshot.schema.json declares row.quote_asset={\"const\":\"USDT\"} but the universe filter admits non-USDT perpetuals (43 on live raw: 38 USDC, 2 USD1, 2 U, 1 BTC) and build_rows hardcodes the field to \"USDT\" (snapshot.py:99), so the value lies for those rows. Options: (a) filter universe to quoteAsset==USDT to honor the const (removes 43 rows), or (b) widen the contract to multi-quote. NOT part of rework round 1 (scope decision)."
     ]
   },
+  "post_review_findings": [
+    {
+      "id": "spot_leg_quote_asset_hardcode",
+      "severity": "P1_regression_fix_required",
+      "status": "open",
+      "recorded_at": "2026-07-04T02:27:11Z",
+      "reviewer": {
+        "provider": "anthropic",
+        "model": "claude-fable-5",
+        "kind": "user_directed_external_post_review",
+        "prior_involvement": "none",
+        "availability_note": "Fable5 is reachable as of 2026-07-04; the earlier 'Fable5 unavailable' records (claude CLI auth re-routed to GLM/Zhipu) no longer apply to future routing decisions."
+      },
+      "evidence_file": "reports/agent-runs/2026-07-public-market-bstock-alias-v1/post-review-quote-asset-hardcode-finding.md",
+      "fix_dispatch_prompt": "reports/agent-runs/2026-07-public-market-bstock-alias-v1/fix-start-prompt-spot-leg-quote-asset.md",
+      "summary": "backend/domain/snapshot.py:70 passes the literal \"USDT\" as quote_asset to resolve_spot_leg instead of obj.get(\"quoteAsset\"); with no upstream quoteAsset filter, 39 of 43 non-USDT-quoted live perpetuals get a wrong spot leg labeled exact_symbol (e.g. BTCUSDC->BTCUSDT, ETHBTC->ETHUSDT) and PNUTUSDC's route flips SPOT_ONLY_CANDIDATE->MARGIN_SPOT_CANDIDATE. Violates the stage's own frozen contract wording (exact = futures symbol equals spot symbol; alias uses futures.quoteAsset). resolve_spot_leg itself and the 15/15 bStock alias closure are correct.",
+      "impact": "Hedge-leg identity, spot min_notional/step_size and margin flags sourced from the wrong pair for 39 live rows; one route misclassification. Verified offline against this stage's own captured live raw (20260703T170827Z). review-1/review-2 ACCEPT verdicts are preserved verbatim; their fixtures and live checks covered only USDT-quoted symbols.",
+      "required_fixes": [
+        "snapshot.py:70 call site passes obj.get(\"quoteAsset\", \"\") (resolve_spot_leg and classify.py unchanged).",
+        "Synthetic fixture adds a USDC-quoted PERPETUAL (futures BTCUSDC + spot BTCUSDC + spot BTCUSDT); regression asserts spot.symbol==BTCUSDC, match_type==exact_symbol, never BTCUSDT.",
+        "Offline replay against committed live raw asserts zero rows with match_type==exact_symbol and spot.symbol != futures.symbol; output appended to 60-test-output.txt.",
+        "40-fix-report.md finding-to-fix mapping; then review-1 re-verdict on the fix diff and review-2 re-run bound to the new head."
+      ]
+    }
+  ],
   "tests": {"status": "passed"},
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Review-2 recheck (Codex/GPT gpt5.5, direction_synthesis strong-reviewer override) ACCEPT on head b189440; fingerprint independently recomputed and matching (b189440:9d6569d1...); schema post-hoc validated; 0 findings; backfill product-code isolation verified. review_2 rebinds to b189440; review_1 stage-level fingerprint mechanically re-bound to b189440 (task-level verdicts unchanged, no product code touched by backfill); status=stage_accepted_waiting_user. Next: run scripts/validate-stage.py --phase pre-accept (must PASS), then hold. Controller does NOT declare final acceptance (can_accept_final=false); stage awaits user.",
+  "next_action": "Rework round 1 (user-directed): fix post_review_findings[spot_leg_quote_asset_hardcode] per fix-start-prompt-spot-leg-quote-asset.md — snapshot.py:70 call site passes the row's real quoteAsset, USDC-perp regression fixture/tests, offline replay against committed live raw, 40-fix-report.md. Then review-1 re-verdict on the fix diff, review-2 re-run bound to the new head (Fable5/anthropic now reachable; re-evaluate the decision pool per AGENTS.md), fingerprints rebound, status -> review_1 -> review_2 -> stage_accepted_waiting_user. Controller does NOT declare final acceptance (can_accept_final=false).",
   "can_accept_final": false,
-  "updated_at": "2026-07-03T17:29:45Z"
+  "updated_at": "2026-07-04T02:27:11Z"
 }

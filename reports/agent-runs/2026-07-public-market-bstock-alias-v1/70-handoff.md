@@ -190,3 +190,37 @@ not this alias-amendment stage:
 本地北京时间: 2026-07-04 01:15:23 CST
 下一步模型: Codex/GPT (review-2 recheck)
 下一步任务: Codex review-2 recheck on the expanded scope (`base d240e43..backfill head`) via `codex exec --model gpt-5.5`. On ACCEPT, rebind `review_2` to the new head/fingerprint, set `status=stage_accepted_waiting_user`, run pre-accept (must PASS). Controller holds; does not declare final acceptance.
+
+---
+
+## Post-review external finding -> rework round 1 (2026-07-04)
+
+After the review-2 recheck ACCEPT (head `b189440`), a user-directed external
+post-review by **anthropic / claude-fable-5** (no prior involvement this stage;
+Fable5 is reachable again as of 2026-07-04, superseding the earlier
+"unavailable" records for future routing) found a **P1 regression**:
+
+- `backend/domain/snapshot.py:70` passes the literal `"USDT"` as `quote_asset`
+  to `resolve_spot_leg` instead of the row's real `quoteAsset`. With no
+  upstream quoteAsset filter, 39 of the 43 non-USDT-quoted live perpetuals get
+  a wrong spot leg labeled `exact_symbol` (`BTCUSDC`->`BTCUSDT`,
+  `ETHBTC`->`ETHUSDT`, ...) and `PNUTUSDC` flips route
+  `SPOT_ONLY_CANDIDATE`->`MARGIN_SPOT_CANDIDATE`. Verified offline against this
+  stage's own committed live raw (`20260703T170827Z`). The bStock alias closure
+  (15/15) itself remains valid; `resolve_spot_leg` and the frozen contract
+  wording are correct — the defect is the single call site.
+
+Records:
+
+- Finding evidence: `post-review-quote-asset-hardcode-finding.md`
+- Fix dispatch: `fix-start-prompt-spot-leg-quote-asset.md`
+- `status.json`: `status=fixing`, `rework_count=1/3`,
+  `post_review_findings[spot_leg_quote_asset_hardcode]` open; review-1/review-2
+  ACCEPT verdicts preserved verbatim (their fixtures/live checks covered only
+  USDT-quoted symbols).
+- Pre-existing `quote_asset={"const":"USDT"}` vs unfiltered universe recorded in
+  `open_items` as a user scope decision — NOT part of this rework.
+
+本地北京时间: 2026-07-04 10:27:11 CST
+下一步模型: Claude-GLM (controller / Task A owner)
+下一步任务: Execute rework round 1 per `fix-start-prompt-spot-leg-quote-asset.md`; then review-1 re-verdict on the fix diff, review-2 re-run bound to the new head (re-evaluate the decision pool now that Fable5 is reachable), fingerprints rebound, status -> review_1 -> review_2 -> stage_accepted_waiting_user.
