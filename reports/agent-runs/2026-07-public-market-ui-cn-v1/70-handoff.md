@@ -94,3 +94,53 @@ status=fixing,rework_count=1/3。
 下一步任务: controller 原样转发 fix-start-prompt-ui-round1.md 给 Kimi;完成后
 H_fix → 指纹重算 → review-1(fresh GLM)→ review-2(Codex 重绑)→
 stage_accepted_waiting_user。
+
+---
+
+## Rework round 2 + 最终验收（2026-07-04，stage closed）
+
+轮一 fix（H_fix `7592b2c`）落地四项 UI 决策后，review-1 round-1（fresh GLM）
+ACCEPT，但 review-2 round-1（Codex）REWORK，1× P2：手动刷新只重置了倒计时
+显示（`nextRefreshAt`），未重置实际 60000ms 自动刷新计时器（全文无
+`clearInterval`），显示与真实下次 fetch 不同步。
+
+轮二 fix（H_fix2 `ee9296c`，Kimi）：`loadApi()` finally 在重置 `nextRefreshAt`
+后 `clearInterval` 旧 timer 并重建 60000ms interval，倒计时与实际拉取共享同一
+目标时刻；1s countdownTimer 保持独立；`startAutoRefresh()` 不变。self-check
+新增 setInterval/clearInterval mock 断言。产品代码 diff 仅 6 行。
+
+评审链：review-1 round-2 ACCEPT（`cbdaddf`）+ review-2 round-2 ACCEPT
+（`a76dd23`），双双绑定指纹 `ee9296c:f4637f8a…`。
+
+**最终验收**：用户于 2026-07-04 验收通过（commit `d91a6cf`，status=accepted）。
+Fable5 外部复核：指纹独立复算一致；P2 修复逻辑原位确认；4 项 UI 决策逐项
+grep 验证；保护函数（formatFundingRate/formatBeijing*）在 9b0e62c..ee9296c
+全程零改动；`node frontend/self-check.js` 全 PASS；pre-accept gate PASSED。
+P3 finding `asset_tag_enum_direct_display` 关闭（resolved，轮一已修）。
+rework_count 终值 2/3。
+
+## Carry-forward open items（验收后新增两条事实核查，均不阻塞）
+
+沿承前阶段：bStock 与美股 1:1 等价性、现货交易时段 vs 永续 7×24、非 USDT
+计价支持——排至开仓规划阶段。本阶段验收后用户问答补充落档：
+
+1. **杠杆候选字段的验证边界（重要）**：`isMarginTradingAllowed` 是现货交易
+   对级公开标志，不区分经典杠杆全仓/逐仓，更不覆盖统一账户（Portfolio
+   Margin）的可借/质押规则。私有借币验证（`PRIVATE_BORROW_VALIDATION_REQUIRED`
+   路径）届时必须按**用户实际账户类型**查对应私有接口（经典全仓
+   `/sapi/v1/margin/allPairs` vs 统一账户接口族），不得拿经典杠杆清单套
+   统一账户。
+2. **TRADIFI 覆盖观察（2026-07-04 live）**：TRADIFI_PERPETUAL 合约共 118 个
+   （全 TRADING、全 USDT 计价），仅 15 个有 B 后缀 bStock 现货腿（AMD/CRCL/
+   EWY/INTC/LITE/META/MSFT/MSTR/MU/NVDA/PLTR/QQQ/SNDK/SPCX/TSLA，现货全部
+   isMarginTradingAllowed=true）；其余 103 个（含 AAPL/GOOGL/SPY、商品类
+   XAU/XAG 等）无现货腿 → PERP_ONLY_EXCLUDED。现货侧 baseAsset 以 B 结尾的
+   USDT 对共 23 个，其中 8 个为普通加密货币假阳性（ARB/BNB/SHIB/TRB 等），
+   印证别名规则必须由 TRADIFI 合约侧正向驱动。bStock 现货上架滞后于合约，
+   后续补挂后快照会自动升级路由，无需改代码。
+
+本地北京时间: 2026-07-04 18:14 CST
+阶段终态: accepted（stage closed）
+下一步: 用户与 Fable5 讨论下一轮开发目标;若为前后端双任务阶段,按
+docs/parallel-development-mode.md（ADOPTED-TRIAL）由 Fable5 出全套
+R9 dispatch packet。
