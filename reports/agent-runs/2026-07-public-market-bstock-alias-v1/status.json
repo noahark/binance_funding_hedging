@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-public-market-bstock-alias-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "prerequisite": {
     "stage_id": "2026-07-public-market-impl-v1",
@@ -269,7 +269,7 @@
     "superseded_note": "This ACCEPT was bound to head 0842820 and the synthetic-only scope. The 2026-07-04 user-directed evidence-backfill round expanded the scope (live public capture + Harness corrections + live-raw recheck), advancing head to b189440 and recomputing diff_fingerprint. This prior verdict is preserved verbatim for audit; it is NOT altered. A new review_2 recheck must rebind to the new head/diff_fingerprint.",
     "routing_correction": "Per the new Fable5 probe hygiene rule (docs/model-adapters.md + AGENTS.md, 2026-07-04), the 'Fable5/Anthropic unreachable (claude CLI auth -> zhipu_glm, error 1211)' line in routing should be read as 'Anthropic endpoint not probed (auth re-routed to GLM/Zhipu)' — a GLM-endpoint failure is not Fable5-unavailable evidence. Recorded as a correction; the original routing text is left intact."
   },
-  "review_2": {
+  "review_2_recheck_prior": {
     "verdict": "ACCEPT",
     "json_schema_valid": true,
     "diff_fingerprint": "b1894406cf50173fc110f92b63fc3fe2f7ad7fc1:9d6569d15b987c10eaa008b8b9b344f11c70aeaea7fe84d82dbb6030c89f0aba",
@@ -299,7 +299,41 @@
     ],
     "summary_file": "50-review-2-recheck.md",
     "supersedes": "review_2_prior (prior ACCEPT on head 0842820, synthetic-only scope; preserved verbatim)",
-    "post_review_finding_note": "This ACCEPT (head b189440) is preserved verbatim but is challenged by post_review_findings[spot_leg_quote_asset_hardcode] (user-directed external post-review by anthropic/claude-fable-5, 2026-07-04): the reviewed fixtures/live checks covered only USDT-quoted symbols, missing a call-site regression affecting 39 non-USDT live rows. Rework round 1 applied the fix (H_fix 548ae0d, 2026-07-04); this ACCEPT is superseded by the pending rework re-review, which must rebind to head 548ae0d (diff_fingerprint 548ae0d:97ac2539...)."
+    "post_review_finding_note": "This ACCEPT (head b189440) is preserved verbatim but is challenged by post_review_findings[spot_leg_quote_asset_hardcode] (user-directed external post-review by anthropic/claude-fable-5, 2026-07-04): the reviewed fixtures/live checks covered only USDT-quoted symbols, missing a call-site regression affecting 39 non-USDT live rows. Rework round 1 applied the fix (H_fix 548ae0d, 2026-07-04); this ACCEPT is superseded by the pending rework re-review, which must rebind to head 548ae0d (diff_fingerprint 548ae0d:97ac2539...).",
+    "superseded_by": "rework_round_1_review_2 (head 548ae0d, ACCEPT, 50-review-2-rework.md; the challenge in post_review_finding_note is now resolved by the rework fix)"
+  },
+  "review_2": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
+    "status": "stage_accepted_waiting_user",
+    "role": "final_reviewer",
+    "provider": "codex", "model": "gpt-5.5", "effort": "xhigh",
+    "sandbox": "read-only",
+    "kind": "rework_round_1_after_p1_fix",
+    "finding_id": "spot_leg_quote_asset_hardcode",
+    "rework_round": 1,
+    "output": "50-review-2-rework.md",
+    "raw_output": "review-2-rework-codex.raw-output.txt",
+    "dispatch_prompt": "review-2-rework-codex.prompt.md",
+    "reviewed_at": "2026-07-04T03:27:00Z",
+    "reviewer_prior_involvement": "direction_synthesis",
+    "override": "strong_reviewer_disclosure",
+    "fingerprint_matches": true,
+    "findings": 0,
+    "required_fixes": 0,
+    "reviewed_range": "base_sha d240e43e75034a6718ede79bc295d39e77cd860e .. head_sha 548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9 (fix delta focus b189440..548ae0d; status.json excluded)",
+    "fix_closes_p1": "Confirmed: snapshot.py:70 passes obj.get(\"quoteAsset\",\"\") (call-site faithful); snapshot_service.py universe filter adds quoteAsset==\"USDT\" (user decision 2026-07-04); resolve_spot_leg + classify.py unchanged (git diff b189440..548ae0d -- normalize.py classify.py schemas docs frontend reports/api-samples empty); live-raw replay = 648 all-USDT rows, 0 exact_symbol mismatch, 15/15 bStock alias; pytest 54 passed; grep float( clean; frontend 11/11.",
+    "schema_validation": "Controller post-hoc jsonschema validation (Draft 2020-12) of the extracted verdict block -> VALID. codex --output-schema unusable on this route (OpenAI structured-output rejects the schema shape); verdict emitted as fenced json by instruction.",
+    "routing": "codex exec -C <repo> -m gpt-5.5 -s read-only on the locally-configured default provider. Per AGENTS.md review-2 uses GPT/Codex first; Codex = prior direction_synthesis -> strong-reviewer disclosure override. Fable5/Anthropic was reached for the user-directed post-review finding (Anthropic-authed environment) but the controller runner's claude CLI re-routes to GLM/Zhipu, so Fable5 is a fallback only if Codex fails its runner-level check (probed per model-adapters.md hygiene, recorded as 'Anthropic endpoint not probed', not Fable5 unavailable). Both implementers hard-banned. No model downgrade.",
+    "residual_risks": [
+      "Non-USDT-quoted perpetuals intentionally excluded from Phase 1 by the 2026-07-04 user decision; multi-quote support deferred to a later contract/stage.",
+      "bStock token vs US-equity 1:1 equivalence unproven by public exchangeInfo; deferred to position-opening planning (see open_items).",
+      "bStock spot/margin session vs TRADIFI perpetual 7x24; funding/gap/continuity implications deferred to pre-trade planning (see open_items).",
+      "At review time the rework review-2 prompt/raw-output files were untracked, so a live pre-review rerun failed only on those artifacts; committed in this finalize."
+    ],
+    "summary_file": "50-review-2-rework.md",
+    "supersedes": "review_2_recheck_prior (ACCEPT recheck on head b189440, challenged by the P1 finding; preserved verbatim)"
   },
   "evidence_backfill": {
     "round": "2026-07-04 evidence backfill (user-directed)",
@@ -331,7 +365,7 @@
     {
       "id": "spot_leg_quote_asset_hardcode",
       "severity": "P1_regression_fix_required",
-      "status": "fix_review_1_accepted_pending_review_2",
+      "status": "resolved_by_rework_review_2",
       "recorded_at": "2026-07-04T02:27:11Z",
       "reviewer": {
         "provider": "anthropic",
@@ -374,7 +408,7 @@
       "frontend_self_check": "11/11 PASS (frontend untouched)",
       "validate_checkpoint": "PASSED (status=fixing at checkpoint time)"
     },
-    "status": "review_1_accepted_pending_review_2",
+    "status": "review_2_accepted_stage_waiting_user",
     "review_1_rework": {
       "reviewer": {"provider": "kimi", "model": "kimi-2.7", "skill": "code_reviewer"},
       "kind": "rework_round_1_fix_re_review",
@@ -394,9 +428,27 @@
     },
     "superseded_verdicts": {
       "review_1_top": "Task A re-reviewed on the rework fix diff b189440..548ae0d (Kimi, ACCEPT, 2026-07-04, head 548ae0d); the pre-rework Task A verdict on head 1f94c84 is superseded and preserved in tasks.A.review_1.pre_rework_verdict. Task B (frontend) was untouched by the fix, so its verdict on head 5968c49 stands; the stage-level review_1 aggregate is both_tasks_ACCEPT bound to head 548ae0d.",
-      "review_2": "ACCEPT recheck (head b189440) — challenged by this finding; re-review pending bound to head 548ae0d."
+      "review_2": "REVIEWED by Codex (gpt-5.5, direction_synthesis strong-reviewer override) on the rework fix, bound to head 548ae0d -> ACCEPT (50-review-2-rework.md); the b189440 recheck ACCEPT's challenge (post_review_finding_note) is now resolved by the fix. The b189440 recheck is preserved verbatim as review_2_recheck_prior."
     },
-    "next_review_routing": "review-1 (rework fix re-review) DONE: Kimi ACCEPT on b189440..548ae0d (head 548ae0d). NEXT review-2 final gate, bound to head 548ae0d. Per AGENTS.md review-2 uses GPT/Codex first (Codex = prior direction_synthesis; strong-reviewer disclosure override, reviewer_prior_involvement=direction_synthesis). Fable5/anthropic was reached for the post-review finding (user-directed, in an Anthropic-authed environment) but the controller shell's claude CLI still re-routes to GLM/Zhipu, so Fable5 is a fallback only if Codex fails its runner-level check (probed per model-adapters.md hygiene, not recorded as 'Fable5 unavailable'). Both implementers (claude_glm, kimi) hard-banned from review-2."
+    "review_2_rework": {
+      "reviewer": {"provider": "codex", "model": "gpt-5.5", "effort": "xhigh", "sandbox": "read-only", "role": "final_reviewer"},
+      "kind": "rework_round_1_after_p1_fix",
+      "finding_id": "spot_leg_quote_asset_hardcode",
+      "reviewed_range": "base d240e43 .. head 548ae0d (fix delta focus b189440..548ae0d; status.json excluded)",
+      "verdict": "ACCEPT",
+      "verdict_diff_fingerprint": "548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9:97ac2539a3c044e56499a9731115be3d16fb024ffed6ac0620f7e4e60ce33a5f",
+      "verdict_fingerprint_matches": true,
+      "schema_valid": true,
+      "reviewer_prior_involvement": "direction_synthesis",
+      "override": "strong_reviewer_disclosure",
+      "findings": 0,
+      "required_fixes": 0,
+      "output": "reports/agent-runs/2026-07-public-market-bstock-alias-v1/50-review-2-rework.md",
+      "raw_output": "reports/agent-runs/2026-07-public-market-bstock-alias-v1/review-2-rework-codex.raw-output.txt",
+      "dispatch_prompt": "reports/agent-runs/2026-07-public-market-bstock-alias-v1/review-2-rework-codex.prompt.md",
+      "reviewed_at": "2026-07-04T03:27:00Z"
+    },
+    "next_review_routing": "DONE. Rework round 1: review-1 (Kimi) ACCEPT + review-2 (Codex/gpt-5.5, direction_synthesis strong-reviewer override) ACCEPT, both bound to head 548ae0d (diff_fingerprint 548ae0d:97ac2539...). P1 finding spot_leg_quote_asset_hardcode closed. No further review routing. Stage -> stage_accepted_waiting_user; controller does NOT declare final acceptance (can_accept_final=false)."
   },
   "tests": {"status": "passed"},
   "rework_count": 1,
@@ -404,7 +456,7 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "Rework round 1 fix APPLIED + review-1 (rework re-review) DONE: H_fix 548ae0d; Kimi re-reviewed the fix diff b189440..548ae0d -> ACCEPT (30-review-1-fix.md), fingerprint 548ae0d:97ac2539... matches, schema valid, 0 findings. NEXT: dispatch review-2 final gate bound to head 548ae0d (Codex/gpt-5.5, direction_synthesis strong-reviewer override; Fable5 fallback only if Codex fails its runner-level check, probed per model-adapters.md hygiene). Status review_1 -> review_2 -> stage_accepted_waiting_user. Controller does NOT declare final acceptance (can_accept_final=false).",
+  "next_action": "Rework round 1 COMPLETE: H_fix 548ae0d; review-1 (Kimi) ACCEPT + review-2 (Codex/gpt-5.5, direction_synthesis strong-reviewer override) ACCEPT, both bound to head 548ae0d (diff_fingerprint 548ae0d:97ac2539...), schema-valid, 0 findings. P1 finding spot_leg_quote_asset_hardcode RESOLVED. Status -> stage_accepted_waiting_user. validate-stage --phase pre-accept PASSED. STAGE HOLDS FOR THE USER: the controller does NOT declare final acceptance (can_accept_final=false). Carry-forward open_items (bStock 1:1 equity equivalence; spot/margin session vs perpetual 7x24; non-USDT multi-quote deferred) do not block this stage.",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T03:17:21Z"
+  "updated_at": "2026-07-04T03:31:00Z"
 }
