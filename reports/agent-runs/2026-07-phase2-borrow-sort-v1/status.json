@@ -154,7 +154,8 @@
   },
   "tests": {
     "backend": "pytest backend/tests (existing 54 + new: whitelist negatives, single-HMAC grep, direct-HTTP guard, degradation, daily-rate vectors, ordering, three-state schema, v0.2 jsonschema live+offline)",
-    "frontend": "node frontend/self-check.js (column split, daily-rate string-shift, interval badge, no-sort-control DOM, payload-order rendering, formatter immutability, graceful degradation on missing fields)"
+    "frontend": "node frontend/self-check.js (column split, daily-rate string-shift, interval badge, no-sort-control DOM, payload-order rendering, formatter immutability, graceful degradation on missing fields)",
+    "status": "passed"
   },
   "rework_count": 1,
   "max_rework": 3,
@@ -242,8 +243,12 @@
         }
       }
     ],
-    "note": "review-1 COMPLETE. round-1: A=REWORK(E1 fundingInfo live degradation P1) fixed in H_A2 2a793a9 (96 passed); B=ACCEPT (2x P3 non-blocking). round-2: A=ACCEPT (E1 fix re-reviewed by fresh Kimi, fingerprint 2a793a9:9b92cc45 MATCH, 96+20 self-rerun, zero regression); B round-1 ACCEPT stands (backend-only fix, no frontend impact, no round-2 needed). rework_count=1. Proceeding to review-2 (Codex final gate).",
-    "outcome": "PASSED"
+    "note": "review-1 COMPLETE. stage-level verdict=ACCEPT（round-2 A=ACCEPT + B round-1 ACCEPT）。rounds[] 保留细粒度：round-1 A=REWORK(E1, head cc25148:9dc905d5) → fix H_A2 → round-2 A=ACCEPT(final head 2a793a9:9b92cc45)；B round-1 ACCEPT（backend-only fix，无 round-2）。扁平 verdict/json_schema_valid/diff_fingerprint 为 validate-stage pre-accept 兼容字段（mode 首试 bridge：validate-stage 期望扁平 stage-level schema，rounds 是并行模式细粒度记录）。task-level 详情见 30-review-1-backend.md / 30-review-1-frontend.md / 30-review-1-round2-backend.md。",
+    "outcome": "PASSED",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0:9b92cc4595982f0e09ce33d179019fa54a370aa30aeeaa977772eca33fb433e9",
+    "status": "both_tasks_ACCEPT"
   },
   "review_2": {
     "gate": "review_2",
@@ -254,6 +259,7 @@
     "diff_fingerprint": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0:9b92cc4595982f0e09ce33d179019fa54a370aa30aeeaa977772eca33fb433e9",
     "verification": "codex actually executed `git diff --binary|shasum -a 256` to recompute fingerprint (raw output #779, MATCH); codex actually re-ran `python3 -m pytest backend/tests/` -> 96 passed in 3.09s (raw #4656, not a report quote); review covered AGENTS.md/stage-delivery.yaml/parallel-mode/schema/all stage reports/product code/contract/discovery evidence/git diff; schema-compliant role=final_reviewer",
     "findings": "none blocking; residual_risks: (1) bookkeeper pre-accept todo [done this round], (2) ADR-5 bounded-portfolio design decision, (3) frontend self-check coverage narrowed (review-1 P3)",
-    "outcome": "PASSED"
+    "outcome": "PASSED",
+    "json_schema_valid": true
   }
 }
