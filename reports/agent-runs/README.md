@@ -96,6 +96,8 @@ decision_models_exhausted
 development_models_exhausted
 stage_accepted_waiting_user
 human_escalation_required
+blocked
+abandoned
 ```
 
 Terminal stop reasons are limited to:
@@ -105,6 +107,10 @@ Terminal stop reasons are limited to:
 - `stage_accepted_waiting_user`
 - `human_escalation_required`
 
+`blocked` and `abandoned` are retained-branch bookkeeping states. They must map
+to one of the terminal stop reasons above in `terminal_reason` or
+`human_escalation.reason`.
+
 ## Evidence Rules
 
 - Store enough output to reproduce the conclusion.
@@ -113,6 +119,19 @@ Terminal stop reasons are limited to:
 - Contract amendments that change previously frozen API/data contracts must
   include raw public samples under `reports/api-samples/<stage>/`. Synthetic
   fixtures can cover edge cases but cannot replace fact evidence.
+- New delivery stages should record a `stage_branch` object in `status.json`.
+  When `stage_branch.name` is non-empty, all stage evidence commits before user
+  acceptance stay on that branch, normally named `stage/<stage-id>`.
+- `review-2 ACCEPT` enters `stage_accepted_waiting_user`; it does not merge the
+  stage branch to `main`. Merge or fast-forward to `main` happens only after
+  explicit user acceptance.
+- Harness/template sync commits land on `main` and must not be mixed into an
+  active stage branch unless the stage explicitly needs the new Harness
+  behavior. If `main` is merged into a stage branch by exception, record the
+  reason, rerun tests and validator, recompute fingerprints, and re-enter or
+  mechanically rebind review gates as required. Rebase is forbidden.
+- Failed or abandoned stage branches are retained as evidence and are not
+  merged to `main`.
 - Before review, commit the stage artifacts locally. Local review commits are
   Harness evidence; they do not imply push, merge, deploy, or final acceptance.
 - Record `base_sha`, `head_sha`, and `diff_fingerprint` before review.

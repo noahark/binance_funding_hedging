@@ -241,6 +241,39 @@ This mode improves wall-clock time without changing the evidence model:
 committed-state fingerprints, validator checks, formal review-1, and review-2
 remain mandatory.
 
+## Stage Branch Mode
+
+New delivery stages use a dedicated branch, normally `stage/<stage-id>`, created
+by the bookkeeper at H_intake before stage-design or implementation evidence is
+committed.
+
+The branch keeps product work, review evidence, Harness sync commits, and
+discarded stages from polluting the same moving `main` history. Stage
+`base_sha`, `head_sha`, task fingerprints, and review prompts are anchored to
+commits on the stage branch.
+
+Default behavior:
+
+1. Harness/template sync commits land on `main`.
+2. Stage design, implementation, review evidence, fixes, and terminal
+   bookkeeping commits land on the stage branch.
+3. `review-2 ACCEPT` enters `stage_accepted_waiting_user` and stops. It does
+   not merge to `main`.
+4. Merge or fast-forward back to `main` happens only after explicit user
+   acceptance.
+5. The stage branch remains pure by default. Do not merge `main` into it unless
+   the stage needs new Harness behavior from `main`.
+6. If `main` is merged into a stage branch by exception, record the reason,
+   rerun tests and validator, recompute fingerprints, and re-enter or
+   mechanically rebind review gates as the changed diff requires.
+7. Rebase is forbidden because it rewrites evidence commit identities.
+8. Failed or abandoned stage branches are retained as evidence and are not
+   merged to `main`.
+
+The executable branch gate lives in `scripts/validate-stage.py`. It is enabled
+only when `status.json.stage_branch.name` is non-empty, so historical stages and
+legacy blackboards are not retroactively invalidated.
+
 ## Terminal Stop Reasons
 
 The workflow may stop only for these terminal reasons:

@@ -2,6 +2,15 @@
   "stage_id": "<stage-id>",
   "status": "planned",
   "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": null,
+    "created_from_main_sha": null,
+    "created_at": null,
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
   "bookkeeper": {
     "id": null,
     "provider": null,

@@ -31,10 +31,19 @@ ALLOWED_STATUSES = {
     "development_models_exhausted",
     "stage_accepted_waiting_user",
     "human_escalation_required",
+    "blocked",
+    "abandoned",
 }
 
 PRE_REVIEW_STATUSES = {"review_1", "review_2"}
 PRE_ACCEPT_STATUSES = {"accepted", "stage_accepted_waiting_user"}
+BRANCH_RETAINED_TERMINAL_STATUSES = {
+    "blocked",
+    "abandoned",
+    "human_escalation_required",
+    "decision_models_exhausted",
+    "development_models_exhausted",
+}
 REVIEWER_PRIOR_INVOLVEMENTS = {"none", "direction_synthesis", "breakdown", "design"}
 PROVIDER_IDENTITIES = {
     "codex": "openai",
@@ -114,6 +123,27 @@ def require_commit(root: Path, sha: str, field: str) -> None:
     if not sha:
         raise ValidationError(f"missing {field}")
     run(["git", "cat-file", "-e", f"{sha}^{{commit}}"], cwd=root)
+
+
+def current_branch(root: Path) -> str:
+    branch = str(run(["git", "branch", "--show-current"], cwd=root)).strip()
+    if branch:
+        return branch
+    return "(detached)"
+
+
+def require_commit_in_current_history(root: Path, sha: str, field: str) -> None:
+    require_commit(root, sha, field)
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", sha, "HEAD"],
+        cwd=root,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ValidationError(f"{field} is not reachable from current HEAD: {sha}")
 
 
 def compute_diff_fingerprint(root: Path, stage_dir: Path, base_sha: str, head_sha: str) -> str:
@@ -329,6 +359,59 @@ def validate_parallel_mode(root: Path, stage_dir: Path, status_doc: dict[str, An
     return errors
 
 
+def validate_stage_branch(root: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
+    """Enforce stage branch rules only for stages that opt in via status.json."""
+    errors: list[str] = []
+    stage_branch = status_doc.get("stage_branch")
+    if stage_branch in ({}, None):
+        return errors
+    if not isinstance(stage_branch, dict):
+        return ["stage_branch must be an object when present"]
+
+    name = stage_branch.get("name")
+    if not name:
+        return errors
+    name = str(name)
+    branch = current_branch(root)
+    status = status_doc.get("status")
+    merged_back = truthy(stage_branch.get("merged_back_to_main"))
+    created_from_main_sha = stage_branch.get("created_from_main_sha")
+    if not created_from_main_sha:
+        errors.append("stage_branch.name requires stage_branch.created_from_main_sha")
+    else:
+        try:
+            require_commit(root, str(created_from_main_sha), "stage_branch.created_from_main_sha")
+        except ValidationError as exc:
+            errors.append(str(exc))
+
+    if status == "accepted" and merged_back:
+        if branch != "main":
+            errors.append(
+                "accepted stage with stage_branch.merged_back_to_main=true must be rechecked on main"
+            )
+        if not stage_branch.get("merge_strategy"):
+            errors.append("accepted merged stage requires stage_branch.merge_strategy")
+        merged_back_sha = stage_branch.get("merged_back_sha")
+        if not merged_back_sha:
+            errors.append("accepted merged stage requires stage_branch.merged_back_sha")
+        else:
+            try:
+                require_commit_in_current_history(root, str(merged_back_sha), "stage_branch.merged_back_sha")
+            except ValidationError as exc:
+                errors.append(str(exc))
+        return errors
+
+    if phase in {"checkpoint", "pre-review", "pre-accept"} and branch != name:
+        errors.append(
+            f"{phase} requires current branch {name!r} for this stage, got {branch!r}"
+        )
+
+    if status in BRANCH_RETAINED_TERMINAL_STATUSES and branch == name:
+        return errors
+
+    return errors
+
+
 def validate_common(root: Path, stage_dir: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
     errors: list[str] = []
     status = status_doc.get("status")
@@ -524,6 +607,7 @@ def main() -> int:
             except ValidationError as exc:
                 errors.append(str(exc))
         errors.extend(validate_common(root, stage_dir, status_doc, args.phase))
+        errors.extend(validate_stage_branch(root, status_doc, args.phase))
         errors.extend(validate_parallel_mode(root, stage_dir, status_doc, args.phase))
         if args.phase in {"pre-review", "pre-accept"}:
             errors.extend(validate_required_files(stage_dir, status_doc, args.phase))

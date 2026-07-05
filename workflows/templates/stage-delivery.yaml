@@ -19,6 +19,12 @@ bookkeeper:
 
 guards:
   require_git_repo: true
+  require_stage_branch: true
+  stage_branch_name_template: "stage/{{stage_id}}"
+  stage_branch_gate_enabled_when: "status.json.stage_branch.name is non-empty"
+  review_2_accept_does_not_merge_main: true
+  merge_to_main_requires_user_acceptance: true
+  forbid_rebase: true
   require_committed_state_before_review: true
   forbid_worktree_fingerprint: true
   validate_stage_script: "scripts/validate-stage.py"
@@ -147,13 +153,13 @@ rotation:
     do_not_seek_second_opinion_after_valid_review_2_verdict: true
   complexity_routing:
     LOW:
-      route: stage-design
+      route: stage-branch-intake
       direction_panel_required: false
       requires_one_of:
         - user_approved_lightweight_route
         - existing_synthesis_covers_task
     MEDIUM:
-      route: stage-design
+      route: stage-branch-intake
       direction_panel_required: false
       requires_one_of:
         - user_approved_lightweight_route
@@ -175,7 +181,7 @@ stop_conditions:
     description: "All development models are quota-exhausted or unavailable for implementation/fix tasks."
     terminal: true
   stage_accepted_waiting_user:
-    description: "The stage passes review; stop and wait for the user to start the next multi-model direction round."
+    description: "The stage passes review; stop and wait for explicit user acceptance before merging the stage branch to main."
     terminal: true
   human_escalation_required:
     description: "Human decision is required for rework limit, unresolved BLOCKED verdict, missing evidence, invalid verdict JSON after retry/fallback, or human gate."
@@ -215,19 +221,19 @@ stages:
           any:
             - user_approved_lightweight_route
             - existing_synthesis_covers_task
-        then: stage-design
+        then: stage-branch-intake
         else: human_escalation_required
       MEDIUM:
         if:
           any:
             - user_approved_lightweight_route
             - existing_synthesis_covers_task
-        then: stage-design
+        then: stage-branch-intake
         else: human_escalation_required
       HIGH: direction-drafts
       MILESTONE: direction-drafts
       user_override:
-        HIGH: stage-design
+        HIGH: stage-branch-intake
         LOW: direction-drafts
         MEDIUM: direction-drafts
     acceptance:
@@ -235,7 +241,7 @@ stages:
       - "LOW/MEDIUM tasks can skip registered direction-panel drafting only when user-approved or covered by existing synthesis; otherwise ask the user to confirm."
       - "MILESTONE tasks always enter registered direction-panel drafting."
     transitions:
-      stage_design: stage-design
+      stage_design: stage-branch-intake
       direction_drafts: direction-drafts
       human_gate: human_escalation_required
 
@@ -298,10 +304,49 @@ stages:
       - "No raw model draft is copied into canonical docs without consolidation."
       - "Open questions remain marked and are not converted into approved requirements."
     transitions:
+      done: stage-branch-intake
+      human_gate: human_escalation_required
+
+  - id: stage-branch-intake
+    run_when:
+      - "after user approval of a direction synthesis, or after an approved lightweight route"
+      - "before stage-design and before any delivery-stage evidence commits"
+    actor: bookkeeper
+    skill: task_planner
+    mode: run_commands
+    reads:
+      - "AGENTS.md"
+      - "workflows/templates/stage-delivery.yaml"
+      - "reports/agent-runs/{{stage_id}}/00-intake.md"
+      - "reports/agent-runs/{{stage_id}}/06-direction-synthesis.md when present"
+    writes:
+      - "reports/agent-runs/{{stage_id}}/status.json"
+      - "reports/agent-runs/{{stage_id}}/70-handoff.md"
+    branch:
+      name_template: "stage/{{stage_id}}"
+      create_from: "main"
+      record_fields:
+        - "stage_branch.name"
+        - "stage_branch.created_from_main_sha"
+        - "stage_branch.created_at"
+        - "stage_branch.merged_back_to_main=false"
+      default_policy:
+        - "Keep the stage branch pure; do not merge main into the stage branch."
+        - "Harness/template sync commits land on main only."
+        - "If the stage needs new Harness behavior from main, record the reason, merge main into the stage branch, rerun tests and validator, recompute fingerprints, and re-enter or rebind review gates as required."
+        - "Rebase is forbidden."
+    acceptance:
+      - "Current branch is status.json.stage_branch.name."
+      - "stage_branch.created_from_main_sha is a resolvable main commit."
+      - "No implementation, review, fix, or terminal bookkeeping commit for this stage lands on main before explicit user acceptance."
+    transitions:
       done: stage-design
       human_gate: human_escalation_required
 
   - id: stage-design
+    preflight:
+      - "If status.json.stage_branch.name is non-empty, current branch must match it."
+      - "Stage design evidence is written on the stage branch, not directly on main."
     actor: rotation.designers
     skill: software_architect
     mode: read_write_docs
@@ -470,6 +515,7 @@ stages:
   - id: review-1
     preflight:
       - "Bookkeeper must locally commit reviewed artifacts before dispatch."
+      - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_1."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
@@ -559,6 +605,7 @@ stages:
   - id: review-2
     preflight:
       - "Bookkeeper must locally commit reviewed artifacts before dispatch."
+      - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_2."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
@@ -657,7 +704,22 @@ terminal_states:
     bookkeeper_action:
       - "update status.json"
       - "update 70-handoff.md"
-      - "stop and wait for the user to start the next multi-model direction round"
+      - "do not merge the stage branch to main"
+      - "stop and wait for explicit user acceptance"
+  accepted:
+    run_when:
+      - "after explicit user acceptance of stage_accepted_waiting_user"
+    preflight:
+      - "User acceptance is recorded before any merge to main."
+      - "If status.json.stage_branch.name is non-empty, merge or fast-forward the stage branch to main according to status.json.stage_branch.merge_strategy."
+      - "If main advanced, resolve conflicts on main side; do not rewrite or rebase the stage branch."
+      - "After merge, record status.json.stage_branch.merged_back_to_main=true and merged_back_sha."
+      - "Run scripts/validate-stage.py {{stage_id}} --phase pre-accept after the merge recheck."
+    bookkeeper_action:
+      - "update status.json"
+      - "update 70-handoff.md"
+      - "record merge_strategy as fast_forward or main_side_merge_commit"
+      - "stop and wait for the next user-directed stage"
   decision_models_exhausted:
     bookkeeper_action:
       - "update status.json"
@@ -675,4 +737,5 @@ terminal_states:
       - "update status.json"
       - "update 70-handoff.md"
       - "report why automation cannot proceed safely"
+      - "if abandoning the stage branch, record stage_branch.abandoned_reason and do not merge to main"
       - "stop stage delivery and wait for user decision"

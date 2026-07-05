@@ -211,6 +211,16 @@ dispatching the fix.
 - Review gates require a committed repository state. The bookkeeper is
   authorized to create local stage commits before review; this does not imply
   user approval to push, merge, deploy, or mark the stage accepted.
+- New delivery stages use a stage branch named `stage/<stage-id>` unless the
+  stage intake records an explicit user-approved exception. The bookkeeper
+  creates the branch at H_intake, and all stage commits before user acceptance
+  stay on that branch.
+- `review-2 ACCEPT` moves the stage only to `stage_accepted_waiting_user`; it
+  does not authorize merging the stage branch to `main`. Merge or fast-forward
+  back to `main` requires explicit user acceptance after review.
+- `base_sha`, `head_sha`, and `diff_fingerprint` are anchored to commits on
+  the active stage branch. Review prompts must use the status-recorded
+  `<base_sha>..<head_sha>` range, never a moving `HEAD`.
 - Diff fingerprint is defined as a single committed-state scheme:
   `head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")`.
   `status.json` is excluded because it records the fingerprint and would
@@ -267,6 +277,11 @@ dispatching the fix.
   executed or escalated before the implementer reports completion, and the
   bookkeeper must perform R4 diff reconciliation before creating H_A/H_B
   evidence commits.
+- Harness/template sync lands on `main` only and must not be mixed into an
+  active stage branch unless that stage needs the new Harness behavior. If
+  `main` is merged into a stage branch by exception, record the reason, rerun
+  tests and validator, recompute fingerprints, and re-enter or mechanically
+  rebind review gates as the changed diff requires. Rebase is forbidden.
 
 ## Standard Stage Delivery
 
@@ -281,22 +296,26 @@ The intended stage delivery flow is:
 3. Have the configured direction synthesizer, normally GPT/Codex, synthesize the
    raw drafts into a final direction and requirements document for user review.
 4. Wait for user approval before development starts.
-5. Design stage scope and acceptance criteria.
-6. Run development detail breakdown for `MEDIUM`, `HIGH`, or `MILESTONE`
+5. Bookkeeper creates and records `stage/<stage-id>` at H_intake before stage
+   commits begin.
+6. Design stage scope and acceptance criteria.
+7. Run development detail breakdown for `MEDIUM`, `HIGH`, or `MILESTONE`
    stages.
-7. Split implementation tasks.
-8. Implement the bounded task.
-9. Run deterministic tests, lint, type checks, or replay checks.
-10. For parallel development stages, run embedded cross-review checkpoints from
+8. Split implementation tasks.
+9. Implement the bounded task.
+10. Run deterministic tests, lint, type checks, or replay checks.
+11. For parallel development stages, run embedded cross-review checkpoints from
    `docs/parallel-development-mode.md` before the formal review gate; these
    checkpoints do not replace committed-state review-1.
-11. Commit the bounded stage artifacts locally, compute the standard
+12. Commit the bounded stage artifacts locally on the stage branch, compute the
+   standard
    `diff_fingerprint`, run `scripts/validate-stage.py <stage-id> --phase
    pre-review`, then review raw artifacts.
-12. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
+13. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
    to launch the fix task.
-13. Repeat only within the bounded stage until accepted, then stop and wait for
-   the user to start the next multi-model direction round.
+14. Repeat only within the bounded stage until `review-2 ACCEPT`, then stop at
+   `stage_accepted_waiting_user`. Merge back to `main` only after explicit user
+   acceptance.
 
 Lightweight bugfixes or mechanical follow-up tasks may skip the direction panel
 when the user explicitly approves that shortcut or an existing synthesis already
@@ -321,8 +340,8 @@ The workflow may stop only for these terminal reasons:
    unavailable, so no decision or final review can continue.
 2. All development models are quota-exhausted or otherwise unavailable, so no
    implementation or fix task can continue.
-3. The stage task passes review, then the workflow stops and waits for the user
-   to start the next multi-model direction round.
+3. The stage task passes review, enters `stage_accepted_waiting_user`, and then
+   waits for explicit user acceptance before any merge to `main`.
 4. Human escalation is required because the workflow hit a non-automatable
    product decision, missing evidence that models cannot collect, repeated
    invalid verdict output, or the rework limit.
@@ -361,8 +380,9 @@ another model to continue, update:
   `50-review-2.md`
 - `60-test-output.txt` when tests or command checks were run
 
-The checkpoint must include current branch, HEAD if available, git status,
-changed files, test status, open findings, blockers, and next action.
+The checkpoint must include current branch, `stage_branch` metadata, HEAD if
+available, git status, changed files, test status, open findings, blockers, and
+next action.
 
 Checkpoints before review may be uncommitted. Review gates may not be
 uncommitted.
