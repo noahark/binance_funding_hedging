@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-v1",
-  "status": "planned",
+  "status": "blocked",
   "workflow": "stage-delivery",
   "complexity": "MILESTONE",
   "stage_branch": {
@@ -99,8 +99,19 @@
   "h_intake": {
     "gates": ["G1 branch", "G2 live discovery (E3/E4/E6 fail=BLOCKED)", "G3 weight capture", "G4 field matrix appendix", "G5 ban self-check"],
     "discovery_script": "scripts/discovery-capture-private-v1.py (bookkeeper-authored, one-shot, capture-time redaction)",
-    "evidence_dir": "reports/api-samples/2026-07-private-account-v1/<UTC-ts>/",
-    "committed_sha": null
+    "evidence_dir": "reports/api-samples/2026-07-private-account-v1/20260705T162920Z/",
+    "committed_sha": null,
+    "attempts": [
+      {
+        "run_utc": "20260705T162920Z",
+        "outcome": "blocked",
+        "blocking_failed": ["/papi/v1/balance", "/papi/v1/um/positionRisk", "/api/v3/account"],
+        "binance_code": -2015,
+        "egress_ip": "202.8.105.116",
+        "evidence_dir": "reports/api-samples/2026-07-private-account-v1/20260705T162920Z/",
+        "note": "script healthy (public ticker/price 200; signing code identical to proven phase2 discovery; fresh re-source + single E6 retry still -2015). Account-level endpoints reject the current key/IP combination."
+      }
+    ]
   },
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base>..<head> -- . ':(exclude)reports/agent-runs/2026-07-private-account-v1/status.json')",
   "base_sha": null,
@@ -109,10 +120,24 @@
   "rework_count": 0,
   "max_rework": 3,
   "can_accept_final": false,
-  "commit_state": "designer packet committed on stage branch; awaiting bookkeeper H_intake",
-  "next_action": "user dispatches bookkeeper-start-prompt.md to a FRESH claude-glm session (source ~/.binance-keys first); bookkeeper runs H_intake gates G1-G5 then parallel dispatch",
-  "blockers": [],
-  "human_escalation": null,
+  "commit_state": "designer packet committed on stage branch; H_intake G2 BLOCKED (-2015); discovery script + failed-run evidence committed as blocked checkpoint; awaiting user API-key auth resolution",
+  "next_action": "BLOCKED at H_intake G2: user resolves API-key -2015 (IP whitelist 202.8.105.116 / permissions / validity), re-sources ~/.binance-keys, re-runs python3 scripts/discovery-capture-private-v1.py; on PASS bookkeeper resumes G3-G5 + parallel dispatch.",
+  "blockers": [
+    {
+      "gate": "G2 live discovery (blocking gate)",
+      "severity": "blocking",
+      "raised_at_utc": "2026-07-05T16:32:41Z",
+      "detail": "E3 /papi/v1/balance, E4 /papi/v1/um/positionRisk, E6 /api/v3/account all returned HTTP 401 with Binance code -2015 ('Invalid API-key, IP, or permissions'). Public /api/v3/ticker/price returned 200 OK (network + signing framework healthy; signing code identical to the proven phase2 discovery). A fresh re-source of ~/.binance-keys followed by a single E6 retry still returned -2015 (rules out stale session env). The papi balance response echoed egress IP 202.8.105.116.",
+      "evidence": "reports/api-samples/2026-07-private-account-v1/20260705T162920Z/evidence-index.md",
+      "action_required": "On the API key bound in ~/.binance-keys: whitelist egress IP 202.8.105.116 (or relax IP restriction), OR grant Spot+Margin+UM read permissions, OR replace with a valid key. Then re-source ~/.binance-keys in a fresh terminal and re-run: python3 scripts/discovery-capture-private-v1.py"
+    }
+  ],
+  "human_escalation": {
+    "reason": "H_intake G2 blocking gate failed: account-level endpoints reject the current key/IP combination (-2015), so the core private_account view is unreachable and parallel dispatch cannot start until the user resolves API-key IP/permission/validity.",
+    "raised_at_utc": "2026-07-05T16:32:41Z",
+    "evidence_dir": "reports/api-samples/2026-07-private-account-v1/20260705T162920Z/",
+    "terminal_under": "blocked"
+  },
   "evidence_policy": "raw outputs verbatim; capture-time redaction for account-level data; all endpoint claims carry llms-full.txt line refs or live capture paths",
-  "updated_at": "2026-07-05T16:35:00Z"
+  "updated_at": "2026-07-05T16:32:41Z"
 }

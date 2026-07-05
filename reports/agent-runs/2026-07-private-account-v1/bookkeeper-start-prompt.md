@@ -1,12 +1,17 @@
 <!-- ============ RECEIPT（审计元数据，bookkeeper 回填；非任务内容） ============
-status: pending            # pending | running | done | blocked | escalated
+status: blocked            # pending | running | done | blocked | escalated
 target_model: claude_glm (glm-5.2) FRESH 专职 bookkeeper 会话（禁止兼任实现）
 adapter_cmd: 用户在 source ~/.binance-keys 后的终端启动 fresh claude-glm 会话，发「读文件执行 PROMPT BODY」一行指令
-started_at:
-completed_at:
-session_id:
-outputs:                   # H_intake commit sha / discovery 证据目录 / 冻结预算表 / 派工时刻
-next_dispatch: task-a-glm-backend.prompt.md + task-b-kimi-frontend.prompt.md（并行；executor: user 中转到两个实现终端）
+started_at: 2026-07-05T16:29Z (UTC) / 2026-07-06 00:29 CST
+completed_at: (未完成 — H_intake G2 阻断)
+session_id: bookkeeper fresh claude-glm (this session)
+outputs:
+  - scripts/discovery-capture-private-v1.py（bookkeeper 编写，G5 自查通过：12 签名白名单==status.json + 公开 ticker/price、零 POST/PUT/DELETE、key 零片段、编译通过）
+  - reports/api-samples/2026-07-private-account-v1/20260705T162920Z/（FAILED run：全签名端点 Binance -2015；evidence-index.md 含 sha256 全表 + 实测 weight 头）
+  - status.json: planned -> blocked（blockers + human_escalation 已填）
+blocker: E3/E4/E6 全部 HTTP 401 / Binance -2015（Invalid API-key, IP, or permissions）。公开 ticker/price 200 OK；签名代码=已验证 phase2；fresh re-source + 单测 E6 仍 -2015 → 排除会话 env 过期。papi 响应回显出口 IP 202.8.105.116。
+user_action_required: 在 ~/.binance-keys 绑定的 key 上——白名单出口 IP 202.8.105.116（或放宽 IP 限制）/ 或授予 Spot+Margin+UM 读权限 / 或更换有效 key；然后在 fresh 终端 re-source 后重跑 python3 scripts/discovery-capture-private-v1.py。PASS 后 bookkeeper 续 G3-G5 + 并行派工。
+next_dispatch: 阻断中（未到派工）。解除后同下行：task-a-glm-backend.prompt.md + task-b-kimi-frontend.prompt.md（并行；executor: user 中转到两个实现终端）
 ======================================================================== -->
 
 --- PROMPT BODY（不可变任务正文，自此行以下原样执行） ---
