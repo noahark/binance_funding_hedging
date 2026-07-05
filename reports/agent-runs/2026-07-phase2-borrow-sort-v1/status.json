@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-phase2-borrow-sort-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery + docs/parallel-development-mode.md (ADOPTED-TRIAL, first trial)",
   "prerequisite": "Phase 2 direction baseline FROZEN (docs/phase2-direction-draft.md @ 11dec26, Codex ACCEPT-FREEZE); user approved stage design 2026-07-04",
   "complexity": "MILESTONE",
@@ -37,7 +37,7 @@
   },
   "base_sha": "4d47ad2d3f2068e86b634b5e39d5063dc4ed526f",
   "head_sha": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0",
-  "commit_state": "review-1 COMPLETE: A round-2 ACCEPT (E1 fix H_A2 2a793a9 re-reviewed by fresh Kimi session_bc79ad49, fingerprint 2a793a9:9b92cc45 MATCH, 96+20 self-rerun pass); B round-1 ACCEPT stands (backend-only fix, no frontend impact). rework_count=1 (round-1 E1, fixed). Next: review-2 (Codex, user-submitted, direction_synthesis disclosure).",
+  "commit_state": "review-2 COMPLETE (Codex final gate): ACCEPT by fresh read-only gpt5.5 session 019f2fae (direction_synthesis disclosed & accepted). Fingerprint 2a793a9:9b92cc45 recomputed by codex via actual `git diff|shasum` (MATCH); codex actually re-ran pytest -> 96 passed (raw #4656); review covered harness+product+evidence. 3 non-blocking residual_risks (bookkeeper pre-accept todo / ADR-5 design decision / frontend self-check P3). rework_count=1 (round-1 E1, fixed & re-reviewed). Stage awaits user acceptance; can_accept_final=false (user gate).",
   "diff_fingerprint": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0:9b92cc4595982f0e09ce33d179019fa54a370aa30aeeaa977772eca33fb433e9",
   "diff_fingerprint_formula": "head_sha + \":\" + sha256(git diff --binary <base_sha>..<head_sha> -- . \":(exclude)reports/agent-runs/2026-07-phase2-borrow-sort-v1/status.json\")",
   "tasks": {
@@ -164,9 +164,9 @@
     "Any coupling-surface change request during implementation (mode R3)",
     "Any R1-R9 parallel-mode red-line breach -> record breach, fall back to serial"
   ],
-  "next_action": "review-2 (final gate): Codex gpt5.5, user-submitted read-only (codex exec -s read-only), reviewer_prior_involvement=direction_synthesis (disclosed). dispatch review-2-task-c-by-codex.prompt.md (base=4d47ad2, head=2a793a9). review-2 ACCEPT -> stage_accepted_waiting_user (pre-accept gate).",
+  "next_action": "stage_accepted_waiting_user: review-1 (A round-2 ACCEPT + B round-1 ACCEPT) + review-2 (Codex ACCEPT) all PASSED. Bookkeeper runs validate-stage --phase pre-accept (can_accept_final=false, final acceptance is a user gate). User acceptance -> stage DONE (deliver/merge).",
   "can_accept_final": false,
-  "updated_at": "2026-07-04T16:16:00Z",
+  "updated_at": "2026-07-05T00:36:00Z",
   "h_intake": {
     "discovery_evidence_dir": "reports/api-samples/2026-07-phase2-borrow-sort-v1/20260704T133406Z",
     "discovery_script": "scripts/discovery-capture-phase2.py",
@@ -243,6 +243,17 @@
       }
     ],
     "note": "review-1 COMPLETE. round-1: A=REWORK(E1 fundingInfo live degradation P1) fixed in H_A2 2a793a9 (96 passed); B=ACCEPT (2x P3 non-blocking). round-2: A=ACCEPT (E1 fix re-reviewed by fresh Kimi, fingerprint 2a793a9:9b92cc45 MATCH, 96+20 self-rerun, zero regression); B round-1 ACCEPT stands (backend-only fix, no frontend impact, no round-2 needed). rework_count=1. Proceeding to review-2 (Codex final gate).",
+    "outcome": "PASSED"
+  },
+  "review_2": {
+    "gate": "review_2",
+    "reviewer": "codex gpt5.5 (fresh read-only codex exec -s read-only session 019f2fae-8f3d-7882-a8b5-a01f98111c05)",
+    "reviewer_prior_involvement": "direction_synthesis (disclosed in prompt; accepted by reviewer per model_routing.review_2 + AGENTS.md disclosure override)",
+    "verdict": "ACCEPT",
+    "verdict_path": "30-review-2.md",
+    "diff_fingerprint": "2a793a9c35e8e5fe8cdebe8875cada9b85f335d0:9b92cc4595982f0e09ce33d179019fa54a370aa30aeeaa977772eca33fb433e9",
+    "verification": "codex actually executed `git diff --binary|shasum -a 256` to recompute fingerprint (raw output #779, MATCH); codex actually re-ran `python3 -m pytest backend/tests/` -> 96 passed in 3.09s (raw #4656, not a report quote); review covered AGENTS.md/stage-delivery.yaml/parallel-mode/schema/all stage reports/product code/contract/discovery evidence/git diff; schema-compliant role=final_reviewer",
+    "findings": "none blocking; residual_risks: (1) bookkeeper pre-accept todo [done this round], (2) ADR-5 bounded-portfolio design decision, (3) frontend self-check coverage narrowed (review-1 P3)",
     "outcome": "PASSED"
   }
 }
