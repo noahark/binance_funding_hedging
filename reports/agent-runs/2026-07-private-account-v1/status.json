@@ -1,0 +1,118 @@
+{
+  "stage_id": "2026-07-private-account-v1",
+  "status": "planned",
+  "workflow": "stage-delivery",
+  "complexity": "MILESTONE",
+  "stage_branch": {
+    "name": "stage/2026-07-private-account-v1",
+    "created_from_main_sha": "1478dedb38c579e1cedf75f87bae1468e66da931",
+    "created_at": "2026-07-05T16:20:00Z",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "independent_stage_bookkeeper",
+    "provider": "claude_glm",
+    "model": "glm-5.2",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "bookkeeper 与 implementer-A 同为 claude_glm 模型但强制不同会话；记账不产生代码作者身份；review-2 评估此披露"
+  },
+  "parallel_mode": {
+    "enabled": true,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": true,
+    "r4_diff_reconciliation_required": true
+  },
+  "designer": "fable5 (anthropic/claude-fable-5) — direction draft, stage design, all dispatch prompts; created stage branch + design packet commit (design-time filing, disclosed)",
+  "direction_synthesizer": "codex gpt5.5 (ACCEPT-FREEZE, archived reports/agent-runs/private-account-v1-direction/codex-synthesis.raw-output.md)",
+  "breakdown_author": "fable5",
+  "frozen_inputs": {
+    "direction_baseline": "docs/private-account-v1-direction-draft.md @ 7168266 (user-approved incl. ADR-3 sort revision)",
+    "endpoint_recon": "reports/agent-runs/private-account-v1-direction/endpoint-recon-kimi.md @ 1478ded",
+    "upstream_security_baseline": "docs/phase2-direction-draft.md (FROZEN)",
+    "contract_current": "docs/api/public-market-contract.md v0.2, wire schema_version public-market-snapshot/v1"
+  },
+  "endpoint_whitelist": [
+    ["GET", "/sapi/v1/margin/allPairs"],
+    ["GET", "/sapi/v1/margin/allAssets"],
+    ["GET", "/sapi/v1/margin/crossMarginData"],
+    ["GET", "/papi/v1/margin/maxBorrowable"],
+    ["GET", "/papi/v1/margin/marginInterestHistory"],
+    ["GET", "/papi/v1/portfolio/interest-history"],
+    ["GET", "/sapi/v1/margin/next-hourly-interest-rate"],
+    ["GET", "/sapi/v1/margin/interestRateHistory"],
+    ["GET", "/sapi/v1/account/info"],
+    ["GET", "/papi/v1/balance"],
+    ["GET", "/papi/v1/um/positionRisk"],
+    ["GET", "/api/v3/account"]
+  ],
+  "hard_constraints": [
+    "永久禁令：POST/PUT/DELETE、交易语义端点、listenKey/user data stream/websocket（含铺垫代码）",
+    "单一 HMAC 出口 = backend/services/private_client.py（grep 断言）",
+    "deny-by-default (method, exact-path) 白名单，签名构造前拦截",
+    "key/secret 任何片段不得进代码/日志/报告/fixture",
+    "进 git 的样本/报告/fixture 数值按 §2.A 脱敏标记表脱敏（运行时页面真实展示不受限）",
+    "classify.py / normalize.py 零改动；枚举与优先级零改动",
+    "E1/E1b 为 discovery-only，本轮快照装配不调用",
+    "开发中途新增端点 = R3 升级，禁止顺手加",
+    "实现终端不 commit、不碰 status.json；R10 收尾段必须机械执行",
+    "review-2 ACCEPT 只进 stage_accepted_waiting_user；merge 回 main 仅限用户明确验收后（bookkeeper 不得代翻 accepted）",
+    "本 stage 全部提交只落 stage/2026-07-private-account-v1 分支"
+  ],
+  "model_routing": {
+    "excluded_for_core_work": [],
+    "review_2": "codex gpt5.5 first; disclosure reviewer_prior_involvement=direction_synthesis+direction_review; strong-reviewer override per AGENTS.md; fallback claude per existing rules",
+    "review_1": {"A": "kimi fresh", "B": "claude_glm fresh"}
+  },
+  "tasks": [
+    {
+      "id": "A",
+      "title": "backend: cost-leg chain / contract v0.3 / net yield / coverage probing / asset aggregation",
+      "owner": "claude_glm (implementer session, distinct from bookkeeper)",
+      "scope": ["backend/**", "schemas/**", "docs/api/**"],
+      "prompt_path": "task-a-glm-backend.prompt.md",
+      "pre_review_prompt": "pre-review-task-a-by-kimi.prompt.md",
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "review_1": {"reviewer": "kimi fresh", "verdict": null, "json_schema_valid": null, "diff_fingerprint": null},
+      "tests_evidence": null
+    },
+    {
+      "id": "B",
+      "title": "frontend: private panel / aggregated asset view / net yield column / sort_basis label / privacy toggle",
+      "owner": "kimi",
+      "scope": ["frontend/index.html", "frontend/self-check.js"],
+      "prompt_path": "task-b-kimi-frontend.prompt.md",
+      "pre_review_prompt": "pre-review-task-b-by-glm.prompt.md",
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "review_1": {"reviewer": "claude_glm fresh", "verdict": null, "json_schema_valid": null, "diff_fingerprint": null},
+      "tests_evidence": null
+    }
+  ],
+  "embedded_reviews": {},
+  "h_intake": {
+    "gates": ["G1 branch", "G2 live discovery (E3/E4/E6 fail=BLOCKED)", "G3 weight capture", "G4 field matrix appendix", "G5 ban self-check"],
+    "discovery_script": "scripts/discovery-capture-private-v1.py (bookkeeper-authored, one-shot, capture-time redaction)",
+    "evidence_dir": "reports/api-samples/2026-07-private-account-v1/<UTC-ts>/",
+    "committed_sha": null
+  },
+  "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base>..<head> -- . ':(exclude)reports/agent-runs/2026-07-private-account-v1/status.json')",
+  "base_sha": null,
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "rework_count": 0,
+  "max_rework": 3,
+  "can_accept_final": false,
+  "commit_state": "designer packet committed on stage branch; awaiting bookkeeper H_intake",
+  "next_action": "user dispatches bookkeeper-start-prompt.md to a FRESH claude-glm session (source ~/.binance-keys first); bookkeeper runs H_intake gates G1-G5 then parallel dispatch",
+  "blockers": [],
+  "human_escalation": null,
+  "evidence_policy": "raw outputs verbatim; capture-time redaction for account-level data; all endpoint claims carry llms-full.txt line refs or live capture paths",
+  "updated_at": "2026-07-05T16:35:00Z"
+}
