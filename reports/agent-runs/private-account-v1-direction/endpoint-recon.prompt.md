@@ -1,11 +1,11 @@
 <!-- ============ RECEIPT（审计元数据；非任务内容） ============
-status: pending            # pending | running | done | escalated
+status: done               # pending | running | done | escalated
 target_model: kimi（首选，night-collection 先例）或 gemini（llms-full 研究先例）
 adapter_cmd: 用户以「读文件并执行 PROMPT BODY」一行指令发至模型终端
-started_at:
-completed_at:
-session_id:
-outputs:                   # endpoint-recon-<model>.md（逐字落档）
+started_at: 2026-07-05T23:48:00Z
+completed_at: 2026-07-05T23:58:41Z
+session_id: current
+outputs: reports/agent-runs/private-account-v1-direction/endpoint-recon-kimi.md
 next_dispatch: 摸排落档 → Fable5 消费其结论出 stage design 全套 packet（executor: user 中转）
 ======================================================================== -->
 
