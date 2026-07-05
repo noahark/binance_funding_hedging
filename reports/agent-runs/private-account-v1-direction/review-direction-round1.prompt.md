@@ -1,12 +1,17 @@
 <!-- ============ RECEIPT（审计元数据；非任务内容） ============
-status: pending            # pending | running | done | escalated
-target_model: gpt5.5 / claude_glm / kimi（三方各自 fresh 会话，独立评审互不可见）
+status: done               # pending | running | done | escalated
+target_model: gpt5.5 / claude_glm / kimi + 用户加派 gemini-3.1-pro / claude_opus4.6（五方各自 fresh 会话，独立评审互不可见）
 adapter_cmd: 用户以「读文件并执行 PROMPT BODY」一行指令分发至各模型终端
-started_at:
-completed_at:
-session_id:
-outputs:                   # review-<model>.md（各模型评审落档，逐字保留）
-next_dispatch: 三份评审齐 → Fable5 吸收出 DRAFT-2 → Codex 合成（executor: user 中转）
+started_at: 2026-07-05T21:22+0800
+completed_at: 2026-07-05T22:02+0800（最后一份 opus 落档）
+session_id: 各模型独立会话（Codex 21:27 / Kimi 21:28 / GLM 21:32 / Gemini 21:40 / Opus 22:00 CST）
+outputs:                   # 五份评审逐字落档
+  - review-codex.md (REWORK)
+  - review-kimi-2.7.md (REWORK)
+  - review-claude_glm.md (REWORK)
+  - review-gemini-3.1-pro.md (ACCEPT)
+  - review-claude_opus.md (REWORK)
+next_dispatch: Fable5 已吸收出 DRAFT-2（docs/private-account-v1-direction-draft.md）→ Codex 合成（executor: user 中转）
 ======================================================================== -->
 
 --- PROMPT BODY（不可变任务正文，自此行以下原样执行） ---
