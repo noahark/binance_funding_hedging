@@ -11,7 +11,7 @@ outputs:                   # 五份评审逐字落档
   - review-claude_glm.md (REWORK)
   - review-gemini-3.1-pro.md (ACCEPT)
   - review-claude_opus.md (REWORK)
-next_dispatch: Fable5 已吸收出 DRAFT-2（docs/private-account-v1-direction-draft.md）→ Codex 合成（executor: user 中转）
+next_dispatch: none（DRAFT-2 → 用户 8 点反馈 → DRAFT-3 → Codex 合成 ACCEPT-FREEZE → 用户批准冻结 2026-07-05；后续 = stage design，由 Fable5 出全套 packet）
 ======================================================================== -->
 
 --- PROMPT BODY（不可变任务正文，自此行以下原样执行） ---

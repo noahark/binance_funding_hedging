@@ -1,6 +1,13 @@
-# 私有账户数据接入 v1 — 方向草案 DRAFT-3
+# 私有账户数据接入 v1 — 方向基线（FROZEN）
 
-状态：DRAFT-3（已吸收 5 模型评审 + 用户 8 点反馈，待 Codex 合成）。
+状态：**FROZEN 方向基线**（2026-07-05）。Codex 合成 ACCEPT-FREEZE
+（原文逐字落档 `reports/agent-runs/private-account-v1-direction/
+codex-synthesis.raw-output.md`）+ 用户批准「批准 DRAFT-3」。
+**用户批准范围**：①方向冻结；②ADR-3 排序基准修订（abs 日费率 →
+net_daily_yield 优先 + 降级回退）；③综合资产视图纳入；④隐私按自用
+工程卫生执行。
+Codex 非阻塞提醒（stage design 落实）：E6 须同时引用 endpoint spec 与
+omitZeroBalances changelog；现货估值 price source 须冻结。
 起草：Fable5（designer）。上游基线：`docs/phase2-direction-draft.md`
 （FROZEN）。
 
