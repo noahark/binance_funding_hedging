@@ -1,11 +1,15 @@
 # Handoff — 2026-07-private-account-v1
 
-## 当前状态：✅ STAGE_ACCEPTED_WAITING_USER（review-2 ACCEPT；待用户验收，未 merge main）
+## 当前状态：✅ ACCEPTED（用户验收通过；no-ff 合回 main）
 
-- `status`：**`stage_accepted_waiting_user`**（review-1 双 ACCEPT + review-2 ACCEPT，
-  pre-accept gate 通过）
-- `can_accept_final`：**`false`**（bookkeeper 红线——永不翻 `accepted`，那是用户门；
-  merge 回 main 仅限用户明确验收后）
+- `status`：**`accepted`**（2026-07-06 用户验收通过；`user_acceptance.accepted=true`，
+  authority=user）
+- `can_accept_final`：仍 **`false`**（bookkeeper 本身无自决权；`accepted` 转移由用户授权
+  驱动，非 bookkeeper 翻牌——红线未破）
+- 合并：`stage/2026-07-private-account-v1` → `main`，策略 **no-ff**（合并元数据
+  `merged_back_to_main`/`merged_back_sha` 在 main 上补齐并复校）
+- 小调整（借币利率上行展示等）经用户拍板**推迟到下个 stage**（见
+  `memory/followup-borrow-rate-on-row`），本 stage 不再改动
 - `rework_count`：0（嵌入预审本地循环 + review-1 隔离偏差方案 A 均不计入正式 rework）
 - stage 级 `diff_fingerprint`（base `fce1452` → head `6c1e992`）：
   `6c1e992c4628c0d8e369ba648b0403f341037849:a2140bfd2de2043b78321d0794e6db849f102d3987352f14cfd95178258a0772`
@@ -65,16 +69,18 @@ ACCEPT**；② bookkeeper dual_hat 披露**充分**；③ Codex direction_synthe
 - **review-2 finding #3**：Task A review-1 隔离偏差为 residual bias risk，future 正式
   review 应隐藏 embedded pre-review 结论。
 
-## 下一步（用户门）
+## 下一步
 
-1. **用户验收**：审 `50-review-2.md` + raw outputs + 本 stage 交付物。
-2. 验收通过 → 用户指示 merge `stage/2026-07-private-account-v1` 回 `main`（bookkeeper
-   不主动 merge；merge 策略由用户定）。
-3. 验收后 follow-ups（非阻塞）：ADR-11 补录、ADR-9 E2b 实测、E4 真实持仓复核。
+1. ✅ **用户验收通过**（2026-07-06；本人授权合回 main，策略 no-ff）。
+2. bookkeeper 执行 `git merge --no-ff` 合回 `main` → 在 main 补齐
+   `stage_branch.merged_back_to_main=true` / `merged_back_sha` / `merge_strategy=no-ff` →
+   在 main 复校 `validate-stage.py --phase pre-accept`。
+3. **推送 `origin/main` 需用户另行确认**（合回是本地 main 动作；push 为独立对外动作）。
+4. 下个 stage follow-ups（非阻塞）：借币利率上行展示（用户验收提出，见
+   `memory/followup-borrow-rate-on-row`）、ADR-11 补录、ADR-9 E2b 实测、E4 真实持仓复核。
 
-> 红线重申：bookkeeper `can_accept_final=false`，已停在
-> `stage_accepted_waiting_user`；**未翻 `accepted`**；`stage_branch.merged_back_to_main`
-> 仍为 `false`。merge 与最终 accept 是用户门。
+> 授权链：`user_acceptance.accepted=true`（authority=user）驱动 `accepted` 转移；
+> bookkeeper `can_accept_final` 仍为 `false`，红线未破。
 
 ---
 
