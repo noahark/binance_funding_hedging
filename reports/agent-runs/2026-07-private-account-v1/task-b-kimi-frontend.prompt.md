@@ -1,10 +1,11 @@
 <!-- ============ RECEIPT（审计元数据，bookkeeper 回填；非任务内容） ============
-status: pending            # pending | running | done | blocked | escalated
+status: running            # pending | running | done | blocked | escalated
 target_model: kimi (Task B implementer)
 adapter_cmd: 用户向 Kimi 终端发「读文件执行 PROMPT BODY」一行指令；H_intake 完成后即可与 Task A 并行启动
-started_at:
+started_at: 2026-07-06T00:06:37Z (UTC) / 2026-07-06 08:06 CST
 completed_at:
-session_id:
+session_id: fresh Kimi frontend terminal（待用户中转启动；与 Task A 后端并行）
+base_sha: fce1452（H_intake PASS commit；本任务 diff 自 fce1452..head 测量，bookkeeper 做 R4 对账后串行落盘）
 outputs:                   # 20-implementation-frontend.md / R10 收尾产物
 next_dispatch: R10 收尾段（executor: self——完成实现后必须机械执行，不得以等待结束）
 ======================================================================== -->

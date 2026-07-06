@@ -1,10 +1,11 @@
 <!-- ============ RECEIPT（审计元数据，bookkeeper 回填；非任务内容） ============
-status: pending            # pending | running | done | blocked | escalated
+status: running            # pending | running | done | blocked | escalated
 target_model: claude_glm (glm-5.2) 实现会话（独立于 bookkeeper 会话）
 adapter_cmd: 用户向 fresh claude-glm 实现终端发「读文件执行 PROMPT BODY」一行指令
-started_at:
+started_at: 2026-07-06T00:06:37Z (UTC) / 2026-07-06 08:06 CST
 completed_at:
-session_id:
+session_id: fresh claude-glm backend implementer（待用户中转启动；与 bookkeeper 同模型但强制不同会话）
+base_sha: fce1452（H_intake PASS commit；本任务 diff 自 fce1452..head 测量，bookkeeper 做 R4 对账后串行落盘）
 outputs:                   # 20-implementation-backend.md / R10 收尾产物
 next_dispatch: R10 收尾段（executor: self——完成实现后必须机械执行，不得以等待结束）
 ======================================================================== -->
