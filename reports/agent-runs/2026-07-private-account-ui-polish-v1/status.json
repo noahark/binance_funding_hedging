@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-ui-polish-v1",
-  "status": "planned",
+  "status": "testing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-private-account-ui-polish-v1",
@@ -65,19 +65,31 @@
     "user_approved": true
   },
   "base_sha": "4549227e9f6528787fb8e69b72c0cd7c585611f4",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "71c9d89e28c68d729658814a6f9c34d6a266eb1e",
+  "diff_fingerprint": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
   "changed_files": [
-    "reports/agent-runs/2026-07-private-account-ui-polish-v1/00-intake.md",
-    "reports/agent-runs/2026-07-private-account-ui-polish-v1/00-task.md",
-    "reports/agent-runs/2026-07-private-account-ui-polish-v1/10-design.md",
-    "reports/agent-runs/2026-07-private-account-ui-polish-v1/11-adr.md",
-    "reports/agent-runs/2026-07-private-account-ui-polish-v1/stage-design-codex.prompt.md",
-    "reports/agent-runs/2026-07-private-account-ui-polish-v1/status.json"
+    "backend/domain/snapshot.py",
+    "backend/tests/fixtures/private-account-v1-design.json",
+    "backend/tests/test_private_account_v1.py",
+    "docs/api/public-market-contract.md",
+    "frontend/fixture/public-market-snapshot.json",
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "schemas/api/public-market/snapshot.schema.json",
+    "reports/api-samples/2026-07-private-account-ui-polish-v1/20260706T172648Z/api-v3-ticker-price.json",
+    "reports/api-samples/2026-07-private-account-ui-polish-v1/20260706T172648Z/evidence-index.md",
+    "reports/agent-runs/2026-07-private-account-ui-polish-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-private-account-ui-polish-v1/60-test-output.txt"
   ],
   "tests": {
-    "status": "not_run",
-    "commands": []
+    "status": "passed",
+    "commands": [
+      "python3 -m pytest backend/tests/test_private_account_v1.py -q",
+      "python3 -m pytest backend/tests/test_snapshot.py -q",
+      "python3 -m pytest backend/tests -q",
+      "node frontend/self-check.js",
+      "python3 -c \"jsonschema.validate(frontend/fixture/public-market-snapshot.json, schemas/api/public-market/snapshot.schema.json)\""
+    ]
   },
   "review_1": {
     "reviewer": null,
@@ -129,6 +141,6 @@
     "note": "10-design/11-adr 对齐冻结契约, 方案A(后端 value_usdt)取舍充分, 指令与真实代码/路径核验通过。实现须注意: 行级 value_usdt 不能直接复用 _usdt_value(缺价返回0无法区分 null/0), 需返回 None 的变体; 顶层 total_value_usdt 不变。",
     "reviewed_at": "2026-07-07 CST"
   },
-  "next_action": "kimi_implementation",
-  "updated_at": "2026-07-07 CST (stage-design: Codex 交回 10-design/11-adr, Fable5 评审 ACCEPT, RECEIPT 更新为 done; 派发 Kimi 实现)"
+  "next_action": "bookkeeper_dispatch_review_1_review_2",
+  "updated_at": "2026-07-07 CST (Kimi 完成 Task A/B 实现与测试，提交 stage 分支，等待 Fable5 组织 review-1/review-2)"
 }
