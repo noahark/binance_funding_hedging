@@ -111,6 +111,152 @@
 - **§2.A 字段矩阵附录**（bookkeeper 据实抓补写）：E2/E2b/E5/E3/E4/E6
   每端点 raw 字段 → 契约字段 → 类型 → 是否进 git 脱敏。
 
+## §2.A H_intake 冻结附录（bookkeeper 据 live capture 补写）
+
+> 署名：bookkeeper（claude_glm fresh 专职会话）。证据 =
+> `reports/api-samples/2026-07-private-account-v1/20260705T232800Z/`（sha256 全表
+> + 实测 weight 头见该目录 `evidence-index.md`）。**冻结**契约：实现阶段不得超表
+> 调用、不得改字段映射；变更走 R3 升级。G2 阻断门 E3/E4/E6 实测全 200 PASS。
+
+### §2.A.1 实测限频权重（G3；单次调用）
+
+权重取自响应头：`X-MBX-USED-WEIGHT(-1M)` = api/papi IP 池；
+`X-SAPI-USED-IP-WEIGHT-1M` = sapi 单接口 IP 池；`X-SAPI-USED-UID-WEIGHT-1M` =
+sapi 单接口 UID 池。**api 与 papi 是独立 X-MBX 池**（实测 account=24 <
+positionRisk=25 的非单调性证实，不可能共池）。
+
+| 端点 | 池 | 实测单次 | 文档值 | 备注 |
+|---|---|---|---|---|
+| `/api/v3/ticker/price` 全量（P5） | api IP | **4** | 2(L23025) | 实测高于文档；估值价格 map |
+| `/api/v3/account` E6（omitZero=true） | api IP | **20** | 20(L23011) | 一致 |
+| `/sapi/v1/margin/allPairs` W1 | sapi IP | **1** | 未见 | |
+| `/sapi/v1/margin/allAssets` W2 | sapi IP | **1** | 未见 | |
+| `/sapi/v1/margin/crossMarginData` W3 | sapi IP | **50** | 未见 | 链③档表，偏重 |
+| `/sapi/v1/account/info` E5 | sapi IP | **1** | 未见 | VIP/账户开关 |
+| `/sapi/v1/margin/next-hourly-interest-rate` E2 | sapi IP | **100** | 未见 | **最重**；链①；必带 `isIsolated=false` |
+| `/sapi/v1/margin/interestRateHistory` E2b | sapi **UID** | **60** | 未见 | 链②；走 UID 池 |
+| `/papi/v1/balance` E3 | papi IP | **20** | 未见 | 统一账户余额 |
+| `/papi/v1/um/positionRisk` E4 | papi IP | **5** | 未见 | 本账户空仓 |
+| `/papi/v1/margin/maxBorrowable` W4 | papi IP | **5/次** | sapi 同名 750 UID(L36814) | **papi 版远低于 sapi 版**；借币探测 |
+| `/papi/v1/margin/marginInterestHistory` E1 | papi IP | **10** | 未见 | discovery-only，不进装配 |
+| `/papi/v1/portfolio/interest-history` E1b | papi IP | **50** | 未见 | discovery-only，不进装配 |
+
+> papi 单次权重由累计头增量推导（balance 为 papi 首调用≈20；后续 delta：
+> positionRisk≈5 / maxBorrowable≈5 / marginInterestHistory≈10 / portfolio≈50）。
+
+### §2.A.2 三场景预算 vs 官方限额（冻结；实现不得超表）
+
+官方限额（摸排 §B）：api REQUEST_WEIGHT **6000/min/IP**；sapi 单接口 IP
+**12000/min/IP**、UID **180000/min/UID**；fapi fundingRate/fundingInfo **500/5min/IP**。
+
+**场景 1 · 初始化一轮**（冷启全量；E1/E1b discovery-only 不计入装配）：
+
+| 池 | 调用（各 1 次） | 合计 | 限额 | 余量 |
+|---|---|---|---|---|
+| api IP | ticker/price(4) + account(20) | 24 | 6000/min | 99.6% |
+| sapi IP（逐端点独立限） | allPairs 1 / allAssets 1 / crossMarginData 50 / E5 1 / E2 100 | 每端点 ≤100 | 12000/min·端点 | >99% |
+| sapi UID | E2b 60 | 60 | 180000/min | >99.9% |
+| papi IP | balance(20) + positionRisk(5) | 25 | 账户 IP 权重 | 充裕 |
+
+**场景 2 · 稳态每 60s 一轮**（E3/E4/E6 + price map TTL≤60s；利率链 W3/E5 与
+maxBorrowable TTL 1h，不每轮触发）：
+
+| 池 | 每分钟调用 | 合计/min | 限额 | 余量 |
+|---|---|---|---|---|
+| api IP | ticker/price(4) + account(20) | 24 | 6000 | 99.6% |
+| sapi IP（E2 端点） | next-hourly 100 | 100 | 12000 | 99.2% |
+| papi IP | balance(20) + positionRisk(5) | 25 | — | 充裕 |
+
+> 既有 fapi 公开调用（premiumIndex / fundingInfo / **fundingRate top-N**）沿用
+> Phase 2 预算，与 fundingInfo 共享 fapi 500/5min/IP；**本轮新增端点不含 fapi**，
+> Phase 2 该池预算不变。
+
+**场景 3 · 借币探测每 1h 一轮**（上限 `borrow_check_max_calls=50`，并发≤2、
+间隔≥200ms、1h TTL）：
+
+| 池 | 每小时调用 | 合计/h | 限额 | 余量 |
+|---|---|---|---|---|
+| papi IP | maxBorrowable 5×50=250 + 稳态 balance/positionRisk 25×60=1500 | ≤1750/h | 峰值/min ≈ 250(burst)+25(steady)=275 | 远低于 6000/min 等价限 |
+
+**结论**：三场景全部极宽松。**最紧端点 = E2 next-hourly（sapi IP 100/次）与 W3
+crossMarginData（50/次）**，均单次级、远低于 12000/min。**papi maxBorrowable 5/次**
+（vs sapi 同名 750 UID），借币探测 50 次/小时完全可行。
+
+### §2.A.3 字段矩阵（G4）：raw path → 契约字段 → 类型 → 进 git 脱敏
+
+**E2 `/sapi/v1/margin/next-hourly-interest-rate`**（链①，实测 200）：
+raw `[{asset:STRING, nextHourlyInterestRate:STRING}]`（请求必带 `assets` + `isIsolated=false`，
+缺 isIsolated → -3026）→ 契约 `borrow_validation.classic_margin.daily_interest_account`
+= `nextHourlyInterestRate × 24`（Decimal）；`borrow_rate_source="next_hourly"`。
+类型 STRING；脱敏：**是**（利率）。
+
+**E2b `/sapi/v1/margin/interestRateHistory`**（链②，实测 200）：
+raw `[{asset:STRING, timestamp:LONG, dailyInterestRate:STRING, vipLevel:INT}]` →
+契约 `daily_interest_account` = `dailyInterestRate`（**已是日利率，无需 ×24**）；
+`source="rate_history"`（取最新点）。脱敏：dailyInterestRate **是**；vipLevel → `<ID>`。
+
+**E5 `/sapi/v1/account/info`**（链③ VIP 选档，实测 200）：
+raw `{vipLevel:INT, isMarginEnabled:BOOL, isFutureEnabled:BOOL, isOptionsEnabled:BOOL,
+isPortfolioMarginRetailEnabled:BOOL}`（实测 `isPortfolioMarginRetailEnabled=true`
+确认统一账户）→ 契约：`vipLevel` 用于 W3 crossMarginData 选档（链③）。脱敏：
+vipLevel → `<ID>`（账户状态）；布尔不脱敏。
+
+**E3 `/papi/v1/balance`**（统一账户余额，实测 200）：
+raw `[{asset:STRING, totalWalletBalance:STRING, crossMarginAsset:STRING,
+crossMarginBorrowed:STRING, crossMarginFree:STRING, crossMarginInterest:STRING,
+crossMarginLocked:STRING, umWalletBalance:STRING, umUnrealizedPNL:STRING,
+cmWalletBalance:STRING, cmUnrealizedPNL:STRING, updateTime:LONG, negativeBalance:STRING}]`
+→ 契约 `private_account.balances_unified[].{asset, total_balance←totalWalletBalance}`。
+脱敏：所有 `*Balance/*PNL/*Borrowed/*Free/*Locked/*Interest/negativeBalance` →
+`<AMOUNT>`。**防重复计算硬规则（§1.4）**：`total_value_usdt` 只折算
+`totalWalletBalance`（已含 um/cm/crossMargin 全部子项），子项禁止再加；
+`negativeBalance`/`um_*/cm_*` 仅敞口视图，不计入 total。
+
+**E4 `/papi/v1/um/positionRisk`**（UM 持仓，实测 200 但本账户空仓 → `[]`）：
+raw 字段（recon §A-E4 + changelog，live 未观测）：`{symbol, positionAmt, entryPrice,
+breakEvenPrice, liquidationPrice, unRealizedProfit, marginType, isolatedWallet,
+notional, ...}` → 契约 `private_account.um_positions[].{symbol, position_amt←positionAmt,
+entry_price←entryPrice, unrealized_profit←unRealizedProfit,
+liquidation_price←liquidationPrice, ...}`。脱敏：所有数值串 → `<AMOUNT>`。
+**Task A 待确认**：`position_side`（LONG/SHORT）在 papi positionRisk 无直接字段，
+需据 `positionAmt` 符号或改取 fapi/um `positionSide`——持仓出现时实测复核（R3 升级口）。
+
+**E6 `/api/v3/account`**（现货余额，实测 200）：
+raw `{makerCommission:INT, takerCommission:INT, ..., commissionRates:{maker,taker,
+buyer,seller:STRING}, canTrade/canWithdraw/canDeposit:BOOL, accountType:STRING,
+balances:[{asset:STRING, free:STRING, locked:STRING}], permissions:[STRING], uid:INT}`
+→ 契约 `private_account.balances_spot[].{asset, free, locked}`。脱敏：balances.free/
+locked → `<AMOUNT>`；`uid` → `<ID>`；`commissionRates.*` → `<AMOUNT>`；
+maker/takerCommission（INT 基点费率档）低敏不脱敏。
+
+**W4 `/papi/v1/margin/maxBorrowable`**（既有，实测 200）：
+raw `{amount:STRING, borrowLimit:STRING}` → 契约 `borrow_validation.portfolio_account
+.{max_borrowable←amount, borrow_limit←borrowLimit}`。脱敏：**是**。
+
+**E1/E1b**（discovery-only，本轮空数组，不进快照装配）：E1 `{total:INT, rows:[]}`、
+E1b `[]`；归属比对本轮无数据，留作后续对账。
+
+### §2.A.4 脱敏标记表（驱动 backend 落档扫描测试 §3.3）
+
+进 git 的样本/报告/fixture 数值脱敏规则（运行时页面真实展示不受限）：
+- 数值串（Decimal-shaped string）→ `<AMOUNT>`：所有 balance/amount/rate/price/qty/
+  interest/pnl/borrow 字段。
+- 账户标识整型 → `<ID>`：`uid`、`vipLevel`。
+- 不脱敏：asset/symbol/accountType 等枚举串、布尔开关、makerCommission 等基点 INT、
+  permissions 数组、timestamp(updateTime) LONG。
+- URL 一律剥 query（只留 logical path）；key/secret/signature/recvWindow/timestamp
+  永不落档。
+
+### §2.A.5 成本腿四级链实测命中（10-design §1.3）
+
+- **tier ① `next_hourly` 命中**（实测 200）：E2 带 `isIsolated=false` 返回有效
+  `nextHourlyInterestRate` → `daily = hourly × 24`（Decimal），source=next_hourly。
+- tier ② `rate_history` 亦可用：E2b `dailyInterestRate` 已是日利率，取最新点，
+  source=rate_history。
+- tier ③ `cross_margin_tier`：W3 VIP 表 + E5 vipLevel 选档。
+- tier ④ `vip0_reference`：全断回退（Phase 2 行为）。
+- 快照级探测一次定档；逐资产利率从命中级别数据源查表（§1.3）。
+
 ## §3 Task A 规格（后端）
 
 ### §3.1 允许文件

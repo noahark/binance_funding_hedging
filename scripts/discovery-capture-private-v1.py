@@ -471,11 +471,13 @@ def main() -> int:
     if _is_fail(e5_status_parsed[0]):
         nonblocking_failures.append("/sapi/v1/account/info")
 
-    # E2 next-hourly (chain①; assets=BTC,ETH sample)
+    # E2 next-hourly (chain①; assets=BTC,ETH sample). isIsolated=false is REQUIRED
+    # (Binance -3026 if absent) and selects cross/account-level rates (our use case);
+    # confirmed live: returns [{asset, nextHourlyInterestRate}] -> tier 1 reachable.
     e2_status_parsed = rec_signed(
         "/sapi/v1/margin/next-hourly-interest-rate",
         path_to_filename("/sapi/v1/margin/next-hourly-interest-rate"),
-        extra_params={"assets": "BTC,ETH"},
+        extra_params={"assets": "BTC,ETH", "isIsolated": "false"},
     )
     if _is_fail(e2_status_parsed[0]):
         nonblocking_failures.append("/sapi/v1/margin/next-hourly-interest-rate")

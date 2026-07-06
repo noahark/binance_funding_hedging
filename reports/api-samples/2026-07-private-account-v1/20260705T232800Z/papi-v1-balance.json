@@ -1,0 +1,32 @@
+[
+  {
+    "asset": "BNB",
+    "totalWalletBalance": "<AMOUNT>",
+    "crossMarginAsset": "<AMOUNT>",
+    "crossMarginBorrowed": "<AMOUNT>",
+    "crossMarginFree": "<AMOUNT>",
+    "crossMarginInterest": "<AMOUNT>",
+    "crossMarginLocked": "<AMOUNT>",
+    "umWalletBalance": "<AMOUNT>",
+    "umUnrealizedPNL": "<AMOUNT>",
+    "cmWalletBalance": "<AMOUNT>",
+    "cmUnrealizedPNL": "<AMOUNT>",
+    "updateTime": 1783294083023,
+    "negativeBalance": "<AMOUNT>"
+  },
+  {
+    "asset": "USDT",
+    "totalWalletBalance": "<AMOUNT>",
+    "crossMarginAsset": "<AMOUNT>",
+    "crossMarginBorrowed": "<AMOUNT>",
+    "crossMarginFree": "<AMOUNT>",
+    "crossMarginInterest": "<AMOUNT>",
+    "crossMarginLocked": "<AMOUNT>",
+    "umWalletBalance": "<AMOUNT>",
+    "umUnrealizedPNL": "<AMOUNT>",
+    "cmWalletBalance": "<AMOUNT>",
+    "cmUnrealizedPNL": "<AMOUNT>",
+    "updateTime": 1783053266183,
+    "negativeBalance": "<AMOUNT>"
+  }
+]

@@ -1,0 +1,10 @@
+[
+  {
+    "asset": "BTC",
+    "nextHourlyInterestRate": "<AMOUNT>"
+  },
+  {
+    "asset": "ETH",
+    "nextHourlyInterestRate": "<AMOUNT>"
+  }
+]

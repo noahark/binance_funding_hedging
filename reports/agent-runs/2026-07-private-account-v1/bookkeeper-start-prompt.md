@@ -1,17 +1,21 @@
 <!-- ============ RECEIPT（审计元数据，bookkeeper 回填；非任务内容） ============
-status: blocked            # pending | running | done | blocked | escalated
+status: running            # pending | running | done | blocked | escalated
 target_model: claude_glm (glm-5.2) FRESH 专职 bookkeeper 会话（禁止兼任实现）
 adapter_cmd: 用户在 source ~/.binance-keys 后的终端启动 fresh claude-glm 会话，发「读文件执行 PROMPT BODY」一行指令
 started_at: 2026-07-05T16:29Z (UTC) / 2026-07-06 00:29 CST
-completed_at: (未完成 — H_intake G2 阻断)
+completed_at: (进行中 — H_intake G1-G5 全过，已进第三步并行派工)
 session_id: bookkeeper fresh claude-glm (this session)
 outputs:
-  - scripts/discovery-capture-private-v1.py（bookkeeper 编写，G5 自查通过：12 签名白名单==status.json + 公开 ticker/price、零 POST/PUT/DELETE、key 零片段、编译通过）
-  - reports/api-samples/2026-07-private-account-v1/20260705T162920Z/（FAILED run：全签名端点 Binance -2015；evidence-index.md 含 sha256 全表 + 实测 weight 头）
-  - status.json: planned -> blocked（blockers + human_escalation 已填）
-blocker: E3/E4/E6 全部 HTTP 401 / Binance -2015（Invalid API-key, IP, or permissions）。公开 ticker/price 200 OK；签名代码=已验证 phase2；fresh re-source + 单测 E6 仍 -2015 → 排除会话 env 过期。papi 响应回显出口 IP 202.8.105.116。
-user_action_required: 在 ~/.binance-keys 绑定的 key 上——白名单出口 IP 202.8.105.116（或放宽 IP 限制）/ 或授予 Spot+Margin+UM 读权限 / 或更换有效 key；然后在 fresh 终端 re-source 后重跑 python3 scripts/discovery-capture-private-v1.py。PASS 后 bookkeeper 续 G3-G5 + 并行派工。
-next_dispatch: 阻断中（未到派工）。解除后同下行：task-a-glm-backend.prompt.md + task-b-kimi-frontend.prompt.md（并行；executor: user 中转到两个实现终端）
+  - scripts/discovery-capture-private-v1.py（G5 自查通过：12 签名白名单==status.json + 公开 ticker/price、零 POST/PUT/DELETE、key 零片段、py_compile OK；E2 已修 isIsolated=false）
+  - reports/api-samples/2026-07-private-account-v1/20260705T232800Z/（PASS run：14/14 调用 HTTP 200，E3/E4/E6 全 200；evidence-index.md 含 sha256 全表 + 实测 X-MBX/X-SAPI weight 头 + chain_tier=1 next_hourly）
+  - reports/.../10-design.md §2.A 附录（§2.A.1 权重 / §2.A.2 三场景预算 / §2.A.3 字段矩阵 / §2.A.4 脱敏标记表 / §2.A.5 链命中 + §5 fixture 引用）
+  - backend/tests/fixtures/private-account-v1-design.json（设计期合成 fixture：6 行覆盖 §3.4/§3.5 向量 + private_account 三态；Task A 产出真值后替换）
+  - status.json: planned -> blocked (auth -2015) -> implementing（blockers/escalation 已清，attempts 含 blocked+passed 两轮）
+H_intake: G1 分支 OK / G2 E3-E4-E6 全 PASS / G3 权重冻结 / G4 字段矩阵+fixture / G5 禁令自查全过。committed_sha+base_sha 待 H_intake 提交后二次回填（status.json 不含自身 sha）。
+next_dispatch: 第三步并行派工（executor: user 中转两个实现终端）：
+  Task A -> fresh claude-glm 后端会话（backend/**、schemas/**、docs/api/**）；task-a-glm-backend.prompt.md
+  Task B -> Kimi 前端终端（frontend/index.html、frontend/self-check.js）；task-b-kimi-frontend.prompt.md
+  实现终端红线：不 commit / 不碰 status.json / 完成后机械执行任务书末尾 R10 收尾段。
 ======================================================================== -->
 
 --- PROMPT BODY（不可变任务正文，自此行以下原样执行） ---
