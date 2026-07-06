@@ -51,7 +51,7 @@ def _make_client(monkeypatch, responses, *, enabled=True):
     secret = "s" * 64 if enabled else None
     client = PrivateClient(
         key, secret, user_agent="test/1.0", timeout=5,
-        recv_window=10000, ttl_seconds=3600,
+        recv_window=10000, ttl_seconds=3600, fast_ttl_seconds=60,
     )
     it = iter(responses)
 
@@ -118,21 +118,46 @@ def test_whitelist_rejects_delete_on_whitelisted_path():
         PrivateClient._require_whitelisted("DELETE", "/papi/v1/margin/maxBorrowable")
 
 
-def test_whitelist_accepts_exactly_four_get_endpoints():
-    assert len(private_client.WHITELIST) == 4
+def test_whitelist_accepts_exactly_twelve_get_endpoints():
+    assert len(private_client.WHITELIST) == 12
     for method, path in private_client.WHITELIST:
         assert method == "GET"
         assert PrivateClient._require_whitelisted(method, path)
 
 
 def test_whitelist_matches_status_json_endpoint_whitelist():
-    """The four whitelisted pairs must equal status.json endpoint_whitelist."""
+    """The whitelisted pairs must equal status.json endpoint_whitelist (12)."""
     import json as _json
     status = _json.loads(
-        (REPO_ROOT / "reports/agent-runs/2026-07-phase2-borrow-sort-v1/status.json").read_text()
+        (REPO_ROOT / "reports/agent-runs/2026-07-private-account-v1/status.json").read_text()
     )
     expected = {tuple(pair) for pair in status["endpoint_whitelist"]}
     assert set(private_client.WHITELIST.keys()) == expected
+
+
+def test_whitelist_base_urls_match_2A_appendix():
+    """§2.A.1: api.binance.com (sapi/api) vs papi.binance.com (papi) split."""
+    papi = {p for (m, p) in private_client.WHITELIST if private_client.WHITELIST[(m, p)].endswith("papi.binance.com")}
+    api = {p for (m, p) in private_client.WHITELIST if private_client.WHITELIST[(m, p)].endswith("api.binance.com")}
+    assert papi == {
+        "/papi/v1/margin/maxBorrowable",
+        "/papi/v1/balance",
+        "/papi/v1/um/positionRisk",
+        "/papi/v1/margin/marginInterestHistory",
+        "/papi/v1/portfolio/interest-history",
+    }
+    assert "/api/v3/account" in api
+    assert "/sapi/v1/margin/next-hourly-interest-rate" in api
+
+
+def test_whitelist_rejects_unknown_papi_path():
+    with pytest.raises(PermissionError):
+        PrivateClient._require_whitelisted("GET", "/papi/v1/margin/forbidden")
+
+
+def test_whitelist_rejects_post_on_new_endpoint():
+    with pytest.raises(PermissionError):
+        PrivateClient._require_whitelisted("POST", "/papi/v1/balance")
 
 
 # ---- 3. gate fires BEFORE signature construction ----
@@ -147,11 +172,18 @@ def test_gate_fires_before_signature_construction(monkeypatch):
 def test_disabled_when_env_missing():
     client = PrivateClient(
         None, None, user_agent="t", timeout=5, recv_window=10000, ttl_seconds=3600,
+        fast_ttl_seconds=60,
     )
     assert client.enabled is False
     assert client.fetch_classic_reference() is None
     assert client.fetch_max_borrowable("BTC") is None
     assert client.last_error == "private_channel_disabled"
+    # v0.3 account-balance + chain fetchers also degrade to None when disabled.
+    assert client.fetch_unified_balances() is None
+    assert client.fetch_um_positions() is None
+    assert client.fetch_spot_balances() is None
+    assert client.fetch_account_info() is None
+    assert client.fetch_cost_leg_chain(["BTC"]) is None
 
 
 # ---- 5. audit-log credential hygiene ----

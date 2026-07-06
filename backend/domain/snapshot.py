@@ -14,6 +14,15 @@ from .normalize import asset_tag_for, filter_of, resolve_spot_leg
 
 SCHEMA_VERSION = "public-market-snapshot/v1"
 
+# §1.2 sort_basis enum. The wire schema_version stays v1 (additive v0.3 contract);
+# these name the two snapshot-level ranking bases.
+SORT_BASIS_NET = "net_daily_yield"
+SORT_BASIS_ABS = "abs_daily_funding_rate"
+
+# §1.4 valuation: stablecoins priced at 1 USD (spec literal: USDT/USDC).
+_STABLE_USD_ASSETS = {"USDT", "USDC"}
+_PRIVATE_ACCOUNT_PRICE_SOURCE = "api_v3_ticker_price"
+
 CONTRACT_WARNINGS = [
     "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
     "premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period and is charged at nextFundingTime; it drifts until settlement (mid-period divergence from settled history evidenced under reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/). Settled history comes from /fapi/v1/fundingRate; do not present the estimate as a settled value.",
@@ -166,6 +175,9 @@ def assemble_snapshot(
     data_time: str,
     source_sample_id: str,
     private_channel_status: str = "disabled",
+    sort_basis: Optional[str] = None,
+    private_account: Optional[dict] = None,
+    borrow_validation_summary: Optional[dict] = None,
     extra_warnings: Optional[List[str]] = None,
 ) -> dict:
     """Assemble the full snapshot. ``summary`` is aggregated from ``rows``.
@@ -175,10 +187,30 @@ def assemble_snapshot(
     endpoint failure), in which case every row's ``borrow_validation.verified``
     is false with null data fields.
 
+    v0.3 additive top-level fields (all optional so the v0.1 frozen fixture, which
+    carries none of them, still validates):
+    - ``sort_basis`` (§1.2): ``net_daily_yield`` when the private cost leg is
+      available (incl. vip0_reference), else ``abs_daily_funding_rate``.
+    - ``private_account`` (§1.4): the three-state aggregated-asset block.
+    - ``borrow_validation`` (top-level aggregate, §1.5): ``coverage`` +
+      ``chain_hit_tier``/``chain_hit_source`` snapshot-level diagnostics. This is
+      a different shape from the per-row ``rows[].borrow_validation`` (same JSON
+      key, different path).
+
     ``extra_warnings`` are runtime degradation warnings (e.g. the E1 fundingInfo
-    fallback) appended after the fixed ``CONTRACT_WARNINGS``.
+    fallback, private_account no-price lines) appended after the fixed
+    ``CONTRACT_WARNINGS``. §1.5 also requires a top-level warnings entry whenever
+    the borrow probe truncated candidates (``coverage.skipped > 0``) — derived
+    here from ``borrow_validation_summary`` so the truncation is never silent.
     """
-    return {
+    warnings = list(CONTRACT_WARNINGS) + list(extra_warnings or [])
+    coverage = (borrow_validation_summary or {}).get("coverage") or {}
+    if coverage.get("skipped", 0) > 0:
+        warnings.append(
+            f"borrow_validation: {coverage['skipped']} candidate(s) truncated by "
+            f"rate_limit_budget (not_probed_this_round)"
+        )
+    snap = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at,
         "data_time": data_time,
@@ -191,8 +223,15 @@ def assemble_snapshot(
             "negative_funding_status_counts": _counts(rows, "negative_funding_status"),
         },
         "rows": rows,
-        "warnings": list(CONTRACT_WARNINGS) + list(extra_warnings or []),
+        "warnings": warnings,
     }
+    if sort_basis is not None:
+        snap["sort_basis"] = sort_basis
+    if private_account is not None:
+        snap["private_account"] = private_account
+    if borrow_validation_summary is not None:
+        snap["borrow_validation"] = borrow_validation_summary
+    return snap
 
 
 def compute_daily_funding_rate(
@@ -232,15 +271,313 @@ def compute_daily_funding_rate(
     return format(daily, "f")
 
 
-def sort_rows(rows: List[dict]) -> List[dict]:
-    """Order rows by ``abs(daily_funding_rate)`` DESC, nulls last, symbol ASC tie-break.
+def _quantize_rate(value: Decimal) -> str:
+    """8-place fixed-point string; negative zero normalized to ``"0.00000000"``.
 
-    Deterministic total order — this IS the payload order the frontend renders
+    Shared by every v0.3 rate computation so the format is identical to the
+    Phase 2 ``daily_funding_rate`` style (no scientific notation, no float).
+    """
+    if value == 0:
+        value = Decimal(0)
+    return format(value.quantize(Decimal("1E-8")), "f")
+
+
+def compute_daily_from_hourly(hourly_rate) -> Optional[str]:
+    """``Decimal(hourlyInterestRate) × 24`` as an 8-place string (§1.3 tier①).
+
+    Normalizes the E2 next-hourly estimate to a daily account interest rate.
+    Missing/empty/non-numeric -> ``None``. Decimal-only; float never touches it.
+
+    Vector (10-design §3.4 #4): ``"0.00000500"`` -> ``"0.00012000"``.
+    """
+    if hourly_rate is None or hourly_rate == "":
+        return None
+    try:
+        hourly = Decimal(str(hourly_rate))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    return _quantize_rate(hourly * Decimal(24))
+
+
+def compute_net_daily_yield(daily_funding_rate, daily_borrow_rate) -> Optional[str]:
+    """Opportunity-quality score (§0/§1.1) as an 8-place string or ``None``.
+
+    - ``daily_funding_rate`` null -> null.
+    - ``daily_funding_rate >= 0`` -> ``daily_funding_rate`` (no borrow leg).
+    - ``daily_funding_rate < 0`` -> ``abs(daily_funding_rate) - daily_borrow_rate``
+      (may be negative; output as-is); ``daily_borrow_rate`` null/non-numeric
+      -> null.
+
+    Decimal-only; negative zero normalized. Vectors (§3.4 #1-3,#5,#6):
+      ``-0.0006``/``0.0002`` -> ``0.00040000``; ``-0.0006``/``0.0008`` ->
+      ``-0.00020000``; ``0.0003`` -> ``0.00030000``; ``-0.0006``/None -> None;
+      None -> None.
+    """
+    if daily_funding_rate is None or daily_funding_rate == "":
+        return None
+    try:
+        dfr = Decimal(str(daily_funding_rate))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if dfr >= 0:
+        return _quantize_rate(dfr)
+    if daily_borrow_rate is None or daily_borrow_rate == "":
+        return None
+    try:
+        borrow = Decimal(str(daily_borrow_rate))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    return _quantize_rate(abs(dfr) - borrow)
+
+
+def select_borrow_candidates(
+    rows: List[dict], max_calls: int
+) -> dict:
+    """§1.5 borrow probe set + coverage.
+
+    Probe range = rows with ``daily_funding_rate < 0`` AND
+    ``route_class == MARGIN_SPOT_CANDIDATE`` AND ``asset_tag == CRYPTO``, de-duped
+    by ``base_asset``, capped at ``max_calls`` (default 50, §2.A.2 scen 3).
+    Truncation priority is abs daily rate DESC (symbol ASC tie-break); truncated
+    candidates are recorded so their rows render ``verified=false`` /
+    ``error="not_probed_this_round"`` (no silent truncation).
+
+    Returns ``{"probed_assets": [str], "truncated_assets": set[str],
+    "coverage": {"probed": int, "skipped": int, "reason": str|None}}``.
+    ``probed_assets`` is in priority order (for the E2 ``assets`` param).
+    """
+    cap = max(0, int(max_calls))
+    candidates = [
+        r
+        for r in rows
+        if r.get("daily_funding_rate")
+        and r.get("route_class") == "MARGIN_SPOT_CANDIDATE"
+        and r.get("asset_tag") == "CRYPTO"
+        and Decimal(str(r["daily_funding_rate"])) < 0
+    ]
+    candidates.sort(
+        key=lambda r: (-abs(Decimal(str(r["daily_funding_rate"]))), r.get("symbol", ""))
+    )
+    probed: List[str] = []
+    truncated_assets: set = set()
+    seen: set = set()
+    for r in candidates:
+        asset = r.get("base_asset", "")
+        if not asset or asset in seen:
+            continue
+        seen.add(asset)
+        if len(probed) < cap:
+            probed.append(asset)
+        else:
+            truncated_assets.add(asset)
+    skipped = len(truncated_assets)
+    return {
+        "probed_assets": probed,
+        "truncated_assets": truncated_assets,
+        "coverage": {
+            "probed": len(probed),
+            "skipped": skipped,
+            "reason": "rate_limit_budget" if skipped else None,
+        },
+    }
+
+
+def resolve_cost_leg_rate(asset: Optional[str], cost_leg: Optional[dict]) -> Optional[str]:
+    """Per-asset daily borrow rate from the snapshot-level hit tier (§1.3).
+
+    ``cost_leg`` is the ``PrivateClient.fetch_cost_leg_chain`` result. Tier①
+    (``next_hourly``) holds raw hourly strings and is normalized here via ×24;
+    tiers ②/③/④ already carry daily rates and are only re-quantized for format.
+    Asset absent from the hit tier's table, or chain broken -> ``None``.
+    """
+    if not cost_leg or asset is None:
+        return None
+    raw = cost_leg.get("daily_by_asset", {}).get(asset)
+    if raw is None or raw == "":
+        return None
+    if cost_leg.get("chain_hit_source") == "next_hourly":
+        return compute_daily_from_hourly(raw)
+    try:
+        return _quantize_rate(Decimal(str(raw)))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
+def _add_dec(a, b) -> Optional[str]:
+    """Sum two raw decimal strings -> raw string (Decimal), or None if both null."""
+    sa = "" if a is None else str(a)
+    sb = "" if b is None else str(b)
+    if sa == "" and sb == "":
+        return None
+    try:
+        return str((Decimal(sa) if sa else Decimal(0)) + (Decimal(sb) if sb else Decimal(0)))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
+def _usdt_value(asset, amount, price_map: Dict[str, str], warnings: List[str]) -> Decimal:
+    """USD(T) value of one balance line for total_value_usdt (§1.4).
+
+    Stable US assets (USDT/USDC) price at 1. Other assets use the
+    ``{asset}USDT`` ticker price (full map, fetched once). No price / bad price
+    / zero amount -> 0 and a warning (asset still listed, never dropped).
+    """
+    if asset is None or amount is None or amount == "":
+        return Decimal(0)
+    try:
+        amt = Decimal(str(amount))
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal(0)
+    if amt == 0:
+        return Decimal(0)
+    if asset in _STABLE_USD_ASSETS:
+        return amt
+    price = price_map.get(f"{asset}USDT")
+    if price is None or price == "":
+        warnings.append(f"private_account: no USDT price for {asset}, counted at 0")
+        return Decimal(0)
+    try:
+        return amt * Decimal(str(price))
+    except (InvalidOperation, ValueError, TypeError):
+        warnings.append(f"private_account: bad USDT price for {asset}, counted at 0")
+        return Decimal(0)
+
+
+def _infer_position_side(position_amt) -> Optional[str]:
+    """§2.A.3 E4 open item: papi positionRisk has no positionSide field; infer
+    from positionAmt sign (LONG>0 / SHORT<0 / None when flat). To be re-verified
+    live when a real position appears (R3 upgrade口, 10-design §2.A.3)."""
+    if position_amt is None or position_amt == "":
+        return None
+    try:
+        amt = Decimal(str(position_amt))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if amt > 0:
+        return "LONG"
+    if amt < 0:
+        return "SHORT"
+    return None
+
+
+def assemble_private_account(
+    unified: Optional[List[dict]],
+    spot: Optional[List[dict]],
+    um_positions: Optional[List[dict]],
+    price_map: Dict[str, str],
+    *,
+    checked_at: Optional[str],
+    error: Optional[str],
+) -> dict:
+    """Three-state ``private_account`` block (§1.4).
+
+    ``unified`` (E3), ``spot`` (E6), ``um_positions`` (E4) are the raw lists, or
+    ``None`` when that fetch was disabled/failed. Disabled state (channel off or
+    both balance sources failed -> ``unified is None and spot is None``):
+    ``verified=false``, three arrays empty, ``total_value_usdt`` null, error
+    filled. Otherwise ``verified=true`` with available arrays (a failed single
+    source degrades to an empty array, not a block-level failure).
+
+    Anti-double-count hard rule (§1.4, asserted in tests): ``total_value_usdt``
+    = ``Σ(unified totalWalletBalance priced) + Σ(spot free+locked priced)``;
+    the unified ``totalWalletBalance`` already includes um/cm/crossMargin
+    sub-accounts (never re-added), and ``um_positions`` is an exposure view whose
+    nominal value is NEVER counted. Returns ``(block, warnings)``.
+    """
+    warnings: List[str] = []
+    if unified is None and spot is None:
+        return (
+            {
+                "verified": False,
+                "balances_unified": [],
+                "balances_spot": [],
+                "um_positions": [],
+                "total_value_usdt": None,
+                "valuation": {
+                    "price_source": _PRIVATE_ACCOUNT_PRICE_SOURCE,
+                    "priced_at": None,
+                },
+                "checked_at": None,
+                "error": error or "private_channel_disabled",
+            },
+            warnings,
+        )
+    unified_list = unified or []
+    spot_list = spot or []
+    um_list = um_positions or []
+    unified_out = [
+        {"asset": x.get("asset"), "total_balance": x.get("totalWalletBalance")}
+        for x in unified_list
+        if isinstance(x, dict)
+    ]
+    spot_out = [
+        {"asset": x.get("asset"), "free": x.get("free"), "locked": x.get("locked")}
+        for x in spot_list
+        if isinstance(x, dict)
+    ]
+    um_out = [
+        {
+            "symbol": p.get("symbol"),
+            "position_side": _infer_position_side(p.get("positionAmt")),
+            "position_amt": p.get("positionAmt"),
+            "entry_price": p.get("entryPrice"),
+            "mark_price": p.get("markPrice"),
+            "unrealized_profit": p.get("unRealizedProfit"),
+            "liquidation_price": p.get("liquidationPrice"),
+        }
+        for p in um_list
+        if isinstance(p, dict)
+    ]
+    total = Decimal(0)
+    for x in unified_list:
+        if isinstance(x, dict):
+            total += _usdt_value(
+                x.get("asset"), x.get("totalWalletBalance"), price_map, warnings
+            )
+    for x in spot_list:
+        if isinstance(x, dict):
+            total += _usdt_value(
+                x.get("asset"), _add_dec(x.get("free"), x.get("locked")), price_map, warnings
+            )
+    return (
+        {
+            "verified": True,
+            "balances_unified": unified_out,
+            "balances_spot": spot_out,
+            "um_positions": um_out,
+            "total_value_usdt": _quantize_rate(total),
+            "valuation": {
+                "price_source": _PRIVATE_ACCOUNT_PRICE_SOURCE,
+                "priced_at": checked_at,
+            },
+            "checked_at": checked_at,
+            "error": None,
+        },
+        warnings,
+    )
+
+
+def sort_rows(rows: List[dict], basis: str = SORT_BASIS_ABS) -> List[dict]:
+    """Deterministic total order — this IS the payload order the frontend renders
     (the frontend must not reorder; filters only hide). Uses Decimal, never float.
+
+    - ``abs_daily_funding_rate`` (default; Phase 2 behavior): abs(daily) DESC,
+      nulls last, symbol ASC tie-break. The Phase 2 regression suite pins this.
+    - ``net_daily_yield`` (§1.2; private cost leg available): net DESC (signed),
+      nulls last, symbol ASC tie-break. Lets a negative-funding row with cheap
+      borrow rank above a higher-abs-rate row with expensive borrow (§3.5).
     """
 
     def key(r: dict):
         sym = r.get("symbol", "")
+        if basis == SORT_BASIS_NET:
+            n = r.get("net_daily_yield")
+            if n is None:
+                return (1, Decimal(0), sym)
+            try:
+                return (0, -Decimal(str(n)), sym)  # negate -> net DESC
+            except (InvalidOperation, ValueError, TypeError):
+                return (1, Decimal(0), sym)
         d = r.get("daily_funding_rate")
         if d is None:
             return (1, Decimal(0), sym)  # nulls sort last
@@ -259,18 +596,26 @@ def assemble_borrow_validation(
     portfolio_by_asset: Dict[str, dict],
     checked_at: Optional[str],
     error: Optional[str],
+    *,
+    daily_interest_account: Optional[str] = None,
+    truncated: bool = False,
 ) -> dict:
     """Three-state borrow-validation block (parallel output; never alters classify).
 
     - ``classic_ref is None`` (private channel disabled/failed): ``verified=false``,
       every data field null, ``error`` carries the reason.
+    - ``truncated`` (§1.5: borrow candidate beyond the probe cap): ``verified=false``,
+      ``error="not_probed_this_round"``, chain fields null (no silent truncation).
     - verified, pair not listed in the classic list: ``verified=true``,
       ``pair_listed=false``, asset/interest fields null.
     - verified, pair listed: ``verified=true``, ``pair_listed=true`` + asset/interest.
 
-    ``portfolio_account`` carries values only for bounded candidates present in
-    ``portfolio_by_asset``; other rows keep null amount fields (the block is still
-    present with its ``source``). ``checked_at`` is the request-success moment.
+    ``daily_interest_account`` is the v0.3 account-level daily borrow rate for a
+    probed negative-funding candidate whose cost-leg tier produced a rate (else
+    null). ``portfolio_account`` carries values only for bounded candidates
+    present in ``portfolio_by_asset``; other rows keep null amount fields (the
+    block is still present with its ``source``). ``checked_at`` is the
+    request-success moment.
     """
     base = row.get("base_asset", "")
     sym = row.get("symbol", "")
@@ -281,6 +626,7 @@ def assemble_borrow_validation(
                 "pair_listed": None,
                 "asset_borrowable": None,
                 "daily_interest_vip0": None,
+                "daily_interest_account": None,
                 "source": "sapi_reference",
             },
             "portfolio_account": {
@@ -290,6 +636,24 @@ def assemble_borrow_validation(
             },
             "checked_at": None,
             "error": error,
+        }
+    if truncated:
+        return {
+            "verified": False,
+            "classic_margin": {
+                "pair_listed": None,
+                "asset_borrowable": None,
+                "daily_interest_vip0": None,
+                "daily_interest_account": None,
+                "source": "sapi_reference",
+            },
+            "portfolio_account": {
+                "max_borrowable": None,
+                "borrow_limit": None,
+                "source": "papi_max_borrowable",
+            },
+            "checked_at": None,
+            "error": "not_probed_this_round",
         }
     pair_listed = classic_ref.get("pair_listed_by_symbol", {}).get(sym)
     if pair_listed:
@@ -305,6 +669,7 @@ def assemble_borrow_validation(
             "pair_listed": bool(pair_listed),
             "asset_borrowable": asset_borrowable,
             "daily_interest_vip0": daily_vip0,
+            "daily_interest_account": daily_interest_account,
             "source": "sapi_reference",
         },
         "portfolio_account": {

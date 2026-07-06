@@ -1,9 +1,13 @@
 # Public Market API Contract
 
-Status: contract v0.2 (Phase 2 amendment, additive). The v0.1 response shape is
-preserved; the Phase 2 additions are documented in "Phase 2 Amendment (v0.2)" at
-the end of this file. Binance public fields verified
-2026-07-03 by Claude-GLM against live no-key public calls and `llms-full.txt`.
+Status: contract v0.3 (Private Account v1 amendment, additive). The wire
+`schema_version` stays `public-market-snapshot/v1`; every addition is backward-
+compatible. v0.2 additions are in "Phase 2 Amendment (v0.2)"; v0.3 additions
+(net yield, cost-leg chain, `private_account`, `sort_basis`) are in
+"Private Account v1 Amendment (v0.3)" at the end of this file. Binance public
+fields verified 2026-07-03 by Claude-GLM against live no-key public calls and
+`llms-full.txt`; private fields verified 2026-07-05 by bookkeeper H_intake live
+capture (`reports/api-samples/2026-07-private-account-v1/20260705T232800Z/`).
 Verified findings are recorded below in "Verified Findings" and in
 `reports/agent-runs/2026-07-public-market-contract-v2/api-field-matrix.md`.
 
@@ -368,3 +372,114 @@ names frozen in 10-design §2.A — note E3 keys on `assetName`, E4 on `coin`, n
 `negative_funding_status` / `route_class` / `asset_tag` enums and their priority
 order, `classify.py`, and `normalize.py` are unchanged. `borrow_validation` is a
 parallel output block and never alters classification or route derivation.
+
+## Private Account v1 Amendment (v0.3, stage `2026-07-private-account-v1`)
+
+Frozen 2026-07-06. Wire `schema_version` stays `public-market-snapshot/v1`; every
+addition is **additive** (the v0.1 frozen normalized sample and v0.2 snapshots
+still validate). Evidence: H_intake live discovery (14/14 calls HTTP 200,
+E3/E4/E6 PASS) under
+`reports/api-samples/2026-07-private-account-v1/20260705T232800Z/`
+(`evidence-index.md` + sha256 table + per-call measured weight headers + capture-
+time-redacted samples); frozen field matrix + budget in
+`reports/agent-runs/2026-07-private-account-v1/10-design.md §2.A`.
+Authority order: `10-design.md` > this contract section.
+
+### Whitelist widened to 12 (deny-by-default, GET-only, single HMAC exit)
+
+`backend/services/private_client.py:WHITELIST` now maps 12 `(GET, exact-path)`
+pairs to hardcoded base URLs (anti-injection). Added: E2/E2b/E5 (sapi →
+`api.binance.com`), E6 (`/api/v3/account` → `api.binance.com`), E3/E4 (→
+`papi.binance.com`), and the discovery-only E1/E1b (registered, **not** called by
+snapshot assembly this stage). Any non-whitelisted path or non-GET method raises
+in `_require_whitelisted` BEFORE a signature is constructed. `private_client.py`
+remains the repo's only HMAC-SHA256 exit (grep-guarded). Two independent TTL
+groups (§1.6): the 1h rate-chain/maxBorrowable group and the 60s account-balance
+group (E3/E4/E6), aligned with the public refresh cadence. P5
+`/api/v3/ticker/price` (full, once) is PUBLIC (no key) and goes through
+`binance_public.py`, not the private whitelist.
+
+### New row fields
+
+- `net_daily_yield`: 8-place string | null — opportunity-quality score (§0/§1.1).
+  `daily_funding_rate < 0` row: `abs(daily_funding_rate) − daily_borrow_rate`
+  (may be negative, output as-is); `daily_borrow_rate` null → null.
+  `daily_funding_rate ≥ 0` row: `= daily_funding_rate` (no borrow leg). null
+  `daily_funding_rate` → null. Decimal-only, `quantize(1E-8)`, negative-zero →
+  `"0.00000000"`.
+- `borrow_rate_source`: enum `next_hourly | rate_history | cross_margin_tier |
+  vip0_reference` | null. Only negative-funding borrow candidates whose cost-leg
+  tier produced a rate carry a value; positive-funding / unavailable rows = null.
+- `borrow_validation.classic_margin.daily_interest_account`: 8-place string | null
+  — the account-level daily borrow rate (same value as the net-leg borrow rate).
+
+### `sort_basis` + row order (ADR-3 revision, user-approved)
+
+New top-level `sort_basis`: enum `net_daily_yield | abs_daily_funding_rate`.
+Snapshot-level single basis:
+
+- private cost leg available (incl. `vip0_reference`) → `net_daily_yield`: rows
+  sorted by net value DESC (signed), nulls last, `symbol` ASC tie-break. Lets a
+  negative-funding row with cheap borrow rank above a higher-abs-rate row with
+  expensive borrow (§3.5 net-reversal core assertion).
+- private channel disabled / chain fully broken → `abs_daily_funding_rate`:
+  Phase 2 total order (abs daily DESC, nulls last, symbol ASC), regression-pinned.
+
+The frontend remains zero-sort (renders payload order, labels `sort_basis`).
+
+### Cost-leg chain (`borrow_validation` aggregate)
+
+Snapshot-level single tier is selected once (§1.3; no per-row endpoint probing);
+per-asset daily rates are looked up from the hit tier's table. Tier order:
+① `next_hourly` (E2 `nextHourlyInterestRate × 24`, comma-joined `assets`,
+`isIsolated=false` REQUIRED) → ② `rate_history` (E2b latest `dailyInterestRate`,
+single-asset probe) → ③ `cross_margin_tier` (crossMarginData row at E5 `vipLevel`)
+→ ④ `vip0_reference` (crossMarginData VIP0 row; Phase 2 behavior). All-chain-broken
+→ `daily_interest_account=null`, negative-funding `net_daily_yield=null`,
+`borrow_rate_source=null`.
+
+The top-level `borrow_validation` aggregate block (distinct from the per-row
+`rows[].borrow_validation` — same JSON key, different path/shape) carries:
+`coverage` (`{probed, skipped, reason}`), `chain_hit_tier` (1-4|null),
+`chain_hit_source` (enum|null), and
+`classic_margin_daily_interest_account_available` (bool).
+
+### `coverage` / warnings (§1.5)
+
+Probe range = `daily_funding_rate < 0 ∧ route_class==MARGIN_SPOT_CANDIDATE ∧
+asset_tag==CRYPTO`, deduped by `base_asset`, capped at
+`Config.borrow_check_max_calls` (default 50, supersedes the Phase 2 N=10);
+truncation priority is abs daily rate DESC. Truncated candidates render
+`verified=false` / `error="not_probed_this_round"` (no silent truncation).
+`borrow_validation.coverage = {probed, skipped, reason="rate_limit_budget"|null}`.
+A top-level `warnings` entry is appended when truncation occurs.
+
+### `private_account` block (§1.4, three-state)
+
+Top-level `private_account`: `verified`, `balances_unified` (E3
+`totalWalletBalance`), `balances_spot` (E6 `free`/`locked`), `um_positions` (E4
+exposure view), `total_value_usdt`, `valuation.{price_source, priced_at}`,
+`checked_at`, `error`. Env-missing / both-balance-sources-failed → `verified=false`,
+three arrays empty, `total_value_usdt` null, `error` carries the reason; the public
+snapshot still renders. A single failed source degrades to an empty array (block
+stays `verified=true`).
+
+**Anti-double-count hard rule (test-asserted):** `total_value_usdt = Σ(unified
+totalWalletBalance priced) + Σ(spot free+locked priced)`, priced via the P5 price
+map (full, fetched once; `futures.*/spot.*` HTTP never fires in the row loop).
+`totalWalletBalance` already includes um/cm/crossMargin sub-accounts (never
+re-added); `um_positions` nominal value is NEVER counted (exposure view only).
+USDT/USDC price at 1; missing price → counted at 0 + warning.
+
+### Decimal discipline + E4 open item (unchanged approach)
+
+All rate/price/amount fields are raw strings (Binance returns strings); no float
+touches any value path; `quantize(1E-8)`, no scientific notation. E4 `position_side`
+(LONG/SHORT) has no direct papi field — inferred from `positionAmt` sign; to be
+re-verified live when a real position appears (R3 upgrade口, 10-design §2.A.3).
+
+### Regression red lines (still unchanged)
+
+`negative_funding_status` / `route_class` / `asset_tag` enums and priority,
+`classify.py`, `normalize.py`, and the v0.1/v0.2 field set are unchanged. All v0.3
+additions are parallel/additive and never alter classification or route derivation.

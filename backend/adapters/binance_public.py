@@ -135,3 +135,21 @@ class BinancePublicClient:
         self._bump("GET /fapi/v1/fundingRate")
         url = f"{self.futures_base_url}/fapi/v1/fundingRate?symbol={symbol}&limit=20"
         return self._http_get(url)
+
+    def fetch_ticker_price_map(self) -> Dict[str, str]:
+        """P5 ``GET /api/v3/ticker/price`` (public, full, no key) -> {symbol: price}.
+
+        Used once per snapshot to value the private_account block (§1.4). Full
+        payload (weight 2 per docs / 4 measured, H_intake §2.A.1) is fetched ONCE
+        to build the price map; per-symbol calls are never made in the row loop
+        (§3.2: no HTTP in the row loop). Decimal-safe: prices are raw strings.
+
+        Offline returns ``{}`` — the private channel is disabled offline (no
+        key), so the price map is never consumed there.
+        """
+        if self.offline:
+            return {}
+        self._bump("GET /api/v3/ticker/price")
+        url = f"{self.spot_base_url}/api/v3/ticker/price"
+        rows = self._http_get(url)
+        return {row["symbol"]: row["price"] for row in rows if "symbol" in row}

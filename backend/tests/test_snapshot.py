@@ -295,6 +295,9 @@ def test_service_universe_filter_excludes_non_usdt_quote(bstock_raw_inputs):
                 "funding_history_by_sym": bstock_raw_inputs["funding"],
             }
 
+        def fetch_ticker_price_map(self):
+            return {}
+
     service = SnapshotService(Config(offline=True))
     service.client = _StubClient()
     snap = service.build_snapshot()

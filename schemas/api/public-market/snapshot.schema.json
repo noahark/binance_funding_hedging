@@ -69,6 +69,16 @@
     "private_channel": {
       "type": "string",
       "enum": ["enabled", "disabled"]
+    },
+    "sort_basis": {
+      "type": "string",
+      "enum": ["net_daily_yield", "abs_daily_funding_rate"]
+    },
+    "private_account": {
+      "$ref": "#/$defs/private_account"
+    },
+    "borrow_validation": {
+      "$ref": "#/$defs/borrow_validation_summary"
     }
   },
   "$defs": {
@@ -302,6 +312,22 @@
             { "type": "null" }
           ]
         },
+        "net_daily_yield": {
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "borrow_rate_source": {
+          "type": ["string", "null"],
+          "enum": [
+            "next_hourly",
+            "rate_history",
+            "cross_margin_tier",
+            "vip0_reference",
+            null
+          ]
+        },
         "borrow_validation": {
           "$ref": "#/$defs/borrow_validation"
         }
@@ -316,11 +342,17 @@
         "classic_margin": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["pair_listed", "asset_borrowable", "daily_interest_vip0", "source"],
+          "required": ["pair_listed", "asset_borrowable", "daily_interest_vip0", "daily_interest_account", "source"],
           "properties": {
             "pair_listed": { "type": ["boolean", "null"] },
             "asset_borrowable": { "type": ["boolean", "null"] },
             "daily_interest_vip0": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "daily_interest_account": {
               "anyOf": [
                 { "$ref": "#/$defs/decimal_string" },
                 { "type": "null" }
@@ -351,6 +383,175 @@
         },
         "checked_at": { "type": ["string", "null"] },
         "error": { "type": ["string", "null"] }
+      }
+    },
+    "private_account": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verified",
+        "balances_unified",
+        "balances_spot",
+        "um_positions",
+        "total_value_usdt",
+        "valuation",
+        "checked_at",
+        "error"
+      ],
+      "properties": {
+        "verified": { "type": "boolean" },
+        "balances_unified": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["asset", "total_balance"],
+            "properties": {
+              "asset": { "type": "string" },
+              "total_balance": {
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
+              }
+            }
+          }
+        },
+        "balances_spot": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["asset", "free", "locked"],
+            "properties": {
+              "asset": { "type": "string" },
+              "free": {
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
+              },
+              "locked": {
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
+              }
+            }
+          }
+        },
+        "um_positions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/um_position" }
+        },
+        "total_value_usdt": {
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "valuation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["price_source", "priced_at"],
+          "properties": {
+            "price_source": { "type": "string" },
+            "priced_at": { "type": ["string", "null"] }
+          }
+        },
+        "checked_at": { "type": ["string", "null"] },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "um_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol",
+        "position_side",
+        "position_amt",
+        "entry_price",
+        "mark_price",
+        "unrealized_profit",
+        "liquidation_price"
+      ],
+      "properties": {
+        "symbol": { "type": ["string", "null"] },
+        "position_side": {
+          "type": ["string", "null"],
+          "enum": ["LONG", "SHORT", null]
+        },
+        "position_amt": {
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "entry_price": {
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "mark_price": {
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "unrealized_profit": {
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "liquidation_price": {
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "borrow_validation_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage",
+        "classic_margin_daily_interest_account_available",
+        "chain_hit_tier",
+        "chain_hit_source"
+      ],
+      "properties": {
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["probed", "skipped", "reason"],
+          "properties": {
+            "probed": { "type": "integer", "minimum": 0 },
+            "skipped": { "type": "integer", "minimum": 0 },
+            "reason": {
+              "type": ["string", "null"],
+              "enum": ["rate_limit_budget", null]
+            }
+          }
+        },
+        "classic_margin_daily_interest_account_available": { "type": "boolean" },
+        "chain_hit_tier": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 4
+        },
+        "chain_hit_source": {
+          "type": ["string", "null"],
+          "enum": [
+            "next_hourly",
+            "rate_history",
+            "cross_margin_tier",
+            "vip0_reference",
+            null
+          ]
+        }
       }
     }
   }
