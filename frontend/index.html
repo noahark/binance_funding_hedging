@@ -567,6 +567,24 @@
         </div>
       </section>
 
+      <section class="panel" id="private-panel" style="display:none;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>私有账户</h2>
+            <p class="subtitle" id="private-panel-subtitle">只读资产视图</p>
+          </div>
+          <div class="panel-actions">
+            <button class="privacy-toggle" id="btn-privacy" type="button" aria-pressed="false" title="切换金额显示">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path id="privacy-icon-path" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span id="privacy-label">隐藏金额</span>
+            </button>
+          </div>
+        </div>
+        <div class="panel-body" id="private-panel-body"></div>
+      </section>
+
       <section class="panel">
         <div class="panel-header">
           <div class="panel-title">
@@ -635,24 +653,6 @@
             </table>
           </div>
         </div>
-      </section>
-
-      <section class="panel" id="private-panel" style="display:none;">
-        <div class="panel-header">
-          <div class="panel-title">
-            <h2>私有账户</h2>
-            <p class="subtitle" id="private-panel-subtitle">只读资产视图</p>
-          </div>
-          <div class="panel-actions">
-            <button class="privacy-toggle" id="btn-privacy" type="button" aria-pressed="false" title="切换金额显示">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path id="privacy-icon-path" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span id="privacy-label">隐藏金额</span>
-            </button>
-          </div>
-        </div>
-        <div class="panel-body" id="private-panel-body"></div>
       </section>
 
       <footer class="footer-note" id="footer-note"></footer>
@@ -875,15 +875,34 @@
         }
       }
 
-      function badgeForNegativeFundingStatus(ns) {
-        const map = {
-          'PRIVATE_BORROW_VALIDATION_REQUIRED': 'PRIVATE_BORROW_VALIDATION_REQUIRED(需私有借币验证)',
-          'DISABLED_BSTOCK': 'DISABLED_BSTOCK(禁用:bStock 不可借)',
-          'DISABLED_SPOT_ONLY': 'DISABLED_SPOT_ONLY(禁用:无杠杆)',
-          'DISABLED_PERP_ONLY': 'DISABLED_PERP_ONLY(禁用:无现货腿)'
-        };
-        const cls = ns === 'PRIVATE_BORROW_VALIDATION_REQUIRED' ? 'warn' : ns === 'DISABLED_BSTOCK' ? 'danger' : ns === 'DISABLED_SPOT_ONLY' ? 'warn' : 'muted';
-        return `<span class="badge ${cls}">${escapeHtml(map[ns] || ns)}</span>`;
+      function badgeForNegativeFundingStatus(row) {
+        const ns = row.negative_funding_status;
+        if (ns === 'DISABLED_PERP_ONLY') {
+          return `<span class="badge muted" title="DISABLED_PERP_ONLY">仅合约: 无现货腿</span>`;
+        }
+        if (ns === 'DISABLED_BSTOCK') {
+          return `<span class="badge danger" title="DISABLED_BSTOCK">bStock: 负费率不可借</span>`;
+        }
+        if (ns === 'DISABLED_SPOT_ONLY') {
+          return `<span class="badge warn" title="DISABLED_SPOT_ONLY">仅现货: 无杠杆借币</span>`;
+        }
+        const bv = row.borrow_validation;
+        if (bv && bv.verified === true) {
+          const cm = bv.classic_margin || {};
+          if (cm.pair_listed === true && cm.asset_borrowable === true) {
+            return `<span class="badge success" title="PRIVATE_BORROW_VALIDATION_REQUIRED">已验证可借</span>`;
+          }
+          if (cm.pair_listed === false) {
+            return `<span class="badge warn" title="PRIVATE_BORROW_VALIDATION_REQUIRED">杠杆交易对未列出</span>`;
+          }
+          if (cm.asset_borrowable === false) {
+            return `<span class="badge danger" title="PRIVATE_BORROW_VALIDATION_REQUIRED">资产不可借</span>`;
+          }
+        }
+        if (bv && bv.verified === false && bv.error === 'not_probed_this_round') {
+          return `<span class="badge muted" title="PRIVATE_BORROW_VALIDATION_REQUIRED">未探测(限速预算)</span>`;
+        }
+        return `<span class="badge warn" title="PRIVATE_BORROW_VALIDATION_REQUIRED">需私有验证</span>`;
       }
 
       function badgeForAssetTag(tag) {
@@ -1066,6 +1085,19 @@
           const netClass = classForFundingRate(row.net_daily_yield);
           const netText = formatFundingRate(row.net_daily_yield);
           const netSource = sourceBadge(row.borrow_rate_source);
+          let borrowSubline = '';
+          if (row.borrow_rate_source != null) {
+            const cm = row.borrow_validation && row.borrow_validation.classic_margin;
+            const accountRate = cm && cm.daily_interest_account;
+            const vip0Rate = cm && cm.daily_interest_vip0;
+            if (accountRate != null && accountRate !== '') {
+              borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(accountRate)}</span>`;
+            } else if (vip0Rate != null && vip0Rate !== '') {
+              borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(vip0Rate)} <span class="badge compact warn">参考</span></span>`;
+            } else {
+              borrowSubline = `<br/><span class="muted small">日借币: -</span>`;
+            }
+          }
           const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
             ? row.ui_flags.filter(f => f !== 'MARGIN_PUBLIC_UNVERIFIED').map(badgeForUiFlag).join(' ')
             : '<span class="muted small">—</span>';
@@ -1081,9 +1113,9 @@
               <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
               <td title="${escapeHtml(fullTime)}">${timeText}</td>
               <td class="${dailyRateClass}">${dailyRateCell}</td>
-              <td class="net-yield ${netClass}">${netText}${netSource}</td>
+              <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
               <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
-              <td>${badgeForNegativeFundingStatus(row.negative_funding_status)}</td>
+              <td>${badgeForNegativeFundingStatus(row)}</td>
               <td>${uiFlags}</td>
             </tr>
           `;
@@ -1129,11 +1161,17 @@
         const checkedAt = formatBeijing(pa.checked_at ? new Date(pa.checked_at).getTime() : null);
         const priceSource = pa.valuation && pa.valuation.price_source ? escapeHtml(pa.valuation.price_source) : '—';
 
+        const valueUsdtLine = (valueUsdt) => {
+          if (valueUsdt == null || valueUsdt === '') return '折算: -';
+          return `折算: ${maskAmount(valueUsdt)} USDT`;
+        };
+
         const unifiedBalances = Array.isArray(pa.balances_unified) && pa.balances_unified.length > 0
           ? pa.balances_unified.map(b => `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
                 <div class="amount">${maskAmount(b.total_balance)}</div>
+                <div class="amount locked">${valueUsdtLine(b.value_usdt)}</div>
               </div>
             `).join('')
           : '<span class="muted small">无数据</span>';
@@ -1144,6 +1182,7 @@
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
                 <div class="amount">${maskAmount(b.free)}</div>
                 <div class="amount locked">冻结: ${maskAmount(b.locked)}</div>
+                <div class="amount locked">${valueUsdtLine(b.value_usdt)}</div>
               </div>
             `).join('')
           : '<span class="muted small">无数据</span>';

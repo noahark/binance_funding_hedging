@@ -101,6 +101,12 @@ ids.forEach(id => { elements[id] = makeElement(id); });
 // 加载设计期 fixture
 const designFixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
+// 为 v0.4 UI 断言使用具体数值（占位符无法被 formatFundingRate / maskAmount 有效测试）
+designFixture.rows[0].borrow_validation.classic_margin.daily_interest_account = '0.00010000';
+designFixture.rows[1].borrow_validation.classic_margin.daily_interest_vip0 = '0.00020000';
+designFixture.private_account.balances_unified.forEach(b => { b.value_usdt = '123.45000000'; });
+designFixture.private_account.balances_spot.forEach(b => { b.value_usdt = '67.89000000'; });
+
 let fixtureToFetch = designFixture;
 
 global.fetch = async (url) => {
@@ -327,18 +333,22 @@ setTimeout(async () => {
     }
     console.log('[PASS] 自动刷新 60s 与倒计时元素存在');
 
-    // 16. 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式
+    // 16. 路由/资产/负费率状态列显示中文优先格式（v0.4 行感知的结构优先级派生）
     const enumDisplayChecks = [
       ['MARGIN_SPOT_CANDIDATE(杠杆现货候选)', '路由分类'],
       ['CRYPTO(加密货币)', '资产标签'],
-      ['PRIVATE_BORROW_VALIDATION_REQUIRED(需私有借币验证)', '负费率状态']
+      ['已验证可借', '负费率状态']
     ];
     for (const [expected, column] of enumDisplayChecks) {
       if (!tbody.includes(expected)) {
         throw new Error(`${column} 列未渲染预期格式: ${expected}`);
       }
     }
-    console.log('[PASS] 路由/资产/负费率状态列显示「英文枚举(中文解释)」格式');
+    // 结构禁用行保持结构文案，不得派生为"需私有验证"
+    if (!tbody.includes('仅现货: 无杠杆借币')) {
+      throw new Error('DISABLED_SPOT_ONLY 行未保持结构文案');
+    }
+    console.log('[PASS] 路由/资产/负费率状态列显示中文优先格式');
 
     // 17. 侧栏品牌已中文化
     if (!html.includes('资金费率对冲')) {
@@ -589,6 +599,126 @@ setTimeout(async () => {
       throw new Error('优雅降级后无 sort_basis 时不应显示排序基准标注');
     }
     console.log('[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示');
+
+    // 30. private-panel 在市场表之前（DOM 顺序）
+    const privatePanelIdx = html.indexOf('id="private-panel"');
+    const marketTableIdx = html.indexOf('id="market-table-body"');
+    if (privatePanelIdx === -1) throw new Error('未找到 private-panel');
+    if (marketTableIdx === -1) throw new Error('未找到 market-table-body');
+    if (privatePanelIdx >= marketTableIdx) {
+      throw new Error('private-panel 应位于市场表之前');
+    }
+    console.log('[PASS] private-panel 在市场表之前');
+
+    // 31. 成本腿命中行展示借币日利率（账户档）
+    const ausdtNetCell2 = getRowCell(tbody, 'AUSDT', 6);
+    if (!ausdtNetCell2.includes('日借币')) {
+      throw new Error('AUSDT 成本腿命中行未展示日借币子行');
+    }
+    if (!ausdtNetCell2.includes('+0.01%')) {
+      throw new Error(`AUSDT 日借币利率期望 +0.01%，单元格 ${ausdtNetCell2}`);
+    }
+    console.log('[PASS] 成本腿命中行展示借币日利率');
+
+    // 32. VIP0 参考档显示"参考"徽标
+    const vip0Fixture2 = JSON.parse(JSON.stringify(designFixture));
+    vip0Fixture2.rows[1].borrow_rate_source = 'vip0_reference';
+    vip0Fixture2.rows[1].borrow_validation.classic_margin.daily_interest_account = null;
+    helpers.ingestSnapshot(vip0Fixture2);
+    const vip0Tbody2 = elements['market-table-body'].innerHTML;
+    const busdtNetCell = getRowCell(vip0Tbody2, 'BUSDT', 6);
+    if (!busdtNetCell.includes('日借币') || !busdtNetCell.includes('参考')) {
+      throw new Error('VIP0 参考档未显示"参考"徽标: ' + busdtNetCell);
+    }
+    helpers.ingestSnapshot(designFixture);
+    console.log('[PASS] VIP0 参考档显示"参考"徽标');
+
+    // 33. 正费率/无成本腿行不展示借币成本子行
+    const cusdtNetCell2 = getRowCell(tbody, 'CUSDT', 6);
+    if (cusdtNetCell2.includes('日借币')) {
+      throw new Error('CUSDT 正费率行不应展示日借币子行');
+    }
+    console.log('[PASS] 正费率行不展示借币成本子行');
+
+    // 34. 负费率状态行感知的五文案派生
+    const labelFixtureBase = JSON.parse(JSON.stringify(designFixture));
+    // 已验证可借：verified=true, pair_listed=true, asset_borrowable=true
+    labelFixtureBase.rows[0].borrow_validation.verified = true;
+    labelFixtureBase.rows[0].borrow_validation.classic_margin.pair_listed = true;
+    labelFixtureBase.rows[0].borrow_validation.classic_margin.asset_borrowable = true;
+    // 杠杆交易对未列出
+    labelFixtureBase.rows[1].borrow_validation.verified = true;
+    labelFixtureBase.rows[1].borrow_validation.classic_margin.pair_listed = false;
+    labelFixtureBase.rows[1].borrow_validation.classic_margin.asset_borrowable = null;
+    // 资产不可借
+    labelFixtureBase.rows[2].borrow_validation.verified = true;
+    labelFixtureBase.rows[2].borrow_validation.classic_margin.pair_listed = true;
+    labelFixtureBase.rows[2].borrow_validation.classic_margin.asset_borrowable = false;
+    // 未探测
+    labelFixtureBase.rows[3].borrow_validation.verified = false;
+    labelFixtureBase.rows[3].borrow_validation.error = 'not_probed_this_round';
+    // 需私有验证（private channel disabled/failed）
+    labelFixtureBase.rows[4].borrow_validation.verified = false;
+    labelFixtureBase.rows[4].borrow_validation.error = null;
+    helpers.ingestSnapshot(labelFixtureBase);
+    const labelTbody = elements['market-table-body'].innerHTML;
+    const labelCases = [
+      { sym: 'AUSDT', label: '已验证可借', cls: 'success' },
+      { sym: 'BUSDT', label: '杠杆交易对未列出', cls: 'warn' },
+      { sym: 'CUSDT', label: '资产不可借', cls: 'danger' },
+      { sym: 'DUSDT', label: '未探测(限速预算)', cls: 'muted' },
+      { sym: 'EUSDT', label: '需私有验证', cls: 'warn' },
+    ];
+    for (const { sym, label, cls } of labelCases) {
+      const cell = getRowCell(labelTbody, sym, 8);
+      if (!cell.includes(label)) {
+        throw new Error(`${sym} 负费率状态期望 "${label}"，单元格 ${cell}`);
+      }
+      if (!cell.includes(`badge ${cls}`)) {
+        throw new Error(`${sym} 负费率状态期望 ${cls} 样式，单元格 ${cell}`);
+      }
+    }
+    helpers.ingestSnapshot(designFixture);
+    console.log('[PASS] 负费率状态行感知的五文案派生');
+
+    // 35. 余额卡片展示折算 value_usdt，隐私开关遮蔽折算值
+    const privateBody2 = elements['private-panel-body'].innerHTML;
+    if (!privateBody2.includes('折算: **** USDT')) {
+      throw new Error('隐藏态下折算值应被遮蔽为 ****');
+    }
+    helpers.togglePrivacy(); // 切换到显示态
+    const shownBody2 = elements['private-panel-body'].innerHTML;
+    if (!shownBody2.includes('折算: 123.45000000 USDT')) {
+      throw new Error('显示态下统一账户余额未展示折算值');
+    }
+    if (!shownBody2.includes('折算: 67.89000000 USDT')) {
+      throw new Error('显示态下现货账户余额未展示折算值');
+    }
+    helpers.togglePrivacy(); // 恢复隐藏态
+    const hiddenBody2 = elements['private-panel-body'].innerHTML;
+    if (!hiddenBody2.includes('折算: **** USDT')) {
+      throw new Error('恢复隐藏态后折算值应再次被遮蔽');
+    }
+    console.log('[PASS] 余额卡片折算值与隐私遮蔽');
+
+    // 36. value_usdt null 显示 "折算: -"
+    const nullValueFixture = JSON.parse(JSON.stringify(designFixture));
+    nullValueFixture.private_account.balances_unified[0].value_usdt = null;
+    nullValueFixture.private_account.balances_spot[0].value_usdt = null;
+    helpers.ingestSnapshot(nullValueFixture);
+    const nullValueBody = elements['private-panel-body'].innerHTML;
+    const unifiedSectionStart = nullValueBody.indexOf('统一账户余额');
+    const spotSectionStart = nullValueBody.indexOf('现货账户余额');
+    const unifiedSection = nullValueBody.slice(unifiedSectionStart, spotSectionStart);
+    if (!unifiedSection.includes('折算: -')) {
+      throw new Error('value_usdt null 时统一账户未显示 "折算: -"');
+    }
+    const spotSection = nullValueBody.slice(spotSectionStart);
+    if (!spotSection.includes('折算: -')) {
+      throw new Error('value_usdt null 时现货账户未显示 "折算: -"');
+    }
+    helpers.ingestSnapshot(designFixture);
+    console.log('[PASS] value_usdt null 显示占位');
 
     console.log('\n全部自检通过');
     process.exit(0);

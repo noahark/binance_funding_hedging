@@ -376,7 +376,7 @@ parallel output block and never alters classification or route derivation.
 ## Private Account v1 Amendment (v0.3, stage `2026-07-private-account-v1`)
 
 Frozen 2026-07-06. Wire `schema_version` stays `public-market-snapshot/v1`; every
-addition is **additive** (the v0.1 frozen normalized sample and v0.2 snapshots
+addition is **additive** (the v0.1 frozen normalized sample and v0.2/v0.3 snapshots
 still validate). Evidence: H_intake live discovery (14/14 calls HTTP 200,
 E3/E4/E6 PASS) under
 `reports/api-samples/2026-07-private-account-v1/20260705T232800Z/`
@@ -483,3 +483,28 @@ re-verified live when a real position appears (R3 upgrade口, 10-design §2.A.3)
 `negative_funding_status` / `route_class` / `asset_tag` enums and priority,
 `classify.py`, `normalize.py`, and the v0.1/v0.2 field set are unchanged. All v0.3
 additions are parallel/additive and never alter classification or route derivation.
+
+## Private Account UI Polish Amendment (v0.4, stage `2026-07-private-account-ui-polish-v1`)
+
+Frozen 2026-07-07. Wire `schema_version` stays `public-market-snapshot/v1`; every
+addition is **additive** (the v0.1 frozen normalized sample and v0.2/v0.3 snapshots
+still validate). Evidence: current-stage raw public sample under
+`reports/api-samples/2026-07-private-account-ui-polish-v1/` (no-key
+`GET /api/v3/ticker/price` + `evidence-index.md`); prior v0.3 evidence under
+`reports/api-samples/2026-07-private-account-v1/20260705T232800Z/`.
+Authority order: `10-design.md` > this contract section.
+
+### New per-balance valuation fields
+
+- `private_account.balances_unified[].value_usdt`: 8-place decimal string | null.
+  Backend-computed USDT value of `total_balance` using the same P5
+  `/api/v3/ticker/price` map as `total_value_usdt`. Stable USD assets use price
+  1. `null` means valuation is unavailable because amount or price is missing or
+  invalid; `"0.00000000"` means a valid priced zero value.
+- `private_account.balances_spot[].value_usdt`: 8-place decimal string | null.
+  Backend-computed USDT value of `free + locked` using the same valuation rules.
+- `private_account.um_positions[]` remains an exposure view. It does not carry
+  `value_usdt` and its notional value is never included in `total_value_usdt`.
+
+The frontend renders `value_usdt` as display-only data and must not recompute
+`total_value_usdt` or derive trading decisions from per-row values.

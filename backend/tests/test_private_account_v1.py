@@ -260,10 +260,11 @@ def test_assemble_private_account_anti_double_count():
     # 90000 + 100 + 7500 + 50 = 97650; um nominal (10*60000=600000) excluded.
     assert block["total_value_usdt"] == "97650.00000000"
     assert block["balances_unified"] == [
-        {"asset": "BTC", "total_balance": "1.5"},
-        {"asset": "USDT", "total_balance": "100"},
+        {"asset": "BTC", "total_balance": "1.5", "value_usdt": "90000.00000000"},
+        {"asset": "USDT", "total_balance": "100", "value_usdt": "100.00000000"},
     ]
-    assert block["balances_spot"][0] == {"asset": "ETH", "free": "2", "locked": "0.5"}
+    assert block["balances_spot"][0] == {"asset": "ETH", "free": "2", "locked": "0.5", "value_usdt": "7500.00000000"}
+    assert block["balances_spot"][1] == {"asset": "USDC", "free": "50", "locked": "0", "value_usdt": "50.00000000"}
     assert block["um_positions"][0]["position_side"] == "LONG"
     assert block["valuation"]["price_source"] == "api_v3_ticker_price"
     assert block["valuation"]["priced_at"] == "2026-07-06T00:00:00Z"
@@ -291,6 +292,41 @@ def test_assemble_private_account_no_price_counts_zero_with_warning():
     )
     assert block["total_value_usdt"] == "0.00000000"  # counted at 0, not dropped
     assert any("WEIRD" in w and "0" in w for w in warnings)
+
+
+def test_assemble_private_account_value_usdt_null_when_missing_price():
+    unified = [{"asset": "NOPE", "totalWalletBalance": "5"}]
+    spot = [{"asset": "NOPE2", "free": "1", "locked": "0"}]
+    block, warnings = assemble_private_account(
+        unified, spot, [], {}, checked_at="t", error=None
+    )
+    assert block["balances_unified"][0]["value_usdt"] is None
+    assert block["balances_spot"][0]["value_usdt"] is None
+    assert any("NOPE" in w and "value_usdt unavailable" in w for w in warnings)
+    assert any("NOPE2" in w and "value_usdt unavailable" in w for w in warnings)
+    # total still counts missing price as 0 (original _usdt_value semantics)
+    assert block["total_value_usdt"] == "0.00000000"
+
+
+def test_assemble_private_account_value_usdt_zero_not_null():
+    # Valid zero balance should produce "0.00000000", not null.
+    unified = [{"asset": "BTC", "totalWalletBalance": "0"}]
+    spot = [{"asset": "ETH", "free": "0", "locked": "0"}]
+    block, warnings = assemble_private_account(
+        unified, spot, [], {"BTCUSDT": "60000", "ETHUSDT": "3000"},
+        checked_at="t", error=None,
+    )
+    assert block["balances_unified"][0]["value_usdt"] == "0.00000000"
+    assert block["balances_spot"][0]["value_usdt"] == "0.00000000"
+    assert block["total_value_usdt"] == "0.00000000"
+    assert warnings == []
+
+
+def test_assemble_private_account_um_positions_have_no_value_usdt():
+    block, _ = assemble_private_account(
+        [], [], [{"symbol": "BTCUSDT", "positionAmt": "1"}], {}, checked_at="t", error=None
+    )
+    assert "value_usdt" not in block["um_positions"][0]
 
 
 def test_assemble_private_account_partial_failure_keeps_verified():

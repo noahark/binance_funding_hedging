@@ -443,6 +443,37 @@ def _usdt_value(asset, amount, price_map: Dict[str, str], warnings: List[str]) -
         return Decimal(0)
 
 
+def _usdt_value_optional(asset, amount, price_map: Dict[str, str], warnings: List[str]) -> Optional[Decimal]:
+    """Per-balance USDT valuation for row-level ``value_usdt`` (v0.4 additive).
+
+    Differs from ``_usdt_value`` in nullability: missing/bad amount or price
+    returns ``None`` (with warning) so the UI can distinguish "cannot value"
+    from "priced zero". A valid zero amount or a valid computation that equals
+    zero returns ``Decimal(0)`` (serialized as ``"0.00000000"``).
+
+    Stable USD assets (USDT/USDC) price at 1.
+    """
+    if asset is None or amount is None or amount == "":
+        warnings.append(f"private_account: missing amount for {asset}, value_usdt unavailable")
+        return None
+    try:
+        amt = Decimal(str(amount))
+    except (InvalidOperation, ValueError, TypeError):
+        warnings.append(f"private_account: bad amount for {asset}, value_usdt unavailable")
+        return None
+    if asset in _STABLE_USD_ASSETS:
+        return amt
+    price = price_map.get(f"{asset}USDT")
+    if price is None or price == "":
+        warnings.append(f"private_account: no USDT price for {asset}, value_usdt unavailable")
+        return None
+    try:
+        return amt * Decimal(str(price))
+    except (InvalidOperation, ValueError, TypeError):
+        warnings.append(f"private_account: bad USDT price for {asset}, value_usdt unavailable")
+        return None
+
+
 def _infer_position_side(position_amt) -> Optional[str]:
     """§2.A.3 E4 open item: papi positionRisk has no positionSide field; infer
     from positionAmt sign (LONG>0 / SHORT<0 / None when flat). To be re-verified
@@ -483,6 +514,11 @@ def assemble_private_account(
     the unified ``totalWalletBalance`` already includes um/cm/crossMargin
     sub-accounts (never re-added), and ``um_positions`` is an exposure view whose
     nominal value is NEVER counted. Returns ``(block, warnings)``.
+
+    v0.4 additive: each balance row carries ``value_usdt`` (8-place decimal
+    string | null) computed by the same price map. Missing/bad amount or price
+    -> null with warning; valid zero -> ``"0.00000000"``. The frontend must not
+    re-derive ``total_value_usdt`` from row values.
     """
     warnings: List[str] = []
     if unified is None and spot is None:
@@ -505,16 +541,36 @@ def assemble_private_account(
     unified_list = unified or []
     spot_list = spot or []
     um_list = um_positions or []
-    unified_out = [
-        {"asset": x.get("asset"), "total_balance": x.get("totalWalletBalance")}
-        for x in unified_list
-        if isinstance(x, dict)
-    ]
-    spot_out = [
-        {"asset": x.get("asset"), "free": x.get("free"), "locked": x.get("locked")}
-        for x in spot_list
-        if isinstance(x, dict)
-    ]
+    unified_out = []
+    for x in unified_list:
+        if not isinstance(x, dict):
+            continue
+        asset = x.get("asset")
+        value = _usdt_value_optional(
+            asset, x.get("totalWalletBalance"), price_map, warnings
+        )
+        unified_out.append(
+            {
+                "asset": asset,
+                "total_balance": x.get("totalWalletBalance"),
+                "value_usdt": _quantize_rate(value) if value is not None else None,
+            }
+        )
+    spot_out = []
+    for x in spot_list:
+        if not isinstance(x, dict):
+            continue
+        asset = x.get("asset")
+        amount = _add_dec(x.get("free"), x.get("locked"))
+        value = _usdt_value_optional(asset, amount, price_map, warnings)
+        spot_out.append(
+            {
+                "asset": asset,
+                "free": x.get("free"),
+                "locked": x.get("locked"),
+                "value_usdt": _quantize_rate(value) if value is not None else None,
+            }
+        )
     um_out = [
         {
             "symbol": p.get("symbol"),
