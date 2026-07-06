@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-ui-polish-v1",
-  "status": "testing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-private-account-ui-polish-v1",
@@ -92,14 +92,15 @@
     ]
   },
   "review_1": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
+    "reviewer": "codex",
+    "provider": "openai",
+    "model": "gpt-5-codex",
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "reviewer_prior_involvement": "none",
+    "diff_fingerprint": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "Codex 是本 stage designer;review-1 复核实现对 10-design/11-adr 的保真度。非 implementer,reviewer≠implementer 硬红线不破。终审(review-2)由独立 Fable5 承担。",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
@@ -141,6 +142,6 @@
     "note": "10-design/11-adr 对齐冻结契约, 方案A(后端 value_usdt)取舍充分, 指令与真实代码/路径核验通过。实现须注意: 行级 value_usdt 不能直接复用 _usdt_value(缺价返回0无法区分 null/0), 需返回 None 的变体; 顶层 total_value_usdt 不变。",
     "reviewed_at": "2026-07-07 CST"
   },
-  "next_action": "bookkeeper_dispatch_review_1_review_2",
-  "updated_at": "2026-07-07 CST (Kimi 完成 Task A/B 实现与测试，提交 stage 分支，等待 Fable5 组织 review-1/review-2)"
+  "next_action": "await_review_1_verdict_codex",
+  "updated_at": "2026-07-07 CST (bookkeeper 校验: HEAD/fingerprint 复算一致, 独立重跑 157 pytest + self-check 全绿, 实现抽验对齐设计; 写 70-handoff, status→review_1, 派发 Codex review-1)"
 }
