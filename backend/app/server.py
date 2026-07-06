@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from ..config import Config, DEFAULT
+from ..config import Config, DEFAULT, from_env
 from ..services.snapshot_service import SnapshotService
 
 
@@ -90,7 +90,8 @@ def run(config: Config = None) -> None:
     server = build_server(config, service)
     print(
         f"serving public-market snapshot on http://{config.bind_host}:{config.bind_port}"
-        f" (offline={config.offline}, top_n={config.top_n}, ttl={config.cache_ttl_seconds}s)"
+        f" (offline={config.offline}, top_n={config.top_n}, ttl={config.cache_ttl_seconds}s,"
+        f" private_channel_enabled={config.private_channel_enabled})"
     )
     try:
         server.serve_forever()
@@ -98,3 +99,7 @@ def run(config: Config = None) -> None:
         pass
     finally:
         server.server_close()
+
+
+if __name__ == "__main__":
+    run(from_env())

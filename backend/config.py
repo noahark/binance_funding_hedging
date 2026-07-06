@@ -7,8 +7,10 @@ evidence).
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Mapping
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FROZEN_RAW_DIR = (
@@ -47,6 +49,123 @@ class Config:
     # 60s: account balances (E3/E4/E6) — aligns with the public refresh cadence.
     private_channel_fast_ttl_seconds: int = 60
     private_recv_window: int = 10000
+    # Explicit operator switch. API keys may exist in the environment, but the
+    # private read-only channel stays disabled unless this flag is true.
+    private_channel_enabled: bool = False
 
 
 DEFAULT = Config()
+
+
+def _env(
+    environ: Mapping[str, str],
+    name: str,
+    default: str | None = None,
+    *aliases: str,
+) -> str | None:
+    for key in (name, *aliases):
+        value = environ.get(key)
+        if value is not None and value != "":
+            return value
+    return default
+
+
+def _env_bool(environ: Mapping[str, str], name: str, default: bool, *aliases: str) -> bool:
+    value = _env(environ, name, None, *aliases)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    raise ValueError(f"invalid boolean environment value for {name}: {value!r}")
+
+
+def _env_int(environ: Mapping[str, str], name: str, default: int, *aliases: str) -> int:
+    value = _env(environ, name, None, *aliases)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ValueError(f"invalid integer environment value for {name}: {value!r}") from exc
+
+
+def _env_float(environ: Mapping[str, str], name: str, default: float, *aliases: str) -> float:
+    value = _env(environ, name, None, *aliases)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError as exc:
+        raise ValueError(f"invalid float environment value for {name}: {value!r}") from exc
+
+
+def _env_path(environ: Mapping[str, str], name: str, default: Path, *aliases: str) -> Path:
+    value = _env(environ, name, None, *aliases)
+    return default if value is None else Path(value).expanduser()
+
+
+def from_env(environ: Mapping[str, str] | None = None) -> Config:
+    """Build runtime config from process environment.
+
+    The shell startup script loads `.env` into the environment first. This helper
+    only reads values; it does not parse `.env` directly, so tests and review
+    commands do not accidentally consume local secrets.
+    """
+    env = os.environ if environ is None else environ
+    return Config(
+        bind_host=_env(env, "APP_BIND_HOST", DEFAULT.bind_host, "FUNDING_HEDGING_BIND_HOST"),
+        bind_port=_env_int(env, "APP_BIND_PORT", DEFAULT.bind_port, "FUNDING_HEDGING_BIND_PORT"),
+        top_n=_env_int(env, "APP_TOP_N", DEFAULT.top_n, "FUNDING_HEDGING_TOP_N"),
+        cache_ttl_seconds=_env_int(
+            env,
+            "APP_CACHE_TTL_SECONDS",
+            DEFAULT.cache_ttl_seconds,
+            "FUNDING_HEDGING_CACHE_TTL_SECONDS",
+        ),
+        offline=_env_bool(env, "APP_OFFLINE", DEFAULT.offline, "FUNDING_HEDGING_OFFLINE"),
+        offline_raw_dir=_env_path(
+            env,
+            "APP_OFFLINE_RAW_DIR",
+            DEFAULT.offline_raw_dir,
+            "FUNDING_HEDGING_OFFLINE_RAW_DIR",
+        ),
+        request_timeout=_env_float(
+            env,
+            "APP_REQUEST_TIMEOUT",
+            DEFAULT.request_timeout,
+            "FUNDING_HEDGING_REQUEST_TIMEOUT",
+        ),
+        borrow_check_max_calls=_env_int(
+            env,
+            "BINANCE_BORROW_CHECK_MAX_CALLS",
+            DEFAULT.borrow_check_max_calls,
+            "FUNDING_HEDGING_BORROW_CHECK_MAX_CALLS",
+        ),
+        private_channel_ttl_seconds=_env_int(
+            env,
+            "BINANCE_PRIVATE_CHANNEL_TTL_SECONDS",
+            DEFAULT.private_channel_ttl_seconds,
+            "FUNDING_HEDGING_PRIVATE_CHANNEL_TTL_SECONDS",
+        ),
+        private_channel_fast_ttl_seconds=_env_int(
+            env,
+            "BINANCE_PRIVATE_CHANNEL_FAST_TTL_SECONDS",
+            DEFAULT.private_channel_fast_ttl_seconds,
+            "FUNDING_HEDGING_PRIVATE_CHANNEL_FAST_TTL_SECONDS",
+        ),
+        private_recv_window=_env_int(
+            env,
+            "BINANCE_RECV_WINDOW",
+            DEFAULT.private_recv_window,
+            "FUNDING_HEDGING_BINANCE_RECV_WINDOW",
+        ),
+        private_channel_enabled=_env_bool(
+            env,
+            "BINANCE_PRIVATE_CHANNEL_ENABLED",
+            DEFAULT.private_channel_enabled,
+            "FUNDING_HEDGING_PRIVATE_CHANNEL_ENABLED",
+        ),
+    )
