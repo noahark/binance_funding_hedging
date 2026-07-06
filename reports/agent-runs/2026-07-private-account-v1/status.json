@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "complexity": "MILESTONE",
   "stage_branch": {
@@ -75,11 +75,11 @@
       "scope": ["backend/**", "schemas/**", "docs/api/**"],
       "prompt_path": "task-a-glm-backend.prompt.md",
       "pre_review_prompt": "pre-review-task-a-by-kimi.prompt.md",
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "base_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
+      "head_sha": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b",
+      "diff_fingerprint": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b:fdfba177950b8872b386d07c1ee02ddfff7eaa0b044307691ebbb40235b8a252",
       "review_1": {"reviewer": "kimi fresh", "verdict": null, "json_schema_valid": null, "diff_fingerprint": null},
-      "tests_evidence": null
+      "tests_evidence": "147 passed (python3 -m pytest backend/tests/ -q; baseline 96 -> round1 145 -> round2 147, zero regression); replayed by bookkeeper 2026-07-06T03:18Z; raw output in 20-implementation-backend.md §3"
     },
     {
       "id": "B",
@@ -88,14 +88,38 @@
       "scope": ["frontend/index.html", "frontend/self-check.js"],
       "prompt_path": "task-b-kimi-frontend.prompt.md",
       "pre_review_prompt": "pre-review-task-b-by-glm.prompt.md",
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "base_sha": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b",
+      "head_sha": "6c1e992c4628c0d8e369ba648b0403f341037849",
+      "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:50998c3a60afbae089f3e370e7ecbdd869256c70ff0cc1ae888b3f3abd6da2a2",
       "review_1": {"reviewer": "claude_glm fresh", "verdict": null, "json_schema_valid": null, "diff_fingerprint": null},
-      "tests_evidence": null
+      "tests_evidence": "29/29 PASS (node frontend/self-check.js; §4.7 full assertion set); replayed by bookkeeper 2026-07-06T03:18Z; raw output in 60-test-output.txt + 20-implementation-frontend.md §3"
     }
   ],
-  "embedded_reviews": {},
+  "embedded_reviews": {
+    "A": {
+      "task_id": "A",
+      "scope": ["backend/**", "schemas/**", "docs/api/**"],
+      "implementer": "claude_glm",
+      "reviewer": "kimi",
+      "prompt_path": "pre-review-task-a-by-kimi.prompt.md",
+      "rounds": 2,
+      "round_artifacts": [
+        {"round": 1, "dispatch_path": "pre-review-task-a-by-kimi.prompt.md", "worktree_diff_path": "embedded-review-a-round1.diff.patch", "raw_output_path": "embedded-review-a-round1.raw-output.md", "fix_report_path": "embedded-review-a-round2.dispatch.md"},
+        {"round": 2, "dispatch_path": "embedded-review-a-round2.dispatch.md", "worktree_diff_path": "embedded-review-a-round2.diff.patch", "raw_output_path": "embedded-review-a-round2.raw-output.md"}
+      ]
+    },
+    "B": {
+      "task_id": "B",
+      "scope": ["frontend/index.html", "frontend/self-check.js"],
+      "implementer": "kimi",
+      "reviewer": "claude_glm",
+      "prompt_path": "pre-review-task-b-by-glm.prompt.md",
+      "rounds": 1,
+      "round_artifacts": [
+        {"round": 1, "dispatch_path": "embedded-review-b-round1.dispatch.md", "worktree_diff_path": "embedded-review-b-round1.diff.patch", "raw_output_path": "embedded-review-b-round1.raw-output.md"}
+      ]
+    }
+  },
   "h_intake": {
     "gates": ["G1 branch", "G2 live discovery (E3/E4/E6 fail=BLOCKED)", "G3 weight capture", "G4 field matrix appendix", "G5 ban self-check"],
     "discovery_script": "scripts/discovery-capture-private-v1.py (bookkeeper-authored, one-shot, capture-time redaction)",
@@ -128,15 +152,15 @@
   },
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base>..<head> -- . ':(exclude)reports/agent-runs/2026-07-private-account-v1/status.json')",
   "base_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "6c1e992c4628c0d8e369ba648b0403f341037849",
+  "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:a2140bfd2de2043b78321d0794e6db849f102d3987352f14cfd95178258a0772",
   "rework_count": 0,
   "max_rework": 3,
   "can_accept_final": false,
-  "commit_state": "H_intake PASSED (G1-G5 all green): discovery script + clean-run evidence (14/14 calls HTTP 200, E3/E4/E6 PASS) + 10-design §2.A appendix (frozen weights/budget/field-matrix/redaction-table/chain-hit) + design fixture committed on stage branch; base_sha + h_intake.committed_sha backfilled to this commit's sha in a follow-up status-only commit (status.json cannot reference its own sha). Parallel dispatch next.",
-  "next_action": "Dispatch Task A (fresh claude_glm backend session) + Task B (Kimi frontend terminal) in parallel; implementers do NOT commit / do NOT touch status.json / must mechanically execute R10 tail on completion. Bookkeeper does R4 diff reconciliation then serial commits H_A (backend) -> H_B (frontend), recomputes fingerprint, sets status=review_1, runs validate checkpoint + pre-review.",
+  "commit_state": "Phase 3 serial landing complete on stage branch: H_A=6ca6ee1 (backend, 11 files, pytest 96->145->147 zero regression, embedded pre-review round1 Kimi BLOCKER x2 in-scope -> fix + round2 Kimi fresh PASS 10/10) + H_B=6c1e992 (frontend 2 files, self-check 29/29 PASS, embedded pre-review round1 GLM PASS via user-mediated retry after command_error/timeout). R4 reconciliation: both tasks 0-diff (working-tree scope diff sha256 == last round diff.patch). Tests replayed green by bookkeeper (147 passed / 29-29 self-check). Fingerprints recomputed: stage top fce1452..6c1e992, Task A fce1452..6ca6ee1, Task B 6ca6ee1..6c1e992 (serial chain: Task B base=H_A so each task fingerprint maps to its own scope, matching review-prompts T1/T2 ranges). status=review_1. OUT-OF-SCOPE orphan docs/planning/adapter-watchdog-runner.md (DRAFT harness adapter-watchdog proposal, not in any task scope; author not bookkeeper) excluded from H_A/H_B via explicit-path git add, left untracked, surfaced to user — pre-review require_clean_worktree forces a decision before validate --phase pre-review. Non-blocker follow-ups: (1) Kimi noted docs/architecture/ADR/11-adr.md outside Task A §3.1, untouched this round, suggested for bookkeeper filing per 00-task; (2) design fixture row order (AUSDT/BUSDT/CUSDT) diverges from §1.2 net strict-desc — synthetic design-time data, runtime sort guaranteed by backend sort_rows, handed to review-1 to verify runtime ordering.",
+  "next_action": "Phase 4 formal review-1: fill T1/T2 committed fingerprints in review-prompts-templates.md -> save as dispatch files -> dispatch Task A to fresh Kimi, Task B to fresh Claude-GLM (role=first_reviewer, read-only, independent fingerprint recompute). Then review-2: T3 -> Codex read-only (reviewer_prior_involvement=direction_synthesis, designer-overlap override). All ACCEPT -> stage_accepted_waiting_user (red line: can_accept_final=false, bookkeeper never flips to accepted). PRIOR BLOCKER to clear before validate --phase pre-review: resolve out-of-scope orphan docs/planning/adapter-watchdog-runner.md (delete / move out of stage worktree / user-decide) so require_clean_worktree passes.",
   "blockers": [],
   "human_escalation": null,
   "evidence_policy": "raw outputs verbatim; capture-time redaction for account-level data; all endpoint claims carry llms-full.txt line refs or live capture paths",
-  "updated_at": "2026-07-06T00:05:50Z"
+  "updated_at": "2026-07-06T03:21:02Z"
 }
