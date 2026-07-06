@@ -1,15 +1,22 @@
 {
   "stage_id": "2026-07-env-startup-v1",
-  "status": "testing",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-env-startup-v1",
     "created_from_main_sha": "afd9e377be2035272bc9cc33f7ec84cc99b16f49",
     "created_at": "2026-07-06 20:46:01 CST",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "7d9c28894bc9ba0eedcd77f8d1862dc5c8fd5def",
+    "merge_strategy": "no-ff",
     "abandoned_reason": null
+  },
+  "user_acceptance": {
+    "accepted": true,
+    "authority": "user",
+    "at_local": "2026-07-06 CST",
+    "decision": "用户授权 GPT 直接将 stage/2026-07-env-startup-v1 合回 main（no-ff, merge 7d9c288），未经过正式 review-1/review-2 门。",
+    "formal_review_gate": "bypassed_by_user_authorization"
   },
   "bookkeeper": {
     "id": "codex",
@@ -101,7 +108,7 @@
     "user_approved": true
   },
   "base_sha": "afd9e377be2035272bc9cc33f7ec84cc99b16f49",
-  "head_sha": null,
+  "head_sha": "eeb0f728669fa70023538b4a1b637316c0021c0a",
   "diff_fingerprint": null,
   "changed_files": [
     ".env.example",
@@ -176,7 +183,7 @@
     "required": false,
     "reason": null
   },
-  "terminal_reason": null,
-  "next_action": "pre_review_when_requested",
-  "updated_at": "2026-07-06 22:35:04 CST"
+  "terminal_reason": "accepted_and_merged_to_main_without_formal_review_gate (user-authorized direct merge)",
+  "next_action": "closed",
+  "updated_at": "2026-07-06 CST (bookkeeping reconcile: status/merge metadata backfilled to reality)"
 }
