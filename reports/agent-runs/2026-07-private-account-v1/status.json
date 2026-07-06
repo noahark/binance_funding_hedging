@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "complexity": "MILESTONE",
   "stage_branch": {
@@ -78,7 +78,7 @@
       "base_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
       "head_sha": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b",
       "diff_fingerprint": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b:fdfba177950b8872b386d07c1ee02ddfff7eaa0b044307691ebbb40235b8a252",
-      "review_1": {"reviewer": "kimi fresh", "verdict": null, "json_schema_valid": null, "diff_fingerprint": null},
+      "review_1": {"reviewer": "kimi fresh", "verdict": "ACCEPT", "json_schema_valid": true, "diff_fingerprint": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b:fdfba177950b8872b386d07c1ee02ddfff7eaa0b044307691ebbb40235b8a252", "raw_output_path": "review-1-task-a-round1.raw-output.md", "isolation_deviation": "reviewed_artifacts 含 embedded-review-a-round2.raw-output.md, 违反 T1 fresh 隔离契约; 用户 2026-07-06 裁定方案 A (接受+标注+升级 review-2 必查), 详见 raw_output_path bookkeeper 标注小节"},
       "tests_evidence": "147 passed (python3 -m pytest backend/tests/ -q; baseline 96 -> round1 145 -> round2 147, zero regression); replayed by bookkeeper 2026-07-06T03:18Z; raw output in 20-implementation-backend.md §3"
     },
     {
@@ -91,7 +91,7 @@
       "base_sha": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b",
       "head_sha": "6c1e992c4628c0d8e369ba648b0403f341037849",
       "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:50998c3a60afbae089f3e370e7ecbdd869256c70ff0cc1ae888b3f3abd6da2a2",
-      "review_1": {"reviewer": "claude_glm fresh", "verdict": null, "json_schema_valid": null, "diff_fingerprint": null},
+      "review_1": {"reviewer": "claude_glm fresh", "verdict": "ACCEPT", "json_schema_valid": true, "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:50998c3a60afbae089f3e370e7ecbdd869256c70ff0cc1ae888b3f3abd6da2a2", "raw_output_path": "review-1-task-b-round1.raw-output.md"},
       "tests_evidence": "29/29 PASS (node frontend/self-check.js; §4.7 full assertion set); replayed by bookkeeper 2026-07-06T03:18Z; raw output in 60-test-output.txt + 20-implementation-frontend.md §3"
     }
   ],
@@ -157,10 +157,10 @@
   "rework_count": 0,
   "max_rework": 3,
   "can_accept_final": false,
-  "commit_state": "Phase 3 串行落盘 + Phase 4 review-1 dispatch 就绪。H_A=6ca6ee1 (backend 11 files, pytest 96->145->147 零回归, 嵌入预审 round1 Kimi BLOCKER x2 in-scope -> fix + round2 Kimi fresh PASS 10/10) + H_B=6c1e992 (frontend 2 files, self-check 29/29, 嵌入预审 round1 GLM PASS via user-mediated retry after command_error/timeout) 串行提交于 stage 分支。R4 对账: 两任务 0 差异 (工作树 scope sha256 == 最后一轮 diff.patch)。指纹重算: stage top fce1452..6c1e992, Task A fce1452..6ca6ee1, Task B 6ca6ee1..6c1e992 (串行链, Task B base=H_A 每任务指纹对应其 scope)。bookkeeper 续任会话独立复跑两侧测试绿 (147 passed / 29-29 self-check)。stage 标准文件补建 11-adr/20-implementation/70-handoff (参照 phase2-borrow-sort-v1 先例, 前任并行拆分下漏建)。status=review_1。orphan docs/planning/adapter-watchdog-runner.md 由 Fable5 裁定为合法 Harness 草案 -> 临时 worktree 提交至 main 8fd9b4d (非删除, 归属 main 不进 stage 分支); stage 工作树干净, HEAD/实现未动。validate --phase pre-review PASSED。review-1 dispatch T1/T2 committed 指纹已填实 (review-1-task-a-by-kimi.prompt.md / review-1-task-b-by-glm.prompt.md), 待用户中转派发 fresh Kimi(A)+Claude-GLM(B) first_reviewer。Non-blocker follow-ups: ADR-9 tier② E2b 全候选覆盖 (OPEN, R3 升级口); ADR-8 设计 fixture 行序 vs §1.2 net strict-desc (合成数据, 运行时排序由后端 sort_rows 保证, 交 review-1 核查); ADR-11 docs/architecture/ADR/11-adr.md 补录 (scope 外)。",
-  "next_action": "Phase 4 review-1 dispatch READY — awaiting user mediation. 用户中转两份 dispatch: T1 A→fresh Kimi (review-1-task-a-by-kimi.prompt.md, base=fce1452 head=6ca6ee1), T2 B→fresh Claude-GLM (review-1-task-b-by-glm.prompt.md, base=6ca6ee1 head=6c1e992); role=first_reviewer, read-only, committed 指纹独立重算 (status.json diff_fingerprint_formula)。reviewer 返回 verdict JSON 后 bookkeeper 填 tasks[].review_1 + 推进 review-2 (T3 → Codex read-only, reviewer_prior_involvement=direction_synthesis, designer-overlap override per AGENTS.md)。全 ACCEPT → stage_accepted_waiting_user (红线 can_accept_final=false, bookkeeper 永不翻 accepted; merge main 仅限用户明确验收后)。REWORK → 正式 rework 流程 (计入 rework_count, 上限 3)。",
+  "commit_state": "Phase 4 review-1 双 ACCEPT 落档 + Phase 5 review-2 dispatch 就绪。review-1: Task A (Kimi fresh first_reviewer) ACCEPT + Task B (Claude-GLM fresh first_reviewer) ACCEPT; committed 指纹独立重算均与记录一致 (A=6ca6ee1…:fdfba1…, B=6c1e992…:50998c…)。Task A: Kimi 应补派追加 verdict JSON 块 (结构合规, json_schema_valid=true); 附 isolation_deviation — reviewed_artifacts 含 embedded-review-a-round2.raw-output.md 违反 T1 fresh 隔离契约, 用户 2026-07-06 裁定方案 A (接受+标注+升级 review-2 必查), bookkeeper 标注落档 review-1-task-a-round1.raw-output.md。Task B: GLM 完整自写 raw-output 含合规 JSON, jsonschema 严格校验通过, json_schema_valid=true。tasks[A/B].review_1 三字段 (verdict/json_schema_valid/diff_fingerprint) 填实。status=review_2。T3 dispatch (review-2-stage-by-codex.prompt.md) 就绪: stage 级 base=fce1452/head=6c1e992, role=final_reviewer, reviewer_prior_involvement=direction_synthesis (strong-reviewer override per AGENTS.md); 含 review-1 绑定 + 3 项必查 (Kimi 隔离偏差独立性判定 / dual_hat 披露评估 / Codex 自我 direction_synthesis 披露)。待用户中转派发 fresh Codex。Non-blocker follow-ups: ADR-9 tier② E2b (OPEN, R3 升级口); ADR-8 fixture 行序 (合成数据, 运行时排序由后端 sort_rows 保证); ADR-11 docs/architecture/ADR/11-adr.md 补录 (scope 外); E4 position_side 真实持仓实测。",
+  "next_action": "Phase 5 review-2 dispatch READY — awaiting user mediation. 用户中转 T3 → fresh Codex (gpt5.5) read-only final_reviewer (review-2-stage-by-codex.prompt.md, stage 级 base=fce1452 head=6c1e992, committed 指纹独立重算 per diff_fingerprint_formula)。review-2 必查: (1) Task A Kimi 隔离偏差独立性判定 (reviewed_artifacts 含 embedded-review-a-round2), (2) bookkeeper dual_hat 披露评估, (3) Codex 自我 direction_synthesis 披露。reviewer 返回 verdict JSON 后 bookkeeper 填顶层 review_2 + 推进 pre-accept (补顶层 tests/review_1/review_2 聚合字段 + designer-overlap override 证据若 validate 要求)。ACCEPT(next_action=stage_accepted_waiting_user) → status=stage_accepted_waiting_user (红线 can_accept_final=false, bookkeeper 永不翻 accepted; merge main 仅限用户明确验收后)。REWORK → 正式 rework 流程 (计入 rework_count, 上限 3)。BLOCKED → 升级用户。",
   "blockers": [],
   "human_escalation": null,
   "evidence_policy": "raw outputs verbatim; capture-time redaction for account-level data; all endpoint claims carry llms-full.txt line refs or live capture paths",
-  "updated_at": "2026-07-06T04:34:36Z"
+  "updated_at": "2026-07-06T06:08Z"
 }
