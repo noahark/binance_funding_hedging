@@ -1,0 +1,53 @@
+{
+  "makerCommission": 10,
+  "takerCommission": 10,
+  "buyerCommission": 0,
+  "sellerCommission": 0,
+  "commissionRates": {
+    "maker": "<AMOUNT>",
+    "taker": "<AMOUNT>",
+    "buyer": "<AMOUNT>",
+    "seller": "<AMOUNT>"
+  },
+  "canTrade": true,
+  "canWithdraw": true,
+  "canDeposit": true,
+  "brokered": false,
+  "requireSelfTradePrevention": false,
+  "preventSor": false,
+  "updateTime": 1783163225744,
+  "accountType": "SPOT",
+  "balances": [
+    {
+      "asset": "USDT",
+      "free": "<AMOUNT>",
+      "locked": "<AMOUNT>"
+    },
+    {
+      "asset": "USDC",
+      "free": "<AMOUNT>",
+      "locked": "<AMOUNT>"
+    },
+    {
+      "asset": "PEPE",
+      "free": "<AMOUNT>",
+      "locked": "<AMOUNT>"
+    },
+    {
+      "asset": "OPG",
+      "free": "<AMOUNT>",
+      "locked": "<AMOUNT>"
+    },
+    {
+      "asset": "MUB",
+      "free": "<AMOUNT>",
+      "locked": "<AMOUNT>"
+    }
+  ],
+  "permissions": [
+    "LEVERAGED",
+    "TRD_GRP_236",
+    "PRE_MARKET"
+  ],
+  "uid": "<ID>"
+}

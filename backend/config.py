@@ -37,8 +37,15 @@ class Config:
     papi_base_url: str = "https://papi.binance.com"
     user_agent: str = "funding-hedging-public-market/1.0"
     request_timeout: float = 15.0
-    borrow_check_top_n: int = 10
+    # §1.5: borrow_validation probing cap (neg-funding + MARGIN_SPOT_CANDIDATE +
+    # CRYPTO baseAssets, deduped, truncated by abs daily rate DESC). Supersedes the
+    # Phase 2 top-N (was 10); the v1 probe set is wider (default 50, §2.A.2 scen 3).
+    borrow_check_max_calls: int = 50
+    # §1.6: two independent private-channel TTL groups.
+    # 1h: rate chain (E2/E2b/E5/crossMarginData) + maxBorrowable.
     private_channel_ttl_seconds: int = 3600
+    # 60s: account balances (E3/E4/E6) — aligns with the public refresh cadence.
+    private_channel_fast_ttl_seconds: int = 60
     private_recv_window: int = 10000
 
 

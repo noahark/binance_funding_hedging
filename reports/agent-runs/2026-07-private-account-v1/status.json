@@ -1,0 +1,311 @@
+{
+  "stage_id": "2026-07-private-account-v1",
+  "status": "accepted",
+  "workflow": "stage-delivery",
+  "complexity": "MILESTONE",
+  "stage_branch": {
+    "name": "stage/2026-07-private-account-v1",
+    "created_from_main_sha": "1478dedb38c579e1cedf75f87bae1468e66da931",
+    "created_at": "2026-07-05T16:20:00Z",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": "no-ff",
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "independent_stage_bookkeeper",
+    "provider": "claude_glm",
+    "model": "glm-5.2",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "bookkeeper 与 implementer-A 同为 claude_glm 模型但强制不同会话；记账不产生代码作者身份；review-2 评估此披露"
+  },
+  "parallel_mode": {
+    "enabled": true,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": true,
+    "r4_diff_reconciliation_required": true
+  },
+  "designer": "fable5 (anthropic/claude-fable-5) — direction draft, stage design, all dispatch prompts; created stage branch + design packet commit (design-time filing, disclosed)",
+  "direction_synthesizer": "codex gpt5.5 (ACCEPT-FREEZE, archived reports/agent-runs/private-account-v1-direction/codex-synthesis.raw-output.md)",
+  "breakdown_author": "fable5",
+  "frozen_inputs": {
+    "direction_baseline": "docs/private-account-v1-direction-draft.md @ 7168266 (user-approved incl. ADR-3 sort revision)",
+    "endpoint_recon": "reports/agent-runs/private-account-v1-direction/endpoint-recon-kimi.md @ 1478ded",
+    "upstream_security_baseline": "docs/phase2-direction-draft.md (FROZEN)",
+    "contract_current": "docs/api/public-market-contract.md v0.2, wire schema_version public-market-snapshot/v1"
+  },
+  "endpoint_whitelist": [
+    [
+      "GET",
+      "/sapi/v1/margin/allPairs"
+    ],
+    [
+      "GET",
+      "/sapi/v1/margin/allAssets"
+    ],
+    [
+      "GET",
+      "/sapi/v1/margin/crossMarginData"
+    ],
+    [
+      "GET",
+      "/papi/v1/margin/maxBorrowable"
+    ],
+    [
+      "GET",
+      "/papi/v1/margin/marginInterestHistory"
+    ],
+    [
+      "GET",
+      "/papi/v1/portfolio/interest-history"
+    ],
+    [
+      "GET",
+      "/sapi/v1/margin/next-hourly-interest-rate"
+    ],
+    [
+      "GET",
+      "/sapi/v1/margin/interestRateHistory"
+    ],
+    [
+      "GET",
+      "/sapi/v1/account/info"
+    ],
+    [
+      "GET",
+      "/papi/v1/balance"
+    ],
+    [
+      "GET",
+      "/papi/v1/um/positionRisk"
+    ],
+    [
+      "GET",
+      "/api/v3/account"
+    ]
+  ],
+  "hard_constraints": [
+    "永久禁令：POST/PUT/DELETE、交易语义端点、listenKey/user data stream/websocket（含铺垫代码）",
+    "单一 HMAC 出口 = backend/services/private_client.py（grep 断言）",
+    "deny-by-default (method, exact-path) 白名单，签名构造前拦截",
+    "key/secret 任何片段不得进代码/日志/报告/fixture",
+    "进 git 的样本/报告/fixture 数值按 §2.A 脱敏标记表脱敏（运行时页面真实展示不受限）",
+    "classify.py / normalize.py 零改动；枚举与优先级零改动",
+    "E1/E1b 为 discovery-only，本轮快照装配不调用",
+    "开发中途新增端点 = R3 升级，禁止顺手加",
+    "实现终端不 commit、不碰 status.json；R10 收尾段必须机械执行",
+    "review-2 ACCEPT 只进 stage_accepted_waiting_user；merge 回 main 仅限用户明确验收后（bookkeeper 不得代翻 accepted）",
+    "本 stage 全部提交只落 stage/2026-07-private-account-v1 分支"
+  ],
+  "model_routing": {
+    "excluded_for_core_work": [],
+    "review_2": "codex gpt5.5 first; disclosure reviewer_prior_involvement=direction_synthesis+direction_review; strong-reviewer override per AGENTS.md; fallback claude per existing rules",
+    "review_1": {
+      "A": "kimi fresh",
+      "B": "claude_glm fresh"
+    }
+  },
+  "tasks": [
+    {
+      "id": "A",
+      "title": "backend: cost-leg chain / contract v0.3 / net yield / coverage probing / asset aggregation",
+      "owner": "claude_glm (implementer session, distinct from bookkeeper)",
+      "scope": [
+        "backend/**",
+        "schemas/**",
+        "docs/api/**"
+      ],
+      "prompt_path": "task-a-glm-backend.prompt.md",
+      "pre_review_prompt": "pre-review-task-a-by-kimi.prompt.md",
+      "base_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
+      "head_sha": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b",
+      "diff_fingerprint": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b:fdfba177950b8872b386d07c1ee02ddfff7eaa0b044307691ebbb40235b8a252",
+      "review_1": {
+        "reviewer": "kimi fresh",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b:fdfba177950b8872b386d07c1ee02ddfff7eaa0b044307691ebbb40235b8a252",
+        "raw_output_path": "review-1-task-a-round1.raw-output.md",
+        "isolation_deviation": "reviewed_artifacts 含 embedded-review-a-round2.raw-output.md, 违反 T1 fresh 隔离契约; 用户 2026-07-06 裁定方案 A (接受+标注+升级 review-2 必查), 详见 raw_output_path bookkeeper 标注小节"
+      },
+      "tests_evidence": "147 passed (python3 -m pytest backend/tests/ -q; baseline 96 -> round1 145 -> round2 147, zero regression); replayed by bookkeeper 2026-07-06T03:18Z; raw output in 20-implementation-backend.md §3"
+    },
+    {
+      "id": "B",
+      "title": "frontend: private panel / aggregated asset view / net yield column / sort_basis label / privacy toggle",
+      "owner": "kimi",
+      "scope": [
+        "frontend/index.html",
+        "frontend/self-check.js"
+      ],
+      "prompt_path": "task-b-kimi-frontend.prompt.md",
+      "pre_review_prompt": "pre-review-task-b-by-glm.prompt.md",
+      "base_sha": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b",
+      "head_sha": "6c1e992c4628c0d8e369ba648b0403f341037849",
+      "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:50998c3a60afbae089f3e370e7ecbdd869256c70ff0cc1ae888b3f3abd6da2a2",
+      "review_1": {
+        "reviewer": "claude_glm fresh",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:50998c3a60afbae089f3e370e7ecbdd869256c70ff0cc1ae888b3f3abd6da2a2",
+        "raw_output_path": "review-1-task-b-round1.raw-output.md"
+      },
+      "tests_evidence": "29/29 PASS (node frontend/self-check.js; §4.7 full assertion set); replayed by bookkeeper 2026-07-06T03:18Z; raw output in 60-test-output.txt + 20-implementation-frontend.md §3"
+    }
+  ],
+  "embedded_reviews": {
+    "A": {
+      "task_id": "A",
+      "scope": [
+        "backend/**",
+        "schemas/**",
+        "docs/api/**"
+      ],
+      "implementer": "claude_glm",
+      "reviewer": "kimi",
+      "prompt_path": "pre-review-task-a-by-kimi.prompt.md",
+      "rounds": 2,
+      "round_artifacts": [
+        {
+          "round": 1,
+          "dispatch_path": "pre-review-task-a-by-kimi.prompt.md",
+          "worktree_diff_path": "embedded-review-a-round1.diff.patch",
+          "raw_output_path": "embedded-review-a-round1.raw-output.md",
+          "fix_report_path": "embedded-review-a-round2.dispatch.md"
+        },
+        {
+          "round": 2,
+          "dispatch_path": "embedded-review-a-round2.dispatch.md",
+          "worktree_diff_path": "embedded-review-a-round2.diff.patch",
+          "raw_output_path": "embedded-review-a-round2.raw-output.md"
+        }
+      ],
+      "formal_review": {
+        "output": "review-1-task-a-round1.raw-output.md",
+        "base_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
+        "head_sha": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b",
+        "diff_fingerprint": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b:fdfba177950b8872b386d07c1ee02ddfff7eaa0b044307691ebbb40235b8a252",
+        "verdict": "ACCEPT"
+      }
+    },
+    "B": {
+      "task_id": "B",
+      "scope": [
+        "frontend/index.html",
+        "frontend/self-check.js"
+      ],
+      "implementer": "kimi",
+      "reviewer": "claude_glm",
+      "prompt_path": "pre-review-task-b-by-glm.prompt.md",
+      "rounds": 1,
+      "round_artifacts": [
+        {
+          "round": 1,
+          "dispatch_path": "embedded-review-b-round1.dispatch.md",
+          "worktree_diff_path": "embedded-review-b-round1.diff.patch",
+          "raw_output_path": "embedded-review-b-round1.raw-output.md"
+        }
+      ],
+      "formal_review": {
+        "output": "review-1-task-b-round1.raw-output.md",
+        "base_sha": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b",
+        "head_sha": "6c1e992c4628c0d8e369ba648b0403f341037849",
+        "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:50998c3a60afbae089f3e370e7ecbdd869256c70ff0cc1ae888b3f3abd6da2a2",
+        "verdict": "ACCEPT"
+      }
+    }
+  },
+  "h_intake": {
+    "gates": [
+      "G1 branch",
+      "G2 live discovery (E3/E4/E6 fail=BLOCKED)",
+      "G3 weight capture",
+      "G4 field matrix appendix",
+      "G5 ban self-check"
+    ],
+    "discovery_script": "scripts/discovery-capture-private-v1.py (bookkeeper-authored, one-shot, capture-time redaction)",
+    "evidence_dir": "reports/api-samples/2026-07-private-account-v1/20260705T232800Z/",
+    "committed_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
+    "attempts": [
+      {
+        "run_utc": "20260705T162920Z",
+        "outcome": "blocked",
+        "blocking_failed": [
+          "/papi/v1/balance",
+          "/papi/v1/um/positionRisk",
+          "/api/v3/account"
+        ],
+        "binance_code": -2015,
+        "egress_ip": "202.8.105.116",
+        "evidence_dir": "reports/api-samples/2026-07-private-account-v1/20260705T162920Z/",
+        "note": "script healthy (public ticker/price 200; signing code identical to proven phase2 discovery; fresh re-source + single E6 retry still -2015). Account-level endpoints reject the current key/IP combination."
+      },
+      {
+        "run_utc": "20260705T232800Z",
+        "outcome": "passed",
+        "blocking_failed": [],
+        "http_calls": 14,
+        "all_status_200": true,
+        "e3_e4_e6_passed": true,
+        "evidence_dir": "reports/api-samples/2026-07-private-account-v1/20260705T232800Z/",
+        "cost_leg_chain_tier": 1,
+        "chain_hit_source": "next_hourly",
+        "fix_applied": "E2 /sapi/v1/margin/next-hourly-interest-rate call now sends required isIsolated=false (was returning 400 -3026 missing-param); all other 11 whitelist endpoints + public ticker/price unchanged.",
+        "note": "User resolved API-key auth (-2015 cleared via IP/permissions). Fresh re-source + clean re-run: all 14 calls 200, E3/E4/E6 PASSED, G2 blocking gate cleared. Weight headers captured per-call (X-MBX-USED-WEIGHT-1M / X-SAPI-USED-*-WEIGHT-1M) -> frozen into 10-design §2.A.1/§2.A.2."
+      }
+    ]
+  },
+  "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base>..<head> -- . ':(exclude)reports/agent-runs/2026-07-private-account-v1/status.json')",
+  "base_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
+  "head_sha": "6c1e992c4628c0d8e369ba648b0403f341037849",
+  "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:a2140bfd2de2043b78321d0794e6db849f102d3987352f14cfd95178258a0772",
+  "tests": {
+    "status": "passed",
+    "backend": "python3 -m pytest backend/tests/ -q -> 147 passed (基线 96 -> round1 145 -> round2 147, 零回归); bookkeeper + review-1 Kimi + review-2 Codex 三方独立复跑均绿",
+    "frontend": "node frontend/self-check.js -> 29/29 PASS (§4.7 全断言集); bookkeeper + review-1 GLM + review-2 Codex 独立复跑均绿",
+    "raw_output_paths": [
+      "60-test-output.txt",
+      "20-implementation-backend.md"
+    ]
+  },
+  "review_1": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:a2140bfd2de2043b78321d0794e6db849f102d3987352f14cfd95178258a0772",
+    "summary": "stage-level aggregation of two task-level first_reviewer ACCEPTs (Task A by Kimi fresh, Task B by Claude-GLM fresh; task-level details in tasks[].review_1). reviewer/provider 字段有意省略: stage 级单一聚合 reviewer 串会与某 implementer identity 误碰撞, 任务级 cross-review provider 隔离已由 validate_tasks 强制。两份 task verdict 各自独立重算 committed 指纹与记录一致; Task A 带 isolation_deviation (Kimi 读了 embedded-review-a-round2, 用户裁定方案 A 处理)。",
+    "raw_output_paths": [
+      "review-1-task-a-round1.raw-output.md",
+      "review-1-task-b-round1.raw-output.md"
+    ]
+  },
+  "review_2": {
+    "reviewer": "codex gpt5.5",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:a2140bfd2de2043b78321d0794e6db849f102d3987352f14cfd95178258a0772",
+    "reviewer_prior_involvement": "direction_synthesis",
+    "fallback_reason": "本 stage 决策模型池中无 unrelated decision model 可用: claude_glm (Task A implementer) 与 kimi (Task B implementer) hard-ban (AGENTS.md implementer/fix-author 禁评审, 无 override); Fable5 (designer+breakdown_author) design-conflict ineligible; Codex(direction_synthesis) 为唯一非 implementer 决策模型, 无 code authorship conflict, 按 AGENTS.md strong-reviewer disclosure override 启用。fallback 路径 claude=Fable5 同样 design-conflict ineligible。详见 design_conflict_override.unrelated_reviewer_unavailable_evidence。",
+    "design_conflict_override": {
+      "unrelated_reviewer_unavailable_evidence": "review-2-strong-reviewer-override-evidence.md"
+    },
+    "next_action": "stage_accepted_waiting_user",
+    "raw_output_path": "review-2-round1.raw-output.md"
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "can_accept_final": false,
+  "commit_state": "Phase 5 review-2 ACCEPT + pre-accept gate PASS → stage_accepted_waiting_user。review-2: Codex (gpt5.5) final_reviewer ACCEPT, stage 级 base=fce1452/head=6c1e992 committed 指纹独立重算一致 (6c1e992…:a2140b…), next_action=stage_accepted_waiting_user。三项必查 Codex 独立判定: (1) Task A Kimi 隔离偏差存在但未实质推翻 ACCEPT, (2) bookkeeper dual_hat 披露充分, (3) Codex direction_synthesis 已披露按 strong-reviewer override 处理。reviewer_prior_involvement=direction_synthesis, fallback_reason + design_conflict_override 证据 (review-2-strong-reviewer-override-evidence.md) 已落档 per AGENTS.md (模型池无 unrelated decision model: claude_glm/kimi implementer hard-ban, Fable5 designer+breakdown conflict)。落档: review-2-round1.raw-output.md + 30-review-1.md + 50-review-2.md + override 证据 + 70-handoff 更新。补顶层 tests (status=passed) + review_1 (聚合, reviewer 字段省略避免 stage 级 identity 误碰撞) + review_2 (Codex + override 字段)。validate --phase pre-accept PASSED。status=stage_accepted_waiting_user (红线 can_accept_final=false, bookkeeper 不翻 accepted; merge main 仅限用户明确验收后)。Codex findings 3 P3: 70-handoff 过时(已本次修复)/evidence trailing whitespace(verbatim 不重写)/Kimi 隔离偏差 residual。residual_risks: ADR-9 E2b(OPEN R3)/ADR-8 fixture 行序/ADR-11 补录/E4 position_side 实测。",
+  "next_action": "用户已验收通过。bookkeeper 执行 no-ff 合并 stage→main,合并后在 main 补 merged_back_to_main=true/merged_back_sha,并在 main 复校 pre-accept。借币利率上行展示等小调整已记为下个 stage follow-up(见 memory/followup-borrow-rate-on-row)。推送 origin/main 需用户另行确认。",
+  "blockers": [],
+  "human_escalation": null,
+  "evidence_policy": "raw outputs verbatim; capture-time redaction for account-level data; all endpoint claims carry llms-full.txt line refs or live capture paths",
+  "updated_at": "2026-07-06T12:04Z",
+  "user_acceptance": {
+    "accepted": true,
+    "authority": "user",
+    "at_local": "2026-07-06 20:04 CST",
+    "decision": "验收通过；授权 bookkeeper 合回 main(策略 no-ff)；借币利率上行展示等小调整推迟到下个 stage。",
+    "note": "accepted 转移由用户授权驱动；can_accept_final 仍为 false(bookkeeper 本身无自决权)。"
+  }
+}

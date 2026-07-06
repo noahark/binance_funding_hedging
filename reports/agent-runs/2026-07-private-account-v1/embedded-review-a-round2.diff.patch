@@ -1,0 +1,2402 @@
+diff --git a/backend/adapters/binance_public.py b/backend/adapters/binance_public.py
+index f9817c6..257de8f 100644
+--- a/backend/adapters/binance_public.py
++++ b/backend/adapters/binance_public.py
+@@ -135,3 +135,21 @@ class BinancePublicClient:
+         self._bump("GET /fapi/v1/fundingRate")
+         url = f"{self.futures_base_url}/fapi/v1/fundingRate?symbol={symbol}&limit=20"
+         return self._http_get(url)
++
++    def fetch_ticker_price_map(self) -> Dict[str, str]:
++        """P5 ``GET /api/v3/ticker/price`` (public, full, no key) -> {symbol: price}.
++
++        Used once per snapshot to value the private_account block (§1.4). Full
++        payload (weight 2 per docs / 4 measured, H_intake §2.A.1) is fetched ONCE
++        to build the price map; per-symbol calls are never made in the row loop
++        (§3.2: no HTTP in the row loop). Decimal-safe: prices are raw strings.
++
++        Offline returns ``{}`` — the private channel is disabled offline (no
++        key), so the price map is never consumed there.
++        """
++        if self.offline:
++            return {}
++        self._bump("GET /api/v3/ticker/price")
++        url = f"{self.spot_base_url}/api/v3/ticker/price"
++        rows = self._http_get(url)
++        return {row["symbol"]: row["price"] for row in rows if "symbol" in row}
+diff --git a/backend/config.py b/backend/config.py
+index 22ebc31..68288b7 100644
+--- a/backend/config.py
++++ b/backend/config.py
+@@ -37,8 +37,15 @@ class Config:
+     papi_base_url: str = "https://papi.binance.com"
+     user_agent: str = "funding-hedging-public-market/1.0"
+     request_timeout: float = 15.0
+-    borrow_check_top_n: int = 10
++    # §1.5: borrow_validation probing cap (neg-funding + MARGIN_SPOT_CANDIDATE +
++    # CRYPTO baseAssets, deduped, truncated by abs daily rate DESC). Supersedes the
++    # Phase 2 top-N (was 10); the v1 probe set is wider (default 50, §2.A.2 scen 3).
++    borrow_check_max_calls: int = 50
++    # §1.6: two independent private-channel TTL groups.
++    # 1h: rate chain (E2/E2b/E5/crossMarginData) + maxBorrowable.
+     private_channel_ttl_seconds: int = 3600
++    # 60s: account balances (E3/E4/E6) — aligns with the public refresh cadence.
++    private_channel_fast_ttl_seconds: int = 60
+     private_recv_window: int = 10000
+ 
+ 
+diff --git a/backend/domain/snapshot.py b/backend/domain/snapshot.py
+index 08ced1d..1ff74b6 100644
+--- a/backend/domain/snapshot.py
++++ b/backend/domain/snapshot.py
+@@ -14,6 +14,15 @@ from .normalize import asset_tag_for, filter_of, resolve_spot_leg
+ 
+ SCHEMA_VERSION = "public-market-snapshot/v1"
+ 
++# §1.2 sort_basis enum. The wire schema_version stays v1 (additive v0.3 contract);
++# these name the two snapshot-level ranking bases.
++SORT_BASIS_NET = "net_daily_yield"
++SORT_BASIS_ABS = "abs_daily_funding_rate"
++
++# §1.4 valuation: stablecoins priced at 1 USD (spec literal: USDT/USDC).
++_STABLE_USD_ASSETS = {"USDT", "USDC"}
++_PRIVATE_ACCOUNT_PRICE_SOURCE = "api_v3_ticker_price"
++
+ CONTRACT_WARNINGS = [
+     "GET /sapi/v1/margin/allPairs and /sapi/v1/margin/isolated/allPairs return HTTP 400 code -2014 without an API key, so margin_public stays unverified and is not used for route classification.",
+     "premiumIndex.lastFundingRate is the real-time estimate for the CURRENT funding period and is charged at nextFundingTime; it drifts until settlement (mid-period divergence from settled history evidenced under reports/api-samples/2026-07-public-market-ui-cn-v1/20260704T044945Z/). Settled history comes from /fapi/v1/fundingRate; do not present the estimate as a settled value.",
+@@ -166,6 +175,9 @@ def assemble_snapshot(
+     data_time: str,
+     source_sample_id: str,
+     private_channel_status: str = "disabled",
++    sort_basis: Optional[str] = None,
++    private_account: Optional[dict] = None,
++    borrow_validation_summary: Optional[dict] = None,
+     extra_warnings: Optional[List[str]] = None,
+ ) -> dict:
+     """Assemble the full snapshot. ``summary`` is aggregated from ``rows``.
+@@ -175,10 +187,30 @@ def assemble_snapshot(
+     endpoint failure), in which case every row's ``borrow_validation.verified``
+     is false with null data fields.
+ 
++    v0.3 additive top-level fields (all optional so the v0.1 frozen fixture, which
++    carries none of them, still validates):
++    - ``sort_basis`` (§1.2): ``net_daily_yield`` when the private cost leg is
++      available (incl. vip0_reference), else ``abs_daily_funding_rate``.
++    - ``private_account`` (§1.4): the three-state aggregated-asset block.
++    - ``borrow_validation`` (top-level aggregate, §1.5): ``coverage`` +
++      ``chain_hit_tier``/``chain_hit_source`` snapshot-level diagnostics. This is
++      a different shape from the per-row ``rows[].borrow_validation`` (same JSON
++      key, different path).
++
+     ``extra_warnings`` are runtime degradation warnings (e.g. the E1 fundingInfo
+-    fallback) appended after the fixed ``CONTRACT_WARNINGS``.
++    fallback, private_account no-price lines) appended after the fixed
++    ``CONTRACT_WARNINGS``. §1.5 also requires a top-level warnings entry whenever
++    the borrow probe truncated candidates (``coverage.skipped > 0``) — derived
++    here from ``borrow_validation_summary`` so the truncation is never silent.
+     """
+-    return {
++    warnings = list(CONTRACT_WARNINGS) + list(extra_warnings or [])
++    coverage = (borrow_validation_summary or {}).get("coverage") or {}
++    if coverage.get("skipped", 0) > 0:
++        warnings.append(
++            f"borrow_validation: {coverage['skipped']} candidate(s) truncated by "
++            f"rate_limit_budget (not_probed_this_round)"
++        )
++    snap = {
+         "schema_version": SCHEMA_VERSION,
+         "generated_at": generated_at,
+         "data_time": data_time,
+@@ -191,8 +223,15 @@ def assemble_snapshot(
+             "negative_funding_status_counts": _counts(rows, "negative_funding_status"),
+         },
+         "rows": rows,
+-        "warnings": list(CONTRACT_WARNINGS) + list(extra_warnings or []),
++        "warnings": warnings,
+     }
++    if sort_basis is not None:
++        snap["sort_basis"] = sort_basis
++    if private_account is not None:
++        snap["private_account"] = private_account
++    if borrow_validation_summary is not None:
++        snap["borrow_validation"] = borrow_validation_summary
++    return snap
+ 
+ 
+ def compute_daily_funding_rate(
+@@ -232,15 +271,313 @@ def compute_daily_funding_rate(
+     return format(daily, "f")
+ 
+ 
+-def sort_rows(rows: List[dict]) -> List[dict]:
+-    """Order rows by ``abs(daily_funding_rate)`` DESC, nulls last, symbol ASC tie-break.
++def _quantize_rate(value: Decimal) -> str:
++    """8-place fixed-point string; negative zero normalized to ``"0.00000000"``.
++
++    Shared by every v0.3 rate computation so the format is identical to the
++    Phase 2 ``daily_funding_rate`` style (no scientific notation, no float).
++    """
++    if value == 0:
++        value = Decimal(0)
++    return format(value.quantize(Decimal("1E-8")), "f")
++
++
++def compute_daily_from_hourly(hourly_rate) -> Optional[str]:
++    """``Decimal(hourlyInterestRate) × 24`` as an 8-place string (§1.3 tier①).
++
++    Normalizes the E2 next-hourly estimate to a daily account interest rate.
++    Missing/empty/non-numeric -> ``None``. Decimal-only; float never touches it.
++
++    Vector (10-design §3.4 #4): ``"0.00000500"`` -> ``"0.00012000"``.
++    """
++    if hourly_rate is None or hourly_rate == "":
++        return None
++    try:
++        hourly = Decimal(str(hourly_rate))
++    except (InvalidOperation, ValueError, TypeError):
++        return None
++    return _quantize_rate(hourly * Decimal(24))
++
++
++def compute_net_daily_yield(daily_funding_rate, daily_borrow_rate) -> Optional[str]:
++    """Opportunity-quality score (§0/§1.1) as an 8-place string or ``None``.
++
++    - ``daily_funding_rate`` null -> null.
++    - ``daily_funding_rate >= 0`` -> ``daily_funding_rate`` (no borrow leg).
++    - ``daily_funding_rate < 0`` -> ``abs(daily_funding_rate) - daily_borrow_rate``
++      (may be negative; output as-is); ``daily_borrow_rate`` null/non-numeric
++      -> null.
++
++    Decimal-only; negative zero normalized. Vectors (§3.4 #1-3,#5,#6):
++      ``-0.0006``/``0.0002`` -> ``0.00040000``; ``-0.0006``/``0.0008`` ->
++      ``-0.00020000``; ``0.0003`` -> ``0.00030000``; ``-0.0006``/None -> None;
++      None -> None.
++    """
++    if daily_funding_rate is None or daily_funding_rate == "":
++        return None
++    try:
++        dfr = Decimal(str(daily_funding_rate))
++    except (InvalidOperation, ValueError, TypeError):
++        return None
++    if dfr >= 0:
++        return _quantize_rate(dfr)
++    if daily_borrow_rate is None or daily_borrow_rate == "":
++        return None
++    try:
++        borrow = Decimal(str(daily_borrow_rate))
++    except (InvalidOperation, ValueError, TypeError):
++        return None
++    return _quantize_rate(abs(dfr) - borrow)
++
++
++def select_borrow_candidates(
++    rows: List[dict], max_calls: int
++) -> dict:
++    """§1.5 borrow probe set + coverage.
++
++    Probe range = rows with ``daily_funding_rate < 0`` AND
++    ``route_class == MARGIN_SPOT_CANDIDATE`` AND ``asset_tag == CRYPTO``, de-duped
++    by ``base_asset``, capped at ``max_calls`` (default 50, §2.A.2 scen 3).
++    Truncation priority is abs daily rate DESC (symbol ASC tie-break); truncated
++    candidates are recorded so their rows render ``verified=false`` /
++    ``error="not_probed_this_round"`` (no silent truncation).
++
++    Returns ``{"probed_assets": [str], "truncated_assets": set[str],
++    "coverage": {"probed": int, "skipped": int, "reason": str|None}}``.
++    ``probed_assets`` is in priority order (for the E2 ``assets`` param).
++    """
++    cap = max(0, int(max_calls))
++    candidates = [
++        r
++        for r in rows
++        if r.get("daily_funding_rate")
++        and r.get("route_class") == "MARGIN_SPOT_CANDIDATE"
++        and r.get("asset_tag") == "CRYPTO"
++        and Decimal(str(r["daily_funding_rate"])) < 0
++    ]
++    candidates.sort(
++        key=lambda r: (-abs(Decimal(str(r["daily_funding_rate"]))), r.get("symbol", ""))
++    )
++    probed: List[str] = []
++    truncated_assets: set = set()
++    seen: set = set()
++    for r in candidates:
++        asset = r.get("base_asset", "")
++        if not asset or asset in seen:
++            continue
++        seen.add(asset)
++        if len(probed) < cap:
++            probed.append(asset)
++        else:
++            truncated_assets.add(asset)
++    skipped = len(truncated_assets)
++    return {
++        "probed_assets": probed,
++        "truncated_assets": truncated_assets,
++        "coverage": {
++            "probed": len(probed),
++            "skipped": skipped,
++            "reason": "rate_limit_budget" if skipped else None,
++        },
++    }
++
++
++def resolve_cost_leg_rate(asset: Optional[str], cost_leg: Optional[dict]) -> Optional[str]:
++    """Per-asset daily borrow rate from the snapshot-level hit tier (§1.3).
++
++    ``cost_leg`` is the ``PrivateClient.fetch_cost_leg_chain`` result. Tier①
++    (``next_hourly``) holds raw hourly strings and is normalized here via ×24;
++    tiers ②/③/④ already carry daily rates and are only re-quantized for format.
++    Asset absent from the hit tier's table, or chain broken -> ``None``.
++    """
++    if not cost_leg or asset is None:
++        return None
++    raw = cost_leg.get("daily_by_asset", {}).get(asset)
++    if raw is None or raw == "":
++        return None
++    if cost_leg.get("chain_hit_source") == "next_hourly":
++        return compute_daily_from_hourly(raw)
++    try:
++        return _quantize_rate(Decimal(str(raw)))
++    except (InvalidOperation, ValueError, TypeError):
++        return None
++
++
++def _add_dec(a, b) -> Optional[str]:
++    """Sum two raw decimal strings -> raw string (Decimal), or None if both null."""
++    sa = "" if a is None else str(a)
++    sb = "" if b is None else str(b)
++    if sa == "" and sb == "":
++        return None
++    try:
++        return str((Decimal(sa) if sa else Decimal(0)) + (Decimal(sb) if sb else Decimal(0)))
++    except (InvalidOperation, ValueError, TypeError):
++        return None
++
++
++def _usdt_value(asset, amount, price_map: Dict[str, str], warnings: List[str]) -> Decimal:
++    """USD(T) value of one balance line for total_value_usdt (§1.4).
++
++    Stable US assets (USDT/USDC) price at 1. Other assets use the
++    ``{asset}USDT`` ticker price (full map, fetched once). No price / bad price
++    / zero amount -> 0 and a warning (asset still listed, never dropped).
++    """
++    if asset is None or amount is None or amount == "":
++        return Decimal(0)
++    try:
++        amt = Decimal(str(amount))
++    except (InvalidOperation, ValueError, TypeError):
++        return Decimal(0)
++    if amt == 0:
++        return Decimal(0)
++    if asset in _STABLE_USD_ASSETS:
++        return amt
++    price = price_map.get(f"{asset}USDT")
++    if price is None or price == "":
++        warnings.append(f"private_account: no USDT price for {asset}, counted at 0")
++        return Decimal(0)
++    try:
++        return amt * Decimal(str(price))
++    except (InvalidOperation, ValueError, TypeError):
++        warnings.append(f"private_account: bad USDT price for {asset}, counted at 0")
++        return Decimal(0)
++
+ 
+-    Deterministic total order — this IS the payload order the frontend renders
++def _infer_position_side(position_amt) -> Optional[str]:
++    """§2.A.3 E4 open item: papi positionRisk has no positionSide field; infer
++    from positionAmt sign (LONG>0 / SHORT<0 / None when flat). To be re-verified
++    live when a real position appears (R3 upgrade口, 10-design §2.A.3)."""
++    if position_amt is None or position_amt == "":
++        return None
++    try:
++        amt = Decimal(str(position_amt))
++    except (InvalidOperation, ValueError, TypeError):
++        return None
++    if amt > 0:
++        return "LONG"
++    if amt < 0:
++        return "SHORT"
++    return None
++
++
++def assemble_private_account(
++    unified: Optional[List[dict]],
++    spot: Optional[List[dict]],
++    um_positions: Optional[List[dict]],
++    price_map: Dict[str, str],
++    *,
++    checked_at: Optional[str],
++    error: Optional[str],
++) -> dict:
++    """Three-state ``private_account`` block (§1.4).
++
++    ``unified`` (E3), ``spot`` (E6), ``um_positions`` (E4) are the raw lists, or
++    ``None`` when that fetch was disabled/failed. Disabled state (channel off or
++    both balance sources failed -> ``unified is None and spot is None``):
++    ``verified=false``, three arrays empty, ``total_value_usdt`` null, error
++    filled. Otherwise ``verified=true`` with available arrays (a failed single
++    source degrades to an empty array, not a block-level failure).
++
++    Anti-double-count hard rule (§1.4, asserted in tests): ``total_value_usdt``
++    = ``Σ(unified totalWalletBalance priced) + Σ(spot free+locked priced)``;
++    the unified ``totalWalletBalance`` already includes um/cm/crossMargin
++    sub-accounts (never re-added), and ``um_positions`` is an exposure view whose
++    nominal value is NEVER counted. Returns ``(block, warnings)``.
++    """
++    warnings: List[str] = []
++    if unified is None and spot is None:
++        return (
++            {
++                "verified": False,
++                "balances_unified": [],
++                "balances_spot": [],
++                "um_positions": [],
++                "total_value_usdt": None,
++                "valuation": {
++                    "price_source": _PRIVATE_ACCOUNT_PRICE_SOURCE,
++                    "priced_at": None,
++                },
++                "checked_at": None,
++                "error": error or "private_channel_disabled",
++            },
++            warnings,
++        )
++    unified_list = unified or []
++    spot_list = spot or []
++    um_list = um_positions or []
++    unified_out = [
++        {"asset": x.get("asset"), "total_balance": x.get("totalWalletBalance")}
++        for x in unified_list
++        if isinstance(x, dict)
++    ]
++    spot_out = [
++        {"asset": x.get("asset"), "free": x.get("free"), "locked": x.get("locked")}
++        for x in spot_list
++        if isinstance(x, dict)
++    ]
++    um_out = [
++        {
++            "symbol": p.get("symbol"),
++            "position_side": _infer_position_side(p.get("positionAmt")),
++            "position_amt": p.get("positionAmt"),
++            "entry_price": p.get("entryPrice"),
++            "mark_price": p.get("markPrice"),
++            "unrealized_profit": p.get("unRealizedProfit"),
++            "liquidation_price": p.get("liquidationPrice"),
++        }
++        for p in um_list
++        if isinstance(p, dict)
++    ]
++    total = Decimal(0)
++    for x in unified_list:
++        if isinstance(x, dict):
++            total += _usdt_value(
++                x.get("asset"), x.get("totalWalletBalance"), price_map, warnings
++            )
++    for x in spot_list:
++        if isinstance(x, dict):
++            total += _usdt_value(
++                x.get("asset"), _add_dec(x.get("free"), x.get("locked")), price_map, warnings
++            )
++    return (
++        {
++            "verified": True,
++            "balances_unified": unified_out,
++            "balances_spot": spot_out,
++            "um_positions": um_out,
++            "total_value_usdt": _quantize_rate(total),
++            "valuation": {
++                "price_source": _PRIVATE_ACCOUNT_PRICE_SOURCE,
++                "priced_at": checked_at,
++            },
++            "checked_at": checked_at,
++            "error": None,
++        },
++        warnings,
++    )
++
++
++def sort_rows(rows: List[dict], basis: str = SORT_BASIS_ABS) -> List[dict]:
++    """Deterministic total order — this IS the payload order the frontend renders
+     (the frontend must not reorder; filters only hide). Uses Decimal, never float.
++
++    - ``abs_daily_funding_rate`` (default; Phase 2 behavior): abs(daily) DESC,
++      nulls last, symbol ASC tie-break. The Phase 2 regression suite pins this.
++    - ``net_daily_yield`` (§1.2; private cost leg available): net DESC (signed),
++      nulls last, symbol ASC tie-break. Lets a negative-funding row with cheap
++      borrow rank above a higher-abs-rate row with expensive borrow (§3.5).
+     """
+ 
+     def key(r: dict):
+         sym = r.get("symbol", "")
++        if basis == SORT_BASIS_NET:
++            n = r.get("net_daily_yield")
++            if n is None:
++                return (1, Decimal(0), sym)
++            try:
++                return (0, -Decimal(str(n)), sym)  # negate -> net DESC
++            except (InvalidOperation, ValueError, TypeError):
++                return (1, Decimal(0), sym)
+         d = r.get("daily_funding_rate")
+         if d is None:
+             return (1, Decimal(0), sym)  # nulls sort last
+@@ -259,18 +596,26 @@ def assemble_borrow_validation(
+     portfolio_by_asset: Dict[str, dict],
+     checked_at: Optional[str],
+     error: Optional[str],
++    *,
++    daily_interest_account: Optional[str] = None,
++    truncated: bool = False,
+ ) -> dict:
+     """Three-state borrow-validation block (parallel output; never alters classify).
+ 
+     - ``classic_ref is None`` (private channel disabled/failed): ``verified=false``,
+       every data field null, ``error`` carries the reason.
++    - ``truncated`` (§1.5: borrow candidate beyond the probe cap): ``verified=false``,
++      ``error="not_probed_this_round"``, chain fields null (no silent truncation).
+     - verified, pair not listed in the classic list: ``verified=true``,
+       ``pair_listed=false``, asset/interest fields null.
+     - verified, pair listed: ``verified=true``, ``pair_listed=true`` + asset/interest.
+ 
+-    ``portfolio_account`` carries values only for bounded candidates present in
+-    ``portfolio_by_asset``; other rows keep null amount fields (the block is still
+-    present with its ``source``). ``checked_at`` is the request-success moment.
++    ``daily_interest_account`` is the v0.3 account-level daily borrow rate for a
++    probed negative-funding candidate whose cost-leg tier produced a rate (else
++    null). ``portfolio_account`` carries values only for bounded candidates
++    present in ``portfolio_by_asset``; other rows keep null amount fields (the
++    block is still present with its ``source``). ``checked_at`` is the
++    request-success moment.
+     """
+     base = row.get("base_asset", "")
+     sym = row.get("symbol", "")
+@@ -281,6 +626,7 @@ def assemble_borrow_validation(
+                 "pair_listed": None,
+                 "asset_borrowable": None,
+                 "daily_interest_vip0": None,
++                "daily_interest_account": None,
+                 "source": "sapi_reference",
+             },
+             "portfolio_account": {
+@@ -291,6 +637,24 @@ def assemble_borrow_validation(
+             "checked_at": None,
+             "error": error,
+         }
++    if truncated:
++        return {
++            "verified": False,
++            "classic_margin": {
++                "pair_listed": None,
++                "asset_borrowable": None,
++                "daily_interest_vip0": None,
++                "daily_interest_account": None,
++                "source": "sapi_reference",
++            },
++            "portfolio_account": {
++                "max_borrowable": None,
++                "borrow_limit": None,
++                "source": "papi_max_borrowable",
++            },
++            "checked_at": None,
++            "error": "not_probed_this_round",
++        }
+     pair_listed = classic_ref.get("pair_listed_by_symbol", {}).get(sym)
+     if pair_listed:
+         asset_borrowable = classic_ref.get("asset_borrowable_by_name", {}).get(base)
+@@ -305,6 +669,7 @@ def assemble_borrow_validation(
+             "pair_listed": bool(pair_listed),
+             "asset_borrowable": asset_borrowable,
+             "daily_interest_vip0": daily_vip0,
++            "daily_interest_account": daily_interest_account,
+             "source": "sapi_reference",
+         },
+         "portfolio_account": {
+diff --git a/backend/services/private_client.py b/backend/services/private_client.py
+index 8d1603a..d4e2981 100644
+--- a/backend/services/private_client.py
++++ b/backend/services/private_client.py
+@@ -17,11 +17,17 @@ Security gates (all reviewer-checked + negative-tested in
+ 5. **Degradation.** Missing env -> ``enabled=False``; fetch methods return
+    ``None`` and set ``last_error`` so the public snapshot still renders with
+    ``borrow_validation.verified=false``.
+-6. **Rate-limit robustness.** Per-``(method,path,params)`` 1h TTL cache; on
++6. **Rate-limit robustness.** Per-``(method,path,params)`` TTL cache; on
+    429 / -1003 a single bounded backoff retry runs; persistent failure raises
+    ``PrivateEndpointError`` so the caller degrades without blocking the public
+    snapshot.
+ 
++Two TTL groups (10-design §1.6): the 1h rate-chain/maxBorrowable group and the
++60s account-balance group (E3/E4/E6), independent of each other. E1/E1b
++(marginInterestHistory / portfolio interest-history) are registered in the
++whitelist for discovery-only reuse but are NOT called by any fetcher here —
++this stage's snapshot assembly does not consume them (10-design §2).
++
+ Decimal discipline: amount/rate values are passed through as raw strings
+ (Binance returns them as strings); no float touches any value path.
+ """
+@@ -33,16 +39,30 @@ import json
+ import time
+ import urllib.error
+ import urllib.request
+-from typing import Any, Dict, Optional, Tuple
++from typing import Any, Dict, List, Optional, Tuple
+ 
+ # ---- deny-by-default whitelist: (method, exact-path) -> base URL (hardcoded) ----
+ # This is the single source of truth for which private endpoints may be called.
+ # Base URLs are bound here and are NOT overridable from config (anti-injection).
++# Frozen by H_intake (10-design §2.A.1) — api/papi are distinct X-MBX weight pools.
+ WHITELIST: Dict[Tuple[str, str], str] = {
++    # W1/W2/W3 — existing market-level classic-margin references (sapi).
+     ("GET", "/sapi/v1/margin/allPairs"): "https://api.binance.com",
+     ("GET", "/sapi/v1/margin/allAssets"): "https://api.binance.com",
+     ("GET", "/sapi/v1/margin/crossMarginData"): "https://api.binance.com",
++    # E2/E2b/E5 — cost-leg chain (sapi). E2 next-hourly is the heaviest (weight 100).
++    ("GET", "/sapi/v1/margin/next-hourly-interest-rate"): "https://api.binance.com",
++    ("GET", "/sapi/v1/margin/interestRateHistory"): "https://api.binance.com",
++    ("GET", "/sapi/v1/account/info"): "https://api.binance.com",
++    # E6 — spot balances (api).
++    ("GET", "/api/v3/account"): "https://api.binance.com",
++    # papi endpoints — account IP weight pool (distinct from sapi/api).
+     ("GET", "/papi/v1/margin/maxBorrowable"): "https://papi.binance.com",
++    ("GET", "/papi/v1/balance"): "https://papi.binance.com",
++    ("GET", "/papi/v1/um/positionRisk"): "https://papi.binance.com",
++    # E1/E1b — discovery-only; registered but NOT called by snapshot assembly.
++    ("GET", "/papi/v1/margin/marginInterestHistory"): "https://papi.binance.com",
++    ("GET", "/papi/v1/portfolio/interest-history"): "https://papi.binance.com",
+ }
+ 
+ 
+@@ -72,6 +92,7 @@ class PrivateClient:
+         timeout: float,
+         recv_window: int,
+         ttl_seconds: int,
++        fast_ttl_seconds: int,
+     ):
+         self.api_key = api_key or ""
+         self.api_secret = api_secret or ""
+@@ -79,7 +100,8 @@ class PrivateClient:
+         self._user_agent = user_agent
+         self._timeout = timeout
+         self._recv_window = recv_window
+-        self._ttl = ttl_seconds
++        self._ttl = ttl_seconds          # 1h group: rate chain + maxBorrowable
++        self._fast_ttl = fast_ttl_seconds  # 60s group: E3/E4/E6 account balances
+         self.audit_log: list = []
+         self.last_error: Optional[str] = None
+         self._cache: Dict[Tuple[str, str, Tuple[Tuple[str, str], ...]], Tuple[float, Any]] = {}
+@@ -158,20 +180,27 @@ class PrivateClient:
+         return False
+ 
+     def _cached_get(
+-        self, method: str, path: str, params: Optional[Dict[str, str]] = None
++        self,
++        method: str,
++        path: str,
++        params: Optional[Dict[str, str]] = None,
++        *,
++        ttl: Optional[int] = None,
+     ) -> Any:
++        """TTL-cached signed GET. ``ttl`` selects the §1.6 group (default 1h)."""
+         key = (method, path, tuple(sorted((params or {}).items())))
++        lifetime = self._ttl if ttl is None else ttl
+         now = time.monotonic()
+         cached = self._cache.get(key)
+         if cached and cached[0] > now:
+             return cached[1]
+         data = self._signed_get(method, path, params)
+-        self._cache[key] = (now + self._ttl, data)
++        self._cache[key] = (now + lifetime, data)
+         return data
+ 
+     # -- high-level fetchers (return None + set last_error on disable/failure) --
+     def fetch_classic_reference(self) -> Optional[Dict[str, Any]]:
+-        """Market-level classic-margin reference (E2+E3+E4), 1h TTL.
++        """Market-level classic-margin reference (W1+W2+W3), 1h TTL.
+ 
+         Returns ``{"pair_listed_by_symbol", "asset_borrowable_by_name",
+         "daily_interest_vip0_by_coin"}`` or ``None`` (disabled/failed). On
+@@ -202,7 +231,7 @@ class PrivateClient:
+         }
+ 
+     def fetch_max_borrowable(self, asset: str) -> Optional[Dict[str, Optional[str]]]:
+-        """Account-level maxBorrowable for one asset (E5), 1h TTL.
++        """Account-level maxBorrowable for one asset (W4), 1h TTL.
+ 
+         Returns ``{"max_borrowable", "borrow_limit"}`` (raw strings) or ``None``
+         (disabled/failed). On failure sets ``last_error``.
+@@ -220,3 +249,214 @@ class PrivateClient:
+             "max_borrowable": data.get("amount"),
+             "borrow_limit": data.get("borrowLimit"),
+         }
++
++    # -- cost-leg chain (10-design §1.3) --
++    def fetch_account_info(self) -> Optional[dict]:
++        """E5 ``/sapi/v1/account/info`` (1h TTL) — VIP level + account switches.
++
++        Returns the raw dict (``vipLevel``, ``isPortfolioMarginRetailEnabled``,
++        ...) or ``None`` (disabled/failed). Per-endpoint failure is NON-blocking:
++        the chain degrades to a lower tier (§1.3). Never raises.
++        """
++        if not self.enabled:
++            return None
++        try:
++            return self._cached_get("GET", "/sapi/v1/account/info")
++        except PrivateEndpointError:
++            return None
++
++    def fetch_cost_leg_chain(
++        self, borrow_assets: List[str]
++    ) -> Optional[Dict[str, Any]]:
++        """Snapshot-level cost-leg chain (§1.3). One HTTP call per tier probe,
++        all in the 1h TTL group (shared cache: crossMarginData reuses the
++        classic_reference fetch).
++
++        ``borrow_assets`` = unique probed base assets (§1.5 set, already capped).
++        Returns a chain result describing the SINGLE hit tier and its per-asset
++        daily-rate table, or ``None`` (channel disabled). Per-endpoint failure
++        degrades tier-by-tier (NON-blocking); only a fully-broken chain yields
++        tier=None.
++
++        Returned keys:
++        - ``chain_hit_tier``: 1|2|3|4|None
++        - ``chain_hit_source``: ``next_hourly``|``rate_history``|
++          ``cross_margin_tier``|``vip0_reference``|None
++        - ``daily_by_asset``: {asset: daily_rate_str} for the hit tier's table
++        - ``vip_level``: str|None (E5 vipLevel, used for tier 3 + diagnostics)
++        - ``classic_margin_daily_interest_account_available``: bool (tier != None)
++
++        Assumption A1 (documented in 20-implementation-backend.md): E2b
++        ``/sapi/v1/margin/interestRateHistory`` is single-asset (frozen
++        discovery ``asset=BTC``; the param name is singular vs E2's plural
++        ``assets``). It is probed ONCE for the top candidate only; tier②
++        coverage is therefore limited to that asset. Tier① (E2, comma-joined)
++        covers all candidates in one call and is the realistic primary tier.
++        """
++        if not self.enabled:
++            self.last_error = "private_channel_disabled"
++            return None
++
++        info = self.fetch_account_info() or {}
++        vip_level_raw = info.get("vipLevel")
++        vip_level = str(vip_level_raw) if vip_level_raw is not None else None
++
++        # tier① E2 next-hourly — comma-joined assets, isIsolated=false REQUIRED
++        # (H_intake fix: missing isIsolated -> 400 -3026).
++        next_hourly: Dict[str, Optional[str]] = {}
++        if borrow_assets:
++            try:
++                e2 = self._cached_get(
++                    "GET",
++                    "/sapi/v1/margin/next-hourly-interest-rate",
++                    {"assets": ",".join(borrow_assets), "isIsolated": "false"},
++                )
++                next_hourly = {
++                    x.get("asset"): x.get("nextHourlyInterestRate")
++                    for x in (e2 or [])
++                    if isinstance(x, dict)
++                }
++            except PrivateEndpointError:
++                next_hourly = {}
++
++        # tier② E2b interestRateHistory — single-asset probe (A1).
++        rate_history: Dict[str, Optional[str]] = {}
++        if borrow_assets:
++            try:
++                e2b = self._cached_get(
++                    "GET",
++                    "/sapi/v1/margin/interestRateHistory",
++                    {"asset": borrow_assets[0]},
++                )
++                points = [p for p in (e2b or []) if isinstance(p, dict)]
++                if points:
++                    latest = max(points, key=lambda p: int(p.get("timestamp", 0)))
++                    rate_history = {
++                        latest.get("asset"): latest.get("dailyInterestRate")
++                    }
++            except PrivateEndpointError:
++                rate_history = {}
++
++        # crossMarginData (W3) — shared cache with classic_reference; one call.
++        cross_table: Dict[str, Dict[str, str]] = {}
++        try:
++            cross = self._cached_get("GET", "/sapi/v1/margin/crossMarginData")
++            for row in (cross or []):
++                if not isinstance(row, dict):
++                    continue
++                lvl = str(row.get("vipLevel"))
++                cross_table.setdefault(lvl, {})[row.get("coin")] = row.get(
++                    "dailyInterest"
++                )
++        except PrivateEndpointError:
++            cross_table = {}
++
++        return _select_chain_tier(
++            next_hourly, rate_history, cross_table, vip_level
++        )
++
++    # -- private_account block (10-design §1.4); 60s TTL group --
++    def fetch_unified_balances(self) -> Optional[List[dict]]:
++        """E3 ``/papi/v1/balance`` (60s TTL) — unified-account balances.
++
++        Returns the raw list or ``None`` (disabled/failed). Per §1.4 the
++        ``totalWalletBalance`` already includes um/cm/crossMargin sub-accounts
++        (anti-double-count); sub-fields are exposure only.
++        """
++        if not self.enabled:
++            return None
++        try:
++            return self._cached_get("GET", "/papi/v1/balance", ttl=self._fast_ttl)
++        except PrivateEndpointError as exc:
++            self.last_error = f"papi_balance_failed:{exc.reason}"
++            return None
++
++    def fetch_um_positions(self) -> Optional[List[dict]]:
++        """E4 ``/papi/v1/um/positionRisk`` (60s TTL) — UM exposure view.
++
++        Returns the raw list (empty when flat) or ``None`` (disabled/failed).
++        Nominal value is NEVER counted in ``total_value_usdt`` (§1.4 hard rule).
++        """
++        if not self.enabled:
++            return None
++        try:
++            return self._cached_get("GET", "/papi/v1/um/positionRisk", ttl=self._fast_ttl)
++        except PrivateEndpointError as exc:
++            self.last_error = f"um_positionrisk_failed:{exc.reason}"
++            return None
++
++    def fetch_spot_balances(self) -> Optional[List[dict]]:
++        """E6 ``/api/v3/account`` (60s TTL, omitZeroBalances=true) — spot balances.
++
++        Returns the ``balances`` list ``[{asset, free, locked}]`` or ``None``
++        (disabled/failed).
++        """
++        if not self.enabled:
++            return None
++        try:
++            data = self._cached_get(
++                "GET",
++                "/api/v3/account",
++                {"omitZeroBalances": "true"},
++                ttl=self._fast_ttl,
++            )
++        except PrivateEndpointError as exc:
++            self.last_error = f"api_account_failed:{exc.reason}"
++            return None
++        return data.get("balances") if isinstance(data, dict) else None
++
++
++def _select_chain_tier(
++    next_hourly: Dict[str, Optional[str]],
++    rate_history: Dict[str, Optional[str]],
++    cross_table: Dict[str, Dict[str, str]],
++    vip_level: Optional[str],
++) -> Dict[str, Any]:
++    """Pick the snapshot-level hit tier (§1.3 / §2.A.5) and its rate table.
++
++    Pure function (no HTTP) so the tier logic is unit-testable in isolation.
++    Order: ① next_hourly -> ② rate_history -> ③ cross_margin_tier (vipLevel) ->
++    ④ vip0_reference. A tier "hits" when its table is non-empty (and, for ③,
++    the VIP level is known and present). All-chain-broken -> tier None.
++    """
++    # ① next_hourly: hourly × 24 normalization happens in snapshot.compute_daily_from_hourly;
++    # here we keep the raw hourly strings and let the caller normalize per asset.
++    if any(v for v in next_hourly.values()):
++        return {
++            "chain_hit_tier": 1,
++            "chain_hit_source": "next_hourly",
++            "daily_by_asset": dict(next_hourly),
++            "vip_level": vip_level,
++            "classic_margin_daily_interest_account_available": True,
++        }
++    if any(v for v in rate_history.values()):
++        return {
++            "chain_hit_tier": 2,
++            "chain_hit_source": "rate_history",
++            "daily_by_asset": dict(rate_history),
++            "vip_level": vip_level,
++            "classic_margin_daily_interest_account_available": True,
++        }
++    if vip_level is not None and cross_table.get(vip_level):
++        return {
++            "chain_hit_tier": 3,
++            "chain_hit_source": "cross_margin_tier",
++            "daily_by_asset": dict(cross_table[vip_level]),
++            "vip_level": vip_level,
++            "classic_margin_daily_interest_account_available": True,
++        }
++    if cross_table.get("0"):
++        return {
++            "chain_hit_tier": 4,
++            "chain_hit_source": "vip0_reference",
++            "daily_by_asset": dict(cross_table["0"]),
++            "vip_level": vip_level,
++            "classic_margin_daily_interest_account_available": True,
++        }
++    return {
++        "chain_hit_tier": None,
++        "chain_hit_source": None,
++        "daily_by_asset": {},
++        "vip_level": vip_level,
++        "classic_margin_daily_interest_account_available": False,
++    }
+diff --git a/backend/services/snapshot_service.py b/backend/services/snapshot_service.py
+index 7d04549..9999a69 100644
+--- a/backend/services/snapshot_service.py
++++ b/backend/services/snapshot_service.py
+@@ -19,9 +19,15 @@ from ..adapters.binance_public import BinancePublicClient
+ from ..config import Config, FROZEN_GENERATED_AT, FROZEN_SOURCE_SAMPLE_ID
+ from ..domain.normalize import iso_from_ms
+ from ..domain.snapshot import (
++    SORT_BASIS_ABS,
++    SORT_BASIS_NET,
+     assemble_borrow_validation,
++    assemble_private_account,
+     assemble_snapshot,
+     build_rows,
++    compute_net_daily_yield,
++    resolve_cost_leg_rate,
++    select_borrow_candidates,
+     sort_rows,
+     top_symbols_by_abs_rate,
+ )
+@@ -59,6 +65,7 @@ class SnapshotService:
+             timeout=config.request_timeout,
+             recv_window=config.private_recv_window,
+             ttl_seconds=config.private_channel_ttl_seconds,
++            fast_ttl_seconds=config.private_channel_fast_ttl_seconds,
+         )
+ 
+     def _load_schema(self):
+@@ -111,32 +118,65 @@ class SnapshotService:
+             funding_by_sym,
+             funding_interval_by_sym=funding_interval_by_sym,
+         )
+-        rows = sort_rows(rows)
+ 
+-        # Private borrow-validation channel (single HMAC exit, deny-by-default).
+-        # Disabled (env missing) or endpoint failure -> classic_ref None -> every
+-        # row verified=false with null data fields; the public snapshot still renders.
++        # ---- private channel (single HMAC exit, deny-by-default) ----
++        # All signed HTTP happens here, BEFORE the row loop (§3.2: no HTTP in the
++        # row loop). Disabled (env missing) or classic-reference failure ->
++        # classic_ref None -> every row verified=false; the public snapshot still
++        # renders. Offline mode never touches the private channel.
+         classic_ref = self._private.fetch_classic_reference()
+         private_channel_status = "enabled" if classic_ref is not None else "disabled"
+         private_error = self._private.last_error if classic_ref is None else None
++
++        # §1.5 borrow probe set (neg funding + MARGIN_SPOT_CANDIDATE + CRYPTO,
++        # deduped by base_asset, capped at borrow_check_max_calls). Truncated
++        # candidates render verified=false / not_probed_this_round.
++        probe = select_borrow_candidates(rows, self.config.borrow_check_max_calls)
++        probed_assets = probe["probed_assets"]
++        truncated_assets = probe["truncated_assets"]
++        coverage = probe["coverage"]
++
++        # §1.3 cost-leg chain (snapshot-level single tier; 1h TTL group). None
++        # when the channel is disabled.
++        cost_leg = self._private.fetch_cost_leg_chain(probed_assets)
++        cost_leg_available = bool(
++            classic_ref is not None and cost_leg and cost_leg.get("chain_hit_tier") is not None
++        )
++
++        # §1.4 private_account block (three-state semantics SAME AS
++        # borrow_validation, per the §1.4 heading): when classic_ref is None the
++        # channel is disabled/failed, so private_account MUST be verified=false
++        # regardless of whether the account endpoints would succeed — skip them.
++        # Price map (P5, public, full, once) values the balances; the three
++        # account fetches use the 60s TTL group.
++        if classic_ref is None:
++            price_map = {}
++            unified = um_positions = spot_balances = None
++        else:
++            price_map = self.client.fetch_ticker_price_map()
++            unified = self._private.fetch_unified_balances()
++            um_positions = self._private.fetch_um_positions()
++            spot_balances = self._private.fetch_spot_balances()
++
+         checked_at = (
+             datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+             if classic_ref is not None
+             else None
+         )
++        private_account, account_warnings = assemble_private_account(
++            unified,
++            spot_balances,
++            um_positions,
++            price_map,
++            checked_at=checked_at,
++            error=private_error,
++        )
+ 
+-        # E5 account-level maxBorrowable is bounded to the top-N
+-        # MARGIN_SPOT_CANDIDATE + CRYPTO baseAssets by abs daily rate (rows are
+-        # already sorted DESC). bStock rows are excluded (asset_tag != CRYPTO);
+-        # their portfolio_account amount fields stay null.
+-        bounded_assets = [
+-            r["base_asset"]
+-            for r in rows
+-            if r["route_class"] == "MARGIN_SPOT_CANDIDATE"
+-            and r["asset_tag"] == "CRYPTO"
+-        ][: self.config.borrow_check_top_n]
++        # W4 maxBorrowable for the probed candidate set (1h TTL; bounded probe
++        # loop over assets, NOT the row loop). bStock rows are excluded upstream
++        # (asset_tag != CRYPTO); their portfolio_account amount fields stay null.
+         portfolio_by_asset: dict = {}
+-        for asset in bounded_assets:
++        for asset in probed_assets:
+             if asset in portfolio_by_asset:
+                 continue
+             res = self._private.fetch_max_borrowable(asset)
+@@ -145,11 +185,43 @@ class SnapshotService:
+                 "borrow_limit": None,
+             }
+ 
++        # ---- row assembly (pure; no HTTP) ----
+         for row in rows:
++            base = row.get("base_asset", "")
++            daily_borrow_rate = None
++            borrow_rate_source = None
++            # Chain rate only for probed (non-truncated) borrow candidates.
++            if base in probed_assets and base not in truncated_assets and cost_leg:
++                rate = resolve_cost_leg_rate(base, cost_leg)
++                if rate is not None:
++                    daily_borrow_rate = rate
++                    borrow_rate_source = cost_leg.get("chain_hit_source")
++            row["net_daily_yield"] = compute_net_daily_yield(
++                row.get("daily_funding_rate"), daily_borrow_rate
++            )
++            row["borrow_rate_source"] = borrow_rate_source
+             row["borrow_validation"] = assemble_borrow_validation(
+-                row, classic_ref, portfolio_by_asset, checked_at, private_error
++                row,
++                classic_ref,
++                portfolio_by_asset,
++                checked_at,
++                private_error,
++                daily_interest_account=daily_borrow_rate,
++                truncated=base in truncated_assets,
+             )
+ 
++        # §1.2 sort_basis: net when the cost leg is available (incl. vip0_reference),
++        # else the Phase 2 abs-daily behavior (full-order regression when disabled).
++        sort_basis = SORT_BASIS_NET if cost_leg_available else SORT_BASIS_ABS
++        rows = sort_rows(rows, sort_basis)
++
++        borrow_validation_summary = {
++            "coverage": coverage,
++            "classic_margin_daily_interest_account_available": cost_leg_available,
++            "chain_hit_tier": cost_leg.get("chain_hit_tier") if cost_leg else None,
++            "chain_hit_source": cost_leg.get("chain_hit_source") if cost_leg else None,
++        }
++
+         data_time_ms = max((p.get("time", 0) for p in raw["premium_index"]), default=0)
+         if self.client.offline:
+             generated_at = FROZEN_GENERATED_AT
+@@ -165,7 +237,10 @@ class SnapshotService:
+             data_time=iso_from_ms(data_time_ms),
+             source_sample_id=source_sample_id,
+             private_channel_status=private_channel_status,
+-            extra_warnings=fetch_warnings,
++            sort_basis=sort_basis,
++            private_account=private_account,
++            borrow_validation_summary=borrow_validation_summary,
++            extra_warnings=fetch_warnings + account_warnings,
+         )
+ 
+     def request_log(self) -> dict:
+diff --git a/backend/tests/test_phase2_borrow_sort.py b/backend/tests/test_phase2_borrow_sort.py
+index 0af8f74..e46b837 100644
+--- a/backend/tests/test_phase2_borrow_sort.py
++++ b/backend/tests/test_phase2_borrow_sort.py
+@@ -117,6 +117,7 @@ def test_borrow_validation_disabled_state():
+     assert bv["classic_margin"]["pair_listed"] is None
+     assert bv["classic_margin"]["asset_borrowable"] is None
+     assert bv["classic_margin"]["daily_interest_vip0"] is None
++    assert bv["classic_margin"]["daily_interest_account"] is None
+     assert bv["portfolio_account"]["max_borrowable"] is None
+     assert bv["portfolio_account"]["borrow_limit"] is None
+     assert bv["checked_at"] is None
+@@ -223,6 +224,7 @@ def test_offline_full_snapshot_validates_v02_schema(schema):
+             "pair_listed",
+             "asset_borrowable",
+             "daily_interest_vip0",
++            "daily_interest_account",
+             "source",
+         }
+         assert set(bv["portfolio_account"]) == {"max_borrowable", "borrow_limit", "source"}
+diff --git a/backend/tests/test_private_account_v1.py b/backend/tests/test_private_account_v1.py
+new file mode 100644
+index 0000000..677b013
+--- /dev/null
++++ b/backend/tests/test_private_account_v1.py
+@@ -0,0 +1,889 @@
++"""Task A v0.3 tests — cost-leg chain / net yield / sort_basis / private_account /
++coverage / degradation / redaction scan (10-design §1.1-§1.5, §3.3-§3.5).
++
++No network: ``urlopen`` is monkeypatched where the private client is exercised;
++pure functions are tested directly; offline snapshots exercise the disabled
++three-state. The §3.2 security-gate deny-by-default tests live in
++``test_private_client.py``; this file covers the v0.3 computation + assembly
++contract and the §3.3 degradation matrix + 落档 redaction scan.
++"""
++from __future__ import annotations
++
++import json
++from decimal import Decimal
++from pathlib import Path
++
++import jsonschema
++import pytest
++
++from backend.domain.snapshot import (
++    SORT_BASIS_ABS,
++    SORT_BASIS_NET,
++    assemble_borrow_validation,
++    assemble_private_account,
++    assemble_snapshot,
++    compute_daily_from_hourly,
++    compute_net_daily_yield,
++    resolve_cost_leg_rate,
++    select_borrow_candidates,
++    sort_rows,
++)
++from backend.services import private_client
++from backend.services.private_client import PrivateClient, _select_chain_tier
++
++REPO_ROOT = Path(__file__).resolve().parents[2]
++STAGE_DIR = REPO_ROOT / "reports/agent-runs/2026-07-private-account-v1"
++FIXTURE = REPO_ROOT / "backend/tests/fixtures/private-account-v1-design.json"
++
++
++def _row(symbol, daily, *, base=None, route="MARGIN_SPOT_CANDIDATE", tag="CRYPTO", net=None):
++    return {
++        "symbol": symbol,
++        "base_asset": base or symbol.replace("USDT", ""),
++        "daily_funding_rate": daily,
++        "net_daily_yield": net,
++        "route_class": route,
++        "asset_tag": tag,
++    }
++
++
++# =========================================================================
++# §3.4 net_daily_yield computation vectors (Decimal, neg-zero normalized)
++# =========================================================================
++@pytest.mark.parametrize(
++    "daily,borrow,expected",
++    [
++        ("-0.00060000", "0.00020000", "0.00040000"),  # §3.4 #1
++        ("-0.00060000", "0.00080000", "-0.00020000"),  # §3.4 #2 negative net as-is
++        ("0.00030000", None, "0.00030000"),  # §3.4 #3 positive -> no borrow leg
++        ("-0.00060000", None, None),  # §3.4 #5 chain broken -> null
++        (None, None, None),  # §3.4 #6 null daily -> null
++        ("-0.00060000", "0.00060000", "0.00000000"),  # neg-zero normalization
++        ("0.00000000", None, "0.00000000"),  # zero funding -> zero net
++    ],
++)
++def test_compute_net_daily_yield_vectors(daily, borrow, expected):
++    assert compute_net_daily_yield(daily, borrow) == expected
++
++
++def test_compute_net_daily_yield_no_float_no_scientific():
++    out = compute_net_daily_yield("-0.00000001", "0.00000001")
++    assert out == "0.00000000"
++    assert "e" not in (out or "").lower()
++
++
++def test_compute_daily_from_hourly_vector():
++    # §3.4 #4: hourly 0.00000500 -> daily 0.00012000 (x24 normalization)
++    assert compute_daily_from_hourly("0.00000500") == "0.00012000"
++    assert compute_daily_from_hourly(None) is None
++    assert compute_daily_from_hourly("") is None
++    assert compute_daily_from_hourly("not-a-number") is None
++
++
++# =========================================================================
++# §1.3 cost-leg chain tier selection (pure function)
++# =========================================================================
++def test_chain_tier1_next_hourly_hits():
++    chain = _select_chain_tier({"BTC": "0.00000500"}, {}, {"0": {"BTC": "0.0003"}}, "5")
++    assert chain["chain_hit_tier"] == 1
++    assert chain["chain_hit_source"] == "next_hourly"
++    assert chain["daily_by_asset"] == {"BTC": "0.00000500"}  # raw hourly; x24 at resolve
++    assert chain["classic_margin_daily_interest_account_available"] is True
++
++
++def test_chain_tier2_rate_history_when_e2_empty():
++    chain = _select_chain_tier({}, {"BTC": "0.0003"}, {"0": {"BTC": "0.0003"}}, "5")
++    assert chain["chain_hit_tier"] == 2
++    assert chain["chain_hit_source"] == "rate_history"
++    assert chain["daily_by_asset"] == {"BTC": "0.0003"}  # already daily
++
++
++def test_chain_tier3_cross_margin_when_vip_level_known():
++    chain = _select_chain_tier({}, {}, {"5": {"BTC": "0.0004"}, "0": {"BTC": "0.0003"}}, "5")
++    assert chain["chain_hit_tier"] == 3
++    assert chain["chain_hit_source"] == "cross_margin_tier"
++    assert chain["daily_by_asset"] == {"BTC": "0.0004"}
++
++
++def test_chain_tier4_vip0_reference_when_vip_level_missing():
++    chain = _select_chain_tier({}, {}, {"0": {"BTC": "0.0003"}}, None)
++    assert chain["chain_hit_tier"] == 4
++    assert chain["chain_hit_source"] == "vip0_reference"
++    assert chain["daily_by_asset"] == {"BTC": "0.0003"}
++
++
++def test_chain_broken_when_all_tables_empty():
++    chain = _select_chain_tier({}, {}, {}, None)
++    assert chain["chain_hit_tier"] is None
++    assert chain["chain_hit_source"] is None
++    assert chain["daily_by_asset"] == {}
++    assert chain["classic_margin_daily_interest_account_available"] is False
++
++
++def test_resolve_cost_leg_rate_applies_x24_for_next_hourly():
++    chain = _select_chain_tier({"BTC": "0.00000500"}, {}, {"0": {}}, "5")
++    # raw hourly 0.00000500 -> daily 0.00012000 (x24 at resolve time)
++    assert resolve_cost_leg_rate("BTC", chain) == "0.00012000"
++
++
++def test_resolve_cost_leg_rate_passes_through_daily_for_other_tiers():
++    chain = _select_chain_tier({}, {}, {"0": {"BTC": "0.00030000"}}, None)
++    assert resolve_cost_leg_rate("BTC", chain) == "0.00030000"
++
++
++def test_resolve_cost_leg_rate_none_when_asset_absent_or_broken():
++    chain = _select_chain_tier({"BTC": "0.00000500"}, {}, {"0": {}}, "5")
++    assert resolve_cost_leg_rate("DOGE", chain) is None  # asset not in tier table
++    assert resolve_cost_leg_rate("BTC", None) is None
++    broken = _select_chain_tier({}, {}, {}, None)
++    assert resolve_cost_leg_rate("BTC", broken) is None
++
++
++# =========================================================================
++# §1.2 / §3.5 sort_basis (net reversal + Phase 2 abs regression)
++# =========================================================================
++def test_sort_net_reversal_core_assertion():
++    # §3.5: AUSDT (net 0.00040000) ranks above BUSDT (net 0.00010000) although
++    # BUSDT has the larger abs daily funding (0.00070000 > 0.00060000). Net yield
++    # reverses the raw-rate ranking -- the core opportunity-quality assertion.
++    rows = [
++        _row("BUSDT", "-0.00070000", net="0.00010000"),  # bigger abs daily, expensive borrow
++        _row("AUSDT", "-0.00060000", net="0.00040000"),  # smaller abs daily, cheap borrow
++    ]
++    order = [r["symbol"] for r in sort_rows(rows, SORT_BASIS_NET)]
++    assert order == ["AUSDT", "BUSDT"]
++
++
++def test_sort_net_signed_desc_nulls_last_symbol_tiebreak():
++    rows = [
++        _row("DUSDT", "-0.00060000", net=None),       # null -> last
++        _row("CUSDT", "-0.00060000", net="-0.00020000"),  # negative net ranks lower
++        _row("AUSDT", "-0.00060000", net="0.00040000"),
++        _row("BUSDT", "-0.00060000", net="0.00040000"),   # tie -> symbol ASC (B after A)
++    ]
++    order = [r["symbol"] for r in sort_rows(rows, SORT_BASIS_NET)]
++    assert order == ["AUSDT", "BUSDT", "CUSDT", "DUSDT"]
++
++
++def test_sort_abs_basis_is_phase2_regression():
++    # §3.5 disabled basis: abs(daily) DESC, nulls last, symbol ASC (Phase 2 total order).
++    rows = [
++        _row("DUSDT", None),
++        _row("AUSDT", "0.00060000"),
++        _row("BUSDT", "0.00060000"),
++        _row("CUSDT", "0.00030000"),
++    ]
++    order = [r["symbol"] for r in sort_rows(rows, SORT_BASIS_ABS)]
++    assert order == ["AUSDT", "BUSDT", "CUSDT", "DUSDT"]
++
++
++def test_sort_default_basis_is_abs():
++    # Existing callers pass no basis -> Phase 2 abs behavior (no regression).
++    rows = [_row("BUSDT", "0.0009"), _row("AUSDT", "0.0001")]
++    assert sort_rows(rows)[0]["symbol"] == "BUSDT"
++
++
++# =========================================================================
++# §1.5 borrow probe coverage (cap + truncation + dedup)
++# =========================================================================
++def test_select_borrow_candidates_caps_and_marks_truncation():
++    rows = [_row(f"S{i}USDT", "-0.00001", base=f"C{i}") for i in range(6)]
++    out = select_borrow_candidates(rows, max_calls=4)
++    assert out["probed_assets"] == ["C0", "C1", "C2", "C3"]  # priority by abs DESC
++    assert out["truncated_assets"] == {"C4", "C5"}
++    assert out["coverage"] == {"probed": 4, "skipped": 2, "reason": "rate_limit_budget"}
++
++
++def test_select_borrow_candidates_no_reason_when_within_cap():
++    rows = [_row("AUSDT", "-0.0001", base="A"), _row("BUSDT", "-0.0002", base="B")]
++    out = select_borrow_candidates(rows, max_calls=50)
++    assert out["coverage"]["reason"] is None
++    assert out["coverage"]["skipped"] == 0
++
++
++def test_select_borrow_candidates_only_neg_margin_spot_crypto():
++    rows = [
++        _row("AUSDT", "-0.0001", base="A"),                       # candidate
++        _row("BUSDT", "0.0001", base="B"),                        # positive -> excluded
++        _row("CUSDT", "-0.0001", base="C", route="SPOT_ONLY_CANDIDATE"),  # wrong route
++        _row("DUSDT", "-0.0001", base="D", tag="BSTOCK"),         # wrong tag
++        _row("EUSDT", None, base="E"),                            # null daily -> excluded
++    ]
++    out = select_borrow_candidates(rows, max_calls=50)
++    assert out["probed_assets"] == ["A"]
++    assert out["coverage"]["probed"] == 1
++
++
++def test_select_borrow_candidates_dedup_by_base_asset():
++    rows = [
++        _row("A1USDT", "-0.0002", base="A"),
++        _row("A2USDT", "-0.0001", base="A"),  # same base_asset -> deduped
++    ]
++    out = select_borrow_candidates(rows, max_calls=50)
++    assert out["probed_assets"] == ["A"]
++    assert out["coverage"]["probed"] == 1
++
++
++def test_borrow_validation_truncated_state():
++    bv = assemble_borrow_validation(
++        {"symbol": "XUSDT", "base_asset": "X"},
++        {"pair_listed_by_symbol": {}, "asset_borrowable_by_name": {}, "daily_interest_vip0_by_coin": {}},
++        {}, "t", None, truncated=True,
++    )
++    assert bv["verified"] is False
++    assert bv["error"] == "not_probed_this_round"  # no silent truncation
++    assert bv["classic_margin"]["daily_interest_account"] is None
++    assert bv["checked_at"] is None
++
++
++# =========================================================================
++# §1.4 private_account + anti-double-count hard rule
++# =========================================================================
++def test_assemble_private_account_anti_double_count():
++    # total = sum(unified totalWalletBalance priced) + sum(spot free+locked priced).
++    # um/cm sub-fields inside totalWalletBalance are NOT re-added; um_positions
++    # nominal is NEVER counted (exposure view only).
++    unified = [
++        {"asset": "BTC", "totalWalletBalance": "1.5"},   # 1.5 * 60000 = 90000
++        {"asset": "USDT", "totalWalletBalance": "100"},  # stable -> 100
++    ]
++    spot = [
++        {"asset": "ETH", "free": "2", "locked": "0.5"},  # 2.5 * 3000 = 7500
++        {"asset": "USDC", "free": "50", "locked": "0"},  # stable -> 50
++    ]
++    um = [{"symbol": "BTCUSDT", "positionAmt": "10", "entryPrice": "60000"}]  # nominal NOT counted
++    price_map = {"BTCUSDT": "60000", "ETHUSDT": "3000"}
++    block, warnings = assemble_private_account(
++        unified, spot, um, price_map, checked_at="2026-07-06T00:00:00Z", error=None
++    )
++    assert block["verified"] is True
++    # 90000 + 100 + 7500 + 50 = 97650; um nominal (10*60000=600000) excluded.
++    assert block["total_value_usdt"] == "97650.00000000"
++    assert block["balances_unified"] == [
++        {"asset": "BTC", "total_balance": "1.5"},
++        {"asset": "USDT", "total_balance": "100"},
++    ]
++    assert block["balances_spot"][0] == {"asset": "ETH", "free": "2", "locked": "0.5"}
++    assert block["um_positions"][0]["position_side"] == "LONG"
++    assert block["valuation"]["price_source"] == "api_v3_ticker_price"
++    assert block["valuation"]["priced_at"] == "2026-07-06T00:00:00Z"
++    assert warnings == []
++
++
++def test_assemble_private_account_disabled_state():
++    block, warnings = assemble_private_account(
++        None, None, None, {}, checked_at=None, error="private_channel_disabled"
++    )
++    assert block["verified"] is False
++    assert block["balances_unified"] == []
++    assert block["balances_spot"] == []
++    assert block["um_positions"] == []
++    assert block["total_value_usdt"] is None
++    assert block["checked_at"] is None
++    assert block["valuation"]["priced_at"] is None
++    assert block["error"] == "private_channel_disabled"
++
++
++def test_assemble_private_account_no_price_counts_zero_with_warning():
++    unified = [{"asset": "WEIRD", "totalWalletBalance": "5"}]  # no WEIRDUSDT price
++    block, warnings = assemble_private_account(
++        unified, [], [], {}, checked_at="t", error=None
++    )
++    assert block["total_value_usdt"] == "0.00000000"  # counted at 0, not dropped
++    assert any("WEIRD" in w and "0" in w for w in warnings)
++
++
++def test_assemble_private_account_partial_failure_keeps_verified():
++    # E3 failed (unified None) but E6 ok -> verified=true, unified empty, spot filled.
++    block, _ = assemble_private_account(
++        None, [{"asset": "USDT", "free": "10", "locked": "0"}], [], {"USDTUSDT": "1"},
++        checked_at="t", error=None,
++    )
++    assert block["verified"] is True
++    assert block["balances_unified"] == []
++    assert block["total_value_usdt"] == "10.00000000"
++
++
++def test_infer_position_side_short_for_negative():
++    # §2.A.3 E4 open item: positionSide inferred from positionAmt sign.
++    block, _ = assemble_private_account(
++        [], [], [{"symbol": "ETHUSDT", "positionAmt": "-2.5"}], {}, checked_at="t", error=None
++    )
++    assert block["um_positions"][0]["position_side"] == "SHORT"
++
++
++# =========================================================================
++# Private fetcher mappings (urlopen monkeypatched; no network)
++# =========================================================================
++class _FakeResp:
++    def __init__(self, body, status=200):
++        self._body = body.encode("utf-8") if isinstance(body, str) else body
++        self.status = status
++
++    def read(self):
++        return self._body
++
++    def __enter__(self):
++        return self
++
++    def __exit__(self, *exc):
++        return False
++
++
++def _client_with_routes(routes, monkeypatch):
++    """PrivateClient whose urlopen routes by logical-path substring."""
++    client = PrivateClient(
++        "k" * 64, "s" * 64, user_agent="t", timeout=5,
++        recv_window=10000, ttl_seconds=3600, fast_ttl_seconds=60,
++    )
++    monkeypatch.setattr(private_client.time, "sleep", lambda *_: None)
++
++    def fake_urlopen(req, timeout=None):
++        url = req.full_url
++        for needle, payload in routes.items():
++            if needle in url:
++                return _FakeResp(json.dumps(payload))
++        raise AssertionError(f"unexpected url: {url}")
++
++    monkeypatch.setattr(private_client.urllib.request, "urlopen", fake_urlopen)
++    return client
++
++
++def test_fetch_unified_balances_maps_total_balance(monkeypatch):
++    client = _client_with_routes({
++        "/papi/v1/balance": [{"asset": "BTC", "totalWalletBalance": "1.5", "umWalletBalance": "0.3"}],
++    }, monkeypatch)
++    out = client.fetch_unified_balances()
++    assert out == [{"asset": "BTC", "totalWalletBalance": "1.5", "umWalletBalance": "0.3"}]
++
++
++def test_fetch_spot_balances_omit_zero(monkeypatch):
++    client = _client_with_routes({
++        "/api/v3/account": {
++            "balances": [{"asset": "USDT", "free": "10", "locked": "0"}],
++            "uid": 123,
++        },
++    }, monkeypatch)
++    assert client.fetch_spot_balances() == [{"asset": "USDT", "free": "10", "locked": "0"}]
++
++
++def test_fetch_cost_leg_chain_next_hourly_and_isisolated(monkeypatch):
++    # H_intake fix: E2 MUST send isIsolated=false (else 400 -3026).
++    captured = {}
++
++    def fake_urlopen(req, timeout=None):
++        url = req.full_url
++        captured["last_url"] = url
++        if "/sapi/v1/account/info" in url:
++            return _FakeResp(json.dumps({"vipLevel": 5, "isPortfolioMarginRetailEnabled": True}))
++        if "/sapi/v1/margin/next-hourly-interest-rate" in url:
++            assert "isIsolated=false" in url, "E2 must send isIsolated=false (H_intake fix)"
++            assert "assets=BTC%2CETH" in url or "assets=BTC,ETH" in url
++            return _FakeResp(json.dumps([
++                {"asset": "BTC", "nextHourlyInterestRate": "0.00000500"},
++                {"asset": "ETH", "nextHourlyInterestRate": "0.00000400"},
++            ]))
++        if "/sapi/v1/margin/interestRateHistory" in url:
++            return _FakeResp(json.dumps([
++                {"asset": "BTC", "timestamp": 1, "dailyInterestRate": "0.0003", "vipLevel": 5},
++            ]))
++        if "/sapi/v1/margin/crossMarginData" in url:
++            return _FakeResp(json.dumps([
++                {"vipLevel": 0, "coin": "BTC", "dailyInterest": "0.0003"},
++                {"vipLevel": 5, "coin": "BTC", "dailyInterest": "0.0004"},
++            ]))
++        raise AssertionError(f"unexpected url: {url}")
++
++    client = PrivateClient(
++        "k" * 64, "s" * 64, user_agent="t", timeout=5,
++        recv_window=10000, ttl_seconds=3600, fast_ttl_seconds=60,
++    )
++    monkeypatch.setattr(private_client.time, "sleep", lambda *_: None)
++    monkeypatch.setattr(private_client.urllib.request, "urlopen", fake_urlopen)
++
++    chain = client.fetch_cost_leg_chain(["BTC", "ETH"])
++    assert chain["chain_hit_tier"] == 1
++    assert chain["chain_hit_source"] == "next_hourly"
++    assert chain["vip_level"] == "5"
++    # raw hourly retained; x24 applied at resolve_cost_leg_rate.
++    assert resolve_cost_leg_rate("BTC", chain) == "0.00012000"
++    assert resolve_cost_leg_rate("ETH", chain) == "0.00009600"
++
++
++def test_fetch_cost_leg_chain_degrades_to_vip0(monkeypatch):
++    # E2 returns empty, E2b empty, E5 missing -> tier 4 vip0_reference.
++    def fake_urlopen(req, timeout=None):
++        url = req.full_url
++        if "/sapi/v1/account/info" in url:
++            return _FakeResp(json.dumps({}))
++        if "/sapi/v1/margin/next-hourly-interest-rate" in url:
++            return _FakeResp(json.dumps([]))
++        if "/sapi/v1/margin/interestRateHistory" in url:
++            return _FakeResp(json.dumps([]))
++        if "/sapi/v1/margin/crossMarginData" in url:
++            return _FakeResp(json.dumps([
++                {"vipLevel": 0, "coin": "BTC", "dailyInterest": "0.0003"},
++            ]))
++        raise AssertionError(f"unexpected url: {url}")
++
++    client = PrivateClient(
++        "k" * 64, "s" * 64, user_agent="t", timeout=5,
++        recv_window=10000, ttl_seconds=3600, fast_ttl_seconds=60,
++    )
++    monkeypatch.setattr(private_client.time, "sleep", lambda *_: None)
++    monkeypatch.setattr(private_client.urllib.request, "urlopen", fake_urlopen)
++    chain = client.fetch_cost_leg_chain(["BTC"])
++    assert chain["chain_hit_tier"] == 4
++    assert chain["chain_hit_source"] == "vip0_reference"
++    assert resolve_cost_leg_rate("BTC", chain) == "0.00030000"
++
++
++def test_e1_e1b_whitelisted_but_no_fetcher_calls_them():
++    # §2: E1/E1b are discovery-only; registered in the whitelist (GET passes)
++    # but NO high-level fetcher in private_client.py calls them this stage.
++    assert PrivateClient._require_whitelisted("GET", "/papi/v1/margin/marginInterestHistory")
++    assert PrivateClient._require_whitelisted("GET", "/papi/v1/portfolio/interest-history")
++    src = Path(private_client.__file__).read_text(encoding="utf-8")
++    # Everything after the WHITELIST block = fetcher bodies + helpers; neither
++    # discovery-only path may appear there (they live only in the WHITELIST dict).
++    after_whitelist = src[src.index("class PrivateEndpointError"):]
++    assert "marginInterestHistory" not in after_whitelist
++    assert "portfolio/interest-history" not in after_whitelist
++
++
++# =========================================================================
++# §3.3 degradation matrix — four states each schema-VALID (no 503)
++# =========================================================================
++def _two_rows():
++    return [
++        {
++            "symbol": "BTCUSDT", "base_asset": "BTC", "quote_asset": "USDT",
++            "asset_tag": "CRYPTO", "asset_tag_source": "x", "asset_tag_confidence": "HIGH",
++            "route_class": "MARGIN_SPOT_CANDIDATE", "positive_funding_enabled": True,
++            "negative_funding_status": "PRIVATE_BORROW_VALIDATION_REQUIRED",
++            "futures": {"symbol": "BTCUSDT", "status": "TRADING", "contract_type": "PERPETUAL",
++                        "mark_price": "60000", "index_price": "60000", "last_funding_rate": "-0.0006",
++                        "next_funding_time": 1, "min_notional": "5", "step_size": "0.001"},
++            "spot": {"symbol": "BTCUSDT", "status": "TRADING", "exists": True,
++                     "match_type": "exact_symbol", "min_notional": "5", "step_size": "0.001"},
++            "margin_public": {"public_cross_margin_pair": None, "source": "unverified"},
++            "funding_history": [], "ui_flags": [],
++            "funding_interval_hours": 8, "daily_funding_rate": "-0.00060000",
++        },
++        {
++            "symbol": "ETHUSDT", "base_asset": "ETH", "quote_asset": "USDT",
++            "asset_tag": "CRYPTO", "asset_tag_source": "x", "asset_tag_confidence": "HIGH",
++            "route_class": "MARGIN_SPOT_CANDIDATE", "positive_funding_enabled": True,
++            "negative_funding_status": "PRIVATE_BORROW_VALIDATION_REQUIRED",
++            "futures": {"symbol": "ETHUSDT", "status": "TRADING", "contract_type": "PERPETUAL",
++                        "mark_price": "3000", "index_price": "3000", "last_funding_rate": "0.0003",
++                        "next_funding_time": 1, "min_notional": "5", "step_size": "0.001"},
++            "spot": {"symbol": "ETHUSDT", "status": "TRADING", "exists": True,
++                     "match_type": "exact_symbol", "min_notional": "5", "step_size": "0.001"},
++            "margin_public": {"public_cross_margin_pair": None, "source": "unverified"},
++            "funding_history": [], "ui_flags": [],
++            "funding_interval_hours": 8, "daily_funding_rate": "0.00030000",
++        },
++    ]
++
++
++def _assemble_with_private(rows, private_account, classic_ref, cost_leg, checked_at, error):
++    probed = select_borrow_candidates(rows, 50)
++    for r in rows:
++        base = r["base_asset"]
++        rate = resolve_cost_leg_rate(base, cost_leg) if (base in probed["probed_assets"] and cost_leg) else None
++        r["net_daily_yield"] = compute_net_daily_yield(r["daily_funding_rate"], rate)
++        r["borrow_rate_source"] = cost_leg.get("chain_hit_source") if rate else None
++        r["borrow_validation"] = assemble_borrow_validation(
++            r, classic_ref, {}, checked_at, error, daily_interest_account=rate,
++        )
++    available = bool(classic_ref and cost_leg and cost_leg.get("chain_hit_tier") is not None)
++    return assemble_snapshot(
++        rows, generated_at="2026-07-06T00:00:00Z", data_time="2026-07-06T00:00:00Z",
++        source_sample_id="degrade-test", private_channel_status="enabled" if classic_ref else "disabled",
++        sort_basis=SORT_BASIS_NET if available else SORT_BASIS_ABS,
++        private_account=private_account,
++        borrow_validation_summary={
++            "coverage": probed["coverage"],
++            "classic_margin_daily_interest_account_available": available,
++            "chain_hit_tier": cost_leg.get("chain_hit_tier") if cost_leg else None,
++            "chain_hit_source": cost_leg.get("chain_hit_source") if cost_leg else None,
++        },
++    )
++
++
++def _enabled_pa():
++    pa, _ = assemble_private_account(
++        [{"asset": "BTC", "totalWalletBalance": "1"}], [], [], {"BTCUSDT": "60000"},
++        checked_at="2026-07-06T00:00:00Z", error=None,
++    )
++    return pa
++
++
++@pytest.fixture(scope="session")
++def v03_schema():
++    return json.loads(
++        (REPO_ROOT / "schemas/api/public-market/snapshot.schema.json").read_text()
++    )
++
++
++def test_degradation_env_missing_schema_pass(v03_schema):
++    # State 1: private channel disabled (env missing). private_account renders the
++    # three-state disabled block (verified=false, empty arrays, total null) — the
++    # public snapshot still renders (§1.4).
++    disabled_pa, _ = assemble_private_account(
++        None, None, None, {}, checked_at=None, error="private_channel_disabled"
++    )
++    rows = _two_rows()
++    classic_ref = None
++    snap = _assemble_with_private(rows, disabled_pa, classic_ref, None, None, "private_channel_disabled")
++    jsonschema.validate(snap, v03_schema)
++    assert snap["sort_basis"] == SORT_BASIS_ABS
++    assert snap["private_account"]["verified"] is False
++    assert snap["private_account"]["total_value_usdt"] is None
++    # negative-funding row with no borrow rate -> net null
++    btc = next(r for r in snap["rows"] if r["symbol"] == "BTCUSDT")
++    assert btc["net_daily_yield"] is None
++
++
++def test_degradation_e3_fail_schema_pass(v03_schema):
++    # E3 (unified) failed but channel enabled -> verified=true partial block.
++    pa, _ = assemble_private_account(
++        None, [{"asset": "USDT", "free": "10", "locked": "0"}], [], {},
++        checked_at="2026-07-06T00:00:00Z", error=None,
++    )
++    chain = _select_chain_tier({"BTC": "0.00000500"}, {}, {"0": {}}, "5")
++    rows = _two_rows()
++    snap = _assemble_with_private(rows, pa, {"pair_listed_by_symbol": {}, "asset_borrowable_by_name": {}, "daily_interest_vip0_by_coin": {}}, chain, "2026-07-06T00:00:00Z", None)
++    jsonschema.validate(snap, v03_schema)
++    assert snap["private_account"]["verified"] is True
++    assert snap["private_account"]["balances_unified"] == []
++
++
++def test_degradation_e6_fail_schema_pass(v03_schema):
++    # E6 (spot) failed but channel enabled -> verified=true partial block.
++    pa, _ = assemble_private_account(
++        [{"asset": "BTC", "totalWalletBalance": "1"}], None, [], {"BTCUSDT": "60000"},
++        checked_at="2026-07-06T00:00:00Z", error=None,
++    )
++    chain = _select_chain_tier({"BTC": "0.00000500"}, {}, {"0": {}}, "5")
++    rows = _two_rows()
++    snap = _assemble_with_private(rows, pa, {"pair_listed_by_symbol": {}, "asset_borrowable_by_name": {}, "daily_interest_vip0_by_coin": {}}, chain, "2026-07-06T00:00:00Z", None)
++    jsonschema.validate(snap, v03_schema)
++    assert snap["private_account"]["balances_spot"] == []
++
++
++def test_degradation_chain_all_broken_schema_pass(v03_schema):
++    # E2/E2b/E5 + crossMarginData all empty -> chain tier None. Classic_ref still
++    # present (channel enabled) -> sort_basis abs (cost leg NOT available),
++    # negative-funding rows net null, schema PASS.
++    pa = _enabled_pa()
++    broken = _select_chain_tier({}, {}, {}, None)
++    rows = _two_rows()
++    snap = _assemble_with_private(
++        rows, pa,
++        {"pair_listed_by_symbol": {}, "asset_borrowable_by_name": {}, "daily_interest_vip0_by_coin": {}},
++        broken, "2026-07-06T00:00:00Z", None,
++    )
++    jsonschema.validate(snap, v03_schema)
++    assert snap["sort_basis"] == SORT_BASIS_ABS
++    btc = next(r for r in snap["rows"] if r["symbol"] == "BTCUSDT")
++    assert btc["net_daily_yield"] is None
++    assert btc["borrow_rate_source"] is None
++    assert snap["borrow_validation"]["chain_hit_tier"] is None
++
++
++def test_enabled_chain_hit_sort_basis_net_and_net_yield_computed(v03_schema):
++    pa = _enabled_pa()
++    chain = _select_chain_tier({"BTC": "0.00000500"}, {}, {"0": {}}, "5")  # hourly -> daily 0.00012
++    rows = _two_rows()
++    snap = _assemble_with_private(
++        rows, pa,
++        {"pair_listed_by_symbol": {"BTCUSDT": True}, "asset_borrowable_by_name": {"BTC": True},
++         "daily_interest_vip0_by_coin": {"BTC": "0.0003"}},
++        chain, "2026-07-06T00:00:00Z", None,
++    )
++    jsonschema.validate(snap, v03_schema)
++    assert snap["sort_basis"] == SORT_BASIS_NET
++    btc = next(r for r in snap["rows"] if r["symbol"] == "BTCUSDT")
++    # net = abs(-0.0006) - 0.00012 = 0.00048
++    assert btc["net_daily_yield"] == "0.00048000"
++    assert btc["borrow_rate_source"] == "next_hourly"
++    assert btc["borrow_validation"]["classic_margin"]["daily_interest_account"] == "0.00012000"
++    assert snap["borrow_validation"]["chain_hit_tier"] == 1
++
++
++# =========================================================================
++# §3.3 落档 redaction scan — committed fixtures/reports carry no real account
++# numerics (account-level fields redacted per §2.A.4).
++# =========================================================================
++# Context segments that mark a value as account-level in the CONTRACT shape
++# (design fixture). Values under these paths must be placeholders (<AMOUNT>/<ID>)
++# or null. Market-data paths (futures.*/spot.*) are public/synthetic and exempt.
++_ACCOUNT_CONTEXT_SEGMENTS = {
++    "balances_unified", "balances_spot", "um_positions",
++    "private_account", "borrow_validation", "total_value_usdt", "valuation",
++}
++# Raw camelCase field names that are account-level in the CAPTURED sample shape
++# (E3/E4/E6/W4/E2/E2b raw responses). Used only against account-level sample
++# files (market-level allPairs/allAssets/crossMarginData/ticker-price excluded).
++_RAW_ACCOUNT_FIELDS = {
++    "totalWalletBalance", "crossMarginAsset", "crossMarginBorrowed", "crossMarginFree",
++    "crossMarginInterest", "crossMarginLocked", "umWalletBalance", "umUnrealizedPNL",
++    "cmWalletBalance", "cmUnrealizedPNL", "negativeBalance", "nextHourlyInterestRate",
++    "dailyInterestRate", "amount", "borrowLimit",
++    "positionAmt", "entryPrice", "unRealizedProfit", "liquidationPrice",
++    "free", "locked",
++}
++# Captured sample files that are account-level (evidence-index account-level=True);
++# market-level files (allPairs/allAssets/crossMarginData/ticker-price) are public
++# and intentionally not redacted, so they are excluded from this scan.
++_ACCOUNT_LEVEL_SAMPLE_BASENAMES = {
++    "sapi-v1-account-info.json",
++    "sapi-v1-margin-next-hourly-interest-rate.json",
++    "sapi-v1-margin-interestRateHistory.json",
++    "papi-v1-balance.json",
++    "papi-v1-um-positionRisk.json",
++    "api-v3-account.json",
++    "papi-v1-margin-marginInterestHistory.json",
++    "papi-v1-portfolio-interest-history.json",
++    # maxBorrowable-<asset>.json matched by prefix below
++}
++
++
++def _is_real_decimal(s):
++    # A real captured numeric (not a placeholder). Placeholders: <AMOUNT>, <ID>, null.
++    if not isinstance(s, str) or s == "" or s.startswith("<"):
++        return False
++    try:
++        Decimal(s)
++        return True
++    except Exception:
++        return False
++
++
++def _walk_contract_account_values(obj, path_segments=()):
++    """Yield (path, value) for string values inside account-context paths."""
++    if isinstance(obj, dict):
++        for k, v in obj.items():
++            segs = path_segments + (k,)
++            in_ctx = any(s in _ACCOUNT_CONTEXT_SEGMENTS for s in segs)
++            if isinstance(v, str) and in_ctx:
++                yield (".".join(segs), v)
++            yield from _walk_contract_account_values(v, segs)
++    elif isinstance(obj, list):
++        for i, v in enumerate(obj):
++            yield from _walk_contract_account_values(v, path_segments)
++
++
++def _walk_raw_account_fields(obj, path=""):
++    if isinstance(obj, dict):
++        for k, v in obj.items():
++            if k in _RAW_ACCOUNT_FIELDS and isinstance(v, str):
++                yield (f"{path}.{k}", v)
++            yield from _walk_raw_account_fields(v, f"{path}.{k}")
++    elif isinstance(obj, list):
++        for i, v in enumerate(obj):
++            yield from _walk_raw_account_fields(v, f"{path}[{i}]")
++
++
++def test_redaction_scan_design_fixture():
++    # The design fixture's account-context fields must all be redacted placeholders.
++    fx = json.loads(FIXTURE.read_text())
++    leaks = [(p, v) for p, v in _walk_contract_account_values(fx) if _is_real_decimal(v)]
++    assert leaks == [], f"unredacted account numerics in design fixture: {leaks}"
++
++
++def test_redaction_scan_captured_samples():
++    # The H_intake captured ACCOUNT-LEVEL samples must be redacted (bookkeeper
++    # capture-time). Market-level samples (allPairs/allAssets/crossMarginData/
++    # ticker-price) are public and excluded.
++    sample_dir = REPO_ROOT / "reports/api-samples/2026-07-private-account-v1"
++    leaks = []
++    for path in sample_dir.rglob("*.json"):
++        base = path.name
++        is_account = (
++            base in _ACCOUNT_LEVEL_SAMPLE_BASENAMES
++            or base.startswith("papi-v1-margin-maxBorrowable-")
++        )
++        if not is_account:
++            continue
++        try:
++            obj = json.loads(path.read_text())
++        except Exception:
++            continue
++        for p, v in _walk_raw_account_fields(obj):
++            if _is_real_decimal(v):
++                leaks.append((base, p, v))
++    assert leaks == [], f"unredacted captured account numerics: {leaks}"
++
++
++# =========================================================================
++# §3.2 hygiene — no websocket/listenKey scaffolding; single HMAC exit intact
++# =========================================================================
++def test_no_websocket_listenkey_scaffolding():
++    bad = []
++    for py in (REPO_ROOT / "backend").rglob("*.py"):
++        if "tests" in py.relative_to(REPO_ROOT).parts:
++            continue
++        text = py.read_text(encoding="utf-8")
++        low = text.lower()
++        if "websocket" in low or "listenkey" in low or "wss://" in low:
++            bad.append(str(py.relative_to(REPO_ROOT)))
++    assert bad == [], f"websocket/listenKey scaffolding found: {bad}"
++
++
++def test_single_hmac_exit_unchased_after_v03():
++    # Re-asserts the grep guard from test_private_client for completeness: only
++    # private_client.py touches hmac/hashlib/signature after the v0.3 expansion.
++    import re
++    hmac_re = re.compile(r"\bhmac\b")
++    hash_re = re.compile(r"hashlib")
++    sig_re = re.compile(r"signature\s*=")
++    bad = []
++    for py in (REPO_ROOT / "backend").rglob("*.py"):
++        rel = py.relative_to(REPO_ROOT)
++        if "tests" in rel.parts or rel.name == "private_client.py":
++            continue
++        text = py.read_text(encoding="utf-8")
++        if hmac_re.search(text) or hash_re.search(text) or sig_re.search(text):
++            bad.append(str(rel))
++    assert bad == [], f"hmac/hashlib/signature outside private_client.py: {bad}"
++
++
++def test_offline_snapshot_v03_fields_validate(v03_schema):
++    # Offline (channel disabled): sort_basis=abs, private_account omitted (disabled),
++    # rows carry net_daily_yield/borrow_rate_source (null), schema PASS.
++    from backend.config import Config
++    from backend.services.snapshot_service import SnapshotService
++    snap = SnapshotService(Config(offline=True)).build_snapshot()
++    jsonschema.validate(snap, v03_schema)
++    assert snap["sort_basis"] == SORT_BASIS_ABS
++    assert snap["private_account"]["verified"] is False  # three-state disabled block
++    assert snap["private_account"]["balances_unified"] == []
++    assert snap["private_account"]["total_value_usdt"] is None
++    assert snap["borrow_validation"]["coverage"]["probed"] == 0
++    for r in snap["rows"]:
++        assert r["net_daily_yield"] is None or isinstance(r["net_daily_yield"], str)
++        assert r["borrow_rate_source"] is None
++        assert "daily_interest_account" in r["borrow_validation"]["classic_margin"]
++
++
++# =========================================================================
++# round1 BLOCKER fixes (embedded-review-a-round1 → round2)
++#   A: §1.5 top-level warnings entry when coverage.skipped > 0
++#   B: §1.4 private_account three-state gated on classic_ref (same as
++#      borrow_validation), not on unified/spot None-ness
++# =========================================================================
++def test_truncation_appends_top_level_warning(v03_schema):
++    # §1.5: when borrow_validation.coverage.skipped > 0 a top-level warnings
++    # entry MUST appear alongside the coverage block (round1 blocker A). The
++    # offline snapshot's schema-valid rows are re-assembled with a synthetic
++    # truncation summary so the row pipeline is not re-run.
++    from backend.config import Config
++    from backend.services.snapshot_service import SnapshotService
++
++    rows = SnapshotService(Config(offline=True)).build_snapshot()["rows"]
++    snap = assemble_snapshot(
++        rows,
++        generated_at="2026-07-06T00:00:00Z",
++        data_time="2026-07-06T00:00:00Z",
++        source_sample_id="round2-truncation",
++        borrow_validation_summary={
++            "coverage": {"probed": 1, "skipped": 2, "reason": "rate_limit_budget"},
++            "classic_margin_daily_interest_account_available": False,
++            "chain_hit_tier": None,
++            "chain_hit_source": None,
++        },
++    )
++    jsonschema.validate(snap, v03_schema)
++    joined = "\n".join(snap["warnings"])
++    assert "truncated" in joined
++    assert "not_probed_this_round" in joined
++    assert "2 candidate" in joined  # the skipped count surfaces in the message
++
++
++class _Round2StubPublic:
++    offline = True
++    request_log: dict = {}
++
++    def __init__(self, raw):
++        self._raw = raw
++
++    def fetch_raw(self):
++        return self._raw
++
++    def fetch_ticker_price_map(self):
++        return {}
++
++
++class _Round2StubPrivate:
++    """Minimal PrivateClient stub driving SnapshotService.build_snapshot."""
++
++    def __init__(self, *, classic_ref, unified=None, um=None, spot=None,
++                 cost_leg=None, last_error=None):
++        self._classic_ref = classic_ref
++        self._unified = unified
++        self._um = um
++        self._spot = spot
++        self._cost_leg = cost_leg
++        self.last_error = last_error
++
++    def fetch_classic_reference(self):
++        return self._classic_ref
++
++    def fetch_cost_leg_chain(self, assets):
++        return self._cost_leg
++
++    def fetch_unified_balances(self):
++        return self._unified
++
++    def fetch_um_positions(self):
++        return self._um
++
++    def fetch_spot_balances(self):
++        return self._spot
++
++    def fetch_max_borrowable(self, asset):
++        return None
++
++
++def test_private_account_disabled_when_classic_ref_none_even_if_accounts_return(
++    v03_schema, raw_inputs,
++):
++    # §1.4 heading: private_account 三态语义同 borrow_validation. classic_ref None
++    # (channel disabled/failed) gates private_account verified=false EVEN WHEN
++    # E3/E4/E6 would return data (round1 blocker B). Pre-fix the unified balance
++    # would have produced verified=true while every row was verified=false.
++    from backend.config import Config
++    from backend.services.snapshot_service import SnapshotService
++
++    raw = {
++        "futures_exchange_info": raw_inputs["futures"],
++        "premium_index": raw_inputs["premium"],
++        "spot_exchange_info": raw_inputs["spot"],
++        "funding_history_by_sym": raw_inputs["funding"],
++        "funding_interval_by_sym": {},
++        "warnings": [],
++    }
++    service = SnapshotService(Config(offline=True))
++    service.client = _Round2StubPublic(raw)
++    service._private = _Round2StubPrivate(
++        classic_ref=None,                                       # channel failed
++        unified=[{"asset": "BTC", "totalWalletBalance": "1"}],  # E3 would succeed
++        um=[],
++        spot=[{"asset": "USDT", "free": "10", "locked": "0"}],  # E6 would succeed
++        last_error="classic_reference_failed",
++    )
++    snap = service.build_snapshot()
++    jsonschema.validate(snap, v03_schema)
++    assert snap["private_channel"] == "disabled"
++    assert snap["private_account"]["verified"] is False
++    assert snap["private_account"]["balances_unified"] == []
++    assert snap["private_account"]["balances_spot"] == []
++    assert snap["private_account"]["um_positions"] == []
++    assert snap["private_account"]["total_value_usdt"] is None
++    assert snap["private_account"]["error"] == "classic_reference_failed"
++    # borrow_validation follows the same channel state -> every row disabled too
++    for r in snap["rows"]:
++        assert r["borrow_validation"]["verified"] is False
+diff --git a/backend/tests/test_private_client.py b/backend/tests/test_private_client.py
+index d55cee4..e6cbea7 100644
+--- a/backend/tests/test_private_client.py
++++ b/backend/tests/test_private_client.py
+@@ -51,7 +51,7 @@ def _make_client(monkeypatch, responses, *, enabled=True):
+     secret = "s" * 64 if enabled else None
+     client = PrivateClient(
+         key, secret, user_agent="test/1.0", timeout=5,
+-        recv_window=10000, ttl_seconds=3600,
++        recv_window=10000, ttl_seconds=3600, fast_ttl_seconds=60,
+     )
+     it = iter(responses)
+ 
+@@ -118,23 +118,48 @@ def test_whitelist_rejects_delete_on_whitelisted_path():
+         PrivateClient._require_whitelisted("DELETE", "/papi/v1/margin/maxBorrowable")
+ 
+ 
+-def test_whitelist_accepts_exactly_four_get_endpoints():
+-    assert len(private_client.WHITELIST) == 4
++def test_whitelist_accepts_exactly_twelve_get_endpoints():
++    assert len(private_client.WHITELIST) == 12
+     for method, path in private_client.WHITELIST:
+         assert method == "GET"
+         assert PrivateClient._require_whitelisted(method, path)
+ 
+ 
+ def test_whitelist_matches_status_json_endpoint_whitelist():
+-    """The four whitelisted pairs must equal status.json endpoint_whitelist."""
++    """The whitelisted pairs must equal status.json endpoint_whitelist (12)."""
+     import json as _json
+     status = _json.loads(
+-        (REPO_ROOT / "reports/agent-runs/2026-07-phase2-borrow-sort-v1/status.json").read_text()
++        (REPO_ROOT / "reports/agent-runs/2026-07-private-account-v1/status.json").read_text()
+     )
+     expected = {tuple(pair) for pair in status["endpoint_whitelist"]}
+     assert set(private_client.WHITELIST.keys()) == expected
+ 
+ 
++def test_whitelist_base_urls_match_2A_appendix():
++    """§2.A.1: api.binance.com (sapi/api) vs papi.binance.com (papi) split."""
++    papi = {p for (m, p) in private_client.WHITELIST if private_client.WHITELIST[(m, p)].endswith("papi.binance.com")}
++    api = {p for (m, p) in private_client.WHITELIST if private_client.WHITELIST[(m, p)].endswith("api.binance.com")}
++    assert papi == {
++        "/papi/v1/margin/maxBorrowable",
++        "/papi/v1/balance",
++        "/papi/v1/um/positionRisk",
++        "/papi/v1/margin/marginInterestHistory",
++        "/papi/v1/portfolio/interest-history",
++    }
++    assert "/api/v3/account" in api
++    assert "/sapi/v1/margin/next-hourly-interest-rate" in api
++
++
++def test_whitelist_rejects_unknown_papi_path():
++    with pytest.raises(PermissionError):
++        PrivateClient._require_whitelisted("GET", "/papi/v1/margin/forbidden")
++
++
++def test_whitelist_rejects_post_on_new_endpoint():
++    with pytest.raises(PermissionError):
++        PrivateClient._require_whitelisted("POST", "/papi/v1/balance")
++
++
+ # ---- 3. gate fires BEFORE signature construction ----
+ def test_gate_fires_before_signature_construction(monkeypatch):
+     """An unknown path must raise without ever calling urlopen (no signature sent)."""
+@@ -147,11 +172,18 @@ def test_gate_fires_before_signature_construction(monkeypatch):
+ def test_disabled_when_env_missing():
+     client = PrivateClient(
+         None, None, user_agent="t", timeout=5, recv_window=10000, ttl_seconds=3600,
++        fast_ttl_seconds=60,
+     )
+     assert client.enabled is False
+     assert client.fetch_classic_reference() is None
+     assert client.fetch_max_borrowable("BTC") is None
+     assert client.last_error == "private_channel_disabled"
++    # v0.3 account-balance + chain fetchers also degrade to None when disabled.
++    assert client.fetch_unified_balances() is None
++    assert client.fetch_um_positions() is None
++    assert client.fetch_spot_balances() is None
++    assert client.fetch_account_info() is None
++    assert client.fetch_cost_leg_chain(["BTC"]) is None
+ 
+ 
+ # ---- 5. audit-log credential hygiene ----
+diff --git a/backend/tests/test_snapshot.py b/backend/tests/test_snapshot.py
+index a620a72..e1efdd1 100644
+--- a/backend/tests/test_snapshot.py
++++ b/backend/tests/test_snapshot.py
+@@ -295,6 +295,9 @@ def test_service_universe_filter_excludes_non_usdt_quote(bstock_raw_inputs):
+                 "funding_history_by_sym": bstock_raw_inputs["funding"],
+             }
+ 
++        def fetch_ticker_price_map(self):
++            return {}
++
+     service = SnapshotService(Config(offline=True))
+     service.client = _StubClient()
+     snap = service.build_snapshot()
+diff --git a/docs/api/public-market-contract.md b/docs/api/public-market-contract.md
+index bc66803..43f6f5e 100644
+--- a/docs/api/public-market-contract.md
++++ b/docs/api/public-market-contract.md
+@@ -1,9 +1,13 @@
+ # Public Market API Contract
+ 
+-Status: contract v0.2 (Phase 2 amendment, additive). The v0.1 response shape is
+-preserved; the Phase 2 additions are documented in "Phase 2 Amendment (v0.2)" at
+-the end of this file. Binance public fields verified
+-2026-07-03 by Claude-GLM against live no-key public calls and `llms-full.txt`.
++Status: contract v0.3 (Private Account v1 amendment, additive). The wire
++`schema_version` stays `public-market-snapshot/v1`; every addition is backward-
++compatible. v0.2 additions are in "Phase 2 Amendment (v0.2)"; v0.3 additions
++(net yield, cost-leg chain, `private_account`, `sort_basis`) are in
++"Private Account v1 Amendment (v0.3)" at the end of this file. Binance public
++fields verified 2026-07-03 by Claude-GLM against live no-key public calls and
++`llms-full.txt`; private fields verified 2026-07-05 by bookkeeper H_intake live
++capture (`reports/api-samples/2026-07-private-account-v1/20260705T232800Z/`).
+ Verified findings are recorded below in "Verified Findings" and in
+ `reports/agent-runs/2026-07-public-market-contract-v2/api-field-matrix.md`.
+ 
+@@ -368,3 +372,114 @@ names frozen in 10-design §2.A — note E3 keys on `assetName`, E4 on `coin`, n
+ `negative_funding_status` / `route_class` / `asset_tag` enums and their priority
+ order, `classify.py`, and `normalize.py` are unchanged. `borrow_validation` is a
+ parallel output block and never alters classification or route derivation.
++
++## Private Account v1 Amendment (v0.3, stage `2026-07-private-account-v1`)
++
++Frozen 2026-07-06. Wire `schema_version` stays `public-market-snapshot/v1`; every
++addition is **additive** (the v0.1 frozen normalized sample and v0.2 snapshots
++still validate). Evidence: H_intake live discovery (14/14 calls HTTP 200,
++E3/E4/E6 PASS) under
++`reports/api-samples/2026-07-private-account-v1/20260705T232800Z/`
++(`evidence-index.md` + sha256 table + per-call measured weight headers + capture-
++time-redacted samples); frozen field matrix + budget in
++`reports/agent-runs/2026-07-private-account-v1/10-design.md §2.A`.
++Authority order: `10-design.md` > this contract section.
++
++### Whitelist widened to 12 (deny-by-default, GET-only, single HMAC exit)
++
++`backend/services/private_client.py:WHITELIST` now maps 12 `(GET, exact-path)`
++pairs to hardcoded base URLs (anti-injection). Added: E2/E2b/E5 (sapi →
++`api.binance.com`), E6 (`/api/v3/account` → `api.binance.com`), E3/E4 (→
++`papi.binance.com`), and the discovery-only E1/E1b (registered, **not** called by
++snapshot assembly this stage). Any non-whitelisted path or non-GET method raises
++in `_require_whitelisted` BEFORE a signature is constructed. `private_client.py`
++remains the repo's only HMAC-SHA256 exit (grep-guarded). Two independent TTL
++groups (§1.6): the 1h rate-chain/maxBorrowable group and the 60s account-balance
++group (E3/E4/E6), aligned with the public refresh cadence. P5
++`/api/v3/ticker/price` (full, once) is PUBLIC (no key) and goes through
++`binance_public.py`, not the private whitelist.
++
++### New row fields
++
++- `net_daily_yield`: 8-place string | null — opportunity-quality score (§0/§1.1).
++  `daily_funding_rate < 0` row: `abs(daily_funding_rate) − daily_borrow_rate`
++  (may be negative, output as-is); `daily_borrow_rate` null → null.
++  `daily_funding_rate ≥ 0` row: `= daily_funding_rate` (no borrow leg). null
++  `daily_funding_rate` → null. Decimal-only, `quantize(1E-8)`, negative-zero →
++  `"0.00000000"`.
++- `borrow_rate_source`: enum `next_hourly | rate_history | cross_margin_tier |
++  vip0_reference` | null. Only negative-funding borrow candidates whose cost-leg
++  tier produced a rate carry a value; positive-funding / unavailable rows = null.
++- `borrow_validation.classic_margin.daily_interest_account`: 8-place string | null
++  — the account-level daily borrow rate (same value as the net-leg borrow rate).
++
++### `sort_basis` + row order (ADR-3 revision, user-approved)
++
++New top-level `sort_basis`: enum `net_daily_yield | abs_daily_funding_rate`.
++Snapshot-level single basis:
++
++- private cost leg available (incl. `vip0_reference`) → `net_daily_yield`: rows
++  sorted by net value DESC (signed), nulls last, `symbol` ASC tie-break. Lets a
++  negative-funding row with cheap borrow rank above a higher-abs-rate row with
++  expensive borrow (§3.5 net-reversal core assertion).
++- private channel disabled / chain fully broken → `abs_daily_funding_rate`:
++  Phase 2 total order (abs daily DESC, nulls last, symbol ASC), regression-pinned.
++
++The frontend remains zero-sort (renders payload order, labels `sort_basis`).
++
++### Cost-leg chain (`borrow_validation` aggregate)
++
++Snapshot-level single tier is selected once (§1.3; no per-row endpoint probing);
++per-asset daily rates are looked up from the hit tier's table. Tier order:
++① `next_hourly` (E2 `nextHourlyInterestRate × 24`, comma-joined `assets`,
++`isIsolated=false` REQUIRED) → ② `rate_history` (E2b latest `dailyInterestRate`,
++single-asset probe) → ③ `cross_margin_tier` (crossMarginData row at E5 `vipLevel`)
++→ ④ `vip0_reference` (crossMarginData VIP0 row; Phase 2 behavior). All-chain-broken
++→ `daily_interest_account=null`, negative-funding `net_daily_yield=null`,
++`borrow_rate_source=null`.
++
++The top-level `borrow_validation` aggregate block (distinct from the per-row
++`rows[].borrow_validation` — same JSON key, different path/shape) carries:
++`coverage` (`{probed, skipped, reason}`), `chain_hit_tier` (1-4|null),
++`chain_hit_source` (enum|null), and
++`classic_margin_daily_interest_account_available` (bool).
++
++### `coverage` / warnings (§1.5)
++
++Probe range = `daily_funding_rate < 0 ∧ route_class==MARGIN_SPOT_CANDIDATE ∧
++asset_tag==CRYPTO`, deduped by `base_asset`, capped at
++`Config.borrow_check_max_calls` (default 50, supersedes the Phase 2 N=10);
++truncation priority is abs daily rate DESC. Truncated candidates render
++`verified=false` / `error="not_probed_this_round"` (no silent truncation).
++`borrow_validation.coverage = {probed, skipped, reason="rate_limit_budget"|null}`.
++A top-level `warnings` entry is appended when truncation occurs.
++
++### `private_account` block (§1.4, three-state)
++
++Top-level `private_account`: `verified`, `balances_unified` (E3
++`totalWalletBalance`), `balances_spot` (E6 `free`/`locked`), `um_positions` (E4
++exposure view), `total_value_usdt`, `valuation.{price_source, priced_at}`,
++`checked_at`, `error`. Env-missing / both-balance-sources-failed → `verified=false`,
++three arrays empty, `total_value_usdt` null, `error` carries the reason; the public
++snapshot still renders. A single failed source degrades to an empty array (block
++stays `verified=true`).
++
++**Anti-double-count hard rule (test-asserted):** `total_value_usdt = Σ(unified
++totalWalletBalance priced) + Σ(spot free+locked priced)`, priced via the P5 price
++map (full, fetched once; `futures.*/spot.*` HTTP never fires in the row loop).
++`totalWalletBalance` already includes um/cm/crossMargin sub-accounts (never
++re-added); `um_positions` nominal value is NEVER counted (exposure view only).
++USDT/USDC price at 1; missing price → counted at 0 + warning.
++
++### Decimal discipline + E4 open item (unchanged approach)
++
++All rate/price/amount fields are raw strings (Binance returns strings); no float
++touches any value path; `quantize(1E-8)`, no scientific notation. E4 `position_side`
++(LONG/SHORT) has no direct papi field — inferred from `positionAmt` sign; to be
++re-verified live when a real position appears (R3 upgrade口, 10-design §2.A.3).
++
++### Regression red lines (still unchanged)
++
++`negative_funding_status` / `route_class` / `asset_tag` enums and priority,
++`classify.py`, `normalize.py`, and the v0.1/v0.2 field set are unchanged. All v0.3
++additions are parallel/additive and never alter classification or route derivation.
+diff --git a/schemas/api/public-market/snapshot.schema.json b/schemas/api/public-market/snapshot.schema.json
+index 488b798..127eb90 100644
+--- a/schemas/api/public-market/snapshot.schema.json
++++ b/schemas/api/public-market/snapshot.schema.json
+@@ -69,6 +69,16 @@
+     "private_channel": {
+       "type": "string",
+       "enum": ["enabled", "disabled"]
++    },
++    "sort_basis": {
++      "type": "string",
++      "enum": ["net_daily_yield", "abs_daily_funding_rate"]
++    },
++    "private_account": {
++      "$ref": "#/$defs/private_account"
++    },
++    "borrow_validation": {
++      "$ref": "#/$defs/borrow_validation_summary"
+     }
+   },
+   "$defs": {
+@@ -302,6 +312,22 @@
+             { "type": "null" }
+           ]
+         },
++        "net_daily_yield": {
++          "anyOf": [
++            { "$ref": "#/$defs/decimal_string" },
++            { "type": "null" }
++          ]
++        },
++        "borrow_rate_source": {
++          "type": ["string", "null"],
++          "enum": [
++            "next_hourly",
++            "rate_history",
++            "cross_margin_tier",
++            "vip0_reference",
++            null
++          ]
++        },
+         "borrow_validation": {
+           "$ref": "#/$defs/borrow_validation"
+         }
+@@ -316,7 +342,7 @@
+         "classic_margin": {
+           "type": "object",
+           "additionalProperties": false,
+-          "required": ["pair_listed", "asset_borrowable", "daily_interest_vip0", "source"],
++          "required": ["pair_listed", "asset_borrowable", "daily_interest_vip0", "daily_interest_account", "source"],
+           "properties": {
+             "pair_listed": { "type": ["boolean", "null"] },
+             "asset_borrowable": { "type": ["boolean", "null"] },
+@@ -326,6 +352,12 @@
+                 { "type": "null" }
+               ]
+             },
++            "daily_interest_account": {
++              "anyOf": [
++                { "$ref": "#/$defs/decimal_string" },
++                { "type": "null" }
++              ]
++            },
+             "source": { "type": "string" }
+           }
+         },
+@@ -352,6 +384,175 @@
+         "checked_at": { "type": ["string", "null"] },
+         "error": { "type": ["string", "null"] }
+       }
++    },
++    "private_account": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "verified",
++        "balances_unified",
++        "balances_spot",
++        "um_positions",
++        "total_value_usdt",
++        "valuation",
++        "checked_at",
++        "error"
++      ],
++      "properties": {
++        "verified": { "type": "boolean" },
++        "balances_unified": {
++          "type": "array",
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": ["asset", "total_balance"],
++            "properties": {
++              "asset": { "type": "string" },
++              "total_balance": {
++                "anyOf": [
++                  { "$ref": "#/$defs/decimal_string" },
++                  { "type": "null" }
++                ]
++              }
++            }
++          }
++        },
++        "balances_spot": {
++          "type": "array",
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": ["asset", "free", "locked"],
++            "properties": {
++              "asset": { "type": "string" },
++              "free": {
++                "anyOf": [
++                  { "$ref": "#/$defs/decimal_string" },
++                  { "type": "null" }
++                ]
++              },
++              "locked": {
++                "anyOf": [
++                  { "$ref": "#/$defs/decimal_string" },
++                  { "type": "null" }
++                ]
++              }
++            }
++          }
++        },
++        "um_positions": {
++          "type": "array",
++          "items": { "$ref": "#/$defs/um_position" }
++        },
++        "total_value_usdt": {
++          "anyOf": [
++            { "$ref": "#/$defs/decimal_string" },
++            { "type": "null" }
++          ]
++        },
++        "valuation": {
++          "type": "object",
++          "additionalProperties": false,
++          "required": ["price_source", "priced_at"],
++          "properties": {
++            "price_source": { "type": "string" },
++            "priced_at": { "type": ["string", "null"] }
++          }
++        },
++        "checked_at": { "type": ["string", "null"] },
++        "error": { "type": ["string", "null"] }
++      }
++    },
++    "um_position": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "symbol",
++        "position_side",
++        "position_amt",
++        "entry_price",
++        "mark_price",
++        "unrealized_profit",
++        "liquidation_price"
++      ],
++      "properties": {
++        "symbol": { "type": ["string", "null"] },
++        "position_side": {
++          "type": ["string", "null"],
++          "enum": ["LONG", "SHORT", null]
++        },
++        "position_amt": {
++          "anyOf": [
++            { "$ref": "#/$defs/decimal_string" },
++            { "type": "null" }
++          ]
++        },
++        "entry_price": {
++          "anyOf": [
++            { "$ref": "#/$defs/decimal_string" },
++            { "type": "null" }
++          ]
++        },
++        "mark_price": {
++          "anyOf": [
++            { "$ref": "#/$defs/decimal_string" },
++            { "type": "null" }
++          ]
++        },
++        "unrealized_profit": {
++          "anyOf": [
++            { "$ref": "#/$defs/decimal_string" },
++            { "type": "null" }
++          ]
++        },
++        "liquidation_price": {
++          "anyOf": [
++            { "$ref": "#/$defs/decimal_string" },
++            { "type": "null" }
++          ]
++        }
++      }
++    },
++    "borrow_validation_summary": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "coverage",
++        "classic_margin_daily_interest_account_available",
++        "chain_hit_tier",
++        "chain_hit_source"
++      ],
++      "properties": {
++        "coverage": {
++          "type": "object",
++          "additionalProperties": false,
++          "required": ["probed", "skipped", "reason"],
++          "properties": {
++            "probed": { "type": "integer", "minimum": 0 },
++            "skipped": { "type": "integer", "minimum": 0 },
++            "reason": {
++              "type": ["string", "null"],
++              "enum": ["rate_limit_budget", null]
++            }
++          }
++        },
++        "classic_margin_daily_interest_account_available": { "type": "boolean" },
++        "chain_hit_tier": {
++          "type": ["integer", "null"],
++          "minimum": 1,
++          "maximum": 4
++        },
++        "chain_hit_source": {
++          "type": ["string", "null"],
++          "enum": [
++            "next_hourly",
++            "rate_history",
++            "cross_margin_tier",
++            "vip0_reference",
++            null
++          ]
++        }
++      }
+     }
+   }
+ }

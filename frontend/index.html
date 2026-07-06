@@ -370,6 +370,128 @@
       font-size: 12px;
     }
 
+    /* 净收益列与成本来源徽标 */
+    .net-yield { font-weight: 700; }
+    .source-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 18px;
+      padding: 0 6px;
+      margin-left: var(--space-1);
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .source-badge.vip0-reference {
+      border-color: #f5b5b0;
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    /* sort_basis 标注 */
+    .sort-basis-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* 私有面板 */
+    .private-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-5);
+    }
+    .overview-card {
+      padding: var(--space-4);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+    }
+    .overview-card .label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: var(--space-1);
+    }
+    .overview-card .value {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .account-section {
+      margin-bottom: var(--space-5);
+    }
+    .account-section h3 {
+      margin-bottom: var(--space-3);
+      color: var(--text);
+    }
+    .balance-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: var(--space-3);
+    }
+    .balance-card {
+      padding: var(--space-3);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .balance-card .asset {
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: var(--space-1);
+    }
+    .balance-card .amount {
+      font-family: var(--mono);
+      font-size: 14px;
+    }
+    .balance-card .amount.locked {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: var(--space-1);
+    }
+
+    /* 隐私开关 */
+    .privacy-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 0 var(--space-3);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      min-height: 32px;
+    }
+    .privacy-toggle[aria-pressed="true"] { color: var(--brand); }
+
+    /* UM 持仓方向标 */
+    .direction-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 18px;
+      padding: 0 6px;
+      margin-left: var(--space-1);
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .direction-badge.long { background: var(--success-soft); color: var(--success); }
+    .direction-badge.short { background: var(--danger-soft); color: var(--danger); }
+
     @media (max-width: 1100px) {
       .app-shell { grid-template-columns: 1fr; }
       .sidebar { position: static; height: auto; padding: var(--space-4); }
@@ -452,6 +574,7 @@
             <p class="subtitle" id="data-source-label">数据源: /api/public-market/snapshot</p>
           </div>
           <div class="panel-actions">
+            <span class="sort-basis-badge" id="sort-basis-badge" style="display:none;">基准: —</span>
             <span class="badge muted" id="refresh-countdown">下次刷新: 60s</span>
             <button class="btn compact primary" id="btn-refresh" type="button">手动刷新</button>
           </div>
@@ -502,6 +625,7 @@
                   <th title="本周期实时预估">资金费率</th>
                   <th>结算时间</th>
                   <th title="按结算间隔年化">日费率</th>
+                  <th title="扣除借币成本后的净收益">净收益</th>
                   <th>标记价格 / 指数价格</th>
                   <th>负费率状态</th>
                   <th>提示标记</th>
@@ -511,6 +635,24 @@
             </table>
           </div>
         </div>
+      </section>
+
+      <section class="panel" id="private-panel" style="display:none;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>私有账户</h2>
+            <p class="subtitle" id="private-panel-subtitle">只读资产视图</p>
+          </div>
+          <div class="panel-actions">
+            <button class="privacy-toggle" id="btn-privacy" type="button" aria-pressed="false" title="切换金额显示">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path id="privacy-icon-path" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span id="privacy-label">隐藏金额</span>
+            </button>
+          </div>
+        </div>
+        <div class="panel-body" id="private-panel-body"></div>
       </section>
 
       <footer class="footer-note" id="footer-note"></footer>
@@ -529,6 +671,7 @@
       ];
 
       const AUTO_REFRESH_MS = 60000; // 与后端 Config.cache_ttl_seconds=60 对齐
+      const PRIVACY_STORAGE_KEY = 'funding_hedging_privacy_hidden';
 
       const refreshState = {
         isRefreshing: false,
@@ -547,7 +690,8 @@
           assetTag: '',
           routeClass: '',
           showPerpOnly: false
-        }
+        },
+        privacyHidden: true
       };
 
       const els = {
@@ -557,6 +701,7 @@
         warningsRawContent: document.getElementById('warnings-raw-content'),
         marginPublicNote: document.getElementById('margin-public-note'),
         dataSourceLabel: document.getElementById('data-source-label'),
+        sortBasisBadge: document.getElementById('sort-basis-badge'),
         btnRefresh: document.getElementById('btn-refresh'),
         refreshCountdown: document.getElementById('refresh-countdown'),
         filterSearch: document.getElementById('filter-search'),
@@ -566,8 +711,56 @@
         summaryRow: document.getElementById('summary-row'),
         statusArea: document.getElementById('status-area'),
         tableBody: document.getElementById('market-table-body'),
-        footerNote: document.getElementById('footer-note')
+        footerNote: document.getElementById('footer-note'),
+        privatePanel: document.getElementById('private-panel'),
+        privatePanelSubtitle: document.getElementById('private-panel-subtitle'),
+        privatePanelBody: document.getElementById('private-panel-body'),
+        btnPrivacy: document.getElementById('btn-privacy'),
+        privacyLabel: document.getElementById('privacy-label'),
+        privacyIconPath: document.getElementById('privacy-icon-path')
       };
+
+      function loadPrivacyHidden() {
+        try {
+          const raw = localStorage.getItem(PRIVACY_STORAGE_KEY);
+          return raw !== 'false';
+        } catch (e) {
+          return true;
+        }
+      }
+
+      function savePrivacyHidden(hidden) {
+        try {
+          localStorage.setItem(PRIVACY_STORAGE_KEY, hidden ? 'true' : 'false');
+        } catch (e) {
+          // 只读模式或隐私浏览中忽略写入失败
+        }
+      }
+
+      function setPrivacyHidden(hidden) {
+        state.privacyHidden = Boolean(hidden);
+        savePrivacyHidden(state.privacyHidden);
+        updatePrivacyToggleUi();
+        renderPrivatePanel();
+      }
+
+      function togglePrivacy() {
+        setPrivacyHidden(!state.privacyHidden);
+      }
+
+      function updatePrivacyToggleUi() {
+        const hidden = state.privacyHidden;
+        els.btnPrivacy.setAttribute('aria-pressed', String(hidden));
+        els.privacyLabel.textContent = hidden ? '隐藏金额' : '显示金额';
+        // 眼睛图标：隐藏态为闭眼，显示态为睁眼
+        els.privacyIconPath.setAttribute('d', hidden
+          ? 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z M4.2 4.2l15.6 15.6'
+          : 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z');
+      }
+
+      function maskAmount(value) {
+        return state.privacyHidden ? '****' : formatPrice(value);
+      }
 
       function formatBeijing(ms) {
         if (typeof ms !== 'number' || Number.isNaN(ms) || ms === 0) return '—';
@@ -623,6 +816,26 @@
         const n = Number(str);
         if (Number.isNaN(n) || n === 0) return 'muted';
         return n > 0 ? 'positive' : 'negative';
+      }
+
+      function sourceBadge(source) {
+        if (!source) return '';
+        const map = {
+          'next_hourly': { label: '下小时', cls: '' },
+          'rate_history': { label: '历史', cls: '' },
+          'cross_margin_tier': { label: '杠杆分层', cls: '' },
+          'vip0_reference': { label: '基准利率', cls: 'vip0-reference' }
+        };
+        const item = map[source];
+        if (!item) return '';
+        const title = source === 'vip0_reference' ? 'VIP0 基准利率（未命中账户实际利率）' : `成本来源: ${source}`;
+        return `<span class="source-badge ${item.cls}" title="${escapeHtml(title)}">${escapeHtml(item.label)}</span>`;
+      }
+
+      function sortBasisLabel(basis) {
+        if (basis === 'net_daily_yield') return '净收益优先';
+        if (basis === 'abs_daily_funding_rate') return '绝对日费率';
+        return String(basis || '—');
       }
 
       function updateCountdown() {
@@ -784,11 +997,33 @@
         return Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(' / ') || '—';
       }
 
+      function getUmPositionSymbols() {
+        const pa = state.snapshot && state.snapshot.private_account;
+        if (!pa || !Array.isArray(pa.um_positions)) return new Set();
+        return new Set(pa.um_positions.map(p => p.symbol));
+      }
+
+      function directionForPosition(pos) {
+        if (pos.position_side === 'LONG') return 'long';
+        if (pos.position_side === 'SHORT') return 'short';
+        const amt = Number(pos.position_amt);
+        if (!Number.isNaN(amt) && amt < 0) return 'short';
+        return 'long';
+      }
+
+      function directionBadgeForSymbol(symbol, umPositions) {
+        const pos = (umPositions || []).find(p => p.symbol === symbol);
+        if (!pos) return '';
+        const dir = directionForPosition(pos);
+        const label = dir === 'long' ? '多' : '空';
+        return `<span class="direction-badge ${dir}" title="UM 持仓方向: ${label}">${label}</span>`;
+      }
+
       function renderTable() {
         if (state.blocked) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="9">
+              <td colspan="10">
                 <div class="empty-state">
                   <strong>集成阻塞</strong><br/>
                   ${escapeHtml(state.blockedReason)}
@@ -803,11 +1038,13 @@
         if (rows.length === 0) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="9"><div class="empty-state">没有符合筛选条件的数据</div></td>
+              <td colspan="10"><div class="empty-state">没有符合筛选条件的数据</div></td>
             </tr>`;
           renderSummary();
           return;
         }
+
+        const umPositions = state.snapshot && state.snapshot.private_account && state.snapshot.private_account.um_positions;
 
         els.tableBody.innerHTML = rows.map(row => {
           const isBstock = row.asset_tag === 'BSTOCK';
@@ -826,20 +1063,25 @@
           const dailyRateCell = dailyRateText === '—' && !intervalBadge
             ? '—'
             : `${dailyRateText}${intervalBadge ? ' ' + intervalBadge : ''}`;
+          const netClass = classForFundingRate(row.net_daily_yield);
+          const netText = formatFundingRate(row.net_daily_yield);
+          const netSource = sourceBadge(row.borrow_rate_source);
           const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
             ? row.ui_flags.filter(f => f !== 'MARGIN_PUBLIC_UNVERIFIED').map(badgeForUiFlag).join(' ')
             : '<span class="muted small">—</span>';
           const spotAlias = row.spot && row.spot.match_type === 'bstock_b_suffix_alias' && row.spot.symbol && row.spot.symbol !== row.symbol
             ? `<br/><span class="muted small">现货腿: ${escapeHtml(row.spot.symbol)}</span> <span class="badge compact info">B 后缀别名</span>`
             : '';
+          const dirBadge = directionBadgeForSymbol(row.symbol, umPositions);
           return `
             <tr class="${isBstock ? 'bstock' : ''}">
-              <td class="mono">${escapeHtml(row.symbol)}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span>${spotAlias}</td>
+              <td class="mono">${escapeHtml(row.symbol)}${dirBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span>${spotAlias}</td>
               <td>${badgeForAssetTag(row.asset_tag)}</td>
               <td>${badgeForRouteClass(row.route_class)}</td>
               <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
               <td title="${escapeHtml(fullTime)}">${timeText}</td>
               <td class="${dailyRateClass}">${dailyRateCell}</td>
+              <td class="net-yield ${netClass}">${netText}${netSource}</td>
               <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
               <td>${badgeForNegativeFundingStatus(row.negative_funding_status)}</td>
               <td>${uiFlags}</td>
@@ -847,6 +1089,135 @@
           `;
         }).join('');
         renderSummary();
+      }
+
+      function renderSortBasis() {
+        const basis = state.snapshot && state.snapshot.sort_basis;
+        if (!basis) {
+          els.sortBasisBadge.style.display = 'none';
+          return;
+        }
+        els.sortBasisBadge.style.display = '';
+        els.sortBasisBadge.textContent = `基准: ${sortBasisLabel(basis)}`;
+        els.sortBasisBadge.title = '后端已按此基准排好序，前端按 payload 顺序渲染（零客户端排序）';
+      }
+
+      function renderPrivatePanel() {
+        const pa = state.snapshot && state.snapshot.private_account;
+        if (!pa) {
+          els.privatePanel.style.display = 'none';
+          return;
+        }
+        els.privatePanel.style.display = '';
+
+        if (pa.verified !== true) {
+          const errorDetail = pa.error ? `（${escapeHtml(pa.error)}）` : '';
+          els.privatePanelSubtitle.textContent = '私有通道未启用';
+          els.privatePanelBody.innerHTML = `
+            <div class="empty-state">
+              <strong>私有通道未启用</strong><br/>
+              当前未获取到账户资产数据${errorDetail}<br/>
+              <span class="muted small">请检查 API key 权限或后端私有通道配置</span>
+            </div>
+          `;
+          return;
+        }
+
+        els.privatePanelSubtitle.textContent = '只读资产视图';
+        const total = maskAmount(pa.total_value_usdt);
+        const pricedAt = formatBeijing(pa.valuation && pa.valuation.priced_at ? new Date(pa.valuation.priced_at).getTime() : null);
+        const checkedAt = formatBeijing(pa.checked_at ? new Date(pa.checked_at).getTime() : null);
+        const priceSource = pa.valuation && pa.valuation.price_source ? escapeHtml(pa.valuation.price_source) : '—';
+
+        const unifiedBalances = Array.isArray(pa.balances_unified) && pa.balances_unified.length > 0
+          ? pa.balances_unified.map(b => `
+              <div class="balance-card">
+                <div class="asset">${escapeHtml(b.asset || '—')}</div>
+                <div class="amount">${maskAmount(b.total_balance)}</div>
+              </div>
+            `).join('')
+          : '<span class="muted small">无数据</span>';
+
+        const spotBalances = Array.isArray(pa.balances_spot) && pa.balances_spot.length > 0
+          ? pa.balances_spot.map(b => `
+              <div class="balance-card">
+                <div class="asset">${escapeHtml(b.asset || '—')}</div>
+                <div class="amount">${maskAmount(b.free)}</div>
+                <div class="amount locked">冻结: ${maskAmount(b.locked)}</div>
+              </div>
+            `).join('')
+          : '<span class="muted small">无数据</span>';
+
+        const umPositions = Array.isArray(pa.um_positions) && pa.um_positions.length > 0
+          ? `
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>标的</th>
+                    <th>方向</th>
+                    <th>数量</th>
+                    <th>开仓价</th>
+                    <th>标记价</th>
+                    <th>未实现盈亏</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${pa.um_positions.map(p => {
+                    const dir = directionForPosition(p);
+                    const dirLabel = dir === 'long' ? '多' : '空';
+                    return `
+                      <tr>
+                        <td class="mono">${escapeHtml(p.symbol || '—')}</td>
+                        <td><span class="direction-badge ${dir}">${dirLabel}</span></td>
+                        <td class="mono">${maskAmount(p.position_amt)}</td>
+                        <td class="mono">${maskAmount(p.entry_price)}</td>
+                        <td class="mono">${maskAmount(p.mark_price)}</td>
+                        <td class="mono">${maskAmount(p.unrealized_profit)}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+          : '<div class="empty-state"><span class="muted small">当前无 UM 持仓</span></div>';
+
+        els.privatePanelBody.innerHTML = `
+          <div class="private-overview">
+            <div class="overview-card">
+              <div class="label">总资产估值 (USDT)</div>
+              <div class="value">${total}</div>
+            </div>
+            <div class="overview-card">
+              <div class="label">估值来源</div>
+              <div class="value small">${priceSource}</div>
+            </div>
+            <div class="overview-card">
+              <div class="label">估值时点</div>
+              <div class="value small">${pricedAt}</div>
+            </div>
+            <div class="overview-card">
+              <div class="label">检查时点</div>
+              <div class="value small">${checkedAt}</div>
+            </div>
+          </div>
+
+          <div class="account-section">
+            <h3>统一账户余额</h3>
+            <div class="balance-grid">${unifiedBalances}</div>
+          </div>
+
+          <div class="account-section">
+            <h3>现货账户余额</h3>
+            <div class="balance-grid">${spotBalances}</div>
+          </div>
+
+          <div class="account-section">
+            <h3>UM 持仓</h3>
+            ${umPositions}
+          </div>
+        `;
       }
 
       function renderFooter() {
@@ -861,6 +1232,8 @@
 
       function applyFiltersAndRender() {
         renderTable();
+        renderSortBasis();
+        renderPrivatePanel();
         renderFooter();
       }
 
@@ -916,6 +1289,7 @@
 
       function bindEvents() {
         els.btnRefresh.addEventListener('click', loadApi);
+        els.btnPrivacy.addEventListener('click', togglePrivacy);
         els.filterSearch.addEventListener('input', () => {
           state.filters.search = els.filterSearch.value;
           applyFiltersAndRender();
@@ -934,11 +1308,17 @@
         });
       }
 
+      state.privacyHidden = loadPrivacyHidden();
+      updatePrivacyToggleUi();
+      savePrivacyHidden(state.privacyHidden);
+
       globalThis.__appHelpers = {
         formatFundingRate,
         formatBeijing,
         formatBeijingShort,
-        ingestSnapshot
+        ingestSnapshot,
+        togglePrivacy,
+        getPrivacyHidden: () => state.privacyHidden
       };
 
       bindEvents();

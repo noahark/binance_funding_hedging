@@ -117,6 +117,7 @@ def test_borrow_validation_disabled_state():
     assert bv["classic_margin"]["pair_listed"] is None
     assert bv["classic_margin"]["asset_borrowable"] is None
     assert bv["classic_margin"]["daily_interest_vip0"] is None
+    assert bv["classic_margin"]["daily_interest_account"] is None
     assert bv["portfolio_account"]["max_borrowable"] is None
     assert bv["portfolio_account"]["borrow_limit"] is None
     assert bv["checked_at"] is None
@@ -223,6 +224,7 @@ def test_offline_full_snapshot_validates_v02_schema(schema):
             "pair_listed",
             "asset_borrowable",
             "daily_interest_vip0",
+            "daily_interest_account",
             "source",
         }
         assert set(bv["portfolio_account"]) == {"max_borrowable", "borrow_limit", "source"}
