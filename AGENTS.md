@@ -238,6 +238,11 @@ dispatching the fix.
 - Before dispatching `review-1`, dispatching `review-2`, or writing an accepted
   terminal state, run `scripts/validate-stage.py <stage-id> --phase <phase>` and
   preserve the output in the stage evidence.
+- Before entering implementation for a parallel development stage, run
+  `scripts/validate-stage.py <stage-id> --phase dispatch-ready` and preserve the
+  output in the stage evidence. This gate checks the R10 checklist, task prompt
+  paths, embedded pre-review prompt paths, cross-review routing, and failure
+  escalation branches before any implementer starts coding.
 - Unknown status values, unknown fingerprint protocols, or bookkeeper/model-invented
   state machine transitions fail closed and route to `human_escalation_required`
   unless the Harness schema, docs, and validator are updated first.
@@ -276,7 +281,8 @@ dispatching the fix.
   dispatch tail, `next_dispatch` entries marked `executor: self` must be
   executed or escalated before the implementer reports completion, and the
   bookkeeper must perform R4 diff reconciliation before creating H_A/H_B
-  evidence commits.
+  evidence commits. R10 checklist data belongs in `status.json` task metadata
+  or dispatch RECEIPT metadata, not inside immutable PROMPT BODY text.
 - Harness/template sync lands on `main` only and must not be mixed into an
   active stage branch unless that stage needs the new Harness behavior. If
   `main` is merged into a stage branch by exception, record the reason, rerun
@@ -302,18 +308,21 @@ The intended stage delivery flow is:
 7. Run development detail breakdown for `MEDIUM`, `HIGH`, or `MILESTONE`
    stages.
 8. Split implementation tasks.
-9. Implement the bounded task.
-10. Run deterministic tests, lint, type checks, or replay checks.
-11. For parallel development stages, run embedded cross-review checkpoints from
+9. For parallel development stages, validate dispatch completeness with
+   `scripts/validate-stage.py <stage-id> --phase dispatch-ready` before
+   launching implementers.
+10. Implement the bounded task.
+11. Run deterministic tests, lint, type checks, or replay checks.
+12. For parallel development stages, run embedded cross-review checkpoints from
    `docs/parallel-development-mode.md` before the formal review gate; these
    checkpoints do not replace committed-state review-1.
-12. Commit the bounded stage artifacts locally on the stage branch, compute the
+13. Commit the bounded stage artifacts locally on the stage branch, compute the
    standard
    `diff_fingerprint`, run `scripts/validate-stage.py <stage-id> --phase
    pre-review`, then review raw artifacts.
-13. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
+14. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
    to launch the fix task.
-14. Repeat only within the bounded stage until `review-2 ACCEPT`, then stop at
+15. Repeat only within the bounded stage until `review-2 ACCEPT`, then stop at
    `stage_accepted_waiting_user`. Merge back to `main` only after explicit user
    acceptance.
 

@@ -34,11 +34,13 @@
   "fix_authors": [],
   "reviewer_1": null,
   "reviewer_2": null,
+  "r10_checklists": {},
   "tasks": [
     {
       "id": null,
       "owner": null,
       "reviewer": null,
+      "r10_checklist": null,
       "base_sha": null,
       "head_sha": null,
       "diff_fingerprint": null,

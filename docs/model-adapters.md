@@ -158,6 +158,10 @@ claude-glm --model glm-5.2 -p "$(cat <prompt-file>)"
 # Read-only/plan review.
 claude-glm --model glm-5.2 --permission-mode plan -p "$(cat <prompt-file>)"
 
+# Embedded cross-review checkpoint. Same as read-only/plan review; use a fresh
+# session and never reuse implementation/bookkeeper transcript.
+claude-glm --model glm-5.2 --permission-mode plan -p "$(cat <prompt-file>)"
+
 # Yolo execution, only when explicitly authorized.
 claude-glm --model glm-5.2 --dangerously-skip-permissions -p "$(cat <prompt-file>)"
 ```
@@ -246,6 +250,11 @@ command -v kimi || command -v kimi-for-coding
 # Non-interactive prompt with the latest Kimi coding model alias.
 kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"
 
+# Embedded cross-review checkpoint. Kimi's current one-shot prompt mode has no
+# compatible read-only flag, so read-only behavior is enforced by the prompt,
+# wrapper, file boundaries, and Harness evidence checks.
+kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"
+
 # Plan/read-only-style interactive session. Current Kimi CLI rejects combining
 # --plan with -p/--prompt, so do not use this as a one-shot prompt command.
 kimi --model kimi-code/kimi-for-coding --plan
@@ -277,6 +286,18 @@ Do not use `kimi --plan -p ...` or `kimi -y -p ...`; the current CLI returns
 - `adapter_missing`: runner shell cannot resolve the configured command. Treat
   as `model_unavailable` for non-decision models, or as the corresponding
   decision model unavailable for review-2 fallback.
+- `command_error`: the adapter command is malformed or exits before reaching the
+  model because of local invocation syntax.
+- `permission_error`: the adapter refuses the requested mode or lacks local file
+  permissions.
+- `timeout`: the adapter process exceeds the stage timeout.
+- `invalid_pre_review_output`: an embedded checkpoint returns output that cannot
+  be interpreted as PASS/BLOCKER/escalated evidence.
+- `scope_or_contract_dispute`: embedded review identifies a required fix outside
+  the task scope or touching shared contract/schema boundaries.
 
 Record the exact check command and stderr/stdout excerpt in the stage handoff or
 review file, with secrets redacted.
+
+For embedded cross-review checkpoints, use the canonical failure class list in
+`agents/registry.yaml` at `failure_classes.embedded_checkpoint`.
