@@ -1,0 +1,115 @@
+{
+  "stage_id": "2026-07-private-account-ui-polish-v1",
+  "status": "planned",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-private-account-ui-polish-v1",
+    "created_from_main_sha": "530e1949409e7cd2ed60c91ad4d66d627940bdae",
+    "created_at": "2026-07-06 CST",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "fable5",
+    "provider": "anthropic",
+    "model": "claude-fable-5",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "embedded_reviews": {},
+  "designer": null,
+  "direction_synthesizer": null,
+  "breakdown_author": null,
+  "implementer": null,
+  "implementers": [],
+  "fix_authors": [],
+  "tasks": [],
+  "complexity": {
+    "classification": "LOW",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "四项均为 private-account-v1 已交付 payload 字段的前端展示增量(补数值/改文案/调布局/加折算)。",
+      "无公开契约变更、无新后端端点、无交易/借币/下单/撤单/转账/websocket 行为变化、无排序语义变化。",
+      "均为 private-account-v1 验收时用户提出的 follow-up,既有 synthesis 覆盖。"
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": null,
+    "status": "not_required_low_complexity",
+    "user_approved": true
+  },
+  "base_sha": "530e1949409e7cd2ed60c91ad4d66d627940bdae",
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "changed_files": [
+    "reports/agent-runs/2026-07-private-account-ui-polish-v1/00-intake.md",
+    "reports/agent-runs/2026-07-private-account-ui-polish-v1/00-task.md",
+    "reports/agent-runs/2026-07-private-account-ui-polish-v1/status.json"
+  ],
+  "tests": {
+    "status": "not_run",
+    "commands": []
+  },
+  "review_1": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "reviewer_prior_involvement": "none",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
+    "fallback_reason": null,
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": null,
+    "unrelated_reviewer_unavailable_evidence": null,
+    "design_conflict_override": {
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
+    },
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "next_action": "await_user_model_dispatch_then_stage_design",
+  "updated_at": "2026-07-06 CST (H_intake draft: 分支已建, intake/task 起草)"
+}
