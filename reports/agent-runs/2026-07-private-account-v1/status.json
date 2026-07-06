@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "complexity": "MILESTONE",
   "stage_branch": {
@@ -154,13 +154,39 @@
   "base_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
   "head_sha": "6c1e992c4628c0d8e369ba648b0403f341037849",
   "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:a2140bfd2de2043b78321d0794e6db849f102d3987352f14cfd95178258a0772",
+  "tests": {
+    "status": "passed",
+    "backend": "python3 -m pytest backend/tests/ -q -> 147 passed (基线 96 -> round1 145 -> round2 147, 零回归); bookkeeper + review-1 Kimi + review-2 Codex 三方独立复跑均绿",
+    "frontend": "node frontend/self-check.js -> 29/29 PASS (§4.7 全断言集); bookkeeper + review-1 GLM + review-2 Codex 独立复跑均绿",
+    "raw_output_paths": ["60-test-output.txt", "20-implementation-backend.md"]
+  },
+  "review_1": {
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:a2140bfd2de2043b78321d0794e6db849f102d3987352f14cfd95178258a0772",
+    "summary": "stage-level aggregation of two task-level first_reviewer ACCEPTs (Task A by Kimi fresh, Task B by Claude-GLM fresh; task-level details in tasks[].review_1). reviewer/provider 字段有意省略: stage 级单一聚合 reviewer 串会与某 implementer identity 误碰撞, 任务级 cross-review provider 隔离已由 validate_tasks 强制。两份 task verdict 各自独立重算 committed 指纹与记录一致; Task A 带 isolation_deviation (Kimi 读了 embedded-review-a-round2, 用户裁定方案 A 处理)。",
+    "raw_output_paths": ["review-1-task-a-round1.raw-output.md", "review-1-task-b-round1.raw-output.md"]
+  },
+  "review_2": {
+    "reviewer": "codex gpt5.5",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:a2140bfd2de2043b78321d0794e6db849f102d3987352f14cfd95178258a0772",
+    "reviewer_prior_involvement": "direction_synthesis",
+    "fallback_reason": "本 stage 决策模型池中无 unrelated decision model 可用: claude_glm (Task A implementer) 与 kimi (Task B implementer) hard-ban (AGENTS.md implementer/fix-author 禁评审, 无 override); Fable5 (designer+breakdown_author) design-conflict ineligible; Codex(direction_synthesis) 为唯一非 implementer 决策模型, 无 code authorship conflict, 按 AGENTS.md strong-reviewer disclosure override 启用。fallback 路径 claude=Fable5 同样 design-conflict ineligible。详见 design_conflict_override.unrelated_reviewer_unavailable_evidence。",
+    "design_conflict_override": {
+      "unrelated_reviewer_unavailable_evidence": "review-2-strong-reviewer-override-evidence.md"
+    },
+    "next_action": "stage_accepted_waiting_user",
+    "raw_output_path": "review-2-round1.raw-output.md"
+  },
   "rework_count": 0,
   "max_rework": 3,
   "can_accept_final": false,
-  "commit_state": "Phase 4 review-1 双 ACCEPT 落档 + Phase 5 review-2 dispatch 就绪。review-1: Task A (Kimi fresh first_reviewer) ACCEPT + Task B (Claude-GLM fresh first_reviewer) ACCEPT; committed 指纹独立重算均与记录一致 (A=6ca6ee1…:fdfba1…, B=6c1e992…:50998c…)。Task A: Kimi 应补派追加 verdict JSON 块 (结构合规, json_schema_valid=true); 附 isolation_deviation — reviewed_artifacts 含 embedded-review-a-round2.raw-output.md 违反 T1 fresh 隔离契约, 用户 2026-07-06 裁定方案 A (接受+标注+升级 review-2 必查), bookkeeper 标注落档 review-1-task-a-round1.raw-output.md。Task B: GLM 完整自写 raw-output 含合规 JSON, jsonschema 严格校验通过, json_schema_valid=true。tasks[A/B].review_1 三字段 (verdict/json_schema_valid/diff_fingerprint) 填实。status=review_2。T3 dispatch (review-2-stage-by-codex.prompt.md) 就绪: stage 级 base=fce1452/head=6c1e992, role=final_reviewer, reviewer_prior_involvement=direction_synthesis (strong-reviewer override per AGENTS.md); 含 review-1 绑定 + 3 项必查 (Kimi 隔离偏差独立性判定 / dual_hat 披露评估 / Codex 自我 direction_synthesis 披露)。待用户中转派发 fresh Codex。Non-blocker follow-ups: ADR-9 tier② E2b (OPEN, R3 升级口); ADR-8 fixture 行序 (合成数据, 运行时排序由后端 sort_rows 保证); ADR-11 docs/architecture/ADR/11-adr.md 补录 (scope 外); E4 position_side 真实持仓实测。",
-  "next_action": "Phase 5 review-2 dispatch READY — awaiting user mediation. 用户中转 T3 → fresh Codex (gpt5.5) read-only final_reviewer (review-2-stage-by-codex.prompt.md, stage 级 base=fce1452 head=6c1e992, committed 指纹独立重算 per diff_fingerprint_formula)。review-2 必查: (1) Task A Kimi 隔离偏差独立性判定 (reviewed_artifacts 含 embedded-review-a-round2), (2) bookkeeper dual_hat 披露评估, (3) Codex 自我 direction_synthesis 披露。reviewer 返回 verdict JSON 后 bookkeeper 填顶层 review_2 + 推进 pre-accept (补顶层 tests/review_1/review_2 聚合字段 + designer-overlap override 证据若 validate 要求)。ACCEPT(next_action=stage_accepted_waiting_user) → status=stage_accepted_waiting_user (红线 can_accept_final=false, bookkeeper 永不翻 accepted; merge main 仅限用户明确验收后)。REWORK → 正式 rework 流程 (计入 rework_count, 上限 3)。BLOCKED → 升级用户。",
+  "commit_state": "Phase 5 review-2 ACCEPT + pre-accept gate PASS → stage_accepted_waiting_user。review-2: Codex (gpt5.5) final_reviewer ACCEPT, stage 级 base=fce1452/head=6c1e992 committed 指纹独立重算一致 (6c1e992…:a2140b…), next_action=stage_accepted_waiting_user。三项必查 Codex 独立判定: (1) Task A Kimi 隔离偏差存在但未实质推翻 ACCEPT, (2) bookkeeper dual_hat 披露充分, (3) Codex direction_synthesis 已披露按 strong-reviewer override 处理。reviewer_prior_involvement=direction_synthesis, fallback_reason + design_conflict_override 证据 (review-2-strong-reviewer-override-evidence.md) 已落档 per AGENTS.md (模型池无 unrelated decision model: claude_glm/kimi implementer hard-ban, Fable5 designer+breakdown conflict)。落档: review-2-round1.raw-output.md + 30-review-1.md + 50-review-2.md + override 证据 + 70-handoff 更新。补顶层 tests (status=passed) + review_1 (聚合, reviewer 字段省略避免 stage 级 identity 误碰撞) + review_2 (Codex + override 字段)。validate --phase pre-accept PASSED。status=stage_accepted_waiting_user (红线 can_accept_final=false, bookkeeper 不翻 accepted; merge main 仅限用户明确验收后)。Codex findings 3 P3: 70-handoff 过时(已本次修复)/evidence trailing whitespace(verbatim 不重写)/Kimi 隔离偏差 residual。residual_risks: ADR-9 E2b(OPEN R3)/ADR-8 fixture 行序/ADR-11 补录/E4 position_side 实测。",
+  "next_action": "STAGE_ACCEPTED_WAITING_USER — awaiting user acceptance。review-2 ACCEPT 已落档, pre-accept gate PASSED, status 停在 stage_accepted_waiting_user。用户门: (1) 审 50-review-2.md + raw outputs + 交付物, (2) 验收通过后指示 merge stage/2026-07-private-account-v1 回 main (bookkeeper 不主动 merge, merge 策略用户定), (3) 验收后 follow-ups (ADR-11 补录 / ADR-9 E2b 实测 / E4 真实持仓复核, 均非阻塞)。红线: can_accept_final=false, bookkeeper 永不翻 accepted; stage_branch.merged_back_to_main=false。",
   "blockers": [],
   "human_escalation": null,
   "evidence_policy": "raw outputs verbatim; capture-time redaction for account-level data; all endpoint claims carry llms-full.txt line refs or live capture paths",
-  "updated_at": "2026-07-06T06:08Z"
+  "updated_at": "2026-07-06T10:00Z"
 }
