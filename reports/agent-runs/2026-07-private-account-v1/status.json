@@ -100,7 +100,7 @@
     "gates": ["G1 branch", "G2 live discovery (E3/E4/E6 fail=BLOCKED)", "G3 weight capture", "G4 field matrix appendix", "G5 ban self-check"],
     "discovery_script": "scripts/discovery-capture-private-v1.py (bookkeeper-authored, one-shot, capture-time redaction)",
     "evidence_dir": "reports/api-samples/2026-07-private-account-v1/20260705T232800Z/",
-    "committed_sha": null,
+    "committed_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
     "attempts": [
       {
         "run_utc": "20260705T162920Z",
@@ -127,7 +127,7 @@
     ]
   },
   "diff_fingerprint_formula": "head_sha + ':' + sha256(git diff --binary <base>..<head> -- . ':(exclude)reports/agent-runs/2026-07-private-account-v1/status.json')",
-  "base_sha": null,
+  "base_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
   "head_sha": null,
   "diff_fingerprint": null,
   "rework_count": 0,
@@ -138,5 +138,5 @@
   "blockers": [],
   "human_escalation": null,
   "evidence_policy": "raw outputs verbatim; capture-time redaction for account-level data; all endpoint claims carry llms-full.txt line refs or live capture paths",
-  "updated_at": "2026-07-06T00:03:02Z"
+  "updated_at": "2026-07-06T00:05:50Z"
 }
