@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -37,6 +38,16 @@ ALLOWED_STATUSES = {
 
 PRE_REVIEW_STATUSES = {"review_1", "review_2"}
 PRE_ACCEPT_STATUSES = {"accepted", "stage_accepted_waiting_user"}
+DISPATCH_READY_REQUIRED_FILES = ["00-task.md", "10-design.md", "11-adr.md"]
+EMBEDDED_CHECKPOINT_FAILURE_CLASSES = {
+    "model_unavailable",
+    "adapter_missing",
+    "command_error",
+    "permission_error",
+    "timeout",
+    "invalid_pre_review_output",
+    "scope_or_contract_dispute",
+}
 BRANCH_RETAINED_TERMINAL_STATUSES = {
     "blocked",
     "abandoned",
@@ -185,6 +196,20 @@ def provider_identity(value: Any) -> str | None:
     return PROVIDER_IDENTITIES.get(text, text)
 
 
+def provider_key(value: Any) -> str | None:
+    """Return the workflow/provider key used by registry routing rules."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        for key in ("provider", "adapter", "id"):
+            found = provider_key(value.get(key))
+            if found:
+                return found
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def normalize_tasks(status_doc: dict[str, Any]) -> tuple[list[Any], list[str]]:
     """Return tasks as a list while accepting legacy dict-keyed status files."""
     raw = status_doc.get("tasks", [])
@@ -203,6 +228,64 @@ def normalize_tasks(status_doc: dict[str, Any]) -> tuple[list[Any], list[str]]:
                 normalized.append({"id": str(key), "_invalid_task_value": value})
         return normalized, []
     return [], ["tasks must be a list or object when present"]
+
+
+def task_map(status_doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    tasks, _ = normalize_tasks(status_doc)
+    out: dict[str, dict[str, Any]] = {}
+    for task in tasks:
+        if isinstance(task, dict) and task.get("id") is not None:
+            out[str(task["id"])] = task
+    return out
+
+
+def load_registry_text(root: Path) -> str:
+    path = root / "agents" / "registry.yaml"
+    if not path.exists():
+        raise ValidationError("missing agents/registry.yaml")
+    return path.read_text(encoding="utf-8")
+
+
+def parse_review_1_selection(registry_text: str) -> tuple[dict[str, str], list[str]]:
+    """Parse the small registry subset used for cross-review routing.
+
+    The Harness keeps validate-stage.py dependency-free, so this intentionally
+    parses only the machine-shaped lines used by rotation/model_policies.
+    """
+    explicit: dict[str, str] = {}
+    for match in re.finditer(r"implementer_provider_([A-Za-z0-9_]+):\s*([A-Za-z0-9_]+)", registry_text):
+        explicit[match.group(1)] = match.group(2)
+
+    defaults: list[str] = []
+    match = re.search(r"default_preference:\s*\[([^\]]+)\]", registry_text)
+    if match:
+        defaults = [item.strip().strip("'\"") for item in match.group(1).split(",") if item.strip()]
+    return explicit, defaults
+
+
+def expected_cross_reviewer(root: Path, implementer_provider: str | None) -> str | None:
+    if not implementer_provider:
+        return None
+    explicit, defaults = parse_review_1_selection(load_registry_text(root))
+    if implementer_provider in explicit:
+        return explicit[implementer_provider]
+    implementer_identity = provider_identity(implementer_provider)
+    for candidate in defaults:
+        if provider_identity(candidate) != implementer_identity:
+            return candidate
+    return None
+
+
+def registry_has_embedded_review_command(root: Path, adapter: str) -> bool:
+    registry_text = load_registry_text(root)
+    in_adapter = False
+    for line in registry_text.splitlines():
+        if line.startswith("  ") and not line.startswith("    ") and line.strip().endswith(":"):
+            in_adapter = line.strip() == f"{adapter}:"
+            continue
+        if in_adapter and line.startswith("    embedded_read_only_review_command:"):
+            return True
+    return False
 
 
 def collect_implementer_identities(status_doc: dict[str, Any]) -> set[str]:
@@ -277,6 +360,7 @@ def validate_parallel_mode(root: Path, stage_dir: Path, status_doc: dict[str, An
     errors: list[str] = []
 
     tasks, task_shape_errors = normalize_tasks(status_doc)
+    tasks_by_id = task_map(status_doc)
     errors.extend(task_shape_errors)
     for task in tasks:
         if isinstance(task, dict) and "embedded_reviews" in task:
@@ -355,6 +439,22 @@ def validate_parallel_mode(root: Path, stage_dir: Path, status_doc: dict[str, An
                         errors.append(f"{prefix}.formal_review missing {field}")
                 if formal.get("output") and not evidence_path_exists(root, stage_dir, formal.get("output")):
                     errors.append(f"{prefix}.formal_review.output does not exist: {formal.get('output')}")
+                base_sha = formal.get("base_sha")
+                head_sha = formal.get("head_sha")
+                fingerprint = formal.get("diff_fingerprint")
+                if base_sha and head_sha and fingerprint:
+                    try:
+                        require_commit(root, str(base_sha), f"{prefix}.formal_review.base_sha")
+                        require_commit(root, str(head_sha), f"{prefix}.formal_review.head_sha")
+                        expected = compute_diff_fingerprint(root, stage_dir, str(base_sha), str(head_sha))
+                        if fingerprint != expected:
+                            errors.append(f"{prefix}.formal_review diff_fingerprint mismatch: recorded={fingerprint}, expected={expected}")
+                    except ValidationError as exc:
+                        errors.append(str(exc))
+                task_id = entry.get("task_id") or key
+                task = tasks_by_id.get(str(task_id))
+                if task and task.get("diff_fingerprint") and fingerprint and task.get("diff_fingerprint") != fingerprint:
+                    errors.append(f"{prefix}.formal_review.diff_fingerprint must match task {task_id} diff_fingerprint")
 
     return errors
 
@@ -401,13 +501,134 @@ def validate_stage_branch(root: Path, status_doc: dict[str, Any], phase: str) ->
                 errors.append(str(exc))
         return errors
 
-    if phase in {"checkpoint", "pre-review", "pre-accept"} and branch != name:
+    if phase in {"checkpoint", "dispatch-ready", "pre-review", "pre-accept"} and branch != name:
         errors.append(
             f"{phase} requires current branch {name!r} for this stage, got {branch!r}"
         )
 
     if status in BRANCH_RETAINED_TERMINAL_STATUSES and branch == name:
         return errors
+
+    return errors
+
+
+def _checklist_for_task(status_doc: dict[str, Any], task: dict[str, Any]) -> dict[str, Any] | None:
+    checklist = task.get("r10_checklist")
+    if isinstance(checklist, dict):
+        return checklist
+    task_id = task.get("id")
+    all_checklists = status_doc.get("r10_checklists", {})
+    if isinstance(all_checklists, dict) and task_id is not None:
+        value = all_checklists.get(str(task_id))
+        if isinstance(value, dict):
+            return value
+    return None
+
+
+def _nonempty_string(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def validate_dispatch_ready(root: Path, stage_dir: Path, status_doc: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    parallel_mode = status_doc.get("parallel_mode", {})
+    if not isinstance(parallel_mode, dict) or not truthy(parallel_mode.get("enabled")):
+        return errors
+
+    for name in DISPATCH_READY_REQUIRED_FILES:
+        if not (stage_dir / name).exists():
+            errors.append(f"dispatch-ready missing required stage file: {name}")
+
+    complexity = status_doc.get("complexity", {})
+    classification = complexity.get("classification") if isinstance(complexity, dict) else None
+    if classification in {"MEDIUM", "HIGH", "MILESTONE"} and not (stage_dir / "12-development-breakdown.md").exists():
+        errors.append("dispatch-ready missing required stage file: 12-development-breakdown.md")
+
+    tasks, task_shape_errors = normalize_tasks(status_doc)
+    errors.extend(task_shape_errors)
+    object_tasks = [task for task in tasks if isinstance(task, dict)]
+    if len(object_tasks) < 2:
+        errors.append("parallel dispatch-ready requires at least two task objects")
+
+    for task in object_tasks:
+        task_id = str(task.get("id", "<missing-id>"))
+        prefix = f"task {task_id} r10_checklist"
+        owner_provider = provider_key(task.get("owner") or task.get("implementer"))
+        expected_reviewer = expected_cross_reviewer(root, owner_provider)
+        checklist = _checklist_for_task(status_doc, task)
+        if not isinstance(checklist, dict):
+            errors.append(f"{prefix} missing; use tasks[].r10_checklist or r10_checklists.{task_id}")
+            continue
+
+        string_fields = [
+            "task_prompt_path",
+            "embedded_review_prompt_path",
+            "self_tests_command",
+            "diff_patch_command",
+            "diff_patch_path",
+            "cross_review_adapter",
+            "cross_review_command_ref",
+            "cross_review_raw_output_path",
+            "cross_review_dispatch_path",
+            "pass_branch",
+            "blocker_branch",
+        ]
+        for field in string_fields:
+            if not _nonempty_string(checklist.get(field)):
+                errors.append(f"{prefix}.{field} must be a non-empty string")
+
+        for path_field in ("task_prompt_path", "embedded_review_prompt_path"):
+            value = checklist.get(path_field)
+            if value and not evidence_path_exists(root, stage_dir, value):
+                errors.append(f"{prefix}.{path_field} does not exist: {value}")
+
+        diff_patch_path = checklist.get("diff_patch_path")
+        if _nonempty_string(diff_patch_path) and not str(diff_patch_path).endswith(".diff.patch"):
+            errors.append(f"{prefix}.diff_patch_path must end with .diff.patch")
+        raw_output_path = checklist.get("cross_review_raw_output_path")
+        if _nonempty_string(raw_output_path) and not str(raw_output_path).endswith(".raw-output.md"):
+            errors.append(f"{prefix}.cross_review_raw_output_path must end with .raw-output.md")
+        dispatch_path = checklist.get("cross_review_dispatch_path")
+        if _nonempty_string(dispatch_path) and not str(dispatch_path).endswith(".dispatch.md"):
+            errors.append(f"{prefix}.cross_review_dispatch_path must end with .dispatch.md")
+
+        if expected_reviewer:
+            adapter = checklist.get("cross_review_adapter")
+            if adapter != expected_reviewer:
+                errors.append(
+                    f"{prefix}.cross_review_adapter must be {expected_reviewer!r} for implementer provider {owner_provider!r}, got {adapter!r}"
+                )
+            expected_ref = f"agents/registry.yaml#adapters.{expected_reviewer}.embedded_read_only_review_command"
+            if checklist.get("cross_review_command_ref") != expected_ref:
+                errors.append(f"{prefix}.cross_review_command_ref must be {expected_ref!r}")
+            if not registry_has_embedded_review_command(root, expected_reviewer):
+                errors.append(f"registry missing adapters.{expected_reviewer}.embedded_read_only_review_command")
+        elif owner_provider:
+            errors.append(f"{prefix}: no cross-review reviewer can be derived for implementer provider {owner_provider!r}")
+        else:
+            errors.append(f"{prefix}: missing task owner/implementer provider")
+
+        if checklist.get("next_dispatch_executor") != "self":
+            errors.append(f"{prefix}.next_dispatch_executor must be 'self'")
+        if checklist.get("manual_user_handoff_allowed") is not False:
+            errors.append(f"{prefix}.manual_user_handoff_allowed must be false")
+        if checklist.get("max_rounds") != 2:
+            errors.append(f"{prefix}.max_rounds must be 2")
+
+        unavailable = checklist.get("unavailable_branch")
+        if not isinstance(unavailable, dict):
+            errors.append(f"{prefix}.unavailable_branch must be an object")
+        else:
+            classes = unavailable.get("failure_classes")
+            if not isinstance(classes, list) or not classes:
+                errors.append(f"{prefix}.unavailable_branch.failure_classes must be a non-empty list")
+            else:
+                unknown = [item for item in classes if item not in EMBEDDED_CHECKPOINT_FAILURE_CLASSES]
+                if unknown:
+                    errors.append(f"{prefix}.unavailable_branch.failure_classes contains unknown values: {unknown}")
+            artifact = unavailable.get("escalation_artifact")
+            if not _nonempty_string(artifact) or not str(artifact).endswith(".dispatch.md"):
+                errors.append(f"{prefix}.unavailable_branch.escalation_artifact must be a .dispatch.md path")
 
     return errors
 
@@ -591,7 +812,11 @@ def validate_acceptance(root: Path, stage_dir: Path, status_doc: dict[str, Any])
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate an AI Project Harness stage")
     parser.add_argument("stage", help="stage id or path under reports/agent-runs")
-    parser.add_argument("--phase", choices=["pre-review", "pre-accept", "checkpoint"], default="checkpoint")
+    parser.add_argument(
+        "--phase",
+        choices=["dispatch-ready", "pre-review", "pre-accept", "checkpoint"],
+        default="checkpoint",
+    )
     parser.add_argument("--task", help="optional task id for task-level fingerprint and cross-review checks")
     args = parser.parse_args()
 
@@ -609,6 +834,8 @@ def main() -> int:
         errors.extend(validate_common(root, stage_dir, status_doc, args.phase))
         errors.extend(validate_stage_branch(root, status_doc, args.phase))
         errors.extend(validate_parallel_mode(root, stage_dir, status_doc, args.phase))
+        if args.phase == "dispatch-ready":
+            errors.extend(validate_dispatch_ready(root, stage_dir, status_doc))
         if args.phase in {"pre-review", "pre-accept"}:
             errors.extend(validate_required_files(stage_dir, status_doc, args.phase))
             errors.extend(validate_tasks(root, stage_dir, status_doc, args.task))
@@ -624,7 +851,11 @@ def main() -> int:
             return 1
 
         print("STAGE VALIDATION PASSED")
-        print(f"stage={stage_dir.relative_to(root)}")
+        try:
+            stage_label = str(stage_dir.relative_to(root))
+        except ValueError:
+            stage_label = str(stage_dir)
+        print(f"stage={stage_label}")
         print(f"phase={args.phase}")
         print(f"status={status_doc.get('status')}")
         if status_doc.get("diff_fingerprint"):

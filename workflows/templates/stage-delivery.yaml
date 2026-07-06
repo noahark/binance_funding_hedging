@@ -74,9 +74,10 @@ artifacts:
       - 12-development-breakdown.md
     parallel_development_with_embedded_cross_review:
       - "embedded-review-<task-id>-round<N>.diff.patch"
-      - "embedded-review-<task-id>-round<N>.prompt-for-<reviewer>.md"
+      - "embedded-review-<task-id>-round<N>.dispatch.md"
       - "embedded-review-<task-id>-round<N>.raw-output.md"
       - "embedded-review-<task-id>-round<N>.fix-note.md when fixed"
+      - "embedded-review-<task-id>.prompt.md"
       - "pre-review-task-<task-id>-by-<reviewer>.prompt.md"
   direction_files_required_for_milestone_freeze:
     - direction-drafts/*.md
@@ -384,6 +385,8 @@ stages:
       - "Breakdown is design involvement for review-2 disclosure purposes."
 
   - id: task-breakdown
+    preflight:
+      - "If parallel_mode.enabled=true, run scripts/validate-stage.py {{stage_id}} --phase dispatch-ready and store output in 60-test-output.txt or an adjacent validation log before implementation starts."
     actor: bookkeeper
     skill: task_planner
     mode: read_write_docs
@@ -399,6 +402,7 @@ stages:
       - "Implementation tasks have clear owners, dependencies, and file boundaries."
       - "For multi-task stages, status.json records each task with owner, reviewer, base_sha/head_sha/diff_fingerprint, review verdict, and test evidence path."
       - "For parallel development stages, dispatch packets include R10 self-executing next_dispatch commands and exact artifact paths."
+      - "For parallel development stages, status.json records tasks[].r10_checklist or r10_checklists.<task-id> with machine-readable dispatch-ready fields."
 
   - id: implementation
     actor_pool:
@@ -450,7 +454,7 @@ stages:
       - "raw artifacts listed in the prompt"
     writes:
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.diff.patch"
-      - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.prompt-for-<reviewer>.md"
+      - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.dispatch.md"
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.raw-output.md"
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.fix-note.md when fixed"
     rules:
@@ -459,7 +463,7 @@ stages:
       - "Local embedded review/fix loops are capped at two rounds and do not count as stage rework_count."
       - "A scope-contained BLOCKER routes to a local implementation fix, then embedded review round 2."
       - "Round 2 is the cap. A second BLOCKER, scope/contract dispute, missing evidence, or unsafe fix requirement escalates to bookkeeper-decision."
-      - "Model unavailable, adapter missing, timeout, or invalid pre-review output routes to bookkeeper-decision, not directly to a terminal stop."
+      - "Embedded checkpoint failure classes come from agents/registry.yaml failure_classes.embedded_checkpoint and route to bookkeeper-decision, not directly to a terminal stop."
       - "The bookkeeper must re-generate and reconcile each task diff before committing, per R4."
     transitions:
       PASS: test
@@ -472,6 +476,12 @@ stages:
         then: implementation
         else: bookkeeper-decision
       model_unavailable: bookkeeper-decision
+      adapter_missing: bookkeeper-decision
+      command_error: bookkeeper-decision
+      permission_error: bookkeeper-decision
+      timeout: bookkeeper-decision
+      invalid_pre_review_output: bookkeeper-decision
+      scope_or_contract_dispute: bookkeeper-decision
 
   - id: bookkeeper-decision
     run_when:

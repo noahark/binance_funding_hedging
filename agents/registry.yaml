@@ -53,6 +53,8 @@ adapters:
     availability_check_command: "zsh -lic 'type claude-glm'"
     noninteractive_command: "claude-glm --model glm-5.2 -p \"$(cat <prompt-file>)\""
     read_only_review_command: "claude-glm --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
+    embedded_read_only_review_command: "claude-glm --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
+    embedded_read_only_review_enforcement: adapter_plan_mode
     yolo_command: "claude-glm --model glm-5.2 --dangerously-skip-permissions -p \"$(cat <prompt-file>)\""
     supports_write: true
     supports_read_only: true
@@ -110,6 +112,8 @@ adapters:
     default_model_policy: "use explicit latest Kimi coding alias: --model kimi-code/kimi-for-coding"
     design_model: "kimi-code/kimi-for-coding"
     noninteractive_command: "kimi --model kimi-code/kimi-for-coding -p \"$(cat <prompt-file>)\""
+    embedded_read_only_review_command: "kimi --model kimi-code/kimi-for-coding -p \"$(cat <prompt-file>)\""
+    embedded_read_only_review_enforcement: prompt_and_wrapper
     plan_command: "kimi --model kimi-code/kimi-for-coding --plan"
     yolo_command: "kimi --model kimi-code/kimi-for-coding -y"
     supports_write: true
@@ -342,6 +346,11 @@ model_policies:
   review_1_cross_review_pool:
     - kimi
     - claude_glm
+  parallel_mode:
+    cross_review_selection_ref: "model_policies.review_1_selection_rules"
+    r10_checklist_location: "status.json tasks[].r10_checklist or status.json.r10_checklists.<task-id>"
+    embedded_read_only_command_ref_template: "agents/registry.yaml#adapters.<reviewer>.embedded_read_only_review_command"
+    failure_class_ref: "failure_classes.embedded_checkpoint"
   review_1_selection_rules:
     - "If implementer provider is claude_glm, review-1 uses kimi."
     - "If implementer provider is kimi, review-1 uses claude_glm."
@@ -365,6 +374,16 @@ model_policies:
     - development_models_exhausted
     - stage_accepted_waiting_user
     - human_escalation_required
+
+failure_classes:
+  embedded_checkpoint:
+    - model_unavailable
+    - adapter_missing
+    - command_error
+    - permission_error
+    - timeout
+    - invalid_pre_review_output
+    - scope_or_contract_dispute
 
 rotation_defaults:
   designers: [codex, claude]
