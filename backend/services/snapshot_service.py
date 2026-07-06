@@ -51,9 +51,10 @@ class SnapshotService:
         self._schema = None
         # Private borrow-validation client (the repo's single HMAC exit). Offline
         # mode never touches the private channel (no key, no network) -> every row
-        # degrades to verified=false. Live mode reads key/secret from env; missing
-        # -> enabled=False -> same verified=false degradation.
-        if config.offline:
+        # degrades to verified=false. Live mode still requires an explicit
+        # operator switch before reading key/secret from env; missing switch or
+        # missing keys -> enabled=False -> same verified=false degradation.
+        if config.offline or not config.private_channel_enabled:
             _api_key = _api_secret = None
         else:
             _api_key = os.environ.get("BINANCE_API_KEY")

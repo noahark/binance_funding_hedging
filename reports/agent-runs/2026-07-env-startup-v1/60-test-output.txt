@@ -1,0 +1,202 @@
+# Test Output: .env Startup Path V1
+
+## Python Syntax
+
+Command:
+
+```bash
+python3 -m py_compile backend/config.py backend/app/server.py backend/services/snapshot_service.py backend/tests/test_config.py
+```
+
+Result: PASS
+
+## Shell Syntax
+
+Command:
+
+```bash
+bash -n scripts/run-server.sh
+```
+
+Result: PASS
+
+## Config Tests
+
+Command:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_config.py -q -p no:cacheprovider
+```
+
+Output:
+
+```text
+.......                                                                  [100%]
+7 passed in 0.07s
+```
+
+## Full Backend Tests
+
+Command:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/ -q -p no:cacheprovider
+```
+
+Output:
+
+```text
+154 passed in 5.23s
+```
+
+## Frontend Self-Check
+
+Command:
+
+```bash
+node frontend/self-check.js
+```
+
+Result: PASS, final line:
+
+```text
+全部自检通过
+```
+
+## Startup Script Probe
+
+Command:
+
+```bash
+APP_OFFLINE=true APP_BIND_PORT=8799 BINANCE_PRIVATE_CHANNEL_ENABLED=false PYTHONUNBUFFERED=1 /opt/homebrew/bin/timeout 2s scripts/run-server.sh
+```
+
+Output:
+
+```text
+No .env found at /Users/ark/Desktop/ai code/funding_hedging/.env; starting with environment/defaults.
+serving public-market snapshot on http://127.0.0.1:8799 (offline=True, top_n=20, ttl=60s, private_channel_enabled=False)
+```
+
+Exit: 124 from `timeout`, expected because the server keeps running.
+
+## Git Whitespace
+
+Command:
+
+```bash
+git diff --check
+```
+
+Result: PASS
+
+## Startup Python Selection
+
+`scripts/run-server.sh` uses `$PYTHON` when provided, otherwise prefers
+`.venv/bin/python` when available, and falls back to `python3`.
+
+## Local .env Live Startup Probe
+
+Local ignored `.env` was created for runtime testing only. It uses:
+
+```text
+APP_BIND_PORT=8799
+APP_OFFLINE=false
+BINANCE_PRIVATE_CHANNEL_ENABLED=false
+BINANCE_API_KEY=
+BINANCE_API_SECRET=
+```
+
+The default 8787 port was already occupied by an existing Python process, so the
+probe used 8799 and did not stop the existing 8787 process.
+
+Startup command:
+
+```bash
+PYTHONUNBUFFERED=1 scripts/run-server.sh
+```
+
+Server output:
+
+```text
+serving public-market snapshot on http://127.0.0.1:8799 (offline=False, top_n=20, ttl=60s, private_channel_enabled=False)
+```
+
+Probe command:
+
+```bash
+curl -sS --max-time 30 http://127.0.0.1:8799/api/public-market/snapshot | python3 -c 'import json,sys; data=json.load(sys.stdin); print("schema_version=", data.get("schema_version")); print("rows=", len(data.get("rows", []))); print("private_enabled=", data.get("private", {}).get("enabled")); print("sort_basis=", data.get("sort_basis")); print("first_symbol=", data.get("rows", [{}])[0].get("symbol"))'
+```
+
+Output:
+
+```text
+schema_version= public-market-snapshot/v1
+rows= 648
+private_enabled= None
+sort_basis= abs_daily_funding_rate
+first_symbol= LABUSDT
+```
+
+Cleanup:
+
+- Stopped the 8799 test server with Ctrl-C.
+- Verified no listener remains on 8799.
+- Verified the pre-existing 8787 Python listener remains untouched.
+
+## Local .env Private-Enabled Smoke Probe
+
+After the user populated local `.env`, restored `APP_BIND_PORT=8787`, and set
+`BINANCE_PRIVATE_CHANNEL_ENABLED=true`, the service was restarted from the same
+startup script. No key, balance, position, or account-detail values were printed
+or recorded.
+
+Probe command:
+
+```bash
+python3 - <<'PY'
+import json
+import urllib.request
+with urllib.request.urlopen('http://127.0.0.1:8787/api/public-market/snapshot', timeout=120) as resp:
+    data = json.load(resp)
+rows = data.get('rows') or []
+verified = 0
+errors = 0
+for row in rows:
+    bv = row.get('borrow_validation') or {}
+    if bv.get('verified') is True:
+        verified += 1
+    if bv.get('error'):
+        errors += 1
+summary = data.get('borrow_validation') or {}
+print('private_channel=', data.get('private_channel'))
+print('schema_version=', data.get('schema_version'))
+print('rows=', len(rows))
+print('sort_basis=', data.get('sort_basis'))
+print('verified_rows=', verified)
+print('rows_with_error_field=', errors)
+print('coverage=', summary.get('coverage'))
+print('chain_hit_source=', summary.get('chain_hit_source'))
+PY
+```
+
+Output:
+
+```text
+private_channel= enabled
+schema_version= public-market-snapshot/v1
+rows= 648
+sort_basis= net_daily_yield
+verified_rows= 638
+rows_with_error_field= 10
+coverage= {'probed': 50, 'skipped': 10, 'reason': 'rate_limit_budget'}
+chain_hit_source= rate_history
+```
+
+Interpretation: `.env` private-channel enablement works. Rows with an error
+field are bounded-probe omissions caused by `rate_limit_budget`, not recorded as
+private endpoint failures.
+
+本地北京时间: 2026-07-06 20:46:01 CST
+下一步模型: Codex/GPT
+下一步任务: Decide whether to commit and send to review.
