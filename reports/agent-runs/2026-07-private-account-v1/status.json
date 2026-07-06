@@ -106,7 +106,14 @@
       "round_artifacts": [
         {"round": 1, "dispatch_path": "pre-review-task-a-by-kimi.prompt.md", "worktree_diff_path": "embedded-review-a-round1.diff.patch", "raw_output_path": "embedded-review-a-round1.raw-output.md", "fix_report_path": "embedded-review-a-round2.dispatch.md"},
         {"round": 2, "dispatch_path": "embedded-review-a-round2.dispatch.md", "worktree_diff_path": "embedded-review-a-round2.diff.patch", "raw_output_path": "embedded-review-a-round2.raw-output.md"}
-      ]
+      ],
+      "formal_review": {
+        "output": "review-1-task-a-round1.raw-output.md",
+        "base_sha": "fce1452cbc1db652477f517c4017a13f3ffb5449",
+        "head_sha": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b",
+        "diff_fingerprint": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b:fdfba177950b8872b386d07c1ee02ddfff7eaa0b044307691ebbb40235b8a252",
+        "verdict": "ACCEPT"
+      }
     },
     "B": {
       "task_id": "B",
@@ -117,7 +124,14 @@
       "rounds": 1,
       "round_artifacts": [
         {"round": 1, "dispatch_path": "embedded-review-b-round1.dispatch.md", "worktree_diff_path": "embedded-review-b-round1.diff.patch", "raw_output_path": "embedded-review-b-round1.raw-output.md"}
-      ]
+      ],
+      "formal_review": {
+        "output": "review-1-task-b-round1.raw-output.md",
+        "base_sha": "6ca6ee1db61952c10d547aa73a79e0711b2ae64b",
+        "head_sha": "6c1e992c4628c0d8e369ba648b0403f341037849",
+        "diff_fingerprint": "6c1e992c4628c0d8e369ba648b0403f341037849:50998c3a60afbae089f3e370e7ecbdd869256c70ff0cc1ae888b3f3abd6da2a2",
+        "verdict": "ACCEPT"
+      }
     }
   },
   "h_intake": {
