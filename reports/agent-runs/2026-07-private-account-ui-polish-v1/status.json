@@ -135,17 +135,17 @@
     "reviewer": "codex",
     "provider": "openai",
     "model": "gpt-5-codex",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
     "diff_fingerprint": "ec80d9718f6b15ee5efcddf092c1baab8023dfbc:029c6220c4ec7dd4dd03dad38c85e9f39fa8ac3ba9f6e25581b7139e374ec48d",
     "reviewer_prior_involvement": "design",
     "reviewer_prior_involvement_notes": "Codex 是本 stage designer;review-1 复核实现对设计的保真度。非 implementer/fix-author,reviewer≠implementer 硬红线不破。终审(review-2)由独立 Fable5 承担。",
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": "n/a (ACCEPT, 0 required_fixes)",
     "invalid_json_attempts": 0,
     "round": 3,
-    "note": "round-2 ACCEPT 已 superseded(P3 cleanup 产生新 diff, 见 review_history);round-3 为 P3 cleanup delta 复审(fix_author=kimi≠reviewer)。bookkeeper 预检: delta 仅 frontend/index.html 2×P3、无逻辑/后端/schema 改动; fingerprint 复算=recorded; 160 pytest+self-check+schema 全绿。"
+    "note": "round-3 P3 cleanup delta 复审 ACCEPT。bookkeeper 复核 verdict: fingerprint 匹配, JSON 合 schema, findings=0/required_fixes=0; 两处 P3(round-2 findings)已消解。round-2 ACCEPT superseded(review_history)。"
   },
   "review_2": {
     "reviewer": "fable5",
