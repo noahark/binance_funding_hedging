@@ -49,11 +49,13 @@
 
 ## Next Action
 
-派发增量设计给 Codex(`stage-design-addendum-codex.prompt.md`):为 item 5–10 补设计
-(尤其 item-6 后端排序语义、item-10 精确审计文案),复用 round-1 基础,不写实现。设计交回
-后 Fable5 做 design_review → 派 Kimi 实现 → Codex review-1 → Fable5 review-2 → pre-accept
-→ 用户验收合并。Fable5 不参与设计以保 review-2 独立性。
+派发实现给 Kimi(`implementation-kimi-v1.1.prompt.md`):按 `10-design.md#v1.1-ui-polish-2
+Design Addendum` + ADR-7/8/9 实现 item 5–10。Fable5 design_review_addendum=ACCEPT(已落
+status)。实现交回后 Fable5 独立复算 diff/fingerprint + 复跑测试 → Codex review-1 → Fable5
+review-2 → pre-accept → 用户验收合并。
+
+Round-2 红线:仅排 balances_* 不碰 frozen 市场 rows;无契约字段变更;时点合并纯前端;只读不下单。
 
 本地北京时间: 2026-07-07 CST
-下一步模型: Codex（stage-design 增量）
-下一步任务: 出 v1.1-ui-polish-2 增量设计(10-design addendum + ADR)与契约变更门结论
+下一步模型: Kimi（实现 v1.1-ui-polish-2）
+下一步任务: 实现 item 5–10 + 测试全绿 + 追加 20-implementation/60-test-output,回报 head_sha

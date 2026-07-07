@@ -283,7 +283,231 @@ Reviewers must inspect:
 - Updated `frontend/fixture/public-market-snapshot.json`.
 - `status.json` task routing and final diff fingerprint.
 
+## v1.1-ui-polish-2 Design Addendum
+
+本增量覆盖 `00-task.md` Scope 增补 item 5-10。它复用 round-1 已落地的
+`balances_unified[].value_usdt` / `balances_spot[].value_usdt` 字段，只补展示规则、余额排序、
+卡片删减、时间合并和审计文案。Codex 本轮仍只做设计，不改实现代码、schema 或契约正文。
+
+### Contract Change Gate Conclusion
+
+- 不触发契约字段或枚举变更：`value_usdt` 已在 v0.4 additive amendment 中存在，`valuation.priced_at`
+  与 `checked_at` 也已存在。
+- `private_account.balances_unified[]` / `private_account.balances_spot[]` 的排序是数组顺序行为变更，
+  不是字段、枚举或 `schema_version` 变更。
+- 市场 `rows` 的冻结顺序绝不变更。`docs/api/public-market-contract.md` 的
+  `Row order (frozen)` 仍是 `abs(Decimal(daily_funding_rate))` DESC、null last、`symbol` ASC，
+  且后续 v0.3 `sort_basis` 行为也不受本增量影响。
+- 建议实现阶段只在 `docs/api/public-market-contract.md` v0.4 amendment 追加一句展示约定：
+  `private_account.balances_unified[]` and `private_account.balances_spot[]` are emitted by
+  `value_usdt` DESC, null last, `asset` ASC. 这是 additive-only 说明，`schema_version` 仍为
+  `public-market-snapshot/v1`，不修改 frozen market `rows` 语义。
+
+### Item 5: 余额行内折算
+
+HOW:
+
+- 前端把统一账户和现货账户余额卡片的折算值从独立 `折算:` 行改为金额行内追加：
+  `金额 【: 123.45 USDT】`。
+- 源字段只用 `b.value_usdt`。前端不得用余额数量和价格自行重算，也不得用行级值反推
+  `private_account.total_value_usdt`。
+- `value_usdt` 可见格式固定为 2 位小数，舍入方式为 `ROUND_HALF_UP`。实现应优先使用
+  decimal-string helper 处理 8 位字符串，避免 `Number(...).toFixed(2)` 的二进制舍入漂移。
+  规则是对绝对值做 half-up 到 cents 后再恢复符号。
+- `value_usdt == null`、字段缺失或空字符串：显示 `【: — USDT】`。
+- 合法零值 `"0.00000000"`：显示 `【: 0.00 USDT】`，不是缺失占位。
+- 隐私开关开启时，余额数量与折算值同时遮蔽。建议统一账户显示
+  `**** 【: ****】`，现货账户的 `free`、`locked` 和折算值也都使用 `****`。
+
+涉及文件/函数:
+
+- `frontend/index.html`: `renderPrivatePanel()` 内 unified/spot balance card 渲染；
+  新增/替换 `formatUsdt2(valueUsdt)` 或等价 decimal-string helper；复用 `maskAmount` 的隐私状态但不要复用
+  `formatPrice` 作为 2 位 USDT 格式化器。
+- `frontend/self-check.js`: 增加 2 位显示、null 占位、合法零、隐私遮蔽断言。
+
+边界与降级:
+
+- `private_account` 缺失或 `verified=false` 的面板降级逻辑不变。
+- 旧 payload 缺少 `value_usdt` 时不白屏，按 `【: — USDT】` 展示。
+
+### Item 6: 后端排序 `balances_*`
+
+HOW:
+
+- 在 `backend/domain/snapshot.py` 的 `assemble_private_account()` 内排序最终输出的
+  `unified_out` 和 `spot_out`。
+- 排序范围只限 `private_account.balances_unified` 与 `private_account.balances_spot`。
+  不调用、不修改 `sort_rows()`，不触碰市场 `rows`。
+- 主键：`value_usdt` 降序。
+- null / 缺失 / 防御性非法值：一律排最后。
+- 确定性 tie-break：`asset` ASC；如同 asset 重复，保留原输入顺序作为最终稳定 tie-break。
+
+排序伪码:
+
+```python
+from decimal import Decimal, InvalidOperation
+
+def _balance_sort_key(row_with_index):
+    idx, row = row_with_index
+    raw = row.get("value_usdt")
+    asset = str(row.get("asset") or "")
+    try:
+        value = Decimal(str(raw)) if raw not in (None, "") else None
+    except (InvalidOperation, ValueError, TypeError):
+        value = None
+    if value is None:
+        return (1, Decimal("0"), asset, idx)
+    return (0, -value, asset, idx)
+
+unified_out = [row for _, row in sorted(enumerate(unified_out), key=_balance_sort_key)]
+spot_out = [row for _, row in sorted(enumerate(spot_out), key=_balance_sort_key)]
+```
+
+涉及文件/函数:
+
+- `backend/domain/snapshot.py`: `assemble_private_account()` only。
+- `backend/tests/test_private_account_v1.py`: 新增 pytest，覆盖 unified 与 spot 的 value 降序、
+  null last、同值按 asset ASC、市场 `rows` 排序不受影响。
+
+契约边界:
+
+- 这是 private account balance array order 变更，非契约字段/枚举变更。
+- 必须显式保护 frozen market rows：`sort_rows()` 和 `docs/api/public-market-contract.md`
+  `Row order (frozen)` 不改。
+
+### Item 7: 删除「估值来源」overview 卡
+
+HOW:
+
+- 前端 `renderPrivatePanel()` 中删除 overview 的「估值来源」卡。
+- payload 继续保留 `private_account.valuation.price_source`，schema 与后端输出不变。
+- 变量 `priceSource` 如只服务被删卡片，应移除以免死代码；如用于 raw audit 或 title，可保留但不可见展示。
+
+涉及文件/函数:
+
+- `frontend/index.html`: `renderPrivatePanel()` overview markup。
+- `frontend/self-check.js`: 断言私有面板不再出现可见文本 `估值来源`，同时 fixture/payload 中
+  `price_source` 仍存在。
+
+### Item 8: 删除矛盾运行约束
+
+HOW:
+
+- 删除侧栏页脚中 `公开行情 · 只读展示 · 不连接 Binance` 这一运行约束文案；推荐删除整个
+  `.sidebar-footer` block，避免留下与私有 HMAC 通道矛盾的概括。
+- 不新增任何暗示“无需 key”“不连接 Binance”的替代说法。
+
+涉及文件/函数:
+
+- `frontend/index.html`: 侧栏 534-537 附近静态 DOM。
+- `frontend/self-check.js`: 断言页面文本不含 `不连接 Binance`。
+
+### Item 9: 时点合一
+
+HOW:
+
+- 仅前端合并展示。后端 `assemble_private_account()` 继续输出
+  `valuation.priced_at = checked_at` 和顶层 `checked_at`，保持契约稳定。
+- verified=true 时，私有面板副标题从 `只读资产视图` 改为
+  `资产更新时间 <时间>`。时间取 `pa.checked_at`，缺失时 fallback 到 `pa.valuation.priced_at`，
+  都缺失时展示 `资产更新时间 —`。
+- overview 删除「估值时点」「检查时点」两张卡。
+- verified=false 时可继续显示状态副标题，但建议用 item 10 的 `私有账户未读取` 口径。
+
+涉及文件/函数:
+
+- `frontend/index.html`: `renderPrivatePanel()` 中 `privatePanelSubtitle`、overview markup。
+- `frontend/self-check.js`: 断言副标题包含 `资产更新时间`，且可见 overview 不再出现
+  `估值时点` / `检查时点`。
+
+契约边界:
+
+- 后端字段保持不变。`priced_at` 和 `checked_at` 的现有同值事实继续由后端保证。
+- 不需要 schema 或 contract 字段更新。
+
+### Item 10: 审计文案校准
+
+backend 事实:
+
+- `_private.fetch_*` 私有通道是真实 signed HMAC 连接 Binance。
+- deny-by-default：无 key、配置关闭或请求失败时 `classic_ref=None`，`private_account.verified=false`，
+  公开行情 snapshot 仍渲染。
+- 本产品仍只读：不下单、不借币、不还币、不划转。
+
+精确替换表:
+
+| 位置 | 原文 | 新文 |
+| --- | --- | --- |
+| 侧栏 brand subtitle | `公开数据 · 只读` | `行情公开 · 账户私有只读` |
+| 侧栏运行约束 strong | `公开行情 · 只读展示 · 不连接 Binance` | 删除该侧栏页脚，不展示替换文案 |
+| 顶栏 subtitle | `公开数据 · 只读` | `行情公开 · 账户需 key 私有只读` |
+| 顶栏 badge | `公开数据` | `行情公开` |
+| 顶栏 badge | `只读` | `账户只读` |
+| 数据说明 subtitle | `来自后端快照服务的公开验证限制与展示约定` | `来自后端快照服务的行情公开数据与账户私有只读验证说明` |
+| `WARNING_CHINESE[0]` | `杠杆交易对官方清单需 API key（当前无 key 阶段），杠杆可借性未经私有验证；候选判断使用公开现货 isMarginTradingAllowed 字段。` | `杠杆交易对与可借性通过私有只读 API key 验证；未配置或请求失败时标为需私有验证，候选初筛仍使用公开现货 isMarginTradingAllowed 字段。` |
+| `marginPublicNote` span | `杠杆可借性未经私有验证（当前为公开数据阶段）` | `账户与借币验证通过私有只读 API key 读取；未配置或失败时降级为需私有验证，公开行情仍可展示。` |
+| verified=true 私有面板 subtitle | `只读资产视图` | `资产更新时间 <YYYY-MM-DD HH:mm:ss>`；无时间为 `资产更新时间 —` |
+| verified=false 私有面板 subtitle | `私有通道未启用` | `私有账户未读取` |
+| verified=false empty-state strong | `私有通道未启用` | `私有账户未读取` |
+| verified=false empty-state body | `当前未获取到账户资产数据` | `未配置 API key 或私有只读请求失败，未获取到账户资产数据` |
+| verified=false help text | `请检查 API key 权限或后端私有通道配置` | `请检查 API key 权限、IP 白名单或后端私有通道配置；系统不会下单或划转` |
+
+文案边界:
+
+- 可以保留 `行情公开`，但不要再把账户数据称为 `公开数据`。
+- 必须保留 `只读`，并明确只读含义是“不下单、不划转”；不应写“当前无 key 阶段”。
+- 不要写“不连接 Binance”。真实行为是在有 key 时通过 signed HMAC 读取私有账户。
+
+### Incremental Implementation Boundaries
+
+Allowed implementation files for Kimi:
+
+- `backend/domain/snapshot.py`
+- `backend/tests/test_private_account_v1.py`
+- `backend/tests/test_snapshot.py` only if needed to pin market row order
+- `docs/api/public-market-contract.md` only for additive balance-order note
+- `frontend/index.html`
+- `frontend/self-check.js`
+- `frontend/fixture/public-market-snapshot.json` only if self-check fixture needs text/value updates
+
+Forbidden in this increment:
+
+- No schema field/enum change.
+- No changes to `rows` ordering, `sort_rows()`, `sort_basis`, classifier/normalizer enums, private HMAC whitelist,
+  order/borrow/repay/transfer behavior, or deployment.
+- No frontend sorting of balances; the frontend renders backend payload order.
+
+### Incremental Test Strategy
+
+Backend:
+
+- `python3 -m pytest backend/tests/test_private_account_v1.py -q`
+- `python3 -m pytest backend/tests/test_snapshot.py -q`
+- `python3 -m pytest backend/tests -q`
+
+Required backend assertions:
+
+- `assemble_private_account()` sorts unified and spot balances by `value_usdt` DESC.
+- `value_usdt is None` rows sort after all valued rows.
+- Equal `value_usdt` ties sort by `asset` ASC.
+- Existing market `rows` order tests remain green; add a regression assertion if existing coverage does not explicitly guard it.
+
+Frontend:
+
+- `node frontend/self-check.js`
+
+Required frontend assertions:
+
+- Balance cards render `金额 【: 123.45 USDT】` with 2-place `ROUND_HALF_UP` display.
+- `value_usdt == null` renders `【: — USDT】`; `"0.00000000"` renders `【: 0.00 USDT】`.
+- Privacy hidden state masks both raw amount and row valuation.
+- `估值来源`、`估值时点`、`检查时点` are no longer visible in the private overview.
+- `price_source` remains in fixture/payload.
+- Private subtitle displays `资产更新时间 <time>`.
+- Page text no longer contains `不连接 Binance`、`当前无 key 阶段` or account data described as `公开数据`.
+
 模型身份: GPT-5 / Codex
-本地北京时间: 2026-07-07 CST
-下一步模型: Kimi
-下一步任务: 按本设计实现 Task A/B，并在完成后交由 Fable5/bookkeeper 组织 review-1/review-2。
+本地北京时间: 2026-07-07 15:31:49 CST
+下一步模型: Fable5
+下一步任务: design_review 本增量设计；若 ACCEPT，则派 Kimi 实现 item 5-10。

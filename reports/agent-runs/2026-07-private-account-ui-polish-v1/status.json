@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-ui-polish-v1",
-  "status": "designing",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-private-account-ui-polish-v1",
@@ -172,6 +172,19 @@
     "note": "10-design/11-adr 对齐冻结契约, 方案A(后端 value_usdt)取舍充分, 指令与真实代码/路径核验通过。实现须注意: 行级 value_usdt 不能直接复用 _usdt_value(缺价返回0无法区分 null/0), 需返回 None 的变体; 顶层 total_value_usdt 不变。",
     "reviewed_at": "2026-07-07 CST"
   },
-  "next_action": "dispatch_stage_design_addendum_codex",
-  "updated_at": "2026-07-07 CST (用户裁决折入 v1.1-ui-polish-2 六项: round-1 两轮 ACCEPT superseded 入 review_history, status stage_accepted_waiting_user→designing; 派 Codex 出增量设计(item-2 后端排序仅限 balances_* 不碰 frozen rows / item-6 审计文案如实承认已接入私有账户但只读); Fable5 保 review-2 独立性不涉设计)"
+  "design_review_addendum": {
+    "round": 2,
+    "scope": "v1.1-ui-polish-2 (item 5-10)",
+    "reviewer": "fable5",
+    "verdict": "ACCEPT",
+    "reviewed_artifacts": ["10-design.md#v1.1-ui-polish-2 Design Addendum", "11-adr.md#ADR-7/8/9"],
+    "note": "6 项 HOW 完整; 契约门=无字段/枚举/schema_version 变更(排序为数组顺序 behavior); item6 排序 (null-flag,-value,asset,idx) 语义正确且仅作用 balances_*, 显式保护 frozen 市场 rows/sort_rows; item5 2位 ROUND_HALF_UP 走 decimal-string; item9 纯前端合并后端字段不动; item10 文案表对齐 deny-by-default signed HMAC 事实、区分行情公开/账户私有只读、保只读不下单划转。",
+    "implementation_cautions": [
+      "item10 替换表 verified=false 分支原文须先核对代码现存字符串再替换; 不一致按意图改。",
+      "item10 顺带改顶栏/数据说明文案, 面比原 item4(仅侧栏)略广, 属用户认可的过时文案校准。"
+    ],
+    "reviewed_at": "2026-07-07 CST"
+  },
+  "next_action": "dispatch_implementation_kimi_v1_1",
+  "updated_at": "2026-07-07 CST (Codex 交回 v1.1-ui-polish-2 增量设计; Fable5 design_review_addendum=ACCEPT(守红线: 无契约字段变更/仅排 balances_* 不碰 frozen rows/纯前端合并时点/文案对齐 signed HMAC 事实); status designing→implementing; 派 Kimi 实现)"
 }
