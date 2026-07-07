@@ -162,19 +162,26 @@ if (bv && bv.verified === false && bv.error === 'borrowability_not_probed') {
 
 对照 10-design §8 / stage-plan §5 十条，尤其：tier① 分批后 `chain_hit_source=next_hourly`；截断行保留利率；两态（borrowability_not_probed vs borrow_rate_source=null）可区分；bStock 仍禁用；60s 自愈成立（无整表缓存）。
 
-## 6. R10 收尾段（实现+自测完成后必须机械执行，路径已写死）
+## 6. R10 收尾段（实现+自测完成后必须机械执行，路径已写死，一直跑到 review-1 有 verdict 为止）
 
 1. 自测：
    `python3 -m pytest backend/tests -q 2>&1 | tail -30`
    `node frontend/self-check.js 2>&1 | tail -20`
+   未全绿 → 修（仍在 §3 scope 内）后重跑；超 scope → 步骤 7 escalation。
 2. 生成 reviewer diff：
    `git diff -- backend frontend docs schemas > "reports/agent-runs/2026-07-borrow-cost-coverage-v2/H.diff.patch"`
 3. 写实现说明 `reports/agent-runs/2026-07-borrow-cost-coverage-v2/H.impl-note.md`：改动文件清单 + 每条对应 §3 哪一项 + 测试原始输出摘要 + §5 自查表 + 下列统计：
    `rate_probe_assets_count / borrowability_probe_assets_count / borrowability_unprobed_assets_count / next_hourly_returned_assets_count / batches_attempted / batches_failed / rows_with_rate_count / rows_with_rate_but_borrowability_unprobed_count / chain_hit_source`
-4. 分支处理：
-   - **PASS**（全绿 + 自查通过）→ 在结束输出里报告 PASS，并**停下等 bookkeeper 串行落盘 + 派 review-1(kimi)**。不要自己 commit、不改 status.json。
-   - **BLOCKER**（仅 §3 scope 内可修）→ 本地 fix 后重跑 1-3；仍不过或超出 scope → 转下一条。
-   - **触及 §3 file 边界之外、或新契约/schema 面、或 §2 未覆盖情形** → **停手，写 `reports/agent-runs/2026-07-borrow-cost-coverage-v2/H-escalation.md`（类别：scope/contract/ambiguity + 现象 + 卡点），交 bookkeeper（R3）**，禁自行扩面。
-5. **禁止**：只口头报告「等待下一步」而不落 H.impl-note / H.diff.patch。对侧/命令不可用时按 escalation 落档，不得空等用户。
+4. **机械触发 review-1（kimi 嵌入预审，只读）并落 raw output**（这一步不可跳过、不得改成口头请求用户）：
+   ```
+   kimi --model kimi-code/kimi-for-coding -p "$(cat 'reports/agent-runs/2026-07-borrow-cost-coverage-v2/review-1-H-by-kimi.prompt.md')" | tee "reports/agent-runs/2026-07-borrow-cost-coverage-v2/embedded-review-H-round1.raw-output.md"
+   ```
+5. 读 raw output 里的 review-verdict JSON 的 `verdict` 字段，按分支处理：
+   - **ACCEPT** → 在结束输出报告「impl PASS + review-1(kimi) ACCEPT」，并**停下**，等 bookkeeper 做 R4 diff 对账 + 串行落盘 + promote review-1 + 派 review-2(codex)。**不 commit、不写 status.json、不自己派 review-2**。
+   - **REWORK 且 `required_fixes` 全部落在 §3 file 边界内** → 按 verdict 的 `fix_start_prompt` 修，记为 round 2（`max_rounds=2` 封顶），回步骤 1 重跑（重跑含重新触发步骤 4，落 `embedded-review-H-round2.*`）。
+   - **REWORK 触及 §3 边界外 / 新契约面，或 round 2 仍 REWORK，或 verdict=BLOCKED** → 停，写 `H-escalation.md`（类别 scope/contract/ambiguity + kimi findings 摘要 + 卡点），交 bookkeeper（R3）。
+6. **kimi 不可用 / 命令失败 / 输出非合法 JSON** → 写 `embedded-review-H-round1.dispatch.md` 记 unavailable/command_error/invalid_output + 原始报错，置 `escalated`，停；**禁止空等用户**。
+7. **触及 §3 file 边界之外、或 §2 未覆盖的必须改情形** → 立即停手，写 `H-escalation.md` 交 bookkeeper（R3），禁自行扩面。
+8. **禁止**：只口头报告「等待下一步」而不落 H.impl-note / H.diff.patch / embedded-review raw-output 或 dispatch。
 
 --- END PROMPT BODY ---

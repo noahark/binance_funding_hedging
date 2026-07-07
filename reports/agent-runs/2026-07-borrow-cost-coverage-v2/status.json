@@ -58,6 +58,16 @@
       "base_sha": "5bdfc4b3dc6843a8e52aeb86896c735500ed137a"
     }
   },
+  "review_prompts": {
+    "review_1": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/review-1-H-by-kimi.prompt.md",
+    "review_2": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/review-2-stage-by-codex.prompt.md"
+  },
+  "run_to_review_1_flow": {
+    "note": "实现者(claude_glm)按 task-H §6 一路跑到 review-1 有 verdict：impl→自测→diff→impl-note→机械触发 kimi 嵌入预审(review-1 输入)→读 verdict。ACCEPT 则停等 bookkeeper；REWORK(scope 内)自修 round2；越界/BLOCKED/kimi 不可用→escalation。实现者全程不 commit、不写 status.json、不派 review-2。",
+    "embedded_review_raw_output": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/embedded-review-H-round1.raw-output.md",
+    "embedded_review_dispatch_on_failure": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/embedded-review-H-round1.dispatch.md",
+    "bookkeeper_promotes_embedded_to_review_1": "R4 对账 fingerprint(worktree→head_sha)一致后，embedded 预审 verdict promote 为正式 review-1；不一致或落盘后内容变则重跑 review-1。"
+  },
   "serial_handoff_checklist": {
     "note": "替代 parallel r10_checklist；bookkeeper 手工核验，非 validate-stage.py。",
     "self_tests_command": "python3 -m pytest backend/tests -q && node frontend/self-check.js",
@@ -67,7 +77,7 @@
     "escalation_path": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/H-escalation.md",
     "manual_user_handoff_allowed": false,
     "max_rounds": 2,
-    "pass_branch": "implementer reports PASS and stops; bookkeeper R4-reconciles diff then serial-lands, then dispatches review-1(kimi).",
+    "pass_branch": "implementer 跑完 review-1(kimi ACCEPT)后停；bookkeeper R4 对账 diff→串行落盘→promote review-1→派 review-2(codex)。",
     "blocker_branch": "scope-contained fix then re-run; 触及 §3 file 边界外/新契约面 → H-escalation.md → bookkeeper R3，禁自行扩面。"
   },
   "hard_constraints": [
