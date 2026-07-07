@@ -1,0 +1,692 @@
+diff --git a/backend/domain/snapshot.py b/backend/domain/snapshot.py
+index 5cb4b71..c4c1cc7 100644
+--- a/backend/domain/snapshot.py
++++ b/backend/domain/snapshot.py
+@@ -200,15 +200,16 @@ def assemble_snapshot(
+     ``extra_warnings`` are runtime degradation warnings (e.g. the E1 fundingInfo
+     fallback, private_account no-price lines) appended after the fixed
+     ``CONTRACT_WARNINGS``. §1.5 also requires a top-level warnings entry whenever
+-    the borrow probe truncated candidates (``coverage.skipped > 0``) — derived
+-    here from ``borrow_validation_summary`` so the truncation is never silent.
++    borrowability was not fully probed (``coverage.skipped > 0``) — derived here
++    from ``borrow_validation_summary`` so the gap is never silent. Rate coverage
++    is unaffected (the borrow rate is still filled for those rows).
+     """
+     warnings = list(CONTRACT_WARNINGS) + list(extra_warnings or [])
+     coverage = (borrow_validation_summary or {}).get("coverage") or {}
+     if coverage.get("skipped", 0) > 0:
+         warnings.append(
+-            f"borrow_validation: {coverage['skipped']} candidate(s) truncated by "
+-            f"rate_limit_budget (not_probed_this_round)"
++            f"borrow_validation: {coverage['skipped']} asset(s) borrowability not "
++            f"probed (rate still covered) — 部分资产可借额度未探测（利率仍覆盖）"
+         )
+     snap = {
+         "schema_version": SCHEMA_VERSION,
+@@ -333,18 +334,26 @@ def compute_net_daily_yield(daily_funding_rate, daily_borrow_rate) -> Optional[s
+ def select_borrow_candidates(
+     rows: List[dict], max_calls: int
+ ) -> dict:
+-    """§1.5 borrow probe set + coverage.
++    """§1.5 borrow probe sets + coverage.
+ 
+     Probe range = rows with ``daily_funding_rate < 0`` AND
+     ``route_class == MARGIN_SPOT_CANDIDATE`` AND ``asset_tag == CRYPTO``, de-duped
+-    by ``base_asset``, capped at ``max_calls`` (default 50, §2.A.2 scen 3).
+-    Truncation priority is abs daily rate DESC (symbol ASC tie-break); truncated
+-    candidates are recorded so their rows render ``verified=false`` /
+-    ``error="not_probed_this_round"`` (no silent truncation).
+-
+-    Returns ``{"probed_assets": [str], "truncated_assets": set[str],
+-    "coverage": {"probed": int, "skipped": int, "reason": str|None}}``.
+-    ``probed_assets`` is in priority order (for the E2 ``assets`` param).
++    by ``base_asset``. Truncation priority is abs daily rate DESC (symbol ASC
++    tie-break). The pool is split into THREE sets so the rate budget and the
++    borrowability budget are decoupled (borrow-cost-coverage-v2):
++
++    - ``rate_probe_assets``: the FULL de-duped pool (abs rate DESC, symbol ASC),
++      NOT capped — drives the next-hourly interest-rate coverage (cost leg). A
++      candidate outside the borrowability cap still gets its borrow rate here.
++    - ``borrowability_probe_assets``: the first ``max_calls`` of the pool — drives
++      the per-asset ``fetch_max_borrowable`` (bounded) loop.
++    - ``borrowability_unprobed_assets``: the remainder (rate covered, but
++      borrowability NOT probed) — their rows render ``verified=false`` /
++      ``error="borrowability_not_probed"`` while keeping the borrow rate.
++
++    ``coverage`` is the borrowability coverage (NOT rate coverage):
++    ``probed = len(borrowability_probe_assets)``,
++    ``skipped = len(borrowability_unprobed_assets)``.
+     """
+     cap = max(0, int(max_calls))
+     candidates = [
+@@ -358,24 +367,23 @@ def select_borrow_candidates(
+     candidates.sort(
+         key=lambda r: (-abs(Decimal(str(r["daily_funding_rate"]))), r.get("symbol", ""))
+     )
+-    probed: List[str] = []
+-    truncated_assets: set = set()
++    rate_probe: List[str] = []
+     seen: set = set()
+     for r in candidates:
+         asset = r.get("base_asset", "")
+         if not asset or asset in seen:
+             continue
+         seen.add(asset)
+-        if len(probed) < cap:
+-            probed.append(asset)
+-        else:
+-            truncated_assets.add(asset)
+-    skipped = len(truncated_assets)
++        rate_probe.append(asset)
++    borrowability_probe = rate_probe[:cap]
++    borrowability_unprobed: set = set(rate_probe[cap:])
++    skipped = len(borrowability_unprobed)
+     return {
+-        "probed_assets": probed,
+-        "truncated_assets": truncated_assets,
++        "rate_probe_assets": rate_probe,
++        "borrowability_probe_assets": borrowability_probe,
++        "borrowability_unprobed_assets": borrowability_unprobed,
+         "coverage": {
+-            "probed": len(probed),
++            "probed": len(borrowability_probe),
+             "skipped": skipped,
+             "reason": "rate_limit_budget" if skipped else None,
+         },
+@@ -671,14 +679,19 @@ def assemble_borrow_validation(
+     error: Optional[str],
+     *,
+     daily_interest_account: Optional[str] = None,
+-    truncated: bool = False,
++    borrowability_truncated: bool = False,
+ ) -> dict:
+     """Three-state borrow-validation block (parallel output; never alters classify).
+ 
+     - ``classic_ref is None`` (private channel disabled/failed): ``verified=false``,
+       every data field null, ``error`` carries the reason.
+-    - ``truncated`` (§1.5: borrow candidate beyond the probe cap): ``verified=false``,
+-      ``error="not_probed_this_round"``, chain fields null (no silent truncation).
++    - ``borrowability_truncated`` (§1.5: borrow candidate beyond the
++      maxBorrowable budget, but the rate IS covered): ``verified=false``,
++      ``error="borrowability_not_probed"``. classic_margin is filled normally
++      (pair_listed/asset_borrowable/daily_interest_vip0/daily_interest_account —
++      the borrow rate is KEPT), checked_at is KEPT, and ONLY the portfolio_account
++      amount fields are cleared. Distinct from the legacy
++      ``error="not_probed_this_round"`` (rate also absent).
+     - verified, pair not listed in the classic list: ``verified=true``,
+       ``pair_listed=false``, asset/interest fields null.
+     - verified, pair listed: ``verified=true``, ``pair_listed=true`` + asset/interest.
+@@ -710,14 +723,25 @@ def assemble_borrow_validation(
+             "checked_at": None,
+             "error": error,
+         }
+-    if truncated:
++    pair_listed = classic_ref.get("pair_listed_by_symbol", {}).get(sym)
++    if pair_listed:
++        asset_borrowable = classic_ref.get("asset_borrowable_by_name", {}).get(base)
++        daily_vip0 = classic_ref.get("daily_interest_vip0_by_coin", {}).get(base)
++    else:
++        asset_borrowable = None
++        daily_vip0 = None
++    if borrowability_truncated:
++        # Borrowability NOT probed (beyond the maxBorrowable budget) but the
++        # classic reference is valid and the borrow rate IS covered: keep the
++        # classic_margin fields (incl. daily_interest_account) and checked_at,
++        # clear ONLY the portfolio_account amount fields, mark verified=false.
+         return {
+             "verified": False,
+             "classic_margin": {
+-                "pair_listed": None,
+-                "asset_borrowable": None,
+-                "daily_interest_vip0": None,
+-                "daily_interest_account": None,
++                "pair_listed": bool(pair_listed),
++                "asset_borrowable": asset_borrowable,
++                "daily_interest_vip0": daily_vip0,
++                "daily_interest_account": daily_interest_account,
+                 "source": "sapi_reference",
+             },
+             "portfolio_account": {
+@@ -725,16 +749,9 @@ def assemble_borrow_validation(
+                 "borrow_limit": None,
+                 "source": "papi_max_borrowable",
+             },
+-            "checked_at": None,
+-            "error": "not_probed_this_round",
++            "checked_at": checked_at,
++            "error": "borrowability_not_probed",
+         }
+-    pair_listed = classic_ref.get("pair_listed_by_symbol", {}).get(sym)
+-    if pair_listed:
+-        asset_borrowable = classic_ref.get("asset_borrowable_by_name", {}).get(base)
+-        daily_vip0 = classic_ref.get("daily_interest_vip0_by_coin", {}).get(base)
+-    else:
+-        asset_borrowable = None
+-        daily_vip0 = None
+     portfolio = portfolio_by_asset.get(base, {})
+     return {
+         "verified": True,
+diff --git a/backend/services/private_client.py b/backend/services/private_client.py
+index d4e2981..f293018 100644
+--- a/backend/services/private_client.py
++++ b/backend/services/private_client.py
+@@ -65,6 +65,13 @@ WHITELIST: Dict[Tuple[str, str], str] = {
+     ("GET", "/papi/v1/portfolio/interest-history"): "https://papi.binance.com",
+ }
+ 
++# Gate B (gate-b-endpoint-recon.md §9): next-hourly single-call `assets` hard
++# cap = 20 (21+ -> HTTP 500 / Binance code=2). Batch at 15 (25% headroom). Each
++# batch is its own `_cached_get` (key includes the `assets` param), so a
++# partial-batch failure is NOT cached for 1h — the next snapshot (<=60s) retries
++# only the failed batch.
++NEXT_HOURLY_BATCH_SIZE = 15
++
+ 
+ class PrivateEndpointError(Exception):
+     """Raised when a whitelisted private endpoint returns a non-2xx result.
+@@ -302,22 +309,36 @@ class PrivateClient:
+         vip_level = str(vip_level_raw) if vip_level_raw is not None else None
+ 
+         # tier① E2 next-hourly — comma-joined assets, isIsolated=false REQUIRED
+-        # (H_intake fix: missing isIsolated -> 400 -3026).
+-        next_hourly: Dict[str, Optional[str]] = {}
++        # (H_intake fix: missing isIsolated -> 400 -3026). Gate B: single-call
++        # assets hard cap = 20, so borrow_assets is batched at
++        # NEXT_HOURLY_BATCH_SIZE (15); successful batches are merged into one
++        # `merged_next_hourly` table BEFORE tier selection. Per-batch `_cached_get`
++        # is preserved (key includes assets) so a failed batch is not cached 1h
++        # and the next snapshot (<=60s) retries only it.
++        merged_next_hourly: Dict[str, Optional[str]] = {}
+         if borrow_assets:
+-            try:
+-                e2 = self._cached_get(
+-                    "GET",
+-                    "/sapi/v1/margin/next-hourly-interest-rate",
+-                    {"assets": ",".join(borrow_assets), "isIsolated": "false"},
+-                )
+-                next_hourly = {
+-                    x.get("asset"): x.get("nextHourlyInterestRate")
+-                    for x in (e2 or [])
+-                    if isinstance(x, dict)
+-                }
+-            except PrivateEndpointError:
+-                next_hourly = {}
++            for i in range(0, len(borrow_assets), NEXT_HOURLY_BATCH_SIZE):
++                batch = borrow_assets[i:i + NEXT_HOURLY_BATCH_SIZE]
++                try:
++                    e2 = self._cached_get(
++                        "GET",
++                        "/sapi/v1/margin/next-hourly-interest-rate",
++                        {"assets": ",".join(batch), "isIsolated": "false"},
++                    )
++                    merged_next_hourly.update(
++                        (x.get("asset"), x.get("nextHourlyInterestRate"))
++                        for x in (e2 or [])
++                        if isinstance(x, dict)
++                    )
++                except PrivateEndpointError as exc:
++                    # Partial-failure semantics: skip ONLY this batch and keep
++                    # already-merged batches (no abort, no clear, no tier-wide
++                    # downgrade). The batch's assets are simply absent from
++                    # merged_next_hourly -> rate None downstream (not fabricated).
++                    # Recorded for observability (the prior bug was a silent pass).
++                    self.last_error = (
++                        f"next_hourly_batch_failed:{exc.reason}:{len(batch)}"
++                    )
+ 
+         # tier② E2b interestRateHistory — single-asset probe (A1).
+         rate_history: Dict[str, Optional[str]] = {}
+@@ -352,7 +373,7 @@ class PrivateClient:
+             cross_table = {}
+ 
+         return _select_chain_tier(
+-            next_hourly, rate_history, cross_table, vip_level
++            merged_next_hourly, rate_history, cross_table, vip_level
+         )
+ 
+     # -- private_account block (10-design §1.4); 60s TTL group --
+diff --git a/backend/services/snapshot_service.py b/backend/services/snapshot_service.py
+index 2bfc3a3..e2842a7 100644
+--- a/backend/services/snapshot_service.py
++++ b/backend/services/snapshot_service.py
+@@ -129,17 +129,21 @@ class SnapshotService:
+         private_channel_status = "enabled" if classic_ref is not None else "disabled"
+         private_error = self._private.last_error if classic_ref is None else None
+ 
+-        # §1.5 borrow probe set (neg funding + MARGIN_SPOT_CANDIDATE + CRYPTO,
+-        # deduped by base_asset, capped at borrow_check_max_calls). Truncated
+-        # candidates render verified=false / not_probed_this_round.
++        # §1.5 borrow probe sets (neg funding + MARGIN_SPOT_CANDIDATE + CRYPTO,
++        # deduped by base_asset). The rate budget (rate_probe_assets, full pool)
++        # and the borrowability budget (borrowability_probe_assets, capped at
++        # borrow_check_max_calls) are decoupled: rate coverage is NOT bounded by
++        # the maxBorrowable cost. Unprobed candidates keep their rate and render
++        # verified=false / error="borrowability_not_probed".
+         probe = select_borrow_candidates(rows, self.config.borrow_check_max_calls)
+-        probed_assets = probe["probed_assets"]
+-        truncated_assets = probe["truncated_assets"]
++        rate_probe_assets = probe["rate_probe_assets"]
++        borrowability_probe_assets = probe["borrowability_probe_assets"]
++        borrowability_unprobed_assets = probe["borrowability_unprobed_assets"]
+         coverage = probe["coverage"]
+ 
+         # §1.3 cost-leg chain (snapshot-level single tier; 1h TTL group). None
+-        # when the channel is disabled.
+-        cost_leg = self._private.fetch_cost_leg_chain(probed_assets)
++        # when the channel is disabled. Driven by the FULL rate set.
++        cost_leg = self._private.fetch_cost_leg_chain(rate_probe_assets)
+         cost_leg_available = bool(
+             classic_ref is not None and cost_leg and cost_leg.get("chain_hit_tier") is not None
+         )
+@@ -173,11 +177,12 @@ class SnapshotService:
+             error=private_error,
+         )
+ 
+-        # W4 maxBorrowable for the probed candidate set (1h TTL; bounded probe
+-        # loop over assets, NOT the row loop). bStock rows are excluded upstream
+-        # (asset_tag != CRYPTO); their portfolio_account amount fields stay null.
++        # W4 maxBorrowable for the borrowability-probed candidate set (1h TTL;
++        # bounded probe loop over assets, NOT the row loop). bStock rows are
++        # excluded upstream (asset_tag != CRYPTO); their portfolio_account amount
++        # fields stay null.
+         portfolio_by_asset: dict = {}
+-        for asset in probed_assets:
++        for asset in borrowability_probe_assets:
+             if asset in portfolio_by_asset:
+                 continue
+             res = self._private.fetch_max_borrowable(asset)
+@@ -191,8 +196,9 @@ class SnapshotService:
+             base = row.get("base_asset", "")
+             daily_borrow_rate = None
+             borrow_rate_source = None
+-            # Chain rate only for probed (non-truncated) borrow candidates.
+-            if base in probed_assets and base not in truncated_assets and cost_leg:
++            # Rate coverage depends ONLY on the rate set (decoupled from the
++            # borrowability cap); the asset need not be in borrowability_probe.
++            if base in rate_probe_assets and cost_leg:
+                 rate = resolve_cost_leg_rate(base, cost_leg)
+                 if rate is not None:
+                     daily_borrow_rate = rate
+@@ -208,7 +214,7 @@ class SnapshotService:
+                 checked_at,
+                 private_error,
+                 daily_interest_account=daily_borrow_rate,
+-                truncated=base in truncated_assets,
++                borrowability_truncated=base in borrowability_unprobed_assets,
+             )
+ 
+         # §1.2 sort_basis: net when the cost leg is available (incl. vip0_reference),
+diff --git a/backend/tests/test_private_account_v1.py b/backend/tests/test_private_account_v1.py
+index 59dec2a..ef16ed0 100644
+--- a/backend/tests/test_private_account_v1.py
++++ b/backend/tests/test_private_account_v1.py
+@@ -189,8 +189,9 @@ def test_sort_default_basis_is_abs():
+ def test_select_borrow_candidates_caps_and_marks_truncation():
+     rows = [_row(f"S{i}USDT", "-0.00001", base=f"C{i}") for i in range(6)]
+     out = select_borrow_candidates(rows, max_calls=4)
+-    assert out["probed_assets"] == ["C0", "C1", "C2", "C3"]  # priority by abs DESC
+-    assert out["truncated_assets"] == {"C4", "C5"}
++    assert out["rate_probe_assets"] == ["C0", "C1", "C2", "C3", "C4", "C5"]  # full pool
++    assert out["borrowability_probe_assets"] == ["C0", "C1", "C2", "C3"]  # first 4
++    assert out["borrowability_unprobed_assets"] == {"C4", "C5"}  # rest, rate covered
+     assert out["coverage"] == {"probed": 4, "skipped": 2, "reason": "rate_limit_budget"}
+ 
+ 
+@@ -210,7 +211,8 @@ def test_select_borrow_candidates_only_neg_margin_spot_crypto():
+         _row("EUSDT", None, base="E"),                            # null daily -> excluded
+     ]
+     out = select_borrow_candidates(rows, max_calls=50)
+-    assert out["probed_assets"] == ["A"]
++    assert out["rate_probe_assets"] == ["A"]
++    assert out["borrowability_probe_assets"] == ["A"]
+     assert out["coverage"]["probed"] == 1
+ 
+ 
+@@ -220,20 +222,23 @@ def test_select_borrow_candidates_dedup_by_base_asset():
+         _row("A2USDT", "-0.0001", base="A"),  # same base_asset -> deduped
+     ]
+     out = select_borrow_candidates(rows, max_calls=50)
+-    assert out["probed_assets"] == ["A"]
++    assert out["rate_probe_assets"] == ["A"]
++    assert out["borrowability_probe_assets"] == ["A"]
+     assert out["coverage"]["probed"] == 1
+ 
+ 
+ def test_borrow_validation_truncated_state():
++    # borrowability_truncated keeps the borrow rate; clears ONLY portfolio额度.
+     bv = assemble_borrow_validation(
+         {"symbol": "XUSDT", "base_asset": "X"},
+         {"pair_listed_by_symbol": {}, "asset_borrowable_by_name": {}, "daily_interest_vip0_by_coin": {}},
+-        {}, "t", None, truncated=True,
++        {}, "t", None, daily_interest_account="0.00010000", borrowability_truncated=True,
+     )
+     assert bv["verified"] is False
+-    assert bv["error"] == "not_probed_this_round"  # no silent truncation
+-    assert bv["classic_margin"]["daily_interest_account"] is None
+-    assert bv["checked_at"] is None
++    assert bv["error"] == "borrowability_not_probed"
++    assert bv["classic_margin"]["daily_interest_account"] == "0.00010000"  # KEPT
++    assert bv["checked_at"] == "t"  # KEPT
++    assert bv["portfolio_account"]["max_borrowable"] is None  # cleared
+ 
+ 
+ # =========================================================================
+@@ -581,7 +586,7 @@ def _assemble_with_private(rows, private_account, classic_ref, cost_leg, checked
+     probed = select_borrow_candidates(rows, 50)
+     for r in rows:
+         base = r["base_asset"]
+-        rate = resolve_cost_leg_rate(base, cost_leg) if (base in probed["probed_assets"] and cost_leg) else None
++        rate = resolve_cost_leg_rate(base, cost_leg) if (base in probed["rate_probe_assets"] and cost_leg) else None
+         r["net_daily_yield"] = compute_net_daily_yield(r["daily_funding_rate"], rate)
+         r["borrow_rate_source"] = cost_leg.get("chain_hit_source") if rate else None
+         r["borrow_validation"] = assemble_borrow_validation(
+@@ -888,9 +893,9 @@ def test_truncation_appends_top_level_warning(v03_schema):
+     )
+     jsonschema.validate(snap, v03_schema)
+     joined = "\n".join(snap["warnings"])
+-    assert "truncated" in joined
+-    assert "not_probed_this_round" in joined
+-    assert "2 candidate" in joined  # the skipped count surfaces in the message
++    assert "可借额度未探测" in joined
++    assert "利率仍覆盖" in joined
++    assert "2 asset" in joined  # the skipped count surfaces in the message
+ 
+ 
+ class _Round2StubPublic:
+@@ -977,3 +982,185 @@ def test_private_account_disabled_when_classic_ref_none_even_if_accounts_return(
+     # borrow_validation follows the same channel state -> every row disabled too
+     for r in snap["rows"]:
+         assert r["borrow_validation"]["verified"] is False
++
++
++# =========================================================================
++# borrow-cost-coverage-v2 — next-hourly batching + rate/borrowability decouple
++# (Gate B: single-call assets hard cap 20; rate budget decoupled from the
++# maxBorrowable budget; borrowability_truncated keeps the borrow rate)
++# =========================================================================
++def _assets_param_from_url(url: str) -> list:
++    """Extract the comma-joined ``assets`` param from a next-hourly request URL."""
++    query = url.split("?", 1)[1]
++    for kv in query.split("&"):
++        if kv.startswith("assets="):
++            return kv[len("assets="):].split(",")
++    return []
++
++
++def _client_with_urlopen(fake_urlopen, monkeypatch):
++    """PrivateClient with a custom urlopen fake (per-request control)."""
++    client = PrivateClient(
++        "k" * 64, "s" * 64, user_agent="t", timeout=5,
++        recv_window=10000, ttl_seconds=3600, fast_ttl_seconds=60,
++    )
++    monkeypatch.setattr(private_client.time, "sleep", lambda *_: None)
++    monkeypatch.setattr(private_client.urllib.request, "urlopen", fake_urlopen)
++    return client
++
++
++def test_borrowability_truncated_keeps_rate():
++    # §4.1 (blocking regression): borrow_check_max_calls=2, 4 negative candidates;
++    # next-hourly covers all 4; maxBorrowable probes only the first 2. Assets 3/4
++    # KEEP the borrow rate and render error="borrowability_not_probed" with the
++    # portfolio amount fields cleared —穿过行装配的集成断言.
++    rows = [
++        _row("AUSDT", "-0.0001", base="A"),
++        _row("BUSDT", "-0.0002", base="B"),
++        _row("CUSDT", "-0.0003", base="C"),
++        _row("DUSDT", "-0.0004", base="D"),
++    ]
++    probe = select_borrow_candidates(rows, max_calls=2)
++    # abs rate DESC: D(-0.0004), C(-0.0003), B(-0.0002), A(-0.0001)
++    assert probe["rate_probe_assets"] == ["D", "C", "B", "A"]
++    assert probe["borrowability_probe_assets"] == ["D", "C"]
++    assert probe["borrowability_unprobed_assets"] == {"B", "A"}
++    rate_probe_assets = probe["rate_probe_assets"]
++    borrowability_unprobed = probe["borrowability_unprobed_assets"]
++    # next-hourly covers all 4 (hourly 0.00000500 -> daily 0.00012000)
++    cost_leg = _select_chain_tier(
++        {a: "0.00000500" for a in rate_probe_assets}, {}, {"0": {}}, "5"
++    )
++    classic_ref = {
++        "pair_listed_by_symbol": {}, "asset_borrowable_by_name": {},
++        "daily_interest_vip0_by_coin": {},
++    }
++    # maxBorrowable probes ONLY borrowability_probe_assets (A, B).
++    portfolio_by_asset = {
++        a: {"max_borrowable": "1.5", "borrow_limit": "2.0"}
++        for a in probe["borrowability_probe_assets"]
++    }
++    for r in rows:
++        base = r["base_asset"]
++        rate = resolve_cost_leg_rate(base, cost_leg) if base in rate_probe_assets else None
++        r["net_daily_yield"] = compute_net_daily_yield(r["daily_funding_rate"], rate)
++        r["borrow_rate_source"] = cost_leg.get("chain_hit_source") if rate else None
++        r["borrow_validation"] = assemble_borrow_validation(
++            r, classic_ref, portfolio_by_asset, "t", None,
++            daily_interest_account=rate,
++            borrowability_truncated=(base in borrowability_unprobed),
++        )
++    # unprobed assets (B, A) keep the rate; borrowability_not_probed; no portfolio额度
++    for base in borrowability_unprobed:
++        r = next(x for x in rows if x["base_asset"] == base)
++        assert r["borrow_rate_source"] == "next_hourly"
++        assert r["borrow_validation"]["classic_margin"]["daily_interest_account"] == "0.00012000"
++        assert r["net_daily_yield"] is not None
++        assert r["borrow_validation"]["portfolio_account"]["max_borrowable"] is None
++        assert r["borrow_validation"]["error"] == "borrowability_not_probed"
++        assert r["borrow_validation"]["verified"] is False
++    # probed assets (D, C) get portfolio额度 + verified=true
++    for base in probe["borrowability_probe_assets"]:
++        r = next(x for x in rows if x["base_asset"] == base)
++        assert r["borrow_validation"]["portfolio_account"]["max_borrowable"] == "1.5"
++        assert r["borrow_validation"]["verified"] is True
++
++
++def test_next_hourly_subset_miss_no_fabrication():
++    # §4.2: next-hourly returns only 3/4 assets; the missing asset gets NO rate
++    # (not fabricated, does not fall back to rate_history tier② for that asset).
++    rows = [
++        _row("AUSDT", "-0.0001", base="A"),
++        _row("BUSDT", "-0.0002", base="B"),
++        _row("CUSDT", "-0.0003", base="C"),
++        _row("DUSDT", "-0.0004", base="D"),
++    ]
++    probe = select_borrow_candidates(rows, max_calls=50)  # none truncated
++    rate_probe_assets = probe["rate_probe_assets"]
++    # next-hourly returns only A/B/C (D missing — root cause B shape).
++    cost_leg = _select_chain_tier(
++        {"A": "0.00000500", "B": "0.00000500", "C": "0.00000500"},
++        {}, {"0": {}}, "5",
++    )
++    classic_ref = {
++        "pair_listed_by_symbol": {}, "asset_borrowable_by_name": {},
++        "daily_interest_vip0_by_coin": {},
++    }
++    for r in rows:
++        base = r["base_asset"]
++        rate = resolve_cost_leg_rate(base, cost_leg) if base in rate_probe_assets else None
++        r["net_daily_yield"] = compute_net_daily_yield(r["daily_funding_rate"], rate)
++        r["borrow_rate_source"] = cost_leg.get("chain_hit_source") if rate else None
++        r["borrow_validation"] = assemble_borrow_validation(
++            r, classic_ref, {}, "t", None, daily_interest_account=rate,
++        )
++    d = next(x for x in rows if x["symbol"] == "DUSDT")
++    assert d["borrow_rate_source"] is None
++    assert d["borrow_validation"]["classic_margin"]["daily_interest_account"] is None
++    # present assets DO get a rate (not all blanked)
++    a = next(x for x in rows if x["symbol"] == "AUSDT")
++    assert a["borrow_rate_source"] == "next_hourly"
++    assert a["borrow_validation"]["classic_margin"]["daily_interest_account"] == "0.00012000"
++
++
++def test_batch_merge_covers_all(monkeypatch):
++    # §4.3: >20 assets must be batched at NEXT_HOURLY_BATCH_SIZE=15 (Gate B hard
++    # cap 20); the merged table covers ALL assets before tier selection.
++    assets = [f"A{i}" for i in range(22)]  # 2 batches: 15 + 7
++
++    def fake_urlopen(req, timeout=None):
++        url = req.full_url
++        if "/sapi/v1/account/info" in url:
++            return _FakeResp(json.dumps({"vipLevel": 5}))
++        if "/sapi/v1/margin/next-hourly-interest-rate" in url:
++            batch = _assets_param_from_url(url)
++            assert len(batch) <= 20, f"batch exceeds hard cap: {len(batch)}"
++            return _FakeResp(json.dumps([
++                {"asset": a, "nextHourlyInterestRate": "0.00000500"} for a in batch
++            ]))
++        if "/sapi/v1/margin/interestRateHistory" in url:
++            return _FakeResp(json.dumps([]))
++        if "/sapi/v1/margin/crossMarginData" in url:
++            return _FakeResp(json.dumps([]))
++        raise AssertionError(f"unexpected url: {url}")
++
++    client = _client_with_urlopen(fake_urlopen, monkeypatch)
++    chain = client.fetch_cost_leg_chain(assets)
++    assert chain["chain_hit_tier"] == 1
++    assert chain["chain_hit_source"] == "next_hourly"
++    # all 22 covered after merge; each resolves to daily 0.00000500 x24.
++    for a in assets:
++        assert resolve_cost_leg_rate(a, chain) == "0.00012000"
++
++
++def test_partial_batch_failure_partial_merge(monkeypatch):
++    # §4.3: one batch fails (HTTP 500); only THAT batch is skipped — merged
++    # batches are kept, no tier-wide downgrade to rate_history, no silent pass.
++    assets = [f"A{i}" for i in range(30)]  # 2 batches: [0:15], [15:30]
++
++    def fake_urlopen(req, timeout=None):
++        url = req.full_url
++        if "/sapi/v1/account/info" in url:
++            return _FakeResp(json.dumps({"vipLevel": 5}))
++        if "/sapi/v1/margin/next-hourly-interest-rate" in url:
++            batch = _assets_param_from_url(url)
++            if batch[0] == "A15":  # second batch -> 500 (Binance code=2 size>20)
++                return _FakeResp(json.dumps({"code": 2, "msg": "size>20"}), 500)
++            return _FakeResp(json.dumps([
++                {"asset": a, "nextHourlyInterestRate": "0.00000500"} for a in batch
++            ]))
++        if "/sapi/v1/margin/interestRateHistory" in url:
++            return _FakeResp(json.dumps([]))
++        if "/sapi/v1/margin/crossMarginData" in url:
++            return _FakeResp(json.dumps([]))
++        raise AssertionError(f"unexpected url: {url}")
++
++    client = _client_with_urlopen(fake_urlopen, monkeypatch)
++    chain = client.fetch_cost_leg_chain(assets)
++    # merged success batch keeps tier① (no downgrade to tier② rate_history)
++    assert chain["chain_hit_source"] == "next_hourly"
++    assert resolve_cost_leg_rate("A0", chain) == "0.00012000"   # success batch hit
++    assert resolve_cost_leg_rate("A15", chain) is None          # failed batch -> None
++    assert resolve_cost_leg_rate("A29", chain) is None
++    # failure recorded (not a silent pass)
++    assert client.last_error and "next_hourly_batch_failed" in client.last_error
+diff --git a/docs/api/public-market-contract.md b/docs/api/public-market-contract.md
+index 86b7f7c..d2e8dcc 100644
+--- a/docs/api/public-market-contract.md
++++ b/docs/api/public-market-contract.md
+@@ -447,12 +447,30 @@ The top-level `borrow_validation` aggregate block (distinct from the per-row
+ ### `coverage` / warnings (§1.5)
+ 
+ Probe range = `daily_funding_rate < 0 ∧ route_class==MARGIN_SPOT_CANDIDATE ∧
+-asset_tag==CRYPTO`, deduped by `base_asset`, capped at
+-`Config.borrow_check_max_calls` (default 50, supersedes the Phase 2 N=10);
+-truncation priority is abs daily rate DESC. Truncated candidates render
+-`verified=false` / `error="not_probed_this_round"` (no silent truncation).
+-`borrow_validation.coverage = {probed, skipped, reason="rate_limit_budget"|null}`.
+-A top-level `warnings` entry is appended when truncation occurs.
++asset_tag==CRYPTO`, deduped by `base_asset`. The pool is split into two
++independent budgets (borrow-cost-coverage-v2):
++
++- **Rate coverage** (`rate_probe_assets`, the FULL pool, NOT capped) drives the
++  next-hourly interest-rate lookup. A candidate beyond the borrowability cap
++  still gets its borrow rate (no `-`).
++- **Borrowability coverage** (`borrowability_probe_assets`, the first
++  `Config.borrow_check_max_calls` candidates by abs daily rate DESC) drives the
++  per-asset `maxBorrowable` probe.
++
++`borrow_validation.coverage = {probed, skipped, reason="rate_limit_budget"|null}`
++reports the **borrowability** coverage (`probed` = borrowability-probed,
++`skipped` = borrowability-unprobed). When `skipped > 0`, a top-level `warnings`
++entry is appended ("部分资产可借额度未探测（利率仍覆盖）" /
++"N asset(s) borrowability not probed (rate still covered)") — rate coverage is
++unaffected.
++
++`error` on per-row `borrow_validation`:
++
++- `borrowability_not_probed`: borrowability not probed (beyond the
++  `maxBorrowable` budget), but `classic_margin.daily_interest_account` and
++  `net_daily_yield` are STILL filled; only the `portfolio_account` amount fields
++  are null; `checked_at` is kept; `verified=false`.
++- `not_probed_this_round` (legacy): rate also not covered; all chain fields null.
+ 
+ ### `private_account` block (§1.4, three-state)
+ 
+diff --git a/frontend/index.html b/frontend/index.html
+index bc1ac52..bc30ee5 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -903,6 +903,9 @@
+             return `<span class="badge danger" title="PRIVATE_BORROW_VALIDATION_REQUIRED">资产不可借</span>`;
+           }
+         }
++        if (bv && bv.verified === false && bv.error === 'borrowability_not_probed') {
++          return `<span class="badge muted" title="PRIVATE_BORROW_VALIDATION_REQUIRED">有利率·可借性未探测</span>`;
++        }
+         if (bv && bv.verified === false && bv.error === 'not_probed_this_round') {
+           return `<span class="badge muted" title="PRIVATE_BORROW_VALIDATION_REQUIRED">未探测(限速预算)</span>`;
+         }
+diff --git a/frontend/self-check.js b/frontend/self-check.js
+index fa86fc0..0726be9 100644
+--- a/frontend/self-check.js
++++ b/frontend/self-check.js
+@@ -684,7 +684,7 @@ setTimeout(async () => {
+     }
+     console.log('[PASS] 正费率行不展示借币成本子行');
+ 
+-    // 34. 负费率状态行感知的五文案派生
++    // 34. 负费率状态行感知的六文案派生
+     const labelFixtureBase = JSON.parse(JSON.stringify(designFixture));
+     // 已验证可借：verified=true, pair_listed=true, asset_borrowable=true
+     labelFixtureBase.rows[0].borrow_validation.verified = true;
+@@ -698,12 +698,18 @@ setTimeout(async () => {
+     labelFixtureBase.rows[2].borrow_validation.verified = true;
+     labelFixtureBase.rows[2].borrow_validation.classic_margin.pair_listed = true;
+     labelFixtureBase.rows[2].borrow_validation.classic_margin.asset_borrowable = false;
+-    // 未探测
++    // 未探测（限速预算，legacy：利率也无）
+     labelFixtureBase.rows[3].borrow_validation.verified = false;
+     labelFixtureBase.rows[3].borrow_validation.error = 'not_probed_this_round';
+     // 需私有验证（private channel disabled/failed）
+     labelFixtureBase.rows[4].borrow_validation.verified = false;
+     labelFixtureBase.rows[4].borrow_validation.error = null;
++    // 有利率·可借性未探测（borrowability_not_probed：利率有，可借额度未探）
++    labelFixtureBase.rows[5].negative_funding_status = 'PRIVATE_BORROW_VALIDATION_REQUIRED';
++    labelFixtureBase.rows[5].borrow_validation.verified = false;
++    labelFixtureBase.rows[5].borrow_validation.error = 'borrowability_not_probed';
++    labelFixtureBase.rows[5].borrow_validation.classic_margin.daily_interest_account = '0.00010000';
++    labelFixtureBase.rows[5].borrow_rate_source = 'next_hourly';
+     helpers.ingestSnapshot(labelFixtureBase);
+     const labelTbody = elements['market-table-body'].innerHTML;
+     const labelCases = [
+@@ -712,6 +718,7 @@ setTimeout(async () => {
+       { sym: 'CUSDT', label: '资产不可借', cls: 'danger' },
+       { sym: 'DUSDT', label: '未探测(限速预算)', cls: 'muted' },
+       { sym: 'EUSDT', label: '需私有验证', cls: 'warn' },
++      { sym: 'FUSDT', label: '有利率·可借性未探测', cls: 'muted' },
+     ];
+     for (const { sym, label, cls } of labelCases) {
+       const cell = getRowCell(labelTbody, sym, 8);
+@@ -722,8 +729,13 @@ setTimeout(async () => {
+         throw new Error(`${sym} 负费率状态期望 ${cls} 样式，单元格 ${cell}`);
+       }
+     }
++    // 第六态行：状态列「有利率·可借性未探测」AND 净收益列仍展示日借币子行
++    const fusdtNetCell = getRowCell(labelTbody, 'FUSDT', 6);
++    if (!fusdtNetCell.includes('日借币') || !fusdtNetCell.includes('+0.01%')) {
++      throw new Error(`FUSDT borrowability_not_probed 行应展示日借币子行，单元格 ${fusdtNetCell}`);
++    }
+     helpers.ingestSnapshot(designFixture);
+-    console.log('[PASS] 负费率状态行感知的五文案派生');
++    console.log('[PASS] 负费率状态行感知的六文案派生');
+ 
+     // 35. 余额卡片行内折算 value_usdt，隐私开关遮蔽金额与折算值
+     const privateBody2 = elements['private-panel-body'].innerHTML;

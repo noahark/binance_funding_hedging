@@ -1,0 +1,39 @@
+{
+  "endpoint": "/papi/v1/margin/maxBorrowable",
+  "params": {
+    "asset": "AIGENSYN"
+  },
+  "status": 400,
+  "weight_headers": {
+    "x-mbx-used-weight-1m": "205",
+    "x-response-time": "3ms"
+  },
+  "all_headers": {
+    "Date": "Tue, 07 Jul 2026 12:09:54 GMT",
+    "Content-Type": "application/json",
+    "Content-Length": "171",
+    "Connection": "close",
+    "Server": "Tengine",
+    "X-MBX-USED-WEIGHT-1M": "205",
+    "x-response-time": "3ms",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS"
+  },
+  "latency_ms": 474.7,
+  "payload": {
+    "amount": {
+      "present": false,
+      "type": null,
+      "non_empty": false,
+      "gt_zero": null
+    },
+    "borrowLimit": {
+      "present": false,
+      "type": null,
+      "non_empty": false,
+      "gt_zero": null
+    },
+    "code": 51061,
+    "msg": "Due to high borrowing demand, there are currently insufficient loanable assets for AIGENSYN. Please adjust your borrow amount or try again tomorrow."
+  }
+}

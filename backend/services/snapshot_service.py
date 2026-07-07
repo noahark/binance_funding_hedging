@@ -129,17 +129,21 @@ class SnapshotService:
         private_channel_status = "enabled" if classic_ref is not None else "disabled"
         private_error = self._private.last_error if classic_ref is None else None
 
-        # §1.5 borrow probe set (neg funding + MARGIN_SPOT_CANDIDATE + CRYPTO,
-        # deduped by base_asset, capped at borrow_check_max_calls). Truncated
-        # candidates render verified=false / not_probed_this_round.
+        # §1.5 borrow probe sets (neg funding + MARGIN_SPOT_CANDIDATE + CRYPTO,
+        # deduped by base_asset). The rate budget (rate_probe_assets, full pool)
+        # and the borrowability budget (borrowability_probe_assets, capped at
+        # borrow_check_max_calls) are decoupled: rate coverage is NOT bounded by
+        # the maxBorrowable cost. Unprobed candidates keep their rate and render
+        # verified=false / error="borrowability_not_probed".
         probe = select_borrow_candidates(rows, self.config.borrow_check_max_calls)
-        probed_assets = probe["probed_assets"]
-        truncated_assets = probe["truncated_assets"]
+        rate_probe_assets = probe["rate_probe_assets"]
+        borrowability_probe_assets = probe["borrowability_probe_assets"]
+        borrowability_unprobed_assets = probe["borrowability_unprobed_assets"]
         coverage = probe["coverage"]
 
         # §1.3 cost-leg chain (snapshot-level single tier; 1h TTL group). None
-        # when the channel is disabled.
-        cost_leg = self._private.fetch_cost_leg_chain(probed_assets)
+        # when the channel is disabled. Driven by the FULL rate set.
+        cost_leg = self._private.fetch_cost_leg_chain(rate_probe_assets)
         cost_leg_available = bool(
             classic_ref is not None and cost_leg and cost_leg.get("chain_hit_tier") is not None
         )
@@ -173,11 +177,12 @@ class SnapshotService:
             error=private_error,
         )
 
-        # W4 maxBorrowable for the probed candidate set (1h TTL; bounded probe
-        # loop over assets, NOT the row loop). bStock rows are excluded upstream
-        # (asset_tag != CRYPTO); their portfolio_account amount fields stay null.
+        # W4 maxBorrowable for the borrowability-probed candidate set (1h TTL;
+        # bounded probe loop over assets, NOT the row loop). bStock rows are
+        # excluded upstream (asset_tag != CRYPTO); their portfolio_account amount
+        # fields stay null.
         portfolio_by_asset: dict = {}
-        for asset in probed_assets:
+        for asset in borrowability_probe_assets:
             if asset in portfolio_by_asset:
                 continue
             res = self._private.fetch_max_borrowable(asset)
@@ -191,8 +196,9 @@ class SnapshotService:
             base = row.get("base_asset", "")
             daily_borrow_rate = None
             borrow_rate_source = None
-            # Chain rate only for probed (non-truncated) borrow candidates.
-            if base in probed_assets and base not in truncated_assets and cost_leg:
+            # Rate coverage depends ONLY on the rate set (decoupled from the
+            # borrowability cap); the asset need not be in borrowability_probe.
+            if base in rate_probe_assets and cost_leg:
                 rate = resolve_cost_leg_rate(base, cost_leg)
                 if rate is not None:
                     daily_borrow_rate = rate
@@ -208,7 +214,7 @@ class SnapshotService:
                 checked_at,
                 private_error,
                 daily_interest_account=daily_borrow_rate,
-                truncated=base in truncated_assets,
+                borrowability_truncated=base in borrowability_unprobed_assets,
             )
 
         # §1.2 sort_basis: net when the cost leg is available (incl. vip0_reference),

@@ -1,0 +1,101 @@
+{
+  "endpoint": "/sapi/v1/margin/next-hourly-interest-rate",
+  "params": {
+    "assets": "BLUR,0G,ACH,AGLD,AIGENSYN,ALGO,ARB,ARKM,ARPA,ATOM,AXS,BANANA,BARD,BCH,BEL,CETUS,EPIC,FET,FLUX,GALA",
+    "isIsolated": "false"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-ip-weight-1m": "2100"
+  },
+  "latency_ms": 329.1,
+  "request_asset_count": 20,
+  "request_query_bytes": 98,
+  "returned_asset_count": 20,
+  "missing_assets": [],
+  "binance_code": null,
+  "binance_msg": null,
+  "conclusion": "SUCCESS",
+  "payload": [
+    {
+      "asset": "AGLD",
+      "nextHourlyInterestRate": "0.00008429"
+    },
+    {
+      "asset": "CETUS",
+      "nextHourlyInterestRate": "0.00003346"
+    },
+    {
+      "asset": "EPIC",
+      "nextHourlyInterestRate": "0.00006912"
+    },
+    {
+      "asset": "ACH",
+      "nextHourlyInterestRate": "0.00002586"
+    },
+    {
+      "asset": "BCH",
+      "nextHourlyInterestRate": "0.00005228"
+    },
+    {
+      "asset": "BEL",
+      "nextHourlyInterestRate": "0.00009228"
+    },
+    {
+      "asset": "FLUX",
+      "nextHourlyInterestRate": "0.00006422"
+    },
+    {
+      "asset": "AIGENSYN",
+      "nextHourlyInterestRate": "0.00014663"
+    },
+    {
+      "asset": "ALGO",
+      "nextHourlyInterestRate": "0.00000446"
+    },
+    {
+      "asset": "ARKM",
+      "nextHourlyInterestRate": "0.00001413"
+    },
+    {
+      "asset": "GALA",
+      "nextHourlyInterestRate": "0.00000508"
+    },
+    {
+      "asset": "ATOM",
+      "nextHourlyInterestRate": "0.00000755"
+    },
+    {
+      "asset": "BARD",
+      "nextHourlyInterestRate": "0.00007621"
+    },
+    {
+      "asset": "ARB",
+      "nextHourlyInterestRate": "0.00000248"
+    },
+    {
+      "asset": "FET",
+      "nextHourlyInterestRate": "0.00001145"
+    },
+    {
+      "asset": "0G",
+      "nextHourlyInterestRate": "0.00006795"
+    },
+    {
+      "asset": "BLUR",
+      "nextHourlyInterestRate": "0.00005365"
+    },
+    {
+      "asset": "ARPA",
+      "nextHourlyInterestRate": "0.00005497"
+    },
+    {
+      "asset": "AXS",
+      "nextHourlyInterestRate": "0.00002976"
+    },
+    {
+      "asset": "BANANA",
+      "nextHourlyInterestRate": "0.00008375"
+    }
+  ]
+}

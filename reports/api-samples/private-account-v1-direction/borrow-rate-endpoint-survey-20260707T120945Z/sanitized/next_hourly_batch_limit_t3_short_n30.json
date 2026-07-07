@@ -1,0 +1,69 @@
+{
+  "endpoint": "/sapi/v1/margin/next-hourly-interest-rate",
+  "params": {
+    "assets": "0G,ID,LA,ME,OP,RE,BTC,ETH,SOL,ARB,BCH,BEL,0G,ID,LA,ME,OP,RE,BTC,ETH,SOL,ARB,BCH,BEL,0G,ID,LA,ME,OP,RE",
+    "isIsolated": "false"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-ip-weight-1m": "1200"
+  },
+  "latency_ms": 251.3,
+  "request_asset_count": 30,
+  "request_query_bytes": 101,
+  "returned_asset_count": 12,
+  "missing_assets": [],
+  "binance_code": null,
+  "binance_msg": null,
+  "conclusion": "PARTIAL",
+  "payload": [
+    {
+      "asset": "BTC",
+      "nextHourlyInterestRate": "0.00000045"
+    },
+    {
+      "asset": "OP",
+      "nextHourlyInterestRate": "0.00000389"
+    },
+    {
+      "asset": "SOL",
+      "nextHourlyInterestRate": "0.00000646"
+    },
+    {
+      "asset": "ARB",
+      "nextHourlyInterestRate": "0.00000246"
+    },
+    {
+      "asset": "RE",
+      "nextHourlyInterestRate": "0.00022831"
+    },
+    {
+      "asset": "LA",
+      "nextHourlyInterestRate": "0.00007816"
+    },
+    {
+      "asset": "BCH",
+      "nextHourlyInterestRate": "0.00005228"
+    },
+    {
+      "asset": "0G",
+      "nextHourlyInterestRate": "0.00006795"
+    },
+    {
+      "asset": "ME",
+      "nextHourlyInterestRate": "0.00010229"
+    },
+    {
+      "asset": "ETH",
+      "nextHourlyInterestRate": "0.00000254"
+    },
+    {
+      "asset": "BEL",
+      "nextHourlyInterestRate": "0.00009227"
+    },
+    {
+      "asset": "ID",
+      "nextHourlyInterestRate": "0.00010996"
+    }
+  ]
+}

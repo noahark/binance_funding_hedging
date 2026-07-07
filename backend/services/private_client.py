@@ -65,6 +65,13 @@ WHITELIST: Dict[Tuple[str, str], str] = {
     ("GET", "/papi/v1/portfolio/interest-history"): "https://papi.binance.com",
 }
 
+# Gate B (gate-b-endpoint-recon.md §9): next-hourly single-call `assets` hard
+# cap = 20 (21+ -> HTTP 500 / Binance code=2). Batch at 15 (25% headroom). Each
+# batch is its own `_cached_get` (key includes the `assets` param), so a
+# partial-batch failure is NOT cached for 1h — the next snapshot (<=60s) retries
+# only the failed batch.
+NEXT_HOURLY_BATCH_SIZE = 15
+
 
 class PrivateEndpointError(Exception):
     """Raised when a whitelisted private endpoint returns a non-2xx result.
@@ -302,22 +309,36 @@ class PrivateClient:
         vip_level = str(vip_level_raw) if vip_level_raw is not None else None
 
         # tier① E2 next-hourly — comma-joined assets, isIsolated=false REQUIRED
-        # (H_intake fix: missing isIsolated -> 400 -3026).
-        next_hourly: Dict[str, Optional[str]] = {}
+        # (H_intake fix: missing isIsolated -> 400 -3026). Gate B: single-call
+        # assets hard cap = 20, so borrow_assets is batched at
+        # NEXT_HOURLY_BATCH_SIZE (15); successful batches are merged into one
+        # `merged_next_hourly` table BEFORE tier selection. Per-batch `_cached_get`
+        # is preserved (key includes assets) so a failed batch is not cached 1h
+        # and the next snapshot (<=60s) retries only it.
+        merged_next_hourly: Dict[str, Optional[str]] = {}
         if borrow_assets:
-            try:
-                e2 = self._cached_get(
-                    "GET",
-                    "/sapi/v1/margin/next-hourly-interest-rate",
-                    {"assets": ",".join(borrow_assets), "isIsolated": "false"},
-                )
-                next_hourly = {
-                    x.get("asset"): x.get("nextHourlyInterestRate")
-                    for x in (e2 or [])
-                    if isinstance(x, dict)
-                }
-            except PrivateEndpointError:
-                next_hourly = {}
+            for i in range(0, len(borrow_assets), NEXT_HOURLY_BATCH_SIZE):
+                batch = borrow_assets[i:i + NEXT_HOURLY_BATCH_SIZE]
+                try:
+                    e2 = self._cached_get(
+                        "GET",
+                        "/sapi/v1/margin/next-hourly-interest-rate",
+                        {"assets": ",".join(batch), "isIsolated": "false"},
+                    )
+                    merged_next_hourly.update(
+                        (x.get("asset"), x.get("nextHourlyInterestRate"))
+                        for x in (e2 or [])
+                        if isinstance(x, dict)
+                    )
+                except PrivateEndpointError as exc:
+                    # Partial-failure semantics: skip ONLY this batch and keep
+                    # already-merged batches (no abort, no clear, no tier-wide
+                    # downgrade). The batch's assets are simply absent from
+                    # merged_next_hourly -> rate None downstream (not fabricated).
+                    # Recorded for observability (the prior bug was a silent pass).
+                    self.last_error = (
+                        f"next_hourly_batch_failed:{exc.reason}:{len(batch)}"
+                    )
 
         # tier② E2b interestRateHistory — single-asset probe (A1).
         rate_history: Dict[str, Optional[str]] = {}
@@ -352,7 +373,7 @@ class PrivateClient:
             cross_table = {}
 
         return _select_chain_tier(
-            next_hourly, rate_history, cross_table, vip_level
+            merged_next_hourly, rate_history, cross_table, vip_level
         )
 
     # -- private_account block (10-design §1.4); 60s TTL group --

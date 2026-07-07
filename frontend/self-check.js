@@ -684,7 +684,7 @@ setTimeout(async () => {
     }
     console.log('[PASS] 正费率行不展示借币成本子行');
 
-    // 34. 负费率状态行感知的五文案派生
+    // 34. 负费率状态行感知的六文案派生
     const labelFixtureBase = JSON.parse(JSON.stringify(designFixture));
     // 已验证可借：verified=true, pair_listed=true, asset_borrowable=true
     labelFixtureBase.rows[0].borrow_validation.verified = true;
@@ -698,12 +698,18 @@ setTimeout(async () => {
     labelFixtureBase.rows[2].borrow_validation.verified = true;
     labelFixtureBase.rows[2].borrow_validation.classic_margin.pair_listed = true;
     labelFixtureBase.rows[2].borrow_validation.classic_margin.asset_borrowable = false;
-    // 未探测
+    // 未探测（限速预算，legacy：利率也无）
     labelFixtureBase.rows[3].borrow_validation.verified = false;
     labelFixtureBase.rows[3].borrow_validation.error = 'not_probed_this_round';
     // 需私有验证（private channel disabled/failed）
     labelFixtureBase.rows[4].borrow_validation.verified = false;
     labelFixtureBase.rows[4].borrow_validation.error = null;
+    // 有利率·可借性未探测（borrowability_not_probed：利率有，可借额度未探）
+    labelFixtureBase.rows[5].negative_funding_status = 'PRIVATE_BORROW_VALIDATION_REQUIRED';
+    labelFixtureBase.rows[5].borrow_validation.verified = false;
+    labelFixtureBase.rows[5].borrow_validation.error = 'borrowability_not_probed';
+    labelFixtureBase.rows[5].borrow_validation.classic_margin.daily_interest_account = '0.00010000';
+    labelFixtureBase.rows[5].borrow_rate_source = 'next_hourly';
     helpers.ingestSnapshot(labelFixtureBase);
     const labelTbody = elements['market-table-body'].innerHTML;
     const labelCases = [
@@ -712,6 +718,7 @@ setTimeout(async () => {
       { sym: 'CUSDT', label: '资产不可借', cls: 'danger' },
       { sym: 'DUSDT', label: '未探测(限速预算)', cls: 'muted' },
       { sym: 'EUSDT', label: '需私有验证', cls: 'warn' },
+      { sym: 'FUSDT', label: '有利率·可借性未探测', cls: 'muted' },
     ];
     for (const { sym, label, cls } of labelCases) {
       const cell = getRowCell(labelTbody, sym, 8);
@@ -722,8 +729,13 @@ setTimeout(async () => {
         throw new Error(`${sym} 负费率状态期望 ${cls} 样式，单元格 ${cell}`);
       }
     }
+    // 第六态行：状态列「有利率·可借性未探测」AND 净收益列仍展示日借币子行
+    const fusdtNetCell = getRowCell(labelTbody, 'FUSDT', 6);
+    if (!fusdtNetCell.includes('日借币') || !fusdtNetCell.includes('+0.01%')) {
+      throw new Error(`FUSDT borrowability_not_probed 行应展示日借币子行，单元格 ${fusdtNetCell}`);
+    }
     helpers.ingestSnapshot(designFixture);
-    console.log('[PASS] 负费率状态行感知的五文案派生');
+    console.log('[PASS] 负费率状态行感知的六文案派生');
 
     // 35. 余额卡片行内折算 value_usdt，隐私开关遮蔽金额与折算值
     const privateBody2 = elements['private-panel-body'].innerHTML;

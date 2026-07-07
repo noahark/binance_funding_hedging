@@ -1,0 +1,419 @@
+{
+  "survey_timestamp_utc": "2026-07-07T12:09:45Z",
+  "sample_dir": "reports/api-samples/private-account-v1-direction/borrow-rate-endpoint-survey-20260707T120945Z",
+  "account_info": {
+    "vipLevel": 0,
+    "isPortfolioMarginRetailEnabled": true
+  },
+  "interest_rate_history_summary": [
+    {
+      "asset": "OPG",
+      "status": 200,
+      "point_count": 33,
+      "latest_daily": "0.00177362",
+      "latest_timestamp_ms": 1783407600000,
+      "latest_time_utc": "2026-07-07 07:00:00 UTC",
+      "vipLevel": 0
+    },
+    {
+      "asset": "0G",
+      "status": 200,
+      "point_count": 8,
+      "latest_daily": "0.0017874",
+      "latest_timestamp_ms": 1783382400000,
+      "latest_time_utc": "2026-07-07 00:00:00 UTC",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "status": 200,
+      "point_count": 19,
+      "latest_daily": "0.00374726",
+      "latest_timestamp_ms": 1783382400000,
+      "latest_time_utc": "2026-07-07 00:00:00 UTC",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "status": 200,
+      "point_count": 81,
+      "latest_daily": "0.00010853",
+      "latest_timestamp_ms": 1783411200000,
+      "latest_time_utc": "2026-07-07 08:00:00 UTC",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "status": 200,
+      "point_count": 76,
+      "latest_daily": "0.00009449",
+      "latest_timestamp_ms": 1783425600000,
+      "latest_time_utc": "2026-07-07 12:00:00 UTC",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "status": 200,
+      "point_count": 34,
+      "latest_daily": "0.00001074",
+      "latest_timestamp_ms": 1783425600000,
+      "latest_time_utc": "2026-07-07 12:00:00 UTC",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "status": 200,
+      "point_count": 61,
+      "latest_daily": "0.00006142",
+      "latest_timestamp_ms": 1783425600000,
+      "latest_time_utc": "2026-07-07 12:00:00 UTC",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "status": 200,
+      "point_count": 73,
+      "latest_daily": "0.00015607",
+      "latest_timestamp_ms": 1783425600000,
+      "latest_time_utc": "2026-07-07 12:00:00 UTC",
+      "vipLevel": 0
+    },
+    {
+      "asset": "TSLAB",
+      "status": 400,
+      "code": -11027,
+      "error": "asset TSLAB is not supported"
+    }
+  ],
+  "max_borrowable_summary": [
+    {
+      "asset": "OPG",
+      "status": 400,
+      "code": 51061,
+      "error": "Due to high borrowing demand, there are currently insufficient loanable assets for OPG. Please adjust your borrow amount or try again tomorrow."
+    },
+    {
+      "asset": "0G",
+      "status": 400,
+      "code": 51061,
+      "error": "Due to high borrowing demand, there are currently insufficient loanable assets for 0G. Please adjust your borrow amount or try again tomorrow."
+    },
+    {
+      "asset": "AIGENSYN",
+      "status": 400,
+      "code": 51061,
+      "error": "Due to high borrowing demand, there are currently insufficient loanable assets for AIGENSYN. Please adjust your borrow amount or try again tomorrow."
+    },
+    {
+      "asset": "ALGO",
+      "status": 200,
+      "amount_gt_zero": true,
+      "borrowLimit_gt_zero": true
+    },
+    {
+      "asset": "DOGE",
+      "status": 200,
+      "amount_gt_zero": true,
+      "borrowLimit_gt_zero": true
+    },
+    {
+      "asset": "BTC",
+      "status": 200,
+      "amount_gt_zero": true,
+      "borrowLimit_gt_zero": true
+    },
+    {
+      "asset": "ETH",
+      "status": 200,
+      "amount_gt_zero": true,
+      "borrowLimit_gt_zero": true
+    },
+    {
+      "asset": "SOL",
+      "status": 200,
+      "amount_gt_zero": true,
+      "borrowLimit_gt_zero": true
+    },
+    {
+      "asset": "TSLAB",
+      "status": 200,
+      "amount_gt_zero": false,
+      "borrowLimit_gt_zero": false
+    }
+  ],
+  "comparison_matrix": [
+    {
+      "asset": "OPG",
+      "next_hourly_rate": "0.00007592",
+      "next_hourly_x24": "0.00182208",
+      "irh_latest_daily": "0.00177362",
+      "irh_point_count": 33,
+      "cross_vip0_daily": "0.00177362",
+      "cross_borrowable": true,
+      "maxBorrow_status": 400,
+      "maxBorrow_code": 51061,
+      "maxBorrow_amount_gt0": null,
+      "maxBorrow_limit_gt0": null
+    },
+    {
+      "asset": "0G",
+      "next_hourly_rate": "0.00006797",
+      "next_hourly_x24": "0.00163128",
+      "irh_latest_daily": "0.0017874",
+      "irh_point_count": 8,
+      "cross_vip0_daily": "0.0017874",
+      "cross_borrowable": true,
+      "maxBorrow_status": 400,
+      "maxBorrow_code": 51061,
+      "maxBorrow_amount_gt0": null,
+      "maxBorrow_limit_gt0": null
+    },
+    {
+      "asset": "AIGENSYN",
+      "next_hourly_rate": "0.00014661",
+      "next_hourly_x24": "0.00351864",
+      "irh_latest_daily": "0.00374726",
+      "irh_point_count": 19,
+      "cross_vip0_daily": "0.00374726",
+      "cross_borrowable": true,
+      "maxBorrow_status": 400,
+      "maxBorrow_code": 51061,
+      "maxBorrow_amount_gt0": null,
+      "maxBorrow_limit_gt0": null
+    },
+    {
+      "asset": "ALGO",
+      "next_hourly_rate": "0.0000045",
+      "next_hourly_x24": "0.00010800",
+      "irh_latest_daily": "0.00010853",
+      "irh_point_count": 81,
+      "cross_vip0_daily": "0.00010853",
+      "cross_borrowable": true,
+      "maxBorrow_status": 200,
+      "maxBorrow_code": null,
+      "maxBorrow_amount_gt0": true,
+      "maxBorrow_limit_gt0": true
+    },
+    {
+      "asset": "DOGE",
+      "next_hourly_rate": "0.00000396",
+      "next_hourly_x24": "0.00009504",
+      "irh_latest_daily": "0.00009449",
+      "irh_point_count": 76,
+      "cross_vip0_daily": "0.00009449",
+      "cross_borrowable": true,
+      "maxBorrow_status": 200,
+      "maxBorrow_code": null,
+      "maxBorrow_amount_gt0": true,
+      "maxBorrow_limit_gt0": true
+    },
+    {
+      "asset": "BTC",
+      "next_hourly_rate": "0.00000045",
+      "next_hourly_x24": "0.00001080",
+      "irh_latest_daily": "0.00001074",
+      "irh_point_count": 34,
+      "cross_vip0_daily": "0.00001074",
+      "cross_borrowable": true,
+      "maxBorrow_status": 200,
+      "maxBorrow_code": null,
+      "maxBorrow_amount_gt0": true,
+      "maxBorrow_limit_gt0": true
+    },
+    {
+      "asset": "ETH",
+      "next_hourly_rate": "0.00000256",
+      "next_hourly_x24": "0.00006144",
+      "irh_latest_daily": "0.00006142",
+      "irh_point_count": 61,
+      "cross_vip0_daily": "0.00006142",
+      "cross_borrowable": true,
+      "maxBorrow_status": 200,
+      "maxBorrow_code": null,
+      "maxBorrow_amount_gt0": true,
+      "maxBorrow_limit_gt0": true
+    },
+    {
+      "asset": "SOL",
+      "next_hourly_rate": "0.00000649",
+      "next_hourly_x24": "0.00015576",
+      "irh_latest_daily": "0.00015607",
+      "irh_point_count": 73,
+      "cross_vip0_daily": "0.00015607",
+      "cross_borrowable": true,
+      "maxBorrow_status": 200,
+      "maxBorrow_code": null,
+      "maxBorrow_amount_gt0": true,
+      "maxBorrow_limit_gt0": true
+    },
+    {
+      "asset": "TSLAB",
+      "next_hourly_rate": null,
+      "next_hourly_x24": "",
+      "irh_latest_daily": null,
+      "irh_point_count": null,
+      "cross_vip0_daily": null,
+      "cross_borrowable": null,
+      "maxBorrow_status": 200,
+      "maxBorrow_code": null,
+      "maxBorrow_amount_gt0": false,
+      "maxBorrow_limit_gt0": false
+    }
+  ],
+  "next_hourly_batch_limit_probe": {
+    "probe_timestamp_utc": "2026-07-07T14:07:11Z",
+    "gate_b_conclusion": "H1 TRUE: /sapi/v1/margin/next-hourly-interest-rate enforces a hard limit of 20 unique assets per call. Exceeding it returns HTTP 500 with Binance code=2 and msg='The size of assets should not larger than 20'.",
+    "hypothesis_verdict": {
+      "H1_count_limit": true,
+      "H2_length_limit": false,
+      "H3_weight_limit": false,
+      "H4_illegal_asset": false
+    },
+    "t1_step_ladder": [
+      {
+        "n": 9,
+        "status": 200,
+        "returned": 9,
+        "binance_code": null,
+        "conclusion": "SUCCESS",
+        "sample": "sanitized/next_hourly_batch_limit_t1_n09.json"
+      },
+      {
+        "n": 20,
+        "status": 200,
+        "returned": 20,
+        "binance_code": null,
+        "conclusion": "SUCCESS",
+        "sample": "sanitized/next_hourly_batch_limit_t1_n20.json"
+      },
+      {
+        "n": 21,
+        "status": 500,
+        "returned": 0,
+        "binance_code": 2,
+        "conclusion": "LIMIT_HIT",
+        "sample": "sanitized/next_hourly_batch_limit_t1_n21.json"
+      },
+      {
+        "n": 30,
+        "status": 500,
+        "returned": 0,
+        "binance_code": 2,
+        "conclusion": "LIMIT_HIT",
+        "sample": "sanitized/next_hourly_batch_limit_t1_n30.json"
+      },
+      {
+        "n": 40,
+        "status": 500,
+        "returned": 0,
+        "binance_code": 2,
+        "conclusion": "LIMIT_HIT",
+        "sample": "sanitized/next_hourly_batch_limit_t1_n40.json"
+      },
+      {
+        "n": 45,
+        "status": 500,
+        "returned": 0,
+        "binance_code": 2,
+        "conclusion": "LIMIT_HIT",
+        "sample": "sanitized/next_hourly_batch_limit_t1_n45.json"
+      },
+      {
+        "n": 50,
+        "status": 500,
+        "returned": 0,
+        "binance_code": 2,
+        "conclusion": "LIMIT_HIT",
+        "sample": "sanitized/next_hourly_batch_limit_t1_n50.json"
+      },
+      {
+        "n": 55,
+        "status": 500,
+        "returned": 0,
+        "binance_code": 2,
+        "conclusion": "LIMIT_HIT",
+        "sample": "sanitized/next_hourly_batch_limit_t1_n55.json"
+      },
+      {
+        "n": 60,
+        "status": 500,
+        "returned": 0,
+        "binance_code": 2,
+        "conclusion": "LIMIT_HIT",
+        "sample": "sanitized/next_hourly_batch_limit_t1_n60.json"
+      },
+      {
+        "n": 66,
+        "status": 500,
+        "returned": 0,
+        "binance_code": 2,
+        "conclusion": "LIMIT_HIT",
+        "sample": "sanitized/next_hourly_batch_limit_t1_n66.json"
+      }
+    ],
+    "t2_service_top50": {
+      "status": 500,
+      "returned": 0,
+      "binance_code": 2,
+      "conclusion": "LIMIT_HIT",
+      "sample": "sanitized/next_hourly_batch_limit_t2_top50.json"
+    },
+    "t3_length_control": {
+      "summary": "20 unique short-ticker assets and 20 unique long-ticker assets both returned HTTP 200 with all 20 rates, proving the failure is count-driven, not URL/query-length-driven.",
+      "short_20": {
+        "status": 200,
+        "returned": 20,
+        "sample": "sanitized/next_hourly_batch_limit_t3_short_n20.json"
+      },
+      "long_20": {
+        "status": 200,
+        "returned": 20,
+        "sample": "sanitized/next_hourly_batch_limit_t3_long_n20.json"
+      }
+    },
+    "t4_repeated_top50": {
+      "summary": "Five consecutive 50-asset calls all returned HTTP 500 code=2 LIMIT_HIT; no 429/-1003 observed. Failure is stable and parameter-based, not intermittent weight-limit based.",
+      "samples": [
+        "sanitized/next_hourly_batch_limit_t4_repeat1.json",
+        "sanitized/next_hourly_batch_limit_t4_repeat2.json",
+        "sanitized/next_hourly_batch_limit_t4_repeat3.json",
+        "sanitized/next_hourly_batch_limit_t4_repeat4.json",
+        "sanitized/next_hourly_batch_limit_t4_repeat5.json"
+      ]
+    },
+    "t5_binary_search": {
+      "summary": "First 25 of the top-50 list failed (count > 20). Splitting those 25 into 12/13 both succeeded. No single illegal asset was isolated; failure is count-driven.",
+      "illegal_asset": null
+    },
+    "t6_recommendations": {
+      "next_hourly_max_assets_per_call": 20,
+      "recommended_batch_size": 15,
+      "batches_to_cover_66": 5,
+      "total_weight_per_snapshot": 500,
+      "weight_per_call_observed": 100
+    },
+    "sample_files": [
+      "sanitized/next_hourly_batch_limit_t1_n09.json",
+      "sanitized/next_hourly_batch_limit_t1_n20.json",
+      "sanitized/next_hourly_batch_limit_t1_n21.json",
+      "sanitized/next_hourly_batch_limit_t1_n30.json",
+      "sanitized/next_hourly_batch_limit_t1_n40.json",
+      "sanitized/next_hourly_batch_limit_t1_n45.json",
+      "sanitized/next_hourly_batch_limit_t1_n50.json",
+      "sanitized/next_hourly_batch_limit_t1_n55.json",
+      "sanitized/next_hourly_batch_limit_t1_n60.json",
+      "sanitized/next_hourly_batch_limit_t1_n66.json",
+      "sanitized/next_hourly_batch_limit_t2_top50.json",
+      "sanitized/next_hourly_batch_limit_t3_short_n20.json",
+      "sanitized/next_hourly_batch_limit_t3_long_n20.json",
+      "sanitized/next_hourly_batch_limit_t4_repeat1.json",
+      "sanitized/next_hourly_batch_limit_t4_repeat2.json",
+      "sanitized/next_hourly_batch_limit_t4_repeat3.json",
+      "sanitized/next_hourly_batch_limit_t4_repeat4.json",
+      "sanitized/next_hourly_batch_limit_t4_repeat5.json",
+      "sanitized/next_hourly_batch_limit_t5_left_25.json",
+      "sanitized/next_hourly_batch_limit_t5_left_12.json",
+      "sanitized/next_hourly_batch_limit_t5_right_13.json"
+    ]
+  }
+}

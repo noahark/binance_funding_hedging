@@ -1,0 +1,101 @@
+{
+  "endpoint": "/sapi/v1/margin/next-hourly-interest-rate",
+  "params": {
+    "assets": "AIGENSYN,BANANA,RESOLV,PENGU,PLUME,PROVE,LAYER,TRUMP,VANRY,CETUS,FLUX,GALA,GRAM,GRT,GTC,HBAR,HEI,HOME,INJ,ACH",
+    "isIsolated": "false"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-ip-weight-1m": "400"
+  },
+  "latency_ms": 256.4,
+  "request_asset_count": 20,
+  "request_query_bytes": 109,
+  "returned_asset_count": 20,
+  "missing_assets": [],
+  "binance_code": null,
+  "binance_msg": null,
+  "conclusion": "SUCCESS",
+  "payload": [
+    {
+      "asset": "PENGU",
+      "nextHourlyInterestRate": "0.00005298"
+    },
+    {
+      "asset": "CETUS",
+      "nextHourlyInterestRate": "0.00003346"
+    },
+    {
+      "asset": "INJ",
+      "nextHourlyInterestRate": "0.00001006"
+    },
+    {
+      "asset": "ACH",
+      "nextHourlyInterestRate": "0.00002586"
+    },
+    {
+      "asset": "GRT",
+      "nextHourlyInterestRate": "0.00000404"
+    },
+    {
+      "asset": "FLUX",
+      "nextHourlyInterestRate": "0.00006422"
+    },
+    {
+      "asset": "HBAR",
+      "nextHourlyInterestRate": "0.00000237"
+    },
+    {
+      "asset": "AIGENSYN",
+      "nextHourlyInterestRate": "0.00014663"
+    },
+    {
+      "asset": "HEI",
+      "nextHourlyInterestRate": "0.00006529"
+    },
+    {
+      "asset": "GALA",
+      "nextHourlyInterestRate": "0.00000508"
+    },
+    {
+      "asset": "VANRY",
+      "nextHourlyInterestRate": "0.00009273"
+    },
+    {
+      "asset": "PROVE",
+      "nextHourlyInterestRate": "0.00007503"
+    },
+    {
+      "asset": "GRAM",
+      "nextHourlyInterestRate": "0.00037733"
+    },
+    {
+      "asset": "GTC",
+      "nextHourlyInterestRate": "0.00010744"
+    },
+    {
+      "asset": "RESOLV",
+      "nextHourlyInterestRate": "0.00009081"
+    },
+    {
+      "asset": "PLUME",
+      "nextHourlyInterestRate": "0.00006698"
+    },
+    {
+      "asset": "LAYER",
+      "nextHourlyInterestRate": "0.00007087"
+    },
+    {
+      "asset": "TRUMP",
+      "nextHourlyInterestRate": "0.00002988"
+    },
+    {
+      "asset": "BANANA",
+      "nextHourlyInterestRate": "0.00008375"
+    },
+    {
+      "asset": "HOME",
+      "nextHourlyInterestRate": "0.00008316"
+    }
+  ]
+}

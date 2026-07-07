@@ -447,12 +447,30 @@ The top-level `borrow_validation` aggregate block (distinct from the per-row
 ### `coverage` / warnings (§1.5)
 
 Probe range = `daily_funding_rate < 0 ∧ route_class==MARGIN_SPOT_CANDIDATE ∧
-asset_tag==CRYPTO`, deduped by `base_asset`, capped at
-`Config.borrow_check_max_calls` (default 50, supersedes the Phase 2 N=10);
-truncation priority is abs daily rate DESC. Truncated candidates render
-`verified=false` / `error="not_probed_this_round"` (no silent truncation).
-`borrow_validation.coverage = {probed, skipped, reason="rate_limit_budget"|null}`.
-A top-level `warnings` entry is appended when truncation occurs.
+asset_tag==CRYPTO`, deduped by `base_asset`. The pool is split into two
+independent budgets (borrow-cost-coverage-v2):
+
+- **Rate coverage** (`rate_probe_assets`, the FULL pool, NOT capped) drives the
+  next-hourly interest-rate lookup. A candidate beyond the borrowability cap
+  still gets its borrow rate (no `-`).
+- **Borrowability coverage** (`borrowability_probe_assets`, the first
+  `Config.borrow_check_max_calls` candidates by abs daily rate DESC) drives the
+  per-asset `maxBorrowable` probe.
+
+`borrow_validation.coverage = {probed, skipped, reason="rate_limit_budget"|null}`
+reports the **borrowability** coverage (`probed` = borrowability-probed,
+`skipped` = borrowability-unprobed). When `skipped > 0`, a top-level `warnings`
+entry is appended ("部分资产可借额度未探测（利率仍覆盖）" /
+"N asset(s) borrowability not probed (rate still covered)") — rate coverage is
+unaffected.
+
+`error` on per-row `borrow_validation`:
+
+- `borrowability_not_probed`: borrowability not probed (beyond the
+  `maxBorrowable` budget), but `classic_margin.daily_interest_account` and
+  `net_daily_yield` are STILL filled; only the `portfolio_account` amount fields
+  are null; `checked_at` is kept; `verified=false`.
+- `not_probed_this_round` (legacy): rate also not covered; all chain fields null.
 
 ### `private_account` block (§1.4, three-state)
 

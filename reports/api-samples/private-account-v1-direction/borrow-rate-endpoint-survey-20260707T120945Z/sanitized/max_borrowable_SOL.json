@@ -1,0 +1,47 @@
+{
+  "endpoint": "/papi/v1/margin/maxBorrowable",
+  "params": {
+    "asset": "SOL"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-mbx-used-weight-1m": "230",
+    "x-response-time": "21ms"
+  },
+  "all_headers": {
+    "Date": "Tue, 07 Jul 2026 12:09:57 GMT",
+    "Content-Type": "application/json",
+    "Content-Length": "48",
+    "Connection": "close",
+    "Server": "Tengine",
+    "X-MBX-USED-WEIGHT-1M": "230",
+    "x-response-time": "21ms",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Headers": "*,clienttype,Content-Type,lang,x-ui-request-trace,bnc-uuid",
+    "Content-Security-Policy": "default-src 'self'",
+    "cache-control": "no-cache, no-store, must-revalidate",
+    "expires": "0",
+    "pragma": "no-cache",
+    "strict-transport-security": "max-age=31536000; includeSubdomains",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "x-xss-protection": "1; mode=block"
+  },
+  "latency_ms": 486.6,
+  "payload": {
+    "amount": {
+      "present": true,
+      "type": "str",
+      "non_empty": true,
+      "gt_zero": true
+    },
+    "borrowLimit": {
+      "present": true,
+      "type": "str",
+      "non_empty": true,
+      "gt_zero": true
+    }
+  }
+}

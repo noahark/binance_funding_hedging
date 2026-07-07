@@ -1,0 +1,476 @@
+{
+  "endpoint": "/sapi/v1/margin/interestRateHistory",
+  "params": {
+    "asset": "SOL"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-uid-weight-1m": "480"
+  },
+  "all_headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Content-Length": "6417",
+    "Connection": "close",
+    "Date": "Tue, 07 Jul 2026 12:09:50 GMT",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Server": "nginx",
+    "Vary": "Accept-Encoding",
+    "X-SAPI-USED-UID-WEIGHT-1M": "480",
+    "Strict-Transport-Security": "max-age=31536000; includeSubdomains",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Access-Control-Allow-Origin": "*",
+    "X-Cache": "Miss from cloudfront",
+    "Via": "1.1 05f5e6590439586c9a59a87a4073289e.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "Co5L1X46Tf90bziAwQvAQG44j22RxH3rCloAMFhGF_3AAOLYaMDFrQ=="
+  },
+  "latency_ms": 365.3,
+  "payload": [
+    {
+      "asset": "SOL",
+      "timestamp": 1783425600000,
+      "dailyInterestRate": "0.00015607",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783422000000,
+      "dailyInterestRate": "0.00016244",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783400400000,
+      "dailyInterestRate": "0.00016502",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783382400000,
+      "dailyInterestRate": "0.00016686",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783378800000,
+      "dailyInterestRate": "0.00016686",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783357200000,
+      "dailyInterestRate": "0.00016493",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783353600000,
+      "dailyInterestRate": "0.00016007",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783335600000,
+      "dailyInterestRate": "0.00015162",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783332000000,
+      "dailyInterestRate": "0.00015351",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783324800000,
+      "dailyInterestRate": "0.0001555",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783314000000,
+      "dailyInterestRate": "0.00015862",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783310400000,
+      "dailyInterestRate": "0.00016077",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783303200000,
+      "dailyInterestRate": "0.00016381",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783296000000,
+      "dailyInterestRate": "0.00016723",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783267200000,
+      "dailyInterestRate": "0.00016522",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783263600000,
+      "dailyInterestRate": "0.00015957",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783249200000,
+      "dailyInterestRate": "0.00015127",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783227600000,
+      "dailyInterestRate": "0.0001531",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783209600000,
+      "dailyInterestRate": "0.00015121",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783170000000,
+      "dailyInterestRate": "0.00015121",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783162800000,
+      "dailyInterestRate": "0.00015274",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783159200000,
+      "dailyInterestRate": "0.00015568",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783155600000,
+      "dailyInterestRate": "0.00016367",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783152000000,
+      "dailyInterestRate": "0.00016579",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783144800000,
+      "dailyInterestRate": "0.00016358",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783141200000,
+      "dailyInterestRate": "0.00016033",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783137600000,
+      "dailyInterestRate": "0.00015618",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783126800000,
+      "dailyInterestRate": "0.00016434",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783123200000,
+      "dailyInterestRate": "0.00016248",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783116000000,
+      "dailyInterestRate": "0.00016738",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783108800000,
+      "dailyInterestRate": "0.00016435",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783101600000,
+      "dailyInterestRate": "0.00015994",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783087200000,
+      "dailyInterestRate": "0.00016325",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783080000000,
+      "dailyInterestRate": "0.00016675",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783072800000,
+      "dailyInterestRate": "0.00016267",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783062000000,
+      "dailyInterestRate": "0.00016484",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783054800000,
+      "dailyInterestRate": "0.00016206",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783051200000,
+      "dailyInterestRate": "0.00015445",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783036800000,
+      "dailyInterestRate": "0.00015269",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783008000000,
+      "dailyInterestRate": "0.00015269",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783004400000,
+      "dailyInterestRate": "0.00015477",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1783000800000,
+      "dailyInterestRate": "0.00015859",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782993600000,
+      "dailyInterestRate": "0.00016348",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782990000000,
+      "dailyInterestRate": "0.00015927",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782979200000,
+      "dailyInterestRate": "0.00015681",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782972000000,
+      "dailyInterestRate": "0.00016177",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782957600000,
+      "dailyInterestRate": "0.00016544",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782954000000,
+      "dailyInterestRate": "0.00015887",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782950400000,
+      "dailyInterestRate": "0.00015121",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782939600000,
+      "dailyInterestRate": "0.00015121",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782928800000,
+      "dailyInterestRate": "0.00014932",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782925200000,
+      "dailyInterestRate": "0.00015302",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782921600000,
+      "dailyInterestRate": "0.00015616",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782918000000,
+      "dailyInterestRate": "0.0001541",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782910800000,
+      "dailyInterestRate": "0.00015659",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782903600000,
+      "dailyInterestRate": "0.0001582",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782900000000,
+      "dailyInterestRate": "0.00016062",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782878400000,
+      "dailyInterestRate": "0.0001585",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782874800000,
+      "dailyInterestRate": "0.00015624",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782864000000,
+      "dailyInterestRate": "0.0001594",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782860400000,
+      "dailyInterestRate": "0.0001594",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782849600000,
+      "dailyInterestRate": "0.00016205",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782846000000,
+      "dailyInterestRate": "0.00016023",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782831600000,
+      "dailyInterestRate": "0.00015676",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782828000000,
+      "dailyInterestRate": "0.00015002",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782824400000,
+      "dailyInterestRate": "0.00014773",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782820800000,
+      "dailyInterestRate": "0.00014944",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782817200000,
+      "dailyInterestRate": "0.00015196",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782813600000,
+      "dailyInterestRate": "0.00015578",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782799200000,
+      "dailyInterestRate": "0.00015902",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782795600000,
+      "dailyInterestRate": "0.00016234",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782788400000,
+      "dailyInterestRate": "0.00016045",
+      "vipLevel": 0
+    },
+    {
+      "asset": "SOL",
+      "timestamp": 1782777600000,
+      "dailyInterestRate": "0.0001583",
+      "vipLevel": 0
+    }
+  ]
+}

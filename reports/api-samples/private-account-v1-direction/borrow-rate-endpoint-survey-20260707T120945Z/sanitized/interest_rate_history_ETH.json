@@ -1,0 +1,404 @@
+{
+  "endpoint": "/sapi/v1/margin/interestRateHistory",
+  "params": {
+    "asset": "ETH"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-uid-weight-1m": "420"
+  },
+  "all_headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Content-Length": "5354",
+    "Connection": "close",
+    "Date": "Tue, 07 Jul 2026 12:09:49 GMT",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Server": "nginx",
+    "Vary": "Accept-Encoding",
+    "X-SAPI-USED-UID-WEIGHT-1M": "420",
+    "Strict-Transport-Security": "max-age=31536000; includeSubdomains",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Access-Control-Allow-Origin": "*",
+    "X-Cache": "Miss from cloudfront",
+    "Via": "1.1 203375976188572c193c0e54e30e0d30.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "t-N7YszwOoNHKnAvQrVnfQFYIVQ6p7FVngVwBPR5woxLxsK8SLoN4Q=="
+  },
+  "latency_ms": 268.3,
+  "payload": [
+    {
+      "asset": "ETH",
+      "timestamp": 1783425600000,
+      "dailyInterestRate": "0.00006142",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783422000000,
+      "dailyInterestRate": "0.00006217",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783414800000,
+      "dailyInterestRate": "0.0000656",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783407600000,
+      "dailyInterestRate": "0.00006458",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783396800000,
+      "dailyInterestRate": "0.00006363",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783389600000,
+      "dailyInterestRate": "0.00006493",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783386000000,
+      "dailyInterestRate": "0.00006247",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783382400000,
+      "dailyInterestRate": "0.0000594",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783360800000,
+      "dailyInterestRate": "0.00006327",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783357200000,
+      "dailyInterestRate": "0.00006166",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783342800000,
+      "dailyInterestRate": "0.00006237",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783335600000,
+      "dailyInterestRate": "0.00006316",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783317600000,
+      "dailyInterestRate": "0.0000645",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783303200000,
+      "dailyInterestRate": "0.00006342",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783299600000,
+      "dailyInterestRate": "0.00006154",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783296000000,
+      "dailyInterestRate": "0.00005884",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783263600000,
+      "dailyInterestRate": "0.00006277",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783256400000,
+      "dailyInterestRate": "0.00006206",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783252800000,
+      "dailyInterestRate": "0.00006335",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783216800000,
+      "dailyInterestRate": "0.00006406",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783213200000,
+      "dailyInterestRate": "0.00006201",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783209600000,
+      "dailyInterestRate": "0.0000603",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783206000000,
+      "dailyInterestRate": "0.00006367",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783191600000,
+      "dailyInterestRate": "0.00006465",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783170000000,
+      "dailyInterestRate": "0.00006321",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783166400000,
+      "dailyInterestRate": "0.00006542",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783152000000,
+      "dailyInterestRate": "0.0000646",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783130400000,
+      "dailyInterestRate": "0.00006394",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783123200000,
+      "dailyInterestRate": "0.0000621",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783112400000,
+      "dailyInterestRate": "0.00006527",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783069200000,
+      "dailyInterestRate": "0.00006452",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783062000000,
+      "dailyInterestRate": "0.0000638",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783047600000,
+      "dailyInterestRate": "0.00006232",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783044000000,
+      "dailyInterestRate": "0.00006335",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783040400000,
+      "dailyInterestRate": "0.00006406",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783036800000,
+      "dailyInterestRate": "0.00006232",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783026000000,
+      "dailyInterestRate": "0.00006614",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1783004400000,
+      "dailyInterestRate": "0.00006517",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782972000000,
+      "dailyInterestRate": "0.00006442",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782964800000,
+      "dailyInterestRate": "0.00006256",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782961200000,
+      "dailyInterestRate": "0.00006437",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782957600000,
+      "dailyInterestRate": "0.0000631",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782954000000,
+      "dailyInterestRate": "0.00006112",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782950400000,
+      "dailyInterestRate": "0.00006043",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782946800000,
+      "dailyInterestRate": "0.00006279",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782936000000,
+      "dailyInterestRate": "0.00006378",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782925200000,
+      "dailyInterestRate": "0.000063",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782918000000,
+      "dailyInterestRate": "0.00006158",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782907200000,
+      "dailyInterestRate": "0.00006339",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782892800000,
+      "dailyInterestRate": "0.0000626",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782885600000,
+      "dailyInterestRate": "0.0000639",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782882000000,
+      "dailyInterestRate": "0.00006194",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782874800000,
+      "dailyInterestRate": "0.00006105",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782867600000,
+      "dailyInterestRate": "0.00006332",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782864000000,
+      "dailyInterestRate": "0.00006031",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782860400000,
+      "dailyInterestRate": "0.00006031",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782856800000,
+      "dailyInterestRate": "0.000061",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782788400000,
+      "dailyInterestRate": "0.00006019",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782784800000,
+      "dailyInterestRate": "0.0000611",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782781200000,
+      "dailyInterestRate": "0.00006194",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ETH",
+      "timestamp": 1782777600000,
+      "dailyInterestRate": "0.00006038",
+      "vipLevel": 0
+    }
+  ]
+}

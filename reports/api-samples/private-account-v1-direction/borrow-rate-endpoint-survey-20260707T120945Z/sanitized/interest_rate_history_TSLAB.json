@@ -1,0 +1,37 @@
+{
+  "endpoint": "/sapi/v1/margin/interestRateHistory",
+  "params": {
+    "asset": "TSLAB"
+  },
+  "status": 400,
+  "weight_headers": {
+    "x-sapi-used-uid-weight-1m": "540"
+  },
+  "all_headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Content-Length": "52",
+    "Connection": "close",
+    "Date": "Tue, 07 Jul 2026 12:09:50 GMT",
+    "Expires": "0",
+    "Server": "nginx",
+    "X-SAPI-USED-UID-WEIGHT-1M": "540",
+    "Strict-Transport-Security": "max-age=31536000; includeSubdomains",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "X-Cache": "Error from cloudfront",
+    "Via": "1.1 4ebb7ea858345063f0dcbab32e1680ca.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "apS8aKeSW-wYfkBqUKTSrO7yjOLKbF25kMJ-12JANpPllE1vv2dtRw=="
+  },
+  "latency_ms": 266.2,
+  "payload": {
+    "code": -11027,
+    "msg": "asset TSLAB is not supported"
+  }
+}

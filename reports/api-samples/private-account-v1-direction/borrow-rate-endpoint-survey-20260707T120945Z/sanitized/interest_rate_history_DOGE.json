@@ -1,0 +1,494 @@
+{
+  "endpoint": "/sapi/v1/margin/interestRateHistory",
+  "params": {
+    "asset": "DOGE"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-uid-weight-1m": "300"
+  },
+  "all_headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Content-Length": "6758",
+    "Connection": "close",
+    "Date": "Tue, 07 Jul 2026 12:09:48 GMT",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Server": "nginx",
+    "Vary": "Accept-Encoding",
+    "X-SAPI-USED-UID-WEIGHT-1M": "300",
+    "Strict-Transport-Security": "max-age=31536000; includeSubdomains",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Access-Control-Allow-Origin": "*",
+    "X-Cache": "Miss from cloudfront",
+    "Via": "1.1 8c8b2961348ab2cf507c563d2ae6e470.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "MmnH507RZqgpayzConaVuXJj8yDsMQmHgZpsAmh0mavk_3bEMRaW1w=="
+  },
+  "latency_ms": 263.0,
+  "payload": [
+    {
+      "asset": "DOGE",
+      "timestamp": 1783425600000,
+      "dailyInterestRate": "0.00009449",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783414800000,
+      "dailyInterestRate": "0.00009692",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783407600000,
+      "dailyInterestRate": "0.00009849",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783396800000,
+      "dailyInterestRate": "0.00009984",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783382400000,
+      "dailyInterestRate": "0.00010096",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783378800000,
+      "dailyInterestRate": "0.00010096",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783375200000,
+      "dailyInterestRate": "0.00009965",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783364400000,
+      "dailyInterestRate": "0.00010095",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783357200000,
+      "dailyInterestRate": "0.00010562",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783353600000,
+      "dailyInterestRate": "0.00010148",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783346400000,
+      "dailyInterestRate": "0.00010047",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783314000000,
+      "dailyInterestRate": "0.00010421",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783306800000,
+      "dailyInterestRate": "0.00010314",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783299600000,
+      "dailyInterestRate": "0.00010429",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783296000000,
+      "dailyInterestRate": "0.00010267",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783281600000,
+      "dailyInterestRate": "0.00010467",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783267200000,
+      "dailyInterestRate": "0.00010348",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783242000000,
+      "dailyInterestRate": "0.000105",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783224000000,
+      "dailyInterestRate": "0.00010375",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783220400000,
+      "dailyInterestRate": "0.00010235",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783209600000,
+      "dailyInterestRate": "0.00009981",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783191600000,
+      "dailyInterestRate": "0.00009981",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783177200000,
+      "dailyInterestRate": "0.00010111",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783170000000,
+      "dailyInterestRate": "0.00010378",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783152000000,
+      "dailyInterestRate": "0.0001005",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783144800000,
+      "dailyInterestRate": "0.00009924",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783130400000,
+      "dailyInterestRate": "0.00009811",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783126800000,
+      "dailyInterestRate": "0.00010587",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783123200000,
+      "dailyInterestRate": "0.00010701",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783116000000,
+      "dailyInterestRate": "0.00010325",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783108800000,
+      "dailyInterestRate": "0.00010033",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783098000000,
+      "dailyInterestRate": "0.0000982",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783094400000,
+      "dailyInterestRate": "0.00009947",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783090800000,
+      "dailyInterestRate": "0.00010482",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783083600000,
+      "dailyInterestRate": "0.00010195",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783080000000,
+      "dailyInterestRate": "0.00010437",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783072800000,
+      "dailyInterestRate": "0.000109",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783069200000,
+      "dailyInterestRate": "0.00010481",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783065600000,
+      "dailyInterestRate": "0.00010358",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783058400000,
+      "dailyInterestRate": "0.00009927",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783051200000,
+      "dailyInterestRate": "0.00010186",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783044000000,
+      "dailyInterestRate": "0.00009936",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783036800000,
+      "dailyInterestRate": "0.00009801",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783033200000,
+      "dailyInterestRate": "0.00009801",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783018800000,
+      "dailyInterestRate": "0.00009929",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783011600000,
+      "dailyInterestRate": "0.00010057",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783004400000,
+      "dailyInterestRate": "0.00009917",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1783000800000,
+      "dailyInterestRate": "0.00010667",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782993600000,
+      "dailyInterestRate": "0.00011041",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782990000000,
+      "dailyInterestRate": "0.00010614",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782986400000,
+      "dailyInterestRate": "0.00010127",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782982800000,
+      "dailyInterestRate": "0.00009988",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782964800000,
+      "dailyInterestRate": "0.00010334",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782954000000,
+      "dailyInterestRate": "0.00010438",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782950400000,
+      "dailyInterestRate": "0.00010551",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782946800000,
+      "dailyInterestRate": "0.00010775",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782928800000,
+      "dailyInterestRate": "0.00010537",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782918000000,
+      "dailyInterestRate": "0.00010418",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782907200000,
+      "dailyInterestRate": "0.0001115",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782903600000,
+      "dailyInterestRate": "0.00011023",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782896400000,
+      "dailyInterestRate": "0.00011451",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782889200000,
+      "dailyInterestRate": "0.00011292",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782878400000,
+      "dailyInterestRate": "0.00011108",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782871200000,
+      "dailyInterestRate": "0.00010961",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782864000000,
+      "dailyInterestRate": "0.00010799",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782853200000,
+      "dailyInterestRate": "0.00010799",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782849600000,
+      "dailyInterestRate": "0.00010673",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782846000000,
+      "dailyInterestRate": "0.00011019",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782838800000,
+      "dailyInterestRate": "0.00009656",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782831600000,
+      "dailyInterestRate": "0.00009523",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782828000000,
+      "dailyInterestRate": "0.00010034",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782813600000,
+      "dailyInterestRate": "0.00010483",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782806400000,
+      "dailyInterestRate": "0.00010674",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782784800000,
+      "dailyInterestRate": "0.00010547",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782781200000,
+      "dailyInterestRate": "0.00010763",
+      "vipLevel": 0
+    },
+    {
+      "asset": "DOGE",
+      "timestamp": 1782777600000,
+      "dailyInterestRate": "0.00011348",
+      "vipLevel": 0
+    }
+  ]
+}

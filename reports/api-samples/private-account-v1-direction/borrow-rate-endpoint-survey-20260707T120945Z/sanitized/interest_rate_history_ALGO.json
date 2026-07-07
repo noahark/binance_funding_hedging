@@ -1,0 +1,524 @@
+{
+  "endpoint": "/sapi/v1/margin/interestRateHistory",
+  "params": {
+    "asset": "ALGO"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-uid-weight-1m": "240"
+  },
+  "all_headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Content-Length": "7191",
+    "Connection": "close",
+    "Date": "Tue, 07 Jul 2026 12:09:47 GMT",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Server": "nginx",
+    "Vary": "Accept-Encoding",
+    "X-SAPI-USED-UID-WEIGHT-1M": "240",
+    "Strict-Transport-Security": "max-age=31536000; includeSubdomains",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Access-Control-Allow-Origin": "*",
+    "X-Cache": "Miss from cloudfront",
+    "Via": "1.1 4ebb7ea858345063f0dcbab32e1680ca.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "7OmT9cP56QUkryXcsIymnVZ_mR4cU5XoQWzcTtt2qCGrDWwFV11qrg=="
+  },
+  "latency_ms": 279.0,
+  "payload": [
+    {
+      "asset": "ALGO",
+      "timestamp": 1783411200000,
+      "dailyInterestRate": "0.00010853",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783404000000,
+      "dailyInterestRate": "0.00011",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783396800000,
+      "dailyInterestRate": "0.00011113",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783393200000,
+      "dailyInterestRate": "0.00011431",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783382400000,
+      "dailyInterestRate": "0.00011301",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783375200000,
+      "dailyInterestRate": "0.00011301",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783371600000,
+      "dailyInterestRate": "0.00012183",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783364400000,
+      "dailyInterestRate": "0.00012586",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783342800000,
+      "dailyInterestRate": "0.0001245",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783332000000,
+      "dailyInterestRate": "0.0001258",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783321200000,
+      "dailyInterestRate": "0.00012219",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783317600000,
+      "dailyInterestRate": "0.00012507",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783314000000,
+      "dailyInterestRate": "0.00012119",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783310400000,
+      "dailyInterestRate": "0.00011844",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783306800000,
+      "dailyInterestRate": "0.0001207",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783296000000,
+      "dailyInterestRate": "0.00012671",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783292400000,
+      "dailyInterestRate": "0.00012671",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783256400000,
+      "dailyInterestRate": "0.00012541",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783252800000,
+      "dailyInterestRate": "0.00012222",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783249200000,
+      "dailyInterestRate": "0.00011788",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783245600000,
+      "dailyInterestRate": "0.0001167",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783231200000,
+      "dailyInterestRate": "0.00012073",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783220400000,
+      "dailyInterestRate": "0.00011797",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783216800000,
+      "dailyInterestRate": "0.00011672",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783209600000,
+      "dailyInterestRate": "0.00011848",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783202400000,
+      "dailyInterestRate": "0.00011848",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783195200000,
+      "dailyInterestRate": "0.00011652",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783188000000,
+      "dailyInterestRate": "0.00011077",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783144800000,
+      "dailyInterestRate": "0.00012048",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783137600000,
+      "dailyInterestRate": "0.00012969",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783134000000,
+      "dailyInterestRate": "0.00011919",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783123200000,
+      "dailyInterestRate": "0.00012431",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783119600000,
+      "dailyInterestRate": "0.00012431",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783116000000,
+      "dailyInterestRate": "0.00012253",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783112400000,
+      "dailyInterestRate": "0.00013335",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783080000000,
+      "dailyInterestRate": "0.0001369",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783076400000,
+      "dailyInterestRate": "0.00013098",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783072800000,
+      "dailyInterestRate": "0.00012021",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783062000000,
+      "dailyInterestRate": "0.0001174",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783058400000,
+      "dailyInterestRate": "0.00012244",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783054800000,
+      "dailyInterestRate": "0.00012606",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783051200000,
+      "dailyInterestRate": "0.0001538",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783047600000,
+      "dailyInterestRate": "0.0001309",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783040400000,
+      "dailyInterestRate": "0.00013861",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783036800000,
+      "dailyInterestRate": "0.00014036",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783018800000,
+      "dailyInterestRate": "0.00014036",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783004400000,
+      "dailyInterestRate": "0.00013829",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1783000800000,
+      "dailyInterestRate": "0.000136",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782990000000,
+      "dailyInterestRate": "0.00015121",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782968400000,
+      "dailyInterestRate": "0.00015889",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782964800000,
+      "dailyInterestRate": "0.00015615",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782961200000,
+      "dailyInterestRate": "0.00015368",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782954000000,
+      "dailyInterestRate": "0.00014987",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782950400000,
+      "dailyInterestRate": "0.00014796",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782946800000,
+      "dailyInterestRate": "0.00014796",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782943200000,
+      "dailyInterestRate": "0.00015173",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782932400000,
+      "dailyInterestRate": "0.00016602",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782928800000,
+      "dailyInterestRate": "0.00016406",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782925200000,
+      "dailyInterestRate": "0.000162",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782921600000,
+      "dailyInterestRate": "0.00015983",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782918000000,
+      "dailyInterestRate": "0.00015482",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782914400000,
+      "dailyInterestRate": "0.00015066",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782903600000,
+      "dailyInterestRate": "0.00014821",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782900000000,
+      "dailyInterestRate": "0.00014636",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782892800000,
+      "dailyInterestRate": "0.00014891",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782874800000,
+      "dailyInterestRate": "0.00015087",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782871200000,
+      "dailyInterestRate": "0.0001547",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782867600000,
+      "dailyInterestRate": "0.00015279",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782864000000,
+      "dailyInterestRate": "0.00014981",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782860400000,
+      "dailyInterestRate": "0.00015515",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782842400000,
+      "dailyInterestRate": "0.00015993",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782838800000,
+      "dailyInterestRate": "0.00015769",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782831600000,
+      "dailyInterestRate": "0.00015385",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782828000000,
+      "dailyInterestRate": "0.00015198",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782824400000,
+      "dailyInterestRate": "0.0001483",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782817200000,
+      "dailyInterestRate": "0.00015494",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782810000000,
+      "dailyInterestRate": "0.00015285",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782806400000,
+      "dailyInterestRate": "0.00014507",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782799200000,
+      "dailyInterestRate": "0.00014774",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782788400000,
+      "dailyInterestRate": "0.000141",
+      "vipLevel": 0
+    },
+    {
+      "asset": "ALGO",
+      "timestamp": 1782777600000,
+      "dailyInterestRate": "0.00014431",
+      "vipLevel": 0
+    }
+  ]
+}

@@ -200,15 +200,16 @@ def assemble_snapshot(
     ``extra_warnings`` are runtime degradation warnings (e.g. the E1 fundingInfo
     fallback, private_account no-price lines) appended after the fixed
     ``CONTRACT_WARNINGS``. §1.5 also requires a top-level warnings entry whenever
-    the borrow probe truncated candidates (``coverage.skipped > 0``) — derived
-    here from ``borrow_validation_summary`` so the truncation is never silent.
+    borrowability was not fully probed (``coverage.skipped > 0``) — derived here
+    from ``borrow_validation_summary`` so the gap is never silent. Rate coverage
+    is unaffected (the borrow rate is still filled for those rows).
     """
     warnings = list(CONTRACT_WARNINGS) + list(extra_warnings or [])
     coverage = (borrow_validation_summary or {}).get("coverage") or {}
     if coverage.get("skipped", 0) > 0:
         warnings.append(
-            f"borrow_validation: {coverage['skipped']} candidate(s) truncated by "
-            f"rate_limit_budget (not_probed_this_round)"
+            f"borrow_validation: {coverage['skipped']} asset(s) borrowability not "
+            f"probed (rate still covered) — 部分资产可借额度未探测（利率仍覆盖）"
         )
     snap = {
         "schema_version": SCHEMA_VERSION,
@@ -333,18 +334,26 @@ def compute_net_daily_yield(daily_funding_rate, daily_borrow_rate) -> Optional[s
 def select_borrow_candidates(
     rows: List[dict], max_calls: int
 ) -> dict:
-    """§1.5 borrow probe set + coverage.
+    """§1.5 borrow probe sets + coverage.
 
     Probe range = rows with ``daily_funding_rate < 0`` AND
     ``route_class == MARGIN_SPOT_CANDIDATE`` AND ``asset_tag == CRYPTO``, de-duped
-    by ``base_asset``, capped at ``max_calls`` (default 50, §2.A.2 scen 3).
-    Truncation priority is abs daily rate DESC (symbol ASC tie-break); truncated
-    candidates are recorded so their rows render ``verified=false`` /
-    ``error="not_probed_this_round"`` (no silent truncation).
+    by ``base_asset``. Truncation priority is abs daily rate DESC (symbol ASC
+    tie-break). The pool is split into THREE sets so the rate budget and the
+    borrowability budget are decoupled (borrow-cost-coverage-v2):
 
-    Returns ``{"probed_assets": [str], "truncated_assets": set[str],
-    "coverage": {"probed": int, "skipped": int, "reason": str|None}}``.
-    ``probed_assets`` is in priority order (for the E2 ``assets`` param).
+    - ``rate_probe_assets``: the FULL de-duped pool (abs rate DESC, symbol ASC),
+      NOT capped — drives the next-hourly interest-rate coverage (cost leg). A
+      candidate outside the borrowability cap still gets its borrow rate here.
+    - ``borrowability_probe_assets``: the first ``max_calls`` of the pool — drives
+      the per-asset ``fetch_max_borrowable`` (bounded) loop.
+    - ``borrowability_unprobed_assets``: the remainder (rate covered, but
+      borrowability NOT probed) — their rows render ``verified=false`` /
+      ``error="borrowability_not_probed"`` while keeping the borrow rate.
+
+    ``coverage`` is the borrowability coverage (NOT rate coverage):
+    ``probed = len(borrowability_probe_assets)``,
+    ``skipped = len(borrowability_unprobed_assets)``.
     """
     cap = max(0, int(max_calls))
     candidates = [
@@ -358,24 +367,23 @@ def select_borrow_candidates(
     candidates.sort(
         key=lambda r: (-abs(Decimal(str(r["daily_funding_rate"]))), r.get("symbol", ""))
     )
-    probed: List[str] = []
-    truncated_assets: set = set()
+    rate_probe: List[str] = []
     seen: set = set()
     for r in candidates:
         asset = r.get("base_asset", "")
         if not asset or asset in seen:
             continue
         seen.add(asset)
-        if len(probed) < cap:
-            probed.append(asset)
-        else:
-            truncated_assets.add(asset)
-    skipped = len(truncated_assets)
+        rate_probe.append(asset)
+    borrowability_probe = rate_probe[:cap]
+    borrowability_unprobed: set = set(rate_probe[cap:])
+    skipped = len(borrowability_unprobed)
     return {
-        "probed_assets": probed,
-        "truncated_assets": truncated_assets,
+        "rate_probe_assets": rate_probe,
+        "borrowability_probe_assets": borrowability_probe,
+        "borrowability_unprobed_assets": borrowability_unprobed,
         "coverage": {
-            "probed": len(probed),
+            "probed": len(borrowability_probe),
             "skipped": skipped,
             "reason": "rate_limit_budget" if skipped else None,
         },
@@ -671,14 +679,19 @@ def assemble_borrow_validation(
     error: Optional[str],
     *,
     daily_interest_account: Optional[str] = None,
-    truncated: bool = False,
+    borrowability_truncated: bool = False,
 ) -> dict:
     """Three-state borrow-validation block (parallel output; never alters classify).
 
     - ``classic_ref is None`` (private channel disabled/failed): ``verified=false``,
       every data field null, ``error`` carries the reason.
-    - ``truncated`` (§1.5: borrow candidate beyond the probe cap): ``verified=false``,
-      ``error="not_probed_this_round"``, chain fields null (no silent truncation).
+    - ``borrowability_truncated`` (§1.5: borrow candidate beyond the
+      maxBorrowable budget, but the rate IS covered): ``verified=false``,
+      ``error="borrowability_not_probed"``. classic_margin is filled normally
+      (pair_listed/asset_borrowable/daily_interest_vip0/daily_interest_account —
+      the borrow rate is KEPT), checked_at is KEPT, and ONLY the portfolio_account
+      amount fields are cleared. Distinct from the legacy
+      ``error="not_probed_this_round"`` (rate also absent).
     - verified, pair not listed in the classic list: ``verified=true``,
       ``pair_listed=false``, asset/interest fields null.
     - verified, pair listed: ``verified=true``, ``pair_listed=true`` + asset/interest.
@@ -710,24 +723,6 @@ def assemble_borrow_validation(
             "checked_at": None,
             "error": error,
         }
-    if truncated:
-        return {
-            "verified": False,
-            "classic_margin": {
-                "pair_listed": None,
-                "asset_borrowable": None,
-                "daily_interest_vip0": None,
-                "daily_interest_account": None,
-                "source": "sapi_reference",
-            },
-            "portfolio_account": {
-                "max_borrowable": None,
-                "borrow_limit": None,
-                "source": "papi_max_borrowable",
-            },
-            "checked_at": None,
-            "error": "not_probed_this_round",
-        }
     pair_listed = classic_ref.get("pair_listed_by_symbol", {}).get(sym)
     if pair_listed:
         asset_borrowable = classic_ref.get("asset_borrowable_by_name", {}).get(base)
@@ -735,6 +730,28 @@ def assemble_borrow_validation(
     else:
         asset_borrowable = None
         daily_vip0 = None
+    if borrowability_truncated:
+        # Borrowability NOT probed (beyond the maxBorrowable budget) but the
+        # classic reference is valid and the borrow rate IS covered: keep the
+        # classic_margin fields (incl. daily_interest_account) and checked_at,
+        # clear ONLY the portfolio_account amount fields, mark verified=false.
+        return {
+            "verified": False,
+            "classic_margin": {
+                "pair_listed": bool(pair_listed),
+                "asset_borrowable": asset_borrowable,
+                "daily_interest_vip0": daily_vip0,
+                "daily_interest_account": daily_interest_account,
+                "source": "sapi_reference",
+            },
+            "portfolio_account": {
+                "max_borrowable": None,
+                "borrow_limit": None,
+                "source": "papi_max_borrowable",
+            },
+            "checked_at": checked_at,
+            "error": "borrowability_not_probed",
+        }
     portfolio = portfolio_by_asset.get(base, {})
     return {
         "verified": True,
