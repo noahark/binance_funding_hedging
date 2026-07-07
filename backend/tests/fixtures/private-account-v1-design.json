@@ -149,13 +149,13 @@
   "private_account": {
     "verified": true,
     "balances_unified": [
-      {"asset": "BTC", "total_balance": "<AMOUNT>"},
-      {"asset": "ETH", "total_balance": "<AMOUNT>"},
-      {"asset": "USDT", "total_balance": "<AMOUNT>"}
+      {"asset": "BTC", "total_balance": "<AMOUNT>", "value_usdt": "<AMOUNT>"},
+      {"asset": "ETH", "total_balance": "<AMOUNT>", "value_usdt": "<AMOUNT>"},
+      {"asset": "USDT", "total_balance": "<AMOUNT>", "value_usdt": "<AMOUNT>"}
     ],
     "balances_spot": [
-      {"asset": "USDT", "free": "<AMOUNT>", "locked": "<AMOUNT>"},
-      {"asset": "USDC", "free": "<AMOUNT>", "locked": "<AMOUNT>"}
+      {"asset": "USDT", "free": "<AMOUNT>", "locked": "<AMOUNT>", "value_usdt": "<AMOUNT>"},
+      {"asset": "USDC", "free": "<AMOUNT>", "locked": "<AMOUNT>", "value_usdt": "<AMOUNT>"}
     ],
     "um_positions": [],
     "total_value_usdt": "<AMOUNT>",
@@ -167,8 +167,8 @@
     {
       "_state": "verified_true",
       "verified": true,
-      "balances_unified": [{"asset": "BTC", "total_balance": "<AMOUNT>"}, {"asset": "USDT", "total_balance": "<AMOUNT>"}],
-      "balances_spot": [{"asset": "USDT", "free": "<AMOUNT>", "locked": "<AMOUNT>"}],
+      "balances_unified": [{"asset": "BTC", "total_balance": "<AMOUNT>", "value_usdt": "<AMOUNT>"}, {"asset": "USDT", "total_balance": "<AMOUNT>", "value_usdt": "<AMOUNT>"}],
+      "balances_spot": [{"asset": "USDT", "free": "<AMOUNT>", "locked": "<AMOUNT>", "value_usdt": "<AMOUNT>"}],
       "um_positions": [],
       "total_value_usdt": "<AMOUNT>",
       "valuation": {"price_source": "api_v3_ticker_price", "priced_at": "2026-07-05T23:30:00Z"},

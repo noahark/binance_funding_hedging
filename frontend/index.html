@@ -132,18 +132,6 @@
       flex: 0 0 auto;
     }
 
-    .sidebar-footer {
-      margin-top: auto;
-      display: grid;
-      gap: var(--space-3);
-      padding: var(--space-4);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: var(--radius);
-      background: rgba(255, 255, 255, 0.05);
-      color: #d8e5e3;
-      font-size: 12px;
-    }
-
     .content {
       min-width: 0;
       padding: var(--space-5);
@@ -495,7 +483,6 @@
     @media (max-width: 1100px) {
       .app-shell { grid-template-columns: 1fr; }
       .sidebar { position: static; height: auto; padding: var(--space-4); }
-      .sidebar-footer { display: none; }
     }
     @media (max-width: 760px) {
       .content { padding: var(--space-3); }
@@ -519,7 +506,7 @@
           </span>
           <span>资金费率对冲</span>
         </div>
-        <div class="brand-subtitle">公开数据 · 只读</div>
+        <div class="brand-subtitle">行情公开 · 账户私有只读</div>
       </div>
 
       <nav class="nav">
@@ -531,21 +518,17 @@
         </button>
       </nav>
 
-      <div class="sidebar-footer">
-        <div>运行约束</div>
-        <strong>公开行情 · 只读展示 · 不连接 Binance</strong>
-      </div>
     </aside>
 
     <main class="content">
       <header class="topbar">
         <div class="title-block">
           <h1>资金费率对冲工作台</h1>
-          <p class="subtitle">公开数据 · 只读</p>
+          <p class="subtitle">行情公开 · 账户需 key 私有只读</p>
         </div>
         <div class="badge-row" aria-label="运行约束">
-          <span class="badge success">公开数据</span>
-          <span class="badge info">只读</span>
+          <span class="badge success">行情公开</span>
+          <span class="badge info">账户只读</span>
           <span class="badge warn">自动刷新 60s</span>
         </div>
       </header>
@@ -554,7 +537,7 @@
         <div class="panel-header">
           <div class="panel-title">
             <h2>数据说明</h2>
-            <p class="subtitle">来自后端快照服务的公开验证限制与展示约定</p>
+            <p class="subtitle">来自后端快照服务的行情公开数据与账户私有只读验证说明</p>
           </div>
         </div>
         <div class="panel-body">
@@ -565,6 +548,24 @@
             <pre id="warnings-raw-content"></pre>
           </details>
         </div>
+      </section>
+
+      <section class="panel" id="private-panel" style="display:none;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>私有账户</h2>
+            <p class="subtitle" id="private-panel-subtitle">资产更新时间 —</p>
+          </div>
+          <div class="panel-actions">
+            <button class="privacy-toggle" id="btn-privacy" type="button" aria-pressed="false" title="切换金额显示">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path id="privacy-icon-path" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span id="privacy-label">隐藏金额</span>
+            </button>
+          </div>
+        </div>
+        <div class="panel-body" id="private-panel-body"></div>
       </section>
 
       <section class="panel">
@@ -635,24 +636,6 @@
             </table>
           </div>
         </div>
-      </section>
-
-      <section class="panel" id="private-panel" style="display:none;">
-        <div class="panel-header">
-          <div class="panel-title">
-            <h2>私有账户</h2>
-            <p class="subtitle" id="private-panel-subtitle">只读资产视图</p>
-          </div>
-          <div class="panel-actions">
-            <button class="privacy-toggle" id="btn-privacy" type="button" aria-pressed="false" title="切换金额显示">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path id="privacy-icon-path" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span id="privacy-label">隐藏金额</span>
-            </button>
-          </div>
-        </div>
-        <div class="panel-body" id="private-panel-body"></div>
       </section>
 
       <footer class="footer-note" id="footer-note"></footer>
@@ -812,6 +795,27 @@
         return fracPart !== undefined ? `${intFormatted}.${fracPart}` : intFormatted;
       }
 
+      function formatUsdt2(str) {
+        // 2-place ROUND_HALF_UP display for per-balance value_usdt (8-place string).
+        if (str === undefined || str === null || str === '') return null;
+        const s = String(str);
+        if (!/^-?\d+\.?\d*$/.test(s)) return null;
+        const [intPart, fracPart = ''] = s.split('.');
+        const sign = intPart.startsWith('-') ? '-' : '';
+        const absInt = sign ? intPart.slice(1) : intPart;
+        const three = (fracPart + '000').slice(0, 3);
+        const roundDigit = parseInt(three[2], 10);
+        let cents = parseInt((fracPart + '00').slice(0, 2), 10);
+        if (roundDigit >= 5) {
+          cents += 1;
+          if (cents === 100) {
+            cents = 0;
+            return sign + (String(BigInt(absInt) + BigInt(1)) + '.' + String(cents).padStart(2, '0'));
+          }
+        }
+        return sign + absInt + '.' + String(cents).padStart(2, '0');
+      }
+
       function classForFundingRate(str) {
         const n = Number(str);
         if (Number.isNaN(n) || n === 0) return 'muted';
@@ -875,15 +879,34 @@
         }
       }
 
-      function badgeForNegativeFundingStatus(ns) {
-        const map = {
-          'PRIVATE_BORROW_VALIDATION_REQUIRED': 'PRIVATE_BORROW_VALIDATION_REQUIRED(需私有借币验证)',
-          'DISABLED_BSTOCK': 'DISABLED_BSTOCK(禁用:bStock 不可借)',
-          'DISABLED_SPOT_ONLY': 'DISABLED_SPOT_ONLY(禁用:无杠杆)',
-          'DISABLED_PERP_ONLY': 'DISABLED_PERP_ONLY(禁用:无现货腿)'
-        };
-        const cls = ns === 'PRIVATE_BORROW_VALIDATION_REQUIRED' ? 'warn' : ns === 'DISABLED_BSTOCK' ? 'danger' : ns === 'DISABLED_SPOT_ONLY' ? 'warn' : 'muted';
-        return `<span class="badge ${cls}">${escapeHtml(map[ns] || ns)}</span>`;
+      function badgeForNegativeFundingStatus(row) {
+        const ns = row.negative_funding_status;
+        if (ns === 'DISABLED_PERP_ONLY') {
+          return `<span class="badge muted" title="DISABLED_PERP_ONLY">仅合约: 无现货腿</span>`;
+        }
+        if (ns === 'DISABLED_BSTOCK') {
+          return `<span class="badge danger" title="DISABLED_BSTOCK">bStock: 负费率不可借</span>`;
+        }
+        if (ns === 'DISABLED_SPOT_ONLY') {
+          return `<span class="badge warn" title="DISABLED_SPOT_ONLY">仅现货: 无杠杆借币</span>`;
+        }
+        const bv = row.borrow_validation;
+        if (bv && bv.verified === true) {
+          const cm = bv.classic_margin || {};
+          if (cm.pair_listed === true && cm.asset_borrowable === true) {
+            return `<span class="badge success" title="PRIVATE_BORROW_VALIDATION_REQUIRED">已验证可借</span>`;
+          }
+          if (cm.pair_listed === false) {
+            return `<span class="badge warn" title="PRIVATE_BORROW_VALIDATION_REQUIRED">杠杆交易对未列出</span>`;
+          }
+          if (cm.asset_borrowable === false) {
+            return `<span class="badge danger" title="PRIVATE_BORROW_VALIDATION_REQUIRED">资产不可借</span>`;
+          }
+        }
+        if (bv && bv.verified === false && bv.error === 'not_probed_this_round') {
+          return `<span class="badge muted" title="PRIVATE_BORROW_VALIDATION_REQUIRED">未探测(限速预算)</span>`;
+        }
+        return `<span class="badge warn" title="PRIVATE_BORROW_VALIDATION_REQUIRED">需私有验证</span>`;
       }
 
       function badgeForAssetTag(tag) {
@@ -897,7 +920,7 @@
       }
 
       const WARNING_CHINESE = [
-        '杠杆交易对官方清单需 API key（当前无 key 阶段），杠杆可借性未经私有验证；候选判断使用公开现货 isMarginTradingAllowed 字段。',
+        '杠杆交易对与可借性通过私有只读 API key 验证；未配置或请求失败时标为需私有验证，候选初筛仍使用公开现货 isMarginTradingAllowed 字段。',
         '表中资金费率为本周期实时预估值，将于所示结算时间收取，结算前会漂移；已结算历史以 /fapi/v1/fundingRate 为准。',
         'bStock（美股）合约的现货腿按 baseAsset+B+quoteAsset 别名连接（如 TSLAUSDT → TSLABUSDT）；质押率动态未知，未做任何硬编码。'
       ];
@@ -912,7 +935,7 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 16v-4m0-4h.01M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span>杠杆可借性未经私有验证（当前为公开数据阶段）</span>
+          <span>账户与借币验证通过私有只读 API key 读取；未配置或失败时降级为需私有验证，公开行情仍可展示。</span>
         `;
         els.warningsList.innerHTML = WARNING_CHINESE.map((cn, i) => `
           <div class="info-item">
@@ -1066,6 +1089,19 @@
           const netClass = classForFundingRate(row.net_daily_yield);
           const netText = formatFundingRate(row.net_daily_yield);
           const netSource = sourceBadge(row.borrow_rate_source);
+          let borrowSubline = '';
+          if (row.borrow_rate_source != null) {
+            const cm = row.borrow_validation && row.borrow_validation.classic_margin;
+            const accountRate = cm && cm.daily_interest_account;
+            const vip0Rate = cm && cm.daily_interest_vip0;
+            if (accountRate != null && accountRate !== '') {
+              borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(accountRate)}</span>`;
+            } else if (vip0Rate != null && vip0Rate !== '') {
+              borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(vip0Rate)} <span class="badge compact warn">参考</span></span>`;
+            } else {
+              borrowSubline = `<br/><span class="muted small">日借币: -</span>`;
+            }
+          }
           const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
             ? row.ui_flags.filter(f => f !== 'MARGIN_PUBLIC_UNVERIFIED').map(badgeForUiFlag).join(' ')
             : '<span class="muted small">—</span>';
@@ -1081,9 +1117,9 @@
               <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
               <td title="${escapeHtml(fullTime)}">${timeText}</td>
               <td class="${dailyRateClass}">${dailyRateCell}</td>
-              <td class="net-yield ${netClass}">${netText}${netSource}</td>
+              <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
               <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
-              <td>${badgeForNegativeFundingStatus(row.negative_funding_status)}</td>
+              <td>${badgeForNegativeFundingStatus(row)}</td>
               <td>${uiFlags}</td>
             </tr>
           `;
@@ -1112,28 +1148,34 @@
 
         if (pa.verified !== true) {
           const errorDetail = pa.error ? `（${escapeHtml(pa.error)}）` : '';
-          els.privatePanelSubtitle.textContent = '私有通道未启用';
+          els.privatePanelSubtitle.textContent = '私有账户未读取';
           els.privatePanelBody.innerHTML = `
             <div class="empty-state">
-              <strong>私有通道未启用</strong><br/>
-              当前未获取到账户资产数据${errorDetail}<br/>
-              <span class="muted small">请检查 API key 权限或后端私有通道配置</span>
+              <strong>私有账户未读取</strong><br/>
+              未配置 API key 或私有只读请求失败，未获取到账户资产数据${errorDetail}<br/>
+              <span class="muted small">请检查 API key 权限、IP 白名单或后端私有通道配置；系统不会执行交易或划转</span>
             </div>
           `;
           return;
         }
 
-        els.privatePanelSubtitle.textContent = '只读资产视图';
+        const timeSource = pa.checked_at || (pa.valuation && pa.valuation.priced_at) || null;
+        const updateTime = timeSource ? formatBeijing(new Date(timeSource).getTime()) : '—';
+        els.privatePanelSubtitle.textContent = `资产更新时间 ${updateTime}`;
         const total = maskAmount(pa.total_value_usdt);
-        const pricedAt = formatBeijing(pa.valuation && pa.valuation.priced_at ? new Date(pa.valuation.priced_at).getTime() : null);
-        const checkedAt = formatBeijing(pa.checked_at ? new Date(pa.checked_at).getTime() : null);
-        const priceSource = pa.valuation && pa.valuation.price_source ? escapeHtml(pa.valuation.price_source) : '—';
+
+        const inlineUsdtSuffix = (valueUsdt) => {
+          if (state.privacyHidden) return '【: ****】';
+          const formatted = formatUsdt2(valueUsdt);
+          if (formatted === null) return '【: — USDT】';
+          return `【: ${formatted} USDT】`;
+        };
 
         const unifiedBalances = Array.isArray(pa.balances_unified) && pa.balances_unified.length > 0
           ? pa.balances_unified.map(b => `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
-                <div class="amount">${maskAmount(b.total_balance)}</div>
+                <div class="amount">${maskAmount(b.total_balance)}${inlineUsdtSuffix(b.value_usdt)}</div>
               </div>
             `).join('')
           : '<span class="muted small">无数据</span>';
@@ -1142,7 +1184,7 @@
           ? pa.balances_spot.map(b => `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
-                <div class="amount">${maskAmount(b.free)}</div>
+                <div class="amount">${maskAmount(b.free)}${inlineUsdtSuffix(b.value_usdt)}</div>
                 <div class="amount locked">冻结: ${maskAmount(b.locked)}</div>
               </div>
             `).join('')
@@ -1188,18 +1230,6 @@
             <div class="overview-card">
               <div class="label">总资产估值 (USDT)</div>
               <div class="value">${total}</div>
-            </div>
-            <div class="overview-card">
-              <div class="label">估值来源</div>
-              <div class="value small">${priceSource}</div>
-            </div>
-            <div class="overview-card">
-              <div class="label">估值时点</div>
-              <div class="value small">${pricedAt}</div>
-            </div>
-            <div class="overview-card">
-              <div class="label">检查时点</div>
-              <div class="value small">${checkedAt}</div>
             </div>
           </div>
 
@@ -1316,6 +1346,7 @@
         formatFundingRate,
         formatBeijing,
         formatBeijingShort,
+        formatUsdt2,
         ingestSnapshot,
         togglePrivacy,
         getPrivacyHidden: () => state.privacyHidden

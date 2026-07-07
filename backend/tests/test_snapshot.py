@@ -171,6 +171,27 @@ def test_data_time_matches_frozen_sample(raw_inputs, frozen_normalized):
     assert snap["data_time"] == frozen_normalized["data_time"]
 
 
+def test_market_rows_order_regression(raw_inputs):
+    # v1.1-ui-polish-2 regression: market rows remain sorted by abs(daily_funding_rate)
+    # DESC, nulls last, symbol ASC. Private account balance sorting must not affect rows.
+    from backend.domain.snapshot import build_rows, sort_rows, SORT_BASIS_ABS
+    futures = raw_inputs["futures"]
+    premium = {p["symbol"]: p for p in raw_inputs["premium"]}
+    spot = {s["symbol"]: s for s in raw_inputs["spot"]["symbols"]}
+    funding = raw_inputs["funding"]
+    elig = [
+        s for s in futures["symbols"]
+        if s.get("status") == "TRADING"
+        and s.get("contractType") in ("PERPETUAL", "TRADIFI_PERPETUAL")
+        and s.get("quoteAsset") == "USDT"
+    ]
+    rows = build_rows(elig, premium, spot, funding)
+    snap = SnapshotService(Config(offline=True)).build_snapshot()
+    order = [r["symbol"] for r in snap["rows"]]
+    expected = [r["symbol"] for r in sort_rows(rows, SORT_BASIS_ABS)]
+    assert order == expected, f"market rows order changed: {order} != {expected}"
+
+
 # --- bStock B-suffix alias amendment (2026-07-public-market-bstock-alias-v1) ---
 # These tests run against the synthetic bstock-alias-raw fixture: the frozen
 # curated spot set has no bStock, so the alias join is only exercised here.

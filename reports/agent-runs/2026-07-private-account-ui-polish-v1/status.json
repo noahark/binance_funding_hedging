@@ -1,0 +1,211 @@
+{
+  "stage_id": "2026-07-private-account-ui-polish-v1",
+  "status": "stage_accepted_waiting_user",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-private-account-ui-polish-v1",
+    "created_from_main_sha": "530e1949409e7cd2ed60c91ad4d66d627940bdae",
+    "created_at": "2026-07-06 CST",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "fable5",
+    "provider": "anthropic",
+    "model": "claude-fable-5",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "embedded_reviews": {},
+  "intake_review": {
+    "reviewer": "gpt",
+    "type": "readonly_h_intake",
+    "scope": "H_intake (00-intake.md / 00-task.md / status.json)",
+    "verdict": "REWORK",
+    "findings": "P1×3 (角色路由冲突 / 逐资产USDT与冻结契约冲突 / negative_funding_status 结构优先级缺失); P2×2 (借币利率应绑成本腿 / base 落后 main v0.4)",
+    "resolution": "用户 2026-07-07 裁决: 角色链 Codex(设计)→Kimi(实现)→Fable5(终审); 第4项允许 additive 契约变更; merge main into stage。findings 3&4 契约对齐已折入 00-task/00-intake。",
+    "resolved": true
+  },
+  "scope_increment": {
+    "id": "v1.1-ui-polish-2",
+    "decided_at": "2026-07-07 CST",
+    "governance": "用户裁决折入当前未合并 stage(非先合并再开新 stage);故 round-1 两轮 ACCEPT(绑定 fingerprint 71c9d89)被 supersede,须对合并后 diff 重走 designer→impl→review-1→review-2。",
+    "items": [
+      "1) 统一/现货余额行内追加【: xxx.xx USDT】折算(2 位小数);value_usdt 已存在,纯展示。",
+      "2) 统一/现货资产按 value_usdt 降序排(null 排最后)—— 用户定后端排序;仅限 private_account.balances_*,不得触碰契约 frozen 的市场 rows 顺序。",
+      "3) 删「估值来源」展示卡(payload 保留 price_source)。",
+      "4) 删侧栏「公开行情 · 只读展示 · 不连接 Binance」等与私有通道矛盾的文案。",
+      "5) 估值时点/检查时点合一(后端 priced_at≡checked_at)→ 面板副标题「只读资产视图」改为「资产更新时间 <时间>」,删两张时点卡。",
+      "6) 审计文案改写口径 = 如实承认已接入私有账户(需 key)、仍只读不下单;逐句核对 backend 真实行为(deny-by-default signed HMAC)。"
+    ],
+    "contract_impact": "无契约字段变更(value_usdt/priced_at 已存在);item 2 后端排序为数组顺序 behavior 变更,非字段/枚举变更,且不涉及 frozen 市场 rows 顺序。",
+    "route": "lightweight 增量,但设计 HOW 归 Codex(保 Fable5 review-2 独立性);intake/task WHAT 由 bookkeeper。"
+  },
+  "review_history": [
+    {
+      "round": 1,
+      "scope": "value_usdt(additive)+ 前4项 UI polish",
+      "diff_fingerprint": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
+      "review_1": { "reviewer": "codex", "verdict": "ACCEPT", "prior_involvement": "design" },
+      "review_2": { "reviewer": "fable5", "verdict": "ACCEPT", "prior_involvement": "none" },
+      "outcome": "pre-accept PASSED, 但用户折入 v1.1-ui-polish-2 扩容 → 本轮 verdict superseded, round-2 重走。"
+    },
+    {
+      "round": 2,
+      "scope": "round-1 + v1.1-ui-polish-2(item 5-10)合并 delivery",
+      "diff_fingerprint": "ec327466a9ec28be6158aedfc53541ea2b3e463c:7bee17041882e913317e1dc490e67862e8d00351308392d191a20f22a6a5997d",
+      "review_1": { "reviewer": "codex", "verdict": "ACCEPT", "prior_involvement": "design", "findings": "2×P3 非阻塞" },
+      "review_2": { "reviewer": "fable5", "verdict": "ACCEPT", "prior_involvement": "none", "findings": "2×P3 非阻塞" },
+      "outcome": "pre-accept PASSED; 用户验收但要求合并前清 2×P3 → 本轮 verdict superseded(新 diff), round-3(P3 cleanup)重走 delta 复审。"
+    }
+  ],
+  "designer": "codex",
+  "direction_synthesizer": null,
+  "breakdown_author": null,
+  "implementer": "kimi",
+  "implementers": ["kimi"],
+  "fix_authors": ["kimi"],
+  "tasks": [],
+  "complexity": {
+    "classification": "LOW",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "第 1~3 项为 private-account-v1 已交付 payload 字段的纯前端展示增量(补数值/改文案/调布局)。",
+      "第 4 项为一处 additive 契约变更(后端补逐资产估值/价格字段,仅加 nullable 字段、不改既有语义),须过契约变更门;风险面仍小,判 LOW。",
+      "无新后端端点、无交易/借币/下单/撤单/转账/websocket 行为变化、无排序语义变化。",
+      "均为 private-account-v1 验收时用户提出的 follow-up,既有 synthesis 覆盖。"
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": null,
+    "status": "not_required_low_complexity",
+    "user_approved": true
+  },
+  "base_sha": "4549227e9f6528787fb8e69b72c0cd7c585611f4",
+  "head_sha": "ec80d9718f6b15ee5efcddf092c1baab8023dfbc",
+  "diff_fingerprint": "ec80d9718f6b15ee5efcddf092c1baab8023dfbc:029c6220c4ec7dd4dd03dad38c85e9f39fa8ac3ba9f6e25581b7139e374ec48d",
+  "diff_fingerprint_superseded": {
+    "round1": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
+    "round2": "ec327466a9ec28be6158aedfc53541ea2b3e463c:7bee17041882e913317e1dc490e67862e8d00351308392d191a20f22a6a5997d"
+  },
+  "changed_files": [
+    "backend/domain/snapshot.py",
+    "backend/tests/fixtures/private-account-v1-design.json",
+    "backend/tests/test_private_account_v1.py",
+    "docs/api/public-market-contract.md",
+    "frontend/fixture/public-market-snapshot.json",
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "schemas/api/public-market/snapshot.schema.json",
+    "backend/tests/test_snapshot.py",
+    "reports/api-samples/2026-07-private-account-ui-polish-v1/20260706T172648Z/api-v3-ticker-price.json",
+    "reports/api-samples/2026-07-private-account-ui-polish-v1/20260706T172648Z/evidence-index.md",
+    "reports/agent-runs/2026-07-private-account-ui-polish-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-private-account-ui-polish-v1/60-test-output.txt"
+  ],
+  "changed_files_note": "round-1(value_usdt+前4项)+ round-2(v1.1-ui-polish-2 item5-10)合并 delivery base 4549227..ec32746。round-2 增量文件: snapshot.py(排序)/test_private_account_v1.py/test_snapshot.py(rows 回归)/public-market-contract.md(additive 展示顺序说明)/index.html/self-check.js。schema 本轮零改动。",
+  "tests": {
+    "status": "passed",
+    "note": "bookkeeper 独立复跑 round-2: 160 pytest + self-check(42 断言)+ schema validate 全绿",
+    "commands": [
+      "python3 -m pytest backend/tests/test_private_account_v1.py -q",
+      "python3 -m pytest backend/tests/test_snapshot.py -q",
+      "python3 -m pytest backend/tests -q",
+      "node frontend/self-check.js",
+      "python3 -c \"jsonschema.validate(frontend/fixture/public-market-snapshot.json, schemas/api/public-market/snapshot.schema.json)\""
+    ]
+  },
+  "review_1": {
+    "reviewer": "codex",
+    "provider": "openai",
+    "model": "gpt-5-codex",
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "ec80d9718f6b15ee5efcddf092c1baab8023dfbc:029c6220c4ec7dd4dd03dad38c85e9f39fa8ac3ba9f6e25581b7139e374ec48d",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "Codex 是本 stage designer;review-1 复核实现对设计的保真度。非 implementer/fix-author,reviewer≠implementer 硬红线不破。终审(review-2)由独立 Fable5 承担。",
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": "n/a (ACCEPT, 0 required_fixes)",
+    "invalid_json_attempts": 0,
+    "round": 3,
+    "note": "round-3 P3 cleanup delta 复审 ACCEPT。bookkeeper 复核 verdict: fingerprint 匹配, JSON 合 schema, findings=0/required_fixes=0; 两处 P3(round-2 findings)已消解。round-2 ACCEPT superseded(review_history)。"
+  },
+  "review_2": {
+    "reviewer": "fable5",
+    "provider": "anthropic",
+    "model": "claude-fable-5",
+    "primary_provider": "claude",
+    "fallback_provider": "gpt",
+    "fallback_reason": "Codex 原定 review-2 主审,但本 stage designer=Codex,依 Hard Gates 设计者不能任 final reviewer;final reviewer 改由独立的 Claude/Fable5 承担。",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "Fable5 兼 bookkeeper + final reviewer,非 designer/implementer,reviewer≠implementer 红线不破。Codex(designer)、Kimi(implementer)均 ineligible 任 review-2。",
+    "unrelated_reviewer_unavailable_evidence": null,
+    "design_conflict_override": {
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
+    },
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "ec80d9718f6b15ee5efcddf092c1baab8023dfbc:029c6220c4ec7dd4dd03dad38c85e9f39fa8ac3ba9f6e25581b7139e374ec48d",
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": "n/a (ACCEPT, 0 required_fixes)",
+    "invalid_json_attempts": 0,
+    "round": 3,
+    "note": "round-3 P3 cleanup delta 独立终审 ACCEPT: delta 仅 2×P3、无越界、fingerprint 符、旧占位零残留、160 pytest+self-check+schema 全绿。fix_author=kimi,Fable5 非 fix-author,reviewer≠fix-author 红线不破。round-2 ACCEPT superseded(review_history)。"
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "design_review": {
+    "reviewer": "fable5",
+    "verdict": "ACCEPT",
+    "note": "10-design/11-adr 对齐冻结契约, 方案A(后端 value_usdt)取舍充分, 指令与真实代码/路径核验通过。实现须注意: 行级 value_usdt 不能直接复用 _usdt_value(缺价返回0无法区分 null/0), 需返回 None 的变体; 顶层 total_value_usdt 不变。",
+    "reviewed_at": "2026-07-07 CST"
+  },
+  "design_review_addendum": {
+    "round": 2,
+    "scope": "v1.1-ui-polish-2 (item 5-10)",
+    "reviewer": "fable5",
+    "verdict": "ACCEPT",
+    "reviewed_artifacts": ["10-design.md#v1.1-ui-polish-2 Design Addendum", "11-adr.md#ADR-7/8/9"],
+    "note": "6 项 HOW 完整; 契约门=无字段/枚举/schema_version 变更(排序为数组顺序 behavior); item6 排序 (null-flag,-value,asset,idx) 语义正确且仅作用 balances_*, 显式保护 frozen 市场 rows/sort_rows; item5 2位 ROUND_HALF_UP 走 decimal-string; item9 纯前端合并后端字段不动; item10 文案表对齐 deny-by-default signed HMAC 事实、区分行情公开/账户私有只读、保只读不下单划转。",
+    "implementation_cautions": [
+      "item10 替换表 verified=false 分支原文须先核对代码现存字符串再替换; 不一致按意图改。",
+      "item10 顺带改顶栏/数据说明文案, 面比原 item4(仅侧栏)略广, 属用户认可的过时文案校准。"
+    ],
+    "reviewed_at": "2026-07-07 CST"
+  },
+  "next_action": "execute_merge_no_ff_stage_to_main",
+  "p3_cleanup": {
+    "decided_at": "2026-07-07 CST",
+    "user_decision": "验收但合并前先清 2 项 P3; 合并策略 = merge commit (--no-ff)",
+    "items": ["删孤儿 .sidebar-footer CSS(index.html:135/498)", "静态占位 '只读资产视图' → '资产更新时间 —'(index.html:570)"],
+    "governance": "清理产生新 fingerprint; round-2 两轮 ACCEPT(ec32746)将 supersede 入 review_history; Kimi(fix_author)执行、Fable5 不作 fix 以保 review-2; 交回后 delta 快速复审(reviewer 已逐字指定修法)→ pre-accept → merge --no-ff。",
+    "dispatch": "p3-cleanup-kimi.prompt.md"
+  },
+  "updated_at": "2026-07-07 CST (round-3 P3 delta 两轮 review 均 ACCEPT: review-1 Codex + review-2 Fable5 独立终审(delta 仅 2×P3/无越界/fingerprint 符/测试绿); status review_1→stage_accepted_waiting_user; 用户已验收 + 合并策略 --no-ff, 待 bookkeeper 执行 stage→main 合并)"
+}

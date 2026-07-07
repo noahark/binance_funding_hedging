@@ -413,6 +413,12 @@
                   { "$ref": "#/$defs/decimal_string" },
                   { "type": "null" }
                 ]
+              },
+              "value_usdt": {
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
               }
             }
           }
@@ -432,6 +438,12 @@
                 ]
               },
               "locked": {
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
+              },
+              "value_usdt": {
                 "anyOf": [
                   { "$ref": "#/$defs/decimal_string" },
                   { "type": "null" }
