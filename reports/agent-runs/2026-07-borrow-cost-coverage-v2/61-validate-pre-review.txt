@@ -1,3 +1,8 @@
-STAGE VALIDATION FAILED
-- review/acceptance gates require a clean committed worktree; commit or revert these changes first:
-?? reports/agent-runs/2026-07-borrow-cost-coverage-v2/61-validate-pre-review.txt
+# pre-review validator（清树 committed 状态下运行，exit=0）
+# 命令: python3 scripts/validate-stage.py 2026-07-borrow-cost-coverage-v2 --phase pre-review
+
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-borrow-cost-coverage-v2
+phase=pre-review
+status=review_2
+diff_fingerprint=11c3935ec859320b5dad50d31c0068993b4bd8f5:2a73b681d0ae77f3d2d9d9eaed04f977be44dd1996a3bffef3ca8dfa52b7d401
