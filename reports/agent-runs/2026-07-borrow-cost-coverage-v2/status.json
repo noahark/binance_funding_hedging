@@ -109,5 +109,5 @@
     "bStock 负费率借币套利保持禁用。"
   ],
   "next_step": "用户已 final acceptance；stage 分支已通过 --no-ff 合并回 main。后续仅在用户明确要求时 push 远程或启动实盘服务。",
-  "updated_at": "2026-07-08 01:10:47 CST (合并回填 + status=accepted；merged_back_sha=cc043a61b8a41621d89b6110b37d4bdc486ff42b。)"
+  "updated_at": "2026-07-08 01:11:46 CST (合并回填 + status=accepted；merged_back_sha=cc043a61b8a41621d89b6110b37d4bdc486ff42b；main post-merge pytest/self-check PASS。)"
 }
