@@ -115,3 +115,92 @@ Raw output is captured in `60-test-output.txt`.
 本地北京时间: 2026-07-07 01:29:48 CST
 下一步模型: Fable5 (bookkeeper + review-2)
 下一步任务: 校验 checkpoint、计算 diff fingerprint、组织 review-1/review-2
+
+---
+
+# v1.1-ui-polish-2 Implementation Addendum
+
+Stage: `2026-07-private-account-ui-polish-v1` round-2
+Implementer: Kimi
+Design: `10-design.md §v1.1-ui-polish-2 Design Addendum` + `11-adr.md ADR-7/8/9`,
+ACCEPT by Fable5 (2026-07-07)
+
+## Scope
+
+Items 5–10 from the addendum, folded into the existing unmerged stage branch.
+Round-1 value_usdt fields and items 1–4 were already on the branch and were not
+reverted.
+
+## Changed files
+
+- `backend/domain/snapshot.py`
+  - Added `_balance_sort_key()` helper using Decimal `(null-flag, -value, asset, idx)`.
+  - `assemble_private_account()` now sorts `balances_unified` and `balances_spot`
+    by `value_usdt` DESC, nulls last, `asset` ASC, input-order stable for same asset.
+  - `sort_rows()` and market row ordering were **not** touched.
+- `backend/tests/test_private_account_v1.py`
+  - Added `test_assemble_private_account_sorts_balances_by_value_desc_nulls_last_asset_asc()`.
+  - Added `test_assemble_private_account_sort_tiebreak_asset_asc_stable_same_asset()`.
+- `backend/tests/test_snapshot.py`
+  - Added `test_market_rows_order_regression()` to pin that market `rows` order is
+    unchanged by the private-account balance sorting.
+- `docs/api/public-market-contract.md`
+  - Appended additive-only `Balance array display order` paragraph under the v0.4
+    amendment; no schema/enum/schema_version change.
+- `frontend/index.html`
+  - Added `formatUsdt2()` decimal-string helper: 2-place ROUND_HALF_UP display.
+  - Balance cards now render amounts inline with `【: 123.45 USDT】`; null/缺失 →
+    `【: — USDT】`; zero `"0.00000000"` → `【: 0.00 USDT】`; privacy hidden masks both
+    amount and suffix as `****`.
+  - Removed「估值来源」overview card and dead `priceSource` variable.
+  - Removed「估值时点」「检查时点」overview cards.
+  - verified=true subtitle now reads `资产更新时间 <time>` (fallback to
+    `pa.valuation.priced_at`, then `—`).
+  - verified=false subtitle/body/help updated per the item-10 replacement table
+    (`私有账户未读取`, key/IP/后端配置 help, no-ordering note).
+  - Deleted `.sidebar-footer` block containing `公开行情 · 只读展示 · 不连接 Binance`.
+  - Updated brand/topbar/data-note texts: `行情公开 · 账户私有只读`,
+    `行情公开 · 账户需 key 私有只读`, `行情公开` / `账户只读` badges,
+    data-note subtitle, `WARNING_CHINESE[0]`, `marginPublicNote`.
+- `frontend/self-check.js`
+  - Updated balance-card assertions for inline 2-place display, null/zero/privacy.
+  - Added `formatUsdt2` ROUND_HALF_UP cases.
+  - Added assertions that「估值来源/估值时点/检查时点」are no longer visible while
+    `price_source` remains in payload.
+  - Added assertion that page text no longer contains `不连接 Binance`.
+  - Added assertion that verified=true subtitle contains `资产更新时间`.
+  - Updated verified=false placeholder text checks to `私有账户未读取`.
+  - Updated warning/margin-note text checks.
+
+## Red-line compliance
+
+1. Sorting only affects `assemble_private_account()` output arrays; `sort_rows()`,
+   market `rows` order, `sort_basis`, and the frozen contract `Row order (frozen)`
+   are unchanged. Regression test added.
+2. No schema field/enum/`schema_version` change; only an additive contract note.
+3. Backend time fields unchanged: `valuation.priced_at = checked_at`, top-level
+   `checked_at` still emitted.
+4. No order/borrow/repay/transfer/websocket/private-channel whitelist changes.
+5. Frontend renders backend payload order; no client-side balance sorting or
+   recomputation of `total_value_usdt`.
+
+## Verification
+
+```bash
+python3 -m pytest backend/tests/test_private_account_v1.py -q   # 53 passed
+python3 -m pytest backend/tests/test_snapshot.py -q             # 20 passed
+python3 -m pytest backend/tests -q                              # 160 passed
+node frontend/self-check.js                                     # 42 assertions passed
+python3 -c "jsonschema.validate(fixture, schema)"               # OK
+```
+
+Raw output captured in `60-test-output.txt`.
+
+## Evidence
+
+- Test output: `reports/agent-runs/2026-07-private-account-ui-polish-v1/60-test-output.txt`
+- Contract order note: `docs/api/public-market-contract.md §Balance array display order`
+
+本地北京时间: 2026-07-07 16:46:48 CST
+下一步模型: Fable5 (bookkeeper → 校验 diff/fingerprint → review-1/review-2)
+下一步任务: 由 bookkeeper 复算 diff fingerprint、更新 status.json、派发 review-1/review-2

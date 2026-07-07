@@ -181,7 +181,7 @@ setTimeout(async () => {
     const warningsDisplay = elements['warnings-panel'].style.display;
     if (warningsDisplay === 'none') throw new Error('数据说明面板被隐藏');
     const marginNote = elements['margin-public-note'].innerHTML;
-    if (!marginNote.includes('杠杆可借性未经私有验证')) {
+    if (!marginNote.includes('账户与借币验证通过私有只读 API key 读取')) {
       throw new Error('页面级杠杆可借性说明未渲染');
     }
     const warningsHtml = elements['warnings-list'].innerHTML;
@@ -320,6 +320,30 @@ setTimeout(async () => {
       throw new Error('formatBeijing 函数体与基线不一致');
     }
     console.log('[PASS] formatFundingRate / formatBeijing* 函数体未变');
+
+    // 14b. formatUsdt2 2 位 ROUND_HALF_UP
+    if (!helpers || typeof helpers.formatUsdt2 !== 'function') {
+      throw new Error('formatUsdt2 辅助函数未暴露');
+    }
+    const usdt2Cases = [
+      ['123.45600000', '123.46'],
+      ['123.45400000', '123.45'],
+      ['-123.45600000', '-123.46'],
+      ['0.00000000', '0.00'],
+      ['0.00500000', '0.01'],
+      ['0.00499999', '0.00'],
+      ['999.99900000', '1000.00'],
+      ['', null],
+      [null, null],
+      ['not-a-number', null]
+    ];
+    for (const [input, expected] of usdt2Cases) {
+      const actual = helpers.formatUsdt2(input);
+      if (actual !== expected) {
+        throw new Error(`formatUsdt2(${JSON.stringify(input)}) 期望 ${JSON.stringify(expected)}，实际 ${JSON.stringify(actual)}`);
+      }
+    }
+    console.log('[PASS] formatUsdt2 2 位 ROUND_HALF_UP');
 
     // 15. 自动刷新 60s 与倒计时元素
     if (!html.includes('60000')) {
@@ -462,6 +486,26 @@ setTimeout(async () => {
     }
     console.log('[PASS] 私有面板 verified=true 状态');
 
+    // 23b. 时点合一：副标题显示资产更新时间，overview 不再出现估值时点/检查时点
+    const privateSubtitle = elements['private-panel-subtitle'].textContent;
+    if (!privateSubtitle.includes('资产更新时间')) {
+      throw new Error(`verified=true 时私有面板副标题未显示资产更新时间: ${privateSubtitle}`);
+    }
+    if (privateBody.includes('估值时点') || privateBody.includes('检查时点') || privateBody.includes('估值来源')) {
+      throw new Error('verified=true 时私有面板 overview 仍出现估值时点/检查时点/估值来源');
+    }
+    if (!designFixture.private_account.valuation || !designFixture.private_account.valuation.price_source) {
+      throw new Error('fixture 中 price_source 不存在');
+    }
+    console.log('[PASS] 时点合一与估值来源卡片删除');
+
+    // 23c. 页面文案不再含矛盾运行约束
+    const pageText = html + privateBody;
+    if (pageText.includes('不连接 Binance')) {
+      throw new Error('页面文本仍包含 "不连接 Binance"');
+    }
+    console.log('[PASS] 页面不含矛盾运行约束文案');
+
     // 24. 隐私开关默认隐藏金额
     const privacyLabel = elements['privacy-label'].textContent;
     if (privacyLabel !== '隐藏金额') {
@@ -500,11 +544,11 @@ setTimeout(async () => {
       throw new Error('verified=false disabled 时私有面板不应隐藏');
     }
     const disabledSubtitle = elements['private-panel-subtitle'].textContent;
-    if (!disabledSubtitle.includes('私有通道未启用')) {
+    if (!disabledSubtitle.includes('私有账户未读取')) {
       throw new Error(`verified=false disabled 副标题错误: ${disabledSubtitle}`);
     }
     const disabledBody = elements['private-panel-body'].innerHTML;
-    if (!disabledBody.includes('私有通道未启用')) {
+    if (!disabledBody.includes('私有账户未读取')) {
       throw new Error('verified=false disabled 未显示占位文案');
     }
     console.log('[PASS] 私有面板 verified=false disabled 占位');
@@ -681,44 +725,64 @@ setTimeout(async () => {
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] 负费率状态行感知的五文案派生');
 
-    // 35. 余额卡片展示折算 value_usdt，隐私开关遮蔽折算值
+    // 35. 余额卡片行内折算 value_usdt，隐私开关遮蔽金额与折算值
     const privateBody2 = elements['private-panel-body'].innerHTML;
-    if (!privateBody2.includes('折算: **** USDT')) {
+    if (!privateBody2.includes('【: ****】')) {
       throw new Error('隐藏态下折算值应被遮蔽为 ****');
     }
     helpers.togglePrivacy(); // 切换到显示态
     const shownBody2 = elements['private-panel-body'].innerHTML;
-    if (!shownBody2.includes('折算: 123.45000000 USDT')) {
-      throw new Error('显示态下统一账户余额未展示折算值');
+    if (!shownBody2.includes('【: 123.45 USDT】')) {
+      throw new Error('显示态下统一账户余额未展示行内折算值');
     }
-    if (!shownBody2.includes('折算: 67.89000000 USDT')) {
-      throw new Error('显示态下现货账户余额未展示折算值');
+    if (!shownBody2.includes('【: 67.89 USDT】')) {
+      throw new Error('显示态下现货账户余额未展示行内折算值');
     }
     helpers.togglePrivacy(); // 恢复隐藏态
     const hiddenBody2 = elements['private-panel-body'].innerHTML;
-    if (!hiddenBody2.includes('折算: **** USDT')) {
+    if (!hiddenBody2.includes('【: ****】')) {
       throw new Error('恢复隐藏态后折算值应再次被遮蔽');
     }
-    console.log('[PASS] 余额卡片折算值与隐私遮蔽');
+    console.log('[PASS] 余额卡片行内折算值与隐私遮蔽');
 
-    // 36. value_usdt null 显示 "折算: -"
+    // 36. value_usdt null 显示 "【: — USDT】"（显示态）
     const nullValueFixture = JSON.parse(JSON.stringify(designFixture));
     nullValueFixture.private_account.balances_unified[0].value_usdt = null;
     nullValueFixture.private_account.balances_spot[0].value_usdt = null;
     helpers.ingestSnapshot(nullValueFixture);
+    if (helpers.getPrivacyHidden()) helpers.togglePrivacy(); // 确保显示态
     const nullValueBody = elements['private-panel-body'].innerHTML;
     const unifiedSectionStart = nullValueBody.indexOf('统一账户余额');
     const spotSectionStart = nullValueBody.indexOf('现货账户余额');
     const unifiedSection = nullValueBody.slice(unifiedSectionStart, spotSectionStart);
-    if (!unifiedSection.includes('折算: -')) {
-      throw new Error('value_usdt null 时统一账户未显示 "折算: -"');
+    if (!unifiedSection.includes('【: — USDT】')) {
+      throw new Error('value_usdt null 时统一账户未显示 "【: — USDT】"');
     }
     const spotSection = nullValueBody.slice(spotSectionStart);
-    if (!spotSection.includes('折算: -')) {
-      throw new Error('value_usdt null 时现货账户未显示 "折算: -"');
+    if (!spotSection.includes('【: — USDT】')) {
+      throw new Error('value_usdt null 时现货账户未显示 "【: — USDT】"');
+    }
+    // 隐藏态下 null 折算值应被遮蔽为 ****
+    helpers.togglePrivacy();
+    const hiddenNullBody = elements['private-panel-body'].innerHTML;
+    if (!hiddenNullBody.includes('【: ****】')) {
+      throw new Error('value_usdt null 隐藏态未遮蔽折算值');
     }
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] value_usdt null 显示占位');
+
+    // 37. value_usdt 合法零显示 "【: 0.00 USDT】"（显示态）
+    const zeroValueFixture = JSON.parse(JSON.stringify(designFixture));
+    zeroValueFixture.private_account.balances_unified[0].value_usdt = '0.00000000';
+    zeroValueFixture.private_account.balances_spot[0].value_usdt = '0.00000000';
+    helpers.ingestSnapshot(zeroValueFixture);
+    if (helpers.getPrivacyHidden()) helpers.togglePrivacy(); // 确保显示态
+    const zeroValueBody = elements['private-panel-body'].innerHTML;
+    if (!zeroValueBody.includes('【: 0.00 USDT】')) {
+      throw new Error('value_usdt "0.00000000" 时未显示 "【: 0.00 USDT】"');
+    }
+    helpers.ingestSnapshot(designFixture);
+    console.log('[PASS] value_usdt 合法零显示占位');
 
     console.log('\n全部自检通过');
     process.exit(0);

@@ -55,3 +55,66 @@
 
 === schema validate frontend/fixture/public-market-snapshot.json ===
 schema validation OK
+
+=== v1.1-ui-polish-2 round-2 rerun ===
+=== backend/tests/test_private_account_v1.py ===
+.....................................................                    [100%]
+53 passed in 1.24s
+
+=== backend/tests/test_snapshot.py ===
+....................                                                     [100%]
+20 passed in 1.05s
+
+=== backend/tests ===
+........................................................................ [ 45%]
+........................................................................ [ 90%]
+................                                                         [100%]
+160 passed in 4.30s
+
+=== frontend/self-check.js ===
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认渲染 6 行
+[PASS] 拆列存在，合并列消失
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 结算间隔标注 8h
+[PASS] 无排序控件 DOM
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] formatUsdt2 2 位 ROUND_HALF_UP
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 路由/资产/负费率状态列显示中文优先格式
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 净收益列存在与格式
+[PASS] 负值净收益红色样式
+[PASS] vip0_reference 显著标注「基准利率」
+[PASS] sort_basis 标注
+[PASS] 私有面板 verified=true 状态
+[PASS] 时点合一与估值来源卡片删除
+[PASS] 页面不含矛盾运行约束文案
+[PASS] 隐私开关默认隐藏
+[PASS] 隐私开关点击切换
+[PASS] 私有面板 verified=false disabled 占位
+[PASS] 私有面板 verified=false error 占位
+[PASS] 行联动方向标（不带数量）
+[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示
+[PASS] private-panel 在市场表之前
+[PASS] 成本腿命中行展示借币日利率
+[PASS] VIP0 参考档显示"参考"徽标
+[PASS] 正费率行不展示借币成本子行
+[PASS] 负费率状态行感知的五文案派生
+[PASS] 余额卡片行内折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+
+全部自检通过
+
+=== schema validate frontend/fixture/public-market-snapshot.json ===
+schema validation OK

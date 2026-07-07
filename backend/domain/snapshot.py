@@ -474,6 +474,19 @@ def _usdt_value_optional(asset, amount, price_map: Dict[str, str], warnings: Lis
         return None
 
 
+def _balance_sort_key(row_with_index):
+    idx, row = row_with_index
+    raw = row.get("value_usdt")
+    asset = str(row.get("asset") or "")
+    try:
+        value = Decimal(str(raw)) if raw not in (None, "") else None
+    except (InvalidOperation, ValueError, TypeError):
+        value = None
+    if value is None:
+        return (1, Decimal("0"), asset, idx)
+    return (0, -value, asset, idx)
+
+
 def _infer_position_side(position_amt) -> Optional[str]:
     """§2.A.3 E4 open item: papi positionRisk has no positionSide field; infer
     from positionAmt sign (LONG>0 / SHORT<0 / None when flat). To be re-verified
@@ -584,6 +597,10 @@ def assemble_private_account(
         for p in um_list
         if isinstance(p, dict)
     ]
+    # v1.1-ui-polish-2: private account balance arrays are sorted by value_usdt
+    # DESC, nulls last, asset ASC tie-break, original input order for same asset.
+    unified_out = [row for _, row in sorted(enumerate(unified_out), key=_balance_sort_key)]
+    spot_out = [row for _, row in sorted(enumerate(spot_out), key=_balance_sort_key)]
     total = Decimal(0)
     for x in unified_list:
         if isinstance(x, dict):

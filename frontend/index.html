@@ -519,7 +519,7 @@
           </span>
           <span>资金费率对冲</span>
         </div>
-        <div class="brand-subtitle">公开数据 · 只读</div>
+        <div class="brand-subtitle">行情公开 · 账户私有只读</div>
       </div>
 
       <nav class="nav">
@@ -531,21 +531,17 @@
         </button>
       </nav>
 
-      <div class="sidebar-footer">
-        <div>运行约束</div>
-        <strong>公开行情 · 只读展示 · 不连接 Binance</strong>
-      </div>
     </aside>
 
     <main class="content">
       <header class="topbar">
         <div class="title-block">
           <h1>资金费率对冲工作台</h1>
-          <p class="subtitle">公开数据 · 只读</p>
+          <p class="subtitle">行情公开 · 账户需 key 私有只读</p>
         </div>
         <div class="badge-row" aria-label="运行约束">
-          <span class="badge success">公开数据</span>
-          <span class="badge info">只读</span>
+          <span class="badge success">行情公开</span>
+          <span class="badge info">账户只读</span>
           <span class="badge warn">自动刷新 60s</span>
         </div>
       </header>
@@ -554,7 +550,7 @@
         <div class="panel-header">
           <div class="panel-title">
             <h2>数据说明</h2>
-            <p class="subtitle">来自后端快照服务的公开验证限制与展示约定</p>
+            <p class="subtitle">来自后端快照服务的行情公开数据与账户私有只读验证说明</p>
           </div>
         </div>
         <div class="panel-body">
@@ -812,6 +808,27 @@
         return fracPart !== undefined ? `${intFormatted}.${fracPart}` : intFormatted;
       }
 
+      function formatUsdt2(str) {
+        // 2-place ROUND_HALF_UP display for per-balance value_usdt (8-place string).
+        if (str === undefined || str === null || str === '') return null;
+        const s = String(str);
+        if (!/^-?\d+\.?\d*$/.test(s)) return null;
+        const [intPart, fracPart = ''] = s.split('.');
+        const sign = intPart.startsWith('-') ? '-' : '';
+        const absInt = sign ? intPart.slice(1) : intPart;
+        const three = (fracPart + '000').slice(0, 3);
+        const roundDigit = parseInt(three[2], 10);
+        let cents = parseInt((fracPart + '00').slice(0, 2), 10);
+        if (roundDigit >= 5) {
+          cents += 1;
+          if (cents === 100) {
+            cents = 0;
+            return sign + (String(BigInt(absInt) + BigInt(1)) + '.' + String(cents).padStart(2, '0'));
+          }
+        }
+        return sign + absInt + '.' + String(cents).padStart(2, '0');
+      }
+
       function classForFundingRate(str) {
         const n = Number(str);
         if (Number.isNaN(n) || n === 0) return 'muted';
@@ -916,7 +933,7 @@
       }
 
       const WARNING_CHINESE = [
-        '杠杆交易对官方清单需 API key（当前无 key 阶段），杠杆可借性未经私有验证；候选判断使用公开现货 isMarginTradingAllowed 字段。',
+        '杠杆交易对与可借性通过私有只读 API key 验证；未配置或请求失败时标为需私有验证，候选初筛仍使用公开现货 isMarginTradingAllowed 字段。',
         '表中资金费率为本周期实时预估值，将于所示结算时间收取，结算前会漂移；已结算历史以 /fapi/v1/fundingRate 为准。',
         'bStock（美股）合约的现货腿按 baseAsset+B+quoteAsset 别名连接（如 TSLAUSDT → TSLABUSDT）；质押率动态未知，未做任何硬编码。'
       ];
@@ -931,7 +948,7 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 16v-4m0-4h.01M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span>杠杆可借性未经私有验证（当前为公开数据阶段）</span>
+          <span>账户与借币验证通过私有只读 API key 读取；未配置或失败时降级为需私有验证，公开行情仍可展示。</span>
         `;
         els.warningsList.innerHTML = WARNING_CHINESE.map((cn, i) => `
           <div class="info-item">
@@ -1144,34 +1161,34 @@
 
         if (pa.verified !== true) {
           const errorDetail = pa.error ? `（${escapeHtml(pa.error)}）` : '';
-          els.privatePanelSubtitle.textContent = '私有通道未启用';
+          els.privatePanelSubtitle.textContent = '私有账户未读取';
           els.privatePanelBody.innerHTML = `
             <div class="empty-state">
-              <strong>私有通道未启用</strong><br/>
-              当前未获取到账户资产数据${errorDetail}<br/>
-              <span class="muted small">请检查 API key 权限或后端私有通道配置</span>
+              <strong>私有账户未读取</strong><br/>
+              未配置 API key 或私有只读请求失败，未获取到账户资产数据${errorDetail}<br/>
+              <span class="muted small">请检查 API key 权限、IP 白名单或后端私有通道配置；系统不会执行交易或划转</span>
             </div>
           `;
           return;
         }
 
-        els.privatePanelSubtitle.textContent = '只读资产视图';
+        const timeSource = pa.checked_at || (pa.valuation && pa.valuation.priced_at) || null;
+        const updateTime = timeSource ? formatBeijing(new Date(timeSource).getTime()) : '—';
+        els.privatePanelSubtitle.textContent = `资产更新时间 ${updateTime}`;
         const total = maskAmount(pa.total_value_usdt);
-        const pricedAt = formatBeijing(pa.valuation && pa.valuation.priced_at ? new Date(pa.valuation.priced_at).getTime() : null);
-        const checkedAt = formatBeijing(pa.checked_at ? new Date(pa.checked_at).getTime() : null);
-        const priceSource = pa.valuation && pa.valuation.price_source ? escapeHtml(pa.valuation.price_source) : '—';
 
-        const valueUsdtLine = (valueUsdt) => {
-          if (valueUsdt == null || valueUsdt === '') return '折算: -';
-          return `折算: ${maskAmount(valueUsdt)} USDT`;
+        const inlineUsdtSuffix = (valueUsdt) => {
+          if (state.privacyHidden) return '【: ****】';
+          const formatted = formatUsdt2(valueUsdt);
+          if (formatted === null) return '【: — USDT】';
+          return `【: ${formatted} USDT】`;
         };
 
         const unifiedBalances = Array.isArray(pa.balances_unified) && pa.balances_unified.length > 0
           ? pa.balances_unified.map(b => `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
-                <div class="amount">${maskAmount(b.total_balance)}</div>
-                <div class="amount locked">${valueUsdtLine(b.value_usdt)}</div>
+                <div class="amount">${maskAmount(b.total_balance)}${inlineUsdtSuffix(b.value_usdt)}</div>
               </div>
             `).join('')
           : '<span class="muted small">无数据</span>';
@@ -1180,9 +1197,8 @@
           ? pa.balances_spot.map(b => `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
-                <div class="amount">${maskAmount(b.free)}</div>
+                <div class="amount">${maskAmount(b.free)}${inlineUsdtSuffix(b.value_usdt)}</div>
                 <div class="amount locked">冻结: ${maskAmount(b.locked)}</div>
-                <div class="amount locked">${valueUsdtLine(b.value_usdt)}</div>
               </div>
             `).join('')
           : '<span class="muted small">无数据</span>';
@@ -1227,18 +1243,6 @@
             <div class="overview-card">
               <div class="label">总资产估值 (USDT)</div>
               <div class="value">${total}</div>
-            </div>
-            <div class="overview-card">
-              <div class="label">估值来源</div>
-              <div class="value small">${priceSource}</div>
-            </div>
-            <div class="overview-card">
-              <div class="label">估值时点</div>
-              <div class="value small">${pricedAt}</div>
-            </div>
-            <div class="overview-card">
-              <div class="label">检查时点</div>
-              <div class="value small">${checkedAt}</div>
             </div>
           </div>
 
@@ -1355,6 +1359,7 @@
         formatFundingRate,
         formatBeijing,
         formatBeijingShort,
+        formatUsdt2,
         ingestSnapshot,
         togglePrivacy,
         getPrivacyHidden: () => state.privacyHidden

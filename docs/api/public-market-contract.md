@@ -508,3 +508,10 @@ Authority order: `10-design.md` > this contract section.
 
 The frontend renders `value_usdt` as display-only data and must not recompute
 `total_value_usdt` or derive trading decisions from per-row values.
+
+### Balance array display order (v1.1-ui-polish-2 addendum)
+
+`private_account.balances_unified[]` and `private_account.balances_spot[]` are
+emitted by `value_usdt` DESC, null last, `asset` ASC. This is an additive display
+convention only; it does not change the frozen market `rows` order or `sort_basis`
+semantics, and `schema_version` remains `public-market-snapshot/v1`.

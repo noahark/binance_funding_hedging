@@ -348,6 +348,60 @@ def test_infer_position_side_short_for_negative():
     assert block["um_positions"][0]["position_side"] == "SHORT"
 
 
+def test_assemble_private_account_sorts_balances_by_value_desc_nulls_last_asset_asc():
+    # v1.1-ui-polish-2: balances_unified and balances_spot are sorted by value_usdt
+    # DESC, nulls last, asset ASC tie-break, original input order stable for same asset.
+    unified = [
+        {"asset": "AA", "totalWalletBalance": "1"},      # value=100
+        {"asset": "BB", "totalWalletBalance": "1"},      # value=200 -> first
+        {"asset": "CC", "totalWalletBalance": "1"},      # value=50
+        {"asset": "NO_PRICE", "totalWalletBalance": "1"},  # null
+        {"asset": "ZERO", "totalWalletBalance": "0"},    # value=0
+    ]
+    spot = [
+        {"asset": "AA", "free": "1", "locked": "0"},   # value=100
+        {"asset": "BB", "free": "1", "locked": "0"},   # value=200 -> first
+        {"asset": "DD", "free": "1", "locked": "0"},   # value=150
+        {"asset": "NO_PRICE2", "free": "1", "locked": "0"},  # null
+        {"asset": "ZERO2", "free": "0", "locked": "0"},  # value=0
+    ]
+    price_map = {
+        "AAUSDT": "100",
+        "BBUSDT": "200",
+        "CCUSDT": "50",
+        "DDUSDT": "150",
+        "ZEROUSDT": "10",
+        "ZERO2USDT": "10",
+    }
+    block, _ = assemble_private_account(
+        unified, spot, [], price_map, checked_at="t", error=None,
+    )
+    assert [b["asset"] for b in block["balances_unified"]] == ["BB", "AA", "CC", "ZERO", "NO_PRICE"]
+    assert [b["asset"] for b in block["balances_spot"]] == ["BB", "DD", "AA", "ZERO2", "NO_PRICE2"]
+    # null rows sort last
+    assert block["balances_unified"][-1]["value_usdt"] is None
+    assert block["balances_spot"][-1]["value_usdt"] is None
+    # zero valued rows keep "0.00000000", not null, and sort after positive values
+    assert block["balances_unified"][3]["value_usdt"] == "0.00000000"
+    assert block["balances_spot"][3]["value_usdt"] == "0.00000000"
+
+
+def test_assemble_private_account_sort_tiebreak_asset_asc_stable_same_asset():
+    # Same value ties: asset ASC; same asset retains input order.
+    unified = [
+        {"asset": "B", "totalWalletBalance": "1"},   # value=100
+        {"asset": "A", "totalWalletBalance": "1"},   # value=100 -> should come before B
+        {"asset": "A", "totalWalletBalance": "2"},   # value=200 -> first
+    ]
+    block, _ = assemble_private_account(
+        unified, [], [], {"AUSDT": "100", "BUSDT": "100"}, checked_at="t", error=None,
+    )
+    assert [b["asset"] for b in block["balances_unified"]] == ["A", "A", "B"]
+    # Same-asset tie-break: original input order ("A" with totalWalletBalance=2 before "A" with 1).
+    assert block["balances_unified"][0]["total_balance"] == "2"
+    assert block["balances_unified"][1]["total_balance"] == "1"
+
+
 # =========================================================================
 # Private fetcher mappings (urlopen monkeypatched; no network)
 # =========================================================================
