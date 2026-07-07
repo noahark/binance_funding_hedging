@@ -3,7 +3,7 @@
 ## Current State
 
 - Stage: `2026-07-private-account-ui-polish-v1`
-- Status: `review_1`（进入 review-1，Codex）
+- Status: `stage_accepted_waiting_user`（两轮 review 均 ACCEPT，pre-accept 就绪，待用户验收）
 - Branch: `stage/2026-07-private-account-ui-polish-v1`（未合并 main）
 - HEAD: `89789ec`（status.json post-implementation 提交）
 - Delivery range: `base_sha 4549227` .. `head_sha 71c9d89`（feat 实现提交）
@@ -23,9 +23,9 @@
 - Implementation dispatch: `implementation-kimi.prompt.md`
 - Implementation: `20-implementation.md`（Kimi）
 - Embedded review checkpoints: N/A
-- Review 1: 待 Codex（本次 handoff 派发）
-- Fix report: `40-fix-report.md`（未开始）
-- Review 2: 待 Fable5（review-1 通过后）
+- Review 1: `30-review-1.md`（Codex；ACCEPT，findings=0，bookkeeper fingerprint 复算一致/JSON 合 schema）
+- Fix report: `40-fix-report.md`（未触发；两轮均 ACCEPT，无 REWORK）
+- Review 2: `50-review-2.md`（Fable5 终审；ACCEPT，独立读 delivery diff 复核红线，findings=0）
 - Test output: `60-test-output.txt`
 - Raw public sample: `reports/api-samples/2026-07-private-account-ui-polish-v1/20260706T172648Z/{api-v3-ticker-price.json,evidence-index.md}`
 - Status JSON: `status.json`
@@ -47,8 +47,8 @@
 
 ## Next Action
 
-派发 review-1 给 Codex（`review-1-codex.prompt.md`）：对 `base..71c9d89` diff 做实现评审，重点核对与 `10-design`/`11-adr` 的保真度、契约 additive 边界、null/0 语义、结构优先级派生、成本腿门控。通过后 Fable5 做 review-2 终审。
+用户显式验收（human gate）。验收后按 stage 分支制将 `stage/2026-07-private-account-ui-polish-v1` 合入 `main`，回填 `status.json.stage_branch`（merged_back_to_main/merged_back_sha/merge_strategy），并更新相关 follow-up memory 为「已交付」。合并前不得自行合入 main。
 
 本地北京时间: 2026-07-07 CST
-下一步模型: Codex（review-1）
-下一步任务: review-1 实现评审 → 出 JSON verdict
+下一步模型: 用户（验收 human gate）
+下一步任务: 用户验收 → bookkeeper 执行 stage→main 合并与簿记收尾
