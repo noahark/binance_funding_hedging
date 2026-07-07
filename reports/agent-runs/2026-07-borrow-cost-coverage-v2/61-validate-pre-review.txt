@@ -1,0 +1,3 @@
+STAGE VALIDATION FAILED
+- review/acceptance gates require a clean committed worktree; commit or revert these changes first:
+?? reports/agent-runs/2026-07-borrow-cost-coverage-v2/61-validate-pre-review.txt
