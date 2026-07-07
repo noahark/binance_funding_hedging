@@ -3,9 +3,11 @@
 ## Current State
 
 - Stage: `2026-07-private-account-ui-polish-v1`
-- Status: `designing`（round-2 / v1.1-ui-polish-2 增量设计中）
-- **Round-1**(value_usdt + 前 4 项):两轮 ACCEPT、pre-accept 曾 PASSED；用户裁决折入 6 项新需求 → round-1 verdict **superseded**（记入 status.review_history），合并后新 diff 重走两轮 review。
-- v1.1-ui-polish-2 六项(item 5–10)见 `00-task.md` §Scope 增补；用户决策:折入本 stage / item 排序走后端 / 审计文案如实承认已接入私有账户但只读。
+- Status: `review_1`（round-2 / v1.1-ui-polish-2，Codex 复核）
+- HEAD(delivery): `head_sha ec32746`（Kimi round-2 实现提交）；bookkeeping 提交在其上。
+- diff_fingerprint: `ec32746:7bee1704…`（bookkeeper 复算一致；round-1 `71c9d89:0f7691…` 已 superseded）
+- **Round-1**(value_usdt + 前 4 项):两轮 ACCEPT superseded（记入 status.review_history），随 round-2 合并 diff 一并重审。
+- v1.1-ui-polish-2 六项(item 5–10)已由 Kimi 实现；bookkeeper 独立复核红线全held、160 pytest+self-check+schema 全绿。
 - Branch: `stage/2026-07-private-account-ui-polish-v1`（未合并 main）
 - HEAD: `89789ec`（status.json post-implementation 提交）
 - Delivery range: `base_sha 4549227` .. `head_sha 71c9d89`（feat 实现提交）
@@ -49,13 +51,10 @@
 
 ## Next Action
 
-派发实现给 Kimi(`implementation-kimi-v1.1.prompt.md`):按 `10-design.md#v1.1-ui-polish-2
-Design Addendum` + ADR-7/8/9 实现 item 5–10。Fable5 design_review_addendum=ACCEPT(已落
-status)。实现交回后 Fable5 独立复算 diff/fingerprint + 复跑测试 → Codex review-1 → Fable5
-review-2 → pre-accept → 用户验收合并。
-
-Round-2 红线:仅排 balances_* 不碰 frozen 市场 rows;无契约字段变更;时点合并纯前端;只读不下单。
+派发 review-1 给 Codex(`review-1-codex-v1.1.prompt.md`):对合并 delivery `base..ec32746`
+做实现评审(重点 round-2 六项 + 五条红线 + 两处 P3 定性),verdict 写 `30-review-1-v1.1.md`。
+通过后 Fable5 review-2 终审 → pre-accept → 用户验收合并。
 
 本地北京时间: 2026-07-07 CST
-下一步模型: Kimi（实现 v1.1-ui-polish-2）
-下一步任务: 实现 item 5–10 + 测试全绿 + 追加 20-implementation/60-test-output,回报 head_sha
+下一步模型: Codex（review-1 round-2）
+下一步任务: 复核 v1.1-ui-polish-2 实现保真 + 出 JSON verdict(REWORK 必带 fix_start_prompt)

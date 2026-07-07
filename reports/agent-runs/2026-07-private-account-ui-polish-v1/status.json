@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-ui-polish-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-private-account-ui-polish-v1",
@@ -90,8 +90,9 @@
     "user_approved": true
   },
   "base_sha": "4549227e9f6528787fb8e69b72c0cd7c585611f4",
-  "head_sha": "71c9d89e28c68d729658814a6f9c34d6a266eb1e",
-  "diff_fingerprint": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
+  "head_sha": "ec327466a9ec28be6158aedfc53541ea2b3e463c",
+  "diff_fingerprint": "ec327466a9ec28be6158aedfc53541ea2b3e463c:7bee17041882e913317e1dc490e67862e8d00351308392d191a20f22a6a5997d",
+  "diff_fingerprint_round1_superseded": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
   "changed_files": [
     "backend/domain/snapshot.py",
     "backend/tests/fixtures/private-account-v1-design.json",
@@ -101,14 +102,16 @@
     "frontend/index.html",
     "frontend/self-check.js",
     "schemas/api/public-market/snapshot.schema.json",
+    "backend/tests/test_snapshot.py",
     "reports/api-samples/2026-07-private-account-ui-polish-v1/20260706T172648Z/api-v3-ticker-price.json",
     "reports/api-samples/2026-07-private-account-ui-polish-v1/20260706T172648Z/evidence-index.md",
     "reports/agent-runs/2026-07-private-account-ui-polish-v1/20-implementation.md",
     "reports/agent-runs/2026-07-private-account-ui-polish-v1/60-test-output.txt"
   ],
+  "changed_files_note": "round-1(value_usdt+前4项)+ round-2(v1.1-ui-polish-2 item5-10)合并 delivery base 4549227..ec32746。round-2 增量文件: snapshot.py(排序)/test_private_account_v1.py/test_snapshot.py(rows 回归)/public-market-contract.md(additive 展示顺序说明)/index.html/self-check.js。schema 本轮零改动。",
   "tests": {
-    "status": "pending",
-    "note": "round-1(value_usdt+前4项)已全绿;v1.1-ui-polish-2 增量待实现后重跑",
+    "status": "passed",
+    "note": "bookkeeper 独立复跑 round-2: 160 pytest + self-check(42 断言)+ schema validate 全绿",
     "commands": [
       "python3 -m pytest backend/tests/test_private_account_v1.py -q",
       "python3 -m pytest backend/tests/test_snapshot.py -q",
@@ -124,14 +127,14 @@
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "diff_fingerprint": "ec327466a9ec28be6158aedfc53541ea2b3e463c:7bee17041882e913317e1dc490e67862e8d00351308392d191a20f22a6a5997d",
     "reviewer_prior_involvement": "design",
-    "reviewer_prior_involvement_notes": "Codex 是本 stage designer;review-1 复核实现对设计的保真度。非 implementer,reviewer≠implementer 硬红线不破。终审(review-2)由独立 Fable5 承担。",
+    "reviewer_prior_involvement_notes": "Codex 是本 stage designer(含 v1.1 增量设计);review-1 复核实现对设计的保真度。非 implementer,reviewer≠implementer 硬红线不破。终审(review-2)由独立 Fable5 承担。",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0,
     "round": 2,
-    "note": "round-1 ACCEPT 已记入 review_history 并 superseded;round-2 对折入 v1.1-ui-polish-2 后的新 diff 重审,fingerprint 待 Kimi 实现后重绑。"
+    "note": "round-1 ACCEPT 已 superseded(见 review_history);round-2 对合并 delivery ec32746 重审。bookkeeper 预检: fingerprint 复算一致; 红线全held(schema 零改/仅排 balances_* 不碰 rows/total 遍历原始 list 不受重排影响/契约 additive/后端时间字段不变); 160 pytest+self-check+schema 全绿。P3 观察: 孤儿 .sidebar-footer CSS + line570 静态占位'只读资产视图'(JS 两分支均覆盖, 永不可见)交 review 定性。"
   },
   "review_2": {
     "reviewer": "fable5",
@@ -185,6 +188,6 @@
     ],
     "reviewed_at": "2026-07-07 CST"
   },
-  "next_action": "dispatch_implementation_kimi_v1_1",
-  "updated_at": "2026-07-07 CST (Codex 交回 v1.1-ui-polish-2 增量设计; Fable5 design_review_addendum=ACCEPT(守红线: 无契约字段变更/仅排 balances_* 不碰 frozen rows/纯前端合并时点/文案对齐 signed HMAC 事实); status designing→implementing; 派 Kimi 实现)"
+  "next_action": "await_review_1_verdict_codex_round2",
+  "updated_at": "2026-07-07 CST (Kimi 交回 round-2 实现 head=ec32746; bookkeeper 独立复核: fingerprint 复算=recorded, 红线全held(schema 零改/排序仅 balances_* 不碰 frozen rows/total 不受重排/契约 additive/后端时间字段不变), 160 pytest+self-check+schema 全绿; status implementing→review_1; 派 Codex review-1 round-2)"
 }
