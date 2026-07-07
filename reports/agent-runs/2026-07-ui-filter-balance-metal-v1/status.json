@@ -1,0 +1,69 @@
+{
+  "stage_id": "2026-07-ui-filter-balance-metal-v1",
+  "status": "designing",
+  "workflow": "stage-delivery",
+  "complexity": {"classification": "MEDIUM", "reason": "frontend filter + private balance display + backend/schema/docs asset_tag enum"},
+  "mode": "serial",
+  "base_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "stage_branch": {
+    "name": "stage/2026-07-ui-filter-balance-metal-v1",
+    "created_from_main_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
+    "created_at": "2026-07-07T18:23:15Z",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": "no-ff",
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "codex_current_session",
+    "provider": "openai",
+    "model": "codex/gpt-5",
+    "session_role": "stage_designer_and_bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "当前仅创建需求草稿和 stage，不实现。若后续同一 Codex 会话实现或 review，需重新披露并遵守 reviewer/implementer 隔离。"
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "note": "三项需求需跨层同批收口，但规模为 MEDIUM，采用 serial 原子交付。"
+  },
+  "model_routing": {
+    "owner_implementer": null,
+    "review_1": null,
+    "review_2": "codex",
+    "breakdown_author": "codex_current_session",
+    "excluded_from_core": []
+  },
+  "prior_involvement_disclosure": {
+    "codex": "本轮创建需求草稿、设计草稿、breakdown 草稿和 stage 状态；属于 design/breakdown involvement。若担任 final reviewer 需披露；不得 review 自己实现的代码。",
+    "user": "用户直接给出三项需求并要求创建需求草稿和 stage。"
+  },
+  "requirements": {
+    "intake": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/00-intake.md",
+    "task_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/00-task.md",
+    "design_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/10-design.md",
+    "adr_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/11-adr.md",
+    "breakdown_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/12-development-breakdown.md"
+  },
+  "open_questions": [
+    "低日费率过滤是否按 abs(daily_funding_rate) <= 0.00030000 判断。",
+    "daily_funding_rate null 是否不被低日费率过滤隐藏。",
+    "新增选项是否按 checkbox/toggle 实现。",
+    "METAL 是否仅为标签，不新增负费率禁用态。",
+    "现货 locked 是否保留单独冻结行。"
+  ],
+  "tests": {
+    "status": "not_run",
+    "evidence": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/60-test-output.txt",
+    "reason": "未修改交付代码，仅创建需求/设计草稿。"
+  },
+  "hard_constraints": [
+    "未获用户确认前不进入实现。",
+    "不修改私有签名、下单、借币、还币、划转逻辑。",
+    "低日费率阈值判断不得引入 float 造成边界漂移。",
+    "新增 METAL 必须 schema/docs/backend/frontend/tests 同步。"
+  ],
+  "next_step": "等待用户确认或修改需求草稿；确认后生成实现任务书并进入 serial implementation。",
+  "updated_at": "2026-07-08 02:23:15 CST"
+}
