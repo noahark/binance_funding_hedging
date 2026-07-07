@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-ui-polish-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-private-account-ui-polish-v1",
@@ -58,6 +58,14 @@
       "review_1": { "reviewer": "codex", "verdict": "ACCEPT", "prior_involvement": "design" },
       "review_2": { "reviewer": "fable5", "verdict": "ACCEPT", "prior_involvement": "none" },
       "outcome": "pre-accept PASSED, 但用户折入 v1.1-ui-polish-2 扩容 → 本轮 verdict superseded, round-2 重走。"
+    },
+    {
+      "round": 2,
+      "scope": "round-1 + v1.1-ui-polish-2(item 5-10)合并 delivery",
+      "diff_fingerprint": "ec327466a9ec28be6158aedfc53541ea2b3e463c:7bee17041882e913317e1dc490e67862e8d00351308392d191a20f22a6a5997d",
+      "review_1": { "reviewer": "codex", "verdict": "ACCEPT", "prior_involvement": "design", "findings": "2×P3 非阻塞" },
+      "review_2": { "reviewer": "fable5", "verdict": "ACCEPT", "prior_involvement": "none", "findings": "2×P3 非阻塞" },
+      "outcome": "pre-accept PASSED; 用户验收但要求合并前清 2×P3 → 本轮 verdict superseded(新 diff), round-3(P3 cleanup)重走 delta 复审。"
     }
   ],
   "designer": "codex",
@@ -90,9 +98,12 @@
     "user_approved": true
   },
   "base_sha": "4549227e9f6528787fb8e69b72c0cd7c585611f4",
-  "head_sha": "ec327466a9ec28be6158aedfc53541ea2b3e463c",
-  "diff_fingerprint": "ec327466a9ec28be6158aedfc53541ea2b3e463c:7bee17041882e913317e1dc490e67862e8d00351308392d191a20f22a6a5997d",
-  "diff_fingerprint_round1_superseded": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
+  "head_sha": "ec80d9718f6b15ee5efcddf092c1baab8023dfbc",
+  "diff_fingerprint": "ec80d9718f6b15ee5efcddf092c1baab8023dfbc:029c6220c4ec7dd4dd03dad38c85e9f39fa8ac3ba9f6e25581b7139e374ec48d",
+  "diff_fingerprint_superseded": {
+    "round1": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
+    "round2": "ec327466a9ec28be6158aedfc53541ea2b3e463c:7bee17041882e913317e1dc490e67862e8d00351308392d191a20f22a6a5997d"
+  },
   "changed_files": [
     "backend/domain/snapshot.py",
     "backend/tests/fixtures/private-account-v1-design.json",
@@ -124,18 +135,17 @@
     "reviewer": "codex",
     "provider": "openai",
     "model": "gpt-5-codex",
-    "open_p0_p1": 0,
-    "verdict": "ACCEPT",
-    "json_schema_valid": true,
-    "diff_fingerprint": "ec327466a9ec28be6158aedfc53541ea2b3e463c:7bee17041882e913317e1dc490e67862e8d00351308392d191a20f22a6a5997d",
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": "ec80d9718f6b15ee5efcddf092c1baab8023dfbc:029c6220c4ec7dd4dd03dad38c85e9f39fa8ac3ba9f6e25581b7139e374ec48d",
     "reviewer_prior_involvement": "design",
-    "reviewer_prior_involvement_notes": "Codex 是本 stage designer(含 v1.1 增量设计);review-1 复核实现对设计的保真度。非 implementer,reviewer≠implementer 硬红线不破。终审(review-2)由独立 Fable5 承担。",
-    "fix_start_prompt_present": false,
-    "fix_start_prompt_source": "n/a (ACCEPT, 0 required_fixes)",
+    "reviewer_prior_involvement_notes": "Codex 是本 stage designer;review-1 复核实现对设计的保真度。非 implementer/fix-author,reviewer≠implementer 硬红线不破。终审(review-2)由独立 Fable5 承担。",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
     "invalid_json_attempts": 0,
-    "round": 2,
-    "p3_findings": ["孤儿 .sidebar-footer CSS(index.html:135/498)", "静态占位 '只读资产视图'(index.html:570, JS 两分支均覆盖永不可见)"],
-    "note": "round-1 ACCEPT 已 superseded(见 review_history);round-2 verdict 覆盖合并 delivery ec32746。bookkeeper 复核 verdict: fingerprint 匹配, JSON 合 schema, verdict=ACCEPT/findings 2×P3 非阻塞/required_fixes=0/prior_involvement=design 已披露。"
+    "round": 3,
+    "note": "round-2 ACCEPT 已 superseded(P3 cleanup 产生新 diff, 见 review_history);round-3 为 P3 cleanup delta 复审(fix_author=kimi≠reviewer)。bookkeeper 预检: delta 仅 frontend/index.html 2×P3、无逻辑/后端/schema 改动; fingerprint 复算=recorded; 160 pytest+self-check+schema 全绿。"
   },
   "review_2": {
     "reviewer": "fable5",
@@ -152,16 +162,15 @@
       "reason": null,
       "unrelated_reviewer_unavailable_evidence": null
     },
-    "open_p0_p1": 0,
-    "verdict": "ACCEPT",
-    "json_schema_valid": true,
-    "diff_fingerprint": "ec327466a9ec28be6158aedfc53541ea2b3e463c:7bee17041882e913317e1dc490e67862e8d00351308392d191a20f22a6a5997d",
-    "fix_start_prompt_present": false,
-    "fix_start_prompt_source": "n/a (ACCEPT, 0 required_fixes)",
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": "ec80d9718f6b15ee5efcddf092c1baab8023dfbc:029c6220c4ec7dd4dd03dad38c85e9f39fa8ac3ba9f6e25581b7139e374ec48d",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
     "invalid_json_attempts": 0,
-    "round": 2,
-    "p3_findings": ["孤儿 .sidebar-footer CSS", "静态占位 '只读资产视图'(永不可见)"],
-    "note": "round-2 独立终审(非复用 review-1): 直读增量 diff 复核五红线 + formatUsdt2 进位链 + 删除项, 160 pytest+self-check+schema 全绿。verdict=ACCEPT/findings 2×P3 非阻塞/required_fixes=0。round-1 ACCEPT 已 superseded(review_history)。"
+    "round": 3,
+    "note": "round-3 P3 cleanup delta 独立终审。fix_author=kimi,Fable5 非 fix-author,reviewer≠fix-author 红线不破。round-2 ACCEPT 已 superseded(review_history)。"
   },
   "rework_count": 0,
   "max_rework": 3,
@@ -190,7 +199,7 @@
     ],
     "reviewed_at": "2026-07-07 CST"
   },
-  "next_action": "dispatch_p3_cleanup_kimi",
+  "next_action": "await_review_1_verdict_codex_round3_p3delta",
   "p3_cleanup": {
     "decided_at": "2026-07-07 CST",
     "user_decision": "验收但合并前先清 2 项 P3; 合并策略 = merge commit (--no-ff)",
@@ -198,5 +207,5 @@
     "governance": "清理产生新 fingerprint; round-2 两轮 ACCEPT(ec32746)将 supersede 入 review_history; Kimi(fix_author)执行、Fable5 不作 fix 以保 review-2; 交回后 delta 快速复审(reviewer 已逐字指定修法)→ pre-accept → merge --no-ff。",
     "dispatch": "p3-cleanup-kimi.prompt.md"
   },
-  "updated_at": "2026-07-07 CST (用户验收: 合并前先清 2 项 P3, 合并策略 --no-ff; status stage_accepted_waiting_user→implementing; 派 Kimi(fix_author)有界清理; 交回后 delta 复审再 pre-accept 合并)"
+  "updated_at": "2026-07-07 CST (Kimi 交回 P3 cleanup head=ec80d97; bookkeeper 复核: delta 仅 frontend/index.html 2×P3(删孤儿 CSS+静态占位改中性值)、无逻辑/后端/schema 改动, fingerprint 复算=029c6220…, 160 pytest+self-check+schema 全绿; round-2 ACCEPT superseded 入 review_history; status implementing→review_1; 派 Codex review-1 delta round-3)"
 }

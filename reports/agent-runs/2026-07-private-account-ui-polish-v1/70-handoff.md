@@ -3,8 +3,11 @@
 ## Current State
 
 - Stage: `2026-07-private-account-ui-polish-v1`
-- Status: `implementing`（用户已验收；合并前 P3 清理中 → Kimi fix_author）
-- 用户决定: 合并前清 2 项 P3；合并策略 `merge commit (--no-ff)`。清理产生新 fingerprint，round-2 ACCEPT(ec32746) 将 supersede，delta 快速复审后合并。
+- Status: `review_1`（round-3 P3 cleanup delta 复审，Codex）
+- HEAD(delivery): `head_sha ec80d97`（Kimi P3 cleanup）；fingerprint `ec80d97:029c6220…`（bookkeeper 复算一致）。
+- round-1/round-2 ACCEPT 均 superseded 入 review_history；本轮只审 2×P3 delta。
+- bookkeeper 预检: delta 仅 `frontend/index.html` 2×P3、无逻辑/后端/schema 改动、160 pytest+self-check+schema 全绿。
+- 合并策略已定: `merge commit (--no-ff)`。
 - HEAD(delivery): `head_sha ec32746`（Kimi round-2 实现提交）；bookkeeping 提交在其上。
 - diff_fingerprint: `ec32746:7bee1704…`（bookkeeper/review-1/review-2 复算一致；round-1 `71c9d89:0f7691…` 已 superseded）
 - Round-2 review: review-1=Codex ACCEPT(2×P3 非阻塞)、review-2=Fable5 ACCEPT(独立终审)。
@@ -52,11 +55,11 @@
 
 ## Next Action
 
-派发 P3 清理给 Kimi(`p3-cleanup-kimi.prompt.md`,fix_author):仅删孤儿 `.sidebar-footer`
-CSS + 静态占位改中性值,不碰逻辑。交回后 bookkeeper 核 diff 仅 2×P3 + 测试绿 → Codex
-review-1(delta)→ Fable5 review-2(delta)→ pre-accept → `git merge --no-ff` 合入 main →
-回填 `status.stage_branch` + 更新 follow-up memory。Fable5 不作 fix 以保 review-2 独立。
+派发 delta review-1 给 Codex(`review-1-codex-p3delta.prompt.md`):确认 delta 恰为 2×P3、
+无越界、fingerprint 符、测试绿,verdict 写 `30-review-1-p3delta.md`。通过后 Fable5 review-2
+(delta 终审)→ pre-accept → `git merge --no-ff` 合入 main → 回填 `status.stage_branch` +
+更新 4 条 follow-up memory 为「已交付」。
 
 本地北京时间: 2026-07-07 CST
-下一步模型: Kimi（fix_author, P3 清理）
-下一步任务: 2 处 P3 清理 + 测试绿 + 40-fix-report，回报 head_sha
+下一步模型: Codex（review-1 delta round-3）
+下一步任务: 复核 P3 cleanup delta + 出 JSON verdict
