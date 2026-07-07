@@ -5,7 +5,7 @@ target_model: codex (gpt-5.x)
 adapter_cmd: codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <本文件>
 invoked_by: bookkeeper（在 review-1 ACCEPT + 串行落盘后）
 base_sha: 5bdfc4b3dc6843a8e52aeb86896c735500ed137a
-head_sha:                 # bookkeeper 落盘后回填
+head_sha: 11c3935ec859320b5dad50d31c0068993b4bd8f5
 outputs: review-2-stage-by-codex.raw-output.json
 ======================================================================== -->
 

@@ -54,9 +54,30 @@
       "owner": "claude_glm",
       "prompt": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/task-H-claude-glm.prompt.md",
       "kind": "atomic (backend+frontend+docs+schema+tests)",
-      "status": "pending",
-      "base_sha": "5bdfc4b3dc6843a8e52aeb86896c735500ed137a"
+      "status": "landed",
+      "base_sha": "5bdfc4b3dc6843a8e52aeb86896c735500ed137a",
+      "landed_sha": "11c3935ec859320b5dad50d31c0068993b4bd8f5",
+      "changed_files": ["backend/domain/snapshot.py", "backend/services/private_client.py", "backend/services/snapshot_service.py", "backend/tests/test_private_account_v1.py", "docs/api/public-market-contract.md", "frontend/index.html", "frontend/self-check.js"],
+      "schema_untouched_reason": "error 非 enum 约束，§3.H 条件不触发，schema 不动（已核对）。"
     }
+  },
+  "review_1": {
+    "reviewer": "kimi (kimi-code/kimi-for-coding)",
+    "role": "first_reviewer",
+    "verdict": "ACCEPT",
+    "findings": 0,
+    "next_action": "continue",
+    "reviewer_prior_involvement": "none",
+    "raw_output": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/embedded-review-H-round1.raw-output.md",
+    "promoted_from_embedded": true,
+    "diff_fingerprint": "worktree:919de191112cb57397437ff4b6dd9a9603069165bf573be532da8ee66b217f4b"
+  },
+  "bookkeeper_verification": {
+    "single_writer_ok": "实现者未 commit、未碰 status.json（末次实现前 commit 为 bookkeeper 1ecd825）。",
+    "file_boundary_ok": "改动均在 task-H §3 允许集内。",
+    "r4_diff_reconciliation": "H.diff.patch == 工作树代码 diff（MATCH）；fingerprint 重算 == kimi 919de1…（MATCH）→ 落盘内容即被评审内容。",
+    "independent_retest": "bookkeeper 独立复跑：164 pytest passed + node self-check 全绿（含负费率六文案）。",
+    "live_smoke_pending": "实现会话 offline，验收项 10（实盘 chain_hit_source=next_hourly / 66 候选覆盖）待 BINANCE_PRIVATE_CHANNEL_ENABLED=true 下只读 smoke 补跑。非阻塞 review-2，但正式 accept 前须由用户/bookkeeper 落档。"
   },
   "review_prompts": {
     "review_1": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/review-1-H-by-kimi.prompt.md",
