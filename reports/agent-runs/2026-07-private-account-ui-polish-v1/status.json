@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-ui-polish-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-private-account-ui-polish-v1",
@@ -65,7 +65,7 @@
   "breakdown_author": null,
   "implementer": "kimi",
   "implementers": ["kimi"],
-  "fix_authors": [],
+  "fix_authors": ["kimi"],
   "tasks": [],
   "complexity": {
     "classification": "LOW",
@@ -190,6 +190,13 @@
     ],
     "reviewed_at": "2026-07-07 CST"
   },
-  "next_action": "await_user_acceptance_to_merge",
-  "updated_at": "2026-07-07 CST (round-2 两轮 review 均 ACCEPT: review-1 Codex(2×P3 非阻塞)+ review-2 Fable5 独立终审(直读增量/formatUsdt2 进位链/删除项, 160 pytest+self-check+schema 全绿); status review_1→stage_accepted_waiting_user; 待用户验收后按 stage 分支制合入 main(可选合并前清 2 项 P3))"
+  "next_action": "dispatch_p3_cleanup_kimi",
+  "p3_cleanup": {
+    "decided_at": "2026-07-07 CST",
+    "user_decision": "验收但合并前先清 2 项 P3; 合并策略 = merge commit (--no-ff)",
+    "items": ["删孤儿 .sidebar-footer CSS(index.html:135/498)", "静态占位 '只读资产视图' → '资产更新时间 —'(index.html:570)"],
+    "governance": "清理产生新 fingerprint; round-2 两轮 ACCEPT(ec32746)将 supersede 入 review_history; Kimi(fix_author)执行、Fable5 不作 fix 以保 review-2; 交回后 delta 快速复审(reviewer 已逐字指定修法)→ pre-accept → merge --no-ff。",
+    "dispatch": "p3-cleanup-kimi.prompt.md"
+  },
+  "updated_at": "2026-07-07 CST (用户验收: 合并前先清 2 项 P3, 合并策略 --no-ff; status stage_accepted_waiting_user→implementing; 派 Kimi(fix_author)有界清理; 交回后 delta 复审再 pre-accept 合并)"
 }
