@@ -75,3 +75,17 @@ payload 不暴露单资产价格,需 additive 契约变更(后端补逐资产估
 - Provider: complexity 由 bookkeeper(Fable5)裁定 LOW,用户已批准 lightweight route
 - Model: N/A（LOW + lightweight skip,未另派 evaluator 模型）
 - Skill: complexity_evaluator
+
+## Scope 折入记录 (v1.1-ui-polish-2, 2026-07-07)
+
+- 触发:round-1(value_usdt + 前 4 项)pre-accept 就绪、待验收时,用户追加 6 项面板打磨
+  (item 5–10,见 `00-task.md`)。
+- 用户 3 项裁决:① **折入本未合并 stage**(非先合并再开新);② item「按折算价值排序」走
+  **后端排序**;③ 审计文案口径 = **如实承认已接入私有账户(需 key)、仍只读不下单/不划转**。
+- 治理后果:round-1 两轮 ACCEPT(fingerprint `71c9d89…`)**superseded**,记入
+  `status.review_history`;status 回退 `stage_accepted_waiting_user → designing`;新 diff 重走
+  designer→impl→review-1→review-2。
+- 独立性:增量设计 HOW 归 **Codex**(designer),bookkeeper 只写 intake/task WHAT,以保
+  **Fable5 review-2 终审独立性**(避免 Fable5 成为 design/breakdown 作者而 ineligible 终审)。
+- 契约:预期**无字段/枚举变更**(value_usdt/priced_at 已存在,排序为数组顺序 behavior);
+  item 6 排序**仅限 balances_***,不触碰契约 frozen 的市场 `rows` 顺序。

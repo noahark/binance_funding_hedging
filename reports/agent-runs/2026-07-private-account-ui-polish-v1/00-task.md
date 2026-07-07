@@ -55,6 +55,42 @@
 - 前端 self-check(`frontend/self-check.js`)覆盖上述展示分支并全绿。
 - UI 中文优先(见 memory `ui-chinese-first`)。
 
+## Scope 增补 (v1.1-ui-polish-2, 2026-07-07 折入)
+
+用户在 round-1(value_usdt + 前 4 项)pre-accept 就绪后追加 6 项个人账户面板打磨,裁决
+**折入本未合并 stage**(非先合并再开新 stage);round-1 两轮 ACCEPT 已 supersede,合并后
+新 diff 重走 designer→impl→review-1→review-2。设计 HOW 归 Codex(保 Fable5 终审独立性)。
+
+5. **余额行内折算**:统一账户余额、现货账户余额每行金额后追加 `【: xxx.xx USDT】`
+   折算展示(2 位小数),来源 `balances_*[].value_usdt`(已有字段)。null/缺失展示占位。
+   隐私开关须同时遮蔽金额与折算值。
+6. **按折算价值排序**:统一账户、现货账户资产按 `value_usdt` **降序**排列,`value_usdt`
+   为 null 的行一律排最后。**用户定后端排序**——在 `assemble_private_account` 内对
+   `balances_unified`/`balances_spot` 排序,前端零排序仍成立。**红线:仅排 private_account
+   余额数组;绝不触碰契约 frozen 的市场 `rows` 顺序(abs 费率 DESC)。** 需 pytest 覆盖。
+7. **删估值来源卡**:移除个人账户面板「估值来源」展示卡;payload 仍保留 `price_source`,
+   仅前端不展示。
+8. **删矛盾运行约束文案**:删除侧栏「公开行情 · 只读展示 · 不连接 Binance」等与私有通道
+   矛盾的表述(私有通道走 signed HMAC 真连 Binance,deny-by-default)。
+9. **时点合一**:`估值时点`(`valuation.priced_at`)与 `检查时点`(`checked_at`)后端本为
+   同值(snapshot.py `priced_at = checked_at`),合并为单一时间;面板副标题「只读资产视图」
+   改为「资产更新时间 <时间>」,删除两张时点 overview 卡。
+10. **审计文案校准**:检查「数据说明」及相关 UI 文案,修正不符合当前项目状态的描述。
+    口径 = **如实承认已接入私有账户(配置 API key 时读取)、仍只读不下单/不划转**;逐句
+    核对 backend 真实行为(如 `WARNING_CHINESE[0]`「当前无 key 阶段」、顶栏「公开数据」等
+    与私有面板矛盾处)。精确中文文案在 design 阶段按 memory `ui-chinese-first` 定稿。
+
+### Acceptance Criteria 增补
+
+- 余额行内展示 2 位小数折算值;隐私开关遮蔽金额与折算值;null 占位不白屏。
+- 后端 `balances_unified`/`balances_spot` 按 `value_usdt` 降序、null 最后;pytest 断言覆盖;
+  市场 `rows` 冻结顺序不变(回归断言)。
+- 面板不再展示「估值来源」卡;payload `price_source` 仍在。
+- 侧栏矛盾运行约束文案已删。
+- 时点合并为单一「资产更新时间」,副标题替换,两张时点卡移除。
+- 审计文案不再出现与私有通道矛盾的过时表述;新文案经 review 核对与 backend 行为一致。
+- self-check + pytest 全绿;无契约字段/枚举语义变更(item 6/排序均为 additive-safe)。
+
 ## Follow-up 溯源
 
 - memory: `followup-borrow-rate-on-row`（第 1 项）

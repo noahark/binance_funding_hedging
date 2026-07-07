@@ -3,7 +3,9 @@
 ## Current State
 
 - Stage: `2026-07-private-account-ui-polish-v1`
-- Status: `stage_accepted_waiting_user`（两轮 review 均 ACCEPT，pre-accept 就绪，待用户验收）
+- Status: `designing`（round-2 / v1.1-ui-polish-2 增量设计中）
+- **Round-1**(value_usdt + 前 4 项):两轮 ACCEPT、pre-accept 曾 PASSED；用户裁决折入 6 项新需求 → round-1 verdict **superseded**（记入 status.review_history），合并后新 diff 重走两轮 review。
+- v1.1-ui-polish-2 六项(item 5–10)见 `00-task.md` §Scope 增补；用户决策:折入本 stage / item 排序走后端 / 审计文案如实承认已接入私有账户但只读。
 - Branch: `stage/2026-07-private-account-ui-polish-v1`（未合并 main）
 - HEAD: `89789ec`（status.json post-implementation 提交）
 - Delivery range: `base_sha 4549227` .. `head_sha 71c9d89`（feat 实现提交）
@@ -47,8 +49,11 @@
 
 ## Next Action
 
-用户显式验收（human gate）。验收后按 stage 分支制将 `stage/2026-07-private-account-ui-polish-v1` 合入 `main`，回填 `status.json.stage_branch`（merged_back_to_main/merged_back_sha/merge_strategy），并更新相关 follow-up memory 为「已交付」。合并前不得自行合入 main。
+派发增量设计给 Codex(`stage-design-addendum-codex.prompt.md`):为 item 5–10 补设计
+(尤其 item-6 后端排序语义、item-10 精确审计文案),复用 round-1 基础,不写实现。设计交回
+后 Fable5 做 design_review → 派 Kimi 实现 → Codex review-1 → Fable5 review-2 → pre-accept
+→ 用户验收合并。Fable5 不参与设计以保 review-2 独立性。
 
 本地北京时间: 2026-07-07 CST
-下一步模型: 用户（验收 human gate）
-下一步任务: 用户验收 → bookkeeper 执行 stage→main 合并与簿记收尾
+下一步模型: Codex（stage-design 增量）
+下一步任务: 出 v1.1-ui-polish-2 增量设计(10-design addendum + ADR)与契约变更门结论

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-ui-polish-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "designing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-private-account-ui-polish-v1",
@@ -35,6 +35,31 @@
     "resolution": "用户 2026-07-07 裁决: 角色链 Codex(设计)→Kimi(实现)→Fable5(终审); 第4项允许 additive 契约变更; merge main into stage。findings 3&4 契约对齐已折入 00-task/00-intake。",
     "resolved": true
   },
+  "scope_increment": {
+    "id": "v1.1-ui-polish-2",
+    "decided_at": "2026-07-07 CST",
+    "governance": "用户裁决折入当前未合并 stage(非先合并再开新 stage);故 round-1 两轮 ACCEPT(绑定 fingerprint 71c9d89)被 supersede,须对合并后 diff 重走 designer→impl→review-1→review-2。",
+    "items": [
+      "1) 统一/现货余额行内追加【: xxx.xx USDT】折算(2 位小数);value_usdt 已存在,纯展示。",
+      "2) 统一/现货资产按 value_usdt 降序排(null 排最后)—— 用户定后端排序;仅限 private_account.balances_*,不得触碰契约 frozen 的市场 rows 顺序。",
+      "3) 删「估值来源」展示卡(payload 保留 price_source)。",
+      "4) 删侧栏「公开行情 · 只读展示 · 不连接 Binance」等与私有通道矛盾的文案。",
+      "5) 估值时点/检查时点合一(后端 priced_at≡checked_at)→ 面板副标题「只读资产视图」改为「资产更新时间 <时间>」,删两张时点卡。",
+      "6) 审计文案改写口径 = 如实承认已接入私有账户(需 key)、仍只读不下单;逐句核对 backend 真实行为(deny-by-default signed HMAC)。"
+    ],
+    "contract_impact": "无契约字段变更(value_usdt/priced_at 已存在);item 2 后端排序为数组顺序 behavior 变更,非字段/枚举变更,且不涉及 frozen 市场 rows 顺序。",
+    "route": "lightweight 增量,但设计 HOW 归 Codex(保 Fable5 review-2 独立性);intake/task WHAT 由 bookkeeper。"
+  },
+  "review_history": [
+    {
+      "round": 1,
+      "scope": "value_usdt(additive)+ 前4项 UI polish",
+      "diff_fingerprint": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
+      "review_1": { "reviewer": "codex", "verdict": "ACCEPT", "prior_involvement": "design" },
+      "review_2": { "reviewer": "fable5", "verdict": "ACCEPT", "prior_involvement": "none" },
+      "outcome": "pre-accept PASSED, 但用户折入 v1.1-ui-polish-2 扩容 → 本轮 verdict superseded, round-2 重走。"
+    }
+  ],
   "designer": "codex",
   "direction_synthesizer": null,
   "breakdown_author": null,
@@ -82,7 +107,8 @@
     "reports/agent-runs/2026-07-private-account-ui-polish-v1/60-test-output.txt"
   ],
   "tests": {
-    "status": "passed",
+    "status": "pending",
+    "note": "round-1(value_usdt+前4项)已全绿;v1.1-ui-polish-2 增量待实现后重跑",
     "commands": [
       "python3 -m pytest backend/tests/test_private_account_v1.py -q",
       "python3 -m pytest backend/tests/test_snapshot.py -q",
@@ -95,16 +121,17 @@
     "reviewer": "codex",
     "provider": "openai",
     "model": "gpt-5-codex",
-    "open_p0_p1": 0,
-    "verdict": "ACCEPT",
-    "json_schema_valid": true,
-    "diff_fingerprint": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
     "reviewer_prior_involvement": "design",
-    "reviewer_prior_involvement_notes": "Codex 是本 stage designer;review-1 复核实现对 10-design/11-adr 的保真度。非 implementer,reviewer≠implementer 硬红线不破。终审(review-2)由独立 Fable5 承担。",
-    "fix_start_prompt_present": false,
-    "fix_start_prompt_source": "n/a (ACCEPT, findings=0)",
+    "reviewer_prior_involvement_notes": "Codex 是本 stage designer;review-1 复核实现对设计的保真度。非 implementer,reviewer≠implementer 硬红线不破。终审(review-2)由独立 Fable5 承担。",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
     "invalid_json_attempts": 0,
-    "bookkeeper_verified": "fingerprint 复算=recorded; JSON 合 schemas/review-verdict.schema.json; verdict=ACCEPT/findings=0/prior_involvement=design 已披露"
+    "round": 2,
+    "note": "round-1 ACCEPT 已记入 review_history 并 superseded;round-2 对折入 v1.1-ui-polish-2 后的新 diff 重审,fingerprint 待 Kimi 实现后重绑。"
   },
   "review_2": {
     "reviewer": "fable5",
@@ -121,14 +148,15 @@
       "reason": null,
       "unrelated_reviewer_unavailable_evidence": null
     },
-    "open_p0_p1": 0,
-    "verdict": "ACCEPT",
-    "json_schema_valid": true,
-    "diff_fingerprint": "71c9d89e28c68d729658814a6f9c34d6a266eb1e:0f769162e4eb97d28f5e4e82048469ae9eba57c943ad12a722e9f3fd56c439c1",
-    "fix_start_prompt_present": false,
-    "fix_start_prompt_source": "n/a (ACCEPT, findings=0)",
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
     "invalid_json_attempts": 0,
-    "bookkeeper_verified": "独立复算 fingerprint=recorded; JSON 合 schema; 直接读 delivery diff 复核后端 null/0 与聚合不变、schema/契约 additive、前端四项派生、negative_funding_status 闭合枚举边界; 157 pytest + self-check + schema 全绿"
+    "round": 2,
+    "note": "round-1 ACCEPT 已记入 review_history 并 superseded;round-2 对折入 v1.1-ui-polish-2 后的新 diff 重做独立终审。"
   },
   "rework_count": 0,
   "max_rework": 3,
@@ -144,6 +172,6 @@
     "note": "10-design/11-adr 对齐冻结契约, 方案A(后端 value_usdt)取舍充分, 指令与真实代码/路径核验通过。实现须注意: 行级 value_usdt 不能直接复用 _usdt_value(缺价返回0无法区分 null/0), 需返回 None 的变体; 顶层 total_value_usdt 不变。",
     "reviewed_at": "2026-07-07 CST"
   },
-  "next_action": "await_user_acceptance_to_merge",
-  "updated_at": "2026-07-07 CST (Fable5 独立终审 review-2=ACCEPT: 直读 delivery diff 复核红线+复跑全绿; 两轮 review 均 ACCEPT; status→stage_accepted_waiting_user, 等用户验收后按 stage 分支制合入 main)"
+  "next_action": "dispatch_stage_design_addendum_codex",
+  "updated_at": "2026-07-07 CST (用户裁决折入 v1.1-ui-polish-2 六项: round-1 两轮 ACCEPT superseded 入 review_history, status stage_accepted_waiting_user→designing; 派 Codex 出增量设计(item-2 后端排序仅限 balances_* 不碰 frozen rows / item-6 审计文案如实承认已接入私有账户但只读); Fable5 保 review-2 独立性不涉设计)"
 }
