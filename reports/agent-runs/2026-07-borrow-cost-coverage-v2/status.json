@@ -77,7 +77,7 @@
     "file_boundary_ok": "改动均在 task-H §3 允许集内。",
     "r4_diff_reconciliation": "H.diff.patch == 工作树代码 diff（MATCH）；fingerprint 重算 == kimi 919de1…（MATCH）→ 落盘内容即被评审内容。",
     "independent_retest": "bookkeeper 独立复跑：164 pytest passed + node self-check 全绿（含负费率六文案）。",
-    "live_smoke_pending": "实现会话 offline，验收项 10（实盘 chain_hit_source=next_hourly / 66 候选覆盖）待 BINANCE_PRIVATE_CHANNEL_ENABLED=true 下只读 smoke 补跑。非阻塞 review-2，但正式 accept 前须由用户/bookkeeper 落档。"
+    "live_smoke": "DONE（2026-07-08，reports/agent-runs/2026-07-borrow-cost-coverage-v2/H.live-smoke.md）：实盘 chain_hit_source=next_hourly(tier1)，62/80 负费率行获 next_hourly 利率，12 行 borrowability_not_probed(有利率·未探测)，15 CRYPTO 子集缺失(根因B/defer,未伪造)，3 bStock 无利率(设计)。三修复目标命中，无回归。"
   },
   "review_prompts": {
     "review_1": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/review-1-H-by-kimi.prompt.md",
