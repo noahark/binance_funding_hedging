@@ -1,14 +1,15 @@
 {
   "stage_id": "2026-07-private-account-ui-polish-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-private-account-ui-polish-v1",
     "created_from_main_sha": "530e1949409e7cd2ed60c91ad4d66d627940bdae",
     "created_at": "2026-07-06 CST",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "950da43fe080e1678500c09acc80828cb04c2085",
+    "merge_strategy": "merge --no-ff",
+    "merged_at": "2026-07-07 CST",
     "abandoned_reason": null
   },
   "bookkeeper": {
@@ -199,7 +200,7 @@
     ],
     "reviewed_at": "2026-07-07 CST"
   },
-  "next_action": "execute_merge_no_ff_stage_to_main",
+  "next_action": "stage_complete",
   "p3_cleanup": {
     "decided_at": "2026-07-07 CST",
     "user_decision": "验收但合并前先清 2 项 P3; 合并策略 = merge commit (--no-ff)",
@@ -207,5 +208,5 @@
     "governance": "清理产生新 fingerprint; round-2 两轮 ACCEPT(ec32746)将 supersede 入 review_history; Kimi(fix_author)执行、Fable5 不作 fix 以保 review-2; 交回后 delta 快速复审(reviewer 已逐字指定修法)→ pre-accept → merge --no-ff。",
     "dispatch": "p3-cleanup-kimi.prompt.md"
   },
-  "updated_at": "2026-07-07 CST (round-3 P3 delta 两轮 review 均 ACCEPT: review-1 Codex + review-2 Fable5 独立终审(delta 仅 2×P3/无越界/fingerprint 符/测试绿); status review_1→stage_accepted_waiting_user; 用户已验收 + 合并策略 --no-ff, 待 bookkeeper 执行 stage→main 合并)"
+  "updated_at": "2026-07-07 CST (用户验收 + --no-ff 合并执行完成: stage→main merge commit 950da43; status→accepted; stage_branch 回填。三轮 delivery 均 Codex review-1 + Fable5 review-2 双签 ACCEPT。stage 完成。)"
 }

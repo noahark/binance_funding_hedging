@@ -3,11 +3,10 @@
 ## Current State
 
 - Stage: `2026-07-private-account-ui-polish-v1`
-- Status: `review_1`（round-3 P3 cleanup delta 复审，Codex）
-- HEAD(delivery): `head_sha ec80d97`（Kimi P3 cleanup）；fingerprint `ec80d97:029c6220…`（bookkeeper 复算一致）。
-- round-1/round-2 ACCEPT 均 superseded 入 review_history；本轮只审 2×P3 delta。
-- bookkeeper 预检: delta 仅 `frontend/index.html` 2×P3、无逻辑/后端/schema 改动、160 pytest+self-check+schema 全绿。
-- 合并策略已定: `merge commit (--no-ff)`。
+- Status: `accepted`（已合并 main，stage 完成）
+- Delivery head: `ec80d97`；fingerprint `ec80d97:029c6220…`。
+- Merge: `--no-ff` → main merge commit `950da43`（`stage_branch` 已回填）。
+- 三轮 delivery(round-1 value_usdt+前4项 / round-2 v1.1 item5-10 / round-3 P3 cleanup)各经 Codex review-1 + Fable5 review-2 双签 ACCEPT。
 - HEAD(delivery): `head_sha ec32746`（Kimi round-2 实现提交）；bookkeeping 提交在其上。
 - diff_fingerprint: `ec32746:7bee1704…`（bookkeeper/review-1/review-2 复算一致；round-1 `71c9d89:0f7691…` 已 superseded）
 - Round-2 review: review-1=Codex ACCEPT(2×P3 非阻塞)、review-2=Fable5 ACCEPT(独立终审)。
@@ -55,11 +54,9 @@
 
 ## Next Action
 
-派发 delta review-1 给 Codex(`review-1-codex-p3delta.prompt.md`):确认 delta 恰为 2×P3、
-无越界、fingerprint 符、测试绿,verdict 写 `30-review-1-p3delta.md`。通过后 Fable5 review-2
-(delta 终审)→ pre-accept → `git merge --no-ff` 合入 main → 回填 `status.stage_branch` +
-更新 4 条 follow-up memory 为「已交付」。
+Stage 完成,无后续动作。可选:更新 4 条 follow-up memory 为「已交付」(bookkeeper 收尾)。
+后续如需推送 main 到 origin,由用户决定(本地已合并,未 push)。
 
 本地北京时间: 2026-07-07 CST
-下一步模型: Codex（review-1 delta round-3）
-下一步任务: 复核 P3 cleanup delta + 出 JSON verdict
+下一步模型: —（stage 完成）
+下一步任务: —
