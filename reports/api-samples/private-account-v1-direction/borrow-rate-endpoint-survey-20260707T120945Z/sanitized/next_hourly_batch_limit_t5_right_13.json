@@ -1,0 +1,73 @@
+{
+  "endpoint": "/sapi/v1/margin/next-hourly-interest-rate",
+  "params": {
+    "assets": "BARD,BCH,BEL,CETUS,EPIC,FET,FLUX,GALA,GRAM,GRT,GTC,HBAR,HEI",
+    "isIsolated": "false"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-ip-weight-1m": "1200"
+  },
+  "latency_ms": 264.5,
+  "request_asset_count": 13,
+  "request_query_bytes": 59,
+  "returned_asset_count": 13,
+  "missing_assets": [],
+  "binance_code": null,
+  "binance_msg": null,
+  "conclusion": "SUCCESS",
+  "payload": [
+    {
+      "asset": "CETUS",
+      "nextHourlyInterestRate": "0.00003342"
+    },
+    {
+      "asset": "EPIC",
+      "nextHourlyInterestRate": "0.0000691"
+    },
+    {
+      "asset": "BCH",
+      "nextHourlyInterestRate": "0.00005228"
+    },
+    {
+      "asset": "BEL",
+      "nextHourlyInterestRate": "0.00009228"
+    },
+    {
+      "asset": "GRT",
+      "nextHourlyInterestRate": "0.00000406"
+    },
+    {
+      "asset": "FLUX",
+      "nextHourlyInterestRate": "0.00006422"
+    },
+    {
+      "asset": "HBAR",
+      "nextHourlyInterestRate": "0.00000237"
+    },
+    {
+      "asset": "HEI",
+      "nextHourlyInterestRate": "0.00006527"
+    },
+    {
+      "asset": "GALA",
+      "nextHourlyInterestRate": "0.0000051"
+    },
+    {
+      "asset": "BARD",
+      "nextHourlyInterestRate": "0.00007621"
+    },
+    {
+      "asset": "FET",
+      "nextHourlyInterestRate": "0.00001145"
+    },
+    {
+      "asset": "GRAM",
+      "nextHourlyInterestRate": "0.00037733"
+    },
+    {
+      "asset": "GTC",
+      "nextHourlyInterestRate": "0.00010744"
+    }
+  ]
+}

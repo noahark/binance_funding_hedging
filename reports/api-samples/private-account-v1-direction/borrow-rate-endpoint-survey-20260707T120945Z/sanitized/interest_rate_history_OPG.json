@@ -1,0 +1,236 @@
+{
+  "endpoint": "/sapi/v1/margin/interestRateHistory",
+  "params": {
+    "asset": "OPG"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-uid-weight-1m": "60"
+  },
+  "all_headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Content-Length": "2904",
+    "Connection": "close",
+    "Date": "Tue, 07 Jul 2026 12:09:46 GMT",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Server": "nginx",
+    "Vary": "Accept-Encoding",
+    "X-SAPI-USED-UID-WEIGHT-1M": "60",
+    "Strict-Transport-Security": "max-age=31536000; includeSubdomains",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Access-Control-Allow-Origin": "*",
+    "X-Cache": "Miss from cloudfront",
+    "Via": "1.1 1abf5b3404c509ce53355c980299be6c.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "ViLKczlUdPEhGQ5wa_KSUqBFFzZ_rD_YGaHhWpm89Q93sJGr_PoxDA=="
+  },
+  "latency_ms": 282.3,
+  "payload": [
+    {
+      "asset": "OPG",
+      "timestamp": 1783407600000,
+      "dailyInterestRate": "0.00177362",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783404000000,
+      "dailyInterestRate": "0.00155133",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783382400000,
+      "dailyInterestRate": "0.00103422",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783364400000,
+      "dailyInterestRate": "0.00103422",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783353600000,
+      "dailyInterestRate": "0.00093918",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783342800000,
+      "dailyInterestRate": "0.00083782",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783321200000,
+      "dailyInterestRate": "0.00101936",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783296000000,
+      "dailyInterestRate": "0.00088484",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783267200000,
+      "dailyInterestRate": "0.00088484",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783227600000,
+      "dailyInterestRate": "0.0007919",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783216800000,
+      "dailyInterestRate": "0.00089414",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783213200000,
+      "dailyInterestRate": "0.00099736",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783209600000,
+      "dailyInterestRate": "0.00118372",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783206000000,
+      "dailyInterestRate": "0.00078915",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783188000000,
+      "dailyInterestRate": "0.00090745",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783184400000,
+      "dailyInterestRate": "0.00130081",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783180800000,
+      "dailyInterestRate": "0.00117854",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783162800000,
+      "dailyInterestRate": "0.00092647",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783159200000,
+      "dailyInterestRate": "0.00102952",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783155600000,
+      "dailyInterestRate": "0.00114542",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783152000000,
+      "dailyInterestRate": "0.00100326",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783137600000,
+      "dailyInterestRate": "0.00115703",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783123200000,
+      "dailyInterestRate": "0.00129167",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783116000000,
+      "dailyInterestRate": "0.00129167",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783098000000,
+      "dailyInterestRate": "0.00100954",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783083600000,
+      "dailyInterestRate": "0.00086962",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783076400000,
+      "dailyInterestRate": "0.00096862",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783047600000,
+      "dailyInterestRate": "0.00107874",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1783036800000,
+      "dailyInterestRate": "0.00090182",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1782950400000,
+      "dailyInterestRate": "0.00090182",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1782864000000,
+      "dailyInterestRate": "0.00090182",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1782813600000,
+      "dailyInterestRate": "0.00090182",
+      "vipLevel": 0
+    },
+    {
+      "asset": "OPG",
+      "timestamp": 1782777600000,
+      "dailyInterestRate": "0.00100258",
+      "vipLevel": 0
+    }
+  ]
+}

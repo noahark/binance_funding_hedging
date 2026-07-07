@@ -1,0 +1,86 @@
+{
+  "endpoint": "/sapi/v1/margin/interestRateHistory",
+  "params": {
+    "asset": "0G"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-uid-weight-1m": "120"
+  },
+  "all_headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Content-Length": "689",
+    "Connection": "close",
+    "Date": "Tue, 07 Jul 2026 12:09:46 GMT",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Server": "nginx",
+    "Vary": "Accept-Encoding",
+    "X-SAPI-USED-UID-WEIGHT-1M": "120",
+    "Strict-Transport-Security": "max-age=31536000; includeSubdomains",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Access-Control-Allow-Origin": "*",
+    "X-Cache": "Miss from cloudfront",
+    "Via": "1.1 f5980e9fc7ed6d7b2603988d0405bd38.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "6FHwfc95x90pCKyP5s48SLk9Gaf7ZR8TFMoBquQ5Ce9nNPi0gifdzw=="
+  },
+  "latency_ms": 323.0,
+  "payload": [
+    {
+      "asset": "0G",
+      "timestamp": 1783382400000,
+      "dailyInterestRate": "0.0017874",
+      "vipLevel": 0
+    },
+    {
+      "asset": "0G",
+      "timestamp": 1783296000000,
+      "dailyInterestRate": "0.0017874",
+      "vipLevel": 0
+    },
+    {
+      "asset": "0G",
+      "timestamp": 1783209600000,
+      "dailyInterestRate": "0.0017874",
+      "vipLevel": 0
+    },
+    {
+      "asset": "0G",
+      "timestamp": 1783123200000,
+      "dailyInterestRate": "0.0017874",
+      "vipLevel": 0
+    },
+    {
+      "asset": "0G",
+      "timestamp": 1783036800000,
+      "dailyInterestRate": "0.0017874",
+      "vipLevel": 0
+    },
+    {
+      "asset": "0G",
+      "timestamp": 1782950400000,
+      "dailyInterestRate": "0.0017874",
+      "vipLevel": 0
+    },
+    {
+      "asset": "0G",
+      "timestamp": 1782864000000,
+      "dailyInterestRate": "0.0017874",
+      "vipLevel": 0
+    },
+    {
+      "asset": "0G",
+      "timestamp": 1782777600000,
+      "dailyInterestRate": "0.0017874",
+      "vipLevel": 0
+    }
+  ]
+}

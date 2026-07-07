@@ -1,0 +1,242 @@
+{
+  "endpoint": "/sapi/v1/margin/interestRateHistory",
+  "params": {
+    "asset": "BTC"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-uid-weight-1m": "360"
+  },
+  "all_headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Content-Length": "2989",
+    "Connection": "close",
+    "Date": "Tue, 07 Jul 2026 12:09:48 GMT",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Server": "nginx",
+    "Vary": "Accept-Encoding",
+    "X-SAPI-USED-UID-WEIGHT-1M": "360",
+    "Strict-Transport-Security": "max-age=31536000; includeSubdomains",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Access-Control-Allow-Origin": "*",
+    "X-Cache": "Miss from cloudfront",
+    "Via": "1.1 3ed8c48da1db0ee107820298e6b3753a.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "ympNOwYAu5WfVdBdLgQ0IT3vOEX8JSCb0VV31ewSTdXAi_32Zb0GkQ=="
+  },
+  "latency_ms": 257.4,
+  "payload": [
+    {
+      "asset": "BTC",
+      "timestamp": 1783425600000,
+      "dailyInterestRate": "0.00001074",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783396800000,
+      "dailyInterestRate": "0.00001085",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783393200000,
+      "dailyInterestRate": "0.00001069",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783382400000,
+      "dailyInterestRate": "0.00001081",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783360800000,
+      "dailyInterestRate": "0.00001081",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783346400000,
+      "dailyInterestRate": "0.00001066",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783339200000,
+      "dailyInterestRate": "0.0000108",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783306800000,
+      "dailyInterestRate": "0.00001091",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783296000000,
+      "dailyInterestRate": "0.00001078",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783278000000,
+      "dailyInterestRate": "0.00001091",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783209600000,
+      "dailyInterestRate": "0.0000108",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783184400000,
+      "dailyInterestRate": "0.0000108",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783162800000,
+      "dailyInterestRate": "0.00001094",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783159200000,
+      "dailyInterestRate": "0.00001125",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783144800000,
+      "dailyInterestRate": "0.00001111",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783123200000,
+      "dailyInterestRate": "0.00001087",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783112400000,
+      "dailyInterestRate": "0.00001087",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783090800000,
+      "dailyInterestRate": "0.00001073",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783076400000,
+      "dailyInterestRate": "0.00001086",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783072800000,
+      "dailyInterestRate": "0.00001117",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783036800000,
+      "dailyInterestRate": "0.00001087",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1783004400000,
+      "dailyInterestRate": "0.00001087",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782997200000,
+      "dailyInterestRate": "0.00001075",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782990000000,
+      "dailyInterestRate": "0.00001064",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782957600000,
+      "dailyInterestRate": "0.00001078",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782954000000,
+      "dailyInterestRate": "0.00001089",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782950400000,
+      "dailyInterestRate": "0.00001078",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782889200000,
+      "dailyInterestRate": "0.00001078",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782871200000,
+      "dailyInterestRate": "0.0000109",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782864000000,
+      "dailyInterestRate": "0.00001073",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782828000000,
+      "dailyInterestRate": "0.00001073",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782817200000,
+      "dailyInterestRate": "0.00001088",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782810000000,
+      "dailyInterestRate": "0.00001072",
+      "vipLevel": 0
+    },
+    {
+      "asset": "BTC",
+      "timestamp": 1782777600000,
+      "dailyInterestRate": "0.00001088",
+      "vipLevel": 0
+    }
+  ]
+}

@@ -1,0 +1,152 @@
+{
+  "endpoint": "/sapi/v1/margin/interestRateHistory",
+  "params": {
+    "asset": "AIGENSYN"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-uid-weight-1m": "180"
+  },
+  "all_headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Content-Length": "1763",
+    "Connection": "close",
+    "Date": "Tue, 07 Jul 2026 12:09:47 GMT",
+    "Server": "nginx",
+    "Vary": "Accept-Encoding",
+    "X-SAPI-USED-UID-WEIGHT-1M": "180",
+    "Strict-Transport-Security": "max-age=31536000; includeSubdomains",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "X-Cache": "Miss from cloudfront",
+    "Via": "1.1 05f5e6590439586c9a59a87a4073289e.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "pVDRxqpUO-HzeWHP69s__XYx7tezfO3etECUN9XgRdkIV5LeAoNQ9w=="
+  },
+  "latency_ms": 296.3,
+  "payload": [
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783382400000,
+      "dailyInterestRate": "0.00374726",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783296000000,
+      "dailyInterestRate": "0.00374726",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783249200000,
+      "dailyInterestRate": "0.00374726",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783209600000,
+      "dailyInterestRate": "0.00258164",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783123200000,
+      "dailyInterestRate": "0.00258164",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783116000000,
+      "dailyInterestRate": "0.00258164",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783105200000,
+      "dailyInterestRate": "0.0028917",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783101600000,
+      "dailyInterestRate": "0.00325802",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783098000000,
+      "dailyInterestRate": "0.00276398",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783072800000,
+      "dailyInterestRate": "0.002452",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783065600000,
+      "dailyInterestRate": "0.00298212",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783047600000,
+      "dailyInterestRate": "0.00268391",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1783036800000,
+      "dailyInterestRate": "0.0038458",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1782964800000,
+      "dailyInterestRate": "0.0038458",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1782950400000,
+      "dailyInterestRate": "0.00256387",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1782864000000,
+      "dailyInterestRate": "0.00256387",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1782795600000,
+      "dailyInterestRate": "0.00256387",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1782792000000,
+      "dailyInterestRate": "0.00187718",
+      "vipLevel": 0
+    },
+    {
+      "asset": "AIGENSYN",
+      "timestamp": 1782777600000,
+      "dailyInterestRate": "0.00125145",
+      "vipLevel": 0
+    }
+  ]
+}

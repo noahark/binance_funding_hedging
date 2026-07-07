@@ -1,0 +1,101 @@
+{
+  "endpoint": "/sapi/v1/margin/next-hourly-interest-rate",
+  "params": {
+    "assets": "0G,ID,LA,ME,OP,RE,ARB,BCH,BEL,SOL,BTC,ETH,SEI,JOE,JST,LQTY,OGN,ONG,TLM,XLM",
+    "isIsolated": "false"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-ip-weight-1m": "300"
+  },
+  "latency_ms": 321.3,
+  "request_asset_count": 20,
+  "request_query_bytes": 74,
+  "returned_asset_count": 20,
+  "missing_assets": [],
+  "binance_code": null,
+  "binance_msg": null,
+  "conclusion": "SUCCESS",
+  "payload": [
+    {
+      "asset": "OP",
+      "nextHourlyInterestRate": "0.00000389"
+    },
+    {
+      "asset": "JOE",
+      "nextHourlyInterestRate": "0.0000495"
+    },
+    {
+      "asset": "BCH",
+      "nextHourlyInterestRate": "0.00005228"
+    },
+    {
+      "asset": "BEL",
+      "nextHourlyInterestRate": "0.00009228"
+    },
+    {
+      "asset": "LQTY",
+      "nextHourlyInterestRate": "0.00006898"
+    },
+    {
+      "asset": "ONG",
+      "nextHourlyInterestRate": "0.00006526"
+    },
+    {
+      "asset": "JST",
+      "nextHourlyInterestRate": "0.00005139"
+    },
+    {
+      "asset": "BTC",
+      "nextHourlyInterestRate": "0.00000044"
+    },
+    {
+      "asset": "ARB",
+      "nextHourlyInterestRate": "0.00000248"
+    },
+    {
+      "asset": "SOL",
+      "nextHourlyInterestRate": "0.00000645"
+    },
+    {
+      "asset": "RE",
+      "nextHourlyInterestRate": "0.00022831"
+    },
+    {
+      "asset": "TLM",
+      "nextHourlyInterestRate": "0.00009162"
+    },
+    {
+      "asset": "LA",
+      "nextHourlyInterestRate": "0.00007818"
+    },
+    {
+      "asset": "SEI",
+      "nextHourlyInterestRate": "0.00002768"
+    },
+    {
+      "asset": "0G",
+      "nextHourlyInterestRate": "0.00006795"
+    },
+    {
+      "asset": "OGN",
+      "nextHourlyInterestRate": "0.00008285"
+    },
+    {
+      "asset": "ME",
+      "nextHourlyInterestRate": "0.00010229"
+    },
+    {
+      "asset": "ETH",
+      "nextHourlyInterestRate": "0.00000254"
+    },
+    {
+      "asset": "XLM",
+      "nextHourlyInterestRate": "0.0000059"
+    },
+    {
+      "asset": "ID",
+      "nextHourlyInterestRate": "0.00010996"
+    }
+  ]
+}

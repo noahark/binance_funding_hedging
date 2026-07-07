@@ -1,0 +1,189 @@
+{
+  "probe_timestamp_utc": "2026-07-07T14:07:11.326564+00:00",
+  "endpoint": "/sapi/v1/margin/next-hourly-interest-rate",
+  "candidate_count": 66,
+  "t1_step_ladder": [
+    {
+      "n": 9,
+      "status": 200,
+      "binance_code": null,
+      "returned": 9,
+      "missing_count": 0,
+      "weight_1m": "2000",
+      "query_bytes": 44,
+      "conclusion": "SUCCESS",
+      "sanitized": "sanitized/next_hourly_batch_limit_t1_n09.json"
+    },
+    {
+      "n": 20,
+      "status": 200,
+      "binance_code": null,
+      "returned": 20,
+      "missing_count": 0,
+      "weight_1m": "2100",
+      "query_bytes": 98,
+      "conclusion": "SUCCESS",
+      "sanitized": "sanitized/next_hourly_batch_limit_t1_n20.json"
+    },
+    {
+      "n": 21,
+      "status": 500,
+      "binance_code": 2,
+      "returned": 0,
+      "missing_count": 21,
+      "weight_1m": "2200",
+      "query_bytes": 103,
+      "conclusion": "LIMIT_HIT",
+      "sanitized": "sanitized/next_hourly_batch_limit_t1_n21.json"
+    },
+    {
+      "n": 30,
+      "status": 500,
+      "binance_code": 2,
+      "returned": 0,
+      "missing_count": 30,
+      "weight_1m": "2300",
+      "query_bytes": 140,
+      "conclusion": "LIMIT_HIT",
+      "sanitized": "sanitized/next_hourly_batch_limit_t1_n30.json"
+    },
+    {
+      "n": 40,
+      "status": 500,
+      "binance_code": 2,
+      "returned": 0,
+      "missing_count": 40,
+      "weight_1m": "2400",
+      "query_bytes": 183,
+      "conclusion": "LIMIT_HIT",
+      "sanitized": "sanitized/next_hourly_batch_limit_t1_n40.json"
+    },
+    {
+      "n": 45,
+      "status": 500,
+      "binance_code": 2,
+      "returned": 0,
+      "missing_count": 45,
+      "weight_1m": "2500",
+      "query_bytes": 211,
+      "conclusion": "LIMIT_HIT",
+      "sanitized": "sanitized/next_hourly_batch_limit_t1_n45.json"
+    },
+    {
+      "n": 50,
+      "status": 500,
+      "binance_code": 2,
+      "returned": 0,
+      "missing_count": 50,
+      "weight_1m": "2600",
+      "query_bytes": 231,
+      "conclusion": "LIMIT_HIT",
+      "sanitized": "sanitized/next_hourly_batch_limit_t1_n50.json"
+    },
+    {
+      "n": 55,
+      "status": 500,
+      "binance_code": 2,
+      "returned": 0,
+      "missing_count": 55,
+      "weight_1m": "2700",
+      "query_bytes": 255,
+      "conclusion": "LIMIT_HIT",
+      "sanitized": "sanitized/next_hourly_batch_limit_t1_n55.json"
+    },
+    {
+      "n": 60,
+      "status": 500,
+      "binance_code": 2,
+      "returned": 0,
+      "missing_count": 60,
+      "weight_1m": "2800",
+      "query_bytes": 279,
+      "conclusion": "LIMIT_HIT",
+      "sanitized": "sanitized/next_hourly_batch_limit_t1_n60.json"
+    },
+    {
+      "n": 66,
+      "status": 500,
+      "binance_code": 2,
+      "returned": 0,
+      "missing_count": 66,
+      "weight_1m": "100",
+      "query_bytes": 302,
+      "conclusion": "LIMIT_HIT",
+      "sanitized": "sanitized/next_hourly_batch_limit_t1_n66.json"
+    }
+  ],
+  "t2_service_top50": {
+    "status": 500,
+    "binance_code": 2,
+    "returned": 0,
+    "weight_1m": "200",
+    "conclusion": "LIMIT_HIT",
+    "sanitized": "sanitized/next_hourly_batch_limit_t2_top50.json"
+  },
+  "t3_length_control": [
+    {
+      "label": "short",
+      "status": 200,
+      "binance_code": null,
+      "returned": 20,
+      "conclusion": "SUCCESS"
+    },
+    {
+      "label": "long",
+      "status": 200,
+      "binance_code": null,
+      "returned": 20,
+      "conclusion": "SUCCESS"
+    }
+  ],
+  "t4_repeated_top50": [
+    {
+      "rep": 1,
+      "status": 500,
+      "binance_code": 2,
+      "weight_1m": "500",
+      "conclusion": "LIMIT_HIT"
+    },
+    {
+      "rep": 2,
+      "status": 500,
+      "binance_code": 2,
+      "weight_1m": "600",
+      "conclusion": "LIMIT_HIT"
+    },
+    {
+      "rep": 3,
+      "status": 500,
+      "binance_code": 2,
+      "weight_1m": "700",
+      "conclusion": "LIMIT_HIT"
+    },
+    {
+      "rep": 4,
+      "status": 500,
+      "binance_code": 2,
+      "weight_1m": "800",
+      "conclusion": "LIMIT_HIT"
+    },
+    {
+      "rep": 5,
+      "status": 500,
+      "binance_code": 2,
+      "weight_1m": "900",
+      "conclusion": "LIMIT_HIT"
+    }
+  ],
+  "t5_binary_search": {
+    "illegal_asset": null,
+    "status": null,
+    "binance_code": null
+  },
+  "t6_recommendations": {
+    "next_hourly_max_assets_per_call": 20,
+    "recommended_batch_size": 15,
+    "batches_to_cover_66": 5,
+    "total_weight_per_snapshot": 500
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "endpoint": "/sapi/v1/margin/next-hourly-interest-rate",
+  "params": {
+    "assets": "OPG,0G,AIGENSYN,ALGO,DOGE,BTC,ETH,SOL,TSLAB",
+    "isIsolated": "false"
+  },
+  "status": 200,
+  "weight_headers": {
+    "x-sapi-used-ip-weight-1m": "200"
+  },
+  "all_headers": {
+    "Content-Type": "application/json;charset=UTF-8",
+    "Content-Length": "438",
+    "Connection": "close",
+    "Date": "Tue, 07 Jul 2026 12:09:45 GMT",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Server": "nginx",
+    "Vary": "Accept-Encoding",
+    "X-SAPI-USED-IP-WEIGHT-1M": "200",
+    "Strict-Transport-Security": "max-age=31536000; includeSubdomains",
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Xss-Protection": "1; mode=block",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Security-Policy": "default-src 'self'",
+    "X-WebKit-CSP": "default-src 'self'",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Access-Control-Allow-Origin": "*",
+    "X-Cache": "Miss from cloudfront",
+    "Via": "1.1 6c60c1c367107d35d07ef2998f1527ec.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Pop": "HKG61-P1",
+    "X-Amz-Cf-Id": "hPiGBUSz_vnGrwEMinUZLCt3VkJq5dLSi_YkuMfNawnFgAJKwrx6bA=="
+  },
+  "latency_ms": 384.7,
+  "payload": [
+    {
+      "asset": "BTC",
+      "nextHourlyInterestRate": "0.00000045"
+    },
+    {
+      "asset": "SOL",
+      "nextHourlyInterestRate": "0.00000649"
+    },
+    {
+      "asset": "OPG",
+      "nextHourlyInterestRate": "0.00007592"
+    },
+    {
+      "asset": "0G",
+      "nextHourlyInterestRate": "0.00006797"
+    },
+    {
+      "asset": "ETH",
+      "nextHourlyInterestRate": "0.00000256"
+    },
+    {
+      "asset": "DOGE",
+      "nextHourlyInterestRate": "0.00000396"
+    },
+    {
+      "asset": "AIGENSYN",
+      "nextHourlyInterestRate": "0.00014661"
+    },
+    {
+      "asset": "ALGO",
+      "nextHourlyInterestRate": "0.0000045"
+    }
+  ]
+}
