@@ -1,9 +1,12 @@
 {
   "stage_id": "2026-07-borrow-cost-coverage-v2",
-  "status": "dispatch-ready",
+  "status": "review_2",
   "workflow": "stage-delivery",
-  "complexity": "MEDIUM",
+  "complexity": {"classification": "MEDIUM"},
   "mode": "serial",
+  "base_sha": "5bdfc4b3dc6843a8e52aeb86896c735500ed137a",
+  "head_sha": "11c3935ec859320b5dad50d31c0068993b4bd8f5",
+  "diff_fingerprint": "11c3935ec859320b5dad50d31c0068993b4bd8f5:2a73b681d0ae77f3d2d9d9eaed04f977be44dd1996a3bffef3ca8dfa52b7d401",
   "stage_branch": {
     "name": "stage/2026-07-borrow-cost-coverage-v2",
     "created_from_main_sha": "5bdfc4b3dc6843a8e52aeb86896c735500ed137a",
@@ -13,6 +16,9 @@
     "merge_strategy": "no-ff",
     "abandoned_reason": null
   },
+  "implementer": "claude_glm",
+  "designer": "fable5",
+  "breakdown_author": "fable5",
   "bookkeeper": {
     "id": "independent_stage_bookkeeper",
     "provider": "fable5",
@@ -23,95 +29,83 @@
   },
   "parallel_mode": {
     "enabled": false,
-    "note": "serial 单轨原子交付。不运行 validate-stage.py --phase dispatch-ready（parallel 专用门，serial 下缺 R4/R10 结构会假阳性）。改用 serial_handoff_checklist 由 bookkeeper 手工核验。"
+    "note": "serial 单轨原子交付。不跑 parallel 专属 --phase dispatch-ready 门；stage-delivery 通用 --phase pre-review 门适用且已通过。"
   },
   "model_routing": {
-    "owner_implementer": "claude_glm (glm-5.2)",
-    "review_1": "kimi (kimi-code/kimi-for-coding)",
-    "review_2": "codex (gpt5.x)",
+    "owner_implementer": "claude_glm",
+    "review_1": "kimi",
+    "review_2": "codex",
     "breakdown_author": "fable5",
     "excluded_from_core": []
   },
   "prior_involvement_disclosure": {
-    "claude_glm": "无历史参与；纯实现者。",
-    "kimi": "Gate B 端点摸排（证据采集，非 designer/implementer）→ 可任 review-1。",
-    "codex": "撰写已被取代的 DRAFT-1..3 fix-plan 草稿；活动设计为 DRAFT-4(10-design)+stage-plan(fable5 作)，codex 非活动设计作者 → 可任 review-2，prior-involvement 已披露，请 review-2 自评独立性。",
-    "fable5": "DRAFT-4 + stage-plan(breakdown) → 设计参与；不实现、不任 review-2；reviewer≠designer 与 bookkeeper≠implementer 红线均保持。"
-  },
-  "design_facts": {
-    "design": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/10-design.md",
-    "stage_plan": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/00-stage-plan.md",
-    "gate_a": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/gate-a-live.md",
-    "gate_b": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/gate-b-endpoint-recon.md",
-    "gate_b_samples": "reports/api-samples/private-account-v1-direction/borrow-rate-endpoint-survey-20260707T120945Z/sanitized/next_hourly_batch_limit_*"
+    "claude_glm": "无历史参与；纯实现者（provider zhipu_glm）。",
+    "kimi": "Gate B 端点摸排（证据采集，非 design/breakdown/impl）→ review-1（provider moonshot_kimi）。",
+    "codex": "撰写已被取代的 DRAFT-1..3 fix-plan 草稿；活动设计为 DRAFT-4/stage-plan(fable5)。codex 非活动 designer/breakdown/impl 作者；provider openai 与 implementer(zhipu)/designer(anthropic) 无 identity 重叠；review-2 自评独立性未受损。",
+    "fable5": "DRAFT-4 + stage-plan(breakdown) → 活动 designer；不实现、不任 review-2（provider anthropic）。"
   },
   "gates": {
-    "gate_a_candidate_count_over_cap": {"result": "PASS", "count": 66, "cap": 50, "skipped": 16},
-    "gate_b_next_hourly_root_cause": {"result": "RESOLVED", "max_assets_per_call": 20, "batch_size": 15, "batches_for_66": 5, "weight_per_snapshot_ip": 500}
+    "gate_a_candidate_count_over_cap": {"result": "PASS", "count": 66, "cap": 50, "skipped": 16, "evidence": "gate-a-live.md"},
+    "gate_b_next_hourly_root_cause": {"result": "RESOLVED", "max_assets_per_call": 20, "batch_size": 15, "batches_for_66": 5, "weight_per_snapshot_ip": 500, "evidence": "gate-b-endpoint-recon.md §9"}
   },
   "tasks": {
     "H": {
+      "id": "H",
       "owner": "claude_glm",
       "prompt": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/task-H-claude-glm.prompt.md",
-      "kind": "atomic (backend+frontend+docs+schema+tests)",
+      "kind": "atomic (backend+frontend+docs+tests)",
       "status": "landed",
       "base_sha": "5bdfc4b3dc6843a8e52aeb86896c735500ed137a",
-      "landed_sha": "11c3935ec859320b5dad50d31c0068993b4bd8f5",
-      "changed_files": ["backend/domain/snapshot.py", "backend/services/private_client.py", "backend/services/snapshot_service.py", "backend/tests/test_private_account_v1.py", "docs/api/public-market-contract.md", "frontend/index.html", "frontend/self-check.js"],
-      "schema_untouched_reason": "error 非 enum 约束，§3.H 条件不触发，schema 不动（已核对）。"
+      "head_sha": "11c3935ec859320b5dad50d31c0068993b4bd8f5",
+      "diff_fingerprint": "11c3935ec859320b5dad50d31c0068993b4bd8f5:2a73b681d0ae77f3d2d9d9eaed04f977be44dd1996a3bffef3ca8dfa52b7d401",
+      "changed_files": ["backend/domain/snapshot.py", "backend/services/private_client.py", "backend/services/snapshot_service.py", "backend/tests/test_private_account_v1.py", "docs/api/public-market-contract.md", "frontend/index.html", "frontend/self-check.js"]
     }
   },
+  "tests": {"status": "pass", "evidence": "60-test-output.txt", "detail": "164 pytest passed + node self-check 全绿(六文案)"},
   "review_1": {
-    "reviewer": "kimi (kimi-code/kimi-for-coding)",
+    "reviewer": "kimi",
     "role": "first_reviewer",
     "verdict": "ACCEPT",
     "findings": 0,
-    "next_action": "continue",
+    "json_schema_valid": true,
     "reviewer_prior_involvement": "none",
+    "diff_fingerprint": "11c3935ec859320b5dad50d31c0068993b4bd8f5:2a73b681d0ae77f3d2d9d9eaed04f977be44dd1996a3bffef3ca8dfa52b7d401",
     "raw_output": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/embedded-review-H-round1.raw-output.md",
     "promoted_from_embedded": true,
-    "diff_fingerprint": "worktree:919de191112cb57397437ff4b6dd9a9603069165bf573be532da8ee66b217f4b"
+    "notes": "kimi 嵌入预审对 pre-land worktree（worktree hash 919de191…）；R4 对账 H.diff.patch==工作树 == landed 11c3935，故 committed fingerprint 记为上值（bookkeeper 复算一致）。"
+  },
+  "review_2": {
+    "reviewer": "codex",
+    "role": "final_reviewer",
+    "verdict": "REWORK",
+    "round": 1,
+    "json_schema_valid": true,
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "codex 写过被取代的 DRAFT-1..3；活动设计为 fable5；identity 无重叠，独立性未受损（codex 自评 not blocked for identity）。",
+    "diff_fingerprint": "11c3935ec859320b5dad50d31c0068993b4bd8f5:2a73b681d0ae77f3d2d9d9eaed04f977be44dd1996a3bffef3ca8dfa52b7d401",
+    "raw_output": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/review-2-stage-by-codex.raw-output.json",
+    "verdict_scope": "REWORK 仅针对 harness 状态/证据（status 非法值 dispatch-ready、缺顶层 committed fingerprint、review_1 worktree fingerprint、缺 6 checkpoint 文件）；代码结论全正面（契约闭合✓ / 未采纳整表缓存✓ correct / 红线✓ / 根因B defer 认可）。",
+    "bookkeeper_round1_fix": "补 00/11/12/20/60/70 checkpoint；status→review_2；补顶层 base/head/committed diff_fingerprint；review_1 换 committed fingerprint；--phase pre-review 通过。待重派 review-2 复核 committed diff。"
   },
   "bookkeeper_verification": {
-    "single_writer_ok": "实现者未 commit、未碰 status.json（末次实现前 commit 为 bookkeeper 1ecd825）。",
-    "file_boundary_ok": "改动均在 task-H §3 允许集内。",
-    "r4_diff_reconciliation": "H.diff.patch == 工作树代码 diff（MATCH）；fingerprint 重算 == kimi 919de1…（MATCH）→ 落盘内容即被评审内容。",
-    "independent_retest": "bookkeeper 独立复跑：164 pytest passed + node self-check 全绿（含负费率六文案）。",
-    "live_smoke": "DONE（2026-07-08，reports/agent-runs/2026-07-borrow-cost-coverage-v2/H.live-smoke.md）：实盘 chain_hit_source=next_hourly(tier1)，62/80 负费率行获 next_hourly 利率，12 行 borrowability_not_probed(有利率·未探测)，15 CRYPTO 子集缺失(根因B/defer,未伪造)，3 bStock 无利率(设计)。三修复目标命中，无回归。"
+    "single_writer_ok": "实现者未 commit、未碰 status.json。",
+    "file_boundary_ok": "改动均在 task-H §3 允许集内（7 文件）。",
+    "r4_diff_reconciliation": "H.diff.patch == 工作树代码 diff（MATCH）；committed fingerprint 11c3935:2a73b681… 经 bookkeeper + review-2 双复算一致。",
+    "independent_retest": "164 pytest passed + node self-check 全绿（含负费率六文案）。",
+    "live_smoke": "DONE（H.live-smoke.md）：chain_hit_source=next_hourly(tier1)，62/80 负费率行获利率，12 borrowability_not_probed，15 CRYPTO 子集缺失(根因B/defer,未伪造)，3 bStock。三修复目标命中，无回归。"
   },
-  "review_prompts": {
-    "review_1": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/review-1-H-by-kimi.prompt.md",
-    "review_2": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/review-2-stage-by-codex.prompt.md"
-  },
-  "run_to_review_1_flow": {
-    "note": "实现者(claude_glm)按 task-H §6 一路跑到 review-1 有 verdict：impl→自测→diff→impl-note→机械触发 kimi 嵌入预审(review-1 输入)→读 verdict。ACCEPT 则停等 bookkeeper；REWORK(scope 内)自修 round2；越界/BLOCKED/kimi 不可用→escalation。实现者全程不 commit、不写 status.json、不派 review-2。",
-    "embedded_review_raw_output": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/embedded-review-H-round1.raw-output.md",
-    "embedded_review_dispatch_on_failure": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/embedded-review-H-round1.dispatch.md",
-    "bookkeeper_promotes_embedded_to_review_1": "R4 对账 fingerprint(worktree→head_sha)一致后，embedded 预审 verdict promote 为正式 review-1；不一致或落盘后内容变则重跑 review-1。"
-  },
-  "serial_handoff_checklist": {
-    "note": "替代 parallel r10_checklist；bookkeeper 手工核验，非 validate-stage.py。",
-    "self_tests_command": "python3 -m pytest backend/tests -q && node frontend/self-check.js",
-    "diff_patch_command": "git diff -- backend frontend docs schemas > reports/agent-runs/2026-07-borrow-cost-coverage-v2/H.diff.patch",
-    "diff_patch_path": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/H.diff.patch",
-    "impl_note_path": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/H.impl-note.md",
-    "escalation_path": "reports/agent-runs/2026-07-borrow-cost-coverage-v2/H-escalation.md",
-    "manual_user_handoff_allowed": false,
-    "max_rounds": 2,
-    "pass_branch": "implementer 跑完 review-1(kimi ACCEPT)后停；bookkeeper R4 对账 diff→串行落盘→promote review-1→派 review-2(codex)。",
-    "blocker_branch": "scope-contained fix then re-run; 触及 §3 file 边界外/新契约面 → H-escalation.md → bookkeeper R3，禁自行扩面。"
+  "review_absorbed": {
+    "gpt_review_draft4": "P1 契约文档必改 / P2 self-check 收口 / P2 权重与引用 / P3 页脚 —— 已并入 10-design。",
+    "opus46_review": "①部分批失败=部分合并(吸收) / ②子集缺失测试(吸收) / ③整表缓存(未采纳，纠正为逐片缓存；review-2 复核确认正确) / ④前端旧态回归(吸收) / ⑤serial 下 R10 假阳性(吸收)。",
+    "codex_review2_round1": "REWORK(harness 状态)——bookkeeper 已修，见 review_2.bookkeeper_round1_fix。"
   },
   "hard_constraints": [
     "只读私有通道；零下单/借还/划转。",
-    "implementer 不 commit、不碰 status.json；改动只留工作树。",
+    "implementer 不 commit、不碰 status.json。",
     "Decimal 全程禁 float；key/secret 零片段；脱敏 fixture。",
     "禁止 merged_next_hourly 整表缓存（破坏 60s 自愈）；保持逐片 _cached_get。",
-    "bStock 负费率借币套利保持禁用。",
-    "文件边界严格按 task-H §3；超出即 R3 升级。"
+    "bStock 负费率借币套利保持禁用。"
   ],
-  "review_absorbed": {
-    "gpt_review": "P1 契约文档必改 / P2 self-check 收口 / P2 权重与引用 / P3 页脚 —— 已并入 10-design。",
-    "opus46_review": "①部分批失败=部分合并(吸收) / ②子集缺失测试(吸收) / ③整表缓存建议(未采纳，纠正为逐片缓存，请 review-2 复核该决策) / ④前端旧态回归(吸收) / ⑤serial 下 R10 假阳性(吸收并定结论：不跑 parallel validator)。"
-  },
-  "updated_at": "2026-07-07 CST (Fable5 bookkeeper 开阶段：建 stage 分支 5bdfc4b 起、引入 stage facts、生成 task-H 任务书 + status.json；待 design packet commit 后派 claude_glm。)"
+  "next_step": "重派 review-2(codex) 复核 committed diff(base..11c3935)。ACCEPT→status stage_accepted_waiting_user + 补 30-review-1.md/50-review-2.md + --phase pre-accept + 交用户 final acceptance/合并决策。",
+  "updated_at": "2026-07-08 CST (Fable5 bookkeeper round-1 修复 review-2 REWORK：补 checkpoint + committed fingerprint + status=review_2；pre-review validator 通过；待重派 review-2。)"
 }

@@ -1,0 +1,14 @@
+# 2026-07-borrow-cost-coverage-v2 test output (bookkeeper 复跑, landed 11c3935)
+## python3 -m pytest backend/tests -q
+........................................................................ [ 43%]
+........................................................................ [ 87%]
+....................                                                     [100%]
+164 passed in 4.54s
+
+## node frontend/self-check.js
+[PASS] 负费率状态行感知的六文案派生
+[PASS] 余额卡片行内折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+
+全部自检通过
