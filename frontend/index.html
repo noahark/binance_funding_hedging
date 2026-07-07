@@ -903,6 +903,9 @@
             return `<span class="badge danger" title="PRIVATE_BORROW_VALIDATION_REQUIRED">资产不可借</span>`;
           }
         }
+        if (bv && bv.verified === false && bv.error === 'borrowability_not_probed') {
+          return `<span class="badge muted" title="PRIVATE_BORROW_VALIDATION_REQUIRED">有利率·可借性未探测</span>`;
+        }
         if (bv && bv.verified === false && bv.error === 'not_probed_this_round') {
           return `<span class="badge muted" title="PRIVATE_BORROW_VALIDATION_REQUIRED">未探测(限速预算)</span>`;
         }
