@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-private-account-ui-polish-v1",
-  "status": "review_1",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-private-account-ui-polish-v1",
@@ -152,15 +152,16 @@
       "reason": null,
       "unrelated_reviewer_unavailable_evidence": null
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "ec327466a9ec28be6158aedfc53541ea2b3e463c:7bee17041882e913317e1dc490e67862e8d00351308392d191a20f22a6a5997d",
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": "n/a (ACCEPT, 0 required_fixes)",
     "invalid_json_attempts": 0,
     "round": 2,
-    "note": "round-1 ACCEPT 已记入 review_history 并 superseded;round-2 对折入 v1.1-ui-polish-2 后的新 diff 重做独立终审。"
+    "p3_findings": ["孤儿 .sidebar-footer CSS", "静态占位 '只读资产视图'(永不可见)"],
+    "note": "round-2 独立终审(非复用 review-1): 直读增量 diff 复核五红线 + formatUsdt2 进位链 + 删除项, 160 pytest+self-check+schema 全绿。verdict=ACCEPT/findings 2×P3 非阻塞/required_fixes=0。round-1 ACCEPT 已 superseded(review_history)。"
   },
   "rework_count": 0,
   "max_rework": 3,
@@ -189,6 +190,6 @@
     ],
     "reviewed_at": "2026-07-07 CST"
   },
-  "next_action": "await_review_1_verdict_codex_round2",
-  "updated_at": "2026-07-07 CST (Kimi 交回 round-2 实现 head=ec32746; bookkeeper 独立复核: fingerprint 复算=recorded, 红线全held(schema 零改/排序仅 balances_* 不碰 frozen rows/total 不受重排/契约 additive/后端时间字段不变), 160 pytest+self-check+schema 全绿; status implementing→review_1; 派 Codex review-1 round-2)"
+  "next_action": "await_user_acceptance_to_merge",
+  "updated_at": "2026-07-07 CST (round-2 两轮 review 均 ACCEPT: review-1 Codex(2×P3 非阻塞)+ review-2 Fable5 独立终审(直读增量/formatUsdt2 进位链/删除项, 160 pytest+self-check+schema 全绿); status review_1→stage_accepted_waiting_user; 待用户验收后按 stage 分支制合入 main(可选合并前清 2 项 P3))"
 }

@@ -3,11 +3,11 @@
 ## Current State
 
 - Stage: `2026-07-private-account-ui-polish-v1`
-- Status: `review_1`（round-2 / v1.1-ui-polish-2，Codex 复核）
+- Status: `stage_accepted_waiting_user`（round-2 两轮 review 均 ACCEPT，pre-accept 就绪，待用户验收）
 - HEAD(delivery): `head_sha ec32746`（Kimi round-2 实现提交）；bookkeeping 提交在其上。
-- diff_fingerprint: `ec32746:7bee1704…`（bookkeeper 复算一致；round-1 `71c9d89:0f7691…` 已 superseded）
-- **Round-1**(value_usdt + 前 4 项):两轮 ACCEPT superseded（记入 status.review_history），随 round-2 合并 diff 一并重审。
-- v1.1-ui-polish-2 六项(item 5–10)已由 Kimi 实现；bookkeeper 独立复核红线全held、160 pytest+self-check+schema 全绿。
+- diff_fingerprint: `ec32746:7bee1704…`（bookkeeper/review-1/review-2 复算一致；round-1 `71c9d89:0f7691…` 已 superseded）
+- Round-2 review: review-1=Codex ACCEPT(2×P3 非阻塞)、review-2=Fable5 ACCEPT(独立终审)。
+- 未决 2 项 P3(非阻塞，正常渲染态不可见): 孤儿 `.sidebar-footer` CSS；静态占位 `只读资产视图`。
 - Branch: `stage/2026-07-private-account-ui-polish-v1`（未合并 main）
 - HEAD: `89789ec`（status.json post-implementation 提交）
 - Delivery range: `base_sha 4549227` .. `head_sha 71c9d89`（feat 实现提交）
@@ -51,10 +51,11 @@
 
 ## Next Action
 
-派发 review-1 给 Codex(`review-1-codex-v1.1.prompt.md`):对合并 delivery `base..ec32746`
-做实现评审(重点 round-2 六项 + 五条红线 + 两处 P3 定性),verdict 写 `30-review-1-v1.1.md`。
-通过后 Fable5 review-2 终审 → pre-accept → 用户验收合并。
+用户显式验收（human gate）。验收后按 stage 分支制将 `stage/2026-07-private-account-ui-polish-v1`
+合入 `main`，回填 `status.stage_branch`（merged_back_to_main/merged_back_sha/merge_strategy），
+更新四条 follow-up memory 为「已交付」。合并前不得自行合入 main。
+可选:合并前让 Kimi 顺手清 2 项 P3(孤儿 CSS + 静态占位),否则记为 opportunistic follow-up。
 
 本地北京时间: 2026-07-07 CST
-下一步模型: Codex（review-1 round-2）
-下一步任务: 复核 v1.1-ui-polish-2 实现保真 + 出 JSON verdict(REWORK 必带 fix_start_prompt)
+下一步模型: 用户（验收 human gate）
+下一步任务: 用户验收 → bookkeeper 执行 stage→main 合并与簿记收尾
