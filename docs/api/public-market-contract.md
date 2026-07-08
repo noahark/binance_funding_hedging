@@ -92,6 +92,23 @@ bStock / TRADIFI: `contractType == "TRADIFI_PERPETUAL"` maps to
 `asset_tag = "BSTOCK"`. `contractType == "PERPETUAL"` maps to `CRYPTO`.
 `asset_tag` is independent of `route_class`.
 
+METAL (frozen 2026-07-08, stage `2026-07-ui-filter-balance-metal-v1`): a
+real-metal `baseAsset` ∈ {`XAU`, `XAG`, `COPPER`, `XPT`, `XPD`} maps to
+`asset_tag = "METAL"` with `asset_tag_source = "base_asset_metal_symbol"`,
+`asset_tag_confidence = "HIGH"`. The metal check runs BEFORE the
+`TRADIFI_PERPETUAL -> BSTOCK` mapping in `asset_tag_for`, so a metal that ships
+as `contractType = "TRADIFI_PERPETUAL"` (XAUUSDT/XAGUSDT/XPTUSDT/XPDUSDT/
+COPPERUSDT all do — evidence:
+`reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z/normalized/metal-symbol-summary.json`)
+is tagged `METAL`, never `BSTOCK`. `METAL` is a product tag, NOT a borrow
+prohibition: there is no `DISABLED_METAL`, and a `METAL` row with a margin spot
+leg and a negative daily rate falls through the `negative_funding_status`
+priority chain to `PRIVATE_BORROW_VALIDATION_REQUIRED` (like `CRYPTO`). In the
+current public sample none of the five metals has a public exact or B-suffix
+spot leg, so they resolve `PERP_ONLY_EXCLUDED` / `DISABLED_PERP_ONLY`;
+borrowability and borrow cost for a candidate METAL row come from the private
+read-only API, not from the asset tag.
+
 Frozen amendment (2026-07-03, stage `2026-07-public-market-bstock-alias-v1`):
 Binance added bStocks assets as Margin collateral and opened corresponding
 bStocks spot/margin pairs. The TRADIFI futures symbols use the underlying equity
@@ -226,6 +243,7 @@ Each `rows[]` item must include:
 
 - `CRYPTO`
 - `BSTOCK`
+- `METAL`
 - `UNKNOWN`
 
 `asset_tag_confidence`:
@@ -256,6 +274,8 @@ Priority for `negative_funding_status`:
 
 This priority is unchanged by the bStock alias amendment; BSTOCK stays in
 position 2, so a bStock candidate row still resolves to `DISABLED_BSTOCK`.
+There is no `DISABLED_METAL`: `METAL` is not a borrow prohibition, so a `METAL`
+candidate row falls through to position 4 (`PRIVATE_BORROW_VALIDATION_REQUIRED`).
 
 `spot.match_type` (nullable; `null` when `spot.exists = false`):
 
@@ -447,7 +467,9 @@ The top-level `borrow_validation` aggregate block (distinct from the per-row
 ### `coverage` / warnings (§1.5)
 
 Probe range = `daily_funding_rate < 0 ∧ route_class==MARGIN_SPOT_CANDIDATE ∧
-asset_tag==CRYPTO`, deduped by `base_asset`. The pool is split into two
+asset_tag ∈ {CRYPTO, METAL}` (METAL included from stage
+`2026-07-ui-filter-balance-metal-v1`; `BSTOCK` stays excluded), deduped by
+`base_asset`. The pool is split into two
 independent budgets (borrow-cost-coverage-v2):
 
 - **Rate coverage** (`rate_probe_assets`, the FULL pool, NOT capped) drives the
@@ -533,3 +555,61 @@ The frontend renders `value_usdt` as display-only data and must not recompute
 emitted by `value_usdt` DESC, null last, `asset` ASC. This is an additive display
 convention only; it does not change the frozen market `rows` order or `sort_basis`
 semantics, and `schema_version` remains `public-market-snapshot/v1`.
+
+## METAL Asset Tag + UI Amendments (v0.5, stage `2026-07-ui-filter-balance-metal-v1`)
+
+Frozen 2026-07-08. Wire `schema_version` stays `public-market-snapshot/v1`; every
+change is **additive** (the v0.1–v0.4 normalized samples still validate). Evidence:
+public exchangeInfo + spot-symbol-query capture under
+`reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z/normalized/metal-symbol-summary.json`
+(all five target baseAssets `XAU/XAG/COPPER/XPT/XPD` ship as `TRADIFI_PERPETUAL`
+USDT symbols; no public exact or B-suffix spot leg is listed). Authority order:
+`20-implementation.md` > this contract section.
+
+### R3 — METAL asset tag (backend + schema)
+
+`asset_tag` enum gains `METAL`. `asset_tag_for(contract_type, base_asset)` (in
+`backend/domain/normalize.py`) checks `baseAsset ∈ {XAU, XAG, COPPER, XPT, XPD}`
+(case-insensitive) BEFORE the `TRADIFI_PERPETUAL -> BSTOCK` mapping and returns
+`("METAL", "base_asset_metal_symbol", "HIGH")`. A metal `TRADIFI_PERPETUAL` is
+therefore `METAL`, never `BSTOCK`. `snapshot.schema.json` `asset_tag` enum is
+`["CRYPTO", "BSTOCK", "METAL", "UNKNOWN"]`. No `DISABLED_METAL` is introduced;
+`METAL` is a product tag, not a borrow prohibition, and a `METAL` candidate row
+resolves to `PRIVATE_BORROW_VALIDATION_REQUIRED` via the existing priority chain.
+
+### R3 — borrow-candidate inclusion widened to {CRYPTO, METAL}
+
+`select_borrow_candidates` (in `backend/domain/snapshot.py`) now admits
+`asset_tag ∈ {CRYPTO, METAL}` (previously `CRYPTO` only); `BSTOCK` stays excluded.
+This supersedes the earlier CRYPTO-only probe-range wording in the Phase 2
+`borrow_validation` block. A qualified `METAL` row (`MARGIN_SPOT_CANDIDATE` with a
+negative daily rate) now enters `rate_probe_assets` and
+`borrowability_probe_assets`; its borrowability and borrow cost still come from the
+private read-only API (the asset tag never implies borrowability). The runtime
+borrow-probe loop in `backend/services/snapshot_service.py` consumes the candidate
+set directly (no re-filter), so this single predicate change closes the loop.
+
+### R1 — low-daily-rate filter (frontend, no float)
+
+`frontend/index.html` adds a default-ON market-table filter "隐藏 |日费率| ≤
+0.03%" that hides rows whose `abs(daily_funding_rate) ≤ 0.00030000` (boundary
+inclusive). The threshold comparison is pure string/BigInt
+(`absDailyRateAtOrBelowThreshold`); no `Number()`/`parseFloat()` touches the
+threshold comparison (float boundary drift avoided). `null`/empty/invalid
+`daily_funding_rate` is never hidden by this filter.
+
+### R2 — balance card three-line layout (frontend)
+
+Private-account balance cards switch from the inline `【: ... USDT】` suffix to a
+three-line layout: asset / amount / `≈ value USDT`. The amount line applies
+thousands separators to the INTEGER part only and preserves the raw fractional
+string exactly (no rounding, no trailing-zero trimming); privacy-hidden amount →
+`****`. The `≈ value USDT` line: hidden → `≈ **** USDT`; null/invalid value →
+`≈ — USDT`; valid → `≈ <formatUsdt2> USDT`. Spot cards show `free` as the amount
+plus a separate `冻结:` line and their own `≈ value USDT` line.
+
+### Regression red lines (still unchanged)
+
+`negative_funding_status` / `route_class` enums and their priority order,
+`classify.py`, the v0.1–v0.4 field set, and `sort_basis` semantics are unchanged.
+`METAL` is additive; `bStock` remains disabled for negative-funding arbitrage.

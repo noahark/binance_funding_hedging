@@ -1,0 +1,185 @@
+{
+  "stage_id": "2026-07-ui-filter-balance-metal-v1",
+  "status": "accepted",
+  "user_acceptance": {
+    "accepted": true,
+    "authority": "user",
+    "accepted_at": "2026-07-08 13:42:10 CST",
+    "note": "用户显式验收通过并授权 no-ff 合回 main + 推送。3 项 review-2 residual 与 borrowability-51061 follow-up 一并归入下个 stage（reports/follow-ups/）。"
+  },
+  "workflow": "stage-delivery",
+  "complexity": {"classification": "MEDIUM", "reason": "frontend filter + private balance display + backend/schema/docs asset_tag enum"},
+  "mode": "serial",
+  "base_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
+  "head_sha": "2e966904a6adb576adee8f979738ef664f80058c",
+  "diff_fingerprint": "2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1",
+  "stage_branch": {
+    "name": "stage/2026-07-ui-filter-balance-metal-v1",
+    "created_from_main_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
+    "created_at": "2026-07-07T18:23:15Z",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": "no-ff",
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "codex_current_session",
+    "provider": "openai",
+    "model": "codex/gpt-5",
+    "session_role": "stage_designer_and_bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "当前仅创建需求草稿和 stage，不实现。若后续同一 Codex 会话实现或 review，需重新披露并遵守 reviewer/implementer 隔离。"
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "note": "三项需求需跨层同批收口，但规模为 MEDIUM，采用 serial 原子交付。"
+  },
+  "model_routing": {
+    "owner_implementer": {
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "prompt": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/task-serial-claude-glm.prompt.md",
+      "selection_reason": "Serial cross-layer implementation; Codex is already designer/bookkeeper and should not author delivery code before review-2."
+    },
+    "review_1": {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "selection_reason": "Implementer provider is claude_glm/zhipu_glm; cross-review selects Kimi in a fresh review session."
+    },
+    "review_2": "codex",
+    "breakdown_author": "codex_current_session",
+    "excluded_from_core": []
+  },
+  "implementer": "claude_glm",
+  "implementers": ["claude_glm"],
+  "designer": "codex_current_session",
+  "breakdown_author": "codex_current_session",
+  "prior_involvement_disclosure": {
+    "codex": "本轮创建需求草稿、设计草稿、breakdown 草稿和 stage 状态；属于 design/breakdown involvement。若担任 final reviewer 需披露；不得 review 自己实现的代码。",
+    "user": "用户直接给出三项需求并要求创建需求草稿和 stage。"
+  },
+  "requirements": {
+    "intake": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/00-intake.md",
+    "task_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/00-task.md",
+    "design_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/10-design.md",
+    "adr_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/11-adr.md",
+    "breakdown_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/12-development-breakdown.md",
+    "requirements_review": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/15-requirements-review.md",
+    "design_review": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/16-design-review.md",
+    "implementation_prompt": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/task-serial-claude-glm.prompt.md"
+  },
+  "public_sample_evidence": {
+    "sample_dir": "reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z",
+    "summary": "reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z/normalized/metal-symbol-summary.json",
+    "raw_futures_exchange_info": "reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z/raw/fapi-v1-exchangeInfo.json",
+    "raw_spot_symbol_queries": "reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z/raw/api-v3-exchangeInfo-metal-symbol-queries.json",
+    "finding": "Futures public exchangeInfo currently lists XAU/XAG/XPT/XPD/COPPER USDT symbols as TRADIFI_PERPETUAL; exact and B-suffix spot symbol queries are invalid in this sample."
+  },
+  "tasks": [
+    {
+      "id": "serial",
+      "status": "landed",
+      "base_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
+      "head_sha": "2e966904a6adb576adee8f979738ef664f80058c",
+      "diff_fingerprint": "2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1",
+      "changed_files": [
+        "backend/domain/normalize.py",
+        "backend/domain/snapshot.py",
+        "backend/tests/test_normalize.py",
+        "backend/tests/test_snapshot.py",
+        "docs/api/public-market-contract.md",
+        "frontend/fixture/public-market-snapshot.json",
+        "frontend/index.html",
+        "frontend/self-check.js",
+        "schemas/api/public-market/snapshot.schema.json"
+      ],
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2",
+        "provider_identity": "zhipu_glm"
+      },
+      "prompt_path": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/task-serial-claude-glm.prompt.md",
+      "implementation_report": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/20-implementation.md",
+      "review_1": {
+        "reviewer": {
+          "provider": "kimi",
+          "model": "kimi-code/kimi-for-coding",
+          "provider_identity": "moonshot_kimi"
+        },
+        "dispatch_prompt": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/review-1-kimi.prompt.md",
+        "raw_output": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/review-1-kimi.raw-output.md"
+      }
+    }
+  ],
+  "review_1": {
+    "reviewer": {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi"
+    },
+    "role": "first_reviewer",
+    "status": "accepted",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "next_action": "continue",
+    "base_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
+    "head_sha": "2e966904a6adb576adee8f979738ef664f80058c",
+    "diff_fingerprint": "2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1",
+    "dispatch_prompt": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/review-1-kimi.prompt.md",
+    "raw_output": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/review-1-kimi.raw-output.md",
+    "review_record": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/30-review-1.md",
+    "reviewer_prior_involvement": "none",
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": {
+      "provider": "claude",
+      "model": "claude-opus-4-8",
+      "provider_identity": "anthropic"
+    },
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "primary_provider": "claude",
+    "role": "final_reviewer",
+    "status": "accepted",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "next_action": "stage_accepted_waiting_user",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "anthropic 终审者对 implementer(zhipu_glm)、designer/breakdown/bookkeeper(openai)、review-1(moonshot_kimi) 全部 provider 隔离，无本 stage 任何 direction/design/breakdown/implementation/fix 参与；无需 strong-reviewer override。原 model_routing.review_2=codex 因 Codex 兼 designer/breakdown，按 AGENTS.md review-2 隔离偏好改由独立 anthropic 终审（先例：2026-07-private-account-ui-polish-v1）。实际模型 claude-opus-4-8（用户当前会话），非 registry 默认 fable5，已如实披露。",
+    "design_conflict_override": {"used": false, "reason": null, "unrelated_reviewer_unavailable_evidence": null},
+    "base_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
+    "head_sha": "2e966904a6adb576adee8f979738ef664f80058c",
+    "diff_fingerprint": "2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1",
+    "raw_output": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/50-review-2.md",
+    "review_record": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/50-review-2.md",
+    "invalid_json_attempts": 0,
+    "open_p0_p1": 0
+  },
+  "resolved_decisions": [
+    "低日费率过滤按 abs(Decimal(daily_funding_rate)) <= 0.00030000 判断，UI 文案为 |日费率| <= 0.03%。",
+    "daily_funding_rate null 不由低日费率过滤隐藏。",
+    "新增选项按 checkbox/toggle 实现，默认选中。",
+    "余额数量仅整数部分加千分位，小数部分保持原始字符串；现货主数量行展示 free，locked 保留单独冻结行。",
+    "低费率边界样本使用独立/deep-copy self-check 场景，不破坏默认 6 行基线。",
+    "asset_tag=METAL 前端显示 METAL(金属)，包含 XAU/XAG/COPPER/XPT/XPD，asset_tag_source=base_asset_metal_symbol。",
+    "用户确认 METAL 不代表禁止借币；满足负费率和 MARGIN_SPOT_CANDIDATE 时应进入只读 borrow validation，最终以接口返回为准，不新增 DISABLED_METAL。"
+  ],
+  "open_questions": [],
+  "tests": {
+    "status": "pass",
+    "evidence": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/60-test-output.txt",
+    "detail": "bookkeeper/codex retest: python3 -m pytest backend/tests -q => 173 passed; node frontend/self-check.js => 全部自检通过; git diff --check => PASS."
+  },
+  "hard_constraints": [
+    "未获用户确认前不进入实现。",
+    "不修改私有签名、下单、借币、还币、划转逻辑。",
+    "低日费率阈值判断不得引入 float 造成边界漂移。",
+    "新增 METAL 必须 schema/docs/backend/frontend/tests 同步。",
+    "METAL 不得作为 bStock 式禁用约束；可借性必须来自现有私有只读接口返回。"
+  ],
+  "next_step": "用户已显式验收；status=accepted。执行 stage 分支 → main 的 --no-ff 合并并推送 origin/main。合并后回填 stage_branch.merged_back_to_main/merged_back_sha。residual + 51061 follow-up 归入下个 stage。",
+  "updated_at": "2026-07-08 13:42:10 CST"
+}

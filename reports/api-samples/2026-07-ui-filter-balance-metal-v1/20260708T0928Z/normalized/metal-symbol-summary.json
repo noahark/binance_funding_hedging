@@ -1,0 +1,67 @@
+{
+  "stage_id": "2026-07-ui-filter-balance-metal-v1",
+  "sample_id": "20260708T0928Z",
+  "source": "Binance public read-only endpoints",
+  "endpoints": [
+    "/fapi/v1/exchangeInfo",
+    "/api/v3/exchangeInfo?symbol=<metal-or-bstock-alias-symbol>"
+  ],
+  "target_base_assets": [
+    "COPPER",
+    "XAG",
+    "XAU",
+    "XPD",
+    "XPT"
+  ],
+  "fapi_matches": [
+    {
+      "symbol": "XAUUSDT",
+      "baseAsset": "XAU",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "status": "TRADING"
+    },
+    {
+      "symbol": "XAGUSDT",
+      "baseAsset": "XAG",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "status": "TRADING"
+    },
+    {
+      "symbol": "XPTUSDT",
+      "baseAsset": "XPT",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "status": "TRADING"
+    },
+    {
+      "symbol": "XPDUSDT",
+      "baseAsset": "XPD",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "status": "TRADING"
+    },
+    {
+      "symbol": "COPPERUSDT",
+      "baseAsset": "COPPER",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "status": "TRADING"
+    }
+  ],
+  "spot_exact_or_b_suffix_alias_query_symbols": [
+    "XAUUSDT",
+    "XAGUSDT",
+    "XPTUSDT",
+    "XPDUSDT",
+    "COPPERUSDT",
+    "XAUBUSDT",
+    "XAGBUSDT",
+    "XPTBUSDT",
+    "XPDBUSDT",
+    "COPPERBUSDT"
+  ],
+  "spot_query_result": "Every exact and B-suffix alias query returned Binance invalid-symbol response in raw/api-v3-exchangeInfo-metal-symbol-queries.json.",
+  "interpretation": "Futures public exchangeInfo currently contains all five requested metal baseAssets as TRADIFI_PERPETUAL USDT symbols. Public spot exact and B-suffix alias legs are not listed in this sample, so current route_class may remain PERP_ONLY_EXCLUDED unless future public spot data changes."
+}

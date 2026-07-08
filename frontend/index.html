@@ -591,6 +591,7 @@
               <select id="filter-asset">
                 <option value="">全部</option>
                 <option value="CRYPTO">CRYPTO(加密货币)</option>
+                <option value="METAL">METAL(金属)</option>
                 <option value="BSTOCK">BSTOCK(美股代币)</option>
                 <option value="UNKNOWN">UNKNOWN(未知)</option>
               </select>
@@ -608,6 +609,12 @@
               <label>
                 <input id="filter-show-perp-only" type="checkbox" />
                 显示 PERP_ONLY_EXCLUDED
+              </label>
+            </div>
+            <div class="control">
+              <label>
+                <input id="filter-hide-low-daily-rate" type="checkbox" checked />
+                隐藏 |日费率| ≤ 0.03%
               </label>
             </div>
           </div>
@@ -672,7 +679,8 @@
           search: '',
           assetTag: '',
           routeClass: '',
-          showPerpOnly: false
+          showPerpOnly: false,
+          hideLowDailyRate: true
         },
         privacyHidden: true
       };
@@ -691,6 +699,7 @@
         filterAsset: document.getElementById('filter-asset'),
         filterRoute: document.getElementById('filter-route'),
         filterShowPerpOnly: document.getElementById('filter-show-perp-only'),
+        filterHideLowDailyRate: document.getElementById('filter-hide-low-daily-rate'),
         summaryRow: document.getElementById('summary-row'),
         statusArea: document.getElementById('status-area'),
         tableBody: document.getElementById('market-table-body'),
@@ -743,6 +752,23 @@
 
       function maskAmount(value) {
         return state.privacyHidden ? '****' : formatPrice(value);
+      }
+
+      function formatBalanceAmount(value) {
+        // Balance amount line: privacy-hidden -> '****'; otherwise preserve the
+        // raw fractional string exactly and add thousands separators ONLY to the
+        // integer part (no rounding, no trimming). Missing/invalid -> '—'.
+        if (state.privacyHidden) return '****';
+        return formatPrice(value);
+      }
+
+      function approximateUsdtLine(valueUsdt) {
+        // Separate "≈ value USDT" line for balance cards. Hidden -> '≈ **** USDT';
+        // null/invalid -> '≈ — USDT'; valid -> '≈ <formatUsdt2> USDT'.
+        if (state.privacyHidden) return '≈ **** USDT';
+        if (valueUsdt === undefined || valueUsdt === null || valueUsdt === '') return '≈ — USDT';
+        const formatted = formatUsdt2(valueUsdt);
+        return formatted === null ? '≈ — USDT' : `≈ ${formatted} USDT`;
       }
 
       function formatBeijing(ms) {
@@ -914,10 +940,13 @@
 
       function badgeForAssetTag(tag) {
         const map = {
+          'METAL': 'METAL(金属)',
           'BSTOCK': 'BSTOCK(美股代币)',
           'CRYPTO': 'CRYPTO(加密货币)',
           'UNKNOWN': 'UNKNOWN(未知)'
         };
+        // METAL uses the neutral badge style (not the bStock accent/danger style);
+        // METAL is a product tag, not a borrow prohibition.
         const cls = tag === 'BSTOCK' ? 'accent' : tag === 'UNKNOWN' ? 'warn' : '';
         return `<span class="badge ${cls}">${escapeHtml(map[tag] || tag)}</span>`;
       }
@@ -990,6 +1019,25 @@
         els.statusArea.innerHTML = '';
       }
 
+      function absDailyRateAtOrBelowThreshold(rateStr) {
+        // |rateStr| <= 0.00030000 (0.03%)? Pure string/BigInt — no Number()/
+        // parseFloat() touches the threshold comparison (avoids float boundary
+        // drift). null/undefined/''/invalid -> false (NOT hidden by this filter),
+        // so a null daily_funding_rate row is never hidden here.
+        if (rateStr === null || rateStr === undefined || rateStr === '') return false;
+        const m = String(rateStr).match(/^(-?)(\d+)(?:\.(\d+))?$/);
+        if (!m) return false;
+        const intPart = m[2];
+        const fracPart = m[3] || '';
+        // Scale both the absolute value and the threshold to 10^scale, where
+        // scale = max(fracLen, 8); compare as BigInt. 0.00030000 at scale 8 = 30000.
+        const scale = Math.max(fracPart.length, 8);
+        const fracPadded = fracPart.padEnd(scale, '0');
+        const absScaled = BigInt(intPart) * (10n ** BigInt(scale)) + BigInt(fracPadded || '0');
+        const thresholdScaled = 30000n * (10n ** BigInt(scale - 8));
+        return absScaled <= thresholdScaled;
+      }
+
       function filteredRows() {
         if (!state.snapshot) return [];
         const q = state.filters.search.trim().toUpperCase();
@@ -998,6 +1046,7 @@
           if (state.filters.assetTag && row.asset_tag !== state.filters.assetTag) return false;
           if (state.filters.routeClass && row.route_class !== state.filters.routeClass) return false;
           if (!state.filters.showPerpOnly && row.route_class === 'PERP_ONLY_EXCLUDED') return false;
+          if (state.filters.hideLowDailyRate && absDailyRateAtOrBelowThreshold(row.daily_funding_rate)) return false;
           return true;
         });
       }
@@ -1167,18 +1216,12 @@
         els.privatePanelSubtitle.textContent = `资产更新时间 ${updateTime}`;
         const total = maskAmount(pa.total_value_usdt);
 
-        const inlineUsdtSuffix = (valueUsdt) => {
-          if (state.privacyHidden) return '【: ****】';
-          const formatted = formatUsdt2(valueUsdt);
-          if (formatted === null) return '【: — USDT】';
-          return `【: ${formatted} USDT】`;
-        };
-
         const unifiedBalances = Array.isArray(pa.balances_unified) && pa.balances_unified.length > 0
           ? pa.balances_unified.map(b => `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
-                <div class="amount">${maskAmount(b.total_balance)}${inlineUsdtSuffix(b.value_usdt)}</div>
+                <div class="amount">${formatBalanceAmount(b.total_balance)}</div>
+                <div class="amount value-usdt">${approximateUsdtLine(b.value_usdt)}</div>
               </div>
             `).join('')
           : '<span class="muted small">无数据</span>';
@@ -1187,8 +1230,9 @@
           ? pa.balances_spot.map(b => `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
-                <div class="amount">${maskAmount(b.free)}${inlineUsdtSuffix(b.value_usdt)}</div>
-                <div class="amount locked">冻结: ${maskAmount(b.locked)}</div>
+                <div class="amount">${formatBalanceAmount(b.free)}</div>
+                <div class="amount locked">冻结: ${formatBalanceAmount(b.locked)}</div>
+                <div class="amount value-usdt">${approximateUsdtLine(b.value_usdt)}</div>
               </div>
             `).join('')
           : '<span class="muted small">无数据</span>';
@@ -1339,6 +1383,10 @@
           state.filters.showPerpOnly = els.filterShowPerpOnly.checked;
           applyFiltersAndRender();
         });
+        els.filterHideLowDailyRate.addEventListener('change', () => {
+          state.filters.hideLowDailyRate = els.filterHideLowDailyRate.checked;
+          applyFiltersAndRender();
+        });
       }
 
       state.privacyHidden = loadPrivacyHidden();
@@ -1350,6 +1398,7 @@
         formatBeijing,
         formatBeijingShort,
         formatUsdt2,
+        absDailyRateAtOrBelowThreshold,
         ingestSnapshot,
         togglePrivacy,
         getPrivacyHidden: () => state.privacyHidden

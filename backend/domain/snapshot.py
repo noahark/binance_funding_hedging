@@ -83,7 +83,9 @@ def build_rows(
     for obj in futures_symbols:
         sym = obj["symbol"]
         contract_type = obj.get("contractType", "")
-        asset_tag, asset_src, asset_conf = asset_tag_for(contract_type)
+        asset_tag, asset_src, asset_conf = asset_tag_for(
+            contract_type, obj.get("baseAsset", "")
+        )
         spot, match_type = resolve_spot_leg(
             contract_type, obj.get("baseAsset", ""), obj.get("quoteAsset", ""), spot_by_sym
         )
@@ -337,10 +339,12 @@ def select_borrow_candidates(
     """§1.5 borrow probe sets + coverage.
 
     Probe range = rows with ``daily_funding_rate < 0`` AND
-    ``route_class == MARGIN_SPOT_CANDIDATE`` AND ``asset_tag == CRYPTO``, de-duped
-    by ``base_asset``. Truncation priority is abs daily rate DESC (symbol ASC
-    tie-break). The pool is split into THREE sets so the rate budget and the
-    borrowability budget are decoupled (borrow-cost-coverage-v2):
+    ``route_class == MARGIN_SPOT_CANDIDATE`` AND ``asset_tag in {CRYPTO, METAL}``,
+    de-duped by ``base_asset``. Truncation priority is abs daily rate DESC
+    (symbol ASC tie-break). METAL is included (it is not a borrow prohibition);
+    bStock stays excluded via its BSTOCK tag. The pool is split into THREE sets
+    so the rate budget and the borrowability budget are decoupled
+    (borrow-cost-coverage-v2):
 
     - ``rate_probe_assets``: the FULL de-duped pool (abs rate DESC, symbol ASC),
       NOT capped — drives the next-hourly interest-rate coverage (cost leg). A
@@ -361,7 +365,7 @@ def select_borrow_candidates(
         for r in rows
         if r.get("daily_funding_rate")
         and r.get("route_class") == "MARGIN_SPOT_CANDIDATE"
-        and r.get("asset_tag") == "CRYPTO"
+        and r.get("asset_tag") in ("CRYPTO", "METAL")
         and Decimal(str(r["daily_funding_rate"])) < 0
     ]
     candidates.sort(

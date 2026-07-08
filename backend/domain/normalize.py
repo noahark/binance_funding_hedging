@@ -25,8 +25,30 @@ def filter_of(symbol_obj: Optional[dict], filter_type: str, key: str) -> Optiona
     return None
 
 
-def asset_tag_for(contract_type: str) -> tuple:
-    """Map contractType -> (asset_tag, asset_tag_source, asset_tag_confidence)."""
+# Real-metal futures baseAssets (stage 2026-07-ui-filter-balance-metal-v1).
+# Evidence: reports/api-samples/2026-07-ui-filter-balance-metal-v1/
+# 20260708T0928Z/normalized/metal-symbol-summary.json — all five listed as
+# contractType=TRADIFI_PERPETUAL on Binance public /fapi/v1/exchangeInfo. A metal
+# TRADIFI_PERPETUAL is METAL, not BSTOCK, so the base_asset check runs BEFORE the
+# TRADIFI_PERPETUAL -> BSTOCK mapping.
+REAL_METAL_BASE_ASSETS = {"XAU", "XAG", "COPPER", "XPT", "XPD"}
+
+
+def asset_tag_for(contract_type: str, base_asset: str = "") -> tuple:
+    """Map contractType/baseAsset -> (asset_tag, asset_tag_source, asset_tag_confidence).
+
+    Order (first match wins):
+    1. ``base_asset`` in :data:`REAL_METAL_BASE_ASSETS` -> ``METAL`` (checked
+       before TRADIFI so a metal TRADIFI_PERPETUAL is never tagged BSTOCK).
+    2. ``contractType == TRADIFI_PERPETUAL`` -> ``BSTOCK``.
+    3. ``contractType == PERPETUAL`` -> ``CRYPTO``.
+    4. otherwise -> ``UNKNOWN``.
+
+    ``base_asset`` defaults to ``""`` so existing single-argument callers and
+    tests keep working; pass the symbol's ``baseAsset`` to enable METAL detection.
+    """
+    if str(base_asset).upper() in REAL_METAL_BASE_ASSETS:
+        return ("METAL", "base_asset_metal_symbol", "HIGH")
     if contract_type == "TRADIFI_PERPETUAL":
         return ("BSTOCK", "futures_contractType_tradifi_perpetual", "HIGH")
     if contract_type == "PERPETUAL":

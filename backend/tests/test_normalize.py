@@ -31,6 +31,39 @@ def test_asset_tag_unmapped_is_unknown():
     assert conf == "LOW"
 
 
+# --- METAL asset tag (stage 2026-07-ui-filter-balance-metal-v1) ---
+# A real-metal baseAsset is METAL regardless of contractType, and the check runs
+# BEFORE the TRADIFI_PERPETUAL -> BSTOCK mapping, so a metal TRADIFI_PERPETUAL is
+# never tagged BSTOCK. The base_asset default keeps single-argument callers intact.
+
+
+def test_asset_tag_metal_perpetual_base_asset():
+    assert asset_tag_for("PERPETUAL", "XAU") == (
+        "METAL",
+        "base_asset_metal_symbol",
+        "HIGH",
+    )
+
+
+def test_asset_tag_metal_takes_priority_over_tradifi_bstock():
+    # COPPER ships as contractType=TRADIFI_PERPETUAL but is METAL, not BSTOCK.
+    assert asset_tag_for("TRADIFI_PERPETUAL", "COPPER") == (
+        "METAL",
+        "base_asset_metal_symbol",
+        "HIGH",
+    )
+
+
+def test_asset_tag_metal_base_asset_is_case_insensitive():
+    assert asset_tag_for("PERPETUAL", "xag")[0] == "METAL"
+
+
+def test_asset_tag_single_arg_callers_still_work():
+    # The default base_asset="" preserves the original single-argument contract.
+    assert asset_tag_for("TRADIFI_PERPETUAL")[0] == "BSTOCK"
+    assert asset_tag_for("PERPETUAL")[0] == "CRYPTO"
+
+
 def test_filter_of_futures_min_notional_and_lot_size():
     sym = {
         "filters": [

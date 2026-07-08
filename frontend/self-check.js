@@ -92,7 +92,7 @@ const elements = {};
 const ids = [
   'warnings-panel', 'warnings-list', 'warnings-raw', 'warnings-raw-content', 'margin-public-note',
   'data-source-label', 'sort-basis-badge', 'btn-refresh', 'refresh-countdown',
-  'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only',
+  'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only', 'filter-hide-low-daily-rate',
   'summary-row', 'status-area', 'market-table-body', 'footer-note',
   'private-panel', 'private-panel-subtitle', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path'
 ];
@@ -194,7 +194,14 @@ setTimeout(async () => {
     }
     console.log('[PASS] 数据说明区可见且内容已渲染');
 
-    // 4. 默认渲染 6 行（设计期 fixture）
+    // 低日费率过滤默认开启：设计期 fixture 的 CUSDT daily_funding_rate 正好是边界
+    // 0.00030000，默认会被隐藏（6→5）。legacy 6 行基线段在此显式关闭该过滤并重渲染，
+    // 使既有断言（引用 CUSDT 的 #6/#19/#20/#28/#33/#34 等）全 6 行可见。过滤的默认
+    // 开启行为由 #39 独立低费率边界场景覆盖（实现 prompt §6.2；design review 推荐 B）。
+    elements['filter-hide-low-daily-rate'].checked = false;
+    (elements['filter-hide-low-daily-rate'].listeners.change || []).forEach(h => h());
+
+    // 4. 默认渲染 6 行（设计期 fixture；legacy 基线已关闭低日费率过滤）
     let tbody = elements['market-table-body'].innerHTML;
     let rowCount = (tbody.match(/<tr/g) || []).length;
     if (rowCount !== 6) {
@@ -737,27 +744,30 @@ setTimeout(async () => {
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] 负费率状态行感知的六文案派生');
 
-    // 35. 余额卡片行内折算 value_usdt，隐私开关遮蔽金额与折算值
+    // 35. 余额卡片三行式折算 value_usdt，隐私遮蔽金额与折算值（不再使用 【: ...】）
     const privateBody2 = elements['private-panel-body'].innerHTML;
-    if (!privateBody2.includes('【: ****】')) {
-      throw new Error('隐藏态下折算值应被遮蔽为 ****');
+    if (privateBody2.includes('【:')) {
+      throw new Error('余额卡片仍残留旧的行内折算格式 【: ...】');
+    }
+    if (!privateBody2.includes('≈ **** USDT')) {
+      throw new Error('隐藏态下折算值应被遮蔽为 ≈ **** USDT');
     }
     helpers.togglePrivacy(); // 切换到显示态
     const shownBody2 = elements['private-panel-body'].innerHTML;
-    if (!shownBody2.includes('【: 123.45 USDT】')) {
-      throw new Error('显示态下统一账户余额未展示行内折算值');
+    if (!shownBody2.includes('≈ 123.45 USDT')) {
+      throw new Error('显示态下统一账户余额未展示独立折算行 ≈ 123.45 USDT');
     }
-    if (!shownBody2.includes('【: 67.89 USDT】')) {
-      throw new Error('显示态下现货账户余额未展示行内折算值');
+    if (!shownBody2.includes('≈ 67.89 USDT')) {
+      throw new Error('显示态下现货账户余额未展示独立折算行 ≈ 67.89 USDT');
     }
     helpers.togglePrivacy(); // 恢复隐藏态
     const hiddenBody2 = elements['private-panel-body'].innerHTML;
-    if (!hiddenBody2.includes('【: ****】')) {
+    if (!hiddenBody2.includes('≈ **** USDT')) {
       throw new Error('恢复隐藏态后折算值应再次被遮蔽');
     }
-    console.log('[PASS] 余额卡片行内折算值与隐私遮蔽');
+    console.log('[PASS] 余额卡片三行折算值与隐私遮蔽');
 
-    // 36. value_usdt null 显示 "【: — USDT】"（显示态）
+    // 36. value_usdt null 显示 "≈ — USDT"（显示态），隐藏态遮蔽为 ≈ **** USDT
     const nullValueFixture = JSON.parse(JSON.stringify(designFixture));
     nullValueFixture.private_account.balances_unified[0].value_usdt = null;
     nullValueFixture.private_account.balances_spot[0].value_usdt = null;
@@ -767,34 +777,124 @@ setTimeout(async () => {
     const unifiedSectionStart = nullValueBody.indexOf('统一账户余额');
     const spotSectionStart = nullValueBody.indexOf('现货账户余额');
     const unifiedSection = nullValueBody.slice(unifiedSectionStart, spotSectionStart);
-    if (!unifiedSection.includes('【: — USDT】')) {
-      throw new Error('value_usdt null 时统一账户未显示 "【: — USDT】"');
+    if (!unifiedSection.includes('≈ — USDT')) {
+      throw new Error('value_usdt null 时统一账户未显示 "≈ — USDT"');
     }
     const spotSection = nullValueBody.slice(spotSectionStart);
-    if (!spotSection.includes('【: — USDT】')) {
-      throw new Error('value_usdt null 时现货账户未显示 "【: — USDT】"');
+    if (!spotSection.includes('≈ — USDT')) {
+      throw new Error('value_usdt null 时现货账户未显示 "≈ — USDT"');
     }
     // 隐藏态下 null 折算值应被遮蔽为 ****
     helpers.togglePrivacy();
     const hiddenNullBody = elements['private-panel-body'].innerHTML;
-    if (!hiddenNullBody.includes('【: ****】')) {
+    if (!hiddenNullBody.includes('≈ **** USDT')) {
       throw new Error('value_usdt null 隐藏态未遮蔽折算值');
     }
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] value_usdt null 显示占位');
 
-    // 37. value_usdt 合法零显示 "【: 0.00 USDT】"（显示态）
+    // 37. value_usdt 合法零显示 "≈ 0.00 USDT"（显示态）
     const zeroValueFixture = JSON.parse(JSON.stringify(designFixture));
     zeroValueFixture.private_account.balances_unified[0].value_usdt = '0.00000000';
     zeroValueFixture.private_account.balances_spot[0].value_usdt = '0.00000000';
     helpers.ingestSnapshot(zeroValueFixture);
     if (helpers.getPrivacyHidden()) helpers.togglePrivacy(); // 确保显示态
     const zeroValueBody = elements['private-panel-body'].innerHTML;
-    if (!zeroValueBody.includes('【: 0.00 USDT】')) {
-      throw new Error('value_usdt "0.00000000" 时未显示 "【: 0.00 USDT】"');
+    if (!zeroValueBody.includes('≈ 0.00 USDT')) {
+      throw new Error('value_usdt "0.00000000" 时未显示 "≈ 0.00 USDT"');
     }
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] value_usdt 合法零显示占位');
+
+    // 37b. 余额数量仅整数部分加千分位，小数部分原样保留（不四舍五入/不裁剪尾零）
+    const amountFixture = JSON.parse(JSON.stringify(designFixture));
+    amountFixture.private_account.balances_unified[0].total_balance = '1234.56789000';
+    amountFixture.private_account.balances_spot[0].free = '123456.07890000';
+    helpers.ingestSnapshot(amountFixture);
+    if (helpers.getPrivacyHidden()) helpers.togglePrivacy(); // 确保显示态
+    const amountBody = elements['private-panel-body'].innerHTML;
+    const unifiedAmtStart = amountBody.indexOf('统一账户余额');
+    const spotAmtStart = amountBody.indexOf('现货账户余额');
+    const unifiedAmtSection = amountBody.slice(unifiedAmtStart, spotAmtStart);
+    if (!unifiedAmtSection.includes('>1,234.56789000<')) {
+      throw new Error('统一账户余额数量未按「整数千分位+小数原样」格式化: ' + unifiedAmtSection);
+    }
+    const spotAmtSection = amountBody.slice(spotAmtStart);
+    if (!spotAmtSection.includes('>123,456.07890000<')) {
+      throw new Error('现货余额数量未按「整数千分位+小数原样」格式化: ' + spotAmtSection);
+    }
+    helpers.ingestSnapshot(designFixture);
+    console.log('[PASS] 余额数量整数千分位、小数原样保留');
+
+    // 38. absDailyRateAtOrBelowThreshold 阈值边界（BigInt，无 float 阈值比较）
+    if (typeof helpers.absDailyRateAtOrBelowThreshold !== 'function') {
+      throw new Error('absDailyRateAtOrBelowThreshold 辅助函数未暴露');
+    }
+    const lowRateCases = [
+      ['0.00030000', true],
+      ['-0.00030000', true],
+      ['0.00030001', false],
+      ['-0.00030001', false],
+      [null, false],
+      ['', false],
+      ['not-a-number', false]
+    ];
+    for (const [input, expected] of lowRateCases) {
+      const actual = helpers.absDailyRateAtOrBelowThreshold(input);
+      if (actual !== expected) {
+        throw new Error(`absDailyRateAtOrBelowThreshold(${JSON.stringify(input)}) 期望 ${expected}，实际 ${actual}`);
+      }
+    }
+    console.log('[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）');
+
+    // 39. 低日费率过滤 UI 行为：边界值（含正负）被隐藏，超边界保留，null 不过滤
+    const lowRateFixture = JSON.parse(JSON.stringify(designFixture));
+    lowRateFixture.rows[0].daily_funding_rate = '0.00030000';   // AUSDT 边界 -> 隐藏
+    lowRateFixture.rows[1].daily_funding_rate = '-0.00030000';  // BUSDT 边界 -> 隐藏
+    lowRateFixture.rows[2].daily_funding_rate = '0.00030001';   // CUSDT 超边界 -> 可见
+    // 开启过滤后加载该 fixture（过滤状态与快照独立，ingestSnapshot 会按当前过滤重渲染）
+    elements['filter-hide-low-daily-rate'].checked = true;
+    (elements['filter-hide-low-daily-rate'].listeners.change || []).forEach(h => h());
+    helpers.ingestSnapshot(lowRateFixture);
+    const lowRateTbody = elements['market-table-body'].innerHTML;
+    const lowRateCount = (lowRateTbody.match(/<tr/g) || []).length;
+    if (lowRateCount !== 4) {
+      throw new Error(`低日费率过滤开启后期望 4 行可见（AUSDT/BUSDT 被隐藏），实际 ${lowRateCount} 行`);
+    }
+    if (lowRateTbody.includes('AUSDT') || lowRateTbody.includes('BUSDT')) {
+      throw new Error('低日费率边界行 AUSDT/BUSDT 应被隐藏');
+    }
+    if (!lowRateTbody.includes('CUSDT')) {
+      throw new Error('超边界行 CUSDT 应保留可见');
+    }
+    // 关闭过滤应恢复 6 行
+    elements['filter-hide-low-daily-rate'].checked = false;
+    (elements['filter-hide-low-daily-rate'].listeners.change || []).forEach(h => h());
+    const lowRateTbody2 = elements['market-table-body'].innerHTML;
+    const lowRateCount2 = (lowRateTbody2.match(/<tr/g) || []).length;
+    if (lowRateCount2 !== 6) {
+      throw new Error(`低日费率过滤关闭后应恢复 6 行，实际 ${lowRateCount2} 行`);
+    }
+    helpers.ingestSnapshot(designFixture);
+    console.log('[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）');
+
+    // 40. METAL 资产标签徽章（中性样式，非 danger/accent）与下拉选项
+    if (!html.includes('<option value="METAL">METAL(金属)</option>')) {
+      throw new Error('资产过滤下拉缺少 METAL(金属) 选项');
+    }
+    const metalFixture = JSON.parse(JSON.stringify(designFixture));
+    metalFixture.rows[0].asset_tag = 'METAL';
+    helpers.ingestSnapshot(metalFixture);
+    const metalTbody = elements['market-table-body'].innerHTML;
+    const metalCell = getRowCell(metalTbody, 'AUSDT', 1);
+    if (!metalCell.includes('METAL(金属)')) {
+      throw new Error('METAL 行未渲染 METAL(金属) 徽章: ' + metalCell);
+    }
+    if (metalCell.includes('danger') || metalCell.includes('accent')) {
+      throw new Error('METAL 徽章不应使用 danger/accent 样式（应为中性徽章）: ' + metalCell);
+    }
+    helpers.ingestSnapshot(designFixture);
+    console.log('[PASS] METAL 资产标签徽章与下拉选项');
 
     console.log('\n全部自检通过');
     process.exit(0);
