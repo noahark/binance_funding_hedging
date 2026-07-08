@@ -1,7 +1,13 @@
 {
   "stage_id": "2026-07-borrowability-error-zero-mapping-v1",
-  "status": "stage_accepted_waiting_user",
-  "status_note": "review-1(Kimi) ACCEPT + review-2(Codex round-2) ACCEPT，均 schema-valid、同冻结指纹、provider 全隔离。review-2 round-1 的 BLOCKED 仅为过时 gate(已修复)。用户已授权合并，待 pre-accept PASS 后 --no-ff 合 main。",
+  "status": "accepted",
+  "status_note": "review-1(Kimi) ACCEPT + review-2(Codex round-2) ACCEPT，pre-accept PASSED（clean worktree），用户已显式授权合并。执行 --no-ff 合并 main。",
+  "user_acceptance": {
+    "accepted": true,
+    "authority": "user",
+    "accepted_at": "2026-07-09 07:25:00 CST",
+    "note": "用户显式指示合并分支（『你把分支合并一下吧』）。review-1 Kimi ACCEPT + review-2 Codex round-2 ACCEPT（round-1 BLOCKED 仅为过时 gate，已修复）。授权 --no-ff 合回 main。"
+  },
   "workflow": "stage-delivery",
   "complexity": {"classification": "MEDIUM", "reason": "跨 backend 错误分类 + snapshot 透传/折算 + schema/contract + frontend 三态展示 + tests；改动面集中但跨层契约耦合。"},
   "mode": "serial",

@@ -1,0 +1,17 @@
+# 62-validate-pre-accept — 2026-07-borrowability-error-zero-mapping-v1
+# 本地北京时间: 2026-07-09 07:25 CST
+# 运行于 clean worktree（status=stage_accepted_waiting_user），本证据文件写入前
+
+$ git status --porcelain
+(empty — clean)
+
+$ python3 scripts/validate-stage.py 2026-07-borrowability-error-zero-mapping-v1 --phase pre-accept
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1
+phase=pre-accept
+status=stage_accepted_waiting_user
+diff_fingerprint=ea631bf1dbf23662db37f491d92cb3f10685d720:31efea285e557d074f8f49d30146b07a285e3ecdb1a19d776b170479983251aa
+
+# 说明：本 .txt 为证据落盘，记录上面那次 clean worktree 下的 PASS。validator 的
+# require_clean_worktree 在写入本文件那一刻会把它视为未跟踪→报脏，故证据不通过嵌套自跑生成；
+# 由 bookkeeper 提交后工作区复归 clean（合并前的最终 pre-accept 校验已 PASS）。
