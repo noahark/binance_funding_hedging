@@ -34,10 +34,22 @@ Stage: `2026-07-borrowability-error-zero-mapping-v1`
 
 1. `exc.code in BORROW_ZERO_BUSINESS_CODES`（初值 `{51061}`）→ 返回
    `{"max_borrowable": "0", "borrow_limit": None, "error_code": str(exc.code)}`（**确定 0**）。
-2. `exc.code is not None`（有业务码但不在零集，如未知借币业务错误）→ **distinct 日志路径**：
-   `self.last_error = f"max_borrowable_business_error:{asset}:{exc.code}"`，返回 `None`。
+2. `isinstance(exc.code, int) and exc.code > 0`（**正数**业务码但不在零集，如未知借币业务错误）→
+   **distinct 日志路径**：`self.last_error = f"max_borrowable_business_error:{asset}:{exc.code}"`，返回 `None`。
    目的是**日后从 last_error/审计发现真实样本**，而非现在臆测枚举（Simplicity First）。
-3. 其余（无业务码：网络/5xx/超时/-1003 重试后仍失败）→ 现状 `max_borrowable_failed`，返回 `None`。
+3. 其余（**负数系统/鉴权码** -1003/-2014/-2015、无 JSON body 的网络/5xx/超时）→ 现状
+   `max_borrowable_failed:{asset}:{exc.reason}`，返回 `None`。
+
+**业务/系统的分界依据 = Binance 码的正负号，而非"有无 code"**（修订，2026-07-09）：Binance 正数码
+（如 51061、5xxxx 业务范围）= 业务逻辑错误，是"可能映射为 0"的候选；**负数码**（-1xxx/-2xxx）
+= 系统/请求/鉴权错误（限速、API-key 无效、IP/权限、参数非法）= 真·未知失败。代码库既有约定已明文：
+`snapshot.py:27` / `docs/api/public-market-contract.md:72,301` 把 `-2014`「API-key format invalid」
+当系统降级（`classic_reference_failed`/unverified），`test_private_client.py:230-232`（-2014→
+`classic_reference_failed`）与 `:236-238`（-2015→`max_borrowable_failed`）是金标准。
+
+> **本条为设计收窄，非机械改测试**：初版 ADR-2 的桶 2 判据是 `exc.code is not None`，会把负数鉴权码
+> -2015 误分类成"借币业务错误"，污染 discovery 通道并违反上述约定。由 `test_private_client.py:238`
+> 在 GLM 实现前捕获。修正后 `:238`「-2015→max_borrowable_failed」**原样通过、不得改动该断言**。
 
 `BORROW_ZERO_BUSINESS_CODES` 是**单点常量集**，未来新增确认的「借光」类码 = 加一个元素，
 不改结构。

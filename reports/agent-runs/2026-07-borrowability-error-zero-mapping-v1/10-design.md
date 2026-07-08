@@ -61,13 +61,19 @@ except PrivateEndpointError as exc:
         # confirmed 0: pool exhausted, not "unknown"
         return {"max_borrowable": "0", "borrow_limit": None,
                 "error_code": str(exc.code)}
-    if exc.code is not None:
-        # unknown business error: distinct log path so a real sample surfaces
+    if isinstance(exc.code, int) and exc.code > 0:
+        # positive business code, not (yet) mapped: distinct discovery log
         self.last_error = f"max_borrowable_business_error:{asset}:{exc.code}"
         return None
+    # negative system/auth codes (-1003/-2014/-2015) & bodyless network/5xx -> unknown
     self.last_error = f"max_borrowable_failed:{asset}:{exc.reason}"
     return None
 ```
+
+> **分界依据 = 码的正负号，非"有无 code"**（ADR-2 修订）。Binance 负数码（-1xxx/-2xxx）是系统/鉴权
+> 错误（既有约定：`snapshot.py:27`、contract:72/301、`test_private_client.py:230-232`），必须归
+> `max_borrowable_failed`，不得进 `business_error` discovery 通道。`test_private_client.py:238`
+> （-2015→`max_borrowable_failed`）是金标准，**保持不变**。
 
 成功路径 `return` 补 `error_code=None`（形状统一）：
 
@@ -250,8 +256,10 @@ if (pa && pa.max_borrowable != null) {
 - `backend/tests/test_private_account_v1.py` 或 `test_snapshot.py`（就近，勿重写无关用例）：
   - **51061→0**：mock `_signed_get`/urlopen 返回 400 `{"code":51061}` → `fetch_max_borrowable`
     返回 `{"max_borrowable":"0","borrow_limit":None,"error_code":"51061"}`；
-  - **未知业务码**：400 `{"code":99999}` → 返回 `None` 且 `last_error` 以
-    `max_borrowable_business_error:` 开头；
+  - **未知正数业务码**：400 `{"code":51099}`（正数、不在零集）→ 返回 `None` 且 `last_error` 以
+    `max_borrowable_business_error:` 开头（覆盖 discovery 桶）；
+  - **负数鉴权码**：`test_private_client.py:236-238` 的 -2015 → `None` 且 `last_error` 以
+    `max_borrowable_failed:` 开头（**该断言保持不变**，验证负数码不进 business_error 桶）；
   - **系统错误**：5xx 或网络异常（无 code）→ `None` 且 `last_error` 以 `max_borrowable_failed:` 开头；
   - **成功**：正常 amount → `error_code=None`；
   - **折算** `_max_borrowable_value_usdt`（8dp 串）：`"0"`→`"0.00000000"`；有价 `"10"`×price →
@@ -269,6 +277,11 @@ if (pa && pa.max_borrowable != null) {
 
 全仓波及清单（2026-07-09 bookkeeper 核对）：
 - `backend/tests/fixtures/private-account-v1-design.json`（含 portfolio_account → 补形状）。
+- **`backend/tests/test_private_client.py`（scope amendment SCOPE-2026-07-09-002）**：
+  §1.1(b) 成功路径补 `error_code:None` 波及 3 处**成功断言** `:216`/`:225`/`:262`
+  （`{"max_borrowable":...,"borrow_limit":...}` → 追加 `"error_code": None`，纯机械）。
+  `:238`（-2015→`max_borrowable_failed`）**保持不变**（ADR-2 收窄后负数码本就走 failed）。
+  新增一个正数未知业务码用例（如 `{"code":51099}` → `max_borrowable_business_error:`）覆盖 discovery 桶。
 - **`backend/tests/test_phase2_borrow_sort.py:230`（严格集合断言，scope amendment 加入允许列表）**：
   `set(bv["portfolio_account"]) == {"max_borrowable","borrow_limit","source"}` →
   `== {"max_borrowable","borrow_limit","error_code","max_borrowable_value_usdt","source"}`。走 offline

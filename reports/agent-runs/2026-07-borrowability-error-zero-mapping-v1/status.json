@@ -74,7 +74,7 @@
   },
   "resolved_decisions": [
     "51061 类业务错误映射 max_borrowable=\"0\" + error_code=\"51061\"（确定 0），null 专属未探测/系统错误。",
-    "PrivateEndpointError 新增可选 code（解析自 body），fetch_max_borrowable 按业务码分类；未知业务码走 distinct last_error 发现路径，不臆测枚举。BORROW_ZERO_BUSINESS_CODES 初值仅 {51061}。",
+    "PrivateEndpointError 新增可选 code（解析自 body），fetch_max_borrowable 按业务码分类；分界依据=码的正负号：51061→\"0\"；其它正数业务码→distinct max_borrowable_business_error 发现路径；负数系统/鉴权码(-1003/-2014/-2015)与无 code 网络/5xx→max_borrowable_failed。BORROW_ZERO_BUSINESS_CODES 初值仅 {51061}。(ADR-2 于 SCOPE-2026-07-09-002 由 'exc.code is not None' 收窄为 '正数码'，避免误分类负数鉴权码。)",
     "verified 语义不变（仍不看 max_borrowable）；前端 badge 在 verified 且 max_borrowable==\"0\" 时改「可借 0(已借完)」warn 样式。",
     "portfolio_account 新增 additive error_code + max_borrowable_value_usdt；折算口径与 balance value_usdt 完全一致（后端 8dp _quantize_rate，前端 formatUsdt2 显 2dp）。",
     "「可借数量 + ≈USDT 价值」展示并入本 stage（用户裁定）。",
@@ -92,6 +92,14 @@
         "docs/phase2-direction-draft.md:123 为历史方向草案示意（非规范契约），标为 out-of-scope 勿动；规范三态只改 docs/api/public-market-contract.md。"
       ],
       "timestamp": "2026-07-09 06:20:00 CST"
+    },
+    {
+      "id": "SCOPE-2026-07-09-002",
+      "decided_by": "bookkeeper (anthropic)",
+      "trigger": "GLM 实现前发现 backend/tests/test_private_client.py 4 处断言被 §1.1(b) 行为变更波及：成功路径 :216/:225/:262 需 +error_code:None；:238 的 -2015 现走 max_borrowable_business_error。该文件不在允许列表。",
+      "adjudication": "拆分处理，非与 test_phase2 完全同类。(a) :216/:225/:262 是成功路径形状机械同步(+error_code:None)，扩面加入允许列表。(b) :238 暴露真实设计缺陷：ADR-2 桶2判据 'exc.code is not None' 过宽，会把 Binance 负数鉴权码 -2015 误分类为借币业务错误，违反代码库明文约定(负数=系统失败：snapshot.py:27/contract:72,301/test_private_client.py:230-232)。修法=收窄 ADR-2 为 '正数码才进 business_error'，测试 :238 保持不变、原样通过。option 1 原文(改 :238 为 business_error)会给 bug 背书，已拒绝。",
+      "design_refinement": "ADR-2 桶2 'exc.code is not None' → 'isinstance(exc.code,int) and exc.code > 0'；负数/None 归 max_borrowable_failed。新增正数未知业务码(51099)测试覆盖 discovery 桶。",
+      "timestamp": "2026-07-09 06:40:00 CST"
     }
   ],
   "out_of_scope": [
@@ -103,7 +111,7 @@
   "hard_constraints": [
     "未获用户确认前不进入实现（本 status=design_frozen_pending_dispatch，等用户在 GLM 终端派发）。",
     "不修改私有签名/白名单/下单/借币/还币/划转逻辑；仅读路径的错误分类与展示。",
-    "不臆测枚举业务码：BORROW_ZERO_BUSINESS_CODES 仅含 51061。",
+    "不臆测枚举业务码：BORROW_ZERO_BUSINESS_CODES 仅含 51061；business/system 分界=码正负号，负数码不进 business_error 桶。",
     "折算不得引入 float；Decimal + _quantize_rate，与既有 value_usdt 口径一致。",
     "全部 additive：不改 max_borrowable/borrow_limit/source/verified 现有形状语义（除 51061 由 null→\"0\" 的 bug 修正）。"
   ],
@@ -112,5 +120,5 @@
     "planned": "python3 -m pytest backend/tests -q; node frontend/self-check.js; git diff --check"
   },
   "next_step": "用户在 GLM(zhipu_glm) 终端用 task-serial-claude-glm.prompt.md 派发 serial 实现。GLM 留工作区未提交 + 20-implementation.md，交 bookkeeper 冻结 diff → 计算 fingerprint → validate-stage --phase pre-review → 派 review-1(Kimi/moonshot) → review-2(Codex/openai)。",
-  "updated_at": "2026-07-09 06:20:00 CST"
+  "updated_at": "2026-07-09 06:40:00 CST"
 }
