@@ -1,7 +1,7 @@
 {
   "stage_id": "2026-07-borrowability-error-zero-mapping-v1",
   "status": "review_2",
-  "status_note": "review-1(Kimi) ACCEPT 已落档核验(指纹匹配/隔离/schema-valid)；进入 review-2(Codex/openai)。等 review-2 raw output 落盘后 pre-accept → 用户已授权合并。",
+  "status_note": "review-1(Kimi) ACCEPT 已落档。review-2(Codex) round-1=BLOCKED 但仅因过时 gate 状态(非代码 REWORK)；bookkeeper 已修复门禁(commit 10618a3)并复验 pre-review PASSED；备 round-2 重派(review-2-codex.prompt.md)。用户已授权合并，待 review-2 ACCEPT。",
   "workflow": "stage-delivery",
   "complexity": {"classification": "MEDIUM", "reason": "跨 backend 错误分类 + snapshot 透传/折算 + schema/contract + frontend 三态展示 + tests；改动面集中但跨层契约耦合。"},
   "mode": "serial",
@@ -172,11 +172,33 @@
     "raw_output": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/review-1-kimi.raw-output.md",
     "review_record": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/30-review-1.md"
   },
+  "review_2": {
+    "reviewer": {"provider": "codex", "model": "codex/gpt-5", "provider_identity": "openai"},
+    "role": "final_reviewer",
+    "status": "pending_round2",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "openai final reviewer isolated from implementer(zhipu_glm), designer/bookkeeper(anthropic), review-1(moonshot_kimi); no design-conflict override needed.",
+    "base_sha": "41c6ba542e040cb3d1e82c046d9a9406bd11860d",
+    "head_sha": "ea631bf1dbf23662db37f491d92cb3f10685d720",
+    "diff_fingerprint": "ea631bf1dbf23662db37f491d92cb3f10685d720:31efea285e557d074f8f49d30146b07a285e3ecdb1a19d776b170479983251aa",
+    "dispatch_prompt": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/review-2-codex.prompt.md",
+    "raw_output": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/50-review-2.md",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "BLOCKED",
+        "block_class": "harness_gate_state_not_code_rework",
+        "reason": "审查时点早于 bookkeeper 落档 review-1(commit 10618a3)：未跟踪 review-1-kimi.raw-output.md 致工作区不 clean → pre-review 的 require_clean_worktree 失败；status 仍 review_1；30-review-1.md 未落档。final reviewer 明确代码层无阻断（冻结指纹匹配、review-1 verdict schema-valid、功能与测试覆盖）。",
+        "raw_output": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/review-2-codex.round1.raw-output.md",
+        "bookkeeper_resolution": "commit 10618a3 提交 review-1 raw output + 落 30-review-1.md + status→review_2；validate-stage --phase pre-review 复跑 PASSED。备 round-2 重派。"
+      }
+    ]
+  },
   "tests": {
     "status": "pass",
     "evidence": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/60-test-output.txt",
     "detail": "bookkeeper independent rerun on HEAD ea631bf: python3 -m pytest backend/tests -q => 190 passed; node frontend/self-check.js => 全部自检通过 (incl. 借币三态); git diff --check => clean."
   },
-  "next_step": "review-1 已就绪：用户在 fresh Kimi(moonshot_kimi) 会话用 review-1-kimi.prompt.md 派发只读评审，产出 review-1-kimi.raw-output.md（末尾 schema-valid verdict JSON）。ACCEPT → bookkeeper 落 30-review-1.md 并派 review-2(Codex/openai)；REWORK → 回 GLM 修复。",
-  "updated_at": "2026-07-09 06:54:10 CST"
+  "next_step": "review-2 round-2 重派：用户在 Codex(openai) 会话用 review-2-codex.prompt.md 复审干净状态，产出 50-review-2.md（末尾 schema-valid final verdict JSON，指纹须=ea631bf:31efea28）。ACCEPT → bookkeeper 落 review_2 块 → validate-stage --phase pre-accept → 用户已授权 → --no-ff 合并 main + 回填 merged_back。",
+  "updated_at": "2026-07-09 07:20:00 CST"
 }

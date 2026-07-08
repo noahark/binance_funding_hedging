@@ -2,7 +2,10 @@
 
 ## 阶段状态
 
-`status = review_1`（review-1 已就绪待派 Kimi）。stage 分支
+`status = review_2`。review-1(Kimi) **ACCEPT** 已落档核验。review-2(Codex) round-1
+= BLOCKED，但**仅因过时 gate 状态**（未跟踪 raw output 致工作区不 clean + status 还 review_1
++ 30-review-1 未落档 → pre-review 失败），**非代码 REWORK**；bookkeeper 已修复门禁（commit
+`10618a3`）并复验 `pre-review` PASSED，备 round-2 重派。stage 分支
 `stage/2026-07-borrowability-error-zero-mapping-v1`，**未推送 / 未合 main**。
 
 ## 冻结区间（review 用）
