@@ -81,6 +81,19 @@
     "borrow_limit 在 51061 下为 null（错误响应无 borrowLimit 字段，非选择题）。",
     "residual R1：snapshot_service.py:132/:182 注释机械补正为 {CRYPTO, METAL}。"
   ],
+  "scope_amendments": [
+    {
+      "id": "SCOPE-2026-07-09-001",
+      "decided_by": "bookkeeper (anthropic)",
+      "trigger": "GLM 实现前发现 backend/tests/test_phase2_borrow_sort.py:230 有严格集合断言 set(bv[\"portfolio_account\"]) == {max_borrowable,borrow_limit,source}，schema required 形状变更必然波及，但该文件不在原冻结允许列表。",
+      "adjudication": "非 Harness 框架缺陷，而是冻结允许列表漏枚举；允许列表闸正确拦截了越界。bookkeeper 重裁：将 test_phase2_borrow_sort.py 加入允许列表，:230 集合断言同步为 5 字段，:222 不变。",
+      "also_corrected": [
+        "frontend/fixture/public-market-snapshot.json 实际不含 portfolio_account，原 design §4.2 列其需形状同步系笔误，已纠正为无需改。",
+        "docs/phase2-direction-draft.md:123 为历史方向草案示意（非规范契约），标为 out-of-scope 勿动；规范三态只改 docs/api/public-market-contract.md。"
+      ],
+      "timestamp": "2026-07-09 06:20:00 CST"
+    }
+  ],
   "out_of_scope": [
     "权限类/非 51061 业务错误的具体映射：无 raw 样本、无已知 code，走 distinct 日志发现路径（用户裁定 out-of-scope）。",
     "第四态（独立「无权限」状态）：无样本，先不实现结构。",
@@ -99,5 +112,5 @@
     "planned": "python3 -m pytest backend/tests -q; node frontend/self-check.js; git diff --check"
   },
   "next_step": "用户在 GLM(zhipu_glm) 终端用 task-serial-claude-glm.prompt.md 派发 serial 实现。GLM 留工作区未提交 + 20-implementation.md，交 bookkeeper 冻结 diff → 计算 fingerprint → validate-stage --phase pre-review → 派 review-1(Kimi/moonshot) → review-2(Codex/openai)。",
-  "updated_at": "2026-07-09 05:45:31 CST"
+  "updated_at": "2026-07-09 06:20:00 CST"
 }

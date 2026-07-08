@@ -262,14 +262,20 @@ if (pa && pa.max_borrowable != null) {
 
 ### 4.2 快照 fixtures（schema required 变更连带）
 
-因 §2.1 把两字段加入 `required`，**所有含 `portfolio_account` 的仓库内快照 fixture 必须补齐形状**：
-- `frontend/fixture/public-market-snapshot.json`
-- `backend/tests/fixtures/*`（凡含 `portfolio_account` 者）
-- self-check 内联/引用的 fixture
-
+因 §2.1 把两字段加入 `required`，**所有含 `portfolio_account` 的仓库内快照 fixture 与硬形状断言必须同步**。
 实现前先 grep 定位：`rg -n "portfolio_account" frontend backend/tests`，逐个补
-`"error_code": null, "max_borrowable_value_usdt": null`（或对应借光样本 `"0"/"51061"/"0.00"`）。
+`"error_code": null, "max_borrowable_value_usdt": null`（或对应借光样本 `"0"/"51061"/"0.00000000"`）。
 保持各 fixture 的 summary counts 准确。
+
+全仓波及清单（2026-07-09 bookkeeper 核对）：
+- `backend/tests/fixtures/private-account-v1-design.json`（含 portfolio_account → 补形状）。
+- **`backend/tests/test_phase2_borrow_sort.py:230`（严格集合断言，scope amendment 加入允许列表）**：
+  `set(bv["portfolio_account"]) == {"max_borrowable","borrow_limit","source"}` →
+  `== {"max_borrowable","borrow_limit","error_code","max_borrowable_value_usdt","source"}`。走 offline
+  classic_ref None 分支（两新字段 None），实现 §1.2b 后即通过。`:222` 顶层 `set(bv)` 5 键**不变**（勿动）。
+- `frontend/fixture/public-market-snapshot.json`：**不含** portfolio_account/borrow_validation 明细 → 无需改。
+- `docs/phase2-direction-draft.md:123`：历史方向草案里的旧 3 字段示意，**非规范契约、out-of-scope、勿动**；
+  规范三态只更新 `docs/api/public-market-contract.md`。
 
 ## 5. 验收标准（review 对齐 follow-up）
 
