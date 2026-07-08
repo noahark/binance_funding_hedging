@@ -47,7 +47,7 @@ Purpose:
 
 - Direction synthesis and stage design when selected.
 - Review-2 primary final reviewer, unless ineligible or unavailable.
-- Optional development/fix agent when the workflow selects Codex.
+- Not an implementation or fix author for delivery code in this Harness.
 
 Default model policy:
 
@@ -63,12 +63,6 @@ Default model policy:
 Command templates:
 
 ```bash
-# Non-interactive write-capable execution.
-codex exec -C <repo> -m gpt-5.5 -s workspace-write - < <prompt-file>
-
-# Yolo execution, only when explicitly authorized.
-codex exec -C <repo> -m gpt-5.5 --yolo - < <prompt-file>
-
 # Schema-bound read-only review.
 codex exec -C <repo> -m gpt-5.5 -s read-only \
   --output-schema schemas/review-verdict.schema.json \
@@ -81,6 +75,10 @@ codex exec review --base <base_sha> - < <prompt-file>
 Review-2 Harness gates use `codex exec`, not `codex review`, because the verdict
 must satisfy `schemas/review-verdict.schema.json`.
 
+Do not dispatch implementation or fix tasks to Codex. Backend and frontend
+delivery work routes through Claude-GLM and Kimi according to the stage's domain
+ownership rules.
+
 ## Claude
 
 Purpose:
@@ -91,8 +89,9 @@ Purpose:
 
 Default model policy:
 
-- Claude review uses `claude-fable-5` unless the registry or user explicitly
-  changes it.
+- Claude review uses `claude-fable-5` first. If Fable5 quota is exhausted, use
+  `opus4.8` as the Anthropic fallback model unless the registry or user
+  explicitly changes it.
 - Review mode is read-only/plan. Do not let Claude modify files during review.
 
 Command templates:
@@ -103,8 +102,18 @@ claude --model claude-fable-5 --permission-mode plan \
   --json-schema "$(cat schemas/review-verdict.schema.json)" \
   -p "$(cat <prompt-file>)"
 
+# Read-only/plan review fallback after Fable5 quota exhaustion.
+claude --model opus4.8 --permission-mode plan \
+  --json-schema "$(cat schemas/review-verdict.schema.json)" \
+  -p "$(cat <prompt-file>)"
+
 # Write-capable development, only when selected by workflow.
 claude --model claude-fable-5 --permission-mode acceptEdits \
+  -p "$(cat <prompt-file>)"
+
+# Write-capable fallback after Fable5 quota exhaustion, only when selected by
+# workflow.
+claude --model opus4.8 --permission-mode acceptEdits \
   -p "$(cat <prompt-file>)"
 
 # Yolo execution, only when explicitly authorized.
@@ -118,26 +127,29 @@ captured output against the schema.
 
 ### Probing Anthropic availability when auth may be re-routed
 
-Before recording Claude/Fable5 (Anthropic) as unavailable, confirm the probe
-actually reached an Anthropic endpoint. In environments where the `claude` CLI
-auth is overridden to a non-Anthropic provider (for example `zhipu_glm`), a
-probe such as `claude --model claude-fable-5` fails at the GLM endpoint with
-that provider's own error (for example "model not found" / error 1211) — that is
-NOT evidence that Fable5 is absent from Anthropic.
+Before recording Claude/Fable5 as quota-exhausted, or Claude/Fable5 and
+Opus4.8 as unavailable, confirm the probe actually reached an Anthropic
+endpoint. In environments where the `claude` CLI auth is overridden to a
+non-Anthropic provider (for example `zhipu_glm`), a probe such as
+`claude --model claude-fable-5` fails at the GLM endpoint with that provider's
+own error (for example "model not found" / error 1211) — that is NOT evidence
+that Fable5 is absent from Anthropic or that Opus4.8 fallback is unavailable.
 
 Strip the GLM/Zhipu environment variables and auth overrides from the probe
 shell first, or run the probe in an Anthropic-authenticated environment. A
 failure caused by re-routing to the GLM endpoint must be recorded as "Anthropic
 endpoint not probed (auth re-routed to GLM/Zhipu)", not as "Fable5 model
-unavailable". Do not propagate a GLM-endpoint failure into an Anthropic/
-Fable5-unavailable conclusion elsewhere in the stage record.
+unavailable" or "Opus4.8 unavailable". Do not propagate a GLM-endpoint failure
+into an Anthropic-unavailable conclusion elsewhere in the stage record.
 
 ## Claude-GLM
 
 Purpose:
 
 - Eligible bookkeeper/stage-operator model when explicitly assigned.
-- Backend/contract implementation when explicitly selected for the stage.
+- Default backend/API/contract/schema/data-semantics implementation owner.
+- May own a whole bounded mixed task when backend work is the large majority and
+  frontend work is light integration or display wiring.
 
 Provider identity:
 
@@ -232,7 +244,9 @@ timeout, or the CLI process hangs, record `model_unavailable` and route to
 
 Purpose:
 
-- Frontend implementation and other workflow-selected development tasks.
+- Default frontend/UI/client-integration implementation owner.
+- May own a whole bounded mixed task when frontend work is the large majority
+  and backend work is light endpoint or schema glue.
 - Direction panel member when registered.
 
 Default model policy:

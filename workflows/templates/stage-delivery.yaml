@@ -113,6 +113,7 @@ rotation:
   development_breakdown:
     provider: claude
     model: "claude-fable-5"
+    fallback_model_on_quota: "opus4.8"
     skill: task_planner
     output: "12-development-breakdown.md"
     required_for: [MEDIUM, HIGH, MILESTONE]
@@ -408,8 +409,12 @@ stages:
     actor_pool:
       - model: claude_glm
         skill: senior_developer
+        primary_domains: [backend, api_contracts, schemas, data_normalization, external_api_samples]
+        may_own_whole_mixed_task_when: "backend work is the large majority and frontend work is light integration or display wiring"
       - model: kimi
-        skill: minimal_change_engineer
+        skill: senior_developer
+        primary_domains: [frontend, ui, client_integration, frontend_tests]
+        may_own_whole_mixed_task_when: "frontend work is the large majority and backend work is light endpoint or schema glue"
     optional_actor_pool:
       - model: grok
         required_model: "grok-composer-2.5-fast"
@@ -433,6 +438,12 @@ stages:
     routing_rules:
       - "Apply status.json.model_routing stage-specific owner and exclusion rules before generic actor_pool selection."
       - "A model listed in status.json.model_routing.excluded_for_core_work is ineligible for current-stage implementation even if it appears in this generic actor_pool."
+      - "Codex is not eligible for implementation or fix authorship."
+      - "Default backend/API/contract/schema/data-semantics owner is claude_glm."
+      - "Default frontend/UI/client-integration owner is kimi."
+      - "If backend work is the large majority and frontend work is light, dispatch the whole bounded task to claude_glm."
+      - "If frontend work is the large majority and backend work is light, dispatch the whole bounded task to kimi."
+      - "If backend and frontend work are both substantial and separable, split implementation by domain owner."
       - "When docs/parallel-development-mode.md applies, the implementer must execute or escalate any next_dispatch marked executor:self before reporting completion."
     acceptance:
       - "Changed files match task boundaries or deviations are explained."
@@ -593,6 +604,10 @@ stages:
     routing_rules:
       - "Apply status.json.model_routing stage-specific owner and exclusion rules before generic fix selection."
       - "Do not send fixes to a model excluded from current-stage core work unless the user explicitly re-enables it."
+      - "Do not send fixes to Codex."
+      - "Route backend/API/contract/schema/data-semantics fixes to claude_glm by default."
+      - "Route frontend/UI/client-integration fixes to kimi by default."
+      - "For a whole-task GLM or Kimi implementation, route scope-contained fixes back to the original implementer unless provider isolation for a later review would be violated."
     reads:
       - "AGENTS.md"
       - "agents/developer-discipline.md"
@@ -641,7 +656,7 @@ stages:
     mode: read_only
     adapter_requirements:
       codex: "Use read-only codex exec with the configured GPT/Codex adapter default and a schema-bound custom prompt, not codex review."
-      claude: "Use read-only/plan Claude invocation with claude-fable-5 by default and a schema-bound custom prompt."
+      claude: "Use read-only/plan Claude invocation with claude-fable-5 by default; if Fable5 quota is exhausted, use opus4.8 with the same schema-bound prompt."
     requires:
       - "reviewer provider != any implementation or fix author provider"
       - "prefer reviewer provider != designer provider"

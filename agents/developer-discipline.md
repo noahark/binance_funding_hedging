@@ -1,8 +1,9 @@
 # Developer Discipline
 
 This file is the developer execution discipline for implementation and fix work.
-It applies to every implementation-capable model, including Grok, Kimi,
-Claude-GLM, Claude, and Codex when they are acting as implementers.
+It applies to every implementation-capable model, including Claude-GLM, Kimi,
+and Grok or another non-Codex model when explicitly enabled for implementation
+or fix work.
 
 In this repository, `AGENTS.md`, workflow YAML, schemas, registry routing, and
 stage facts have higher authority and must be followed first.

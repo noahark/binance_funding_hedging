@@ -147,9 +147,20 @@ its own summary. Development starts only after user approval of the synthesis.
 Lightweight bugfixes or mechanical follow-up tasks may skip this panel when the
 user explicitly approves the shortcut or an existing synthesis covers the task.
 
-Implementation can use multiple registered implementers. The default pool uses
-Claude-GLM and Kimi. Grok implementation is optional and only used when the user
-explicitly enables it for a stage; when enabled it uses Composer 2.5:
+Implementation uses Claude-GLM and Kimi as the default delivery-code owners.
+Codex is not an implementation or fix author. Claude-GLM owns backend,
+API-contract, schema, normalization, external-sample, and data-semantics work.
+Kimi owns frontend, UI, client integration, and frontend test work.
+
+For mixed stages, route by dominant workload. If backend work is the large
+majority and frontend work is light integration or display wiring, dispatch the
+whole bounded task to Claude-GLM. If frontend work is the large majority and
+backend work is light endpoint or schema glue, dispatch the whole bounded task
+to Kimi. If both backend and frontend work are substantial and separable, split
+implementation by domain owner.
+
+Grok implementation is optional and only used when the user explicitly enables
+it for a stage; when enabled it uses Composer 2.5:
 
 ```text
 grok --model grok-composer-2.5-fast
@@ -313,17 +324,19 @@ Known command semantics:
 
 - Codex default Harness model: `gpt-5.5` with high reasoning effort, as
   configured locally by the adapter/profile.
-- Codex non-interactive development: `codex exec -C <repo> -m gpt-5.5 --yolo "<prompt>"`
-- Codex schema-bound review: `codex exec -C <repo> -m gpt-5.5 --sandbox read-only "<prompt>"`
-- Codex free-form review: `codex -C <repo> review --base <base> "<prompt>"`
+- Codex schema-bound review: `codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>`
+- Codex free-form review: `codex exec review --base <base> - < <prompt-file>`
 - Codex `-p` means profile, not prompt.
 - Claude Code print mode uses `claude -p "<prompt>"`.
-- Claude review uses `claude-fable-5` by default.
+- Claude review uses `claude-fable-5` by default, then `opus4.8` if Fable5
+  quota is exhausted.
 - Review-1 uses the Kimi / Claude-GLM cross-review pool.
+- Claude-GLM development owns backend/API/contract/schema/data-semantics work.
 - Grok development uses `grok-composer-2.5-fast` only when explicitly
   workflow-enabled by the user.
-- Kimi development uses `kimi --model kimi-code/kimi-for-coding -p "<prompt>"`
-  unless a stage explicitly pins another model.
+- Kimi development owns frontend/UI/client-integration work and uses
+  `kimi --model kimi-code/kimi-for-coding -p "<prompt>"` unless a stage
+  explicitly pins another model.
 - Local `claude-glm` must be invoked without recording its expanded auth
   environment.
 
@@ -362,8 +375,9 @@ For a given stage:
   unconditionally ineligible for final review.
 - `review_2` should use a reviewer that differs from the designer, direction
   synthesizer, and development breakdown author. This is a preference, not a
-  hard terminal blocker for Codex/GPT and Claude/Fable5.
-- Codex/GPT and Claude/Fable5 may use a strong-reviewer disclosure override
+  hard terminal blocker for Codex/GPT and Claude provider. Claude uses Fable5
+  first and Opus4.8 after Fable5 quota exhaustion.
+- Codex/GPT and Claude provider may use a strong-reviewer disclosure override
   after an unrelated decision model fails a runner-level check. The stage must
   record `reviewer_prior_involvement`, `fallback_reason`, and an existing
   evidence file for the unavailable unrelated model.
@@ -382,9 +396,10 @@ For a given stage:
 
 For `MEDIUM`, `HIGH`, and `MILESTONE` stages, add a development detail
 breakdown before implementation starts. The default breakdown author is
-Claude/Fable5 unless the registry or user selects another model. The breakdown
-author narrows ambiguity and reduces implementation drift; it does not write
-delivery code in that role.
+Claude provider, using Fable5 first and Opus4.8 after Fable5 quota exhaustion,
+unless the registry or user selects another model. The breakdown author narrows
+ambiguity and reduces implementation drift; it does not write delivery code in
+that role.
 
 The breakdown records file boundaries, API/data contracts, owner split,
 required evidence, tests, risk points, and explicit non-goals. Because this is

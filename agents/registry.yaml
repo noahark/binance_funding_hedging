@@ -72,15 +72,18 @@ adapters:
     prompt_mode: claude_print
     binary: claude
     default_review_model: "claude-fable-5"
+    fallback_review_model_on_quota: "opus4.8"
     availability_check_command: "command -v claude"
     read_only_review_command: "claude --model claude-fable-5 --permission-mode plan --json-schema \"$(cat schemas/review-verdict.schema.json)\" -p \"$(cat <prompt-file>)\""
+    fallback_read_only_review_command: "claude --model opus4.8 --permission-mode plan --json-schema \"$(cat schemas/review-verdict.schema.json)\" -p \"$(cat <prompt-file>)\""
     development_command: "claude --model claude-fable-5 --permission-mode acceptEdits -p \"$(cat <prompt-file>)\""
+    fallback_development_command_on_quota: "claude --model opus4.8 --permission-mode acceptEdits -p \"$(cat <prompt-file>)\""
     yolo_command: "claude --model claude-fable-5 --permission-mode bypassPermissions -p \"$(cat <prompt-file>)\""
     supports_write: true
     supports_read_only: true
     timeout_seconds: 1800
     notes:
-      - "Use fable5 for Claude review unless user or registry explicitly changes it."
+      - "Use fable5 first for Claude review; if fable5 quota is exhausted, use opus4.8 as the Anthropic fallback model."
       - "If --json-schema is unavailable locally, validate the captured final JSON verdict with the runner."
 
   codex:
@@ -91,15 +94,15 @@ adapters:
     default_model: "gpt-5.5"
     default_reasoning_effort: xhigh
     availability_check_command: "command -v codex"
-    development_command: "codex exec -C <repo> -m gpt-5.5 -s workspace-write - < <prompt-file>"
-    yolo_command: "codex exec -C <repo> -m gpt-5.5 --yolo - < <prompt-file>"
     schema_review_command: "codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>"
     freeform_review_command: "codex exec review --base <base> - < <prompt-file>"
     warning: "codex -p is --profile, not prompt"
-    supports_write: true
+    supports_write: false
     supports_read_only: true
+    supports_delivery_code_write: false
     timeout_seconds: 1800
     notes:
+      - "Codex is not an implementation or fix author in this Harness. Do not dispatch delivery code or fix tasks to Codex."
       - "If xhigh effort is implemented through a local profile/config, the runner must apply that profile/config."
       - "Do not silently downgrade model or reasoning effort; route through fallback rules."
 
@@ -369,6 +372,15 @@ model_policies:
     - provider: google
       model: "Gemini 3.1 Pro"
       trigger: "Enable only if design-conflict overrides become frequent or the user explicitly approves a third decision model."
+  implementation_routing:
+    codex_eligible_for_implementation_or_fix: false
+    default_backend_owner: claude_glm
+    default_frontend_owner: kimi
+    mixed_stage_policy:
+      - "If backend/API/schema/normalization work is the large majority and frontend work is light integration or copy/display wiring, dispatch the whole bounded task to claude_glm."
+      - "If frontend/UI/client integration work is the large majority and backend work is light endpoint/schema glue, dispatch the whole bounded task to kimi."
+      - "If backend and frontend work are both substantial and separable, split ownership: claude_glm owns backend/API/contracts/schemas/data semantics; kimi owns frontend/UI/client integration."
+      - "Fix routing follows the same domain ownership unless the active stage records a stricter owner or exclusion rule."
   terminal_stop_reasons:
     - decision_models_exhausted
     - development_models_exhausted
@@ -423,6 +435,7 @@ rotation_defaults:
   development_breakdown:
     provider: claude
     model: "claude-fable-5"
+    fallback_model_on_quota: "opus4.8"
     skill: task_planner
     output: "12-development-breakdown.md"
     required_for: [MEDIUM, HIGH, MILESTONE]
