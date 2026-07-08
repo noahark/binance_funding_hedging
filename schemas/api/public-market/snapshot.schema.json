@@ -365,7 +365,7 @@
         "portfolio_account": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["max_borrowable", "borrow_limit", "source"],
+          "required": ["max_borrowable", "borrow_limit", "error_code", "max_borrowable_value_usdt", "source"],
           "properties": {
             "max_borrowable": {
               "anyOf": [
@@ -379,6 +379,8 @@
                 { "type": "null" }
               ]
             },
+            "error_code": { "type": ["string", "null"] },
+            "max_borrowable_value_usdt": { "type": ["string", "null"] },
             "source": { "type": "string" }
           }
         },

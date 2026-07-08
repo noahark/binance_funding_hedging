@@ -28,6 +28,7 @@ from backend.domain.snapshot import (
     select_borrow_candidates,
     sort_rows,
 )
+from backend.domain.snapshot import _max_borrowable_value_usdt
 from backend.services import private_client
 from backend.services.private_client import PrivateClient, _select_chain_tier
 
@@ -1164,3 +1165,122 @@ def test_partial_batch_failure_partial_merge(monkeypatch):
     assert resolve_cost_leg_rate("A29", chain) is None
     # failure recorded (not a silent pass)
     assert client.last_error and "next_hourly_batch_failed" in client.last_error
+
+
+# =========================================================================
+# borrowability-zero-mapping-v1 — _max_borrowable_value_usdt 折算
+# (additive ≈USDT value; mirrors _usdt_value_optional: stable priced at 1,
+# missing price -> None, no warnings; 8dp _quantize_rate; neg-zero normalized)
+# =========================================================================
+@pytest.mark.parametrize(
+    "asset,amount,price_map,expected",
+    [
+        # 51061 confirmed-zero: amount "0" with a price -> "0.00000000"
+        ("SPELL", "0", {"SPELLUSDT": "0.5"}, "0.00000000"),
+        ("BTC", "10", {"BTCUSDT": "60000"}, "600000.00000000"),
+        ("BTC", "2", {"BTCUSDT": "3"}, "6.00000000"),
+        # missing price -> None (not 0, not a warning)
+        ("SPELL", "1.5", {}, None),
+        # null / blank / bad amount -> None
+        ("BTC", None, {"BTCUSDT": "60000"}, None),
+        ("BTC", "", {"BTCUSDT": "60000"}, None),
+        ("BTC", "not-a-number", {"BTCUSDT": "60000"}, None),
+        # stable assets priced at 1 (no price needed); amount at 8dp
+        ("USDT", "5.5", {}, "5.50000000"),
+        ("USDC", "5.5", {"USDCUSDT": "9"}, "5.50000000"),
+    ],
+)
+def test_max_borrowable_value_usdt_conversion(asset, amount, price_map, expected):
+    assert _max_borrowable_value_usdt(asset, amount, price_map) == expected
+
+
+# =========================================================================
+# borrowability-zero-mapping-v1 — assemble_borrow_validation portfolio_account
+# 三分支: classic_ref-None / borrowability_truncated / verified. Each branch
+# emits the SAME 5-key portfolio_account; only the additive error_code +
+# max_borrowable_value_usdt differ per branch.
+# =========================================================================
+_PA_KEYS = {"max_borrowable", "borrow_limit", "error_code",
+            "max_borrowable_value_usdt", "source"}
+
+
+def test_borrow_validation_classic_ref_none_branch_additive_fields():
+    # classic_ref None (channel disabled/failed): both additive fields None.
+    bv = assemble_borrow_validation(
+        {"symbol": "SPELLUSDT", "base_asset": "SPELL"}, None, {},
+        None, "private_channel_disabled",
+    )
+    assert set(bv["portfolio_account"]) == _PA_KEYS
+    assert bv["portfolio_account"]["error_code"] is None
+    assert bv["portfolio_account"]["max_borrowable_value_usdt"] is None
+
+
+def test_borrow_validation_truncated_branch_additive_fields():
+    # borrowability_truncated: portfolio cleared; both additive fields None
+    # (but the borrow rate + checked_at are KEPT).
+    bv = assemble_borrow_validation(
+        {"symbol": "SPELLUSDT", "base_asset": "SPELL"},
+        {"pair_listed_by_symbol": {"SPELLUSDT": True},
+         "asset_borrowable_by_name": {"SPELL": True},
+         "daily_interest_vip0_by_coin": {"SPELL": "0.0003"}},
+        {}, "t", None,
+        daily_interest_account="0.00012000", borrowability_truncated=True,
+    )
+    assert set(bv["portfolio_account"]) == _PA_KEYS
+    assert bv["portfolio_account"]["error_code"] is None
+    assert bv["portfolio_account"]["max_borrowable_value_usdt"] is None
+    assert bv["classic_margin"]["daily_interest_account"] == "0.00012000"  # rate kept
+
+
+def test_borrow_validation_verified_branch_zero_mapping_with_error_code():
+    # 51061 confirmed-zero: max_borrowable="0" + error_code="51061" carried
+    # through; the ≈USDT value is "0.00000000" (price present). verified stays
+    # true (verified does NOT consult max_borrowable).
+    bv = assemble_borrow_validation(
+        {"symbol": "SPELLUSDT", "base_asset": "SPELL"},
+        {"pair_listed_by_symbol": {"SPELLUSDT": True},
+         "asset_borrowable_by_name": {"SPELL": True},
+         "daily_interest_vip0_by_coin": {"SPELL": "0.0003"}},
+        {"SPELL": {"max_borrowable": "0", "borrow_limit": None,
+                   "error_code": "51061"}},
+        "t", None, price_map={"SPELLUSDT": "0.5"},
+    )
+    pa = bv["portfolio_account"]
+    assert set(pa) == _PA_KEYS
+    assert pa["max_borrowable"] == "0"
+    assert pa["error_code"] == "51061"
+    assert pa["max_borrowable_value_usdt"] == "0.00000000"
+    assert bv["verified"] is True
+
+
+def test_borrow_validation_verified_branch_quota_with_conversion():
+    # Quota case: max_borrowable="2" + error_code=None; conversion 2 * 3 = 6.
+    bv = assemble_borrow_validation(
+        {"symbol": "BTCUSDT", "base_asset": "BTC"},
+        {"pair_listed_by_symbol": {"BTCUSDT": True},
+         "asset_borrowable_by_name": {"BTC": True},
+         "daily_interest_vip0_by_coin": {"BTC": "0.0005"}},
+        {"BTC": {"max_borrowable": "2", "borrow_limit": "60", "error_code": None}},
+        "t", None, price_map={"BTCUSDT": "3"},
+    )
+    pa = bv["portfolio_account"]
+    assert set(pa) == _PA_KEYS
+    assert pa["max_borrowable"] == "2"
+    assert pa["error_code"] is None
+    assert pa["max_borrowable_value_usdt"] == "6.00000000"
+
+
+def test_borrow_validation_verified_branch_missing_price_value_null():
+    # Quota present but no USDT price -> value null while max_borrowable kept.
+    bv = assemble_borrow_validation(
+        {"symbol": "XYZUSDT", "base_asset": "XYZ"},
+        {"pair_listed_by_symbol": {"XYZUSDT": True},
+         "asset_borrowable_by_name": {"XYZ": True},
+         "daily_interest_vip0_by_coin": {}},
+        {"XYZ": {"max_borrowable": "1.5", "borrow_limit": "2", "error_code": None}},
+        "t", None, price_map={},  # no XYZUSDT price
+    )
+    pa = bv["portfolio_account"]
+    assert set(pa) == _PA_KEYS
+    assert pa["max_borrowable"] == "1.5"
+    assert pa["max_borrowable_value_usdt"] is None

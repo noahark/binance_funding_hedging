@@ -227,7 +227,10 @@ def test_offline_full_snapshot_validates_v02_schema(schema):
             "daily_interest_account",
             "source",
         }
-        assert set(bv["portfolio_account"]) == {"max_borrowable", "borrow_limit", "source"}
+        assert set(bv["portfolio_account"]) == {"max_borrowable", "borrow_limit", "error_code", "max_borrowable_value_usdt", "source"}
+        # offline -> classic_ref None branch: both additive fields are None
+        assert bv["portfolio_account"]["error_code"] is None
+        assert bv["portfolio_account"]["max_borrowable_value_usdt"] is None
 
 
 def test_offline_private_channel_disabled_all_rows_verified_false():

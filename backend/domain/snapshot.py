@@ -486,6 +486,33 @@ def _usdt_value_optional(asset, amount, price_map: Dict[str, str], warnings: Lis
         return None
 
 
+def _max_borrowable_value_usdt(asset, max_borrowable, price_map):
+    """≈USDT value of max_borrowable (additive, 8dp string like balance
+    value_usdt). None when amount is null/blank or price unavailable;
+    "0.00000000" when amount is a valid zero. Frontend renders 2dp via
+    formatUsdt2. Mirrors _usdt_value_optional (stable priced at 1; missing
+    price -> None) but emits NO warnings (a borrow valuation gap is not an
+    account alert) and ends with _quantize_rate for the exact balance format.
+    """
+    if max_borrowable is None or max_borrowable == "":
+        return None
+    try:
+        amt = Decimal(str(max_borrowable))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if asset in _STABLE_USD_ASSETS:
+        value = amt
+    else:
+        price = price_map.get(f"{asset}USDT")
+        if price is None or price == "":
+            return None
+        try:
+            value = amt * Decimal(str(price))
+        except (InvalidOperation, ValueError, TypeError):
+            return None
+    return _quantize_rate(value)
+
+
 def _balance_sort_key(row_with_index):
     idx, row = row_with_index
     raw = row.get("value_usdt")
@@ -684,6 +711,7 @@ def assemble_borrow_validation(
     *,
     daily_interest_account: Optional[str] = None,
     borrowability_truncated: bool = False,
+    price_map: Optional[Dict[str, str]] = None,
 ) -> dict:
     """Three-state borrow-validation block (parallel output; never alters classify).
 
@@ -722,6 +750,8 @@ def assemble_borrow_validation(
             "portfolio_account": {
                 "max_borrowable": None,
                 "borrow_limit": None,
+                "error_code": None,
+                "max_borrowable_value_usdt": None,
                 "source": "papi_max_borrowable",
             },
             "checked_at": None,
@@ -751,6 +781,8 @@ def assemble_borrow_validation(
             "portfolio_account": {
                 "max_borrowable": None,
                 "borrow_limit": None,
+                "error_code": None,
+                "max_borrowable_value_usdt": None,
                 "source": "papi_max_borrowable",
             },
             "checked_at": checked_at,
@@ -769,6 +801,9 @@ def assemble_borrow_validation(
         "portfolio_account": {
             "max_borrowable": portfolio.get("max_borrowable"),
             "borrow_limit": portfolio.get("borrow_limit"),
+            "error_code": portfolio.get("error_code"),
+            "max_borrowable_value_usdt": _max_borrowable_value_usdt(
+                base, portfolio.get("max_borrowable"), price_map or {}),
             "source": "papi_max_borrowable",
         },
         "checked_at": checked_at,
