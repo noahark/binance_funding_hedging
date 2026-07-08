@@ -2,73 +2,38 @@
 
 ## 当前状态
 
-status=`review_1`。GLM serial implementation 已由 bookkeeper/codex 冻结并提交，准备派发 fresh Kimi review-1。
+status=`stage_accepted_waiting_user`。review-1（Kimi/moonshot_kimi）ACCEPT + review-2（Claude/anthropic, `claude-opus-4-8`）ACCEPT，两份 verdict JSON 均 schema-valid 且 fingerprint 匹配。等待用户显式验收后方可合并回 `main`。
 
 ## 分支与提交
 
 - current branch: `stage/2026-07-ui-filter-balance-metal-v1`
-- stage_branch.name: `stage/2026-07-ui-filter-balance-metal-v1`
 - base_sha: `3d3c66e64446d1285a96b4a0e0843e912e4c540e`
 - frozen head_sha: `2e966904a6adb576adee8f979738ef664f80058c`
-- current HEAD after implementation evidence commit: `2e966904a6adb576adee8f979738ef664f80058c`
-- diff_fingerprint: `2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1`
+- diff_fingerprint: `2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1`（review-2 会话独立重算一致）
+- stage_branch.merged_back_to_main: `false`（未合并，等待用户验收）
 
-## 已完成
+## Review 结论
 
-- GLM 实现报告已落档：`reports/agent-runs/2026-07-ui-filter-balance-metal-v1/20-implementation.md`。
-- bookkeeper/codex 已复跑：
-  - `python3 -m pytest backend/tests -q` => `173 passed`
-  - `node frontend/self-check.js` => `全部自检通过`
-  - `git diff --check` => PASS
-  - 禁止项/旧格式 grep 审计 => 仅命中文档和测试中的缺失断言/说明
-- 本地 evidence commit 已创建：
-  - `2e966904a6adb576adee8f979738ef664f80058c bookkeeper(2026-07-ui-filter-balance-metal-v1): land GLM implementation evidence`
-- `status.json` 已记录 committed fingerprint、测试通过、task `serial` landed、review-1 Kimi 路由。
+- review-1 = Kimi（`moonshot_kimi`）ACCEPT，`next_action=continue`。原始输出 `review-1-kimi.raw-output.md`，规范记录 `30-review-1.md`。
+- review-2 = Claude（`anthropic`, `claude-opus-4-8`）ACCEPT，`next_action=stage_accepted_waiting_user`。记录 `50-review-2.md`。
+- 隔离：终审 provider `anthropic` 对 implementer(zhipu_glm)、designer/breakdown/bookkeeper(openai)、review-1(moonshot_kimi) 全隔离，`reviewer_prior_involvement=none`，无 strong-reviewer override。原 `model_routing.review_2=codex` 因 Codex 兼 designer/breakdown，按 AGENTS.md 隔离偏好改由独立 anthropic 终审（先例 `2026-07-private-account-ui-polish-v1`）。
 
-## 冻结 diff 范围
+## 12 项验收
 
-Kimi review-1 必须使用 status-recorded range，不使用移动 HEAD：
+review-2 独立复核逐条 PASS（低费率 BigInt 阈值边界、余额三行+隐私遮罩、整数千分位、value_usdt null/零、METAL 优先级与跨层同步、METAL 入只读借币候选/bStock 排除、未改私有执行路径）。本会话复跑：`pytest backend/tests -q` → `173 passed`；`node frontend/self-check.js` → `全部自检通过`；工作区 `git diff --check` → clean。
 
-```text
-git diff --binary 3d3c66e64446d1285a96b4a0e0843e912e4c540e..2e966904a6adb576adee8f979738ef664f80058c -- . ':(exclude)reports/agent-runs/2026-07-ui-filter-balance-metal-v1/status.json'
-```
+## Residual Risks（non-blocking follow-up）
 
-该范围包含 stage 设计/证据与 GLM 产品实现。review focus 应重点检查 GLM 实现改动、契约同步、测试覆盖和红线约束。
-
-## 代码改动文件
-
-- `backend/domain/normalize.py`
-- `backend/domain/snapshot.py`
-- `backend/tests/test_normalize.py`
-- `backend/tests/test_snapshot.py`
-- `docs/api/public-market-contract.md`
-- `frontend/fixture/public-market-snapshot.json`
-- `frontend/index.html`
-- `frontend/self-check.js`
-- `schemas/api/public-market/snapshot.schema.json`
-
-## 当前 git status
-
-本 checkpoint 写入时还有待提交的 bookkeeper 状态文件：
-
-```text
-M reports/agent-runs/2026-07-ui-filter-balance-metal-v1/status.json
-M reports/agent-runs/2026-07-ui-filter-balance-metal-v1/70-handoff.md
-```
-
-在正式 dispatch review-1 前，bookkeeper 必须提交这些状态文件、生成 review prompt、运行并保存 `scripts/validate-stage.py 2026-07-ui-filter-balance-metal-v1 --phase pre-review` 的 PASS 输出。
-
-## 开放问题 / 阻塞
-
-无产品阻塞。实现报告披露 `backend/services/snapshot_service.py` 中有两处 CRYPTO-only 注释漂移，但该文件不在实现边界内，当前行为由 `select_borrow_candidates()` 的 candidate set 控制；交给 review-1 判断是否要求修复。
+1. `backend/services/snapshot_service.py:132/:182` CRYPTO-only 注释陈旧（候选集已 `{CRYPTO, METAL}`）——纯注释、边界外、有测试覆盖，建议机械补正。
+2. 公开金属样本无 exact/B-suffix 现货腿，METAL 借币候选路径仅合成 fixture 覆盖——待补 live sample。
+3. 冻结区间 `git diff --check` 对 `task-serial-claude-glm.prompt.md:5-7` 报行尾空格（markdown 硬换行双空格，报告产物非产品代码）；工作区形式 diff-check clean。
 
 ## 下一步
 
-1. 生成 `review-1-kimi.prompt.md`。
-2. 提交 `status.json`、`70-handoff.md`、review prompt。
-3. 运行 `scripts/validate-stage.py 2026-07-ui-filter-balance-metal-v1 --phase pre-review` 并保存 PASS evidence。
-4. 派发 Kimi review-1，保存 raw output，校验最终 JSON verdict。
+1. 用户显式验收。
+2. 验收后 bookkeeper 执行 `stage/2026-07-ui-filter-balance-metal-v1` → `main` 的 `--no-ff` 合并，更新 `stage_branch.merged_back_to_main`/`merged_back_sha`，status → `accepted`。
+3. 可选：将 3 项 residual 开成后续机械跟进任务。
 
-本地北京时间: 2026-07-08 10:56:41 CST
-下一步模型: kimi
-下一步任务: fresh read-only review-1：检查冻结 diff 与 raw artifacts，输出 schema-valid verdict JSON。
+本地北京时间: 2026-07-08 13:42:10 CST
+下一步模型: human（用户显式验收）
+下一步任务: 确认验收；确认后由 bookkeeper 执行 no-ff 合并回 main。

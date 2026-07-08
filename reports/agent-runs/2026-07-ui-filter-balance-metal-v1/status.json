@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-ui-filter-balance-metal-v1",
-  "status": "review_1",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "complexity": {"classification": "MEDIUM", "reason": "frontend filter + private balance display + backend/schema/docs asset_tag enum"},
   "mode": "serial",
@@ -114,14 +114,43 @@
       "provider_identity": "moonshot_kimi"
     },
     "role": "first_reviewer",
-    "status": "dispatching",
+    "status": "accepted",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "next_action": "continue",
     "base_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
     "head_sha": "2e966904a6adb576adee8f979738ef664f80058c",
     "diff_fingerprint": "2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1",
     "dispatch_prompt": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/review-1-kimi.prompt.md",
     "raw_output": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/review-1-kimi.raw-output.md",
+    "review_record": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/30-review-1.md",
     "reviewer_prior_involvement": "none",
-    "json_schema_valid": null
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": {
+      "provider": "claude",
+      "model": "claude-opus-4-8",
+      "provider_identity": "anthropic"
+    },
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "primary_provider": "claude",
+    "role": "final_reviewer",
+    "status": "accepted",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "next_action": "stage_accepted_waiting_user",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "anthropic 终审者对 implementer(zhipu_glm)、designer/breakdown/bookkeeper(openai)、review-1(moonshot_kimi) 全部 provider 隔离，无本 stage 任何 direction/design/breakdown/implementation/fix 参与；无需 strong-reviewer override。原 model_routing.review_2=codex 因 Codex 兼 designer/breakdown，按 AGENTS.md review-2 隔离偏好改由独立 anthropic 终审（先例：2026-07-private-account-ui-polish-v1）。实际模型 claude-opus-4-8（用户当前会话），非 registry 默认 fable5，已如实披露。",
+    "design_conflict_override": {"used": false, "reason": null, "unrelated_reviewer_unavailable_evidence": null},
+    "base_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
+    "head_sha": "2e966904a6adb576adee8f979738ef664f80058c",
+    "diff_fingerprint": "2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1",
+    "raw_output": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/50-review-2.md",
+    "review_record": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/50-review-2.md",
+    "invalid_json_attempts": 0,
+    "open_p0_p1": 0
   },
   "resolved_decisions": [
     "低日费率过滤按 abs(Decimal(daily_funding_rate)) <= 0.00030000 判断，UI 文案为 |日费率| <= 0.03%。",
@@ -145,6 +174,6 @@
     "新增 METAL 必须 schema/docs/backend/frontend/tests 同步。",
     "METAL 不得作为 bStock 式禁用约束；可借性必须来自现有私有只读接口返回。"
   ],
-  "next_step": "已冻结 GLM 实现 diff 并计算 committed fingerprint；生成 Kimi review-1 prompt，运行 pre-review validator 后派发 Kimi。",
-  "updated_at": "2026-07-08 10:56:41 CST"
+  "next_step": "review-1(Kimi ACCEPT)+review-2(Claude/anthropic ACCEPT) 均已录入并 schema-valid；status=stage_accepted_waiting_user。等待用户显式验收后由 bookkeeper 执行 stage 分支 → main 的 no-ff 合并。review-2 ACCEPT 不授权合并。",
+  "updated_at": "2026-07-08 13:42:10 CST"
 }
