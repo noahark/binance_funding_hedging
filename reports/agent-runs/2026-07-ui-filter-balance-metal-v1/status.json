@@ -1,12 +1,12 @@
 {
   "stage_id": "2026-07-ui-filter-balance-metal-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "complexity": {"classification": "MEDIUM", "reason": "frontend filter + private balance display + backend/schema/docs asset_tag enum"},
   "mode": "serial",
   "base_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "2e966904a6adb576adee8f979738ef664f80058c",
+  "diff_fingerprint": "2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1",
   "stage_branch": {
     "name": "stage/2026-07-ui-filter-balance-metal-v1",
     "created_from_main_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
@@ -48,6 +48,8 @@
   },
   "implementer": "claude_glm",
   "implementers": ["claude_glm"],
+  "designer": "codex_current_session",
+  "breakdown_author": "codex_current_session",
   "prior_involvement_disclosure": {
     "codex": "本轮创建需求草稿、设计草稿、breakdown 草稿和 stage 状态；属于 design/breakdown involvement。若担任 final reviewer 需披露；不得 review 自己实现的代码。",
     "user": "用户直接给出三项需求并要求创建需求草稿和 stage。"
@@ -72,7 +74,21 @@
   "tasks": [
     {
       "id": "serial",
-      "status": "dispatched",
+      "status": "landed",
+      "base_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
+      "head_sha": "2e966904a6adb576adee8f979738ef664f80058c",
+      "diff_fingerprint": "2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1",
+      "changed_files": [
+        "backend/domain/normalize.py",
+        "backend/domain/snapshot.py",
+        "backend/tests/test_normalize.py",
+        "backend/tests/test_snapshot.py",
+        "docs/api/public-market-contract.md",
+        "frontend/fixture/public-market-snapshot.json",
+        "frontend/index.html",
+        "frontend/self-check.js",
+        "schemas/api/public-market/snapshot.schema.json"
+      ],
       "owner": {
         "provider": "claude_glm",
         "model": "glm-5.2",
@@ -91,6 +107,22 @@
       }
     }
   ],
+  "review_1": {
+    "reviewer": {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi"
+    },
+    "role": "first_reviewer",
+    "status": "dispatching",
+    "base_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
+    "head_sha": "2e966904a6adb576adee8f979738ef664f80058c",
+    "diff_fingerprint": "2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1",
+    "dispatch_prompt": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/review-1-kimi.prompt.md",
+    "raw_output": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/review-1-kimi.raw-output.md",
+    "reviewer_prior_involvement": "none",
+    "json_schema_valid": null
+  },
   "resolved_decisions": [
     "低日费率过滤按 abs(Decimal(daily_funding_rate)) <= 0.00030000 判断，UI 文案为 |日费率| <= 0.03%。",
     "daily_funding_rate null 不由低日费率过滤隐藏。",
@@ -102,9 +134,9 @@
   ],
   "open_questions": [],
   "tests": {
-    "status": "not_run",
+    "status": "pass",
     "evidence": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/60-test-output.txt",
-    "reason": "已进入 serial implementation；产品测试由实现者完成后由 bookkeeper 复跑并落档。"
+    "detail": "bookkeeper/codex retest: python3 -m pytest backend/tests -q => 173 passed; node frontend/self-check.js => 全部自检通过; git diff --check => PASS."
   },
   "hard_constraints": [
     "未获用户确认前不进入实现。",
@@ -113,6 +145,6 @@
     "新增 METAL 必须 schema/docs/backend/frontend/tests 同步。",
     "METAL 不得作为 bStock 式禁用约束；可借性必须来自现有私有只读接口返回。"
   ],
-  "next_step": "已生成 serial implementation prompt 并选择 claude_glm 实现；实现完成后 bookkeeper 冻结 diff、运行 pre-review validator 并派发 Kimi review-1。",
-  "updated_at": "2026-07-08 09:38:08 CST"
+  "next_step": "已冻结 GLM 实现 diff 并计算 committed fingerprint；生成 Kimi review-1 prompt，运行 pre-review validator 后派发 Kimi。",
+  "updated_at": "2026-07-08 10:56:41 CST"
 }
