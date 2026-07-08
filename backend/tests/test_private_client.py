@@ -213,7 +213,7 @@ def test_rate_limit_backoff_retries_once_then_succeeds(monkeypatch):
         (json.dumps({"amount": "1.0", "borrowLimit": "60"}), 200),  # retry succeeds
     ])
     result = client.fetch_max_borrowable("BTC")
-    assert result == {"max_borrowable": "1.0", "borrow_limit": "60"}
+    assert result == {"max_borrowable": "1.0", "borrow_limit": "60", "error_code": None}
     assert len(client.audit_log) == 2  # both attempts logged
 
 
@@ -222,7 +222,7 @@ def test_rate_limit_429_also_retries(monkeypatch):
         ('{"code":-1003,"msg":"x"}', 429),
         (json.dumps({"amount": "2", "borrowLimit": "5"}), 200),
     ])
-    assert client.fetch_max_borrowable("ETH") == {"max_borrowable": "2", "borrow_limit": "5"}
+    assert client.fetch_max_borrowable("ETH") == {"max_borrowable": "2", "borrow_limit": "5", "error_code": None}
 
 
 # ---- 7. endpoint failure -> caller degrades (None + last_error) ----
@@ -259,4 +259,32 @@ def test_max_borrowable_maps_raw_fields(monkeypatch):
     client = _make_client(monkeypatch, [
         (json.dumps({"amount": "1.5", "borrowLimit": "60"}), 200),
     ])
-    assert client.fetch_max_borrowable("BTC") == {"max_borrowable": "1.5", "borrow_limit": "60"}
+    assert client.fetch_max_borrowable("BTC") == {"max_borrowable": "1.5", "borrow_limit": "60", "error_code": None}
+
+
+def test_max_borrowable_51061_maps_to_zero(monkeypatch):
+    # Binance 51061 "insufficient loanable assets" = a CONFIRMED 0 (pool exhausted),
+    # not an unknown. Mapped to a definite "0" + error_code (the 400 body has no
+    # borrowLimit). See reports/follow-ups/2026-07-borrowability-51061-zero-mapping.md.
+    client = _make_client(monkeypatch, [
+        _http_error(400, '{"code": 51061, "msg": "insufficient loanable assets"}'),
+    ])
+    assert client.fetch_max_borrowable("SPELL") == {
+        "max_borrowable": "0", "borrow_limit": None, "error_code": "51061",
+    }
+
+
+def test_max_borrowable_unknown_positive_business_code_distinct_log(monkeypatch):
+    # A POSITIVE Binance business code NOT in the zero set -> None + a distinct
+    # discovery log (max_borrowable_business_error) so a real sample can surface.
+    # Negative codes (-1xxx/-2xxx) stay on max_borrowable_failed (see :238).
+    client = _make_client(monkeypatch, [_http_error(400, '{"code": 59999}')])
+    assert client.fetch_max_borrowable("BTC") is None
+    assert client.last_error == "max_borrowable_business_error:BTC:59999"
+
+
+def test_max_borrowable_system_error_no_business_code(monkeypatch):
+    # No business code in the body (network/5xx/timeout) -> None + system error log.
+    client = _make_client(monkeypatch, [_http_error(500, "upstream")])
+    assert client.fetch_max_borrowable("BTC") is None
+    assert client.last_error.startswith("max_borrowable_failed:BTC")

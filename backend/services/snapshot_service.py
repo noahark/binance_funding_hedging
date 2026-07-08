@@ -129,7 +129,7 @@ class SnapshotService:
         private_channel_status = "enabled" if classic_ref is not None else "disabled"
         private_error = self._private.last_error if classic_ref is None else None
 
-        # §1.5 borrow probe sets (neg funding + MARGIN_SPOT_CANDIDATE + CRYPTO,
+        # §1.5 borrow probe sets (neg funding + MARGIN_SPOT_CANDIDATE + {CRYPTO, METAL},
         # deduped by base_asset). The rate budget (rate_probe_assets, full pool)
         # and the borrowability budget (borrowability_probe_assets, capped at
         # borrow_check_max_calls) are decoupled: rate coverage is NOT bounded by
@@ -179,7 +179,7 @@ class SnapshotService:
 
         # W4 maxBorrowable for the borrowability-probed candidate set (1h TTL;
         # bounded probe loop over assets, NOT the row loop). bStock rows are
-        # excluded upstream (asset_tag != CRYPTO); their portfolio_account amount
+        # excluded upstream (asset_tag not in {CRYPTO, METAL}); their portfolio_account amount
         # fields stay null.
         portfolio_by_asset: dict = {}
         for asset in borrowability_probe_assets:
@@ -189,6 +189,7 @@ class SnapshotService:
             portfolio_by_asset[asset] = res or {
                 "max_borrowable": None,
                 "borrow_limit": None,
+                "error_code": None,
             }
 
         # ---- row assembly (pure; no HTTP) ----
@@ -215,6 +216,7 @@ class SnapshotService:
                 private_error,
                 daily_interest_account=daily_borrow_rate,
                 borrowability_truncated=base in borrowability_unprobed_assets,
+                price_map=price_map,
             )
 
         # §1.2 sort_basis: net when the cost leg is available (incl. vip0_reference),

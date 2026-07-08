@@ -80,11 +80,18 @@ class PrivateEndpointError(Exception):
     a reason in ``borrow_validation.error`` without surfacing credentials.
     """
 
-    def __init__(self, logical_path: str, status: Optional[int], reason: str):
+    def __init__(self, logical_path: str, status: Optional[int], reason: str, code: Optional[int] = None):
         self.logical_path = logical_path
         self.status = status
         self.reason = reason
+        self.code = code  # Binance business code parsed from JSON body, or None
         super().__init__(f"{logical_path} failed: status={status} reason={reason}")
+
+
+# Binance business codes that mean "confirmed 0 borrowable" (pool exhausted).
+# Extend only with codes confirmed by a raw sample; see reports/follow-ups.
+# 51061 = "insufficient loanable assets" (HTTP 400 body {code,msg}, no borrowLimit).
+BORROW_ZERO_BUSINESS_CODES = frozenset({51061})
 
 
 class PrivateClient:
@@ -171,7 +178,13 @@ class PrivateClient:
             time.sleep(0.5)
             return self._signed_get(method, path, params, _retry=False)
         if status is None or status >= 400:
-            raise PrivateEndpointError(path, status, err or "unknown")
+            biz_code = None
+            if body:
+                try:
+                    biz_code = json.loads(body).get("code")
+                except (ValueError, TypeError):
+                    biz_code = None
+            raise PrivateEndpointError(path, status, err or "unknown", code=biz_code)
         return json.loads(body)
 
     @staticmethod
@@ -240,8 +253,9 @@ class PrivateClient:
     def fetch_max_borrowable(self, asset: str) -> Optional[Dict[str, Optional[str]]]:
         """Account-level maxBorrowable for one asset (W4), 1h TTL.
 
-        Returns ``{"max_borrowable", "borrow_limit"}`` (raw strings) or ``None``
-        (disabled/failed). On failure sets ``last_error``.
+        Returns ``{"max_borrowable", "borrow_limit", "error_code"}`` (raw strings;
+        ``error_code`` is ``"51061"`` when the pool is confirmed exhausted, else
+        ``None``) or ``None`` (disabled/failed). On failure sets ``last_error``.
         """
         if not self.enabled:
             return None
@@ -250,11 +264,24 @@ class PrivateClient:
                 "GET", "/papi/v1/margin/maxBorrowable", {"asset": asset}
             )
         except PrivateEndpointError as exc:
+            if exc.code in BORROW_ZERO_BUSINESS_CODES:
+                # Confirmed 0: pool exhausted, not "unknown". The 400 body is
+                # {code,msg} with no borrowLimit field, so borrow_limit stays None.
+                return {"max_borrowable": "0", "borrow_limit": None,
+                        "error_code": str(exc.code)}
+            if isinstance(exc.code, int) and exc.code > 0:
+                # Positive business code not in the zero set: distinct discovery log
+                # so a real sample surfaces. Negative codes (-1xxx/-2xxx) are
+                # system/auth failures and fall through to max_borrowable_failed.
+                self.last_error = f"max_borrowable_business_error:{asset}:{exc.code}"
+                return None
+            # negative system/auth codes (-1003/-2014/-2015) & bodyless network/5xx
             self.last_error = f"max_borrowable_failed:{asset}:{exc.reason}"
             return None
         return {
             "max_borrowable": data.get("amount"),
             "borrow_limit": data.get("borrowLimit"),
+            "error_code": None,
         }
 
     # -- cost-leg chain (10-design §1.3) --

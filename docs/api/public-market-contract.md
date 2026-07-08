@@ -613,3 +613,65 @@ plus a separate `冻结:` line and their own `≈ value USDT` line.
 `negative_funding_status` / `route_class` enums and their priority order,
 `classify.py`, the v0.1–v0.4 field set, and `sort_basis` semantics are unchanged.
 `METAL` is additive; `bStock` remains disabled for negative-funding arbitrage.
+
+## Borrowability Zero-Mapping Amendment (v0.6, stage `2026-07-borrowability-error-zero-mapping-v1`)
+
+Frozen 2026-07-09. Wire `schema_version` stays `public-market-snapshot/v1`; every
+change is **additive** (the v0.1–v0.5 normalized samples still validate). The
+Binance 51061 "insufficient loanable assets" pool-exhausted business error was
+previously surfaced as `portfolio_account.max_borrowable=null` even though it is a
+*confirmed 0*, not an unknown. This amendment maps it to a definite `"0"` plus an
+`error_code`, and adds an additive ≈USDT valuation of the borrowable amount.
+Evidence: live SPELLUSDT capture
+(`HTTP 400 {"code":51061,"msg":"...insufficient loanable assets..."}`) in
+`reports/follow-ups/2026-07-borrowability-51061-zero-mapping.md`. Authority order:
+`10-design.md` > this contract section.
+
+### `portfolio_account` three-state semantics (revised)
+
+`portfolio_account` gains two additive fields, both `string | null`, and both added
+to `required` (all three backend exits emit them stably):
+
+- `error_code`: the Binance business code string when the pool is confirmed
+  exhausted (`"51061"`), else `null`.
+- `max_borrowable_value_usdt`: backend-computed ≈USDT value of `max_borrowable` via
+  the same `{asset}USDT` price map as `private_account.*.value_usdt` (8-place
+  string; stable USD assets priced at 1; `"0.00000000"` when the amount is a valid
+  zero). `null` when `max_borrowable` is null/blank or price is unavailable.
+
+`max_borrowable` + `error_code` together express the three borrowability states:
+
+| state | `max_borrowable` | `error_code` | `borrow_validation.error` |
+|---|---|---|---|
+| exhausted (confirmed 0) | `"0"` | `"51061"` | `null` |
+| has quota (>0) | `">0"` string | `null` | `null` |
+| not probed (truncated) | `null` | `null` | `"borrowability_not_probed"` |
+| system error / unconfigured | `null` | `null` | the system error string, or `null` (verified branch) |
+
+- `max_borrowable="0"` + `error_code="51061"` — probed and confirmed exhausted. The
+  400 body is `{code,msg}` with no `borrowLimit` field, so `borrow_limit` is `null`.
+- `max_borrowable=null` + `error="borrowability_not_probed"` — borrowability not
+  probed (beyond the `maxBorrowable` budget). `null` is reserved for "unknown".
+- A non-51061 business error, network failure, 5xx, or `-1003` retry-exhausted
+  failure → `max_borrowable=null`, `error_code=null`. An *unknown* business code (a
+  real Binance `code` not in the confirmed-zero set) is **not** enumerated today: it
+  falls to `null` and is logged in the backend `last_error` as
+  `max_borrowable_business_error:<asset>:<code>` so a real sample can surface later.
+  Only `51061` is mapped to `"0"`; extending the set is a single-element change to
+  `BORROW_ZERO_BUSINESS_CODES` once a raw sample confirms a code.
+
+### `verified` semantics (unchanged)
+
+`verified` keeps its existing definition: classic reference available +
+`pair_listed` + `asset_borrowable`. It does **not** consult `max_borrowable`. A row
+may therefore be `verified=true` with `max_borrowable="0"` + `error_code="51061"`
+(classic reference validated, but the pool is exhausted); the frontend renders a
+non-success "可借 0(已借完)" badge instead of the green "已验证可借".
+
+### Regression red lines (still unchanged)
+
+`negative_funding_status` / `route_class` / `asset_tag` enums and their priority,
+`classify.py`, `normalize.py`, the v0.1–v0.5 field set, and `sort_basis` semantics
+are unchanged. All v0.6 additions are additive; `max_borrowable` moving from `null`
+to `"0"` under 51061 is a bug-fix of a confirmed-zero state, not a shape change.
+`bStock` remains disabled for negative-funding arbitrage.

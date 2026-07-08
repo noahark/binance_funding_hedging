@@ -919,7 +919,14 @@
         const bv = row.borrow_validation;
         if (bv && bv.verified === true) {
           const cm = bv.classic_margin || {};
+          const pa = bv.portfolio_account || {};
           if (cm.pair_listed === true && cm.asset_borrowable === true) {
+            // Confirmed exhausted (Binance 51061 "insufficient loanable assets"):
+            // not structurally un-borrowable, just "the pool is empty today" —
+            // render a warn badge instead of the green success one.
+            if (pa.max_borrowable === '0') {
+              return `<span class="badge warn" title="PRIVATE_BORROW_VALIDATION_REQUIRED · code ${escapeHtml(pa.error_code || '')}">可借 0(已借完)</span>`;
+            }
             return `<span class="badge success" title="PRIVATE_BORROW_VALIDATION_REQUIRED">已验证可借</span>`;
           }
           if (cm.pair_listed === false) {
@@ -1152,6 +1159,15 @@
               borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(vip0Rate)} <span class="badge compact warn">参考</span></span>`;
             } else {
               borrowSubline = `<br/><span class="muted small">日借币: -</span>`;
+            }
+            // 可借数量 + ≈USDT：仅在已探测 max_borrowable 时展示。
+            // null（未探测/系统错误）不展示，避免误导；"0" 加「已借完」compact 标。
+            const pa = row.borrow_validation && row.borrow_validation.portfolio_account;
+            if (pa && pa.max_borrowable != null) {
+              const usdt2 = formatUsdt2(pa.max_borrowable_value_usdt);
+              const val = usdt2 != null ? ` (≈ ${usdt2} USDT)` : '';
+              const zeroTag = pa.max_borrowable === '0' ? ' <span class="badge compact warn">已借完</span>' : '';
+              borrowSubline += `<br/><span class="muted small">可借: ${escapeHtml(pa.max_borrowable)}${val}${zeroTag}</span>`;
             }
           }
           const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0

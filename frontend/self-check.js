@@ -896,6 +896,100 @@ setTimeout(async () => {
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] METAL 资产标签徽章与下拉选项');
 
+    // 41. 借币三态：51061 借光 / 有额度 / 未探测（max_borrowable + error_code）。
+    //   独立 deep-copy 场景，不动默认 6 行基线语义。
+    //   (a) AUSDT 借光：max_borrowable='0'+error_code='51061' → warn badge
+    //       「可借 0(已借完)」（title 含 51061，非 success），net-yield 可借子行含
+    //       「可借: 0」+「已借完」+「≈ 0.00 USDT」。
+    //   (b) BUSDT 有额度：max_borrowable='5.0'+error_code=null → success badge
+    //       「已验证可借」，可借子行含「可借: 5.0」+「≈ 30000.00 USDT」、无「已借完」。
+    //   (c) CUSDT 未探测：max_borrowable=null → 无可借子行，badge 保持
+    //       「有利率·可借性未探测」。
+    {
+      const triFixture = JSON.parse(JSON.stringify(designFixture));
+      // (a) AUSDT 借光（已验证 + pair_listed + asset_borrowable + borrow_rate_source 命中）
+      triFixture.rows[0].negative_funding_status = 'PRIVATE_BORROW_VALIDATION_REQUIRED';
+      triFixture.rows[0].borrow_validation.verified = true;
+      triFixture.rows[0].borrow_validation.classic_margin.pair_listed = true;
+      triFixture.rows[0].borrow_validation.classic_margin.asset_borrowable = true;
+      triFixture.rows[0].borrow_validation.classic_margin.daily_interest_account = '0.00010000';
+      triFixture.rows[0].borrow_rate_source = 'next_hourly';
+      triFixture.rows[0].borrow_validation.portfolio_account = {
+        max_borrowable: '0', borrow_limit: null,
+        error_code: '51061', max_borrowable_value_usdt: '0.00000000',
+        source: 'papi_max_borrowable'
+      };
+      // (b) BUSDT 有额度
+      triFixture.rows[1].negative_funding_status = 'PRIVATE_BORROW_VALIDATION_REQUIRED';
+      triFixture.rows[1].borrow_validation.verified = true;
+      triFixture.rows[1].borrow_validation.classic_margin.pair_listed = true;
+      triFixture.rows[1].borrow_validation.classic_margin.asset_borrowable = true;
+      triFixture.rows[1].borrow_validation.classic_margin.daily_interest_account = '0.00010000';
+      triFixture.rows[1].borrow_rate_source = 'next_hourly';
+      triFixture.rows[1].borrow_validation.portfolio_account = {
+        max_borrowable: '5.0', borrow_limit: '100',
+        error_code: null, max_borrowable_value_usdt: '30000.00000000',
+        source: 'papi_max_borrowable'
+      };
+      // (c) CUSDT 未探测（borrowability_not_probed：max_borrowable=null）
+      triFixture.rows[2].negative_funding_status = 'PRIVATE_BORROW_VALIDATION_REQUIRED';
+      triFixture.rows[2].borrow_validation.verified = false;
+      triFixture.rows[2].borrow_validation.error = 'borrowability_not_probed';
+      triFixture.rows[2].borrow_validation.classic_margin.daily_interest_account = '0.00010000';
+      triFixture.rows[2].borrow_rate_source = 'next_hourly';
+      triFixture.rows[2].borrow_validation.portfolio_account = {
+        max_borrowable: null, borrow_limit: null,
+        error_code: null, max_borrowable_value_usdt: null,
+        source: 'papi_max_borrowable'
+      };
+      helpers.ingestSnapshot(triFixture);
+      const triTbody = elements['market-table-body'].innerHTML;
+      // (a) AUSDT 借光
+      const ausdtStatus = getRowCell(triTbody, 'AUSDT', 8);
+      if (!ausdtStatus.includes('可借 0(已借完)')) {
+        throw new Error('AUSDT 借光未渲染「可借 0(已借完)」warn badge: ' + ausdtStatus);
+      }
+      if (ausdtStatus.includes('badge success')) {
+        throw new Error('AUSDT 借光 badge 不应为 success（非绿色「已验证可借」）: ' + ausdtStatus);
+      }
+      if (!ausdtStatus.includes('51061')) {
+        throw new Error('AUSDT 借光 badge title 应含 error_code 51061: ' + ausdtStatus);
+      }
+      const ausdtNet = getRowCell(triTbody, 'AUSDT', 6);
+      if (!ausdtNet.includes('可借: 0') || !ausdtNet.includes('已借完')) {
+        throw new Error('AUSDT 借光 net-yield 应含「可借: 0」与「已借完」: ' + ausdtNet);
+      }
+      if (!ausdtNet.includes('≈ 0.00 USDT')) {
+        throw new Error('AUSDT 借光 ≈USDT 应显 0.00: ' + ausdtNet);
+      }
+      // (b) BUSDT 有额度
+      const busdtStatus = getRowCell(triTbody, 'BUSDT', 8);
+      if (!busdtStatus.includes('已验证可借') || !busdtStatus.includes('badge success')) {
+        throw new Error('BUSDT 有额度应渲染 success「已验证可借」: ' + busdtStatus);
+      }
+      const busdtNet = getRowCell(triTbody, 'BUSDT', 6);
+      if (!busdtNet.includes('可借: 5.0')) {
+        throw new Error('BUSDT 有额度 net-yield 应含「可借: 5.0」: ' + busdtNet);
+      }
+      if (!busdtNet.includes('≈ 30000.00 USDT')) {
+        throw new Error('BUSDT 有额度 ≈USDT 应显 30000.00: ' + busdtNet);
+      }
+      if (busdtNet.includes('已借完')) {
+        throw new Error('BUSDT 有额度不应含「已借完」: ' + busdtNet);
+      }
+      // (c) CUSDT 未探测
+      const cusdtStatus = getRowCell(triTbody, 'CUSDT', 8);
+      if (!cusdtStatus.includes('有利率·可借性未探测')) {
+        throw new Error('CUSDT 未探测 badge 应保持「有利率·可借性未探测」: ' + cusdtStatus);
+      }
+      const cusdtNet = getRowCell(triTbody, 'CUSDT', 6);
+      if (cusdtNet.includes('可借:')) {
+        throw new Error('CUSDT 未探测（max_borrowable=null）不应展示可借子行: ' + cusdtNet);
+      }
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 借币三态（51061 借光/有额度/未探测）');
+    }
+
     console.log('\n全部自检通过');
     process.exit(0);
   } catch (err) {

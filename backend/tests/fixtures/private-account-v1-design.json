@@ -32,7 +32,7 @@
       "daily_funding_rate": "-0.00060000",
       "net_daily_yield": "0.00040000",
       "borrow_rate_source": "next_hourly",
-      "borrow_validation": {"verified": true, "classic_margin": {"pair_listed": true, "asset_borrowable": true, "daily_interest_vip0": "<AMOUNT>", "daily_interest_account": "<AMOUNT>", "source": "next_hourly"}, "portfolio_account": {"max_borrowable": "<AMOUNT>", "borrow_limit": "<AMOUNT>", "source": "papi_maxBorrowable"}, "checked_at": "2026-07-05T23:30:00Z", "error": null}
+      "borrow_validation": {"verified": true, "classic_margin": {"pair_listed": true, "asset_borrowable": true, "daily_interest_vip0": "<AMOUNT>", "daily_interest_account": "<AMOUNT>", "source": "next_hourly"}, "portfolio_account": {"max_borrowable": "<AMOUNT>", "borrow_limit": "<AMOUNT>", "error_code": null, "max_borrowable_value_usdt": "<AMOUNT>", "source": "papi_maxBorrowable"}, "checked_at": "2026-07-05T23:30:00Z", "error": null}
     },
     {
       "symbol": "BUSDT",
@@ -53,7 +53,7 @@
       "daily_funding_rate": "-0.00070000",
       "net_daily_yield": "0.00010000",
       "borrow_rate_source": "cross_margin_tier",
-      "borrow_validation": {"verified": true, "classic_margin": {"pair_listed": true, "asset_borrowable": true, "daily_interest_vip0": "<AMOUNT>", "daily_interest_account": "<AMOUNT>", "source": "cross_margin_tier"}, "portfolio_account": {"max_borrowable": "<AMOUNT>", "borrow_limit": "<AMOUNT>", "source": "papi_maxBorrowable"}, "checked_at": "2026-07-05T23:30:00Z", "error": null}
+      "borrow_validation": {"verified": true, "classic_margin": {"pair_listed": true, "asset_borrowable": true, "daily_interest_vip0": "<AMOUNT>", "daily_interest_account": "<AMOUNT>", "source": "cross_margin_tier"}, "portfolio_account": {"max_borrowable": "<AMOUNT>", "borrow_limit": "<AMOUNT>", "error_code": null, "max_borrowable_value_usdt": "<AMOUNT>", "source": "papi_maxBorrowable"}, "checked_at": "2026-07-05T23:30:00Z", "error": null}
     },
     {
       "symbol": "CUSDT",
@@ -74,7 +74,7 @@
       "daily_funding_rate": "0.00030000",
       "net_daily_yield": "0.00030000",
       "borrow_rate_source": null,
-      "borrow_validation": {"verified": true, "classic_margin": {"pair_listed": true, "asset_borrowable": true, "daily_interest_vip0": "<AMOUNT>", "daily_interest_account": null, "source": "vip0_reference"}, "portfolio_account": {"max_borrowable": "<AMOUNT>", "borrow_limit": "<AMOUNT>", "source": "papi_maxBorrowable"}, "checked_at": "2026-07-05T23:30:00Z", "error": null}
+      "borrow_validation": {"verified": true, "classic_margin": {"pair_listed": true, "asset_borrowable": true, "daily_interest_vip0": "<AMOUNT>", "daily_interest_account": null, "source": "vip0_reference"}, "portfolio_account": {"max_borrowable": "<AMOUNT>", "borrow_limit": "<AMOUNT>", "error_code": null, "max_borrowable_value_usdt": "<AMOUNT>", "source": "papi_maxBorrowable"}, "checked_at": "2026-07-05T23:30:00Z", "error": null}
     },
     {
       "symbol": "DUSDT",
@@ -95,7 +95,7 @@
       "daily_funding_rate": "-0.00040000",
       "net_daily_yield": null,
       "borrow_rate_source": null,
-      "borrow_validation": {"verified": false, "classic_margin": {"pair_listed": true, "asset_borrowable": false, "daily_interest_vip0": "<AMOUNT>", "daily_interest_account": null, "source": "vip0_reference"}, "portfolio_account": {"max_borrowable": null, "borrow_limit": null, "source": "papi_maxBorrowable"}, "checked_at": "2026-07-05T23:30:00Z", "error": "asset_not_borrowable"}
+      "borrow_validation": {"verified": false, "classic_margin": {"pair_listed": true, "asset_borrowable": false, "daily_interest_vip0": "<AMOUNT>", "daily_interest_account": null, "source": "vip0_reference"}, "portfolio_account": {"max_borrowable": null, "borrow_limit": null, "error_code": null, "max_borrowable_value_usdt": null, "source": "papi_maxBorrowable"}, "checked_at": "2026-07-05T23:30:00Z", "error": "asset_not_borrowable"}
     },
     {
       "symbol": "EUSDT",
@@ -116,7 +116,7 @@
       "daily_funding_rate": "-0.00080000",
       "net_daily_yield": null,
       "borrow_rate_source": null,
-      "borrow_validation": {"verified": false, "classic_margin": {"pair_listed": null, "asset_borrowable": null, "daily_interest_vip0": "<AMOUNT>", "daily_interest_account": null, "source": "vip0_reference"}, "portfolio_account": {"max_borrowable": null, "borrow_limit": null, "source": "not_probed"}, "checked_at": null, "error": "not_probed_this_round"}
+      "borrow_validation": {"verified": false, "classic_margin": {"pair_listed": null, "asset_borrowable": null, "daily_interest_vip0": "<AMOUNT>", "daily_interest_account": null, "source": "vip0_reference"}, "portfolio_account": {"max_borrowable": null, "borrow_limit": null, "error_code": null, "max_borrowable_value_usdt": null, "source": "not_probed"}, "checked_at": null, "error": "not_probed_this_round"}
     },
     {
       "symbol": "FUSDT",
@@ -137,7 +137,7 @@
       "daily_funding_rate": null,
       "net_daily_yield": null,
       "borrow_rate_source": null,
-      "borrow_validation": {"verified": false, "classic_margin": {"pair_listed": null, "asset_borrowable": null, "daily_interest_vip0": null, "daily_interest_account": null, "source": "vip0_reference"}, "portfolio_account": {"max_borrowable": null, "borrow_limit": null, "source": "disabled_spot_only"}, "checked_at": null, "error": null}
+      "borrow_validation": {"verified": false, "classic_margin": {"pair_listed": null, "asset_borrowable": null, "daily_interest_vip0": null, "daily_interest_account": null, "source": "vip0_reference"}, "portfolio_account": {"max_borrowable": null, "borrow_limit": null, "error_code": null, "max_borrowable_value_usdt": null, "source": "disabled_spot_only"}, "checked_at": null, "error": null}
     }
   ],
   "borrow_validation": {
