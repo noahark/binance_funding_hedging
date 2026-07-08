@@ -1,0 +1,85 @@
+{
+  "endpoint": "/api/v3/exchangeInfo?symbol=<symbol>",
+  "queries": [
+    {
+      "symbol": "XAUUSDT",
+      "http_status": 400,
+      "response": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      }
+    },
+    {
+      "symbol": "XAGUSDT",
+      "http_status": 400,
+      "response": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      }
+    },
+    {
+      "symbol": "XPTUSDT",
+      "http_status": 400,
+      "response": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      }
+    },
+    {
+      "symbol": "XPDUSDT",
+      "http_status": 400,
+      "response": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      }
+    },
+    {
+      "symbol": "COPPERUSDT",
+      "http_status": 400,
+      "response": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      }
+    },
+    {
+      "symbol": "XAUBUSDT",
+      "http_status": 400,
+      "response": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      }
+    },
+    {
+      "symbol": "XAGBUSDT",
+      "http_status": 400,
+      "response": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      }
+    },
+    {
+      "symbol": "XPTBUSDT",
+      "http_status": 400,
+      "response": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      }
+    },
+    {
+      "symbol": "XPDBUSDT",
+      "http_status": 400,
+      "response": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      }
+    },
+    {
+      "symbol": "COPPERBUSDT",
+      "http_status": 400,
+      "response": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      }
+    }
+  ]
+}

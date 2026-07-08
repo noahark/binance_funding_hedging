@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-ui-filter-balance-metal-v1",
-  "status": "designing",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "complexity": {"classification": "MEDIUM", "reason": "frontend filter + private balance display + backend/schema/docs asset_tag enum"},
   "mode": "serial",
@@ -29,12 +29,25 @@
     "note": "三项需求需跨层同批收口，但规模为 MEDIUM，采用 serial 原子交付。"
   },
   "model_routing": {
-    "owner_implementer": null,
-    "review_1": null,
+    "owner_implementer": {
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "prompt": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/task-serial-claude-glm.prompt.md",
+      "selection_reason": "Serial cross-layer implementation; Codex is already designer/bookkeeper and should not author delivery code before review-2."
+    },
+    "review_1": {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "selection_reason": "Implementer provider is claude_glm/zhipu_glm; cross-review selects Kimi in a fresh review session."
+    },
     "review_2": "codex",
     "breakdown_author": "codex_current_session",
     "excluded_from_core": []
   },
+  "implementer": "claude_glm",
+  "implementers": ["claude_glm"],
   "prior_involvement_disclosure": {
     "codex": "本轮创建需求草稿、设计草稿、breakdown 草稿和 stage 状态；属于 design/breakdown involvement。若担任 final reviewer 需披露；不得 review 自己实现的代码。",
     "user": "用户直接给出三项需求并要求创建需求草稿和 stage。"
@@ -46,8 +59,38 @@
     "adr_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/11-adr.md",
     "breakdown_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/12-development-breakdown.md",
     "requirements_review": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/15-requirements-review.md",
-    "design_review": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/16-design-review.md"
+    "design_review": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/16-design-review.md",
+    "implementation_prompt": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/task-serial-claude-glm.prompt.md"
   },
+  "public_sample_evidence": {
+    "sample_dir": "reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z",
+    "summary": "reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z/normalized/metal-symbol-summary.json",
+    "raw_futures_exchange_info": "reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z/raw/fapi-v1-exchangeInfo.json",
+    "raw_spot_symbol_queries": "reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z/raw/api-v3-exchangeInfo-metal-symbol-queries.json",
+    "finding": "Futures public exchangeInfo currently lists XAU/XAG/XPT/XPD/COPPER USDT symbols as TRADIFI_PERPETUAL; exact and B-suffix spot symbol queries are invalid in this sample."
+  },
+  "tasks": [
+    {
+      "id": "serial",
+      "status": "dispatched",
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2",
+        "provider_identity": "zhipu_glm"
+      },
+      "prompt_path": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/task-serial-claude-glm.prompt.md",
+      "implementation_report": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/20-implementation.md",
+      "review_1": {
+        "reviewer": {
+          "provider": "kimi",
+          "model": "kimi-code/kimi-for-coding",
+          "provider_identity": "moonshot_kimi"
+        },
+        "dispatch_prompt": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/review-1-kimi.prompt.md",
+        "raw_output": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/review-1-kimi.raw-output.md"
+      }
+    }
+  ],
   "resolved_decisions": [
     "低日费率过滤按 abs(Decimal(daily_funding_rate)) <= 0.00030000 判断，UI 文案为 |日费率| <= 0.03%。",
     "daily_funding_rate null 不由低日费率过滤隐藏。",
@@ -61,7 +104,7 @@
   "tests": {
     "status": "not_run",
     "evidence": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/60-test-output.txt",
-    "reason": "未修改交付代码，仅更新需求/设计/breakdown/status 文档；产品测试待实现后运行。"
+    "reason": "已进入 serial implementation；产品测试由实现者完成后由 bookkeeper 复跑并落档。"
   },
   "hard_constraints": [
     "未获用户确认前不进入实现。",
@@ -70,6 +113,6 @@
     "新增 METAL 必须 schema/docs/backend/frontend/tests 同步。",
     "METAL 不得作为 bStock 式禁用约束；可借性必须来自现有私有只读接口返回。"
   ],
-  "next_step": "Kimi/GLM 预实现 review 已吸收，用户已裁定 METAL 借币语义；下一步生成实现任务书并进入 serial implementation。",
-  "updated_at": "2026-07-08 09:28:44 CST"
+  "next_step": "已生成 serial implementation prompt 并选择 claude_glm 实现；实现完成后 bookkeeper 冻结 diff、运行 pre-review validator 并派发 Kimi review-1。",
+  "updated_at": "2026-07-08 09:38:08 CST"
 }
