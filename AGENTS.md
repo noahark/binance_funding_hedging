@@ -370,6 +370,22 @@ Complexity routing:
 - `MILESTONE`: always run the registered direction panel and configured
   synthesis.
 
+## Independent Task-Branch Mode (optional, trial)
+
+`docs/independent-task-branch-mode.md` is an optional execution variant for
+double-owner stages with disjoint product scopes. It replaces the model
+bookkeeper's mechanical single-writer duties with two deterministic scripts —
+`scripts/record-checkpoint` (anchors one task branch to review-1) and
+`scripts/prepare-review-2` (integrates the two branches and prepares review-2) —
+so GLM/Kimi reach review-1 with zero extra human involvement. It adds no new
+status values and no new fingerprint protocol; committed-state gates,
+cross-provider review-1, and human-executed review-2 dispatch are unchanged.
+Running these scripts, `git`, tests, or `scripts/validate-stage.py` is **not**
+model dispatch and does not require a human dispatch step. Product task branches
+must set `allow_harness_change=false`; Harness changes go only through a serial
+enablement stage. Full contract: DRAFT-2 rev c2 at
+`reports/agent-runs/2026-07-harness-flow-optimization-v1/10-independent-task-branch-mode-draft.md`.
+
 ## Terminal Stop Reasons
 
 The workflow may stop only for these terminal reasons:

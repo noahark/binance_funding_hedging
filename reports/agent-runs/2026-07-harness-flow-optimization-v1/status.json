@@ -1,0 +1,165 @@
+{
+  "stage_id": "2026-07-harness-flow-optimization-v1",
+  "status": "draft_prepared_for_external_review",
+  "workflow": "harness-flow-optimization",
+  "branch": "main",
+  "purpose": "Record the discussion context and proposed Harness flow changes for multi-model review.",
+  "complexity": {
+    "classification": "HIGH",
+    "reason": "Changes role authority, dispatch execution, review-1 ownership, evidence anchoring, and validator assumptions."
+  },
+  "human_intent": {
+    "summary": "After requirements and execution documents are frozen, the human operator will manually dispatch GLM backend and Kimi frontend terminals. Implementers should run through implementation, embedded pre-review, scoped fixes, and review-1 evidence without a model bookkeeper. The human then uses review-1 output to choose fix direction or dispatch review-2 to Codex or Claude.",
+    "key_constraints": [
+      "Codex/GPT and Claude provider sessions do not execute model-dispatch commands.",
+      "A model bookkeeper role should be removed or reduced to document authoring only.",
+      "GLM owns backend-heavy work; Kimi owns frontend-heavy work.",
+      "Review-1 must have frozen evidence that later reviewers can verify."
+    ]
+  },
+  "artifacts": {
+    "context_and_proposal": "reports/agent-runs/2026-07-harness-flow-optimization-v1/00-context-and-proposal.md",
+    "harness_environment_snapshot": "reports/agent-runs/2026-07-harness-flow-optimization-v1/05-harness-environment-snapshot.md",
+    "independent_task_branch_mode_draft": "reports/agent-runs/2026-07-harness-flow-optimization-v1/10-independent-task-branch-mode-draft.md",
+    "review_prompt": "reports/agent-runs/2026-07-harness-flow-optimization-v1/review-prompt.md",
+    "review_prompt_v2": "reports/agent-runs/2026-07-harness-flow-optimization-v1/review-prompt-v2.md",
+    "review_output_dir": "reports/agent-runs/2026-07-harness-flow-optimization-v1/reviews/",
+    "review_naming_readme": "reports/agent-runs/2026-07-harness-flow-optimization-v1/reviews/README.md",
+    "reviews_received": {
+      "round1_old_proposal_or_draft1": [
+        "reviews/claude-opus4.8.md",
+        "reviews/claude-opus4.6.md",
+        "reviews/codex-gpt5.md",
+        "reviews/glm52.md",
+        "reviews/kimi-for-coding.md",
+        "reviews/glm52-round2.md (targeted DRAFT-1)"
+      ],
+      "draft2": [
+        "reviews/kimi-for-coding-round2.md (early DRAFT-2; folded into rev b)",
+        "reviews/gemini3.1pro-draft2.md",
+        "reviews/codex-gpt5-draft2.md",
+        "reviews/kimi-for-coding-draft2.md",
+        "reviews/glm52-draft2.md"
+      ],
+      "draft2c": [
+        "reviews/glm52-draft2c.md (ACCEPT)",
+        "reviews/codex-gpt5-draft2c.md (REWORK on rev c; pins folded into rev c2; codex re-confirmed ACCEPT on rev c2 — relayed verbally by user 2026-07-08 20:54, no raw artifact yet)"
+      ],
+      "draft2c_round_outcome": "CLOSED 2xACCEPT on DRAFT-2 rev c2 (glm52 ACCEPT + codex-gpt5 ACCEPT re-confirm). Spec review-complete; next = land §14 framework changes.",
+      "current_round_prompt": "reports/agent-runs/2026-07-harness-flow-optimization-v1/review-prompt-v2.md",
+      "current_round_naming": "reviews/<model-id>-draft2c.md"
+    },
+    "documentation_report": "reports/agent-runs/2026-07-harness-flow-optimization-v1/20-documentation.md",
+    "test_output": "reports/agent-runs/2026-07-harness-flow-optimization-v1/60-test-output.txt",
+    "handoff": "reports/agent-runs/2026-07-harness-flow-optimization-v1/70-handoff.md"
+  },
+  "decision_log": [
+    {
+      "id": "DEC-2026-07-08-001",
+      "decided_by": "human",
+      "decision": "adopt_worktree_independent_task_branch_mode_directly",
+      "rationale": "Double-owner (GLM backend + Kimi frontend) stages should reach review-1 with zero extra human involvement; do not start with serial single-worktree. Recorder must be a deterministic script, not a model. Fold the single unavoidable integration/serialization point into the human's existing review-2 preparation via scripts/prepare-review-2.",
+      "supersedes": "codex_stage_recorder proposal (model-as-recorder rejected)",
+      "spec": "reports/agent-runs/2026-07-harness-flow-optimization-v1/10-independent-task-branch-mode-draft.md",
+      "based_on_reviews": [
+        "reports/agent-runs/2026-07-harness-flow-optimization-v1/reviews/claude-opus4.8.md"
+      ],
+      "timestamp": "2026-07-08 18:26:04 CST"
+    },
+    {
+      "id": "DEC-2026-07-08-002",
+      "decided_by": "human",
+      "decision": "lock_four_trial_mode_hard_requirements",
+      "rationale": "Consensus of GPT + Opus 4.6, human-approved as trial-mode hard gates (not suggestions), captured in 05-harness-environment-snapshot.md.",
+      "hard_requirements": {
+        "D1": "task branch does not write top-level status.json; only task-local evidence snapshot under evidence/<task-id>/; integration status.json written solely by prepare-review-2",
+        "D2": "record-checkpoint commit scope = source/test + task-local evidence dir; must not commit top-level status.json/70-handoff.md/other-task files/top-level 60-test-output.txt",
+        "D3": "backend/frontend pathspec frozen pre-dispatch in status.json.tasks[].allowed_scope, checked by validate-stage.py --phase dispatch-ready",
+        "D4": "first trial forbids schema/API contract/shared fixture changes; forbidden shared paths are hard gates; else fall back to single-owner serial"
+      },
+      "snapshot": "reports/agent-runs/2026-07-harness-flow-optimization-v1/05-harness-environment-snapshot.md",
+      "spec": "reports/agent-runs/2026-07-harness-flow-optimization-v1/10-independent-task-branch-mode-draft.md (DRAFT-2)",
+      "based_on_reviews": [
+        "reports/agent-runs/2026-07-harness-flow-optimization-v1/reviews/codex-gpt5.md",
+        "reports/agent-runs/2026-07-harness-flow-optimization-v1/reviews/glm52.md",
+        "reports/agent-runs/2026-07-harness-flow-optimization-v1/reviews/kimi-for-coding.md",
+        "reports/agent-runs/2026-07-harness-flow-optimization-v1/reviews/claude-opus4.8.md"
+      ],
+      "timestamp": "2026-07-08 19:20:21 CST"
+    },
+    {
+      "id": "DEC-2026-07-08-003",
+      "decided_by": "human",
+      "decision": "lock_five_draft2c_contract_decisions",
+      "rationale": "After 4 DRAFT-2 reviews (all REWORK, none BLOCKED, converging), user chose recommended options for the load-bearing forks; folded into DRAFT-2 rev c.",
+      "choices": {
+        "A_checkpoint": "sidecar — checkpoint.json never committed to task branch; prepare-review-2 reads it cross-worktree and commits on integration branch (no global fingerprint-exclusion change; task_head is a single commit; tip==head_sha)",
+        "B_mode_flag": "new independent flag independent_task_branch_mode.enabled (not parallel_mode.enabled); dispatch-ready gate re-implemented under it",
+        "C_no_renames": "keep canonical unchanged (no --no-renames, existing fingerprints preserved); pin the exact git -c diff.renames=true recompute invocation across all sites; add rename fixtures",
+        "D_review1_files": "validator task mode reads task-local evidence/<task>/30-review-1.md; drop top-level 30-review-1.md requirement for this mode",
+        "E_allow_harness_change": "product task branches cannot set allow_harness_change=true; Harness changes only via serial enablement stage"
+      },
+      "based_on_reviews": [
+        "reviews/gemini3.1pro-draft2.md",
+        "reviews/codex-gpt5-draft2.md",
+        "reviews/kimi-for-coding-draft2.md",
+        "reviews/glm52-draft2.md"
+      ],
+      "spec": "reports/agent-runs/2026-07-harness-flow-optimization-v1/10-independent-task-branch-mode-draft.md (DRAFT-2 rev c)",
+      "timestamp": "2026-07-08 20:17:24 CST"
+    },
+    {
+      "id": "DEC-2026-07-08-004",
+      "decided_by": "human",
+      "decision": "fold_draft2c_confirmation_into_rev_c2",
+      "rationale": "draft2c confirmation round: glm52 ACCEPT (all F1-F12 closed, A-E correct); codex-gpt5 REWORK on two pre-script execution-timing pins, both overlapping glm P3 R1/R2. Folded into rev c2; no conceptual disagreement, no BLOCKED.",
+      "pins": {
+        "codex_R1_and_glm_R1": "record-checkpoint must validate the task worktree's uncommitted candidate then commit C_e then run tests against C_e (base..branch is empty pre-commit); §9 reordered, fixture #14",
+        "codex_R2_and_glm_R2": "prepare-review-2 pins sequential --no-ff merges M1->M2 then ingest commit M3=merge_head, assert rebind + full tests only after merge_head exists, atomic rollback via git reset --hard T0; §10-7, fixture #15",
+        "glm_R4": "single-owner record-checkpoint smoke fixture #16",
+        "glm_R3": "pre-ingest worktree tamper bounded by anti-stale-tip fingerprint equality; verdict-text forgery is an accepted human-trust assumption (noted, not a gate)"
+      },
+      "based_on_reviews": [
+        "reviews/glm52-draft2c.md",
+        "reviews/codex-gpt5-draft2c.md"
+      ],
+      "spec": "reports/agent-runs/2026-07-harness-flow-optimization-v1/10-independent-task-branch-mode-draft.md (DRAFT-2 rev c2)",
+      "timestamp": "2026-07-08 20:28:38 CST"
+    },
+    {
+      "id": "DEC-2026-07-08-005",
+      "decided_by": "human",
+      "decision": "land_section_14_enablement_on_stage_branch",
+      "rationale": "User approved landing §14. Implemented on branch stage/2026-07-independent-task-branch-mode; not merged to main until user acceptance.",
+      "landed": {
+        "scripts": ["scripts/_itbm.py", "scripts/record-checkpoint", "scripts/prepare-review-2", "scripts/tests/itbm_dry_run.py"],
+        "validator": "scripts/validate-stage.py (itbm required-files mapping + dispatch-ready gate; additive, existing paths unchanged)",
+        "workflow": "workflows/templates/stage-delivery.yaml (independent_task_branch_mode block)",
+        "schema": "schemas/independent-task-branch-mode.schema.json",
+        "docs": ["docs/independent-task-branch-mode.md", "AGENTS.md pointer"],
+        "template": "reports/agent-runs/_template/independent-task-branch-mode/"
+      },
+      "dry_run": "scripts/tests/itbm_dry_run.py — 13/13 assertions pass (positive ①②③④ + validator pre-review + fail-closed ⑤⑥⑦⑧⑪⑫/⑮⑯)",
+      "spec_fix_from_dry_run": "§5 branch topology corrected: task branches use a separate task/<stage-id>/<owner> namespace, NOT nested under stage/<id> (git cannot hold both refs). Discovered by the dry-run fixture.",
+      "timestamp": "2026-07-08 21:13:24 CST"
+    }
+  ],
+  "review_requests": {
+    "output_pattern": "reports/agent-runs/2026-07-harness-flow-optimization-v1/reviews/<model-id>.md",
+    "model_id_rule": "Use the reviewing model or provider name as the filename, for example claude-fable5.md, claude-opus4.8.md, glm52.md, kimi-for-coding.md, grok-build.md, gemini3.1pro.md, deepseek-v4.md.",
+    "expected_review_focus": [
+      "Whether removing the model bookkeeper preserves enough evidence discipline.",
+      "Whether GLM/Kimi can safely execute through review-1 without central model orchestration.",
+      "Whether frozen evidence generated by implementers is enough when review-1 verifies it.",
+      "What validator/schema/workflow changes are required before adopting this mode."
+    ]
+  },
+  "verification": {
+    "status_json_parse": "passed",
+    "git_diff_check": "passed",
+    "evidence_file_listed": true,
+    "tests_run": "documentation_sanity_only",
+    "evidence": "reports/agent-runs/2026-07-harness-flow-optimization-v1/60-test-output.txt"
+  },
+  "updated_at": "2026-07-08 21:13:24 CST"
+}

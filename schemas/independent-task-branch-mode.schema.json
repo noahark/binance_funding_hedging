@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "schemas/independent-task-branch-mode.schema.json",
+  "title": "Independent task-branch mode artifacts",
+  "description": "Machine contracts for the human-operated independent task-branch trial mode (DRAFT-2 rev c2). Covers the frozen top-level status.json shape, the task-local checkpoint.json sidecar, review-1 attempts, and the human_decision block.",
+  "$defs": {
+    "allowed_scope": {
+      "type": "object",
+      "required": ["product_paths"],
+      "properties": {
+        "product_paths": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1,
+          "description": "Frozen pre-dispatch git pathspecs; the only basis for product intersection and rebind."
+        },
+        "test_command": {"type": "string"},
+        "allow_harness_change": {
+          "type": "boolean",
+          "description": "Must be false for product task branches (decision E)."
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": ["id", "branch", "allowed_scope"],
+      "properties": {
+        "id": {"type": "string"},
+        "branch": {"type": "string", "description": "Full task branch name under task/<stage-id>/<owner> (NOT nested under stage/<id>)."},
+        "owner": {"type": "string"},
+        "allowed_scope": {"$ref": "#/$defs/allowed_scope"},
+        "base_sha": {"type": "string"},
+        "head_sha": {"type": "string"},
+        "task_diff_fingerprint": {"type": "string"},
+        "review_1": {
+          "type": "object",
+          "properties": {
+            "verdict": {"enum": ["ACCEPT", "REWORK", "BLOCKED"]},
+            "diff_fingerprint": {"type": "string"}
+          }
+        }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "description": "Uncommitted task-local sidecar (evidence/<task-id>/checkpoint.json). Never committed to the task branch; ingested + committed on the integration branch by prepare-review-2.",
+      "required": ["task_id", "base_sha", "head_sha", "task_diff_fingerprint", "product_rebind_hash", "product_paths"],
+      "properties": {
+        "task_id": {"type": "string"},
+        "base_sha": {"type": "string"},
+        "head_sha": {"type": "string", "description": "C_e (single evidence commit = task_head)."},
+        "task_diff_fingerprint": {"type": "string", "description": "Canonical head_sha:sha256(pinned diff)."},
+        "product_rebind_hash": {"type": "string", "description": "Non-binding sha256 of --no-renames product-only diff."},
+        "product_paths": {"type": "array", "items": {"type": "string"}},
+        "test_status": {"enum": ["pass", "fail", "skipped"]}
+      }
+    },
+    "review_1_attempts": {
+      "type": "object",
+      "required": ["invalid_json_attempts"],
+      "properties": {
+        "invalid_json_attempts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0, "maximum": 2}
+        },
+        "recorded_by": {"type": "string"},
+        "updated_at": {"type": "string"}
+      }
+    },
+    "human_decision": {
+      "type": "object",
+      "required": ["decided_by", "decision", "rationale", "timestamp"],
+      "properties": {
+        "decided_by": {"const": "human"},
+        "decision": {"enum": ["proceed_to_review_2", "assign_fix", "escalate"]},
+        "rationale": {"type": "string"},
+        "reviewed_task_fingerprints": {"type": "object", "additionalProperties": {"type": "string"}},
+        "timestamp": {"type": "string"}
+      }
+    }
+  }
+}
