@@ -1,7 +1,7 @@
 {
   "stage_id": "2026-07-borrowability-error-zero-mapping-v1",
-  "status": "designing",
-  "status_note": "design_frozen_pending_dispatch — 设计已冻结，等用户在 GLM 终端派发实现；validator 白名单用 designing。",
+  "status": "review_1",
+  "status_note": "GLM 实现已由 bookkeeper 独立复核(diff+190 passed+self-check+diff-check)、冻结提交(H1=ea631bf)并计算 fingerprint；进入 review-1(Kimi)。",
   "workflow": "stage-delivery",
   "complexity": {"classification": "MEDIUM", "reason": "跨 backend 错误分类 + snapshot 透传/折算 + schema/contract + frontend 三态展示 + tests；改动面集中但跨层契约耦合。"},
   "mode": "serial",
@@ -10,8 +10,8 @@
     "reason": "本 stage 修改 schema 与 API contract，触发 DEC-2026-07-08-002 硬门 D4（首轮试跑禁止 schema/contract/共享 fixture 变更，否则回落单 owner 串行）。故走标准 stage-delivery 单 owner。"
   },
   "base_sha": "41c6ba542e040cb3d1e82c046d9a9406bd11860d",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "ea631bf1dbf23662db37f491d92cb3f10685d720",
+  "diff_fingerprint": "ea631bf1dbf23662db37f491d92cb3f10685d720:31efea285e557d074f8f49d30146b07a285e3ecdb1a19d776b170479983251aa",
   "stage_branch": {
     "name": "stage/2026-07-borrowability-error-zero-mapping-v1",
     "created_from_main_sha": "41c6ba542e040cb3d1e82c046d9a9406bd11860d",
@@ -70,7 +70,17 @@
     "adr": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/11-adr.md",
     "design": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/10-design.md",
     "breakdown": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/12-development-breakdown.md",
-    "implementation_prompt": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/task-serial-claude-glm.prompt.md"
+    "implementation_prompt": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/task-serial-claude-glm.prompt.md",
+    "implementation_report": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/20-implementation.md",
+    "review_1_prompt": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/review-1-kimi.prompt.md"
+  },
+  "bookkeeper_verification": {
+    "verified_by": "claude_opus48_current_session (anthropic)",
+    "at": "2026-07-09 06:54:10 CST",
+    "scope_check": "11 changed files all within frozen allowed-list (incl. SCOPE-001/002 amended test files); no out-of-scope creep; no untracked.",
+    "diff_review": "Independently inspected private_client classification (positive/negative code split; :238 -2015 preserved), snapshot valuation + assemble three-exit additive fields, schema additive+required, frontend badge/subline, amended tests match SCOPE口径.",
+    "tests_rerun": "python3 -m pytest backend/tests -q => 190 passed; node frontend/self-check.js => 全部自检通过 (incl. 借币三态); git diff --check => clean.",
+    "evidence": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/60-test-output.txt"
   },
   "resolved_decisions": [
     "51061 类业务错误映射 max_borrowable=\"0\" + error_code=\"51061\"（确定 0），null 专属未探测/系统错误。",
@@ -109,16 +119,58 @@
     "residual R3：报告行尾空格，忽略。"
   ],
   "hard_constraints": [
-    "未获用户确认前不进入实现（本 status=design_frozen_pending_dispatch，等用户在 GLM 终端派发）。",
+    "实现由 claude_glm 完成、bookkeeper 独立复核后冻结提交(H1=ea631bf)；review-2 ACCEPT 与合并 main 仍需用户显式验收。",
     "不修改私有签名/白名单/下单/借币/还币/划转逻辑；仅读路径的错误分类与展示。",
     "不臆测枚举业务码：BORROW_ZERO_BUSINESS_CODES 仅含 51061；business/system 分界=码正负号，负数码不进 business_error 桶。",
     "折算不得引入 float；Decimal + _quantize_rate，与既有 value_usdt 口径一致。",
     "全部 additive：不改 max_borrowable/borrow_limit/source/verified 现有形状语义（除 51061 由 null→\"0\" 的 bug 修正）。"
   ],
-  "tests": {
-    "status": "pending_implementation",
-    "planned": "python3 -m pytest backend/tests -q; node frontend/self-check.js; git diff --check"
+  "tasks": [
+    {
+      "id": "serial",
+      "status": "landed",
+      "base_sha": "41c6ba542e040cb3d1e82c046d9a9406bd11860d",
+      "head_sha": "ea631bf1dbf23662db37f491d92cb3f10685d720",
+      "diff_fingerprint": "ea631bf1dbf23662db37f491d92cb3f10685d720:31efea285e557d074f8f49d30146b07a285e3ecdb1a19d776b170479983251aa",
+      "changed_files": [
+        "backend/services/private_client.py",
+        "backend/domain/snapshot.py",
+        "backend/services/snapshot_service.py",
+        "backend/tests/test_private_client.py",
+        "backend/tests/test_private_account_v1.py",
+        "backend/tests/test_phase2_borrow_sort.py",
+        "backend/tests/fixtures/private-account-v1-design.json",
+        "schemas/api/public-market/snapshot.schema.json",
+        "docs/api/public-market-contract.md",
+        "frontend/index.html",
+        "frontend/self-check.js"
+      ],
+      "owner": {"provider": "claude_glm", "model": "glm-5.2", "provider_identity": "zhipu_glm"},
+      "prompt_path": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/task-serial-claude-glm.prompt.md",
+      "implementation_report": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/20-implementation.md",
+      "review_1": {
+        "reviewer": {"provider": "kimi", "model": "kimi-code/kimi-for-coding", "provider_identity": "moonshot_kimi"},
+        "dispatch_prompt": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/review-1-kimi.prompt.md"
+      }
+    }
+  ],
+  "review_1": {
+    "reviewer": {"provider": "kimi", "model": "kimi-code/kimi-for-coding", "provider_identity": "moonshot_kimi"},
+    "role": "first_reviewer",
+    "status": "pending",
+    "reviewer_prior_involvement": "none",
+    "base_sha": "41c6ba542e040cb3d1e82c046d9a9406bd11860d",
+    "head_sha": "ea631bf1dbf23662db37f491d92cb3f10685d720",
+    "diff_fingerprint": "ea631bf1dbf23662db37f491d92cb3f10685d720:31efea285e557d074f8f49d30146b07a285e3ecdb1a19d776b170479983251aa",
+    "dispatch_prompt": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/review-1-kimi.prompt.md",
+    "raw_output": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/review-1-kimi.raw-output.md",
+    "review_record": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/30-review-1.md"
   },
-  "next_step": "用户在 GLM(zhipu_glm) 终端用 task-serial-claude-glm.prompt.md 派发 serial 实现。GLM 留工作区未提交 + 20-implementation.md，交 bookkeeper 冻结 diff → 计算 fingerprint → validate-stage --phase pre-review → 派 review-1(Kimi/moonshot) → review-2(Codex/openai)。",
-  "updated_at": "2026-07-09 06:40:00 CST"
+  "tests": {
+    "status": "pass",
+    "evidence": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/60-test-output.txt",
+    "detail": "bookkeeper independent rerun on HEAD ea631bf: python3 -m pytest backend/tests -q => 190 passed; node frontend/self-check.js => 全部自检通过 (incl. 借币三态); git diff --check => clean."
+  },
+  "next_step": "review-1 已就绪：用户在 fresh Kimi(moonshot_kimi) 会话用 review-1-kimi.prompt.md 派发只读评审，产出 review-1-kimi.raw-output.md（末尾 schema-valid verdict JSON）。ACCEPT → bookkeeper 落 30-review-1.md 并派 review-2(Codex/openai)；REWORK → 回 GLM 修复。",
+  "updated_at": "2026-07-09 06:54:10 CST"
 }

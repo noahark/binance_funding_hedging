@@ -1,0 +1,21 @@
+# 60-test-output — 2026-07-borrowability-error-zero-mapping-v1
+# bookkeeper (anthropic) independent rerun on committed HEAD ea631bf
+# 本地北京时间: 2026-07-09 06:54:10 CST
+
+$ python3 -m pytest backend/tests -q
+........................................................................ [ 75%]
+..............................................                           [100%]
+190 passed in 4.35s
+
+$ node frontend/self-check.js (tail)
+[PASS] value_usdt 合法零显示占位
+[PASS] 余额数量整数千分位、小数原样保留
+[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）
+[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）
+[PASS] METAL 资产标签徽章与下拉选项
+[PASS] 借币三态（51061 借光/有额度/未探测）
+
+全部自检通过
+
+$ git diff --check
+(clean, exit 0)
