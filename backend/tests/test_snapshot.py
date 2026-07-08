@@ -13,7 +13,7 @@ import jsonschema
 
 from backend.config import Config
 from backend.domain.normalize import iso_from_ms
-from backend.domain.snapshot import build_rows, top_symbols_by_abs_rate
+from backend.domain.snapshot import build_rows, select_borrow_candidates, top_symbols_by_abs_rate
 from backend.services.snapshot_service import SnapshotService
 
 EXPECTED_6 = {
@@ -328,3 +328,121 @@ def test_service_universe_filter_excludes_non_usdt_quote(bstock_raw_inputs):
     # All retained rows honor the frozen schema row.quote_asset const 'USDT'.
     for r in snap["rows"]:
         assert r["quote_asset"] == "USDT"
+
+
+# --- METAL asset tag + borrow-candidate inclusion ---
+# (stage 2026-07-ui-filter-balance-metal-v1)
+# Synthetic futures/spot dicts exercise the METAL tag and the expanded
+# select_borrow_candidates (CRYPTO or METAL) without live HTTP. The real public
+# sample currently lists metals as TRADIFI_PERPETUAL with no public spot leg
+# (reports/api-samples/2026-07-ui-filter-balance-metal-v1/20260708T0928Z/), so
+# they resolve PERP_ONLY_EXCLUDED there; the spot-leg scenarios below are
+# deliberate constructs to exercise the borrow-candidate inclusion path.
+
+
+def _metal_futures(symbol, base_asset, contract_type="TRADIFI_PERPETUAL"):
+    return {
+        "symbol": symbol,
+        "baseAsset": base_asset,
+        "quoteAsset": "USDT",
+        "contractType": contract_type,
+        "status": "TRADING",
+    }
+
+
+def test_metal_base_asset_tagged_metal_over_tradifi():
+    """A metal baseAsset on a TRADIFI_PERPETUAL contract is METAL, not BSTOCK;
+    with no public spot leg it is PERP_ONLY_EXCLUDED / DISABLED_PERP_ONLY."""
+    rows = build_rows(
+        [_metal_futures("XAUUSDT", "XAU")],
+        {"XAUUSDT": {"lastFundingRate": "0.00010000"}},
+        {},
+        {},
+    )
+    row = rows[0]
+    assert row["asset_tag"] == "METAL"
+    assert row["asset_tag_source"] == "base_asset_metal_symbol"
+    assert row["route_class"] == "PERP_ONLY_EXCLUDED"
+    assert row["negative_funding_status"] == "DISABLED_PERP_ONLY"
+    assert row["spot"]["exists"] is False
+
+
+def test_metal_margin_spot_candidate_enters_borrow_candidates():
+    """A metal row that is MARGIN_SPOT_CANDIDATE with a negative daily rate
+    enters both rate_probe_assets and borrowability_probe_assets — METAL is not
+    a borrow prohibition; borrowability/cost come from the private read-only
+    interface (here just the candidate-set membership)."""
+    from decimal import Decimal
+
+    rows = build_rows(
+        [_metal_futures("COPPERUSDT", "COPPER")],
+        {"COPPERUSDT": {"lastFundingRate": "-0.00060000"}},  # 8h -> daily -0.00180000
+        {"COPPERUSDT": {"symbol": "COPPERUSDT", "status": "TRADING", "isMarginTradingAllowed": True}},
+        {},
+    )
+    row = rows[0]
+    assert row["asset_tag"] == "METAL"
+    assert row["route_class"] == "MARGIN_SPOT_CANDIDATE"
+    assert row["negative_funding_status"] == "PRIVATE_BORROW_VALIDATION_REQUIRED"
+    assert Decimal(row["daily_funding_rate"]) < 0
+    probe = select_borrow_candidates(rows, max_calls=10)
+    assert "COPPER" in probe["rate_probe_assets"]
+    assert "COPPER" in probe["borrowability_probe_assets"]
+
+
+def test_bstock_remains_excluded_from_borrow_candidates():
+    """bStock (TRADIFI_PERPETUAL, non-metal baseAsset) with a margin spot leg
+    and negative rate stays excluded from select_borrow_candidates."""
+    rows = build_rows(
+        [_metal_futures("TSLAUSDT", "TSLA")],
+        {"TSLAUSDT": {"lastFundingRate": "-0.00060000"}},
+        {"TSLABUSDT": {"symbol": "TSLABUSDT", "status": "TRADING", "isMarginTradingAllowed": True}},
+        {},
+    )
+    row = rows[0]
+    assert row["asset_tag"] == "BSTOCK"
+    assert row["route_class"] == "MARGIN_SPOT_CANDIDATE"
+    assert row["negative_funding_status"] == "DISABLED_BSTOCK"
+    probe = select_borrow_candidates(rows, max_calls=10)
+    assert "TSLA" not in probe["rate_probe_assets"]
+    assert "TSLA" not in probe["borrowability_probe_assets"]
+
+
+def test_metal_and_crypto_compose_in_borrow_candidates():
+    """A mixed pool (one CRYPTO + one METAL, both negative MARGIN_SPOT_CANDIDATE)
+    includes both base_assets, deduped/sorted by abs daily rate DESC."""
+    rows = build_rows(
+        [
+            _metal_futures("COPPERUSDT", "COPPER"),
+            {"symbol": "BTCUSDT", "baseAsset": "BTC", "quoteAsset": "USDT",
+             "contractType": "PERPETUAL", "status": "TRADING"},
+        ],
+        {"COPPERUSDT": {"lastFundingRate": "-0.00060000"},  # daily -0.00180000
+         "BTCUSDT": {"lastFundingRate": "-0.00040000"}},    # daily -0.00120000
+        {"COPPERUSDT": {"symbol": "COPPERUSDT", "status": "TRADING", "isMarginTradingAllowed": True},
+         "BTCUSDT": {"symbol": "BTCUSDT", "status": "TRADING", "isMarginTradingAllowed": True}},
+        {},
+    )
+    probe = select_borrow_candidates(rows, max_calls=10)
+    # abs daily DESC: COPPER (0.0018) before BTC (0.0012)
+    assert probe["rate_probe_assets"] == ["COPPER", "BTC"]
+
+
+def test_metal_snapshot_row_validates_schema(schema):
+    """A snapshot containing a METAL row validates against the schema."""
+    from backend.domain.snapshot import assemble_snapshot
+
+    rows = build_rows(
+        [_metal_futures("XAUUSDT", "XAU")],
+        {"XAUUSDT": {"lastFundingRate": "0.00010000"}},
+        {},
+        {},
+    )
+    snap = assemble_snapshot(
+        rows,
+        generated_at="2026-07-08T09:28:00Z",
+        data_time="2026-07-08T09:28:00Z",
+        source_sample_id="metal-synthetic",
+    )
+    jsonschema.validate(snap, schema)
+    assert snap["summary"]["asset_tag_counts"].get("METAL") == 1

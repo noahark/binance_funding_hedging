@@ -4,21 +4,22 @@
   "data_time": "2026-07-03T05:11:29Z",
   "source_sample_id": "20260703T051738Z",
   "summary": {
-    "total_rows": 6,
+    "total_rows": 7,
     "route_counts": {
       "MARGIN_SPOT_CANDIDATE": 3,
       "SPOT_ONLY_CANDIDATE": 1,
-      "PERP_ONLY_EXCLUDED": 2
+      "PERP_ONLY_EXCLUDED": 3
     },
     "asset_tag_counts": {
       "CRYPTO": 4,
-      "BSTOCK": 2
+      "BSTOCK": 2,
+      "METAL": 1
     },
     "negative_funding_status_counts": {
       "PRIVATE_BORROW_VALIDATION_REQUIRED": 2,
       "DISABLED_SPOT_ONLY": 1,
       "DISABLED_BSTOCK": 1,
-      "DISABLED_PERP_ONLY": 2
+      "DISABLED_PERP_ONLY": 3
     }
   },
   "rows": [
@@ -293,6 +294,45 @@
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED",
         "TRADIFI_BSTOCK"
+      ]
+    },
+    {
+      "symbol": "XAUUSDT",
+      "base_asset": "XAU",
+      "quote_asset": "USDT",
+      "asset_tag": "METAL",
+      "asset_tag_source": "base_asset_metal_symbol",
+      "asset_tag_confidence": "HIGH",
+      "route_class": "PERP_ONLY_EXCLUDED",
+      "positive_funding_enabled": false,
+      "negative_funding_status": "DISABLED_PERP_ONLY",
+      "futures": {
+        "symbol": "XAUUSDT",
+        "status": "TRADING",
+        "contract_type": "TRADIFI_PERPETUAL",
+        "mark_price": "2600.00000000",
+        "index_price": "2600.00000000",
+        "last_funding_rate": "0.00010000",
+        "next_funding_time": 1783065600000,
+        "min_notional": "5",
+        "step_size": "0.001"
+      },
+      "spot": {
+        "symbol": null,
+        "status": null,
+        "exists": false,
+        "match_type": null,
+        "min_notional": null,
+        "step_size": null
+      },
+      "margin_public": {
+        "public_cross_margin_pair": null,
+        "source": "unverified"
+      },
+      "funding_history": [],
+      "ui_flags": [
+        "MARGIN_PUBLIC_UNVERIFIED",
+        "PERP_ONLY_NO_SPOT_LEG"
       ]
     }
   ],
