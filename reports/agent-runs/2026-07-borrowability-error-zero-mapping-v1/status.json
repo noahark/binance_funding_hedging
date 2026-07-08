@@ -1,0 +1,103 @@
+{
+  "stage_id": "2026-07-borrowability-error-zero-mapping-v1",
+  "status": "designing",
+  "status_note": "design_frozen_pending_dispatch — 设计已冻结，等用户在 GLM 终端派发实现；validator 白名单用 designing。",
+  "workflow": "stage-delivery",
+  "complexity": {"classification": "MEDIUM", "reason": "跨 backend 错误分类 + snapshot 透传/折算 + schema/contract + frontend 三态展示 + tests；改动面集中但跨层契约耦合。"},
+  "mode": "serial",
+  "independent_task_branch_mode": {
+    "enabled": false,
+    "reason": "本 stage 修改 schema 与 API contract，触发 DEC-2026-07-08-002 硬门 D4（首轮试跑禁止 schema/contract/共享 fixture 变更，否则回落单 owner 串行）。故走标准 stage-delivery 单 owner。"
+  },
+  "base_sha": "41c6ba542e040cb3d1e82c046d9a9406bd11860d",
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "stage_branch": {
+    "name": "stage/2026-07-borrowability-error-zero-mapping-v1",
+    "created_from_main_sha": "41c6ba542e040cb3d1e82c046d9a9406bd11860d",
+    "created_at": "2026-07-09T05:45:31+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": "no-ff",
+    "abandoned_reason": null
+  },
+  "origin_followups": [
+    "reports/follow-ups/2026-07-borrowability-51061-zero-mapping.md",
+    "reports/follow-ups/2026-07-ui-filter-balance-metal-v1-residuals.md"
+  ],
+  "bookkeeper": {
+    "id": "claude_opus48_current_session",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "session_role": "stage_designer_and_bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "当前仅创建 intake/design/adr/breakdown/dispatch packet 与 stage 状态，不实现、不 review。若后续同一 anthropic 会话担任 final reviewer 需重新披露；不得 review 自己设计口径强约束下的实现（review_2 已路由至 openai 以隔离 designer=anthropic）。"
+  },
+  "model_routing": {
+    "owner_implementer": {
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "prompt": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/task-serial-claude-glm.prompt.md",
+      "selection_reason": "Serial cross-layer implementation; designer/bookkeeper is anthropic and must not author delivery code. GLM owns backend-heavy work."
+    },
+    "review_1": {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "selection_reason": "Implementer provider is claude_glm/zhipu_glm; cross-provider review-1 selects a fresh Kimi session (moonshot_kimi)."
+    },
+    "review_2": {
+      "provider": "codex",
+      "model": "codex/gpt-5",
+      "provider_identity": "openai",
+      "selection_reason": "Final reviewer isolated from implementer(zhipu_glm), designer/bookkeeper(anthropic), and review-1(moonshot_kimi). Designer is anthropic this round, so review-2 routes to openai to preserve reviewer/designer isolation (mirror of 2026-07-ui-filter-balance-metal-v1 where designer=openai routed review-2 to anthropic)."
+    },
+    "breakdown_author": "claude_opus48_current_session",
+    "excluded_from_core": []
+  },
+  "implementer": "claude_glm",
+  "implementers": ["claude_glm"],
+  "designer": "claude_opus48_current_session",
+  "breakdown_author": "claude_opus48_current_session",
+  "prior_involvement_disclosure": {
+    "anthropic": "本轮创建 intake/design/adr/breakdown/dispatch/stage 状态；属 design/breakdown involvement。担任 final reviewer 需披露；不得 review 本 stage 实现。故 review_2 路由 openai。",
+    "user": "用户指示把上个 stage 的 51061 follow-up + residual R1 归入本 stage 收口，并确认三项裁定（展示并入/权限错误 out-of-scope/派 GLM 实现）。"
+  },
+  "requirements": {
+    "intake": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/00-intake.md",
+    "task": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/00-task.md",
+    "adr": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/11-adr.md",
+    "design": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/10-design.md",
+    "breakdown": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/12-development-breakdown.md",
+    "implementation_prompt": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/task-serial-claude-glm.prompt.md"
+  },
+  "resolved_decisions": [
+    "51061 类业务错误映射 max_borrowable=\"0\" + error_code=\"51061\"（确定 0），null 专属未探测/系统错误。",
+    "PrivateEndpointError 新增可选 code（解析自 body），fetch_max_borrowable 按业务码分类；未知业务码走 distinct last_error 发现路径，不臆测枚举。BORROW_ZERO_BUSINESS_CODES 初值仅 {51061}。",
+    "verified 语义不变（仍不看 max_borrowable）；前端 badge 在 verified 且 max_borrowable==\"0\" 时改「可借 0(已借完)」warn 样式。",
+    "portfolio_account 新增 additive error_code + max_borrowable_value_usdt；折算口径与 balance value_usdt 完全一致（后端 8dp _quantize_rate，前端 formatUsdt2 显 2dp）。",
+    "「可借数量 + ≈USDT 价值」展示并入本 stage（用户裁定）。",
+    "borrow_limit 在 51061 下为 null（错误响应无 borrowLimit 字段，非选择题）。",
+    "residual R1：snapshot_service.py:132/:182 注释机械补正为 {CRYPTO, METAL}。"
+  ],
+  "out_of_scope": [
+    "权限类/非 51061 业务错误的具体映射：无 raw 样本、无已知 code，走 distinct 日志发现路径（用户裁定 out-of-scope）。",
+    "第四态（独立「无权限」状态）：无样本，先不实现结构。",
+    "residual R2：METAL 借币候选缺 live sample，产品事实局限，挂等公开金属现货腿。",
+    "residual R3：报告行尾空格，忽略。"
+  ],
+  "hard_constraints": [
+    "未获用户确认前不进入实现（本 status=design_frozen_pending_dispatch，等用户在 GLM 终端派发）。",
+    "不修改私有签名/白名单/下单/借币/还币/划转逻辑；仅读路径的错误分类与展示。",
+    "不臆测枚举业务码：BORROW_ZERO_BUSINESS_CODES 仅含 51061。",
+    "折算不得引入 float；Decimal + _quantize_rate，与既有 value_usdt 口径一致。",
+    "全部 additive：不改 max_borrowable/borrow_limit/source/verified 现有形状语义（除 51061 由 null→\"0\" 的 bug 修正）。"
+  ],
+  "tests": {
+    "status": "pending_implementation",
+    "planned": "python3 -m pytest backend/tests -q; node frontend/self-check.js; git diff --check"
+  },
+  "next_step": "用户在 GLM(zhipu_glm) 终端用 task-serial-claude-glm.prompt.md 派发 serial 实现。GLM 留工作区未提交 + 20-implementation.md，交 bookkeeper 冻结 diff → 计算 fingerprint → validate-stage --phase pre-review → 派 review-1(Kimi/moonshot) → review-2(Codex/openai)。",
+  "updated_at": "2026-07-09 05:45:31 CST"
+}
