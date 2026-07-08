@@ -44,26 +44,32 @@
     "task_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/00-task.md",
     "design_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/10-design.md",
     "adr_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/11-adr.md",
-    "breakdown_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/12-development-breakdown.md"
+    "breakdown_draft": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/12-development-breakdown.md",
+    "requirements_review": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/15-requirements-review.md",
+    "design_review": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/16-design-review.md"
   },
-  "open_questions": [
-    "低日费率过滤是否按 abs(daily_funding_rate) <= 0.00030000 判断。",
-    "daily_funding_rate null 是否不被低日费率过滤隐藏。",
-    "新增选项是否按 checkbox/toggle 实现。",
-    "METAL 是否仅为标签，不新增负费率禁用态。",
-    "现货 locked 是否保留单独冻结行。"
+  "resolved_decisions": [
+    "低日费率过滤按 abs(Decimal(daily_funding_rate)) <= 0.00030000 判断，UI 文案为 |日费率| <= 0.03%。",
+    "daily_funding_rate null 不由低日费率过滤隐藏。",
+    "新增选项按 checkbox/toggle 实现，默认选中。",
+    "余额数量仅整数部分加千分位，小数部分保持原始字符串；现货主数量行展示 free，locked 保留单独冻结行。",
+    "低费率边界样本使用独立/deep-copy self-check 场景，不破坏默认 6 行基线。",
+    "asset_tag=METAL 前端显示 METAL(金属)，包含 XAU/XAG/COPPER/XPT/XPD，asset_tag_source=base_asset_metal_symbol。",
+    "用户确认 METAL 不代表禁止借币；满足负费率和 MARGIN_SPOT_CANDIDATE 时应进入只读 borrow validation，最终以接口返回为准，不新增 DISABLED_METAL。"
   ],
+  "open_questions": [],
   "tests": {
     "status": "not_run",
     "evidence": "reports/agent-runs/2026-07-ui-filter-balance-metal-v1/60-test-output.txt",
-    "reason": "未修改交付代码，仅创建需求/设计草稿。"
+    "reason": "未修改交付代码，仅更新需求/设计/breakdown/status 文档；产品测试待实现后运行。"
   },
   "hard_constraints": [
     "未获用户确认前不进入实现。",
     "不修改私有签名、下单、借币、还币、划转逻辑。",
     "低日费率阈值判断不得引入 float 造成边界漂移。",
-    "新增 METAL 必须 schema/docs/backend/frontend/tests 同步。"
+    "新增 METAL 必须 schema/docs/backend/frontend/tests 同步。",
+    "METAL 不得作为 bStock 式禁用约束；可借性必须来自现有私有只读接口返回。"
   ],
-  "next_step": "等待用户确认或修改需求草稿；确认后生成实现任务书并进入 serial implementation。",
-  "updated_at": "2026-07-08 02:23:15 CST"
+  "next_step": "Kimi/GLM 预实现 review 已吸收，用户已裁定 METAL 借币语义；下一步生成实现任务书并进入 serial implementation。",
+  "updated_at": "2026-07-08 09:28:44 CST"
 }

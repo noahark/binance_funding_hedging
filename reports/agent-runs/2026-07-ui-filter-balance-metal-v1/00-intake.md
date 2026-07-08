@@ -26,17 +26,18 @@
 
 ## 待用户确认的草稿假设
 
-1. 费率阈值默认按绝对日费率判断：`abs(Decimal(daily_funding_rate)) <= 0.00030000`，即 UI 显示 `0.03%` 及以下。
+1. 费率阈值默认按绝对日费率判断：`abs(Decimal(daily_funding_rate)) <= 0.00030000`，UI 文案明确为 `|日费率| <= 0.03%`。
 2. `daily_funding_rate == null` 不由该阈值过滤隐藏，仍只受其它筛选控制。
 3. 用户说的「单选选项」按现有 UI 风格实现为 boolean checkbox/toggle，因为该功能只有开/关两态。
 4. 余额卡片中数量保留原始精度并加千分位，不四舍五入；折算值 `value_usdt` 保持 2 位 ROUND_HALF_UP，前缀为 `≈ `。
 5. 隐私隐藏态继续默认启用：数量与折算值均遮蔽为 `****`。
-6. 贵金属标签命名初稿为 `METAL`，前端中文显示为 `METAL(贵金属)`；`asset_tag_source` 使用 `base_asset_precious_metal_symbol`。
+6. 用户原始口径为「贵金属」，但因 `COPPER` 属于工业金属，本阶段契约命名收口为 `asset_tag=METAL`，前端显示 `METAL(金属)`；`asset_tag_source` 使用 `base_asset_metal_symbol`。
+7. `METAL` 只是资产性质标签，不代表禁止借币。金属产品是否可借以私有只读接口返回为准；满足负费率与候选路由时应进入 borrow validation，而不是新增 `DISABLED_METAL`。
 
 ## 当前状态
 
-本文件是需求 intake + 草稿阶段，不授权实现。开发需等用户确认或修改 `00-task.md` / `10-design.md` 后再开始。
+本文件记录需求 intake 与已确认裁定。实现需按 `00-task.md` / `10-design.md` / `12-development-breakdown.md` 的当前口径执行。
 
-本地北京时间: 2026-07-08 02:23:15 CST
-下一步模型: human
-下一步任务: 审阅并确认需求草稿，尤其是阈值语义、null 行处理、贵金属标签命名。
+本地北京时间: 2026-07-08 09:28:44 CST
+下一步模型: codex
+下一步任务: 按已确认需求生成实现任务书并进入 serial implementation。
