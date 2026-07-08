@@ -1,6 +1,12 @@
 {
   "stage_id": "2026-07-ui-filter-balance-metal-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
+  "user_acceptance": {
+    "accepted": true,
+    "authority": "user",
+    "accepted_at": "2026-07-08 13:42:10 CST",
+    "note": "用户显式验收通过并授权 no-ff 合回 main + 推送。3 项 review-2 residual 与 borrowability-51061 follow-up 一并归入下个 stage（reports/follow-ups/）。"
+  },
   "workflow": "stage-delivery",
   "complexity": {"classification": "MEDIUM", "reason": "frontend filter + private balance display + backend/schema/docs asset_tag enum"},
   "mode": "serial",
@@ -174,6 +180,6 @@
     "新增 METAL 必须 schema/docs/backend/frontend/tests 同步。",
     "METAL 不得作为 bStock 式禁用约束；可借性必须来自现有私有只读接口返回。"
   ],
-  "next_step": "review-1(Kimi ACCEPT)+review-2(Claude/anthropic ACCEPT) 均已录入并 schema-valid；status=stage_accepted_waiting_user。等待用户显式验收后由 bookkeeper 执行 stage 分支 → main 的 no-ff 合并。review-2 ACCEPT 不授权合并。",
+  "next_step": "用户已显式验收；status=accepted。执行 stage 分支 → main 的 --no-ff 合并并推送 origin/main。合并后回填 stage_branch.merged_back_to_main/merged_back_sha。residual + 51061 follow-up 归入下个 stage。",
   "updated_at": "2026-07-08 13:42:10 CST"
 }
