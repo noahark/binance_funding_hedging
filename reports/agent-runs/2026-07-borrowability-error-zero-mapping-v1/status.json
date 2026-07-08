@@ -1,7 +1,7 @@
 {
   "stage_id": "2026-07-borrowability-error-zero-mapping-v1",
-  "status": "review_1",
-  "status_note": "GLM 实现已由 bookkeeper 独立复核(diff+190 passed+self-check+diff-check)、冻结提交(H1=ea631bf)并计算 fingerprint；进入 review-1(Kimi)。",
+  "status": "review_2",
+  "status_note": "review-1(Kimi) ACCEPT 已落档核验(指纹匹配/隔离/schema-valid)；进入 review-2(Codex/openai)。等 review-2 raw output 落盘后 pre-accept → 用户已授权合并。",
   "workflow": "stage-delivery",
   "complexity": {"classification": "MEDIUM", "reason": "跨 backend 错误分类 + snapshot 透传/折算 + schema/contract + frontend 三态展示 + tests；改动面集中但跨层契约耦合。"},
   "mode": "serial",
@@ -150,14 +150,20 @@
       "implementation_report": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/20-implementation.md",
       "review_1": {
         "reviewer": {"provider": "kimi", "model": "kimi-code/kimi-for-coding", "provider_identity": "moonshot_kimi"},
-        "dispatch_prompt": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/review-1-kimi.prompt.md"
+        "verdict": "ACCEPT",
+        "dispatch_prompt": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/review-1-kimi.prompt.md",
+        "raw_output": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/review-1-kimi.raw-output.md"
       }
     }
   ],
   "review_1": {
     "reviewer": {"provider": "kimi", "model": "kimi-code/kimi-for-coding", "provider_identity": "moonshot_kimi"},
     "role": "first_reviewer",
-    "status": "pending",
+    "status": "accepted",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "next_action": "continue",
+    "invalid_json_attempts": 0,
     "reviewer_prior_involvement": "none",
     "base_sha": "41c6ba542e040cb3d1e82c046d9a9406bd11860d",
     "head_sha": "ea631bf1dbf23662db37f491d92cb3f10685d720",
