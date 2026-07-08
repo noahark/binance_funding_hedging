@@ -1,0 +1,19 @@
+Command:
+
+```text
+python3 scripts/validate-stage.py 2026-07-ui-filter-balance-metal-v1 --phase pre-review
+```
+
+Output:
+
+```text
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-ui-filter-balance-metal-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=2e966904a6adb576adee8f979738ef664f80058c:83956ebe014a34fc8ee85cfb04bb701fac76e488e106fac746a1a542762222a1
+```
+
+本地北京时间: 2026-07-08 10:59:02 CST
+下一步模型: kimi
+下一步任务: 执行 review-1 prompt，保存 raw output 并校验 strict JSON verdict。
