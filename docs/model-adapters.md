@@ -16,6 +16,10 @@ The registry remains the machine-readable source of routing truth:
 - Development/fix agents may use write mode only inside the active stage scope.
 - Yolo/bypass modes require explicit user or runner authorization. They are not
   default review modes.
+- Codex/GPT and Claude provider sessions may prepare dispatch prompt files and
+  command templates, but must not execute model-dispatch commands or invoke
+  other model terminals. Human operators execute prepared dispatch packets in
+  the selected model terminal and record the raw output or receipt evidence.
 - A model is unavailable only after the runner-level adapter check fails. A
   bookkeeper or implementation session lacking a built-in tool for that model is
   not enough.
@@ -25,7 +29,8 @@ The registry remains the machine-readable source of routing truth:
 
 ## Adapter Availability Checks
 
-Run these checks from the same shell environment that will dispatch the model:
+Run these checks from the same shell environment that the human operator will
+use to execute the prepared dispatch:
 
 ```bash
 command -v codex

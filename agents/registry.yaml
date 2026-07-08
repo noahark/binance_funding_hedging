@@ -328,6 +328,21 @@ model_policies:
   no_self_review: true
   reviewer_requires_raw_artifacts: true
   rework_verdict_requires_fix_start_prompt: true
+  model_dispatch_execution:
+    dispatch_preparation_allowed_for: [bookkeeper, designer, breakdown_author]
+    execution_requires_human_operator: true
+    forbidden_session_providers_for_execution: [codex, claude]
+    forbidden_provider_identities_for_execution: [openai, anthropic]
+    applies_to:
+      - implementation
+      - embedded_pre_review
+      - review_1
+      - review_2
+      - fix
+    notes:
+      - "Codex/GPT and Claude provider sessions may prepare dispatch packets, prompts, routing metadata, and handoff text only."
+      - "Human operators execute prepared dispatch packets in the target model terminal and record raw output or receipt evidence."
+      - "Do not mark a target model unavailable merely because the preparing Codex/GPT or Claude session cannot invoke that model directly."
   invalid_json_verdict: retry_once_then_fallback_or_human_escalation
   invalid_json_max_attempts_per_model: 2
   default_max_rework: 3

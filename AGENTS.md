@@ -77,17 +77,27 @@ The bookkeeper may:
 
 - Read workflow YAML and stage files.
 - Create and update `reports/agent-runs/<stage>/`.
-- Dispatch work to implementation and review models.
+- Prepare dispatch packets, prompts, routing metadata, and handoff text for
+  implementation, review, and fix models.
 - Collect raw artifacts and verify that required evidence exists.
 - Update `status.json` and `70-handoff.md`.
 - Create local evidence commits before formal review gates.
 
 The bookkeeper must not:
 
+- Execute model-dispatch commands or invoke implementation/review/fix model
+  terminals.
 - Declare final acceptance.
 - Hide, summarize, or rewrite implementation evidence before review.
 - Feed reviewers only its own narrative summary.
 - Record credentials, tokens, cookies, private keys, or full environment dumps.
+
+Codex/GPT and Claude provider sessions may prepare model-facing dispatch
+artifacts, but must not execute them. The human operator executes dispatch by
+copying the prepared prompt or command into the selected model terminal and then
+records the resulting raw output or receipt under the stage evidence path. This
+applies to implementation, embedded pre-review, review-1, review-2, and fix
+dispatches.
 
 ### Designers
 
@@ -282,9 +292,12 @@ dispatching the fix.
 - Codex review nodes use `codex exec` in read-only mode with a custom prompt
   when strict JSON verdict output is required. Do not rely on `codex review`
   for schema-constrained verdicts.
-- Model dispatch must use `docs/model-adapters.md` and `agents/registry.yaml`.
-  A bookkeeper or implementation session lacking a built-in tool for a model is not sufficient to
-  mark that model unavailable; the runner-level adapter check must fail.
+- Model dispatch preparation must use `docs/model-adapters.md` and
+  `agents/registry.yaml`. Codex/GPT and Claude sessions must not execute model
+  dispatch; the human operator executes prepared dispatch packets in the target
+  model terminal. A bookkeeper or implementation session lacking a built-in tool
+  for a model is not sufficient to mark that model unavailable; the runner-level
+  adapter check must fail.
 - Review-2 fallback or strong-reviewer override is allowed only for quota,
   authentication, service availability, timeout, repeated invalid verdict JSON,
   or design-conflict ineligibility of the preferred unrelated reviewer. Do not

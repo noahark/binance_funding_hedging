@@ -199,17 +199,24 @@ accept a stage.
 
 The bookkeeper, also called the stage operator, is the single local execution
 session that writes `status.json`, creates committed evidence, runs validators,
-and dispatches formal review gates. The default should be independent from the
-implementation terminals. GLM5.2 through Claude Code may still be assigned as
-bookkeeper when the user chooses it, but that is an explicit stage assignment,
-not the framework default.
+and prepares model-facing dispatch packets. The default should be independent
+from the implementation terminals. GLM5.2 through Claude Code may still be
+assigned as bookkeeper when the user chooses it, but that is an explicit stage
+assignment, not the framework default.
+
+Dispatch execution is human-operated. Codex/GPT and Claude provider sessions
+may write implementation, review, and fix prompts, command templates, routing
+metadata, and handoff text, but they must not invoke other model CLIs or model
+terminals. The human operator copies the prepared dispatch into the selected
+model terminal and records the resulting raw output or receipt under the stage
+evidence path.
 
 Bookkeeper responsibilities:
 
 - Select the next stage from workflow state.
 - Coordinate direction draft collection and GPT/Codex synthesis.
 - Build prompts from templates and raw artifact paths.
-- Call eligible models through adapters.
+- Prepare eligible-model dispatch packets from adapter rules.
 - Validate output contracts.
 - Update stage status.
 - Stop on blockers or invalid machine-readable outputs.
@@ -246,7 +253,8 @@ The intended pattern is:
    not formal review-1 verdicts, because they happen before committed evidence.
 5. The bookkeeper re-generates each task diff, reconciles it with the
    implementer-produced diff, creates H_A/H_B evidence commits in order, then
-   dispatches formal review-1 against committed fingerprints.
+   prepares the formal review-1 dispatch packet against committed fingerprints
+   for human execution.
 
 This mode improves wall-clock time without changing the evidence model:
 committed-state fingerprints, validator checks, formal review-1, and review-2

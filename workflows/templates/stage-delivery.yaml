@@ -3,7 +3,8 @@ name: stage-delivery
 description: >
   Template for one bounded quality-gated project delivery stage. The
   orchestrator is the abstract workflow state machine; the bookkeeper is the
-  single writer for stage state, evidence commits, and formal review dispatch.
+  single writer for stage state, evidence commits, and model-facing dispatch
+  packets. Human operators execute prepared dispatch packets in model terminals.
   The first manual stage delivery run is deferred until product requirements
   and test strategy are agreed.
 
@@ -26,6 +27,8 @@ guards:
   merge_to_main_requires_user_acceptance: true
   forbid_rebase: true
   require_committed_state_before_review: true
+  model_dispatch_execution_requires_human: true
+  codex_gpt_claude_must_not_execute_model_dispatch: true
   forbid_worktree_fingerprint: true
   validate_stage_script: "scripts/validate-stage.py"
   fail_closed_on_invalid_json: true
@@ -444,6 +447,7 @@ stages:
       - "If backend work is the large majority and frontend work is light, dispatch the whole bounded task to claude_glm."
       - "If frontend work is the large majority and backend work is light, dispatch the whole bounded task to kimi."
       - "If backend and frontend work are both substantial and separable, split implementation by domain owner."
+      - "Bookkeeper, Codex/GPT, and Claude sessions prepare implementation dispatch packets only; the human operator executes them in the selected implementer terminal."
       - "When docs/parallel-development-mode.md applies, the implementer must execute or escalate any next_dispatch marked executor:self before reporting completion."
     acceptance:
       - "Changed files match task boundaries or deviations are explained."
@@ -535,12 +539,13 @@ stages:
 
   - id: review-1
     preflight:
-      - "Bookkeeper must locally commit reviewed artifacts before dispatch."
+      - "Bookkeeper must locally commit reviewed artifacts before preparing the human-executed dispatch packet."
       - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_1."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring the reviewer unavailable."
+      - "Codex/GPT and Claude sessions prepare review-1 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
     actor:
       selection: rotation.review_1
     skill: code_reviewer
@@ -629,13 +634,14 @@ stages:
 
   - id: review-2
     preflight:
-      - "Bookkeeper must locally commit reviewed artifacts before dispatch."
+      - "Bookkeeper must locally commit reviewed artifacts before preparing the human-executed dispatch packet."
       - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_2."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring Codex or Claude unavailable."
-      - "If the selected final reviewer participated in direction synthesis, breakdown, or design, record the design-conflict override evidence before dispatch."
+      - "If the selected final reviewer participated in direction synthesis, breakdown, or design, record the design-conflict override evidence before preparing dispatch."
+      - "Codex/GPT and Claude sessions prepare review-2 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
     actor:
       primary: codex
       fallback: claude

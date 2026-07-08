@@ -271,9 +271,12 @@ The cross-review reviewer is derived from the implementer provider using
 `kimi -> claude_glm`, otherwise first available cross-review pool member with a
 different provider). It is not inferred from "backend" or "frontend" wording.
 
-The prohibition is against **unlogged chat-window relay**. A human may still run
-an adapter command when a local terminal cannot, but that action must be driven
-by the dispatch file and recorded in the required `.dispatch.md` evidence.
+The prohibition is against **unlogged chat-window relay**. Dispatch execution is
+human-operated for Codex/GPT and Claude provider sessions: they may prepare the
+dispatch file, but they must not invoke another model terminal. The human
+operator runs the prepared prompt or adapter command in the selected target
+terminal, and that action must be driven by the dispatch file and recorded in
+the required `.dispatch.md` evidence.
 
 ## 5. 落档命名约定（stage 目录内）
 
