@@ -17,8 +17,8 @@
     "name": "stage/2026-07-ui-filter-balance-metal-v1",
     "created_from_main_sha": "3d3c66e64446d1285a96b4a0e0843e912e4c540e",
     "created_at": "2026-07-07T18:23:15Z",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "4bcd7bf",
     "merge_strategy": "no-ff",
     "abandoned_reason": null
   },
