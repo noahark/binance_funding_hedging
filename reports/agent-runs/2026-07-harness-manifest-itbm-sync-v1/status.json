@@ -6,9 +6,9 @@
     "name": "stage/2026-07-harness-manifest-itbm-sync-v1",
     "created_from_main_sha": "0a2abb8e5e68973325a6a6cacca5c66a7e896b98",
     "created_at": "2026-07-09T09:32:23+08:00",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "9097ff34e88c464b4e7712a5f5afecb8316c2200",
+    "merge_strategy": "fast_forward",
     "abandoned_reason": null
   },
   "bookkeeper": {
@@ -201,6 +201,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "user accepted stage; merge stage branch to main and record merged_back metadata",
-  "updated_at": "2026-07-09T13:39:46+08:00"
+  "next_action": "stage merged to main; open Harness friction-fixes stage",
+  "updated_at": "2026-07-09T13:40:50+08:00"
 }

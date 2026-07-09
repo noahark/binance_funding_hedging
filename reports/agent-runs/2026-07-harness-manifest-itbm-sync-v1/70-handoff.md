@@ -5,9 +5,9 @@
 - Stage: `2026-07-harness-manifest-itbm-sync-v1`
 - Status: `accepted` (review-2 ACCEPT recorded; user explicitly accepted merge
   to `main` on 2026-07-09)
-- Branch: `stage/2026-07-harness-manifest-itbm-sync-v1`
-- HEAD: `51b5e63` (review-2 ACCEPT + `stage_accepted_waiting_user` evidence);
-  `head_sha` stays `d613dea`
+- Branch: `main` (stage branch fast-forward merged)
+- HEAD on `main`: `9097ff3` fast-forward merge result before merged-back metadata
+  commit; `head_sha` stays `d613dea`
   (review-1 reviewed range, per harness convention — delivery-anchored head)
 - Reviewed range (`base_sha..head_sha`): `0a2abb8..d613dea`
 - `diff_fingerprint` (status.json authoritative):
@@ -224,6 +224,13 @@ Review-2 returned `ACCEPT` with model `claude-opus-4-8`, schema-valid JSON, and
 matching diff fingerprint. The user explicitly accepted this stage and
 authorized merging the stage branch back to `main`.
 
+The stage branch was fast-forward merged to `main` at
+`9097ff34e88c464b4e7712a5f5afecb8316c2200`. `status.json.stage_branch` records:
+
+- `merged_back_to_main=true`
+- `merged_back_sha=9097ff34e88c464b4e7712a5f5afecb8316c2200`
+- `merge_strategy=fast_forward`
+
 Pre-accept validator was run from a clean committed worktree after recording
 review-2 ACCEPT and `status=stage_accepted_waiting_user`:
 
@@ -240,6 +247,6 @@ Claude assessed Kimi's P2/P3 residuals explicitly:
   fixed-point property and authoritative `status.json` fingerprint: accepted
   as-is.
 
-本地北京时间: 2026-07-09 13:04:18 CST
+本地北京时间: 2026-07-09 13:40:50 CST
 下一步模型: codex
-下一步任务: merge `stage/2026-07-harness-manifest-itbm-sync-v1` to `main`, record merged_back metadata, then open Harness friction-fixes stage
+下一步任务: run post-merge pre-accept validation, then open Harness friction-fixes stage
