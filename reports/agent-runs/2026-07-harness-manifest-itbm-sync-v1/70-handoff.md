@@ -3,8 +3,8 @@
 ## Current State
 
 - Stage: `2026-07-harness-manifest-itbm-sync-v1`
-- Status: `review_1` (review-1 REWORK fixed via `fix_start_prompt`; pending
-  Kimi redispatch)
+- Status: `review_2` (review-1 ACCEPT recorded; awaiting final reviewer
+  selection)
 - Branch: `stage/2026-07-harness-manifest-itbm-sync-v1`
 - HEAD: `d6e4146` (status-only anchor to evidence head `d613dea`)
 - Reviewed range (`base_sha..head_sha`): `0a2abb8..d613dea`
@@ -14,7 +14,7 @@
 - Bookkeeper: Codex/GPT (`gpt-5`), independent from implementer
 - Implementer/recorder: Claude-GLM (`glm-5.2[1m]`, provider identity
   `zhipu_glm`), dual-hat implementer + single-owner recorder
-- Reviewer-1: Kimi (`moonshot_kimi`), `pending_redispatch`
+- Reviewer-1: Kimi (`moonshot_kimi`), `completed` (verdict `ACCEPT`)
 - Parallel mode: disabled
 - Independent task-branch mode: disabled (but single-owner recorder trial is
   enabled via `single_owner_record_checkpoint_trial`)
@@ -177,16 +177,26 @@ therefore records the validator's PASS over the pre-inclusion head
 recomputing `base..status.head_sha` and asserting equality with the recorded
 value (the log content is not part of that assertion).
 
+## Review-1 Redispatch Result (ACCEPT)
+
+Kimi review-1 was redispatched over `0a2abb8..d613dea` (fresh session) and
+returned a schema-valid JSON verdict: **`ACCEPT`**, `next_action: continue`,
+`reviewer_prior_involvement: none`, no `required_fixes`, `diff_fingerprint`
+matching `status.json`. Findings: 1×P2 (`status.json` `head_sha` one commit
+behind the stage branch tip — reconciled by re-anchoring `head_sha` to the
+evidence commit below) + 1×P3 (validator log records the pre-inclusion
+fingerprint by the fixed-point property — no change required). See
+`30-review-1.md`.
+
 ## Next Action
 
-Redispatch Kimi review-1 over `0a2abb8..d613dea` using
-`review-1-kimi.prompt.md` (fresh session; output to `30-review-1.md`). On
-`ACCEPT`, advance `status` to `review_2` and stop at the review-2 prepared
-state. Final reviewer selection stays pending until the user returns; Codex
-designed/bookkept this stage, so the plan is to route review-2 to an unrelated
-decision provider such as Claude unless Codex is explicitly chosen with the
-strong-reviewer override.
+Stage is at the review-2 prepared state: `status=review_2`,
+`reviewer_1.status=completed`. Final reviewer selection stays pending until the
+user returns. Codex designed/bookkept this stage (provider identity `openai`),
+so the plan is to route review-2 to an unrelated decision provider such as
+Claude unless Codex is explicitly chosen with the strong-reviewer override
+(`review_2.primary_provider` is left `null` until then).
 
-本地北京时间: 2026-07-09 12:11:07 CST
-下一步模型: claude_glm
-下一步任务: redispatch Kimi review-1 over base..d613dea for 2026-07-harness-manifest-itbm-sync-v1; on ACCEPT stop at review_2 prepared state
+本地北京时间: 2026-07-09 12:21:23 CST
+下一步模型: human
+下一步任务: select review-2 final reviewer for 2026-07-harness-manifest-itbm-sync-v1 per AGENTS.md
