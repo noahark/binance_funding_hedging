@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-manifest-itbm-sync-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-manifest-itbm-sync-v1",
@@ -200,7 +200,7 @@
     "required": false,
     "reason": null
   },
-  "terminal_reason": "stage_accepted_waiting_user",
-  "next_action": "wait for explicit user acceptance before merging stage branch to main",
-  "updated_at": "2026-07-09T13:04:18+08:00"
+  "terminal_reason": null,
+  "next_action": "user accepted stage; merge stage branch to main and record merged_back metadata",
+  "updated_at": "2026-07-09T13:39:46+08:00"
 }

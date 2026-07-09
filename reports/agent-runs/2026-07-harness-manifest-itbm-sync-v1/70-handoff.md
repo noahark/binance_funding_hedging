@@ -3,8 +3,8 @@
 ## Current State
 
 - Stage: `2026-07-harness-manifest-itbm-sync-v1`
-- Status: `stage_accepted_waiting_user` (review-2 ACCEPT recorded; waiting
-  explicit user acceptance before any merge to `main`)
+- Status: `accepted` (review-2 ACCEPT recorded; user explicitly accepted merge
+  to `main` on 2026-07-09)
 - Branch: `stage/2026-07-harness-manifest-itbm-sync-v1`
 - HEAD: `51b5e63` (review-2 ACCEPT + `stage_accepted_waiting_user` evidence);
   `head_sha` stays `d613dea`
@@ -221,9 +221,8 @@ selecting Claude and preparing the dispatch prompt:
 ## Current Next Action
 
 Review-2 returned `ACCEPT` with model `claude-opus-4-8`, schema-valid JSON, and
-matching diff fingerprint. The stage should stop at
-`stage_accepted_waiting_user`; do not merge to `main` until the user explicitly
-accepts this stage.
+matching diff fingerprint. The user explicitly accepted this stage and
+authorized merging the stage branch back to `main`.
 
 Pre-accept validator was run from a clean committed worktree after recording
 review-2 ACCEPT and `status=stage_accepted_waiting_user`:
@@ -242,5 +241,5 @@ Claude assessed Kimi's P2/P3 residuals explicitly:
   as-is.
 
 本地北京时间: 2026-07-09 13:04:18 CST
-下一步模型: human
-下一步任务: explicitly accept or reject merge of `stage/2026-07-harness-manifest-itbm-sync-v1` to `main`
+下一步模型: codex
+下一步任务: merge `stage/2026-07-harness-manifest-itbm-sync-v1` to `main`, record merged_back metadata, then open Harness friction-fixes stage
