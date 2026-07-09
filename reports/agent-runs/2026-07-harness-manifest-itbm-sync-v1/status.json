@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-manifest-itbm-sync-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-manifest-itbm-sync-v1",
@@ -52,7 +52,7 @@
     "provider": "claude_glm",
     "model": "glm-5.2[1m]",
     "provider_identity": "zhipu_glm",
-    "status": "pending_dispatch"
+    "status": "done"
   },
   "implementers": [
     {
@@ -98,9 +98,9 @@
         ],
         "allow_harness_change": true
       },
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "base_sha": "0a2abb8e5e68973325a6a6cacca5c66a7e896b98",
+      "head_sha": "b397b4bde4d9975fb582334c6c78f21e54063504",
+      "diff_fingerprint": "b397b4bde4d9975fb582334c6c78f21e54063504:799c26c410055094e783fdcda125474ae0aa946ccc5e0e556f4596292c29f00b",
       "test_evidence": "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "kimi",
@@ -132,13 +132,28 @@
     "status": "skipped",
     "user_approved": true
   },
-  "base_sha": null,
-  "head_sha": null,
-  "diff_fingerprint": null,
-  "changed_files": [],
+  "base_sha": "0a2abb8e5e68973325a6a6cacca5c66a7e896b98",
+  "head_sha": "b397b4bde4d9975fb582334c6c78f21e54063504",
+  "diff_fingerprint": "b397b4bde4d9975fb582334c6c78f21e54063504:799c26c410055094e783fdcda125474ae0aa946ccc5e0e556f4596292c29f00b",
+  "changed_files": [
+    "harness-manifest.yaml",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/00-intake.md",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/00-task.md",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/10-design.md",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/11-adr.md",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/record-checkpoint-single-owner.raw-output.txt",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/review-1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/task-H-claude-glm.prompt.md"
+  ],
   "tests": {
-    "status": "not_run",
-    "commands": []
+    "status": "pass",
+    "commands": [
+      "python3 scripts/tests/itbm_dry_run.py",
+      "python3 -m py_compile scripts/validate-stage.py scripts/_itbm.py"
+    ]
   },
   "review_1": {
     "reviewer": "kimi",
@@ -184,6 +199,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "dispatch task-H-claude-glm.prompt.md",
-  "updated_at": "2026-07-09T09:32:23+08:00"
+  "next_action": "run pre-review validator then dispatch Kimi review-1",
+  "updated_at": "2026-07-09T09:56:11.973762+08:00"
 }
