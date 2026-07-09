@@ -31,10 +31,11 @@
 - Implementation: `20-implementation.md`
 - Test output: `60-test-output.txt`
 - Pre-review validation evidence: `61-validate-pre-review.txt`
+- Final pre-review validation evidence: `62-validate-pre-review-final.txt`
 - Status JSON: `status.json`
 - GLM implementation dispatch: `implementation-claude-glm.prompt.md`
 - Bookkeeper inspection: `21-bookkeeper-inspection.md`
-- Review-1 dispatch: pending `review-1-kimi.prompt.md`
+- Review-1 dispatch: `review-1-kimi.prompt.md`
 
 ## Open Findings
 
@@ -62,6 +63,7 @@ bookkeeper re-run verification passed. Formal review-1 has not run yet.
 - `python3 -m py_compile scripts/validate-stage.py scripts/_itbm.py scripts/record-checkpoint`: PASS
 - `python3 scripts/tests/test_validate_stage.py`: PASS, 19/19 assertions
 - `python3 scripts/validate-stage.py 2026-07-harness-hardening-followups-v1 --phase pre-review --evidence-out reports/agent-runs/2026-07-harness-hardening-followups-v1/61-validate-pre-review.txt`: PASS; evidence committed into reviewed range
+- `python3 scripts/validate-stage.py 2026-07-harness-hardening-followups-v1 --phase pre-review --evidence-out reports/agent-runs/2026-07-harness-hardening-followups-v1/62-validate-pre-review-final.txt`: PASS; auxiliary final gate evidence
 
 ## Process Note
 
@@ -74,9 +76,12 @@ dispatch instructions.
 
 ## Next Action
 
-Bookkeeper should commit status metadata, run pre-review validation, then
-prepare `review-1-kimi.prompt.md` for human execution in Kimi.
+Human operator should dispatch:
 
-本地北京时间: 2026-07-09 21:38:40 CST
-下一步模型: codex_gpt5
-下一步任务: commit status metadata, run pre-review validation, and prepare Kimi review-1
+```bash
+kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-harness-hardening-followups-v1/review-1-kimi.prompt.md)" 2>reports/agent-runs/2026-07-harness-hardening-followups-v1/review-1-kimi.stderr.log | tee reports/agent-runs/2026-07-harness-hardening-followups-v1/30-review-1.md
+```
+
+本地北京时间: 2026-07-09 21:39:43 CST
+下一步模型: kimi
+下一步任务: perform review-1 on the fixed `base_sha..head_sha` range

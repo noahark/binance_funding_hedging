@@ -171,6 +171,7 @@
       "python3 scripts/tests/test_validate_stage.py",
       "python3 scripts/validate-stage.py 2026-07-harness-hardening-followups-v1 --phase checkpoint",
       "python3 scripts/validate-stage.py 2026-07-harness-hardening-followups-v1 --phase pre-review --evidence-out reports/agent-runs/2026-07-harness-hardening-followups-v1/61-validate-pre-review.txt",
+      "python3 scripts/validate-stage.py 2026-07-harness-hardening-followups-v1 --phase pre-review --evidence-out reports/agent-runs/2026-07-harness-hardening-followups-v1/62-validate-pre-review-final.txt",
       "git diff --check"
     ]
   },
@@ -220,6 +221,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "run pre-review validation and prepare Kimi review-1 dispatch",
-  "updated_at": "2026-07-09T21:38:40+08:00"
+  "next_action": "dispatch review-1 prompt to Kimi",
+  "updated_at": "2026-07-09T21:39:43+08:00"
 }
