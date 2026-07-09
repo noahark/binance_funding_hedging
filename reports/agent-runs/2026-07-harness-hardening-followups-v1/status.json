@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-hardening-followups-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-hardening-followups-v1",
@@ -38,7 +38,7 @@
     "provider": "claude_glm",
     "model": "glm-5.2",
     "provider_identity": "zhipu_glm",
-    "status": "pending"
+    "status": "completed"
   },
   "implementers": [
     {
@@ -46,7 +46,7 @@
       "provider": "claude_glm",
       "model": "glm-5.2",
       "provider_identity": "zhipu_glm",
-      "status": "pending"
+      "status": "completed"
     }
   ],
   "fix_authors": [],
@@ -106,8 +106,8 @@
       "fix_prompt_path": null,
       "r10_checklist": null,
       "base_sha": "ddcf0e11a2ece33bdb9863512504fcc404867e4f",
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "head_sha": "9dfa0e7d39eb146b54bc61683eb851aef10b6c09",
+      "diff_fingerprint": "9dfa0e7d39eb146b54bc61683eb851aef10b6c09:f105dd913c14144bacaba13500da6f194bcd3dde2e88350ff2414806698fc18d",
       "test_evidence": "reports/agent-runs/2026-07-harness-hardening-followups-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "kimi",
@@ -142,12 +142,35 @@
     "user_approved": true
   },
   "base_sha": "ddcf0e11a2ece33bdb9863512504fcc404867e4f",
-  "head_sha": null,
-  "diff_fingerprint": null,
-  "changed_files": [],
+  "head_sha": "9dfa0e7d39eb146b54bc61683eb851aef10b6c09",
+  "diff_fingerprint": "9dfa0e7d39eb146b54bc61683eb851aef10b6c09:f105dd913c14144bacaba13500da6f194bcd3dde2e88350ff2414806698fc18d",
+  "changed_files": [
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/00-intake.md",
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/00-task.md",
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/10-design.md",
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/11-adr.md",
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/21-bookkeeper-inspection.md",
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/status.json",
+    "reports/agent-runs/_template/status.json",
+    "scripts/record-checkpoint",
+    "scripts/tests/itbm_dry_run.py",
+    "scripts/tests/test_validate_stage.py",
+    "scripts/validate-stage.py",
+    "workflows/templates/stage-delivery.yaml"
+  ],
   "tests": {
-    "status": "not_run",
-    "commands": []
+    "status": "pass",
+    "commands": [
+      "python3 scripts/tests/itbm_dry_run.py",
+      "python3 -m py_compile scripts/validate-stage.py scripts/_itbm.py scripts/record-checkpoint",
+      "python3 scripts/tests/test_validate_stage.py",
+      "python3 scripts/validate-stage.py 2026-07-harness-hardening-followups-v1 --phase checkpoint",
+      "git diff --check"
+    ]
   },
   "review_1": {
     "reviewer": "kimi",
@@ -195,6 +218,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "dispatch implementation prompt to claude_glm",
-  "updated_at": "2026-07-09T21:13:20+08:00"
+  "next_action": "run pre-review validation and prepare Kimi review-1 dispatch",
+  "updated_at": "2026-07-09T21:36:58+08:00"
 }
