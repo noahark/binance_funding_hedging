@@ -99,8 +99,8 @@
         "allow_harness_change": true
       },
       "base_sha": "0a2abb8e5e68973325a6a6cacca5c66a7e896b98",
-      "head_sha": "b397b4bde4d9975fb582334c6c78f21e54063504",
-      "diff_fingerprint": "b397b4bde4d9975fb582334c6c78f21e54063504:799c26c410055094e783fdcda125474ae0aa946ccc5e0e556f4596292c29f00b",
+      "head_sha": "d53ec28ead5bb5899dc1534a3fbc50f5f49e4afa",
+      "diff_fingerprint": "d53ec28ead5bb5899dc1534a3fbc50f5f49e4afa:e5e487f967391ecd120a89e9176b156e882e9d89e8b51bb9f20cdde174ae0c8e",
       "test_evidence": "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "kimi",
@@ -133,8 +133,8 @@
     "user_approved": true
   },
   "base_sha": "0a2abb8e5e68973325a6a6cacca5c66a7e896b98",
-  "head_sha": "b397b4bde4d9975fb582334c6c78f21e54063504",
-  "diff_fingerprint": "b397b4bde4d9975fb582334c6c78f21e54063504:799c26c410055094e783fdcda125474ae0aa946ccc5e0e556f4596292c29f00b",
+  "head_sha": "d53ec28ead5bb5899dc1534a3fbc50f5f49e4afa",
+  "diff_fingerprint": "d53ec28ead5bb5899dc1534a3fbc50f5f49e4afa:e5e487f967391ecd120a89e9176b156e882e9d89e8b51bb9f20cdde174ae0c8e",
   "changed_files": [
     "harness-manifest.yaml",
     "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/00-intake.md",
@@ -146,13 +146,15 @@
     "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/70-handoff.md",
     "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/record-checkpoint-single-owner.raw-output.txt",
     "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/review-1-kimi.prompt.md",
-    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/task-H-claude-glm.prompt.md"
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/task-H-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/61-validate-pre-review.txt"
   ],
   "tests": {
     "status": "pass",
     "commands": [
       "python3 scripts/tests/itbm_dry_run.py",
-      "python3 -m py_compile scripts/validate-stage.py scripts/_itbm.py"
+      "python3 -m py_compile scripts/validate-stage.py scripts/_itbm.py",
+      "python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase pre-review"
     ]
   },
   "review_1": {
@@ -199,6 +201,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "apply review-1 fix_start_prompt (validator evidence into reviewed range), then redispatch Kimi review-1",
-  "updated_at": "2026-07-09T10:33:46.114313+08:00"
+  "next_action": "redispatch Kimi review-1 (validator evidence now in reviewed range); on ACCEPT go to review_2",
+  "updated_at": "2026-07-09T10:34:33.190216+08:00"
 }
