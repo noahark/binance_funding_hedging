@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-friction-fixes-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-friction-fixes-v1",
@@ -63,9 +63,15 @@
     "provider": "kimi",
     "model": "kimi-code/kimi-for-coding",
     "provider_identity": "moonshot_kimi",
+    "status": "completed"
+  },
+  "reviewer_2": {
+    "id": "codex_gpt",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "provider_identity": "openai",
     "status": "pending_dispatch"
   },
-  "reviewer_2": null,
   "model_routing": {
     "expected_implementation_owner": "claude_glm",
     "expected_review_1": "kimi",
@@ -110,12 +116,12 @@
       "diff_fingerprint": "b051e7c7c93b28ff40b3d94e46413ea9742834a7:b1c997df18aecab355525ed9f891477810a04bf2aad46138e868a6a4376a057e",
       "test_evidence": "reports/agent-runs/2026-07-harness-friction-fixes-v1/60-test-output.txt",
       "review_1": {
-        "reviewer": null,
-        "provider": null,
-        "model": null,
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "reviewer": "kimi",
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "b051e7c7c93b28ff40b3d94e46413ea9742834a7:b1c997df18aecab355525ed9f891477810a04bf2aad46138e868a6a4376a057e"
       }
     }
   ],
@@ -184,29 +190,30 @@
     "reviewer": "kimi",
     "provider": "kimi",
     "model": "kimi-code/kimi-for-coding",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "open_p0_p1": false,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "b051e7c7c93b28ff40b3d94e46413ea9742834a7:b1c997df18aecab355525ed9f891477810a04bf2aad46138e868a6a4376a057e",
     "reviewer_prior_involvement": "none",
-    "fix_start_prompt_present": null,
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
-    "primary_provider": null,
+    "reviewer": "codex",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "actual_model": null,
+    "primary_provider": "codex",
     "fallback_provider": "claude",
-    "fallback_reason": null,
-    "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": "Final reviewer not selected. Codex designed this stage; prefer unrelated final reviewer unless a strong-reviewer override is required later.",
-    "unrelated_reviewer_unavailable_evidence": null,
+    "fallback_reason": "strong-reviewer disclosure override: no decision-model provider is unrelated to this stage's design set. OpenAI/Codex designed and bookkept the stage; Anthropic authored the development breakdown. Codex is the workflow primary, has no implementation or fix authorship, and is selected for final review with design involvement disclosed.",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "Codex/GPT designed and bookkept this Harness-only stage, but did not implement or fix it. Implementer/fix author provider is zhipu_glm; review-1 provider is moonshot_kimi. Anthropic is not an unrelated decision model here because it authored 12-development-breakdown.md. Final review must treat raw artifacts and user-approved requirements as authority over prior design notes.",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-harness-friction-fixes-v1/review-2-strong-reviewer-override-evidence.md",
     "design_conflict_override": {
-      "used": false,
-      "reason": null,
-      "unrelated_reviewer_unavailable_evidence": null
+      "used": true,
+      "reason": "No unrelated decision-model provider is available: OpenAI has design/bookkeeper involvement and Anthropic has breakdown involvement. Codex/GPT remains eligible because it has no implementation/fix authorship and uses the documented strong-reviewer disclosure override.",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-harness-friction-fixes-v1/review-2-strong-reviewer-override-evidence.md"
     },
     "open_p0_p1": null,
     "verdict": null,
@@ -224,6 +231,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human dispatch review-1-kimi.prompt.md to Kimi",
-  "updated_at": "2026-07-09T18:16:00+08:00"
+  "next_action": "human dispatch review-2-codex.prompt.md to Codex/GPT",
+  "updated_at": "2026-07-09T20:29:18+08:00"
 }

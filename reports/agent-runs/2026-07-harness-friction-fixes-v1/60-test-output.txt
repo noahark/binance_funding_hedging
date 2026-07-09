@@ -111,3 +111,22 @@ Bookkeeper result: P1 fixed. `test_single_owner_dry_run` now asserts unchanged
 `HEAD`, unchanged `git status --short`, and unwritten `status.json` metadata.
 
 本地北京时间: 2026-07-09 18:11:23 CST
+
+########## REVIEW-1 VERDICT VALIDATION ##########
+$ python3 - <<'PY'
+# Extract final JSON from 30-review-1.md and validate against schemas/review-verdict.schema.json.
+PY
+-------------------------------
+schema_valid=true
+verdict=ACCEPT
+diff_fingerprint=b051e7c7c93b28ff40b3d94e46413ea9742834a7:b1c997df18aecab355525ed9f891477810a04bf2aad46138e868a6a4376a057e
+findings=0
+required_fixes=0
+rc=0
+
+Bookkeeper evidence hygiene: raw Kimi stdout was preserved as
+`30-review-1.raw-output.md`. The committed `30-review-1.md` removes only the
+adapter stdout noise at the beginning and keeps review narrative, findings, and
+the final JSON verdict intact.
+
+本地北京时间: 2026-07-09 20:29:18 CST
