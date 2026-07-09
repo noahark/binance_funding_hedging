@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-flow-optimization-v1",
-  "status": "draft_prepared_for_external_review",
+  "status": "accepted_and_merged_to_main",
   "workflow": "harness-flow-optimization",
   "branch": "main",
   "purpose": "Record the discussion context and proposed Harness flow changes for multi-model review.",
@@ -142,6 +142,17 @@
       "dry_run": "scripts/tests/itbm_dry_run.py — 13/13 assertions pass (positive ①②③④ + validator pre-review + fail-closed ⑤⑥⑦⑧⑪⑫/⑮⑯)",
       "spec_fix_from_dry_run": "§5 branch topology corrected: task branches use a separate task/<stage-id>/<owner> namespace, NOT nested under stage/<id> (git cannot hold both refs). Discovered by the dry-run fixture.",
       "timestamp": "2026-07-08 21:13:24 CST"
+    },
+    {
+      "id": "DEC-2026-07-09-001",
+      "decided_by": "human",
+      "decision": "user_accept_and_merge_itbm_enablement_to_main",
+      "rationale": "用户显式验收并授权直接合并（『可以直接合并么』→ 确认）。bookkeeper 安全试合(--no-commit --no-ff)确认：3-way merge 干净无冲突(base 41c6ba5)，main 上后合入的 51061 stage 改动完整保留(snapshot.schema.json/contract.md/private_client.py 未被回退)。合并后复验 scripts/tests/itbm_dry_run.py 13/13 + pytest backend/tests 190 passed。design 已 DRAFT-2 rev c2 2xACCEPT；§14 代码由 13/13 dry-run 背书；属 merge-and-iterate 的务实验收(未单独走 product 式 review-2)。",
+      "supersedes": "DEC-2026-07-08-005 的 not-merged-until-acceptance 约束(现已验收合并)",
+      "merged_back_sha": "693a7b60a9409db110773ac61b3a0a6cf47655fd",
+      "merge_strategy": "no-ff",
+      "post_merge_verification": "itbm_dry_run 13/13; pytest backend/tests 190 passed; 51061 stage 改动幸存",
+      "timestamp": "2026-07-09 07:45:00 CST"
     }
   ],
   "review_requests": {
@@ -161,5 +172,5 @@
     "tests_run": "documentation_sanity_only",
     "evidence": "reports/agent-runs/2026-07-harness-flow-optimization-v1/60-test-output.txt"
   },
-  "updated_at": "2026-07-08 21:13:24 CST"
+  "updated_at": "2026-07-09 07:45:00 CST"
 }
