@@ -62,6 +62,7 @@
         "reviewer": null,
         "provider": null,
         "model": null,
+        "actual_model": null,
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -97,6 +98,7 @@
     "reviewer": null,
     "provider": null,
     "model": null,
+    "actual_model": null,
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,

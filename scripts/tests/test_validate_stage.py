@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for scripts/validate-stage.py friction fixes (F1, F4).
+"""Tests for scripts/validate-stage.py friction fixes (F1, F4) and hardening
+follow-ups (D1, D3, D4, D5).
 
 F1: an unselected review_2.primary_provider preference must not be treated as
     the selected reviewer identity for designer-overlap / implementer-overlap
@@ -7,6 +8,11 @@ F1: an unselected review_2.primary_provider preference must not be treated as
 F4: --evidence-out writes the validation output only when validation passes,
     so it can replace `... | tee <repo-file>` without dirtying the worktree
     before the clean-worktree check.
+D1: --evidence-out write failures surface a clean Harness error instead of an
+    uncaught Python traceback.
+D3: compute_diff_fingerprint pins -c diff.renames=true, matching _itbm.py.
+D4: the status.json template exposes review_1.actual_model.
+D5: the stage-delivery workflow encodes a mechanical fix return gate.
 
 validate-stage.py has a hyphen in its filename, so it is loaded via importlib.
 Run: python3 scripts/tests/test_validate_stage.py
@@ -14,6 +20,7 @@ Run: python3 scripts/tests/test_validate_stage.py
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import shutil
@@ -174,6 +181,92 @@ def test_evidence_out_on_fail():
         shutil.rmtree(repo.parent, ignore_errors=True)
 
 
+# ---- D1: --evidence-out write failure is a clean Harness error ----
+def test_evidence_out_write_failure_clean_error():
+    print("D1: --evidence-out write failure yields a clean Harness error, no traceback:")
+    repo, stage = setup_stage_repo({"stage_id": "toy-validate", "status": "implementing", "workflow": "stage-delivery"})
+    # Make the evidence path's parent a regular file so mkdir/write raise OSError.
+    blocker = repo / "blocker.txt"
+    blocker.write_text("i am a regular file\n")
+    bad_evidence = blocker / "out.txt"
+    try:
+        r = run_validator(repo, stage, "--evidence-out", str(bad_evidence))
+        check("validator exits non-zero on evidence write failure", r.returncode == 1, r.stdout)
+        check("clean Harness error names the evidence path",
+              "evidence" in r.stdout.lower() and str(bad_evidence) in r.stdout, r.stdout)
+        check("no uncaught Python traceback leaked", "Traceback" not in r.stdout, r.stdout)
+    finally:
+        shutil.rmtree(repo.parent, ignore_errors=True)
+
+
+def _git_fingerprint(repo, base, head, status_rel, renames):
+    """Independent recompute of the canonical fingerprint with an explicit rename flag."""
+    cmd = [
+        "git", "-c", f"diff.renames={'true' if renames else 'false'}",
+        "diff", "--binary", f"{base}..{head}", "--", ".", f":(exclude){status_rel}",
+    ]
+    diff = subprocess.run(cmd, cwd=str(repo), stdout=subprocess.PIPE, check=True).stdout
+    return f"{head}:{hashlib.sha256(diff).hexdigest()}"
+
+
+# ---- D3: compute_diff_fingerprint pins diff.renames=true like _itbm ----
+def test_fingerprint_pins_renames_true():
+    print("D3: compute_diff_fingerprint pins diff.renames=true like _itbm:")
+    repo, stage = setup_stage_repo({"stage_id": "toy-validate", "status": "implementing", "workflow": "stage-delivery"})
+    stage_dir = repo / "reports" / "agent-runs" / stage
+    status_rel = f"reports/agent-runs/{stage}/status.json"
+    try:
+        # Place the file at base so the base..head diff contains a real rename.
+        (repo / "a.txt").write_text("content\n")
+        subprocess.run(["git", "add", "-A"], cwd=str(repo), check=True)
+        subprocess.run(["git", "commit", "-qm", "add a.txt"], cwd=str(repo), check=True)
+        base = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(repo),
+                              stdout=subprocess.PIPE, check=True, text=True).stdout.strip()
+        subprocess.run(["git", "mv", "a.txt", "b.txt"], cwd=str(repo), check=True)
+        subprocess.run(["git", "commit", "-qm", "rename a.txt to b.txt"], cwd=str(repo), check=True)
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(repo),
+                              stdout=subprocess.PIPE, check=True, text=True).stdout.strip()
+        # Hostile repo config: disable rename detection at the git level.
+        subprocess.run(["git", "config", "diff.renames", "false"], cwd=str(repo), check=True)
+
+        sys.path.insert(0, str(SCRIPTS))
+        import _itbm
+        vs_fp = VS.compute_diff_fingerprint(repo, stage_dir, base, head)
+        itbm_fp = _itbm.canonical_fingerprint(repo, base, head, stage)
+        check("validate-stage fingerprint equals _itbm canonical under diff.renames=false",
+              vs_fp == itbm_fp, f"{vs_fp} vs {itbm_fp}")
+        renames_true = _git_fingerprint(repo, base, head, status_rel, True)
+        renames_false = _git_fingerprint(repo, base, head, status_rel, False)
+        check("rename policy materially changes the binary diff (test is meaningful)",
+              renames_true != renames_false, f"{renames_true} vs {renames_false}")
+        check("both pinned canonical sites equal the renames=true recompute",
+              vs_fp == renames_true, f"{vs_fp} vs {renames_true}")
+    finally:
+        shutil.rmtree(repo.parent, ignore_errors=True)
+
+
+# ---- D4: the status.json template exposes review_1.actual_model ----
+def test_template_review_1_actual_model():
+    print("D4: template review_1 supports actual_model:")
+    template_path = SCRIPTS.parent / "reports" / "agent-runs" / "_template" / "status.json"
+    template = json.loads(template_path.read_text())
+    check("top-level review_1 has actual_model",
+          "actual_model" in (template.get("review_1") or {}), str(template.get("review_1")))
+    tasks = template.get("tasks") or []
+    task_r1 = tasks[0].get("review_1", {}) if tasks and isinstance(tasks[0], dict) else {}
+    check("task-level review_1 has actual_model", "actual_model" in task_r1, str(task_r1))
+
+
+# ---- D5: stage-delivery workflow encodes a mechanical fix return gate ----
+def test_workflow_fix_return_gate():
+    print("D5: fix stage encodes review-1/review-2 return gate:")
+    yaml_text = (SCRIPTS.parent / "workflows" / "templates" / "stage-delivery.yaml").read_text()
+    check("fix stage pins after_fix_from_review_1: review-1",
+          "after_fix_from_review_1: review-1" in yaml_text, "missing return_gate after_fix_from_review_1")
+    check("fix stage pins after_fix_from_review_2: review-2",
+          "after_fix_from_review_2: review-2" in yaml_text, "missing return_gate after_fix_from_review_2")
+
+
 def main():
     for fn in (
         test_unselected_primary_provider_no_designer_overlap,
@@ -182,6 +275,10 @@ def main():
         test_selected_reviewer_unrelated_is_clean,
         test_evidence_out_on_pass,
         test_evidence_out_on_fail,
+        test_evidence_out_write_failure_clean_error,
+        test_fingerprint_pins_renames_true,
+        test_template_review_1_actual_model,
+        test_workflow_fix_return_gate,
     ):
         fn()
     passed = sum(1 for _, ok in RESULTS if ok)

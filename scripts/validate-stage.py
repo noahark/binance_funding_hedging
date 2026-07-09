@@ -159,9 +159,15 @@ def require_commit_in_current_history(root: Path, sha: str, field: str) -> None:
 
 def compute_diff_fingerprint(root: Path, stage_dir: Path, base_sha: str, head_sha: str) -> str:
     status_rel = (stage_dir / "status.json").relative_to(root).as_posix()
+    # Pin -c diff.renames=true (D3) so this recompute site matches the canonical
+    # invocation in scripts/_itbm.py byte-for-byte, regardless of the operator's
+    # user-level or repo-level .gitconfig. diff.renames=true is git's default, so
+    # pinning it does not change any already-recorded fingerprint.
     diff = run(
         [
             "git",
+            "-c",
+            "diff.renames=true",
             "diff",
             "--binary",
             f"{base_sha}..{head_sha}",
@@ -960,8 +966,21 @@ def main() -> int:
             evidence_path = Path(args.evidence_out)
             if not evidence_path.is_absolute():
                 evidence_path = (Path.cwd() / evidence_path)
-            evidence_path.parent.mkdir(parents=True, exist_ok=True)
-            evidence_path.write_text(output)
+            # Controlled evidence-write error handling (D1): wrap directory
+            # creation and the file write so a permission/IO failure (e.g. a
+            # read-only filesystem or a path whose parent is not a directory)
+            # surfaces a clear Harness message with the target path and the
+            # system error, plus a non-zero exit, instead of an uncaught Python
+            # traceback. Validation itself already passed and printed above.
+            try:
+                evidence_path.parent.mkdir(parents=True, exist_ok=True)
+                evidence_path.write_text(output)
+            except OSError as exc:
+                print(
+                    f"EVIDENCE WRITE FAILED: could not write {evidence_path}: {exc}",
+                    file=sys.stderr,
+                )
+                return 1
         return 0
     except ValidationError as exc:
         print("STAGE VALIDATION FAILED")

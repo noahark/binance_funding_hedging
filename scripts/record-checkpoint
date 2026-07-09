@@ -165,6 +165,14 @@ def main() -> int:
     stage_id = args.stage_id
 
     try:
+        if args.dry_run and not args.single_owner:
+            raise ItbmError(
+                "--dry-run is single-owner only: it previews the no-mutation "
+                "single-owner path. Without --single-owner the double-owner path "
+                "would mutate the repository, so --dry-run is rejected to prevent a "
+                "mistaken real commit. Add --single-owner to preview, or drop "
+                "--dry-run to record a double-owner checkpoint."
+            )
         if args.single_owner:
             return run_single_owner(repo, args, stage_id)
 

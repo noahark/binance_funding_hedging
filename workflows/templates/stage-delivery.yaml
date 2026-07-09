@@ -552,6 +552,7 @@ stages:
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "head_sha is delivery-anchored and a committed validator log records a pre-inclusion fingerprint; status.json.diff_fingerprint is authoritative (see docs/independent-task-branch-mode.md Evidence Conventions)."
       - "Separate adapter stderr from the review narrative when capturing raw output (see docs/model-adapters.md Review output hygiene)."
+      - "If the dispatched review-1 model differed from the anticipated model (for example a resolved adapter alias or a model substitution), record it in status.json.review_1.actual_model; provider identity is unchanged."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring the reviewer unavailable."
       - "Codex/GPT and Claude sessions prepare review-1 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
     actor:
@@ -640,6 +641,14 @@ stages:
       done: test
       limit_exceeded: human_escalation_required
       development_models_exhausted: development_models_exhausted
+    # D5: a fix redispatches the SAME review gate that issued the REWORK. The
+    # gate origin is known when fix is entered, so the return route is encoded
+    # here for mechanical dispatch instead of relying only on bookkeeper
+    # convention. A fix must never skip its originating review gate.
+    return_gate:
+      rule: "a fix must not skip the originating review gate"
+      after_fix_from_review_1: review-1
+      after_fix_from_review_2: review-2
 
   - id: review-2
     preflight:

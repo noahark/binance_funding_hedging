@@ -266,6 +266,28 @@ def test_single_owner(root):
           json.dumps({k: status.get(k) for k in ("base_sha", "head_sha", "diff_fingerprint", "changed_files")}))
 
 
+# ---- ⑰ single-owner --dry-run guard: --dry-run rejected without --single-owner ----
+def test_dry_run_requires_single_owner(root):
+    print("⑰ single-owner --dry-run guard rejects --dry-run without --single-owner:")
+    repo, base, wt_be, wt_fe = setup(root)
+    write(repo / "backend" / "app.py", "V = 9\n")
+    head_before = git(["rev-parse", "HEAD"], repo).stdout.strip()
+    status_before = git(["status", "--short"], repo).stdout
+    # --dry-run without --single-owner (and without --task) must be blocked by the
+    # guard before the double-owner path can mutate the repository.
+    r = run_script("record-checkpoint", [STAGE, "--dry-run", "--branch", INTEG,
+                                         "--task-worktree", str(repo), "--base-sha", base], cwd=repo)
+    head_after = git(["rev-parse", "HEAD"], repo).stdout.strip()
+    status_after = git(["status", "--short"], repo).stdout
+    check("⑰ --dry-run without --single-owner is BLOCKED with a clear ItbmError",
+          r.returncode == 1 and "single-owner" in r.stdout and "RECORD-CHECKPOINT BLOCKED" in r.stdout,
+          r.stdout)
+    check("⑰ rejected --dry-run performs no repository mutation",
+          head_after == head_before and status_after == status_before,
+          f"head_before={head_before[:12]} head_after={head_after[:12]} "
+          f"status_unchanged={status_after == status_before}")
+
+
 # ---- ⑯ single-owner --dry-run does not mutate the repository ----
 def test_single_owner_dry_run(root):
     print("⑯ single-owner --dry-run performs no repository mutation:")
@@ -308,7 +330,7 @@ def test_validator(root):
 def main():
     for fn in (test_happy, test_non_accept, test_intersection, test_stale_tip,
                test_rebind_mismatch, test_immutable_guard, test_rollback, test_single_owner,
-               test_single_owner_dry_run, test_validator):
+               test_single_owner_dry_run, test_dry_run_requires_single_owner, test_validator):
         scenario(fn)
     passed = sum(1 for _, ok in RESULTS if ok)
     total = len(RESULTS)
