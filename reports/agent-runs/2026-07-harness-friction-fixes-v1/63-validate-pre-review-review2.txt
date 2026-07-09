@@ -1,0 +1,5 @@
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-friction-fixes-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=b051e7c7c93b28ff40b3d94e46413ea9742834a7:b1c997df18aecab355525ed9f891477810a04bf2aad46138e868a6a4376a057e

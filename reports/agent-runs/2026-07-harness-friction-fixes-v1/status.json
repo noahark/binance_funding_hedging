@@ -183,6 +183,7 @@
       "python3 scripts/tests/test_validate_stage.py",
       "python3 scripts/validate-stage.py 2026-07-harness-friction-fixes-v1 --phase checkpoint",
       "python3 scripts/validate-stage.py 2026-07-harness-friction-fixes-v1 --phase pre-review --evidence-out reports/agent-runs/2026-07-harness-friction-fixes-v1/61-validate-pre-review.txt",
+      "python3 scripts/validate-stage.py 2026-07-harness-friction-fixes-v1 --phase pre-review --evidence-out reports/agent-runs/2026-07-harness-friction-fixes-v1/63-validate-pre-review-review2.txt",
       "git diff --check"
     ]
   },
@@ -232,5 +233,5 @@
   },
   "terminal_reason": null,
   "next_action": "human dispatch review-2-codex.prompt.md to Codex/GPT",
-  "updated_at": "2026-07-09T20:29:18+08:00"
+  "updated_at": "2026-07-09T20:32:20+08:00"
 }

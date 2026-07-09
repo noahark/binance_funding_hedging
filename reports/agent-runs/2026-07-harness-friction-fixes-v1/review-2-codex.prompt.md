@@ -71,6 +71,7 @@ Required raw artifacts:
 - `reports/agent-runs/2026-07-harness-friction-fixes-v1/60-test-output.txt`
 - `reports/agent-runs/2026-07-harness-friction-fixes-v1/61-validate-pre-review.txt`
 - `reports/agent-runs/2026-07-harness-friction-fixes-v1/62-validate-pre-review-final.txt`
+- `reports/agent-runs/2026-07-harness-friction-fixes-v1/63-validate-pre-review-review2.txt`
 - `reports/agent-runs/2026-07-harness-friction-fixes-v1/70-handoff.md`
 - `reports/agent-runs/2026-07-harness-friction-fixes-v1/status.json`
 - `reports/agent-runs/2026-07-harness-friction-fixes-v1/review-2-strong-reviewer-override-evidence.md`

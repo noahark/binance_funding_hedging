@@ -32,6 +32,7 @@
 - Review-1 dispatch: `review-1-kimi.prompt.md`
 - Review 1: `30-review-1.md`
 - Review 1 raw output: `30-review-1.raw-output.md`
+- Review-2 pre-review validation: `63-validate-pre-review-review2.txt`
 - Review-2 strong-reviewer override evidence:
   `review-2-strong-reviewer-override-evidence.md`
 - Review-2 dispatch: `review-2-codex.prompt.md`
@@ -75,6 +76,6 @@ breakdown involvement; neither decision-model provider is unrelated to the
 stage design set. Codex has no implementation/fix authorship and remains the
 workflow primary final reviewer with `reviewer_prior_involvement=design`.
 
-本地北京时间: 2026-07-09 20:29:18 CST
+本地北京时间: 2026-07-09 20:32:20 CST
 下一步模型: codex_gpt
 下一步任务: execute `reports/agent-runs/2026-07-harness-friction-fixes-v1/review-2-codex.prompt.md`
