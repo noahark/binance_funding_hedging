@@ -6,7 +6,8 @@
 - Status: `review_2` (review-1 ACCEPT recorded; awaiting final reviewer
   selection)
 - Branch: `stage/2026-07-harness-manifest-itbm-sync-v1`
-- HEAD: `d6e4146` (status-only anchor to evidence head `d613dea`)
+- HEAD: `aec14af` (review-1 ACCEPT record); `head_sha` stays `d613dea`
+  (review-1 reviewed range, per harness convention — delivery-anchored head)
 - Reviewed range (`base_sha..head_sha`): `0a2abb8..d613dea`
 - `diff_fingerprint` (status.json authoritative):
   `d613dea:423b1154fc1615928112cb1d4376b51da68857c049d09ca978b072674bd6e20b`
@@ -182,9 +183,13 @@ value (the log content is not part of that assertion).
 Kimi review-1 was redispatched over `0a2abb8..d613dea` (fresh session) and
 returned a schema-valid JSON verdict: **`ACCEPT`**, `next_action: continue`,
 `reviewer_prior_involvement: none`, no `required_fixes`, `diff_fingerprint`
-matching `status.json`. Findings: 1×P2 (`status.json` `head_sha` one commit
-behind the stage branch tip — reconciled by re-anchoring `head_sha` to the
-evidence commit below) + 1×P3 (validator log records the pre-inclusion
+matching `status.json`. Findings: 1×P2 (`status.json` `head_sha` is the
+review-1 reviewed range `d613dea`, behind the stage branch tip which now also
+holds the review-1 ACCEPT record `aec14af`; per the harness convention the head
+stays anchored at the reviewed delivery range and `aec14af` is auxiliary
+evidence outside the reviewed diff — accounted for here, no re-anchor needed,
+since re-anchoring would desynchronize `review_1.diff_fingerprint` from the
+range Kimi actually reviewed) + 1×P3 (validator log records the pre-inclusion
 fingerprint by the fixed-point property — no change required). See
 `30-review-1.md`.
 
