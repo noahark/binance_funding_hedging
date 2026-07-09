@@ -172,11 +172,11 @@
     "reviewer": null,
     "provider": null,
     "model": null,
-    "primary_provider": "codex",
+    "primary_provider": null,
     "fallback_provider": "claude",
     "fallback_reason": null,
     "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": "Final reviewer selection pending. Codex designed/bookkept this stage; if Codex performs review-2, the strong-reviewer disclosure override evidence is required. Otherwise route to an unrelated decision provider such as Claude.",
+    "reviewer_prior_involvement_notes": "Final reviewer selection pending. Codex designed/bookkept this stage (openai), so primary_provider is left null at review_1: selecting codex would require the strong-reviewer disclosure override, and the plan is to route review-2 to an unrelated decision provider (Claude) unless codex is explicitly chosen with override evidence after the user returns.",
     "unrelated_reviewer_unavailable_evidence": null,
     "design_conflict_override": {
       "used": false,
@@ -200,5 +200,5 @@
   },
   "terminal_reason": null,
   "next_action": "run pre-review validator then dispatch Kimi review-1",
-  "updated_at": "2026-07-09T09:56:11.973762+08:00"
+  "updated_at": "2026-07-09T10:00:33.802374+08:00"
 }
