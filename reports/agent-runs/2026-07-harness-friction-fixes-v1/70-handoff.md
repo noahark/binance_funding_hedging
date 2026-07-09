@@ -38,18 +38,39 @@
 - Review-2 dispatch: `review-2-claude.prompt.md`
 - Review 2: `50-review-2.md`
 - Superseded review-2 dispatch draft: `review-2-codex.prompt.md`
+- Review-2 follow-up hardening source: `50-review-2.md` P2 table and final
+  JSON `findings`
 
 ## Open Findings
 
-- The previous stage exposed Harness friction points that this stage should fix
-  or explicitly defer with rationale.
-- User added a reporting preference requirement: future reports and significant
+- No open P0/P1 blocker. Review-2 accepted the stage and left 5 P2 hardening
+  follow-ups, listed below so they are not lost after merge.
+- User reporting preference is active: future reports and significant
   bookkeeper responses should default to Chinese prose, while preserving exact
   English strings for commands, paths, JSON/schema names, model/provider names,
   and code; necessary English terms should include a short Chinese explanation
   on first use.
-- `12-development-breakdown.md` recommends a single atomic Claude-GLM task,
-  Kimi review-1, and final review-2 through Codex/GPT primary or Claude fallback.
+
+## Follow-up Hardening Backlog
+
+These items are non-blocking P2 findings from `50-review-2.md`. They are not
+part of `required_fixes`, but should seed the next Harness-only follow-up stage.
+
+1. `scripts/validate-stage.py`: wrap `--evidence-out` file writing in
+   `try/except OSError` so permission or I/O failures produce a clear Harness
+   error instead of a Python traceback.
+2. `scripts/record-checkpoint`: reject `--dry-run` when `--single-owner` is not
+   present. Today the help text says single-owner only, but the double-owner
+   path can still proceed with real mutations if the flag is misused.
+3. `scripts/validate-stage.py`: pin `-c diff.renames=true` in
+   `compute_diff_fingerprint` to match `scripts/_itbm.py` and avoid user
+   `.gitconfig` changing the canonical fingerprint.
+4. `reports/agent-runs/_template/status.json`: add `actual_model` to the
+   `review_1` block, or document why review-1 intentionally differs from
+   review-2. This preserves actual model substitution evidence.
+5. `workflows/templates/stage-delivery.yaml`: encode whether a fix came from
+   review-1 or review-2 before routing back to test/review, instead of relying
+   only on bookkeeper convention.
 
 ## Blockers
 
@@ -82,8 +103,9 @@ has no implementation/fix authorship and is routed with
 Review-2 completed with schema-valid `ACCEPT` from actual model
 `claude-opus-4-6`. The verdict includes 5 P2 hardening findings and no
 `required_fixes`. The stage is now `stage_accepted_waiting_user`; merge to
-`main` requires explicit user approval.
+`main` requires explicit user approval. The 5 P2 findings are now copied into
+the follow-up hardening backlog above.
 
-本地北京时间: 2026-07-09 20:57:03 CST
+本地北京时间: 2026-07-09 21:05:45 CST
 下一步模型: human
-下一步任务: decide whether to merge `stage/2026-07-harness-friction-fixes-v1` to `main`
+下一步任务: decide whether to merge `stage/2026-07-harness-friction-fixes-v1` to `main`, then open a bounded Harness hardening follow-up stage
