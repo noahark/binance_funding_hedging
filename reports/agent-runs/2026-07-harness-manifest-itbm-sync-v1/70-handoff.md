@@ -69,7 +69,22 @@ prefer Claude as the unrelated final reviewer unless unavailable).
 
 ## Single-Owner Checkpoint Result
 
-(recorded after step 3 runs — see `record-checkpoint-single-owner.raw-output.txt`)
+`scripts/record-checkpoint 2026-07-harness-manifest-itbm-sync-v1 --single-owner`
+ran from the integration worktree and committed C_e (`[checkpoint:single-owner]`)
+on `stage/2026-07-harness-manifest-itbm-sync-v1`:
+
+- checkpoint head (C_e): `cae67d559654888e10a15da1458dc2e2edc8951d`
+- canonical fingerprint over base..C_e (status.json excluded):
+  `cae67d559654888e10a15da1458dc2e2edc8951d:55e3f1e61ae46e95e81f38f1a0b2dff778bc33ab31134443b8dfb7f3e74168eb`
+
+The recorder's own raw output (with stderr) is preserved in
+`record-checkpoint-single-owner.raw-output.txt`. Because the current single-owner
+recorder does not write top-level `status.json`, the committed review range
+(`base_sha`..`head_sha`) and `diff_fingerprint` are recorded manually in
+`status.json` in the next step. The final reviewed `head_sha` is the evidence
+commit that lands the recorder raw output and this handoff update (recomputed
+fingerprint below); `status.json` is excluded from the fingerprint so a later
+status-only commit does not invalidate it.
 
 本地北京时间: 2026-07-09 09:47:38 CST
 下一步模型: claude_glm
