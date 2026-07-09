@@ -6,8 +6,8 @@
 - Status: `stage_accepted_waiting_user` (review-2 ACCEPT recorded; waiting
   explicit user acceptance before any merge to `main`)
 - Branch: `stage/2026-07-harness-manifest-itbm-sync-v1`
-- HEAD: `ab792d2` (auxiliary review-2 dispatch/preflight evidence after
-  review-1 ACCEPT); `head_sha` stays `d613dea`
+- HEAD: `51b5e63` (review-2 ACCEPT + `stage_accepted_waiting_user` evidence);
+  `head_sha` stays `d613dea`
   (review-1 reviewed range, per harness convention — delivery-anchored head)
 - Reviewed range (`base_sha..head_sha`): `0a2abb8..d613dea`
 - `diff_fingerprint` (status.json authoritative):
@@ -49,6 +49,7 @@ independent task-branch mode assets (`docs/independent-task-branch-mode.md`,
   `record-checkpoint-single-owner.raw-output.txt` (written by step 3)
 - Pre-review validation log: `61-validate-pre-review.txt` (written by step 6)
 - Review-2 preflight validation log: `62-validate-pre-review-review2.txt`
+- Pre-accept validation log: `63-validate-pre-accept.txt`
 - Status JSON: `status.json`
 - GLM dispatch: `task-H-claude-glm.prompt.md`
 - Kimi review-1 dispatch: `review-1-kimi.prompt.md`
@@ -223,6 +224,14 @@ Review-2 returned `ACCEPT` with model `claude-opus-4-8`, schema-valid JSON, and
 matching diff fingerprint. The stage should stop at
 `stage_accepted_waiting_user`; do not merge to `main` until the user explicitly
 accepts this stage.
+
+Pre-accept validator was run from a clean committed worktree after recording
+review-2 ACCEPT and `status=stage_accepted_waiting_user`:
+
+- command:
+  `python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase pre-accept`
+- result: `STAGE VALIDATION PASSED`
+- evidence: `63-validate-pre-accept.txt`
 
 Claude assessed Kimi's P2/P3 residuals explicitly:
 

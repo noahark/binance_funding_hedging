@@ -1,0 +1,10 @@
+$ python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase pre-accept
+# Run from a clean committed worktree after recording review-2 ACCEPT and
+# status=stage_accepted_waiting_user. Output was first captured to /tmp so the
+# validator's clean-worktree check observed the true pre-accept state.
+
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1
+phase=pre-accept
+status=stage_accepted_waiting_user
+diff_fingerprint=d613dea403dcb82d2006484ced237ac4da528d31:423b1154fc1615928112cb1d4376b51da68857c049d09ca978b072674bd6e20b
