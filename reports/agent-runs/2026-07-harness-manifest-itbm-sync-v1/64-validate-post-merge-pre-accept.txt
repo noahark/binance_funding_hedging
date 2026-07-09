@@ -1,0 +1,8 @@
+$ python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase pre-accept
+# Run on main after fast-forward merge and merged_back metadata commit.
+
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1
+phase=pre-accept
+status=accepted
+diff_fingerprint=d613dea403dcb82d2006484ced237ac4da528d31:423b1154fc1615928112cb1d4376b51da68857c049d09ca978b072674bd6e20b

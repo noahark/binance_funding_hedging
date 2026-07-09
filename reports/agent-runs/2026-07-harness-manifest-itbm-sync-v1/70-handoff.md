@@ -50,6 +50,8 @@ independent task-branch mode assets (`docs/independent-task-branch-mode.md`,
 - Pre-review validation log: `61-validate-pre-review.txt` (written by step 6)
 - Review-2 preflight validation log: `62-validate-pre-review-review2.txt`
 - Pre-accept validation log: `63-validate-pre-accept.txt`
+- Post-merge pre-accept validation log:
+  `64-validate-post-merge-pre-accept.txt`
 - Status JSON: `status.json`
 - GLM dispatch: `task-H-claude-glm.prompt.md`
 - Kimi review-1 dispatch: `review-1-kimi.prompt.md`
@@ -230,6 +232,10 @@ The stage branch was fast-forward merged to `main` at
 - `merged_back_to_main=true`
 - `merged_back_sha=9097ff34e88c464b4e7712a5f5afecb8316c2200`
 - `merge_strategy=fast_forward`
+
+Post-merge `pre-accept` validation passed on `main` after merged_back metadata
+was committed. Evidence:
+`64-validate-post-merge-pre-accept.txt`.
 
 Pre-accept validator was run from a clean committed worktree after recording
 review-2 ACCEPT and `status=stage_accepted_waiting_user`:
