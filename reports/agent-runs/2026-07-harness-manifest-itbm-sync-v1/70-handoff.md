@@ -86,6 +86,68 @@ commit that lands the recorder raw output and this handoff update (recomputed
 fingerprint below); `status.json` is excluded from the fingerprint so a later
 status-only commit does not invalidate it.
 
-本地北京时间: 2026-07-09 09:47:38 CST
-下一步模型: claude_glm
-下一步任务: run single-owner record-checkpoint, record status, validate pre-review, dispatch Kimi review-1
+## Review-1 Result
+
+Kimi review-1 (`review-1-kimi.prompt.md`, fresh one-shot session) returned a
+schema-valid JSON verdict over the recorded range
+`0a2abb8e5e68973325a6a6cacca5c66a7e896b98..b397b4bde4d9975fb582334c6c78f21e54063504`:
+
+- verdict: `REWORK`
+- `diff_fingerprint`: matches status.json (`b397b4b...:799c26...`)
+- `json_schema_valid`: true (validated against `schemas/review-verdict.schema.json`)
+- `reviewer_prior_involvement`: none (provider isolation satisfied: implementer
+  `zhipu_glm` vs reviewer `moonshot_kimi`)
+- findings: 1×P1 + 1×P3
+- `fix_start_prompt`: present, captured in `30-review-1.md`
+
+### P1 (the rework driver)
+
+"Required pre-review validator run is not evidenced": the reviewed commit
+`b397b4b` does **not** contain `61-validate-pre-review.txt`, and
+`status.json.tests.commands` does not list the validator command.
+
+### Root cause (dispatch ordering, not a code defect)
+
+`task-H-claude-glm.prompt.md` anchors the review fingerprint at the "evidence
+commit" (step 4 = `b397b4b`) and only commits the validator output
+`61-validate-pre-review.txt` afterward (step 6). The validator itself **PASSED**
+(output preserved in `61-validate-pre-review.txt`, run on a clean committed
+worktree), but that evidence lands in a commit after the fingerprint anchor, so
+it is outside `base..head_sha` and invisible to the reviewer. The manifest
+change itself is correct and untouched; no protected file was modified.
+
+### Why status is `fixing` (per dispatch REWORK branch)
+
+The dispatch's review-1 branch says: on REWORK, record the verdict, set status to
+`fixing`, and stop (do not auto-advance to review-2). I followed that. Because
+the root cause is in the immutable dispatch step ordering, a per-run patch would
+treat the symptom while the dispatch remains broken for the next run, so the
+decision of how to proceed is left to the operator.
+
+### Options for the operator
+
+1. **Fix the dispatch root cause** (recommended permanent fix): commit the
+   validator evidence *before* anchoring the fingerprint, or recompute
+   `head_sha`/`diff_fingerprint` after step 6 so `61-validate-pre-review.txt` and
+   the validator entry in `tests.commands`/`60-test-output.txt` are inside
+   `base..head_sha`.
+2. **In-run mechanical fix** (treats this run only, within allowed files; no
+   manifest/protected change): append the validator command+output to
+   `60-test-output.txt`, recompute the canonical fingerprint over the new HEAD,
+   update `status.json` (`head_sha`, `diff_fingerprint`, `changed_files`,
+   `tests.commands`, `next_action`), re-run `validate-stage --phase pre-review`
+   (PASS), then redispatch Kimi review-1. This mirrors the borrowability
+   "gate-state, not code-rework" in-flow resolution.
+3. **Separate fix dispatch** using Kimi's `fix_start_prompt` in
+   `30-review-1.md`.
+
+`rework_count` is 1 of 3.
+
+## Blockers
+
+- Review-1 REWORK blocks review-2. No code change is required; the rework is an
+  evidence-range / dispatch-ordering issue.
+
+本地北京时间: 2026-07-09 10:18:15 CST
+下一步模型: human
+下一步任务: decide how to resolve the review-1 REWORK (dispatch step-ordering root cause) for 2026-07-harness-manifest-itbm-sync-v1

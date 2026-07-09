@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-manifest-itbm-sync-v1",
-  "status": "review_1",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-manifest-itbm-sync-v1",
@@ -67,7 +67,7 @@
     "provider": "kimi",
     "model": "kimi-code/kimi-for-coding",
     "provider_identity": "moonshot_kimi",
-    "status": "pending"
+    "status": "returned_rework"
   },
   "reviewer_2": {
     "provider": null,
@@ -106,9 +106,9 @@
         "reviewer": "kimi",
         "provider": "kimi",
         "model": "kimi-code/kimi-for-coding",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "verdict": "REWORK",
+        "json_schema_valid": true,
+        "diff_fingerprint": "b397b4bde4d9975fb582334c6c78f21e54063504:799c26c410055094e783fdcda125474ae0aa946ccc5e0e556f4596292c29f00b"
       }
     }
   ],
@@ -159,13 +159,13 @@
     "reviewer": "kimi",
     "provider": "kimi",
     "model": "kimi-code/kimi-for-coding",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "open_p0_p1": 1,
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "b397b4bde4d9975fb582334c6c78f21e54063504:799c26c410055094e783fdcda125474ae0aa946ccc5e0e556f4596292c29f00b",
     "reviewer_prior_involvement": "none",
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/30-review-1.md",
     "invalid_json_attempts": 0
   },
   "review_2": {
@@ -191,7 +191,7 @@
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {
@@ -199,6 +199,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "run pre-review validator then dispatch Kimi review-1",
-  "updated_at": "2026-07-09T10:00:33.802374+08:00"
+  "next_action": "review-1 returned REWORK (schema-valid): P1 validator evidence committed after the fingerprint anchor, so it is outside base..head_sha. Apply the fix_start_prompt in 30-review-1.md (mechanical re-anchor) AND fix the dispatch step-4/step-6 ordering root cause before re-running.",
+  "updated_at": "2026-07-09T10:17:52.658220+08:00"
 }
