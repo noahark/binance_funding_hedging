@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-friction-fixes-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-friction-fixes-v1",
@@ -99,10 +99,10 @@
       "prompt_path": "reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-claude-glm.prompt.md",
       "fix_prompt_path": "reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-fix-claude-glm.prompt.md",
       "r10_checklist": null,
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "test_evidence": null,
+      "base_sha": "4b98bf3d09f3aacee7e6ffdb9a2353e246af7e41",
+      "head_sha": "1801be4089c5d51adafcc93ae5e5ec40e3be6b07",
+      "diff_fingerprint": "1801be4089c5d51adafcc93ae5e5ec40e3be6b07:20f21ad1c04171296a48016b8e0ce0a14a1afb783f71c7f93aba897fdad3d625",
+      "test_evidence": "reports/agent-runs/2026-07-harness-friction-fixes-v1/60-test-output.txt",
       "review_1": {
         "reviewer": null,
         "provider": null,
@@ -134,10 +134,34 @@
     "status": "skipped",
     "user_approved": true
   },
-  "base_sha": null,
-  "head_sha": null,
-  "diff_fingerprint": null,
-  "changed_files": [],
+  "base_sha": "4b98bf3d09f3aacee7e6ffdb9a2353e246af7e41",
+  "head_sha": "1801be4089c5d51adafcc93ae5e5ec40e3be6b07",
+  "diff_fingerprint": "1801be4089c5d51adafcc93ae5e5ec40e3be6b07:20f21ad1c04171296a48016b8e0ce0a14a1afb783f71c7f93aba897fdad3d625",
+  "changed_files": [
+    "docs/independent-task-branch-mode.md",
+    "docs/model-adapters.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/00-intake.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/00-task.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/10-design.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/11-adr.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/21-bookkeeper-inspection.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/22-bookkeeper-reinspection.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/development-breakdown-claude.prompt.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-fix-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/status.json",
+    "reports/agent-runs/README.md",
+    "reports/agent-runs/_template/status.json",
+    "scripts/record-checkpoint",
+    "scripts/tests/itbm_dry_run.py",
+    "scripts/tests/test_validate_stage.py",
+    "scripts/validate-stage.py",
+    "workflows/templates/stage-delivery.yaml"
+  ],
   "tests": {
     "status": "pass",
     "commands": [
@@ -192,6 +216,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "bookkeeper create delivery commit, compute fingerprint, and prepare review-1",
-  "updated_at": "2026-07-09T18:11:23+08:00"
+  "next_action": "run pre-review validation and prepare Kimi review-1",
+  "updated_at": "2026-07-09T18:13:19+08:00"
 }

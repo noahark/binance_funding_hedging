@@ -3,10 +3,12 @@
 ## Current State
 
 - Stage: `2026-07-harness-friction-fixes-v1`
-- Status: `implementing`
+- Status: `review_1`
 - Branch: `stage/2026-07-harness-friction-fixes-v1`
-- HEAD before this checkpoint: `c5ef135`
-- Git status before this checkpoint: `status.json` modified, `12-development-breakdown.md` untracked
+- Delivery commit: `1801be4089c5d51adafcc93ae5e5ec40e3be6b07`
+- Reviewed range: `4b98bf3d09f3aacee7e6ffdb9a2353e246af7e41..1801be4089c5d51adafcc93ae5e5ec40e3be6b07`
+- Diff fingerprint: `1801be4089c5d51adafcc93ae5e5ec40e3be6b07:20f21ad1c04171296a48016b8e0ce0a14a1afb783f71c7f93aba897fdad3d625`
+- Git status before this checkpoint: clean immediately after delivery commit
 - Bookkeeper/designer: Codex/GPT, independent from implementers
 - Parallel mode: disabled
 - Complexity: MEDIUM
@@ -49,10 +51,10 @@
 
 ## Next Action
 
-Bookkeeper should create the delivery commit, compute the canonical
-`diff_fingerprint`, update `status.json` to `review_1`, run pre-review
-validation, and prepare Kimi review-1 dispatch.
+Bookkeeper should run pre-review validation, preserve the evidence, then
+prepare Kimi review-1 dispatch. Reviewers must inspect the recorded
+`base_sha..head_sha` range, not moving `HEAD`.
 
-本地北京时间: 2026-07-09 18:11:23 CST
+本地北京时间: 2026-07-09 18:13:19 CST
 下一步模型: codex_gpt5
-下一步任务: commit delivery, compute fingerprint, run pre-review validation, prepare Kimi review-1
+下一步任务: run pre-review validation, prepare Kimi review-1
