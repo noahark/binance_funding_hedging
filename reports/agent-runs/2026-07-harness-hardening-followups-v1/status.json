@@ -1,14 +1,14 @@
 {
   "stage_id": "2026-07-harness-hardening-followups-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-hardening-followups-v1",
     "created_from_main_sha": "ddcf0e11a2ece33bdb9863512504fcc404867e4f",
     "created_at": "2026-07-09T21:10:45+08:00",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "b2b5071ebb3f7be41d974271fbc0d6fd58207d4c",
+    "merge_strategy": "fast_forward",
     "abandoned_reason": null
   },
   "bookkeeper": {
@@ -221,6 +221,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "review-2 ACCEPT (claude, actual model claude-opus-4-8); awaiting user decision to merge stage branch to main",
-  "updated_at": "2026-07-09T22:34:00+08:00"
+  "next_action": "stage merged to main by fast-forward on explicit user approval (merged_back_sha b2b5071); stage complete",
+  "updated_at": "2026-07-09T22:40:00+08:00"
 }

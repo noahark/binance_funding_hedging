@@ -3,8 +3,8 @@
 ## Current State
 
 - Stage: `2026-07-harness-hardening-followups-v1`
-- Status: `stage_accepted_waiting_user`
-- Branch: `stage/2026-07-harness-hardening-followups-v1`
+- Status: `accepted` (merged to main, fast-forward)
+- Branch: `stage/2026-07-harness-hardening-followups-v1` (merged; `merged_back_sha` b2b5071)
 - Created from main:
   `ddcf0e11a2ece33bdb9863512504fcc404867e4f`
 - Delivery head: `6eb87a0fdb8ee550115013a1faccd678ed51282d`
@@ -85,11 +85,11 @@ Both reviews are `ACCEPT` (review-1 Kimi, review-2 Claude). Stage is
 `stage_accepted_waiting_user`. No P0/P1/P2 findings; all 5 acceptance criteria
 implemented with valid test coverage.
 
-Awaiting **user decision** to merge the stage branch to `main`. On approval,
-bookkeeper merges `stage/2026-07-harness-hardening-followups-v1` into `main`
-(no-ff), records `stage_branch.merged_back_to_main`/`merged_back_sha`/
-`merge_strategy`, then pushes.
+User approved the merge. Stage branch was fast-forwarded into `main`
+(`merge_strategy: fast_forward`, `merged_back_sha: b2b5071`), the merge was
+recorded in `status.json.stage_branch`, `pre-accept` re-validated post-merge,
+and `main` was pushed to `origin`. Stage is complete.
 
-本地北京时间: 2026-07-09 22:34:00 CST
-下一步模型: 无（等待 user 决定 merge）
-下一步任务: user 批准后 bookkeeper 合并 stage 分支到 main 并推送
+本地北京时间: 2026-07-09 22:40:00 CST
+下一步模型: 无（stage 已完成并合并 main）
+下一步任务: 无；等待下一个 user-directed stage
