@@ -98,9 +98,10 @@ Return format（返回格式）：
 
 - 先给 findings（发现的问题），按严重度排序；无问题时明确说明。
 - 最后输出一个严格 JSON object，必须匹配 `schemas/review-verdict.schema.json`。
-- `ACCEPT` 时使用 `"next_action": "continue"`。
+- `role` 必须为 `"final_reviewer"`（schema enum；review-2 final reviewer）。
+- `ACCEPT` 时使用 `"next_action": "stage_accepted_waiting_user"`。
 - `REWORK` 时必须包含 `fix_start_prompt`，且 `next_action` 使用 `"fix"`；`fix_start_prompt` 内必须注明 review-2 REWORK 修复后 redispatch 回 review-2（不得跳过）。
-- `BLOCKED` 时使用 `"next_action": "human_gate"` 或 schema 允许的更准确值。
+- `BLOCKED` 时使用 `"next_action": "human_escalation_required"` 或 schema 允许的更准确值。
 - `reviewer_prior_involvement` 必须为 `"none"`。
 
 最终 JSON 必须包含：
@@ -109,7 +110,7 @@ Return format（返回格式）：
 {
   "schema_version": 1,
   "stage_id": "2026-07-harness-hardening-followups-v1",
-  "role": "second_reviewer",
+  "role": "final_reviewer",
   "model": "claude-fable-5",
   "verdict": "ACCEPT | REWORK | BLOCKED",
   "diff_fingerprint": "6eb87a0fdb8ee550115013a1faccd678ed51282d:3ce700761aad68d0084a22ff742edf1ee0e2194716625bfa563a8927eb821638",
@@ -118,7 +119,7 @@ Return format（返回格式）：
   "findings": [],
   "required_fixes": [],
   "residual_risks": [],
-  "next_action": "continue | fix | human_gate"
+  "next_action": "stage_accepted_waiting_user | fix | human_escalation_required"
 }
 ```
 

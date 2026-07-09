@@ -3,7 +3,7 @@
 ## Current State
 
 - Stage: `2026-07-harness-hardening-followups-v1`
-- Status: `review_2`
+- Status: `stage_accepted_waiting_user`
 - Branch: `stage/2026-07-harness-hardening-followups-v1`
 - Created from main:
   `ddcf0e11a2ece33bdb9863512504fcc404867e4f`
@@ -19,7 +19,7 @@
 - Bookkeeper/designer: `codex_gpt5` / OpenAI
 - Implementer: GLM completed implementation; bookkeeper inspection passed
 - Review-1: Kimi `ACCEPT` (raw output `30-review-1.md`); no P0/P1/P2; `reviewer_prior_involvement: none`
-- Review-2: dispatch pending to Claude `claude-fable-5` (fallback `opus4.8` on Fable5 quota); anticipated primary `codex`/GPT `quota_exhausted` (rate-limited) → fallback per `fallback_only_on`; Claude is the unrelated strong reviewer (`reviewer_prior_involvement: none`, no design-conflict override); see `review-2-fallback-evidence.md`
+- Review-2: Claude `ACCEPT` (raw output `50-review-2.md`); anticipated model `claude-fable-5`, actual executed `claude-opus-4-8` (provider identity `anthropic` unchanged); anticipated primary `codex`/GPT `quota_exhausted` → fallback; `reviewer_prior_involvement: none`, no design-conflict override; **user-authorized bookkeeper/reviewer dual-hat**, disclosed in `status.json.bookkeeper.dual_hat_disclosure` and `review_2.reviewer_prior_involvement_notes`; see `review-2-fallback-evidence.md`
 - Initial checkpoint validation: PASS
 
 ## Artifact Index
@@ -40,6 +40,7 @@
 - Review-2 pre-review validation evidence: `63-validate-pre-review-review-2.txt`
 - Review-2 fallback evidence: `review-2-fallback-evidence.md`
 - Review-2 dispatch: `review-2-claude.prompt.md`
+- Review-2 raw output: `50-review-2.md`
 
 ## Open Findings
 
@@ -80,26 +81,15 @@ dispatch instructions.
 
 ## Next Action
 
-Review-1 is `ACCEPT`. Bookkeeper (this session, Claude) prepares the review-2
-dispatch packet only; the human operator executes it in the target model
-terminal and records raw output evidence (workflow review-2 preflight rule).
+Both reviews are `ACCEPT` (review-1 Kimi, review-2 Claude). Stage is
+`stage_accepted_waiting_user`. No P0/P1/P2 findings; all 5 acceptance criteria
+implemented with valid test coverage.
 
-Human operator should dispatch review-2 (primary Fable5, opus4.8 on quota):
+Awaiting **user decision** to merge the stage branch to `main`. On approval,
+bookkeeper merges `stage/2026-07-harness-hardening-followups-v1` into `main`
+(no-ff), records `stage_branch.merged_back_to_main`/`merged_back_sha`/
+`merge_strategy`, then pushes.
 
-```bash
-claude --model claude-fable-5 --permission-mode plan --json-schema "$(cat schemas/review-verdict.schema.json)" -p "$(cat reports/agent-runs/2026-07-harness-hardening-followups-v1/review-2-claude.prompt.md)" 2>reports/agent-runs/2026-07-harness-hardening-followups-v1/review-2-claude.stderr.log | tee reports/agent-runs/2026-07-harness-hardening-followups-v1/50-review-2.md
-```
-
-If `claude-fable-5` quota is exhausted, use the Anthropic fallback model:
-
-```bash
-claude --model opus4.8 --permission-mode plan --json-schema "$(cat schemas/review-verdict.schema.json)" -p "$(cat reports/agent-runs/2026-07-harness-hardening-followups-v1/review-2-claude.prompt.md)" 2>reports/agent-runs/2026-07-harness-hardening-followups-v1/review-2-claude.stderr.log | tee reports/agent-runs/2026-07-harness-hardening-followups-v1/50-review-2.md
-```
-
-After review-2 returns, bookkeeper records the verdict into `status.json`
-(`review_2` block) and, if the executed model differed from `claude-fable-5`,
-sets `status.json.review_2.actual_model`.
-
-本地北京时间: 2026-07-09 22:11:13 CST
-下一步模型: claude (claude-fable-5, opus4.8 fallback)
-下一步任务: perform review-2 (final reality-check) on the fixed `base_sha..head_sha` range
+本地北京时间: 2026-07-09 22:34:00 CST
+下一步模型: 无（等待 user 决定 merge）
+下一步任务: user 批准后 bookkeeper 合并 stage 分支到 main 并推送
