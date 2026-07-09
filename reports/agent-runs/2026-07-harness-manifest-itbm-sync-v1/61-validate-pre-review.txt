@@ -1,0 +1,12 @@
+$ python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase pre-review
+# Note: pre-review requires a clean committed worktree. Writing the output
+# directly to this new in-repo file during the run would make the gate see an
+# untracked file and fail its own clean-worktree check, so the output was teed
+# to /tmp and copied here verbatim. The worktree was clean (status.json
+# committed) at run time; exit code 0.
+
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=b397b4bde4d9975fb582334c6c78f21e54063504:799c26c410055094e783fdcda125474ae0aa946ccc5e0e556f4596292c29f00b
