@@ -1,0 +1,5 @@
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-hardening-followups-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=9dfa0e7d39eb146b54bc61683eb851aef10b6c09:f105dd913c14144bacaba13500da6f194bcd3dde2e88350ff2414806698fc18d
