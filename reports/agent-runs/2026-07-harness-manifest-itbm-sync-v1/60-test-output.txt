@@ -1,0 +1,26 @@
+Initial stage setup checks:
+
+```bash
+$ python3 -m json.tool reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/status.json >/tmp/harness-stage-status-json-ok.txt
+# PASS
+
+$ python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1
+phase=checkpoint
+status=implementing
+
+$ python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase dispatch-ready
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1
+phase=dispatch-ready
+status=implementing
+```
+
+Commands required after implementation:
+
+```bash
+python3 scripts/tests/itbm_dry_run.py
+python3 -m py_compile scripts/validate-stage.py scripts/_itbm.py
+python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase pre-review
+```
