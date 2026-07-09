@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-manifest-itbm-sync-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-manifest-itbm-sync-v1",
@@ -71,9 +71,9 @@
   },
   "reviewer_2": {
     "provider": "claude",
-    "model": "claude-fable-5",
+    "model": "claude-opus-4-8",
     "provider_identity": "anthropic",
-    "status": "selected_pending_dispatch"
+    "status": "completed"
   },
   "r10_checklists": {},
   "tasks": [
@@ -173,23 +173,23 @@
   "review_2": {
     "reviewer": "claude",
     "provider": "claude",
-    "model": "claude-fable-5",
+    "model": "claude-opus-4-8",
     "primary_provider": null,
     "fallback_provider": "claude",
     "fallback_reason": "anti_self_review_ineligible: Codex/OpenAI designed and bookkept this stage, so final review is routed to unrelated Claude/Anthropic instead of using Codex as primary reviewer.",
     "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": "Claude/Anthropic has no recorded prior direction synthesis, design, breakdown, implementation, or fix authorship in this stage. Codex/OpenAI designed/bookkept this stage, so final review is routed to unrelated Claude/Anthropic.",
+    "reviewer_prior_involvement_notes": "Anthropic has no prior direction synthesis, design, breakdown, implementation, or fix authorship in this stage. Designer/bookkeeper is Codex/OpenAI, implementer+single-owner recorder is zhipu_glm (adapter name claude_glm, not Anthropic), review-1 is Kimi/moonshot_kimi. Final review routed to unrelated Anthropic. Executed by claude-opus-4-8 (dispatch anticipated claude-fable-5); same anthropic provider identity, isolation unchanged.",
     "unrelated_reviewer_unavailable_evidence": null,
     "design_conflict_override": {
       "used": false,
       "reason": null,
       "unrelated_reviewer_unavailable_evidence": null
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "fix_start_prompt_present": null,
+    "open_p0_p1": false,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "d613dea403dcb82d2006484ced237ac4da528d31:423b1154fc1615928112cb1d4376b51da68857c049d09ca978b072674bd6e20b",
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
@@ -200,7 +200,7 @@
     "required": false,
     "reason": null
   },
-  "terminal_reason": null,
-  "next_action": "dispatch review-2 to Claude using review-2-claude.prompt.md",
-  "updated_at": "2026-07-09T12:47:03+08:00"
+  "terminal_reason": "stage_accepted_waiting_user",
+  "next_action": "wait for explicit user acceptance before merging stage branch to main",
+  "updated_at": "2026-07-09T13:04:18+08:00"
 }

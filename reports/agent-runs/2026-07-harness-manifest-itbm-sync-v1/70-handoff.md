@@ -3,8 +3,8 @@
 ## Current State
 
 - Stage: `2026-07-harness-manifest-itbm-sync-v1`
-- Status: `review_2` (review-1 ACCEPT recorded; Claude review-2 selected,
-  pending human-executed dispatch)
+- Status: `stage_accepted_waiting_user` (review-2 ACCEPT recorded; waiting
+  explicit user acceptance before any merge to `main`)
 - Branch: `stage/2026-07-harness-manifest-itbm-sync-v1`
 - HEAD: `ab792d2` (auxiliary review-2 dispatch/preflight evidence after
   review-1 ACCEPT); `head_sha` stays `d613dea`
@@ -17,9 +17,9 @@
 - Implementer/recorder: Claude-GLM (`glm-5.2[1m]`, provider identity
   `zhipu_glm`), dual-hat implementer + single-owner recorder
 - Reviewer-1: Kimi (`moonshot_kimi`), `completed` (verdict `ACCEPT`)
-- Reviewer-2: Claude/Fable5 (`anthropic`), selected because Codex/OpenAI
-  designed/bookkept this stage and should not perform final review unless a
-  strong-reviewer override is required.
+- Reviewer-2: Claude/Opus 4.8 (`anthropic`), completed with verdict `ACCEPT`.
+  Dispatch expected Fable5, but Opus 4.8 is the configured Anthropic fallback
+  identity; provider isolation is unchanged.
 - Parallel mode: disabled
 - Independent task-branch mode: disabled (but single-owner recorder trial is
   enabled via `single_owner_record_checkpoint_trial`)
@@ -43,7 +43,7 @@ independent task-branch mode assets (`docs/independent-task-branch-mode.md`,
 - Embedded review checkpoints: n/a
 - Review 1: `30-review-1.md` pending
 - Fix report: n/a
-- Review 2: pending (`review-2-claude.prompt.md`)
+- Review 2: `50-review-2.md`
 - Test output: `60-test-output.txt`
 - Single-owner recorder raw output:
   `record-checkpoint-single-owner.raw-output.txt` (written by step 3)
@@ -219,14 +219,19 @@ selecting Claude and preparing the dispatch prompt:
 
 ## Current Next Action
 
-Run the prepared Claude review-2 dispatch. The dispatch prompt requires Claude
-to assess Kimi's P2/P3 residuals explicitly:
+Review-2 returned `ACCEPT` with model `claude-opus-4-8`, schema-valid JSON, and
+matching diff fingerprint. The stage should stop at
+`stage_accepted_waiting_user`; do not merge to `main` until the user explicitly
+accepts this stage.
+
+Claude assessed Kimi's P2/P3 residuals explicitly:
 
 - whether `head_sha=d613dea` may stay delivery-anchored while auxiliary review
-  evidence lives in later commits; and
+  evidence lives in later commits: accepted as-is; and
 - whether the validator log's pre-inclusion fingerprint is acceptable given the
-  fixed-point property and authoritative `status.json` fingerprint.
+  fixed-point property and authoritative `status.json` fingerprint: accepted
+  as-is.
 
-本地北京时间: 2026-07-09 12:48:44 CST
-下一步模型: claude
-下一步任务: execute `reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/review-2-claude.prompt.md`
+本地北京时间: 2026-07-09 13:04:18 CST
+下一步模型: human
+下一步任务: explicitly accept or reject merge of `stage/2026-07-harness-manifest-itbm-sync-v1` to `main`
