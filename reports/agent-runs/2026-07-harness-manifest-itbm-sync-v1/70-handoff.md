@@ -6,8 +6,8 @@
 - Status: `review_2` (review-1 ACCEPT recorded; Claude review-2 selected,
   pending human-executed dispatch)
 - Branch: `stage/2026-07-harness-manifest-itbm-sync-v1`
-- HEAD: `a9463e9` (auxiliary handoff evidence after review-1 ACCEPT);
-  `head_sha` stays `d613dea`
+- HEAD: `ab792d2` (auxiliary review-2 dispatch/preflight evidence after
+  review-1 ACCEPT); `head_sha` stays `d613dea`
   (review-1 reviewed range, per harness convention — delivery-anchored head)
 - Reviewed range (`base_sha..head_sha`): `0a2abb8..d613dea`
 - `diff_fingerprint` (status.json authoritative):
@@ -48,6 +48,7 @@ independent task-branch mode assets (`docs/independent-task-branch-mode.md`,
 - Single-owner recorder raw output:
   `record-checkpoint-single-owner.raw-output.txt` (written by step 3)
 - Pre-review validation log: `61-validate-pre-review.txt` (written by step 6)
+- Review-2 preflight validation log: `62-validate-pre-review-review2.txt`
 - Status JSON: `status.json`
 - GLM dispatch: `task-H-claude-glm.prompt.md`
 - Kimi review-1 dispatch: `review-1-kimi.prompt.md`
@@ -206,6 +207,16 @@ fields in `status.json` now record Claude as selected reviewer and leave
 `primary_provider=null` to avoid treating an unselected Codex preference as an
 actual reviewer identity.
 
+Review-2 preflight validator was run from a clean committed worktree after
+selecting Claude and preparing the dispatch prompt:
+
+- command:
+  `python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase pre-review`
+- result: `STAGE VALIDATION PASSED`
+- evidence: `62-validate-pre-review-review2.txt`
+- status remains anchored to reviewed delivery range `0a2abb8..d613dea` with
+  `diff_fingerprint=d613dea:423b1154fc1615928112cb1d4376b51da68857c049d09ca978b072674bd6e20b`
+
 ## Current Next Action
 
 Run the prepared Claude review-2 dispatch. The dispatch prompt requires Claude
@@ -216,6 +227,6 @@ to assess Kimi's P2/P3 residuals explicitly:
 - whether the validator log's pre-inclusion fingerprint is acceptable given the
   fixed-point property and authoritative `status.json` fingerprint.
 
-本地北京时间: 2026-07-09 12:47:03 CST
+本地北京时间: 2026-07-09 12:48:44 CST
 下一步模型: claude
 下一步任务: execute `reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/review-2-claude.prompt.md`
