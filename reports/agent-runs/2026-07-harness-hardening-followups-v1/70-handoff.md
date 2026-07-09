@@ -7,11 +7,11 @@
 - Branch: `stage/2026-07-harness-hardening-followups-v1`
 - Created from main:
   `ddcf0e11a2ece33bdb9863512504fcc404867e4f`
-- Delivery head: `9dfa0e7d39eb146b54bc61683eb851aef10b6c09`
+- Delivery head: `6eb87a0fdb8ee550115013a1faccd678ed51282d`
 - Reviewed range:
-  `ddcf0e11a2ece33bdb9863512504fcc404867e4f..9dfa0e7d39eb146b54bc61683eb851aef10b6c09`
+  `ddcf0e11a2ece33bdb9863512504fcc404867e4f..6eb87a0fdb8ee550115013a1faccd678ed51282d`
 - Diff fingerprint:
-  `9dfa0e7d39eb146b54bc61683eb851aef10b6c09:f105dd913c14144bacaba13500da6f194bcd3dde2e88350ff2414806698fc18d`
+  `6eb87a0fdb8ee550115013a1faccd678ed51282d:3ce700761aad68d0084a22ff742edf1ee0e2194716625bfa563a8927eb821638`
 - Prior accepted stage merged to main: yes
 - Complexity: `LOW`
 - Direction panel: skipped
@@ -30,6 +30,7 @@
 - ADR: `11-adr.md`
 - Implementation: `20-implementation.md`
 - Test output: `60-test-output.txt`
+- Pre-review validation evidence: `61-validate-pre-review.txt`
 - Status JSON: `status.json`
 - GLM implementation dispatch: `implementation-claude-glm.prompt.md`
 - Bookkeeper inspection: `21-bookkeeper-inspection.md`
@@ -60,6 +61,7 @@ bookkeeper re-run verification passed. Formal review-1 has not run yet.
 - `python3 scripts/tests/itbm_dry_run.py`: PASS, 19/19 assertions
 - `python3 -m py_compile scripts/validate-stage.py scripts/_itbm.py scripts/record-checkpoint`: PASS
 - `python3 scripts/tests/test_validate_stage.py`: PASS, 19/19 assertions
+- `python3 scripts/validate-stage.py 2026-07-harness-hardening-followups-v1 --phase pre-review --evidence-out reports/agent-runs/2026-07-harness-hardening-followups-v1/61-validate-pre-review.txt`: PASS; evidence committed into reviewed range
 
 ## Process Note
 
@@ -75,6 +77,6 @@ dispatch instructions.
 Bookkeeper should commit status metadata, run pre-review validation, then
 prepare `review-1-kimi.prompt.md` for human execution in Kimi.
 
-本地北京时间: 2026-07-09 21:36:58 CST
+本地北京时间: 2026-07-09 21:38:40 CST
 下一步模型: codex_gpt5
 下一步任务: commit status metadata, run pre-review validation, and prepare Kimi review-1

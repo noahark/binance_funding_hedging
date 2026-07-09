@@ -106,8 +106,8 @@
       "fix_prompt_path": null,
       "r10_checklist": null,
       "base_sha": "ddcf0e11a2ece33bdb9863512504fcc404867e4f",
-      "head_sha": "9dfa0e7d39eb146b54bc61683eb851aef10b6c09",
-      "diff_fingerprint": "9dfa0e7d39eb146b54bc61683eb851aef10b6c09:f105dd913c14144bacaba13500da6f194bcd3dde2e88350ff2414806698fc18d",
+      "head_sha": "6eb87a0fdb8ee550115013a1faccd678ed51282d",
+      "diff_fingerprint": "6eb87a0fdb8ee550115013a1faccd678ed51282d:3ce700761aad68d0084a22ff742edf1ee0e2194716625bfa563a8927eb821638",
       "test_evidence": "reports/agent-runs/2026-07-harness-hardening-followups-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "kimi",
@@ -142,8 +142,8 @@
     "user_approved": true
   },
   "base_sha": "ddcf0e11a2ece33bdb9863512504fcc404867e4f",
-  "head_sha": "9dfa0e7d39eb146b54bc61683eb851aef10b6c09",
-  "diff_fingerprint": "9dfa0e7d39eb146b54bc61683eb851aef10b6c09:f105dd913c14144bacaba13500da6f194bcd3dde2e88350ff2414806698fc18d",
+  "head_sha": "6eb87a0fdb8ee550115013a1faccd678ed51282d",
+  "diff_fingerprint": "6eb87a0fdb8ee550115013a1faccd678ed51282d:3ce700761aad68d0084a22ff742edf1ee0e2194716625bfa563a8927eb821638",
   "changed_files": [
     "reports/agent-runs/2026-07-harness-hardening-followups-v1/00-intake.md",
     "reports/agent-runs/2026-07-harness-hardening-followups-v1/00-task.md",
@@ -152,6 +152,7 @@
     "reports/agent-runs/2026-07-harness-hardening-followups-v1/20-implementation.md",
     "reports/agent-runs/2026-07-harness-hardening-followups-v1/21-bookkeeper-inspection.md",
     "reports/agent-runs/2026-07-harness-hardening-followups-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-harness-hardening-followups-v1/61-validate-pre-review.txt",
     "reports/agent-runs/2026-07-harness-hardening-followups-v1/70-handoff.md",
     "reports/agent-runs/2026-07-harness-hardening-followups-v1/implementation-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-harness-hardening-followups-v1/status.json",
@@ -169,6 +170,7 @@
       "python3 -m py_compile scripts/validate-stage.py scripts/_itbm.py scripts/record-checkpoint",
       "python3 scripts/tests/test_validate_stage.py",
       "python3 scripts/validate-stage.py 2026-07-harness-hardening-followups-v1 --phase checkpoint",
+      "python3 scripts/validate-stage.py 2026-07-harness-hardening-followups-v1 --phase pre-review --evidence-out reports/agent-runs/2026-07-harness-hardening-followups-v1/61-validate-pre-review.txt",
       "git diff --check"
     ]
   },
@@ -219,5 +221,5 @@
   },
   "terminal_reason": null,
   "next_action": "run pre-review validation and prepare Kimi review-1 dispatch",
-  "updated_at": "2026-07-09T21:36:58+08:00"
+  "updated_at": "2026-07-09T21:38:40+08:00"
 }
