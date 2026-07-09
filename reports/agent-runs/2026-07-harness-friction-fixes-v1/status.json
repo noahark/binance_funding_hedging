@@ -100,8 +100,8 @@
       "fix_prompt_path": "reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-fix-claude-glm.prompt.md",
       "r10_checklist": null,
       "base_sha": "4b98bf3d09f3aacee7e6ffdb9a2353e246af7e41",
-      "head_sha": "1801be4089c5d51adafcc93ae5e5ec40e3be6b07",
-      "diff_fingerprint": "1801be4089c5d51adafcc93ae5e5ec40e3be6b07:20f21ad1c04171296a48016b8e0ce0a14a1afb783f71c7f93aba897fdad3d625",
+      "head_sha": "b051e7c7c93b28ff40b3d94e46413ea9742834a7",
+      "diff_fingerprint": "b051e7c7c93b28ff40b3d94e46413ea9742834a7:b1c997df18aecab355525ed9f891477810a04bf2aad46138e868a6a4376a057e",
       "test_evidence": "reports/agent-runs/2026-07-harness-friction-fixes-v1/60-test-output.txt",
       "review_1": {
         "reviewer": null,
@@ -135,8 +135,8 @@
     "user_approved": true
   },
   "base_sha": "4b98bf3d09f3aacee7e6ffdb9a2353e246af7e41",
-  "head_sha": "1801be4089c5d51adafcc93ae5e5ec40e3be6b07",
-  "diff_fingerprint": "1801be4089c5d51adafcc93ae5e5ec40e3be6b07:20f21ad1c04171296a48016b8e0ce0a14a1afb783f71c7f93aba897fdad3d625",
+  "head_sha": "b051e7c7c93b28ff40b3d94e46413ea9742834a7",
+  "diff_fingerprint": "b051e7c7c93b28ff40b3d94e46413ea9742834a7:b1c997df18aecab355525ed9f891477810a04bf2aad46138e868a6a4376a057e",
   "changed_files": [
     "docs/independent-task-branch-mode.md",
     "docs/model-adapters.md",
@@ -149,6 +149,7 @@
     "reports/agent-runs/2026-07-harness-friction-fixes-v1/21-bookkeeper-inspection.md",
     "reports/agent-runs/2026-07-harness-friction-fixes-v1/22-bookkeeper-reinspection.md",
     "reports/agent-runs/2026-07-harness-friction-fixes-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-harness-friction-fixes-v1/61-validate-pre-review.txt",
     "reports/agent-runs/2026-07-harness-friction-fixes-v1/70-handoff.md",
     "reports/agent-runs/2026-07-harness-friction-fixes-v1/development-breakdown-claude.prompt.md",
     "reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-claude-glm.prompt.md",
@@ -169,6 +170,7 @@
       "python3 -m py_compile scripts/validate-stage.py scripts/_itbm.py",
       "python3 scripts/tests/test_validate_stage.py",
       "python3 scripts/validate-stage.py 2026-07-harness-friction-fixes-v1 --phase checkpoint",
+      "python3 scripts/validate-stage.py 2026-07-harness-friction-fixes-v1 --phase pre-review --evidence-out reports/agent-runs/2026-07-harness-friction-fixes-v1/61-validate-pre-review.txt",
       "git diff --check"
     ]
   },
@@ -216,6 +218,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "run pre-review validation and prepare Kimi review-1",
-  "updated_at": "2026-07-09T18:13:19+08:00"
+  "next_action": "prepare Kimi review-1 dispatch",
+  "updated_at": "2026-07-09T18:14:32+08:00"
 }
