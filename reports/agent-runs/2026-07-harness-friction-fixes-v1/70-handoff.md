@@ -3,13 +3,14 @@
 ## Current State
 
 - Stage: `2026-07-harness-friction-fixes-v1`
-- Status: `designing`
+- Status: `implementing`
 - Branch: `stage/2026-07-harness-friction-fixes-v1`
-- HEAD: `4b98bf3d09f3aacee7e6ffdb9a2353e246af7e41` at branch creation
-- Git status: stage setup files pending H_intake commit
+- HEAD before this checkpoint: `c5ef135`
+- Git status before this checkpoint: `status.json` modified, `12-development-breakdown.md` untracked
 - Bookkeeper/designer: Codex/GPT, independent from implementers
 - Parallel mode: disabled
 - Complexity: MEDIUM
+- Development breakdown author: Anthropic `claude-opus-4-6` by user-approved substitution for tight Claude quota
 
 ## Artifact Index
 
@@ -17,13 +18,14 @@
 - Task: `00-task.md`
 - Design: `10-design.md`
 - ADR: `11-adr.md`
-- Development breakdown: pending (`12-development-breakdown.md`)
+- Development breakdown: `12-development-breakdown.md`
 - Implementation: pending (`20-implementation.md`)
 - Review 1: pending
 - Review 2: pending
 - Test output: `60-test-output.txt`
 - Status JSON: `status.json`
 - Development breakdown dispatch: `development-breakdown-claude.prompt.md`
+- Implementation dispatch: `implementation-claude-glm.prompt.md`
 
 ## Open Findings
 
@@ -34,22 +36,23 @@
   English strings for commands, paths, JSON/schema names, model/provider names,
   and code; necessary English terms should include a short Chinese explanation
   on first use.
+- `12-development-breakdown.md` recommends a single atomic Claude-GLM task,
+  Kimi review-1, and final review-2 through Codex/GPT primary or Claude fallback.
 
 ## Blockers
 
-- Development breakdown is required before implementation because this is a
-  MEDIUM Harness stage.
-- Codex/GPT must not execute the Claude dispatch command; the human operator
-  should run the prepared prompt in the target Claude terminal.
+- No current blocker. Implementation is pending human dispatch to Claude-GLM.
+- Codex/GPT must not execute the Claude-GLM dispatch command; the human operator
+  should run the prepared prompt in the target model terminal.
 
 ## Next Action
 
-Dispatch `development-breakdown-claude.prompt.md` to Claude/Fable5 or the
-configured Anthropic fallback. The breakdown must narrow owner split, allowed
-files, forbidden files, API/data contracts, test evidence, risk points, and
-review focus, including how to implement or document the Chinese-first
-reporting preference.
+Dispatch `implementation-claude-glm.prompt.md` to Claude-GLM (`glm-5.2`).
+The implementation should follow `12-development-breakdown.md`, update
+`20-implementation.md` and `60-test-output.txt`, and stop without committing.
+The bookkeeper will inspect, commit, run pre-review validation, and prepare
+Kimi review-1 after implementation completes.
 
-本地北京时间: 2026-07-09 13:42:58 CST
-下一步模型: claude
-下一步任务: execute `reports/agent-runs/2026-07-harness-friction-fixes-v1/development-breakdown-claude.prompt.md`
+本地北京时间: 2026-07-09 15:01:48 CST
+下一步模型: claude_glm
+下一步任务: execute `reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-claude-glm.prompt.md`

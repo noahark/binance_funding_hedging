@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-friction-fixes-v1",
-  "status": "designing",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-friction-fixes-v1",
@@ -34,13 +34,29 @@
   "direction_synthesizer": null,
   "breakdown_author": {
     "provider": "claude",
-    "model": "claude-fable-5",
+    "planned_model": "claude-fable-5",
+    "model": "claude-opus-4-6",
     "provider_identity": "anthropic",
-    "status": "pending_dispatch",
+    "status": "completed",
+    "substitution_reason": "User approved opus4.6 because Claude quota is tight.",
     "fallback_model_on_quota": "claude-opus-4-8"
   },
-  "implementer": null,
-  "implementers": [],
+  "implementer": {
+    "id": "claude_glm",
+    "provider": "claude_glm",
+    "model": "glm-5.2",
+    "provider_identity": "zhipu_glm",
+    "status": "pending_dispatch"
+  },
+  "implementers": [
+    {
+      "id": "claude_glm",
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "status": "pending_dispatch"
+    }
+  ],
   "fix_authors": [],
   "reviewer_1": null,
   "reviewer_2": null,
@@ -65,10 +81,37 @@
       "model_names",
       "provider_identifiers"
     ],
-    "status": "pending_breakdown"
+    "status": "active"
   },
   "r10_checklists": {},
-  "tasks": [],
+  "tasks": [
+    {
+      "id": "H",
+      "title": "Harness friction fixes",
+      "owner": {
+        "id": "claude_glm",
+        "provider": "claude_glm",
+        "model": "glm-5.2",
+        "provider_identity": "zhipu_glm"
+      },
+      "reviewer": "kimi",
+      "scope": "Harness scripts, templates, and documentation listed in 12-development-breakdown.md",
+      "prompt_path": "reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-claude-glm.prompt.md",
+      "r10_checklist": null,
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": null,
+      "review_1": {
+        "reviewer": null,
+        "provider": null,
+        "model": null,
+        "verdict": null,
+        "json_schema_valid": null,
+        "diff_fingerprint": null
+      }
+    }
+  ],
   "complexity": {
     "classification": "MEDIUM",
     "direction_panel_required": false,
@@ -142,6 +185,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "dispatch development-breakdown-claude.prompt.md",
-  "updated_at": "2026-07-09T13:42:58+08:00"
+  "next_action": "human dispatch implementation-claude-glm.prompt.md to claude_glm",
+  "updated_at": "2026-07-09T15:01:48+08:00"
 }

@@ -21,3 +21,22 @@ status=designing
 
 Expected implementation verification commands will be finalized in
 `12-development-breakdown.md`.
+
+Development breakdown checkpoint after Opus 4.6 substitution and Claude-GLM
+implementation dispatch preparation:
+
+```bash
+$ python3 -m json.tool reports/agent-runs/2026-07-harness-friction-fixes-v1/status.json >/tmp/friction-status-json-ok
+# PASS
+
+$ python3 scripts/validate-stage.py 2026-07-harness-friction-fixes-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-friction-fixes-v1
+phase=checkpoint
+status=implementing
+
+$ git diff --check
+# PASS
+```
+
+本地北京时间: 2026-07-09 15:01:48 CST
