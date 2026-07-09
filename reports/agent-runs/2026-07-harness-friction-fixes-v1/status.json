@@ -66,10 +66,10 @@
     "status": "completed"
   },
   "reviewer_2": {
-    "id": "codex_gpt",
-    "provider": "codex",
-    "model": "gpt-5.5",
-    "provider_identity": "openai",
+    "id": "claude",
+    "provider": "claude",
+    "model": "claude-fable-5",
+    "provider_identity": "anthropic",
     "status": "pending_dispatch"
   },
   "model_routing": {
@@ -201,19 +201,19 @@
     "invalid_json_attempts": 0
   },
   "review_2": {
-    "reviewer": "codex",
-    "provider": "codex",
-    "model": "gpt-5.5",
+    "reviewer": "claude",
+    "provider": "claude",
+    "model": "claude-fable-5",
     "actual_model": null,
-    "primary_provider": "codex",
-    "fallback_provider": "claude",
-    "fallback_reason": "strong-reviewer disclosure override: no decision-model provider is unrelated to this stage's design set. OpenAI/Codex designed and bookkept the stage; Anthropic authored the development breakdown. Codex is the workflow primary, has no implementation or fix authorship, and is selected for final review with design involvement disclosed.",
-    "reviewer_prior_involvement": "design",
-    "reviewer_prior_involvement_notes": "Codex/GPT designed and bookkept this Harness-only stage, but did not implement or fix it. Implementer/fix author provider is zhipu_glm; review-1 provider is moonshot_kimi. Anthropic is not an unrelated decision model here because it authored 12-development-breakdown.md. Final review must treat raw artifacts and user-approved requirements as authority over prior design notes.",
+    "primary_provider": "claude",
+    "fallback_provider": "codex",
+    "fallback_reason": "user-selected Claude final reviewer under strong-reviewer disclosure override: no decision-model provider is unrelated to this stage's design set. OpenAI/Codex designed and bookkept the stage; Anthropic authored the development breakdown. Claude has no implementation or fix authorship and is selected for final review with breakdown involvement disclosed.",
+    "reviewer_prior_involvement": "breakdown",
+    "reviewer_prior_involvement_notes": "Anthropic/Claude authored 12-development-breakdown.md but did not implement or fix this stage. Implementer/fix author provider is zhipu_glm; review-1 provider is moonshot_kimi; designer/bookkeeper provider is openai. Final review must treat raw artifacts, AGENTS.md, workflow YAML, and the user-approved stage task as authority over the breakdown notes.",
     "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-harness-friction-fixes-v1/review-2-strong-reviewer-override-evidence.md",
     "design_conflict_override": {
       "used": true,
-      "reason": "No unrelated decision-model provider is available: OpenAI has design/bookkeeper involvement and Anthropic has breakdown involvement. Codex/GPT remains eligible because it has no implementation/fix authorship and uses the documented strong-reviewer disclosure override.",
+      "reason": "No unrelated decision-model provider is available: OpenAI has design/bookkeeper involvement and Anthropic has breakdown involvement. Claude remains eligible because it has no implementation/fix authorship and uses the documented strong-reviewer disclosure override with reviewer_prior_involvement=breakdown.",
       "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-harness-friction-fixes-v1/review-2-strong-reviewer-override-evidence.md"
     },
     "open_p0_p1": null,
@@ -232,6 +232,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human dispatch review-2-codex.prompt.md to Codex/GPT",
-  "updated_at": "2026-07-09T20:32:20+08:00"
+  "next_action": "human dispatch review-2-claude.prompt.md to Claude",
+  "updated_at": "2026-07-09T20:39:01+08:00"
 }

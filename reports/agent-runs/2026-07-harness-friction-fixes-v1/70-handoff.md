@@ -35,7 +35,8 @@
 - Review-2 pre-review validation: `63-validate-pre-review-review2.txt`
 - Review-2 strong-reviewer override evidence:
   `review-2-strong-reviewer-override-evidence.md`
-- Review-2 dispatch: `review-2-codex.prompt.md`
+- Review-2 dispatch: `review-2-claude.prompt.md`
+- Superseded review-2 dispatch draft: `review-2-codex.prompt.md`
 
 ## Open Findings
 
@@ -70,12 +71,13 @@ Kimi stdout as `30-review-1.raw-output.md` and cleaned only adapter stdout noise
 from the start of `30-review-1.md`; findings and final JSON verdict were not
 modified.
 
-Review-2 is prepared for Codex/GPT under the strong-reviewer disclosure
-override. OpenAI/Codex has design/bookkeeper involvement; Anthropic has
-breakdown involvement; neither decision-model provider is unrelated to the
-stage design set. Codex has no implementation/fix authorship and remains the
-workflow primary final reviewer with `reviewer_prior_involvement=design`.
+Review-2 is prepared for Claude/Anthropic by user selection under the
+strong-reviewer disclosure override. Anthropic has breakdown involvement via
+`12-development-breakdown.md`; OpenAI/Codex has design/bookkeeper involvement;
+neither decision-model provider is unrelated to the stage design set. Claude
+has no implementation/fix authorship and is routed with
+`reviewer_prior_involvement=breakdown`.
 
-本地北京时间: 2026-07-09 20:32:20 CST
-下一步模型: codex_gpt
-下一步任务: execute `reports/agent-runs/2026-07-harness-friction-fixes-v1/review-2-codex.prompt.md`
+本地北京时间: 2026-07-09 20:39:01 CST
+下一步模型: claude
+下一步任务: execute `reports/agent-runs/2026-07-harness-friction-fixes-v1/review-2-claude.prompt.md`
