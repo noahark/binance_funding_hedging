@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-hardening-followups-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-hardening-followups-v1",
@@ -56,15 +56,15 @@
     "model": "kimi-code/kimi-for-coding",
     "actual_model": null,
     "provider_identity": "moonshot_kimi",
-    "status": "planned"
+    "status": "completed"
   },
   "reviewer_2": {
-    "id": null,
-    "provider": null,
-    "model": null,
+    "id": "claude",
+    "provider": "claude",
+    "model": "claude-fable-5",
     "actual_model": null,
-    "provider_identity": null,
-    "status": "pending_final_selection"
+    "provider_identity": "anthropic",
+    "status": "planned"
   },
   "model_routing": {
     "expected_implementation_owner": "claude_glm",
@@ -114,9 +114,9 @@
         "provider": "kimi",
         "model": "kimi-code/kimi-for-coding",
         "actual_model": null,
-        "verdict": null,
-        "json_schema_valid": false,
-        "diff_fingerprint": null
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "6eb87a0fdb8ee550115013a1faccd678ed51282d:3ce700761aad68d0084a22ff742edf1ee0e2194716625bfa563a8927eb821638"
       }
     }
   ],
@@ -180,26 +180,26 @@
     "provider": "kimi",
     "model": "kimi-code/kimi-for-coding",
     "actual_model": null,
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": false,
-    "diff_fingerprint": null,
+    "open_p0_p1": false,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "6eb87a0fdb8ee550115013a1faccd678ed51282d:3ce700761aad68d0084a22ff742edf1ee0e2194716625bfa563a8927eb821638",
     "reviewer_prior_involvement": "none",
     "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
+    "reviewer": "claude",
+    "provider": "claude",
+    "model": "claude-fable-5",
     "actual_model": null,
-    "primary_provider": null,
-    "fallback_provider": null,
-    "fallback_reason": null,
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
+    "fallback_reason": "Anticipated primary review-2 model codex/GPT is quota_exhausted (rate-limited), user-confirmed 2026-07-09. Fell back to claude per stage-delivery.yaml review-2 fallback_only_on: quota_exhausted. Claude/anthropic is in fact the unrelated strong reviewer for this stage: it has no design, breakdown, direction-synthesis, implementation, or fix involvement. Implementer provider is zhipu_glm; review-1 provider is moonshot_kimi; designer/bookkeeper provider is openai. So this fallback improves provider isolation and needs no design-conflict override. Evidence: reports/agent-runs/2026-07-harness-hardening-followups-v1/review-2-fallback-evidence.md",
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": null,
-    "unrelated_reviewer_unavailable_evidence": null,
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-harness-hardening-followups-v1/review-2-fallback-evidence.md",
     "design_conflict_override": {
       "used": false,
       "reason": null,
@@ -221,6 +221,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "dispatch review-1 prompt to Kimi",
-  "updated_at": "2026-07-09T21:39:43+08:00"
+  "next_action": "dispatch review-2 prompt to Claude (claude-fable-5, opus4.8 fallback on Fable5 quota)",
+  "updated_at": "2026-07-09T22:11:13+08:00"
 }

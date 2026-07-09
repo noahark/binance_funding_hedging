@@ -3,7 +3,7 @@
 ## Current State
 
 - Stage: `2026-07-harness-hardening-followups-v1`
-- Status: `review_1`
+- Status: `review_2`
 - Branch: `stage/2026-07-harness-hardening-followups-v1`
 - Created from main:
   `ddcf0e11a2ece33bdb9863512504fcc404867e4f`
@@ -18,8 +18,8 @@
 - Development breakdown: skipped
 - Bookkeeper/designer: `codex_gpt5` / OpenAI
 - Implementer: GLM completed implementation; bookkeeper inspection passed
-- Review-1: Kimi dispatch pending after pre-review validation
-- Review-2: pending final selection after review-1
+- Review-1: Kimi `ACCEPT` (raw output `30-review-1.md`); no P0/P1/P2; `reviewer_prior_involvement: none`
+- Review-2: dispatch pending to Claude `claude-fable-5` (fallback `opus4.8` on Fable5 quota); anticipated primary `codex`/GPT `quota_exhausted` (rate-limited) → fallback per `fallback_only_on`; Claude is the unrelated strong reviewer (`reviewer_prior_involvement: none`, no design-conflict override); see `review-2-fallback-evidence.md`
 - Initial checkpoint validation: PASS
 
 ## Artifact Index
@@ -36,6 +36,10 @@
 - GLM implementation dispatch: `implementation-claude-glm.prompt.md`
 - Bookkeeper inspection: `21-bookkeeper-inspection.md`
 - Review-1 dispatch: `review-1-kimi.prompt.md`
+- Review-1 raw output: `30-review-1.md`
+- Review-2 pre-review validation evidence: `63-validate-pre-review-review-2.txt`
+- Review-2 fallback evidence: `review-2-fallback-evidence.md`
+- Review-2 dispatch: `review-2-claude.prompt.md`
 
 ## Open Findings
 
@@ -76,12 +80,26 @@ dispatch instructions.
 
 ## Next Action
 
-Human operator should dispatch:
+Review-1 is `ACCEPT`. Bookkeeper (this session, Claude) prepares the review-2
+dispatch packet only; the human operator executes it in the target model
+terminal and records raw output evidence (workflow review-2 preflight rule).
+
+Human operator should dispatch review-2 (primary Fable5, opus4.8 on quota):
 
 ```bash
-kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-harness-hardening-followups-v1/review-1-kimi.prompt.md)" 2>reports/agent-runs/2026-07-harness-hardening-followups-v1/review-1-kimi.stderr.log | tee reports/agent-runs/2026-07-harness-hardening-followups-v1/30-review-1.md
+claude --model claude-fable-5 --permission-mode plan --json-schema "$(cat schemas/review-verdict.schema.json)" -p "$(cat reports/agent-runs/2026-07-harness-hardening-followups-v1/review-2-claude.prompt.md)" 2>reports/agent-runs/2026-07-harness-hardening-followups-v1/review-2-claude.stderr.log | tee reports/agent-runs/2026-07-harness-hardening-followups-v1/50-review-2.md
 ```
 
-本地北京时间: 2026-07-09 21:39:43 CST
-下一步模型: kimi
-下一步任务: perform review-1 on the fixed `base_sha..head_sha` range
+If `claude-fable-5` quota is exhausted, use the Anthropic fallback model:
+
+```bash
+claude --model opus4.8 --permission-mode plan --json-schema "$(cat schemas/review-verdict.schema.json)" -p "$(cat reports/agent-runs/2026-07-harness-hardening-followups-v1/review-2-claude.prompt.md)" 2>reports/agent-runs/2026-07-harness-hardening-followups-v1/review-2-claude.stderr.log | tee reports/agent-runs/2026-07-harness-hardening-followups-v1/50-review-2.md
+```
+
+After review-2 returns, bookkeeper records the verdict into `status.json`
+(`review_2` block) and, if the executed model differed from `claude-fable-5`,
+sets `status.json.review_2.actual_model`.
+
+本地北京时间: 2026-07-09 22:11:13 CST
+下一步模型: claude (claude-fable-5, opus4.8 fallback)
+下一步任务: perform review-2 (final reality-check) on the fixed `base_sha..head_sha` range
