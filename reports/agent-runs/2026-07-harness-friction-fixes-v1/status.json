@@ -1,0 +1,132 @@
+{
+  "stage_id": "2026-07-harness-friction-fixes-v1",
+  "status": "designing",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-harness-friction-fixes-v1",
+    "created_from_main_sha": "4b98bf3d09f3aacee7e6ffdb9a2353e246af7e41",
+    "created_at": "2026-07-09T13:42:58+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "codex_gpt5",
+    "provider": "codex",
+    "model": "gpt-5",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "embedded_reviews": {},
+  "designer": {
+    "provider": "codex",
+    "model": "gpt-5",
+    "provider_identity": "openai"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": {
+    "provider": "claude",
+    "model": "claude-fable-5",
+    "provider_identity": "anthropic",
+    "status": "pending_dispatch",
+    "fallback_model_on_quota": "claude-opus-4-8"
+  },
+  "implementer": null,
+  "implementers": [],
+  "fix_authors": [],
+  "reviewer_1": null,
+  "reviewer_2": null,
+  "model_routing": {
+    "expected_implementation_owner": "claude_glm",
+    "expected_review_1": "kimi",
+    "notes": [
+      "Dominant workload is Python/Harness logic and process docs.",
+      "Codex/GPT is not eligible for implementation or fix authorship."
+    ]
+  },
+  "r10_checklists": {},
+  "tasks": [],
+  "complexity": {
+    "classification": "MEDIUM",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "Harness-only follow-up from accepted single-owner run.",
+      "Touches shared scripts/templates/docs, so development breakdown is required.",
+      "User explicitly requested opening this follow-up stage."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "skipped",
+    "user_approved": true
+  },
+  "base_sha": null,
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "changed_files": [],
+  "tests": {
+    "status": "not_run",
+    "commands": []
+  },
+  "review_1": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "reviewer_prior_involvement": "none",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "primary_provider": null,
+    "fallback_provider": "claude",
+    "fallback_reason": null,
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "Final reviewer not selected. Codex designed this stage; prefer unrelated final reviewer unless a strong-reviewer override is required later.",
+    "unrelated_reviewer_unavailable_evidence": null,
+    "design_conflict_override": {
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
+    },
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "next_action": "dispatch development-breakdown-claude.prompt.md",
+  "updated_at": "2026-07-09T13:42:58+08:00"
+}
