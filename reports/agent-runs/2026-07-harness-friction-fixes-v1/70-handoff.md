@@ -28,6 +28,8 @@
 - Status JSON: `status.json`
 - Development breakdown dispatch: `development-breakdown-claude.prompt.md`
 - Implementation dispatch: `implementation-claude-glm.prompt.md`
+- Implementation fix dispatch: `implementation-fix-claude-glm.prompt.md`
+- Review-1 dispatch: `review-1-kimi.prompt.md`
 
 ## Open Findings
 
@@ -51,11 +53,12 @@
 
 ## Next Action
 
-Bookkeeper should prepare Kimi review-1 dispatch. Reviewers must inspect the
-recorded `base_sha..head_sha` range, not moving `HEAD`. The pre-review
-validation evidence `61-validate-pre-review.txt` is included in the reviewed
-range.
+Human operator should dispatch `review-1-kimi.prompt.md` to Kimi. Reviewers
+must inspect the recorded `base_sha..head_sha` range, not moving `HEAD`. The
+pre-review validation evidence `61-validate-pre-review.txt` is included in the
+reviewed range. `62-validate-pre-review-final.txt` is auxiliary final gate
+evidence after status re-anchoring.
 
-本地北京时间: 2026-07-09 18:14:32 CST
-下一步模型: codex_gpt5
-下一步任务: prepare Kimi review-1 dispatch
+本地北京时间: 2026-07-09 18:16:00 CST
+下一步模型: kimi
+下一步任务: execute `reports/agent-runs/2026-07-harness-friction-fixes-v1/review-1-kimi.prompt.md`
