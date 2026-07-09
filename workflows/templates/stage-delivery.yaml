@@ -770,3 +770,41 @@ terminal_states:
       - "report why automation cannot proceed safely"
       - "if abandoning the stage branch, record stage_branch.abandoned_reason and do not merge to main"
       - "stop stage delivery and wait for user decision"
+
+# Optional execution variant: human-operated independent task-branch mode.
+# Trial mode; full contract in DRAFT-2 rev c2
+# (reports/agent-runs/2026-07-harness-flow-optimization-v1/10-independent-task-branch-mode-draft.md).
+# It does not add new status values or a new fingerprint protocol; it splits the
+# recorder/integrator work into two deterministic scripts and keeps committed-state
+# review gates. Running these scripts / git / pytest / validator is NOT model
+# dispatch and does not require a human dispatch step.
+independent_task_branch_mode:
+  status_flag: "status.json.independent_task_branch_mode.enabled == true"
+  applies_when:
+    - "two disjoint product tasks (GLM backend + Kimi frontend)"
+    - "product changed-file sets are two-by-two disjoint"
+    - "cross-task contracts frozen at design time"
+    - "first trial forbids schema/API contract/shared fixture changes (decision D4)"
+  branch_topology:
+    integration_branch: "stage/{{stage_id}}"
+    task_branches: "task/{{stage_id}}/<owner>"   # separate task/ namespace; NOT nested under stage/<id>
+  recorder:
+    script: "scripts/record-checkpoint"
+    runs_from: "trusted checkout (integration/main worktree); operates on task branch via git refs"
+    writes: "task branch commit C_e + uncommitted task-local evidence/<task-id>/ sidecars"
+    forbids: "committing top-level status.json; touching protected Harness paths (decision E: allow_harness_change=false for product tasks)"
+  integrator:
+    script: "scripts/prepare-review-2"
+    runs_from: "integration worktree (cwd pinned)"
+    does:
+      - "ingest each task worktree's uncommitted checkpoint.json + review-1 artifacts (explicit --*-worktree)"
+      - "anti-stale-tip: tip == checkpoint.head_sha == review_1.diff_fingerprint"
+      - "product changed-file intersection empty"
+      - "atomic sequential --no-ff merges + ingest commit; rebind assertion; full stage tests; rollback via git reset --hard on any failure"
+      - "write the single top-level status.json (status review_2) + integration_diff_fingerprint + human_decision"
+  gates:
+    dispatch_ready: "scripts/validate-stage.py {{stage_id}} --phase dispatch-ready"
+    pre_review: "scripts/validate-stage.py {{stage_id}} --phase pre-review"
+  schema: "schemas/independent-task-branch-mode.schema.json"
+  dry_run_fixture: "scripts/tests/itbm_dry_run.py"
+  template: "reports/agent-runs/_template/independent-task-branch-mode/"

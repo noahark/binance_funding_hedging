@@ -686,7 +686,31 @@ def validate_common(root: Path, stage_dir: Path, status_doc: dict[str, Any], pha
     return errors
 
 
+def itbm_enabled(status_doc: dict[str, Any]) -> bool:
+    mode = status_doc.get("independent_task_branch_mode", {})
+    return isinstance(mode, dict) and truthy(mode.get("enabled"))
+
+
+def validate_itbm_required_files(stage_dir: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
+    """Task-local evidence mapping for independent task-branch mode (decision D)."""
+    errors: list[str] = []
+    if not (stage_dir / "70-handoff.md").exists():
+        errors.append("missing required stage file: 70-handoff.md")
+    tasks, _ = normalize_tasks(status_doc)
+    for task in tasks:
+        if not isinstance(task, dict) or task.get("id") is None:
+            continue
+        tid = str(task["id"])
+        ev = stage_dir / "evidence" / tid
+        for name in ("checkpoint.json", "30-review-1.md"):
+            if not (ev / name).exists():
+                errors.append(f"missing task-local evidence: evidence/{tid}/{name}")
+    return errors
+
+
 def validate_required_files(stage_dir: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
+    if itbm_enabled(status_doc):
+        return validate_itbm_required_files(stage_dir, status_doc, phase)
     required = ["00-task.md", "10-design.md", "11-adr.md", "20-implementation.md", "60-test-output.txt", "70-handoff.md"]
     complexity = status_doc.get("complexity", {})
     classification = complexity.get("classification") if isinstance(complexity, dict) else None
@@ -696,6 +720,35 @@ def validate_required_files(stage_dir: Path, status_doc: dict[str, Any], phase: 
         required += ["30-review-1.md", "50-review-2.md"]
     missing = [name for name in required if not (stage_dir / name).exists()]
     return [f"missing required stage file: {name}" for name in missing]
+
+
+def validate_itbm_dispatch_ready(root: Path, stage_dir: Path, status_doc: dict[str, Any]) -> list[str]:
+    """dispatch-ready gate for independent task-branch mode (decision B: own flag).
+
+    validate_dispatch_ready() no-ops without parallel_mode.enabled, so the frozen
+    allowed_scope / forbidden-path checks are re-implemented under this flag.
+    """
+    if not itbm_enabled(status_doc):
+        return []
+    errors: list[str] = []
+    tasks, shape = normalize_tasks(status_doc)
+    errors.extend(shape)
+    object_tasks = [t for t in tasks if isinstance(t, dict)]
+    if len(object_tasks) < 2:
+        errors.append("independent_task_branch_mode dispatch-ready requires at least two tasks")
+    for task in object_tasks:
+        tid = str(task.get("id", "<missing-id>"))
+        if not task.get("branch"):
+            errors.append(f"task {tid}: missing branch")
+        scope = task.get("allowed_scope")
+        if not isinstance(scope, dict):
+            errors.append(f"task {tid}: allowed_scope must be an object")
+            continue
+        if not scope.get("product_paths"):
+            errors.append(f"task {tid}: allowed_scope.product_paths must be non-empty (frozen pre-dispatch)")
+        if scope.get("allow_harness_change") is not False:
+            errors.append(f"task {tid}: product task allow_harness_change must be false (decision E)")
+    return errors
 
 
 def validate_review_identity(root: Path, stage_dir: Path, status_doc: dict[str, Any]) -> list[str]:
@@ -836,6 +889,7 @@ def main() -> int:
         errors.extend(validate_parallel_mode(root, stage_dir, status_doc, args.phase))
         if args.phase == "dispatch-ready":
             errors.extend(validate_dispatch_ready(root, stage_dir, status_doc))
+            errors.extend(validate_itbm_dispatch_ready(root, stage_dir, status_doc))
         if args.phase in {"pre-review", "pre-accept"}:
             errors.extend(validate_required_files(stage_dir, status_doc, args.phase))
             errors.extend(validate_tasks(root, stage_dir, status_doc, args.task))

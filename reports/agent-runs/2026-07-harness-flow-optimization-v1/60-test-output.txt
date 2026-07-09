@@ -1,0 +1,67 @@
+# 60-test-output
+
+Documentation-only packet verification.
+
+## Commands
+
+```bash
+ruby -rjson -e 'JSON.parse(File.read("reports/agent-runs/2026-07-harness-flow-optimization-v1/status.json")); puts "status.json ok"'
+git diff --check -- reports/agent-runs/2026-07-harness-flow-optimization-v1
+find reports/agent-runs/2026-07-harness-flow-optimization-v1 -maxdepth 3 -type f | sort
+git status --short --branch
+```
+
+## Output
+
+```text
+status.json ok
+```
+
+`git diff --check` produced no output, which indicates no whitespace errors in
+the new packet files.
+
+```text
+reports/agent-runs/2026-07-harness-flow-optimization-v1/00-context-and-proposal.md
+reports/agent-runs/2026-07-harness-flow-optimization-v1/20-documentation.md
+reports/agent-runs/2026-07-harness-flow-optimization-v1/60-test-output.txt
+reports/agent-runs/2026-07-harness-flow-optimization-v1/70-handoff.md
+reports/agent-runs/2026-07-harness-flow-optimization-v1/review-prompt.md
+reports/agent-runs/2026-07-harness-flow-optimization-v1/reviews/README.md
+reports/agent-runs/2026-07-harness-flow-optimization-v1/status.json
+```
+
+```text
+## main...origin/main
+?? reports/agent-runs/2026-07-harness-flow-optimization-v1/
+```
+
+本地北京时间: 2026-07-08 16:40:08 CST
+下一步模型: external reviewers
+下一步任务: Review the proposal and write model-specific outputs under `reviews/`.
+
+## Codex Review File Verification
+
+Commands:
+
+```bash
+ruby -rjson -e 'JSON.parse(File.read("reports/agent-runs/2026-07-harness-flow-optimization-v1/status.json")); puts "status.json ok"'
+git diff --check -- reports/agent-runs/2026-07-harness-flow-optimization-v1
+git status --short --branch
+```
+
+Output:
+
+```text
+status.json ok
+```
+
+`git diff --check` produced no output.
+
+```text
+## main...origin/main
+?? reports/agent-runs/2026-07-harness-flow-optimization-v1/
+```
+
+本地北京时间: 2026-07-08 18:58:02 CST
+下一步模型: human
+下一步任务: 综合多模型 REWORK，修订 10-independent-task-branch-mode-draft.md 为 DRAFT-2。
