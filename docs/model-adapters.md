@@ -99,6 +99,14 @@ Default model policy:
   explicitly changes it.
 - Review mode is read-only/plan. Do not let Claude modify files during review.
 
+Recording the actual model (F6): when a review-2 dispatch anticipated
+`claude-fable-5` but actually ran `claude-opus-4-8` (or any other fallback),
+record the model that actually executed in `status.json.review_2.actual_model`
+in addition to `review_2.model`. The fallback does not change provider identity
+(`claude-fable-5` and `claude-opus-4-8` are both `anthropic`), so anti-self-review
+isolation is unchanged; `actual_model` only documents the executed model for
+auditability.
+
 Command templates:
 
 ```bash
@@ -293,6 +301,24 @@ binary for `kimi`. The workflow should still record provider identity as
 
 Do not use `kimi --plan -p ...` or `kimi -y -p ...`; the current CLI returns
 `Cannot combine --prompt with --plan/--yolo`.
+
+### Review output hygiene
+
+Kimi's one-shot prompt mode emits adapter noise (CLI metadata, progress, and
+diagnostics) on stderr that should not land in a committed review file. When
+capturing review output, separate stderr from stdout so the review evidence
+holds only the model's narrative and verdict. For example:
+
+```bash
+kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)" \
+  2>reports/agent-runs/<stage-id>/review-1-kimi.stderr.log \
+  | tee reports/agent-runs/<stage-id>/30-review-1.md
+```
+
+Keep stderr available for debugging (it may surface adapter or quota errors)
+but do not mix it into the strict JSON verdict region of the review file. The
+same stderr-separation applies to review-2 and embedded cross-review captures.
+This is output hygiene only; it does not add new adapter infrastructure.
 
 ## Dispatch Failure Semantics
 

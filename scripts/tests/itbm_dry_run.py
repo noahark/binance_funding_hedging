@@ -257,6 +257,36 @@ def test_single_owner(root):
     r = run_script("record-checkpoint", [STAGE, "--single-owner", "--branch", INTEG,
                                          "--task-worktree", str(repo), "--base-sha", base], cwd=repo)
     check("⑯ single-owner record-checkpoint OK", r.returncode == 0, r.stdout)
+    # F3: single-owner recorder now writes top-level status.json review metadata
+    status = json.loads((repo / "reports" / "agent-runs" / STAGE / "status.json").read_text())
+    check("⑯ single-owner writes top-level status.json base/head/fingerprint/changed_files",
+          bool(status.get("base_sha")) and bool(status.get("head_sha"))
+          and bool(status.get("diff_fingerprint"))
+          and "backend/app.py" in status.get("changed_files", []),
+          json.dumps({k: status.get(k) for k in ("base_sha", "head_sha", "diff_fingerprint", "changed_files")}))
+
+
+# ---- ⑯ single-owner --dry-run does not mutate the repository ----
+def test_single_owner_dry_run(root):
+    print("⑯ single-owner --dry-run performs no repository mutation:")
+    repo, base, wt_be, wt_fe = setup(root)
+    write(repo / "backend" / "app.py", "V = 9\n")
+    head_before = git(["rev-parse", "HEAD"], repo).stdout.strip()
+    status_before = git(["status", "--short"], repo).stdout
+    r = run_script("record-checkpoint", [STAGE, "--single-owner", "--dry-run", "--branch", INTEG,
+                                         "--task-worktree", str(repo), "--base-sha", base], cwd=repo)
+    head_after = git(["rev-parse", "HEAD"], repo).stdout.strip()
+    status_after = git(["status", "--short"], repo).stdout
+    status = json.loads((repo / "reports" / "agent-runs" / STAGE / "status.json").read_text())
+    check("⑯ single-owner --dry-run OK and leaves HEAD unchanged",
+          r.returncode == 0 and head_after == head_before,
+          f"rc={r.returncode} head_before={head_before[:12]} head_after={head_after[:12]}")
+    check("⑯ single-owner --dry-run leaves git status --short unchanged",
+          status_after == status_before,
+          f"before={status_before!r} after={status_after!r}")
+    check("⑯ single-owner --dry-run leaves status.json metadata unwritten",
+          status.get("base_sha") is None and status.get("head_sha") is None,
+          r.stdout)
 
 
 # ---- validator: --phase pre-review passes on the mode's task-local layout ----
@@ -278,7 +308,7 @@ def test_validator(root):
 def main():
     for fn in (test_happy, test_non_accept, test_intersection, test_stale_tip,
                test_rebind_mismatch, test_immutable_guard, test_rollback, test_single_owner,
-               test_validator):
+               test_single_owner_dry_run, test_validator):
         scenario(fn)
     passed = sum(1 for _, ok in RESULTS if ok)
     total = len(RESULTS)

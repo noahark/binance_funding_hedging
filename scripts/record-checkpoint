@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -53,19 +54,93 @@ def assert_ancestry(repo: Path, base_sha: str, branch: str) -> None:
         raise ItbmError(f"task branch {branch} contains merge commits (sibling/main merge forbidden)")
 
 
-def run_single_owner(repo: Path, args, stage_id: str) -> int:
-    """Single-owner: one worktree, record-checkpoint writes top-level status.json."""
-    worktree = Path(args.task_worktree).resolve()
-    base = rev_parse(args.base_sha, cwd=repo)
-    pending = worktree_changed_files(worktree)
-    for path in pending:
+def _has_staged_changes(worktree: Path) -> bool:
+    """True if the index differs from HEAD (i.e. `git add -A` staged something).
+
+    `git diff --cached --quiet` exits 1 when staged differences exist, 0 when
+    clean. Used so single-owner re-anchoring on an already-clean worktree does
+    not fail on an empty content commit.
+    """
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"],
+        cwd=str(worktree),
+        check=False,
+    )
+    return result.returncode != 0
+
+
+def _read_status_doc(worktree: Path, stage_id: str) -> dict:
+    status_path = worktree / status_rel(stage_id)
+    if not status_path.exists():
+        raise ItbmError(f"single-owner recorder expected top-level status.json at {status_path}")
+    try:
+        return json.loads(status_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ItbmError(f"invalid JSON in {status_path}: {exc}") from exc
+
+
+def _guard_protected_pending(worktree: Path) -> None:
+    """Read-only guard: raise if any uncommitted change touches a protected
+    Harness path. It only inspects `git status`, so it performs no repository
+    mutation and is safe to call in the --dry-run path before any git add/commit.
+    """
+    for path in worktree_changed_files(worktree):
         if hits_protected_path(path):
             raise ItbmError(f"single-owner change touches protected Harness path: {path}")
+
+
+def run_single_owner(repo: Path, args, stage_id: str) -> int:
+    """Single-owner: one worktree, record-checkpoint writes top-level status.json.
+
+    Anchors head_sha at the current branch tip (after committing any pending
+    delivery changes) and writes base_sha / head_sha / diff_fingerprint /
+    changed_files into the top-level status.json, then makes a status-only
+    commit. status.json is excluded from the canonical fingerprint, so this
+    status metadata commit does not change the recorded diff_fingerprint and
+    introduces no self-referential fingerprint.
+
+    --dry-run performs NO repository mutation: it does not run `git add`, does
+    not run `git commit`, does not write `status.json`, and does not move HEAD
+    or touch the index/worktree. It reads the current branch tip and prints the
+    status fields computed over the already-committed state, so the operator can
+    preview the anchor with zero side effects. (It therefore does not reflect
+    uncommitted pending changes, which the non-dry-run path would commit first.)
+    """
+    worktree = Path(args.task_worktree).resolve()
+    base = rev_parse(args.base_sha, cwd=repo)
+    _guard_protected_pending(worktree)
+
+    if args.dry_run:
+        head = rev_parse(args.branch, cwd=repo)
+        fp = canonical_fingerprint(repo, base, head, stage_id)
+        changed = changed_files(repo, base, head)
+        print(f"[dry-run] single-owner would anchor head={head[:12]} fingerprint={fp}")
+        print(f"[dry-run] would write status.json: base_sha={base} head_sha={head} "
+              f"diff_fingerprint={fp} changed_files={changed}")
+        print("[dry-run] no git add / git commit / status.json write performed")
+        return 0
+
     git(["add", "-A"], cwd=worktree)
-    git(["commit", "-m", f"[checkpoint:single-owner] {stage_id}"], cwd=worktree)
+    if _has_staged_changes(worktree):
+        git(["commit", "-m", f"[checkpoint:single-owner] {stage_id}"], cwd=worktree)
     head = rev_parse(args.branch, cwd=repo)
     fp = canonical_fingerprint(repo, base, head, stage_id)
+    changed = changed_files(repo, base, head)
     print(f"single-owner checkpoint head={head[:12]} fingerprint={fp}")
+
+    status_doc = _read_status_doc(worktree, stage_id)
+    status_doc["base_sha"] = base
+    status_doc["head_sha"] = head
+    status_doc["diff_fingerprint"] = fp
+    status_doc["changed_files"] = changed
+    status_path = worktree / status_rel(stage_id)
+    status_path.write_text(json.dumps(status_doc, indent=2, ensure_ascii=False) + "\n")
+    # status.json is excluded from the canonical fingerprint (see _itbm.py), so
+    # this metadata commit does not alter the diff_fingerprint recorded above.
+    git(["add", "-A"], cwd=worktree)
+    git(["commit", "-m", f"[checkpoint:single-owner] status metadata for {stage_id}"], cwd=worktree)
+    print(f"wrote status.json: base_sha={base} head_sha={head} "
+          f"diff_fingerprint={fp} changed_files={changed}")
     return 0
 
 
@@ -77,6 +152,13 @@ def main() -> int:
     parser.add_argument("--task-worktree", required=True)
     parser.add_argument("--base-sha", required=True)
     parser.add_argument("--single-owner", action="store_true")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="single-owner only: print the status.json fields that would be written with "
+        "NO repository mutation (no git add, no git commit, no status.json write, HEAD and "
+        "index unchanged)",
+    )
     args = parser.parse_args()
 
     repo = Path(git(["rev-parse", "--show-toplevel"], cwd=Path.cwd()).strip())

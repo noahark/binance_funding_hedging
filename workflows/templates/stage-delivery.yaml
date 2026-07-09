@@ -156,6 +156,11 @@ rotation:
     review_2_disclosure_required_when_reviewer_participated_in_design: true
     invalid_verdict_json_max_attempts_per_model: 2
     do_not_seek_second_opinion_after_valid_review_2_verdict: true
+    # F8: a REWORK fix redispatches the SAME review gate that issued the REWORK.
+    # review-1 REWORK -> fix -> retest -> redispatch review-1 (NOT review-2).
+    # review-2 REWORK -> fix -> retest -> redispatch review-2.
+    review_1_rework_redispatches_review_1_not_review_2: true
+    fix_start_prompt_next_action_matches_originating_review: true
   complexity_routing:
     LOW:
       route: stage-branch-intake
@@ -543,7 +548,10 @@ stages:
       - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_1."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
+      - "Prefer scripts/validate-stage.py {{stage_id}} --phase pre-review --evidence-out reports/agent-runs/{{stage_id}}/61-validate-pre-review.txt over `| tee` so evidence capture does not dirty the worktree before the clean-worktree check."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
+      - "head_sha is delivery-anchored and a committed validator log records a pre-inclusion fingerprint; status.json.diff_fingerprint is authoritative (see docs/independent-task-branch-mode.md Evidence Conventions)."
+      - "Separate adapter stderr from the review narrative when capturing raw output (see docs/model-adapters.md Review output hygiene)."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring the reviewer unavailable."
       - "Codex/GPT and Claude sessions prepare review-1 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
     actor:
@@ -587,6 +595,7 @@ stages:
           - "forbidden paths and side effects"
           - "exact test/lint/typecheck commands to run after the fix"
           - "expected 40-fix-report.md finding-to-fix mapping"
+          - "next_action naming the gate to redispatch after the fix: a review-1 REWORK fixes, retests, then redispatches review-1 — do not skip directly to review-2"
         must_not:
           - "replace raw reviewer evidence with a bookkeeper summary"
           - "broaden scope beyond the reviewed findings"
@@ -638,7 +647,10 @@ stages:
       - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_2."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
+      - "Prefer scripts/validate-stage.py {{stage_id}} --phase pre-review --evidence-out reports/agent-runs/{{stage_id}}/62-validate-pre-review.txt over `| tee` so evidence capture does not dirty the worktree before the clean-worktree check."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
+      - "head_sha is delivery-anchored and a committed validator log records a pre-inclusion fingerprint; status.json.diff_fingerprint is authoritative (see docs/independent-task-branch-mode.md Evidence Conventions)."
+      - "If the dispatched review-2 model differed from the anticipated model (for example claude-opus-4-8 instead of claude-fable-5), record it in status.json.review_2.actual_model; provider identity is unchanged."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring Codex or Claude unavailable."
       - "If the selected final reviewer participated in direction synthesis, breakdown, or design, record the design-conflict override evidence before preparing dispatch."
       - "Codex/GPT and Claude sessions prepare review-2 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
@@ -713,6 +725,7 @@ stages:
           - "forbidden paths and side effects"
           - "exact test/lint/typecheck commands to run after the fix"
           - "expected 40-fix-report.md finding-to-fix mapping"
+          - "next_action naming the gate to redispatch after the fix: a review-2 REWORK fixes, retests, then redispatches review-2"
         must_not:
           - "replace raw reviewer evidence with a bookkeeper summary"
           - "broaden scope beyond the reviewed findings"
@@ -808,3 +821,35 @@ independent_task_branch_mode:
   schema: "schemas/independent-task-branch-mode.schema.json"
   dry_run_fixture: "scripts/tests/itbm_dry_run.py"
   template: "reports/agent-runs/_template/independent-task-branch-mode/"
+
+# Optional single-owner recorder variant: one implementer on the integration
+# branch (no task split). record-checkpoint --single-owner writes top-level
+# status.json review metadata (F3) and the ordering below keeps validator
+# evidence inside the reviewed range (F2). Adds no new status values and no new
+# fingerprint protocol; committed-state gates are unchanged.
+single_owner_mode:
+  status_flag: "single implementer on stage/{{stage_id}} using record-checkpoint --single-owner"
+  recorder:
+    script: "scripts/record-checkpoint --single-owner"
+    writes: "stage branch delivery commit + top-level status.json base_sha/head_sha/diff_fingerprint/changed_files + status-only metadata commit (status.json is excluded from the canonical fingerprint)"
+    dry_run: "scripts/record-checkpoint --single-owner --dry-run prints the status fields with NO repository mutation (no git add, no git commit, no status.json write, HEAD and index unchanged)"
+  evidence_ordering:
+    preferred: "evidence-before-anchor: commit implementation + report evidence so the worktree is clean, run validate-stage.py --phase pre-review --evidence-out <path>, commit the evidence, then run record-checkpoint --single-owner so head_sha anchors at a tip that includes the validator evidence"
+    equivalent: "reconcile-after: anchor head_sha first, capture and commit validator evidence, then recompute head_sha/diff_fingerprint (re-run record-checkpoint --single-owner) so the reviewed range includes the evidence"
+    requirement: "61-validate-pre-review.txt must be inside or safely reconciled with the recorded base_sha..head_sha range"
+  gates:
+    pre_review: "scripts/validate-stage.py {{stage_id}} --phase pre-review"
+
+# Reporting language preference (F9). status.json.reporting_preferences is read
+# by dispatch packets to set report prose language. It affects narrative prompt
+# text only; it must never alter strict JSON verdict keys, schema fields,
+# commands, file paths, code identifiers, model names, or provider identifiers.
+reporting:
+  status_flag: "status.json.reporting_preferences.primary_language"
+  default_when_set: "model-facing reports, handoffs, review narratives, and significant bookkeeper responses use primary_language prose"
+  explain_english_terms: "when explain_english_terms is true, add a short Chinese explanation for necessary English technical terms on first use"
+  preserve_exact_strings: ["commands", "file_paths", "json_keys", "schema_fields", "code_identifiers", "model_names", "provider_identifiers"]
+  examples:
+    - "fingerprint (指纹，用于绑定被审 diff 的哈希)"
+    - "delivery-anchored head_sha (交付锚定的 head_sha，即锚定在交付提交而非后续辅助提交)"
+    - "provider identity (提供方身份，例如 claude_glm 是 zhipu_glm 而非 anthropic)"

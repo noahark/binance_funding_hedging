@@ -139,6 +139,28 @@ to one of the terminal stop reasons above in `terminal_reason` or
   `head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")`.
   `status.json` is excluded because it stores the fingerprint. Do not use
   worktree fingerprints or alternate fingerprint fields.
+- `head_sha` is delivery-anchored: it points at the delivery commit review
+  inspects. Later auxiliary commits (status-only metadata, handoff updates,
+  validator evidence re-anchor) do not move `head_sha` unless the stage
+  explicitly re-anchors and re-runs `validate-stage.py --phase pre-review`. See
+  the "Evidence Conventions" section of `docs/independent-task-branch-mode.md`.
+- A committed validator log obeys the fixed-point property: it cannot contain
+  the fingerprint of the commit that contains itself. A committed
+  `61-validate-pre-review.txt` records a pre-inclusion snapshot; the
+  authoritative final fingerprint is always `status.json.diff_fingerprint`.
+- Capture validator evidence with `validate-stage.py --phase pre-review
+  --evidence-out <path>` instead of `... | tee <path>`. `--evidence-out` checks
+  a clean worktree first and writes the evidence file only after every check
+  passes, so evidence capture no longer dirties the worktree before the
+  clean-worktree check.
+- For single-owner stages, validator evidence must be inside or reconciled with
+  the reviewed range. Commit the evidence before anchoring `head_sha`, or
+  recompute `head_sha` / `diff_fingerprint` after the evidence commit
+  (re-running `record-checkpoint --single-owner` re-anchors to the current tip).
+  `record-checkpoint --single-owner` now writes top-level `status.json` review
+  metadata (`base_sha`, `head_sha`, `diff_fingerprint`, `changed_files`);
+  `--dry-run` prints those fields with no repository mutation (no `git add`,
+  no `git commit`, no `status.json` write, `HEAD` and index unchanged).
 - Review prompts and reviewer commands must use the recorded
   `<base_sha>..<head_sha>` range, not a moving `HEAD`, because unrelated Harness
   commits may be added after a stage is frozen.
@@ -185,6 +207,46 @@ to one of the terminal stop reasons above in `terminal_reason` or
   two invalid attempts, route that model as unavailable for the gate.
 - A stage is not accepted until `status.json`, `70-handoff.md`, test output, and
   schema-valid review verdicts agree.
+
+## 报告语言偏好 (Reporting Language Preference)
+
+`status.json` may carry a top-level `reporting_preferences` object that stages
+and dispatch packets can read to set the report language:
+
+```json
+"reporting_preferences": {
+  "primary_language": "zh-CN",
+  "explain_english_terms": true,
+  "preserve_exact_strings": [
+    "commands", "file_paths", "json_keys", "schema_fields",
+    "code_identifiers", "model_names", "provider_identifiers"
+  ]
+}
+```
+
+When `primary_language` is set (for example `zh-CN`), model-facing reports,
+handoffs, review narratives, and significant bookkeeper responses default to
+that language's prose. `explain_english_terms=true` asks the author to add a
+short Chinese explanation for necessary English technical terms on first use.
+
+`preserve_exact_strings` lists the string classes that must stay in their exact
+English form and are never translated. This preference affects narrative prose
+and dispatch prompt text only; it must never alter strict JSON verdict keys,
+schema fields, commands, file paths, code identifiers, model names, or provider
+identifiers.
+
+中英混排示例（correct mixed-language usage）:
+
+- `fingerprint`（指纹，用于绑定被审 diff 的哈希）
+- `delivery-anchored head_sha`（交付锚定的 `head_sha`，即 `head_sha` 锚定在代码
+  交付提交而非后续辅助提交）
+- `provider identity`（提供方身份，例如 `claude_glm` 的提供方身份是
+  `zhipu_glm`，不是 `anthropic`）
+- `fix_start_prompt`（返工修复启动提示，REWORK 判决中给修复实现者的可发送提示）
+
+The dispatch templates in `workflows/templates/stage-delivery.yaml` may inject
+this preference into prompt headers so future reports default to the requested
+language without corrupting exact machine strings.
 
 ## Report Footer
 

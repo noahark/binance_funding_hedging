@@ -46,7 +46,7 @@
     "provider": "claude_glm",
     "model": "glm-5.2",
     "provider_identity": "zhipu_glm",
-    "status": "pending_dispatch"
+    "status": "completed"
   },
   "implementers": [
     {
@@ -54,7 +54,7 @@
       "provider": "claude_glm",
       "model": "glm-5.2",
       "provider_identity": "zhipu_glm",
-      "status": "pending_dispatch"
+      "status": "completed"
     }
   ],
   "fix_authors": [],
@@ -97,6 +97,7 @@
       "reviewer": "kimi",
       "scope": "Harness scripts, templates, and documentation listed in 12-development-breakdown.md",
       "prompt_path": "reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-claude-glm.prompt.md",
+      "fix_prompt_path": "reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-fix-claude-glm.prompt.md",
       "r10_checklist": null,
       "base_sha": null,
       "head_sha": null,
@@ -138,8 +139,14 @@
   "diff_fingerprint": null,
   "changed_files": [],
   "tests": {
-    "status": "not_run",
-    "commands": []
+    "status": "pass",
+    "commands": [
+      "python3 scripts/tests/itbm_dry_run.py",
+      "python3 -m py_compile scripts/validate-stage.py scripts/_itbm.py",
+      "python3 scripts/tests/test_validate_stage.py",
+      "python3 scripts/validate-stage.py 2026-07-harness-friction-fixes-v1 --phase checkpoint",
+      "git diff --check"
+    ]
   },
   "review_1": {
     "reviewer": null,
@@ -185,6 +192,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human dispatch implementation-claude-glm.prompt.md to claude_glm",
-  "updated_at": "2026-07-09T15:01:48+08:00"
+  "next_action": "bookkeeper create delivery commit, compute fingerprint, and prepare review-1",
+  "updated_at": "2026-07-09T18:11:23+08:00"
 }

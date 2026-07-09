@@ -330,7 +330,34 @@ def collect_designer_identities(status_doc: dict[str, Any]) -> set[str]:
     return identities
 
 
+def review_selected_identity(review: dict[str, Any]) -> str | None:
+    """Identity of the actually-selected reviewer.
+
+    Probes only the fields that record a confirmed reviewer selection
+    (reviewer / provider / selected_provider). It deliberately excludes
+    primary_provider, which is an unselected preference (the preferred
+    final-reviewer provider before selection) and must not be treated as the
+    reviewer's provider identity for provider-isolation / designer-overlap
+    checks. Using review_provider_identity() for those checks caused false
+    designer-overlap failures whenever an unselected review_2.primary_provider
+    happened to match the designer provider.
+    """
+    for key in ("reviewer", "provider", "selected_provider"):
+        identity = provider_identity(review.get(key))
+        if identity:
+            return identity
+    return None
+
+
 def review_provider_identity(review: dict[str, Any]) -> str | None:
+    """Full identity probing including the primary_provider preference.
+
+    Use review_selected_identity() for provider-isolation and designer-overlap
+    checks (before and around reviewer selection). This full probe is kept for
+    validating a COMPLETED review whose every identity field is expected to be
+    set; it must not drive isolation decisions because primary_provider is only
+    a preference.
+    """
     for key in ("reviewer", "provider", "selected_provider", "primary_provider"):
         identity = provider_identity(review.get(key))
         if identity:
@@ -758,7 +785,7 @@ def validate_review_identity(root: Path, stage_dir: Path, status_doc: dict[str, 
 
     review_1 = status_doc.get("review_1", {})
     if isinstance(review_1, dict):
-        identity = review_provider_identity(review_1)
+        identity = review_selected_identity(review_1)
         if identity and identity in implementer_identities:
             errors.append("review_1 provider identity must differ from implementation/fix author provider identity")
 
@@ -766,7 +793,7 @@ def validate_review_identity(root: Path, stage_dir: Path, status_doc: dict[str, 
     if not isinstance(review_2, dict):
         return errors
 
-    reviewer_identity = review_provider_identity(review_2)
+    reviewer_identity = review_selected_identity(review_2)
     if reviewer_identity and reviewer_identity in implementer_identities:
         errors.append("review_2 provider identity must differ from every implementation/fix author provider identity; no override is allowed")
 
@@ -871,6 +898,11 @@ def main() -> int:
         default="checkpoint",
     )
     parser.add_argument("--task", help="optional task id for task-level fingerprint and cross-review checks")
+    parser.add_argument(
+        "--evidence-out",
+        help="write the validation output to this path only when validation passes; "
+        "never written on failure so a dirty-worktree or other failure is not masked",
+    )
     args = parser.parse_args()
 
     try:
@@ -899,21 +931,37 @@ def main() -> int:
             errors.extend(validate_acceptance(root, stage_dir, status_doc))
 
         if errors:
-            print("STAGE VALIDATION FAILED")
-            for err in errors:
-                print(f"- {err}")
+            output = "STAGE VALIDATION FAILED\n" + "\n".join(f"- {err}" for err in errors) + "\n"
+            print(output, end="")
             return 1
 
-        print("STAGE VALIDATION PASSED")
         try:
             stage_label = str(stage_dir.relative_to(root))
         except ValueError:
             stage_label = str(stage_dir)
-        print(f"stage={stage_label}")
-        print(f"phase={args.phase}")
-        print(f"status={status_doc.get('status')}")
+        lines = [
+            "STAGE VALIDATION PASSED",
+            f"stage={stage_label}",
+            f"phase={args.phase}",
+            f"status={status_doc.get('status')}",
+        ]
         if status_doc.get("diff_fingerprint"):
-            print(f"diff_fingerprint={status_doc['diff_fingerprint']}")
+            lines.append(f"diff_fingerprint={status_doc['diff_fingerprint']}")
+        output = "\n".join(lines) + "\n"
+        print(output, end="")
+
+        # Evidence capture (F4): write the output only after every check passed.
+        # A dirty-worktree or any other failure returns above, so this file is
+        # never created to mask a real failure. This lets stage operators use
+        # `validate-stage.py --phase pre-review --evidence-out <path>` instead of
+        # `... | tee <path>`, which would dirty the worktree before the
+        # clean-worktree check on the next run.
+        if args.evidence_out:
+            evidence_path = Path(args.evidence_out)
+            if not evidence_path.is_absolute():
+                evidence_path = (Path.cwd() / evidence_path)
+            evidence_path.parent.mkdir(parents=True, exist_ok=True)
+            evidence_path.write_text(output)
         return 0
     except ValidationError as exc:
         print("STAGE VALIDATION FAILED")

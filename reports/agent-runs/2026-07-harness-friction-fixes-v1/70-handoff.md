@@ -41,18 +41,18 @@
 
 ## Blockers
 
-- No current blocker. Implementation is pending human dispatch to Claude-GLM.
-- Codex/GPT must not execute the Claude-GLM dispatch command; the human operator
-  should run the prepared prompt in the target model terminal.
+- None open. Bookkeeper reinspection passed after GLM fixed the F3 dry-run
+  semantics.
+- The earlier P1 is resolved: `record-checkpoint --single-owner --dry-run` now
+  performs no repository mutation and tests assert unchanged `HEAD`, unchanged
+  `git status --short`, and unwritten `status.json` metadata.
 
 ## Next Action
 
-Dispatch `implementation-claude-glm.prompt.md` to Claude-GLM (`glm-5.2`).
-The implementation should follow `12-development-breakdown.md`, update
-`20-implementation.md` and `60-test-output.txt`, and stop without committing.
-The bookkeeper will inspect, commit, run pre-review validation, and prepare
-Kimi review-1 after implementation completes.
+Bookkeeper should create the delivery commit, compute the canonical
+`diff_fingerprint`, update `status.json` to `review_1`, run pre-review
+validation, and prepare Kimi review-1 dispatch.
 
-本地北京时间: 2026-07-09 15:01:48 CST
-下一步模型: claude_glm
-下一步任务: execute `reports/agent-runs/2026-07-harness-friction-fixes-v1/implementation-claude-glm.prompt.md`
+本地北京时间: 2026-07-09 18:11:23 CST
+下一步模型: codex_gpt5
+下一步任务: commit delivery, compute fingerprint, run pre-review validation, prepare Kimi review-1
