@@ -1,12 +1,15 @@
 $ python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase pre-review
-# Note: pre-review requires a clean committed worktree. Writing the output
-# directly to this new in-repo file during the run would make the gate see an
-# untracked file and fail its own clean-worktree check, so the output was teed
-# to /tmp and copied here verbatim. The worktree was clean (status.json
-# committed) at run time; exit code 0.
+# pre-review validator（清树 committed 状态下运行，exit=0）。
+# 命令: python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase pre-review
+# 本日志记录验证器对 status.head_sha=d53ec28 的一次真实 PASS 运行：运行时
+# status.head_sha=d53ec28，验证器重算 base..d53ec28 的指纹 e5e487... == status.json
+# 记录值，故 PASS。提交本日志与 60-test 的 validator 段后，head 推进至 Z；Z 的
+# 权威指纹 FP(Z) 记录在 status.json（status.json 排除在指纹计算外，但本日志纳入
+# Z，故 FP(Z) != e5e487...）。pre-review gate 最终判定 = 验证器重算
+# base..status.head_sha 指纹 == status.json 记录值；本日志内容不参与该判定。
 
 STAGE VALIDATION PASSED
 stage=reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1
 phase=pre-review
 status=review_1
-diff_fingerprint=b397b4bde4d9975fb582334c6c78f21e54063504:799c26c410055094e783fdcda125474ae0aa946ccc5e0e556f4596292c29f00b
+diff_fingerprint=d53ec28ead5bb5899dc1534a3fbc50f5f49e4afa:e5e487f967391ecd120a89e9176b156e882e9d89e8b51bb9f20cdde174ae0c8e

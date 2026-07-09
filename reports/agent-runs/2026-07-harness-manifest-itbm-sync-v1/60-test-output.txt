@@ -32,12 +32,14 @@ combined_exit_code=0 if both zero: 0
 
 \$ python3 scripts/validate-stage.py 2026-07-harness-manifest-itbm-sync-v1 --phase pre-review
 # Pre-review gate run during the review-1 fix (fix_start_prompt). The worktree
-# was clean (status.json committed); exit code 0. The authoritative stage
-# diff_fingerprint lives in status.json; the inline value below is the recorded
-# fingerprint at run time and is informational.
+# was clean (status.json committed); exit code 0. The inline diff_fingerprint
+# below is the validator's recomputed fingerprint for status.head_sha=d53ec28 at
+# run time; the authoritative stage fingerprint lives in status.json (excluded
+# from the fingerprint computation). See 61-validate-pre-review.txt for the
+# dedicated gate log.
 
 STAGE VALIDATION PASSED
 stage=reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1
 phase=pre-review
 status=review_1
-diff_fingerprint=b397b4bde4d9975fb582334c6c78f21e54063504:799c26c410055094e783fdcda125474ae0aa946ccc5e0e556f4596292c29f00b
+diff_fingerprint=d53ec28ead5bb5899dc1534a3fbc50f5f49e4afa:e5e487f967391ecd120a89e9176b156e882e9d89e8b51bb9f20cdde174ae0c8e
