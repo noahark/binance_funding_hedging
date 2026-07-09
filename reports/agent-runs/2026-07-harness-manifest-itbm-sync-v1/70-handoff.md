@@ -3,14 +3,18 @@
 ## Current State
 
 - Stage: `2026-07-harness-manifest-itbm-sync-v1`
-- Status: `implementing` (about to run single-owner checkpoint)
+- Status: `review_1` (review-1 REWORK fixed via `fix_start_prompt`; pending
+  Kimi redispatch)
 - Branch: `stage/2026-07-harness-manifest-itbm-sync-v1`
-- HEAD: `fb41d27` (H_intake setup commit by Codex bookkeeper)
-- Git status: delivery + evidence changes uncommitted, pending single-owner
-  checkpoint commit
+- HEAD: `d6e4146` (status-only anchor to evidence head `d613dea`)
+- Reviewed range (`base_sha..head_sha`): `0a2abb8..d613dea`
+- `diff_fingerprint` (status.json authoritative):
+  `d613dea:423b1154fc1615928112cb1d4376b51da68857c049d09ca978b072674bd6e20b`
+- Git status: clean
 - Bookkeeper: Codex/GPT (`gpt-5`), independent from implementer
 - Implementer/recorder: Claude-GLM (`glm-5.2[1m]`, provider identity
   `zhipu_glm`), dual-hat implementer + single-owner recorder
+- Reviewer-1: Kimi (`moonshot_kimi`), `pending_redispatch`
 - Parallel mode: disabled
 - Independent task-branch mode: disabled (but single-owner recorder trial is
   enabled via `single_owner_record_checkpoint_trial`)
@@ -143,11 +147,46 @@ decision of how to proceed is left to the operator.
 
 `rework_count` is 1 of 3.
 
-## Blockers
+## Review-1 REWORK Fix (`fix_start_prompt` executed)
 
-- Review-1 REWORK blocks review-2. No code change is required; the rework is an
-  evidence-range / dispatch-ordering issue.
+Per operator instruction, the `fix_start_prompt` from `30-review-1.md` was
+executed strictly without modifying `harness-manifest.yaml`:
 
-本地北京时间: 2026-07-09 10:18:15 CST
-下一步模型: human
-下一步任务: decide how to resolve the review-1 REWORK (dispatch step-ordering root cause) for 2026-07-harness-manifest-itbm-sync-v1
+- Pre-review validator re-run on a clean committed worktree -> exit 0
+  (output in `61-validate-pre-review.txt`).
+- `60-test-output.txt` validator section and `61-validate-pre-review.txt`
+  aligned to the same recorded run (`d53ec28:e5e487...`, the validator's PASS
+  over the pre-inclusion head `d53ec28`).
+- Validator evidence committed as `d613dea` (Z), so the reviewed range
+  `base..head_sha` now contains the validator evidence.
+- `status.json` re-anchored: `head_sha=d613dea`,
+  `diff_fingerprint=d613dea:423b1154...`, `tasks[0]` synced, `tests.commands`
+  includes the validator command, `changed_files` includes
+  `61-validate-pre-review.txt`, `status` remains `review_1`,
+  `reviewer_1.status=pending_redispatch`.
+- `validate-stage --phase pre-review` re-run on the final committed state
+  (status-only commit `d6e4146`) -> `STAGE VALIDATION PASSED`, exit 0
+  (recomputed `d613dea:423b1154...` == status.json).
+
+Note on the validator log fingerprint (fixed-point property): a committed
+validator log cannot carry the exact fingerprint of the commit that contains
+it, because the log content is itself part of the fingerprinted diff. The log
+therefore records the validator's PASS over the pre-inclusion head
+(`d53ec28:e5e487...`); the authoritative gate fingerprint for the final head
+`d613dea` lives in `status.json`, and the pre-review gate validates by
+recomputing `base..status.head_sha` and asserting equality with the recorded
+value (the log content is not part of that assertion).
+
+## Next Action
+
+Redispatch Kimi review-1 over `0a2abb8..d613dea` using
+`review-1-kimi.prompt.md` (fresh session; output to `30-review-1.md`). On
+`ACCEPT`, advance `status` to `review_2` and stop at the review-2 prepared
+state. Final reviewer selection stays pending until the user returns; Codex
+designed/bookkept this stage, so the plan is to route review-2 to an unrelated
+decision provider such as Claude unless Codex is explicitly chosen with the
+strong-reviewer override.
+
+本地北京时间: 2026-07-09 12:11:07 CST
+下一步模型: claude_glm
+下一步任务: redispatch Kimi review-1 over base..d613dea for 2026-07-harness-manifest-itbm-sync-v1; on ACCEPT stop at review_2 prepared state
