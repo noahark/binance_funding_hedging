@@ -52,6 +52,21 @@
       "Codex/GPT is not eligible for implementation or fix authorship."
     ]
   },
+  "reporting_preferences": {
+    "requested_by_user": true,
+    "primary_language": "zh-CN",
+    "explain_english_terms": true,
+    "preserve_exact_strings": [
+      "commands",
+      "file_paths",
+      "json_keys",
+      "schema_fields",
+      "code_identifiers",
+      "model_names",
+      "provider_identifiers"
+    ],
+    "status": "pending_breakdown"
+  },
   "r10_checklists": {},
   "tasks": [],
   "complexity": {

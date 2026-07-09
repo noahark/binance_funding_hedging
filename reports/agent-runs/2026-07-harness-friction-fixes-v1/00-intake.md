@@ -11,6 +11,11 @@ This stage is Harness-only. It should fix the recurring workflow/tooling
 problems that caused review-1 REWORK, pre-review validator friction, repeated
 reviewer P2/P3 findings, and manual status/fingerprint transcription.
 
+The user also requested a durable Harness/agent reporting preference: reports
+and significant bookkeeper responses should be primarily in Chinese. Necessary
+English technical terms should keep their exact spelling and include a short
+Chinese explanation or translation on first use.
+
 ## Classification
 
 - Complexity: `MEDIUM`
@@ -66,6 +71,12 @@ reviewer P2/P3 findings, and manual status/fingerprint transcription.
   7. Kimi review output includes noisy raw adapter output.
   8. Claude Fable5/Opus fallback model mismatch needed manual explanation.
   9. `fix_start_prompt.next_action` jumped ahead of the actual redispatch step.
+- User reporting preference request:
+  - primary language: Chinese (`zh-CN`)
+  - explain necessary English workflow/technical terms on first use, for
+    example `fingerprint（指纹，用于绑定被审 diff 的哈希）`
+  - preserve exact English for commands, file paths, JSON keys, schema fields,
+    code identifiers, model names, and provider identifiers.
 
 ## Evaluator
 

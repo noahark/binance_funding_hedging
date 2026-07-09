@@ -45,6 +45,13 @@ Implement targeted Harness fixes rather than broad process churn:
    state and record actual fallback model execution without compromising
    provider isolation.
 
+6. **Add user-facing report language preferences.**
+   The Harness should provide a clear option for primarily Chinese reports
+   while preserving exact English strings where required for commands, paths,
+   JSON/schema keys, model names, provider identifiers, and code. Necessary
+   English workflow terms should be explained on first use, not translated in a
+   way that makes artifacts ambiguous.
+
 ## Expected Implementation Shape
 
 The detailed breakdown should decide whether this is one GLM-owned task or
@@ -58,6 +65,8 @@ GLM implementation.
 - Dry-run fixture updates for single-owner checkpoint behavior.
 - Regression tests for `itbm_dry_run.py`.
 - Manual validator runs against this stage before review.
+- Documentation or prompt review for the report-language preference, including
+  examples that preserve exact terms while adding Chinese explanations.
 
 ## Risks
 
@@ -66,6 +75,8 @@ GLM implementation.
   self-referential fingerprints and must preserve the single canonical
   fingerprint protocol.
 - `--evidence-out` must not mask real dirty-worktree failures.
+- A language preference must not alter strict JSON verdicts, schema fields,
+  command strings, file paths, model names, provider identifiers, or code.
 
 本地北京时间: 2026-07-09 13:42:58 CST
 下一步模型: claude

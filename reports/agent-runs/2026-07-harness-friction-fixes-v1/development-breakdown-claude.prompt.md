@@ -52,6 +52,11 @@ Required contents:
      documented;
   6. actual Claude fallback model must be recorded cleanly;
   7. `fix_start_prompt.next_action` must point to the true next step.
+  8. a durable reporting-language preference must be added: Chinese-first
+     user-facing reports and significant bookkeeper responses, with necessary
+     English technical terms explained in Chinese on first use while preserving
+     exact commands, paths, JSON/schema keys, model names, provider identities,
+     and code identifiers.
 - Test plan with exact commands and fixture expectations.
 - Review focus for Kimi review-1 and final review-2.
 - Explicit non-goals and rollback/REWORK triggers.

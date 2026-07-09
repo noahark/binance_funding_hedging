@@ -29,6 +29,11 @@ Prioritize fixes that materially reduce stage execution friction:
    infrastructure.
 8. Ensure generated `fix_start_prompt.next_action` reflects the true next step
    after a REWORK, especially review-1 redispatch before review-2.
+9. Add a configurable reporting-language preference for agents/Harness reports:
+   default to Chinese prose for user-facing reports and significant bookkeeper
+   responses; preserve exact English for commands, paths, JSON/schema keys,
+   model names, provider identifiers, and code; explain necessary English
+   technical terms with a short Chinese translation or meaning on first use.
 
 ## Allowed Files
 
@@ -69,6 +74,10 @@ The development breakdown must narrow this list, but likely allowed paths are:
   dirty the worktree before the clean-worktree check.
 - Delivery-anchored `head_sha` and validator fixed-point semantics are
   explicitly documented for reviewers and stage operators.
+- A reporting-language option is documented and wired into the appropriate
+  Harness/agent prompt source so future reports can default to Chinese and
+  explain necessary English terms without corrupting exact commands or schema
+  names.
 - Tests cover the fixed failure modes, including at least:
   - unselected `review_2.primary_provider` / preferred provider does not trip
     designer-overlap checks before review-2 selection;
@@ -87,6 +96,8 @@ The development breakdown must narrow this list, but likely allowed paths are:
 - Do not add a second fingerprint protocol.
 - Do not change provider identity rules: `claude_glm` remains `zhipu_glm`,
   not Anthropic.
+- Do not translate machine-readable JSON keys, commands, code identifiers, file
+  paths, model names, or provider identifiers.
 
 本地北京时间: 2026-07-09 13:42:58 CST
 下一步模型: claude

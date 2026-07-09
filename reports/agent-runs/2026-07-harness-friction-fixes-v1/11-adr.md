@@ -19,7 +19,9 @@ Open a MEDIUM Harness-only stage to fix the highest-value friction points:
 - clean-worktree-safe validator evidence capture;
 - dispatch ordering for validator evidence before fingerprint anchoring;
 - documentation for delivery-anchored `head_sha` and validator fixed-point
-  evidence semantics.
+  evidence semantics;
+- a configurable reporting-language preference for Chinese-first user-facing
+  reports with necessary English technical terms explained in Chinese.
 
 ## Consequences
 
@@ -28,6 +30,8 @@ Open a MEDIUM Harness-only stage to fix the highest-value friction points:
 - Product code remains out of scope.
 - Reviewers should focus on whether the changes preserve hard gates while
   reducing manual compensation.
+- Prompt/report language changes must not affect strict JSON contracts,
+  commands, paths, code identifiers, model names, or provider identities.
 
 ## Alternatives Considered
 
@@ -35,6 +39,8 @@ Open a MEDIUM Harness-only stage to fix the highest-value friction points:
   failures or manual transcription risk.
 - Patch only the template default: rejected as insufficient; it would not
   address single-owner status writes or validator evidence capture.
+- Handle report language by chat habit only: rejected because the user
+  requested a durable Harness/agent option.
 - Rewrite the Harness runner: rejected as too broad for the current stage.
 
 本地北京时间: 2026-07-09 13:42:58 CST

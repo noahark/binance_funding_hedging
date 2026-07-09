@@ -29,6 +29,11 @@
 
 - The previous stage exposed Harness friction points that this stage should fix
   or explicitly defer with rationale.
+- User added a reporting preference requirement: future reports and significant
+  bookkeeper responses should default to Chinese prose, while preserving exact
+  English strings for commands, paths, JSON/schema names, model/provider names,
+  and code; necessary English terms should include a short Chinese explanation
+  on first use.
 
 ## Blockers
 
@@ -42,7 +47,8 @@
 Dispatch `development-breakdown-claude.prompt.md` to Claude/Fable5 or the
 configured Anthropic fallback. The breakdown must narrow owner split, allowed
 files, forbidden files, API/data contracts, test evidence, risk points, and
-review focus.
+review focus, including how to implement or document the Chinese-first
+reporting preference.
 
 本地北京时间: 2026-07-09 13:42:58 CST
 下一步模型: claude
