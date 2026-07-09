@@ -3,7 +3,7 @@
 ## Current State
 
 - Stage: `2026-07-harness-friction-fixes-v1`
-- Status: `review_2`
+- Status: `stage_accepted_waiting_user`
 - Branch: `stage/2026-07-harness-friction-fixes-v1`
 - Delivery head: `b051e7c7c93b28ff40b3d94e46413ea9742834a7`
 - Reviewed range: `4b98bf3d09f3aacee7e6ffdb9a2353e246af7e41..b051e7c7c93b28ff40b3d94e46413ea9742834a7`
@@ -36,6 +36,7 @@
 - Review-2 strong-reviewer override evidence:
   `review-2-strong-reviewer-override-evidence.md`
 - Review-2 dispatch: `review-2-claude.prompt.md`
+- Review 2: `50-review-2.md`
 - Superseded review-2 dispatch draft: `review-2-codex.prompt.md`
 
 ## Open Findings
@@ -78,6 +79,11 @@ neither decision-model provider is unrelated to the stage design set. Claude
 has no implementation/fix authorship and is routed with
 `reviewer_prior_involvement=breakdown`.
 
-本地北京时间: 2026-07-09 20:39:01 CST
-下一步模型: claude
-下一步任务: execute `reports/agent-runs/2026-07-harness-friction-fixes-v1/review-2-claude.prompt.md`
+Review-2 completed with schema-valid `ACCEPT` from actual model
+`claude-opus-4-6`. The verdict includes 5 P2 hardening findings and no
+`required_fixes`. The stage is now `stage_accepted_waiting_user`; merge to
+`main` requires explicit user approval.
+
+本地北京时间: 2026-07-09 20:57:03 CST
+下一步模型: human
+下一步任务: decide whether to merge `stage/2026-07-harness-friction-fixes-v1` to `main`

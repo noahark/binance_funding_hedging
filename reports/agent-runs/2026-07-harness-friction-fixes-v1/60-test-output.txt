@@ -130,3 +130,19 @@ adapter stdout noise at the beginning and keeps review narrative, findings, and
 the final JSON verdict intact.
 
 本地北京时间: 2026-07-09 20:29:18 CST
+
+########## REVIEW-2 VERDICT VALIDATION ##########
+$ python3 - <<'PY'
+# Extract final JSON from 50-review-2.md and validate against schemas/review-verdict.schema.json.
+PY
+-------------------------------
+schema_valid=true
+verdict=ACCEPT
+model=claude-opus-4-6
+diff_fingerprint=b051e7c7c93b28ff40b3d94e46413ea9742834a7:b1c997df18aecab355525ed9f891477810a04bf2aad46138e868a6a4376a057e
+findings=5
+required_fixes=0
+next_action=stage_accepted_waiting_user
+rc=0
+
+本地北京时间: 2026-07-09 20:57:03 CST

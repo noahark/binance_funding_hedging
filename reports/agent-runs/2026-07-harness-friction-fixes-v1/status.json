@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-friction-fixes-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-harness-friction-fixes-v1",
@@ -69,8 +69,9 @@
     "id": "claude",
     "provider": "claude",
     "model": "claude-fable-5",
+    "actual_model": "claude-opus-4-6",
     "provider_identity": "anthropic",
-    "status": "pending_dispatch"
+    "status": "completed"
   },
   "model_routing": {
     "expected_implementation_owner": "claude_glm",
@@ -204,7 +205,7 @@
     "reviewer": "claude",
     "provider": "claude",
     "model": "claude-fable-5",
-    "actual_model": null,
+    "actual_model": "claude-opus-4-6",
     "primary_provider": "claude",
     "fallback_provider": "codex",
     "fallback_reason": "user-selected Claude final reviewer under strong-reviewer disclosure override: no decision-model provider is unrelated to this stage's design set. OpenAI/Codex designed and bookkept the stage; Anthropic authored the development breakdown. Claude has no implementation or fix authorship and is selected for final review with breakdown involvement disclosed.",
@@ -216,11 +217,11 @@
       "reason": "No unrelated decision-model provider is available: OpenAI has design/bookkeeper involvement and Anthropic has breakdown involvement. Claude remains eligible because it has no implementation/fix authorship and uses the documented strong-reviewer disclosure override with reviewer_prior_involvement=breakdown.",
       "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-harness-friction-fixes-v1/review-2-strong-reviewer-override-evidence.md"
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "fix_start_prompt_present": null,
+    "open_p0_p1": false,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "b051e7c7c93b28ff40b3d94e46413ea9742834a7:b1c997df18aecab355525ed9f891477810a04bf2aad46138e868a6a4376a057e",
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
@@ -232,6 +233,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human dispatch review-2-claude.prompt.md to Claude",
-  "updated_at": "2026-07-09T20:39:01+08:00"
+  "next_action": "stage_accepted_waiting_user; await explicit user approval before merge to main",
+  "updated_at": "2026-07-09T20:57:03+08:00"
 }
