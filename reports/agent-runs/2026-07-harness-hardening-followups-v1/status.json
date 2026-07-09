@@ -1,0 +1,200 @@
+{
+  "stage_id": "2026-07-harness-hardening-followups-v1",
+  "status": "implementing",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-harness-hardening-followups-v1",
+    "created_from_main_sha": "ddcf0e11a2ece33bdb9863512504fcc404867e4f",
+    "created_at": "2026-07-09T21:10:45+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "codex_gpt5",
+    "provider": "codex",
+    "model": "gpt-5",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "embedded_reviews": {},
+  "designer": {
+    "provider": "codex",
+    "model": "gpt-5",
+    "provider_identity": "openai"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": null,
+  "implementer": {
+    "id": "claude_glm",
+    "provider": "claude_glm",
+    "model": "glm-5.2",
+    "provider_identity": "zhipu_glm",
+    "status": "pending"
+  },
+  "implementers": [
+    {
+      "id": "claude_glm",
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "status": "pending"
+    }
+  ],
+  "fix_authors": [],
+  "reviewer_1": {
+    "id": "kimi",
+    "provider": "kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "actual_model": null,
+    "provider_identity": "moonshot_kimi",
+    "status": "planned"
+  },
+  "reviewer_2": {
+    "id": null,
+    "provider": null,
+    "model": null,
+    "actual_model": null,
+    "provider_identity": null,
+    "status": "pending_final_selection"
+  },
+  "model_routing": {
+    "expected_implementation_owner": "claude_glm",
+    "expected_review_1": "kimi",
+    "notes": [
+      "Harness-only Python/template follow-up from review-2 P2 findings.",
+      "Codex/GPT is not eligible for implementation or fix authorship."
+    ]
+  },
+  "reporting_preferences": {
+    "requested_by_user": true,
+    "primary_language": "zh-CN",
+    "explain_english_terms": true,
+    "preserve_exact_strings": [
+      "commands",
+      "file_paths",
+      "json_keys",
+      "schema_fields",
+      "code_identifiers",
+      "model_names",
+      "provider_identifiers"
+    ],
+    "status": "active"
+  },
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "H",
+      "title": "Harness hardening follow-ups",
+      "owner": {
+        "id": "claude_glm",
+        "provider": "claude_glm",
+        "model": "glm-5.2",
+        "provider_identity": "zhipu_glm"
+      },
+      "reviewer": "kimi",
+      "scope": "Fix the 5 P2 Harness hardening findings from 2026-07-harness-friction-fixes-v1 review-2",
+      "prompt_path": "reports/agent-runs/2026-07-harness-hardening-followups-v1/implementation-claude-glm.prompt.md",
+      "fix_prompt_path": null,
+      "r10_checklist": null,
+      "base_sha": "ddcf0e11a2ece33bdb9863512504fcc404867e4f",
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": "reports/agent-runs/2026-07-harness-hardening-followups-v1/60-test-output.txt",
+      "review_1": {
+        "reviewer": "kimi",
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "actual_model": null,
+        "verdict": null,
+        "json_schema_valid": false,
+        "diff_fingerprint": null
+      }
+    }
+  ],
+  "complexity": {
+    "classification": "LOW",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "Bounded follow-up from accepted review-2 P2 hardening findings.",
+      "No product semantics or architecture direction changes.",
+      "User explicitly requested a narrow Harness-only follow-up stage."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "skipped",
+    "user_approved": true
+  },
+  "base_sha": "ddcf0e11a2ece33bdb9863512504fcc404867e4f",
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "changed_files": [],
+  "tests": {
+    "status": "not_run",
+    "commands": []
+  },
+  "review_1": {
+    "reviewer": "kimi",
+    "provider": "kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "actual_model": null,
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": false,
+    "diff_fingerprint": null,
+    "reviewer_prior_involvement": "none",
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "actual_model": null,
+    "primary_provider": null,
+    "fallback_provider": null,
+    "fallback_reason": null,
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": null,
+    "unrelated_reviewer_unavailable_evidence": null,
+    "design_conflict_override": {
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
+    },
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": false,
+    "diff_fingerprint": null,
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "next_action": "dispatch implementation prompt to claude_glm",
+  "updated_at": "2026-07-09T21:13:20+08:00"
+}
