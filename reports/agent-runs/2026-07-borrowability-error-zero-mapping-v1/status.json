@@ -218,6 +218,6 @@
     "evidence": "reports/agent-runs/2026-07-borrowability-error-zero-mapping-v1/60-test-output.txt",
     "detail": "bookkeeper independent rerun on HEAD ea631bf: python3 -m pytest backend/tests -q => 190 passed; node frontend/self-check.js => 全部自检通过 (incl. 借币三态); git diff --check => clean."
   },
-  "next_step": "已 --no-ff 合并 main（merge commit c880a55）。stage 完成。可选：推送 origin/main（待用户确认）。follow-ups(51061 + residual R1) 已收口；residual R2(METAL live sample) 仍挂等公开金属现货腿。",
-  "updated_at": "2026-07-09 07:30:00 CST"
+  "next_step": "STAGE 完成并收口：--no-ff 合并 main（merge c880a55）+ 已推送 origin/main（push 41c6ba5..0239bd7，本地与远端同步）。follow-ups(51061 主线 + residual R1) 已收口；residual R2(METAL live sample) 仍挂等公开金属现货腿。无后续动作。",
+  "updated_at": "2026-07-09 07:50:00 CST"
 }
