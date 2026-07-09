@@ -99,8 +99,8 @@
         "allow_harness_change": true
       },
       "base_sha": "0a2abb8e5e68973325a6a6cacca5c66a7e896b98",
-      "head_sha": "d53ec28ead5bb5899dc1534a3fbc50f5f49e4afa",
-      "diff_fingerprint": "d53ec28ead5bb5899dc1534a3fbc50f5f49e4afa:e5e487f967391ecd120a89e9176b156e882e9d89e8b51bb9f20cdde174ae0c8e",
+      "head_sha": "d613dea403dcb82d2006484ced237ac4da528d31",
+      "diff_fingerprint": "d613dea403dcb82d2006484ced237ac4da528d31:423b1154fc1615928112cb1d4376b51da68857c049d09ca978b072674bd6e20b",
       "test_evidence": "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "kimi",
@@ -133,8 +133,8 @@
     "user_approved": true
   },
   "base_sha": "0a2abb8e5e68973325a6a6cacca5c66a7e896b98",
-  "head_sha": "d53ec28ead5bb5899dc1534a3fbc50f5f49e4afa",
-  "diff_fingerprint": "d53ec28ead5bb5899dc1534a3fbc50f5f49e4afa:e5e487f967391ecd120a89e9176b156e882e9d89e8b51bb9f20cdde174ae0c8e",
+  "head_sha": "d613dea403dcb82d2006484ced237ac4da528d31",
+  "diff_fingerprint": "d613dea403dcb82d2006484ced237ac4da528d31:423b1154fc1615928112cb1d4376b51da68857c049d09ca978b072674bd6e20b",
   "changed_files": [
     "harness-manifest.yaml",
     "reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/00-intake.md",
@@ -201,6 +201,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "redispatch Kimi review-1 (validator evidence now in reviewed range); on ACCEPT go to review_2",
-  "updated_at": "2026-07-09T10:34:33.190216+08:00"
+  "next_action": "redispatch Kimi review-1 over base..d613dea (validator evidence now in reviewed range); on ACCEPT go to review_2",
+  "updated_at": "2026-07-09T12:09:19.467519+08:00"
 }
