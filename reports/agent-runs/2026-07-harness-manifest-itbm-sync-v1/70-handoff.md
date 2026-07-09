@@ -3,10 +3,11 @@
 ## Current State
 
 - Stage: `2026-07-harness-manifest-itbm-sync-v1`
-- Status: `review_2` (review-1 ACCEPT recorded; awaiting final reviewer
-  selection)
+- Status: `review_2` (review-1 ACCEPT recorded; Claude review-2 selected,
+  pending human-executed dispatch)
 - Branch: `stage/2026-07-harness-manifest-itbm-sync-v1`
-- HEAD: `aec14af` (review-1 ACCEPT record); `head_sha` stays `d613dea`
+- HEAD: `a9463e9` (auxiliary handoff evidence after review-1 ACCEPT);
+  `head_sha` stays `d613dea`
   (review-1 reviewed range, per harness convention — delivery-anchored head)
 - Reviewed range (`base_sha..head_sha`): `0a2abb8..d613dea`
 - `diff_fingerprint` (status.json authoritative):
@@ -16,6 +17,9 @@
 - Implementer/recorder: Claude-GLM (`glm-5.2[1m]`, provider identity
   `zhipu_glm`), dual-hat implementer + single-owner recorder
 - Reviewer-1: Kimi (`moonshot_kimi`), `completed` (verdict `ACCEPT`)
+- Reviewer-2: Claude/Fable5 (`anthropic`), selected because Codex/OpenAI
+  designed/bookkept this stage and should not perform final review unless a
+  strong-reviewer override is required.
 - Parallel mode: disabled
 - Independent task-branch mode: disabled (but single-owner recorder trial is
   enabled via `single_owner_record_checkpoint_trial`)
@@ -39,7 +43,7 @@ independent task-branch mode assets (`docs/independent-task-branch-mode.md`,
 - Embedded review checkpoints: n/a
 - Review 1: `30-review-1.md` pending
 - Fix report: n/a
-- Review 2: pending
+- Review 2: pending (`review-2-claude.prompt.md`)
 - Test output: `60-test-output.txt`
 - Single-owner recorder raw output:
   `record-checkpoint-single-owner.raw-output.txt` (written by step 3)
@@ -66,11 +70,11 @@ independent task-branch mode assets (`docs/independent-task-branch-mode.md`,
 
 ## Next Action
 
-Run `scripts/record-checkpoint --single-owner` to create the committed C_e and
-canonical fingerprint, then record the checkpoint result back here and in
-`status.json`, run the pre-review validator, and self-dispatch Kimi review-1.
-Final review-2 reviewer selection stays pending (Codex designed this stage;
-prefer Claude as the unrelated final reviewer unless unavailable).
+Dispatch `review-2-claude.prompt.md` to Claude/Fable5 in a fresh read-only/plan
+session. Review-2 must use the status-recorded range `0a2abb8..d613dea`, not
+moving `HEAD`, and must inspect auxiliary post-range evidence commits
+(`aec14af`, `a9463e9`, and the review-2 dispatch/preflight commits) as raw
+stage evidence.
 
 ## Single-Owner Checkpoint Result
 
@@ -193,15 +197,25 @@ range Kimi actually reviewed) + 1×P3 (validator log records the pre-inclusion
 fingerprint by the fixed-point property — no change required). See
 `30-review-1.md`.
 
-## Next Action
+## Review-2 Selection
 
-Stage is at the review-2 prepared state: `status=review_2`,
-`reviewer_1.status=completed`. Final reviewer selection stays pending until the
-user returns. Codex designed/bookkept this stage (provider identity `openai`),
-so the plan is to route review-2 to an unrelated decision provider such as
-Claude unless Codex is explicitly chosen with the strong-reviewer override
-(`review_2.primary_provider` is left `null` until then).
+Claude/Fable5 (`anthropic`) is selected as review-2 final reviewer. Codex/OpenAI
+designed and bookkept this stage, so Codex is intentionally not selected for
+final review unless a later strong-reviewer override is required. `review_2`
+fields in `status.json` now record Claude as selected reviewer and leave
+`primary_provider=null` to avoid treating an unselected Codex preference as an
+actual reviewer identity.
 
-本地北京时间: 2026-07-09 12:21:23 CST
-下一步模型: human
-下一步任务: select review-2 final reviewer for 2026-07-harness-manifest-itbm-sync-v1 per AGENTS.md
+## Current Next Action
+
+Run the prepared Claude review-2 dispatch. The dispatch prompt requires Claude
+to assess Kimi's P2/P3 residuals explicitly:
+
+- whether `head_sha=d613dea` may stay delivery-anchored while auxiliary review
+  evidence lives in later commits; and
+- whether the validator log's pre-inclusion fingerprint is acceptable given the
+  fixed-point property and authoritative `status.json` fingerprint.
+
+本地北京时间: 2026-07-09 12:47:03 CST
+下一步模型: claude
+下一步任务: execute `reports/agent-runs/2026-07-harness-manifest-itbm-sync-v1/review-2-claude.prompt.md`

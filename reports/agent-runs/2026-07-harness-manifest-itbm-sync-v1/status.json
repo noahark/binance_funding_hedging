@@ -70,10 +70,10 @@
     "status": "completed"
   },
   "reviewer_2": {
-    "provider": null,
-    "model": null,
-    "provider_identity": null,
-    "status": "pending_final_selection"
+    "provider": "claude",
+    "model": "claude-fable-5",
+    "provider_identity": "anthropic",
+    "status": "selected_pending_dispatch"
   },
   "r10_checklists": {},
   "tasks": [
@@ -171,14 +171,14 @@
     "invalid_json_attempts": 0
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
+    "reviewer": "claude",
+    "provider": "claude",
+    "model": "claude-fable-5",
     "primary_provider": null,
     "fallback_provider": "claude",
-    "fallback_reason": null,
+    "fallback_reason": "anti_self_review_ineligible: Codex/OpenAI designed and bookkept this stage, so final review is routed to unrelated Claude/Anthropic instead of using Codex as primary reviewer.",
     "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": "Final reviewer selection pending. Codex designed/bookkept this stage (openai), so primary_provider is left null at review_1: selecting codex would require the strong-reviewer disclosure override, and the plan is to route review-2 to an unrelated decision provider (Claude) unless codex is explicitly chosen with override evidence after the user returns.",
+    "reviewer_prior_involvement_notes": "Claude/Anthropic has no recorded prior direction synthesis, design, breakdown, implementation, or fix authorship in this stage. Codex/OpenAI designed/bookkept this stage, so final review is routed to unrelated Claude/Anthropic.",
     "unrelated_reviewer_unavailable_evidence": null,
     "design_conflict_override": {
       "used": false,
@@ -201,6 +201,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "review-2 final reviewer selection after user returns",
-  "updated_at": "2026-07-09T12:20:54.078366+08:00"
+  "next_action": "dispatch review-2 to Claude using review-2-claude.prompt.md",
+  "updated_at": "2026-07-09T12:47:03+08:00"
 }
