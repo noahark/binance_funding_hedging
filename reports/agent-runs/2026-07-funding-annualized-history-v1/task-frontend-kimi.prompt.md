@@ -12,10 +12,13 @@ Before editing, read `AGENTS.md` and these artifacts:
 - `reports/agent-runs/2026-07-funding-annualized-history-v1/11-adr.md`
 - `reports/agent-runs/2026-07-funding-annualized-history-v1/12-development-breakdown.md`
 
-This task starts only after the bookkeeper confirms Task A is committed on the
-stage branch and the following wire contract is present: decimal-string-or-null
+Task A is committed as `2e27efcbed960206b43c25054bf6105224942439` on this
+stage branch. Its fixed wire contract is: decimal-string-or-null
 `annualized_funding_24h`, `annualized_funding_7d`, and
 `annualized_funding_30d`; `funding_history` is settled-only and newest first.
+The schema keeps these fields optional for frozen-v0.1 compatibility, but every
+current backend snapshot row emits all three fields. Treat them as present in
+the frontend's current-service validation and fixture.
 
 Implement Task B only:
 

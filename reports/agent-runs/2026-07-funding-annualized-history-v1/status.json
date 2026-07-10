@@ -205,7 +205,9 @@
   "human_approval": {
     "stage_package_approved": true,
     "approved_at": "2026-07-10T05:45:20Z",
-    "scope": "User requested Task A code-execution body. Authorization is limited to human dispatch of the prepared Claude-GLM Task A prompt."
+    "scope": "User requested Task A code-execution body and subsequently authorized Task B frontend execution.",
+    "task_a_dispatch_authorized_at": "2026-07-10T05:45:20Z",
+    "task_b_dispatch_authorized_at": "2026-07-10T10:31:09Z"
   },
   "contract_decision": {
     "recorded_at": "2026-07-10T07:24:47Z",
@@ -283,6 +285,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_choose_follow_up_requirements_commit_or_stash_then_authorize_task_b",
-  "updated_at": "2026-07-10T10:26:28Z"
+  "next_action": "human_paste_task_b_into_kimi_interactive_executor",
+  "updated_at": "2026-07-10T10:31:09Z"
 }

@@ -43,8 +43,9 @@
 2. Task A test evidence: `226 passed`; schema JSON and `git diff --check` pass.
    Option 3 is frozen: schema properties remain optional for v0.1 replay, while
    current service output always carries all three fields.
-3. The user has not yet authorized Task B. Its Kimi PASTE BODY must not be
-   dispatched until explicit approval.
+3. User authorized Task B on 2026-07-10 18:31:09 CST. The human operator may
+   paste `task-frontend-kimi.prompt.md` into the existing interactive Kimi
+   executor session; the bookkeeper does not run a model-dispatch command.
 4. The current worktree contains user-owned changes in `reports/follow-ups/`.
    They are not part of Task A, but they prevent a formal `pre-review`
    clean-worktree validation until the user resolves them. No review verdict is
@@ -76,7 +77,7 @@ review-1 verdict because the packet's preflight had not passed.
   hardening candidate and has not been accepted as a Task A rework.
 
 ```text
-本地北京时间: 2026-07-10 18:26:28 CST
-下一步模型: human
-下一步任务: 决定将 follow-up requirements 文件作为独立文档提交还是保留为本地改动；随后明确是否授权 Task B 给 Kimi。
+本地北京时间: 2026-07-10 18:31:09 CST
+下一步模型: Kimi
+下一步任务: 在现有交互执行会话粘贴 Task B PASTE BODY，完成表格年化列、右侧历史抽屉与前端自检。
 ```
