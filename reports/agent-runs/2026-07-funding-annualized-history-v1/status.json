@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-funding-annualized-history-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-funding-annualized-history-v1",
@@ -532,27 +532,27 @@
       "reason": null,
       "unrelated_reviewer_unavailable_evidence": null
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "open_p0_p1": false,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "4128905f652171d07ca3e757af858d5d9d87fc73:bacef8f9ef7dcbf773398b177262e15f9335b577493a9f3ab1e7130b5828b180",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0,
-    "provider_identity": "anthropic"
+    "provider_identity": "anthropic",
+    "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-2-final-claude-opus.accept.raw-output.md",
+    "synthesis": "reports/agent-runs/2026-07-funding-annualized-history-v1/50-review-2.md"
   },
   "rework_count": 1,
   "max_rework": 3,
-  "blockers": [
-    "Final review-2 gate not yet returned. Combined range bound to 4128905 (base=main); review-2 reviewer is this unrelated anthropic/claude-opus session. On ACCEPT, prepare 30-review-1.md + 50-review-2.md and run pre-accept; final acceptance is the user's action."
-  ],
+  "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "run_review_2_final_gate",
-  "updated_at": "2026-07-10T16:39:25Z",
+  "next_action": "stage_accepted_waiting_user",
+  "updated_at": "2026-07-10T16:45:58Z",
   "independent_review_2_audit": {
     "role": "final_reviewer",
     "provider": "anthropic",
