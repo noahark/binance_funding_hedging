@@ -45,9 +45,10 @@
    current service output always carries all three fields.
 3. Task B is committed as `f9f86bb` and the Drawer DOM-order P0 is resolved;
    the detailed checkpoint is below.
-4. The current worktree contains user-owned changes outside this stage. They
-   prevent a formal `pre-review` clean-worktree validation until the user
-   resolves them. No formal review verdict is claimed or prepared as passing.
+4. The operator's session artifacts were preserved separately in
+   `docs/2026-07-10-session-artifacts` commit `1ec2047`; this product stage
+   worktree is now clean. No formal review verdict is claimed or prepared as
+   passing.
 5. No merge, canonical-doc promotion, or push is authorized.
 
 ## Kimi Preflight Output
@@ -94,15 +95,11 @@ before the application script and adding a static DOM-order assertion.
 - An offline server at port 8788 served the current annualized fields; the
   homepage contained the annualized columns and drawer markup before the
   application script. The server was stopped after verification.
-- Formal pre-review remains blocked by user-owned worktree changes:
-  `reports/follow-ups/README.md`,
-  `reports/follow-ups/2026-07-auto-review-pipeline-design-note.md`,
-  `reports/follow-ups/2026-07-auto-review-pipeline-review-fable5.md`,
-  `reports/follow-ups/2026-07-funding-annualized-history-drawer.md`, and
-  `reports/agent-runs/2026-07-auto-review-pipeline-design-review/`.
+- The stage worktree is clean. The next Harness step is to prepare the formal
+  cross-review scope, set the appropriate review state, and run `pre-review`.
 
 ```text
-本地北京时间: 2026-07-10 19:41:35 CST
-下一步模型: human / bookkeeper
-下一步任务: 先解决用户自有工作区改动；随后由 bookkeeper 运行 pre-review 验证并准备正式交叉评审。
+本地北京时间: 2026-07-10 19:49:18 CST
+下一步模型: bookkeeper
+下一步任务: 准备正式交叉评审范围，设置评审状态后运行 pre-review 验证。
 ```

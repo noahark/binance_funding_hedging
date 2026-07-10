@@ -217,6 +217,13 @@
     "working_tree": "User-owned follow-up README modification and untracked funding-history requirements file remain unstaged and uncommitted.",
     "command_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt"
   },
+  "workspace_checkpoint": {
+    "recorded_at": "2026-07-10T11:49:18Z",
+    "stage_worktree_clean": true,
+    "isolated_document_commit": "1ec2047",
+    "isolated_document_branch": "docs/2026-07-10-session-artifacts",
+    "note": "The operator's follow-up and auto-review artifacts were preserved in a separate documentation commit. They are intentionally not part of this product stage branch."
+  },
   "human_approval": {
     "stage_package_approved": true,
     "approved_at": "2026-07-10T05:45:20Z",
@@ -302,14 +309,12 @@
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [
-    "Formal pre-review is blocked until user-owned worktree changes are resolved: reports/follow-ups/README.md; reports/follow-ups/2026-07-auto-review-pipeline-design-note.md; reports/follow-ups/2026-07-auto-review-pipeline-review-fable5.md; reports/follow-ups/2026-07-funding-annualized-history-drawer.md; reports/agent-runs/2026-07-auto-review-pipeline-design-review/."
-  ],
+  "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_resolve_user_worktree_then_bookkeeper_run_pre_review",
-  "updated_at": "2026-07-10T11:41:35Z"
+  "next_action": "bookkeeper_prepare_formal_cross_reviews_then_run_pre_review",
+  "updated_at": "2026-07-10T11:49:18Z"
 }

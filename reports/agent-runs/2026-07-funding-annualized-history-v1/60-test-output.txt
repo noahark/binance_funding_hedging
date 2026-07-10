@@ -84,3 +84,15 @@ Combined stage range:
 `7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1..f9f86bb6bcc2040844ad55f4f85937e85d393e5d`
 Combined stage diff fingerprint:
 `f9f86bb6bcc2040844ad55f4f85937e85d393e5d:379bbdac9bf58a9097a90051d4c9798ad24d9e9182466b07b7eaa9711e8c57d8`
+
+2026-07-10 19:49:18 CST
+$ python3 -m pytest backend/tests -q
+226 passed in 5.49s
+$ node frontend/self-check.js
+PASS: all checks, including annualized columns and Drawer open/close/refresh
+interaction coverage.
+$ ENV_FILE=/dev/null APP_OFFLINE=true APP_BIND_PORT=8788 scripts/run-server.sh
+PASS: offline acceptance server is running at http://127.0.0.1:8788.
+The operator's session artifacts are preserved separately in
+`docs/2026-07-10-session-artifacts` commit `1ec2047`; the stage worktree is
+clean.
