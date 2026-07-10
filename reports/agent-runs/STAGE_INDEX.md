@@ -26,6 +26,16 @@ abandoned, or is found to be legacy/unindexed.
 | `2026-07-harness-manifest-itbm-sync-v1` | `accepted` | `stage/2026-07-harness-manifest-itbm-sync-v1` | true | Harness manifest / ITBM sync accepted and merged. |
 | `2026-07-harness-friction-fixes-v1` | `stage_accepted_waiting_user` | `stage/2026-07-harness-friction-fixes-v1` | true | Source status says merged to main while still using the waiting status; leave for a future Harness cleanup. |
 | `2026-07-harness-hardening-followups-v1` | `accepted` | `stage/2026-07-harness-hardening-followups-v1` | true | Harness hardening follow-ups accepted and merged. |
+| `2026-07-harness-promotion-gate-upsync-v1` | `abandoned` | `stage/2026-07-harness-promotion-gate-upsync-v1` | false | Superseded by DEC-2026-07-10-002 before dispatch; evidence lives only on the unmerged stage branch. |
+
+Note: DEC-2026-07-10-002 (main `540513d`, 2026-07-10) rolled the canonical
+Harness files back to the DRAFT-2 decision baseline (`41c6ba5`). The Harness
+stages above remain historically accepted and merged, but the file-level
+effects of `2026-07-harness-flow-optimization-v1` (§14 ITBM enablement),
+`2026-07-harness-friction-fixes-v1`, `2026-07-harness-hardening-followups-v1`,
+and the paste-first dispatch semantics were reverted on top of main. The
+pre-rollback state is preserved at branch
+`archive/harness-pre-rollback-2026-07-10`.
 
 ## Legacy Or Unindexed Directories
 
