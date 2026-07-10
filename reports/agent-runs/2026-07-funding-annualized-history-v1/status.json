@@ -103,6 +103,7 @@
       },
       "prompt_path": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-backend-claude-glm.prompt.md",
       "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend.md",
+      "review_1_dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-a-kimi.prompt.md",
       "r10_checklist": null,
       "base_sha": "0206f8bf7236e807b4cd69d7beed02eb41e8ec60",
       "head_sha": "2e27efcbed960206b43c25054bf6105224942439",
@@ -268,5 +269,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_review_task_a_and_authorize_task_b_dispatch",
-  "updated_at": "2026-07-10T07:27:21Z"
+  "updated_at": "2026-07-10T07:44:08Z"
 }

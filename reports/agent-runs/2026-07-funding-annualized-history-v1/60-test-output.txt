@@ -39,3 +39,8 @@ Task A committed range:
 `0206f8bf7236e807b4cd69d7beed02eb41e8ec60..2e27efcbed960206b43c25054bf6105224942439`
 Task A diff fingerprint:
 `2e27efcbed960206b43c25054bf6105224942439:85c780708fe546a32f6ef2120841c0176aab313adf81f6d82da82e48fdfdddfb`
+
+2026-07-10 15:44:08 CST
+- Prepared `review-1-task-a-kimi.prompt.md` for the fixed Task A range.
+- Formal dispatch remains blocked pending a clean worktree and a passing
+  `scripts/validate-stage.py ... --phase pre-review` result.

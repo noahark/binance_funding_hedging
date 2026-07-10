@@ -49,10 +49,13 @@
    They are not part of Task A, but they prevent a formal `pre-review`
    clean-worktree validation until the user resolves them. No review verdict is
    claimed or prepared as passing.
-5. No merge, canonical-doc promotion, or push is authorized.
+5. `review-1-task-a-kimi.prompt.md` is prepared for a fresh, read-only Kimi
+   session. Do not paste it as a formal review dispatch until the pre-review
+   gate passes.
+6. No merge, canonical-doc promotion, or push is authorized.
 
 ```text
-本地北京时间: 2026-07-10 15:27:21 CST
+本地北京时间: 2026-07-10 15:44:08 CST
 下一步模型: human
-下一步任务: 审阅 Task A 的固定 diff 并决定是否授权 Kimi 执行 Task B；正式 review 前先处理用户自己的 follow-up 工作区改动。
+下一步任务: 先处理用户自己的 follow-up 工作区改动并通过 pre-review，再将 Kimi review-1 PASTE BODY 粘贴到新鲜只读会话。
 ```
