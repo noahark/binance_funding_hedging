@@ -5,11 +5,26 @@ Read it before making changes, then read the active workflow and stage files.
 
 ## Project State
 
-This is a new project. The current priority is to build a lightweight Harness for
-requirements, design, implementation, review, fix, and evidence tracking before
-the target product is implemented.
+Product as built: the repository currently contains a read-only Binance funding
+snapshot workstation. The backend serves a normalized public-market snapshot
+with optional private signed GET enrichment for account balances, positions,
+borrow validation, borrow cost, and sort basis. The frontend consumes that
+backend contract and exposes the opportunity table and private read-only
+account panels.
 
-The first manual stage delivery run is not started yet.
+No order, borrow, repay, transfer, close, or other trading execution surface is
+implemented. Manual execution, accounting, reconciliation, and live order flows
+remain future product stages.
+
+Harness as built: multiple manual delivery stages have run, with evidence under
+`reports/agent-runs/`. The current documentation priority is to keep canonical
+docs aligned with landed read-only behavior and to avoid letting stage evidence
+become the only source of truth.
+
+Known open gaps: API naming still uses the historical
+`/api/public-market/snapshot` route and `public-market-snapshot/v1` wire version,
+borrowability semantics still distinguish borrow evidence outside the generic
+`verified` flag, and manual execution is not yet implemented.
 
 ## Authority Order
 
@@ -435,8 +450,6 @@ The workflow may stop only for these terminal reasons:
 Other failures, including invalid JSON, failed tests, missing artifacts, or a
 single model failure, are routed to retry, fix, fallback, or evidence collection
 inside the active workflow before escalating to one of these terminal reasons.
-
-The first manual stage delivery run is intentionally deferred.
 
 ## Output Footer
 

@@ -1,8 +1,8 @@
 # Binance Funding Hedging PRD
 
-Status: draft v0.1
+Status: as-built read-only snapshot plus future execution requirements, 2026-07-10
 
-Last updated: 2026-07-02
+Last updated: 2026-07-10
 
 ## Product Summary
 
@@ -14,6 +14,13 @@ operator manually trigger smoothed market-order hedge execution.
 The first product version is not an autonomous trading bot. It is an execution,
 monitoring, accounting, and evidence system for manually controlled funding-rate
 hedging.
+
+Current as-built status: the repository has landed a read-only workstation
+slice, not execution. The backend serves public market data plus optional
+private signed GET enrichment for balances, positions, borrow validation,
+borrow-cost references, and sort basis. The frontend displays the opportunity
+table and private read-only account panels. There is no implemented order,
+borrow, repay, transfer, close, or automated execution surface yet.
 
 ## Background
 
@@ -69,9 +76,9 @@ adapters, a web UI, and a safer manual execution workflow.
 - First live validation can use small real capital because Binance sandbox or
   paper behavior may miss account, borrow, and commission edge cases.
 - API keys must not have withdrawal permission.
-- Phase 1 uses public Binance market data only. It must not use API keys,
-  private account endpoints, signed Portfolio Margin endpoints, or private user
-  data streams.
+- Current as-built private access is optional, read-only, and disabled by
+  default. When enabled, it uses signed GET requests through a backend whitelist.
+  Private user data streams and all execution endpoints remain future work.
 
 ## Public Route Classification
 
@@ -294,17 +301,18 @@ accounting.
 Before full adapter encapsulation, the project should run staged
 request/response discovery and save raw JSON samples. Discovery is split into:
 
-1. Public market discovery with no API key.
-2. Later private account discovery with read-only API key access.
-3. Later real execution discovery before any live order path is enabled.
+1. Public market discovery with no API key. Completed for the current snapshot.
+2. Private account discovery with read-only API key access. Completed for the
+   current optional snapshot enrichment.
+3. Real execution discovery before any live order path is enabled. Future.
 
 The local Binance documentation mirror `llms-full.txt` is the first reference
 for this stage. The adapter discovery report must record the exact local file
 timestamp or fallback source used for each endpoint family.
 
-### Phase 1 Public Market Discovery
+### Initial Public Market Discovery
 
-Phase 1 must use public endpoints only:
+The completed initial public discovery stage used public endpoints only:
 
 - `GET /fapi/v1/exchangeInfo`: USDⓈ-M perpetual symbols, status, filters,
   quantity rules, and minimum notional data.
@@ -318,7 +326,7 @@ Phase 1 must use public endpoints only:
 - `GET /fapi/v1/depth` and `GET /api/v3/depth`: optional public depth snapshots
   for top candidates.
 
-Phase 1 must not use:
+That initial public discovery baseline did not use:
 
 - API keys.
 - Signed endpoints.
@@ -333,8 +341,10 @@ evidence from samples or local docs.
 
 ### Binance Interface Baseline
 
-The following endpoint families are for later private discovery and real
-execution stages unless also listed in Phase 1 public market discovery.
+The following endpoint families define the broader interface map. Read-only
+private GET endpoints have landed only where the API contract and backend
+whitelist allow them. Trading, borrowing, repayment, transfer, and websocket
+execution paths remain future stages unless explicitly stated otherwise.
 
 Portfolio Margin REST:
 
@@ -441,7 +451,8 @@ timestamped filenames and redacted credentials.
 
 ## UI Requirements
 
-The first Phase 1 UI should expose public market discovery screens:
+The current read-only UI exposes public market discovery and private account
+review screens:
 
 - Market overview: total USDT perpetual symbols, route-class counts, asset-tag
   counts, positive-funding candidate count, rows requiring later private borrow
@@ -452,11 +463,12 @@ The first Phase 1 UI should expose public market discovery screens:
   depth sample availability.
 - Candidate detail: futures rules, spot rules, route classification reasoning,
   bStock detection reasoning, funding history, and raw sample file references.
-- Manual open preview: simulation only; no API key and no real orders. It shows
+- Manual open preview: simulation only; no real orders. It shows
   total notional, rounds, base-quantity planning, minimum-notional correction,
   future 10-minute timeout fallback rule, and hard slippage limit.
 
-Later private-account and execution UI should expose these operational screens:
+Execution UI remains future work. Later execution stages should expose these
+operational screens:
 
 - Overview holdings: account status, funding summary, current risk flags,
   holdings table, leg reconciliation, and mismatch highlights.
@@ -507,7 +519,7 @@ Rationale:
   status updates.
 - Trading credentials remain in the backend.
 
-## Phase 1 Acceptance Criteria
+## Initial Public Discovery Acceptance Criteria
 
 - Public Binance discovery uses no API key and produces raw JSON samples under
   `reports/api-samples/public-market/<timestamp>/`.
@@ -525,14 +537,20 @@ Rationale:
   sample data and clearly labels manual open as simulation-only.
 - Tests cover classification, trading-rule parsing, funding-field
   normalization, minimum-notional selection, and planning preview.
-- No API credentials are added.
-- No private account endpoints or user data streams are used.
-- No signed endpoint is used.
-- No order, borrow, repay, transfer, or fee-burn endpoint is implemented.
-- No real trading code is introduced.
-- No automatic open or close is introduced.
+- No API credentials were added for that baseline.
+- No private account endpoints or user data streams were used for that
+  baseline.
+- No signed endpoint was used for that baseline.
+- No order, borrow, repay, transfer, or fee-burn endpoint was implemented.
+- No real trading code was introduced.
+- No automatic open or close was introduced.
 
-## Phase 2 Acceptance Criteria
+## Private And Execution Expansion Acceptance Criteria
+
+The current implementation has completed the read-only private snapshot subset:
+account blocks, balances, positions, borrow validation, borrow-cost references,
+and sort basis. The remaining criteria in this section describe future private
+depth, execution, accounting, and reconciliation work.
 
 - Private Binance API discovery commands or scripts collect raw JSON samples
   with explicit user approval and API keys that do not allow withdrawals.

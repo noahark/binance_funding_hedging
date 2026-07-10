@@ -1,6 +1,6 @@
 # Decisions
 
-Status: draft
+Status: approved decision log, 2026-07-10
 
 This file records approved product, business, financial, and technical decisions.
 

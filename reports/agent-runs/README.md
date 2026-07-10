@@ -26,6 +26,11 @@ reports/agent-runs/<stage-id>/
 
 Use `_template/` when creating a new stage.
 
+`STAGE_INDEX.md` is a human-readable summary of stage statuses. It does not
+replace per-stage `status.json`; update it when a stage reaches
+`stage_accepted_waiting_user`, is merged, is abandoned, or is identified as a
+legacy/unindexed evidence directory.
+
 Direction files are required only for milestone or user-requested direction
 freeze rounds. Each registered panel member for the round writes one draft:
 

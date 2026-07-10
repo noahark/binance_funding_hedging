@@ -1,14 +1,21 @@
 # Public Market API Contract
 
-Status: contract v0.3 (Private Account v1 amendment, additive). The wire
-`schema_version` stays `public-market-snapshot/v1`; every addition is backward-
-compatible. v0.2 additions are in "Phase 2 Amendment (v0.2)"; v0.3 additions
-(net yield, cost-leg chain, `private_account`, `sort_basis`) are in
-"Private Account v1 Amendment (v0.3)" at the end of this file. Binance public
-fields verified 2026-07-03 by Claude-GLM against live no-key public calls and
-`llms-full.txt`; private fields verified 2026-07-05 by bookkeeper H_intake live
-capture (`reports/api-samples/2026-07-private-account-v1/20260705T232800Z/`).
-Verified findings are recorded below in "Verified Findings" and in
+Status: contract v0.6 as-built read-only snapshot. The wire `schema_version`
+stays `public-market-snapshot/v1`; every addition remains backward-compatible.
+The `GET /api/public-market/snapshot` route and `public-market-snapshot/v1`
+wire version are historical compatibility names. The payload now represents a
+public market snapshot plus optional private read-only enrichment. A route rename
+or schema-version bump is a future contract stage, not part of this status sync.
+
+v0.2 additions are in "Phase 2 Amendment (v0.2)"; v0.3 additions (net yield,
+cost-leg chain, `private_account`, `sort_basis`) are in "Private Account v1
+Amendment (v0.3)"; v0.4 through v0.6 UI/value-display, metal-tag, and
+borrowability refinements are in later amendments at the end of this file.
+Binance public fields verified
+2026-07-03 by Claude-GLM against live no-key public calls and `llms-full.txt`;
+private fields verified 2026-07-05 by bookkeeper H_intake live capture
+(`reports/api-samples/2026-07-private-account-v1/20260705T232800Z/`). Verified
+findings are recorded below in "Verified Findings" and in
 `reports/agent-runs/2026-07-public-market-contract-v2/api-field-matrix.md`.
 
 Owner: Claude-GLM for field verification and backend implementation. Kimi may
@@ -17,12 +24,16 @@ are frozen for the stage.
 
 ## Purpose
 
-Define the backend-to-frontend contract for Phase 1 public market discovery.
+Define the backend-to-frontend contract for the read-only funding snapshot.
 This contract lets the frontend show Binance USDⓈ-M perpetual funding
-opportunities, spot or margin route candidates, bStock tags, and planning inputs
-without calling Binance or interpreting Binance-specific fields directly.
+opportunities, spot or margin route candidates, bStock and metal tags, optional
+private account/borrow enrichment, and planning inputs without calling Binance
+or interpreting Binance-specific fields directly.
 
-## Phase 1 Scope
+## Initial Public Baseline Scope
+
+This section records the initial public-only baseline. Later additive sections
+extend the same wire contract with optional private read-only fields.
 
 Allowed:
 

@@ -6,8 +6,8 @@ description: >
   single writer for stage state, evidence commits, and model-facing dispatch
   packets. Human operators deliver prepared packets to target model terminals by
   default interactive paste; target executor sessions execute in-session.
-  The first manual stage delivery run is deferred until product requirements
-  and test strategy are agreed.
+  The template is used for bounded delivery stages after product requirements,
+  acceptance criteria, and test strategy are recorded for the stage.
 
 orchestrator:
   type: abstract_workflow_semantics

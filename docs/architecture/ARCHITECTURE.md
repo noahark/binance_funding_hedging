@@ -1,6 +1,6 @@
 # Architecture
 
-Status: draft
+Status: as-built read-only snapshot, 2026-07-10
 
 This file is the canonical approved architecture document for the project.
 
@@ -9,32 +9,52 @@ Model drafts must not be written here directly. Drafts belong in
 
 ## Overview
 
-The project is a manual Binance funding-rate hedging workstation. The immediate
-architecture is contract-first:
+The project is a manual Binance funding-rate hedging workstation. The current
+implementation is a read-only snapshot and operator review surface:
 
-1. Backend verifies Binance public API fields and freezes a normalized public
-   market snapshot contract.
-2. Frontend consumes only that backend contract.
-3. Private account discovery, websocket execution, and order placement are
-   added in later stages.
+1. Backend fetches or replays Binance public market data and normalizes it into
+   a backend-owned snapshot contract.
+2. When explicitly enabled with credentials, backend uses a whitelisted private
+   signed GET channel for read-only account, balance, position, borrowability,
+   and borrow-cost enrichment.
+3. Backend serves the normalized snapshot from
+   `GET /api/public-market/snapshot`.
+4. Frontend consumes only the backend snapshot contract. It does not call
+   Binance directly.
+5. Websocket execution, order placement, borrowing, repayment, transfer, and
+   close flows remain future stages.
+
+The `/api/public-market/snapshot` route name is historical and
+backward-compatible. The payload now includes additive private read-only fields
+when the private channel is enabled; route renaming or a wire version bump is a
+future contract stage.
 
 ## System Boundaries
 
 - Backend boundary: Binance API adapters, raw sample capture, normalization,
-  classification, API schema ownership, and deterministic tests.
-- Frontend boundary: opportunity table, holdings/overview presentation, manual
-  open ticket UI, and contract-driven API integration.
+  classification, optional read-only private signed GET enrichment, API schema
+  ownership, and deterministic tests.
+- Frontend boundary: opportunity table, private read-only account panels,
+  borrowability display, holdings/overview presentation, and contract-driven
+  API integration.
 - No frontend component calls Binance directly.
-- Phase 1 has no private account access and no trading side effects.
+- The private channel is disabled by default and, when enabled, is limited to
+  signed GET requests through an explicit whitelist.
+- The current product has no trading side effects: no order, borrow, repay,
+  transfer, or execution endpoints are exposed.
 
 ## Data Flow
 
 ```text
-Binance public REST samples
-  -> backend adapter field matrix
-  -> normalized public market snapshot
+Binance public REST or frozen public samples
+  -> public adapter and normalizer
+  -> route, asset-tag, funding, and trading-rule fields
+  -> optional private signed GET enrichment
+       (account, balances, positions, borrow validation, borrow cost)
+  -> normalized read-only snapshot
   -> JSON schema validation
-  -> frontend market table and manual-open planning UI
+  -> same-origin backend API
+  -> frontend opportunity table and private read-only panels
 ```
 
 ## Key Decisions

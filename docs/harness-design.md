@@ -24,7 +24,9 @@ This repository currently implements only the document-level Harness contract:
 - `reports/agent-runs/README.md`
 - `reports/agent-runs/_template/`
 
-The first manual stage delivery run is intentionally not started.
+Multiple bounded delivery stages have completed in this repository. Current
+Harness work is incremental cleanup and contract clarification, not initial
+bootstrap.
 
 ## Architecture
 
