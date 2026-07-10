@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-funding-annualized-history-v1",
-  "status": "planned",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-funding-annualized-history-v1",
@@ -177,6 +177,11 @@
     "working_tree": "User-owned follow-up README modification and untracked funding-history requirements file remain unstaged and uncommitted.",
     "command_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt"
   },
+  "human_approval": {
+    "stage_package_approved": true,
+    "approved_at": "2026-07-10T05:45:20Z",
+    "scope": "User requested Task A code-execution body. Authorization is limited to human dispatch of the prepared Claude-GLM Task A prompt."
+  },
   "tests": {
     "status": "not_run",
     "commands": [
@@ -229,6 +234,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_review_stage_package_before_dispatch",
-  "updated_at": "2026-07-10T05:43:44Z"
+  "next_action": "human_paste_task_a_into_claude_glm_interactive_executor",
+  "updated_at": "2026-07-10T05:45:20Z"
 }

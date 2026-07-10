@@ -32,15 +32,18 @@
 
 ## Open Gates And Next Action
 
-1. Human reviews and approves this stage package.
-2. Bookkeeper records the approval and prepares Task A for Claude-GLM.
+1. User approved this package for Task A dispatch by requesting the Task A
+   code-execution body on 2026-07-10 13:45:20 CST.
+2. The human operator pastes `task-backend-claude-glm.prompt.md` into the
+   already-open Claude-GLM executor session. The bookkeeper does not run a
+   model-dispatch command.
 3. After Task A is committed and its schema/fixture contract is fixed,
    bookkeeper prepares Task B for Kimi.
-4. No code, review, merge, canonical-doc promotion, or push is authorized by
-   this planning checkpoint.
+4. No Task B code, review, merge, canonical-doc promotion, or push is
+   authorized yet.
 
 ```text
-本地北京时间: 2026-07-10 13:43:44 CST
+本地北京时间: 2026-07-10 13:45:20 CST
 下一步模型: human
-下一步任务: 审阅并批准 stage package；批准后由 bookkeeper 将 Task A PASTE BODY 交给 Claude-GLM。
+下一步任务: 将 Task A PASTE BODY 粘贴到 Claude-GLM 交互执行会话并保留原始输出。
 ```
