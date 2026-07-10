@@ -18,17 +18,12 @@ harness_owned:
   - scripts/install-harness.sh
   - scripts/update-project-harness.sh
   - scripts/validate-stage.py
-  - scripts/_itbm.py
-  - scripts/record-checkpoint
-  - scripts/prepare-review-2
-  - scripts/tests/itbm_dry_run.py
   - reports/agent-runs/README.md
   - reports/agent-runs/_template/
   - docs/README.md
   - docs/harness-design.md
   - docs/model-adapters.md
   - docs/parallel-development-mode.md
-  - docs/independent-task-branch-mode.md
   - docs/architecture/ADR/0000-template.md
 
 removed_harness_owned:

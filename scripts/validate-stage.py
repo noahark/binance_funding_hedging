@@ -159,15 +159,9 @@ def require_commit_in_current_history(root: Path, sha: str, field: str) -> None:
 
 def compute_diff_fingerprint(root: Path, stage_dir: Path, base_sha: str, head_sha: str) -> str:
     status_rel = (stage_dir / "status.json").relative_to(root).as_posix()
-    # Pin -c diff.renames=true (D3) so this recompute site matches the canonical
-    # invocation in scripts/_itbm.py byte-for-byte, regardless of the operator's
-    # user-level or repo-level .gitconfig. diff.renames=true is git's default, so
-    # pinning it does not change any already-recorded fingerprint.
     diff = run(
         [
             "git",
-            "-c",
-            "diff.renames=true",
             "diff",
             "--binary",
             f"{base_sha}..{head_sha}",
@@ -336,34 +330,7 @@ def collect_designer_identities(status_doc: dict[str, Any]) -> set[str]:
     return identities
 
 
-def review_selected_identity(review: dict[str, Any]) -> str | None:
-    """Identity of the actually-selected reviewer.
-
-    Probes only the fields that record a confirmed reviewer selection
-    (reviewer / provider / selected_provider). It deliberately excludes
-    primary_provider, which is an unselected preference (the preferred
-    final-reviewer provider before selection) and must not be treated as the
-    reviewer's provider identity for provider-isolation / designer-overlap
-    checks. Using review_provider_identity() for those checks caused false
-    designer-overlap failures whenever an unselected review_2.primary_provider
-    happened to match the designer provider.
-    """
-    for key in ("reviewer", "provider", "selected_provider"):
-        identity = provider_identity(review.get(key))
-        if identity:
-            return identity
-    return None
-
-
 def review_provider_identity(review: dict[str, Any]) -> str | None:
-    """Full identity probing including the primary_provider preference.
-
-    Use review_selected_identity() for provider-isolation and designer-overlap
-    checks (before and around reviewer selection). This full probe is kept for
-    validating a COMPLETED review whose every identity field is expected to be
-    set; it must not drive isolation decisions because primary_provider is only
-    a preference.
-    """
     for key in ("reviewer", "provider", "selected_provider", "primary_provider"):
         identity = provider_identity(review.get(key))
         if identity:
@@ -719,31 +686,7 @@ def validate_common(root: Path, stage_dir: Path, status_doc: dict[str, Any], pha
     return errors
 
 
-def itbm_enabled(status_doc: dict[str, Any]) -> bool:
-    mode = status_doc.get("independent_task_branch_mode", {})
-    return isinstance(mode, dict) and truthy(mode.get("enabled"))
-
-
-def validate_itbm_required_files(stage_dir: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
-    """Task-local evidence mapping for independent task-branch mode (decision D)."""
-    errors: list[str] = []
-    if not (stage_dir / "70-handoff.md").exists():
-        errors.append("missing required stage file: 70-handoff.md")
-    tasks, _ = normalize_tasks(status_doc)
-    for task in tasks:
-        if not isinstance(task, dict) or task.get("id") is None:
-            continue
-        tid = str(task["id"])
-        ev = stage_dir / "evidence" / tid
-        for name in ("checkpoint.json", "30-review-1.md"):
-            if not (ev / name).exists():
-                errors.append(f"missing task-local evidence: evidence/{tid}/{name}")
-    return errors
-
-
 def validate_required_files(stage_dir: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
-    if itbm_enabled(status_doc):
-        return validate_itbm_required_files(stage_dir, status_doc, phase)
     required = ["00-task.md", "10-design.md", "11-adr.md", "20-implementation.md", "60-test-output.txt", "70-handoff.md"]
     complexity = status_doc.get("complexity", {})
     classification = complexity.get("classification") if isinstance(complexity, dict) else None
@@ -755,35 +698,6 @@ def validate_required_files(stage_dir: Path, status_doc: dict[str, Any], phase: 
     return [f"missing required stage file: {name}" for name in missing]
 
 
-def validate_itbm_dispatch_ready(root: Path, stage_dir: Path, status_doc: dict[str, Any]) -> list[str]:
-    """dispatch-ready gate for independent task-branch mode (decision B: own flag).
-
-    validate_dispatch_ready() no-ops without parallel_mode.enabled, so the frozen
-    allowed_scope / forbidden-path checks are re-implemented under this flag.
-    """
-    if not itbm_enabled(status_doc):
-        return []
-    errors: list[str] = []
-    tasks, shape = normalize_tasks(status_doc)
-    errors.extend(shape)
-    object_tasks = [t for t in tasks if isinstance(t, dict)]
-    if len(object_tasks) < 2:
-        errors.append("independent_task_branch_mode dispatch-ready requires at least two tasks")
-    for task in object_tasks:
-        tid = str(task.get("id", "<missing-id>"))
-        if not task.get("branch"):
-            errors.append(f"task {tid}: missing branch")
-        scope = task.get("allowed_scope")
-        if not isinstance(scope, dict):
-            errors.append(f"task {tid}: allowed_scope must be an object")
-            continue
-        if not scope.get("product_paths"):
-            errors.append(f"task {tid}: allowed_scope.product_paths must be non-empty (frozen pre-dispatch)")
-        if scope.get("allow_harness_change") is not False:
-            errors.append(f"task {tid}: product task allow_harness_change must be false (decision E)")
-    return errors
-
-
 def validate_review_identity(root: Path, stage_dir: Path, status_doc: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     implementer_identities = collect_implementer_identities(status_doc)
@@ -791,7 +705,7 @@ def validate_review_identity(root: Path, stage_dir: Path, status_doc: dict[str, 
 
     review_1 = status_doc.get("review_1", {})
     if isinstance(review_1, dict):
-        identity = review_selected_identity(review_1)
+        identity = review_provider_identity(review_1)
         if identity and identity in implementer_identities:
             errors.append("review_1 provider identity must differ from implementation/fix author provider identity")
 
@@ -799,7 +713,7 @@ def validate_review_identity(root: Path, stage_dir: Path, status_doc: dict[str, 
     if not isinstance(review_2, dict):
         return errors
 
-    reviewer_identity = review_selected_identity(review_2)
+    reviewer_identity = review_provider_identity(review_2)
     if reviewer_identity and reviewer_identity in implementer_identities:
         errors.append("review_2 provider identity must differ from every implementation/fix author provider identity; no override is allowed")
 
@@ -904,11 +818,6 @@ def main() -> int:
         default="checkpoint",
     )
     parser.add_argument("--task", help="optional task id for task-level fingerprint and cross-review checks")
-    parser.add_argument(
-        "--evidence-out",
-        help="write the validation output to this path only when validation passes; "
-        "never written on failure so a dirty-worktree or other failure is not masked",
-    )
     args = parser.parse_args()
 
     try:
@@ -927,7 +836,6 @@ def main() -> int:
         errors.extend(validate_parallel_mode(root, stage_dir, status_doc, args.phase))
         if args.phase == "dispatch-ready":
             errors.extend(validate_dispatch_ready(root, stage_dir, status_doc))
-            errors.extend(validate_itbm_dispatch_ready(root, stage_dir, status_doc))
         if args.phase in {"pre-review", "pre-accept"}:
             errors.extend(validate_required_files(stage_dir, status_doc, args.phase))
             errors.extend(validate_tasks(root, stage_dir, status_doc, args.task))
@@ -937,50 +845,21 @@ def main() -> int:
             errors.extend(validate_acceptance(root, stage_dir, status_doc))
 
         if errors:
-            output = "STAGE VALIDATION FAILED\n" + "\n".join(f"- {err}" for err in errors) + "\n"
-            print(output, end="")
+            print("STAGE VALIDATION FAILED")
+            for err in errors:
+                print(f"- {err}")
             return 1
 
+        print("STAGE VALIDATION PASSED")
         try:
             stage_label = str(stage_dir.relative_to(root))
         except ValueError:
             stage_label = str(stage_dir)
-        lines = [
-            "STAGE VALIDATION PASSED",
-            f"stage={stage_label}",
-            f"phase={args.phase}",
-            f"status={status_doc.get('status')}",
-        ]
+        print(f"stage={stage_label}")
+        print(f"phase={args.phase}")
+        print(f"status={status_doc.get('status')}")
         if status_doc.get("diff_fingerprint"):
-            lines.append(f"diff_fingerprint={status_doc['diff_fingerprint']}")
-        output = "\n".join(lines) + "\n"
-        print(output, end="")
-
-        # Evidence capture (F4): write the output only after every check passed.
-        # A dirty-worktree or any other failure returns above, so this file is
-        # never created to mask a real failure. This lets stage operators use
-        # `validate-stage.py --phase pre-review --evidence-out <path>` instead of
-        # `... | tee <path>`, which would dirty the worktree before the
-        # clean-worktree check on the next run.
-        if args.evidence_out:
-            evidence_path = Path(args.evidence_out)
-            if not evidence_path.is_absolute():
-                evidence_path = (Path.cwd() / evidence_path)
-            # Controlled evidence-write error handling (D1): wrap directory
-            # creation and the file write so a permission/IO failure (e.g. a
-            # read-only filesystem or a path whose parent is not a directory)
-            # surfaces a clear Harness message with the target path and the
-            # system error, plus a non-zero exit, instead of an uncaught Python
-            # traceback. Validation itself already passed and printed above.
-            try:
-                evidence_path.parent.mkdir(parents=True, exist_ok=True)
-                evidence_path.write_text(output)
-            except OSError as exc:
-                print(
-                    f"EVIDENCE WRITE FAILED: could not write {evidence_path}: {exc}",
-                    file=sys.stderr,
-                )
-                return 1
+            print(f"diff_fingerprint={status_doc['diff_fingerprint']}")
         return 0
     except ValidationError as exc:
         print("STAGE VALIDATION FAILED")

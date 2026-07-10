@@ -144,28 +144,6 @@ to one of the terminal stop reasons above in `terminal_reason` or
   `head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")`.
   `status.json` is excluded because it stores the fingerprint. Do not use
   worktree fingerprints or alternate fingerprint fields.
-- `head_sha` is delivery-anchored: it points at the delivery commit review
-  inspects. Later auxiliary commits (status-only metadata, handoff updates,
-  validator evidence re-anchor) do not move `head_sha` unless the stage
-  explicitly re-anchors and re-runs `validate-stage.py --phase pre-review`. See
-  the "Evidence Conventions" section of `docs/independent-task-branch-mode.md`.
-- A committed validator log obeys the fixed-point property: it cannot contain
-  the fingerprint of the commit that contains itself. A committed
-  `61-validate-pre-review.txt` records a pre-inclusion snapshot; the
-  authoritative final fingerprint is always `status.json.diff_fingerprint`.
-- Capture validator evidence with `validate-stage.py --phase pre-review
-  --evidence-out <path>` instead of `... | tee <path>`. `--evidence-out` checks
-  a clean worktree first and writes the evidence file only after every check
-  passes, so evidence capture no longer dirties the worktree before the
-  clean-worktree check.
-- For single-owner stages, validator evidence must be inside or reconciled with
-  the reviewed range. Commit the evidence before anchoring `head_sha`, or
-  recompute `head_sha` / `diff_fingerprint` after the evidence commit
-  (re-running `record-checkpoint --single-owner` re-anchors to the current tip).
-  `record-checkpoint --single-owner` now writes top-level `status.json` review
-  metadata (`base_sha`, `head_sha`, `diff_fingerprint`, `changed_files`);
-  `--dry-run` prints those fields with no repository mutation (no `git add`,
-  no `git commit`, no `status.json` write, `HEAD` and index unchanged).
 - Review prompts and reviewer commands must use the recorded
   `<base_sha>..<head_sha>` range, not a moving `HEAD`, because unrelated Harness
   commits may be added after a stage is frozen.

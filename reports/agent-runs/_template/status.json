@@ -35,19 +35,6 @@
   "reviewer_1": null,
   "reviewer_2": null,
   "r10_checklists": {},
-  "reporting_preferences": {
-    "primary_language": null,
-    "explain_english_terms": false,
-    "preserve_exact_strings": [
-      "commands",
-      "file_paths",
-      "json_keys",
-      "schema_fields",
-      "code_identifiers",
-      "model_names",
-      "provider_identifiers"
-    ]
-  },
   "tasks": [
     {
       "id": null,
@@ -62,7 +49,6 @@
         "reviewer": null,
         "provider": null,
         "model": null,
-        "actual_model": null,
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -98,7 +84,6 @@
     "reviewer": null,
     "provider": null,
     "model": null,
-    "actual_model": null,
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
@@ -112,7 +97,6 @@
     "reviewer": null,
     "provider": null,
     "model": null,
-    "actual_model": null,
     "primary_provider": "codex",
     "fallback_provider": "claude",
     "fallback_reason": null,

@@ -1,11 +1,8 @@
 # Model Adapters
 
-This document records local adapter knowledge that the workflow YAML should not
+This document records local command knowledge that the workflow YAML should not
 inline. Bookkeepers, stage operators, implementation terminals, and human
-operators must consult this file before declaring a model unavailable. Command
-templates here are optional automation, reproducibility, evidence-capture, or
-availability references unless a dispatch packet explicitly declares an
-automation delivery mode.
+operators must consult this file before declaring a model unavailable.
 
 The registry remains the machine-readable source of routing truth:
 `agents/registry.yaml`.
@@ -19,18 +16,10 @@ The registry remains the machine-readable source of routing truth:
 - Development/fix agents may use write mode only inside the active stage scope.
 - Yolo/bypass modes require explicit user or runner authorization. They are not
   default review modes.
-- Default human delivery is paste-first: provide a paste-ready PROMPT BODY, or a
-  one-line instruction telling the target terminal to read a dispatch file and
-  execute only its PROMPT BODY.
-- Prepare-only sessions may prepare dispatch prompt files, paste-ready delivery
-  instructions, routing metadata, handoff text, and optional automation command
-  templates, but must not invoke other model terminals or adapter commands.
-- If the selected target executor session receives the dispatch path or PROMPT
-  BODY, it must execute in-session and must not emit a same-provider/model CLI
-  relaunch wrapper for the assigned node.
-- CLI templates belong in an "Optional automation appendix" for runner
-  automation, evidence capture, availability checks, or declared executor:self
-  automation. They are not the default human-facing startup UI.
+- Codex/GPT and Claude provider sessions may prepare dispatch prompt files and
+  command templates, but must not execute model-dispatch commands or invoke
+  other model terminals. Human operators execute prepared dispatch packets in
+  the selected model terminal and record the raw output or receipt evidence.
 - A model is unavailable only after the runner-level adapter check fails. A
   bookkeeper or implementation session lacking a built-in tool for that model is
   not enough.
@@ -40,8 +29,8 @@ The registry remains the machine-readable source of routing truth:
 
 ## Adapter Availability Checks
 
-Run these checks from the same shell environment that the human operator or
-runner would use for optional automation:
+Run these checks from the same shell environment that the human operator will
+use to execute the prepared dispatch:
 
 ```bash
 command -v codex
@@ -76,7 +65,7 @@ Default model policy:
   fails because of quota, auth, or availability, route through the workflow
   fallback rules.
 
-Optional automation command templates:
+Command templates:
 
 ```bash
 # Schema-bound read-only review.
@@ -88,10 +77,8 @@ codex exec -C <repo> -m gpt-5.5 -s read-only \
 codex exec review --base <base_sha> - < <prompt-file>
 ```
 
-Review-2 Harness gate automation uses `codex exec`, not `codex review`, because
-the verdict must satisfy `schemas/review-verdict.schema.json`. A selected
-in-session Codex target executor still reviews in-session and emits the schema
-verdict without a relaunch wrapper.
+Review-2 Harness gates use `codex exec`, not `codex review`, because the verdict
+must satisfy `schemas/review-verdict.schema.json`.
 
 Do not dispatch implementation or fix tasks to Codex. Backend and frontend
 delivery work routes through Claude-GLM and Kimi according to the stage's domain
@@ -112,15 +99,7 @@ Default model policy:
   explicitly changes it.
 - Review mode is read-only/plan. Do not let Claude modify files during review.
 
-Recording the actual model (F6): when a review-2 dispatch anticipated
-`claude-fable-5` but actually ran `claude-opus-4-8` (or any other fallback),
-record the model that actually executed in `status.json.review_2.actual_model`
-in addition to `review_2.model`. The fallback does not change provider identity
-(`claude-fable-5` and `claude-opus-4-8` are both `anthropic`), so anti-self-review
-isolation is unchanged; `actual_model` only documents the executed model for
-auditability.
-
-Optional automation command templates:
+Command templates:
 
 ```bash
 # Read-only/plan review.
@@ -182,15 +161,15 @@ Provider identity:
 - `claude_glm` is `zhipu_glm`, not Anthropic. The Claude Code wrapper does not
   make it an Anthropic model for anti-self-review decisions.
 
-Optional automation command templates:
+Command templates:
 
 ```bash
 # Availability check. This may require an interactive shell profile.
 type claude-glm
 zsh -lic 'type claude-glm'
 
-# Optional non-interactive bookkeeper or implementation prompt, if the local
-# alias supports Claude-compatible print mode.
+# Non-interactive bookkeeper or implementation prompt, if the local alias
+# supports Claude-compatible print mode.
 claude-glm --model glm-5.2 -p "$(cat <prompt-file>)"
 
 # Read-only/plan review.
@@ -236,7 +215,7 @@ Do not silently use Grok as review-1. The default review-1 gate is the
 Kimi/Claude-GLM cross-review pool. If a stage explicitly enables Grok review,
 the runner must still fail closed on timeout, invalid JSON, or missing model.
 
-Optional automation command templates:
+Command templates:
 
 ```bash
 # Interactive Grok Build session in the repository.
@@ -281,13 +260,13 @@ Default model policy:
   `--model kimi-code/kimi-for-coding`.
 - Observed on 2026-07-04, this resolves to Kimi K2.5 in this local CLI.
 
-Optional automation command templates:
+Command templates:
 
 ```bash
 # Availability check.
 command -v kimi || command -v kimi-for-coding
 
-# Optional non-interactive prompt with the latest Kimi coding model alias.
+# Non-interactive prompt with the latest Kimi coding model alias.
 kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"
 
 # Embedded cross-review checkpoint. Kimi's current one-shot prompt mode has no
@@ -296,7 +275,7 @@ kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"
 kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"
 
 # Plan/read-only-style interactive session. Current Kimi CLI rejects combining
-# --plan with -p/--prompt, so do not use this as a one-shot automation command.
+# --plan with -p/--prompt, so do not use this as a one-shot prompt command.
 kimi --model kimi-code/kimi-for-coding --plan
 
 # Yolo interactive session, only when explicitly authorized. Current Kimi CLI
@@ -314,24 +293,6 @@ binary for `kimi`. The workflow should still record provider identity as
 
 Do not use `kimi --plan -p ...` or `kimi -y -p ...`; the current CLI returns
 `Cannot combine --prompt with --plan/--yolo`.
-
-### Review output hygiene
-
-Kimi's one-shot prompt mode emits adapter noise (CLI metadata, progress, and
-diagnostics) on stderr that should not land in a committed review file. When
-capturing review output, separate stderr from stdout so the review evidence
-holds only the model's narrative and verdict. For example:
-
-```bash
-kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)" \
-  2>reports/agent-runs/<stage-id>/review-1-kimi.stderr.log \
-  | tee reports/agent-runs/<stage-id>/30-review-1.md
-```
-
-Keep stderr available for debugging (it may surface adapter or quota errors)
-but do not mix it into the strict JSON verdict region of the review file. The
-same stderr-separation applies to review-2 and embedded cross-review captures.
-This is output hygiene only; it does not add new adapter infrastructure.
 
 ## Dispatch Failure Semantics
 
