@@ -392,6 +392,34 @@ def compute_annualized_funding_window(
     return _quantize_rate(total * Decimal(365) / Decimal(days))
 
 
+def settle_history_view(
+    raw_entries: List[dict], t_end_ms: Optional[int]
+) -> tuple:
+    """Assemble the selected-symbol settled-history view for the inclusive
+    30-day window ending at ``t_end_ms``.
+
+    Pure composition of the settled-history helpers (no new arithmetic): it
+    reuses :func:`_build_funding_history` (normalize -> filter to the inclusive
+    30-day window -> serialize newest first) and
+    :func:`compute_annualized_funding_window` (settled-only Decimal
+    calendar-window annualization, ADR-1). ``history_status`` is ``"available"``
+    when at least one in-window settled record exists and ``"empty"`` when the
+    fetch succeeded but the window has none (distinct from an upstream failure,
+    which the service maps to HTTP 502 before reaching this helper).
+
+    Returns
+    ``(funding_history, annualized_funding_7d, annualized_funding_30d,
+    history_status)``. The selected-symbol endpoint does NOT recompute the 24h
+    estimate; the current snapshot row stays authoritative for that current-
+    period value.
+    """
+    history = _build_funding_history(raw_entries, t_end_ms)
+    annualized_7d = compute_annualized_funding_window(history, t_end_ms, 7)
+    annualized_30d = compute_annualized_funding_window(history, t_end_ms, 30)
+    status = "available" if history else "empty"
+    return history, annualized_7d, annualized_30d, status
+
+
 def compute_daily_from_hourly(hourly_rate) -> Optional[str]:
     """``Decimal(hourlyInterestRate) × 24`` as an 8-place string (§1.3 tier①).
 

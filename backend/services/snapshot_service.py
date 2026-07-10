@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.error
 from datetime import datetime, timezone
@@ -29,12 +30,21 @@ from ..domain.snapshot import (
     compute_net_daily_yield,
     resolve_cost_leg_rate,
     select_borrow_candidates,
+    settle_history_view,
     sort_rows,
     top_symbols_by_abs_rate,
 )
 from ..services.private_client import PrivateClient
 
 ELIGIBLE_CONTRACT_TYPES = ("PERPETUAL", "TRADIFI_PERPETUAL")
+
+FUNDING_HISTORY_SCHEMA_VERSION = "public-market-funding-history/v1"
+
+# Eligible query symbol for the selected-history endpoint: Binance USDⓈ-M
+# perpetual symbols are uppercase alphanumerics (e.g. BTCUSDT, 1000SATSUSDT).
+# Rejects missing/empty/lower-case/space-injected values as HTTP 400 before the
+# snapshot is consulted.
+_SYMBOL_RE = re.compile(r"^[A-Z0-9]{1,40}$")
 
 
 class SnapshotService:
@@ -55,6 +65,12 @@ class SnapshotService:
         # Failed requests are NOT cached so they retry on the next snapshot
         # rebuild instead of locking the symbol out for a TTL.
         self._funding_history_cache: dict = {}  # symbol -> (monotonic, raw entries)
+        # Selected-symbol history endpoint (Task C): the snapshot premium-index
+        # time (ms) is the settled-window end; set on each build_snapshot so the
+        # endpoint reuses the SAME boundary as the cached snapshot it validated
+        # against (60s snapshot cache hit keeps the last-build boundary in sync).
+        self._data_time_ms = 0
+        self._funding_history_schema = None  # lazily loaded on first endpoint use
         # Private borrow-validation client (the repo's single HMAC exit). Offline
         # mode never touches the private channel (no key, no network) -> every row
         # degrades to verified=false. Live mode still requires an explicit
@@ -112,6 +128,7 @@ class SnapshotService:
         # the inclusive end of both the live deep-history request and the 7D/30D
         # annualization windows.
         data_time_ms = max((p.get("time", 0) for p in raw["premium_index"]), default=0)
+        self._data_time_ms = data_time_ms  # Task C endpoint window end
         history_warnings: List[str] = []
 
         if not self.client.offline:
@@ -300,6 +317,63 @@ class SnapshotService:
             return None
         self._funding_history_cache[symbol] = (now, entries)
         return entries
+
+    def _load_funding_history_schema(self):
+        if self._funding_history_schema is None:
+            path = self.config.schema_path.parent / "funding-history.schema.json"
+            with open(path, encoding="utf-8") as fh:
+                self._funding_history_schema = json.load(fh)
+        return self._funding_history_schema
+
+    def get_funding_history(self, symbol) -> tuple:
+        """Selected-symbol settled-history view (Task C / ADR-4).
+
+        Returns ``(http_status, payload)``:
+          - 400 ``invalid_symbol``: ``symbol`` missing or malformed.
+          - 404 ``symbol_not_found``: well-formed symbol not in the current
+            snapshot's eligible rows.
+          - 502 ``funding_history_unavailable``: the snapshot itself is
+            unavailable, or the public upstream settled-history call failed
+            (the failure is NOT cached, matching the snapshot's degrade path).
+          - 200: a schema-valid ``public-market-funding-history/v1`` payload.
+
+        The window end is the current snapshot's premium-index time
+        (``self._data_time_ms``); the upstream fetch reuses the existing
+        per-symbol successful-result 1,800-second cache. The browser never calls
+        Binance, no private channel/credential is touched, and there is no
+        full-universe prefetch — a non-top-N eligible symbol is fetched on
+        demand through the same bounded cache. A successful empty window is
+        HTTP 200 ``history_status: "empty"`` and IS cached; it is never confused
+        with an upstream failure.
+        """
+        if not isinstance(symbol, str) or not _SYMBOL_RE.fullmatch(symbol):
+            return 400, {"error": "invalid_symbol"}
+        try:
+            snapshot = self.get_snapshot()
+        except Exception:
+            # Snapshot unavailable (fetch/validation) -> the endpoint cannot
+            # resolve symbol eligibility or a window boundary. Treat it as the
+            # upstream-unavailable surface (502).
+            return 502, {"error": "funding_history_unavailable"}
+        if symbol not in {r["symbol"] for r in snapshot["rows"]}:
+            return 404, {"error": "symbol_not_found"}
+        entries = self._fetch_history_for(symbol, self._data_time_ms)
+        if entries is None:
+            return 502, {"error": "funding_history_unavailable"}
+        history, annualized_7d, annualized_30d, history_status = settle_history_view(
+            entries, self._data_time_ms
+        )
+        payload = {
+            "schema_version": FUNDING_HISTORY_SCHEMA_VERSION,
+            "symbol": symbol,
+            "data_time": snapshot["data_time"],
+            "history_status": history_status,
+            "funding_history": history,
+            "annualized_funding_7d": annualized_7d,
+            "annualized_funding_30d": annualized_30d,
+        }
+        jsonschema.validate(payload, self._load_funding_history_schema())
+        return 200, payload
 
     def request_log(self) -> dict:
         return dict(self.client.request_log)

@@ -31,6 +31,7 @@ from backend.domain.snapshot import (
     build_rows,
     compute_annualized_funding_24h,
     compute_annualized_funding_window,
+    settle_history_view,
 )
 from backend.services.snapshot_service import SnapshotService
 
@@ -141,6 +142,21 @@ def test_window_skips_unparseable_entries():
         {"funding_time": T_END - 2 * DAY, "funding_rate": "not-a-number"},
     ]
     assert compute_annualized_funding_window(wire, T_END, 7) == "0.00521429"  # 0.0001*365/7
+
+
+def test_settle_history_view_available_and_empty():
+    # Pure composition reused by the selected-symbol endpoint (Task C): the same
+    # 30-day windowing, newest-first ordering, and Decimal calendar-window
+    # annualization, plus an explicit available/empty status split.
+    history, a7, a30, status = settle_history_view(
+        _fixture("seven-day-flat.json"), T_END
+    )
+    assert status == "available"
+    assert len(history) == 7
+    assert a7 == "0.03650000"
+    assert a30 == "0.00851667"
+    # a successful empty window -> "empty" status and null settled annualization
+    assert settle_history_view([], T_END) == ([], None, None, "empty")
 
 
 # =========================================================================

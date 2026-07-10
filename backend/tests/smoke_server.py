@@ -19,6 +19,7 @@ import json
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -66,6 +67,41 @@ def main() -> int:
         print(
             f"GET /fixture/public-market-snapshot.json -> HTTP 200, bytes={len(fixture)}"
         )
+
+        # Task C: selected-symbol settled-history endpoint (offline -> empty).
+        def get_with_status(url: str):
+            try:
+                with urllib.request.urlopen(url, timeout=3) as resp:
+                    return resp.status, resp.read()
+            except urllib.error.HTTPError as exc:  # 4xx/5xx carry a JSON body
+                return exc.code, exc.read()
+
+        eligible = snap["rows"][0]["symbol"] if snap["rows"] else "BTCUSDT"
+        status, body = get_with_status(
+            base + f"/api/public-market/funding-history?symbol={eligible}"
+        )
+        assert status == 200, f"history endpoint: expected 200, got {status}"
+        fh = json.loads(body)
+        fh_schema = json.loads(
+            (cfg.schema_path.parent / "funding-history.schema.json").read_text()
+        )
+        jsonschema.validate(fh, fh_schema)
+        print(
+            f"GET /api/public-market/funding-history?symbol={eligible} -> HTTP 200,"
+            f" schema-valid (history_status={fh['history_status']},"
+            f" rows={len(fh['funding_history'])})"
+        )
+
+        miss_status, _ = get_with_status(base + "/api/public-market/funding-history")
+        assert miss_status == 400, f"history endpoint: expected 400, got {miss_status}"
+        print("GET /api/public-market/funding-history (no symbol) -> HTTP 400")
+
+        nf_status, nf_body = get_with_status(
+            base + "/api/public-market/funding-history?symbol=NOPEUSDT"
+        )
+        assert nf_status == 404, f"history endpoint: expected 404, got {nf_status}"
+        assert json.loads(nf_body) == {"error": "symbol_not_found"}
+        print("GET /api/public-market/funding-history?symbol=NOPEUSDT -> HTTP 404")
 
         print("SMOKE OK")
         return 0
