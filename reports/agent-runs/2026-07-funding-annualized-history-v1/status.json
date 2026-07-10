@@ -70,8 +70,20 @@
     "model": "Codex/GPT current session",
     "provider_identity": "openai"
   },
-  "implementer": null,
-  "implementers": [],
+  "implementer": {
+    "provider": "claude_glm",
+    "model": "glm-5.2",
+    "provider_identity": "zhipu_glm",
+    "task": "backend-contract-and-history"
+  },
+  "implementers": [
+    {
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "task": "backend-contract-and-history"
+    }
+  ],
   "fix_authors": [],
   "reviewer_1": null,
   "reviewer_2": null,
@@ -90,11 +102,23 @@
         "provider_identity": "moonshot_kimi"
       },
       "prompt_path": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-backend-claude-glm.prompt.md",
+      "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend.md",
       "r10_checklist": null,
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "test_evidence": null,
+      "base_sha": "0206f8bf7236e807b4cd69d7beed02eb41e8ec60",
+      "head_sha": "2e27efcbed960206b43c25054bf6105224942439",
+      "diff_fingerprint": "2e27efcbed960206b43c25054bf6105224942439:85c780708fe546a32f6ef2120841c0176aab313adf81f6d82da82e48fdfdddfb",
+      "test_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt",
+      "changed_files": [
+        "backend/adapters/binance_public.py",
+        "backend/config.py",
+        "backend/domain/snapshot.py",
+        "backend/services/snapshot_service.py",
+        "backend/tests/fixtures/funding-history/**",
+        "backend/tests/test_config.py",
+        "backend/tests/test_funding_history.py",
+        "schemas/api/public-market/snapshot.schema.json",
+        "reports/api-samples/2026-07-funding-annualized-history-v1/**"
+      ],
       "review_1": {
         "reviewer": null,
         "provider": "kimi",
@@ -189,11 +213,12 @@
     "legacy_compatibility": "Frozen v0.1 snapshots remain valid; do not modify frozen samples or legacy hand-authored rows solely for these additive fields."
   },
   "tests": {
-    "status": "not_run",
+    "status": "passed",
     "commands": [
-      "python3 -m pytest backend/tests -q",
-      "node frontend/self-check.js",
-      "git diff --check"
+      "python3 -m pytest backend/tests -q -> 226 passed in 5.34s",
+      "python3 -m json.tool schemas/api/public-market/snapshot.schema.json >/dev/null -> PASS",
+      "git diff --check -> PASS",
+      "node frontend/self-check.js -> not run; Task B has not started"
     ]
   },
   "review_1": {
@@ -234,12 +259,14 @@
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [],
+  "blockers": [
+    "Formal pre-review is blocked until the user-owned reports/follow-ups/ worktree changes are committed, stashed, or otherwise resolved; those files are outside this stage."
+  ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_paste_task_a_into_claude_glm_interactive_executor",
-  "updated_at": "2026-07-10T07:24:47Z"
+  "next_action": "human_review_task_a_and_authorize_task_b_dispatch",
+  "updated_at": "2026-07-10T07:27:21Z"
 }

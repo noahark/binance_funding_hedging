@@ -36,18 +36,23 @@
 
 ## Open Gates And Next Action
 
-1. User approved this package for Task A dispatch by requesting the Task A
-   code-execution body on 2026-07-10 13:45:20 CST.
-2. The human operator pastes `task-backend-claude-glm.prompt.md` into the
-   already-open Claude-GLM executor session. The bookkeeper does not run a
-   model-dispatch command.
-3. After Task A is committed and its schema/fixture contract is fixed,
-   bookkeeper prepares Task B for Kimi.
-4. No Task B code, review, merge, canonical-doc promotion, or push is
-   authorized yet.
+1. Task A is committed as `2e27efc` with review range
+   `0206f8bf7236e807b4cd69d7beed02eb41e8ec60..2e27efcbed960206b43c25054bf6105224942439`.
+   Its committed-state fingerprint is
+   `2e27efcbed960206b43c25054bf6105224942439:85c780708fe546a32f6ef2120841c0176aab313adf81f6d82da82e48fdfdddfb`.
+2. Task A test evidence: `226 passed`; schema JSON and `git diff --check` pass.
+   Option 3 is frozen: schema properties remain optional for v0.1 replay, while
+   current service output always carries all three fields.
+3. The user has not yet authorized Task B. Its Kimi PASTE BODY must not be
+   dispatched until explicit approval.
+4. The current worktree contains user-owned changes in `reports/follow-ups/`.
+   They are not part of Task A, but they prevent a formal `pre-review`
+   clean-worktree validation until the user resolves them. No review verdict is
+   claimed or prepared as passing.
+5. No merge, canonical-doc promotion, or push is authorized.
 
 ```text
-本地北京时间: 2026-07-10 15:24:47 CST
+本地北京时间: 2026-07-10 15:27:21 CST
 下一步模型: human
-下一步任务: bookkeeper 冻结 Task A diff、记录测试与契约修正后准备 Task A review-1。
+下一步任务: 审阅 Task A 的固定 diff 并决定是否授权 Kimi 执行 Task B；正式 review 前先处理用户自己的 follow-up 工作区改动。
 ```
