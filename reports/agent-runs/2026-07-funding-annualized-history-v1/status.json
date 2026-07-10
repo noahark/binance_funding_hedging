@@ -126,7 +126,10 @@
       "provider_identity": "moonshot_kimi",
       "task": "frontend-table-and-drawer",
       "fix": "self-check-11-regex",
-      "dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.prompt.md"
+      "dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.prompt.md",
+      "landed_commit": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002",
+      "diff_fingerprint": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002:d6848f21b4364b740ddaaed7d72d30738819c4d262c0a19d99fd377a69b56fa1",
+      "bookkeeper_verified": true
     }
   ],
   "reviewer_1": null,
@@ -232,7 +235,38 @@
         "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.rework.raw-output.md",
         "required_fix": "self-check.js:441 header-discrimination regex is a dead assertion; AC5 negative-label guard no-ops (P2, test-integrity only).",
         "fix_start_prompt_present": true,
-        "fix_start_prompt_source": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.rework.raw-output.md .fix_start_prompt"
+        "fix_start_prompt_source": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.rework.raw-output.md .fix_start_prompt",
+        "fix": {
+          "author": {
+            "provider": "kimi",
+            "model": "kimi-code/kimi-for-coding",
+            "provider_identity": "moonshot_kimi"
+          },
+          "scope": [
+            "frontend/self-check.js"
+          ],
+          "landed_commit": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002",
+          "base_sha": "903155268d1f1302cb47e146af42ee8edc0b68fe",
+          "head_sha": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002",
+          "diff_fingerprint": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002:d6848f21b4364b740ddaaed7d72d30738819c4d262c0a19d99fd377a69b56fa1",
+          "raw_output": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.raw-output.md",
+          "patch": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.diff.patch",
+          "bookkeeper_verification": "Independent: git diff limited to frontend/self-check.js + git diff --check clean; node self-check passes; own 预测-injection into 资金费率 header (index.html:762) makes #11 THROW then reverted clean (annualized 7D/30D exclusion intact); backend 244 passed.",
+          "status": "landed_awaiting_re_review"
+        },
+        "re_review": {
+          "reviewer": {
+            "provider": "claude_glm",
+            "model": "glm-5.2",
+            "provider_identity": "zhipu_glm",
+            "fresh_read_only": true
+          },
+          "dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-rereview-claude-glm.prompt.md",
+          "base_sha": "903155268d1f1302cb47e146af42ee8edc0b68fe",
+          "head_sha": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002",
+          "diff_fingerprint": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002:d6848f21b4364b740ddaaed7d72d30738819c4d262c0a19d99fd377a69b56fa1",
+          "verdict": null
+        }
       }
     },
     {
@@ -472,7 +506,7 @@
     "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:378c060d86086d7d9a6c8eff94aad1e0998bdd014a255070eb1504fe3bca62a8",
     "reviewer_prior_involvement": "none",
     "invalid_json_attempts": 0,
-    "note": "Four fresh, read-only, cross-provider task-scoped review-1 sessions. Task A/C/D ACCEPT; Task B REWORK (blocking). Raw outputs preserved verbatim."
+    "note": "Task A/C/D review-1 ACCEPT; Task B REWORK -> bounded self-check.js fix landed by Kimi (commit 4d55a1c, bookkeeper-verified), now awaiting fresh Claude-GLM Task B re-review. Aggregate stays REWORK until that re-review ACCEPTs."
   },
   "review_2": {
     "reviewer": null,
@@ -500,16 +534,16 @@
   "rework_count": 1,
   "max_rework": 3,
   "blockers": [
-    "Task B (frontend-table-and-drawer) review-1 REWORK is open: frontend/self-check.js #11 dead regex must be fixed by Kimi, then Task B re-reviewed (fresh claude_glm) to ACCEPT.",
-    "Final review-2 gate not yet run; independent review-2 audit concurs REWORK. Combined range/fingerprint must be recomputed after the Task B fix."
+    "Task B fix landed (commit 4d55a1c, self-check.js only, bookkeeper-verified) but NOT yet re-reviewed. Dispatch review-1-task-b-rereview-claude-glm.prompt.md to a fresh Claude-GLM read-only session.",
+    "After Task B re-review ACCEPT, all four review-1 tasks ACCEPT; then rebind the combined product range and run review-2 (unrelated anthropic/claude-opus session) before any acceptance."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_dispatch_task_b_selfcheck_fix_to_kimi",
-  "updated_at": "2026-07-10T15:59:05Z",
+  "next_action": "human_dispatch_task_b_re_review_to_fresh_claude_glm",
+  "updated_at": "2026-07-10T16:15:26Z",
   "independent_review_2_audit": {
     "role": "final_reviewer",
     "provider": "anthropic",

@@ -245,3 +245,26 @@ authorized.
 下一步模型: human → Kimi（Task B 定界修复）
 下一步任务: 派发 task-b-selfcheck-regex-fix-kimi.prompt.md；Kimi 仅改 frontend/self-check.js 并回传 raw output + diff.patch，由 bookkeeper 落盘。
 ```
+
+## Task B Fix Landed — Awaiting Re-Review
+
+Kimi returned the bounded `frontend/self-check.js` #11 fix (dead regex →
+`/<th[^>]*>[\s\S]*?<\/th>/g` + `headers.length == <th> count` guard). Bookkeeper
+independently verified (diff limited to self-check.js; own `预测`-injection into the
+`资金费率` header makes #11 throw then reverts clean; annualized 7D/30D exclusion intact;
+backend 244 passed) and landed it as commit `4d55a1c` (self-check.js only).
+
+- Fix re-review range: `903155268d1f1302cb47e146af42ee8edc0b68fe..4d55a1c502d9fc4754d092617b1cc07e5aaf4002`
+- Fix diff fingerprint: `4d55a1c502d9fc4754d092617b1cc07e5aaf4002:d6848f21b4364b740ddaaed7d72d30738819c4d262c0a19d99fd377a69b56fa1`
+
+Next action: human dispatches `review-1-task-b-rereview-claude-glm.prompt.md` to a fresh
+Claude-GLM read-only session. On ACCEPT, all four review-1 tasks are ACCEPT; the
+bookkeeper then rebinds the combined product range and runs review-2 (unrelated
+anthropic/claude-opus session) before any acceptance. `status=fixing` until the re-review
+returns.
+
+```text
+本地北京时间: 2026-07-11 00:20 CST
+下一步模型: human → fresh Claude-GLM（Task B 重评）
+下一步任务: 派发 review-1-task-b-rereview-claude-glm.prompt.md；GLM 回传 raw output，由 bookkeeper 落盘。
+```
