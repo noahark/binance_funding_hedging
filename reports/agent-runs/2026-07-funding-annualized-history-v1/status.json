@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-funding-annualized-history-v1",
-  "status": "fixing",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-funding-annualized-history-v1",
@@ -252,7 +252,7 @@
           "raw_output": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.raw-output.md",
           "patch": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.diff.patch",
           "bookkeeper_verification": "Independent: git diff limited to frontend/self-check.js + git diff --check clean; node self-check passes; own 预测-injection into 资金费率 header (index.html:762) makes #11 THROW then reverted clean (annualized 7D/30D exclusion intact); backend 244 passed.",
-          "status": "landed_awaiting_re_review"
+          "status": "re_reviewed_accept"
         },
         "re_review": {
           "reviewer": {
@@ -265,8 +265,12 @@
           "base_sha": "903155268d1f1302cb47e146af42ee8edc0b68fe",
           "head_sha": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002",
           "diff_fingerprint": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002:d6848f21b4364b740ddaaed7d72d30738819c4d262c0a19d99fd377a69b56fa1",
-          "verdict": null
-        }
+          "verdict": "ACCEPT",
+          "json_schema_valid": true,
+          "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-rereview-claude-glm.accept.raw-output.md",
+          "bookkeeper_verification": "verdict JSON schema-valid; fingerprint matches fix range; reviewer zhipu_glm != fix author moonshot_kimi; findings [] / required_fixes []."
+        },
+        "effective_verdict": "ACCEPT"
       }
     },
     {
@@ -382,8 +386,8 @@
     "note": "Not required: direction panel is skipped under the recorded MEDIUM user-approved route."
   },
   "base_sha": "7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1",
-  "head_sha": "d21536aa8a221a065c4fbe2b7640e199addca7dc",
-  "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:378c060d86086d7d9a6c8eff94aad1e0998bdd014a255070eb1504fe3bca62a8",
+  "head_sha": "4128905f652171d07ca3e757af858d5d9d87fc73",
+  "diff_fingerprint": "4128905f652171d07ca3e757af858d5d9d87fc73:bacef8f9ef7dcbf773398b177262e15f9335b577493a9f3ab1e7130b5828b180",
   "changed_files": [
     "backend/app/server.py",
     "backend/adapters/binance_public.py",
@@ -495,28 +499,33 @@
     "reviewer": null,
     "provider": null,
     "model": null,
-    "aggregate_verdict": "REWORK",
+    "aggregate_verdict": "ACCEPT",
     "accept_count": 3,
-    "rework_count": 1,
+    "rework_count": 0,
     "blocking_tasks": [
       "frontend-table-and-drawer"
     ],
     "per_task": "see tasks[].review_1",
     "json_schema_valid": true,
-    "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:378c060d86086d7d9a6c8eff94aad1e0998bdd014a255070eb1504fe3bca62a8",
+    "diff_fingerprint": "4128905f652171d07ca3e757af858d5d9d87fc73:bacef8f9ef7dcbf773398b177262e15f9335b577493a9f3ab1e7130b5828b180",
     "reviewer_prior_involvement": "none",
     "invalid_json_attempts": 0,
-    "note": "Task A/C/D review-1 ACCEPT; Task B REWORK -> bounded self-check.js fix landed by Kimi (commit 4d55a1c, bookkeeper-verified), now awaiting fresh Claude-GLM Task B re-review. Aggregate stays REWORK until that re-review ACCEPTs."
+    "note": "All four task-scoped review-1 verdicts effective ACCEPT: A(kimi) C(kimi) D(claude_glm) direct ACCEPT; B(claude_glm) REWORK -> Kimi self-check fix (4d55a1c, bookkeeper-verified) -> fresh Claude-GLM re-review ACCEPT (fingerprint-matched). review-1 gate passed.",
+    "verdict": "ACCEPT"
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
+    "reviewer": {
+      "provider": "anthropic",
+      "model": "anthropic/claude-opus-4-8",
+      "provider_identity": "anthropic"
+    },
+    "provider": "anthropic",
+    "model": "anthropic/claude-opus-4-8",
     "primary_provider": "claude",
     "fallback_provider": "codex",
     "fallback_reason": "Codex/GPT authored the stage design. Use Codex/GPT only through the documented strong-reviewer override when the unrelated Claude reviewer is unavailable or ineligible.",
     "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": "Final review-2 gate not yet run. See independent_review_2_audit for the pre-fix independent audit (REWORK). Primary reviewer will be this unrelated anthropic/claude-opus-4-8 session on the recomputed combined range after Task B fix + re-review.",
+    "reviewer_prior_involvement_notes": "Unrelated anthropic session (this session). Also the stage bookkeeper (reviewer+bookkeeper dual-hat, disclosed in bookkeeper field). Not an implementer/fix author (zhipu_glm/moonshot_kimi) and not a designer (openai). It ran a pre-fix independent audit (independent_review_2_audit); this is the final review-2 on the recomputed combined range.",
     "unrelated_reviewer_unavailable_evidence": null,
     "design_conflict_override": {
       "used": false,
@@ -529,21 +538,21 @@
     "diff_fingerprint": null,
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0
+    "invalid_json_attempts": 0,
+    "provider_identity": "anthropic"
   },
   "rework_count": 1,
   "max_rework": 3,
   "blockers": [
-    "Task B fix landed (commit 4d55a1c, self-check.js only, bookkeeper-verified) but NOT yet re-reviewed. Dispatch review-1-task-b-rereview-claude-glm.prompt.md to a fresh Claude-GLM read-only session.",
-    "After Task B re-review ACCEPT, all four review-1 tasks ACCEPT; then rebind the combined product range and run review-2 (unrelated anthropic/claude-opus session) before any acceptance."
+    "Final review-2 gate not yet returned. Combined range bound to 4128905 (base=main); review-2 reviewer is this unrelated anthropic/claude-opus session. On ACCEPT, prepare 30-review-1.md + 50-review-2.md and run pre-accept; final acceptance is the user's action."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_dispatch_task_b_re_review_to_fresh_claude_glm",
-  "updated_at": "2026-07-10T16:15:26Z",
+  "next_action": "run_review_2_final_gate",
+  "updated_at": "2026-07-10T16:39:25Z",
   "independent_review_2_audit": {
     "role": "final_reviewer",
     "provider": "anthropic",
