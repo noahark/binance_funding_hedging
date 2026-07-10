@@ -44,3 +44,8 @@ Task A diff fingerprint:
 - Prepared `review-1-task-a-kimi.prompt.md` for the fixed Task A range.
 - Formal dispatch remains blocked pending a clean worktree and a passing
   `scripts/validate-stage.py ... --phase pre-review` result.
+
+2026-07-10 18:26:28 CST
+- Raw Kimi Task A preflight-blocked output preserved in
+  `review-1-task-a-kimi.preflight-blocked.raw-output.md`.
+- It is non-accepting evidence and does not change stage status to `review_1`.

@@ -213,6 +213,21 @@
     "current_service_guarantee": "Every current SnapshotService output row emits all three fields as decimal strings or null.",
     "legacy_compatibility": "Frozen v0.1 snapshots remain valid; do not modify frozen samples or legacy hand-authored rows solely for these additive fields."
   },
+  "preliminary_reviews": {
+    "task_a_kimi": {
+      "reviewer": {
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "provider_identity": "moonshot_kimi"
+      },
+      "raw_output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-a-kimi.preflight-blocked.raw-output.md",
+      "received_at": "2026-07-10T10:26:28Z",
+      "disposition": "non_accepting_preflight_blocked",
+      "formal_review_1": false,
+      "diff_fingerprint": "2e27efcbed960206b43c25054bf6105224942439:85c780708fe546a32f6ef2120841c0176aab313adf81f6d82da82e48fdfdddfb",
+      "notes": "The reviewer correctly found the pre-review gate blocked. Its recommendation to change the whole stage to review_1 is deferred because Task B has not yet been implemented."
+    }
+  },
   "tests": {
     "status": "passed",
     "commands": [
@@ -268,6 +283,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_review_task_a_and_authorize_task_b_dispatch",
-  "updated_at": "2026-07-10T07:44:08Z"
+  "next_action": "human_choose_follow_up_requirements_commit_or_stash_then_authorize_task_b",
+  "updated_at": "2026-07-10T10:26:28Z"
 }

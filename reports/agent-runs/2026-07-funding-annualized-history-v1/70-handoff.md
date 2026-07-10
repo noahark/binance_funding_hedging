@@ -54,8 +54,29 @@
    gate passes.
 6. No merge, canonical-doc promotion, or push is authorized.
 
+## Kimi Preflight Output
+
+The raw Kimi output is preserved in
+`review-1-task-a-kimi.preflight-blocked.raw-output.md`. It is not a formal
+review-1 verdict because the packet's preflight had not passed.
+
+- P0 is valid: the user-owned `reports/follow-ups/` worktree changes prevent a
+  clean-worktree pre-review check.
+- The recommendation to change the whole stage to `review_1` and set top-level
+  review range metadata is deferred. Task B remains unimplemented, so that
+  state transition would incorrectly present a partial stage as ready for its
+  formal gate.
+- The generic `20-implementation.md` validator artifact will be created as a
+  concise index of the preserved task reports after Task B, rather than changing
+  `validate-stage.py` or copying a Task A-only report under a misleading name.
+- The symbol-only history cache intentionally permits up to its documented
+  1,800-second staleness. Its window drift is a residual risk to document at
+  formal review, not a reason to key by exact millisecond bounds (which would
+  defeat the cache). The `data_time_ms <= 0` guard remains a low-priority
+  hardening candidate and has not been accepted as a Task A rework.
+
 ```text
-本地北京时间: 2026-07-10 15:44:08 CST
+本地北京时间: 2026-07-10 18:26:28 CST
 下一步模型: human
-下一步任务: 先处理用户自己的 follow-up 工作区改动并通过 pre-review，再将 Kimi review-1 PASTE BODY 粘贴到新鲜只读会话。
+下一步任务: 决定将 follow-up requirements 文件作为独立文档提交还是保留为本地改动；随后明确是否授权 Task B 给 Kimi。
 ```
