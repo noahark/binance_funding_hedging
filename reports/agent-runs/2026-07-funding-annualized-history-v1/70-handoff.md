@@ -129,6 +129,25 @@ and schema version, and add a delayed-body stale-response test. It was fixed in
   its fingerprint is
   `d21536aa8a221a065c4fbe2b7640e199addca7dc:378c060d86086d7d9a6c8eff94aad1e0998bdd014a255070eb1504fe3bca62a8`.
 
+## Review-1 Dispatch Plan
+
+The stage is now `review_1`, using task-scoped cross-review rather than an
+invalid whole-stage review by either implementation provider:
+
+1. Fresh Kimi session: review backend Task A with
+   `review-1-task-a-kimi.prompt.md`.
+2. Fresh Claude-GLM session: review frontend Task B with
+   `review-1-task-b-claude-glm.prompt.md`.
+3. Fresh Kimi session: review backend Task C with
+   `review-1-task-c-kimi.prompt.md`.
+4. Fresh Claude-GLM session: review frontend Task D with
+   `review-1-task-d-claude-glm.prompt.md`.
+
+Each prompt carries only its task's fixed committed range and strict JSON
+fingerprint. The human operator executes these PASTE BODY documents in fresh,
+read-only target sessions. Bookkeeper must record raw outputs and schema
+validation before review-2 preparation.
+
 ## Kimi Preflight Output
 
 The raw Kimi output is preserved in
@@ -177,7 +196,7 @@ before the application script and adding a static DOM-order assertion.
   cross-review scope, set the appropriate review state, and run `pre-review`.
 
 ```text
-本地北京时间: 2026-07-10 22:54:32 CST
-下一步模型: bookkeeper
-下一步任务: 为后端 A/C 和前端 B/D 准备 task-level review-1 packets，再运行 pre-review。
+本地北京时间: 2026-07-10 22:57:52 CST
+下一步模型: human / Kimi / Claude-GLM
+下一步任务: 在 fresh read-only 会话执行四份 task-scoped review-1 PASTE BODY，并保留原始输出。
 ```

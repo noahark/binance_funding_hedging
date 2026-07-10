@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-funding-annualized-history-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-funding-annualized-history-v1",
@@ -122,6 +122,16 @@
   "reviewer_1": null,
   "reviewer_2": null,
   "r10_checklists": {},
+  "review_1_plan": {
+    "mode": "task_scoped_cross_review",
+    "reason": "The stage has backend tasks A/C authored by Claude-GLM and frontend tasks B/D authored by Kimi. Each formal review-1 packet is constrained to a task whose author has a different provider identity from its reviewer.",
+    "packets": [
+      "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-a-kimi.prompt.md",
+      "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.prompt.md",
+      "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-c-kimi.prompt.md",
+      "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-d-claude-glm.prompt.md"
+    ]
+  },
   "tasks": [
     {
       "id": "backend-contract-and-history",
@@ -178,6 +188,7 @@
       "prompt_path": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-frontend-kimi.prompt.md",
       "depends_on": "backend-contract-and-history",
       "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-frontend.md",
+      "review_1_dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.prompt.md",
       "r10_checklist": null,
       "base_sha": "744ce5f0b9445a891c1322bcb34e06ce94c83446",
       "head_sha": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d",
@@ -212,6 +223,7 @@
       "prompt_path": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-history-endpoint-claude-glm.prompt.md",
       "depends_on": "frontend-table-and-drawer",
       "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend-history-fix.md",
+      "review_1_dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-c-kimi.prompt.md",
       "r10_checklist": null,
       "base_sha": "5a5b9f6a6d6af744e86061278461ab91356177a4",
       "head_sha": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e",
@@ -250,6 +262,7 @@
       "prompt_path": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-drawer-history-refinement-kimi.prompt.md",
       "depends_on": "selected-symbol-history-endpoint",
       "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-frontend-history-fix.md",
+      "review_1_dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-d-claude-glm.prompt.md",
       "r10_checklist": null,
       "base_sha": "7480fdbffd13901e9a034b70dec237ac43c080f8",
       "head_sha": "d21536aa8a221a065c4fbe2b7640e199addca7dc",
@@ -434,13 +447,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "Formal review is pending task-level review-1 packet preparation for the committed backend tasks (A/C) and frontend tasks (B/D)."
+    "Formal review-1 verdicts are pending human execution of the four prepared task-scoped cross-review packets."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "bookkeeper_prepare_task_level_review_1_packets",
-  "updated_at": "2026-07-10T14:54:32Z"
+  "next_action": "human_dispatch_task_scoped_review_1_packets",
+  "updated_at": "2026-07-10T22:57:52Z"
 }
