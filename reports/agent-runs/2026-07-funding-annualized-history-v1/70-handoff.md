@@ -148,6 +148,11 @@ fingerprint. The human operator executes these PASTE BODY documents in fresh,
 read-only target sessions. Bookkeeper must record raw outputs and schema
 validation before review-2 preparation.
 
+`python3 scripts/validate-stage.py 2026-07-funding-annualized-history-v1
+--phase pre-review` passed on committed review-plan state `86d2c30`. The output
+is preserved in `60-test-output.txt`; this pass permits formal review-1
+dispatches but does not itself constitute a review verdict.
+
 ## Kimi Preflight Output
 
 The raw Kimi output is preserved in
@@ -196,7 +201,7 @@ before the application script and adding a static DOM-order assertion.
   cross-review scope, set the appropriate review state, and run `pre-review`.
 
 ```text
-本地北京时间: 2026-07-10 22:57:52 CST
+本地北京时间: 2026-07-10 22:58:37 CST
 下一步模型: human / Kimi / Claude-GLM
 下一步任务: 在 fresh read-only 会话执行四份 task-scoped review-1 PASTE BODY，并保留原始输出。
 ```

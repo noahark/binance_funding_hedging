@@ -152,3 +152,11 @@ Offline same-origin smoke on temporary port 8792:
 - `GET /api/public-market/funding-history?symbol=ZKPUSDT` -> HTTP 200,
   schema_version=public-market-funding-history/v1, history_status=empty.
 - Server stopped after verification.
+
+2026-07-10 22:58:37 CST
+$ python3 scripts/validate-stage.py 2026-07-funding-annualized-history-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-funding-annualized-history-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=d21536aa8a221a065c4fbe2b7640e199addca7dc:378c060d86086d7d9a6c8eff94aad1e0998bdd014a255070eb1504fe3bca62a8

@@ -408,6 +408,13 @@
       "offline same-origin stage smoke on temporary port 8792 -> route column absent, 620px Drawer CSS and 3-card grid present, selected-history endpoint 200"
     ]
   },
+  "pre_review_validation": {
+    "command": "python3 scripts/validate-stage.py 2026-07-funding-annualized-history-v1 --phase pre-review",
+    "passed": true,
+    "run_at": "2026-07-10T22:58:37Z",
+    "prepared_commit": "86d2c30",
+    "evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt"
+  },
   "review_1": {
     "reviewer": null,
     "provider": null,
@@ -455,5 +462,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_dispatch_task_scoped_review_1_packets",
-  "updated_at": "2026-07-10T22:57:52Z"
+  "updated_at": "2026-07-10T22:58:37Z"
 }
