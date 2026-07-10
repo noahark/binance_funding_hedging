@@ -21,6 +21,22 @@ reviewers must read both reports and the committed diff.
 - Scope: annualized table columns, selectable rows, right-side settled-history
   drawer, fixture/self-check updates, and the DOM-order startup fix.
 
+## Task C: Selected-Symbol History Endpoint (Planned)
+
+- Owner: Claude-GLM (`glm-5.2`, provider identity `zhipu_glm`)
+- Dispatch artifact: `task-history-endpoint-claude-glm.prompt.md`
+- Planned raw report: `20-implementation-backend-history-fix.md`
+- Scope: same-origin public endpoint, selected-symbol cache reuse, explicit
+  empty versus unavailable semantics, response schema, and backend tests.
+
+## Task D: Drawer History And Table Refinement (Planned)
+
+- Owner: Kimi (`kimi-code/kimi-for-coding`, provider identity `moonshot_kimi`)
+- Dispatch artifact: `task-drawer-history-refinement-kimi.prompt.md`
+- Planned raw report: `20-implementation-frontend-history-fix.md`
+- Scope: on-demand endpoint consumption, retry/error states, removal of the
+  default route-class column, and wider non-wrapping Drawer cards.
+
 ## Shared Verification
 
 See `60-test-output.txt` for exact command evidence. The stage remains in

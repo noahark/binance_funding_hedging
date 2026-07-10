@@ -51,6 +51,25 @@
    passing.
 5. No merge, canonical-doc promotion, or push is authorized.
 
+## Review-Feedback Fix Package
+
+Live acceptance found that the original global top-N preload made a selected
+non-top-N row look as though it had no settled history. For example, TSTUSDT
+and REUSDT were not in the live `abs(lastFundingRate)` top-20 set, so no deep
+history request had occurred. The previous Drawer message incorrectly grouped
+that state with a true empty window and an upstream failure.
+
+The stage now has a planned serial amendment:
+
+1. Task C, Claude-GLM: add a same-origin selected-symbol public history
+   endpoint with cache reuse and explicit 400/404/502 semantics.
+2. Task D, Kimi: consume that endpoint in the Drawer, distinguish loading /
+   empty / retryable failure, remove the default route-class column, and widen
+   the Drawer to 620px desktop width.
+
+No code has been dispatched or changed for this amendment. Formal review is
+deferred until both bounded tasks are committed and the stage range is rebound.
+
 ## Kimi Preflight Output
 
 The raw Kimi output is preserved in
@@ -99,7 +118,7 @@ before the application script and adding a static DOM-order assertion.
   cross-review scope, set the appropriate review state, and run `pre-review`.
 
 ```text
-本地北京时间: 2026-07-10 19:49:18 CST
-下一步模型: bookkeeper
-下一步任务: 准备正式交叉评审范围，设置评审状态后运行 pre-review 验证。
+本地北京时间: 2026-07-10 20:17:06 CST
+下一步模型: human / Claude-GLM
+下一步任务: 人工授权后先把 Task C PASTE BODY 交给 Claude-GLM；Task D Kimi 派发必须等待 Task C 提交。
 ```

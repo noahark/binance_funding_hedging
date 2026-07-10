@@ -23,6 +23,9 @@ and settled funding: 24h is estimate-derived; 7D and 30D are settled-only.
   `GET /api/public-market/snapshot` and `public-market-snapshot/v1`.
 - No global sort-basis change, full-universe deep-history polling, websocket,
   chart, or frontend-to-Binance request.
+- No full-universe prefetch for the Drawer follow-up. A selected symbol may use
+  only the same-origin backend endpoint defined in
+  `13-review-feedback-fix.md`.
 - No canonical-document promotion in the implementation tasks. Promotion is
   considered only after review and explicit user approval.
 - No Harness, workflow, registry, adapter, or unrelated cleanup changes.
@@ -49,6 +52,25 @@ Task B, frontend presentation and drawer UX, may modify:
 - `frontend/self-check.js`
 - `frontend/fixture/public-market-snapshot.json`
 - `reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-frontend.md`
+
+Task C, selected-symbol settled-history endpoint, may modify:
+
+- `backend/app/server.py`
+- `backend/services/snapshot_service.py`
+- `backend/domain/snapshot.py` only if a pure existing-history helper must be
+  extracted rather than duplicated
+- `backend/tests/test_funding_history.py`
+- `backend/tests/test_funding_history_endpoint.py` (new)
+- `backend/tests/smoke_server.py`
+- `schemas/api/public-market/funding-history.schema.json` (new)
+- `reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend-history-fix.md`
+
+Task D, history drawer refinement, may modify:
+
+- `frontend/index.html`
+- `frontend/self-check.js`
+- `frontend/fixture/public-market-snapshot.json`
+- `reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-frontend-history-fix.md`
 
 Forbidden or out-of-scope for both tasks:
 
@@ -87,10 +109,28 @@ Forbidden or out-of-scope for both tasks:
    symbol remains in the snapshot.
 7. Backend tests, frontend self-check, schema validation, and `git diff --check`
    pass before formal review.
+8. `GET /api/public-market/funding-history?symbol=<eligible-USDT-perpetual>` is
+   a same-origin, public read-only endpoint. It reuses the per-symbol 30-minute
+   successful-result cache and the snapshot's time boundary; it never causes a
+   full-universe prefetch or a browser-to-Binance request. Its success response
+   distinguishes an empty settled window from upstream failure; invalid symbols
+   and unavailable upstream history use deterministic 4xx/5xx responses.
+9. Opening a drawer for a row with no preloaded history requests that endpoint
+   once, renders a loading state, and replaces the drawer's settled history and
+   7D/30D values on success. An empty successful response says there are no
+   records; an unavailable response says the history request failed and offers
+   retry. It must not claim that an unrequested non-top-N symbol has no history.
+10. The default table no longer displays a `route_class` column. The field and
+    existing route filter remain available, while `negative_funding_status`
+    stays visible as the operator-facing negative-funding decision state.
+11. The right Drawer is at least 620px wide on desktop (or full viewport width
+    on a narrower device); its three annualized cards do not wrap their labels.
 
 ## Human Gates
 
 - Human approval of this package is required before implementation dispatch.
+- The review-feedback fix package also requires explicit human dispatch
+  approval. Task C must commit before Task D is sent to Kimi.
 - User acceptance remains required after review-2 before merge or canonical-doc
   promotion.
 

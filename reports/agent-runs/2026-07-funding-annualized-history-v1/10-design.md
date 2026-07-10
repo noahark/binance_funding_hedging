@@ -114,6 +114,77 @@ its canonical promotion is a post-review, user-approved activity. The stage
 handoff must call out the affected canonical path and the raw evidence used for
 that future promotion.
 
+### D6. Selected-symbol history endpoint (review-feedback amendment)
+
+The initial top-N preload remains in place: it is a bounded summary enrichment,
+not a guarantee that every table row has 30-day settled data. To make a Drawer
+selection actionable without polling the full universe, add this same-origin,
+public read-only endpoint:
+
+```text
+GET /api/public-market/funding-history?symbol=<eligible-USDT-perpetual>
+```
+
+The service must first resolve the symbol against the current snapshot's
+eligible row set and use that snapshot's `data_time` as the settled-window end.
+It then calls the existing per-symbol history fetcher, reusing its successful
+1,800-second in-memory cache. It must not use a browser request to Binance,
+private credentials, a database, a new global poll, or an arbitrary client
+time boundary.
+
+The successful response validates against a new
+`schemas/api/public-market/funding-history.schema.json` contract:
+
+```json
+{
+  "schema_version": "public-market-funding-history/v1",
+  "symbol": "TSTUSDT",
+  "data_time": "2026-07-10T12:00:00Z",
+  "history_status": "available",
+  "funding_history": [
+    {"funding_time": 1783689600000, "funding_rate": "-0.00010000"}
+  ],
+  "annualized_funding_7d": "-0.00521429",
+  "annualized_funding_30d": "-0.00121667"
+}
+```
+
+`history_status` is `available` when at least one in-window settled record
+exists and `empty` when the fetch succeeds but the inclusive 30-day window has
+none. The endpoint returns HTTP 400 for a missing/malformed symbol, HTTP 404
+for a syntactically valid symbol not present in the current eligible snapshot,
+and HTTP 502 with `error: "funding_history_unavailable"` when the public
+upstream call fails. Failed results are not cached. The existing snapshot route
+continues to degrade its top-N failures into row warnings; this endpoint makes
+the selected-row failure explicit instead of pretending it is an empty window.
+
+The endpoint response uses the existing settled-history filtering, newest-first
+ordering, and Decimal calendar-window helpers. It does not recompute or return
+the 24h estimate, because the selected snapshot row remains authoritative for
+that current-period value.
+
+### D7. Table and Drawer refinement (review-feedback amendment)
+
+`route_class` remains in the snapshot wire contract and route filter, but its
+default table column is removed. It is a structural classifier; the visible
+`negative_funding_status` is the operator-facing decision outcome and avoids
+duplicating disabled/validation context in two adjacent columns. The removal
+must update blocked-table `colspan` and all self-check column indexes.
+
+The Drawer width becomes `min(620px, 100vw)`. Its three-card grid uses
+`repeat(3, minmax(0, 1fr))`, and card labels do not wrap. On a narrow viewport
+the Drawer uses the full viewport rather than horizontal overflow.
+
+When a selected row has preloaded history, the Drawer renders it immediately.
+When it has none, the Drawer shows a loading state and requests the endpoint.
+Only the response for the still-selected symbol may update the UI; stale
+responses after a second row click must be ignored. Success merges the returned
+settled fields into the selected row and refreshes the table so its 7D/30D
+cells agree with the Drawer. `empty` and HTTP 502 are distinct, accessible
+states; the latter exposes a retry action. Refresh may replace a previously
+enriched row with the current snapshot data, in which case opening its Drawer
+again may use the endpoint/cache again.
+
 ## Task Breakdown
 
 - Task A: Claude-GLM owns adapter request shape, history cache, Decimal

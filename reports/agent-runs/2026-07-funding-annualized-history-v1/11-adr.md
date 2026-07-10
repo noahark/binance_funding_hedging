@@ -20,8 +20,10 @@
 - Rationale: the public `fundingRate` and `fundingInfo` endpoints share an IP
   budget. Polling the full universe every snapshot would breach the product's
   rate-budget constraint.
-- Consequence: non-top-N rows retain 24h annualization but return empty
-  history and `null` 7D/30D values until selected for enrichment.
+- Consequence: non-top-N rows retain 24h annualization and initially have
+  empty history / `null` 7D/30D values. The review-feedback amendment adds
+  selected-symbol enrichment through the same bounded cache, not full-universe
+  polling.
 
 ## ADR-3: Additive Contract Now, Canonical Documentation Later
 
@@ -37,6 +39,23 @@
   guarantee is covered by Task A tests. `70-handoff.md` must name
   `docs/api/public-market-contract.md` and the raw sample path as a
   post-acceptance documentation obligation.
+
+## ADR-4: Drawer Selection Uses A Same-Origin History Contract
+
+- Status: proposed review-feedback amendment
+- Decision: a Drawer selection whose snapshot row has no preloaded settled
+  history calls a same-origin public endpoint for that single eligible symbol.
+  It reuses the existing 30-minute successful-result cache and snapshot time
+  boundary. Success distinguishes `available` from `empty`; upstream failure
+  is an explicit HTTP 502 rather than an empty list.
+- Rationale: top-N preload protects the shared public rate budget, but a blank
+  Drawer for TST/RE means “not queried” rather than “no history.” A per-symbol
+  request keeps the bounded policy while allowing the operator to inspect the
+  row they selected.
+- Consequence: this is a new API contract and needs a machine schema, server
+  route tests, and post-review canonical API documentation promotion. It does
+  not introduce a client-to-Binance path, private data, persistence, or a
+  full-market background fetch.
 
 ```text
 本地北京时间: 2026-07-10 13:13:36 CST
