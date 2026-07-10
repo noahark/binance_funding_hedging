@@ -5,10 +5,13 @@ bounded frontend task in the repository. Do not start another model terminal,
 do not return a `-p` launch command, and do not delegate the task. Do not
 commit; the bookkeeper owns commits and stage state.
 
-Do not start until the bookkeeper supplies the committed Task C range and
-confirms that `GET /api/public-market/funding-history?symbol=...` plus
-`schemas/api/public-market/funding-history.schema.json` exist. If that
-dependency is absent, record it as a blocker and make no code change.
+Task C is committed as
+`5a5b9f6a6d6af744e86061278461ab91356177a4..c2bb368d8235f8a8d69d8ebb19810a9c7657b41e`
+with fingerprint
+`c2bb368d8235f8a8d69d8ebb19810a9c7657b41e:5ade324bb23600f51a75c97d48090660e124e75ef1ea6329c48a32ce4094c919`.
+The committed contract is `GET /api/public-market/funding-history?symbol=...`
+and `schemas/api/public-market/funding-history.schema.json`. If this range or
+schema is absent in your checkout, record a blocker and make no code change.
 
 Before editing, read `AGENTS.md` and:
 

@@ -67,8 +67,29 @@ The stage now has a planned serial amendment:
    empty / retryable failure, remove the default route-class column, and widen
    the Drawer to 620px desktop width.
 
-No code has been dispatched or changed for this amendment. Formal review is
-deferred until both bounded tasks are committed and the stage range is rebound.
+Task C is now committed; Task D remains the only implementation task before
+formal review.
+
+## Task C Checkpoint
+
+- Task C committed range:
+  `5a5b9f6a6d6af744e86061278461ab91356177a4..c2bb368d8235f8a8d69d8ebb19810a9c7657b41e`
+- Task C diff fingerprint:
+  `c2bb368d8235f8a8d69d8ebb19810a9c7657b41e:5ade324bb23600f51a75c97d48090660e124e75ef1ea6329c48a32ce4094c919`
+- Added same-origin `GET /api/public-market/funding-history?symbol=...` and
+  its machine schema. HTTP 200 distinguishes `available` from `empty`; HTTP
+  400, 404, and 502 expose invalid, unknown, and upstream-unavailable cases.
+- Independent evidence: 244 backend tests passed; offline HTTP route checks on
+  temporary port 8790 returned 200/400/404; a no-credential live-public check
+  on temporary port 8791 returned 179 SKLUSDT settled records with the 7D/30D
+  values and no 24h estimate field.
+- The primary worktree was concurrently switched to the auto-review document
+  branch by another terminal. Task C was therefore first committed there as
+  `d0734da`, then non-destructively cherry-picked to this stage as `c2bb368` in
+  a temporary stage worktree. The auto-review branch and its untracked artifact
+  were not modified.
+- Task D Kimi PASTE BODY now contains the committed Task C range. Do not start
+  formal review until Task D is committed and the combined range is rebound.
 
 ## Kimi Preflight Output
 
@@ -118,7 +139,7 @@ before the application script and adding a static DOM-order assertion.
   cross-review scope, set the appropriate review state, and run `pre-review`.
 
 ```text
-本地北京时间: 2026-07-10 20:17:06 CST
-下一步模型: human / Claude-GLM
-下一步任务: 人工授权后先把 Task C PASTE BODY 交给 Claude-GLM；Task D Kimi 派发必须等待 Task C 提交。
+本地北京时间: 2026-07-10 21:23:37 CST
+下一步模型: human / Kimi
+下一步任务: 将已绑定 Task C 范围的 Task D PASTE BODY 粘贴到 Kimi 交互执行会话。
 ```

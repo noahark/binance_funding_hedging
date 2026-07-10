@@ -104,6 +104,12 @@
       "model": "kimi-code/kimi-for-coding",
       "provider_identity": "moonshot_kimi",
       "task": "frontend-table-and-drawer"
+    },
+    {
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "task": "selected-symbol-history-endpoint"
     }
   ],
   "fix_authors": [],
@@ -201,10 +207,10 @@
       "depends_on": "frontend-table-and-drawer",
       "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend-history-fix.md",
       "r10_checklist": null,
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "test_evidence": null,
+      "base_sha": "5a5b9f6a6d6af744e86061278461ab91356177a4",
+      "head_sha": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e",
+      "diff_fingerprint": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e:5ade324bb23600f51a75c97d48090660e124e75ef1ea6329c48a32ce4094c919",
+      "test_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt",
       "changed_files": [
         "backend/app/server.py",
         "backend/services/snapshot_service.py",
@@ -282,9 +288,10 @@
     "note": "Not required: direction panel is skipped under the recorded MEDIUM user-approved route."
   },
   "base_sha": "7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1",
-  "head_sha": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d",
-  "diff_fingerprint": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d:379bbdac9bf58a9097a90051d4c9798ad24d9e9182466b07b7eaa9711e8c57d8",
+  "head_sha": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e",
+  "diff_fingerprint": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e:34c2c18f9685d6ab52564249b41d8b1b90eb4b60b3e97ac58ddfd9cbe7c21983",
   "changed_files": [
+    "backend/app/server.py",
     "backend/adapters/binance_public.py",
     "backend/config.py",
     "backend/domain/snapshot.py",
@@ -292,12 +299,15 @@
     "backend/tests/fixtures/funding-history/**",
     "backend/tests/test_config.py",
     "backend/tests/test_funding_history.py",
+    "backend/tests/test_funding_history_endpoint.py",
+    "backend/tests/smoke_server.py",
     "frontend/fixture/public-market-snapshot.json",
     "frontend/index.html",
     "frontend/self-check.js",
     "reports/api-samples/2026-07-funding-annualized-history-v1/**",
     "reports/agent-runs/2026-07-funding-annualized-history-v1/**",
-    "schemas/api/public-market/snapshot.schema.json"
+    "schemas/api/public-market/snapshot.schema.json",
+    "schemas/api/public-market/funding-history.schema.json"
   ],
   "planning_checkpoint": {
     "package_commit": "bf0e5f0",
@@ -319,7 +329,9 @@
     "task_a_dispatch_authorized_at": "2026-07-10T05:45:20Z",
     "task_b_dispatch_authorized_at": "2026-07-10T10:31:09Z",
     "review_feedback_fix_package_prepared_at": "2026-07-10T12:17:06Z",
-    "review_feedback_fix_dispatch_authorized": false
+    "review_feedback_fix_dispatch_authorized": true,
+    "task_c_execution_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend-history-fix.md",
+    "task_c_committed_at": "2026-07-10T13:22:21Z"
   },
   "contract_decision": {
     "recorded_at": "2026-07-10T07:24:47Z",
@@ -355,10 +367,13 @@
   "tests": {
     "status": "passed",
     "commands": [
-      "python3 -m pytest backend/tests -q -> 226 passed in 5.34s",
+      "python3 -m pytest backend/tests -q -> 244 passed in 5.73s after Task C",
       "python3 -m json.tool schemas/api/public-market/snapshot.schema.json >/dev/null -> PASS",
+      "python3 -m json.tool schemas/api/public-market/funding-history.schema.json >/dev/null -> PASS",
       "git diff --check -> PASS",
-      "node frontend/self-check.js -> PASS, including drawer DOM-order and interaction coverage"
+      "node frontend/self-check.js -> PASS before Task C; Task D is not started",
+      "offline HTTP endpoint smoke on temporary port 8790 -> valid symbol 200, missing symbol 400, unknown symbol 404",
+      "no-credential live-public endpoint smoke on temporary port 8791 -> SKLUSDT 200, history_status=available, 179 records, no annualized_funding_24h field"
     ]
   },
   "review_1": {
@@ -400,13 +415,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "Formal review is deferred until the user authorizes and the bookkeeper commits Task C (selected-symbol history endpoint) and Task D (Drawer/history refinement)."
+    "Formal review is deferred until the user dispatches and the bookkeeper commits Task D (Drawer/history refinement)."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_authorize_task_c_claude_glm_then_bookkeeper_commit_before_task_d_kimi",
-  "updated_at": "2026-07-10T12:17:06Z"
+  "next_action": "human_paste_task_d_kimi_after_task_c_commit",
+  "updated_at": "2026-07-10T13:23:37Z"
 }

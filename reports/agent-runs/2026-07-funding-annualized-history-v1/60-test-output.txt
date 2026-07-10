@@ -100,3 +100,24 @@ clean.
 2026-07-10 20:17:06 CST
 - Review-feedback fix package prepared only; no business code or test command
   ran for Task C/D at this checkpoint.
+
+2026-07-10 21:23:37 CST
+$ python3 -m pytest backend/tests -q
+244 passed in 5.73s
+$ python3 -m json.tool schemas/api/public-market/funding-history.schema.json >/dev/null
+PASS
+$ git diff --check
+PASS
+Offline HTTP endpoint smoke on temporary port 8790:
+- valid selected symbol -> 200, schema-valid, history_status=empty
+- missing symbol -> 400 {"error":"invalid_symbol"}
+- unknown symbol -> 404 {"error":"symbol_not_found"}
+No-credential live-public endpoint smoke on temporary port 8791:
+- SKLUSDT -> 200, schema_version=public-market-funding-history/v1,
+  history_status=available, history_count=179,
+  annualized_funding_7d=-1.64235296,
+  annualized_funding_30d=-0.30751323, no annualized_funding_24h field.
+Task C committed range:
+`5a5b9f6a6d6af744e86061278461ab91356177a4..c2bb368d8235f8a8d69d8ebb19810a9c7657b41e`
+Task C diff fingerprint:
+`c2bb368d8235f8a8d69d8ebb19810a9c7657b41e:5ade324bb23600f51a75c97d48090660e124e75ef1ea6329c48a32ce4094c919`

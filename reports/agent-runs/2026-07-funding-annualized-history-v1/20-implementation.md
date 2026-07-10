@@ -21,11 +21,11 @@ reviewers must read both reports and the committed diff.
 - Scope: annualized table columns, selectable rows, right-side settled-history
   drawer, fixture/self-check updates, and the DOM-order startup fix.
 
-## Task C: Selected-Symbol History Endpoint (Planned)
+## Task C: Selected-Symbol History Endpoint
 
 - Owner: Claude-GLM (`glm-5.2`, provider identity `zhipu_glm`)
-- Dispatch artifact: `task-history-endpoint-claude-glm.prompt.md`
-- Planned raw report: `20-implementation-backend-history-fix.md`
+- Raw report: `20-implementation-backend-history-fix.md`
+- Bounded delivery commit: `c2bb368`
 - Scope: same-origin public endpoint, selected-symbol cache reuse, explicit
   empty versus unavailable semantics, response schema, and backend tests.
 
