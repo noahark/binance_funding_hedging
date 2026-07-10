@@ -74,3 +74,13 @@ PASS: offline server started at http://127.0.0.1:8788 and was stopped after
 verification. `/api/public-market/snapshot` returned current annualized fields;
 `/` contained the annualized columns and drawer DOM before the application
 script.
+
+2026-07-10 19:41:35 CST
+Task B committed range:
+`744ce5f0b9445a891c1322bcb34e06ce94c83446..f9f86bb6bcc2040844ad55f4f85937e85d393e5d`
+Task B diff fingerprint:
+`f9f86bb6bcc2040844ad55f4f85937e85d393e5d:a3284786251694a44d2e3c9b6161f532dded1e1161ffa939bcd98fb84c446826`
+Combined stage range:
+`7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1..f9f86bb6bcc2040844ad55f4f85937e85d393e5d`
+Combined stage diff fingerprint:
+`f9f86bb6bcc2040844ad55f4f85937e85d393e5d:379bbdac9bf58a9097a90051d4c9798ad24d9e9182466b07b7eaa9711e8c57d8`

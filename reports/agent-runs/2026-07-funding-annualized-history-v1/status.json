@@ -82,6 +82,12 @@
       "model": "glm-5.2",
       "provider_identity": "zhipu_glm",
       "task": "backend-contract-and-history"
+    },
+    {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "task": "frontend-table-and-drawer"
     }
   ],
   "fix_authors": [],
@@ -143,11 +149,17 @@
       },
       "prompt_path": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-frontend-kimi.prompt.md",
       "depends_on": "backend-contract-and-history",
+      "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-frontend.md",
       "r10_checklist": null,
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "test_evidence": null,
+      "base_sha": "744ce5f0b9445a891c1322bcb34e06ce94c83446",
+      "head_sha": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d",
+      "diff_fingerprint": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d:a3284786251694a44d2e3c9b6161f532dded1e1161ffa939bcd98fb84c446826",
+      "test_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt",
+      "changed_files": [
+        "frontend/fixture/public-market-snapshot.json",
+        "frontend/index.html",
+        "frontend/self-check.js"
+      ],
       "review_1": {
         "reviewer": null,
         "provider": "claude_glm",
@@ -181,20 +193,23 @@
     "user_approved": false,
     "note": "Not required: direction panel is skipped under the recorded MEDIUM user-approved route."
   },
-  "base_sha": null,
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "base_sha": "7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1",
+  "head_sha": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d",
+  "diff_fingerprint": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d:379bbdac9bf58a9097a90051d4c9798ad24d9e9182466b07b7eaa9711e8c57d8",
   "changed_files": [
-    "reports/agent-runs/2026-07-funding-annualized-history-v1/00-intake.md",
-    "reports/agent-runs/2026-07-funding-annualized-history-v1/00-task.md",
-    "reports/agent-runs/2026-07-funding-annualized-history-v1/10-design.md",
-    "reports/agent-runs/2026-07-funding-annualized-history-v1/11-adr.md",
-    "reports/agent-runs/2026-07-funding-annualized-history-v1/12-development-breakdown.md",
-    "reports/agent-runs/2026-07-funding-annualized-history-v1/task-backend-claude-glm.prompt.md",
-    "reports/agent-runs/2026-07-funding-annualized-history-v1/task-frontend-kimi.prompt.md",
-    "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt",
-    "reports/agent-runs/2026-07-funding-annualized-history-v1/70-handoff.md",
-    "reports/agent-runs/2026-07-funding-annualized-history-v1/status.json"
+    "backend/adapters/binance_public.py",
+    "backend/config.py",
+    "backend/domain/snapshot.py",
+    "backend/services/snapshot_service.py",
+    "backend/tests/fixtures/funding-history/**",
+    "backend/tests/test_config.py",
+    "backend/tests/test_funding_history.py",
+    "frontend/fixture/public-market-snapshot.json",
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "reports/api-samples/2026-07-funding-annualized-history-v1/**",
+    "reports/agent-runs/2026-07-funding-annualized-history-v1/**",
+    "schemas/api/public-market/snapshot.schema.json"
   ],
   "planning_checkpoint": {
     "package_commit": "bf0e5f0",
@@ -227,16 +242,17 @@
       "disposition": "non_accepting_preflight_blocked",
       "formal_review_1": false,
       "diff_fingerprint": "2e27efcbed960206b43c25054bf6105224942439:85c780708fe546a32f6ef2120841c0176aab313adf81f6d82da82e48fdfdddfb",
-      "notes": "The reviewer correctly found the pre-review gate blocked. Its recommendation to change the whole stage to review_1 is deferred because Task B has not yet been implemented."
+      "notes": "The reviewer correctly found the pre-review gate blocked. Its recommendation to change the whole stage to review_1 was deferred at the time because Task B had not been implemented; Task B is now committed, but this output remains non-accepting because pre-review never passed."
     }
   },
   "task_b_preflight_findings": [
     {
       "severity": "P0",
       "title": "Drawer markup follows the application script",
-      "evidence": "frontend/index.html has the main <script> at line 784, calls bindEvents() at line 1719, and only declares #drawer-backdrop/#drawer at lines 1725-1726. The real browser therefore sees null drawer elements during initialization.",
+      "evidence": "Pre-fix static inspection found drawer markup after the main application script. The bounded fix moved #drawer-backdrop and #drawer before that script and added a static self-check assertion.",
       "fix_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-drawer-dom-order-fix-kimi.prompt.md",
-      "disposition": "scope_contained_fix_pending_human_dispatch"
+      "disposition": "fixed_in_f9f86bb6bcc2040844ad55f4f85937e85d393e5d",
+      "verification": "node frontend/self-check.js passes, including the static drawer-before-script assertion and existing drawer interaction checks."
     }
   ],
   "tests": {
@@ -245,7 +261,7 @@
       "python3 -m pytest backend/tests -q -> 226 passed in 5.34s",
       "python3 -m json.tool schemas/api/public-market/snapshot.schema.json >/dev/null -> PASS",
       "git diff --check -> PASS",
-      "node frontend/self-check.js -> not run; Task B has not started"
+      "node frontend/self-check.js -> PASS, including drawer DOM-order and interaction coverage"
     ]
   },
   "review_1": {
@@ -287,13 +303,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "Formal pre-review is blocked until the user-owned reports/follow-ups/ worktree changes are committed, stashed, or otherwise resolved; those files are outside this stage."
+    "Formal pre-review is blocked until user-owned worktree changes are resolved: reports/follow-ups/README.md; reports/follow-ups/2026-07-auto-review-pipeline-design-note.md; reports/follow-ups/2026-07-auto-review-pipeline-review-fable5.md; reports/follow-ups/2026-07-funding-annualized-history-drawer.md; reports/agent-runs/2026-07-auto-review-pipeline-design-review/."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_paste_task_b_drawer_dom_order_fix_into_kimi_interactive_executor",
-  "updated_at": "2026-07-10T11:26:02Z"
+  "next_action": "human_resolve_user_worktree_then_bookkeeper_run_pre_review",
+  "updated_at": "2026-07-10T11:41:35Z"
 }

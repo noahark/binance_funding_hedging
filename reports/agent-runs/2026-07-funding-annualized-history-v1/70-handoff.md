@@ -43,17 +43,12 @@
 2. Task A test evidence: `226 passed`; schema JSON and `git diff --check` pass.
    Option 3 is frozen: schema properties remain optional for v0.1 replay, while
    current service output always carries all three fields.
-3. User authorized Task B on 2026-07-10 18:31:09 CST. The human operator may
-   paste `task-frontend-kimi.prompt.md` into the existing interactive Kimi
-   executor session; the bookkeeper does not run a model-dispatch command.
-4. The current worktree contains user-owned changes in `reports/follow-ups/`.
-   They are not part of Task A, but they prevent a formal `pre-review`
-   clean-worktree validation until the user resolves them. No review verdict is
-   claimed or prepared as passing.
-5. `review-1-task-a-kimi.prompt.md` is prepared for a fresh, read-only Kimi
-   session. Do not paste it as a formal review dispatch until the pre-review
-   gate passes.
-6. No merge, canonical-doc promotion, or push is authorized.
+3. Task B is committed as `f9f86bb` and the Drawer DOM-order P0 is resolved;
+   the detailed checkpoint is below.
+4. The current worktree contains user-owned changes outside this stage. They
+   prevent a formal `pre-review` clean-worktree validation until the user
+   resolves them. No formal review verdict is claimed or prepared as passing.
+5. No merge, canonical-doc promotion, or push is authorized.
 
 ## Kimi Preflight Output
 
@@ -64,9 +59,9 @@ review-1 verdict because the packet's preflight had not passed.
 - P0 is valid: the user-owned `reports/follow-ups/` worktree changes prevent a
   clean-worktree pre-review check.
 - The recommendation to change the whole stage to `review_1` and set top-level
-  review range metadata is deferred. Task B remains unimplemented, so that
-  state transition would incorrectly present a partial stage as ready for its
-  formal gate.
+  review range metadata was deferred at the time because Task B was not
+  implemented. Task B is now committed, but this output remains non-accepting
+  because pre-review never passed.
 - The generic `20-implementation.md` validator artifact will be created as a
   concise index of the preserved task reports after Task B, rather than changing
   `validate-stage.py` or copying a Task A-only report under a misleading name.
@@ -78,15 +73,36 @@ review-1 verdict because the packet's preflight had not passed.
 
 ## Task B Blocking Fix
 
-Bookkeeper static inspection found that the drawer markup follows the main
-application script. That means `bindEvents()` dereferences `null` drawer
-elements in a real browser even though the self-check mock pre-creates them.
-This is a scope-contained Task B P0. The human operator must paste
-`task-b-drawer-dom-order-fix-kimi.prompt.md` into the existing Kimi executor
-session before Task B can be frozen.
+Bookkeeper static inspection found that the drawer markup followed the main
+application script. That made `bindEvents()` dereference `null` drawer elements
+in a real browser even though the self-check mock pre-created them. This
+scope-contained Task B P0 was fixed in `f9f86bb` by moving the drawer markup
+before the application script and adding a static DOM-order assertion.
+
+## Task B Checkpoint
+
+- Task B committed range:
+  `744ce5f0b9445a891c1322bcb34e06ce94c83446..f9f86bb6bcc2040844ad55f4f85937e85d393e5d`
+- Task B diff fingerprint:
+  `f9f86bb6bcc2040844ad55f4f85937e85d393e5d:a3284786251694a44d2e3c9b6161f532dded1e1161ffa939bcd98fb84c446826`
+- The combined stage range is
+  `7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1..f9f86bb6bcc2040844ad55f4f85937e85d393e5d`;
+  its fingerprint is
+  `f9f86bb6bcc2040844ad55f4f85937e85d393e5d:379bbdac9bf58a9097a90051d4c9798ad24d9e9182466b07b7eaa9711e8c57d8`.
+- `node frontend/self-check.js`, `python3 -m pytest backend/tests -q` (226
+  passed), schema JSON parsing, and `git diff --check` passed.
+- An offline server at port 8788 served the current annualized fields; the
+  homepage contained the annualized columns and drawer markup before the
+  application script. The server was stopped after verification.
+- Formal pre-review remains blocked by user-owned worktree changes:
+  `reports/follow-ups/README.md`,
+  `reports/follow-ups/2026-07-auto-review-pipeline-design-note.md`,
+  `reports/follow-ups/2026-07-auto-review-pipeline-review-fable5.md`,
+  `reports/follow-ups/2026-07-funding-annualized-history-drawer.md`, and
+  `reports/agent-runs/2026-07-auto-review-pipeline-design-review/`.
 
 ```text
-本地北京时间: 2026-07-10 19:26:02 CST
-下一步模型: Kimi
-下一步任务: 在现有交互执行会话粘贴 Task B Drawer DOM-order fix PASTE BODY，修复真实浏览器启动失败并重跑前端自检。
+本地北京时间: 2026-07-10 19:41:35 CST
+下一步模型: human / bookkeeper
+下一步任务: 先解决用户自有工作区改动；随后由 bookkeeper 运行 pre-review 验证并准备正式交叉评审。
 ```
