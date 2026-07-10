@@ -17,3 +17,7 @@ status=planned
 - Checkpoint updated after local planning-package commit bf0e5f0.
 - Not run: python3 -m pytest backend/tests -q
 - Not run: node frontend/self-check.js
+
+2026-07-10 13:49:43 CST
+- Task A package-only compatibility-boundary amendment prepared. Backend and
+  frontend tests remain not run because no business code has changed.

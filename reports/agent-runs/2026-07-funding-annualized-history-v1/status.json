@@ -182,6 +182,14 @@
     "approved_at": "2026-07-10T05:45:20Z",
     "scope": "User requested Task A code-execution body. Authorization is limited to human dispatch of the prepared Claude-GLM Task A prompt."
   },
+  "task_a_boundary_amendment": {
+    "recorded_at": "2026-07-10T05:49:43Z",
+    "allowed_compatibility_files": [
+      "backend/tests/test_negative_schema.py",
+      "backend/tests/test_private_account_v1.py"
+    ],
+    "restriction": "Only add the three annualized fields with null values to complete hand-authored rows that undergo schema validation. Existing assertions and private-channel semantics are not editable under this amendment."
+  },
   "tests": {
     "status": "not_run",
     "commands": [
@@ -235,5 +243,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_paste_task_a_into_claude_glm_interactive_executor",
-  "updated_at": "2026-07-10T05:45:20Z"
+  "updated_at": "2026-07-10T05:49:43Z"
 }

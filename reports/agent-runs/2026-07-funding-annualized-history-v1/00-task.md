@@ -39,6 +39,8 @@ Task A, backend contract and settled-history enrichment, may modify:
 - `backend/tests/test_snapshot.py`
 - `backend/tests/test_funding_history.py` (new)
 - `backend/tests/fixtures/funding-history/**` (new deterministic vectors)
+- `backend/tests/test_negative_schema.py` (compatibility rows only)
+- `backend/tests/test_private_account_v1.py` (compatibility rows only)
 - `schemas/api/public-market/snapshot.schema.json`
 - `reports/api-samples/2026-07-funding-annualized-history-v1/**`
 - `reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend.md`
@@ -60,6 +62,12 @@ Forbidden or out-of-scope for both tasks:
   credentials, `.env*`, and unrelated frontend/backend files.
 - `status.json`, `70-handoff.md`, review artifacts, and stage commits. The
   bookkeeper owns those records and commits.
+
+For the two compatibility test files, the only permitted change is adding
+`annualized_funding_24h`, `annualized_funding_7d`, and
+`annualized_funding_30d`, each with `null`, to complete hand-authored rows that
+are passed to snapshot schema validation. Do not relax, remove, or rewrite
+their existing assertions; do not change private-channel semantics.
 
 ## Acceptance Criteria
 

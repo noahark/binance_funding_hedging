@@ -59,6 +59,13 @@ for each annualized field. Update `backend/tests/test_config.py` for the TTL
 default/override/invalid input and `backend/tests/test_snapshot.py` only where
 the required output shape needs adjustment.
 
+You are also authorized to make the minimum compatibility updates in
+`backend/tests/test_negative_schema.py` and in complete hand-authored rows
+passed to schema validation in `backend/tests/test_private_account_v1.py`: add
+only `annualized_funding_24h`, `annualized_funding_7d`, and
+`annualized_funding_30d`, each set to `null`. Do not relax, remove, or rewrite
+existing assertions and do not alter private-channel behavior.
+
 Run:
 
 ```bash

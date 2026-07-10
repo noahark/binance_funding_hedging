@@ -135,6 +135,10 @@ that future promotion.
 - Configuration: `backend/tests/test_config.py` covers the new TTL default,
   environment override, and invalid integer rejection.
 - Contract: JSON Schema validation for every produced row and offline build.
+- Compatibility: `backend/tests/test_negative_schema.py` and the complete
+  schema-validated rows in `backend/tests/test_private_account_v1.py` receive
+  only the three `null` annualized defaults. Their existing assertions and all
+  private-channel semantics remain unchanged.
 - Frontend: fixture/self-check coverage for new required fields, column labels,
   null rendering, drawer open/close/Escape, list ordering, and refresh state.
 - Final commands: `python3 -m pytest backend/tests -q`,

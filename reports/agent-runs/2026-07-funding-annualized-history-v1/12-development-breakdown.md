@@ -40,7 +40,10 @@ Owner: Claude-GLM.
    `backend/tests/test_funding_history.py` for boundary, mixed interval,
    negative, empty, cache, top-N, degraded-fetch, ordering, and missing-field
    schema cases. Update `test_config.py` and `test_snapshot.py` where the new
-   configuration or required output fields affect existing coverage.
+   configuration or required output fields affect existing coverage. In
+   `test_negative_schema.py` and schema-validated hand-authored rows in
+   `test_private_account_v1.py`, add only the three `null` annualized defaults;
+   do not weaken their assertions or alter private-channel behavior.
 7. Run the backend test suite and record only the task report; do not commit or
    modify stage status/handoff/review records.
 
