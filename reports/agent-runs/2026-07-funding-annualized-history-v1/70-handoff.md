@@ -205,3 +205,43 @@ before the application script and adding a static DOM-order assertion.
 下一步模型: human / Kimi / Claude-GLM
 下一步任务: 在 fresh read-only 会话执行四份 task-scoped review-1 PASTE BODY，并保留原始输出。
 ```
+
+## Review-1 Results And Task B Fix Dispatch (bookkeeper handover)
+
+Bookkeeper handed over from the Codex/GPT session (quota-exhausted) to an unrelated
+`anthropic/claude-opus-4-8` session, which is also the review-2 primary. Dual-hat
+(reviewer + bookkeeper) is disclosed in `status.json.bookkeeper`; this session authored
+no task implementation/fix and none of the review-1 outputs.
+
+Four fresh, read-only, cross-provider task-scoped review-1 sessions returned:
+
+| Task | Owner | Reviewer | Verdict | Raw output |
+|---|---|---|---|---|
+| A backend-contract-and-history | Claude-GLM | Kimi | ACCEPT | `review-1-task-a-kimi.raw-output.md` |
+| B frontend-table-and-drawer | Kimi | Claude-GLM | **REWORK** | `review-1-task-b-claude-glm.rework.raw-output.md` |
+| C selected-symbol-history-endpoint | Claude-GLM | Kimi | ACCEPT | `review-1-task-c-kimi.raw-output.md` |
+| D drawer-history-and-table-refinement | Kimi | Claude-GLM | ACCEPT | `review-1-task-d-claude-glm.raw-output.md` |
+
+Independent review-2 audit (`review-2-claude-opus.raw-output.md`, verdict REWORK)
+recomputed all five diff fingerprints (combined + A/B/C/D → all MATCH), re-ran
+`node frontend/self-check.js` (passes only because #11 is dead) and `pytest`
+(244 passed), and confirmed Task A/D residual risks. It is NOT the final review-2 gate.
+
+Blocking item: Task B `frontend/self-check.js` test #11 (line 441) uses regex
+`/<th[^>]*>([^<]*)\/>th>/g` whose tail `/>th>` never matches `</th>`, so the AC5
+non-annualized-header label guard is a dead assertion that always passes. Product UI is
+correct; this is a test-integrity defect (P2).
+
+Stage state: `status=fixing`, `rework_count=1`. Next action is human dispatch of the
+bounded fix to **Kimi** (frontend owner of Task B) via
+`task-b-selfcheck-regex-fix-kimi.prompt.md` (scope strictly `frontend/self-check.js`;
+Kimi does not commit or touch `status.json`). After the fix lands on a new Task B range,
+re-review Task B (fresh Claude-GLM read-only) to ACCEPT, then run review-2 on the
+recomputed combined range. No merge, canonical-doc promotion, push, or acceptance is
+authorized.
+
+```text
+本地北京时间: 2026-07-10 23:59 CST
+下一步模型: human → Kimi（Task B 定界修复）
+下一步任务: 派发 task-b-selfcheck-regex-fix-kimi.prompt.md；Kimi 仅改 frontend/self-check.js 并回传 raw output + diff.patch，由 bookkeeper 落盘。
+```

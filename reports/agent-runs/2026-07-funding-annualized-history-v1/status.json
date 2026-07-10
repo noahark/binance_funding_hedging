@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-funding-annualized-history-v1",
-  "status": "review_1",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-funding-annualized-history-v1",
@@ -12,12 +12,13 @@
     "abandoned_reason": null
   },
   "bookkeeper": {
-    "id": "codex_current_session",
-    "provider": "openai",
-    "model": "Codex/GPT current session",
+    "id": "claude_opus_current_session",
+    "provider": "anthropic",
+    "model": "anthropic/claude-opus-4-8",
     "session_role": "bookkeeper",
     "also_implementer": false,
-    "dual_hat_disclosure": null
+    "dual_hat_disclosure": "Same session also performed the independent review-2 (final_reviewer) audit of the review-1 round; it authored no task implementation or fix, no direction/breakdown/design, and none of the four review-1 outputs. Took over bookkeeping+review-2 from the Codex/GPT session (quota-exhausted). Reviewer+bookkeeper is the sanctioned independent-reviewer role pattern for this repo (fable5-role).",
+    "handover_from": "codex_current_session"
   },
   "model_routing": {
     "task_a": {
@@ -118,7 +119,16 @@
       "task": "drawer-history-and-table-refinement"
     }
   ],
-  "fix_authors": [],
+  "fix_authors": [
+    {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "task": "frontend-table-and-drawer",
+      "fix": "self-check-11-regex",
+      "dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.prompt.md"
+    }
+  ],
   "reviewer_1": null,
   "reviewer_2": null,
   "r10_checklists": {},
@@ -165,12 +175,19 @@
         "reports/api-samples/2026-07-funding-annualized-history-v1/**"
       ],
       "review_1": {
-        "reviewer": null,
+        "reviewer": {
+          "provider": "kimi",
+          "model": "kimi-code/kimi-for-coding",
+          "provider_identity": "moonshot_kimi"
+        },
         "provider": "kimi",
         "model": "kimi-code/kimi-for-coding",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "provider_identity": "moonshot_kimi",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "2e27efcbed960206b43c25054bf6105224942439:85c780708fe546a32f6ef2120841c0176aab313adf81f6d82da82e48fdfdddfb",
+        "reviewer_prior_involvement": "none",
+        "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-a-kimi.raw-output.md"
       }
     },
     {
@@ -200,12 +217,22 @@
         "frontend/self-check.js"
       ],
       "review_1": {
-        "reviewer": null,
+        "reviewer": {
+          "provider": "claude_glm",
+          "model": "glm-5.2",
+          "provider_identity": "zhipu_glm"
+        },
         "provider": "claude_glm",
         "model": "glm-5.2",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "provider_identity": "zhipu_glm",
+        "verdict": "REWORK",
+        "json_schema_valid": true,
+        "diff_fingerprint": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d:a3284786251694a44d2e3c9b6161f532dded1e1161ffa939bcd98fb84c446826",
+        "reviewer_prior_involvement": "none",
+        "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.rework.raw-output.md",
+        "required_fix": "self-check.js:441 header-discrimination regex is a dead assertion; AC5 negative-label guard no-ops (P2, test-integrity only).",
+        "fix_start_prompt_present": true,
+        "fix_start_prompt_source": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.rework.raw-output.md .fix_start_prompt"
       }
     },
     {
@@ -239,12 +266,19 @@
         "schemas/api/public-market/funding-history.schema.json"
       ],
       "review_1": {
-        "reviewer": null,
+        "reviewer": {
+          "provider": "kimi",
+          "model": "kimi-code/kimi-for-coding",
+          "provider_identity": "moonshot_kimi"
+        },
         "provider": "kimi",
         "model": "kimi-code/kimi-for-coding",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "provider_identity": "moonshot_kimi",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e:5ade324bb23600f51a75c97d48090660e124e75ef1ea6329c48a32ce4094c919",
+        "reviewer_prior_involvement": "none",
+        "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-c-kimi.raw-output.md"
       }
     },
     {
@@ -274,12 +308,19 @@
         "frontend/self-check.js"
       ],
       "review_1": {
-        "reviewer": null,
+        "reviewer": {
+          "provider": "claude_glm",
+          "model": "glm-5.2",
+          "provider_identity": "zhipu_glm"
+        },
         "provider": "claude_glm",
         "model": "glm-5.2",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "provider_identity": "zhipu_glm",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:553e9a36f417d8c7986a26e1d3a5bc629b80958dfc0d979796e6ffb4123aa6a9",
+        "reviewer_prior_involvement": "none",
+        "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-d-claude-glm.raw-output.md"
       }
     }
   ],
@@ -416,17 +457,22 @@
     "evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt"
   },
   "review_1": {
+    "mode": "task_scoped_cross_review",
     "reviewer": null,
     "provider": null,
     "model": null,
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "aggregate_verdict": "REWORK",
+    "accept_count": 3,
+    "rework_count": 1,
+    "blocking_tasks": [
+      "frontend-table-and-drawer"
+    ],
+    "per_task": "see tasks[].review_1",
+    "json_schema_valid": true,
+    "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:378c060d86086d7d9a6c8eff94aad1e0998bdd014a255070eb1504fe3bca62a8",
     "reviewer_prior_involvement": "none",
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0
+    "invalid_json_attempts": 0,
+    "note": "Four fresh, read-only, cross-provider task-scoped review-1 sessions. Task A/C/D ACCEPT; Task B REWORK (blocking). Raw outputs preserved verbatim."
   },
   "review_2": {
     "reviewer": null,
@@ -436,7 +482,7 @@
     "fallback_provider": "codex",
     "fallback_reason": "Codex/GPT authored the stage design. Use Codex/GPT only through the documented strong-reviewer override when the unrelated Claude reviewer is unavailable or ineligible.",
     "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": null,
+    "reviewer_prior_involvement_notes": "Final review-2 gate not yet run. See independent_review_2_audit for the pre-fix independent audit (REWORK). Primary reviewer will be this unrelated anthropic/claude-opus-4-8 session on the recomputed combined range after Task B fix + re-review.",
     "unrelated_reviewer_unavailable_evidence": null,
     "design_conflict_override": {
       "used": false,
@@ -451,16 +497,47 @@
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "blockers": [
-    "Formal review-1 verdicts are pending human execution of the four prepared task-scoped cross-review packets."
+    "Task B (frontend-table-and-drawer) review-1 REWORK is open: frontend/self-check.js #11 dead regex must be fixed by Kimi, then Task B re-reviewed (fresh claude_glm) to ACCEPT.",
+    "Final review-2 gate not yet run; independent review-2 audit concurs REWORK. Combined range/fingerprint must be recomputed after the Task B fix."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_dispatch_task_scoped_review_1_packets",
-  "updated_at": "2026-07-10T22:58:37Z"
+  "next_action": "human_dispatch_task_b_selfcheck_fix_to_kimi",
+  "updated_at": "2026-07-10T15:59:05Z",
+  "independent_review_2_audit": {
+    "role": "final_reviewer",
+    "provider": "anthropic",
+    "model": "anthropic/claude-opus-4-8",
+    "provider_identity": "anthropic",
+    "reviewer_prior_involvement": "none",
+    "timing": "ran_as_review_round_audit_before_review_1_fully_accepted",
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:378c060d86086d7d9a6c8eff94aad1e0998bdd014a255070eb1504fe3bca62a8",
+    "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-2-claude-opus.raw-output.md",
+    "independent_checks": "Recomputed all 5 diff fingerprints (combined + A/B/C/D) -> all MATCH; re-ran node self-check (passes only because #11 is dead) and backend pytest (244 passed); grep-confirmed Task D badgeForRouteClass orphan and Task A symbol-only cache key.",
+    "note": "NOT the final review-2 gate. Concurs with Task B review-1 REWORK. A fresh review-2 must run after Task B fix + Task B re-review-1 ACCEPT on the recomputed combined range before any acceptance."
+  },
+  "fix_dispatch": {
+    "task": "frontend-table-and-drawer",
+    "owner": {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi"
+    },
+    "defect": "frontend/self-check.js:441 header-discrimination regex /<th[^>]*>([^<]*)\\/>th>/g never matches </th>; AC5 negative-label guard is a dead assertion.",
+    "scope": [
+      "frontend/self-check.js"
+    ],
+    "dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.prompt.md",
+    "fix_start_prompt_source": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.rework.raw-output.md .fix_start_prompt",
+    "executor": "human pastes into fresh Kimi session; Kimi edits only frontend/self-check.js, does NOT commit and does NOT touch status.json; returns raw output + diff.patch for bookkeeper to land.",
+    "post_fix": "bookkeeper commits Task B fix on new range -> re-review Task B (fresh claude_glm read-only) to ACCEPT -> all review-1 ACCEPT -> run review-2 on recomputed combined range."
+  }
 }
