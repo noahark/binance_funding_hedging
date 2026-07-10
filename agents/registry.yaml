@@ -124,7 +124,7 @@ adapters:
     notes:
       - "Use as implementation subagent only when workflow explicitly allows it."
       - "If the local wrapper is named kimi-for-coding, substitute that binary for kimi."
-      - "Current CLI rejects combining --plan or -y with -p/--prompt; one-shot review prompts must use noninteractive_command with read-only instructions."
+      - "Current CLI rejects combining --plan or -y with -p/--prompt; optional one-shot automation for review must use noninteractive_command with read-only instructions."
 
   grok:
     kind: grok_cli
@@ -330,9 +330,14 @@ model_policies:
   rework_verdict_requires_fix_start_prompt: true
   model_dispatch_execution:
     dispatch_preparation_allowed_for: [bookkeeper, designer, breakdown_author]
-    execution_requires_human_operator: true
-    forbidden_session_providers_for_execution: [codex, claude]
-    forbidden_provider_identities_for_execution: [openai, anthropic]
+    cross_model_dispatch_delivery_requires_human_or_executor_self: true
+    default_human_delivery_mode: interactive_paste
+    cli_commands_are_optional_automation: true
+    prepare_only_sessions_must_not_invoke_model_terminals: true
+    target_executor_sessions_must_execute_in_session: true
+    same_model_relaunch_wrapper_forbidden: true
+    role_flip_on_user_delivery_to_selected_target_session: true
+    executor_self_automation_allowed_when_declared: true
     applies_to:
       - implementation
       - embedded_pre_review
@@ -340,8 +345,11 @@ model_policies:
       - review_2
       - fix
     notes:
-      - "Codex/GPT and Claude provider sessions may prepare dispatch packets, prompts, routing metadata, and handoff text only."
-      - "Human operators execute prepared dispatch packets in the target model terminal and record raw output or receipt evidence."
+      - "Prepare-only sessions may prepare dispatch packets, prompts, paste-ready delivery instructions, routing metadata, handoff text, and optional automation appendix only."
+      - "Prepare-only sessions must not invoke other model terminals or adapter commands."
+      - "Human operators deliver prepared dispatch packets by interactive paste or a one-line read-file-and-execute-PROMPT-BODY instruction to the target terminal."
+      - "A selected target executor session that receives the dispatch path or PROMPT BODY must execute in-session and must not emit a same-provider/model relaunch wrapper."
+      - "Adapter command templates are runner automation, reproducibility, availability-check, or declared executor:self references; they are not the default human-facing startup UI."
       - "Do not mark a target model unavailable merely because the preparing Codex/GPT or Claude session cannot invoke that model directly."
   invalid_json_verdict: retry_once_then_fallback_or_human_escalation
   invalid_json_max_attempts_per_model: 2

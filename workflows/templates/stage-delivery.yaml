@@ -4,7 +4,8 @@ description: >
   Template for one bounded quality-gated project delivery stage. The
   orchestrator is the abstract workflow state machine; the bookkeeper is the
   single writer for stage state, evidence commits, and model-facing dispatch
-  packets. Human operators execute prepared dispatch packets in model terminals.
+  packets. Human operators deliver prepared packets to target model terminals by
+  default interactive paste; target executor sessions execute in-session.
   The first manual stage delivery run is deferred until product requirements
   and test strategy are agreed.
 
@@ -27,8 +28,12 @@ guards:
   merge_to_main_requires_user_acceptance: true
   forbid_rebase: true
   require_committed_state_before_review: true
-  model_dispatch_execution_requires_human: true
-  codex_gpt_claude_must_not_execute_model_dispatch: true
+  cross_model_dispatch_delivery_requires_human_or_executor_self: true
+  prepare_only_sessions_must_not_invoke_other_model_terminals: true
+  default_human_delivery_mode: interactive_paste
+  cli_commands_are_optional_automation_appendix: true
+  target_executor_sessions_must_execute_in_session: true
+  same_model_relaunch_wrapper_forbidden: true
   forbid_worktree_fingerprint: true
   validate_stage_script: "scripts/validate-stage.py"
   fail_closed_on_invalid_json: true
@@ -48,6 +53,22 @@ guards:
       - "unrelated reviewer failure evidence file exists"
       - "reviewer_prior_involvement recorded in verdict and status.json"
       - "review-2 prompt reviews against user-approved synthesis and PRD, not only stage design"
+
+dispatch_delivery:
+  roles:
+    prepare_only_session: "May prepare dispatch files, paste-ready delivery instructions, routing metadata, handoff text, and optional automation appendix; must not invoke other model terminals or adapter commands."
+    human_operator: "Default packet deliverer; pastes PROMPT BODY or a one-line read-file-and-execute-PROMPT-BODY instruction into the selected target terminal."
+    target_executor_session: "Selected target model/provider session that receives a dispatch path or PROMPT BODY; must execute in-session and must not emit a same-provider/model relaunch wrapper."
+  role_flip: "Explicit user delivery of the dispatch path or PROMPT BODY into the selected target session makes that session the target executor for that node, regardless of provider identity."
+  invoke_cases:
+    prepare_only_invokes_other_model_cli: forbidden
+    target_executor_same_model_relaunch_wrapper: forbidden
+    declared_executor_self_or_r10_automation: allowed_when_prewritten_and_declared
+  manual_acceptance_checklist:
+    - "Dispatch packet leads with delivery_instruction and dispatch_file path."
+    - "CLI command appears only under an optional automation appendix or declared executor:self automation."
+    - "Primary path does not relaunch the same provider/model."
+    - "Handoff next step names target terminal/model, dispatch file, and paste-ready action, or states already_in_this_session_execute_PROMPT_BODY."
   human_gate_required_for:
     - direction_synthesis_approval
     - product_domain_semantics
@@ -452,7 +473,8 @@ stages:
       - "If backend work is the large majority and frontend work is light, dispatch the whole bounded task to claude_glm."
       - "If frontend work is the large majority and backend work is light, dispatch the whole bounded task to kimi."
       - "If backend and frontend work are both substantial and separable, split implementation by domain owner."
-      - "Bookkeeper, Codex/GPT, and Claude sessions prepare implementation dispatch packets only; the human operator executes them in the selected implementer terminal."
+      - "Prepare-only sessions prepare implementation dispatch packets only; they lead with a paste-ready delivery_instruction and dispatch_file path, and put CLI commands only in an optional automation appendix."
+      - "If the selected implementer terminal already receives the dispatch path or PROMPT BODY, it is the target executor and must implement in-session; it must not emit a same-provider/model relaunch wrapper."
       - "When docs/parallel-development-mode.md applies, the implementer must execute or escalate any next_dispatch marked executor:self before reporting completion."
     acceptance:
       - "Changed files match task boundaries or deviations are explained."
@@ -478,7 +500,8 @@ stages:
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.raw-output.md"
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.fix-note.md when fixed"
     rules:
-      - "The implementing terminal only executes a prewritten adapter command; it must not rewrite the review prompt or select different artifacts."
+      - "The implementing terminal executes the prewritten next_dispatch according to its delivery_mode; automation_cmd is allowed only for declared executor:self or configured embedded checkpoint automation."
+      - "The implementing terminal must not rewrite the review prompt or select different artifacts."
       - "The reviewer session must be fresh and read-only/plan mode."
       - "Local embedded review/fix loops are capped at two rounds and do not count as stage rework_count."
       - "A scope-contained BLOCKER routes to a local implementation fix, then embedded review round 2."
@@ -544,7 +567,7 @@ stages:
 
   - id: review-1
     preflight:
-      - "Bookkeeper must locally commit reviewed artifacts before preparing the human-executed dispatch packet."
+      - "Bookkeeper must locally commit reviewed artifacts before preparing the human-delivered dispatch packet."
       - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_1."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
@@ -554,14 +577,15 @@ stages:
       - "Separate adapter stderr from the review narrative when capturing raw output (see docs/model-adapters.md Review output hygiene)."
       - "If the dispatched review-1 model differed from the anticipated model (for example a resolved adapter alias or a model substitution), record it in status.json.review_1.actual_model; provider identity is unchanged."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring the reviewer unavailable."
-      - "Codex/GPT and Claude sessions prepare review-1 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
+      - "Prepare-only sessions prepare review-1 dispatch packets only; they lead with a paste-ready delivery_instruction and dispatch_file path, and put CLI commands only in an optional automation appendix."
+      - "If the selected review-1 target session receives the dispatch path or PROMPT BODY, it must review in-session and must not emit a same-provider/model relaunch wrapper."
     actor:
       selection: rotation.review_1
     skill: code_reviewer
     mode: read_only
     adapter_requirements:
-      kimi: "Use Kimi with --model kimi-code/kimi-for-coding for one-shot prompt execution. For read-only review, enforce read-only behavior in the prompt and wrapper; current Kimi CLI rejects combining --plan or -y with -p."
-      claude_glm: "Use a fresh read-only Claude-GLM session with a schema-bound custom prompt. Do not reuse the implementation/bookkeeper transcript as review evidence."
+      kimi: "Default human delivery is paste-ready instruction to a fresh Kimi review session. Optional automation may use Kimi with --model kimi-code/kimi-for-coding; for read-only review, enforce read-only behavior in the prompt and wrapper because current Kimi CLI rejects combining --plan or -y with -p."
+      claude_glm: "Default human delivery is paste-ready instruction to a fresh read-only Claude-GLM session with a schema-bound custom prompt. Do not reuse the implementation/bookkeeper transcript as review evidence."
       grok: "Grok is not a default review-1 gate. Use only when the user explicitly enables it for the stage."
     requires_raw_artifacts:
       - "workflow YAML"
@@ -623,6 +647,8 @@ stages:
       - "Route backend/API/contract/schema/data-semantics fixes to claude_glm by default."
       - "Route frontend/UI/client-integration fixes to kimi by default."
       - "For a whole-task GLM or Kimi implementation, route scope-contained fixes back to the original implementer unless provider isolation for a later review would be violated."
+      - "Prepare-only sessions lead fix dispatch with a paste-ready delivery_instruction and dispatch_file path; CLI commands belong only in an optional automation appendix."
+      - "If the selected fix implementer receives the dispatch path or PROMPT BODY in-session, it must fix in-session and must not emit a same-provider/model relaunch wrapper."
     reads:
       - "AGENTS.md"
       - "agents/developer-discipline.md"
@@ -652,7 +678,7 @@ stages:
 
   - id: review-2
     preflight:
-      - "Bookkeeper must locally commit reviewed artifacts before preparing the human-executed dispatch packet."
+      - "Bookkeeper must locally commit reviewed artifacts before preparing the human-delivered dispatch packet."
       - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_2."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
@@ -662,7 +688,8 @@ stages:
       - "If the dispatched review-2 model differed from the anticipated model (for example claude-opus-4-8 instead of claude-fable-5), record it in status.json.review_2.actual_model; provider identity is unchanged."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring Codex or Claude unavailable."
       - "If the selected final reviewer participated in direction synthesis, breakdown, or design, record the design-conflict override evidence before preparing dispatch."
-      - "Codex/GPT and Claude sessions prepare review-2 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
+      - "Prepare-only sessions prepare review-2 dispatch packets only; they lead with a paste-ready delivery_instruction and dispatch_file path, and put CLI commands only in an optional automation appendix."
+      - "If Codex/GPT is unavailable and Claude is selected as fallback, a Claude session that receives the review-2 dispatch path or PROMPT BODY is the target executor and must perform read-only review in-session; it must not reply with a `claude -p` relaunch command."
     actor:
       primary: codex
       fallback: claude
@@ -682,8 +709,8 @@ stages:
     skill: reality_checker
     mode: read_only
     adapter_requirements:
-      codex: "Use read-only codex exec with the configured GPT/Codex adapter default and a schema-bound custom prompt, not codex review."
-      claude: "Use read-only/plan Claude invocation with claude-fable-5 by default; if Fable5 quota is exhausted, use opus4.8 with the same schema-bound prompt."
+      codex: "Default human delivery is paste-ready instruction to the selected Codex review session. Optional automation may use read-only codex exec with the configured GPT/Codex adapter default and a schema-bound custom prompt, not codex review."
+      claude: "Default human delivery is paste-ready instruction to the selected Claude review session. Optional automation may use read-only/plan Claude invocation with claude-fable-5 by default; if Fable5 quota is exhausted, use opus4.8 with the same schema-bound prompt."
     requires:
       - "reviewer provider != any implementation or fix author provider"
       - "prefer reviewer provider != designer provider"

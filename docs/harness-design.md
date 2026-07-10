@@ -204,12 +204,16 @@ from the implementation terminals. GLM5.2 through Claude Code may still be
 assigned as bookkeeper when the user chooses it, but that is an explicit stage
 assignment, not the framework default.
 
-Dispatch execution is human-operated. Codex/GPT and Claude provider sessions
-may write implementation, review, and fix prompts, command templates, routing
-metadata, and handoff text, but they must not invoke other model CLIs or model
-terminals. The human operator copies the prepared dispatch into the selected
-model terminal and records the resulting raw output or receipt under the stage
-evidence path.
+Dispatch delivery is paste-first. Prepare-only sessions may write
+implementation, review, and fix prompts, paste-ready delivery instructions,
+optional automation command templates, routing metadata, and handoff text, but
+they must not invoke other model CLIs or model terminals. The human operator
+delivers the prepared dispatch by pasting the PROMPT BODY, or by sending a
+one-line read-file-and-execute-PROMPT-BODY instruction, into the selected model
+terminal and records the resulting raw output or receipt under the stage
+evidence path. If the selected target model/provider session receives the
+dispatch path or PROMPT BODY, it is the target executor for that node and must
+execute in-session instead of emitting a same-model/provider relaunch command.
 
 Bookkeeper responsibilities:
 
@@ -328,23 +332,27 @@ Required adapter behaviors:
   non-accepting evidence. Route to retry, fallback, fix, or one of the allowed
   terminal stop reasons.
 
-Known command semantics:
+Known adapter command semantics:
 
 - Codex default Harness model: `gpt-5.5` with high reasoning effort, as
   configured locally by the adapter/profile.
-- Codex schema-bound review: `codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>`
-- Codex free-form review: `codex exec review --base <base> - < <prompt-file>`
+- Human-facing dispatch leads with a paste-ready delivery instruction and
+  dispatch file path. The command forms below are optional automation/reference
+  forms for runners, evidence capture, availability checks, or declared
+  `executor:self` automation.
+- Codex schema-bound review automation: `codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>`
+- Codex free-form review automation: `codex exec review --base <base> - < <prompt-file>`
 - Codex `-p` means profile, not prompt.
-- Claude Code print mode uses `claude -p "<prompt>"`.
+- Claude Code print-mode automation uses `claude -p "<prompt>"`.
 - Claude review uses `claude-fable-5` by default, then `opus4.8` if Fable5
   quota is exhausted.
 - Review-1 uses the Kimi / Claude-GLM cross-review pool.
 - Claude-GLM development owns backend/API/contract/schema/data-semantics work.
 - Grok development uses `grok-composer-2.5-fast` only when explicitly
   workflow-enabled by the user.
-- Kimi development owns frontend/UI/client-integration work and uses
-  `kimi --model kimi-code/kimi-for-coding -p "<prompt>"` unless a stage
-  explicitly pins another model.
+- Kimi development owns frontend/UI/client-integration work. Kimi one-shot
+  automation uses `kimi --model kimi-code/kimi-for-coding -p "<prompt>"` unless
+  a stage explicitly pins another model.
 - Local `claude-glm` must be invoked without recording its expanded auth
   environment.
 
@@ -471,6 +479,12 @@ should end with:
 
 The timestamp must come from a local `date` command. The footer helps human
 handoff, but `status.json` remains authoritative.
+
+The next action should be paste-ready: include the target terminal/model,
+dispatch file path, and exact delivery instruction, or state that the current
+session is already the target executor and must execute the PROMPT BODY now.
+Avoid bare phrases such as "prepare review-2 dispatch" without the target,
+path, and action.
 
 ## Testing Priority
 

@@ -92,12 +92,41 @@ The bookkeeper must not:
 - Feed reviewers only its own narrative summary.
 - Record credentials, tokens, cookies, private keys, or full environment dumps.
 
-Codex/GPT and Claude provider sessions may prepare model-facing dispatch
-artifacts, but must not execute them. The human operator executes dispatch by
-copying the prepared prompt or command into the selected model terminal and then
-records the resulting raw output or receipt under the stage evidence path. This
-applies to implementation, embedded pre-review, review-1, review-2, and fix
-dispatches.
+Dispatch has three distinct roles:
+
+- A prepare-only session may prepare model-facing dispatch packets, paste-ready
+  delivery instructions, prompt paths, routing metadata, handoff text, and an
+  optional automation appendix. It must not invoke other model terminals, other
+  model CLIs, or adapter commands.
+- The human operator is the default packet deliverer. The default delivery mode
+  is interactive paste, or a one-line instruction to an already-open target
+  model terminal to read the dispatch file and execute only its PROMPT BODY.
+- A target executor session is a session of the selected target model/provider
+  that receives the dispatch path or PROMPT BODY. It must execute the assigned
+  node in-session and must not reply with a same-provider/model relaunch wrapper
+  such as `claude -p`, `kimi -p`, `codex exec`, or `grok --prompt-file` for that
+  same node.
+
+Provider identity alone does not make a session prepare-only. If the user
+explicitly delivers a dispatch path or PROMPT BODY into the selected target
+session, that session becomes the target executor for that node. "Prepare-only
+must not invoke model dispatch" means the prepare-only session must not call
+other model terminals; it does not mean a selected target executor should refuse
+work already handed to it in-session.
+
+Allowed and forbidden invocation cases:
+
+- Prepare-only invokes another model CLI or terminal: forbidden.
+- Target executor relaunches the same model/provider through a CLI wrapper:
+  forbidden.
+- Implementer runs a prewritten opposite-model or configured R10
+  `executor:self` automation packet: allowed only when the dispatch packet
+  declares that delivery mode or executor behavior; otherwise escalate.
+
+CLI forms such as `model -p "$(cat <prompt-file>)"` or `--prompt-file` belong in
+an optional automation appendix for runner automation, reproducibility,
+availability checks, or declared `executor:self` automation. They are not the
+default human UI.
 
 ### Designers
 
@@ -289,15 +318,18 @@ dispatching the fix.
 - Product meaning, domain assumptions, external side effects, destructive data
   actions, credentials, public deployment, and risk limit changes require human
   approval.
-- Codex review nodes use `codex exec` in read-only mode with a custom prompt
-  when strict JSON verdict output is required. Do not rely on `codex review`
-  for schema-constrained verdicts.
+- Codex review automation uses `codex exec` in read-only mode with a custom
+  prompt when strict JSON verdict output is required. A selected in-session
+  Codex target executor still reviews in-session and emits the schema verdict;
+  do not rely on `codex review` for schema-constrained automation.
 - Model dispatch preparation must use `docs/model-adapters.md` and
-  `agents/registry.yaml`. Codex/GPT and Claude sessions must not execute model
-  dispatch; the human operator executes prepared dispatch packets in the target
-  model terminal. A bookkeeper or implementation session lacking a built-in tool
-  for a model is not sufficient to mark that model unavailable; the runner-level
-  adapter check must fail.
+  `agents/registry.yaml`. Prepare-only sessions must not invoke other model
+  terminals or adapter commands; target executor sessions must execute assigned
+  work in-session after user delivery. Human-facing dispatch output must lead
+  with a paste-ready delivery instruction, while CLI commands are optional
+  automation appendix material. A bookkeeper or implementation session lacking a
+  built-in tool for a model is not sufficient to mark that model unavailable; the
+  runner-level adapter check must fail.
 - Review-2 fallback or strong-reviewer override is allowed only for quota,
   authentication, service availability, timeout, repeated invalid verdict JSON,
   or design-conflict ineligibility of the preferred unrelated reviewer. Do not
@@ -423,6 +455,12 @@ machine-readable state. For strict JSON verdicts, place the footer before the
 final JSON block or inside schema-approved fields so the final JSON contract
 remains parseable.
 
+The next action must be paste-ready. Name the target terminal/model, the
+dispatch file path, and the exact delivery instruction, or state that the task
+is already in this session and the model must execute the PROMPT BODY now. Bare
+next-step phrases such as "prepare review-2 dispatch", "update status and
+prepare next", or a role name without a path and action are not sufficient.
+
 ## Checkpoint Requirements
 
 Before reporting completion, switching stage, compacting context, or asking
@@ -443,27 +481,33 @@ uncommitted.
 
 ## Local Command Notes
 
-`docs/model-adapters.md` is the local command runbook. It records the currently
-observed command forms for Codex, Claude, Claude-GLM, Grok, and Kimi, including
-read-only review, write-capable development where applicable, and explicit
-yolo/bypass modes.
+`docs/model-adapters.md` is the local adapter runbook. It records default
+paste-first delivery expectations and currently observed automation command
+forms for Codex, Claude, Claude-GLM, Grok, and Kimi, including read-only review,
+write-capable development where applicable, and explicit yolo/bypass modes.
+Command forms are runner automation, reproducibility, and availability
+references; they are not the default human-facing startup UI.
 
 Key reminders:
 
-- Codex prompt execution uses `codex exec`.
+- Human-facing dispatch should lead with a paste-ready instruction or PROMPT
+  BODY path for the target terminal.
+- Target executor sessions execute in-session and must not emit same-model
+  relaunch wrappers.
+- Codex automation uses `codex exec`.
 - Codex free-form review may use `codex review`, but schema-bound Harness
   review nodes use read-only `codex exec` with the review prompt.
 - `codex -p` is a profile flag, not a prompt flag.
-- Claude review uses the configured Claude adapter model, currently
+- Claude review automation uses the configured Claude adapter model, currently
   `claude-fable-5`; if Fable5 quota is exhausted, the configured backup model is
   `opus4.8`, unless the registry or user changes it.
 - Review-1 uses Kimi and Claude-GLM as a cross-review pool. Grok development,
   when explicitly enabled, uses `grok-composer-2.5-fast`; Grok is not a default
   review gate.
-- Kimi one-shot execution uses the explicit latest coding alias:
+- Kimi one-shot automation uses the explicit latest coding alias:
   `kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"`.
 - Current Kimi CLI behavior rejects combining `--plan` or `-y` with `-p`; do
-  not document or dispatch those combinations as one-shot prompt commands.
+  not document or dispatch those combinations as one-shot automation commands.
 - `claude-glm` is a local shell alias/function. Invoke through an adapter and do
   not record its expanded environment.
 - YAML files describe intent and routing. Command details belong in adapters or
