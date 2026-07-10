@@ -91,6 +91,20 @@ formal review.
 - Task D Kimi PASTE BODY now contains the committed Task C range. Do not start
   formal review until Task D is committed and the combined range is rebound.
 
+## Task D Local Rework
+
+Kimi's initial Task D diff passed its self-check and the independent backend
+regression, but bookkeeper inspection found a response-body race: the request
+guard runs before `await res.json()` only. If the selected row changes while
+the response body is parsing, the old symbol's result can still merge into the
+new selected row. This is a scope-contained P1 and is not a formal review
+verdict.
+
+`task-drawer-history-race-fix-kimi.prompt.md` requires Kimi to recheck active
+request state after every await before mutation, validate the response symbol
+and schema version, and add a delayed-body stale-response test. Task D remains
+uncommitted pending that fix. No formal review is prepared.
+
 ## Kimi Preflight Output
 
 The raw Kimi output is preserved in
@@ -139,7 +153,7 @@ before the application script and adding a static DOM-order assertion.
   cross-review scope, set the appropriate review state, and run `pre-review`.
 
 ```text
-本地北京时间: 2026-07-10 21:23:37 CST
+本地北京时间: 2026-07-10 22:23:16 CST
 下一步模型: human / Kimi
-下一步任务: 将已绑定 Task C 范围的 Task D PASTE BODY 粘贴到 Kimi 交互执行会话。
+下一步任务: 将 Task D Drawer response-race fix PASTE BODY 粘贴到同一 Kimi 交互执行会话。
 ```

@@ -364,6 +364,15 @@
       "verification": "node frontend/self-check.js passes, including the static drawer-before-script assertion and existing drawer interaction checks."
     }
   ],
+  "task_d_bookkeeper_findings": [
+    {
+      "severity": "P1",
+      "title": "Stale history response can mutate the new Drawer selection after response-body parsing",
+      "evidence": "fetchHistory checks request/selection state after await fetch(), then awaits res.json() without another active-request check before merging into selectedRow(). A selection change during response-body parsing can therefore apply the old symbol's settled history to the new row.",
+      "fix_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-drawer-history-race-fix-kimi.prompt.md",
+      "disposition": "scope_contained_fix_pending_human_dispatch"
+    }
+  ],
   "tests": {
     "status": "passed",
     "commands": [
@@ -415,13 +424,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "Formal review is deferred until the user dispatches and the bookkeeper commits Task D (Drawer/history refinement)."
+    "Formal review is deferred until Kimi completes the Task D Drawer response-race fix and the bookkeeper commits the complete Task D diff."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_paste_task_d_kimi_after_task_c_commit",
-  "updated_at": "2026-07-10T13:23:37Z"
+  "next_action": "human_paste_task_d_drawer_response_race_fix_into_kimi",
+  "updated_at": "2026-07-10T14:23:16Z"
 }

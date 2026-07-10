@@ -121,3 +121,10 @@ Task C committed range:
 `5a5b9f6a6d6af744e86061278461ab91356177a4..c2bb368d8235f8a8d69d8ebb19810a9c7657b41e`
 Task C diff fingerprint:
 `c2bb368d8235f8a8d69d8ebb19810a9c7657b41e:5ade324bb23600f51a75c97d48090660e124e75ef1ea6329c48a32ce4094c919`
+
+2026-07-10 22:23:16 CST
+- Bookkeeper independently reran `node frontend/self-check.js` -> PASS and
+  `python3 -m pytest backend/tests -q` -> 244 passed in 5.96s against Kimi's
+  initial Task D worktree.
+- Static diff inspection found a stale-response race after `await res.json()`.
+  Task D is not committed; the scope-contained Kimi rework prompt is prepared.
