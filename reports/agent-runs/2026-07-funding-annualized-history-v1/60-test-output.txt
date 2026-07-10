@@ -59,3 +59,18 @@ Task A diff fingerprint:
   the main application script, while `bindEvents()` dereferences those elements
   during script initialization. This is a Task B P0 real-browser startup bug;
   `task-b-drawer-dom-order-fix-kimi.prompt.md` is prepared for the bounded fix.
+
+2026-07-10 19:38:24 CST
+$ node frontend/self-check.js
+PASS: all checks, including `drawer DOM 在应用脚本之前`.
+$ python3 -m pytest backend/tests -q
+226 passed in 5.34s
+$ python3 -m json.tool schemas/api/public-market/snapshot.schema.json >/dev/null
+PASS
+$ git diff --check
+PASS
+$ ENV_FILE=/dev/null APP_OFFLINE=true APP_BIND_PORT=8788 scripts/run-server.sh
+PASS: offline server started at http://127.0.0.1:8788 and was stopped after
+verification. `/api/public-market/snapshot` returned current annualized fields;
+`/` contained the annualized columns and drawer DOM before the application
+script.

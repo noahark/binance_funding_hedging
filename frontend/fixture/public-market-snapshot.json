@@ -98,6 +98,9 @@
           "funding_rate": "0.00010000"
         }
       ],
+      "annualized_funding_24h": "0.10950000",
+      "annualized_funding_7d": "0.03170755",
+      "annualized_funding_30d": "0.00739843",
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED"
       ]
@@ -136,6 +139,9 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "annualized_funding_24h": "0.08915830",
+      "annualized_funding_7d": null,
+      "annualized_funding_30d": null,
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED"
       ]
@@ -174,6 +180,9 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "annualized_funding_24h": "1.32659250",
+      "annualized_funding_7d": null,
+      "annualized_funding_30d": null,
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED"
       ]
@@ -212,6 +221,9 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "annualized_funding_24h": "0.10950000",
+      "annualized_funding_7d": null,
+      "annualized_funding_30d": null,
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED",
         "PERP_ONLY_NO_SPOT_LEG"
@@ -251,6 +263,9 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "annualized_funding_24h": "0.00000000",
+      "annualized_funding_7d": null,
+      "annualized_funding_30d": null,
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED",
         "PERP_ONLY_NO_SPOT_LEG",
@@ -291,6 +306,9 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "annualized_funding_24h": "0.10950000",
+      "annualized_funding_7d": null,
+      "annualized_funding_30d": null,
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED",
         "TRADIFI_BSTOCK"
@@ -330,6 +348,9 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "annualized_funding_24h": "0.10950000",
+      "annualized_funding_7d": null,
+      "annualized_funding_30d": null,
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED",
         "PERP_ONLY_NO_SPOT_LEG"

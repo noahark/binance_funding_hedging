@@ -150,8 +150,41 @@ PASS
   The production `frontend/fixture/public-market-snapshot.json` already emits
   the three fields for every row.
 
+## Drawer DOM-Order Fix
+
+Trigger: review-1 fix prompt (`task-b-drawer-dom-order-fix-kimi.prompt.md`)
+pointed out that `#drawer-backdrop` and `#drawer` were placed after the main
+application `<script>`. Because the IIFE runs `document.getElementById(...)`
+and `bindEvents()` during script execution, real browsers would get `null`
+elements and fail startup. `frontend/self-check.js` masked this because it
+pre-populates mock elements.
+
+### Changed files
+
+- `frontend/index.html`
+  - Moved the drawer markup (`#drawer-backdrop`, `#drawer`) immediately before
+    the main application `<script>` tag, so all `getElementById` lookups in the
+    IIFE succeed before `bindEvents()` runs.
+  - Preserved the drawer's DOM, IDs, roles, labels, close control, visual order,
+    and interaction behavior.
+
+- `frontend/self-check.js`
+  - Added a static regression assertion that `id="drawer"` appears before the
+    first `<script>` in `index.html`, protecting the real-browser initialization
+    order that mocked interaction tests cannot observe.
+
+### Verification
+
 ```text
-本地北京时间: 2026-07-10 19:23:29 CST
+$ node frontend/self-check.js
+全部自检通过（含新增 drawer DOM 在应用脚本之前 断言）
+
+$ git diff --check
+PASS
+```
+
+```text
+本地北京时间: 2026-07-10 19:35:59 CST
 下一步模型: bookkeeper
 下一步任务: 提交 Task B 于 stage 分支，统一锚定阶段范围并跑 validate-stage.py --phase pre-review
 ```

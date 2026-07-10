@@ -47,6 +47,10 @@ global.localStorage = {
   removeItem: (k) => { delete localStorageData[k]; }
 };
 
+if (typeof global.CSS === 'undefined') {
+  global.CSS = { escape: (s) => String(s).replace(/(["\\])/g, '\\$1') };
+}
+
 function makeElement(id) {
   const el = {
     id,
@@ -55,11 +59,20 @@ function makeElement(id) {
     _display: '',
     _value: '',
     _checked: false,
+    _classList: new Set(),
     listeners: {},
     get innerHTML() { return this._innerHTML; },
     set innerHTML(v) { this._innerHTML = String(v); },
     get textContent() { return this._textContent; },
     set textContent(v) { this._textContent = String(v); },
+    get classList() {
+      const self = this;
+      return {
+        add: (c) => { self._classList.add(c); },
+        remove: (c) => { self._classList.delete(c); },
+        contains: (c) => self._classList.has(c)
+      };
+    },
     get style() {
       const self = this;
       return {
@@ -83,6 +96,12 @@ function makeElement(id) {
     },
     removeAttribute(name) {
       if (this._attrs) delete this._attrs[name];
+    },
+    querySelector() {
+      return null;
+    },
+    querySelectorAll() {
+      return [];
     }
   };
   return el;
@@ -94,12 +113,35 @@ const ids = [
   'data-source-label', 'sort-basis-badge', 'btn-refresh', 'refresh-countdown',
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only', 'filter-hide-low-daily-rate',
   'summary-row', 'status-area', 'market-table-body', 'footer-note',
-  'private-panel', 'private-panel-subtitle', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path'
+  'private-panel', 'private-panel-subtitle', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
+  'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
 // 加载设计期 fixture
 const designFixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+
+// Task B 要求前端把 annualized 字段视为当前服务契约字段；给设计期 fixture 补齐。
+designFixture.rows.forEach(r => {
+  if (!('annualized_funding_24h' in r)) r.annualized_funding_24h = null;
+  if (!('annualized_funding_7d' in r)) r.annualized_funding_7d = null;
+  if (!('annualized_funding_30d' in r)) r.annualized_funding_30d = null;
+});
+// 给 AUSDT 行附加 settled history，用于抽屉 newest-first / 负费率 / 北京时间测试。
+const ausdt = designFixture.rows.find(r => r.symbol === 'AUSDT');
+if (ausdt) {
+  const tEnd = 1783641600000;
+  const day = 86_400_000;
+  ausdt.funding_history = [
+    { funding_time: tEnd - 2 * day, funding_rate: '-0.00010000' },
+    { funding_time: tEnd - day, funding_rate: '0.00005000' }
+  ];
+  // daily_funding_rate -0.00060000 * (24/8) = -0.00180000
+  ausdt.annualized_funding_24h = '-0.65700000';
+  // sum -0.00005000
+  ausdt.annualized_funding_7d = '-0.00260714';
+  ausdt.annualized_funding_30d = '-0.00060833';
+}
 
 // 为 v0.4 UI 断言使用具体数值（占位符无法被 formatFundingRate / maskAmount 有效测试）
 designFixture.rows[0].borrow_validation.classic_margin.daily_interest_account = '0.00010000';
@@ -123,6 +165,12 @@ global.document = {
   getElementById: (id) => {
     if (!elements[id]) throw new Error(`未 mock 的元素: ${id}`);
     return elements[id];
+  },
+  body: {
+    style: {}
+  },
+  addEventListener(type, handler) {
+    (this._listeners = this._listeners || {})[type] = handler;
   }
 };
 
@@ -227,6 +275,21 @@ setTimeout(async () => {
     }
     console.log('[PASS] 拆列存在，合并列消失');
 
+    // 5b. 年化三列存在且列名/提示文案区分 24h 预估与 7D/30D 已结算
+    const annualizedHeaders = ['年化 24h', '年化 7D', '年化 30D'];
+    for (const h of annualizedHeaders) {
+      if (!html.includes(`>${h}<`)) {
+        throw new Error(`缺少「${h}」列名`);
+      }
+    }
+    if (!html.includes('预估 24h 年化')) {
+      throw new Error('24h 列头缺少「预估」提示');
+    }
+    if (!html.includes('已结算 7 日年化') || !html.includes('已结算 30 日年化')) {
+      throw new Error('7D/30D 列头缺少「已结算」提示');
+    }
+    console.log('[PASS] 年化三列存在且文案区分预估/已结算');
+
     // 6. 日费率 string-shift 格式化（含 null→—）
     const dailyRateChecks = [
       ['AUSDT', '-0.06%'],
@@ -243,6 +306,29 @@ setTimeout(async () => {
       }
     }
     console.log('[PASS] 日费率 string-shift 格式化（含 null→—）');
+
+    // 6b. 年化三列格式化：AUSDT 三值齐全，BUSDT 7D/30D 为 null→—
+    const ausdtAnn24 = getRowCell(tbody, 'AUSDT', 6);
+    if (!ausdtAnn24.includes('-65.7%')) {
+      throw new Error(`AUSDT 年化 24h 期望 -65.7%，单元格 ${ausdtAnn24}`);
+    }
+    const ausdtAnn7 = getRowCell(tbody, 'AUSDT', 7);
+    if (!ausdtAnn7.includes('-0.260714%')) {
+      throw new Error(`AUSDT 年化 7D 期望 -0.260714%，单元格 ${ausdtAnn7}`);
+    }
+    const ausdtAnn30 = getRowCell(tbody, 'AUSDT', 8);
+    if (!ausdtAnn30.includes('-0.060833%')) {
+      throw new Error(`AUSDT 年化 30D 期望 -0.060833%，单元格 ${ausdtAnn30}`);
+    }
+    const busdtAnn7 = getRowCell(tbody, 'BUSDT', 7);
+    if (!busdtAnn7.includes('—')) {
+      throw new Error(`BUSDT 年化 7D 期望 —，单元格 ${busdtAnn7}`);
+    }
+    const busdtAnn30 = getRowCell(tbody, 'BUSDT', 8);
+    if (!busdtAnn30.includes('—')) {
+      throw new Error(`BUSDT 年化 30D 期望 —，单元格 ${busdtAnn30}`);
+    }
+    console.log('[PASS] 年化三列格式化（含 null→—）');
 
     // 7. 结算间隔标注 8h（设计期 fixture 全部为 8h）
     if (!tbody.includes('>8h<')) {
@@ -269,10 +355,14 @@ setTimeout(async () => {
     }
     console.log('[PASS] 时间转换正确');
 
-    // 11. 列名/文案符合契约（资金费率列不得出现"已结算"或"预测"）
+    // 11. 列名/文案符合契约：资金费率/日费率等非年化列头不得出现"已结算"或"预测"；
+    // 年化 7D/30D 列头允许出现"已结算"，因其确为 settled-history 年化。
     const tableSection = html.slice(html.indexOf('<table>'), html.indexOf('</table>') + 8);
-    if (tableSection.includes('已结算') || tableSection.includes('预测')) {
-      throw new Error('市场表区域出现"已结算"或"预测"等误导文案');
+    const headers = [...tableSection.matchAll(/<th[^\u003e]*>([^\u003c]*)\/>th>/g)].map(m => m[0]);
+    const nonSettledHeaders = headers.filter(h => !h.includes('>年化 7D<') && !h.includes('>年化 30D<'));
+    const bad = nonSettledHeaders.find(h => h.includes('已结算') || h.includes('预测'));
+    if (bad) {
+      throw new Error('非年化列头出现"已结算"或"预测": ' + bad);
     }
     console.log('[PASS] 列名/文案无误导性 settlement/prediction 文案');
 
@@ -415,7 +505,7 @@ setTimeout(async () => {
       ['FUSDT', '—', null]
     ];
     for (const [sym, expectedNet, expectedSource] of netYieldChecks) {
-      const cell = getRowCell(tbody, sym, 6);
+      const cell = getRowCell(tbody, sym, 9);
       if (!cell.includes(expectedNet)) {
         throw new Error(`${sym} 净收益期望 ${expectedNet}，单元格 ${cell}`);
       }
@@ -432,8 +522,8 @@ setTimeout(async () => {
     console.log('[PASS] 净收益列存在与格式');
 
     // 20. 负值净收益红色样式
-    const cusdtNetCell = getRowCell(tbody, 'CUSDT', 6);
-    const ausdtNetCell = getRowCell(tbody, 'AUSDT', 6);
+    const cusdtNetCell = getRowCell(tbody, 'CUSDT', 9);
+    const ausdtNetCell = getRowCell(tbody, 'AUSDT', 9);
     if (!ausdtNetCell.includes('positive')) {
       throw new Error('AUSDT 正净收益未应用 positive 样式');
     }
@@ -443,7 +533,7 @@ setTimeout(async () => {
     negativeNetFixture.rows[0].borrow_rate_source = null;
     helpers.ingestSnapshot(negativeNetFixture);
     const negTbody = elements['market-table-body'].innerHTML;
-    const negCell = getRowCell(negTbody, 'AUSDT', 6);
+    const negCell = getRowCell(negTbody, 'AUSDT', 9);
     if (!negCell.includes('negative')) {
       throw new Error('负净收益未应用 negative 红色样式');
     }
@@ -456,7 +546,7 @@ setTimeout(async () => {
     vip0Fixture.rows[1].borrow_rate_source = 'vip0_reference';
     helpers.ingestSnapshot(vip0Fixture);
     const vip0Tbody = elements['market-table-body'].innerHTML;
-    const vip0Cell = getRowCell(vip0Tbody, 'BUSDT', 6);
+    const vip0Cell = getRowCell(vip0Tbody, 'BUSDT', 9);
     if (!vip0Cell.includes('基准利率') || !vip0Cell.includes('vip0-reference')) {
       throw new Error('vip0_reference 未显著标注「基准利率」');
     }
@@ -627,10 +717,10 @@ setTimeout(async () => {
     let pos = dRowHtml.indexOf('<td');
     let dailyCell = '';
     let netCell = '';
-    while (pos !== -1 && tdCount < 8) {
+    while (pos !== -1 && tdCount < 12) {
       const close = dRowHtml.indexOf('</td>', pos);
       if (tdCount === 5) dailyCell = dRowHtml.slice(pos, close + 5);
-      if (tdCount === 6) netCell = dRowHtml.slice(pos, close + 5);
+      if (tdCount === 9) netCell = dRowHtml.slice(pos, close + 5);
       pos = dRowHtml.indexOf('<td', close + 5);
       tdCount++;
     }
@@ -661,8 +751,18 @@ setTimeout(async () => {
     }
     console.log('[PASS] private-panel 在市场表之前');
 
+    // 30b. 抽屉 DOM 在应用脚本之前，确保真实浏览器 getElementById 命中
+    const drawerIdx = html.indexOf('id="drawer"');
+    const scriptIdx = html.indexOf('<script>');
+    if (drawerIdx === -1) throw new Error('未找到 drawer');
+    if (scriptIdx === -1) throw new Error('未找到 <script>');
+    if (drawerIdx >= scriptIdx) {
+      throw new Error('drawer DOM 必须位于应用 <script> 之前，否则真实浏览器初始化时 getElementById 返回 null');
+    }
+    console.log('[PASS] drawer DOM 在应用脚本之前');
+
     // 31. 成本腿命中行展示借币日利率（账户档）
-    const ausdtNetCell2 = getRowCell(tbody, 'AUSDT', 6);
+    const ausdtNetCell2 = getRowCell(tbody, 'AUSDT', 9);
     if (!ausdtNetCell2.includes('日借币')) {
       throw new Error('AUSDT 成本腿命中行未展示日借币子行');
     }
@@ -677,7 +777,7 @@ setTimeout(async () => {
     vip0Fixture2.rows[1].borrow_validation.classic_margin.daily_interest_account = null;
     helpers.ingestSnapshot(vip0Fixture2);
     const vip0Tbody2 = elements['market-table-body'].innerHTML;
-    const busdtNetCell = getRowCell(vip0Tbody2, 'BUSDT', 6);
+    const busdtNetCell = getRowCell(vip0Tbody2, 'BUSDT', 9);
     if (!busdtNetCell.includes('日借币') || !busdtNetCell.includes('参考')) {
       throw new Error('VIP0 参考档未显示"参考"徽标: ' + busdtNetCell);
     }
@@ -685,7 +785,7 @@ setTimeout(async () => {
     console.log('[PASS] VIP0 参考档显示"参考"徽标');
 
     // 33. 正费率/无成本腿行不展示借币成本子行
-    const cusdtNetCell2 = getRowCell(tbody, 'CUSDT', 6);
+    const cusdtNetCell2 = getRowCell(tbody, 'CUSDT', 9);
     if (cusdtNetCell2.includes('日借币')) {
       throw new Error('CUSDT 正费率行不应展示日借币子行');
     }
@@ -728,7 +828,7 @@ setTimeout(async () => {
       { sym: 'FUSDT', label: '有利率·可借性未探测', cls: 'muted' },
     ];
     for (const { sym, label, cls } of labelCases) {
-      const cell = getRowCell(labelTbody, sym, 8);
+      const cell = getRowCell(labelTbody, sym, 11);
       if (!cell.includes(label)) {
         throw new Error(`${sym} 负费率状态期望 "${label}"，单元格 ${cell}`);
       }
@@ -737,7 +837,7 @@ setTimeout(async () => {
       }
     }
     // 第六态行：状态列「有利率·可借性未探测」AND 净收益列仍展示日借币子行
-    const fusdtNetCell = getRowCell(labelTbody, 'FUSDT', 6);
+    const fusdtNetCell = getRowCell(labelTbody, 'FUSDT', 9);
     if (!fusdtNetCell.includes('日借币') || !fusdtNetCell.includes('+0.01%')) {
       throw new Error(`FUSDT borrowability_not_probed 行应展示日借币子行，单元格 ${fusdtNetCell}`);
     }
@@ -945,7 +1045,7 @@ setTimeout(async () => {
       helpers.ingestSnapshot(triFixture);
       const triTbody = elements['market-table-body'].innerHTML;
       // (a) AUSDT 借光
-      const ausdtStatus = getRowCell(triTbody, 'AUSDT', 8);
+      const ausdtStatus = getRowCell(triTbody, 'AUSDT', 11);
       if (!ausdtStatus.includes('可借 0(已借完)')) {
         throw new Error('AUSDT 借光未渲染「可借 0(已借完)」warn badge: ' + ausdtStatus);
       }
@@ -955,7 +1055,7 @@ setTimeout(async () => {
       if (!ausdtStatus.includes('51061')) {
         throw new Error('AUSDT 借光 badge title 应含 error_code 51061: ' + ausdtStatus);
       }
-      const ausdtNet = getRowCell(triTbody, 'AUSDT', 6);
+      const ausdtNet = getRowCell(triTbody, 'AUSDT', 9);
       if (!ausdtNet.includes('可借: 0') || !ausdtNet.includes('已借完')) {
         throw new Error('AUSDT 借光 net-yield 应含「可借: 0」与「已借完」: ' + ausdtNet);
       }
@@ -963,11 +1063,11 @@ setTimeout(async () => {
         throw new Error('AUSDT 借光 ≈USDT 应显 0.00: ' + ausdtNet);
       }
       // (b) BUSDT 有额度
-      const busdtStatus = getRowCell(triTbody, 'BUSDT', 8);
+      const busdtStatus = getRowCell(triTbody, 'BUSDT', 11);
       if (!busdtStatus.includes('已验证可借') || !busdtStatus.includes('badge success')) {
         throw new Error('BUSDT 有额度应渲染 success「已验证可借」: ' + busdtStatus);
       }
-      const busdtNet = getRowCell(triTbody, 'BUSDT', 6);
+      const busdtNet = getRowCell(triTbody, 'BUSDT', 9);
       if (!busdtNet.includes('可借: 5.0')) {
         throw new Error('BUSDT 有额度 net-yield 应含「可借: 5.0」: ' + busdtNet);
       }
@@ -978,17 +1078,104 @@ setTimeout(async () => {
         throw new Error('BUSDT 有额度不应含「已借完」: ' + busdtNet);
       }
       // (c) CUSDT 未探测
-      const cusdtStatus = getRowCell(triTbody, 'CUSDT', 8);
+      const cusdtStatus = getRowCell(triTbody, 'CUSDT', 11);
       if (!cusdtStatus.includes('有利率·可借性未探测')) {
         throw new Error('CUSDT 未探测 badge 应保持「有利率·可借性未探测」: ' + cusdtStatus);
       }
-      const cusdtNet = getRowCell(triTbody, 'CUSDT', 6);
+      const cusdtNet = getRowCell(triTbody, 'CUSDT', 9);
       if (cusdtNet.includes('可借:')) {
         throw new Error('CUSDT 未探测（max_borrowable=null）不应展示可借子行: ' + cusdtNet);
       }
       helpers.ingestSnapshot(designFixture);
       console.log('[PASS] 借币三态（51061 借光/有额度/未探测）');
     }
+
+    // 42. 右侧抽屉：打开、标题、年化值、已结算历史（北京时间 newest-first）
+    helpers.openDrawer('AUSDT');
+    if (!helpers.isDrawerOpen()) {
+      throw new Error('openDrawer 后抽屉应为打开状态');
+    }
+    if (helpers.getSelectedSymbol() !== 'AUSDT') {
+      throw new Error('openDrawer 后 selectedSymbol 应为 AUSDT');
+    }
+    if (!elements['drawer'].classList.contains('open')) {
+      throw new Error('drawer 元素应含有 open class');
+    }
+    if (!elements['drawer-backdrop'].classList.contains('open')) {
+      throw new Error('drawer-backdrop 应含有 open class');
+    }
+    const drawerTitle = elements['drawer-title'].textContent;
+    if (!drawerTitle.includes('AUSDT')) {
+      throw new Error(`抽屉标题期望含 AUSDT，实际 ${drawerTitle}`);
+    }
+    const drawerBody = elements['drawer-body'].innerHTML;
+    if (!drawerBody.includes('-65.7%') || !drawerBody.includes('-0.260714%') || !drawerBody.includes('-0.060833%')) {
+      throw new Error('抽屉未渲染 AUSDT 三个年化值: ' + drawerBody);
+    }
+    if (!drawerBody.includes('近 30 日已结算历史（北京时间）')) {
+      throw new Error('抽屉未渲染历史标题');
+    }
+    // 历史 newest-first：第一条是最晚的 funding_time
+    const ausdtHistory = designFixture.rows.find(r => r.symbol === 'AUSDT').funding_history;
+    const latestTime = ausdtHistory[ausdtHistory.length - 1].funding_time;
+    const latestIdx = drawerBody.indexOf(helpers.formatBeijing(latestTime));
+    const earliestIdx = drawerBody.indexOf(helpers.formatBeijing(ausdtHistory[0].funding_time));
+    if (latestIdx === -1 || earliestIdx === -1 || earliestIdx <= latestIdx) {
+      throw new Error('抽屉历史未按 newest-first 排列');
+    }
+    console.log('[PASS] 抽屉打开、标题、年化值、历史 newest-first');
+
+    // 43. 抽屉关闭按钮
+    await Promise.all((elements['drawer-close'].listeners.click || []).map(h => h()));
+    if (helpers.isDrawerOpen()) {
+      throw new Error('点击关闭按钮后抽屉应关闭');
+    }
+    if (elements['drawer'].classList.contains('open')) {
+      throw new Error('点击关闭按钮后 drawer 不应含有 open class');
+    }
+    console.log('[PASS] 抽屉关闭按钮');
+
+    // 44. 抽屉 Escape 关闭
+    helpers.openDrawer('AUSDT');
+    const keydownHandler = document._listeners && document._listeners.keydown;
+    if (!keydownHandler) throw new Error('未注册 document keydown 处理器');
+    keydownHandler({ key: 'Escape', preventDefault: () => {} });
+    if (helpers.isDrawerOpen()) {
+      throw new Error('按 Escape 后抽屉应关闭');
+    }
+    console.log('[PASS] 抽屉 Escape 关闭');
+
+    // 45. 抽屉 backdrop 关闭
+    helpers.openDrawer('AUSDT');
+    await Promise.all((elements['drawer-backdrop'].listeners.click || []).map(h => h()));
+    if (helpers.isDrawerOpen()) {
+      throw new Error('点击 backdrop 后抽屉应关闭');
+    }
+    console.log('[PASS] 抽屉 backdrop 关闭');
+
+    // 46. 刷新保持抽屉：相同 fixture 重新 ingest，抽屉仍开且数据更新
+    helpers.openDrawer('AUSDT');
+    const beforeTitle = elements['drawer-title'].textContent;
+    helpers.ingestSnapshot(designFixture);
+    if (!helpers.isDrawerOpen()) {
+      throw new Error('刷新后 AUSDT 仍在 snapshot 中，抽屉应保持打开');
+    }
+    if (elements['drawer-title'].textContent !== beforeTitle) {
+      throw new Error('刷新后抽屉标题不应变化');
+    }
+    console.log('[PASS] 刷新保持抽屉');
+
+    // 47. symbol 消失时抽屉关闭
+    const noAusdtFixture = JSON.parse(JSON.stringify(designFixture));
+    noAusdtFixture.rows = noAusdtFixture.rows.filter(r => r.symbol !== 'AUSDT');
+    helpers.ingestSnapshot(noAusdtFixture);
+    if (helpers.isDrawerOpen()) {
+      throw new Error('AUSDT 从 snapshot 消失后抽屉应关闭');
+    }
+    console.log('[PASS] symbol 消失时抽屉关闭');
+
+    // 恢复默认 fixture
+    helpers.ingestSnapshot(designFixture);
 
     console.log('\n全部自检通过');
     process.exit(0);
