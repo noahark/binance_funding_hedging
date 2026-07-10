@@ -39,8 +39,6 @@ Task A, backend contract and settled-history enrichment, may modify:
 - `backend/tests/test_snapshot.py`
 - `backend/tests/test_funding_history.py` (new)
 - `backend/tests/fixtures/funding-history/**` (new deterministic vectors)
-- `backend/tests/test_negative_schema.py` (compatibility rows only)
-- `backend/tests/test_private_account_v1.py` (compatibility rows only)
 - `schemas/api/public-market/snapshot.schema.json`
 - `reports/api-samples/2026-07-funding-annualized-history-v1/**`
 - `reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend.md`
@@ -63,19 +61,13 @@ Forbidden or out-of-scope for both tasks:
 - `status.json`, `70-handoff.md`, review artifacts, and stage commits. The
   bookkeeper owns those records and commits.
 
-For the two compatibility test files, the only permitted change is adding
-`annualized_funding_24h`, `annualized_funding_7d`, and
-`annualized_funding_30d`, each with `null`, to complete hand-authored rows that
-are passed to snapshot schema validation. Do not relax, remove, or rewrite
-their existing assertions; do not change private-channel semantics.
-
 ## Acceptance Criteria
 
-1. Each snapshot row exposes required additive decimal-or-null fields
+1. The schema declares additive decimal-or-null fields
    `annualized_funding_24h`, `annualized_funding_7d`, and
-   `annualized_funding_30d`. They must be added to the row schema's
-   `required` array, and a negative schema test must reject a row missing any
-   one of them.
+   `annualized_funding_30d` without adding them to the row schema's `required`
+   array. Frozen v0.1 snapshots lacking the fields remain schema-valid, while
+   every current `SnapshotService` output row must emit all three keys.
 2. 24h equals `daily_funding_rate * 365`. 7D and 30D equal the Decimal sum of
    settled records inside their calendar windows times `365 / N`, quantized to
    eight fixed decimal places. No production float path or interval-derived

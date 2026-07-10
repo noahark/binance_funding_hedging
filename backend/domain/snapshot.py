@@ -64,6 +64,7 @@ def build_rows(
     funding_history_by_sym: Dict[str, List[dict]],
     *,
     funding_interval_by_sym: Optional[Dict[str, int]] = None,
+    t_end_ms: Optional[int] = None,
 ) -> List[dict]:
     """Build snapshot rows from already-filtered futures symbols.
 
@@ -77,6 +78,14 @@ def build_rows(
     ``daily_funding_rate = Decimal(lastFundingRate) * (24/interval)`` computation.
     Symbols absent from fundingInfo default to 8 (Binance default); ``None``/empty
     means all symbols use the 8h default.
+
+    ``t_end_ms`` (snapshot premium-index time, ms) scopes the settled-history
+    window. When known, each row's ``funding_history`` is filtered to the
+    inclusive 30-day window and serialized newest first, and 7D/30D annualization
+    is computed from the settled records inside their calendar windows; 24h
+    annualization is always estimate-derived (``daily_funding_rate * 365``) and
+    independent of history. When ``t_end_ms`` is None the history is passed
+    through unfiltered and 7D/30D are null (24h is still computed).
     """
     interval_map = funding_interval_by_sym or {}
     rows: List[dict] = []
@@ -106,15 +115,12 @@ def build_rows(
         if asset_tag == "BSTOCK":
             ui_flags.append("TRADIFI_BSTOCK")
 
-        funding_history: List[dict] = []
-        if sym in funding_history_by_sym:
-            funding_history = [
-                {
-                    "funding_time": int(entry["fundingTime"]),
-                    "funding_rate": entry["fundingRate"],
-                }
-                for entry in funding_history_by_sym[sym]
-            ]
+        funding_history = _build_funding_history(
+            funding_history_by_sym.get(sym, []), t_end_ms
+        )
+        annualized_24h = compute_annualized_funding_24h(daily_rate)
+        annualized_7d = compute_annualized_funding_window(funding_history, t_end_ms, 7)
+        annualized_30d = compute_annualized_funding_window(funding_history, t_end_ms, 30)
 
         rows.append(
             {
@@ -156,10 +162,51 @@ def build_rows(
                 "funding_history": funding_history,
                 "funding_interval_hours": interval_hours,
                 "daily_funding_rate": daily_rate,
+                "annualized_funding_24h": annualized_24h,
+                "annualized_funding_7d": annualized_7d,
+                "annualized_funding_30d": annualized_30d,
                 "ui_flags": ui_flags,
             }
         )
     return rows
+
+
+def _build_funding_history(
+    raw_entries: List[dict], t_end_ms: Optional[int]
+) -> List[dict]:
+    """Normalize raw Binance ``/fapi/v1/fundingRate`` entries to the wire shape
+    ``{funding_time, funding_rate}``.
+
+    When ``t_end_ms`` is known the entries are filtered to the inclusive 30-day
+    window ``[t_end - 30*86_400_000, t_end]`` and serialized newest first (the
+    drawer/history contract). When ``t_end_ms`` is None the entries are passed
+    through unfiltered in their raw order (callers that do not scope a window do
+    not get 7D/30D annualization). Entries missing a parseable ``fundingTime`` or
+    a ``fundingRate`` are dropped (the wire contract requires both). Decimal-safe:
+    ``funding_rate`` is carried as a string straight from the raw JSON.
+    """
+    items: List[dict] = []
+    for entry in raw_entries or []:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            ft = int(entry.get("fundingTime"))
+        except (TypeError, ValueError):
+            continue
+        rate = entry.get("fundingRate")
+        if rate is None:
+            continue
+        items.append({"funding_time": ft, "funding_rate": str(rate)})
+    if t_end_ms is not None:
+        try:
+            t_end = int(t_end_ms)
+        except (TypeError, ValueError):
+            t_end = None
+        if t_end is not None:
+            start = t_end - 30 * 86_400_000
+            items = [e for e in items if start <= e["funding_time"] <= t_end]
+            items.sort(key=lambda e: e["funding_time"], reverse=True)
+    return items
 
 
 def _counts(rows: List[dict], key: str) -> Dict[str, int]:
@@ -283,6 +330,66 @@ def _quantize_rate(value: Decimal) -> str:
     if value == 0:
         value = Decimal(0)
     return format(value.quantize(Decimal("1E-8")), "f")
+
+
+def compute_annualized_funding_24h(daily_funding_rate) -> Optional[str]:
+    """Estimate-derived 24h annualization: ``daily_funding_rate * 365`` as an
+    8-place string, or ``None``.
+
+    This NEVER mixes in settled history — it scales the current-period estimate
+    only (the same estimate that backs ``daily_funding_rate``). Missing/empty/
+    non-numeric daily rate -> ``None``. Decimal-only; negative zero normalized.
+    """
+    if daily_funding_rate is None or daily_funding_rate == "":
+        return None
+    try:
+        rate = Decimal(str(daily_funding_rate))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    return _quantize_rate(rate * Decimal(365))
+
+
+def compute_annualized_funding_window(
+    funding_history: List[dict], t_end_ms: Optional[int], days: int
+) -> Optional[str]:
+    """Settled-window annualization for ``days in {7, 30}``.
+
+    Sums ``Decimal(funding_rate)`` for entries whose ``funding_time`` falls in
+    the inclusive calendar window ``[t_end - days*86_400_000, t_end]`` and
+    multiplies by ``365 / days`` (calendar denominator, ADR-1). No observed-span
+    denominator, no mean-period formula, no ``lastFundingRate``. An empty window
+    yields ``None`` (a new listing is not inflated). Quantized to 8 places;
+    negative zero normalized.
+
+    ``funding_history`` entries carry ``funding_time`` (ms int) and
+    ``funding_rate`` (decimal string). ``t_end_ms`` None / ``days`` <= 0 / no
+    in-window entries -> ``None``. Decimal-only; unparseable entries are skipped.
+    """
+    if t_end_ms is None or days <= 0:
+        return None
+    try:
+        t_end = int(t_end_ms)
+    except (TypeError, ValueError):
+        return None
+    start = t_end - int(days) * 86_400_000
+    total = Decimal(0)
+    count = 0
+    for entry in funding_history or []:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            ft = int(entry.get("funding_time"))
+        except (TypeError, ValueError):
+            continue
+        if start <= ft <= t_end:
+            try:
+                total += Decimal(str(entry.get("funding_rate")))
+                count += 1
+            except (InvalidOperation, ValueError, TypeError):
+                continue
+    if count == 0:
+        return None
+    return _quantize_rate(total * Decimal(365) / Decimal(days))
 
 
 def compute_daily_from_hourly(hourly_rate) -> Optional[str]:

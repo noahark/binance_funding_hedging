@@ -26,14 +26,17 @@
 ## ADR-3: Additive Contract Now, Canonical Documentation Later
 
 - Status: proposed for this stage package
-- Decision: add the three required additive fields to the runtime schema and
-  require authentic raw evidence during implementation. Do not edit the
-  canonical API contract during implementation; promote it only after review
-  and explicit user approval.
+- Decision: add the three fields as optional additive runtime-schema properties
+  while requiring every current service output row to emit them. Require
+  authentic raw evidence during implementation. Do not edit the canonical API
+  contract during implementation; promote it only after review and explicit
+  user approval.
 - Rationale: the repository's canonical-doc gate prevents model drafts from
   being promoted before the user accepts the reviewed delivery.
-- Consequence: `70-handoff.md` must name `docs/api/public-market-contract.md`
-  and the raw sample path as a post-acceptance documentation obligation.
+- Consequence: frozen v0.1 snapshots remain schema-valid; the service-output
+  guarantee is covered by Task A tests. `70-handoff.md` must name
+  `docs/api/public-market-contract.md` and the raw sample path as a
+  post-acceptance documentation obligation.
 
 ```text
 本地北京时间: 2026-07-10 13:13:36 CST

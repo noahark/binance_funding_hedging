@@ -29,6 +29,11 @@ class Config:
     bind_port: int = 8787
     top_n: int = 20
     cache_ttl_seconds: int = 60
+    # Stage 2026-07: dedicated per-symbol successful-result cache for settled
+    # /fapi/v1/fundingRate deep history (immutable records -> longer TTL than
+    # the 60s whole-snapshot cache). Defaults to 30 minutes; failure results are
+    # NOT cached (the service retries them on the next snapshot rebuild).
+    funding_history_cache_ttl_seconds: int = 1800
     offline: bool = False
     offline_raw_dir: Path = FROZEN_RAW_DIR
     schema_path: Path = SCHEMA_PATH
@@ -124,6 +129,12 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
             "APP_CACHE_TTL_SECONDS",
             DEFAULT.cache_ttl_seconds,
             "FUNDING_HEDGING_CACHE_TTL_SECONDS",
+        ),
+        funding_history_cache_ttl_seconds=_env_int(
+            env,
+            "APP_FUNDING_HISTORY_CACHE_TTL_SECONDS",
+            DEFAULT.funding_history_cache_ttl_seconds,
+            "FUNDING_HEDGING_FUNDING_HISTORY_CACHE_TTL_SECONDS",
         ),
         offline=_env_bool(env, "APP_OFFLINE", DEFAULT.offline, "FUNDING_HEDGING_OFFLINE"),
         offline_raw_dir=_env_path(

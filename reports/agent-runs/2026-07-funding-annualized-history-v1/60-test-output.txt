@@ -21,3 +21,15 @@ status=planned
 2026-07-10 13:49:43 CST
 - Task A package-only compatibility-boundary amendment prepared. Backend and
   frontend tests remain not run because no business code has changed.
+
+2026-07-10 15:24:47 CST
+$ python3 -m pytest backend/tests -q
+226 passed in 5.34s
+$ python3 -m json.tool schemas/api/public-market/snapshot.schema.json >/dev/null
+PASS
+$ git diff --check
+PASS
+
+Task A contract correction: the three annualized fields remain optional schema
+properties for frozen v0.1 compatibility; the current-service output guarantee
+is covered by `backend/tests/test_funding_history.py`.

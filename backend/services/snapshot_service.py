@@ -10,8 +10,9 @@ from __future__ import annotations
 import json
 import os
 import time
+import urllib.error
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 
 import jsonschema
 
@@ -49,6 +50,11 @@ class SnapshotService:
         )
         self._cache = None  # (monotonic, snapshot)
         self._schema = None
+        # Dedicated per-symbol successful-result cache for settled deep history
+        # (records are immutable -> longer TTL than the 60s snapshot cache, ADR-2).
+        # Failed requests are NOT cached so they retry on the next snapshot
+        # rebuild instead of locking the symbol out for a TTL.
+        self._funding_history_cache: dict = {}  # symbol -> (monotonic, raw entries)
         # Private borrow-validation client (the repo's single HMAC exit). Offline
         # mode never touches the private channel (no key, no network) -> every row
         # degrades to verified=false. Live mode still requires an explicit
@@ -102,15 +108,29 @@ class SnapshotService:
         funding_interval_by_sym = raw.get("funding_interval_by_sym", {})
         fetch_warnings = raw.get("warnings", [])
 
+        # Snapshot premium-index time scopes the settled-history window: it is
+        # the inclusive end of both the live deep-history request and the 7D/30D
+        # annualization windows.
+        data_time_ms = max((p.get("time", 0) for p in raw["premium_index"]), default=0)
+        history_warnings: List[str] = []
+
         if not self.client.offline:
-            # Top-N bounds LIVE /fapi/v1/fundingRate call volume. Offline uses
-            # all frozen fixtures already in funding_by_sym (no HTTP cost).
+            # Top-N bounds LIVE /fapi/v1/fundingRate call volume (ADR-2). Offline
+            # uses all frozen fixtures already in funding_by_sym (no HTTP cost).
             top_symbols = top_symbols_by_abs_rate(
                 futures_symbols, premium_by_sym, self.config.top_n
             )
             for sym in top_symbols:
-                if sym not in funding_by_sym:
-                    funding_by_sym[sym] = self.client.fetch_funding_rate(sym)
+                if sym in funding_by_sym:
+                    continue
+                entries = self._fetch_history_for(sym, data_time_ms)
+                if entries is None:
+                    # Individual failure degrades only this row (empty history +
+                    # null 7D/30D + warning); the snapshot still renders. The
+                    # failed request is NOT cached so it retries next rebuild.
+                    history_warnings.append(f"funding_history_unavailable:{sym}")
+                    continue
+                funding_by_sym[sym] = entries
 
         rows = build_rows(
             futures_symbols,
@@ -118,6 +138,7 @@ class SnapshotService:
             spot_by_sym,
             funding_by_sym,
             funding_interval_by_sym=funding_interval_by_sym,
+            t_end_ms=data_time_ms,
         )
 
         # ---- private channel (single HMAC exit, deny-by-default) ----
@@ -231,7 +252,6 @@ class SnapshotService:
             "chain_hit_source": cost_leg.get("chain_hit_source") if cost_leg else None,
         }
 
-        data_time_ms = max((p.get("time", 0) for p in raw["premium_index"]), default=0)
         if self.client.offline:
             generated_at = FROZEN_GENERATED_AT
             source_sample_id = FROZEN_SOURCE_SAMPLE_ID
@@ -249,8 +269,37 @@ class SnapshotService:
             sort_basis=sort_basis,
             private_account=private_account,
             borrow_validation_summary=borrow_validation_summary,
-            extra_warnings=fetch_warnings + account_warnings,
+            extra_warnings=fetch_warnings + account_warnings + history_warnings,
         )
+
+    def _fetch_history_for(self, symbol: str, t_end_ms: int) -> Optional[List[dict]]:
+        """Top-N settled deep history with a dedicated per-symbol successful-
+        result cache (ADR-2).
+
+        Returns the raw Binance ``/fapi/v1/fundingRate`` entries for the inclusive
+        ``[t_end - 30d, t_end]`` window, or ``None`` on a transport/HTTP/parse
+        failure. The caller degrades that row (empty history + null 7D/30D +
+        warning); the failure is NOT cached, so it retries on the next snapshot
+        rebuild instead of locking the symbol out for a TTL. The 60-second
+        whole-snapshot cache is independent of this TTL.
+        """
+        now = time.monotonic()
+        ttl = self.config.funding_history_cache_ttl_seconds
+        cached = self._funding_history_cache.get(symbol)
+        if cached is not None and (now - cached[0]) < ttl:
+            return cached[1]
+        start_ms = int(t_end_ms) - 30 * 86_400_000
+        try:
+            entries = self.client.fetch_funding_rate(
+                symbol,
+                start_time_ms=start_ms,
+                end_time_ms=int(t_end_ms),
+                limit=1000,
+            )
+        except (urllib.error.URLError, OSError, ValueError):
+            return None
+        self._funding_history_cache[symbol] = (now, entries)
+        return entries
 
     def request_log(self) -> dict:
         return dict(self.client.request_log)

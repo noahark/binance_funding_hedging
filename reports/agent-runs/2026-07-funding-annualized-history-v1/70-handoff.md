@@ -29,10 +29,10 @@
   executor sessions. No dispatch command has been executed.
 - Review-2 primary: an unrelated Anthropic Claude session; Codex/GPT is only a
   documented strong-reviewer fallback because it authored this package.
-- Task A compatibility boundary: `test_negative_schema.py` and schema-validated
-  hand-authored rows in `test_private_account_v1.py` may receive only the three
-  `null` annualized defaults. This prevents the required schema change from
-  blocking the full backend suite without weakening existing test coverage.
+- Contract correction: the three annualized fields are optional schema
+  properties to preserve frozen v0.1 validation, but are mandatory keys on
+  current service output. The prior temporary authorization for legacy
+  hand-authored row backfills is withdrawn; no such test changes are needed.
 
 ## Open Gates And Next Action
 
@@ -47,7 +47,7 @@
    authorized yet.
 
 ```text
-本地北京时间: 2026-07-10 13:49:43 CST
+本地北京时间: 2026-07-10 15:24:47 CST
 下一步模型: human
-下一步任务: 将 Task A PASTE BODY 粘贴到 Claude-GLM 交互执行会话并保留原始输出。
+下一步任务: bookkeeper 冻结 Task A diff、记录测试与契约修正后准备 Task A review-1。
 ```

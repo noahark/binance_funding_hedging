@@ -90,3 +90,26 @@ def test_offline_mode_ignores_private_channel_switch(monkeypatch):
     )
     service = SnapshotService(cfg)
     assert service._private.enabled is False
+
+
+# --- Stage 2026-07: dedicated per-symbol funding-history cache TTL ---
+
+
+def test_funding_history_cache_ttl_default_is_1800():
+    # Settled records are immutable -> the deep-history cache outlives the 60s
+    # whole-snapshot cache (default 30 minutes, ADR-2).
+    assert DEFAULT.funding_history_cache_ttl_seconds == 1800
+    assert from_env({}).funding_history_cache_ttl_seconds == 1800
+
+
+def test_funding_history_cache_ttl_env_override():
+    cfg = from_env({"APP_FUNDING_HISTORY_CACHE_TTL_SECONDS": "900"})
+    assert cfg.funding_history_cache_ttl_seconds == 900
+    # Legacy alias is honored too.
+    cfg2 = from_env({"FUNDING_HEDGING_FUNDING_HISTORY_CACHE_TTL_SECONDS": "120"})
+    assert cfg2.funding_history_cache_ttl_seconds == 120
+
+
+def test_funding_history_cache_ttl_rejects_invalid_integer():
+    with pytest.raises(ValueError, match="APP_FUNDING_HISTORY_CACHE_TTL_SECONDS"):
+        from_env({"APP_FUNDING_HISTORY_CACHE_TTL_SECONDS": "soon"})

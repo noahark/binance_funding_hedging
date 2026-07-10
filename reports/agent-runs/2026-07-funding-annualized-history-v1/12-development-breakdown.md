@@ -31,19 +31,19 @@ Owner: Claude-GLM.
 4. Add pure Decimal helpers and row fields for D2. Filter the returned history
    to the inclusive 30-day window, serialize it newest first, and quantize all
    non-null annualized results to eight fixed decimal places.
-5. Add the three fields to the row schema's `required` array as
-   decimal-string-or-null values. Add one negative schema assertion per field;
-   do not add count fields, change `schema_version`, or alter sorting.
+5. Add the three fields as optional decimal-string-or-null row-schema
+   properties. Preserve frozen v0.1 schema validation, and assert instead that
+   every current service output row emits all three keys. Do not add count
+   fields, change `schema_version`, or alter sorting.
 6. Capture and retain authentic public multi-week raw evidence in this stage's
    API-sample path. Add deterministic vectors under
    `backend/tests/fixtures/funding-history/` and focused coverage in the new
    `backend/tests/test_funding_history.py` for boundary, mixed interval,
-   negative, empty, cache, top-N, degraded-fetch, ordering, and missing-field
-   schema cases. Update `test_config.py` and `test_snapshot.py` where the new
-   configuration or required output fields affect existing coverage. In
-   `test_negative_schema.py` and schema-validated hand-authored rows in
-   `test_private_account_v1.py`, add only the three `null` annualized defaults;
-   do not weaken their assertions or alter private-channel behavior.
+   negative, empty, cache, top-N, degraded-fetch, ordering, legacy optional-
+   schema, and current-output-presence cases. Update `test_config.py` and
+   `test_snapshot.py` where the new configuration or output fields affect
+   existing coverage. Do not modify frozen samples or legacy hand-authored rows
+   solely to satisfy this additive change.
 7. Run the backend test suite and record only the task report; do not commit or
    modify stage status/handoff/review records.
 
@@ -78,7 +78,8 @@ Allowed files are exactly the Task B list in `00-task.md`.
 ## Shared Contract And Do-Not-Touch Rules
 
 - Fields: `annualized_funding_24h`, `annualized_funding_7d`,
-  `annualized_funding_30d`, each a decimal string or `null`.
+  `annualized_funding_30d`, each an optional decimal string or `null` in the
+  schema and always present in current service output.
 - History: settled only, 30-day inclusive window, newest-first on the wire.
 - 24h estimate semantics must never be relabeled as settled history.
 - Do not modify canonical docs, route/version, sort basis, borrow/net-yield

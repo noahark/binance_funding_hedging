@@ -36,12 +36,12 @@ Each `rows[]` object will require these additive fields in the snapshot schema:
 | `annualized_funding_7d` | decimal string or `null` | Settled 7-day calendar-window sum times `365 / 7`. |
 | `annualized_funding_30d` | decimal string or `null` | Settled 30-day calendar-window sum times `365 / 30`. |
 
-No settlement-count fields ship in v1. The three fields are required: Task A
-must add them to the row schema's `required` array and test that omitting each
-field fails validation. The service always supplies a decimal string or `null`,
-which gives the frontend a stable contract. `schema_version`, route,
-`sort_basis`, `daily_funding_rate`, and `net_daily_yield` retain their current
-semantics.
+No settlement-count fields ship in v1. The three fields are additive optional
+schema properties so frozen v0.1 snapshots remain valid under the unchanged
+wire version. The current `SnapshotService` output is nevertheless required to
+supply all three keys as decimal strings or `null`; tests lock that runtime
+guarantee. `schema_version`, route, `sort_basis`, `daily_funding_rate`, and
+`net_daily_yield` retain their current semantics.
 
 ### D2. Calendar-window Decimal formulas
 
@@ -128,17 +128,16 @@ that future promotion.
 - Unit: `backend/tests/test_funding_history.py` with deterministic fixtures
   under `backend/tests/fixtures/funding-history/`: 24h, 7D, and 30D vectors;
   negative values; empty windows; inclusive boundaries; mixed 1h/4h intervals;
-  fixed-point formatting; newest-first ordering; and a negative schema case
-  for each missing required field.
+  fixed-point formatting; newest-first ordering; optional-schema acceptance for
+  legacy rows; and always-present fields on current service output.
 - Service/adapter: exact query parameters, top-N bound, deep-history TTL,
   per-symbol failure degradation, and no regression to existing snapshot cache.
 - Configuration: `backend/tests/test_config.py` covers the new TTL default,
   environment override, and invalid integer rejection.
 - Contract: JSON Schema validation for every produced row and offline build.
-- Compatibility: `backend/tests/test_negative_schema.py` and the complete
-  schema-validated rows in `backend/tests/test_private_account_v1.py` receive
-  only the three `null` annualized defaults. Their existing assertions and all
-  private-channel semantics remain unchanged.
+- Compatibility: `backend/tests/test_phase2_borrow_sort.py` continues to prove
+  that the frozen v0.1 snapshot remains schema-valid; no frozen sample or
+  legacy hand-authored row changes are needed.
 - Frontend: fixture/self-check coverage for new required fields, column labels,
   null rendering, drawer open/close/Escape, list ordering, and refresh state.
 - Final commands: `python3 -m pytest backend/tests -q`,
@@ -154,8 +153,9 @@ that future promotion.
 - A 1h instrument can produce far more records than an 8h instrument. The
   stage accepts the live-evidence constraint that current target windows fit
   `limit=1000`; pagination is an explicit follow-up if that ceases to be true.
-- Schema-required fields require all fixtures and consumers to be updated in
-  the same backend-to-frontend sequence.
+- Schema optionality preserves legacy replay, while frontend work still relies
+  on the current-service guarantee that every new output row contains the three
+  fields.
 
 ## Raw Artifact Requirements For Review
 

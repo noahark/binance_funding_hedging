@@ -182,13 +182,11 @@
     "approved_at": "2026-07-10T05:45:20Z",
     "scope": "User requested Task A code-execution body. Authorization is limited to human dispatch of the prepared Claude-GLM Task A prompt."
   },
-  "task_a_boundary_amendment": {
-    "recorded_at": "2026-07-10T05:49:43Z",
-    "allowed_compatibility_files": [
-      "backend/tests/test_negative_schema.py",
-      "backend/tests/test_private_account_v1.py"
-    ],
-    "restriction": "Only add the three annualized fields with null values to complete hand-authored rows that undergo schema validation. Existing assertions and private-channel semantics are not editable under this amendment."
+  "contract_decision": {
+    "recorded_at": "2026-07-10T07:24:47Z",
+    "schema_fields": "annualized_funding_24h, annualized_funding_7d, and annualized_funding_30d are optional decimal-or-null schema properties to preserve public-market-snapshot/v1 backward compatibility.",
+    "current_service_guarantee": "Every current SnapshotService output row emits all three fields as decimal strings or null.",
+    "legacy_compatibility": "Frozen v0.1 snapshots remain valid; do not modify frozen samples or legacy hand-authored rows solely for these additive fields."
   },
   "tests": {
     "status": "not_run",
@@ -243,5 +241,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_paste_task_a_into_claude_glm_interactive_executor",
-  "updated_at": "2026-07-10T05:49:43Z"
+  "updated_at": "2026-07-10T07:24:47Z"
 }

@@ -15,8 +15,10 @@ Read `AGENTS.md` and these stage artifacts first:
 
 Implement Task A only. You own the public adapter, configuration, snapshot
 service/domain math, schema, backend tests, and raw public evidence. The three
-new row fields are required and additive. Add all three to the row schema's
-`required` array and prove that a row missing each one fails validation:
+new row fields are additive decimal-string-or-null schema properties. Do not
+add them to the row schema's `required` array: frozen v0.1 snapshots must remain
+valid. Instead, prove that every current service output row emits all three
+keys:
 
 - `annualized_funding_24h`
 - `annualized_funding_7d`
@@ -54,17 +56,10 @@ Add focused deterministic coverage in the new
 `backend/tests/fixtures/funding-history/**`: 24h/7D/30D vectors, negative and
 empty windows, inclusive boundaries, mixed 1h/4h timestamps, eight-place
 serialization, newest-first ordering, exact request parameters, top-N cap,
-cache TTL, per-symbol degradation, and one missing-required-field rejection
-for each annualized field. Update `backend/tests/test_config.py` for the TTL
-default/override/invalid input and `backend/tests/test_snapshot.py` only where
-the required output shape needs adjustment.
-
-You are also authorized to make the minimum compatibility updates in
-`backend/tests/test_negative_schema.py` and in complete hand-authored rows
-passed to schema validation in `backend/tests/test_private_account_v1.py`: add
-only `annualized_funding_24h`, `annualized_funding_7d`, and
-`annualized_funding_30d`, each set to `null`. Do not relax, remove, or rewrite
-existing assertions and do not alter private-channel behavior.
+cache TTL, per-symbol degradation, optional-schema compatibility for a legacy
+row, and always-present current-service fields. Update
+`backend/tests/test_config.py` for the TTL default/override/invalid input and
+`backend/tests/test_snapshot.py` only where the output shape needs adjustment.
 
 Run:
 
