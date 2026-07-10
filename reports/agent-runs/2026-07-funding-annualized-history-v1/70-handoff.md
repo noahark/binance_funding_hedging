@@ -4,8 +4,8 @@
 
 - Current branch: `stage/2026-07-funding-annualized-history-v1`
 - Stage branch base: `7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1`
-- Planning package commit: `0dc1b4c`
-- Current HEAD: `0dc1b4c`
+- Planning package commit: `bf0e5f0`
+- HEAD at command validation before this checkpoint record: `bf0e5f0`
 - Git status at checkpoint: user-owned modifications remain in
   `reports/follow-ups/README.md` and
   `reports/follow-ups/2026-07-funding-annualized-history-drawer.md`; this
