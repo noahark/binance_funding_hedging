@@ -5,7 +5,8 @@ Status: as-built index, 2026-07-10
 This human-readable index summarizes `reports/agent-runs/*/status.json`. The
 stage `status.json` files remain authoritative. The bookkeeper should update
 this index when a stage reaches `stage_accepted_waiting_user`, is merged, is
-abandoned, or is found to be legacy/unindexed.
+abandoned, or when a retained pre-status or historical-reference directory is
+identified.
 
 ## Indexed Stages
 
@@ -37,15 +38,23 @@ and the paste-first dispatch semantics were reverted on top of main. The
 pre-rollback state is preserved at branch
 `archive/harness-pre-rollback-2026-07-10`.
 
-## Legacy Or Unindexed Directories
+## Retained Pre-Status And Historical-Reference Directories
 
-These directories currently have no `status.json`. They are retained as
-evidence or direction material and should not be treated as active stages unless
-a future cleanup adds explicit metadata.
+These directories have no `status.json` and are not active stages. They remain
+at their existing paths for navigation and historical reference; `migrate: no`
+does not imply that a directory is disposable.
 
-- `2026-07-harness-quality-delivery`
-- `2026-07-initial-direction`
-- `2026-07-public-market-discovery`
-- `harness-parallel-mode-v1`
-- `phase2-direction-v1`
-- `private-account-v1-direction`
+- `2026-07-public-market-discovery` - index-only historical marker. `main`
+  has no tracked stage files or `status.json`; local raw transcripts are
+  gitignored. The abandoned Grok implementation package is preserved under
+  `reports/archives/2026-07-03-grok-public-market-discovery/`. `migrate: no`.
+- `2026-07-harness-quality-delivery` - early Draft proposal for quality-driven
+  stage delivery and a conceptual predecessor to later stage-delivery framing;
+  it is not a frozen acceptance record. `migrate: no`.
+- `harness-parallel-mode-v1` - process-trial review evidence cited by
+  `docs/parallel-development-mode.md` (`ADOPTED-TRIAL`). `migrate: no`.
+- `2026-07-initial-direction` - frozen direction evidence, including the
+  registered panel output referenced by `agents/registry.yaml`. `migrate: no`.
+- `phase2-direction-v1` - frozen Phase 2 direction evidence. `migrate: no`.
+- `private-account-v1-direction` - frozen private-account direction evidence.
+  `migrate: no`.
