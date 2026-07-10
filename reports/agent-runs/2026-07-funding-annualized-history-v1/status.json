@@ -230,6 +230,15 @@
       "notes": "The reviewer correctly found the pre-review gate blocked. Its recommendation to change the whole stage to review_1 is deferred because Task B has not yet been implemented."
     }
   },
+  "task_b_preflight_findings": [
+    {
+      "severity": "P0",
+      "title": "Drawer markup follows the application script",
+      "evidence": "frontend/index.html has the main <script> at line 784, calls bindEvents() at line 1719, and only declares #drawer-backdrop/#drawer at lines 1725-1726. The real browser therefore sees null drawer elements during initialization.",
+      "fix_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-drawer-dom-order-fix-kimi.prompt.md",
+      "disposition": "scope_contained_fix_pending_human_dispatch"
+    }
+  ],
   "tests": {
     "status": "passed",
     "commands": [
@@ -285,6 +294,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_paste_task_b_into_kimi_interactive_executor",
-  "updated_at": "2026-07-10T10:31:09Z"
+  "next_action": "human_paste_task_b_drawer_dom_order_fix_into_kimi_interactive_executor",
+  "updated_at": "2026-07-10T11:26:02Z"
 }

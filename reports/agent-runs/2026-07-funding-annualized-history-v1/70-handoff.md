@@ -76,8 +76,17 @@ review-1 verdict because the packet's preflight had not passed.
   defeat the cache). The `data_time_ms <= 0` guard remains a low-priority
   hardening candidate and has not been accepted as a Task A rework.
 
+## Task B Blocking Fix
+
+Bookkeeper static inspection found that the drawer markup follows the main
+application script. That means `bindEvents()` dereferences `null` drawer
+elements in a real browser even though the self-check mock pre-creates them.
+This is a scope-contained Task B P0. The human operator must paste
+`task-b-drawer-dom-order-fix-kimi.prompt.md` into the existing Kimi executor
+session before Task B can be frozen.
+
 ```text
-本地北京时间: 2026-07-10 18:31:09 CST
+本地北京时间: 2026-07-10 19:26:02 CST
 下一步模型: Kimi
-下一步任务: 在现有交互执行会话粘贴 Task B PASTE BODY，完成表格年化列、右侧历史抽屉与前端自检。
+下一步任务: 在现有交互执行会话粘贴 Task B Drawer DOM-order fix PASTE BODY，修复真实浏览器启动失败并重跑前端自检。
 ```

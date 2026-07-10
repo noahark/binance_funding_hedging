@@ -53,3 +53,9 @@ Task A diff fingerprint:
 2026-07-10 18:31:09 CST
 - User authorized Task B frontend dispatch. No Task B code or frontend checks
   have run at this checkpoint.
+
+2026-07-10 19:26:02 CST
+- Bookkeeper static inspection found `#drawer-backdrop` and `#drawer` after
+  the main application script, while `bindEvents()` dereferences those elements
+  during script initialization. This is a Task B P0 real-browser startup bug;
+  `task-b-drawer-dom-order-fix-kimi.prompt.md` is prepared for the bounded fix.
