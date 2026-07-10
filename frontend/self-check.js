@@ -51,7 +51,10 @@ if (typeof global.CSS === 'undefined') {
   global.CSS = { escape: (s) => String(s).replace(/(["\\])/g, '\\$1') };
 }
 
+const elementCache = {};
+
 function makeElement(id) {
+  if (elementCache[id]) return elementCache[id];
   const el = {
     id,
     _innerHTML: '',
@@ -97,13 +100,22 @@ function makeElement(id) {
     removeAttribute(name) {
       if (this._attrs) delete this._attrs[name];
     },
-    querySelector() {
-      return null;
+    querySelector(sel) {
+      if (!sel || typeof sel !== 'string') return null;
+      const idMatch = sel.match(/^#([A-Za-z0-9_-]+)$/);
+      if (!idMatch) return null;
+      const targetId = idMatch[1];
+      const html = this.innerHTML;
+      if (!html.includes(`id="${targetId}"`) && !html.includes(`id='${targetId}'`)) return null;
+      return makeElement(targetId);
     },
-    querySelectorAll() {
+    querySelectorAll(sel) {
+      if (!sel || typeof sel !== 'string') return [];
+      if (sel === 'tr.selectable') return [];
       return [];
     }
   };
+  elementCache[id] = el;
   return el;
 }
 
@@ -150,15 +162,48 @@ designFixture.private_account.balances_unified.forEach(b => { b.value_usdt = '12
 designFixture.private_account.balances_spot.forEach(b => { b.value_usdt = '67.89000000'; });
 
 let fixtureToFetch = designFixture;
+let historyResponse = null;
+let historyResolve = null;
+let historyJsonResolve = null;
+let lastHistoryUrl = null;
+
+function buildFetchResponse(response, jsonDelay) {
+  return {
+    ok: response.status === 200,
+    status: response.status,
+    statusText: response.statusText || (response.status === 200 ? 'OK' : 'Error'),
+    json: async () => {
+      if (jsonDelay) {
+        return new Promise((resolve) => { historyJsonResolve = () => resolve(response.body); });
+      }
+      return response.body;
+    }
+  };
+}
 
 global.fetch = async (url) => {
-  fetchUrl = String(url);
-  return {
-    ok: true,
-    status: 200,
-    statusText: 'OK',
-    json: async () => fixtureToFetch
-  };
+  const urlStr = String(url);
+  if (urlStr === '/api/public-market/snapshot') {
+    fetchUrl = urlStr;
+    return buildFetchResponse({ status: 200, body: fixtureToFetch });
+  }
+  if (urlStr.startsWith('/api/public-market/funding-history')) {
+    lastHistoryUrl = urlStr;
+    if (historyResponse && historyResponse.delay) {
+      return new Promise((resolve) => {
+        historyResolve = () => {
+          const jsonDelay = historyResponse && historyResponse.jsonDelay;
+          // Resolve fetch() now; if jsonDelay is true, res.json() will remain pending.
+          resolve(buildFetchResponse(historyResponse, jsonDelay));
+        };
+      });
+    }
+    if (!historyResponse) {
+      return buildFetchResponse({ status: 502, statusText: 'Bad Gateway', body: { error: 'funding_history_unavailable' } });
+    }
+    return buildFetchResponse(historyResponse);
+  }
+  throw new Error(`Unexpected fetch URL: ${urlStr}`);
 };
 
 global.document = {
@@ -290,6 +335,41 @@ setTimeout(async () => {
     }
     console.log('[PASS] 年化三列存在且文案区分预估/已结算');
 
+    // 5c. Task D: 默认表移除路由分类列，但保留路由过滤器与字段校验
+    if (html.includes('<th>路由分类</th>')) {
+      throw new Error('默认表仍保留「路由分类」列');
+    }
+    const marketTableStart = html.indexOf('id="market-table-body"');
+    const marketTheadStart = html.lastIndexOf('<thead>', marketTableStart);
+    const marketTheadEnd = html.indexOf('</thead>', marketTheadStart) + 8;
+    const marketTheadHtml = html.slice(marketTheadStart, marketTheadEnd);
+    const headerCount = (marketTheadHtml.match(/<th[\s>]/g) || []).length;
+    if (headerCount !== 12) {
+      throw new Error(`市场表头应为 12 列，实际 ${headerCount} 列`);
+    }
+    // 路由过滤器仍保留
+    if (!html.includes('id="filter-route"')) {
+      throw new Error('路由过滤器被移除');
+    }
+    // REQUIRED_ROW_FIELDS 仍保留 route_class 字段校验
+    if (!script.includes("'route_class'")) {
+      throw new Error('REQUIRED_ROW_FIELDS 中 route_class 校验被移除');
+    }
+    console.log('[PASS] 路由分类列移除，过滤器与字段校验保留');
+
+    // 5d. Task D: Drawer 宽度与卡片标签不换行
+    if (!html.includes('width: min(620px, 100vw)')) {
+      throw new Error('Drawer 未使用 min(620px, 100vw) 宽度');
+    }
+    if (!html.includes('grid-template-columns: repeat(3, minmax(0, 1fr))')) {
+      throw new Error('年化网格未使用三列等宽非溢出布局');
+    }
+    const annualizedLabelCss = html.slice(html.indexOf('.annualized-card .label'), html.indexOf('.annualized-card .value'));
+    if (!annualizedLabelCss.includes('white-space: nowrap')) {
+      throw new Error('年化卡片标签未禁止换行');
+    }
+    console.log('[PASS] Drawer 宽度与卡片标签约束');
+
     // 6. 日费率 string-shift 格式化（含 null→—）
     const dailyRateChecks = [
       ['AUSDT', '-0.06%'],
@@ -300,7 +380,7 @@ setTimeout(async () => {
       ['FUSDT', '—']
     ];
     for (const [sym, expected] of dailyRateChecks) {
-      const cell = getRowCell(tbody, sym, 5);
+      const cell = getRowCell(tbody, sym, 4);
       if (!cell.includes(expected)) {
         throw new Error(`${sym} 日费率期望 ${expected}，单元格 ${cell}`);
       }
@@ -308,23 +388,23 @@ setTimeout(async () => {
     console.log('[PASS] 日费率 string-shift 格式化（含 null→—）');
 
     // 6b. 年化三列格式化：AUSDT 三值齐全，BUSDT 7D/30D 为 null→—
-    const ausdtAnn24 = getRowCell(tbody, 'AUSDT', 6);
+    const ausdtAnn24 = getRowCell(tbody, 'AUSDT', 5);
     if (!ausdtAnn24.includes('-65.7%')) {
       throw new Error(`AUSDT 年化 24h 期望 -65.7%，单元格 ${ausdtAnn24}`);
     }
-    const ausdtAnn7 = getRowCell(tbody, 'AUSDT', 7);
+    const ausdtAnn7 = getRowCell(tbody, 'AUSDT', 6);
     if (!ausdtAnn7.includes('-0.260714%')) {
       throw new Error(`AUSDT 年化 7D 期望 -0.260714%，单元格 ${ausdtAnn7}`);
     }
-    const ausdtAnn30 = getRowCell(tbody, 'AUSDT', 8);
+    const ausdtAnn30 = getRowCell(tbody, 'AUSDT', 7);
     if (!ausdtAnn30.includes('-0.060833%')) {
       throw new Error(`AUSDT 年化 30D 期望 -0.060833%，单元格 ${ausdtAnn30}`);
     }
-    const busdtAnn7 = getRowCell(tbody, 'BUSDT', 7);
+    const busdtAnn7 = getRowCell(tbody, 'BUSDT', 6);
     if (!busdtAnn7.includes('—')) {
       throw new Error(`BUSDT 年化 7D 期望 —，单元格 ${busdtAnn7}`);
     }
-    const busdtAnn30 = getRowCell(tbody, 'BUSDT', 8);
+    const busdtAnn30 = getRowCell(tbody, 'BUSDT', 7);
     if (!busdtAnn30.includes('—')) {
       throw new Error(`BUSDT 年化 30D 期望 —，单元格 ${busdtAnn30}`);
     }
@@ -454,9 +534,9 @@ setTimeout(async () => {
     }
     console.log('[PASS] 自动刷新 60s 与倒计时元素存在');
 
-    // 16. 路由/资产/负费率状态列显示中文优先格式（v0.4 行感知的结构优先级派生）
+    // 16. 资产标签/负费率状态列显示中文优先格式；路由分类列已从默认表移除，
+    // 但过滤器下拉仍保留选项。
     const enumDisplayChecks = [
-      ['MARGIN_SPOT_CANDIDATE(杠杆现货候选)', '路由分类'],
       ['CRYPTO(加密货币)', '资产标签'],
       ['已验证可借', '负费率状态']
     ];
@@ -465,11 +545,17 @@ setTimeout(async () => {
         throw new Error(`${column} 列未渲染预期格式: ${expected}`);
       }
     }
+    if (tbody.includes('MARGIN_SPOT_CANDIDATE(杠杆现货候选)')) {
+      throw new Error('默认表仍渲染路由分类单元格内容');
+    }
+    if (!html.includes('<option value="MARGIN_SPOT_CANDIDATE">')) {
+      throw new Error('路由分类过滤下拉选项被移除');
+    }
     // 结构禁用行保持结构文案，不得派生为"需私有验证"
     if (!tbody.includes('仅现货: 无杠杆借币')) {
       throw new Error('DISABLED_SPOT_ONLY 行未保持结构文案');
     }
-    console.log('[PASS] 路由/资产/负费率状态列显示中文优先格式');
+    console.log('[PASS] 资产/负费率状态列中文格式与路由列移除检查');
 
     // 17. 侧栏品牌已中文化
     if (!html.includes('资金费率对冲')) {
@@ -505,7 +591,7 @@ setTimeout(async () => {
       ['FUSDT', '—', null]
     ];
     for (const [sym, expectedNet, expectedSource] of netYieldChecks) {
-      const cell = getRowCell(tbody, sym, 9);
+      const cell = getRowCell(tbody, sym, 8);
       if (!cell.includes(expectedNet)) {
         throw new Error(`${sym} 净收益期望 ${expectedNet}，单元格 ${cell}`);
       }
@@ -522,8 +608,8 @@ setTimeout(async () => {
     console.log('[PASS] 净收益列存在与格式');
 
     // 20. 负值净收益红色样式
-    const cusdtNetCell = getRowCell(tbody, 'CUSDT', 9);
-    const ausdtNetCell = getRowCell(tbody, 'AUSDT', 9);
+    const cusdtNetCell = getRowCell(tbody, 'CUSDT', 8);
+    const ausdtNetCell = getRowCell(tbody, 'AUSDT', 8);
     if (!ausdtNetCell.includes('positive')) {
       throw new Error('AUSDT 正净收益未应用 positive 样式');
     }
@@ -533,7 +619,7 @@ setTimeout(async () => {
     negativeNetFixture.rows[0].borrow_rate_source = null;
     helpers.ingestSnapshot(negativeNetFixture);
     const negTbody = elements['market-table-body'].innerHTML;
-    const negCell = getRowCell(negTbody, 'AUSDT', 9);
+    const negCell = getRowCell(negTbody, 'AUSDT', 8);
     if (!negCell.includes('negative')) {
       throw new Error('负净收益未应用 negative 红色样式');
     }
@@ -546,7 +632,7 @@ setTimeout(async () => {
     vip0Fixture.rows[1].borrow_rate_source = 'vip0_reference';
     helpers.ingestSnapshot(vip0Fixture);
     const vip0Tbody = elements['market-table-body'].innerHTML;
-    const vip0Cell = getRowCell(vip0Tbody, 'BUSDT', 9);
+    const vip0Cell = getRowCell(vip0Tbody, 'BUSDT', 8);
     if (!vip0Cell.includes('基准利率') || !vip0Cell.includes('vip0-reference')) {
       throw new Error('vip0_reference 未显著标注「基准利率」');
     }
@@ -719,8 +805,8 @@ setTimeout(async () => {
     let netCell = '';
     while (pos !== -1 && tdCount < 12) {
       const close = dRowHtml.indexOf('</td>', pos);
-      if (tdCount === 5) dailyCell = dRowHtml.slice(pos, close + 5);
-      if (tdCount === 9) netCell = dRowHtml.slice(pos, close + 5);
+      if (tdCount === 4) dailyCell = dRowHtml.slice(pos, close + 5);
+      if (tdCount === 8) netCell = dRowHtml.slice(pos, close + 5);
       pos = dRowHtml.indexOf('<td', close + 5);
       tdCount++;
     }
@@ -762,7 +848,7 @@ setTimeout(async () => {
     console.log('[PASS] drawer DOM 在应用脚本之前');
 
     // 31. 成本腿命中行展示借币日利率（账户档）
-    const ausdtNetCell2 = getRowCell(tbody, 'AUSDT', 9);
+    const ausdtNetCell2 = getRowCell(tbody, 'AUSDT', 8);
     if (!ausdtNetCell2.includes('日借币')) {
       throw new Error('AUSDT 成本腿命中行未展示日借币子行');
     }
@@ -777,7 +863,7 @@ setTimeout(async () => {
     vip0Fixture2.rows[1].borrow_validation.classic_margin.daily_interest_account = null;
     helpers.ingestSnapshot(vip0Fixture2);
     const vip0Tbody2 = elements['market-table-body'].innerHTML;
-    const busdtNetCell = getRowCell(vip0Tbody2, 'BUSDT', 9);
+    const busdtNetCell = getRowCell(vip0Tbody2, 'BUSDT', 8);
     if (!busdtNetCell.includes('日借币') || !busdtNetCell.includes('参考')) {
       throw new Error('VIP0 参考档未显示"参考"徽标: ' + busdtNetCell);
     }
@@ -785,7 +871,7 @@ setTimeout(async () => {
     console.log('[PASS] VIP0 参考档显示"参考"徽标');
 
     // 33. 正费率/无成本腿行不展示借币成本子行
-    const cusdtNetCell2 = getRowCell(tbody, 'CUSDT', 9);
+    const cusdtNetCell2 = getRowCell(tbody, 'CUSDT', 8);
     if (cusdtNetCell2.includes('日借币')) {
       throw new Error('CUSDT 正费率行不应展示日借币子行');
     }
@@ -828,7 +914,7 @@ setTimeout(async () => {
       { sym: 'FUSDT', label: '有利率·可借性未探测', cls: 'muted' },
     ];
     for (const { sym, label, cls } of labelCases) {
-      const cell = getRowCell(labelTbody, sym, 11);
+      const cell = getRowCell(labelTbody, sym, 10);
       if (!cell.includes(label)) {
         throw new Error(`${sym} 负费率状态期望 "${label}"，单元格 ${cell}`);
       }
@@ -837,7 +923,7 @@ setTimeout(async () => {
       }
     }
     // 第六态行：状态列「有利率·可借性未探测」AND 净收益列仍展示日借币子行
-    const fusdtNetCell = getRowCell(labelTbody, 'FUSDT', 9);
+    const fusdtNetCell = getRowCell(labelTbody, 'FUSDT', 8);
     if (!fusdtNetCell.includes('日借币') || !fusdtNetCell.includes('+0.01%')) {
       throw new Error(`FUSDT borrowability_not_probed 行应展示日借币子行，单元格 ${fusdtNetCell}`);
     }
@@ -1045,7 +1131,7 @@ setTimeout(async () => {
       helpers.ingestSnapshot(triFixture);
       const triTbody = elements['market-table-body'].innerHTML;
       // (a) AUSDT 借光
-      const ausdtStatus = getRowCell(triTbody, 'AUSDT', 11);
+      const ausdtStatus = getRowCell(triTbody, 'AUSDT', 10);
       if (!ausdtStatus.includes('可借 0(已借完)')) {
         throw new Error('AUSDT 借光未渲染「可借 0(已借完)」warn badge: ' + ausdtStatus);
       }
@@ -1055,7 +1141,7 @@ setTimeout(async () => {
       if (!ausdtStatus.includes('51061')) {
         throw new Error('AUSDT 借光 badge title 应含 error_code 51061: ' + ausdtStatus);
       }
-      const ausdtNet = getRowCell(triTbody, 'AUSDT', 9);
+      const ausdtNet = getRowCell(triTbody, 'AUSDT', 8);
       if (!ausdtNet.includes('可借: 0') || !ausdtNet.includes('已借完')) {
         throw new Error('AUSDT 借光 net-yield 应含「可借: 0」与「已借完」: ' + ausdtNet);
       }
@@ -1063,11 +1149,11 @@ setTimeout(async () => {
         throw new Error('AUSDT 借光 ≈USDT 应显 0.00: ' + ausdtNet);
       }
       // (b) BUSDT 有额度
-      const busdtStatus = getRowCell(triTbody, 'BUSDT', 11);
+      const busdtStatus = getRowCell(triTbody, 'BUSDT', 10);
       if (!busdtStatus.includes('已验证可借') || !busdtStatus.includes('badge success')) {
         throw new Error('BUSDT 有额度应渲染 success「已验证可借」: ' + busdtStatus);
       }
-      const busdtNet = getRowCell(triTbody, 'BUSDT', 9);
+      const busdtNet = getRowCell(triTbody, 'BUSDT', 8);
       if (!busdtNet.includes('可借: 5.0')) {
         throw new Error('BUSDT 有额度 net-yield 应含「可借: 5.0」: ' + busdtNet);
       }
@@ -1078,11 +1164,11 @@ setTimeout(async () => {
         throw new Error('BUSDT 有额度不应含「已借完」: ' + busdtNet);
       }
       // (c) CUSDT 未探测
-      const cusdtStatus = getRowCell(triTbody, 'CUSDT', 11);
+      const cusdtStatus = getRowCell(triTbody, 'CUSDT', 10);
       if (!cusdtStatus.includes('有利率·可借性未探测')) {
         throw new Error('CUSDT 未探测 badge 应保持「有利率·可借性未探测」: ' + cusdtStatus);
       }
-      const cusdtNet = getRowCell(triTbody, 'CUSDT', 9);
+      const cusdtNet = getRowCell(triTbody, 'CUSDT', 8);
       if (cusdtNet.includes('可借:')) {
         throw new Error('CUSDT 未探测（max_borrowable=null）不应展示可借子行: ' + cusdtNet);
       }
@@ -1173,6 +1259,298 @@ setTimeout(async () => {
       throw new Error('AUSDT 从 snapshot 消失后抽屉应关闭');
     }
     console.log('[PASS] symbol 消失时抽屉关闭');
+
+    // 恢复默认 fixture
+    helpers.ingestSnapshot(designFixture);
+
+    // 48. Task D: 无预加载历史行打开 drawer 进入 loading 并请求 same-origin endpoint
+    historyResponse = { delay: true };
+    lastHistoryUrl = null;
+    historyResolve = null;
+    helpers.openDrawer('BUSDT');
+    if (lastHistoryUrl !== '/api/public-market/funding-history?symbol=BUSDT') {
+      throw new Error(`BUSDT drawer 请求 URL 错误: ${lastHistoryUrl}`);
+    }
+    if (!helpers.getDrawerLoading()) {
+      throw new Error('BUSDT 无预加载历史，打开 drawer 后应为 loading 状态');
+    }
+    const busdtDrawerBodyLoading = elements['drawer-body'].innerHTML;
+    if (!busdtDrawerBodyLoading.includes('加载中')) {
+      throw new Error('loading 状态未渲染加载中文案');
+    }
+    console.log('[PASS] drawer loading 与 same-origin 请求');
+
+    // 49. Task D: available 响应合并到行与表，抽屉渲染 newest-first 历史
+    const tEnd = 1783641600000;
+    const day = 86_400_000;
+    historyResponse = {
+      status: 200,
+      body: {
+        schema_version: 'public-market-funding-history/v1',
+        symbol: 'BUSDT',
+        data_time: '2026-07-05T23:30:00Z',
+        history_status: 'available',
+        funding_history: [
+          { funding_time: tEnd - 2 * day, funding_rate: '-0.00010000' },
+          { funding_time: tEnd - day, funding_rate: '0.00005000' }
+        ],
+        annualized_funding_7d: '-0.00260714',
+        annualized_funding_30d: '-0.00060833'
+      }
+    };
+    historyResolve();
+    await new Promise(r => setTimeout(r, 0));
+    if (helpers.getDrawerLoading()) {
+      throw new Error('available 响应到达后 loading 应结束');
+    }
+    if (helpers.getDrawerHistoryError()) {
+      throw new Error(`available 响应不应产生错误: ${helpers.getDrawerHistoryError()}`);
+    }
+    const busdtDrawerBody = elements['drawer-body'].innerHTML;
+    if (!busdtDrawerBody.includes('-0.260714%') || !busdtDrawerBody.includes('-0.060833%')) {
+      throw new Error('抽屉未渲染 BUSDT 合并后的 7D/30D 年化值: ' + busdtDrawerBody);
+    }
+    // newest-first: 较晚的 funding_time 先出现
+    const busdtLatestIdx = busdtDrawerBody.indexOf(helpers.formatBeijing(tEnd - day));
+    const busdtEarliestIdx = busdtDrawerBody.indexOf(helpers.formatBeijing(tEnd - 2 * day));
+    if (busdtLatestIdx === -1 || busdtEarliestIdx === -1 || busdtEarliestIdx <= busdtLatestIdx) {
+      throw new Error('BUSDT 抽屉历史未按 newest-first 排列');
+    }
+    // 表格中的 BUSDT 行也已被更新
+    const busdtTbodyAfterMerge = elements['market-table-body'].innerHTML;
+    const busdtAnn7Cell = getRowCell(busdtTbodyAfterMerge, 'BUSDT', 6);
+    if (!busdtAnn7Cell.includes('-0.260714%')) {
+      throw new Error('合并后表格 BUSDT 年化 7D 未更新: ' + busdtAnn7Cell);
+    }
+    console.log('[PASS] available 响应合并到行与表');
+
+    // 50. Task D: empty 响应显示无记录，不标记为加载失败
+    historyResponse = {
+      status: 200,
+      body: {
+        schema_version: 'public-market-funding-history/v1',
+        symbol: 'CUSDT',
+        data_time: '2026-07-05T23:30:00Z',
+        history_status: 'empty',
+        funding_history: [],
+        annualized_funding_7d: null,
+        annualized_funding_30d: null
+      }
+    };
+    helpers.openDrawer('CUSDT');
+    await new Promise(r => setTimeout(r, 0));
+    if (helpers.getDrawerLoading()) {
+      throw new Error('empty 响应到达后 loading 应结束');
+    }
+    if (helpers.getDrawerHistoryError()) {
+      throw new Error(`empty 响应不应产生错误: ${helpers.getDrawerHistoryError()}`);
+    }
+    const cusdtDrawerBody = elements['drawer-body'].innerHTML;
+    if (!cusdtDrawerBody.includes('无已结算历史')) {
+      throw new Error('empty 响应未显示「无已结算历史」: ' + cusdtDrawerBody);
+    }
+    if (cusdtDrawerBody.includes('加载失败') || cusdtDrawerBody.includes('暂时不可用')) {
+      throw new Error('empty 响应被错误渲染为失败状态');
+    }
+    console.log('[PASS] empty 响应显示无记录');
+
+    // 51. Task D: HTTP 502 显示可重试失败状态，且提供重试按钮
+    historyResponse = null; // default -> 502
+    helpers.openDrawer('DUSDT');
+    await new Promise(r => setTimeout(r, 0));
+    if (helpers.getDrawerLoading()) {
+      throw new Error('502 响应到达后 loading 应结束');
+    }
+    if (helpers.getDrawerHistoryError() !== 'funding_history_unavailable') {
+      throw new Error(`502 响应应产生 funding_history_unavailable 错误，实际: ${helpers.getDrawerHistoryError()}`);
+    }
+    const dusdtDrawerBody = elements['drawer-body'].innerHTML;
+    if (!dusdtDrawerBody.includes('已结算历史加载失败')) {
+      throw new Error('502 响应未显示失败文案');
+    }
+    if (!dusdtDrawerBody.includes('id="drawer-retry"')) {
+      throw new Error('502 响应未提供重试按钮');
+    }
+    if (dusdtDrawerBody.includes('无已结算历史')) {
+      throw new Error('502 响应被错误渲染为无记录状态');
+    }
+    console.log('[PASS] HTTP 502 显示可重试失败状态');
+
+    // 52. Task D: 重试按钮重新 fetch 并在成功时更新抽屉
+    historyResponse = {
+      status: 200,
+      body: {
+        schema_version: 'public-market-funding-history/v1',
+        symbol: 'DUSDT',
+        data_time: '2026-07-05T23:30:00Z',
+        history_status: 'available',
+        funding_history: [{ funding_time: tEnd - day, funding_rate: '-0.00020000' }],
+        annualized_funding_7d: '-0.01042857',
+        annualized_funding_30d: '-0.00243333'
+      }
+    };
+    lastHistoryUrl = null;
+    const retryBtn = elements['drawer-body'].querySelector('#drawer-retry');
+    if (!retryBtn) throw new Error('重试按钮未找到');
+    await Promise.all((retryBtn.listeners.click || []).map(h => h()));
+    await new Promise(r => setTimeout(r, 0));
+    if (lastHistoryUrl !== '/api/public-market/funding-history?symbol=DUSDT') {
+      throw new Error(`重试后请求 URL 错误: ${lastHistoryUrl}`);
+    }
+    if (helpers.getDrawerHistoryError()) {
+      throw new Error(`重试成功后不应有错误: ${helpers.getDrawerHistoryError()}`);
+    }
+    const dusdtDrawerBodyRetry = elements['drawer-body'].innerHTML;
+    if (!dusdtDrawerBodyRetry.includes('-1.042857%')) {
+      throw new Error('重试成功后抽屉未渲染 DUSDT 7D 年化: ' + dusdtDrawerBodyRetry);
+    }
+    console.log('[PASS] 重试按钮重新 fetch 并更新抽屉');
+
+    // 53. Task D: stale 响应隔离——先让 BUSDT fetch 挂起，切换到 AUSDT，BUSDT 响应被忽略
+    // 由于前面的测试已给 BUSDT 合并过 history，先清空使其需要重新 fetch。
+    const busdtRowStale = designFixture.rows.find(r => r.symbol === 'BUSDT');
+    if (busdtRowStale) {
+      busdtRowStale.funding_history = [];
+      busdtRowStale.annualized_funding_7d = null;
+      busdtRowStale.annualized_funding_30d = null;
+    }
+    historyResponse = { delay: true };
+    lastHistoryUrl = null;
+    historyResolve = null;
+    helpers.openDrawer('BUSDT');
+    const busdtResolve = historyResolve;
+    if (!busdtResolve) throw new Error('BUSDT fetch 未挂起');
+    // 切换到 AUSDT（有预加载 history，不触发 fetch）
+    helpers.openDrawer('AUSDT');
+    // 让挂起的 BUSDT 响应返回
+    busdtResolve();
+    await new Promise(r => setTimeout(r, 0));
+    // AUSDT drawer 不应被 BUSDT 响应污染
+    if (helpers.getSelectedSymbol() !== 'AUSDT') {
+      throw new Error('stale 响应后 selectedSymbol 仍应为 AUSDT');
+    }
+    const ausdtDrawerBodyStale = elements['drawer-body'].innerHTML;
+    if (ausdtDrawerBodyStale.includes('-0.02%')) {
+      throw new Error('AUSDT 抽屉被 stale 的 BUSDT 响应污染');
+    }
+    console.log('[PASS] stale 响应隔离');
+
+    // 54. Task D response-body race: fetch resolves while A is selected, but
+    // res.json() is still pending when user switches to B; A's body must not
+    // merge into B row or change B's drawer.
+    {
+      // Clear BUSDT history so it will fetch.
+      const busdtRowRace = designFixture.rows.find(r => r.symbol === 'BUSDT');
+      if (busdtRowRace) {
+        busdtRowRace.funding_history = [];
+        busdtRowRace.annualized_funding_7d = null;
+        busdtRowRace.annualized_funding_30d = null;
+      }
+      // Re-render so the table DOM reflects the cleared state before the race.
+      helpers.ingestSnapshot(designFixture);
+      const tEndRace = 1783641600000;
+      const dayRace = 86_400_000;
+      historyResponse = {
+        delay: true,
+        jsonDelay: true,
+        status: 200,
+        body: {
+          schema_version: 'public-market-funding-history/v1',
+          symbol: 'BUSDT',
+          data_time: '2026-07-05T23:30:00Z',
+          history_status: 'available',
+          funding_history: [
+            { funding_time: tEndRace - 2 * dayRace, funding_rate: '-0.00010000' },
+            { funding_time: tEndRace - dayRace, funding_rate: '0.00005000' }
+          ],
+          annualized_funding_7d: '-0.00260714',
+          annualized_funding_30d: '-0.00060833'
+        }
+      };
+      historyResolve = null;
+      historyJsonResolve = null;
+      helpers.openDrawer('BUSDT');
+      if (!historyResolve) throw new Error('response-body race: BUSDT fetch 未挂起');
+      // Resolve fetch() but keep res.json() pending.
+      setTimeout(() => { historyResolve(); }, 20);
+      await new Promise(r => setTimeout(r, 50));
+      if (!historyJsonResolve) throw new Error('response-body race: res.json() 未挂起');
+      // Switch to AUSDT before res.json() resolves.
+      helpers.openDrawer('AUSDT');
+      const beforeSwitchBody = elements['drawer-body'].innerHTML;
+      // Now resolve the stale res.json().
+      historyJsonResolve();
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getSelectedSymbol() !== 'AUSDT') {
+        throw new Error('response-body race: 切换后 selectedSymbol 仍应为 AUSDT');
+      }
+      const afterRaceBody = elements['drawer-body'].innerHTML;
+      if (afterRaceBody !== beforeSwitchBody) {
+        throw new Error('response-body race: AUSDT drawer 被 stale 的 BUSDT res.json() 改变');
+      }
+      const raceTbody = elements['market-table-body'].innerHTML;
+      const busdtAnn7Race = getRowCell(raceTbody, 'BUSDT', 6);
+      if (busdtAnn7Race.includes('-0.260714%')) {
+        throw new Error('response-body race: BUSDT 行被 stale 响应提前合并');
+      }
+      console.log('[PASS] response-body race 隔离（res.json() 延迟后切换）');
+    }
+
+    // 55. Task D wrong-symbol / schema mismatch rejection: a response whose
+    // body.symbol differs from the requested symbol must not merge.
+    {
+      const dusdtRowWrong = designFixture.rows.find(r => r.symbol === 'DUSDT');
+      if (dusdtRowWrong) {
+        dusdtRowWrong.funding_history = [];
+        dusdtRowWrong.annualized_funding_7d = null;
+        dusdtRowWrong.annualized_funding_30d = null;
+      }
+      historyResponse = {
+        status: 200,
+        body: {
+          schema_version: 'public-market-funding-history/v1',
+          symbol: 'XUSDT', // wrong symbol
+          data_time: '2026-07-05T23:30:00Z',
+          history_status: 'available',
+          funding_history: [{ funding_time: 1783555200000, funding_rate: '-0.00010000' }],
+          annualized_funding_7d: '-0.00521429',
+          annualized_funding_30d: '-0.00121667'
+        }
+      };
+      helpers.openDrawer('DUSDT');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getDrawerHistoryError() !== 'history_response_invalid') {
+        throw new Error(`wrong-symbol 响应应产生 history_response_invalid，实际: ${helpers.getDrawerHistoryError()}`);
+      }
+      const dusdtTbodyWrong = elements['market-table-body'].innerHTML;
+      const dusdtAnn7Wrong = getRowCell(dusdtTbodyWrong, 'DUSDT', 6);
+      if (dusdtAnn7Wrong.includes('-0.521429%')) {
+        throw new Error('wrong-symbol 响应不应合并到 DUSDT 行');
+      }
+      console.log('[PASS] wrong-symbol/schema 响应被拒绝合并');
+    }
+
+    // 56. Task D schema_version mismatch rejection
+    {
+      historyResponse = {
+        status: 200,
+        body: {
+          schema_version: 'public-market-funding-history/v0',
+          symbol: 'DUSDT',
+          data_time: '2026-07-05T23:30:00Z',
+          history_status: 'available',
+          funding_history: [{ funding_time: 1783555200000, funding_rate: '-0.00010000' }],
+          annualized_funding_7d: '-0.00521429',
+          annualized_funding_30d: '-0.00121667'
+        }
+      };
+      helpers.openDrawer('DUSDT');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getDrawerHistoryError() !== 'history_response_invalid') {
+        throw new Error(`schema_version mismatch 应产生 history_response_invalid，实际: ${helpers.getDrawerHistoryError()}`);
+      }
+      console.log('[PASS] schema_version mismatch 响应被拒绝');
+    }
 
     // 恢复默认 fixture
     helpers.ingestSnapshot(designFixture);

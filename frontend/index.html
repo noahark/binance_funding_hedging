@@ -310,7 +310,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1080px;
+      min-width: 980px;
     }
     th, td {
       padding: 11px 12px;
@@ -498,7 +498,7 @@
       position: fixed;
       top: 0;
       right: 0;
-      width: min(420px, 90vw);
+      width: min(620px, 100vw);
       height: 100vh;
       background: var(--surface);
       border-left: 1px solid var(--line);
@@ -535,7 +535,7 @@
     }
     .annualized-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: var(--space-3);
     }
     .annualized-card {
@@ -550,6 +550,7 @@
       font-size: 11px;
       font-weight: 700;
       margin-bottom: var(--space-1);
+      white-space: nowrap;
     }
     .annualized-card .value {
       font-family: var(--mono);
@@ -758,7 +759,6 @@
                 <tr>
                   <th>标的</th>
                   <th>资产标签</th>
-                  <th>路由分类</th>
                   <th title="本周期实时预估">资金费率</th>
                   <th>结算时间</th>
                   <th title="按结算间隔年化">日费率</th>
@@ -833,7 +833,9 @@
         },
         privacyHidden: true,
         selectedSymbol: null,
-        drawerOpen: false
+        drawerOpen: false,
+        drawerLoading: false,
+        drawerHistoryError: null
       };
 
       const els = {
@@ -1261,7 +1263,7 @@
         if (state.blocked) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="13">
+              <td colspan="12">
                 <div class="empty-state">
                   <strong>集成阻塞</strong><br/>
                   ${escapeHtml(state.blockedReason)}
@@ -1276,7 +1278,7 @@
         if (rows.length === 0) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="13"><div class="empty-state">没有符合筛选条件的数据</div></td>
+              <td colspan="12"><div class="empty-state">没有符合筛选条件的数据</div></td>
             </tr>`;
           renderSummary();
           return;
@@ -1346,7 +1348,6 @@
             <tr class="${isBstock ? 'bstock' : ''} selectable" data-symbol="${escapeHtml(row.symbol)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(row.symbol)} 的年化与已结算历史">
               <td class="mono">${escapeHtml(row.symbol)}${dirBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span>${spotAlias}</td>
               <td>${badgeForAssetTag(row.asset_tag)}</td>
-              <td>${badgeForRouteClass(row.route_class)}</td>
               <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
               <td title="${escapeHtml(fullTime)}">${timeText}</td>
               <td class="${dailyRateClass}">${dailyRateCell}</td>
@@ -1385,11 +1386,84 @@
         return (state.snapshot && state.snapshot.rows || []).find(r => r.symbol === state.selectedSymbol) || null;
       }
 
+      let drawerRequestId = 0;
+
+      async function fetchHistory(symbol) {
+        const requestId = ++drawerRequestId;
+
+        function isActive() {
+          return requestId === drawerRequestId && state.drawerOpen && state.selectedSymbol === symbol;
+        }
+
+        try {
+          const res = await fetch(`/api/public-market/funding-history?symbol=${encodeURIComponent(symbol)}`);
+          // Guard immediately after fetch: ignore if selection changed or drawer closed.
+          if (!isActive()) return;
+          if (res.status === 502) {
+            if (!isActive()) return;
+            state.drawerLoading = false;
+            state.drawerHistoryError = 'funding_history_unavailable';
+            renderDrawer();
+            return;
+          }
+          if (!res.ok) {
+            if (!isActive()) return;
+            state.drawerLoading = false;
+            state.drawerHistoryError = `history_request_failed:${res.status}`;
+            renderDrawer();
+            return;
+          }
+          const data = await res.json();
+          // Guard after res.json(): the same body may have become stale while parsing.
+          if (!isActive()) return;
+          // Strict response contract validation before any merge or render.
+          if (!data || typeof data !== 'object' ||
+              data.schema_version !== 'public-market-funding-history/v1' ||
+              data.symbol !== symbol ||
+              !['available', 'empty'].includes(data.history_status) ||
+              !Array.isArray(data.funding_history) ||
+              !('annualized_funding_7d' in data) ||
+              !('annualized_funding_30d' in data)) {
+            state.drawerLoading = false;
+            state.drawerHistoryError = 'history_response_invalid';
+            renderDrawer();
+            return;
+          }
+          // Merge into the selected snapshot row and refresh the table.
+          const row = selectedRow();
+          if (row) {
+            row.funding_history = data.funding_history;
+            row.annualized_funding_7d = data.annualized_funding_7d;
+            row.annualized_funding_30d = data.annualized_funding_30d;
+            renderTable();
+            highlightSelectedRow();
+          }
+          state.drawerLoading = false;
+          state.drawerHistoryError = null;
+          renderDrawer();
+        } catch (err) {
+          if (!isActive()) return;
+          state.drawerLoading = false;
+          state.drawerHistoryError = 'history_request_failed';
+          renderDrawer();
+        }
+      }
+
       function openDrawer(symbol) {
         if (!symbol) return;
         state.selectedSymbol = symbol;
         state.drawerOpen = true;
-        renderDrawer();
+        state.drawerHistoryError = null;
+        const row = selectedRow();
+        const hasPreloaded = row && Array.isArray(row.funding_history) && row.funding_history.length > 0;
+        if (hasPreloaded) {
+          state.drawerLoading = false;
+          renderDrawer();
+        } else {
+          state.drawerLoading = true;
+          renderDrawer();
+          fetchHistory(symbol);
+        }
         els.drawer.classList.add('open');
         els.drawerBackdrop.classList.add('open');
         els.drawer.setAttribute('aria-hidden', 'false');
@@ -1401,6 +1475,8 @@
       function closeDrawer() {
         state.drawerOpen = false;
         state.selectedSymbol = null;
+        state.drawerLoading = false;
+        state.drawerHistoryError = null;
         els.drawer.classList.remove('open');
         els.drawerBackdrop.classList.remove('open');
         els.drawer.setAttribute('aria-hidden', 'true');
@@ -1435,24 +1511,41 @@
         const ann7Text = formatFundingRate(row.annualized_funding_7d);
         const ann30Class = classForFundingRate(row.annualized_funding_30d);
         const ann30Text = formatFundingRate(row.annualized_funding_30d);
-        const history = Array.isArray(row.funding_history)
-          ? [...row.funding_history].sort((a, b) => (b.funding_time || 0) - (a.funding_time || 0))
-          : [];
-        const historyHtml = history.length === 0
-          ? `<div class="empty-state">
-               <strong>无已结算历史</strong><br/>
-               <span class="muted small">该币种暂无 30 日内 settled funding 记录，或后端历史获取失败</span>
-             </div>`
-          : `<div class="history-list">${history.map(h => {
-              const rateClass = classForFundingRate(h.funding_rate);
-              const rateText = formatFundingRate(h.funding_rate);
-              const timeText = formatBeijing(h.funding_time);
-              return `
-                <div class="history-item">
-                  <span class="time">${escapeHtml(timeText)}</span>
-                  <span class="${rateClass} rate">${rateText}</span>
-                </div>`;
-            }).join('')}</div>`;
+
+        let historyHtml = '';
+        if (state.drawerHistoryError) {
+          historyHtml = `
+            <div class="empty-state">
+              <strong>已结算历史加载失败</strong><br/>
+              <span class="muted small">上游行情历史暂时不可用，请稍后重试</span><br/>
+              <button class="btn compact primary" id="drawer-retry" type="button" style="margin-top: var(--space-3);">重试</button>
+            </div>`;
+        } else if (state.drawerLoading) {
+          historyHtml = `
+            <div class="empty-state" role="status" aria-live="polite">
+              <strong>加载中…</strong><br/>
+              <span class="muted small">正在请求近 30 日已结算历史</span>
+            </div>`;
+        } else {
+          const history = Array.isArray(row.funding_history)
+            ? [...row.funding_history].sort((a, b) => (b.funding_time || 0) - (a.funding_time || 0))
+            : [];
+          historyHtml = history.length === 0
+            ? `<div class="empty-state">
+                 <strong>无已结算历史</strong><br/>
+                 <span class="muted small">该币种近 30 日内没有 settled funding 记录</span>
+               </div>`
+            : `<div class="history-list">${history.map(h => {
+                const rateClass = classForFundingRate(h.funding_rate);
+                const rateText = formatFundingRate(h.funding_rate);
+                const timeText = formatBeijing(h.funding_time);
+                return `
+                  <div class="history-item">
+                    <span class="time">${escapeHtml(timeText)}</span>
+                    <span class="${rateClass} rate">${rateText}</span>
+                  </div>`;
+              }).join('')}</div>`;
+        }
         els.drawerBody.innerHTML = `
           <div class="drawer-section">
             <h3>年化 funding</h3>
@@ -1476,6 +1569,17 @@
             ${historyHtml}
           </div>
         `;
+        const retryBtn = els.drawerBody.querySelector('#drawer-retry');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', () => {
+            if (state.selectedSymbol) {
+              state.drawerHistoryError = null;
+              state.drawerLoading = true;
+              renderDrawer();
+              fetchHistory(state.selectedSymbol);
+            }
+          });
+        }
       }
 
       function renderSortBasis() {
@@ -1729,7 +1833,11 @@
         openDrawer,
         closeDrawer,
         isDrawerOpen: () => state.drawerOpen,
-        getSelectedSymbol: () => state.selectedSymbol
+        getSelectedSymbol: () => state.selectedSymbol,
+        getDrawerLoading: () => state.drawerLoading,
+        getDrawerHistoryError: () => state.drawerHistoryError,
+        fetchHistory,
+        getSnapshot: () => state.snapshot
       };
 
       bindEvents();
