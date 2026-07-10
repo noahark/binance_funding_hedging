@@ -110,6 +110,12 @@
       "model": "glm-5.2",
       "provider_identity": "zhipu_glm",
       "task": "selected-symbol-history-endpoint"
+    },
+    {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "task": "drawer-history-and-table-refinement"
     }
   ],
   "fix_authors": [],
@@ -245,10 +251,10 @@
       "depends_on": "selected-symbol-history-endpoint",
       "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-frontend-history-fix.md",
       "r10_checklist": null,
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "test_evidence": null,
+      "base_sha": "7480fdbffd13901e9a034b70dec237ac43c080f8",
+      "head_sha": "d21536aa8a221a065c4fbe2b7640e199addca7dc",
+      "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:553e9a36f417d8c7986a26e1d3a5bc629b80958dfc0d979796e6ffb4123aa6a9",
+      "test_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt",
       "changed_files": [
         "frontend/fixture/public-market-snapshot.json",
         "frontend/index.html",
@@ -288,8 +294,8 @@
     "note": "Not required: direction panel is skipped under the recorded MEDIUM user-approved route."
   },
   "base_sha": "7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1",
-  "head_sha": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e",
-  "diff_fingerprint": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e:34c2c18f9685d6ab52564249b41d8b1b90eb4b60b3e97ac58ddfd9cbe7c21983",
+  "head_sha": "d21536aa8a221a065c4fbe2b7640e199addca7dc",
+  "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:378c060d86086d7d9a6c8eff94aad1e0998bdd014a255070eb1504fe3bca62a8",
   "changed_files": [
     "backend/app/server.py",
     "backend/adapters/binance_public.py",
@@ -331,7 +337,9 @@
     "review_feedback_fix_package_prepared_at": "2026-07-10T12:17:06Z",
     "review_feedback_fix_dispatch_authorized": true,
     "task_c_execution_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend-history-fix.md",
-    "task_c_committed_at": "2026-07-10T13:22:21Z"
+    "task_c_committed_at": "2026-07-10T13:22:21Z",
+    "task_d_execution_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-frontend-history-fix.md",
+    "task_d_committed_at": "2026-07-10T14:52:44Z"
   },
   "contract_decision": {
     "recorded_at": "2026-07-10T07:24:47Z",
@@ -370,19 +378,21 @@
       "title": "Stale history response can mutate the new Drawer selection after response-body parsing",
       "evidence": "fetchHistory checks request/selection state after await fetch(), then awaits res.json() without another active-request check before merging into selectedRow(). A selection change during response-body parsing can therefore apply the old symbol's settled history to the new row.",
       "fix_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-drawer-history-race-fix-kimi.prompt.md",
-      "disposition": "scope_contained_fix_pending_human_dispatch"
+      "disposition": "fixed_in_d21536aa8a221a065c4fbe2b7640e199addca7dc",
+      "verification": "node frontend/self-check.js passes the delayed response-body race plus wrong-symbol and schema-version mismatch rejection tests."
     }
   ],
   "tests": {
     "status": "passed",
     "commands": [
-      "python3 -m pytest backend/tests -q -> 244 passed in 5.73s after Task C",
+      "python3 -m pytest backend/tests -q -> 244 passed in 5.86s after Task D",
       "python3 -m json.tool schemas/api/public-market/snapshot.schema.json >/dev/null -> PASS",
       "python3 -m json.tool schemas/api/public-market/funding-history.schema.json >/dev/null -> PASS",
       "git diff --check -> PASS",
-      "node frontend/self-check.js -> PASS before Task C; Task D is not started",
+      "node frontend/self-check.js -> PASS, including on-demand history, retry, delayed response-body race, wrong-symbol, and schema-version mismatch coverage",
       "offline HTTP endpoint smoke on temporary port 8790 -> valid symbol 200, missing symbol 400, unknown symbol 404",
-      "no-credential live-public endpoint smoke on temporary port 8791 -> SKLUSDT 200, history_status=available, 179 records, no annualized_funding_24h field"
+      "no-credential live-public endpoint smoke on temporary port 8791 -> SKLUSDT 200, history_status=available, 179 records, no annualized_funding_24h field",
+      "offline same-origin stage smoke on temporary port 8792 -> route column absent, 620px Drawer CSS and 3-card grid present, selected-history endpoint 200"
     ]
   },
   "review_1": {
@@ -424,13 +434,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "Formal review is deferred until Kimi completes the Task D Drawer response-race fix and the bookkeeper commits the complete Task D diff."
+    "Formal review is pending task-level review-1 packet preparation for the committed backend tasks (A/C) and frontend tasks (B/D)."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_paste_task_d_drawer_response_race_fix_into_kimi",
-  "updated_at": "2026-07-10T14:23:16Z"
+  "next_action": "bookkeeper_prepare_task_level_review_1_packets",
+  "updated_at": "2026-07-10T14:54:32Z"
 }

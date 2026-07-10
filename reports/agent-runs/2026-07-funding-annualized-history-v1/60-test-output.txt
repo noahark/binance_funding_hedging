@@ -128,3 +128,27 @@ Task C diff fingerprint:
   initial Task D worktree.
 - Static diff inspection found a stale-response race after `await res.json()`.
   Task D is not committed; the scope-contained Kimi rework prompt is prepared.
+
+2026-07-10 22:52:56 CST
+$ node frontend/self-check.js
+PASS: all checks, including selected-symbol same-origin history loading, retry,
+delayed response-body stale-response isolation, wrong-symbol rejection, and
+schema-version mismatch rejection.
+$ python3 -m pytest backend/tests -q
+244 passed in 5.86s
+$ git diff --check
+PASS
+Task D committed range:
+`7480fdbffd13901e9a034b70dec237ac43c080f8..d21536aa8a221a065c4fbe2b7640e199addca7dc`
+Task D diff fingerprint:
+`d21536aa8a221a065c4fbe2b7640e199addca7dc:553e9a36f417d8c7986a26e1d3a5bc629b80958dfc0d979796e6ffb4123aa6a9`
+Combined stage diff fingerprint:
+`d21536aa8a221a065c4fbe2b7640e199addca7dc:378c060d86086d7d9a6c8eff94aad1e0998bdd014a255070eb1504fe3bca62a8`
+
+2026-07-10 22:54:32 CST
+Offline same-origin smoke on temporary port 8792:
+- `/` has no route-class table header and contains the 620px Drawer CSS plus
+  the non-overflowing three-card grid.
+- `GET /api/public-market/funding-history?symbol=ZKPUSDT` -> HTTP 200,
+  schema_version=public-market-funding-history/v1, history_status=empty.
+- Server stopped after verification.

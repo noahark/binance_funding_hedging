@@ -29,11 +29,11 @@ reviewers must read both reports and the committed diff.
 - Scope: same-origin public endpoint, selected-symbol cache reuse, explicit
   empty versus unavailable semantics, response schema, and backend tests.
 
-## Task D: Drawer History And Table Refinement (Planned)
+## Task D: Drawer History And Table Refinement
 
 - Owner: Kimi (`kimi-code/kimi-for-coding`, provider identity `moonshot_kimi`)
-- Dispatch artifact: `task-drawer-history-refinement-kimi.prompt.md`
-- Planned raw report: `20-implementation-frontend-history-fix.md`
+- Raw report: `20-implementation-frontend-history-fix.md`
+- Bounded delivery commit: `d21536a`
 - Scope: on-demand endpoint consumption, retry/error states, removal of the
   default route-class column, and wider non-wrapping Drawer cards.
 
