@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -55,7 +55,7 @@
   },
   "model_routing": {
     "implementation": {
-      "status": "review2_fix_round1_delivered_and_bookkeeper_verified",
+      "status": "review2_fix_round1_accepted_by_re_review_1",
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
@@ -64,7 +64,7 @@
       "scope": "harness_only"
     },
     "review_1": {
-      "status": "fix_unit_re_review_pending_human_dispatch",
+      "status": "complete_all_four_units_accept_incl_fix_unit",
       "provider": "kimi",
       "provider_identity": "moonshot_kimi",
       "model": "kimi-code/kimi-for-coding",
@@ -768,11 +768,40 @@
       "re_review_1": {
         "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-review2-fix-round1-review1-kimi.prompt.md",
         "reviewer": "kimi",
-        "status": "pending_human_dispatch",
-        "verdict": null
+        "status": "accept",
+        "verdict": "ACCEPT",
+        "round": 1,
+        "json_schema_valid": true,
+        "diff_fingerprint": "846bec036d62a3cdb243325f16977bd2c1396ade:af3daf4d695f172c8c4d38fddbc6a6c491cfa62369b76a14402ace7615865b0b",
+        "reviewer_prior_involvement": "none",
+        "invalid_json_attempts": 0,
+        "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-review2-fix-round1.md",
+        "verdict_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-review2-fix-round1.verdict.json",
+        "open_p0_p1": 0,
+        "adjudications": "F7 pre-existing test adjustment explicitly accepted by reviewer",
+        "parallel_advisory": {
+          "model": "grok-4.5",
+          "provider_identity": "xai_grok",
+          "verdict": "ACCEPT",
+          "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-review2-fix-round1-grok.md",
+          "verdict_json": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-review2-fix-round1-grok.verdict.json",
+          "record_eligible": false,
+          "reason": "operator-invited parallel corroboration; Kimi is the frozen review-1 route owner",
+          "boundary": "self-landed exactly its own two new files; nothing else touched",
+          "residuals": "4 non-blocking (P3-class); #3 rework_count transient max+1 on escalation code-confirmed by bookkeeper"
+        }
       }
     },
-    "open_p0_p1_note": "F2-F7 + P2 fixes delivered (846bec0) and bookkeeper-verified; F1 resolved via evidence file v2. Formally closed only by re-review-1 + a fresh review-2."
+    "open_p0_p1_note": "Round-1 findings all dispositioned: F2-F7 fixed (846bec0) + re-review-1 double ACCEPT (Kimi formal, Grok parallel); F1 via evidence v2; P2 self-fixed. Formal closure requires review-2 round 2 verdict.",
+    "round2": {
+      "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-stage-review2-round2-operator-choice.prompt.md",
+      "review_range": "a385c7ad77da1611c6e952b2219aee56b49f442f..846bec036d62a3cdb243325f16977bd2c1396ade",
+      "diff_fingerprint": "846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4",
+      "override_basis": "design_conflict_ineligibility_evidence_v2",
+      "provider": "operator_choice_gpt56_family_or_claude",
+      "status": "pending_human_dispatch",
+      "verdict": null
+    }
   },
   "rework_count": 2,
   "max_rework": 3,
@@ -800,7 +829,7 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_review2_fix_round1_review1_packet",
+  "next_action": "human_execute_review2_round2_packet",
   "updated_at": "2026-07-11T22:20:00+08:00",
   "resolved_blockers_note": "T1-R2-1/R2-2 closed by correction round2 (see completed_correction_packets); stale copies removed 2026-07-11 per sol P2 finding"
 }

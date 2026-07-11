@@ -979,3 +979,37 @@ validate-stage --phase pre-review  -> PASSED (clean tree, fingerprint recomputed
 
 Verdict: fix round 1 delivery VERIFIED. Kimi re-review-1 dispatch is the
 next human action; review-2 re-entry follows only after its ACCEPT.
+
+================================================================
+Fix-unit re-review-1 landing — bookkeeper verification (Fable5)
+本地北京时间: 2026-07-11 23:25:00 CST
+================================================================
+
+Kimi (formal first_reviewer route): ACCEPT, 0 findings, 0 required_fixes.
+  - Landed: 30-review-1-review2-fix-round1.md + review-1-review2-fix-round1.verdict.json
+  - Explicit adjudication: F7 pre-existing test adjustment accepted.
+Grok 4.5 (operator-invited parallel advisory): ACCEPT, 0 findings,
+  4 non-blocking residuals.
+  - Self-landed exactly its own two files (boundary verified via git
+    status: only the two new untracked files, nothing else touched).
+  - Residual #3 (_charge_auto_change increments rework_count before the
+    > max check -> transient max+1 on escalation) code-confirmed by
+    bookkeeper at runner lines ~698-706: set-then-check order as described;
+    fail-closed escalation unaffected. P3-class, listed for review-2
+    round 2 disposition.
+
+Mechanical validation of both verdicts (bookkeeper):
+  - json parse OK; validate_review_verdict_doc (the runner's own
+    F4-aligned validator, loaded via importlib) -> 0 errors each.
+    (Live corroboration that the schema-aligned validator does not
+    reject legitimate verdicts, incl. reviewer_prior_involvement_notes
+    and residual_risks fields.)
+  - diff_fingerprint in both == bound fix-unit fingerprint
+    846bec036d62a3cdb243325f16977bd2c1396ade:af3daf4d695f172c8c4d38fddbc6a6c491cfa62369b76a14402ace7615865b0b
+  - role=first_reviewer, prior_involvement=none in both; Grok additionally
+    notes its stage-level direction_synthesis history is distinct from
+    this fix unit (it did not author 846bec0). Kimi remains the record.
+
+Landing commit: f64cd46. Status advanced review_1 -> review_2; round-2
+packet task-stage-review2-round2-operator-choice.prompt.md bound to stage
+fingerprint 846bec0...:53c4a3e6...; validator checkpoint PASSED.
