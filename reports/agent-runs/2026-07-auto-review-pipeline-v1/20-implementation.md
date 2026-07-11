@@ -1090,3 +1090,106 @@ runner 通过 `_load_validator_module()`（`importlib.util.spec_from_file_locati
 下一步模型: Claude Fable 5（bookkeeper）
 下一步任务: 复验 F2–F7 → re-seal（新指纹）→ Kimi re-review-1（fix 单元）→ 重回 review-2
 ```
+
+---
+
+# Review-2 Round 2 Final Fix — 七组控制面修复交付（rework 3/3，零漂移）
+
+## 前置核对（packet §Read First 前置）
+- branch `stage/2026-07-auto-review-pipeline-v1` ✓
+- status 顶层 `fixing`、`rework_count`=3、`review_2.round2.verdict`=`REWORK` ✓（status 只读，未改）
+- 可写集严格 4 文件 + 2 append-only；未触碰 harness_stage_lib / validate-stage / registry / schemas / workflows / manifest / status / handoff / review / packet ✓
+- 未 dispatch 任何模型；未 commit；未联网；测试确定性 stdlib-only ✓
+
+## ① FX1–FX7 逐项 disposition + 红→绿证据（G4）
+
+### FX1 — adapter 命令 shell 安全（sol P1#1）
+- **实现**：`_default_invoke` 对 `<prompt-file>`/`<repo>`/`@PROMPT@`/`@REPO@` 四个占位符均先 `shlex.quote()` 再 `.replace()`；`$()` 命令替换（claude_glm/kimi）与裸词（grok `--prompt-file`）两种上下文均合法（`$()` 内部是全新解析上下文，单引号有效）。`shell=True` 与 receipt 只记 `command_ref` 不记展开命令的契约不变。
+- **测试**：`ShellSafeInvocationTests`（4）——真实 registry 字符串级 + 真实执行探针（名字含空格的 tempfile 目录）。
+- **红→绿**：改 `prompt_q=str(prompt_abs)`（去 quote）→ 两执行探针红（`exit_status 1 != 0`，bare-word stdout 空）；还原 shlex.quote → exit 0。
+
+### FX2 — seal 每 commit 前 expiry 重查（sol P1#2）
+- **实现**：`stage-seal.py` `seal(..., commit_guard: Callable[[], None] | None = None)`；4 个 commit 点（fresh H_snapshot 前、fresh H_bind 前、恢复路径 create_bind 前、unbound resume create_bind 前）紧前调 guard；runner `_node_seal` 传 `commit_guard=self._check_authorization_expiry`，guard timeout 以 `TerminalEscalation` 原样上抛（不改写为 unroutable_fix）。CLI 手动路径（guard=None）不变。
+- **测试**：`CommitGuardTests`（seal 2）+ `SealCommitGuardWiringTests`（runner 2）。
+- **红→绿**：移除 fresh H_bind 前 guard → `test_guard_fresh_path_runs_before_each_commit_and_blocks_h_bind` 红（`SealError not raised`）；还原 → H_bind 前抛、commit 未创建。
+
+### FX3 — marker 恢复硬化 + 孤儿 marker（sol P1#3）
+- **实现**：恢复条件三分支穷尽（HEAD==parent → 清 marker 走 fresh / `HEAD^`==parent 且 `diff-tree` 路径集==`expected_paths` → 续 bind / 其余 → fail-closed `SealError` 不清 marker）；孤儿 marker（unit_is_sealed）经 `_bind_evidence_complete` 验证后清 marker 抛 already-sealed，验证不过 fail-closed 保留 marker。
+- **测试**：`SealMarkerHardeningTests`（2，真实执行流注入）。
+- **红→绿**：`_head_is_expected_snapshot_child` 改回 `return head != parent_sha`（任意 HEAD）→ `test_intervening_commit_after_crash_fails_closed_keeps_marker` 红（`SealError not raised`）；还原三分支 → fail-closed。
+
+### FX4 — 锁竞争失败方零写（sol P1#4）
+- **实现**：`run()` 锁失败分支零状态写——不调 `_handle_preflight_failure`、不 `_persist`、不记 transition、不写 receipt；`return RunResult(ran=False, terminal="lock_busy", reason=...)`，stderr 一行诊断。`lock_busy` 仅存于返回值/stderr，不进 status 与 workflow 状态机。
+- **测试**：`RunnerLockTests.test_concurrent_runner_lock_is_exclusive`（进程内 `fcntl.flock` 先占 + 全目录逐文件 sha256 字节不变 + 无新增文件 + lock_busy 返回）。
+- **阻塞点（G2）**：本测试的既有契约（旧期望 awaiting_human+升级）被 packet FX4 要求的 lock_busy+零写契约替换；按 G2 以 append blocker 记录，而非放宽既有期望值。
+- **红→绿**：恢复 `_handle_preflight_failure(exc)` → 测试红（status.json 哈希 45e018…→5514f5… 漂移）；还原零写 → 字节一致。
+
+### FX5 — running 恢复幂等（sol P1#5）
+- **方案声明：案 A（fail-closed，最小改动）**。理由：案 B（node cursor）需在 unit 内持久化 `node_cursor`，经核查该字段会被 receipt/validator 契约视为未定义结构，落盘即触碰 schema/validator（只读），触发 packet 案 B 弃用条件（"需契约文件变更即放弃案 B 改走案 A 并 append blocker"）。
+- **实现**：`_unit_has_started_receipts` 扫描 `runner-*.receipt.json`，单元存在 `implementation`/`embedded_cross_check`/`fix` 节点 receipt 即"已开始未完成"；`_run_body` resume 循环对非 ACCEPT 且 started 的单元抛 `RecoverableFallback("resume_unverifiable_unit", ...)`（走既有 recoverable transition，无新转换）；干净单元（零 receipt）正常从头执行。
+- **测试**：`ResumeIdempotencyTests`（6：五崩溃边界 + 干净单元正向）。
+- **红→绿**：`if False and self._unit_has_started_receipts` 禁用 fail-closed → 5 边界测试红（terminal 漂移 awaiting_human→human_escalation_required）；还原 → fail-closed。
+
+### FX6 — authorization 精确绑定（sol P2#1）
+- **实现**：task_ids 双向集合相等（`_verify_authorization_binding` 加 `auth - live` → `scope_mismatch` `authorized_but_absent`，原 `live - auth` 不变）；topology 双向值相等（既有）；allowed/forbidden pathspecs（既有）；**budget 数值等值限 ledger caps**（`max_stage_rework`/`max_auto_code_changes`，auth vs status `auto_review_pipeline.budgets`）。
+- **阻塞点（FX6 budget 范围）**：sol 要求"frozen contract budget 字段精确等值"，但既有 frozen 契约测试 `test_runtime_caps_come_from_authorization_not_status`（round-1 F2）明确主张 **runtime caps（max_model_calls / wall_clock_seconds）权威是 auth，status 是可篡改镜像**。FX6 若绑定 runtime caps 的 auth-status 等值会破坏该契约，而 G2 禁止改既有测试（FX6 不在例外）。按 packet 冲突解决规则（G2 + "以 sol 为准并 append blocker，不得自行取舍"），budget 等值限于 **ledger caps**（frozen rework/auto-change 账本，status 与 auth 必须共享），runtime caps 不绑定。`invalid_json_max_attempts_per_model`（auth-only）、`*_used`（status-only）均排除。
+- **阻塞点（max_stage_rework）**：schema `const 3`，auth 携带非 3 值在 preflight 早期被 `validate_authorization_doc` 拒绝（`authorization_invalid`），runtime budget_mismatch 分支对该字段不可达——schema-level frozen 已保证等值。
+- **测试**：`AuthorizationExactBindTests`（7：authorized_but_absent / topology / allowed / forbidden / max_stage_rework[schema-level] / runtime_cap_not_bound / max_auto_code_changes[ledger]）。
+- **红→绿**：`if False and absent` 禁用双向 → `test_authorized_but_absent_task_fails_closed` 红；`if False and budgets...` 禁用 ledger bind → `test_max_auto_code_changes_divergence_fails_closed` 红。
+
+### FX7 — 账本预检后更新（sol P2#2）
+- **实现**：`_charge_auto_change` 先算 `proposed_auto`/`proposed_rework`，任一超 cap → 两个计数器均不写、直接 `TerminalEscalation`；通过后两计数器一次性同步写入。边界语义不变（`proposed > cap` ⟺ 旧 `used >= cap` / `> cap`；恰达 max 合法、超 max 拒绝）。
+- **测试**：`ReworkLedgerAndExpiryTests`——既有 `test_charge_auto_change_escalates_past_max_stage_rework` 断言修正（escalation 后 `rework_count`=2、`auto_code_changes_used`=0 均保持原值，**G2 允许的唯一既有测试改动**）；新增 `test_charge_auto_change_escalation_leaves_auto_counter_unchanged`（auto cap 触发双计数器不变）+ `test_charge_auto_change_at_exact_cap_is_legal`（恰达 max 边界）。
+- **红→绿**：`if False and max_rework ...` 禁用前置预检 → `test_charge_auto_change_escalates_past_max_stage_rework` 红（`TerminalEscalation not raised`）；还原 → 抛。
+
+## ② FX5 方案声明
+**案 A（fail-closed）**。理由见 FX5：案 B node cursor 落盘需 schema/validator 契约扩展（只读），触发 packet 案 B 弃用条件。
+
+## ③ FX→测试函数映射表
+
+| FX | 测试类 | 测试函数 |
+|----|--------|----------|
+| FX1 | ShellSafeInvocationTests | test_real_registry_paths_with_spaces_and_metachars_are_shell_quoted; test_bare_word_grok_path_is_one_shlex_token; test_execution_probe_cmdsub_context_space_in_path; test_execution_probe_bare_word_context_space_in_path |
+| FX2 | CommitGuardTests (seal) | test_guard_fresh_path_runs_before_each_commit_and_blocks_h_bind; test_guard_blocks_recovery_bind_on_unbound_resume |
+| FX2 | SealCommitGuardWiringTests (runner) | test_node_seal_passes_expiry_check_as_commit_guard; test_node_seal_propagates_guard_timeout_unchanged |
+| FX3 | SealMarkerHardeningTests | test_intervening_commit_after_crash_fails_closed_keeps_marker; test_orphan_marker_after_bind_is_cleared_and_already_sealed |
+| FX4 | RunnerLockTests | test_concurrent_runner_lock_is_exclusive |
+| FX5 | ResumeIdempotencyTests | test_resume_after_{implementation,cross_check,seal,review,fix}_crash_does_not_redispatch; test_resume_clean_unit_runs_from_scratch |
+| FX6 | AuthorizationExactBindTests | test_authorized_but_absent_task_fails_closed; test_topology_divergence_fails_closed; test_allowed_pathspec_divergence_fails_closed; test_forbidden_pathspec_hit_fails_closed; test_max_stage_rework_divergence_fails_closed; test_runtime_cap_divergence_is_not_bound; test_max_auto_code_changes_divergence_fails_closed |
+| FX7 | ReworkLedgerAndExpiryTests | test_charge_auto_change_escalation_leaves_auto_counter_unchanged (新); test_charge_auto_change_at_exact_cap_is_legal (新); test_charge_auto_change_escalates_past_max_stage_rework (既有修正) |
+
+## ④ 修改文件确认（writable set）
+- `scripts/auto-review-runner.py`（FX1/FX2/FX4/FX5/FX6/FX7）✓
+- `scripts/stage-seal.py`（FX2/FX3）✓
+- `scripts/tests/test_auto_review_runner.py`（FX1/FX2/FX4/FX5/FX6/FX7 测试 + Stage helper 加 `topology` 字段以支持 FX6 topology 负测试）✓
+- `scripts/tests/test_stage_seal.py`（FX2/FX3 测试）✓
+- append-only：`20-implementation.md`（本段）、`60-test-output.txt` ✓
+- **未触碰**：harness_stage_lib.py / validate-stage.py / agents/registry.yaml / schemas / workflows / manifest / status.json / 70-handoff.md / review reports / packet ✓
+
+## ⑤ 全部命令原始结果
+见 `60-test-output.txt`「Review-2 Round 2 Final Fix」段：全套件 **Ran 161 tests — OK**；`py_compile` OK；`validate-stage --phase checkpoint` **PASSED**；`git diff --check` exit 0；`grep -rn "formal-1" scripts harness-manifest.yaml` exit 1；FX 各测试类单独跑全绿；G4 破坏性验证逐项红记录（FX1–FX7）。
+
+## ⑥ git status --short
+```
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
+ M scripts/auto-review-runner.py
+ M scripts/stage-seal.py
+ M scripts/tests/test_auto_review_runner.py
+ M scripts/tests/test_stage_seal.py
+```
+全部在 writable（4）+ append-only（2）集内，无越界。
+
+## ⑦ 风险与 human_escalation 路径
+残留 append 阻塞点 3 处（均按 packet 规则 append、未自行取舍、未 fix-forward）：
+1. **FX4**：既有 `test_concurrent_runner_lock_is_exclusive` 契约被 packet FX4 要求替换（lock_busy+零写），按 G2 以 blocker 记录而非放宽既有期望值。
+2. **FX6 budget 范围**：runtime caps（max_model_calls/wall_clock_seconds）的 auth-status 等值与既有 frozen 契约 `caps come from authorization not status` 冲突；budget 等值限于 ledger caps，runtime caps 不绑定。
+3. **FX6 max_stage_rework**：schema `const 3` 使 runtime budget_mismatch 对该字段不可达（schema-level frozen 保证等值）。
+
+上述均为 packet 要求与既有契约/schema 的客观边界，**非代码缺陷**；全套件 161 绿、validate-stage checkpoint PASSED、文件边界精确、破坏性验证逐项成立。bookkeeper（Fable 5）复验时若认定任一阻塞点需放宽（如改 registry/schema/既有契约），即走 `human_escalation_required`。**若本次交付后仍残留任何 required code-changing finding，本 stage 直接 `human_escalation_required`**（packet rework 3/3 终格约束）。
+
+```text
+本地北京时间: 2026-07-12 01:40 CST
+下一步模型: Claude Fable 5（bookkeeper）
+下一步任务: 复验 FX1–FX7（含逐项破坏性验证）→ re-seal（新指纹）→ 正式 re-review-1 → review-2 round 3
+```

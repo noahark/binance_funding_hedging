@@ -36,10 +36,13 @@ filename). The shared ``make_temp_repo`` helper is imported, not copied.
 from __future__ import annotations
 
 import datetime
+import hashlib
 import importlib.util
 import json
 import re
+import shlex
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -125,7 +128,9 @@ class FakeSeal:
         self.fingerprint = fingerprint
         self.calls = []
 
-    def seal(self, root, stage_dir, unit_id):
+    def seal(self, root, stage_dir, unit_id, commit_guard=None):
+        # commit_guard mirrors the real seal's per-commit expiry hook (FX2); the
+        # fake performs no git commit so it is accepted but never invoked here.
         self.calls.append(unit_id)
         if self.outcome == "bind_mismatch":
             raise RUNNER.lib.HarnessError(
@@ -227,6 +232,7 @@ class Stage:
                 "schema_version": 1,
                 "runner_version": "auto-review-pipeline/v1",
                 "dispatch_mode": dispatch_mode,
+                "topology": topology,
                 "runner_state": runner_state,
                 "authorization_path": authorization_path or (
                     "reports/agent-runs/%s/auth.json" % stage_id),
@@ -1424,7 +1430,39 @@ class ReworkLedgerAndExpiryTests(unittest.TestCase):
         with self.assertRaises(RUNNER.TerminalEscalation) as cm:
             runner._charge_auto_change()
         self.assertEqual(cm.exception.event, "budget_exhausted")
-        self.assertEqual(runner._status["rework_count"], 3)
+        # FX7: on escalation NEITHER counter is written — rework_count and
+        # auto_code_changes_used both stay at their pre-charge original values.
+        self.assertEqual(runner._status["rework_count"], 2)
+        self.assertEqual(runner._budgets()["auto_code_changes_used"], 0)
+
+    def test_charge_auto_change_escalation_leaves_auto_counter_unchanged(self):
+        # FX7: when the AUTO change cap is exceeded, NEITHER counter is written
+        # (auto_code_changes_used stays at cap, rework_count stays put).
+        stage = Stage()
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
+                                   blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        runner.load_status()
+        runner._auth = {"budgets": {"max_auto_code_changes": 1, "max_stage_rework": 3}}
+        runner._budgets()["auto_code_changes_used"] = 1  # at cap -> proposed 2 > 1
+        runner._status["rework_count"] = 0
+        with self.assertRaises(RUNNER.TerminalEscalation) as cm:
+            runner._charge_auto_change()
+        self.assertEqual(cm.exception.event, "budget_exhausted")
+        self.assertEqual(runner._budgets()["auto_code_changes_used"], 1)
+        self.assertEqual(runner._status["rework_count"], 0)
+
+    def test_charge_auto_change_at_exact_cap_is_legal(self):
+        # FX7 boundary: reaching exactly max is legal (proposed == max, not > max).
+        stage = Stage()
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
+                                   blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        runner.load_status()
+        runner._auth = {"budgets": {"max_auto_code_changes": 2, "max_stage_rework": 3}}
+        runner._budgets()["auto_code_changes_used"] = 1  # proposed 2 == max, legal
+        runner._status["rework_count"] = 0
+        runner._charge_auto_change()  # must NOT raise
+        self.assertEqual(runner._budgets()["auto_code_changes_used"], 2)
+        self.assertEqual(runner._status["rework_count"], 1)
 
     def test_rework_fix_charges_shared_rework_ledger_e2e(self):
         stage = Stage(max_auto_code_changes=2)
@@ -1490,8 +1528,9 @@ class ReworkLedgerAndExpiryTests(unittest.TestCase):
 
 class RunnerLockTests(unittest.TestCase):
     """The runner holds an exclusive, runtime-only lock under git metadata for the
-    duration of a run. A second run against the same worktree while the lock is
-    held fails closed (awaiting_human) before any adapter call."""
+    duration of a run. FX4: a second run that finds the lock held is the lock
+    LOSER — contention precedes any state transition, so it writes nothing and
+    returns ``lock_busy`` (return-value + stderr only), never touching status."""
 
     def test_concurrent_runner_lock_is_exclusive(self):
         stage = Stage()
@@ -1501,18 +1540,35 @@ class RunnerLockTests(unittest.TestCase):
             calls["n"] += 1
             return _ir()
 
+        def stage_dir_snapshot():
+            # sha256 of every file under the stage dir, keyed by repo-relative path
+            out = {}
+            for p in sorted(stage.stage_dir.rglob("*")):
+                if p.is_file():
+                    out[p.relative_to(stage.stage_dir).as_posix()] = hashlib.sha256(p.read_bytes()).hexdigest()
+            return out
+
         # runner A acquires and HOLDS the lock (does not run the body)
         runner_a = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0,
                                      seal=FakeSeal())
         runner_a.load_status()
         runner_a._acquire_runner_lock()
         try:
+            before = stage_dir_snapshot()
             runner_b = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0,
                                          seal=FakeSeal())
             result = runner_b.run()
-            self.assertEqual(result.terminal, "awaiting_human")
+            # (a) lock contention → lock_busy (return-value only, never in status)
+            self.assertEqual(result.terminal, "lock_busy")
             self.assertEqual(calls["n"], 0, "no adapter call while the lock is held")
-            self.assertTrue(any(stage.stage_dir.glob("80-escalation-preflight_runner_lock_busy*.md")))
+            # (b) every stage-dir file is byte-identical before/after (zero write)
+            self.assertEqual(stage_dir_snapshot(), before,
+                             "lock loser must not write any stage-dir file")
+            # (c) no new escalation artifact (old behavior wrote 80-escalation-...md)
+            self.assertFalse(any(stage.stage_dir.glob("80-escalation-*runner_lock_busy*.md")))
+            # status.json itself was not mutated toward awaiting_human
+            status = lib.load_json(stage.stage_dir / "status.json")
+            self.assertNotEqual(status.get("status"), "awaiting_human")
         finally:
             runner_a._release_runner_lock()
 
@@ -1620,6 +1676,380 @@ class RestartAndAdapterErrorTests(unittest.TestCase):
         self.assertEqual(len(seal.calls), 1, "fix adapter error must stop before the second seal")
         events = [m["event"] for m in stage.reload()["auto_review_pipeline"].get("mode_history", [])]
         self.assertIn("unroutable_fix", events)
+
+
+# ===========================================================================
+# Review-2 round 2 final fix — FX1: shell-safe adapter invocation (sol P1#1)
+# ===========================================================================
+
+class ShellSafeInvocationTests(unittest.TestCase):
+    """The real registry templates substitute runner-owned paths into two
+    contexts: double-quoted command substitution ``"$(cat <prompt-file>)"``
+    (claude_glm/kimi) and bare words ``--prompt-file <prompt-file>`` (grok).
+    The repository path itself contains a space (``ai code``), so raw
+    substitution makes ``cat`` receive split arguments. Each substituted value
+    must be ``shlex.quote()``-wrapped in BOTH contexts; the quoted value is a
+    single shell word inside ``$()`` (a fresh parse context where single
+    quotes are effective) and as a bare argument."""
+
+    def _capture_command(self, stage, adapter, key, prompt_abs):
+        """Run ``_default_invoke`` with a fake subprocess.run that captures the
+        expanded command string (no real process semantics asserted here)."""
+        real_reg = RUNNER.load_registry(REPO_ROOT)
+        runner = AutoReviewRunner(stage.root, stage.stage_dir, registry=real_reg,
+                                  invoker=None, now=lambda: BASE_TIME)
+        captured = {}
+        orig = RUNNER.subprocess.run
+
+        class _Proc:
+            returncode = 0
+            stdout = b""
+            stderr = b""
+
+        def fake_run(command, *a, **k):
+            captured["command"] = command
+            return _Proc()
+
+        RUNNER.subprocess.run = fake_run
+        self.addCleanup(setattr, RUNNER.subprocess, "run", orig)
+        runner._default_invoke(adapter, key, Path(prompt_abs))
+        return captured["command"]
+
+    def test_real_registry_paths_with_spaces_and_metachars_are_shell_quoted(self):
+        # path contains a space plus $ ; and a single quote — all shell-meaningful
+        nasty = "repo with space/p$home;x'md.md"
+        cases = [
+            ("claude_glm", "noninteractive_command"),
+            ("kimi", "noninteractive_command"),
+            ("kimi", "embedded_read_only_review_command"),
+            ("grok", "development_command"),
+            ("grok", "optional_review_command"),
+        ]
+        # Build Stage() ONCE, before the loop. _capture_command patches the
+        # GLOBAL subprocess.run (RUNNER.subprocess IS sys.modules['subprocess'])
+        # and restores it only via addCleanup at method end. If Stage() ran
+        # inside the loop, its make_temp_repo()→git() on the 2nd+ iteration
+        # would hit the still-installed fake_run (whose stdout is bytes b""),
+        # corrupting self.branch and breaking json.dumps(auth). Reusing one
+        # stage avoids calling make_temp_repo() while the patch is live.
+        stage = Stage()
+        prompt_abs = str(stage.root / nasty)
+        for adapter, key in cases:
+            cmd = self._capture_command(stage, adapter, key, prompt_abs)
+            for marker in ("<prompt-file>", "<repo>", "@PROMPT@", "@REPO@"):
+                self.assertNotIn(marker, cmd, "%s.%s still has literal %r" % (adapter, key, marker))
+            # the substituted prompt path appears exactly as shlex.quote() emitted
+            # it — a single quoted shell word — not split on its internal spaces
+            self.assertIn(shlex.quote(prompt_abs), cmd,
+                          "%s.%s prompt path not shell-quoted intact: %r" % (adapter, key, cmd))
+
+    def test_bare_word_grok_path_is_one_shlex_token(self):
+        # grok's bare --prompt-file/--cwd context: after substitution + shlex.split
+        # the path must resurface as ONE intact token (proves no word-splitting)
+        nasty = "repo with space/grok$;quote'md.md"
+        stage = Stage()
+        prompt_abs = str(stage.root / nasty)
+        cmd = self._capture_command(stage, "grok", "optional_review_command", prompt_abs)
+        tokens = shlex.split(cmd)
+        self.assertIn(prompt_abs, tokens,
+                      "grok bare-word path split into multiple tokens: %r" % cmd)
+
+    def test_execution_probe_cmdsub_context_space_in_path(self):
+        # REAL shell=True execution, prompt file inside a space-named directory.
+        # Context 1: double-quoted command substitution "$(cat <prompt-file>)".
+        # The prompt file's CONTENT is a path (also space-containing) that cat reads.
+        base = tempfile.mkdtemp(prefix="harness-shell-probe-")
+        spaced = Path(base) / "repo with space"
+        spaced.mkdir()
+        marker = "PROBE-MARKER-CONTENT"
+        registry = {"probe_cmdsub": {"commands": {
+            "noninteractive_command": 'cat "$(cat <prompt-file>)"'}}}
+        target = spaced / "target_cmdsub.txt"
+        target.write_text(marker, encoding="utf-8")
+        prompt = spaced / "prompt_cmdsub.md"
+        prompt.write_text(str(target), encoding="utf-8")  # content = path cat will read
+        runner = AutoReviewRunner(spaced, spaced, registry=registry, now=lambda: BASE_TIME)
+        result = runner._default_invoke("probe_cmdsub", "noninteractive_command", prompt)
+        self.assertEqual(result.exit_status, 0,
+                         "cmdsub probe must exit 0 post-fix; stdout=%r" % result.stdout)
+        self.assertIn(marker.encode(), result.stdout)
+
+    def test_execution_probe_bare_word_context_space_in_path(self):
+        # Context 2: bare-word ``cat <prompt-file>`` (grok --prompt-file shape).
+        base = tempfile.mkdtemp(prefix="harness-shell-probe-")
+        spaced = Path(base) / "repo with space"
+        spaced.mkdir()
+        marker = "PROBE-MARKER-CONTENT"
+        registry = {"probe_bare": {"commands": {
+            "noninteractive_command": "cat <prompt-file>"}}}
+        prompt = spaced / "prompt_bare.md"
+        prompt.write_text(marker, encoding="utf-8")
+        runner = AutoReviewRunner(spaced, spaced, registry=registry, now=lambda: BASE_TIME)
+        result = runner._default_invoke("probe_bare", "noninteractive_command", prompt)
+        self.assertEqual(result.exit_status, 0,
+                         "bare-word probe must exit 0 post-fix; stdout=%r" % result.stdout)
+        self.assertIn(marker.encode(), result.stdout)
+
+
+class SealCommitGuardWiringTests(unittest.TestCase):
+    """FX2 runner side: ``_node_seal`` wires ``self._check_authorization_expiry``
+    as the seal's per-commit ``commit_guard``, and a mid-seal guard timeout
+    propagates unchanged (event ``timeout``) — never rewritten to
+    ``unroutable_fix``. Per-commit H_bind-blocking with real git is covered by
+    ``test_stage_seal.CommitGuardTests``."""
+
+    def test_node_seal_passes_expiry_check_as_commit_guard(self):
+        stage = Stage()
+        captured = {}
+
+        class _SpySeal:
+            def seal(self, root, stage_dir, unit_id, commit_guard=None):
+                captured["guard"] = commit_guard
+                return {"head_sha": "x", "diff_fingerprint": "y", "receipt": "z"}
+
+            def run_validator(self, *a, **k):
+                pass
+
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
+                                   blocking_runner=lambda u, c, p: 0, seal=_SpySeal())
+        runner.load_status()
+        unit = runner._find_unit("T1")
+        runner._node_seal(unit)
+        # bound methods compare by (__func__, __self__); `is` fails because each
+        # attribute access yields a fresh method object, so assertEqual is correct.
+        self.assertEqual(captured["guard"], runner._check_authorization_expiry)
+
+    def test_node_seal_propagates_guard_timeout_unchanged(self):
+        # injected now() is AFTER expires_at → the per-commit guard raises
+        # TerminalEscalation(timeout) inside seal; _node_seal must propagate it
+        # unchanged (event 'timeout'), not rewrite to 'unroutable_fix'.
+        now = datetime.datetime(2026, 7, 12, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        stage = Stage(auth_mutator=lambda a: a.__setitem__(
+            "expires_at", "2026-07-12T11:00:00Z"))  # one hour before now → expired
+
+        class _GuardFiringSeal:
+            def seal(self, root, stage_dir, unit_id, commit_guard=None):
+                if commit_guard is not None:
+                    commit_guard()  # _check_authorization_expiry → expired → timeout
+                return {"head_sha": "x", "diff_fingerprint": "y", "receipt": "z"}
+
+            def run_validator(self, *a, **k):
+                pass
+
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
+                                   blocking_runner=lambda u, c, p: 0,
+                                   seal=_GuardFiringSeal(), now=lambda: now)
+        runner.load_status()
+        # preflight normally loads auth.json into self._auth; calling _node_seal
+        # directly bypasses it, so mirror that load so the guard sees expires_at.
+        runner._auth = stage.auth
+        unit = runner._find_unit("T1")
+        with self.assertRaises(RUNNER.TerminalEscalation) as ctx:
+            runner._node_seal(unit)
+        self.assertEqual(ctx.exception.event, "timeout")
+
+
+class ResumeIdempotencyTests(unittest.TestCase):
+    """FX5 case A: resuming a run (runner_state=running) never redispatches a
+    unit that already started. Any implementation / embedded_cross_check / fix
+    receipt on disk proves 'started but unfinished'; without a per-node cursor
+    the run fails closed to awaiting_human with ZERO model calls. A clean unit
+    (no such receipts) resumes from scratch."""
+
+    def _seed_started_receipt(self, stage, unit_id, node, seq):
+        # real runner-receipt shape (the on-disk state after a node wrote its
+        # receipt and the process crashed before finishing the unit)
+        receipt = {
+            "schema_version": 1, "stage_id": stage.stage_id, "sequence": seq,
+            "node": node, "attempt": 1, "review_unit_id": unit_id, "task_id": unit_id,
+            "adapter": {"id": "claude_glm",
+                        "registry_command_ref": "claude_glm#noninteractive_command"},
+            "prompt_path": None, "raw_output_path": None, "verdict_path": None,
+            "started_at": "2026-07-11T12:00:00Z", "completed_at": "2026-07-11T12:00:01Z",
+            "exit_status": 0, "timeout": False,
+            "call_budget": {"before": seq - 1, "after": seq},
+            "failure_class": None, "next_transition": "blocking_check",
+        }
+        lib.atomic_write_json(
+            stage.stage_dir / "runner-{}-{}.receipt.json".format(seq, node), receipt)
+
+    def _seed_seal_receipt(self, stage, unit_id, seq):
+        # seal receipts have a distinct shape (kind=seal, no node) and must NOT
+        # by themselves trigger the started-receipt check
+        receipt = {
+            "schema_version": 1, "kind": "seal", "stage_id": stage.stage_id,
+            "task_id": unit_id, "review_unit_id": unit_id,
+            "base_sha": "0" * 40, "head_sha": "1" * 40, "diff_fingerprint": "fp",
+            "bind_status": "bound",
+            "blocking_second_pass": {"exit_status": 0, "ran_after_cross_check": True},
+            "created_at": "2026-07-11T12:00:01Z",
+            "note": "seed seal receipt (deterministic seal evidence)",
+        }
+        lib.atomic_write_json(
+            stage.stage_dir / "runner-{}-seal.receipt.json".format(seq), receipt)
+
+    def _assert_no_redispatch(self, stage):
+        calls = {"n": 0}
+
+        def invoke(*a, **k):
+            calls["n"] += 1
+            return _ir()
+
+        runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0,
+                                   seal=FakeSeal())
+        result = runner.run()
+        self.assertEqual(result.terminal, "awaiting_human")
+        self.assertEqual(calls["n"], 0,
+                         "resume must not redispatch any adapter (unit started but unfinished)")
+        self.assertTrue(any(stage.stage_dir.glob(
+            "80-escalation-recoverable_resume_unverifiable_unit*.md")))
+
+    def test_resume_after_implementation_crash_does_not_redispatch(self):
+        stage = Stage(runner_state="running", dispatch_mode="auto_review")
+        self._seed_started_receipt(stage, "T1", "implementation", 1)
+        self._assert_no_redispatch(stage)
+
+    def test_resume_after_cross_check_crash_does_not_redispatch(self):
+        stage = Stage(runner_state="running", dispatch_mode="auto_review")
+        self._seed_started_receipt(stage, "T1", "implementation", 1)
+        self._seed_started_receipt(stage, "T1", "embedded_cross_check", 2)
+        self._assert_no_redispatch(stage)
+
+    def test_resume_after_seal_crash_does_not_redispatch(self):
+        # a seal receipt alone is not a 'started' node, but the implementation +
+        # cross-check receipts that precede it are, so the unit is unverifiable.
+        stage = Stage(runner_state="running", dispatch_mode="auto_review")
+        self._seed_started_receipt(stage, "T1", "implementation", 1)
+        self._seed_started_receipt(stage, "T1", "embedded_cross_check", 2)
+        self._seed_seal_receipt(stage, "T1", 3)
+        self._assert_no_redispatch(stage)
+
+    def test_resume_after_review_crash_does_not_redispatch(self):
+        # review_1 is not a 'started' node either; the preceding implementation +
+        # cross-check receipts still make the unit unverifiable on resume.
+        stage = Stage(runner_state="running", dispatch_mode="auto_review")
+        self._seed_started_receipt(stage, "T1", "implementation", 1)
+        self._seed_started_receipt(stage, "T1", "embedded_cross_check", 2)
+        self._seed_started_receipt(stage, "T1", "review_1", 3)
+        self._assert_no_redispatch(stage)
+
+    def test_resume_after_fix_crash_does_not_redispatch(self):
+        stage = Stage(runner_state="running", dispatch_mode="auto_review")
+        self._seed_started_receipt(stage, "T1", "implementation", 1)
+        self._seed_started_receipt(stage, "T1", "embedded_cross_check", 2)
+        self._seed_started_receipt(stage, "T1", "fix", 3)
+        self._assert_no_redispatch(stage)
+
+    def test_resume_clean_unit_runs_from_scratch(self):
+        # FX5: a unit with NO started receipts resumes normally from scratch.
+        stage = Stage(runner_state="running", dispatch_mode="auto_review")
+        calls = {"n": 0}
+        accept = _accept_invoker(stage)
+
+        def invoke(*a, **k):
+            calls["n"] += 1
+            return accept(*a, **k)
+
+        runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0,
+                                   seal=FakeSeal())
+        result = runner.run()
+        self.assertEqual(result.terminal, "completed_review_1")
+        self.assertGreater(calls["n"], 0, "a clean unit resumes and dispatches normally")
+
+
+class AuthorizationExactBindTests(unittest.TestCase):
+    """FX6: an authorization must exact-bind the live status scope — bidirectional
+    task IDs, exact topology, allowed/forbidden pathspecs, and the shared budget
+    cap values. Every status/authorization divergence fails closed at preflight."""
+
+    def _run_preflight(self, stage):
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
+                                   blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        runner.load_status()
+        try:
+            runner.preflight()
+        except RUNNER.PreflightFailed as exc:
+            return exc
+        self.fail("preflight should have failed closed for this authorization divergence")
+
+    def test_authorized_but_absent_task_fails_closed(self):
+        # FX6: auth - live must reject too. T2 is authorized but absent from live.
+        def mutate(auth):
+            auth["scope"]["task_ids"] = ["T1", "T2"]
+        stage = Stage(auth_mutator=mutate)
+        exc = self._run_preflight(stage)
+        self.assertEqual(exc.reason, "scope_mismatch")
+        self.assertEqual(exc.detail.get("authorized_but_absent"), ["T2"])
+
+    def test_topology_divergence_fails_closed(self):
+        def mutate(auth):
+            auth["scope"]["topology"] = "parallel"  # live status records serial
+        stage = Stage(auth_mutator=mutate)
+        exc = self._run_preflight(stage)
+        self.assertEqual(exc.reason, "scope_mismatch")
+        self.assertEqual(exc.detail.get("auth_topology"), "parallel")
+        self.assertEqual(exc.detail.get("live_topology"), "serial")
+
+    def test_allowed_pathspec_divergence_fails_closed(self):
+        # the unit edits scripts/x.py but the allowlist only permits elsewhere
+        def mutate(auth):
+            auth["scope"]["allowed_pathspecs"] = ["scripts/elsewhere.py"]
+        stage = Stage(auth_mutator=mutate)
+        exc = self._run_preflight(stage)
+        self.assertEqual(exc.reason, "scope_mismatch")
+        self.assertIn("pathspec_outside_allowlist", exc.detail)
+
+    def test_forbidden_pathspec_hit_fails_closed(self):
+        def mutate(auth):
+            auth["scope"]["forbidden_pathspecs"] = ["scripts/x.py"]  # unit path forbidden
+        stage = Stage(auth_mutator=mutate)
+        exc = self._run_preflight(stage)
+        self.assertEqual(exc.reason, "scope_mismatch")
+        self.assertIn("forbidden_pathspec_hit", exc.detail)
+
+    def test_runtime_cap_divergence_is_not_bound(self):
+        # FX6: runtime caps (max_model_calls, wall_clock_seconds) come FROM the
+        # authorization per the frozen contract; the status copy is a mirror and
+        # may legitimately diverge. budget_mismatch must NOT fire here — only the
+        # ledger caps (max_stage_rework / max_auto_code_changes) are bound. See
+        # the FX6 blocker note in 20-implementation.md.
+        stage = Stage(max_model_calls=5)
+        stage.status["auto_review_pipeline"]["budgets"]["max_model_calls"] = 99
+        stage._write_status()
+        stage.git("add", "-A")
+        stage.git("commit", "-q", "--allow-empty", "-m", "diverge-runtime-cap")
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
+                                   blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        runner.load_status()
+        runner.preflight()  # must NOT raise — runtime cap divergence is allowed
+        self.assertEqual(runner._max_calls(), 5)
+
+    def test_max_stage_rework_divergence_fails_closed(self):
+        def mutate(auth):
+            auth["budgets"]["max_stage_rework"] = 99  # status says 3
+        stage = Stage(auth_mutator=mutate)
+        exc = self._run_preflight(stage)
+        self.assertEqual(exc.reason, "budget_mismatch")
+        self.assertEqual(exc.detail.get("field"), "max_stage_rework")
+
+    def test_max_stage_rework_divergence_fails_closed(self):
+        # max_stage_rework is a schema const (exactly 3): an auth carrying any
+        # other value is rejected earlier as authorization_invalid, so the
+        # runtime budget_mismatch branch for this field is unreachable by
+        # construction. See FX6 blocker in 20-implementation.md.
+        def mutate(auth):
+            auth["budgets"]["max_stage_rework"] = 4
+        stage = Stage(auth_mutator=mutate)
+        exc = self._run_preflight(stage)
+        self.assertEqual(exc.reason, "authorization_invalid")
+
+    def test_max_auto_code_changes_divergence_fails_closed(self):
+        def mutate(auth):
+            auth["budgets"]["max_auto_code_changes"] = 1  # status says 2 (both <= 2, schema-valid)
+        stage = Stage(auth_mutator=mutate)
+        exc = self._run_preflight(stage)
+        self.assertEqual(exc.reason, "budget_mismatch")
+        self.assertEqual(exc.detail.get("field"), "max_auto_code_changes")
 
 
 if __name__ == "__main__":

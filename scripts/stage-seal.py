@@ -47,7 +47,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 # Make the sibling shared library importable whether this file is run directly,
 # imported via importlib from the test suite, or executed as a CLI.
@@ -484,46 +484,113 @@ def _clear_pending_marker(stage_dir: Path, task_id: str) -> None:
         marker.unlink()
 
 
+def _head_is_expected_snapshot_child(root: Path, head: str, parent_sha: str,
+                                      expected_paths: set[str]) -> bool:
+    """FX3: ``head`` is exactly the single H_snapshot commit over ``parent_sha``
+    touching exactly ``expected_paths``. Rejects multi-commit drift past the
+    parent and any single commit whose changed-path set diverges from the marker
+    (intervening pollution)."""
+    try:
+        parent_of_head = str(_git(root, ["rev-parse", head + "^"])).strip()
+    except SealError:
+        return False
+    if parent_of_head != parent_sha:
+        return False
+    out = str(_git(root, ["diff-tree", "--no-commit-id", "--name-only", "-r", head]))
+    actual = {line.strip() for line in out.splitlines() if line.strip()}
+    return actual == set(expected_paths)
+
+
+def _bind_evidence_complete(stage_dir: Path, unit: dict[str, Any]) -> bool:
+    """FX3: a sealed unit's bind evidence is mechanically intact when its
+    ``snapshot_commit`` + ``diff_fingerprint`` are both set AND a matching seal
+    receipt exists on disk."""
+    snapshot_commit = unit.get("snapshot_commit")
+    diff_fingerprint = unit.get("diff_fingerprint")
+    if not snapshot_commit or not diff_fingerprint:
+        return False
+    for path in stage_dir.glob("runner-*-seal.receipt.json"):
+        try:
+            doc = lib.load_json(path)
+        except Exception:
+            continue
+        if (doc.get("task_id") == unit.get("id")
+                and doc.get("head_sha") == snapshot_commit
+                and doc.get("diff_fingerprint") == diff_fingerprint):
+            return True
+    return False
+
+
 # ---------------------------------------------------------------------------
 # top-level seal flow (with crash recovery)
 # ---------------------------------------------------------------------------
 
-def seal(root: Path, stage_dir: Path, task_id: str) -> dict[str, Any]:
+def seal(root: Path, stage_dir: Path, task_id: str,
+         commit_guard: Callable[[], None] | None = None) -> dict[str, Any]:
     status_doc = lib.load_json(stage_dir / "status.json")
     unit = _find_unit(status_doc, task_id)
 
     if unit_is_sealed(unit):
+        marker = _pending_marker_path(stage_dir, task_id)
+        if marker.exists():
+            # FX3: orphan marker left after a completed bind (the H_bind commit
+            # landed but _clear_pending_marker did not run). Mechanically verify
+            # the bind is intact; if so, clear the stale marker and surface
+            # already-sealed. If the evidence is incomplete, fail closed and keep
+            # the marker for manual adjudication.
+            if _bind_evidence_complete(stage_dir, unit):
+                _clear_pending_marker(stage_dir, task_id)
+                raise SealError("review unit already sealed; refusing to re-seal")
+            raise SealError(
+                "sealed unit has a pending marker but bind evidence is incomplete; "
+                "manual adjudication required")
         raise SealError("review unit already sealed; refusing to re-seal")
 
     sequence = _next_sequence(status_doc)
 
     marker = _pending_marker_path(stage_dir, task_id)
     if marker.exists():
-        # F6: real H_snapshot crash window. create_snapshot committed H_snapshot
-        # but the status write recording snapshot_commit / fingerprint did not
-        # land. Resume the bind using the already-committed snapshot — NEVER a
-        # second code commit. parent_sha distinguishes "snapshot landed" from a
-        # crash before the commit (in which case the marker is stale and we fall
-        # through to a fresh seal).
+        # FX3: the marker records the moment just before create_snapshot. Recovery
+        # is decided by an exhaustive three-way check on HEAD vs the marker —
+        # never accept an intervening commit on trust.
         marker_doc = lib.load_json(marker)
         parent_sha = str(marker_doc.get("parent_sha") or "")
+        expected_paths = set(marker_doc.get("expected_paths") or [])
         current_head = _head(root)
-        if parent_sha and current_head != parent_sha:
-            # the bind was verified before the crash; re-derive it (the committed
-            # code still matches the seen patch) rather than trusting a stale field
+        if parent_sha and current_head == parent_sha:
+            # branch 1: create_snapshot did not land — stale marker, discard and
+            # fall through to a fresh seal (current behavior preserved).
+            _clear_pending_marker(stage_dir, task_id)
+        elif parent_sha and _head_is_expected_snapshot_child(
+                root, current_head, parent_sha, expected_paths):
+            # branch 2: the real H_snapshot crash window — HEAD is exactly the
+            # single snapshot commit over parent_sha touching exactly the expected
+            # paths. Resume the bind using the already-committed snapshot; NEVER a
+            # second code commit. Re-derive the bind (the committed code still
+            # matches the seen patch) rather than trusting a stale field.
             bind_status = verify_bind(root, unit)
             snapshot_head = current_head
             fingerprint, receipt_name = write_unit_and_receipt(
                 root, stage_dir, status_doc, unit, {}, snapshot_head, bind_status, sequence
             )
+            if commit_guard is not None:
+                commit_guard()
             create_bind(root, stage_dir, task_id, receipt_name)
             _clear_pending_marker(stage_dir, task_id)
             run_validator(root, str(status_doc.get("stage_id")))
             return {"head_sha": snapshot_head, "diff_fingerprint": fingerprint,
                     "receipt": receipt_name, "recovered": True,
                     "crash_window": "snapshot_committed_status_unwritten"}
-        # snapshot commit did not land — stale marker, discard and run fresh seal
-        _clear_pending_marker(stage_dir, task_id)
+        else:
+            # branch 3: HEAD is multiple commits past parent_sha, or the single
+            # commit's changed-path set does not match the marker — an intervening
+            # commit polluted the crash window. Fail closed; keep the marker for
+            # manual adjudication. NEVER commit a second code change or silently
+            # run a fresh seal over the pollution.
+            raise SealError(
+                "pending marker recovery mismatch: HEAD is not the expected single "
+                "snapshot commit over parent_sha (intervening commit or path drift); "
+                "manual adjudication required")
 
     if unit_is_unbound(unit):
         # crash after H_snapshot before H_bind: resume the bind with the exact
@@ -534,6 +601,8 @@ def seal(root: Path, stage_dir: Path, task_id: str) -> dict[str, Any]:
         fingerprint, receipt_name = write_unit_and_receipt(
             root, stage_dir, status_doc, unit, {}, snapshot_head, bind_status, sequence
         )
+        if commit_guard is not None:
+            commit_guard()
         create_bind(root, stage_dir, task_id, receipt_name)
         _clear_pending_marker(stage_dir, task_id)
         run_validator(root, str(status_doc.get("stage_id")))
@@ -547,10 +616,17 @@ def seal(root: Path, stage_dir: Path, task_id: str) -> dict[str, Any]:
     verify_second_pass(unit, root, stage_dir)
     bind_status = verify_bind(root, unit)
     _write_pending_marker(stage_dir, task_id, _unit_base(unit), _head(root), dirty)
+    # FX2: re-run the runner's expiry/budget guard immediately before EVERY git
+    # commit inside the seal. Fresh path commits H_snapshot then H_bind — the gap
+    # between them is where acceptance 28 was previously unenforced.
+    if commit_guard is not None:
+        commit_guard()
     snapshot_head = create_snapshot(root, stage_dir, task_id, dirty)
     fingerprint, receipt_name = write_unit_and_receipt(
         root, stage_dir, status_doc, unit, auth, snapshot_head, bind_status, sequence
     )
+    if commit_guard is not None:
+        commit_guard()
     create_bind(root, stage_dir, task_id, receipt_name)
     _clear_pending_marker(stage_dir, task_id)
     run_validator(root, str(status_doc.get("stage_id")))

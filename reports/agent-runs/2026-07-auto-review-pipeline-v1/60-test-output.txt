@@ -1096,3 +1096,214 @@ Final fix round (rework 3/3) — packet bind (Fable5 bookkeeper)
   rework needed after this delivery -> human_escalation_required.
 - status -> fixing; validator checkpoint PASSED post-bind.
 - Fix dispatch: NOT EXECUTED (human gate).
+
+================================================================
+Review-2 Round 2 Final Fix (rework 3/3) — required checks
+本地北京时间: 2026-07-12 01:40 CST
+================================================================
+
+## 1. full suite: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+.............................................................auto-review-runner: runner lock busy — another run holds it (runner_lock_busy)
+....................................................................................................
+----------------------------------------------------------------------
+Ran 161 tests in 18.927s
+
+OK
+
+## 2. py_compile
+PY_COMPILE_OK (exit 0)
+
+## 3. validate-stage --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+phase=checkpoint
+status=fixing
+diff_fingerprint=846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4
+
+## 4. git diff --check
+git diff --check exit 0 (clean)
+
+## 5. grep -rn 'formal-1' scripts harness-manifest.yaml (expect exit 1)
+grep exit=1
+
+## 6. git status --short
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
+ M scripts/auto-review-runner.py
+ M scripts/stage-seal.py
+ M scripts/tests/test_auto_review_runner.py
+ M scripts/tests/test_stage_seal.py
+
+## 7. FX test classes (individual runs)
+--- scripts.tests.test_auto_review_runner.ShellSafeInvocationTests ---
+Ran 4 tests in 0.264s
+
+OK
+--- scripts.tests.test_auto_review_runner.SealCommitGuardWiringTests ---
+Ran 2 tests in 0.247s
+
+OK
+--- scripts.tests.test_stage_seal.CommitGuardTests ---
+Ran 2 tests in 0.510s
+
+OK
+--- scripts.tests.test_stage_seal.SealMarkerHardeningTests ---
+Ran 2 tests in 0.708s
+
+OK
+--- scripts.tests.test_auto_review_runner.RunnerLockTests ---
+Ran 1 test in 0.161s
+
+OK
+--- scripts.tests.test_auto_review_runner.ResumeIdempotencyTests ---
+Ran 6 tests in 1.324s
+
+OK
+--- scripts.tests.test_auto_review_runner.AuthorizationExactBindTests ---
+Ran 7 tests in 1.234s
+
+OK
+--- scripts.tests.test_auto_review_runner.ReworkLedgerAndExpiryTests ---
+Ran 6 tests in 1.020s
+
+OK
+
+================================================================
+Review-2 Round 2 Final Fix — G4 destructive verification (each FX,
+revert to old logic -> named test MUST go red; then restored)
+All reverts restored; full suite re-run green (161 OK) afterwards.
+================================================================
+
+FX1 (revert: prompt_q = str(prompt_abs), unquoted):
+  test_execution_probe_cmdsub_context_space_in_path ... FAIL
+  test_execution_probe_bare_word_context_space_in_path ... FAIL
+    AssertionError: 1 != 0 : bare-word probe must exit 0 post-fix; stdout=b''
+
+FX2 (revert: remove fresh-path H_bind commit_guard at stage-seal.py):
+  test_guard_fresh_path_runs_before_each_commit_and_blocks_h_bind ... FAIL
+    AssertionError: SealError not raised
+
+FX3 (revert: _head_is_expected_snapshot_child -> return head != parent_sha):
+  test_intervening_commit_after_crash_fails_closed_keeps_marker ... FAIL
+    AssertionError: SealError not raised
+
+FX4 (revert: lock-loser calls _handle_preflight_failure(exc) again):
+  test_concurrent_runner_lock_is_exclusive ... FAIL
+    'status.json': 45e018a0... != 5514f5a3... : lock loser must not write any stage-dir file
+
+FX5 (revert: resume loop `if False and self._unit_has_started_receipts`):
+  5 boundary tests FAIL — terminal drifted awaiting_human -> human_escalation_required
+    (test_resume_after_{implementation,cross_check,seal,review,fix}_crash...)
+
+FX6 (revert A: `if False and absent` disables auth-live bidirectional):
+  test_authorized_but_absent_task_fails_closed ... FAIL (preflight did not raise)
+FX6 (revert B: `if False and budgets.get(key) != live_budgets.get(key)` disables ledger bind):
+  test_max_auto_code_changes_divergence_fails_closed ... FAIL (preflight did not raise)
+
+FX7 (revert: `if False and max_rework and proposed_rework > max_rework`):
+  test_charge_auto_change_escalates_past_max_stage_rework ... FAIL
+    AssertionError: TerminalEscalation not raised
+
+Post-revert full suite: Ran 161 tests in ~18.7s — OK
+
+================================================================
+Review-2 Round 2 Final Fix (rework 3/3) — bookkeeper reverification
+(Fable5). ALL SEVEN items destructively verified per packet criteria.
+本地北京时间: 2026-07-12 02:10:00 CST
+================================================================
+
+## Boundary / G-rule checks
+- git status: exactly writable 4 + append-only 2 files; no out-of-set change.
+- G2 (existing tests): removed lines trace ONLY to (a) FX7's named assertion
+  fix, (b) FX4 lock-test contract replacement (GLM appended blocker; packet
+  FX4 requirements objectively contradict the old awaiting_human+escalation
+  assertions — replacement accepted as required-by-packet), (c) FakeSeal
+  signature adaptation forced by FX2's new commit_guard parameter. No other
+  existing-test drift.
+- G3: every hunk in scripts/auto-review-runner.py + scripts/stage-seal.py
+  attributes to an FX id (read in full). No unrelated refactor.
+- G5 frozen surfaces: fingerprint formula / AUTO_TRANSITIONS / review-1
+  routing / seen-diff bind / pilot predicates untouched (diff-level).
+
+## Independent runs
+- full suite: Ran 161 tests — OK (independent rerun, 18.7s).
+- per-class: all 8 new/changed classes green (GLM's own log corroborated).
+- py_compile 4 files OK; validate-stage --phase checkpoint PASSED;
+  git diff --check exit 0; grep -rn "formal-1" scripts harness-manifest.yaml
+  exit 1.
+
+## Destructive verification (packet-mandated, ALL seven; driver with
+## try/finally restore; files byte-restored to GLM delivery afterwards)
+  FX1  unquote prompt_q                    -> 2 execution probes RED; restored GREEN
+  FX2  drop guard before fresh H_bind      -> guard_fresh_path test RED;  restored GREEN
+  FX3  _head_is_expected_snapshot_child
+       -> accept any HEAD (return True)    -> intervening_commit test RED; restored GREEN
+  FX4  restore _handle_preflight_failure   -> lock test RED (status hash drift); GREEN
+  FX5  disable started-receipts fail-close -> implementation-crash test RED; GREEN
+  FX6a disable auth-live absent direction  -> authorized_but_absent RED;   GREEN
+  FX6b disable ledger-cap exact bind       -> max_auto_code_changes RED;   GREEN
+  FX7  disable proposed-rework precheck    -> escalates_past_max RED;      GREEN
+  => 8/8 red-when-broken, green-when-restored.
+
+## Packet per-item manual criteria
+- FX1: manual shlex.quote probe in BOTH production contexts ("$(cat q)" and
+  bare word) exit 0 with intact content. Bookkeeper supplementary probe:
+  load_registry exposes exactly the 6 frozen runner-reachable placeholder
+  commands (RECEIPT_COMMAND_REFS surface); ALL 6 verified quote-safe with a
+  space+$;' path — including claude_glm.embedded_read_only_review_command,
+  the one same-shape command GLM's 5-case enumeration omitted (residual R2).
+- FX2: grep commit_guard -> guarded at :576 (marker-recovery bind), :604
+  (unbound-resume bind), :622 (fresh snapshot), :628 (fresh bind) — all four
+  commit points, each immediately before the commit. Runner side wires
+  _check_authorization_expiry; fake-clock timeout propagates unchanged.
+- FX3: marker already carries expected_paths (F6-era _write_pending_marker),
+  so branch-2 recovery precondition holds for real markers. Three-way branch
+  exhaustive; orphan-marker reconciliation verified via real-flow injection
+  tests (monkeypatched write_unit_and_receipt crash + suppressed clear).
+- FX4: byte-hash assertion is whole-stage-dir (rglob, per-file sha256), real
+  fcntl lock held by a first runner instance.
+- FX5: case A declared (case B correctly abandoned — node_cursor would touch
+  read-only contract surfaces). CROSS-PROBE: a receipt written by PRODUCTION
+  _write_receipt (passing validate_receipt_doc, anchored ref, decrementing
+  call budget) IS recognized by _unit_has_started_receipts; foreign unit is
+  not. Five crash boundaries + clean-unit-runs-from-scratch all green.
+- FX6: bidirectional task_ids; ledger caps exact-bound; runtime caps
+  deliberately NOT bound (see blocker adjudication below).
+- FX7: precheck-then-update, both counters untouched on escalation; exact-cap
+  legality test present.
+
+## GLM appended-blocker adjudication (bookkeeper)
+1. FX4 existing-test contract replacement — ACCEPTED (required by packet FX4;
+   old assertions codified the defective behavior).
+2. FX6 runtime caps not bound — ACCEPTED (existing frozen contract test
+   test_runtime_caps_come_from_authorization_not_status makes auth the sole
+   authority for runtime caps; binding would break a frozen test, G2 forbids;
+   ledger caps ARE bound, which is the security-relevant half; explicit
+   test_runtime_cap_divergence_is_not_bound documents the boundary).
+3. FX6 max_stage_rework schema const 3 — ACCEPTED (schema-level frozen makes
+   the runtime divergence branch unreachable; schema-level test present).
+
+## Residual notes (NOT required findings; recorded for review)
+- R1: ResumeIdempotencyTests seed receipts use an incrementing call_budget
+  ({before: seq-1, after: seq}) whereas production semantics decrement
+  (after == before-1, enforced by validate_receipt_doc). The predicate under
+  test consumes only node + review_unit_id, and the production cross-probe
+  above proves real receipts are recognized — no behavioral impact.
+- R2: FX1 string-level enumeration covered 5 of the 6 frozen runner-reachable
+  placeholder commands (missing claude_glm.embedded_read_only_review_command,
+  shape-identical to two covered cases). Bookkeeper probe covered 6/6.
+
+## Process-deviation note (committed disclosure)
+Every manual dispatch packet in this stage — including this FINAL fix
+packet — omitted the workflow node's skill reference required by
+workflows/templates/stage-delivery.yaml (fix node => skill:
+minimal_change_engineer => agents/skills/minimal-change-engineer.md).
+Execution-side deviation, operator-identified 2026-07-12. The packet's
+G1–G5 + four-part per-item structure embedded equivalent constraints, and
+delivery quality confirms no material impact this round. Prevention is
+consolidated in reports/follow-ups/2026-07-harness-mechanical-gates.md §1
+(commit 93eeafc). Packets from re-review-1 onward cite the node skill.
+
+## Disposition
+FX1–FX7 ALL VERIFIED (code reading + independent suite + 8/8 destructive +
+manual criteria). Proceeding: delivery commit -> re-seal (new fingerprint)
+-> status bind (fixing -> review_1) -> formal re-review-1 packet (Kimi).

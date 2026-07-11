@@ -329,5 +329,136 @@ class EscalationArtifactTests(_SealTestBase):
         self.assertTrue(name.startswith("80-escalation-bind_mismatch-"))
 
 
+class CommitGuardTests(_SealTestBase):
+    """FX2: a ``commit_guard`` callable runs immediately before EVERY git commit
+    inside the seal — H_snapshot + H_bind on the fresh path, H_bind on both
+    recovery paths. A guard that raises on the pre-H_bind call leaves H_bind
+    uncommitted; that inter-commit gap is the window acceptance 28 closes."""
+
+    def test_guard_fresh_path_runs_before_each_commit_and_blocks_h_bind(self):
+        # the guard fires on its 2nd call (immediately before H_bind, AFTER
+        # H_snapshot has already landed): proves the inter-commit gap is enforced.
+        calls = []
+
+        def guard():
+            calls.append(len(calls) + 1)
+            if len(calls) >= 2:
+                raise self.seal.SealError("injected guard: block before H_bind")
+
+        before = int(self.git("rev-list", "--count", "HEAD"))
+        with self.assertRaises(self.seal.SealError):
+            self.seal.seal(self.root, self.stage_dir, "T1", commit_guard=guard)
+        after = int(self.git("rev-list", "--count", "HEAD"))
+        # H_snapshot landed (+1) but H_bind was NOT created
+        self.assertEqual(after - before, 1)
+        log = self.git("log", "--format=%s")
+        self.assertEqual(log.count("H_snapshot"), 1)
+        self.assertEqual(log.count("H_bind"), 0)
+        # marker survives (cleared only after H_bind succeeds)
+        self.assertTrue(self.seal._pending_marker_path(self.stage_dir, "T1").exists())
+        # guard ran exactly twice: before H_snapshot, before H_bind (which raised)
+        self.assertEqual(calls, [1, 2])
+
+    def test_guard_blocks_recovery_bind_on_unbound_resume(self):
+        # unbound recovery path's ONLY commit is H_bind; the guard must run before
+        # that single recovery commit too (one of the four covered commit points).
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "harness-seal: H_snapshot review snapshot for task T1")
+        snapshot_head = self.git("rev-parse", "HEAD").strip()
+        self.unit["snapshot_commit"] = snapshot_head
+        self.unit["head_sha"] = snapshot_head
+        self._rewrite_status()
+
+        calls = []
+
+        def guard():
+            calls.append(1)
+            raise self.seal.SealError("injected guard: block before recovery H_bind")
+
+        before = int(self.git("rev-list", "--count", "HEAD"))
+        with self.assertRaises(self.seal.SealError):
+            self.seal.seal(self.root, self.stage_dir, "T1", commit_guard=guard)
+        after = int(self.git("rev-list", "--count", "HEAD"))
+        # recovery H_bind was blocked → no new commit
+        self.assertEqual(after - before, 0)
+        self.assertEqual(len(calls), 1)
+
+
+class SealMarkerHardeningTests(_SealTestBase):
+    """FX3: pending-marker recovery is an exhaustive three-way check, and an
+    orphan marker left after a completed bind is reconciled mechanically —
+    never silently re-sealed over pollution."""
+
+    def test_intervening_commit_after_crash_fails_closed_keeps_marker(self):
+        # branch 3: after the H_snapshot crash window, an intervening commit
+        # makes HEAD two commits past parent_sha. The second seal() must fail
+        # closed — SealError, NO new commit, marker retained for adjudication.
+        real_write = self.seal.write_unit_and_receipt
+
+        def crashing_write(*a, **k):
+            # create_snapshot has already committed H_snapshot before we are
+            # called; crash here, before the status write records the seal fields.
+            raise self.seal.SealError("injected crash: status write did not land")
+
+        self.seal.write_unit_and_receipt = crashing_write
+        try:
+            with self.assertRaises(self.seal.SealError):
+                self.seal.seal(self.root, self.stage_dir, "T1")
+        finally:
+            self.seal.write_unit_and_receipt = real_write
+        # H_snapshot landed; marker retained (crash before the status write)
+        self.assertTrue(self.seal._pending_marker_path(self.stage_dir, "T1").exists())
+
+        # an intervening commit pollutes the worktree (unrelated file)
+        (self.root / "scripts" / "intrusion.py").write_text("pwn = 1\n", encoding="utf-8")
+        self.git("add", "scripts/intrusion.py")
+        self.git("commit", "-q", "-m", "intervening unrelated commit")
+
+        before = int(self.git("rev-list", "--count", "HEAD"))
+        with self.assertRaises(self.seal.SealError) as ctx:
+            self.seal.seal(self.root, self.stage_dir, "T1")
+        self.assertIn("recovery mismatch", str(ctx.exception).lower())
+        after = int(self.git("rev-list", "--count", "HEAD"))
+        self.assertEqual(after - before, 0)  # branch 3 commits nothing
+        self.assertTrue(self.seal._pending_marker_path(self.stage_dir, "T1").exists())
+
+    def test_orphan_marker_after_bind_is_cleared_and_already_sealed(self):
+        # orphan marker: H_bind completed (unit sealed) but _clear_pending_marker
+        # did not run (first call suppressed). The next seal() mechanically
+        # verifies the bind, clears the stale marker, and raises already-sealed —
+        # producing NO new commit.
+        # Step 9 (run_validator) is loosened to a no-op here: the orphan marker
+        # stays untracked on disk, which would make the worktree-dirty pre-review
+        # check fire at the end of the first seal, but the point under test is the
+        # orphan-marker reconciliation on the SECOND seal, not step 9.
+        self.seal.run_validator = lambda *a, **k: None
+        real_clear = self.seal._clear_pending_marker
+        calls = {"n": 0}
+
+        def clear_but_skip_first(stage_dir, task_id):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return  # leave the marker orphaned after the successful bind
+            real_clear(stage_dir, task_id)
+
+        self.seal._clear_pending_marker = clear_but_skip_first
+        try:
+            self.seal.seal(self.root, self.stage_dir, "T1")  # fresh seal; marker orphaned
+        finally:
+            self.seal._clear_pending_marker = real_clear
+        # unit is sealed yet the marker is still on disk (orphan)
+        self.assertTrue(self.seal._pending_marker_path(self.stage_dir, "T1").exists())
+        sealed = lib.load_json(self.stage_dir / "status.json")
+        self.assertTrue(sealed["auto_review_pipeline"]["review_units"][0]["diff_fingerprint"])
+
+        before = int(self.git("rev-list", "--count", "HEAD"))
+        with self.assertRaises(self.seal.SealError) as ctx:
+            self.seal.seal(self.root, self.stage_dir, "T1")
+        self.assertIn("already sealed", str(ctx.exception).lower())
+        after = int(self.git("rev-list", "--count", "HEAD"))
+        self.assertEqual(after - before, 0)  # no new commit
+        self.assertFalse(self.seal._pending_marker_path(self.stage_dir, "T1").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

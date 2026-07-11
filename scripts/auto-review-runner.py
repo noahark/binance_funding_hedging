@@ -54,6 +54,7 @@ import fcntl
 import importlib.util
 import json
 import os
+import shlex
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -691,19 +692,27 @@ class AutoReviewRunner:
         return int(self._budgets().get("auto_code_changes_used", 0))
 
     def _charge_auto_change(self) -> None:
-        if self._auto_changes_used() >= self._max_auto_changes():
+        # FX7: precheck BOTH caps against PROPOSED values before writing either
+        # counter. If either cap is exceeded, escalate WITHOUT mutating
+        # auto_code_changes_used or rework_count; only when both are within cap
+        # are the two counters applied as one synchronous update. Boundary
+        # semantics are unchanged: reaching exactly max is legal, exceeding it
+        # is rejected (`proposed > cap` ⟺ the prior `used >= cap` / `> cap`).
+        proposed_auto = self._auto_changes_used() + 1
+        if proposed_auto > self._max_auto_changes():
             raise TerminalEscalation("budget_exhausted", "aggregate auto code-change cap reached")
-        self._budgets()["auto_code_changes_used"] = self._auto_changes_used() + 1
         # Single authoritative ledger (docs §Rework accounting): an automatic
         # code-changing fix also charges the top-level rework_count shared with
         # review-2 repair, bounded by max_stage_rework.
-        rework_count = int(self._status.get("rework_count", 0)) + 1
-        self._status["rework_count"] = rework_count
         max_rework = int((self._auth or {}).get("budgets", {}).get("max_stage_rework", 0) or 0)
-        if max_rework and rework_count > max_rework:
+        proposed_rework = int(self._status.get("rework_count", 0)) + 1
+        if max_rework and proposed_rework > max_rework:
             raise TerminalEscalation(
                 "budget_exhausted",
-                "stage rework ledger exceeded: %d > %d" % (rework_count, max_rework))
+                "stage rework ledger exceeded: %d > %d" % (proposed_rework, max_rework))
+        # both within cap: apply both counters as one atomic update
+        self._budgets()["auto_code_changes_used"] = proposed_auto
+        self._status["rework_count"] = proposed_rework
 
     def _check_authorization_expiry(self) -> None:
         """Re-check a non-null ``expires_at`` before every model call and commit.
@@ -809,6 +818,21 @@ class AutoReviewRunner:
         self._arp["last_receipt_path"] = rel
         return rel
 
+    def _unit_has_started_receipts(self, unit_id: str) -> bool:
+        """FX5: a unit that started but did not finish on a prior run leaves at
+        least one implementation / embedded_cross_check / fix receipt on disk.
+        Without a per-node cursor such a unit cannot be safely resumed — case A
+        fails closed rather than redispatch (which would repeat model calls)."""
+        started_nodes = {"implementation", "embedded_cross_check", "fix"}
+        for path in self.stage_dir.glob("runner-*.receipt.json"):
+            try:
+                doc = lib.load_json(path)
+            except Exception:
+                continue
+            if doc.get("review_unit_id") == unit_id and doc.get("node") in started_nodes:
+                return True
+        return False
+
     # -- escalation --------------------------------------------------------
 
     def _write_escalation(self, reason: str, detail: dict[str, Any]) -> str:
@@ -864,14 +888,24 @@ class AutoReviewRunner:
 
     def _default_invoke(self, adapter_id: str, command_key: str, prompt_abs: Path) -> InvokeResult:
         template = resolve_command_template(self.registry, adapter_id, command_key)
+        # FX1 (sol P1#1): every runner-owned substituted value is shlex.quote()-
+        # wrapped before insertion. The real registry uses the placeholders in two
+        # contexts — double-quoted command substitution ``"$(cat <prompt-file>)"``
+        # (claude_glm/kimi) and bare words ``--cwd <repo> --prompt-file
+        # <prompt-file>`` (grok). shlex.quote is correct in both: ``$()`` starts a
+        # fresh parse context where the single-quoted word is honored, and as a
+        # bare argument it is a single shell word. The repository path itself
+        # contains a space (``ai code``), so raw substitution split ``cat`` args.
+        prompt_q = shlex.quote(str(prompt_abs))
+        repo_q = shlex.quote(str(self.root))
         # Real registry templates use <prompt-file> / <repo>; @PROMPT@ / @REPO@
         # remain supported for backward compatibility with synthetic test fixtures.
         command = (
             template
-            .replace("@PROMPT@", str(prompt_abs))
-            .replace("@REPO@", str(self.root))
-            .replace("<prompt-file>", str(prompt_abs))
-            .replace("<repo>", str(self.root))
+            .replace("@PROMPT@", prompt_q)
+            .replace("@REPO@", repo_q)
+            .replace("<prompt-file>", prompt_q)
+            .replace("<repo>", repo_q)
         )
         started = self.now()
         try:
@@ -973,6 +1007,20 @@ class AutoReviewRunner:
         for key in ("max_model_calls", "wall_clock_seconds", "max_stage_rework", "max_auto_code_changes", "invalid_json_max_attempts_per_model"):
             if key not in budgets:
                 raise PreflightFailed("budget_mismatch", {"field": key})
+        # FX6: exact-bind the LEDGER cap values (max_stage_rework,
+        # max_auto_code_changes) between authorization and live status — these
+        # frozen rework/auto-change ledger fields must be shared exactly by both
+        # records. The runtime caps (max_model_calls, wall_clock_seconds) are
+        # deliberately NOT bound here: the frozen contract is that runtime caps
+        # come FROM the authorization (see
+        # test_runtime_caps_come_from_authorization_not_status), so the status
+        # copy is a non-authoritative mirror that may legitimately diverge.
+        # invalid_json_max_attempts_per_model is auth-only; *_used are
+        # status-only. See the FX6 blocker note in 20-implementation.md.
+        live_budgets = self._arp.get("budgets") or {}
+        for key in ("max_stage_rework", "max_auto_code_changes"):
+            if budgets.get(key) != live_budgets.get(key):
+                raise PreflightFailed("budget_mismatch", {"field": key, "auth": budgets.get(key), "status": live_budgets.get(key)})
         # adapter authority
         allowed_adapters = set(auth.get("allowed_adapters") or [])
         if not allowed_adapters.issuperset({"claude_glm", "kimi", "grok"}):
@@ -1027,6 +1075,13 @@ class AutoReviewRunner:
         unauthorized = sorted(live_ids - auth_tasks)
         if unauthorized:
             raise PreflightFailed("scope_mismatch", {"unauthorized_units": unauthorized})
+        # FX6: exact-bind is bidirectional. An authorized-but-absent task means
+        # the authorization describes a different review scope than the live
+        # stage and must not be reused to activate it. Reject auth - live just
+        # as live - auth is rejected above.
+        absent = sorted(auth_tasks - live_ids)
+        if absent:
+            raise PreflightFailed("scope_mismatch", {"authorized_but_absent": absent})
         live_topology = self._arp.get("topology")
         if live_topology is not None and scope.get("topology") != live_topology:
             raise PreflightFailed("scope_mismatch", {"auth_topology": scope.get("topology"), "live_topology": live_topology})
@@ -1097,8 +1152,14 @@ class AutoReviewRunner:
         try:
             self._acquire_runner_lock()
         except PreflightFailed as exc:
-            self._handle_preflight_failure(exc)
-            return RunResult(ran=False, terminal="awaiting_human", reason=exc.reason)
+            # FX4: lock contention precedes any state transition. The loser must
+            # write NOTHING — no _handle_preflight_failure, no _persist, no
+            # transition, no receipt/evidence — or it pollutes the winner's run.
+            # lock_busy is a return-value/stderr signal only; it never enters
+            # status.json or the workflow state machine.
+            sys.stderr.write("auto-review-runner: runner lock busy — another run holds it ("
+                             + exc.reason + ")\n")
+            return RunResult(ran=False, terminal="lock_busy", reason=exc.reason)
         try:
             return self._run_body()
         finally:
@@ -1150,6 +1211,16 @@ class AutoReviewRunner:
                                              {"review_unit_id": unit_id})
                 if (unit.get("review_1") or {}).get("verdict") == "ACCEPT":
                     continue
+                if resume and self._unit_has_started_receipts(unit_id):
+                    # FX5 case A: a non-ACCEPT unit that already started (any
+                    # implementation / embedded_cross_check / fix receipt on disk)
+                    # cannot be resumed node-by-node without a cursor. Fail closed
+                    # via the existing recoverable transition; NEVER redispatch —
+                    # that would repeat implementation / fix model calls and code
+                    # changes. A clean unit (no such receipts) resumes from scratch.
+                    raise RecoverableFallback(
+                        "resume_unverifiable_unit",
+                        {"review_unit_id": unit_id, "resume_unverifiable_unit": True})
                 self._run_unit(unit)
             # all required units ACCEPT
             self._record_transition("all_required_units_ACCEPT", "auto_review", "running", "auto_review", "completed_review_1")
@@ -1485,11 +1556,16 @@ class AutoReviewRunner:
     def _node_seal(self, unit: dict[str, Any]) -> dict[str, Any]:
         unit_id = unit.get("id")
         self._persist()
-        # the delegated seal performs git commits (H_snapshot / H_bind); re-check
-        # a non-null authorization expiry before any of them (acceptance 28).
-        self._check_authorization_expiry()
+        # FX2: the delegated seal re-runs the expiry/budget guard immediately before
+        # EACH git commit (H_snapshot + H_bind, fresh + both recovery paths) via
+        # commit_guard, so the inter-commit gap is enforced (acceptance 28).
         try:
-            self._seal.seal(self.root, self.stage_dir, unit_id)
+            self._seal.seal(self.root, self.stage_dir, unit_id,
+                            commit_guard=self._check_authorization_expiry)
+        except TerminalEscalation:
+            # mid-seal guard timeout fails closed; propagate unchanged so _run_body
+            # routes it to terminal escalation — never rewrite it as unroutable_fix.
+            raise
         except Exception as exc:  # SealError or HarnessError → bind mismatch / blocking fail
             # a bind mismatch is a terminal escalation
             msg = str(exc).lower()
