@@ -444,6 +444,42 @@ independence; not recommended while B1 or A is available).
 Bookkeeper recommendation (non-binding): **A** for cleanest independence;
 **B1** if operator prefers speed and Codex quota is restored; avoid B2.
 
-本地北京时间: 2026-07-11 20:50:00 CST
-下一步模型: human operator（review-2 路由决议）
-下一步任务: 在 Route A（启用 Gemini 外投）与 Route B1/B2（disclosure override）间决议；bookkeeper 随后准备对应 review-2 packet 与机械证据。
+## Routing Resolution (operator, 2026-07-11)
+
+- Route A is out: operator reports Gemini is frequently network-unreachable
+  (`service_unavailable`) — which itself hardens the override precondition.
+- Operator dispatches review-2 personally, choosing from the high-end pool
+  — **gpt-5.6-sol > gpt-5.6-terra > gpt-5.6-luna** (openai, descending
+  capability) or **claude-fable-5 / opus4.8** (anthropic) — per
+  cross-review principle and token budget at dispatch time. The bookkeeper
+  keeps the packet provider-neutral.
+- Override evidence landed:
+  `review-2-unrelated-reviewer-unavailable-evidence.md` (Gemini
+  service_unavailable + both registered decision models design-conflicted).
+- Provider-neutral packet landed:
+  `task-stage-review2-operator-choice.prompt.md` — role `final_reviewer`;
+  per-provider disclosure branches (`reviewer_prior_involvement: "design"`
+  both sides; the Anthropic branch additionally mandates an explicit
+  bookkeeper dual-hat risk review); requirements authority = the frozen
+  40-table above 00-task/10-design; subject = stage range
+  `a385c7a..4c668bb` with fingerprint; ACCEPT maps to
+  `stage_accepted_waiting_user`, never merge authority.
+- Follow-up recorded (registry refresh, future Harness sync):
+  `codex.default_model` still says `gpt-5.5`; the GPT-5.6 family and its
+  sol>terra>luna ordering are newer than the registry snapshot.
+
+## 下一步
+
+Human operator executes `task-stage-review2-operator-choice.prompt.md` in
+the terminal of the chosen model (openai: `codex exec` read-only with the
+actual 5.6 model id and the verdict schema; anthropic:
+`claude --model <fable5|opus4.8> --permission-mode plan`), captures raw
+stdout, and returns it to the Fable5 bookkeeper. The bookkeeper lands
+`50-review-2.md` + the verbatim verdict JSON, fills the override/status
+fields with the actually used model, and on ACCEPT moves the stage to
+`stage_accepted_waiting_user` (merge to `main` still requires the user's
+explicit acceptance).
+
+本地北京时间: 2026-07-11 21:10:00 CST
+下一步模型: human operator → 所选高端模型（review-2, final_reviewer, fresh session）
+下一步任务: 人工执行 review-2 packet；raw 输出交回 Fable5 bookkeeper 落盘 verdict 并推进状态。
