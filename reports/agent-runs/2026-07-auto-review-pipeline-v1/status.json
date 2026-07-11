@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -130,9 +130,9 @@
     "provider": "claude_glm",
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2[1m]",
-    "status": "T1_delivered_review_1_accept",
+    "status": "T2_delivered_awaiting_review_1",
     "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
-    "note": "T1 delivered at 25383e8 after pre-seal correction rounds 1v2/2/3; Kimi review-1 ACCEPT. T2 not yet dispatched."
+    "note": "T1 delivered at 25383e8 (Kimi review-1 ACCEPT). T2 delivered at a7fd737, sealed, awaiting review-1."
   },
   "implementers": [
     {
@@ -142,6 +142,14 @@
       "model": "glm-5.2[1m]",
       "status": "T1_delivered_review_1_accept",
       "task_id": "T1"
+    },
+    {
+      "id": "claude_glm",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "status": "T2_delivered_awaiting_review_1",
+      "task_id": "T2"
     }
   ],
   "fix_authors": [
@@ -177,7 +185,7 @@
     "provider": "kimi",
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
-    "task": "T1"
+    "task": "T1_accepted; T2 pending fresh session"
   },
   "reviewer_2": null,
   "r10_checklists": {},
@@ -386,7 +394,7 @@
       "slug": "seal-and-validator",
       "title": "Deterministic seal and validator",
       "sequence": 2,
-      "status": "ready_for_human_dispatch",
+      "status": "sealed_awaiting_review_1",
       "depends_on": [
         "T1"
       ],
@@ -431,8 +439,8 @@
       "fix_prompt_path": null,
       "r10_checklist": null,
       "base_sha": "ce9f83afeedc9ec8739548f7c316df2a79ebcd3b",
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "head_sha": "a7fd7373545e581a2b25f4643917dc213e998f66",
+      "diff_fingerprint": "a7fd7373545e581a2b25f4643917dc213e998f66:2509ae831482876ed47dfedfbb41941c672a0035c60487cd0c12876362072b97",
       "test_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
       "review_1": {
         "reviewer": null,
@@ -443,9 +451,10 @@
         "diff_fingerprint": null
       },
       "dispatch_executor": "human",
-      "dispatch_packet_status": "ready_not_executed",
+      "dispatch_packet_status": "completed",
       "dispatch_packet_commit": "ce9f83afeedc9ec8739548f7c316df2a79ebcd3b",
-      "adapter_reference": "agents/registry.yaml#adapters.claude_glm.noninteractive_command"
+      "adapter_reference": "agents/registry.yaml#adapters.claude_glm.noninteractive_command",
+      "review_1_prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T2-review1-kimi.prompt.md"
     },
     {
       "id": "T3",
@@ -529,9 +538,9 @@
     "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-design-review/40-operator-decision-table.md",
     "user_approved": true
   },
-  "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
-  "head_sha": "25383e86d0b10b3e8bd3e0f51254588826c9601b",
-  "diff_fingerprint": "25383e86d0b10b3e8bd3e0f51254588826c9601b:242cff3040ac66e79ce2dbb5a13dab6bf92043765884ed9f0288cf8decc80486",
+  "base_sha": "ce9f83afeedc9ec8739548f7c316df2a79ebcd3b",
+  "head_sha": "a7fd7373545e581a2b25f4643917dc213e998f66",
+  "diff_fingerprint": "a7fd7373545e581a2b25f4643917dc213e998f66:2509ae831482876ed47dfedfbb41941c672a0035c60487cd0c12876362072b97",
   "changed_files": [
     "reports/agent-runs/2026-07-auto-review-pipeline-design-review/**",
     "reports/follow-ups/2026-07-auto-review-pipeline-design-note.md",
@@ -597,16 +606,16 @@
     ]
   },
   "review_1": {
-    "reviewer": "kimi",
-    "provider": "kimi",
-    "model": "kimi-code/kimi-for-coding",
-    "open_p0_p1": 0,
-    "verdict": "ACCEPT",
-    "json_schema_valid": true,
-    "diff_fingerprint": "25383e86d0b10b3e8bd3e0f51254588826c9601b:242cff3040ac66e79ce2dbb5a13dab6bf92043765884ed9f0288cf8decc80486",
-    "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_pending": false,
-    "fix_start_prompt_present": false,
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "reviewer_prior_involvement": null,
+    "reviewer_prior_involvement_pending": true,
+    "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
@@ -661,6 +670,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_T2_dispatch_packet_then_return_raw_evidence_to_bookkeeper",
-  "updated_at": "2026-07-11T17:40:00+08:00"
+  "next_action": "human_execute_T2_kimi_review_1_packet",
+  "updated_at": "2026-07-11T18:05:00+08:00"
 }
