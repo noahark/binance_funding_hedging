@@ -23,3 +23,20 @@ Source: `2026-07-borrowability-51061-zero-mapping.md`.
   whitespace requires no action.
 
 Source: `2026-07-ui-filter-balance-metal-v1-residuals.md`.
+
+## 2026-07-auto-review-pipeline
+
+Status: **design decisions frozen** (not yet a Harness contract delivery stage).
+
+| Artifact | Role |
+|---|---|
+| `2026-07-auto-review-pipeline-design-note.md` | Original design note |
+| `2026-07-auto-review-pipeline-review-fable5.md` | Fable5 review of design note |
+| `reports/agent-runs/2026-07-auto-review-pipeline-design-review/` | Codex design review, Fable divergence response, decision table, dual table reviews, patch merge |
+
+**Authoritative freeze for intake:**
+
+`reports/agent-runs/2026-07-auto-review-pipeline-design-review/40-operator-decision-table.md`
+
+(Status: FROZEN — POST DUAL REVIEW. Next: open `2026-07-auto-review-pipeline-v1`
+Harness stage from that table. Lives on branch `docs/2026-07-auto-review-pipeline`.)

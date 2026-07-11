@@ -1,0 +1,181 @@
+{
+  "stage_id": "2026-07-auto-review-pipeline-v1",
+  "status": "designing",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-auto-review-pipeline-v1",
+    "created_from_main_sha": "45c21ee010fd3f2892a6677f58d5c8b02c2fbb0b",
+    "created_at": "2026-07-11T03:30:02Z",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "codex_current_session",
+    "provider": "codex",
+    "provider_identity": "openai",
+    "model": "current Codex/GPT session",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "Codex contributed prior design review and authored this intake, but is not eligible for implementation or fix authorship. Prior design involvement must be considered for review-2 routing."
+  },
+  "design_baseline": {
+    "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-design-review/40-operator-decision-table.md",
+    "status": "frozen_post_dual_review",
+    "operator_approved_for_intake": true,
+    "source_branch": "docs/2026-07-auto-review-pipeline",
+    "source_commit": "1997a65ccc66b40aa877781b55aaf807ea469dd6",
+    "review_artifacts": [
+      "reports/agent-runs/2026-07-auto-review-pipeline-design-review/30-review-codex.md",
+      "reports/agent-runs/2026-07-auto-review-pipeline-design-review/31-divergence-response-fable5.md",
+      "reports/agent-runs/2026-07-auto-review-pipeline-design-review/41-decision-table-review-fable5.md",
+      "reports/agent-runs/2026-07-auto-review-pipeline-design-review/42-decision-table-review-gpt.md",
+      "reports/agent-runs/2026-07-auto-review-pipeline-design-review/43-decision-table-patch-merge.md"
+    ]
+  },
+  "model_routing": {
+    "implementation": {
+      "status": "pending_stage_design",
+      "codex_eligible": false,
+      "scope": "harness_only"
+    },
+    "review_1": {
+      "status": "pending_implementer_selection",
+      "requires_fresh_read_only_session": true,
+      "provider_must_differ_from_reviewed_unit_authors": true
+    },
+    "review_2": {
+      "status": "pending_independent_reviewer_resolution",
+      "note": "Both configured high-end providers, OpenAI/Codex and Anthropic/Claude, participated in the pre-stage decision chain. Stage design must record truthful prior involvement and an eligible final-review route or disclosure override evidence."
+    },
+    "excluded_from_core_work": [
+      "codex"
+    ]
+  },
+  "auto_review_pipeline": {
+    "enabled_for_this_stage": false,
+    "reason": "Bootstrap stage cannot self-host an unaccepted Harness pipeline. Current DRAFT-2 human-dispatch gates remain authoritative.",
+    "target_contract_source": "reports/agent-runs/2026-07-auto-review-pipeline-design-review/40-operator-decision-table.md"
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false,
+    "note": "Implementation topology is deferred to stage design; target auto pipeline is disabled for this bootstrap stage."
+  },
+  "embedded_reviews": {},
+  "designer": null,
+  "direction_synthesizer": {
+    "provider": "grok",
+    "provider_identity": "xai_grok",
+    "model": "not recorded in artifact",
+    "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-design-review/40-operator-decision-table.md",
+    "role": "operator_decision_recorder_and_synthesizer"
+  },
+  "breakdown_author": null,
+  "implementer": null,
+  "implementers": [],
+  "fix_authors": [],
+  "reviewer_1": null,
+  "reviewer_2": null,
+  "r10_checklists": {},
+  "tasks": [],
+  "complexity": {
+    "classification": "HIGH",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": false,
+    "high_direction_panel_user_override": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "The operator explicitly requested opening this stage from the frozen post-dual-review decision table.",
+      "The existing multi-model decision chain covers the HIGH-stage direction; no new direction panel is needed.",
+      "HIGH remains required because the stage changes top-level Harness control-plane contracts across policy, workflow, registry, validation, and runner scripts."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {},
+    "skip_reason": "Existing operator-frozen multi-model synthesis covers the task; user explicitly directed stage intake from that baseline."
+  },
+  "direction_synthesis": {
+    "provider": "grok",
+    "status": "approved_existing_synthesis",
+    "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-design-review/40-operator-decision-table.md",
+    "user_approved": true
+  },
+  "base_sha": null,
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "changed_files": [
+    "reports/agent-runs/2026-07-auto-review-pipeline-design-review/**",
+    "reports/follow-ups/2026-07-auto-review-pipeline-design-note.md",
+    "reports/follow-ups/2026-07-auto-review-pipeline-review-fable5.md",
+    "reports/follow-ups/README.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/00-intake.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/status.json"
+  ],
+  "tests": {
+    "status": "not_run",
+    "commands": [],
+    "note": "No Harness implementation exists yet. Intake-only JSON, branch, and scope checks are recorded in 60-test-output.txt."
+  },
+  "review_1": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "reviewer_prior_involvement": "none",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "primary_provider": null,
+    "fallback_provider": null,
+    "fallback_reason": null,
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": null,
+    "unrelated_reviewer_unavailable_evidence": null,
+    "design_conflict_override": {
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
+    },
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "open_design_items": [
+    "Exact auto-run authorization artifact fields",
+    "D5 human-dispatch mode-flip status shape",
+    "P8 call-count and wall-clock accounting",
+    "Review-unit and author-provider machine shape",
+    "Runner receipt/verdict/escalation artifact paths",
+    "Bootstrap-stage implementation and independent final-review routing"
+  ],
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "next_action": "stage-design",
+  "updated_at": "2026-07-11T03:30:02Z"
+}
