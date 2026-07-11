@@ -828,3 +828,14 @@ Round-2 review dispatch preparation:
   round-1 passed areas need only incremental confirmation; fix increment = git diff d42e031..4c668bb, 3 paths)
 - rework_count: 1/3 (unchanged; round-2 review itself charges nothing)
 - Kimi round-2: NOT DISPATCHED (human gate)
+
+### T3 round-2 verdict verification + review-1 phase completion (2026-07-11 20:50 CST, bookkeeper=Fable5)
+- Kimi round-2 verdict: ACCEPT; schema-valid (0 errors); fingerprint == re-sealed T3 value
+- Kimi independently reproduced the drift-sensitivity checks (rename/one_of-drop/deformation) with matching results
+- ALL THREE REVIEW UNITS ACCEPT: T1 25383e8 / T2 a7fd737 / T3 4c668bb (round 2); rework_count final 1/3
+- Top-level range rolled to the stage level for review-2:
+  base a385c7ad77da1611c6e952b2219aee56b49f442f .. head 4c668bb8748c09e7014eac2fbb7a34d3a7c247d5
+  stage diff_fingerprint: 4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:54186cecdb387a52a5d200acf3aa7fb1730f98256a3a53c040bd7bb01993f9e5
+- scripts/validate-stage.py --phase pre-review (stage-level range, status=review_2): STAGE VALIDATION PASSED EXIT:0
+- Review-2: NOT DISPATCHED — routing is a pending operator decision (Route A Gemini vs Route B disclosure override);
+  decision materials landed in 70-handoff.md

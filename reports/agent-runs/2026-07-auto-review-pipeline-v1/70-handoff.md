@@ -3,8 +3,13 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `review_1` (T3 fix round1 delivered and **re-sealed**; awaiting
-  Kimi round-2 re-review; `rework_count` = 1/3)
+- Status: `review_2` — **all three review units ACCEPT**; awaiting the
+  operator's review-2 routing decision (`rework_count` final 1/3)
+- Review-2 subject (stage-level range, validator pre-review PASSED):
+  `a385c7a..4c668bb`, fingerprint
+  `4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:54186cecdb387a52a5d200acf3aa7fb1730f98256a3a53c040bd7bb01993f9e5`
+- Unit results: T1 `25383e8` ACCEPT / T2 `a7fd737` ACCEPT / T3 `4c668bb`
+  ACCEPT (round 2, after one P2 fix)
 - T3 re-seal: H_T3' `4c668bb` (fix = TransitionTruthSourceTests only, +248),
   base unchanged `fff4e14`, new fingerprint
   `4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:6ff0032b8220dee882ecf78bea21acfc09bf9ea24307f88b4d68c8e925b34053`,
@@ -390,17 +395,55 @@ README 条目。
 - Re-sealed at H_T3' `4c668bb` (round-1 verdict preserved in
   `tasks[T3].review_1_history`); `--phase pre-review` PASSED.
 
-## 下一步
+## T3 Round-2 Outcome
 
-Human operator executes `task-T3-review1-round2-kimi.prompt.md`
-(`kimi --model kimi-code/kimi-for-coding -p "$(cat <packet>)"`, fresh
-read-only session). Round-2 focus: independent finding-closure verification
-plus no-regression on the 3-path fix increment (`git diff d42e031..4c668bb`);
-round-1 passed areas need only incremental confirmation. After round-2
-ACCEPT, all three review units are complete and the stage reaches the
-operator's review-2 routing gate (Gemini enablement vs strong-reviewer
-disclosure override).
+- Kimi round-2 (fresh session) returned **ACCEPT**: finding P2 closed against
+  all six fix_start_prompt points, drift-sensitivity independently verified
+  (rename/drop/deformation), no regression (110 tests; fix increment exactly
+  the authorized single file + evidence), no new findings.
+- Review-1 phase complete: three of three units ACCEPT under human-dispatched
+  DRAFT-2 with fresh Kimi sessions per unit. `rework_count` final **1/3**.
 
-本地北京时间: 2026-07-11 20:35:00 CST
-下一步模型: human operator → Kimi（T3 review-1 round 2, fresh session）
-下一步任务: 人工执行 round-2 review packet；raw 输出交回 Fable5 bookkeeper 落盘 verdict；ACCEPT 后进入 review-2 路由决议。
+## Review-2 Routing Decision Materials（操作者决议，两条路线并列）
+
+Registered decision models: OpenAI/Codex and Anthropic/Claude only — both
+have disclosure-level prior involvement, so there is no unrelated registered
+decision model. Involvement inventory (recorded in status.json):
+
+- OpenAI/Codex: design-review author (30-), intake author, stage designer
+  (00-task/10-design/11-adr), former bookkeeper. Enum value: `design`.
+- Anthropic/Claude (Fable5): direction patches merged into the frozen table
+  (F1–F3), stage-design review (13-), development breakdown (12-), second
+  inspections (22-/25-), **current bookkeeper**. Enum: `design` (+ breakdown
+  + direction_synthesis in notes). Heaviest involvement plus dual-hat.
+
+**Route A — enable Gemini 3.1 Pro (registry
+`future_review_2_fallback_candidates`).** Trigger clause "user explicitly
+approves a third decision model" is satisfied by an operator instruction.
+`reviewer_prior_involvement: "none"` is truthfully available — no override
+evidence burden. Mechanics: no local adapter, so the bookkeeper prepares a
+self-contained review-2 packet (stage range, fingerprint, full design chain,
+delivery diffs) and the operator relays it externally (as was done for the
+`2026_07_initial_direction` panel). Limitation: Gemini cannot run
+commands/tests; its verdict is a static review of supplied materials —
+mitigated by the fact that every mechanical check is already machine-verified
+and evidenced in `60-test-output.txt`.
+
+**Route B — strong-reviewer disclosure override (AGENTS documented path).**
+Requires: an `unrelated_reviewer_unavailable_evidence` file recording that
+both registered decision models are design-conflicted and no third model is
+enabled (design-conflict ineligibility is a listed fallback reason);
+`fallback_reason` + truthful `reviewer_prior_involvement` in verdict and
+status; the review-2 prompt must rank the user-approved frozen decision
+table above 00-task/10-design as requirements authority. Sub-options:
+**B1 Codex** (lighter involvement, AGENTS primary reviewer, not the current
+bookkeeper — preferred within B if its quota has recovered) or **B2 Claude**
+(triple involvement + same provider as the acting bookkeeper — weakest
+independence; not recommended while B1 or A is available).
+
+Bookkeeper recommendation (non-binding): **A** for cleanest independence;
+**B1** if operator prefers speed and Codex quota is restored; avoid B2.
+
+本地北京时间: 2026-07-11 20:50:00 CST
+下一步模型: human operator（review-2 路由决议）
+下一步任务: 在 Route A（启用 Gemini 外投）与 Route B1/B2（disclosure override）间决议；bookkeeper 随后准备对应 review-2 packet 与机械证据。
