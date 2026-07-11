@@ -900,3 +900,78 @@ runner 通过 `_load_validator_module()`（`importlib.util.spec_from_file_locati
 下一步模型: Claude Fable 5（bookkeeper）
 下一步任务: 边界检查 → 独立复跑全量套件 → T3 seal → T3 Kimi review-1 packet
 ```
+
+---
+
+# T3 fix-round1 — `transition truth-source persistence test`（claude_glm, REWORK P2）
+
+- **Branch**: `stage/2026-07-auto-review-pipeline-v1`
+- **任务**: T3 fix round 1（review-1 REWORK，finding P2：persistent transition-set assertion）
+- **verdict_source**: `review-1-T3-round1.verdict.json`（verdict=REWORK，model=kimi）
+- **rework_charge**: 1 of 3（本 stage 首次正式 rework 计费）
+- **dispatch 前置核对**: branch ✅、`tasks[id=T3].status=review_1_rework_fix_dispatch_ready` ✅、
+  `auto_review_pipeline.enabled_for_this_stage=false` ✅、`parallel_mode.enabled=false` ✅。
+- **reminder**: code change 使原 sealed fingerprint 失效；返回后 T3 须 RE-SEALED 再交 Kimi re-review（seal 由 bookkeeper 执行）。
+
+## 1. Finding → Fix
+
+| finding（review-1-T3-round1.verdict.json, required_fixes[0]） | fix |
+| --- | --- |
+| runner 经 importlib 复用 `validate-stage.AUTO_TRANSITIONS` 作单一转移真源（`auto-review-runner.py:91-92`），但未交付 dispatch packet §3.1 要求的「以测试断言其与 workflow 集合一致」的持久化测试。 | 新增 `TransitionTruthSourceTests.test_runner_transitions_match_workflow_state_transitions`：stdlib-only 受限行解析器解析 `workflows/templates/stage-delivery.yaml` 的 `auto_review_pipeline.executable_contract.state_transitions`，展开为 13 五元组集合，`assertEqual` 锚定 `RUNNER.AUTO_TRANSITIONS`。 |
+
+## 2. 文件边界（确认 allowlist 内）
+
+| 文件 | 动作 | 改动 |
+| --- | --- | --- |
+| `scripts/tests/test_auto_review_runner.py` | amend | `import re`（+1）；新增 `WORKFLOW_TEMPLATE`/3 个 regex 常量；新增 `_parse_workflow_state_transitions()` 受限行解析器；新增 `TransitionTruthSourceTests` 类（1 测试方法） |
+
+**其余全部只读未触**：`auto-review-runner.py`、`validate-stage.py`、`harness_stage_lib.py`、
+`stage-seal.py`、T2 三测试、全部 T1 契约（含 workflow YAML）、`harness-manifest.yaml`、
+`status.json`/`70-handoff.md`/review/packet、产品与 funding 路径。
+
+`git status --short`：
+```text
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
+ M scripts/tests/test_auto_review_runner.py
+```
+（前两行是本 fix 的共享 evidence append；代码改动仅 test 文件一行。）
+
+## 3. 实现要点
+
+- **转移真源选择不变**：runner 仍经 importlib 复用 `validate-stage.AUTO_TRANSITIONS`（单一真源，runner 内无第二份矩阵）。本 fix 不改 runner，仅补「持久化锚定」测试，把该复用集合钉死在 workflow YAML 上。
+- **stdlib-only 受限行解析器** `_parse_workflow_state_transitions(workflow_path)`：
+  - 定位 `    state_transitions:`（4-space 缩进，executable_contract 下）块头；正文缩进 ≤4 即块尾。
+  - 按 `      - id:`（6-space）切分 8 个 transition 条目。
+  - `from:` / `to:` 内联 flow mapping `{ dispatch_mode: "...", runner_state: null|"..." }` 用受限正则提取；`null` → Python `None`。
+  - `event:` 标量（`event: "x"`）→ 单事件；`event:` 块 + `one_of: [...]` flow 序列 → 逐项展开为多元组。
+  - 五元组顺序 `(from_dispatch_mode, from_runner_state, to_dispatch_mode, to_runner_state, event)`，与 validator `AUTO_TRANSITIONS` 完全一致。
+- **fail-closed**：缺块头 / 无条目 / from/to 不可解析 / event 块缺 one_of / one_of 空 / 标量 event 形态异常均 `raise AssertionError`，使 workflow 漂移在此暴露而非静默通过。**测试中无第二份硬编码矩阵**——集合完全由 workflow YAML 动态解析得出。
+- **非平凡性已验证**：解析器对真实 workflow 产出恰 13 元组且 `== RUNNER.AUTO_TRANSITIONS`；对缺块头/悬空 event 的合成畸形输入均抛 AssertionError（见 `60-test-output.txt` fail-closed sanity 段）。
+
+## 4. Required Checks 原始结果（packet 验证命令）
+
+见 `60-test-output.txt`（本次 append 的 `T3 fix-round1 Required Checks` 段）。摘要：
+
+| # | 命令 | exit | 结果 |
+| --- | --- | --- | --- |
+| 1 | `python3 -m unittest scripts.tests.test_auto_review_runner.TransitionTruthSourceTests` | 0 | Ran **1 test** — OK（新测试通过） |
+| 2 | `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` | 0 | Ran **110 tests**（109→110）— OK |
+| 3 | `python3 -m py_compile …{validate-stage,harness_stage_lib,stage-seal,auto-review-runner}.py` | 0 | 全编译通过 |
+| 4 | `scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint` | 0 | `STAGE VALIDATION PASSED`；`status=fixing`；`diff_fingerprint=d42e031d…:2deb5e9e…`（test 改动反映入指纹） |
+| 5 | `git diff --check` | 0 | 无 whitespace/conflict 错误 |
+
+## 5. blockers / 风险 / review-1 建议关注点
+
+- **blockers**：无。finding P2 完全闭合；未引入新依赖（`re` 为 stdlib）。
+- **风险 / review-1 关注点**：
+  1. **解析器结构性假设**：受限解析器假定当前 workflow 的精确缩进 / 内联 flow-mapping 形态。这是「仅处理当前结构」的有意设计——若 workflow 编辑漂移，测试会 fail-closed。review-1 宜确认该严格性是期望行为（漂移应当被捕获）。
+  2. **集合比较语义**：`set` 去重——若 workflow 出现重复 (from,to,event) 致元组 <13，`assertEqual` vs 13 元素 `AUTO_TRANSITIONS` 会失败（正确 fail-closed）。
+  3. **单一真源仍为 validator**：本测试把 runner 复用集合 ↔ workflow YAML 双向锚定；validator `AUTO_TRANSITIONS` 本身作为 T2 review-verified 的 frozen 真源不变。runner 未改，其 importlib 复用路径（`auto-review-runner.py:91-92`）保持。
+- **未 commit、未 push、未改 status/handoff/review/packet；未 dispatch 任何模型。**
+
+```text
+本地北京时间: 2026-07-11 20:15 CST
+下一步模型: Kimi（T3 review-1 re-run）
+下一步任务: bookkeeper 边界检查 → RE-SEAL T3（code change 失效旧指纹）→ 复跑本 review-1 packet 验证 fix
+```

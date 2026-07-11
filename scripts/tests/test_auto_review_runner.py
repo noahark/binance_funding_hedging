@@ -38,6 +38,7 @@ from __future__ import annotations
 import datetime
 import importlib.util
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -1012,6 +1013,122 @@ class ResumeTransitionTests(unittest.TestCase):
         events = [m["event"] for m in stage.arp().get("mode_history", [])]
         self.assertIn("superseding_human_authorization", events)
         self.assertNotIn("new_human_authorization", events[1:])  # only the resume row uses superseding
+
+
+# ---------------------------------------------------------------------------
+# transition truth-source consistency (review-1 REWORK finding P2)
+# ---------------------------------------------------------------------------
+
+WORKFLOW_TEMPLATE = REPO_ROOT / "workflows" / "templates" / "stage-delivery.yaml"
+
+_FLOW_SEQ = re.compile(r"\[([^\]]*)\]")
+_DISPATCH_MODE = re.compile(r'dispatch_mode:\s*"([^"]*)"')
+_RUNNER_STATE = re.compile(r'runner_state:\s*(?:"([^"]*)"|(null))')
+
+
+def _parse_workflow_state_transitions(workflow_path):
+    """Restricted stdlib-only parser for the ``state_transitions`` block under
+    ``auto_review_pipeline.executable_contract`` in the frozen workflow
+    template. Returns a set of ``(from_dispatch_mode, from_runner_state,
+    to_dispatch_mode, to_runner_state, event)`` five-tuples, mapping YAML
+    ``null`` to Python ``None`` and expanding an ``event.one_of`` list into one
+    tuple per listed event. Deliberately narrow — it assumes the exact
+    indentation / inline flow-mapping shape of the frozen file and fails closed
+    (raises AssertionError) on any structural deviation, so workflow drift
+    surfaces here rather than passing silently. No third-party YAML dependency.
+    """
+    lines = Path(workflow_path).read_text(encoding="utf-8").splitlines()
+
+    header_idx = None
+    for i, line in enumerate(lines):
+        if line == "    state_transitions:":  # 4-space indent under executable_contract
+            header_idx = i
+            break
+    if header_idx is None:
+        raise AssertionError("state_transitions: header not found in %s" % workflow_path)
+
+    body = []
+    for line in lines[header_idx + 1:]:
+        if line.strip() == "" or line.lstrip().startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent <= 4:  # next sibling/parent key ends the block
+            break
+        body.append(line)
+
+    entries = []
+    for line in body:
+        if line.startswith("      - id:"):  # 6-space indent marks a new transition
+            entries.append([])
+        if entries:
+            entries[-1].append(line)
+    if not entries:
+        raise AssertionError("no transition entries parsed under state_transitions")
+
+    def _dispatch_and_state(label, line):
+        dm = _DISPATCH_MODE.search(line)
+        rs = _RUNNER_STATE.search(line)
+        if not dm or not rs:
+            raise AssertionError(
+                "%s dispatch_mode/runner_state unparseable: %r" % (label, line))
+        runner_state = None if rs.group(1) is None else rs.group(1)  # null -> None
+        return dm.group(1), runner_state
+
+    def _events(entry):
+        for idx, line in enumerate(entry):
+            stripped = line.lstrip()
+            if not stripped.startswith("event:"):
+                continue
+            rest = stripped[len("event:"):].strip()
+            if rest:  # scalar inline event: "name"
+                if not (rest.startswith('"') and rest.endswith('"')):
+                    raise AssertionError("event scalar form unexpected: %r" % line)
+                return [rest[1:-1]]
+            for nxt in entry[idx + 1:]:  # block event:\n  one_of: [...]
+                nxt_stripped = nxt.lstrip()
+                if nxt_stripped.startswith("one_of:"):
+                    match = _FLOW_SEQ.search(nxt_stripped)
+                    if not match:
+                        raise AssertionError("one_of flow sequence unparseable: %r" % nxt)
+                    items = re.findall(r'"([^"]*)"', match.group(1))
+                    if not items:
+                        raise AssertionError("one_of list empty: %r" % nxt)
+                    return items
+                if nxt_stripped:  # any other content breaks the event block
+                    break
+            raise AssertionError("event: block missing one_of: in entry %r" % (entry,))
+        raise AssertionError("no event: field in entry %r" % (entry,))
+
+    tuples = set()
+    for entry in entries:
+        from_line = next((l for l in entry if l.lstrip().startswith("from:")), None)
+        to_line = next((l for l in entry if l.lstrip().startswith("to:")), None)
+        if from_line is None or to_line is None:
+            raise AssertionError("entry missing from:/to: %r" % (entry,))
+        from_dm, from_rs = _dispatch_and_state("from", from_line)
+        to_dm, to_rs = _dispatch_and_state("to", to_line)
+        for event in _events(entry):
+            tuples.add((from_dm, from_rs, to_dm, to_rs, event))
+    return tuples
+
+
+class TransitionTruthSourceTests(unittest.TestCase):
+    """Review-1 REWORK (finding P2): the runner reuses
+    ``validate-stage.AUTO_TRANSITIONS`` via importlib as the single transition
+    truth source (scripts/auto-review-runner.py). This pins that reused set to
+    the workflow YAML ``state_transitions`` block so the two cannot silently
+    drift — the persistence test the dispatch packet §3.1 required but the
+    initial T3 delivery omitted.
+    """
+
+    def test_runner_transitions_match_workflow_state_transitions(self):
+        parsed = _parse_workflow_state_transitions(WORKFLOW_TEMPLATE)
+        self.assertTrue(parsed, "parsed transition set must be non-empty")
+        self.assertEqual(
+            parsed,
+            set(RUNNER.AUTO_TRANSITIONS),
+            "runner.AUTO_TRANSITIONS drifted from workflow state_transitions",
+        )
 
 
 if __name__ == "__main__":

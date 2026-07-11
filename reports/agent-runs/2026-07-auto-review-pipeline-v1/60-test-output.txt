@@ -745,3 +745,59 @@ Review-1 dispatch preparation:
 - fix packet: task-T3-fix-round1-claude-glm.prompt.md (reviewer fix_start_prompt embedded VERBATIM + mechanical receipt header)
 - post-fix path: boundary check -> full suite rerun -> T3 RE-SEAL (new H_T3'/fingerprint; nine-step, code changed) -> Kimi re-review round 2
 - status: fixing; NOT DISPATCHED (human gate)
+
+================================================================
+## T3 fix-round1 Required Checks (claude_glm, REWORK finding P2)
+## Stage: 2026-07-auto-review-pipeline-v1
+## verdict_source: review-1-T3-round1.verdict.json (REWORK, kimi)
+## rework_charge: 1 of 3 (first formal charge this stage)
+## writable: scripts/tests/test_auto_review_runner.py only
+================================================================
+
+### [1/5] python3 -m unittest scripts.tests.test_auto_review_runner.TransitionTruthSourceTests
+----------------------------------------------------------------
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+EXIT_STATUS=0
+
+### [2/5] python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+----------------------------------------------------------------
+..............................................................................................................
+----------------------------------------------------------------------
+Ran 110 tests in 8.016s
+
+OK
+EXIT_STATUS=0
+
+### [3/5] python3 -m py_compile scripts/validate-stage.py scripts/harness_stage_lib.py scripts/stage-seal.py scripts/auto-review-runner.py
+----------------------------------------------------------------
+EXIT_STATUS=0
+
+### [4/5] scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint
+----------------------------------------------------------------
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+phase=checkpoint
+status=fixing
+diff_fingerprint=d42e031d8b60aa6ed9169308cedc3faad3a8c9ea:2deb5e9e54ffc6c40a02b55f30d5403c3526fddcf1708cd544b544fa44d5c9e8
+EXIT_STATUS=0
+
+### [5/5] git diff --check
+----------------------------------------------------------------
+EXIT_STATUS=0
+
+================================================================
+## fail-closed sanity (parser non-trivial + malformed-input raises)
+================================================================
+parsed tuple count: 13
+matches RUNNER.AUTO_TRANSITIONS: True
+fail-closed OK (no header): state_transitions: header not found in /
+
+================================================================
+## git status --short (after fix)
+================================================================
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
+ M scripts/tests/test_auto_review_runner.py
