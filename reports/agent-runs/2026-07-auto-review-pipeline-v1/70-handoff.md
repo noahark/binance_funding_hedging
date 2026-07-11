@@ -3,7 +3,13 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `implementing` (T1+T2 review-1 **ACCEPT**; T3 packet ready)
+- Status: `review_1` (T3 sealed; awaiting human-executed Kimi review-1 —
+  the last task gate before the operator's review-2 routing decision)
+- T3 seal: H_T3 `d42e031` (runner + 31 integration tests + manifest),
+  fingerprint
+  `d42e031d8b60aa6ed9169308cedc3faad3a8c9ea:2deb5e9e54ffc6c40a02b55f30d5403c3526fddcf1708cd544b544fa44d5c9e8`,
+  bind `7fb0933`, `--phase pre-review` PASSED; `rework_count` = 0 after all
+  three tasks
 - T1: sealed `25383e8`, Kimi review-1 **ACCEPT** (`30-review-1-T1.md`)
 - T2: delivered by GLM, reverified by bookkeeper (78 tests, dual fingerprint
   anchors, 17 independent counterexamples, validator diff read hunk-by-hunk),
@@ -100,8 +106,9 @@ README 条目。
   `review-1-T2-round1.verdict.json` (0 findings; 1 P3 residual risk carried
   into T3 tests)
 - T3 dispatch packet: `task-T3-runner-and-integration-claude-glm.prompt.md`
-  — ready, not executed (T3 base `fff4e14`)
-- Review-1 (T3): not started
+  — executed (T3 base `fff4e14`, delivery `d42e031`)
+- T3 review-1 packet: `task-T3-review1-kimi.prompt.md` — ready, not executed
+- Review-1 (T3): sealed, awaiting Kimi
 - Fix report: not started (formal `rework_count` = 0)
 - Review-2: not started (routing pending operator decision)
 - Intake checks: `60-test-output.txt`
@@ -323,19 +330,34 @@ README 条目。
 - `rework_count` = 0 after two of three tasks: T1 and T2 both passed review-1
   with zero formal rework.
 
+## T3 Delivery And Seal
+
+- GLM delivered T3 within the frozen boundary (5 paths; T1/T2 deliverables
+  untouched; manifest exactly +5 lines). Bookkeeper reverified independently:
+  109 tests, full frozen four-command suite (py_compile now includes the
+  runner), stdlib-only scan, lib-reuse audit (no reimplementation), explicit
+  `git add` (no `-A`), exotic-pathspec fail-closed tests present.
+- Transition truth: runner reuses the validator's `AUTO_TRANSITIONS` via
+  importlib (no second matrix literal). The dispatch packet also asked for a
+  persistent set-equality test assertion, which the delivery replaced with
+  behavior-level transition tests plus disclosure; the bookkeeper landed a
+  three-way set-level machine comparison (workflow 13 expanded tuples ==
+  validator == runner, CONFIRMED) in `60-test-output.txt`. This known gap is
+  presented with full context in the review-1 packet for Kimi's independent
+  judgment.
+- Sealed: H_T3 `d42e031`; bind `7fb0933`; `--phase pre-review` PASSED.
+
 ## 下一步
 
-Human operator executes
-`task-T3-runner-and-integration-claude-glm.prompt.md`
-(`claude-glm --model glm-5.2 -p "$(cat <packet>)"`). GLM implements the
-deterministic runner + integration tests + final manifest sync (T1/T2
-deliverables are frozen read-only; transition truth lives in the workflow
-executable_contract). Fable5 bookkeeper then inspects boundaries, reruns the
-full frozen four-command suite (py_compile now includes the runner), seals
-T3, and prepares the T3 Kimi review-1 packet. After T3 ACCEPT the stage
-reaches the review-2 routing gate (operator decision: Gemini enablement vs
-strong-reviewer disclosure override).
+Human operator executes `task-T3-review1-kimi.prompt.md`
+(`kimi --model kimi-code/kimi-for-coding -p "$(cat <packet>)"`, fresh
+read-only session). Operator returns raw stdout to the Fable5 bookkeeper,
+who lands `30-review-1-T3.md` plus the verbatim verdict JSON. After T3
+ACCEPT, all three review units are complete and the stage reaches the
+operator's review-2 routing gate (Gemini third-decision-model enablement vs
+strong-reviewer disclosure override; Anthropic is triple-involved plus
+bookkeeper, OpenAI double-involved — disclosures recorded in status.json).
 
-本地北京时间: 2026-07-11 18:26:00 CST
-下一步模型: human operator → Claude-GLM（T3 implementer）
-下一步任务: 人工执行 T3 dispatch packet；实现者不得 commit、不得写 status/handoff、不得触碰 T1/T2 已交付文件。
+本地北京时间: 2026-07-11 19:25:00 CST
+下一步模型: human operator → Kimi（T3 review-1, first_reviewer, fresh session）
+下一步任务: 人工执行 T3 review-1 packet；raw 输出交回 Fable5 bookkeeper 落盘 verdict；之后进入 review-2 路由决议。
