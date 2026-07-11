@@ -49,7 +49,7 @@
   },
   "model_routing": {
     "implementation": {
-      "status": "provisional_pending_development_breakdown",
+      "status": "frozen_for_human_dispatch",
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
@@ -58,7 +58,7 @@
       "scope": "harness_only"
     },
     "review_1": {
-      "status": "provisional_pending_development_breakdown",
+      "status": "frozen_per_task_after_committed_checkpoint",
       "provider": "kimi",
       "provider_identity": "moonshot_kimi",
       "model": "kimi-code/kimi-for-coding",
@@ -104,14 +104,214 @@
     "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-design-review/40-operator-decision-table.md",
     "role": "operator_decision_recorder_and_synthesizer"
   },
-  "breakdown_author": null,
+  "breakdown_author": {
+    "id": "claude_fable5",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "claude-fable-5",
+    "status": "completed",
+    "role": "development_breakdown_author",
+    "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-development-breakdown.md",
+    "prior_involvement": "direction_patches_stage_design_review_and_breakdown",
+    "prior_artifacts": [
+      "reports/agent-runs/2026-07-auto-review-pipeline-design-review/31-divergence-response-fable5.md",
+      "reports/agent-runs/2026-07-auto-review-pipeline-v1/13-stage-design-review-fable5.md"
+    ],
+    "review_2_disclosure_required_if_selected": true
+  },
   "implementer": null,
   "implementers": [],
   "fix_authors": [],
   "reviewer_1": null,
   "reviewer_2": null,
   "r10_checklists": {},
-  "tasks": [],
+  "tasks": [
+    {
+      "id": "T1",
+      "slug": "contract-and-schemas",
+      "title": "Auto-review contract and schemas",
+      "sequence": 1,
+      "status": "breakdown_frozen_packet_pending",
+      "depends_on": [],
+      "start_gate": "bookkeeper_checkpoint_then_human_dispatch",
+      "owner": {
+        "id": "claude_glm",
+        "provider": "claude_glm",
+        "provider_identity": "zhipu_glm",
+        "model": "glm-5.2[1m]"
+      },
+      "reviewer": {
+        "id": "kimi",
+        "provider": "kimi",
+        "provider_identity": "moonshot_kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "requires_fresh_read_only_session": true
+      },
+      "scope": "Policy, workflow, registry, documentation, templates, and the two additive auto-review JSON Schemas; no executable code.",
+      "writable_files": [
+        "AGENTS.md",
+        "workflows/templates/stage-delivery.yaml",
+        "agents/registry.yaml",
+        "agents/developer-discipline.md",
+        "docs/auto-review-pipeline.md",
+        "docs/model-adapters.md",
+        "docs/parallel-development-mode.md",
+        "reports/agent-runs/README.md",
+        "reports/agent-runs/_template/status.json",
+        "reports/agent-runs/_template/70-handoff.md",
+        "schemas/auto-review-authorization.schema.json",
+        "schemas/runner-receipt.schema.json"
+      ],
+      "shared_append_only_evidence": [
+        "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
+        "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt"
+      ],
+      "forbidden_files": [
+        "scripts/**",
+        "harness-manifest.yaml",
+        "schemas/review-verdict.schema.json",
+        "agents/skills/**",
+        "backend/**",
+        "frontend/**",
+        "schemas/api/**",
+        "docs/product/**",
+        "all paths not explicitly listed as writable or shared append-only evidence"
+      ],
+      "prompt_path": null,
+      "fix_prompt_path": null,
+      "r10_checklist": null,
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
+      "review_1": {
+        "reviewer": null,
+        "provider": null,
+        "model": null,
+        "verdict": null,
+        "json_schema_valid": null,
+        "diff_fingerprint": null
+      }
+    },
+    {
+      "id": "T2",
+      "slug": "seal-and-validator",
+      "title": "Deterministic seal and validator",
+      "sequence": 2,
+      "status": "blocked_on_T1_review_1_accept",
+      "depends_on": [
+        "T1"
+      ],
+      "start_gate": "T1_review_1_ACCEPT",
+      "owner": {
+        "id": "claude_glm",
+        "provider": "claude_glm",
+        "provider_identity": "zhipu_glm",
+        "model": "glm-5.2[1m]"
+      },
+      "reviewer": {
+        "id": "kimi",
+        "provider": "kimi",
+        "provider_identity": "moonshot_kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "requires_fresh_read_only_session": true
+      },
+      "scope": "Shared deterministic Harness library, two-commit seal tool, validator auto-mode support, and isolated tests; no runner.",
+      "writable_files": [
+        "scripts/harness_stage_lib.py",
+        "scripts/stage-seal.py",
+        "scripts/validate-stage.py",
+        "scripts/tests/test_harness_stage_lib.py",
+        "scripts/tests/test_stage_seal.py",
+        "scripts/tests/test_validate_stage_auto_review.py"
+      ],
+      "shared_append_only_evidence": [
+        "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
+        "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt"
+      ],
+      "forbidden_files": [
+        "scripts/auto-review-runner.py",
+        "scripts/tests/test_auto_review_runner.py",
+        "harness-manifest.yaml",
+        "backend/**",
+        "frontend/**",
+        "schemas/api/**",
+        "docs/product/**",
+        "all paths not explicitly listed as writable or shared append-only evidence"
+      ],
+      "prompt_path": null,
+      "fix_prompt_path": null,
+      "r10_checklist": null,
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
+      "review_1": {
+        "reviewer": null,
+        "provider": null,
+        "model": null,
+        "verdict": null,
+        "json_schema_valid": null,
+        "diff_fingerprint": null
+      }
+    },
+    {
+      "id": "T3",
+      "slug": "runner-and-integration",
+      "title": "Auto-review runner and integration",
+      "sequence": 3,
+      "status": "blocked_on_T2_review_1_accept",
+      "depends_on": [
+        "T2"
+      ],
+      "start_gate": "T2_review_1_ACCEPT",
+      "owner": {
+        "id": "claude_glm",
+        "provider": "claude_glm",
+        "provider_identity": "zhipu_glm",
+        "model": "glm-5.2[1m]"
+      },
+      "reviewer": {
+        "id": "kimi",
+        "provider": "kimi",
+        "provider_identity": "moonshot_kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "requires_fresh_read_only_session": true
+      },
+      "scope": "Deterministic auto-review runner, integration tests, and Harness manifest synchronization.",
+      "writable_files": [
+        "scripts/auto-review-runner.py",
+        "scripts/tests/test_auto_review_runner.py",
+        "harness-manifest.yaml"
+      ],
+      "shared_append_only_evidence": [
+        "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
+        "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt"
+      ],
+      "forbidden_files": [
+        "backend/**",
+        "frontend/**",
+        "schemas/api/**",
+        "docs/product/**",
+        "all paths not explicitly listed as writable or shared append-only evidence"
+      ],
+      "prompt_path": null,
+      "fix_prompt_path": null,
+      "r10_checklist": null,
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
+      "review_1": {
+        "reviewer": null,
+        "provider": null,
+        "model": null,
+        "verdict": null,
+        "json_schema_valid": null,
+        "diff_fingerprint": null
+      }
+    }
+  ],
   "complexity": {
     "classification": "HIGH",
     "direction_panel_required": false,
@@ -151,6 +351,7 @@
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/02-intake-review-grok.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/10-design.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/11-adr.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-development-breakdown.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/13-stage-design-review-fable5.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/14-stage-design-review-fix.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
@@ -225,7 +426,6 @@
     "Required nullable authorization expires_at semantics"
   ],
   "open_design_items": [
-    "Development breakdown must freeze exact serial work-package file ownership and test commands",
     "Operator must resolve independent review-2 routing before final-review dispatch",
     "Each future pilot authorization must select positive call-count and wall-clock values"
   ],
@@ -235,6 +435,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "development-breakdown",
-  "updated_at": "2026-07-11T04:28:01Z"
+  "next_action": "bookkeeper_prepare_T1_human_dispatch_packet",
+  "updated_at": "2026-07-11T12:57:52+08:00"
 }

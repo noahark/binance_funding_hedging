@@ -10,8 +10,9 @@
 - Intake-review fixes commit: `345ba61d6228248089406052b4e280e23ebad413`
 - Stage-design commit: `c38c5a8e682d79b4cd1e663f3c164278365f777a`
 - Fable5 design-review fix commit: `db8d58c93eea8d568c73a9d3df9f0d4c76e9fe9c`
-- HEAD before this bookkeeping checkpoint commit: `db8d58c93eea8d568c73a9d3df9f0d4c76e9fe9c`
-- Git status after design-review fix commit: clean
+- HEAD before development-breakdown checkpoint: `8eca2e9`
+- Git status before development-breakdown checkpoint: only
+  `12-development-breakdown.md` was untracked
 - Bookkeeper: current Codex/GPT session (`openai`), not an implementer
 - Complexity: `HIGH`
 - Current workflow: DRAFT-2 human dispatch; target auto pipeline disabled for
@@ -45,7 +46,7 @@ README 条目。
 - Direction synthesis: frozen `40-operator-decision-table.md`
 - Design: `10-design.md`
 - ADR: `11-adr.md`
-- Development breakdown: not started (required for HIGH)
+- Development breakdown: `12-development-breakdown.md` — frozen for dispatch preparation
 - Implementation: not started / not authorized
 - Review-1: not started
 - Fix report: not started
@@ -98,27 +99,40 @@ README 条目。
 
 ## Open Findings / Breakdown Items
 
-1. Development breakdown must assign mutually safe file packages, dependencies,
-   exact commands, and review focus.
-2. Before final review, operator must resolve review-2 routing. OpenAI/Codex and
+1. Before final review, operator must resolve review-2 routing. OpenAI/Codex and
    Anthropic/Claude both have prior direction/design involvement; neither may be
    recorded as `none`.
-3. Future pilot stages choose positive call-count/wall-clock values in their
+2. Future pilot stages choose positive call-count/wall-clock values in their
    human authorization; no global numeric defaults are part of this stage.
+
+## Development Breakdown Checkpoint
+
+- Author: Claude Fable 5 (`anthropic/claude-fable-5`)
+- Artifact: `12-development-breakdown.md`
+- Prior involvement disclosed: direction patches, stage-design review, and
+  development breakdown; Anthropic review-2 would require the documented
+  strong-reviewer disclosure path.
+- Topology: strict serial `T1 → T2 → T3`
+- T1 `contract-and-schemas`: Claude-GLM owner; fresh Kimi review-1
+- T2 `seal-and-validator`: blocked until T1 review-1 ACCEPT
+- T3 `runner-and-integration`: blocked until T2 review-1 ACCEPT
+- Shared implementer writes: append-only `20-implementation.md` and
+  `60-test-output.txt`; `status.json`, `70-handoff.md`, review files, commits,
+  and fingerprints remain bookkeeper-only.
+- Review-2 routing remains unresolved; the breakdown does not select it.
 
 ## Blockers
 
 - None for stage design.
-- Implementation/model dispatch is not yet authorized.
+- No implementation or model dispatch has occurred. T1 remains packet-pending.
 
 ## 下一步
 
-Claude Fable 5, or Opus4.8 after documented Fable quota exhaustion, produces
-`12-development-breakdown.md`. It must preserve the frozen file boundary and
-serial bootstrap routing. Only after breakdown and human-executed dispatch
-packets are complete may implementation be considered; this handoff does not
-authorize it.
+Codex/GPT bookkeeper prepares the immutable T1 Claude-GLM dispatch packet,
+checkpoints it on the stage branch, and then binds the packet commit as T1
+`base_sha` in a status-only commit. The human operator may then execute the
+packet. Bookkeeper preparation must not invoke Claude-GLM.
 
-本地北京时间: 2026-07-11 12:28:01 CST
-下一步模型: Claude Fable 5（development breakdown author）
-下一步任务: 只起草 `12-development-breakdown.md`，冻结 owner/file/test/review 边界；不得实现或执行模型 dispatch。
+本地北京时间: 2026-07-11 12:57:52 CST
+下一步模型: Codex/GPT（bookkeeper）
+下一步任务: 准备并 checkpoint T1 人工 dispatch packet；不得执行 Claude-GLM 或写 Harness 实现。
