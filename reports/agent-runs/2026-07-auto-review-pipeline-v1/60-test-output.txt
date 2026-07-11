@@ -649,3 +649,47 @@ Review-1 dispatch preparation:
 - verdict=ACCEPT, findings=[], required_fixes=[], residual_risks=1 (P3 _pathspec_matches; carried into T3 test requirements)
 - rework_count: 0 (T1+T2 both passed review-1 with zero formal rework)
 - T2 -> review_1_accept; stage -> implementing; T3 unblocked
+
+================================================================
+## T3 Required Checks — claude_glm (fresh bounded session)
+## Stage: 2026-07-auto-review-pipeline-v1
+## T3 base_sha: fff4e1406fb3b340532e10b0ee88661c722b82f4
+================================================================
+
+### [1/5] python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+----------------------------------------------------------------
+.............................................................................................................
+----------------------------------------------------------------------
+Ran 109 tests in 9.823s
+
+OK
+EXIT_STATUS=0
+
+### [2/5] python3 -m py_compile scripts/validate-stage.py scripts/harness_stage_lib.py scripts/stage-seal.py scripts/auto-review-runner.py
+----------------------------------------------------------------
+EXIT_STATUS=0
+
+### [3/5] scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint
+----------------------------------------------------------------
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+phase=checkpoint
+status=implementing
+diff_fingerprint=a7fd7373545e581a2b25f4643917dc213e998f66:2509ae831482876ed47dfedfbb41941c672a0035c60487cd0c12876362072b97
+EXIT_STATUS=0
+
+### [4/5] git diff --check
+----------------------------------------------------------------
+EXIT_STATUS=0
+
+### [5/5] grep -rn "formal-1" scripts harness-manifest.yaml   (expect no matches / exit 1)
+----------------------------------------------------------------
+EXIT_STATUS=1  (1 = no matches = expected)
+
+================================================================
+## git status --short (after T3 deliverables)
+================================================================
+ M harness-manifest.yaml
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
+?? scripts/auto-review-runner.py
+?? scripts/tests/test_auto_review_runner.py

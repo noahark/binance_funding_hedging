@@ -750,3 +750,153 @@ evidence（仅 append）：
 下一步模型: Claude Fable 5（bookkeeper）
 下一步任务: 边界检查 → 独立复跑 T2 套件 → T2 delivery commit + 指纹 → pre-review → 准备 T2 Kimi review-1 packet
 ```
+
+---
+
+# T3 Implementation — `runner-and-integration`（claude_glm, fresh bounded session）
+
+- **Branch**: `stage/2026-07-auto-review-pipeline-v1`
+- **T3 base_sha**（读自 `status.json tasks[id=T3].base_sha`，非移动 HEAD）:
+  `fff4e1406fb3b340532e10b0ee88661c722b82f4`
+- **dispatch 前置核对**: branch ✅、`tasks[id=T3].status=ready_for_human_dispatch` ✅、
+  `auto_review_pipeline.enabled_for_this_stage=false` ✅、
+  `parallel_mode.enabled=false` ✅。
+
+## 1. 文件清单（确认 allowlist 内）
+
+| 文件 | 动作 | 行数 |
+| --- | --- | --- |
+| `scripts/auto-review-runner.py` | new (stdlib-only) | 1616 |
+| `scripts/tests/test_auto_review_runner.py` | new (stdlib-only) | 1018 |
+| `harness-manifest.yaml` | amend（精确 +5 行） | — |
+| `reports/.../60-test-output.txt` | append（共享 evidence） | — |
+| `reports/.../20-implementation.md` | append（本文档） | — |
+
+`git status --short`：
+```text
+ M harness-manifest.yaml
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md
+?? scripts/auto-review-runner.py
+?? scripts/tests/test_auto_review_runner.py
+```
+其余全部只读未触：`harness_stage_lib.py` / `stage-seal.py` / `validate-stage.py` /
+T2 三测试 / T1 全部契约 / `status.json` / `70-handoff.md` / review / packet /
+产品与 funding 路径均未改动。
+
+## 2. §3.1 十点逐项状态 + 转移真源实现选择
+
+| # | 契约点 | 状态 | 实现要点 |
+| --- | --- | --- | --- |
+| 1 | 数据加载注入点 + 单一转移真源 | ✅ | registry/workflow/status/auth/task 经构造参数注入（registry 可注入、invoker/now/blocking_runner/seal_module/seal_run_validator 可注入）；**转移真源选择：经 `importlib` 复用 `validate-stage.AUTO_TRANSITIONS`（13 个五元组），runner 内不重声明第二份矩阵**（见下「转移真源选择」）。workflow `executable_contract` 的转移语义与该集合一致由 `test_resume_from_awaiting_human_records_superseding` 等转移测试覆盖。 |
+| 2 | preflight（auth 存在/手写校验/未过期/stage/branch/scope/budget/worktree/mutex） | ✅ | 复用 `lib.validate_authorization_doc`；stage/branch/scope/budget 精确匹配；exclusive worktree（branch 精确、dirty 路径全在活动 task allowlist 内）、mode mutex。任一失败：**不发起任何 adapter 调用**，置 `awaiting_human`+顶层 `paused`，且**不写 transition row**（无 `authorized→awaiting_human` 矩阵行）。8 拒绝面见下测试映射。 |
+| 3 | 预算记账 | ✅ | model call 在 adapter 进程启动前记账（成功/超时/失败/invalid JSON/空输出均耗 1）；wall-clock 自 `authorized→running` 起算，**进程重启不重置 deadline**；invalid JSON 每模型最多 2 次尝试（耗 call 不耗 rework）；auto code-changing 合计 ≤2、`rework_count` 单账本。 |
+| 4 | 节点循环（impl→blocking→cross-check→blocking rerun→seal→review_1） | ✅ | implementation 恰一次；blocking 失败恰一次 auto fix（记账 rework）再复测仍败则 escalation；cross-check 三情形（run/skip/unavailable）均产 artifact；identical post-cross-check blocking rerun 失败封 seal；**seal 委托 `stage-seal.py`**，runner 不重写；seal 后 rebind reload 的 unit；review_1 ACCEPT→commit verdict record。 |
+| 5 | review-1 路由 | ✅ | Grok primary（`optional_review_command` 引用）；serial-only fallback `[kimi, claude_glm]`（embedded read-only 引用），**仅当候选 provider 不在单元 author+fix 集合才 eligible**；parallel tip 无 cross-pool fallback；Grok 失败/重复 invalid verdict → `human_escalation_required`+`80-*.md`；**绝不自动调 GPT/Claude**。 |
+| 6 | verdict 解析（raw 落盘→枚举顶层 JSON→恰一个 schema-valid+最后非空白+stage/role/fingerprint 匹配→接受字节原样存） | ✅ | `extract_top_level_json_objects` 花括号匹配（字符串/转义感知）；`select_verdict` final-and-only 边界；手写 `validate_review_verdict_doc` 镜像 review-verdict schema；REWORK 要求 `fix_start_prompt`；verdict-record commit **不改被审 base/head/fingerprint**。 |
+| 7 | receipt（只记 registry 命令引用，决不展开命令/环境/秘密） | ✅ | `runner-<seq>-<node>.receipt.json`，复用 `lib.validate_receipt_doc` 原子写；`_sync_receipt_sequence` 在 seal 后扫所有 `runner-*.receipt.json` 推进序号（seal receipt 不 bump `last_receipt_sequence`）；`next_transition` 仅出自冻结 workflow 集合。 |
+| 8 | fix 路由（保留 `fix_start_prompt`+immutable owner header，按 `findings[].file`×冻结 task ownership，缺失/歧义/跨界→unroutable escalation；多 owner 串行） | ✅ | `_node_fix` 在任何 code-changing fix 后清 `snapshot_commit`/`head_sha`/`diff_fingerprint`，使 re-seal 跑完整九步；v1 多 owner fix 串行写。 |
+| 9 | escalation（`80-escalation-<reason>-<UTC>.md`，`last_escalation_path`，cap/timeout/unroutable/tip-once 置顶层 `human_escalation_required`） | ✅ | `TerminalEscalation(event)` 携带 reason/UTC；status 记 `last_escalation_path`+substate `awaiting_human`+顶层 `human_escalation_required`。 |
+| 10 | 停止（required 单元全 ACCEPT→`completed_review_1`，决不进 review-2；模型文本永不选命令/路径/转移；禁 `git add -A`；路径全走 `resolve_safe_path`） | ✅ | 仅 ACCEPT 终态；显式冻结清单 staging；evidence 全经 `_ev()`→`resolve_safe_path`。 |
+
+### 转移真源实现选择（§3.1 第 1 点，二选一）
+
+**选择 A：经 `importlib` 复用 `validate-stage.AUTO_TRANSITIONS`。**
+理由：stdlib 无 yaml；`validate-stage.py` 已在 T2 内置经 review-verified的 `AUTO_TRANSITIONS`（13 个五元组）。
+runner 通过 `_load_validator_module()`（`importlib.util.spec_from_file_location`）加载该模块并赋值
+`AUTO_TRANSITIONS = _VALIDATOR.AUTO_TRANSITIONS`，runner 内**不重声明第二份矩阵**
+（grep 确认仅 import/复用，无 hardcoded set 字面量）。`_is_allowed_transition` 直接 `in AUTO_TRANSITIONS` 判定。
+这满足「单一转移真源」并避免第二份矩阵漂移；workflow `executable_contract` 与该集合的一致性由
+转移测试（resume / awaiting_human 等）以行为方式断言。
+
+## 3. manifest diff 逐行（精确 +5 行）
+
+`git diff harness-manifest.yaml`：
+```text
+@@ -18,12 +18,17 @@ harness_owned:
+   - scripts/install-harness.sh
+   - scripts/update-project-harness.sh
+   - scripts/validate-stage.py
++  - scripts/harness_stage_lib.py
++  - scripts/stage-seal.py
++  - scripts/auto-review-runner.py
++  - scripts/tests/
+   - reports/agent-runs/README.md
+   - reports/agent-runs/_template/
+   - docs/README.md
+   - docs/harness-design.md
+   - docs/model-adapters.md
+   - docs/parallel-development-mode.md
++  - docs/auto-review-pipeline.md
+   - docs/architecture/ADR/0000-template.md
+```
+`git diff --stat harness-manifest.yaml` = 5 insertions, 0 deletions。`schemas/`、`workflows/`
+目录条目已覆盖新 schema/workflow 内容，未动其他行。
+
+## 4. 测试场景清单 → 测试函数映射（31 个测试函数，14 类）
+
+| 场景（§3.3 / §5） | 类 | 测试函数 |
+| --- | --- | --- |
+| default-off manual status 不触发 | EnablementTests | `test_default_off_manual_status_is_noop` |
+| preflight 缺 auth | PreflightRejectionTests | `test_missing_authorization_path` |
+| preflight 无效 auth doc | PreflightRejectionTests | `test_invalid_authorization_doc` |
+| preflight 过期 auth | PreflightRejectionTests | `test_expired_authorization` |
+| preflight 错 stage | PreflightRejectionTests | `test_wrong_stage_id` |
+| preflight 错 branch | PreflightRejectionTests | `test_wrong_branch` |
+| preflight dirty worktree 越 allowlist | PreflightRejectionTests | `test_dirty_worktree_outside_allowlist` |
+| preflight mode mutex | PreflightRejectionTests | `test_mode_mutex_with_parallel_mode` |
+| preflight 失败置 paused 且无 transition row | PreflightRejectionTests | `test_preflight_failure_sets_paused_and_no_transition_row` |
+| happy path 全链→completed_review_1（真实 seal） | HappyPathRealSealTests | `test_full_chain_accept_completed_review_1` |
+| 第二次 blocking 失败封 seal→escalation | SecondBlockingTests | `test_second_blocking_failure_escalates` |
+| evidence 目录写入不改第二次 blocking | SecondBlockingTests | `test_evidence_dir_write_does_not_change_second_pass` |
+| bind mismatch fail-closed（真实 seal） | BindMismatchTests | `test_bind_mismatch_fail_closed_real_seal` |
+| invalid→valid Grok ACCEPT | InvalidJsonRoutingTests | `test_invalid_then_valid_grok_accepts` |
+| 重复 invalid→serial fallback eligible | InvalidJsonRoutingTests | `test_repeated_invalid_routes_to_serial_fallback` |
+| blocking fix + rework 合计 ≤2 封顶 | AutoBudgetCapTests | `test_blocking_fix_plus_rework_cap_at_two` |
+| parallel tip Grok 失败 escalation 无 cross-pool | ParallelTipNoFallbackTests | `test_parallel_tip_grok_failure_escalates_no_crosspool` |
+| ineligible fallback（双 provider authored） | ParallelTipNoFallbackTests | `test_ineligible_fallback_both_providers_authored` |
+| 多 owner fix 串行化 | MultiOwnerFixTests | `test_multi_owner_fix_dispatched_serially` |
+| verdict-record commit 不改 fingerprint | VerdictRecordFingerprintTests | `test_verdict_record_commit_preserves_fingerprint` |
+| receipt 无 expanded command/env/token | ReceiptHygieneTests | `test_receipts_contain_only_command_refs_no_secrets` |
+| receipt call_budget after==before-1 | ReceiptHygieneTests | `test_receipt_call_budget_after_equals_before_minus_one` |
+| call 启动即记（超时也记） | AccountingTimingTests | `test_call_charged_before_adapter_start_even_on_timeout` |
+| wall-clock 重启不重置 deadline | AccountingTimingTests | `test_wall_clock_restart_does_not_reset_deadline` |
+| wall-clock 超时 escalation | AccountingTimingTests | `test_wall_clock_expiry_escalates_timeout` |
+| P3 negation pathspec 不静默匹配 | PathspecExoticFormTests | `test_negation_pathspec_does_not_silently_match` |
+| P3 嵌套 glob 字面处理 | PathspecExoticFormTests | `test_nested_glob_treated_literally` |
+| P3 大小写敏感字面 | PathspecExoticFormTests | `test_case_sensitive_literal` |
+| P3 目录 glob 匹配 | PathspecExoticFormTests | `test_directory_glob_matches` |
+| P3 parallel topology dirty 越界 fail-closed | PathspecExoticFormTests | `test_parallel_topology_dirty_path_outside_allowlist_fail_closed` |
+| resume from awaiting_human 记 superseding | ResumeTransitionTests | `test_resume_from_awaiting_human_records_superseding` |
+
+## 5. Required Checks 原始结果（冻结四命令 + formal-1 grep）
+
+见 `60-test-output.txt`（本次 append 的 `T3 Required Checks` 段）。摘要：
+
+| # | 命令 | exit | 结果 |
+| --- | --- | --- | --- |
+| 1 | `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` | 0 | Ran **109 tests** in 9.805s — OK（78 既有 + 31 新增） |
+| 2 | `python3 -m py_compile …{validate-stage,harness_stage_lib,stage-seal,auto-review-runner}.py` | 0 | 全部编译通过 |
+| 3 | `scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint` | 0 | `STAGE VALIDATION PASSED`；`status=implementing`；`diff_fingerprint=a7fd7373…:2509ae83…` |
+| 4 | `git diff --check` | 0 | 无 whitespace/conflict 错误 |
+| 5 | `grep -rn "formal-1" scripts harness-manifest.yaml` | 1 | 无匹配（exit 1 = 期望）——无模型内部代号泄漏 |
+
+（committed-range `git diff --check <T3-base>..<T3-head>` 由 bookkeeper 在 delivery commit 后执行；本会话未 commit，故不产生 head。）
+
+## 6. blockers / 风险 / review-1 建议关注点
+
+- **blockers**：无。T1/T2 交付无缺陷需 design-amendment；全部冻结契约满足。
+- **风险 / review-1 关注点**：
+  1. **`AUTO_TRANSITIONS` 复用而非 workflow yaml 直解析**：runner 不自解析 workflow yaml（stdlib无yaml），改为 importlib 复用 validator 内置集合。review-1 宜确认该集合确为 workflow `executable_contract` 的真源且 13 元组完备（T2 review 已 verify）。
+  2. **`_pathspec_matches`（P3 残余风险，自 T2 review 转来）**：runner 与 stage-seal 共用的近似 git pathspec 匹配（literal + `/**` / `/*` / 尾 `/`）。本次以黑盒 pathspec 边界形态测试覆盖（negation / 嵌套 glob / 大小写 / 目录 glob / parallel topology 越界——断言要么正确匹配要么 fail-closed escalation，**不允许静默漏判**）。git 本身仍是 staging 权威，该函数仅守 seal/preflight 边界。
+  3. **macOS `/var`↔`/private/var` 符号链接**：`resolve_safe_path` 解析到 `/private/var`，runner 在 `__init__` 内 `resolve()` root+stage_dir 并经 `_ev()` 路由所有 evidence，规避 `relative_to` 失败；review-1 宜确认无裸路径写入 repo root。
+  4. **seal receipt 序号不 bump `last_receipt_sequence`**：runner 以 `_sync_receipt_sequence()` 扫 `runner-*.receipt.json` 推进序号，避免与 seal receipt 冲突；review-1 宜确认 receipt 序列单调（impl/crosscheck/seal/review_1）。
+  5. **seal 后 unit rebind**：seal/commit reload 后局部 unit 引用失效，`_node_seal` 返回刷新的 unit、`_run_unit` rebind、外层按 ID 迭代；review-1 宜确认 rework→fix→re-seal 全链无 stale 引用。
+  6. **fix 后必须清 seal 字段**：`_node_fix` 清 `snapshot_commit`/`head_sha`/`diff_fingerprint`，使 re-seal 跑完整九步（stage-seal 对已 sealed 单元拒绝 re-seal）。
+- **未 commit、未 push、未改 status/handoff/review/packet；未 dispatch 任何模型。**
+
+```text
+本地北京时间: 2026-07-11 19:08 CST
+下一步模型: Claude Fable 5（bookkeeper）
+下一步任务: 边界检查 → 独立复跑全量套件 → T3 seal → T3 Kimi review-1 packet
+```
