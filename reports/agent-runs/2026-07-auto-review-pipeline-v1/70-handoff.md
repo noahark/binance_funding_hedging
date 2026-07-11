@@ -3,7 +3,10 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `fixing` (T1 pre-seal correction required; no formal review yet)
+- Status: `review_1` (T1 sealed; awaiting human-executed Kimi review-1)
+- T1 seal: delivery commit `25383e8` (H_T1), fingerprint
+  `25383e86d0b10b3e8bd3e0f51254588826c9601b:242cff3040ac66e79ce2dbb5a13dab6bf92043765884ed9f0288cf8decc80486`,
+  bind commit `2d519f0`, `--phase pre-review` PASSED
 - Branch: `stage/2026-07-auto-review-pipeline-v1`
 - Created from main: `45c21ee010fd3f2892a6677f58d5c8b02c2fbb0b`
 - H_intake commit: `9573d2acfd4ef2e83274cb811a0d347c64ed283f`
@@ -245,17 +248,27 @@ README 条目。
   prose blocks coexist with the structured maps; the structured maps are
   authoritative, prose stays per the round2 "note fields may remain" rule.
 
+## T1 Seal (Round3 verified)
+
+- Round3 executed by GLM and independently reverified by the Fable5 bookkeeper:
+  node-graph closure `unresolved=[]`, non-regression assertions all true,
+  frozen suite green (raw evidence in `60-test-output.txt` round3+seal block).
+- H_T1 delivery commit `25383e8` (13 files); base `a385c7a`; fingerprint
+  double-computed (shell + validator-replica Python), byte-identical.
+- Status bind `2d519f0`; `validate-stage --phase pre-review` PASSED on a clean
+  tree. `rework_count` = 0 (all corrections were pre-seal inspection loops).
+
 ## 下一步
 
-Human operator executes `task-T1-correction-round3-claude-glm.prompt.md`
-(two node-graph closure fixes in `workflows/templates/stage-delivery.yaml`),
-then returns evidence to the Fable5 bookkeeper. The correction session must not
-commit or invoke Kimi. After reinspection passes, the bookkeeper seals T1
-(delivery commit → head/fingerprint → validator `pre-review`) and prepares the
-human-executed Kimi review-1 packet; the review packet must state that the
-`a385c7a..head` range includes bookkeeper-only status/handoff/evidence commits
-that are not implementer output.
+Human operator executes `task-T1-review1-kimi.prompt.md`
+(`kimi --model kimi-code/kimi-for-coding -p "$(cat <packet>)"`, fresh
+read-only session). Operator captures raw stdout and returns it to the Fable5
+bookkeeper, who lands `30-review-1-T1.md` plus the verbatim final verdict
+JSON, updates status, and routes ACCEPT → T2 dispatch preparation or REWORK →
+`fix_start_prompt` dispatch (first formal `rework_count` charge). The packet
+already explains the 12-commit range role split so bookkeeper evidence commits
+are not misread as implementer boundary violations.
 
-本地北京时间: 2026-07-11 16:22:49 CST
-下一步模型: human operator → Claude-GLM
-下一步任务: 人工执行 T1 correction round3（两处 node-graph 闭合修正）；返回后 Fable5 bookkeeper 复验并推进 seal 与 Kimi review-1 准备。
+本地北京时间: 2026-07-11 16:58:00 CST
+下一步模型: human operator → Kimi（review-1, first_reviewer）
+下一步任务: 人工执行 T1 review-1 packet；raw 输出交回 Fable5 bookkeeper 落盘 verdict 并推进。

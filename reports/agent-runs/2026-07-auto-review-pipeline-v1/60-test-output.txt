@@ -545,3 +545,28 @@ CLOSURE OK
 EXIT:0
 
 ===== end T1 Correction Round 3 evidence =====
+
+### T1 Round 3 Fable5 reinspection + SEAL + pre-review gate (2026-07-11 16:52 CST, bookkeeper=Fable5)
+
+Round3 independent reverification:
+- R3-C1: node key renamed to identical_post_cross_check_blocking_rerun (old key gone, pass/fail branches intact): CONFIRMED
+- R3-C2: serial_unit_fallback node added (eligible_candidate_found->review_1, no_eligible_candidate->human_escalation_required); redundant review_1.serial_fallback_unavailable removed: CONFIRMED
+- node-graph closure: unresolved = [] (CLOSURE OK)
+- non-regression: state_transitions==8, enum equality, three review-1 route pairs, pilot 8 exact keys, prose note blocks retained, receipt kimi-fallback positive still valid: ALL TRUE
+- frozen suite: validator checkpoint PASS / git diff --check EXIT:0 / formal-1 scan EXIT:1 / YAML PARSE PASSED
+
+SEAL:
+- T1 delivery commit (H_T1): 25383e86d0b10b3e8bd3e0f51254588826c9601b (13 files, +1688/-8)
+- base: a385c7ad77da1611c6e952b2219aee56b49f442f
+- diff_fingerprint: 25383e86d0b10b3e8bd3e0f51254588826c9601b:242cff3040ac66e79ce2dbb5a13dab6bf92043765884ed9f0288cf8decc80486
+  (computed twice: shell pipeline and a Python replica of validate-stage.py compute_diff_fingerprint; byte-identical)
+- status bind commit: 2d519f0 (status=review_1, top-level + tasks[T1] base/head/fingerprint)
+
+Gate:
+- scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase pre-review: STAGE VALIDATION PASSED (clean tree, fingerprint recomputed equal) EXIT:0
+
+Review-1 dispatch preparation:
+- packet: task-T1-review1-kimi.prompt.md (fresh read-only Kimi, first_reviewer, human executor)
+- packet states the 12-commit range role split (11 bookkeeper mechanical commits + 1 delivery commit 25383e8)
+- rework_count: 0 (all correction rounds were pre-seal inspection loops)
+- Kimi review-1: NOT DISPATCHED (human gate)

@@ -348,7 +348,8 @@
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
-      }
+      },
+      "review_1_prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-review1-kimi.prompt.md"
     },
     {
       "id": "T2",
@@ -627,5 +628,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_execute_T1_kimi_review_1_packet",
-  "updated_at": "2026-07-11T16:52:00+08:00"
+  "updated_at": "2026-07-11T16:58:00+08:00"
 }
