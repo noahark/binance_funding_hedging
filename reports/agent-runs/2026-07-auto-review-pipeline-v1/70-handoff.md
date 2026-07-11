@@ -3,7 +3,7 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `review_1` (T2 sealed; awaiting human-executed Kimi review-1)
+- Status: `implementing` (T1+T2 review-1 **ACCEPT**; T3 packet ready)
 - T1: sealed `25383e8`, Kimi review-1 **ACCEPT** (`30-review-1-T1.md`)
 - T2: delivered by GLM, reverified by bookkeeper (78 tests, dual fingerprint
   anchors, 17 independent counterexamples, validator diff read hunk-by-hunk),
@@ -95,8 +95,13 @@ README 条目。
   `review-1-T1-round1.verdict.json` (schema-valid, fingerprint bound)
 - T2 dispatch packet: `task-T2-seal-and-validator-claude-glm.prompt.md` —
   executed (T2 base `ce9f83a`, delivery `a7fd737`)
-- T2 review-1 packet: `task-T2-review1-kimi.prompt.md` — ready, not executed
-- Review-1 (T2): sealed, awaiting Kimi; (T3): not started
+- T2 review-1 packet: `task-T2-review1-kimi.prompt.md` — executed
+- Review-1 (T2): **ACCEPT** — `30-review-1-T2.md` +
+  `review-1-T2-round1.verdict.json` (0 findings; 1 P3 residual risk carried
+  into T3 tests)
+- T3 dispatch packet: `task-T3-runner-and-integration-claude-glm.prompt.md`
+  — ready, not executed (T3 base `fff4e14`)
+- Review-1 (T3): not started
 - Fix report: not started (formal `rework_count` = 0)
 - Review-2: not started (routing pending operator decision)
 - Intake checks: `60-test-output.txt`
@@ -304,17 +309,33 @@ README 条目。
   gate ran on the T2-amended validator, so the delegated fingerprint path has
   already verified a production range.
 
+## T2 Review-1 Outcome
+
+- Kimi (fresh read-only session, independent from its T1 review session)
+  returned **ACCEPT**: 0 findings, 0 required fixes, one P3 residual risk
+  (`_pathspec_matches` approximate matching) which is now a mandatory test
+  requirement in the T3 packet (§3.3, exotic pathspec shapes via the
+  runner→seal black-box path).
+- Bookkeeper verification: verdict schema-valid (0 errors), fingerprint
+  byte-identical to sealed T2 value, `reviewer_prior_involvement="none"`
+  truthful (review-1 duty is not a disclosure-enum involvement; Kimi wrote no
+  code). Landed as `30-review-1-T2.md` + `review-1-T2-round1.verdict.json`.
+- `rework_count` = 0 after two of three tasks: T1 and T2 both passed review-1
+  with zero formal rework.
+
 ## 下一步
 
-Human operator executes `task-T2-review1-kimi.prompt.md`
-(`kimi --model kimi-code/kimi-for-coding -p "$(cat <packet>)"`, fresh
-read-only session; unittest over temp repos is allowed, worktree writes are
-not). Operator returns raw stdout to the Fable5 bookkeeper, who lands
-`30-review-1-T2.md` plus the verbatim verdict JSON and routes ACCEPT → T3
-dispatch preparation or REWORK → `fix_start_prompt` dispatch (first formal
-`rework_count` charge). The packet states the 3-commit range role split
-(2 bookkeeper + 1 delivery).
+Human operator executes
+`task-T3-runner-and-integration-claude-glm.prompt.md`
+(`claude-glm --model glm-5.2 -p "$(cat <packet>)"`). GLM implements the
+deterministic runner + integration tests + final manifest sync (T1/T2
+deliverables are frozen read-only; transition truth lives in the workflow
+executable_contract). Fable5 bookkeeper then inspects boundaries, reruns the
+full frozen four-command suite (py_compile now includes the runner), seals
+T3, and prepares the T3 Kimi review-1 packet. After T3 ACCEPT the stage
+reaches the review-2 routing gate (operator decision: Gemini enablement vs
+strong-reviewer disclosure override).
 
-本地北京时间: 2026-07-11 18:05:00 CST
-下一步模型: human operator → Kimi（T2 review-1, first_reviewer, fresh session）
-下一步任务: 人工执行 T2 review-1 packet；raw 输出交回 Fable5 bookkeeper 落盘 verdict 并推进。
+本地北京时间: 2026-07-11 18:26:00 CST
+下一步模型: human operator → Claude-GLM（T3 implementer）
+下一步任务: 人工执行 T3 dispatch packet；实现者不得 commit、不得写 status/handoff、不得触碰 T1/T2 已交付文件。
