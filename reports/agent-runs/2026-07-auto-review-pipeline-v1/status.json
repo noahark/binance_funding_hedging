@@ -38,6 +38,7 @@
   "intake_review_fixes_commit": "345ba61d6228248089406052b4e280e23ebad413",
   "stage_design_commit": "c38c5a8e682d79b4cd1e663f3c164278365f777a",
   "stage_design_review_fix_commit": "db8d58c93eea8d568c73a9d3df9f0d4c76e9fe9c",
+  "development_breakdown_commit": "c8195db8d71bf3cd8c64134ce05cc92a63724355",
   "stage_design_review": {
     "reviewer": "claude_fable5",
     "provider_identity": "anthropic",
@@ -131,7 +132,7 @@
       "slug": "contract-and-schemas",
       "title": "Auto-review contract and schemas",
       "sequence": 1,
-      "status": "breakdown_frozen_packet_pending",
+      "status": "packet_prepared_base_binding_pending",
       "depends_on": [],
       "start_gate": "bookkeeper_checkpoint_then_human_dispatch",
       "owner": {
@@ -177,7 +178,10 @@
         "docs/product/**",
         "all paths not explicitly listed as writable or shared append-only evidence"
       ],
-      "prompt_path": null,
+      "prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-contract-and-schemas-claude-glm.prompt.md",
+      "dispatch_executor": "human",
+      "dispatch_packet_status": "prepared_not_executed",
+      "adapter_reference": "agents/registry.yaml#adapters.claude_glm.noninteractive_command",
       "fix_prompt_path": null,
       "r10_checklist": null,
       "base_sha": null,
@@ -354,6 +358,7 @@
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-development-breakdown.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/13-stage-design-review-fable5.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/14-stage-design-review-fix.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-contract-and-schemas-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/70-handoff.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/status.json"
@@ -435,6 +440,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "bookkeeper_prepare_T1_human_dispatch_packet",
-  "updated_at": "2026-07-11T12:57:52+08:00"
+  "next_action": "bookkeeper_checkpoint_T1_packet_then_bind_task_base_sha",
+  "updated_at": "2026-07-11T13:04:34+08:00"
 }

@@ -113,3 +113,24 @@ Development-breakdown freeze checkpoint (2026-07-11 12:57:52 CST):
 - git diff --check -- active stage directory: PASS
 - breakdown_author/tasks[] assertions: PASS (Anthropic identity; exact T1/T2/T3
   ids and slugs; auto/parallel modes remain disabled)
+
+T1 dispatch-packet preparation (2026-07-11 13:00:56 CST):
+- development-breakdown checkpoint commit:
+  c8195db8d71bf3cd8c64134ce05cc92a63724355
+- packet: task-T1-contract-and-schemas-claude-glm.prompt.md
+- target: claude_glm / glm-5.2; executor: human
+- packet state: prepared, NOT EXECUTED
+- adapter/model dispatch: NOT RUN
+- implementation: NOT RUN
+- base binding: pending packet/checkpoint commit; status-only binding follows
+- python3 -m json.tool status.json: PASS
+- scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint: PASS
+- scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase dispatch-ready: PASS
+  (serial/manual bootstrap; R10 remains not applicable)
+- git diff --check -- active stage directory: PASS
+- T1 packet assertions: PASS (status path match, pending receipt, human executor,
+  no executor:self, adapter reference present, implementer commit forbidden)
+- product/runtime path diff negative scan: PASS
+- independent packet-convention audit (2026-07-11 13:04:34 CST): PASS after
+  three record fixes — RECEIPT status normalized to pending; invented signature
+  wording removed; expires_at null semantics bounded by budgets/operator stop

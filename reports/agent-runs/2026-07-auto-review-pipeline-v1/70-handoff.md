@@ -10,6 +10,9 @@
 - Intake-review fixes commit: `345ba61d6228248089406052b4e280e23ebad413`
 - Stage-design commit: `c38c5a8e682d79b4cd1e663f3c164278365f777a`
 - Fable5 design-review fix commit: `db8d58c93eea8d568c73a9d3df9f0d4c76e9fe9c`
+- Development-breakdown checkpoint commit:
+  `c8195db8d71bf3cd8c64134ce05cc92a63724355`
+- HEAD before T1 packet checkpoint: `c8195db8d71bf3cd8c64134ce05cc92a63724355`
 - HEAD before development-breakdown checkpoint: `8eca2e9`
 - Git status before development-breakdown checkpoint: only
   `12-development-breakdown.md` was untracked
@@ -109,6 +112,7 @@ README 条目。
 
 - Author: Claude Fable 5 (`anthropic/claude-fable-5`)
 - Artifact: `12-development-breakdown.md`
+- Checkpoint commit: `c8195db8d71bf3cd8c64134ce05cc92a63724355`
 - Prior involvement disclosed: direction patches, stage-design review, and
   development breakdown; Anthropic review-2 would require the documented
   strong-reviewer disclosure path.
@@ -124,15 +128,37 @@ README 条目。
 ## Blockers
 
 - None for stage design.
-- No implementation or model dispatch has occurred. T1 remains packet-pending.
+- No implementation or model dispatch has occurred.
+
+## T1 Dispatch Packet
+
+- Packet:
+  `task-T1-contract-and-schemas-claude-glm.prompt.md`
+- Target: `claude_glm / glm-5.2` (`zhipu_glm`)
+- Executor: human operator only
+- Adapter reference: `agents/registry.yaml#adapters.claude_glm.noninteractive_command`
+  and `docs/model-adapters.md#Claude-GLM`
+- Command template:
+  `claude-glm --model glm-5.2 -p "$(cat <prompt-file>)"`
+- Packet state: prepared, not executed
+- Packet convention audit: PASS after normalizing the manual RECEIPT status,
+  removing invented signature wording, and tightening nullable `expires_at`
+  semantics to preserve all other budgets/operator-stop limits.
+- T1 base protocol: commit this packet/checkpoint first; then bind that commit
+  SHA to `tasks[id=T1].base_sha` in a status-only commit. The packet reads the
+  frozen SHA from status and never uses moving `HEAD`.
+- Packet prevents implementer commits, status/handoff/review writes, model
+  self-dispatch, T2/T3 writes, and product/funding-stage mixing.
+- Packet returns to bookkeeper for boundary inspection and committed checkpoint;
+  it does not authorize Kimi review-1 before a frozen T1 range exists.
 
 ## 下一步
 
-Codex/GPT bookkeeper prepares the immutable T1 Claude-GLM dispatch packet,
-checkpoints it on the stage branch, and then binds the packet commit as T1
-`base_sha` in a status-only commit. The human operator may then execute the
-packet. Bookkeeper preparation must not invoke Claude-GLM.
+Codex/GPT bookkeeper checkpoints the immutable T1 packet on the stage branch,
+then binds that packet commit as T1 `base_sha` in a status-only commit. The
+human operator may execute the packet only after that binding is visible in
+`status.json`. Bookkeeper preparation does not invoke Claude-GLM.
 
-本地北京时间: 2026-07-11 12:57:52 CST
+本地北京时间: 2026-07-11 13:04:34 CST
 下一步模型: Codex/GPT（bookkeeper）
-下一步任务: 准备并 checkpoint T1 人工 dispatch packet；不得执行 Claude-GLM 或写 Harness 实现。
+下一步任务: checkpoint T1 packet 并在 status-only commit 绑定 base_sha；不得执行 Claude-GLM。
