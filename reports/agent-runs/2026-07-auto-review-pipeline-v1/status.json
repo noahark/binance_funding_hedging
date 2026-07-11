@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -55,7 +55,7 @@
   },
   "model_routing": {
     "implementation": {
-      "status": "all_tasks_delivered_review_1_accept",
+      "status": "review2_fix_round1_delivered_and_bookkeeper_verified",
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
@@ -64,7 +64,7 @@
       "scope": "harness_only"
     },
     "review_1": {
-      "status": "complete_all_three_units_accept",
+      "status": "fix_unit_re_review_pending_human_dispatch",
       "provider": "kimi",
       "provider_identity": "moonshot_kimi",
       "model": "kimi-code/kimi-for-coding",
@@ -605,8 +605,8 @@
     "user_approved": true
   },
   "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
-  "head_sha": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5",
-  "diff_fingerprint": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:54186cecdb387a52a5d200acf3aa7fb1730f98256a3a53c040bd7bb01993f9e5",
+  "head_sha": "846bec036d62a3cdb243325f16977bd2c1396ade",
+  "diff_fingerprint": "846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4",
   "changed_files": [
     "reports/agent-runs/2026-07-auto-review-pipeline-design-review/**",
     "reports/follow-ups/2026-07-auto-review-pipeline-design-note.md",
@@ -742,7 +742,7 @@
       "record_verdict": null,
       "disposition": "reports/agent-runs/2026-07-auto-review-pipeline-v1/51-review-2-panel-disposition.md",
       "substantive_findings_confirmed": true,
-      "gemini_reachability_note": "Gemini succeeded this round, weakening the prior service_unavailable statement; a true runner-level availability artifact is required for any future override claim."
+      "gemini_reachability_note": "Gemini succeeded this round, weakening the prior service_unavailable statement. Superseded by evidence file v2 (2026-07-11): override basis revised to design-conflict ineligibility, which rests on registry facts + recorded operator decline and needs no availability artifact; a runner-level artifact would only be required if a future service_unavailable claim is ever made again."
     },
     "fix_round1": {
       "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-review2-fix-round1-claude-glm.prompt.md",
@@ -750,8 +750,29 @@
       "scope": "F2-F7 substantive P1s (runner/stage-seal/tests)",
       "bookkeeper_line_items": "F1 override basis -> evidence file v2 (design-conflict ineligibility, operator declined third model); P2 stale status fields self-fixed",
       "rework_charged": 2,
-      "executed": false
-    }
+      "executed": true,
+      "delivery_commit": "846bec036d62a3cdb243325f16977bd2c1396ade",
+      "delivered_at": "2026-07-11T22:44:00+08:00",
+      "bookkeeper_verification": {
+        "boundary": "PASS: exactly 4 writable code files + 2 append-only evidence files; lib/validator/T1 contracts untouched",
+        "required_checks_rerun": "unittest discover 136 OK; py_compile 4 files OK; validator checkpoint PASS; git diff --check clean; grep formal-1 exit 1",
+        "per_finding_tests": "7 new test classes each run individually: all OK (F2 AuthorizationBindingTests, F3 ProductionRegistryCommandTests [loads real registry], F4 VerdictSchemaAndByteFidelityTests, F5 ReworkLedgerAndExpiryTests, F6 RunnerLockTests + SealCrashRecoveryTests [crash injected in real flow], F7 RestartAndAdapterErrorTests)",
+        "destructive_spot_checks": "F3 remove <prompt-file> replacement -> 3 failures; F5 unlink top-level rework_count -> 3 failures; F4 restore json.dumps -> 1 failure; all restored, suite green",
+        "pre_existing_test_adjustment": "AccountingTimingTests timeout test moved to review adapter per F7 semantics; intent preserved (timeout charged + cap 3 exhaustion); disclosed to review-1 for explicit adjudication"
+      },
+      "fix_unit": {
+        "base_sha": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5",
+        "head_sha": "846bec036d62a3cdb243325f16977bd2c1396ade",
+        "diff_fingerprint": "846bec036d62a3cdb243325f16977bd2c1396ade:af3daf4d695f172c8c4d38fddbc6a6c491cfa62369b76a14402ace7615865b0b"
+      },
+      "re_review_1": {
+        "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-review2-fix-round1-review1-kimi.prompt.md",
+        "reviewer": "kimi",
+        "status": "pending_human_dispatch",
+        "verdict": null
+      }
+    },
+    "open_p0_p1_note": "F2-F7 + P2 fixes delivered (846bec0) and bookkeeper-verified; F1 resolved via evidence file v2. Formally closed only by re-review-1 + a fresh review-2."
   },
   "rework_count": 2,
   "max_rework": 3,
@@ -779,7 +800,7 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_review2_fix_round1_packet",
+  "next_action": "human_execute_review2_fix_round1_review1_packet",
   "updated_at": "2026-07-11T22:20:00+08:00",
   "resolved_blockers_note": "T1-R2-1/R2-2 closed by correction round2 (see completed_correction_packets); stale copies removed 2026-07-11 per sol P2 finding"
 }
