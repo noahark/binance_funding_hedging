@@ -7,13 +7,14 @@
 - Branch: `stage/2026-07-auto-review-pipeline-v1`
 - Created from main: `45c21ee010fd3f2892a6677f58d5c8b02c2fbb0b`
 - H_intake commit: `9573d2acfd4ef2e83274cb811a0d347c64ed283f`
-- HEAD before this handoff checkpoint commit: `9573d2acfd4ef2e83274cb811a0d347c64ed283f`
-- Git status after H_intake commit: clean
+- Intake-review fixes commit: `345ba61d6228248089406052b4e280e23ebad413`
+- HEAD before stage-design checkpoint commit: `345ba61d6228248089406052b4e280e23ebad413`
+- Git status before stage-design commit: design artifacts modified/untracked only
 - Bookkeeper: current Codex/GPT session (`openai`), not an implementer
 - Complexity: `HIGH`
 - Current workflow: DRAFT-2 human dispatch; target auto pipeline disabled for
   this bootstrap stage
-- Parallel mode: disabled at intake; topology pending stage design
+- Parallel mode: disabled; bootstrap implementation uses serial Harness work packages
 
 ## 已冻结输入
 
@@ -33,14 +34,15 @@ README 条目。
 - Fable5: `01-intake-review-fable5.md` — ACCEPT-with-edits
 - Grok: `02-intake-review-grok.md` — ACCEPT-with-edits
 - Shared required record patches: E1 status.json `reviewer_prior_involvement` placeholders; E2 complexity-evaluator deviation note
+- E1/E2 disposition: applied in commit `345ba61`
 
 ## Artifact Index
 
 - Intake: `00-intake.md`
-- Task: not started
+- Task: `00-task.md`
 - Direction synthesis: frozen `40-operator-decision-table.md`
-- Design: not started
-- ADR: not started
+- Design: `10-design.md`
+- ADR: `11-adr.md`
 - Development breakdown: not started (required for HIGH)
 - Implementation: not started / not authorized
 - Review-1: not started
@@ -62,17 +64,32 @@ README 条目。
 - Harness implementation tests: not run; no implementation exists.
 - Intake JSON, stage branch, imported-scope and validator checkpoint checks:
   see `60-test-output.txt`.
+- Stage-design checks: PASS (JSON, checkpoint validator, required artifacts,
+  diff whitespace, D1–D12/P1–P13 traceability, product-path isolation, locked
+  vocabulary).
 
-## Open Findings / Design Items
+## Stage Design Disposition
 
-1. Freeze auto-run authorization and mode-flip status fields.
-2. Freeze call-count / wall-clock accounting.
-3. Freeze review-unit/author-provider/completeness machine shape.
-4. Freeze runner RECEIPT, verdict and escalation paths.
-5. Choose v1 multi-owner fix scheduling topology.
-6. Resolve implementation, review-1 and independent review-2 routing. Both
-   OpenAI/Codex and Anthropic/Claude participated in the pre-stage direction
-   chain, so prior involvement must be recorded truthfully.
+`00-task.md`, `10-design.md`, and `11-adr.md` freeze:
+
+1. versioned authorization/status/receipt shapes;
+2. dispatch-mode and runner-state transition matrix;
+3. call/wall-clock/single-rework-ledger accounting;
+4. serial/parallel review units and provider isolation;
+5. seen-diff byte bind and two-commit seal protocol;
+6. verdict parsing, multi-owner routing, evidence paths, and threat boundary;
+7. bootstrap routing: serial Claude-GLM implementation packages and Kimi
+   review-1 under current human dispatch.
+
+## Open Findings / Breakdown Items
+
+1. Development breakdown must assign mutually safe file packages, dependencies,
+   exact commands, and review focus.
+2. Before final review, operator must resolve review-2 routing. OpenAI/Codex and
+   Anthropic/Claude both have prior direction/design involvement; neither may be
+   recorded as `none`.
+3. Future pilot stages choose positive call-count/wall-clock values in their
+   human authorization; no global numeric defaults are part of this stage.
 
 ## Blockers
 
@@ -81,11 +98,12 @@ README 条目。
 
 ## 下一步
 
-Codex/GPT stage designer drafts `00-task.md`, `10-design.md`, and `11-adr.md`
-from the frozen decision table. Then an eligible development breakdown author
-produces `12-development-breakdown.md`; only after those artifacts and routing
-are frozen may implementation dispatch be prepared.
+Claude Fable 5, or Opus4.8 after documented Fable quota exhaustion, produces
+`12-development-breakdown.md`. It must preserve the frozen file boundary and
+serial bootstrap routing. Only after breakdown and human-executed dispatch
+packets are complete may implementation be considered; this handoff does not
+authorize it.
 
-本地北京时间: 2026-07-11 11:34:30 CST
-下一步模型: Codex/GPT（stage designer）
-下一步任务: 起草 Harness-only `00-task.md`、`10-design.md`、`11-adr.md`，不得开始实现或执行模型 dispatch。
+本地北京时间: 2026-07-11 12:01:18 CST
+下一步模型: Claude Fable 5（development breakdown author）
+下一步任务: 只起草 `12-development-breakdown.md`，冻结 owner/file/test/review 边界；不得实现或执行模型 dispatch。

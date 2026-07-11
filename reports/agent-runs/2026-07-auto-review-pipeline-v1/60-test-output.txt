@@ -50,3 +50,26 @@ Post-H_intake verification (2026-07-11 11:34:30 CST):
 - H_intake commit: 9573d2acfd4ef2e83274cb811a0d347c64ed283f
 - git status: clean
 - scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint: PASS
+
+Intake review fixes (2026-07-11 11:52:59 CST):
+- E1 reviewer_prior_involvement placeholders changed from none to null/pending: PASS
+- E2 complexity evaluator route deviation recorded in intake/status: PASS
+- status.json parse: PASS
+- validate-stage checkpoint: PASS
+- commit: 345ba61d6228248089406052b4e280e23ebad413
+
+Stage-design documents created (2026-07-11 11:59:12 CST):
+- 00-task.md
+- 10-design.md
+- 11-adr.md
+- Harness implementation tests: NOT RUN — design-only turn
+
+Stage-design verification (2026-07-11 12:01:18 CST):
+- python3 -m json.tool status.json: PASS
+- scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint: PASS
+- required non-empty artifacts 00-task.md / 10-design.md / 11-adr.md: PASS
+- git diff --check for active stage directory: PASS
+- D1-D12 and P1-P13 traceability rows in 10-design.md: PASS
+- product/runtime/funding path diff negative scan: PASS
+- locked vocabulary negative scan (formal-1 / historical embedded pre-review terms): PASS
+- Harness implementation tests: NOT RUN (not authorized; no implementation in this turn)
