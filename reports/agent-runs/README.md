@@ -22,6 +22,18 @@ reports/agent-runs/<stage-id>/
   60-test-output.txt
   70-handoff.md
   status.json
+  auto-run-authorization-v<N>.json                      (auto-review mode)
+  auto-run-authorization-v<N>.approval.md               (auto-review mode)
+  runner-<seq>-<node>.receipt.json                      (auto-review runner receipts)
+  runner-<seq>-seal.receipt.json                        (auto-review deterministic seal evidence; not an adapter invocation receipt, does not use runner-receipt.schema.json, excluded from the P11 adapter-call denominator)
+  embedded-cross-check-<unit>-round<N>.prompt.md        (auto-review embedded cross-check)
+  embedded-cross-check-<unit>-round<N>.seen.diff.patch
+  embedded-cross-check-<unit>-round<N>.raw-output.md
+  embedded-cross-check-<unit>-round<N>.unavailable.md   (when not run)
+  review-1-<unit>-round<N>.raw-output.md                (auto-review review-1)
+  review-1-<unit>-round<N>.verdict.json
+  80-escalation-<reason>-<timestamp>.md                 (auto-review escalation)
+  auto-review-pilot-metrics.json                        (pilot stages only)
 ```
 
 Use `_template/` when creating a new stage.

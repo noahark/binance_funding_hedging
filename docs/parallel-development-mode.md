@@ -326,16 +326,24 @@ status.json 增加记录块（示意；每任务必填字段见下）：
 
 正式 review-1 的 base/head/fingerprint/verdict 同时仍按现行惯例记录在
 `tasks.<id>.review_1`；`embedded_reviews.<id>.formal_review` 是指向性冗余，
-让 review-2 在一个块内重建"预审 N 轮 → 提交 → 正式确认"的完整链路。
+让 review-2 在一个块内重建"embedded cross-check N 轮 → 提交 → 正式确认"的完整链路。
 
 ## 6. 与现行 workflow 的关系
 
 - 本模式是 `stage-delivery.yaml` 的**执行编排变体**，不新增状态机状态：
   Phase 1-2 发生在 `implementing`，Phase 3 结束进 `review_1`，其后与现行
   流程完全一致（`review_1 → review_2 → stage_accepted_waiting_user`）。
-- 不新增指纹协议、不新增 verdict schema。预审落档是证据增强，不是新门。
+- 不新增指纹协议、不新增 verdict schema。embedded cross-check 落档是证据增强，不是新门。
 - review-2 的 `reviewer_prior_involvement` 披露与回退路径
   （`decision_models_exhausted` 等）不变。
+- **与 auto-review pipeline 互斥**：`parallel_mode.enabled=true` 与
+  `auto_review_pipeline.enabled=true` 不可共存。auto mode 在自身的
+  authorization/review-unit 合同内表达 serial/parallel topology，不复用本模式的
+  R1–R10 嵌入 checkpoint 语义；其 advisory cross-check 由 normative 合同
+  `docs/auto-review-pipeline.md` 定义。一个 stage 只能择一启用；若要从本模式
+  迁移到 auto mode，须先关闭 `parallel_mode.enabled`、落 `status.json` /
+  `70-handoff.md` 记录，再以独立的 schema-valid human-approved authorization
+  artifact 启用 auto mode。
 
 ## 7. 升级路径（非本次采纳范围）
 

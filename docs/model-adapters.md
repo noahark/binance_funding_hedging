@@ -320,3 +320,34 @@ review file, with secrets redacted.
 
 For embedded cross-review checkpoints, use the canonical failure class list in
 `agents/registry.yaml` at `failure_classes.embedded_checkpoint`.
+
+## Auto Review Pipeline
+
+`auto_review_pipeline/v1` is a default-off opt-in mode. Its normative contract
+is `docs/auto-review-pipeline.md`; its machine-readable gates are
+`schemas/auto-review-authorization.schema.json` and
+`schemas/runner-receipt.schema.json`. Nothing here changes the manual adapter
+rules above.
+
+Under auto mode:
+
+- The deterministic runner is the only automatic dispatcher. It invokes adapters
+  through registry command references
+  (`agents/registry.yaml#adapters.<id>.<command>`), never through expanded
+  commands built from model output. A model session is never the auto-loop
+  dispatcher.
+- Auto review-1 uses Grok in plan mode via the existing
+  `adapters.grok.optional_review_command` (`grok-build`). Serial-unit fallback
+  uses the Kimi/Claude-GLM cross-pool only when the candidate provider is absent
+  from that unit's author set; a parallel tip has no eligible cross-pool
+  fallback and a Grok failure escalates. GPT/Claude are never auto-substituted.
+- The automatic loop is limited to `claude_glm`, `kimi`, and `grok`.
+  `auto_high_end_dispatch_allowed` is always false; human-started high-end work
+  (synthesis, breakdown, review-2) remains outside the runner.
+- Adapter availability still uses the runner-level checks documented above. A
+  bookkeeper or implementation session lacking a built-in tool for a model does
+  not make that model unavailable.
+- Receipts record adapter command references only. They never contain expanded
+  aliases, environment dumps, tokens, cookies, or secrets
+  (`never_log_expanded_environment`). If provider output itself exposes a secret,
+  the runner stops and escalates rather than rewriting evidence.

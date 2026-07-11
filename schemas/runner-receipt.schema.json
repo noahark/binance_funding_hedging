@@ -1,0 +1,315 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.ai-project-harness/schemas/runner-receipt.schema.json",
+  "title": "Auto Review Pipeline Runner Receipt",
+  "description": "Deterministic provenance record written by the runner for each automatic adapter invocation and routing decision. It records WHAT was invoked and the resulting budget/state change, never the sensitive HOW. Forbidden content: the receipt MUST NOT contain an expanded adapter command, expanded shell alias, environment dump, token, cookie, secret, or any model-selected next action. Adapter invocation is recorded only as an adapter id plus a registry command reference (agents/registry.yaml path), never the expanded command line or its environment. 'next_transition' is constrained to the frozen workflow transition set so a model cannot inject an arbitrary next hop; 'failure_class' is constrained to the frozen failure-class set. Raw model output, prompts, and verdict bytes are referenced by path and persisted unaltered elsewhere; the receipt never embeds them. If provider output itself exposes a secret, the runner stops and escalates rather than rewriting evidence here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "stage_id",
+    "sequence",
+    "node",
+    "attempt",
+    "review_unit_id",
+    "task_id",
+    "adapter",
+    "prompt_path",
+    "raw_output_path",
+    "verdict_path",
+    "started_at",
+    "completed_at",
+    "exit_status",
+    "timeout",
+    "call_budget",
+    "failure_class",
+    "next_transition"
+  ],
+  "$defs": {
+    "safe_repo_relative_path": {
+      "description": "Nullable repo-relative evidence path. null when not applicable for this node; a non-null value must be a non-empty repo-relative path and is rejected if it is absolute, contains parent-directory traversal ('..'), or contains CR, LF, tab, or any other control character.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^/].*$",
+          "allOf": [
+            { "not": { "pattern": "\\.\\." } },
+            { "not": { "pattern": "[\\r\\n\\t\\x00-\\x1f\\x7f]" } }
+          ]
+        }
+      ]
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "stage_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic per-run sequence number for this receipt."
+    },
+    "node": {
+      "type": "string",
+      "enum": ["implementation", "embedded_cross_check", "review_1", "fix"],
+      "description": "Runner workflow node that produced this receipt. Only model-adapter nodes emit receipts; deterministic seal/commit steps are recorded by the seal receipt and status, not here."
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Attempt index within this node (e.g. invalid-JSON retry raises this). Every attempt that begins adapter execution consumes one call from the budget."
+    },
+    "review_unit_id": {
+      "type": ["string", "null"],
+      "description": "Review unit id this call belongs to, when applicable (task, tip, or integration unit). Always present; null only when the node has no unit (e.g. an implementation call before any unit is sealed)."
+    },
+    "task_id": {
+      "type": ["string", "null"],
+      "description": "Task id this call belongs to, when applicable. Always present; null only when the call is not task-scoped."
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "registry_command_ref"],
+      "description": "Adapter reference. Records only the adapter id and the registry path of the command template used; never the expanded command, shell alias, arguments, or environment. The registry_command_ref must be one of the frozen anchored references below and must match both the adapter id and a command key that the workflow allows for this node.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": ["claude_glm", "kimi", "grok"],
+          "description": "Adapter id from agents/registry.yaml that the runner invoked."
+        },
+        "registry_command_ref": {
+          "type": "string",
+          "enum": [
+            "agents/registry.yaml#adapters.claude_glm.noninteractive_command",
+            "agents/registry.yaml#adapters.claude_glm.embedded_read_only_review_command",
+            "agents/registry.yaml#adapters.kimi.noninteractive_command",
+            "agents/registry.yaml#adapters.kimi.embedded_read_only_review_command",
+            "agents/registry.yaml#adapters.grok.development_command",
+            "agents/registry.yaml#adapters.grok.optional_review_command"
+          ],
+          "description": "Anchored registry reference to the exact command template used. Only these frozen references are valid; the expanded command, availability probes, yolo commands, same-prefix guesses, shell fragments, whitespace/newline strings, and secret-like arbitrary values are all schema-invalid. The expanded command is never stored."
+        }
+      },
+      "allOf": [
+        {
+          "description": "adapter.id and the <id> segment of registry_command_ref must match.",
+          "if": {
+            "properties": { "id": { "const": "claude_glm" } },
+            "required": ["id"]
+          },
+          "then": {
+            "properties": {
+              "registry_command_ref": {
+                "enum": [
+                  "agents/registry.yaml#adapters.claude_glm.noninteractive_command",
+                  "agents/registry.yaml#adapters.claude_glm.embedded_read_only_review_command"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "id": { "const": "kimi" } },
+            "required": ["id"]
+          },
+          "then": {
+            "properties": {
+              "registry_command_ref": {
+                "enum": [
+                  "agents/registry.yaml#adapters.kimi.noninteractive_command",
+                  "agents/registry.yaml#adapters.kimi.embedded_read_only_review_command"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "id": { "const": "grok" } },
+            "required": ["id"]
+          },
+          "then": {
+            "properties": {
+              "registry_command_ref": {
+                "enum": [
+                  "agents/registry.yaml#adapters.grok.development_command",
+                  "agents/registry.yaml#adapters.grok.optional_review_command"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "prompt_path": {
+      "description": "Path to the immutable prompt body fed to the adapter, when applicable. Safe repo-relative path; null when the node has no prompt file.",
+      "$ref": "#/$defs/safe_repo_relative_path"
+    },
+    "raw_output_path": {
+      "description": "Path to the captured raw adapter output, persisted unaltered, when applicable. Safe repo-relative path; null when no raw output was captured.",
+      "$ref": "#/$defs/safe_repo_relative_path"
+    },
+    "verdict_path": {
+      "description": "Path to the accepted schema-valid verdict JSON (final-and-only block), when applicable. Safe repo-relative path; null when the node produces no verdict.",
+      "$ref": "#/$defs/safe_repo_relative_path"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 instant when adapter execution began. The call is charged to the budget at this point."
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO8601 instant when adapter execution completed, or null if it did not complete cleanly."
+    },
+    "exit_status": {
+      "type": ["integer", "null"],
+      "description": "Adapter process exit status, or null if not applicable."
+    },
+    "timeout": {
+      "type": "boolean",
+      "description": "True if the adapter process exceeded the configured stage timeout. A timeout still consumes one call."
+    },
+    "call_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "after"],
+      "description": "Model-call budget immediately before and after this attempt. 'after' MUST equal 'before - 1' once adapter execution has begun, regardless of success, timeout, provider failure, invalid JSON, or empty output.",
+      "properties": {
+        "before": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "failure_class": {
+      "type": ["string", "null"],
+      "enum": [
+        null,
+        "model_unavailable",
+        "adapter_missing",
+        "command_error",
+        "permission_error",
+        "timeout",
+        "invalid_pre_review_output",
+        "invalid_verdict_json",
+        "scope_or_contract_dispute",
+        "quota_exhausted",
+        "auth_failure",
+        "service_unavailable"
+      ],
+      "description": "Sanitized failure class from the frozen failure-class set, or null on success. Never contains command text, environment, or secrets."
+    },
+    "next_transition": {
+      "type": ["string", "null"],
+      "enum": [
+        null,
+        "implementation",
+        "embedded_cross_check",
+        "blocking_check",
+        "seal",
+        "review_1",
+        "fix",
+        "awaiting_human",
+        "completed_review_1",
+        "human_escalation_required"
+      ],
+      "description": "Fixed workflow transition the runner will apply next, selected only from the committed workflow allowed_next_transitions set (see workflows/templates/stage-delivery.yaml auto_review_pipeline.executable_contract.allowed_next_transitions). The set excludes any manual-only hop such as a bookkeeper decision. A model cannot select this value; it is never an arbitrary model-supplied next hop. null means the runner stops without applying a further transition."
+    }
+  },
+  "allOf": [
+    {
+      "description": "implementation/fix nodes use the adapter's existing noninteractive/write command reference.",
+      "if": {
+        "properties": { "node": { "enum": ["implementation", "fix"] } },
+        "required": ["node"]
+      },
+      "then": {
+        "properties": {
+          "adapter": {
+            "properties": {
+              "registry_command_ref": {
+                "enum": [
+                  "agents/registry.yaml#adapters.claude_glm.noninteractive_command",
+                  "agents/registry.yaml#adapters.kimi.noninteractive_command",
+                  "agents/registry.yaml#adapters.grok.development_command"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "embedded_cross_check nodes use the adapter's existing read-only/embedded command reference.",
+      "if": {
+        "properties": { "node": { "const": "embedded_cross_check" } },
+        "required": ["node"]
+      },
+      "then": {
+        "properties": {
+          "adapter": {
+            "properties": {
+              "registry_command_ref": {
+                "enum": [
+                  "agents/registry.yaml#adapters.claude_glm.embedded_read_only_review_command",
+                  "agents/registry.yaml#adapters.kimi.embedded_read_only_review_command"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "review_1 nodes use exactly one of the three frozen review-1 routes: Grok primary (optional_review_command), or a Kimi/Claude-GLM serial-unit fallback (each provider's embedded_read_only_review_command). Schema validity alone never declares fallback eligibility; serial-only topology, author-set eligibility, parallel-tip escalation, and tip-once Grok failure remain runner/validator checks.",
+      "if": {
+        "properties": { "node": { "const": "review_1" } },
+        "required": ["node"]
+      },
+      "then": {
+        "properties": {
+          "adapter": {
+            "oneOf": [
+              {
+                "properties": {
+                  "id": { "const": "grok" },
+                  "registry_command_ref": { "const": "agents/registry.yaml#adapters.grok.optional_review_command" }
+                },
+                "required": ["id", "registry_command_ref"]
+              },
+              {
+                "properties": {
+                  "id": { "const": "kimi" },
+                  "registry_command_ref": { "const": "agents/registry.yaml#adapters.kimi.embedded_read_only_review_command" }
+                },
+                "required": ["id", "registry_command_ref"]
+              },
+              {
+                "properties": {
+                  "id": { "const": "claude_glm" },
+                  "registry_command_ref": { "const": "agents/registry.yaml#adapters.claude_glm.embedded_read_only_review_command" }
+                },
+                "required": ["id", "registry_command_ref"]
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

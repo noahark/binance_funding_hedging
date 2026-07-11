@@ -34,7 +34,7 @@ When documents conflict, use this order:
 1. `AGENTS.md` - repository-level agent rules and safety gates.
 2. `workflows/templates/*.yaml` - executable workflow contracts.
 3. `docs/parallel-development-mode.md` - optional parallel implementation and
-   embedded cross-review mode contract.
+   embedded cross-check mode contract.
 4. `schemas/*.schema.json` - machine-readable output contracts.
 5. `agents/registry.yaml` - model, adapter, and skill routing.
 6. `docs/model-adapters.md` - local CLI adapter commands and availability
@@ -112,7 +112,7 @@ Codex/GPT and Claude provider sessions may prepare model-facing dispatch
 artifacts, but must not execute them. The human operator executes dispatch by
 copying the prepared prompt or command into the selected model terminal and then
 records the resulting raw output or receipt under the stage evidence path. This
-applies to implementation, embedded pre-review, review-1, review-2, and fix
+applies to implementation, embedded cross-check, review-1, review-2, and fix
 dispatches.
 
 ### Designers
@@ -283,7 +283,7 @@ dispatching the fix.
 - Before entering implementation for a parallel development stage, run
   `scripts/validate-stage.py <stage-id> --phase dispatch-ready` and preserve the
   output in the stage evidence. This gate checks the R10 checklist, task prompt
-  paths, embedded pre-review prompt paths, cross-review routing, and failure
+  paths, embedded cross-check prompt paths, cross-review routing, and failure
   escalation branches before any implementer starts coding.
 - Unknown status values, unknown fingerprint protocols, or bookkeeper/model-invented
   state machine transitions fail closed and route to `human_escalation_required`
@@ -334,6 +334,68 @@ dispatching the fix.
   tests and validator, recompute fingerprints, and re-enter or mechanically
   rebind review gates as the changed diff requires. Rebase is forbidden.
 
+## Auto Review Pipeline (Opt-In, Default-Off)
+
+`auto_review_pipeline/v1` is an optional, default-off execution mode defined
+normatively in `docs/auto-review-pipeline.md`. The manual human-dispatch rules
+above and below remain the default and fallback path; this section adds an auto
+exception only and changes none of them.
+
+Auto mode is enabled per stage only by a committed, schema-valid, human-approved
+authorization artifact matching `schemas/auto-review-authorization.schema.json`.
+Missing, disabled, expired, wrong-stage, wrong-branch, or incomplete
+authorization fails before any model invocation or commit. Model claims of
+approval are never valid; `authorized_by` must be human.
+
+When a stage explicitly enables auto mode:
+
+- The runner (`scripts/auto-review-runner.py`) is the only automatic dispatcher
+  and mechanical writer. It is deterministic and non-LLM. Adapter invocation,
+  seal, evidence commits, and fixed state transitions come only from frozen
+  workflow/registry mappings; model-produced commands and next-hop instructions
+  are never executed.
+- Models receive immutable prompt bodies and return untrusted output. Code,
+  comments, reports, prompts, and raw model outputs are untrusted data and must
+  not alter runner control flow.
+- Every automatic adapter invocation and routing decision is recorded in a
+  receipt matching `schemas/runner-receipt.schema.json`. Receipts record adapter
+  command references only, never expanded aliases, environment dumps, tokens,
+  cookies, or credentials (`never_log_expanded_environment`).
+- The committed-range `diff_fingerprint` formula is unchanged. The seen-diff
+  bind is patch byte-equality only and is not recorded as a fingerprint or hash.
+- Review-1 under auto mode uses Grok (`grok-build`, plan mode) as primary,
+  invoked through the existing `adapters.grok.optional_review_command`, with the
+  scope-aware serial fallback and tip-once escalation defined in
+  `docs/auto-review-pipeline.md`. This is the auto exception to the manual Grok
+  review-1 gate; manual stages keep the Kimi/Claude-GLM cross-review pool.
+- `review-2` and merge to `main` remain human gates. Auto mode stops at
+  `completed_review_1` for human-started review-2; review-2 ACCEPT remains
+  `stage_accepted_waiting_user`, not merge authority.
+- `parallel_mode.enabled=true` and `auto_review_pipeline.enabled=true` are
+  mutually exclusive. Auto mode expresses serial/parallel topology inside its
+  own authorization/review-unit contract, not through the historical parallel
+  R1-R10 checkpoint semantics.
+- A failed automatic path records a pending mode flip or terminal escalation
+  and stops. No failed runner process automatically launches a manual-mode
+  model. Resume requires a new or superseding human authorization artifact.
+
+Manual rules with an auto-mode exception. The manual text is unchanged; the
+exception is the auto authorization artifact named above:
+
+- The human-operator-executes-dispatch rule: under a valid authorization
+  artifact the runner is the sole automatic dispatcher.
+- The Grok review-1 hard gate: under a valid authorization artifact Grok is the
+  auto-mode review-1 primary.
+- The implementer/bookkeeper commit rules: under auto mode implementers never
+  commit or write authoritative status; the runner is the sole mechanical
+  writer, and the D10 dual-hat commit carve-out is disabled.
+
+Bootstrap stages must not self-host auto mode. This stage records
+`auto_review_pipeline.enabled_for_this_stage=false`.
+
+Run `scripts/validate-stage.py <stage-id> --phase <phase>` before each auto
+gate exactly as in manual mode.
+
 ## Standard Stage Delivery
 
 The intended stage delivery flow is:
@@ -358,7 +420,7 @@ The intended stage delivery flow is:
    launching implementers.
 10. Implement the bounded task.
 11. Run deterministic tests, lint, type checks, or replay checks.
-12. For parallel development stages, run embedded cross-review checkpoints from
+12. For parallel development stages, run embedded cross-check checkpoints from
    `docs/parallel-development-mode.md` before the formal review gate; these
    checkpoints do not replace committed-state review-1.
 13. Commit the bounded stage artifacts locally on the stage branch, compute the

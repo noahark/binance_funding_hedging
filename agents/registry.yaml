@@ -402,6 +402,38 @@ model_policies:
     - stage_accepted_waiting_user
     - human_escalation_required
 
+auto_review_pipeline:
+  default_enabled: false
+  contract: "docs/auto-review-pipeline.md"
+  authorization_schema: "schemas/auto-review-authorization.schema.json"
+  receipt_schema: "schemas/runner-receipt.schema.json"
+  runner:
+    invocation_owner: runner
+    deterministic_non_llm: true
+    sole_automatic_dispatcher: true
+  loop_adapters: ["claude_glm", "kimi", "grok"]
+  high_end_auto_dispatch_allowed: false
+  review_1:
+    auto_primary:
+      adapter: grok
+      command_ref: "agents/registry.yaml#adapters.grok.optional_review_command"
+      model: "grok-build"
+      mode: plan
+    serial_unit_fallback_pool: ["kimi", "claude_glm"]
+    fallback_only_when_candidate_provider_absent_from_unit_authors: true
+    parallel_tip_ineligible_for_cross_pool: true
+    high_end_auto_substitution: false
+  receipts:
+    command_references_only: true
+    never_log_expanded_environment: true
+  unchanged_invariants:
+    diff_fingerprint_formula: "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')"
+    seen_diff_bind: "patch byte-equality only; not a second fingerprint protocol"
+    review_2_human_started: true
+    merge_to_main_requires_user_acceptance: true
+  mode_mutex_with_parallel_mode: true
+  bootstrap_self_host_forbidden: true
+
 failure_classes:
   embedded_checkpoint:
     - model_unavailable

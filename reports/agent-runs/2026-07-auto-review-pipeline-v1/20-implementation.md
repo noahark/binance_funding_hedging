@@ -533,3 +533,115 @@ counterexamples（Draft202012Validator）：正例 grok primary / kimi serial fa
 下一步模型: Codex/GPT（bookkeeper）
 下一步任务: 独立复验 T1 round2 fallback/schema/transition maps；通过后才可 seal 并准备人工 Kimi review-1
 ```
+
+---
+
+## T1 Correction Round 3（Claude-GLM 执行 · rework_count = 0 · 合并前有界修正 · 两处 node-graph 闭合）
+
+### 执行上下文与安全性
+
+- 工作包：`reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round3-claude-glm.prompt.md`（packet commit `8008f951`，base `a385c7ad`）。
+- 触发：Fable5 第二次复检 `25-second-reinspection-T1-fable5.md` 确认 T1-R2-1 / T1-R2-2 主体关闭，仅剩两处 node-graph 闭合残留（R3-1 / R3-2）。
+- Writable set：仅 `workflows/templates/stage-delivery.yaml`；append-only：`20-implementation.md`、`60-test-output.txt`。其他全部只读（含两个 schema、docs、registry、AGENTS、模板、status/handoff/inspection/packet/review files、`scripts/**`、manifest、产品与 funding-stage 路径）。
+- 安全约束遵守：未 commit / push / merge / rebase / 切换 branch；未 dispatch 任何模型（Kimi 或其他）；未运行实时 model / network / auto-review runner；未写 status / handoff / inspection / packet / review；未改 `review_1_fixed_transitions` 与 `activation_predicate` 两个散文块（结构化版本为权威，散文按 round2 规则留存）；未改 `state_transitions` / `allowed_next_transitions` / `review_1_routes` / `pilot_predicate` / 任何 schema / docs；rework_count 保持 0（全部为 pre-seal inspection 循环）。
+- 先决条件核验：branch `stage/2026-07-auto-review-pipeline-v1` ✓；T1 base `a385c7a` ✓；T1 status `correction_round3_packet_ready_for_human_dispatch` ✓；`auto_review_pipeline.enabled_for_this_stage = false` ✓；`parallel_mode.enabled = false` ✓。
+
+### 残留（round3 必修，均为 node-graph 闭合）
+
+机器化闭合检查（target ∈ node_transitions 键集 ∪ {completed_review_1, human_escalation_required}）发现两类未解析 target：
+
+- **T1-R3-1**：`node_transitions` 的接收键名为 `post_cross_check_blocking`，但 `embedded_cross_check` 三个 event（ran / skipped / unavailable）的 target、以及 `frozen_nodes_and_order.order` 均为 `identical_post_cross_check_blocking_rerun` —— 同一节点两个名字，图不闭合，T3 runner 加载器须特判别名。
+- **T1-R3-2**：`review_1.invalid_json.after_retry_limit` 的 target `serial_unit_fallback` 无接收键定义；其语义原由相邻 `serial_fallback_unavailable` 行 + `review_1_routes.serial_fallback` “拼出”，正是 R2-2 所禁止的 runner 猜测。
+
+两处均为命名 / 闭合级修正，不触碰任何冻结决策。
+
+### R3-C1 — 统一 post-cross-check blocking 节点名
+
+`executable_contract.node_transitions` 的接收键 `post_cross_check_blocking` 改名为 `identical_post_cross_check_blocking_rerun`，与 `frozen_nodes_and_order.order`（第 129 行）及 `embedded_cross_check` 三个 event target（第 246–248 行）完全一致。只改键名，不改其 `pass` / `fail` 分支值。
+
+逐字 before：
+
+```yaml
+      post_cross_check_blocking:
+        pass: "seal"
+        fail: "human_escalation_required"
+```
+
+逐字 after：
+
+```yaml
+      identical_post_cross_check_blocking_rerun:
+        pass: "seal"
+        fail: "human_escalation_required"
+```
+
+### R3-C2 — 定义 serial_unit_fallback 接收节点
+
+新增 `serial_unit_fallback` 接收节点，表达路由选择的两个确定性出口；eligibility 规则不变，仍由 `review_1_routes.serial_fallback`（serial_only、provider 不在 unit author / fix set）定义。同时删除 `review_1.serial_fallback_unavailable: "human_escalation_required"` 一行 —— 其语义已被新节点的 `no_eligible_candidate` 分支完整覆盖，保留会造成同一转移两处定义。
+
+逐字 before：
+
+```yaml
+        invalid_json:
+          first_attempt: "review_1"
+          after_retry_limit: "serial_unit_fallback"
+        serial_fallback_unavailable: "human_escalation_required"
+        tip_once_grok_failure: "human_escalation_required"
+      completion:
+```
+
+逐字 after：
+
+```yaml
+        invalid_json:
+          first_attempt: "review_1"
+          after_retry_limit: "serial_unit_fallback"
+        tip_once_grok_failure: "human_escalation_required"
+      serial_unit_fallback:
+        eligible_candidate_found: "review_1"
+        no_eligible_candidate: "human_escalation_required"
+      completion:
+```
+
+### 冻结套件与闭合断言（原始证据见 60-test-output.txt round3 块）
+
+- `scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint` → `STAGE VALIDATION PASSED`（status=fixing），EXIT 0。
+- `git diff --check` → EXIT 0（无空白错误）。
+- `grep -rn "formal-1" AGENTS.md workflows agents docs schemas reports/agent-runs/_template` → EXIT 1（无匹配，锁定词汇表未被破坏）。
+- `ruby` YAML parse（workflow + registry）→ `YAML PARSE PASSED`，EXIT 0。
+- node-graph closure assertion：`unresolved: []`、`CLOSURE OK`，EXIT 0。断言同时确认新键 `identical_post_cross_check_blocking_rerun`（R3-C1）与 `serial_unit_fallback`（R3-C2）均存在、`state_transitions` 仍恰 8 项、所有 target 都落在 node_transitions 键集 ∪ {completed_review_1, human_escalation_required} 内。
+
+### Non-Regression
+
+round1-v2 / round2 已通过面均未破坏：receipt 18 required 键、三对 review-1 oneOf（grok optional_review + kimi / claude_glm embedded_read_only_review）、authorization 安全路径、`allowed_next_transitions` == receipt 非空 enum（9 值，无 `bookkeeper_decision`）、8 条 state_transitions（逐行对应 10-design 八行）、pilot_predicate 8 键精确值、P7 一次 blocking fix、disabled 表示（enabled:false + human_dispatch + null）、docs / README seal 收据命名（`runner-<seq>-seal.receipt.json`，非 adapter receipt、不入 P11 分母）。本 stage auto mode 仍 false；未 dispatch。
+
+### 最终 git status --short
+
+HEAD: 2a55a78223846f03d2798156ef34cff687797ad1
+
+```
+ M AGENTS.md
+ M agents/registry.yaml
+ M docs/model-adapters.md
+ M docs/parallel-development-mode.md
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
+ M reports/agent-runs/README.md
+ M reports/agent-runs/_template/70-handoff.md
+ M reports/agent-runs/_template/status.json
+ M workflows/templates/stage-delivery.yaml
+?? docs/auto-review-pipeline.md
+?? schemas/auto-review-authorization.schema.json
+?? schemas/runner-receipt.schema.json
+```
+
+### 风险
+
+- 闭合级命名修正，语义无争议；T3 runner 加载器不再需要对 `post_cross_check_blocking` / `identical_post_cross_check_blocking_rerun` 做别名特判，也不必对 `serial_unit_fallback` 做路径猜测。
+- 残留散文块（`review_1_fixed_transitions`、`activation_predicate`）仍与结构化版本并存 —— 按 round2 “note 可保留”规则留存，结构化版本权威，round3 未触碰。
+- 未提交；记账员（Fable5）须独立复跑闭合断言与冻结套件，通过后方可 seal（delivery commit → head / fingerprint → `--phase pre-review` → 人工 Kimi review-1 packet）。
+
+```text
+本地北京时间: 2026-07-11 16:43:54 CST
+下一步模型: Claude Fable 5（bookkeeper）
+下一步任务: 复验 round3 闭合断言与冻结套件；通过后 seal T1 并准备人工 Kimi review-1 packet
+```

@@ -9,6 +9,9 @@
 - Git status:
 - Bookkeeper:
 - Parallel mode:
+- Auto-review pipeline:
+- Dispatch mode:
+- Runner state:
 
 ## Artifact Index
 
@@ -19,6 +22,11 @@
 - ADR:
 - Implementation:
 - Embedded review checkpoints:
+- Auto-run authorization:
+- Runner receipts:
+- Embedded cross-check set:
+- Escalation artifacts:
+- Pilot metrics:
 - Review 1:
 - Fix report:
 - Review 2:

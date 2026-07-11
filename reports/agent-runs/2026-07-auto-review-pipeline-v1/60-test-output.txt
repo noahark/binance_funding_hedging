@@ -515,3 +515,33 @@ Verdict: T1-R2-1 / T1-R2-2 materially closed; ROUND 3 required for R3-1/R3-2 bef
 - delivery commit/head_sha/diff_fingerprint: NOT CREATED
 - Kimi review-1: NOT DISPATCHED
 - rework_count: 0 (pre-seal inspection loop)
+================================================================
+===== T1 Correction Round 3 evidence (raw stdout/stderr + exit) =====
+ran_at: 2026-07-11 16:42:13 CST
+HEAD: 2a55a78223846f03d2798156ef34cff687797ad1
+branch: stage/2026-07-auto-review-pipeline-v1
+================================================================
+
+----- cmd #1: scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint -----
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+phase=checkpoint
+status=fixing
+EXIT:0
+
+----- cmd #2: git diff --check -----
+EXIT:0
+
+----- cmd #3: grep -rn formal-1 AGENTS.md workflows agents docs schemas reports/agent-runs/_template (expect exit 1 / no matches) -----
+EXIT:1
+
+----- cmd #4: ruby YAML parse (workflow + registry) -----
+YAML PARSE PASSED
+EXIT:0
+
+----- cmd #5: node-graph closure assertion (expect: CLOSURE OK, unresolved: []) -----
+unresolved: []
+CLOSURE OK
+EXIT:0
+
+===== end T1 Correction Round 3 evidence =====
