@@ -313,6 +313,27 @@
             { "type": "null" }
           ]
         },
+        "annualized_funding_24h": {
+          "description": "Estimate-derived 24h annualization (daily_funding_rate * 365), or null when the daily rate is null. Settled history never mixes in.",
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "annualized_funding_7d": {
+          "description": "Settled 7-day calendar-window funding-rate sum * (365 / 7), or null for an empty window. Estimate/lastFundingRate never mixes in.",
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "annualized_funding_30d": {
+          "description": "Settled 30-day calendar-window funding-rate sum * (365 / 30), or null for an empty window.",
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
         "net_daily_yield": {
           "anyOf": [
             { "$ref": "#/$defs/decimal_string" },

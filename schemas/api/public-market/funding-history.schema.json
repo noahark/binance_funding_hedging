@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.binance-funding-hedging/schemas/api/public-market/funding-history.schema.json",
+  "title": "Public Market Funding History",
+  "description": "Same-origin, public read-only settled-history view for one eligible snapshot symbol. The browser never calls Binance; this payload comes from the backend reusing the snapshot time boundary and the per-symbol 30-minute successful-result cache. It carries settled 7D/30D annualization only; it does not return the current-period 24h estimate (the selected snapshot row stays authoritative for that).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "symbol",
+    "data_time",
+    "history_status",
+    "funding_history",
+    "annualized_funding_7d",
+    "annualized_funding_30d"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "public-market-funding-history/v1"
+    },
+    "symbol": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "history_status": {
+      "enum": ["available", "empty"]
+    },
+    "funding_history": {
+      "type": "array",
+      "description": "Newest-first settled records inside the inclusive 30-day window ending at the snapshot data_time. Empty only when the upstream fetch succeeded but the window has no settled records (history_status: empty).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["funding_time", "funding_rate"],
+        "properties": {
+          "funding_time": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "funding_rate": {
+            "$ref": "#/$defs/decimal_string"
+          }
+        }
+      }
+    },
+    "annualized_funding_7d": {
+      "description": "Settled 7-day calendar-window funding-rate sum * (365 / 7), or null for an empty window. Estimate/lastFundingRate never mixes in.",
+      "anyOf": [
+        { "$ref": "#/$defs/decimal_string" },
+        { "type": "null" }
+      ]
+    },
+    "annualized_funding_30d": {
+      "description": "Settled 30-day calendar-window funding-rate sum * (365 / 30), or null for an empty window.",
+      "anyOf": [
+        { "$ref": "#/$defs/decimal_string" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "$defs": {
+    "decimal_string": {
+      "type": "string",
+      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+    }
+  }
+}

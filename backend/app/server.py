@@ -14,7 +14,7 @@ import json
 import mimetypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from ..config import Config, DEFAULT, from_env
 from ..services.snapshot_service import SnapshotService
@@ -32,6 +32,9 @@ class _Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/public-market/snapshot":
             self._handle_snapshot()
+            return
+        if path == "/api/public-market/funding-history":
+            self._handle_funding_history()
             return
         self._serve_static(path)
 
@@ -55,6 +58,23 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(payload)
+
+    def _handle_funding_history(self):
+        # Same-origin, public read-only selected-symbol settled history (Task C).
+        # The route path is fixed; only the ``symbol`` query param is read.
+        # parse_qs drops blank values by default, so ``?symbol=`` is treated as
+        # missing -> the service returns 400 invalid_symbol.
+        values = parse_qs(urlparse(self.path).query).get("symbol")
+        symbol = values[0] if values else None
+        status, payload = self.service.get_funding_history(symbol)
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        if status == 200:
+            self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
 
     def _serve_static(self, path: str):
         if path == "/":

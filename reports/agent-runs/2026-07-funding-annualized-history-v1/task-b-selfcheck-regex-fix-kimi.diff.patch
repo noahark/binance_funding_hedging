@@ -1,0 +1,17 @@
+diff --git a/frontend/self-check.js b/frontend/self-check.js
+index a7bcb1f..861ae0f 100644
+--- a/frontend/self-check.js
++++ b/frontend/self-check.js
+@@ -438,7 +438,11 @@ setTimeout(async () => {
+     // 11. 列名/文案符合契约：资金费率/日费率等非年化列头不得出现"已结算"或"预测"；
+     // 年化 7D/30D 列头允许出现"已结算"，因其确为 settled-history 年化。
+     const tableSection = html.slice(html.indexOf('<table>'), html.indexOf('</table>') + 8);
+-    const headers = [...tableSection.matchAll(/<th[^\u003e]*>([^\u003c]*)\/>th>/g)].map(m => m[0]);
++    const headers = [...tableSection.matchAll(/<th[^>]*>[\s\S]*?<\/th>/g)].map(m => m[0]);
++    const thCount = (tableSection.match(/<th[>\s][^>]*>/g) || []).length;
++    if (headers.length !== thCount) {
++      throw new Error(`列头解析数量不匹配: ${headers.length} != ${thCount}`);
++    }
+     const nonSettledHeaders = headers.filter(h => !h.includes('>年化 7D<') && !h.includes('>年化 30D<'));
+     const bad = nonSettledHeaders.find(h => h.includes('已结算') || h.includes('预测'));
+     if (bad) {

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List
@@ -125,15 +126,37 @@ class BinancePublicClient:
             "warnings": warnings,
         }
 
-    def fetch_funding_rate(self, symbol: str) -> List[dict]:
-        """Live-only: recent funding history for one symbol (limit=20).
+    def fetch_funding_rate(
+        self,
+        symbol: str,
+        *,
+        start_time_ms=None,
+        end_time_ms=None,
+        limit: int = 1000,
+    ) -> List[dict]:
+        """Live-only: settled funding history for one symbol.
+
+        Stage 2026-07 deep-history requests pass ``start_time_ms``/
+        ``end_time_ms`` (inclusive calendar window, ms) with ``limit=1000``.
+        Query parameters are built via :func:`urllib.parse.urlencode` so values
+        are encoded safely; the symbol is never string-interpolated raw.
+
+        Raises on transport/HTTP/parse failure. The snapshot service owns the
+        per-symbol degradation (empty history + null annualization + warning);
+        this method never turns one symbol's failure into a snapshot-wide 503.
 
         Offline relies on the frozen fixture index built in :meth:`fetch_raw`.
         """
         if self.offline:
             return []
         self._bump("GET /fapi/v1/fundingRate")
-        url = f"{self.futures_base_url}/fapi/v1/fundingRate?symbol={symbol}&limit=20"
+        params: Dict[str, str] = {"symbol": symbol, "limit": str(int(limit))}
+        if start_time_ms is not None:
+            params["startTime"] = str(int(start_time_ms))
+        if end_time_ms is not None:
+            params["endTime"] = str(int(end_time_ms))
+        query = urllib.parse.urlencode(params)
+        url = f"{self.futures_base_url}/fapi/v1/fundingRate?{query}"
         return self._http_get(url)
 
     def fetch_ticker_price_map(self) -> Dict[str, str]:

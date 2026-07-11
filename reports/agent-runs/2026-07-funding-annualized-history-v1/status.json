@@ -1,0 +1,592 @@
+{
+  "stage_id": "2026-07-funding-annualized-history-v1",
+  "status": "accepted",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-funding-annualized-history-v1",
+    "created_from_main_sha": "7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1",
+    "created_at": "2026-07-10T05:13:36Z",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "claude_opus_current_session",
+    "provider": "anthropic",
+    "model": "anthropic/claude-opus-4-8",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "Same session also performed the independent review-2 (final_reviewer) audit of the review-1 round; it authored no task implementation or fix, no direction/breakdown/design, and none of the four review-1 outputs. Took over bookkeeping+review-2 from the Codex/GPT session (quota-exhausted). Reviewer+bookkeeper is the sanctioned independent-reviewer role pattern for this repo (fable5-role).",
+    "handover_from": "codex_current_session"
+  },
+  "model_routing": {
+    "task_a": {
+      "domain": "backend_api_contract_schema_data_semantics",
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-backend-claude-glm.prompt.md"
+    },
+    "task_b": {
+      "domain": "frontend_ui_client_integration",
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-frontend-kimi.prompt.md",
+      "depends_on": "backend-contract-and-history"
+    },
+    "task_c": {
+      "domain": "backend_api_contract_schema_data_semantics",
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-history-endpoint-claude-glm.prompt.md",
+      "depends_on": "frontend-table-and-drawer"
+    },
+    "task_d": {
+      "domain": "frontend_ui_client_integration",
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-drawer-history-refinement-kimi.prompt.md",
+      "depends_on": "selected-symbol-history-endpoint"
+    },
+    "review_1": {
+      "backend_task": "kimi",
+      "frontend_task": "claude_glm",
+      "requires_fresh_read_only_session": true
+    },
+    "review_2": {
+      "primary": "claude",
+      "primary_model": "claude-fable-5",
+      "quota_fallback_model": "opus4.8",
+      "strong_reviewer_fallback": "codex",
+      "reason": "Codex/GPT authored the stage design, so an unrelated Anthropic Claude session is the primary review-2 reviewer after runner-level availability check."
+    },
+    "excluded_from_core_work": [
+      "codex"
+    ]
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false,
+    "note": "Serial backend-to-frontend split; the review-feedback amendment adds Task C (backend endpoint) followed by Task D (frontend refinement)."
+  },
+  "embedded_reviews": {},
+  "designer": {
+    "provider": "codex",
+    "model": "Codex/GPT current session",
+    "provider_identity": "openai"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": {
+    "provider": "codex",
+    "model": "Codex/GPT current session",
+    "provider_identity": "openai"
+  },
+  "implementer": {
+    "provider": "claude_glm",
+    "model": "glm-5.2",
+    "provider_identity": "zhipu_glm",
+    "task": "backend-contract-and-history"
+  },
+  "implementers": [
+    {
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "task": "backend-contract-and-history"
+    },
+    {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "task": "frontend-table-and-drawer"
+    },
+    {
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "provider_identity": "zhipu_glm",
+      "task": "selected-symbol-history-endpoint"
+    },
+    {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "task": "drawer-history-and-table-refinement"
+    }
+  ],
+  "fix_authors": [
+    {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi",
+      "task": "frontend-table-and-drawer",
+      "fix": "self-check-11-regex",
+      "dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.prompt.md",
+      "landed_commit": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002",
+      "diff_fingerprint": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002:d6848f21b4364b740ddaaed7d72d30738819c4d262c0a19d99fd377a69b56fa1",
+      "bookkeeper_verified": true
+    }
+  ],
+  "reviewer_1": null,
+  "reviewer_2": null,
+  "r10_checklists": {},
+  "review_1_plan": {
+    "mode": "task_scoped_cross_review",
+    "reason": "The stage has backend tasks A/C authored by Claude-GLM and frontend tasks B/D authored by Kimi. Each formal review-1 packet is constrained to a task whose author has a different provider identity from its reviewer.",
+    "packets": [
+      "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-a-kimi.prompt.md",
+      "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.prompt.md",
+      "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-c-kimi.prompt.md",
+      "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-d-claude-glm.prompt.md"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "backend-contract-and-history",
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2",
+        "provider_identity": "zhipu_glm"
+      },
+      "reviewer": {
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "provider_identity": "moonshot_kimi"
+      },
+      "prompt_path": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-backend-claude-glm.prompt.md",
+      "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend.md",
+      "review_1_dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-a-kimi.prompt.md",
+      "r10_checklist": null,
+      "base_sha": "0206f8bf7236e807b4cd69d7beed02eb41e8ec60",
+      "head_sha": "2e27efcbed960206b43c25054bf6105224942439",
+      "diff_fingerprint": "2e27efcbed960206b43c25054bf6105224942439:85c780708fe546a32f6ef2120841c0176aab313adf81f6d82da82e48fdfdddfb",
+      "test_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt",
+      "changed_files": [
+        "backend/adapters/binance_public.py",
+        "backend/config.py",
+        "backend/domain/snapshot.py",
+        "backend/services/snapshot_service.py",
+        "backend/tests/fixtures/funding-history/**",
+        "backend/tests/test_config.py",
+        "backend/tests/test_funding_history.py",
+        "schemas/api/public-market/snapshot.schema.json",
+        "reports/api-samples/2026-07-funding-annualized-history-v1/**"
+      ],
+      "review_1": {
+        "reviewer": {
+          "provider": "kimi",
+          "model": "kimi-code/kimi-for-coding",
+          "provider_identity": "moonshot_kimi"
+        },
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "provider_identity": "moonshot_kimi",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "2e27efcbed960206b43c25054bf6105224942439:85c780708fe546a32f6ef2120841c0176aab313adf81f6d82da82e48fdfdddfb",
+        "reviewer_prior_involvement": "none",
+        "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-a-kimi.raw-output.md"
+      }
+    },
+    {
+      "id": "frontend-table-and-drawer",
+      "owner": {
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "provider_identity": "moonshot_kimi"
+      },
+      "reviewer": {
+        "provider": "claude_glm",
+        "model": "glm-5.2",
+        "provider_identity": "zhipu_glm"
+      },
+      "prompt_path": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-frontend-kimi.prompt.md",
+      "depends_on": "backend-contract-and-history",
+      "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-frontend.md",
+      "review_1_dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.prompt.md",
+      "r10_checklist": null,
+      "base_sha": "744ce5f0b9445a891c1322bcb34e06ce94c83446",
+      "head_sha": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d",
+      "diff_fingerprint": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d:a3284786251694a44d2e3c9b6161f532dded1e1161ffa939bcd98fb84c446826",
+      "test_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt",
+      "changed_files": [
+        "frontend/fixture/public-market-snapshot.json",
+        "frontend/index.html",
+        "frontend/self-check.js"
+      ],
+      "review_1": {
+        "reviewer": {
+          "provider": "claude_glm",
+          "model": "glm-5.2",
+          "provider_identity": "zhipu_glm"
+        },
+        "provider": "claude_glm",
+        "model": "glm-5.2",
+        "provider_identity": "zhipu_glm",
+        "verdict": "REWORK",
+        "json_schema_valid": true,
+        "diff_fingerprint": "f9f86bb6bcc2040844ad55f4f85937e85d393e5d:a3284786251694a44d2e3c9b6161f532dded1e1161ffa939bcd98fb84c446826",
+        "reviewer_prior_involvement": "none",
+        "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.rework.raw-output.md",
+        "required_fix": "self-check.js:441 header-discrimination regex is a dead assertion; AC5 negative-label guard no-ops (P2, test-integrity only).",
+        "fix_start_prompt_present": true,
+        "fix_start_prompt_source": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.rework.raw-output.md .fix_start_prompt",
+        "fix": {
+          "author": {
+            "provider": "kimi",
+            "model": "kimi-code/kimi-for-coding",
+            "provider_identity": "moonshot_kimi"
+          },
+          "scope": [
+            "frontend/self-check.js"
+          ],
+          "landed_commit": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002",
+          "base_sha": "903155268d1f1302cb47e146af42ee8edc0b68fe",
+          "head_sha": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002",
+          "diff_fingerprint": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002:d6848f21b4364b740ddaaed7d72d30738819c4d262c0a19d99fd377a69b56fa1",
+          "raw_output": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.raw-output.md",
+          "patch": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.diff.patch",
+          "bookkeeper_verification": "Independent: git diff limited to frontend/self-check.js + git diff --check clean; node self-check passes; own 预测-injection into 资金费率 header (index.html:762) makes #11 THROW then reverted clean (annualized 7D/30D exclusion intact); backend 244 passed.",
+          "status": "re_reviewed_accept"
+        },
+        "re_review": {
+          "reviewer": {
+            "provider": "claude_glm",
+            "model": "glm-5.2",
+            "provider_identity": "zhipu_glm",
+            "fresh_read_only": true
+          },
+          "dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-rereview-claude-glm.prompt.md",
+          "base_sha": "903155268d1f1302cb47e146af42ee8edc0b68fe",
+          "head_sha": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002",
+          "diff_fingerprint": "4d55a1c502d9fc4754d092617b1cc07e5aaf4002:d6848f21b4364b740ddaaed7d72d30738819c4d262c0a19d99fd377a69b56fa1",
+          "verdict": "ACCEPT",
+          "json_schema_valid": true,
+          "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-rereview-claude-glm.accept.raw-output.md",
+          "bookkeeper_verification": "verdict JSON schema-valid; fingerprint matches fix range; reviewer zhipu_glm != fix author moonshot_kimi; findings [] / required_fixes []."
+        },
+        "effective_verdict": "ACCEPT"
+      }
+    },
+    {
+      "id": "selected-symbol-history-endpoint",
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2",
+        "provider_identity": "zhipu_glm"
+      },
+      "reviewer": {
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "provider_identity": "moonshot_kimi"
+      },
+      "prompt_path": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-history-endpoint-claude-glm.prompt.md",
+      "depends_on": "frontend-table-and-drawer",
+      "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend-history-fix.md",
+      "review_1_dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-c-kimi.prompt.md",
+      "r10_checklist": null,
+      "base_sha": "5a5b9f6a6d6af744e86061278461ab91356177a4",
+      "head_sha": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e",
+      "diff_fingerprint": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e:5ade324bb23600f51a75c97d48090660e124e75ef1ea6329c48a32ce4094c919",
+      "test_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt",
+      "changed_files": [
+        "backend/app/server.py",
+        "backend/services/snapshot_service.py",
+        "backend/domain/snapshot.py",
+        "backend/tests/test_funding_history.py",
+        "backend/tests/test_funding_history_endpoint.py",
+        "backend/tests/smoke_server.py",
+        "schemas/api/public-market/funding-history.schema.json"
+      ],
+      "review_1": {
+        "reviewer": {
+          "provider": "kimi",
+          "model": "kimi-code/kimi-for-coding",
+          "provider_identity": "moonshot_kimi"
+        },
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "provider_identity": "moonshot_kimi",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "c2bb368d8235f8a8d69d8ebb19810a9c7657b41e:5ade324bb23600f51a75c97d48090660e124e75ef1ea6329c48a32ce4094c919",
+        "reviewer_prior_involvement": "none",
+        "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-c-kimi.raw-output.md"
+      }
+    },
+    {
+      "id": "drawer-history-and-table-refinement",
+      "owner": {
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "provider_identity": "moonshot_kimi"
+      },
+      "reviewer": {
+        "provider": "claude_glm",
+        "model": "glm-5.2",
+        "provider_identity": "zhipu_glm"
+      },
+      "prompt_path": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-drawer-history-refinement-kimi.prompt.md",
+      "depends_on": "selected-symbol-history-endpoint",
+      "implementation_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-frontend-history-fix.md",
+      "review_1_dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-d-claude-glm.prompt.md",
+      "r10_checklist": null,
+      "base_sha": "7480fdbffd13901e9a034b70dec237ac43c080f8",
+      "head_sha": "d21536aa8a221a065c4fbe2b7640e199addca7dc",
+      "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:553e9a36f417d8c7986a26e1d3a5bc629b80958dfc0d979796e6ffb4123aa6a9",
+      "test_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt",
+      "changed_files": [
+        "frontend/fixture/public-market-snapshot.json",
+        "frontend/index.html",
+        "frontend/self-check.js"
+      ],
+      "review_1": {
+        "reviewer": {
+          "provider": "claude_glm",
+          "model": "glm-5.2",
+          "provider_identity": "zhipu_glm"
+        },
+        "provider": "claude_glm",
+        "model": "glm-5.2",
+        "provider_identity": "zhipu_glm",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:553e9a36f417d8c7986a26e1d3a5bc629b80958dfc0d979796e6ffb4123aa6a9",
+        "reviewer_prior_involvement": "none",
+        "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-d-claude-glm.raw-output.md"
+      }
+    }
+  ],
+  "complexity": {
+    "classification": "MEDIUM",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": false,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "Operator requirements document freezes the product intent and core annualization semantics.",
+      "The stage spans backend contract/math and a substantive frontend drawer, requiring recorded design and owner boundaries.",
+      "Serial domain ownership keeps the additive contract explicit without invoking parallel-mode overhead."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {},
+    "skip_reason": "MEDIUM stage with operator-approved requirements captured in reports/follow-ups/2026-07-funding-annualized-history-drawer.md."
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "not_started",
+    "user_approved": false,
+    "note": "Not required: direction panel is skipped under the recorded MEDIUM user-approved route."
+  },
+  "base_sha": "7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1",
+  "head_sha": "4128905f652171d07ca3e757af858d5d9d87fc73",
+  "diff_fingerprint": "4128905f652171d07ca3e757af858d5d9d87fc73:bacef8f9ef7dcbf773398b177262e15f9335b577493a9f3ab1e7130b5828b180",
+  "changed_files": [
+    "backend/app/server.py",
+    "backend/adapters/binance_public.py",
+    "backend/config.py",
+    "backend/domain/snapshot.py",
+    "backend/services/snapshot_service.py",
+    "backend/tests/fixtures/funding-history/**",
+    "backend/tests/test_config.py",
+    "backend/tests/test_funding_history.py",
+    "backend/tests/test_funding_history_endpoint.py",
+    "backend/tests/smoke_server.py",
+    "frontend/fixture/public-market-snapshot.json",
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "reports/api-samples/2026-07-funding-annualized-history-v1/**",
+    "reports/agent-runs/2026-07-funding-annualized-history-v1/**",
+    "schemas/api/public-market/snapshot.schema.json",
+    "schemas/api/public-market/funding-history.schema.json"
+  ],
+  "planning_checkpoint": {
+    "package_commit": "bf0e5f0",
+    "branch": "stage/2026-07-funding-annualized-history-v1",
+    "working_tree": "User-owned follow-up README modification and untracked funding-history requirements file remain unstaged and uncommitted.",
+    "command_evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt"
+  },
+  "workspace_checkpoint": {
+    "recorded_at": "2026-07-10T11:49:18Z",
+    "stage_worktree_clean": true,
+    "isolated_document_commit": "1ec2047",
+    "isolated_document_branch": "docs/2026-07-10-session-artifacts",
+    "note": "The operator's follow-up and auto-review artifacts were preserved in a separate documentation commit. They are intentionally not part of this product stage branch."
+  },
+  "human_approval": {
+    "stage_package_approved": true,
+    "approved_at": "2026-07-10T05:45:20Z",
+    "scope": "User requested Task A code-execution body and subsequently authorized Task B frontend execution.",
+    "task_a_dispatch_authorized_at": "2026-07-10T05:45:20Z",
+    "task_b_dispatch_authorized_at": "2026-07-10T10:31:09Z",
+    "review_feedback_fix_package_prepared_at": "2026-07-10T12:17:06Z",
+    "review_feedback_fix_dispatch_authorized": true,
+    "task_c_execution_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-backend-history-fix.md",
+    "task_c_committed_at": "2026-07-10T13:22:21Z",
+    "task_d_execution_report": "reports/agent-runs/2026-07-funding-annualized-history-v1/20-implementation-frontend-history-fix.md",
+    "task_d_committed_at": "2026-07-10T14:52:44Z"
+  },
+  "contract_decision": {
+    "recorded_at": "2026-07-10T07:24:47Z",
+    "schema_fields": "annualized_funding_24h, annualized_funding_7d, and annualized_funding_30d are optional decimal-or-null schema properties to preserve public-market-snapshot/v1 backward compatibility.",
+    "current_service_guarantee": "Every current SnapshotService output row emits all three fields as decimal strings or null.",
+    "legacy_compatibility": "Frozen v0.1 snapshots remain valid; do not modify frozen samples or legacy hand-authored rows solely for these additive fields."
+  },
+  "preliminary_reviews": {
+    "task_a_kimi": {
+      "reviewer": {
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "provider_identity": "moonshot_kimi"
+      },
+      "raw_output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-a-kimi.preflight-blocked.raw-output.md",
+      "received_at": "2026-07-10T10:26:28Z",
+      "disposition": "non_accepting_preflight_blocked",
+      "formal_review_1": false,
+      "diff_fingerprint": "2e27efcbed960206b43c25054bf6105224942439:85c780708fe546a32f6ef2120841c0176aab313adf81f6d82da82e48fdfdddfb",
+      "notes": "The reviewer correctly found the pre-review gate blocked. Its recommendation to change the whole stage to review_1 was deferred at the time because Task B had not been implemented; Task B is now committed, but this output remains non-accepting because pre-review never passed."
+    }
+  },
+  "task_b_preflight_findings": [
+    {
+      "severity": "P0",
+      "title": "Drawer markup follows the application script",
+      "evidence": "Pre-fix static inspection found drawer markup after the main application script. The bounded fix moved #drawer-backdrop and #drawer before that script and added a static self-check assertion.",
+      "fix_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-drawer-dom-order-fix-kimi.prompt.md",
+      "disposition": "fixed_in_f9f86bb6bcc2040844ad55f4f85937e85d393e5d",
+      "verification": "node frontend/self-check.js passes, including the static drawer-before-script assertion and existing drawer interaction checks."
+    }
+  ],
+  "task_d_bookkeeper_findings": [
+    {
+      "severity": "P1",
+      "title": "Stale history response can mutate the new Drawer selection after response-body parsing",
+      "evidence": "fetchHistory checks request/selection state after await fetch(), then awaits res.json() without another active-request check before merging into selectedRow(). A selection change during response-body parsing can therefore apply the old symbol's settled history to the new row.",
+      "fix_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-drawer-history-race-fix-kimi.prompt.md",
+      "disposition": "fixed_in_d21536aa8a221a065c4fbe2b7640e199addca7dc",
+      "verification": "node frontend/self-check.js passes the delayed response-body race plus wrong-symbol and schema-version mismatch rejection tests."
+    }
+  ],
+  "tests": {
+    "status": "passed",
+    "commands": [
+      "python3 -m pytest backend/tests -q -> 244 passed in 5.86s after Task D",
+      "python3 -m json.tool schemas/api/public-market/snapshot.schema.json >/dev/null -> PASS",
+      "python3 -m json.tool schemas/api/public-market/funding-history.schema.json >/dev/null -> PASS",
+      "git diff --check -> PASS",
+      "node frontend/self-check.js -> PASS, including on-demand history, retry, delayed response-body race, wrong-symbol, and schema-version mismatch coverage",
+      "offline HTTP endpoint smoke on temporary port 8790 -> valid symbol 200, missing symbol 400, unknown symbol 404",
+      "no-credential live-public endpoint smoke on temporary port 8791 -> SKLUSDT 200, history_status=available, 179 records, no annualized_funding_24h field",
+      "offline same-origin stage smoke on temporary port 8792 -> route column absent, 620px Drawer CSS and 3-card grid present, selected-history endpoint 200"
+    ]
+  },
+  "pre_review_validation": {
+    "command": "python3 scripts/validate-stage.py 2026-07-funding-annualized-history-v1 --phase pre-review",
+    "passed": true,
+    "run_at": "2026-07-10T22:58:37Z",
+    "prepared_commit": "86d2c30",
+    "evidence": "reports/agent-runs/2026-07-funding-annualized-history-v1/60-test-output.txt"
+  },
+  "review_1": {
+    "mode": "task_scoped_cross_review",
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "aggregate_verdict": "ACCEPT",
+    "accept_count": 3,
+    "rework_count": 0,
+    "blocking_tasks": [
+      "frontend-table-and-drawer"
+    ],
+    "per_task": "see tasks[].review_1",
+    "json_schema_valid": true,
+    "diff_fingerprint": "4128905f652171d07ca3e757af858d5d9d87fc73:bacef8f9ef7dcbf773398b177262e15f9335b577493a9f3ab1e7130b5828b180",
+    "reviewer_prior_involvement": "none",
+    "invalid_json_attempts": 0,
+    "note": "All four task-scoped review-1 verdicts effective ACCEPT: A(kimi) C(kimi) D(claude_glm) direct ACCEPT; B(claude_glm) REWORK -> Kimi self-check fix (4d55a1c, bookkeeper-verified) -> fresh Claude-GLM re-review ACCEPT (fingerprint-matched). review-1 gate passed.",
+    "verdict": "ACCEPT"
+  },
+  "review_2": {
+    "reviewer": {
+      "provider": "anthropic",
+      "model": "anthropic/claude-opus-4-8",
+      "provider_identity": "anthropic"
+    },
+    "provider": "anthropic",
+    "model": "anthropic/claude-opus-4-8",
+    "primary_provider": "claude",
+    "fallback_provider": "codex",
+    "fallback_reason": "Codex/GPT authored the stage design. Use Codex/GPT only through the documented strong-reviewer override when the unrelated Claude reviewer is unavailable or ineligible.",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "Unrelated anthropic session (this session). Also the stage bookkeeper (reviewer+bookkeeper dual-hat, disclosed in bookkeeper field). Not an implementer/fix author (zhipu_glm/moonshot_kimi) and not a designer (openai). It ran a pre-fix independent audit (independent_review_2_audit); this is the final review-2 on the recomputed combined range.",
+    "unrelated_reviewer_unavailable_evidence": null,
+    "design_conflict_override": {
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
+    },
+    "open_p0_p1": false,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "4128905f652171d07ca3e757af858d5d9d87fc73:bacef8f9ef7dcbf773398b177262e15f9335b577493a9f3ab1e7130b5828b180",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0,
+    "provider_identity": "anthropic",
+    "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-2-final-claude-opus.accept.raw-output.md",
+    "synthesis": "reports/agent-runs/2026-07-funding-annualized-history-v1/50-review-2.md"
+  },
+  "rework_count": 1,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "next_action": "merge_to_main_no_ff",
+  "updated_at": "2026-07-11T02:28:42Z",
+  "independent_review_2_audit": {
+    "role": "final_reviewer",
+    "provider": "anthropic",
+    "model": "anthropic/claude-opus-4-8",
+    "provider_identity": "anthropic",
+    "reviewer_prior_involvement": "none",
+    "timing": "ran_as_review_round_audit_before_review_1_fully_accepted",
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "d21536aa8a221a065c4fbe2b7640e199addca7dc:378c060d86086d7d9a6c8eff94aad1e0998bdd014a255070eb1504fe3bca62a8",
+    "output": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-2-claude-opus.raw-output.md",
+    "independent_checks": "Recomputed all 5 diff fingerprints (combined + A/B/C/D) -> all MATCH; re-ran node self-check (passes only because #11 is dead) and backend pytest (244 passed); grep-confirmed Task D badgeForRouteClass orphan and Task A symbol-only cache key.",
+    "note": "NOT the final review-2 gate. Concurs with Task B review-1 REWORK. A fresh review-2 must run after Task B fix + Task B re-review-1 ACCEPT on the recomputed combined range before any acceptance."
+  },
+  "fix_dispatch": {
+    "task": "frontend-table-and-drawer",
+    "owner": {
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "provider_identity": "moonshot_kimi"
+    },
+    "defect": "frontend/self-check.js:441 header-discrimination regex /<th[^>]*>([^<]*)\\/>th>/g never matches </th>; AC5 negative-label guard is a dead assertion.",
+    "scope": [
+      "frontend/self-check.js"
+    ],
+    "dispatch_prompt": "reports/agent-runs/2026-07-funding-annualized-history-v1/task-b-selfcheck-regex-fix-kimi.prompt.md",
+    "fix_start_prompt_source": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.rework.raw-output.md .fix_start_prompt",
+    "executor": "human pastes into fresh Kimi session; Kimi edits only frontend/self-check.js, does NOT commit and does NOT touch status.json; returns raw output + diff.patch for bookkeeper to land.",
+    "post_fix": "bookkeeper commits Task B fix on new range -> re-review Task B (fresh claude_glm read-only) to ACCEPT -> all review-1 ACCEPT -> run review-2 on recomputed combined range."
+  },
+  "user_acceptance": {
+    "accepted_by": "user (zhaofangzhou1995@gmail.com)",
+    "accepted_at": "2026-07-11T02:28:42Z",
+    "method": "visual acceptance on the running app (http://127.0.0.1:8787): annualized columns, on-demand history drawer, private-account panel (after .env private channel restored). Explicit merge+push authorization.",
+    "authorized_merge": "no-ff back to main"
+  }
+}
