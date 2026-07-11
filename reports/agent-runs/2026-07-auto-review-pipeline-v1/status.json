@@ -35,6 +35,8 @@
     ]
   },
   "intake_commit": "9573d2acfd4ef2e83274cb811a0d347c64ed283f",
+  "intake_review_fixes_commit": "345ba61d6228248089406052b4e280e23ebad413",
+  "stage_design_commit": "c38c5a8e682d79b4cd1e663f3c164278365f777a",
   "model_routing": {
     "implementation": {
       "status": "provisional_pending_development_breakdown",
@@ -219,5 +221,5 @@
   },
   "terminal_reason": null,
   "next_action": "development-breakdown",
-  "updated_at": "2026-07-11T04:01:18Z"
+  "updated_at": "2026-07-11T04:02:09Z"
 }
