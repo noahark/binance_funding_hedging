@@ -367,7 +367,7 @@
       "slug": "seal-and-validator",
       "title": "Deterministic seal and validator",
       "sequence": 2,
-      "status": "ready_for_dispatch_preparation",
+      "status": "ready_for_human_dispatch",
       "depends_on": [
         "T1"
       ],
@@ -408,10 +408,10 @@
         "docs/product/**",
         "all paths not explicitly listed as writable or shared append-only evidence"
       ],
-      "prompt_path": null,
+      "prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T2-seal-and-validator-claude-glm.prompt.md",
       "fix_prompt_path": null,
       "r10_checklist": null,
-      "base_sha": null,
+      "base_sha": "ce9f83afeedc9ec8739548f7c316df2a79ebcd3b",
       "head_sha": null,
       "diff_fingerprint": null,
       "test_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
@@ -422,7 +422,11 @@
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
-      }
+      },
+      "dispatch_executor": "human",
+      "dispatch_packet_status": "ready_not_executed",
+      "dispatch_packet_commit": "ce9f83afeedc9ec8739548f7c316df2a79ebcd3b",
+      "adapter_reference": "agents/registry.yaml#adapters.claude_glm.noninteractive_command"
     },
     {
       "id": "T3",
@@ -638,6 +642,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "prepare_T2_dispatch_packet",
-  "updated_at": "2026-07-11T17:10:00+08:00"
+  "next_action": "human_execute_T2_dispatch_packet_then_return_raw_evidence_to_bookkeeper",
+  "updated_at": "2026-07-11T17:20:00+08:00"
 }
