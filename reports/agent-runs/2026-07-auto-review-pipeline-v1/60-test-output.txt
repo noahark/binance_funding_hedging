@@ -607,3 +607,36 @@ EXIT:0
 
 $ grep -rn "formal-1" scripts   # expect no matches / exit 1
 EXIT:1
+
+### T2 Fable5 bookkeeper reverification + SEAL + pre-review gate (2026-07-11 18:05 CST)
+
+Boundary: 8 changed paths = 6 T2 delivery + 2 shared evidence; 0 forbidden. PASS
+Independent rerun (not reusing GLM outputs):
+- python3 -m unittest discover -s scripts/tests: Ran 78 tests OK EXIT:0
+- py_compile validate-stage/harness_stage_lib/stage-seal: EXIT:0
+- validator checkpoint: PASS EXIT:0 / git diff --check EXIT:0 / grep formal-1 scripts EXIT:1
+- import scan: stdlib-only confirmed (only stdlib modules incl. copy)
+- fingerprint anchor 1 (T1 sealed range, via new lib): EQUAL
+- fingerprint anchor 2 (2026-07-borrow-cost-coverage-v2 recorded value, via new lib): EQUAL
+- hand-written validator counterexamples (17 independent cases, authorization 10 + receipt 7): ALL as expected
+  (incl. cross-field call_budget after==before-1, bookkeeper_decision rejection, newline/abs/traversal paths)
+- validate-stage.py diff: 4 hunks read line-by-line; fingerprint delegation only removal (-17 = old inline body);
+  auto checks gated on auto_review_enabled(); AUTO_TRANSITIONS 13 tuples == workflow 8 rows with one_of expansion
+- stage-seal.py: nine-step structure confirmed; git add uses explicit verified paths (no -A); crash branches present
+
+SEAL:
+- T2 delivery commit (H_T2): a7fd7373545e581a2b25f4643917dc213e998f66 (8 files, +2499/-17)
+- base: ce9f83afeedc9ec8739548f7c316df2a79ebcd3b
+- diff_fingerprint: a7fd7373545e581a2b25f4643917dc213e998f66:2509ae831482876ed47dfedfbb41941c672a0035c60487cd0c12876362072b97
+  (computed twice: shell pipeline AND the newly delivered harness_stage_lib.compute_diff_fingerprint; identical)
+- status bind commit: 4b1e19c (top-level range rolled to T2; tasks[T2] sealed)
+
+Gate:
+- scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase pre-review: STAGE VALIDATION PASSED EXIT:0
+  (note: this gate ran on the T2-amended validator itself — the delegated fingerprint path verified the T2 range in production)
+
+Review-1 dispatch preparation:
+- packet: task-T2-review1-kimi.prompt.md (fresh read-only Kimi, first_reviewer, human executor)
+- range role split stated: 3 commits = 2 bookkeeper (333b469, d9f1f68) + 1 delivery (a7fd737)
+- rework_count: 0
+- Kimi T2 review-1: NOT DISPATCHED (human gate)

@@ -3,10 +3,14 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `implementing` (T1 review-1 **ACCEPT**; T2 dispatch preparation)
-- T1 review-1: Kimi ACCEPT, 0 findings, schema-valid verdict verified by
-  bookkeeper (`30-review-1-T1.md` + `review-1-T1-round1.verdict.json`);
-  `rework_count` = 0
+- Status: `review_1` (T2 sealed; awaiting human-executed Kimi review-1)
+- T1: sealed `25383e8`, Kimi review-1 **ACCEPT** (`30-review-1-T1.md`)
+- T2: delivered by GLM, reverified by bookkeeper (78 tests, dual fingerprint
+  anchors, 17 independent counterexamples, validator diff read hunk-by-hunk),
+  sealed at H_T2 `a7fd737`, fingerprint
+  `a7fd7373545e581a2b25f4643917dc213e998f66:2509ae831482876ed47dfedfbb41941c672a0035c60487cd0c12876362072b97`,
+  bind `4b1e19c`, `--phase pre-review` PASSED (on the T2-amended validator
+  itself); `rework_count` = 0
 - T1 seal: delivery commit `25383e8` (H_T1), fingerprint
   `25383e86d0b10b3e8bd3e0f51254588826c9601b:242cff3040ac66e79ce2dbb5a13dab6bf92043765884ed9f0288cf8decc80486`,
   bind commit `2d519f0`, `--phase pre-review` PASSED
@@ -90,8 +94,9 @@ README 条目。
 - Review-1 (T1): **ACCEPT** — `30-review-1-T1.md` +
   `review-1-T1-round1.verdict.json` (schema-valid, fingerprint bound)
 - T2 dispatch packet: `task-T2-seal-and-validator-claude-glm.prompt.md` —
-  ready, not executed (T2 base `ce9f83a`)
-- Review-1 (T2/T3): not started
+  executed (T2 base `ce9f83a`, delivery `a7fd737`)
+- T2 review-1 packet: `task-T2-review1-kimi.prompt.md` — ready, not executed
+- Review-1 (T2): sealed, awaiting Kimi; (T3): not started
 - Fix report: not started (formal `rework_count` = 0)
 - Review-2: not started (routing pending operator decision)
 - Intake checks: `60-test-output.txt`
@@ -284,15 +289,32 @@ README 条目。
 - T1 → `review_1_accept`; per the serial gate, T2 (`seal-and-validator`) is
   unblocked.
 
+## T2 Delivery And Seal
+
+- GLM delivered T2 within the frozen boundary (8 paths, 0 violations, no
+  blockers; T1 contract files untouched). Bookkeeper reverified independently:
+  78 tests, frozen suite, stdlib-only import scan, dual fingerprint anchors
+  (T1 sealed range + `2026-07-borrow-cost-coverage-v2` recorded value, both
+  via the new library), 17 rewritten counterexamples through the hand-written
+  validators, validator diff read hunk-by-hunk (fingerprint delegation +
+  auto checks gated on `enabled`), `AUTO_TRANSITIONS` 13 tuples matched to the
+  workflow's 8 rows with `one_of` expansion, seal nine-step structure and
+  explicit-path `git add` confirmed.
+- Sealed: H_T2 `a7fd737`; bind `4b1e19c`; `--phase pre-review` PASSED — this
+  gate ran on the T2-amended validator, so the delegated fingerprint path has
+  already verified a production range.
+
 ## 下一步
 
-Human operator executes `task-T2-seal-and-validator-claude-glm.prompt.md`
-(`claude-glm --model glm-5.2 -p "$(cat <packet>)"`). GLM implements the
-deterministic mechanics (harness_stage_lib, stage-seal, validator auto
-support, three stdlib-only test modules), appends report/evidence, and stops
-without committing. Fable5 bookkeeper then inspects boundaries, runs the
-frozen T2 suite, seals T2, and prepares the T2 Kimi review-1 packet.
+Human operator executes `task-T2-review1-kimi.prompt.md`
+(`kimi --model kimi-code/kimi-for-coding -p "$(cat <packet>)"`, fresh
+read-only session; unittest over temp repos is allowed, worktree writes are
+not). Operator returns raw stdout to the Fable5 bookkeeper, who lands
+`30-review-1-T2.md` plus the verbatim verdict JSON and routes ACCEPT → T3
+dispatch preparation or REWORK → `fix_start_prompt` dispatch (first formal
+`rework_count` charge). The packet states the 3-commit range role split
+(2 bookkeeper + 1 delivery).
 
-本地北京时间: 2026-07-11 17:10:00 CST
-下一步模型: human operator → Claude-GLM（T2 implementer）
-下一步任务: 人工执行 T2 dispatch packet；实现者不得 commit、不得写 status/handoff、不得触碰 T1 已交付契约文件与 T3 文件。
+本地北京时间: 2026-07-11 18:05:00 CST
+下一步模型: human operator → Kimi（T2 review-1, first_reviewer, fresh session）
+下一步任务: 人工执行 T2 review-1 packet；raw 输出交回 Fable5 bookkeeper 落盘 verdict 并推进。
