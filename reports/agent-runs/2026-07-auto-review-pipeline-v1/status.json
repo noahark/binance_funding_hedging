@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -130,9 +130,9 @@
     "provider": "claude_glm",
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2[1m]",
-    "status": "T2_review_1_accept_awaiting_T3_dispatch",
+    "status": "T3_delivered_awaiting_review_1",
     "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
-    "note": "T1 (25383e8) and T2 (a7fd737) both delivered and Kimi review-1 ACCEPT. T3 not yet dispatched."
+    "note": "T1 (25383e8) and T2 (a7fd737) review-1 ACCEPT; T3 delivered at d42e031, sealed, awaiting review-1."
   },
   "implementers": [
     {
@@ -150,6 +150,14 @@
       "model": "glm-5.2[1m]",
       "status": "T2_review_1_accept",
       "task_id": "T2"
+    },
+    {
+      "id": "claude_glm",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "status": "T3_delivered_awaiting_review_1",
+      "task_id": "T3"
     }
   ],
   "fix_authors": [
@@ -467,7 +475,7 @@
       "slug": "runner-and-integration",
       "title": "Auto-review runner and integration",
       "sequence": 3,
-      "status": "ready_for_human_dispatch",
+      "status": "sealed_awaiting_review_1",
       "depends_on": [
         "T2"
       ],
@@ -506,8 +514,8 @@
       "fix_prompt_path": null,
       "r10_checklist": null,
       "base_sha": "fff4e1406fb3b340532e10b0ee88661c722b82f4",
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "head_sha": "d42e031d8b60aa6ed9169308cedc3faad3a8c9ea",
+      "diff_fingerprint": "d42e031d8b60aa6ed9169308cedc3faad3a8c9ea:2deb5e9e54ffc6c40a02b55f30d5403c3526fddcf1708cd544b544fa44d5c9e8",
       "test_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
       "review_1": {
         "reviewer": null,
@@ -518,9 +526,10 @@
         "diff_fingerprint": null
       },
       "dispatch_executor": "human",
-      "dispatch_packet_status": "ready_not_executed",
+      "dispatch_packet_status": "completed",
       "dispatch_packet_commit": "fff4e1406fb3b340532e10b0ee88661c722b82f4",
-      "adapter_reference": "agents/registry.yaml#adapters.claude_glm.noninteractive_command"
+      "adapter_reference": "agents/registry.yaml#adapters.claude_glm.noninteractive_command",
+      "review_1_prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T3-review1-kimi.prompt.md"
     }
   ],
   "complexity": {
@@ -548,9 +557,9 @@
     "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-design-review/40-operator-decision-table.md",
     "user_approved": true
   },
-  "base_sha": "ce9f83afeedc9ec8739548f7c316df2a79ebcd3b",
-  "head_sha": "a7fd7373545e581a2b25f4643917dc213e998f66",
-  "diff_fingerprint": "a7fd7373545e581a2b25f4643917dc213e998f66:2509ae831482876ed47dfedfbb41941c672a0035c60487cd0c12876362072b97",
+  "base_sha": "fff4e1406fb3b340532e10b0ee88661c722b82f4",
+  "head_sha": "d42e031d8b60aa6ed9169308cedc3faad3a8c9ea",
+  "diff_fingerprint": "d42e031d8b60aa6ed9169308cedc3faad3a8c9ea:2deb5e9e54ffc6c40a02b55f30d5403c3526fddcf1708cd544b544fa44d5c9e8",
   "changed_files": [
     "reports/agent-runs/2026-07-auto-review-pipeline-design-review/**",
     "reports/follow-ups/2026-07-auto-review-pipeline-design-note.md",
@@ -616,16 +625,16 @@
     ]
   },
   "review_1": {
-    "reviewer": "kimi",
-    "provider": "kimi",
-    "model": "kimi-code/kimi-for-coding",
-    "open_p0_p1": 0,
-    "verdict": "ACCEPT",
-    "json_schema_valid": true,
-    "diff_fingerprint": "a7fd7373545e581a2b25f4643917dc213e998f66:2509ae831482876ed47dfedfbb41941c672a0035c60487cd0c12876362072b97",
-    "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_pending": false,
-    "fix_start_prompt_present": false,
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "reviewer_prior_involvement": null,
+    "reviewer_prior_involvement_pending": true,
+    "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
@@ -680,6 +689,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_T3_dispatch_packet_then_return_raw_evidence_to_bookkeeper",
-  "updated_at": "2026-07-11T18:26:00+08:00"
+  "next_action": "human_execute_T3_kimi_review_1_packet",
+  "updated_at": "2026-07-11T19:25:00+08:00"
 }
