@@ -130,8 +130,9 @@
     "provider": "claude_glm",
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2[1m]",
-    "status": "round1_v2_completed_round2_required",
-    "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md"
+    "status": "T1_delivered_review_1_accept",
+    "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
+    "note": "T1 delivered at 25383e8 after pre-seal correction rounds 1v2/2/3; Kimi review-1 ACCEPT. T2 not yet dispatched."
   },
   "implementers": [
     {
@@ -139,7 +140,7 @@
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
-      "status": "round1_v2_completed_round2_required",
+      "status": "T1_delivered_review_1_accept",
       "task_id": "T1"
     }
   ],
@@ -151,7 +152,25 @@
       "model": "glm-5.2[1m]",
       "task_id": "T1",
       "scope": "pre-seal contract correction round1-v2",
-      "status": "completed_reinspection_rework"
+      "status": "completed_superseded_by_round2"
+    },
+    {
+      "id": "claude_glm",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "task_id": "T1",
+      "scope": "pre-seal contract correction round2 (T1-R2-1/R2-2)",
+      "status": "completed_reinspection_found_R3"
+    },
+    {
+      "id": "claude_glm",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "task_id": "T1",
+      "scope": "pre-seal contract correction round3 (T1-R3-1/R3-2 node-graph closure)",
+      "status": "completed_verified_sealed"
     }
   ],
   "reviewer_1": {
@@ -643,5 +662,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_execute_T2_dispatch_packet_then_return_raw_evidence_to_bookkeeper",
-  "updated_at": "2026-07-11T17:20:00+08:00"
+  "updated_at": "2026-07-11T17:40:00+08:00"
 }

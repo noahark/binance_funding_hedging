@@ -69,8 +69,10 @@ README 条目。
 - Design: `10-design.md`
 - ADR: `11-adr.md`
 - Development breakdown: `12-development-breakdown.md` — frozen for dispatch preparation
-- Implementation: `20-implementation.md` — completion claim received; correction required
+- Implementation: `20-implementation.md` — T1 delivered (initial + correction
+  rounds 1v2/2/3), sealed at `25383e8`; T2/T3 not started
 - Bookkeeper inspection: `21-bookkeeper-inspection-T1.md` — REWORK BEFORE SEAL
+  (historical; all findings closed pre-seal)
 - T1 correction packet: `task-T1-correction-round1-claude-glm.prompt.md`
 - Fable5 second inspection: `22-second-inspection-T1-fable5.md`
 - Inspection merge: `23-T1-inspection-merge.md`
@@ -81,9 +83,17 @@ README 条目。
   — executed
 - Round2 Fable5 reinspection: `25-second-reinspection-T1-fable5.md`
 - T1 correction round3 packet: `task-T1-correction-round3-claude-glm.prompt.md`
-- Review-1: not started
-- Fix report: not started
-- Review-2: not started
+- T1 round2 reinspection (Fable5): `25-second-reinspection-T1-fable5.md`
+- T1 correction round3 packet: `task-T1-correction-round3-claude-glm.prompt.md`
+  — executed, verified, sealed
+- T1 review-1 packet: `task-T1-review1-kimi.prompt.md` — executed
+- Review-1 (T1): **ACCEPT** — `30-review-1-T1.md` +
+  `review-1-T1-round1.verdict.json` (schema-valid, fingerprint bound)
+- T2 dispatch packet: `task-T2-seal-and-validator-claude-glm.prompt.md` —
+  ready, not executed (T2 base `ce9f83a`)
+- Review-1 (T2/T3): not started
+- Fix report: not started (formal `rework_count` = 0)
+- Review-2: not started (routing pending operator decision)
 - Intake checks: `60-test-output.txt`
 - Status JSON: `status.json`
 
@@ -148,7 +158,8 @@ README 条目。
   strong-reviewer disclosure path.
 - Topology: strict serial `T1 → T2 → T3`
 - T1 `contract-and-schemas`: Claude-GLM owner; fresh Kimi review-1
-- T2 `seal-and-validator`: blocked until T1 review-1 ACCEPT
+- T2 `seal-and-validator`: blocked until T1 review-1 ACCEPT (now satisfied;
+  T2 packet ready)
 - T3 `runner-and-integration`: blocked until T2 review-1 ACCEPT
 - Shared implementer writes: append-only `20-implementation.md` and
   `60-test-output.txt`; `status.json`, `70-handoff.md`, review files, commits,
@@ -157,17 +168,15 @@ README 条目。
 
 ## Blockers
 
-- B1–B5/A2/A3/A4/A6 (round1-v2) and T1-R2-1/R2-2 (round2): materially closed;
-  independently reverified by Fable5 with rewritten counterexamples
-  (`25-second-reinspection-T1-fable5.md`, 16 schema cases + structural
-  assertions + frozen suite, all as expected).
-- T1-R3-1: `node_transitions.embedded_cross_check` targets
-  `identical_post_cross_check_blocking_rerun` but the receiving key is named
-  `post_cross_check_blocking` — node graph does not close.
-- T1-R3-2: `node_transitions.review_1.invalid_json.after_retry_limit` targets
-  `serial_unit_fallback`, which has no receiving key definition.
-- T1 delivery commit, fingerprint, validator `pre-review`, and Kimi review-1
-  are blocked until round3 (two naming-closure fixes) passes reinspection.
+- **Current: none for T2 dispatch.** T2 packet is bound and awaits human
+  execution.
+- All T1 pre-seal findings are closed and verified: B1–B5/A2/A3/A4/A6
+  (round1-v2), T1-R2-1/R2-2 (round2), T1-R3-1/R3-2 (round3 node-graph
+  closure, `unresolved=[]`). Evidence: `25-second-reinspection-T1-fable5.md`
+  and the `60-test-output.txt` round3+seal block. T1 sealed at `25383e8` and
+  passed Kimi review-1 (ACCEPT).
+- Standing (not T2 blockers): review-2 routing pending operator decision;
+  A1 Authority Order promotion deferred as design-amendment candidate.
 
 ## T1 Dispatch Packet
 
