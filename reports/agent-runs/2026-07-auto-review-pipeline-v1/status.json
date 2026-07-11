@@ -72,13 +72,14 @@
       "provider_must_differ_from_reviewed_unit_authors": true
     },
     "review_2": {
-      "status": "pending_operator_routing_decision",
+      "status": "override_evidence_ready_operator_dispatch_pending",
       "note": "Both configured high-end providers, OpenAI/Codex and Anthropic/Claude, participated in the pre-stage decision chain. Stage design must record truthful prior involvement and an eligible final-review route or disclosure override evidence.",
       "stage_range": {
         "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
         "head_sha": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5",
         "diff_fingerprint": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:54186cecdb387a52a5d200acf3aa7fb1730f98256a3a53c040bd7bb01993f9e5"
-      }
+      },
+      "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-stage-review2-operator-choice.prompt.md"
     },
     "excluded_from_core_work": [
       "codex"
@@ -689,13 +690,13 @@
     "reviewer": null,
     "provider": null,
     "model": null,
-    "primary_provider": null,
+    "primary_provider": "operator_choice_gpt56_family_or_claude",
     "fallback_provider": null,
-    "fallback_reason": null,
+    "fallback_reason": "service_unavailable (Gemini network-unreachable per operator 2026-07-11) + design-conflict ineligibility of both registered decision models",
     "reviewer_prior_involvement": null,
     "reviewer_prior_involvement_pending": true,
     "reviewer_prior_involvement_notes": null,
-    "unrelated_reviewer_unavailable_evidence": null,
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-unrelated-reviewer-unavailable-evidence.md",
     "design_conflict_override": {
       "used": false,
       "reason": null,
@@ -707,7 +708,8 @@
     "diff_fingerprint": null,
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0
+    "invalid_json_attempts": 0,
+    "routing_note": "Operator dispatches personally, selecting from gpt-5.6-sol>terra>luna (openai) or claude-fable-5/opus4.8 (anthropic) per cross-review principle and token budget at dispatch time; packet is provider-neutral with per-provider disclosure branches. Actual model recorded truthfully on landing."
   },
   "rework_count": 1,
   "max_rework": 3,
@@ -736,6 +738,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "operator_resolve_review_2_routing_gemini_or_disclosure_override",
-  "updated_at": "2026-07-11T20:50:00+08:00"
+  "next_action": "operator_dispatch_review_2_packet_model_of_choice",
+  "updated_at": "2026-07-11T21:10:00+08:00"
 }

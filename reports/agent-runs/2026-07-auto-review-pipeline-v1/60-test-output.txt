@@ -839,3 +839,14 @@ Round-2 review dispatch preparation:
 - scripts/validate-stage.py --phase pre-review (stage-level range, status=review_2): STAGE VALIDATION PASSED EXIT:0
 - Review-2: NOT DISPATCHED — routing is a pending operator decision (Route A Gemini vs Route B disclosure override);
   decision materials landed in 70-handoff.md
+
+### Review-2 routing resolution + packet preparation (2026-07-11 21:10 CST, bookkeeper=Fable5)
+- Operator decision: review-2 dispatched personally from the high-end pool — gpt-5.6-sol > gpt-5.6-terra > gpt-5.6-luna
+  (openai, descending) or claude-fable-5 / opus4.8 (anthropic) — per cross-review principle + token budget at dispatch time
+- Override precondition evidence landed: review-2-unrelated-reviewer-unavailable-evidence.md
+  (Gemini service_unavailable per operator + both registered decision models design-conflicted)
+- Provider-neutral packet landed: task-stage-review2-operator-choice.prompt.md
+  (role=final_reviewer; per-provider disclosure branches; anthropic branch mandates explicit bookkeeper dual-hat risk review;
+  requirements authority = frozen 40-operator-decision-table.md above 00-task/10-design; stage range a385c7a..4c668bb + fingerprint)
+- Follow-up recorded: agents/registry.yaml codex.default_model still 'gpt-5.5'; GPT-5.6 family exists (registry refresh, future sync)
+- status: review_2; validator checkpoint rerun below
