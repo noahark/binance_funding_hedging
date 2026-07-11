@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "review_1",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -130,9 +130,9 @@
     "provider": "claude_glm",
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2[1m]",
-    "status": "T2_delivered_awaiting_review_1",
+    "status": "T2_review_1_accept_awaiting_T3_dispatch",
     "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
-    "note": "T1 delivered at 25383e8 (Kimi review-1 ACCEPT). T2 delivered at a7fd737, sealed, awaiting review-1."
+    "note": "T1 (25383e8) and T2 (a7fd737) both delivered and Kimi review-1 ACCEPT. T3 not yet dispatched."
   },
   "implementers": [
     {
@@ -148,7 +148,7 @@
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
-      "status": "T2_delivered_awaiting_review_1",
+      "status": "T2_review_1_accept",
       "task_id": "T2"
     }
   ],
@@ -185,7 +185,7 @@
     "provider": "kimi",
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
-    "task": "T1_accepted; T2 pending fresh session"
+    "tasks": "T1_accepted; T2_accepted (separate fresh sessions)"
   },
   "reviewer_2": null,
   "r10_checklists": {},
@@ -394,7 +394,7 @@
       "slug": "seal-and-validator",
       "title": "Deterministic seal and validator",
       "sequence": 2,
-      "status": "sealed_awaiting_review_1",
+      "status": "review_1_accept",
       "depends_on": [
         "T1"
       ],
@@ -443,12 +443,18 @@
       "diff_fingerprint": "a7fd7373545e581a2b25f4643917dc213e998f66:2509ae831482876ed47dfedfbb41941c672a0035c60487cd0c12876362072b97",
       "test_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
       "review_1": {
-        "reviewer": null,
-        "provider": null,
-        "model": null,
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "reviewer": "kimi",
+        "provider": "kimi",
+        "provider_identity": "moonshot_kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "a7fd7373545e581a2b25f4643917dc213e998f66:2509ae831482876ed47dfedfbb41941c672a0035c60487cd0c12876362072b97",
+        "verdict_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T2-round1.verdict.json",
+        "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T2.md",
+        "reviewer_prior_involvement": "none",
+        "open_p0_p1": 0,
+        "invalid_json_attempts": 0
       },
       "dispatch_executor": "human",
       "dispatch_packet_status": "completed",
@@ -461,7 +467,7 @@
       "slug": "runner-and-integration",
       "title": "Auto-review runner and integration",
       "sequence": 3,
-      "status": "blocked_on_T2_review_1_accept",
+      "status": "ready_for_dispatch_preparation",
       "depends_on": [
         "T2"
       ],
@@ -606,16 +612,16 @@
     ]
   },
   "review_1": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "reviewer_prior_involvement": null,
-    "reviewer_prior_involvement_pending": true,
-    "fix_start_prompt_present": null,
+    "reviewer": "kimi",
+    "provider": "kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "a7fd7373545e581a2b25f4643917dc213e998f66:2509ae831482876ed47dfedfbb41941c672a0035c60487cd0c12876362072b97",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_pending": false,
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
@@ -670,6 +676,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_T2_kimi_review_1_packet",
-  "updated_at": "2026-07-11T18:05:00+08:00"
+  "next_action": "prepare_T3_dispatch_packet",
+  "updated_at": "2026-07-11T18:20:00+08:00"
 }
