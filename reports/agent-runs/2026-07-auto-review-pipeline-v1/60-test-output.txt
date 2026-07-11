@@ -732,3 +732,16 @@ Review-1 dispatch preparation:
   concerns, and the P3 pathspec carry-over)
 - rework_count: 0 (after all three implementation tasks)
 - Kimi T3 review-1: NOT DISPATCHED (human gate)
+
+### T3 review-1 verdict verification (2026-07-11 20:05 CST, bookkeeper=Fable5)
+- Kimi T3 review-1 executed by human operator (fresh read-only session)
+- verdict JSON extracted per P3, landed at review-1-T3-round1.verdict.json
+- jsonschema Draft202012Validator: 0 errors (incl. structured finding object)
+- diff_fingerprint == sealed T3 value: True
+- verdict=REWORK, 1 finding (P2: persistent AUTO_TRANSITIONS<->workflow set-equality test assertion missing);
+  all other focus areas (runtime security, budgets, routing, fix-loop integrity, P3 pathspec, manifest, macOS paths) PASSED per reviewer
+- fix_start_prompt present and complete (boundary: only scripts/tests/test_auto_review_runner.py; stdlib-only line parser; no second hardcoded matrix)
+- rework_count: 0 -> 1 (FIRST formal charge; REWORK enters code-changing fix; cap 3)
+- fix packet: task-T3-fix-round1-claude-glm.prompt.md (reviewer fix_start_prompt embedded VERBATIM + mechanical receipt header)
+- post-fix path: boundary check -> full suite rerun -> T3 RE-SEAL (new H_T3'/fingerprint; nine-step, code changed) -> Kimi re-review round 2
+- status: fixing; NOT DISPATCHED (human gate)

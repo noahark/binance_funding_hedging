@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "review_1",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -475,7 +475,7 @@
       "slug": "runner-and-integration",
       "title": "Auto-review runner and integration",
       "sequence": 3,
-      "status": "sealed_awaiting_review_1",
+      "status": "review_1_rework_fix_dispatch_ready",
       "depends_on": [
         "T2"
       ],
@@ -511,19 +511,27 @@
         "all paths not explicitly listed as writable or shared append-only evidence"
       ],
       "prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T3-runner-and-integration-claude-glm.prompt.md",
-      "fix_prompt_path": null,
+      "fix_prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T3-fix-round1-claude-glm.prompt.md",
       "r10_checklist": null,
       "base_sha": "fff4e1406fb3b340532e10b0ee88661c722b82f4",
       "head_sha": "d42e031d8b60aa6ed9169308cedc3faad3a8c9ea",
       "diff_fingerprint": "d42e031d8b60aa6ed9169308cedc3faad3a8c9ea:2deb5e9e54ffc6c40a02b55f30d5403c3526fddcf1708cd544b544fa44d5c9e8",
       "test_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
       "review_1": {
-        "reviewer": null,
-        "provider": null,
-        "model": null,
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "reviewer": "kimi",
+        "provider": "kimi",
+        "provider_identity": "moonshot_kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "verdict": "REWORK",
+        "json_schema_valid": true,
+        "diff_fingerprint": "d42e031d8b60aa6ed9169308cedc3faad3a8c9ea:2deb5e9e54ffc6c40a02b55f30d5403c3526fddcf1708cd544b544fa44d5c9e8",
+        "round": 1,
+        "verdict_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T3-round1.verdict.json",
+        "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T3.md",
+        "reviewer_prior_involvement": "none",
+        "open_p0_p1": 0,
+        "open_p2": 1,
+        "invalid_json_attempts": 0
       },
       "dispatch_executor": "human",
       "dispatch_packet_status": "completed",
@@ -625,17 +633,17 @@
     ]
   },
   "review_1": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "reviewer_prior_involvement": null,
-    "reviewer_prior_involvement_pending": true,
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
+    "reviewer": "kimi",
+    "provider": "kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "open_p0_p1": 0,
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "d42e031d8b60aa6ed9169308cedc3faad3a8c9ea:2deb5e9e54ffc6c40a02b55f30d5403c3526fddcf1708cd544b544fa44d5c9e8",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_pending": false,
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T3-round1.verdict.json",
     "invalid_json_attempts": 0
   },
   "review_2": {
@@ -662,7 +670,7 @@
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "resolved_design_shapes": [
     "Auto-run authorization artifact fields and additive schemas",
@@ -689,6 +697,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_T3_kimi_review_1_packet",
-  "updated_at": "2026-07-11T19:25:00+08:00"
+  "next_action": "human_execute_T3_fix_round1_packet_then_bookkeeper_reseal",
+  "updated_at": "2026-07-11T20:05:00+08:00"
 }
