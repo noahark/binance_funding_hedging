@@ -850,3 +850,17 @@ Round-2 review dispatch preparation:
   requirements authority = frozen 40-operator-decision-table.md above 00-task/10-design; stage range a385c7a..4c668bb + fingerprint)
 - Follow-up recorded: agents/registry.yaml codex.default_model still 'gpt-5.5'; GPT-5.6 family exists (registry refresh, future sync)
 - status: review_2; validator checkpoint rerun below
+
+### Review-2 fix round1 preparation (2026-07-11 22:20 CST, bookkeeper=Fable5)
+- Bookkeeper self-fixes landed (sol P2): model_routing.implementation/review_1 stale statuses corrected;
+  stale top-level blockers (closed T1-R2 items) replaced with current fact; open_design_items refreshed
+- Override basis revised in evidence file v2: service_unavailable WITHDRAWN (sol procedural P1 correct;
+  Gemini succeeded once in the panel); new basis = design-conflict ineligibility (both registered decision
+  models design-involved + operator explicitly declined third-model enablement 2026-07-11) — rests on
+  committed registry facts + recorded operator instruction; no availability artifact required
+- Fix packet bound: task-review2-fix-round1-claude-glm.prompt.md (F2-F7; writable = runner, stage-seal,
+  their two test files; finding->negative-test mapping mandatory; production registry shapes must be
+  tested against the real agents/registry.yaml)
+- rework_count: 1 -> 2 (second formal charge; cap 3 — one slot remains)
+- validator checkpoint after all bookkeeper edits: PASS
+- Fix dispatch: NOT EXECUTED (human gate)

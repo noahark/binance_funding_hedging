@@ -3,8 +3,21 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `review_2` — **all three review units ACCEPT**; awaiting the
-  operator's review-2 routing decision (`rework_count` final 1/3)
+- Status: `fixing` — review-2 parallel panel returned split verdicts;
+  gpt-5.6-sol's BLOCKED substantive findings (7×P1) were spot-confirmed by
+  the bookkeeper; **review-2 fix round 1 packet bound, `rework_count` = 2/3**
+- Panel record: sol BLOCKED (`50-review-2-gpt-5.6-sol.md`, deep, all
+  spot-checks confirmed) / grok ACCEPT (advisory only — not a registered
+  decision model, direction_synthesis involvement) / gemini ACCEPT (advisory
+  only — shallow, incorrect verdict fields). Disposition:
+  `51-review-2-panel-disposition.md`. No record verdict yet.
+- Override basis revised (evidence file v2): `service_unavailable`
+  withdrawn per sol's procedural P1; now **design-conflict ineligibility** —
+  both registered decision models are design-involved and the operator
+  explicitly declined third-model (Gemini) enablement on 2026-07-11, so no
+  availability artifact is needed.
+- Bookkeeper self-fixes (sol P2): `model_routing` stale statuses, stale
+  top-level `blockers` (closed T1-R2 items), `open_design_items` refresh.
 - Review-2 subject (stage-level range, validator pre-review PASSED):
   `a385c7a..4c668bb`, fingerprint
   `4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:54186cecdb387a52a5d200acf3aa7fb1730f98256a3a53c040bd7bb01993f9e5`
@@ -470,16 +483,18 @@ Bookkeeper recommendation (non-binding): **A** for cleanest independence;
 
 ## 下一步
 
-Human operator executes `task-stage-review2-operator-choice.prompt.md` in
-the terminal of the chosen model (openai: `codex exec` read-only with the
-actual 5.6 model id and the verdict schema; anthropic:
-`claude --model <fable5|opus4.8> --permission-mode plan`), captures raw
-stdout, and returns it to the Fable5 bookkeeper. The bookkeeper lands
-`50-review-2.md` + the verbatim verdict JSON, fills the override/status
-fields with the actually used model, and on ACCEPT moves the stage to
-`stage_accepted_waiting_user` (merge to `main` still requires the user's
-explicit acceptance).
+Human operator executes `task-review2-fix-round1-claude-glm.prompt.md`
+(`claude-glm --model glm-5.2 -p "$(cat <packet>)"`). The fix session may
+modify only `scripts/auto-review-runner.py`, `scripts/stage-seal.py`,
+`scripts/tests/test_auto_review_runner.py`, `scripts/tests/test_stage_seal.py`
+— six findings F2–F7, each with deterministic negative tests (authorization
+real binding, production registry command shapes loaded from the real
+registry, verdict schema alignment + byte-span preservation, single-ledger
+rework_count linkage + per-call expiry, runner lock + real H_snapshot crash
+window, restart idempotency + adapter-error stop). After it returns: Fable5
+bookkeeper reverifies → re-seal (new fingerprint) → Kimi re-review-1 of the
+fix unit → back to review-2 under the revised override basis.
 
-本地北京时间: 2026-07-11 21:10:00 CST
-下一步模型: human operator → 所选高端模型（review-2, final_reviewer, fresh session）
-下一步任务: 人工执行 review-2 packet；raw 输出交回 Fable5 bookkeeper 落盘 verdict 并推进状态。
+本地北京时间: 2026-07-11 22:20:00 CST
+下一步模型: human operator → Claude-GLM（review-2 fix round 1）
+下一步任务: 人工执行 fix packet；实现者不得 commit、不得触碰 writable set 外文件；返回后 bookkeeper 复验并推进。
