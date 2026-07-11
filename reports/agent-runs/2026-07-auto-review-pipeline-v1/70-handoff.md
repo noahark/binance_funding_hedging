@@ -28,6 +28,12 @@
 仅导入 auto-review 证据。未导入 docs 分支中的 funding follow-up 文件或其
 README 条目。
 
+## Intake reviews (independent)
+
+- Fable5: `01-intake-review-fable5.md` — ACCEPT-with-edits
+- Grok: `02-intake-review-grok.md` — ACCEPT-with-edits
+- Shared required record patches: E1 status.json `reviewer_prior_involvement` placeholders; E2 complexity-evaluator deviation note
+
 ## Artifact Index
 
 - Intake: `00-intake.md`
