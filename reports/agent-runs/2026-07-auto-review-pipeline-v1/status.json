@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -72,8 +72,13 @@
       "provider_must_differ_from_reviewed_unit_authors": true
     },
     "review_2": {
-      "status": "pending_independent_reviewer_resolution",
-      "note": "Both configured high-end providers, OpenAI/Codex and Anthropic/Claude, participated in the pre-stage decision chain. Stage design must record truthful prior involvement and an eligible final-review route or disclosure override evidence."
+      "status": "pending_operator_routing_decision",
+      "note": "Both configured high-end providers, OpenAI/Codex and Anthropic/Claude, participated in the pre-stage decision chain. Stage design must record truthful prior involvement and an eligible final-review route or disclosure override evidence.",
+      "stage_range": {
+        "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
+        "head_sha": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5",
+        "diff_fingerprint": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:54186cecdb387a52a5d200acf3aa7fb1730f98256a3a53c040bd7bb01993f9e5"
+      }
     },
     "excluded_from_core_work": [
       "codex"
@@ -130,9 +135,9 @@
     "provider": "claude_glm",
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2[1m]",
-    "status": "T3_fix_round1_delivered_resealed",
+    "status": "all_tasks_review_1_accept",
     "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
-    "note": "T1 (25383e8) and T2 (a7fd737) review-1 ACCEPT; T3 delivered at d42e031, sealed, awaiting review-1."
+    "note": "T1 25383e8, T2 a7fd737, T3 4c668bb (after fix round1) all Kimi review-1 ACCEPT. rework_count final 1/3."
   },
   "implementers": [
     {
@@ -156,7 +161,7 @@
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
-      "status": "T3_fix_round1_delivered_resealed",
+      "status": "T3_review_1_accept_round2",
       "task_id": "T3"
     }
   ],
@@ -195,7 +200,7 @@
       "model": "glm-5.2[1m]",
       "task_id": "T3",
       "scope": "review-1 round1 REWORK fix: TransitionTruthSourceTests (formal rework 1/3)",
-      "status": "completed_awaiting_re_review"
+      "status": "completed_re_review_accept"
     }
   ],
   "reviewer_1": {
@@ -484,7 +489,7 @@
       "slug": "runner-and-integration",
       "title": "Auto-review runner and integration",
       "sequence": 3,
-      "status": "resealed_awaiting_review_1_round2",
+      "status": "review_1_accept",
       "depends_on": [
         "T2"
       ],
@@ -532,12 +537,14 @@
         "provider_identity": "moonshot_kimi",
         "model": "kimi-code/kimi-for-coding",
         "round": 2,
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null,
-        "verdict_path": null,
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:6ff0032b8220dee882ecf78bea21acfc09bf9ea24307f88b4d68c8e925b34053",
+        "verdict_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T3-round2.verdict.json",
         "reviewer_prior_involvement": "none",
-        "invalid_json_attempts": 0
+        "invalid_json_attempts": 0,
+        "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T3-round2.md",
+        "open_p0_p1": 0
       },
       "dispatch_executor": "human",
       "dispatch_packet_status": "completed",
@@ -596,9 +603,9 @@
     "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-design-review/40-operator-decision-table.md",
     "user_approved": true
   },
-  "base_sha": "fff4e1406fb3b340532e10b0ee88661c722b82f4",
+  "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
   "head_sha": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5",
-  "diff_fingerprint": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:6ff0032b8220dee882ecf78bea21acfc09bf9ea24307f88b4d68c8e925b34053",
+  "diff_fingerprint": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:54186cecdb387a52a5d200acf3aa7fb1730f98256a3a53c040bd7bb01993f9e5",
   "changed_files": [
     "reports/agent-runs/2026-07-auto-review-pipeline-design-review/**",
     "reports/follow-ups/2026-07-auto-review-pipeline-design-note.md",
@@ -668,14 +675,15 @@
     "provider": "kimi",
     "model": "kimi-code/kimi-for-coding",
     "open_p0_p1": 0,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:6ff0032b8220dee882ecf78bea21acfc09bf9ea24307f88b4d68c8e925b34053",
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_pending": false,
     "fix_start_prompt_present": true,
     "fix_start_prompt_source": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T3-round1.verdict.json",
-    "invalid_json_attempts": 0
+    "invalid_json_attempts": 0,
+    "note": "All three serial task units ACCEPT (T1 25383e8 / T2 a7fd737 / T3 4c668bb round2). Per-unit verdicts in tasks[].review_1; this top-level block mirrors the final unit."
   },
   "review_2": {
     "reviewer": null,
@@ -728,6 +736,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_T3_kimi_review_1_round2_packet",
-  "updated_at": "2026-07-11T20:35:00+08:00"
+  "next_action": "operator_resolve_review_2_routing_gemini_or_disclosure_override",
+  "updated_at": "2026-07-11T20:50:00+08:00"
 }

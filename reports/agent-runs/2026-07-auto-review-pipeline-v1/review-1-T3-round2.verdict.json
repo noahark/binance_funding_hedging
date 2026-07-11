@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-auto-review-pipeline-v1",
+  "role": "first_reviewer",
+  "model": "kimi-code/kimi-for-coding",
+  "verdict": "ACCEPT",
+  "diff_fingerprint": "4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:6ff0032b8220dee882ecf78bea21acfc09bf9ea24307f88b4d68c8e925b34053",
+  "reviewer_prior_involvement": "none",
+  "reviewed_artifacts": [
+    "scripts/tests/test_auto_review_runner.py",
+    "scripts/auto-review-runner.py",
+    "scripts/validate-stage.py",
+    "workflows/templates/stage-delivery.yaml",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T3.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T3-round1.verdict.json",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt"
+  ],
+  "findings": [],
+  "required_fixes": [],
+  "next_action": "human_gate"
+}
