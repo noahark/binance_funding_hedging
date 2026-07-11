@@ -3,8 +3,8 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `review_1` (T3 sealed; awaiting human-executed Kimi review-1 —
-  the last task gate before the operator's review-2 routing decision)
+- Status: `fixing` (T3 review-1 **REWORK** round 1; fix packet ready;
+  `rework_count` = **1/3**, first formal charge this stage)
 - T3 seal: H_T3 `d42e031` (runner + 31 integration tests + manifest),
   fingerprint
   `d42e031d8b60aa6ed9169308cedc3faad3a8c9ea:2deb5e9e54ffc6c40a02b55f30d5403c3526fddcf1708cd544b544fa44d5c9e8`,
@@ -107,8 +107,13 @@ README 条目。
   into T3 tests)
 - T3 dispatch packet: `task-T3-runner-and-integration-claude-glm.prompt.md`
   — executed (T3 base `fff4e14`, delivery `d42e031`)
-- T3 review-1 packet: `task-T3-review1-kimi.prompt.md` — ready, not executed
-- Review-1 (T3): sealed, awaiting Kimi
+- T3 review-1 packet: `task-T3-review1-kimi.prompt.md` — executed
+- Review-1 (T3): **REWORK round 1** — `30-review-1-T3.md` +
+  `review-1-T3-round1.verdict.json` (one P2 finding: persistent
+  transition-set assertion; all other focus areas passed)
+- T3 fix round1 packet: `task-T3-fix-round1-claude-glm.prompt.md` — ready,
+  not executed (reviewer `fix_start_prompt` embedded verbatim; writable =
+  only `scripts/tests/test_auto_review_runner.py`)
 - Fix report: not started (formal `rework_count` = 0)
 - Review-2: not started (routing pending operator decision)
 - Intake checks: `60-test-output.txt`
@@ -347,17 +352,35 @@ README 条目。
   judgment.
 - Sealed: H_T3 `d42e031`; bind `7fb0933`; `--phase pre-review` PASSED.
 
+## T3 Review-1 Outcome (round 1)
+
+- Kimi returned **REWORK** with exactly one P2 finding: the persistent
+  set-equality test assertion (workflow `state_transitions` expanded ↔
+  `runner.AUTO_TRANSITIONS`) required by the T3 dispatch packet §3.1 was
+  replaced by behavior-level tests plus disclosure; the bookkeeper's landed
+  one-shot machine comparison "cannot substitute for a resident regression
+  test". Every other focus area passed (runtime security, budgets, routing,
+  fix-loop integrity, P3 pathspec, manifest, macOS paths).
+- Bookkeeper verification: verdict schema-valid (structured finding included),
+  fingerprint byte-identical to sealed T3, complete `fix_start_prompt`
+  (boundary: only `scripts/tests/test_auto_review_runner.py`, stdlib-only
+  line parser, no second hardcoded matrix). The judgment matches the known
+  gap presented for independent review; bookkeeper concurs.
+- **`rework_count` 0 → 1** (first formal charge; cap 3). Fix is test-only but
+  is a code change: after it returns, T3 must be **re-sealed** (new
+  H_T3'/fingerprint via the full protocol) before Kimi re-review round 2.
+
 ## 下一步
 
-Human operator executes `task-T3-review1-kimi.prompt.md`
-(`kimi --model kimi-code/kimi-for-coding -p "$(cat <packet>)"`, fresh
-read-only session). Operator returns raw stdout to the Fable5 bookkeeper,
-who lands `30-review-1-T3.md` plus the verbatim verdict JSON. After T3
-ACCEPT, all three review units are complete and the stage reaches the
-operator's review-2 routing gate (Gemini third-decision-model enablement vs
-strong-reviewer disclosure override; Anthropic is triple-involved plus
-bookkeeper, OpenAI double-involved — disclosures recorded in status.json).
+Human operator executes `task-T3-fix-round1-claude-glm.prompt.md`
+(`claude-glm --model glm-5.2 -p "$(cat <packet>)"`). The fix session may
+modify only `scripts/tests/test_auto_review_runner.py` (one new test class
+parsing the workflow `state_transitions` with a restricted stdlib line
+parser, expanding `one_of`, asserting equality with
+`runner.AUTO_TRANSITIONS`). It must not commit or dispatch. Fable5
+bookkeeper then re-inspects, reruns the full suite, re-seals T3, and
+prepares the Kimi re-review (round 2) packet.
 
-本地北京时间: 2026-07-11 19:25:00 CST
-下一步模型: human operator → Kimi（T3 review-1, first_reviewer, fresh session）
-下一步任务: 人工执行 T3 review-1 packet；raw 输出交回 Fable5 bookkeeper 落盘 verdict；之后进入 review-2 路由决议。
+本地北京时间: 2026-07-11 20:05:00 CST
+下一步模型: human operator → Claude-GLM（T3 fix round 1）
+下一步任务: 人工执行 T3 fix packet；返回后 bookkeeper 复验并重新 seal，再出 Kimi round-2 review packet。
