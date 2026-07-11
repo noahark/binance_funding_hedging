@@ -6,9 +6,9 @@
     "name": "stage/2026-07-funding-annualized-history-v1",
     "created_from_main_sha": "7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1",
     "created_at": "2026-07-10T05:13:36Z",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "4b29c69fe5844684772648b717569c626f10b61e",
+    "merge_strategy": "no-ff",
     "abandoned_reason": null
   },
   "bookkeeper": {
@@ -551,8 +551,8 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "merge_to_main_no_ff",
-  "updated_at": "2026-07-11T02:28:42Z",
+  "next_action": "stage_complete",
+  "updated_at": "2026-07-11T02:29:14Z",
   "independent_review_2_audit": {
     "role": "final_reviewer",
     "provider": "anthropic",
