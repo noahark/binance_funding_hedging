@@ -645,3 +645,108 @@ HEAD: 2a55a78223846f03d2798156ef34cff687797ad1
 下一步模型: Claude Fable 5（bookkeeper）
 下一步任务: 复验 round3 闭合断言与冻结套件；通过后 seal T1 并准备人工 Kimi review-1 packet
 ```
+
+---
+
+## T2 Implementation（seal-and-validator，执行者 Claude-GLM）
+
+### 范围与权威
+
+- branch: `stage/2026-07-auto-review-pipeline-v1`
+- T2 `base_sha`（读自 `status.json tasks[id=T2].base_sha`，从不替换移动 HEAD）: `ce9f83afeedc9ec8739548f7c316df2a79ebcd3b`
+- T2 `head_sha`: None —— 执行者不 commit，head/fingerprint 由 bookkeeper 在 delivery commit 后绑定
+- 起始 `tasks[id=T2].status`: `ready_for_human_dispatch`
+- 先决条件核对：`auto_review_pipeline.enabled_for_this_stage=false`、`parallel_mode.enabled=false`（本 stage 走 manual 路径，不触发 auto 校验）
+
+### 文件清单（全部在 §3 allowlist 内）
+
+新建：
+
+- `scripts/harness_stage_lib.py`
+- `scripts/stage-seal.py`
+- `scripts/tests/test_harness_stage_lib.py`
+- `scripts/tests/test_stage_seal.py`
+- `scripts/tests/test_validate_stage_auto_review.py`
+
+修改：
+
+- `scripts/validate-stage.py`
+
+evidence（仅 append）：
+
+- `reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt`
+- `reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md`（本节）
+
+未创建 `conftest.py` / `__init__.py` / 独立 fixtures 模块。共享测试 helper（`make_temp_repo`、`VALID_AUTH`、`VALID_RECEIPT`、`REVIEW_1_VALID_RECEIPTS`）定义在 `test_harness_stage_lib.py`，由两个同级测试模块 import。
+
+### §5.1–5.4 完成状态
+
+- **§5.1 `harness_stage_lib.py`**：DONE。公开 API 全部实现且 stdlib-only：`compute_diff_fingerprint`（与历史 validator 实现字节等价）、`capture_code_scope_patch` / `patches_byte_equal`、`atomic_write_json` / `load_json`、`PROVIDER_IDENTITIES`（validator 历史 `PROVIDER_IDENTITIES` 的超集，含 `gemini→google`、`claude_fable5→anthropic`）、`is_safe_repo_relative_path` / `resolve_safe_path`、`parse_iso8601` / `is_iso8601`、`validate_authorization_doc` / `validate_receipt_doc`（覆盖两 schema 全约束面 + cross-field 语义：`call_budget.after==before-1`、review_1 三对 oneOf、`next_transition` 九值+null、rework const 3、auto ≤ 2、invalid-JSON const 2、`auto_high_end_dispatch_allowed` const false、`authorized_by` const human）。无 workflow 判断/模型路由；不 import `jsonschema` / `yaml`。
+- **§5.2 `stage-seal.py`**：DONE。九步协议（含第 3 步 post-cross-check blocking 验证与 evidence 排除输入）+ 三类崩溃恢复 fail-closed。seal receipt `runner-<seq>-seal.receipt.json`，`kind="seal"`、`schema_version=1`，**非** runner-receipt（不走 `schemas/runner-receipt.schema.json`、无 `adapter`/`node`、不计入 P11 adapter-call 分母）——在文件 docstring 与测试中写明。本 stage 不对自身 seal（交付物为代码+测试）。
+- **§5.3 `validate-stage.py`**：DONE。`compute_diff_fingerprint` 委托共享库（单一实现路径）；新增 auto 模式校验（仅 `auto_review_enabled` 真值触发）。manual 路径零行为变化（逐 hunk 论证见下）。
+- **§5.4 测试**：DONE。三文件 **78 tests 全绿**（`test_harness_stage_lib` 39 / `test_stage_seal` 17 / `test_validate_stage_auto_review` 22）。
+
+### `validate-stage.py` 逐 hunk 修改说明（现役门文件：每处 diff 的动机 + manual 行为不变论证）
+
+1. **imports（文件顶部）**：移除 `import hashlib`（fingerprint 委托后本文件零 `hashlib` 引用——`grep hashlib scripts/validate-stage.py` 确认无输出）；新增 `_HERE = os.path.dirname(os.path.abspath(__file__))` + `sys.path.insert(0, _HERE)` + `import harness_stage_lib as _stage_lib`（让 fingerprint 共享单一实现路径）。`os`/`sys`/`json`/`subprocess`/`re`/`pathlib` 均为原有 import，未引入第三方依赖。
+   **manual 不变**：仅 import 区域调整，不改变任何现有函数的控制流或错误消息。
+2. **`compute_diff_fingerprint` 委托**：函数体改为 `return _stage_lib.compute_diff_fingerprint(root, stage_dir, base_sha, head_sha)`，签名与返回形状不变（`"<head_sha>:<sha256>"`）。共享库实现与历史内联逻辑字节等价（同 git 参数序、同 `:(exclude)<stage>/status.json`、bytes 上 sha256）——由 fingerprint 双锚点回归证明。
+   **manual 不变**：对相同输入返回相同字符串（双锚点 ①② 均逐字相等）；`validate_common` 的 fingerprint 重算、`validate_tasks` 的 per-task fingerprint 等所有 manual 调用点行为不变（`test_validate_stage_auto_review` 运行时调用 `mod.compute_diff_fingerprint` 全绿）。
+3. **auto 校验函数**（`AUTO_RUNNER_STATES` / `AUTO_DISPATCH_MODES` / `AUTO_UNIT_KINDS` / `AUTO_TRANSITIONS` + `auto_review_enabled` + `_is_int_value` + `validate_auto_review_pipeline`）：全部为新增符号，定义在 `validate_acceptance` 之后、`main` 之前。`auto_review_enabled` 仅当 `auto_review_pipeline.enabled` truthy 返回 True（缺失 / `false` / 仅 `enabled_for_this_stage` → False）。
+   **manual 不变**：这些符号在 `auto_review_enabled(status_doc)==False` 时从不被 `main` 调用，对 legacy status 无任何代码路径触及。
+4. **`main()` 调用**：在 `if args.phase == "pre-accept": errors.extend(validate_acceptance(...))` 之后插入 `if auto_review_enabled(status_doc): errors.extend(validate_auto_review_pipeline(root, stage_dir, status_doc, args.phase))`。
+   **manual 不变**：守卫 `auto_review_enabled(status_doc)` 对所有无 enabled auto 字段的 status 返回 False（manual 回归矩阵 4 个 fixture + 本 stage 真实 status 快照已证明），故 legacy/manual status 的 `main` 控制流与错误集合逐字节不变。
+
+### `AUTO_TRANSITIONS` 与 workflow 一致性核对
+
+`workflows/templates/stage-delivery.yaml` 的 `auto_review_pipeline.executable_contract.state_transitions` 共 **8 个 transition id**：
+
+- `resume_on_new_authorization` 的 `event` 为 `one_of: [new_human_authorization, superseding_human_authorization]`
+- `terminal_escalation` 的 `event` 为 `one_of: [cap_exhausted, timeout, budget_exhausted, unroutable_fix, tip_once_grok_failure]`
+
+展开 `one_of` 后得 **13 个 (from_dm, from_rs, to_dm, to_rs, event) 五元组**，与 `validate-stage.py` 中 `AUTO_TRANSITIONS` 集合逐元相等（已逐行对照）。`mode_history` 每项必须在集合内，否则 fail-closed。
+
+### fingerprint 回归双锚点（实际结果）
+
+- **锚点①（本 stage T1 sealed range）**：base `a385c7ad77da1611c6e952b2219aee56b49f442f` → head `25383e86d0b10b3e8bd3e0f51254588826c9601b`，重算得 `25383e86d0b10b3e8bd3e0f51254588826c9601b:242cff3040ac66e79ce2dbb5a13dab6bf92043765884ed9f0288cf8decc80486`，与 status 记录值逐字相等。**OK**
+- **锚点②（历史 accepted stage `2026-07-borrow-cost-coverage-v2`）**：base `5bdfc4b3dc6843a8e52aeb86896c735500ed137a` → head `11c3935ec859320b5dad50d31c0068993b4bd8f5`，重算得 `11c3935ec859320b5dad50d31c0068993b4bd8f5:2a73b681d0ae77f3d2d9d9eaed04f977be44dd1996a3bffef3ca8dfa52b7d401`，与该 stage status 记录值逐字相等。**OK**
+
+### Required checks（完整原始输出见 `60-test-output.txt` 本日「T2 frozen test suite」段）
+
+| 命令 | 结果 | EXIT |
+|---|---|---|
+| `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` | Ran 78 tests OK | 0 |
+| `python3 -m py_compile scripts/validate-stage.py scripts/harness_stage_lib.py scripts/stage-seal.py` | （无输出） | 0 |
+| `scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint` | STAGE VALIDATION PASSED | 0 |
+| `git diff --check` | （无输出） | 0 |
+| `grep -rn "formal-1" scripts` | 无匹配（预期） | 1 |
+
+### `git status --short`
+
+```text
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
+ M scripts/validate-stage.py
+?? scripts/harness_stage_lib.py
+?? scripts/stage-seal.py
+?? scripts/tests/
+```
+
+（无 staged；无越界路径；`?? scripts/tests/` 为三个新测试文件）
+
+### blockers / 未解决风险 / 给 review-1 的建议关注点
+
+- **无 blocker**。T1 契约文件（schema/docs/workflow）未发现需跨界修改的缺陷。
+- **review-1 建议关注**：
+  1. `compute_diff_fingerprint` 委托的字节等价性——双锚点是唯一回归网，建议独立复算 `a385c7a..25383e86` 与 `5bdfc4b3..11c3935e` 确认。
+  2. `validate_auto_review_pipeline` 的 budget 单账本不变式：`auto_code_changes_used ≤ max_auto_code_changes ≤ 2 < max_stage_rework=3`，且 `auto_code_changes_used < max_stage_rework` 保留至少一次 review-2 修复机会。
+  3. `AUTO_TRANSITIONS` 13 个五元组是否与 `stage-delivery.yaml` `state_transitions` 8 id（含 2 处 `one_of`）展开逐元一致（本报告已逐行对照，建议 review-1 复核 `event` 名与 from/to 状态）。
+  4. `stage-seal.py` step 9 `run_validator` 在本 stage 不对自身 seal；测试以 monkeypatch 验证其调用契约（clean tree + `--phase pre-review` + stage_id），真实 pre-review 全套 manual 校验由 `test_validate_stage_auto_review.py` manual 回归矩阵 + 冻结套件覆盖。
+  5. seal receipt 形状为本任务自定义（非 runner-receipt schema）；review-1 宜确认 `kind="seal"`、无 `adapter`/`node`、不计入 P11。
+- **风险**：`stage-seal.py` 的 `_pathspec_matches`（authorization allowlist 边界检查）为近似 git pathspec 匹配（literal + `/**` / `/*` / 尾 `/`）；git 本身是 staging 权威，该函数仅守 seal 边界，极端 pathspec 形态可能漏判——已在 docstring 注明。
+- 未 commit、未 push、未改 status/handoff/review；未 dispatch 任何模型。
+
+```text
+本地北京时间: 2026-07-11 17:55 CST
+下一步模型: Claude Fable 5（bookkeeper）
+下一步任务: 边界检查 → 独立复跑 T2 套件 → T2 delivery commit + 指纹 → pre-review → 准备 T2 Kimi review-1 packet
+```
