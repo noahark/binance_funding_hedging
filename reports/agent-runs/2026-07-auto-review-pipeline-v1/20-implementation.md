@@ -437,3 +437,99 @@ AGENTS.md（4 处）：
 下一步模型: Codex/GPT（bookkeeper）
 下一步任务: 重新检查 merged T1 correction、独立复跑 frozen/counterexample checks；通过后才可 seal 并准备 Kimi review-1
 ```
+
+---
+
+## T1 Correction Round 2（Claude-GLM 执行 · rework_count = 0 · 合并前有界修正）
+
+> Append-only 追加。前文（§1–§8 + Round 1 v2 节）**未改动**。本节记录对
+> `task-T1-correction-round2-claude-glm.prompt.md`（`correction_packet_revision: round2`）的
+> R2-C1–C4 执行，回应 bookkeeper reinspection `24-bookkeeper-reinspection-T1.md` 的
+> T1-R2-1 / T1-R2-2。`rework_count` 保持 0（pre-seal 有界修正，非 formal review-1 rework）。
+
+### 执行上下文与安全约束遵守
+
+- 模型 `claude_glm`（`zhipu_glm` / `glm-5.2[1m]`）；分支 `stage/2026-07-auto-review-pipeline-v1`；
+  T1 base `a385c7ad77da1611c6e952b2219aee56b49f442f`（HEAD 祖先 ✓）；HEAD `6546bc94`。
+- task status `correction_round2_packet_ready_for_human_dispatch`；`auto_review_pipeline.enabled_for_this_stage=false`；`parallel_mode.enabled=false`。
+- **可写集（本 round2 收窄）**：`schemas/runner-receipt.schema.json`、`workflows/templates/stage-delivery.yaml`、`docs/auto-review-pipeline.md`；追加 `20-implementation.md`、`60-test-output.txt`。
+- **未做**：commit/push/merge/rebase/branch；派发任何模型（Kimi 或其他）；运行 live model/network/auto-review runner；写 status/handoff/inspection/packet/review 文件；触碰 `agents/registry.yaml`、`AGENTS.md`、`docs/parallel-development-mode.md`、`docs/model-adapters.md`、`reports/agent-runs/README.md`、`_template/*`（本 round2 只读）、`scripts/**`、`manifest`、产品/runtime、funding stages。
+- 锁定词汇：`review-1` / `review-2` / `embedded cross-check`；未用 `formal-1`（`grep -rn "formal-1"` EXIT 1）。验证器机器名 `--phase pre-review` 保留。
+- Non-Regression：round1-v2 已通过的 receipt required(18)/safe paths/authorization schema/P7/disabled/seal path/Pilot docs/post-cross-check rerun/seen-diff bind/manual mode/fingerprint/Authority Order/review-2/merge gates 均未破坏；本 stage auto mode 未启用。
+
+### T1-R2-1 / T1-R2-2（bookkeeper reinspection 阻塞项）
+
+- **T1-R2-1（P1）**：receipt schema `node=review_1` 条件强制 `adapter.id=grok` + `grok.optional_review_command`，使冻结 D7/ADR 允许的 Kimi / Claude-GLM serial-unit fallback receipt 各产生 2 个 schema errors（reinspection 实测：`grok_primary=0`、`kimi_serial_fallback=2`、`glm_serial_fallback=2`）。schema 使一条冻结 workflow 分支不可表达。
+- **T1-R2-2（P1）**：`executable_contract` 无 `state_transitions` / `node_transitions`；review-1 结果与 activation/pilot 条件多为自然语言字符串/布尔（如 `"ACCEPT advances the unit"`、`"retry same model once, then serial unit fallback or human escalation"`）。确定性 runner 无法从这些句子派生精确 event→next-state/node 选择，违背"workflow 定义 transition、runner 只执行"的冻结规则；T1-B3 未完全关闭。
+
+### R2-C1 — receipt schema `review_1` 改为三 pair `oneOf`
+
+将 top-level `allOf` 中 `node=review_1` 块的 `then.adapter` 从"强制 grok"改为 `oneOf` 三个精确 pair：
+
+- `grok` + `agents/registry.yaml#adapters.grok.optional_review_command`
+- `kimi` + `agents/registry.yaml#adapters.kimi.embedded_read_only_review_command`
+- `claude_glm` + `agents/registry.yaml#adapters.claude_glm.embedded_read_only_review_command`
+
+逐字 before / after：
+
+- description before：`review_1 nodes use the Grok optional review command only.`
+- description after：`review_1 nodes use exactly one of the three frozen review-1 routes: Grok primary (optional_review_command), or a Kimi/Claude-GLM serial-unit fallback (each provider's embedded_read_only_review_command). Schema validity alone never declares fallback eligibility; serial-only topology, author-set eligibility, parallel-tip escalation, and tip-once Grok failure remain runner/validator checks.`
+- then.adapter before：`properties: { id: {const: grok}, registry_command_ref: {const: ...grok.optional_review_command} }`
+- then.adapter after：`oneOf: [ {id const grok, ref const grok.optional_review_command}, {id const kimi, ref const kimi.embedded_read_only_review_command}, {id const claude_glm, ref const claude_glm.embedded_read_only_review_command} ]`（每个 pair `required:[id, registry_command_ref]`）。
+
+counterexamples（Draft202012Validator）：正例 grok primary / kimi serial fallback / glm serial fallback 全 VALID(0)；负例 kimi noninteractive review-1 / grok development review-1 / adapter-ref mismatch 全 INVALID(各 ≥1 error)。schema 只表达可表示 route；serial-only、author-set、parallel-tip、tip-once Grok failure 仍由 runner/validator 运行时检查。
+
+### R2-C2 — docs 移除无冻结出处的 "or Grok"
+
+`docs/auto-review-pipeline.md` 的 embedded cross-check 示例原含无冻结出处的 `or Grok`，而冻结决策示例与 schema 的 embedded cross-check node 只允许 GLM/Kimi read-only refs。最小修改为冻结示例 `e.g. GLM↔Kimi`（**不扩大** Grok cross-check route）。逐字 before / after：
+
+- before：`` - `embedded cross-check`: advisory cheap-model cross-read (e.g. GLM↔Kimi or Grok). **Not** formal review-1. **Not** validator `--phase pre-review`. ``
+- after：`` - `embedded cross-check`: advisory cheap-model cross-read (e.g. GLM↔Kimi). **Not** formal review-1. **Not** validator `--phase pre-review`. ``
+
+### R2-C3 — workflow 结构化 transition maps（纯加法，+239 行）
+
+在 `auto_review_pipeline.executable_contract` 末尾（`disabled_representation` 之后）新增 5 个 runner 可直接读取的 structured mappings；保留 round1-v2 已通过的 `activation_predicate` / `frozen_nodes_and_order` / `p7_one_blocking_fix_then_escalate` / `review_1_fixed_transitions`（降级为人类可读 note）/ `completion_predicate` / `pilot_and_default_flip_predicate` / `allowed_next_transitions` / `disabled_representation`。transition choice 不再只存在于自然语言。
+
+1. **`activation_requirements`**：`status_field=auto_review_pipeline.enabled` / `status_value_required=true`；authorization（schema_ref、must_be_committed、authorized_by=human、must_not_be_expired）；`exact_match_required=[stage_id, stage_branch, scope.task_ids, scope.allowed_pathspecs, scope.forbidden_pathspecs, budgets]`；`parallel_mode_mutex_required`；`on_failure={adapter_call_made:false, effect:manual unchanged}`。
+2. **`state_transitions`**（8 项，逐行对应 10-design Transition Model 八行）：id = `authorize_new_run`、`preflight_authorized_to_running`、`recoverable_fallback_to_awaiting`、`explicit_human_mode_flip`、`resume_on_new_authorization`、`operator_stop`、`all_required_units_accept`、`terminal_escalation`；每项 `from`/`to` 为 structured `{dispatch_mode, runner_state}`，`event` 为 string 或 `one_of` list；概念 disabled = `{dispatch_mode: human_dispatch, runner_state: null}`（非第六个 runner_state）。
+3. **`node_transitions`**：覆盖 `implementation`/`initial_blocking`/`fix`/`embedded_cross_check`/`post_cross_check_blocking`/`seal`/`review_1`/`completion`/`escalation`；条件分支用 object（如 `review_1.accept={more_units_remaining: review_1, all_units_done: completed_review_1}`），leaf 均为 exact target，无 `or`/`then` 自然语言选择。
+4. **`review_1_routes`**：primary `grok`+`grok.optional_review_command`（grok-build, plan）；`serial_fallback`（`serial_only:true`、`pool:[kimi, claude_glm]`、三 pair command_refs、author-set eligible）；`parallel_tip.cross_pool_fallback_enabled:false`；`high_end_auto_substitution:false`；`invalid_json_attempt_limit_per_model:2`。
+5. **`pilot_predicate`**（8 精确值）：`required_pilot_kinds=[docs_only, small_real]`、`required_terminal_status=stage_accepted_waiting_user`、`min_final_schema_valid_grok_verdicts=1`、`required_adapter_receipt_completeness_rate=1.0`、`require_escalation_shape_validation=true`、`require_controlled_escalation_drill_in_at_least_one_pilot=true`、`grok_rate_promotion_threshold=null`、`automatic_default_flip_allowed=false`。
+
+`allowed_next_transitions` 与 receipt `next_transition.enum`（non-null）集合保持相等（断言锁定）；fingerprint / top-level status / review-2/merge gates / auto default 均未改。
+
+### R2-C4 — 本节 + 证据（`60-test-output.txt` round2 块）
+
+### 最终改动路径（`git status --short`）
+
+本 round2 可写集改动：
+- `M workflows/templates/stage-delivery.yaml` — R2-C3（+239 行 structured maps）。
+- `?? schemas/runner-receipt.schema.json` — R2-C1（review_1 oneOf 三 pair；未跟踪文件，含 round1-v2 + round2 改动）。
+- `?? docs/auto-review-pipeline.md` — R2-C2（移除 `or Grok`；未跟踪文件，含 round1-v2 + round2 改动）。
+- `M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt` — 追加 round2 证据块。
+- `20-implementation.md`（本文件）— R2-C4 append（本节）。
+
+本 round2 **未触碰**（round1-v2 / 基线遗留的未 commit 工作树改动）：
+- `M AGENTS.md`、`M docs/parallel-development-mode.md`、`M reports/agent-runs/README.md`（round1-v2 C5/C6）。
+- `?? schemas/auto-review-authorization.schema.json`（round1-v2 C7）。
+- `M agents/registry.yaml`、`M docs/model-adapters.md`、`M reports/agent-runs/_template/70-handoff.md`、`M reports/agent-runs/_template/status.json`（基线合并工作）。
+
+### 风险
+
+- structured maps 是 runner 可读的权威 transition 选择，但 runner 实现归 T3；本 round2 只交付 machine-readable 契约。review-1 fallback 的 serial-only topology / candidate-provider 不在 unit author+fix provider 集合 / parallel-tip 无 cross-pool fallback / tip-once Grok failure→escalation 仍由 runner/validator 运行时检查，schema 只表达可表示 route。
+- `state_transitions` 八行逐行对应 10-design Transition Model（已 frozen）；design 若演化需同步。
+- `review_1_routes` 三 pair 与 receipt schema `review_1` oneOf 三 pair 已用 Ruby 断言锁定一致。
+
+### 冻结检查结果（原始证据见 `60-test-output.txt` round2 块）
+
+- `json.tool` EXIT 0；`validate-stage --phase checkpoint` → `STAGE VALIDATION PASSED`（status=fixing）EXIT 0；`git diff --check` EXIT 0；`grep -rn "formal-1"` EXIT 1（零匹配）；ruby `YAML PARSE PASSED` EXIT 0。
+- review-1 routes：3 正例（grok primary / kimi serial fallback / glm serial fallback）全 VALID(0)；3 负例（kimi noninteractive / grok development / adapter-ref mismatch）全 INVALID(各 ≥1 error)。
+- Ruby 结构化断言全 `true`：`state_transitions` 8 个唯一 id、from/to 为 structured object 且 event present；`node_transitions` 覆盖 7 个必需 node；`review_1_routes` 三 pair == receipt schema `review_1` oneOf 三 pair；`pilot_predicate` 8 keys 精确值匹配；`node_transitions` leaf 无 `or`/`then` 自然语言 prose；`allowed_next_transitions` == receipt `next_transition.enum`（non-null）。
+
+> 依据任务包 `## Non-Regression / Stop`：未 commit；未写 status/handoff/review 文件；未派发 Kimi；未启用本 stage auto mode。下一步交由 bookkeeper 独立复验 round2 fallback/schema/transition maps，通过后才可 seal 并准备人工 Kimi review-1。
+
+```text
+本地北京时间: 2026-07-11 16:00:46 CST
+下一步模型: Codex/GPT（bookkeeper）
+下一步任务: 独立复验 T1 round2 fallback/schema/transition maps；通过后才可 seal 并准备人工 Kimi review-1
+```

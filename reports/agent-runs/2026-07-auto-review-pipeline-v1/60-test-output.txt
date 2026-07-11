@@ -421,3 +421,97 @@ Docs/schema cross-check:
 - validate-stage pre-review: NOT RUN
 - Kimi review-1: NOT DISPATCHED
 - rework_count: 0 (pre-seal inspection)
+
+### T1 Correction Round 2 — frozen checks + review-1 counterexamples + structured-map assertions
+### (R2-C1 review_1 three-pair oneOf; R2-C2 remove 'or Grok'; R2-C3 structured state/node maps)
+
+==== python3 -m json.tool schemas/runner-receipt.schema.json ====
+EXIT:0
+
+==== scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint ====
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+phase=checkpoint
+status=fixing
+EXIT:0
+
+==== git diff --check ====
+EXIT:0
+
+==== grep -rn "formal-1" AGENTS.md workflows agents docs schemas reports/agent-runs/_template (expect EXIT 1) ====
+EXIT:1
+
+==== ruby -e (frozen YAML parse command) ====
+YAML PARSE PASSED
+EXIT:0
+
+==== python3 /tmp/r2_review1_cases.py (Draft202012Validator, 3 positive + 3 negative) ====
+# review-1 route cases (3 positive, 3 negative)
+- POS grok primary                         VALID (0 errors)     [OK]
+- POS kimi serial fallback                 VALID (0 errors)     [OK]
+- POS glm serial fallback                  VALID (0 errors)     [OK]
+- NEG kimi noninteractive review-1         INVALID (1 errors)   [OK]
+    first error: {'id': 'kimi', 'registry_command_ref': 'agents/registry.yaml#adapters.kimi.noninteractive_command'} is not valid under any of the given schemas
+- NEG grok development review-1            INVALID (1 errors)   [OK]
+    first error: {'id': 'grok', 'registry_command_ref': 'agents/registry.yaml#adapters.grok.development_command'} is not valid under any of the given schemas
+- NEG adapter/ref mismatch                 INVALID (2 errors)   [OK]
+    first error: {'id': 'grok', 'registry_command_ref': 'agents/registry.yaml#adapters.kimi.embedded_read_only_review_command'} is not valid under any of the given schemas
+# done
+EXIT:0
+
+==== ruby /tmp/r2_assertions.rb (structured-map read-only assertions) ====
+YAML.load_file workflow + registry: OK
+ASSERT state_transitions has 8 ids: true
+ASSERT state_transitions ids unique: true
+ASSERT from/to structured objects + event present: true
+ASSERT node_transitions covers required nodes: true
+route_pairs:  [["claude_glm", "agents/registry.yaml#adapters.claude_glm.embedded_read_only_review_command"], ["grok", "agents/registry.yaml#adapters.grok.optional_review_command"], ["kimi", "agents/registry.yaml#adapters.kimi.embedded_read_only_review_command"]]
+schema_pairs: [["claude_glm", "agents/registry.yaml#adapters.claude_glm.embedded_read_only_review_command"], ["grok", "agents/registry.yaml#adapters.grok.optional_review_command"], ["kimi", "agents/registry.yaml#adapters.kimi.embedded_read_only_review_command"]]
+ASSERT review_1 route pairs == receipt schema pairs: true
+ASSERT pilot has all 8 keys: true
+ASSERT pilot exact values match: true
+ASSERT node_transitions leaves have no or/then prose: true
+ASSERT allowed_next_transitions == receipt enum non-null: true
+EXIT:0
+
+==== END T1 Correction Round 2 evidence ====
+
+### Fable5 independent reinspection of T1 Correction Round 2 (2026-07-11 16:22:49 CST)
+### (new bookkeeper; prior Codex verification was in-session only and is not evidence)
+
+Frozen suite rerun:
+- python3 -m json.tool auto-review-authorization / runner-receipt / _template status: EXIT:0 x3
+- scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint: PASS (status=fixing) EXIT:0
+- git diff --check: EXIT:0
+- grep -rn "formal-1" AGENTS.md workflows agents docs schemas reports/agent-runs/_template: no matches, EXIT:1 (expected)
+- ruby YAML.load_file workflow+registry: YAML PARSE PASSED EXIT:0
+
+Independent Draft202012Validator cases (rewritten, not reusing GLM scripts):
+- receipt POS grok primary / kimi serial fallback / glm serial fallback: 0 errors each [OK]
+- receipt NEG kimi noninteractive review-1: 1 error [OK]
+- receipt NEG expanded/secret ref: 3 errors [OK]
+- receipt NEG adapter/ref mismatch: 2 errors [OK]
+- receipt NEG missing 5 evidence keys (B1): 5 errors [OK]
+- receipt NEG next_transition=bookkeeper_decision (A2): 1 error [OK]
+- receipt NEG absolute prompt_path / traversal raw_output_path: 1 error each [OK]
+- authorization POS: 0 errors [OK]
+- authorization NEG abs approval_evidence_path / traversal supersedes / empty task_ids /
+  rework!=3 / missing expires_at: 1 error each [OK]
+
+Structural assertions:
+- allowed_next_transitions (9) == receipt non-null enum set: True (A2 closed)
+- state_transitions == 8 structured rows: True
+- review_1_routes pairs == receipt oneOf pairs: True
+- pilot_predicate 8 exact keys: True
+- docs "or Grok" removed (R2-C2): confirmed
+- seal receipt naming in docs #8 + README (A3): confirmed
+
+Node-graph closure check (target in node-keys + terminals):
+- UNRESOLVED: embedded_cross_check ran/skipped/unavailable -> "identical_post_cross_check_blocking_rerun"
+  (receiving key is named "post_cross_check_blocking") -> R3-1
+- UNRESOLVED: review_1.invalid_json.after_retry_limit -> "serial_unit_fallback" (no receiving key) -> R3-2
+
+Verdict: T1-R2-1 / T1-R2-2 materially closed; ROUND 3 required for R3-1/R3-2 before seal.
+- delivery commit/head_sha/diff_fingerprint: NOT CREATED
+- Kimi review-1: NOT DISPATCHED
+- rework_count: 0 (pre-seal inspection loop)

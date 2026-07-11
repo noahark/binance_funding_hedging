@@ -26,7 +26,10 @@
 - HEAD before development-breakdown checkpoint: `8eca2e9`
 - Git status before development-breakdown checkpoint: only
   `12-development-breakdown.md` was untracked
-- Bookkeeper: current Codex/GPT session (`openai`), not an implementer
+- Bookkeeper: Claude Fable 5 session (`anthropic`), not an implementer —
+  took over 2026-07-11 16:22 CST after Codex/GPT quota exhaustion; Codex's
+  in-session round2 verification was not landed and was independently redone
+  (`25-second-reinspection-T1-fable5.md`). Dual-hat disclosure in status.json.
 - Complexity: `HIGH`
 - Current workflow: DRAFT-2 human dispatch; target auto pipeline disabled for
   this bootstrap stage
@@ -69,6 +72,9 @@ README 条目。
   `task-T1-correction-round1-v2-claude-glm.prompt.md`
 - Round1-v2 bookkeeper reinspection: `24-bookkeeper-reinspection-T1.md`
 - T1 correction round2 packet: `task-T1-correction-round2-claude-glm.prompt.md`
+  — executed
+- Round2 Fable5 reinspection: `25-second-reinspection-T1-fable5.md`
+- T1 correction round3 packet: `task-T1-correction-round3-claude-glm.prompt.md`
 - Review-1: not started
 - Fix report: not started
 - Review-2: not started
@@ -145,15 +151,17 @@ README 条目。
 
 ## Blockers
 
-- Prior B1–B5/A2/A3/A4/A6 corrections: materially closed by round1-v2;
-  mechanical frozen/counterexample suite passes.
-- T1-R2-1: receipt schema forces `node=review_1` to Grok, making configured
-  Kimi/Claude-GLM serial fallback receipts schema-invalid.
-- T1-R2-2: workflow has no structured `state_transitions`/`node_transitions`;
-  transition choices remain natural-language strings that a deterministic
-  runner cannot execute without hard-coded policy.
-- T1 delivery commit, fingerprint, validator `pre-review`, and Kimi review-1 are
-  blocked until round2 correction and independent reinspection pass.
+- B1–B5/A2/A3/A4/A6 (round1-v2) and T1-R2-1/R2-2 (round2): materially closed;
+  independently reverified by Fable5 with rewritten counterexamples
+  (`25-second-reinspection-T1-fable5.md`, 16 schema cases + structural
+  assertions + frozen suite, all as expected).
+- T1-R3-1: `node_transitions.embedded_cross_check` targets
+  `identical_post_cross_check_blocking_rerun` but the receiving key is named
+  `post_cross_check_blocking` — node graph does not close.
+- T1-R3-2: `node_transitions.review_1.invalid_json.after_retry_limit` targets
+  `serial_unit_fallback`, which has no receiving key definition.
+- T1 delivery commit, fingerprint, validator `pre-review`, and Kimi review-1
+  are blocked until round3 (two naming-closure fixes) passes reinspection.
 
 ## T1 Dispatch Packet
 
@@ -220,13 +228,34 @@ README 条目。
 - Round2 writable delivery set is only receipt schema, workflow auto contract,
   and normative auto doc, plus append-only implementation/test evidence.
 
+## Round2 Fable5 Reinspection And Bookkeeper Handover
+
+- Bookkeeper handover: Codex/GPT quota exhausted after an in-session round2
+  verification that was never landed as evidence; Fable5 session took over as
+  bookkeeper (disclosure in `status.json.bookkeeper`) and independently redid
+  the verification with rewritten counterexamples.
+- Result: R2-1/R2-2 materially closed (three review-1 route positives, seven
+  receipt negatives, five authorization negatives, enum equality, 8 structured
+  state transitions, pilot exact values, "or Grok" removed, seal-receipt naming
+  landed in docs+README).
+- New: machine node-graph closure check found T1-R3-1/R3-2 (naming-only, no
+  frozen decision touched). Round3 fixes them pre-seal so no formal
+  `rework_count` is consumed and Kimi review-1 receives a closed graph.
+- P3 note (do not fix): `review_1_fixed_transitions` and `activation_predicate`
+  prose blocks coexist with the structured maps; the structured maps are
+  authoritative, prose stays per the round2 "note fields may remain" rule.
+
 ## 下一步
 
-Human operator executes `task-T1-correction-round2-claude-glm.prompt.md`, then
-returns the appended raw implementation/test evidence to the Codex/GPT
-bookkeeper. The correction session must not commit or invoke Kimi. The
-bookkeeper re-inspects before deciding whether T1 may be sealed.
+Human operator executes `task-T1-correction-round3-claude-glm.prompt.md`
+(two node-graph closure fixes in `workflows/templates/stage-delivery.yaml`),
+then returns evidence to the Fable5 bookkeeper. The correction session must not
+commit or invoke Kimi. After reinspection passes, the bookkeeper seals T1
+(delivery commit → head/fingerprint → validator `pre-review`) and prepares the
+human-executed Kimi review-1 packet; the review packet must state that the
+`a385c7a..head` range includes bookkeeper-only status/handoff/evidence commits
+that are not implementer output.
 
-本地北京时间: 2026-07-11 15:37:04 CST
+本地北京时间: 2026-07-11 16:22:49 CST
 下一步模型: human operator → Claude-GLM
-下一步任务: 人工执行 T1 correction round2；修复 serial review-1 fallback receipt 与 structured transition maps，不得 commit 或派发 Kimi。
+下一步任务: 人工执行 T1 correction round3（两处 node-graph 闭合修正）；返回后 Fable5 bookkeeper 复验并推进 seal 与 Kimi review-1 准备。
