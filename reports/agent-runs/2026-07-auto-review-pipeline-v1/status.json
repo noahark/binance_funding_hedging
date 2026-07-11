@@ -702,14 +702,48 @@
       "reason": null,
       "unrelated_reviewer_unavailable_evidence": null
     },
-    "open_p0_p1": null,
+    "open_p0_p1": 7,
     "verdict": null,
     "json_schema_valid": null,
     "diff_fingerprint": null,
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0,
-    "routing_note": "Operator dispatches personally, selecting from gpt-5.6-sol>terra>luna (openai) or claude-fable-5/opus4.8 (anthropic) per cross-review principle and token budget at dispatch time; packet is provider-neutral with per-provider disclosure branches. Actual model recorded truthfully on landing."
+    "routing_note": "Operator dispatches personally, selecting from gpt-5.6-sol>terra>luna (openai) or claude-fable-5/opus4.8 (anthropic) per cross-review principle and token budget at dispatch time; packet is provider-neutral with per-provider disclosure branches. Actual model recorded truthfully on landing.",
+    "panel": {
+      "mode": "operator_parallel_panel",
+      "members": [
+        {
+          "model": "gpt-5.6-sol",
+          "provider_identity": "openai",
+          "verdict": "BLOCKED",
+          "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/50-review-2-gpt-5.6-sol.md",
+          "verdict_json": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-gpt-5.6-sol.verdict.json",
+          "findings": "7xP1+1xP2; bookkeeper spot-reproduced 3/3 sampled + P2 confirmed"
+        },
+        {
+          "model": "grok-4.5",
+          "provider_identity": "xai_grok",
+          "verdict": "ACCEPT",
+          "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/50-review-2-grok.md",
+          "verdict_json": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-grok.verdict.json",
+          "record_eligible": false,
+          "reason": "not a registered decision model; direction_synthesis involvement; override list is Codex/Claude only"
+        },
+        {
+          "model": "Gemini 3.1 Pro",
+          "provider_identity": "google",
+          "verdict": "ACCEPT",
+          "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/50-review-2-gemini.md",
+          "record_eligible": false,
+          "reason": "shallow review (4 docs, no code, no commands); verdict fields incorrect (prior_involvement should be none; non-mechanical model id)"
+        }
+      ],
+      "record_verdict": null,
+      "disposition": "reports/agent-runs/2026-07-auto-review-pipeline-v1/51-review-2-panel-disposition.md",
+      "substantive_findings_confirmed": true,
+      "gemini_reachability_note": "Gemini succeeded this round, weakening the prior service_unavailable statement; a true runner-level availability artifact is required for any future override claim."
+    }
   },
   "rework_count": 1,
   "max_rework": 3,
@@ -738,6 +772,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "operator_dispatch_review_2_packet_model_of_choice",
-  "updated_at": "2026-07-11T21:10:00+08:00"
+  "next_action": "bookkeeper_draft_review2_fix_packet_then_operator_approve_dispatch",
+  "updated_at": "2026-07-11T21:45:00+08:00"
 }
