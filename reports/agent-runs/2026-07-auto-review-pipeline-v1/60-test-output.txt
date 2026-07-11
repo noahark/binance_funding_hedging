@@ -134,3 +134,19 @@ T1 dispatch-packet preparation (2026-07-11 13:00:56 CST):
 - independent packet-convention audit (2026-07-11 13:04:34 CST): PASS after
   three record fixes — RECEIPT status normalized to pending; invented signature
   wording removed; expires_at null semantics bounded by budgets/operator stop
+
+T1 base binding and dispatch-readiness checkpoint (2026-07-11 13:06:49 CST):
+- packet checkpoint / T1 base_sha:
+  a385c7ad77da1611c6e952b2219aee56b49f442f
+- status-only base-binding commit:
+  cdcc8bac99c549568a9c176e5a22cf18f834887e
+- packet exists in base commit: PASS
+- T1 status: ready_for_human_dispatch
+- packet receipt: pending; dispatch_packet_status: ready_not_executed
+- python3 -m json.tool status.json: PASS
+- scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint: PASS
+- scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase dispatch-ready: PASS
+- T1 base/packet/status assertions: PASS
+- git status after base-binding commit: clean
+- adapter/model dispatch: NOT RUN by bookkeeper
+- implementation: NOT RUN
