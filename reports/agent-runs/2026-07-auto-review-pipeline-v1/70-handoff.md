@@ -63,6 +63,10 @@ README 条目。
 - Implementation: `20-implementation.md` — completion claim received; correction required
 - Bookkeeper inspection: `21-bookkeeper-inspection-T1.md` — REWORK BEFORE SEAL
 - T1 correction packet: `task-T1-correction-round1-claude-glm.prompt.md`
+- Fable5 second inspection: `22-second-inspection-T1-fable5.md`
+- Inspection merge: `23-T1-inspection-merge.md`
+- Merged correction packet:
+  `task-T1-correction-round1-v2-claude-glm.prompt.md`
 - Review-1: not started
 - Fix report: not started
 - Review-2: not started
@@ -147,6 +151,13 @@ README 条目。
 - T1-B4: normative prose omits the one-blocking-fix-then-escalate rule.
 - T1-B5: rewrite-on-touch terminology plus report/raw-output evidence corrections
   remain open.
+- T1-A2: receipt next-transition enum must equal the auto workflow set;
+  unsupported `bookkeeper_decision` must be rejected.
+- T1-A3: deterministic seal receipt path and its non-adapter/P11-denominator
+  semantics are missing.
+- T1-A4: authorization evidence/supersedes paths and task scope need symmetric
+  schema hardening; branch remains runtime exact-match without a hard prefix.
+- T1-A6: conceptual `disabled` representation needs an explicit machine shape.
 - T1 delivery commit, fingerprint, validator `pre-review`, and Kimi review-1 are
   blocked until correction and independent reinspection pass.
 
@@ -183,16 +194,32 @@ README 条目。
 - Disposition: REWORK BEFORE SEAL; `rework_count` remains 0 because no formal
   review verdict or code-changing correction dispatch has begun.
 - Correction packet target: original owner `claude_glm / glm-5.2`, human
-  execution only; packet may edit only five named T1 delivery files and append
-  the two shared evidence files.
+  execution only.
+
+## Fable5 Second Inspection Merge
+
+- Fable5 independently confirmed T1-B1–B5.
+- Absorbed as mandatory: A2; A3 using compatible
+  `runner-<seq>-seal.receipt.json`; A4 safe-path/non-empty-scope portion; A6.
+- Record-only: A5 formula-copy inventory; A7 historical registry machine-key
+  compatibility.
+- Deferred: A1 Authority Order promotion, because it changes conflict
+  precedence and requires an operator/design amendment rather than an
+  implementer correction.
+- Rejected subproposal: hard-coded `stage_branch:^stage/`, because AGENTS allows
+  an intake-recorded user-approved branch exception; runner still checks exact
+  branch equality.
+- Old correction packet: superseded before execution; immutable evidence kept.
+- New round1-v2 packet: prepared for human execution; it adds only the already
+  T1-owned authorization schema and README to the correction writable set.
 
 ## 下一步
 
-Human operator executes `task-T1-correction-round1-claude-glm.prompt.md`, then
+Human operator executes `task-T1-correction-round1-v2-claude-glm.prompt.md`, then
 returns the appended raw implementation/test evidence to the Codex/GPT
 bookkeeper. The correction session must not commit or invoke Kimi. The
 bookkeeper re-inspects before deciding whether T1 may be sealed.
 
-本地北京时间: 2026-07-11 14:26:44 CST
+本地北京时间: 2026-07-11 14:58:13 CST
 下一步模型: human operator → Claude-GLM
-下一步任务: 人工执行 `task-T1-correction-round1-claude-glm.prompt.md`；只修 T1-B1–B5 并追加 raw evidence，不得 commit 或派发 Kimi。
+下一步任务: 人工执行唯一有效的 round1-v2 merged correction packet；旧 round1 packet 已作废且从未执行，不得 commit 或派发 Kimi。

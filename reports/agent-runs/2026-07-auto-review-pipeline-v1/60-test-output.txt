@@ -230,3 +230,20 @@ T1 independent bookkeeper inspection (2026-07-11 14:26:44 CST):
 - rewrite-on-touch/report-count/raw-json-output corrections: OPEN (T1-B5)
 - adapter/model dispatch by bookkeeper: NOT RUN
 - Kimi review-1: NOT DISPATCHED
+
+Fable5 second-inspection merge (2026-07-11 14:58:13 CST):
+- raw source: 22-second-inspection-T1-fable5.md
+- Fable5 disposition: CONFIRM REWORK; B1-B5 all confirmed
+- mandatory merged additions: A2, A3 compatible seal path, A4 safe-path/nonempty
+  scope, A6 disabled representation
+- record-only additions: A5 fingerprint-copy inventory, A7 historical registry
+  machine-key compatibility
+- deferred design candidate: A1 Authority Order promotion
+- rejected subproposal: hard-coded stage_branch ^stage/ prefix; runtime exact
+  branch match remains required and user-approved branch exceptions stay valid
+- old round1 packet: superseded before execution; immutable file retained
+- new packet: task-T1-correction-round1-v2-claude-glm.prompt.md
+- rework_count: 0 (same pre-seal correction round)
+- adapter/model dispatch by bookkeeper: NOT RUN
+- correction execution: NOT RUN
+- Kimi review-1: NOT DISPATCHED

@@ -148,7 +148,7 @@
       "slug": "contract-and-schemas",
       "title": "Auto-review contract and schemas",
       "sequence": 1,
-      "status": "correction_packet_ready_for_human_dispatch",
+      "status": "correction_round1_v2_ready_for_human_dispatch",
       "depends_on": [],
       "start_gate": "bookkeeper_checkpoint_then_human_dispatch",
       "owner": {
@@ -200,9 +200,19 @@
       "dispatch_packet_commit": "a385c7ad77da1611c6e952b2219aee56b49f442f",
       "adapter_reference": "agents/registry.yaml#adapters.claude_glm.noninteractive_command",
       "fix_prompt_path": null,
-      "correction_prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round1-claude-glm.prompt.md",
-      "correction_packet_status": "ready_not_executed",
-      "correction_packet_commit": "194f5af400d634e4538d7706db7e471f32d26da1",
+      "correction_prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round1-v2-claude-glm.prompt.md",
+      "correction_packet_revision": "round1-v2",
+      "correction_packet_status": "prepared_commit_pending",
+      "correction_packet_commit": null,
+      "superseded_correction_packets": [
+        {
+          "path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round1-claude-glm.prompt.md",
+          "commit": "194f5af400d634e4538d7706db7e471f32d26da1",
+          "status": "superseded_before_execution",
+          "executed": false,
+          "reason": "Fable5 second inspection was merged before human execution."
+        }
+      ],
       "implementation_report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
       "bookkeeper_inspection": {
         "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/21-bookkeeper-inspection-T1.md",
@@ -214,9 +224,55 @@
           "T1-B2",
           "T1-B3",
           "T1-B4",
-          "T1-B5"
+          "T1-B5",
+          "T1-A2",
+          "T1-A3",
+          "T1-A4",
+          "T1-A6"
         ],
         "rework_ledger_charged": false
+      },
+      "second_inspection": {
+        "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/22-second-inspection-T1-fable5.md",
+        "reviewer": "claude_fable5",
+        "provider_identity": "anthropic",
+        "formal_review": false,
+        "outcome": "CONFIRM_REWORK_WITH_ADDITIONS",
+        "confirmed_findings": [
+          "T1-B1",
+          "T1-B2",
+          "T1-B3",
+          "T1-B4",
+          "T1-B5"
+        ],
+        "proposed_additions": [
+          "A1",
+          "A2",
+          "A3",
+          "A4",
+          "A5",
+          "A6",
+          "A7"
+        ]
+      },
+      "inspection_merge": {
+        "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/23-T1-inspection-merge.md",
+        "mandatory_additions": [
+          "A2",
+          "A3-compatible-runner-seal-path",
+          "A4-safe-paths-and-nonempty-task-scope",
+          "A6-disabled-representation"
+        ],
+        "record_only": [
+          "A5",
+          "A7"
+        ],
+        "deferred_design_candidate": [
+          "A1"
+        ],
+        "rejected_subproposal": [
+          "A4-stage-branch-hardcoded-prefix"
+        ]
       },
       "r10_checklist": null,
       "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
@@ -406,7 +462,10 @@
     "workflows/templates/stage-delivery.yaml",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/21-bookkeeper-inspection-T1.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/22-second-inspection-T1-fable5.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/23-T1-inspection-merge.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round1-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round1-v2-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-contract-and-schemas-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/70-handoff.md",
@@ -497,13 +556,17 @@
     "T1-B2 receipt command reference and adapter pairing are not enforced",
     "T1-B3 workflow lacks conditional auto nodes/transitions/acceptance predicates",
     "T1-B4 normative P7 one-blocking-fix retry rule is incomplete",
-    "T1-B5 rewrite-on-touch terminology and evidence errata/raw output remain open"
+    "T1-B5 rewrite-on-touch terminology and evidence errata/raw output remain open",
+    "T1-A2 receipt next-transition enum must equal the frozen auto workflow set",
+    "T1-A3 deterministic seal receipt path/shape/denominator contract is missing",
+    "T1-A4 authorization paths and task scope need symmetric schema hardening",
+    "T1-A6 disabled conceptual-state representation must be explicit"
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_T1_correction_round1_packet_then_return_raw_evidence_to_bookkeeper",
-  "updated_at": "2026-07-11T14:30:40+08:00"
+  "next_action": "human_execute_T1_correction_round1_v2_packet_then_return_raw_evidence_to_bookkeeper",
+  "updated_at": "2026-07-11T14:58:13+08:00"
 }
