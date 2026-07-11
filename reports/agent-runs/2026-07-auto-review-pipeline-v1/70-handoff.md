@@ -3,8 +3,14 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `fixing` (T3 review-1 **REWORK** round 1; fix packet ready;
-  `rework_count` = **1/3**, first formal charge this stage)
+- Status: `review_1` (T3 fix round1 delivered and **re-sealed**; awaiting
+  Kimi round-2 re-review; `rework_count` = 1/3)
+- T3 re-seal: H_T3' `4c668bb` (fix = TransitionTruthSourceTests only, +248),
+  base unchanged `fff4e14`, new fingerprint
+  `4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:6ff0032b8220dee882ecf78bea21acfc09bf9ea24307f88b4d68c8e925b34053`,
+  bind `3282d6f`, `--phase pre-review` PASSED; bookkeeper destructive
+  verification confirmed the new assertion detects event rename / one_of
+  drop and fails closed on structural deformation
 - T3 seal: H_T3 `d42e031` (runner + 31 integration tests + manifest),
   fingerprint
   `d42e031d8b60aa6ed9169308cedc3faad3a8c9ea:2deb5e9e54ffc6c40a02b55f30d5403c3526fddcf1708cd544b544fa44d5c9e8`,
@@ -111,9 +117,10 @@ README 条目。
 - Review-1 (T3): **REWORK round 1** — `30-review-1-T3.md` +
   `review-1-T3-round1.verdict.json` (one P2 finding: persistent
   transition-set assertion; all other focus areas passed)
-- T3 fix round1 packet: `task-T3-fix-round1-claude-glm.prompt.md` — ready,
-  not executed (reviewer `fix_start_prompt` embedded verbatim; writable =
-  only `scripts/tests/test_auto_review_runner.py`)
+- T3 fix round1 packet: `task-T3-fix-round1-claude-glm.prompt.md` — executed
+  (fix commit `4c668bb`, finding P2 closed)
+- T3 round-2 review packet: `task-T3-review1-round2-kimi.prompt.md` — ready,
+  not executed
 - Fix report: not started (formal `rework_count` = 0)
 - Review-2: not started (routing pending operator decision)
 - Intake checks: `60-test-output.txt`
@@ -370,17 +377,30 @@ README 条目。
   is a code change: after it returns, T3 must be **re-sealed** (new
   H_T3'/fingerprint via the full protocol) before Kimi re-review round 2.
 
+## T3 Fix Round 1 And Re-Seal
+
+- GLM delivered the fix within the single-file boundary:
+  `TransitionTruthSourceTests` + `_parse_workflow_state_transitions`
+  (restricted stdlib line parser; reads the real workflow file; one_of
+  expanded; null→None; fail-closed on structural deviation; no second
+  hardcoded matrix; no yaml import). 110 tests green.
+- Bookkeeper destructive verification on scratchpad copies: event rename →
+  drift detected; one_of item dropped → drift detected (12≠13); indentation
+  deformation → AssertionError fail-closed. Real workflow untouched.
+- Re-sealed at H_T3' `4c668bb` (round-1 verdict preserved in
+  `tasks[T3].review_1_history`); `--phase pre-review` PASSED.
+
 ## 下一步
 
-Human operator executes `task-T3-fix-round1-claude-glm.prompt.md`
-(`claude-glm --model glm-5.2 -p "$(cat <packet>)"`). The fix session may
-modify only `scripts/tests/test_auto_review_runner.py` (one new test class
-parsing the workflow `state_transitions` with a restricted stdlib line
-parser, expanding `one_of`, asserting equality with
-`runner.AUTO_TRANSITIONS`). It must not commit or dispatch. Fable5
-bookkeeper then re-inspects, reruns the full suite, re-seals T3, and
-prepares the Kimi re-review (round 2) packet.
+Human operator executes `task-T3-review1-round2-kimi.prompt.md`
+(`kimi --model kimi-code/kimi-for-coding -p "$(cat <packet>)"`, fresh
+read-only session). Round-2 focus: independent finding-closure verification
+plus no-regression on the 3-path fix increment (`git diff d42e031..4c668bb`);
+round-1 passed areas need only incremental confirmation. After round-2
+ACCEPT, all three review units are complete and the stage reaches the
+operator's review-2 routing gate (Gemini enablement vs strong-reviewer
+disclosure override).
 
-本地北京时间: 2026-07-11 20:05:00 CST
-下一步模型: human operator → Claude-GLM（T3 fix round 1）
-下一步任务: 人工执行 T3 fix packet；返回后 bookkeeper 复验并重新 seal，再出 Kimi round-2 review packet。
+本地北京时间: 2026-07-11 20:35:00 CST
+下一步模型: human operator → Kimi（T3 review-1 round 2, fresh session）
+下一步任务: 人工执行 round-2 review packet；raw 输出交回 Fable5 bookkeeper 落盘 verdict；ACCEPT 后进入 review-2 路由决议。
