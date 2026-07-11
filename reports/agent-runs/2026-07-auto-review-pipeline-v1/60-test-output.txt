@@ -693,3 +693,42 @@ EXIT_STATUS=1  (1 = no matches = expected)
  M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
 ?? scripts/auto-review-runner.py
 ?? scripts/tests/test_auto_review_runner.py
+
+### T3 Fable5 bookkeeper reverification + SEAL + pre-review gate (2026-07-11 19:25 CST)
+
+Boundary: 5 changed paths = 3 T3 delivery + 2 shared evidence; 0 forbidden; T1/T2 deliverables untouched. PASS
+Independent rerun (full frozen suite, py_compile now includes the runner):
+- python3 -m unittest discover -s scripts/tests: Ran 109 tests OK (78 prior + 31 T3) EXIT:0
+- py_compile validate-stage/harness_stage_lib/stage-seal/auto-review-runner: EXIT:0
+- validator checkpoint PASS / git diff --check EXIT:0 / grep formal-1 scripts+manifest EXIT:1
+- import scan runner+test: stdlib-only confirmed
+- manifest diff: exactly +5 harness_owned lines (3 scripts + scripts/tests/ + docs/auto-review-pipeline.md), 0 deletions
+- lib reuse verified: validate_authorization_doc/validate_receipt_doc/resolve_safe_path all delegated; no reimplementation
+- git add: explicit frozen paths only (no -A), per source line 549 region
+- exotic pathspec tests present and fail-closed (negation :(exclude), nested-glob rejected-literal, case-sensitivity, dir globs, parallel-topology out-of-allowlist escalation)
+
+Transition-truth three-way set-level machine comparison (bookkeeper, addressing the packet's assertion requirement):
+- workflow state_transitions (8 rows, one_of expanded via ruby YAML->JSON): 13 tuples
+- validator AUTO_TRANSITIONS (importlib load): 13 tuples
+- runner AUTO_TRANSITIONS (reused reference, no second literal): equal to validator's
+- RESULT: workflow == validator == runner, SET-LEVEL CONSISTENCY CONFIRMED
+- Known gap (disclosed by implementer, carried into review-1 packet for independent judgment):
+  a *persistent test assertion* of this equality is not in the delivered test files; behavior-level
+  transition tests + this landed machine comparison are the current evidence.
+
+SEAL:
+- T3 delivery commit (H_T3): d42e031d8b60aa6ed9169308cedc3faad3a8c9ea (5 files, +2833)
+- base: fff4e1406fb3b340532e10b0ee88661c722b82f4
+- diff_fingerprint: d42e031d8b60aa6ed9169308cedc3faad3a8c9ea:2deb5e9e54ffc6c40a02b55f30d5403c3526fddcf1708cd544b544fa44d5c9e8
+  (shell pipeline AND harness_stage_lib.compute_diff_fingerprint; identical)
+- status bind commit: 7fb0933 (top-level range rolled to T3; tasks[T3] sealed)
+
+Gate:
+- scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase pre-review: STAGE VALIDATION PASSED EXIT:0
+
+Review-1 dispatch preparation:
+- packet: task-T3-review1-kimi.prompt.md (fresh read-only Kimi; range role split 2 bookkeeper + 1 delivery;
+  focus includes the transition-assertion gap with full context for independent judgment, GLM's six self-reported
+  concerns, and the P3 pathspec carry-over)
+- rework_count: 0 (after all three implementation tasks)
+- Kimi T3 review-1: NOT DISPATCHED (human gate)
