@@ -906,3 +906,76 @@ grep_exit=1 (1 = no matches = expected)
  M scripts/stage-seal.py
  M scripts/tests/test_auto_review_runner.py
  M scripts/tests/test_stage_seal.py
+
+================================================================
+Review-2 Fix Round 1 — bookkeeper reverification (Fable5)
+本地北京时间: 2026-07-11 23:05:00 CST
+================================================================
+
+## Boundary check
+git status --short (before delivery commit): exactly
+  scripts/auto-review-runner.py, scripts/stage-seal.py,
+  scripts/tests/test_auto_review_runner.py, scripts/tests/test_stage_seal.py
+  + 2 append-only evidence files. Evidence diffs: 0 deleted lines (pure append).
+harness_stage_lib.py / validate-stage.py / T1 contracts / manifest: untouched
+(git diff --stat over both = empty).
+
+## Independent rerun of required checks
+python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+  -> Ran 136 tests ... OK
+python3 -m py_compile (validate-stage, harness_stage_lib, stage-seal, runner)
+  -> exit 0
+scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint
+  -> PASSED (pre-delivery, fingerprint 4c668bb...:54186cec... unchanged)
+git diff --check -> clean
+grep -rn "formal-1" scripts harness-manifest.yaml -> exit 1 (no matches)
+
+## Per-finding test classes, each run individually -> all OK
+F2 AuthorizationBindingTests (6) / F3 ProductionRegistryCommandTests (4,
+loads real agents/registry.yaml, asserts actual claude_glm/kimi/grok
+command strings) / F4 VerdictSchemaAndByteFidelityTests (6) /
+F5 ReworkLedgerAndExpiryTests (4) / F6 RunnerLockTests (1) +
+SealCrashRecoveryTests (4, crash injected in real flow via monkeypatched
+write_unit_and_receipt AFTER snapshot commit; asserts single H_bind,
+H_snapshot count stays 1, marker cleared, bind_status re-derived) /
+F7 RestartAndAdapterErrorTests (4).
+
+## Destructive spot checks (post-commit 846bec0, restored via git checkout)
+1. F3: remove '<prompt-file>' replacement line in _default_invoke
+   -> ProductionRegistryCommandTests: Ran 4, FAILED (failures=3)
+2. F5: drop top-level rework_count increment in _charge_auto_change
+   -> ReworkLedgerAndExpiryTests: Ran 4, FAILED (failures=3)
+3. F4: restore json.dumps re-serialization in _store_verdict
+   -> VerdictSchemaAndByteFidelityTests: Ran 6, FAILED (failures=1)
+After each: git checkout -- scripts/auto-review-runner.py; combined rerun
+of the three classes -> OK. Worktree clean.
+
+## Code-reading verification (spot anchors)
+F2: preflight raises authorization_not_committed / authorization_uncommitted_change;
+  _verify_authorization_binding exact-matches task_ids/topology/pathspecs;
+  budgets via _auth_or_status_budget (authorization first).
+F4: _store_verdict writes raw_text[span[0]:span[1]].encode("utf-8");
+  missing span -> RunnerError.
+F5: _charge_auto_change increments top-level rework_count and escalates
+  past max (runner lines ~698-706).
+F7: implementation node (line ~1279) and fix node (line ~1771) stop on
+  failure_class in (command_error, timeout) -> receipt + TerminalEscalation;
+  _run_body skips units with review_1.verdict == ACCEPT;
+  completed_review_1 restart returns no-op before lock acquisition.
+Pre-existing test adjustment (AccountingTimingTests): timeout moved to the
+review adapter; original intent (charge-before-start + cap-3 exhaustion)
+preserved; disclosed in 20-implementation.md risk #1 for review-1.
+
+## Re-seal
+Delivery commit: 846bec0 (fix delivery, bookkeeper-committed).
+Stage fingerprint dual-computed (shell shasum vs harness_stage_lib
+compute_diff_fingerprint), byte-identical:
+  846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4
+Fix-unit fingerprint (4c668bb..846bec0, same exclusion formula):
+  846bec036d62a3cdb243325f16977bd2c1396ade:af3daf4d695f172c8c4d38fddbc6a6c491cfa62369b76a14402ace7615865b0b
+Status bind commit: 75159f8 (status review_1, re-review-1 packet bound).
+validate-stage --phase checkpoint -> PASSED
+validate-stage --phase pre-review  -> PASSED (clean tree, fingerprint recomputed equal)
+
+Verdict: fix round 1 delivery VERIFIED. Kimi re-review-1 dispatch is the
+next human action; review-2 re-entry follows only after its ACCEPT.

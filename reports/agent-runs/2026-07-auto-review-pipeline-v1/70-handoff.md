@@ -3,9 +3,21 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `fixing` — review-2 parallel panel returned split verdicts;
-  gpt-5.6-sol's BLOCKED substantive findings (7×P1) were spot-confirmed by
-  the bookkeeper; **review-2 fix round 1 packet bound, `rework_count` = 2/3**
+- Status: `review_1` — **review-2 fix round 1 delivered and bookkeeper-verified**;
+  Kimi re-review-1 packet bound, awaiting human dispatch; `rework_count` = 2/3
+- Fix round 1 (F2–F7, GLM): delivery commit `846bec0` — 4 code files
+  (runner, stage-seal, both test files) + 26 new negative tests; suite 136 OK.
+  Bookkeeper verification: boundary PASS, all required checks rerun
+  independently, 7 new test classes run individually, destructive spot
+  checks F3/F5/F4 (red 3/3/1, restored green). Pre-existing test
+  `test_call_charged_before_adapter_start_even_on_timeout` adjusted for F7
+  semantics (intent preserved; flagged for review-1 adjudication).
+- Stage re-sealed: `a385c7a..846bec0`, fingerprint
+  `846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4`
+  (dual-computed shell+lib, equal); `--phase pre-review` PASSED at `75159f8`
+- Fix unit for re-review-1: `4c668bb..846bec0`, fingerprint
+  `846bec036d62a3cdb243325f16977bd2c1396ade:af3daf4d695f172c8c4d38fddbc6a6c491cfa62369b76a14402ace7615865b0b`;
+  packet `task-review2-fix-round1-review1-kimi.prompt.md`
 - Panel record: sol BLOCKED (`50-review-2-gpt-5.6-sol.md`, deep, all
   spot-checks confirmed) / grok ACCEPT (advisory only — not a registered
   decision model, direction_synthesis involvement) / gemini ACCEPT (advisory
@@ -483,18 +495,18 @@ Bookkeeper recommendation (non-binding): **A** for cleanest independence;
 
 ## 下一步
 
-Human operator executes `task-review2-fix-round1-claude-glm.prompt.md`
-(`claude-glm --model glm-5.2 -p "$(cat <packet>)"`). The fix session may
-modify only `scripts/auto-review-runner.py`, `scripts/stage-seal.py`,
-`scripts/tests/test_auto_review_runner.py`, `scripts/tests/test_stage_seal.py`
-— six findings F2–F7, each with deterministic negative tests (authorization
-real binding, production registry command shapes loaded from the real
-registry, verdict schema alignment + byte-span preservation, single-ledger
-rework_count linkage + per-call expiry, runner lock + real H_snapshot crash
-window, restart idempotency + adapter-error stop). After it returns: Fable5
-bookkeeper reverifies → re-seal (new fingerprint) → Kimi re-review-1 of the
-fix unit → back to review-2 under the revised override basis.
+Fix round 1 has been delivered (`846bec0`) and bookkeeper-verified; the
+stage is re-sealed and validator `--phase pre-review` PASSED. Human operator
+executes the Kimi re-review-1 packet
+(`kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-auto-review-pipeline-v1/task-review2-fix-round1-review1-kimi.prompt.md)"`).
+Fresh read-only session; review subject = fix unit `4c668bb..846bec0`
+(fingerprint in packet §1); focus = per-finding closure F2–F7 with negative
+tests, the one adjusted pre-existing test (explicit adjudication requested),
+and non-regression (136 tests). After the verdict lands: ACCEPT → back to
+review-2 (operator selects the provider under the design-conflict
+ineligibility override, evidence file v2); REWORK → note `rework_count` is
+at 2/3, one slot remains before human_escalation_required.
 
-本地北京时间: 2026-07-11 22:20:00 CST
-下一步模型: human operator → Claude-GLM（review-2 fix round 1）
-下一步任务: 人工执行 fix packet；实现者不得 commit、不得触碰 writable set 外文件；返回后 bookkeeper 复验并推进。
+本地北京时间: 2026-07-11 23:05:00 CST
+下一步模型: human operator → Kimi（review-2 fix round 1 的 re-review-1）
+下一步任务: 人工执行 re-review-1 packet；Kimi 只读评审 fix 单元；verdict 返回后 bookkeeper 验证落档并推进（ACCEPT → 重回 review-2）。
