@@ -247,3 +247,177 @@ Fable5 second-inspection merge (2026-07-11 14:58:13 CST):
 - adapter/model dispatch by bookkeeper: NOT RUN
 - correction execution: NOT RUN
 - Kimi review-1: NOT DISPATCHED
+
+================================================================
+T1 Merged Correction Round 1 v2 - frozen checks + counterexamples
+Local time: 2026-07-11 15:20:57 CST
+branch: stage/2026-07-auto-review-pipeline-v1
+T1 base_sha: a385c7ad77da1611c6e952b2219aee56b49f442f
+implementer: claude_glm / glm-5.2[1m]
+packet: task-T1-correction-round1-v2-claude-glm.prompt.md (supersedes round1, never executed)
+================================================================
+
+Command: python3 -m json.tool schemas/auto-review-authorization.schema.json >/dev/null && echo PASS
+Exit: 0
+PASS
+
+Command: python3 -m json.tool schemas/runner-receipt.schema.json >/dev/null && echo PASS
+Exit: 0
+PASS
+
+Command: python3 -m json.tool reports/agent-runs/_template/status.json >/dev/null && echo PASS
+Exit: 0
+PASS
+
+Command: scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint
+Exit: 0
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+phase=checkpoint
+status=fixing
+
+Command: git diff --check
+Exit: 0
+
+Command: grep -rn 'formal-1' AGENTS.md workflows agents docs schemas reports/agent-runs/_template
+Exit: 1
+
+Command: python3 /tmp/t1_counterexamples.py
+Exit: 0
+Draft202012Validator.check_schema: both schemas meta-valid.
+
+# runner-receipt.schema.json
+- positive valid                                       VALID (0 errors)       [OK]
+- missing 5 required evidence keys                     INVALID (5 errors)     [OK]
+    first error: 'review_unit_id' is a required property
+- expanded/secret-like command ref                     INVALID (3 errors)     [OK]
+    first error: 'grok --token SECRET --permission-mode plan' is not one of ['agents/registry.yaml#adapters.claude_glm.noninteractive_command', 'agents/registry.yaml#adapters.claude_glm.embedded_re
+- adapter id / ref mismatch                            INVALID (1 errors)     [OK]
+    first error: 'agents/registry.yaml#adapters.claude_glm.noninteractive_command' is not one of ['agents/registry.yaml#adapters.grok.development_command', 'agents/registry.yaml#adapters.grok.optio
+- same-prefix yolo command ref                         INVALID (3 errors)     [OK]
+    first error: 'agents/registry.yaml#adapters.claude_glm.yolo_command' is not one of ['agents/registry.yaml#adapters.claude_glm.noninteractive_command', 'agents/registry.yaml#adapters.claude_glm.
+- same-prefix availability probe ref                   INVALID (3 errors)     [OK]
+    first error: 'agents/registry.yaml#adapters.claude_glm.availability_check_command' is not one of ['agents/registry.yaml#adapters.claude_glm.noninteractive_command', 'agents/registry.yaml#adapte
+- next_transition=bookkeeper_decision                  INVALID (1 errors)     [OK]
+    first error: 'bookkeeper_decision' is not one of [None, 'implementation', 'embedded_cross_check', 'blocking_check', 'seal', 'review_1', 'fix', 'awaiting_human', 'completed_review_1', 'human_esc
+- review_1 node with claude_glm (must be grok)         INVALID (2 errors)     [OK]
+    first error: 'grok' was expected
+
+# auto-review-authorization.schema.json
+- positive valid                                       VALID (0 errors)       [OK]
+- absolute approval_evidence_path                      INVALID (1 errors)     [OK]
+    first error: '/etc/passwd' does not match '^[^/].*$'
+- traversal approval_evidence_path                     INVALID (1 errors)     [OK]
+    first error: '../secret.md' should not be valid under {'pattern': '\\.\\.'}
+- newline approval_evidence_path                       INVALID (2 errors)     [OK]
+    first error: 'foo\nbar.md' does not match '^[^/].*$'
+- unsafe non-null supersedes                           INVALID (1 errors)     [OK]
+    first error: '../hidden.json' is not valid under any of the given schemas
+- empty task_ids                                       INVALID (1 errors)     [OK]
+    first error: [] should be non-empty
+- duplicate task_ids                                   INVALID (1 errors)     [OK]
+    first error: ['T1', 'T1'] has non-unique elements
+- control-character stage_branch                       INVALID (1 errors)     [OK]
+    first error: 'stage/s\nx' should not be valid under {'pattern': '[\\r\\n\\t\\x00-\\x1f\\x7f]'}
+- safe non-stage/ branch (exception preserved)         VALID (0 errors)       [OK]
+
+All counterexamples exercised. Any MISMATCH above would be a schema defect.
+
+Command: ruby -e 'require "yaml"; YAML.load_file("workflows/templates/stage-delivery.yaml"); YAML.load_file("agents/registry.yaml"); puts "YAML PARSE PASSED"'
+Exit: 1
+/System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:456:in `parse': (workflows/templates/stage-delivery.yaml): did not find expected '-' indicator while parsing a block collection at line 124 column 7 (Psych::SyntaxError)
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:456:in `parse_stream'
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:390:in `parse'
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:277:in `load'
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:578:in `block in load_file'
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:577:in `open'
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:577:in `load_file'
+	from -e:1:in `<main>'
+
+Command: ruby /tmp/t1_assertions.rb
+Exit: 1
+/System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:456:in `parse': (workflows/templates/stage-delivery.yaml): did not find expected '-' indicator while parsing a block collection at line 124 column 7 (Psych::SyntaxError)
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:456:in `parse_stream'
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:390:in `parse'
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:277:in `load'
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:578:in `block in load_file'
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:577:in `open'
+	from /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/psych.rb:577:in `load_file'
+	from /tmp/t1_assertions.rb:6:in `<main>'
+
+End of T1 correction round1-v2 frozen checks + counterexamples.
+
+### T1 合并修正轮次 1 v2 — YAML 修复后重跑（frozen_nodes_and_order 重构为 order+note）
+### 背景修正：上一追加块中 Ruby Psych 报 (stage-delivery.yaml): did not find expected '-' indicator
+### while parsing a block collection at line 124 column 7 (EXIT 1)。
+### 根因：executable_contract.frozen_nodes_and_order 在同一键下混用 block sequence（列表项
+### 6 空格缩进）与同缩进的 note: 映射键（6 空格），YAML 拒绝；activation_predicate.all_of /
+### completion_predicate.all_of 的列表项为 8 空格、其同级 otherwise:/then: 为 6 空格，故不冲突。
+### 修复：将 frozen_nodes_and_order 改为映射，含 order 子列表 + note 子键。schemas 未改动。
+
+==== ruby frozen YAML parse (frozen command from task packet) ====
+YAML PARSE PASSED
+EXIT:0
+
+==== ruby assertions /tmp/t1_assertions.rb ====
+YAML.load_file workflow + registry + receipt JSON parse: OK
+workflow allowed_next_transitions (9): ["awaiting_human", "blocking_check", "completed_review_1", "embedded_cross_check", "fix", "human_escalation_required", "implementation", "review_1", "seal"]
+receipt next_transition enum non-null (9): ["awaiting_human", "blocking_check", "completed_review_1", "embedded_cross_check", "fix", "human_escalation_required", "implementation", "review_1", "seal"]
+ASSERT allowed_next_transitions == receipt enum (non-null): true
+ASSERT set excludes 'bookkeeper_decision': true
+workflow runner_states: ["authorized", "running", "awaiting_human", "stopped", "completed_review_1"]
+ASSERT runner_states excludes 'disabled': true
+disabled machine_representation: {"enabled"=>false, "dispatch_mode"=>"human_dispatch", "runner_state"=>nil}
+ASSERT disabled == {enabled:false, dispatch_mode:human_dispatch, runner_state:nil}: true
+ASSERT docs contain 'runner-<seq>-seal.receipt.json': true
+ASSERT README contain 'runner-<seq>-seal.receipt.json': true
+EXIT:0
+
+==== python yaml round-trip + executable_contract structure ====
+PYTHON YAML load both: OK
+frozen_nodes_and_order keys: ['note', 'order']
+order: ['preflight', 'implementation', 'initial_blocking', 'embedded_cross_check_run_or_skip_or_unavailable', 'identical_post_cross_check_blocking_rerun', 'seal', 'review_1']
+note present: True
+allowed_next_transitions count: 9
+EXIT:0
+
+==== git diff --check ====
+EXIT:0
+
+==== grep formal-1 (must be absent, expect EXIT 1) ====
+EXIT:1
+
+==== END YAML-fix re-check block (all EXIT 0 except grep formal-1=1 as expected) ====
+
+T1 round1-v2 independent bookkeeper reinspection (2026-07-11 15:37:04 CST):
+- outcome: REWORK BEFORE SEAL; correction round2 required
+- branch: stage/2026-07-auto-review-pipeline-v1
+- HEAD: 9b157e15eb1561b5f8e4b8b0d1ae7a4562e9967e
+- T1 base: a385c7ad77da1611c6e952b2219aee56b49f442f
+- round1-v2 frozen JSON/YAML/diff/vocabulary checks: PASS
+- prior B1-B5/A2/A3/A4/A6 corrections: materially closed
+
+Draft202012Validator review-1 route check:
+- grok_primary error_count=0 (PASS)
+- kimi_serial_fallback error_count=2 (T1-R2-1 REPRODUCED)
+  - 'grok' was expected
+  - Grok optional_review_command was expected
+- glm_serial_fallback error_count=2 (T1-R2-1 REPRODUCED)
+  - 'grok' was expected
+  - Grok optional_review_command was expected
+
+Workflow executable-map inspection:
+- executable_contract.state_transitions exists: false
+- executable_contract.node_transitions exists: false
+- review_1_fixed_transitions values are natural-language strings
+- result: T1-R2-2 REPRODUCED; deterministic runner would need hard-coded policy
+
+Docs/schema cross-check:
+- docs embedded cross-check example includes unfrozen 'or Grok'
+- schema embedded_cross_check permits GLM/Kimi read-only refs only
+- round2 minimum: remove docs drift; do not broaden Grok cross-check route
+
+- delivery commit/head_sha/diff_fingerprint: NOT CREATED
+- validate-stage pre-review: NOT RUN
+- Kimi review-1: NOT DISPATCHED
+- rework_count: 0 (pre-seal inspection)

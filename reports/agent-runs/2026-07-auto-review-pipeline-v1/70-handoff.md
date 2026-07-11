@@ -67,6 +67,8 @@ README 条目。
 - Inspection merge: `23-T1-inspection-merge.md`
 - Merged correction packet:
   `task-T1-correction-round1-v2-claude-glm.prompt.md`
+- Round1-v2 bookkeeper reinspection: `24-bookkeeper-reinspection-T1.md`
+- T1 correction round2 packet: `task-T1-correction-round2-claude-glm.prompt.md`
 - Review-1: not started
 - Fix report: not started
 - Review-2: not started
@@ -143,23 +145,15 @@ README 条目。
 
 ## Blockers
 
-- T1-B1: five required/null-able receipt evidence keys are optional in schema.
-- T1-B2: receipt command reference accepts expanded/arbitrary strings and
-  adapter/reference mismatch.
-- T1-B3: workflow lacks conditional auto nodes/transitions/acceptance predicates
-  and an explicit authorized runner-writer exception to manual defaults.
-- T1-B4: normative prose omits the one-blocking-fix-then-escalate rule.
-- T1-B5: rewrite-on-touch terminology plus report/raw-output evidence corrections
-  remain open.
-- T1-A2: receipt next-transition enum must equal the auto workflow set;
-  unsupported `bookkeeper_decision` must be rejected.
-- T1-A3: deterministic seal receipt path and its non-adapter/P11-denominator
-  semantics are missing.
-- T1-A4: authorization evidence/supersedes paths and task scope need symmetric
-  schema hardening; branch remains runtime exact-match without a hard prefix.
-- T1-A6: conceptual `disabled` representation needs an explicit machine shape.
+- Prior B1–B5/A2/A3/A4/A6 corrections: materially closed by round1-v2;
+  mechanical frozen/counterexample suite passes.
+- T1-R2-1: receipt schema forces `node=review_1` to Grok, making configured
+  Kimi/Claude-GLM serial fallback receipts schema-invalid.
+- T1-R2-2: workflow has no structured `state_transitions`/`node_transitions`;
+  transition choices remain natural-language strings that a deterministic
+  runner cannot execute without hard-coded policy.
 - T1 delivery commit, fingerprint, validator `pre-review`, and Kimi review-1 are
-  blocked until correction and independent reinspection pass.
+  blocked until round2 correction and independent reinspection pass.
 
 ## T1 Dispatch Packet
 
@@ -213,13 +207,26 @@ README 条目。
 - New round1-v2 packet: prepared for human execution; it adds only the already
   T1-owned authorization schema and README to the correction writable set.
 
+## Round1-v2 Bookkeeper Reinspection
+
+- Round1-v2 execution evidence is appended in `20-implementation.md` and
+  `60-test-output.txt`; no live status/handoff/review file was touched by GLM.
+- Independent fallback receipt test: Grok primary valid; Kimi fallback and
+  Claude-GLM fallback each fail with two schema errors.
+- Independent workflow inspection: `state_transitions=false`,
+  `node_transitions=false`; review-1 routing outcomes are prose strings.
+- Disposition: REWORK BEFORE SEAL, correction round2; formal `rework_count`
+  remains 0 because review-1 has not started.
+- Round2 writable delivery set is only receipt schema, workflow auto contract,
+  and normative auto doc, plus append-only implementation/test evidence.
+
 ## 下一步
 
-Human operator executes `task-T1-correction-round1-v2-claude-glm.prompt.md`, then
+Human operator executes `task-T1-correction-round2-claude-glm.prompt.md`, then
 returns the appended raw implementation/test evidence to the Codex/GPT
 bookkeeper. The correction session must not commit or invoke Kimi. The
 bookkeeper re-inspects before deciding whether T1 may be sealed.
 
-本地北京时间: 2026-07-11 14:58:13 CST
+本地北京时间: 2026-07-11 15:37:04 CST
 下一步模型: human operator → Claude-GLM
-下一步任务: 人工执行唯一有效的 round1-v2 merged correction packet；旧 round1 packet 已作废且从未执行，不得 commit 或派发 Kimi。
+下一步任务: 人工执行 T1 correction round2；修复 serial review-1 fallback receipt 与 structured transition maps，不得 commit 或派发 Kimi。
