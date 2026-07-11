@@ -90,6 +90,7 @@
     "user_approved_lightweight_route": false,
     "high_direction_panel_user_override": true,
     "lightweight_skip_allowed": true,
+    "evaluator_route_deviation": "Registry default is claude_glm. The operator instruction plus frozen GPT/Fable-reviewed decision table already fixed HIGH, so the Codex bookkeeper recorded classification without a redundant human-dispatched GLM evaluation.",
     "rationale": [
       "The operator explicitly requested opening this stage from the frozen post-dual-review decision table.",
       "The existing multi-model decision chain covers the HIGH-stage direction; no new direction panel is needed.",
@@ -133,7 +134,8 @@
     "verdict": null,
     "json_schema_valid": null,
     "diff_fingerprint": null,
-    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement": null,
+    "reviewer_prior_involvement_pending": true,
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
@@ -145,7 +147,8 @@
     "primary_provider": null,
     "fallback_provider": null,
     "fallback_reason": null,
-    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement": null,
+    "reviewer_prior_involvement_pending": true,
     "reviewer_prior_involvement_notes": null,
     "unrelated_reviewer_unavailable_evidence": null,
     "design_conflict_override": {
@@ -178,5 +181,5 @@
   },
   "terminal_reason": null,
   "next_action": "stage-design",
-  "updated_at": "2026-07-11T03:34:30Z"
+  "updated_at": "2026-07-11T03:52:59Z"
 }
