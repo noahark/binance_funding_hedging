@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-funding-annualized-history-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-funding-annualized-history-v1",
@@ -551,8 +551,8 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "stage_accepted_waiting_user",
-  "updated_at": "2026-07-10T16:45:58Z",
+  "next_action": "merge_to_main_no_ff",
+  "updated_at": "2026-07-11T02:28:42Z",
   "independent_review_2_audit": {
     "role": "final_reviewer",
     "provider": "anthropic",
@@ -582,5 +582,11 @@
     "fix_start_prompt_source": "reports/agent-runs/2026-07-funding-annualized-history-v1/review-1-task-b-claude-glm.rework.raw-output.md .fix_start_prompt",
     "executor": "human pastes into fresh Kimi session; Kimi edits only frontend/self-check.js, does NOT commit and does NOT touch status.json; returns raw output + diff.patch for bookkeeper to land.",
     "post_fix": "bookkeeper commits Task B fix on new range -> re-review Task B (fresh claude_glm read-only) to ACCEPT -> all review-1 ACCEPT -> run review-2 on recomputed combined range."
+  },
+  "user_acceptance": {
+    "accepted_by": "user (zhaofangzhou1995@gmail.com)",
+    "accepted_at": "2026-07-11T02:28:42Z",
+    "method": "visual acceptance on the running app (http://127.0.0.1:8787): annualized columns, on-demand history drawer, private-account panel (after .env private channel restored). Explicit merge+push authorization.",
+    "authorized_merge": "no-ff back to main"
   }
 }
