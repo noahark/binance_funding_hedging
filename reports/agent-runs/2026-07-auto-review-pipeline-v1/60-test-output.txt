@@ -801,3 +801,30 @@ fail-closed OK (no header): state_transitions: header not found in /
 ================================================================
  M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
  M scripts/tests/test_auto_review_runner.py
+
+### T3 fix round1 Fable5 reverification + RE-SEAL + round-2 gate (2026-07-11 20:35 CST)
+
+Boundary: 3 changed paths = fix_start_prompt's single writable test file + 2 shared evidence; 0 forbidden. PASS
+Independent rerun:
+- python3 -m unittest discover: Ran 110 tests OK (109 + TransitionTruthSourceTests)
+- python3 -m unittest scripts.tests.test_auto_review_runner.TransitionTruthSourceTests: OK
+- py_compile x4 / validator checkpoint / git diff --check / formal-1 scan / stdlib-only import check: ALL PASS
+Fix-quality destructive verification (bookkeeper, on scratchpad workflow copies, real file untouched):
+- renamed event ("operator_stop"->"operator_halt"): drift DETECTED (set inequality)
+- dropped one_of item: drift DETECTED (12 != 13 tuples)
+- indentation deformation: parser FAIL-CLOSED (AssertionError: header not found)
+- parser reads the real workflow file dynamically; no second hardcoded matrix; one_of expanded; null->None
+
+RE-SEAL (fix is a code change; prior sealed fingerprint invalidated):
+- T3 fix delivery commit (H_T3'): 4c668bb8748c09e7014eac2fbb7a34d3a7c247d5 (3 files, +248)
+- base unchanged: fff4e1406fb3b340532e10b0ee88661c722b82f4
+- new diff_fingerprint: 4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:6ff0032b8220dee882ecf78bea21acfc09bf9ea24307f88b4d68c8e925b34053
+  (shell pipeline AND harness_stage_lib; identical)
+- status bind commit: 3282d6f (tasks[T3] re-sealed, round-1 verdict preserved in review_1_history, fix_round1 block recorded)
+- scripts/validate-stage.py --phase pre-review: STAGE VALIDATION PASSED EXIT:0
+
+Round-2 review dispatch preparation:
+- packet: task-T3-review1-round2-kimi.prompt.md (fresh session; focus = finding closure + no-regression;
+  round-1 passed areas need only incremental confirmation; fix increment = git diff d42e031..4c668bb, 3 paths)
+- rework_count: 1/3 (unchanged; round-2 review itself charges nothing)
+- Kimi round-2: NOT DISPATCHED (human gate)
