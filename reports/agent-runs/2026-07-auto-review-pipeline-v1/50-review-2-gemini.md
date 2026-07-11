@@ -1,6 +1,6 @@
 # Stage Review-2 (Gemini 3.1 Pro)
 
-As the final reviewer in override mode, I have examined the provided artifacts, the state in `status.json`, and the task boundaries defined in the `40-operator-decision-table.md`. 
+As the final reviewer in override mode, I have examined the provided artifacts, the state in `status.json`, and the task boundaries defined in the `40-operator-decision-table.md`.
 
 ## Disclosure Override
 - **Model**: Gemini 3.1 Pro
@@ -37,3 +37,9 @@ As the final reviewer in override mode, I have examined the provided artifacts, 
   "next_action": "stage_accepted_waiting_user"
 }
 ```
+
+---
+
+Bookkeeper errata (Fable5, 2026-07-11): trailing whitespace introduced by the
+round-1 relay transcription was stripped (content semantics unchanged) so the
+full-range `git diff --check` passes — sol round-2 P2#3. No wording altered.
