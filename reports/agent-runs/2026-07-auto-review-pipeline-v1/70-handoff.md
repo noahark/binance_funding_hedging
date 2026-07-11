@@ -3,7 +3,7 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `designing`
+- Status: `fixing` (T1 pre-seal correction required; no formal review yet)
 - Branch: `stage/2026-07-auto-review-pipeline-v1`
 - Created from main: `45c21ee010fd3f2892a6677f58d5c8b02c2fbb0b`
 - H_intake commit: `9573d2acfd4ef2e83274cb811a0d347c64ed283f`
@@ -19,6 +19,10 @@
 - HEAD before final dispatch-readiness checkpoint:
   `cdcc8bac99c549568a9c176e5a22cf18f834887e`
 - Git status after base binding: clean
+- HEAD before T1 bookkeeper-inspection checkpoint:
+  `8d5fe3fb72f03cfc5b6288bbafcc9eb2d575eab0`
+- Git status at T1 completion claim: 13 dirty/untracked paths, all inside the
+  frozen T1 delivery/shared-evidence boundary
 - HEAD before development-breakdown checkpoint: `8eca2e9`
 - Git status before development-breakdown checkpoint: only
   `12-development-breakdown.md` was untracked
@@ -56,7 +60,9 @@ README 条目。
 - Design: `10-design.md`
 - ADR: `11-adr.md`
 - Development breakdown: `12-development-breakdown.md` — frozen for dispatch preparation
-- Implementation: not started; bounded T1 packet ready for human execution
+- Implementation: `20-implementation.md` — completion claim received; correction required
+- Bookkeeper inspection: `21-bookkeeper-inspection-T1.md` — REWORK BEFORE SEAL
+- T1 correction packet: `task-T1-correction-round1-claude-glm.prompt.md`
 - Review-1: not started
 - Fix report: not started
 - Review-2: not started
@@ -133,8 +139,16 @@ README 条目。
 
 ## Blockers
 
-- None for stage design.
-- No implementation or model dispatch has occurred.
+- T1-B1: five required/null-able receipt evidence keys are optional in schema.
+- T1-B2: receipt command reference accepts expanded/arbitrary strings and
+  adapter/reference mismatch.
+- T1-B3: workflow lacks conditional auto nodes/transitions/acceptance predicates
+  and an explicit authorized runner-writer exception to manual defaults.
+- T1-B4: normative prose omits the one-blocking-fix-then-escalate rule.
+- T1-B5: rewrite-on-touch terminology plus report/raw-output evidence corrections
+  remain open.
+- T1 delivery commit, fingerprint, validator `pre-review`, and Kimi review-1 are
+  blocked until correction and independent reinspection pass.
 
 ## T1 Dispatch Packet
 
@@ -146,7 +160,7 @@ README 条目。
   and `docs/model-adapters.md#Claude-GLM`
 - Command template:
   `claude-glm --model glm-5.2 -p "$(cat <prompt-file>)"`
-- Packet state: ready, not executed
+- Original packet state: human-executed; T1 completion claim received
 - Packet convention audit: PASS after normalizing the manual RECEIPT status,
   removing invented signature wording, and tightening nullable `expires_at`
   semantics to preserve all other budgets/operator-stop limits.
@@ -159,13 +173,26 @@ README 条目。
 - Packet returns to bookkeeper for boundary inspection and committed checkpoint;
   it does not authorize Kimi review-1 before a frozen T1 range exists.
 
+## T1 Bookkeeper Inspection
+
+- Boundary: PASS (13 paths = 11 delivery + 2 shared evidence; 0 forbidden).
+- Mechanical JSON/YAML/validator/diff/vocabulary checks: PASS.
+- Receipt-schema counterexamples: FAIL CLOSED requirement not met; all three bad
+  samples currently validate with zero errors.
+- Executable workflow contract: incomplete.
+- Disposition: REWORK BEFORE SEAL; `rework_count` remains 0 because no formal
+  review verdict or code-changing correction dispatch has begun.
+- Correction packet target: original owner `claude_glm / glm-5.2`, human
+  execution only; packet may edit only five named T1 delivery files and append
+  the two shared evidence files.
+
 ## 下一步
 
-Human operator executes the frozen T1 packet with the configured Claude-GLM
-adapter, then returns the raw `20-implementation.md` and `60-test-output.txt`
-evidence to the Codex/GPT bookkeeper. The implementer must not commit or invoke
-Kimi; the bookkeeper forms the committed T1 review unit first.
+Human operator executes `task-T1-correction-round1-claude-glm.prompt.md`, then
+returns the appended raw implementation/test evidence to the Codex/GPT
+bookkeeper. The correction session must not commit or invoke Kimi. The
+bookkeeper re-inspects before deciding whether T1 may be sealed.
 
-本地北京时间: 2026-07-11 13:06:49 CST
+本地北京时间: 2026-07-11 14:26:44 CST
 下一步模型: human operator → Claude-GLM
-下一步任务: 人工执行 `task-T1-contract-and-schemas-claude-glm.prompt.md`；完成后把 raw evidence 交回 Codex/GPT bookkeeper，不得自行 commit 或派发 Kimi。
+下一步任务: 人工执行 `task-T1-correction-round1-claude-glm.prompt.md`；只修 T1-B1–B5 并追加 raw evidence，不得 commit 或派发 Kimi。

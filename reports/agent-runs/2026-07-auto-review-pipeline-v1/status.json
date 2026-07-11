@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "designing",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -50,7 +50,7 @@
   },
   "model_routing": {
     "implementation": {
-      "status": "ready_for_human_dispatch",
+      "status": "T1_correction_ready_for_human_dispatch",
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
@@ -59,7 +59,7 @@
       "scope": "harness_only"
     },
     "review_1": {
-      "status": "frozen_per_task_after_committed_checkpoint",
+      "status": "blocked_on_T1_correction_and_seal",
       "provider": "kimi",
       "provider_identity": "moonshot_kimi",
       "model": "kimi-code/kimi-for-coding",
@@ -120,8 +120,24 @@
     ],
     "review_2_disclosure_required_if_selected": true
   },
-  "implementer": null,
-  "implementers": [],
+  "implementer": {
+    "id": "claude_glm",
+    "provider": "claude_glm",
+    "provider_identity": "zhipu_glm",
+    "model": "glm-5.2[1m]",
+    "status": "completion_claim_received_bookkeeper_correction_required",
+    "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md"
+  },
+  "implementers": [
+    {
+      "id": "claude_glm",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "status": "completion_claim_received_bookkeeper_correction_required",
+      "task_id": "T1"
+    }
+  ],
   "fix_authors": [],
   "reviewer_1": null,
   "reviewer_2": null,
@@ -132,7 +148,7 @@
       "slug": "contract-and-schemas",
       "title": "Auto-review contract and schemas",
       "sequence": 1,
-      "status": "ready_for_human_dispatch",
+      "status": "correction_packet_ready_for_human_dispatch",
       "depends_on": [],
       "start_gate": "bookkeeper_checkpoint_then_human_dispatch",
       "owner": {
@@ -180,10 +196,25 @@
       ],
       "prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-contract-and-schemas-claude-glm.prompt.md",
       "dispatch_executor": "human",
-      "dispatch_packet_status": "ready_not_executed",
+      "dispatch_packet_status": "completed_claim_received",
       "dispatch_packet_commit": "a385c7ad77da1611c6e952b2219aee56b49f442f",
       "adapter_reference": "agents/registry.yaml#adapters.claude_glm.noninteractive_command",
       "fix_prompt_path": null,
+      "correction_prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round1-claude-glm.prompt.md",
+      "implementation_report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
+      "bookkeeper_inspection": {
+        "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/21-bookkeeper-inspection-T1.md",
+        "outcome": "REWORK_BEFORE_SEAL",
+        "formal_review": false,
+        "blocking_findings": [
+          "T1-B1",
+          "T1-B2",
+          "T1-B3",
+          "T1-B4",
+          "T1-B5"
+        ],
+        "rework_ledger_charged": false
+      },
       "r10_checklist": null,
       "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
       "head_sha": null,
@@ -359,15 +390,38 @@
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-development-breakdown.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/13-stage-design-review-fable5.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/14-stage-design-review-fix.md",
+    "AGENTS.md",
+    "agents/registry.yaml",
+    "docs/auto-review-pipeline.md",
+    "docs/model-adapters.md",
+    "docs/parallel-development-mode.md",
+    "reports/agent-runs/README.md",
+    "reports/agent-runs/_template/70-handoff.md",
+    "reports/agent-runs/_template/status.json",
+    "schemas/auto-review-authorization.schema.json",
+    "schemas/runner-receipt.schema.json",
+    "workflows/templates/stage-delivery.yaml",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/21-bookkeeper-inspection-T1.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round1-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-contract-and-schemas-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/70-handoff.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/status.json"
   ],
   "tests": {
-    "status": "not_run",
-    "commands": [],
-    "note": "No Harness implementation exists yet. Intake/design JSON, validator, document-boundary, and diff checks are recorded in 60-test-output.txt."
+    "status": "rework_required",
+    "commands": [
+      "python3 -m json.tool schemas/auto-review-authorization.schema.json",
+      "python3 -m json.tool schemas/runner-receipt.schema.json",
+      "python3 -m json.tool reports/agent-runs/_template/status.json",
+      "scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint",
+      "git diff --check",
+      "grep -rn formal-1 AGENTS.md workflows agents docs schemas reports/agent-runs/_template",
+      "Draft202012Validator receipt counterexamples",
+      "Ruby YAML parse"
+    ],
+    "note": "Mechanical parse/boundary checks pass, but bookkeeper schema counterexamples and executable-contract inspection found T1-B1 through T1-B5. No delivery seal or pre-review dispatch is allowed until correction."
   },
   "design_checks": {
     "status": "passed",
@@ -435,12 +489,18 @@
     "Operator must resolve independent review-2 routing before final-review dispatch",
     "Each future pilot authorization must select positive call-count and wall-clock values"
   ],
-  "blockers": [],
+  "blockers": [
+    "T1-B1 receipt required fields are optional in schema",
+    "T1-B2 receipt command reference and adapter pairing are not enforced",
+    "T1-B3 workflow lacks conditional auto nodes/transitions/acceptance predicates",
+    "T1-B4 normative P7 one-blocking-fix retry rule is incomplete",
+    "T1-B5 rewrite-on-touch terminology and evidence errata/raw output remain open"
+  ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_T1_dispatch_packet_then_return_raw_evidence_to_bookkeeper",
-  "updated_at": "2026-07-11T13:05:28+08:00"
+  "next_action": "human_execute_T1_correction_round1_packet_then_return_raw_evidence_to_bookkeeper",
+  "updated_at": "2026-07-11T14:26:44+08:00"
 }

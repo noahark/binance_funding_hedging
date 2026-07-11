@@ -150,3 +150,83 @@ T1 base binding and dispatch-readiness checkpoint (2026-07-11 13:06:49 CST):
 - git status after base-binding commit: clean
 - adapter/model dispatch: NOT RUN by bookkeeper
 - implementation: NOT RUN
+
+T1 contract-and-schemas implementation checks (2026-07-11 13:32:15 CST):
+- branch: stage/2026-07-auto-review-pipeline-v1
+- T1 base_sha: a385c7ad77da1611c6e952b2219aee56b49f442f
+- implementer: claude_glm / glm-5.2[1m]
+
+Command: python3 -m json.tool schemas/auto-review-authorization.schema.json
+Result: PASS (exit 0; valid JSON Schema draft 2020-12, additionalProperties:false)
+
+Command: python3 -m json.tool schemas/runner-receipt.schema.json
+Result: PASS (exit 0; valid JSON Schema draft 2020-12, additionalProperties:false)
+
+Command: python3 -m json.tool reports/agent-runs/_template/status.json
+Result: PASS (exit 0; valid after the auto_review_pipeline block + E1 reviewer_prior_involvement null+pending changes)
+
+Command: scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint
+Result: PASS (exit 0)
+Output:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+phase=checkpoint
+status=designing
+
+Command: git diff --check
+  (worktree-equivalent; the committed-range `git diff --check <T1-base>..<T1-head>`
+   is run by the bookkeeper after the T1 delivery commit; the implementer must
+   not commit to produce <T1-head>)
+Result: PASS (exit 0; no whitespace errors in the T1 worktree changes)
+
+Command: grep -rn "formal-1" AGENTS.md workflows agents docs schemas reports/agent-runs/_template
+Result: PASS (exit 1; no matches — successful negative-scan evidence; the frozen
+  command was not rewritten to mask the exit status)
+Note: an initial run matched a vocabulary line in docs/auto-review-pipeline.md that
+  named the forbidden literal term inside a 'do not use' sentence. The line was
+  rephrased to avoid the literal term without changing vocabulary policy, then the
+  command was rerun unchanged; it now returns no matches (exit 1).
+
+T1 delivery files (all inside the §3 allowlist):
+- schemas/auto-review-authorization.schema.json (new)
+- schemas/runner-receipt.schema.json (new)
+- reports/agent-runs/_template/status.json (auto_review_pipeline block default-off; E1 null+pending)
+- reports/agent-runs/_template/70-handoff.md (additive auto handoff fields)
+- AGENTS.md (additive Auto Review Pipeline section; no existing sentence changed)
+- workflows/templates/stage-delivery.yaml (additive guards + top-level auto_review_pipeline block)
+- agents/registry.yaml (additive auto_review_pipeline policy block; references the existing adapters.grok.optional_review_command and existing invocation_owner:runner; no new command invented)
+- docs/auto-review-pipeline.md (new normative contract)
+- docs/model-adapters.md (additive Auto Review Pipeline section)
+- docs/parallel-development-mode.md (minimal additive mode-mutex bullet)
+- reports/agent-runs/README.md (naming-list append)
+- agents/developer-discipline.md: allowlisted, NOT modified (no additive requirement; surgical-changes principle)
+
+Forbidden-path scan: none touched. scripts/**, harness-manifest.yaml,
+schemas/review-verdict.schema.json, agents/skills/**, backend/**, frontend/**,
+schemas/api/**, docs/product/**, and all 2026-07-funding-* paths are untouched.
+Live model / network / auto-review runner execution: NOT RUN.
+
+T1 independent bookkeeper inspection (2026-07-11 14:26:44 CST):
+- outcome: REWORK BEFORE SEAL; no delivery commit/fingerprint/pre-review dispatch
+- branch: stage/2026-07-auto-review-pipeline-v1
+- HEAD before inspection checkpoint: 8d5fe3fb72f03cfc5b6288bbafcc9eb2d575eab0
+- frozen T1 base: a385c7ad77da1611c6e952b2219aee56b49f442f
+- boundary: PASS; 13 paths = 11 delivery + 2 shared evidence; 0 extras
+- append-only evidence: PASS for 60-test-output.txt; 20-implementation.md is new
+- python3 json parse x3: PASS
+- Draft202012Validator.check_schema receipt schema: PASS
+- receipt missing five evidence keys: 0 validation errors (T1-B1 REPRODUCED)
+- receipt expanded command/secret-like registry ref: 0 validation errors
+  (T1-B2 REPRODUCED)
+- receipt Grok id + Claude-GLM registry ref: 0 validation errors
+  (T1-B2 REPRODUCED)
+- Ruby YAML parse for workflow/registry: PASS
+- scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint: PASS
+- git diff --check: PASS for tracked changes; committed-range check remains
+  bookkeeper-only after a corrected delivery commit
+- frozen formal-1 negative scan: PASS, no matches, exit 1
+- workflow auto nodes/transitions/acceptance predicates: MISSING (T1-B3)
+- normative P7 one-blocking-fix-then-escalate prose: MISSING (T1-B4)
+- rewrite-on-touch/report-count/raw-json-output corrections: OPEN (T1-B5)
+- adapter/model dispatch by bookkeeper: NOT RUN
+- Kimi review-1: NOT DISPATCHED
