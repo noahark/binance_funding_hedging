@@ -34,6 +34,7 @@
       "reports/agent-runs/2026-07-auto-review-pipeline-design-review/43-decision-table-patch-merge.md"
     ]
   },
+  "intake_commit": "9573d2acfd4ef2e83274cb811a0d347c64ed283f",
   "model_routing": {
     "implementation": {
       "status": "pending_stage_design",
@@ -177,5 +178,5 @@
   },
   "terminal_reason": null,
   "next_action": "stage-design",
-  "updated_at": "2026-07-11T03:30:02Z"
+  "updated_at": "2026-07-11T03:34:30Z"
 }
