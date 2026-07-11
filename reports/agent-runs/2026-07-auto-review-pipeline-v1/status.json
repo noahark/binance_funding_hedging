@@ -212,8 +212,8 @@
       "fix_prompt_path": null,
       "correction_prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round2-claude-glm.prompt.md",
       "correction_packet_revision": "round2",
-      "correction_packet_status": "prepared_commit_pending",
-      "correction_packet_commit": null,
+      "correction_packet_status": "ready_not_executed",
+      "correction_packet_commit": "8518f133419a0700b53010794662f1f34faa0818",
       "superseded_correction_packets": [
         {
           "path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round1-claude-glm.prompt.md",
@@ -301,6 +301,7 @@
       },
       "bookkeeper_reinspection": {
         "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/24-bookkeeper-reinspection-T1.md",
+        "checkpoint_commit": "8518f133419a0700b53010794662f1f34faa0818",
         "outcome": "REWORK_BEFORE_SEAL",
         "formal_review": false,
         "blocking_findings": [
@@ -598,5 +599,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_execute_T1_correction_round2_packet_then_return_raw_evidence_to_bookkeeper",
-  "updated_at": "2026-07-11T15:37:04+08:00"
+  "updated_at": "2026-07-11T15:43:38+08:00"
 }
