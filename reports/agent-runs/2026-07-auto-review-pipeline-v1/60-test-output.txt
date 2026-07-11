@@ -570,3 +570,13 @@ Review-1 dispatch preparation:
 - packet states the 12-commit range role split (11 bookkeeper mechanical commits + 1 delivery commit 25383e8)
 - rework_count: 0 (all correction rounds were pre-seal inspection loops)
 - Kimi review-1: NOT DISPATCHED (human gate)
+
+### T1 review-1 verdict verification (2026-07-11 17:10 CST, bookkeeper=Fable5)
+- Kimi review-1 executed by human operator (fresh read-only session, K2.7 Code)
+- verdict JSON extracted per P3 (final-and-only block), landed verbatim-equivalent at review-1-T1-round1.verdict.json
+- jsonschema Draft202012Validator vs schemas/review-verdict.schema.json: 0 errors (VALID)
+- diff_fingerprint == sealed status value: True (byte-identical string)
+- role=first_reviewer / stage_id match / reviewer_prior_involvement=none (verified: Kimi absent from direction/design/breakdown chain)
+- verdict=ACCEPT, findings=[], required_fixes=[], next_action=human_gate
+- rework_count: 0 (no fix dispatched)
+- T1 -> review_1_accept; stage -> implementing; T2 unblocked for dispatch preparation

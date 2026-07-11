@@ -3,7 +3,10 @@
 ## 当前状态
 
 - Stage: `2026-07-auto-review-pipeline-v1`
-- Status: `review_1` (T1 sealed; awaiting human-executed Kimi review-1)
+- Status: `implementing` (T1 review-1 **ACCEPT**; T2 dispatch preparation)
+- T1 review-1: Kimi ACCEPT, 0 findings, schema-valid verdict verified by
+  bookkeeper (`30-review-1-T1.md` + `review-1-T1-round1.verdict.json`);
+  `rework_count` = 0
 - T1 seal: delivery commit `25383e8` (H_T1), fingerprint
   `25383e86d0b10b3e8bd3e0f51254588826c9601b:242cff3040ac66e79ce2dbb5a13dab6bf92043765884ed9f0288cf8decc80486`,
   bind commit `2d519f0`, `--phase pre-review` PASSED
@@ -258,17 +261,29 @@ README 条目。
 - Status bind `2d519f0`; `validate-stage --phase pre-review` PASSED on a clean
   tree. `rework_count` = 0 (all corrections were pre-seal inspection loops).
 
+## T1 Review-1 Outcome
+
+- Kimi (`kimi-code/kimi-for-coding`, fresh read-only, human-executed) returned
+  **ACCEPT** with 0 findings / 0 required fixes; three residual risks recorded
+  (A1 deferred; T2/T3 must realize the written contract; review-2 routing
+  pending operator decision).
+- Bookkeeper verification: verdict JSON validates against
+  `schemas/review-verdict.schema.json` (0 errors); `diff_fingerprint`
+  byte-identical to the sealed value; `reviewer_prior_involvement="none"`
+  verified true. Landed as `30-review-1-T1.md` +
+  `review-1-T1-round1.verdict.json`.
+- T1 → `review_1_accept`; per the serial gate, T2 (`seal-and-validator`) is
+  unblocked.
+
 ## 下一步
 
-Human operator executes `task-T1-review1-kimi.prompt.md`
-(`kimi --model kimi-code/kimi-for-coding -p "$(cat <packet>)"`, fresh
-read-only session). Operator captures raw stdout and returns it to the Fable5
-bookkeeper, who lands `30-review-1-T1.md` plus the verbatim final verdict
-JSON, updates status, and routes ACCEPT → T2 dispatch preparation or REWORK →
-`fix_start_prompt` dispatch (first formal `rework_count` charge). The packet
-already explains the 12-commit range role split so bookkeeper evidence commits
-are not misread as implementer boundary violations.
+Human operator executes `task-T2-seal-and-validator-claude-glm.prompt.md`
+(`claude-glm --model glm-5.2 -p "$(cat <packet>)"`). GLM implements the
+deterministic mechanics (harness_stage_lib, stage-seal, validator auto
+support, three stdlib-only test modules), appends report/evidence, and stops
+without committing. Fable5 bookkeeper then inspects boundaries, runs the
+frozen T2 suite, seals T2, and prepares the T2 Kimi review-1 packet.
 
-本地北京时间: 2026-07-11 16:58:00 CST
-下一步模型: human operator → Kimi（review-1, first_reviewer）
-下一步任务: 人工执行 T1 review-1 packet；raw 输出交回 Fable5 bookkeeper 落盘 verdict 并推进。
+本地北京时间: 2026-07-11 17:10:00 CST
+下一步模型: human operator → Claude-GLM（T2 implementer）
+下一步任务: 人工执行 T2 dispatch packet；实现者不得 commit、不得写 status/handoff、不得触碰 T1 已交付契约文件与 T3 文件。
