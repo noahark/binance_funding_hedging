@@ -82,6 +82,19 @@ README 条目。
 7. bootstrap routing: serial Claude-GLM implementation packages and Kimi
    review-1 under current human dispatch.
 
+## Independent Stage-Design Review
+
+- Fable5: `13-stage-design-review-fable5.md` — `ACCEPT-with-edits`
+- Fix record: `14-stage-design-review-fix.md`
+- Record patches applied:
+  1. restored mandatory post-cross-check blocking pass and froze evidence-free
+     blocking inputs;
+  2. added P11 pilot metrics/default-flip evidence contract;
+  3. corrected complexity evaluator authority source to workflow rotation;
+  4. defined/tested nullable `expires_at` semantics.
+- Frozen operator decisions reopened: none
+- Implementation authorized: no
+
 ## Open Findings / Breakdown Items
 
 1. Development breakdown must assign mutually safe file packages, dependencies,
@@ -105,6 +118,6 @@ serial bootstrap routing. Only after breakdown and human-executed dispatch
 packets are complete may implementation be considered; this handoff does not
 authorize it.
 
-本地北京时间: 2026-07-11 12:02:09 CST
+本地北京时间: 2026-07-11 12:26:36 CST
 下一步模型: Claude Fable 5（development breakdown author）
 下一步任务: 只起草 `12-development-breakdown.md`，冻结 owner/file/test/review 边界；不得实现或执行模型 dispatch。

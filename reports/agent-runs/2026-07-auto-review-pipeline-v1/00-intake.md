@@ -143,7 +143,7 @@ Fable 5 的 `ACCEPT-with-edits`，并明确授权下一步起草本 intake。
 - Provider: `codex`
 - Model: current Codex/GPT session
 - Skill: `complexity_evaluator` / `task_planner`
-- Route deviation: registry 默认 complexity evaluator 为 Claude-GLM；本 stage
+- Route deviation: workflow rotation 默认 complexity evaluator 为 Claude-GLM；本 stage
   的 `HIGH` 已由 operator 指令、冻结 decision table 与 GPT/Fable 双评审预先
   确定。再次人工 dispatch GLM 只会重复已冻结结论，因此由当前 Codex
   bookkeeper 如实记录分类，不额外启动 evaluator。

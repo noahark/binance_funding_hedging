@@ -79,6 +79,12 @@ The existing `diff_fingerprint` formula is unchanged. Embedded cross-check
 records the exact observed `git diff --binary` bytes for a frozen base/pathspec.
 After snapshot commit, the same diff is regenerated and compared byte-for-byte.
 
+The frozen blocking command set runs both before cross-check and after its
+evidence lands, immediately before seal. Those commands may consume only frozen
+code/test/config inputs, never stage evidence. Byte equality would make the
+first result code-equivalent, but v1 retains the explicit second pass from the
+frozen §D main path as defense in depth.
+
 The comparison is not stored as a fingerprint/hash in status or verdicts.
 
 ### Alternatives Considered
@@ -88,6 +94,9 @@ The comparison is not stored as a fingerprint/hash in status or verdicts.
 - **Seal before cross-check and commit evidence later:** rejected because
   advisory evidence would not be part of the frozen review inputs.
 - **Trust that worktree did not change:** rejected because it is not evidence.
+- **Omit the second blocking pass because bind proves code equality:** rejected
+  because it leaves the frozen main-path step out of the runner/test state
+  machine and depends on an implicit evidence-independence assumption.
 
 ### Tradeoff
 
@@ -281,6 +290,13 @@ does not flip defaults or retroactively enable existing stages. A docs-only
 pilot and a small real pilot must each pass and reach their required acceptance
 state before a future default-change decision can be opened.
 
+Each pilot must publish machine-readable metrics for Grok schema-valid rate,
+escalation-shape validation, and RECEIPT completeness. Both require at least one
+final schema-valid Grok verdict and 100% receipt completeness; every produced
+escalation must validate, and at least one pilot must execute a controlled safe
+escalation drill. The schema-valid rate is evidence for the later operator
+decision; v1 does not invent a global promotion threshold.
+
 ### Alternatives Considered
 
 - **Flip default when implementation tests pass:** rejected because live runner,
@@ -310,6 +326,9 @@ state before a future default-change decision can be opened.
 - Symlink/path traversal outside the authorized worktree fails closed.
 - Unknown substate, transition, failure class, or authorization version routes
   to evidence-backed human escalation.
+- Authorization `expires_at` is required but nullable: null means no separate
+  expiry timestamp, while a non-null ISO8601 instant is enforced before every
+  call/commit. Other budgets remain mandatory in both cases.
 - Historical manual stages require no backfill.
 - Legacy `parallel_mode.enabled` and auto-review enablement are mutually
   exclusive; auto parallel topology is represented only inside the new

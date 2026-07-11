@@ -67,12 +67,14 @@ The sole automatic seal primitive. It:
 1. verifies authorization, branch, worktree, status, allowed paths, and the
    expected runner lock;
 2. verifies blocking checks and required embedded cross-check evidence;
-3. compares the captured and regenerated code-scope patches byte-for-byte;
-4. creates the review snapshot commit;
-5. computes the existing fingerprint from the selected base to snapshot head;
-6. writes mechanical status fields and seal receipt;
-7. creates a binding/evidence commit after the snapshot;
-8. runs `validate-stage.py --phase pre-review` on a clean tree.
+3. verifies the frozen blocking command set was rerun after cross-check evidence
+   landed and that those commands do not consume stage evidence as input;
+4. compares the captured and regenerated code-scope patches byte-for-byte;
+5. creates the review snapshot commit;
+6. computes the existing fingerprint from the selected base to snapshot head;
+7. writes mechanical status fields and seal receipt;
+8. creates a binding/evidence commit after the snapshot;
+9. runs `validate-stage.py --phase pre-review` on a clean tree.
 
 It does not invoke models and does not decide whether a finding is acceptable.
 
@@ -83,7 +85,8 @@ The deterministic state-machine executor. It:
 - loads workflow, registry, status, authorization, and task/review-unit data;
 - owns automatic adapter invocation and per-call receipt creation;
 - enforces budgets, transition matrix, provider isolation, and path scopes;
-- invokes blocking checks from frozen task metadata;
+- invokes blocking checks from frozen task metadata before cross-check and
+  reruns the identical command set after cross-check evidence lands;
 - invokes embedded cross-check/review-1/fix workers through registry command
   references;
 - validates verdict output before applying a fixed transition;
@@ -122,7 +125,9 @@ Legacy status files without `auto_review_pipeline` retain current behavior.
 - `stage-delivery.yaml`: optional nodes/transitions and acceptance predicates.
 - `agents/registry.yaml`: runner-owned auto invocation policy and Grok review
   adapter reference.
-- `docs/auto-review-pipeline.md`: normative human-readable auto contract.
+- `docs/auto-review-pipeline.md`: normative human-readable auto contract. It
+  must include the two-pilot execution/evidence protocol and P11 metrics, not
+  merely state that two pilots are required.
 - `docs/parallel-development-mode.md`: mutual exclusion/migration wording and
   terminology update to embedded cross-check.
 - templates: versioned status and handoff fields, default disabled.
@@ -238,6 +243,11 @@ Rules:
 - Scope/adapter/budget changes require a new versioned authorization artifact
   whose `supersedes` points to the prior artifact.
 - Runner refuses an expired artifact or mismatch with current stage/branch.
+- `expires_at` is required and nullable. `null` means no independent
+  authorization-expiry timestamp; a non-null value is an ISO8601 instant and
+  must be later than the current time before every model invocation and git
+  commit. Null does not disable call-count, wall-clock, rework, or operator-stop
+  limits.
 - The authorization artifact is never generated or edited by an implementer.
 
 ### Runner Receipt
@@ -333,10 +343,18 @@ For task `T`:
 2. implementer writes allowed paths;
 3. blocking checks run;
 4. optional/required embedded cross-check runs;
-5. seal produces `T.head_sha` and fingerprint;
-6. Grok reviews unit `T`;
-7. verdict-record commit lands outcome;
-8. REWORK loops only within `T`; ACCEPT unlocks next task.
+5. the same frozen blocking command set reruns after cross-check evidence lands;
+6. seal produces `T.head_sha` and fingerprint;
+7. Grok reviews unit `T`;
+8. verdict-record commit lands outcome;
+9. REWORK loops only within `T`; ACCEPT unlocks next task.
+
+The second blocking pass is mandatory even though seen-diff byte equality proves
+code-scope did not change. It preserves the frozen §D main path and defense in
+depth. Blocking commands may read only frozen code/test/config inputs; the
+stage evidence directory is output/provenance and must not influence their
+result. Cross-check prompt/raw-output/seen-patch writes therefore cannot make
+the second pass semantically different from the first.
 
 After the last task, the runner computes a code-scope diff from the last task
 head to candidate final code head. Evidence/status-only changes do not create an
@@ -355,7 +373,7 @@ base. Models never commit. The runner:
 4. rejects conflicts or out-of-bound integration as escalation;
 5. performs required per-task embedded cross-checks and binds each task's
    code-scope/pathspec against the integrated uncommitted tip;
-6. runs unified blocking checks;
+6. reruns the frozen unified blocking checks after cross-check evidence lands;
 7. seals one integrated tip review unit;
 8. sends that unit once to Grok review-1.
 
@@ -377,6 +395,12 @@ does not infer “high contract risk” from prose.
 
 Unavailable required cross-check is fail-open for review-1 but must produce an
 unavailable artifact and set bind to `N/A`.
+
+Whether the cross-check runs, skips, or records unavailability, the runner
+executes the same frozen blocking command set immediately afterwards and before
+seal. Blocking command input pathspecs exclude the current stage evidence
+directory. Test/log output may be written there, but no blocking result may
+depend on prompt, raw-output, seen-patch, receipt, or unavailable artifacts.
 
 ### Artifact Paths
 
@@ -618,6 +642,7 @@ No current reviewer is prefilled as `none`.
 ### Unit Tests
 
 - authorization schema and semantic cross-field checks;
+- required/nullable `expires_at` semantics and expiry checks before calls/commits;
 - transition matrix and mode history;
 - call/wall-clock/rework accounting;
 - provider normalization and review-unit eligibility;
@@ -632,6 +657,8 @@ No current reviewer is prefilled as `none`.
 - valid auto authorization reaches runner preflight;
 - dirty/wrong/shared worktree fails before adapter invocation;
 - fake adapter implementation → blocking → cross-check → two-commit seal;
+- post-cross-check blocking reruns with evidence-directory mutations excluded
+  from inputs; a second-pass failure blocks seal;
 - bind mismatch fails closed;
 - Grok fake ACCEPT reaches completed_review_1;
 - invalid JSON retries exactly once then routes correctly;
@@ -655,6 +682,43 @@ No current reviewer is prefilled as `none`.
 - no network;
 - no real user credentials/environment capture;
 - no product fixture or product-stage mutation.
+
+### Pilot Evaluation Contract
+
+`docs/auto-review-pipeline.md` must require each pilot stage to land:
+
+`reports/agent-runs/<pilot-stage-id>/auto-review-pilot-metrics.json`
+
+Minimum fields:
+
+- pilot kind (`docs_only` or `small_real`), stage id, terminal status, and
+  authorization path;
+- total Grok verdict attempts, schema-valid attempts, invalid attempts, and
+  computed schema-valid rate;
+- final schema-valid Grok verdict path and fingerprint;
+- escalation paths, shape-validation result for each, and whether a controlled
+  escalation drill was exercised;
+- expected runner calls/RECEIPTs, schema-valid RECEIPTs, missing RECEIPTs, and
+  completeness rate;
+- model calls, wall-clock usage, automatic code-change charges, and final stage
+  outcome.
+
+Pilot/default-flip rules:
+
+1. pilot 1 is docs-only; pilot 2 is a small real stage;
+2. both must reach `stage_accepted_waiting_user` under the accepted auto mode;
+3. both must contain at least one final schema-valid Grok verdict;
+4. RECEIPT completeness must be 100% in both;
+5. every produced escalation must match the frozen `80-*.md`/status shape;
+6. at least one pilot must exercise a safe controlled escalation and subsequent
+   human-authorized disposition;
+7. Grok schema-valid rate includes invalid retries and is recorded exactly, but
+   v1 does not invent a global promotion threshold; a later operator decision
+   evaluates both rates before any default flip.
+
+Missing metrics, missing raw attempt evidence, or failed
+shape/completeness checks make a pilot ineligible as default-flip evidence even
+when its delivery diff otherwise passes review.
 
 ## Frozen Decision Traceability
 
@@ -682,7 +746,7 @@ No current reviewer is prefilled as `none`.
 | P8 | Required per-stage call and wall-clock authorization budgets |
 | P9 | No automatic GPT/Claude invocation |
 | P10 | Harness-only file boundary and product-path negative check |
-| P11 | Pilot readiness only; no default flip in this stage |
+| P11 | Two pilot metrics artifacts: Grok validity rate, escalation shape, RECEIPT completeness |
 | P12 | Required `80-escalation-*` evidence contract |
 | P13 | Untrusted-artifact and secret-safe receipt boundary |
 

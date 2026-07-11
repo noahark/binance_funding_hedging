@@ -37,6 +37,15 @@
   "intake_commit": "9573d2acfd4ef2e83274cb811a0d347c64ed283f",
   "intake_review_fixes_commit": "345ba61d6228248089406052b4e280e23ebad413",
   "stage_design_commit": "c38c5a8e682d79b4cd1e663f3c164278365f777a",
+  "stage_design_review": {
+    "reviewer": "claude_fable5",
+    "provider_identity": "anthropic",
+    "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/13-stage-design-review-fable5.md",
+    "verdict": "ACCEPT-with-edits",
+    "fix_record": "reports/agent-runs/2026-07-auto-review-pipeline-v1/14-stage-design-review-fix.md",
+    "record_patches_applied": true,
+    "implementation_authorized": false
+  },
   "model_routing": {
     "implementation": {
       "status": "provisional_pending_development_breakdown",
@@ -109,7 +118,7 @@
     "user_approved_lightweight_route": false,
     "high_direction_panel_user_override": true,
     "lightweight_skip_allowed": true,
-    "evaluator_route_deviation": "Registry default is claude_glm. The operator instruction plus frozen GPT/Fable-reviewed decision table already fixed HIGH, so the Codex bookkeeper recorded classification without a redundant human-dispatched GLM evaluation.",
+    "evaluator_route_deviation": "The stage-delivery workflow rotation default is claude_glm. The operator instruction plus frozen GPT/Fable-reviewed decision table already fixed HIGH, so the Codex bookkeeper recorded classification without a redundant human-dispatched GLM evaluation.",
     "rationale": [
       "The operator explicitly requested opening this stage from the frozen post-dual-review decision table.",
       "The existing multi-model decision chain covers the HIGH-stage direction; no new direction panel is needed.",
@@ -141,6 +150,8 @@
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/02-intake-review-grok.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/10-design.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/11-adr.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/13-stage-design-review-fable5.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/14-stage-design-review-fix.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/70-handoff.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/status.json"
@@ -207,7 +218,10 @@
     "Review-unit, author-provider, and completeness machine shape",
     "Runner receipt, verdict, bind, and escalation artifact paths",
     "Serial v1 multi-owner fix scheduling and parallel initial task worktrees",
-    "Two-commit snapshot/binding seal protocol"
+    "Two-commit snapshot/binding seal protocol",
+    "Post-cross-check blocking rerun with evidence-independent inputs",
+    "P11 pilot metrics and default-flip evidence contract",
+    "Required nullable authorization expires_at semantics"
   ],
   "open_design_items": [
     "Development breakdown must freeze exact serial work-package file ownership and test commands",
@@ -221,5 +235,5 @@
   },
   "terminal_reason": null,
   "next_action": "development-breakdown",
-  "updated_at": "2026-07-11T04:02:09Z"
+  "updated_at": "2026-07-11T04:26:36Z"
 }

@@ -78,3 +78,17 @@ Post-stage-design verification (2026-07-11 12:02:09 CST):
 - stage-design commit: c38c5a8e682d79b4cd1e663f3c164278365f777a
 - git status: clean
 - scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint: PASS
+
+Fable5 stage-design review absorption (2026-07-11 12:26:36 CST):
+- source review `13-stage-design-review-fable5.md`: ACCEPT-with-edits
+- post-cross-check blocking rerun + evidence-independent input contract: PASS
+- P11 pilot metrics/default-flip evidence contract: PASS
+- E2 authority source corrected to workflow rotation: PASS
+- required/nullable expires_at semantics and test coverage: PASS
+- status.json parse: PASS
+- validate-stage checkpoint: PASS
+- active stage diff whitespace check: PASS
+- D1-D12/P1-P13 traceability: PASS
+- product/runtime/funding path negative scan: PASS
+- locked vocabulary negative scan: PASS
+- Harness implementation tests: NOT RUN (design-record fixes only)

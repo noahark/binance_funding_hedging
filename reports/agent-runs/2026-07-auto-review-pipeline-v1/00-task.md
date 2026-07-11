@@ -34,7 +34,9 @@ pipeline to implement or review itself.
 
 1. Top-level Harness policy and workflow amendments for an explicit
    `auto_review_pipeline/v1` mode.
-2. A human-readable `docs/auto-review-pipeline.md` contract.
+2. A human-readable `docs/auto-review-pipeline.md` contract, including the
+   two-pilot protocol and P11 metrics: Grok schema-valid rate, escalation-shape
+   validation, and runner RECEIPT completeness.
 3. Deterministic runner and seal tooling with one canonical fingerprint
    implementation path.
 4. Machine-readable authorization and runner receipt schemas.
@@ -127,6 +129,10 @@ dispatch.
 ### Review Snapshot And Evidence
 
 - Embedded cross-check occurs before seal when required or selected.
+- Blocking checks run once before embedded cross-check and again after its
+  evidence is written, immediately before seal.
+- Blocking checks must depend only on frozen code/test/config pathspecs and
+  must not read `reports/agent-runs/<stage-id>/` evidence as test input.
 - The exact observed `git diff --binary` patch is saved and compared
   byte-for-byte with the same base/pathspec after seal; no comparison hash is
   recorded as a fingerprint.
@@ -216,12 +222,27 @@ dispatch.
     pre-accept paths remain covered.
 23. **Harness sync:** manifest/install/update ownership includes all new assets.
 24. **Pilot gate:** documentation keeps default off and requires two accepted
-    pilot stages before any future default-flip decision.
+    pilot stages before any future default-flip decision. Each pilot records
+    Grok schema-valid attempts/rate, validates every generated escalation
+    artifact against the frozen shape, and reports expected/valid RECEIPT counts
+    and completeness rate. At least one controlled pilot path must exercise an
+    escalation; both pilots require 100% RECEIPT completeness and at least one
+    final schema-valid Grok verdict. No global Grok-rate promotion threshold is
+    invented in v1; the future operator default-flip decision evaluates the
+    recorded rate.
 25. **Scope isolation:** the committed delivery diff contains no forbidden
     product/runtime paths.
 26. **Mode mutex:** legacy `parallel_mode.enabled=true` and
     `auto_review_pipeline.enabled=true` cannot coexist. Auto mode expresses
     serial/parallel topology inside its own authorization/review-unit contract.
+27. **Post-cross-check blocking:** every executed or unavailable/skipped
+    embedded cross-check is followed by the frozen blocking command set before
+    seal; evidence-only writes cannot affect command inputs, and any failure
+    blocks seal.
+28. **Authorization expiry:** `expires_at` is required and nullable; `null`
+    means no authorization-expiry timestamp, while non-null ISO8601 values are
+    enforced before every model call and commit. Call/wall-clock budgets still
+    bound a null-expiry session.
 
 ## Required Test Evidence
 
@@ -237,7 +258,8 @@ git diff --check <delivery-base>..<delivery-head>
 Tests must cover positive and negative fixtures for authorization, transition
 matrix, budgets, rework accounting, provider isolation, verdict parsing,
 seen-diff binding, allowlisted paths, seal crash points, resume behavior,
-escalation artifacts, and manual-mode regression.
+escalation artifacts, nullable/expired authorization, post-cross-check blocking
+with evidence-directory mutations, pilot metrics, and manual-mode regression.
 
 ## Bootstrap Stage Routing
 
