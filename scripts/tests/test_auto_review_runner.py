@@ -311,6 +311,13 @@ def _static_now():
     return BASE_TIME
 
 
+def _ir(stdout=b"", *, exit_status=0, timed_out=False, failure_class=None):
+    """Compact InvokeResult builder for the negative-test suites below."""
+    return InvokeResult(stdout=stdout, exit_status=exit_status, timed_out=timed_out,
+                        failure_class=failure_class, started_at="2026-07-11T00:00:00Z",
+                        completed_at="2026-07-11T00:00:01Z")
+
+
 # ===========================================================================
 # 1. enablement / default-off
 # ===========================================================================
@@ -875,18 +882,31 @@ class ReceiptHygieneTests(unittest.TestCase):
 
 class AccountingTimingTests(unittest.TestCase):
     def test_call_charged_before_adapter_start_even_on_timeout(self):
+        # F7 made an implementation/fix adapter timeout flow-stopping, so to keep
+        # exercising the model-call cap under repeated timeouts we let the
+        # implementation and cross-check succeed and time out only the review
+        # adapter: every attempt is still charged before it starts, and the cap
+        # (3) is hit on the next charge.
         stage = Stage(max_model_calls=3)
-        started = {"n": 0}
+        timeouts = {"n": 0}
 
         def invoke(adapter_id, command_key, prompt_abs, timeout):
-            started["n"] += 1
-            return InvokeResult(stdout=b"", exit_status=None, timed_out=True, failure_class="timeout",
-                                started_at="2026-07-11T00:00:00Z", completed_at="2026-07-11T00:00:01Z")
+            if command_key == "noninteractive_command":
+                (stage.root / "scripts" / "x.py").write_text("X = 1\n", encoding="utf-8")
+                return _ir(b"imp")
+            if command_key == "embedded_read_only_review_command":
+                return _ir(b"advisory")
+            if command_key == "optional_review_command":
+                timeouts["n"] += 1
+                return InvokeResult(stdout=b"", exit_status=None, timed_out=True, failure_class="timeout",
+                                    started_at="2026-07-11T00:00:00Z", completed_at="2026-07-11T00:00:01Z")
+            return _ir()
 
         runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
         result = runner.run()
-        # every adapter call (incl. timeouts) consumes one model call; with cap 3
-        # the runner escalates on cap exhaustion.
+        # the timed-out review attempt was charged; with cap 3 the runner
+        # escalates on cap exhaustion.
+        self.assertGreaterEqual(timeouts["n"], 1)
         self.assertEqual(result.terminal, "human_escalation_required")
         arp = stage.arp()
         self.assertEqual(arp["budgets"]["model_calls_used"], 3)
@@ -1129,6 +1149,477 @@ class TransitionTruthSourceTests(unittest.TestCase):
             set(RUNNER.AUTO_TRANSITIONS),
             "runner.AUTO_TRANSITIONS drifted from workflow state_transitions",
         )
+
+
+# ===========================================================================
+# Review-2 fix round 1 — F2: authorization real binding (sol §F2)
+# ===========================================================================
+
+class AuthorizationBindingTests(unittest.TestCase):
+    """Authorization must bind actual execution: the artifact + approval receipt
+    are committed (git-reachable), scope (task_ids/topology/allowed/forbidden)
+    matches live review units exactly, runtime caps come from the authorization
+    budget, and an uncommitted authorization modification is rejected. Every sol
+    counterexample must fail closed BEFORE any adapter call."""
+
+    def _run_preflight(self, stage):
+        calls = []
+
+        def invoke(*a, **k):
+            calls.append(a)
+            return _ir()
+
+        runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0,
+                                   seal=FakeSeal())
+        return runner.run(), calls
+
+    def test_unauthorized_extra_unit_fails_closed(self):
+        # authorization covers T1 only; status secretly contains an extra T2
+        stage = Stage()
+        stage.status["auto_review_pipeline"]["review_units"].append({
+            "id": "T2", "kind": "task", "required": True,
+            "base_sha": stage.base_sha, "code_pathspecs": ["scripts/y.py"],
+            "author_provider_identities": [{"id": "claude_glm"}],
+            "blocking_checks": {"commands": ["true"]},
+        })
+        stage._write_status()
+        stage.git("add", "-A")
+        stage.git("commit", "-q", "--allow-empty", "-m", "sneak-T2")
+        result, calls = self._run_preflight(stage)
+        self.assertEqual(result.terminal, "awaiting_human")
+        self.assertEqual(calls, [])
+
+    def test_unit_pathspec_outside_allowlist_fails_closed(self):
+        # the unit claims scripts/y.py which is outside the authorized allowlist
+        stage = Stage(allowed_pathspecs=("scripts/x.py",),
+                      extra_unit_fields={"code_pathspecs": ["scripts/x.py", "scripts/y.py"]})
+        result, calls = self._run_preflight(stage)
+        self.assertEqual(result.terminal, "awaiting_human")
+        self.assertEqual(calls, [])
+
+    def test_forbidden_pathspec_hit_fails_closed(self):
+        # scripts/x.py is both allowed and forbidden → the forbidden match rejects
+        stage = Stage(allowed_pathspecs=("scripts/x.py",),
+                      forbidden_pathspecs=("scripts/x.py",))
+        result, calls = self._run_preflight(stage)
+        self.assertEqual(result.terminal, "awaiting_human")
+        self.assertEqual(calls, [])
+
+    def test_uncommitted_authorization_artifact_rejected(self):
+        # auth.json removed from the index (untracked-from-HEAD) but present on disk
+        stage = Stage()
+        auth_rel = str((stage.stage_dir / "auth.json").relative_to(stage.root))
+        stage.git("rm", "--cached", "-q", auth_rel)
+        stage.git("commit", "-q", "-m", "untrack-auth")
+        result, calls = self._run_preflight(stage)
+        self.assertEqual(result.terminal, "awaiting_human")
+        self.assertEqual(calls, [])
+
+    def test_dirty_authorization_modification_rejected(self):
+        # a committed auth.json edited in the worktree (not re-committed) is rejected
+        stage = Stage()
+        auth_path = stage.stage_dir / "auth.json"
+        auth = json.loads(auth_path.read_text(encoding="utf-8"))
+        auth["review_1_provider"] = "tampered"
+        auth_path.write_text(json.dumps(auth), encoding="utf-8")
+        result, calls = self._run_preflight(stage)
+        self.assertEqual(result.terminal, "awaiting_human")
+        self.assertEqual(calls, [])
+
+    def test_runtime_caps_come_from_authorization_not_status(self):
+        # status budget is inflated to 99; auth budget is 5 → runner uses 5
+        stage = Stage(max_model_calls=5)
+        stage.status["auto_review_pipeline"]["budgets"]["max_model_calls"] = 99
+        stage._write_status()
+        stage.git("add", "-A")
+        stage.git("commit", "-q", "--allow-empty", "-m", "diverge")
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
+                                   blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        runner.load_status()
+        runner.preflight()  # loads self._auth from the committed authorization
+        self.assertEqual(runner._max_calls(), 5)
+        self.assertEqual(runner._max_auto_changes(), 2)
+
+
+# ===========================================================================
+# Review-2 fix round 1 — F3: production registry command compatibility (sol §F3)
+# ===========================================================================
+
+class ProductionRegistryCommandTests(unittest.TestCase):
+    """The real ``agents/registry.yaml`` uses ``<prompt-file>`` / ``<repo>``
+    placeholders inside quoted YAML scalars (``\\"``). The restricted loader must
+    unescape those scalars and the invoker must substitute the real placeholders
+    so production adapters never receive a literal placeholder. Tests load the
+    REAL registry — no synthetic ``@PROMPT@`` stand-in."""
+
+    def test_real_registry_unescapes_quoted_command_scalars(self):
+        reg = RUNNER.load_registry(REPO_ROOT)
+        # double-quoted YAML scalar with \" → unescaped, real <prompt-file> kept
+        self.assertEqual(
+            reg["claude_glm"]["commands"]["noninteractive_command"],
+            'claude-glm --model glm-5.2 -p "$(cat <prompt-file>)"')
+        self.assertEqual(
+            reg["kimi"]["commands"]["noninteractive_command"],
+            'kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"')
+        # grok uses unquoted <repo> + <prompt-file>
+        self.assertIn("<repo>", reg["grok"]["commands"]["development_command"])
+        self.assertIn("<prompt-file>", reg["grok"]["commands"]["optional_review_command"])
+
+    def _invoke_and_capture(self, stage, adapter, key, prompt_abs):
+        real_reg = RUNNER.load_registry(REPO_ROOT)
+        runner = AutoReviewRunner(stage.root, stage.stage_dir, registry=real_reg,
+                                  invoker=None, now=lambda: BASE_TIME)
+        captured = {}
+        orig = RUNNER.subprocess.run
+
+        class _Proc:
+            returncode = 0
+            stdout = b""
+            stderr = b""
+
+        def fake_run(command, *a, **k):
+            captured["command"] = command
+            return _Proc()
+
+        RUNNER.subprocess.run = fake_run
+        self.addCleanup(setattr, RUNNER.subprocess, "run", orig)
+        runner._default_invoke(adapter, key, Path(prompt_abs))
+        return captured["command"]
+
+    def test_claude_glm_real_command_substitutes_and_unescapes(self):
+        stage = Stage()
+        prompt_abs = str(stage.root / "review.prompt.md")
+        cmd = self._invoke_and_capture(stage, "claude_glm", "noninteractive_command", prompt_abs)
+        for marker in ("<prompt-file>", "<repo>", "@PROMPT@", "@REPO@", '\\"'):
+            self.assertNotIn(marker, cmd)
+        self.assertIn('-p "$(cat ', cmd)        # unescaped double-quote structure
+        self.assertIn(prompt_abs, cmd)
+        self.assertIn(str(stage.root), cmd)
+
+    def test_kimi_real_command_substitutes_and_unescapes(self):
+        stage = Stage()
+        prompt_abs = str(stage.root / "review.prompt.md")
+        cmd = self._invoke_and_capture(stage, "kimi", "embedded_read_only_review_command", prompt_abs)
+        for marker in ("<prompt-file>", "<repo>", "@PROMPT@", "@REPO@", '\\"'):
+            self.assertNotIn(marker, cmd)
+        self.assertIn(prompt_abs, cmd)
+
+    def test_grok_real_command_substitutes_both_placeholders(self):
+        stage = Stage()
+        prompt_abs = str(stage.root / "review.prompt.md")
+        cmd = self._invoke_and_capture(stage, "grok", "optional_review_command", prompt_abs)
+        for marker in ("<prompt-file>", "<repo>", "@PROMPT@", "@REPO@"):
+            self.assertNotIn(marker, cmd)
+        self.assertIn(prompt_abs, cmd)
+        self.assertIn(str(stage.root), cmd)
+
+
+# ===========================================================================
+# Review-2 fix round 1 — F4: verdict schema alignment + byte fidelity (sol §F4)
+# ===========================================================================
+
+class VerdictSchemaAndByteFidelityTests(unittest.TestCase):
+    """The hand validator must mirror ``schemas/review-verdict.schema.json``
+    (reject unknown top-level fields, validate array item types / finding
+    constraints). ``_store_verdict`` must persist the accepted SOURCE byte span,
+    never a ``json.dumps`` reserialization."""
+
+    def test_unknown_top_level_field_rejected(self):
+        doc = _verdict(stage_id="auto-stage", unit_fp="FP1")
+        doc["mystery_field"] = "x"
+        errs = RUNNER.validate_review_verdict_doc(doc)
+        self.assertTrue(any("unknown top-level fields" in e for e in errs))
+
+    def test_required_fixes_non_string_item_rejected(self):
+        doc = _verdict(stage_id="auto-stage", unit_fp="FP1")
+        doc["required_fixes"] = ["ok", 7]
+        errs = RUNNER.validate_review_verdict_doc(doc)
+        self.assertTrue(any("required_fixes" in e for e in errs))
+
+    def test_finding_unknown_field_rejected(self):
+        doc = _verdict(stage_id="auto-stage", unit_fp="FP1", findings=[
+            {"severity": "P1", "title": "t", "file": "scripts/x.py", "line": 1,
+             "evidence": "e", "impact": "i", "recommendation": "r", "bogus": "x"}])
+        errs = RUNNER.validate_review_verdict_doc(doc)
+        self.assertTrue(any("unknown fields" in e for e in errs))
+
+    def test_finding_bad_severity_and_line_rejected(self):
+        doc = _verdict(stage_id="auto-stage", unit_fp="FP1", findings=[
+            {"severity": "P9", "title": "t", "file": "scripts/x.py", "line": 0,
+             "evidence": "e", "impact": "i", "recommendation": "r"}])
+        errs = RUNNER.validate_review_verdict_doc(doc)
+        joined = " | ".join(errs)
+        self.assertIn("severity", joined)
+        self.assertIn("line", joined)
+
+    def test_residual_risks_non_string_item_rejected(self):
+        doc = _verdict(stage_id="auto-stage", unit_fp="FP1")
+        doc["residual_risks"] = ["ok", None]
+        errs = RUNNER.validate_review_verdict_doc(doc)
+        self.assertTrue(any("residual_risks" in e for e in errs))
+
+    def test_stored_verdict_is_accepted_source_span_byte_for_byte(self):
+        # raw stdout with surrounding prose and a NON-canonical verdict object
+        # (reordered/loose spacing) so a json.dumps reserialize would differ.
+        verdict_src = (
+            '{ "verdict" : "ACCEPT" , "diff_fingerprint":"FP1" ,'
+            ' "role":"first_reviewer" , "model":"grok" , "schema_version":1 ,'
+            ' "stage_id":"auto-stage" , "reviewer_prior_involvement":"none" ,'
+            ' "reviewed_artifacts":["scripts/x.py"] , "findings":[] ,'
+            ' "required_fixes":[] , "next_action":"stage_accepted_waiting_user" }'
+        )
+        raw_text = "leading prose before verdict\n" + verdict_src + "\ntrailing prose\n"
+        unit = {"diff_fingerprint": "FP1"}
+        verdict, reason, _candidates, span = RUNNER.select_verdict(
+            raw_text, unit, stage_id="auto-stage", role="first_reviewer")
+        self.assertIsNotNone(verdict)
+        self.assertEqual(reason, "accepted")
+        self.assertIsNotNone(span)
+        # a canonical reserialize must DIFFER from the source (proves no reserialize)
+        self.assertNotEqual(json.dumps(verdict), verdict_src)
+
+        stage = Stage()
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
+                                   blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        runner.load_status()
+        verdict_rel = runner._store_verdict("T1", 1, 1, raw_text, span)
+        stored_path = lib.resolve_safe_path(stage.root, verdict_rel)
+        self.assertIsNotNone(stored_path)
+        stored = stored_path.read_bytes()
+        # the stored bytes equal the exact source span, byte for byte
+        self.assertEqual(stored, verdict_src.encode("utf-8"))
+        self.assertEqual(stored, raw_text[span[0]:span[1]].encode("utf-8"))
+
+
+# ===========================================================================
+# Review-2 fix round 1 — F5: single ledger + per-step expiry (sol §F5)
+# ===========================================================================
+
+class ReworkLedgerAndExpiryTests(unittest.TestCase):
+    """``_charge_auto_change`` must increment the shared top-level ``rework_count``
+    alongside ``auto_code_changes_used`` and honor ``max_stage_rework``. A non-null
+    ``expires_at`` is rechecked before every model call (acceptance 28), not only
+    during initial preflight."""
+
+    def test_charge_auto_change_increments_shared_ledger(self):
+        stage = Stage()
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
+                                   blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        runner.load_status()
+        runner._auth = {"budgets": {"max_auto_code_changes": 5, "max_stage_rework": 3}}
+        runner._budgets()["auto_code_changes_used"] = 0
+        runner._status["rework_count"] = 0
+        runner._charge_auto_change()
+        self.assertEqual(runner._budgets()["auto_code_changes_used"], 1)
+        self.assertEqual(runner._status["rework_count"], 1)
+
+    def test_charge_auto_change_escalates_past_max_stage_rework(self):
+        stage = Stage()
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
+                                   blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        runner.load_status()
+        runner._auth = {"budgets": {"max_auto_code_changes": 5, "max_stage_rework": 2}}
+        runner._budgets()["auto_code_changes_used"] = 0
+        runner._status["rework_count"] = 2
+        with self.assertRaises(RUNNER.TerminalEscalation) as cm:
+            runner._charge_auto_change()
+        self.assertEqual(cm.exception.event, "budget_exhausted")
+        self.assertEqual(runner._status["rework_count"], 3)
+
+    def test_rework_fix_charges_shared_rework_ledger_e2e(self):
+        stage = Stage(max_auto_code_changes=2)
+        rnd = {"n": 0}
+
+        def invoke(adapter_id, command_key, prompt_abs, timeout):
+            if command_key == "noninteractive_command":
+                (stage.root / "scripts" / "x.py").write_text("X = 1\n", encoding="utf-8")
+                return _ir(b"imp")
+            if command_key == "embedded_read_only_review_command":
+                return _ir(b"advisory")
+            if command_key == "optional_review_command":
+                rnd["n"] += 1
+                fp = stage.unit().get("diff_fingerprint")
+                if rnd["n"] == 1:
+                    out = json.dumps(_verdict(stage_id=stage.stage_id, unit_fp=fp, verdict="REWORK"))
+                else:
+                    out = json.dumps(_verdict(stage_id=stage.stage_id, unit_fp=fp, verdict="ACCEPT"))
+                return _ir(out.encode())
+            return _ir()
+
+        runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        result = runner.run()
+        self.assertEqual(result.terminal, "completed_review_1")
+        arp = stage.reload()["auto_review_pipeline"]
+        self.assertEqual(arp["budgets"]["auto_code_changes_used"], 1)
+        self.assertEqual(stage.reload().get("rework_count"), 1)
+
+    def test_authorization_expiry_rechecked_before_later_model_call(self):
+        # expires_at is in the future at preflight, but the implementation call
+        # advances the clock past it; the next model call (embedded cross-check)
+        # must fail closed on the now-past expiry — not sail through to seal.
+        stage = Stage(auth_mutator=lambda auth: auth.__setitem__(
+            "expires_at", "2026-07-11T12:00:30Z"))  # BASE_TIME + 30s
+
+        class Clock:
+            def __init__(self):
+                self.t = BASE_TIME
+
+            def __call__(self):
+                return self.t
+
+        clock = Clock()
+
+        def invoke(adapter_id, command_key, prompt_abs, timeout):
+            if command_key == "noninteractive_command":
+                (stage.root / "scripts" / "x.py").write_text("X = 1\n", encoding="utf-8")
+                clock.t = BASE_TIME + datetime.timedelta(seconds=60)  # past the 30s expiry
+                return _ir(b"imp")
+            return _ir()
+
+        runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0,
+                                   seal=FakeSeal(), now=clock)
+        result = runner.run()
+        self.assertEqual(result.terminal, "human_escalation_required")
+        events = [m["event"] for m in stage.reload()["auto_review_pipeline"].get("mode_history", [])]
+        self.assertIn("timeout", events)
+
+
+# ===========================================================================
+# Review-2 fix round 1 — F6: exclusive runner lock (sol §F6, runner side)
+# ===========================================================================
+
+class RunnerLockTests(unittest.TestCase):
+    """The runner holds an exclusive, runtime-only lock under git metadata for the
+    duration of a run. A second run against the same worktree while the lock is
+    held fails closed (awaiting_human) before any adapter call."""
+
+    def test_concurrent_runner_lock_is_exclusive(self):
+        stage = Stage()
+        calls = {"n": 0}
+
+        def invoke(*a, **k):
+            calls["n"] += 1
+            return _ir()
+
+        # runner A acquires and HOLDS the lock (does not run the body)
+        runner_a = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0,
+                                     seal=FakeSeal())
+        runner_a.load_status()
+        runner_a._acquire_runner_lock()
+        try:
+            runner_b = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0,
+                                         seal=FakeSeal())
+            result = runner_b.run()
+            self.assertEqual(result.terminal, "awaiting_human")
+            self.assertEqual(calls["n"], 0, "no adapter call while the lock is held")
+            self.assertTrue(any(stage.stage_dir.glob("80-escalation-preflight_runner_lock_busy*.md")))
+        finally:
+            runner_a._release_runner_lock()
+
+
+# ===========================================================================
+# Review-2 fix round 1 — F7: restart idempotency + adapter-error stop (sol §F7)
+# ===========================================================================
+
+class RestartAndAdapterErrorTests(unittest.TestCase):
+    """A restart must not redispatch accepted work; ``completed_review_1`` is a
+    no-op. A nonzero/timed-out implementation or fix adapter result stops the
+    unit flow (escalation) — blocking and seal never run carrying a failed result."""
+
+    def test_restart_completed_review_1_is_noop(self):
+        stage = Stage(runner_state="completed_review_1", dispatch_mode="auto_review")
+        calls = {"n": 0}
+
+        def invoke(*a, **k):
+            calls["n"] += 1
+            return _ir()
+
+        runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        result = runner.run()
+        self.assertFalse(result.ran)
+        self.assertEqual(result.terminal, "completed_review_1")
+        self.assertEqual(calls["n"], 0)
+
+    def test_restart_running_skips_accepted_unit_no_redispatch(self):
+        stage = Stage(runner_state="running", dispatch_mode="auto_review")
+        unit = stage.status["auto_review_pipeline"]["review_units"][0]
+        unit["snapshot_commit"] = "sealedsha"
+        unit["head_sha"] = "sealedsha"
+        unit["diff_fingerprint"] = "sealedfp"
+        unit["review_1"] = {"verdict": "ACCEPT", "provider": "grok",
+                            "json_schema_valid": True, "diff_fingerprint": "sealedfp",
+                            "verdict_path": "reports/agent-runs/auto-stage/x.verdict.json"}
+        arp = stage.status["auto_review_pipeline"]
+        arp["run_started_at"] = "2026-07-11T12:00:00Z"
+        arp["run_deadline_at"] = "2026-07-11T13:00:00Z"
+        arp["mode_history"] = [{"event": "new_human_authorization"},
+                               {"event": "successful_full_preflight"}]
+        stage._write_status()
+        stage.git("add", "-A")
+        stage.git("commit", "-q", "--allow-empty", "-m", "running-accepted")
+
+        impl_calls = {"n": 0}
+
+        def invoke(adapter_id, command_key, prompt_abs, timeout):
+            if command_key == "noninteractive_command":
+                impl_calls["n"] += 1
+            return _ir()
+
+        runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        result = runner.run()
+        self.assertEqual(result.terminal, "completed_review_1")
+        self.assertEqual(impl_calls["n"], 0, "restart must not redispatch an ACCEPT unit")
+
+    def test_implementation_adapter_error_stops_before_blocking_and_seal(self):
+        stage = Stage()
+        seal = FakeSeal()
+        blk = {"n": 0}
+
+        def blocking(u, c, p):
+            blk["n"] += 1
+            return 0
+
+        def invoke(adapter_id, command_key, prompt_abs, timeout):
+            if command_key == "noninteractive_command":
+                return _ir(b"err", exit_status=2, failure_class="command_error")
+            return _ir()
+
+        runner = stage.make_runner(invoker=invoke, blocking_runner=blocking, seal=seal)
+        result = runner.run()
+        self.assertEqual(result.terminal, "human_escalation_required")
+        self.assertEqual(blk["n"], 0, "blocking must not run after an implementation adapter error")
+        self.assertEqual(seal.calls, [], "seal must not run after an implementation adapter error")
+
+    def test_fix_adapter_error_stops_before_second_seal(self):
+        stage = Stage(max_auto_code_changes=2)
+        rnd = {"n": 0}
+        seal = FakeSeal()
+
+        def invoke(adapter_id, command_key, prompt_abs, timeout):
+            if command_key == "noninteractive_command":
+                if "/fix-" in str(prompt_abs):
+                    return _ir(b"err", exit_status=2, failure_class="command_error")
+                (stage.root / "scripts" / "x.py").write_text("X = 1\n", encoding="utf-8")
+                return _ir(b"imp")
+            if command_key == "embedded_read_only_review_command":
+                return _ir(b"advisory")
+            if command_key == "optional_review_command":
+                rnd["n"] += 1
+                fp = stage.unit().get("diff_fingerprint")
+                if rnd["n"] == 1:
+                    out = json.dumps(_verdict(stage_id=stage.stage_id, unit_fp=fp, verdict="REWORK"))
+                else:
+                    out = json.dumps(_verdict(stage_id=stage.stage_id, unit_fp=fp, verdict="ACCEPT"))
+                return _ir(out.encode())
+            return _ir()
+
+        runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0, seal=seal)
+        result = runner.run()
+        self.assertEqual(result.terminal, "human_escalation_required")
+        # round-1 seal happened; the post-fix re-seal (round 2) must NOT have run
+        self.assertEqual(len(seal.calls), 1, "fix adapter error must stop before the second seal")
+        events = [m["event"] for m in stage.reload()["auto_review_pipeline"].get("mode_history", [])]
+        self.assertIn("unroutable_fix", events)
 
 
 if __name__ == "__main__":

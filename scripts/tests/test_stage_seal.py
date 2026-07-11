@@ -257,6 +257,53 @@ class SealCrashRecoveryTests(_SealTestBase):
         status2 = lib.load_json(self.stage_dir / "status.json")
         self.assertTrue(status2["auto_review_pipeline"]["review_units"][0]["diff_fingerprint"])
 
+    def test_snapshot_crash_window_recovers_without_second_code_commit(self):
+        # F6: the real H_snapshot crash window is between create_snapshot committing
+        # H_snapshot and write_unit_and_receipt writing snapshot_commit/fingerprint
+        # into status. Inject the crash by monkeypatching write_unit_and_receipt to
+        # raise on its first call (AFTER the snapshot commit has landed), then prove
+        # the second seal() recovers via the pending marker and adds NO second code
+        # commit — only the H_bind.
+        real_write = self.seal.write_unit_and_receipt
+        calls = {"n": 0}
+
+        def crashing_write(*a, **k):
+            calls["n"] += 1
+            # create_snapshot has already committed H_snapshot before we are called;
+            # crash here, before the status write records snapshot_commit/fingerprint
+            raise self.seal.SealError("injected crash: status write did not land")
+
+        self.seal.write_unit_and_receipt = crashing_write
+        try:
+            with self.assertRaises(self.seal.SealError):
+                self.seal.seal(self.root, self.stage_dir, "T1")
+        finally:
+            self.seal.write_unit_and_receipt = real_write
+        self.assertEqual(calls["n"], 1)
+        snapshot_head = self.git("rev-parse", "HEAD").strip()  # the committed H_snapshot
+        # the pending marker must still be on disk (recovery detects the real point)
+        self.assertTrue(self.seal._pending_marker_path(self.stage_dir, "T1").exists())
+
+        before = int(self.git("rev-list", "--count", "HEAD"))
+        result = self.seal.seal(self.root, self.stage_dir, "T1")  # recover via marker
+        after = int(self.git("rev-list", "--count", "HEAD"))
+
+        self.assertTrue(result["recovered"])
+        self.assertEqual(result.get("crash_window"), "snapshot_committed_status_unwritten")
+        self.assertEqual(result["head_sha"], snapshot_head)
+        # exactly one new commit (H_bind); NEVER a second H_snapshot code commit
+        self.assertEqual(after - before, 1)
+        log = self.git("log", "--format=%s")
+        self.assertEqual(log.count("H_snapshot"), 1)
+        self.assertEqual(log.count("H_bind"), 1)
+        # the marker is cleared once recovery completes
+        self.assertFalse(self.seal._pending_marker_path(self.stage_dir, "T1").exists())
+        status2 = lib.load_json(self.stage_dir / "status.json")
+        unit2 = status2["auto_review_pipeline"]["review_units"][0]
+        self.assertEqual(unit2["snapshot_commit"], snapshot_head)
+        self.assertTrue(unit2["diff_fingerprint"])
+        self.assertEqual(unit2["embedded_cross_check"]["bind_status"], "bound")
+
     def test_sealed_unit_refuses_reseal(self):
         # simulate post-H_bind state: unit fully sealed
         self.git("add", "-A")

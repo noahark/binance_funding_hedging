@@ -50,6 +50,7 @@ code + tests and targets future auto-mode stages. It invokes no models.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import importlib.util
 import json
 import os
@@ -112,6 +113,17 @@ VERDICT_NEXT_ACTIONS = {
 }
 VERDICT_SEVERITIES = {"P0", "P1", "P2", "P3"}
 VERDICT_FINDING_REQUIRED = ["severity", "title", "evidence", "impact", "recommendation"]
+# Allowed top-level properties = required keys plus the optional/conditional ones
+# declared in schemas/review-verdict.schema.json (additionalProperties: false).
+VERDICT_ALLOWED_TOP = set(VERDICT_REQUIRED) | {
+    "reviewer_prior_involvement_notes",
+    "residual_risks",
+    "fix_start_prompt",
+}
+VERDICT_FINDING_ALLOWED = {
+    "severity", "title", "file", "line", "evidence", "impact", "recommendation",
+}
+VERDICT_FINDING_NONEMPTY_STRINGS = ["title", "evidence", "impact", "recommendation"]
 
 
 def _is_int(value: Any) -> bool:
@@ -131,6 +143,9 @@ def validate_review_verdict_doc(doc: Any) -> list[str]:
     errors: list[str] = []
     if not isinstance(doc, dict):
         return ["verdict must be an object"]
+    unknown_top = set(doc.keys()) - VERDICT_ALLOWED_TOP
+    if unknown_top:
+        errors.append("verdict unknown top-level fields: " + ", ".join(sorted(unknown_top)))
     for key in VERDICT_REQUIRED:
         if key not in doc:
             errors.append("verdict missing required field: " + key)
@@ -145,6 +160,9 @@ def validate_review_verdict_doc(doc: Any) -> list[str]:
     for key in ("stage_id", "model", "diff_fingerprint"):
         if key in doc and not (_is_str(doc[key]) and doc[key]):
             errors.append("verdict." + key + " must be a non-empty string")
+    for opt_key in ("reviewer_prior_involvement_notes", "fix_start_prompt"):
+        if opt_key in doc and doc[opt_key] is not None and not (_is_str(doc[opt_key]) and doc[opt_key]):
+            errors.append("verdict." + opt_key + " must be a non-empty string")
     if "reviewed_artifacts" in doc:
         ra = doc["reviewed_artifacts"]
         if not isinstance(ra, list) or not ra or not all(_is_str(x) and x for x in ra):
@@ -158,7 +176,7 @@ def validate_review_verdict_doc(doc: Any) -> list[str]:
                 if not isinstance(finding, dict):
                     errors.append("verdict.findings[" + str(idx) + "] must be an object")
                     continue
-                unknown = set(finding.keys()) - {"severity", "title", "file", "line", "evidence", "impact", "recommendation"}
+                unknown = set(finding.keys()) - VERDICT_FINDING_ALLOWED
                 if unknown:
                     errors.append("verdict.findings[" + str(idx) + "] unknown fields: " + ", ".join(sorted(unknown)))
                 for fkey in VERDICT_FINDING_REQUIRED:
@@ -166,10 +184,21 @@ def validate_review_verdict_doc(doc: Any) -> list[str]:
                         errors.append("verdict.findings[" + str(idx) + "] missing " + fkey)
                 if finding.get("severity") is not None and finding["severity"] not in VERDICT_SEVERITIES:
                     errors.append("verdict.findings[" + str(idx) + "].severity must be P0/P1/P2/P3")
-                if "line" in finding and finding["line"] is not None and not _is_int(finding["line"]):
-                    errors.append("verdict.findings[" + str(idx) + "].line must be an integer or null")
-    if "required_fixes" in doc and not isinstance(doc["required_fixes"], list):
-        errors.append("verdict.required_fixes must be a list")
+                for skey in VERDICT_FINDING_NONEMPTY_STRINGS:
+                    if skey in finding and not (_is_str(finding[skey]) and finding[skey]):
+                        errors.append("verdict.findings[" + str(idx) + "]." + skey + " must be a non-empty string")
+                if "file" in finding and finding["file"] is not None and not _is_str(finding["file"]):
+                    errors.append("verdict.findings[" + str(idx) + "].file must be a string")
+                if "line" in finding and finding["line"] is not None and (not _is_int(finding["line"]) or finding["line"] < 1):
+                    errors.append("verdict.findings[" + str(idx) + "].line must be a positive integer or null")
+    if "required_fixes" in doc:
+        rf = doc["required_fixes"]
+        if not isinstance(rf, list) or not all(_is_str(x) for x in rf):
+            errors.append("verdict.required_fixes must be a list of strings")
+    if "residual_risks" in doc:
+        rr = doc["residual_risks"]
+        if not isinstance(rr, list) or not all(_is_str(x) for x in rr):
+            errors.append("verdict.residual_risks must be a list of strings")
     if "next_action" in doc and doc["next_action"] not in VERDICT_NEXT_ACTIONS:
         errors.append("verdict.next_action is not a known action")
     # REWORK requires fix_start_prompt (cross-field rule the schema enforces via allOf)
@@ -233,13 +262,15 @@ def extract_top_level_json_objects(text: str) -> list[tuple[int, int, Any]]:
     return candidates
 
 
-def select_verdict(raw_text: str, unit: dict[str, Any], *, stage_id: str, role: str) -> tuple[dict[str, Any] | None, str, list[tuple[int, int, Any]]]:
+def select_verdict(raw_text: str, unit: dict[str, Any], *, stage_id: str, role: str) -> tuple[dict[str, Any] | None, str, list[tuple[int, int, Any]], tuple[int, int] | None]:
     """Apply the final-and-only schema-valid verdict boundary.
 
-    Returns ``(verdict_or_None, reason, all_candidates)``. Acceptance requires:
-    exactly one schema-valid candidate; it is the final top-level object; its
+    Returns ``(verdict_or_None, reason, all_candidates, span)`` where ``span`` is
+    the ``(start, end_exclusive)`` byte offsets of the accepted verdict within
+    ``raw_text`` (None when no verdict is accepted). Acceptance requires: exactly
+    one schema-valid candidate; it is the final top-level object; its
     stage_id/role/diff_fingerprint match the active unit; no second schema-valid
-    verdict exists.
+    verdict exists. The caller stores the accepted source span byte-unaltered.
     """
     candidates = extract_top_level_json_objects(raw_text)
     valid: list[tuple[int, int, dict[str, Any]]] = []
@@ -247,23 +278,23 @@ def select_verdict(raw_text: str, unit: dict[str, Any], *, stage_id: str, role: 
         if not validate_review_verdict_doc(obj):
             valid.append((start, end, obj))
     if not valid:
-        return None, "no schema-valid verdict object", candidates
+        return None, "no schema-valid verdict object", candidates, None
     if len(valid) > 1:
-        return None, "more than one schema-valid verdict object", candidates
+        return None, "more than one schema-valid verdict object", candidates, None
     vstart, vend, verdict = valid[0]
     # must be the final top-level object (no later object in the stream)
     if candidates and (vstart, vend) != (candidates[-1][0], candidates[-1][1]):
-        return None, "schema-valid verdict is not the final structured block", candidates
+        return None, "schema-valid verdict is not the final structured block", candidates, None
     if verdict.get("stage_id") != stage_id:
-        return None, "verdict stage_id mismatch", candidates
+        return None, "verdict stage_id mismatch", candidates, None
     if verdict.get("role") != role:
-        return None, "verdict role mismatch", candidates
+        return None, "verdict role mismatch", candidates, None
     unit_fp = unit.get("diff_fingerprint")
     if not unit_fp:
-        return None, "active unit has no sealed fingerprint", candidates
+        return None, "active unit has no sealed fingerprint", candidates, None
     if verdict.get("diff_fingerprint") != unit_fp:
-        return None, "verdict diff_fingerprint mismatch", candidates
-    return verdict, "accepted", candidates
+        return None, "verdict diff_fingerprint mismatch", candidates, None
+    return verdict, "accepted", candidates, (vstart, vend)
 
 
 # ---------------------------------------------------------------------------
@@ -371,14 +402,49 @@ _REGISTRY_COMMAND_KEYS = {
 }
 
 
+def _unescape_yaml_scalar(value: str) -> str:
+    """Unescape a restricted YAML scalar the loader captured verbatim.
+
+    Handles the frozen registry's scalar forms: double-quoted strings (strip
+    the quotes, unescape ``\\"`` -> ``"`` and ``\\\\`` -> ``\\``), single-quoted
+    strings (collapse ``''`` -> ``'``), and plain/unquoted scalars (verbatim).
+    This is a restricted unescaper for the current registry command strings, not
+    a full YAML parser; unknown backslash escapes keep the backslash literally.
+    """
+    v = value.strip()
+    if len(v) >= 2 and v[0] == '"' and v[-1] == '"':
+        inner = v[1:-1]
+        out: list[str] = []
+        i = 0
+        while i < len(inner):
+            c = inner[i]
+            if c == "\\" and i + 1 < len(inner):
+                nxt = inner[i + 1]
+                if nxt == '"':
+                    out.append('"')
+                    i += 2
+                    continue
+                if nxt == "\\":
+                    out.append("\\")
+                    i += 2
+                    continue
+            out.append(c)
+            i += 1
+        return "".join(out)
+    if len(v) >= 2 and v[0] == "'" and v[-1] == "'":
+        return v[1:-1].replace("''", "'")
+    return v
+
+
 def load_registry(root: Path, registry_path: str = "agents/registry.yaml") -> dict[str, dict[str, Any]]:
     """Restricted line-based parse of ``agents/registry.yaml``.
 
     Extracts only the frozen adapter command templates needed for invocation
     (the six registry refs). git/shell remain the staging authority; this only
     resolves which command template a registry ref points at so the runner can
-    invoke it. Templates are stored verbatim with a ``@PROMPT@`` placeholder
-    convention the runner substitutes at invoke time. Production-only; tests
+    invoke it. Quoted command strings are YAML-unescaped (``\"`` -> ``"``) so the
+    real registry templates resolve correctly; the runner substitutes the
+    ``<prompt-file>`` / ``<repo>`` placeholders they use. Production-only; tests
     inject a fake registry and never call this.
     """
     path = lib.resolve_safe_path(root, registry_path)
@@ -404,7 +470,7 @@ def load_registry(root: Path, registry_path: str = "agents/registry.yaml") -> di
             for key in _REGISTRY_COMMAND_KEYS:
                 marker = key + ":"
                 if stripped.startswith(marker):
-                    value = stripped[len(marker):].strip().strip('"').strip("'")
+                    value = _unescape_yaml_scalar(stripped[len(marker):].strip())
                     registry[current_adapter]["commands"][key] = value
                     break
     return registry
@@ -468,6 +534,7 @@ class AutoReviewRunner:
         self._status: dict[str, Any] = {}
         self._arp: dict[str, Any] = {}
         self._auth: dict[str, Any] = {}
+        self._lock_handle = None
 
     # -- module loading ----------------------------------------------------
 
@@ -591,8 +658,17 @@ class AutoReviewRunner:
     def _budgets(self) -> dict[str, Any]:
         return self._arp.setdefault("budgets", {})
 
+    def _auth_or_status_budget(self, key: str, default: int = 0) -> int:
+        """Runtime caps come from the AUTHORIZATION budgets (frozen, human-approved),
+        not mutable status fields. Status accumulates usage only. Falls back to the
+        status budget only before preflight has loaded the authorization."""
+        auth_budgets = (self._auth or {}).get("budgets") or {}
+        if key in auth_budgets:
+            return int(auth_budgets[key])
+        return int(self._budgets().get(key, default))
+
     def _max_calls(self) -> int:
-        return int(self._budgets().get("max_model_calls", 0))
+        return self._auth_or_status_budget("max_model_calls")
 
     def _calls_used(self) -> int:
         return int(self._budgets().get("model_calls_used", 0))
@@ -609,7 +685,7 @@ class AutoReviewRunner:
         return before, after
 
     def _max_auto_changes(self) -> int:
-        return int(self._budgets().get("max_auto_code_changes", 2))
+        return self._auth_or_status_budget("max_auto_code_changes", 2)
 
     def _auto_changes_used(self) -> int:
         return int(self._budgets().get("auto_code_changes_used", 0))
@@ -618,6 +694,33 @@ class AutoReviewRunner:
         if self._auto_changes_used() >= self._max_auto_changes():
             raise TerminalEscalation("budget_exhausted", "aggregate auto code-change cap reached")
         self._budgets()["auto_code_changes_used"] = self._auto_changes_used() + 1
+        # Single authoritative ledger (docs §Rework accounting): an automatic
+        # code-changing fix also charges the top-level rework_count shared with
+        # review-2 repair, bounded by max_stage_rework.
+        rework_count = int(self._status.get("rework_count", 0)) + 1
+        self._status["rework_count"] = rework_count
+        max_rework = int((self._auth or {}).get("budgets", {}).get("max_stage_rework", 0) or 0)
+        if max_rework and rework_count > max_rework:
+            raise TerminalEscalation(
+                "budget_exhausted",
+                "stage rework ledger exceeded: %d > %d" % (rework_count, max_rework))
+
+    def _check_authorization_expiry(self) -> None:
+        """Re-check a non-null ``expires_at`` before every model call and commit.
+
+        Acceptance criterion 28: a non-null authorization expiry is enforced
+        throughout the run, not only during initial preflight. A null expiry
+        leaves the run bound by call/wall-clock/rework budgets (no independent
+        expiry timestamp).
+        """
+        expires_at = (self._auth or {}).get("expires_at")
+        if expires_at is None:
+            return
+        parsed = lib.parse_iso8601(expires_at)
+        if parsed is None:
+            raise TerminalEscalation("timeout", "authorization expires_at unparseable: " + str(expires_at))
+        if parsed <= self.now():
+            raise TerminalEscalation("timeout", "authorization expired mid-run: " + str(expires_at))
 
     def _check_wall_clock(self) -> None:
         deadline = self._arp.get("run_deadline_at")
@@ -761,7 +864,15 @@ class AutoReviewRunner:
 
     def _default_invoke(self, adapter_id: str, command_key: str, prompt_abs: Path) -> InvokeResult:
         template = resolve_command_template(self.registry, adapter_id, command_key)
-        command = template.replace("@PROMPT@", str(prompt_abs)).replace("@REPO@", str(self.root))
+        # Real registry templates use <prompt-file> / <repo>; @PROMPT@ / @REPO@
+        # remain supported for backward compatibility with synthetic test fixtures.
+        command = (
+            template
+            .replace("@PROMPT@", str(prompt_abs))
+            .replace("@REPO@", str(self.root))
+            .replace("<prompt-file>", str(prompt_abs))
+            .replace("<repo>", str(self.root))
+        )
         started = self.now()
         try:
             proc = subprocess.run(
@@ -818,6 +929,19 @@ class AutoReviewRunner:
         errors = lib.validate_authorization_doc(auth)
         if errors:
             raise PreflightFailed("authorization_invalid", {"errors": errors})
+        # authorization artifact + approval receipt must be COMMITTED (git-reachable
+        # from HEAD), and an uncommitted modification overriding the committed
+        # authorization is rejected (F2: bind to committed truth, not worktree).
+        for label, path_rel in (
+            ("authorization", auth_rel),
+            ("approval_receipt", auth.get("approval_evidence_path")),
+        ):
+            if not path_rel:
+                raise PreflightFailed("authorization_missing", {"field": label})
+            if not self._git_path_is_committed(path_rel):
+                raise PreflightFailed("authorization_not_committed", {"field": label, "path": path_rel})
+            if self._git_path_is_dirty(path_rel):
+                raise PreflightFailed("authorization_uncommitted_change", {"field": label, "path": path_rel})
         # expiry (null = no independent expiry timestamp; non-null must be future)
         expires_at = auth.get("expires_at")
         if expires_at is not None:
@@ -841,6 +965,9 @@ class AutoReviewRunner:
         for key in ("task_ids", "allowed_pathspecs", "forbidden_pathspecs"):
             if scope.get(key) is None:
                 raise PreflightFailed("scope_mismatch", {"field": key})
+        # F2: bind authorized scope to live review units exactly — any unit/path
+        # exceeding the authorization set fails closed.
+        self._verify_authorization_binding(auth)
         # budgets present + frozen values
         budgets = auth.get("budgets") or {}
         for key in ("max_model_calls", "wall_clock_seconds", "max_stage_rework", "max_auto_code_changes", "invalid_json_max_attempts_per_model"):
@@ -869,48 +996,160 @@ class AutoReviewRunner:
                 offending.append(path)
         return offending
 
+    def _git_path_is_committed(self, rel: str) -> bool:
+        """True iff ``rel`` is reachable from HEAD (committed), not merely in the worktree."""
+        result = subprocess.run(
+            ["git", "cat-file", "-e", "HEAD:" + rel], cwd=str(self.root),
+            check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        return result.returncode == 0
+
+    def _git_path_is_dirty(self, rel: str) -> bool:
+        """True iff the worktree version of ``rel`` differs from HEAD (modified/untracked)."""
+        result = subprocess.run(
+            ["git", "status", "--porcelain", "--", rel], cwd=str(self.root),
+            check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        return bool(result.stdout.strip())
+
+    def _verify_authorization_binding(self, auth: dict[str, Any]) -> None:
+        """F2: exact-bind authorized scope to live review units.
+
+        Every live review unit id must be within ``scope.task_ids``; each unit's
+        ``code_pathspecs`` must be inside ``allowed_pathspecs`` and outside
+        ``forbidden_pathspecs``. Any excess fails closed. Topology is compared
+        only when the live status records one.
+        """
+        scope = auth.get("scope") or {}
+        auth_tasks = set(scope.get("task_ids") or [])
+        live_units = self._ordered_units()
+        live_ids = {u.get("id") for u in live_units}
+        unauthorized = sorted(live_ids - auth_tasks)
+        if unauthorized:
+            raise PreflightFailed("scope_mismatch", {"unauthorized_units": unauthorized})
+        live_topology = self._arp.get("topology")
+        if live_topology is not None and scope.get("topology") != live_topology:
+            raise PreflightFailed("scope_mismatch", {"auth_topology": scope.get("topology"), "live_topology": live_topology})
+        allowed = scope.get("allowed_pathspecs") or []
+        forbidden = scope.get("forbidden_pathspecs") or []
+        for unit in live_units:
+            for spec in unit.get("code_pathspecs") or []:
+                if not _pathspec_matches(spec, allowed):
+                    raise PreflightFailed("scope_mismatch", {"unit": unit.get("id"), "pathspec_outside_allowlist": spec})
+                if forbidden and _pathspec_matches(spec, forbidden):
+                    raise PreflightFailed("scope_mismatch", {"unit": unit.get("id"), "forbidden_pathspec_hit": spec})
+
     # =====================================================================
     # top-level run
     # =====================================================================
+
+    # -- exclusive runner lock (F6) ----------------------------------------
+
+    def _git_dir(self) -> Path:
+        """Absolute path to this worktree's git metadata dir (runtime-only, never committed)."""
+        out = str(self._git(["rev-parse", "--git-dir"])).strip()
+        return (self.root / out).resolve() if not os.path.isabs(out) else Path(out).resolve()
+
+    def _acquire_runner_lock(self) -> None:
+        """Acquire an exclusive, runtime-only active-runner lock under git metadata.
+
+        Uses ``fcntl.flock(LOCK_EX|LOCK_NB)`` so the lock is process-held and
+        auto-released on process exit or crash (never committed). A held lock is
+        a recoverable preflight failure (awaiting_human + paused). The lock file
+        body records pid/stage/timestamp for diagnostics.
+        """
+        lock_path = self._git_dir() / "harness-runner.lock"
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        handle = open(lock_path, "w", encoding="utf-8")
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            handle.close()
+            raise PreflightFailed("runner_lock_busy", {"lock": str(lock_path), "error": str(exc)})
+        handle.seek(0)
+        handle.truncate()
+        handle.write("pid={}\nstage={}\nacquired_at={}\n".format(
+            os.getpid(), self._status.get("stage_id"), self._iso(self.now())))
+        handle.flush()
+        self._lock_handle = handle
+
+    def _release_runner_lock(self) -> None:
+        handle = getattr(self, "_lock_handle", None)
+        self._lock_handle = None
+        if handle is not None:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            finally:
+                handle.close()
 
     def run(self) -> RunResult:
         self.load_status()
         if not self._enabled(self._arp):
             return RunResult(ran=False, reason="auto_review_pipeline not enabled (default-off)")
+        # F7: a restart from completed_review_1 is a no-op (the run finished);
+        # a restart from running resumes without re-authorizing or recharging.
+        if self._arp.get("runner_state") == "completed_review_1":
+            return RunResult(ran=False, terminal="completed_review_1", reason="already completed; restart is a no-op")
         self._arp.setdefault("runner_version", "auto-review-pipeline/v1")
         self._arp.setdefault("schema_version", 1)
-        # authorize_new_run: a fresh run records new_human_authorization
-        # (human_dispatch/None -> auto_review/authorized); a resume from
-        # awaiting_human records superseding_human_authorization. The frozen
-        # matrix owns both rows; the runner never invents a transition.
-        if self._arp.get("runner_state") == "awaiting_human":
-            self._record_transition(
-                "superseding_human_authorization", "auto_review", "awaiting_human", "auto_review", "authorized")
-        else:
-            self._record_transition(
-                "new_human_authorization", "human_dispatch", None, "auto_review", "authorized")
-        self._arp["dispatch_mode"] = "auto_review"
-        self._set_state("authorized", "auto_review")
-        self._persist()
+        # F6: acquire the exclusive active-runner lock before any state change.
+        # Contention is a recoverable preflight failure (awaiting_human + paused).
         try:
-            self.preflight()
+            self._acquire_runner_lock()
         except PreflightFailed as exc:
             self._handle_preflight_failure(exc)
             return RunResult(ran=False, terminal="awaiting_human", reason=exc.reason)
-        # successful_full_preflight: authorized -> running
-        self._record_transition("successful_full_preflight", "auto_review", "authorized", "auto_review", "running")
-        self._set_state("running", "auto_review")
-        self._init_wall_clock()
-        self._persist()
+        try:
+            return self._run_body()
+        finally:
+            self._release_runner_lock()
+
+    def _run_body(self) -> RunResult:
+        resume = self._arp.get("runner_state") == "running"
+        if not resume:
+            # authorize_new_run: a fresh run records new_human_authorization
+            # (human_dispatch/None -> auto_review/authorized); a resume from
+            # awaiting_human records superseding_human_authorization. The frozen
+            # matrix owns both rows; the runner never invents a transition.
+            if self._arp.get("runner_state") == "awaiting_human":
+                self._record_transition(
+                    "superseding_human_authorization", "auto_review", "awaiting_human", "auto_review", "authorized")
+            else:
+                self._record_transition(
+                    "new_human_authorization", "human_dispatch", None, "auto_review", "authorized")
+            self._arp["dispatch_mode"] = "auto_review"
+            self._set_state("authorized", "auto_review")
+            self._persist()
+            try:
+                self.preflight()
+            except PreflightFailed as exc:
+                self._handle_preflight_failure(exc)
+                return RunResult(ran=False, terminal="awaiting_human", reason=exc.reason)
+            # successful_full_preflight: authorized -> running
+            self._record_transition("successful_full_preflight", "auto_review", "authorized", "auto_review", "running")
+            self._set_state("running", "auto_review")
+            self._init_wall_clock()
+            self._persist()
+        else:
+            # resume from running: re-validate binding/expiry (no transition, no
+            # wall-clock reset) then continue the unit loop idempotently.
+            try:
+                self.preflight()
+            except PreflightFailed as exc:
+                self._handle_preflight_failure(exc)
+                return RunResult(ran=False, terminal="awaiting_human", reason=exc.reason)
         try:
             # iterate by id: each _run_unit reloads status (seal/commit), so we
-            # re-fetch the live unit object before driving it.
+            # re-fetch the live unit object before driving it. F7: skip units
+            # already ACCEPTed so a restart never redispatches completed work.
             unit_ids = [u.get("id") for u in self._ordered_units()]
             for unit_id in unit_ids:
                 unit = self._find_unit(unit_id)
                 if unit is None:
                     raise TerminalEscalation("unroutable_fix", "unit vanished before dispatch: " + str(unit_id),
                                              {"review_unit_id": unit_id})
+                if (unit.get("review_1") or {}).get("verdict") == "ACCEPT":
+                    continue
                 self._run_unit(unit)
             # all required units ACCEPT
             self._record_transition("all_required_units_ACCEPT", "auto_review", "running", "auto_review", "completed_review_1")
@@ -925,8 +1164,8 @@ class AutoReviewRunner:
             return RunResult(ran=True, terminal="awaiting_human", reason=exc.reason)
 
     def _init_wall_clock(self) -> None:
-        budgets = self._budgets()
-        wall = int(budgets.get("wall_clock_seconds", 0) or 0)
+        # wall-clock budget comes from the authorization (frozen), not status.
+        wall = int(self._auth_or_status_budget("wall_clock_seconds") or 0)
         started = self._arp.get("run_started_at")
         if not started:
             started = self._iso(self.now())
@@ -1031,9 +1270,25 @@ class AutoReviewRunner:
         )
         before, after = self._charge_call()
         self._check_wall_clock()
+        self._check_authorization_expiry()
         started = self._iso(self.now())
         result = self._invoke(adapter_id, command_key, prompt_rel)
         raw_rel = self._capture_raw(unit_id, "implementation", 1, result.stdout)
+        # F7: a nonzero/timeout implementation adapter result stops the unit flow
+        # (escalation); never continue to blocking/seal with a failed result.
+        if result.failure_class in ("command_error", "timeout"):
+            self._write_receipt(
+                node="implementation", attempt=1, unit_id=unit_id, task_id=unit_id,
+                adapter_id=adapter_id, command_ref=command_ref, prompt_path=prompt_rel,
+                raw_output_path=raw_rel, verdict_path=None, started_at=started,
+                completed_at=result.completed_at, exit_status=result.exit_status,
+                timed_out=result.timed_out, call_before=before, call_after=after,
+                failure_class=result.failure_class, next_transition="human_escalation_required",
+            )
+            self._persist()
+            raise TerminalEscalation(
+                "unroutable_fix", "implementation adapter failed: " + str(result.failure_class),
+                {"review_unit_id": unit_id})
         # verify the implementer wrote only inside the allowlist
         offending = self._dirty_outside_allowlist(
             self._porcelain(), self._auth.get("scope", {}).get("allowed_pathspecs") or [], self._stage_rel()
@@ -1191,6 +1446,7 @@ class AutoReviewRunner:
         )
         before, after = self._charge_call()
         self._check_wall_clock()
+        self._check_authorization_expiry()
         started = self._iso(self.now())
         result = self._invoke(adapter_id, command_key, prompt_rel)
         raw_rel = self._capture_raw(unit_id, "embedded-cross-check-round{}".format(round_no), 1, result.stdout)
@@ -1229,6 +1485,9 @@ class AutoReviewRunner:
     def _node_seal(self, unit: dict[str, Any]) -> dict[str, Any]:
         unit_id = unit.get("id")
         self._persist()
+        # the delegated seal performs git commits (H_snapshot / H_bind); re-check
+        # a non-null authorization expiry before any of them (acceptance 28).
+        self._check_authorization_expiry()
         try:
             self._seal.seal(self.root, self.stage_dir, unit_id)
         except Exception as exc:  # SealError or HarnessError → bind mismatch / blocking fail
@@ -1320,11 +1579,13 @@ class AutoReviewRunner:
         )
         before, after = self._charge_call()
         self._check_wall_clock()
+        self._check_authorization_expiry()
         started = self._iso(self.now())
         result = self._invoke(adapter_id, command_key, prompt_rel)
         raw_rel = self._capture_raw(unit_id, "review-1-round{}".format(round_no), attempt, result.stdout)
-        verdict, reason, _candidates = select_verdict(
-            (result.stdout or b"").decode("utf-8", "replace"), unit,
+        raw_text = (result.stdout or b"").decode("utf-8", "replace")
+        verdict, reason, _candidates, span = select_verdict(
+            raw_text, unit,
             stage_id=self._status.get("stage_id"), role="first_reviewer",
         )
         verdict_rel = None
@@ -1333,7 +1594,7 @@ class AutoReviewRunner:
         next_transition = "review_1"
         if verdict is not None:
             outcome = verdict.get("verdict", "INVALID")
-            verdict_rel = self._store_verdict(unit_id, round_no, attempt, verdict)
+            verdict_rel = self._store_verdict(unit_id, round_no, attempt, raw_text, span)
             review1 = unit.setdefault("review_1", {})
             review1["provider"] = adapter_id
             review1["json_schema_valid"] = True
@@ -1385,13 +1646,19 @@ class AutoReviewRunner:
         path.write_bytes(stdout or b"")
         return rel
 
-    def _store_verdict(self, unit_id: str, round_no: int, attempt: int, verdict: dict[str, Any]) -> str:
+    def _store_verdict(self, unit_id: str, round_no: int, attempt: int,
+                       raw_text: str, span: tuple[int, int] | None) -> str:
         name = "review-1-{unit}-round{round}.verdict.json".format(unit=unit_id, round=round_no)
         rel = self._ev(name)
         path = self._safe_join(rel)
         path.parent.mkdir(parents=True, exist_ok=True)
-        # store the accepted bytes unaltered
-        path.write_bytes((json.dumps(verdict, ensure_ascii=False) + "\n").encode("utf-8"))
+        # Store the accepted source span byte-unaltered: the exact bytes located
+        # in raw stdout, never a json.dumps reserialization (P3 / acceptance 13).
+        # A missing span is a runner bug (verdict accepted without offsets); fail
+        # closed rather than silently rewriting bytes.
+        if span is None:
+            raise RunnerError("cannot store verdict without a source span: " + unit_id)
+        path.write_bytes(raw_text[span[0]:span[1]].encode("utf-8"))
         return rel
 
     def _commit_verdict_record(self, unit: dict[str, Any]) -> None:
@@ -1407,7 +1674,8 @@ class AutoReviewRunner:
                 rel_paths.append(path)
         if not rel_paths:
             return
-        # explicit staging only (never -A)
+        # explicit staging only (never -A); re-check authorization expiry first
+        self._check_authorization_expiry()
         self._stage_explicit(rel_paths, "auto-review-runner: verdict-record for unit " + str(unit_id))
         # reload status; assert fingerprint unchanged
         self.load_status()
@@ -1494,9 +1762,25 @@ class AutoReviewRunner:
         )
         before, after = self._charge_call()
         self._check_wall_clock()
+        self._check_authorization_expiry()
         started = self._iso(self.now())
         result = self._invoke(owner_adapter, command_key, prompt_rel)
         raw_rel = self._capture_raw(unit_id, "fix-{}".format(owner_adapter), 1, result.stdout)
+        # F7: a nonzero/timeout fix adapter result stops the unit flow; never
+        # proceed to blocking/seal carrying a failed fix result.
+        if result.failure_class in ("command_error", "timeout"):
+            self._write_receipt(
+                node="fix", attempt=1, unit_id=unit_id, task_id=unit_id,
+                adapter_id=owner_adapter, command_ref=command_ref, prompt_path=prompt_rel,
+                raw_output_path=raw_rel, verdict_path=None, started_at=started,
+                completed_at=result.completed_at, exit_status=result.exit_status,
+                timed_out=result.timed_out, call_before=before, call_after=after,
+                failure_class=result.failure_class, next_transition="human_escalation_required",
+            )
+            self._persist()
+            raise TerminalEscalation(
+                "unroutable_fix", "fix adapter failed: " + str(result.failure_class),
+                {"review_unit_id": unit_id})
         # verify the fixer wrote only inside the allowlist
         offending = self._dirty_outside_allowlist(
             self._porcelain(), self._auth.get("scope", {}).get("allowed_pathspecs") or [], self._stage_rel()

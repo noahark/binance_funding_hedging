@@ -975,3 +975,118 @@ runner 通过 `_load_validator_module()`（`importlib.util.spec_from_file_locati
 下一步模型: Kimi（T3 review-1 re-run）
 下一步任务: bookkeeper 边界检查 → RE-SEAL T3（code change 失效旧指纹）→ 复跑本 review-1 packet 验证 fix
 ```
+
+---
+
+## Review-2 Fix Round 1（Claude-GLM，控制面修复 F2–F7）
+
+执行 packet：`task-review2-fix-round1-claude-glm.prompt.md`（rework 第 2/3 次正式计费）。
+权威依据：`50-review-2-gpt-5.6-sol.md` §Findings（行号）+ `51-review-2-panel-disposition.md`
+（bookkeeper 3/3 复现）。本节只加机械路由，不改写 findings；F1（override 证据形式）
+与 P2（status 残段）不在本 packet（bookkeeper 另行处理）。
+
+### disposition（逐项）
+
+- **F2 — authorization 实绑定**（sol P1 #2）：`scripts/auto-review-runner.py`
+  - preflight 现要求 authorization artifact 与 approval receipt 均 **committed**
+    （`_git_path_is_committed` = `git cat-file -e HEAD:<rel>`）且工作树不 dirty
+    覆盖（`_git_path_is_dirty`）。
+  - `_verify_authorization_binding`：live 单元 id ⊆ `scope.task_ids`（超出 fail-closed）；
+    单元 `code_pathspecs` 必须命中 `allowed_pathspecs` 且不命中 `forbidden_pathspecs`；
+    live topology 非空时与 `scope.topology` 精确比对。
+  - 运行时上限改用 `_auth_or_status_budget`：authorization budget 优先，status 仅累计。
+- **F3 — 生产 registry 命令兼容**（sol P1 #3）：`scripts/auto-review-runner.py`
+  - `_unescape_yaml_scalar`：双引号 `\"`→`"`、`\\`→`\`；单引号 `''`→`'`。
+  - `_default_invoke` 替换 `<prompt-file>`/`<repo>`（保留 `@PROMPT@`/`@REPO@` 向后兼容）。
+- **F4 — verdict schema 对齐 + 字节保真**（sol P1 #4）：`scripts/auto-review-runner.py`
+  - `validate_review_verdict_doc` 拒未知顶层字段（`VERDICT_ALLOWED_TOP`）、校验
+    `required_fixes`/`residual_risks` 为字符串列表、finding 约束（unknown 字段/severity/line）。
+  - `_store_verdict` 写**被接受的原始字节 span**（`raw_text[span[0]:span[1]]`），不再
+    `json.dumps` 重序列化；缺 span → `RunnerError` fail-closed。
+- **F5 — 单账本联动 + expires_at 每步**（sol P1 #5）：`scripts/auto-review-runner.py`
+  - `_charge_auto_change` 同时递增顶层 `rework_count`（单账本）并校验
+    `rework_count ≤ max_stage_rework`，否则 `TerminalEscalation("budget_exhausted")`。
+  - `_check_authorization_expiry`：非 null `expires_at` 在每次 model call 与每次
+    verdict-record commit 前重查（验收 28）。
+- **F6 — exclusive lock + H_snapshot 崩溃窗**（sol P1 #6）：
+  - runner 锁：`scripts/auto-review-runner.py` `_acquire_runner_lock`（git 元数据下
+    `<git-dir>/harness-runner.lock`，`fcntl.flock LOCK_EX|LOCK_NB`，含 pid/stage/时间戳；
+    占用 → `PreflightFailed("runner_lock_busy")`；`run()` try/finally 释放）。
+  - seal 崩溃窗：`scripts/stage-seal.py` 新增 `_pending_marker_path`/`_write_pending_marker`/
+    `_clear_pending_marker`（pending marker 含 task/base/parent_sha/预期路径）。create_snapshot
+    前落 marker，H_bind 后清除；恢复路径据 marker + parent_sha 检测真实崩溃点（snapshot 已
+    landed → 用 HEAD 续 bind，**绝不第二次 code commit**；未 landed → 清 stale marker 走 fresh）。
+    两处恢复分支改调用 `verify_bind` 重算 bind_status（取代陈旧 "n/a"）。
+- **F7 — restart 幂等 + adapter 错误停机**（sol P1 #7）：`scripts/auto-review-runner.py`
+  - `run()` 拆为 `run()`+`_run_body()`：`completed_review_1` 重启 = no-op；`running` 重启 =
+    resume（仅 preflight，不重授权、不重置 wall-clock）。
+  - 单元循环跳过 `review_1.verdict=="ACCEPT"`，避免重派已接受单元。
+  - `_node_implementation`/`_dispatch_fix`：`failure_class in (command_error, timeout)` →
+    记 receipt 后 `TerminalEscalation("unroutable_fix")`，绝不带着失败结果继续 blocking/seal。
+
+### finding → 负测试映射（每条单独可跑）
+
+| finding | 测试类 / 函数 |
+|---|---|
+| F2 | `AuthorizationBindingTests`：test_unauthorized_extra_unit_fails_closed（sol T1-only vs 含 T2 反例）、test_unit_pathspec_outside_allowlist_fails_closed、test_forbidden_pathspec_hit_fails_closed（dirty forbidden path 反例）、test_uncommitted_authorization_artifact_rejected（必须 committed）、test_dirty_authorization_modification_rejected（uncommitted 修改反例）、test_runtime_caps_come_from_authorization_not_status（sol 99 calls vs 1-call 授权反例） |
+| F3 | `ProductionRegistryCommandTests`（加载真实 `agents/registry.yaml`）：test_real_registry_unescapes_quoted_command_scalars、test_claude_glm_real_command_substitutes_and_unescapes、test_kimi_real_command_substitutes_and_unescapes、test_grok_real_command_substitutes_both_placeholders |
+| F4 | `VerdictSchemaAndByteFidelityTests`：test_unknown_top_level_field_rejected、test_required_fixes_non_string_item_rejected、test_finding_unknown_field_rejected、test_finding_bad_severity_and_line_rejected、test_residual_risks_non_string_item_rejected、test_stored_verdict_is_accepted_source_span_byte_for_byte（非常规空白/键序 fixture，断言存盘字节 == 源 span 且 ≠ json.dumps） |
+| F5 | `ReworkLedgerAndExpiryTests`：test_charge_auto_change_increments_shared_ledger、test_charge_auto_change_escalates_past_max_stage_rework、test_rework_fix_charges_shared_rework_ledger_e2e、test_authorization_expiry_rechecked_before_later_model_call（run 中途过期 → 下一次 call fail-closed） |
+| F6-lock | `RunnerLockTests`：test_concurrent_runner_lock_is_exclusive |
+| F6-seal | `SealCrashRecoveryTests`：test_snapshot_crash_window_recovers_without_second_code_commit（真实执行流注入崩溃：monkeypatch write_unit_and_receipt 在 commit 后 status 写前抛异常 → 第二次 seal 据 marker 恢复，仅 +1 H_bind，H_snapshot 计数仍为 1） |
+| F7 | `RestartAndAdapterErrorTests`：test_restart_completed_review_1_is_noop、test_restart_running_skips_accepted_unit_no_redispatch、test_implementation_adapter_error_stops_before_blocking_and_seal、test_fix_adapter_error_stops_before_second_seal |
+
+### 修改文件（全部在冻结 writable set 内）
+
+- `scripts/auto-review-runner.py`（F2/F3/F4/F5/F6-lock/F7）
+- `scripts/stage-seal.py`（F6 pending-snapshot marker + 恢复 bind_status 重算）
+- `scripts/tests/test_auto_review_runner.py`（F2–F7 负测试；另：1 个既有测试因 F7 语义调整，见风险①）
+- `scripts/tests/test_stage_seal.py`（F6 崩溃窗测试）
+
+未改 `harness_stage_lib.py`/`validate-stage.py`/任何 T1 契约/manifest/status/handoff/review/packet。
+
+### 命令原始结果（完整输出已 append 到 `60-test-output.txt`「Review-2 Fix Round 1」段）
+
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` → **Ran 136 tests … OK**
+  （110 既有 + 26 新增；既有 1 个因 F7 调整，意图保留）。
+- `python3 -m py_compile …（4 文件）` → exit 0。
+- `scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint` →
+  **STAGE VALIDATION PASSED**（committed HEAD 指纹 `4c668bb…:54186cec…` 未变；新指纹在 re-seal 阶段产生）。
+- `git diff --check` → clean（exit 0）。
+- `grep -rn "formal-1" scripts harness-manifest.yaml` → exit 1（无命中，符合预期）。
+
+`git status --short`（writable-set 确认）：
+
+```text
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt   （仅 append 证据）
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md （仅 append 证据，即本节）
+ M scripts/auto-review-runner.py
+ M scripts/stage-seal.py
+ M scripts/tests/test_auto_review_runner.py
+ M scripts/tests/test_stage_seal.py
+```
+
+### 风险 / review-1 关注点
+
+1. **F7 改变 implementation/fix 超时语义**：既有 `AccountingTimingTests.test_call_charged_before_adapter_start_even_on_timeout`
+   原依赖「implementation 超时不停止、连续耗尽 3 次」。F7 后 implementation 超时立即停机
+   （`unroutable_fix`）。已将其改为：implementation + cross-check 成功、仅 review 超时——
+   既保留「超时也计费 + cap 在 3 耗尽」的测试意图，又符合 F7。review-1 宜确认该调整为正确解读。
+2. **pathspec 近似匹配**：F2 沿用 lib 近似 matcher（`_pathspec_matches`）；A1 authority-order
+   deferral 仍为 P3（sol §Required disposition 明列），本 packet 不处理。
+3. **runner 锁为进程级 fcntl.flock**：进程持有、崩溃自动释放；跨机 worktree 锁定不在范围
+   （docs 单 worktree 假设）。pending marker 为 stage dir 下 runtime-only 未跟踪文件，永不提交。
+4. **rework_count 上限**：max_stage_rework=3，auto 改动上限 ≤2，故纯 auto 无法触顶；负测试
+   `test_charge_auto_change_escalates_past_max_stage_rework` 设 max_stage_rework=2 以走 escalation 分支。
+5. **字节保真**：`_store_verdict` 写确切源 span；缺 span → `RunnerError` fail-closed，绝不重写。
+
+**非回归**：110 既有测试全绿（1 个因 F7 语义调整，意图保留）；`TransitionTruthSourceTests` 通过；
+三对 review-1 路由、post-cross-check blocking rerun、seen-diff bind、单一 fingerprint 实现、
+显式路径 git add（无 `-A`）、receipt 卫生、pilot 谓词均不变。stdlib-only / 无网络 / 无 live model 不变。
+**未 commit、未 push、未改 status/handoff/review/packet；未 dispatch 任何模型。**
+
+```text
+本地北京时间: 2026-07-11 22:44 CST
+下一步模型: Claude Fable 5（bookkeeper）
+下一步任务: 复验 F2–F7 → re-seal（新指纹）→ Kimi re-review-1（fix 单元）→ 重回 review-2
+```

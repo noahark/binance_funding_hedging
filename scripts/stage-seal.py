@@ -452,6 +452,39 @@ def unit_is_sealed(unit: dict[str, Any]) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# pending-snapshot marker (F6: real H_snapshot crash window)
+# ---------------------------------------------------------------------------
+#
+# The crash window the old seal could not detect is between ``create_snapshot``
+# committing H_snapshot and ``write_unit_and_receipt`` writing snapshot_commit /
+# fingerprint into status. A crash there left a committed snapshot with no status
+# marker, and a retry ran the fresh path again — committing a SECOND code commit.
+# The pending marker is written BEFORE create_snapshot and cleared after H_bind;
+# recovery detects it and resumes the bind using the already-committed snapshot.
+
+def _pending_marker_path(stage_dir: Path, task_id: str) -> Path:
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(task_id))
+    return stage_dir / (".harness-seal-pending-" + safe + ".json")
+
+
+def _write_pending_marker(stage_dir: Path, task_id: str, base_sha: str,
+                          parent_sha: str, dirty: list[str]) -> None:
+    lib.atomic_write_json(_pending_marker_path(stage_dir, task_id), {
+        "task_id": task_id,
+        "base_sha": base_sha,
+        "parent_sha": parent_sha,
+        "expected_paths": list(dirty),
+        "written_at": _now_iso(),
+    })
+
+
+def _clear_pending_marker(stage_dir: Path, task_id: str) -> None:
+    marker = _pending_marker_path(stage_dir, task_id)
+    if marker.exists():
+        marker.unlink()
+
+
+# ---------------------------------------------------------------------------
 # top-level seal flow (with crash recovery)
 # ---------------------------------------------------------------------------
 
@@ -464,15 +497,45 @@ def seal(root: Path, stage_dir: Path, task_id: str) -> dict[str, Any]:
 
     sequence = _next_sequence(status_doc)
 
+    marker = _pending_marker_path(stage_dir, task_id)
+    if marker.exists():
+        # F6: real H_snapshot crash window. create_snapshot committed H_snapshot
+        # but the status write recording snapshot_commit / fingerprint did not
+        # land. Resume the bind using the already-committed snapshot — NEVER a
+        # second code commit. parent_sha distinguishes "snapshot landed" from a
+        # crash before the commit (in which case the marker is stale and we fall
+        # through to a fresh seal).
+        marker_doc = lib.load_json(marker)
+        parent_sha = str(marker_doc.get("parent_sha") or "")
+        current_head = _head(root)
+        if parent_sha and current_head != parent_sha:
+            # the bind was verified before the crash; re-derive it (the committed
+            # code still matches the seen patch) rather than trusting a stale field
+            bind_status = verify_bind(root, unit)
+            snapshot_head = current_head
+            fingerprint, receipt_name = write_unit_and_receipt(
+                root, stage_dir, status_doc, unit, {}, snapshot_head, bind_status, sequence
+            )
+            create_bind(root, stage_dir, task_id, receipt_name)
+            _clear_pending_marker(stage_dir, task_id)
+            run_validator(root, str(status_doc.get("stage_id")))
+            return {"head_sha": snapshot_head, "diff_fingerprint": fingerprint,
+                    "receipt": receipt_name, "recovered": True,
+                    "crash_window": "snapshot_committed_status_unwritten"}
+        # snapshot commit did not land — stale marker, discard and run fresh seal
+        _clear_pending_marker(stage_dir, task_id)
+
     if unit_is_unbound(unit):
         # crash after H_snapshot before H_bind: resume the bind with the exact
-        # snapshot commit; NEVER a second code commit.
+        # snapshot commit; NEVER a second code commit. Re-derive the bind status
+        # (the committed code still matches the seen patch) rather than a stale field.
         snapshot_head = str(unit["snapshot_commit"])
-        bind_status = unit.get("embedded_cross_check", {}).get("bind_status", "n/a")
+        bind_status = verify_bind(root, unit)
         fingerprint, receipt_name = write_unit_and_receipt(
             root, stage_dir, status_doc, unit, {}, snapshot_head, bind_status, sequence
         )
         create_bind(root, stage_dir, task_id, receipt_name)
+        _clear_pending_marker(stage_dir, task_id)
         run_validator(root, str(status_doc.get("stage_id")))
         return {"head_sha": snapshot_head, "diff_fingerprint": fingerprint,
                 "receipt": receipt_name, "recovered": True}
@@ -483,11 +546,13 @@ def seal(root: Path, stage_dir: Path, task_id: str) -> dict[str, Any]:
     verify_blocking_and_cross_check(unit, root, stage_dir)
     verify_second_pass(unit, root, stage_dir)
     bind_status = verify_bind(root, unit)
+    _write_pending_marker(stage_dir, task_id, _unit_base(unit), _head(root), dirty)
     snapshot_head = create_snapshot(root, stage_dir, task_id, dirty)
     fingerprint, receipt_name = write_unit_and_receipt(
         root, stage_dir, status_doc, unit, auth, snapshot_head, bind_status, sequence
     )
     create_bind(root, stage_dir, task_id, receipt_name)
+    _clear_pending_marker(stage_dir, task_id)
     run_validator(root, str(status_doc.get("stage_id")))
     return {"head_sha": snapshot_head, "diff_fingerprint": fingerprint,
             "receipt": receipt_name, "recovered": False}

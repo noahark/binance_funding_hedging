@@ -864,3 +864,45 @@ Round-2 review dispatch preparation:
 - rework_count: 1 -> 2 (second formal charge; cap 3 — one slot remains)
 - validator checkpoint after all bookkeeper edits: PASS
 - Fix dispatch: NOT EXECUTED (human gate)
+
+================================================================
+Review-2 Fix Round 1 — required-checks raw output (Claude-GLM)
+本地北京时间: 2026-07-11 22:41:47 CST
+================================================================
+
+## 1. python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+----------------------------------------------------------------
+........................................................................................................................................
+----------------------------------------------------------------------
+Ran 136 tests in 13.069s
+
+OK
+
+## 2. python3 -m py_compile scripts/validate-stage.py scripts/harness_stage_lib.py scripts/stage-seal.py scripts/auto-review-runner.py
+----------------------------------------------------------------
+PY_COMPILE_OK (exit 0)
+
+## 3. scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint
+----------------------------------------------------------------
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+phase=checkpoint
+status=fixing
+diff_fingerprint=4c668bb8748c09e7014eac2fbb7a34d3a7c247d5:54186cecdb387a52a5d200acf3aa7fb1730f98256a3a53c040bd7bb01993f9e5
+validate_exit=0
+
+## 4. git diff --check
+----------------------------------------------------------------
+DIFF_CHECK_CLEAN (exit 0)
+
+## 5. grep -rn "formal-1" scripts harness-manifest.yaml  (expect exit 1)
+----------------------------------------------------------------
+grep_exit=1 (1 = no matches = expected)
+
+## git status --short (writable-set confirmation)
+----------------------------------------------------------------
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
+ M scripts/auto-review-runner.py
+ M scripts/stage-seal.py
+ M scripts/tests/test_auto_review_runner.py
+ M scripts/tests/test_stage_seal.py
