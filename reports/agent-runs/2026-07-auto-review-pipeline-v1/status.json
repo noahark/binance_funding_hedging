@@ -201,9 +201,12 @@
       "adapter_reference": "agents/registry.yaml#adapters.claude_glm.noninteractive_command",
       "fix_prompt_path": null,
       "correction_prompt_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T1-correction-round1-claude-glm.prompt.md",
+      "correction_packet_status": "ready_not_executed",
+      "correction_packet_commit": "194f5af400d634e4538d7706db7e471f32d26da1",
       "implementation_report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
       "bookkeeper_inspection": {
         "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/21-bookkeeper-inspection-T1.md",
+        "checkpoint_commit": "194f5af400d634e4538d7706db7e471f32d26da1",
         "outcome": "REWORK_BEFORE_SEAL",
         "formal_review": false,
         "blocking_findings": [
@@ -502,5 +505,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_execute_T1_correction_round1_packet_then_return_raw_evidence_to_bookkeeper",
-  "updated_at": "2026-07-11T14:26:44+08:00"
+  "updated_at": "2026-07-11T14:30:40+08:00"
 }
