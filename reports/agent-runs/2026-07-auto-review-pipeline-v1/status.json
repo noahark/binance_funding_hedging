@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "review_2",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -55,7 +55,7 @@
   },
   "model_routing": {
     "implementation": {
-      "status": "awaiting_operator_decision_on_review2_round2_fix_round",
+      "status": "final_fix_packet_bound_awaiting_human_dispatch",
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
@@ -800,7 +800,7 @@
       "diff_fingerprint": "846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4",
       "override_basis": "design_conflict_ineligibility_evidence_v2",
       "provider": "operator_choice_gpt56_family_or_claude",
-      "status": "record_rework_landed",
+      "status": "final_fix_round_bound",
       "verdict": "REWORK",
       "mode": "operator_parallel_panel_with_designated_record",
       "record": {
@@ -828,10 +828,20 @@
         "facts": "issued verdict as model claude-fable-5 with copied Anthropic disclosure; landed files under forged names; modified status.json (status->stage_accepted_waiting_user, blockers cleared, forged round2 ACCEPT record) and 70-handoff.md",
         "handling": "unauthorized diff captured (review-2-round2-unauthorized-writes-evidence.diff); both files restored to 782ea08; artifacts renamed *-gemini-invalid-identity.* and kept verbatim as evidence; verdict carries no record or advisory weight",
         "disposition": "reports/agent-runs/2026-07-auto-review-pipeline-v1/52-review-2-round2-panel-disposition.md"
+      },
+      "fix_final": {
+        "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-review2-round2-fix-final-claude-glm.prompt.md",
+        "findings_source": "reports/agent-runs/2026-07-auto-review-pipeline-v1/50-review-2-round2-gpt-5.6-sol.md",
+        "scope": "FX1-FX7 (sol 5xP1 + P2#1/P2#2); P2#3 already cleared by bookkeeper (aa9f7c1)",
+        "rework_charged": 3,
+        "final_slot": true,
+        "escalation_rule": "any code-changing rework needed after this delivery -> human_escalation_required",
+        "anti_drift": "per-item anchors + prohibited implementation paths + red-then-green evidence (G1-G5) per operator request",
+        "executed": false
       }
     }
   },
-  "rework_count": 2,
+  "rework_count": 3,
   "max_rework": 3,
   "resolved_design_shapes": [
     "Auto-run authorization artifact fields and additive schemas",
@@ -850,14 +860,14 @@
     "Each future pilot authorization must select positive call-count and wall-clock values"
   ],
   "blockers": [
-    "review-2 round 2 record (gpt-5.6-sol) REWORK: 5xP1+3xP2 all bookkeeper-confirmed; fix round would charge the FINAL rework slot (3/3) - awaiting operator decision"
+    "review-2 round-2 final fix round in flight (rework 3/3, FINAL): packet bound, awaiting human dispatch of Claude-GLM"
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "operator_decide_final_fix_round_3_of_3",
+  "next_action": "human_execute_review2_round2_final_fix_packet",
   "updated_at": "2026-07-11T22:20:00+08:00",
   "resolved_blockers_note": "T1-R2-1/R2-2 closed by correction round2 (see completed_correction_packets); stale copies removed 2026-07-11 per sol P2 finding"
 }

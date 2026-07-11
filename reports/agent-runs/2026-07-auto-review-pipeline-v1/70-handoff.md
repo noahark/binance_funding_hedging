@@ -520,20 +520,23 @@ Bookkeeper recommendation (non-binding): **A** for cleanest independence;
 
 ## 下一步
 
-Review-2 round 2 record = gpt-5.6-sol **REWORK** (5×P1 + 3×P2, all
-bookkeeper-confirmed; disposition `52-review-2-round2-panel-disposition.md`).
-The operator must now decide whether to approve the **final fix round** —
-it charges the LAST rework slot (3/3 at packet bind). If approved: the
-bookkeeper drafts/binds the fix packet from sol's complete
-`fix_start_prompt` (same 4-file writable set + 2 evidence appends; seven
-fix groups each with negative tests; a fail-closed cursor alternative is
-explicitly allowed) → human dispatches Claude-GLM → bookkeeper reverifies →
-re-seal → formal re-review-1 → full-stage review-2 round 3. Any
-code-changing need after that = `human_escalation_required`. If not
-approved: the stage closes via `human_escalation_required` now. The
-Gemini identity-forgery incident is fully landed and needs no further
-action this stage (follow-up packaged for the next Harness revision).
+Operator approved the **final fix round**. `rework_count` charged to
+**3/3** at packet bind; status → `fixing`. Human operator dispatches
+Claude-GLM with
+`task-review2-round2-fix-final-claude-glm.prompt.md`
+(`claude-glm --model glm-5.2 -p "$(cat <packet>)"`). The packet covers
+FX1–FX7 (sol round-2 5×P1 + P2#1/P2#2; P2#3 already cleared by the
+bookkeeper) with per-item anchors, hard behavioural requirements,
+**explicit prohibited-implementation lists (anti-drift G1–G5)**,
+red-then-green evidence per finding, and the exact bookkeeper
+reverification criteria (incl. per-item destructive checks). FX5 offers
+two allowed designs (fail-closed receipt-trace resume = recommended A;
+node cursor = B only if no contract files need touching). After delivery:
+bookkeeper reverifies (incl. destructive verification per FX) → re-seal
+(new fingerprint) → formal re-review-1 → review-2 round 3. **Any
+code-changing rework needed after this delivery = human_escalation_required
+(ledger exhausted).**
 
-本地北京时间: 2026-07-12 00:05:00 CST
-下一步模型: human operator（批准/不批准最终修复轮）→ 批准则 Claude-GLM
-下一步任务: 操作者决定最后一格 rework；批准后 bookkeeper 依 sol fix_start_prompt 绑定 packet 并记账 3/3。
+本地北京时间: 2026-07-12 00:20:00 CST
+下一步模型: human operator → Claude-GLM（final fix, rework 3/3）
+下一步任务: 人工执行 final fix packet；GLM 不得 commit/触碰 writable set 外文件；返回后 bookkeeper 复验并推进。

@@ -1073,3 +1073,26 @@ Review-2 round 2 panel landing — bookkeeper verification (Fable5)
 Record: sol REWORK stands as the round-2 record (operator-designated GPT
 lead). Fix round NOT dispatched and NOT charged: it would consume the final
 rework slot (3/3) and awaits the operator's explicit decision.
+
+================================================================
+Final fix round (rework 3/3) — packet bind (Fable5 bookkeeper)
+本地北京时间: 2026-07-12 00:20:00 CST
+================================================================
+- Operator approved the final fix round for the sol round-2 REWORK record.
+- Packet: task-review2-round2-fix-final-claude-glm.prompt.md (FX1-FX7).
+  Anti-drift structure per operator request: each item carries anchor
+  (file:function:approx-line), hard requirements, PROHIBITED implementation
+  paths, test-class spec with mandatory assertions, and the bookkeeper
+  reverification criterion (incl. the destructive check that will be run).
+  Global bans G1-G5 (no synthetic stand-ins for named real objects, no
+  expectation-tweaking of existing tests except the one FX7 names, minimal
+  diff attributable per-hunk to an FX id, red-then-green evidence required,
+  frozen surfaces untouchable).
+- FX5 dual-design rule: recommended A = fail-closed resume via on-disk
+  receipt traces (runner-<seq>-<node>.receipt.json); B = node cursor only
+  if zero contract-file changes needed, else fall back to A with a blocker.
+- rework_count charged 2 -> 3 at bind (convention: charge when the
+  code-changing fix dispatch is bound). FINAL SLOT: any code-changing
+  rework needed after this delivery -> human_escalation_required.
+- status -> fixing; validator checkpoint PASSED post-bind.
+- Fix dispatch: NOT EXECUTED (human gate).
