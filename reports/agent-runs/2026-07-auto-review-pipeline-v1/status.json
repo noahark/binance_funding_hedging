@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "review_2",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -55,7 +55,7 @@
   },
   "model_routing": {
     "implementation": {
-      "status": "T1_correction_round2_ready_for_human_dispatch",
+      "status": "all_tasks_delivered_review_1_accept",
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
@@ -64,7 +64,7 @@
       "scope": "harness_only"
     },
     "review_1": {
-      "status": "blocked_on_T1_correction_and_seal",
+      "status": "complete_all_three_units_accept",
       "provider": "kimi",
       "provider_identity": "moonshot_kimi",
       "model": "kimi-code/kimi-for-coding",
@@ -692,7 +692,7 @@
     "model": null,
     "primary_provider": "operator_choice_gpt56_family_or_claude",
     "fallback_provider": null,
-    "fallback_reason": "service_unavailable (Gemini network-unreachable per operator 2026-07-11) + design-conflict ineligibility of both registered decision models",
+    "fallback_reason": "design-conflict ineligibility: no unrelated registered decision model (both registered providers design-involved; third-model enablement explicitly declined by operator 2026-07-11). service_unavailable basis withdrawn per sol P1.",
     "reviewer_prior_involvement": null,
     "reviewer_prior_involvement_pending": true,
     "reviewer_prior_involvement_notes": null,
@@ -743,9 +743,17 @@
       "disposition": "reports/agent-runs/2026-07-auto-review-pipeline-v1/51-review-2-panel-disposition.md",
       "substantive_findings_confirmed": true,
       "gemini_reachability_note": "Gemini succeeded this round, weakening the prior service_unavailable statement; a true runner-level availability artifact is required for any future override claim."
+    },
+    "fix_round1": {
+      "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-review2-fix-round1-claude-glm.prompt.md",
+      "findings_source": "reports/agent-runs/2026-07-auto-review-pipeline-v1/50-review-2-gpt-5.6-sol.md",
+      "scope": "F2-F7 substantive P1s (runner/stage-seal/tests)",
+      "bookkeeper_line_items": "F1 override basis -> evidence file v2 (design-conflict ineligibility, operator declined third model); P2 stale status fields self-fixed",
+      "rework_charged": 2,
+      "executed": false
     }
   },
-  "rework_count": 1,
+  "rework_count": 2,
   "max_rework": 3,
   "resolved_design_shapes": [
     "Auto-run authorization artifact fields and additive schemas",
@@ -760,18 +768,18 @@
     "Required nullable authorization expires_at semantics"
   ],
   "open_design_items": [
-    "Operator must resolve independent review-2 routing before final-review dispatch",
+    "Review-2 record path after fix round: override via design-conflict ineligibility (operator declined third-model enablement 2026-07-11); evidence file v2",
     "Each future pilot authorization must select positive call-count and wall-clock values"
   ],
   "blockers": [
-    "T1-R2-1 receipt schema rejects configured Kimi/Claude-GLM serial review-1 fallback routes",
-    "T1-R2-2 workflow auto contract lacks executable state_transitions/node_transitions maps"
+    "review-2 panel (gpt-5.6-sol) substantive findings: 7xP1 confirmed by bookkeeper spot-reproduction; fix round pending dispatch"
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "bookkeeper_draft_review2_fix_packet_then_operator_approve_dispatch",
-  "updated_at": "2026-07-11T21:45:00+08:00"
+  "next_action": "human_execute_review2_fix_round1_packet",
+  "updated_at": "2026-07-11T22:20:00+08:00",
+  "resolved_blockers_note": "T1-R2-1/R2-2 closed by correction round2 (see completed_correction_packets); stale copies removed 2026-07-11 per sol P2 finding"
 }

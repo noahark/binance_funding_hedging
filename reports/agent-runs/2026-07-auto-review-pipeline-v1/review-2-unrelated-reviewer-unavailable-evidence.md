@@ -73,3 +73,35 @@ documented strong-reviewer disclosure override:
   (`40-operator-decision-table.md`) as the top requirements authority.
 
 本地北京时间: 2026-07-11 21:05:00 CST
+
+---
+
+## v2 Addendum (2026-07-11 22:15 CST) — basis revised per sol P1 finding
+
+The gpt-5.6-sol review-2 correctly found that §2 above is an operator
+statement, not the runner-level failure artifact AGENTS.md requires for a
+`service_unavailable` claim; moreover Gemini succeeded once in the operator's
+parallel panel on 2026-07-11, contradicting the standing claim. The
+`service_unavailable` basis is therefore **withdrawn**.
+
+**Revised basis — design-conflict ineligibility (no availability check
+needed):**
+
+1. The registered decision-model set is exactly {OpenAI/Codex,
+   Anthropic/Claude} (AGENTS.md Reviewers; registry `review_2` rotation).
+   Both are design-conflicted for this stage (§1 above, unchanged).
+2. Gemini 3.1 Pro is **not** a registered decision model. It is a
+   `future_review_2_fallback_candidates` entry whose enablement trigger is
+   explicit user approval. On 2026-07-11 the operator **explicitly declined
+   enablement** ("gemini 的测试不用进行，浪费时间" — network unreliability
+   in their environment), so the trigger is not satisfied and Gemini's
+   reachability is immaterial to the registered set.
+3. Therefore no unrelated registered decision model exists:
+   `anti_self_review_ineligible` / design-conflict ineligibility — a listed
+   override basis that rests entirely on committed registry facts and the
+   recorded operator instruction, requiring no availability artifact.
+
+The one-off Gemini panel output (`50-review-2-gemini.md`) remains landed as
+non-record advisory evidence; it does not alter the registered set.
+
+本地北京时间: 2026-07-11 22:15:00 CST
