@@ -21,9 +21,11 @@ background refresh that warms a hot cache and rebuilds the snapshot.
 Add a daemon thread to `SnapshotService` that periodically runs a pure
 `refresh_once()`: walk the borrow-candidate/visible set in rolling batches
 (default 10 symbols / 30s), incrementally fetch only new settlements, warm both
-the funding-history cache and the private borrow block, and rebuild the snapshot
-under a single lock. Request handlers read the hot cache. Frontend re-pulls the
-snapshot every ~60s. Enabled by default; not started in offline/test contexts.
+the funding-history enrichment and the private borrow block in local variables,
+and publish a finished immutable `PublishedState` by one atomic reference
+replacement. Request handlers only read the published state (no request-path
+rebuild or deep fetch). Frontend re-pulls the snapshot every ~60s. Enabled by
+default; not started in offline/test contexts.
 
 ## ADR list (recommended defaults)
 
@@ -35,8 +37,15 @@ snapshot every ~60s. Enabled by default; not started in offline/test contexts.
   + small concurrency (5–10) is the highest-impact speedup** (20 calls 7.6s →
   ~1–2s) but is deferred to **v1.1** to keep the v1 review surface small.
   *(Open decision: operator may pull concurrency into v1.)*
-- **ADR-3 Single `threading.Lock`** over `_cache`, `_funding_history_cache`, and
-  the cursor. Eliminates the read/write race introduced by the background writer.
+- **ADR-3 Single-writer immutable publication.** The background refresh worker is
+  the only writer of the enrichment state and the published snapshot. Network
+  fetch, merge, assembly, and validation all happen in local, unpublished state;
+  on success the complete `PublishedState` is published by a single object
+  reference replacement. Request threads are read-only and introduce no
+  business-level cache lock. Any refresh failure retains the last successful
+  state. No `threading.Lock` on the request read path; HTTP/assembly/validation/
+  serialization never run in a publish critical section; the cursor is worker-
+  private; schema is loaded at startup; `PrivateClient` is worker-only.
 - **ADR-4 (supersedes original draft ADR-4) Background refresh covers BOTH
   funding history and private borrow** (per operator). Borrow validation is the
   larger cost, so the payoff is larger. Constraint: the background borrow refresh
@@ -44,9 +53,12 @@ snapshot every ~60s. Enabled by default; not started in offline/test contexts.
   must never log expanded credentials, and must stay within the signed-endpoint
   rate budget. *(Open decision: confirm borrow-in-background, or keep borrow in
   request path for v1 and add it in v1.1.)*
-- **ADR-5 Freshness contract** — `get_snapshot()` keeps its 60s lazy-rebuild
-  fallback as the correctness floor; the background thread only lowers latency.
-  Timestamps reflect real build time.
+- **ADR-5 Freshness contract via publish-failure semantics** — `get_snapshot()`
+  returns the published state only (no request-path rebuild). On a failed refresh
+  round nothing half-built is published; the last successful `PublishedState`
+  stays live and is served, with staleness expressed via existing warning/log
+  metadata (no new wire field in v1). Timestamps reflect the build that produced
+  each state.
 - **ADR-6 Enabled by default; testability/offline non-start guard.** Per
   operator, no product opt-in gate. The daemon does not start under
   `config.offline` or in tests, preserving deterministic byte-identical output
@@ -67,12 +79,20 @@ snapshot every ~60s. Enabled by default; not started in offline/test contexts.
   daemon thread avoids a new runtime model and dependency.
 - **Product opt-in (default off)**: rejected by operator; replaced by a
   testability/offline non-start guard (ADR-6).
+- **Single `threading.Lock` over the caches + cursor + rebuild**: rejected. A lock
+  wide enough to cover the background network fetch/rebuild would push background
+  latency onto request threads (readers block for seconds); a narrower lock still
+  leaves `check→fetch→set` non-atomic and invites partial-version reads. Replaced
+  by single-writer immutable publication (ADR-3), which needs no request-path lock.
 
 ## Tradeoffs
 
-- Tradeoff: background writer vs lockless caches.
-  - Benefit: first load fast; refresh keeps data; latency hidden.
-  - Cost: must add a lock and prove no race (main review risk).
+- Tradeoff: single-writer immutable publication vs a shared lock.
+  - Benefit: request threads never block on background network latency; readers
+    always see a complete version; no lock on the read path.
+  - Cost: correctness depends on the CPython reference-replacement assumption and
+    on never mutating a published object in place; a second writer would force a
+    redesign.
 - Tradeoff: borrow in background (ADR-4).
   - Benefit: removes the largest (~35s) first-load cost.
   - Cost: signed HMAC calls off the request path; single-exit + credential +
@@ -86,6 +106,15 @@ snapshot every ~60s. Enabled by default; not started in offline/test contexts.
   `funding_time == last cached`.
 - Offline/test: daemon must not start; output byte-identical to today.
 - Cursor must wrap correctly when the candidate set changes size between ticks.
+- Readers must never observe `snapshot` and `data_time_ms` from different
+  versions; publication is one reference swap of a fully-assembled state.
+- A published `PublishedState` must never be mutated in place by a later
+  enrichment update.
+- Schema must be loaded at startup so request and worker threads do not race on
+  lazy initialization.
+- Publication depends on the current CPython single-reference-replacement
+  semantics; the 60s cadence is not the correctness basis (single-writer +
+  immutable object + one reference publish is).
 
 ## Links To Prior Direction
 
@@ -106,3 +135,8 @@ snapshot every ~60s. Enabled by default; not started in offline/test contexts.
 - ADR-4 intentionally moves signed borrow work into the background; verify the
   single-exit contract and credential handling are preserved, not just the
   history path.
+- Concurrency is intentionally **lock-free on the read path** (ADR-3): single
+  writer + immutable `PublishedState` + one atomic reference swap. Do not read the
+  absence of a `threading.Lock` as an oversight; review it against the acceptance
+  tests (complete-version reads, no reader-side writes, no in-place mutation,
+  last-good on failure) and the CPython runtime assumption (design R5).
