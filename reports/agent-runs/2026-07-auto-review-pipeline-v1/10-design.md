@@ -157,9 +157,6 @@ add top-level workflow statuses.
     "budgets": {
       "max_model_calls": 12,
       "model_calls_used": 0,
-      "wall_clock_seconds": 3600,
-      "run_started_at": null,
-      "run_deadline_at": null,
       "max_stage_rework": 3,
       "max_auto_code_changes": 2,
       "auto_code_changes_used": 0
@@ -174,8 +171,9 @@ add top-level workflow statuses.
 ```
 
 The numbers above illustrate shape only. Each stage authorization freezes its
-own positive `max_model_calls` and `wall_clock_seconds`; v1 has no global numeric
-defaults beyond the frozen rework values.
+own positive `max_model_calls`; v1 has no total runner-session wall-clock
+budget. Adapter registry timeouts bound individual invocations, while the
+rework and automatic-code-change limits bound iterative work.
 
 Allowed `runner_state` values:
 
@@ -223,7 +221,6 @@ Required fields:
   "review_1_provider": "grok",
   "budgets": {
     "max_model_calls": 12,
-    "wall_clock_seconds": 3600,
     "max_stage_rework": 3,
     "max_auto_code_changes": 2,
     "invalid_json_max_attempts_per_model": 2
@@ -246,8 +243,8 @@ Rules:
 - `expires_at` is required and nullable. `null` means no independent
   authorization-expiry timestamp; a non-null value is an ISO8601 instant and
   must be later than the current time before every model invocation and git
-  commit. Null does not disable call-count, wall-clock, rework, or operator-stop
-  limits.
+  commit. Null does not disable call-count, per-adapter timeout, rework,
+  automatic-code-change, operator-stop, or stage-gate limits.
 - The authorization artifact is never generated or edited by an implementer.
 
 ### Runner Receipt
@@ -644,7 +641,7 @@ No current reviewer is prefilled as `none`.
 - authorization schema and semantic cross-field checks;
 - required/nullable `expires_at` semantics and expiry checks before calls/commits;
 - transition matrix and mode history;
-- call/wall-clock/rework accounting;
+- call/rework accounting and per-adapter timeout enforcement;
 - provider normalization and review-unit eligibility;
 - final JSON block parser;
 - path allowlist/traversal checks;
@@ -700,8 +697,7 @@ Minimum fields:
   escalation drill was exercised;
 - expected runner calls/RECEIPTs, schema-valid RECEIPTs, missing RECEIPTs, and
   completeness rate;
-- model calls, wall-clock usage, automatic code-change charges, and final stage
-  outcome.
+- model calls, automatic code-change charges, and final stage outcome.
 
 Pilot/default-flip rules:
 
@@ -743,7 +739,7 @@ when its delivery diff otherwise passes review.
 | P5 | Verdict-record commit after frozen snapshot |
 | P6 | Path/owner routing and serialized v1 multi-owner fixes |
 | P7 | One blocking retry, charged to shared ledger |
-| P8 | Required per-stage call and wall-clock authorization budgets |
+| P8 | Required per-stage call-count budget; no total runner-session wall-clock budget; individual invocations retain adapter timeouts |
 | P9 | No automatic GPT/Claude invocation |
 | P10 | Harness-only file boundary and product-path negative check |
 | P11 | Two pilot metrics artifacts: Grok validity rate, escalation shape, RECEIPT completeness |

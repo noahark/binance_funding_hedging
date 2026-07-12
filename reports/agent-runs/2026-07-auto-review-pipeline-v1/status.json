@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "human_escalation_required",
+  "status": "designing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -12,17 +12,18 @@
     "abandoned_reason": null
   },
   "bookkeeper": {
-    "id": "claude_fable5_session",
-    "provider": "claude",
-    "provider_identity": "anthropic",
-    "model": "claude-fable-5",
-    "session_role": "bookkeeper",
+    "id": "codex_takeover_2026_07_12",
+    "provider": "codex",
+    "provider_identity": "openai",
+    "model": "gpt-5-codex",
+    "session_role": "bookkeeper_and_contract_amendment_designer",
     "also_implementer": false,
-    "dual_hat_disclosure": "Fable5 authored the development breakdown, the stage-design review (13-), and the T1 second inspections (22-/25-), and contributed direction patches to the frozen decision table. It is not eligible for implementation or fix authorship. Prior involvement must be considered for review-2 routing. Dispatch execution remains human-only; this session prepares packets and evidence.",
+    "dual_hat_disclosure": "This Codex/OpenAI session authored the round-3 REWORK report, then was explicitly assigned by the operator to take over bookkeeper duties and design the P8 contract amendment after Fable5 quota exhaustion. It must not implement or fix delivery code. Future review-2 must disclose prior design and reviewer involvement; this session cannot declare final acceptance.",
     "handover": {
-      "from": "codex_current_session (openai)",
-      "reason": "Codex/GPT quota exhausted after in-session round2 verification; that verification was not landed as evidence and was independently redone by Fable5 (25-).",
-      "at": "2026-07-11T16:22:49+08:00"
+      "from": "claude_fable5_session (anthropic)",
+      "reason": "Human operator reported Fable5 quota exhausted and explicitly assigned Codex to take over the workflow and formally withdraw mandatory P8 wall-clock budget.",
+      "at": "2026-07-12T10:26:57+08:00",
+      "availability_evidence": "operator_reported_quota_exhaustion; no model-dispatch command executed by Codex"
     }
   },
   "design_baseline": {
@@ -38,6 +39,20 @@
       "reports/agent-runs/2026-07-auto-review-pipeline-design-review/42-decision-table-review-gpt.md",
       "reports/agent-runs/2026-07-auto-review-pipeline-design-review/43-decision-table-patch-merge.md"
     ]
+  },
+  "contract_amendment": {
+    "id": "P8-wall-clock-withdrawal",
+    "status": "operator_approved_design_complete_breakdown_pending",
+    "authority": "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
+    "design": "reports/agent-runs/2026-07-auto-review-pipeline-v1/15-p8-wall-clock-withdrawal-design-amendment.md",
+    "supersedes": "40-operator-decision-table.md P8 wall-clock portion only",
+    "direction_panel_required": false,
+    "direction_panel_skip_reason": "The human operator explicitly selected and froze the contract direction: remove the mandatory total runner-session wall clock.",
+    "complexity": "HIGH",
+    "rework_charge": 0,
+    "rework_note": "Human-authorized escalation disposition; rework_count remains exhausted at 3/3 and is not reset or incremented.",
+    "breakdown_author": "claude-opus-4-8 fallback after operator-reported Fable5 quota exhaustion",
+    "breakdown_packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-p8-wall-clock-withdrawal-breakdown-opus4.8.prompt.md"
   },
   "intake_commit": "9573d2acfd4ef2e83274cb811a0d347c64ed283f",
   "intake_review_fixes_commit": "345ba61d6228248089406052b4e280e23ebad413",
@@ -55,7 +70,7 @@
   },
   "model_routing": {
     "implementation": {
-      "status": "final_fix_delivered_and_verified",
+      "status": "p8_contract_amendment_breakdown_pending",
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
@@ -64,7 +79,7 @@
       "scope": "harness_only"
     },
     "review_1": {
-      "status": "complete_all_units_accept_incl_final_fix_unit",
+      "status": "prior_units_complete_new_p8_amendment_unit_pending",
       "provider": "kimi",
       "provider_identity": "moonshot_kimi",
       "model": "kimi-code/kimi-for-coding",
@@ -72,7 +87,7 @@
       "provider_must_differ_from_reviewed_unit_authors": true
     },
     "review_2": {
-      "status": "round3_panel_landed_p1_confirmed_escalated",
+      "status": "round3_escalation_operator_disposed_by_p8_contract_withdrawal",
       "note": "Both configured high-end providers, OpenAI/Codex and Anthropic/Claude, participated in the pre-stage decision chain. Stage design must record truthful prior involvement and an eligible final-review route or disclosure override evidence.",
       "stage_range": {
         "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
@@ -927,7 +942,7 @@
   "resolved_design_shapes": [
     "Auto-run authorization artifact fields and additive schemas",
     "Dispatch mode versus runner substate and D5 mode-flip transitions",
-    "P8 call-count and wall-clock accounting semantics",
+    "P8 call-count accounting plus per-adapter timeout semantics; mandatory total-session wall clock withdrawn by operator 2026-07-12",
     "Review-unit, author-provider, and completeness machine shape",
     "Runner receipt, verdict, bind, and escalation artifact paths",
     "Serial v1 multi-owner fix scheduling and parallel initial task worktrees",
@@ -938,17 +953,20 @@
   ],
   "open_design_items": [
     "Review-2 record path after fix round: override via design-conflict ineligibility (operator declined third-model enablement 2026-07-11); evidence file v2",
-    "Each future pilot authorization must select positive call-count and wall-clock values"
+    "P8 wall-clock withdrawal development breakdown pending Opus 4.8 human dispatch"
   ],
   "blockers": [
-    "human_escalation_required: round-3 P1 confirmed (wall-clock/seal-commit fail-closed gap) with rework 3/3 exhausted; awaiting operator escalation disposition (53-review-2-round3-panel-disposition.md §6)"
+    "No implementation blocker. Human must execute the prepared Opus 4.8 development-breakdown packet; Codex/Claude sessions may prepare but not execute model dispatch."
   ],
   "human_escalation": {
-    "required": true,
-    "reason": "review-2 round-3 confirmed P1 (wall-clock budget not enforced before seal commits) with rework ledger exhausted at 3/3; pre-announced terminal rule applied. Operator decides disposition: authorize a new bounded human repair (sol fix_start_prompt held as seed), knowingly accept as residual and exercise final acceptance authority, or other (53 §6)."
+    "required": false,
+    "reason": "Resolved by explicit operator disposition on 2026-07-12: formally withdraw mandatory P8 total-session wall-clock budget and continue as a bounded human-authorized contract amendment on the existing unmerged stage branch.",
+    "prior_reason": "review-2 round-3 confirmed P1 under old P8 with rework ledger exhausted at 3/3",
+    "disposition": "contract_requirement_withdrawn_and_amendment_authorized",
+    "decision_artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md"
   },
-  "terminal_reason": "rework_ledger_exhausted_with_confirmed_required_finding",
-  "next_action": "human_decide_escalation_disposition",
-  "updated_at": "2026-07-12T10:10:00+08:00",
+  "terminal_reason": null,
+  "next_action": "human_execute_p8_withdrawal_breakdown_opus4_8_packet",
+  "updated_at": "2026-07-12T10:26:57+08:00",
   "resolved_blockers_note": "T1-R2-1/R2-2 closed by correction round2 (see completed_correction_packets); stale copies removed 2026-07-11 per sol P2 finding"
 }

@@ -190,14 +190,15 @@ escalate. Runner never assigns by natural-language guess.
 - Cost: some otherwise-fixable findings escalate; multi-domain fixes take
   longer because writes are serial.
 
-## Decision 8 — One Rework Ledger, Plus Independent Call/Clock Budgets
+## Decision 8 — One Rework Ledger, Call Cap, And Per-Adapter Timeouts
 
 The stage retains `max_rework_per_stage=3`. All automatic code-changing retries
 combined consume at most 2, preserving at least one review-2 repair opportunity.
 
-Each stage authorization also freezes positive model-call and wall-clock
-budgets. Invalid JSON retries consume calls but not rework. A blocking-test fix
-consumes rework.
+Each stage authorization freezes a positive model-call budget. Individual
+adapter commands retain registry-defined timeouts, but there is no total
+runner-session wall-clock budget. Invalid JSON retries consume calls but not
+rework. A blocking-test fix consumes rework.
 
 ### Alternatives Considered
 
@@ -205,13 +206,21 @@ consumes rework.
   could nearly double and contradict the current single cap.
 - **Allow auto to consume all 3:** rejected because review-2 would have no
   repair room.
-- **Only round cap, no call/time bounds:** rejected because retries/timeouts can
-  be expensive without changing rework count.
+- **Only round cap, no call or invocation bounds:** rejected because retries and
+  hung adapter commands can be expensive without changing rework count.
+- **Mandatory total runner-session wall-clock budget:** withdrawn by the
+  operator on 2026-07-12 because legitimate implementation, test, seal, and
+  review work may run continuously for several hours. Call caps, rework caps,
+  per-adapter timeouts, nullable authorization expiry, and operator stop provide
+  the bounded controls without conflating long work with runaway work.
 
 ### Tradeoff
 
-- Benefit: predictable maximum automatic work and review-2 reserve.
-- Cost: some stages escalate despite an otherwise repairable finding.
+- Benefit: bounded model calls, retries, and hung invocations while legitimate
+  long-running stages remain uninterrupted.
+- Cost: there is no fixed maximum elapsed duration for a runner session; the
+  operator must rely on call/rework caps, adapter timeouts, `expires_at` when
+  desired, and explicit stop controls.
 
 ## Decision 9 — Human Fallback Is A Stop, Not An Automatic Continuation
 
@@ -328,7 +337,8 @@ decision; v1 does not invent a global promotion threshold.
   to evidence-backed human escalation.
 - Authorization `expires_at` is required but nullable: null means no separate
   expiry timestamp, while a non-null ISO8601 instant is enforced before every
-  call/commit. Other budgets remain mandatory in both cases.
+  call/commit. Call-count, per-adapter timeout, rework, and automatic-change
+  controls remain active in both cases; there is no total-session wall clock.
 - Historical manual stages require no backfill.
 - Legacy `parallel_mode.enabled` and auto-review enablement are mutually
   exclusive; auto parallel topology is represented only inside the new

@@ -656,3 +656,55 @@ c. 其他（缩范围 / abandon / 并入后续 Harness 修订 stage）。
 本地北京时间: 2026-07-12 10:10:00 CST
 下一步模型: human operator（escalation 处置决定）
 下一步任务: 从 53 §6 选项中选择；任何新修复轮都需操作者显式授权开启。
+
+（已完成：操作者于 2026-07-12 明确选择撤销 P8 mandatory wall-clock，
+并因 Fable5 quota exhaustion 指派 Codex 接管 bookkeeper。）
+
+## P8 Wall-Clock Withdrawal — Operator Disposition And Codex Takeover
+
+- Prior terminal state was valid and remains historical evidence: round-3 P1
+  was correct under the old frozen P8, and `human_escalation_required` was
+  correctly applied at rework 3/3.
+- Operator disposition now supersedes the requirement rather than adding the
+  missing wall-clock guards: total runner-session wall clock is removed because
+  legitimate implementation/test/review work may run continuously for hours.
+- Replacement decision:
+  `54-p8-wall-clock-withdrawal-operator-decision.md`.
+- Bounded design:
+  `15-p8-wall-clock-withdrawal-design-amendment.md`.
+- `00-task.md`, `10-design.md`, and `11-adr.md` have been amended at the design
+  layer. Historical 40-table and review artifacts remain verbatim.
+- Rework ledger remains **3/3**. This is an operator-authorized contract
+  amendment after escalation, not rework 4 and not an automatic resume.
+- Same stage branch is retained because the auto-review v1 implementation is
+  unmerged; a new stage from `main` would not contain the contract being
+  amended. No merge is authorized.
+- Codex/OpenAI takeover disclosure: this session authored the round-3 REWORK,
+  now acts as bookkeeper and amendment designer by explicit operator request,
+  and is excluded from implementation/fix authorship. Future review-2 must
+  disclose this prior involvement.
+- Fable5 quota exhaustion is operator-reported. Registry fallback for HIGH
+  development breakdown is Opus 4.8. Codex prepared but did not execute:
+  `task-p8-wall-clock-withdrawal-breakdown-opus4.8.prompt.md`.
+- Planned implementation route after breakdown: Claude-GLM / GLM-5.2;
+  review-1: fresh Kimi; review-2: human-started decision model with truthful
+  design-involvement disclosure. Auto mode remains disabled for this stage.
+
+## Current Checkpoint
+
+- Branch: `stage/2026-07-auto-review-pipeline-v1`
+- Pre-amendment takeover HEAD: `0d3f7a7`
+- Worktree before this checkpoint: clean
+- Status: `designing`
+- Changed files in this checkpoint: stage task/design/ADR, operator decision,
+  design amendment, Opus breakdown packet, status, handoff
+- Tests: no delivery code changed; checkpoint validator and diff checks run
+  before evidence commit
+- Open finding disposition: round-3 wall-clock P1 awaits closure by the
+  operator-approved contract removal plus implementation/review; it is not
+  silently downgraded
+- Blocker: human execution of the prepared Opus 4.8 breakdown packet
+
+本地北京时间: 2026-07-12 10:26:57 CST
+下一步模型: Claude Opus 4.8（development breakdown author；human dispatch）
+下一步任务: 执行 task-p8-wall-clock-withdrawal-breakdown-opus4.8.prompt.md；将完整输出交回 Codex bookkeeper 原样落档

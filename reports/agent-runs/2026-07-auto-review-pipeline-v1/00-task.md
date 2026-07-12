@@ -207,8 +207,11 @@ dispatch.
     worktree; domain fixes are serialized and followed by unified checks/seal.
 16. **Single ledger:** blocking fixes, review-1 fixes, and review-2 fixes share
     `max_rework=3`; automatic code-changing charges cannot exceed 2.
-17. **Cost bounds:** call-count and wall-clock limits fail closed with an
-    `80-*.md` escalation artifact.
+17. **Cost bounds:** model-call caps, per-adapter timeouts, and the shared
+    rework/automatic-code-change ledgers fail closed with an `80-*.md`
+    escalation artifact. There is no total runner-session wall-clock budget;
+    long-running stages may continue for hours while those bounded controls
+    remain satisfied.
 18. **Mode transitions:** only documented auto→pending-human→human and
     human→auto-with-new-authorization transitions are valid.
 19. **Threat boundary:** code/reports/model output are untrusted data; receipts
@@ -241,8 +244,27 @@ dispatch.
     blocks seal.
 28. **Authorization expiry:** `expires_at` is required and nullable; `null`
     means no authorization-expiry timestamp, while non-null ISO8601 values are
-    enforced before every model call and commit. Call/wall-clock budgets still
-    bound a null-expiry session.
+    enforced before every model call and commit. Call-count, per-adapter
+    timeout, rework, automatic-code-change, operator-stop, and stage gates
+    remain active for a null-expiry session.
+
+## Operator-Approved Contract Amendment — 2026-07-12
+
+The operator explicitly withdrew frozen decision P8's mandatory total
+wall-clock budget after review-2 round 3 demonstrated that the requirement is
+counterproductive for legitimate multi-hour work. The superseding authority is
+`54-p8-wall-clock-withdrawal-operator-decision.md`; the bounded design is
+`15-p8-wall-clock-withdrawal-design-amendment.md`.
+
+This is a human-authorized contract amendment after
+`human_escalation_required`, not a fourth rework charge. `rework_count` remains
+3/3. The amendment removes `wall_clock_seconds`, `run_started_at`,
+`run_deadline_at`, and total-session deadline enforcement. It preserves model
+call caps, adapter-specific invocation timeouts, the shared rework ledger,
+automatic code-change caps, nullable `expires_at`, explicit operator stop, and
+all stage/review/merge gates. Because auto-review v1 is default-off, has not
+piloted, and has not been accepted or merged, v1 is corrected in place without
+introducing a legacy authorization variant.
 
 ## Required Test Evidence
 
