@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -54,7 +54,7 @@
   ],
   "contract_amendment": {
     "id": "serial-v1-slimming",
-    "status": "review_1_invalid_json_retry_1_bound",
+    "status": "review_1_accept_review_2_packet_bound",
     "authority": "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
     "design": "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
     "breakdown": "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
@@ -88,13 +88,14 @@
       "provider": "kimi",
       "provider_identity": "moonshot_kimi",
       "model": "kimi-code/kimi-for-coding",
-      "status": "packet_bound_awaiting_human_dispatch"
+      "status": "accepted",
+      "verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json"
     },
     "review_2": {
       "provider": "claude",
       "provider_identity": "anthropic",
       "model": "opus4.8",
-      "status": "reserved_independent_final_reviewer",
+      "status": "packet_bound_awaiting_human_dispatch",
       "prior_involvement": "none_in_serial_v1_slimming_amendment"
     }
   },
@@ -201,17 +202,22 @@
     ]
   },
   "review_1": {
-    "status": "invalid_json_retry_1_bound",
-    "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi-json-retry1.prompt.md",
+    "status": "ACCEPT",
+    "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md",
     "attempt_1_operator_capture": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T4-serial-v1-slimming-kimi-attempt1-operator-capture.md",
     "attempt_1_valid_json": false,
+    "retry_1_verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json",
+    "retry_1_valid_json": true,
+    "gate_report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T4-serial-v1-slimming-kimi.md",
     "expected_report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T4-serial-v1-slimming-kimi.md",
     "expected_verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json"
   },
   "review_2": {
-    "status": "prior_round3_archived_new_review_pending_after_T4",
+    "status": "packet_bound_awaiting_human_dispatch",
     "history_disposition": "Round-3 P1 was valid under withdrawn wall-clock requirement; raw panel is in history/raw",
-    "reserved_reviewer": "claude-opus-4-8"
+    "reserved_reviewer": "claude-opus-4-8",
+    "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review2-opus4.8.prompt.md",
+    "fable5_quota_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-T4-fable5-quota-evidence.md"
   },
   "rework_count": 3,
   "max_rework": 3,
@@ -222,6 +228,6 @@
     "disposition": "Operator authorized serial-only contract slimming amendment"
   },
   "terminal_reason": null,
-  "next_action": "human_send_json_retry1_path_to_same_kimi_review_session",
-  "updated_at": "2026-07-12T14:27:09+08:00"
+  "next_action": "human_send_task_T4_review2_opus4_8_path_to_fresh_existing_opus_session",
+  "updated_at": "2026-07-12T14:35:22+08:00"
 }

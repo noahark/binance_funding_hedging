@@ -2,7 +2,8 @@
 
 ## Current State
 
-- Status: `review_1` — combined delivery evidence committed; Kimi packet bound.
+- Status: `review_2` — Kimi review-1 ACCEPT mechanically validated; Opus 4.8
+  final-review packet bound.
 - Branch: `stage/2026-07-auto-review-pipeline-v1`.
 - T4 review base: `039358012174af949c9f17a94c96bd3ac085a35f`.
 - T4 delivery head: `433980d8384304a528ab5633591aa8dc4018b6ed`.
@@ -85,18 +86,17 @@ was an intentional Grok Fast task and authorized inclusion in this stage.
 `19-model-routing-convergence-operator-decision.md` records the expanded scope,
 the `docs/harness-design.md` exception, authorship, and review isolation.
 
-Kimi completed substantive review-1 with ACCEPT and one non-blocking P3. The
-P3 (`status.changed_files` incomplete) is corrected. The chat-captured verdict
-contains wrapped physical newlines inside JSON strings, so attempt 1 is
-non-accepting under the strict parser contract.
+Kimi review-1 exact verdict file passes JSON parsing, Draft 2020-12 schema,
+stage/role/fingerprint/identity and ACCEPT transition checks. Its non-blocking
+P3 (`status.changed_files` incomplete) is corrected.
 
-In the same Kimi review session, send:
+In a fresh existing Opus 4.8 read-only review session, send:
 
 ```text
 请读取并严格执行：
-reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi-json-retry1.prompt.md
+reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review2-opus4.8.prompt.md
 ```
 
-本地北京时间: 2026-07-12 14:27:09 CST
-下一步模型: Kimi（同一只读 review-1 会话）
-下一步任务: 执行 JSON-only retry 1，只返回一个可机械解析的严格 JSON 对象
+本地北京时间: 2026-07-12 14:35:22 CST
+下一步模型: Claude Opus 4.8（现有全新只读会话）
+下一步任务: 执行 task-T4-review2-opus4.8.prompt.md 并返回最终严格 verdict
