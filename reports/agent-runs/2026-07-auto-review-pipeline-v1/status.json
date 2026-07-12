@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -35,9 +35,9 @@
     "read_when": "only an explicit review, audit, finding, or evidence reference requires the exact artifact"
   },
   "bookkeeper_checkpoint": {
-    "commit": "3129c67a61d2c2678e4456d759b214ea03dee0bf",
-    "kind": "history_archive_and_serial_v1_packet_bind",
-    "validated_phase": "checkpoint",
+    "commit": "433980d8384304a528ab5633591aa8dc4018b6ed",
+    "kind": "combined_serial_v1_delivery_evidence",
+    "validated_phase": "pre_review_pending_bookkeeping_commit",
     "validated_result": "passed",
     "raw_history_style_exception": "pre-existing trailing whitespace preserved verbatim in immutable history/raw evidence"
   },
@@ -86,7 +86,7 @@
       "provider": "kimi",
       "provider_identity": "moonshot_kimi",
       "model": "kimi-code/kimi-for-coding",
-      "status": "pending_after_implementation"
+      "status": "packet_bound_awaiting_human_dispatch"
     },
     "review_2": {
       "provider": "claude",
@@ -121,7 +121,7 @@
   "implementer": {
     "id": "claude_glm",
     "provider_identity": "zhipu_glm",
-    "status": "implementation_verified_waiting_external_change_disposition",
+    "status": "implementation_committed",
     "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md"
   },
   "implementers": [
@@ -137,7 +137,14 @@
     }
   ],
   "fix_authors": [],
-  "reviewer_1": null,
+  "reviewer_1": {
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "session_requirement": "fresh_read_only",
+    "prior_involvement": "none",
+    "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md"
+  },
   "reviewer_2": {
     "reserved": "claude-opus-4-8",
     "provider_identity": "anthropic",
@@ -154,9 +161,9 @@
       "No new product meaning or external contract is introduced"
     ]
   },
-  "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
-  "head_sha": "a057d063523664a2fcfa8cc4db9e9af789f15730",
-  "diff_fingerprint": "a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e",
+  "base_sha": "039358012174af949c9f17a94c96bd3ac085a35f",
+  "head_sha": "433980d8384304a528ab5633591aa8dc4018b6ed",
+  "diff_fingerprint": "433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97",
   "changed_files": [
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
@@ -175,7 +182,10 @@
     ]
   },
   "review_1": {
-    "status": "pending_new_T4_unit"
+    "status": "packet_bound_awaiting_human_dispatch",
+    "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md",
+    "expected_report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T4-serial-v1-slimming-kimi.md",
+    "expected_verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json"
   },
   "review_2": {
     "status": "prior_round3_archived_new_review_pending_after_T4",
@@ -191,6 +201,6 @@
     "disposition": "Operator authorized serial-only contract slimming amendment"
   },
   "terminal_reason": null,
-  "next_action": "bookkeeper_create_combined_evidence_commit_and_prepare_kimi_review_1",
-  "updated_at": "2026-07-12T14:06:35+08:00"
+  "next_action": "human_send_task_T4_review1_kimi_path_to_existing_fresh_kimi_session",
+  "updated_at": "2026-07-12T14:09:25+08:00"
 }

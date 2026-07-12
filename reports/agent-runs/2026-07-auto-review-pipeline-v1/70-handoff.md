@@ -2,12 +2,12 @@
 
 ## Current State
 
-- Status: `implementing` — T4, correction C1-C4, and the operator-authorized
-  Grok Fast model-routing convergence are ready for combined evidence commit.
+- Status: `review_1` — combined delivery evidence committed; Kimi packet bound.
 - Branch: `stage/2026-07-auto-review-pipeline-v1`.
-- Current pre-slimming delivery head: `a057d06`.
+- T4 review base: `039358012174af949c9f17a94c96bd3ac085a35f`.
+- T4 delivery head: `433980d8384304a528ab5633591aa8dc4018b6ed`.
 - Current recorded fingerprint:
-  `a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e`.
+  `433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97`.
 - Auto mode remains disabled for this bootstrap stage.
 - Historical rework ledger remains 3/3. This operator-authorized amendment is
   not rework 4.
@@ -85,10 +85,13 @@ was an intentional Grok Fast task and authorized inclusion in this stage.
 `19-model-routing-convergence-operator-decision.md` records the expanded scope,
 the `docs/harness-design.md` exception, authorship, and review isolation.
 
-Codex now creates the combined evidence commit, recomputes the canonical
-fingerprint, runs the pre-review validator, and prepares a path-only handoff for
-the existing Kimi review session.
+In a fresh existing Kimi read-only review session, send:
 
-本地北京时间: 2026-07-12 14:06:35 CST
-下一步模型: Codex bookkeeper
-下一步任务: 创建组合 evidence commit，重算 fingerprint，准备 Kimi review-1
+```text
+请读取并严格执行：
+reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md
+```
+
+本地北京时间: 2026-07-12 14:09:25 CST
+下一步模型: Kimi（现有全新只读会话）
+下一步任务: 执行 task-T4-review1-kimi.prompt.md 并返回完整叙述与最终严格 JSON
