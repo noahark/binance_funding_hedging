@@ -34,6 +34,13 @@
     "compatibility": "former root artifact paths are symlinks to verbatim history/raw files",
     "read_when": "only an explicit review, audit, finding, or evidence reference requires the exact artifact"
   },
+  "bookkeeper_checkpoint": {
+    "commit": "3129c67a61d2c2678e4456d759b214ea03dee0bf",
+    "kind": "history_archive_and_serial_v1_packet_bind",
+    "validated_phase": "checkpoint",
+    "validated_result": "passed",
+    "raw_history_style_exception": "pre-existing trailing whitespace preserved verbatim in immutable history/raw evidence"
+  },
   "current_inputs": [
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
@@ -133,7 +140,15 @@
   "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
   "head_sha": "a057d063523664a2fcfa8cc4db9e9af789f15730",
   "diff_fingerprint": "a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e",
-  "changed_files": [],
+  "changed_files": [
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-serial-v1-slimming-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/status.json",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt"
+  ],
   "tests": {
     "status": "passed_pre_slimming_baseline",
     "commands": [
@@ -162,5 +177,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_execute_task_serial_v1_slimming_claude_glm_packet",
-  "updated_at": "2026-07-12T10:59:45+08:00"
+  "updated_at": "2026-07-12T11:05:14+08:00"
 }

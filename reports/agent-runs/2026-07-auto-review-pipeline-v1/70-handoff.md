@@ -71,8 +71,11 @@ operator assignment. It must not implement/fix code or declare final acceptance.
 - Full suite before new implementation: 161 tests, OK.
 - Checkpoint validator before archival: PASS.
 - P8 decision/design evidence commits: `2c1ba02`, `54ce1c8`.
-- Current archive/slimming checkpoint must be validated and committed before
-  human implementation dispatch.
+- Archive/slimming packet-bind evidence commit: `3129c67`.
+- Checkpoint validator: PASS; 67 compatibility links checked, 0 broken.
+- A full cached style check sees pre-existing trailing whitespace in four
+  immutable `history/raw/` files. Raw evidence remains byte-preserved; all
+  non-raw staged content passed the scoped check.
 
 ## Next Action
 
@@ -86,6 +89,6 @@ Claude-GLM returns code/docs/test changes plus append-only `20-implementation.md
 and `60-test-output.txt`. Codex then verifies boundaries, tests, residue scans,
 and commits evidence before preparing Kimi review-1.
 
-本地北京时间: 2026-07-12 10:59:45 CST
+本地北京时间: 2026-07-12 11:05:14 CST
 下一步模型: Claude-GLM / GLM-5.2（human-dispatched implementation）
 下一步任务: 执行 task-serial-v1-slimming-claude-glm.prompt.md；不得读取非必要 history
