@@ -1429,3 +1429,52 @@ Disposition:
   - per-adapter timeout, max_model_calls, rework/auto-change caps, nullable
     expires_at, operator stop, and all review/merge gates remain;
   - next dispatch is human execution of the prepared Opus 4.8 breakdown packet.
+
+--- Serial-v1 slimming / history archive checkpoint (2026-07-12) ---
+
+Scope: bookkeeper-only design, stage-state compaction, verbatim evidence
+archival, compatibility symlinks, dispatch preparation, and ignored cache
+cleanup. No runner, schema, validator, workflow, registry, or product delivery
+code was changed in this checkpoint.
+
+Cleanup:
+  - removed ignored .mypy_cache (~18 MiB), .pytest_cache, .ruff_cache;
+  - removed project __pycache__ and .DS_Store outside .venv;
+  - preserved .venv, .env, business artifacts, API samples, and raw evidence.
+
+Archive verification:
+  - 67 historical root artifacts moved verbatim to history/raw/;
+  - 67 compatibility symlinks retained at their former root paths;
+  - 0 broken compatibility symlinks;
+  - full pre-slim status and handoff preserved under history/snapshots/.
+
+Commands and results:
+
+  $ python3 -m json.tool reports/agent-runs/2026-07-auto-review-pipeline-v1/status.json
+  exit 0
+
+  $ scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint
+  STAGE VALIDATION PASSED
+  status=implementing
+
+  $ git diff --cached --check -- . \
+      ':(exclude)reports/agent-runs/2026-07-auto-review-pipeline-v1/history/raw/**'
+  exit 0 (no output)
+
+Raw-history exception:
+  A repository-wide cached diff check reports pre-existing trailing whitespace
+  in four archived raw evidence files. Those bytes are deliberately preserved:
+  history/raw is immutable audit evidence, so this checkpoint does not rewrite
+  it merely to satisfy a style check. All non-raw staged content passes the
+  scoped check above.
+
+Baseline test evidence carried forward:
+  - full Harness suite before this archive-only checkpoint: 161 tests PASS;
+  - no delivery code changed here, so the implementation packet requires the
+    implementer to rerun the full suite after serial-v1 code changes.
+
+Disposition:
+  - supersede the narrow Opus breakdown with the broader Codex serial-v1
+    design/breakdown;
+  - reserve Opus 4.8 for independent review-2;
+  - next dispatch is human execution of the prepared Claude-GLM packet.
