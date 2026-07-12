@@ -489,6 +489,21 @@ Other failures, including invalid JSON, failed tests, missing artifacts, or a
 single model failure, are routed to retry, fix, fallback, or evidence collection
 inside the active workflow before escalating to one of these terminal reasons.
 
+## Output Language
+
+User-facing reports, handoffs, review narratives, and significant bookkeeper
+responses to a Chinese-speaking operator must use Chinese as the primary
+language. When English prose or a technical term is necessary, its first use in
+the response must include a concise Chinese translation or explanation.
+
+Exact machine-readable values and copy-sensitive literals -- including code,
+commands, file paths, API routes, model identifiers, schema keys, status enums,
+and JSON -- must remain unchanged. Explain such literals in adjacent Chinese
+prose or parentheses on first use; do not translate inside the literal. Raw
+logs, source excerpts, patches, and strict JSON blocks are exempt from inline
+translation because their bytes or syntax are evidence. A direct user request
+for another output language overrides this default.
+
 ## Output Footer
 
 Every model-facing report, handoff, review narrative, and significant
