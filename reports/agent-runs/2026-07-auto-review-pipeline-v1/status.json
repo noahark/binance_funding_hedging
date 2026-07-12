@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -55,7 +55,7 @@
   },
   "model_routing": {
     "implementation": {
-      "status": "final_fix_packet_bound_awaiting_human_dispatch",
+      "status": "final_fix_delivered_and_verified",
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
@@ -64,7 +64,7 @@
       "scope": "harness_only"
     },
     "review_1": {
-      "status": "complete_all_four_units_accept_incl_fix_unit",
+      "status": "final_fix_unit_re_review_pending",
       "provider": "kimi",
       "provider_identity": "moonshot_kimi",
       "model": "kimi-code/kimi-for-coding",
@@ -72,12 +72,12 @@
       "provider_must_differ_from_reviewed_unit_authors": true
     },
     "review_2": {
-      "status": "round2_record_rework_awaiting_operator_fix_decision",
+      "status": "round2_final_fix_delivered_awaiting_re_review_1_then_round3",
       "note": "Both configured high-end providers, OpenAI/Codex and Anthropic/Claude, participated in the pre-stage decision chain. Stage design must record truthful prior involvement and an eligible final-review route or disclosure override evidence.",
       "stage_range": {
         "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
-        "head_sha": "846bec036d62a3cdb243325f16977bd2c1396ade",
-        "diff_fingerprint": "846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4",
+        "head_sha": "a057d063523664a2fcfa8cc4db9e9af789f15730",
+        "diff_fingerprint": "a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e",
         "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-stage-review2-round2-operator-choice.prompt.md"
       },
       "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-stage-review2-operator-choice.prompt.md"
@@ -606,8 +606,8 @@
     "user_approved": true
   },
   "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
-  "head_sha": "846bec036d62a3cdb243325f16977bd2c1396ade",
-  "diff_fingerprint": "846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4",
+  "head_sha": "a057d063523664a2fcfa8cc4db9e9af789f15730",
+  "diff_fingerprint": "a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e",
   "changed_files": [
     "reports/agent-runs/2026-07-auto-review-pipeline-design-review/**",
     "reports/follow-ups/2026-07-auto-review-pipeline-design-note.md",
@@ -800,7 +800,7 @@
       "diff_fingerprint": "846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4",
       "override_basis": "design_conflict_ineligibility_evidence_v2",
       "provider": "operator_choice_gpt56_family_or_claude",
-      "status": "final_fix_round_bound",
+      "status": "final_fix_delivered_verified_re_review_1_pending",
       "verdict": "REWORK",
       "mode": "operator_parallel_panel_with_designated_record",
       "record": {
@@ -837,7 +837,32 @@
         "final_slot": true,
         "escalation_rule": "any code-changing rework needed after this delivery -> human_escalation_required",
         "anti_drift": "per-item anchors + prohibited implementation paths + red-then-green evidence (G1-G5) per operator request",
-        "executed": false
+        "executed": true,
+        "delivery_commit": "a057d063523664a2fcfa8cc4db9e9af789f15730",
+        "delivered_at": "2026-07-12T01:40:00+08:00",
+        "verified_at": "2026-07-12T02:10:00+08:00",
+        "bookkeeper_verification": {
+          "boundary": "PASS: exactly writable 4 code/test files + 2 append-only evidence files; no out-of-set change",
+          "required_checks_rerun": "unittest discover 161 OK (independent); py_compile 4 files OK; validator checkpoint PASS; git diff --check clean; grep formal-1 exit 1",
+          "per_finding_tests": "8 new/changed test classes individually green; FX->test map in 20-implementation.md",
+          "destructive_checks": "ALL SEVEN packet-mandated items: FX1-FX7 incl. FX6 both directions = 8/8 red-when-broken, green-when-restored; files byte-restored to delivery",
+          "manual_criteria": "FX1 manual shlex probe both shell contexts + all 6 frozen runner-reachable placeholder commands quote-safe; FX2 commit_guard at all 4 commit points (:576/:604/:622/:628); FX5 production _write_receipt cross-probe recognized by _unit_has_started_receipts",
+          "blocker_adjudication": "3 GLM appended blockers ACCEPTED: FX4 lock-test contract replacement (required by packet), FX6 runtime caps stay auth-authoritative (frozen test), FX6 max_stage_rework schema const 3 (runtime branch unreachable)",
+          "residuals": "R1 seed-receipt call_budget direction inverted vs production (predicate consumes only node+review_unit_id; cross-probe proves real receipts recognized); R2 FX1 string-level enumerated 5/6 frozen commands (bookkeeper probe covered 6/6; missing one shape-identical)"
+        },
+        "fix_unit": {
+          "base_sha": "846bec036d62a3cdb243325f16977bd2c1396ade",
+          "head_sha": "a057d063523664a2fcfa8cc4db9e9af789f15730",
+          "diff_fingerprint": "a057d063523664a2fcfa8cc4db9e9af789f15730:cd9756c95f45834c120b72fa16ffeec1a9f5fe7e3b86225ff05bb0a90a2a80c2"
+        },
+        "process_deviation_note": "All manual dispatch packets this stage (incl. this one) omitted the workflow node skill reference defined in stage-delivery.yaml (fix node -> minimal_change_engineer). Operator-identified 2026-07-12; equivalent constraints were embedded via G1-G5; prevention consolidated in reports/follow-ups/2026-07-harness-mechanical-gates.md §1. Packets from re-review-1 onward cite the node skill.",
+        "re_review_1": {
+          "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-review2-round2-fix-final-review1-kimi.prompt.md",
+          "reviewer": "kimi",
+          "status": "packet_bound_awaiting_human_dispatch",
+          "round": 1,
+          "scope": "fix unit 846bec0..a057d06 (FX1-FX7 closure) + full-suite regression"
+        }
       }
     }
   },
@@ -860,14 +885,14 @@
     "Each future pilot authorization must select positive call-count and wall-clock values"
   ],
   "blockers": [
-    "review-2 round-2 final fix round in flight (rework 3/3, FINAL): packet bound, awaiting human dispatch of Claude-GLM"
+    "review-2 round-2 final fix delivered and bookkeeper-verified (rework 3/3 consumed); re-review-1 packet (fix unit, Kimi) bound, awaiting human dispatch"
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_review2_round2_final_fix_packet",
-  "updated_at": "2026-07-11T22:20:00+08:00",
+  "next_action": "human_execute_re_review_1_final_fix_packet_kimi",
+  "updated_at": "2026-07-12T02:20:00+08:00",
   "resolved_blockers_note": "T1-R2-1/R2-2 closed by correction round2 (see completed_correction_packets); stale copies removed 2026-07-11 per sol P2 finding"
 }

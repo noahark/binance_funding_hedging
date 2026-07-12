@@ -537,6 +537,46 @@ bookkeeper reverifies (incl. destructive verification per FX) → re-seal
 code-changing rework needed after this delivery = human_escalation_required
 (ledger exhausted).**
 
-本地北京时间: 2026-07-12 00:20:00 CST
-下一步模型: human operator → Claude-GLM（final fix, rework 3/3）
-下一步任务: 人工执行 final fix packet；GLM 不得 commit/触碰 writable set 外文件；返回后 bookkeeper 复验并推进。
+（已完成：GLM 于 2026-07-12 01:40 CST 交回 FX1–FX7。）
+
+## Final Fix Delivered & Verified (bookkeeper, 2026-07-12)
+
+- GLM delivery: exactly writable 4 + append-only 2 files, uncommitted as
+  required; full suite 161 OK; 3 append blockers (FX4 lock-test contract
+  replacement / FX6 runtime caps not bound / FX6 max_stage_rework
+  schema-frozen) — all three ACCEPTED by bookkeeper adjudication.
+- Bookkeeper reverification (evidence in 60-test-output.txt tail): boundary
+  + G2/G3 checks; independent 161-test rerun; **ALL SEVEN packet-mandated
+  destructive checks (8 injections incl. FX6 both directions) red-when-
+  broken, green-when-restored, files byte-restored**; FX1 manual shlex
+  probe both shell contexts + all 6 frozen runner-reachable commands; FX2
+  guard at all 4 commit points; FX5 production-receipt cross-probe.
+  Residuals R1/R2 recorded (non-required).
+- Process-deviation note (operator-identified 2026-07-12): every manual
+  packet this stage omitted the workflow node skill reference
+  (stage-delivery.yaml per-node `skill:`); disclosed in evidence; prevention
+  = reports/follow-ups/2026-07-harness-mechanical-gates.md §1. Packets from
+  re-review-1 onward cite the node skill.
+- Delivery commit `a057d06`; stage fingerprint re-sealed (dual-computed,
+  shell == lib): `a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e`
+  fix-unit fingerprint: `a057d063523664a2fcfa8cc4db9e9af789f15730:cd9756c95f45834c120b72fa16ffeec1a9f5fe7e3b86225ff05bb0a90a2a80c2`
+- status → `review_1`; validator checkpoint PASSED; model_routing nested
+  blocks (stage_range/implementation/review_1/review_2) synced same commit.
+
+## 下一步
+
+Human operator dispatches **Kimi** with
+`task-review2-round2-fix-final-review1-kimi.prompt.md`
+(`kimi --model kimi-code/kimi-for-coding -p "$(cat <packet>)"`) — formal
+re-review-1 of the FINAL fix unit `846bec0..a057d06` (FX1–FX7 closure,
+G1–G5 compliance, blocker adjudication + residual review, 161-test
+regression). Reviewer is read-only; report text returns to the operator
+and the bookkeeper lands it. The packet cites the review-1 node skill
+(`agents/skills/code-reviewer.md`) per the corrected dispatch convention.
+After ACCEPT: bookkeeper prepares review-2 **round 3** (full stage range
+`a385c7a..a057d06`). If re-review-1 returns REWORK with a required
+finding: **human_escalation_required** (rework ledger exhausted at 3/3).
+
+本地北京时间: 2026-07-12 02:25:00 CST
+下一步模型: human operator → Kimi（re-review-1, final fix unit）
+下一步任务: 人工执行 re-review-1 packet；Kimi 只读评审 FX1–FX7 关闭情况；返回后 bookkeeper 落档并推进（ACCEPT→round 3 / REWORK→human_escalation_required）。
