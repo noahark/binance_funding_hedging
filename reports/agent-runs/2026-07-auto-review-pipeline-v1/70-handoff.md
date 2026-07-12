@@ -694,12 +694,15 @@ c. 其他（缩范围 / abandon / 并入后续 Harness 修订 stage）。
 
 - Branch: `stage/2026-07-auto-review-pipeline-v1`
 - Pre-amendment takeover HEAD: `0d3f7a7`
+- Operator-decision/design/packet evidence commit:
+  `2c1ba02378809da79715321ebc3f92098bdd63de`
 - Worktree before this checkpoint: clean
 - Status: `designing`
 - Changed files in this checkpoint: stage task/design/ADR, operator decision,
   design amendment, Opus breakdown packet, status, handoff
 - Tests: no delivery code changed; checkpoint validator and diff checks run
-  before evidence commit
+  before and after the design evidence commit; raw output appended to
+  `60-test-output.txt`
 - Open finding disposition: round-3 wall-clock P1 awaits closure by the
   operator-approved contract removal plus implementation/review; it is not
   silently downgraded

@@ -1387,3 +1387,45 @@ Review-2 Round 3 panel landing + bookkeeper verification
   human_escalation_required. Operator decides next disposition
   (53-review-2-round3-panel-disposition.md §6; sol fix_start_prompt held
   as seed for an operator-authorized bounded repair).
+
+--- P8 wall-clock withdrawal / Codex takeover design checkpoint (2026-07-12) ---
+
+Scope: operator decision + stage task/design/ADR amendment + Opus 4.8
+development-breakdown packet. No delivery code changed; no model dispatch was
+executed by Codex.
+
+Pre-checkpoint HEAD:
+  0d3f7a7 bookkeeper(2026-07-auto-review-pipeline-v1): apply terminal rule ->
+  human_escalation_required (round-3 P1 confirmed, ledger 3/3 exhausted)
+
+Commands and raw results:
+
+  $ python3 -m json.tool reports/agent-runs/2026-07-auto-review-pipeline-v1/status.json
+  exit 0
+
+  $ scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint
+  STAGE VALIDATION PASSED
+  stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+  phase=checkpoint
+  status=designing
+  diff_fingerprint=a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e
+
+  $ git diff --check
+  exit 0 (no output)
+
+  $ test -f agents/skills/task-planner.md
+  exit 0 (development-breakdown skill present)
+
+Evidence commit:
+  2c1ba02378809da79715321ebc3f92098bdd63de
+  bookkeeper(2026-07-auto-review-pipeline-v1): record P8 wall-clock withdrawal
+  and bind breakdown packet
+
+Disposition:
+  - human_escalation_required was resolved by explicit operator choice;
+  - status -> designing;
+  - rework_count remains 3/3 (no rework 4 invented);
+  - total runner-session wall clock is withdrawn;
+  - per-adapter timeout, max_model_calls, rework/auto-change caps, nullable
+    expires_at, operator stop, and all review/merge gates remain;
+  - next dispatch is human execution of the prepared Opus 4.8 breakdown packet.

@@ -52,7 +52,9 @@
     "rework_charge": 0,
     "rework_note": "Human-authorized escalation disposition; rework_count remains exhausted at 3/3 and is not reset or incremented.",
     "breakdown_author": "claude-opus-4-8 fallback after operator-reported Fable5 quota exhaustion",
-    "breakdown_packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-p8-wall-clock-withdrawal-breakdown-opus4.8.prompt.md"
+    "breakdown_packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-p8-wall-clock-withdrawal-breakdown-opus4.8.prompt.md",
+    "design_evidence_commit": "2c1ba02378809da79715321ebc3f92098bdd63de",
+    "dispatch_execution": "human_only_pending"
   },
   "intake_commit": "9573d2acfd4ef2e83274cb811a0d347c64ed283f",
   "intake_review_fixes_commit": "345ba61d6228248089406052b4e280e23ebad413",
