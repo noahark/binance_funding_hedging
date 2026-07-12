@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -64,7 +64,7 @@
       "scope": "harness_only"
     },
     "review_1": {
-      "status": "final_fix_unit_re_review_pending",
+      "status": "complete_all_units_accept_incl_final_fix_unit",
       "provider": "kimi",
       "provider_identity": "moonshot_kimi",
       "model": "kimi-code/kimi-for-coding",
@@ -72,13 +72,13 @@
       "provider_must_differ_from_reviewed_unit_authors": true
     },
     "review_2": {
-      "status": "round2_final_fix_delivered_awaiting_re_review_1_then_round3",
+      "status": "round3_packet_bound_awaiting_operator_dispatch",
       "note": "Both configured high-end providers, OpenAI/Codex and Anthropic/Claude, participated in the pre-stage decision chain. Stage design must record truthful prior involvement and an eligible final-review route or disclosure override evidence.",
       "stage_range": {
         "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
         "head_sha": "a057d063523664a2fcfa8cc4db9e9af789f15730",
         "diff_fingerprint": "a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e",
-        "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-stage-review2-round2-operator-choice.prompt.md"
+        "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-stage-review2-round3-operator-choice.prompt.md"
       },
       "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-stage-review2-operator-choice.prompt.md"
     },
@@ -800,7 +800,7 @@
       "diff_fingerprint": "846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4",
       "override_basis": "design_conflict_ineligibility_evidence_v2",
       "provider": "operator_choice_gpt56_family_or_claude",
-      "status": "final_fix_delivered_verified_re_review_1_pending",
+      "status": "closed_final_fix_accepted_by_re_review_1",
       "verdict": "REWORK",
       "mode": "operator_parallel_panel_with_designated_record",
       "record": {
@@ -859,11 +859,32 @@
         "re_review_1": {
           "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-review2-round2-fix-final-review1-kimi.prompt.md",
           "reviewer": "kimi",
-          "status": "packet_bound_awaiting_human_dispatch",
+          "model": "kimi-code/kimi-for-coding",
+          "status": "accept",
+          "verdict": "ACCEPT",
           "round": 1,
-          "scope": "fix unit 846bec0..a057d06 (FX1-FX7 closure) + full-suite regression"
+          "json_schema_valid": true,
+          "diff_fingerprint": "a057d063523664a2fcfa8cc4db9e9af789f15730:cd9756c95f45834c120b72fa16ffeec1a9f5fe7e3b86225ff05bb0a90a2a80c2",
+          "reviewer_prior_involvement": "none",
+          "prior_involvement_notes": "prior review-1 role on round-1 fix unit disclosed in verdict notes (review roles not in schema enum); no implementation/design involvement",
+          "open_p0_p1": 0,
+          "findings": 0,
+          "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-review2-round2-final-fix.md",
+          "verdict_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-review2-round2-final-fix.verdict.json",
+          "residual_risks": "R1/R2 concurred non-required; verbatim-evidence whitespace noted (not rewritten per AGENTS)",
+          "landing": "reviewer self-landed exactly its own two new files under operator authorization (path relay impractical); boundary verified clean by bookkeeper; identity + fingerprint + schema mechanically verified",
+          "independent_rerun": "161 tests OK + 30 FX-class tests OK + py_compile + validator checkpoint (reviewer-run)"
         }
       }
+    },
+    "round3": {
+      "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-stage-review2-round3-operator-choice.prompt.md",
+      "review_range": "a385c7ad77da1611c6e952b2219aee56b49f442f..a057d063523664a2fcfa8cc4db9e9af789f15730",
+      "diff_fingerprint": "a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e",
+      "provider": "operator_choice_gpt56_family_or_claude",
+      "status": "packet_bound_awaiting_operator_dispatch",
+      "skill_reference": "agents/skills/reality-checker.md (review_2 node skill, per corrected dispatch convention)",
+      "ledger_rule": "rework exhausted 3/3: REWORK with required finding -> human_escalation_required; ACCEPT -> stage_accepted_waiting_user"
     }
   },
   "rework_count": 3,
@@ -885,14 +906,14 @@
     "Each future pilot authorization must select positive call-count and wall-clock values"
   ],
   "blockers": [
-    "review-2 round-2 final fix delivered and bookkeeper-verified (rework 3/3 consumed); re-review-1 packet (fix unit, Kimi) bound, awaiting human dispatch"
+    "review-2 round 3 (full stage a385c7a..a057d06) packet bound, awaiting operator dispatch; rework ledger exhausted 3/3"
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_re_review_1_final_fix_packet_kimi",
-  "updated_at": "2026-07-12T02:20:00+08:00",
+  "next_action": "operator_execute_review2_round3_packet",
+  "updated_at": "2026-07-12T09:35:00+08:00",
   "resolved_blockers_note": "T1-R2-1/R2-2 closed by correction round2 (see completed_correction_packets); stale copies removed 2026-07-11 per sol P2 finding"
 }

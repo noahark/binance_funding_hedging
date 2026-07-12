@@ -1307,3 +1307,31 @@ consolidated in reports/follow-ups/2026-07-harness-mechanical-gates.md §1
 FX1–FX7 ALL VERIFIED (code reading + independent suite + 8/8 destructive +
 manual criteria). Proceeding: delivery commit -> re-seal (new fingerprint)
 -> status bind (fixing -> review_1) -> formal re-review-1 packet (Kimi).
+
+================================================================
+Re-review-1 (final fix unit) landing verification — bookkeeper
+本地北京时间: 2026-07-12 09:35:00 CST
+================================================================
+- Landing boundary: exactly 2 NEW files (30-review-1-review2-round2-final-
+  fix.md + review-1-review2-round2-final-fix.verdict.json), zero existing
+  files touched, no commit by reviewer. Reviewer self-landed under operator
+  authorization (operator could not relay text); first landing attempt
+  earlier this morning did not reach the repo (no artifacts, no commits;
+  three files showed 09:06-09:08 mtime with byte-identical content to HEAD
+  — inconclusive, no content lost since re-land succeeded).
+- Identity: verdict model = kimi-code/kimi-for-coding (truthful; matches
+  dispatched adapter). prior_involvement = none + truthful notes on prior
+  review-1 role (schema enum lacks review roles — correct handling).
+- Fingerprint: verdict fix-unit fingerprint == bookkeeper dual-computed
+  value (a057d06...:cd9756c9...). Match.
+- Schema: jsonschema Draft202012 validation PASSED.
+- Substance: independent 161-test rerun (18.579s, distinct from GLM 18.927s
+  and bookkeeper 18.669s runs) + 30 FX-class tests + py_compile + validator
+  checkpoint; FX1-FX7 per-item dispositions; G1-G5 compliance review;
+  3 blocker adjudications concurred; R1/R2 concurred non-required.
+- Verdict: ACCEPT, findings=[], open_p0_p1=0.
+- Landed verbatim at commit f6b8a3a; status advanced review_1 -> review_2;
+  round-3 packet bound (task-stage-review2-round3-operator-choice.prompt.md,
+  full stage a385c7a..a057d06, cites review_2 node skill reality-checker.md).
+- Ledger: rework 3/3 exhausted. Round-3 REWORK(required) ->
+  human_escalation_required; ACCEPT -> stage_accepted_waiting_user.

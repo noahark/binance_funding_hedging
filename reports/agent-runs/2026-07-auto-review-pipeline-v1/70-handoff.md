@@ -577,6 +577,42 @@ After ACCEPT: bookkeeper prepares review-2 **round 3** (full stage range
 `a385c7a..a057d06`). If re-review-1 returns REWORK with a required
 finding: **human_escalation_required** (rework ledger exhausted at 3/3).
 
-本地北京时间: 2026-07-12 02:25:00 CST
-下一步模型: human operator → Kimi（re-review-1, final fix unit）
-下一步任务: 人工执行 re-review-1 packet；Kimi 只读评审 FX1–FX7 关闭情况；返回后 bookkeeper 落档并推进（ACCEPT→round 3 / REWORK→human_escalation_required）。
+（已完成：Kimi 于 2026-07-12 09:16 CST 交回 ACCEPT，自行落档两文件。）
+
+## Re-review-1 ACCEPT Landed; Round 3 Bound (bookkeeper, 2026-07-12)
+
+- Kimi self-landed exactly its own two new files under operator
+  authorization (operator could not relay text); bookkeeper verified
+  boundary (zero existing files touched), truthful identity
+  (kimi-code/kimi-for-coding), fingerprint match (fix unit
+  `a057d06…:cd9756c9…`), and schema validity (Draft202012). Landed
+  verbatim at `f6b8a3a`.
+- Substance: independent 161-test + 30 FX-class rerun; FX1–FX7 all closed;
+  G1–G5 compliance confirmed; 3 GLM blocker adjudications concurred;
+  R1/R2 residuals concurred non-required. Verdict ACCEPT, 0 findings.
+- status → `review_2`; round2 block closed
+  (`closed_final_fix_accepted_by_re_review_1`); **round 3 packet bound**:
+  `task-stage-review2-round3-operator-choice.prompt.md` — full stage range
+  `a385c7a..a057d06`, fingerprint
+  `a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e`,
+  provider-neutral (operator chooses gpt-5.6-sol>terra>luna or
+  claude-fable-5/opus4.8), cites review_2 node skill
+  (`agents/skills/reality-checker.md`), per-provider disclosure branches,
+  identity-forgery warning (round-2 Gemini incident), reviewer
+  self-landing carve-out (own two new files only, if operator authorizes).
+
+## 下一步
+
+Operator dispatches **review-2 round 3** with the packet above (model of
+operator's choice; read-only session). The reviewer re-verifies round-2
+findings closure **by evidence and executable counterexamples, not
+memory** (if sol reviews again, it replays its own probes), adversarially
+reviews FX1–FX7 for new defects, re-checks acceptance 1–29 against the
+frozen 40-table, and independently reruns the 161-test suite.
+**Ledger exhausted (3/3): REWORK with any required finding →
+`human_escalation_required`; ACCEPT → `stage_accepted_waiting_user`
+(never merge authority).**
+
+本地北京时间: 2026-07-12 09:35:00 CST
+下一步模型: human operator → review-2 round 3（操作者选型）
+下一步任务: 人工执行 round-3 packet；评审者只读终审全 stage；返回后 bookkeeper 落档并按终格语义推进。
