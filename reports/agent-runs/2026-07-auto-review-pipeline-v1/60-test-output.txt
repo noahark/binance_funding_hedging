@@ -1335,3 +1335,55 @@ Re-review-1 (final fix unit) landing verification — bookkeeper
   full stage a385c7a..a057d06, cites review_2 node skill reality-checker.md).
 - Ledger: rework 3/3 exhausted. Round-3 REWORK(required) ->
   human_escalation_required; ACCEPT -> stage_accepted_waiting_user.
+
+================================================================
+Review-2 Round 3 panel landing + bookkeeper verification
+本地北京时间: 2026-07-12 10:05:00 CST
+================================================================
+- Landing boundary: exactly 6 NEW files (three report+verdict pairs), zero
+  existing files touched, no commits by reviewers. All three self-landed
+  under explicit operator authorization (packet carve-out).
+- Identity: gpt-5-codex (operator-declared dispatch target gpt-5.6-sol
+  high; slug-level mismatch, same provider, truthfully self-described —
+  NOT identity forgery; correspondence recorded in 53 §2). claude-opus-4-8
+  and grok-4.5 truthful. All three fingerprints match stage fingerprint;
+  all three verdicts jsonschema Draft202012 VALID.
+- Verdicts: sol/gpt-5-codex REWORK (1xP1) | opus4.8 ACCEPT (2xP3) |
+  grok-4.5 ACCEPT (0 findings). Operator designated no record this round.
+
+## sol P1 independent reproduction (bookkeeper, real temp repo + real
+## stage-seal + injected clock, cross-check skipped via author coverage)
+  deadline           = 2026-07-11T12:00:01Z (wall_clock_seconds=1)
+  clock at seal time = 2026-07-11T12:00:02+00:00  (past deadline)
+  rev-list count     : 3 -> 5   (H_snapshot + H_bind BOTH created)
+  snapshot_commit    = bcb18f23006e (bound)
+  diff_fingerprint   = bcb18f23006efaa321917ecb... (bound)
+  terminal           = human_escalation_required
+                       reason = wall-clock budget exceeded (fired only at
+                       the NEXT model-call checkpoint, AFTER side effects)
+  => P1 CONFIRMED: wall-clock does not fail closed before seal side
+     effects (acceptance 17 / frozen P8). Sibling defect of FX2 (packet
+     spec covered authorization expires_at only) — next-layer spec-depth
+     gap, not an FX1-FX7 regression.
+  Call-site audit: _check_wall_clock called ONLY at :1343/:1519/:1657/
+  :1840 (pre-adapter); _node_seal guard passes _check_authorization_expiry
+  only (:1564); :1754 checks expiry without wall-clock.
+
+## opus P3 verification (both confirmed, non-required)
+  P3#1 duplicate test name: test_max_stage_rework_divergence_fails_closed
+    defined at :2027 AND :2035; class runs 7 tests (verbose recount);
+    shadowed first version's assertion direction itself wrong (auth=99
+    hits schema const first); reachable uncovered branch is auth=3 +
+    live status !=3 -> budget_mismatch (:1021-1023). Refines GLM FX6
+    blocker #3 wording (unreachable holds for auth side only); adjudication
+    outcome unchanged. Missed by bookkeeper and Kimi reverification —
+    recorded truthfully.
+  P3#2 stale docstring: _acquire_runner_lock (:1113) still says
+    "awaiting_human + paused" vs FX4 zero-write lock_busy. Doc-level.
+
+## Disposition
+  P1 CONFIRMED + rework ledger exhausted 3/3 -> per the terminal rule
+  pre-announced in packet/status/handoff: status ->
+  human_escalation_required. Operator decides next disposition
+  (53-review-2-round3-panel-disposition.md §6; sol fix_start_prompt held
+  as seed for an operator-authorized bounded repair).
