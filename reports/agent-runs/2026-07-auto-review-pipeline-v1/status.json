@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -56,7 +56,7 @@
   ],
   "contract_amendment": {
     "id": "serial-v1-slimming",
-    "status": "review_1_accept_review_2_packet_bound",
+    "status": "review_2_accept_waiting_user",
     "authority": "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
     "design": "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
     "breakdown": "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
@@ -97,8 +97,9 @@
       "provider": "claude",
       "provider_identity": "anthropic",
       "model": "opus4.8",
-      "status": "packet_bound_awaiting_human_dispatch",
-      "prior_involvement": "none_in_serial_v1_slimming_amendment"
+      "status": "accepted",
+      "prior_involvement": "none_in_serial_v1_slimming_amendment",
+      "verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-T4-serial-v1-slimming-opus4.8.verdict.json"
     }
   },
   "auto_review_pipeline": {
@@ -153,7 +154,9 @@
   "reviewer_2": {
     "reserved": "claude-opus-4-8",
     "provider_identity": "anthropic",
-    "prior_involvement": "none"
+    "prior_involvement": "none",
+    "status": "accepted",
+    "verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-T4-serial-v1-slimming-opus4.8.verdict.json"
   },
   "complexity": {
     "classification": "HIGH",
@@ -196,7 +199,7 @@
     "workflows/templates/stage-delivery.yaml"
   ],
   "tests": {
-    "status": "implementation_verified_168_passed",
+    "status": "passed",
     "commands": [
       "python3 -m unittest discover -s scripts/tests -p 'test_*.py' (independent combined-scope rerun: 168 OK)",
       "scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase pre-review (PASS)",
@@ -205,6 +208,12 @@
   },
   "review_1": {
     "status": "ACCEPT",
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97",
     "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md",
     "attempt_1_operator_capture": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T4-serial-v1-slimming-kimi-attempt1-operator-capture.md",
     "attempt_1_valid_json": false,
@@ -215,7 +224,15 @@
     "expected_verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json"
   },
   "review_2": {
-    "status": "packet_bound_awaiting_human_dispatch",
+    "status": "ACCEPT",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "claude-opus-4-8",
+    "reviewer_prior_involvement": "none",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97",
+    "verdict_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-T4-serial-v1-slimming-opus4.8.verdict.json",
     "history_disposition": "Round-3 P1 was valid under withdrawn wall-clock requirement; raw panel is in history/raw",
     "reserved_reviewer": "claude-opus-4-8",
     "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review2-opus4.8.prompt.md",
@@ -229,7 +246,11 @@
     "prior_reason": "Round-3 P1 under old P8 with exhausted ledger",
     "disposition": "Operator authorized serial-only contract slimming amendment"
   },
-  "terminal_reason": null,
-  "next_action": "human_send_task_T4_review2_opus4_8_path_to_fresh_existing_opus_session",
-  "updated_at": "2026-07-12T14:35:22+08:00"
+  "follow_ups": [
+    "Harness Fast candidate: rename stale test section comment from wall-clock accounting to adapter-timeout accounting",
+    "Future auto-loop adapter additions must update the fixed registry timeout-required set"
+  ],
+  "terminal_reason": "stage_accepted_waiting_user",
+  "next_action": "wait_for_explicit_user_acceptance_before_merge_to_main",
+  "updated_at": "2026-07-12T14:53:45+08:00"
 }

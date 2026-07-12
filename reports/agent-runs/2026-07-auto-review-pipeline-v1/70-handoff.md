@@ -2,8 +2,8 @@
 
 ## Current State
 
-- Status: `review_2` — Kimi review-1 ACCEPT mechanically validated; Opus 4.8
-  final-review packet bound.
+- Status: `stage_accepted_waiting_user` — Kimi review-1 and Opus 4.8 review-2
+  both ACCEPT with schema-valid exact verdict files.
 - Branch: `stage/2026-07-auto-review-pipeline-v1`.
 - T4 review base: `039358012174af949c9f17a94c96bd3ac085a35f`.
 - T4 delivery head: `433980d8384304a528ab5633591aa8dc4018b6ed`.
@@ -21,7 +21,7 @@ Read only:
 1. `AGENTS.md`;
 2. `workflows/templates/stage-delivery.yaml`;
 3. root `status.json` and this handoff;
-4. the four files under `status.json.current_inputs`.
+4. only the files explicitly listed under `status.json.current_inputs`.
 
 Do not recursively read `history/` or old stage reports. History is cold audit
 storage. Open one raw file only when an explicit finding/review/audit reference
@@ -86,17 +86,13 @@ was an intentional Grok Fast task and authorized inclusion in this stage.
 `19-model-routing-convergence-operator-decision.md` records the expanded scope,
 the `docs/harness-design.md` exception, authorship, and review isolation.
 
-Kimi review-1 exact verdict file passes JSON parsing, Draft 2020-12 schema,
-stage/role/fingerprint/identity and ACCEPT transition checks. Its non-blocking
-P3 (`status.changed_files` incomplete) is corrected.
+Kimi review-1 and Opus 4.8 review-2 exact verdict files both pass JSON parsing,
+schema, stage/role/fingerprint/identity and ACCEPT transition checks.
 
-In a fresh existing Opus 4.8 read-only review session, send:
+Opus recorded one non-blocking stale-comment P3 for later Harness Fast
+maintenance. No required fix remains. The stage is accepted by review but must
+not merge to `main` until the human operator explicitly accepts it.
 
-```text
-请读取并严格执行：
-reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review2-opus4.8.prompt.md
-```
-
-本地北京时间: 2026-07-12 14:35:22 CST
-下一步模型: Claude Opus 4.8（现有全新只读会话）
-下一步任务: 执行 task-T4-review2-opus4.8.prompt.md 并返回最终严格 verdict
+本地北京时间: 2026-07-12 14:53:45 CST
+下一步模型: Human operator
+下一步任务: 明确接受或拒绝本 stage；接受后才可合并到 main
