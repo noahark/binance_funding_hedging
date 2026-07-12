@@ -3,16 +3,13 @@
 Status: **proposed plan for cross-model review** — not yet operator-approved as a
 Harness delivery stage. No code/runtime contract is changed by this note alone.
 
-> **执行状态 banner (2026-07-12)：本文件 §4 的 S1–S9 不再作为执行指令。**
-> 以 Grok cross-review 的 Batch A1/A2/B/C 决议为准（S4 改走 STAGE_INDEX 索引标注、
-> S6 取消、S7 跳过）。§1.2 的 Pass B 归档**目前仅完成文件系统操作，尚未形成 Git
-> 提交**（`history/raw/*` 仍未跟踪）。**checkpoint 更正**：`433980d` 是原 T4 delivery
-> checkpoint 的**正确**提交（snapshot 记录 `kind: combined_serial_v1_delivery_evidence`
-> / `post_merge_pre_accept` / `passed`），当前工作树已**误将其改写**为 archive
-> checkpoint。A2 必须从 snapshot **恢复**原 checkpoint 语义并**保留** `433980d`，
-> 另在 `history_archive.post_accept_archive.content_commit` **单独绑定** A1 的真实归档
-> SHA；`head_sha` / `diff_fingerprint` / handoff 的 T4 delivery head 继续为 `433980d`。
-> **不得丢弃或重绑 `433980d`。** 正文以下保留 verbatim 作历史记录。
+> **执行状态 banner（更新 2026-07-12，已完成）：本文件 §4 的 S1–S9 不作为执行指令；
+> 已按 Grok cross-review 的 Batch A1/A2/B 落地**（S4 走 STAGE_INDEX 索引标注、S6 取消、S7 跳过）。
+> - **A1 `6212c5a`**：§1.2 的 Pass B 归档内容已提交（20 文件 byte-equality 通过，broken symlink 0，`history/raw/*` 已跟踪）。
+> - **A2 `b43f4d7`**：原 T4 delivery checkpoint 语义已从 snapshot 恢复（`433980d` / `combined_serial_v1_delivery_evidence` / `post_merge_pre_accept` / `passed`，与 snapshot 逐字节一致；曾被工作树误改写为 archive checkpoint），并绑定 `history_archive.post_accept_archive.content_commit=6212c5a`；`head_sha` / `diff_fingerprint` 维持 `433980d`。
+> - **B `3d088f6`**：导航批 + 跨模型评审集已提交；干净树 `validate-stage --phase pre-accept` PASSED。
+>
+> 尚未 push origin。正文以下保留 verbatim 作历史记录。
 
 Recorded by: Grok bookkeeper session, 2026-07-12.<br>
 Branch at authoring: `main` (local may be ahead of `origin/main`).<br>
