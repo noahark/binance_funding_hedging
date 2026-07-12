@@ -85,13 +85,18 @@ was an intentional Grok Fast task and authorized inclusion in this stage.
 `19-model-routing-convergence-operator-decision.md` records the expanded scope,
 the `docs/harness-design.md` exception, authorship, and review isolation.
 
-In a fresh existing Kimi read-only review session, send:
+Kimi completed substantive review-1 with ACCEPT and one non-blocking P3. The
+P3 (`status.changed_files` incomplete) is corrected. The chat-captured verdict
+contains wrapped physical newlines inside JSON strings, so attempt 1 is
+non-accepting under the strict parser contract.
+
+In the same Kimi review session, send:
 
 ```text
 请读取并严格执行：
-reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md
+reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi-json-retry1.prompt.md
 ```
 
-本地北京时间: 2026-07-12 14:09:25 CST
-下一步模型: Kimi（现有全新只读会话）
-下一步任务: 执行 task-T4-review1-kimi.prompt.md 并返回完整叙述与最终严格 JSON
+本地北京时间: 2026-07-12 14:27:09 CST
+下一步模型: Kimi（同一只读 review-1 会话）
+下一步任务: 执行 JSON-only retry 1，只返回一个可机械解析的严格 JSON 对象

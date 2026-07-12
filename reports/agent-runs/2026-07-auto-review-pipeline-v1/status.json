@@ -49,11 +49,12 @@
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/18-bookkeeper-inspection-T4.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-bookkeeper-correction-round1-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/19-model-routing-convergence-operator-decision.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md"
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi-json-retry1.prompt.md"
   ],
   "contract_amendment": {
     "id": "serial-v1-slimming",
-    "status": "combined_scope_verified_ready_for_evidence_commit",
+    "status": "review_1_invalid_json_retry_1_bound",
     "authority": "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
     "design": "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
     "breakdown": "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
@@ -166,25 +167,44 @@
   "head_sha": "433980d8384304a528ab5633591aa8dc4018b6ed",
   "diff_fingerprint": "433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97",
   "changed_files": [
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-serial-v1-slimming-claude-glm.prompt.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/status.json",
+    "AGENTS.md",
+    "agents/registry.yaml",
+    "docs/auto-review-pipeline.md",
+    "docs/harness-design.md",
+    "docs/model-adapters.md",
+    "docs/parallel-development-mode.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/18-bookkeeper-inspection-T4.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/19-model-routing-convergence-operator-decision.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/70-handoff.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt"
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/status.json",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-bookkeeper-correction-round1-claude-glm.prompt.md",
+    "reports/agent-runs/README.md",
+    "reports/agent-runs/_template/70-handoff.md",
+    "schemas/auto-review-authorization.schema.json",
+    "schemas/runner-receipt.schema.json",
+    "scripts/auto-review-runner.py",
+    "scripts/harness_stage_lib.py",
+    "scripts/tests/test_auto_review_runner.py",
+    "scripts/tests/test_harness_stage_lib.py",
+    "scripts/tests/test_validate_stage_auto_review.py",
+    "scripts/validate-stage.py",
+    "workflows/templates/stage-delivery.yaml"
   ],
   "tests": {
     "status": "implementation_verified_168_passed",
     "commands": [
-      "python3 -m unittest discover -s scripts/tests -p 'test_*.py' (independent T4 rerun: 163 OK)",
-      "scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint (PASS)",
-      "git diff --check (PASS before archive)"
+      "python3 -m unittest discover -s scripts/tests -p 'test_*.py' (independent combined-scope rerun: 168 OK)",
+      "scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase pre-review (PASS)",
+      "git diff --check (PASS)"
     ]
   },
   "review_1": {
-    "status": "packet_bound_awaiting_human_dispatch",
-    "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md",
+    "status": "invalid_json_retry_1_bound",
+    "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi-json-retry1.prompt.md",
+    "attempt_1_operator_capture": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T4-serial-v1-slimming-kimi-attempt1-operator-capture.md",
+    "attempt_1_valid_json": false,
     "expected_report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T4-serial-v1-slimming-kimi.md",
     "expected_verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json"
   },
@@ -202,6 +222,6 @@
     "disposition": "Operator authorized serial-only contract slimming amendment"
   },
   "terminal_reason": null,
-  "next_action": "human_send_task_T4_review1_kimi_path_to_existing_fresh_kimi_session",
-  "updated_at": "2026-07-12T14:09:25+08:00"
+  "next_action": "human_send_json_retry1_path_to_same_kimi_review_session",
+  "updated_at": "2026-07-12T14:27:09+08:00"
 }
