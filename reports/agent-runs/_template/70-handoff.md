@@ -1,5 +1,10 @@
 # Handoff
 
+This file is the stage's active handoff context. A new terminal session reads
+it together with `status.json` and the active workflow to resume work; it does
+not read `history/` at startup. Keep it current, and compact stale detail into
+`history/` only after recording a full snapshot there.
+
 ## Current State
 
 - Stage:

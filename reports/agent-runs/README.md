@@ -34,9 +34,23 @@ reports/agent-runs/<stage-id>/
   review-1-<unit>-round<N>.verdict.json
   80-escalation-<reason>-<timestamp>.md                 (auto-review escalation)
   auto-review-pilot-metrics.json                        (pilot stages only)
+  history/                                               (cold storage; verbatim raw archives, not read at startup)
 ```
 
 Use `_template/` when creating a new stage.
+
+## History And Active Context
+
+`reports/agent-runs/<stage-id>/history/` is cold storage. A new terminal
+session establishes active context from the active workflow, the stage
+`status.json`, `70-handoff.md`, and any `status.current_inputs` only; it does
+not recursively scan `reports/agent-runs/` or read any `history/` directory at
+startup. Historical raw artifacts stay verbatim and are read only for an exact
+review/audit/finding reference that names them. Mutable status/handoff may be
+compacted only after their full snapshots are placed in `history/`, and
+compatibility symlinks may preserve old artifact paths without making raw
+history part of normal file enumeration. This keeps startup cheap without
+hiding evidence from an explicit review/audit request.
 
 `STAGE_INDEX.md` is a human-readable summary of stage statuses. It does not
 replace per-stage `status.json`; update it when a stage reaches

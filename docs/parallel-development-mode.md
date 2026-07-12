@@ -337,8 +337,8 @@ status.json 增加记录块（示意；每任务必填字段见下）：
 - review-2 的 `reviewer_prior_involvement` 披露与回退路径
   （`decision_models_exhausted` 等）不变。
 - **与 auto-review pipeline 互斥**：`parallel_mode.enabled=true` 与
-  `auto_review_pipeline.enabled=true` 不可共存。auto mode 在自身的
-  authorization/review-unit 合同内表达 serial/parallel topology，不复用本模式的
+  `auto_review_pipeline.enabled=true` 不可共存。auto mode 在 v1 是 serial-only，
+  在自身的 authorization/review-unit 合同内运行单一 `task` 单元，不复用本模式的
   R1–R10 嵌入 checkpoint 语义；其 advisory cross-check 由 normative 合同
   `docs/auto-review-pipeline.md` 定义。一个 stage 只能择一启用；若要从本模式
   迁移到 auto mode，须先关闭 `parallel_mode.enabled`、落 `status.json` /

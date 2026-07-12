@@ -91,10 +91,10 @@ adapters:
     provider_identity: openai
     invocation_owner: runner
     binary: codex
-    default_model: "gpt-5.5"
+    default_model: "gpt-5.6-sol"
     default_reasoning_effort: xhigh
     availability_check_command: "command -v codex"
-    schema_review_command: "codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>"
+    schema_review_command: "codex exec -C <repo> -m gpt-5.6-sol -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>"
     freeform_review_command: "codex exec review --base <base> - < <prompt-file>"
     warning: "codex -p is --profile, not prompt"
     supports_write: false
@@ -121,6 +121,7 @@ adapters:
     yolo_command: "kimi --model kimi-code/kimi-for-coding -y"
     supports_write: true
     supports_read_only: true
+    timeout_seconds: 1800
     notes:
       - "Use as implementation subagent only when workflow explicitly allows it."
       - "If the local wrapper is named kimi-for-coding, substitute that binary for kimi."
@@ -131,24 +132,25 @@ adapters:
     provider_identity: xai_grok
     invocation_owner: runner
     binary: grok
-    development_model: "grok-composer-2.5-fast"
-    optional_review_model: "grok-build"
-    direction_model: "grok-build"
+    development_model: "grok-4.5"
+    optional_review_model: "grok-4.5"
+    direction_model: "grok-4.5"
     observed_available_models:
-      - "grok-build"
+      - "grok-4.5"
       - "grok-composer-2.5-fast"
     availability_check_command: "grok models"
-    interactive_command: "grok --cwd <repo> --model grok-build"
-    development_command: "grok --cwd <repo> --model grok-composer-2.5-fast --permission-mode acceptEdits --check --effort high --prompt-file <prompt-file>"
-    yolo_command: "grok --cwd <repo> --model grok-composer-2.5-fast --permission-mode bypassPermissions --always-approve --prompt-file <prompt-file>"
-    optional_review_command: "grok --cwd <repo> --model grok-build --permission-mode plan --effort high --prompt-file <prompt-file>"
+    interactive_command: "grok --cwd <repo> --model grok-4.5"
+    development_command: "grok --cwd <repo> --model grok-4.5 --permission-mode acceptEdits --check --effort high --prompt-file <prompt-file>"
+    yolo_command: "grok --cwd <repo> --model grok-4.5 --permission-mode bypassPermissions --always-approve --prompt-file <prompt-file>"
+    optional_review_command: "grok --cwd <repo> --model grok-4.5 --permission-mode plan --effort high --prompt-file <prompt-file>"
     optional_review_timeout_seconds: 900
     supports_write: true
     supports_read_only: true
     timeout_seconds: 1800
     notes:
       - "Grok is not a default Harness review gate. Use only for direction drafts, experiments, or explicit user-enabled tasks."
-      - "Do not silently substitute Grok Build for cross-review review-1."
+      - "Dev and review both use grok-4.5 (2026-07 local catalog). Do not silently substitute another Grok model for cross-review review-1."
+      - "grok-composer-2.5-fast remains listed in observed_available_models for local discovery only; it is not the Harness default."
 
 direction_panels:
   key_mapping:
@@ -186,7 +188,7 @@ direction_panels:
         skill: product_strategist
       - id: grok-build
         provider: grok
-        model: "grok-build"
+        model: "grok-4.5"
         skill: product_strategist
 
   2026_07_initial_direction:
@@ -375,7 +377,7 @@ model_policies:
     - "For other implementers, choose the first available reviewer from the pool that does not share provider identity with the implementer."
     - "Review-1 must use a fresh read-only/plan session and raw artifacts."
   grok_default_gate: false
-  grok_development_model: "grok-composer-2.5-fast"
+  grok_development_model: "grok-4.5"
   review_2_fallback_allowed_on:
     - quota_exhausted
     - auth_failure
@@ -417,11 +419,10 @@ auto_review_pipeline:
     auto_primary:
       adapter: grok
       command_ref: "agents/registry.yaml#adapters.grok.optional_review_command"
-      model: "grok-build"
+      model: "grok-4.5"
       mode: plan
     serial_unit_fallback_pool: ["kimi", "claude_glm"]
     fallback_only_when_candidate_provider_absent_from_unit_authors: true
-    parallel_tip_ineligible_for_cross_pool: true
     high_end_auto_substitution: false
   receipts:
     command_references_only: true

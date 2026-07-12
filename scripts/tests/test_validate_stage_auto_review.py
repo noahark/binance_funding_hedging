@@ -67,8 +67,7 @@ def _auto_status(auth_rel="reports/agent-runs/auto-stage/auth.json"):
             "runner_state": "running",
             "authorization_path": auth_rel,
             "budgets": {
-                "max_stage_rework": 3,
-                "max_auto_code_changes": 2,
+                "model_calls_used": 0,
                 "auto_code_changes_used": 0,
             },
             "mode_history": [
@@ -207,13 +206,26 @@ class AutoValidationFailClosedTests(unittest.TestCase):
         errs = self._check(lambda a: a["budgets"].__setitem__("auto_code_changes_used", 3))
         self.assertTrue(any("auto_code_changes_used" in e for e in errs))
 
-    def test_max_auto_out_of_range(self):
+    def test_status_budget_max_auto_is_unknown(self):
+        # serial-only v1: caps live in the authorization; a status budgets copy
+        # carrying max_auto_code_changes is rejected as an unknown field.
         errs = self._check(lambda a: a["budgets"].__setitem__("max_auto_code_changes", 3))
         self.assertTrue(any("max_auto_code_changes" in e for e in errs))
 
-    def test_max_stage_rework_not_three(self):
+    def test_status_budget_max_stage_rework_is_unknown(self):
+        # serial-only v1: max_stage_rework is a global invariant, not a status
+        # budgets field; carrying it in status is rejected as an unknown field.
         errs = self._check(lambda a: a["budgets"].__setitem__("max_stage_rework", 4))
         self.assertTrue(any("max_stage_rework" in e for e in errs))
+
+    def test_rework_count_exceeds_global_invariant(self):
+        # max_stage_rework is enforced as a global invariant (3) on the
+        # top-level rework_count ledger (shared with review-2 repair).
+        errs = self._check(
+            lambda a: None,
+            mutate_status=lambda s: s.__setitem__("rework_count", 4),
+        )
+        self.assertTrue(any("rework_count" in e for e in errs))
 
     def test_mutex_with_parallel_mode(self):
         errs = self._check(

@@ -811,7 +811,7 @@ def validate_acceptance(root: Path, stage_dir: Path, status_doc: dict[str, Any])
 
 AUTO_RUNNER_STATES = {"authorized", "running", "awaiting_human", "stopped", "completed_review_1"}
 AUTO_DISPATCH_MODES = {"human_dispatch", "auto_review"}
-AUTO_UNIT_KINDS = {"task", "tip", "integration"}
+AUTO_UNIT_KINDS = {"task"}
 
 # Frozen workflow transition matrix (workflows/templates/stage-delivery.yaml
 # auto_review_pipeline.executable_contract.state_transitions, eight rows). Each
@@ -832,7 +832,7 @@ AUTO_TRANSITIONS = {
     ("auto_review", "running", "auto_review", "awaiting_human", "timeout"),
     ("auto_review", "running", "auto_review", "awaiting_human", "budget_exhausted"),
     ("auto_review", "running", "auto_review", "awaiting_human", "unroutable_fix"),
-    ("auto_review", "running", "auto_review", "awaiting_human", "tip_once_grok_failure"),
+    ("auto_review", "running", "auto_review", "awaiting_human", "review_1_fallback_exhausted"),
 }
 
 
@@ -906,27 +906,42 @@ def validate_auto_review_pipeline(
         except (_stage_lib.HarnessError, ValueError) as exc:
             errors.append("authorization_path unsafe: " + str(exc))
 
-    # budgets: frozen single-ledger invariants (max_stage_rework=3, auto<=2,
-    # preserve at least one review-2 repair opportunity)
+    # budgets: v1 serial-only status records USAGE only (model_calls_used,
+    # auto_code_changes_used). Runtime caps (max_model_calls /
+    # max_auto_code_changes) are authorization-bound; max_stage_rework is a
+    # global AGENTS/workflow invariant (3) tracked on top-level rework_count,
+    # not mirrored in this budgets object.
     budgets = arp.get("budgets")
-    if isinstance(budgets, dict):
-        max_rework = budgets.get("max_stage_rework")
-        max_auto = budgets.get("max_auto_code_changes")
+    if budgets is None:
+        errors.append("auto_review_pipeline.budgets is required when auto mode is enabled")
+    elif not isinstance(budgets, dict):
+        errors.append("auto_review_pipeline.budgets must be an object")
+    else:
+        b_unknown = set(budgets.keys()) - {"model_calls_used", "auto_code_changes_used"}
+        if b_unknown:
+            errors.append("auto_review_pipeline.budgets unknown fields: " + ", ".join(sorted(b_unknown)))
+        for key in ("model_calls_used", "auto_code_changes_used"):
+            if key not in budgets:
+                errors.append("auto_review_pipeline.budgets missing required field: " + key)
         used = budgets.get("auto_code_changes_used")
-        if max_rework != 3:
-            errors.append("auto_review_pipeline.budgets.max_stage_rework must be 3")
-        if not (_is_int_value(max_auto) and 0 <= max_auto <= 2):
-            errors.append("auto_review_pipeline.budgets.max_auto_code_changes must be an integer in [0, 2]")
         if _is_int_value(used):
-            if _is_int_value(max_auto) and used > max_auto:
-                errors.append("auto_review_pipeline.budgets.auto_code_changes_used exceeds max_auto_code_changes")
+            if used < 0:
+                errors.append("auto_review_pipeline.budgets.auto_code_changes_used must be >= 0")
             if used > 2:
                 errors.append("auto_review_pipeline.budgets.auto_code_changes_used exceeds the aggregate auto cap of 2")
-            if max_rework == 3 and used >= max_rework:
+            if used >= 3:
                 errors.append(
                     "auto_review_pipeline.budgets must preserve at least one review-2 repair "
-                    "opportunity (auto_code_changes_used < max_stage_rework)"
+                    "opportunity (auto_code_changes_used < 3)"
                 )
+        mc_used = budgets.get("model_calls_used")
+        if _is_int_value(mc_used) and mc_used < 0:
+            errors.append("auto_review_pipeline.budgets.model_calls_used must be >= 0")
+    # top-level rework_count is the authoritative shared stage ledger, bounded
+    # by the global max_stage_rework invariant of 3.
+    rework_count = status_doc.get("rework_count")
+    if _is_int_value(rework_count) and rework_count > 3:
+        errors.append("rework_count exceeds the global stage-rework invariant of 3")
 
     # mode_history: each transition must match a frozen row
     history = arp.get("mode_history")
@@ -964,7 +979,7 @@ def validate_auto_review_pipeline(
                 continue
             if unit.get("kind") not in AUTO_UNIT_KINDS:
                 errors.append(
-                    "auto_review_pipeline.review_units[" + str(uidx) + "].kind must be task/tip/integration"
+                    "auto_review_pipeline.review_units[" + str(uidx) + "].kind must be task"
                 )
             authors = unit.get("author_provider_identities")
             if not isinstance(authors, list) or not authors:

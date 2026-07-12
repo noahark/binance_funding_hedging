@@ -3,6 +3,26 @@
 This file is the single startup document for agents working in this repository.
 Read it before making changes, then read the active workflow and stage files.
 
+## Startup Read Budget
+
+A new terminal session must establish active context cheaply and explicitly.
+Read only, in this order:
+
+1. `AGENTS.md` (this file);
+2. the active workflow (`workflows/templates/*.yaml`);
+3. the active stage status, handoff, and any `status.current_inputs` under
+   `reports/agent-runs/<stage>/`;
+4. the active authorization artifact when auto-review is in scope.
+
+Do NOT recursively scan `reports/agent-runs/` or read any `history/` directory
+at startup. `reports/agent-runs/<stage>/history/` is cold storage: historical
+raw artifacts stay verbatim and are read only for an exact review, audit, or
+finding reference that names them. Mutable status/handoff may be compacted only
+after their full snapshots are placed in history, and compatibility symlinks
+may preserve old artifact paths without making raw history part of normal file
+enumeration. Nothing in this budget hides evidence from an explicit
+review/audit request that names a specific historical artifact.
+
 ## Project State
 
 Product as built: the repository currently contains a read-only Binance funding
@@ -336,10 +356,10 @@ dispatching the fix.
 
 ## Auto Review Pipeline (Opt-In, Default-Off)
 
-`auto_review_pipeline/v1` is an optional, default-off execution mode defined
-normatively in `docs/auto-review-pipeline.md`. The manual human-dispatch rules
-above and below remain the default and fallback path; this section adds an auto
-exception only and changes none of them.
+`auto_review_pipeline/v1` is an optional, default-off, serial-only execution
+mode defined normatively in `docs/auto-review-pipeline.md`. The manual
+human-dispatch rules above and below remain the default and fallback path; this
+section adds an auto exception only and changes none of them.
 
 Auto mode is enabled per stage only by a committed, schema-valid, human-approved
 authorization artifact matching `schemas/auto-review-authorization.schema.json`.
@@ -363,18 +383,21 @@ When a stage explicitly enables auto mode:
   cookies, or credentials (`never_log_expanded_environment`).
 - The committed-range `diff_fingerprint` formula is unchanged. The seen-diff
   bind is patch byte-equality only and is not recorded as a fingerprint or hash.
-- Review-1 under auto mode uses Grok (`grok-build`, plan mode) as primary,
+- Review-1 under auto mode uses Grok (`grok-4.5`, plan mode) as primary,
   invoked through the existing `adapters.grok.optional_review_command`, with the
-  scope-aware serial fallback and tip-once escalation defined in
-  `docs/auto-review-pipeline.md`. This is the auto exception to the manual Grok
-  review-1 gate; manual stages keep the Kimi/Claude-GLM cross-review pool.
+  scope-aware eligible serial Kimi/GLM fallback and fallback-exhaustion
+  escalation defined in `docs/auto-review-pipeline.md`. This is the auto
+  exception to the manual Grok review-1 gate; manual stages keep the
+  Kimi/Claude-GLM cross-review pool.
 - `review-2` and merge to `main` remain human gates. Auto mode stops at
   `completed_review_1` for human-started review-2; review-2 ACCEPT remains
   `stage_accepted_waiting_user`, not merge authority.
 - `parallel_mode.enabled=true` and `auto_review_pipeline.enabled=true` are
-  mutually exclusive. Auto mode expresses serial/parallel topology inside its
-  own authorization/review-unit contract, not through the historical parallel
-  R1-R10 checkpoint semantics.
+  mutually exclusive. Auto mode is serial-only in v1: it runs a single `task`
+  review unit through the fixed Grok-primary plus eligible serial Kimi/GLM
+  fallback route, and does not use the historical parallel R1-R10 checkpoint
+  semantics. Automatic parallel topology, parallel tips, and integration
+  review units are deferred to a future version after real serial pilots.
 - A failed automatic path records a pending mode flip or terminal escalation
   and stops. No failed runner process automatically launches a manual-mode
   model. Resume requires a new or superseding human authorization artifact.
@@ -518,8 +541,7 @@ Key reminders:
   `claude-fable-5`; if Fable5 quota is exhausted, the configured backup model is
   `opus4.8`, unless the registry or user changes it.
 - Review-1 uses Kimi and Claude-GLM as a cross-review pool. Grok development,
-  when explicitly enabled, uses `grok-composer-2.5-fast`; Grok is not a default
-  review gate.
+  when explicitly enabled, uses `grok-4.5`; Grok is not a default review gate.
 - Kimi one-shot execution uses the explicit latest coding alias:
   `kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"`.
 - Current Kimi CLI behavior rejects combining `--plan` or `-y` with `-p`; do

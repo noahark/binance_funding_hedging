@@ -1193,3 +1193,229 @@ runner 通过 `_load_validator_module()`（`importlib.util.spec_from_file_locati
 下一步模型: Claude Fable 5（bookkeeper）
 下一步任务: 复验 FX1–FX7（含逐项破坏性验证）→ re-seal（新指纹）→ 正式 re-review-1 → review-2 round 3
 ```
+
+---
+
+# T4 Serial-Only v1 Slimming
+
+> **Authority（活动文档，冻结）**：`16-serial-v1-slimming-design.md`、`12-serial-v1-slimming-development-breakdown-codex.md`、`54-p8-wall-clock-withdrawal-operator-decision.md`、`15-p8-wall-clock-withdrawal-design-amendment.md`。
+> **Provider**：`claude_glm`（GLM-5.2，`zhipu_glm`）。
+> **Scope（精简而非重构）**：`rework_count` 保持为 3。不删除/放宽 FX1–FX7；移除的运行期行为一律由新的契约/正面测试替换；无 v2/兼容性/可选并行/第二超时协议；不改 `fingerprint`/`seen-diff`/`seal transactions`/`receipt byte fidelity`/`provider isolation`/`review-2`/`merge gates`。
+> **边界**：仅 stdlib；仅触碰 Exact Writable Set + 2 个追加证据文件（`20-implementation.md`、`60-test-output.txt`）；未改 `status.json`/`handoff`/`history`/`review`/`verdict`/`packet`，未改 `scripts/stage-seal.py` 与 `scripts/tests/test_stage_seal.py`（只读），未触碰 `backend/**|frontend/**|schemas/api/**|docs/product/**|docs/api/**` 与 `docs/harness-design.md`。无模型分发、无 commit、无 push、无网络。
+
+## A. 完成定义对照
+
+| 完成定义项 | 状态 | 证据 |
+|---|---|---|
+| 在 `20-implementation.md` 追加 `T4 Serial-Only v1 Slimming`，逐文件列出变更 | 本节 §B | — |
+| removed/kept contract | 本节 §C | schema `required` 现为 12 字段；`budgets.additionalProperties:false`/`scope.additionalProperties:false`/顶层 `additionalProperties:false` 三层锁定 |
+| 测试映射 | 本节 §D | 163 项通过 |
+| 风险 | 本节 §F | — |
+| git status | 本节 §G | 17 M（16 可写 + `60-test-output.txt`），无未追踪、无产品路径、未触碰 stage-seal/test_stage_seal/status.json |
+| `60-test-output.txt` 追加 breakdown 全部 required commands 原始输出 | 已追加（72 行） | `60-test-output.txt` §T4 |
+| 工作树仅 = exact writable set + 2 append evidence 文件 | §G | 满足 |
+
+## B. 逐文件变更（16 可写 + `60-test-output.txt` 证据；`20-implementation.md` 本证据）
+
+### WP-A 文档（6）
+
+1. **`AGENTS.md`** (+43)：新增"启动阅读预算"段（冷 `history/`，启动仅读活动 workflow/`status.json`/`70-handoff.md`/`status.current_inputs`）。Auto v1 声明为"可选的、默认关闭的、仅串行的"。拓扑段"表达串行/并行拓扑" → "v1 仅串行：固定 Grok 主路径 + 合格串行 Kimi/GLM 回退路径运行单个 `task` 审查单元"。升级名"即时提示升级" → "回退耗尽升级"（`tip_once_grok_failure` 重定义为"Grok 主路径 + 串行回退耗尽"）。
+2. **`docs/auto-review-pipeline.md`** (±131，净 −66)：review-unit 收紧为 `task`-only；认证要点改为"适配器授权固定在 workflow/registry，仅携带 2 个可配置上限 `max_model_calls`/`max_auto_code_changes`"；预算 JSON 仅使用量（`model_calls_used`/`auto_code_changes_used`）；新增"预算与全局不变量"段（`MAX_STAGE_REWORK=3`、`INVALID_JSON_MAX_ATTEMPTS=2`、按适配器超时为全局 registry/workflow 不变量，非认证字段）；§6 工作树改为"排他性 runner worktree"，删除并行拓扑段与集成单元；required-attempt 规则删除并行/双所有者；主/回退段删除并行提示并改写 `tip_once_grok_failure`；3 处"tip-once Grok 失败"统一为"Grok 串行回退耗尽"（含 1 处跨行残留）；冻结决策表 D2/D5/D7/P8 同步更新。
+3. **`docs/model-adapters.md`** (±26)："阶段超时" → "注册的每次调用超时（`grok.optional_review_timeout_seconds`，900s）"；"`auto_high_end_dispatch_allowed` is always false" → "高端（GPT/Claude）分发按 workflow 策略固定为不存在（不携带每授权标志）"；删除"并行提示没有合格的跨池回退"。
+4. **`docs/parallel-development-mode.md`** (±4，中文)：互斥锁段"auto mode 在自身的 authorization/review-unit 合同内表达 serial/parallel topology" → "auto mode 在 v1 是 serial-only，在自身的 authorization/review-unit 合同内运行单一 `task` 单元"。（保留：`auto_review_pipeline.enabled` 与 `parallel_mode.enabled` 互斥的冻结 P4 描述。）
+5. **`reports/agent-runs/README.md`** (+14)：目录树加入 `history/` 条目；新增"History And Active Context"段（冷存储语义：启动不递归扫描，历史 raw 仅在被显式点名时读取）。
+6. **`reports/agent-runs/_template/70-handoff.md`** (+5)：handoff 角色描述加入"active handoff context，启动与 `status.json`/活动 workflow 一并读取，不读 `history/`"。
+
+### WP-B schemas（2）
+
+7. **`schemas/auto-review-authorization.schema.json`** (±70，净 −66)：`required`/`properties` 收敛为 12 字段（`schema_version`/`contract_version`/`stage_id`/`stage_branch`/`authorized_by`/`approval_evidence_path`/`approval_recorded_by`/`authorized_at`/`expires_at`/`scope`/`budgets`/`supersedes`）。移除 `authorized`、`allowed_adapters`、`review_1_provider`、`auto_high_end_dispatch_allowed`、`scope.topology`、`wall_clock_seconds`、`max_stage_rework`、`invalid_json_max_attempts_per_model`。`scope` 收敛为 `{task_ids, allowed_pathspecs, forbidden_pathspecs}`；`budgets` 收敛为 `{max_model_calls, max_auto_code_changes}`。顶层 / `scope` / `budgets` 三层 `additionalProperties:false`。`description` 改写为 v1 serial-only 契约 + fail-closed 迁移说明（陈旧字段经 `additionalProperties:false` 拒绝；v1 未 accept/merge/pilot，无兼容归一化路径）。
+8. **`schemas/runner-receipt.schema.json`** (±6)：`review_unit_id` 描述"task, tip, or integration unit" → "v1 review units are task-only"；`timeout` 描述"configured stage timeout" → "adapter-specific timeout（registry `timeout_seconds`，或命令级 override 如 `grok.optional_review_timeout_seconds`）"；`review_1` 节点约束移除"parallel-tip escalation, and tip-once Grok failure" → "exhausted-route escalation"。未改字段集合与 byte 形态（receipt byte fidelity 冻结）。
+
+### WP-C runner / validator / harness（4）
+
+9. **`scripts/auto-review-runner.py`** (±200)：全局常量保留且仅此来源：`MAX_STAGE_REWORK=3`、`INVALID_JSON_MAX_ATTEMPTS=2`、`DEFAULT_ADAPTER_TIMEOUT_SECONDS=1800`。`_runtime_cap` 仅读认证上限（`max_model_calls`/`max_auto_code_changes`），不再读 `wall_clock`/status 等值。`_charge_auto_change` 两闸门：`proposed_auto > max_auto_code_changes`（认证上限）、`proposed_rework > MAX_STAGE_REWORK`（全局不变量）。`_resolve_timeout` 优先级链：`timeout_override`（collaborator）→ 命令特定 `optional_review_timeout_seconds` → 适配器 `timeout_seconds` → `DEFAULT_ADAPTER_TIMEOUT_SECONDS`；`load_registry` 把 `timeout_seconds`/`optional_review_timeout_seconds` 解析为 `int`。`_acquire_runner_lock` 文档串与 `run()` 注释改为 FX4 语义：竞争失败者抛 `runner_lock_busy`，调用方返回 `lock_busy` RunResult + stderr，**零写**（无 transition、无 persist）。移除 `_init_wall_clock`/`_check_wall_clock` 调用面（迁移注释保留移除字段清单）。
+10. **`scripts/harness_stage_lib.py`** (±50)：迁移注释块列出已移除字段；移除 `wall_clock` 生命周期注入；保留 `review_1_provider_must_differ_from_implementer_provider` 提供程序隔离（冻结规则名，非认证字段）。
+11. **`scripts/validate-stage.py`** (±45)：保留 auto/parallel 互斥检查（冻结 P4，§871/§874）；预算校验改为仅使用量形态；移除已删字段的等值校验路径。
+12. **`workflows/templates/stage-delivery.yaml`** (±6)：保留 `auto_review_pipeline_mutex_with_parallel_mode`（§41，互斥配置）与 `review_1_provider_must_differ_from_implementer_provider`（§390，提供程序隔离规则名）；移除已删认证字段的注入。
+
+### WP-D tests（3）
+
+13. **`scripts/tests/test_auto_review_runner.py`** (±213，净 −144)：`Stage.__init__` 签名精简（移除 `review_1_provider`、`wall_clock_seconds`）。认证构建改为精简 12 字段；`status.budgets` 仅使用量 `{auto_code_changes_used:0, model_calls_used:0}`。4 个 `_charge_auto_change` 测试改用 `rework_count=3`（提议 4 > `MAX_STAGE_REWORK=3` 触发升级）。删除 2 个 `wall_clock` 测试与 `test_parallel_tip_grok_failure_escalates_no_crosspool`；类 `ParallelTipNoFallbackTests` → `SerialFallbackExhaustionTests`；`test_parallel_topology_dirty_path_outside_allowlist_fail_closed` → `test_dirty_path_outside_allowlist_fail_closed`（去 `topology="parallel"`）；`test_dirty_authorization_modification_rejected` 篡改字段改为 `authorized_at`；`test_restart_running_skips_accepted_unit_no_redispatch` 去掉 `run_started_at`/`run_deadline_at`。新增 2 个超时测试：`test_resolve_timeout_uses_registry_per_adapter_values`（GLM=3000 / grok optional=900 / grok dev=1800 / kimi=1800）与 `test_timeout_override_collaborator_wins_over_registry`（override=42）。
+14. **`scripts/tests/test_harness_stage_lib.py`** (±63)：新增移除字段 fail-closed 契约测试组（`test_removed_allowed_adapters_is_unknown`、`test_removed_review_1_provider_is_unknown`、`test_removed_auto_high_end_dispatch_allowed_is_unknown`、`test_removed_wall_clock_seconds_is_unknown`），替换被删行为；保留 `wall_clock`/互斥锁检查的正面契约。
+15. **`scripts/tests/test_validate_stage_auto_review.py`** (±20)：`_auto_status` fixture 预算改为仅使用量；`test_max_auto_out_of_range` → `test_status_budget_max_auto_is_unknown`、`test_max_stage_rework_not_three` → `test_status_budget_max_stage_rework_is_unknown`（移除字段现为未知项，非越界）；新增 `test_rework_count_exceeds_global_invariant`（`rework_count=4` 触发拒绝）。
+
+### 证据（2，append-only）
+
+16. **`reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt`** (+72)：T4 全部 8 条 required commands 原始输出（CMD1–4 exit 0；CMD5–6 exit 1 预期；CMD7–8 exit 0 带可分类残留匹配）。
+17. **`reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md`**（本节，append-only）。
+
+## C. Removed / Kept 合同
+
+### C.1 Authorization contract（`schemas/auto-review-authorization.schema.json`）
+
+- **Removed（fail-closed via `additionalProperties:false`）**：`authorized`、`allowed_adapters`、`review_1_provider`、`auto_high_end_dispatch_allowed`、`scope.topology`、`wall_clock_seconds`、`max_stage_rework`、`invalid_json_max_attempts_per_model`。
+- **Kept（12 `required`）**：`schema_version`、`contract_version`、`stage_id`、`stage_branch`、`authorized_by`、`approval_evidence_path`、`approval_recorded_by`、`authorized_at`、`expires_at`、`scope`（`{task_ids, allowed_pathspecs, forbidden_pathspecs}`）、`budgets`（`{max_model_calls, max_auto_code_changes}`）、`supersedes`。
+- **降格为全局不变量（不在认证中，唯一来源 `auto-review-runner.py`）**：`MAX_STAGE_REWORK=3`、`INVALID_JSON_MAX_ATTEMPTS=2`、`DEFAULT_ADAPTER_TIMEOUT_SECONDS=1800` + registry 按 adapter/call 超时。
+
+### C.2 Status budgets（`reports/agent-runs/_template/status.json`，未改文件，仅形态）
+
+- `auto_review_pipeline.budgets` = `null`（由 runner 写入运行期使用量）。
+- 顶层 keys 不含 `topology`/`wall_clock`/`run_deadline_at`/`run_started_at`。
+- 使用量字段：`model_calls_used`、`auto_code_changes_used`。caps 仅来自认证。
+
+### C.3 Runner receipt（`schemas/runner-receipt.schema.json`）
+
+- 字段集合与 byte 形态**未变**（receipt byte fidelity 冻结）；仅 3 处 `description` 文本迁移为 v1 serial-only / per-adapter timeout 语义。
+
+## D. 测试映射（全套件 163 项通过）
+
+| 被移除/收紧的行为 | 替换/正面测试 |
+|---|---|
+| `wall_clock` 运行期闸门 | `test_resolve_timeout_uses_registry_per_adapter_values`、`test_timeout_override_collaborator_wins_over_registry`（per-adapter 超时协议） |
+| 并行 tip 跨池回退 | `test_ineligible_fallback_both_providers_authored`（串行回退耗尽 → `tip_once_grok_failure`）；类 `SerialFallbackExhaustionTests` |
+| 认证 `max_stage_rework` 上限 | 全局不变量 `test_rework_count_exceeds_global_invariant`（`rework_count=4` 拒绝）+ 4 个 `_charge_auto_change` 用 `rework_count=3` |
+| `status.budgets` caps 等值校验 | `test_runtime_caps_come_from_authorization_not_status`（既有，caps 来自认证） |
+| 认证已删字段 | fail-closed 契约组：`test_removed_{allowed_adapters,review_1_provider,auto_high_end_dispatch_allowed,wall_clock_seconds}_is_unknown` |
+| `status.budgets` 旧字段 | `test_status_budget_max_auto_is_unknown`、`test_status_budget_max_stage_rework_is_unknown`（移除字段现为未知项） |
+
+## E. Required Commands 结果与残留分类（CMD7/CMD8 全部合法）
+
+- **CMD1** `unittest discover`：exit 0，163 项通过。
+- **CMD2** `py_compile`（validate-stage/harness_stage_lib/stage-seal/auto-review-runner）：exit 0。
+- **CMD3** `validate-stage.py --phase checkpoint`：exit 0，PASSED。
+- **CMD4** `git diff --check`：exit 0（无空白错误）。
+- **CMD5** `rg "formal-1" scripts harness-manifest.yaml`：exit 1（预期无匹配）。
+- **CMD6** 产品路径 `rg`：exit 1（预期，无 `backend|frontend|schemas/api|docs/product|docs/api` 触碰）。
+- **CMD7** `wall_clock*` 残留（4 处位置，全部可分类）：`auto-review-runner.py:1050` 与 `harness_stage_lib.py:352` 为迁移注释（列出移除字段名）；`auto-review-authorization.schema.json:5` 为迁移描述（fail-closed 说明）；`test_harness_stage_lib.py:390-394` 为替换契约测试 `test_removed_wall_clock_seconds_is_unknown`。
+- **CMD8** 并行/topology/认证残留（全部可分类）：
+  - **互斥锁（冻结 P4，保留）**：`AGENTS.md:395`、`parallel-development-mode.md:339/344`、`stage-delivery.yaml:41`、`validate-stage.py:871/874`。
+  - **提供程序隔离规则名（非认证字段）**：`stage-delivery.yaml:390`、`registry.yaml:506`（`review_1_provider_must_differ_from_implementer_provider`）。
+  - **迁移描述/注释**：`auto-review-authorization.schema.json:5`、`auto-review-pipeline.md:74/75`、`harness_stage_lib.py:350/351`。
+  - **替换契约测试**：`test_harness_stage_lib.py:366-382`（3 个 `test_removed_*_is_unknown`）。
+  - **历史记录（不可变）**：`docs/planning/DECISIONS.md:17`。
+
+> 残留结论：CMD7/CMD8 所有匹配均属互斥锁规则名、提供程序隔离规则名、迁移说明、替换契约测试或不可变历史，**无一为遗留运行期逻辑或被删认证字段**。
+
+## F. 风险与残留
+
+1. **FX4 契约收紧**：`_acquire_runner_lock` 文档串与 `run()` 注释改为 lock_busy 零写语义，与既有 `test_concurrent_runner_lock_is_exclusive` 一致，未放宽既有期望。
+2. **FX6 全局不变量唯一来源**：`MAX_STAGE_REWORK=3`/`INVALID_JSON_MAX_ATTEMPTS=2` 仅存于 runner 常量；schema 不再 `const` 该字段，等值校验由 runner `proposed_rework > MAX_STAGE_REWORK` 闸门承担。
+3. **超时协议替换**：wall-clock 已由 per-adapter/命令级超时协议替换（registry 驱动），无第二超时协议。
+4. **可选/兼容性**：无 v2、无兼容归一化路径（v1 未 accept/merge/pilot，schema `additionalProperties:false` 直接拒绝陈旧字段）。
+5. **边界**：`status.json`/`70-handoff.md`/`history/`/`review`/`verdict`/`packet`/`stage-seal.py`/`test_stage_seal.py`/`docs/harness-design.md`/产品路径均未触碰。
+
+## G. git status
+
+```text
+ M AGENTS.md
+ M agents/registry.yaml
+ M docs/auto-review-pipeline.md
+ M docs/model-adapters.md
+ M docs/parallel-development-mode.md
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt
+ M reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md   ← 本证据
+ M reports/agent-runs/README.md
+ M reports/agent-runs/_template/70-handoff.md
+ M schemas/auto-review-authorization.schema.json
+ M schemas/runner-receipt.schema.json
+ M scripts/auto-review-runner.py
+ M scripts/harness_stage_lib.py
+ M scripts/tests/test_auto_review_runner.py
+ M scripts/tests/test_harness_stage_lib.py
+ M scripts/tests/test_validate_stage_auto_review.py
+ M scripts/validate-stage.py
+ M workflows/templates/stage-delivery.yaml
+```
+
+- 17 changed files, 474 insertions(+), 496 deletions(-)（不含 `60-test-output.txt` +72 与本文件；`status.json` 未改）。
+- 工作树 = 16 可写 + `60-test-output.txt` + `20-implementation.md`（2 append evidence）。无未追踪文件；无产品路径；未改 `stage-seal.py`/`test_stage_seal.py`；未改 `status.json`/`70-handoff.md`/`history/`。
+
+## H. 完成声明
+
+完成定义全部满足：本报告逐文件列出变更（§B）、removed/kept 合同（§C）、测试映射（§D）、风险（§F）、git status（§G）；`60-test-output.txt` 已追加全部 required commands 原始输出；工作树仅含 exact writable set + 2 个 append evidence 文件。未 commit（约束）。
+
+```text
+本地北京时间: 2026-07-12 12:21 CST
+下一步模型: Codex bookkeeper
+下一步任务: 边界/残留/测试复验，创建 evidence commit，准备 Kimi review-1
+```
+
+---
+
+# T4 Bookkeeper Correction Round 1（C1–C4）
+
+> **Authority**：与 T4 同一 operator-authorized amendment；`rework_count` 仍为 3/3，本轮为 pre-review 实现完整性修正，**不消耗新 formal rework**。来源：`18-bookkeeper-inspection-T4.md`，经 `task-T4-bookkeeper-correction-round1-claude-glm.prompt.md` 执行。上方原始 T4 报告不改写；本节为 append-only。
+> **Provider**：`claude_glm`（GLM-5.2，`zhipu_glm`）。
+> **约束**：stdlib-only；无 dispatch/commit/push/network；未改 `status.json`/`70-handoff.md`/`history`/`review`/`verdict`/`packet`/`seal`/`stage-seal.py`/`test_stage_seal.py`/产品路径/`docs/harness-design.md`。仅编辑 T4 writable set；追加 2 个 evidence 文件。
+
+## C1 — registry timeout fail-closed
+
+- **runner（`scripts/auto-review-runner.py`）**：
+  - 移除 `DEFAULT_ADAPTER_TIMEOUT_SECONDS = 1800` 常量及其 "Defense-in-depth fallback" 注释（不再有静默统一回退）。
+  - `_resolve_timeout`：当无 `timeout_override` 且 registry 无合法正整数 timeout 时，由 `return DEFAULT_ADAPTER_TIMEOUT_SECONDS` 改为 `raise PreflightFailed("registry_timeout_invalid", {adapter, command_key, reason})`。`timeout_override`（test collaborator）路径保留，但仅为调用期观测，非生产默认，且不免除 preflight 闸门。
+  - 新增 preflight 方法 `_validate_registry_timeouts()`：校验自动环实际解析的 4 个超时——`claude_glm.timeout_seconds`、`kimi.timeout_seconds`、`grok.timeout_seconds`、`grok.optional_review_timeout_seconds`——必须为正整数（非 boolean、非缺失、非零、非负），否则 `PreflightFailed("registry_timeout_invalid", {adapter, key, value})`。在 preflight budgets 校验之后调用，**在任何模型调用或 commit 之前**。
+- **测试（`scripts/tests/test_auto_review_runner.py`）**：
+  - 新增 `RegistryTimeoutPreflightTests`（4）：`test_preflight_rejects_missing_adapter_timeout`（删 claude_glm timeout）、`test_preflight_rejects_boolean_timeout`（grok optional=True）、`test_preflight_rejects_zero_timeout`（kimi=0）、`test_resolve_timeout_raises_when_registry_missing_and_no_override`（defense-in-depth：直接调 `_resolve_timeout` 不再返回 1800）。
+  - 保留正面测试：`test_resolve_timeout_uses_registry_per_adapter_values`（GLM=3000 / grok optional=900 / grok dev=1800 / kimi=1800）、`test_timeout_override_collaborator_wins_over_registry`（override=42）。
+  - fixture 对齐：`make_runner` 合成 registry 与 FX1 probe registry 现携带 `timeout_seconds`（probe=30），使 preflight/`_resolve_timeout` 能找到合法值（非放宽期望，而是使合成 fixture 满足"timeout 必填"新合同；FX1 shell-safety 断言不变）。
+
+## C2 — runner task-only preflight
+
+- **runner**：新增 preflight 方法 `_validate_unit_kinds()`：任何 `kind != "task"` 的 review unit 在 preflight 抛 `PreflightFailed("non_task_unit", {unit, kind})`，在 `_verify_authorization_binding` **之前**调用。这是 runner 自身的 fail-closed 闸门，**不依赖操作者先单独运行 `validate-stage.py`**。
+- **测试**：新增 `RunnerTaskOnlyPreflightTests.test_preflight_rejects_non_task_unit`（`extra_unit_fields={"kind": "tip"}` → `non_task_unit`，detail.kind=="tip"）。
+
+## C3 — remove live tip event semantics
+
+- 事件 `tip_once_grok_failure` → `review_1_fallback_exhausted`，活跃状态机/运行期代码/规范一致改名（共 8 处活跃匹配，E10 已验证）：
+  - `scripts/auto-review-runner.py`：`TERMINAL_ESCALATION_EVENTS`、`TerminalEscalation` docstring、3 处 `raise TerminalEscalation(...)` 站点（`_run_unit` 非接受升级、`_node_review_1` 无合格回退、串行回退再失败）。
+  - `scripts/validate-stage.py`：`AUTO_TRANSITIONS` 该 event 元组。
+  - `workflows/templates/stage-delivery.yaml`：`state_transitions.terminal_escalation.one_of` + `node_transitions.review_1` 映射。
+  - `docs/auto-review-pipeline.md`：§10 Primary and fallback。
+- **保留相同 fail-closed escalation 路线**（`running → awaiting_human` / top-level `human_escalation_required`），**无兼容别名、无第二协议**。`test_runner_transitions_match_workflow_state_transitions` 两端同步改名，保持绿色。
+- 测试注释（`SerialFallbackExhaustionTests` 段头）同步改名。
+- **migration/deferred 描述保留**（任务允许）：`AGENTS.md` "parallel tips … deferred"、`docs/auto-review-pipeline.md` §6 "parallel-tip routing … deferred"、runner 注释 "no parallel-tip branch"——均说明 tip/integration 已 deferred，非活跃语义。E9 已确认活跃 `tip_once_grok_failure` 残留为 0。
+
+## C4 — docs cleanup
+
+- `docs/auto-review-pipeline.md` 授权 supersession 规则："Any change to scope, adapters, budgets, or expiry" → "Any change to scope, budgets, or expiry"（adapter 权威已不在授权内）。
+- 串行步骤删除冗余 "2. implementer writes allowed paths"（实现写入由 implementation node + 认证 `allowed_pathspecs` 治理，已另行描述），后续步骤 3-9 重编号为 2-8。
+
+## Evidence（追加至 `60-test-output.txt` §T4 Correction Round 1）
+
+| 项 | 结果 |
+|---|---|
+| E1 全套件 | 168 tests, OK（+5 新测试：4 C1 + 1 C2） |
+| E2 py_compile（runner/validator/harness/seal + 3 test 模块） | exit 0 |
+| E3 checkpoint validator | STAGE VALIDATION PASSED |
+| E4 git diff --check | exit 0 |
+| E5 修正后的未提交工作树产品路径扫描（`git diff --name-only`，非 `54ce1c8..HEAD`） | exit 1（无产品路径；修正 inspection 指出的 CMD6 缺陷） |
+| E6 C1 timeout missing/boolean/zero preflight + resolve_timeout defense | 4 tests, OK |
+| E7 C1 正面 timeout 测试（3000/1800/900 + override） | 2 tests, OK |
+| E8 C2 non-task runner rejection | 1 test, OK |
+| E9 活跃 `tip_once_grok_failure` 残留扫描 | exit 1（运行期/规范 0 匹配） |
+| E10 `review_1_fallback_exhausted` 跨 runner/validator/yaml/docs 一致 | 8 处，exit 0 |
+
+## 边界与 git status
+
+- 本轮 GLM 编辑 5 个文件，全部在 T4 writable set 内：
+  - `scripts/auto-review-runner.py`（C1 + C2 + C3）
+  - `scripts/tests/test_auto_review_runner.py`（C1 + C2 + C3 测试 + fixture timeout）
+  - `scripts/validate-stage.py`（C3）
+  - `workflows/templates/stage-delivery.yaml`（C3）
+  - `docs/auto-review-pipeline.md`（C3 + C4）
+- 追加 2 个 evidence：`20-implementation.md`（本节）、`60-test-output.txt`（§T4 Correction Round 1）。
+- **GLM 未触碰**（任务允许在工作树但 GLM 不得改）：`status.json`、stage `70-handoff.md`、`18-bookkeeper-inspection-T4.md`（bookkeeper 文件）；`stage-seal.py`/`test_stage_seal.py`（只读）；产品路径。
+- **⚠ 关键事实（影响工作树解读）**：checkpoint 提交 `0393580` 仅含 3 个 bookkeeper 元数据文件（`17-bookkeeper-slimming-checkpoint.md`、stage `70-handoff.md`、`status.json`）。**整个原始 T4 serial-v1 实现均处于未提交工作树状态**，并未进入 checkpoint 提交。因此 `git diff`（vs HEAD）同时包含「原始 T4 serial-v1 全量实现」+「本轮 GLM 纠错覆盖」两层，必须分区阅读，不能把全部 porcelain 归因于本轮。
+- **完整 porcelain 分区（21 M + 2 ?? = 23 文件）**：
+  1. **本轮 GLM 纠错（7 文件，全部在 T4 writable set / evidence set 内）**：`scripts/auto-review-runner.py`、`scripts/validate-stage.py`、`workflows/templates/stage-delivery.yaml`、`docs/auto-review-pipeline.md`、`scripts/tests/test_auto_review_runner.py`（5 correction，本轮覆盖于 T4 既改之上）+ `reports/.../20-implementation.md`、`reports/.../60-test-output.txt`（2 append evidence）。
+  2. **原始 T4 serial-v1 实现（pre-existing 未提交，非本轮、非 GLM 本轮编辑）**：`AGENTS.md`、`agents/registry.yaml`、`docs/model-adapters.md`、`docs/parallel-development-mode.md`、`docs/harness-design.md`、`schemas/auto-review-authorization.schema.json`、`schemas/runner-receipt.schema.json`、`scripts/harness_stage_lib.py`、`scripts/tests/test_harness_stage_lib.py`、`scripts/tests/test_validate_stage_auto_review.py`、`reports/agent-runs/README.md`、`reports/agent-runs/_template/70-handoff.md`。其中 `README.md`/`_template/70-handoff.md` 的 diff 为「`history/` 冷存储、启动不递归读取」纪律文档（与任务"不要递归读取 history/"同源）；`schemas/*`/`harness_stage_lib.py`/两测试为 serial-v1 瘦身（移除 topology/authorized 等字段、`additionalProperties:false`、`review_1_fallback`）。
+  3. **bookkeeper 文件（GLM 不得改，未改）**：stage `70-handoff.md`(M)、`status.json`(M)、`18-bookkeeper-inspection-T4.md`(??)、`task-T4-bookkeeper-correction-round1-claude-glm.prompt.md`(??)。
+- **⚠ 外部模型版本 bump 提示（非 GLM、非 C1–C4）**：模型版本 bump（`grok-composer-2.5-fast`→`grok-4.5`、`gpt-5.5`→`gpt-5.6-sol`）在仓库内多处出现：`docs/harness-design.md`、`agents/registry.yaml`、`docs/model-adapters.md`、`AGENTS.md`。其中 `docs/harness-design.md` 经确认为本会话期间外部进程（user/linter）修改——GLM 从未编辑它，它不在 T4 writable set 内，按系统提示"intentional，勿回退"保留。其余三个文件**同时携带 serial-v1 内容**，GLM 本轮未触碰它们；其内部模型 bump 的 provenance（原始 T4 实现者 vs 后续外部 pass）GLM 无法在混合 diff 中干净切分，提请 bookkeeper 裁定。GLM 本轮未引入任何模型版本变更。
+- **合规结论**：本轮 GLM 仅编辑第 1 类 7 文件；未引入任何未追踪文件；无产品路径（`backend/`/`frontend/`/`schemas/api/`/`docs/product/`/`docs/api/` 均 0）；未改 `stage-seal.py`/`test_stage_seal.py`；未改任何 bookkeeper 文件；未改 `docs/harness-design.md`。工作树整体符合约束（原始 T4 writable set + 2 evidence + bookkeeper 文件）。
+- 全套件 168 绿、checkpoint PASSED、`git diff --check` exit 0、活跃 `tip_once_grok_failure` 残留 0、`review_1_fallback_exhausted` 8 处一致。未 commit（约束）。
+
+```text
+本地北京时间: 2026-07-12 13:03 CST
+下一步模型: Codex bookkeeper
+下一步任务: 复验 C1-C4，完成 evidence commit 与 Kimi review-1 packet
+```

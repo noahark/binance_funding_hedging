@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local.ai-project-harness/schemas/auto-review-authorization.schema.json",
   "title": "Auto Review Pipeline Run Authorization",
-  "description": "Human-approved, committed per-stage authorization artifact that gates entry into the auto_review_pipeline/v1 mode. The runner refuses to start (or continue) unless a schema-valid artifact of this shape exists and is not expired. Model claims of approval are never valid: 'authorized_by' must be human, 'approval_evidence_path' must point to the committed operator approval receipt, and 'approval_recorded_by' must identify the non-implementer bookkeeper that recorded it. Frozen budgets: 'max_stage_rework' is exactly 3, 'max_auto_code_changes' is at most 2, and 'invalid_json_max_attempts_per_model' is exactly 2. 'auto_high_end_dispatch_allowed' is always false: the automatic loop never dispatches GPT/Claude. 'expires_at' is required and nullable: null means there is no independent authorization-expiry timestamp (it is NOT unlimited authorization); a non-null ISO8601 value is enforced before every model invocation and git commit. A null 'expires_at' still leaves the run bound by call-count budgets, wall-clock budgets, the rework ledger, operator stop, and stage gates. Any change to scope, adapters, budgets, topology, or expiry requires a new versioned artifact whose 'supersedes' points to the prior one. This artifact is never generated or edited by an implementer.",
+  "description": "Human-approved, committed per-stage authorization artifact that gates entry into the auto_review_pipeline/v1 mode. The runner refuses to start (or continue) unless a schema-valid artifact of this shape exists and is not expired. Model claims of approval are never valid: 'authorized_by' must be human, 'approval_evidence_path' must point to the committed operator approval receipt, and 'approval_recorded_by' must identify the non-implementer bookkeeper that recorded it. v1 is serial-only: there is no authorization-side topology, allowed-adapter, review-provider, authorized flag, or high-end-dispatch field. The automatic loop is fixed to claude_glm/kimi/grok with Grok review-1 primary plus serial Kimi/Claude-GLM fallback by committed workflow/registry; GPT/Claude are never auto-dispatched. The stage-rework cap (3), the invalid-JSON retry limit (2), and per-adapter invocation timeouts are global workflow/registry invariants, not per-authorization fields. Frozen budgets retained here: 'max_model_calls' is a positive per-stage cap and 'max_auto_code_changes' is at most 2. 'expires_at' is required and nullable: null means there is no independent authorization-expiry timestamp (it is NOT unlimited authorization); a non-null ISO8601 value is enforced before every model invocation and git commit. A null 'expires_at' still leaves the run bound by call-count budgets, the rework ledger, operator stop, and stage gates. Any change to scope or budgets requires a new versioned artifact whose 'supersedes' points to the prior one. This artifact is never generated or edited by an implementer. Stale artifacts carrying a removed field (authorized, allowed_adapters, review_1_provider, auto_high_end_dispatch_allowed, scope.topology, budgets.wall_clock_seconds, budgets.max_stage_rework, budgets.invalid_json_max_attempts_per_model) fail closed via additionalProperties:false; v1 has not been accepted, merged, or piloted, so there is no compatibility-normalization path.",
   "type": "object",
   "additionalProperties": false,
   "$defs": {
@@ -37,17 +37,13 @@
     "stage_id",
     "stage_branch",
     "contract_version",
-    "authorized",
     "authorized_by",
     "approval_evidence_path",
     "approval_recorded_by",
     "authorized_at",
     "expires_at",
     "scope",
-    "allowed_adapters",
-    "review_1_provider",
     "budgets",
-    "auto_high_end_dispatch_allowed",
     "supersedes"
   ],
   "properties": {
@@ -71,15 +67,10 @@
       "type": "string",
       "const": "auto-review-pipeline/v1"
     },
-    "authorized": {
-      "type": "boolean",
-      "const": true,
-      "description": "Only a positively authorized artifact can start the runner. A false or missing value is not auto mode."
-    },
     "authorized_by": {
       "type": "string",
       "const": "human",
-      "description": "Only a human operator may authorize a run. Model-generated authorization is invalid."
+      "description": "Only a human operator may authorize a run. Model-generated authorization is invalid. A committed, schema-valid, human-approved artifact existing and not being expired is the entry gate; there is no separate 'authorized' boolean field."
     },
     "approval_evidence_path": {
       "description": "Path to the committed operator approval receipt (e.g. auto-run-authorization-v1.approval.md) under the stage evidence directory. Safe repo-relative path; rejects absolute, parent-directory traversal, and CR/LF/control characters.",
@@ -98,7 +89,7 @@
     "expires_at": {
       "type": ["string", "null"],
       "format": "date-time",
-      "description": "Required and nullable. null means no independent authorization-expiry timestamp; it is NOT unlimited authorization and the run remains bound by call-count budgets, wall-clock budgets, the rework ledger, operator stop, and stage gates. A non-null ISO8601 value must be later than the current time before every model invocation and git commit. A missing field is invalid."
+      "description": "Required and nullable. null means no independent authorization-expiry timestamp; it is NOT unlimited authorization and the run remains bound by call-count budgets, the rework ledger, operator stop, and stage gates. A non-null ISO8601 value must be later than the current time before every model invocation and git commit. A missing field is invalid."
     },
     "scope": {
       "type": "object",
@@ -106,8 +97,7 @@
       "required": [
         "task_ids",
         "allowed_pathspecs",
-        "forbidden_pathspecs",
-        "topology"
+        "forbidden_pathspecs"
       ],
       "properties": {
         "task_ids": {
@@ -118,7 +108,7 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "Frozen task ids this authorization covers. Must be non-empty and unique; an empty or duplicate task list is invalid."
+          "description": "Frozen task ids this authorization covers. Must be non-empty and unique; an empty or duplicate task list is invalid. v1 review units are task-only (no tip or integration unit)."
         },
         "allowed_pathspecs": {
           "type": "array",
@@ -138,38 +128,15 @@
           },
           "uniqueItems": true,
           "description": "Frozen git pathspecs explicitly excluded even if an allowlist glob would otherwise match (e.g. product/runtime paths)."
-        },
-        "topology": {
-          "type": "string",
-          "enum": ["serial", "parallel"],
-          "description": "Delivery topology. Auto mode may authorize 'parallel', but it uses the runner/task-worktree/cross-check contract rather than the historical parallel_mode R1-R10 checkpoint semantics."
         }
       }
-    },
-    "allowed_adapters": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": ["claude_glm", "kimi", "grok"]
-      },
-      "minItems": 1,
-      "uniqueItems": true,
-      "description": "Adapter ids the runner is allowed to invoke in this run. v1 limits the automatic loop to claude_glm, kimi, and grok; GPT/Claude are high-end and never auto-dispatched (see auto_high_end_dispatch_allowed)."
-    },
-    "review_1_provider": {
-      "type": "string",
-      "enum": ["grok", "kimi", "claude_glm"],
-      "description": "Formal review-1 provider under auto mode. Primary is grok (grok-build plan mode); serial unit fallback may be kimi or claude_glm only when the candidate provider identity is absent from that unit's author set."
     },
     "budgets": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "max_model_calls",
-        "wall_clock_seconds",
-        "max_stage_rework",
-        "max_auto_code_changes",
-        "invalid_json_max_attempts_per_model"
+        "max_auto_code_changes"
       ],
       "properties": {
         "max_model_calls": {
@@ -177,33 +144,14 @@
           "minimum": 1,
           "description": "Positive per-stage cap on model adapter calls. Each stage authorization freezes its own positive value; v1 has no global numeric default."
         },
-        "wall_clock_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Positive per-stage wall-clock budget covering one uninterrupted authorized runner session. Resume after a human stop requires renewed authorization."
-        },
-        "max_stage_rework": {
-          "type": "integer",
-          "const": 3,
-          "description": "Frozen single stage ledger. Must equal 3."
-        },
         "max_auto_code_changes": {
           "type": "integer",
           "minimum": 0,
           "maximum": 2,
-          "description": "Maximum automatic code-changing retries (blocking-fix retries plus review-1 REWORK fixes) combined. Must be at most 2, preserving at least one review-2 repair opportunity within max_stage_rework."
-        },
-        "invalid_json_max_attempts_per_model": {
-          "type": "integer",
-          "const": 2,
-          "description": "Unchanged contract value. Invalid JSON retry consumes call budget but not the rework ledger."
+          "description": "Maximum automatic code-changing retries (blocking-fix retries plus review-1 REWORK fixes) combined. Must be at most 2, preserving at least one review-2 repair opportunity within the global stage-rework cap of 3."
         }
-      }
-    },
-    "auto_high_end_dispatch_allowed": {
-      "type": "boolean",
-      "const": false,
-      "description": "Always false in v1. The automatic loop never dispatches GPT/Claude. Human-started high-end work (synthesis, breakdown, review-2) remains allowed outside the runner."
+      },
+      "description": "Per-authorization configurable caps. The stage-rework cap (3) and the invalid-JSON retry limit (2) are global workflow invariants and are NOT duplicated here; they are enforced from workflow/runtime constants and the top-level status ledger."
     },
     "supersedes": {
       "description": "Path to the prior authorization artifact this one supersedes, or null for the first version of this stage's authorization. When non-null it must be a safe repo-relative path; rejects absolute, parent-directory traversal, and CR/LF/control characters.",

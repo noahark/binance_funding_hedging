@@ -57,7 +57,7 @@ Purpose:
 Default model policy:
 
 - Use the locally configured GPT/Codex default for this Harness:
-  `gpt-5.5` with `xhigh` reasoning effort.
+  `gpt-5.6-sol` with `xhigh` reasoning effort.
 - If the local Codex CLI encodes effort through a profile or config file, the
   adapter must use that profile/config. Do not confuse `-p` with prompt input;
   Codex `-p` means profile.
@@ -69,7 +69,7 @@ Command templates:
 
 ```bash
 # Schema-bound read-only review.
-codex exec -C <repo> -m gpt-5.5 -s read-only \
+codex exec -C <repo> -m gpt-5.6-sol -s read-only \
   --output-schema schemas/review-verdict.schema.json \
   - < <prompt-file>
 
@@ -197,13 +197,14 @@ Never record the expanded alias environment; it contains credentials.
 Purpose:
 
 - Direction drafts and optional experiments when explicitly enabled.
-- Development only when explicitly enabled, using Composer 2.5.
-- Not a default Harness review gate.
+- Development only when explicitly enabled, using `grok-4.5`.
+- Auto-mode review-1 primary (plan mode) also uses `grok-4.5`.
+- Not a default manual Harness review-1 gate.
 
-Observed local model names:
+Observed local model names (2026-07 probe):
 
-- `grok-build`
-- `grok-composer-2.5-fast`
+- `grok-4.5` (default; Harness dev + review)
+- `grok-composer-2.5-fast` (still listed by CLI; not Harness default)
 
 Availability check:
 
@@ -211,39 +212,41 @@ Availability check:
 grok models
 ```
 
-Do not silently use Grok as review-1. The default review-1 gate is the
-Kimi/Claude-GLM cross-review pool. If a stage explicitly enables Grok review,
-the runner must still fail closed on timeout, invalid JSON, or missing model.
+Do not silently use Grok as manual review-1. The default manual review-1 gate is
+the Kimi/Claude-GLM cross-review pool. If a stage explicitly enables Grok review
+(or auto mode uses it as primary), the runner must still fail closed on timeout,
+invalid JSON, or missing model.
 
 Command templates:
 
 ```bash
-# Interactive Grok Build session in the repository.
-grok --cwd <repo> --model grok-build
+# Interactive Grok session in the repository.
+grok --cwd <repo> --model grok-4.5
 
-# Optional review, read-only/plan mode. Runner enforces the stage timeout.
-grok --cwd <repo> --model grok-build \
+# Optional review, read-only/plan mode. Runner enforces the registered
+# per-call timeout (grok.optional_review_timeout_seconds, 900s).
+grok --cwd <repo> --model grok-4.5 \
   --permission-mode plan \
   --effort high \
   --prompt-file <prompt-file>
 
-# Development with Composer 2.5, only when workflow enables Grok development.
-grok --cwd <repo> --model grok-composer-2.5-fast \
+# Development, only when workflow enables Grok development.
+grok --cwd <repo> --model grok-4.5 \
   --permission-mode acceptEdits \
   --check \
   --effort high \
   --prompt-file <prompt-file>
 
 # Yolo execution, only when explicitly authorized.
-grok --cwd <repo> --model grok-composer-2.5-fast \
+grok --cwd <repo> --model grok-4.5 \
   --permission-mode bypassPermissions \
   --always-approve \
   --prompt-file <prompt-file>
 ```
 
-If an explicitly enabled Grok review has no schema-valid verdict after the stage
-timeout, or the CLI process hangs, record `model_unavailable` and route to
-`human_escalation_required`.
+If an explicitly enabled Grok review has no schema-valid verdict after the
+registered per-call timeout, or the CLI process hangs, record `model_unavailable`
+and route to `human_escalation_required`.
 
 ## Kimi
 
@@ -309,7 +312,7 @@ Do not use `kimi --plan -p ...` or `kimi -y -p ...`; the current CLI returns
   model because of local invocation syntax.
 - `permission_error`: the adapter refuses the requested mode or lacks local file
   permissions.
-- `timeout`: the adapter process exceeds the stage timeout.
+- `timeout`: the adapter process exceeds its registered per-call timeout.
 - `invalid_pre_review_output`: an embedded checkpoint returns output that cannot
   be interpreted as PASS/BLOCKER/escalated evidence.
 - `scope_or_contract_dispute`: embedded review identifies a required fix outside
@@ -337,13 +340,14 @@ Under auto mode:
   commands built from model output. A model session is never the auto-loop
   dispatcher.
 - Auto review-1 uses Grok in plan mode via the existing
-  `adapters.grok.optional_review_command` (`grok-build`). Serial-unit fallback
-  uses the Kimi/Claude-GLM cross-pool only when the candidate provider is absent
-  from that unit's author set; a parallel tip has no eligible cross-pool
-  fallback and a Grok failure escalates. GPT/Claude are never auto-substituted.
-- The automatic loop is limited to `claude_glm`, `kimi`, and `grok`.
-  `auto_high_end_dispatch_allowed` is always false; human-started high-end work
-  (synthesis, breakdown, review-2) remains outside the runner.
+  `adapters.grok.optional_review_command` (`grok-4.5`). Serial fallback uses
+  the Kimi/Claude-GLM cross-pool only when the candidate provider is absent
+  from that unit's author set; when no eligible serial candidate remains, a
+  Grok failure escalates. GPT/Claude are never auto-substituted.
+- The automatic loop is limited to `claude_glm`, `kimi`, and `grok`. High-end
+  (GPT/Claude) dispatch is fixed absent by workflow policy (no per-authorization
+  flag is carried), so human-started high-end work (synthesis, breakdown,
+  review-2) remains outside the runner.
 - Adapter availability still uses the runner-level checks documented above. A
   bookkeeper or implementation session lacking a built-in tool for a model does
   not make that model unavailable.

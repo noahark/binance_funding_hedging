@@ -74,7 +74,6 @@ VALID_AUTH = {
     "stage_id": "2026-07-auto-review-pipeline-v1",
     "stage_branch": "stage/2026-07-auto-review-pipeline-v1",
     "contract_version": "auto-review-pipeline/v1",
-    "authorized": True,
     "authorized_by": "human",
     "approval_evidence_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/05-authorization.md",
     "approval_recorded_by": "operator",
@@ -84,18 +83,11 @@ VALID_AUTH = {
         "task_ids": ["T1"],
         "allowed_pathspecs": ["scripts/x.py"],
         "forbidden_pathspecs": ["secrets/y.env"],
-        "topology": "serial",
     },
-    "allowed_adapters": ["claude_glm", "kimi", "grok"],
-    "review_1_provider": "kimi",
     "budgets": {
         "max_model_calls": 20,
-        "wall_clock_seconds": 3600,
-        "max_stage_rework": 3,
         "max_auto_code_changes": 2,
-        "invalid_json_max_attempts_per_model": 2,
     },
-    "auto_high_end_dispatch_allowed": False,
     "supersedes": None,
 }
 
@@ -344,12 +336,6 @@ class AuthorizationValidatorTests(unittest.TestCase):
         errs = lib.validate_authorization_doc(d)
         self.assertTrue(any("task_ids" in e for e in errs))
 
-    def test_rework_not_three(self):
-        d = copy.deepcopy(VALID_AUTH)
-        d["budgets"]["max_stage_rework"] = 5
-        errs = lib.validate_authorization_doc(d)
-        self.assertTrue(any("max_stage_rework" in e for e in errs))
-
     def test_auto_changes_over_two(self):
         d = copy.deepcopy(VALID_AUTH)
         d["budgets"]["max_auto_code_changes"] = 3
@@ -368,11 +354,56 @@ class AuthorizationValidatorTests(unittest.TestCase):
         errs = lib.validate_authorization_doc(d)
         self.assertTrue(any("contract_version" in e for e in errs))
 
-    def test_auto_high_end_dispatch_not_false(self):
+    # serial-v1 slim shape: every withdrawn field must fail as unknown
+    # (additionalProperties: false). There is no compatibility-normalization
+    # path because v1 has not been accepted, merged, or piloted.
+    def test_removed_authorized_flag_is_unknown(self):
         d = copy.deepcopy(VALID_AUTH)
-        d["auto_high_end_dispatch_allowed"] = True
+        d["authorized"] = True
+        errs = lib.validate_authorization_doc(d)
+        self.assertTrue(any("authorized" in e for e in errs))
+
+    def test_removed_allowed_adapters_is_unknown(self):
+        d = copy.deepcopy(VALID_AUTH)
+        d["allowed_adapters"] = ["claude_glm"]
+        errs = lib.validate_authorization_doc(d)
+        self.assertTrue(any("allowed_adapters" in e for e in errs))
+
+    def test_removed_review_1_provider_is_unknown(self):
+        d = copy.deepcopy(VALID_AUTH)
+        d["review_1_provider"] = "kimi"
+        errs = lib.validate_authorization_doc(d)
+        self.assertTrue(any("review_1_provider" in e for e in errs))
+
+    def test_removed_auto_high_end_dispatch_allowed_is_unknown(self):
+        d = copy.deepcopy(VALID_AUTH)
+        d["auto_high_end_dispatch_allowed"] = False
         errs = lib.validate_authorization_doc(d)
         self.assertTrue(any("auto_high_end_dispatch_allowed" in e for e in errs))
+
+    def test_removed_scope_topology_is_unknown(self):
+        d = copy.deepcopy(VALID_AUTH)
+        d["scope"]["topology"] = "serial"
+        errs = lib.validate_authorization_doc(d)
+        self.assertTrue(any("topology" in e for e in errs))
+
+    def test_removed_wall_clock_seconds_is_unknown(self):
+        d = copy.deepcopy(VALID_AUTH)
+        d["budgets"]["wall_clock_seconds"] = 3600
+        errs = lib.validate_authorization_doc(d)
+        self.assertTrue(any("wall_clock_seconds" in e for e in errs))
+
+    def test_removed_max_stage_rework_is_unknown(self):
+        d = copy.deepcopy(VALID_AUTH)
+        d["budgets"]["max_stage_rework"] = 3
+        errs = lib.validate_authorization_doc(d)
+        self.assertTrue(any("max_stage_rework" in e for e in errs))
+
+    def test_removed_invalid_json_max_attempts_is_unknown(self):
+        d = copy.deepcopy(VALID_AUTH)
+        d["budgets"]["invalid_json_max_attempts_per_model"] = 2
+        errs = lib.validate_authorization_doc(d)
+        self.assertTrue(any("invalid_json_max_attempts_per_model" in e for e in errs))
 
 
 # ---------------------------------------------------------------------------

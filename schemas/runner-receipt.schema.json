@@ -68,7 +68,7 @@
     },
     "review_unit_id": {
       "type": ["string", "null"],
-      "description": "Review unit id this call belongs to, when applicable (task, tip, or integration unit). Always present; null only when the node has no unit (e.g. an implementation call before any unit is sealed)."
+      "description": "Review unit id this call belongs to, when applicable (v1 review units are task-only). Always present; null only when the node has no unit (e.g. an implementation call before any unit is sealed)."
     },
     "task_id": {
       "type": ["string", "null"],
@@ -178,7 +178,7 @@
     },
     "timeout": {
       "type": "boolean",
-      "description": "True if the adapter process exceeded the configured stage timeout. A timeout still consumes one call."
+      "description": "True if the adapter process exceeded its adapter-specific timeout (the registered per-adapter timeout_seconds, or a command-specific override such as grok.optional_review_timeout_seconds, from agents/registry.yaml). A timeout still consumes one call."
     },
     "call_budget": {
       "type": "object",
@@ -276,7 +276,7 @@
       }
     },
     {
-      "description": "review_1 nodes use exactly one of the three frozen review-1 routes: Grok primary (optional_review_command), or a Kimi/Claude-GLM serial-unit fallback (each provider's embedded_read_only_review_command). Schema validity alone never declares fallback eligibility; serial-only topology, author-set eligibility, parallel-tip escalation, and tip-once Grok failure remain runner/validator checks.",
+      "description": "review_1 nodes use exactly one of the three frozen review-1 routes: Grok primary (optional_review_command), or a Kimi/Claude-GLM serial-unit fallback (each provider's embedded_read_only_review_command). Schema validity alone never declares fallback eligibility; serial-only author-set eligibility and the exhausted-route escalation remain runner/validator checks.",
       "if": {
         "properties": { "node": { "const": "review_1" } },
         "required": ["node"]

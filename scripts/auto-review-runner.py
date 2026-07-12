@@ -16,10 +16,10 @@ Frozen behaviour the runner implements (transition SOURCE is the workflow
   ``awaiting_human`` + top-level ``paused``.
 - budget accounting: a model call is charged immediately before the adapter
   process starts; success / timeout / provider failure / invalid JSON / empty
-  output all cost one call; wall-clock runs from ``authorized→running`` and a
-  restart does not reset the deadline; invalid JSON retries at most once per
-  model (costs calls, not rework); auto code-changing changes share one ledger
-  capped at ``max_auto_code_changes`` (≤ 2).
+  output all cost one call; invalid JSON retries up to twice per model (costs
+  calls, not rework); auto code-changing changes share one ledger capped at
+  ``max_auto_code_changes`` (≤ 2). There is no total-session wall-clock budget;
+  each adapter call uses its registered per-adapter timeout.
 - node loop (frozen order): implementation → initial blocking (one auto fix on
   first failure, charged to the ledger; a still-failing rerun escalates) →
   embedded cross-check (run / skip / unavailable each produce an artifact) →
@@ -27,9 +27,9 @@ Frozen behaviour the runner implements (transition SOURCE is the workflow
   seal delegated to ``stage-seal.py`` → review-1.
 - review-1 routing: Grok primary (``optional_review_command``); serial-only
   fallback (Kimi/Claude-GLM embedded read-only) only when the candidate provider
-  is absent from the unit author+fix set; parallel tip has no cross-pool
-  fallback, Grok failure / repeated invalid verdict → ``human_escalation_required``
-  + ``80-*.md``; GPT/Claude are never auto-substituted.
+  is absent from the unit author+fix set; Grok primary exhaustion plus an
+  ineligible / also-failing serial fallback → ``human_escalation_required`` +
+  ``80-*.md``; GPT/Claude are never auto-substituted.
 - verdict parsing: raw stdout saved first; exactly one final-and-only
   schema-valid verdict object whose stage/role/fingerprint match the active
   unit is accepted and stored byte-unaltered; verdict-record commit never
@@ -57,7 +57,7 @@ import os
 import shlex
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -332,9 +332,16 @@ PROVIDER_OF_ADAPTER = {
     "grok": "xai_grok",
 }
 
+# Global workflow invariants (serial-only v1). The stage-rework cap and the
+# invalid-JSON retry limit are no longer per-authorization fields; they are
+# frozen AGENTS/workflow constants. Runtime caps (max_model_calls,
+# max_auto_code_changes) remain authorization-bound; status records usage only.
+MAX_STAGE_REWORK = 3
+INVALID_JSON_MAX_ATTEMPTS = 2
+
 RUNNER_STATES = {"authorized", "running", "awaiting_human", "stopped", "completed_review_1"}
 TERMINAL_ESCALATION_EVENTS = {
-    "cap_exhausted", "timeout", "budget_exhausted", "unroutable_fix", "tip_once_grok_failure",
+    "cap_exhausted", "timeout", "budget_exhausted", "unroutable_fix", "review_1_fallback_exhausted",
 }
 
 
@@ -352,7 +359,7 @@ class PreflightFailed(Exception):
 
 
 class TerminalEscalation(Exception):
-    """Cap / timeout / budget / unroutable / tip-once failure → human escalation."""
+    """Cap / timeout / budget / unroutable / review-1 fallback exhaustion → human escalation."""
 
     def __init__(self, event: str, reason: str, detail: dict[str, Any] | None = None):
         super().__init__(reason)
@@ -401,6 +408,10 @@ _REGISTRY_COMMAND_KEYS = {
     "noninteractive_command", "embedded_read_only_review_command",
     "development_command", "optional_review_command",
 }
+# adapter-level timeout fields parsed from agents/registry.yaml (4-space
+# indent, same level as command keys) so per-adapter timeouts drive subprocess
+# invocation rather than a constructor-wide default.
+_REGISTRY_TIMEOUT_KEYS = ("timeout_seconds", "optional_review_timeout_seconds")
 
 
 def _unescape_yaml_scalar(value: str) -> str:
@@ -468,12 +479,23 @@ def load_registry(root: Path, registry_path: str = "agents/registry.yaml") -> di
             continue
         if current_adapter and raw.startswith("    "):
             stripped = raw.strip()
+            matched = False
             for key in _REGISTRY_COMMAND_KEYS:
                 marker = key + ":"
                 if stripped.startswith(marker):
                     value = _unescape_yaml_scalar(stripped[len(marker):].strip())
                     registry[current_adapter]["commands"][key] = value
+                    matched = True
                     break
+            if not matched:
+                for key in _REGISTRY_TIMEOUT_KEYS:
+                    marker = key + ":"
+                    if stripped.startswith(marker):
+                        try:
+                            registry[current_adapter][key] = int(stripped[len(marker):].strip())
+                        except ValueError:
+                            pass
+                        break
     return registry
 
 
@@ -516,7 +538,7 @@ class AutoReviewRunner:
         blocking_runner: Callable[[dict[str, Any], list[str], int], int] | None = None,
         seal_module: Any | None = None,
         seal_run_validator: Callable[[Path, str], None] | None = None,
-        adapter_timeout_seconds: int = 1800,
+        timeout_override: int | None = None,
     ) -> None:
         # Resolve root + stage_dir once so every path helper (including those
         # that re-resolve via harness_stage_lib.resolve_safe_path) shares one
@@ -527,7 +549,7 @@ class AutoReviewRunner:
         self.registry = registry if registry is not None else load_registry(self.root, registry_path)
         self.invoker = invoker
         self.now = now or (lambda: datetime.now(timezone.utc))
-        self.adapter_timeout_seconds = adapter_timeout_seconds
+        self.timeout_override = timeout_override
         self.blocking_runner = blocking_runner
         self._seal = seal_module if seal_module is not None else self._load_seal_module()
         if seal_run_validator is not None:
@@ -659,17 +681,19 @@ class AutoReviewRunner:
     def _budgets(self) -> dict[str, Any]:
         return self._arp.setdefault("budgets", {})
 
-    def _auth_or_status_budget(self, key: str, default: int = 0) -> int:
-        """Runtime caps come from the AUTHORIZATION budgets (frozen, human-approved),
-        not mutable status fields. Status accumulates usage only. Falls back to the
-        status budget only before preflight has loaded the authorization."""
+    def _runtime_cap(self, key: str, default: int = 0) -> int:
+        """Runtime caps come from the AUTHORIZATION budgets (frozen,
+        human-approved). v1 serial-only status records usage only
+        (model_calls_used / auto_code_changes_used); caps are not mirrored in
+        status, so the default applies only before preflight loads the
+        authorization."""
         auth_budgets = (self._auth or {}).get("budgets") or {}
         if key in auth_budgets:
             return int(auth_budgets[key])
-        return int(self._budgets().get(key, default))
+        return default
 
     def _max_calls(self) -> int:
-        return self._auth_or_status_budget("max_model_calls")
+        return self._runtime_cap("max_model_calls")
 
     def _calls_used(self) -> int:
         return int(self._budgets().get("model_calls_used", 0))
@@ -686,7 +710,7 @@ class AutoReviewRunner:
         return before, after
 
     def _max_auto_changes(self) -> int:
-        return self._auth_or_status_budget("max_auto_code_changes", 2)
+        return self._runtime_cap("max_auto_code_changes", 2)
 
     def _auto_changes_used(self) -> int:
         return int(self._budgets().get("auto_code_changes_used", 0))
@@ -703,13 +727,12 @@ class AutoReviewRunner:
             raise TerminalEscalation("budget_exhausted", "aggregate auto code-change cap reached")
         # Single authoritative ledger (docs §Rework accounting): an automatic
         # code-changing fix also charges the top-level rework_count shared with
-        # review-2 repair, bounded by max_stage_rework.
-        max_rework = int((self._auth or {}).get("budgets", {}).get("max_stage_rework", 0) or 0)
+        # review-2 repair, bounded by the global MAX_STAGE_REWORK invariant.
         proposed_rework = int(self._status.get("rework_count", 0)) + 1
-        if max_rework and proposed_rework > max_rework:
+        if proposed_rework > MAX_STAGE_REWORK:
             raise TerminalEscalation(
                 "budget_exhausted",
-                "stage rework ledger exceeded: %d > %d" % (proposed_rework, max_rework))
+                "stage rework ledger exceeded: %d > %d" % (proposed_rework, MAX_STAGE_REWORK))
         # both within cap: apply both counters as one atomic update
         self._budgets()["auto_code_changes_used"] = proposed_auto
         self._status["rework_count"] = proposed_rework
@@ -719,8 +742,8 @@ class AutoReviewRunner:
 
         Acceptance criterion 28: a non-null authorization expiry is enforced
         throughout the run, not only during initial preflight. A null expiry
-        leaves the run bound by call/wall-clock/rework budgets (no independent
-        expiry timestamp).
+        leaves the run bound by call/rework budgets (no independent expiry
+        timestamp).
         """
         expires_at = (self._auth or {}).get("expires_at")
         if expires_at is None:
@@ -731,13 +754,33 @@ class AutoReviewRunner:
         if parsed <= self.now():
             raise TerminalEscalation("timeout", "authorization expired mid-run: " + str(expires_at))
 
-    def _check_wall_clock(self) -> None:
-        deadline = self._arp.get("run_deadline_at")
-        if not deadline:
-            return
-        parsed = lib.parse_iso8601(deadline)
-        if parsed is not None and self.now() > parsed:
-            raise TerminalEscalation("timeout", "wall-clock budget exceeded")
+    def _resolve_timeout(self, adapter_id: str, command_key: str) -> int:
+        """Per-adapter subprocess timeout from the committed registry (serial-only v1).
+
+        Production uses the registered ``adapters.<id>.timeout_seconds``,
+        overridden by a command-specific value
+        (``grok.optional_review_timeout_seconds`` for Grok review-1). A test may
+        pass an explicit ``timeout_override`` as a collaborator; otherwise the
+        constructor default never overrides the registry. No model output may
+        choose or extend a timeout. A missing or non-positive registry timeout
+        is a configuration error, not a silent 1800 fallback: preflight
+        (``_validate_registry_timeouts``) rejects it before any model call or
+        commit, and this resolver raises defensively if reached anyway.
+        """
+        if self.timeout_override is not None:
+            return int(self.timeout_override)
+        adapter = self.registry.get(adapter_id) or {}
+        if command_key == "optional_review_command":
+            override = adapter.get("optional_review_timeout_seconds")
+            if isinstance(override, int) and not isinstance(override, bool) and override > 0:
+                return override
+        default = adapter.get("timeout_seconds")
+        if isinstance(default, int) and not isinstance(default, bool) and default > 0:
+            return default
+        raise PreflightFailed(
+            "registry_timeout_invalid",
+            {"adapter": adapter_id, "command_key": command_key, "reason": "missing_or_non_positive_timeout"},
+        )
 
     # -- sequence / receipts ----------------------------------------------
 
@@ -855,8 +898,7 @@ class AutoReviewRunner:
             "- rework: auto_code_changes_used=" + str(self._auto_changes_used())
             + " max_auto_code_changes=" + str(self._max_auto_changes()),
             "- budget: model_calls_used=" + str(self._calls_used())
-            + " max_model_calls=" + str(self._max_calls())
-            + " run_deadline_at=" + str(self._arp.get("run_deadline_at")),
+            + " max_model_calls=" + str(self._max_calls()),
             "- raw_output_path: " + str(detail.get("raw_output_path")),
             "- verdict_path: " + str(detail.get("verdict_path")),
             "- receipt_path: " + str(detail.get("receipt_path")),
@@ -880,13 +922,17 @@ class AutoReviewRunner:
         Records only the reference (never the expanded command) in the receipt.
         The prompt file path is runner-resolved (safe path), never model text;
         untrusted model output lives only inside file contents read by adapters.
+        The per-adapter timeout is resolved from the registry immediately before
+        invocation (no model output chooses or extends it).
         """
         prompt_abs = self._safe_join(prompt_rel)
+        timeout = self._resolve_timeout(adapter_id, command_key)
         if self.invoker is not None:
-            return self.invoker(adapter_id, command_key, str(prompt_abs), self.adapter_timeout_seconds)
-        return self._default_invoke(adapter_id, command_key, prompt_abs)
+            return self.invoker(adapter_id, command_key, str(prompt_abs), timeout)
+        return self._default_invoke(adapter_id, command_key, prompt_abs, timeout)
 
-    def _default_invoke(self, adapter_id: str, command_key: str, prompt_abs: Path) -> InvokeResult:
+    def _default_invoke(self, adapter_id: str, command_key: str, prompt_abs: Path,
+                        timeout: int | None = None) -> InvokeResult:
         template = resolve_command_template(self.registry, adapter_id, command_key)
         # FX1 (sol P1#1): every runner-owned substituted value is shlex.quote()-
         # wrapped before insertion. The real registry uses the placeholders in two
@@ -907,12 +953,13 @@ class AutoReviewRunner:
             .replace("<prompt-file>", prompt_q)
             .replace("<repo>", repo_q)
         )
+        resolved_timeout = timeout if timeout is not None else self._resolve_timeout(adapter_id, command_key)
         started = self.now()
         try:
             proc = subprocess.run(
                 command, cwd=str(self.root), check=False, shell=True,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                timeout=self.adapter_timeout_seconds,
+                timeout=resolved_timeout,
             )
         except subprocess.TimeoutExpired:
             completed = self.now()
@@ -944,6 +991,45 @@ class AutoReviewRunner:
     # =====================================================================
     # preflight (§3.1.2)
     # =====================================================================
+
+    def _validate_unit_kinds(self) -> None:
+        """C2: runner-side task-only preflight (serial-only v1).
+
+        v1 runs a single ``task`` review unit. Any live review unit whose
+        ``kind`` is not exactly ``task`` is rejected before any model call or
+        commit. This is the runner's own gate; it does not rely on the operator
+        running ``validate-stage.py`` first.
+        """
+        for unit in self._ordered_units():
+            if unit.get("kind") != "task":
+                raise PreflightFailed("non_task_unit", {
+                    "unit": unit.get("id"), "kind": unit.get("kind"),
+                })
+
+    def _validate_registry_timeouts(self) -> None:
+        """C1: every auto-loop adapter timeout must be a positive integer.
+
+        Validates the timeouts the automatic loop actually resolves:
+        ``claude_glm``/``kimi``/``grok`` ``timeout_seconds`` and Grok review-1's
+        ``optional_review_timeout_seconds``. A missing, boolean, zero, or
+        negative value fails closed during preflight — before any model call or
+        commit — instead of silently installing a shared 1800 fallback. An
+        explicit test ``timeout_override`` bypasses resolution at invocation
+        only; it is never a production default and does not waive this gate.
+        """
+        required = (
+            ("claude_glm", "timeout_seconds"),
+            ("kimi", "timeout_seconds"),
+            ("grok", "timeout_seconds"),
+            ("grok", "optional_review_timeout_seconds"),
+        )
+        for adapter_id, key in required:
+            adapter = self.registry.get(adapter_id) or {}
+            value = adapter.get(key)
+            if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                raise PreflightFailed("registry_timeout_invalid", {
+                    "adapter": adapter_id, "key": key, "value": value,
+                })
 
     def preflight(self) -> None:
         """Run all preflight gates. Raises ``PreflightFailed`` on any failure."""
@@ -999,34 +1085,31 @@ class AutoReviewRunner:
         for key in ("task_ids", "allowed_pathspecs", "forbidden_pathspecs"):
             if scope.get(key) is None:
                 raise PreflightFailed("scope_mismatch", {"field": key})
+        # C2: runner-side task-only preflight (serial-only v1). Any review unit
+        # whose kind is not exactly ``task`` is rejected before any model call or
+        # commit, independent of validate-stage.py.
+        self._validate_unit_kinds()
         # F2: bind authorized scope to live review units exactly — any unit/path
         # exceeding the authorization set fails closed.
         self._verify_authorization_binding(auth)
-        # budgets present + frozen values
+        # budgets present + frozen values. v1 serial-only authorization carries
+        # only the two runtime caps (max_model_calls, max_auto_code_changes);
+        # wall_clock_seconds, max_stage_rework, and invalid_json_max_attempts
+        # were withdrawn to global invariants (16-serial-v1-slimming-design).
         budgets = auth.get("budgets") or {}
-        for key in ("max_model_calls", "wall_clock_seconds", "max_stage_rework", "max_auto_code_changes", "invalid_json_max_attempts_per_model"):
+        for key in ("max_model_calls", "max_auto_code_changes"):
             if key not in budgets:
                 raise PreflightFailed("budget_mismatch", {"field": key})
-        # FX6: exact-bind the LEDGER cap values (max_stage_rework,
-        # max_auto_code_changes) between authorization and live status — these
-        # frozen rework/auto-change ledger fields must be shared exactly by both
-        # records. The runtime caps (max_model_calls, wall_clock_seconds) are
-        # deliberately NOT bound here: the frozen contract is that runtime caps
-        # come FROM the authorization (see
-        # test_runtime_caps_come_from_authorization_not_status), so the status
-        # copy is a non-authoritative mirror that may legitimately diverge.
-        # invalid_json_max_attempts_per_model is auth-only; *_used are
-        # status-only. See the FX6 blocker note in 20-implementation.md.
-        live_budgets = self._arp.get("budgets") or {}
-        for key in ("max_stage_rework", "max_auto_code_changes"):
-            if budgets.get(key) != live_budgets.get(key):
-                raise PreflightFailed("budget_mismatch", {"field": key, "auth": budgets.get(key), "status": live_budgets.get(key)})
-        # adapter authority
-        allowed_adapters = set(auth.get("allowed_adapters") or [])
-        if not allowed_adapters.issuperset({"claude_glm", "kimi", "grok"}):
-            raise PreflightFailed("adapter_authority", {"allowed": sorted(allowed_adapters)})
-        if auth.get("auto_high_end_dispatch_allowed") is not False:
-            raise PreflightFailed("high_end_dispatch_not_disabled", {})
+        # C1: every auto-loop adapter timeout must be a positive integer in the
+        # committed registry (serial-only v1). Missing/boolean/zero/negative
+        # fails closed before any model call or commit — no silent 1800 fallback.
+        self._validate_registry_timeouts()
+        # FX6 (serial-only v1): caps come FROM the authorization and the global
+        # workflow invariants (MAX_STAGE_REWORK / INVALID_JSON_MAX_ATTEMPTS);
+        # status records usage only, so there is no status-side cap mirror to
+        # exact-bind. Adapter authority (claude_glm/kimi/grok) and the
+        # high-end-dispatch-disabled flag are fixed workflow/registry policy,
+        # not per-authorization fields. See 16-serial-v1-slimming-design.
         # exclusive worktree: foreign dirty paths must be inside the active allowlist or stage dir
         dirty = self._porcelain()
         stage_prefix = self._stage_rel()
@@ -1065,8 +1148,8 @@ class AutoReviewRunner:
 
         Every live review unit id must be within ``scope.task_ids``; each unit's
         ``code_pathspecs`` must be inside ``allowed_pathspecs`` and outside
-        ``forbidden_pathspecs``. Any excess fails closed. Topology is compared
-        only when the live status records one.
+        ``forbidden_pathspecs``. Any excess fails closed. v1 is serial-only;
+        topology is not an authorization scope field.
         """
         scope = auth.get("scope") or {}
         auth_tasks = set(scope.get("task_ids") or [])
@@ -1082,9 +1165,6 @@ class AutoReviewRunner:
         absent = sorted(auth_tasks - live_ids)
         if absent:
             raise PreflightFailed("scope_mismatch", {"authorized_but_absent": absent})
-        live_topology = self._arp.get("topology")
-        if live_topology is not None and scope.get("topology") != live_topology:
-            raise PreflightFailed("scope_mismatch", {"auth_topology": scope.get("topology"), "live_topology": live_topology})
         allowed = scope.get("allowed_pathspecs") or []
         forbidden = scope.get("forbidden_pathspecs") or []
         for unit in live_units:
@@ -1109,9 +1189,11 @@ class AutoReviewRunner:
         """Acquire an exclusive, runtime-only active-runner lock under git metadata.
 
         Uses ``fcntl.flock(LOCK_EX|LOCK_NB)`` so the lock is process-held and
-        auto-released on process exit or crash (never committed). A held lock is
-        a recoverable preflight failure (awaiting_human + paused). The lock file
-        body records pid/stage/timestamp for diagnostics.
+        auto-released on process exit or crash (never committed). On contention
+        the loser raises ``runner_lock_busy`` and the caller returns a
+        ``lock_busy`` RunResult + stderr line with ZERO writes (no transition,
+        no persist), so it cannot pollute the winner's run. The lock file body
+        records pid/stage/timestamp for diagnostics.
         """
         lock_path = self._git_dir() / "harness-runner.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1148,7 +1230,7 @@ class AutoReviewRunner:
         self._arp.setdefault("runner_version", "auto-review-pipeline/v1")
         self._arp.setdefault("schema_version", 1)
         # F6: acquire the exclusive active-runner lock before any state change.
-        # Contention is a recoverable preflight failure (awaiting_human + paused).
+        # Contention returns lock_busy to the loser with zero writes (FX4).
         try:
             self._acquire_runner_lock()
         except PreflightFailed as exc:
@@ -1189,11 +1271,10 @@ class AutoReviewRunner:
             # successful_full_preflight: authorized -> running
             self._record_transition("successful_full_preflight", "auto_review", "authorized", "auto_review", "running")
             self._set_state("running", "auto_review")
-            self._init_wall_clock()
             self._persist()
         else:
-            # resume from running: re-validate binding/expiry (no transition, no
-            # wall-clock reset) then continue the unit loop idempotently.
+            # resume from running: re-validate binding/expiry (no transition)
+            # then continue the unit loop idempotently.
             try:
                 self.preflight()
             except PreflightFailed as exc:
@@ -1233,19 +1314,6 @@ class AutoReviewRunner:
         except RecoverableFallback as exc:
             self._handle_recoverable(exc)
             return RunResult(ran=True, terminal="awaiting_human", reason=exc.reason)
-
-    def _init_wall_clock(self) -> None:
-        # wall-clock budget comes from the authorization (frozen), not status.
-        wall = int(self._auth_or_status_budget("wall_clock_seconds") or 0)
-        started = self._arp.get("run_started_at")
-        if not started:
-            started = self._iso(self.now())
-            self._arp["run_started_at"] = started
-        # a restart does not reset the deadline
-        if not self._arp.get("run_deadline_at") and wall > 0:
-            started_dt = lib.parse_iso8601(started)
-            base = started_dt if started_dt is not None else self.now()
-            self._arp["run_deadline_at"] = self._iso(base + timedelta(seconds=wall))
 
     def _ordered_units(self) -> list[dict[str, Any]]:
         units = self._arp.get("review_units") or []
@@ -1325,7 +1393,7 @@ class AutoReviewRunner:
                 # re-run the node pipeline for the same unit after a code change
                 continue
             # BLOCKED or any non-acceptance escalates
-            raise TerminalEscalation("tip_once_grok_failure", "review-1 returned non-acceptance: " + str(outcome),
+            raise TerminalEscalation("review_1_fallback_exhausted", "review-1 returned non-acceptance: " + str(outcome),
                                      {"review_unit_id": unit_id})
 
     # -- implementation node ----------------------------------------------
@@ -1340,7 +1408,6 @@ class AutoReviewRunner:
             self._implementation_prompt(unit),
         )
         before, after = self._charge_call()
-        self._check_wall_clock()
         self._check_authorization_expiry()
         started = self._iso(self.now())
         result = self._invoke(adapter_id, command_key, prompt_rel)
@@ -1516,7 +1583,6 @@ class AutoReviewRunner:
             self._cross_check_prompt(unit),
         )
         before, after = self._charge_call()
-        self._check_wall_clock()
         self._check_authorization_expiry()
         started = self._iso(self.now())
         result = self._invoke(adapter_id, command_key, prompt_rel)
@@ -1604,15 +1670,12 @@ class AutoReviewRunner:
             unit, "grok", REVIEW_1_PRIMARY["command_key"], REVIEW_1_PRIMARY["command_ref"], round_no)
         if outcome in ("ACCEPT", "REWORK", "BLOCKED"):
             return outcome
-        # primary exhausted (2 schema-invalid attempts) → route by topology
-        if self._auth.get("scope", {}).get("topology") == "parallel":
-            # parallel tip: no cross-pool fallback
-            raise TerminalEscalation("tip_once_grok_failure",
-                                     "parallel tip Grok failure with no cross-pool fallback",
-                                     {"review_unit_id": unit_id})
+        # primary exhausted (2 schema-invalid attempts) → serial-only fallback.
+        # v1 is serial-only: there is no parallel-tip branch, so a Grok failure
+        # always proceeds to the serial Kimi/Claude-GLM fallback pool.
         candidate = self._serial_fallback_candidate(unit)
         if candidate is None:
-            raise TerminalEscalation("tip_once_grok_failure",
+            raise TerminalEscalation("review_1_fallback_exhausted",
                                      "no eligible serial fallback candidate",
                                      {"review_unit_id": unit_id})
         outcome = self._run_review_model(
@@ -1620,18 +1683,18 @@ class AutoReviewRunner:
             fallback=True)
         if outcome in ("ACCEPT", "REWORK", "BLOCKED"):
             return outcome
-        raise TerminalEscalation("tip_once_grok_failure",
+        raise TerminalEscalation("review_1_fallback_exhausted",
                                  "serial fallback also failed to produce an accepting verdict",
                                  {"review_unit_id": unit_id})
 
     def _run_review_model(self, unit: dict[str, Any], adapter_id: str, command_key: str,
                           command_ref: str, round_no: int, *, fallback: bool = False) -> str:
-        """Run one review model up to ``invalid_json_max_attempts_per_model`` attempts.
+        """Run one review model up to ``INVALID_JSON_MAX_ATTEMPTS`` attempts.
 
         Each attempt charges one call. Returns the first ACCEPT/REWORK/BLOCKED
         verdict, or ``"INVALID"`` if every attempt produced no schema-valid verdict.
         """
-        max_attempts = int(self._auth.get("budgets", {}).get("invalid_json_max_attempts_per_model", 2) or 2)
+        max_attempts = INVALID_JSON_MAX_ATTEMPTS
         for attempt in range(1, max_attempts + 1):
             outcome = self._review_attempt(unit, adapter_id, command_key, command_ref,
                                            round_no, attempt, fallback=fallback)
@@ -1654,7 +1717,6 @@ class AutoReviewRunner:
             self._review_prompt(unit, fallback),
         )
         before, after = self._charge_call()
-        self._check_wall_clock()
         self._check_authorization_expiry()
         started = self._iso(self.now())
         result = self._invoke(adapter_id, command_key, prompt_rel)
@@ -1837,7 +1899,6 @@ class AutoReviewRunner:
             self._fix_prompt(unit, owner_adapter, owner_findings, verdict_doc, trigger),
         )
         before, after = self._charge_call()
-        self._check_wall_clock()
         self._check_authorization_expiry()
         started = self._iso(self.now())
         result = self._invoke(owner_adapter, command_key, prompt_rel)

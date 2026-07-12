@@ -22,7 +22,7 @@ validation. Where this document is silent, the manual rules in `AGENTS.md` and
 - `embedded cross-check`: advisory cheap-model cross-read (e.g. GLM↔Kimi).
   **Not** formal review-1. **Not** validator `--phase pre-review`.
 - `review-1`: formal first gate. Under auto mode the primary is Grok
-  (`grok-build`, plan mode).
+  (`grok-4.5`, plan mode).
 - `review-2`: final human-started high-end gate. Unchanged by this mode.
 - `seal`: clean snapshot commit of the review snapshot plus the existing
   `diff_fingerprint` fields.
@@ -30,8 +30,9 @@ validation. Where this document is silent, the manual rules in `AGENTS.md` and
   seal). It is **not** a fingerprint and is not recorded as a hash.
 - `code-scope`: diff pathspec excluding `reports/agent-runs/<stage-id>/`
   evidence paths, used for the bind check.
-- `review unit`: one formal review-1 subject: a task range or a tip/integration
-  range, each with an explicit author-provider set.
+- `review unit`: one formal review-1 subject: a task range with an explicit
+  author-provider set. v1 is serial and `task`-only; `tip`/`integration` units
+  are deferred to a future version.
 
 Use `review-1`, `review-2`, and `embedded cross-check` only. Historical
 synonyms for review-1 and bare `pre-review` (for model activity) are forbidden
@@ -68,17 +69,23 @@ Required authorization semantics:
 - `authorized_by` must be human; `approval_evidence_path` must point to the
   committed operator approval receipt; `approval_recorded_by` must identify the
   non-implementer bookkeeper that recorded it. Model claims are invalid.
-- `authorized` must be true and `auto_high_end_dispatch_allowed` must be false.
-- Frozen budgets: `max_stage_rework` equals 3, `max_auto_code_changes` is at
-  most 2, and `invalid_json_max_attempts_per_model` equals 2.
+- Adapter authority is fixed by the committed workflow/registry: the auto loop
+  is Grok-primary with eligible serial Kimi/GLM fallback, and high-end
+  (GPT/Claude) dispatch is absent. No per-authorization `allowed_adapters`,
+  `review_1_provider`, or `auto_high_end_dispatch_allowed` field is carried.
+- Authorization carries two configurable caps: `max_model_calls` and
+  `max_auto_code_changes` (at most 2). `max_stage_rework` (3) and
+  `invalid_json_max_attempts_per_model` (2) are global workflow/runtime
+  invariants, not per-authorization fields; the top-level `rework_count` ledger
+  is bounded by the stage-rework invariant of 3.
 - `expires_at` is required and nullable. `null` means there is no independent
   authorization-expiry timestamp — it is **not** unlimited authorization; the
-  run remains bound by call-count budgets, wall-clock budgets, the rework
+  run remains bound by call-count budgets, the rework
   ledger, operator stop, and stage gates. A non-null ISO8601 value must be
   later than the current time before every model invocation and git commit. A
   missing `expires_at` field is invalid.
-- Any change to scope, adapters, budgets, topology, or expiry requires a new
-  versioned artifact whose `supersedes` points to the prior one.
+- Any change to scope, budgets, or expiry requires a new versioned artifact
+  whose `supersedes` points to the prior one.
 - The runner refuses an expired artifact or a stage/branch mismatch before any
   model invocation or commit.
 - The authorization artifact is never generated or edited by an implementer.
@@ -102,8 +109,8 @@ executed. Narrative handoff is generated from deterministic templates.
 ## 4. Status Shape and Transition Matrix
 
 `auto_review_pipeline` is a nested status contract. It does not add top-level
-Harness statuses. Shape (numbers illustrate shape only; each stage
-authorization freezes its own positive call/wall-clock values):
+Harness statuses. Shape (status records usage only; the two configurable caps
+live in the authorization artifact):
 
 ```json
 {
@@ -121,13 +128,7 @@ authorization freezes its own positive call/wall-clock values):
       "verified": true
     },
     "budgets": {
-      "max_model_calls": 12,
       "model_calls_used": 0,
-      "wall_clock_seconds": 3600,
-      "run_started_at": null,
-      "run_deadline_at": null,
-      "max_stage_rework": 3,
-      "max_auto_code_changes": 2,
       "auto_code_changes_used": 0
     },
     "mode_history": [],
@@ -162,13 +163,13 @@ not a sixth `runner_state` value.
 | auto_review | awaiting_human→authorized | new/superseding human authorization | clear pending flip and rerun full preflight |
 | auto_review | running→stopped | operator stop | no further calls |
 | auto_review | running→completed_review_1 | all required units ACCEPT | stop before review-2 |
-| auto_review | running→awaiting_human | cap, timeout, budget, unroutable fix, or tip-once Grok failure | top-level `human_escalation_required`, write `80-*.md`, stop |
+| auto_review | running→awaiting_human | cap, timeout, budget, unroutable fix, or Grok serial-fallback exhaustion | top-level `human_escalation_required`, write `80-*.md`, stop |
 
 No automatic transition from a failed auto path directly into model dispatch in
 human mode is allowed. The runner records the pending mode flip or terminal
 escalation and stops; human action is required to resume.
 
-### Call and wall-clock accounting
+### Call accounting
 
 - A model call is charged immediately before starting a registry adapter
   process.
@@ -177,11 +178,11 @@ escalation and stops; human action is required to resume.
 - Pure local availability probes and git/test commands do not consume
   model-call budget but do produce evidence when used for routing.
 - Invalid JSON retry consumes calls but not rework.
-- Wall-clock starts when the runner changes `authorized` to `running` and
-  includes all automatic work until stop/completion.
-- A process restart does not reset the deadline.
-- Resume after `awaiting_human` requires new authorization and a newly frozen
-  budget; historical usage remains recorded.
+- Per-call subprocess timeout comes from the committed registry
+  (`adapters.<id>.timeout_seconds`, or a command-specific override); there is no
+  total runner-session deadline.
+- Resume after `awaiting_human` requires new authorization; historical usage
+  remains recorded.
 
 ### Rework accounting
 
@@ -198,23 +199,26 @@ One top-level `rework_count` remains authoritative.
 ## 5. Budgets
 
 Each stage authorization freezes its own positive `max_model_calls` and
-`wall_clock_seconds`; v1 has no global numeric defaults beyond the frozen
-rework values:
+`max_auto_code_changes` — the only two per-authorization caps. The remaining
+limits are global workflow/runtime invariants, not per-authorization fields:
 
 ```text
-max_stage_rework = 3                         # single stage ledger
-max_auto_code_changes <= 2                   # all automatic code-changing retries combined
-invalid_json_max_attempts_per_model = 2      # unchanged; consumes calls, not rework
+MAX_STAGE_REWORK = 3                         # top-level rework_count ledger, shared with review-2
+max_auto_code_changes <= 2                   # per-authorization; all automatic code-changing retries combined
+INVALID_JSON_MAX_ATTEMPTS = 2                # consumes calls, not rework
 ```
 
-Cap, timeout, budget exhaustion, unroutable fix, or tip-once Grok failure route
+Status records usage only (`model_calls_used`, `auto_code_changes_used`); caps
+are not mirrored in status.
+
+Cap, timeout, budget exhaustion, unroutable fix, or Grok serial-fallback exhaustion route
 to `human_escalation_required` plus an `80-*.md` escalation artifact.
 
 ## 6. Worktree and Task Topology
 
-### Exclusive integration worktree
+### Exclusive runner worktree
 
-The runner owns one integration worktree attached to the stage branch. Auto
+The runner owns one exclusive worktree attached to the stage branch. Auto
 preflight verifies:
 
 - exact branch match;
@@ -224,44 +228,25 @@ preflight verifies:
 - stage status and authorization reference agree.
 
 The lock is runtime-only under git metadata and is never committed. Auto mode
-refuses a shared, wrong-branch, or dirty integration worktree outside the
-explicitly allowed phase.
+refuses a shared, wrong-branch, or dirty worktree outside the explicitly
+allowed phase.
 
-### Serial topology
+### Serial topology (v1)
 
-Each task runs to review-1 ACCEPT before the next task begins. For task `T`:
+v1 is serial-only. Each task runs to review-1 ACCEPT before the next task
+begins. For task `T`:
 
-1. runner freezes `T.base_sha` at current integration HEAD;
-2. implementer writes allowed paths;
-3. blocking checks run;
-4. optional/required embedded cross-check runs;
-5. the same frozen blocking command set reruns after cross-check evidence lands;
-6. seal produces `T.head_sha` and fingerprint;
-7. Grok reviews unit `T`;
-8. verdict-record commit lands outcome;
-9. REWORK loops only within `T`; ACCEPT unlocks the next task.
+1. runner freezes `T.base_sha` at current HEAD;
+2. blocking checks run;
+3. optional/required embedded cross-check runs;
+4. the same frozen blocking command set reruns after cross-check evidence lands;
+5. seal produces `T.head_sha` and fingerprint;
+6. Grok reviews unit `T`;
+7. verdict-record commit lands outcome;
+8. REWORK loops only within `T`; ACCEPT unlocks the next task.
 
-After the last task, the runner computes a code-scope diff from the last task
-head to candidate final code head. Evidence/status-only changes do not create an
-integration unit. A non-empty code-scope diff creates one required integration
-unit.
-
-### Parallel topology
-
-Initial implementation uses isolated task worktrees/branches from a common
-base. Models never commit. The runner checks each task boundary and blocking
-evidence, creates runner-owned task commits, applies task commits without
-committing in frozen task-id order, rejects conflicts or out-of-bound
-integration as escalation, performs required per-task embedded cross-checks and
-binds each task's code-scope/pathspec against the integrated uncommitted tip,
-reruns the frozen unified blocking checks after cross-check evidence lands,
-seals one integrated tip review unit, and sends that unit once to Grok
-review-1.
-
-For v1, a tip REWORK that spans owners is fixed serially in the integration
-worktree, one frozen domain assignment at a time. Parallel multi-owner fix
-writes are deferred. After all owners finish, the runner reruns unified checks,
-cross-check/bind, and seal.
+Automatic parallel task worktrees, parallel-tip routing, and integration review
+units are deferred to a future version after real serial pilots.
 
 ## 7. Blocking Checks and Embedded Cross-Check
 
@@ -270,9 +255,8 @@ cross-check/bind, and seal.
 The stage design/authorization records `required_attempt` explicitly. The
 runner does not infer "high contract risk" from prose.
 
-- parallel/two-owner: required attempt;
 - explicitly high-contract-risk: required attempt;
-- other serial/single-owner: optional.
+- other single-owner: optional.
 
 An unavailable required cross-check is fail-open for review-1 but must produce
 an unavailable artifact and set bind to `N/A`.
@@ -403,7 +387,7 @@ Each status review unit contains:
 }
 ```
 
-`kind` is `task`, `tip`, or `integration`. Review-1 eligibility is evaluated
+`kind` is `task` in v1. Review-1 eligibility is evaluated
 against the full `author_provider_identities` set, including every fix author
 who changed the current snapshot.
 
@@ -422,12 +406,12 @@ Only then may the runner stop at `completed_review_1` for human review-2.
 
 ### Primary and fallback
 
-- Auto primary: `grok` / `grok-build` plan mode, via the existing
+- Auto primary: `grok` / `grok-4.5` plan mode, via the existing
   `adapters.grok.optional_review_command`.
-- Serial task fallback: existing cross-pool candidate only if its normalized
-  provider identity is absent from that unit's author set.
-- Parallel tip: Kimi/GLM cross-pool is ineligible when both authored code; Grok
-  failure or repeated invalid verdict escalates.
+- Serial fallback: an eligible Kimi/GLM cross-pool candidate is used only if its
+  normalized provider identity is absent from that unit's author set.
+- When no eligible serial candidate remains, Grok failure or repeated invalid
+  verdict escalates via `review_1_fallback_exhausted`.
 - GPT/Claude are never automatically substituted.
 
 ### Output parsing
@@ -464,7 +448,7 @@ Routing uses `findings[].file` plus frozen task ownership. Missing/ambiguous
 paths, shared-contract changes, or cross-boundary requirements are unroutable
 and escalate. The runner never guesses from natural-language title text.
 
-In v1, owners modify the integration worktree serially. Each owner receives a
+In v1, owners modify the exclusive worktree serially. Each owner receives a
 fresh bounded session and produces a separate fix report/receipt. Unified tests
 and reseal occur only after every assigned owner finishes.
 
@@ -506,10 +490,10 @@ Required content:
   amendment, or terminal human escalation).
 
 Status records `last_escalation_path` and changes the runner substate to
-`awaiting_human`. Cap, timeout, budget, unroutable fix, and tip-once Grok
-failure always set top-level `human_escalation_required`. Recoverable
-preflight/mode-fallback conditions use existing top-level `paused` until the
-human chooses a mode.
+`awaiting_human`. Cap, timeout, budget, unroutable fix, and Grok
+serial-fallback exhaustion always set top-level `human_escalation_required`.
+Recoverable preflight/mode-fallback conditions use existing top-level `paused`
+until the human chooses a mode.
 
 ## 14. Pilot Evaluation Contract
 
@@ -530,7 +514,7 @@ Minimum fields:
   controlled escalation drill was exercised;
 - expected runner calls/RECEIPTs, schema-valid RECEIPTs, missing RECEIPTs, and
   the completeness rate;
-- model calls, wall-clock usage, automatic code-change charges, and the final
+- model calls, automatic code-change charges, and the final
   stage outcome.
 
 Pilot/default-flip rules:
@@ -563,12 +547,12 @@ operator decision that requires the two pilot artifacts above.
 | Frozen item | Realization in this contract |
 |---|---|
 | D1 | Embedded cross-check before H_snapshot plus byte-equality bind (§7, §8) |
-| D2 | Serial task units; parallel tip unit; code-only integration-unit detection (§6, §9) |
+| D2 | Serial task-only units; tip / integration units deferred past v1 (§6, §9) |
 | D3 | Explicit `required_attempt`; unavailable/skip evidence and bind N/A (§7) |
 | D4 | One rework ledger; aggregate auto code-change budget ≤2 (§4, §5) |
-| D5 | Exclusive integration worktree and evidence-backed human mode flip (§6, §4) |
+| D5 | Exclusive runner worktree and evidence-backed human mode flip (§6, §4) |
 | D6 | Runner is sole automatic adapter invoker (§3) |
-| D7 | Grok auto primary; unit-aware serial fallback; tip escalation (§10) |
+| D7 | Grok auto primary; eligible serial fallback; fallback-exhaustion escalation (§10) |
 | D8 | Default-off versioned opt-in plus later two-pilot gate (§2, §14) |
 | D9 | HIGH stage under frozen task/design/ADR and required breakdown |
 | D10 | Implementers never commit or write authoritative status in auto mode (§3) |
@@ -581,7 +565,7 @@ operator decision that requires the two pilot artifacts above.
 | P5 | Verdict-record commit after frozen snapshot (§10) |
 | P6 | Path/owner routing and serialized v1 multi-owner fixes (§11) |
 | P7 | One blocking retry, charged to the shared ledger (§4, §5) |
-| P8 | Required per-stage call and wall-clock authorization budgets (§2, §5) |
+| P8 | Required per-stage call authorization budgets (§2, §5) |
 | P9 | No automatic GPT/Claude invocation (§3, §10) |
 | P10 | Harness-only file boundary and product-path negative check |
 | P11 | Two pilot metrics artifacts: Grok validity rate, escalation shape, RECEIPT completeness (§14) |

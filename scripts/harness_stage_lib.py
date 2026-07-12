@@ -347,20 +347,24 @@ NEXT_TRANSITIONS = {
 # frozen authorization contract constants
 # ---------------------------------------------------------------------------
 
+# v1 serial-only slim shape. Removed fields (authorized, allowed_adapters,
+# review_1_provider, auto_high_end_dispatch_allowed, scope.topology,
+# budgets.wall_clock_seconds, budgets.max_stage_rework,
+# budgets.invalid_json_max_attempts_per_model) are intentionally absent from
+# these sets so additionalProperties:false / the unknown-field check rejects any
+# stale artifact carrying one of them. The stage-rework cap (3), invalid-JSON
+# retry limit (2), allowed-adapter set, review-1 provider route, and
+# high-end-dispatch flag are global workflow/registry invariants, not
+# per-authorization fields.
 AUTH_REQUIRED: list[str] = [
     "schema_version", "stage_id", "stage_branch", "contract_version",
-    "authorized", "authorized_by", "approval_evidence_path",
+    "authorized_by", "approval_evidence_path",
     "approval_recorded_by", "authorized_at", "expires_at", "scope",
-    "allowed_adapters", "review_1_provider", "budgets",
-    "auto_high_end_dispatch_allowed", "supersedes",
+    "budgets", "supersedes",
 ]
-AUTH_ALLOWED_ADAPTERS = {"claude_glm", "kimi", "grok"}
-AUTH_REVIEW_1_PROVIDERS = {"grok", "kimi", "claude_glm"}
-AUTH_TOPOLOGIES = {"serial", "parallel"}
-AUTH_SCOPE_KEYS = {"task_ids", "allowed_pathspecs", "forbidden_pathspecs", "topology"}
+AUTH_SCOPE_KEYS = {"task_ids", "allowed_pathspecs", "forbidden_pathspecs"}
 AUTH_BUDGET_KEYS = {
-    "max_model_calls", "wall_clock_seconds", "max_stage_rework",
-    "max_auto_code_changes", "invalid_json_max_attempts_per_model",
+    "max_model_calls", "max_auto_code_changes",
 }
 
 
@@ -408,15 +412,9 @@ def validate_authorization_doc(doc: Any) -> list[str]:
     # contract_version const
     if doc.get("contract_version") != "auto-review-pipeline/v1":
         errors.append("authorization.contract_version must be 'auto-review-pipeline/v1'")
-    # authorized const true
-    if "authorized" in doc and doc["authorized"] is not True:
-        errors.append("authorization.authorized must be const true")
     # authorized_by const human
     if doc.get("authorized_by") != "human":
         errors.append("authorization.authorized_by must be const 'human'")
-    # auto_high_end_dispatch_allowed const false
-    if "auto_high_end_dispatch_allowed" in doc and doc["auto_high_end_dispatch_allowed"] is not False:
-        errors.append("authorization.auto_high_end_dispatch_allowed must be const false")
 
     # stage_id
     if "stage_id" in doc and not (_is_str(doc["stage_id"]) and doc["stage_id"].strip()):
@@ -446,20 +444,8 @@ def validate_authorization_doc(doc: Any) -> list[str]:
     if "supersedes" in doc and not is_safe_repo_relative_path(doc["supersedes"], nullable=True):
         errors.append("authorization.supersedes must be null or a safe repo-relative path")
 
-    # allowed_adapters
-    if "allowed_adapters" in doc:
-        aa = doc["allowed_adapters"]
-        if not isinstance(aa, list) or not aa or not _is_unique_list(aa):
-            errors.append("authorization.allowed_adapters must be a non-empty unique list")
-        else:
-            bad = [a for a in aa if a not in AUTH_ALLOWED_ADAPTERS]
-            if bad:
-                errors.append("authorization.allowed_adapters has unknown values: " + ", ".join(sorted(map(str, bad))))
-    # review_1_provider
-    if "review_1_provider" in doc and doc["review_1_provider"] not in AUTH_REVIEW_1_PROVIDERS:
-        errors.append("authorization.review_1_provider must be one of grok/kimi/claude_glm")
-
     # scope
+
     if "scope" in doc:
         scope = doc["scope"]
         if not isinstance(scope, dict):
@@ -480,8 +466,6 @@ def validate_authorization_doc(doc: Any) -> list[str]:
             forbidden = scope.get("forbidden_pathspecs")
             if "forbidden_pathspecs" in scope and not (isinstance(forbidden, list) and _is_unique_list(forbidden) and all(_is_str(p) and p for p in forbidden)):
                 errors.append("authorization.scope.forbidden_pathspecs must be a unique list of non-empty strings")
-            if "topology" in scope and scope["topology"] not in AUTH_TOPOLOGIES:
-                errors.append("authorization.scope.topology must be 'serial' or 'parallel'")
 
     # budgets
     if "budgets" in doc:
@@ -497,14 +481,8 @@ def validate_authorization_doc(doc: Any) -> list[str]:
                     errors.append("authorization.budgets missing required field: " + key)
             if "max_model_calls" in budgets and not (_is_int(budgets["max_model_calls"]) and budgets["max_model_calls"] >= 1):
                 errors.append("authorization.budgets.max_model_calls must be an integer >= 1")
-            if "wall_clock_seconds" in budgets and not (_is_int(budgets["wall_clock_seconds"]) and budgets["wall_clock_seconds"] >= 1):
-                errors.append("authorization.budgets.wall_clock_seconds must be an integer >= 1")
-            if "max_stage_rework" in budgets and not (_is_int(budgets["max_stage_rework"]) and budgets["max_stage_rework"] == 3):
-                errors.append("authorization.budgets.max_stage_rework must be const 3")
             if "max_auto_code_changes" in budgets and not (_is_int(budgets["max_auto_code_changes"]) and 0 <= budgets["max_auto_code_changes"] <= 2):
                 errors.append("authorization.budgets.max_auto_code_changes must be an integer in [0, 2]")
-            if "invalid_json_max_attempts_per_model" in budgets and not (_is_int(budgets["invalid_json_max_attempts_per_model"]) and budgets["invalid_json_max_attempts_per_model"] == 2):
-                errors.append("authorization.budgets.invalid_json_max_attempts_per_model must be const 2")
 
     return errors
 

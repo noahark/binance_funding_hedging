@@ -45,15 +45,20 @@
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-serial-v1-slimming-claude-glm.prompt.md"
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-serial-v1-slimming-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/18-bookkeeper-inspection-T4.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-bookkeeper-correction-round1-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/19-model-routing-convergence-operator-decision.md"
   ],
   "contract_amendment": {
     "id": "serial-v1-slimming",
-    "status": "implementation_packet_bound_awaiting_human_dispatch",
+    "status": "combined_scope_verified_ready_for_evidence_commit",
     "authority": "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
     "design": "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
     "breakdown": "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
     "implementation_packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-serial-v1-slimming-claude-glm.prompt.md",
+    "inspection": "reports/agent-runs/2026-07-auto-review-pipeline-v1/18-bookkeeper-inspection-T4.md",
+    "correction_packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-bookkeeper-correction-round1-claude-glm.prompt.md",
     "scope": [
       "remove unimplemented auto parallel topology",
       "remove redundant authorization fields",
@@ -61,6 +66,7 @@
       "use registry per-adapter and per-command timeouts",
       "add cold-history startup read budget",
       "fix adjacent duplicate-test and stale-docstring P3 items"
+      ,"include operator-authorized GPT/Grok model-routing convergence"
     ],
     "complexity": "HIGH",
     "direction_panel_required": false,
@@ -73,7 +79,7 @@
       "provider": "claude_glm",
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
-      "status": "packet_bound_awaiting_human_dispatch",
+      "status": "implementation_correction_and_model_convergence_verified",
       "codex_eligible": false
     },
     "review_1": {
@@ -115,10 +121,21 @@
   "implementer": {
     "id": "claude_glm",
     "provider_identity": "zhipu_glm",
-    "status": "awaiting_human_dispatch",
+    "status": "implementation_verified_waiting_external_change_disposition",
     "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md"
   },
-  "implementers": [],
+  "implementers": [
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "scope": "serial-v1 runtime schema docs tests and C1-C4 correction"
+    },
+    {
+      "provider": "grok_fast",
+      "provider_identity": "xai_grok",
+      "scope": "operator-authorized GPT/Grok model-routing convergence"
+    }
+  ],
   "fix_authors": [],
   "reviewer_1": null,
   "reviewer_2": {
@@ -150,9 +167,9 @@
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt"
   ],
   "tests": {
-    "status": "passed_pre_slimming_baseline",
+    "status": "implementation_verified_168_passed",
     "commands": [
-      "python3 -m unittest discover -s scripts/tests -p 'test_*.py' (161 OK)",
+      "python3 -m unittest discover -s scripts/tests -p 'test_*.py' (independent T4 rerun: 163 OK)",
       "scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint (PASS)",
       "git diff --check (PASS before archive)"
     ]
@@ -167,15 +184,13 @@
   },
   "rework_count": 3,
   "max_rework": 3,
-  "blockers": [
-    "Human operator must execute the bound Claude-GLM implementation packet; Codex may not implement or execute the dispatch"
-  ],
+  "blockers": [],
   "human_escalation": {
     "required": false,
     "prior_reason": "Round-3 P1 under old P8 with exhausted ledger",
     "disposition": "Operator authorized serial-only contract slimming amendment"
   },
   "terminal_reason": null,
-  "next_action": "human_execute_task_serial_v1_slimming_claude_glm_packet",
-  "updated_at": "2026-07-12T11:05:14+08:00"
+  "next_action": "bookkeeper_create_combined_evidence_commit_and_prepare_kimi_review_1",
+  "updated_at": "2026-07-12T14:06:35+08:00"
 }

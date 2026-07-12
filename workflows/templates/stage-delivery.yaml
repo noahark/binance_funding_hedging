@@ -90,11 +90,10 @@ auto_review_pipeline:
     auto_primary:
       adapter: grok
       command_ref: "agents/registry.yaml#adapters.grok.optional_review_command"
-      model: "grok-build"
+      model: "grok-4.5"
       mode: plan
     serial_unit_fallback_pool: ["kimi", "claude_glm"]
     fallback_only_when_candidate_provider_absent_from_unit_authors: true
-    parallel_tip_ineligible_for_cross_pool: true
     high_end_auto_substitution: false
   receipts:
     schema: "schemas/runner-receipt.schema.json"
@@ -137,7 +136,7 @@ auto_review_pipeline:
       schema_valid_accept: "ACCEPT advances the unit"
       rework_fix: "REWORK enters a code-changing fix charged to the ledger"
       invalid_json: "retry same model once, then serial unit fallback or human escalation"
-      unavailable: "tip-once escalation per docs/auto-review-pipeline.md"
+      unavailable: "serial fallback exhausted or no eligible candidate, then human escalation per docs/auto-review-pipeline.md"
       model_text_cannot_choose_path: true
     completion_predicate:
       all_of:
@@ -228,7 +227,7 @@ auto_review_pipeline:
       - id: "terminal_escalation"
         from: { dispatch_mode: "auto_review", runner_state: "running" }
         event:
-          one_of: ["cap_exhausted", "timeout", "budget_exhausted", "unroutable_fix", "tip_once_grok_failure"]
+          one_of: ["cap_exhausted", "timeout", "budget_exhausted", "unroutable_fix", "review_1_fallback_exhausted"]
         to: { dispatch_mode: "auto_review", runner_state: "awaiting_human" }
         effect:
           top_level_status: "human_escalation_required"
@@ -260,7 +259,7 @@ auto_review_pipeline:
         invalid_json:
           first_attempt: "review_1"
           after_retry_limit: "serial_unit_fallback"
-        tip_once_grok_failure: "human_escalation_required"
+        review_1_fallback_exhausted: "human_escalation_required"
       serial_unit_fallback:
         eligible_candidate_found: "review_1"
         no_eligible_candidate: "human_escalation_required"
@@ -274,7 +273,7 @@ auto_review_pipeline:
       primary:
         adapter: "grok"
         command_ref: "agents/registry.yaml#adapters.grok.optional_review_command"
-        model: "grok-build"
+        model: "grok-4.5"
         mode: "plan"
       serial_fallback:
         serial_only: true
@@ -283,9 +282,6 @@ auto_review_pipeline:
           kimi: "agents/registry.yaml#adapters.kimi.embedded_read_only_review_command"
           claude_glm: "agents/registry.yaml#adapters.claude_glm.embedded_read_only_review_command"
         eligible_only_when_candidate_provider_absent_from_unit_author_and_fix_providers: true
-      parallel_tip:
-        cross_pool_fallback_enabled: false
-        grok_failure_or_repeated_invalid_verdict_target: "human_escalation_required"
       high_end_auto_substitution: false
       invalid_json_attempt_limit_per_model: 2
     pilot_predicate:
@@ -661,7 +657,7 @@ stages:
         may_own_whole_mixed_task_when: "frontend work is the large majority and backend work is light endpoint or schema glue"
     optional_actor_pool:
       - model: grok
-        required_model: "grok-composer-2.5-fast"
+        required_model: "grok-4.5"
         skill: senior_developer
         requires_user_enablement: true
     mode: write_code

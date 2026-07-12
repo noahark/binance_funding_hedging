@@ -163,8 +163,7 @@ class Stage:
     """A built auto-review stage under an isolated throwaway repo."""
 
     def __init__(self, *, unit_authors=("claude_glm",), topology="serial",
-                 enabled=True, review_1_provider="kimi", max_model_calls=20,
-                 wall_clock_seconds=3600, max_auto_code_changes=2,
+                 enabled=True, max_model_calls=20, max_auto_code_changes=2,
                  allowed_pathspecs=("scripts/x.py",), forbidden_pathspecs=(),
                  extra_unit_fields=None, runner_state=None,
                  dispatch_mode="human_dispatch", parallel_mode_enabled=False,
@@ -184,23 +183,18 @@ class Stage:
         self.base_sha = git("rev-parse", "HEAD").strip()
         self.branch = git("branch", "--show-current").strip()
 
-        # authorization artifact
+        # authorization artifact (serial-only v1 slim shape)
         auth = json.loads(json.dumps(VALID_AUTH))
         auth["stage_id"] = stage_id
         auth["stage_branch"] = self.branch
-        auth["review_1_provider"] = review_1_provider
         auth["scope"] = {
             "task_ids": ["T1"],
             "allowed_pathspecs": list(allowed_pathspecs),
             "forbidden_pathspecs": list(forbidden_pathspecs),
-            "topology": topology,
         }
         auth["budgets"] = {
             "max_model_calls": max_model_calls,
-            "wall_clock_seconds": wall_clock_seconds,
-            "max_stage_rework": 3,
             "max_auto_code_changes": max_auto_code_changes,
-            "invalid_json_max_attempts_per_model": 2,
         }
         auth["approval_evidence_path"] = "reports/agent-runs/%s/auth.json" % stage_id
         if auth_mutator:
@@ -237,10 +231,6 @@ class Stage:
                 "authorization_path": authorization_path or (
                     "reports/agent-runs/%s/auth.json" % stage_id),
                 "budgets": {
-                    "max_model_calls": max_model_calls,
-                    "wall_clock_seconds": wall_clock_seconds,
-                    "max_stage_rework": 3,
-                    "max_auto_code_changes": max_auto_code_changes,
                     "auto_code_changes_used": 0,
                     "model_calls_used": 0,
                 },
@@ -269,15 +259,16 @@ class Stage:
     def make_runner(self, *, invoker, blocking_runner=None, seal=None, now=None,
                     seal_run_validator=None):
         registry = {
-            "claude_glm": {"commands": {"noninteractive_command": "@PROMPT@"}},
+            "claude_glm": {"commands": {"noninteractive_command": "@PROMPT@"},
+                           "timeout_seconds": 3000},
             "kimi": {"commands": {
                 "noninteractive_command": "@PROMPT@",
                 "embedded_read_only_review_command": "@PROMPT@",
-            }},
+            }, "timeout_seconds": 1800},
             "grok": {"commands": {
                 "development_command": "@PROMPT@",
                 "optional_review_command": "@PROMPT@",
-            }},
+            }, "timeout_seconds": 1800, "optional_review_timeout_seconds": 900},
         }
         return AutoReviewRunner(
             self.root, self.stage_dir,
@@ -686,35 +677,12 @@ class AutoBudgetCapTests(unittest.TestCase):
 
 
 # ===========================================================================
-# 9. parallel author set rejects cross-pool fallback
+# 9. serial fallback: when the Grok review-1 tip fails and no eligible serial
+#    fallback candidate remains (every author already authored the unit), the
+#    run escalates via review_1_fallback_exhausted — no cross-pool dispatch.
 # ===========================================================================
 
-class ParallelTipNoFallbackTests(unittest.TestCase):
-    def test_parallel_tip_grok_failure_escalates_no_crosspool(self):
-        # parallel topology; grok returns invalid repeatedly → no fallback
-        stage = Stage(unit_authors=("claude_glm",), topology="parallel")
-        grok_attempts = {"n": 0}
-
-        def invoke(adapter_id, command_key, prompt_abs, timeout):
-            if command_key == "noninteractive_command":
-                (stage.root / "scripts" / "x.py").write_text("X = 1\n", encoding="utf-8")
-                return InvokeResult(stdout=b"imp", exit_status=0, timed_out=False, failure_class=None,
-                                    started_at="2026-07-11T00:00:00Z", completed_at="2026-07-11T00:00:01Z")
-            if command_key == "embedded_read_only_review_command":
-                return InvokeResult(stdout=b"advisory", exit_status=0, timed_out=False, failure_class=None,
-                                    started_at="2026-07-11T00:00:00Z", completed_at="2026-07-11T00:00:01Z")
-            if command_key == "optional_review_command":
-                grok_attempts["n"] += 1
-                return InvokeResult(stdout=b"garbage", exit_status=0, timed_out=False, failure_class=None,
-                                    started_at="2026-07-11T00:00:00Z", completed_at="2026-07-11T00:00:01Z")
-            return InvokeResult(stdout=b"", exit_status=0, timed_out=False, failure_class=None,
-                                started_at="2026-07-11T00:00:00Z", completed_at="2026-07-11T00:00:01Z")
-
-        runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
-        result = runner.run()
-        self.assertEqual(result.terminal, "human_escalation_required")
-        self.assertEqual(grok_attempts["n"], 2, "parallel tip: grok retried once then escalated, no fallback")
-
+class SerialFallbackExhaustionTests(unittest.TestCase):
     def test_ineligible_fallback_both_providers_authored(self):
         # unit authored by claude_glm AND kimi → no eligible serial fallback
         stage = Stage(unit_authors=("claude_glm", "kimi"), topology="serial")
@@ -917,60 +885,10 @@ class AccountingTimingTests(unittest.TestCase):
         arp = stage.arp()
         self.assertEqual(arp["budgets"]["model_calls_used"], 3)
 
-    def test_wall_clock_restart_does_not_reset_deadline(self):
-        # deadline computed once from run_started_at; a restart keeps it.
-        stage = Stage(wall_clock_seconds=3600)
-        runner = stage.make_runner(
-            invoker=_accept_invoker(stage),
-            blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
-        runner.load_status()
-        runner._arp["dispatch_mode"] = "auto_review"
-        runner._record_transition("new_human_authorization", "human_dispatch", None,
-                                  "auto_review", "authorized")
-        runner._set_state("authorized", "auto_review")
-        runner._persist()
-        runner._init_wall_clock()
-        first_deadline = runner._arp.get("run_deadline_at")
-        first_started = runner._arp.get("run_started_at")
-        self.assertTrue(first_deadline)
-        # simulate a restart: re-init must NOT change either field
-        runner._init_wall_clock()
-        self.assertEqual(runner._arp.get("run_deadline_at"), first_deadline)
-        self.assertEqual(runner._arp.get("run_started_at"), first_started)
-
-    def test_wall_clock_expiry_escalates_timeout(self):
-        stage = Stage(wall_clock_seconds=3600)
-
-        class Clock:
-            def __init__(self):
-                self.t = BASE_TIME
-
-            def __call__(self):
-                return self.t
-
-        clock = Clock()
-
-        def invoke(adapter_id, command_key, prompt_abs, timeout):
-            if command_key == "noninteractive_command":
-                (stage.root / "scripts" / "x.py").write_text("X = 1\n", encoding="utf-8")
-                # jump past the deadline before the next charge
-                clock.t = BASE_TIME + datetime.timedelta(seconds=4000)
-                return InvokeResult(stdout=b"imp", exit_status=0, timed_out=False, failure_class=None,
-                                    started_at="2026-07-11T00:00:00Z", completed_at="2026-07-11T00:00:01Z")
-            return InvokeResult(stdout=b"", exit_status=0, timed_out=False, failure_class=None,
-                                started_at="2026-07-11T00:00:00Z", completed_at="2026-07-11T00:00:01Z")
-
-        runner = stage.make_runner(invoker=invoke, blocking_runner=lambda u, c, p: 0,
-                                   seal=FakeSeal(), now=clock)
-        result = runner.run()
-        self.assertEqual(result.terminal, "human_escalation_required")
-        events = [m["event"] for m in stage.arp().get("mode_history", [])]
-        self.assertIn("timeout", events)
-
 
 # ===========================================================================
-# 15. P3 residual risk — pathspec exotic forms under parallel topology
-#     (runner→seal blackbox: match correctly or fail closed, never silent miss)
+# 15. P3 residual risk — pathspec exotic forms across the runner→seal boundary
+#     (match correctly or fail closed, never silent miss)
 # ===========================================================================
 
 class PathspecExoticFormTests(unittest.TestCase):
@@ -998,10 +916,10 @@ class PathspecExoticFormTests(unittest.TestCase):
         self.assertTrue(RUNNER._pathspec_matches("scripts/dir/x.py", ["scripts/dir/"]))
         self.assertTrue(RUNNER._pathspec_matches("scripts/dir/x.py", ["scripts/dir/*"]))
 
-    def test_parallel_topology_dirty_path_outside_allowlist_fail_closed(self):
-        # under parallel topology, a stray path outside the (single-file) allowlist
-        # is still rejected at preflight — no silent pass-through.
-        stage = Stage(topology="parallel", allowed_pathspecs=("scripts/x.py",))
+    def test_dirty_path_outside_allowlist_fail_closed(self):
+        # a stray path outside the (single-file) allowlist is still rejected at
+        # preflight — no silent pass-through.
+        stage = Stage(allowed_pathspecs=("scripts/x.py",))
         (stage.root / "elsewhere").mkdir(exist_ok=True)
         (stage.root / "elsewhere" / "z.py").write_text("z", encoding="utf-8")
 
@@ -1226,7 +1144,7 @@ class AuthorizationBindingTests(unittest.TestCase):
         stage = Stage()
         auth_path = stage.stage_dir / "auth.json"
         auth = json.loads(auth_path.read_text(encoding="utf-8"))
-        auth["review_1_provider"] = "tampered"
+        auth["authorized_at"] = "2026-07-12T00:00:00Z"  # legal value, but uncommitted worktree edit
         auth_path.write_text(json.dumps(auth), encoding="utf-8")
         result, calls = self._run_preflight(stage)
         self.assertEqual(result.terminal, "awaiting_human")
@@ -1270,6 +1188,29 @@ class ProductionRegistryCommandTests(unittest.TestCase):
         # grok uses unquoted <repo> + <prompt-file>
         self.assertIn("<repo>", reg["grok"]["commands"]["development_command"])
         self.assertIn("<prompt-file>", reg["grok"]["commands"]["optional_review_command"])
+
+    def test_resolve_timeout_uses_registry_per_adapter_values(self):
+        # serial-only v1: per-call subprocess timeout comes from the committed
+        # registry. GLM implementation = 3000s; Grok optional review = command
+        # override 900s; Grok/Kimi other commands use adapter default 1800s.
+        stage = Stage()
+        real_reg = RUNNER.load_registry(REPO_ROOT)
+        runner = AutoReviewRunner(stage.root, stage.stage_dir, registry=real_reg,
+                                  invoker=None, now=lambda: BASE_TIME)
+        self.assertEqual(runner._resolve_timeout("claude_glm", "noninteractive_command"), 3000)
+        self.assertEqual(runner._resolve_timeout("grok", "optional_review_command"), 900)
+        self.assertEqual(runner._resolve_timeout("grok", "development_command"), 1800)
+        self.assertEqual(runner._resolve_timeout("kimi", "noninteractive_command"), 1800)
+
+    def test_timeout_override_collaborator_wins_over_registry(self):
+        # a test may pass an explicit timeout_override; it always wins and never
+        # represents production policy (no model output chooses a timeout).
+        stage = Stage()
+        real_reg = RUNNER.load_registry(REPO_ROOT)
+        runner = AutoReviewRunner(stage.root, stage.stage_dir, registry=real_reg,
+                                  invoker=None, now=lambda: BASE_TIME, timeout_override=42)
+        self.assertEqual(runner._resolve_timeout("claude_glm", "noninteractive_command"), 42)
+        self.assertEqual(runner._resolve_timeout("grok", "optional_review_command"), 42)
 
     def _invoke_and_capture(self, stage, adapter, key, prompt_abs):
         real_reg = RUNNER.load_registry(REPO_ROOT)
@@ -1403,16 +1344,16 @@ class VerdictSchemaAndByteFidelityTests(unittest.TestCase):
 
 class ReworkLedgerAndExpiryTests(unittest.TestCase):
     """``_charge_auto_change`` must increment the shared top-level ``rework_count``
-    alongside ``auto_code_changes_used`` and honor ``max_stage_rework``. A non-null
-    ``expires_at`` is rechecked before every model call (acceptance 28), not only
-    during initial preflight."""
+    alongside ``auto_code_changes_used`` and honor the global ``MAX_STAGE_REWORK``
+    invariant (3). A non-null ``expires_at`` is rechecked before every model call
+    (acceptance 28), not only during initial preflight."""
 
     def test_charge_auto_change_increments_shared_ledger(self):
         stage = Stage()
         runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
                                    blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
         runner.load_status()
-        runner._auth = {"budgets": {"max_auto_code_changes": 5, "max_stage_rework": 3}}
+        runner._auth = {"budgets": {"max_auto_code_changes": 5}}
         runner._budgets()["auto_code_changes_used"] = 0
         runner._status["rework_count"] = 0
         runner._charge_auto_change()
@@ -1424,15 +1365,15 @@ class ReworkLedgerAndExpiryTests(unittest.TestCase):
         runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
                                    blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
         runner.load_status()
-        runner._auth = {"budgets": {"max_auto_code_changes": 5, "max_stage_rework": 2}}
+        runner._auth = {"budgets": {"max_auto_code_changes": 5}}
         runner._budgets()["auto_code_changes_used"] = 0
-        runner._status["rework_count"] = 2
+        runner._status["rework_count"] = 3  # proposed 4 > MAX_STAGE_REWORK invariant (3)
         with self.assertRaises(RUNNER.TerminalEscalation) as cm:
             runner._charge_auto_change()
         self.assertEqual(cm.exception.event, "budget_exhausted")
         # FX7: on escalation NEITHER counter is written — rework_count and
         # auto_code_changes_used both stay at their pre-charge original values.
-        self.assertEqual(runner._status["rework_count"], 2)
+        self.assertEqual(runner._status["rework_count"], 3)
         self.assertEqual(runner._budgets()["auto_code_changes_used"], 0)
 
     def test_charge_auto_change_escalation_leaves_auto_counter_unchanged(self):
@@ -1442,7 +1383,7 @@ class ReworkLedgerAndExpiryTests(unittest.TestCase):
         runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
                                    blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
         runner.load_status()
-        runner._auth = {"budgets": {"max_auto_code_changes": 1, "max_stage_rework": 3}}
+        runner._auth = {"budgets": {"max_auto_code_changes": 1}}
         runner._budgets()["auto_code_changes_used"] = 1  # at cap -> proposed 2 > 1
         runner._status["rework_count"] = 0
         with self.assertRaises(RUNNER.TerminalEscalation) as cm:
@@ -1457,7 +1398,7 @@ class ReworkLedgerAndExpiryTests(unittest.TestCase):
         runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
                                    blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
         runner.load_status()
-        runner._auth = {"budgets": {"max_auto_code_changes": 2, "max_stage_rework": 3}}
+        runner._auth = {"budgets": {"max_auto_code_changes": 2}}
         runner._budgets()["auto_code_changes_used"] = 1  # proposed 2 == max, legal
         runner._status["rework_count"] = 0
         runner._charge_auto_change()  # must NOT raise
@@ -1606,8 +1547,6 @@ class RestartAndAdapterErrorTests(unittest.TestCase):
                             "json_schema_valid": True, "diff_fingerprint": "sealedfp",
                             "verdict_path": "reports/agent-runs/auto-stage/x.verdict.json"}
         arp = stage.status["auto_review_pipeline"]
-        arp["run_started_at"] = "2026-07-11T12:00:00Z"
-        arp["run_deadline_at"] = "2026-07-11T13:00:00Z"
         arp["mode_history"] = [{"event": "new_human_authorization"},
                                {"event": "successful_full_preflight"}]
         stage._write_status()
@@ -1763,7 +1702,8 @@ class ShellSafeInvocationTests(unittest.TestCase):
         spaced.mkdir()
         marker = "PROBE-MARKER-CONTENT"
         registry = {"probe_cmdsub": {"commands": {
-            "noninteractive_command": 'cat "$(cat <prompt-file>)"'}}}
+            "noninteractive_command": 'cat "$(cat <prompt-file>)"'},
+            "timeout_seconds": 30}}
         target = spaced / "target_cmdsub.txt"
         target.write_text(marker, encoding="utf-8")
         prompt = spaced / "prompt_cmdsub.md"
@@ -1781,7 +1721,8 @@ class ShellSafeInvocationTests(unittest.TestCase):
         spaced.mkdir()
         marker = "PROBE-MARKER-CONTENT"
         registry = {"probe_bare": {"commands": {
-            "noninteractive_command": "cat <prompt-file>"}}}
+            "noninteractive_command": "cat <prompt-file>"},
+            "timeout_seconds": 30}}
         prompt = spaced / "prompt_bare.md"
         prompt.write_text(marker, encoding="utf-8")
         runner = AutoReviewRunner(spaced, spaced, registry=registry, now=lambda: BASE_TIME)
@@ -1958,9 +1899,11 @@ class ResumeIdempotencyTests(unittest.TestCase):
 
 
 class AuthorizationExactBindTests(unittest.TestCase):
-    """FX6: an authorization must exact-bind the live status scope — bidirectional
-    task IDs, exact topology, allowed/forbidden pathspecs, and the shared budget
-    cap values. Every status/authorization divergence fails closed at preflight."""
+    """FX6 (serial-only v1): an authorization must exact-bind the live status
+    scope — bidirectional task IDs and allowed/forbidden pathspecs. Topology is
+    no longer an authorization-scope field, and runtime caps come solely from
+    the authorization (status records usage only), so there is no topology or
+    cap divergence to bind. Every scope divergence fails closed at preflight."""
 
     def _run_preflight(self, stage):
         runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
@@ -1981,15 +1924,6 @@ class AuthorizationExactBindTests(unittest.TestCase):
         self.assertEqual(exc.reason, "scope_mismatch")
         self.assertEqual(exc.detail.get("authorized_but_absent"), ["T2"])
 
-    def test_topology_divergence_fails_closed(self):
-        def mutate(auth):
-            auth["scope"]["topology"] = "parallel"  # live status records serial
-        stage = Stage(auth_mutator=mutate)
-        exc = self._run_preflight(stage)
-        self.assertEqual(exc.reason, "scope_mismatch")
-        self.assertEqual(exc.detail.get("auth_topology"), "parallel")
-        self.assertEqual(exc.detail.get("live_topology"), "serial")
-
     def test_allowed_pathspec_divergence_fails_closed(self):
         # the unit edits scripts/x.py but the allowlist only permits elsewhere
         def mutate(auth):
@@ -2007,49 +1941,82 @@ class AuthorizationExactBindTests(unittest.TestCase):
         self.assertEqual(exc.reason, "scope_mismatch")
         self.assertIn("forbidden_pathspec_hit", exc.detail)
 
-    def test_runtime_cap_divergence_is_not_bound(self):
-        # FX6: runtime caps (max_model_calls, wall_clock_seconds) come FROM the
-        # authorization per the frozen contract; the status copy is a mirror and
-        # may legitimately diverge. budget_mismatch must NOT fire here — only the
-        # ledger caps (max_stage_rework / max_auto_code_changes) are bound. See
-        # the FX6 blocker note in 20-implementation.md.
-        stage = Stage(max_model_calls=5)
-        stage.status["auto_review_pipeline"]["budgets"]["max_model_calls"] = 99
-        stage._write_status()
-        stage.git("add", "-A")
-        stage.git("commit", "-q", "--allow-empty", "-m", "diverge-runtime-cap")
-        runner = stage.make_runner(invoker=lambda *a, **k: _ir(),
-                                   blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+
+# ===========================================================================
+# T4 correction round 1 — C1: registry timeout fail-closed preflight
+# ===========================================================================
+
+class RegistryTimeoutPreflightTests(unittest.TestCase):
+    """C1: missing/boolean/zero/negative auto-loop adapter timeouts fail closed
+    in preflight before any model call or commit. Serial-only v1 has no silent
+    1800 fallback; the explicit test timeout_override remains available but is
+    never a production default."""
+
+    def _runner_with_registry(self, mutator):
+        stage = Stage()
+        reg = json.loads(json.dumps(RUNNER.load_registry(REPO_ROOT)))
+        mutator(reg)
+        runner = AutoReviewRunner(stage.root, stage.stage_dir, registry=reg,
+                                  invoker=None, now=lambda: BASE_TIME)
         runner.load_status()
-        runner.preflight()  # must NOT raise — runtime cap divergence is allowed
-        self.assertEqual(runner._max_calls(), 5)
+        return runner
 
-    def test_max_stage_rework_divergence_fails_closed(self):
-        def mutate(auth):
-            auth["budgets"]["max_stage_rework"] = 99  # status says 3
-        stage = Stage(auth_mutator=mutate)
-        exc = self._run_preflight(stage)
-        self.assertEqual(exc.reason, "budget_mismatch")
-        self.assertEqual(exc.detail.get("field"), "max_stage_rework")
+    def test_preflight_rejects_missing_adapter_timeout(self):
+        def mutate(reg):
+            del reg["claude_glm"]["timeout_seconds"]
+        runner = self._runner_with_registry(mutate)
+        with self.assertRaises(RUNNER.PreflightFailed) as cm:
+            runner.preflight()
+        self.assertEqual(cm.exception.reason, "registry_timeout_invalid")
+        self.assertEqual(cm.exception.detail.get("adapter"), "claude_glm")
 
-    def test_max_stage_rework_divergence_fails_closed(self):
-        # max_stage_rework is a schema const (exactly 3): an auth carrying any
-        # other value is rejected earlier as authorization_invalid, so the
-        # runtime budget_mismatch branch for this field is unreachable by
-        # construction. See FX6 blocker in 20-implementation.md.
-        def mutate(auth):
-            auth["budgets"]["max_stage_rework"] = 4
-        stage = Stage(auth_mutator=mutate)
-        exc = self._run_preflight(stage)
-        self.assertEqual(exc.reason, "authorization_invalid")
+    def test_preflight_rejects_boolean_timeout(self):
+        # a boolean is an int subclass; the gate must reject it explicitly.
+        def mutate(reg):
+            reg["grok"]["optional_review_timeout_seconds"] = True
+        runner = self._runner_with_registry(mutate)
+        with self.assertRaises(RUNNER.PreflightFailed) as cm:
+            runner.preflight()
+        self.assertEqual(cm.exception.reason, "registry_timeout_invalid")
+        self.assertEqual(cm.exception.detail.get("key"), "optional_review_timeout_seconds")
 
-    def test_max_auto_code_changes_divergence_fails_closed(self):
-        def mutate(auth):
-            auth["budgets"]["max_auto_code_changes"] = 1  # status says 2 (both <= 2, schema-valid)
-        stage = Stage(auth_mutator=mutate)
-        exc = self._run_preflight(stage)
-        self.assertEqual(exc.reason, "budget_mismatch")
-        self.assertEqual(exc.detail.get("field"), "max_auto_code_changes")
+    def test_preflight_rejects_zero_timeout(self):
+        def mutate(reg):
+            reg["kimi"]["timeout_seconds"] = 0
+        runner = self._runner_with_registry(mutate)
+        with self.assertRaises(RUNNER.PreflightFailed) as cm:
+            runner.preflight()
+        self.assertEqual(cm.exception.reason, "registry_timeout_invalid")
+
+    def test_resolve_timeout_raises_when_registry_missing_and_no_override(self):
+        # defense-in-depth: _resolve_timeout no longer silently returns 1800.
+        stage = Stage()
+        reg = json.loads(json.dumps(RUNNER.load_registry(REPO_ROOT)))
+        del reg["claude_glm"]["timeout_seconds"]
+        runner = AutoReviewRunner(stage.root, stage.stage_dir, registry=reg,
+                                  invoker=None, now=lambda: BASE_TIME)
+        with self.assertRaises(RUNNER.PreflightFailed) as cm:
+            runner._resolve_timeout("claude_glm", "noninteractive_command")
+        self.assertEqual(cm.exception.reason, "registry_timeout_invalid")
+
+
+# ===========================================================================
+# T4 correction round 1 — C2: runner task-only preflight
+# ===========================================================================
+
+class RunnerTaskOnlyPreflightTests(unittest.TestCase):
+    """C2: the runner rejects any review unit whose kind is not exactly ``task``
+    during preflight, before any model call or commit, independent of
+    validate-stage.py."""
+
+    def test_preflight_rejects_non_task_unit(self):
+        stage = Stage(extra_unit_fields={"kind": "tip"})
+        runner = stage.make_runner(invoker=lambda *a, **k: None)
+        runner.load_status()
+        with self.assertRaises(RUNNER.PreflightFailed) as cm:
+            runner.preflight()
+        self.assertEqual(cm.exception.reason, "non_task_unit")
+        self.assertEqual(cm.exception.detail.get("kind"), "tip")
 
 
 if __name__ == "__main__":

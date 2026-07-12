@@ -1478,3 +1478,258 @@ Disposition:
     design/breakdown;
   - reserve Opus 4.8 for independent review-2;
   - next dispatch is human execution of the prepared Claude-GLM packet.
+================================================================================
+T4 Serial-Only v1 Slimming — Required Commands Raw Output
+(appended per 12-serial-v1-slimming-development-breakdown-codex.md §Required Commands)
+================================================================================
+
+===== CMD 1: python3 -m unittest discover -s scripts/tests -p 'test_*.py' =====
+.......................................................auto-review-runner: runner lock busy — another run holds it (runner_lock_busy)
+............................................................................................................
+----------------------------------------------------------------------
+Ran 163 tests in 15.689s
+
+OK
+[CMD1 exit: 0]
+
+===== CMD 2: python3 -m py_compile scripts/validate-stage.py scripts/harness_stage_lib.py scripts/stage-seal.py scripts/auto-review-runner.py =====
+[CMD2 exit: 0]
+
+===== CMD 3: scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint =====
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+phase=checkpoint
+status=implementing
+diff_fingerprint=a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e
+[CMD3 exit: 0]
+
+===== CMD 4: git diff --check =====
+[CMD4 exit: 0]
+
+===== CMD 5: grep -rn "formal-1" scripts harness-manifest.yaml  (expect exit 1) =====
+[CMD5 exit: 1]
+
+===== CMD 6: git diff --name-only 54ce1c8..HEAD | rg '^(backend|frontend|schemas/api|docs/product|docs/api)/'  (expect exit 1) =====
+[CMD6 exit: 1]
+
+===== CMD 7: rg wall_clock_seconds/run_started_at/run_deadline_at/_check_wall_clock/_init_wall_clock residue =====
+schemas/auto-review-authorization.schema.json:5:  "description": "Human-approved, committed per-stage authorization artifact that gates entry into the auto_review_pipeline/v1 mode. The runner refuses to start (or continue) unless a schema-valid artifact of this shape exists and is not expired. Model claims of approval are never valid: 'authorized_by' must be human, 'approval_evidence_path' must point to the committed operator approval receipt, and 'approval_recorded_by' must identify the non-implementer bookkeeper that recorded it. v1 is serial-only: there is no authorization-side topology, allowed-adapter, review-provider, authorized flag, or high-end-dispatch field. The automatic loop is fixed to claude_glm/kimi/grok with Grok review-1 primary plus serial Kimi/Claude-GLM fallback by committed workflow/registry; GPT/Claude are never auto-dispatched. The stage-rework cap (3), the invalid-JSON retry limit (2), and per-adapter invocation timeouts are global workflow/registry invariants, not per-authorization fields. Frozen budgets retained here: 'max_model_calls' is a positive per-stage cap and 'max_auto_code_changes' is at most 2. 'expires_at' is required and nullable: null means there is no independent authorization-expiry timestamp (it is NOT unlimited authorization); a non-null ISO8601 value is enforced before every model invocation and git commit. A null 'expires_at' still leaves the run bound by call-count budgets, the rework ledger, operator stop, and stage gates. Any change to scope or budgets requires a new versioned artifact whose 'supersedes' points to the prior one. This artifact is never generated or edited by an implementer. Stale artifacts carrying a removed field (authorized, allowed_adapters, review_1_provider, auto_high_end_dispatch_allowed, scope.topology, budgets.wall_clock_seconds, budgets.max_stage_rework, budgets.invalid_json_max_attempts_per_model) fail closed via additionalProperties:false; v1 has not been accepted, merged, or piloted, so there is no compatibility-normalization path.",
+scripts/auto-review-runner.py:1050:        # wall_clock_seconds, max_stage_rework, and invalid_json_max_attempts
+scripts/harness_stage_lib.py:352:# budgets.wall_clock_seconds, budgets.max_stage_rework,
+scripts/tests/test_harness_stage_lib.py:390:    def test_removed_wall_clock_seconds_is_unknown(self):
+scripts/tests/test_harness_stage_lib.py:392:        d["budgets"]["wall_clock_seconds"] = 3600
+scripts/tests/test_harness_stage_lib.py:394:        self.assertTrue(any("wall_clock_seconds" in e for e in errs))
+[CMD7 exit: 0]
+
+===== CMD 8: rg auto.*parallel/parallel.*auto/kind.*(tip|integration)/scope.topology/review_1_provider/allowed_adapters/auto_high_end_dispatch_allowed residue =====
+AGENTS.md:395:- `parallel_mode.enabled=true` and `auto_review_pipeline.enabled=true` are
+docs/parallel-development-mode.md:339:- **与 auto-review pipeline 互斥**：`parallel_mode.enabled=true` 与
+docs/parallel-development-mode.md:344:  迁移到 auto mode，须先关闭 `parallel_mode.enabled`、落 `status.json` /
+schemas/auto-review-authorization.schema.json:5:  "description": "Human-approved, committed per-stage authorization artifact that gates entry into the auto_review_pipeline/v1 mode. The runner refuses to start (or continue) unless a schema-valid artifact of this shape exists and is not expired. Model claims of approval are never valid: 'authorized_by' must be human, 'approval_evidence_path' must point to the committed operator approval receipt, and 'approval_recorded_by' must identify the non-implementer bookkeeper that recorded it. v1 is serial-only: there is no authorization-side topology, allowed-adapter, review-provider, authorized flag, or high-end-dispatch field. The automatic loop is fixed to claude_glm/kimi/grok with Grok review-1 primary plus serial Kimi/Claude-GLM fallback by committed workflow/registry; GPT/Claude are never auto-dispatched. The stage-rework cap (3), the invalid-JSON retry limit (2), and per-adapter invocation timeouts are global workflow/registry invariants, not per-authorization fields. Frozen budgets retained here: 'max_model_calls' is a positive per-stage cap and 'max_auto_code_changes' is at most 2. 'expires_at' is required and nullable: null means there is no independent authorization-expiry timestamp (it is NOT unlimited authorization); a non-null ISO8601 value is enforced before every model invocation and git commit. A null 'expires_at' still leaves the run bound by call-count budgets, the rework ledger, operator stop, and stage gates. Any change to scope or budgets requires a new versioned artifact whose 'supersedes' points to the prior one. This artifact is never generated or edited by an implementer. Stale artifacts carrying a removed field (authorized, allowed_adapters, review_1_provider, auto_high_end_dispatch_allowed, scope.topology, budgets.wall_clock_seconds, budgets.max_stage_rework, budgets.invalid_json_max_attempts_per_model) fail closed via additionalProperties:false; v1 has not been accepted, merged, or piloted, so there is no compatibility-normalization path.",
+workflows/templates/stage-delivery.yaml:41:  auto_review_pipeline_mutex_with_parallel_mode: true
+workflows/templates/stage-delivery.yaml:390:    review_1_provider_must_differ_from_implementer_provider: true
+scripts/harness_stage_lib.py:350:# v1 serial-only slim shape. Removed fields (authorized, allowed_adapters,
+scripts/harness_stage_lib.py:351:# review_1_provider, auto_high_end_dispatch_allowed, scope.topology,
+scripts/validate-stage.py:871:    # auto/parallel mode mutex (frozen P4)
+scripts/validate-stage.py:874:        errors.append("auto_review_pipeline.enabled and parallel_mode.enabled are mutually exclusive")
+scripts/tests/test_harness_stage_lib.py:366:    def test_removed_allowed_adapters_is_unknown(self):
+scripts/tests/test_harness_stage_lib.py:368:        d["allowed_adapters"] = ["claude_glm"]
+scripts/tests/test_harness_stage_lib.py:370:        self.assertTrue(any("allowed_adapters" in e for e in errs))
+scripts/tests/test_harness_stage_lib.py:372:    def test_removed_review_1_provider_is_unknown(self):
+scripts/tests/test_harness_stage_lib.py:374:        d["review_1_provider"] = "kimi"
+scripts/tests/test_harness_stage_lib.py:376:        self.assertTrue(any("review_1_provider" in e for e in errs))
+scripts/tests/test_harness_stage_lib.py:378:    def test_removed_auto_high_end_dispatch_allowed_is_unknown(self):
+scripts/tests/test_harness_stage_lib.py:380:        d["auto_high_end_dispatch_allowed"] = False
+scripts/tests/test_harness_stage_lib.py:382:        self.assertTrue(any("auto_high_end_dispatch_allowed" in e for e in errs))
+agents/registry.yaml:506:    review_1_provider_must_differ_from_implementer_provider: true
+docs/auto-review-pipeline.md:74:  (GPT/Claude) dispatch is absent. No per-authorization `allowed_adapters`,
+docs/auto-review-pipeline.md:75:  `review_1_provider`, or `auto_high_end_dispatch_allowed` field is carried.
+docs/planning/DECISIONS.md:17:| DEC-2026-07-10-001 | 2026-07-10 | Supersede and narrow DEC-2026-07-08-002: the dispatch ban applies to prepare-only sessions invoking other model terminals or adapter commands. Default human delivery is interactive paste or a read-file-and-execute-PROMPT-BODY instruction. A selected target executor session that receives the dispatch path or PROMPT BODY must execute in-session and must not emit a same-provider/model relaunch wrapper. CLI commands are optional automation appendix material for runners, evidence capture, availability checks, or declared executor:self automation, not the default human UI. | User / Codex / Grok review | `AGENTS.md`, `agents/registry.yaml`, `docs/model-adapters.md`, `docs/harness-design.md`, `docs/parallel-development-mode.md`, `workflows/templates/stage-delivery.yaml` |
+[CMD8 exit: 0]
+
+================================================================================
+End T4 Required Commands Raw Output
+================================================================================
+
+================================================================================
+T4 independent bookkeeper inspection (2026-07-12 12:30:23 CST)
+================================================================================
+
+Boundary:
+  18 modified files = 16 authorized implementation files + 2 append-only
+  evidence files. No forbidden product path. Both evidence diffs are additions
+  only (20-implementation +146/-0; 60-test-output +72/-0 before this section).
+
+Independent verification:
+  python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+  Ran 163 tests in 16.567s — OK
+
+  python3 -m py_compile scripts/validate-stage.py scripts/harness_stage_lib.py \
+    scripts/stage-seal.py scripts/auto-review-runner.py
+  exit 0
+
+  python3 -m json.tool schemas/auto-review-authorization.schema.json
+  exit 0
+
+  python3 -m json.tool schemas/runner-receipt.schema.json
+  exit 0
+
+  scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint
+  STAGE VALIDATION PASSED; status=implementing
+
+  git diff --check
+  exit 0
+
+Corrected forbidden-product worktree scan:
+  git diff --name-only | rg \
+    '^(backend|frontend|schemas/api|docs/product|docs/api)/'
+  exit 1 (expected: no match)
+
+Focused probes:
+  missing_timeout_resolves_to= 1800
+  non_task_units_returned= [{'id': 'legacy-tip', 'kind': 'tip'}]
+
+Live residue:
+  tip_once_grok_failure remains in runner, workflow, validator, docs, and tests.
+
+Disposition:
+  Required corrections C1-C4 recorded in 18-bookkeeper-inspection-T4.md.
+  Do not commit or enter review-1 yet.
+================================================================================
+T4 Bookkeeper Correction Round 1 — Required Evidence Raw Output
+(appended per task-T4-bookkeeper-correction-round1-claude-glm.prompt.md Evidence)
+================================================================================
+
+===== E1: full suite (python3 -m unittest discover -s scripts/tests -p 'test_*.py') =====
+...........................................................auto-review-runner: runner lock busy — another run holds it (runner_lock_busy)
+.............................................................................................................
+----------------------------------------------------------------------
+Ran 168 tests in 18.564s
+
+OK
+[E1 exit: 0]
+
+===== E2: py_compile (runner/validator/harness/seal + the 3 test modules) =====
+[E2 exit: 0]
+
+===== E3: checkpoint validator (scripts/validate-stage.py <stage> --phase checkpoint) =====
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
+phase=checkpoint
+status=implementing
+diff_fingerprint=a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e
+[E3 exit: 0]
+
+===== E4: git diff --check =====
+[E4 exit: 0]
+
+===== E5: CORRECTED uncommitted-worktree product path scan (git diff --name-only) =====
+(inspection evidence-correction: the T4 report's CMD6 used 'git diff --name-only
+ 54ce1c8..HEAD' which skips uncommitted T4 files. This is the corrected worktree scan.)
+[E5 exit: 1] (exit 1 = no product path in the uncommitted worktree; expected)
+
+===== E6: C1 timeout fail-closed — missing/boolean/zero preflight + resolve_timeout defense =====
+test_preflight_rejects_boolean_timeout (test_auto_review_runner.RegistryTimeoutPreflightTests) ... ok
+test_preflight_rejects_missing_adapter_timeout (test_auto_review_runner.RegistryTimeoutPreflightTests) ... ok
+test_preflight_rejects_zero_timeout (test_auto_review_runner.RegistryTimeoutPreflightTests) ... ok
+test_resolve_timeout_raises_when_registry_missing_and_no_override (test_auto_review_runner.RegistryTimeoutPreflightTests) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.668s
+
+OK
+[E6 exit: 0]
+
+===== E7: C1 positive timeout tests retained (3000/1800/900 + override) =====
+test_resolve_timeout_uses_registry_per_adapter_values (test_auto_review_runner.ProductionRegistryCommandTests) ... ok
+test_timeout_override_collaborator_wins_over_registry (test_auto_review_runner.ProductionRegistryCommandTests) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.269s
+
+OK
+[E7 exit: 0]
+
+===== E8: C2 non-task runner rejection preflight test =====
+test_preflight_rejects_non_task_unit (test_auto_review_runner.RunnerTaskOnlyPreflightTests) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.193s
+
+OK
+[E8 exit: 0]
+
+===== E9: active tip_once_grok_failure residue scan (expect NO runtime/spec match) =====
+[E9 exit: 1] (exit 1 = no active runtime/spec match; expected)
+
+===== E10: review_1_fallback_exhausted consistent across runner/validator/yaml/docs =====
+docs/auto-review-pipeline.md:414:  verdict escalates via `review_1_fallback_exhausted`.
+workflows/templates/stage-delivery.yaml:230:          one_of: ["cap_exhausted", "timeout", "budget_exhausted", "unroutable_fix", "review_1_fallback_exhausted"]
+workflows/templates/stage-delivery.yaml:262:        review_1_fallback_exhausted: "human_escalation_required"
+scripts/validate-stage.py:835:    ("auto_review", "running", "auto_review", "awaiting_human", "review_1_fallback_exhausted"),
+scripts/auto-review-runner.py:344:    "cap_exhausted", "timeout", "budget_exhausted", "unroutable_fix", "review_1_fallback_exhausted",
+scripts/auto-review-runner.py:1396:            raise TerminalEscalation("review_1_fallback_exhausted", "review-1 returned non-acceptance: " + str(outcome),
+scripts/auto-review-runner.py:1678:            raise TerminalEscalation("review_1_fallback_exhausted",
+scripts/auto-review-runner.py:1686:        raise TerminalEscalation("review_1_fallback_exhausted",
+[E10 exit: 0]
+
+================================================================================
+End T4 Bookkeeper Correction Round 1 Evidence
+================================================================================
+
+================================================================================
+T4 correction round 1 independent reinspection (2026-07-12 13:06:54 CST)
+================================================================================
+
+  python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+  Ran 168 tests in 17.450s — OK
+
+  git diff --check
+  exit 0
+
+  Active tip_once_grok_failure runtime/spec residue
+  exit 1 (expected: zero matches)
+
+  review_1_fallback_exhausted
+  present consistently in runner, validator, workflow, and normative docs.
+
+Disposition:
+  C1-C4 verified complete. Evidence commit is paused only for operator
+  disposition of unrelated concurrent GPT/Grok model-version changes present
+  in mixed T4 files and forbidden docs/harness-design.md.
+
+================================================================================
+Operator-authorized combined-scope verification (2026-07-12 14:06:35 CST)
+================================================================================
+
+Scope amendment:
+  Human operator confirmed the GPT/Grok model-routing convergence was an
+  intentional Grok Fast task and authorized inclusion in this stage.
+  docs/harness-design.md is explicitly re-enabled for that bounded change.
+
+  python3 -m json.tool status.json + both modified JSON schemas
+  exit 0
+
+  python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+  Ran 168 tests in 17.673s — OK
+
+  python3 -m py_compile scripts/validate-stage.py scripts/harness_stage_lib.py \
+    scripts/stage-seal.py scripts/auto-review-runner.py
+  exit 0
+
+  scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase checkpoint
+  STAGE VALIDATION PASSED; status=implementing
+
+  git diff --check
+  exit 0
+
+Model-routing consistency scan:
+  - current Codex Harness default/schema review: gpt-5.6-sol;
+  - current Grok development/direction/auto-review default: grok-4.5;
+  - grok-composer-2.5-fast remains only as an observed local catalog entry;
+  - the 2026_07_initial_direction grok-build model/output identity remains a
+    historical record of the panel actually used.
+
+Disposition:
+  Combined serial-v1 slimming + C1-C4 correction + model-routing convergence
+  is ready for the local evidence commit.

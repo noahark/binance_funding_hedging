@@ -2,7 +2,8 @@
 
 ## Current State
 
-- Status: `implementing` — implementation packet bound, awaiting human dispatch.
+- Status: `implementing` — T4, correction C1-C4, and the operator-authorized
+  Grok Fast model-routing convergence are ready for combined evidence commit.
 - Branch: `stage/2026-07-auto-review-pipeline-v1`.
 - Current pre-slimming delivery head: `a057d06`.
 - Current recorded fingerprint:
@@ -79,16 +80,15 @@ operator assignment. It must not implement/fix code or declare final acceptance.
 
 ## Next Action
 
-Human operator executes:
+The operator confirmed the GPT `gpt-5.6-sol` and Grok `grok-4.5` convergence
+was an intentional Grok Fast task and authorized inclusion in this stage.
+`19-model-routing-convergence-operator-decision.md` records the expanded scope,
+the `docs/harness-design.md` exception, authorship, and review isolation.
 
-```bash
-claude-glm --model glm-5.2 -p "$(cat reports/agent-runs/2026-07-auto-review-pipeline-v1/task-serial-v1-slimming-claude-glm.prompt.md)"
-```
+Codex now creates the combined evidence commit, recomputes the canonical
+fingerprint, runs the pre-review validator, and prepares a path-only handoff for
+the existing Kimi review session.
 
-Claude-GLM returns code/docs/test changes plus append-only `20-implementation.md`
-and `60-test-output.txt`. Codex then verifies boundaries, tests, residue scans,
-and commits evidence before preparing Kimi review-1.
-
-本地北京时间: 2026-07-12 11:05:14 CST
-下一步模型: Claude-GLM / GLM-5.2（human-dispatched implementation）
-下一步任务: 执行 task-serial-v1-slimming-claude-glm.prompt.md；不得读取非必要 history
+本地北京时间: 2026-07-12 14:06:35 CST
+下一步模型: Codex bookkeeper
+下一步任务: 创建组合 evidence commit，重算 fingerprint，准备 Kimi review-1
