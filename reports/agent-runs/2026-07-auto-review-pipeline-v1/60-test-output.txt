@@ -1677,6 +1677,14 @@ scripts/auto-review-runner.py:1686:        raise TerminalEscalation("review_1_fa
 End T4 Bookkeeper Correction Round 1 Evidence
 ================================================================================
 
+--- Post-merge verification (2026-07-12) ---
+
+  main fast-forwarded from 45c21ee to ef1a593 after explicit user acceptance.
+  python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+  Ran 168 tests in 18.365s — OK
+  py_compile runner/validator/harness/seal — exit 0
+  Detailed merge evidence: 64-merge-to-main.txt
+
 ================================================================================
 T4 correction round 1 independent reinspection (2026-07-12 13:06:54 CST)
 ================================================================================

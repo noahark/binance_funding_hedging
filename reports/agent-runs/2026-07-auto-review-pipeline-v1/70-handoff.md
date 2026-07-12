@@ -2,9 +2,11 @@
 
 ## Current State
 
-- Status: `stage_accepted_waiting_user` — Kimi review-1 and Opus 4.8 review-2
-  both ACCEPT with schema-valid exact verdict files.
-- Branch: `stage/2026-07-auto-review-pipeline-v1`.
+- Status: `accepted` — explicit user acceptance recorded and fast-forwarded to
+  `main`.
+- Current branch: `main`.
+- Stage branch merge point: `ef1a593844af65436fda2b355bb4b47650d630f6`.
+- Merge strategy: `fast_forward`.
 - T4 review base: `039358012174af949c9f17a94c96bd3ac085a35f`.
 - T4 delivery head: `433980d8384304a528ab5633591aa8dc4018b6ed`.
 - Current recorded fingerprint:
@@ -90,9 +92,9 @@ Kimi review-1 and Opus 4.8 review-2 exact verdict files both pass JSON parsing,
 schema, stage/role/fingerprint/identity and ACCEPT transition checks.
 
 Opus recorded one non-blocking stale-comment P3 for later Harness Fast
-maintenance. No required fix remains. The stage is accepted by review but must
-not merge to `main` until the human operator explicitly accepts it.
+maintenance. No required fix remains. The user explicitly accepted the stage;
+`main` was fast-forwarded and the full 168-test suite passed after merge.
 
-本地北京时间: 2026-07-12 14:53:45 CST
-下一步模型: Human operator
-下一步任务: 明确接受或拒绝本 stage；接受后才可合并到 main
+本地北京时间: 2026-07-12 14:57:36 CST
+下一步模型: Codex bookkeeper
+下一步任务: 运行最终 main pre-accept；随后选择首个 auto-review pilot 需求
