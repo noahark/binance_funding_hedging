@@ -1,6 +1,6 @@
 # Stage Index
 
-Status: as-built index, 2026-07-10
+Status: as-built index, 2026-07-12
 
 This human-readable index summarizes `reports/agent-runs/*/status.json`. The
 stage `status.json` files remain authoritative. The bookkeeper should update
@@ -28,6 +28,8 @@ identified.
 | `2026-07-harness-friction-fixes-v1` | `stage_accepted_waiting_user` | `stage/2026-07-harness-friction-fixes-v1` | true | Source status says merged to main while still using the waiting status; leave for a future Harness cleanup. |
 | `2026-07-harness-hardening-followups-v1` | `accepted` | `stage/2026-07-harness-hardening-followups-v1` | true | Harness hardening follow-ups accepted and merged. |
 | `2026-07-harness-promotion-gate-upsync-v1` | `abandoned` | `stage/2026-07-harness-promotion-gate-upsync-v1` | false | Superseded by DEC-2026-07-10-002 before dispatch; evidence lives only on the unmerged stage branch. |
+| `2026-07-funding-annualized-history-v1` | `accepted` | `stage/2026-07-funding-annualized-history-v1` | true | Funding annualized history accepted and merged to main (no-ff `4b29c69`). |
+| `2026-07-auto-review-pipeline-v1` | `accepted` | `stage/2026-07-auto-review-pipeline-v1` | true | Auto review pipeline v1 accepted and merged to main (fast-forward `ef1a593`). Normative contract: `docs/auto-review-pipeline.md`. Design shells `10-design.md`/`11-adr.md` are superseded intra-stage by `16-serial-v1-slimming-design.md` + `19-model-routing-convergence-operator-decision.md` + `docs/auto-review-pipeline.md`; post-accept process evidence is under `history/`. |
 
 Note: DEC-2026-07-10-002 (main `540513d`, 2026-07-10) rolled the canonical
 Harness files back to the DRAFT-2 decision baseline (`41c6ba5`). The Harness
@@ -58,3 +60,7 @@ does not imply that a directory is disposable.
 - `phase2-direction-v1` - frozen Phase 2 direction evidence. `migrate: no`.
 - `private-account-v1-direction` - frozen private-account direction evidence.
   `migrate: no`.
+- `2026-07-auto-review-pipeline-design-review` - frozen pre-delivery decision
+  evidence (`40-operator-decision-table.md`) for the auto review pipeline. Not a
+  standard stage (no `status.json`); the delivery stage is
+  `2026-07-auto-review-pipeline-v1`. `migrate: no`.

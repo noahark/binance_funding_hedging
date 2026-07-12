@@ -15,6 +15,9 @@ Canonical paths:
 - `docs/model-adapters.md` - Harness-owned local model CLI adapter runbook
 - `docs/parallel-development-mode.md` - adopted trial mode for parallel
   implementation with embedded cross-review checkpoints
+- `docs/auto-review-pipeline.md` - normative contract for the additive,
+  default-off auto review pipeline (serial-only through review-1); delivered by
+  stage `2026-07-auto-review-pipeline-v1`
 
 Rule: drafts go to `reports/agent-runs/<stage-id>/`; approved decisions are
 promoted into this directory through the workflow.

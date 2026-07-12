@@ -52,6 +52,16 @@ override 有腐蚀性，例外应写进规则。
 
 ## 4. Registry 模型信息刷新
 
+> **状态更新 (2026-07-12)：本节拆分处置。**
+> - **`codex.default_model` 点：已解决。** 经 model-routing convergence
+>   （`reports/agent-runs/2026-07-auto-review-pipeline-v1/19-model-routing-convergence-operator-decision.md`）
+>   收敛；当前值以 `agents/registry.yaml` 为准（此处不复述具体值，避免二次漂移）。
+>   下方"仍为 gpt-5.5"是当时事实，保留原文作历史记录。
+> - **Gemini 3.1 Pro future-candidate 事件记录点：仍开放**，作为独立 follow-up，
+>   不随本节关闭。
+>
+> 以下为原始记录（verbatim）：
+
 事实：`agents/registry.yaml` `codex.default_model` 仍为 gpt-5.5；现役为
 GPT-5.6 家族（sol > terra > luna，操作者 2026-07-11 口径）。Gemini 3.1
 Pro 的 future-candidate 条目也应补充 2026-07 事件记录（身份伪造 +
