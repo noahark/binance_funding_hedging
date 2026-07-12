@@ -1,15 +1,1 @@
-T4 review-2 preflight gate
-
-$ scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase pre-review
-STAGE VALIDATION PASSED
-stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
-phase=pre-review
-status=review_2
-diff_fingerprint=433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97
-
-Committed worktree at validation: clean.
-Validation executed after review-1 acceptance/review-2 packet commit 21becc2.
-
-本地北京时间: 2026-07-12 14:35:22 CST
-下一步模型: Claude Opus 4.8
-下一步任务: 执行 task-T4-review2-opus4.8.prompt.md
+history/raw/62-pre-review-2-T4.txt

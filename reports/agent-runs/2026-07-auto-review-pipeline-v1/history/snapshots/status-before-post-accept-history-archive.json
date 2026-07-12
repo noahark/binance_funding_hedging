@@ -1,0 +1,256 @@
+{
+  "stage_id": "2026-07-auto-review-pipeline-v1",
+  "status": "accepted",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-auto-review-pipeline-v1",
+    "created_from_main_sha": "45c21ee010fd3f2892a6677f58d5c8b02c2fbb0b",
+    "created_at": "2026-07-11T03:30:02Z",
+    "merged_back_to_main": true,
+    "merged_back_sha": "ef1a593844af65436fda2b355bb4b47650d630f6",
+    "merge_strategy": "fast_forward",
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "codex_takeover_2026_07_12",
+    "provider": "codex",
+    "provider_identity": "openai",
+    "model": "gpt-5-codex",
+    "session_role": "bookkeeper_designer_breakdown_author",
+    "also_implementer": false,
+    "dual_hat_disclosure": "Codex authored the round-3 REWORK, then was assigned bookkeeper/designer/breakdown duties by the operator. Codex is excluded from implementation/fix authorship and final acceptance. Opus 4.8 is reserved for review-2.",
+    "handover": {
+      "from": "claude_fable5_session",
+      "reason": "Operator-reported Fable5 quota exhaustion and explicit Codex takeover",
+      "at": "2026-07-12T10:26:57+08:00"
+    }
+  },
+  "history_archive": {
+    "policy": "cold_storage_do_not_read_at_startup",
+    "index": "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/README.md",
+    "raw_dir": "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/raw/",
+    "status_snapshot": "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/snapshots/status-before-slimming.json",
+    "handoff_snapshot": "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/snapshots/70-handoff-before-slimming.md",
+    "compatibility": "former root artifact paths are symlinks to verbatim history/raw files",
+    "read_when": "only an explicit review, audit, finding, or evidence reference requires the exact artifact"
+  },
+  "bookkeeper_checkpoint": {
+    "commit": "433980d8384304a528ab5633591aa8dc4018b6ed",
+    "kind": "combined_serial_v1_delivery_evidence",
+    "validated_phase": "post_merge_pre_accept",
+    "validated_result": "passed",
+    "raw_history_style_exception": "pre-existing trailing whitespace preserved verbatim in immutable history/raw evidence"
+  },
+  "current_inputs": [
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-serial-v1-slimming-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/18-bookkeeper-inspection-T4.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-bookkeeper-correction-round1-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/19-model-routing-convergence-operator-decision.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi-json-retry1.prompt.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review2-opus4.8.prompt.md"
+  ],
+  "contract_amendment": {
+    "id": "serial-v1-slimming",
+    "status": "review_2_accept_waiting_user",
+    "authority": "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
+    "design": "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
+    "breakdown": "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
+    "implementation_packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-serial-v1-slimming-claude-glm.prompt.md",
+    "inspection": "reports/agent-runs/2026-07-auto-review-pipeline-v1/18-bookkeeper-inspection-T4.md",
+    "correction_packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-bookkeeper-correction-round1-claude-glm.prompt.md",
+    "scope": [
+      "remove unimplemented auto parallel topology",
+      "remove redundant authorization fields",
+      "remove total runner-session wall clock",
+      "use registry per-adapter and per-command timeouts",
+      "add cold-history startup read budget",
+      "fix adjacent duplicate-test and stale-docstring P3 items"
+      ,"include operator-authorized GPT/Grok model-routing convergence"
+    ],
+    "complexity": "HIGH",
+    "direction_panel_required": false,
+    "direction_panel_skip_reason": "Operator explicitly selected the serial-only slimming direction",
+    "rework_charge": 0,
+    "rework_note": "Separately authorized contract amendment; historical ledger remains 3/3"
+  },
+  "model_routing": {
+    "implementation": {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "status": "implementation_correction_and_model_convergence_verified",
+      "codex_eligible": false
+    },
+    "review_1": {
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "status": "accepted",
+      "verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json"
+    },
+    "review_2": {
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "status": "accepted",
+      "prior_involvement": "none_in_serial_v1_slimming_amendment",
+      "verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-T4-serial-v1-slimming-opus4.8.verdict.json"
+    }
+  },
+  "auto_review_pipeline": {
+    "enabled_for_this_stage": false,
+    "reason": "Bootstrap stage cannot self-host an unaccepted pipeline"
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "note": "Bootstrap delivery remains manual serial; target auto v1 is being reduced to serial-only"
+  },
+  "designer": {
+    "provider": "codex",
+    "provider_identity": "openai",
+    "model": "gpt-5-codex",
+    "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
+    "prior_involvement": "design_and_round3_review"
+  },
+  "breakdown_author": {
+    "provider": "codex",
+    "provider_identity": "openai",
+    "model": "gpt-5-codex",
+    "artifact": "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
+    "review_2_disclosure_required": true
+  },
+  "implementer": {
+    "id": "claude_glm",
+    "provider_identity": "zhipu_glm",
+    "status": "implementation_committed",
+    "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md"
+  },
+  "implementers": [
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "scope": "serial-v1 runtime schema docs tests and C1-C4 correction"
+    },
+    {
+      "provider": "grok_fast",
+      "provider_identity": "xai_grok",
+      "scope": "operator-authorized GPT/Grok model-routing convergence"
+    }
+  ],
+  "fix_authors": [],
+  "reviewer_1": {
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "session_requirement": "fresh_read_only",
+    "prior_involvement": "none",
+    "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md"
+  },
+  "reviewer_2": {
+    "reserved": "claude-opus-4-8",
+    "provider_identity": "anthropic",
+    "prior_involvement": "none",
+    "status": "accepted",
+    "verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-T4-serial-v1-slimming-opus4.8.verdict.json"
+  },
+  "complexity": {
+    "classification": "HIGH",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "Operator explicitly froze the serial-only slimming direction",
+      "No new product meaning or external contract is introduced"
+    ]
+  },
+  "base_sha": "039358012174af949c9f17a94c96bd3ac085a35f",
+  "head_sha": "433980d8384304a528ab5633591aa8dc4018b6ed",
+  "diff_fingerprint": "433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97",
+  "changed_files": [
+    "AGENTS.md",
+    "agents/registry.yaml",
+    "docs/auto-review-pipeline.md",
+    "docs/harness-design.md",
+    "docs/model-adapters.md",
+    "docs/parallel-development-mode.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/18-bookkeeper-inspection-T4.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/19-model-routing-convergence-operator-decision.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/status.json",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-bookkeeper-correction-round1-claude-glm.prompt.md",
+    "reports/agent-runs/README.md",
+    "reports/agent-runs/_template/70-handoff.md",
+    "schemas/auto-review-authorization.schema.json",
+    "schemas/runner-receipt.schema.json",
+    "scripts/auto-review-runner.py",
+    "scripts/harness_stage_lib.py",
+    "scripts/tests/test_auto_review_runner.py",
+    "scripts/tests/test_harness_stage_lib.py",
+    "scripts/tests/test_validate_stage_auto_review.py",
+    "scripts/validate-stage.py",
+    "workflows/templates/stage-delivery.yaml"
+  ],
+  "tests": {
+    "status": "passed",
+    "commands": [
+      "python3 -m unittest discover -s scripts/tests -p 'test_*.py' (independent combined-scope rerun: 168 OK)",
+      "scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase pre-review (PASS)",
+      "git diff --check (PASS)"
+    ]
+  },
+  "review_1": {
+    "status": "ACCEPT",
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97",
+    "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md",
+    "attempt_1_operator_capture": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T4-serial-v1-slimming-kimi-attempt1-operator-capture.md",
+    "attempt_1_valid_json": false,
+    "retry_1_verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json",
+    "retry_1_valid_json": true,
+    "gate_report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T4-serial-v1-slimming-kimi.md",
+    "expected_report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/30-review-1-T4-serial-v1-slimming-kimi.md",
+    "expected_verdict": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json"
+  },
+  "review_2": {
+    "status": "ACCEPT",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "claude-opus-4-8",
+    "reviewer_prior_involvement": "none",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97",
+    "verdict_path": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-T4-serial-v1-slimming-opus4.8.verdict.json",
+    "history_disposition": "Round-3 P1 was valid under withdrawn wall-clock requirement; raw panel is in history/raw",
+    "reserved_reviewer": "claude-opus-4-8",
+    "prompt": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review2-opus4.8.prompt.md",
+    "fable5_quota_evidence": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-T4-fable5-quota-evidence.md"
+  },
+  "rework_count": 3,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "prior_reason": "Round-3 P1 under old P8 with exhausted ledger",
+    "disposition": "Operator authorized serial-only contract slimming amendment"
+  },
+  "follow_ups": [
+    "Harness Fast candidate: rename stale test section comment from wall-clock accounting to adapter-timeout accounting",
+    "Future auto-loop adapter additions must update the fixed registry timeout-required set"
+  ],
+  "terminal_reason": null,
+  "next_action": "run_final_main_pre_accept_then_select_first_auto_review_pilot_requirement",
+  "updated_at": "2026-07-12T14:57:36+08:00"
+}

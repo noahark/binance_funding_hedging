@@ -1,15 +1,1 @@
-T4 pre-review gate
-
-$ scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase pre-review
-STAGE VALIDATION PASSED
-stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
-phase=pre-review
-status=review_1
-diff_fingerprint=433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97
-
-Committed worktree at validation: clean.
-Validation executed after review packet/status commit f633efc.
-
-本地北京时间: 2026-07-12 14:10:51 CST
-下一步模型: Kimi（现有全新只读会话）
-下一步任务: 执行 task-T4-review1-kimi.prompt.md
+history/raw/61-pre-review-T4.txt

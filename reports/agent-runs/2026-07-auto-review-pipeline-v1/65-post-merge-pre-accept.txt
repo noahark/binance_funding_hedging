@@ -1,17 +1,1 @@
-Final main-side pre-accept gate
-
-$ scripts/validate-stage.py 2026-07-auto-review-pipeline-v1 --phase pre-accept
-STAGE VALIDATION PASSED
-stage=reports/agent-runs/2026-07-auto-review-pipeline-v1
-phase=pre-accept
-status=accepted
-diff_fingerprint=433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97
-
-Validation ran on clean main after acceptance metadata commit c99ce15.
-Stage merge point: ef1a593844af65436fda2b355bb4b47650d630f6.
-Merge strategy: fast_forward.
-Full post-merge suite: 168 tests, OK.
-
-本地北京时间: 2026-07-12 14:58:16 CST
-下一步模型: Human operator / Codex
-下一步任务: 选择首个 docs-only 或 small-real auto-review pilot 需求
+history/raw/65-post-merge-pre-accept.txt

@@ -1,0 +1,43 @@
+T4 explicit user acceptance and merge
+
+User decision:
+  接受本 stage，合并到 main
+
+Pre-merge:
+  main = 45c21ee010fd3f2892a6677f58d5c8b02c2fbb0b
+  stage = ef1a593844af65436fda2b355bb4b47650d630f6
+  merge-base = main
+  strategy selected = fast_forward
+
+$ git switch main
+Switched to branch 'main'
+
+$ git merge --ff-only stage/2026-07-auto-review-pipeline-v1
+Fast-forward 45c21ee..ef1a593
+
+Post-merge verification:
+
+$ python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+Ran 168 tests in 18.365s
+OK
+
+$ python3 -m py_compile scripts/validate-stage.py scripts/harness_stage_lib.py \
+  scripts/stage-seal.py scripts/auto-review-runner.py
+exit 0
+
+The first main-side pre-accept call was made before merged_back metadata was
+written. It correctly failed with:
+
+```text
+pre-accept requires current branch 'stage/2026-07-auto-review-pipeline-v1' for
+this stage, got 'main'
+```
+
+The validator's accepted+merged branch requires the bookkeeper to record
+`status=accepted`, `merged_back_to_main=true`, `merge_strategy`, and a reachable
+`merged_back_sha`; the final pre-accept result is preserved separately after
+that authoritative metadata commit.
+
+本地北京时间: 2026-07-12 14:57:36 CST
+下一步模型: Codex bookkeeper
+下一步任务: 提交 main-side acceptance metadata 并运行最终 pre-accept
