@@ -37,7 +37,7 @@
   "bookkeeper_checkpoint": {
     "commit": "433980d8384304a528ab5633591aa8dc4018b6ed",
     "kind": "combined_serial_v1_delivery_evidence",
-    "validated_phase": "pre-review",
+    "validated_phase": "pre-accept",
     "validated_result": "passed",
     "raw_history_style_exception": "pre-existing trailing whitespace preserved verbatim in immutable history/raw evidence"
   },
