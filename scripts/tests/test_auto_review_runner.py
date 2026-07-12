@@ -21,8 +21,8 @@ declared in the T3 packet:
 - verdict-record commit does not change the unit fingerprint;
 - receipt hygiene: no expanded command / env / token / secret; ``next_transition``
   only from the frozen workflow set;
-- call / wall-clock accounting timing (charge before start, timeout charges,
-  restart does not reset the deadline);
+- call / adapter-timeout accounting timing (charge before start and timed-out
+  adapter calls still consume call budget);
 - P3 residual risk: parallel-topology pathspec exotic forms (negation / nested
   glob / case) either match correctly or fail closed — never a silent miss.
 
@@ -851,7 +851,7 @@ class ReceiptHygieneTests(unittest.TestCase):
 
 
 # ===========================================================================
-# 14. call / wall-clock accounting timing
+# 14. call / adapter-timeout accounting timing
 # ===========================================================================
 
 class AccountingTimingTests(unittest.TestCase):
