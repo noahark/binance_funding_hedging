@@ -32,7 +32,17 @@
     "status_snapshot": "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/snapshots/status-before-slimming.json",
     "handoff_snapshot": "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/snapshots/70-handoff-before-slimming.md",
     "compatibility": "former root artifact paths are symlinks to verbatim history/raw files",
-    "read_when": "only an explicit review, audit, finding, or evidence reference requires the exact artifact"
+    "read_when": "only an explicit review, audit, finding, or evidence reference requires the exact artifact",
+    "post_accept_archive": {
+      "at": "2026-07-12T15:10:00+08:00",
+      "moved_count": 20,
+      "content_commit": "6212c5a7a21caaf34d0511abe483b1ec0b34902b",
+      "symlink_integrity": "local byte-equality vs pre-archive HEAD blobs 20/20; broken symlinks 0",
+      "snapshot_status": "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/snapshots/status-before-post-accept-history-archive.json",
+      "snapshot_handoff": "reports/agent-runs/2026-07-auto-review-pipeline-v1/history/snapshots/70-handoff-before-post-accept-history-archive.md",
+      "note": "T4 process packets, implementation report, gate logs, and review summaries moved to history/raw with compatibility symlinks"
+    },
+    "active_root_policy": "Keep design authority (00-task, 10/11 historical design, 12/15/16/19/54 serial amendments), status.json, 70-handoff.md, 60-test-output.txt. Process evidence is symlink-compatible cold storage."
   },
   "bookkeeper_checkpoint": {
     "commit": "433980d8384304a528ab5633591aa8dc4018b6ed",
@@ -45,18 +55,13 @@
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-serial-v1-slimming-claude-glm.prompt.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/18-bookkeeper-inspection-T4.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-bookkeeper-correction-round1-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-auto-review-pipeline-v1/19-model-routing-convergence-operator-decision.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi.prompt.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review1-kimi-json-retry1.prompt.md",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-1-T4-serial-v1-slimming-kimi.verdict.json",
-    "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-T4-review2-opus4.8.prompt.md"
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/15-p8-wall-clock-withdrawal-design-amendment.md",
+    "reports/agent-runs/2026-07-auto-review-pipeline-v1/00-task.md"
   ],
   "contract_amendment": {
     "id": "serial-v1-slimming",
-    "status": "review_2_accept_waiting_user",
+    "status": "accepted_merged_to_main",
     "authority": "reports/agent-runs/2026-07-auto-review-pipeline-v1/54-p8-wall-clock-withdrawal-operator-decision.md",
     "design": "reports/agent-runs/2026-07-auto-review-pipeline-v1/16-serial-v1-slimming-design.md",
     "breakdown": "reports/agent-runs/2026-07-auto-review-pipeline-v1/12-serial-v1-slimming-development-breakdown-codex.md",
@@ -69,8 +74,8 @@
       "remove total runner-session wall clock",
       "use registry per-adapter and per-command timeouts",
       "add cold-history startup read budget",
-      "fix adjacent duplicate-test and stale-docstring P3 items"
-      ,"include operator-authorized GPT/Grok model-routing convergence"
+      "fix adjacent duplicate-test and stale-docstring P3 items",
+      "include operator-authorized GPT/Grok model-routing convergence"
     ],
     "complexity": "HIGH",
     "direction_panel_required": false,
@@ -108,7 +113,7 @@
   },
   "parallel_mode": {
     "enabled": false,
-    "note": "Bootstrap delivery remains manual serial; target auto v1 is being reduced to serial-only"
+    "note": "Bootstrap delivery was manual serial. Target auto v1 is serial-only and landed on main; this bootstrap stage did not self-host auto mode."
   },
   "designer": {
     "provider": "codex",
@@ -251,6 +256,6 @@
     "Future auto-loop adapter additions must update the fixed registry timeout-required set"
   ],
   "terminal_reason": null,
-  "next_action": "run_final_main_pre_accept_then_select_first_auto_review_pilot_requirement",
-  "updated_at": "2026-07-12T14:57:36+08:00"
+  "next_action": "optional_docs_nav_cleanup_or_first_auto_review_pilot",
+  "updated_at": "2026-07-12T15:11:00+08:00"
 }

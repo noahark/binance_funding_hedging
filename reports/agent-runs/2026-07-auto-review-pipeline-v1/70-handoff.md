@@ -2,102 +2,83 @@
 
 ## Current State
 
-- Status: `accepted` — explicit user acceptance recorded and fast-forwarded to
-  `main`.
+- Status: **`accepted`** — user acceptance recorded; stage branch
+  **fast-forwarded to `main`**.
 - Current branch: `main`.
 - Stage branch merge point: `ef1a593844af65436fda2b355bb4b47650d630f6`.
 - Merge strategy: `fast_forward`.
 - T4 review base: `039358012174af949c9f17a94c96bd3ac085a35f`.
 - T4 delivery head: `433980d8384304a528ab5633591aa8dc4018b6ed`.
-- Current recorded fingerprint:
+- Recorded fingerprint:
   `433980d8384304a528ab5633591aa8dc4018b6ed:5316c5dee336354eacc762af913f1cb6cadcb73f13b1dadfc5536e8686b3ca97`.
-- Auto mode remains disabled for this bootstrap stage.
-- Historical rework ledger remains 3/3. This operator-authorized amendment is
-  not rework 4.
-- Worktree contained no unrelated tracked changes before archival/slimming.
+- Auto mode was **not** self-hosted on this bootstrap stage
+  (`enabled_for_this_stage=false`).
+- Historical `rework_count` remains 3/3; serial-v1 slimming was a separate
+  operator-authorized amendment, not rework 4.
+
+## What Landed On Main
+
+Serial-only auto-review pipeline v1:
+
+- remove unimplemented auto parallel worktrees / tip / integration units;
+- remove redundant authorization fields;
+- remove total runner-session wall clock (per-adapter registry timeouts only);
+- cold-history + startup read budget;
+- model routing convergence: Codex `gpt-5.6-sol`, Grok `grok-4.5` (dev+review),
+  Claude remains `claude-fable-5` + fallback `opus4.8`.
+
+Normative contracts: `docs/auto-review-pipeline.md`,
+`workflows/templates/stage-delivery.yaml`, `agents/registry.yaml`, `AGENTS.md`.
 
 ## Startup Read Budget
 
-Read only:
+1. `AGENTS.md`
+2. `workflows/templates/stage-delivery.yaml`
+3. this stage root `status.json` and this handoff
+4. only `status.json.current_inputs` (design authority paths)
 
-1. `AGENTS.md`;
-2. `workflows/templates/stage-delivery.yaml`;
-3. root `status.json` and this handoff;
-4. only the files explicitly listed under `status.json.current_inputs`.
+Do **not** recursively read `history/` at startup. Compatibility symlinks at
+former root paths still resolve; open raw files only for named audit/review.
 
-Do not recursively read `history/` or old stage reports. History is cold audit
-storage. Open one raw file only when an explicit finding/review/audit reference
-requires it.
-
-## Operator-Approved Target
-
-Auto-review v1 is being reduced to a serial-only middle-loop pipeline:
-
-- remove unimplemented auto parallel worktrees/tip/integration behavior;
-- remove redundant authorization fields;
-- remove total runner-session wall clock;
-- use registry per-adapter and per-command timeouts;
-- preserve call/rework/auto-change caps, expiry, locking, resume, receipts,
-  fingerprint, seal, provider isolation, human review-2, and merge gate;
-- add cold-history/startup-context rules;
-- fix duplicate-test and stale-lock-docstring P3 items.
-
-Authority and design:
+## Active Root Design Authority
 
 - `54-p8-wall-clock-withdrawal-operator-decision.md`
 - `16-serial-v1-slimming-design.md`
 - `12-serial-v1-slimming-development-breakdown-codex.md`
+- `19-model-routing-convergence-operator-decision.md`
+- `15-p8-wall-clock-withdrawal-design-amendment.md`
+- `00-task.md`
+- lineage shells: `10-design.md`, `11-adr.md` (see serial-v1 amendment first)
 
-## Roles
+## History Archive (two passes)
 
-- Bookkeeper/designer/breakdown: Codex/OpenAI.
-- Implementer: Claude-GLM / GLM-5.2.
-- Review-1: fresh read-only Kimi.
-- Review-2: Opus 4.8, reserved with no involvement in this amendment.
-- Dispatch executor: human operator only.
+1. Pre-slimming: 67 artifacts → `history/raw/` + symlinks.
+2. Post-accept process pass (2026-07-12): **20** additional closed process
+   artifacts (T4 prompts/verdicts, `20-implementation.md`, gate logs `61–65`,
+   intermediate inspections, short `30-review-1`/`50-review-2` stubs) →
+   `history/raw/` + symlinks. Snapshots under `history/snapshots/`.
 
-Codex authored the prior round-3 REWORK and now acts as bookkeeper/designer by
-operator assignment. It must not implement/fix code or declare final acceptance.
+Provenance: pass-2 archive content is committed as `6212c5a` (A1) and bound in
+`status.json.history_archive.post_accept_archive.content_commit`. The T4 delivery
+checkpoint stays `433980d` (`combined_serial_v1_delivery_evidence`,
+`post_merge_pre_accept`, `passed`).
 
-## History Slimming
+Root real files now: design authority + `status.json` + handoff +
+`60-test-output.txt` (~11 files). Process evidence remains path-compatible via
+symlinks.
 
-- 67 historical root artifacts moved verbatim to `history/raw/`.
-- Former paths are compatibility symlinks.
-- Full pre-slimming status/handoff saved under `history/snapshots/`.
-- Active root contains only current design/task/evidence/state files.
-- Deleted safe local caches: `.mypy_cache`, `.pytest_cache`, `.ruff_cache`,
-  project `__pycache__`, and `.DS_Store` outside `.venv`.
-- `.venv`, `.env`, ignored business/sample files, and old raw evidence were not
-  deleted.
+## Roles (historical for this stage)
 
-## Baseline Verification
-
-- Full suite before new implementation: 161 tests, OK.
-- Checkpoint validator before archival: PASS.
-- P8 decision/design evidence commits: `2c1ba02`, `54ce1c8`.
-- Archive/slimming packet-bind evidence commit: `3129c67`.
-- Checkpoint validator: PASS; 67 compatibility links checked, 0 broken.
-- A full cached style check sees pre-existing trailing whitespace in four
-  immutable `history/raw/` files. Raw evidence remains byte-preserved; all
-  non-raw staged content passed the scoped check.
+- Bookkeeper/designer/breakdown: Codex (dual-hat disclosed; not final accept).
+- Implementer: Claude-GLM; model-routing convergence also via Grok Fast.
+- Review-1 T4: Kimi ACCEPT.
+- Review-2 T4: Opus 4.8 ACCEPT (unrelated reviewer).
 
 ## Next Action
 
-The operator confirmed the GPT `gpt-5.6-sol` and Grok `grok-4.5` convergence
-was an intentional Grok Fast task and authorized inclusion in this stage.
-`19-model-routing-convergence-operator-decision.md` records the expanded scope,
-the `docs/harness-design.md` exception, authorship, and review isolation.
+Stage delivery is complete on `main`. Optional follow-ups (docs nav cleanup,
+first docs-only / small-real auto pilot) are **new work**, not open T4 fixes.
 
-Kimi review-1 and Opus 4.8 review-2 exact verdict files both pass JSON parsing,
-schema, stage/role/fingerprint/identity and ACCEPT transition checks.
-
-Opus recorded one non-blocking stale-comment P3 for later Harness Fast
-maintenance. No required fix remains. The user explicitly accepted the stage;
-`main` was fast-forwarded and the full 168-test suite passed after merge.
-
-Final main-side pre-accept validation passed on clean `main`. Merge is complete;
-no push or deployment was performed.
-
-本地北京时间: 2026-07-12 14:58:16 CST
-下一步模型: Human operator / Codex
-下一步任务: 选择首个 docs-only 或 small-real auto-review pilot 需求
+本地北京时间: 2026-07-12 15:11:00 CST
+下一步模型: human
+下一步任务: 可选：修 STAGE_INDEX / follow-ups README 等导航语义；或开首个 auto pilot stage
