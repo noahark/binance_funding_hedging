@@ -613,6 +613,46 @@ frozen 40-table, and independently reruns the 161-test suite.
 `human_escalation_required`; ACCEPT → `stage_accepted_waiting_user`
 (never merge authority).**
 
-本地北京时间: 2026-07-12 09:35:00 CST
-下一步模型: human operator → review-2 round 3（操作者选型）
-下一步任务: 人工执行 round-3 packet；评审者只读终审全 stage；返回后 bookkeeper 落档并按终格语义推进。
+（已完成：操作者三模型并行执行 round 3，2026-07-12 09:45 前后交回。）
+
+## Round 3 Panel Landed — Terminal Rule Applied (bookkeeper, 2026-07-12)
+
+- Panel: **sol (self-reported gpt-5-codex, openai) REWORK 1×P1** |
+  opus4.8 (anthropic) ACCEPT 2×P3 | grok-4.5 (xai) ACCEPT 0 findings.
+  All landings boundary-clean (6 new files only); identities truthful
+  (gpt-5-codex is a slug-level mismatch vs the operator-declared
+  gpt-5.6-sol target, same provider, NOT forgery — recorded in 53 §2);
+  all fingerprints match; all verdicts schema-valid. No record designated
+  by the operator this round.
+- **P1 bookkeeper-CONFIRMED by independent probe** (real temp repo, real
+  stage-seal, injected clock, cross-check skipped via author coverage):
+  with wall_clock_seconds=1 the deadline passed mid-implementation, yet
+  H_snapshot + H_bind were committed and the fingerprint bound (rev-list
+  3→5) before the timeout escalation fired at the next model-call
+  checkpoint. Violates acceptance 17 (cost bounds fail closed) + frozen
+  P8. Sibling of FX2's spec scope (expires_at only) — next-layer
+  spec-depth gap, not an FX1–FX7 regression. Rounds 1–2 findings remain
+  closed (sol re-verified all eight; opus/grok concur).
+- opus 2×P3 confirmed (duplicate-shadowed FX6 test at :2027/:2035 — also
+  refines GLM blocker #3's "unreachable" to auth-side-only; stale FX4
+  docstring at :1113); packet "acceptance 1–29" typo acknowledged (actual
+  1–28); all routed to follow-ups.
+- **status → `human_escalation_required`** (pre-announced terminal rule:
+  confirmed required finding + rework ledger 3/3 exhausted). This hands
+  disposition to the operator; it is not a stage-failure verdict.
+
+## 下一步（操作者决定，选项见 53 §6）
+
+a. **授权新的有界人工修复处置**：sol 的 fix_start_prompt（round-3
+   verdict JSON 内，明确要求人工显式批准后方可使用）作为种子；
+   bookkeeper 冻结新 packet（建议 writable set = runner + runner tests，
+   seal 两文件按需申请）；修后新证据 commit → review-1 → 全 stage
+   review-2。不占已耗尽的自动账本——这是人工授权的新处置。
+b. **行使最终验收权**：知情接受 P1 为 residual（影响窗有限：越期约一个
+   节点窗、终会 escalation、auto pipeline 本 stage default-off 未启
+   用），推进 stage 处置；bookkeeper 落档该决定。
+c. 其他（缩范围 / abandon / 并入后续 Harness 修订 stage）。
+
+本地北京时间: 2026-07-12 10:10:00 CST
+下一步模型: human operator（escalation 处置决定）
+下一步任务: 从 53 §6 选项中选择；任何新修复轮都需操作者显式授权开启。

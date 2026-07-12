@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-auto-review-pipeline-v1",
-  "status": "review_2",
+  "status": "human_escalation_required",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-auto-review-pipeline-v1",
@@ -72,7 +72,7 @@
       "provider_must_differ_from_reviewed_unit_authors": true
     },
     "review_2": {
-      "status": "round3_packet_bound_awaiting_operator_dispatch",
+      "status": "round3_panel_landed_p1_confirmed_escalated",
       "note": "Both configured high-end providers, OpenAI/Codex and Anthropic/Claude, participated in the pre-stage decision chain. Stage design must record truthful prior involvement and an eligible final-review route or disclosure override evidence.",
       "stage_range": {
         "base_sha": "a385c7ad77da1611c6e952b2219aee56b49f442f",
@@ -688,9 +688,9 @@
     "note": "All three serial task units ACCEPT (T1 25383e8 / T2 a7fd737 / T3 4c668bb round2). Per-unit verdicts in tasks[].review_1; this top-level block mirrors the final unit."
   },
   "review_2": {
-    "reviewer": "gpt-5.6-sol",
+    "reviewer": "gpt-5-codex (operator-declared gpt-5.6-sol high)",
     "provider": "openai",
-    "model": "gpt-5.6-sol",
+    "model": "gpt-5-codex",
     "primary_provider": "operator_choice_gpt56_family_or_claude",
     "fallback_provider": null,
     "fallback_reason": "design-conflict ineligibility: no unrelated registered decision model (both registered providers design-involved; third-model enablement explicitly declined by operator 2026-07-11). service_unavailable basis withdrawn per sol P1.",
@@ -703,12 +703,12 @@
       "reason": null,
       "unrelated_reviewer_unavailable_evidence": null
     },
-    "open_p0_p1": 5,
+    "open_p0_p1": 1,
     "verdict": "REWORK",
     "json_schema_valid": true,
     "diff_fingerprint": "846bec036d62a3cdb243325f16977bd2c1396ade:53c4a3e650a9f34d635233d253f553456bdef74b5babdda00507829a475c15f4",
     "fix_start_prompt_present": true,
-    "fix_start_prompt_source": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-round2-gpt-5.6-sol.verdict.json",
+    "fix_start_prompt_source": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-round3-gpt-5-codex.verdict.json",
     "invalid_json_attempts": 0,
     "routing_note": "Operator dispatches personally, selecting from gpt-5.6-sol>terra>luna (openai) or claude-fable-5/opus4.8 (anthropic) per cross-review principle and token budget at dispatch time; packet is provider-neutral with per-provider disclosure branches. Actual model recorded truthfully on landing.",
     "panel": {
@@ -793,7 +793,7 @@
         }
       }
     },
-    "open_p0_p1_note": "Round-2 record (sol REWORK): 5xP1 + 3xP2, all 8 bookkeeper-confirmed (52-review-2-round2-panel-disposition.md §2). These are next-layer adversarial findings, not reopened round-1 items.",
+    "open_p0_p1_note": "Round-3: single P1 (wall-clock not enforced before seal commits; acceptance 17 / frozen P8), bookkeeper-CONFIRMED by real-seal fake-clock probe. Next-layer sibling of FX2 spec scope, not an FX1-FX7 regression. Rounds 1-2 findings remain closed.",
     "round2": {
       "packet": "reports/agent-runs/2026-07-auto-review-pipeline-v1/task-stage-review2-round2-operator-choice.prompt.md",
       "review_range": "a385c7ad77da1611c6e952b2219aee56b49f442f..846bec036d62a3cdb243325f16977bd2c1396ade",
@@ -882,9 +882,44 @@
       "review_range": "a385c7ad77da1611c6e952b2219aee56b49f442f..a057d063523664a2fcfa8cc4db9e9af789f15730",
       "diff_fingerprint": "a057d063523664a2fcfa8cc4db9e9af789f15730:cd68035686acc794aac3065270530ec6d4846da18c25274458f478fd85b84e7e",
       "provider": "operator_choice_gpt56_family_or_claude",
-      "status": "packet_bound_awaiting_operator_dispatch",
+      "status": "panel_landed_p1_confirmed_terminal_rule_applied",
       "skill_reference": "agents/skills/reality-checker.md (review_2 node skill, per corrected dispatch convention)",
-      "ledger_rule": "rework exhausted 3/3: REWORK with required finding -> human_escalation_required; ACCEPT -> stage_accepted_waiting_user"
+      "ledger_rule": "rework exhausted 3/3: REWORK with required finding -> human_escalation_required; ACCEPT -> stage_accepted_waiting_user",
+      "mode": "operator_parallel_panel_no_record_designated",
+      "panel": [
+        {
+          "model": "gpt-5-codex",
+          "operator_declared_target": "gpt-5.6-sol (high)",
+          "provider_identity": "openai",
+          "verdict": "REWORK",
+          "findings": "1xP1 wall-clock/seal-commit gap, bookkeeper CONFIRMED",
+          "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/50-review-2-round3-gpt-5-codex.md",
+          "verdict_json": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-round3-gpt-5-codex.verdict.json",
+          "identity_note": "slug-level mismatch vs operator declaration, same provider, truthful self-description — not forgery (53 §2)"
+        },
+        {
+          "model": "claude-opus-4-8",
+          "provider_identity": "anthropic",
+          "verdict": "ACCEPT",
+          "findings": "2xP3 hygiene (duplicate-shadowed test, stale docstring), bookkeeper confirmed, non-blocking",
+          "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/50-review-2-round3-claude-opus-4-8.md",
+          "verdict_json": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-round3-claude-opus-4-8.verdict.json",
+          "dual_hat_note": "same-provider-as-bookkeeper risk explicitly assessed; closure evidence independently reproduced"
+        },
+        {
+          "model": "grok-4.5",
+          "provider_identity": "xai_grok",
+          "verdict": "ACCEPT",
+          "findings": "0 findings, 7 residuals",
+          "report": "reports/agent-runs/2026-07-auto-review-pipeline-v1/50-review-2-round3-grok.md",
+          "verdict_json": "reports/agent-runs/2026-07-auto-review-pipeline-v1/review-2-round3-grok.verdict.json",
+          "record_eligible": false,
+          "reason": "not a registered decision model; direction_synthesis involvement"
+        }
+      ],
+      "p1_confirmation": "bookkeeper real-temp-repo + real stage-seal + injected-clock probe: rev-list 3->5 (H_snapshot+H_bind), fingerprint bound, all AFTER 12:00:01Z deadline; escalation fired only at next model-call checkpoint. Evidence in 60-test-output.txt.",
+      "divergence_analysis": "ACCEPTx2 vs REWORKx1 is depth gap (no acceptance-17 adversarial probe in the ACCEPTs), not factual conflict; confirmed P1 cannot enter accepted regardless of record designation (fail-closed, same principle as round-2 disposition)",
+      "disposition": "reports/agent-runs/2026-07-auto-review-pipeline-v1/53-review-2-round3-panel-disposition.md"
     }
   },
   "rework_count": 3,
@@ -906,14 +941,14 @@
     "Each future pilot authorization must select positive call-count and wall-clock values"
   ],
   "blockers": [
-    "review-2 round 3 (full stage a385c7a..a057d06) packet bound, awaiting operator dispatch; rework ledger exhausted 3/3"
+    "human_escalation_required: round-3 P1 confirmed (wall-clock/seal-commit fail-closed gap) with rework 3/3 exhausted; awaiting operator escalation disposition (53-review-2-round3-panel-disposition.md §6)"
   ],
   "human_escalation": {
-    "required": false,
-    "reason": null
+    "required": true,
+    "reason": "review-2 round-3 confirmed P1 (wall-clock budget not enforced before seal commits) with rework ledger exhausted at 3/3; pre-announced terminal rule applied. Operator decides disposition: authorize a new bounded human repair (sol fix_start_prompt held as seed), knowingly accept as residual and exercise final acceptance authority, or other (53 §6)."
   },
-  "terminal_reason": null,
-  "next_action": "operator_execute_review2_round3_packet",
-  "updated_at": "2026-07-12T09:35:00+08:00",
+  "terminal_reason": "rework_ledger_exhausted_with_confirmed_required_finding",
+  "next_action": "human_decide_escalation_disposition",
+  "updated_at": "2026-07-12T10:10:00+08:00",
   "resolved_blockers_note": "T1-R2-1/R2-2 closed by correction round2 (see completed_correction_packets); stale copies removed 2026-07-11 per sol P2 finding"
 }
