@@ -75,6 +75,7 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/13-software-architect-amendment.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/14-harness-adapter-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/15-v3-prerequisite-repair.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/16-claude-glm-pty-route-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.json"
   ],
@@ -259,7 +260,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "attempt_3_stopped_glm_service_overload_529",
+    "status": "pty_route_repair_tested_awaiting_commit",
     "real_launchctl_mutation_authorized": false
   },
   "harness_adapter_repair": {
@@ -293,6 +294,20 @@
       "reports/agent-runs/2026-07-local-service-launchd-v1/history/runner-2-implementation.receipt.before-raw-path-repair.json",
       "reports/agent-runs/2026-07-local-service-launchd-v1/history/implementation-T1-launchd-service-attempt1.before-raw-path-repair.raw-output.md"
     ],
+    "model_dispatch_during_repair": false,
+    "delivery_code_changed": false
+  },
+  "harness_pty_route_repair": {
+    "status": "implemented_and_tested_awaiting_commit",
+    "commit": null,
+    "author_role": "codex_bookkeeper_harness_prerequisite_not_delivery_implementer",
+    "artifact": "reports/agent-runs/2026-07-local-service-launchd-v1/16-claude-glm-pty-route-repair.md",
+    "route_evidence_sessions": [
+      "fdda0f8b-8332-448e-ab92-464a4b592545",
+      "8f6d02c1-c12e-4762-8c4a-f42ba4404ff3",
+      "19be0bc5-7a4c-4e6d-a0e8-7b4e16ba3758"
+    ],
+    "transport": "runner_owned_interactive_pty_with_cli_transcript_gate",
     "model_dispatch_during_repair": false,
     "delivery_code_changed": false
   },
@@ -409,6 +424,7 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/13-software-architect-amendment.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/14-harness-adapter-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/15-v3-prerequisite-repair.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/16-claude-glm-pty-route-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/20-implementation.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/30-review-1.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/40-fix-report.md",
@@ -437,13 +453,14 @@
     "docs/auto-review-pipeline.md",
     "docs/model-adapters.md",
     "scripts/auto-review-runner.py",
+    "scripts/model-adapters/claude-glm-pty-wrapper",
     "scripts/model-adapters/claude-glm-wrapper",
     "scripts/tests/test_auto_review_runner.py",
     "scripts/tests/test_validate_stage_auto_review.py",
     "scripts/validate-stage.py"
   ],
   "tests": {
-    "status": "v3_retry_reached_glm_gateway_then_api_529_no_delivery_tests",
+    "status": "pty_route_harness_repair_passed_awaiting_v4_authorization",
     "commands": [
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
@@ -478,7 +495,10 @@
       "claude_glm attempt 3 inference request (FAIL API 529 overload; no delivery code change)",
       "sequence-3 receipt/raw/escalation navigation generated without overwriting prior evidence (PASS)",
       "runner-3 receipt schema validation (PASS)",
-      "post-attempt-3 checkpoint validator and diff check (PASS)"
+      "post-attempt-3 checkpoint validator and diff check (PASS)",
+      "Claude-GLM PTY + production registry focused suite: 13 tests (PASS)",
+      "test_auto_review_runner + test_validate_stage_auto_review: 114 tests (PASS)",
+      "fake CLI end-to-end PTY, cli transcript gate, zsh wrapper, permission stripping, and TUI exit (PASS)"
     ]
   },
   "review_1": {
@@ -522,14 +542,14 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "Claude-GLM returned API 529 / error 1305 model overload again on attempt 3 after the repaired wrapper reached the inference gateway.",
-    "The auto contract requires another explicit human decision and a new/superseding authorization before any further retry."
+    "The tested runner-owned PTY route repair must be committed before the real probe.",
+    "A committed superseding v4 authorization is required before the auto runner may make the PTY model call."
   ],
   "human_escalation": {
     "required": true,
-    "reason": "claude_glm repeated temporary service overload API 529 on authorized attempt 3; no delivery code changed"
+    "reason": "operator approved a Harness-preserving PTY route test; repair and superseding authorization must be committed before runner resume"
   },
   "terminal_reason": "human_escalation_required",
-  "next_action": "human_decides_delayed_v4_retry_or_explicit_human_dispatch_route",
-  "updated_at": "2026-07-13T07:59:03Z"
+  "next_action": "commit_pty_route_repair_then_commit_superseding_authorization_v4_and_resume_runner",
+  "updated_at": "2026-07-13T08:22:14Z"
 }

@@ -26,6 +26,33 @@ commit
 344b8734a9811887e0e58537c0e3a370a0b2fe9a
 ```
 
+2026-07-13 16:22:14 CST — runner-owned Claude-GLM PTY route repair:
+
+```text
+python3 -m py_compile scripts/model-adapters/claude-glm-pty-wrapper
+PASS
+
+python3 -m unittest \
+  scripts.tests.test_auto_review_runner.ClaudeGlmPtyTransportTests \
+  scripts.tests.test_auto_review_runner.ProductionRegistryCommandTests
+Ran 13 tests in 4.527s
+OK
+
+python3 -m unittest \
+  scripts.tests.test_auto_review_runner \
+  scripts.tests.test_validate_stage_auto_review
+Ran 114 tests in 16.393s
+OK
+
+git diff --check
+PASS
+```
+
+The fake CLI integration verified PTY stdin/stdout, a persisted
+`entrypoint=cli` final turn, TUI exit, the lower zsh wrapper, and alias bypass
+removal. No real model call, `.env` read, alias expansion, delivery code change,
+or real `launchctl` mutation occurred.
+
 2026-07-13 15:56:54 CST — auto-run attempt 3 through repaired wrapper:
 
 ```text

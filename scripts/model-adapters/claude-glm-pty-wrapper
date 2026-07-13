@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+"""Run Claude-GLM through a real PTY while keeping runner evidence deterministic.
+
+Claude Code switches ``-p`` and non-TTY stdout to its ``sdk-cli`` entrypoint.
+The local GLM gateway has repeatedly returned API 529 on that route while the
+same model succeeds through the interactive ``cli`` route.  This adapter gives
+the existing absolute zsh wrapper a pseudo-terminal, supplies the immutable
+prompt as the initial positional prompt, and exits only after the persisted
+Claude transcript records a final ``cli`` assistant turn.
+
+The adapter never expands or prints the ``claude-glm`` alias or environment.
+Its stdout is the raw PTY byte stream plus a deterministic, non-secret session
+marker; the auto runner remains the sole caller and receipt writer.
+"""
+
+from __future__ import annotations
+
+import argparse
+import errno
+import fcntl
+import json
+import os
+import pty
+import select
+import signal
+import struct
+import subprocess
+import sys
+import termios
+import time
+import uuid
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Sequence
+
+
+@dataclass(frozen=True)
+class TranscriptOutcome:
+    success: bool
+    reason: str
+    entrypoint: str | None
+    model: str | None
+    path: Path
+
+
+def _text_blocks(message: dict) -> list[str]:
+    content = message.get("content")
+    if isinstance(content, str):
+        return [content]
+    if not isinstance(content, list):
+        return []
+    return [
+        block.get("text", "")
+        for block in content
+        if isinstance(block, dict)
+        and block.get("type") == "text"
+        and isinstance(block.get("text"), str)
+    ]
+
+
+def inspect_transcript(transcript_root: Path, session_id: str) -> TranscriptOutcome | None:
+    """Return only a terminal assistant outcome for the requested UUID."""
+    paths = sorted(transcript_root.glob("*/" + session_id + ".jsonl"))
+    if not paths:
+        return None
+    path = paths[0]
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    for raw in reversed(lines):
+        try:
+            item = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if item.get("type") != "assistant" or not isinstance(item.get("message"), dict):
+            continue
+        message = item["message"]
+        model = message.get("model")
+        entrypoint = item.get("entrypoint")
+        texts = _text_blocks(message)
+        if model == "<synthetic>" and texts:
+            return TranscriptOutcome(False, "synthetic_provider_error", entrypoint, model, path)
+        if message.get("stop_reason") == "end_turn" and texts and model:
+            if entrypoint != "cli":
+                return TranscriptOutcome(
+                    False, "unexpected_entrypoint:" + str(entrypoint), entrypoint, model, path
+                )
+            return TranscriptOutcome(True, "cli_end_turn", entrypoint, model, path)
+    return None
+
+
+def _terminate_group(proc: subprocess.Popen[bytes], grace: float = 2.0) -> None:
+    if proc.poll() is not None:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        proc.wait(timeout=grace)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    proc.wait(timeout=grace)
+
+
+def _drain(master_fd: int, captured: bytearray, timeout: float) -> bool:
+    """Drain one PTY chunk. Return False after slave closure."""
+    ready, _, _ = select.select([master_fd], [], [], timeout)
+    if not ready:
+        return True
+    try:
+        chunk = os.read(master_fd, 65536)
+    except OSError as exc:
+        if exc.errno == errno.EIO:
+            return False
+        raise
+    if not chunk:
+        return False
+    captured.extend(chunk)
+    return True
+
+
+def run_pty_session(
+    command: Sequence[str],
+    *,
+    transcript_root: Path,
+    session_id: str,
+    timeout_seconds: float,
+    env: dict[str, str] | None = None,
+    cwd: Path | None = None,
+) -> tuple[bytes, TranscriptOutcome | None, int | None, bool]:
+    """Run ``command`` in a PTY and stop after a final persisted turn."""
+    master_fd, slave_fd = pty.openpty()
+    captured = bytearray()
+    proc: subprocess.Popen[bytes] | None = None
+    timed_out = False
+    outcome: TranscriptOutcome | None = None
+    try:
+        # Give the TUI a stable size so it does not block on terminal probing.
+        fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 160, 0, 0))
+        child_env = dict(os.environ if env is None else env)
+        child_env.setdefault("TERM", "xterm-256color")
+        proc = subprocess.Popen(
+            list(command),
+            cwd=str(cwd) if cwd is not None else None,
+            env=child_env,
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            start_new_session=True,
+            close_fds=True,
+        )
+        os.close(slave_fd)
+        slave_fd = -1
+        deadline = time.monotonic() + timeout_seconds
+        outcome_seen_at: float | None = None
+        exit_sent = False
+        while True:
+            stream_open = _drain(master_fd, captured, 0.2)
+            latest = inspect_transcript(transcript_root, session_id)
+            if latest is not None:
+                outcome = latest
+                if outcome_seen_at is None:
+                    outcome_seen_at = time.monotonic()
+            now = time.monotonic()
+            # Allow split thinking/text records and terminal rendering to flush.
+            if outcome_seen_at is not None and now - outcome_seen_at >= 1.0 and not exit_sent:
+                try:
+                    os.write(master_fd, b"/exit\r")
+                except OSError:
+                    pass
+                exit_sent = True
+            if exit_sent and now - outcome_seen_at >= 6.0:
+                break
+            if proc.poll() is not None or not stream_open:
+                break
+            if now >= deadline:
+                timed_out = True
+                break
+        _terminate_group(proc)
+        for _ in range(100):
+            if not _drain(master_fd, captured, 0.01):
+                break
+        return bytes(captured), outcome, proc.returncode, timed_out
+    finally:
+        if proc is not None:
+            _terminate_group(proc)
+        if slave_fd >= 0:
+            os.close(slave_fd)
+        os.close(master_fd)
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(add_help=True)
+    parser.add_argument("--model", required=True)
+    parser.add_argument(
+        "--permission-mode", choices=("acceptEdits", "plan"), default="acceptEdits"
+    )
+    parser.add_argument("--dangerously-skip-permissions", action="store_true")
+    parser.add_argument("--prompt-file", required=True)
+    parser.add_argument("--timeout-seconds", type=int, default=2400)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    if args.timeout_seconds <= 0:
+        raise SystemExit("--timeout-seconds must be positive")
+    prompt_path = Path(args.prompt_file).resolve()
+    prompt = prompt_path.read_text(encoding="utf-8")
+    session_id = str(uuid.uuid4())
+    wrapper = Path(__file__).resolve().with_name("claude-glm-wrapper")
+    command = [str(wrapper), "--model", args.model]
+    if args.dangerously_skip_permissions:
+        command.append("--dangerously-skip-permissions")
+    else:
+        command.extend(["--permission-mode", args.permission_mode])
+    command.extend(["--session-id", session_id, prompt])
+    transcript_root = Path.home() / ".claude" / "projects"
+    raw, outcome, child_rc, timed_out = run_pty_session(
+        command,
+        transcript_root=transcript_root,
+        session_id=session_id,
+        timeout_seconds=float(args.timeout_seconds),
+        cwd=Path.cwd(),
+    )
+    sys.stdout.buffer.write(raw)
+    sys.stdout.buffer.write(
+        ("\nHARNESS_PTY_SESSION_ID=" + session_id + "\n").encode("ascii")
+    )
+    if timed_out:
+        sys.stderr.write("claude-glm PTY adapter: timed out before a final cli turn\n")
+        return 124
+    if outcome is None:
+        sys.stderr.write(
+            "claude-glm PTY adapter: process ended without a final persisted assistant turn"
+            + (" (child=" + str(child_rc) + ")" if child_rc is not None else "")
+            + "\n"
+        )
+        return child_rc if child_rc not in (None, 0) else 1
+    sys.stdout.buffer.write(
+        (
+            "HARNESS_PTY_OUTCOME=" + outcome.reason
+            + " entrypoint=" + str(outcome.entrypoint)
+            + " model=" + str(outcome.model) + "\n"
+        ).encode("utf-8")
+    )
+    return 0 if outcome.success else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

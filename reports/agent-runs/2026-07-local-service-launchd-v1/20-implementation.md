@@ -52,6 +52,12 @@ stdout/stderr, and escalation navigation are preserved at distinct paths. No
 delivery code or real LaunchAgent state changed; usage is now
 `model_calls_used=3`, `auto_code_changes_used=0`.
 
-本地北京时间: 2026-07-13 15:56:54 CST
-下一步模型: human
-下一步任务: 决定延迟签发 v4 重试，或显式切换 human_dispatch 路径
+The operator then requested a Harness-preserving PTY route test. The bookkeeper
+implemented and fake-tested that Harness transport in
+`16-claude-glm-pty-route-repair.md`. This is not delivery implementation and did
+not invoke a real model. A successful real PTY call will remain inside the auto
+runner and continue through blocking checks, seal, and review-1.
+
+本地北京时间: 2026-07-13 16:22:14 CST
+下一步模型: Codex bookkeeper
+下一步任务: 提交 PTY route 修复和 v4 授权，再由 runner 做真实调用

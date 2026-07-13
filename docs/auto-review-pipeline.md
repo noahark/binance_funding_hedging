@@ -189,6 +189,10 @@ not pre-write that mechanical transition.
 - Per-call subprocess timeout comes from the committed registry
   (`adapters.<id>.timeout_seconds`, or a command-specific override); there is no
   total runner-session deadline.
+- Transport details remain registry-owned. A PTY-backed adapter process is
+  still one runner-owned model call: the adapter may use a persisted local
+  transcript only to determine its own process success/failure, but it may not
+  select a next node, write receipts, commit, or mutate authoritative status.
 - Resume after `awaiting_human` requires new authorization; historical usage
   remains recorded.
 

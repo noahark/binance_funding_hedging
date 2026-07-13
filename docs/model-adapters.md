@@ -167,34 +167,45 @@ Command templates:
 
 ```bash
 # Availability check. This may require an interactive shell profile.
+test -x "<repo>/scripts/model-adapters/claude-glm-pty-wrapper"
 test -x "<repo>/scripts/model-adapters/claude-glm-wrapper"
 "<repo>/scripts/model-adapters/claude-glm-wrapper" --version
 
-# Non-interactive bookkeeper or implementation prompt. The runner expands
-# <repo> to an absolute path before invocation.
-<repo>/scripts/model-adapters/claude-glm-wrapper \
-  --model glm-5.2 --permission-mode acceptEdits -p "$(cat <prompt-file>)"
+# Runner-owned implementation prompt. The PTY wrapper reads the immutable
+# prompt file, creates a real terminal, and supplies it as an initial positional
+# prompt; it deliberately does not use -p/sdk-cli.
+<repo>/scripts/model-adapters/claude-glm-pty-wrapper \
+  --model glm-5.2 --permission-mode acceptEdits --prompt-file <prompt-file>
 
 # Read-only/plan review.
-<repo>/scripts/model-adapters/claude-glm-wrapper \
-  --model glm-5.2 --permission-mode plan -p "$(cat <prompt-file>)"
+<repo>/scripts/model-adapters/claude-glm-pty-wrapper \
+  --model glm-5.2 --permission-mode plan --prompt-file <prompt-file>
 
 # Embedded cross-review checkpoint. Same as read-only/plan review; use a fresh
 # session and never reuse implementation/bookkeeper transcript.
-<repo>/scripts/model-adapters/claude-glm-wrapper \
-  --model glm-5.2 --permission-mode plan -p "$(cat <prompt-file>)"
+<repo>/scripts/model-adapters/claude-glm-pty-wrapper \
+  --model glm-5.2 --permission-mode plan --prompt-file <prompt-file>
 
 # Yolo execution, only when explicitly authorized.
-<repo>/scripts/model-adapters/claude-glm-wrapper \
-  --model glm-5.2 --dangerously-skip-permissions -p "$(cat <prompt-file>)"
+<repo>/scripts/model-adapters/claude-glm-pty-wrapper \
+  --model glm-5.2 --dangerously-skip-permissions --prompt-file <prompt-file>
 ```
 
-The wrapper is the only runner-facing entrypoint. It starts `/bin/zsh -lic`
-behind isolated file descriptors so profile startup and exit-hook messages do
-not contaminate model stdout/stderr, restores output only for the actual
-`claude-glm` call, and never prints the alias expansion or environment. This
-keeps the existing secret routing in the user's shell profile while making the
-runner invocation deterministic and absolute-path based.
+The PTY wrapper is the runner-facing entrypoint. It allocates a pseudo-terminal
+and invokes the lower absolute zsh wrapper without `-p`. The lower wrapper
+starts `/bin/zsh -lic` behind isolated file descriptors so profile startup and
+exit-hook messages do not contaminate model output, restores output only for
+the actual `claude-glm` call, and never prints the alias expansion or
+environment. This keeps the existing secret routing in the user's shell
+profile while making the runner invocation deterministic and absolute-path
+based.
+
+The PTY wrapper assigns a fresh Claude session UUID and watches only that
+session's persisted transcript. Success requires an actual final assistant text
+turn with `entrypoint=cli`; `<synthetic>` provider errors and any
+`entrypoint=sdk-cli` result fail closed. It then exits the interactive TUI and
+returns the captured raw terminal stream to the runner, which remains the sole
+receipt writer and next-hop authority.
 
 Permission policy does not come from the alias. The wrapper removes a legacy
 alias-level `--dangerously-skip-permissions` token in memory without logging the
@@ -209,6 +220,14 @@ Observed on 2026-07-13: direct `/bin/sh` execution cannot resolve the
 interactive-zsh `claude-glm` alias. Runner templates therefore invoke the
 committed wrapper at its runtime absolute path. Never record the expanded alias
 environment; it contains credentials.
+
+Also observed on 2026-07-13: two adjacent `-p` attempts were recorded as
+`entrypoint=sdk-cli`, returned synthetic zero-token API 529 responses after
+approximately three minutes, and failed under both `bypassPermissions` and
+`acceptEdits`. A typed interactive session was recorded as `entrypoint=cli` and
+returned from the same `glm-5.2` model in approximately five seconds. Because
+Claude Code also treats redirected non-TTY stdout as non-interactive, removing
+`-p` alone is insufficient; the runner transport must supply a PTY.
 
 Known local-pilot trade-off: every invocation loads the full interactive login
 zsh profile. A profile hook that blocks without a TTY can therefore delay the

@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: auto attempt 3 stopped fail-closed after repeated GLM API 529 overload
-- Next action: human decides whether to wait and issue v4 authorization or explicitly route to `human_dispatch`
+- Active phase: runner-owned PTY route repair implemented and tested; awaiting commit
+- Next action: commit the PTY repair, create superseding authorization v4, and resume the auto runner
 - Read-set: = status.current_inputs
-- Open blockers: repeated Claude-GLM service overload; a new human decision is required before further dispatch
+- Open blockers: PTY repair commit and committed v4 authorization
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -13,8 +13,8 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `344b8734a9811887e0e58537c0e3a370a0b2fe9a` (`bookkeeper(launchd): record auto retry v3 overload`)
-- Git status: synchronized SHA checkpoint pending commit; attempt-3 evidence itself is committed
+- HEAD: `ed203a77f7df26e8ba7e0aa0d05571763c182469`
+- Git status: PTY Harness repair and synchronized evidence pending commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 3 stopped fail-closed
@@ -29,7 +29,8 @@
 - Adapter repair: `14-harness-adapter-repair.md`
 - V3 prerequisite repair: `15-v3-prerequisite-repair.md`
 - Implementation: `20-implementation.md`; delivery implementation still pending
-- Current authorization: `auto-run-authorization-v3.json`; committed and schema-valid
+- Current authorization: `auto-run-authorization-v3.json`; consumed by attempt 3
+- PTY route repair: `16-claude-glm-pty-route-repair.md`
 - Latest runner receipt: `runner-3-implementation.receipt.json`
 - Latest raw output: `runner-3-implementation-T1-launchd-service-attempt1.raw-output.md`
 - Latest escalation: `80-escalation-unroutable_fix-20260713T075606Z.md`
@@ -48,17 +49,19 @@
 - Stage validation now fails on discontinuous mode history or a final transition that does not match current state. The duplicate v2 row was removed only after exact pre-repair snapshots entered `history/`.
 - Targeted and full focused suites passed: 44 and 111 tests. No model was invoked during repair.
 - Attempt 3 verified those repairs in the real runner path: stderr is retained, the raw path is sequence-unique, and escalation navigation is populated. The provider again returned API `529` / error `1305` before any delivery code change.
+- Route comparison isolated the stable difference: attempts 2 and 3 were `entrypoint=sdk-cli` synthetic zero-token failures, while manual session `fdda0f8b-8332-448e-ab92-464a4b592545` was a real `entrypoint=cli` success.
+- The new registered PTY wrapper removes `-p`, supplies a true terminal, requires a final persisted `entrypoint=cli` assistant turn, exits the TUI, and returns control to the unchanged auto runner. Fake end-to-end coverage passed; no real model was called during repair.
 - Real `launchctl` mutation remains explicitly unauthorized.
 
 ## Blockers
 
-- Claude-GLM service availability: attempt 3 repeated API `529` / error `1305` overload after reaching the gateway.
-- Auto mode requires a new/superseding human authorization before any retry; v3 cannot be reused.
+- Commit the tested PTY Harness repair.
+- Commit a schema-valid superseding v4 authorization. Scope and budgets stay unchanged; usage remains `model_calls_used=3`, `auto_code_changes_used=0`.
 
 ## Next Action
 
-Human chooses a delayed v4 retry or an explicit switch to `human_dispatch`. Do not invoke another model automatically from the failed v3 path.
+After both commits are clean, the auto runner performs the real PTY call. On success it continues through the frozen blocking checks, embedded cross-check, seal, and Grok review-1; it does not promote a manual session.
 
-本地北京时间: 2026-07-13 15:59:03 CST
-下一步模型: human
-下一步任务: 决定延迟签发 v4 重试，或显式切换 human_dispatch 路径
+本地北京时间: 2026-07-13 16:22:14 CST
+下一步模型: Codex bookkeeper
+下一步任务: 提交 PTY route 修复并创建 superseding authorization v4

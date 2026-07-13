@@ -45,23 +45,25 @@ controllers:
 
 adapters:
   claude_glm:
-    kind: claude_code_absolute_repo_wrapper
+    kind: claude_code_absolute_repo_pty_wrapper
     provider_identity: zhipu_glm
     invocation_owner: runner
-    prompt_mode: claude_print
-    binary: "scripts/model-adapters/claude-glm-wrapper"
-    availability_check_command: "test -x <repo>/scripts/model-adapters/claude-glm-wrapper && <repo>/scripts/model-adapters/claude-glm-wrapper --version"
-    noninteractive_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --permission-mode acceptEdits -p \"$(cat <prompt-file>)\""
-    read_only_review_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
-    embedded_read_only_review_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
+    prompt_mode: claude_interactive_pty_positional_prompt
+    binary: "scripts/model-adapters/claude-glm-pty-wrapper"
+    availability_check_command: "test -x <repo>/scripts/model-adapters/claude-glm-pty-wrapper && test -x <repo>/scripts/model-adapters/claude-glm-wrapper && <repo>/scripts/model-adapters/claude-glm-wrapper --version"
+    noninteractive_command: "<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --permission-mode acceptEdits --prompt-file <prompt-file>"
+    read_only_review_command: "<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --permission-mode plan --prompt-file <prompt-file>"
+    embedded_read_only_review_command: "<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --permission-mode plan --prompt-file <prompt-file>"
     embedded_read_only_review_enforcement: adapter_plan_mode
-    yolo_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --dangerously-skip-permissions -p \"$(cat <prompt-file>)\""
+    yolo_command: "<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --dangerously-skip-permissions --prompt-file <prompt-file>"
     supports_write: true
     supports_read_only: true
     timeout_seconds: 3000
     secret_handling: "never_log_expanded_environment"
     notes:
       - "Runner templates expand <repo> to an absolute path and invoke the committed wrapper, never the alias directly."
+      - "The PTY wrapper keeps Claude Code on entrypoint=cli; -p/non-TTY sdk-cli produced repeatable zero-token API 529 failures while an adjacent interactive cli session succeeded."
+      - "A successful invocation requires a persisted final assistant text turn with entrypoint=cli; the wrapper then exits the TUI and returns control to the runner."
       - "The wrapper isolates the existing interactive-zsh provider routing while suppressing profile startup/exit chatter; it never prints the alias expansion or environment."
       - "The wrapper removes a legacy alias-level --dangerously-skip-permissions token in memory; normal writes use acceptEdits, reviews use plan, and only yolo_command adds bypass explicitly."
       - "If the alias is missing, do not substitute Anthropic Claude while claiming GLM provider identity."

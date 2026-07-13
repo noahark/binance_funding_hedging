@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import datetime
 import hashlib
+import importlib.machinery
 import importlib.util
 import json
 import os
@@ -80,7 +81,19 @@ def _load_real_seal():
     return mod
 
 
+def _load_pty_wrapper():
+    name = "claude_glm_pty_wrapper_under_test"
+    path = _SCRIPTS / "model-adapters" / "claude-glm-pty-wrapper"
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
 RUNNER = _load_runner()
+PTY_WRAPPER = _load_pty_wrapper()
 AutoReviewRunner = RUNNER.AutoReviewRunner
 InvokeResult = RUNNER.InvokeResult
 
@@ -1183,7 +1196,7 @@ class ProductionRegistryCommandTests(unittest.TestCase):
         # double-quoted YAML scalar with \" → unescaped, real <prompt-file> kept
         self.assertEqual(
             reg["claude_glm"]["commands"]["noninteractive_command"],
-            '<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --permission-mode acceptEdits -p "$(cat <prompt-file>)"')
+            '<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --permission-mode acceptEdits --prompt-file <prompt-file>')
         self.assertEqual(
             reg["kimi"]["commands"]["noninteractive_command"],
             'kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"')
@@ -1241,12 +1254,13 @@ class ProductionRegistryCommandTests(unittest.TestCase):
         cmd = self._invoke_and_capture(stage, "claude_glm", "noninteractive_command", prompt_abs)
         for marker in ("<prompt-file>", "<repo>", "@PROMPT@", "@REPO@", '\\"'):
             self.assertNotIn(marker, cmd)
-        self.assertIn('-p "$(cat ', cmd)        # unescaped double-quote structure
+        self.assertNotIn(" -p ", cmd)
+        self.assertIn("--prompt-file", cmd)
         self.assertIn(prompt_abs, cmd)
         self.assertIn(str(stage.root), cmd)
         self.assertTrue(
-            shlex.split(cmd)[0].endswith("/scripts/model-adapters/claude-glm-wrapper"),
-            "claude_glm must enter through the runtime absolute wrapper: %r" % cmd,
+            shlex.split(cmd)[0].endswith("/scripts/model-adapters/claude-glm-pty-wrapper"),
+            "claude_glm must enter through the runtime absolute PTY wrapper: %r" % cmd,
         )
 
     def test_claude_glm_wrapper_is_executable_and_shell_valid(self):
@@ -1255,6 +1269,17 @@ class ProductionRegistryCommandTests(unittest.TestCase):
         self.assertTrue(os.access(wrapper, os.X_OK))
         proc = subprocess.run(
             ["/bin/sh", "-n", str(wrapper)],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr.decode("utf-8", "replace"))
+
+        pty_wrapper = REPO_ROOT / "scripts" / "model-adapters" / "claude-glm-pty-wrapper"
+        self.assertTrue(pty_wrapper.is_file())
+        self.assertTrue(os.access(pty_wrapper, os.X_OK))
+        proc = subprocess.run(
+            [sys.executable, "-m", "py_compile", str(pty_wrapper)],
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1328,6 +1353,139 @@ class ProductionRegistryCommandTests(unittest.TestCase):
             self.assertNotIn(marker, cmd)
         self.assertIn(prompt_abs, cmd)
         self.assertIn(str(stage.root), cmd)
+
+
+class ClaudeGlmPtyTransportTests(unittest.TestCase):
+    def _write_transcript(self, root, session_id, *, entrypoint="cli", model="glm-5.2"):
+        project = root / "fake-project"
+        project.mkdir(parents=True, exist_ok=True)
+        doc = {
+            "timestamp": "2026-07-13T08:02:17.707Z",
+            "type": "assistant",
+            "entrypoint": entrypoint,
+            "sessionId": session_id,
+            "message": {
+                "model": model,
+                "role": "assistant",
+                "stop_reason": "end_turn",
+                "content": [{"type": "text", "text": "probe ok"}],
+            },
+        }
+        (project / (session_id + ".jsonl")).write_text(
+            json.dumps(doc) + "\n", encoding="utf-8"
+        )
+
+    def test_transcript_requires_real_cli_end_turn(self):
+        root = Path(tempfile.mkdtemp(prefix="claude-glm-transcript-"))
+        sid = "11111111-1111-4111-8111-111111111111"
+        self._write_transcript(root, sid)
+        outcome = PTY_WRAPPER.inspect_transcript(root, sid)
+        self.assertTrue(outcome.success)
+        self.assertEqual(outcome.entrypoint, "cli")
+        self.assertEqual(outcome.model, "glm-5.2")
+
+        other = "22222222-2222-4222-8222-222222222222"
+        self._write_transcript(root, other, entrypoint="sdk-cli")
+        outcome = PTY_WRAPPER.inspect_transcript(root, other)
+        self.assertFalse(outcome.success)
+        self.assertEqual(outcome.reason, "unexpected_entrypoint:sdk-cli")
+
+    def test_run_pty_session_gives_child_a_tty_and_exits_after_transcript(self):
+        base = Path(tempfile.mkdtemp(prefix="claude-glm-pty-"))
+        transcript_root = base / "projects"
+        transcript_root.mkdir()
+        sid = "33333333-3333-4333-8333-333333333333"
+        fake = base / "fake_cli.py"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, os, sys\n"
+            "from pathlib import Path\n"
+            "sid = sys.argv[sys.argv.index('--session-id') + 1]\n"
+            "root = Path(os.environ['FAKE_TRANSCRIPT_ROOT']) / 'project'\n"
+            "root.mkdir(parents=True, exist_ok=True)\n"
+            "print('ISATTY=' + str(int(os.isatty(0) and os.isatty(1))), flush=True)\n"
+            "doc = {'type':'assistant','entrypoint':'cli','sessionId':sid,"
+            "'message':{'model':'glm-5.2','role':'assistant','stop_reason':'end_turn',"
+            "'content':[{'type':'text','text':'probe ok'}]}}\n"
+            "(root / (sid + '.jsonl')).write_text(json.dumps(doc) + '\\n')\n"
+            "for line in sys.stdin:\n"
+            "    if '/exit' in line:\n"
+            "        break\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        env = dict(os.environ)
+        env["FAKE_TRANSCRIPT_ROOT"] = str(transcript_root)
+        raw, outcome, child_rc, timed_out = PTY_WRAPPER.run_pty_session(
+            [sys.executable, str(fake), "--session-id", sid, "probe"],
+            transcript_root=transcript_root,
+            session_id=sid,
+            timeout_seconds=10.0,
+            env=env,
+            cwd=base,
+        )
+        self.assertFalse(timed_out)
+        self.assertIsNotNone(outcome)
+        self.assertTrue(outcome.success)
+        self.assertEqual(child_rc, 0)
+        self.assertIn(b"ISATTY=1", raw)
+
+    def test_pty_transport_through_zsh_wrapper_is_cli_and_strips_alias_bypass(self):
+        base = Path(tempfile.mkdtemp(prefix="claude-glm-pty-zsh-"))
+        transcript_root = base / "projects"
+        transcript_root.mkdir()
+        zdotdir = base / "zdotdir"
+        bindir = base / "bin"
+        zdotdir.mkdir()
+        bindir.mkdir()
+        sid = "44444444-4444-4444-8444-444444444444"
+        fake = bindir / "fake-claude"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, os, sys\n"
+            "from pathlib import Path\n"
+            "sid = sys.argv[sys.argv.index('--session-id') + 1]\n"
+            "root = Path(os.environ['FAKE_TRANSCRIPT_ROOT']) / 'project'\n"
+            "root.mkdir(parents=True, exist_ok=True)\n"
+            "print('ISATTY=' + str(int(os.isatty(0) and os.isatty(1))), flush=True)\n"
+            "print('ARGS=' + '|'.join(sys.argv[1:]), flush=True)\n"
+            "doc = {'type':'assistant','entrypoint':'cli','sessionId':sid,"
+            "'message':{'model':'glm-5.2','role':'assistant','stop_reason':'end_turn',"
+            "'content':[{'type':'text','text':'probe ok'}]}}\n"
+            "(root / (sid + '.jsonl')).write_text(json.dumps(doc) + '\\n')\n"
+            "for line in sys.stdin:\n"
+            "    if '/exit' in line:\n"
+            "        break\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        (zdotdir / ".zshrc").write_text(
+            "alias claude-glm='fake-claude --dangerously-skip-permissions'\n",
+            encoding="utf-8",
+        )
+        env = dict(os.environ)
+        env["FAKE_TRANSCRIPT_ROOT"] = str(transcript_root)
+        env["ZDOTDIR"] = str(zdotdir)
+        env["PATH"] = str(bindir) + os.pathsep + env.get("PATH", "")
+        wrapper = REPO_ROOT / "scripts" / "model-adapters" / "claude-glm-wrapper"
+        raw, outcome, child_rc, timed_out = PTY_WRAPPER.run_pty_session(
+            [
+                str(wrapper), "--model", "glm-5.2",
+                "--permission-mode", "acceptEdits",
+                "--session-id", sid, "probe",
+            ],
+            transcript_root=transcript_root,
+            session_id=sid,
+            timeout_seconds=10.0,
+            env=env,
+            cwd=base,
+        )
+        self.assertFalse(timed_out)
+        self.assertTrue(outcome.success)
+        self.assertEqual(child_rc, 0)
+        self.assertIn(b"ISATTY=1", raw)
+        self.assertIn(b"acceptEdits", raw)
+        self.assertNotIn(b"--dangerously-skip-permissions", raw)
 
 
 # ===========================================================================

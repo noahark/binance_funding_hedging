@@ -1,11 +1,11 @@
 {
   "active": {
     "stage_id": "2026-07-local-service-launchd-v1",
-    "phase": "human_escalation_repeated_glm_service_overload",
+    "phase": "pty_route_repair_awaiting_commit",
     "handoff": "reports/agent-runs/2026-07-local-service-launchd-v1/70-handoff.md",
-    "updated_at": "2026-07-13T07:59:03Z"
+    "updated_at": "2026-07-13T08:22:14Z"
   },
   "last_completed": "2026-07-history-background-refresh-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-13T07:59:03Z"
+  "updated_at": "2026-07-13T08:22:14Z"
 }
