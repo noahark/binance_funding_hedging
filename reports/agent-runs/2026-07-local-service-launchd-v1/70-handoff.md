@@ -2,20 +2,20 @@
 
 ## Recovery Header
 
-- Active phase: testing complete; P2 attempt 2 and all deterministic checks pass, pending evidence seal/new fingerprint
-- Next action: Codex bookkeeper commits the verified repair, recomputes fingerprint, and prepares a fresh complete review-2 packet
+- Active phase: review-2 recheck; P2 repair is sealed to the new fingerprint and the complete Opus packet is prepared
+- Next action: human dispatches `manual-review-2-T1-launchd-service.opus-recheck.prompt.md` in a fresh Opus 4.8 session and returns the Session ID
 - Read-set: = status.current_inputs
-- Open blockers: repair is not yet sealed to a committed head/fingerprint; fresh review-2 `ACCEPT` remains required before push/merge
+- Open blockers: fresh schema-valid review-2 `ACCEPT` is required before push/merge
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `testing`
+- Status: `review_2`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- Review snapshot HEAD: `85ab5011e4b99fe464d9e1996ad455fdbc389206`
-- Fingerprint: `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`
-- Git status: attempt-1 failure evidence is committed at `0803ef1`; verified attempt-2 delivery changes and raw evidence are pending the repair evidence commit
+- Review snapshot HEAD: `ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d`
+- Fingerprint: `ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e`
+- Git status: verified attempt-2 repair/raw evidence committed at `ed7d9e0`; recheck prompt/status bind pending local bookkeeper commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -56,6 +56,7 @@
 - Human runtime decision: keep the Desktop checkout, do not add privacy expansion, use human-started `scripts/run-server.sh` for local startup/visible acceptance, and do not require a repeat launchd test from this protected path
 - P2 attempt 1: exact raw output at `manual-fix-T1-launchd-service-review2-P2-attempt1.raw-output.md`; all frozen checks pass, but the independent final-sleep probe fails
 - P2 attempt 2: exact raw output at `manual-fix-T1-launchd-service-review2-P2-attempt2.raw-output.md`; tool audit is Read/Edit only; 88 targeted tests, 301 backend tests, all other frozen checks, and final-sleep probe pass
+- Fresh review-2 recheck: `manual-review-2-T1-launchd-service.opus-recheck.prompt.md` and `.dispatch.md`; complete minimum read set, fixed new fingerprint, awaiting human dispatch
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
 
@@ -86,18 +87,20 @@
 
 - No open delivery-code or deterministic-test finding. P2 attempt 2 removes the
   final extra sleep and adds direct restart-timeout coverage.
-- The verified worktree must be committed and rebound to a new fingerprint.
+- No open delivery-code, deterministic-test, or fingerprint-seal finding.
+- Fresh schema-valid review-2 verdict remains the only hard gate before the
+  recorded push/merge authorization can execute.
 - The recovered review-2 did not inspect the complete mandatory artifact set.
   After the runtime decision and repair, review-2 must run again from the new
   committed fingerprint with full coverage.
 
 ## Next Action
 
-Codex bookkeeper commits the verified two-file repair plus raw evidence, records
-the new `head_sha` and `diff_fingerprint`, runs `pre-review` validation, and
-prepares a fresh review-2 prompt that explicitly requires the complete artifact
-read set omitted by the prior Opus attempt. The human then dispatches that
-packet; no bookkeeper model invocation occurs.
+The human opens a fresh Claude/Anthropic Opus 4.8 read-only review session,
+pastes the full contents of
+`manual-review-2-T1-launchd-service.opus-recheck.prompt.md`, and returns only
+the new Session ID. Codex bookkeeper extracts the original transcript and
+validates the final JSON; no bookkeeper model invocation occurs.
 
 The user has authorized commit, push, and merge only after all hard gates pass.
 The authorization is not currently executable because review-2 remains
@@ -106,6 +109,6 @@ The authorization is not currently executable because review-2 remains
 The old `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` is
 superseded and must not be dispatched.
 
-本地北京时间: 2026-07-13 23:07:07 CST
-下一步模型: Codex bookkeeper
-下一步任务: 封存修复、重算 fingerprint 并准备 fresh complete review-2
+本地北京时间: 2026-07-13 23:09:31 CST
+下一步模型: Claude/Anthropic Opus 4.8（fresh read-only review session）
+下一步任务: 执行完整 review-2 recheck 并返回 Session ID

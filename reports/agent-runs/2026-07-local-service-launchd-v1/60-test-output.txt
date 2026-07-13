@@ -1,3 +1,27 @@
+2026-07-13 23:09:31 CST — P2 repair seal and new review fingerprint:
+
+```text
+repair evidence commit
+ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d
+
+base_sha
+3bb253a489bf2854d8b9d81060a45ca056e1cea2
+
+fingerprint formula
+head_sha + ":" + sha256(git diff --binary base_sha..head_sha -- .
+  ':(exclude)reports/agent-runs/2026-07-local-service-launchd-v1/status.json')
+
+diff_fingerprint
+ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e
+
+git status after repair evidence commit
+clean
+```
+
+The historical review-1 and first review-2 verdicts remain bound to the old
+snapshot. The fresh full review-2 must use the new fingerprint above; no old
+verdict is mechanically rebound.
+
 2026-07-13 23:07:07 CST — review-2 P2 attempt 2 final verification:
 
 ```text

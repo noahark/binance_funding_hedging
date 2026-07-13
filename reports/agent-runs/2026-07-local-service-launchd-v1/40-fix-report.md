@@ -94,9 +94,17 @@ Bookkeeper verification is fully green:
 - independent `deadline=2, interval=1` probe: three health probes, three
   readiness probes, two sleeps, `False` result — passed.
 
-P2 is code-complete and ready for the evidence commit/new fingerprint. No real
-network, service start, `.env` read, or launchctl mutation occurred.
+P2 is code-complete and sealed in evidence commit
+`ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d`. The new committed fingerprint is:
 
-本地北京时间: 2026-07-13 23:07:07 CST
-下一步模型: Codex bookkeeper
-下一步任务: 封存 P2 修复、重算 fingerprint，并准备 fresh complete review-2
+```text
+ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e
+```
+
+No real network, service start, `.env` read, or launchctl mutation occurred.
+The fresh full review-2 packet is ready and requires the complete artifact read
+set omitted by the prior attempt.
+
+本地北京时间: 2026-07-13 23:09:31 CST
+下一步模型: Claude/Anthropic Opus 4.8（fresh read-only review session）
+下一步任务: 完整审查新 fingerprint，并返回新的 Session ID

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "testing",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -143,6 +143,9 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt1.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt2.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-recheck.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.dispatch.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -417,7 +420,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "review_2_p2_fix_human_dispatch_prepared",
+    "status": "p2_repair_sealed_fresh_full_review_2_awaiting_human_dispatch",
     "real_launchctl_mutation_authorized": true,
     "real_launchctl_mutation_authorized_by": "human",
     "real_launchctl_mutation_authorized_at": "2026-07-13T13:41:00Z"
@@ -640,14 +643,17 @@
     "adapter": "claude",
     "provider_identity": "anthropic",
     "model": "claude-opus-4-8",
-    "mode": "fresh_human_started_read_only_schema_bound",
-    "status": "formal_review_2_blocked_schema_valid_from_transcript",
-    "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
+    "mode": "fresh_human_started_read_only_schema_bound_recheck",
+    "status": "fresh_full_review_2_recheck_awaiting_human_dispatch",
+    "session_id": null,
     "reviewer_prior_involvement": "breakdown",
     "design_conflict_override": true,
-    "routing_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md",
-    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.raw-output.md",
-    "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.verdict.json"
+    "routing_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-recheck.md",
+    "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.prompt.md",
+    "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.dispatch.md",
+    "raw_output_path": null,
+    "verdict_path": null,
+    "previous_blocked_session_id": "cced0347-7f53-4626-958b-ecffba5d10b6"
   },
   "r10_checklists": {},
   "tasks": [
@@ -657,8 +663,8 @@
       "reviewer": "kimi",
       "r10_checklist": null,
       "base_sha": "3bb253a489bf2854d8b9d81060a45ca056e1cea2",
-      "head_sha": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
-      "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
+      "head_sha": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d",
+      "diff_fingerprint": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e",
       "test_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "kimi",
@@ -694,8 +700,8 @@
     "user_approved": true
   },
   "base_sha": "3bb253a489bf2854d8b9d81060a45ca056e1cea2",
-  "head_sha": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
-  "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
+  "head_sha": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d",
+  "diff_fingerprint": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e",
   "changed_files": [
     "AGENTS.md",
     "reports/agent-runs/ACTIVE.json",
@@ -761,6 +767,9 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt1.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt2.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-recheck.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.dispatch.md",
     "backend/app/server.py",
     "backend/tests/test_service_health.py",
     "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
@@ -922,38 +931,38 @@
     "reviewer_prior_involvement": "breakdown",
     "reviewer_prior_involvement_pending": false,
     "reviewer_prior_involvement_notes": "Anthropic/Opus 4.8 authored 12-development-breakdown.md but no direction synthesis, design/architecture, implementation, or fix code; the operator explicitly selected a fresh read-only Opus review session and the reviewer truthfully rejected the Codex-specific identity constants in the original prompt.",
-    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-recheck.md",
     "design_conflict_override": {
       "used": true,
       "reason": "human selected Anthropic Opus 4.8; Anthropic has breakdown involvement but no implementation/fix authorship; no unrelated registered decision provider exists",
-      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md"
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-recheck.md"
     },
-    "open_p0_p1": true,
-    "verdict": "BLOCKED",
-    "json_schema_valid": true,
-    "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
-    "fix_start_prompt_present": false,
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": false,
+    "diff_fingerprint": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e",
+    "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0,
     "skill": "reality_checker",
     "skill_explicit": true,
-    "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
-    "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
-    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.raw-output.md",
-    "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.verdict.json",
-    "dispatch_suspended_reason": "schema-valid BLOCKED verdict requires human runtime-location decision and bounded readiness repair before a fresh full review-2",
+    "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.prompt.md",
+    "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.dispatch.md",
+    "raw_output_path": null,
+    "verdict_path": null,
+    "dispatch_suspended_reason": null,
     "json_retry_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-json-retry.prompt.md",
     "json_retry_required": false,
     "json_retry_prompt_status": "superseded_after_exact_transcript_recovery",
     "operator_forwarding_corruption_count": 1,
-    "transcript_recovery": {
+    "previous_transcript_recovery": {
       "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
       "source_path": "/Users/ark/.claude/projects/-Users-ark-Desktop-ai-code-funding-hedging/cced0347-7f53-4626-958b-ecffba5d10b6.jsonl",
       "final_assistant_timestamp": "2026-07-13T14:02:53.062Z",
       "result": "exactly_one_fenced_json_object_extracted_and_schema_validated",
       "transport_diagnosis": "zellij_operator_forwarding_corrupted_copy_sensitive_line_boundaries; original_model_output_was_valid"
     },
-    "coverage_audit": {
+    "previous_coverage_audit": {
       "status": "incomplete_against_prompt_minimum_read_set",
       "disposition": "BLOCKED_is_retained_as_non_accepting_formal_evidence; after_required_fixes_a_new_full_review_2_is_mandatory_and_this_verdict_cannot_be_reused_for_acceptance",
       "tool_summary": "11 Read calls and 3 read-only Bash calls; no writes or launchctl mutation",
@@ -974,7 +983,7 @@
         "scripts/run-server.sh"
       ]
     },
-    "required_fixes": [
+    "previous_required_fixes": [
       "human selects a non-TCC-protected runtime location or explicitly accepts a broad macOS privacy grant",
       "scripts/service-control.py install and restart perform bounded post-bootstrap readiness checks and fail nonzero with redacted diagnostics when readiness is not reached"
     ],
@@ -985,7 +994,7 @@
         "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/22-human-runtime-acceptance-amendment.md"
       },
       "p2_bounded_post_bootstrap_readiness": {
-        "status": "attempt_2_verified_all_frozen_checks_and_final_sleep_probe_passed_pending_seal",
+        "status": "attempt_2_verified_and_sealed",
         "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.prompt.md",
         "tool_policy": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.tool-policy.json",
         "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.dispatch.md",
@@ -999,7 +1008,18 @@
         "attempt_2_frozen_tests": "PASS: 88 targeted, 301 backend, frontend self-check, bash -n, diff check",
         "attempt_2_boundary_probe": "PASS: deadline=2 interval=1 produced 3 health probes, 3 readiness probes, and 2 sleeps"
       }
-    }
+    },
+    "previous_attempts": [
+      {
+        "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
+        "model": "claude-opus-4-8",
+        "verdict": "BLOCKED",
+        "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
+        "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.raw-output.md",
+        "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.verdict.json",
+        "disposition": "P1 resolved by human runtime scope amendment; P2 repaired; coverage incomplete so verdict cannot be rebound"
+      }
+    ]
   },
   "rework_count": 1,
   "max_rework": 3,
@@ -1028,7 +1048,7 @@
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2",
     "role": "same_delivery_author_fix",
-    "status": "attempt_2_verified_pending_evidence_commit_and_new_fingerprint",
+    "status": "completed_and_sealed",
     "allowed_files": [
       "scripts/service-control.py",
       "scripts/tests/test_service_control.py"
@@ -1048,10 +1068,12 @@
     "delivery_files_verified": [
       "scripts/service-control.py",
       "scripts/tests/test_service_control.py"
-    ]
+    ],
+    "evidence_commit": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d",
+    "sealed_diff_fingerprint": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e"
   },
   "blockers": [
-    "repair is verified but not yet sealed to a new committed head/fingerprint; fresh complete review-2 remains required before push or merge"
+    "fresh complete review-2 verdict is pending; push and merge remain blocked until schema-valid ACCEPT"
   ],
   "human_escalation": {
     "required": false,
@@ -1067,6 +1089,6 @@
     "condition": "fresh_schema_valid_review_2_ACCEPT_and_clean_validation_required_before_push_or_merge",
     "currently_executable": false
   },
-  "next_action": "codex_bookkeeper_commits_verified_p2_repair_recomputes_fingerprint_and_prepares_fresh_complete_review_2",
-  "updated_at": "2026-07-13T15:07:07Z"
+  "next_action": "human_dispatches_opus48_full_review_2_recheck_in_fresh_session_and_returns_session_id",
+  "updated_at": "2026-07-13T15:09:31Z"
 }

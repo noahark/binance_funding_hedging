@@ -72,12 +72,17 @@ gate but an independent probe found an extra sleep after the final deadline.
 Attempt 2 removed that sleep and added direct small-window and restart-timeout
 coverage. Bookkeeper verification passes 88 targeted tests, 301 backend tests,
 all remaining frozen checks, and the final-sleep independent probe. The repair
-still requires a committed seal and a new review-2 verdict; this paragraph does
-not change the prior `BLOCKED` verdict by itself.
+is sealed at `ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d` with fingerprint
+`ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e`.
+
+A fresh Opus 4.8 recheck packet is now prepared. It explicitly requires every
+authority, product, architecture, design, implementation, fix, test, prior
+verdict, source, and exact-diff artifact that the prior review did not fully
+inspect. The historical `BLOCKED` verdict is not rebound to this snapshot.
 
 The JSON-only retry prompt is superseded; no model retry is needed for this
 attempt.
 
-本地北京时间: 2026-07-13 23:07:07 CST
-下一步模型: Codex bookkeeper
-下一步任务: 创建修复证据提交与新 fingerprint，随后准备 fresh complete review-2
+本地北京时间: 2026-07-13 23:09:31 CST
+下一步模型: Claude/Anthropic Opus 4.8（fresh read-only review session）
+下一步任务: 执行完整 review-2 recheck 并返回新的 Session ID
