@@ -47,6 +47,16 @@ receipt-to-policy binding, actual model identity checks, historical receipt
 compatibility, and deterministic exact-path `0755` normalization. No model was
 invoked, no delivery file changed, and no real `launchctl` mutation occurred.
 
+2026-07-13 18:23:08 CST — Harness repair evidence commit:
+
+```text
+bfbc2ee394bcf40f422f8a826e4acfb99648642e
+bookkeeper(harness): enforce Kimi runner tool policy
+
+git status --short --branch
+## stage/2026-07-local-service-launchd-v1
+```
+
 2026-07-13 12:40:08 CST — initialization validation:
 
 ```text

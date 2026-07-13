@@ -2,8 +2,8 @@
 
 ## Recovery Header
 
-- Active phase: bounded Claude-GLM tool policy and persistent Kimi runner-host repair implemented; awaiting committed checkpoint and v5 decision
-- Next action: validate/commit the Harness repair, then human decides whether to issue superseding authorization v5
+- Active phase: bounded Claude-GLM tool policy and persistent Kimi runner-host repair committed and validated; awaiting v5 decision
+- Next action: human decides whether to issue superseding authorization v5
 - Read-set: = status.current_inputs
 - Open blockers: no fifth call may start until a new committed human-approved v5 authorization exists
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
@@ -13,8 +13,8 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `0ea40b046d68994f4fdbadd2c58f67fcb8853c6b` before the pending Harness tool-policy checkpoint
-- Git status: Harness/tool-policy files and checkpoint evidence modified; local evidence commit pending
+- HEAD: `bfbc2ee394bcf40f422f8a826e4acfb99648642e` (`bookkeeper(harness): enforce Kimi runner tool policy`) before this synchronized status update
+- Git status: clean immediately after the Harness repair commit; synchronized checkpoint update pending commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 4 remains closed evidence; new permission repair has not invoked a model
@@ -34,6 +34,7 @@
 - PTY route repair: `16-claude-glm-pty-route-repair.md`
 - PTY probe result: `17-claude-glm-pty-probe-result.md`
 - Kimi host/tool policy repair: `18-runner-host-tool-policy-repair.md`
+- Tool-policy repair commit: `bfbc2ee394bcf40f422f8a826e4acfb99648642e`
 - Latest runner receipt: `runner-4-implementation.receipt.json`
 - Latest raw output: `runner-4-implementation-T1-launchd-service-attempt1.raw-output.md`
 - Latest escalation: `80-escalation-unroutable_fix-20260713T084312Z.md`
@@ -70,6 +71,6 @@
 
 After the Harness repair checkpoint is committed, the human may authorize v5. The next Kimi-hosted runner call must use the frozen `implementation-v1` policy and cumulative usage (`model_calls_used=4`, `auto_code_changes_used=0`).
 
-本地北京时间: 2026-07-13 18:09:22 CST
+本地北京时间: 2026-07-13 18:23:08 CST
 下一步模型: human
 下一步任务: 审阅 Harness 修复 checkpoint 并决定是否签发 superseding authorization v5

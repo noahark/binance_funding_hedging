@@ -79,6 +79,12 @@ v4 remains historical attempt-4 authority and cannot be reused. A new committed
 human-approved v5 authorization is required before Kimi hosts another runner
 attempt.
 
-本地北京时间: 2026-07-13 18:09:22 CST
+Harness repair evidence commit:
+
+```text
+bfbc2ee394bcf40f422f8a826e4acfb99648642e
+```
+
+本地北京时间: 2026-07-13 18:23:08 CST
 下一步模型: human
 下一步任务: 审阅修复证据并决定是否签发 superseding authorization v5 后由 Kimi runner host 重试

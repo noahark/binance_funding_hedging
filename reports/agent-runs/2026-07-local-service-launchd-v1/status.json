@@ -75,6 +75,14 @@
     "receipt_sequence": 4,
     "claude_session_id": "76a8e532-1414-43f7-919e-4b57a0b28558"
   },
+  "tool_policy_repair_checkpoint": {
+    "commit": "bfbc2ee394bcf40f422f8a826e4acfb99648642e",
+    "kind": "kimi_runner_host_and_bounded_claude_glm_tool_policy",
+    "validated_phase": "checkpoint",
+    "validated_result": "passed",
+    "model_dispatch_during_repair": false,
+    "delivery_code_changed": false
+  },
   "bookkeeper": {
     "id": "codex_bookkeeper_2026_07_13",
     "provider": "codex",
@@ -377,8 +385,8 @@
     "delivery_code_changed": false
   },
   "harness_tool_policy_repair": {
-    "status": "implemented_and_tested_checkpoint_commit_pending",
-    "commit": null,
+    "status": "committed_and_tested",
+    "commit": "bfbc2ee394bcf40f422f8a826e4acfb99648642e",
     "author_role": "codex_bookkeeper_harness_prerequisite_not_delivery_implementer",
     "artifact": "reports/agent-runs/2026-07-local-service-launchd-v1/18-runner-host-tool-policy-repair.md",
     "runner_host": "kimi",
@@ -665,6 +673,6 @@
     "reason": "The bounded no-Bash tool policy is implemented; a superseding human authorization is still required before another automatic model call"
   },
   "terminal_reason": "human_escalation_required",
-  "next_action": "complete_tool_policy_repair_checkpoint_then_human_decides_superseding_authorization_v5_for_kimi_runner_host",
-  "updated_at": "2026-07-13T10:16:07Z"
+  "next_action": "human_decides_superseding_authorization_v5_then_kimi_runner_host_retries_with_implementation_v1",
+  "updated_at": "2026-07-13T10:23:08Z"
 }
