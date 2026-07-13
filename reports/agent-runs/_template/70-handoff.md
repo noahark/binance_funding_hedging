@@ -5,6 +5,17 @@ it together with `status.json` and the active workflow to resume work; it does
 not read `history/` at startup. Keep it current, and compact stale detail into
 `history/` only after recording a full snapshot there.
 
+## Recovery Header
+
+Fixed, bounded resume block. A fresh session reads only this header plus
+`status.json` to resume; keep every field filled and current.
+
+- Active phase:
+- Next action:
+- Read-set: = status.current_inputs
+- Open blockers:
+- Do-not-read: reports/agent-runs/**/history/**, other stages
+
 ## Current State
 
 - Stage:

@@ -32,6 +32,12 @@ guards:
   forbid_worktree_fingerprint: true
   validate_stage_script: "scripts/validate-stage.py"
   fail_closed_on_invalid_json: true
+  # Context-recovery pointers (declaration; validator teeth deferred to a follow-up).
+  # The bookkeeper keeps ACTIVE.json in sync on every status transition, and keeps
+  # the 70-handoff.md Recovery Header filled. Not yet gate-enforced.
+  refresh_active_pointer_on_transition: true
+  active_pointer_file: "reports/agent-runs/ACTIVE.json"
+  handoff_recovery_header_required: true
   reviewer_uses_raw_artifacts: true
   parallel_mode_contract: "docs/parallel-development-mode.md"
   require_r10_dispatch_tail_when_parallel_mode: true

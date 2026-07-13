@@ -3,6 +3,21 @@
 This file is the single startup document for agents working in this repository.
 Read it before making changes, then read the active workflow and stage files.
 
+## Session Bootstrap
+
+To resume an existing session, locate the active stage in one hop, then stop:
+
+1. Read `reports/agent-runs/ACTIVE.json`. It names the active stage, or carries
+   `active: null` when no stage is in flight.
+2. If a stage is active, read that stage's `70-handoff.md` recovery header (the
+   `## Recovery Header` block at the top) and `status.json`. That is enough to
+   resume the common case.
+3. Read the workflow YAML section only for the phase you are about to act on or
+   gate; you need not read the whole workflow just to resume.
+
+Session Bootstrap is the fast path through the budget below for the common
+resume case; the Startup Read Budget remains the authoritative order.
+
 ## Startup Read Budget
 
 A new terminal session must establish active context cheaply and explicitly.
@@ -10,8 +25,9 @@ Read only, in this order:
 
 1. `AGENTS.md` (this file);
 2. the active workflow (`workflows/templates/*.yaml`);
-3. the active stage status, handoff, and any `status.current_inputs` under
-   `reports/agent-runs/<stage>/`;
+3. the active stage, located via `reports/agent-runs/ACTIVE.json` (never by
+   directory scan): its `status.json`, the `70-handoff.md` recovery header, and
+   any `status.current_inputs` under `reports/agent-runs/<stage>/`;
 4. the active authorization artifact when auto-review is in scope.
 
 Do NOT recursively scan `reports/agent-runs/` or read any `history/` directory
