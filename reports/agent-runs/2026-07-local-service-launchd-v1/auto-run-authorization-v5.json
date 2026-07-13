@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-local-service-launchd-v1",
+  "stage_branch": "stage/2026-07-local-service-launchd-v1",
+  "contract_version": "auto-review-pipeline/v1",
+  "authorized_by": "human",
+  "approval_evidence_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
+  "approval_recorded_by": "codex_bookkeeper_2026_07_13",
+  "authorized_at": "2026-07-13T10:28:16Z",
+  "expires_at": null,
+  "scope": {
+    "task_ids": [
+      "T1-launchd-service"
+    ],
+    "allowed_pathspecs": [
+      "deploy/launchd/**",
+      "scripts/run-server.sh",
+      "scripts/service-control.py",
+      "scripts/tests/test_service_control.py",
+      "backend/app/server.py",
+      "backend/tests/test_service_health.py"
+    ],
+    "forbidden_pathspecs": [
+      ".env",
+      ".env.*",
+      "docs/product/**",
+      "schemas/api/**",
+      "frontend/**"
+    ]
+  },
+  "budgets": {
+    "max_model_calls": 12,
+    "max_auto_code_changes": 2
+  },
+  "supersedes": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.json"
+}

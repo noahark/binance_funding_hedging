@@ -104,8 +104,9 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/16-claude-glm-pty-route-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/17-claude-glm-pty-probe-result.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/18-runner-host-tool-policy-repair.md",
-    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.approval.md",
-    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.json"
+    "reports/agent-runs/2026-07-local-service-launchd-v1/19-kimi-runner-host-dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
   "parallel_mode": {
     "enabled": false,
@@ -118,7 +119,7 @@
     "enabled": true,
     "dispatch_mode": "auto_review",
     "mode_flip_pending": null,
-    "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.json",
+    "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json",
     "runner_state": "awaiting_human",
     "runner_version": "auto-review-pipeline/v1",
     "runner_host": {
@@ -333,7 +334,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "tool_policy_repair_implemented_awaiting_v5_authorization",
+    "status": "v5_authorization_issued_kimi_runner_host_dispatch_ready",
     "real_launchctl_mutation_authorized": false
   },
   "harness_adapter_repair": {
@@ -539,6 +540,9 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/19-kimi-runner-host-dispatch.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation-T1-launchd-service-attempt1.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation.receipt.json",
@@ -621,7 +625,10 @@
       "Kimi runner-host drift and unsafe authorization pathspec preflight checks (PASS)",
       "implementation-v1 five-tool/Bash-deny and review-readonly-v1 three-tool checks (PASS)",
       "deterministic exact-path executable normalization and failure receipt coverage (PASS)",
-      "post-tool-policy checkpoint validator and diff check (PASS; no model call or delivery change)"
+      "post-tool-policy checkpoint validator and diff check (PASS; no model call or delivery change)",
+      "superseding authorization v5 handwritten/schema validation (PASS)",
+      "v5 scope/budgets exact match v4 and supersedes pointer check (PASS)",
+      "pre-v5-commit checkpoint validator and diff check (PASS)"
     ]
   },
   "review_1": {
@@ -665,14 +672,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "The acceptEdits/Bash interaction is repaired in Harness code, but authorization v4 cannot be reused for a fifth call.",
-    "Another auto call requires a committed superseding human authorization v5 and must be hosted by the isolated Kimi runner-host session."
+    "The schema-valid v5 authorization and synchronized checkpoint must be committed before the isolated Kimi runner-host session starts the deterministic runner."
   ],
   "human_escalation": {
     "required": true,
-    "reason": "The bounded no-Bash tool policy is implemented; a superseding human authorization is still required before another automatic model call"
+    "reason": "the human issued superseding authorization v5; the committed artifact must be consumed mechanically by the Kimi-hosted runner before automation resumes"
   },
   "terminal_reason": "human_escalation_required",
-  "next_action": "human_decides_superseding_authorization_v5_then_kimi_runner_host_retries_with_implementation_v1",
-  "updated_at": "2026-07-13T10:23:08Z"
+  "next_action": "commit_superseding_authorization_v5_then_kimi_runner_host_executes_deterministic_runner_with_implementation_v1",
+  "updated_at": "2026-07-13T10:28:16Z"
 }

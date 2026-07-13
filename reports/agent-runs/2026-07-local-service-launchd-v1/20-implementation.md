@@ -82,6 +82,12 @@ unavailable. The runner retains blocking checks and optional frozen executable
 mode normalization. This work changed no `T1-launchd-service` delivery file and
 invoked no implementation/review model.
 
-本地北京时间: 2026-07-13 18:09:22 CST
-下一步模型: human
-下一步任务: 审阅 Harness 修复 checkpoint 并决定是否签发 v5 给 Kimi runner host
+The human has now issued superseding authorization v5. Its scope and budgets
+are unchanged from v4, usage carries forward at `model_calls_used=4` and
+`auto_code_changes_used=0`, and the prepared Kimi host packet permits only the
+deterministic runner command. Delivery implementation remains pending until the
+runner itself consumes v5 and invokes Claude-GLM with `implementation-v1`.
+
+本地北京时间: 2026-07-13 18:28:16 CST
+下一步模型: Kimi（runner host only）
+下一步任务: 启动 deterministic runner；由 runner 调 Claude-GLM 实现并继续固定检查/review-1 流程
