@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "human_escalation_required",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -39,6 +39,15 @@
     "validated_result": "passed",
     "scope_or_budget_changed_from_v1": false,
     "usage_counters_reset": false
+  },
+  "authorization_v3_checkpoint": {
+    "commit": "1d47717903bb07e8d3fe6295d7c95ba4a6ab2bb5",
+    "kind": "superseding_auto_authorization_v3",
+    "validated_phase": "checkpoint",
+    "validated_result": "passed",
+    "scope_or_budget_changed_from_v2": false,
+    "usage_counters_reset": false,
+    "repair_commit": "78fbeb6b6f37a78be7081ba556319a8bd9f9dadc"
   },
   "bookkeeper": {
     "id": "codex_bookkeeper_2026_07_13",
@@ -209,7 +218,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "v3_authorization_prepared_awaiting_commit",
+    "status": "v3_authorized_runner_ready",
     "real_launchctl_mutation_authorized": false
   },
   "harness_adapter_repair": {
@@ -463,14 +472,12 @@
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [
-    "The prepared superseding v3 authorization and synchronized checkpoint must be committed before the auto runner may retry Claude-GLM."
-  ],
+  "blockers": [],
   "human_escalation": {
-    "required": true,
-    "reason": "operator approved prerequisite repair and v3 retry; the schema-valid superseding authorization is being committed before runner resume"
+    "required": false,
+    "reason": null
   },
-  "terminal_reason": "human_escalation_required",
-  "next_action": "validate_and_commit_superseding_authorization_v3_then_resume_runner",
-  "updated_at": "2026-07-13T07:44:24Z"
+  "terminal_reason": null,
+  "next_action": "run_auto_review_runner_v3_retry_claude_glm",
+  "updated_at": "2026-07-13T07:51:52Z"
 }

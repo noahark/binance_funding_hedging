@@ -2,19 +2,19 @@
 
 ## Recovery Header
 
-- Active phase: v3 Harness prerequisite repair committed; superseding authorization v3 prepared and awaiting commit
-- Next action: validate and commit authorization v3, then resume the auto runner
+- Active phase: superseding authorization v3 committed and validated; runner retry ready
+- Next action: resume the auto runner for Claude-GLM attempt 3
 - Read-set: = status.current_inputs
-- Open blockers: committed v3 authorization
+- Open blockers: none before runner invocation
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `human_escalation_required`
+- Status: `implementing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `78fbeb6b6f37a78be7081ba556319a8bd9f9dadc`
-- Git status: authorization v3 and synchronized checkpoint pending commit
+- HEAD: `1d47717903bb07e8d3fe6295d7c95ba4a6ab2bb5`
+- Git status: synchronized runner-ready checkpoint pending commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 2 stopped fail-closed
@@ -29,7 +29,7 @@
 - Adapter repair: `14-harness-adapter-repair.md`
 - V3 prerequisite repair: `15-v3-prerequisite-repair.md`
 - Implementation: `20-implementation.md`; delivery implementation still pending
-- Current authorization pointer: `auto-run-authorization-v3.json`; prepared, not yet committed
+- Current authorization: `auto-run-authorization-v3.json`; committed and schema-valid
 - Runner receipt: `runner-2-implementation.receipt.json`
 - Attempt-2 raw output: `runner-2-implementation-T1-launchd-service-attempt1.raw-output.md`
 - Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
@@ -50,12 +50,12 @@
 
 ## Blockers
 
-- Commit the schema-valid v3 authorization prepared from the operator's explicit repair-and-retry direction. Usage remains cumulative and scope/budgets are unchanged.
+- None before invocation. Any adapter/provider failure must stop through the runner's fail-closed evidence path.
 
 ## Next Action
 
-After the authorization commit is clean, run `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`. The runner alone records the `superseding_human_authorization` transition and retries Claude-GLM.
+Run `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`. The runner alone records the `superseding_human_authorization` transition and retries Claude-GLM.
 
-本地北京时间: 2026-07-13 15:44:24 CST
-下一步模型: Codex bookkeeper
-下一步任务: 校验并提交 v3 授权，然后由 auto runner 重试 Claude-GLM
+本地北京时间: 2026-07-13 15:51:52 CST
+下一步模型: Claude-GLM / GLM-5.2（auto runner）
+下一步任务: 重试 T1-launchd-service；不执行真实 launchctl mutation

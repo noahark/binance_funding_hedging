@@ -41,6 +41,10 @@ These changes do not implement `T1-launchd-service`: they separate normal
 sequence-unique raw paths, and validate continuous mode history. The focused
 suite passed 111 tests without invoking a model or mutating LaunchAgent state.
 
-本地北京时间: 2026-07-13 15:41:01 CST
-下一步模型: Codex bookkeeper
-下一步任务: 提交 v3 前置修复和 superseding authorization v3，再由 runner 重试 Claude-GLM
+The superseding v3 authorization is now committed at
+`1d47717903bb07e8d3fe6295d7c95ba4a6ab2bb5`. Scope and budgets are unchanged,
+usage remains cumulative, and the runner is ready for attempt 3.
+
+本地北京时间: 2026-07-13 15:51:52 CST
+下一步模型: Claude-GLM / GLM-5.2（auto runner）
+下一步任务: 重试 T1-launchd-service；不执行真实 launchctl mutation
