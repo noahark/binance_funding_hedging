@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-history-background-refresh-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-history-background-refresh-v1",
@@ -98,9 +98,9 @@
         "reviewer": "kimi",
         "provider": "moonshot_kimi",
         "model": "kimi-code/kimi-for-coding",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96"
       }
     }
   ],
@@ -324,10 +324,10 @@
     "provider": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
     "model": "kimi-code/kimi-for-coding",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96",
     "reviewer_prior_involvement": null,
     "reviewer_prior_involvement_pending": false,
     "reviewer_prior_involvement": "none",
@@ -336,20 +336,20 @@
     "invalid_json_attempts": 0
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
+    "reviewer": "claude",
+    "provider": "anthropic",
+    "model": "claude-fable-5",
     "primary_provider": null,
     "fallback_provider": null,
-    "fallback_reason": null,
-    "reviewer_prior_involvement": null,
-    "reviewer_prior_involvement_pending": true,
-    "reviewer_prior_involvement_notes": "Codex participated in design; Claude Opus participated in design review and Claude provider is planned for breakdown. Final reviewer routing must re-evaluate design involvement and any required strong-reviewer disclosure.",
-    "unrelated_reviewer_unavailable_evidence": null,
+    "fallback_reason": "design_conflict_ineligibility_of_preferred_codex_reviewer",
+    "reviewer_prior_involvement": "breakdown",
+    "reviewer_prior_involvement_pending": false,
+    "reviewer_prior_involvement_notes": "Anthropic provider performed design review and the development breakdown. Current Codex session is design author and user-authorised bookkeeper, so cannot issue a formal final verdict. No other registered, provider-isolated, design-uninvolved decision model exists.",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-history-background-refresh-v1/31-review-2-routing-disclosure.md",
     "design_conflict_override": {
-      "used": false,
-      "reason": null,
-      "unrelated_reviewer_unavailable_evidence": null
+      "used": true,
+      "reason": "design_conflict_ineligibility_of_preferred_codex_reviewer",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-history-background-refresh-v1/31-review-2-routing-disclosure.md"
     },
     "open_p0_p1": null,
     "verdict": null,
@@ -367,6 +367,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "Human operator pastes 30-review-1.prompt.md into a fresh Kimi read-only session. Bookkeeper does not execute the dispatch and will validate/store the resulting raw output and strict JSON verdict.",
-  "updated_at": "2026-07-13T09:49:35+08:00"
+  "next_action": "Human operator pastes 50-review-2.prompt.md into a fresh Claude Fable5 read-only session. Bookkeeper does not execute the dispatch and will validate/store the resulting raw output and strict JSON verdict.",
+  "updated_at": "2026-07-13T10:03:00+08:00"
 }

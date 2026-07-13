@@ -7,8 +7,8 @@ not read `history/` at startup.
 ## Current State
 
 - Stage: `2026-07-history-background-refresh-v1`
-- Status: `review_1` — implementation/evidence committed and committed range
-  bound; Kimi review-1 dispatch pending human execution
+- Status: `review_2` — Kimi review-1 ACCEPT recorded and schema-validated;
+  Claude final-review dispatch prepared with strong-reviewer disclosure
 - Branch: `stage/2026-07-history-background-refresh-v1`
 - Stage created from main: `0db66d2a82c10139523a06af74679e756bd13e5a`
 - Committed HEAD / review snapshot: `6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb`
@@ -50,11 +50,15 @@ not read `history/` at startup.
 - Embedded cross-check set: not applicable
 - Escalation artifacts: none
 - Pilot metrics: not applicable
-- Review 1: pending `30-review-1.md`
+- Review 1: `30-review-1.md` — Kimi ACCEPT; raw output and schema-valid verdict
+  are stored beside it
 - Review-1 dispatch: `30-review-1.prompt.md`, Kimi read-only, bound to
   `0db66d2a82c10139523a06af74679e756bd13e5a..6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb`
   and fingerprint
   `6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96`
+- Review 2 disclosure: `31-review-2-routing-disclosure.md`
+- Review 2 dispatch: `50-review-2.prompt.md`, Claude Fable5 read-only; Anthropic
+  prior breakdown/design-review involvement is explicitly disclosed
 - Fix report: pending `40-fix-report.md`
 - Review 2: pending `50-review-2.md`
 - Test output: `60-test-output.txt` — final independent rerun: 289 backend
@@ -98,10 +102,10 @@ not read `history/` at startup.
 ## Next Action
 
 Human operator pastes `30-review-1.prompt.md` into a fresh Kimi read-only
-session. Kimi inspects the raw files and the exact committed diff, then returns
-a strict schema-valid verdict JSON. The bookkeeper records/validates that raw
-output; it does not execute the Kimi dispatch.
+session. Kimi returned ACCEPT; its raw output and verdict are recorded. Human
+operator next pastes `50-review-2.prompt.md` into a fresh Claude Fable5 read-only
+session. The bookkeeper does not execute either dispatch.
 
-本地北京时间: 2026-07-13 09:49:35 CST
-下一步模型: Kimi
-下一步任务: 对绑定 committed diff 执行只读 review-1 并输出严格 JSON verdict
+本地北京时间: 2026-07-13 10:03:00 CST
+下一步模型: Claude Fable5
+下一步任务: 对绑定 committed diff 执行只读 review-2 并输出严格 JSON verdict

@@ -329,6 +329,14 @@ PRE-REVIEW GATE (committed-state):
   - status=review_1
   - diff_fingerprint=6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96
 
+REVIEW-1 VERDICT VALIDATION:
+- Reviewer: Kimi / `kimi-code/kimi-for-coding` (`moonshot_kimi`), session
+  `session_230ac062-fd97-4e57-a9e4-ca59f1534e45`.
+- Raw output: `review-1-kimi.raw-output.md`.
+- COMMAND: `jsonschema.validate(30-review-1.verdict.json, review-verdict.schema.json)`
+- RESULT: PASS — schema-valid `ACCEPT`; verdict fingerprint exactly matches the
+  bound implementation fingerprint; findings and required_fixes are empty.
+
 ================================================================================
 Stage: 2026-07-history-background-refresh-v1 — PRE-REVIEW REPAIR RUN
 Checkpoint: 21-pre-review-repair (claude_glm / GLM-5.2, minimal_change_engineer)
