@@ -1,0 +1,23 @@
+Stage initialization checkpoint. No delivery-code tests have run.
+
+2026-07-13 12:40:08 CST — initialization validation:
+
+```text
+jq empty ACTIVE.json status.json authorization.json pilot-metrics.json
+PASS
+
+authorization handwritten validation
+PASS
+
+scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-local-service-launchd-v1
+phase=checkpoint
+status=designing
+
+git diff --check
+PASS
+```
+
+Pending deterministic delivery checks are frozen in `00-task.md` and must not
+execute a real mutating launchctl command.
