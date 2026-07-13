@@ -2,8 +2,8 @@
 
 ## Recovery Header
 
-- Active phase: Opus 4.8 development breakdown validated; explicit `software_architect` amendment complete; auto implementation checkpoint pending
-- Next action: commit `12-development-breakdown.md` + `13-software-architect-amendment.md` and synchronized stage state, then invoke the authorized deterministic auto runner
+- Active phase: design/breakdown checkpoint committed; auto implementation authorized and ready
+- Next action: invoke `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`
 - Read-set: = status.current_inputs
 - Open blockers: none before the design checkpoint; real launchctl mutation remains a later human gate
 - Do-not-read: reports/agent-runs/**/history/**, other stages
@@ -11,10 +11,10 @@
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `designing`, ready to transition to auto implementation after the design checkpoint commit
+- Status: `implementing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `3981742f4e5e449dd6d3b6a7815c00fbb3d56a27` (`bookkeeper(launchd): initialize auto-review pilot stage`)
-- Git status: Opus breakdown, explicit architect amendment, and synchronized bookkeeping are uncommitted pending the design checkpoint
+- HEAD: `f75acb5f57f82935c564ee6373feff6a0485fbb7` (`bookkeeper(launchd): validate breakdown and architecture`) before the implementing-state checkpoint
+- Git status: only implementing-state bookkeeping pending checkpoint commit
 - Bookkeeper: Codex/OpenAI; designer, not implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled and human-authorized; ready after the design checkpoint commit
@@ -62,11 +62,10 @@
 
 ## Next Action
 
-Bookkeeper validates and commits the design checkpoint, changes the top-level
-status to `implementing`, then invokes the already authorized deterministic
-auto runner. The runner must stop at `completed_review_1` or a documented
-escalation; it may not install the LaunchAgent.
+Invoke the already authorized deterministic auto runner. The runner must stop
+at `completed_review_1` or a documented escalation; it may not install the
+LaunchAgent.
 
-本地北京时间: 2026-07-13 13:34:29 CST
-下一步模型: Codex bookkeeper → Claude-GLM（auto runner）
-下一步任务: 提交 design/breakdown checkpoint，切换 implementing，并启动已授权 auto runner
+本地北京时间: 2026-07-13 13:37:01 CST
+下一步模型: Claude-GLM / GLM-5.2（auto runner）
+下一步任务: 实现 T1-launchd-service，禁止真实 launchctl mutation；随后自动 blocking/cross-check/seal/Grok review-1

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "designing",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -12,11 +12,11 @@
     "abandoned_reason": null
   },
   "bookkeeper_checkpoint": {
-    "commit": "3981742f4e5e449dd6d3b6a7815c00fbb3d56a27",
-    "kind": "h_intake_design_auto_authorization",
+    "commit": "f75acb5f57f82935c564ee6373feff6a0485fbb7",
+    "kind": "design_breakdown_software_architect_checkpoint",
     "validated_phase": "checkpoint",
     "validated_result": "passed",
-    "worktree_after_commit": "only recovery/status synchronization expected"
+    "worktree_after_commit": "clean before implementing-state transition"
   },
   "bookkeeper": {
     "id": "codex_bookkeeper_2026_07_13",
@@ -295,6 +295,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "commit_design_breakdown_checkpoint_then_start_auto_review_runner",
-  "updated_at": "2026-07-13T05:34:29Z"
+  "next_action": "start_authorized_auto_review_runner",
+  "updated_at": "2026-07-13T05:37:01Z"
 }
