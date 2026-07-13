@@ -1,3 +1,44 @@
+2026-07-13 21:44:36 CST — first human-authorized real LaunchAgent acceptance:
+
+```text
+initial listener check
+no listeners on 8787, 3000, 5173, or 8000
+
+initial service-control.py status
+loaded=False; health=unreachable; readiness=unreachable
+
+python3 scripts/service-control.py install --confirm
+installed plist -> /Users/ark/Library/LaunchAgents/com.aoke.funding-hedging.server.plist
+
+post-install service-control.py status
+loaded=True; running=spawn; health=unreachable; readiness=unreachable
+
+launchctl print gui/501/com.aoke.funding-hedging.server
+state=spawn scheduled; runs=4 initially, then 5; last exit code=126
+
+sanitized doctor bundle
+/Users/ark/Library/Logs/funding-hedging/diagnostics/20260713T134341Z
+
+sanitized stderr evidence
+getcwd: cannot access parent directories: Operation not permitted
+/bin/bash: /Users/ark/Desktop/ai code/funding_hedging/scripts/run-server.sh: Operation not permitted
+
+python3 scripts/service-control.py stop --confirm
+stopped
+
+final state
+loaded=False; health=unreachable; readiness=unreachable; installed plist retained
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+status=human_escalation_required
+```
+
+Result: FAIL. The real LaunchAgent cannot access a checkout under macOS's
+protected Desktop directory. No source or `.env` content was changed or
+printed. Review-2 dispatch is suspended pending a human runtime-location or
+privacy-authority decision.
+
 2026-07-13 21:39:52 CST — clean-tree review-2 packet validation:
 
 ```text

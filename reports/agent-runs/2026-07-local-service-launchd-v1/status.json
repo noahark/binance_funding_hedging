@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "review_2",
+  "status": "human_escalation_required",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -130,6 +130,7 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-real-launchd-desktop-tcc-20260713T134341Z.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -404,8 +405,10 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "manual_review_1_accept_review_2_dispatch_ready",
-    "real_launchctl_mutation_authorized": false
+    "status": "real_launchd_acceptance_failed_desktop_tcc_waiting_human_decision",
+    "real_launchctl_mutation_authorized": true,
+    "real_launchctl_mutation_authorized_by": "human",
+    "real_launchctl_mutation_authorized_at": "2026-07-13T13:41:00Z"
   },
   "manual_dispatch_takeover": {
     "authorized_by": "human",
@@ -461,7 +464,7 @@
   "review_2_pre_review_validation": {
     "phase": "pre-review",
     "performed_at": "2026-07-13T13:39:52Z",
-    "result": "passed",
+    "result": "superseded_by_real_launchd_acceptance_failure",
     "review_1_evidence_commit": "8f23478bf73ae6a547dfe960a112d2bbf14c12c3",
     "review_2_packet_commit": "d359400924e6d6f0c1e6c0228050a73185b966f3",
     "snapshot_commit": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
@@ -626,7 +629,7 @@
     "provider_identity": "openai",
     "model": "gpt-5.6-sol",
     "mode": "fresh_human_started_read_only_schema_bound",
-    "status": "formal_review_2_dispatch_ready",
+    "status": "formal_review_2_dispatch_suspended_before_execution",
     "reviewer_prior_involvement": "design",
     "design_conflict_override": true,
     "routing_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md"
@@ -730,6 +733,7 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-real-launchd-desktop-tcc-20260713T134341Z.md",
     "backend/app/server.py",
     "backend/tests/test_service_health.py",
     "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
@@ -909,16 +913,37 @@
     "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
     "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
     "raw_output_path": null,
-    "verdict_path": null
+    "verdict_path": null,
+    "dispatch_suspended_reason": "real launchd acceptance failed with exit 126 because macOS Desktop TCC denied the LaunchAgent access to the repository working directory"
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [],
-  "human_escalation": {
-    "required": false,
-    "reason": null
+  "real_launchd_acceptance": {
+    "authorized_by": "human",
+    "authorized_at": "2026-07-13T13:41:00Z",
+    "performed_at": "2026-07-13T13:43:41Z",
+    "install_command": "python3 scripts/service-control.py install --confirm",
+    "install_result": "plist_written_and_job_loaded_but_process_failed",
+    "launchctl_runs_observed": 5,
+    "last_exit_code": 126,
+    "health": "unreachable",
+    "readiness": "unreachable",
+    "root_cause": "macos_desktop_tcc_operation_not_permitted_for_background_launchagent",
+    "diagnostic_bundle": "/Users/ark/Library/Logs/funding-hedging/diagnostics/20260713T134341Z",
+    "escalation_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-real-launchd-desktop-tcc-20260713T134341Z.md",
+    "cleanup_command": "python3 scripts/service-control.py stop --confirm",
+    "final_loaded": false,
+    "installed_plist_retained": true,
+    "source_or_env_modified": false
   },
-  "terminal_reason": null,
-  "next_action": "human_executes_fresh_codex_reality_checker_review_2_and_returns_complete_raw_output",
-  "updated_at": "2026-07-13T13:39:52Z"
+  "blockers": [
+    "real LaunchAgent cannot access the repository under ~/Desktop because macOS TCC denies the background process; human must choose a non-protected runtime location or explicitly accept a broad privacy grant"
+  ],
+  "human_escalation": {
+    "required": true,
+    "reason": "real_launchd_desktop_tcc_requires_runtime_location_or_privacy_authority_decision"
+  },
+  "terminal_reason": "human_escalation_required",
+  "next_action": "human_selects_non_protected_runtime_location_or_explicit_macos_privacy_override_before_fix_and_retest",
+  "updated_at": "2026-07-13T13:44:36Z"
 }

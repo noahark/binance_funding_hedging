@@ -1,7 +1,8 @@
 # Review 2
 
-Not started. Formal review-1 returned schema-valid `ACCEPT`, and the stage is
-now at the human-started final gate.
+Not started and now suspended before dispatch. Formal review-1 returned
+schema-valid `ACCEPT`, but the first human-authorized real LaunchAgent
+acceptance produced new blocking evidence after the review-2 packet was sealed.
 
 The registered decision models both have prior design involvement:
 
@@ -26,9 +27,18 @@ Prepared artifacts:
 - `manual-review-2-T1-launchd-service.prompt.md`
 - `manual-review-2-T1-launchd-service.dispatch.md`
 
-No review-2 model has been invoked and no final verdict exists. Real
-`launchctl` mutation, deployment, merge, and acceptance remain unauthorized.
+No review-2 model has been invoked and no final verdict exists. The real test
+loaded the plist, but macOS Desktop TCC denied the background job access to the
+repository and launcher. `launchctl` recorded five attempts and exit 126;
+health/readiness remained unreachable. The failed job was stopped to prevent a
+KeepAlive retry loop, while the installed plist and sanitized diagnostics were
+retained.
 
-本地北京时间: 2026-07-13 21:36:31 CST
-下一步模型: Codex / gpt-5.6-sol（fresh human-started review session）
-下一步任务: 显式使用 reality_checker 对固定范围执行只读 review-2，并返回完整原始输出及严格 JSON
+The previous dispatch packet must not be executed until the human selects a
+non-protected runtime location or explicitly accepts a macOS privacy grant, the
+fix is implemented, and the real launchd acceptance passes. Full evidence is in
+`80-escalation-real-launchd-desktop-tcc-20260713T134341Z.md`.
+
+本地北京时间: 2026-07-13 21:44:36 CST
+下一步模型: Human
+下一步任务: 选择非受保护运行目录或显式隐私授权方案，完成修复和真实验收后重新生成 review-2 packet
