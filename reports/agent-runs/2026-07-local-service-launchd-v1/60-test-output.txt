@@ -1,3 +1,27 @@
+2026-07-13 21:36:31 CST — review-2 baseline committed-state preflight and routing preparation:
+
+```text
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-local-service-launchd-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778
+
+review-2 provider isolation
+PASS; openai != zhipu_glm
+
+registered decision-provider design-conflict check
+Codex/OpenAI=design; Claude/Anthropic=breakdown; no unrelated candidate
+
+selected route
+Codex/OpenAI gpt-5.6-sol; fresh read-only human-started session;
+reality_checker; strong-reviewer disclosure override
+```
+
+No decision model was invoked. No delivery file, `.env`, real LaunchAgent
+plist, or `launchctl` state changed during routing and packet preparation.
+
 2026-07-13 21:33:38 CST — formal Kimi review-1 verdict intake:
 
 ```text

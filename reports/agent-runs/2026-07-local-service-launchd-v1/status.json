@@ -127,6 +127,9 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.dispatch.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.operator-forwarded-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.verdict.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -401,7 +404,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "manual_review_1_accept_waiting_review_2_dispatch",
+    "status": "manual_review_1_accept_review_2_dispatch_ready",
     "real_launchctl_mutation_authorized": false
   },
   "manual_dispatch_takeover": {
@@ -452,6 +455,16 @@
     "result": "passed",
     "snapshot_commit": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
     "bind_commit": "d2a2f91194a8a8f06000f3520726413c1489c524",
+    "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
+    "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/60-test-output.txt"
+  },
+  "review_2_pre_review_validation": {
+    "phase": "pre-review",
+    "performed_at": null,
+    "result": "pending_packet_commit",
+    "review_1_evidence_commit": "8f23478bf73ae6a547dfe960a112d2bbf14c12c3",
+    "review_2_packet_commit": null,
+    "snapshot_commit": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
     "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
     "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/60-test-output.txt"
   },
@@ -608,7 +621,16 @@
     "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.operator-forwarded-output.md",
     "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.verdict.json"
   },
-  "reviewer_2": null,
+  "reviewer_2": {
+    "adapter": "codex",
+    "provider_identity": "openai",
+    "model": "gpt-5.6-sol",
+    "mode": "fresh_human_started_read_only_schema_bound",
+    "status": "formal_review_2_dispatch_ready",
+    "reviewer_prior_involvement": "design",
+    "design_conflict_override": true,
+    "routing_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md"
+  },
   "r10_checklists": {},
   "tasks": [
     {
@@ -703,6 +725,11 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.operator-forwarded-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.verdict.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
     "backend/app/server.py",
     "backend/tests/test_service_health.py",
     "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
@@ -851,32 +878,38 @@
     ]
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
-    "primary_provider": null,
-    "fallback_provider": null,
+    "reviewer": "codex",
+    "provider": "openai",
+    "model": "gpt-5.6-sol",
+    "primary_provider": "openai",
+    "fallback_provider": "anthropic",
     "routing_candidates": [
       "codex",
       "claude"
     ],
-    "fallback_reason": null,
+    "fallback_reason": "no_unrelated_decision_model_due_design_conflict",
     "reviewer_prior_involvement": "design",
-    "reviewer_prior_involvement_pending": true,
-    "reviewer_prior_involvement_notes": "Codex designed the stage; final routing must apply the strong-reviewer disclosure rules.",
-    "unrelated_reviewer_unavailable_evidence": null,
+    "reviewer_prior_involvement_pending": false,
+    "reviewer_prior_involvement_notes": "OpenAI/Codex authored the stage design and architecture amendment but no implementation or fix code; a fresh read-only session is selected because every registered decision provider has prior design involvement.",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md",
     "design_conflict_override": {
-      "used": false,
-      "reason": null,
-      "unrelated_reviewer_unavailable_evidence": null
+      "used": true,
+      "reason": "no_unrelated_registered_decision_provider; codex has design involvement and claude has breakdown involvement",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md"
     },
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0
+    "invalid_json_attempts": 0,
+    "skill": "reality_checker",
+    "skill_explicit": true,
+    "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
+    "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
+    "raw_output_path": null,
+    "verdict_path": null
   },
   "rework_count": 0,
   "max_rework": 3,
@@ -886,6 +919,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "bookkeeper_records_review_2_routing_and_prepares_human_started_final_review",
-  "updated_at": "2026-07-13T13:33:38Z"
+  "next_action": "human_executes_fresh_codex_reality_checker_review_2_and_returns_complete_raw_output",
+  "updated_at": "2026-07-13T13:36:31Z"
 }

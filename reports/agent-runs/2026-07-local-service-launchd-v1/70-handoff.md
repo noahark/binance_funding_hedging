@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: formal Kimi review-1 ACCEPT received; strict verdict schema/fingerprint bind passed; preparing human-started review-2
-- Next action: bookkeeper commits review-1 evidence, records review-2 design-conflict routing evidence, reruns clean-tree pre-review validation, and prepares the final-review packet
+- Active phase: formal Kimi review-1 ACCEPT committed; review-2 routing and explicit reality_checker packet prepared
+- Next action: human runs the fresh read-only Codex dispatch in `manual-review-2-T1-launchd-service.dispatch.md` and returns complete raw output
 - Read-set: = status.current_inputs
-- Open blockers: none; review-2 still requires a fresh human-started final-review session
+- Open blockers: none before human review-2 dispatch; no final verdict exists yet
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -15,7 +15,7 @@
 - Branch: `stage/2026-07-local-service-launchd-v1`
 - Review snapshot HEAD: `85ab5011e4b99fe464d9e1996ad455fdbc389206`
 - Fingerprint: `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`
-- Git status: review-1 raw output, strict verdict, status, and handoff pending a local evidence commit
+- Git status: review-1 evidence committed at `8f23478`; review-2 routing/prompt/evidence pending one local bookkeeper commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -50,7 +50,7 @@
 - Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
 - Pre-review repair prompt: `manual-fix-T1-launchd-service-pre-review.prompt.md`
 - Review 1: `ACCEPT`; schema-valid Kimi verdict bound to the frozen fingerprint; one accepted P3, no required fixes
-- Review 2: human-started and pending
+- Review 2: fresh Codex/OpenAI `gpt-5.6-sol` selected with explicit `reality_checker` and recorded design-involvement override; human-started and pending
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
 
