@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -342,9 +342,9 @@
         "task_ids": [
           "T1-launchd-service"
         ],
-        "base_sha": null,
-        "head_sha": null,
-        "diff_fingerprint": null,
+        "base_sha": "3bb253a489bf2854d8b9d81060a45ca056e1cea2",
+        "head_sha": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
+        "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
         "code_pathspecs": [
           "deploy/launchd/**",
           "scripts/run-server.sh",
@@ -381,9 +381,10 @@
           "bind_status": "pending"
         },
         "review_1": {
-          "provider": null,
+          "provider": "moonshot_kimi",
           "verdict": null,
           "json_schema_valid": false,
+          "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
           "verdict_path": null
         }
       }
@@ -396,7 +397,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "manual_repair_attempt_2_passed_ready_for_review_snapshot",
+    "status": "manual_review_snapshot_bound_review_1_pending",
     "real_launchctl_mutation_authorized": false
   },
   "manual_dispatch_takeover": {
@@ -418,9 +419,11 @@
     "performed_at": "2026-07-13T13:09:04Z",
     "formal_review_gate": false,
     "head_before_delivery_commit": "5207875dee4f72e3700eb0d50e169957e75e2d90",
-    "delivery_commit_created": false,
+    "delivery_commit_created": true,
+    "snapshot_commit": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
+    "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
     "manual_session_id": "5ee354f2-d410-4de2-aee7-fdd85e8f0d1b",
-    "raw_manual_completion_report": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt1.operator-forwarded-output.md",
+    "raw_manual_completion_report": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md",
     "authorized_delivery_paths_observed": [
       "backend/app/server.py",
       "backend/tests/test_service_health.py",
@@ -574,13 +577,21 @@
       "status": "implementation_and_pre_review_repairs_complete_checks_passed"
     }
   ],
-  "fix_authors": [],
+  "fix_authors": [
+    {
+      "adapter": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2",
+      "session_id": "5ee354f2-d410-4de2-aee7-fdd85e8f0d1b",
+      "scope": "same_author_pre_review_repairs_attempt_1_and_attempt_2"
+    }
+  ],
   "reviewer_1": {
     "adapter": "kimi",
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
     "mode": "manual_fresh_read_only_session",
-    "status": "pending_after_review_snapshot_bind_and_pre_review_validation"
+    "status": "pending_fresh_human_executed_code_reviewer_dispatch"
   },
   "reviewer_2": null,
   "r10_checklists": {},
@@ -590,9 +601,9 @@
       "owner": "claude_glm",
       "reviewer": "kimi",
       "r10_checklist": null,
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "base_sha": "3bb253a489bf2854d8b9d81060a45ca056e1cea2",
+      "head_sha": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
+      "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
       "test_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "kimi",
@@ -600,7 +611,7 @@
         "model": "kimi-code/kimi-for-coding",
         "verdict": null,
         "json_schema_valid": null,
-        "diff_fingerprint": null
+        "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778"
       }
     }
   ],
@@ -625,8 +636,8 @@
     "user_approved": true
   },
   "base_sha": "3bb253a489bf2854d8b9d81060a45ca056e1cea2",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
+  "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
   "changed_files": [
     "AGENTS.md",
     "reports/agent-runs/ACTIVE.json",
@@ -707,7 +718,7 @@
     "workflows/templates/stage-delivery.yaml"
   ],
   "tests": {
-    "status": "manual_repair_attempt_2_all_frozen_checks_passed",
+    "status": "passed",
     "commands": [
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
@@ -804,7 +815,7 @@
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_pending": false,
     "fix_start_prompt_present": null,
@@ -815,8 +826,12 @@
     "reviewer": null,
     "provider": null,
     "model": null,
-    "primary_provider": "codex",
-    "fallback_provider": "claude",
+    "primary_provider": null,
+    "fallback_provider": null,
+    "routing_candidates": [
+      "codex",
+      "claude"
+    ],
     "fallback_reason": null,
     "reviewer_prior_involvement": "design",
     "reviewer_prior_involvement_pending": true,
@@ -843,6 +858,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "codex_bookkeeper_creates_review_snapshot_bind_fingerprint_and_runs_pre_review_validation",
-  "updated_at": "2026-07-13T13:09:04Z"
+  "next_action": "codex_bookkeeper_commits_snapshot_bind_runs_pre_review_validation_and_prepares_fresh_kimi_dispatch",
+  "updated_at": "2026-07-13T13:13:03Z"
 }

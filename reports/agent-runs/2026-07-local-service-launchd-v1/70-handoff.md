@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: manual repair attempt 2 returned; all six frozen checks and final negative probes pass; review snapshot pending
-- Next action: Codex bookkeeper creates the local snapshot/bind commits, standard fingerprint, and pre-review validation evidence
+- Active phase: review snapshot `85ab5011e4b99fe464d9e1996ad455fdbc389206` created and fingerprint bound; clean bind commit/pre-review validator pending
+- Next action: Codex bookkeeper commits status/handoff binding, runs pre-review validation on a clean tree, then prepares the fresh Kimi packet
 - Read-set: = status.current_inputs
-- Open blockers: none in delivery code; formal review remains blocked only until committed snapshot/bind and pre-review validator complete
+- Open blockers: none in delivery code; formal review remains blocked only until bind commit and clean-tree pre-review validation complete
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -13,8 +13,9 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `implementing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `5207875dee4f72e3700eb0d50e169957e75e2d90` before the current uncommitted delivery/reconciliation checkpoint
-- Git status: five authorized delivery paths modified/untracked plus stage checkpoint and repair-prompt evidence; no delivery evidence commit exists
+- Review snapshot HEAD: `85ab5011e4b99fe464d9e1996ad455fdbc389206`
+- Fingerprint: `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`
+- Git status: delivery/evidence snapshot committed; status/handoff bind changes pending the second local commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -79,16 +80,14 @@
 
 - No open delivery-code or test blocker. Targeted suite passes 82 tests, full backend passes 301 tests, and all other frozen checks plus final negative probes pass.
 - Two self-reported read-only command-policy deviations (`py_compile`, then Bash/grep) remain disclosed. Session `5ee354f2-d410-4de2-aee7-fdd85e8f0d1b` is associated with attempt 2 and has real `glm-5.2` plus final `end_turn` evidence.
-- The implementation range is uncommitted; `head_sha`, `diff_fingerprint`, and formal review inputs therefore remain null.
+- The implementation range and fingerprint are fixed. The only remaining gate blocker is committing the bind evidence and rerunning `pre-review` on a clean tree.
 
 ## Next Action
 
-Codex creates the local review snapshot over the verified delivery and stage
-evidence, records the snapshot `head_sha` and canonical fingerprint in a
-status-only bind commit, runs `pre-review` validation on a clean tree, and then
-prepares a fresh Kimi `code_reviewer` dispatch packet. No model is invoked by
-the bookkeeper.
+Codex commits the status/handoff binding, runs `pre-review` validation on a
+clean tree, and then prepares a fresh Kimi `code_reviewer` dispatch packet using
+the fixed range and fingerprint. No model is invoked by the bookkeeper.
 
-本地北京时间: 2026-07-13 21:09:04 CST
+本地北京时间: 2026-07-13 21:13:03 CST
 下一步模型: Codex bookkeeper
-下一步任务: 创建 review snapshot/bind、计算 diff_fingerprint 并执行 pre-review 校验
+下一步任务: 提交 bind 状态、执行 clean-tree pre-review 校验并准备 Kimi review-1 文案
