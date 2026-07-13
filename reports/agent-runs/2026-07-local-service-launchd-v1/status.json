@@ -6,9 +6,9 @@
     "name": "stage/2026-07-local-service-launchd-v1",
     "created_from_main_sha": "3bb253a489bf2854d8b9d81060a45ca056e1cea2",
     "created_at": "2026-07-13T04:35:49Z",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "8052abcb0733ff9c9e1755e2d3bec30ce800ecc3",
+    "merge_strategy": "fast_forward",
     "abandoned_reason": null
   },
   "bookkeeper_checkpoint": {
@@ -1179,8 +1179,11 @@
     "condition": "superseded by explicit human instruction to skip disclosed process-only review evidence failures and merge/push",
     "currently_executable": true,
     "review_2_accept_recorded_at": "2026-07-14T00:07:14+08:00",
-    "process_evidence_waiver": "reports/agent-runs/2026-07-local-service-launchd-v1/23-human-review2-evidence-coverage-waiver.md"
+    "process_evidence_waiver": "reports/agent-runs/2026-07-local-service-launchd-v1/23-human-review2-evidence-coverage-waiver.md",
+    "executed_at": "2026-07-14T00:11:38+08:00",
+    "stage_push_sha": "8052abcb0733ff9c9e1755e2d3bec30ce800ecc3",
+    "main_fast_forward_sha": "8052abcb0733ff9c9e1755e2d3bec30ce800ecc3"
   },
-  "next_action": "fetch_remote_push_stage_merge_main_record_merged_back_and_push_main",
-  "updated_at": "2026-07-14T00:09:27+08:00"
+  "next_action": "run_post_merge_pre_accept_recheck_record_result_and_push_main",
+  "updated_at": "2026-07-14T00:11:38+08:00"
 }
