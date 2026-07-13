@@ -1,3 +1,26 @@
+2026-07-13 21:15:41 CST — committed snapshot/bind pre-review gate:
+
+```text
+review snapshot
+85ab5011e4b99fe464d9e1996ad455fdbc389206
+
+bind commit
+d2a2f91194a8a8f06000f3520726413c1489c524
+
+diff fingerprint
+85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778
+
+git status --short --branch
+## stage/2026-07-local-service-launchd-v1
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-local-service-launchd-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778
+```
+
 2026-07-13 21:09:04 CST — manual repair attempt 2, final bookkeeper verification:
 
 ```text

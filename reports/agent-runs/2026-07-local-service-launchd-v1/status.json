@@ -123,6 +123,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt1.operator-forwarded-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.dispatch.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -397,7 +399,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "manual_review_snapshot_bound_review_1_pending",
+    "status": "manual_review_1_dispatch_ready",
     "real_launchctl_mutation_authorized": false
   },
   "manual_dispatch_takeover": {
@@ -441,6 +443,15 @@
     "attempt_2_policy_deviation": "operator-forwarded report self-discloses one Bash grep command despite the no-command attempt-2 prompt; read-only but retained for review disclosure",
     "attempt_2_output": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md",
     "repair_prompt": null
+  },
+  "pre_review_validation": {
+    "phase": "pre-review",
+    "performed_at": "2026-07-13T13:15:41Z",
+    "result": "passed",
+    "snapshot_commit": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
+    "bind_commit": "d2a2f91194a8a8f06000f3520726413c1489c524",
+    "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
+    "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/60-test-output.txt"
   },
   "harness_adapter_repair": {
     "decision": "absolute_repo_wrapper",
@@ -591,7 +602,7 @@
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
     "mode": "manual_fresh_read_only_session",
-    "status": "pending_fresh_human_executed_code_reviewer_dispatch"
+    "status": "fresh_human_executed_code_reviewer_dispatch_ready"
   },
   "reviewer_2": null,
   "r10_checklists": {},
@@ -683,6 +694,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt1.operator-forwarded-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.dispatch.md",
     "backend/app/server.py",
     "backend/tests/test_service_health.py",
     "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
@@ -820,7 +833,10 @@
     "reviewer_prior_involvement_pending": false,
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0
+    "invalid_json_attempts": 0,
+    "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.prompt.md",
+    "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.dispatch.md",
+    "raw_output_path": null
   },
   "review_2": {
     "reviewer": null,
@@ -858,6 +874,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "codex_bookkeeper_commits_snapshot_bind_runs_pre_review_validation_and_prepares_fresh_kimi_dispatch",
-  "updated_at": "2026-07-13T13:13:03Z"
+  "next_action": "human_executes_fresh_kimi_code_reviewer_dispatch_and_returns_complete_raw_output",
+  "updated_at": "2026-07-13T13:15:41Z"
 }
