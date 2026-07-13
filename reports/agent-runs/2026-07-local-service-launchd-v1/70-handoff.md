@@ -15,7 +15,7 @@
 - Branch: `stage/2026-07-local-service-launchd-v1`
 - Review snapshot HEAD: `85ab5011e4b99fe464d9e1996ad455fdbc389206`
 - Fingerprint: `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`
-- Git status: review-1 evidence committed at `8f23478`; review-2 routing/prompt/evidence pending one local bookkeeper commit
+- Git status: review-1 evidence committed at `8f23478`; review-2 routing/prompt/evidence committed at `d359400`; clean-tree `pre-review` validation passed; validation checkpoint pending one local evidence commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
