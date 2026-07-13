@@ -2,22 +2,22 @@
 
 ## Recovery Header
 
-- Active phase: design complete; mandatory development breakdown pending
-- Next action: human executes `12-development-breakdown.prompt.md` in Claude Fable5; Codex bookkeeper validates the returned `12-development-breakdown.md`
+- Active phase: Opus 4.8 development breakdown validated; explicit `software_architect` amendment complete; auto implementation checkpoint pending
+- Next action: commit `12-development-breakdown.md` + `13-software-architect-amendment.md` and synchronized stage state, then invoke the authorized deterministic auto runner
 - Read-set: = status.current_inputs
-- Open blockers: MEDIUM-stage development breakdown is not yet present; auto runner must not start
+- Open blockers: none before the design checkpoint; real launchctl mutation remains a later human gate
 - Do-not-read: reports/agent-runs/**/history/**, other stages
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `designing`
+- Status: `designing`, ready to transition to auto implementation after the design checkpoint commit
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `3bb253a489bf2854d8b9d81060a45ca056e1cea2` before the pending H_intake/design checkpoint commit
-- Git status: `ACTIVE.json` modified and new stage artifacts untracked; validation passed, ready for the local checkpoint commit
+- HEAD: `3981742f4e5e449dd6d3b6a7815c00fbb3d56a27` (`bookkeeper(launchd): initialize auto-review pilot stage`)
+- Git status: Opus breakdown, explicit architect amendment, and synchronized bookkeeping are uncommitted pending the design checkpoint
 - Bookkeeper: Codex/OpenAI; designer, not implementer or fix author
 - Parallel mode: disabled
-- Auto-review pipeline: enabled and human-authorized, but not runnable before breakdown completion
+- Auto-review pipeline: enabled and human-authorized; ready after the design checkpoint commit
 - Dispatch mode: `human_dispatch`
 - Runner state: `null`
 
@@ -28,7 +28,7 @@
 - Direction synthesis: skipped by explicit operator-approved direction
 - Design: `10-design.md`
 - ADR: `11-adr.md`
-- Development breakdown: pending; dispatch `12-development-breakdown.prompt.md`
+- Development breakdown: `12-development-breakdown.md`, Opus 4.8 / `task_planner`, validated with `13-software-architect-amendment.md`
 - Implementation: `20-implementation.md` placeholder
 - Embedded review checkpoints: auto runner, pending
 - Auto-run authorization: `auto-run-authorization-v1.json`
@@ -45,23 +45,28 @@
 
 ## Open Findings
 
-- The accepted auto runner begins at implementation; it does not author the
-  mandatory MEDIUM-stage development breakdown.
+- Grok session `019f59c9-1145-73c2-81a0-a7e928ad11eb` returned advisory
+  `ACCEPT with notes`, but did not explicitly invoke `software_architect`; its
+  raw output remains unlanded and is not formal review-1 evidence.
+- Codex explicitly applied `agents/skills/software-architect.md` in
+  `13-software-architect-amendment.md`, resolving restart semantics, URL source,
+  render/mutation behavior, doctor bounds, health tests, observability, and
+  auto-accounting wording.
 - Live LaunchAgent installation is an external side effect and remains outside
   automatic implementation/testing authorization.
 
 ## Blockers
 
-- `12-development-breakdown.md` must be authored by Claude Fable5 (or Opus 4.8
-  after valid fallback evidence) and validated before changing status to
-  `implementing` or invoking `scripts/auto-review-runner.py`.
+- None for repository implementation. Real `launchctl` commands remain
+  explicitly unauthorized until human acceptance after review-1.
 
 ## Next Action
 
-Human operator dispatches the prepared breakdown prompt to Claude Fable5. The
-bookkeeper then validates file boundaries, test commands, provider isolation,
-and external-side-effect controls before enabling runner execution.
+Bookkeeper validates and commits the design checkpoint, changes the top-level
+status to `implementing`, then invokes the already authorized deterministic
+auto runner. The runner must stop at `completed_review_1` or a documented
+escalation; it may not install the LaunchAgent.
 
-本地北京时间: 2026-07-13 12:40:08 CST
-下一步模型: Claude Fable5（human dispatch）
-下一步任务: 执行 12-development-breakdown.prompt.md，写入 12-development-breakdown.md 后交回 Codex bookkeeper
+本地北京时间: 2026-07-13 13:34:29 CST
+下一步模型: Codex bookkeeper → Claude-GLM（auto runner）
+下一步任务: 提交 design/breakdown checkpoint，切换 implementing，并启动已授权 auto runner

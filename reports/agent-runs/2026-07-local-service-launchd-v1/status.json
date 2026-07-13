@@ -11,6 +11,13 @@
     "merge_strategy": null,
     "abandoned_reason": null
   },
+  "bookkeeper_checkpoint": {
+    "commit": "3981742f4e5e449dd6d3b6a7815c00fbb3d56a27",
+    "kind": "h_intake_design_auto_authorization",
+    "validated_phase": "checkpoint",
+    "validated_result": "passed",
+    "worktree_after_commit": "only recovery/status synchronization expected"
+  },
   "bookkeeper": {
     "id": "codex_bookkeeper_2026_07_13",
     "provider": "codex",
@@ -25,7 +32,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/00-task.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/10-design.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/11-adr.md",
-    "reports/agent-runs/2026-07-local-service-launchd-v1/12-development-breakdown.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/13-software-architect-amendment.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.json"
   ],
@@ -109,7 +117,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "planned_pending_breakdown",
+    "status": "authorized_ready_for_auto_implementation",
     "real_launchctl_mutation_authorized": false
   },
   "embedded_reviews": {},
@@ -117,22 +125,44 @@
     "provider": "codex",
     "provider_identity": "openai",
     "model": "gpt-5",
-    "artifact": "reports/agent-runs/2026-07-local-service-launchd-v1/10-design.md",
-    "prior_involvement": "design"
+    "skill": "software_architect",
+    "skill_explicit": true,
+    "skill_source": "agents/skills/software-architect.md",
+    "artifacts": [
+      "reports/agent-runs/2026-07-local-service-launchd-v1/10-design.md",
+      "reports/agent-runs/2026-07-local-service-launchd-v1/13-software-architect-amendment.md"
+    ],
+    "prior_involvement": "design_and_architecture_amendment"
   },
   "direction_synthesizer": null,
   "breakdown_author": {
     "provider": "claude",
     "provider_identity": "anthropic",
-    "model": "claude-fable-5",
-    "status": "pending_human_dispatch",
+    "model": "opus4.8",
+    "skill": "task_planner",
+    "skill_source": "agents/registry.yaml roles.development_breakdown",
+    "explicit_skill_invocation_evidence": "not recorded in the returned artifact; no stronger claim is made",
+    "status": "completed_bookkeeper_validated_with_architect_amendment",
     "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/12-development-breakdown.prompt.md",
     "artifact": "reports/agent-runs/2026-07-local-service-launchd-v1/12-development-breakdown.md"
   },
+  "design_reviews": [
+    {
+      "provider": "grok",
+      "provider_identity": "xai_grok",
+      "model": "grok-4.5",
+      "session_id": "019f59c9-1145-73c2-81a0-a7e928ad11eb",
+      "mode": "plan_read_only",
+      "skill_requested": null,
+      "skill_explicit": false,
+      "disposition": "advisory_accept_with_notes_synthesized_into_13_without_landing_raw_output",
+      "formal_gate": false
+    }
+  ],
   "implementer": {
     "adapter": "claude_glm",
     "provider_identity": "zhipu_glm",
-    "status": "blocked_pending_breakdown"
+    "status": "ready_for_auto_runner"
   },
   "implementers": [],
   "fix_authors": [],
@@ -195,6 +225,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/10-design.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/11-adr.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/12-development-breakdown.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/13-software-architect-amendment.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/20-implementation.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/30-review-1.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/40-fix-report.md",
@@ -212,7 +244,9 @@
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
       "scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint (PASS)",
-      "git diff --check (PASS)"
+      "git diff --check (PASS)",
+      "Opus 4.8 breakdown semantic inspection + explicit software_architect amendment (PASS)",
+      "post-breakdown checkpoint validator and diff check (PASS)"
     ]
   },
   "review_1": {
@@ -255,14 +289,12 @@
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [
-    "Mandatory MEDIUM-stage development breakdown is pending."
-  ],
+  "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_dispatch_claude_fable5_development_breakdown",
-  "updated_at": "2026-07-13T04:40:08Z"
+  "next_action": "commit_design_breakdown_checkpoint_then_start_auto_review_runner",
+  "updated_at": "2026-07-13T05:34:29Z"
 }
