@@ -19,6 +19,49 @@ git diff --check
 PASS
 ```
 
+2026-07-13 15:56:54 CST — auto-run attempt 3 through repaired wrapper:
+
+```text
+python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1
+RUNNER RAN
+terminal=human_escalation_required
+reason=implementation adapter failed: command_error
+
+runner-3-implementation.receipt.json
+sequence=3
+exit_status=1
+failure_class=command_error
+timeout=false
+model_calls_used=3
+auto_code_changes_used=0
+
+runner-3-implementation-T1-launchd-service-attempt1.raw-output.md
+combined stderr/stdout preserved at a sequence-unique path
+
+sanitized provider result
+API 529 / error 1305: model currently overloaded
+
+80-escalation-unroutable_fix-20260713T075606Z.md
+raw_output_path and receipt_path are populated
+```
+
+Attempt 3 reached the GLM inference gateway. It did not change delivery code,
+run frozen delivery tests, or execute a real mutating `launchctl` command.
+
+```text
+harness_stage_lib.validate_receipt_doc(runner-3-implementation.receipt.json)
+RECEIPT 3 VALID
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-local-service-launchd-v1
+phase=checkpoint
+status=human_escalation_required
+
+git diff --check
+PASS
+```
+
 Pending deterministic delivery checks are frozen in `00-task.md` and must not
 execute a real mutating launchctl command.
 

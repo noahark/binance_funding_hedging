@@ -3,7 +3,7 @@
   "pilot_kind": "small_real",
   "stage_id": "2026-07-local-service-launchd-v1",
   "terminal_status": "human_escalation_required",
-  "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.json",
+  "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.json",
   "grok_verdict_attempts": 0,
   "grok_schema_valid_attempts": 0,
   "grok_invalid_attempts": 0,
@@ -12,7 +12,8 @@
   "final_diff_fingerprint": null,
   "escalation_paths": [
     "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T053735Z.md",
-    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T062730Z.md"
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T062730Z.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T075606Z.md"
   ],
   "escalation_shape_results": [
     {
@@ -26,15 +27,21 @@
       "status_reference_exists": true,
       "checkpoint_validator_passed": true,
       "note": "absolute wrapper reached the GLM gateway; provider returned temporary API 529 overload and the runner stopped without code changes"
+    },
+    {
+      "path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T075606Z.md",
+      "status_reference_exists": true,
+      "checkpoint_validator_passed": true,
+      "note": "repaired runner kept sequence-3 raw stderr and receipt navigation; GLM gateway again returned API 529 before any delivery code change"
     }
   ],
   "controlled_escalation_drill_exercised": false,
-  "expected_adapter_calls": 2,
-  "schema_valid_receipts": 2,
+  "expected_adapter_calls": 3,
+  "schema_valid_receipts": 3,
   "missing_receipts": 0,
   "receipt_completeness_rate": 1.0,
-  "model_calls_used": 2,
+  "model_calls_used": 3,
   "auto_code_changes_used": 0,
-  "final_stage_outcome": "awaiting_human_after_glm_service_overload",
-  "status": "pilot_in_progress_wrapper_verified_model_service_overloaded"
+  "final_stage_outcome": "awaiting_human_after_repeated_glm_service_overload",
+  "status": "pilot_stopped_repeated_model_service_overload"
 }

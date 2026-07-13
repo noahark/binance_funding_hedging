@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "implementing",
+  "status": "human_escalation_required",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -49,6 +49,14 @@
     "usage_counters_reset": false,
     "repair_commit": "78fbeb6b6f37a78be7081ba556319a8bd9f9dadc"
   },
+  "auto_retry_v3_checkpoint": {
+    "commit": null,
+    "kind": "implementation_adapter_api_529_escalation_evidence",
+    "validated_phase": "checkpoint",
+    "validated_result": "passed_pending_evidence_commit",
+    "delivery_code_changed": false,
+    "receipt_sequence": 3
+  },
   "bookkeeper": {
     "id": "codex_bookkeeper_2026_07_13",
     "provider": "codex",
@@ -90,7 +98,7 @@
       "verified": true
     },
     "budgets": {
-      "model_calls_used": 2,
+      "model_calls_used": 3,
       "auto_code_changes_used": 0
     },
     "mode_history": [
@@ -104,6 +112,39 @@
           "runner_state": "authorized"
         },
         "event": "new_human_authorization"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "authorized"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "running"
+        },
+        "event": "successful_full_preflight"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "running"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "awaiting_human"
+        },
+        "event": "unroutable_fix"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "awaiting_human"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "authorized"
+        },
+        "event": "superseding_human_authorization"
       },
       {
         "from": {
@@ -211,14 +252,14 @@
       }
     ],
     "embedded_cross_checks": [],
-    "last_receipt_path": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
-    "last_escalation_path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T062730Z.md",
-    "last_receipt_sequence": 2
+    "last_receipt_path": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation.receipt.json",
+    "last_escalation_path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T075606Z.md",
+    "last_receipt_sequence": 3
   },
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "v3_authorized_runner_ready",
+    "status": "attempt_3_stopped_glm_service_overload_529",
     "real_launchctl_mutation_authorized": false
   },
   "harness_adapter_repair": {
@@ -297,9 +338,9 @@
   "implementer": {
     "adapter": "claude_glm",
     "provider_identity": "zhipu_glm",
-    "status": "model_service_overloaded_api_529_after_wrapper_success",
-    "receipt": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
-    "raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation-T1-launchd-service-attempt1.raw-output.md",
+    "status": "model_service_overloaded_api_529_repeated_on_attempt_3",
+    "receipt": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation.receipt.json",
+    "raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation-T1-launchd-service-attempt1.raw-output.md",
     "model_endpoint_reached": true,
     "delivery_code_changed": false
   },
@@ -383,11 +424,14 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation-T1-launchd-service-attempt1.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation.receipt.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation-T1-launchd-service-attempt1.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/history/status-before-v3-prerequisite-repair-f580dbb.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/history/70-handoff-before-v3-prerequisite-repair-f580dbb.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/history/runner-2-implementation.receipt.before-raw-path-repair.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/history/implementation-T1-launchd-service-attempt1.before-raw-path-repair.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T062730Z.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T075606Z.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/status.json",
     "agents/registry.yaml",
     "docs/auto-review-pipeline.md",
@@ -399,7 +443,7 @@
     "scripts/validate-stage.py"
   ],
   "tests": {
-    "status": "v3_prerequisite_harness_repairs_passed_awaiting_authorization",
+    "status": "v3_retry_reached_glm_gateway_then_api_529_no_delivery_tests",
     "commands": [
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
@@ -429,7 +473,12 @@
       "mode-history continuity and current-state validator coverage (PASS)",
       "superseding authorization v3 handwritten/schema validation (PASS)",
       "v3 scope/budgets exact match v2 and supersedes pointer check (PASS)",
-      "pre-v3-commit checkpoint validator and diff check (PASS)"
+      "pre-v3-commit checkpoint validator and diff check (PASS)",
+      "auto runner v3 preflight and acceptEdits wrapper invocation (PASS; reached GLM gateway)",
+      "claude_glm attempt 3 inference request (FAIL API 529 overload; no delivery code change)",
+      "sequence-3 receipt/raw/escalation navigation generated without overwriting prior evidence (PASS)",
+      "runner-3 receipt schema validation (PASS)",
+      "post-attempt-3 checkpoint validator and diff check (PASS)"
     ]
   },
   "review_1": {
@@ -472,12 +521,15 @@
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [],
+  "blockers": [
+    "Claude-GLM returned API 529 / error 1305 model overload again on attempt 3 after the repaired wrapper reached the inference gateway.",
+    "The auto contract requires another explicit human decision and a new/superseding authorization before any further retry."
+  ],
   "human_escalation": {
-    "required": false,
-    "reason": null
+    "required": true,
+    "reason": "claude_glm repeated temporary service overload API 529 on authorized attempt 3; no delivery code changed"
   },
-  "terminal_reason": null,
-  "next_action": "run_auto_review_runner_v3_retry_claude_glm",
-  "updated_at": "2026-07-13T07:51:52Z"
+  "terminal_reason": "human_escalation_required",
+  "next_action": "human_decides_delayed_v4_retry_or_explicit_human_dispatch_route",
+  "updated_at": "2026-07-13T07:56:54Z"
 }

@@ -45,6 +45,13 @@ The superseding v3 authorization is now committed at
 `1d47717903bb07e8d3fe6295d7c95ba4a6ab2bb5`. Scope and budgets are unchanged,
 usage remains cumulative, and the runner is ready for attempt 3.
 
-本地北京时间: 2026-07-13 15:51:52 CST
-下一步模型: Claude-GLM / GLM-5.2（auto runner）
-下一步任务: 重试 T1-launchd-service；不执行真实 launchctl mutation
+Auto attempt 3 passed preflight and invoked Claude-GLM through the repaired
+wrapper with `acceptEdits`. After about three minutes the same provider endpoint
+returned API `529` / error `1305` overload. Sequence-3 receipt, combined raw
+stdout/stderr, and escalation navigation are preserved at distinct paths. No
+delivery code or real LaunchAgent state changed; usage is now
+`model_calls_used=3`, `auto_code_changes_used=0`.
+
+本地北京时间: 2026-07-13 15:56:54 CST
+下一步模型: human
+下一步任务: 决定延迟签发 v4 重试，或显式切换 human_dispatch 路径

@@ -2,25 +2,25 @@
 
 ## Recovery Header
 
-- Active phase: superseding authorization v3 committed and validated; runner retry ready
-- Next action: resume the auto runner for Claude-GLM attempt 3
+- Active phase: auto attempt 3 stopped fail-closed after repeated GLM API 529 overload
+- Next action: human decides whether to wait and issue v4 authorization or explicitly route to `human_dispatch`
 - Read-set: = status.current_inputs
-- Open blockers: none before runner invocation
+- Open blockers: repeated Claude-GLM service overload; a new human decision is required before further dispatch
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `implementing`
+- Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `1d47717903bb07e8d3fe6295d7c95ba4a6ab2bb5`
-- Git status: synchronized runner-ready checkpoint pending commit
+- HEAD: `bda0a4c974d165137c55a4c6310a5348ed9c13ef`
+- Git status: attempt-3 raw/receipt/escalation and synchronized failure checkpoint pending evidence commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
-- Auto-review pipeline: enabled; attempt 2 stopped fail-closed
+- Auto-review pipeline: enabled; attempt 3 stopped fail-closed
 - Dispatch mode: `auto_review`
 - Runner state: `awaiting_human`
-- Usage: `model_calls_used=2`, `auto_code_changes_used=0`
+- Usage: `model_calls_used=3`, `auto_code_changes_used=0`
 
 ## Artifact Index
 
@@ -30,8 +30,9 @@
 - V3 prerequisite repair: `15-v3-prerequisite-repair.md`
 - Implementation: `20-implementation.md`; delivery implementation still pending
 - Current authorization: `auto-run-authorization-v3.json`; committed and schema-valid
-- Runner receipt: `runner-2-implementation.receipt.json`
-- Attempt-2 raw output: `runner-2-implementation-T1-launchd-service-attempt1.raw-output.md`
+- Latest runner receipt: `runner-3-implementation.receipt.json`
+- Latest raw output: `runner-3-implementation-T1-launchd-service-attempt1.raw-output.md`
+- Latest escalation: `80-escalation-unroutable_fix-20260713T075606Z.md`
 - Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
 - Review 1: pending Grok 4.5 auto gate
 - Review 2: human-started and pending
@@ -46,16 +47,18 @@
 - Terminal escalation navigation now carries the last receipt/raw/verdict paths.
 - Stage validation now fails on discontinuous mode history or a final transition that does not match current state. The duplicate v2 row was removed only after exact pre-repair snapshots entered `history/`.
 - Targeted and full focused suites passed: 44 and 111 tests. No model was invoked during repair.
+- Attempt 3 verified those repairs in the real runner path: stderr is retained, the raw path is sequence-unique, and escalation navigation is populated. The provider again returned API `529` / error `1305` before any delivery code change.
 - Real `launchctl` mutation remains explicitly unauthorized.
 
 ## Blockers
 
-- None before invocation. Any adapter/provider failure must stop through the runner's fail-closed evidence path.
+- Claude-GLM service availability: attempt 3 repeated API `529` / error `1305` overload after reaching the gateway.
+- Auto mode requires a new/superseding human authorization before any retry; v3 cannot be reused.
 
 ## Next Action
 
-Run `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`. The runner alone records the `superseding_human_authorization` transition and retries Claude-GLM.
+Human chooses a delayed v4 retry or an explicit switch to `human_dispatch`. Do not invoke another model automatically from the failed v3 path.
 
-本地北京时间: 2026-07-13 15:51:52 CST
-下一步模型: Claude-GLM / GLM-5.2（auto runner）
-下一步任务: 重试 T1-launchd-service；不执行真实 launchctl mutation
+本地北京时间: 2026-07-13 15:56:54 CST
+下一步模型: human
+下一步任务: 决定延迟签发 v4 重试，或显式切换 human_dispatch 路径
