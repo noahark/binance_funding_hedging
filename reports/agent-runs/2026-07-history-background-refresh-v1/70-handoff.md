@@ -58,7 +58,8 @@ not read `history/` at startup.
   `6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96`
 - Review 2 disclosure: `31-review-2-routing-disclosure.md`
 - Review 2 dispatch: `50-review-2.prompt.md`, Claude Fable5 read-only; Anthropic
-  prior breakdown/design-review involvement is explicitly disclosed
+  prior breakdown/design-review involvement is explicitly disclosed; review-2
+  committed-state pre-review gate passed at 2026-07-13 10:02:25 CST
 - Fix report: pending `40-fix-report.md`
 - Review 2: pending `50-review-2.md`
 - Test output: `60-test-output.txt` — final independent rerun: 289 backend
