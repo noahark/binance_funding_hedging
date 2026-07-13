@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-history-background-refresh-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-history-background-refresh-v1",
@@ -90,14 +90,14 @@
       "owner": "claude_glm",
       "reviewer": "kimi",
       "r10_checklist": null,
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "test_evidence": null,
+      "base_sha": "0db66d2a82c10139523a06af74679e756bd13e5a",
+      "head_sha": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb",
+      "diff_fingerprint": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96",
+      "test_evidence": "reports/agent-runs/2026-07-history-background-refresh-v1/60-test-output.txt",
       "review_1": {
-        "reviewer": null,
-        "provider": null,
-        "model": null,
+        "reviewer": "kimi",
+        "provider": "moonshot_kimi",
+        "model": "kimi-code/kimi-for-coding",
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -179,12 +179,12 @@
     }
   },
   "base_sha": "0db66d2a82c10139523a06af74679e756bd13e5a",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb",
+  "diff_fingerprint": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96",
   "checkpoint": {
-    "committed_head": "efffe78c5465ccb3e03ba979bd07385602ac4f7e",
-    "worktree_state": "uncommitted_design_checkpoint",
-    "formal_review_range_bound": false
+    "committed_head": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb",
+    "worktree_state": "committed_review_snapshot_with_status_only_bookkeeping_update",
+    "formal_review_range_bound": true
   },
   "changed_files": [
     "backend/adapters/binance_public.py",
@@ -320,15 +320,17 @@
     "gate_effect": "informational_only_non_blocking"
   },
   "review_1": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
+    "reviewer": "kimi",
+    "provider": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "model": "kimi-code/kimi-for-coding",
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
     "diff_fingerprint": null,
     "reviewer_prior_involvement": null,
-    "reviewer_prior_involvement_pending": true,
+    "reviewer_prior_involvement_pending": false,
+    "reviewer_prior_involvement": "none",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
@@ -337,8 +339,8 @@
     "reviewer": null,
     "provider": null,
     "model": null,
-    "primary_provider": "codex",
-    "fallback_provider": "claude",
+    "primary_provider": null,
+    "fallback_provider": null,
     "fallback_reason": null,
     "reviewer_prior_involvement": null,
     "reviewer_prior_involvement_pending": true,
@@ -365,6 +367,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "Bookkeeper creates the local implementation/evidence commit, binds the committed diff fingerprint, runs pre-review validation, and prepares a human-executed Kimi review-1 dispatch packet.",
-  "updated_at": "2026-07-13T09:47:23+08:00"
+  "next_action": "Human operator pastes 30-review-1.prompt.md into a fresh Kimi read-only session. Bookkeeper does not execute the dispatch and will validate/store the resulting raw output and strict JSON verdict.",
+  "updated_at": "2026-07-13T09:49:35+08:00"
 }

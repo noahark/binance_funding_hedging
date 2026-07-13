@@ -7,17 +7,13 @@ not read `history/` at startup.
 ## Current State
 
 - Stage: `2026-07-history-background-refresh-v1`
-- Status: `implementing` — GLM implementation and all seven narrow pre-review
-  repairs independently validated; local evidence commit pending
+- Status: `review_1` — implementation/evidence committed and committed range
+  bound; Kimi review-1 dispatch pending human execution
 - Branch: `stage/2026-07-history-background-refresh-v1`
 - Stage created from main: `0db66d2a82c10139523a06af74679e756bd13e5a`
-- Committed HEAD: `efffe78c5465ccb3e03ba979bd07385602ac4f7e`
-- Git status: uncommitted design/bookkeeping checkpoint; modified
-  `00-intake.md`, `10-design.md`, `11-adr.md`; new `00-task.md`, `70-handoff.md`,
-  `12-development-breakdown.md`, its original and amendment prompts,
-  `20-implementation.md`, `21-pre-review-repair.prompt.md`,
-  `60-test-output.txt`, `status.json`, plus the bounded production/test/schema
-  diff and API sample directory
+- Committed HEAD / review snapshot: `6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb`
+- Git status: committed implementation/evidence snapshot; only current
+  status/handoff/review-dispatch bookkeeping is expected to be uncommitted
 - Bookkeeper: current Codex/GPT-5 workspace session, explicitly assigned by the
   user; same session participated in design, but `also_implementer=false`
 - Bookkeeper disclosure: this session must not implement, fix, execute model
@@ -55,6 +51,10 @@ not read `history/` at startup.
 - Escalation artifacts: none
 - Pilot metrics: not applicable
 - Review 1: pending `30-review-1.md`
+- Review-1 dispatch: `30-review-1.prompt.md`, Kimi read-only, bound to
+  `0db66d2a82c10139523a06af74679e756bd13e5a..6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb`
+  and fingerprint
+  `6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96`
 - Fix report: pending `40-fix-report.md`
 - Review 2: pending `50-review-2.md`
 - Test output: `60-test-output.txt` — final independent rerun: 289 backend
@@ -97,11 +97,11 @@ not read `history/` at startup.
 
 ## Next Action
 
-Bookkeeper creates the local evidence commit over the completed implementation,
-raw samples, reports, and tests; binds the standard committed diff fingerprint;
-runs pre-review validation; then prepares Kimi review-1. The human operator,
-not the bookkeeper, executes the Kimi dispatch.
+Human operator pastes `30-review-1.prompt.md` into a fresh Kimi read-only
+session. Kimi inspects the raw files and the exact committed diff, then returns
+a strict schema-valid verdict JSON. The bookkeeper records/validates that raw
+output; it does not execute the Kimi dispatch.
 
-本地北京时间: 2026-07-13 09:47:23 CST
-下一步模型: Codex bookkeeper
-下一步任务: 创建本地 evidence commit、绑定 committed diff fingerprint 并准备 Kimi review-1
+本地北京时间: 2026-07-13 09:49:35 CST
+下一步模型: Kimi
+下一步任务: 对绑定 committed diff 执行只读 review-1 并输出严格 JSON verdict
