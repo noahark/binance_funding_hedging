@@ -134,6 +134,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-attempt1.operator-forwarded-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-json-retry.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.verdict.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -408,7 +410,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "review_2_opus_attempt_1_invalid_json_same_model_retry_required",
+    "status": "formal_review_2_blocked_transcript_recovered",
     "real_launchctl_mutation_authorized": true,
     "real_launchctl_mutation_authorized_by": "human",
     "real_launchctl_mutation_authorized_at": "2026-07-13T13:41:00Z"
@@ -632,11 +634,13 @@
     "provider_identity": "anthropic",
     "model": "claude-opus-4-8",
     "mode": "fresh_human_started_read_only_schema_bound",
-    "status": "formal_review_2_attempt_1_received_invalid_json_retry_required",
+    "status": "formal_review_2_blocked_schema_valid_from_transcript",
+    "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
     "reviewer_prior_involvement": "breakdown",
     "design_conflict_override": true,
     "routing_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md",
-    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-attempt1.operator-forwarded-output.md"
+    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.raw-output.md",
+    "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.verdict.json"
   },
   "r10_checklists": {},
   "tasks": [
@@ -741,6 +745,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-attempt1.operator-forwarded-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-json-retry.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.verdict.json",
     "backend/app/server.py",
     "backend/tests/test_service_health.py",
     "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
@@ -908,22 +914,56 @@
       "reason": "human selected Anthropic Opus 4.8; Anthropic has breakdown involvement but no implementation/fix authorship; no unrelated registered decision provider exists",
       "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md"
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": false,
+    "open_p0_p1": true,
+    "verdict": "BLOCKED",
+    "json_schema_valid": true,
     "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
-    "fix_start_prompt_present": null,
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
-    "invalid_json_attempts": 1,
+    "invalid_json_attempts": 0,
     "skill": "reality_checker",
     "skill_explicit": true,
     "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
     "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
-    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-attempt1.operator-forwarded-output.md",
-    "verdict_path": null,
-    "dispatch_suspended_reason": "formal JSON was truncated by the operator forwarding surface; same-model JSON-only retry required",
+    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.raw-output.md",
+    "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.verdict.json",
+    "dispatch_suspended_reason": "schema-valid BLOCKED verdict requires human runtime-location decision and bounded readiness repair before a fresh full review-2",
     "json_retry_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-json-retry.prompt.md",
-    "non_accepting_advisory_outcome": "BLOCKED"
+    "json_retry_required": false,
+    "json_retry_prompt_status": "superseded_after_exact_transcript_recovery",
+    "operator_forwarding_corruption_count": 1,
+    "transcript_recovery": {
+      "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
+      "source_path": "/Users/ark/.claude/projects/-Users-ark-Desktop-ai-code-funding-hedging/cced0347-7f53-4626-958b-ecffba5d10b6.jsonl",
+      "final_assistant_timestamp": "2026-07-13T14:02:53.062Z",
+      "result": "exactly_one_fenced_json_object_extracted_and_schema_validated",
+      "transport_diagnosis": "zellij_operator_forwarding_corrupted_copy_sensitive_line_boundaries; original_model_output_was_valid"
+    },
+    "coverage_audit": {
+      "status": "incomplete_against_prompt_minimum_read_set",
+      "disposition": "BLOCKED_is_retained_as_non_accepting_formal_evidence; after_required_fixes_a_new_full_review_2_is_mandatory_and_this_verdict_cannot_be_reused_for_acceptance",
+      "tool_summary": "11 Read calls and 3 read-only Bash calls; no writes or launchctl mutation",
+      "missing_required_sources": [
+        "AGENTS.md",
+        "workflows/templates/stage-delivery.yaml",
+        "docs/product/PRD.md",
+        "docs/architecture/ARCHITECTURE.md",
+        "reports/agent-runs/2026-07-local-service-launchd-v1/00-intake.md",
+        "reports/agent-runs/2026-07-local-service-launchd-v1/11-adr.md",
+        "reports/agent-runs/2026-07-local-service-launchd-v1/12-development-breakdown.md",
+        "reports/agent-runs/2026-07-local-service-launchd-v1/13-software-architect-amendment.md",
+        "reports/agent-runs/2026-07-local-service-launchd-v1/30-review-1.md",
+        "reports/agent-runs/2026-07-local-service-launchd-v1/40-fix-report.md",
+        "reports/agent-runs/2026-07-local-service-launchd-v1/60-test-output.txt",
+        "backend/tests/test_service_health.py",
+        "scripts/tests/test_service_control.py",
+        "scripts/run-server.sh"
+      ]
+    },
+    "required_fixes": [
+      "human selects a non-TCC-protected runtime location or explicitly accepts a broad macOS privacy grant",
+      "scripts/service-control.py install and restart perform bounded post-bootstrap readiness checks and fail nonzero with redacted diagnostics when readiness is not reached"
+    ]
   },
   "rework_count": 0,
   "max_rework": 3,
@@ -946,13 +986,14 @@
     "source_or_env_modified": false
   },
   "blockers": [
-    "real LaunchAgent cannot access the repository under ~/Desktop because macOS TCC denies the background process; human must choose a non-protected runtime location or explicitly accept a broad privacy grant"
+    "real LaunchAgent cannot access the repository under ~/Desktop because macOS TCC denies the background process; human must choose a non-protected runtime location or explicitly accept a broad privacy grant",
+    "install and restart do not yet prove bounded post-bootstrap readiness and can report success for a job that immediately exits"
   ],
   "human_escalation": {
     "required": true,
-    "reason": "real_launchd_desktop_tcc_requires_runtime_location_or_privacy_authority_decision"
+    "reason": "formal_review_2_blocked_on_real_launchd_desktop_tcc_runtime_location_decision_and_bounded_readiness_repair"
   },
   "terminal_reason": "human_escalation_required",
-  "next_action": "human_asks_same_opus4.8_review_session_to_reemit_json_only_and_returns_complete_bytes",
-  "updated_at": "2026-07-13T14:05:04Z"
+  "next_action": "human_selects_non_protected_runtime_location_then_dispatches_bounded_readiness_fix_real_retest_and_fresh_full_review_2",
+  "updated_at": "2026-07-13T14:16:33Z"
 }

@@ -25,12 +25,21 @@ The operator-forwarded narrative concludes `BLOCKED` on the already-recorded
 real Desktop TCC failure and adds a P2 finding that install/restart report
 success after bootstrap without bounded post-start health/readiness proof.
 
-The transferred JSON is not accepting evidence: terminal/chat hard wrapping
-truncated copy-sensitive strings including `stage_id`, `model`, paths,
-`diff_fingerprint`, and `next_action`. The Harness therefore records review-2
-attempt 1 as invalid JSON and routes one same-model mechanical JSON retry. Opus
-must remain read-only and must not write the verdict file itself.
+The operator-forwarded copy appeared truncated because terminal/chat hard
+wrapping corrupted copy-sensitive line boundaries. The exact final assistant
+record was recovered from Claude session
+`cced0347-7f53-4626-958b-ecffba5d10b6`; it contains one complete JSON object
+that parses, validates against `schemas/review-verdict.schema.json`, and binds
+the recorded stage fingerprint. The transfer problem was not invalid model
+output. The previously prepared JSON-only retry is therefore superseded.
 
-本地北京时间: 2026-07-13 22:05:04 CST
-下一步模型: Claude/Anthropic Opus 4.8（same review session）
-下一步任务: 不重做审查，只重新输出一个完整、无 Markdown 包裹、schema-valid 的 JSON verdict
+Transcript metadata shows 11 Read calls and three read-only Bash calls with no
+writes or real `launchctl` mutation. The reviewer did not read the prompt's full
+minimum artifact set, including several authority, design, test, and source
+files. The `BLOCKED` verdict is retained as formal non-accepting evidence, but
+after repair a fresh review-2 must inspect the complete required set and may not
+reuse this attempt to accept the stage.
+
+本地北京时间: 2026-07-13 22:16:33 CST
+下一步模型: Human operator, then Claude-GLM fix author
+下一步任务: 选择非 TCC 保护的运行位置并完成有界 readiness 修复；之后重新发起完整 review-2

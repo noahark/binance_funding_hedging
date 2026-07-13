@@ -2,7 +2,8 @@
 
 Attempt 1 executed in a fresh human-selected Claude/Anthropic Opus 4.8 session
 with explicit `reality_checker`. The operator selected Opus before any Codex
-review-2 verdict existed.
+review-2 verdict existed. The exact Claude session is
+`cced0347-7f53-4626-958b-ecffba5d10b6`.
 
 The registered decision models both have prior design involvement:
 
@@ -15,12 +16,26 @@ Codex-specific identity constants in the original prompt to
 `model=claude-opus-4-8` and `reviewer_prior_involvement=breakdown`. The
 superseding routing disclosure is `review-2-routing-human-opus48-override.md`.
 
-Opus reviewed the exact committed range
-`3bb253a489bf2854d8b9d81060a45ca056e1cea2..85ab5011e4b99fe464d9e1996ad455fdbc389206`
-and fingerprint
-`85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`.
+The operator-forwarded copy appeared truncated because zellij/chat transport
+converted copy-sensitive line boundaries. Inspection of the exact final
+assistant record in the named Claude transcript recovered one complete fenced
+JSON object. The recovered object:
 
-The substantive narrative concludes `BLOCKED` and identifies:
+- parses as JSON;
+- validates against `schemas/review-verdict.schema.json`;
+- binds the recorded stage, committed range, and `diff_fingerprint`;
+- truthfully records `model=claude-opus-4-8` and prior involvement
+  `breakdown`;
+- concludes `BLOCKED` with `next_action=human_escalation_required`.
+
+Canonical evidence:
+
+- raw final response:
+  `manual-review-2-T1-launchd-service.opus.raw-output.md`;
+- strict verdict:
+  `manual-review-2-T1-launchd-service.opus.verdict.json`.
+
+The formal findings are:
 
 - P1: real launchd operation fails at the approved Desktop checkout because
   macOS TCC denies background access; a human runtime-location/privacy decision
@@ -29,15 +44,17 @@ The substantive narrative concludes `BLOCKED` and identifies:
   immediately exits; bounded post-bootstrap health/readiness proof is missing.
 - P3: diagnostic redaction remains best-effort.
 
-The operator-forwarded JSON is not valid gate evidence. Terminal/chat hard
-wrapping truncated `stage_id`, `model`, the fingerprint, reviewed-artifact
-paths, and `next_action`. Attempt 1 is therefore recorded as invalid JSON with
-no formal verdict, despite the retained non-accepting `BLOCKED` narrative.
+The transcript tool audit also found incomplete review coverage against the
+prompt's minimum read set. The reviewer used 11 Read calls and three read-only
+Bash calls, but did not inspect several required authority, design, test, and
+source artifacts. Because the verdict is blocking, it remains safe and useful
+as formal non-accepting evidence. It cannot be reused for acceptance: after the
+human location decision and code repair, a new full review-2 must inspect the
+complete required artifact set and the new committed fingerprint.
 
-Per policy, the next action is one mechanical retry in the same Opus session.
-It must not re-review or write files; it only re-emits one complete JSON object
-using `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md`.
+The JSON-only retry prompt is superseded; no model retry is needed for this
+attempt.
 
-本地北京时间: 2026-07-13 22:05:04 CST
-下一步模型: Claude/Anthropic Opus 4.8（same review session）
-下一步任务: 不重做审查，只返回完整 schema-valid JSON verdict
+本地北京时间: 2026-07-13 22:16:33 CST
+下一步模型: Human operator, then Claude-GLM fix author
+下一步任务: 选择非 TCC 保护的运行位置，然后修复有界 readiness 校验并重新做真实验收

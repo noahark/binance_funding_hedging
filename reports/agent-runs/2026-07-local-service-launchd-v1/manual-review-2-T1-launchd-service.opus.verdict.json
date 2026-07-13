@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-local-service-launchd-v1",
+  "role": "final_reviewer",
+  "model": "claude-opus-4-8",
+  "verdict": "BLOCKED",
+  "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
+  "reviewer_prior_involvement": "breakdown",
+  "reviewer_prior_involvement_notes": "Executor-identity disclosure: the operator explicitly assigned this review-2 to Claude/Anthropic Opus 4.8 (claude-opus-4-8), NOT the registered primary Codex/gpt-5.6-sol the prompt's fixed values were written for. Per review-2-routing-design-conflict-evidence.md and status.json.breakdown_author, Claude/Anthropic authored 12-development-breakdown.md through Opus 4.8, so this reviewer's highest prior involvement is 'breakdown', not 'design'. This reviewer authored no direction synthesis, no design/architecture artifact, and no implementation or fix code (all delivery/repair authorship is zhipu_glm), so the implementation/fix provider-isolation gate holds. The prompt's required fixed values model=gpt-5.6-sol and reviewer_prior_involvement=design apply to the registered Codex reviewer and were intentionally NOT adopted here to avoid fabricating reviewer identity; every other immutable bind (diff_fingerprint, review range, schema, read-only boundary) is honored. This was a fresh session dedicated to review-2 and used only non-mutating inspection (git show/diff and file reads); no launchctl mutation, .env read, server start, or private-channel probe occurred.",
+  "reviewed_artifacts": [
+    "agents/skills/reality-checker.md",
+    "schemas/review-verdict.schema.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/00-task.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/10-design.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/status.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-real-launchd-desktop-tcc-20260713T134341Z.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.verdict.json",
+    "backend/app/server.py",
+    "scripts/service-control.py",
+    "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
+    "git diff 3bb253a..85ab501 for the five delivery files"
+  ],
+  "findings": [
+    {
+      "severity": "P1",
+      "title": "核心目标在被批准的运行位置下真实失败（TCC/WorkingDirectory 耦合）",
+      "file": "scripts/service-control.py",
+      "line": 200,
+      "evidence": "人工授权的真实 `install --confirm`（80-escalation-real-launchd-desktop-tcc-20260713T134341Z.md）显示：plist 正确写入、launchctl 加载 job，但进程 runs=5、last exit code=126，脱敏 stderr 为 'getcwd: ... Operation not permitted' 与 'run-server.sh: Operation not permitted'。仓库在 TCC 保护的 ~/Desktop 下，后台 LaunchAgent 不继承 Desktop 隐私授权。build_plist_dict 的 WorkingDirectory=str(repo_root) 是设计 §4/AC1 冻结契约，正是该位置导致失败。",
+      "impact": "stage objective『终端无关、进程退出自动重启的常驻服务』在批准/已提交的运行位置下无法达成——服务从不监听 127.0.0.1:8787。孤立测试未覆盖此真实环境约束。解决需人工在运行位置/隐私授权之间做决策（迁移仓库到非受保护目录、增加运行时副本部署流、或授予广域隐私），不属于五个交付文件的可修复代码范围。",
+      "recommendation": "不得推进到 stage_accepted_waiting_user。由人工按升级文档选择非 TCC 保护的运行目录（推荐 ~/Developer/...）并从该位置重新 render/install 后再次真实验收；或显式接受隐私扩张。届时可将 WorkingDirectory 运行位置作为部署前置约束在文档/校验中固化。"
+    },
+    {
+      "severity": "P2",
+      "title": "install 在 bootstrap 被接受后即报告成功，未验证服务实际起来",
+      "file": "scripts/service-control.py",
+      "line": 300,
+      "evidence": "install() 仅在 `launchctl bootstrap` rc==0 时打印 'installed plist -> ...' 并 return 0，随后无任何 /healthz、/readyz 或 launchctl print 状态复核。真实场景中 bootstrap 成功（job 加载）但进程立即 exit 126，install 仍返回 0。",
+      "impact": "违背设计 §4『never claim success based only on a generated file』意图：一个加载后立即崩溃/无法 exec 的 job 会被报告为『安装成功』，操作者须另跑 status/doctor 才发现失败，削弱了终端无关服务的可观测保证。",
+      "recommendation": "install（及可选 restart）在 bootstrap 成功后加一段有界的安装后就绪轮询（复用 _probe('/healthz')/_probe('/readyz') 或 _probe_load 的 running 状态，带超时与重试上限），未在时限内就绪则以非零退出并输出脱敏诊断提示。此项可在五文件 scope 内修复，但无法单独解除 P1 阻断。"
+    },
+    {
+      "severity": "P3",
+      "title": "诊断脱敏为 best-effort 正则（沿用 review-1 残余风险）",
+      "file": "scripts/service-control.py",
+      "line": 73,
+      "evidence": "_SECRET_KV_RE/_BEARER_RE/_APIKEY_HEADER_RE/_COOKIE_RE/_URL_USERINFO_RE 覆盖常见秘密模式；_redact 文档已声明 best-effort。base URL 校验阻断凭证从主 URL 进入，且从不读取 .env。",
+      "impact": "理论上仍可能漏掉自定义头名或非常规凭证格式，但主 URL 来源与 .env 已受控，风险有限。",
+      "recommendation": "后续若扩展私有渠道或引入新凭证来源再扩充脱敏词典；本阶段保持现状可接受。"
+    }
+  ],
+  "required_fixes": [
+    "人工先做运行位置/隐私决策以解除 TCC 阻断：将运行时 checkout/部署置于非 TCC 保护目录（推荐 ~/Developer/funding_hedging）并从该位置重新 render 与真实 install 验收；或显式接受 macOS 广域隐私授权（不推荐）。此为解除 P1 的前置人工决策，超出五文件代码 scope。",
+    "在 scripts/service-control.py 的 install（及 restart）中，bootstrap 成功后增加有界安装后就绪校验，未就绪则非零退出并给出脱敏提示（P2，五文件 scope 内可修）。"
+  ],
+  "residual_risks": [
+    "诊断脱敏为 best-effort 正则，不保证覆盖全部秘密模式；已由 base URL 校验、不读取 .env、不复制环境降低。",
+    "GLM 实现者过程偏差：attempt-1 一次 policy 外 py_compile、attempt-2 一次 Bash grep，均只读且 pre-review 已留档，未触碰 git/secrets/launchctl/越界路径。",
+    "真实 launchctl 生命周期仍是人工验收门；本次真实验收已在 ~/Desktop 位置失败（exit 126/TCC），非孤立测试可复现。"
+  ],
+  "next_action": "human_escalation_required"
+}

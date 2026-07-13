@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: human-selected Opus 4.8 review-2 attempt 1 returned substantive BLOCKED, but forwarded JSON was truncated and is invalid
-- Next action: human pastes `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` into the same Opus session and returns only the complete JSON object
+- Active phase: formal Opus 4.8 review-2 is schema-valid `BLOCKED`; exact output recovered from Claude session `cced0347-7f53-4626-958b-ecffba5d10b6`
+- Next action: human selects a non-TCC-protected runtime location, then dispatches the bounded readiness repair, real launchd retest, and a fresh full review-2
 - Read-set: = status.current_inputs
-- Open blockers: real Desktop TCC failure remains; formal review-2 JSON is invalid and requires the single same-model retry
+- Open blockers: real Desktop TCC failure requires a human runtime-location/privacy decision; install/restart also lack bounded post-bootstrap readiness proof
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -15,7 +15,7 @@
 - Branch: `stage/2026-07-local-service-launchd-v1`
 - Review snapshot HEAD: `85ab5011e4b99fe464d9e1996ad455fdbc389206`
 - Fingerprint: `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`
-- Git status: real acceptance failure committed at `9529be9`; Opus attempt-1 routing/raw/retry evidence pending one local bookkeeper commit
+- Git status: real acceptance failure is committed at `9529be9`; exact Opus raw/verdict recovery and coverage audit are included in the current local bookkeeper checkpoint, with clean-tree verification required after commit finalization
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -50,7 +50,8 @@
 - Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
 - Pre-review repair prompt: `manual-fix-T1-launchd-service-pre-review.prompt.md`
 - Review 1: `ACCEPT`; schema-valid Kimi verdict bound to the frozen fingerprint; one accepted P3, no required fixes
-- Review 2: Opus 4.8 attempt 1 narrative says `BLOCKED`; actual identity `anthropic`/`claude-opus-4-8`, prior involvement `breakdown`; formal JSON invalid due forwarding truncation, attempt count 1
+- Review 2: schema-valid `BLOCKED`; actual identity `anthropic`/`claude-opus-4-8`, prior involvement `breakdown`; canonical raw/verdict recovered from Claude session `cced0347-7f53-4626-958b-ecffba5d10b6`; zellij forwarding corrupted only the copied representation
+- Review-2 coverage audit: incomplete against the prompt minimum read set; the blocking verdict is retained, but a fresh complete review is mandatory after fixes and this verdict cannot authorize acceptance
 - Real launchd acceptance: FAIL; plist loaded, five exit-126 attempts, macOS Desktop TCC denied working-directory/script access; failed job stopped, plist retained
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
@@ -80,19 +81,30 @@
 
 ## Blockers
 
-- No open delivery-code or test blocker. Targeted suite passes 82 tests, full backend passes 301 tests, and all other frozen checks plus final negative probes pass.
-- Two self-reported read-only command-policy deviations (`py_compile`, then Bash/grep) remain disclosed. Session `5ee354f2-d410-4de2-aee7-fdd85e8f0d1b` is associated with attempt 2 and has real `glm-5.2` plus final `end_turn` evidence.
-- The implementation range and fingerprint are fixed, bind commit `d2a2f91194a8a8f06000f3520726413c1489c524` is committed, and clean-tree `pre-review` validation passes.
-- No formal Kimi output or schema-valid verdict exists yet; human dispatch is the next gate.
+- Real launchd acceptance failed with exit 126 because a background
+  LaunchAgent cannot access the repository under macOS's TCC-protected
+  `~/Desktop`. The human must choose a non-protected runtime checkout/deployment
+  location or explicitly accept a broad privacy grant.
+- Formal review-2 P2 requires `install` and `restart` to perform a bounded
+  post-bootstrap health/readiness check and return nonzero with redacted
+  diagnostics when the service does not become ready.
+- Existing deterministic tests still pass (82 targeted and 301 backend), but
+  they do not supersede the failed real launchd evidence.
+- The recovered review-2 did not inspect the complete mandatory artifact set.
+  After the runtime decision and repair, review-2 must run again from the new
+  committed fingerprint with full coverage.
 
 ## Next Action
 
-The human uses a fresh Kimi terminal/session and pastes the full contents of
-`manual-review-1-T1-launchd-service.prompt.md`. Kimi performs read-only review
-with explicit `code_reviewer` and returns the complete raw response ending in
-strict JSON. Codex validates and records the result; no bookkeeper model
-dispatch occurs.
+The human chooses a non-TCC-protected runtime location (recommended:
+`~/Developer/funding_hedging`) or explicitly chooses a macOS privacy grant.
+After that decision, the bookkeeper prepares a bounded repair dispatch for the
+same eligible fix provider, reruns deterministic and real launchd acceptance,
+creates a new committed fingerprint, and prepares a fresh complete review-2.
 
-本地北京时间: 2026-07-13 21:15:41 CST
-下一步模型: Kimi / kimi-code/kimi-for-coding（fresh human dispatch）
-下一步任务: 执行 manual-review-1-T1-launchd-service.prompt.md 并返回完整原始输出
+The old `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` is
+superseded and must not be dispatched.
+
+本地北京时间: 2026-07-13 22:16:33 CST
+下一步模型: Human operator, then Claude-GLM fix author
+下一步任务: 选择运行位置并修复 install/restart 的有界 readiness 校验，随后重新真实验收与 review-2

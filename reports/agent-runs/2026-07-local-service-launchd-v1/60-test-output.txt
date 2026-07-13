@@ -1,3 +1,38 @@
+2026-07-13 22:16:33 CST — Opus 4.8 review-2 transcript recovery and audit:
+
+```text
+Claude session
+cced0347-7f53-4626-958b-ecffba5d10b6
+
+final assistant record
+timestamp=2026-07-13T14:02:53.062Z
+model=claude-opus-4-8
+stop_reason=end_turn
+
+strict JSON extraction
+PASS; exactly one fenced JSON object
+
+schemas/review-verdict.schema.json
+PASS
+
+stage/fingerprint/identity bind
+PASS; verdict=BLOCKED; next_action=human_escalation_required;
+model=claude-opus-4-8; reviewer_prior_involvement=breakdown
+
+transcript tool audit
+Read=11; Bash=3; Bash commands were read-only git inspection;
+no Write/Edit, no launchctl mutation, no .env read
+
+minimum review read-set audit
+INCOMPLETE; required authority, design, test, and source artifacts were omitted
+
+disposition
+Formal BLOCKED evidence retained. The zellij/operator-forwarded copy was the
+corrupted layer; the original model JSON was valid. JSON retry superseded.
+After fixes, a fresh full review-2 is mandatory and this verdict cannot be
+reused for acceptance.
+```
+
 2026-07-13 22:05:04 CST — human-selected Opus 4.8 review-2 attempt 1 intake:
 
 ```text
