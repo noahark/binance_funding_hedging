@@ -2,7 +2,7 @@
   "schema_version": 1,
   "pilot_kind": "small_real",
   "stage_id": "2026-07-local-service-launchd-v1",
-  "terminal_status": null,
+  "terminal_status": "human_escalation_required",
   "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.json",
   "grok_verdict_attempts": 0,
   "grok_schema_valid_attempts": 0,
@@ -10,15 +10,24 @@
   "grok_schema_valid_rate": null,
   "final_schema_valid_grok_verdict_path": null,
   "final_diff_fingerprint": null,
-  "escalation_paths": [],
-  "escalation_shape_results": [],
+  "escalation_paths": [
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T053735Z.md"
+  ],
+  "escalation_shape_results": [
+    {
+      "path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T053735Z.md",
+      "status_reference_exists": true,
+      "checkpoint_validator_passed": true,
+      "note": "artifact records fail-closed reason and budgets; its internal raw_output_path/receipt_path fields are None while status.json carries the actual references"
+    }
+  ],
   "controlled_escalation_drill_exercised": false,
-  "expected_adapter_calls": null,
-  "schema_valid_receipts": 0,
-  "missing_receipts": null,
-  "receipt_completeness_rate": null,
-  "model_calls_used": 0,
+  "expected_adapter_calls": 1,
+  "schema_valid_receipts": 1,
+  "missing_receipts": 0,
+  "receipt_completeness_rate": 1.0,
+  "model_calls_used": 1,
   "auto_code_changes_used": 0,
-  "final_stage_outcome": null,
-  "status": "authorized_ready_for_auto_implementation"
+  "final_stage_outcome": "awaiting_human_adapter_decision",
+  "status": "pilot_in_progress_escalated_before_model_execution"
 }

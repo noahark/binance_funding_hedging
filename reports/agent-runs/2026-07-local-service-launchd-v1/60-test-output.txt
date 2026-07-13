@@ -43,3 +43,43 @@ blocking checks match the stage. Grok advisory notes were evaluated; binding
 design decisions are recorded with explicit `software_architect` skill in
 `13-software-architect-amendment.md`. No delivery code or real launchctl state
 was changed.
+
+2026-07-13 13:38:37 CST — authorized auto-run attempt 1:
+
+```text
+python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1
+RUNNER RAN
+terminal=human_escalation_required
+reason=implementation adapter failed: command_error
+
+runner-1-implementation.receipt.json
+exit_status=127
+failure_class=command_error
+model_calls_used=1
+auto_code_changes_used=0
+
+implementation-T1-launchd-service-attempt1.raw-output.md
+empty stdout; no delivery code change
+
+runner receipt schema validation
+PASS
+
+scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+PASS
+
+git diff --check
+PASS
+```
+
+Sanitized adapter diagnosis:
+
+```text
+command -v claude-glm
+not found in the non-interactive shell
+
+zsh -lic 'whence -w claude-glm'
+claude-glm: alias
+```
+
+The alias expansion and environment were deliberately not recorded. No frozen
+delivery-code blocking check ran because implementation never started.

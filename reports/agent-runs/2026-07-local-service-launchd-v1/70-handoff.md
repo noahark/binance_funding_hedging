@@ -2,24 +2,24 @@
 
 ## Recovery Header
 
-- Active phase: design/breakdown checkpoint committed; auto implementation authorized and ready
-- Next action: invoke `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`
+- Active phase: auto implementation attempt failed closed before model execution; awaiting human adapter decision
+- Next action: choose Harness adapter repair + superseding authorization, or explicit mode flip to `human_dispatch`
 - Read-set: = status.current_inputs
-- Open blockers: none before the design checkpoint; real launchctl mutation remains a later human gate
+- Open blockers: runner `/bin/sh` cannot resolve the interactive-zsh `claude-glm` alias (exit 127)
 - Do-not-read: reports/agent-runs/**/history/**, other stages
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `implementing`
+- Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
 - HEAD: `f75acb5f57f82935c564ee6373feff6a0485fbb7` (`bookkeeper(launchd): validate breakdown and architecture`) before the implementing-state checkpoint
-- Git status: only implementing-state bookkeeping pending checkpoint commit
+- Git status: runner failure evidence and synchronized checkpoint bookkeeping pending evidence commit
 - Bookkeeper: Codex/OpenAI; designer, not implementer or fix author
 - Parallel mode: disabled
-- Auto-review pipeline: enabled and human-authorized; ready after the design checkpoint commit
-- Dispatch mode: `human_dispatch`
-- Runner state: `null`
+- Auto-review pipeline: enabled; attempt 1 stopped fail-closed
+- Dispatch mode: `auto_review`
+- Runner state: `awaiting_human`
 
 ## Artifact Index
 
@@ -33,9 +33,9 @@
 - Embedded review checkpoints: auto runner, pending
 - Auto-run authorization: `auto-run-authorization-v1.json`
 - Human approval: `auto-run-authorization-v1.approval.md`
-- Runner receipts: none
+- Runner receipts: `runner-1-implementation.receipt.json` (schema-valid; exit 127)
 - Embedded cross-check set: pending
-- Escalation artifacts: none
+- Escalation artifacts: `80-escalation-unroutable_fix-20260713T053735Z.md`
 - Pilot metrics: `auto-review-pilot-metrics.json` (`small_real`, planned)
 - Review 1: pending Grok 4.5 auto gate
 - Fix report: none
@@ -54,18 +54,26 @@
   auto-accounting wording.
 - Live LaunchAgent installation is an external side effect and remains outside
   automatic implementation/testing authorization.
+- Auto implementation did not reach Claude-GLM. The registry template was
+  executed through `/bin/sh`; the local `claude-glm` exists only as an
+  interactive zsh alias. Expanded alias/environment content was not logged.
 
 ## Blockers
 
-- None for repository implementation. Real `launchctl` commands remain
-  explicitly unauthorized until human acceptance after review-1.
+- Adapter setup: the accepted runner cannot resolve `claude-glm` and exited 127.
+- Auto contract requires a new/superseding human authorization before resume;
+  the runner must not be invoked again against the current authorization.
+- Real `launchctl` commands remain explicitly unauthorized.
 
 ## Next Action
 
-Invoke the already authorized deterministic auto runner. The runner must stop
-at `completed_review_1` or a documented escalation; it may not install the
-LaunchAgent.
+Human selects either:
 
-本地北京时间: 2026-07-13 13:37:01 CST
-下一步模型: Claude-GLM / GLM-5.2（auto runner）
-下一步任务: 实现 T1-launchd-service，禁止真实 launchctl mutation；随后自动 blocking/cross-check/seal/Grok review-1
+1. repair the Harness adapter invocation so it uses a safe interactive-zsh
+   wrapper without recording expanded secrets, then issue a superseding
+   authorization and rerun full preflight; or
+2. explicitly flip to `human_dispatch` and use the manual workflow.
+
+本地北京时间: 2026-07-13 13:38:37 CST
+下一步模型: human
+下一步任务: 决定 adapter 修复后 superseding authorization，或明确切换 human_dispatch

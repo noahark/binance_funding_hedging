@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-local-service-launchd-v1",
+  "sequence": 1,
+  "node": "implementation",
+  "attempt": 1,
+  "review_unit_id": "T1-launchd-service",
+  "task_id": "T1-launchd-service",
+  "adapter": {
+    "id": "claude_glm",
+    "registry_command_ref": "agents/registry.yaml#adapters.claude_glm.noninteractive_command"
+  },
+  "prompt_path": "reports/agent-runs/2026-07-local-service-launchd-v1/implementation-T1-launchd-service.prompt.md",
+  "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/implementation-T1-launchd-service-attempt1.raw-output.md",
+  "verdict_path": null,
+  "started_at": "2026-07-13T05:37:35Z",
+  "completed_at": "2026-07-13T05:37:35Z",
+  "exit_status": 127,
+  "timeout": false,
+  "call_budget": {
+    "before": 12,
+    "after": 11
+  },
+  "failure_class": "command_error",
+  "next_transition": "human_escalation_required"
+}

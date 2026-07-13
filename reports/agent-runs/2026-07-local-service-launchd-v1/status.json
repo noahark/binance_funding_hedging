@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "implementing",
+  "status": "human_escalation_required",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -46,10 +46,10 @@
   "auto_review_pipeline": {
     "schema_version": 1,
     "enabled": true,
-    "dispatch_mode": "human_dispatch",
+    "dispatch_mode": "auto_review",
     "mode_flip_pending": null,
     "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.json",
-    "runner_state": null,
+    "runner_state": "awaiting_human",
     "runner_version": "auto-review-pipeline/v1",
     "exclusive_worktree": {
       "path": "/Users/ark/Desktop/ai code/funding_hedging",
@@ -57,10 +57,44 @@
       "verified": true
     },
     "budgets": {
-      "model_calls_used": 0,
+      "model_calls_used": 1,
       "auto_code_changes_used": 0
     },
-    "mode_history": [],
+    "mode_history": [
+      {
+        "from": {
+          "dispatch_mode": "human_dispatch",
+          "runner_state": null
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "authorized"
+        },
+        "event": "new_human_authorization"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "authorized"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "running"
+        },
+        "event": "successful_full_preflight"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "running"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "awaiting_human"
+        },
+        "event": "unroutable_fix"
+      }
+    ],
     "review_units": [
       {
         "id": "T1-launchd-service",
@@ -111,13 +145,14 @@
       }
     ],
     "embedded_cross_checks": [],
-    "last_receipt_path": null,
-    "last_escalation_path": null
+    "last_receipt_path": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-1-implementation.receipt.json",
+    "last_escalation_path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T053735Z.md",
+    "last_receipt_sequence": 1
   },
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "authorized_ready_for_auto_implementation",
+    "status": "awaiting_human_adapter_setup_after_real_escalation",
     "real_launchctl_mutation_authorized": false
   },
   "embedded_reviews": {},
@@ -162,7 +197,9 @@
   "implementer": {
     "adapter": "claude_glm",
     "provider_identity": "zhipu_glm",
-    "status": "ready_for_auto_runner"
+    "status": "adapter_command_error_exit_127_before_model_output",
+    "receipt": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-1-implementation.receipt.json",
+    "raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/implementation-T1-launchd-service-attempt1.raw-output.md"
   },
   "implementers": [],
   "fix_authors": [],
@@ -239,14 +276,18 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/status.json"
   ],
   "tests": {
-    "status": "initialization_checks_passed",
+    "status": "auto_preflight_passed_adapter_failed_before_delivery_tests",
     "commands": [
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
       "scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint (PASS)",
       "git diff --check (PASS)",
       "Opus 4.8 breakdown semantic inspection + explicit software_architect amendment (PASS)",
-      "post-breakdown checkpoint validator and diff check (PASS)"
+      "post-breakdown checkpoint validator and diff check (PASS)",
+      "auto runner preflight (PASS; transitioned authorized -> running)",
+      "claude_glm implementation adapter (FAIL exit 127; command_error; no model output/code change)",
+      "runner receipt schema validation (PASS)",
+      "post-escalation checkpoint validator and diff check (PASS)"
     ]
   },
   "review_1": {
@@ -289,12 +330,14 @@
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [],
+  "blockers": [
+    "claude-glm is a zsh interactive alias but the auto runner invokes registry templates through /bin/sh shell=True, causing exit 127 before model execution."
+  ],
   "human_escalation": {
-    "required": false,
-    "reason": null
+    "required": true,
+    "reason": "implementation adapter command_error exit 127; runner cannot resolve the interactive-zsh claude-glm alias"
   },
-  "terminal_reason": null,
-  "next_action": "start_authorized_auto_review_runner",
-  "updated_at": "2026-07-13T05:37:01Z"
+  "terminal_reason": "human_escalation_required",
+  "next_action": "human_decides_adapter_fix_plus_superseding_authorization_or_explicit_human_dispatch_mode_flip",
+  "updated_at": "2026-07-13T05:38:37Z"
 }
