@@ -13,8 +13,8 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `73b06815213acaf4304a15618ca7a8e9a121ae61`
-- Git status: sequence-4 raw/receipt/escalation and synchronized probe result pending evidence commit
+- HEAD: `0ea40b046d68994f4fdbadd2c58f67fcb8853c6b` (`bookkeeper(launchd): record PTY route probe result`)
+- Git status: synchronized SHA checkpoint pending commit; sequence-4 evidence itself is committed
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 4 stopped fail-closed after PTY route success and permission interaction
@@ -65,6 +65,6 @@
 
 Human decides whether to authorize a bounded tool allowlist design or another explicit route. Do not issue v5 with the unchanged `acceptEdits` PTY command because it can block indefinitely before review-1.
 
-本地北京时间: 2026-07-13 16:44:12 CST
+本地北京时间: 2026-07-13 16:47:39 CST
 下一步模型: human
 下一步任务: 决定 PTY auto adapter 的显式工具权限策略，再决定是否签发 v5

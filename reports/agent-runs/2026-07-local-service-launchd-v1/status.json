@@ -67,10 +67,10 @@
     "receipt_sequence": 3
   },
   "auto_retry_v4_checkpoint": {
-    "commit": null,
+    "commit": "0ea40b046d68994f4fdbadd2c58f67fcb8853c6b",
     "kind": "pty_cli_route_verified_permission_interaction_escalation",
     "validated_phase": "checkpoint",
-    "validated_result": "passed_pending_evidence_commit",
+    "validated_result": "passed",
     "delivery_code_changed": false,
     "receipt_sequence": 4,
     "claude_session_id": "76a8e532-1414-43f7-919e-4b57a0b28558"
@@ -619,5 +619,5 @@
   },
   "terminal_reason": "human_escalation_required",
   "next_action": "human_decides_explicit_pty_tool_permission_policy_before_any_v5_authorization",
-  "updated_at": "2026-07-13T08:44:12Z"
+  "updated_at": "2026-07-13T08:47:39Z"
 }
