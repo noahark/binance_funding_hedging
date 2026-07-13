@@ -288,3 +288,84 @@ def test_max_borrowable_system_error_no_business_code(monkeypatch):
     client = _make_client(monkeypatch, [_http_error(500, "upstream")])
     assert client.fetch_max_borrowable("BTC") is None
     assert client.last_error.startswith("max_borrowable_failed:BTC")
+
+
+# ---- 9. force-TTL exact-key bypass (2026-07-history-background-refresh-v1 §7) ----
+def _inf(value):
+    """Cache entry whose TTL never expires under the cached[0] > now check."""
+    return (float("inf"), value)
+
+
+def test_force_max_borrowable_evicts_only_that_assets_key(monkeypatch):
+    # Pre-seed two assets' maxBorrowable keys; force BTC -> only BTC re-fetched,
+    # the ETH key (and any unrelated key) is preserved.
+    client = _make_client(
+        monkeypatch,
+        [(json.dumps({"amount": "9", "borrowLimit": "60"}), 200)],  # BTC force re-fetch
+    )
+    btc_key = ("GET", "/papi/v1/margin/maxBorrowable", (("asset", "BTC"),))
+    eth_key = ("GET", "/papi/v1/margin/maxBorrowable", (("asset", "ETH"),))
+    client._cache[btc_key] = _inf({"amount": "1", "borrowLimit": "2"})
+    client._cache[eth_key] = _inf({"amount": "3", "borrowLimit": "4"})
+    result = client.fetch_max_borrowable("BTC", force=True)
+    assert result == {"max_borrowable": "9", "borrow_limit": "60", "error_code": None}
+    # ETH key untouched
+    assert client._cache[eth_key][1] == {"amount": "3", "borrowLimit": "4"}
+
+
+def test_force_cost_leg_chain_evicts_only_single_asset_rate_keys(monkeypatch):
+    # The multi-asset scheduled-batch E2 key is preserved; only the single-asset
+    # BTC E2 + E2b keys are evicted and re-fetched. account/info and crossMargin-
+    # Data are fetched through their normal caches and NOT force-evicted.
+    client = _make_client(
+        monkeypatch,
+        [
+            (json.dumps({"vipLevel": "0"}), 200),  # account/info
+            (json.dumps([{"asset": "BTC", "nextHourlyInterestRate": "0.00000500"}]), 200),  # E2 BTC
+            (json.dumps([{"asset": "BTC", "dailyInterestRate": "0.00010000",
+                          "timestamp": "1"}]), 200),  # E2b BTC
+            (json.dumps([{"coin": "BTC", "vipLevel": 0, "dailyInterest": "0.0005"}]), 200),  # crossMarginData
+        ],
+    )
+    batch_key = (
+        "GET", "/sapi/v1/margin/next-hourly-interest-rate",
+        (("assets", "BTC,ETH"), ("isIsolated", "false")),
+    )
+    client._cache[batch_key] = _inf([{"asset": "BTC", "nextHourlyInterestRate": "stale"}])
+
+    chain = client.fetch_cost_leg_chain(["BTC"], force=True)
+    assert chain["chain_hit_tier"] == 1  # next_hourly hit
+    # multi-asset batch key preserved (single-asset force never touches it)
+    assert client._cache[batch_key][1] == [{"asset": "BTC", "nextHourlyInterestRate": "stale"}]
+    # account/info fetched through normal cache, NOT force-evicted
+    info_key = ("GET", "/sapi/v1/account/info", ())
+    assert client._cache[info_key][1] == {"vipLevel": "0"}
+    # the single-asset BTC E2 key now holds the fresh value
+    btc_e2 = (
+        "GET", "/sapi/v1/margin/next-hourly-interest-rate",
+        (("assets", "BTC"), ("isIsolated", "false")),
+    )
+    assert client._cache[btc_e2][1] == [{"asset": "BTC", "nextHourlyInterestRate": "0.00000500"}]
+
+
+def test_force_never_clears_whole_cache(monkeypatch):
+    client = _make_client(
+        monkeypatch,
+        [(json.dumps({"amount": "1", "borrowLimit": "2"}), 200)],
+    )
+    # An unrelated classic key must survive a force refresh.
+    classic_key = ("GET", "/sapi/v1/margin/allPairs", ())
+    client._cache[classic_key] = _inf([])
+    client.fetch_max_borrowable("BTC", force=True)
+    assert classic_key in client._cache  # _cache.clear() was NOT called
+
+
+def test_force_disabled_client_is_noop():
+    client = PrivateClient(
+        None, None, user_agent="t", timeout=5, recv_window=10000, ttl_seconds=3600,
+        fast_ttl_seconds=60,
+    )
+    # disabled channel: force must not raise and must not mutate the cache.
+    assert client.fetch_max_borrowable("BTC", force=True) is None
+    assert client.fetch_cost_leg_chain(["BTC"], force=True) is None
+    assert client._cache == {}

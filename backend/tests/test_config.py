@@ -113,3 +113,54 @@ def test_funding_history_cache_ttl_env_override():
 def test_funding_history_cache_ttl_rejects_invalid_integer():
     with pytest.raises(ValueError, match="APP_FUNDING_HISTORY_CACHE_TTL_SECONDS"):
         from_env({"APP_FUNDING_HISTORY_CACHE_TTL_SECONDS": "soon"})
+
+
+# --- Stage 2026-07-history-background-refresh-v1: background worker config ---
+
+def test_background_refresh_defaults():
+    # kill switch default-on; 30s tick; 10 symbols/tick; 30s symbol timeout.
+    assert DEFAULT.background_refresh_enabled is True
+    assert DEFAULT.background_tick_seconds == 30
+    assert DEFAULT.history_sweep_batch_size == 10
+    assert DEFAULT.symbol_refresh_timeout_seconds == 30.0
+
+
+def test_background_refresh_env_overrides():
+    cfg = from_env(
+        {
+            "APP_BACKGROUND_REFRESH_ENABLED": "false",
+            "APP_BACKGROUND_TICK_SECONDS": "5",
+            "APP_HISTORY_SWEEP_BATCH_SIZE": "3",
+            "APP_SYMBOL_REFRESH_TIMEOUT_SECONDS": "12.5",
+        }
+    )
+    assert cfg.background_refresh_enabled is False
+    assert cfg.background_tick_seconds == 5
+    assert cfg.history_sweep_batch_size == 3
+    assert cfg.symbol_refresh_timeout_seconds == 12.5
+
+
+def test_background_refresh_alias_env_honored():
+    cfg = from_env(
+        {
+            "FUNDING_HEDGING_BACKGROUND_TICK_SECONDS": "7",
+            "FUNDING_HEDGING_HISTORY_SWEEP_BATCH_SIZE": "4",
+        }
+    )
+    assert cfg.background_tick_seconds == 7
+    assert cfg.history_sweep_batch_size == 4
+
+
+def test_background_refresh_enabled_rejects_invalid_boolean():
+    with pytest.raises(ValueError, match="APP_BACKGROUND_REFRESH_ENABLED"):
+        from_env({"APP_BACKGROUND_REFRESH_ENABLED": "maybe"})
+
+
+def test_background_tick_rejects_invalid_integer():
+    with pytest.raises(ValueError, match="APP_BACKGROUND_TICK_SECONDS"):
+        from_env({"APP_BACKGROUND_TICK_SECONDS": "soon"})
+
+
+def test_symbol_refresh_timeout_rejects_invalid_float():
+    with pytest.raises(ValueError, match="APP_SYMBOL_REFRESH_TIMEOUT_SECONDS"):
+        from_env({"APP_SYMBOL_REFRESH_TIMEOUT_SECONDS": "slow"})

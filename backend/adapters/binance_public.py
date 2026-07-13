@@ -159,6 +159,28 @@ class BinancePublicClient:
         url = f"{self.futures_base_url}/fapi/v1/fundingRate?{query}"
         return self._http_get(url)
 
+    def fetch_premium_index_for(self, symbol: str) -> dict:
+        """Live-only: ``GET /fapi/v1/premiumIndex?symbol=SYMBOL`` for one row
+        (2026-07-history-background-refresh-v1 §6 / 10-design D3).
+
+        Returns the single-symbol premium-index object (``markPrice``,
+        ``indexPrice``, ``lastFundingRate``, ``nextFundingTime``, ``time``, …)
+        the worker overlays onto its worker-owned ``_base_raw["premium_index"]``
+        for the selected symbol, so a click refreshes only that row's public
+        fields WITHOUT invoking full-universe :meth:`fetch_raw`. The symbol is
+        encoded via :func:`urllib.parse.urlencode` (never raw-interpolated).
+
+        Offline returns ``{}`` (the click flow is never triggered offline).
+        Raises on transport/HTTP/parse failure; the worker degrades that one
+        source to last-good instead of failing the snapshot.
+        """
+        if self.offline:
+            return {}
+        self._bump("GET /fapi/v1/premiumIndex?symbol")
+        query = urllib.parse.urlencode({"symbol": symbol})
+        url = f"{self.futures_base_url}/fapi/v1/premiumIndex?{query}"
+        return self._http_get(url)
+
     def fetch_ticker_price_map(self) -> Dict[str, str]:
         """P5 ``GET /api/v3/ticker/price`` (public, full, no key) -> {symbol: price}.
 

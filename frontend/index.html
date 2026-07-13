@@ -835,7 +835,8 @@
         selectedSymbol: null,
         drawerOpen: false,
         drawerLoading: false,
-        drawerHistoryError: null
+        drawerHistoryError: null,
+        drawerNotice: null
       };
 
       const els = {
@@ -1286,98 +1287,113 @@
 
         const umPositions = state.snapshot && state.snapshot.private_account && state.snapshot.private_account.um_positions;
 
-        els.tableBody.innerHTML = rows.map(row => {
-          const isBstock = row.asset_tag === 'BSTOCK';
-          const rateClass = classForFundingRate(row.futures.last_funding_rate);
-          const rateText = formatFundingRate(row.futures.last_funding_rate);
-          const timeText = formatBeijingShort(row.futures.next_funding_time);
-          const fullTime = formatBeijing(row.futures.next_funding_time);
-          const rawRate = row.futures.last_funding_rate;
-          const rateTitle = `原始费率 ${escapeHtml(rawRate)} · 本周期实时预估，结算前会漂移`;
-          const dailyRateClass = classForFundingRate(row.daily_funding_rate);
-          const dailyRateText = formatFundingRate(row.daily_funding_rate);
-          const intervalHours = row.funding_interval_hours;
-          const intervalBadge = (typeof intervalHours === 'number' && [1, 4, 8].includes(intervalHours))
-            ? `<span class="badge compact muted">${intervalHours}h</span>`
-            : '';
-          const dailyRateCell = dailyRateText === '—' && !intervalBadge
-            ? '—'
-            : `${dailyRateText}${intervalBadge ? ' ' + intervalBadge : ''}`;
-          const netClass = classForFundingRate(row.net_daily_yield);
-          const netText = formatFundingRate(row.net_daily_yield);
-          const netSource = sourceBadge(row.borrow_rate_source);
-          const ann24Class = classForFundingRate(row.annualized_funding_24h);
-          const ann24Text = formatFundingRate(row.annualized_funding_24h);
-          const ann24Title = `原始值 ${escapeHtml(row.annualized_funding_24h || 'null')} · 预估 24h 年化（日费率 × 365），非已结算历史`;
-          const ann7Class = classForFundingRate(row.annualized_funding_7d);
-          const ann7Text = formatFundingRate(row.annualized_funding_7d);
-          const ann7Title = `原始值 ${escapeHtml(row.annualized_funding_7d || 'null')} · 已结算 7 日年化（日历窗口求和）`;
-          const ann30Class = classForFundingRate(row.annualized_funding_30d);
-          const ann30Text = formatFundingRate(row.annualized_funding_30d);
-          const ann30Title = `原始值 ${escapeHtml(row.annualized_funding_30d || 'null')} · 已结算 30 日年化（日历窗口求和）`;
-          let borrowSubline = '';
-          if (row.borrow_rate_source != null) {
-            const cm = row.borrow_validation && row.borrow_validation.classic_margin;
-            const accountRate = cm && cm.daily_interest_account;
-            const vip0Rate = cm && cm.daily_interest_vip0;
-            if (accountRate != null && accountRate !== '') {
-              borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(accountRate)}</span>`;
-            } else if (vip0Rate != null && vip0Rate !== '') {
-              borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(vip0Rate)} <span class="badge compact warn">参考</span></span>`;
-            } else {
-              borrowSubline = `<br/><span class="muted small">日借币: -</span>`;
-            }
-            // 可借数量 + ≈USDT：仅在已探测 max_borrowable 时展示。
-            // null（未探测/系统错误）不展示，避免误导；"0" 加「已借完」compact 标。
-            const pa = row.borrow_validation && row.borrow_validation.portfolio_account;
-            if (pa && pa.max_borrowable != null) {
-              const usdt2 = formatUsdt2(pa.max_borrowable_value_usdt);
-              const val = usdt2 != null ? ` (≈ ${usdt2} USDT)` : '';
-              const zeroTag = pa.max_borrowable === '0' ? ' <span class="badge compact warn">已借完</span>' : '';
-              borrowSubline += `<br/><span class="muted small">可借: ${escapeHtml(pa.max_borrowable)}${val}${zeroTag}</span>`;
-            }
-          }
-          const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
-            ? row.ui_flags.filter(f => f !== 'MARGIN_PUBLIC_UNVERIFIED').map(badgeForUiFlag).join(' ')
-            : '<span class="muted small">—</span>';
-          const spotAlias = row.spot && row.spot.match_type === 'bstock_b_suffix_alias' && row.spot.symbol && row.spot.symbol !== row.symbol
-            ? `<br/><span class="muted small">现货腿: ${escapeHtml(row.spot.symbol)}</span> <span class="badge compact info">B 后缀别名</span>`
-            : '';
-          const dirBadge = directionBadgeForSymbol(row.symbol, umPositions);
-          return `
-            <tr class="${isBstock ? 'bstock' : ''} selectable" data-symbol="${escapeHtml(row.symbol)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(row.symbol)} 的年化与已结算历史">
-              <td class="mono">${escapeHtml(row.symbol)}${dirBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span>${spotAlias}</td>
-              <td>${badgeForAssetTag(row.asset_tag)}</td>
-              <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
-              <td title="${escapeHtml(fullTime)}">${timeText}</td>
-              <td class="${dailyRateClass}">${dailyRateCell}</td>
-              <td class="${ann24Class}" title="${escapeHtml(ann24Title)}">${ann24Text}</td>
-              <td class="${ann7Class}" title="${escapeHtml(ann7Title)}">${ann7Text}</td>
-              <td class="${ann30Class}" title="${escapeHtml(ann30Title)}">${ann30Text}</td>
-              <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
-              <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
-              <td>${badgeForNegativeFundingStatus(row)}</td>
-              <td>${uiFlags}</td>
-            </tr>
-          `;
-        }).join('');
+        els.tableBody.innerHTML = rows.map(row => renderRowHtml(row, umPositions)).join('');
         renderSummary();
         bindRowSelection();
       }
 
+      // Single-row HTML used by both renderTable (full) and patchRow (click).
+      // Extracted so a symbol-snapshot click can re-render ONLY its <tr> + the
+      // drawer without a full table re-render (2026-07-history-background-
+      // refresh-v1, breakdown §11.6).
+      function renderRowHtml(row, umPositions) {
+        const isBstock = row.asset_tag === 'BSTOCK';
+        const rateClass = classForFundingRate(row.futures.last_funding_rate);
+        const rateText = formatFundingRate(row.futures.last_funding_rate);
+        const timeText = formatBeijingShort(row.futures.next_funding_time);
+        const fullTime = formatBeijing(row.futures.next_funding_time);
+        const rawRate = row.futures.last_funding_rate;
+        const rateTitle = `原始费率 ${escapeHtml(rawRate)} · 本周期实时预估，结算前会漂移`;
+        const dailyRateClass = classForFundingRate(row.daily_funding_rate);
+        const dailyRateText = formatFundingRate(row.daily_funding_rate);
+        const intervalHours = row.funding_interval_hours;
+        const intervalBadge = (typeof intervalHours === 'number' && [1, 4, 8].includes(intervalHours))
+          ? `<span class="badge compact muted">${intervalHours}h</span>`
+          : '';
+        const dailyRateCell = dailyRateText === '—' && !intervalBadge
+          ? '—'
+          : `${dailyRateText}${intervalBadge ? ' ' + intervalBadge : ''}`;
+        const netClass = classForFundingRate(row.net_daily_yield);
+        const netText = formatFundingRate(row.net_daily_yield);
+        const netSource = sourceBadge(row.borrow_rate_source);
+        const ann24Class = classForFundingRate(row.annualized_funding_24h);
+        const ann24Text = formatFundingRate(row.annualized_funding_24h);
+        const ann24Title = `原始值 ${escapeHtml(row.annualized_funding_24h || 'null')} · 预估 24h 年化（日费率 × 365），非已结算历史`;
+        const ann7Class = classForFundingRate(row.annualized_funding_7d);
+        const ann7Text = formatFundingRate(row.annualized_funding_7d);
+        const ann7Title = `原始值 ${escapeHtml(row.annualized_funding_7d || 'null')} · 已结算 7 日年化（日历窗口求和）`;
+        const ann30Class = classForFundingRate(row.annualized_funding_30d);
+        const ann30Text = formatFundingRate(row.annualized_funding_30d);
+        const ann30Title = `原始值 ${escapeHtml(row.annualized_funding_30d || 'null')} · 已结算 30 日年化（日历窗口求和）`;
+        let borrowSubline = '';
+        if (row.borrow_rate_source != null) {
+          const cm = row.borrow_validation && row.borrow_validation.classic_margin;
+          const accountRate = cm && cm.daily_interest_account;
+          const vip0Rate = cm && cm.daily_interest_vip0;
+          if (accountRate != null && accountRate !== '') {
+            borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(accountRate)}</span>`;
+          } else if (vip0Rate != null && vip0Rate !== '') {
+            borrowSubline = `<br/><span class="muted small">日借币: ${formatFundingRate(vip0Rate)} <span class="badge compact warn">参考</span></span>`;
+          } else {
+            borrowSubline = `<br/><span class="muted small">日借币: -</span>`;
+          }
+          // 可借数量 + ≈USDT：仅在已探测 max_borrowable 时展示。
+          // null（未探测/系统错误）不展示，避免误导；"0" 加「已借完」compact 标。
+          const pa = row.borrow_validation && row.borrow_validation.portfolio_account;
+          if (pa && pa.max_borrowable != null) {
+            const usdt2 = formatUsdt2(pa.max_borrowable_value_usdt);
+            const val = usdt2 != null ? ` (≈ ${usdt2} USDT)` : '';
+            const zeroTag = pa.max_borrowable === '0' ? ' <span class="badge compact warn">已借完</span>' : '';
+            borrowSubline += `<br/><span class="muted small">可借: ${escapeHtml(pa.max_borrowable)}${val}${zeroTag}</span>`;
+          }
+        }
+        const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
+          ? row.ui_flags.filter(f => f !== 'MARGIN_PUBLIC_UNVERIFIED').map(badgeForUiFlag).join(' ')
+          : '<span class="muted small">—</span>';
+        const spotAlias = row.spot && row.spot.match_type === 'bstock_b_suffix_alias' && row.spot.symbol && row.spot.symbol !== row.symbol
+          ? `<br/><span class="muted small">现货腿: ${escapeHtml(row.spot.symbol)}</span> <span class="badge compact info">B 后缀别名</span>`
+          : '';
+        const dirBadge = directionBadgeForSymbol(row.symbol, umPositions);
+        return `
+          <tr class="${isBstock ? 'bstock' : ''} selectable" data-symbol="${escapeHtml(row.symbol)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(row.symbol)} 的年化与已结算历史">
+            <td class="mono">${escapeHtml(row.symbol)}${dirBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span>${spotAlias}</td>
+            <td>${badgeForAssetTag(row.asset_tag)}</td>
+            <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
+            <td title="${escapeHtml(fullTime)}">${timeText}</td>
+            <td class="${dailyRateClass}">${dailyRateCell}</td>
+            <td class="${ann24Class}" title="${escapeHtml(ann24Title)}">${ann24Text}</td>
+            <td class="${ann7Class}" title="${escapeHtml(ann7Title)}">${ann7Text}</td>
+            <td class="${ann30Class}" title="${escapeHtml(ann30Title)}">${ann30Text}</td>
+            <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
+            <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
+            <td>${badgeForNegativeFundingStatus(row)}</td>
+            <td>${uiFlags}</td>
+          </tr>
+        `;
+      }
+
+      function attachRowHandlers(tr) {
+        const symbol = tr.getAttribute('data-symbol');
+        if (!symbol) return;
+        tr.addEventListener('click', () => openDrawer(symbol));
+        tr.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openDrawer(symbol);
+          }
+        });
+      }
+
+      // Idempotent: a freshly replaced <tr> has no data-bound marker, so it gets
+      // handlers attached; already-bound rows (from a prior renderTable) are
+      // skipped. This lets patchRow rebind only its one replaced row.
       function bindRowSelection() {
         if (state.blocked || !state.snapshot) return;
         const rows = els.tableBody.querySelectorAll('tr.selectable');
         rows.forEach(tr => {
-          const symbol = tr.getAttribute('data-symbol');
-          if (!symbol) return;
-          tr.addEventListener('click', () => openDrawer(symbol));
-          tr.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              openDrawer(symbol);
-            }
-          });
+          if (tr.getAttribute('data-bound') === '1') return;
+          tr.setAttribute('data-bound', '1');
+          attachRowHandlers(tr);
         });
       }
 
@@ -1387,27 +1403,72 @@
       }
 
       let drawerRequestId = 0;
+      const CLICK_GUARD_MS = 1000;   // 1s anti-double-click (breakdown §11.2)
+      const clickGuardUntil = {};    // symbol -> timestamp
+      let inflightSymbol = null;     // symbol whose symbol-snapshot fetch is pending (§11.3)
 
-      async function fetchHistory(symbol) {
+      // Patch ONLY the selected row's <tr> + the drawer (breakdown §11.6). No
+      // full-table re-render on the click path. A local visibility change (the
+      // refreshed row crossing hideLowDailyRate / route filter) is applied to
+      // just that row; the global sort order and summary counts stay as-is and
+      // are reconciled by the next 60s full poll (§11.7/§11.9).
+      function patchRow(symbol) {
+        if (!state.snapshot) return;
+        const row = (state.snapshot.rows || []).find(r => r && r.symbol === symbol);
+        if (!row) return;
+        const umPositions = state.snapshot.private_account && state.snapshot.private_account.um_positions;
+        const tr = els.tableBody.querySelector(`tr.selectable[data-symbol="${CSS.escape(symbol)}"]`);
+        const visible = filteredRows().some(r => r.symbol === symbol);
+        if (tr) {
+          if (visible) {
+            tr.outerHTML = renderRowHtml(row, umPositions).trim();
+            bindRowSelection(); // idempotent: binds only the freshly inserted row
+          } else {
+            tr.remove();
+          }
+        } else if (visible) {
+          // row was filtered out and is now visible again — rare; rebuild the
+          // table from existing state (no fetch, no full snapshot pull).
+          renderTable();
+        }
+        if (state.drawerOpen && state.selectedSymbol === symbol) {
+          renderDrawer();
+          highlightSelectedRow();
+        }
+      }
+
+      async function fetchSymbolSnapshot(symbol) {
+        // In-flight ignore (breakdown §11.3): a same-symbol fetch is already
+        // pending (from the drawer-retry entry or a racing click). The backend
+        // coalesces concurrent same-symbol commands regardless.
+        if (inflightSymbol === symbol) return;
         const requestId = ++drawerRequestId;
+        inflightSymbol = symbol;
 
         function isActive() {
           return requestId === drawerRequestId && state.drawerOpen && state.selectedSymbol === symbol;
         }
 
         try {
-          const res = await fetch(`/api/public-market/funding-history?symbol=${encodeURIComponent(symbol)}`);
+          // Reset any prior non-blocking notice; the success path re-sets it from
+          // refresh_status. Error branches stay null (blocking error takes over).
+          state.drawerNotice = null;
+          const res = await fetch(`/api/public-market/symbol-snapshot?symbol=${encodeURIComponent(symbol)}`);
           // Guard immediately after fetch: ignore if selection changed or drawer closed.
           if (!isActive()) return;
+          if (res.status === 503) {
+            state.drawerLoading = false;
+            state.drawerHistoryError = 'snapshot_not_ready';
+            renderDrawer();
+            return;
+          }
           if (res.status === 502) {
-            if (!isActive()) return;
             state.drawerLoading = false;
             state.drawerHistoryError = 'funding_history_unavailable';
             renderDrawer();
             return;
           }
           if (!res.ok) {
-            if (!isActive()) return;
             state.drawerLoading = false;
             state.drawerHistoryError = `history_request_failed:${res.status}`;
             renderDrawer();
@@ -1416,28 +1477,39 @@
           const data = await res.json();
           // Guard after res.json(): the same body may have become stale while parsing.
           if (!isActive()) return;
-          // Strict response contract validation before any merge or render.
+          // Stale response identity check (breakdown §11.4): schema_version,
+          // symbol, exactly one row object, and NO rows array.
           if (!data || typeof data !== 'object' ||
-              data.schema_version !== 'public-market-funding-history/v1' ||
+              data.schema_version !== 'public-market-symbol-snapshot/v1' ||
               data.symbol !== symbol ||
-              !['available', 'empty'].includes(data.history_status) ||
-              !Array.isArray(data.funding_history) ||
-              !('annualized_funding_7d' in data) ||
-              !('annualized_funding_30d' in data)) {
+              !data.row || typeof data.row !== 'object' ||
+              Array.isArray(data.rows)) {
             state.drawerLoading = false;
             state.drawerHistoryError = 'history_response_invalid';
             renderDrawer();
             return;
           }
-          // Merge into the selected snapshot row and refresh the table.
-          const row = selectedRow();
-          if (row) {
-            row.funding_history = data.funding_history;
-            row.annualized_funding_7d = data.annualized_funding_7d;
-            row.annualized_funding_30d = data.annualized_funding_30d;
-            renderTable();
-            highlightSelectedRow();
+          // Consume refresh_status (pre-review repair finding 5 / breakdown §9):
+          //   timeout -> refresh did not settle in time; keep the LAST-GOOD row
+          //              (do NOT replace state) + non-blocking "刷新超时" notice;
+          //   partial -> row refreshed but some legs failed; merge the row and
+          //              show a non-blocking notice carrying the backend warnings;
+          //   ok      -> merge the row, no notice.
+          // Every branch patches ONLY the target row + drawer (no renderTable).
+          const refreshStatus = data.refresh_status;
+          const backendWarnings = Array.isArray(data.warnings) ? data.warnings : [];
+          if (refreshStatus === 'timeout') {
+            state.drawerNotice = { kind: 'timeout' };
+          } else {
+            if (state.snapshot && Array.isArray(state.snapshot.rows)) {
+              const idx = state.snapshot.rows.findIndex(r => r && r.symbol === symbol);
+              if (idx !== -1) state.snapshot.rows[idx] = data.row;
+            }
+            state.drawerNotice = refreshStatus === 'partial'
+              ? { kind: 'partial', warnings: backendWarnings }
+              : null;
           }
+          patchRow(symbol);
           state.drawerLoading = false;
           state.drawerHistoryError = null;
           renderDrawer();
@@ -1446,30 +1518,36 @@
           state.drawerLoading = false;
           state.drawerHistoryError = 'history_request_failed';
           renderDrawer();
+        } finally {
+          if (inflightSymbol === symbol) inflightSymbol = null;
         }
       }
 
       function openDrawer(symbol) {
         if (!symbol) return;
+        const now = Date.now();
+        // 1s anti-double-click guard + in-flight ignore (breakdown §11.2/§11.3).
+        // A click after the in-flight fetch settled is a NEW command (§11.10).
+        if (inflightSymbol === symbol) return;
+        if (clickGuardUntil[symbol] && now < clickGuardUntil[symbol]) return;
+        clickGuardUntil[symbol] = now + CLICK_GUARD_MS;
         state.selectedSymbol = symbol;
         state.drawerOpen = true;
         state.drawerHistoryError = null;
+        state.drawerNotice = null;
         const row = selectedRow();
         const hasPreloaded = row && Array.isArray(row.funding_history) && row.funding_history.length > 0;
-        if (hasPreloaded) {
-          state.drawerLoading = false;
-          renderDrawer();
-        } else {
-          state.drawerLoading = true;
-          renderDrawer();
-          fetchHistory(symbol);
-        }
+        state.drawerLoading = !hasPreloaded;
+        renderDrawer();
         els.drawer.classList.add('open');
         els.drawerBackdrop.classList.add('open');
         els.drawer.setAttribute('aria-hidden', 'false');
         els.drawerBackdrop.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
         highlightSelectedRow();
+        // Always issue a one-shot refresh, even for preloaded rows (§11.1): the
+        // backend coalesces concurrent same-symbol commands server-side.
+        fetchSymbolSnapshot(symbol);
       }
 
       function closeDrawer() {
@@ -1513,6 +1591,24 @@
         const ann30Text = formatFundingRate(row.annualized_funding_30d);
 
         let historyHtml = '';
+        // Non-blocking notice for refresh_status = timeout | partial (pre-review
+        // repair finding 5). The history list still renders (last-good row for
+        // timeout, refreshed row for partial); this is informational, not an error.
+        let noticeHtml = '';
+        if (state.drawerNotice) {
+          if (state.drawerNotice.kind === 'timeout') {
+            noticeHtml = `
+              <div class="drawer-notice warn" role="status" aria-live="polite">
+                <span>刷新超时，显示上次数据</span>
+              </div>`;
+          } else if (state.drawerNotice.kind === 'partial') {
+            const ws = Array.isArray(state.drawerNotice.warnings) ? state.drawerNotice.warnings.join(' · ') : '';
+            noticeHtml = `
+              <div class="drawer-notice info" role="status" aria-live="polite">
+                <span>部分刷新成功${ws ? '：' + escapeHtml(ws) : ''}</span>
+              </div>`;
+          }
+        }
         if (state.drawerHistoryError) {
           historyHtml = `
             <div class="empty-state">
@@ -1566,6 +1662,7 @@
           </div>
           <div class="drawer-section">
             <h3>近 30 日已结算历史（北京时间）</h3>
+            ${noticeHtml}
             ${historyHtml}
           </div>
         `;
@@ -1576,7 +1673,7 @@
               state.drawerHistoryError = null;
               state.drawerLoading = true;
               renderDrawer();
-              fetchHistory(state.selectedSymbol);
+              fetchSymbolSnapshot(state.selectedSymbol);
             }
           });
         }
@@ -1836,7 +1933,8 @@
         getSelectedSymbol: () => state.selectedSymbol,
         getDrawerLoading: () => state.drawerLoading,
         getDrawerHistoryError: () => state.drawerHistoryError,
-        fetchHistory,
+        getDrawerNotice: () => state.drawerNotice,
+        fetchSymbolSnapshot,
         getSnapshot: () => state.snapshot
       };
 

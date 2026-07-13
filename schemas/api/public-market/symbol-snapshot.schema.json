@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.binance-funding-hedging/schemas/api/public-market/symbol-snapshot.schema.json",
+  "title": "Public Market Symbol Snapshot",
+  "description": "One-shot selected-symbol refresh response (2026-07-history-background-refresh-v1). The backend submits one RefreshSymbolCommand to its serial background worker, waits within a bounded timeout, then projects ONLY the selected row from the newly published canonical PublishedState. The row shares the same published_version as the full snapshot (same-version guarantee by construction). This payload never contains a full rows array.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "symbol",
+    "published_version",
+    "data_time",
+    "generated_at",
+    "refresh_status",
+    "warnings",
+    "row"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "public-market-symbol-snapshot/v1"
+    },
+    "symbol": {
+      "type": "string",
+      "minLength": 1
+    },
+    "published_version": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "data_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "refresh_status": {
+      "description": "ok = all selected sources refreshed; partial = public/history refreshed but borrow fell back to last-good (warning); timeout = the command reached its shared deadline before publication, so the row is projected from the previously published state.",
+      "enum": ["ok", "partial", "timeout"]
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "row": {
+      "description": "A single element projected from PublishedState.rows_by_symbol, identical in shape to a snapshot.rows[] element. There is never a rows array on this payload.",
+      "$ref": "snapshot.schema.json#/$defs/row"
+    }
+  }
+}

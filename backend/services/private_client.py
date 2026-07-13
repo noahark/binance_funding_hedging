@@ -218,6 +218,19 @@ class PrivateClient:
         self._cache[key] = (now + lifetime, data)
         return data
 
+    def _evict(self, method: str, path: str, params: Optional[Dict[str, str]] = None) -> None:
+        """One-shot exact-key TTL bypass (2026-07-history-background-refresh-v1 §7).
+
+        Removes EXACTLY one ``(method, path, sorted(params))`` transport-cache
+        key. Used by the selected-symbol click path with ``force=True`` to refresh
+        a single asset's maxBorrowable / next-hourly / interest-history entries
+        without disturbing multi-asset scheduled-batch keys or shared 1h
+        references (classic, VIP/account-info, crossMarginData). NEVER calls
+        ``_cache.clear()`` — only this single-key ``pop`` is permitted.
+        """
+        key = (method, path, tuple(sorted((params or {}).items())))
+        self._cache.pop(key, None)
+
     # -- high-level fetchers (return None + set last_error on disable/failure) --
     def fetch_classic_reference(self) -> Optional[Dict[str, Any]]:
         """Market-level classic-margin reference (W1+W2+W3), 1h TTL.
@@ -250,15 +263,24 @@ class PrivateClient:
             },
         }
 
-    def fetch_max_borrowable(self, asset: str) -> Optional[Dict[str, Optional[str]]]:
+    def fetch_max_borrowable(
+        self, asset: str, *, force: bool = False
+    ) -> Optional[Dict[str, Optional[str]]]:
         """Account-level maxBorrowable for one asset (W4), 1h TTL.
 
         Returns ``{"max_borrowable", "borrow_limit", "error_code"}`` (raw strings;
         ``error_code`` is ``"51061"`` when the pool is confirmed exhausted, else
         ``None``) or ``None`` (disabled/failed). On failure sets ``last_error``.
+
+        ``force=True`` (selected-symbol click path, §7) evicts ONLY this asset's
+        single maxBorrowable transport key before the read, triggering one fresh
+        signed GET. Multi-asset scheduled-batch keys and shared references are
+        untouched. ``_cache.clear()`` is never used.
         """
         if not self.enabled:
             return None
+        if force:
+            self._evict("GET", "/papi/v1/margin/maxBorrowable", {"asset": asset})
         try:
             data = self._cached_get(
                 "GET", "/papi/v1/margin/maxBorrowable", {"asset": asset}
@@ -300,7 +322,7 @@ class PrivateClient:
             return None
 
     def fetch_cost_leg_chain(
-        self, borrow_assets: List[str]
+        self, borrow_assets: List[str], *, force: bool = False
     ) -> Optional[Dict[str, Any]]:
         """Snapshot-level cost-leg chain (§1.3). One HTTP call per tier probe,
         all in the 1h TTL group (shared cache: crossMarginData reuses the
@@ -326,6 +348,13 @@ class PrivateClient:
         ``assets``). It is probed ONCE for the top candidate only; tier②
         coverage is therefore limited to that asset. Tier① (E2, comma-joined)
         covers all candidates in one call and is the realistic primary tier.
+
+        ``force=True`` (selected-symbol click path, §7): the caller passes a
+        single-asset list and the chain evicts ONLY that asset's single-asset
+        E2 + E2b transport keys before reading, so exactly two fresh signed
+        GETs fire (one next-hourly, one interest-history). Shared account/info,
+        crossMarginData, classic references, and any multi-asset scheduled-batch
+        keys are preserved. ``_cache.clear()`` is never used.
         """
         if not self.enabled:
             self.last_error = "private_channel_disabled"
@@ -344,6 +373,24 @@ class PrivateClient:
         # and the next snapshot (<=60s) retries only it.
         merged_next_hourly: Dict[str, Optional[str]] = {}
         if borrow_assets:
+            if force:
+                # Selected-symbol click (§7): evict ONLY each single-asset rate
+                # key so this read triggers fresh signed GETs. A single-asset
+                # batch key is {"assets": asset}; multi-asset scheduled-batch
+                # keys ({"assets": "BTC,ETH,..."}) are distinct cache keys and
+                # stay cached. E2b is single-asset {"asset": asset}. The shared
+                # account/info + crossMarginData references are NOT evicted.
+                for ast in borrow_assets:
+                    self._evict(
+                        "GET",
+                        "/sapi/v1/margin/next-hourly-interest-rate",
+                        {"assets": ast, "isIsolated": "false"},
+                    )
+                    self._evict(
+                        "GET",
+                        "/sapi/v1/margin/interestRateHistory",
+                        {"asset": ast},
+                    )
             for i in range(0, len(borrow_assets), NEXT_HOURLY_BATCH_SIZE):
                 batch = borrow_assets[i:i + NEXT_HOURLY_BATCH_SIZE]
                 try:

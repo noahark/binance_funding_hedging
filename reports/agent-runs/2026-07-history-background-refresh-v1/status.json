@@ -1,0 +1,383 @@
+{
+  "stage_id": "2026-07-history-background-refresh-v1",
+  "status": "stage_accepted_waiting_user",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-history-background-refresh-v1",
+    "created_from_main_sha": "0db66d2a82c10139523a06af74679e756bd13e5a",
+    "created_at": "2026-07-12T19:49:54+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "current_codex_stage_bookkeeper",
+    "provider": "openai",
+    "model": "gpt-5",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "This current Codex session participated in stage design and now also acts as bookkeeper at the user's explicit request. It must not implement, fix, or issue a formal review verdict. It remains provider/session-independent from the planned claude_glm implementer.",
+    "assigned_by": "human_operator",
+    "assigned_at": "2026-07-12T23:06:34+08:00"
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "auto_review_pipeline": {
+    "schema_version": 1,
+    "enabled": false,
+    "dispatch_mode": "human_dispatch",
+    "mode_flip_pending": null,
+    "authorization_path": null,
+    "runner_state": null,
+    "runner_version": "auto-review-pipeline/v1",
+    "exclusive_worktree": null,
+    "budgets": null,
+    "mode_history": [],
+    "review_units": [],
+    "embedded_cross_checks": [],
+    "last_receipt_path": null,
+    "last_escalation_path": null
+  },
+  "embedded_reviews": {},
+  "designer": {
+    "provider": "openai",
+    "model": "gpt-5",
+    "session": "current_codex_workspace_session",
+    "skill": "software_architect",
+    "mode": "read_write_docs",
+    "prior_involvement": "design"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": {
+    "provider": "anthropic",
+    "model": "opus4.8",
+    "skill": "task_planner",
+    "mode": "read_write_docs",
+    "status": "completed_and_bookkeeper_validated",
+    "routing_reason": "Human operator explicitly selected Opus 4.8 for this breakdown node instead of the workflow's Fable5-first default.",
+    "session_id": "215b0aa9-4d63-48f6-9b3d-2a9f6cc83b48",
+    "prior_involvement": "The same Anthropic session previously performed the read-only software_architect design review and then authored this development breakdown."
+  },
+  "implementer": {
+    "adapter": "claude_glm",
+    "provider": "zhipu_glm",
+    "model": "glm-5.2",
+    "session_id": "9cc72c7a-1f7f-463c-832a-380bef105578",
+    "skill": "senior_developer",
+    "status": "completed_bookkeeper_validated",
+    "report_path": "reports/agent-runs/2026-07-history-background-refresh-v1/20-implementation.md"
+  },
+  "implementers": [
+    {
+      "adapter": "claude_glm",
+      "provider": "zhipu_glm",
+      "model": "glm-5.2",
+      "session_id": "9cc72c7a-1f7f-463c-832a-380bef105578"
+    }
+  ],
+  "fix_authors": [],
+  "reviewer_1": null,
+  "reviewer_2": {
+    "reviewer": "claude_opus",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "session_id": "ea5c224f-db1a-4656-9883-c9aba11cbd9c",
+    "status": "ACCEPT"
+  },
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "task",
+      "owner": "claude_glm",
+      "reviewer": "kimi",
+      "r10_checklist": null,
+      "base_sha": "0db66d2a82c10139523a06af74679e756bd13e5a",
+      "head_sha": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb",
+      "diff_fingerprint": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96",
+      "test_evidence": "reports/agent-runs/2026-07-history-background-refresh-v1/60-test-output.txt",
+      "review_1": {
+        "reviewer": "kimi",
+        "provider": "moonshot_kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96"
+      }
+    }
+  ],
+  "model_routing": {
+    "dominant_domain": "backend",
+    "planned_implementation_owner": "claude_glm",
+    "planned_review_1": "kimi",
+    "excluded_for_core_work": [
+      "codex"
+    ],
+    "notes": [
+      "Frontend integration is light and may remain inside the backend-dominant bounded task subject to development breakdown confirmation.",
+      "The current Codex designer/bookkeeper session is not eligible for implementation or fix authorship."
+    ]
+  },
+  "complexity": {
+    "classification": "MEDIUM",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "Bounded backend-dominant cache/publication redesign with one new row-snapshot contract and light frontend integration.",
+      "No trading execution, full-universe prewarm, generic scheduler, concurrency pool, disk persistence, or delta-fetch merge is in scope."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "skipped_existing_approved_scope",
+    "user_approved": true
+  },
+  "design_reviews": {
+    "current": [
+      {
+        "provider": "xai_grok",
+        "model": "grok-4.5",
+        "session_id": "019f56b9-214f-7ce1-ab71-705954fd21d4",
+        "skill": "software_architect",
+        "mode": "read_only",
+        "verdict": "ACCEPT_WITH_AMENDMENTS",
+        "disposition": "amendments_applied_to_current_worktree"
+      },
+      {
+        "provider": "anthropic",
+        "model": "opus4.8",
+        "session_id": "215b0aa9-4d63-48f6-9b3d-2a9f6cc83b48",
+        "skill": "software_architect",
+        "mode": "read_only",
+        "verdict": "ACCEPT_WITH_AMENDMENTS",
+        "disposition": "amendments_applied_to_current_worktree"
+      }
+    ],
+    "superseded_draft_commits": [
+      "010ec85cfaf537660b14984cd6bbd737cb0ea753",
+      "efffe78c5465ccb3e03ba979bd07385602ac4f7e"
+    ]
+  },
+  "human_gates": {
+    "cold_start": {
+      "decision": "brief_503_before_immediate_base_publication",
+      "status": "approved_in_design_discussion",
+      "notes": "Never wait for deep-history sweep."
+    },
+    "background_kill_switch": {
+      "decision": "present_and_default_enabled",
+      "status": "approved_in_design_discussion",
+      "notes": "Offline mode forces non-start."
+    },
+    "merge_to_main": {
+      "decision": "user_display_acceptance_and_explicit_commit_push_merge_authorization",
+      "status": "approved_for_merge_to_main",
+      "approved_at": "2026-07-13T10:51:55+08:00"
+    }
+  },
+  "base_sha": "0db66d2a82c10139523a06af74679e756bd13e5a",
+  "head_sha": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb",
+  "diff_fingerprint": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96",
+  "checkpoint": {
+    "committed_head": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb",
+    "worktree_state": "committed_review_snapshot_with_status_only_bookkeeping_update",
+    "formal_review_range_bound": true
+  },
+  "changed_files": [
+    "backend/adapters/binance_public.py",
+    "backend/app/server.py",
+    "backend/config.py",
+    "backend/domain/snapshot.py",
+    "backend/services/private_client.py",
+    "backend/services/snapshot_service.py",
+    "backend/tests/test_background_worker.py",
+    "backend/tests/test_config.py",
+    "backend/tests/test_funding_history.py",
+    "backend/tests/test_funding_history_endpoint.py",
+    "backend/tests/test_private_client.py",
+    "backend/tests/test_symbol_snapshot_endpoint.py",
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "reports/api-samples/2026-07-history-background-refresh-v1/20260713T000000Z/capture.md",
+    "reports/api-samples/2026-07-history-background-refresh-v1/20260713T000000Z/raw/fapi-v1-fundingRate-BTCUSDT-limit1000.json",
+    "reports/api-samples/2026-07-history-background-refresh-v1/20260713T000000Z/raw/fapi-v1-premiumIndex-BTCUSDT.json",
+    "reports/api-samples/2026-07-history-background-refresh-v1/20260713T000000Z/signed-audit-template.json",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/00-intake.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/00-task.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/10-design.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/11-adr.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/12-development-breakdown-amendment.prompt.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/12-development-breakdown.prompt.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/20-implementation.prompt.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/21-pre-review-repair.prompt.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/22-pre-review-atomicity-repair.prompt.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/23-pre-review-final-deadline-repair.prompt.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-history-background-refresh-v1/status.json"
+    ,"schemas/api/public-market/symbol-snapshot.schema.json"
+  ],
+  "tests": {
+    "status": "passed",
+    "commands": [
+      "jq empty reports/agent-runs/2026-07-history-background-refresh-v1/status.json",
+      "git diff --check",
+      "python3 scripts/validate-stage.py 2026-07-history-background-refresh-v1 --phase dispatch-ready",
+      "PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider",
+      "node frontend/self-check.js"
+    ]
+  },
+  "pre_review_findings": [
+    {
+      "id": "BK-1",
+      "severity": "high",
+      "title": "Endpoint timeout is incorrectly reported as ok while the queued command remains unfinished",
+      "evidence": "snapshot_service.py:get_symbol_snapshot defaults cmd.refresh_status=None to ok after the bounded wait expires",
+      "required_repair": "Return a local timeout projection when the command is unfinished at deadline; request threads must not mutate command/cache/publication."
+    },
+    {
+      "id": "BK-2",
+      "severity": "high",
+      "title": "Already-expired queued command still starts new upstream I/O",
+      "evidence": "snapshot_service.py:_handle_refresh_command checks deadline only after premium/history/private reads",
+      "required_repair": "Pre-I/O expiry short-circuit and a second expiry check after assembly before any domain-cache commit or publication."
+    },
+    {
+      "id": "BK-3",
+      "severity": "medium",
+      "title": "Disabled live worker can return a misleading successful refresh status",
+      "evidence": "get_symbol_snapshot returns default ok when a published state exists but _worker_running() is false",
+      "required_repair": "Return last-good row with timeout and warning, with zero upstream I/O."
+    },
+    {
+      "id": "BK-4",
+      "severity": "medium",
+      "title": "Frontend treats timeout and partial one-row responses as unqualified success",
+      "evidence": "Grok pre-review session 019f577e-d69a-7cb3-9e31-26f49fc542fb confirms fetchSymbolSnapshot does not consume refresh_status/warnings",
+      "required_repair": "Show a non-blocking timeout or partial warning while retaining the targeted row/drawer patch and avoiding a full-table rerender."
+    },
+    {
+      "id": "BK-5",
+      "severity": "medium",
+      "title": "Defensive click cold path can call full-universe fetch_raw",
+      "evidence": "snapshot_service.py:_handle_refresh_command fetches base_raw when absent, contrary to the no-fetch_raw click-path contract",
+      "required_repair": "Return timeout plus warning with zero upstream I/O when base_raw is absent."
+    },
+    {
+      "id": "BK-6",
+      "severity": "high",
+      "title": "History cache can commit before selected-click schema validation fails",
+      "evidence": "snapshot_service.py writes _funding_history_cache before _publish(), whose first action is jsonschema.validate()",
+      "required_repair": "Validate before every selected-click domain-cache commit and publish; prove schema failure leaves state, history cache, and private-input bundle unchanged."
+    },
+    {
+      "id": "BK-7",
+      "severity": "high",
+      "title": "Schema validation can cross deadline before cache commit/publication",
+      "evidence": "snapshot_service.py checks deadline before _validate(), but commits history cache and publishes immediately after validation returns",
+      "required_repair": "Re-check deadline after successful validation and before any cache commit or _publish_validated; prove validation crossing deadline leaves state/cache/private inputs unchanged."
+    }
+  ],
+  "pre_review_repairs": {
+    "status": "all_resolved_and_independently_retested",
+    "implementer_session_id": "9cc72c7a-1f7f-463c-832a-380bef105578",
+    "resolved_ids": ["BK-1", "BK-2", "BK-3", "BK-4", "BK-5", "BK-6", "BK-7"],
+    "independent_bookkeeper_checks": {
+      "backend_full_suite": "289 passed",
+      "symbol_snapshot_endpoint_suite": "27 passed",
+      "frontend_self_check": "passed",
+      "diff_check": "passed"
+    },
+    "residual_risk": "No live signed capture was performed; public raw samples and sanitised fake-key force-TTL behavioral evidence are present. Live signed capture remains an operator-authorised follow-up, not a claimed fact."
+  },
+  "development_breakdown_validation": {
+    "result": "passed_after_targeted_amendment",
+    "validated_by": "current_codex_stage_bookkeeper",
+    "source_path": "reports/agent-runs/2026-07-history-background-refresh-v1/12-development-breakdown.md",
+    "amendment_prompt_path": "reports/agent-runs/2026-07-history-background-refresh-v1/12-development-breakdown-amendment.prompt.md",
+    "findings": [],
+    "resolved_findings": [
+      "Shared monotonic command deadline now gates domain-cache commit and PublishedState replacement after request timeout.",
+      "The v1 frontend one-second guard and in-flight suppression are frozen; only backend post-completion cooldown is deferred to v1.1.",
+      "Selected-asset force-TTL names the exact single-asset E2/E2b/maxBorrowable keys and preserves scheduled multi-asset batch keys.",
+      "Offline synchronous compatibility is isolated from live kill-switch-disabled last-good/503 behavior."
+    ],
+    "implementation_clarification": "Treat deadline equality as expired: time.monotonic() >= deadline_monotonic.",
+    "product_blocker": false
+  },
+  "optional_grok_breakdown_review": {
+    "provider": "xai_grok",
+    "model": "grok-4.5",
+    "session_id": "019f56b9-214f-7ce1-ab71-705954fd21d4",
+    "reported_by": "human_operator",
+    "raw_output_path": null,
+    "evidence_status": "session_id_only_raw_review_output_not_in_stage_directory",
+    "gate_effect": "informational_only_non_blocking"
+  },
+  "review_1": {
+    "reviewer": "kimi",
+    "provider": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "model": "kimi-code/kimi-for-coding",
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96",
+    "reviewer_prior_involvement": null,
+    "reviewer_prior_involvement_pending": false,
+    "reviewer_prior_involvement": "none",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": "claude_opus",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "session_id": "ea5c224f-db1a-4656-9883-c9aba11cbd9c",
+    "primary_provider": "openai_codex_ineligible_due_to_design_and_bookkeeper_involvement",
+    "fallback_provider": "anthropic",
+    "fallback_reason": "design_conflict_ineligibility_of_preferred_codex_reviewer; human_operator_explicitly_selected_and_accepted_opus4_8_review_2",
+    "model_selection_reason": "The human operator supplied the completed Opus 4.8 review session and explicitly authorized commit, push, and merge after reviewing its disclosure.",
+    "reviewer_prior_involvement": "breakdown",
+    "reviewer_prior_involvement_pending": false,
+    "reviewer_prior_involvement_notes": "Anthropic provider performed design review and the development breakdown. Current Codex session is design author and user-authorised bookkeeper, so cannot issue a formal final verdict. No other registered, provider-isolated, design-uninvolved decision model exists.",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-history-background-refresh-v1/31-review-2-routing-disclosure.md",
+    "design_conflict_override": {
+      "used": true,
+      "reason": "design_conflict_ineligibility_of_preferred_codex_reviewer",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-history-background-refresh-v1/31-review-2-routing-disclosure.md"
+    },
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96",
+    "raw_output_path": "reports/agent-runs/2026-07-history-background-refresh-v1/review-2-opus.raw-output.md",
+    "verdict_path": "reports/agent-runs/2026-07-history-background-refresh-v1/50-review-2.verdict.json",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": "review_2_accept_recorded_user_authorized_merge_pending_execution",
+  "next_action": "Bookkeeper commits review-2 evidence, validates pre-accept, pushes the stage branch, and merges it into main under the user's explicit authorization.",
+  "updated_at": "2026-07-13T10:51:55+08:00"
+}

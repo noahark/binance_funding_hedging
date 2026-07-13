@@ -1,30 +1,31 @@
-"""Stage 2026-07-funding-annualized-history-v1 — Task A tests.
+"""Settled funding-history annualization + windowing tests (pure functions).
 
-Covers the three additive annualized fields and the settled-history enrichment:
-24h estimate-derived annualization (daily_funding_rate * 365); 7D/30D
-calendar-window settled annualization (sum * 365/N, Decimal-only, 8 places);
-inclusive-window filtering + newest-first serialization; the bounded top-N
-deep-history request shape; the dedicated per-symbol successful-result cache;
-per-symbol failure degradation (empty history + null 7D/30D + warning, never a
-503); and the additive decimal-or-null schema contract (the live service always
-emits the three keys; the schema keeps them optional so frozen v0.1 snapshots
-stay valid under the unchanged wire version).
+Stage 2026-07-funding-annualized-history-v1 Task A retained coverage: the three
+additive annualized fields and the settled-history enrichment (24h estimate-
+derived; 7D/30D calendar-window settled annualization, Decimal-only, 8 places);
+inclusive-window filtering + newest-first serialization; and the additive
+decimal-or-null schema contract (the live service always emits the three keys;
+the schema keeps them optional so frozen v0.1 snapshots stay valid under the
+unchanged wire version).
+
+The former top-N service-level tests were superseded by the background-worker
+suite (``test_background_worker.py``) and the symbol-snapshot suite
+(``test_symbol_snapshot_endpoint.py``) when the snapshot service moved to a
+serial background worker + default-view selector (2026-07-history-background-
+refresh-v1). Pure-function coverage of annualization/windowing stays here.
 
 Deterministic vectors live under ``backend/tests/fixtures/funding-history/``.
-No network: the public client is stubbed where the live deep-history path is
-exercised; pure functions and ``build_rows`` are tested directly.
+No network: pure functions and ``build_rows`` are tested directly.
 """
 from __future__ import annotations
 
 import json
-import urllib.error
 from pathlib import Path
 from decimal import Decimal
 
 import jsonschema
 import pytest
 
-from backend.config import Config
 from backend.domain.snapshot import (
     _build_funding_history,
     assemble_snapshot,
@@ -33,7 +34,6 @@ from backend.domain.snapshot import (
     compute_annualized_funding_window,
     settle_history_view,
 )
-from backend.services.snapshot_service import SnapshotService
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIX_DIR = REPO_ROOT / "backend/tests/fixtures/funding-history"
@@ -242,153 +242,6 @@ def test_build_rows_always_emits_three_annualized_fields():
     assert rows[0]["annualized_funding_24h"] == "0.10950000"  # estimate present
     assert rows[0]["annualized_funding_7d"] is None            # no history -> null
     assert rows[0]["annualized_funding_30d"] is None
-
-
-# =========================================================================
-# SnapshotService — bounded top-N deep history, exact request, cache, degrade
-# =========================================================================
-def _raw(rate="0.00010000", symbols=1):
-    syms, prem = [], []
-    for i in range(symbols):
-        sym = "BTCUSDT" if symbols == 1 else f"TST{i}USDT"
-        base = "BTC" if symbols == 1 else f"TST{i}"
-        syms.append({"symbol": sym, "baseAsset": base, "quoteAsset": "USDT",
-                     "contractType": "PERPETUAL", "status": "TRADING", "filters": []})
-        prem.append({"symbol": sym, "lastFundingRate": rate, "markPrice": "1",
-                     "indexPrice": "1", "nextFundingTime": T_END + 1, "time": T_END})
-    return {
-        "futures_exchange_info": {"symbols": syms},
-        "premium_index": prem,
-        "spot_exchange_info": {"symbols": []},
-        "funding_history_by_sym": {},
-        "funding_interval_by_sym": {},
-        "warnings": [],
-    }
-
-
-class _StubPublic:
-    """Records deep-history calls; returns canned entries or raises."""
-
-    offline = False
-
-    def __init__(self, raw, history_fn=None):
-        self._raw = raw
-        self._history_fn = history_fn or (lambda symbol, **kw: [])
-        self.request_log: dict = {"GET /fapi/v1/fundingRate": 0}
-        self.calls: list = []
-
-    def fetch_raw(self):
-        return self._raw
-
-    def fetch_funding_rate(self, symbol, *, start_time_ms=None, end_time_ms=None, limit=1000):
-        self.request_log["GET /fapi/v1/fundingRate"] += 1
-        self.calls.append((symbol, start_time_ms, end_time_ms, limit))
-        return self._history_fn(symbol, start_time_ms=start_time_ms,
-                                end_time_ms=end_time_ms, limit=limit)
-
-    def fetch_ticker_price_map(self):
-        return {}
-
-
-class _StubPrivate:
-    """Disabled private channel (classic_ref None -> no signed HTTP)."""
-
-    def __init__(self):
-        self.last_error = "private_channel_disabled"
-
-    def fetch_classic_reference(self):
-        return None
-
-    def fetch_cost_leg_chain(self, assets):
-        return None
-
-    def fetch_unified_balances(self):
-        return None
-
-    def fetch_um_positions(self):
-        return None
-
-    def fetch_spot_balances(self):
-        return None
-
-    def fetch_max_borrowable(self, asset):
-        return None
-
-
-def _service_with(raw, history_fn=None, **cfg):
-    service = SnapshotService(Config(offline=False, **cfg))
-    service.client = _StubPublic(raw, history_fn)
-    service._private = _StubPrivate()
-    return service
-
-
-def test_service_requests_exact_deep_history_parameters():
-    captured = {}
-
-    def hist(symbol, *, start_time_ms, end_time_ms, limit):
-        captured.update(symbol=symbol, start=start_time_ms, end=end_time_ms, limit=limit)
-        return []   # empty -> null 7D/30D
-
-    service = _service_with(_raw(), hist)
-    service.build_snapshot()
-    assert captured["symbol"] == "BTCUSDT"
-    assert captured["limit"] == 1000
-    assert captured["end"] == T_END
-    assert captured["start"] == T_END - 30 * DAY   # startTime = t_end - 30d
-
-
-def test_service_history_feeds_annualized_fields(schema):
-    service = _service_with(
-        _raw(), lambda symbol, **kw: _fixture("seven-day-flat.json"),
-    )
-    snap = service.build_snapshot()
-    jsonschema.validate(snap, schema)
-    btc = snap["rows"][0]
-    assert btc["annualized_funding_24h"] == "0.10950000"
-    assert btc["annualized_funding_7d"] == "0.03650000"
-    assert btc["annualized_funding_30d"] == "0.00851667"
-
-
-def test_service_top_n_caps_deep_history_calls():
-    service = _service_with(_raw(symbols=5), lambda symbol, **kw: [], top_n=2)
-    service.build_snapshot()
-    fetched = [c[0] for c in service.client.calls]
-    assert len(fetched) == 2          # only the top-N by abs(rate)
-
-
-def test_service_history_cache_avoids_refetch_within_ttl():
-    service = _service_with(_raw(), lambda symbol, **kw: _fixture("seven-day-flat.json"))
-    service.build_snapshot()
-    service.build_snapshot()           # second rebuild -> served from history cache
-    assert service.client.request_log["GET /fapi/v1/fundingRate"] == 1
-
-
-def test_service_history_failure_degrades_row_not_snapshot(schema):
-    def fail(symbol, **kw):
-        raise urllib.error.URLError("boom")
-
-    service = _service_with(_raw(), fail)
-    snap = service.build_snapshot()    # must NOT raise
-    jsonschema.validate(snap, schema)
-    btc = snap["rows"][0]
-    assert btc["funding_history"] == []
-    assert btc["annualized_funding_7d"] is None
-    assert btc["annualized_funding_30d"] is None
-    assert btc["annualized_funding_24h"] is not None        # estimate still computed
-    assert "funding_history_unavailable:BTCUSDT" in snap["warnings"]
-
-
-def test_service_history_failure_is_not_cached_retries_next_rebuild():
-    calls = {"n": 0}
-
-    def fail(symbol, **kw):
-        calls["n"] += 1
-        raise urllib.error.URLError("boom")
-
-    service = _service_with(_raw(), fail)
-    service.build_snapshot()
-    service.build_snapshot()
-    assert calls["n"] == 2             # failure not cached -> retried
 
 
 # =========================================================================

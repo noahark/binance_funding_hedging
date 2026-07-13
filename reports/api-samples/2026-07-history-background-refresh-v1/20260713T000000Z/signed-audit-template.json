@@ -1,0 +1,29 @@
+{
+  "_note": "TEMPLATE ONLY — not fact evidence. This documents the sanitized audit_log entry shape produced by backend/services/private_client.py for the selected-asset force-TTL refresh path. A live capture requires an operator-authorized safe environment and is a pending follow-up. Real entries NEVER contain key/secret/signature/query/headers/balances/positions; only the five sanitized fields below.",
+  "_stage": "2026-07-history-background-refresh-v1",
+  "_contract": "public-market-symbol-snapshot/v1 selected-asset force-TTL refresh (12-development-breakdown.md §7)",
+  "_force_evicted_keys_comment": "force=True evicts EXACTLY these three single-asset cache keys (never _cache.clear()): (GET,/papi/v1/margin/maxBorrowable,{asset:<base>}), (GET,/sapi/v1/margin/next-hourly-interest-rate,{assets:<base>,isIsolated:false}), (GET,/sapi/v1/margin/interestRateHistory,{asset:<base>}). Multi-asset scheduled-batch keys and shared 1h references (crossMarginData, account/info, classic) are preserved.",
+  "_example_audit_entries_shape": [
+    {
+      "logical_endpoint": "/papi/v1/margin/maxBorrowable",
+      "method": "GET",
+      "http_status": 200,
+      "error": null,
+      "latency_ms": 0.0
+    },
+    {
+      "logical_endpoint": "/sapi/v1/margin/next-hourly-interest-rate",
+      "method": "GET",
+      "http_status": 200,
+      "error": null,
+      "latency_ms": 0.0
+    },
+    {
+      "logical_endpoint": "/sapi/v1/margin/interestRateHistory",
+      "method": "GET",
+      "http_status": 200,
+      "error": null,
+      "latency_ms": 0.0
+    }
+  ]
+}

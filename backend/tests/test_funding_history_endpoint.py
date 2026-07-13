@@ -1,26 +1,27 @@
-"""Stage 2026-07-funding-annualized-history-v1 — Task C endpoint tests.
+"""Legacy ``GET /api/public-market/funding-history`` — pure projection tests.
 
-``GET /api/public-market/funding-history?symbol=<eligible-USDT-perpetual>`` is a
-same-origin, public read-only selected-symbol settled-history view. The service
-resolves the symbol against the current snapshot's eligible rows, takes the
-settled-window end from that snapshot's ``data_time``, and reuses the existing
-per-symbol 30-minute successful-result cache.
+2026-07-history-background-refresh-v1 (breakdown §8): the endpoint degrades to a
+PURE projection from the immutable ``PublishedState``. It performs ZERO upstream
+fetch and ZERO cache write (the single-worker ownership invariant — no second
+cache producer). The frontend click flow now uses ``symbol-snapshot``; this
+endpoint remains for contract compatibility.
 
 Status surface:
   400 ``invalid_symbol``       missing/malformed query symbol.
-  404 ``symbol_not_found``     well-formed symbol not in the eligible snapshot.
-  502 ``funding_history_unavailable`` snapshot unavailable or upstream
-                                fundingRate failure (failure NOT cached).
-  200                           schema-valid ``public-market-funding-history/v1``;
-                                a successful empty window is
-                                ``history_status: "empty"`` and IS cached.
+  404 ``symbol_not_found``     well-formed symbol not in the eligible published
+                               rows.
+  503 ``snapshot_not_ready``   worker not ready (before first base publication).
+  200                           schema-valid ``public-market-funding-history/v1``
+                               projected from the published row; ``available``
+                               (non-empty history) or ``empty`` (present, empty).
 
-No network: the public client is stubbed where the live deep-history path runs.
+No network: a fake public client is injected and the worker is exercised via a
+direct ``_scheduled_tick()`` to publish a state, then the endpoint is asserted
+to add no upstream calls and no cache writes.
 """
 from __future__ import annotations
 
 import json
-import urllib.error
 from pathlib import Path
 
 import jsonschema
@@ -32,8 +33,7 @@ from backend.services.snapshot_service import SnapshotService
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIX_DIR = REPO_ROOT / "backend/tests/fixtures/funding-history"
 
-# Snapshot premium-index time (ms) shared with the Task A vectors. The endpoint
-# derives its window end from the snapshot, which is built from this time.
+# Snapshot premium-index time (ms) shared with the funding-history vectors.
 T_END = 1783641600000
 DAY = 86_400_000
 
@@ -50,28 +50,37 @@ def fh_schema() -> dict:
 
 
 def _raw(symbols):
-    """Build raw public inputs for a list of ``(symbol, base_asset, rate)`` rows."""
-    syms, prem = [], []
+    """Build raw public inputs for a list of ``(symbol, base_asset, rate)`` rows.
+
+    Each row is given a public spot/margin leg so its ``route_class`` is
+    ``MARGIN_SPOT_CANDIDATE`` (not ``PERP_ONLY_EXCLUDED``, which the default-view
+    selector excludes). Rates above the default-view prewarm boundary
+    (abs(daily) > 0.00030000) are then selected by the worker's scheduled sweep,
+    so the published row carries settled history for the projection tests.
+    """
+    syms, prem, spots = [], [], []
     for sym, base, rate in symbols:
         syms.append({"symbol": sym, "baseAsset": base, "quoteAsset": "USDT",
                      "contractType": "PERPETUAL", "status": "TRADING", "filters": []})
         prem.append({"symbol": sym, "lastFundingRate": rate, "markPrice": "1",
                      "indexPrice": "1", "nextFundingTime": T_END + 1, "time": T_END})
+        spots.append({"symbol": sym, "status": "TRADING",
+                      "isMarginTradingAllowed": True, "filters": []})
     return {
         "futures_exchange_info": {"symbols": syms},
         "premium_index": prem,
-        "spot_exchange_info": {"symbols": []},
+        "spot_exchange_info": {"symbols": spots},
         "funding_history_by_sym": {},
         "funding_interval_by_sym": {},
         "warnings": [],
     }
 
 
-_BTC = [("BTCUSDT", "BTC", "0.00010000")]
+_BTC = [("BTCUSDT", "BTC", "0.00050000")]
 
 
 class _StubPublic:
-    """Records deep-history calls; returns canned entries or raises."""
+    """Records deep-history calls; returns canned entries."""
 
     offline = False
 
@@ -90,6 +99,9 @@ class _StubPublic:
         return self._history_fn(symbol, start_time_ms=start_time_ms,
                                 end_time_ms=end_time_ms, limit=limit)
 
+    def fetch_premium_index_for(self, symbol):
+        return {}
+
     def fetch_ticker_price_map(self):
         return {}
 
@@ -103,7 +115,7 @@ class _StubPrivate:
     def fetch_classic_reference(self):
         return None
 
-    def fetch_cost_leg_chain(self, assets):
+    def fetch_cost_leg_chain(self, assets, *, force=False):
         return None
 
     def fetch_unified_balances(self):
@@ -115,7 +127,7 @@ class _StubPrivate:
     def fetch_spot_balances(self):
         return None
 
-    def fetch_max_borrowable(self, asset):
+    def fetch_max_borrowable(self, asset, *, force=False):
         return None
 
 
@@ -127,7 +139,7 @@ def _service(raw, history_fn=None, **cfg):
 
 
 # =========================================================================
-# 400 invalid_symbol — missing or malformed (no upstream call before validation)
+# 400 invalid_symbol — validated before any state consultation
 # =========================================================================
 @pytest.mark.parametrize(
     "symbol",
@@ -135,29 +147,40 @@ def _service(raw, history_fn=None, **cfg):
 )
 def test_invalid_symbol_returns_400(symbol):
     service = _service(_raw(_BTC), lambda s, **kw: [])
+    service._scheduled_tick()  # publish so 400 is the only reason to fail
     status, payload = service.get_funding_history(symbol)
     assert status == 400
     assert payload == {"error": "invalid_symbol"}
-    assert service.client.calls == []   # symbol validated before any HTTP
 
 
 # =========================================================================
-# 404 symbol_not_found — well-formed but not an eligible current snapshot row
+# 404 symbol_not_found — well-formed but not an eligible published row
 # =========================================================================
 def test_unknown_symbol_returns_404():
     service = _service(_raw(_BTC), lambda s, **kw: [])
+    service._scheduled_tick()
     status, payload = service.get_funding_history("ETHUSDT")
     assert status == 404
     assert payload == {"error": "symbol_not_found"}
-    # ETHUSDT is well-formed; the endpoint never makes an upstream call for it.
-    assert all(c[0] != "ETHUSDT" for c in service.client.calls)
 
 
 # =========================================================================
-# 200 available — settled records present, schema-valid, no 24h estimate
+# 503 snapshot_not_ready — before the first base publication (live mode)
 # =========================================================================
-def test_available_history_returns_200_and_schema_valid(fh_schema):
+def test_not_ready_returns_503_before_first_publish():
+    service = _service(_raw(_BTC), lambda s, **kw: [])
+    # no _scheduled_tick -> _published_state is None
+    status, payload = service.get_funding_history("BTCUSDT")
+    assert status == 503
+    assert payload == {"error": "snapshot_not_ready"}
+
+
+# =========================================================================
+# 200 available / empty — projected from the published row
+# =========================================================================
+def test_available_history_projects_from_published(fh_schema):
     service = _service(_raw(_BTC), lambda s, **kw: _fixture("seven-day-flat.json"))
+    service._scheduled_tick()
     status, payload = service.get_funding_history("BTCUSDT")
     assert status == 200
     assert payload["schema_version"] == "public-market-funding-history/v1"
@@ -165,19 +188,14 @@ def test_available_history_returns_200_and_schema_valid(fh_schema):
     assert payload["history_status"] == "available"
     assert payload["annualized_funding_7d"] == "0.03650000"
     assert payload["annualized_funding_30d"] == "0.00851667"
-    # newest-first settled history
-    times = [e["funding_time"] for e in payload["funding_history"]]
-    assert times == sorted(times, reverse=True)
     # the endpoint does NOT return the current-period 24h estimate
     assert "annualized_funding_24h" not in payload
     jsonschema.validate(payload, fh_schema)
 
 
-# =========================================================================
-# 200 empty — successful fetch with no in-window records (distinct from failure)
-# =========================================================================
-def test_empty_window_returns_200_empty_and_null_annuals(fh_schema):
-    service = _service(_raw(_BTC), lambda s, **kw: [])   # upstream returns []
+def test_empty_history_projects_from_published(fh_schema):
+    service = _service(_raw(_BTC), lambda s, **kw: [])
+    service._scheduled_tick()
     status, payload = service.get_funding_history("BTCUSDT")
     assert status == 200
     assert payload["history_status"] == "empty"
@@ -188,96 +206,45 @@ def test_empty_window_returns_200_empty_and_null_annuals(fh_schema):
 
 
 # =========================================================================
-# 502 funding_history_unavailable — upstream failure, NOT cached (retries)
+# Pure projection — ZERO upstream fetch, ZERO cache write (breakdown §8/F2)
 # =========================================================================
-def test_upstream_failure_returns_502_and_retries():
-    # BBB is a non-top-N eligible row (AAA is preloaded); the endpoint fetches
-    # BBB on demand, so its retry count is isolated from the top-N preload.
-    syms = [("AAAUSDT", "AAA", "0.00050000"), ("BBBUSDT", "BBB", "0.00000001")]
-
-    def hist(symbol, **kw):
-        if symbol == "BBBUSDT":
-            raise urllib.error.URLError("boom")
-        return []
-
-    service = _service(_raw(syms), hist, top_n=1)
-    status, payload = service.get_funding_history("BBBUSDT")
-    assert status == 502
-    assert payload == {"error": "funding_history_unavailable"}
-    status, payload = service.get_funding_history("BBBUSDT")
-    assert status == 502
-    # failure NOT cached -> every endpoint call retries the upstream fetch
-    bbb_calls = [c for c in service.client.calls if c[0] == "BBBUSDT"]
-    assert len(bbb_calls) == 2
-
-
-def test_snapshot_unavailable_returns_502(monkeypatch):
-    service = _service(_raw(_BTC), lambda s, **kw: [])
-
-    def boom():
-        raise RuntimeError("snapshot broken")
-
-    monkeypatch.setattr(service, "get_snapshot", boom)
-    status, payload = service.get_funding_history("BTCUSDT")
-    assert status == 502
-    assert payload == {"error": "funding_history_unavailable"}
-
-
-# =========================================================================
-# Cache reuse — successful results (incl. empty) cached within the 1800s TTL
-# =========================================================================
-def test_success_cached_within_ttl():
+def test_endpoint_triggers_no_upstream_fetch_and_no_cache_write():
     service = _service(_raw(_BTC), lambda s, **kw: _fixture("seven-day-flat.json"))
-    service.get_funding_history("BTCUSDT")
-    service.get_funding_history("BTCUSDT")
-    assert service.client.request_log["GET /fapi/v1/fundingRate"] == 1
+    service._scheduled_tick()
+    calls_before = list(service.client.calls)
+    cache_before = dict(service._funding_history_cache)
+    rate_calls_before = service.client.request_log["GET /fapi/v1/fundingRate"]
+    # multiple endpoint reads must not fetch or write anything
+    for _ in range(3):
+        status, _ = service.get_funding_history("BTCUSDT")
+        assert status == 200
+    assert service.client.calls == calls_before
+    assert service.client.request_log["GET /fapi/v1/fundingRate"] == rate_calls_before
+    assert service._funding_history_cache == cache_before
 
 
-def test_empty_success_cached_within_ttl():
+def test_data_time_taken_from_published_state():
     service = _service(_raw(_BTC), lambda s, **kw: [])
-    service.get_funding_history("BTCUSDT")
-    service.get_funding_history("BTCUSDT")
-    assert service.client.request_log["GET /fapi/v1/fundingRate"] == 1
-
-
-# =========================================================================
-# Window boundary — reused from the snapshot data_time; exact request shape
-# =========================================================================
-def test_data_time_taken_from_snapshot():
-    service = _service(_raw(_BTC), lambda s, **kw: [])
-    snap = service.get_snapshot()
+    service._scheduled_tick()
+    state = service._published_state
     _, payload = service.get_funding_history("BTCUSDT")
-    assert payload["data_time"] == snap["data_time"]
-
-
-def test_request_uses_snapshot_time_boundary():
-    captured = {}
-
-    def hist(symbol, *, start_time_ms, end_time_ms, limit):
-        captured.update(symbol=symbol, start=start_time_ms, end=end_time_ms, limit=limit)
-        return []
-
-    service = _service(_raw(_BTC), hist)
-    service.get_funding_history("BTCUSDT")
-    assert captured["symbol"] == "BTCUSDT"
-    assert captured["limit"] == 1000
-    assert captured["end"] == T_END                       # snapshot data_time
-    assert captured["start"] == T_END - 30 * DAY          # inclusive 30-day window
+    assert payload["data_time"] == state.snapshot["data_time"]
 
 
 # =========================================================================
-# No full-universe prefetch — a non-top-N eligible row is served on demand
+# Non-default-view symbol still projects if its row was published (e.g. loaded
+# by a prior click). Eligibility is "in the published rows", not "prewarmed".
 # =========================================================================
-def test_non_topn_symbol_served_on_demand(fh_schema):
-    syms = [("AAAUSDT", "AAA", "0.00050000"), ("BBBUSDT", "BBB", "0.00000001")]
-    service = _service(_raw(syms), lambda s, **kw: _fixture("seven-day-flat.json"), top_n=1)
-    snap = service.get_snapshot()
-    # build_snapshot preloaded only the top-1 (AAA, higher abs rate); BBB was not.
-    assert [c[0] for c in service.client.calls] == ["AAAUSDT"]
-    assert {"AAAUSDT", "BBBUSDT"} <= {r["symbol"] for r in snap["rows"]}
-    # the endpoint still serves the non-preloaded eligible symbol on demand
+def test_non_default_symbol_projects_when_present(fh_schema):
+    # BBB rate 0.00010000 -> daily 0.0003 -> NOT > 0.0003 -> not prewarmed by
+    # the selector. But it is still an eligible published row, so the endpoint
+    # projects its (empty) history without any on-demand fetch.
+    syms = [("BTCUSDT", "BTC", "0.00050000"), ("BBBUSDT", "BBB", "0.00010000")]
+    service = _service(_raw(syms), lambda s, **kw: [])
+    service._scheduled_tick()
+    snap = service._published_state.snapshot
+    assert {"BTCUSDT", "BBBUSDT"} <= {r["symbol"] for r in snap["rows"]}
     status, payload = service.get_funding_history("BBBUSDT")
     assert status == 200
-    assert payload["history_status"] == "available"
+    assert payload["history_status"] == "empty"
     jsonschema.validate(payload, fh_schema)
-    assert "BBBUSDT" in [c[0] for c in service.client.calls]

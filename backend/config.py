@@ -57,6 +57,24 @@ class Config:
     # Explicit operator switch. API keys may exist in the environment, but the
     # private read-only channel stays disabled unless this flag is true.
     private_channel_enabled: bool = False
+    # Stage 2026-07-history-background-refresh-v1: serial background worker that
+    # owns all domain-cache writes and the single immutable PublishedState.
+    # Default-on kill switch: setting False (live) makes get_snapshot a pure
+    # last-good/503 read with zero upstream fetch and never starts the worker.
+    # Offline mode never starts the worker regardless (it keeps the synchronous
+    # fixture build path).
+    background_refresh_enabled: bool = True
+    # Worker tick cadence (seconds): how often the loop wakes to sweep the next
+    # default-view history batch and refresh base rows when age >= cache_ttl.
+    background_tick_seconds: int = 30
+    # Max default-view history entries refreshed per scheduled tick (10-design
+    # D2). Bounds per-tick /fapi/v1/fundingRate call volume.
+    history_sweep_batch_size: int = 10
+    # Bounded wait for a one-shot RefreshSymbolCommand (10-design D7/D3). The
+    # shared deadline is also the publication gate (breakdown §10): a command
+    # whose upstream I/O completes after this monotonic deadline must NOT commit
+    # cache changes or publish a new PublishedState.
+    symbol_refresh_timeout_seconds: float = 30.0
 
 
 DEFAULT = Config()
@@ -178,5 +196,29 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
             "BINANCE_PRIVATE_CHANNEL_ENABLED",
             DEFAULT.private_channel_enabled,
             "FUNDING_HEDGING_PRIVATE_CHANNEL_ENABLED",
+        ),
+        background_refresh_enabled=_env_bool(
+            env,
+            "APP_BACKGROUND_REFRESH_ENABLED",
+            DEFAULT.background_refresh_enabled,
+            "FUNDING_HEDGING_BACKGROUND_REFRESH_ENABLED",
+        ),
+        background_tick_seconds=_env_int(
+            env,
+            "APP_BACKGROUND_TICK_SECONDS",
+            DEFAULT.background_tick_seconds,
+            "FUNDING_HEDGING_BACKGROUND_TICK_SECONDS",
+        ),
+        history_sweep_batch_size=_env_int(
+            env,
+            "APP_HISTORY_SWEEP_BATCH_SIZE",
+            DEFAULT.history_sweep_batch_size,
+            "FUNDING_HEDGING_HISTORY_SWEEP_BATCH_SIZE",
+        ),
+        symbol_refresh_timeout_seconds=_env_float(
+            env,
+            "APP_SYMBOL_REFRESH_TIMEOUT_SECONDS",
+            DEFAULT.symbol_refresh_timeout_seconds,
+            "FUNDING_HEDGING_SYMBOL_REFRESH_TIMEOUT_SECONDS",
         ),
     )
