@@ -19,6 +19,17 @@ git diff --check
 PASS
 ```
 
+2026-07-13 16:35:25 CST — committed v4 PTY runner-ready checkpoint:
+
+```text
+authorization commit
+c7551cec6139a261af5c8a6177bfe96f0b3b92bd
+
+usage remains cumulative
+model_calls_used=3
+auto_code_changes_used=0
+```
+
 2026-07-13 15:59:03 CST — attempt-3 evidence commit:
 
 ```text

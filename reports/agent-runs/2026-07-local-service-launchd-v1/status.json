@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "human_escalation_required",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -48,6 +48,15 @@
     "scope_or_budget_changed_from_v2": false,
     "usage_counters_reset": false,
     "repair_commit": "78fbeb6b6f37a78be7081ba556319a8bd9f9dadc"
+  },
+  "authorization_v4_checkpoint": {
+    "commit": "c7551cec6139a261af5c8a6177bfe96f0b3b92bd",
+    "kind": "superseding_auto_authorization_v4_pty_route",
+    "validated_phase": "checkpoint",
+    "validated_result": "passed",
+    "scope_or_budget_changed_from_v3": false,
+    "usage_counters_reset": false,
+    "repair_commit": "5e80e039f6b12c06f94a996b4525b64861121e1b"
   },
   "auto_retry_v3_checkpoint": {
     "commit": "344b8734a9811887e0e58537c0e3a370a0b2fe9a",
@@ -260,7 +269,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "v4_pty_authorization_prepared_awaiting_commit",
+    "status": "v4_pty_authorized_runner_ready",
     "real_launchctl_mutation_authorized": false
   },
   "harness_adapter_repair": {
@@ -546,14 +555,12 @@
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [
-    "The prepared superseding v4 authorization and synchronized checkpoint must be committed before the auto runner may make the PTY model call."
-  ],
+  "blockers": [],
   "human_escalation": {
-    "required": true,
-    "reason": "operator approved a Harness-preserving PTY route test; the schema-valid superseding authorization is being committed before runner resume"
+    "required": false,
+    "reason": null
   },
-  "terminal_reason": "human_escalation_required",
-  "next_action": "validate_and_commit_superseding_authorization_v4_then_resume_runner",
-  "updated_at": "2026-07-13T08:28:13Z"
+  "terminal_reason": null,
+  "next_action": "run_auto_review_runner_v4_pty_claude_glm",
+  "updated_at": "2026-07-13T08:35:25Z"
 }

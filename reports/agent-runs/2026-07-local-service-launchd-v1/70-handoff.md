@@ -2,19 +2,19 @@
 
 ## Recovery Header
 
-- Active phase: PTY route repair committed; superseding authorization v4 prepared and awaiting commit
-- Next action: validate and commit v4, then resume the auto runner
+- Active phase: PTY route repair and superseding authorization v4 committed; runner-ready checkpoint pending commit
+- Next action: commit the synchronized checkpoint, then resume the auto runner
 - Read-set: = status.current_inputs
-- Open blockers: committed v4 authorization
+- Open blockers: none before runner invocation
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `human_escalation_required`
+- Status: `implementing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `5e80e039f6b12c06f94a996b4525b64861121e1b`
-- Git status: authorization v4 and synchronized checkpoint pending commit
+- HEAD: `c7551cec6139a261af5c8a6177bfe96f0b3b92bd`
+- Git status: synchronized runner-ready checkpoint pending commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 3 stopped fail-closed
@@ -29,7 +29,7 @@
 - Adapter repair: `14-harness-adapter-repair.md`
 - V3 prerequisite repair: `15-v3-prerequisite-repair.md`
 - Implementation: `20-implementation.md`; delivery implementation still pending
-- Current authorization pointer: `auto-run-authorization-v4.json`; prepared, not yet committed
+- Current authorization: `auto-run-authorization-v4.json`; committed and schema-valid
 - PTY route repair: `16-claude-glm-pty-route-repair.md`
 - Latest runner receipt: `runner-3-implementation.receipt.json`
 - Latest raw output: `runner-3-implementation-T1-launchd-service-attempt1.raw-output.md`
@@ -55,12 +55,12 @@
 
 ## Blockers
 
-- Commit the schema-valid superseding v4 authorization. Scope and budgets stay unchanged; usage remains `model_calls_used=3`, `auto_code_changes_used=0`.
+- None before invocation. PTY/provider/tool-permission failures must stop through runner evidence paths.
 
 ## Next Action
 
-After the authorization commit is clean, the auto runner performs the real PTY call. On success it continues through the frozen blocking checks, embedded cross-check, seal, and Grok review-1; it does not promote a manual session.
+After the checkpoint commit is clean, the auto runner performs the real PTY call. On success it continues through the frozen blocking checks, embedded cross-check, seal, and Grok review-1; it does not promote a manual session.
 
-本地北京时间: 2026-07-13 16:28:13 CST
-下一步模型: Codex bookkeeper
-下一步任务: 校验并提交 superseding authorization v4
+本地北京时间: 2026-07-13 16:35:25 CST
+下一步模型: Claude-GLM / GLM-5.2（auto runner PTY）
+下一步任务: 通过 entrypoint=cli 实现 T1 并继续原 Harness 自动流

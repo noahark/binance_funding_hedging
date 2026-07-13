@@ -62,6 +62,10 @@ The PTY repair is committed as
 `5e80e039f6b12c06f94a996b4525b64861121e1b`. Superseding authorization v4 is
 prepared with unchanged scope/budgets and cumulative usage.
 
-本地北京时间: 2026-07-13 16:28:13 CST
-下一步模型: Codex bookkeeper
-下一步任务: 校验并提交 v4 授权，再由 runner 做真实 PTY 调用
+Authorization v4 is committed as
+`c7551cec6139a261af5c8a6177bfe96f0b3b92bd`; the clean runner-ready checkpoint
+is being recorded before the real call.
+
+本地北京时间: 2026-07-13 16:35:25 CST
+下一步模型: Claude-GLM / GLM-5.2（auto runner PTY）
+下一步任务: 通过 entrypoint=cli 实现 T1 并继续 blocking/seal/review-1
