@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: auto attempt 5 interrupted; explicit human mode flip recorded; manual Claude-GLM implementation packet ready
+- Active phase: interrupted attempt evidence and explicit human mode flip committed; manual Claude-GLM implementation packet ready
 - Next action: human executes the fresh foreground Claude-GLM dispatch packet, then returns control to Codex for tests
 - Read-set: = status.current_inputs
-- Open blockers: manual Claude-GLM implementation has not yet been human-dispatched
+- Open blockers: none before human model dispatch; delivery implementation itself is pending
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -13,8 +13,8 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `implementing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `47fd3d4f9f8ef6e8e401b1efb0a63b1bd353e078` before the interrupted-attempt/manual-takeover checkpoint
-- Git status: interrupted runner evidence, mode flip, and manual dispatch packet pending checkpoint commit
+- HEAD: `ca88a74bb96cc27ea051b18fb8ebf0d02f6fddbb` (`bookkeeper(launchd): switch interrupted pilot to manual dispatch`) before this synchronized post-commit checkpoint
+- Git status: clean immediately after the manual-mode-flip checkpoint; synchronized post-commit checkpoint pending commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -77,8 +77,8 @@
 
 ## Next Action
 
-After this checkpoint is committed and the worktree is clean, the human executes `manual-implementation-T1-launchd-service.dispatch.md` once in a fresh foreground terminal. On return, Codex inspects the bounded diff, runs all frozen checks, records the implementation evidence commit, and prepares fresh Kimi manual review-1.
+The checkpoint is committed and the worktree is clean. The human executes `manual-implementation-T1-launchd-service.dispatch.md` once in a fresh foreground terminal. On return, Codex inspects the bounded diff, runs all frozen checks, records the implementation evidence commit, and prepares fresh Kimi manual review-1.
 
-本地北京时间: 2026-07-13 18:54:53 CST
-下一步模型: Codex bookkeeper
-下一步任务: 校验并提交中断证据、人工 mode flip 和 Claude-GLM dispatch packet
+本地北京时间: 2026-07-13 18:59:18 CST
+下一步模型: Claude-GLM / GLM-5.2（human dispatch）
+下一步任务: 执行 manual-implementation-T1-launchd-service.dispatch.md 并返回 exit code/session id

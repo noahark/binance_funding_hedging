@@ -398,6 +398,8 @@
   "manual_dispatch_takeover": {
     "authorized_by": "human",
     "authorized_at": "2026-07-13T10:54:53Z",
+    "checkpoint_commit": "ca88a74bb96cc27ea051b18fb8ebf0d02f6fddbb",
+    "checkpoint_validation": "passed",
     "reason": "finish T1 through manual human dispatch after recoverable auto resume failure",
     "implementation_provider": "zhipu_glm",
     "implementation_model": "glm-5.2",
@@ -714,6 +716,7 @@
       "auto attempt 5 accounting corrected to model_calls_used=5 without fabricating receipt (PASS)",
       "explicit human mode flip auto_review/awaiting_human -> human_dispatch/null (PASS)",
       "manual implementation-v1 policy validation and PTY wrapper help check (PASS)",
+      "post-manual-mode-flip checkpoint commit and validator (PASS)",
       "manual delivery tests pending implementation return"
     ]
   },
@@ -766,5 +769,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_executes_fresh_claude_glm_manual_dispatch_then_codex_runs_frozen_tests_and_prepares_manual_review_1",
-  "updated_at": "2026-07-13T10:54:53Z"
+  "updated_at": "2026-07-13T10:59:18Z"
 }

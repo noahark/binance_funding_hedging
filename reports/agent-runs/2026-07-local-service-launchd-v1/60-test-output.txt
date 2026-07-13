@@ -35,6 +35,15 @@ status=implementing
 
 git diff --check
 PASS
+
+manual-mode-flip checkpoint commit
+ca88a74bb96cc27ea051b18fb8ebf0d02f6fddbb
+
+post-commit worktree
+CLEAN
+
+post-commit checkpoint validator
+STAGE VALIDATION PASSED
 ```
 
 No delivery test has run because the fresh manual implementer has not yet
