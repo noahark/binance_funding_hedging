@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "human_escalation_required",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -136,6 +136,10 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-json-retry.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.verdict.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/22-human-runtime-acceptance-amendment.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.tool-policy.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.dispatch.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -410,7 +414,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "formal_review_2_blocked_transcript_recovered",
+    "status": "review_2_p2_fix_human_dispatch_prepared",
     "real_launchctl_mutation_authorized": true,
     "real_launchctl_mutation_authorized_by": "human",
     "real_launchctl_mutation_authorized_at": "2026-07-13T13:41:00Z"
@@ -747,6 +751,10 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-json-retry.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.verdict.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/22-human-runtime-acceptance-amendment.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.tool-policy.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.dispatch.md",
     "backend/app/server.py",
     "backend/tests/test_service_health.py",
     "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
@@ -963,9 +971,22 @@
     "required_fixes": [
       "human selects a non-TCC-protected runtime location or explicitly accepts a broad macOS privacy grant",
       "scripts/service-control.py install and restart perform bounded post-bootstrap readiness checks and fail nonzero with redacted diagnostics when readiness is not reached"
-    ]
+    ],
+    "required_fix_resolution": {
+      "p1_runtime_location_or_privacy": {
+        "status": "resolved_by_explicit_human_scope_decision",
+        "decision": "keep current Desktop checkout; use human-started scripts/run-server.sh for local startup and visible acceptance; do not require real launchd acceptance from this TCC-protected path",
+        "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/22-human-runtime-acceptance-amendment.md"
+      },
+      "p2_bounded_post_bootstrap_readiness": {
+        "status": "pending_human_dispatched_fix",
+        "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.prompt.md",
+        "tool_policy": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.tool-policy.json",
+        "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.dispatch.md"
+      }
+    }
   },
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "real_launchd_acceptance": {
     "authorized_by": "human",
@@ -983,17 +1004,42 @@
     "cleanup_command": "python3 scripts/service-control.py stop --confirm",
     "final_loaded": false,
     "installed_plist_retained": true,
-    "source_or_env_modified": false
+    "source_or_env_modified": false,
+    "human_disposition": "accepted_environment_constraint_no_repo_move_no_privacy_expansion_manual_bash_startup_for_current_checkout",
+    "human_disposition_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/22-human-runtime-acceptance-amendment.md",
+    "repeat_real_launchd_test_required_for_current_checkout": false
+  },
+  "review_2_repair_dispatch": {
+    "provider_identity": "zhipu_glm",
+    "model": "glm-5.2",
+    "role": "same_delivery_author_fix",
+    "status": "awaiting_human_dispatch",
+    "allowed_files": [
+      "scripts/service-control.py",
+      "scripts/tests/test_service_control.py"
+    ],
+    "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.prompt.md",
+    "tool_policy": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.tool-policy.json",
+    "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.dispatch.md",
+    "session_id": null
   },
   "blockers": [
-    "real LaunchAgent cannot access the repository under ~/Desktop because macOS TCC denies the background process; human must choose a non-protected runtime location or explicitly accept a broad privacy grant",
     "install and restart do not yet prove bounded post-bootstrap readiness and can report success for a job that immediately exits"
   ],
   "human_escalation": {
-    "required": true,
-    "reason": "formal_review_2_blocked_on_real_launchd_desktop_tcc_runtime_location_decision_and_bounded_readiness_repair"
+    "required": false,
+    "reason": null,
+    "resolved_by": "explicit_human_runtime_acceptance_decision",
+    "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/22-human-runtime-acceptance-amendment.md"
   },
-  "terminal_reason": "human_escalation_required",
-  "next_action": "human_selects_non_protected_runtime_location_then_dispatches_bounded_readiness_fix_real_retest_and_fresh_full_review_2",
-  "updated_at": "2026-07-13T14:16:33Z"
+  "terminal_reason": null,
+  "merge_authorization": {
+    "authorized_by": "human",
+    "authorized_at": "2026-07-13T14:29:59Z",
+    "scope": "commit_push_and_merge_stage_after_all_hard_gates_pass",
+    "condition": "fresh_schema_valid_review_2_ACCEPT_and_clean_validation_required_before_push_or_merge",
+    "currently_executable": false
+  },
+  "next_action": "human_dispatches_review_2_p2_fix_prompt_to_claude_glm_and_returns_session_id",
+  "updated_at": "2026-07-13T14:29:59Z"
 }

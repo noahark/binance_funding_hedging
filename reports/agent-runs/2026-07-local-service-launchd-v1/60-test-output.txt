@@ -1,3 +1,37 @@
+2026-07-13 22:29:59 CST — human runtime decision and review-2 P2 repair dispatch preparation:
+
+```text
+human runtime decision
+PASS; keep current Desktop checkout, no runtime relocation, no broad privacy
+grant, human-started scripts/run-server.sh is the local startup/visible
+acceptance path
+
+review-2 disposition
+P1 environment decision resolved by explicit human scope amendment
+P2 bounded post-bootstrap readiness repair remains mandatory
+push/merge authorization recorded but not executable before fresh review-2 ACCEPT
+
+repair boundary
+scripts/service-control.py
+scripts/tests/test_service_control.py
+
+python3 -m json.tool status.json
+PASS
+
+python3 -m json.tool manual-fix-T1-launchd-service-review2-P2.tool-policy.json
+PASS
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+status=fixing
+
+git diff --check
+PASS
+```
+
+No delivery code changed, no model was dispatched, no local service was
+started, and no real `launchctl` mutation occurred during this preparation.
+
 2026-07-13 22:16:33 CST — Opus 4.8 review-2 transcript recovery and audit:
 
 ```text

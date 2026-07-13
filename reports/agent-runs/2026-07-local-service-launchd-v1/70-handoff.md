@@ -2,20 +2,20 @@
 
 ## Recovery Header
 
-- Active phase: formal Opus 4.8 review-2 is schema-valid `BLOCKED`; exact output recovered from Claude session `cced0347-7f53-4626-958b-ecffba5d10b6`
-- Next action: human selects a non-TCC-protected runtime location, then dispatches the bounded readiness repair, real launchd retest, and a fresh full review-2
+- Active phase: fixing; human accepted the Desktop/TCC limitation and the narrow review-2 P2 repair packet is ready
+- Next action: human pastes `manual-fix-T1-launchd-service-review2-P2.prompt.md` into Claude-GLM and returns its Session ID
 - Read-set: = status.current_inputs
-- Open blockers: real Desktop TCC failure requires a human runtime-location/privacy decision; install/restart also lack bounded post-bootstrap readiness proof
+- Open blockers: install/restart still lack bounded post-bootstrap readiness proof; fresh review-2 `ACCEPT` is required before push/merge
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `human_escalation_required`
+- Status: `fixing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
 - Review snapshot HEAD: `85ab5011e4b99fe464d9e1996ad455fdbc389206`
 - Fingerprint: `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`
-- Git status: real acceptance failure is committed at `9529be9`; exact Opus raw/verdict recovery and coverage audit are included in the current local bookkeeper checkpoint, with clean-tree verification required after commit finalization
+- Git status: review-2 BLOCKED evidence is committed at `d5acb8d`; human runtime decision and P2 dispatch artifacts are pending this local bookkeeper checkpoint
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -53,6 +53,8 @@
 - Review 2: schema-valid `BLOCKED`; actual identity `anthropic`/`claude-opus-4-8`, prior involvement `breakdown`; canonical raw/verdict recovered from Claude session `cced0347-7f53-4626-958b-ecffba5d10b6`; zellij forwarding corrupted only the copied representation
 - Review-2 coverage audit: incomplete against the prompt minimum read set; the blocking verdict is retained, but a fresh complete review is mandatory after fixes and this verdict cannot authorize acceptance
 - Real launchd acceptance: FAIL; plist loaded, five exit-126 attempts, macOS Desktop TCC denied working-directory/script access; failed job stopped, plist retained
+- Human runtime decision: keep the Desktop checkout, do not add privacy expansion, use human-started `scripts/run-server.sh` for local startup/visible acceptance, and do not require a repeat launchd test from this protected path
+- P2 repair packet: `manual-fix-T1-launchd-service-review2-P2.prompt.md`, `.tool-policy.json`, and `.dispatch.md`; two-file boundary, awaiting human dispatch
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
 
@@ -81,10 +83,6 @@
 
 ## Blockers
 
-- Real launchd acceptance failed with exit 126 because a background
-  LaunchAgent cannot access the repository under macOS's TCC-protected
-  `~/Desktop`. The human must choose a non-protected runtime checkout/deployment
-  location or explicitly accept a broad privacy grant.
 - Formal review-2 P2 requires `install` and `restart` to perform a bounded
   post-bootstrap health/readiness check and return nonzero with redacted
   diagnostics when the service does not become ready.
@@ -96,15 +94,20 @@
 
 ## Next Action
 
-The human chooses a non-TCC-protected runtime location (recommended:
-`~/Developer/funding_hedging`) or explicitly chooses a macOS privacy grant.
-After that decision, the bookkeeper prepares a bounded repair dispatch for the
-same eligible fix provider, reruns deterministic and real launchd acceptance,
-creates a new committed fingerprint, and prepares a fresh complete review-2.
+The human pastes the full contents of
+`manual-fix-T1-launchd-service-review2-P2.prompt.md` into a Claude-GLM / GLM-5.2
+implementation terminal. The model edits only the two allowed files and returns
+its Session ID. Codex then verifies the original session and actual diff, runs
+the frozen tests, seals a new fingerprint, and prepares a fresh complete
+review-2.
+
+The user has authorized commit, push, and merge only after all hard gates pass.
+The authorization is not currently executable because review-2 remains
+`BLOCKED` and P2 is unimplemented.
 
 The old `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` is
 superseded and must not be dispatched.
 
-本地北京时间: 2026-07-13 22:16:33 CST
-下一步模型: Human operator, then Claude-GLM fix author
-下一步任务: 选择运行位置并修复 install/restart 的有界 readiness 校验，随后重新真实验收与 review-2
+本地北京时间: 2026-07-13 22:29:59 CST
+下一步模型: Claude-GLM / GLM-5.2（human-dispatched fix author）
+下一步任务: 粘贴 P2 prompt，仅修改两个授权文件，并返回 Session ID

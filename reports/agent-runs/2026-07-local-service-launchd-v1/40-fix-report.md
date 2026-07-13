@@ -33,11 +33,35 @@ and URL-userinfo diagnostic redaction. The targeted suite now passes 82 tests,
 the full backend passes 301 tests, all other frozen checks pass, and the final
 negative probes pass.
 
-The attempt self-reported a second read-only Bash/grep policy deviation. No
-code repair remains open, but both policy deviations remain disclosed for
-formal review. Because these were bookkeeper pre-review corrections rather than
-a schema-valid formal reviewer `REWORK`, `rework_count` remains 0.
+The attempt self-reported a second read-only Bash/grep policy deviation. Both
+policy deviations remain disclosed for formal review. Because these were
+bookkeeper pre-review corrections rather than a schema-valid formal reviewer
+`REWORK`, they did not increment `rework_count` at that time.
 
-本地北京时间: 2026-07-13 21:09:04 CST
-下一步模型: Codex bookkeeper
-下一步任务: 封存全绿实现并准备 fresh Kimi code_reviewer 的正式 review-1
+## Review-2 P2 Repair — Pending Human Dispatch
+
+Formal Opus review-2 later returned schema-valid `BLOCKED`. The human resolved
+the environment-dependent P1 by accepting the current Desktop/TCC limitation:
+the repository will not move, no broad privacy grant will be added, and local
+startup/visible acceptance will use the human-started `scripts/run-server.sh`.
+That decision is recorded in `22-human-runtime-acceptance-amendment.md`.
+
+The independent P2 remains a required code repair. The narrow packet is:
+
+```text
+manual-fix-T1-launchd-service-review2-P2.prompt.md
+manual-fix-T1-launchd-service-review2-P2.tool-policy.json
+manual-fix-T1-launchd-service-review2-P2.dispatch.md
+```
+
+It assigns the same eligible `zhipu_glm` author, explicitly invokes
+`senior_developer`, allows edits only to `scripts/service-control.py` and
+`scripts/tests/test_service_control.py`, denies Bash/launchctl/tests/git, and
+requires bounded post-bootstrap health/readiness proof for install/restart.
+This formal-review repair increments `rework_count` to 1.
+
+No P2 delivery-code change has been made yet.
+
+本地北京时间: 2026-07-13 22:29:59 CST
+下一步模型: Claude-GLM / GLM-5.2（human-dispatched fix author）
+下一步任务: 执行窄范围 P2 prompt，仅修改 service-control.py 及其测试并返回 Session ID

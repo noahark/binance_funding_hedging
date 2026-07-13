@@ -52,9 +52,24 @@ as formal non-accepting evidence. It cannot be reused for acceptance: after the
 human location decision and code repair, a new full review-2 must inspect the
 complete required artifact set and the new committed fingerprint.
 
+## Human Resolution And Repair Route
+
+The human explicitly chose not to move this repository and not to add a broad
+macOS privacy grant. For this TCC-protected Desktop checkout, routine startup
+and visible acceptance will use the human-started `scripts/run-server.sh`.
+Real launchd acceptance from the current path is no longer a completion
+requirement; the exit-126 evidence remains a truthful environment limitation.
+The exact scope amendment is `22-human-runtime-acceptance-amendment.md`.
+
+P2 is not waived. A two-file `claude_glm` repair packet now requires bounded
+post-bootstrap health/readiness checks for `install` and `restart`. After the
+repair and deterministic tests, a new committed fingerprint and a fresh,
+complete review-2 are mandatory. Push and merge remain blocked until that
+review returns schema-valid `ACCEPT`.
+
 The JSON-only retry prompt is superseded; no model retry is needed for this
 attempt.
 
-本地北京时间: 2026-07-13 22:16:33 CST
-下一步模型: Human operator, then Claude-GLM fix author
-下一步任务: 选择非 TCC 保护的运行位置，然后修复有界 readiness 校验并重新做真实验收
+本地北京时间: 2026-07-13 22:29:59 CST
+下一步模型: Claude-GLM / GLM-5.2（human-dispatched fix author）
+下一步任务: 完成两文件 P2 修复并返回 Session ID；之后重新执行完整 review-2
