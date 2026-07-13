@@ -2,8 +2,8 @@
 
 ## Recovery Header
 
-- Active phase: accepted stage merged to local main; post-merge recheck completed with the same disclosed process override
-- Next action: commit final recheck evidence, push main, verify remote tip
+- Active phase: accepted stage merged and pushed to remote main with both process overrides disclosed
+- Next action: wait for the next user-directed stage
 - Read-set: = status.current_inputs
 - Open blockers: none; pre-accept's stale review-1 fingerprint failure is preserved under explicit human override
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
@@ -15,7 +15,7 @@
 - Branch: `main`
 - Review snapshot HEAD: `ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d`
 - Fingerprint: `ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e`
-- Git status: remote stage pushed at `8052abc`; local main fast-forwarded and merge metadata committed at `4adf4bf`; final recheck evidence is the only pending change
+- Git status: remote stage at `8052abc`; remote main push completed through `84402a5`; this final checkpoint is bookkeeping-only
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -96,13 +96,13 @@
 
 ## Next Action
 
-The bookkeeper commits the final post-merge recheck evidence, pushes `main`
-under the explicit user override, and verifies the remote tip. The stale
-review-1 fingerprint failure remains preserved and is not reported as a pass.
+The stage is complete. Delivery and evidence are on remote `main`; the stale
+review-1 fingerprint failure and persisted-output gap remain preserved under
+the explicit human override and are not reported as passing checks.
 
 The old `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` is
 superseded and must not be dispatched.
 
-本地北京时间: 2026-07-14 00:14:16 CST
-下一步模型: Codex bookkeeper
-下一步任务: 提交最终复核证据、推送 main 并验证远端
+本地北京时间: 2026-07-14 00:15:29 CST
+下一步模型: human
+下一步任务: 决定下一 stage

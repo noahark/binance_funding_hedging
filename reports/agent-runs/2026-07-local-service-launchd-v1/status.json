@@ -431,7 +431,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "user_accepted_pending_merge_with_explicit_process_overrides",
+    "status": "accepted_and_merged_with_disclosed_process_overrides",
     "real_launchctl_mutation_authorized": true,
     "real_launchctl_mutation_authorized_by": "human",
     "real_launchctl_mutation_authorized_at": "2026-07-13T13:41:00Z"
@@ -1185,13 +1185,16 @@
     "authorized_at": "2026-07-13T14:29:59Z",
     "scope": "commit_push_and_merge_stage_after_all_hard_gates_pass",
     "condition": "superseded by explicit human instruction to skip disclosed process-only review evidence failures and merge/push",
-    "currently_executable": true,
+    "currently_executable": false,
     "review_2_accept_recorded_at": "2026-07-14T00:07:14+08:00",
     "process_evidence_waiver": "reports/agent-runs/2026-07-local-service-launchd-v1/23-human-review2-evidence-coverage-waiver.md",
     "executed_at": "2026-07-14T00:11:38+08:00",
     "stage_push_sha": "8052abcb0733ff9c9e1755e2d3bec30ce800ecc3",
-    "main_fast_forward_sha": "8052abcb0733ff9c9e1755e2d3bec30ce800ecc3"
+    "main_fast_forward_sha": "8052abcb0733ff9c9e1755e2d3bec30ce800ecc3",
+    "main_push_completed_at": "2026-07-14T00:15:29+08:00",
+    "main_push_receipt_sha": "84402a542ece28f807377f63c29669397212bfd0",
+    "completed": true
   },
-  "next_action": "push_main_and_verify_remote_tip",
-  "updated_at": "2026-07-14T00:14:16+08:00"
+  "next_action": "stage_complete_wait_for_next_user_directed_stage",
+  "updated_at": "2026-07-14T00:15:29+08:00"
 }
