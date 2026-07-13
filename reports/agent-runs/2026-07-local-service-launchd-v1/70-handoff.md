@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: adapter repair committed; superseding authorization v2 prepared and awaiting commit
-- Next action: commit v2 authorization, then rerun full auto preflight and resume implementation
+- Active phase: adapter repair and superseding authorization v2 are committed and validated
+- Next action: run the deterministic auto runner; it must rerun full preflight before implementation
 - Read-set: = status.current_inputs
-- Open blockers: v2 authorization must be committed before runner invocation
+- Open blockers: none before runner invocation
 - Do-not-read: reports/agent-runs/**/history/**, other stages
 
 ## Current State
@@ -13,8 +13,8 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `implementing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `424b8d0566f9bf7c666375276828aa7c12bb08c1` (`bookkeeper(harness): add absolute claude-glm wrapper`)
-- Git status: superseding authorization v2 and authorized-state checkpoint pending commit
+- HEAD: `59fbd118f63be10d76db76758b0c158cc2c7a501` (`bookkeeper(launchd): authorize wrapper-backed auto resume`)
+- Git status: clean before this post-authorization checkpoint update
 - Bookkeeper: Codex/OpenAI; designer, not implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 1 stopped fail-closed
@@ -72,9 +72,9 @@
 
 ## Next Action
 
-Bookkeeper commits v2, reruns full preflight, and resumes the serial auto
+The deterministic runner reruns full preflight and resumes the serial auto
 pipeline through review-1 or the next compliant stop.
 
-本地北京时间: 2026-07-13 14:15:06 CST
+本地北京时间: 2026-07-13 14:23:27 CST
 下一步模型: Claude-GLM / GLM-5.2（auto runner）
-下一步任务: v2 提交后实现 T1-launchd-service，不执行真实 launchctl mutation
+下一步任务: 使用已提交 v2 实现 T1-launchd-service，不执行真实 launchctl mutation

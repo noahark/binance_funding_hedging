@@ -32,6 +32,14 @@
     "validated_result": "passed",
     "delivery_code_changed": false
   },
+  "authorization_v2_checkpoint": {
+    "commit": "59fbd118f63be10d76db76758b0c158cc2c7a501",
+    "kind": "superseding_auto_authorization_v2",
+    "validated_phase": "checkpoint",
+    "validated_result": "passed",
+    "scope_or_budget_changed_from_v1": false,
+    "usage_counters_reset": false
+  },
   "bookkeeper": {
     "id": "codex_bookkeeper_2026_07_13",
     "provider": "codex",
@@ -324,7 +332,7 @@
     "scripts/tests/test_auto_review_runner.py"
   ],
   "tests": {
-    "status": "harness_adapter_repair_passed_v2_authorization_pending_commit",
+    "status": "auto_resume_v2_ready",
     "commands": [
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
@@ -341,7 +349,8 @@
       "test_auto_review_runner: 79 tests (PASS)",
       "adapter-repair checkpoint validator and diff check (PASS)",
       "superseding authorization v2 handwritten/schema validation (PASS)",
-      "v2 scope/budgets exact match v1 and supersedes pointer check (PASS)"
+      "v2 scope/budgets exact match v1 and supersedes pointer check (PASS)",
+      "post-v2-commit checkpoint validator and clean-worktree check (PASS)"
     ]
   },
   "review_1": {
@@ -390,6 +399,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "commit_superseding_authorization_v2_then_run_full_auto_preflight",
-  "updated_at": "2026-07-13T06:15:06Z"
+  "next_action": "run_auto_runner_with_committed_v2_authorization",
+  "updated_at": "2026-07-13T06:23:27Z"
 }
