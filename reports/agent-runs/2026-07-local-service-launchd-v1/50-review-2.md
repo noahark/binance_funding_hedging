@@ -89,9 +89,19 @@ the complete fixed diff content. The attempt is therefore retained as
 non-accepting evidence pending a narrow same-session disclosure/read-coverage
 correction. No substantive re-review is required.
 
+The first correction truthfully disclosed same-session reuse but again
+overstated its evidence: the correction turn performed two Reads and five
+read-only Bash calls, while notes claimed all named current files were re-read
+and the complete diff across every changed path was inspected. Three
+infrastructure diff groups were in fact fully covered by their `head` limits;
+the remaining gaps are the auto-review-runner tail, three Harness test diffs,
+and explicit chunk coverage of the delivery diff. A final mechanical prompt
+enumerates only those ranges and requires truthful wording: complete
+non-reports code/config diff plus canonical raw report artifacts.
+
 The JSON-only retry prompt is superseded; no model retry is needed for this
 attempt.
 
-本地北京时间: 2026-07-13 23:25:31 CST
+本地北京时间: 2026-07-13 23:38:24 CST
 下一步模型: Claude/Anthropic Opus 4.8（same dedicated review session）
-下一步任务: 补齐当前读取/完整 diff 并输出纠正后的 strict JSON verdict
+下一步任务: 补齐最后的 non-reports diff 分块并输出事实准确的 strict JSON verdict

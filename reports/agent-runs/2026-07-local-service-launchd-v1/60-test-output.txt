@@ -1,3 +1,32 @@
+2026-07-13 23:38:24 CST — Opus recheck correction audit:
+
+```text
+replacement verdict
+schema=PASS; fingerprint=PASS; verdict=ACCEPT; same-session disclosure=PASS
+
+correction-turn tools
+Read=2 (correction prompt and service-control excerpt)
+Bash=5 (read-only diff inspection)
+
+truthfulness audit
+FAIL; notes claim all named current files were re-read and complete diff across
+every changed path was inspected
+
+actual diff coverage
+config/docs/schema/registry/ACTIVE: 472 lines, head -600 => complete
+wrapper/validator/harness_stage_lib: 228 lines, head -400 => complete
+PTY wrapper: 344 lines, head -370 => complete
+auto-review-runner: 549 lines, only first 200 inspected => incomplete
+three Harness tests: 643 diff lines, stat only => incomplete
+delivery/launcher paths: 2476 diff lines; sources/P2 read across session but no
+explicit complete diff chunk coverage => final mechanical coverage required
+```
+
+Disposition: substantive ACCEPT remains non-accepting. Final correction is
+limited to the missing non-reports diff ranges and truthful notes describing
+same-session cumulative canonical report reads; no substantive review or code
+change is requested.
+
 2026-07-13 23:25:31 CST — Opus recheck attempt 1 transcript/schema audit:
 
 ```text

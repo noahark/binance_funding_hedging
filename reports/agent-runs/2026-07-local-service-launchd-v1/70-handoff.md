@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: review-2 recheck attempt 1 is substantive ACCEPT but nonaccepting pending truthful same-session disclosure and complete fixed-diff inspection
-- Next action: human pastes `manual-review-2-T1-launchd-service.opus-recheck-correction.prompt.md` into Session `cced0347-7f53-4626-958b-ecffba5d10b6`
+- Active phase: review-2 correction is substantive ACCEPT with same-session disclosure fixed, but diff/read claims remain overstated
+- Next action: human pastes `manual-review-2-T1-launchd-service.opus-recheck-final-coverage.prompt.md` into Session `cced0347-7f53-4626-958b-ecffba5d10b6`
 - Read-set: = status.current_inputs
-- Open blockers: accepting review-2 evidence requires the narrow same-session correction; push/merge remains blocked
+- Open blockers: accepting review-2 evidence requires final non-reports diff chunk coverage and truthful notes; push/merge remains blocked
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -58,6 +58,7 @@
 - P2 attempt 2: exact raw output at `manual-fix-T1-launchd-service-review2-P2-attempt2.raw-output.md`; tool audit is Read/Edit only; 88 targeted tests, 301 backend tests, all other frozen checks, and final-sleep probe pass
 - Fresh review-2 recheck: `manual-review-2-T1-launchd-service.opus-recheck.prompt.md` and `.dispatch.md`; complete minimum read set, fixed new fingerprint, awaiting human dispatch
 - Recheck attempt 1: schema-valid `ACCEPT`, same Session ID as the prior reviewer; nonaccepting because notes falsely say fresh and exact full diff content was not inspected; raw/verdict preserved and correction prompt prepared
+- Recheck attempt 2: schema-valid `ACCEPT`, same-session disclosure corrected; nonaccepting because notes overstate current re-reads and complete diff coverage; final coverage prompt prepared
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
 
@@ -99,11 +100,11 @@
 ## Next Action
 
 The human pastes the full contents of
-`manual-review-2-T1-launchd-service.opus-recheck-correction.prompt.md` into the
-same dedicated Opus review session. Opus re-reads the named current files,
-checks the complete fixed diff through EOF, truthfully records same-session
-reuse, and outputs replacement JSON only. Codex extracts and validates it; no
-bookkeeper model invocation occurs.
+`manual-review-2-T1-launchd-service.opus-recheck-final-coverage.prompt.md` into
+the same dedicated Opus review session. Opus checks only the enumerated missing
+non-reports diff chunks and emits replacement JSON with factually bounded
+coverage wording. Codex extracts and validates it; no bookkeeper model
+invocation occurs.
 
 The user has authorized commit, push, and merge only after all hard gates pass.
 The authorization is not currently executable because review-2 remains
@@ -112,6 +113,6 @@ The authorization is not currently executable because review-2 remains
 The old `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` is
 superseded and must not be dispatched.
 
-本地北京时间: 2026-07-13 23:25:31 CST
+本地北京时间: 2026-07-13 23:38:24 CST
 下一步模型: Claude/Anthropic Opus 4.8（same dedicated review session）
-下一步任务: 执行 correction prompt 并输出替换 JSON
+下一步任务: 执行 final-coverage prompt 并输出最终替换 JSON
