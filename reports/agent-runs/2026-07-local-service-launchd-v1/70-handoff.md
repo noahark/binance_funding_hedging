@@ -15,7 +15,7 @@
 - Branch: `stage/2026-07-local-service-launchd-v1`
 - Review snapshot HEAD: `ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d`
 - Fingerprint: `ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e`
-- Git status: verified attempt-2 repair/raw evidence committed at `ed7d9e0`; recheck prompt/status bind pending local bookkeeper commit
+- Git status: verified attempt-2 repair/raw evidence committed at `ed7d9e0`; recheck prompt/status bound at `09e254c`; clean-tree `pre-review` validation passed
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused

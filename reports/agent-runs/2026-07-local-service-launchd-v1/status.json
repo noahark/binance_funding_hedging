@@ -420,7 +420,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "p2_repair_sealed_fresh_full_review_2_awaiting_human_dispatch",
+    "status": "fresh_full_review_2_pre_review_passed_awaiting_human_dispatch",
     "real_launchctl_mutation_authorized": true,
     "real_launchctl_mutation_authorized_by": "human",
     "real_launchctl_mutation_authorized_at": "2026-07-13T13:41:00Z"
@@ -484,6 +484,16 @@
     "review_2_packet_commit": "d359400924e6d6f0c1e6c0228050a73185b966f3",
     "snapshot_commit": "85ab5011e4b99fe464d9e1996ad455fdbc389206",
     "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
+    "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/60-test-output.txt"
+  },
+  "review_2_recheck_pre_review_validation": {
+    "phase": "pre-review",
+    "performed_at": "2026-07-13T15:14:41Z",
+    "result": "passed",
+    "repair_evidence_commit": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d",
+    "packet_bind_commit": "09e254cad83242444b9edac44a6af7e9df0a4c0d",
+    "snapshot_commit": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d",
+    "diff_fingerprint": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e",
     "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/60-test-output.txt"
   },
   "harness_adapter_repair": {
@@ -644,7 +654,7 @@
     "provider_identity": "anthropic",
     "model": "claude-opus-4-8",
     "mode": "fresh_human_started_read_only_schema_bound_recheck",
-    "status": "fresh_full_review_2_recheck_awaiting_human_dispatch",
+    "status": "fresh_full_review_2_recheck_dispatch_ready",
     "session_id": null,
     "reviewer_prior_involvement": "breakdown",
     "design_conflict_override": true,
@@ -1090,5 +1100,5 @@
     "currently_executable": false
   },
   "next_action": "human_dispatches_opus48_full_review_2_recheck_in_fresh_session_and_returns_session_id",
-  "updated_at": "2026-07-13T15:09:31Z"
+  "updated_at": "2026-07-13T15:14:41Z"
 }
