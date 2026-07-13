@@ -27,6 +27,13 @@ bookkeeper applied and tested that Harness prerequisite in
 implementer and does not replace the still-pending `T1-launchd-service`
 implementation report.
 
-本地北京时间: 2026-07-13 14:15:06 CST
-下一步模型: Claude-GLM / GLM-5.2（auto runner）
-下一步任务: v2 提交后重新实现 T1-launchd-service，不执行真实 launchctl mutation
+Auto attempt 2 used the committed wrapper and reached the GLM inference
+gateway. This proves the original exit-127 adapter-resolution defect is fixed.
+The provider then returned API `529` / error `1305` (`model currently
+overloaded`) after approximately three minutes. Runner receipt sequence 2 is
+schema-valid, usage advanced to `model_calls_used=2`, and no delivery code or
+real LaunchAgent state changed.
+
+本地北京时间: 2026-07-13 14:31:07 CST
+下一步模型: human
+下一步任务: 决定稍后签发 v3 重试 Claude-GLM，或显式切换 human_dispatch

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "implementing",
+  "status": "human_escalation_required",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -72,7 +72,7 @@
     "dispatch_mode": "auto_review",
     "mode_flip_pending": null,
     "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.json",
-    "runner_state": "authorized",
+    "runner_state": "awaiting_human",
     "runner_version": "auto-review-pipeline/v1",
     "exclusive_worktree": {
       "path": "/Users/ark/Desktop/ai code/funding_hedging",
@@ -80,7 +80,7 @@
       "verified": true
     },
     "budgets": {
-      "model_calls_used": 1,
+      "model_calls_used": 2,
       "auto_code_changes_used": 0
     },
     "mode_history": [
@@ -127,6 +127,39 @@
           "runner_state": "authorized"
         },
         "event": "superseding_human_authorization"
+      },
+      {
+        "from": {
+          "dispatch_mode": "human_dispatch",
+          "runner_state": null
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "authorized"
+        },
+        "event": "new_human_authorization"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "authorized"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "running"
+        },
+        "event": "successful_full_preflight"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "running"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "awaiting_human"
+        },
+        "event": "unroutable_fix"
       }
     ],
     "review_units": [
@@ -179,14 +212,14 @@
       }
     ],
     "embedded_cross_checks": [],
-    "last_receipt_path": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-1-implementation.receipt.json",
-    "last_escalation_path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T053735Z.md",
-    "last_receipt_sequence": 1
+    "last_receipt_path": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
+    "last_escalation_path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T062730Z.md",
+    "last_receipt_sequence": 2
   },
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "authorized_v2_after_adapter_repair",
+    "status": "awaiting_human_after_glm_service_overload_529",
     "real_launchctl_mutation_authorized": false
   },
   "harness_adapter_repair": {
@@ -202,7 +235,8 @@
       "scripts/tests/test_auto_review_runner.py"
     ],
     "secret_handling": "never_log_expanded_environment",
-    "model_dispatch_during_repair": false
+    "model_dispatch_during_repair": false,
+    "post_repair_runtime_verification": "wrapper reached the GLM inference gateway; adapter returned API 529 overload instead of exit 127"
   },
   "embedded_reviews": {},
   "designer": {
@@ -246,9 +280,11 @@
   "implementer": {
     "adapter": "claude_glm",
     "provider_identity": "zhipu_glm",
-    "status": "adapter_command_error_exit_127_before_model_output",
-    "receipt": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-1-implementation.receipt.json",
-    "raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/implementation-T1-launchd-service-attempt1.raw-output.md"
+    "status": "model_service_overloaded_api_529_after_wrapper_success",
+    "receipt": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
+    "raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/implementation-T1-launchd-service-attempt1.raw-output.md",
+    "model_endpoint_reached": true,
+    "delivery_code_changed": false
   },
   "implementers": [],
   "fix_authors": [],
@@ -325,6 +361,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T062730Z.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/status.json",
     "agents/registry.yaml",
     "docs/model-adapters.md",
@@ -332,7 +370,7 @@
     "scripts/tests/test_auto_review_runner.py"
   ],
   "tests": {
-    "status": "auto_resume_v2_ready",
+    "status": "adapter_repair_verified_glm_service_529_before_delivery_tests",
     "commands": [
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
@@ -350,7 +388,11 @@
       "adapter-repair checkpoint validator and diff check (PASS)",
       "superseding authorization v2 handwritten/schema validation (PASS)",
       "v2 scope/budgets exact match v1 and supersedes pointer check (PASS)",
-      "post-v2-commit checkpoint validator and clean-worktree check (PASS)"
+      "post-v2-commit checkpoint validator and clean-worktree check (PASS)",
+      "auto runner v2 preflight and absolute-wrapper invocation (PASS; reached GLM gateway)",
+      "claude_glm inference request (FAIL API 529 overload; no delivery code change)",
+      "runner-2 receipt schema validation (PASS)",
+      "post-attempt-2 checkpoint validator and diff check (PASS)"
     ]
   },
   "review_1": {
@@ -393,12 +435,15 @@
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [],
+  "blockers": [
+    "Claude-GLM reached the inference gateway but returned API 529 / error 1305 because the model was overloaded.",
+    "The auto contract requires a new/superseding human authorization before another retry."
+  ],
   "human_escalation": {
-    "required": false,
-    "reason": null
+    "required": true,
+    "reason": "claude_glm temporary service overload API 529 after the absolute wrapper successfully reached the model gateway"
   },
-  "terminal_reason": null,
-  "next_action": "run_auto_runner_with_committed_v2_authorization",
-  "updated_at": "2026-07-13T06:23:27Z"
+  "terminal_reason": "human_escalation_required",
+  "next_action": "human_decides_wait_then_issue_authorization_v3_or_flip_to_human_dispatch",
+  "updated_at": "2026-07-13T06:31:07Z"
 }

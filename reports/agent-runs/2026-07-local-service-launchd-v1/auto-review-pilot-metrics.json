@@ -3,7 +3,7 @@
   "pilot_kind": "small_real",
   "stage_id": "2026-07-local-service-launchd-v1",
   "terminal_status": "human_escalation_required",
-  "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.json",
+  "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.json",
   "grok_verdict_attempts": 0,
   "grok_schema_valid_attempts": 0,
   "grok_invalid_attempts": 0,
@@ -11,7 +11,8 @@
   "final_schema_valid_grok_verdict_path": null,
   "final_diff_fingerprint": null,
   "escalation_paths": [
-    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T053735Z.md"
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T053735Z.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T062730Z.md"
   ],
   "escalation_shape_results": [
     {
@@ -19,15 +20,21 @@
       "status_reference_exists": true,
       "checkpoint_validator_passed": true,
       "note": "artifact records fail-closed reason and budgets; its internal raw_output_path/receipt_path fields are None while status.json carries the actual references"
+    },
+    {
+      "path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T062730Z.md",
+      "status_reference_exists": true,
+      "checkpoint_validator_passed": true,
+      "note": "absolute wrapper reached the GLM gateway; provider returned temporary API 529 overload and the runner stopped without code changes"
     }
   ],
   "controlled_escalation_drill_exercised": false,
-  "expected_adapter_calls": 1,
-  "schema_valid_receipts": 1,
+  "expected_adapter_calls": 2,
+  "schema_valid_receipts": 2,
   "missing_receipts": 0,
   "receipt_completeness_rate": 1.0,
-  "model_calls_used": 1,
+  "model_calls_used": 2,
   "auto_code_changes_used": 0,
-  "final_stage_outcome": "awaiting_human_adapter_decision",
-  "status": "pilot_in_progress_escalated_before_model_execution"
+  "final_stage_outcome": "awaiting_human_after_glm_service_overload",
+  "status": "pilot_in_progress_wrapper_verified_model_service_overloaded"
 }

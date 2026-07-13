@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: adapter repair and superseding authorization v2 are committed and validated
-- Next action: run the deterministic auto runner; it must rerun full preflight before implementation
+- Active phase: adapter repair verified at runtime; GLM gateway returned temporary API 529 overload
+- Next action: human decides whether to wait and issue v3 authorization or flip to `human_dispatch`
 - Read-set: = status.current_inputs
-- Open blockers: none before runner invocation
+- Open blockers: temporary GLM service overload; a new authorization is required before retry
 - Do-not-read: reports/agent-runs/**/history/**, other stages
 
 ## Current State
@@ -13,13 +13,13 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `implementing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `59fbd118f63be10d76db76758b0c158cc2c7a501` (`bookkeeper(launchd): authorize wrapper-backed auto resume`)
-- Git status: clean before this post-authorization checkpoint update
+- HEAD: `803a27643d98f52f3b9b7b022c6b5fd7ad9cd531` (`bookkeeper(launchd): checkpoint auto resume v2`)
+- Git status: attempt-2 raw evidence and synchronized failure checkpoint pending evidence commit
 - Bookkeeper: Codex/OpenAI; designer, not implementer or fix author
 - Parallel mode: disabled
-- Auto-review pipeline: enabled; attempt 1 stopped fail-closed
+- Auto-review pipeline: enabled; attempt 2 stopped fail-closed
 - Dispatch mode: `auto_review`
-- Runner state: `authorized` after the v2 artifact is committed
+- Runner state: `awaiting_human`
 
 ## Artifact Index
 
@@ -33,7 +33,8 @@
 - Embedded review checkpoints: auto runner, pending
 - Auto-run authorization: `auto-run-authorization-v2.json` (supersedes v1)
 - Human approval: `auto-run-authorization-v2.approval.md`
-- Runner receipts: `runner-1-implementation.receipt.json` (schema-valid; exit 127)
+- Runner receipts: sequence 1 (exit 127) and
+  `runner-2-implementation.receipt.json` (schema-valid; API 529 path)
 - Embedded cross-check set: pending
 - Escalation artifacts: `80-escalation-unroutable_fix-20260713T053735Z.md`
 - Pilot metrics: `auto-review-pilot-metrics.json` (`small_real`, planned)
@@ -62,19 +63,21 @@
   absolute path; the wrapper suppresses zsh profile chatter and never records
   the alias expansion or environment. Verification is in
   `14-harness-adapter-repair.md` and `60-test-output.txt`.
+- Attempt 2 reached the GLM inference gateway through the wrapper, then received
+  API `529` / error `1305` because the model was overloaded. No delivery code
+  changed and usage is `model_calls_used=2`, `auto_code_changes_used=0`.
 
 ## Blockers
 
-- Adapter setup is repaired and tested.
-- Superseding authorization v2 preserves the original task scope/budgets and
-  carries usage forward; it must be committed before runner invocation.
+- Adapter setup is repaired and runtime-verified.
+- GLM service availability is the current blocker. Auto mode requires a new
+  human authorization before retry and does not retry v2 automatically.
 - Real `launchctl` commands remain explicitly unauthorized.
 
 ## Next Action
 
-The deterministic runner reruns full preflight and resumes the serial auto
-pipeline through review-1 or the next compliant stop.
+Human chooses a delayed v3 retry or an explicit flip to `human_dispatch`.
 
-本地北京时间: 2026-07-13 14:23:27 CST
-下一步模型: Claude-GLM / GLM-5.2（auto runner）
-下一步任务: 使用已提交 v2 实现 T1-launchd-service，不执行真实 launchctl mutation
+本地北京时间: 2026-07-13 14:31:07 CST
+下一步模型: human
+下一步任务: 决定稍后签发 v3 重试 Claude-GLM，或显式切换 human_dispatch

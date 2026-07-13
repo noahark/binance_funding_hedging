@@ -155,3 +155,38 @@ PASS
 git status --short
 clean
 ```
+
+2026-07-13 14:31:07 CST — auto-run attempt 2 through absolute wrapper:
+
+```text
+python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1
+RUNNER RAN
+terminal=human_escalation_required
+reason=implementation adapter failed: command_error
+
+runner-2-implementation.receipt.json
+exit_status=1
+failure_class=command_error
+timeout=false
+model_calls_used=2
+auto_code_changes_used=0
+
+sanitized provider result
+API 529 / error 1305: model currently overloaded
+
+harness_stage_lib.validate_receipt_doc(runner-2-implementation.receipt.json)
+RECEIPT VALID
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-local-service-launchd-v1
+phase=checkpoint
+status=human_escalation_required
+
+git diff --check
+PASS
+```
+
+The second attempt reached the GLM gateway, so the absolute wrapper fixed the
+original command-resolution failure. The service overload occurred before any
+delivery code change or frozen delivery blocking check.
