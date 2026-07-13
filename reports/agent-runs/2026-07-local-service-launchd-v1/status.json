@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "implementing",
+  "status": "human_escalation_required",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -66,6 +66,15 @@
     "delivery_code_changed": false,
     "receipt_sequence": 3
   },
+  "auto_retry_v4_checkpoint": {
+    "commit": null,
+    "kind": "pty_cli_route_verified_permission_interaction_escalation",
+    "validated_phase": "checkpoint",
+    "validated_result": "passed_pending_evidence_commit",
+    "delivery_code_changed": false,
+    "receipt_sequence": 4,
+    "claude_session_id": "76a8e532-1414-43f7-919e-4b57a0b28558"
+  },
   "bookkeeper": {
     "id": "codex_bookkeeper_2026_07_13",
     "provider": "codex",
@@ -85,6 +94,7 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/14-harness-adapter-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/15-v3-prerequisite-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/16-claude-glm-pty-route-repair.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/17-claude-glm-pty-probe-result.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.json"
   ],
@@ -108,7 +118,7 @@
       "verified": true
     },
     "budgets": {
-      "model_calls_used": 3,
+      "model_calls_used": 4,
       "auto_code_changes_used": 0
     },
     "mode_history": [
@@ -122,6 +132,39 @@
           "runner_state": "authorized"
         },
         "event": "new_human_authorization"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "authorized"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "running"
+        },
+        "event": "successful_full_preflight"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "running"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "awaiting_human"
+        },
+        "event": "unroutable_fix"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "awaiting_human"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "authorized"
+        },
+        "event": "superseding_human_authorization"
       },
       {
         "from": {
@@ -262,14 +305,14 @@
       }
     ],
     "embedded_cross_checks": [],
-    "last_receipt_path": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation.receipt.json",
-    "last_escalation_path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T075606Z.md",
-    "last_receipt_sequence": 3
+    "last_receipt_path": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-4-implementation.receipt.json",
+    "last_escalation_path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T084312Z.md",
+    "last_receipt_sequence": 4
   },
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "v4_pty_authorized_runner_ready",
+    "status": "attempt_4_pty_cli_verified_permission_interaction_blocked",
     "real_launchctl_mutation_authorized": false
   },
   "harness_adapter_repair": {
@@ -362,10 +405,13 @@
   "implementer": {
     "adapter": "claude_glm",
     "provider_identity": "zhipu_glm",
-    "status": "model_service_overloaded_api_529_repeated_on_attempt_3",
-    "receipt": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation.receipt.json",
-    "raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation-T1-launchd-service-attempt1.raw-output.md",
+    "status": "pty_cli_route_verified_no_final_turn_after_tool_permission_interaction",
+    "receipt": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-4-implementation.receipt.json",
+    "raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-4-implementation-T1-launchd-service-attempt1.raw-output.md",
     "model_endpoint_reached": true,
+    "entrypoint": "cli",
+    "claude_session_id": "76a8e532-1414-43f7-919e-4b57a0b28558",
+    "final_turn_observed": false,
     "delivery_code_changed": false
   },
   "implementers": [],
@@ -434,6 +480,7 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/14-harness-adapter-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/15-v3-prerequisite-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/16-claude-glm-pty-route-repair.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/17-claude-glm-pty-probe-result.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/20-implementation.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/30-review-1.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/40-fix-report.md",
@@ -453,12 +500,15 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation-T1-launchd-service-attempt1.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation.receipt.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation-T1-launchd-service-attempt1.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/runner-4-implementation.receipt.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/runner-4-implementation-T1-launchd-service-attempt1.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/history/status-before-v3-prerequisite-repair-f580dbb.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/history/70-handoff-before-v3-prerequisite-repair-f580dbb.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/history/runner-2-implementation.receipt.before-raw-path-repair.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/history/implementation-T1-launchd-service-attempt1.before-raw-path-repair.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T062730Z.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T075606Z.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T084312Z.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/status.json",
     "agents/registry.yaml",
     "docs/auto-review-pipeline.md",
@@ -471,7 +521,7 @@
     "scripts/validate-stage.py"
   ],
   "tests": {
-    "status": "pty_route_harness_repair_passed_awaiting_v4_authorization",
+    "status": "v4_pty_cli_route_verified_permission_interaction_blocked",
     "commands": [
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
@@ -512,7 +562,11 @@
       "fake CLI end-to-end PTY, cli transcript gate, zsh wrapper, permission stripping, and TUI exit (PASS)",
       "superseding authorization v4 handwritten/schema validation (PASS)",
       "v4 scope/budgets exact match v3 and supersedes pointer check (PASS)",
-      "pre-v4-commit checkpoint validator and diff check (PASS)"
+      "pre-v4-commit checkpoint validator and diff check (PASS)",
+      "auto runner v4 PTY invocation (PASS route: entrypoint=cli, model=glm-5.2, no API 529)",
+      "Claude PTY session produced 4 Bash tool uses and 3 tool results before permission interaction blocked final turn",
+      "runner-4 receipt schema validation (PASS; exit 143 after targeted child termination; no delivery code change)",
+      "post-attempt-4 checkpoint validator and diff check (PASS)"
     ]
   },
   "review_1": {
@@ -555,12 +609,15 @@
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [],
+  "blockers": [
+    "The PTY route is verified, but interactive acceptEdits can pause on a Bash permission confirmation and cannot complete unattended.",
+    "Another auto call requires an explicit permission-policy decision and a new/superseding human authorization."
+  ],
   "human_escalation": {
-    "required": false,
-    "reason": null
+    "required": true,
+    "reason": "PTY entrypoint=cli removed API 529, but the implementation session stopped without final end_turn after an unresolved Bash permission interaction"
   },
-  "terminal_reason": null,
-  "next_action": "run_auto_review_runner_v4_pty_claude_glm",
-  "updated_at": "2026-07-13T08:35:25Z"
+  "terminal_reason": "human_escalation_required",
+  "next_action": "human_decides_explicit_pty_tool_permission_policy_before_any_v5_authorization",
+  "updated_at": "2026-07-13T08:44:12Z"
 }

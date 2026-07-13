@@ -2,25 +2,25 @@
 
 ## Recovery Header
 
-- Active phase: PTY route repair and superseding authorization v4 committed; runner-ready checkpoint pending commit
-- Next action: commit the synchronized checkpoint, then resume the auto runner
+- Active phase: attempt 4 verified PTY `entrypoint=cli`; stopped fail-closed at an interactive Bash permission boundary
+- Next action: human decides the explicit PTY tool-permission policy before any v5 authorization
 - Read-set: = status.current_inputs
-- Open blockers: none before runner invocation
+- Open blockers: `acceptEdits` can pause on Bash permission confirmation; no unattended completion/final turn
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `implementing`
+- Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `c7551cec6139a261af5c8a6177bfe96f0b3b92bd`
-- Git status: synchronized runner-ready checkpoint pending commit
+- HEAD: `73b06815213acaf4304a15618ca7a8e9a121ae61`
+- Git status: sequence-4 raw/receipt/escalation and synchronized probe result pending evidence commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
-- Auto-review pipeline: enabled; attempt 3 stopped fail-closed
+- Auto-review pipeline: enabled; attempt 4 stopped fail-closed after PTY route success and permission interaction
 - Dispatch mode: `auto_review`
 - Runner state: `awaiting_human`
-- Usage: `model_calls_used=3`, `auto_code_changes_used=0`
+- Usage: `model_calls_used=4`, `auto_code_changes_used=0`
 
 ## Artifact Index
 
@@ -31,9 +31,10 @@
 - Implementation: `20-implementation.md`; delivery implementation still pending
 - Current authorization: `auto-run-authorization-v4.json`; committed and schema-valid
 - PTY route repair: `16-claude-glm-pty-route-repair.md`
-- Latest runner receipt: `runner-3-implementation.receipt.json`
-- Latest raw output: `runner-3-implementation-T1-launchd-service-attempt1.raw-output.md`
-- Latest escalation: `80-escalation-unroutable_fix-20260713T075606Z.md`
+- PTY probe result: `17-claude-glm-pty-probe-result.md`
+- Latest runner receipt: `runner-4-implementation.receipt.json`
+- Latest raw output: `runner-4-implementation-T1-launchd-service-attempt1.raw-output.md`
+- Latest escalation: `80-escalation-unroutable_fix-20260713T084312Z.md`
 - Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
 - Review 1: pending Grok 4.5 auto gate
 - Review 2: human-started and pending
@@ -51,16 +52,19 @@
 - Attempt 3 verified those repairs in the real runner path: stderr is retained, the raw path is sequence-unique, and escalation navigation is populated. The provider again returned API `529` / error `1305` before any delivery code change.
 - Route comparison isolated the stable difference: attempts 2 and 3 were `entrypoint=sdk-cli` synthetic zero-token failures, while manual session `fdda0f8b-8332-448e-ab92-464a4b592545` was a real `entrypoint=cli` success.
 - The new registered PTY wrapper removes `-p`, supplies a true terminal, requires a final persisted `entrypoint=cli` assistant turn, exits the TUI, and returns control to the unchanged auto runner. Fake end-to-end coverage passed; no real model was called during repair.
+- Attempt 4 proved the PTY route with real `glm-5.2`: eight model records, four Bash tool uses, three results, no synthetic response, and no API 529. The fourth Bash call remained unresolved under `acceptEdits`; no final turn or delivery write occurred.
+- The bookkeeper did not approve the pending Bash command or enable yolo. It stopped only the stuck Claude child after the diagnostic objective was met; the runner then wrote a normal sequence-4 receipt and escalation.
 - Real `launchctl` mutation remains explicitly unauthorized.
 
 ## Blockers
 
-- None before invocation. PTY/provider/tool-permission failures must stop through runner evidence paths.
+- Decide a bounded explicit permission policy for Bash/tool execution in the PTY auto adapter. Manual clicks cannot be treated as automatic evidence.
+- Any further model call requires a new/superseding authorization; v4 cannot be reused.
 
 ## Next Action
 
-After the checkpoint commit is clean, the auto runner performs the real PTY call. On success it continues through the frozen blocking checks, embedded cross-check, seal, and Grok review-1; it does not promote a manual session.
+Human decides whether to authorize a bounded tool allowlist design or another explicit route. Do not issue v5 with the unchanged `acceptEdits` PTY command because it can block indefinitely before review-1.
 
-本地北京时间: 2026-07-13 16:35:25 CST
-下一步模型: Claude-GLM / GLM-5.2（auto runner PTY）
-下一步任务: 通过 entrypoint=cli 实现 T1 并继续原 Harness 自动流
+本地北京时间: 2026-07-13 16:44:12 CST
+下一步模型: human
+下一步任务: 决定 PTY auto adapter 的显式工具权限策略，再决定是否签发 v5

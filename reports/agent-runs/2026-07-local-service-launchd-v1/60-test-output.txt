@@ -30,6 +30,54 @@ model_calls_used=3
 auto_code_changes_used=0
 ```
 
+2026-07-13 16:44:12 CST — auto-run attempt 4 through real PTY:
+
+```text
+python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1
+RUNNER RAN
+terminal=human_escalation_required
+reason=implementation adapter failed: command_error
+
+runner-4-implementation.receipt.json
+sequence=4
+exit_status=143
+failure_class=command_error
+timeout=false
+model_calls_used=4
+auto_code_changes_used=0
+
+Claude session
+76a8e532-1414-43f7-919e-4b57a0b28558
+entrypoint=cli
+promptSource=typed
+permissionMode=acceptEdits
+actual model=glm-5.2
+actual model records=8
+synthetic errors=0
+API 529 mentions=0
+Bash tool uses=4
+Bash tool results=3
+final end_turn=0
+
+harness_stage_lib.validate_receipt_doc(runner-4-implementation.receipt.json)
+RECEIPT 4 VALID
+```
+
+The final Bash tool had no result for more than two minutes. The bookkeeper did
+not approve it and terminated only the stuck Claude child process group after
+the PTY route objective was proven. The adapter returned without a final turn,
+and the runner recorded the failure normally. No delivery file or real
+`launchctl` state changed.
+
+```text
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+status=human_escalation_required
+
+git diff --check
+PASS
+```
+
 2026-07-13 15:59:03 CST — attempt-3 evidence commit:
 
 ```text

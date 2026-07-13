@@ -66,6 +66,13 @@ Authorization v4 is committed as
 `c7551cec6139a261af5c8a6177bfe96f0b3b92bd`; the clean runner-ready checkpoint
 is being recorded before the real call.
 
-本地北京时间: 2026-07-13 16:35:25 CST
-下一步模型: Claude-GLM / GLM-5.2（auto runner PTY）
-下一步任务: 通过 entrypoint=cli 实现 T1 并继续 blocking/seal/review-1
+Auto attempt 4 verified the real PTY route: session
+`76a8e532-1414-43f7-919e-4b57a0b28558` used `entrypoint=cli`, reached actual
+`glm-5.2`, emitted no API 529, and executed three Bash tool calls to completion.
+The fourth Bash call remained at an interactive permission boundary, so no
+final turn or delivery change was produced. The bookkeeper did not approve it;
+the targeted Claude child was stopped and the runner wrote sequence-4 evidence.
+
+本地北京时间: 2026-07-13 16:44:12 CST
+下一步模型: human
+下一步任务: 决定 PTY auto adapter 的显式工具权限策略，再决定是否签发 v5
