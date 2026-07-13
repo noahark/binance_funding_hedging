@@ -2,24 +2,24 @@
 
 ## Recovery Header
 
-- Active phase: absolute wrapper implemented and tested; awaiting repair commit and superseding authorization v2
-- Next action: commit the Harness repair, create/commit v2 authorization, then rerun full auto preflight
+- Active phase: adapter repair committed; superseding authorization v2 prepared and awaiting commit
+- Next action: commit v2 authorization, then rerun full auto preflight and resume implementation
 - Read-set: = status.current_inputs
-- Open blockers: auto resume requires a committed superseding authorization v2
+- Open blockers: v2 authorization must be committed before runner invocation
 - Do-not-read: reports/agent-runs/**/history/**, other stages
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `human_escalation_required`
+- Status: `implementing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `9030d273d26d89e266d1c413abf5c2ae1403d275` (`bookkeeper(launchd): record auto adapter escalation`)
-- Git status: Harness adapter repair and synchronized checkpoint are pending commit
+- HEAD: `424b8d0566f9bf7c666375276828aa7c12bb08c1` (`bookkeeper(harness): add absolute claude-glm wrapper`)
+- Git status: superseding authorization v2 and authorized-state checkpoint pending commit
 - Bookkeeper: Codex/OpenAI; designer, not implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 1 stopped fail-closed
 - Dispatch mode: `auto_review`
-- Runner state: `awaiting_human`
+- Runner state: `authorized` after the v2 artifact is committed
 
 ## Artifact Index
 
@@ -31,8 +31,8 @@
 - Development breakdown: `12-development-breakdown.md`, Opus 4.8 / `task_planner`, validated with `13-software-architect-amendment.md`
 - Implementation: `20-implementation.md` placeholder
 - Embedded review checkpoints: auto runner, pending
-- Auto-run authorization: `auto-run-authorization-v1.json`
-- Human approval: `auto-run-authorization-v1.approval.md`
+- Auto-run authorization: `auto-run-authorization-v2.json` (supersedes v1)
+- Human approval: `auto-run-authorization-v2.approval.md`
 - Runner receipts: `runner-1-implementation.receipt.json` (schema-valid; exit 127)
 - Embedded cross-check set: pending
 - Escalation artifacts: `80-escalation-unroutable_fix-20260713T053735Z.md`
@@ -66,15 +66,15 @@
 ## Blockers
 
 - Adapter setup is repaired and tested.
-- Auto contract still requires a new/superseding human authorization before resume;
-  the runner must not be invoked again against the current authorization.
+- Superseding authorization v2 preserves the original task scope/budgets and
+  carries usage forward; it must be committed before runner invocation.
 - Real `launchctl` commands remain explicitly unauthorized.
 
 ## Next Action
 
-Bookkeeper commits the adapter repair, records the operator's superseding v2
-authorization, reruns full preflight, and resumes the serial auto pipeline.
+Bookkeeper commits v2, reruns full preflight, and resumes the serial auto
+pipeline through review-1 or the next compliant stop.
 
-本地北京时间: 2026-07-13 14:12:23 CST
-下一步模型: Codex bookkeeper
-下一步任务: 提交 adapter repair checkpoint 并创建 superseding authorization v2
+本地北京时间: 2026-07-13 14:15:06 CST
+下一步模型: Claude-GLM / GLM-5.2（auto runner）
+下一步任务: v2 提交后实现 T1-launchd-service，不执行真实 launchctl mutation
