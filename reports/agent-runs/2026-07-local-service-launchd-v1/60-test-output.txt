@@ -1,4 +1,141 @@
-Stage initialization checkpoint. No delivery-code tests have run.
+2026-07-13 21:09:04 CST — manual repair attempt 2, final bookkeeper verification:
+
+```text
+python3 -m py_compile backend/app/server.py scripts/service-control.py
+PASS
+
+python3 -m pytest scripts/tests/test_service_control.py backend/tests/test_service_health.py -q -p no:cacheprovider
+PASS
+82 passed in 5.79s
+
+python3 -m pytest backend/tests -q -p no:cacheprovider
+PASS
+301 passed in 12.10s
+
+node frontend/self-check.js
+PASS (all self-checks)
+
+bash -n scripts/run-server.sh
+PASS
+
+git diff --check
+PASS
+
+final injected negative probes
+PASS
+- reject non-numeric/out-of-range/zero ports and whitespace/control hosts
+- redact URL userinfo credential bytes
+- reject unrelated configuration-file-not-found as not-loaded
+- continue tolerating the specific Could not find service result
+
+delivery scope reconciliation
+PASS
+backend/app/server.py
+backend/tests/test_service_health.py
+deploy/launchd/com.aoke.funding-hedging.server.plist.template
+scripts/service-control.py
+scripts/tests/test_service_control.py
+```
+
+No `.env`, external/private API, real launchctl mutation, service start, push,
+merge, or deployment was performed. All frozen checks are green; ready for
+local review snapshot and pre-review validation.
+
+2026-07-13 20:40:27 CST — manual repair attempt 1, bookkeeper rerun:
+
+```text
+python3 -m py_compile backend/app/server.py scripts/service-control.py
+PASS
+
+python3 -m pytest scripts/tests/test_service_control.py backend/tests/test_service_health.py -q -p no:cacheprovider
+FAIL (exit 1)
+64 passed, 6 failed in 5.92s
+All six failures: scripts/service-control.py:528 NameError: name 'loaded' is not defined
+
+python3 -m pytest backend/tests -q -p no:cacheprovider
+PASS
+301 passed in 12.46s
+
+node frontend/self-check.js
+PASS (all self-checks)
+
+bash -n scripts/run-server.sh
+PASS
+
+git diff --check
+PASS
+```
+
+Additional read-only probes:
+
+```text
+_validate_base_url('http://host:notaport') -> accepted (FAIL)
+_validate_base_url('http://host:99999') -> accepted (FAIL)
+_validate_base_url('http://ho st:8787') -> accepted (FAIL)
+userinfo credential in captured URL survives _redact (FAIL)
+_is_not_loaded_result('configuration file not found') -> True (FAIL)
+```
+
+Disposition: still blocked before evidence commit/formal review-1; attempt 2
+must fix the doctor variable and the three uncovered safety gaps.
+
+2026-07-13 19:47:13 CST — manual implementation return, bookkeeper pre-review checks:
+
+```text
+python3 -m py_compile backend/app/server.py scripts/service-control.py
+PASS
+
+python3 -m pytest scripts/tests/test_service_control.py backend/tests/test_service_health.py -q -p no:cacheprovider
+FAIL (exit 1)
+9 passed, 31 errors in 5.87s
+Common setup error:
+scripts/tests/test_service_control.py:54 spec.loader.exec_module(mod)
+Python 3.9 dataclasses: AttributeError: 'NoneType' object has no attribute '__dict__'
+
+python3 -m pytest backend/tests -q -p no:cacheprovider
+PASS
+298 passed in 11.77s
+
+node frontend/self-check.js
+PASS (all self-checks)
+
+bash -n scripts/run-server.sh
+PASS
+
+git diff --check
+PASS
+```
+
+Read-only/injected probes (no `.env`, external network, service start, private
+API, or real launchctl mutation):
+
+```text
+plistlib XML metacharacter probe:
+xml_contains_literal=False
+xml_roundtrip=True
+
+base URL / redaction probes:
+credential-bearing query URL accepted unchanged
+signature=dummy survives redaction
+Cookie: session=dummy survives redaction
+X-MBX-APIKEY: dummy survives redaction
+
+launchctl print permission-error probe with fake executor/tmp dirs:
+permission_error_install_rc=0
+permission_error_bootstrap_attempted=True
+logs_dir_created=False
+
+worker-start failure lifecycle probe with injected fake service/server:
+run_exception=RuntimeError
+lifecycle_stderr={"event":"server_start",...}
+no server_fatal_error, no server_stop, no worker/server cleanup
+```
+
+Disposition: BLOCKED before evidence commit and formal review-1. The five
+delivery files remain uncommitted for same-author repair.
+
+Stage initialization checkpoint. No delivery-code tests had run before the
+manual implementation return.
 
 2026-07-13 18:54:53 CST — interrupted auto attempt 5 and manual takeover:
 

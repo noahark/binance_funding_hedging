@@ -119,6 +119,10 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.tool-policy.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-pre-review.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt1.operator-forwarded-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -392,7 +396,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "auto_v5_interrupted_manual_human_dispatch_takeover",
+    "status": "manual_repair_attempt_2_passed_ready_for_review_snapshot",
     "real_launchctl_mutation_authorized": false
   },
   "manual_dispatch_takeover": {
@@ -406,7 +410,34 @@
     "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.prompt.md",
     "tool_policy": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.tool-policy.json",
     "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.dispatch.md",
+    "repair_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-pre-review.prompt.md",
     "tests_and_commits_owned_by": "codex_bookkeeper_after_human_model_dispatch"
+  },
+  "pre_review_reconciliation": {
+    "performed_by": "codex_bookkeeper",
+    "performed_at": "2026-07-13T13:09:04Z",
+    "formal_review_gate": false,
+    "head_before_delivery_commit": "5207875dee4f72e3700eb0d50e169957e75e2d90",
+    "delivery_commit_created": false,
+    "manual_session_id": "5ee354f2-d410-4de2-aee7-fdd85e8f0d1b",
+    "raw_manual_completion_report": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt1.operator-forwarded-output.md",
+    "authorized_delivery_paths_observed": [
+      "backend/app/server.py",
+      "backend/tests/test_service_health.py",
+      "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
+      "scripts/service-control.py",
+      "scripts/tests/test_service_control.py"
+    ],
+    "scope_check": "passed",
+    "blocking_checks_status": "passed",
+    "targeted_test_result": "attempt 2 exit 0; 82 passed",
+    "full_backend_test_result": "exit 0; 301 passed",
+    "final_negative_probes": "passed",
+    "blocking_finding_groups": [],
+    "attempt_1_policy_deviation": "operator-forwarded report self-discloses one py_compile command outside Read/Glob/Grep/Edit/Write; read-only but retained for review disclosure",
+    "attempt_2_policy_deviation": "operator-forwarded report self-discloses one Bash grep command despite the no-command attempt-2 prompt; read-only but retained for review disclosure",
+    "attempt_2_output": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md",
+    "repair_prompt": null
   },
   "harness_adapter_repair": {
     "decision": "absolute_repo_wrapper",
@@ -518,7 +549,7 @@
   "implementer": {
     "adapter": "claude_glm",
     "provider_identity": "zhipu_glm",
-    "status": "manual_human_dispatch_prepared_after_interrupted_auto_attempt_5",
+    "status": "manual_repair_attempt_2_complete_checks_passed",
     "receipt": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-4-implementation.receipt.json",
     "raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-4-implementation-T1-launchd-service-attempt1.raw-output.md",
     "model_endpoint_reached": true,
@@ -527,17 +558,29 @@
     "interrupted_auto_attempt_5_session_id": "359a6504-9d1b-4c58-81e5-51f93c1b2948",
     "interrupted_auto_attempt_5_metadata": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-5-interrupted-transcript-metadata.json",
     "manual_dispatch_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.prompt.md",
-    "final_turn_observed": false,
-    "delivery_code_changed": false
+    "manual_repair_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.prompt.md",
+    "manual_completion_report_source": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md",
+    "manual_session_id": "5ee354f2-d410-4de2-aee7-fdd85e8f0d1b",
+    "final_turn_observed": true,
+    "delivery_code_changed": true
   },
-  "implementers": [],
+  "implementers": [
+    {
+      "adapter": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2",
+      "role": "manual_implementation_and_same_author_pre_review_repair",
+      "session_id": "5ee354f2-d410-4de2-aee7-fdd85e8f0d1b",
+      "status": "implementation_and_pre_review_repairs_complete_checks_passed"
+    }
+  ],
   "fix_authors": [],
   "reviewer_1": {
     "adapter": "kimi",
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
     "mode": "manual_fresh_read_only_session",
-    "status": "pending_after_manual_implementation_and_tests"
+    "status": "pending_after_review_snapshot_bind_and_pre_review_validation"
   },
   "reviewer_2": null,
   "r10_checklists": {},
@@ -625,6 +668,15 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.tool-policy.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-pre-review.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt1.operator-forwarded-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md",
+    "backend/app/server.py",
+    "backend/tests/test_service_health.py",
+    "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
+    "scripts/service-control.py",
+    "scripts/tests/test_service_control.py",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation-T1-launchd-service-attempt1.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation.receipt.json",
@@ -655,7 +707,7 @@
     "workflows/templates/stage-delivery.yaml"
   ],
   "tests": {
-    "status": "manual_dispatch_packet_valid_delivery_tests_pending",
+    "status": "manual_repair_attempt_2_all_frozen_checks_passed",
     "commands": [
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
@@ -717,7 +769,32 @@
       "explicit human mode flip auto_review/awaiting_human -> human_dispatch/null (PASS)",
       "manual implementation-v1 policy validation and PTY wrapper help check (PASS)",
       "post-manual-mode-flip checkpoint commit and validator (PASS)",
-      "manual delivery tests pending implementation return"
+      "manual implementation scope reconciliation: exactly five authorized delivery paths (PASS)",
+      "python3 -m py_compile backend/app/server.py scripts/service-control.py (PASS)",
+      "python3 -m pytest scripts/tests/test_service_control.py backend/tests/test_service_health.py -q -p no:cacheprovider (FAIL exit 1; 9 passed, 31 errors)",
+      "python3 -m pytest backend/tests -q -p no:cacheprovider (PASS; 298 passed)",
+      "node frontend/self-check.js (PASS)",
+      "bash -n scripts/run-server.sh (PASS)",
+      "git diff --check (PASS)",
+      "injected permission-error/log-directory/base-url/redaction/lifecycle probes (FAIL; see 60-test-output.txt)",
+      "manual repair attempt 1 operator-forwarded output preserved; self-reported py_compile policy deviation recorded",
+      "python3 -m py_compile backend/app/server.py scripts/service-control.py after attempt 1 (PASS)",
+      "python3 -m pytest scripts/tests/test_service_control.py backend/tests/test_service_health.py -q -p no:cacheprovider after attempt 1 (FAIL exit 1; 64 passed, 6 failed)",
+      "python3 -m pytest backend/tests -q -p no:cacheprovider after attempt 1 (PASS; 301 passed)",
+      "node frontend/self-check.js after attempt 1 (PASS)",
+      "bash -n scripts/run-server.sh after attempt 1 (PASS)",
+      "git diff --check after attempt 1 (PASS)",
+      "invalid-port/whitespace-host, URL-userinfo redaction, and unrelated-not-found probes after attempt 1 (FAIL; see 60-test-output.txt)",
+      "manual repair attempt 2 operator-forwarded output associated with session 5ee354f2-d410-4de2-aee7-fdd85e8f0d1b; model glm-5.2 and final end_turn verified",
+      "attempt 2 self-reported one Bash grep command outside the no-command policy; read-only deviation retained for review disclosure",
+      "python3 -m py_compile backend/app/server.py scripts/service-control.py after attempt 2 (PASS)",
+      "python3 -m pytest scripts/tests/test_service_control.py backend/tests/test_service_health.py -q -p no:cacheprovider after attempt 2 (PASS; 82 passed)",
+      "python3 -m pytest backend/tests -q -p no:cacheprovider after attempt 2 (PASS; 301 passed)",
+      "node frontend/self-check.js after attempt 2 (PASS)",
+      "bash -n scripts/run-server.sh after attempt 2 (PASS)",
+      "git diff --check after attempt 2 (PASS)",
+      "final invalid-port/whitespace-control-host, URL-userinfo, unrelated-not-found, and specific-service-not-found probes (PASS)",
+      "delivery scope reconciliation: exactly five authorized delivery paths (PASS)"
     ]
   },
   "review_1": {
@@ -760,14 +837,12 @@
   },
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [
-    "The human operator must execute the committed fresh Claude-GLM manual implementation dispatch packet before deterministic delivery tests can run."
-  ],
+  "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_executes_fresh_claude_glm_manual_dispatch_then_codex_runs_frozen_tests_and_prepares_manual_review_1",
-  "updated_at": "2026-07-13T10:59:18Z"
+  "next_action": "codex_bookkeeper_creates_review_snapshot_bind_fingerprint_and_runs_pre_review_validation",
+  "updated_at": "2026-07-13T13:09:04Z"
 }

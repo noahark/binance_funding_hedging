@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: interrupted attempt evidence and explicit human mode flip committed; manual Claude-GLM implementation packet ready
-- Next action: human executes the fresh foreground Claude-GLM dispatch packet, then returns control to Codex for tests
+- Active phase: manual repair attempt 2 returned; all six frozen checks and final negative probes pass; review snapshot pending
+- Next action: Codex bookkeeper creates the local snapshot/bind commits, standard fingerprint, and pre-review validation evidence
 - Read-set: = status.current_inputs
-- Open blockers: none before human model dispatch; delivery implementation itself is pending
+- Open blockers: none in delivery code; formal review remains blocked only until committed snapshot/bind and pre-review validator complete
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -13,8 +13,8 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `implementing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `ca88a74bb96cc27ea051b18fb8ebf0d02f6fddbb` (`bookkeeper(launchd): switch interrupted pilot to manual dispatch`) before this synchronized post-commit checkpoint
-- Git status: clean immediately after the manual-mode-flip checkpoint; synchronized post-commit checkpoint pending commit
+- HEAD: `5207875dee4f72e3700eb0d50e169957e75e2d90` before the current uncommitted delivery/reconciliation checkpoint
+- Git status: five authorized delivery paths modified/untracked plus stage checkpoint and repair-prompt evidence; no delivery evidence commit exists
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -35,6 +35,9 @@
 - Attempt-5/manual-takeover report: `21-auto-v5-interruption-manual-takeover.md`
 - Interrupted session metadata: `runner-5-interrupted-transcript-metadata.json`
 - Manual implementation prompt/policy/dispatch: `manual-implementation-T1-launchd-service.*`
+- Attempt-1 operator-forwarded report: `manual-fix-T1-launchd-service-attempt1.operator-forwarded-output.md`
+- Narrow attempt-2 prompt: `manual-fix-T1-launchd-service-attempt2.prompt.md`
+- Attempt-2 operator-forwarded report: `manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md`
 - PTY route repair: `16-claude-glm-pty-route-repair.md`
 - PTY probe result: `17-claude-glm-pty-probe-result.md`
 - Kimi host/tool policy repair: `18-runner-host-tool-policy-repair.md`
@@ -43,7 +46,8 @@
 - Latest raw output: `runner-4-implementation-T1-launchd-service-attempt1.raw-output.md`
 - Latest escalation: `80-escalation-recoverable_resume_unverifiable_unit-20260713T104052Z.md`
 - Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
-- Review 1: pending fresh Kimi manual cross-review after implementation/tests
+- Pre-review repair prompt: `manual-fix-T1-launchd-service-pre-review.prompt.md`
+- Review 1: not dispatched; pending fresh Kimi manual cross-review after repair, six green checks, evidence commit, seal, and validator
 - Review 2: human-started and pending
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
@@ -73,12 +77,18 @@
 
 ## Blockers
 
-- The human operator must execute `manual-implementation-T1-launchd-service.dispatch.md`. Until the model returns, delivery implementation and frozen tests remain pending.
+- No open delivery-code or test blocker. Targeted suite passes 82 tests, full backend passes 301 tests, and all other frozen checks plus final negative probes pass.
+- Two self-reported read-only command-policy deviations (`py_compile`, then Bash/grep) remain disclosed. Session `5ee354f2-d410-4de2-aee7-fdd85e8f0d1b` is associated with attempt 2 and has real `glm-5.2` plus final `end_turn` evidence.
+- The implementation range is uncommitted; `head_sha`, `diff_fingerprint`, and formal review inputs therefore remain null.
 
 ## Next Action
 
-The checkpoint is committed and the worktree is clean. The human executes `manual-implementation-T1-launchd-service.dispatch.md` once in a fresh foreground terminal. On return, Codex inspects the bounded diff, runs all frozen checks, records the implementation evidence commit, and prepares fresh Kimi manual review-1.
+Codex creates the local review snapshot over the verified delivery and stage
+evidence, records the snapshot `head_sha` and canonical fingerprint in a
+status-only bind commit, runs `pre-review` validation on a clean tree, and then
+prepares a fresh Kimi `code_reviewer` dispatch packet. No model is invoked by
+the bookkeeper.
 
-本地北京时间: 2026-07-13 18:59:18 CST
-下一步模型: Claude-GLM / GLM-5.2（human dispatch）
-下一步任务: 执行 manual-implementation-T1-launchd-service.dispatch.md 并返回 exit code/session id
+本地北京时间: 2026-07-13 21:09:04 CST
+下一步模型: Codex bookkeeper
+下一步任务: 创建 review snapshot/bind、计算 diff_fingerprint 并执行 pre-review 校验

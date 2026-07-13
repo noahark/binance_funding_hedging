@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Reference template ONLY (documentation). This file is NOT a runtime string
+  substitution source and is never parsed by the controller.
+
+  The authoritative LaunchAgent plist is generated from a Python dict by
+  scripts/service-control.py using plistlib (an XML-safe writer), so a
+  repository path containing spaces or XML metacharacters stays valid. Run:
+
+      python3 scripts/service-control.py render
+
+  to print the real, fully-escaped plist to stdout.
+
+  Placeholders below (never literals):
+    __REPO_ROOT__   absolute repository root  -> WorkingDirectory, run-server.sh
+    __HOME__        the macOS user home        -> ~/Library/Logs/funding-hedging
+
+  Frozen keys (stage 2026-07-local-service-launchd-v1, architect amendment A1):
+    Label                 com.aoke.funding-hedging.server
+    ProgramArguments      ["/bin/bash", __REPO_ROOT__/scripts/run-server.sh]
+    WorkingDirectory      __REPO_ROOT__
+    RunAtLoad             true
+    KeepAlive             true          (intentional stop uses launchctl bootout)
+    ThrottleInterval      10            (seconds)
+    ProcessType           Background
+    EnvironmentVariables  PYTHONUNBUFFERED=1, PYTHONFAULTHANDLER=1
+    StandardOutPath       __HOME__/Library/Logs/funding-hedging/server.stdout.log
+    StandardErrorPath     __HOME__/Library/Logs/funding-hedging/server.stderr.log
+
+  Security boundary: NO .env values, NO BINANCE_* keys, and NO secret of any
+  kind belongs in this plist. scripts/run-server.sh loads .env at process start,
+  outside the plist.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.aoke.funding-hedging.server</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__REPO_ROOT__/scripts/run-server.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__REPO_ROOT__</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>PYTHONFAULTHANDLER</key>
+        <string>1</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/funding-hedging/server.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/funding-hedging/server.stderr.log</string>
+</dict>
+</plist>
