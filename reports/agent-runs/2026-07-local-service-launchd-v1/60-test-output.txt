@@ -1,3 +1,20 @@
+2026-07-14 00:07:14 CST — human process-evidence disposition:
+
+```text
+attempt-3 verdict schema=PASS
+attempt-3 diff fingerprint=PASS
+attempt-3 substantive verdict=ACCEPT
+open P0/P1=none
+required fixes=none
+remaining gap=one Claude Code persisted-output diff interval (process evidence)
+human disposition=explicitly waive remaining process-only interval and proceed
+raw transcript/tool audit preserved=yes
+```
+
+Disposition: enter `stage_accepted_waiting_user` using the existing strict
+verdict plus the explicit human waiver. Pre-accept validation and merge/push
+authorization consumption remain separate mechanical gates.
+
 2026-07-13 23:54:06 CST — Opus final-coverage attempt 3 tool-result audit:
 
 ```text

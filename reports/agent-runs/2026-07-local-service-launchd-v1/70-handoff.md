@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: review-2 attempt 3 is substantive ACCEPT, but one diff tool result was persisted and only previewed
-- Next action: human pastes `manual-review-2-T1-launchd-service.opus-recheck-last-persisted-chunk.prompt.md` into Session `cced0347-7f53-4626-958b-ecffba5d10b6`
+- Active phase: review-2 ACCEPT recorded with an explicit human waiver of the last process-only persisted-output gap
+- Next action: run pre-accept, record the already received user acceptance, then merge and push
 - Read-set: = status.current_inputs
-- Open blockers: delivery diff lines 701–1400 must enter reviewer context inline; push/merge remains blocked
+- Open blockers: none; merge/push waits only for deterministic pre-accept and git synchronization checks
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -60,6 +60,7 @@
 - Recheck attempt 1: schema-valid `ACCEPT`, same Session ID as the prior reviewer; nonaccepting because notes falsely say fresh and exact full diff content was not inspected; raw/verdict preserved and correction prompt prepared
 - Recheck attempt 2: schema-valid `ACCEPT`, same-session disclosure corrected; nonaccepting because notes overstate current re-reads and complete diff coverage; final coverage prompt prepared
 - Recheck attempt 3: schema-valid `ACCEPT`, same-session and scope disclosure correct; nonaccepting because one 29.4KB diff result became persisted-output and only its 2KB preview was inspected
+- Human process-evidence waiver: `23-human-review2-evidence-coverage-waiver.md`; the gap is preserved truthfully and no code/test/security finding is waived
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
 
@@ -100,11 +101,11 @@
 
 ## Next Action
 
-The human pastes the full contents of
-`manual-review-2-T1-launchd-service.opus-recheck-last-persisted-chunk.prompt.md`
-into the same dedicated Opus review session. Opus checks only delivery diff
-lines 701–1400 in two inline-sized chunks and emits replacement JSON. Codex
-extracts and validates it; no bookkeeper model invocation occurs.
+The bookkeeper runs the clean-tree pre-accept validator. The same human message
+already explicitly accepts the process-only gap and directs merge/push, so
+after a passing gate the bookkeeper records user acceptance, synchronizes
+remote state without rebase, pushes the stage branch, merges to `main`, records
+merged-back metadata, validates again, and pushes `main`.
 
 The user has authorized commit, push, and merge only after all hard gates pass.
 The authorization is not currently executable because review-2 remains
@@ -113,6 +114,6 @@ The authorization is not currently executable because review-2 remains
 The old `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` is
 superseded and must not be dispatched.
 
-本地北京时间: 2026-07-13 23:54:06 CST
-下一步模型: Claude/Anthropic Opus 4.8（same dedicated review session）
-下一步任务: 执行 last-persisted-chunk prompt 并输出最终替换 JSON
+本地北京时间: 2026-07-14 00:07:14 CST
+下一步模型: Codex bookkeeper
+下一步任务: 运行 pre-accept，记录用户验收并执行合并推送

@@ -108,9 +108,17 @@ six chunks were inline and complete. Attempt 3 is therefore retained as
 non-accepting evidence; the last correction splits only that interval into
 701–1050 and 1051–1400 to stay below the tool-output ceiling.
 
+The human operator then explicitly classified the last persisted-output gap as
+a process-only issue and directed the bookkeeper to skip it and proceed with
+merge/push. The exact waiver is
+`23-human-review2-evidence-coverage-waiver.md`. It does not rewrite the
+transcript or claim the missing bytes were reviewed. With that explicit human
+disposition, the stage adopts attempt 3's schema-valid, fingerprint-bound
+substantive `ACCEPT`: no P0/P1, no required fix, one retained P3.
+
 The JSON-only retry prompt is superseded; no model retry is needed for this
 attempt.
 
-本地北京时间: 2026-07-13 23:54:06 CST
-下一步模型: Claude/Anthropic Opus 4.8（same dedicated review session）
-下一步任务: 补读唯一 persisted-output 区间并输出最终 strict JSON verdict
+本地北京时间: 2026-07-14 00:07:14 CST
+下一步模型: Codex bookkeeper
+下一步任务: 运行 pre-accept gate 并记录已收到的用户合并推送授权
