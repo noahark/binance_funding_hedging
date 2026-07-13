@@ -7,8 +7,9 @@ not read `history/` at startup.
 ## Current State
 
 - Stage: `2026-07-history-background-refresh-v1`
-- Status: `review_2` — Kimi review-1 ACCEPT recorded and schema-validated;
-  Claude final-review dispatch prepared with strong-reviewer disclosure
+- Status: `stage_accepted_waiting_user` — Kimi review-1 and Claude Opus 4.8
+  review-2 both ACCEPT, schema-validated, and bound to the same fingerprint;
+  the user has now explicitly authorized commit, push, and merge
 - Branch: `stage/2026-07-history-background-refresh-v1`
 - Stage created from main: `0db66d2a82c10139523a06af74679e756bd13e5a`
 - Committed HEAD / review snapshot: `6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb`
@@ -61,7 +62,9 @@ not read `history/` at startup.
   prior breakdown/design-review involvement is explicitly disclosed; review-2
   committed-state pre-review gate passed at 2026-07-13 10:02:25 CST
 - Fix report: pending `40-fix-report.md`
-- Review 2: pending `50-review-2.md`
+- Review 2: `50-review-2.md` — Claude Opus 4.8 ACCEPT; raw output and strict
+  verdict are stored as `review-2-opus.raw-output.md` and
+  `50-review-2.verdict.json`. The prior breakdown involvement is disclosed.
 - Test output: `60-test-output.txt` — final independent rerun: 289 backend
   tests, 27 symbol-snapshot endpoint tests, frontend self-check, and diff check
   all passed; committed-state `pre-review` gate passed at 2026-07-13 09:52:08 CST
@@ -102,11 +105,12 @@ not read `history/` at startup.
 
 ## Next Action
 
-Human operator pastes `30-review-1.prompt.md` into a fresh Kimi read-only
-session. Kimi returned ACCEPT; its raw output and verdict are recorded. Human
-operator next pastes `50-review-2.prompt.md` into a fresh Claude Fable5 read-only
-session. The bookkeeper does not execute either dispatch.
+The user completed display acceptance and explicitly authorized commit, push,
+and merge. The bookkeeper must run the `pre-accept` gate, commit the final
+review evidence on the stage branch, push it, and merge it into `main` without
+rebasing. `main` contains the independent Chinese-English reporting preference
+commit `7117178`; do not merge `main` into this completed stage branch.
 
-本地北京时间: 2026-07-13 10:03:00 CST
-下一步模型: Claude Fable5
-下一步任务: 对绑定 committed diff 执行只读 review-2 并输出严格 JSON verdict
+本地北京时间: 2026-07-13 10:51:55 CST
+下一步模型: bookkeeper
+下一步任务: 运行 pre-accept 门禁，提交证据，推送 stage 分支，并在 main 合并
