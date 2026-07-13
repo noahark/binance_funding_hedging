@@ -57,6 +57,49 @@ def top_symbols_by_abs_rate(
     return {obj["symbol"] for obj in ranked[: max(0, int(top_n))]}
 
 
+# Stage 2026-07-history-background-refresh-v1 (10-design D1): the default-view
+# history prewarm boundary. Strictly greater than 0.00030000 — the frontend's
+# hideLowDailyRate boundary is abs(daily_funding_rate) <= 0.00030000 (hidden), so
+# the visible-by-default homepage is exactly abs(rate) > 0.00030000. Null/invalid
+# rates are intentionally NOT prewarmed even though the frontend threshold helper
+# leaves those rows visible (a deliberate, tested exception).
+DEFAULT_VIEW_HISTORY_THRESHOLD = Decimal("0.00030000")
+
+
+def default_view_history_symbols(rows: List[dict]) -> List[str]:
+    """Default-homepage history prewarm selector (10-design D1).
+
+    Returns the list of symbols (in row order, stable for the worker's rolling
+    cursor) whose ``route_class != "PERP_ONLY_EXCLUDED"`` AND whose
+    ``abs(Decimal(daily_funding_rate))`` is strictly greater than
+    :data:`DEFAULT_VIEW_HISTORY_THRESHOLD`. Null/empty/non-numeric rates are
+    excluded (intentional exception — visible but not prewarmed; the one-shot
+    click path remains available for them).
+
+    Parity vectors (10-design §3.1 / breakdown §12):
+      ``0.00029999`` / ``0.00030000`` / ``-0.00030000`` -> not prewarmed;
+      ``0.00030001`` / ``-0.00030001`` -> prewarmed (route not excluded);
+      any rate with ``PERP_ONLY_EXCLUDED`` -> not prewarmed;
+      ``None`` / ``""`` / non-numeric -> not prewarmed.
+    """
+    selected: List[str] = []
+    for r in rows:
+        if r.get("route_class") == "PERP_ONLY_EXCLUDED":
+            continue
+        rate = r.get("daily_funding_rate")
+        if rate is None or rate == "":
+            continue
+        try:
+            above = abs(Decimal(str(rate))) > DEFAULT_VIEW_HISTORY_THRESHOLD
+        except (InvalidOperation, ValueError, TypeError):
+            continue
+        if above:
+            sym = r.get("symbol", "")
+            if sym:
+                selected.append(sym)
+    return selected
+
+
 def build_rows(
     futures_symbols: List[dict],
     premium_by_sym: Dict[str, dict],

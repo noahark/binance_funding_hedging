@@ -1,0 +1,720 @@
+Stage: 2026-07-history-background-refresh-v1
+Checkpoint: H_intake repair / design-to-breakdown readiness
+Local Beijing time: 2026-07-12 23:08:57 CST
+Branch: stage/2026-07-history-background-refresh-v1
+Committed HEAD: efffe78c5465ccb3e03ba979bd07385602ac4f7e
+
+COMMAND: jq empty reports/agent-runs/2026-07-history-background-refresh-v1/status.json
+RESULT: PASS (exit 0)
+
+COMMAND: git diff --check
+RESULT: PASS (exit 0; no output)
+
+COMMAND: python3 scripts/validate-stage.py 2026-07-history-background-refresh-v1 --phase dispatch-ready
+RESULT:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-history-background-refresh-v1
+phase=dispatch-ready
+status=designing
+
+NOT RUN:
+- Product/backend/frontend tests (no implementation exists; this checkpoint is
+  design/bookkeeping only).
+
+---
+
+Checkpoint: development-breakdown bookkeeper validation
+Local Beijing time: 2026-07-12 23:42:28 CST
+Branch: stage/2026-07-history-background-refresh-v1
+Committed HEAD: efffe78c5465ccb3e03ba979bd07385602ac4f7e
+
+COMMAND: jq empty reports/agent-runs/2026-07-history-background-refresh-v1/status.json
+RESULT: PASS (exit 0)
+
+COMMAND: git diff --check
+RESULT: PASS (exit 0; no output)
+
+COMMAND: python3 scripts/validate-stage.py 2026-07-history-background-refresh-v1 --phase dispatch-ready
+RESULT:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-history-background-refresh-v1
+phase=dispatch-ready
+status=designing
+
+BOOKKEEPER CONTENT CHECK:
+- Claude Opus 4.8 breakdown file exists and covers owner routing, file
+  boundaries, data/concurrency model, public/private adapters, compatibility
+  endpoint, row contract, failure matrix, frontend patching, tests, and evidence.
+- Targeted amendment required before implementation dispatch: shared command
+  deadline, v1 click-guard wording, exact single-asset E2/E2b force keys, and
+  live kill-switch-disabled request-path behavior.
+
+NOT RUN:
+- Product/backend/frontend tests (implementation has not started).
+
+---
+
+Checkpoint: amended breakdown acceptance / implementation dispatch readiness
+Local Beijing time: 2026-07-13 00:49:03 CST
+Branch: stage/2026-07-history-background-refresh-v1
+Committed HEAD: efffe78c5465ccb3e03ba979bd07385602ac4f7e
+
+CONTENT VALIDATION:
+- PASS: shared monotonic deadline and pre-publication/domain-cache gate present.
+- PASS: v1 one-second frontend guard and in-flight suppression are no longer a
+  human decision; backend post-completion cooldown remains deferred.
+- PASS: exact single-asset E2/E2b/maxBorrowable eviction keys are named and
+  scheduled multi-asset batch keys are preserved.
+- PASS: offline synchronous fixture path is separated from live
+  kill-switch-disabled last-good/503 behavior.
+- IMPLEMENTATION CLARIFICATION: deadline equality is expired (`now >= deadline`).
+- Grok breakdown-review session was reported by the operator, but no new raw
+  review output exists in the stage directory; recorded as informational only.
+
+COMMAND: jq empty reports/agent-runs/2026-07-history-background-refresh-v1/status.json
+RESULT: PASS (exit 0)
+
+COMMAND: git diff --check
+RESULT: PASS (exit 0; no output)
+
+COMMAND: python3 scripts/validate-stage.py 2026-07-history-background-refresh-v1 --phase dispatch-ready
+RESULT:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-history-background-refresh-v1
+phase=dispatch-ready
+status=designing
+
+NOT RUN:
+- Product/backend/frontend tests (implementation dispatch has not been executed).
+
+================================================================================
+Stage: 2026-07-history-background-refresh-v1 — IMPLEMENTATION RUN
+Checkpoint: T1–T9 implementation (claude_glm / GLM-5.2, senior_developer)
+Local Beijing time: 2026-07-13 03:04:22 CST
+Branch: stage/2026-07-history-background-refresh-v1
+Working HEAD: efffe78c5465ccb3e03ba979bd07385602ac4f7e
+================================================================================
+
+## A. Backend pytest (full suite)
+
+Command: PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider
+
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 76%]
+..................................................................       [100%]
+282 passed in 6.82s
+
+## B. New-test-file targeted run (background worker + symbol-snapshot endpoint)
+
+Command: python3 -m pytest backend/tests/test_background_worker.py backend/tests/test_symbol_snapshot_endpoint.py -v
+
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0 -- /Library/Developer/CommandLineTools/usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/ark/Desktop/ai code/funding_hedging
+plugins: asyncio-1.2.0, anyio-4.8.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 37 items
+
+backend/tests/test_background_worker.py::test_construction_has_no_worker_thread PASSED [  2%]
+backend/tests/test_background_worker.py::test_start_is_idempotent_and_stop_clears_thread PASSED [  5%]
+backend/tests/test_background_worker.py::test_offline_mode_never_starts_worker PASSED [  8%]
+backend/tests/test_background_worker.py::test_kill_switch_off_never_starts_worker PASSED [ 10%]
+backend/tests/test_background_worker.py::test_stop_without_start_is_safe PASSED [ 13%]
+backend/tests/test_background_worker.py::test_base_raw_refreshed_only_after_cache_ttl PASSED [ 16%]
+backend/tests/test_background_worker.py::test_sweep_fetches_at_most_batch_size_per_tick PASSED [ 18%]
+backend/tests/test_background_worker.py::test_cursor_advances_across_ticks_without_skipping PASSED [ 21%]
+backend/tests/test_background_worker.py::test_cursor_wraps_around_on_a_shrinking_candidate_set PASSED [ 24%]
+backend/tests/test_background_worker.py::test_selector_parity_vector PASSED [ 27%]
+backend/tests/test_background_worker.py::test_selector_preserves_row_order_for_stable_cursor PASSED [ 29%]
+backend/tests/test_background_worker.py::test_all_valid_history_merges_only_unexpired_entries PASSED [ 32%]
+backend/tests/test_background_worker.py::test_scheduled_tick_publishes_merged_history_overlay PASSED [ 35%]
+backend/tests/test_background_worker.py::test_failed_history_fetch_is_not_cached PASSED [ 37%]
+backend/tests/test_background_worker.py::test_failed_symbol_does_not_block_other_symbols_or_delete_publish PASSED [ 40%]
+backend/tests/test_background_worker.py::test_published_version_is_monotonic_across_ticks PASSED [ 43%]
+backend/tests/test_background_worker.py::test_publish_swaps_single_reference_and_indexes_rows PASSED [ 45%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_payload_is_single_row_no_rows_array PASSED [ 48%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_row_identical_to_same_version_full_snapshot PASSED [ 51%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[None] PASSED [ 54%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[] PASSED [ 56%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[btcusdt] PASSED [ 59%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[BTC-USDT] PASSED [ 62%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[BTC USDT] PASSED [ 64%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA] PASSED [ 67%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_unknown_symbol_returns_404 PASSED [ 70%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_not_ready_returns_503_before_first_publish PASSED [ 72%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_deadline_expired_yields_timeout_and_keeps_last_published PASSED [ 75%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_deadline_within_window_publishes_exactly_once PASSED [ 78%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_history_failure_yields_partial_status PASSED [ 81%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_premium_failure_yields_partial_status PASSED [ 83%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_assemble_failure_yields_timeout_and_keeps_last_published PASSED [ 86%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_submits_exactly_one_command PASSED [ 89%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_concurrent_clicks_same_symbol_coalesce_to_one_command PASSED [ 91%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_path_never_calls_balance_position_valuation PASSED [ 94%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_does_not_invoke_full_universe_fetch_raw PASSED [ 97%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_force_ttl_evicts_only_single_asset_keys PASSED [100%]
+
+============================== 37 passed in 1.47s ==============================
+
+## C. Frontend self-check (Node mock DOM)
+
+Command: node frontend/self-check.js
+
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认渲染 6 行
+[PASS] 拆列存在，合并列消失
+[PASS] 年化三列存在且文案区分预估/已结算
+[PASS] 路由分类列移除，过滤器与字段校验保留
+[PASS] Drawer 宽度与卡片标签约束
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 年化三列格式化（含 null→—）
+[PASS] 结算间隔标注 8h
+[PASS] 无排序控件 DOM
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] formatUsdt2 2 位 ROUND_HALF_UP
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 资产/负费率状态列中文格式与路由列移除检查
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 净收益列存在与格式
+[PASS] 负值净收益红色样式
+[PASS] vip0_reference 显著标注「基准利率」
+[PASS] sort_basis 标注
+[PASS] 私有面板 verified=true 状态
+[PASS] 时点合一与估值来源卡片删除
+[PASS] 页面不含矛盾运行约束文案
+[PASS] 隐私开关默认隐藏
+[PASS] 隐私开关点击切换
+[PASS] 私有面板 verified=false disabled 占位
+[PASS] 私有面板 verified=false error 占位
+[PASS] 行联动方向标（不带数量）
+[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示
+[PASS] private-panel 在市场表之前
+[PASS] drawer DOM 在应用脚本之前
+[PASS] 成本腿命中行展示借币日利率
+[PASS] VIP0 参考档显示"参考"徽标
+[PASS] 正费率行不展示借币成本子行
+[PASS] 负费率状态行感知的六文案派生
+[PASS] 余额卡片三行折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+[PASS] 余额数量整数千分位、小数原样保留
+[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）
+[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）
+[PASS] METAL 资产标签徽章与下拉选项
+[PASS] 借币三态（51061 借光/有额度/未探测）
+[PASS] 抽屉打开、标题、年化值、历史 newest-first
+[PASS] 抽屉关闭按钮
+[PASS] 抽屉 Escape 关闭
+[PASS] 抽屉 backdrop 关闭
+[PASS] 刷新保持抽屉
+[PASS] symbol 消失时抽屉关闭
+[PASS] drawer loading 与 same-origin 请求
+[PASS] available 响应合并到行与表
+[PASS] empty 响应显示无记录
+[PASS] HTTP 502 显示可重试失败状态
+[PASS] 重试按钮重新 fetch 并更新抽屉
+[PASS] stale 响应隔离
+[PASS] response-body race 隔离（res.json() 延迟后切换）
+[PASS] wrong-symbol/schema 响应被拒绝合并
+[PASS] schema_version mismatch 响应被拒绝
+[PASS] 缺 row 字段响应被拒绝
+[PASS] 含 rows 数组响应被拒绝
+[PASS] in-flight 守卫忽略同 symbol 重复点击
+
+全部自检通过
+
+self-check exit: 0
+
+## D. git diff --check (whitespace / conflict markers)
+
+git diff --check exit: 0
+
+## E. symbol-snapshot schema load + self-validation (referencing.Registry)
+
+symbol-snapshot.schema.json: loaded, meta-schema valid, $ref to snapshot.schema.json resolvable
+  $id: https://local.binance-funding-hedging/schemas/api/public-market/symbol-snapshot.schema.json
+  top-level required: ['schema_version', 'symbol', 'published_version', 'data_time', 'generated_at', 'refresh_status', 'warnings', 'row']
+  row ref: snapshot.schema.json#/$defs/row
+  additionalProperties: False
+
+================================================================================
+Stage: 2026-07-history-background-refresh-v1 — BOOKKEEPER IMPLEMENTATION VALIDATION
+Checkpoint: independent full-suite rerun; pre-review findings recorded
+Local Beijing time: 2026-07-13 08:03:52 CST
+Branch: stage/2026-07-history-background-refresh-v1
+Committed HEAD: efffe78c5465ccb3e03ba979bd07385602ac4f7e
+================================================================================
+
+COMMAND: PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider
+RESULT: PASS — 282 passed in 7.23s
+
+COMMAND: node frontend/self-check.js
+RESULT: PASS — all self-check assertions passed
+
+COMMAND: git diff --check
+RESULT: PASS — exit 0
+
+COMMAND: jq empty reports/agent-runs/2026-07-history-background-refresh-v1/status.json
+RESULT: PASS — exit 0
+
+BOOKKEEPER STATIC FINDINGS (not covered by the passing suite):
+- BK-1 HIGH: endpoint bounded-wait expiry defaults unfinished command status to
+  `ok` instead of returning a local `timeout` projection.
+- BK-2 HIGH: worker checks command deadline only after new premium/history/private
+  I/O; an already-expired queued command must perform zero new upstream I/O.
+- BK-3 MEDIUM: worker-disabled live symbol-snapshot reads can report `ok` although
+  no refresh occurs.
+
+DISPOSITION: Do not commit or dispatch review-1. Targeted pre-review repair
+prompt `21-pre-review-repair.prompt.md` prepared for the original claude_glm
+implementation owner. This is not a formal-review REWORK and does not consume
+the stage rework ledger.
+
+GROK INFORMAL PRE-REVIEW CROSS-CHECK:
+- Session: `019f577e-d69a-7cb3-9e31-26f49fc542fb` (Grok 4.5, read-only opinion;
+  not a formal review-1 verdict and no `30-review-*.md` was written).
+- Disposition: confirms BK-1/BK-2/BK-3 and the existing post-assembly deadline
+  gate requirement. Added to repair scope: user-visible frontend timeout/partial
+  feedback and the defensive no-`fetch_raw()` click cold path. Raw session
+  transcript remains local; no model summary is substituted for formal review
+  evidence.
+
+BOOKKEEPER REPAIR-21 INDEPENDENT RERUN:
+- PASS: full backend suite 287 passed in 6.84s; symbol-snapshot endpoint suite
+  25 passed in 1.04s; frontend self-check passed; `git diff --check` and status
+  JSON validation passed.
+- BK-6 HIGH remains before commit/review-1: selected-click history cache is
+  written before `_publish()` performs schema validation. Prepared
+  `22-pre-review-atomicity-repair.prompt.md`; do not commit or dispatch review-1
+  until its deterministic validation-failure test passes.
+
+BOOKKEEPER BK-6 REVIEW:
+- PASS: `_validate()` is now before selected-click history-cache commit and
+  `_publish_validated`; deterministic validation-failure test preserves state,
+  cache, and private inputs (288 backend tests passed in GLM evidence).
+- BK-7 HIGH remains: validation may itself cross the shared deadline, and the
+  code has no final deadline re-check between successful `_validate()` and cache
+  commit/publication. Prepared `23-pre-review-final-deadline-repair.prompt.md`;
+  do not commit or dispatch review-1 until its crossing-validation test passes.
+
+BOOKKEEPER FINAL INDEPENDENT REPAIR REVIEW:
+- BK-7 PASS: successful `_validate()` is followed by a final monotonic deadline
+  gate before history-cache commit and `_publish_validated`; deterministic test
+  `test_validation_crossing_deadline_commits_nothing` preserves state, cache,
+  and private inputs.
+- COMMAND: `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider`
+  → PASS: 289 passed in 6.94s.
+- COMMAND: `python3 -m pytest backend/tests/test_symbol_snapshot_endpoint.py -v`
+  → PASS: 27 passed in 1.15s.
+- COMMAND: `node frontend/self-check.js` → PASS.
+- COMMAND: `git diff --check` → PASS.
+- COMMAND: `jq empty reports/agent-runs/2026-07-history-background-refresh-v1/status.json` → PASS.
+- DISPOSITION: BK-1 through BK-7 resolved. Eligible for local evidence commit
+  and committed-state pre-review validation; not yet a formal review verdict.
+
+================================================================================
+Stage: 2026-07-history-background-refresh-v1 — PRE-REVIEW REPAIR RUN
+Checkpoint: 21-pre-review-repair (claude_glm / GLM-5.2, minimal_change_engineer)
+Local Beijing time: 2026-07-13 08:54:43 CST
+Branch: stage/2026-07-history-background-refresh-v1
+Working HEAD: efffe78c5465ccb3e03ba979bd07385602ac4f7e
+================================================================================
+
+## A. Backend pytest (full suite)
+
+Command: PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider
+
+........................................................................ [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 75%]
+.......................................................................  [100%]
+287 passed in 6.92s
+
+## B. symbol-snapshot endpoint tests (verbose)
+
+Command: python3 -m pytest backend/tests/test_symbol_snapshot_endpoint.py -v
+
+rootdir: /Users/ark/Desktop/ai code/funding_hedging
+plugins: asyncio-1.2.0, anyio-4.8.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 25 items
+
+backend/tests/test_symbol_snapshot_endpoint.py::test_payload_is_single_row_no_rows_array PASSED [  4%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_row_identical_to_same_version_full_snapshot PASSED [  8%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[None] PASSED [ 12%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[] PASSED [ 16%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[btcusdt] PASSED [ 20%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[BTC-USDT] PASSED [ 24%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[BTC USDT] PASSED [ 28%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA] PASSED [ 32%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_unknown_symbol_returns_404 PASSED [ 36%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_not_ready_returns_503_before_first_publish PASSED [ 40%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_deadline_expired_yields_timeout_and_keeps_last_published PASSED [ 44%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_deadline_within_window_publishes_exactly_once PASSED [ 48%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_history_failure_yields_partial_status PASSED [ 52%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_premium_failure_yields_partial_status PASSED [ 56%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_assemble_failure_yields_timeout_and_keeps_last_published PASSED [ 60%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_submits_exactly_one_command PASSED [ 64%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_concurrent_clicks_same_symbol_coalesce_to_one_command PASSED [ 68%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_path_never_calls_balance_position_valuation PASSED [ 72%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_does_not_invoke_full_universe_fetch_raw PASSED [ 76%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_force_ttl_evicts_only_single_asset_keys PASSED [ 80%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_expired_queued_command_does_no_upstream_io PASSED [ 84%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_endpoint_wait_timeout_returns_timeout_not_ok PASSED [ 88%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_assemble_crossing_deadline_commits_nothing PASSED [ 92%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_kill_switch_off_with_state_returns_timeout_zero_upstream PASSED [ 96%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_base_raw_none_click_does_no_fetch_raw PASSED [100%]
+
+============================== 25 passed in 1.05s ==============================
+
+## C. Frontend self-check (Node mock DOM)
+
+Command: node frontend/self-check.js
+
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认渲染 6 行
+[PASS] 拆列存在，合并列消失
+[PASS] 年化三列存在且文案区分预估/已结算
+[PASS] 路由分类列移除，过滤器与字段校验保留
+[PASS] Drawer 宽度与卡片标签约束
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 年化三列格式化（含 null→—）
+[PASS] 结算间隔标注 8h
+[PASS] 无排序控件 DOM
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] formatUsdt2 2 位 ROUND_HALF_UP
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 资产/负费率状态列中文格式与路由列移除检查
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 净收益列存在与格式
+[PASS] 负值净收益红色样式
+[PASS] vip0_reference 显著标注「基准利率」
+[PASS] sort_basis 标注
+[PASS] 私有面板 verified=true 状态
+[PASS] 时点合一与估值来源卡片删除
+[PASS] 页面不含矛盾运行约束文案
+[PASS] 隐私开关默认隐藏
+[PASS] 隐私开关点击切换
+[PASS] 私有面板 verified=false disabled 占位
+[PASS] 私有面板 verified=false error 占位
+[PASS] 行联动方向标（不带数量）
+[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示
+[PASS] private-panel 在市场表之前
+[PASS] drawer DOM 在应用脚本之前
+[PASS] 成本腿命中行展示借币日利率
+[PASS] VIP0 参考档显示"参考"徽标
+[PASS] 正费率行不展示借币成本子行
+[PASS] 负费率状态行感知的六文案派生
+[PASS] 余额卡片三行折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+[PASS] 余额数量整数千分位、小数原样保留
+[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）
+[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）
+[PASS] METAL 资产标签徽章与下拉选项
+[PASS] 借币三态（51061 借光/有额度/未探测）
+[PASS] 抽屉打开、标题、年化值、历史 newest-first
+[PASS] 抽屉关闭按钮
+[PASS] 抽屉 Escape 关闭
+[PASS] 抽屉 backdrop 关闭
+[PASS] 刷新保持抽屉
+[PASS] symbol 消失时抽屉关闭
+[PASS] drawer loading 与 same-origin 请求
+[PASS] available 响应合并到行与表
+[PASS] empty 响应显示无记录
+[PASS] HTTP 502 显示可重试失败状态
+[PASS] 重试按钮重新 fetch 并更新抽屉
+[PASS] stale 响应隔离
+[PASS] response-body race 隔离（res.json() 延迟后切换）
+[PASS] wrong-symbol/schema 响应被拒绝合并
+[PASS] schema_version mismatch 响应被拒绝
+[PASS] 缺 row 字段响应被拒绝
+[PASS] 含 rows 数组响应被拒绝
+[PASS] in-flight 守卫忽略同 symbol 重复点击
+[PASS] refresh_status=timeout 显示 notice 且保留上次行
+[PASS] refresh_status=partial 替换行并显示 warnings notice
+
+全部自检通过
+
+self-check exit: 0
+
+## D. git diff --check
+
+git diff --check exit: 0
+
+========================================================================
+## BK-6 pre-review atomicity repair — schema-validation ordering
+## 2026-07-13 09:25:33 CST
+========================================================================
+
+### PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider
+........................................................................ [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 75%]
+........................................................................ [100%]
+288 passed in 6.97s
+
+### python3 -m pytest backend/tests/test_symbol_snapshot_endpoint.py -v
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0 -- /Library/Developer/CommandLineTools/usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/ark/Desktop/ai code/funding_hedging
+plugins: asyncio-1.2.0, anyio-4.8.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 26 items
+
+backend/tests/test_symbol_snapshot_endpoint.py::test_payload_is_single_row_no_rows_array PASSED [  3%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_row_identical_to_same_version_full_snapshot PASSED [  7%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[None] PASSED [ 11%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[] PASSED [ 15%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[btcusdt] PASSED [ 19%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[BTC-USDT] PASSED [ 23%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[BTC USDT] PASSED [ 26%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA] PASSED [ 30%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_unknown_symbol_returns_404 PASSED [ 34%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_not_ready_returns_503_before_first_publish PASSED [ 38%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_deadline_expired_yields_timeout_and_keeps_last_published PASSED [ 42%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_deadline_within_window_publishes_exactly_once PASSED [ 46%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_history_failure_yields_partial_status PASSED [ 50%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_premium_failure_yields_partial_status PASSED [ 53%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_assemble_failure_yields_timeout_and_keeps_last_published PASSED [ 57%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_submits_exactly_one_command PASSED [ 61%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_concurrent_clicks_same_symbol_coalesce_to_one_command PASSED [ 65%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_path_never_calls_balance_position_valuation PASSED [ 69%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_does_not_invoke_full_universe_fetch_raw PASSED [ 73%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_force_ttl_evicts_only_single_asset_keys PASSED [ 76%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_expired_queued_command_does_no_upstream_io PASSED [ 80%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_endpoint_wait_timeout_returns_timeout_not_ok PASSED [ 84%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_assemble_crossing_deadline_commits_nothing PASSED [ 88%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_schema_validation_failure_commits_nothing PASSED [ 92%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_kill_switch_off_with_state_returns_timeout_zero_upstream PASSED [ 96%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_base_raw_none_click_does_no_fetch_raw PASSED [100%]
+
+============================== 26 passed in 1.09s ==============================
+
+### node frontend/self-check.js
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认渲染 6 行
+[PASS] 拆列存在，合并列消失
+[PASS] 年化三列存在且文案区分预估/已结算
+[PASS] 路由分类列移除，过滤器与字段校验保留
+[PASS] Drawer 宽度与卡片标签约束
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 年化三列格式化（含 null→—）
+[PASS] 结算间隔标注 8h
+[PASS] 无排序控件 DOM
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] formatUsdt2 2 位 ROUND_HALF_UP
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 资产/负费率状态列中文格式与路由列移除检查
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 净收益列存在与格式
+[PASS] 负值净收益红色样式
+[PASS] vip0_reference 显著标注「基准利率」
+[PASS] sort_basis 标注
+[PASS] 私有面板 verified=true 状态
+[PASS] 时点合一与估值来源卡片删除
+[PASS] 页面不含矛盾运行约束文案
+[PASS] 隐私开关默认隐藏
+[PASS] 隐私开关点击切换
+[PASS] 私有面板 verified=false disabled 占位
+[PASS] 私有面板 verified=false error 占位
+[PASS] 行联动方向标（不带数量）
+[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示
+[PASS] private-panel 在市场表之前
+[PASS] drawer DOM 在应用脚本之前
+[PASS] 成本腿命中行展示借币日利率
+[PASS] VIP0 参考档显示"参考"徽标
+[PASS] 正费率行不展示借币成本子行
+[PASS] 负费率状态行感知的六文案派生
+[PASS] 余额卡片三行折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+[PASS] 余额数量整数千分位、小数原样保留
+[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）
+[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）
+[PASS] METAL 资产标签徽章与下拉选项
+[PASS] 借币三态（51061 借光/有额度/未探测）
+[PASS] 抽屉打开、标题、年化值、历史 newest-first
+[PASS] 抽屉关闭按钮
+[PASS] 抽屉 Escape 关闭
+[PASS] 抽屉 backdrop 关闭
+[PASS] 刷新保持抽屉
+[PASS] symbol 消失时抽屉关闭
+[PASS] drawer loading 与 same-origin 请求
+[PASS] available 响应合并到行与表
+[PASS] empty 响应显示无记录
+[PASS] HTTP 502 显示可重试失败状态
+[PASS] 重试按钮重新 fetch 并更新抽屉
+[PASS] stale 响应隔离
+[PASS] response-body race 隔离（res.json() 延迟后切换）
+[PASS] wrong-symbol/schema 响应被拒绝合并
+[PASS] schema_version mismatch 响应被拒绝
+[PASS] 缺 row 字段响应被拒绝
+[PASS] 含 rows 数组响应被拒绝
+[PASS] in-flight 守卫忽略同 symbol 重复点击
+[PASS] refresh_status=timeout 显示 notice 且保留上次行
+[PASS] refresh_status=partial 替换行并显示 warnings notice
+
+全部自检通过
+
+### git diff --check
+exit=0
+
+========================================================================
+## BK-7 pre-review final-deadline-gate repair
+## 2026-07-13 09:41:48 CST
+========================================================================
+
+### PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider
+........................................................................ [ 24%]
+........................................................................ [ 49%]
+........................................................................ [ 74%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+289 passed in 6.99s
+
+### python3 -m pytest backend/tests/test_symbol_snapshot_endpoint.py -v
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0 -- /Library/Developer/CommandLineTools/usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/ark/Desktop/ai code/funding_hedging
+plugins: asyncio-1.2.0, anyio-4.8.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 27 items
+
+backend/tests/test_symbol_snapshot_endpoint.py::test_payload_is_single_row_no_rows_array PASSED [  3%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_row_identical_to_same_version_full_snapshot PASSED [  7%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[None] PASSED [ 11%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[] PASSED [ 14%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[btcusdt] PASSED [ 18%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[BTC-USDT] PASSED [ 22%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[BTC USDT] PASSED [ 25%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_invalid_symbol_returns_400[AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA] PASSED [ 29%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_unknown_symbol_returns_404 PASSED [ 33%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_not_ready_returns_503_before_first_publish PASSED [ 37%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_deadline_expired_yields_timeout_and_keeps_last_published PASSED [ 40%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_deadline_within_window_publishes_exactly_once PASSED [ 44%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_history_failure_yields_partial_status PASSED [ 48%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_premium_failure_yields_partial_status PASSED [ 51%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_assemble_failure_yields_timeout_and_keeps_last_published PASSED [ 55%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_submits_exactly_one_command PASSED [ 59%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_concurrent_clicks_same_symbol_coalesce_to_one_command PASSED [ 62%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_path_never_calls_balance_position_valuation PASSED [ 66%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_does_not_invoke_full_universe_fetch_raw PASSED [ 70%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_click_force_ttl_evicts_only_single_asset_keys PASSED [ 74%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_expired_queued_command_does_no_upstream_io PASSED [ 77%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_endpoint_wait_timeout_returns_timeout_not_ok PASSED [ 81%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_assemble_crossing_deadline_commits_nothing PASSED [ 85%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_schema_validation_failure_commits_nothing PASSED [ 88%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_validation_crossing_deadline_commits_nothing PASSED [ 92%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_kill_switch_off_with_state_returns_timeout_zero_upstream PASSED [ 96%]
+backend/tests/test_symbol_snapshot_endpoint.py::test_base_raw_none_click_does_no_fetch_raw PASSED [100%]
+
+============================== 27 passed in 1.18s ==============================
+
+### node frontend/self-check.js
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认渲染 6 行
+[PASS] 拆列存在，合并列消失
+[PASS] 年化三列存在且文案区分预估/已结算
+[PASS] 路由分类列移除，过滤器与字段校验保留
+[PASS] Drawer 宽度与卡片标签约束
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 年化三列格式化（含 null→—）
+[PASS] 结算间隔标注 8h
+[PASS] 无排序控件 DOM
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] formatUsdt2 2 位 ROUND_HALF_UP
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 资产/负费率状态列中文格式与路由列移除检查
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 净收益列存在与格式
+[PASS] 负值净收益红色样式
+[PASS] vip0_reference 显著标注「基准利率」
+[PASS] sort_basis 标注
+[PASS] 私有面板 verified=true 状态
+[PASS] 时点合一与估值来源卡片删除
+[PASS] 页面不含矛盾运行约束文案
+[PASS] 隐私开关默认隐藏
+[PASS] 隐私开关点击切换
+[PASS] 私有面板 verified=false disabled 占位
+[PASS] 私有面板 verified=false error 占位
+[PASS] 行联动方向标（不带数量）
+[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示
+[PASS] private-panel 在市场表之前
+[PASS] drawer DOM 在应用脚本之前
+[PASS] 成本腿命中行展示借币日利率
+[PASS] VIP0 参考档显示"参考"徽标
+[PASS] 正费率行不展示借币成本子行
+[PASS] 负费率状态行感知的六文案派生
+[PASS] 余额卡片三行折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+[PASS] 余额数量整数千分位、小数原样保留
+[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）
+[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）
+[PASS] METAL 资产标签徽章与下拉选项
+[PASS] 借币三态（51061 借光/有额度/未探测）
+[PASS] 抽屉打开、标题、年化值、历史 newest-first
+[PASS] 抽屉关闭按钮
+[PASS] 抽屉 Escape 关闭
+[PASS] 抽屉 backdrop 关闭
+[PASS] 刷新保持抽屉
+[PASS] symbol 消失时抽屉关闭
+[PASS] drawer loading 与 same-origin 请求
+[PASS] available 响应合并到行与表
+[PASS] empty 响应显示无记录
+[PASS] HTTP 502 显示可重试失败状态
+[PASS] 重试按钮重新 fetch 并更新抽屉
+[PASS] stale 响应隔离
+[PASS] response-body race 隔离（res.json() 延迟后切换）
+[PASS] wrong-symbol/schema 响应被拒绝合并
+[PASS] schema_version mismatch 响应被拒绝
+[PASS] 缺 row 字段响应被拒绝
+[PASS] 含 rows 数组响应被拒绝
+[PASS] in-flight 守卫忽略同 symbol 重复点击
+[PASS] refresh_status=timeout 显示 notice 且保留上次行
+[PASS] refresh_status=partial 替换行并显示 warnings notice
+
+全部自检通过
+
+### git diff --check
+exit=0

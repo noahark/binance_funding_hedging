@@ -53,6 +53,13 @@ if (typeof global.CSS === 'undefined') {
 
 const elementCache = {};
 
+// mock Date.now: each call advances 1100ms so the 1s anti-double-click guard
+// (breakdown §11.2) never blocks the back-to-back openDrawer() calls this
+// self-check makes against the same symbol. The guard semantics themselves are
+// unit-tested by the symbol-snapshot contract block below.
+let _mockNow = 1700000000000;
+Date.now = () => { _mockNow += 1100; return _mockNow; };
+
 function makeElement(id) {
   if (elementCache[id]) return elementCache[id];
   const el = {
@@ -103,15 +110,23 @@ function makeElement(id) {
     querySelector(sel) {
       if (!sel || typeof sel !== 'string') return null;
       const idMatch = sel.match(/^#([A-Za-z0-9_-]+)$/);
-      if (!idMatch) return null;
-      const targetId = idMatch[1];
-      const html = this.innerHTML;
-      if (!html.includes(`id="${targetId}"`) && !html.includes(`id='${targetId}'`)) return null;
-      return makeElement(targetId);
+      if (idMatch) {
+        const targetId = idMatch[1];
+        const html = this.innerHTML;
+        if (!html.includes(`id="${targetId}"`) && !html.includes(`id='${targetId}'`)) return null;
+        return makeElement(targetId);
+      }
+      // tr.selectable[data-symbol="X"] — patchRow patches a single row in place
+      const trMatch = sel.match(/^tr\.selectable\[data-symbol="([^"]+)"\]$/);
+      if (trMatch) {
+        const target = trMatch[1];
+        return _trRows().find(r => r.getAttribute('data-symbol') === target) || null;
+      }
+      return null;
     },
     querySelectorAll(sel) {
       if (!sel || typeof sel !== 'string') return [];
-      if (sel === 'tr.selectable') return [];
+      if (sel === 'tr.selectable') return _trRows();
       return [];
     }
   };
@@ -129,6 +144,64 @@ const ids = [
   'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
+
+// Parse the current market-table-body innerHTML into mock <tr> row elements so
+// patchRow (querySelector tr.selectable[data-symbol="X"]) and bindRowSelection
+// (querySelectorAll tr.selectable) operate on the rendered table. Each element
+// supports getAttribute/setAttribute/addEventListener and an outerHTML setter
+// that splices the row back into the tbody innerHTML (single-row patch, no
+// full re-render — mirrors real-DOM patchRow behaviour, breakdown §11.6).
+function _trRows() {
+  const html = elements['market-table-body'].innerHTML;
+  const rows = [];
+  let pos = 0;
+  while (true) {
+    const trStart = html.indexOf('<tr', pos);
+    if (trStart === -1) break;
+    const trEnd = html.indexOf('</tr>', trStart);
+    if (trEnd === -1) break;
+    const seg = html.slice(trStart, trEnd + 5);
+    const symMatch = seg.match(/data-symbol="([^"]+)"/);
+    const symbol = symMatch ? symMatch[1] : null;
+    const bound = /data-bound="1"/.test(seg);
+    rows.push(_makeTrEl(symbol, bound));
+    pos = trEnd + 5;
+  }
+  return rows;
+}
+
+function _makeTrEl(symbol, bound) {
+  const obj = {
+    _symbol: symbol,
+    _bound: bound,
+    getAttribute(name) {
+      if (name === 'data-symbol') return this._symbol;
+      if (name === 'data-bound') return this._bound ? '1' : null;
+      return null;
+    },
+    setAttribute(name, value) {
+      if (name === 'data-bound') this._bound = (value === '1');
+    },
+    removeAttribute() {},
+    addEventListener() {},
+    listeners: {}
+  };
+  Object.defineProperty(obj, 'outerHTML', {
+    configurable: true,
+    get() { return ''; },
+    set(newHtml) {
+      const cur = elements['market-table-body'].innerHTML;
+      const idx = cur.indexOf(`data-symbol="${this._symbol}"`);
+      if (idx === -1) return;
+      const s = cur.lastIndexOf('<tr', idx);
+      const e = cur.indexOf('</tr>', s);
+      if (s === -1 || e === -1) return;
+      elements['market-table-body'].innerHTML =
+        cur.slice(0, s) + String(newHtml) + cur.slice(e + 5);
+    }
+  });
+  return obj;
+}
 
 // 加载设计期 fixture
 const designFixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
@@ -187,7 +260,7 @@ global.fetch = async (url) => {
     fetchUrl = urlStr;
     return buildFetchResponse({ status: 200, body: fixtureToFetch });
   }
-  if (urlStr.startsWith('/api/public-market/funding-history')) {
+  if (urlStr.startsWith('/api/public-market/symbol-snapshot')) {
     lastHistoryUrl = urlStr;
     if (historyResponse && historyResponse.delay) {
       return new Promise((resolve) => {
@@ -1267,12 +1340,32 @@ setTimeout(async () => {
     // 恢复默认 fixture
     helpers.ingestSnapshot(designFixture);
 
+    // symbol-snapshot 响应构造器（breakdown §11/§12）：基于 designFixture 完整行
+    // deep-copy 并覆盖历史/年化字段；row 必须是完整快照行（patchRow 整行替换）。
+    const tEnd = 1783641600000;
+    const day = 86_400_000;
+    const snapshotResponse = (symbol, overrides) => {
+      const base = designFixture.rows.find(r => r.symbol === symbol);
+      if (!base) throw new Error(`fixture 缺少 ${symbol}`);
+      const row = JSON.parse(JSON.stringify(base));
+      Object.assign(row, overrides || {});
+      return {
+        status: 200,
+        body: {
+          schema_version: 'public-market-symbol-snapshot/v1',
+          symbol,
+          published_version: 1,
+          row
+        }
+      };
+    };
+
     // 48. Task D: 无预加载历史行打开 drawer 进入 loading 并请求 same-origin endpoint
     historyResponse = { delay: true };
     lastHistoryUrl = null;
     historyResolve = null;
     helpers.openDrawer('BUSDT');
-    if (lastHistoryUrl !== '/api/public-market/funding-history?symbol=BUSDT') {
+    if (lastHistoryUrl !== '/api/public-market/symbol-snapshot?symbol=BUSDT') {
       throw new Error(`BUSDT drawer 请求 URL 错误: ${lastHistoryUrl}`);
     }
     if (!helpers.getDrawerLoading()) {
@@ -1284,24 +1377,15 @@ setTimeout(async () => {
     }
     console.log('[PASS] drawer loading 与 same-origin 请求');
 
-    // 49. Task D: available 响应合并到行与表，抽屉渲染 newest-first 历史
-    const tEnd = 1783641600000;
-    const day = 86_400_000;
-    historyResponse = {
-      status: 200,
-      body: {
-        schema_version: 'public-market-funding-history/v1',
-        symbol: 'BUSDT',
-        data_time: '2026-07-05T23:30:00Z',
-        history_status: 'available',
-        funding_history: [
-          { funding_time: tEnd - 2 * day, funding_rate: '-0.00010000' },
-          { funding_time: tEnd - day, funding_rate: '0.00005000' }
-        ],
-        annualized_funding_7d: '-0.00260714',
-        annualized_funding_30d: '-0.00060833'
-      }
-    };
+    // 49. Task D: available 响应（row 带 history）替换整行 + 抽屉 newest-first
+    historyResponse = snapshotResponse('BUSDT', {
+      funding_history: [
+        { funding_time: tEnd - 2 * day, funding_rate: '-0.00010000' },
+        { funding_time: tEnd - day, funding_rate: '0.00005000' }
+      ],
+      annualized_funding_7d: '-0.00260714',
+      annualized_funding_30d: '-0.00060833'
+    });
     historyResolve();
     await new Promise(r => setTimeout(r, 0));
     if (helpers.getDrawerLoading()) {
@@ -1328,19 +1412,12 @@ setTimeout(async () => {
     }
     console.log('[PASS] available 响应合并到行与表');
 
-    // 50. Task D: empty 响应显示无记录，不标记为加载失败
-    historyResponse = {
-      status: 200,
-      body: {
-        schema_version: 'public-market-funding-history/v1',
-        symbol: 'CUSDT',
-        data_time: '2026-07-05T23:30:00Z',
-        history_status: 'empty',
-        funding_history: [],
-        annualized_funding_7d: null,
-        annualized_funding_30d: null
-      }
-    };
+    // 50. Task D: empty 响应（row 带 funding_history=[]）显示无记录，不标记失败
+    historyResponse = snapshotResponse('CUSDT', {
+      funding_history: [],
+      annualized_funding_7d: null,
+      annualized_funding_30d: null
+    });
     helpers.openDrawer('CUSDT');
     await new Promise(r => setTimeout(r, 0));
     if (helpers.getDrawerLoading()) {
@@ -1380,25 +1457,18 @@ setTimeout(async () => {
     }
     console.log('[PASS] HTTP 502 显示可重试失败状态');
 
-    // 52. Task D: 重试按钮重新 fetch 并在成功时更新抽屉
-    historyResponse = {
-      status: 200,
-      body: {
-        schema_version: 'public-market-funding-history/v1',
-        symbol: 'DUSDT',
-        data_time: '2026-07-05T23:30:00Z',
-        history_status: 'available',
-        funding_history: [{ funding_time: tEnd - day, funding_rate: '-0.00020000' }],
-        annualized_funding_7d: '-0.01042857',
-        annualized_funding_30d: '-0.00243333'
-      }
-    };
+    // 52. Task D: 重试按钮重新 fetch symbol-snapshot 并在成功时更新抽屉
+    historyResponse = snapshotResponse('DUSDT', {
+      funding_history: [{ funding_time: tEnd - day, funding_rate: '-0.00020000' }],
+      annualized_funding_7d: '-0.01042857',
+      annualized_funding_30d: '-0.00243333'
+    });
     lastHistoryUrl = null;
     const retryBtn = elements['drawer-body'].querySelector('#drawer-retry');
     if (!retryBtn) throw new Error('重试按钮未找到');
     await Promise.all((retryBtn.listeners.click || []).map(h => h()));
     await new Promise(r => setTimeout(r, 0));
-    if (lastHistoryUrl !== '/api/public-market/funding-history?symbol=DUSDT') {
+    if (lastHistoryUrl !== '/api/public-market/symbol-snapshot?symbol=DUSDT') {
       throw new Error(`重试后请求 URL 错误: ${lastHistoryUrl}`);
     }
     if (helpers.getDrawerHistoryError()) {
@@ -1452,24 +1522,19 @@ setTimeout(async () => {
       }
       // Re-render so the table DOM reflects the cleared state before the race.
       helpers.ingestSnapshot(designFixture);
-      const tEndRace = 1783641600000;
-      const dayRace = 86_400_000;
+      const raceBody = snapshotResponse('BUSDT', {
+        funding_history: [
+          { funding_time: tEnd - 2 * day, funding_rate: '-0.00010000' },
+          { funding_time: tEnd - day, funding_rate: '0.00005000' }
+        ],
+        annualized_funding_7d: '-0.00260714',
+        annualized_funding_30d: '-0.00060833'
+      }).body;
       historyResponse = {
         delay: true,
         jsonDelay: true,
         status: 200,
-        body: {
-          schema_version: 'public-market-funding-history/v1',
-          symbol: 'BUSDT',
-          data_time: '2026-07-05T23:30:00Z',
-          history_status: 'available',
-          funding_history: [
-            { funding_time: tEndRace - 2 * dayRace, funding_rate: '-0.00010000' },
-            { funding_time: tEndRace - dayRace, funding_rate: '0.00005000' }
-          ],
-          annualized_funding_7d: '-0.00260714',
-          annualized_funding_30d: '-0.00060833'
-        }
+        body: raceBody
       };
       historyResolve = null;
       historyJsonResolve = null;
@@ -1509,18 +1574,13 @@ setTimeout(async () => {
         dusdtRowWrong.annualized_funding_7d = null;
         dusdtRowWrong.annualized_funding_30d = null;
       }
-      historyResponse = {
-        status: 200,
-        body: {
-          schema_version: 'public-market-funding-history/v1',
-          symbol: 'XUSDT', // wrong symbol
-          data_time: '2026-07-05T23:30:00Z',
-          history_status: 'available',
-          funding_history: [{ funding_time: 1783555200000, funding_rate: '-0.00010000' }],
-          annualized_funding_7d: '-0.00521429',
-          annualized_funding_30d: '-0.00121667'
-        }
-      };
+      const wrongBody = snapshotResponse('DUSDT', {
+        funding_history: [{ funding_time: tEnd - day, funding_rate: '-0.00010000' }],
+        annualized_funding_7d: '-0.00521429',
+        annualized_funding_30d: '-0.00121667'
+      }).body;
+      wrongBody.symbol = 'XUSDT'; // wrong symbol
+      historyResponse = { status: 200, body: wrongBody };
       helpers.openDrawer('DUSDT');
       await new Promise(r => setTimeout(r, 0));
       if (helpers.getDrawerHistoryError() !== 'history_response_invalid') {
@@ -1536,24 +1596,152 @@ setTimeout(async () => {
 
     // 56. Task D schema_version mismatch rejection
     {
-      historyResponse = {
-        status: 200,
-        body: {
-          schema_version: 'public-market-funding-history/v0',
-          symbol: 'DUSDT',
-          data_time: '2026-07-05T23:30:00Z',
-          history_status: 'available',
-          funding_history: [{ funding_time: 1783555200000, funding_rate: '-0.00010000' }],
-          annualized_funding_7d: '-0.00521429',
-          annualized_funding_30d: '-0.00121667'
-        }
-      };
+      const mismatchBody = snapshotResponse('DUSDT', {
+        funding_history: [{ funding_time: tEnd - day, funding_rate: '-0.00010000' }],
+        annualized_funding_7d: '-0.00521429',
+        annualized_funding_30d: '-0.00121667'
+      }).body;
+      mismatchBody.schema_version = 'public-market-symbol-snapshot/v0';
+      historyResponse = { status: 200, body: mismatchBody };
       helpers.openDrawer('DUSDT');
       await new Promise(r => setTimeout(r, 0));
       if (helpers.getDrawerHistoryError() !== 'history_response_invalid') {
         throw new Error(`schema_version mismatch 应产生 history_response_invalid，实际: ${helpers.getDrawerHistoryError()}`);
       }
       console.log('[PASS] schema_version mismatch 响应被拒绝');
+    }
+
+    // 57. symbol-snapshot 契约：响应缺 row 字段 → history_response_invalid
+    {
+      historyResponse = {
+        status: 200,
+        body: {
+          schema_version: 'public-market-symbol-snapshot/v1',
+          symbol: 'DUSDT',
+          published_version: 1
+          // no row
+        }
+      };
+      helpers.openDrawer('DUSDT');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getDrawerHistoryError() !== 'history_response_invalid') {
+        throw new Error(`缺 row 响应应产生 history_response_invalid，实际: ${helpers.getDrawerHistoryError()}`);
+      }
+      console.log('[PASS] 缺 row 字段响应被拒绝');
+    }
+
+    // 58. symbol-snapshot 契约：响应同时含 rows 数组 → history_response_invalid
+    {
+      const withRows = snapshotResponse('DUSDT', {}).body;
+      withRows.rows = [withRows.row];
+      historyResponse = { status: 200, body: withRows };
+      helpers.openDrawer('DUSDT');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getDrawerHistoryError() !== 'history_response_invalid') {
+        throw new Error(`含 rows 数组响应应产生 history_response_invalid，实际: ${helpers.getDrawerHistoryError()}`);
+      }
+      console.log('[PASS] 含 rows 数组响应被拒绝');
+    }
+
+    // 59. in-flight 守卫：同 symbol fetch 挂起时，再次 openDrawer 同 symbol 应被忽略
+    // （不发起新请求；breakdown §11.3）。
+    {
+      historyResponse = { delay: true };
+      lastHistoryUrl = null;
+      historyResolve = null;
+      helpers.openDrawer('DUSDT');
+      if (!historyResolve) throw new Error('in-flight 守卫: DUSDT fetch 未挂起');
+      const inflightResolve = historyResolve;
+      // 再次点击同 symbol：inflightSymbol===DUSDT → openDrawer 直接 return
+      lastHistoryUrl = null;
+      helpers.openDrawer('DUSDT');
+      if (lastHistoryUrl !== null) {
+        throw new Error('in-flight 守卫未忽略同 symbol 重复点击');
+      }
+      inflightResolve();
+      await new Promise(r => setTimeout(r, 0));
+      console.log('[PASS] in-flight 守卫忽略同 symbol 重复点击');
+    }
+
+    // 60. refresh_status=timeout：显示「刷新超时」非阻塞 notice，且 row 保持上次
+    // 数据（不替换 state）；仍只补丁目标行/抽屉，无 renderTable（pre-review repair）。
+    {
+      const dusdtBase = designFixture.rows.find(r => r.symbol === 'DUSDT');
+      const beforeRow = helpers.getSnapshot().rows.find(r => r.symbol === 'DUSDT');
+      const beforeHistLen = Array.isArray(beforeRow.funding_history) ? beforeRow.funding_history.length : 0;
+      // timeout 响应的 row 携带与当前不同的 history —— 必须被丢弃，不替换
+      const timeoutRow = JSON.parse(JSON.stringify(dusdtBase));
+      timeoutRow.funding_history = [{ funding_time: tEnd - day, funding_rate: '0.00123456' }];
+      timeoutRow.annualized_funding_7d = '-0.05000000';
+      historyResponse = {
+        status: 200,
+        body: {
+          schema_version: 'public-market-symbol-snapshot/v1',
+          symbol: 'DUSDT',
+          published_version: 1,
+          refresh_status: 'timeout',
+          warnings: ['refresh_command_expired:DUSDT'],
+          row: timeoutRow
+        }
+      };
+      helpers.openDrawer('DUSDT');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getDrawerHistoryError()) {
+        throw new Error(`timeout 响应不应产生阻塞错误: ${helpers.getDrawerHistoryError()}`);
+      }
+      if (!helpers.getDrawerNotice() || helpers.getDrawerNotice().kind !== 'timeout') {
+        throw new Error(`timeout 响应应设 drawerNotice.kind=timeout，实际: ${JSON.stringify(helpers.getDrawerNotice())}`);
+      }
+      const bodyTimeout = elements['drawer-body'].innerHTML;
+      if (!bodyTimeout.includes('刷新超时，显示上次数据')) {
+        throw new Error('timeout 响应未渲染非阻塞「刷新超时」notice: ' + bodyTimeout);
+      }
+      // row 未被替换：history 长度仍是刷新前的预加载值，而非 timeoutRow 的 1 条
+      const afterRow = helpers.getSnapshot().rows.find(r => r.symbol === 'DUSDT');
+      const afterHistLen = Array.isArray(afterRow.funding_history) ? afterRow.funding_history.length : 0;
+      if (afterHistLen !== beforeHistLen) {
+        throw new Error(`timeout 响应不应替换行（history ${beforeHistLen} -> ${afterHistLen}）`);
+      }
+      console.log('[PASS] refresh_status=timeout 显示 notice 且保留上次行');
+    }
+
+    // 61. refresh_status=partial：row 替换 + 「部分刷新成功」notice + 后端 warnings
+    {
+      const partialRow = JSON.parse(JSON.stringify(designFixture.rows.find(r => r.symbol === 'DUSDT')));
+      partialRow.funding_history = [{ funding_time: tEnd - day, funding_rate: '-0.00020000' }];
+      partialRow.annualized_funding_7d = '-0.01042857';
+      partialRow.annualized_funding_30d = '-0.00243333';
+      historyResponse = {
+        status: 200,
+        body: {
+          schema_version: 'public-market-symbol-snapshot/v1',
+          symbol: 'DUSDT',
+          published_version: 2,
+          refresh_status: 'partial',
+          warnings: ['premium_refresh_failed:DUSDT'],
+          row: partialRow
+        }
+      };
+      helpers.openDrawer('DUSDT');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getDrawerHistoryError()) {
+        throw new Error(`partial 响应不应产生阻塞错误: ${helpers.getDrawerHistoryError()}`);
+      }
+      if (!helpers.getDrawerNotice() || helpers.getDrawerNotice().kind !== 'partial') {
+        throw new Error(`partial 响应应设 drawerNotice.kind=partial，实际: ${JSON.stringify(helpers.getDrawerNotice())}`);
+      }
+      const bodyPartial = elements['drawer-body'].innerHTML;
+      if (!bodyPartial.includes('部分刷新成功')) {
+        throw new Error('partial 响应未渲染非阻塞「部分刷新成功」notice');
+      }
+      if (!bodyPartial.includes('premium_refresh_failed:DUSDT')) {
+        throw new Error('partial notice 未透传后端 warnings');
+      }
+      // row 被替换：ann7 -0.01042857 -> -1.042857%
+      if (!bodyPartial.includes('-1.042857%')) {
+        throw new Error('partial 响应未替换/渲染 DUSDT 行的新年化值');
+      }
+      console.log('[PASS] refresh_status=partial 替换行并显示 warnings notice');
     }
 
     // 恢复默认 fixture
