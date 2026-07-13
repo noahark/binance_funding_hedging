@@ -2,20 +2,20 @@
 
 ## Recovery Header
 
-- Active phase: snapshot/bind committed, clean-tree pre-review validation passed, fresh Kimi formal review-1 packet ready
-- Next action: human opens a fresh Kimi session, pastes `manual-review-1-T1-launchd-service.prompt.md`, and returns the complete raw output
+- Active phase: formal Kimi review-1 ACCEPT received; strict verdict schema/fingerprint bind passed; preparing human-started review-2
+- Next action: bookkeeper commits review-1 evidence, records review-2 design-conflict routing evidence, reruns clean-tree pre-review validation, and prepares the final-review packet
 - Read-set: = status.current_inputs
-- Open blockers: none before human reviewer dispatch; no verdict exists yet
+- Open blockers: none; review-2 still requires a fresh human-started final-review session
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `review_1`
+- Status: `review_2`
 - Branch: `stage/2026-07-local-service-launchd-v1`
 - Review snapshot HEAD: `85ab5011e4b99fe464d9e1996ad455fdbc389206`
 - Fingerprint: `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`
-- Git status: snapshot and bind committed; review packet/evidence checkpoint pending one local evidence commit
+- Git status: review-1 raw output, strict verdict, status, and handoff pending a local evidence commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -49,7 +49,7 @@
 - Latest escalation: `80-escalation-recoverable_resume_unverifiable_unit-20260713T104052Z.md`
 - Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
 - Pre-review repair prompt: `manual-fix-T1-launchd-service-pre-review.prompt.md`
-- Review 1: not dispatched; pending fresh Kimi manual cross-review after repair, six green checks, evidence commit, seal, and validator
+- Review 1: `ACCEPT`; schema-valid Kimi verdict bound to the frozen fingerprint; one accepted P3, no required fixes
 - Review 2: human-started and pending
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -125,6 +125,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-attempt2.operator-forwarded-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.operator-forwarded-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.verdict.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -384,10 +386,10 @@
         },
         "review_1": {
           "provider": "moonshot_kimi",
-          "verdict": null,
-          "json_schema_valid": false,
+          "verdict": "ACCEPT",
+          "json_schema_valid": true,
           "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
-          "verdict_path": null
+          "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.verdict.json"
         }
       }
     ],
@@ -399,7 +401,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "manual_review_1_dispatch_ready",
+    "status": "manual_review_1_accept_waiting_review_2_dispatch",
     "real_launchctl_mutation_authorized": false
   },
   "manual_dispatch_takeover": {
@@ -602,7 +604,9 @@
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
     "mode": "manual_fresh_read_only_session",
-    "status": "fresh_human_executed_code_reviewer_dispatch_ready"
+    "status": "formal_review_1_accept",
+    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.operator-forwarded-output.md",
+    "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.verdict.json"
   },
   "reviewer_2": null,
   "r10_checklists": {},
@@ -620,9 +624,12 @@
         "reviewer": "kimi",
         "provider": "moonshot_kimi",
         "model": "kimi-code/kimi-for-coding",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778"
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
+        "reviewer_prior_involvement": "none",
+        "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.operator-forwarded-output.md",
+        "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.verdict.json"
       }
     }
   ],
@@ -825,18 +832,23 @@
     "reviewer": "kimi",
     "provider": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
+    "open_p0_p1": false,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
     "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_pending": false,
-    "fix_start_prompt_present": null,
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0,
     "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.prompt.md",
     "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.dispatch.md",
-    "raw_output_path": null
+    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.operator-forwarded-output.md",
+    "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.verdict.json",
+    "residual_risks": [
+      "diagnostic redaction remains best-effort regex coverage",
+      "real launchctl lifecycle remains a human acceptance gate and was not exercised"
+    ]
   },
   "review_2": {
     "reviewer": null,
@@ -874,6 +886,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_executes_fresh_kimi_code_reviewer_dispatch_and_returns_complete_raw_output",
-  "updated_at": "2026-07-13T13:15:41Z"
+  "next_action": "bookkeeper_records_review_2_routing_and_prepares_human_started_final_review",
+  "updated_at": "2026-07-13T13:33:38Z"
 }

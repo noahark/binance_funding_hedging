@@ -1,24 +1,38 @@
 # Review 1
 
-Not started. Auto mode has been disabled by explicit human mode flip. The
-manual implementation and repair attempt 2 returned. All frozen checks and
-final negative probes pass. The committed range, bind, fingerprint, and
-clean-tree `pre-review` validator now also pass.
+Formal review-1 completed in a fresh human-started Kimi session using the
+explicit `code_reviewer` role. Reviewer provider `moonshot_kimi` differs from
+implementation/fix provider `zhipu_glm`.
 
-This pre-review inspection is not a verdict and does not consume a formal
-review attempt. After the bookkeeper creates the snapshot/bind commits,
-standard diff fingerprint, and green `pre-review` validation, review-1 must use
-a fresh Kimi session with explicit `code_reviewer` skill because the
-implementer/fix provider is `zhipu_glm`.
+## Evidence Bind
 
-The immutable review snapshot is
-`85ab5011e4b99fe464d9e1996ad455fdbc389206`; the standard fingerprint is
-`85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`.
-The fresh-session prompt and human dispatch packet are
-`manual-review-1-T1-launchd-service.prompt.md` and
-`manual-review-1-T1-launchd-service.dispatch.md`. No reviewer has been invoked
-and no verdict exists yet.
+- Reviewed range: `3bb253a489bf2854d8b9d81060a45ca056e1cea2..85ab5011e4b99fe464d9e1996ad455fdbc389206`
+- Standard fingerprint: `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`
+- Operator-forwarded raw output: `manual-review-1-T1-launchd-service.operator-forwarded-output.md`
+- Mechanically de-wrapped strict verdict: `manual-review-1-T1-launchd-service.verdict.json`
+- JSON Schema: `schemas/review-verdict.schema.json`
 
-本地北京时间: 2026-07-13 21:15:41 CST
-下一步模型: Kimi / kimi-code/kimi-for-coding（fresh human dispatch）
-下一步任务: 显式使用 code_reviewer 审查固定范围并返回完整原始输出及严格 JSON
+The forwarded terminal/chat output hard-wrapped long paths and the fingerprint.
+The raw forwarding is retained separately. The strict JSON artifact removes
+only those presentation wraps and preserves all reviewer fields and meanings.
+It validates against the schema and binds exactly to the stage id and recorded
+fingerprint.
+
+## Verdict
+
+`ACCEPT`. There are no P0/P1 findings and no required fixes. Kimi recorded one
+accepted P3: diagnostic redaction is a documented best-effort regex set rather
+than a universal secret classifier. Residual risk also retains that real
+`launchctl` lifecycle operations were intentionally not exercised because they
+remain behind the human external-side-effect gate.
+
+The two implementation-session tool-policy deviations remain disclosed as
+process evidence. Kimi classified them as read-only deviations, not delivery
+code defects, and did not make them accepting blockers.
+
+The stage transitions to `review_2`. Review-2 remains human-started and must
+use the frozen committed range, raw review-1 evidence, and strict JSON verdict.
+
+本地北京时间: 2026-07-13 21:33:38 CST
+下一步模型: Codex bookkeeper / review-2 路由
+下一步任务: 记录最终审查的设计冲突路由证据，运行 pre-review validator，并准备人工启动的 review-2 packet
