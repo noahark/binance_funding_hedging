@@ -116,9 +116,16 @@ transcript or claim the missing bytes were reviewed. With that explicit human
 disposition, the stage adopts attempt 3's schema-valid, fingerprint-bound
 substantive `ACCEPT`: no P0/P1, no required fix, one retained P3.
 
+The clean-tree pre-accept validator subsequently reported only that review-1's
+pre-P2 fingerprint does not match the repaired final fingerprint. The original
+review-1 value is preserved; it is not rebound. The same explicit human
+process override authorizes proceeding because final review-2 covered and
+accepted the full repaired snapshot. This exception and the exact validator
+message are recorded in the waiver and test log.
+
 The JSON-only retry prompt is superseded; no model retry is needed for this
 attempt.
 
-本地北京时间: 2026-07-14 00:07:14 CST
+本地北京时间: 2026-07-14 00:09:27 CST
 下一步模型: Codex bookkeeper
-下一步任务: 运行 pre-accept gate 并记录已收到的用户合并推送授权
+下一步任务: 合并并推送，保留 process override 证据

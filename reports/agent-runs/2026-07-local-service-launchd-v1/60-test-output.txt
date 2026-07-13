@@ -1,3 +1,18 @@
+2026-07-14 00:09:27 CST — clean-tree pre-accept result and human override:
+
+```text
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase pre-accept
+STAGE VALIDATION FAILED
+- review_1.diff_fingerprint must match status.diff_fingerprint
+```
+
+The mismatch is intentionally preserved: review-1 accepted the pre-P2
+fingerprint, while final review-2 accepted the complete repaired fingerprint.
+No code, test, security, or fingerprint-computation check failed. Under the
+operator's explicit instruction to skip process-only review issues and
+merge/push, this validator failure is recorded as a human override; no verdict
+or fingerprint is rewritten.
+
 2026-07-14 00:07:14 CST — human process-evidence disposition:
 
 ```text

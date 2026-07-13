@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: review-2 ACCEPT recorded with an explicit human waiver of the last process-only persisted-output gap
-- Next action: run pre-accept, record the already received user acceptance, then merge and push
+- Active phase: user accepted; two disclosed process-only review-evidence gaps are explicitly overridden
+- Next action: fetch remote, push stage branch, merge to main, record merged-back metadata, push main
 - Read-set: = status.current_inputs
-- Open blockers: none; merge/push waits only for deterministic pre-accept and git synchronization checks
+- Open blockers: none; pre-accept's stale review-1 fingerprint failure is preserved under explicit human override
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -61,6 +61,7 @@
 - Recheck attempt 2: schema-valid `ACCEPT`, same-session disclosure corrected; nonaccepting because notes overstate current re-reads and complete diff coverage; final coverage prompt prepared
 - Recheck attempt 3: schema-valid `ACCEPT`, same-session and scope disclosure correct; nonaccepting because one 29.4KB diff result became persisted-output and only its 2KB preview was inspected
 - Human process-evidence waiver: `23-human-review2-evidence-coverage-waiver.md`; the gap is preserved truthfully and no code/test/security finding is waived
+- Pre-accept result: failed only on stale review-1 fingerprint after P2 repair; old value preserved, explicitly overridden by the same human instruction
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
 
@@ -101,11 +102,10 @@
 
 ## Next Action
 
-The bookkeeper runs the clean-tree pre-accept validator. The same human message
-already explicitly accepts the process-only gap and directs merge/push, so
-after a passing gate the bookkeeper records user acceptance, synchronizes
-remote state without rebase, pushes the stage branch, merges to `main`, records
-merged-back metadata, validates again, and pushes `main`.
+The bookkeeper synchronizes remote state without rebase, pushes the accepted
+stage branch, merges it to `main`, records merged-back metadata, and pushes
+`main`. The clean-tree pre-accept failure is retained verbatim and is not
+reported as a pass.
 
 The user has authorized commit, push, and merge only after all hard gates pass.
 The authorization is not currently executable because review-2 remains
@@ -114,6 +114,6 @@ The authorization is not currently executable because review-2 remains
 The old `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` is
 superseded and must not be dispatched.
 
-本地北京时间: 2026-07-14 00:07:14 CST
+本地北京时间: 2026-07-14 00:09:27 CST
 下一步模型: Codex bookkeeper
-下一步任务: 运行 pre-accept，记录用户验收并执行合并推送
+下一步任务: 执行远端同步、stage 推送、main 合并与推送

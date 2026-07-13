@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -431,7 +431,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "review_2_accept_with_explicit_human_process_evidence_waiver",
+    "status": "user_accepted_pending_merge_with_explicit_process_overrides",
     "real_launchctl_mutation_authorized": true,
     "real_launchctl_mutation_authorized_by": "human",
     "real_launchctl_mutation_authorized_at": "2026-07-13T13:41:00Z"
@@ -1149,6 +1149,14 @@
     "evidence_commit": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d",
     "sealed_diff_fingerprint": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e"
   },
+  "pre_accept_validation": {
+    "attempted_at": "2026-07-14T00:09:27+08:00",
+    "result": "failed_process_only_overridden_by_explicit_human_instruction",
+    "command": "python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase pre-accept",
+    "error": "review_1.diff_fingerprint must match status.diff_fingerprint",
+    "old_review_1_fingerprint_preserved": true,
+    "override_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/23-human-review2-evidence-coverage-waiver.md"
+  },
   "blockers": [],
   "human_escalation": {
     "required": false,
@@ -1156,16 +1164,23 @@
     "resolved_by": "explicit_human_runtime_acceptance_decision",
     "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/22-human-runtime-acceptance-amendment.md"
   },
-  "terminal_reason": "stage_accepted_waiting_user",
+  "terminal_reason": "accepted_by_user",
+  "user_acceptance": {
+    "accepted": true,
+    "authority": "user",
+    "accepted_at": "2026-07-14T00:09:27+08:00",
+    "instruction": "process-only review evidence issues may be skipped; merge and push",
+    "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/23-human-review2-evidence-coverage-waiver.md"
+  },
   "merge_authorization": {
     "authorized_by": "human",
     "authorized_at": "2026-07-13T14:29:59Z",
     "scope": "commit_push_and_merge_stage_after_all_hard_gates_pass",
-    "condition": "fresh_schema_valid_review_2_ACCEPT_and_clean_validation_required_before_push_or_merge",
-    "currently_executable": false,
+    "condition": "superseded by explicit human instruction to skip disclosed process-only review evidence failures and merge/push",
+    "currently_executable": true,
     "review_2_accept_recorded_at": "2026-07-14T00:07:14+08:00",
     "process_evidence_waiver": "reports/agent-runs/2026-07-local-service-launchd-v1/23-human-review2-evidence-coverage-waiver.md"
   },
-  "next_action": "run_pre_accept_then_record_already_received_user_acceptance_before_merge",
-  "updated_at": "2026-07-14T00:07:14+08:00"
+  "next_action": "fetch_remote_push_stage_merge_main_record_merged_back_and_push_main",
+  "updated_at": "2026-07-14T00:09:27+08:00"
 }

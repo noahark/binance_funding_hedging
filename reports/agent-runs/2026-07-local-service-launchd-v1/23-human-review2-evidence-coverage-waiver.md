@@ -21,6 +21,18 @@ not waive any code/test/security finding. The exact attempt-3 raw output and
 verdict remain preserved as evidence, together with the bookkeeper tool-result
 audit in `60-test-output.txt`.
 
+The first clean-tree `pre-accept` run then failed only because review-1 remains
+bound to the pre-P2 fingerprint
+`85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`,
+while the verified P2 repair and final review-2 are bound to
+`ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e`.
+The validator correctly reported
+`review_1.diff_fingerprint must match status.diff_fingerprint`. No review-1
+fingerprint is rewritten or fabricated. Under the same explicit operator
+instruction to skip process-only issues and merge/push, this stale review-1
+binding is also accepted as a disclosed process override because the stronger
+final reviewer inspected and accepted the complete repaired snapshot.
+
 ## Disposition
 
 - Adopt the schema-valid attempt-3 substantive verdict: `ACCEPT`.
@@ -29,8 +41,8 @@ audit in `60-test-output.txt`.
   `scripts/run-server.sh` local startup path.
 - Enter `stage_accepted_waiting_user`, then consume the same operator message
   as explicit acceptance and authority to merge and push after pre-accept
-  validation succeeds.
+  validation is attempted and any process-only failure is preserved.
 
-本地北京时间: 2026-07-14 00:07:14 CST
+本地北京时间: 2026-07-14 00:09:27 CST
 下一步模型: Codex bookkeeper
-下一步任务: 运行 pre-accept gate，记录用户验收，然后合并并推送
+下一步任务: 记录 validator 流程 override，合并并推送
