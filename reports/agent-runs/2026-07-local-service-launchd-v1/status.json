@@ -131,6 +131,9 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-real-launchd-desktop-tcc-20260713T134341Z.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-attempt1.operator-forwarded-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-json-retry.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -405,7 +408,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "real_launchd_acceptance_failed_desktop_tcc_waiting_human_decision",
+    "status": "review_2_opus_attempt_1_invalid_json_same_model_retry_required",
     "real_launchctl_mutation_authorized": true,
     "real_launchctl_mutation_authorized_by": "human",
     "real_launchctl_mutation_authorized_at": "2026-07-13T13:41:00Z"
@@ -625,14 +628,15 @@
     "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-1-T1-launchd-service.verdict.json"
   },
   "reviewer_2": {
-    "adapter": "codex",
-    "provider_identity": "openai",
-    "model": "gpt-5.6-sol",
+    "adapter": "claude",
+    "provider_identity": "anthropic",
+    "model": "claude-opus-4-8",
     "mode": "fresh_human_started_read_only_schema_bound",
-    "status": "formal_review_2_dispatch_suspended_before_execution",
-    "reviewer_prior_involvement": "design",
+    "status": "formal_review_2_attempt_1_received_invalid_json_retry_required",
+    "reviewer_prior_involvement": "breakdown",
     "design_conflict_override": true,
-    "routing_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md"
+    "routing_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md",
+    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-attempt1.operator-forwarded-output.md"
   },
   "r10_checklists": {},
   "tasks": [
@@ -734,6 +738,9 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-real-launchd-desktop-tcc-20260713T134341Z.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-attempt1.operator-forwarded-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-json-retry.prompt.md",
     "backend/app/server.py",
     "backend/tests/test_service_health.py",
     "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
@@ -882,39 +889,41 @@
     ]
   },
   "review_2": {
-    "reviewer": "codex",
-    "provider": "openai",
-    "model": "gpt-5.6-sol",
+    "reviewer": "claude",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
     "primary_provider": "openai",
     "fallback_provider": "anthropic",
     "routing_candidates": [
       "codex",
       "claude"
     ],
-    "fallback_reason": "no_unrelated_decision_model_due_design_conflict",
-    "reviewer_prior_involvement": "design",
+    "fallback_reason": "explicit_human_selection_of_opus4.8_before_any_codex_review_2_verdict; no unrelated registered decision provider exists",
+    "reviewer_prior_involvement": "breakdown",
     "reviewer_prior_involvement_pending": false,
-    "reviewer_prior_involvement_notes": "OpenAI/Codex authored the stage design and architecture amendment but no implementation or fix code; a fresh read-only session is selected because every registered decision provider has prior design involvement.",
-    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md",
+    "reviewer_prior_involvement_notes": "Anthropic/Opus 4.8 authored 12-development-breakdown.md but no direction synthesis, design/architecture, implementation, or fix code; the operator explicitly selected a fresh read-only Opus review session and the reviewer truthfully rejected the Codex-specific identity constants in the original prompt.",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md",
     "design_conflict_override": {
       "used": true,
-      "reason": "no_unrelated_registered_decision_provider; codex has design involvement and claude has breakdown involvement",
-      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-design-conflict-evidence.md"
+      "reason": "human selected Anthropic Opus 4.8; Anthropic has breakdown involvement but no implementation/fix authorship; no unrelated registered decision provider exists",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-override.md"
     },
     "open_p0_p1": null,
     "verdict": null,
-    "json_schema_valid": null,
+    "json_schema_valid": false,
     "diff_fingerprint": "85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0,
+    "invalid_json_attempts": 1,
     "skill": "reality_checker",
     "skill_explicit": true,
     "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.prompt.md",
     "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.dispatch.md",
-    "raw_output_path": null,
+    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-attempt1.operator-forwarded-output.md",
     "verdict_path": null,
-    "dispatch_suspended_reason": "real launchd acceptance failed with exit 126 because macOS Desktop TCC denied the LaunchAgent access to the repository working directory"
+    "dispatch_suspended_reason": "formal JSON was truncated by the operator forwarding surface; same-model JSON-only retry required",
+    "json_retry_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-json-retry.prompt.md",
+    "non_accepting_advisory_outcome": "BLOCKED"
   },
   "rework_count": 0,
   "max_rework": 3,
@@ -944,6 +953,6 @@
     "reason": "real_launchd_desktop_tcc_requires_runtime_location_or_privacy_authority_decision"
   },
   "terminal_reason": "human_escalation_required",
-  "next_action": "human_selects_non_protected_runtime_location_or_explicit_macos_privacy_override_before_fix_and_retest",
-  "updated_at": "2026-07-13T13:44:36Z"
+  "next_action": "human_asks_same_opus4.8_review_session_to_reemit_json_only_and_returns_complete_bytes",
+  "updated_at": "2026-07-13T14:05:04Z"
 }

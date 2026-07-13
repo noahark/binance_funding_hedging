@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: review-2 dispatch suspended after first real LaunchAgent acceptance failed on macOS Desktop TCC
-- Next action: human selects a non-protected runtime location or explicitly approves a broad macOS privacy grant; then route a bounded fix and repeat real acceptance
+- Active phase: human-selected Opus 4.8 review-2 attempt 1 returned substantive BLOCKED, but forwarded JSON was truncated and is invalid
+- Next action: human pastes `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` into the same Opus session and returns only the complete JSON object
 - Read-set: = status.current_inputs
-- Open blockers: LaunchAgent cannot access `/Users/ark/Desktop/ai code/funding_hedging`; exit 126, health/readiness unreachable; human deployment-location/privacy decision required
+- Open blockers: real Desktop TCC failure remains; formal review-2 JSON is invalid and requires the single same-model retry
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -15,7 +15,7 @@
 - Branch: `stage/2026-07-local-service-launchd-v1`
 - Review snapshot HEAD: `85ab5011e4b99fe464d9e1996ad455fdbc389206`
 - Fingerprint: `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`
-- Git status: review-2 preflight committed at `f2bb3a6`; real acceptance failure evidence and escalation pending one local evidence commit
+- Git status: real acceptance failure committed at `9529be9`; Opus attempt-1 routing/raw/retry evidence pending one local bookkeeper commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -50,7 +50,7 @@
 - Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
 - Pre-review repair prompt: `manual-fix-T1-launchd-service-pre-review.prompt.md`
 - Review 1: `ACCEPT`; schema-valid Kimi verdict bound to the frozen fingerprint; one accepted P3, no required fixes
-- Review 2: dispatch packet prepared but suspended before execution because newer real-environment evidence is blocking
+- Review 2: Opus 4.8 attempt 1 narrative says `BLOCKED`; actual identity `anthropic`/`claude-opus-4-8`, prior involvement `breakdown`; formal JSON invalid due forwarding truncation, attempt count 1
 - Real launchd acceptance: FAIL; plist loaded, five exit-126 attempts, macOS Desktop TCC denied working-directory/script access; failed job stopped, plist retained
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`

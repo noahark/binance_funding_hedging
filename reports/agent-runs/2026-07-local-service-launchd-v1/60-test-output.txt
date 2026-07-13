@@ -1,3 +1,28 @@
+2026-07-13 22:05:04 CST — human-selected Opus 4.8 review-2 attempt 1 intake:
+
+```text
+reviewer identity
+provider=anthropic; model=claude-opus-4-8; prior_involvement=breakdown
+
+provider isolation
+PASS; anthropic != zhipu_glm implementation/fix provider
+
+substantive forwarded outcome
+BLOCKED; P1 Desktop TCC runtime failure; P2 install/restart lacks bounded
+post-bootstrap readiness proof; P3 best-effort redaction
+
+strict JSON transfer
+FAIL; truncated stage_id/model/fingerprint/paths/next_action; not parseable;
+no verdict artifact created
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+status=human_escalation_required
+```
+
+No model was invoked by the bookkeeper. The same-model retry is JSON-only and
+does not authorize Opus to write files or repeat side-effecting checks.
+
 2026-07-13 21:44:36 CST — first human-authorized real LaunchAgent acceptance:
 
 ```text

@@ -1,8 +1,8 @@
 # Review 2
 
-Not started and now suspended before dispatch. Formal review-1 returned
-schema-valid `ACCEPT`, but the first human-authorized real LaunchAgent
-acceptance produced new blocking evidence after the review-2 packet was sealed.
+Attempt 1 executed in a fresh human-selected Claude/Anthropic Opus 4.8 session
+with explicit `reality_checker`. The operator selected Opus before any Codex
+review-2 verdict existed.
 
 The registered decision models both have prior design involvement:
 
@@ -10,35 +10,34 @@ The registered decision models both have prior design involvement:
 - Claude/Anthropic authored the development breakdown.
 
 Neither provider implemented or fixed delivery code; `zhipu_glm` is the sole
-delivery/fix provider. Because no unrelated registered decision provider
-exists, the workflow primary Codex is selected under the strong-reviewer
-disclosure override. The deterministic eligibility record is
-`review-2-routing-design-conflict-evidence.md`.
+delivery/fix provider. The human-selected reviewer truthfully changed the
+Codex-specific identity constants in the original prompt to
+`model=claude-opus-4-8` and `reviewer_prior_involvement=breakdown`. The
+superseding routing disclosure is `review-2-routing-human-opus48-override.md`.
 
-The final reviewer must be a fresh, human-started, read-only
-`gpt-5.6-sol` session with explicit `reality_checker`. It must review the exact
-committed range
+Opus reviewed the exact committed range
 `3bb253a489bf2854d8b9d81060a45ca056e1cea2..85ab5011e4b99fe464d9e1996ad455fdbc389206`
 and fingerprint
 `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`.
 
-Prepared artifacts:
+The substantive narrative concludes `BLOCKED` and identifies:
 
-- `manual-review-2-T1-launchd-service.prompt.md`
-- `manual-review-2-T1-launchd-service.dispatch.md`
+- P1: real launchd operation fails at the approved Desktop checkout because
+  macOS TCC denies background access; a human runtime-location/privacy decision
+  is required.
+- P2: install/restart can report success after bootstrap even if the job
+  immediately exits; bounded post-bootstrap health/readiness proof is missing.
+- P3: diagnostic redaction remains best-effort.
 
-No review-2 model has been invoked and no final verdict exists. The real test
-loaded the plist, but macOS Desktop TCC denied the background job access to the
-repository and launcher. `launchctl` recorded five attempts and exit 126;
-health/readiness remained unreachable. The failed job was stopped to prevent a
-KeepAlive retry loop, while the installed plist and sanitized diagnostics were
-retained.
+The operator-forwarded JSON is not valid gate evidence. Terminal/chat hard
+wrapping truncated `stage_id`, `model`, the fingerprint, reviewed-artifact
+paths, and `next_action`. Attempt 1 is therefore recorded as invalid JSON with
+no formal verdict, despite the retained non-accepting `BLOCKED` narrative.
 
-The previous dispatch packet must not be executed until the human selects a
-non-protected runtime location or explicitly accepts a macOS privacy grant, the
-fix is implemented, and the real launchd acceptance passes. Full evidence is in
-`80-escalation-real-launchd-desktop-tcc-20260713T134341Z.md`.
+Per policy, the next action is one mechanical retry in the same Opus session.
+It must not re-review or write files; it only re-emits one complete JSON object
+using `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md`.
 
-本地北京时间: 2026-07-13 21:44:36 CST
-下一步模型: Human
-下一步任务: 选择非受保护运行目录或显式隐私授权方案，完成修复和真实验收后重新生成 review-2 packet
+本地北京时间: 2026-07-13 22:05:04 CST
+下一步模型: Claude/Anthropic Opus 4.8（same review session）
+下一步任务: 不重做审查，只返回完整 schema-valid JSON verdict
