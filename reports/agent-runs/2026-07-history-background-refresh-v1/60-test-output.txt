@@ -741,3 +741,13 @@ backend/tests/test_symbol_snapshot_endpoint.py::test_base_raw_none_click_does_no
 
 ### git diff --check
 exit=0
+
+REVIEW-2 PRE-ACCEPT GATE
+-------------------------
+$ python3 scripts/validate-stage.py 2026-07-history-background-refresh-v1 --phase pre-accept
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-history-background-refresh-v1
+phase=pre-accept
+status=stage_accepted_waiting_user
+diff_fingerprint=6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96
+timestamp=2026-07-13 10:53:02 CST
