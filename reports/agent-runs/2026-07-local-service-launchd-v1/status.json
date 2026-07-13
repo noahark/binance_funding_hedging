@@ -140,6 +140,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.tool-policy.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt1.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -755,6 +757,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.tool-policy.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt1.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md",
     "backend/app/server.py",
     "backend/tests/test_service_health.py",
     "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
@@ -979,10 +983,15 @@
         "evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/22-human-runtime-acceptance-amendment.md"
       },
       "p2_bounded_post_bootstrap_readiness": {
-        "status": "pending_human_dispatched_fix",
+        "status": "attempt_1_frozen_tests_passed_but_final_sleep_boundary_failed_attempt_2_required",
         "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.prompt.md",
         "tool_policy": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.tool-policy.json",
-        "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.dispatch.md"
+        "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.dispatch.md",
+        "attempt_1_raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt1.raw-output.md",
+        "attempt_1_session_id": "5ee354f2-d410-4de2-aee7-fdd85e8f0d1b",
+        "attempt_1_frozen_tests": "PASS: 86 targeted, 301 backend, frontend self-check, bash -n, diff check",
+        "attempt_1_blocker": "final failed readiness probe performs an unnecessary extra sleep, so the declared 60-second window may take 61 seconds",
+        "attempt_2_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md"
       }
     }
   },
@@ -1013,7 +1022,7 @@
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2",
     "role": "same_delivery_author_fix",
-    "status": "awaiting_human_dispatch",
+    "status": "attempt_1_boundary_probe_failed_attempt_2_awaiting_human_dispatch",
     "allowed_files": [
       "scripts/service-control.py",
       "scripts/tests/test_service_control.py"
@@ -1021,10 +1030,15 @@
     "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.prompt.md",
     "tool_policy": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.tool-policy.json",
     "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2.dispatch.md",
-    "session_id": null
+    "session_id": "5ee354f2-d410-4de2-aee7-fdd85e8f0d1b",
+    "attempt_1_raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt1.raw-output.md",
+    "attempt_1_process_deviations": "two self-reported read-only Bash/grep calls; no pytest, py_compile, git, launchctl, .env, or stage-evidence write",
+    "attempt_1_test_result": "all frozen checks passed",
+    "attempt_1_boundary_probe": "FAIL_EXTRA_FINAL_SLEEP: deadline=2 interval=1 produced 3 probe rounds and 3 sleeps; expected 3 probe rounds and 2 sleeps",
+    "attempt_2_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md"
   },
   "blockers": [
-    "install and restart do not yet prove bounded post-bootstrap readiness and can report success for a job that immediately exits"
+    "P2 readiness implementation passes frozen tests but exceeds its declared deadline by one final unnecessary sleep; attempt 2 must remove the final sleep and add restart-timeout coverage"
   ],
   "human_escalation": {
     "required": false,
@@ -1040,6 +1054,6 @@
     "condition": "fresh_schema_valid_review_2_ACCEPT_and_clean_validation_required_before_push_or_merge",
     "currently_executable": false
   },
-  "next_action": "human_dispatches_review_2_p2_fix_prompt_to_claude_glm_and_returns_session_id",
-  "updated_at": "2026-07-13T14:29:59Z"
+  "next_action": "human_pastes_review_2_p2_attempt_2_prompt_into_same_claude_glm_session_and_returns_session_id",
+  "updated_at": "2026-07-13T14:58:19Z"
 }

@@ -60,8 +60,24 @@ It assigns the same eligible `zhipu_glm` author, explicitly invokes
 requires bounded post-bootstrap health/readiness proof for install/restart.
 This formal-review repair increments `rework_count` to 1.
 
-No P2 delivery-code change has been made yet.
+Attempt 1 returned in Claude session
+`5ee354f2-d410-4de2-aee7-fdd85e8f0d1b` and is preserved exactly at
+`manual-fix-T1-launchd-service-review2-P2-attempt1.raw-output.md`. The actual
+diff touches only the two authorized files. The session self-reported two
+read-only Bash/grep calls outside policy; no test, git, launchctl, `.env`, or
+stage-evidence write was claimed.
 
-本地北京时间: 2026-07-13 22:29:59 CST
-下一步模型: Claude-GLM / GLM-5.2（human-dispatched fix author）
-下一步任务: 执行窄范围 P2 prompt，仅修改 service-control.py 及其测试并返回 Session ID
+All frozen checks pass: 86 targeted tests, 301 backend tests, frontend
+self-check, `bash -n`, and `git diff --check`. An independent deadline probe
+found one remaining boundary defect: `deadline=2, interval=1` performs three
+valid probe rounds but also three sleeps. The last failed probe must return
+without sleeping, so the declared 60-second default does not become 61 seconds.
+Restart timeout failure also lacks direct regression coverage.
+
+Attempt 2 is prepared at
+`manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md`. It changes only
+the final-sleep boundary and related tests; all other P2 behavior is frozen.
+
+本地北京时间: 2026-07-13 22:58:19 CST
+下一步模型: Claude-GLM / GLM-5.2（same fix session）
+下一步任务: 应用 final-sleep 极窄修复并补 restart timeout 测试，然后返回 Session ID

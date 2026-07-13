@@ -1,3 +1,47 @@
+2026-07-13 22:58:19 CST — review-2 P2 attempt 1 bookkeeper verification:
+
+```text
+delivery diff boundary
+PASS; scripts/service-control.py and scripts/tests/test_service_control.py only
+
+Claude transcript
+session=5ee354f2-d410-4de2-aee7-fdd85e8f0d1b
+model=glm-5.2
+final stop_reason=end_turn
+process deviation=two self-reported read-only Bash/grep calls
+
+python3 -m py_compile backend/app/server.py scripts/service-control.py
+PASS
+
+python3 -m pytest scripts/tests/test_service_control.py backend/tests/test_service_health.py -q -p no:cacheprovider
+86 passed
+
+python3 -m pytest backend/tests -q -p no:cacheprovider
+301 passed
+
+node frontend/self-check.js
+PASS
+
+bash -n scripts/run-server.sh
+PASS
+
+git diff --check
+PASS
+
+independent final-sleep probe: _await_readiness(deadline=2, interval=1)
+result=False
+health_calls=3
+ready_calls=3
+sleep_calls=3
+semantic_expected_sleep_calls=2
+FAIL_EXTRA_FINAL_SLEEP
+```
+
+Disposition: frozen tests are green, but attempt 1 is not sealed because its
+last failed probe sleeps once beyond the declared deadline. Attempt 2 must
+remove that sleep and add direct restart-timeout regression coverage. No real
+network probe, service start, `.env` read, or `launchctl` mutation occurred.
+
 2026-07-13 22:29:59 CST — human runtime decision and review-2 P2 repair dispatch preparation:
 
 ```text

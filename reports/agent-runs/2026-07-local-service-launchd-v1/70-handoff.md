@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: fixing; human accepted the Desktop/TCC limitation and the narrow review-2 P2 repair packet is ready
-- Next action: human pastes `manual-fix-T1-launchd-service-review2-P2.prompt.md` into Claude-GLM and returns its Session ID
+- Active phase: fixing; P2 attempt 1 passes frozen tests but fails the final-sleep deadline boundary
+- Next action: human pastes `manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md` into the same Claude-GLM session and returns its Session ID
 - Read-set: = status.current_inputs
-- Open blockers: install/restart still lack bounded post-bootstrap readiness proof; fresh review-2 `ACCEPT` is required before push/merge
+- Open blockers: remove the unnecessary sleep after the final readiness probe and add restart-timeout coverage; fresh review-2 `ACCEPT` remains required before push/merge
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -15,7 +15,7 @@
 - Branch: `stage/2026-07-local-service-launchd-v1`
 - Review snapshot HEAD: `85ab5011e4b99fe464d9e1996ad455fdbc389206`
 - Fingerprint: `85ab5011e4b99fe464d9e1996ad455fdbc389206:116eabe6e42623ee5f6cb84e9dfe470c2edeaf8ee649877c981244d530b3e778`
-- Git status: review-2 BLOCKED evidence is committed at `d5acb8d`; human runtime decision and P2 dispatch artifacts are pending this local bookkeeper checkpoint
+- Git status: human runtime decision/initial P2 dispatch is committed at `d022eaa`; two delivery files contain the uncommitted attempt-1 repair and attempt-2 evidence is pending checkpoint
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
@@ -54,7 +54,8 @@
 - Review-2 coverage audit: incomplete against the prompt minimum read set; the blocking verdict is retained, but a fresh complete review is mandatory after fixes and this verdict cannot authorize acceptance
 - Real launchd acceptance: FAIL; plist loaded, five exit-126 attempts, macOS Desktop TCC denied working-directory/script access; failed job stopped, plist retained
 - Human runtime decision: keep the Desktop checkout, do not add privacy expansion, use human-started `scripts/run-server.sh` for local startup/visible acceptance, and do not require a repeat launchd test from this protected path
-- P2 repair packet: `manual-fix-T1-launchd-service-review2-P2.prompt.md`, `.tool-policy.json`, and `.dispatch.md`; two-file boundary, awaiting human dispatch
+- P2 attempt 1: exact raw output at `manual-fix-T1-launchd-service-review2-P2-attempt1.raw-output.md`; all frozen checks pass, but the independent final-sleep probe fails
+- P2 attempt 2: `manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md`; same two-file/tool boundary, awaiting human dispatch
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
 
@@ -83,11 +84,10 @@
 
 ## Blockers
 
-- Formal review-2 P2 requires `install` and `restart` to perform a bounded
-  post-bootstrap health/readiness check and return nonzero with redacted
-  diagnostics when the service does not become ready.
-- Existing deterministic tests still pass (82 targeted and 301 backend), but
-  they do not supersede the failed real launchd evidence.
+- P2 attempt 1 implements bounded post-bootstrap checks and all frozen tests
+  pass (86 targeted and 301 backend), but it sleeps once after the final failed
+  probe. The declared 60-second window may therefore last 61 seconds.
+- Restart timeout failure needs direct coverage before the repair is sealed.
 - The recovered review-2 did not inspect the complete mandatory artifact set.
   After the runtime decision and repair, review-2 must run again from the new
   committed fingerprint with full coverage.
@@ -95,11 +95,12 @@
 ## Next Action
 
 The human pastes the full contents of
-`manual-fix-T1-launchd-service-review2-P2.prompt.md` into a Claude-GLM / GLM-5.2
-implementation terminal. The model edits only the two allowed files and returns
-its Session ID. Codex then verifies the original session and actual diff, runs
-the frozen tests, seals a new fingerprint, and prepares a fresh complete
-review-2.
+`manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md` into the same
+Claude-GLM / GLM-5.2 session. The model removes only the final unnecessary
+sleep, updates the ceiling assertions, adds the direct small-window and restart
+timeout tests, and returns its Session ID. Codex then verifies the original
+session and actual diff, reruns the frozen tests, seals a new fingerprint, and
+prepares a fresh complete review-2.
 
 The user has authorized commit, push, and merge only after all hard gates pass.
 The authorization is not currently executable because review-2 remains
@@ -108,6 +109,6 @@ The authorization is not currently executable because review-2 remains
 The old `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` is
 superseded and must not be dispatched.
 
-本地北京时间: 2026-07-13 22:29:59 CST
-下一步模型: Claude-GLM / GLM-5.2（human-dispatched fix author）
-下一步任务: 粘贴 P2 prompt，仅修改两个授权文件，并返回 Session ID
+本地北京时间: 2026-07-13 22:58:19 CST
+下一步模型: Claude-GLM / GLM-5.2（same fix session）
+下一步任务: 粘贴 attempt-2 prompt，修复最后一次 sleep 边界并返回 Session ID
