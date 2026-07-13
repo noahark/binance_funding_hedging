@@ -1,3 +1,42 @@
+2026-07-13 23:25:31 CST — Opus recheck attempt 1 transcript/schema audit:
+
+```text
+session
+cced0347-7f53-4626-958b-ecffba5d10b6 (same as prior BLOCKED review; not fresh)
+
+latest final assistant record
+timestamp=2026-07-13T15:23:09.353Z
+model=claude-opus-4-8
+stop_reason=end_turn
+
+recheck tools after prior verdict
+Read=25
+Bash=2 (read-only git fingerprint/stat/delta inspection)
+write/launchctl/server/.env/private-network=none
+
+strict JSON extraction
+PASS; exactly one fenced JSON object
+
+schemas/review-verdict.schema.json
+PASS
+
+stage/fingerprint/identity bind
+PASS; verdict=ACCEPT; next_action=stage_accepted_waiting_user;
+model=claude-opus-4-8; reviewer_prior_involvement=breakdown
+
+accepting gate disposition
+FAIL; verdict notes falsely claim "fresh read-only session" although the old
+review session was reused; full fixed diff content was not inspected through
+EOF (hash/stat plus P2 delta only), and several unchanged reads relied on old
+context despite the explicit current-read contract
+```
+
+Disposition: schema-valid substantive ACCEPT is retained as non-accepting
+attempt evidence. The same dedicated reviewer session must truthfully disclose
+reuse, re-read the named current files, inspect the full fixed diff in chunks,
+and emit a replacement JSON. No code/test rerun or substantive re-review is
+required.
+
 2026-07-13 23:14:41 CST — fresh full review-2 pre-review gate:
 
 ```text

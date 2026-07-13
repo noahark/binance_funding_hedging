@@ -146,6 +146,10 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-recheck.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-recheck-same-session-correction.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt1.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt1.verdict.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-correction.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -420,7 +424,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "fresh_full_review_2_pre_review_passed_awaiting_human_dispatch",
+    "status": "recheck_attempt_1_schema_valid_accept_nonaccepting_session_disclosure_and_full_diff_correction_required",
     "real_launchctl_mutation_authorized": true,
     "real_launchctl_mutation_authorized_by": "human",
     "real_launchctl_mutation_authorized_at": "2026-07-13T13:41:00Z"
@@ -654,15 +658,16 @@
     "provider_identity": "anthropic",
     "model": "claude-opus-4-8",
     "mode": "fresh_human_started_read_only_schema_bound_recheck",
-    "status": "fresh_full_review_2_recheck_dispatch_ready",
-    "session_id": null,
+    "status": "recheck_attempt_1_nonaccepting_correction_required",
+    "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
     "reviewer_prior_involvement": "breakdown",
     "design_conflict_override": true,
     "routing_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-recheck.md",
     "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.prompt.md",
     "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.dispatch.md",
-    "raw_output_path": null,
-    "verdict_path": null,
+    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt1.raw-output.md",
+    "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt1.verdict.json",
+    "correction_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-correction.prompt.md",
     "previous_blocked_session_id": "cced0347-7f53-4626-958b-ecffba5d10b6"
   },
   "r10_checklists": {},
@@ -780,6 +785,10 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-recheck.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-recheck-same-session-correction.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt1.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt1.verdict.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-correction.prompt.md",
     "backend/app/server.py",
     "backend/tests/test_service_health.py",
     "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
@@ -1028,8 +1037,27 @@
         "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.raw-output.md",
         "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus.verdict.json",
         "disposition": "P1 resolved by human runtime scope amendment; P2 repaired; coverage incomplete so verdict cannot be rebound"
+      },
+      {
+        "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
+        "model": "claude-opus-4-8",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e",
+        "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt1.raw-output.md",
+        "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt1.verdict.json",
+        "disposition": "nonaccepting: reused prior reviewer session but notes falsely claim fresh session; exact full fixed diff was hashed/stat-checked rather than inspected through EOF",
+        "correction_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-correction.prompt.md"
       }
-    ]
+    ],
+    "current_attempt": {
+      "status": "same_session_disclosure_and_full_diff_correction_required",
+      "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
+      "schema_valid_substantive_verdict": "ACCEPT",
+      "accepting_gate_evidence": false,
+      "tool_audit": "Read=25 Bash=2; read-only, no launchctl/server/.env/write",
+      "correction_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-correction.prompt.md"
+    }
   },
   "rework_count": 1,
   "max_rework": 3,
@@ -1083,7 +1111,7 @@
     "sealed_diff_fingerprint": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e"
   },
   "blockers": [
-    "fresh complete review-2 verdict is pending; push and merge remain blocked until schema-valid ACCEPT"
+    "review-2 recheck attempt 1 is schema-valid ACCEPT but nonaccepting because it falsely claims a fresh session and did not inspect the complete fixed diff content; same-session correction is required"
   ],
   "human_escalation": {
     "required": false,
@@ -1099,6 +1127,6 @@
     "condition": "fresh_schema_valid_review_2_ACCEPT_and_clean_validation_required_before_push_or_merge",
     "currently_executable": false
   },
-  "next_action": "human_dispatches_opus48_full_review_2_recheck_in_fresh_session_and_returns_session_id",
-  "updated_at": "2026-07-13T15:14:41Z"
+  "next_action": "human_pastes_same_session_review_2_correction_prompt_and_returns_when_replacement_json_is_complete",
+  "updated_at": "2026-07-13T15:25:31Z"
 }

@@ -80,9 +80,18 @@ authority, product, architecture, design, implementation, fix, test, prior
 verdict, source, and exact-diff artifact that the prior review did not fully
 inspect. The historical `BLOCKED` verdict is not rebound to this snapshot.
 
+Recheck attempt 1 returned a schema-valid, fingerprint-bound `ACCEPT` with one
+P3 and no required fixes. Its transcript is read-only and provider isolation
+holds, but the operator reused the prior dedicated reviewer Session ID. The
+verdict incorrectly calls that session "fresh", and the recheck hashed/stat
+checked the full diff while directly inspecting only the P2 delta instead of
+the complete fixed diff content. The attempt is therefore retained as
+non-accepting evidence pending a narrow same-session disclosure/read-coverage
+correction. No substantive re-review is required.
+
 The JSON-only retry prompt is superseded; no model retry is needed for this
 attempt.
 
-本地北京时间: 2026-07-13 23:09:31 CST
-下一步模型: Claude/Anthropic Opus 4.8（fresh read-only review session）
-下一步任务: 执行完整 review-2 recheck 并返回新的 Session ID
+本地北京时间: 2026-07-13 23:25:31 CST
+下一步模型: Claude/Anthropic Opus 4.8（same dedicated review session）
+下一步任务: 补齐当前读取/完整 diff 并输出纠正后的 strict JSON verdict

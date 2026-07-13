@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: review-2 recheck; P2 repair is sealed to the new fingerprint and the complete Opus packet is prepared
-- Next action: human dispatches `manual-review-2-T1-launchd-service.opus-recheck.prompt.md` in a fresh Opus 4.8 session and returns the Session ID
+- Active phase: review-2 recheck attempt 1 is substantive ACCEPT but nonaccepting pending truthful same-session disclosure and complete fixed-diff inspection
+- Next action: human pastes `manual-review-2-T1-launchd-service.opus-recheck-correction.prompt.md` into Session `cced0347-7f53-4626-958b-ecffba5d10b6`
 - Read-set: = status.current_inputs
-- Open blockers: fresh schema-valid review-2 `ACCEPT` is required before push/merge
+- Open blockers: accepting review-2 evidence requires the narrow same-session correction; push/merge remains blocked
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -57,6 +57,7 @@
 - P2 attempt 1: exact raw output at `manual-fix-T1-launchd-service-review2-P2-attempt1.raw-output.md`; all frozen checks pass, but the independent final-sleep probe fails
 - P2 attempt 2: exact raw output at `manual-fix-T1-launchd-service-review2-P2-attempt2.raw-output.md`; tool audit is Read/Edit only; 88 targeted tests, 301 backend tests, all other frozen checks, and final-sleep probe pass
 - Fresh review-2 recheck: `manual-review-2-T1-launchd-service.opus-recheck.prompt.md` and `.dispatch.md`; complete minimum read set, fixed new fingerprint, awaiting human dispatch
+- Recheck attempt 1: schema-valid `ACCEPT`, same Session ID as the prior reviewer; nonaccepting because notes falsely say fresh and exact full diff content was not inspected; raw/verdict preserved and correction prompt prepared
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
 
@@ -88,19 +89,21 @@
 - No open delivery-code or deterministic-test finding. P2 attempt 2 removes the
   final extra sleep and adds direct restart-timeout coverage.
 - No open delivery-code, deterministic-test, or fingerprint-seal finding.
-- Fresh schema-valid review-2 verdict remains the only hard gate before the
-  recorded push/merge authorization can execute.
+- A truthful replacement review-2 JSON after the named current reads and full
+  diff inspection remains the only hard gate before the recorded push/merge
+  authorization can execute.
 - The recovered review-2 did not inspect the complete mandatory artifact set.
   After the runtime decision and repair, review-2 must run again from the new
   committed fingerprint with full coverage.
 
 ## Next Action
 
-The human opens a fresh Claude/Anthropic Opus 4.8 read-only review session,
-pastes the full contents of
-`manual-review-2-T1-launchd-service.opus-recheck.prompt.md`, and returns only
-the new Session ID. Codex bookkeeper extracts the original transcript and
-validates the final JSON; no bookkeeper model invocation occurs.
+The human pastes the full contents of
+`manual-review-2-T1-launchd-service.opus-recheck-correction.prompt.md` into the
+same dedicated Opus review session. Opus re-reads the named current files,
+checks the complete fixed diff through EOF, truthfully records same-session
+reuse, and outputs replacement JSON only. Codex extracts and validates it; no
+bookkeeper model invocation occurs.
 
 The user has authorized commit, push, and merge only after all hard gates pass.
 The authorization is not currently executable because review-2 remains
@@ -109,6 +112,6 @@ The authorization is not currently executable because review-2 remains
 The old `manual-review-2-T1-launchd-service.opus-json-retry.prompt.md` is
 superseded and must not be dispatched.
 
-本地北京时间: 2026-07-13 23:09:31 CST
-下一步模型: Claude/Anthropic Opus 4.8（fresh read-only review session）
-下一步任务: 执行完整 review-2 recheck 并返回 Session ID
+本地北京时间: 2026-07-13 23:25:31 CST
+下一步模型: Claude/Anthropic Opus 4.8（same dedicated review session）
+下一步任务: 执行 correction prompt 并输出替换 JSON
