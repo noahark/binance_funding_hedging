@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: v3 Harness prerequisite repair implemented and tested; awaiting evidence commit
-- Next action: commit the repair, create and commit superseding authorization v3, then resume the auto runner
+- Active phase: v3 Harness prerequisite repair committed; superseding authorization v3 prepared and awaiting commit
+- Next action: validate and commit authorization v3, then resume the auto runner
 - Read-set: = status.current_inputs
-- Open blockers: repair commit and committed v3 authorization
+- Open blockers: committed v3 authorization
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -13,8 +13,8 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `f580dbb9234d3d45e89fff00d57694d9adc32270`
-- Git status: Harness prerequisite repair and synchronized stage evidence pending commit
+- HEAD: `78fbeb6b6f37a78be7081ba556319a8bd9f9dadc`
+- Git status: authorization v3 and synchronized checkpoint pending commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 2 stopped fail-closed
@@ -29,7 +29,7 @@
 - Adapter repair: `14-harness-adapter-repair.md`
 - V3 prerequisite repair: `15-v3-prerequisite-repair.md`
 - Implementation: `20-implementation.md`; delivery implementation still pending
-- Current authorization: `auto-run-authorization-v2.json`; v3 not yet created
+- Current authorization pointer: `auto-run-authorization-v3.json`; prepared, not yet committed
 - Runner receipt: `runner-2-implementation.receipt.json`
 - Attempt-2 raw output: `runner-2-implementation-T1-launchd-service-attempt1.raw-output.md`
 - Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
@@ -50,13 +50,12 @@
 
 ## Blockers
 
-- Commit the tested Harness prerequisite repair.
-- Create a committed, schema-valid v3 authorization from the operator's explicit repair-and-retry direction. Usage remains cumulative; scope and budgets must not expand.
+- Commit the schema-valid v3 authorization prepared from the operator's explicit repair-and-retry direction. Usage remains cumulative and scope/budgets are unchanged.
 
 ## Next Action
 
-After both commits are clean, run `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`. The runner alone records the `superseding_human_authorization` transition and retries Claude-GLM.
+After the authorization commit is clean, run `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`. The runner alone records the `superseding_human_authorization` transition and retries Claude-GLM.
 
-本地北京时间: 2026-07-13 15:41:01 CST
+本地北京时间: 2026-07-13 15:44:24 CST
 下一步模型: Codex bookkeeper
-下一步任务: 提交前置修复与 v3 授权，然后由 auto runner 重试 Claude-GLM
+下一步任务: 校验并提交 v3 授权，然后由 auto runner 重试 Claude-GLM

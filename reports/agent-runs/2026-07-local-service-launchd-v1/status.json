@@ -58,8 +58,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/13-software-architect-amendment.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/14-harness-adapter-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/15-v3-prerequisite-repair.md",
-    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.approval.md",
-    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.json"
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.approval.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.json"
   ],
   "parallel_mode": {
     "enabled": false,
@@ -72,7 +72,7 @@
     "enabled": true,
     "dispatch_mode": "auto_review",
     "mode_flip_pending": null,
-    "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.json",
+    "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.json",
     "runner_state": "awaiting_human",
     "runner_version": "auto-review-pipeline/v1",
     "exclusive_worktree": {
@@ -209,7 +209,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "v3_prerequisites_repaired_awaiting_authorization",
+    "status": "v3_authorization_prepared_awaiting_commit",
     "real_launchctl_mutation_authorized": false
   },
   "harness_adapter_repair": {
@@ -229,8 +229,8 @@
     "post_repair_runtime_verification": "wrapper reached the GLM inference gateway; adapter returned API 529 overload instead of exit 127"
   },
   "harness_v3_prerequisite_repair": {
-    "status": "implemented_and_tested_awaiting_commit",
-    "commit": null,
+    "status": "committed_and_tested",
+    "commit": "78fbeb6b6f37a78be7081ba556319a8bd9f9dadc",
     "author_role": "codex_bookkeeper_harness_prerequisite_not_delivery_implementer",
     "artifact": "reports/agent-runs/2026-07-local-service-launchd-v1/15-v3-prerequisite-repair.md",
     "review_sessions": [
@@ -370,6 +370,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.approval.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation-T1-launchd-service-attempt1.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/history/status-before-v3-prerequisite-repair-f580dbb.json",
@@ -415,7 +417,10 @@
       "test_auto_review_runner + test_validate_stage_auto_review: 111 tests (PASS)",
       "wrapper strips alias-level bypass while preserving explicit yolo bypass (PASS)",
       "runner captures combined stdout/stderr to sequence-unique raw paths (PASS)",
-      "mode-history continuity and current-state validator coverage (PASS)"
+      "mode-history continuity and current-state validator coverage (PASS)",
+      "superseding authorization v3 handwritten/schema validation (PASS)",
+      "v3 scope/budgets exact match v2 and supersedes pointer check (PASS)",
+      "pre-v3-commit checkpoint validator and diff check (PASS)"
     ]
   },
   "review_1": {
@@ -459,14 +464,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "The tested Harness prerequisite repair must be committed before retry.",
-    "A committed superseding v3 authorization is required before the auto runner may retry Claude-GLM."
+    "The prepared superseding v3 authorization and synchronized checkpoint must be committed before the auto runner may retry Claude-GLM."
   ],
   "human_escalation": {
     "required": true,
-    "reason": "operator approved prerequisite repair and v3 retry; repair and superseding authorization are being committed before runner resume"
+    "reason": "operator approved prerequisite repair and v3 retry; the schema-valid superseding authorization is being committed before runner resume"
   },
   "terminal_reason": "human_escalation_required",
-  "next_action": "commit_v3_prerequisite_repair_then_commit_superseding_authorization_v3_and_resume_runner",
-  "updated_at": "2026-07-13T07:41:01Z"
+  "next_action": "validate_and_commit_superseding_authorization_v3_then_resume_runner",
+  "updated_at": "2026-07-13T07:44:24Z"
 }

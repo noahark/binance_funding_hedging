@@ -239,3 +239,31 @@ handoff snapshot exact
 receipt snapshot exact
 raw snapshot exact
 ```
+
+2026-07-13 15:44:24 CST — superseding authorization v3 pre-commit check:
+
+```text
+harness_stage_lib.validate_authorization_doc(auto-run-authorization-v3.json)
+AUTHORIZATION V3 VALID
+
+v3 scope == v2 scope
+PASS
+
+v3 budgets == v2 budgets
+PASS
+
+v3 supersedes == auto-run-authorization-v2.json
+PASS
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-local-service-launchd-v1
+phase=checkpoint
+status=human_escalation_required
+
+git diff --check
+PASS
+```
+
+Usage remains cumulative at `model_calls_used=2` and
+`auto_code_changes_used=0`; no model was invoked by authorization validation.
