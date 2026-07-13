@@ -19,6 +19,9 @@ Coverage:
   * the real home LaunchAgents plist is not touched by the suite;
   * ``status`` / ``doctor`` produce the §5.2 / §5.3 fields, correct exit codes,
     the 200-line tail cap, and secret redaction.
+  * install/restart run a bounded post-bootstrap readiness poll before claiming
+    success (review-2 P2): bounded attempt ceiling, retained plist, redacted
+    actionable stderr, zero real network / zero real waiting.
 """
 from __future__ import annotations
 
@@ -94,7 +97,21 @@ def _cp(argv, rc=0, out="", err=""):
     return subprocess.CompletedProcess(list(argv), rc, out, err)
 
 
-def _controller(mod, tmp_path, *, fake=None, base_url=None, repo=None, launchagents=None, logs=None):
+def _ready_200_probe(path, timeout=2.0):
+    # Default readiness collaborator for install/restart success-path tests
+    # (review-2 P2): both /healthz and /readyz report HTTP 200 so the bounded
+    # poll returns on the first attempt with zero real network and zero real
+    # waiting. status/doctor bypass this because they call self._probe directly.
+    return (200, "")
+
+
+def _no_sleep(seconds):
+    # Default sleeper: never blocks. Keeps the readiness wait out of the suite
+    # entirely; failing-ceiling tests inject a counting sleeper instead.
+    return None
+
+
+def _controller(mod, tmp_path, *, fake=None, base_url=None, repo=None, launchagents=None, logs=None, probe=None, sleeper=None):
     repo = repo or (tmp_path / "repo")
     repo.mkdir(parents=True, exist_ok=True)
     (repo / "scripts").mkdir(parents=True, exist_ok=True)
@@ -108,6 +125,8 @@ def _controller(mod, tmp_path, *, fake=None, base_url=None, repo=None, launchage
         launchagents_dir=launchagents,
         logs_dir=logs,
         base_url=base_url or mod.DEFAULT_BASE_URL,
+        probe=_ready_200_probe if probe is None else probe,
+        sleeper=_no_sleep if sleeper is None else sleeper,
     )
 
 
@@ -910,3 +929,212 @@ def test_doctor_redacts_userinfo_url_in_logs(mod, tmp_path):
     assert "http://[REDACTED]@127.0.0.1:8787/path" in stderr_tail
     print_text = (bundle / "launchctl-print.txt").read_text()
     assert "http://[REDACTED]@127.0.0.1:8787/x" in print_text
+
+
+# =========================================================================
+# review-2 P2 — bounded post-bootstrap readiness polling (install/restart)
+# =========================================================================
+def _make_const_probe(health, ready, body=""):
+    """Injectable probe returning constant (health, ready) codes; counts calls.
+
+    Drives install/restart to the bounded attempt ceiling with zero real
+    network. ``body`` lets a test prove the readiness path never leaks an
+    arbitrary response body into diagnostics.
+    """
+    counts = {"healthz": 0, "readyz": 0}
+
+    def probe(path, timeout=2.0):
+        if path == "/healthz":
+            counts["healthz"] += 1
+            return (health, body)
+        if path == "/readyz":
+            counts["readyz"] += 1
+            return (ready, body)
+        return (None, "unreachable")
+
+    probe.counts = counts
+    return probe
+
+
+def _make_warmup_probe(fail_health, fail_ready, warmup_rounds):
+    """Probe that fails for ``warmup_rounds`` complete health+ready rounds,
+    then returns (200, 200) forever — a service that warms up then goes ready.
+    """
+    rounds = {"done": 0}
+    counts = {"healthz": 0, "readyz": 0}
+
+    def probe(path, timeout=2.0):
+        if path == "/healthz":
+            counts["healthz"] += 1
+            return (200, "") if rounds["done"] >= warmup_rounds else (fail_health, "")
+        if path == "/readyz":
+            counts["readyz"] += 1
+            ready = (200, "") if rounds["done"] >= warmup_rounds else (fail_ready, "")
+            if rounds["done"] < warmup_rounds:
+                rounds["done"] += 1
+            return ready
+        return (None, "unreachable")
+
+    probe.counts = counts
+    return probe
+
+
+def _make_sleeper():
+    """No-op sleeper recording the requested waits (zero real waiting)."""
+    sleeps = []
+
+    def sleeper(seconds):
+        sleeps.append(seconds)
+
+    sleeper.sleeps = sleeps
+    return sleeper
+
+
+def _expected_attempts(mod):
+    # Mirror the controller's bounded ceiling so the test tracks the frozen
+    # constants rather than a hard-coded number.
+    return max(1, int(mod.READY_WAIT_SECONDS // mod.READY_POLL_INTERVAL_SECONDS) + 1)
+
+
+def test_install_succeeds_after_health_and_ready_become_200(mod, tmp_path, capsys):
+    fake = FakeExecutor().on(
+        "launchctl",
+        lambda a: _cp(a, rc=1, err="Could not find service") if a[1] == "print" else _cp(a, rc=0),
+    )
+    probe = _make_warmup_probe(fail_health=None, fail_ready=503, warmup_rounds=2)
+    sleeper = _make_sleeper()
+    ctrl = _controller(mod, tmp_path, fake=fake, probe=probe, sleeper=sleeper)
+    rc = ctrl.install(confirm=True)
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert f"installed plist -> {ctrl.plist_path}" in out
+    # Succeeded within the bounded window: fewer probe calls than the ceiling.
+    assert probe.counts["healthz"] < _expected_attempts(mod)
+    assert probe.counts["readyz"] < _expected_attempts(mod)
+
+
+def test_restart_succeeds_after_health_and_ready_become_200(mod, tmp_path, capsys):
+    def launchctl(a):
+        if a[1] == "print":
+            return _cp(a, rc=0, out="state = running")
+        return _cp(a, rc=0)
+
+    fake = FakeExecutor().on("launchctl", launchctl)
+    probe = _make_warmup_probe(fail_health=None, fail_ready=503, warmup_rounds=1)
+    sleeper = _make_sleeper()
+    ctrl = _controller(mod, tmp_path, fake=fake, probe=probe, sleeper=sleeper)
+    ctrl.plist_path.parent.mkdir(parents=True, exist_ok=True)
+    ctrl.plist_path.write_text("placeholder")
+    rc = ctrl.restart(confirm=True)
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "restarted" in out
+    # bootout -> bootstrap ordering is preserved despite the readiness poll.
+    verbs = [c[1] for c in fake.calls if c[0] == "launchctl" and c[1] != "print"]
+    assert verbs == ["bootout", "bootstrap"]
+
+
+def test_install_fails_at_bounded_ceiling_when_health_always_unreachable(mod, tmp_path, capsys):
+    fake = FakeExecutor().on(
+        "launchctl",
+        lambda a: _cp(a, rc=1, err="Could not find service") if a[1] == "print" else _cp(a, rc=0),
+    )
+    secret = "DUMMY_READINESS_BODY_SECRET"
+    probe = _make_const_probe(None, None, body=secret)
+    sleeper = _make_sleeper()
+    ctrl = _controller(mod, tmp_path, fake=fake, probe=probe, sleeper=sleeper)
+    rc = ctrl.install(confirm=True)
+    captured = capsys.readouterr()
+    assert rc != 0
+    # Bounded: probe reached exactly the attempt ceiling, never beyond it.
+    assert probe.counts["healthz"] == _expected_attempts(mod)
+    assert probe.counts["readyz"] == _expected_attempts(mod)
+    assert len(sleeper.sleeps) == max(0, _expected_attempts(mod) - 1)
+    # Zero real waiting: every injected sleep is the poll interval only.
+    assert all(s == mod.READY_POLL_INTERVAL_SECONDS for s in sleeper.sleeps)
+    # The plist is retained for diagnostics (no silent cleanup on failure).
+    assert ctrl.plist_path.is_file()
+    # Actionable, redacted stderr; no success text, body, secret or URL leak.
+    err = captured.err
+    assert "ready" in err
+    assert "status" in err
+    assert "doctor" in err
+    assert "stop --confirm" in err
+    assert "installed plist" not in err
+    assert secret not in err
+    assert "http" not in err
+
+
+def test_install_fails_at_bounded_ceiling_when_health_200_but_ready_503(mod, tmp_path, capsys):
+    fake = FakeExecutor().on(
+        "launchctl",
+        lambda a: _cp(a, rc=1, err="Could not find service") if a[1] == "print" else _cp(a, rc=0),
+    )
+    probe = _make_const_probe(200, 503)
+    sleeper = _make_sleeper()
+    ctrl = _controller(mod, tmp_path, fake=fake, probe=probe, sleeper=sleeper)
+    rc = ctrl.install(confirm=True)
+    captured = capsys.readouterr()
+    assert rc != 0
+    # Health is up but readiness never reaches 200: bounded ceiling reached.
+    assert probe.counts["healthz"] == _expected_attempts(mod)
+    assert probe.counts["readyz"] == _expected_attempts(mod)
+    assert len(sleeper.sleeps) == max(0, _expected_attempts(mod) - 1)
+    err = captured.err
+    assert "ready" in err
+    assert "stop --confirm" in err
+    assert "installed plist" not in err
+
+
+def test_await_readiness_small_window_is_three_probes_two_sleeps_false(mod, tmp_path):
+    # Boundary check for the final-sleep fix: deadline=2/interval=1 must do
+    # exactly three probe rounds and two sleeps (no sleep after the last probe),
+    # then return False. Zero real network, zero real waiting.
+    fake = FakeExecutor()
+    probe = _make_const_probe(None, None)
+    sleeper = _make_sleeper()
+    ctrl = _controller(mod, tmp_path, fake=fake, probe=probe, sleeper=sleeper)
+    result = ctrl._await_readiness(deadline=2, interval=1)
+    assert result is False
+    assert probe.counts["healthz"] == 3
+    assert probe.counts["readyz"] == 3
+    assert len(sleeper.sleeps) == 2
+    assert all(s == 1 for s in sleeper.sleeps)
+
+
+def test_restart_fails_at_bounded_ceiling_when_readiness_never_succeeds(mod, tmp_path, capsys):
+    def launchctl(a):
+        if a[1] == "print":
+            return _cp(a, rc=0, out="state = running")
+        return _cp(a, rc=0)
+
+    fake = FakeExecutor().on("launchctl", launchctl)
+    secret = "DUMMY_RESTART_BODY_SECRET"
+    probe = _make_const_probe(None, None, body=secret)
+    sleeper = _make_sleeper()
+    ctrl = _controller(mod, tmp_path, fake=fake, probe=probe, sleeper=sleeper)
+    ctrl.plist_path.parent.mkdir(parents=True, exist_ok=True)
+    ctrl.plist_path.write_text("placeholder")
+    rc = ctrl.restart(confirm=True)
+    captured = capsys.readouterr()
+    assert rc != 0
+    # readiness never reached: bounded probe ceiling, one fewer sleep.
+    assert probe.counts["healthz"] == _expected_attempts(mod)
+    assert probe.counts["readyz"] == _expected_attempts(mod)
+    assert len(sleeper.sleeps) == max(0, _expected_attempts(mod) - 1)
+    # no success text on stdout
+    assert "restarted" not in captured.out
+    # launchctl stays strictly bootout -> bootstrap; no extra cleanup call
+    verbs = [c[1] for c in fake.calls if c[0] == "launchctl" and c[1] != "print"]
+    assert verbs == ["bootout", "bootstrap"]
+    # plist retained for diagnostics
+    assert ctrl.plist_path.is_file()
+    # actionable, redacted stderr; no body/secret/URL/success leak
+    err = captured.err
+    assert "ready" in err
+    assert "status" in err
+    assert "doctor" in err
+    assert "stop --confirm" in err
+    assert "restarted" not in err
+    assert secret not in err
+    assert "http" not in err

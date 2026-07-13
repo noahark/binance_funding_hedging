@@ -33,6 +33,7 @@ import plistlib
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -50,6 +51,12 @@ STDOUT_LOG_NAME = "server.stdout.log"
 STDERR_LOG_NAME = "server.stderr.log"
 DIAGNOSTICS_DIR_NAME = "diagnostics"
 DIAG_TAIL_LINES = 200
+# Bounded post-bootstrap readiness poll (review-2 P2): after a successful
+# ``launchctl bootstrap``, install/restart wait for BOTH /healthz and /readyz
+# to return HTTP 200 before claiming success. Explicit constants keep the retry
+# ceiling bounded and testable (default window 60s, 1s interval).
+READY_WAIT_SECONDS = 60
+READY_POLL_INTERVAL_SECONDS = 1.0
 LAUNCHCTL = "launchctl"
 GIT = "git"
 
@@ -183,6 +190,11 @@ class ServiceControl:
     launchagents_dir: Path = DEFAULT_LAUNCHAGENTS_DIR
     logs_dir: Path = DEFAULT_LOGS_DIR
     base_url: str = DEFAULT_BASE_URL
+    # Readiness probe + sleeper collaborators for the post-bootstrap poll
+    # (review-2 P2). Injectable so tests run with zero real network and zero
+    # real waiting; defaults wire to the real HTTP probe and ``time.sleep``.
+    probe: Optional[Callable] = None
+    sleeper: Optional[Callable] = None
 
     def __post_init__(self) -> None:
         # amendment A2: validate the health base URL defensively so neither
@@ -196,6 +208,10 @@ class ServiceControl:
         self.stdout_log = self.logs_dir / STDOUT_LOG_NAME
         self.stderr_log = self.logs_dir / STDERR_LOG_NAME
         self.diagnostics_dir = self.logs_dir / DIAGNOSTICS_DIR_NAME
+        # Default readiness collaborators: the real HTTP probe and time.sleep.
+        # Tests inject fakes so install/restart readiness waits need no network.
+        self.probe = self.probe if self.probe is not None else self._probe
+        self.sleeper = self.sleeper if self.sleeper is not None else time.sleep
 
     # ------------------------------------------------------------------
     # plist rendering (XML-safe; data-driven, no string interpolation)
@@ -322,6 +338,37 @@ class ServiceControl:
         except Exception:
             return None, "unreachable"
 
+    def _await_readiness(
+        self,
+        *,
+        deadline: Optional[float] = None,
+        interval: Optional[float] = None,
+    ) -> bool:
+        """Bounded post-bootstrap readiness poll (review-2 P2).
+
+        Returns True only when BOTH /healthz and /readyz return HTTP 200 within
+        the deadline; 503, connection failure, or any other non-200 result keeps
+        waiting until the bounded attempt ceiling is reached. The probe and
+        sleeper are the injectable ``self.probe`` / ``self.sleeper`` so tests run
+        with zero real network and zero real waiting. The loop is never
+        unbounded: attempts are capped by ``READY_WAIT_SECONDS`` /
+        ``READY_POLL_INTERVAL_SECONDS``.
+        """
+        deadline = READY_WAIT_SECONDS if deadline is None else deadline
+        interval = READY_POLL_INTERVAL_SECONDS if interval is None else interval
+        max_attempts = max(1, int(deadline // interval) + 1)
+        for attempt in range(max_attempts):
+            health_code, _ = self.probe("/healthz")
+            ready_code, _ = self.probe("/readyz")
+            if health_code == 200 and ready_code == 200:
+                return True
+            # Do not sleep after the final allowed probe: the deadline is the
+            # last probe time, not one interval beyond it (default 61 probes,
+            # 60 sleeps; deadline=2/interval=1 -> 3 probes, 2 sleeps).
+            if attempt + 1 < max_attempts:
+                self.sleeper(interval)
+        return False
+
     # ------------------------------------------------------------------
     # subcommands (each returns a process exit code)
     # ------------------------------------------------------------------
@@ -354,6 +401,17 @@ class ServiceControl:
                 f"{_redact(cp.stderr or cp.stdout or '').strip()}\n"
             )
             return cp.returncode or 1
+        # Bounded post-bootstrap readiness check (review-2 P2): bootstrap
+        # accepting the job is not the same as the service actually listening.
+        # Failures here retain the plist/logs for diagnostics and return nonzero.
+        if not self._await_readiness():
+            sys.stderr.write(
+                "install: service did not become ready within the readiness"
+                " window; the plist and logs were retained. Run 'status' or"
+                " 'doctor' for diagnostics, and 'stop --confirm' to unload the"
+                " job.\n"
+            )
+            return 1
         sys.stdout.write(f"installed plist -> {self.plist_path}\n")
         return 0
 
@@ -444,6 +502,17 @@ class ServiceControl:
                 f"{_redact(cp_in.stderr or cp_in.stdout or '').strip()}\n"
             )
             return cp_in.returncode or 1
+        # Bounded post-bootstrap readiness check (review-2 P2): bootstrap
+        # accepting the job is not the same as the service actually listening.
+        # Failures here retain the plist/logs for diagnostics and return nonzero.
+        if not self._await_readiness():
+            sys.stderr.write(
+                "restart: service did not become ready within the readiness"
+                " window; the plist and logs were retained. Run 'status' or"
+                " 'doctor' for diagnostics, and 'stop --confirm' to unload the"
+                " job.\n"
+            )
+            return 1
         sys.stdout.write("restarted\n")
         return 0
 

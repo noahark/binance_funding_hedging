@@ -78,6 +78,25 @@ Attempt 2 is prepared at
 `manual-fix-T1-launchd-service-review2-P2-attempt2.prompt.md`. It changes only
 the final-sleep boundary and related tests; all other P2 behavior is frozen.
 
-本地北京时间: 2026-07-13 22:58:19 CST
-下一步模型: Claude-GLM / GLM-5.2（same fix session）
-下一步任务: 应用 final-sleep 极窄修复并补 restart timeout 测试，然后返回 Session ID
+Attempt 2 completed in the same session and is preserved exactly at
+`manual-fix-T1-launchd-service-review2-P2-attempt2.raw-output.md`. Transcript
+audit confirms `Read=2` and `Edit=4` only, with no Bash or other command. The
+model removed the final sleep, updated both ceiling assertions, and added the
+small-window plus restart-timeout tests without changing any other contract.
+
+Bookkeeper verification is fully green:
+
+- targeted service/health suite: 88 passed;
+- full backend suite: 301 passed;
+- frontend self-check: passed;
+- `bash -n scripts/run-server.sh`: passed;
+- `git diff --check`: passed;
+- independent `deadline=2, interval=1` probe: three health probes, three
+  readiness probes, two sleeps, `False` result — passed.
+
+P2 is code-complete and ready for the evidence commit/new fingerprint. No real
+network, service start, `.env` read, or launchctl mutation occurred.
+
+本地北京时间: 2026-07-13 23:07:07 CST
+下一步模型: Codex bookkeeper
+下一步任务: 封存 P2 修复、重算 fingerprint，并准备 fresh complete review-2
