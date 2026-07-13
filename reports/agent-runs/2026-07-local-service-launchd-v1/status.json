@@ -58,6 +58,16 @@
     "usage_counters_reset": false,
     "repair_commit": "5e80e039f6b12c06f94a996b4525b64861121e1b"
   },
+  "authorization_v5_checkpoint": {
+    "commit": "062f8688f958770a81f58c4d1f9e988886947ae3",
+    "kind": "superseding_auto_authorization_v5_bounded_tool_policy",
+    "validated_phase": "checkpoint",
+    "validated_result": "passed",
+    "scope_or_budget_changed_from_v4": false,
+    "usage_counters_reset": false,
+    "repair_checkpoint": "34ffb137028166045cfb89b23e9a85b976baf5c7",
+    "runner_host": "kimi"
+  },
   "auto_retry_v3_checkpoint": {
     "commit": "344b8734a9811887e0e58537c0e3a370a0b2fe9a",
     "kind": "implementation_adapter_api_529_escalation_evidence",
@@ -334,7 +344,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "v5_authorization_issued_kimi_runner_host_dispatch_ready",
+    "status": "v5_authorization_committed_kimi_runner_host_ready",
     "real_launchctl_mutation_authorized": false
   },
   "harness_adapter_repair": {
@@ -628,7 +638,8 @@
       "post-tool-policy checkpoint validator and diff check (PASS; no model call or delivery change)",
       "superseding authorization v5 handwritten/schema validation (PASS)",
       "v5 scope/budgets exact match v4 and supersedes pointer check (PASS)",
-      "pre-v5-commit checkpoint validator and diff check (PASS)"
+      "pre-v5-commit checkpoint validator and diff check (PASS)",
+      "post-v5-commit checkpoint validator and clean-worktree check (PASS)"
     ]
   },
   "review_1": {
@@ -672,13 +683,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "The schema-valid v5 authorization and synchronized checkpoint must be committed before the isolated Kimi runner-host session starts the deterministic runner."
+    "The isolated Kimi runner-host session has not yet started the deterministic runner to consume committed authorization v5."
   ],
   "human_escalation": {
     "required": true,
-    "reason": "the human issued superseding authorization v5; the committed artifact must be consumed mechanically by the Kimi-hosted runner before automation resumes"
+    "reason": "superseding authorization v5 is committed and ready; automation remains stopped until the isolated Kimi host starts the runner"
   },
   "terminal_reason": "human_escalation_required",
-  "next_action": "commit_superseding_authorization_v5_then_kimi_runner_host_executes_deterministic_runner_with_implementation_v1",
-  "updated_at": "2026-07-13T10:28:16Z"
+  "next_action": "kimi_runner_host_executes_deterministic_runner_with_committed_v5_and_implementation_v1",
+  "updated_at": "2026-07-13T10:32:27Z"
 }

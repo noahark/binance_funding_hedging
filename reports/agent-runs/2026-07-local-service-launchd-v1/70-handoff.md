@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: human issued superseding authorization v5; synchronized authorization checkpoint awaiting commit
-- Next action: commit v5, then the isolated Kimi runner-host session starts the deterministic runner
+- Active phase: superseding authorization v5 committed and validated; Kimi runner-host dispatch ready
+- Next action: paste the committed dispatch packet into the isolated Kimi host session and start the deterministic runner
 - Read-set: = status.current_inputs
-- Open blockers: v5 and its synchronized checkpoint must be committed before the runner starts
+- Open blockers: the Kimi runner-host session has not yet started the runner
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -13,8 +13,8 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `34ffb137028166045cfb89b23e9a85b976baf5c7` before the v5 authorization checkpoint
-- Git status: v5 authorization, Kimi host dispatch, and synchronized checkpoint pending commit
+- HEAD: `062f8688f958770a81f58c4d1f9e988886947ae3` (`bookkeeper(launchd): authorize bounded auto retry v5`) before this synchronized post-commit checkpoint
+- Git status: clean immediately after the v5 authorization commit; synchronized post-commit checkpoint pending commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 4 remains closed evidence; new permission repair has not invoked a model
@@ -30,7 +30,7 @@
 - Adapter repair: `14-harness-adapter-repair.md`
 - V3 prerequisite repair: `15-v3-prerequisite-repair.md`
 - Implementation: `20-implementation.md`; delivery implementation still pending
-- Current authorization pointer: `auto-run-authorization-v5.json`; human-approved and awaiting checkpoint commit
+- Current authorization: `auto-run-authorization-v5.json`; committed, human-approved, schema-valid, and unchanged in scope/budgets from v4
 - Kimi runner-host dispatch: `19-kimi-runner-host-dispatch.md`
 - PTY route repair: `16-claude-glm-pty-route-repair.md`
 - PTY probe result: `17-claude-glm-pty-probe-result.md`
@@ -66,12 +66,12 @@
 
 ## Blockers
 
-- Commit the schema-valid v5 authorization and synchronized checkpoint before the isolated Kimi runner-host session starts the runner. Usage remains cumulative at `model_calls_used=4`, `auto_code_changes_used=0`.
+- The isolated Kimi runner-host session has not yet started the deterministic runner. Authorization and Harness prerequisites are ready; usage remains cumulative at `model_calls_used=4`, `auto_code_changes_used=0`.
 
 ## Next Action
 
-After the v5 checkpoint is committed and the worktree is clean, copy `19-kimi-runner-host-dispatch.md` into the isolated Kimi host session. It executes only `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`; the runner records the superseding transition, invokes Claude-GLM with `implementation-v1`, and follows the frozen blocking/check/seal/review-1 flow.
+After this synchronized checkpoint is committed and the worktree is clean, copy `19-kimi-runner-host-dispatch.md` into the isolated Kimi host session. It executes only `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`; the runner records the superseding transition, invokes Claude-GLM with `implementation-v1`, and follows the frozen blocking/check/seal/review-1 flow.
 
-本地北京时间: 2026-07-13 18:28:16 CST
-下一步模型: Codex bookkeeper
-下一步任务: 校验并提交 superseding authorization v5 与 Kimi runner-host dispatch
+本地北京时间: 2026-07-13 18:32:27 CST
+下一步模型: Kimi（runner host only）
+下一步任务: 执行 19-kimi-runner-host-dispatch.md 中唯一 runner 命令并等待安全完成/停止
