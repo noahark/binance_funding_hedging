@@ -169,6 +169,14 @@ No automatic transition from a failed auto path directly into model dispatch in
 human mode is allowed. The runner records the pending mode flip or terminal
 escalation and stops; human action is required to resume.
 
+`mode_history` is a continuous ledger: every row's `from` state must equal the
+prior row's `to` state, and the final `to` state must equal the current
+`dispatch_mode`/`runner_state`. When a human supplies a superseding artifact,
+the bookkeeper commits the artifact and updates `authorization_path` while
+leaving `runner_state=awaiting_human`; the runner alone records
+`superseding_human_authorization` and moves to `authorized`. The bookkeeper must
+not pre-write that mechanical transition.
+
 ### Call accounting
 
 - A model call is charged immediately before starting a registry adapter

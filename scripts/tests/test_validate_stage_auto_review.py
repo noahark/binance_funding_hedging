@@ -171,6 +171,7 @@ class AutoValidationPositiveTests(unittest.TestCase):
         status = _auto_status()
         status["auto_review_pipeline"]["dispatch_mode"] = "human_dispatch"
         status["auto_review_pipeline"]["runner_state"] = None
+        status["auto_review_pipeline"]["mode_history"] = []
         errs = self.mod.validate_auto_review_pipeline(root, stage_dir, status, "checkpoint")
         self.assertEqual(errs, [], msg="\n".join(errs))
 
@@ -201,6 +202,20 @@ class AutoValidationFailClosedTests(unittest.TestCase):
             })
         errs = self._check(mutate)
         self.assertTrue(any("transition set" in e for e in errs))
+
+    def test_discontinuous_transition_history(self):
+        def mutate(a):
+            a["mode_history"].append({
+                "from": {"dispatch_mode": "human_dispatch", "runner_state": None},
+                "to": {"dispatch_mode": "auto_review", "runner_state": "authorized"},
+                "event": "new_human_authorization",
+            })
+        errs = self._check(mutate)
+        self.assertTrue(any("discontinuous" in e for e in errs))
+
+    def test_history_final_state_must_match_current_state(self):
+        errs = self._check(lambda a: a.__setitem__("runner_state", "awaiting_human"))
+        self.assertTrue(any("final state" in e for e in errs))
 
     def test_budget_used_exceeds_max_auto(self):
         errs = self._check(lambda a: a["budgets"].__setitem__("auto_code_changes_used", 3))

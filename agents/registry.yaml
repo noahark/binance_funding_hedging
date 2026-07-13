@@ -51,7 +51,7 @@ adapters:
     prompt_mode: claude_print
     binary: "scripts/model-adapters/claude-glm-wrapper"
     availability_check_command: "test -x <repo>/scripts/model-adapters/claude-glm-wrapper && <repo>/scripts/model-adapters/claude-glm-wrapper --version"
-    noninteractive_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 -p \"$(cat <prompt-file>)\""
+    noninteractive_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --permission-mode acceptEdits -p \"$(cat <prompt-file>)\""
     read_only_review_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
     embedded_read_only_review_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
     embedded_read_only_review_enforcement: adapter_plan_mode
@@ -63,6 +63,7 @@ adapters:
     notes:
       - "Runner templates expand <repo> to an absolute path and invoke the committed wrapper, never the alias directly."
       - "The wrapper isolates the existing interactive-zsh provider routing while suppressing profile startup/exit chatter; it never prints the alias expansion or environment."
+      - "The wrapper removes a legacy alias-level --dangerously-skip-permissions token in memory; normal writes use acceptEdits, reviews use plan, and only yolo_command adds bypass explicitly."
       - "If the alias is missing, do not substitute Anthropic Claude while claiming GLM provider identity."
       - "Never log the expanded alias environment; it contains credentials."
 

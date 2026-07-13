@@ -190,3 +190,52 @@ PASS
 The second attempt reached the GLM gateway, so the absolute wrapper fixed the
 original command-resolution failure. The service overload occurred before any
 delivery code change or frozen delivery blocking check.
+
+2026-07-13 15:41:01 CST — v3 Harness prerequisite repair:
+
+```text
+/bin/sh -n scripts/model-adapters/claude-glm-wrapper
+PASS
+
+targeted permission/raw/stderr/history tests
+Ran 44 tests
+OK
+
+python3 -m unittest scripts.tests.test_auto_review_runner scripts.tests.test_validate_stage_auto_review
+Ran 111 tests in 13.867s
+OK
+
+permission separation
+PASS; alias-level --dangerously-skip-permissions removed in memory, normal
+implementation uses acceptEdits, review uses plan, and explicit yolo keeps one
+bypass flag
+
+raw evidence isolation
+PASS; combined stdout/stderr and receipt-sequence-unique raw output paths
+
+mode-history validation
+PASS; discontinuity and final-state mismatch fail closed
+```
+
+No model dispatch, `.env` read, alias/environment expansion logging, delivery
+code change, or real `launchctl` mutation occurred during this repair.
+
+```text
+harness_stage_lib.validate_receipt_doc(runner-2-implementation.receipt.json)
+RECEIPT VALID
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-local-service-launchd-v1
+phase=checkpoint
+status=human_escalation_required
+
+git diff --check
+PASS
+
+historical snapshot byte comparisons against f580dbb
+status snapshot exact
+handoff snapshot exact
+receipt snapshot exact
+raw snapshot exact
+```

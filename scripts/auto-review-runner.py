@@ -958,7 +958,10 @@ class AutoReviewRunner:
         try:
             proc = subprocess.run(
                 command, cwd=str(self.root), check=False, shell=True,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                # Preserve one byte stream for immutable raw evidence. Adapter
+                # CLIs are inconsistent about whether API errors use stdout or
+                # stderr; merging at the OS pipe avoids silently losing either.
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 timeout=resolved_timeout,
             )
         except subprocess.TimeoutExpired:
@@ -1340,6 +1343,19 @@ class AutoReviewRunner:
         detail = dict(exc.detail)
         detail.setdefault("failure_class", exc.event)
         detail.setdefault("review_unit_id", None)
+        receipt_rel = self._arp.get("last_receipt_path")
+        if receipt_rel and not detail.get("receipt_path"):
+            detail["receipt_path"] = receipt_rel
+            receipt_path = lib.resolve_safe_path(self.root, receipt_rel)
+            if receipt_path is not None and receipt_path.exists():
+                try:
+                    receipt = lib.load_json(receipt_path)
+                except Exception:
+                    receipt = {}
+                if not detail.get("raw_output_path"):
+                    detail["raw_output_path"] = receipt.get("raw_output_path")
+                if not detail.get("verdict_path"):
+                    detail["verdict_path"] = receipt.get("verdict_path")
         self._write_escalation(exc.event, detail)
         self._persist()
 
@@ -1777,7 +1793,9 @@ class AutoReviewRunner:
                  unit=unit.get("id"), fp=unit.get("diff_fingerprint"))
 
     def _capture_raw(self, unit_id: str, kind: str, attempt: int, stdout: bytes) -> str:
-        name = "{kind}-{unit}-attempt{att}.raw-output.md".format(kind=kind, unit=unit_id, att=attempt)
+        sequence = self._next_sequence()
+        name = "runner-{seq}-{kind}-{unit}-attempt{att}.raw-output.md".format(
+            seq=sequence, kind=kind, unit=unit_id, att=attempt)
         rel = self._ev(name)
         path = self._safe_join(rel)
         path.parent.mkdir(parents=True, exist_ok=True)

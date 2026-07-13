@@ -2,82 +2,61 @@
 
 ## Recovery Header
 
-- Active phase: adapter repair verified at runtime; GLM gateway returned temporary API 529 overload
-- Next action: human decides whether to wait and issue v3 authorization or flip to `human_dispatch`
+- Active phase: v3 Harness prerequisite repair implemented and tested; awaiting evidence commit
+- Next action: commit the repair, create and commit superseding authorization v3, then resume the auto runner
 - Read-set: = status.current_inputs
-- Open blockers: temporary GLM service overload; a new authorization is required before retry
-- Do-not-read: reports/agent-runs/**/history/**, other stages
+- Open blockers: repair commit and committed v3 authorization
+- Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `implementing`
+- Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `803a27643d98f52f3b9b7b022c6b5fd7ad9cd531` (`bookkeeper(launchd): checkpoint auto resume v2`)
-- Git status: attempt-2 raw evidence and synchronized failure checkpoint pending evidence commit
-- Bookkeeper: Codex/OpenAI; designer, not implementer or fix author
+- HEAD: `f580dbb9234d3d45e89fff00d57694d9adc32270`
+- Git status: Harness prerequisite repair and synchronized stage evidence pending commit
+- Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 2 stopped fail-closed
 - Dispatch mode: `auto_review`
 - Runner state: `awaiting_human`
+- Usage: `model_calls_used=2`, `auto_code_changes_used=0`
 
 ## Artifact Index
 
-- Intake: `00-intake.md`
-- Task: `00-task.md`
-- Direction synthesis: skipped by explicit operator-approved direction
-- Design: `10-design.md`
-- ADR: `11-adr.md`
-- Development breakdown: `12-development-breakdown.md`, Opus 4.8 / `task_planner`, validated with `13-software-architect-amendment.md`
-- Implementation: `20-implementation.md` placeholder
-- Embedded review checkpoints: auto runner, pending
-- Auto-run authorization: `auto-run-authorization-v2.json` (supersedes v1)
-- Human approval: `auto-run-authorization-v2.approval.md`
-- Runner receipts: sequence 1 (exit 127) and
-  `runner-2-implementation.receipt.json` (schema-valid; API 529 path)
-- Embedded cross-check set: pending
-- Escalation artifacts: `80-escalation-unroutable_fix-20260713T053735Z.md`
-- Pilot metrics: `auto-review-pilot-metrics.json` (`small_real`, planned)
+- Intake/task/design: `00-intake.md`, `00-task.md`, `10-design.md`, `11-adr.md`
+- Development breakdown: `12-development-breakdown.md`, validated by `13-software-architect-amendment.md`
+- Adapter repair: `14-harness-adapter-repair.md`
+- V3 prerequisite repair: `15-v3-prerequisite-repair.md`
+- Implementation: `20-implementation.md`; delivery implementation still pending
+- Current authorization: `auto-run-authorization-v2.json`; v3 not yet created
+- Runner receipt: `runner-2-implementation.receipt.json`
+- Attempt-2 raw output: `runner-2-implementation-T1-launchd-service-attempt1.raw-output.md`
+- Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
 - Review 1: pending Grok 4.5 auto gate
-- Fix report: none
-- Review 2: human-started, pending
-- Test output: `60-test-output.txt` — JSON, authorization, checkpoint validator, and diff checks passed; no delivery-code tests yet
-- Status JSON: `status.json`
+- Review 2: human-started and pending
+- Tests: `60-test-output.txt`
+- Machine state: `status.json`
 
-## Open Findings
+## Findings And Repairs
 
-- Grok session `019f59c9-1145-73c2-81a0-a7e928ad11eb` returned advisory
-  `ACCEPT with notes`, but did not explicitly invoke `software_architect`; its
-  raw output remains unlanded and is not formal review-1 evidence.
-- Codex explicitly applied `agents/skills/software-architect.md` in
-  `13-software-architect-amendment.md`, resolving restart semantics, URL source,
-  render/mutation behavior, doctor bounds, health tests, observability, and
-  auto-accounting wording.
-- Live LaunchAgent installation is an external side effect and remains outside
-  automatic implementation/testing authorization.
-- Auto implementation did not reach Claude-GLM. The registry template was
-  executed through `/bin/sh`; the local `claude-glm` exists only as an
-  interactive zsh alias. Expanded alias/environment content was not logged.
-- The operator approved the formal absolute-wrapper repair. The runner-facing
-  command now expands `<repo>/scripts/model-adapters/claude-glm-wrapper` to an
-  absolute path; the wrapper suppresses zsh profile chatter and never records
-  the alias expansion or environment. Verification is in
-  `14-harness-adapter-repair.md` and `60-test-output.txt`.
-- Attempt 2 reached the GLM inference gateway through the wrapper, then received
-  API `529` / error `1305` because the model was overloaded. No delivery code
-  changed and usage is `model_calls_used=2`, `auto_code_changes_used=0`.
+- The absolute repository wrapper fixed the original exit-127 resolution error; attempt 2 reached the GLM gateway and received API `529` / error `1305` overload.
+- The legacy `claude-glm` alias includes bypass permission policy. The wrapper now removes that alias-level token in memory without logging or rewriting the profile. Normal implementation explicitly uses `acceptEdits`; review uses `plan`; yolo remains an explicit registry route.
+- Runner raw evidence now merges stderr and uses receipt-sequence-unique paths, preventing later attempts from overwriting prior bytes.
+- Terminal escalation navigation now carries the last receipt/raw/verdict paths.
+- Stage validation now fails on discontinuous mode history or a final transition that does not match current state. The duplicate v2 row was removed only after exact pre-repair snapshots entered `history/`.
+- Targeted and full focused suites passed: 44 and 111 tests. No model was invoked during repair.
+- Real `launchctl` mutation remains explicitly unauthorized.
 
 ## Blockers
 
-- Adapter setup is repaired and runtime-verified.
-- GLM service availability is the current blocker. Auto mode requires a new
-  human authorization before retry and does not retry v2 automatically.
-- Real `launchctl` commands remain explicitly unauthorized.
+- Commit the tested Harness prerequisite repair.
+- Create a committed, schema-valid v3 authorization from the operator's explicit repair-and-retry direction. Usage remains cumulative; scope and budgets must not expand.
 
 ## Next Action
 
-Human chooses a delayed v3 retry or an explicit flip to `human_dispatch`.
+After both commits are clean, run `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`. The runner alone records the `superseding_human_authorization` transition and retries Claude-GLM.
 
-本地北京时间: 2026-07-13 14:31:07 CST
-下一步模型: human
-下一步任务: 决定稍后签发 v3 重试 Claude-GLM，或显式切换 human_dispatch
+本地北京时间: 2026-07-13 15:41:01 CST
+下一步模型: Codex bookkeeper
+下一步任务: 提交前置修复与 v3 授权，然后由 auto runner 重试 Claude-GLM

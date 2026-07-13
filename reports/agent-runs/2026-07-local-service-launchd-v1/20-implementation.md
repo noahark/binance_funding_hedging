@@ -34,6 +34,13 @@ overloaded`) after approximately three minutes. Runner receipt sequence 2 is
 schema-valid, usage advanced to `model_calls_used=2`, and no delivery code or
 real LaunchAgent state changed.
 
-本地北京时间: 2026-07-13 14:31:07 CST
-下一步模型: human
-下一步任务: 决定稍后签发 v3 重试 Claude-GLM，或显式切换 human_dispatch
+Before the operator-authorized v3 retry, the bookkeeper repaired Harness-only
+permission and evidence prerequisites in `15-v3-prerequisite-repair.md`.
+These changes do not implement `T1-launchd-service`: they separate normal
+`acceptEdits` from explicit yolo bypass, retain combined stderr evidence, use
+sequence-unique raw paths, and validate continuous mode history. The focused
+suite passed 111 tests without invoking a model or mutating LaunchAgent state.
+
+本地北京时间: 2026-07-13 15:41:01 CST
+下一步模型: Codex bookkeeper
+下一步任务: 提交 v3 前置修复和 superseding authorization v3，再由 runner 重试 Claude-GLM

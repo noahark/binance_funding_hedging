@@ -1183,7 +1183,7 @@ class ProductionRegistryCommandTests(unittest.TestCase):
         # double-quoted YAML scalar with \" → unescaped, real <prompt-file> kept
         self.assertEqual(
             reg["claude_glm"]["commands"]["noninteractive_command"],
-            '<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 -p "$(cat <prompt-file>)"')
+            '<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --permission-mode acceptEdits -p "$(cat <prompt-file>)"')
         self.assertEqual(
             reg["kimi"]["commands"]["noninteractive_command"],
             'kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"')
@@ -1260,6 +1260,57 @@ class ProductionRegistryCommandTests(unittest.TestCase):
             stderr=subprocess.PIPE,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr.decode("utf-8", "replace"))
+
+    def _run_wrapper_with_profile(self, profile_text, *args):
+        zdotdir = Path(tempfile.mkdtemp(prefix="claude-glm-zdotdir-"))
+        bindir = zdotdir / "bin"
+        bindir.mkdir()
+        fake = bindir / "fake-claude"
+        fake.write_text(
+            "#!/bin/sh\nprintf 'ARG=%s\\n' \"$@\"\nprintf 'MODEL-STDERR\\n' >&2\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        (zdotdir / ".zshrc").write_text(profile_text, encoding="utf-8")
+        env = dict(os.environ)
+        env["ZDOTDIR"] = str(zdotdir)
+        env["PATH"] = str(bindir) + os.pathsep + env.get("PATH", "")
+        wrapper = REPO_ROOT / "scripts" / "model-adapters" / "claude-glm-wrapper"
+        return subprocess.run(
+            [str(wrapper), *args], check=False, env=env,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    def test_claude_glm_wrapper_strips_alias_bypass_and_profile_noise(self):
+        proc = self._run_wrapper_with_profile(
+            "print STARTUP-NOISE\n"
+            "alias claude-glm='fake-claude --dangerously-skip-permissions'\n"
+            "zshexit() { print EXIT-NOISE; }\n",
+            "--model", "glm-5.2", "--permission-mode", "acceptEdits", "-p", "safe prompt",
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        combined = proc.stdout + proc.stderr
+        self.assertNotIn("STARTUP-NOISE", combined)
+        self.assertNotIn("EXIT-NOISE", combined)
+        self.assertNotIn("ARG=--dangerously-skip-permissions", combined)
+        self.assertIn("ARG=acceptEdits", combined)
+        self.assertIn("MODEL-STDERR", combined)
+
+    def test_claude_glm_wrapper_keeps_explicit_yolo_only(self):
+        proc = self._run_wrapper_with_profile(
+            "alias claude-glm='fake-claude --dangerously-skip-permissions'\n",
+            "--dangerously-skip-permissions", "--model", "glm-5.2", "-p", "safe prompt",
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(
+            (proc.stdout + proc.stderr).count("ARG=--dangerously-skip-permissions"), 1)
+
+    def test_claude_glm_wrapper_missing_alias_is_127_without_profile_noise(self):
+        proc = self._run_wrapper_with_profile("print STARTUP-NOISE\n", "--version")
+        self.assertEqual(proc.returncode, 127)
+        combined = proc.stdout + proc.stderr
+        self.assertNotIn("STARTUP-NOISE", combined)
+        self.assertIn("interactive zsh alias is unavailable", proc.stderr)
 
     def test_kimi_real_command_substitutes_and_unescapes(self):
         stage = Stage()
@@ -1602,6 +1653,15 @@ class RestartAndAdapterErrorTests(unittest.TestCase):
         self.assertEqual(result.terminal, "human_escalation_required")
         self.assertEqual(blk["n"], 0, "blocking must not run after an implementation adapter error")
         self.assertEqual(seal.calls, [], "seal must not run after an implementation adapter error")
+        arp = stage.reload()["auto_review_pipeline"]
+        receipt = json.loads((stage.root / arp["last_receipt_path"]).read_text(encoding="utf-8"))
+        self.assertRegex(
+            receipt["raw_output_path"],
+            r"/runner-\d+-implementation-.*\.raw-output\.md$",
+        )
+        escalation = (stage.root / arp["last_escalation_path"]).read_text(encoding="utf-8")
+        self.assertIn("- raw_output_path: " + receipt["raw_output_path"], escalation)
+        self.assertIn("- receipt_path: " + arp["last_receipt_path"], escalation)
 
     def test_fix_adapter_error_stops_before_second_seal(self):
         stage = Stage(max_auto_code_changes=2)
@@ -1748,6 +1808,34 @@ class ShellSafeInvocationTests(unittest.TestCase):
         self.assertEqual(result.exit_status, 0,
                          "bare-word probe must exit 0 post-fix; stdout=%r" % result.stdout)
         self.assertIn(marker.encode(), result.stdout)
+
+    def test_default_invoke_merges_stderr_into_raw_output_stream(self):
+        base = Path(tempfile.mkdtemp(prefix="harness-stderr-probe-"))
+        prompt = base / "prompt.md"
+        prompt.write_text("unused", encoding="utf-8")
+        registry = {"probe_stderr": {"commands": {
+            "noninteractive_command": "sh -c 'printf STDOUT-MARKER; printf STDERR-MARKER >&2'"},
+            "timeout_seconds": 30}}
+        runner = AutoReviewRunner(base, base, registry=registry, now=lambda: BASE_TIME)
+        result = runner._default_invoke("probe_stderr", "noninteractive_command", prompt)
+        self.assertEqual(result.exit_status, 0)
+        self.assertIn(b"STDOUT-MARKER", result.stdout)
+        self.assertIn(b"STDERR-MARKER", result.stdout)
+
+
+class RawEvidencePathTests(unittest.TestCase):
+    def test_capture_raw_uses_next_receipt_sequence_and_never_reuses_path(self):
+        stage = Stage()
+        runner = stage.make_runner(invoker=lambda *a, **k: _ir())
+        runner.load_status()
+        first = runner._capture_raw("T1", "implementation", 1, b"first")
+        runner._arp["last_receipt_sequence"] = 1
+        second = runner._capture_raw("T1", "implementation", 1, b"second")
+        self.assertNotEqual(first, second)
+        self.assertIn("runner-1-implementation", first)
+        self.assertIn("runner-2-implementation", second)
+        self.assertEqual((stage.root / first).read_bytes(), b"first")
+        self.assertEqual((stage.root / second).read_bytes(), b"second")
 
 
 class SealCommitGuardWiringTests(unittest.TestCase):

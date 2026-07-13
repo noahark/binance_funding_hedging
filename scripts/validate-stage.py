@@ -950,6 +950,7 @@ def validate_auto_review_pipeline(
     if not isinstance(history, list):
         errors.append("auto_review_pipeline.mode_history must be a list")
     else:
+        previous_to = None
         for idx, item in enumerate(history):
             if not isinstance(item, dict):
                 errors.append("auto_review_pipeline.mode_history[" + str(idx) + "] must be an object")
@@ -965,6 +966,18 @@ def validate_auto_review_pipeline(
                 errors.append(
                     "auto_review_pipeline.mode_history[" + str(idx) + "] is not in the frozen workflow transition set"
                 )
+            current_from = (from_dm, from_rs)
+            current_to = (to_dm, to_rs)
+            if previous_to is not None and current_from != previous_to:
+                errors.append(
+                    "auto_review_pipeline.mode_history[" + str(idx)
+                    + "] is discontinuous with the prior transition"
+                )
+            previous_to = current_to
+        if history and previous_to != (arp.get("dispatch_mode"), arp.get("runner_state")):
+            errors.append(
+                "auto_review_pipeline.mode_history final state must match current dispatch_mode/runner_state"
+            )
 
     # review_units shape + (pre-review/pre-accept) completeness predicate
     units = arp.get("review_units")

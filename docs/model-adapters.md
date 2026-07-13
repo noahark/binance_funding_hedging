@@ -173,7 +173,7 @@ test -x "<repo>/scripts/model-adapters/claude-glm-wrapper"
 # Non-interactive bookkeeper or implementation prompt. The runner expands
 # <repo> to an absolute path before invocation.
 <repo>/scripts/model-adapters/claude-glm-wrapper \
-  --model glm-5.2 -p "$(cat <prompt-file>)"
+  --model glm-5.2 --permission-mode acceptEdits -p "$(cat <prompt-file>)"
 
 # Read-only/plan review.
 <repo>/scripts/model-adapters/claude-glm-wrapper \
@@ -196,6 +196,12 @@ not contaminate model stdout/stderr, restores output only for the actual
 keeps the existing secret routing in the user's shell profile while making the
 runner invocation deterministic and absolute-path based.
 
+Permission policy does not come from the alias. The wrapper removes a legacy
+alias-level `--dangerously-skip-permissions` token in memory without logging the
+alias, then applies only the registry arguments: normal implementation uses
+`acceptEdits`, read-only review uses `plan`, and `yolo_command` alone adds
+`--dangerously-skip-permissions` explicitly.
+
 If the alias is not available inside the wrapper, stop at adapter setup. Do not
 fall back to Anthropic Claude while claiming the provider is GLM.
 
@@ -203,6 +209,12 @@ Observed on 2026-07-13: direct `/bin/sh` execution cannot resolve the
 interactive-zsh `claude-glm` alias. Runner templates therefore invoke the
 committed wrapper at its runtime absolute path. Never record the expanded alias
 environment; it contains credentials.
+
+Known local-pilot trade-off: every invocation loads the full interactive login
+zsh profile. A profile hook that blocks without a TTY can therefore delay the
+adapter until the registered runner timeout. Runtime tests use an isolated
+`ZDOTDIR` to cover alias absence, permission stripping, and startup/exit noise;
+the real profile remains a local operational dependency.
 
 ## Grok
 
