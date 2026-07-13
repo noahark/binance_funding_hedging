@@ -99,9 +99,18 @@ and explicit chunk coverage of the delivery diff. A final mechanical prompt
 enumerates only those ranges and requires truthful wording: complete
 non-reports code/config diff plus canonical raw report artifacts.
 
+The final-coverage turn executed all seven requested read-only diff commands
+and returned a schema-valid, correctly bound `ACCEPT` with accurate session and
+scope wording. A tool-result audit found one remaining transport gap: delivery
+diff lines 701–1400 produced a 29.4KB `<persisted-output>`, so Claude received
+only the first 2KB preview and did not read the saved full result. The other
+six chunks were inline and complete. Attempt 3 is therefore retained as
+non-accepting evidence; the last correction splits only that interval into
+701–1050 and 1051–1400 to stay below the tool-output ceiling.
+
 The JSON-only retry prompt is superseded; no model retry is needed for this
 attempt.
 
-本地北京时间: 2026-07-13 23:38:24 CST
+本地北京时间: 2026-07-13 23:54:06 CST
 下一步模型: Claude/Anthropic Opus 4.8（same dedicated review session）
-下一步任务: 补齐最后的 non-reports diff 分块并输出事实准确的 strict JSON verdict
+下一步任务: 补读唯一 persisted-output 区间并输出最终 strict JSON verdict

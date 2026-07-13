@@ -153,6 +153,9 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt2.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt2.verdict.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-final-coverage.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt3.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt3.verdict.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-last-persisted-chunk.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -427,7 +430,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "recheck_attempt_2_schema_valid_accept_nonaccepting_overstated_read_and_diff_coverage_final_correction_required",
+    "status": "recheck_attempt_3_schema_valid_accept_nonaccepting_one_persisted_output_chunk_remaining",
     "real_launchctl_mutation_authorized": true,
     "real_launchctl_mutation_authorized_by": "human",
     "real_launchctl_mutation_authorized_at": "2026-07-13T13:41:00Z"
@@ -660,17 +663,17 @@
     "adapter": "claude",
     "provider_identity": "anthropic",
     "model": "claude-opus-4-8",
-    "mode": "fresh_human_started_read_only_schema_bound_recheck",
-    "status": "recheck_attempt_2_nonaccepting_final_coverage_correction_required",
+    "mode": "same_dedicated_human_started_read_only_schema_bound_recheck",
+    "status": "recheck_attempt_3_nonaccepting_last_persisted_chunk_required",
     "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
     "reviewer_prior_involvement": "breakdown",
     "design_conflict_override": true,
     "routing_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/review-2-routing-human-opus48-recheck.md",
     "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.prompt.md",
     "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck.dispatch.md",
-    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt2.raw-output.md",
-    "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt2.verdict.json",
-    "correction_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-final-coverage.prompt.md",
+    "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt3.raw-output.md",
+    "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt3.verdict.json",
+    "correction_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-last-persisted-chunk.prompt.md",
     "previous_blocked_session_id": "cced0347-7f53-4626-958b-ecffba5d10b6"
   },
   "r10_checklists": {},
@@ -795,6 +798,9 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt2.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt2.verdict.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-final-coverage.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt3.raw-output.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt3.verdict.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-last-persisted-chunk.prompt.md",
     "backend/app/server.py",
     "backend/tests/test_service_health.py",
     "deploy/launchd/com.aoke.funding-hedging.server.plist.template",
@@ -1065,15 +1071,26 @@
         "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt2.verdict.json",
         "disposition": "nonaccepting: same-session disclosure corrected, but notes falsely claim current rereads and complete all-path diff coverage; auto-review-runner tail and harness test diff contents remain uninspected",
         "correction_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-final-coverage.prompt.md"
+      },
+      {
+        "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
+        "model": "claude-opus-4-8",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e",
+        "raw_output_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt3.raw-output.md",
+        "verdict_path": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-attempt3.verdict.json",
+        "disposition": "nonaccepting: six requested diff chunks were inline and fully visible, but delivery diff lines 701-1400 were replaced by a 2KB persisted-output preview and the saved full output was not read",
+        "correction_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-last-persisted-chunk.prompt.md"
       }
     ],
     "current_attempt": {
-      "status": "final_non_reports_diff_coverage_and_truthful_notes_required",
+      "status": "last_persisted_delivery_diff_chunk_required",
       "session_id": "cced0347-7f53-4626-958b-ecffba5d10b6",
       "schema_valid_substantive_verdict": "ACCEPT",
       "accepting_gate_evidence": false,
-      "tool_audit": "correction turn Read=2 Bash=5; read-only, no launchctl/server/.env/write; notes overstate rereads and full-diff coverage",
-      "correction_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-final-coverage.prompt.md"
+      "tool_audit": "final coverage turn Read=1 Bash=7; all read-only and successful; six diff outputs inline, delivery lines 701-1400 returned persisted-output preview only and saved full output was not read",
+      "correction_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-review-2-T1-launchd-service.opus-recheck-last-persisted-chunk.prompt.md"
     }
   },
   "rework_count": 1,
@@ -1128,7 +1145,7 @@
     "sealed_diff_fingerprint": "ed7d9e0a71d05aab15cc1ecad2f8197989b54b9d:75d865afaa68b0895e8c2843d8d5fcc264a4ab1b9feddb36dd2529a9ce49100e"
   },
   "blockers": [
-    "review-2 recheck correction is schema-valid ACCEPT and same-session disclosure is fixed, but notes still overstate rereads/full-diff coverage; final non-reports diff coverage correction is required"
+    "review-2 attempt 3 is schema-valid ACCEPT with truthful scope wording, but delivery diff lines 701-1400 were persisted by Claude Code and only a 2KB preview entered model context; one last split inline read is required"
   ],
   "human_escalation": {
     "required": false,
@@ -1144,6 +1161,6 @@
     "condition": "fresh_schema_valid_review_2_ACCEPT_and_clean_validation_required_before_push_or_merge",
     "currently_executable": false
   },
-  "next_action": "human_pastes_opus_recheck_final_coverage_prompt_in_same_session_and_returns_when_replacement_json_is_complete",
-  "updated_at": "2026-07-13T15:38:24Z"
+  "next_action": "human_pastes_opus_recheck_last_persisted_chunk_prompt_in_same_session_and_returns_when_replacement_json_is_complete",
+  "updated_at": "2026-07-13T15:54:06Z"
 }

@@ -1,3 +1,28 @@
+2026-07-13 23:54:06 CST — Opus final-coverage attempt 3 tool-result audit:
+
+```text
+replacement verdict
+schema=PASS; fingerprint=PASS; verdict=ACCEPT; same-session/scope disclosure=PASS
+
+final-coverage tools
+Read=1; Bash=7; all read-only, successful, no launchctl/server/.env/write
+
+inline coverage
+auto-review-runner 201-620=INLINE
+three Harness tests 1-350=INLINE; 351-700=INLINE
+delivery paths 1-700=INLINE; 1401-2100=INLINE; 2101-2480=INLINE
+
+remaining gap
+delivery paths 701-1400=PERSISTED_PREVIEW_ONLY
+full output=29.4KB saved by Claude Code; model received first 2KB preview only
+saved output was not subsequently read
+```
+
+Disposition: attempt 3 remains non-accepting despite schema-valid `ACCEPT`.
+Only delivery diff lines 701–1400 remain; the last prompt splits them into two
+inline-sized ranges. No code change, test rerun, or substantive re-review is
+requested.
+
 2026-07-13 23:38:24 CST — Opus recheck correction audit:
 
 ```text
