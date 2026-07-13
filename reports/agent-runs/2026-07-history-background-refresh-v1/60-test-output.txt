@@ -322,6 +322,13 @@ BOOKKEEPER FINAL INDEPENDENT REPAIR REVIEW:
 - DISPOSITION: BK-1 through BK-7 resolved. Eligible for local evidence commit
   and committed-state pre-review validation; not yet a formal review verdict.
 
+PRE-REVIEW GATE (committed-state):
+- Local Beijing time: 2026-07-13 09:52:08 CST
+- COMMAND: `python3 scripts/validate-stage.py 2026-07-history-background-refresh-v1 --phase pre-review`
+- RESULT: PASS
+  - status=review_1
+  - diff_fingerprint=6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96
+
 ================================================================================
 Stage: 2026-07-history-background-refresh-v1 — PRE-REVIEW REPAIR RUN
 Checkpoint: 21-pre-review-repair (claude_glm / GLM-5.2, minimal_change_engineer)

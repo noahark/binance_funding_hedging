@@ -59,7 +59,7 @@ not read `history/` at startup.
 - Review 2: pending `50-review-2.md`
 - Test output: `60-test-output.txt` — final independent rerun: 289 backend
   tests, 27 symbol-snapshot endpoint tests, frontend self-check, and diff check
-  all passed
+  all passed; committed-state `pre-review` gate passed at 2026-07-13 09:52:08 CST
 - Status JSON: `status.json`
 
 ## Design Review Evidence
