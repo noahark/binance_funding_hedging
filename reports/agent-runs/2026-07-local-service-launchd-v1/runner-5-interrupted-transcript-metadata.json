@@ -1,0 +1,28 @@
+{
+  "stage_id": "2026-07-local-service-launchd-v1",
+  "attempt": 5,
+  "node": "implementation",
+  "session_id": "359a6504-9d1b-4c58-81e5-51f93c1b2948",
+  "provider_identity": "zhipu_glm",
+  "model": "glm-5.2",
+  "entrypoint": "cli",
+  "permission_mode": "dontAsk",
+  "first_timestamp": "2026-07-13T10:35:02.172Z",
+  "last_timestamp": "2026-07-13T10:36:17.593Z",
+  "assistant_records": 44,
+  "tool_uses": {
+    "Read": 27,
+    "Glob": 3,
+    "Grep": 0,
+    "Edit": 0,
+    "Write": 0,
+    "Bash": 0
+  },
+  "tool_results": 30,
+  "tool_result_errors": 0,
+  "end_turns": 0,
+  "delivery_code_changed": false,
+  "runner_receipt_written": false,
+  "runner_raw_output_written": false,
+  "accounting_disposition": "model call occurred; status usage must advance from 4 to 5 despite missing receipt"
+}

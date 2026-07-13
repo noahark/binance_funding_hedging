@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-local-service-launchd-v1",
-  "status": "human_escalation_required",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-local-service-launchd-v1",
@@ -115,6 +115,10 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/17-claude-glm-pty-probe-result.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/18-runner-host-tool-policy-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/19-kimi-runner-host-dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/21-auto-v5-interruption-manual-takeover.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.tool-policy.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.dispatch.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json"
   ],
@@ -126,11 +130,11 @@
   },
   "auto_review_pipeline": {
     "schema_version": 1,
-    "enabled": true,
-    "dispatch_mode": "auto_review",
+    "enabled": false,
+    "dispatch_mode": "human_dispatch",
     "mode_flip_pending": null,
     "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json",
-    "runner_state": "awaiting_human",
+    "runner_state": null,
     "runner_version": "auto-review-pipeline/v1",
     "runner_host": {
       "id": "kimi",
@@ -145,7 +149,7 @@
       "verified": true
     },
     "budgets": {
-      "model_calls_used": 4,
+      "model_calls_used": 5,
       "auto_code_changes_used": 0
     },
     "mode_history": [
@@ -280,6 +284,50 @@
           "runner_state": "awaiting_human"
         },
         "event": "unroutable_fix"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "awaiting_human"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "authorized"
+        },
+        "event": "superseding_human_authorization"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "authorized"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "running"
+        },
+        "event": "successful_full_preflight"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "running"
+        },
+        "to": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "awaiting_human"
+        },
+        "event": "recoverable_worktree_runner_adapter_fallback_condition"
+      },
+      {
+        "from": {
+          "dispatch_mode": "auto_review",
+          "runner_state": "awaiting_human"
+        },
+        "to": {
+          "dispatch_mode": "human_dispatch",
+          "runner_state": null
+        },
+        "event": "explicit_human_mode_flip_decision"
       }
     ],
     "review_units": [
@@ -338,14 +386,25 @@
     ],
     "embedded_cross_checks": [],
     "last_receipt_path": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-4-implementation.receipt.json",
-    "last_escalation_path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-unroutable_fix-20260713T084312Z.md",
+    "last_escalation_path": "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-recoverable_resume_unverifiable_unit-20260713T104052Z.md",
     "last_receipt_sequence": 4
   },
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "v5_authorization_committed_kimi_runner_host_ready",
+    "status": "auto_v5_interrupted_manual_human_dispatch_takeover",
     "real_launchctl_mutation_authorized": false
+  },
+  "manual_dispatch_takeover": {
+    "authorized_by": "human",
+    "authorized_at": "2026-07-13T10:54:53Z",
+    "reason": "finish T1 through manual human dispatch after recoverable auto resume failure",
+    "implementation_provider": "zhipu_glm",
+    "implementation_model": "glm-5.2",
+    "prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.prompt.md",
+    "tool_policy": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.tool-policy.json",
+    "dispatch_packet": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.dispatch.md",
+    "tests_and_commits_owned_by": "codex_bookkeeper_after_human_model_dispatch"
   },
   "harness_adapter_repair": {
     "decision": "absolute_repo_wrapper",
@@ -457,23 +516,26 @@
   "implementer": {
     "adapter": "claude_glm",
     "provider_identity": "zhipu_glm",
-    "status": "awaiting_v5_after_bounded_tool_policy_repair",
+    "status": "manual_human_dispatch_prepared_after_interrupted_auto_attempt_5",
     "receipt": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-4-implementation.receipt.json",
     "raw_output": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-4-implementation-T1-launchd-service-attempt1.raw-output.md",
     "model_endpoint_reached": true,
     "entrypoint": "cli",
     "claude_session_id": "76a8e532-1414-43f7-919e-4b57a0b28558",
+    "interrupted_auto_attempt_5_session_id": "359a6504-9d1b-4c58-81e5-51f93c1b2948",
+    "interrupted_auto_attempt_5_metadata": "reports/agent-runs/2026-07-local-service-launchd-v1/runner-5-interrupted-transcript-metadata.json",
+    "manual_dispatch_prompt": "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.prompt.md",
     "final_turn_observed": false,
     "delivery_code_changed": false
   },
   "implementers": [],
   "fix_authors": [],
   "reviewer_1": {
-    "adapter": "grok",
-    "provider_identity": "xai_grok",
-    "model": "grok-4.5",
-    "mode": "plan",
-    "status": "pending_auto_runner"
+    "adapter": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "mode": "manual_fresh_read_only_session",
+    "status": "pending_after_manual_implementation_and_tests"
   },
   "reviewer_2": null,
   "r10_checklists": {},
@@ -481,16 +543,16 @@
     {
       "id": "T1-launchd-service",
       "owner": "claude_glm",
-      "reviewer": "grok",
+      "reviewer": "kimi",
       "r10_checklist": null,
       "base_sha": null,
       "head_sha": null,
       "diff_fingerprint": null,
       "test_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/60-test-output.txt",
       "review_1": {
-        "reviewer": "grok",
-        "provider": "xai_grok",
-        "model": "grok-4.5",
+        "reviewer": "kimi",
+        "provider": "moonshot_kimi",
+        "model": "kimi-code/kimi-for-coding",
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -553,6 +615,14 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v5.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/19-kimi-runner-host-dispatch.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/21-auto-v5-interruption-manual-takeover.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/implementation-T1-launchd-service.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/runner-5-implementation.tool-policy.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/runner-5-interrupted-transcript-metadata.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/80-escalation-recoverable_resume_unverifiable_unit-20260713T104052Z.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.prompt.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.tool-policy.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/manual-implementation-T1-launchd-service.dispatch.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation-T1-launchd-service-attempt1.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation.receipt.json",
@@ -583,7 +653,7 @@
     "workflows/templates/stage-delivery.yaml"
   ],
   "tests": {
-    "status": "tool_policy_repair_pass_delivery_tests_pending",
+    "status": "manual_dispatch_packet_valid_delivery_tests_pending",
     "commands": [
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
@@ -639,13 +709,18 @@
       "superseding authorization v5 handwritten/schema validation (PASS)",
       "v5 scope/budgets exact match v4 and supersedes pointer check (PASS)",
       "pre-v5-commit checkpoint validator and diff check (PASS)",
-      "post-v5-commit checkpoint validator and clean-worktree check (PASS)"
+      "post-v5-commit checkpoint validator and clean-worktree check (PASS)",
+      "auto attempt 5 transcript metadata: glm-5.2 cli/dontAsk, 27 Read + 3 Glob, no writes/end_turn (PASS)",
+      "auto attempt 5 accounting corrected to model_calls_used=5 without fabricating receipt (PASS)",
+      "explicit human mode flip auto_review/awaiting_human -> human_dispatch/null (PASS)",
+      "manual implementation-v1 policy validation and PTY wrapper help check (PASS)",
+      "manual delivery tests pending implementation return"
     ]
   },
   "review_1": {
-    "reviewer": "grok",
-    "provider": "xai_grok",
-    "model": "grok-4.5",
+    "reviewer": "kimi",
+    "provider": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
@@ -683,13 +758,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "The isolated Kimi runner-host session has not yet started the deterministic runner to consume committed authorization v5."
+    "The human operator must execute the committed fresh Claude-GLM manual implementation dispatch packet before deterministic delivery tests can run."
   ],
   "human_escalation": {
-    "required": true,
-    "reason": "superseding authorization v5 is committed and ready; automation remains stopped until the isolated Kimi host starts the runner"
+    "required": false,
+    "reason": null
   },
-  "terminal_reason": "human_escalation_required",
-  "next_action": "kimi_runner_host_executes_deterministic_runner_with_committed_v5_and_implementation_v1",
-  "updated_at": "2026-07-13T10:32:27Z"
+  "terminal_reason": null,
+  "next_action": "human_executes_fresh_claude_glm_manual_dispatch_then_codex_runs_frozen_tests_and_prepares_manual_review_1",
+  "updated_at": "2026-07-13T10:54:53Z"
 }

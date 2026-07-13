@@ -2,26 +2,26 @@
 
 ## Recovery Header
 
-- Active phase: superseding authorization v5 committed and validated; Kimi runner-host dispatch ready
-- Next action: paste the committed dispatch packet into the isolated Kimi host session and start the deterministic runner
+- Active phase: auto attempt 5 interrupted; explicit human mode flip recorded; manual Claude-GLM implementation packet ready
+- Next action: human executes the fresh foreground Claude-GLM dispatch packet, then returns control to Codex for tests
 - Read-set: = status.current_inputs
-- Open blockers: the Kimi runner-host session has not yet started the runner
+- Open blockers: manual Claude-GLM implementation has not yet been human-dispatched
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
 
 - Stage: `2026-07-local-service-launchd-v1`
-- Status: `human_escalation_required`
+- Status: `implementing`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `062f8688f958770a81f58c4d1f9e988886947ae3` (`bookkeeper(launchd): authorize bounded auto retry v5`) before this synchronized post-commit checkpoint
-- Git status: clean immediately after the v5 authorization commit; synchronized post-commit checkpoint pending commit
+- HEAD: `47fd3d4f9f8ef6e8e401b1efb0a63b1bd353e078` before the interrupted-attempt/manual-takeover checkpoint
+- Git status: interrupted runner evidence, mode flip, and manual dispatch packet pending checkpoint commit
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
-- Auto-review pipeline: enabled; attempt 4 remains closed evidence; new permission repair has not invoked a model
+- Auto-review pipeline: disabled after explicit human mode flip; v5 is historical and must not be reused
 - Runner host: Kimi, host-only session; switching requires explicit human instruction
-- Dispatch mode: `auto_review`
-- Runner state: `awaiting_human`
-- Usage: `model_calls_used=4`, `auto_code_changes_used=0`
+- Dispatch mode: `human_dispatch`
+- Runner state: `null`
+- Usage: `model_calls_used=5`, `auto_code_changes_used=0`
 
 ## Artifact Index
 
@@ -30,17 +30,20 @@
 - Adapter repair: `14-harness-adapter-repair.md`
 - V3 prerequisite repair: `15-v3-prerequisite-repair.md`
 - Implementation: `20-implementation.md`; delivery implementation still pending
-- Current authorization: `auto-run-authorization-v5.json`; committed, human-approved, schema-valid, and unchanged in scope/budgets from v4
-- Kimi runner-host dispatch: `19-kimi-runner-host-dispatch.md`
+- Historical last auto authorization: `auto-run-authorization-v5.json`; committed, consumed, and no longer active after the human mode flip
+- Historical Kimi runner-host dispatch: `19-kimi-runner-host-dispatch.md`; do not rerun
+- Attempt-5/manual-takeover report: `21-auto-v5-interruption-manual-takeover.md`
+- Interrupted session metadata: `runner-5-interrupted-transcript-metadata.json`
+- Manual implementation prompt/policy/dispatch: `manual-implementation-T1-launchd-service.*`
 - PTY route repair: `16-claude-glm-pty-route-repair.md`
 - PTY probe result: `17-claude-glm-pty-probe-result.md`
 - Kimi host/tool policy repair: `18-runner-host-tool-policy-repair.md`
 - Tool-policy repair commit: `bfbc2ee394bcf40f422f8a826e4acfb99648642e`
 - Latest runner receipt: `runner-4-implementation.receipt.json`
 - Latest raw output: `runner-4-implementation-T1-launchd-service-attempt1.raw-output.md`
-- Latest escalation: `80-escalation-unroutable_fix-20260713T084312Z.md`
+- Latest escalation: `80-escalation-recoverable_resume_unverifiable_unit-20260713T104052Z.md`
 - Historical repair snapshots: the four exact named files under `history/` referenced by `status.json`
-- Review 1: pending Grok 4.5 auto gate
+- Review 1: pending fresh Kimi manual cross-review after implementation/tests
 - Review 2: human-started and pending
 - Tests: `60-test-output.txt`
 - Machine state: `status.json`
@@ -63,15 +66,19 @@
 - Runner preflight rejects Kimi host drift, legacy `acceptEdits`/bypass normal routes, malformed policies, unsafe pathspecs, and executable-mode paths outside authorization. Blocking tests, git, and optional exact-path `0755` normalization remain deterministic runner work.
 - Focused and full tests passed without a model call or delivery-code change. No real `launchctl` mutation occurred.
 - Real `launchctl` mutation remains explicitly unauthorized.
+- Auto attempt 5 reached real `glm-5.2` through `entrypoint=cli` and `dontAsk`, completed 27 Read + 3 Glob calls, and made no writes before ending without a final turn.
+- Because the call occurred before the runner lifetime ended, cumulative usage is corrected from 4 to 5 even though no sequence-5 receipt/raw output exists. No evidence artifact is fabricated.
+- A second runner lifetime stopped on the overbroad historical-receipt resume guard. The human chose the frozen manual mode-flip path instead of another auto authorization.
+- The manual packet uses a fresh foreground PTY session, explicitly invokes `senior_developer`, keeps Bash unavailable, and narrows writes to five delivery files; `scripts/run-server.sh` is read-only.
 
 ## Blockers
 
-- The isolated Kimi runner-host session has not yet started the deterministic runner. Authorization and Harness prerequisites are ready; usage remains cumulative at `model_calls_used=4`, `auto_code_changes_used=0`.
+- The human operator must execute `manual-implementation-T1-launchd-service.dispatch.md`. Until the model returns, delivery implementation and frozen tests remain pending.
 
 ## Next Action
 
-After this synchronized checkpoint is committed and the worktree is clean, copy `19-kimi-runner-host-dispatch.md` into the isolated Kimi host session. It executes only `python3 scripts/auto-review-runner.py 2026-07-local-service-launchd-v1`; the runner records the superseding transition, invokes Claude-GLM with `implementation-v1`, and follows the frozen blocking/check/seal/review-1 flow.
+After this checkpoint is committed and the worktree is clean, the human executes `manual-implementation-T1-launchd-service.dispatch.md` once in a fresh foreground terminal. On return, Codex inspects the bounded diff, runs all frozen checks, records the implementation evidence commit, and prepares fresh Kimi manual review-1.
 
-本地北京时间: 2026-07-13 18:32:27 CST
-下一步模型: Kimi（runner host only）
-下一步任务: 执行 19-kimi-runner-host-dispatch.md 中唯一 runner 命令并等待安全完成/停止
+本地北京时间: 2026-07-13 18:54:53 CST
+下一步模型: Codex bookkeeper
+下一步任务: 校验并提交中断证据、人工 mode flip 和 Claude-GLM dispatch packet

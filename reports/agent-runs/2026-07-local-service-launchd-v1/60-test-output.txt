@@ -1,5 +1,46 @@
 Stage initialization checkpoint. No delivery-code tests have run.
 
+2026-07-13 18:54:53 CST — interrupted auto attempt 5 and manual takeover:
+
+```text
+Claude transcript metadata
+session_id=359a6504-9d1b-4c58-81e5-51f93c1b2948
+model=glm-5.2
+entrypoint=cli
+permission_mode=dontAsk
+Read=27 Glob=3 Grep=0 Edit=0 Write=0 Bash=0
+tool_results=30 tool_result_errors=0 end_turns=0
+delivery_code_changed=false
+
+accounting correction
+model_calls_used: 4 -> 5
+auto_code_changes_used: 0
+no sequence-5 receipt fabricated
+
+mode transition
+auto_review/awaiting_human -> human_dispatch/null
+event=explicit_human_mode_flip_decision
+auto_review_pipeline.enabled=false
+
+manual tool policy
+scripts.harness_stage_lib.validate_tool_policy_doc(..., implementation-v1)
+PASS
+
+scripts/model-adapters/claude-glm-pty-wrapper --help
+PASS
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+status=implementing
+
+git diff --check
+PASS
+```
+
+No delivery test has run because the fresh manual implementer has not yet
+returned. No `.env`, real `launchctl`, private API, or delivery file was touched
+during evidence reconciliation and packet preparation.
+
 2026-07-13 18:28:16 CST — superseding authorization v5 prepared:
 
 ```text

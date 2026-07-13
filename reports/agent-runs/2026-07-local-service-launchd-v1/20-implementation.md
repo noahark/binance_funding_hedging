@@ -88,6 +88,19 @@ are unchanged from v4, usage carries forward at `model_calls_used=4` and
 deterministic runner command. Delivery implementation remains pending until the
 runner itself consumes v5 and invokes Claude-GLM with `implementation-v1`.
 
-本地北京时间: 2026-07-13 18:28:16 CST
-下一步模型: Kimi（runner host only）
-下一步任务: 启动 deterministic runner；由 runner 调 Claude-GLM 实现并继续固定检查/review-1 流程
+Auto attempt 5 did start Claude-GLM session
+`359a6504-9d1b-4c58-81e5-51f93c1b2948` under the bounded policy. It completed
+27 `Read` and 3 `Glob` calls with no errors, edits, writes, Bash, or final turn.
+The first runner lifetime ended before raw output/receipt persistence; a second
+lifetime stopped on `resume_unverifiable_unit`. Cumulative call usage is
+therefore corrected to 5 without fabricating a missing receipt.
+
+The human explicitly switched the stage to manual human dispatch to finish the
+delivery task. Auto mode is disabled, the interrupted evidence is preserved in
+`21-auto-v5-interruption-manual-takeover.md`, and a fresh Claude-GLM packet with
+an explicitly invoked `senior_developer` skill is ready. Delivery implementation
+is still pending the human-executed model terminal.
+
+本地北京时间: 2026-07-13 18:54:53 CST
+下一步模型: Claude-GLM / GLM-5.2（human dispatch）
+下一步任务: 执行 manual-implementation-T1-launchd-service.dispatch.md 完成五个允许文件
