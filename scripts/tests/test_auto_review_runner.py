@@ -39,8 +39,10 @@ import datetime
 import hashlib
 import importlib.util
 import json
+import os
 import re
 import shlex
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -1181,7 +1183,7 @@ class ProductionRegistryCommandTests(unittest.TestCase):
         # double-quoted YAML scalar with \" → unescaped, real <prompt-file> kept
         self.assertEqual(
             reg["claude_glm"]["commands"]["noninteractive_command"],
-            'claude-glm --model glm-5.2 -p "$(cat <prompt-file>)"')
+            '<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 -p "$(cat <prompt-file>)"')
         self.assertEqual(
             reg["kimi"]["commands"]["noninteractive_command"],
             'kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"')
@@ -1242,6 +1244,22 @@ class ProductionRegistryCommandTests(unittest.TestCase):
         self.assertIn('-p "$(cat ', cmd)        # unescaped double-quote structure
         self.assertIn(prompt_abs, cmd)
         self.assertIn(str(stage.root), cmd)
+        self.assertTrue(
+            shlex.split(cmd)[0].endswith("/scripts/model-adapters/claude-glm-wrapper"),
+            "claude_glm must enter through the runtime absolute wrapper: %r" % cmd,
+        )
+
+    def test_claude_glm_wrapper_is_executable_and_shell_valid(self):
+        wrapper = REPO_ROOT / "scripts" / "model-adapters" / "claude-glm-wrapper"
+        self.assertTrue(wrapper.is_file())
+        self.assertTrue(os.access(wrapper, os.X_OK))
+        proc = subprocess.run(
+            ["/bin/sh", "-n", str(wrapper)],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr.decode("utf-8", "replace"))
 
     def test_kimi_real_command_substitutes_and_unescapes(self):
         stage = Stage()

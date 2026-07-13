@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: auto implementation attempt failed closed before model execution; awaiting human adapter decision
-- Next action: choose Harness adapter repair + superseding authorization, or explicit mode flip to `human_dispatch`
+- Active phase: absolute wrapper implemented and tested; awaiting repair commit and superseding authorization v2
+- Next action: commit the Harness repair, create/commit v2 authorization, then rerun full auto preflight
 - Read-set: = status.current_inputs
-- Open blockers: runner `/bin/sh` cannot resolve the interactive-zsh `claude-glm` alias (exit 127)
+- Open blockers: auto resume requires a committed superseding authorization v2
 - Do-not-read: reports/agent-runs/**/history/**, other stages
 
 ## Current State
@@ -13,8 +13,8 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `f75acb5f57f82935c564ee6373feff6a0485fbb7` (`bookkeeper(launchd): validate breakdown and architecture`) before the implementing-state checkpoint
-- Git status: runner failure evidence and synchronized checkpoint bookkeeping pending evidence commit
+- HEAD: `9030d273d26d89e266d1c413abf5c2ae1403d275` (`bookkeeper(launchd): record auto adapter escalation`)
+- Git status: Harness adapter repair and synchronized checkpoint are pending commit
 - Bookkeeper: Codex/OpenAI; designer, not implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 1 stopped fail-closed
@@ -57,23 +57,24 @@
 - Auto implementation did not reach Claude-GLM. The registry template was
   executed through `/bin/sh`; the local `claude-glm` exists only as an
   interactive zsh alias. Expanded alias/environment content was not logged.
+- The operator approved the formal absolute-wrapper repair. The runner-facing
+  command now expands `<repo>/scripts/model-adapters/claude-glm-wrapper` to an
+  absolute path; the wrapper suppresses zsh profile chatter and never records
+  the alias expansion or environment. Verification is in
+  `14-harness-adapter-repair.md` and `60-test-output.txt`.
 
 ## Blockers
 
-- Adapter setup: the accepted runner cannot resolve `claude-glm` and exited 127.
-- Auto contract requires a new/superseding human authorization before resume;
+- Adapter setup is repaired and tested.
+- Auto contract still requires a new/superseding human authorization before resume;
   the runner must not be invoked again against the current authorization.
 - Real `launchctl` commands remain explicitly unauthorized.
 
 ## Next Action
 
-Human selects either:
+Bookkeeper commits the adapter repair, records the operator's superseding v2
+authorization, reruns full preflight, and resumes the serial auto pipeline.
 
-1. repair the Harness adapter invocation so it uses a safe interactive-zsh
-   wrapper without recording expanded secrets, then issue a superseding
-   authorization and rerun full preflight; or
-2. explicitly flip to `human_dispatch` and use the manual workflow.
-
-本地北京时间: 2026-07-13 13:38:37 CST
-下一步模型: human
-下一步任务: 决定 adapter 修复后 superseding authorization，或明确切换 human_dispatch
+本地北京时间: 2026-07-13 14:12:23 CST
+下一步模型: Codex bookkeeper
+下一步任务: 提交 adapter repair checkpoint 并创建 superseding authorization v2

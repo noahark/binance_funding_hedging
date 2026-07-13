@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+# The local claude-glm provider routing is intentionally owned by the user's
+# interactive zsh profile.  Keep that expansion out of the runner command,
+# receipts, and logs while exposing one stable executable entrypoint.
+if [ "$#" -eq 0 ]; then
+    echo "claude-glm wrapper: missing Claude CLI arguments" >&2
+    exit 64
+fi
+
+# Preserve the wrapper's original stdout/stderr on fd 3/4, hide profile startup
+# and exit-hook chatter, and restore output only for the actual adapter call.
+# The command string is fixed; untrusted prompt content remains a quoted argv
+# value supplied through "$@" and is never evaluated as shell source.
+exec /bin/zsh -lic '
+    exec 1>&3 2>&4
+    if ! whence -w claude-glm >/dev/null 2>&1; then
+        print -u2 -- "claude-glm wrapper: interactive zsh alias is unavailable"
+        exit_code=127
+    else
+        claude-glm "$@"
+        exit_code=$?
+    fi
+    exec 1>/dev/null 2>/dev/null
+    exit "$exit_code"
+' claude-glm-wrapper "$@" 3>&1 4>&2 1>/dev/null 2>/dev/null

@@ -18,6 +18,13 @@
     "validated_result": "passed",
     "worktree_after_commit": "clean before implementing-state transition"
   },
+  "auto_failure_checkpoint": {
+    "commit": "9030d273d26d89e266d1c413abf5c2ae1403d275",
+    "kind": "implementation_adapter_exit_127_escalation_evidence",
+    "validated_phase": "checkpoint",
+    "validated_result": "passed",
+    "delivery_code_changed": false
+  },
   "bookkeeper": {
     "id": "codex_bookkeeper_2026_07_13",
     "provider": "codex",
@@ -34,6 +41,7 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/11-adr.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/12-development-breakdown.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/13-software-architect-amendment.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/14-harness-adapter-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.json"
   ],
@@ -152,8 +160,22 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "awaiting_human_adapter_setup_after_real_escalation",
+    "status": "adapter_repaired_awaiting_superseding_authorization",
     "real_launchctl_mutation_authorized": false
+  },
+  "harness_adapter_repair": {
+    "decision": "absolute_repo_wrapper",
+    "status": "implemented_and_tested_awaiting_commit",
+    "author_role": "codex_bookkeeper_harness_prerequisite_not_delivery_implementer",
+    "artifact": "reports/agent-runs/2026-07-local-service-launchd-v1/14-harness-adapter-repair.md",
+    "files": [
+      "scripts/model-adapters/claude-glm-wrapper",
+      "agents/registry.yaml",
+      "docs/model-adapters.md",
+      "scripts/tests/test_auto_review_runner.py"
+    ],
+    "secret_handling": "never_log_expanded_environment",
+    "model_dispatch_during_repair": false
   },
   "embedded_reviews": {},
   "designer": {
@@ -264,6 +286,7 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/12-development-breakdown.prompt.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/12-development-breakdown.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/13-software-architect-amendment.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/14-harness-adapter-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/20-implementation.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/30-review-1.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/40-fix-report.md",
@@ -273,10 +296,14 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v1.json",
-    "reports/agent-runs/2026-07-local-service-launchd-v1/status.json"
+    "reports/agent-runs/2026-07-local-service-launchd-v1/status.json",
+    "agents/registry.yaml",
+    "docs/model-adapters.md",
+    "scripts/model-adapters/claude-glm-wrapper",
+    "scripts/tests/test_auto_review_runner.py"
   ],
   "tests": {
-    "status": "auto_preflight_passed_adapter_failed_before_delivery_tests",
+    "status": "harness_adapter_repair_passed_awaiting_superseding_authorization",
     "commands": [
       "jq empty ACTIVE.json status.json authorization.json pilot-metrics.json (PASS)",
       "authorization handwritten validation (PASS)",
@@ -287,7 +314,11 @@
       "auto runner preflight (PASS; transitioned authorized -> running)",
       "claude_glm implementation adapter (FAIL exit 127; command_error; no model output/code change)",
       "runner receipt schema validation (PASS)",
-      "post-escalation checkpoint validator and diff check (PASS)"
+      "post-escalation checkpoint validator and diff check (PASS)",
+      "claude-glm absolute wrapper shell syntax and --version check (PASS; no model call)",
+      "ProductionRegistryCommandTests: 7 tests (PASS)",
+      "test_auto_review_runner: 79 tests (PASS)",
+      "adapter-repair checkpoint validator and diff check (PASS)"
     ]
   },
   "review_1": {
@@ -331,13 +362,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "claude-glm is a zsh interactive alias but the auto runner invokes registry templates through /bin/sh shell=True, causing exit 127 before model execution."
+    "The adapter is repaired, but auto resume requires a committed superseding authorization v2."
   ],
   "human_escalation": {
     "required": true,
-    "reason": "implementation adapter command_error exit 127; runner cannot resolve the interactive-zsh claude-glm alias"
+    "reason": "adapter repair completed; superseding human authorization v2 is not yet committed"
   },
   "terminal_reason": "human_escalation_required",
-  "next_action": "human_decides_adapter_fix_plus_superseding_authorization_or_explicit_human_dispatch_mode_flip",
-  "updated_at": "2026-07-13T05:38:37Z"
+  "next_action": "commit_adapter_repair_then_create_and_commit_superseding_authorization_v2",
+  "updated_at": "2026-07-13T06:12:23Z"
 }

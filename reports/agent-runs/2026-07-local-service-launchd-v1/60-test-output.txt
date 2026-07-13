@@ -83,3 +83,34 @@ claude-glm: alias
 
 The alias expansion and environment were deliberately not recorded. No frozen
 delivery-code blocking check ran because implementation never started.
+
+2026-07-13 14:12:23 CST — absolute-wrapper Harness repair:
+
+```text
+/bin/sh -n scripts/model-adapters/claude-glm-wrapper
+PASS
+
+scripts/model-adapters/claude-glm-wrapper --version
+2.1.207 (Claude Code)
+PASS; no zsh startup/exit chatter in captured output
+
+python3 -m unittest scripts.tests.test_auto_review_runner.ProductionRegistryCommandTests
+Ran 7 tests in 0.692s
+OK
+
+python3 -m unittest scripts.tests.test_auto_review_runner
+Ran 79 tests in 14.424s
+OK
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-local-service-launchd-v1
+phase=checkpoint
+status=human_escalation_required
+
+git diff --check
+PASS
+```
+
+The wrapper check invokes only the local CLI `--version`; it does not dispatch
+a model. No real `launchctl` command ran and no delivery code changed.

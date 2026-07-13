@@ -45,23 +45,24 @@ controllers:
 
 adapters:
   claude_glm:
-    kind: claude_code_alias
+    kind: claude_code_absolute_repo_wrapper
     provider_identity: zhipu_glm
     invocation_owner: runner
     prompt_mode: claude_print
-    binary: claude-glm
-    availability_check_command: "zsh -lic 'type claude-glm'"
-    noninteractive_command: "claude-glm --model glm-5.2 -p \"$(cat <prompt-file>)\""
-    read_only_review_command: "claude-glm --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
-    embedded_read_only_review_command: "claude-glm --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
+    binary: "scripts/model-adapters/claude-glm-wrapper"
+    availability_check_command: "test -x <repo>/scripts/model-adapters/claude-glm-wrapper && <repo>/scripts/model-adapters/claude-glm-wrapper --version"
+    noninteractive_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 -p \"$(cat <prompt-file>)\""
+    read_only_review_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
+    embedded_read_only_review_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
     embedded_read_only_review_enforcement: adapter_plan_mode
-    yolo_command: "claude-glm --model glm-5.2 --dangerously-skip-permissions -p \"$(cat <prompt-file>)\""
+    yolo_command: "<repo>/scripts/model-adapters/claude-glm-wrapper --model glm-5.2 --dangerously-skip-permissions -p \"$(cat <prompt-file>)\""
     supports_write: true
     supports_read_only: true
     timeout_seconds: 3000
     secret_handling: "never_log_expanded_environment"
     notes:
-      - "This may be a shell alias/function. Runner scripts must load the shell profile, use zsh -lic, or use an absolute wrapper path."
+      - "Runner templates expand <repo> to an absolute path and invoke the committed wrapper, never the alias directly."
+      - "The wrapper isolates the existing interactive-zsh provider routing while suppressing profile startup/exit chatter; it never prints the alias expansion or environment."
       - "If the alias is missing, do not substitute Anthropic Claude while claiming GLM provider identity."
       - "Never log the expanded alias environment; it contains credentials."
 

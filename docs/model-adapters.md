@@ -35,16 +35,18 @@ use to execute the prepared dispatch:
 ```bash
 command -v codex
 command -v claude
-command -v claude-glm
+test -x "$PWD/scripts/model-adapters/claude-glm-wrapper"
+"$PWD/scripts/model-adapters/claude-glm-wrapper" --version
 command -v grok
 command -v kimi || command -v kimi-for-coding
 grok models
 ```
 
-If `claude-glm` is a shell alias or function, non-interactive scripts must load
-the shell profile that defines it, or use the absolute wrapper path. If it still
-cannot be resolved, record `model_unavailable` for the adapter instead of
-inventing a substitute command.
+The Claude-GLM adapter must use the repository wrapper through its runtime
+absolute path. The wrapper isolates the interactive-zsh alias that owns the
+existing provider routing and suppresses shell-profile startup/exit chatter. If
+the wrapper cannot resolve the alias, record `model_unavailable` for the adapter
+instead of inventing a substitute command.
 
 ## Codex
 
@@ -165,32 +167,42 @@ Command templates:
 
 ```bash
 # Availability check. This may require an interactive shell profile.
-type claude-glm
-zsh -lic 'type claude-glm'
+test -x "<repo>/scripts/model-adapters/claude-glm-wrapper"
+"<repo>/scripts/model-adapters/claude-glm-wrapper" --version
 
-# Non-interactive bookkeeper or implementation prompt, if the local alias
-# supports Claude-compatible print mode.
-claude-glm --model glm-5.2 -p "$(cat <prompt-file>)"
+# Non-interactive bookkeeper or implementation prompt. The runner expands
+# <repo> to an absolute path before invocation.
+<repo>/scripts/model-adapters/claude-glm-wrapper \
+  --model glm-5.2 -p "$(cat <prompt-file>)"
 
 # Read-only/plan review.
-claude-glm --model glm-5.2 --permission-mode plan -p "$(cat <prompt-file>)"
+<repo>/scripts/model-adapters/claude-glm-wrapper \
+  --model glm-5.2 --permission-mode plan -p "$(cat <prompt-file>)"
 
 # Embedded cross-review checkpoint. Same as read-only/plan review; use a fresh
 # session and never reuse implementation/bookkeeper transcript.
-claude-glm --model glm-5.2 --permission-mode plan -p "$(cat <prompt-file>)"
+<repo>/scripts/model-adapters/claude-glm-wrapper \
+  --model glm-5.2 --permission-mode plan -p "$(cat <prompt-file>)"
 
 # Yolo execution, only when explicitly authorized.
-claude-glm --model glm-5.2 --dangerously-skip-permissions -p "$(cat <prompt-file>)"
+<repo>/scripts/model-adapters/claude-glm-wrapper \
+  --model glm-5.2 --dangerously-skip-permissions -p "$(cat <prompt-file>)"
 ```
 
-If the alias is not available to the runner, stop at adapter setup and ask the
-operator to expose the wrapper. Do not fall back to Anthropic Claude while
-claiming the provider is GLM.
+The wrapper is the only runner-facing entrypoint. It starts `/bin/zsh -lic`
+behind isolated file descriptors so profile startup and exit-hook messages do
+not contaminate model stdout/stderr, restores output only for the actual
+`claude-glm` call, and never prints the alias expansion or environment. This
+keeps the existing secret routing in the user's shell profile while making the
+runner invocation deterministic and absolute-path based.
 
-Observed on 2026-07-04: in this repository's shell, `claude-glm` is defined by
-the interactive zsh profile and may not be visible to non-interactive shells.
-Runner scripts should either load the same profile or use `zsh -lic '<command>'`.
-Never record the expanded alias environment; it contains credentials.
+If the alias is not available inside the wrapper, stop at adapter setup. Do not
+fall back to Anthropic Claude while claiming the provider is GLM.
+
+Observed on 2026-07-13: direct `/bin/sh` execution cannot resolve the
+interactive-zsh `claude-glm` alias. Runner templates therefore invoke the
+committed wrapper at its runtime absolute path. Never record the expanded alias
+environment; it contains credentials.
 
 ## Grok
 

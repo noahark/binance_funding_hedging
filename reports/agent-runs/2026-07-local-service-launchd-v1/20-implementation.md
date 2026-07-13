@@ -21,6 +21,12 @@ The runner correctly stopped at `human_escalation_required`. No automatic retry
 or manual implementation fallback is allowed without a new human decision and,
 for auto resume, a superseding authorization.
 
-本地北京时间: 2026-07-13 13:38:37 CST
-下一步模型: human
-下一步任务: 选择修复 Harness adapter 后签发 superseding authorization，或显式切换 human_dispatch
+The operator subsequently approved the formal absolute-wrapper repair. The
+bookkeeper applied and tested that Harness prerequisite in
+`14-harness-adapter-repair.md`; it is not attributed to the delivery
+implementer and does not replace the still-pending `T1-launchd-service`
+implementation report.
+
+本地北京时间: 2026-07-13 14:12:23 CST
+下一步模型: Codex bookkeeper
+下一步任务: 提交 adapter repair checkpoint 并签发 superseding authorization v2
