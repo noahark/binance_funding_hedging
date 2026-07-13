@@ -34,6 +34,12 @@ from pathlib import Path
 from typing import Sequence
 
 
+POLICY_TOOLS = {
+    "implementation-v1": ("Read", "Glob", "Grep", "Edit", "Write"),
+    "review-readonly-v1": ("Read", "Glob", "Grep"),
+}
+
+
 @dataclass(frozen=True)
 class TranscriptOutcome:
     success: bool
@@ -88,6 +94,65 @@ def inspect_transcript(transcript_root: Path, session_id: str) -> TranscriptOutc
                 )
             return TranscriptOutcome(True, "cli_end_turn", entrypoint, model, path)
     return None
+
+
+def load_tool_policy(path: Path, *, policy_id: str, cwd: Path) -> dict:
+    """Load the runner-generated Claude settings file and fail closed on drift."""
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(cwd.resolve())
+    except ValueError as exc:
+        raise ValueError("tool policy must stay inside the repository worktree") from exc
+    try:
+        policy = json.loads(resolved.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("tool policy is missing or invalid JSON") from exc
+    if not isinstance(policy, dict) or set(policy) != {"permissions"}:
+        raise ValueError("tool policy must contain only permissions")
+    permissions = policy.get("permissions")
+    if not isinstance(permissions, dict) or set(permissions) != {"defaultMode", "allow", "deny"}:
+        raise ValueError("tool policy permissions shape is invalid")
+    if permissions.get("defaultMode") != "dontAsk":
+        raise ValueError("tool policy defaultMode must be dontAsk")
+    for key in ("allow", "deny"):
+        rules = permissions.get(key)
+        if (
+            not isinstance(rules, list)
+            or len(rules) != len(set(rules))
+            or any(not isinstance(rule, str) or not rule for rule in rules)
+        ):
+            raise ValueError("tool policy permissions.%s must be a unique string list" % key)
+    allow = permissions["allow"]
+    if any(rule == "Bash" or rule.startswith("Bash(") for rule in allow):
+        raise ValueError("tool policy must not allow Bash")
+    if "Bash" not in permissions["deny"]:
+        raise ValueError("tool policy must explicitly deny Bash")
+    write_rules = [
+        rule for rule in allow
+        if rule.startswith("Edit(") or rule.startswith("Write(")
+    ]
+    if policy_id == "implementation-v1":
+        if not any(rule.startswith("Edit(") for rule in write_rules):
+            raise ValueError("implementation policy requires bounded Edit rules")
+        if not any(rule.startswith("Write(") for rule in write_rules):
+            raise ValueError("implementation policy requires bounded Write rules")
+    elif write_rules:
+        raise ValueError("read-only policy must not allow Edit or Write")
+    return policy
+
+
+def policy_cli_args(path: Path, *, policy_id: str, cwd: Path) -> list[str]:
+    """Return the complete frozen Claude CLI permission surface for a policy."""
+    load_tool_policy(path, policy_id=policy_id, cwd=cwd)
+    return [
+        "--safe-mode",
+        "--permission-mode", "dontAsk",
+        "--tools", ",".join(POLICY_TOOLS[policy_id]),
+        "--settings", str(path.resolve()),
+        "--strict-mcp-config",
+        "--mcp-config", '{"mcpServers":{}}',
+        "--disable-slash-commands",
+    ]
 
 
 def _terminate_group(proc: subprocess.Popen[bytes], grace: float = 2.0) -> None:
@@ -199,9 +264,8 @@ def run_pty_session(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(add_help=True)
     parser.add_argument("--model", required=True)
-    parser.add_argument(
-        "--permission-mode", choices=("acceptEdits", "plan"), default="acceptEdits"
-    )
+    parser.add_argument("--policy", choices=tuple(POLICY_TOOLS))
+    parser.add_argument("--tool-policy-file")
     parser.add_argument("--dangerously-skip-permissions", action="store_true")
     parser.add_argument("--prompt-file", required=True)
     parser.add_argument("--timeout-seconds", type=int, default=2400)
@@ -218,9 +282,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     wrapper = Path(__file__).resolve().with_name("claude-glm-wrapper")
     command = [str(wrapper), "--model", args.model]
     if args.dangerously_skip_permissions:
+        if args.policy or args.tool_policy_file:
+            raise SystemExit("yolo mode cannot be combined with a bounded tool policy")
         command.append("--dangerously-skip-permissions")
     else:
-        command.extend(["--permission-mode", args.permission_mode])
+        if not args.policy or not args.tool_policy_file:
+            raise SystemExit("--policy and --tool-policy-file are required outside yolo mode")
+        policy_path = Path(args.tool_policy_file).resolve()
+        try:
+            command.extend(
+                policy_cli_args(policy_path, policy_id=args.policy, cwd=Path.cwd())
+            )
+        except ValueError as exc:
+            raise SystemExit("claude-glm PTY adapter: " + str(exc)) from exc
     command.extend(["--session-id", session_id, prompt])
     transcript_root = Path.home() / ".claude" / "projects"
     raw, outcome, child_rc, timed_out = run_pty_session(
@@ -244,6 +318,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             + "\n"
         )
         return child_rc if child_rc not in (None, 0) else 1
+    if outcome.model != args.model:
+        sys.stderr.write(
+            "claude-glm PTY adapter: persisted model mismatch; expected "
+            + args.model + " got " + str(outcome.model) + "\n"
+        )
+        return 1
     sys.stdout.buffer.write(
         (
             "HARNESS_PTY_OUTCOME=" + outcome.reason

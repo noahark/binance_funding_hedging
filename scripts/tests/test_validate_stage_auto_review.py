@@ -63,6 +63,13 @@ def _auto_status(auth_rel="reports/agent-runs/auto-stage/auth.json"):
             "enabled": True,
             "schema_version": 1,
             "runner_version": "auto-review-pipeline/v1",
+            "runner_host": {
+                "id": "kimi",
+                "provider_identity": "moonshot_kimi",
+                "role": "runner_host",
+                "switch_requires": "explicit_human_instruction",
+                "session_isolation": "host_only_no_implementation_fix_review",
+            },
             "dispatch_mode": "auto_review",
             "runner_state": "running",
             "authorization_path": auth_rel,
@@ -260,6 +267,10 @@ class AutoValidationFailClosedTests(unittest.TestCase):
     def test_runner_version_wrong(self):
         errs = self._check(lambda a: a.__setitem__("runner_version", "v2"))
         self.assertTrue(any("runner_version" in e for e in errs))
+
+    def test_runner_host_must_remain_kimi_until_human_switch(self):
+        errs = self._check(lambda a: a["runner_host"].__setitem__("id", "codex"))
+        self.assertTrue(any("runner_host" in e and "Kimi" in e for e in errs))
 
     def test_dispatch_mode_invalid(self):
         errs = self._check(lambda a: a.__setitem__("dispatch_mode", "telepathy"))

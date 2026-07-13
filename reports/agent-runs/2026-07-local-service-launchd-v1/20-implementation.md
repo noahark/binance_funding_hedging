@@ -73,6 +73,15 @@ The fourth Bash call remained at an interactive permission boundary, so no
 final turn or delivery change was produced. The bookkeeper did not approve it;
 the targeted Claude child was stopped and the runner wrote sequence-4 evidence.
 
-本地北京时间: 2026-07-13 16:44:12 CST
+The operator approved the explicit bounded-tool design and fixed Kimi as the
+persistent runner host. The Codex bookkeeper implemented the Harness-only
+repair recorded in `18-runner-host-tool-policy-repair.md`: normal Claude-GLM
+write calls now expose only `Read,Glob,Grep,Edit,Write` under `dontAsk` and a
+runner-generated path policy; review calls expose only `Read,Glob,Grep`; Bash is
+unavailable. The runner retains blocking checks and optional frozen executable
+mode normalization. This work changed no `T1-launchd-service` delivery file and
+invoked no implementation/review model.
+
+本地北京时间: 2026-07-13 18:09:22 CST
 下一步模型: human
-下一步任务: 决定 PTY auto adapter 的显式工具权限策略，再决定是否签发 v5
+下一步任务: 审阅 Harness 修复 checkpoint 并决定是否签发 v5 给 Kimi runner host

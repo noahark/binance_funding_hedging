@@ -385,6 +385,10 @@ approval are never valid; `authorized_by` must be human.
 
 When a stage explicitly enables auto mode:
 
+- Kimi is the persistent default runner host. The Kimi host session starts and
+  watches only the deterministic runner; it must not implement, fix, review, or
+  write authoritative stage state. Any Kimi delivery/review fallback uses a
+  fresh session. The host changes only after an explicit human instruction.
 - The runner (`scripts/auto-review-runner.py`) is the only automatic dispatcher
   and mechanical writer. It is deterministic and non-LLM. Adapter invocation,
   seal, evidence commits, and fixed state transitions come only from frozen
@@ -397,6 +401,14 @@ When a stage explicitly enables auto mode:
   receipt matching `schemas/runner-receipt.schema.json`. Receipts record adapter
   command references only, never expanded aliases, environment dumps, tokens,
   cookies, or credentials (`never_log_expanded_environment`).
+- Claude-GLM automatic implementation/fix calls use the frozen
+  `implementation-v1` policy: only `Read`, `Glob`, `Grep`, `Edit`, and `Write`
+  are exposed; `dontAsk` denies unapproved actions without an interactive
+  prompt; runner-generated path rules bind edits/writes to authorization
+  `scope.allowed_pathspecs`; `Bash` is unavailable. Claude-GLM read-only calls
+  use `review-readonly-v1` with only `Read`, `Glob`, and `Grep`. Tests, git,
+  blocking commands, and any frozen executable-bit normalization remain runner
+  work, never model-produced commands.
 - The committed-range `diff_fingerprint` formula is unchanged. The seen-diff
   bind is patch byte-equality only and is not recorded as a fingerprint or hash.
 - Review-1 under auto mode uses Grok (`grok-4.5`, plan mode) as primary,

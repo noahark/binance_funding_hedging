@@ -154,6 +154,15 @@
       "description": "Path to the immutable prompt body fed to the adapter, when applicable. Safe repo-relative path; null when the node has no prompt file.",
       "$ref": "#/$defs/safe_repo_relative_path"
     },
+    "tool_policy_id": {
+      "description": "Optional frozen Claude tool-policy id. New claude_glm receipts record implementation-v1 for write nodes or review-readonly-v1 for read-only nodes; historical receipts may omit this compatibility field.",
+      "type": ["string", "null"],
+      "enum": [null, "implementation-v1", "review-readonly-v1"]
+    },
+    "tool_policy_path": {
+      "description": "Optional runner-generated, stage-local Claude settings evidence path paired with tool_policy_id. Historical receipts may omit this compatibility field.",
+      "$ref": "#/$defs/safe_repo_relative_path"
+    },
     "raw_output_path": {
       "description": "Path to the captured raw adapter output, persisted unaltered, when applicable. Safe repo-relative path; null when no raw output was captured.",
       "$ref": "#/$defs/safe_repo_relative_path"
@@ -232,6 +241,31 @@
     }
   },
   "allOf": [
+    {
+      "if": { "required": ["tool_policy_id"] },
+      "then": { "required": ["tool_policy_path"] }
+    },
+    {
+      "if": { "required": ["tool_policy_path"] },
+      "then": { "required": ["tool_policy_id"] }
+    },
+    {
+      "if": {
+        "properties": {
+          "tool_policy_id": { "enum": ["implementation-v1", "review-readonly-v1"] }
+        },
+        "required": ["tool_policy_id"]
+      },
+      "then": {
+        "properties": {
+          "adapter": {
+            "properties": { "id": { "const": "claude_glm" } },
+            "required": ["id"]
+          },
+          "tool_policy_path": { "type": "string" }
+        }
+      }
+    },
     {
       "description": "implementation/fix nodes use the adapter's existing noninteractive/write command reference.",
       "if": {

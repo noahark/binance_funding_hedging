@@ -19,6 +19,9 @@ validation. Where this document is silent, the manual rules in `AGENTS.md` and
 - `runner`: deterministic, non-LLM local orchestrator; the **only** automated
   dispatcher and mechanical writer (adapter invoke, blocking check, seal,
   evidence commit, mechanical status, fixed transition).
+- `runner host`: the terminal/session that starts and watches the runner
+  process. Kimi is the persistent default host until the human operator
+  explicitly switches it. Hosting grants no model-routing or write authority.
 - `embedded cross-check`: advisory cheap-model cross-read (e.g. GLM↔Kimi).
   **Not** formal review-1. **Not** validator `--phase pre-review`.
 - `review-1`: formal first gate. Under auto mode the primary is Grok
@@ -100,6 +103,12 @@ and mechanical writer. It is deterministic and non-LLM. It may invoke registry
 adapters, run blocking checks, seal, update mechanical status fields, commit
 evidence, and apply fixed transitions.
 
+Kimi is the default runner host. That Kimi session is host-only: it does not
+implement, fix, review, select adapters, or write authoritative state. If Kimi
+is later eligible as an implementation or review fallback, the runner invokes
+a fresh isolated Kimi session. A host change requires an explicit human
+instruction and a corresponding committed status/registry update.
+
 It must not synthesize narrative requirements, select new files, broaden paths,
 select unregistered models, create shell commands from model output, invoke
 high-end (GPT/Claude) models in the automatic loop, or declare final
@@ -122,6 +131,13 @@ live in the authorization artifact):
     "authorization_path": "reports/agent-runs/<stage>/auto-run-authorization-v1.json",
     "runner_state": "authorized",
     "runner_version": "auto-review-pipeline/v1",
+    "runner_host": {
+      "id": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "role": "runner_host",
+      "switch_requires": "explicit_human_instruction",
+      "session_isolation": "host_only_no_implementation_fix_review"
+    },
     "exclusive_worktree": {
       "path": "<absolute-or-runner-resolved-path>",
       "stage_branch": "stage/<stage-id>",
@@ -474,6 +490,19 @@ and reseal occur only after every assigned owner finishes.
   prompt-injection text.
 - Adapter invocation uses registry command references and argument arrays or
   vetted wrappers; receipts never persist expanded aliases or environment.
+- Claude-GLM write nodes use `implementation-v1`: Claude Code exposes exactly
+  `Read`, `Glob`, `Grep`, `Edit`, and `Write`, runs with `dontAsk`, and loads a
+  runner-generated stage-local settings file whose write rules are derived from
+  authorization `scope.allowed_pathspecs`. `Bash` is unavailable and explicitly
+  denied. Claude-GLM read-only nodes use `review-readonly-v1` with exactly
+  `Read`, `Glob`, and `Grep`.
+- The wrapper runs Claude Code safe mode, disables slash commands, and supplies
+  an empty strict MCP configuration. Model sessions cannot run tests, git, or
+  chmod; blocking checks and any frozen executable-mode normalization are
+  deterministic runner operations.
+- New Claude-GLM receipts record the frozen `tool_policy_id` and stage-local
+  `tool_policy_path`. Historical receipts remain valid without those additive
+  compatibility fields.
 - Secret-bearing environment may be passed to the adapter process when needed
   but is not copied, displayed, diffed, or serialized.
 - Paths are resolved under the authorized worktree/stage directory; traversal

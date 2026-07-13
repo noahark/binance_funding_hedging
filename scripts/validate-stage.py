@@ -812,6 +812,13 @@ def validate_acceptance(root: Path, stage_dir: Path, status_doc: dict[str, Any])
 AUTO_RUNNER_STATES = {"authorized", "running", "awaiting_human", "stopped", "completed_review_1"}
 AUTO_DISPATCH_MODES = {"human_dispatch", "auto_review"}
 AUTO_UNIT_KINDS = {"task"}
+AUTO_RUNNER_HOST_POLICY = {
+    "id": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "role": "runner_host",
+    "switch_requires": "explicit_human_instruction",
+    "session_isolation": "host_only_no_implementation_fix_review",
+}
 
 # Frozen workflow transition matrix (workflows/templates/stage-delivery.yaml
 # auto_review_pipeline.executable_contract.state_transitions, eight rows). Each
@@ -880,6 +887,11 @@ def validate_auto_review_pipeline(
         errors.append("auto_review_pipeline.runner_version must be 'auto-review-pipeline/v1'")
     if arp.get("dispatch_mode") not in AUTO_DISPATCH_MODES:
         errors.append("auto_review_pipeline.dispatch_mode must be 'human_dispatch' or 'auto_review'")
+    if arp.get("runner_host") != AUTO_RUNNER_HOST_POLICY:
+        errors.append(
+            "auto_review_pipeline.runner_host must record the fixed Kimi host policy; "
+            "switching requires an explicit human instruction"
+        )
 
     runner_state = arp.get("runner_state")
     if runner_state is not None and runner_state not in AUTO_RUNNER_STATES:
@@ -1024,6 +1036,32 @@ def validate_auto_review_pipeline(
         value = arp.get(field)
         if value and not evidence_path_exists(root, stage_dir, value):
             errors.append("auto_review_pipeline." + field + " does not exist: " + str(value))
+    receipt_value = arp.get("last_receipt_path")
+    if receipt_value and evidence_path_exists(root, stage_dir, receipt_value):
+        receipt_path = _stage_lib.resolve_safe_path(root, receipt_value)
+        if receipt_path is not None:
+            try:
+                receipt_doc = _stage_lib.load_json(receipt_path)
+                errors.extend(
+                    "last receipt: " + err
+                    for err in _stage_lib.validate_receipt_doc(receipt_doc)
+                )
+                policy_id = receipt_doc.get("tool_policy_id")
+                policy_rel = receipt_doc.get("tool_policy_path")
+                if policy_id and policy_rel:
+                    policy_path = _stage_lib.resolve_safe_path(root, policy_rel)
+                    if policy_path is None or not policy_path.exists():
+                        errors.append("last receipt tool_policy_path does not exist: " + str(policy_rel))
+                    else:
+                        policy_doc = _stage_lib.load_json(policy_path)
+                        errors.extend(
+                            "last receipt tool policy: " + err
+                            for err in _stage_lib.validate_tool_policy_doc(
+                                policy_doc, policy_id=policy_id
+                            )
+                        )
+            except (_stage_lib.HarnessError, ValueError) as exc:
+                errors.append("last receipt validation failed: " + str(exc))
 
     return errors
 

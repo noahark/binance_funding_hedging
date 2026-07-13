@@ -175,16 +175,19 @@ test -x "<repo>/scripts/model-adapters/claude-glm-wrapper"
 # prompt file, creates a real terminal, and supplies it as an initial positional
 # prompt; it deliberately does not use -p/sdk-cli.
 <repo>/scripts/model-adapters/claude-glm-pty-wrapper \
-  --model glm-5.2 --permission-mode acceptEdits --prompt-file <prompt-file>
+  --model glm-5.2 --policy implementation-v1 \
+  --tool-policy-file <tool-policy-file> --prompt-file <prompt-file>
 
 # Read-only/plan review.
 <repo>/scripts/model-adapters/claude-glm-pty-wrapper \
-  --model glm-5.2 --permission-mode plan --prompt-file <prompt-file>
+  --model glm-5.2 --policy review-readonly-v1 \
+  --tool-policy-file <tool-policy-file> --prompt-file <prompt-file>
 
 # Embedded cross-review checkpoint. Same as read-only/plan review; use a fresh
 # session and never reuse implementation/bookkeeper transcript.
 <repo>/scripts/model-adapters/claude-glm-pty-wrapper \
-  --model glm-5.2 --permission-mode plan --prompt-file <prompt-file>
+  --model glm-5.2 --policy review-readonly-v1 \
+  --tool-policy-file <tool-policy-file> --prompt-file <prompt-file>
 
 # Yolo execution, only when explicitly authorized.
 <repo>/scripts/model-adapters/claude-glm-pty-wrapper \
@@ -209,9 +212,19 @@ receipt writer and next-hop authority.
 
 Permission policy does not come from the alias. The wrapper removes a legacy
 alias-level `--dangerously-skip-permissions` token in memory without logging the
-alias, then applies only the registry arguments: normal implementation uses
-`acceptEdits`, read-only review uses `plan`, and `yolo_command` alone adds
-`--dangerously-skip-permissions` explicitly.
+alias, then applies a frozen policy ID plus the runner-generated stage-local
+settings file. `implementation-v1` uses `dontAsk` and exposes exactly
+`Read,Glob,Grep,Edit,Write`; `review-readonly-v1` exposes exactly
+`Read,Glob,Grep`. Both explicitly deny `Bash`, use Claude Code safe mode,
+disable slash commands, and supply an empty strict MCP configuration. Only
+`yolo_command` adds `--dangerously-skip-permissions`, and it still requires
+separate explicit human authorization.
+
+Write rules in the settings file are derived mechanically from the active
+authorization's `scope.allowed_pathspecs`; protected Harness/evidence/secret
+paths are denied. The model never runs tests, git, or chmod. The deterministic
+runner runs frozen blocking checks and may normalize only predeclared
+`mechanical_post_write.executable_paths` to mode `0755`.
 
 If the alias is not available inside the wrapper, stop at adapter setup. Do not
 fall back to Anthropic Claude while claiming the provider is GLM.
@@ -295,6 +308,10 @@ and route to `human_escalation_required`.
 
 Purpose:
 
+- Persistent default runner host until the human operator explicitly switches
+  hosts. The host session only starts/watches `scripts/auto-review-runner.py`.
+- A runner-host session must not implement, fix, review, or write authoritative
+  stage state; any Kimi delivery/review route uses a fresh session.
 - Default frontend/UI/client-integration implementation owner.
 - May own a whole bounded mixed task when frontend work is the large majority
   and backend work is light endpoint or schema glue.

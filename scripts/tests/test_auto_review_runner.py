@@ -240,6 +240,7 @@ class Stage:
                 "enabled": enabled,
                 "schema_version": 1,
                 "runner_version": "auto-review-pipeline/v1",
+                "runner_host": dict(RUNNER.RUNNER_HOST_POLICY),
                 "dispatch_mode": dispatch_mode,
                 "topology": topology,
                 "runner_state": runner_state,
@@ -274,7 +275,10 @@ class Stage:
     def make_runner(self, *, invoker, blocking_runner=None, seal=None, now=None,
                     seal_run_validator=None):
         registry = {
-            "claude_glm": {"commands": {"noninteractive_command": "@PROMPT@"},
+            "claude_glm": {"commands": {
+                "noninteractive_command": "--policy implementation-v1 --tool-policy-file <tool-policy-file> @PROMPT@",
+                "embedded_read_only_review_command": "--policy review-readonly-v1 --tool-policy-file <tool-policy-file> @PROMPT@",
+            },
                            "timeout_seconds": 3000},
             "kimi": {"commands": {
                 "noninteractive_command": "@PROMPT@",
@@ -376,6 +380,24 @@ class PreflightRejectionTests(unittest.TestCase):
         stage = Stage(authorization_path="reports/agent-runs/auto-stage/missing.json")
         result, calls = self._run_preflight_only(stage)
         self.assertEqual(result.terminal, "awaiting_human")
+        self.assertEqual(calls, [])
+
+    def test_runner_host_policy_drift_fails_before_adapter_call(self):
+        stage = Stage()
+        stage.status["auto_review_pipeline"]["runner_host"]["id"] = "codex"
+        stage._write_status()
+        stage.git("add", "-A")
+        stage.git("commit", "-q", "-m", "host-drift")
+        result, calls = self._run_preflight_only(stage)
+        self.assertEqual(result.terminal, "awaiting_human")
+        self.assertEqual(result.reason, "runner_host_invalid")
+        self.assertEqual(calls, [])
+
+    def test_unsafe_authorization_pathspec_fails_before_adapter_call(self):
+        stage = Stage(allowed_pathspecs=("scripts/x.py", "../outside.py"))
+        result, calls = self._run_preflight_only(stage)
+        self.assertEqual(result.terminal, "awaiting_human")
+        self.assertEqual(result.reason, "scope_mismatch")
         self.assertEqual(calls, [])
 
     def test_invalid_authorization_doc(self):
@@ -864,6 +886,66 @@ class ReceiptHygieneTests(unittest.TestCase):
             cb = doc["call_budget"]
             self.assertEqual(cb["after"], cb["before"] - 1, path.name)
 
+    def test_claude_write_receipt_binds_five_tool_path_policy(self):
+        stage = Stage()
+        runner = stage.make_runner(
+            invoker=_accept_invoker(stage),
+            blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        self.assertEqual(runner.run().terminal, "completed_review_1")
+        receipts = [
+            lib.load_json(path) for path in stage.stage_dir.glob("runner-*.receipt.json")
+            if "call_budget" in lib.load_json(path)
+        ]
+        implementation = next(doc for doc in receipts if doc["node"] == "implementation")
+        self.assertEqual(implementation["tool_policy_id"], "implementation-v1")
+        policy_path = stage.root / implementation["tool_policy_path"]
+        policy = lib.load_json(policy_path)
+        self.assertEqual(lib.validate_tool_policy_doc(policy, policy_id="implementation-v1"), [])
+        allow = policy["permissions"]["allow"]
+        self.assertIn("Edit(/scripts/x.py)", allow)
+        self.assertIn("Write(/scripts/x.py)", allow)
+        self.assertIn("Bash", policy["permissions"]["deny"])
+        self.assertFalse(any(rule == "Bash" or rule.startswith("Bash(") for rule in allow))
+        prompt = (stage.stage_dir / "implementation-T1.prompt.md").read_text(encoding="utf-8")
+        self.assertIn("Read, Glob, Grep, Edit, Write only", prompt)
+        self.assertIn("Bash is unavailable", prompt)
+
+
+class MechanicalPostWriteTests(unittest.TestCase):
+    def test_runner_applies_only_frozen_executable_mode(self):
+        stage = Stage(extra_unit_fields={
+            "mechanical_post_write": {"executable_paths": ["scripts/x.py"]}
+        })
+        runner = stage.make_runner(
+            invoker=_accept_invoker(stage),
+            blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        self.assertEqual(runner.run().terminal, "completed_review_1")
+        self.assertEqual((stage.root / "scripts/x.py").stat().st_mode & 0o777, 0o755)
+        self.assertEqual(
+            stage.unit()["mechanical_post_write"]["applied"],
+            [{"path": "scripts/x.py", "mode": "0755"}],
+        )
+
+    def test_missing_frozen_executable_still_writes_adapter_receipt(self):
+        stage = Stage(
+            allowed_pathspecs=("scripts/x.py", "scripts/missing.py"),
+            extra_unit_fields={
+                "mechanical_post_write": {"executable_paths": ["scripts/missing.py"]}
+            },
+        )
+        runner = stage.make_runner(
+            invoker=_accept_invoker(stage),
+            blocking_runner=lambda u, c, p: 0, seal=FakeSeal())
+        result = runner.run()
+        self.assertEqual(result.terminal, "awaiting_human")
+        receipts = [
+            lib.load_json(path) for path in stage.stage_dir.glob("runner-*.receipt.json")
+            if "implementation" in path.name
+        ]
+        self.assertEqual(len(receipts), 1)
+        self.assertEqual(receipts[0]["failure_class"], "scope_or_contract_dispute")
+        self.assertEqual(receipts[0]["next_transition"], "awaiting_human")
+
 
 # ===========================================================================
 # 14. call / adapter-timeout accounting timing
@@ -1196,7 +1278,7 @@ class ProductionRegistryCommandTests(unittest.TestCase):
         # double-quoted YAML scalar with \" → unescaped, real <prompt-file> kept
         self.assertEqual(
             reg["claude_glm"]["commands"]["noninteractive_command"],
-            '<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --permission-mode acceptEdits --prompt-file <prompt-file>')
+            '<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --policy implementation-v1 --tool-policy-file <tool-policy-file> --prompt-file <prompt-file>')
         self.assertEqual(
             reg["kimi"]["commands"]["noninteractive_command"],
             'kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"')
@@ -1245,7 +1327,19 @@ class ProductionRegistryCommandTests(unittest.TestCase):
 
         RUNNER.subprocess.run = fake_run
         self.addCleanup(setattr, RUNNER.subprocess, "run", orig)
-        runner._default_invoke(adapter, key, Path(prompt_abs))
+        policy_abs = None
+        if adapter == "claude_glm":
+            policy_abs = stage.stage_dir / "tool-policy.json"
+            policy_abs.write_text(json.dumps({
+                "permissions": {
+                    "defaultMode": "dontAsk",
+                    "allow": ["Read(/scripts/**)", "Edit(/scripts/x.py)", "Write(/scripts/x.py)"],
+                    "deny": ["Bash"],
+                }
+            }), encoding="utf-8")
+        runner._default_invoke(
+            adapter, key, Path(prompt_abs), tool_policy_abs=policy_abs
+        )
         return captured["command"]
 
     def test_claude_glm_real_command_substitutes_and_unescapes(self):
@@ -1256,6 +1350,8 @@ class ProductionRegistryCommandTests(unittest.TestCase):
             self.assertNotIn(marker, cmd)
         self.assertNotIn(" -p ", cmd)
         self.assertIn("--prompt-file", cmd)
+        self.assertIn("--policy implementation-v1", cmd)
+        self.assertIn("--tool-policy-file", cmd)
         self.assertIn(prompt_abs, cmd)
         self.assertIn(str(stage.root), cmd)
         self.assertTrue(
@@ -1356,6 +1452,56 @@ class ProductionRegistryCommandTests(unittest.TestCase):
 
 
 class ClaudeGlmPtyTransportTests(unittest.TestCase):
+    def _policy(self, base, *, read_only=False, allow_bash=False):
+        path = base / "tool-policy.json"
+        allow = ["Read(/scripts/**)"]
+        if not read_only:
+            allow.extend(["Edit(/scripts/x.py)", "Write(/scripts/x.py)"])
+        if allow_bash:
+            allow.append("Bash(git status)")
+        path.write_text(json.dumps({
+            "permissions": {
+                "defaultMode": "dontAsk",
+                "allow": allow,
+                "deny": ["Bash"],
+            }
+        }), encoding="utf-8")
+        return path
+
+    def test_policy_cli_args_are_exact_and_noninteractive(self):
+        base = Path(tempfile.mkdtemp(prefix="claude-glm-policy-"))
+        implementation = self._policy(base)
+        args = PTY_WRAPPER.policy_cli_args(
+            implementation, policy_id="implementation-v1", cwd=base
+        )
+        self.assertIn("dontAsk", args)
+        self.assertIn("Read,Glob,Grep,Edit,Write", args)
+        self.assertIn("--safe-mode", args)
+        self.assertIn("--strict-mcp-config", args)
+        self.assertIn("--disable-slash-commands", args)
+        self.assertNotIn("acceptEdits", args)
+        self.assertNotIn("bypassPermissions", args)
+
+        review = self._policy(base, read_only=True)
+        args = PTY_WRAPPER.policy_cli_args(
+            review, policy_id="review-readonly-v1", cwd=base
+        )
+        self.assertIn("Read,Glob,Grep", args)
+        self.assertNotIn("Read,Glob,Grep,Edit,Write", args)
+
+    def test_policy_rejects_bash_allow_and_outside_repo_file(self):
+        base = Path(tempfile.mkdtemp(prefix="claude-glm-policy-"))
+        with self.assertRaisesRegex(ValueError, "must not allow Bash"):
+            PTY_WRAPPER.policy_cli_args(
+                self._policy(base, allow_bash=True),
+                policy_id="implementation-v1", cwd=base,
+            )
+        outside = Path(tempfile.mkdtemp(prefix="claude-glm-policy-outside-"))
+        with self.assertRaisesRegex(ValueError, "inside the repository"):
+            PTY_WRAPPER.policy_cli_args(
+                self._policy(outside), policy_id="implementation-v1", cwd=base
+            )
+
     def _write_transcript(self, root, session_id, *, entrypoint="cli", model="glm-5.2"):
         project = root / "fake-project"
         project.mkdir(parents=True, exist_ok=True)
@@ -1887,7 +2033,19 @@ class ShellSafeInvocationTests(unittest.TestCase):
 
         RUNNER.subprocess.run = fake_run
         self.addCleanup(setattr, RUNNER.subprocess, "run", orig)
-        runner._default_invoke(adapter, key, Path(prompt_abs))
+        policy_abs = None
+        if adapter == "claude_glm":
+            policy_abs = stage.stage_dir / "tool-policy-shell-safe.json"
+            policy_abs.write_text(json.dumps({
+                "permissions": {
+                    "defaultMode": "dontAsk",
+                    "allow": ["Read(/scripts/**)", "Edit(/scripts/x.py)", "Write(/scripts/x.py)"],
+                    "deny": ["Bash"],
+                }
+            }), encoding="utf-8")
+        runner._default_invoke(
+            adapter, key, Path(prompt_abs), tool_policy_abs=policy_abs
+        )
         return captured["command"]
 
     def test_real_registry_paths_with_spaces_and_metachars_are_shell_quoted(self):

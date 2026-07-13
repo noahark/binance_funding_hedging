@@ -463,6 +463,46 @@ class ReceiptValidatorTests(unittest.TestCase):
         }
         self.assertEqual(lib.validate_receipt_doc(d), [])
 
+    def test_optional_tool_policy_binding_is_valid_and_paired(self):
+        d = copy.deepcopy(VALID_RECEIPT)
+        d["tool_policy_id"] = "implementation-v1"
+        d["tool_policy_path"] = "reports/agent-runs/stage/runner-1-implementation.tool-policy.json"
+        self.assertEqual(lib.validate_receipt_doc(d), [])
+        del d["tool_policy_path"]
+        self.assertTrue(any("present together" in e for e in lib.validate_receipt_doc(d)))
+
+
+class ToolPolicyValidatorTests(unittest.TestCase):
+    def test_implementation_policy_requires_bounded_write_and_denies_bash(self):
+        policy = {
+            "permissions": {
+                "defaultMode": "dontAsk",
+                "allow": ["Read(/scripts/**)", "Edit(/scripts/x.py)", "Write(/scripts/x.py)"],
+                "deny": ["Bash"],
+            }
+        }
+        self.assertEqual(
+            lib.validate_tool_policy_doc(policy, policy_id="implementation-v1"), []
+        )
+        policy["permissions"]["allow"].append("Bash(git status)")
+        self.assertTrue(any(
+            "must not allow Bash" in e
+            for e in lib.validate_tool_policy_doc(policy, policy_id="implementation-v1")
+        ))
+
+    def test_read_only_policy_rejects_write_rule(self):
+        policy = {
+            "permissions": {
+                "defaultMode": "dontAsk",
+                "allow": ["Read(/scripts/**)", "Edit(/scripts/x.py)"],
+                "deny": ["Bash"],
+            }
+        }
+        self.assertTrue(any(
+            "must not allow Edit or Write" in e
+            for e in lib.validate_tool_policy_doc(policy, policy_id="review-readonly-v1")
+        ))
+
 
 if __name__ == "__main__":
     unittest.main()

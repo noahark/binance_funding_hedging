@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: attempt 4 verified PTY `entrypoint=cli`; stopped fail-closed at an interactive Bash permission boundary
-- Next action: human decides the explicit PTY tool-permission policy before any v5 authorization
+- Active phase: bounded Claude-GLM tool policy and persistent Kimi runner-host repair implemented; awaiting committed checkpoint and v5 decision
+- Next action: validate/commit the Harness repair, then human decides whether to issue superseding authorization v5
 - Read-set: = status.current_inputs
-- Open blockers: `acceptEdits` can pause on Bash permission confirmation; no unattended completion/final turn
+- Open blockers: no fifth call may start until a new committed human-approved v5 authorization exists
 - Do-not-read: reports/agent-runs/**/history/** unless auditing the named repair snapshots
 
 ## Current State
@@ -13,11 +13,12 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `0ea40b046d68994f4fdbadd2c58f67fcb8853c6b` (`bookkeeper(launchd): record PTY route probe result`)
-- Git status: synchronized SHA checkpoint pending commit; sequence-4 evidence itself is committed
+- HEAD: `0ea40b046d68994f4fdbadd2c58f67fcb8853c6b` before the pending Harness tool-policy checkpoint
+- Git status: Harness/tool-policy files and checkpoint evidence modified; local evidence commit pending
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
-- Auto-review pipeline: enabled; attempt 4 stopped fail-closed after PTY route success and permission interaction
+- Auto-review pipeline: enabled; attempt 4 remains closed evidence; new permission repair has not invoked a model
+- Runner host: Kimi, host-only session; switching requires explicit human instruction
 - Dispatch mode: `auto_review`
 - Runner state: `awaiting_human`
 - Usage: `model_calls_used=4`, `auto_code_changes_used=0`
@@ -32,6 +33,7 @@
 - Current authorization: `auto-run-authorization-v4.json`; committed and schema-valid
 - PTY route repair: `16-claude-glm-pty-route-repair.md`
 - PTY probe result: `17-claude-glm-pty-probe-result.md`
+- Kimi host/tool policy repair: `18-runner-host-tool-policy-repair.md`
 - Latest runner receipt: `runner-4-implementation.receipt.json`
 - Latest raw output: `runner-4-implementation-T1-launchd-service-attempt1.raw-output.md`
 - Latest escalation: `80-escalation-unroutable_fix-20260713T084312Z.md`
@@ -54,17 +56,20 @@
 - The new registered PTY wrapper removes `-p`, supplies a true terminal, requires a final persisted `entrypoint=cli` assistant turn, exits the TUI, and returns control to the unchanged auto runner. Fake end-to-end coverage passed; no real model was called during repair.
 - Attempt 4 proved the PTY route with real `glm-5.2`: eight model records, four Bash tool uses, three results, no synthetic response, and no API 529. The fourth Bash call remained unresolved under `acceptEdits`; no final turn or delivery write occurred.
 - The bookkeeper did not approve the pending Bash command or enable yolo. It stopped only the stuck Claude child after the diagnostic objective was met; the runner then wrote a normal sequence-4 receipt and escalation.
+- The operator approved the explicit `software_architect` design. Registry write routes now use `implementation-v1` (`Read,Glob,Grep,Edit,Write`) and read-only routes use `review-readonly-v1` (`Read,Glob,Grep`); both use `dontAsk`, exclude Bash, and load a runner-generated stage-local path policy.
+- The PTY wrapper uses safe mode, disables slash commands, supplies an empty strict MCP configuration, validates policy location/shape, and rejects actual-model drift. New Claude-GLM receipts bind the policy ID and evidence path while historical receipts remain valid.
+- Runner preflight rejects Kimi host drift, legacy `acceptEdits`/bypass normal routes, malformed policies, unsafe pathspecs, and executable-mode paths outside authorization. Blocking tests, git, and optional exact-path `0755` normalization remain deterministic runner work.
+- Focused and full tests passed without a model call or delivery-code change. No real `launchctl` mutation occurred.
 - Real `launchctl` mutation remains explicitly unauthorized.
 
 ## Blockers
 
-- Decide a bounded explicit permission policy for Bash/tool execution in the PTY auto adapter. Manual clicks cannot be treated as automatic evidence.
-- Any further model call requires a new/superseding authorization; v4 cannot be reused.
+- Authorization v4 cannot be reused. Any further model call requires a committed human-approved v5 authorization hosted by the isolated Kimi runner-host session.
 
 ## Next Action
 
-Human decides whether to authorize a bounded tool allowlist design or another explicit route. Do not issue v5 with the unchanged `acceptEdits` PTY command because it can block indefinitely before review-1.
+After the Harness repair checkpoint is committed, the human may authorize v5. The next Kimi-hosted runner call must use the frozen `implementation-v1` policy and cumulative usage (`model_calls_used=4`, `auto_code_changes_used=0`).
 
-本地北京时间: 2026-07-13 16:47:39 CST
+本地北京时间: 2026-07-13 18:09:22 CST
 下一步模型: human
-下一步任务: 决定 PTY auto adapter 的显式工具权限策略，再决定是否签发 v5
+下一步任务: 审阅 Harness 修复 checkpoint 并决定是否签发 superseding authorization v5

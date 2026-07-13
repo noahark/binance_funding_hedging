@@ -290,6 +290,7 @@ RECEIPT_REQUIRED: list[str] = [
     "verdict_path", "started_at", "completed_at", "exit_status", "timeout",
     "call_budget", "failure_class", "next_transition",
 ]
+RECEIPT_OPTIONAL = {"tool_policy_id", "tool_policy_path"}
 RECEIPT_NODES = {"implementation", "embedded_cross_check", "review_1", "fix"}
 RECEIPT_ADAPTER_IDS = {"claude_glm", "kimi", "grok"}
 RECEIPT_COMMAND_REFS = {
@@ -503,7 +504,7 @@ def validate_receipt_doc(doc: Any) -> list[str]:
     if not isinstance(doc, dict):
         return ["receipt document must be an object"]
 
-    unknown = set(doc.keys()) - set(RECEIPT_REQUIRED)
+    unknown = set(doc.keys()) - set(RECEIPT_REQUIRED) - RECEIPT_OPTIONAL
     if unknown:
         errors.append("receipt unknown fields: " + ", ".join(sorted(unknown)))
     for key in RECEIPT_REQUIRED:
@@ -563,9 +564,27 @@ def validate_receipt_doc(doc: Any) -> list[str]:
                     errors.append("embedded_cross_check registry_command_ref must be an embedded read-only review reference; got " + repr(ref))
 
     # safe nullable paths
-    for key in ("prompt_path", "raw_output_path", "verdict_path"):
+    for key in ("prompt_path", "raw_output_path", "verdict_path", "tool_policy_path"):
         if key in doc and not is_safe_repo_relative_path(doc[key], nullable=True):
             errors.append("receipt." + key + " must be null or a safe repo-relative path")
+    if "tool_policy_id" in doc and doc["tool_policy_id"] not in (
+        None, "implementation-v1", "review-readonly-v1"
+    ):
+        errors.append("receipt.tool_policy_id is not a known frozen policy id")
+    if ("tool_policy_id" in doc) != ("tool_policy_path" in doc):
+        errors.append("receipt.tool_policy_id and tool_policy_path must be present together")
+    elif (doc.get("tool_policy_id") is None) != (doc.get("tool_policy_path") is None):
+        errors.append("receipt.tool_policy_id and tool_policy_path must be present together")
+    if doc.get("tool_policy_id") is not None:
+        adapter = doc.get("adapter")
+        if not isinstance(adapter, dict) or adapter.get("id") != "claude_glm":
+            errors.append("receipt tool policy is allowed only for claude_glm")
+        expected = (
+            "implementation-v1" if doc.get("node") in ("implementation", "fix")
+            else "review-readonly-v1"
+        )
+        if doc.get("tool_policy_id") != expected:
+            errors.append("receipt.tool_policy_id does not match the runner node")
     # timestamps
     if "started_at" in doc and not is_iso8601(doc["started_at"]):
         errors.append("receipt.started_at must be an ISO8601 instant")
@@ -607,4 +626,49 @@ def validate_receipt_doc(doc: Any) -> list[str]:
     if "next_transition" in doc and doc["next_transition"] not in NEXT_TRANSITIONS:
         errors.append("receipt.next_transition is not in the frozen transition set")
 
+    return errors
+
+
+def validate_tool_policy_doc(doc: Any, *, policy_id: str) -> list[str]:
+    """Validate the runner-generated Claude settings policy without jsonschema."""
+    errors: list[str] = []
+    if not isinstance(doc, dict):
+        return ["tool policy must be an object"]
+    if set(doc) != {"permissions"}:
+        errors.append("tool policy must contain only permissions")
+    permissions = doc.get("permissions")
+    if not isinstance(permissions, dict):
+        return errors + ["tool policy permissions must be an object"]
+    if set(permissions) != {"defaultMode", "allow", "deny"}:
+        errors.append("tool policy permissions fields must be defaultMode/allow/deny")
+    if permissions.get("defaultMode") != "dontAsk":
+        errors.append("tool policy defaultMode must be dontAsk")
+    for key in ("allow", "deny"):
+        rules = permissions.get(key)
+        if not (
+            isinstance(rules, list)
+            and _is_unique_list(rules)
+            and all(_is_str(rule) and rule for rule in rules)
+        ):
+            errors.append("tool policy permissions.%s must be a unique string list" % key)
+    allow = permissions.get("allow") if isinstance(permissions.get("allow"), list) else []
+    deny = permissions.get("deny") if isinstance(permissions.get("deny"), list) else []
+    if "Bash" not in deny:
+        errors.append("tool policy must explicitly deny Bash")
+    if any(rule == "Bash" or str(rule).startswith("Bash(") for rule in allow):
+        errors.append("tool policy must not allow Bash")
+    write_rules = [
+        rule for rule in allow
+        if isinstance(rule, str) and (rule.startswith("Edit(") or rule.startswith("Write("))
+    ]
+    if policy_id == "implementation-v1":
+        if not any(rule.startswith("Edit(") for rule in write_rules):
+            errors.append("implementation-v1 requires bounded Edit rules")
+        if not any(rule.startswith("Write(") for rule in write_rules):
+            errors.append("implementation-v1 requires bounded Write rules")
+    elif policy_id == "review-readonly-v1":
+        if write_rules:
+            errors.append("review-readonly-v1 must not allow Edit or Write")
+    else:
+        errors.append("unknown tool policy id: " + str(policy_id))
     return errors

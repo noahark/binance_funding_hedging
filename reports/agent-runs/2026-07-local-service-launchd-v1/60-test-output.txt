@@ -1,5 +1,52 @@
 Stage initialization checkpoint. No delivery-code tests have run.
 
+2026-07-13 18:16:07 CST — Kimi runner-host and bounded Claude-GLM tool-policy repair:
+
+```text
+python3 -m py_compile scripts/auto-review-runner.py scripts/harness_stage_lib.py \
+  scripts/validate-stage.py scripts/model-adapters/claude-glm-pty-wrapper
+PASS
+
+targeted policy/receipt/PTY/registry/mechanical/validator suite
+Ran 58 tests
+OK
+
+python3 -m unittest scripts.tests.test_harness_stage_lib \
+  scripts.tests.test_auto_review_runner \
+  scripts.tests.test_validate_stage_auto_review
+Ran 170 tests in 21.193s
+OK
+
+Draft202012Validator.check_schema(runner-receipt, runner-tool-policy)
+PASS
+
+all current runner-*-implementation.receipt.json against updated receipt schema
+PASS (historical compatibility preserved)
+
+/bin/sh -n scripts/model-adapters/claude-glm-wrapper
+PASS
+
+scripts/model-adapters/claude-glm-pty-wrapper --help
+PASS
+
+local Claude Code help exposes --tools / dontAsk / --settings / strict MCP flags
+PASS
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+status=human_escalation_required
+
+git diff --check
+PASS
+```
+
+Coverage includes exact `Read,Glob,Grep,Edit,Write` implementation exposure,
+read-only `Read,Glob,Grep`, explicit Bash denial, policy files constrained to
+the repository, unsafe authorization path rejection, Kimi host drift rejection,
+receipt-to-policy binding, actual model identity checks, historical receipt
+compatibility, and deterministic exact-path `0755` normalization. No model was
+invoked, no delivery file changed, and no real `launchctl` mutation occurred.
+
 2026-07-13 12:40:08 CST — initialization validation:
 
 ```text
