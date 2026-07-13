@@ -1157,6 +1157,14 @@
     "old_review_1_fingerprint_preserved": true,
     "override_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/23-human-review2-evidence-coverage-waiver.md"
   },
+  "post_merge_pre_accept_validation": {
+    "attempted_at": "2026-07-14T00:14:16+08:00",
+    "result": "failed_same_process_only_issue_overridden_by_explicit_human_instruction",
+    "command": "python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase pre-accept",
+    "error": "review_1.diff_fingerprint must match status.diff_fingerprint",
+    "main_branch_and_merged_back_metadata_checks": "passed_before_acceptance_check_reached_stale_review_1_bind",
+    "override_evidence": "reports/agent-runs/2026-07-local-service-launchd-v1/23-human-review2-evidence-coverage-waiver.md"
+  },
   "blockers": [],
   "human_escalation": {
     "required": false,
@@ -1184,6 +1192,6 @@
     "stage_push_sha": "8052abcb0733ff9c9e1755e2d3bec30ce800ecc3",
     "main_fast_forward_sha": "8052abcb0733ff9c9e1755e2d3bec30ce800ecc3"
   },
-  "next_action": "run_post_merge_pre_accept_recheck_record_result_and_push_main",
-  "updated_at": "2026-07-14T00:11:38+08:00"
+  "next_action": "push_main_and_verify_remote_tip",
+  "updated_at": "2026-07-14T00:14:16+08:00"
 }

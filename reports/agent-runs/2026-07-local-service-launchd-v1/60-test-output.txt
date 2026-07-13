@@ -1,3 +1,21 @@
+2026-07-14 00:14:16 CST — post-merge pre-accept recheck:
+
+```text
+branch=main
+status=accepted
+stage_branch.merged_back_to_main=true
+stage_branch.merge_strategy=fast_forward
+stage_branch.merged_back_sha=8052abcb0733ff9c9e1755e2d3bec30ce800ecc3
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase pre-accept
+STAGE VALIDATION FAILED
+- review_1.diff_fingerprint must match status.diff_fingerprint
+```
+
+The recheck reached the same preserved process-only mismatch and no new error.
+It remains explicitly overridden by the user's merge/push instruction. This is
+not reported as a pass. Main push is the remaining action.
+
 2026-07-14 00:11:38 CST — git synchronization and merge:
 
 ```text
