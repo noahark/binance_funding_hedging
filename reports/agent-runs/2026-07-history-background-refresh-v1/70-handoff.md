@@ -7,10 +7,11 @@ not read `history/` at startup.
 ## Current State
 
 - Stage: `2026-07-history-background-refresh-v1`
-- Status: `stage_accepted_waiting_user` — Kimi review-1 and Claude Opus 4.8
-  review-2 both ACCEPT, schema-validated, and bound to the same fingerprint;
-  the user has now explicitly authorized commit, push, and merge
-- Branch: `stage/2026-07-history-background-refresh-v1`
+- Status: `accepted` — Kimi review-1 and Claude Opus 4.8 review-2 both
+  ACCEPT, schema-validated, and bound to the same fingerprint; the user
+  completed display acceptance and explicitly authorized merge
+- Branch: `stage/2026-07-history-background-refresh-v1`, merged into `main`
+- Main merge commit: `87096828320a9d986ce9c376fe116050d0b00908` (no-ff)
 - Stage created from main: `0db66d2a82c10139523a06af74679e756bd13e5a`
 - Committed HEAD / review snapshot: `6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb`
 - Git status: committed implementation/evidence snapshot; only current
@@ -105,12 +106,10 @@ not read `history/` at startup.
 
 ## Next Action
 
-The user completed display acceptance and explicitly authorized commit, push,
-and merge. The bookkeeper must run the `pre-accept` gate, commit the final
-review evidence on the stage branch, push it, and merge it into `main` without
-rebasing. `main` contains the independent Chinese-English reporting preference
-commit `7117178`; do not merge `main` into this completed stage branch.
+The stage is complete and merged to `main`. The stage branch and `main` must be
+pushed after this merge-record checkpoint. Preserve active artifacts; any later
+archival action must follow the cold-storage rule in `AGENTS.md`.
 
-本地北京时间: 2026-07-13 10:51:55 CST
-下一步模型: bookkeeper
-下一步任务: 运行 pre-accept 门禁，提交证据，推送 stage 分支，并在 main 合并
+本地北京时间: 2026-07-13 10:59:23 CST
+下一步模型: human
+下一步任务: 确认远端 main 已包含合并提交；如需归档阶段证据，另行授权归档范围

@@ -1,14 +1,14 @@
 {
   "stage_id": "2026-07-history-background-refresh-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-history-background-refresh-v1",
     "created_from_main_sha": "0db66d2a82c10139523a06af74679e756bd13e5a",
     "created_at": "2026-07-12T19:49:54+08:00",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "87096828320a9d986ce9c376fe116050d0b00908",
+    "merge_strategy": "no-ff merge on main after explicit human display acceptance and merge authorization",
     "abandoned_reason": null
   },
   "bookkeeper": {
@@ -189,8 +189,9 @@
   "head_sha": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb",
   "diff_fingerprint": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb:f81403b21f91b1c7b7a9fbf167f423d02061773920fdee9b51711fa97c3bad96",
   "checkpoint": {
-    "committed_head": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb",
-    "worktree_state": "committed_review_snapshot_with_status_only_bookkeeping_update",
+    "committed_head": "87096828320a9d986ce9c376fe116050d0b00908",
+    "review_snapshot_head": "6c9f8f2f8a4e71dc59d1866b0f9acc616104ffbb",
+    "worktree_state": "merged_to_main_pending_merge-record_commit",
     "formal_review_range_bound": true
   },
   "changed_files": [
@@ -377,7 +378,7 @@
     "required": false,
     "reason": null
   },
-  "terminal_reason": "review_2_accept_recorded_user_authorized_merge_pending_execution",
-  "next_action": "Bookkeeper commits review-2 evidence, validates pre-accept, pushes the stage branch, and merges it into main under the user's explicit authorization.",
-  "updated_at": "2026-07-13T10:51:55+08:00"
+  "terminal_reason": "merged_to_main_after_review_2_accept_and_explicit_human_display_acceptance",
+  "next_action": "Stage complete. Preserve artifacts as active stage evidence until any later user-approved archival policy is applied.",
+  "updated_at": "2026-07-13T10:59:23+08:00"
 }
