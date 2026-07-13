@@ -13,8 +13,8 @@
 - Stage: `2026-07-local-service-launchd-v1`
 - Status: `human_escalation_required`
 - Branch: `stage/2026-07-local-service-launchd-v1`
-- HEAD: `bda0a4c974d165137c55a4c6310a5348ed9c13ef`
-- Git status: attempt-3 raw/receipt/escalation and synchronized failure checkpoint pending evidence commit
+- HEAD: `344b8734a9811887e0e58537c0e3a370a0b2fe9a` (`bookkeeper(launchd): record auto retry v3 overload`)
+- Git status: synchronized SHA checkpoint pending commit; attempt-3 evidence itself is committed
 - Bookkeeper: Codex/OpenAI; designer and Harness prerequisite author, not delivery implementer or fix author
 - Parallel mode: disabled
 - Auto-review pipeline: enabled; attempt 3 stopped fail-closed
@@ -59,6 +59,6 @@
 
 Human chooses a delayed v4 retry or an explicit switch to `human_dispatch`. Do not invoke another model automatically from the failed v3 path.
 
-本地北京时间: 2026-07-13 15:56:54 CST
+本地北京时间: 2026-07-13 15:59:03 CST
 下一步模型: human
 下一步任务: 决定延迟签发 v4 重试，或显式切换 human_dispatch 路径

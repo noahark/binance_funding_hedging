@@ -50,10 +50,10 @@
     "repair_commit": "78fbeb6b6f37a78be7081ba556319a8bd9f9dadc"
   },
   "auto_retry_v3_checkpoint": {
-    "commit": null,
+    "commit": "344b8734a9811887e0e58537c0e3a370a0b2fe9a",
     "kind": "implementation_adapter_api_529_escalation_evidence",
     "validated_phase": "checkpoint",
-    "validated_result": "passed_pending_evidence_commit",
+    "validated_result": "passed",
     "delivery_code_changed": false,
     "receipt_sequence": 3
   },
@@ -531,5 +531,5 @@
   },
   "terminal_reason": "human_escalation_required",
   "next_action": "human_decides_delayed_v4_retry_or_explicit_human_dispatch_route",
-  "updated_at": "2026-07-13T07:56:54Z"
+  "updated_at": "2026-07-13T07:59:03Z"
 }
