@@ -58,6 +58,10 @@ implemented and fake-tested that Harness transport in
 not invoke a real model. A successful real PTY call will remain inside the auto
 runner and continue through blocking checks, seal, and review-1.
 
-本地北京时间: 2026-07-13 16:22:14 CST
+The PTY repair is committed as
+`5e80e039f6b12c06f94a996b4525b64861121e1b`. Superseding authorization v4 is
+prepared with unchanged scope/budgets and cumulative usage.
+
+本地北京时间: 2026-07-13 16:28:13 CST
 下一步模型: Codex bookkeeper
-下一步任务: 提交 PTY route 修复和 v4 授权，再由 runner 做真实调用
+下一步任务: 校验并提交 v4 授权，再由 runner 做真实 PTY 调用

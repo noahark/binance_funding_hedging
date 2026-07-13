@@ -76,8 +76,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/14-harness-adapter-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/15-v3-prerequisite-repair.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/16-claude-glm-pty-route-repair.md",
-    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.approval.md",
-    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.json"
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.approval.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.json"
   ],
   "parallel_mode": {
     "enabled": false,
@@ -90,7 +90,7 @@
     "enabled": true,
     "dispatch_mode": "auto_review",
     "mode_flip_pending": null,
-    "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.json",
+    "authorization_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.json",
     "runner_state": "awaiting_human",
     "runner_version": "auto-review-pipeline/v1",
     "exclusive_worktree": {
@@ -260,7 +260,7 @@
   "pilot": {
     "kind": "small_real",
     "metrics_path": "reports/agent-runs/2026-07-local-service-launchd-v1/auto-review-pilot-metrics.json",
-    "status": "pty_route_repair_tested_awaiting_commit",
+    "status": "v4_pty_authorization_prepared_awaiting_commit",
     "real_launchctl_mutation_authorized": false
   },
   "harness_adapter_repair": {
@@ -298,8 +298,8 @@
     "delivery_code_changed": false
   },
   "harness_pty_route_repair": {
-    "status": "implemented_and_tested_awaiting_commit",
-    "commit": null,
+    "status": "committed_and_tested",
+    "commit": "5e80e039f6b12c06f94a996b4525b64861121e1b",
     "author_role": "codex_bookkeeper_harness_prerequisite_not_delivery_implementer",
     "artifact": "reports/agent-runs/2026-07-local-service-launchd-v1/16-claude-glm-pty-route-repair.md",
     "route_evidence_sessions": [
@@ -438,6 +438,8 @@
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v2.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.approval.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v3.json",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.approval.md",
+    "reports/agent-runs/2026-07-local-service-launchd-v1/auto-run-authorization-v4.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation.receipt.json",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-2-implementation-T1-launchd-service-attempt1.raw-output.md",
     "reports/agent-runs/2026-07-local-service-launchd-v1/runner-3-implementation.receipt.json",
@@ -498,7 +500,10 @@
       "post-attempt-3 checkpoint validator and diff check (PASS)",
       "Claude-GLM PTY + production registry focused suite: 13 tests (PASS)",
       "test_auto_review_runner + test_validate_stage_auto_review: 114 tests (PASS)",
-      "fake CLI end-to-end PTY, cli transcript gate, zsh wrapper, permission stripping, and TUI exit (PASS)"
+      "fake CLI end-to-end PTY, cli transcript gate, zsh wrapper, permission stripping, and TUI exit (PASS)",
+      "superseding authorization v4 handwritten/schema validation (PASS)",
+      "v4 scope/budgets exact match v3 and supersedes pointer check (PASS)",
+      "pre-v4-commit checkpoint validator and diff check (PASS)"
     ]
   },
   "review_1": {
@@ -542,14 +547,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "The tested runner-owned PTY route repair must be committed before the real probe.",
-    "A committed superseding v4 authorization is required before the auto runner may make the PTY model call."
+    "The prepared superseding v4 authorization and synchronized checkpoint must be committed before the auto runner may make the PTY model call."
   ],
   "human_escalation": {
     "required": true,
-    "reason": "operator approved a Harness-preserving PTY route test; repair and superseding authorization must be committed before runner resume"
+    "reason": "operator approved a Harness-preserving PTY route test; the schema-valid superseding authorization is being committed before runner resume"
   },
   "terminal_reason": "human_escalation_required",
-  "next_action": "commit_pty_route_repair_then_commit_superseding_authorization_v4_and_resume_runner",
-  "updated_at": "2026-07-13T08:22:14Z"
+  "next_action": "validate_and_commit_superseding_authorization_v4_then_resume_runner",
+  "updated_at": "2026-07-13T08:28:13Z"
 }

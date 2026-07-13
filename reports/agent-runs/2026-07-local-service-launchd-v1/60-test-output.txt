@@ -53,6 +53,39 @@ The fake CLI integration verified PTY stdin/stdout, a persisted
 removal. No real model call, `.env` read, alias expansion, delivery code change,
 or real `launchctl` mutation occurred.
 
+2026-07-13 16:28:13 CST — superseding authorization v4 prepared:
+
+```text
+PTY transport repair commit
+5e80e039f6b12c06f94a996b4525b64861121e1b
+
+v4 scope and budgets
+unchanged from v3
+
+usage carry-forward
+model_calls_used=3
+auto_code_changes_used=0
+
+harness_stage_lib.validate_authorization_doc(auto-run-authorization-v4.json)
+AUTHORIZATION V4 VALID
+
+v4 scope == v3 scope
+PASS
+
+v4 budgets == v3 budgets
+PASS
+
+v4 supersedes == auto-run-authorization-v3.json
+PASS
+
+python3 scripts/validate-stage.py 2026-07-local-service-launchd-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+status=human_escalation_required
+
+git diff --check
+PASS
+```
+
 2026-07-13 15:56:54 CST — auto-run attempt 3 through repaired wrapper:
 
 ```text
