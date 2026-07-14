@@ -1,0 +1,226 @@
+{
+  "stage_id": "2026-07-cache-refresh-scheduler-v2",
+  "status": "implementing",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-cache-refresh-scheduler-v2",
+    "created_from_main_sha": "8aac137a46d228f2d68b2036a15575eda0e235a3",
+    "created_at": "2026-07-14T14:41:45Z",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "codex_bookkeeper_cache_refresh_v2",
+    "provider": "openai",
+    "model": "gpt-5",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "Codex migrates approved design evidence and prepares dispatch only; it must not implement or fix delivery code."
+  },
+  "current_inputs": [
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/00-task.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/10-design.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/11-adr.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/13-manual-delivery-amendment.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm.prompt.md",
+    "backend/config.py",
+    "backend/adapters/binance_public.py",
+    "backend/services/private_client.py",
+    "backend/services/snapshot_service.py",
+    "backend/tests/test_config.py",
+    "backend/tests/test_background_worker.py",
+    "backend/tests/test_private_client.py"
+  ],
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "embedded_reviews": {},
+  "designer": {
+    "provider": "openai",
+    "model": "gpt-5",
+    "skill": "software_architect",
+    "source_stage": "2026-07-cache-refresh-scheduler-v1",
+    "prior_involvement": "design"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": {
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "session": "bcb07380-a298-4208-a461-e47fd629c85e",
+    "skill": "task_planner",
+    "source_stage": "2026-07-cache-refresh-scheduler-v1",
+    "acceptance_status": "accepted"
+  },
+  "implementer": {
+    "provider": "claude_glm",
+    "provider_identity": "zhipu_glm",
+    "model": "glm-5.2",
+    "skill": "senior_developer",
+    "session": null,
+    "state": "pending_human_start"
+  },
+  "implementers": [],
+  "fix_authors": [],
+  "reviewer_1": null,
+  "reviewer_2": null,
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "task",
+      "owner": "claude_glm",
+      "reviewer": "kimi",
+      "r10_checklist": null,
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt",
+      "review_1": {
+        "reviewer": null,
+        "provider": null,
+        "model": null,
+        "verdict": null,
+        "json_schema_valid": null,
+        "diff_fingerprint": null
+      }
+    }
+  ],
+  "model_routing": {
+    "dominant_domain": "backend",
+    "implementation_owner": "claude_glm",
+    "planned_review_1": "kimi",
+    "excluded_for_core_work": ["codex", "kimi", "grok"],
+    "dispatch_mode": "human_dispatch",
+    "notes": [
+      "The human starts a fresh Claude-GLM terminal from the committed prompt.",
+      "Auto-review pipeline artifacts and routing are not part of v2.",
+      "Review-1 must use a fresh provider-isolated Kimi session."
+    ]
+  },
+  "complexity": {
+    "classification": "MEDIUM",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "Approved v1 product design and breakdown are migrated unchanged.",
+      "Backend-only bounded implementation on existing files."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "skipped_user_approved_lightweight_route",
+    "user_approved": true
+  },
+  "approved_design_amendments": {
+    "approved_by": "human",
+    "approved_at": "2026-07-14T09:31:19Z",
+    "resolutions": [
+      {
+        "finding": "P1_slow_private_transport_ttl_conflict",
+        "decision": "Use 1800 seconds and require the effective scheduled slow-private transport TTL to remain <=1800."
+      },
+      {
+        "finding": "P1_scheduled_cost_leg_call_graph",
+        "decision": "Separate scheduled Group A/B/C source updates from cache-only assembly and keep interestRateHistory selected-asset fallback-only."
+      },
+      {
+        "finding": "P1_homepage_borrow_universe_and_coverage",
+        "decision": "Use the strict homepage borrow predicate, remove the global top-50 cap, and exclude low-rate rows from scheduled borrow work and coverage."
+      }
+    ]
+  },
+  "migration": {
+    "source_stage": "2026-07-cache-refresh-scheduler-v1",
+    "source_commit": "4d3cdb3",
+    "source_archive_branch": "archive/cache-refresh-scheduler-pre-harness-rollback-2026-07-14",
+    "preserved_documents": ["00-task.md", "10-design.md", "11-adr.md", "12-development-breakdown.md"],
+    "excluded_state": ["auto authorization", "runner receipts", "seal state", "failure escalation state"]
+  },
+  "base_sha": "8aac137a46d228f2d68b2036a15575eda0e235a3",
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "changed_files": [
+    "reports/agent-runs/ACTIVE.json",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/00-intake.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/00-task.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/06-direction-synthesis.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/10-design.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/11-adr.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/13-manual-delivery-amendment.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/20-implementation.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/30-review-1.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/40-fix-report.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/50-review-2.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/70-handoff.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/status.json"
+  ],
+  "tests": {
+    "status": "dispatch_preparation_validated_no_delivery_code_changes",
+    "commands": [
+      "JSON duplicate-key and syntax validation",
+      "git diff --check",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase checkpoint",
+      "verify no delivery-code diff before dispatch"
+    ]
+  },
+  "review_1": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "reviewer_prior_involvement": "none",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
+    "fallback_reason": null,
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "OpenAI authored the inherited design; Anthropic authored the inherited breakdown. Final routing must evaluate prior involvement after review-1.",
+    "unrelated_reviewer_unavailable_evidence": null,
+    "design_conflict_override": {
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
+    },
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "next_action": "human_execute_claude_glm_implementation_prompt",
+  "updated_at": "2026-07-14T14:50:30Z"
+}
