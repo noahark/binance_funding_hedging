@@ -268,7 +268,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--tool-policy-file")
     parser.add_argument("--dangerously-skip-permissions", action="store_true")
     parser.add_argument("--prompt-file", required=True)
-    parser.add_argument("--timeout-seconds", type=int, default=2400)
+    parser.add_argument("--timeout-seconds", type=int, default=10800)
     return parser
 
 

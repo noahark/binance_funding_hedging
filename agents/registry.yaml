@@ -71,11 +71,12 @@ adapters:
     yolo_command: "<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --dangerously-skip-permissions --prompt-file <prompt-file>"
     supports_write: true
     supports_read_only: true
-    timeout_seconds: 3000
+    timeout_seconds: 10800
     secret_handling: "never_log_expanded_environment"
     notes:
       - "Runner templates expand <repo> to an absolute path and invoke the committed wrapper, never the alias directly."
       - "The PTY wrapper keeps Claude Code on entrypoint=cli; -p/non-TTY sdk-cli produced repeatable zero-token API 529 failures while an adjacent interactive cli session succeeded."
+      - "Runner and PTY wrapper timeouts are aligned at 10800 seconds (180 minutes); GLM implementation calls may legitimately run for one to two hours."
       - "A successful invocation requires a persisted final assistant text turn with entrypoint=cli; the wrapper then exits the TUI and returns control to the runner."
       - "The wrapper isolates the existing interactive-zsh provider routing while suppressing profile startup/exit chatter; it never prints the alias expansion or environment."
       - "The wrapper removes a legacy alias-level --dangerously-skip-permissions token in memory; normal writes expose only Read/Glob/Grep/Edit/Write, reviews expose only Read/Glob/Grep, and both use dontAsk plus a runner-generated path policy."

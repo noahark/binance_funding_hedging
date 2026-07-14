@@ -210,6 +210,14 @@ turn with `entrypoint=cli`; `<synthetic>` provider errors and any
 returns the captured raw terminal stream to the runner, which remains the sole
 receipt writer and next-hop authority.
 
+The `claude_glm` per-call timeout is `10800` seconds (180 minutes). The
+committed registry outer subprocess limit and the PTY wrapper's inner default
+must remain equal; a regression test enforces that parity. This longer bound is
+intentional because GLM implementation calls on repository-scale tasks commonly
+run for one to two hours. It changes only the per-call time ceiling, not model
+call budgets, automatic code-change caps, review gates, or operator-stop
+authority.
+
 Permission policy does not come from the alias. The wrapper removes a legacy
 alias-level `--dangerously-skip-permissions` token in memory without logging the
 alias, then applies a frozen policy ID plus the runner-generated stage-local

@@ -279,7 +279,7 @@ class Stage:
                 "noninteractive_command": "--policy implementation-v1 --tool-policy-file <tool-policy-file> @PROMPT@",
                 "embedded_read_only_review_command": "--policy review-readonly-v1 --tool-policy-file <tool-policy-file> @PROMPT@",
             },
-                           "timeout_seconds": 3000},
+                           "timeout_seconds": 10800},
             "kimi": {"commands": {
                 "noninteractive_command": "@PROMPT@",
                 "embedded_read_only_review_command": "@PROMPT@",
@@ -1294,13 +1294,13 @@ class ProductionRegistryCommandTests(unittest.TestCase):
 
     def test_resolve_timeout_uses_registry_per_adapter_values(self):
         # serial-only v1: per-call subprocess timeout comes from the committed
-        # registry. GLM implementation = 3000s; Grok optional review = command
+        # registry. GLM implementation = 10800s; Grok optional review = command
         # override 900s; Grok/Kimi other commands use adapter default 1800s.
         stage = Stage()
         real_reg = RUNNER.load_registry(REPO_ROOT)
         runner = AutoReviewRunner(stage.root, stage.stage_dir, registry=real_reg,
                                   invoker=None, now=lambda: BASE_TIME)
-        self.assertEqual(runner._resolve_timeout("claude_glm", "noninteractive_command"), 3000)
+        self.assertEqual(runner._resolve_timeout("claude_glm", "noninteractive_command"), 10800)
         self.assertEqual(runner._resolve_timeout("grok", "optional_review_command"), 900)
         self.assertEqual(runner._resolve_timeout("grok", "development_command"), 1800)
         self.assertEqual(runner._resolve_timeout("kimi", "noninteractive_command"), 1800)
@@ -1458,6 +1458,14 @@ class ProductionRegistryCommandTests(unittest.TestCase):
 
 
 class ClaudeGlmPtyTransportTests(unittest.TestCase):
+    def test_default_timeout_matches_registered_three_hour_limit(self):
+        args = PTY_WRAPPER._parser().parse_args([
+            "--model", "glm-5.2", "--prompt-file", "prompt.md",
+        ])
+        self.assertEqual(args.timeout_seconds, 10800)
+        registry = RUNNER.load_registry(REPO_ROOT)
+        self.assertEqual(registry["claude_glm"]["timeout_seconds"], args.timeout_seconds)
+
     def _policy(self, base, *, read_only=False, allow_bash=False):
         path = base / "tool-policy.json"
         allow = ["Read(/scripts/**)"]
