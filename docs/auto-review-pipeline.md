@@ -20,8 +20,9 @@ validation. Where this document is silent, the manual rules in `AGENTS.md` and
   dispatcher and mechanical writer (adapter invoke, blocking check, seal,
   evidence commit, mechanical status, fixed transition).
 - `runner host`: the terminal/session that starts and watches the runner
-  process. Kimi is the persistent default host until the human operator
-  explicitly switches it. Hosting grants no model-routing or write authority.
+  process. The default host is the human operator's normal shell; a Kimi or
+  other model session must not wrap the runner. Hosting grants no model-routing
+  or mechanical-write authority.
 - `embedded cross-check`: advisory cheap-model cross-read (e.g. GLM↔Kimi).
   **Not** formal review-1. **Not** validator `--phase pre-review`.
 - `review-1`: formal first gate. Under auto mode the primary is Grok
@@ -103,11 +104,21 @@ and mechanical writer. It is deterministic and non-LLM. It may invoke registry
 adapters, run blocking checks, seal, update mechanical status fields, commit
 evidence, and apply fixed transitions.
 
-Kimi is the default runner host. That Kimi session is host-only: it does not
-implement, fix, review, select adapters, or write authoritative state. If Kimi
-is later eligible as an implementation or review fallback, the runner invokes
-a fresh isolated Kimi session. A host change requires an explicit human
-instruction and a corresponding committed status/registry update.
+The human operator's normal shell is the default runner host. From the
+repository root, the human starts and watches:
+
+```bash
+python3 scripts/auto-review-runner.py <stage-id>
+```
+
+The shell does not select adapters, edit runner state, or perform runner-owned
+mechanical writes. It must not delegate hosting to Kimi or another model
+session. If Kimi is eligible as an implementation or review fallback, the
+runner invokes a fresh isolated Kimi session. A host change requires an explicit
+human instruction and a corresponding committed Harness/status amendment.
+There is no compatibility normalization for an enabled stage that still records
+the legacy Kimi host object: runner preflight and stage validation fail closed
+until the bookkeeper records and commits the human-operator host policy.
 
 It must not synthesize narrative requirements, select new files, broaden paths,
 select unregistered models, create shell commands from model output, invoke
@@ -132,11 +143,11 @@ live in the authorization artifact):
     "runner_state": "authorized",
     "runner_version": "auto-review-pipeline/v1",
     "runner_host": {
-      "id": "kimi",
-      "provider_identity": "moonshot_kimi",
+      "id": "human_operator",
+      "provider_identity": "human",
       "role": "runner_host",
       "switch_requires": "explicit_human_instruction",
-      "session_isolation": "host_only_no_implementation_fix_review"
+      "session_isolation": "human_shell_start_and_watch_only"
     },
     "exclusive_worktree": {
       "path": "<absolute-or-runner-resolved-path>",

@@ -45,15 +45,16 @@ controllers:
 
 runner_hosts:
   default:
-    id: kimi
-    provider_identity: moonshot_kimi
+    id: human_operator
+    provider_identity: human
     role: runner_host
-    assignment_policy: "persistent default until the human operator explicitly requests a switch"
-    session_isolation: "runner-host session must not implement, fix, review, or write authoritative stage state"
+    assignment_policy: "human operator starts and watches the deterministic runner from a normal shell"
+    session_isolation: "human shell starts and watches the runner only; model work is performed through runner-created adapter sessions"
     command: "python3 scripts/auto-review-runner.py <stage-id>"
     notes:
-      - "Kimi hosts the deterministic runner process; it does not choose models, commands, paths, or transitions."
-      - "Any Kimi implementation/review fallback uses a fresh session, never the runner-host session."
+      - "The human operator runs the command directly from the repository root; do not wrap the runner in a Kimi or other model terminal."
+      - "The runner, not the human shell, chooses frozen adapters, commands, paths, and transitions and performs mechanical writes."
+      - "Any Kimi implementation/review fallback uses a fresh runner-created session; Kimi is not the runner host."
 
 adapters:
   claude_glm:

@@ -382,9 +382,15 @@ class PreflightRejectionTests(unittest.TestCase):
         self.assertEqual(result.terminal, "awaiting_human")
         self.assertEqual(calls, [])
 
-    def test_runner_host_policy_drift_fails_before_adapter_call(self):
+    def test_legacy_kimi_runner_host_fails_before_adapter_call(self):
         stage = Stage()
-        stage.status["auto_review_pipeline"]["runner_host"]["id"] = "codex"
+        stage.status["auto_review_pipeline"]["runner_host"] = {
+            "id": "kimi",
+            "provider_identity": "moonshot_kimi",
+            "role": "runner_host",
+            "switch_requires": "explicit_human_instruction",
+            "session_isolation": "host_only_no_implementation_fix_review",
+        }
         stage._write_status()
         stage.git("add", "-A")
         stage.git("commit", "-q", "-m", "host-drift")

@@ -385,10 +385,13 @@ approval are never valid; `authorized_by` must be human.
 
 When a stage explicitly enables auto mode:
 
-- Kimi is the persistent default runner host. The Kimi host session starts and
-  watches only the deterministic runner; it must not implement, fix, review, or
-  write authoritative stage state. Any Kimi delivery/review fallback uses a
-  fresh session. The host changes only after an explicit human instruction.
+- The human operator's normal shell is the default runner host. The human starts
+  and watches only the deterministic runner with
+  `python3 scripts/auto-review-runner.py <stage-id>`; the runner remains the sole
+  automatic dispatcher and mechanical writer. Do not delegate runner hosting
+  to a Kimi or other model session. Any Kimi delivery/review fallback uses a
+  fresh isolated session created by the runner. The host changes only after an
+  explicit human instruction and a corresponding Harness amendment.
 - The runner (`scripts/auto-review-runner.py`) is the only automatic dispatcher
   and mechanical writer. It is deterministic and non-LLM. Adapter invocation,
   seal, evidence commits, and fixed state transitions come only from frozen

@@ -64,11 +64,11 @@ def _auto_status(auth_rel="reports/agent-runs/auto-stage/auth.json"):
             "schema_version": 1,
             "runner_version": "auto-review-pipeline/v1",
             "runner_host": {
-                "id": "kimi",
-                "provider_identity": "moonshot_kimi",
+                "id": "human_operator",
+                "provider_identity": "human",
                 "role": "runner_host",
                 "switch_requires": "explicit_human_instruction",
-                "session_isolation": "host_only_no_implementation_fix_review",
+                "session_isolation": "human_shell_start_and_watch_only",
             },
             "dispatch_mode": "auto_review",
             "runner_state": "running",
@@ -268,9 +268,18 @@ class AutoValidationFailClosedTests(unittest.TestCase):
         errs = self._check(lambda a: a.__setitem__("runner_version", "v2"))
         self.assertTrue(any("runner_version" in e for e in errs))
 
-    def test_runner_host_must_remain_kimi_until_human_switch(self):
-        errs = self._check(lambda a: a["runner_host"].__setitem__("id", "codex"))
-        self.assertTrue(any("runner_host" in e and "Kimi" in e for e in errs))
+    def test_runner_host_rejects_legacy_kimi_model_host(self):
+        def use_legacy_kimi_host(arp):
+            arp["runner_host"] = {
+                "id": "kimi",
+                "provider_identity": "moonshot_kimi",
+                "role": "runner_host",
+                "switch_requires": "explicit_human_instruction",
+                "session_isolation": "host_only_no_implementation_fix_review",
+            }
+
+        errs = self._check(use_legacy_kimi_host)
+        self.assertTrue(any("runner_host" in e and "human-operator" in e for e in errs))
 
     def test_dispatch_mode_invalid(self):
         errs = self._check(lambda a: a.__setitem__("dispatch_mode", "telepathy"))

@@ -48,7 +48,7 @@ guards:
   auto_review_requires_committed_schema_valid_authorization: true
   auto_review_authorization_schema: "schemas/auto-review-authorization.schema.json"
   auto_review_runner_is_sole_automatic_dispatcher: true
-  auto_review_default_runner_host: kimi
+  auto_review_default_runner_host: human_operator
   auto_review_runner_host_switch_requires_explicit_human_instruction: true
   auto_review_receipt_schema: "schemas/runner-receipt.schema.json"
   auto_review_review_2_and_merge_remain_human_gates: true
@@ -91,9 +91,9 @@ auto_review_pipeline:
     sole_automatic_dispatcher: true
     deterministic_non_llm: true
     invocation_owner: runner
-    default_host: kimi
-    host_session_role: runner_host_only
-    host_session_must_not: [implement, fix, review, write_authoritative_stage_state]
+    default_host: human_operator
+    host_session_role: human_operator_shell
+    host_session_must_not: [delegate_start_to_model_session, alter_runner_control_flow, perform_runner_owned_mechanical_writes]
     host_switch_requires: explicit_human_instruction
     may_not_select_unregistered_models: true
     may_not_execute_model_produced_commands: true

@@ -813,11 +813,11 @@ AUTO_RUNNER_STATES = {"authorized", "running", "awaiting_human", "stopped", "com
 AUTO_DISPATCH_MODES = {"human_dispatch", "auto_review"}
 AUTO_UNIT_KINDS = {"task"}
 AUTO_RUNNER_HOST_POLICY = {
-    "id": "kimi",
-    "provider_identity": "moonshot_kimi",
+    "id": "human_operator",
+    "provider_identity": "human",
     "role": "runner_host",
     "switch_requires": "explicit_human_instruction",
-    "session_isolation": "host_only_no_implementation_fix_review",
+    "session_isolation": "human_shell_start_and_watch_only",
 }
 
 # Frozen workflow transition matrix (workflows/templates/stage-delivery.yaml
@@ -889,8 +889,8 @@ def validate_auto_review_pipeline(
         errors.append("auto_review_pipeline.dispatch_mode must be 'human_dispatch' or 'auto_review'")
     if arp.get("runner_host") != AUTO_RUNNER_HOST_POLICY:
         errors.append(
-            "auto_review_pipeline.runner_host must record the fixed Kimi host policy; "
-            "switching requires an explicit human instruction"
+            "auto_review_pipeline.runner_host must record the fixed human-operator shell policy; "
+            "model-session hosting is not allowed without an explicit human instruction and Harness amendment"
         )
 
     runner_state = arp.get("runner_state")

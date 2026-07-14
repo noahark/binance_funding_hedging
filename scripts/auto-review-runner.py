@@ -333,11 +333,11 @@ PROVIDER_OF_ADAPTER = {
 }
 
 RUNNER_HOST_POLICY = {
-    "id": "kimi",
-    "provider_identity": "moonshot_kimi",
+    "id": "human_operator",
+    "provider_identity": "human",
     "role": "runner_host",
     "switch_requires": "explicit_human_instruction",
-    "session_isolation": "host_only_no_implementation_fix_review",
+    "session_isolation": "human_shell_start_and_watch_only",
 }
 CLAUDE_TOOL_POLICIES = {
     "implementation-v1": ("Read", "Glob", "Grep", "Edit", "Write"),
@@ -1164,7 +1164,7 @@ class AutoReviewRunner:
         if host != RUNNER_HOST_POLICY:
             raise PreflightFailed(
                 "runner_host_invalid",
-                {"required_host": "kimi", "reason": "missing_or_policy_drift"},
+                {"required_host": "human_operator", "reason": "missing_or_policy_drift"},
             )
 
     def _validate_registry_tool_policies(self) -> None:

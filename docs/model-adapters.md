@@ -304,14 +304,29 @@ If an explicitly enabled Grok review has no schema-valid verdict after the
 registered per-call timeout, or the CLI process hangs, record `model_unavailable`
 and route to `human_escalation_required`.
 
+## Auto-Review Runner Launch
+
+The human operator's normal shell is the default auto-review runner host. From
+the repository root, the human starts and watches the deterministic runner
+directly:
+
+```bash
+python3 scripts/auto-review-runner.py <stage-id>
+```
+
+Do not ask Kimi, Claude, Codex, Grok, or another model session to wrap or host
+this command. The human shell does not select adapters or transitions and does
+not perform runner-owned mechanical writes; `scripts/auto-review-runner.py`
+retains those frozen responsibilities. Kimi may still be invoked by the runner
+as a fresh isolated implementation/review fallback.
+
 ## Kimi
 
 Purpose:
 
-- Persistent default runner host until the human operator explicitly switches
-  hosts. The host session only starts/watches `scripts/auto-review-runner.py`.
-- A runner-host session must not implement, fix, review, or write authoritative
-  stage state; any Kimi delivery/review route uses a fresh session.
+- Eligible auto-mode implementation/review fallback when provider isolation and
+  the frozen route allow it; every such route uses a fresh runner-created
+  session. Kimi is not the runner host.
 - Default frontend/UI/client-integration implementation owner.
 - May own a whole bounded mixed task when frontend work is the large majority
   and backend work is light endpoint or schema glue.
