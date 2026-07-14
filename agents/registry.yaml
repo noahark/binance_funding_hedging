@@ -43,44 +43,25 @@ controllers:
     notes:
       - "Legacy name kept only for old stage artifacts. New stages should use bookkeepers.default."
 
-runner_hosts:
-  default:
-    id: human_operator
-    provider_identity: human
-    role: runner_host
-    assignment_policy: "human operator starts and watches the deterministic runner from a normal shell"
-    session_isolation: "human shell starts and watches the runner only; model work is performed through runner-created adapter sessions"
-    command: "python3 scripts/auto-review-runner.py <stage-id>"
-    notes:
-      - "The human operator runs the command directly from the repository root; do not wrap the runner in a Kimi or other model terminal."
-      - "The runner, not the human shell, chooses frozen adapters, commands, paths, and transitions and performs mechanical writes."
-      - "Any Kimi implementation/review fallback uses a fresh runner-created session; Kimi is not the runner host."
-
 adapters:
   claude_glm:
-    kind: claude_code_absolute_repo_pty_wrapper
+    kind: claude_code_alias
     provider_identity: zhipu_glm
     invocation_owner: runner
-    prompt_mode: claude_interactive_pty_positional_prompt
-    binary: "scripts/model-adapters/claude-glm-pty-wrapper"
-    availability_check_command: "test -x <repo>/scripts/model-adapters/claude-glm-pty-wrapper && test -x <repo>/scripts/model-adapters/claude-glm-wrapper && <repo>/scripts/model-adapters/claude-glm-wrapper --version"
-    noninteractive_command: "<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --policy implementation-v1 --tool-policy-file <tool-policy-file> --prompt-file <prompt-file>"
-    read_only_review_command: "<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --policy review-readonly-v1 --tool-policy-file <tool-policy-file> --prompt-file <prompt-file>"
-    embedded_read_only_review_command: "<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --policy review-readonly-v1 --tool-policy-file <tool-policy-file> --prompt-file <prompt-file>"
-    embedded_read_only_review_enforcement: adapter_tool_and_path_policy
-    yolo_command: "<repo>/scripts/model-adapters/claude-glm-pty-wrapper --model glm-5.2 --dangerously-skip-permissions --prompt-file <prompt-file>"
+    prompt_mode: claude_print
+    binary: claude-glm
+    availability_check_command: "zsh -lic 'type claude-glm'"
+    noninteractive_command: "claude-glm --model glm-5.2 -p \"$(cat <prompt-file>)\""
+    read_only_review_command: "claude-glm --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
+    embedded_read_only_review_command: "claude-glm --model glm-5.2 --permission-mode plan -p \"$(cat <prompt-file>)\""
+    embedded_read_only_review_enforcement: adapter_plan_mode
+    yolo_command: "claude-glm --model glm-5.2 --dangerously-skip-permissions -p \"$(cat <prompt-file>)\""
     supports_write: true
     supports_read_only: true
-    timeout_seconds: 10800
+    timeout_seconds: 3000
     secret_handling: "never_log_expanded_environment"
     notes:
-      - "Runner templates expand <repo> to an absolute path and invoke the committed wrapper, never the alias directly."
-      - "The PTY wrapper keeps Claude Code on entrypoint=cli; -p/non-TTY sdk-cli produced repeatable zero-token API 529 failures while an adjacent interactive cli session succeeded."
-      - "Runner and PTY wrapper timeouts are aligned at 10800 seconds (180 minutes); GLM implementation calls may legitimately run for one to two hours."
-      - "A successful invocation requires a persisted final assistant text turn with entrypoint=cli; the wrapper then exits the TUI and returns control to the runner."
-      - "The wrapper isolates the existing interactive-zsh provider routing while suppressing profile startup/exit chatter; it never prints the alias expansion or environment."
-      - "The wrapper removes a legacy alias-level --dangerously-skip-permissions token in memory; normal writes expose only Read/Glob/Grep/Edit/Write, reviews expose only Read/Glob/Grep, and both use dontAsk plus a runner-generated path policy."
-      - "The bounded policies use safe mode, disable slash commands, and load an empty strict MCP config; only yolo_command adds bypass explicitly."
+      - "This may be a shell alias/function. Runner scripts must load the shell profile, use zsh -lic, or use an absolute wrapper path."
       - "If the alias is missing, do not substitute Anthropic Claude while claiming GLM provider identity."
       - "Never log the expanded alias environment; it contains credentials."
 
@@ -110,10 +91,10 @@ adapters:
     provider_identity: openai
     invocation_owner: runner
     binary: codex
-    default_model: "gpt-5.6-sol"
+    default_model: "gpt-5.5"
     default_reasoning_effort: xhigh
     availability_check_command: "command -v codex"
-    schema_review_command: "codex exec -C <repo> -m gpt-5.6-sol -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>"
+    schema_review_command: "codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>"
     freeform_review_command: "codex exec review --base <base> - < <prompt-file>"
     warning: "codex -p is --profile, not prompt"
     supports_write: false
@@ -140,7 +121,6 @@ adapters:
     yolo_command: "kimi --model kimi-code/kimi-for-coding -y"
     supports_write: true
     supports_read_only: true
-    timeout_seconds: 1800
     notes:
       - "Use as implementation subagent only when workflow explicitly allows it."
       - "If the local wrapper is named kimi-for-coding, substitute that binary for kimi."
@@ -151,25 +131,24 @@ adapters:
     provider_identity: xai_grok
     invocation_owner: runner
     binary: grok
-    development_model: "grok-4.5"
-    optional_review_model: "grok-4.5"
-    direction_model: "grok-4.5"
+    development_model: "grok-composer-2.5-fast"
+    optional_review_model: "grok-build"
+    direction_model: "grok-build"
     observed_available_models:
-      - "grok-4.5"
+      - "grok-build"
       - "grok-composer-2.5-fast"
     availability_check_command: "grok models"
-    interactive_command: "grok --cwd <repo> --model grok-4.5"
-    development_command: "grok --cwd <repo> --model grok-4.5 --permission-mode acceptEdits --check --effort high --prompt-file <prompt-file>"
-    yolo_command: "grok --cwd <repo> --model grok-4.5 --permission-mode bypassPermissions --always-approve --prompt-file <prompt-file>"
-    optional_review_command: "grok --cwd <repo> --model grok-4.5 --permission-mode plan --effort high --prompt-file <prompt-file>"
+    interactive_command: "grok --cwd <repo> --model grok-build"
+    development_command: "grok --cwd <repo> --model grok-composer-2.5-fast --permission-mode acceptEdits --check --effort high --prompt-file <prompt-file>"
+    yolo_command: "grok --cwd <repo> --model grok-composer-2.5-fast --permission-mode bypassPermissions --always-approve --prompt-file <prompt-file>"
+    optional_review_command: "grok --cwd <repo> --model grok-build --permission-mode plan --effort high --prompt-file <prompt-file>"
     optional_review_timeout_seconds: 900
     supports_write: true
     supports_read_only: true
     timeout_seconds: 1800
     notes:
       - "Grok is not a default Harness review gate. Use only for direction drafts, experiments, or explicit user-enabled tasks."
-      - "Dev and review both use grok-4.5 (2026-07 local catalog). Do not silently substitute another Grok model for cross-review review-1."
-      - "grok-composer-2.5-fast remains listed in observed_available_models for local discovery only; it is not the Harness default."
+      - "Do not silently substitute Grok Build for cross-review review-1."
 
 direction_panels:
   key_mapping:
@@ -207,7 +186,7 @@ direction_panels:
         skill: product_strategist
       - id: grok-build
         provider: grok
-        model: "grok-4.5"
+        model: "grok-build"
         skill: product_strategist
 
   2026_07_initial_direction:
@@ -396,7 +375,7 @@ model_policies:
     - "For other implementers, choose the first available reviewer from the pool that does not share provider identity with the implementer."
     - "Review-1 must use a fresh read-only/plan session and raw artifacts."
   grok_default_gate: false
-  grok_development_model: "grok-4.5"
+  grok_development_model: "grok-composer-2.5-fast"
   review_2_fallback_allowed_on:
     - quota_exhausted
     - auth_failure
@@ -422,37 +401,6 @@ model_policies:
     - development_models_exhausted
     - stage_accepted_waiting_user
     - human_escalation_required
-
-auto_review_pipeline:
-  default_enabled: false
-  contract: "docs/auto-review-pipeline.md"
-  authorization_schema: "schemas/auto-review-authorization.schema.json"
-  receipt_schema: "schemas/runner-receipt.schema.json"
-  runner:
-    invocation_owner: runner
-    deterministic_non_llm: true
-    sole_automatic_dispatcher: true
-  loop_adapters: ["claude_glm", "kimi", "grok"]
-  high_end_auto_dispatch_allowed: false
-  review_1:
-    auto_primary:
-      adapter: grok
-      command_ref: "agents/registry.yaml#adapters.grok.optional_review_command"
-      model: "grok-4.5"
-      mode: plan
-    serial_unit_fallback_pool: ["kimi", "claude_glm"]
-    fallback_only_when_candidate_provider_absent_from_unit_authors: true
-    high_end_auto_substitution: false
-  receipts:
-    command_references_only: true
-    never_log_expanded_environment: true
-  unchanged_invariants:
-    diff_fingerprint_formula: "head_sha + ':' + sha256(git diff --binary <base_sha>..<head_sha> -- . ':(exclude)reports/agent-runs/<stage-id>/status.json')"
-    seen_diff_bind: "patch byte-equality only; not a second fingerprint protocol"
-    review_2_human_started: true
-    merge_to_main_requires_user_acceptance: true
-  mode_mutex_with_parallel_mode: true
-  bootstrap_self_host_forbidden: true
 
 failure_classes:
   embedded_checkpoint:

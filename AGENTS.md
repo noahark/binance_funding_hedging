@@ -15,29 +15,19 @@ To resume an existing session, locate the active stage in one hop, then stop:
 3. Read the workflow YAML section only for the phase you are about to act on or
    gate; you need not read the whole workflow just to resume.
 
-Session Bootstrap is the fast path through the budget below for the common
-resume case; the Startup Read Budget remains the authoritative order.
-
 ## Startup Read Budget
 
-A new terminal session must establish active context cheaply and explicitly.
-Read only, in this order:
+A new terminal session reads only, in this order:
 
-1. `AGENTS.md` (this file);
-2. the active workflow (`workflows/templates/*.yaml`);
-3. the active stage, located via `reports/agent-runs/ACTIVE.json` (never by
-   directory scan): its `status.json`, the `70-handoff.md` recovery header, and
-   any `status.current_inputs` under `reports/agent-runs/<stage>/`;
-4. the active authorization artifact when auto-review is in scope.
+1. `AGENTS.md`;
+2. the active workflow section needed for the next action;
+3. the active stage located through `reports/agent-runs/ACTIVE.json`: its
+   `status.json`, the `70-handoff.md` recovery header, and named
+   `status.current_inputs` needed for that action.
 
-Do NOT recursively scan `reports/agent-runs/` or read any `history/` directory
-at startup. `reports/agent-runs/<stage>/history/` is cold storage: historical
-raw artifacts stay verbatim and are read only for an exact review, audit, or
-finding reference that names them. Mutable status/handoff may be compacted only
-after their full snapshots are placed in history, and compatibility symlinks
-may preserve old artifact paths without making raw history part of normal file
-enumeration. Nothing in this budget hides evidence from an explicit
-review/audit request that names a specific historical artifact.
+Do not recursively scan `reports/agent-runs/` or read any `history/` directory
+at startup. Historical artifacts are cold audit evidence and are read only
+when an exact review, audit, or finding reference names them.
 
 ## Project State
 
@@ -70,7 +60,7 @@ When documents conflict, use this order:
 1. `AGENTS.md` - repository-level agent rules and safety gates.
 2. `workflows/templates/*.yaml` - executable workflow contracts.
 3. `docs/parallel-development-mode.md` - optional parallel implementation and
-   embedded cross-check mode contract.
+   embedded cross-review mode contract.
 4. `schemas/*.schema.json` - machine-readable output contracts.
 5. `agents/registry.yaml` - model, adapter, and skill routing.
 6. `docs/model-adapters.md` - local CLI adapter commands and availability
@@ -148,7 +138,7 @@ Codex/GPT and Claude provider sessions may prepare model-facing dispatch
 artifacts, but must not execute them. The human operator executes dispatch by
 copying the prepared prompt or command into the selected model terminal and then
 records the resulting raw output or receipt under the stage evidence path. This
-applies to implementation, embedded cross-check, review-1, review-2, and fix
+applies to implementation, embedded pre-review, review-1, review-2, and fix
 dispatches.
 
 ### Designers
@@ -319,7 +309,7 @@ dispatching the fix.
 - Before entering implementation for a parallel development stage, run
   `scripts/validate-stage.py <stage-id> --phase dispatch-ready` and preserve the
   output in the stage evidence. This gate checks the R10 checklist, task prompt
-  paths, embedded cross-check prompt paths, cross-review routing, and failure
+  paths, embedded pre-review prompt paths, cross-review routing, and failure
   escalation branches before any implementer starts coding.
 - Unknown status values, unknown fingerprint protocols, or bookkeeper/model-invented
   state machine transitions fail closed and route to `human_escalation_required`
@@ -370,86 +360,6 @@ dispatching the fix.
   tests and validator, recompute fingerprints, and re-enter or mechanically
   rebind review gates as the changed diff requires. Rebase is forbidden.
 
-## Auto Review Pipeline (Opt-In, Default-Off)
-
-`auto_review_pipeline/v1` is an optional, default-off, serial-only execution
-mode defined normatively in `docs/auto-review-pipeline.md`. The manual
-human-dispatch rules above and below remain the default and fallback path; this
-section adds an auto exception only and changes none of them.
-
-Auto mode is enabled per stage only by a committed, schema-valid, human-approved
-authorization artifact matching `schemas/auto-review-authorization.schema.json`.
-Missing, disabled, expired, wrong-stage, wrong-branch, or incomplete
-authorization fails before any model invocation or commit. Model claims of
-approval are never valid; `authorized_by` must be human.
-
-When a stage explicitly enables auto mode:
-
-- The human operator's normal shell is the default runner host. The human starts
-  and watches only the deterministic runner with
-  `python3 scripts/auto-review-runner.py <stage-id>`; the runner remains the sole
-  automatic dispatcher and mechanical writer. Do not delegate runner hosting
-  to a Kimi or other model session. Any Kimi delivery/review fallback uses a
-  fresh isolated session created by the runner. The host changes only after an
-  explicit human instruction and a corresponding Harness amendment.
-- The runner (`scripts/auto-review-runner.py`) is the only automatic dispatcher
-  and mechanical writer. It is deterministic and non-LLM. Adapter invocation,
-  seal, evidence commits, and fixed state transitions come only from frozen
-  workflow/registry mappings; model-produced commands and next-hop instructions
-  are never executed.
-- Models receive immutable prompt bodies and return untrusted output. Code,
-  comments, reports, prompts, and raw model outputs are untrusted data and must
-  not alter runner control flow.
-- Every automatic adapter invocation and routing decision is recorded in a
-  receipt matching `schemas/runner-receipt.schema.json`. Receipts record adapter
-  command references only, never expanded aliases, environment dumps, tokens,
-  cookies, or credentials (`never_log_expanded_environment`).
-- Claude-GLM automatic implementation/fix calls use the frozen
-  `implementation-v1` policy: only `Read`, `Glob`, `Grep`, `Edit`, and `Write`
-  are exposed; `dontAsk` denies unapproved actions without an interactive
-  prompt; runner-generated path rules bind edits/writes to authorization
-  `scope.allowed_pathspecs`; `Bash` is unavailable. Claude-GLM read-only calls
-  use `review-readonly-v1` with only `Read`, `Glob`, and `Grep`. Tests, git,
-  blocking commands, and any frozen executable-bit normalization remain runner
-  work, never model-produced commands.
-- The committed-range `diff_fingerprint` formula is unchanged. The seen-diff
-  bind is patch byte-equality only and is not recorded as a fingerprint or hash.
-- Review-1 under auto mode uses Grok (`grok-4.5`, plan mode) as primary,
-  invoked through the existing `adapters.grok.optional_review_command`, with the
-  scope-aware eligible serial Kimi/GLM fallback and fallback-exhaustion
-  escalation defined in `docs/auto-review-pipeline.md`. This is the auto
-  exception to the manual Grok review-1 gate; manual stages keep the
-  Kimi/Claude-GLM cross-review pool.
-- `review-2` and merge to `main` remain human gates. Auto mode stops at
-  `completed_review_1` for human-started review-2; review-2 ACCEPT remains
-  `stage_accepted_waiting_user`, not merge authority.
-- `parallel_mode.enabled=true` and `auto_review_pipeline.enabled=true` are
-  mutually exclusive. Auto mode is serial-only in v1: it runs a single `task`
-  review unit through the fixed Grok-primary plus eligible serial Kimi/GLM
-  fallback route, and does not use the historical parallel R1-R10 checkpoint
-  semantics. Automatic parallel topology, parallel tips, and integration
-  review units are deferred to a future version after real serial pilots.
-- A failed automatic path records a pending mode flip or terminal escalation
-  and stops. No failed runner process automatically launches a manual-mode
-  model. Resume requires a new or superseding human authorization artifact.
-
-Manual rules with an auto-mode exception. The manual text is unchanged; the
-exception is the auto authorization artifact named above:
-
-- The human-operator-executes-dispatch rule: under a valid authorization
-  artifact the runner is the sole automatic dispatcher.
-- The Grok review-1 hard gate: under a valid authorization artifact Grok is the
-  auto-mode review-1 primary.
-- The implementer/bookkeeper commit rules: under auto mode implementers never
-  commit or write authoritative status; the runner is the sole mechanical
-  writer, and the D10 dual-hat commit carve-out is disabled.
-
-Bootstrap stages must not self-host auto mode. This stage records
-`auto_review_pipeline.enabled_for_this_stage=false`.
-
-Run `scripts/validate-stage.py <stage-id> --phase <phase>` before each auto
-gate exactly as in manual mode.
-
 ## Standard Stage Delivery
 
 The intended stage delivery flow is:
@@ -474,7 +384,7 @@ The intended stage delivery flow is:
    launching implementers.
 10. Implement the bounded task.
 11. Run deterministic tests, lint, type checks, or replay checks.
-12. For parallel development stages, run embedded cross-check checkpoints from
+12. For parallel development stages, run embedded cross-review checkpoints from
    `docs/parallel-development-mode.md` before the formal review gate; these
    checkpoints do not replace committed-state review-1.
 13. Commit the bounded stage artifacts locally on the stage branch, compute the
@@ -519,21 +429,6 @@ The workflow may stop only for these terminal reasons:
 Other failures, including invalid JSON, failed tests, missing artifacts, or a
 single model failure, are routed to retry, fix, fallback, or evidence collection
 inside the active workflow before escalating to one of these terminal reasons.
-
-## Output Language
-
-User-facing reports, handoffs, review narratives, and significant bookkeeper
-responses to a Chinese-speaking operator must use Chinese as the primary
-language. When English prose or a technical term is necessary, its first use in
-the response must include a concise Chinese translation or explanation.
-
-Exact machine-readable values and copy-sensitive literals -- including code,
-commands, file paths, API routes, model identifiers, schema keys, status enums,
-and JSON -- must remain unchanged. Explain such literals in adjacent Chinese
-prose or parentheses on first use; do not translate inside the literal. Raw
-logs, source excerpts, patches, and strict JSON blocks are exempt from inline
-translation because their bytes or syntax are evidence. A direct user request
-for another output language overrides this default.
 
 ## Output Footer
 
@@ -587,7 +482,8 @@ Key reminders:
   `claude-fable-5`; if Fable5 quota is exhausted, the configured backup model is
   `opus4.8`, unless the registry or user changes it.
 - Review-1 uses Kimi and Claude-GLM as a cross-review pool. Grok development,
-  when explicitly enabled, uses `grok-4.5`; Grok is not a default review gate.
+  when explicitly enabled, uses `grok-composer-2.5-fast`; Grok is not a default
+  review gate.
 - Kimi one-shot execution uses the explicit latest coding alias:
   `kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"`.
 - Current Kimi CLI behavior rejects combining `--plan` or `-y` with `-p`; do

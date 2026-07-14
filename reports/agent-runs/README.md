@@ -22,35 +22,20 @@ reports/agent-runs/<stage-id>/
   60-test-output.txt
   70-handoff.md
   status.json
-  auto-run-authorization-v<N>.json                      (auto-review mode)
-  auto-run-authorization-v<N>.approval.md               (auto-review mode)
-  runner-<seq>-<node>.receipt.json                      (auto-review runner receipts)
-  runner-<seq>-seal.receipt.json                        (auto-review deterministic seal evidence; not an adapter invocation receipt, does not use runner-receipt.schema.json, excluded from the P11 adapter-call denominator)
-  embedded-cross-check-<unit>-round<N>.prompt.md        (auto-review embedded cross-check)
-  embedded-cross-check-<unit>-round<N>.seen.diff.patch
-  embedded-cross-check-<unit>-round<N>.raw-output.md
-  embedded-cross-check-<unit>-round<N>.unavailable.md   (when not run)
-  review-1-<unit>-round<N>.raw-output.md                (auto-review review-1)
-  review-1-<unit>-round<N>.verdict.json
-  80-escalation-<reason>-<timestamp>.md                 (auto-review escalation)
-  auto-review-pilot-metrics.json                        (pilot stages only)
-  history/                                               (cold storage; verbatim raw archives, not read at startup)
 ```
 
 Use `_template/` when creating a new stage.
 
-## History And Active Context
+## Active Context And Cold History
 
-`reports/agent-runs/<stage-id>/history/` is cold storage. A new terminal
-session establishes active context from the active workflow, the stage
-`status.json`, `70-handoff.md`, and any `status.current_inputs` only; it does
-not recursively scan `reports/agent-runs/` or read any `history/` directory at
-startup. Historical raw artifacts stay verbatim and are read only for an exact
-review/audit/finding reference that names them. Mutable status/handoff may be
-compacted only after their full snapshots are placed in `history/`, and
-compatibility symlinks may preserve old artifact paths without making raw
-history part of normal file enumeration. This keeps startup cheap without
-hiding evidence from an explicit review/audit request.
+`ACTIVE.json` is the fixed one-hop pointer to the active stage. A new session
+reads that stage's `status.json`, the recovery header at the top of
+`70-handoff.md`, and only the named current inputs needed for its next action.
+It must not discover active work by scanning every stage directory.
+
+`reports/agent-runs/<stage-id>/history/` is cold storage. Raw historical
+artifacts remain verbatim and are read only for an exact review, audit, or
+finding reference that names them; they are not part of normal startup reads.
 
 `STAGE_INDEX.md` is a human-readable summary of stage statuses. It does not
 replace per-stage `status.json`; update it when a stage reaches

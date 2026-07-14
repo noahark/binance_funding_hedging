@@ -1,14 +1,10 @@
 # Handoff
 
 This file is the stage's active handoff context. A new terminal session reads
-it together with `status.json` and the active workflow to resume work; it does
-not read `history/` at startup. Keep it current, and compact stale detail into
-`history/` only after recording a full snapshot there.
+it together with `status.json` and only the needed workflow section; it does
+not read `history/` at startup.
 
 ## Recovery Header
-
-Fixed, bounded resume block. A fresh session reads only this header plus
-`status.json` to resume; keep every field filled and current.
 
 - Active phase:
 - Next action:
@@ -25,9 +21,6 @@ Fixed, bounded resume block. A fresh session reads only this header plus
 - Git status:
 - Bookkeeper:
 - Parallel mode:
-- Auto-review pipeline:
-- Dispatch mode:
-- Runner state:
 
 ## Artifact Index
 
@@ -38,11 +31,6 @@ Fixed, bounded resume block. A fresh session reads only this header plus
 - ADR:
 - Implementation:
 - Embedded review checkpoints:
-- Auto-run authorization:
-- Runner receipts:
-- Embedded cross-check set:
-- Escalation artifacts:
-- Pilot metrics:
 - Review 1:
 - Fix report:
 - Review 2:

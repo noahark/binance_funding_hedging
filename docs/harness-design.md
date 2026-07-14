@@ -162,10 +162,10 @@ to Kimi. If both backend and frontend work are substantial and separable, split
 implementation by domain owner.
 
 Grok implementation is optional and only used when the user explicitly enables
-it for a stage; when enabled it uses `grok-4.5`:
+it for a stage; when enabled it uses Composer 2.5:
 
 ```text
-grok --model grok-4.5
+grok --model grok-composer-2.5-fast
 ```
 
 The generic actor pool does not override a stage-specific routing decision. If
@@ -332,9 +332,9 @@ Required adapter behaviors:
 
 Known command semantics:
 
-- Codex default Harness model: `gpt-5.6-sol` with high reasoning effort, as
+- Codex default Harness model: `gpt-5.5` with high reasoning effort, as
   configured locally by the adapter/profile.
-- Codex schema-bound review: `codex exec -C <repo> -m gpt-5.6-sol -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>`
+- Codex schema-bound review: `codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>`
 - Codex free-form review: `codex exec review --base <base> - < <prompt-file>`
 - Codex `-p` means profile, not prompt.
 - Claude Code print mode uses `claude -p "<prompt>"`.
@@ -342,8 +342,8 @@ Known command semantics:
   quota is exhausted.
 - Review-1 uses the Kimi / Claude-GLM cross-review pool.
 - Claude-GLM development owns backend/API/contract/schema/data-semantics work.
-- Grok development uses `grok-4.5` only when explicitly workflow-enabled by the
-  user; auto-mode review-1 primary also uses `grok-4.5`.
+- Grok development uses `grok-composer-2.5-fast` only when explicitly
+  workflow-enabled by the user.
 - Kimi development owns frontend/UI/client-integration work and uses
   `kimi --model kimi-code/kimi-for-coding -p "<prompt>"` unless a stage
   explicitly pins another model.

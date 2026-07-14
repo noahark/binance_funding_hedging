@@ -9,20 +9,13 @@ inventing status values or fingerprint protocols.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
-
-# Make the sibling shared library importable so fingerprint computation has a
-# single canonical implementation path shared with scripts/stage-seal.py.
-_HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in sys.path:
-    sys.path.insert(0, _HERE)
-import harness_stage_lib as _stage_lib
 
 
 ALLOWED_STATUSES = {
@@ -165,11 +158,22 @@ def require_commit_in_current_history(root: Path, sha: str, field: str) -> None:
 
 
 def compute_diff_fingerprint(root: Path, stage_dir: Path, base_sha: str, head_sha: str) -> str:
-    # Delegated to the canonical shared implementation in harness_stage_lib so
-    # the validator and the seal primitive share one implementation path and
-    # cannot drift. Byte-for-byte identical to the historical inline logic:
-    # same git argument order, same status.json exclusion, sha256 over bytes.
-    return _stage_lib.compute_diff_fingerprint(root, stage_dir, base_sha, head_sha)
+    status_rel = (stage_dir / "status.json").relative_to(root).as_posix()
+    diff = run(
+        [
+            "git",
+            "diff",
+            "--binary",
+            f"{base_sha}..{head_sha}",
+            "--",
+            ".",
+            f":(exclude){status_rel}",
+        ],
+        cwd=root,
+        text=False,
+    )
+    digest = hashlib.sha256(diff).hexdigest()
+    return f"{head_sha}:{digest}"
 
 
 def truthy(value: Any) -> bool:
@@ -805,267 +809,6 @@ def validate_acceptance(root: Path, stage_dir: Path, status_doc: dict[str, Any])
     return errors
 
 
-# ---------------------------------------------------------------------------
-# auto_review_pipeline validation (additive; manual path stays byte-identical)
-# ---------------------------------------------------------------------------
-
-AUTO_RUNNER_STATES = {"authorized", "running", "awaiting_human", "stopped", "completed_review_1"}
-AUTO_DISPATCH_MODES = {"human_dispatch", "auto_review"}
-AUTO_UNIT_KINDS = {"task"}
-AUTO_RUNNER_HOST_POLICY = {
-    "id": "human_operator",
-    "provider_identity": "human",
-    "role": "runner_host",
-    "switch_requires": "explicit_human_instruction",
-    "session_isolation": "human_shell_start_and_watch_only",
-}
-
-# Frozen workflow transition matrix (workflows/templates/stage-delivery.yaml
-# auto_review_pipeline.executable_contract.state_transitions, eight rows). Each
-# tuple is (from_dispatch_mode, from_runner_state, to_dispatch_mode,
-# to_runner_state, event); runner_state None encodes the conceptual 'disabled'
-# machine representation (enabled=false + human_dispatch + null). A mode_history
-# entry that matches none of these fails closed.
-AUTO_TRANSITIONS = {
-    ("human_dispatch", None, "auto_review", "authorized", "new_human_authorization"),
-    ("auto_review", "authorized", "auto_review", "running", "successful_full_preflight"),
-    ("auto_review", "running", "auto_review", "awaiting_human", "recoverable_worktree_runner_adapter_fallback_condition"),
-    ("auto_review", "awaiting_human", "human_dispatch", None, "explicit_human_mode_flip_decision"),
-    ("auto_review", "awaiting_human", "auto_review", "authorized", "new_human_authorization"),
-    ("auto_review", "awaiting_human", "auto_review", "authorized", "superseding_human_authorization"),
-    ("auto_review", "running", "auto_review", "stopped", "operator_stop"),
-    ("auto_review", "running", "auto_review", "completed_review_1", "all_required_units_ACCEPT"),
-    ("auto_review", "running", "auto_review", "awaiting_human", "cap_exhausted"),
-    ("auto_review", "running", "auto_review", "awaiting_human", "timeout"),
-    ("auto_review", "running", "auto_review", "awaiting_human", "budget_exhausted"),
-    ("auto_review", "running", "auto_review", "awaiting_human", "unroutable_fix"),
-    ("auto_review", "running", "auto_review", "awaiting_human", "review_1_fallback_exhausted"),
-}
-
-
-def _is_int_value(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool)
-
-
-def auto_review_enabled(status_doc: dict[str, Any]) -> bool:
-    """Auto mode is enabled only by a truthy auto_review_pipeline.enabled.
-
-    Missing or disabled auto configuration is manual mode (default-off), not
-    malformed auto mode. The stage-level enabled_for_this_stage flag is a
-    separate bootstrap control and does not by itself trigger auto validation,
-    so this bootstrap stage (enabled_for_this_stage=false, no enabled field)
-    stays on the unchanged manual path.
-    """
-    arp = status_doc.get("auto_review_pipeline")
-    if not isinstance(arp, dict):
-        return False
-    return truthy(arp.get("enabled"))
-
-
-def validate_auto_review_pipeline(
-    root: Path, stage_dir: Path, status_doc: dict[str, Any], phase: str
-) -> list[str]:
-    """Additive checks for the auto_review_pipeline nested status contract.
-
-    Triggered only when auto_review_enabled is true. Legacy status without that
-    field never reaches here, so the manual path is byte-for-byte unchanged.
-    """
-    errors: list[str] = []
-    arp = status_doc.get("auto_review_pipeline")
-    if not isinstance(arp, dict):
-        return ["auto_review_pipeline must be an object when enabled"]
-
-    # auto/parallel mode mutex (frozen P4)
-    pm = status_doc.get("parallel_mode", {})
-    if isinstance(pm, dict) and truthy(pm.get("enabled")):
-        errors.append("auto_review_pipeline.enabled and parallel_mode.enabled are mutually exclusive")
-
-    # known configuration/version
-    if arp.get("schema_version") != 1:
-        errors.append("auto_review_pipeline.schema_version must be 1")
-    if arp.get("runner_version") != "auto-review-pipeline/v1":
-        errors.append("auto_review_pipeline.runner_version must be 'auto-review-pipeline/v1'")
-    if arp.get("dispatch_mode") not in AUTO_DISPATCH_MODES:
-        errors.append("auto_review_pipeline.dispatch_mode must be 'human_dispatch' or 'auto_review'")
-    if arp.get("runner_host") != AUTO_RUNNER_HOST_POLICY:
-        errors.append(
-            "auto_review_pipeline.runner_host must record the fixed human-operator shell policy; "
-            "model-session hosting is not allowed without an explicit human instruction and Harness amendment"
-        )
-
-    runner_state = arp.get("runner_state")
-    if runner_state is not None and runner_state not in AUTO_RUNNER_STATES:
-        errors.append(
-            "auto_review_pipeline.runner_state is not a known auto substate; "
-            "route to human_escalation_required"
-        )
-
-    # authorization reference exists and is structurally valid
-    auth_path_value = arp.get("authorization_path")
-    if not auth_path_value:
-        errors.append("auto_review_pipeline.authorization_path is required when auto mode is enabled")
-    elif not evidence_path_exists(root, stage_dir, auth_path_value):
-        errors.append("auto_review_pipeline.authorization_path does not exist: " + str(auth_path_value))
-    else:
-        try:
-            resolved = _stage_lib.resolve_safe_path(root, auth_path_value)
-            if resolved is None or not resolved.exists():
-                errors.append("auto_review_pipeline.authorization_path does not exist: " + str(auth_path_value))
-            else:
-                auth_doc = _stage_lib.load_json(resolved)
-                for err in _stage_lib.validate_authorization_doc(auth_doc):
-                    errors.append("authorization: " + err)
-        except (_stage_lib.HarnessError, ValueError) as exc:
-            errors.append("authorization_path unsafe: " + str(exc))
-
-    # budgets: v1 serial-only status records USAGE only (model_calls_used,
-    # auto_code_changes_used). Runtime caps (max_model_calls /
-    # max_auto_code_changes) are authorization-bound; max_stage_rework is a
-    # global AGENTS/workflow invariant (3) tracked on top-level rework_count,
-    # not mirrored in this budgets object.
-    budgets = arp.get("budgets")
-    if budgets is None:
-        errors.append("auto_review_pipeline.budgets is required when auto mode is enabled")
-    elif not isinstance(budgets, dict):
-        errors.append("auto_review_pipeline.budgets must be an object")
-    else:
-        b_unknown = set(budgets.keys()) - {"model_calls_used", "auto_code_changes_used"}
-        if b_unknown:
-            errors.append("auto_review_pipeline.budgets unknown fields: " + ", ".join(sorted(b_unknown)))
-        for key in ("model_calls_used", "auto_code_changes_used"):
-            if key not in budgets:
-                errors.append("auto_review_pipeline.budgets missing required field: " + key)
-        used = budgets.get("auto_code_changes_used")
-        if _is_int_value(used):
-            if used < 0:
-                errors.append("auto_review_pipeline.budgets.auto_code_changes_used must be >= 0")
-            if used > 2:
-                errors.append("auto_review_pipeline.budgets.auto_code_changes_used exceeds the aggregate auto cap of 2")
-            if used >= 3:
-                errors.append(
-                    "auto_review_pipeline.budgets must preserve at least one review-2 repair "
-                    "opportunity (auto_code_changes_used < 3)"
-                )
-        mc_used = budgets.get("model_calls_used")
-        if _is_int_value(mc_used) and mc_used < 0:
-            errors.append("auto_review_pipeline.budgets.model_calls_used must be >= 0")
-    # top-level rework_count is the authoritative shared stage ledger, bounded
-    # by the global max_stage_rework invariant of 3.
-    rework_count = status_doc.get("rework_count")
-    if _is_int_value(rework_count) and rework_count > 3:
-        errors.append("rework_count exceeds the global stage-rework invariant of 3")
-
-    # mode_history: each transition must match a frozen row
-    history = arp.get("mode_history")
-    if history is None:
-        history = []
-    if not isinstance(history, list):
-        errors.append("auto_review_pipeline.mode_history must be a list")
-    else:
-        previous_to = None
-        for idx, item in enumerate(history):
-            if not isinstance(item, dict):
-                errors.append("auto_review_pipeline.mode_history[" + str(idx) + "] must be an object")
-                continue
-            from_state = item.get("from")
-            to_state = item.get("to")
-            from_dm = from_state.get("dispatch_mode") if isinstance(from_state, dict) else None
-            from_rs = from_state.get("runner_state") if isinstance(from_state, dict) else None
-            to_dm = to_state.get("dispatch_mode") if isinstance(to_state, dict) else None
-            to_rs = to_state.get("runner_state") if isinstance(to_state, dict) else None
-            key = (from_dm, from_rs, to_dm, to_rs, item.get("event"))
-            if key not in AUTO_TRANSITIONS:
-                errors.append(
-                    "auto_review_pipeline.mode_history[" + str(idx) + "] is not in the frozen workflow transition set"
-                )
-            current_from = (from_dm, from_rs)
-            current_to = (to_dm, to_rs)
-            if previous_to is not None and current_from != previous_to:
-                errors.append(
-                    "auto_review_pipeline.mode_history[" + str(idx)
-                    + "] is discontinuous with the prior transition"
-                )
-            previous_to = current_to
-        if history and previous_to != (arp.get("dispatch_mode"), arp.get("runner_state")):
-            errors.append(
-                "auto_review_pipeline.mode_history final state must match current dispatch_mode/runner_state"
-            )
-
-    # review_units shape + (pre-review/pre-accept) completeness predicate
-    units = arp.get("review_units")
-    if units is None:
-        units = []
-    if not isinstance(units, list):
-        errors.append("auto_review_pipeline.review_units must be a list")
-    else:
-        for uidx, unit in enumerate(units):
-            if not isinstance(unit, dict):
-                errors.append("auto_review_pipeline.review_units[" + str(uidx) + "] must be an object")
-                continue
-            if unit.get("kind") not in AUTO_UNIT_KINDS:
-                errors.append(
-                    "auto_review_pipeline.review_units[" + str(uidx) + "].kind must be task"
-                )
-            authors = unit.get("author_provider_identities")
-            if not isinstance(authors, list) or not authors:
-                errors.append(
-                    "auto_review_pipeline.review_units[" + str(uidx) + "].author_provider_identities must be a non-empty list"
-                )
-            if phase in {"pre-review", "pre-accept"} and unit.get("required") is True:
-                review = unit.get("review_1")
-                if not isinstance(review, dict):
-                    errors.append(
-                        "auto_review_pipeline.review_units[" + str(uidx) + "].review_1 must be an object for a required unit"
-                    )
-                else:
-                    if review.get("verdict") != "ACCEPT":
-                        errors.append(
-                            "auto_review_pipeline.review_units[" + str(uidx) + "] required unit lacks an ACCEPT verdict"
-                        )
-                    if not truthy(review.get("json_schema_valid")):
-                        errors.append(
-                            "auto_review_pipeline.review_units[" + str(uidx) + "] required unit lacks a schema-valid verdict"
-                        )
-                    if review.get("diff_fingerprint") and unit.get("diff_fingerprint") and review.get("diff_fingerprint") != unit.get("diff_fingerprint"):
-                        errors.append(
-                            "auto_review_pipeline.review_units[" + str(uidx) + "] review_1.diff_fingerprint must match the unit diff_fingerprint"
-                        )
-
-    # receipt / escalation reference existence
-    for field in ("last_receipt_path", "last_escalation_path"):
-        value = arp.get(field)
-        if value and not evidence_path_exists(root, stage_dir, value):
-            errors.append("auto_review_pipeline." + field + " does not exist: " + str(value))
-    receipt_value = arp.get("last_receipt_path")
-    if receipt_value and evidence_path_exists(root, stage_dir, receipt_value):
-        receipt_path = _stage_lib.resolve_safe_path(root, receipt_value)
-        if receipt_path is not None:
-            try:
-                receipt_doc = _stage_lib.load_json(receipt_path)
-                errors.extend(
-                    "last receipt: " + err
-                    for err in _stage_lib.validate_receipt_doc(receipt_doc)
-                )
-                policy_id = receipt_doc.get("tool_policy_id")
-                policy_rel = receipt_doc.get("tool_policy_path")
-                if policy_id and policy_rel:
-                    policy_path = _stage_lib.resolve_safe_path(root, policy_rel)
-                    if policy_path is None or not policy_path.exists():
-                        errors.append("last receipt tool_policy_path does not exist: " + str(policy_rel))
-                    else:
-                        policy_doc = _stage_lib.load_json(policy_path)
-                        errors.extend(
-                            "last receipt tool policy: " + err
-                            for err in _stage_lib.validate_tool_policy_doc(
-                                policy_doc, policy_id=policy_id
-                            )
-                        )
-            except (_stage_lib.HarnessError, ValueError) as exc:
-                errors.append("last receipt validation failed: " + str(exc))
-
-    return errors
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate an AI Project Harness stage")
     parser.add_argument("stage", help="stage id or path under reports/agent-runs")
@@ -1100,8 +843,6 @@ def main() -> int:
                 errors.extend(validate_review_identity(root, stage_dir, status_doc))
         if args.phase == "pre-accept":
             errors.extend(validate_acceptance(root, stage_dir, status_doc))
-        if auto_review_enabled(status_doc):
-            errors.extend(validate_auto_review_pipeline(root, stage_dir, status_doc, args.phase))
 
         if errors:
             print("STAGE VALIDATION FAILED")

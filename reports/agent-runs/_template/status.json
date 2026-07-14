@@ -25,22 +25,6 @@
     "r10_dispatch_tail_required": false,
     "r4_diff_reconciliation_required": false
   },
-  "auto_review_pipeline": {
-    "schema_version": 1,
-    "enabled": false,
-    "dispatch_mode": "human_dispatch",
-    "mode_flip_pending": null,
-    "authorization_path": null,
-    "runner_state": null,
-    "runner_version": "auto-review-pipeline/v1",
-    "exclusive_worktree": null,
-    "budgets": null,
-    "mode_history": [],
-    "review_units": [],
-    "embedded_cross_checks": [],
-    "last_receipt_path": null,
-    "last_escalation_path": null
-  },
   "embedded_reviews": {},
   "designer": null,
   "direction_synthesizer": null,
@@ -104,8 +88,7 @@
     "verdict": null,
     "json_schema_valid": null,
     "diff_fingerprint": null,
-    "reviewer_prior_involvement": null,
-    "reviewer_prior_involvement_pending": true,
+    "reviewer_prior_involvement": "none",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
@@ -117,8 +100,7 @@
     "primary_provider": "codex",
     "fallback_provider": "claude",
     "fallback_reason": null,
-    "reviewer_prior_involvement": null,
-    "reviewer_prior_involvement_pending": true,
+    "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": null,
     "unrelated_reviewer_unavailable_evidence": null,
     "design_conflict_override": {
