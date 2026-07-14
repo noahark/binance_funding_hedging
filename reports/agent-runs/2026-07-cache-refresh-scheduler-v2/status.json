@@ -76,7 +76,7 @@
       "owner": "claude_glm",
       "reviewer": "kimi",
       "r10_checklist": null,
-      "base_sha": null,
+      "base_sha": "4c9d43800bd0d6d908892afa46c8b08e00b88877",
       "head_sha": null,
       "diff_fingerprint": null,
       "test_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt",
@@ -179,12 +179,12 @@
   },
   "checkpoint": {
     "branch": "stage/2026-07-cache-refresh-scheduler-v2",
-    "head_sha": "201b3bb",
-    "git_status": "dispatch packet committed; final handoff and test evidence prepared; no delivery-code changes",
+    "head_sha": "4c9d43800bd0d6d908892afa46c8b08e00b88877",
+    "git_status": "final manual dispatch handoff committed; status-only task-base binding prepared; no delivery-code changes",
     "test_status": "JSON, checkpoint validator, diff check, empty seven-file product diff, migration equality, and sanitized adapter availability checks passed",
     "open_findings": [],
     "blockers": [],
-    "next_action": "commit_final_handoff_then_bind_task_base"
+    "next_action": "human_execute_claude_glm_implementation_prompt"
   },
   "review_1": {
     "reviewer": null,
@@ -231,5 +231,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_execute_claude_glm_implementation_prompt",
-  "updated_at": "2026-07-14T14:51:18Z"
+  "updated_at": "2026-07-14T14:51:48Z"
 }
