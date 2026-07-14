@@ -14,7 +14,8 @@
 - Status: `implementing`
 - Branch: `stage/2026-07-cache-refresh-scheduler-v2`
 - Branch base: `main@8aac137`
-- Git status: dispatch preparation in progress; no delivery-code changes
+- Dispatch packet commit: `201b3bb`; a subsequent status-only commit binds the implementation task base
+- Git status: clean before final handoff/base binding; no delivery-code changes
 - Bookkeeper: OpenAI Codex / GPT-5; not implementer or fix author
 - Implementer: fresh human-started `claude_glm` / `glm-5.2`
 - Parallel mode: disabled
@@ -54,6 +55,6 @@ The human starts Claude-GLM with `implementation-claude-glm.prompt.md`. The
 implementer writes code/tests and `20-implementation.md` only, runs the frozen
 tests, and returns control without committing or dispatching review.
 
-本地北京时间: 2026-07-14 22:50:30 CST
+本地北京时间: 2026-07-14 22:51:18 CST
 下一步模型: human → claude_glm
 下一步任务: 在全新 Claude-GLM 终端执行冻结实现提示

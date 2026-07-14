@@ -16,3 +16,7 @@ git diff --check: PASS
 seven-file delivery-code diff from main@8aac137: empty (PASS)
 claude-glm availability check without alias expansion: PASS
 ```
+
+Dispatch packet committed at `201b3bb`. No delivery-code path changed in that
+commit. The implementation task base is bound by a subsequent status-only
+commit so the human starts Claude-GLM from a clean committed branch.
