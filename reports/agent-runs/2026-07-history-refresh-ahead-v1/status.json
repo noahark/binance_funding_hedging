@@ -180,6 +180,9 @@
     "provider": "kimi",
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
+    "session": "session_c24f55dc-51b0-4f67-9cab-d43943935e1b",
+    "dispatch_reported_complete": true,
+    "raw_output_received": false,
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
@@ -224,12 +227,12 @@
     "recorded_at": "2026-07-15T03:55:38Z",
     "note": "No credential value is stored in repository artifacts."
   },
-  "blockers": ["human must execute the prepared fresh Kimi review-1 dispatch"],
+  "blockers": ["Kimi review-1 raw narrative and final JSON verdict have not been returned"],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_fresh_kimi_review_1_prompt",
-  "updated_at": "2026-07-15T04:15:56Z"
+  "next_action": "human_return_complete_kimi_review_1_output",
+  "updated_at": "2026-07-15T04:21:09Z"
 }

@@ -113,3 +113,14 @@ independent fingerprint hash recomputation:
 a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3
 git status --short: clean
 ```
+
+## Review-1 Dispatch Receipt Pending Raw Output
+
+```text
+reviewer: Kimi
+session: session_c24f55dc-51b0-4f67-9cab-d43943935e1b
+human-reported execution state: complete
+raw narrative received: no
+final JSON received/schema-validated: no
+gate disposition: non-accepting until complete output is returned
+```

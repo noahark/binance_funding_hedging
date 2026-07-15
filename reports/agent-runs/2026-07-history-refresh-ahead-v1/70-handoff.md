@@ -3,10 +3,11 @@
 ## Recovery Header
 
 - Active phase: `review_1` (dispatch ready)
-- Next action: human executes `review-1-kimi.prompt.md` in a fresh read-only
-  Kimi session and returns the complete output
+- Next action: human returns the complete output from Kimi session
+  `session_c24f55dc-51b0-4f67-9cab-d43943935e1b`, including the final JSON
 - Read-set: = `status.current_inputs`
-- Open blockers: human review-1 dispatch required by Harness
+- Open blockers: Kimi raw narrative and schema-bound final JSON are not yet
+  present; Session ID alone is non-accepting evidence
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
   sessions, prior v2 implementation/review transcripts
 
@@ -55,6 +56,11 @@ Authoritative fingerprint:
 Clean-worktree `pre-review` validator and independent fingerprint recomputation:
 PASS after binding commit `6b12335`.
 
-本地北京时间: 2026-07-15 12:15:56 CST
+The human reported Kimi Session
+`session_c24f55dc-51b0-4f67-9cab-d43943935e1b` completed, but did not yet return
+its raw narrative/final JSON. No verdict is recorded until that output is
+preserved and schema-validated.
+
+本地北京时间: 2026-07-15 12:21:09 CST
 下一步模型: human
-下一步任务: 在 fresh Kimi 终端执行 review-1-kimi.prompt.md 并回传完整输出
+下一步任务: 回传 Kimi review-1 完整输出（含最后 JSON）
