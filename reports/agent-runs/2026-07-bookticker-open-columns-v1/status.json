@@ -22,6 +22,8 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1-task-a.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1-task-b.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
     "schemas/api/public-market/snapshot.schema.json",
     "frontend/index.html",
     "frontend/self-check.js",
@@ -351,6 +353,8 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1-task-a.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1-task-b.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md",
@@ -455,21 +459,21 @@
     }
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
-    "primary_provider": null,
-    "selection_status": "not_selected_review_1_in_progress",
+    "reviewer": "codex_final_reviewer",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "primary_provider": "codex",
+    "selection_status": "prepared_waiting_human_execution",
     "preferred_primary_provider": "codex",
     "fallback_provider": "claude",
-    "fallback_reason": null,
-    "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": null,
-    "unrelated_reviewer_unavailable_evidence": null,
+    "fallback_reason": "design_conflict_ineligibility_no_unrelated_decision_provider",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "Codex provider performed stage design/bookkeeper reconciliation; a fresh read-only Codex Session will review design artifacts as evidence under the strong-reviewer disclosure override.",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
     "design_conflict_override": {
-      "used": false,
-      "reason": null,
-      "unrelated_reviewer_unavailable_evidence": null
+      "used": true,
+      "reason": "The registered fallback Claude provider authored the development breakdown, so no registered review-2 decision provider is unrelated to stage design; Codex is selected by primary routing with explicit design disclosure.",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md"
     },
     "open_p0_p1": null,
     "verdict": null,
@@ -478,6 +482,19 @@
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
+  },
+  "review_2_dispatch": {
+    "status": "prepared_waiting_human_execution",
+    "reviewer": "codex",
+    "provider_identity": "codex",
+    "model": "gpt-5.5",
+    "reasoning_effort": "xhigh",
+    "required_fresh_session": true,
+    "forbidden_session_id": "019f639a-7890-7573-a04b-7a62debff633",
+    "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
+    "output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/50-review-2.md",
+    "schema_path": "schemas/review-verdict.schema.json",
+    "eligibility_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md"
   },
   "rework_count": 0,
   "max_rework": 3,
@@ -517,6 +534,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/15-session-id-capture-evidence.md"
     }
   ],
-  "next_action": "Bookkeeper commits the schema-valid dual-ACCEPT review-1 evidence, then selects an eligible fresh final reviewer, records any required design-involvement override evidence, and prepares the human-executed review-2 packet.",
-  "updated_at": "2026-07-15T13:51:59Z"
+  "next_action": "Bookkeeper commits the review-2 eligibility evidence and fixed-range Codex prompt, runs and preserves pre-review validation, then the human executes the packet in a fresh read-only Codex gpt-5.5/xhigh Session.",
+  "updated_at": "2026-07-15T13:54:57Z"
 }

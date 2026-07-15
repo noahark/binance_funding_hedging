@@ -462,3 +462,23 @@ Cross-review isolation:
   Sessions: PASS
 
 Aggregate: `30-review-1.md`; review-1 transition result: `ACCEPT → review-2`.
+
+---
+
+Review-2 reviewer eligibility preparation: 2026-07-15 21:54:57 CST
+
+- Registered decision pool audit: Codex primary, Anthropic Claude fallback.
+- Delivery author isolation: both decision providers differ from Task A
+  `zhipu_glm` and Task B `moonshot_kimi`: PASS.
+- Design involvement: Codex=design/bookkeeper reconciliation;
+  Anthropic Claude=development breakdown; no unrelated registered decision
+  provider exists.
+- Selected route: fresh Codex `gpt-5.5` / `xhigh` read-only final review with
+  `reviewer_prior_involvement=design` and explicit strong-reviewer disclosure.
+- Current bookkeeper Session is forbidden as reviewer:
+  `019f639a-7890-7573-a04b-7a62debff633`.
+- Runner binary check: `/Users/ark/.local/bin/codex`.
+- Runner version check: `codex-cli 0.144.3`.
+- Eligibility evidence: `review-2-eligibility-evidence.md`.
+- Fixed-range packet: `review-2-codex.prompt.md`.
+- No model dispatch executed by the bookkeeper.
