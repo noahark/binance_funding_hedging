@@ -7,7 +7,7 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `review-2`
-- Next action: Human executes the prepared Codex review-2 packet in a fresh schema-bound read-only Session and returns the complete output plus Session ID.
+- Next action: Human executes the user-requested Grok round-2 advisory packet in a fresh read-only Session and returns its output plus Session ID; then the user performs page-display acceptance before Opus4.8 formal review-2 is prepared.
 - Read-set: = `status.current_inputs`
 - Open blockers: review-2 verdict not yet captured; final reviewer selection must satisfy the strong-reviewer disclosure rules because both registered decision providers participated in design work.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
@@ -18,7 +18,7 @@ not read `history/` at startup.
 - Status: `review_2` (Task A and Task B review-1 verdicts are schema-valid ACCEPT; evidence pending local commit)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Reviewed product/evidence head: `0a383f0f8528591898f12690c371108e7582a27e`
-- Git status: review-1 evidence and review-2 packet are committed; preflight evidence checkpoint is pending local commit
+- Git status: review-1 evidence and the unused Codex review-2 packet/preflight are committed; user-routing amendment and Grok advisory packet are pending local commit
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
@@ -132,6 +132,21 @@ not read `history/` at startup.
   `2b78a1c5e7404c3c28eed57dbdbc8256a0ba6308`; exact output in
   `review-2-preflight.txt`.
 
+## User Routing Amendment
+
+- No formal review-2 Session has executed.
+- The user superseded the prepared Codex dispatch before execution.
+- New order: Grok advisory review → user page-display acceptance → Opus4.8
+  formal review-2.
+- Grok is explicitly enabled for this advisory round but remains non-gating.
+- Opus4.8 formal review-2 is not yet prepared. Because Anthropic Claude authored
+  the development breakdown, its eventual verdict and status must disclose
+  `reviewer_prior_involvement=breakdown` under the strong-reviewer override.
+- The unused `review-2-codex.prompt.md` remains audit evidence and must not be
+  executed.
+- Grok packet: `advisory-review-grok-round-2.prompt.md`; expected raw output:
+  `31-advisory-review-grok-round-2.md`.
+
 ## Formal Review-1 Result
 
 - Task A raw reviewer output: `30-review-1-task-a.md`; Kimi Session
@@ -161,14 +176,15 @@ not read `history/` at startup.
 
 ## Next Action
 
-The human executes `review-2-codex.prompt.md` with Codex `gpt-5.5`/`xhigh` in a
-fresh schema-bound read-only Session. Do not reuse the current bookkeeper
-Session. Return the complete narrative/footer/final JSON and provider-native
-Session ID for final gate validation.
+The human executes `advisory-review-grok-round-2.prompt.md` in a fresh read-only
+Grok Session and returns the complete response plus provider-native Session ID.
+The bookkeeper reconciles any findings; then the user performs page-display
+acceptance. Only after both prerequisites close will the bookkeeper prepare and
+preflight the Opus4.8 formal review-2 packet.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-15 21:57:24 CST
-下一步模型: codex / gpt-5.5（由人工启动 fresh read-only Session）
-下一步任务: 执行 formal review-2 并返回完整 raw verdict 与 provider-native Session ID
+本地北京时间: 2026-07-15 22:08:14 CST
+下一步模型: grok / grok-build（由人工启动 fresh read-only advisory Session）
+下一步任务: 完成非门禁 Grok round-2 advisory review 并返回 raw output 与 Session ID

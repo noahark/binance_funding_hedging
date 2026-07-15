@@ -55,3 +55,20 @@ Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 本地北京时间: 2026-07-15 21:54:57 CST
 下一步模型: codex / gpt-5.5（由人工启动 fresh read-only Session）
 下一步任务: 对固定 full-stage fingerprint 执行 schema-bound final review-2
+
+## User Routing Amendment — 2026-07-15 22:08:14 CST
+
+The Codex review-2 packet above was prepared and passed preflight, but it was
+never executed. The user explicitly replaced the execution order before any
+formal review-2 Session started:
+
+1. fresh Grok advisory review (non-gate);
+2. user page-display acceptance;
+3. Anthropic Claude Opus4.8 formal review-2.
+
+The unused Codex prompt remains as audit evidence and must not be executed.
+Before Opus4.8 dispatch, the bookkeeper must amend the active selection to
+Claude provider, record `reviewer_prior_involvement=breakdown`, preserve the
+Codex design-conflict/fallback rationale, create a new fixed-range Opus4.8
+packet, and rerun review-2 preflight. Grok and the user's display checkpoint do
+not replace the formal JSON gate or the later explicit merge acceptance.

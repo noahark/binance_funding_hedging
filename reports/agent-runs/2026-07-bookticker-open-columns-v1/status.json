@@ -25,6 +25,7 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-preflight.txt",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
     "schemas/api/public-market/snapshot.schema.json",
     "frontend/index.html",
     "frontend/self-check.js",
@@ -357,6 +358,7 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-preflight.txt",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md",
@@ -461,21 +463,21 @@
     }
   },
   "review_2": {
-    "reviewer": "codex_final_reviewer",
-    "provider": "codex",
-    "model": "gpt-5.5",
-    "primary_provider": "codex",
-    "selection_status": "prepared_waiting_human_execution",
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "primary_provider": null,
+    "selection_status": "waiting_user_requested_grok_advisory_then_visual_acceptance",
     "preferred_primary_provider": "codex",
     "fallback_provider": "claude",
-    "fallback_reason": "design_conflict_ineligibility_no_unrelated_decision_provider",
-    "reviewer_prior_involvement": "design",
-    "reviewer_prior_involvement_notes": "Codex provider performed stage design/bookkeeper reconciliation; a fresh read-only Codex Session will review design artifacts as evidence under the strong-reviewer disclosure override.",
-    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
+    "fallback_reason": null,
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": null,
+    "unrelated_reviewer_unavailable_evidence": null,
     "design_conflict_override": {
-      "used": true,
-      "reason": "The registered fallback Claude provider authored the development breakdown, so no registered review-2 decision provider is unrelated to stage design; Codex is selected by primary routing with explicit design disclosure.",
-      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md"
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
     },
     "open_p0_p1": null,
     "verdict": null,
@@ -486,7 +488,7 @@
     "invalid_json_attempts": 0
   },
   "review_2_dispatch": {
-    "status": "prepared_waiting_human_execution",
+    "status": "superseded_unexecuted_by_user_routing",
     "reviewer": "codex",
     "provider_identity": "codex",
     "model": "gpt-5.5",
@@ -496,7 +498,35 @@
     "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
     "output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/50-review-2.md",
     "schema_path": "schemas/review-verdict.schema.json",
-    "eligibility_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md"
+    "eligibility_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
+    "superseded_at": "2026-07-15T14:08:14Z",
+    "superseded_reason": "User requested Grok advisory review, then user visual acceptance, then Opus4.8 formal review-2. No Codex review-2 session was executed."
+  },
+  "advisory_reviews": {
+    "grok_round_2": {
+      "user_explicitly_enabled": true,
+      "formal_gate": false,
+      "provider": "grok",
+      "model": "grok-build",
+      "status": "prepared_waiting_human_execution",
+      "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
+      "output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
+      "session_id": null
+    }
+  },
+  "review_2_routing_override": {
+    "approved_by": "user",
+    "approved_at": "2026-07-15T14:08:14Z",
+    "sequence": [
+      "grok_advisory_review_round_2",
+      "user_visual_display_acceptance",
+      "opus4_8_formal_review_2"
+    ],
+    "formal_reviewer_provider": "claude",
+    "formal_reviewer_model": "opus4.8",
+    "required_prior_involvement": "breakdown",
+    "formal_dispatch_status": "not_prepared_waiting_prerequisites",
+    "note": "Grok is advisory only and user visual acceptance is a pre-final-review checkpoint; neither replaces schema-valid formal review-2 or the later explicit merge acceptance gate."
   },
   "rework_count": 0,
   "max_rework": 3,
@@ -536,6 +566,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/15-session-id-capture-evidence.md"
     }
   ],
-  "next_action": "Human executes review-2-codex.prompt.md through schema-bound read-only codex exec using gpt-5.5/xhigh in a fresh Session, then returns the complete raw verdict and provider-native Session ID to the bookkeeper.",
-  "updated_at": "2026-07-15T13:57:24Z"
+  "next_action": "Human executes advisory-review-grok-round-2.prompt.md in a fresh read-only Grok Session and returns the raw output plus Session ID. After Grok reconciliation, the user performs page-display acceptance; only then will the bookkeeper prepare Opus4.8 formal review-2 with breakdown disclosure.",
+  "updated_at": "2026-07-15T14:08:14Z"
 }

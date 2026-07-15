@@ -497,3 +497,19 @@ Review-2 committed-state pre-review: 2026-07-15 21:57:24 CST
   `0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed`
 - Exact output: `review-2-preflight.txt`
 - Disposition: human may execute the prepared fresh Codex review-2 dispatch.
+
+---
+
+User review routing amendment: 2026-07-15 22:08:14 CST
+
+- Formal review-2 executed: NO.
+- Prepared Codex packet status: superseded before execution; retained for audit
+  only and must not be dispatched.
+- User-approved sequence: Grok advisory review → user page-display acceptance →
+  Opus4.8 formal review-2.
+- Grok round is explicitly user-enabled and non-gating.
+- Opus4.8 final review will require
+  `reviewer_prior_involvement=breakdown` disclosure because Anthropic Claude
+  authored `12-development-breakdown.md`.
+- No product code, reviewed SHA or fingerprint changed.
+- Grok packet: `advisory-review-grok-round-2.prompt.md`.
