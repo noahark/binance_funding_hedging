@@ -42,3 +42,57 @@ delivery-code diff: none
 No implementation tests were run because no implementation result was present.
 The user chose to continue without credential rotation; no credential value is
 stored in repository artifacts.
+
+## Claude-GLM Implementation And Independent Bookkeeper Verification
+
+The human-dispatched Claude-GLM implementation changed exactly the three frozen
+files. The implementer reported 37 focused tests and 335 full backend tests.
+The bookkeeper independently reran the required commands on the shared worktree:
+
+```text
+python3 -m pytest backend/tests/test_background_worker.py -q
+.....................................                                    [100%]
+37 passed in 1.81s
+
+python3 -m pytest backend/tests -q
+........................................................................ [ 21%]
+........................................................................ [ 42%]
+........................................................................ [ 64%]
+........................................................................ [ 85%]
+...............................................                          [100%]
+335 passed in 13.65s
+
+python3 -m py_compile backend/services/snapshot_service.py backend/tests/test_background_worker.py
+PASS
+
+git diff --check
+PASS
+
+git status --short
+ M backend/services/snapshot_service.py
+ M backend/tests/test_background_worker.py
+ M reports/agent-runs/2026-07-history-refresh-ahead-v1/20-implementation.md
+```
+
+Independent read-only adversarial reproduction:
+
+```text
+1500s early public-history refresh raises OSError
+old cache entry remains unchanged: PASS
+old history published at 1500s: PASS
+old history published at 1799s: PASS
+old history expires at 1800s: PASS
+adversarial_failed_early_refresh_retains_old_history_1500_1799=PASS
+```
+
+Source/test reconciliation:
+
+```text
+history refresh reuse threshold = max(0, publication TTL - 300): PASS
+_history_is_fresh uses refresh threshold: PASS
+_fetch_history_for reuse guard uses refresh threshold: PASS
+_all_valid_history publication TTL unchanged: PASS
+borrow/max component_ttl unchanged: PASS
+Group B/private TTL/coverage/re-entry unchanged: PASS
+three-file write boundary: PASS
+```

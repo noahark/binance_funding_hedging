@@ -59,6 +59,12 @@ ELIGIBLE_CONTRACT_TYPES = ("PERPETUAL", "TRADIFI_PERPETUAL")
 FUNDING_HISTORY_SCHEMA_VERSION = "public-market-funding-history/v1"
 SYMBOL_SNAPSHOT_SCHEMA_VERSION = "public-market-symbol-snapshot/v1"
 
+# History refresh-ahead headroom (2026-07-history-refresh-ahead-v1, 10-design):
+# the funding-history component becomes refresh-due this many seconds before its
+# hard publication expiry, so a cursor visit can warm a fresh entry while the
+# prior entry is still publishable. Publication expiry stays at the full TTL.
+HISTORY_REFRESH_AHEAD_SECONDS = 300
+
 # Eligible query symbol for the selected-history endpoint: Binance USDⓈ-M
 # perpetual symbols are uppercase alphanumerics (e.g. BTCUSDT, 1000SATSUSDT).
 # Rejects missing/empty/lower-case/space-injected values as HTTP 400 before the
@@ -824,7 +830,10 @@ class SnapshotService:
         The failure is NOT cached so the next worker tick retries.
         """
         now = time.monotonic()
-        ttl = self.config.funding_history_cache_ttl_seconds
+        # Refresh-ahead reuse guard: the cache is reused only until the refresh
+        # threshold (publication TTL - headroom), not the full publication TTL,
+        # so a cursor visit at 1500s performs real upstream I/O (10-design).
+        ttl = self._history_refresh_ttl()
         cached = self._funding_history_cache.get(symbol)
         if cached is not None and (now - cached[0]) < ttl:
             return cached[1]
@@ -841,11 +850,22 @@ class SnapshotService:
         self._funding_history_cache[symbol] = (now, entries)
         return entries
 
+    def _history_refresh_ttl(self) -> int:
+        """Refresh-fresh threshold for the history component: the configured
+        publication TTL minus the refresh-ahead headroom, clamped at 0. This is
+        strictly smaller than the publication expiry, so a cursor visit can warm
+        a fresh entry before the prior entry stops being publishable
+        (2026-07-history-refresh-ahead-v1, 10-design / 11-adr)."""
+        return max(
+            0,
+            self.config.funding_history_cache_ttl_seconds - HISTORY_REFRESH_AHEAD_SECONDS,
+        )
+
     def _history_is_fresh(self, symbol: str) -> bool:
         now = time.monotonic()
         cached = self._funding_history_cache.get(symbol)
         return cached is not None and (
-            now - cached[0] < self.config.funding_history_cache_ttl_seconds
+            now - cached[0] < self._history_refresh_ttl()
         )
 
     # ------------------------------------------------------------------

@@ -433,6 +433,101 @@ def test_all_valid_history_merges_only_unexpired_entries():
     assert merged == {"BTCUSDT": good}
 
 
+# =========================================================================
+# History refresh-ahead (2026-07-history-refresh-ahead-v1): the history
+# component becomes refresh-due at max(0, publication_ttl - 300) = 1500s while
+# publication expiry stays at the full 1800s. Borrow-rate / max-borrowable keep
+# their 1800s component TTL.
+# =========================================================================
+def test_history_1499_reuses_cache_without_public_call(monkeypatch):
+    # Refresh threshold = 1800 - 300 = 1500. At 1499s the cached entry is still
+    # refresh-fresh, so a cursor visit reuses it without a public history call.
+    t = [0.0]
+    monkeypatch.setattr(snapshot_service.time, "monotonic", lambda: t[0])
+    service = _service(
+        _raw(_BTC), history_fn=lambda s, **kw: _fixture("seven-day-flat.json")
+    )
+    service._scheduled_tick()                 # BTC history fetched + cached at t=0
+    assert "BTCUSDT" in service._funding_history_cache
+    pre = len(service.client.history_calls)
+    t[0] = 1499.0                             # < 1500 refresh threshold -> fresh
+    service._scheduled_tick()                 # cursor selects BTC but reuses cache
+    assert len(service.client.history_calls) == pre
+
+
+def test_history_1500_performs_real_public_call(monkeypatch):
+    # At 1500s the entry is refresh-due (1500 is not < 1500), so a cursor visit
+    # performs real public history I/O and refreshes the cache.
+    t = [0.0]
+    monkeypatch.setattr(snapshot_service.time, "monotonic", lambda: t[0])
+    service = _service(
+        _raw(_BTC), history_fn=lambda s, **kw: _fixture("seven-day-flat.json")
+    )
+    service._scheduled_tick()                 # BTC cached at t=0
+    pre = len(service.client.history_calls)
+    t[0] = 1500.0                             # == refresh threshold -> due
+    service._scheduled_tick()                 # real public history call
+    assert len(service.client.history_calls) == pre + 1
+    assert service._funding_history_cache["BTCUSDT"][0] == 1500.0
+
+
+def test_all_valid_history_publishes_old_entry_through_1799(monkeypatch):
+    # Publication expiry stays at the full 1800s. From 1500 (refresh-due) through
+    # 1799 the old successful entry is still published even when an early refresh
+    # is pending or has failed (failure is not cached, so it cannot overwrite).
+    t = [0.0]
+    monkeypatch.setattr(snapshot_service.time, "monotonic", lambda: t[0])
+    service = _service(_raw(_BTC))
+    good = [{"fundingTime": T_END, "fundingRate": "0.0001"}]
+    service._funding_history_cache["BTCUSDT"] = (0.0, good)
+    t[0] = 1500.0                             # refresh-due, but still publishable
+    assert service._all_valid_history() == {"BTCUSDT": good}
+    t[0] = 1799.0                             # still within the publication window
+    assert service._all_valid_history() == {"BTCUSDT": good}
+    t[0] = 1800.0                             # publication expiry -> dropped
+    assert service._all_valid_history() == {}
+
+
+def test_successful_early_refresh_keeps_history_present_after_1800(monkeypatch):
+    # A successful early refresh at 1500s re-stamps the cache, so when the
+    # original entry would have crossed 1800s the refreshed entry is still
+    # publishable (no normal-success empty window).
+    t = [0.0]
+    monkeypatch.setattr(snapshot_service.time, "monotonic", lambda: t[0])
+    service = _service(
+        _raw(_BTC), history_fn=lambda s, **kw: _fixture("seven-day-flat.json")
+    )
+    service._scheduled_tick()                 # BTC cached at t=0
+    t[0] = 1500.0                             # refresh-due -> successful early refresh
+    service._scheduled_tick()                 # cache re-stamped at t=1500
+    assert service._funding_history_cache["BTCUSDT"][0] == 1500.0
+    t[0] = 1801.0                             # original (t=0) entry would be expired...
+    assert "BTCUSDT" in service._all_valid_history()  # ...but refreshed entry survives
+
+
+def test_borrow_components_not_due_at_1500(monkeypatch):
+    # At 1500s history is refresh-due, but borrow-rate and max-borrowable keep
+    # their 1800s component TTL, so no extra private calls are issued.
+    t = [0.0]
+    monkeypatch.setattr(snapshot_service.time, "monotonic", lambda: t[0])
+    service = _seam_service(
+        _raw([("BTCUSDT", "BTC", "-0.00020000")]), classic_ref={},
+        next_hourly={"BTC": "0.001"},
+        max_borrowable={"BTC": {"max_borrowable": "1", "borrow_limit": "1",
+                                "error_code": None}},
+        history_fn=lambda s, **kw: [],
+    )
+    service._scheduled_tick()                 # t=0: BTC components + history cached
+    nh_pre = len(service._private.next_hourly_calls)
+    mb_pre = service._private.max_borrowable_calls.count("BTC")
+    hist_pre = len(service.client.history_calls)
+    t[0] = 1500.0                             # history refresh-due; components not (1800s)
+    service._scheduled_tick()
+    assert len(service.client.history_calls) == hist_pre + 1   # history IS due
+    assert len(service._private.next_hourly_calls) == nh_pre   # borrow-rate not due
+    assert service._private.max_borrowable_calls.count("BTC") == mb_pre  # max not due
+
+
 def test_scheduled_tick_publishes_merged_history_overlay():
     # Two eligible symbols above the boundary; one has cached history, the other
     # returns fresh entries from the sweep. The published rows carry BOTH.

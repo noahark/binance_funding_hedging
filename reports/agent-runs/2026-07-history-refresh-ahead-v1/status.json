@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-history-refresh-ahead-v1",
-  "status": "implementing",
+  "status": "testing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-history-refresh-ahead-v1",
@@ -51,9 +51,16 @@
     "model": "glm-5.2",
     "skill": "senior_developer",
     "session": null,
-    "state": "human_dispatched_waiting_result"
+    "state": "implementation_complete_bookkeeper_verified"
   },
-  "implementers": [],
+  "implementers": [
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2",
+      "role": "implementation_author"
+    }
+  ],
   "fix_authors": [],
   "reviewer_1": "kimi",
   "reviewer_2": "claude",
@@ -136,26 +143,33 @@
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/70-handoff.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/implementation-claude-glm.prompt.md",
-    "reports/agent-runs/2026-07-history-refresh-ahead-v1/status.json"
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/status.json",
+    "backend/services/snapshot_service.py",
+    "backend/tests/test_background_worker.py"
   ],
   "tests": {
-    "status": "intake_checks_passed_implementation_tests_pending",
+    "status": "passed",
     "commands": [
       "ACTIVE.json and status.json syntax / duplicate-key parse => PASS",
       "git diff --check => PASS",
-      "python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase checkpoint => PASS"
+      "python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase checkpoint => PASS",
+      "Claude-GLM: python3 -m pytest backend/tests/test_background_worker.py -q => 37 passed",
+      "Claude-GLM: python3 -m pytest backend/tests -q => 335 passed",
+      "Bookkeeper: python3 -m pytest backend/tests/test_background_worker.py -q => 37 passed in 1.81s",
+      "Bookkeeper: python3 -m pytest backend/tests -q => 335 passed in 13.65s",
+      "Bookkeeper: python3 -m py_compile backend/services/snapshot_service.py backend/tests/test_background_worker.py => PASS",
+      "Bookkeeper: git diff --check => PASS",
+      "Bookkeeper adversarial failed-early-refresh retention at 1500/1799 and expiry at 1800 => PASS"
     ]
   },
   "checkpoint": {
     "branch": "stage/2026-07-history-refresh-ahead-v1",
     "head_sha": "5ca9852296b3ba3259c5f36cc227802572ea347e",
-    "git_status": "clean; no GLM delivery-code or implementation-report changes present after the human reported dispatch",
-    "test_status": "not run because no implementation result is present",
+    "git_status": "exactly three allowed implementation files modified; implementation evidence commit pending",
+    "test_status": "focused 37 passed; full backend 335 passed; py_compile/diff-check/adversarial retention passed",
     "open_findings": [],
-    "blockers": [
-      "awaiting completion/result from the human-dispatched Claude-GLM implementation terminal"
-    ],
-    "next_action": "wait_for_glm_completion_then_verify_shared_worktree"
+    "blockers": [],
+    "next_action": "commit_implementation_evidence_compute_fingerprint_prepare_review_1"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -206,14 +220,12 @@
     "recorded_at": "2026-07-15T03:55:38Z",
     "note": "No credential value is stored in repository artifacts."
   },
-  "blockers": [
-    "awaiting completion/result from the human-dispatched Claude-GLM implementation terminal"
-  ],
+  "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "wait_for_glm_completion_then_verify_shared_worktree",
-  "updated_at": "2026-07-15T03:55:38Z"
+  "next_action": "commit_implementation_evidence_compute_fingerprint_prepare_review_1",
+  "updated_at": "2026-07-15T04:13:06Z"
 }
