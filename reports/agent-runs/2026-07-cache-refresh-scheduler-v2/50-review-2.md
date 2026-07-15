@@ -1,69 +1,47 @@
 # Review 2
 
-## Reviewer
+## Dispatch State
 
-- Model:
-- Skill:
-- Adapter:
-
-## Reviewed Artifacts
-
-- `docs/product/PRD.md`
-- user-approved direction synthesis, when present
-- workflow YAML
-- `00-task.md`
-- `10-design.md`
-- `11-adr.md`
-- `06-direction-synthesis.md` when present
-- git diff or patch
-- `20-implementation.md`
-- `40-fix-report.md`
-- `60-test-output.txt`
-- `30-review-1.md`
-- relevant source files
+- State: `prepared_waiting_human_execution`
+- Reviewer: Codex `gpt-5.5`
+- Provider identity: `openai`
+- Reviewer prior involvement: `design`
+- Prompt: `review-2-codex.prompt.md`
+- Override evidence: `review-2-unrelated-reviewer-unavailable.md`
+- Fallback reason:
+  `design_conflict_ineligibility_no_unrelated_registered_decision_model`
+- Stage base SHA: `8aac137a46d228f2d68b2036a15575eda0e235a3`
+- Reviewed head SHA: `60c91f7b32ab0f0a51f719a094915adfbec87c83`
+- Diff fingerprint:
+  `60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0`
+- Review-1: schema-valid `ACCEPT`, one non-blocking P3, no required fixes.
+- Formal review-2 verdict: pending; this dispatch metadata is not a verdict.
 
 ## Prior Involvement Disclosure
 
-- `reviewer_prior_involvement`: `none` / `direction_synthesis` / `breakdown` / `design`
-- If not `none`, disclose the prior work here and review the stage design and
-  breakdown as evidence under review. Use the user-approved synthesis, PRD, and
-  product documents as the higher authority.
-- If this is a strong-reviewer design-conflict override, cite the recorded
-  unrelated-reviewer unavailable evidence file and fallback reason.
-- If this reviewer/provider wrote any implementation or fix code for this stage,
-  stop: final review is not allowed.
+OpenAI authored the inherited stage design but did not implement or fix delivery
+code. The fresh final reviewer must review design and breakdown artifacts as
+evidence under review, while treating the approved synthesis, PRD, and product
+documents as higher authority. Provider isolation from the implementation
+author `zhipu_glm` is preserved.
+
+## Reviewed Artifacts
+
+The prompt requires the reviewer to inspect the product requirements,
+architecture, workflow, full stage design/evidence set, review-1 raw verdict,
+fixed git diff, tests, and all relevant source files directly.
 
 ## Findings
 
-List findings ordered by severity.
-
-## Fix Start Prompt
-
-Required when the verdict is `REWORK`; omit only for `ACCEPT` or non-fixable
-`BLOCKED`.
-
-Write a ready-to-send prompt for the fix implementer. It must include:
-
-- stage id and reviewed diff fingerprint
-- raw review file path and raw verdict JSON path
-- ordered findings with severity, file/line evidence, impact, and recommendation
-- required fixes from the verdict
-- allowed file boundaries for the fix
-- forbidden paths and side effects
-- exact test/lint/typecheck commands to run after the fix
-- required `40-fix-report.md` finding-to-fix mapping
-
-The strict JSON verdict below must repeat the same prompt in `fix_start_prompt`
-when `verdict` is `REWORK`.
+Pending human execution of `review-2-codex.prompt.md`.
 
 ## Operational Footer
 
-本地北京时间:
-下一步模型:
-下一步任务:
+本地北京时间: 2026-07-15 08:54:53 CST
+下一步模型: human → codex
+下一步任务: 执行 review-2-codex.prompt.md 并返回完整原始输出
 
 ## Strict JSON Verdict
 
-The final content in this file must be one JSON object matching
-`schemas/review-verdict.schema.json` and include
-`reviewer_prior_involvement`.
+Pending. The eventual raw output must end with one schema-valid JSON object and
+must disclose `reviewer_prior_involvement: "design"`.

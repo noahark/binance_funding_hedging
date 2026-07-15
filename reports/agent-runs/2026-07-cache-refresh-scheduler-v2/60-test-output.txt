@@ -167,3 +167,42 @@ diff_fingerprint=60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef7
 ```
 
 Result: `REVIEW_1_DISPATCH_READY`.
+
+## Kimi Formal Review-1 Evidence Validation
+
+The human returned the complete Kimi output on 2026-07-15. The bookkeeper
+mechanically preserved it in `30-review-1.md` and checked the final JSON object:
+
+```text
+review-1 strict JSON/schema: PASS
+role: first_reviewer
+model: kimi-code/kimi-for-coding
+verdict: ACCEPT
+reviewer_prior_involvement: none
+finding severities: [P3]
+required_fixes: []
+diff_fingerprint:
+60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+```
+
+Independent fingerprint recomputation produced the same value. The P3 points
+to `backend/services/snapshot_service.py:841`, where the inherited
+`_funding_history_cache` write uses the function-entry `now`. No P0/P1/P2 and no
+required fix were returned.
+
+## Review-2 Eligibility And Dispatch Preparation
+
+```text
+registered decision route: Codex primary, Claude fallback
+implementation/fix author identities: zhipu_glm / none
+Codex identity: openai; prior involvement: design; delivery-code authorship: none
+Claude identity: anthropic; prior involvement: breakdown; delivery-code authorship: none
+unrelated registered review-2 decision provider: none
+selected final reviewer: fresh read-only Codex gpt-5.5
+override evidence: review-2-unrelated-reviewer-unavailable.md
+checkpoint validator: PASS
+git diff --check: PASS
+```
+
+Result before the committed pre-review gate:
+`REVIEW_2_DISPATCH_PACKET_PREPARED`.

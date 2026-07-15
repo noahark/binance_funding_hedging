@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-cache-refresh-scheduler-v2",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-cache-refresh-scheduler-v2",
@@ -30,6 +30,10 @@
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/20-implementation.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/30-review-1.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/50-review-2.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-codex.prompt.md",
     "backend/config.py",
     "backend/adapters/binance_public.py",
     "backend/services/private_client.py",
@@ -67,7 +71,7 @@
     "model": "glm-5.2",
     "skill": "senior_developer",
     "session": null,
-    "state": "implementation_committed_waiting_review_1"
+    "state": "review_1_accepted_waiting_review_2"
   },
   "implementers": [
     {
@@ -78,8 +82,8 @@
     }
   ],
   "fix_authors": [],
-  "reviewer_1": null,
-  "reviewer_2": null,
+  "reviewer_1": "kimi",
+  "reviewer_2": "codex",
   "r10_checklists": {},
   "tasks": [
     {
@@ -95,9 +99,9 @@
         "reviewer": "kimi",
         "provider": "kimi",
         "model": "kimi-code/kimi-for-coding",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0"
       }
     }
   ],
@@ -111,6 +115,8 @@
       "The human starts a fresh Claude-GLM terminal from the committed prompt.",
       "Implementation attempt 1 returned with 325 passing tests but failed two bookkeeper adversarial checks before commit; the human runs implementation-claude-glm-rework-1.prompt.md for the bounded correction.",
       "Correction 1 closed both pre-commit P1 findings; the implementation evidence commit is 60c91f7b32ab0f0a51f719a094915adfbec87c83 and formal review-1 is prepared for a fresh read-only Kimi session.",
+      "Kimi review-1 returned a schema-valid ACCEPT bound to the authoritative stage fingerprint, with one inherited non-blocking P3 and no required fixes.",
+      "Review-2 is prepared for a fresh read-only Codex gpt-5.5 session using the documented design-involvement disclosure override.",
       "Auto-review pipeline artifacts and routing are not part of v2.",
       "Review-1 must use a fresh provider-isolated Kimi session."
     ]
@@ -181,6 +187,8 @@
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm-rework-1.prompt.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-codex.prompt.md",
     "backend/config.py",
     "backend/adapters/binance_public.py",
     "backend/services/private_client.py",
@@ -201,6 +209,7 @@
       "python3 -m pytest backend/tests/test_background_worker.py backend/tests/test_private_client.py -q => 68 passed in 1.52s",
       "python3 -m pytest backend/tests -q => 330 passed in 13.01s",
       "JSON duplicate-key and syntax validation => PASS",
+      "Kimi review-1 strict JSON/schema and authoritative diff_fingerprint validation => PASS (ACCEPT, P3 only)",
       "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase checkpoint => PASS",
       "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS"
     ]
@@ -208,45 +217,49 @@
   "checkpoint": {
     "branch": "stage/2026-07-cache-refresh-scheduler-v2",
     "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
-    "git_status": "implementation evidence committed at 60c91f7; only review-1 bookkeeping artifacts follow the fixed reviewed head",
+    "git_status": "implementation evidence fixed at 60c91f7; review-1 ACCEPT evidence and review-2 dispatch bookkeeping follow the fixed reviewed head",
     "test_status": "focused 68 passed, full backend 330 passed, py_compile and diff check passed; both pre-commit P1 findings closed",
-    "open_findings": [],
+    "open_findings": [
+      "P3: inherited funding_history_cache write uses fetch-entry time rather than completion time; review-1 judged non-blocking.",
+      "P3: Group A panel business cadence and fast transport TTL can diverge under environment overrides; defaults remain 60/60."
+    ],
     "blockers": [],
-    "next_action": "human_execute_fresh_read_only_kimi_review_1_prompt"
+    "next_action": "human_execute_fresh_read_only_codex_review_2_prompt"
   },
   "review_1": {
     "reviewer": "kimi",
     "provider": "kimi",
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0",
     "reviewer_prior_involvement": "none",
-    "fix_start_prompt_present": null,
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
-    "primary_provider": null,
-    "fallback_provider": null,
+    "reviewer": "codex",
+    "provider": "codex",
+    "provider_identity": "openai",
+    "model": "gpt-5.5",
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
     "routing_plan": {
       "primary_provider": "codex",
       "fallback_provider": "claude",
-      "selection_deferred_until_after_review_1": true
+      "selection_deferred_until_after_review_1": false
     },
-    "fallback_reason": null,
-    "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": "OpenAI authored the inherited design; Anthropic authored the inherited breakdown. Final routing must evaluate prior involvement after review-1.",
-    "unrelated_reviewer_unavailable_evidence": null,
+    "fallback_reason": "design_conflict_ineligibility_no_unrelated_registered_decision_model",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "OpenAI authored the inherited design but no OpenAI session implemented or fixed delivery code. The fresh read-only Codex reviewer must treat design/breakdown as evidence under review. Eligibility evidence: reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
     "design_conflict_override": {
-      "used": false,
-      "reason": null,
-      "unrelated_reviewer_unavailable_evidence": null
+      "used": true,
+      "reason": "The registered Codex and Claude decision providers both have prior design-stage involvement; no unrelated registered review-2 decision provider is enabled. Codex is provider-isolated from all delivery-code authors and uses the disclosure override.",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md"
     },
     "open_p0_p1": null,
     "verdict": null,
@@ -259,7 +272,8 @@
   "rework_count": 0,
   "max_rework": 3,
   "residual_risks": [
-    "P3: Group A panel business due uses cache_ttl_seconds while private transport uses private_channel_fast_ttl_seconds; defaults are 60/60 and this stage does not change the configurable divergence contract."
+    "P3: Group A panel business due uses cache_ttl_seconds while private transport uses private_channel_fast_ttl_seconds; defaults are 60/60 and this stage does not change the configurable divergence contract.",
+    "P3: inherited _fetch_history_for writes funding_history_cache with the function-entry monotonic time rather than fetch completion time; review-1 found no separate transport-cache masquerade risk and did not require a fix."
   ],
   "blockers": [],
   "human_escalation": {
@@ -267,6 +281,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_fresh_read_only_kimi_review_1_prompt",
-  "updated_at": "2026-07-15T00:07:32Z"
+  "next_action": "human_execute_fresh_read_only_codex_review_2_prompt",
+  "updated_at": "2026-07-15T00:54:53Z"
 }

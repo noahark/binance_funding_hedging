@@ -2,88 +2,79 @@
 
 ## Recovery Header
 
-- Active phase: `review_1_dispatch_ready`
-- Next action: human executes `review-1-kimi.prompt.md` in a fresh Kimi session
+- Active phase: `review_2_dispatch_ready`
+- Next action: human executes `review-2-codex.prompt.md` in a fresh read-only
+  Codex session
 - Read-set: = `status.current_inputs`
 - Open blockers: none
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired runner
-  Sessions, prior Kimi/GLM/Grok transcript state
+  sessions, prior Kimi/GLM/Grok transcript state
 
 ## Current State
 
 - Stage: `2026-07-cache-refresh-scheduler-v2`
-- Status: `review_1`
+- Status: `review_2`
 - Branch: `stage/2026-07-cache-refresh-scheduler-v2`
 - Stage base: `8aac137a46d228f2d68b2036a15575eda0e235a3`
 - Reviewed implementation/evidence head:
   `60c91f7b32ab0f0a51f719a094915adfbec87c83`
 - Stage fingerprint:
   `60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0`
-- Implementation task base:
-  `4c9d43800bd0d6d908892afa46c8b08e00b88877`
-- Implementation task fingerprint:
-  `60c91f7b32ab0f0a51f719a094915adfbec87c83:2e618f1c0c978ff65d429b5efcfa025496a69e1674cd4694fb152a6bd6a53942`
-- Implementer: `claude_glm` / `glm-5.2`, provider identity `zhipu_glm`
-- Planned reviewer: fresh Kimi `kimi-code/kimi-for-coding`, provider identity
-  `moonshot_kimi`, prior involvement `none`
-- Grok Session `019f6180-7b6c-7351-abfc-b4cf11576fd5` was informal only and
-  is not review evidence or a gate verdict
+- Implementer: `claude_glm` / `glm-5.2`, provider `zhipu_glm`
+- Review-1: Kimi `ACCEPT`; strict JSON/schema and fingerprint validated; one
+  non-blocking P3; no required fixes
+- Review-2: fresh read-only Codex `gpt-5.5`, provider `openai`, prior
+  involvement `design`
 - Dispatch mode: manual human execution; no runner or auto-review pipeline
-- Pre-review attempt 1 exposed a review-2 placeholder-routing conflict only;
-  direct review-2 selection fields are now null until that phase begins, while
-  the Codex→Claude plan remains recorded under `review_2.routing_plan`
-- Clean-worktree `validate-stage --phase pre-review`: PASS at commit `47f38a9`;
-  preserved verbatim in `60-test-output.txt`
 
-## Implementation Evidence
+## Review-1 Evidence
 
-Implementation evidence commit:
+Raw output: `30-review-1.md`.
+
+Kimi independently reported:
 
 ```text
-60c91f7 stage: implement three-cadence cache scheduler
+verdict: ACCEPT
+open P0/P1/P2: 0
+P3: funding_history_cache uses fetch-entry time at snapshot_service.py:841
+required_fixes: []
+fingerprint: exact match
 ```
 
-Bookkeeper verification before commit:
+The inherited history-cache timestamp issue does not have a second transport
+cache that can masquerade as a completed refresh, so Kimi treated it as cleanup
+only. The existing Group A business/transport TTL configurability divergence is
+also carried as P3. Review-2 must judge both independently.
 
-```text
-focused worker/private tests: 68 passed in 1.52s
-full backend suite: 330 passed in 13.01s
-py_compile: PASS
-git diff --check: PASS
-Correction 1 four-file boundary: PASS
-```
+## Review-2 Identity And Override
 
-The two pre-commit P1 findings are closed:
+Codex/OpenAI authored the inherited stage design but wrote no delivery or fix
+code. Claude/Anthropic authored the inherited development breakdown. There is
+no unrelated registered review-2 decision provider enabled for this stage, so
+the documented strong-reviewer disclosure override is used with Codex primary.
 
-- `CC-3 / INV-4`: coverage ledger now prunes on universe exit and re-entry
-  starts unattempted.
-- `FR-2 / INV-5`: successful business-cache writes use fetch completion time;
-  the non-zero-skew test proves 1799 reuse and real signed GET at 1800.
+Evidence:
+`review-2-unrelated-reviewer-unavailable.md`.
 
-Non-blocking residual for reviewer judgment: Group A panel business due uses
-`cache_ttl_seconds`, while private fast transport uses
-`private_channel_fast_ttl_seconds`; defaults are 60/60 and Correction 1 did not
-change the configuration contract.
+The prompt treats the approved synthesis, PRD, and product/architecture
+documents as higher authority. Design and breakdown are evidence under review.
+Provider isolation from the implementation author `zhipu_glm` is preserved.
 
-## Review-1 Dispatch
+## Review-2 Dispatch
 
-Prompt: `review-1-kimi.prompt.md`.
+Prompt: `review-2-codex.prompt.md`.
 
-The reviewer must inspect the fixed committed range, not moving `HEAD`, remain
-read-only, and end with a strict JSON object matching
-`schemas/review-verdict.schema.json`. A `REWORK` verdict must contain a complete
-`fix_start_prompt`.
-
-Human command:
+Human command after the recorded clean-worktree pre-review gate passes:
 
 ```bash
-cd "/Users/ark/Desktop/ai code/funding_hedging" && kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-1-kimi.prompt.md)"
+cd "/Users/ark/Desktop/ai code/funding_hedging" && codex exec -C "/Users/ark/Desktop/ai code/funding_hedging" -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-codex.prompt.md
 ```
 
-Do not combine `--plan` or `-y` with `-p`; the installed Kimi CLI rejects those
-combinations. Return the complete raw output to the bookkeeper for schema
-validation and recording in `30-review-1.md`.
+Return the complete raw output. A schema-valid Codex verdict is the final
+review-2 decision; do not seek a Claude second opinion. `ACCEPT` may only move
+the stage to `stage_accepted_waiting_user`; it does not authorize merging to
+`main`.
 
-本地北京时间: 2026-07-15 08:07:32 CST
-下一步模型: human → kimi
-下一步任务: 在全新 Kimi 会话执行固定提交范围的正式只读 review-1
+本地北京时间: 2026-07-15 08:54:53 CST
+下一步模型: human → codex
+下一步任务: 在全新只读 Codex 会话执行固定提交范围的正式 review-2
