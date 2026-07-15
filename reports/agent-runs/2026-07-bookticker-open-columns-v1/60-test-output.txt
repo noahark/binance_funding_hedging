@@ -717,3 +717,20 @@ Explicit fast-route acceptance and merge authorization:
   - fast-forward is available without rebase or conflict resolution.
 - Next: commit acceptance evidence, fast-forward `main`, write final merge
   metadata and push `origin/main`.
+
+---
+
+Fast-forward merge and post-merge verification: 2026-07-16 03:43:45 CST
+
+- Checked out local `main` at remote-aligned base
+  `fea9fdc3ecce7675b34b01fe0a4b9de08811f939`.
+- Command:
+  `git merge --ff-only stage/2026-07-bookticker-open-columns-v1`.
+- Result: PASS; `main` fast-forwarded to acceptance commit
+  `9abad62f0db90d8c588868728b0d6a25942d0871` without conflicts or rebase.
+- Post-merge frontend:
+  `node frontend/self-check.js | rg -c '^\[PASS\]'` → `80`.
+- Post-merge backend:
+  `python3 -m pytest backend/tests -q` → `375 passed in 16.40s`.
+- Product code is unchanged by final metadata; next action is commit merge
+  metadata and push `origin/main` under the user's explicit authorization.

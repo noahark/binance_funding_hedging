@@ -7,7 +7,7 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `accepted`
-- Next action: Bookkeeper commits the user's explicit fast-route acceptance, fast-forwards `main`, records merge metadata and pushes `origin/main`.
+- Next action: Bookkeeper commits final merge metadata on `main` and pushes `origin/main`.
 - Read-set: = `status.current_inputs`
 - Open blockers: None. User explicitly waived an additional Task C review-1 and authorized direct merge/push after schema-valid full-fingerprint review-2 ACCEPT.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
@@ -15,8 +15,11 @@ not read `history/` at startup.
 ## Current State
 
 - Stage: `2026-07-bookticker-open-columns-v1`
-- Status: `accepted` (explicit user fast-route acceptance and merge/push authorization recorded; merge pending)
+- Status: `accepted` (fast-forwarded to `main`; post-merge tests passed; push pending)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
+- Current branch: `main`
+- Fast-forward merge SHA: `9abad62f0db90d8c588868728b0d6a25942d0871`
+- Post-merge checks: frontend 80 PASS; backend 375 passed in 16.40s.
 - Reviewed product/evidence head: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
 - Full-stage fingerprint: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377`
 - Dispatch checkpoint HEAD: `ca829fc69c65a32dea241e735db979d057415b81`; pre-review passed and its evidence is pending the final local Harness commit
@@ -241,14 +244,14 @@ not read `history/` at startup.
 
 ## Next Action
 
-Review-2 ACCEPT is committed. The user explicitly accepted the fast frontend
-stage, declined additional review and authorized direct push. The bookkeeper
-will preserve the failed validator evidence, leave the old review-1 receipt
-untouched, fast-forward `main`, record merge metadata and push.
+Review-2 ACCEPT and the user's fast-route override are committed. `main` was
+fast-forwarded without conflict and post-merge frontend/backend checks passed.
+The bookkeeper commits this final metadata, clears the ACTIVE stage pointer and
+pushes `origin/main`.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-16 03:42:10 CST
+本地北京时间: 2026-07-16 03:43:45 CST
 下一步模型: codex_bookkeeper
-下一步任务: 提交 fast-route 验收记录，快进 main、记录 merge metadata 并推送 origin/main
+下一步任务: 提交最终 merge metadata 并推送 origin/main

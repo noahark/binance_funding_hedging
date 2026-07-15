@@ -46,9 +46,9 @@
     "name": "stage/2026-07-bookticker-open-columns-v1",
     "created_from_main_sha": "fea9fdc3ecce7675b34b01fe0a4b9de08811f939",
     "created_at": "2026-07-15T07:47:50Z",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": "fast-forward-only",
+    "merged_back_to_main": true,
+    "merged_back_sha": "9abad62f0db90d8c588868728b0d6a25942d0871",
+    "merge_strategy": "fast_forward",
     "abandoned_reason": null
   },
   "bookkeeper": {
@@ -723,12 +723,22 @@
     "evidence_integrity": "Old review-1 fingerprint remains unchanged and truthful; full post-Task-C fingerprint was accepted by schema-valid review-2."
   },
   "user_acceptance": {
-    "status": "accepted_and_merge_push_authorized",
+    "status": "accepted_merged_push_pending",
     "accepted_at": "2026-07-15T19:42:10Z",
     "instruction": "不需要再 review，刚才说的就是这是一次 fast 前端修改。直接推送提交吧",
     "scope": "Accept schema-valid review-2 result, waive an additional Task C review-1 for this fast frontend amendment, fast-forward merge stage branch to main and push main.",
     "review_1_receipt_rewritten": false
   },
-  "next_action": "Bookkeeper commits this explicit fast-route acceptance record, fast-forwards main to the stage branch, records merge metadata, reruns safe final checks and pushes origin/main.",
-  "updated_at": "2026-07-15T19:42:10Z"
+  "merge_result": {
+    "source_branch": "stage/2026-07-bookticker-open-columns-v1",
+    "target_branch": "main",
+    "strategy": "fast_forward",
+    "fast_forward_sha": "9abad62f0db90d8c588868728b0d6a25942d0871",
+    "merged_at": "2026-07-15T19:43:45Z",
+    "post_merge_frontend": "80 PASS",
+    "post_merge_backend": "375 passed in 16.40s",
+    "push_status": "pending"
+  },
+  "next_action": "Bookkeeper commits final merge metadata on main and pushes main to origin. No further review is requested.",
+  "updated_at": "2026-07-15T19:43:45Z"
 }
