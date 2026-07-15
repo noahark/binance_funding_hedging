@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-history-refresh-ahead-v1",
-  "status": "testing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-history-refresh-ahead-v1",
@@ -25,6 +25,7 @@
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/10-design.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/11-adr.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/review-1-kimi.prompt.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/20-implementation.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/60-test-output.txt",
     "backend/services/snapshot_service.py",
@@ -72,8 +73,8 @@
       "reviewer": "kimi",
       "r10_checklist": null,
       "base_sha": "12b8e1c1ea5d86bf692bbba2183de08ee9429af4",
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "head_sha": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601",
+      "diff_fingerprint": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601:a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3",
       "test_evidence": "reports/agent-runs/2026-07-history-refresh-ahead-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "kimi",
@@ -128,8 +129,8 @@
     "threshold_reentry_deferred": true
   },
   "base_sha": "12b8e1c1ea5d86bf692bbba2183de08ee9429af4",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601",
+  "diff_fingerprint": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601:a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3",
   "changed_files": [
     "reports/agent-runs/ACTIVE.json",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/00-intake.md",
@@ -143,6 +144,7 @@
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/70-handoff.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/review-1-kimi.prompt.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/status.json",
     "backend/services/snapshot_service.py",
     "backend/tests/test_background_worker.py"
@@ -164,12 +166,12 @@
   },
   "checkpoint": {
     "branch": "stage/2026-07-history-refresh-ahead-v1",
-    "head_sha": "5ca9852296b3ba3259c5f36cc227802572ea347e",
-    "git_status": "exactly three allowed implementation files modified; implementation evidence commit pending",
+    "head_sha": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601",
+    "git_status": "implementation evidence committed; review-1 binding artifacts pending commit",
     "test_status": "focused 37 passed; full backend 335 passed; py_compile/diff-check/adversarial retention passed",
     "open_findings": [],
     "blockers": [],
-    "next_action": "commit_implementation_evidence_compute_fingerprint_prepare_review_1"
+    "next_action": "commit_review_1_binding_run_pre_review_then_human_execute_kimi_prompt"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -220,12 +222,12 @@
     "recorded_at": "2026-07-15T03:55:38Z",
     "note": "No credential value is stored in repository artifacts."
   },
-  "blockers": [],
+  "blockers": ["human must execute the prepared fresh Kimi review-1 dispatch"],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "commit_implementation_evidence_compute_fingerprint_prepare_review_1",
-  "updated_at": "2026-07-15T04:13:06Z"
+  "next_action": "commit_review_1_binding_run_pre_review_then_human_execute_kimi_prompt",
+  "updated_at": "2026-07-15T04:14:25Z"
 }

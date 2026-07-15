@@ -2,11 +2,11 @@
 
 ## Recovery Header
 
-- Active phase: `testing` (implementation and independent verification passed)
-- Next action: commit implementation evidence, compute the standard fingerprint,
-  and prepare Kimi review-1 dispatch
+- Active phase: `review_1` (binding prepared)
+- Next action: commit review-1 binding, run the clean-worktree pre-review gate,
+  then human executes `review-1-kimi.prompt.md` in a fresh Kimi session
 - Read-set: = `status.current_inputs`
-- Open blockers: none
+- Open blockers: human review-1 dispatch required by Harness
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
   sessions, prior v2 implementation/review transcripts
 
@@ -46,6 +46,12 @@ The shared worktree now contains exactly the three frozen files. Bookkeeper
 verification passed: focused 37 tests, full backend 335 tests, py_compile,
 diff-check, and an extra failed-early-refresh retention check at 1500/1799/1800.
 
-本地北京时间: 2026-07-15 12:13:06 CST
+Reviewed implementation head:
+`2cb72fd870b1ef29cc4787e7dff102ab56bf8601`
+
+Authoritative fingerprint:
+`2cb72fd870b1ef29cc4787e7dff102ab56bf8601:a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3`
+
+本地北京时间: 2026-07-15 12:14:25 CST
 下一步模型: codex_bookkeeper
-下一步任务: 创建 implementation evidence commit 并准备 Kimi review-1
+下一步任务: 提交 review-1 binding 并运行 pre-review validator

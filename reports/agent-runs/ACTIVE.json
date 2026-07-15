@@ -1,11 +1,11 @@
 {
   "active": {
     "stage_id": "2026-07-history-refresh-ahead-v1",
-    "phase": "testing",
+    "phase": "review_1",
     "handoff": "reports/agent-runs/2026-07-history-refresh-ahead-v1/70-handoff.md",
-    "updated_at": "2026-07-15T04:13:06Z"
+    "updated_at": "2026-07-15T04:14:25Z"
   },
   "last_completed": "2026-07-cache-refresh-scheduler-v2",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-15T04:13:06Z"
+  "updated_at": "2026-07-15T04:14:25Z"
 }
