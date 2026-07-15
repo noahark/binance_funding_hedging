@@ -2,9 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: `review_2` (review-1 ACCEPT recorded)
-- Next action: prepare and run the clean-worktree review-2 gate, then human
-  executes the fresh Claude final-review prompt
+- Active phase: `review_2` (binding prepared)
+- Next action: commit `review-2-claude.prompt.md`, run the clean-worktree
+  pre-review gate, then human executes it in a fresh Claude plan session
 - Read-set: = `status.current_inputs`
 - Open blockers: human final-review dispatch required by Harness
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
@@ -60,6 +60,10 @@ The bookkeeper exported Kimi Session
 preserved the raw final response in `30-review-1.md`, and validated the strict
 JSON. Verdict: `ACCEPT`; findings: zero; fingerprint: exact match.
 
-本地北京时间: 2026-07-15 12:23:43 CST
+Final reviewer routing: fresh Anthropic Claude Fable5, prior involvement `none`.
+Codex is skipped as the stage designer under the documented
+`anti_self_review_ineligible` fallback.
+
+本地北京时间: 2026-07-15 12:26:02 CST
 下一步模型: codex_bookkeeper
-下一步任务: 准备 Claude review-2 prompt 并运行 pre-review validator
+下一步任务: 提交 Claude review-2 binding 并运行 pre-review validator

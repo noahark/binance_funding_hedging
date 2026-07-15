@@ -26,6 +26,7 @@
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/11-adr.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/implementation-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/review-1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/review-2-claude.prompt.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/20-implementation.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/60-test-output.txt",
     "backend/services/snapshot_service.py",
@@ -145,6 +146,7 @@
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/70-handoff.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/implementation-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/review-1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/review-2-claude.prompt.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/status.json",
     "backend/services/snapshot_service.py",
     "backend/tests/test_background_worker.py"
@@ -169,11 +171,11 @@
   "checkpoint": {
     "branch": "stage/2026-07-history-refresh-ahead-v1",
     "head_sha": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601",
-    "git_status": "review-1 binding committed at 6b12335; clean-worktree pre-review gate passed",
+    "git_status": "review-1 ACCEPT committed at 1ff263d; review-2 binding pending commit",
     "test_status": "focused 37 passed; full backend 335 passed; py_compile/diff-check/adversarial retention passed",
     "open_findings": [],
     "blockers": [],
-    "next_action": "human_execute_fresh_kimi_review_1_prompt"
+    "next_action": "commit_review_2_binding_run_pre_review_then_human_execute_claude_prompt"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -198,6 +200,14 @@
     "provider": "claude",
     "provider_identity": "anthropic",
     "model": "claude-fable-5",
+    "routing_plan": {
+      "configured_primary_provider": "codex",
+      "configured_fallback_provider": "claude",
+      "selected_provider": "claude",
+      "selected_model": "claude-fable-5",
+      "selection_reason": "anti_self_review_ineligible_codex_is_stage_designer",
+      "reviewer_has_prior_stage_involvement": false
+    },
     "primary_provider": "codex",
     "fallback_provider": "claude",
     "fallback_reason": "anti_self_review_ineligible_codex_is_stage_designer",
@@ -234,6 +244,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "prepare_and_execute_claude_review_2",
-  "updated_at": "2026-07-15T04:23:43Z"
+  "next_action": "commit_review_2_binding_run_pre_review_then_human_execute_claude_prompt",
+  "updated_at": "2026-07-15T04:26:02Z"
 }
