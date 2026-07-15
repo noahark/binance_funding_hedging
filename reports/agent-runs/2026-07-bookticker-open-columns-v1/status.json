@@ -414,7 +414,9 @@
     "reviewer": null,
     "provider": null,
     "model": null,
-    "primary_provider": "codex",
+    "primary_provider": null,
+    "selection_status": "not_selected_review_1_in_progress",
+    "preferred_primary_provider": "codex",
     "fallback_provider": "claude",
     "fallback_reason": null,
     "reviewer_prior_involvement": "none",
@@ -471,6 +473,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/15-session-id-capture-evidence.md"
     }
   ],
-  "next_action": "Human executes both prepared formal review-1 packets in fresh isolated sessions: Task A with Kimi and Task B with Claude-GLM. Capture each raw response at its declared 30-review-1-task-*.md path, then return both Session IDs to Codex bookkeeper.",
-  "updated_at": "2026-07-15T13:26:50Z"
+  "next_action": "Bookkeeper reruns and preserves the review-1 pre-review validator after recording review-2 as not yet selected; after PASS, human executes both prepared formal review-1 packets in fresh isolated sessions.",
+  "updated_at": "2026-07-15T13:30:35Z"
 }

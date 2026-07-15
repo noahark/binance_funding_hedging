@@ -383,3 +383,28 @@ Formal review-1 routing prepared:
   `review-1-task-b-claude-glm.prompt.md`
 - Provider/session isolation is mandatory; the implementation Session IDs are
   explicitly forbidden in the respective prompts.
+
+---
+
+Review-1 pre-review validator first attempt: 2026-07-15 21:29:00 CST
+
+Commands:
+
+- `python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review`
+- `python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review --task task-a-backend-contract-cache`
+- `python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review --task task-b-frontend-table-integration`
+
+Result: FAIL before reviewer dispatch; all three runs reported the same
+review-2 design-overlap override requirements.
+
+Disposition:
+
+- This is not a product/test failure and no reviewer has been dispatched.
+- `review_2.primary_provider: codex` was a future routing preference, but the
+  validator interpreted it as a selected final reviewer during review-1.
+- Review-2 is truthfully unselected. The current `reviewer`, `provider`,
+  `model`, and `primary_provider` fields are null; Codex/Claude remain only as
+  future preference metadata and in the authoritative workflow routing.
+- No unrelated-reviewer unavailability evidence exists, so none was created.
+- Product commits, reviewed ranges, fingerprints and test results are
+  unchanged. The validator will be rerun from a clean committed state.
