@@ -2,9 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: `review_2` (binding prepared)
-- Next action: commit `review-2-claude.prompt.md`, run the clean-worktree
-  pre-review gate, then human executes it in a fresh Claude plan session
+- Active phase: `review_2` (dispatch ready)
+- Next action: human executes `review-2-claude.prompt.md` in a fresh Claude plan
+  session and returns the Session ID or complete output
 - Read-set: = `status.current_inputs`
 - Open blockers: human final-review dispatch required by Harness
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
@@ -64,6 +64,9 @@ Final reviewer routing: fresh Anthropic Claude Fable5, prior involvement `none`.
 Codex is skipped as the stage designer under the documented
 `anti_self_review_ineligible` fallback.
 
-本地北京时间: 2026-07-15 12:26:02 CST
-下一步模型: codex_bookkeeper
-下一步任务: 提交 Claude review-2 binding 并运行 pre-review validator
+Clean-worktree review-2 `pre-review` validator and independent fingerprint
+recomputation: PASS after binding commit `3f7626d`.
+
+本地北京时间: 2026-07-15 12:28:48 CST
+下一步模型: human
+下一步任务: 在 fresh Claude plan session 执行 review-2-claude.prompt.md

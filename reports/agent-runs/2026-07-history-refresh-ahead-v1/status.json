@@ -165,17 +165,20 @@
       "Bookkeeper: git diff --check => PASS",
       "Bookkeeper adversarial failed-early-refresh retention at 1500/1799 and expiry at 1800 => PASS",
       "python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase pre-review => PASS (review-1, clean after 6b12335)",
-      "Independent authoritative fingerprint recomputation => PASS"
+      "Independent authoritative fingerprint recomputation => PASS",
+      "Kimi review-1 local session export and strict JSON/schema validation => PASS (ACCEPT, zero findings)",
+      "python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase pre-review => PASS (review-2, clean after 3f7626d)",
+      "Review-2 independent authoritative fingerprint recomputation => PASS"
     ]
   },
   "checkpoint": {
     "branch": "stage/2026-07-history-refresh-ahead-v1",
     "head_sha": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601",
-    "git_status": "review-1 ACCEPT committed at 1ff263d; review-2 binding pending commit",
+    "git_status": "review-2 binding committed at 3f7626d; clean-worktree pre-review gate passed",
     "test_status": "focused 37 passed; full backend 335 passed; py_compile/diff-check/adversarial retention passed",
     "open_findings": [],
     "blockers": [],
-    "next_action": "commit_review_2_binding_run_pre_review_then_human_execute_claude_prompt"
+    "next_action": "human_execute_fresh_claude_review_2_prompt"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -244,6 +247,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "commit_review_2_binding_run_pre_review_then_human_execute_claude_prompt",
-  "updated_at": "2026-07-15T04:26:02Z"
+  "next_action": "human_execute_fresh_claude_review_2_prompt",
+  "updated_at": "2026-07-15T04:28:48Z"
 }

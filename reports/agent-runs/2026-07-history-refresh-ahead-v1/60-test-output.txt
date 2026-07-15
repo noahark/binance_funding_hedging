@@ -140,3 +140,20 @@ findings=0
 diff_fingerprint=exact authoritative match
 reviewer_prior_involvement=none
 ```
+
+## Review-2 Preflight
+
+Run from a clean worktree after Claude binding commit `3f7626d`:
+
+```text
+python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-history-refresh-ahead-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=2cb72fd870b1ef29cc4787e7dff102ab56bf8601:a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3
+
+independent fingerprint hash recomputation:
+a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3
+git status --short: clean
+```
