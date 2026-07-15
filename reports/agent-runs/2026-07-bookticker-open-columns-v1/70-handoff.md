@@ -7,15 +7,15 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `review_2`
-- Next action: Human executes exactly `review-2-codex-after-task-c.prompt.md` once through the schema-bound read-only Codex `gpt-5.5` adapter in a fresh Session, then returns its Session ID and raw verdict.
+- Next action: Bookkeeper commits the captured schema-valid review-2 ACCEPT verdict, runs the required pre-accept validator and enters `stage_accepted_waiting_user` only if all hard gates pass.
 - Read-set: = `status.current_inputs`
-- Open blockers: Implementation, tests and user display acceptance are complete; the single fresh Codex final-review verdict is pending.
+- Open blockers: Review-2 ACCEPT is captured with no P0/P1/P2; pre-accept hard-gate validation remains before terminal transition.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-bookticker-open-columns-v1`
-- Status: `review_2` (Task A/B baseline accepted; Task C committed, independently verified and visually accepted; one fresh Codex final review pending)
+- Status: `review_2` (fresh Codex final review ACCEPT captured; pre-accept validation pending)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Reviewed product/evidence head: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
 - Full-stage fingerprint: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377`
@@ -23,6 +23,10 @@ not read `history/` at startup.
 - Task C evidence commit: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
 - Executable review packet: `review-2-codex-after-task-c.prompt.md`; the older
   `review-2-codex.prompt.md` is superseded and forbidden.
+- Final reviewer: Codex `gpt-5.5`, canonical Session
+  `019f6737-9397-7e00-991a-60a8679439c1`; verdict `ACCEPT`; 0 P0/P1/P2, 2 P3.
+- Raw verdict: `50-review-2.md`; JSON schema and fixed fingerprint independently
+  validated by the bookkeeper.
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
@@ -233,15 +237,14 @@ not read `history/` at startup.
 
 ## Next Action
 
-The human executes exactly `review-2-codex-after-task-c.prompt.md` once in one
-new Codex `gpt-5.5` read-only Session and returns its Session ID plus raw
-schema-bound verdict. The current bookkeeper Session is forbidden as reviewer.
-The older pre-Task-C Codex packet and the never-prepared Opus route remain
-superseded.
+The bookkeeper commits the transcript-captured `50-review-2.md`, then runs the
+required clean-state `pre-accept` validator. An ACCEPT transition may stop only
+at `stage_accepted_waiting_user`; merge and push remain forbidden until a later
+explicit user acceptance.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-16 03:15:17 CST
-下一步模型: codex / gpt-5.5（由人工启动 fresh read-only Session）
-下一步任务: 执行唯一的 post-Task-C schema-bound final review，返回 Session ID 与 raw verdict
+本地北京时间: 2026-07-16 03:35:40 CST
+下一步模型: codex_bookkeeper
+下一步任务: 提交 ACCEPT 原始证据并运行 pre-accept hard gate；通过后等待用户明确合并授权

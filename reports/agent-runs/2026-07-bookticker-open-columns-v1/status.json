@@ -27,6 +27,7 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-preflight.txt",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex-after-task-c.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-after-task-c-preflight.txt",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/50-review-2.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi.prompt.md",
@@ -157,6 +158,16 @@
       "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-c.md",
       "recorded_at": "2026-07-15T18:57:36Z"
+    },
+    {
+      "role": "review_2",
+      "provider": "codex",
+      "model": "gpt-5.5",
+      "session_id": "019f6737-9397-7e00-991a-60a8679439c1",
+      "session_id_source": "transcript_path",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/50-review-2.md",
+      "recorded_at": "2026-07-15T19:35:40Z"
     }
   ],
   "designer": {
@@ -217,7 +228,15 @@
     "task_a_session_id": "session_675fb858-c888-48d4-8d94-567f70fc91ae",
     "task_b_session_id": "04b6147e-96ae-46c8-a147-2201aa4c590a"
   },
-  "reviewer_2": null,
+  "reviewer_2": {
+    "id": "codex_final_reviewer",
+    "provider": "codex",
+    "runtime_provider_identity": "openai",
+    "model": "gpt-5.5",
+    "session_id": "019f6737-9397-7e00-991a-60a8679439c1",
+    "verdict": "ACCEPT",
+    "reviewer_prior_involvement": "design"
+  },
   "model_routing": {
     "backend_owner": "claude_glm",
     "frontend_owner": "kimi",
@@ -335,7 +354,7 @@
         "model": "kimi-code/kimi-for-coding"
       },
       "reviewer": "codex_final_review_only",
-      "status": "committed_waiting_final_review",
+      "status": "final_review_accepted",
       "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi.prompt.md",
       "addendum_prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi-format-addendum.prompt.md",
       "implementation_report": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-c.md",
@@ -424,6 +443,7 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-preflight.txt",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex-after-task-c.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-after-task-c-preflight.txt",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/50-review-2.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi.prompt.md",
@@ -453,7 +473,7 @@
     "reports/agent-runs/ACTIVE.json"
   ],
   "tests": {
-    "status": "passed_task_c_final",
+    "status": "passed",
     "scope": "task_b_precommit_independent_frontend_full_backend_and_mechanical_checks",
     "commands": [
       "python3 -m json.tool reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json",
@@ -533,32 +553,38 @@
     }
   },
   "review_2": {
-    "reviewer": "fresh_codex_pending_human_execution",
+    "reviewer": "codex_final_reviewer",
     "provider": "codex",
     "model": "gpt-5.5",
     "primary_provider": "codex",
-    "selection_status": "preflight_passed_waiting_human_execution",
+    "selection_status": "completed_accept",
     "preferred_primary_provider": "codex",
     "fallback_provider": "claude",
     "fallback_reason": "design_conflict_ineligibility_no_unrelated_decision_provider",
     "reviewer_prior_involvement": "design",
-    "reviewer_prior_involvement_notes": "Codex provider designed and reconciled stage scope but did not implement or fix delivery code. The reviewer must use a fresh Session and review design artifacts as evidence under canonical product/user authority.",
+    "reviewer_prior_involvement_notes": "Fresh reviewer Session 019f6737-9397-7e00-991a-60a8679439c1 differs from the forbidden bookkeeper Session. Codex designed/reconciled scope but did not implement or fix delivery code; review-2 disclosed and applied the registered strong-reviewer override.",
     "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
     "design_conflict_override": {
       "used": true,
       "reason": "No registered review-2 provider is free of design involvement: Codex performed design; Anthropic Claude authored the breakdown. User selected one fresh Codex final review after Task C and visual acceptance.",
       "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md"
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
+    "open_p0_p1": 0,
+    "open_p0_p1_p2": 0,
+    "p3_findings": 2,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
     "diff_fingerprint": "a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377",
-    "fix_start_prompt_present": null,
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0
+    "invalid_json_attempts": 0,
+    "session_id": "019f6737-9397-7e00-991a-60a8679439c1",
+    "session_id_source": "transcript_path",
+    "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/50-review-2.md",
+    "completed_at": "2026-07-15T19:32:22Z"
   },
   "review_2_dispatch": {
-    "status": "preflight_passed_waiting_human_execution",
+    "status": "completed_accept",
     "reviewer": "codex",
     "provider_identity": "codex",
     "model": "gpt-5.5",
@@ -572,6 +598,10 @@
     "prepared_at": "2026-07-15T19:11:55Z",
     "reviewed_head_sha": "a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c",
     "diff_fingerprint": "a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377",
+    "session_id": "019f6737-9397-7e00-991a-60a8679439c1",
+    "session_id_source": "transcript_path",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
     "previous_unexecuted_dispatch": {
       "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
       "superseded_at": "2026-07-15T14:08:14Z",
@@ -612,7 +642,7 @@
     "formal_reviewer_provider": "codex",
     "formal_reviewer_model": "gpt-5.5",
     "required_prior_involvement": "design",
-    "formal_dispatch_status": "preflight_passed_waiting_human_execution",
+    "formal_dispatch_status": "completed_accept",
     "prerequisites": {
       "grok_advisory_review_round_2": "completed_ready_for_user_visual_acceptance",
       "kimi_task_c_fast_ui_layout": "completed_verified",
@@ -680,6 +710,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi-format-addendum.prompt.md"
     }
   ],
-  "next_action": "Human executes exactly review-2-codex-after-task-c.prompt.md once via the registered schema-bound read-only Codex gpt-5.5 adapter in a fresh Session, then returns the provider-native Session ID and raw verdict for gate validation.",
-  "updated_at": "2026-07-15T19:15:17Z"
+  "next_action": "Bookkeeper commits the captured schema-valid ACCEPT verdict, attempts the required pre-accept validation, and moves to stage_accepted_waiting_user only if every hard gate passes. No merge or push is authorized.",
+  "updated_at": "2026-07-15T19:35:40Z"
 }

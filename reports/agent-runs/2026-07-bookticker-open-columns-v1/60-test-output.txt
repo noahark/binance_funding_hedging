@@ -643,3 +643,32 @@ Post-Task-C formal review-2 preflight: 2026-07-16 03:15:17 CST
   preflight/status/handoff evidence files were uncommitted. Resolution is an
   evidence-only commit followed by one clean-HEAD pre-review rerun; this does
   not alter the fixed reviewed product head or fingerprint.
+
+---
+
+Formal review-2 capture and bookkeeper validation: 2026-07-16 03:35:40 CST
+
+- Operator-supplied Session ID was missing its final character; exact local
+  transcript metadata records canonical Session
+  `019f6737-9397-7e00-991a-60a8679439c1`.
+- Transcript cwd, provider, CLI version, dispatched prompt title, reviewed head
+  and fixed fingerprint match this stage and the sole executable packet.
+- Reviewer provider: Codex/OpenAI; model `gpt-5.5`; fresh from forbidden
+  bookkeeper Session: PASS.
+- Reviewer tool-call audit found no apply-patch, commit, merge or push action;
+  review remained delivery-code read-only.
+- Final verdict extracted from transcript and captured verbatim in
+  `50-review-2.md`: `ACCEPT`.
+- Final JSON parse plus `schemas/review-verdict.schema.json`: PASS.
+- Verdict full-stage fingerprint equals status and independent recomputation:
+  PASS.
+- `reviewer_prior_involvement=design` and eligibility evidence disclosure:
+  PASS.
+- Findings: 0 P0/P1/P2; 2 non-blocking P3; required fixes: 0.
+- Reviewer checks: frontend 80 PASS, backend 375 passed after local-port rerun,
+  fixture/status schema and pre-review validator passed.
+- Reviewer P3 evidence notes that committed-range `git diff --check` returns
+  non-zero only for preserved two-space hard breaks in raw Grok advisory output;
+  excluding that immutable raw capture is clean. No runtime impact.
+- Next verdict action: `stage_accepted_waiting_user`; final pre-accept validator
+  still required before terminal transition.
