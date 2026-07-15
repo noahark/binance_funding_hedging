@@ -7,7 +7,7 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `accepted`
-- Next action: Bookkeeper commits final merge metadata on `main` and pushes `origin/main`.
+- Next action: Stage is accepted, merged and pushed; await the user's next stage request.
 - Read-set: = `status.current_inputs`
 - Open blockers: None. User explicitly waived an additional Task C review-1 and authorized direct merge/push after schema-valid full-fingerprint review-2 ACCEPT.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
@@ -15,11 +15,13 @@ not read `history/` at startup.
 ## Current State
 
 - Stage: `2026-07-bookticker-open-columns-v1`
-- Status: `accepted` (fast-forwarded to `main`; post-merge tests passed; push pending)
+- Status: `accepted` (fast-forwarded to `main`, post-merge tests passed and delivery push verified)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Current branch: `main`
 - Fast-forward merge SHA: `9abad62f0db90d8c588868728b0d6a25942d0871`
 - Post-merge checks: frontend 80 PASS; backend 375 passed in 16.40s.
+- Delivery push SHA: `a3d541de4effbd1e2652ec608a40a5d741baf228`;
+  `origin/main` verified by `git ls-remote`.
 - Reviewed product/evidence head: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
 - Full-stage fingerprint: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377`
 - Dispatch checkpoint HEAD: `ca829fc69c65a32dea241e735db979d057415b81`; pre-review passed and its evidence is pending the final local Harness commit
@@ -245,13 +247,12 @@ not read `history/` at startup.
 ## Next Action
 
 Review-2 ACCEPT and the user's fast-route override are committed. `main` was
-fast-forwarded without conflict and post-merge frontend/backend checks passed.
-The bookkeeper commits this final metadata, clears the ACTIVE stage pointer and
-pushes `origin/main`.
+fast-forwarded without conflict, post-merge frontend/backend checks passed, and
+the delivery push was verified on `origin/main`. `ACTIVE.json` is cleared.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-16 03:43:45 CST
-下一步模型: codex_bookkeeper
-下一步任务: 提交最终 merge metadata 并推送 origin/main
+本地北京时间: 2026-07-16 03:44:53 CST
+下一步模型: human
+下一步任务: 当前 stage 已完成；等待下一阶段需求

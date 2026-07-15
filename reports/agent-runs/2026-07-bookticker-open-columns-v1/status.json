@@ -723,7 +723,7 @@
     "evidence_integrity": "Old review-1 fingerprint remains unchanged and truthful; full post-Task-C fingerprint was accepted by schema-valid review-2."
   },
   "user_acceptance": {
-    "status": "accepted_merged_push_pending",
+    "status": "accepted_merged_and_pushed",
     "accepted_at": "2026-07-15T19:42:10Z",
     "instruction": "不需要再 review，刚才说的就是这是一次 fast 前端修改。直接推送提交吧",
     "scope": "Accept schema-valid review-2 result, waive an additional Task C review-1 for this fast frontend amendment, fast-forward merge stage branch to main and push main.",
@@ -737,8 +737,12 @@
     "merged_at": "2026-07-15T19:43:45Z",
     "post_merge_frontend": "80 PASS",
     "post_merge_backend": "375 passed in 16.40s",
-    "push_status": "pending"
+    "push_status": "complete",
+    "delivery_push_sha": "a3d541de4effbd1e2652ec608a40a5d741baf228",
+    "pushed_at": "2026-07-15T19:44:53Z",
+    "remote_ref": "origin/main",
+    "remote_verification": "git ls-remote matched delivery_push_sha"
   },
-  "next_action": "Bookkeeper commits final merge metadata on main and pushes main to origin. No further review is requested.",
-  "updated_at": "2026-07-15T19:43:45Z"
+  "next_action": "Stage is accepted, merged and pushed. Await the user's next stage request.",
+  "updated_at": "2026-07-15T19:44:53Z"
 }
