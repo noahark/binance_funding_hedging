@@ -240,3 +240,9 @@ Bookkeeper diff/file-boundary review:
 - Product changes are limited to the exact Task A backend/schema/test/doc allowlist plus the implementation report.
 - No frontend, config, private transport, history/borrow cadence, wire version, route, or execution-side-effect change was found.
 - Atomic pair commit, completion-time timestamp, per-assembly monotonic stale projection, resolved spot-symbol join, direction-independent Decimal formulas, and click no-extra-I/O are present in the actual diff.
+
+Task A evidence commit:
+- Design/Harness/API-evidence base commit: `7c0c9a21d523425f7380e7f721de03ca0730a17a`
+- Task A head commit: `01fca8cda4e3ce37ab2b976f1ca060ed9da109a0`
+- Task A fingerprint: `01fca8cda4e3ce37ab2b976f1ca060ed9da109a0:a8ad71a421cbf1122ec8bedf123646fcb3606b85fdc2651917519524d33222de`
+- Fingerprint excludes only `reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json` under the Harness committed-state scheme.

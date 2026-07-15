@@ -7,7 +7,7 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `implementation`
-- Next action: Human executes `task-a-backend-claude-glm.prompt.md`; Task A stops and returns to bookkeeper before Task B.
+- Next action: Human executes `task-b-frontend-kimi.prompt.md`; Kimi stops and returns to bookkeeper before any review.
 - Read-set: = `status.current_inputs`
 - Open blockers: none
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
@@ -15,74 +15,65 @@ not read `history/` at startup.
 ## Current State
 
 - Stage: `2026-07-bookticker-open-columns-v1`
-- Status: `implementing` (Task A packet prepared; waiting for human execution)
+- Status: `implementing` (Task A committed/frozen; Task B packet prepared)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
-- HEAD: `fea9fdc3ecce7675b34b01fe0a4b9de08811f939` (stage branch creation point; no stage commit yet)
-- Git status: uncommitted design/Harness/API-evidence checkpoint; no backend/frontend/schema product runtime changes
-- Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not implementer/fix author
-- Designer: `codex / gpt-5 / software_architect`
-- Breakdown author: Anthropic Claude `opus4.8`, Session `d313bb8a-6355-45b9-b546-5995bd320862`, verdict `READY`
-- Advisory reviewer: Grok `grok-build`, Session `019f6457-54f7-7fd1-aba0-842c084fdde2`, raw verdict `REVISE`, fully reconciled
-- Parallel mode: disabled; Task A committed/frozen backend contract precedes Task B
+- HEAD: `01fca8cda4e3ce37ab2b976f1ca060ed9da109a0`
+- Git status: only pending bookkeeper Task B prompt/status/handoff checkpoint; Task A product diff is committed
+- Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
+- Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
+- Task B owner: Kimi (`moonshot_kimi`), waiting for human execution
+- Parallel mode: disabled; serial Task A → Task B
 
-## User-Approved Scope Amendment
+## Task A Result
 
-On 2026-07-15 the user explicitly asked this stage to include Harness Session
-receipt v1 so later implementation and review outputs display the current
-provider-native Session ID. This is the documented exception to the normal rule
-against mixing unrelated Harness sync into a product stage: the current stage
-needs the behavior immediately.
+- Report: `20-implementation-task-a.md`
+- Allowed product files only: adapter/domain/service, focused backend tests,
+  snapshot schema, and three contract/architecture/development docs.
+- Independent bookkeeper tests:
+  - focused backend: `142 passed`
+  - full backend: `375 passed`
+  - frontend self-check: all pass
+  - `py_compile`: pass
+  - `git diff --check`: pass
+- Design/Harness/API base commit:
+  `7c0c9a21d523425f7380e7f721de03ca0730a17a`
+- Task A evidence head:
+  `01fca8cda4e3ce37ab2b976f1ca060ed9da109a0`
+- Task A fingerprint:
+  `01fca8cda4e3ce37ab2b976f1ca060ed9da109a0:a8ad71a421cbf1122ec8bedf123646fcb3606b85fdc2651917519524d33222de`
 
-Implemented Harness surface:
+## Frozen Frontend Contract For Task B
 
-- `AGENTS.md` six-field navigation footer and checkpoint receipt rule
-- `docs/model-adapters.md` Codex/Claude/Claude-GLM/Grok/Kimi lookup and
-  verification order
-- `workflows/templates/stage-delivery.yaml` Session receipt contract
-- `reports/agent-runs/_template/` model-facing footers and status ledger
-
-Session IDs remain navigation metadata. Cross-provider review still consumes
-stage raw artifacts, not another provider's ID.
-
-## Frozen User Decisions
-
-- “净收益”改为“日净收益”；删除默认表“提示标记”列。
-- 合并资产标签与借贷状态的前端单元格，状态在上、资产标签在下；底层契约语义仍分离。
-- bookTicker 以 60 秒 public Group A cadence 全量抓取并成对缓存，缺失/零值不计算，age `>=120s` 不发布可用开单价。
-- 正向：上合约买一、下现货卖一，`(F_bid-S_ask)/S_ask*100`。
-- 反向：上现货买一、下合约卖一，`(S_bid-F_ask)/F_ask*100`。
-- 两方向正值都表示有利价差；后端 Decimal，两位 HALF_UP；前端独立 formatter，不复用 `formatFundingRate`。
-
-## Review Reconciliation
-
-- Claude: `READY`; seven P2 constraints incorporated through its breakdown.
-- Grok: `REVISE`; three P1 and five P2 resolved in bounded design changes.
-- Key amendments: stale recalculated every assembly; incomplete direction truth
-  table; strict JSON-string prices; opening-spread formatter; 60s/120s UI
-  wording; discovery double-source sketch superseded; public contract doc added.
-- No unresolved P0/P1 and no product decision remains.
+- Final table remains 12 columns.
+- Header `净收益` → `日净收益`; remove rendered `提示标记` while retaining
+  `ui_flags` validation.
+- Merge borrowing status above asset tag; move max-borrowable/USDT estimate into
+  that cell and remove its duplicate from day-net yield.
+- Forward: futures bid above spot ask, `forward_spread_pct` at right.
+- Reverse: spot bid above futures ask, `reverse_spread_pct` at right.
+- Backend `*_spread_pct` is already percentage points. Kimi must use an
+  independent formatter and never call `formatFundingRate`.
+- Missing/stale/unavailable degrade to dash; incomplete preserves valid legs and
+  computes each direction independently.
+- Wording: about 60s refresh; failed last-good stops after about two cycles
+  (120s default); no execution guarantee.
 
 ## Artifact Index
 
-- Intake: `reports/agent-runs/2026-07-bookticker-open-columns-v1/00-intake.md`
-- Task: `reports/agent-runs/2026-07-bookticker-open-columns-v1/00-task.md`
-- Design: `reports/agent-runs/2026-07-bookticker-open-columns-v1/10-design.md`
-- ADR: `reports/agent-runs/2026-07-bookticker-open-columns-v1/11-adr.md`
-- Claude breakdown: `reports/agent-runs/2026-07-bookticker-open-columns-v1/12-development-breakdown.md`
-- Grok raw export: `reports/agent-runs/2026-07-bookticker-open-columns-v1/13-design-review-grok.raw.md`
-- Review reconciliation: `reports/agent-runs/2026-07-bookticker-open-columns-v1/14-design-review-reconciliation.md`
-- Session method evidence: `reports/agent-runs/2026-07-bookticker-open-columns-v1/15-session-id-capture-evidence.md`
-- Task A packet: `reports/agent-runs/2026-07-bookticker-open-columns-v1/task-a-backend-claude-glm.prompt.md`
-- Task A implementation: pending at `20-implementation-task-a.md`
-- Task B implementation: blocked on committed/frozen Task A contract
-- Review 1 / fix / review 2: pending
-- Test output: `reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt`; design/Harness mechanical checks passed, product tests not run
-- Status JSON: `reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json`
-- Public API evidence: `reports/api-samples/2026-07-bookticker-discovery-v1/20260715T0651Z/`
+- Task/design/ADR: `00-task.md`, `10-design.md`, `11-adr.md`
+- Development breakdown: `12-development-breakdown.md`
+- Review reconciliation: `14-design-review-reconciliation.md`
+- Session method evidence: `15-session-id-capture-evidence.md`
+- Task A report: `20-implementation-task-a.md`
+- Task B packet: `task-b-frontend-kimi.prompt.md`
+- Task B report: pending at `20-implementation-task-b.md`
+- Test evidence: `60-test-output.txt`
+- Status: `status.json`
+- Formal review-1/review-2: pending until Task B is committed and full-stage tests pass
 
 ## Open Findings
 
-- None at design gate. Product implementation has not started.
+- None from Task A bookkeeper verification. Formal cross-review is still pending.
 
 ## Blockers
 
@@ -91,15 +82,16 @@ stage raw artifacts, not another provider's ID.
 ## Next Action
 
 The human operator runs
-`reports/agent-runs/2026-07-bookticker-open-columns-v1/task-a-backend-claude-glm.prompt.md`
-in the existing Claude-GLM terminal. Claude-GLM may edit only the Task A allowed
-backend/schema/test/doc files plus `20-implementation-task-a.md`; it does not
-commit, modify stage state, start Kimi, or dispatch review. Its report and final
-response must include the verified Session ID/source/raw-output footer.
+`reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi.prompt.md`
+in a Kimi terminal. Kimi may modify only `frontend/index.html`,
+`frontend/self-check.js`, `frontend/fixture/public-market-snapshot.json`, and
+`20-implementation-task-b.md`. It must not modify backend/schema/Harness/stage
+state, commit, dispatch review, or start another model. Its report/final response
+must include the verified provider-native Session ID, source, and raw-output path.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-15 17:37:39 CST
-下一步模型: claude_glm（由人工执行）
-下一步任务: 执行 Task A 后端实现 packet，完成后交回 codex_bookkeeper 核验 diff 与测试
+本地北京时间: 2026-07-15 18:14:24 CST
+下一步模型: kimi（由人工执行）
+下一步任务: 执行 Task B 前端实现 packet，完成后交回 codex_bookkeeper 核验并提交 evidence

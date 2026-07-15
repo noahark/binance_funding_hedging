@@ -9,7 +9,12 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/11-adr.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/12-development-breakdown.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/14-design-review-reconciliation.md",
-    "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-a-backend-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi.prompt.md",
+    "schemas/api/public-market/snapshot.schema.json",
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "frontend/fixture/public-market-snapshot.json",
     "agents/developer-discipline.md",
     "docs/model-adapters.md",
     "agents/registry.yaml"
@@ -166,13 +171,13 @@
         "model": "glm-5.2"
       },
       "reviewer": "kimi",
-      "status": "implemented_tests_passed_waiting_evidence_commit",
+      "status": "evidence_committed_contract_frozen",
       "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-a-backend-claude-glm.prompt.md",
       "implementation_report": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
       "depends_on": [],
       "base_sha": "7c0c9a21d523425f7380e7f721de03ca0730a17a",
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "head_sha": "01fca8cda4e3ce37ab2b976f1ca060ed9da109a0",
+      "diff_fingerprint": "01fca8cda4e3ce37ab2b976f1ca060ed9da109a0:a8ad71a421cbf1122ec8bedf123646fcb3606b85fdc2651917519524d33222de",
       "test_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
       "review_1": {
         "reviewer": null,
@@ -192,13 +197,13 @@
         "model": "kimi-code/kimi-for-coding"
       },
       "reviewer": "claude_glm",
-      "status": "blocked_on_task_a_committed_contract",
-      "prompt_path": null,
+      "status": "prepared_waiting_human_execution",
+      "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi.prompt.md",
       "implementation_report": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
       "depends_on": [
         "task-a-backend-contract-cache"
       ],
-      "base_sha": null,
+      "base_sha": "01fca8cda4e3ce37ab2b976f1ca060ed9da109a0",
       "head_sha": null,
       "diff_fingerprint": null,
       "test_evidence": null,
@@ -266,6 +271,7 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/development-breakdown-claude.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/design-review-grok.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-a-backend-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
     "backend/adapters/binance_public.py",
     "backend/domain/snapshot.py",
@@ -382,6 +388,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/15-session-id-capture-evidence.md"
     }
   ],
-  "next_action": "Bookkeeper creates the Task A evidence commit, records its head/fingerprint, then prepares the Kimi Task B frontend packet against that committed backend contract.",
-  "updated_at": "2026-07-15T10:11:31Z"
+  "next_action": "Human executes task-b-frontend-kimi.prompt.md in a Kimi terminal. Kimi edits only the three frontend files plus 20-implementation-task-b.md, includes the verified Session receipt footer, and stops without review or commit.",
+  "updated_at": "2026-07-15T10:14:24Z"
 }
