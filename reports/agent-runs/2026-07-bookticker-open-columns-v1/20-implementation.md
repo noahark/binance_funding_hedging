@@ -1,7 +1,8 @@
 # Stage Implementation Index
 
-This file indexes the two raw task implementation reports. It does not replace
-or rewrite either implementer's evidence.
+This file indexes the raw task implementation reports. It does not replace or
+rewrite implementer evidence. Task C is a user-approved frontend-only fast UI
+amendment and is currently awaiting execution.
 
 ## Task A — Backend Contract, Cache And Decimal Semantics
 
@@ -12,7 +13,7 @@ or rewrite either implementer's evidence.
   `7c0c9a21d523425f7380e7f721de03ca0730a17a..01fca8cda4e3ce37ab2b976f1ca060ed9da109a0`
 - Fingerprint:
   `01fca8cda4e3ce37ab2b976f1ca060ed9da109a0:a8ad71a421cbf1122ec8bedf123646fcb3606b85fdc2651917519524d33222de`
-- Status: evidence committed; formal cross-review pending.
+- Status: evidence committed; formal cross-review accepted.
 
 ## Task B — Frontend Contract Integration And Table Compaction
 
@@ -29,9 +30,22 @@ or rewrite either implementer's evidence.
   `dff8b4785f43cd9fb82b7fab6214bc8c7d98ac88..0a383f0f8528591898f12690c371108e7582a27e`
 - Fingerprint:
   `0a383f0f8528591898f12690c371108e7582a27e:2fa0b74988af0ae96a4a2f252f0aa67346c5b5fd3e89a218c78802bec4a48dce`
-- Status: evidence committed; formal cross-review pending.
+- Status: evidence committed; formal cross-review accepted.
 
-## Final Independent Pre-Commit Checks
+## Task C — Fast UI Column And Opening-Cell Layout
+
+- Owner: Kimi / `moonshot_kimi` / `kimi-code/kimi-for-coding`
+- Prompt: `task-c-fast-ui-layout-kimi.prompt.md`
+- Raw report: `20-implementation-task-c.md` (pending)
+- Allowed product files: `frontend/index.html`, `frontend/self-check.js`
+- Frozen 12-column order: symbol; mark/index; forward; reverse; funding;
+  settlement; daily; annualized 24h/7d/30d; daily net yield; borrowing/asset.
+- Symbol-cell B-suffix alias text is removed from display only; bStock matching
+  semantics and warnings remain.
+- Forward/reverse spread percentage moves below both price lines as line 3.
+- Status: prompt prepared; waiting for a fresh Kimi implementation Session.
+
+## Task A/B Baseline Independent Checks
 
 - Frontend: 77 `[PASS]` lines (1 syntax + 76 behavioral checks).
 - Full backend: `375 passed in 15.66s`.
@@ -48,12 +62,14 @@ or rewrite either implementer's evidence.
   Claude-GLM implementer.
 - Task B formal review-1 routes to a fresh Claude-GLM session, isolated from the
   Kimi implementer.
-- Stage review-2 remains Codex/GPT under the recorded design-involvement rules;
-  no review verdict exists yet.
+- Task C receives no additional review-1 invocation under the user-approved fast
+  route. After Kimi implementation and user visual acceptance, one fresh Codex
+  final-review invocation reviews the updated full range and Task C delta.
+- The current Codex bookkeeper/design Session cannot serve as that reviewer.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md
-本地北京时间: 2026-07-15 21:26:50 CST
-下一步模型: kimi + claude_glm（由人工分别在 fresh session 执行）
-下一步任务: Task A 由 Kimi review-1，Task B 由 Claude-GLM review-1，原样捕获两个 schema-bound verdict
+本地北京时间: 2026-07-16 02:42:41 CST
+下一步模型: kimi
+下一步任务: 执行 Task C fast UI layout prompt，完成测试并返回 Session ID 与 raw implementation report

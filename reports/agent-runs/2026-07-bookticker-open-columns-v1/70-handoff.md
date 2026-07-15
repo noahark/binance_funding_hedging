@@ -6,23 +6,39 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `review-2`
-- Next action: User performs page-display acceptance using the recorded Grok checklist and reports pass/fail observations; after a clean human checkpoint, the bookkeeper prepares Opus4.8 formal review-2.
+- Active phase: `implementation`
+- Next action: Human executes `task-c-fast-ui-layout-kimi.prompt.md` in a fresh Kimi Session and returns its Session ID; bookkeeper verifies the bounded diff before user page-display acceptance.
 - Read-set: = `status.current_inputs`
-- Open blockers: review-2 verdict not yet captured; final reviewer selection must satisfy the strong-reviewer disclosure rules because both registered decision providers participated in design work.
+- Open blockers: Task C is not implemented; user visual acceptance and the single fresh Codex final review are pending.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-bookticker-open-columns-v1`
-- Status: `review_2` (Task A and Task B review-1 verdicts are schema-valid ACCEPT; evidence pending local commit)
+- Status: `implementing` (Task A/B baseline accepted; user-approved Task C fast UI amendment waiting for Kimi)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Reviewed product/evidence head: `0a383f0f8528591898f12690c371108e7582a27e`
-- Git status: user-routing amendment and Grok packet are committed; Grok raw capture/status checkpoint is pending local commit
+- Git status: Grok advisory evidence is committed; Task C prompt/status checkpoint is pending local commit
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
-- Parallel mode: disabled; serial Task A → Task B
+- Parallel mode: disabled; serial Task A → Task B → Task C
+
+## Task C Fast UI Amendment
+
+- Owner: fresh Kimi implementation Session; prompt
+  `task-c-fast-ui-layout-kimi.prompt.md`.
+- Allowed files: `frontend/index.html`, `frontend/self-check.js`, and
+  `20-implementation-task-c.md` only.
+- Exact column order: `标的 → 标记价格 / 指数价格 → 正向开单 → 反向开单 → 资金费率 → 结算时间 → 日费率 → 年化 24h → 年化 7D → 年化 30D → 日净收益 → 借贷状态 / 资产`.
+- Remove only the symbol-cell `现货腿` / `B 后缀别名` display; preserve bStock
+  resolved-symbol semantics and the warnings-panel explanation.
+- Opening cells become vertical three-line stacks: two price legs followed by
+  spread percentage on line 3.
+- After deterministic verification, the user performs visual acceptance.
+- The newer user instruction supersedes the planned Opus4.8 route. Only one new
+  fresh Codex final-review invocation is requested; prior review-1 remains
+  baseline evidence. Current bookkeeper Session is forbidden as reviewer.
 
 ## Task A Result
 
@@ -206,14 +222,15 @@ not read `history/` at startup.
 
 ## Next Action
 
-The user runs the page and reports the checklist result, including any symbol or
-row whose layout/value differs from expectation. A clean result closes the
-human visual prerequisite; the bookkeeper will then prepare and preflight the
-fresh Opus4.8 formal review-2 packet with breakdown involvement disclosure.
+The human executes `task-c-fast-ui-layout-kimi.prompt.md` in a fresh Kimi
+implementation Session and returns the provider-native Session ID. The
+bookkeeper then verifies file boundaries and deterministic tests before asking
+the user to inspect the page. A clean visual result unlocks the single fresh
+Codex final-review packet.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-15 22:17:33 CST
-下一步模型: human
-下一步任务: 按 Grok-derived checklist 完成页面显示验收并返回 pass/fail 观察
+本地北京时间: 2026-07-16 02:42:41 CST
+下一步模型: kimi
+下一步任务: 执行 Task C fast UI layout prompt，返回 Session ID、bounded diff、测试结果和 raw report

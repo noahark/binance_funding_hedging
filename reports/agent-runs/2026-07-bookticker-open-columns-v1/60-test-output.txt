@@ -536,3 +536,22 @@ Transcript tool-result verification:
 
 Findings disposition: six P3/residual observations, no rework recommended.
 Next checkpoint: user page-display acceptance before Opus4.8 formal review-2.
+
+---
+
+User-approved Task C fast UI route: 2026-07-16 02:42:41 CST
+
+- Stage moved from review-2 preparation back to `implementing` before any
+  formal review-2 Session executed.
+- Owner: Kimi; prompt: `task-c-fast-ui-layout-kimi.prompt.md`.
+- Runtime scope: frontend layout only (`frontend/index.html` and
+  `frontend/self-check.js`); backend/schema/fixture/data semantics forbidden.
+- Frozen column order:
+  `标的 / 标记价格·指数价格 / 正向开单 / 反向开单 / 资金费率 / 结算时间 / 日费率 / 年化24h / 年化7D / 年化30D / 日净收益 / 借贷状态·资产`.
+- B-suffix alias removal is display-only; backend alias join remains.
+- Both opening spreads move from side placement to vertical line 3.
+- Required after implementation: frontend self-check and PASS count, full
+  backend tests, diff check and strict file-boundary verification.
+- Review route: user visual acceptance, then one new fresh Codex final-review
+  invocation; no second new review-1 invocation requested.
+- No product code has changed at this checkpoint.
