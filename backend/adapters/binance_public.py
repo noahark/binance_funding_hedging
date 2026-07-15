@@ -12,7 +12,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 _FUNDING_RATE_RE = re.compile(r"fapi-v1-fundingRate-(.+)-limit\d+\.json$")
 
@@ -90,19 +90,48 @@ class BinancePublicClient:
             out[match.group(1)] = _read_json(path)
         return out
 
-    def _fetch_live(self) -> dict:
+    def fetch_premium_index(self) -> Any:
+        """Group A live public seam: ``GET /fapi/v1/premiumIndex`` (all symbols).
+
+        Stage 2026-07-cache-refresh-scheduler-v2 S2: the worker caches this at the
+        Group A cadence (cache_ttl_seconds, 60s) independently from the slower
+        Group B public sources. Returns the full premium-index payload. Live-only;
+        the offline path stays on the synchronous :meth:`fetch_raw` /
+        :meth:`_fetch_offline` entry.
+        """
+        self._bump("GET /fapi/v1/premiumIndex")
+        return self._http_get(f"{self.futures_base_url}/fapi/v1/premiumIndex")
+
+    def fetch_exchange_info_group_b(self) -> dict:
+        """Group B live public seam: futures + spot exchangeInfo and fundingInfo.
+
+        Stage 2026-07-cache-refresh-scheduler-v2 S2: the worker caches this at the
+        fixed Group B cadence (GROUP_B_REFRESH_SECONDS, 1800s) independently from
+        the Group A premium source. Returns
+        ``{futures_exchange_info, spot_exchange_info, funding_interval_by_sym,
+        warnings}``; fundingInfo keeps its best-effort 8h-default degradation.
+        Live-only; the offline path stays on :meth:`fetch_raw`.
+        """
         self._bump("GET /fapi/v1/exchangeInfo")
         futures_ei = self._http_get(f"{self.futures_base_url}/fapi/v1/exchangeInfo")
-        self._bump("GET /fapi/v1/premiumIndex")
-        premium = self._http_get(f"{self.futures_base_url}/fapi/v1/premiumIndex")
         self._bump("GET /api/v3/exchangeInfo")
         spot_ei = self._http_get(f"{self.spot_base_url}/api/v3/exchangeInfo")
+        funding_interval_by_sym, warnings = self._fetch_funding_info_best_effort()
+        return {
+            "futures_exchange_info": futures_ei,
+            "spot_exchange_info": spot_ei,
+            "funding_interval_by_sym": funding_interval_by_sym,
+            "warnings": warnings,
+        }
+
+    def _fetch_funding_info_best_effort(self) -> Tuple[Dict[str, int], List[str]]:
+        """E1 failure mode (10-design §2): ``/fapi/v1/fundingInfo`` is a public,
+        best-effort input. Any HTTP/transport/parse failure degrades to the
+        all-8h default + a warning surfaced into snapshot.warnings, instead of
+        propagating and failing the whole snapshot (503). The other public
+        inputs are NOT degradable — they still raise on failure.
+        """
         self._bump("GET /fapi/v1/fundingInfo")
-        # E1 failure mode (10-design §2): /fapi/v1/fundingInfo is a public,
-        # best-effort input. Any HTTP/transport/parse failure degrades to the
-        # all-8h default + a warning surfaced into snapshot.warnings, instead of
-        # propagating and failing the whole snapshot (503). The other public
-        # inputs are NOT degradable — they still raise on failure.
         funding_interval_by_sym: Dict[str, int] = {}
         warnings: List[str] = []
         try:
@@ -117,13 +146,18 @@ class BinancePublicClient:
                 f"GET /fapi/v1/fundingInfo failed ({type(exc).__name__}); "
                 "degraded every row to the 8h funding-interval default."
             )
+        return funding_interval_by_sym, warnings
+
+    def _fetch_live(self) -> dict:
+        premium = self.fetch_premium_index()
+        gb = self.fetch_exchange_info_group_b()
         return {
-            "futures_exchange_info": futures_ei,
+            "futures_exchange_info": gb["futures_exchange_info"],
             "premium_index": premium,
-            "spot_exchange_info": spot_ei,
+            "spot_exchange_info": gb["spot_exchange_info"],
             "funding_history_by_sym": {},
-            "funding_interval_by_sym": funding_interval_by_sym,
-            "warnings": warnings,
+            "funding_interval_by_sym": gb["funding_interval_by_sym"],
+            "warnings": gb["warnings"],
         }
 
     def fetch_funding_rate(

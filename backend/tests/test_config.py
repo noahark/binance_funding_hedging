@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.config import DEFAULT, from_env
+from backend.config import DEFAULT, GROUP_B_REFRESH_SECONDS, from_env
 from backend.services.snapshot_service import SnapshotService
 
 
@@ -164,3 +164,30 @@ def test_background_tick_rejects_invalid_integer():
 def test_symbol_refresh_timeout_rejects_invalid_float():
     with pytest.raises(ValueError, match="APP_SYMBOL_REFRESH_TIMEOUT_SECONDS"):
         from_env({"APP_SYMBOL_REFRESH_TIMEOUT_SECONDS": "slow"})
+
+
+# --- Stage 2026-07-cache-refresh-scheduler-v2: slow private transport TTL ---
+
+
+def test_private_channel_ttl_default_is_1800():
+    # FR-2 / §5.5: slow scheduled private transport TTL defaults to 1800s (down
+    # from the legacy 3600s) and the effective value must stay <=1800.
+    assert DEFAULT.private_channel_ttl_seconds == 1800
+    assert from_env({}).private_channel_ttl_seconds == 1800
+
+
+def test_private_channel_ttl_rejects_above_1800():
+    with pytest.raises(ValueError, match="BINANCE_PRIVATE_CHANNEL_TTL_SECONDS"):
+        from_env({"BINANCE_PRIVATE_CHANNEL_TTL_SECONDS": "1801"})
+
+
+def test_private_channel_ttl_accepts_1800_boundary():
+    # 1800 is the effective maximum; 1799 is also valid (must be <=1800).
+    assert from_env({"BINANCE_PRIVATE_CHANNEL_TTL_SECONDS": "1800"}).private_channel_ttl_seconds == 1800
+    assert from_env({"BINANCE_PRIVATE_CHANNEL_TTL_SECONDS": "1799"}).private_channel_ttl_seconds == 1799
+
+
+def test_group_b_refresh_seconds_is_fixed_1800():
+    # CC-2: Group B business cadence is a fixed module constant, not
+    # environment-configurable, and must not be amplified.
+    assert GROUP_B_REFRESH_SECONDS == 1800

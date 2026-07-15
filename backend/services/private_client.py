@@ -249,6 +249,15 @@ class PrivateClient:
         except PrivateEndpointError as exc:
             self.last_error = f"classic_reference_failed:{exc.logical_path}:{exc.reason}"
             return None
+        # Stage 2026-07-cache-refresh-scheduler-v2 S3 (§5.1): additive full VIP-level
+        # daily-interest table {vip_level: {coin: dailyInterest}}, shared with the
+        # existing daily_interest_vip0_by_coin (which stays as the flat vip0 view).
+        # Assembly derives tier③/④ borrow rates from this table + the account VIP
+        # level without re-fetching Group B endpoints inside Group C.
+        cross_margin_daily_by_vip: Dict[str, Dict[str, str]] = {}
+        for x in cross:
+            lvl = str(x.get("vipLevel"))
+            cross_margin_daily_by_vip.setdefault(lvl, {})[x.get("coin")] = x.get("dailyInterest")
         return {
             "pair_listed_by_symbol": {
                 x.get("symbol"): bool(x.get("isMarginTrade")) for x in all_pairs
@@ -261,6 +270,7 @@ class PrivateClient:
                 for x in cross
                 if str(x.get("vipLevel")) == "0"
             },
+            "cross_margin_daily_by_vip": cross_margin_daily_by_vip,
         }
 
     def fetch_max_borrowable(
@@ -449,6 +459,76 @@ class PrivateClient:
         return _select_chain_tier(
             merged_next_hourly, rate_history, cross_table, vip_level
         )
+
+    # -- scheduled-only narrow seams (S3b); single-endpoint, no chain assembly --
+    def fetch_next_hourly_rates(
+        self, assets: List[str]
+    ) -> Optional[Dict[str, Optional[str]]]:
+        """Scheduled-only narrow seam (S3b): batched next-hourly interest rate.
+
+        Stage 2026-07-cache-refresh-scheduler-v2 S3b. Calls ONLY
+        ``GET /sapi/v1/margin/next-hourly-interest-rate?assets=..&isIsolated=false``
+        (batched at NEXT_HOURLY_BATCH_SIZE=15, single-call hard cap 20). Returns
+        the raw hourly ``nextHourlyInterestRate`` per ``base_asset``
+        (``{asset: raw_hourly_str_or_None}``); the caller normalizes to daily
+        exactly once via ``compute_daily_from_hourly``. MUST NOT call account/info,
+        crossMarginData, or interestRateHistory.
+
+        Partial-batch semantics are preserved (§1.3): a failed batch is skipped,
+        NOT cached for the TTL, and does NOT downgrade the whole tier or clear the
+        cache; the next scheduled tick retries only the failed batch. Disabled
+        channel -> None (sets last_error).
+        """
+        if not self.enabled:
+            self.last_error = "private_channel_disabled"
+            return None
+        out: Dict[str, Optional[str]] = {}
+        for i in range(0, len(assets), NEXT_HOURLY_BATCH_SIZE):
+            batch = assets[i:i + NEXT_HOURLY_BATCH_SIZE]
+            try:
+                e2 = self._cached_get(
+                    "GET",
+                    "/sapi/v1/margin/next-hourly-interest-rate",
+                    {"assets": ",".join(batch), "isIsolated": "false"},
+                )
+                for x in (e2 or []):
+                    if isinstance(x, dict):
+                        out[x.get("asset")] = x.get("nextHourlyInterestRate")
+            except PrivateEndpointError as exc:
+                # Partial-failure semantics: skip ONLY this batch, keep already-merged
+                # entries (no abort, no clear, no tier-wide downgrade). The batch's
+                # assets are simply absent -> rate None downstream (not fabricated).
+                self.last_error = f"next_hourly_batch_failed:{exc.reason}:{len(batch)}"
+        return out
+
+    def fetch_interest_rate_history_latest(self, asset: str) -> Optional[str]:
+        """Scheduled-only narrow seam (S3b): single-asset interestRateHistory latest.
+
+        Stage 2026-07-cache-refresh-scheduler-v2 S3b / FR-6. Calls ONLY
+        ``GET /sapi/v1/margin/interestRateHistory?asset=..`` and returns the
+        ``dailyInterestRate`` of the latest point (max ``timestamp``) as a raw
+        daily string — the caller stores it directly (no ×24). Selected-asset
+        fallback only: invoked for a due homepage borrow asset AFTER its
+        next-hourly request failed or returned no usable value. MUST NOT call any
+        other endpoint. Disabled channel -> None (sets last_error).
+        """
+        if not self.enabled:
+            self.last_error = "private_channel_disabled"
+            return None
+        try:
+            e2b = self._cached_get(
+                "GET",
+                "/sapi/v1/margin/interestRateHistory",
+                {"asset": asset},
+            )
+        except PrivateEndpointError as exc:
+            self.last_error = f"interest_rate_history_failed:{asset}:{exc.reason}"
+            return None
+        points = [p for p in (e2b or []) if isinstance(p, dict)]
+        if not points:
+            return None
+        latest = max(points, key=lambda p: int(p.get("timestamp", 0)))
+        return latest.get("dailyInterestRate")
 
     # -- private_account block (10-design §1.4); 60s TTL group --
     def fetch_unified_balances(self) -> Optional[List[dict]]:

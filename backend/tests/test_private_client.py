@@ -42,7 +42,7 @@ class _FakeResp:
         return False
 
 
-def _make_client(monkeypatch, responses, *, enabled=True):
+def _make_client(monkeypatch, responses, *, enabled=True, ttl_seconds=3600):
     """PrivateClient whose urlopen yields `responses` in order.
 
     Each item is either a (body_str, status_int) tuple or an HTTPError to raise.
@@ -51,7 +51,7 @@ def _make_client(monkeypatch, responses, *, enabled=True):
     secret = "s" * 64 if enabled else None
     client = PrivateClient(
         key, secret, user_agent="test/1.0", timeout=5,
-        recv_window=10000, ttl_seconds=3600, fast_ttl_seconds=60,
+        recv_window=10000, ttl_seconds=ttl_seconds, fast_ttl_seconds=60,
     )
     it = iter(responses)
 
@@ -184,6 +184,9 @@ def test_disabled_when_env_missing():
     assert client.fetch_spot_balances() is None
     assert client.fetch_account_info() is None
     assert client.fetch_cost_leg_chain(["BTC"]) is None
+    # S3b scheduled-only narrow seams also degrade to None when disabled.
+    assert client.fetch_next_hourly_rates(["BTC"]) is None
+    assert client.fetch_interest_rate_history_latest("BTC") is None
 
 
 # ---- 5. audit-log credential hygiene ----
@@ -252,6 +255,9 @@ def test_classic_reference_maps_raw_fields(monkeypatch):
         "pair_listed_by_symbol": {"BTCUSDT": True, "FOOUSDT": False},
         "asset_borrowable_by_name": {"BTC": True},
         "daily_interest_vip0_by_coin": {"BTC": "0.0005"},  # only vipLevel 0
+        # S3 (§5.1): additive full VIP-level daily-interest table shared with the
+        # vip0 view; assembly derives tier③/④ borrow rates from it.
+        "cross_margin_daily_by_vip": {"0": {"BTC": "0.0005"}, "1": {"BTC": "0.0004"}},
     }
 
 
@@ -369,3 +375,194 @@ def test_force_disabled_client_is_noop():
     assert client.fetch_max_borrowable("BTC", force=True) is None
     assert client.fetch_cost_leg_chain(["BTC"], force=True) is None
     assert client._cache == {}
+
+
+# ---- 10. S3b scheduled-only narrow seams (next-hourly / interestRateHistory) ----
+def test_next_hourly_rates_unpacks_per_asset(monkeypatch):
+    # Single batch (<=15 assets): one next-hourly call returns per-asset rows;
+    # the narrow seam unpacks them into {asset: raw_hourly} WITHOUT ×24.
+    client = _make_client(monkeypatch, [
+        (json.dumps([
+            {"asset": "BTC", "nextHourlyInterestRate": "0.00000500"},
+            {"asset": "ETH", "nextHourlyInterestRate": "0.00000200"},
+        ]), 200),
+    ])
+    rates = client.fetch_next_hourly_rates(["BTC", "ETH"])
+    assert rates == {"BTC": "0.00000500", "ETH": "0.00000200"}
+
+
+def test_next_hourly_rates_batches_at_15(monkeypatch):
+    # 20 assets -> 2 batches (15 + 5); each batch is its own signed GET.
+    assets = ["A%02d" % i for i in range(20)]
+    batch1 = [{"asset": a, "nextHourlyInterestRate": "0.00000001"} for a in assets[:15]]
+    batch2 = [{"asset": a, "nextHourlyInterestRate": "0.00000002"} for a in assets[15:]]
+    client = _make_client(monkeypatch, [
+        (json.dumps(batch1), 200),
+        (json.dumps(batch2), 200),
+    ])
+    rates = client.fetch_next_hourly_rates(assets)
+    assert set(rates.keys()) == set(assets)
+    assert rates[assets[0]] == "0.00000001"   # batch 1
+    assert rates[assets[19]] == "0.00000002"  # batch 2
+    nh = [e for e in client.audit_log
+          if e["logical_endpoint"] == "/sapi/v1/margin/next-hourly-interest-rate"]
+    assert len(nh) == 2  # one signed GET per batch
+
+
+def test_next_hourly_rates_partial_batch_failure_keeps_merged(monkeypatch):
+    # First batch fails (500, not rate-limited -> no retry), second succeeds:
+    # failed-batch assets are absent, successful-batch assets are present. No
+    # tier-wide downgrade, no _cache.clear().
+    assets = ["A%02d" % i for i in range(20)]
+    client = _make_client(monkeypatch, [
+        _http_error(500, "upstream"),  # batch 1 fails
+        (json.dumps([{"asset": a, "nextHourlyInterestRate": "0.00000002"}
+                     for a in assets[15:]]), 200),  # batch 2 succeeds
+    ])
+    rates = client.fetch_next_hourly_rates(assets)
+    assert all(a not in rates for a in assets[:15])   # not fabricated
+    assert all(rates[a] == "0.00000002" for a in assets[15:])
+    assert client.last_error.startswith("next_hourly_batch_failed")
+
+
+def test_next_hourly_rates_calls_only_next_hourly_endpoint(monkeypatch):
+    # INV-1b: the narrow seam touches ONLY next-hourly-interest-rate; no
+    # account/info, crossMarginData, or interestRateHistory calls.
+    client = _make_client(monkeypatch, [
+        (json.dumps([{"asset": "BTC", "nextHourlyInterestRate": "0.00000500"}]), 200),
+    ])
+    client.fetch_next_hourly_rates(["BTC"])
+    endpoints = {e["logical_endpoint"] for e in client.audit_log}
+    assert endpoints == {"/sapi/v1/margin/next-hourly-interest-rate"}
+
+
+def test_next_hourly_rates_transport_reuses_at_1799_expires_at_1800(monkeypatch):
+    # §5.5 / INV-5: slow transport TTL <=1800. _cached_get uses cached[0] > now:
+    # at t0+1799 reuse, at t0+1800 the strict > fails -> a real signed GET fires
+    # (no stale 30-min freshness masquerade).
+    t = [0.0]
+    monkeypatch.setattr(private_client.time, "monotonic", lambda: t[0])
+    client = _make_client(
+        monkeypatch,
+        [(json.dumps([{"asset": "BTC", "nextHourlyInterestRate": "0.00000500"}]), 200),
+         (json.dumps([{"asset": "BTC", "nextHourlyInterestRate": "0.00000600"}]), 200)],
+        ttl_seconds=1800,
+    )
+    first = client.fetch_next_hourly_rates(["BTC"])
+    assert first == {"BTC": "0.00000500"}
+    t[0] = 1799.0
+    reused = client.fetch_next_hourly_rates(["BTC"])
+    assert reused == {"BTC": "0.00000500"}  # transport still fresh at 1799
+    t[0] = 1800.0
+    refreshed = client.fetch_next_hourly_rates(["BTC"])
+    assert refreshed == {"BTC": "0.00000600"}  # 1800 -> real signed GET
+
+
+def test_interest_rate_history_latest_returns_max_timestamp_daily(monkeypatch):
+    # FR-6: returns the dailyInterestRate of the latest (max timestamp) point.
+    client = _make_client(monkeypatch, [
+        (json.dumps([
+            {"asset": "BTC", "dailyInterestRate": "0.00010000", "timestamp": "100"},
+            {"asset": "BTC", "dailyInterestRate": "0.00020000", "timestamp": "300"},
+            {"asset": "BTC", "dailyInterestRate": "0.00015000", "timestamp": "200"},
+        ]), 200),
+    ])
+    assert client.fetch_interest_rate_history_latest("BTC") == "0.00020000"
+
+
+def test_interest_rate_history_latest_empty_returns_none(monkeypatch):
+    client = _make_client(monkeypatch, [("[]", 200)])
+    assert client.fetch_interest_rate_history_latest("BTC") is None
+
+
+def test_interest_rate_history_latest_failure_returns_none(monkeypatch):
+    client = _make_client(monkeypatch, [_http_error(500, "upstream")])
+    assert client.fetch_interest_rate_history_latest("BTC") is None
+    assert client.last_error.startswith("interest_rate_history_failed:BTC")
+
+
+def test_interest_rate_history_latest_calls_only_that_endpoint(monkeypatch):
+    client = _make_client(monkeypatch, [
+        (json.dumps([{"asset": "BTC", "dailyInterestRate": "0.0001", "timestamp": "1"}]), 200),
+    ])
+    client.fetch_interest_rate_history_latest("BTC")
+    endpoints = {e["logical_endpoint"] for e in client.audit_log}
+    assert endpoints == {"/sapi/v1/margin/interestRateHistory"}
+
+
+# ---- Stage 2026-07-cache-refresh-scheduler-v2 Correction 1: FR-2 / INV-5 ----
+# The business timestamp must be captured at completion (AFTER the transport
+# fetch) so transport_ts <= business_ts. Under non-zero clock skew a business-
+# age-due (>=1800s) slow source then finds the transport entry already expired
+# and makes a REAL signed GET (not a stale transport cache hit); at 1799s the
+# slow source is reused; a failed fetch does not advance the business timestamp.
+def test_inv5_completion_time_transport_le_business_and_real_get_at_1800(monkeypatch):
+    from backend.config import Config
+    from backend.services import snapshot_service
+    from backend.services.snapshot_service import SnapshotService
+
+    # Shared monotonic that advances a 1ms skew on EVERY call: the tick-now
+    # read (refresh start) < transport-now (inside _cached_get) < completion
+    # stamp (after the fetch returns).
+    SKEW = 0.001
+    base = [0.0]
+    n = [0]
+
+    def monotonic():
+        n[0] += 1
+        return base[0] + n[0] * SKEW
+
+    monkeypatch.setattr(private_client.time, "monotonic", monotonic)
+    monkeypatch.setattr(snapshot_service.time, "monotonic", monotonic)
+    monkeypatch.setattr(private_client.time, "sleep", lambda *_: None)
+
+    signed = [0]
+
+    def fake_urlopen(req, timeout=None):
+        signed[0] += 1
+        return _FakeResp(json.dumps({"amount": "1.5", "borrowLimit": "2"}), 200)
+
+    monkeypatch.setattr(private_client.urllib.request, "urlopen", fake_urlopen)
+
+    private = PrivateClient(
+        "k" * 64, "s" * 64, user_agent="t/1", timeout=5,
+        recv_window=10000, ttl_seconds=1800, fast_ttl_seconds=60,
+    )
+    cfg = Config(offline=False, private_channel_enabled=True,
+                 cache_ttl_seconds=60, private_channel_ttl_seconds=1800)
+    service = SnapshotService(cfg)
+    service._private = private
+
+    # tick1: BTC max-borrowable. transport miss -> REAL signed GET; business
+    # cache stamped at completion (INV-5: transport_ts <= business_ts).
+    service._refresh_max_borrowable("BTC")
+    assert signed[0] == 1
+    assert "BTC" in service._max_borrowable_cache
+    biz_ts = service._max_borrowable_cache["BTC"][0]
+    tkey = ("GET", "/papi/v1/margin/maxBorrowable", (("asset", "BTC"),))
+    transport_write_time = private._cache[tkey][0] - 1800  # expiry - lifetime
+    assert transport_write_time <= biz_ts  # INV-5
+
+    # 1799s later: business NOT due -> no refresh -> no signed GET (reuse).
+    n[0] = 0
+    base[0] = biz_ts + 1799
+    assert service._max_borrowable_due("BTC", snapshot_service.time.monotonic(), 1800) is False
+
+    # 1800s later: business due -> transport also due (transport_ts <= biz_ts)
+    # -> REAL signed GET, NOT a stale transport cache hit.
+    n[0] = 0
+    base[0] = biz_ts + 1800
+    assert service._max_borrowable_due("BTC", snapshot_service.time.monotonic(), 1800) is True
+    service._refresh_max_borrowable("BTC")
+    assert signed[0] == 2
+
+    # A failed fetch does NOT advance the business timestamp (FR-2).
+    def failing_urlopen(req, timeout=None):
+        raise _http_error(500, "{}")
+
+    monkeypatch.setattr(private_client.urllib.request, "urlopen", failing_urlopen)
+    n[0] = 0
+    base[0] = service._max_borrowable_cache["BTC"][0] + 1800  # business due
+    before_ts = service._max_borrowable_cache["BTC"][0]
+    service._refresh_max_borrowable("BTC")  # upstream fails -> fetch returns None
+    assert service._max_borrowable_cache["BTC"][0] == before_ts  # NOT advanced

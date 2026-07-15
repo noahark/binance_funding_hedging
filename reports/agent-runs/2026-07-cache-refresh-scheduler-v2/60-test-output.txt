@@ -20,3 +20,92 @@ claude-glm availability check without alias expansion: PASS
 Dispatch packet committed at `201b3bb`. No delivery-code path changed in that
 commit. The implementation task base is bound by a subsequent status-only
 commit so the human starts Claude-GLM from a clean committed branch.
+
+## Implementation Attempt 1 — Bookkeeper Pre-Commit Verification
+
+Checked on 2026-07-15 before any implementation commit or review dispatch:
+
+```text
+python3 -m pytest backend/tests -q
+=> 325 passed in 12.97s
+
+python3 -m py_compile backend/config.py backend/adapters/binance_public.py backend/services/private_client.py backend/services/snapshot_service.py
+=> PASS
+
+git diff --check
+=> PASS
+
+git status --short
+=> exactly seven frozen product/test files plus 20-implementation.md modified
+```
+
+Passing tests were insufficient to establish the frozen contracts. Two
+read-only adversarial reproductions failed:
+
+```text
+CC-3 exit/re-entry reproduction:
+{'left_coverage': {'probed': 0, 'skipped': 0, 'reason': None},
+ 'ledger_after_exit': ['BTC'],
+ 'reentered_coverage_before_new_attempt':
+     {'probed': 1, 'skipped': 0, 'reason': None}}
+
+FR-2 / INV-5 timestamp-skew reproduction:
+{'business_was_due_at': 1800.0,
+ 'signed_get_calls': 0,
+ 'new_business_cache': (1800.0, '0.00000500', 'next_hourly')}
+```
+
+Interpretation:
+
+- the coverage ledger is not cleared on universe exit and re-entry does not
+  begin unattempted;
+- a still-valid transport entry can be treated as a successful refresh at the
+  business 1800-second boundary and advance the business timestamp without
+  real upstream I/O.
+
+Result: `IMPLEMENTATION_REWORK_REQUIRED_BEFORE_COMMIT`.
+Correction packet:
+`implementation-claude-glm-rework-1.prompt.md`.
+
+Post-checkpoint evidence validation:
+
+```text
+ACTIVE.json and status.json duplicate-key / syntax validation: PASS
+python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase checkpoint:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-cache-refresh-scheduler-v2
+phase=checkpoint
+status=implementing
+git diff --check: PASS
+```
+
+## Correction 1 — Bookkeeper Acceptance
+
+Checked independently on 2026-07-15 before the implementation evidence commit:
+
+```text
+python3 -m pytest backend/tests/test_background_worker.py backend/tests/test_private_client.py -q
+=> 68 passed in 1.52s
+
+python3 -m pytest backend/tests -q
+=> 330 passed in 13.01s
+
+python3 -m py_compile backend/config.py backend/adapters/binance_public.py backend/services/private_client.py backend/services/snapshot_service.py
+=> PASS
+
+git diff --check
+=> PASS
+```
+
+Bookkeeper source/test reconciliation:
+
+```text
+CC-3 / INV-4 exit prune and re-entry unattempted: PASS
+coverage reason == rate_limit_budget iff skipped > 0: PASS
+FR-2 / INV-5 completion-time transport_ts <= business_ts: PASS
+1799-second reuse / 1800-second real signed GET: PASS
+failed slow-private fetch does not advance business timestamp: PASS
+Correction 1 four-file write boundary: PASS
+```
+
+Result: `IMPLEMENTATION_READY_FOR_EVIDENCE_COMMIT`.
