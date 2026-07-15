@@ -285,3 +285,52 @@ diff_fingerprint=60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef7
 ```
 
 Result: `OPUS48_REVIEW_2_DISPATCH_READY`.
+
+## Opus4.8 Formal Review-2 Evidence Validation
+
+Session: `d4039913-9a87-4b9e-9e49-cf24e420c358`.
+
+The final assistant output was extracted read-only from the local Claude session
+transcript without resuming the model. Its final JSON object passed the strict
+schema and binding checks:
+
+```text
+review-2 strict JSON/schema: PASS
+role: final_reviewer
+model: opus4.8
+verdict: ACCEPT
+reviewer_prior_involvement: breakdown
+findings: [P3, P3, P3]
+required_fixes: []
+next_action: stage_accepted_waiting_user
+diff_fingerprint:
+60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+```
+
+The raw transcript confirms the reviewer directly ran:
+
+```text
+python3 -m pytest backend/tests/test_background_worker.py backend/tests/test_private_client.py -q
+python3 -m pytest backend/tests -q
+python3 -m py_compile backend/config.py backend/adapters/binance_public.py backend/services/private_client.py backend/services/snapshot_service.py
+git diff --check
+git status --short
+independent stage diff sha256 recomputation
+```
+
+Reviewer results: focused `68 passed`, full backend `330 passed`, py_compile
+PASS, diff check PASS, clean worktree, and exact fingerprint match.
+
+The third P3 found a bookkeeper-only full-SHA transcription error. Independent
+verification:
+
+```text
+git rev-parse main
+=> 413aa94c3bc4d89088b77eca07d89f59d2285d4d
+```
+
+The short SHA `413aa94` and `.env.example 3600 -> 1800` content were correct.
+`14-main-env-example-amendment.md` and `status.json` are corrected; executed
+review prompts remain unchanged as immutable dispatch evidence.
+
+Result before committed acceptance gate: `REVIEW_2_ACCEPT_EVIDENCE_READY`.

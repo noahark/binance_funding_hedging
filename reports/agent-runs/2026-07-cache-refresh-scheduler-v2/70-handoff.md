@@ -2,18 +2,18 @@
 
 ## Recovery Header
 
-- Active phase: `review_2_dispatch_ready`
-- Next action: human executes `review-2-opus48.prompt.md` in a fresh Anthropic
-  Claude Opus4.8 read-only session
+- Active phase: `stage_accepted_waiting_user`
+- Next action: human accepts the stage and explicitly authorizes merge to
+  `main`, or requests further work
 - Read-set: = `status.current_inputs`
 - Open blockers: none
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired runner
   sessions, prior Kimi/GLM/Grok transcript state
 
-## Current State
+## Final Gate State
 
 - Stage: `2026-07-cache-refresh-scheduler-v2`
-- Status: `review_2`
+- Status: `stage_accepted_waiting_user`
 - Branch: `stage/2026-07-cache-refresh-scheduler-v2`
 - Stage base: `8aac137a46d228f2d68b2036a15575eda0e235a3`
 - Reviewed implementation/evidence head:
@@ -21,75 +21,56 @@
 - Stage fingerprint:
   `60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0`
 - Implementer: `claude_glm` / `glm-5.2`, provider `zhipu_glm`
-- Review-1: Kimi `ACCEPT`; strict JSON/schema and fingerprint validated; one
-  non-blocking P3; no required fixes
-- Review-2: fresh read-only Claude `opus4.8`, provider `anthropic`, prior
-  involvement `breakdown`
-- Dispatch mode: manual human execution; no runner or auto-review pipeline
-- Clean-worktree `validate-stage --phase pre-review`: PASS after commit
-  `d6dbe6f`; preserved in `60-test-output.txt`
-- Independent main baseline: `413aa94` aligns `.env.example` to `1800` under
-  explicit human direction to skip review-1; stage fingerprint remains fixed
-- Post-amendment clean-worktree pre-review gate: PASS after `7e736b2`
-- Opus4.8 routing clean-worktree pre-review gate: PASS after `8c4a57a`
+- Review-1: Kimi `ACCEPT`, schema-valid, fingerprint match
+- Review-2: Claude `opus4.8` `ACCEPT`, schema-valid, fingerprint match
+- Review-2 Session: `d4039913-9a87-4b9e-9e49-cf24e420c358`
+- Reviewer prior involvement: `breakdown`; fresh-session disclosure present
+- Required fixes: none
+- Merge authority: not granted; explicit human acceptance still required
 
-## Review-1 Evidence
+## Verification
 
-Raw output: `30-review-1.md`.
-
-Kimi independently reported:
+Independent bookkeeper and Opus4.8 evidence agree:
 
 ```text
-verdict: ACCEPT
-open P0/P1/P2: 0
-P3: funding_history_cache uses fetch-entry time at snapshot_service.py:841
-required_fixes: []
-fingerprint: exact match
+focused worker/private tests: 68 passed
+full backend suite: 330 passed
+py_compile: PASS
+git diff --check: PASS
+clean worktree at review: PASS
+diff fingerprint: exact match
+review-1 verdict schema: PASS
+review-2 verdict schema: PASS
 ```
 
-The inherited history-cache timestamp issue does not have a second transport
-cache that can masquerade as a completed refresh, so Kimi treated it as cleanup
-only. The existing Group A business/transport TTL configurability divergence is
-also carried as P3. Review-2 must judge both independently.
+Raw review-2 output is preserved verbatim in `50-review-2.md`.
 
-## Review-2 Identity And Override
+## Non-Blocking Residuals
 
-Codex/OpenAI authored the inherited stage design. Claude/Anthropic authored the
-inherited development breakdown but wrote no delivery or fix code. There is no
-unrelated registered review-2 decision provider enabled for this stage. The
-human explicitly selected Opus4.8, so the documented strong-reviewer disclosure
-override is used with `reviewer_prior_involvement: breakdown`.
+- P3 inherited: `_fetch_history_for` uses its pre-fetch monotonic timestamp;
+  this expires conservatively early and is outside the stage diff.
+- P3 configuration: Group A business `cache_ttl_seconds` and private
+  `private_channel_fast_ttl_seconds` can diverge under non-default environment
+  overrides; defaults remain 60/60.
 
-Evidence:
-`review-2-unrelated-reviewer-unavailable.md`.
+Opus4.8's third P3 was a bookkeeper-only full-SHA transcription error. It is
+corrected in authoritative evidence:
 
-The prompt treats the approved synthesis, PRD, and product/architecture
-documents as higher authority. Design and breakdown are evidence under review.
-Provider isolation from the implementation author `zhipu_glm` is preserved.
-
-## Independent Main Baseline Correction
-
-`main @ 413aa94` changes only `.env.example` from `3600` to `1800`. It was
-landed independently so the already accepted review-1 range remains truthful.
-The current stage branch copy is intentionally unchanged; final merge must
-preserve main's correction. Review-2 is instructed to inspect this commit in
-addition to the fixed stage range. See `14-main-env-example-amendment.md`.
-
-## Review-2 Dispatch
-
-Prompt: `review-2-opus48.prompt.md`.
-
-Human command after the recorded clean-worktree pre-review gate passes:
-
-```bash
-cd "/Users/ark/Desktop/ai code/funding_hedging" && claude --model opus4.8 --permission-mode plan --json-schema "$(cat schemas/review-verdict.schema.json)" -p "$(cat reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-opus48.prompt.md)"
+```text
+main baseline commit:
+413aa94c3bc4d89088b77eca07d89f59d2285d4d
+change: .env.example 3600 -> 1800
 ```
 
-Return the complete raw output. A schema-valid Opus4.8 verdict is the final
-review-2 decision; do not seek a Codex/Fable5 second opinion. `ACCEPT` may only move
-the stage to `stage_accepted_waiting_user`; it does not authorize merging to
-`main`.
+Executed review prompts remain unchanged as immutable dispatch evidence.
 
-本地北京时间: 2026-07-15 09:17:25 CST
-下一步模型: human → claude opus4.8
-下一步任务: 在全新 Anthropic 只读会话执行固定提交范围的正式 review-2
+## Merge Requirement
+
+Review-2 `ACCEPT` does not authorize merge. When the human approves merge, the
+merge must preserve the independently landed `main @ 413aa94` correction and
+the stage delivery commits. Do not rebase; follow the recorded branch merge
+gate.
+
+本地北京时间: 2026-07-15 09:35:35 CST
+下一步模型: human
+下一步任务: 决定是否接受本阶段并明确授权合并到 main

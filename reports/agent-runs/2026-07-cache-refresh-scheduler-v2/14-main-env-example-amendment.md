@@ -13,7 +13,7 @@ review-1.
   passed with `private_channel_ttl_seconds=1800`.
 - Tracked `.env.example`: changed from `3600` to `1800` in an isolated direct
   `main` commit:
-  `413aa94c74e356d2a99595f11cc0b91b8448fece`.
+  `413aa94c3bc4d89088b77eca07d89f59d2285d4d`.
 - The current stage branch did not modify `.env.example`; therefore the fixed
   reviewed implementation range and fingerprint remain unchanged.
 - A later merge of the accepted stage branch into `main` must preserve commit
@@ -21,6 +21,16 @@ review-1.
 
 This is a one-line operator-facing example correction, not delivery-code
 authorship and not a claim that review-1 covered commit `413aa94`.
+
+## Post-Review Bookkeeper Correction
+
+Opus4.8 review-2 identified that the earlier full SHA
+`413aa94c74e356d2a99595f11cc0b91b8448fece` was a transcription error. The
+authoritative value from `git rev-parse main` is
+`413aa94c3bc4d89088b77eca07d89f59d2285d4d`; the short prefix and one-line
+`.env.example` content were always correct. The executed review prompts retain
+the original string as immutable dispatch evidence, while this artifact and
+`status.json` carry the corrected authoritative value.
 
 Verification:
 

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-cache-refresh-scheduler-v2",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-cache-refresh-scheduler-v2",
@@ -72,7 +72,7 @@
     "model": "glm-5.2",
     "skill": "senior_developer",
     "session": null,
-    "state": "review_1_accepted_waiting_review_2"
+    "state": "review_2_accepted_waiting_user"
   },
   "implementers": [
     {
@@ -168,7 +168,7 @@
     "excluded_state": ["auto authorization", "runner receipts", "seal state", "failure escalation state"]
   },
   "independent_main_baseline": {
-    "sha": "413aa94c74e356d2a99595f11cc0b91b8448fece",
+    "sha": "413aa94c3bc4d89088b77eca07d89f59d2285d4d",
     "file": ".env.example",
     "change": "BINANCE_PRIVATE_CHANNEL_TTL_SECONDS=3600 -> 1800",
     "human_approved_review_1_skip": true,
@@ -225,20 +225,22 @@
       "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (review-1)",
       "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (review-2, clean worktree after d6dbe6f)",
       "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (post-main-amendment dispatch evidence, clean worktree after 7e736b2)",
-      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (Opus4.8 review-2 routing, clean worktree after 8c4a57a)"
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (Opus4.8 review-2 routing, clean worktree after 8c4a57a)",
+      "Opus4.8 review-2 strict JSON/schema and authoritative diff_fingerprint validation => PASS (ACCEPT, P3 only)",
+      "Opus4.8 raw transcript test evidence => focused 68 passed, full backend 330 passed, py_compile/diff-check/clean-worktree PASS"
     ]
   },
   "checkpoint": {
     "branch": "stage/2026-07-cache-refresh-scheduler-v2",
     "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
-    "git_status": "fixed reviewed implementation head remains 60c91f7; independent main commit 413aa94 aligns .env.example and must be preserved at merge",
-    "test_status": "focused 68 passed, full backend 330 passed, py_compile and diff check passed; both pre-commit P1 findings closed",
+    "git_status": "review-2 ACCEPT evidence prepared for commit; fixed reviewed implementation head remains 60c91f7; main 413aa94 must be preserved at merge",
+    "test_status": "bookkeeper and Opus4.8 independently observed focused 68 passed and full backend 330 passed; py_compile, diff check, fingerprint, and verdict schema passed",
     "open_findings": [
       "P3: inherited funding_history_cache write uses fetch-entry time rather than completion time; review-1 judged non-blocking.",
       "P3: Group A panel business cadence and fast transport TTL can diverge under environment overrides; defaults remain 60/60."
     ],
     "blockers": [],
-    "next_action": "human_execute_fresh_anthropic_opus48_review_2_prompt"
+    "next_action": "human_accept_stage_and_authorize_merge_to_main"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -279,11 +281,11 @@
       "reason": "The registered Codex and Claude decision providers both have prior design-stage involvement and no unrelated registered review-2 decision provider is enabled. The human selected Opus4.8; Anthropic is provider-isolated from all delivery-code authors and uses the breakdown-involvement disclosure override.",
       "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md"
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "fix_start_prompt_present": null,
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0",
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
@@ -298,7 +300,7 @@
     "required": false,
     "reason": null
   },
-  "terminal_reason": null,
-  "next_action": "human_execute_fresh_anthropic_opus48_review_2_prompt",
-  "updated_at": "2026-07-15T01:17:25Z"
+  "terminal_reason": "stage_accepted_waiting_user",
+  "next_action": "human_accept_stage_and_authorize_merge_to_main",
+  "updated_at": "2026-07-15T01:35:35Z"
 }
