@@ -2,9 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: `stage_accepted_waiting_user` (pre-accept validation pending)
-- Next action: commit the collected review-2 evidence, run the clean-worktree
-  pre-accept validator, then wait for explicit user acceptance before merge
+- Active phase: `stage_accepted_waiting_user` (final gate passed)
+- Next action: wait for explicit user acceptance before merging the stage branch
+  to `main`; pushing still requires the user's requested publish action
 - Read-set: = `status.current_inputs`
 - Open blockers: explicit user acceptance is required before merge to `main`
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
@@ -18,10 +18,8 @@
 - Baseline: `12b8e1c1ea5d86bf692bbba2183de08ee9429af4`
 - Reviewed implementation/evidence HEAD:
   `2cb72fd870b1ef29cc4787e7dff102ab56bf8601`
-- Current stage-branch bookkeeping HEAD before review-2 evidence commit:
-  `7a8e7a07c1c460e4aace596a1ed4560e9c4babcb`
-- Git status: review-2 evidence/checkpoint files modified; evidence commit and
-  clean-worktree pre-accept validation pending
+- Review-2 evidence commit: `ecaf107`
+- Git status at final pre-accept gate: clean
 - Bookkeeper/designer: Codex / OpenAI; no code authorship
 - Implementer: Claude-GLM / `zhipu_glm`, implementation complete
 - Review-1: Kimi
@@ -82,6 +80,9 @@ than plan mode. This is disclosed as a procedural variance. The current-stage
 transcript contains only Read and Bash inspection/test commands, no mutation or
 network tool calls, and finishes with a clean worktree.
 
-本地北京时间: 2026-07-15 12:41:18 CST
-下一步模型: codex_bookkeeper
-下一步任务: 提交 review-2 证据并运行 pre-accept validator
+Clean-worktree `pre-accept` validator and final independent fingerprint
+recomputation: PASS after review-2 evidence commit `ecaf107`.
+
+本地北京时间: 2026-07-15 12:42:59 CST
+下一步模型: human
+下一步任务: 明确接受本 stage 后，bookkeeper 才可合并至 main；推送按用户发布指令执行

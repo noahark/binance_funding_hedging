@@ -173,20 +173,19 @@
       "Review-2 independent authoritative fingerprint recomputation => PASS",
       "Claude Opus4.8 review-2 final JSON/schema validation => PASS (ACCEPT, zero findings, exact fingerprint)",
       "Claude current-stage tool audit => Read/Bash inspection and deterministic test commands only; no edit/write/commit/network tool calls",
-      "Claude independently reran focused 37 passed, full backend 335 passed, py_compile and diff-check PASS"
+      "Claude independently reran focused 37 passed, full backend 335 passed, py_compile and diff-check PASS",
+      "python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase pre-accept => PASS (clean after ecaf107)",
+      "Final independent authoritative fingerprint recomputation => PASS"
     ]
   },
   "checkpoint": {
     "branch": "stage/2026-07-history-refresh-ahead-v1",
     "head_sha": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601",
-    "git_status": "review-2 ACCEPT raw output and actual-model fallback recorded; evidence commit and pre-accept gate pending",
+    "git_status": "review-2 ACCEPT evidence committed at ecaf107; clean-worktree pre-accept gate passed",
     "test_status": "focused 37 passed; full backend 335 passed; py_compile/diff-check/adversarial retention passed",
     "open_findings": [],
-    "blockers": [
-      "pre-accept validator must pass on committed evidence",
-      "explicit user acceptance is required before merge to main"
-    ],
-    "next_action": "commit_review_2_evidence_then_run_pre_accept_validator"
+    "blockers": ["explicit user acceptance is required before merge to main"],
+    "next_action": "wait_for_explicit_user_acceptance_before_merge"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -274,6 +273,6 @@
     "reason": null
   },
   "terminal_reason": "stage_accepted_waiting_user",
-  "next_action": "commit_review_2_evidence_run_pre_accept_then_wait_for_explicit_user_acceptance",
-  "updated_at": "2026-07-15T04:41:18Z"
+  "next_action": "wait_for_explicit_user_acceptance_before_merge",
+  "updated_at": "2026-07-15T04:42:59Z"
 }
