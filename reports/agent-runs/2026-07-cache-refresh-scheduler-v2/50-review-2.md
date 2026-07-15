@@ -20,6 +20,8 @@
 - Independent main baseline: `413aa94` changes only `.env.example` from `3600`
   to `1800`; human explicitly directed no review-1 rerun. Review-2 must verify
   it alongside the unchanged fixed stage range.
+- Post-amendment clean-worktree pre-review gate: `PASS` after stage evidence
+  commit `7e736b2`.
 - Formal review-2 verdict: pending; this dispatch metadata is not a verdict.
 
 ## Prior Involvement Disclosure
@@ -43,7 +45,7 @@ Pending human execution of `review-2-codex.prompt.md`.
 
 ## Operational Footer
 
-本地北京时间: 2026-07-15 08:59:16 CST
+本地北京时间: 2026-07-15 09:08:47 CST
 下一步模型: human → codex
 下一步任务: 执行 review-2-codex.prompt.md 并返回完整原始输出
 

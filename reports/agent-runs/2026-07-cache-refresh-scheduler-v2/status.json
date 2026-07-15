@@ -222,7 +222,8 @@
       "Kimi review-1 strict JSON/schema and authoritative diff_fingerprint validation => PASS (ACCEPT, P3 only)",
       "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase checkpoint => PASS",
       "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (review-1)",
-      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (review-2, clean worktree after d6dbe6f)"
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (review-2, clean worktree after d6dbe6f)",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (post-main-amendment dispatch evidence, clean worktree after 7e736b2)"
     ]
   },
   "checkpoint": {
@@ -293,5 +294,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_execute_fresh_read_only_codex_review_2_prompt",
-  "updated_at": "2026-07-15T01:06:19Z"
+  "updated_at": "2026-07-15T01:08:47Z"
 }
