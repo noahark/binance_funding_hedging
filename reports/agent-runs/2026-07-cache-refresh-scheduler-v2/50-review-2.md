@@ -23,6 +23,8 @@
   it alongside the unchanged fixed stage range.
 - Post-amendment clean-worktree pre-review gate: `PASS` after stage evidence
   commit `7e736b2`.
+- Opus4.8 routing clean-worktree pre-review gate: `PASS` after commit
+  `8c4a57a`.
 - Formal review-2 verdict: pending; this dispatch metadata is not a verdict.
 
 ## Prior Involvement Disclosure
@@ -48,7 +50,7 @@ Pending human execution of `review-2-opus48.prompt.md`.
 
 ## Operational Footer
 
-本地北京时间: 2026-07-15 09:14:20 CST
+本地北京时间: 2026-07-15 09:17:25 CST
 下一步模型: human → claude opus4.8
 下一步任务: 执行 review-2-opus48.prompt.md 并返回完整原始输出
 

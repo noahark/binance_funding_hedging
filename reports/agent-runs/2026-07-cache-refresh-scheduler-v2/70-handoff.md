@@ -31,6 +31,7 @@
 - Independent main baseline: `413aa94` aligns `.env.example` to `1800` under
   explicit human direction to skip review-1; stage fingerprint remains fixed
 - Post-amendment clean-worktree pre-review gate: PASS after `7e736b2`
+- Opus4.8 routing clean-worktree pre-review gate: PASS after `8c4a57a`
 
 ## Review-1 Evidence
 
@@ -89,6 +90,6 @@ review-2 decision; do not seek a Codex/Fable5 second opinion. `ACCEPT` may only 
 the stage to `stage_accepted_waiting_user`; it does not authorize merging to
 `main`.
 
-本地北京时间: 2026-07-15 09:14:20 CST
+本地北京时间: 2026-07-15 09:17:25 CST
 下一步模型: human → claude opus4.8
 下一步任务: 在全新 Anthropic 只读会话执行固定提交范围的正式 review-2
