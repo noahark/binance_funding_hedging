@@ -1,0 +1,39 @@
+Post-Task-C review-2 committed-state preflight
+Local time: 2026-07-16 03:15:17 CST
+
+Reviewed product/evidence head:
+a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c
+
+Dispatch checkpoint commit:
+ca829fc69c65a32dea241e735db979d057415b81
+
+Expected full-stage fingerprint:
+a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377
+
+Command:
+python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review
+
+Exact result:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-bookticker-open-columns-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377
+
+Runner-level adapter check:
+- command -v codex: /Users/ark/.local/bin/codex
+- codex --version: codex-cli 0.144.3
+
+Disposition:
+- Formal review-2 model execution has not run.
+- Human may execute only review-2-codex-after-task-c.prompt.md in exactly one
+  fresh read-only Codex gpt-5.5 Session.
+- The current bookkeeper Session and the older pre-Task-C prompt are forbidden.
+
+Evidence-write rerun note:
+- A rerun after creating this evidence file failed closed only because this file
+  and its status/handoff checkpoint were not yet committed.
+- Exact validator reason: `review/acceptance gates require a clean committed
+  worktree` followed by the five pending Harness evidence paths.
+- Resolution: commit these evidence-only files, then rerun pre-review from the
+  clean branch HEAD before dispatch.

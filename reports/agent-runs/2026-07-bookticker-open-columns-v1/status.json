@@ -537,7 +537,7 @@
     "provider": "codex",
     "model": "gpt-5.5",
     "primary_provider": "codex",
-    "selection_status": "selected_packet_prepared_waiting_human_execution",
+    "selection_status": "preflight_passed_waiting_human_execution",
     "preferred_primary_provider": "codex",
     "fallback_provider": "claude",
     "fallback_reason": "design_conflict_ineligibility_no_unrelated_decision_provider",
@@ -558,7 +558,7 @@
     "invalid_json_attempts": 0
   },
   "review_2_dispatch": {
-    "status": "prepared_waiting_human_execution",
+    "status": "preflight_passed_waiting_human_execution",
     "reviewer": "codex",
     "provider_identity": "codex",
     "model": "gpt-5.5",
@@ -612,7 +612,7 @@
     "formal_reviewer_provider": "codex",
     "formal_reviewer_model": "gpt-5.5",
     "required_prior_involvement": "design",
-    "formal_dispatch_status": "prepared_waiting_human_execution",
+    "formal_dispatch_status": "preflight_passed_waiting_human_execution",
     "prerequisites": {
       "grok_advisory_review_round_2": "completed_ready_for_user_visual_acceptance",
       "kimi_task_c_fast_ui_layout": "completed_verified",
@@ -680,6 +680,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi-format-addendum.prompt.md"
     }
   ],
-  "next_action": "Bookkeeper commits the fresh Codex review-2 dispatch packet, runs and records committed-state pre-review validation, then the human executes exactly that packet in a new read-only Codex Session and returns its Session ID plus raw verdict.",
-  "updated_at": "2026-07-15T19:14:39Z"
+  "next_action": "Human executes exactly review-2-codex-after-task-c.prompt.md once via the registered schema-bound read-only Codex gpt-5.5 adapter in a fresh Session, then returns the provider-native Session ID and raw verdict for gate validation.",
+  "updated_at": "2026-07-15T19:15:17Z"
 }

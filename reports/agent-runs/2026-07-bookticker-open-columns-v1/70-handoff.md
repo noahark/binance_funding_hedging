@@ -7,7 +7,7 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `review_2`
-- Next action: Bookkeeper commits and preflights `review-2-codex-after-task-c.prompt.md`; human then executes exactly that packet in one fresh read-only Codex Session.
+- Next action: Human executes exactly `review-2-codex-after-task-c.prompt.md` once through the schema-bound read-only Codex `gpt-5.5` adapter in a fresh Session, then returns its Session ID and raw verdict.
 - Read-set: = `status.current_inputs`
 - Open blockers: Implementation, tests and user display acceptance are complete; the single fresh Codex final-review verdict is pending.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
@@ -19,7 +19,7 @@ not read `history/` at startup.
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Reviewed product/evidence head: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
 - Full-stage fingerprint: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377`
-- Git status: Task C evidence committed; final-review dispatch checkpoint pending local commit
+- Dispatch checkpoint HEAD: `ca829fc69c65a32dea241e735db979d057415b81`; pre-review passed and its evidence is pending the final local Harness commit
 - Task C evidence commit: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
 - Executable review packet: `review-2-codex-after-task-c.prompt.md`; the older
   `review-2-codex.prompt.md` is superseded and forbidden.
@@ -233,15 +233,15 @@ not read `history/` at startup.
 
 ## Next Action
 
-The bookkeeper commits and preflights
-`review-2-codex-after-task-c.prompt.md`. The human then executes exactly that
-packet in one new Codex `gpt-5.5` read-only Session; the current bookkeeper
-Session is forbidden as reviewer. The older pre-Task-C Codex packet and the
-never-prepared Opus route remain superseded.
+The human executes exactly `review-2-codex-after-task-c.prompt.md` once in one
+new Codex `gpt-5.5` read-only Session and returns its Session ID plus raw
+schema-bound verdict. The current bookkeeper Session is forbidden as reviewer.
+The older pre-Task-C Codex packet and the never-prepared Opus route remain
+superseded.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-16 03:11:55 CST
-下一步模型: codex_bookkeeper
-下一步任务: 提交并预检唯一的 post-Task-C Codex final-review packet，随后交人工启动 fresh reviewer Session
+本地北京时间: 2026-07-16 03:15:17 CST
+下一步模型: codex / gpt-5.5（由人工启动 fresh read-only Session）
+下一步任务: 执行唯一的 post-Task-C schema-bound final review，返回 Session ID 与 raw verdict

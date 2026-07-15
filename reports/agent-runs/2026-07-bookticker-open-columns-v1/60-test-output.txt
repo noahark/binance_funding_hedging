@@ -623,3 +623,23 @@ Task C committed-state fingerprint checkpoint: 2026-07-16 03:14:39 CST
 - Older `review-2-codex.prompt.md`: superseded and forbidden.
 - Formal review-2 model execution: NOT RUN by bookkeeper; pending human launch
   in one fresh read-only Codex Session.
+
+---
+
+Post-Task-C formal review-2 preflight: 2026-07-16 03:15:17 CST
+
+- Dispatch checkpoint commit:
+  `ca829fc69c65a32dea241e735db979d057415b81`.
+- `python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review`:
+  `STAGE VALIDATION PASSED`.
+- Validated status: `review_2`.
+- Validated fixed full-stage fingerprint:
+  `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377`.
+- Runner: `/Users/ark/.local/bin/codex`; `codex-cli 0.144.3`.
+- Exact output: `review-2-after-task-c-preflight.txt`.
+- Dispatch status: ready for exactly one human-executed fresh read-only Codex
+  `gpt-5.5` final review. No formal review model has run yet.
+- Immediate evidence-write rerun: expected fail-closed because the new
+  preflight/status/handoff evidence files were uncommitted. Resolution is an
+  evidence-only commit followed by one clean-HEAD pre-review rerun; this does
+  not alter the fixed reviewed product head or fingerprint.
