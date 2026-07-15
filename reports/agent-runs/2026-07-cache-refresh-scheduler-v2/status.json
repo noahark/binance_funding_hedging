@@ -34,7 +34,7 @@
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/30-review-1.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/50-review-2.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
-    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-codex.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-opus48.prompt.md",
     "backend/config.py",
     "backend/adapters/binance_public.py",
     "backend/services/private_client.py",
@@ -84,7 +84,7 @@
   ],
   "fix_authors": [],
   "reviewer_1": "kimi",
-  "reviewer_2": "codex",
+  "reviewer_2": "claude",
   "r10_checklists": {},
   "tasks": [
     {
@@ -117,7 +117,7 @@
       "Implementation attempt 1 returned with 325 passing tests but failed two bookkeeper adversarial checks before commit; the human runs implementation-claude-glm-rework-1.prompt.md for the bounded correction.",
       "Correction 1 closed both pre-commit P1 findings; the implementation evidence commit is 60c91f7b32ab0f0a51f719a094915adfbec87c83 and formal review-1 is prepared for a fresh read-only Kimi session.",
       "Kimi review-1 returned a schema-valid ACCEPT bound to the authoritative stage fingerprint, with one inherited non-blocking P3 and no required fixes.",
-      "Review-2 is prepared for a fresh read-only Codex gpt-5.5 session using the documented design-involvement disclosure override.",
+      "The human replaced the planned Codex final reviewer with Claude Opus4.8. This is an explicit user model selection, not a Fable5 quota claim; the fresh Anthropic session discloses prior breakdown involvement.",
       "Auto-review pipeline artifacts and routing are not part of v2.",
       "Review-1 must use a fresh provider-isolated Kimi session."
     ]
@@ -199,6 +199,7 @@
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-1-kimi.prompt.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-codex.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-opus48.prompt.md",
     "backend/config.py",
     "backend/adapters/binance_public.py",
     "backend/services/private_client.py",
@@ -236,7 +237,7 @@
       "P3: Group A panel business cadence and fast transport TTL can diverge under environment overrides; defaults remain 60/60."
     ],
     "blockers": [],
-    "next_action": "human_execute_fresh_read_only_codex_review_2_prompt"
+    "next_action": "human_execute_fresh_anthropic_opus48_review_2_prompt"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -253,24 +254,28 @@
     "invalid_json_attempts": 0
   },
   "review_2": {
-    "reviewer": "codex",
-    "provider": "codex",
-    "provider_identity": "openai",
-    "model": "gpt-5.5",
-    "primary_provider": "codex",
-    "fallback_provider": "claude",
+    "reviewer": "claude",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "primary_provider": "claude",
+    "fallback_provider": null,
     "routing_plan": {
-      "primary_provider": "codex",
-      "fallback_provider": "claude",
+      "configured_primary_provider": "codex",
+      "configured_fallback_provider": "claude",
+      "selected_provider": "claude",
+      "selected_model": "opus4.8",
+      "selection_reason": "explicit_human_model_selection",
+      "fable5_quota_exhaustion_claimed": false,
       "selection_deferred_until_after_review_1": false
     },
     "fallback_reason": "design_conflict_ineligibility_no_unrelated_registered_decision_model",
-    "reviewer_prior_involvement": "design",
-    "reviewer_prior_involvement_notes": "OpenAI authored the inherited design but no OpenAI session implemented or fixed delivery code. The fresh read-only Codex reviewer must treat design/breakdown as evidence under review. Eligibility evidence: reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
+    "reviewer_prior_involvement": "breakdown",
+    "reviewer_prior_involvement_notes": "Anthropic Opus4.8 authored the inherited development breakdown in session bcb07380-a298-4208-a461-e47fd629c85e but no Anthropic session implemented or fixed delivery code. The human explicitly selected Opus4.8; the final review must use a fresh read-only Anthropic session. Eligibility evidence: reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
     "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
     "design_conflict_override": {
       "used": true,
-      "reason": "The registered Codex and Claude decision providers both have prior design-stage involvement; no unrelated registered review-2 decision provider is enabled. Codex is provider-isolated from all delivery-code authors and uses the disclosure override.",
+      "reason": "The registered Codex and Claude decision providers both have prior design-stage involvement and no unrelated registered review-2 decision provider is enabled. The human selected Opus4.8; Anthropic is provider-isolated from all delivery-code authors and uses the breakdown-involvement disclosure override.",
       "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md"
     },
     "open_p0_p1": null,
@@ -293,6 +298,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_fresh_read_only_codex_review_2_prompt",
-  "updated_at": "2026-07-15T01:08:47Z"
+  "next_action": "human_execute_fresh_anthropic_opus48_review_2_prompt",
+  "updated_at": "2026-07-15T01:14:20Z"
 }

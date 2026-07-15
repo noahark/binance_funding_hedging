@@ -23,11 +23,15 @@ approval exists for this stage.
 
 ## Selection And Isolation
 
-Codex `gpt-5.5` remains the configured primary and is selected in a **fresh
-read-only session**. Its `openai` provider identity differs from every
-implementation/fix author provider identity, and neither OpenAI nor this Codex
-review session wrote delivery code. The only overlap is the explicitly
-disclosed inherited design involvement.
+The human explicitly selected Claude `opus4.8` for the final gate. It must run
+in a **fresh Anthropic-authenticated read-only session**, isolated from prior
+breakdown session `bcb07380-a298-4208-a461-e47fd629c85e`. The `anthropic`
+provider identity differs from every implementation/fix author provider
+identity, and Anthropic wrote no delivery code. The only overlap is the
+explicitly disclosed inherited breakdown involvement.
+
+This is a user-selected model override permitted by `docs/model-adapters.md`;
+it is not evidence or a claim that Fable5 was quota-exhausted.
 
 `fallback_reason` is therefore recorded as
 `design_conflict_ineligibility_no_unrelated_registered_decision_model`. This
@@ -36,10 +40,9 @@ authentication, service, or command execution. Review-2 must treat the
 user-approved synthesis, PRD, and product documents as higher authority and
 must review the inherited design/breakdown artifacts as evidence under review.
 
-If Codex returns a schema-valid verdict, do not seek a second opinion from
-Claude. Claude fallback is permitted only under the workflow's listed failure
-classes.
+If Opus4.8 returns a schema-valid verdict, do not seek a second opinion from
+Codex, Fable5, or another model.
 
-本地北京时间: 2026-07-15 08:54:53 CST
-下一步模型: human → codex
-下一步任务: 在全新只读 Codex 会话执行 review-2，并披露 prior involvement 为 design
+本地北京时间: 2026-07-15 09:14:20 CST
+下一步模型: human → claude opus4.8
+下一步任务: 在全新 Anthropic 只读会话执行 review-2，并披露 prior involvement 为 breakdown

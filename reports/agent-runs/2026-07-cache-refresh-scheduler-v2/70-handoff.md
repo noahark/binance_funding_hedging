@@ -3,8 +3,8 @@
 ## Recovery Header
 
 - Active phase: `review_2_dispatch_ready`
-- Next action: human executes `review-2-codex.prompt.md` in a fresh read-only
-  Codex session
+- Next action: human executes `review-2-opus48.prompt.md` in a fresh Anthropic
+  Claude Opus4.8 read-only session
 - Read-set: = `status.current_inputs`
 - Open blockers: none
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired runner
@@ -23,8 +23,8 @@
 - Implementer: `claude_glm` / `glm-5.2`, provider `zhipu_glm`
 - Review-1: Kimi `ACCEPT`; strict JSON/schema and fingerprint validated; one
   non-blocking P3; no required fixes
-- Review-2: fresh read-only Codex `gpt-5.5`, provider `openai`, prior
-  involvement `design`
+- Review-2: fresh read-only Claude `opus4.8`, provider `anthropic`, prior
+  involvement `breakdown`
 - Dispatch mode: manual human execution; no runner or auto-review pipeline
 - Clean-worktree `validate-stage --phase pre-review`: PASS after commit
   `d6dbe6f`; preserved in `60-test-output.txt`
@@ -53,10 +53,11 @@ also carried as P3. Review-2 must judge both independently.
 
 ## Review-2 Identity And Override
 
-Codex/OpenAI authored the inherited stage design but wrote no delivery or fix
-code. Claude/Anthropic authored the inherited development breakdown. There is
-no unrelated registered review-2 decision provider enabled for this stage, so
-the documented strong-reviewer disclosure override is used with Codex primary.
+Codex/OpenAI authored the inherited stage design. Claude/Anthropic authored the
+inherited development breakdown but wrote no delivery or fix code. There is no
+unrelated registered review-2 decision provider enabled for this stage. The
+human explicitly selected Opus4.8, so the documented strong-reviewer disclosure
+override is used with `reviewer_prior_involvement: breakdown`.
 
 Evidence:
 `review-2-unrelated-reviewer-unavailable.md`.
@@ -75,19 +76,19 @@ addition to the fixed stage range. See `14-main-env-example-amendment.md`.
 
 ## Review-2 Dispatch
 
-Prompt: `review-2-codex.prompt.md`.
+Prompt: `review-2-opus48.prompt.md`.
 
 Human command after the recorded clean-worktree pre-review gate passes:
 
 ```bash
-cd "/Users/ark/Desktop/ai code/funding_hedging" && codex exec -C "/Users/ark/Desktop/ai code/funding_hedging" -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-codex.prompt.md
+cd "/Users/ark/Desktop/ai code/funding_hedging" && claude --model opus4.8 --permission-mode plan --json-schema "$(cat schemas/review-verdict.schema.json)" -p "$(cat reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-opus48.prompt.md)"
 ```
 
-Return the complete raw output. A schema-valid Codex verdict is the final
-review-2 decision; do not seek a Claude second opinion. `ACCEPT` may only move
+Return the complete raw output. A schema-valid Opus4.8 verdict is the final
+review-2 decision; do not seek a Codex/Fable5 second opinion. `ACCEPT` may only move
 the stage to `stage_accepted_waiting_user`; it does not authorize merging to
 `main`.
 
-本地北京时间: 2026-07-15 09:08:47 CST
-下一步模型: human → codex
-下一步任务: 在全新只读 Codex 会话执行固定提交范围的正式 review-2
+本地北京时间: 2026-07-15 09:14:20 CST
+下一步模型: human → claude opus4.8
+下一步任务: 在全新 Anthropic 只读会话执行固定提交范围的正式 review-2

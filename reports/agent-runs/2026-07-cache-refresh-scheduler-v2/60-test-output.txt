@@ -253,3 +253,22 @@ diff_fingerprint=60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef7
 ```
 
 Gate commit: `7e736b2`.
+
+## Review-2 Human Model Selection — Opus4.8
+
+The human replaced the planned Codex reviewer with Claude Opus4.8. Routing was
+updated without changing the fixed implementation head or fingerprint:
+
+```text
+selected reviewer: claude / opus4.8
+provider identity: anthropic
+reviewer prior involvement: breakdown
+prior breakdown session: bcb07380-a298-4208-a461-e47fd629c85e
+implementation/fix author provider: zhipu_glm / none
+session requirement: fresh Anthropic-authenticated read-only plan session
+Fable5 quota exhaustion claimed: false
+selection authority: explicit human model choice
+prompt: review-2-opus48.prompt.md
+```
+
+No model dispatch was executed by the bookkeeper.

@@ -3,10 +3,11 @@
 ## Dispatch State
 
 - State: `prepared_waiting_human_execution`
-- Reviewer: Codex `gpt-5.5`
-- Provider identity: `openai`
-- Reviewer prior involvement: `design`
-- Prompt: `review-2-codex.prompt.md`
+- Reviewer: Claude `opus4.8`
+- Provider identity: `anthropic`
+- Reviewer prior involvement: `breakdown`
+- Prior breakdown session: `bcb07380-a298-4208-a461-e47fd629c85e`
+- Prompt: `review-2-opus48.prompt.md`
 - Override evidence: `review-2-unrelated-reviewer-unavailable.md`
 - Fallback reason:
   `design_conflict_ineligibility_no_unrelated_registered_decision_model`
@@ -26,8 +27,10 @@
 
 ## Prior Involvement Disclosure
 
-OpenAI authored the inherited stage design but did not implement or fix delivery
-code. The fresh final reviewer must review design and breakdown artifacts as
+Anthropic authored the inherited development breakdown but did not implement or
+fix delivery code. The human explicitly selected `opus4.8`; this is not a claim
+that Fable5 was quota-exhausted. The fresh final reviewer must not share session
+state with the breakdown session and must review design/breakdown artifacts as
 evidence under review, while treating the approved synthesis, PRD, and product
 documents as higher authority. Provider isolation from the implementation
 author `zhipu_glm` is preserved.
@@ -41,15 +44,15 @@ relevant source files directly.
 
 ## Findings
 
-Pending human execution of `review-2-codex.prompt.md`.
+Pending human execution of `review-2-opus48.prompt.md`.
 
 ## Operational Footer
 
-本地北京时间: 2026-07-15 09:08:47 CST
-下一步模型: human → codex
-下一步任务: 执行 review-2-codex.prompt.md 并返回完整原始输出
+本地北京时间: 2026-07-15 09:14:20 CST
+下一步模型: human → claude opus4.8
+下一步任务: 执行 review-2-opus48.prompt.md 并返回完整原始输出
 
 ## Strict JSON Verdict
 
 Pending. The eventual raw output must end with one schema-valid JSON object and
-must disclose `reviewer_prior_involvement: "design"`.
+must disclose `reviewer_prior_involvement: "breakdown"`.
