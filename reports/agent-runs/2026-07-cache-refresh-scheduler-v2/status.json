@@ -227,13 +227,14 @@
       "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (post-main-amendment dispatch evidence, clean worktree after 7e736b2)",
       "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (Opus4.8 review-2 routing, clean worktree after 8c4a57a)",
       "Opus4.8 review-2 strict JSON/schema and authoritative diff_fingerprint validation => PASS (ACCEPT, P3 only)",
-      "Opus4.8 raw transcript test evidence => focused 68 passed, full backend 330 passed, py_compile/diff-check/clean-worktree PASS"
+      "Opus4.8 raw transcript test evidence => focused 68 passed, full backend 330 passed, py_compile/diff-check/clean-worktree PASS",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-accept => PASS (clean worktree after 03d9e65)"
     ]
   },
   "checkpoint": {
     "branch": "stage/2026-07-cache-refresh-scheduler-v2",
     "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
-    "git_status": "review-2 ACCEPT evidence prepared for commit; fixed reviewed implementation head remains 60c91f7; main 413aa94 must be preserved at merge",
+    "git_status": "review-2 ACCEPT evidence committed at 03d9e65 and clean-worktree pre-accept gate passed; fixed implementation head remains 60c91f7; main 413aa94 must be preserved at merge",
     "test_status": "bookkeeper and Opus4.8 independently observed focused 68 passed and full backend 330 passed; py_compile, diff check, fingerprint, and verdict schema passed",
     "open_findings": [
       "P3: inherited funding_history_cache write uses fetch-entry time rather than completion time; review-1 judged non-blocking.",
@@ -302,5 +303,5 @@
   },
   "terminal_reason": "stage_accepted_waiting_user",
   "next_action": "human_accept_stage_and_authorize_merge_to_main",
-  "updated_at": "2026-07-15T01:35:35Z"
+  "updated_at": "2026-07-15T01:37:30Z"
 }
