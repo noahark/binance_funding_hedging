@@ -6,19 +6,19 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `review-1`
-- Next action: Human executes both prepared formal cross-review packets in fresh isolated sessions and returns the raw outputs plus Session IDs.
+- Active phase: `review-2`
+- Next action: Bookkeeper commits the dual-ACCEPT review-1 evidence, records final-reviewer design-involvement eligibility evidence, and prepares the fresh review-2 packet for human execution.
 - Read-set: = `status.current_inputs`
-- Open blockers: review-1 verdicts not yet captured.
+- Open blockers: review-2 verdict not yet captured; final reviewer selection must satisfy the strong-reviewer disclosure rules because both registered decision providers participated in design work.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-bookticker-open-columns-v1`
-- Status: `review_1` (Task A and Task B committed with fingerprints; dispatch packets prepared)
+- Status: `review_2` (Task A and Task B review-1 verdicts are schema-valid ACCEPT; evidence pending local commit)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Reviewed product/evidence head: `0a383f0f8528591898f12690c371108e7582a27e`
-- Git status: product/evidence range, review packets and preflight state correction are locally committed; preflight evidence checkpoint pending commit
+- Git status: product/evidence range and review packets are committed; three review-1 evidence files plus status/handoff checkpoint are pending local commit
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
@@ -94,8 +94,10 @@ not read `history/` at startup.
 
 ## Open Findings
 
-- All Task B pre-commit findings are closed. Task A remains frozen. Formal
-  review findings do not exist yet.
+- Task A formal review-1: `ACCEPT`, no findings.
+- Task B formal review-1: `ACCEPT`, two P3 non-blocking observations and no
+  required fixes.
+- No P0/P1/P2 finding is open; stage `rework_count` remains 0.
 
 ## Committed Fingerprints
 
@@ -108,7 +110,23 @@ not read `history/` at startup.
 
 ## Blockers
 
-- Formal review-1 Task A and Task B raw verdicts are not yet captured.
+- Review-2 verdict is not yet captured.
+- Codex is the stage designer/bookkeeper and Claude provider authored the
+  development breakdown. Final-review selection therefore requires the
+  documented strong-reviewer disclosure path; neither provider wrote delivery
+  code, so the hard implementation/fix-author ban is not implicated.
+
+## Formal Review-1 Result
+
+- Task A raw reviewer output: `30-review-1-task-a.md`; Kimi Session
+  `session_675fb858-c888-48d4-8d94-567f70fc91ae`; JSON schema PASS; fixed
+  fingerprint PASS; verdict `ACCEPT`.
+- Task B raw reviewer output: `30-review-1-task-b.md`; Claude-GLM Session
+  `04b6147e-96ae-46c8-a147-2201aa4c590a`; JSON schema PASS; fixed fingerprint
+  PASS; verdict `ACCEPT`.
+- Aggregate receipt: `30-review-1.md`.
+- Reviewer identities are cross-provider and both Sessions are distinct from
+  the respective implementation Sessions.
 
 ## Review-1 Preflight State Correction
 
@@ -127,15 +145,14 @@ not read `history/` at startup.
 
 ## Next Action
 
-The human operator executes `review-1-task-a-kimi.prompt.md` in a fresh Kimi
-session and `review-1-task-b-claude-glm.prompt.md` in a fresh Claude-GLM plan
-session. Neither reviewer may reuse its recorded implementation Session. Capture
-the complete response, footer and final JSON at each declared
-`30-review-1-task-*.md` path, then return both Session IDs to the bookkeeper.
+Commit the review-1 evidence. Then audit the registered review-2 decision pool,
+record the required design-involvement disclosure/evidence, prepare a fixed-range
+schema-bound review-2 prompt, commit that packet and run `pre-review` before the
+human starts a fresh final-review Session.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-15 21:31:50 CST
-下一步模型: kimi + claude_glm（由人工分别在 fresh session 执行）
-下一步任务: 完成 Task A/Task B formal review-1 并返回两个 raw verdict 与 Session ID
+本地北京时间: 2026-07-15 21:51:59 CST
+下一步模型: codex_bookkeeper
+下一步任务: 提交 dual-ACCEPT review-1 evidence，并准备满足 disclosure gate 的 fresh review-2 packet

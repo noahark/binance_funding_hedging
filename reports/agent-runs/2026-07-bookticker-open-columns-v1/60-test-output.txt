@@ -428,3 +428,37 @@ Exact output: `reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-pr
 
 Disposition: formal task-specific review-1 packets are ready for human
 execution in fresh isolated Kimi and Claude-GLM sessions.
+
+---
+
+Formal review-1 capture and mechanical validation: 2026-07-15 21:51:59 CST
+
+Task A:
+
+- Reviewer: Kimi / `moonshot_kimi` / `kimi-code/kimi-for-coding`
+- Fresh Session: `session_675fb858-c888-48d4-8d94-567f70fc91ae`
+- Transcript `state.json.workDir` and `lastPrompt`: PASS
+- Final verdict JSON parse + `schemas/review-verdict.schema.json`: PASS
+- Fixed Task A fingerprint: PASS
+- Verdict: `ACCEPT`; findings: 0; required fixes: 0
+- Raw output: `30-review-1-task-a.md`
+
+Task B:
+
+- Reviewer: Claude-GLM / `zhipu_glm` / `glm-5.2`
+- Fresh Session: `04b6147e-96ae-46c8-a147-2201aa4c590a`
+- Transcript Session ID and Task B top-level prompt: PASS
+- Observed reviewer tool activity: read-only
+- Final verdict JSON parse + `schemas/review-verdict.schema.json`: PASS
+- Fixed Task B fingerprint: PASS
+- Verdict: `ACCEPT`; P3 findings: 2; required fixes: 0
+- Raw output: `30-review-1-task-b.md`
+
+Cross-review isolation:
+
+- Task A reviewer `moonshot_kimi` differs from implementer `zhipu_glm`: PASS
+- Task B reviewer `zhipu_glm` differs from implementer `moonshot_kimi`: PASS
+- Both reviewer Sessions differ from the prompt-forbidden implementation
+  Sessions: PASS
+
+Aggregate: `30-review-1.md`; review-1 transition result: `ACCEPT → review-2`.
