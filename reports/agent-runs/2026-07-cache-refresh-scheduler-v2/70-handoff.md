@@ -32,6 +32,8 @@
 - Pre-review attempt 1 exposed a review-2 placeholder-routing conflict only;
   direct review-2 selection fields are now null until that phase begins, while
   the Codex→Claude plan remains recorded under `review_2.routing_plan`
+- Clean-worktree `validate-stage --phase pre-review`: PASS at commit `47f38a9`;
+  preserved verbatim in `60-test-output.txt`
 
 ## Implementation Evidence
 
@@ -82,6 +84,6 @@ Do not combine `--plan` or `-y` with `-p`; the installed Kimi CLI rejects those
 combinations. Return the complete raw output to the bookkeeper for schema
 validation and recording in `30-review-1.md`.
 
-本地北京时间: 2026-07-15 08:03:11 CST
+本地北京时间: 2026-07-15 08:07:32 CST
 下一步模型: human → kimi
 下一步任务: 在全新 Kimi 会话执行固定提交范围的正式只读 review-1
