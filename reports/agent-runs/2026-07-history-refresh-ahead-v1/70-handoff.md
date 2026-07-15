@@ -2,9 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: `accepted` (merged to `main`, push pending)
-- Next action: commit final accepted-state evidence on `main`, run the
-  post-merge pre-accept validator, then push `main` to `origin`
+- Active phase: `accepted` (merged and pushed)
+- Next action: commit and push this final receipt, verify `origin/main` equals
+  local `main`, then stop and wait for the next user-directed stage
 - Read-set: = `status.current_inputs`
 - Open blockers: none
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
@@ -20,9 +20,11 @@
   `2cb72fd870b1ef29cc4787e7dff102ab56bf8601`
 - Review-2 evidence commit: `ecaf107`
 - User-acceptance commit and fast-forward merge point: `9123cee`
+- Accepted-state commit on `main`: `b511352`
 - Merge strategy: `fast_forward`; conflicts: none; rebase: not used
-- Git status: accepted-state evidence modified; final commit and post-merge gate
-  pending
+- Post-merge `pre-accept` validator: PASS
+- Initial push receipt: `b4b424b..b511352 main -> main`
+- Git status: final push-receipt evidence modified; receipt commit/push pending
 - Bookkeeper/designer: Codex / OpenAI; no code authorship
 - Implementer: Claude-GLM / `zhipu_glm`, implementation complete
 - Review-1: Kimi
@@ -95,6 +97,11 @@ network tool calls, and finishes with a clean worktree.
 Clean-worktree `pre-accept` validator and final independent fingerprint
 recomputation: PASS after review-2 evidence commit `ecaf107`.
 
-本地北京时间: 2026-07-15 12:48:14 CST
+After the fast-forward merge, accepted-state commit `b511352` passed the
+post-merge `pre-accept` validator, fingerprint recomputation, diff check, and
+clean-worktree check. `git push origin main` then succeeded with receipt
+`b4b424b..b511352 main -> main`.
+
+本地北京时间: 2026-07-15 12:49:30 CST
 下一步模型: codex_bookkeeper
-下一步任务: 提交 accepted 状态，运行合并后 validator，并推送 main
+下一步任务: 提交并推送最终 receipt，核验 origin/main 与本地 main 一致

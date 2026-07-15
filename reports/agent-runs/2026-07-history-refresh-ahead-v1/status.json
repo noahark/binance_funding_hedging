@@ -176,17 +176,19 @@
       "Claude independently reran focused 37 passed, full backend 335 passed, py_compile and diff-check PASS",
       "python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase pre-accept => PASS (clean after ecaf107)",
       "Final independent authoritative fingerprint recomputation => PASS",
-      "git merge --ff-only stage/2026-07-history-refresh-ahead-v1 => PASS (main 12b8e1c..9123cee)"
+      "git merge --ff-only stage/2026-07-history-refresh-ahead-v1 => PASS (main 12b8e1c..9123cee)",
+      "Post-merge python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase pre-accept => PASS (clean at b511352)",
+      "Post-merge authoritative fingerprint recomputation and git diff --check => PASS"
     ]
   },
   "checkpoint": {
     "branch": "main",
     "head_sha": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601",
-    "git_status": "stage branch fast-forwarded to main at 9123cee; accepted-state commit and post-merge gate pending",
+    "git_status": "main accepted-state commit b511352 passed post-merge gate and was pushed to origin; final receipt commit follows",
     "test_status": "focused 37 passed; full backend 335 passed; py_compile/diff-check/adversarial retention passed",
     "open_findings": [],
     "blockers": [],
-    "next_action": "commit_accepted_state_run_post_merge_gate_then_push_main"
+    "next_action": "commit_and_push_final_receipt_then_verify_remote_main"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -275,12 +277,21 @@
     "merge_authorized": true,
     "push_authorized": true
   },
+  "publication": {
+    "remote": "origin",
+    "branch": "main",
+    "push_completed": true,
+    "push_from_sha": "b4b424b57702f481efb76e7287ec10dbc3d63a90",
+    "accepted_state_sha": "b5113526aec49361b80e01b538adde62991ecde0",
+    "receipt": "b4b424b..b511352 main -> main",
+    "recorded_at": "2026-07-15T04:49:30Z"
+  },
   "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": "accepted",
-  "next_action": "commit_accepted_state_run_post_merge_gate_then_push_main",
-  "updated_at": "2026-07-15T04:48:14Z"
+  "next_action": "commit_and_push_final_receipt_then_verify_remote_main",
+  "updated_at": "2026-07-15T04:49:30Z"
 }
