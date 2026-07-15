@@ -114,6 +114,22 @@ a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3
 git status --short: clean
 ```
 
+## User Acceptance And Merge
+
+```text
+user acceptance: 验收并授权合并、推送
+acceptance recorded on stage branch: 9123cee
+git fetch origin: PASS
+local main before merge: 12b8e1c1ea5d86bf692bbba2183de08ee9429af4
+origin/main before merge: b4b424b57702f481efb76e7287ec10dbc3d63a90
+remote relation: origin/main is behind local main; no remote-only commit
+git merge --ff-only stage/2026-07-history-refresh-ahead-v1: PASS
+merge strategy: fast_forward
+merged_back_sha: 9123cee14a5e8d6645926f3d84bea90dbeee13fd
+conflicts: none
+rebase: not used
+```
+
 ## Review-2 Result Collection
 
 Human-dispatched Claude Session:

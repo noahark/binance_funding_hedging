@@ -2,9 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: `stage_accepted_waiting_user` (merge and push authorized)
-- Next action: commit the user's explicit acceptance, fetch remote state, merge
-  the stage branch to `main` without rebase, run the post-merge gate, and push
+- Active phase: `accepted` (merged to `main`, push pending)
+- Next action: commit final accepted-state evidence on `main`, run the
+  post-merge pre-accept validator, then push `main` to `origin`
 - Read-set: = `status.current_inputs`
 - Open blockers: none
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
@@ -13,13 +13,16 @@
 ## Current State
 
 - Stage: `2026-07-history-refresh-ahead-v1`
-- Status: `stage_accepted_waiting_user`
-- Branch: `stage/2026-07-history-refresh-ahead-v1`
+- Status: `accepted`
+- Branch: `main`
 - Baseline: `12b8e1c1ea5d86bf692bbba2183de08ee9429af4`
 - Reviewed implementation/evidence HEAD:
   `2cb72fd870b1ef29cc4787e7dff102ab56bf8601`
 - Review-2 evidence commit: `ecaf107`
-- Git status at final pre-accept gate: clean
+- User-acceptance commit and fast-forward merge point: `9123cee`
+- Merge strategy: `fast_forward`; conflicts: none; rebase: not used
+- Git status: accepted-state evidence modified; final commit and post-merge gate
+  pending
 - Bookkeeper/designer: Codex / OpenAI; no code authorship
 - Implementer: Claude-GLM / `zhipu_glm`, implementation complete
 - Review-1: Kimi
@@ -45,6 +48,11 @@ stage branch can be merged to `main`.
 The user explicitly replied `验收并授权合并、推送` on 2026-07-15. Merge and
 push are now authorized; this acceptance record must be committed before the
 merge begins.
+
+The acceptance record was committed as `9123cee`. After fetching `origin`,
+local `main` had no remote-only commits and the stage branch was a strict
+descendant of local `main`; `git merge --ff-only` therefore completed without
+conflict at `9123cee`. No rebase was used.
 
 The user explicitly chose to continue without rotating the credential mentioned
 in the prior checkpoint. No credential value is stored in repository artifacts.
@@ -87,6 +95,6 @@ network tool calls, and finishes with a clean worktree.
 Clean-worktree `pre-accept` validator and final independent fingerprint
 recomputation: PASS after review-2 evidence commit `ecaf107`.
 
-本地北京时间: 2026-07-15 12:46:52 CST
+本地北京时间: 2026-07-15 12:48:14 CST
 下一步模型: codex_bookkeeper
-下一步任务: 提交用户验收记录，合并至 main，复验并推送
+下一步任务: 提交 accepted 状态，运行合并后 validator，并推送 main
