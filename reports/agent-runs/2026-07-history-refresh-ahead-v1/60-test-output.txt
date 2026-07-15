@@ -1,0 +1,13 @@
+## Intake And Dispatch Preparation
+
+```text
+ACTIVE.json and status.json syntax / duplicate-key parse: PASS
+git diff --check: PASS
+python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-history-refresh-ahead-v1
+phase=checkpoint
+status=implementing
+```
+
+No delivery-code tests have run; implementation is pending human dispatch.

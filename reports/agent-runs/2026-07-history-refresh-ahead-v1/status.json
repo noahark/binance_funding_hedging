@@ -1,0 +1,209 @@
+{
+  "stage_id": "2026-07-history-refresh-ahead-v1",
+  "status": "implementing",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-history-refresh-ahead-v1",
+    "created_from_main_sha": "12b8e1c1ea5d86bf692bbba2183de08ee9429af4",
+    "created_at": "2026-07-15T02:44:33Z",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "codex_bookkeeper_history_refresh_ahead_v1",
+    "provider": "openai",
+    "model": "gpt-5",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "Codex designed the bounded correction and prepared dispatch artifacts; it must not implement or fix delivery code."
+  },
+  "current_inputs": [
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/00-intake.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/00-task.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/10-design.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/11-adr.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/60-test-output.txt",
+    "backend/services/snapshot_service.py",
+    "backend/tests/test_background_worker.py"
+  ],
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "embedded_reviews": {},
+  "designer": {
+    "provider": "openai",
+    "model": "gpt-5",
+    "skill": "software_architect",
+    "prior_involvement": "design"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": null,
+  "implementer": {
+    "provider": "claude_glm",
+    "provider_identity": "zhipu_glm",
+    "model": "glm-5.2",
+    "skill": "senior_developer",
+    "session": null,
+    "state": "awaiting_human_dispatch"
+  },
+  "implementers": [],
+  "fix_authors": [],
+  "reviewer_1": "kimi",
+  "reviewer_2": "claude",
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "history-refresh-ahead",
+      "owner": "claude_glm",
+      "reviewer": "kimi",
+      "r10_checklist": null,
+      "base_sha": "12b8e1c1ea5d86bf692bbba2183de08ee9429af4",
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": "reports/agent-runs/2026-07-history-refresh-ahead-v1/60-test-output.txt",
+      "review_1": {
+        "reviewer": "kimi",
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "verdict": null,
+        "json_schema_valid": null,
+        "diff_fingerprint": null
+      }
+    }
+  ],
+  "model_routing": {
+    "dominant_domain": "backend",
+    "implementation_owner": "claude_glm",
+    "planned_review_1": "kimi",
+    "planned_review_2": "claude",
+    "excluded_for_core_work": ["codex", "kimi", "grok"],
+    "dispatch_mode": "human_dispatch",
+    "notes": [
+      "The human starts a fresh Claude-GLM terminal from the committed implementation prompt.",
+      "The patch is limited to history refresh freshness and deterministic background-worker tests.",
+      "Kimi is review-only and excluded from implementation; Codex is designer/bookkeeper only."
+    ]
+  },
+  "complexity": {
+    "classification": "LOW",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "Two backend files plus one implementation report are the entire implementation boundary.",
+      "No API, schema, frontend, private-call, or product-universe changes.",
+      "The user explicitly narrowed and approved the lightweight correction."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "skipped_user_approved_lightweight_route",
+    "user_approved": true
+  },
+  "approved_scope": {
+    "history_refresh_due_default_seconds": 1500,
+    "history_publication_expiry_default_seconds": 1800,
+    "refresh_ahead_seconds": 300,
+    "borrow_components_unchanged": true,
+    "threshold_reentry_deferred": true
+  },
+  "base_sha": "12b8e1c1ea5d86bf692bbba2183de08ee9429af4",
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "changed_files": [
+    "reports/agent-runs/ACTIVE.json",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/00-intake.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/00-task.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/10-design.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/11-adr.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/30-review-1.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/40-fix-report.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/50-review-2.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/status.json"
+  ],
+  "tests": {
+    "status": "intake_checks_passed_implementation_tests_pending",
+    "commands": [
+      "ACTIVE.json and status.json syntax / duplicate-key parse => PASS",
+      "git diff --check => PASS",
+      "python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase checkpoint => PASS"
+    ]
+  },
+  "checkpoint": {
+    "branch": "stage/2026-07-history-refresh-ahead-v1",
+    "head_sha": "12b8e1c1ea5d86bf692bbba2183de08ee9429af4",
+    "git_status": "stage intake/design/dispatch artifacts pending commit; no delivery-code changes",
+    "test_status": "not run; implementation pending",
+    "open_findings": [],
+    "blockers": ["human must execute the prepared Claude-GLM dispatch"],
+    "next_action": "human_execute_implementation_claude_glm_prompt"
+  },
+  "review_1": {
+    "reviewer": "kimi",
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "reviewer_prior_involvement": "none",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": "claude",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "claude-fable-5",
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
+    "fallback_reason": "anti_self_review_ineligible_codex_is_stage_designer",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": null,
+    "unrelated_reviewer_unavailable_evidence": null,
+    "design_conflict_override": {
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
+    },
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "residual_risks": [
+    "A fixed 300-second headroom assumes the current homepage candidate sweep completes within that window.",
+    "The explicitly deferred threshold exit/re-entry coverage behavior remains unchanged."
+  ],
+  "blockers": ["human model dispatch required"],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "next_action": "human_execute_implementation_claude_glm_prompt",
+  "updated_at": "2026-07-15T02:44:33Z"
+}
