@@ -49,8 +49,11 @@ class Config:
     # Phase 2 top-N (was 10); the v1 probe set is wider (default 50, §2.A.2 scen 3).
     borrow_check_max_calls: int = 50
     # §1.6: two independent private-channel TTL groups.
-    # 1h: rate chain (E2/E2b/E5/crossMarginData) + maxBorrowable.
-    private_channel_ttl_seconds: int = 3600
+    # 1800s: slow scheduled private transport (classic-reference / account-info /
+    # crossMarginData VIP table). Effective value must stay <=1800 so a stale
+    # transport entry cannot masquerade as a 30-minute successful refresh (stage
+    # 2026-07-cache-refresh-scheduler-v2, ADR-2 / FR-2).
+    private_channel_ttl_seconds: int = 1800
     # 60s: account balances (E3/E4/E6) — aligns with the public refresh cadence.
     private_channel_fast_ttl_seconds: int = 60
     private_recv_window: int = 10000
@@ -76,6 +79,12 @@ class Config:
     # cache changes or publish a new PublishedState.
     symbol_refresh_timeout_seconds: float = 30.0
 
+
+# Stage 2026-07-cache-refresh-scheduler-v2: fixed Group B shared/unified source
+# business cadence (CC-2). Not environment-configurable; the slow scheduled
+# private transport TTL (private_channel_ttl_seconds) may be set lower but must
+# remain <=1800 and must not amplify this fixed business cadence.
+GROUP_B_REFRESH_SECONDS = 1800
 
 DEFAULT = Config()
 
@@ -138,6 +147,21 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
     commands do not accidentally consume local secrets.
     """
     env = os.environ if environ is None else environ
+    private_channel_ttl_seconds = _env_int(
+        env,
+        "BINANCE_PRIVATE_CHANNEL_TTL_SECONDS",
+        DEFAULT.private_channel_ttl_seconds,
+        "FUNDING_HEDGING_PRIVATE_CHANNEL_TTL_SECONDS",
+    )
+    # FR-2 / §5.5: the slow scheduled private transport TTL must stay <=1800 so a
+    # stale transport entry cannot masquerade as a 30-minute successful refresh.
+    if private_channel_ttl_seconds > 1800:
+        raise ValueError(
+            "invalid integer environment value for "
+            "BINANCE_PRIVATE_CHANNEL_TTL_SECONDS: "
+            f"{private_channel_ttl_seconds!r} (effective slow scheduled private "
+            "transport TTL must be <=1800)"
+        )
     return Config(
         bind_host=_env(env, "APP_BIND_HOST", DEFAULT.bind_host, "FUNDING_HEDGING_BIND_HOST"),
         bind_port=_env_int(env, "APP_BIND_PORT", DEFAULT.bind_port, "FUNDING_HEDGING_BIND_PORT"),
@@ -173,12 +197,7 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
             DEFAULT.borrow_check_max_calls,
             "FUNDING_HEDGING_BORROW_CHECK_MAX_CALLS",
         ),
-        private_channel_ttl_seconds=_env_int(
-            env,
-            "BINANCE_PRIVATE_CHANNEL_TTL_SECONDS",
-            DEFAULT.private_channel_ttl_seconds,
-            "FUNDING_HEDGING_PRIVATE_CHANNEL_TTL_SECONDS",
-        ),
+        private_channel_ttl_seconds=private_channel_ttl_seconds,
         private_channel_fast_ttl_seconds=_env_int(
             env,
             "BINANCE_PRIVATE_CHANNEL_FAST_TTL_SECONDS",

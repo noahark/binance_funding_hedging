@@ -1,0 +1,351 @@
+# Test Output
+
+## Dispatch Preparation
+
+No product tests are claimed at this checkpoint. The stage migrated approved
+requirements and prepared a manual implementation prompt without changing
+delivery code. JSON, branch, scope, diff, and stage-validator checks are run by
+the bookkeeper before the dispatch base is committed.
+
+Checked on 2026-07-14:
+
+```text
+ACTIVE.json and status.json duplicate-key / syntax validation: PASS
+python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase checkpoint: PASS
+git diff --check: PASS
+seven-file delivery-code diff from main@8aac137: empty (PASS)
+claude-glm availability check without alias expansion: PASS
+```
+
+Dispatch packet committed at `201b3bb`. No delivery-code path changed in that
+commit. The implementation task base is bound by a subsequent status-only
+commit so the human starts Claude-GLM from a clean committed branch.
+
+## Implementation Attempt 1 — Bookkeeper Pre-Commit Verification
+
+Checked on 2026-07-15 before any implementation commit or review dispatch:
+
+```text
+python3 -m pytest backend/tests -q
+=> 325 passed in 12.97s
+
+python3 -m py_compile backend/config.py backend/adapters/binance_public.py backend/services/private_client.py backend/services/snapshot_service.py
+=> PASS
+
+git diff --check
+=> PASS
+
+git status --short
+=> exactly seven frozen product/test files plus 20-implementation.md modified
+```
+
+Passing tests were insufficient to establish the frozen contracts. Two
+read-only adversarial reproductions failed:
+
+```text
+CC-3 exit/re-entry reproduction:
+{'left_coverage': {'probed': 0, 'skipped': 0, 'reason': None},
+ 'ledger_after_exit': ['BTC'],
+ 'reentered_coverage_before_new_attempt':
+     {'probed': 1, 'skipped': 0, 'reason': None}}
+
+FR-2 / INV-5 timestamp-skew reproduction:
+{'business_was_due_at': 1800.0,
+ 'signed_get_calls': 0,
+ 'new_business_cache': (1800.0, '0.00000500', 'next_hourly')}
+```
+
+Interpretation:
+
+- the coverage ledger is not cleared on universe exit and re-entry does not
+  begin unattempted;
+- a still-valid transport entry can be treated as a successful refresh at the
+  business 1800-second boundary and advance the business timestamp without
+  real upstream I/O.
+
+Result: `IMPLEMENTATION_REWORK_REQUIRED_BEFORE_COMMIT`.
+Correction packet:
+`implementation-claude-glm-rework-1.prompt.md`.
+
+Post-checkpoint evidence validation:
+
+```text
+ACTIVE.json and status.json duplicate-key / syntax validation: PASS
+python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase checkpoint:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-cache-refresh-scheduler-v2
+phase=checkpoint
+status=implementing
+git diff --check: PASS
+```
+
+## Correction 1 — Bookkeeper Acceptance
+
+Checked independently on 2026-07-15 before the implementation evidence commit:
+
+```text
+python3 -m pytest backend/tests/test_background_worker.py backend/tests/test_private_client.py -q
+=> 68 passed in 1.52s
+
+python3 -m pytest backend/tests -q
+=> 330 passed in 13.01s
+
+python3 -m py_compile backend/config.py backend/adapters/binance_public.py backend/services/private_client.py backend/services/snapshot_service.py
+=> PASS
+
+git diff --check
+=> PASS
+```
+
+Bookkeeper source/test reconciliation:
+
+```text
+CC-3 / INV-4 exit prune and re-entry unattempted: PASS
+coverage reason == rate_limit_budget iff skipped > 0: PASS
+FR-2 / INV-5 completion-time transport_ts <= business_ts: PASS
+1799-second reuse / 1800-second real signed GET: PASS
+failed slow-private fetch does not advance business timestamp: PASS
+Correction 1 four-file write boundary: PASS
+```
+
+Result: `IMPLEMENTATION_READY_FOR_EVIDENCE_COMMIT`.
+
+## Implementation Evidence Commit And Review Binding
+
+```text
+implementation evidence commit:
+60c91f7b32ab0f0a51f719a094915adfbec87c83
+
+stage base:
+8aac137a46d228f2d68b2036a15575eda0e235a3
+
+stage diff_fingerprint:
+60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+
+implementation task base:
+4c9d43800bd0d6d908892afa46c8b08e00b88877
+
+implementation task diff_fingerprint:
+60c91f7b32ab0f0a51f719a094915adfbec87c83:2e618f1c0c978ff65d429b5efcfa025496a69e1674cd4694fb152a6bd6a53942
+```
+
+## Pre-Review Validation Attempt 1 — Placeholder Routing Correction
+
+The first clean-worktree pre-review validation after commit `977f753` failed:
+
+```text
+python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review
+STAGE VALIDATION FAILED
+- review_2 designer-overlap override requires reviewer_prior_involvement to be direction_synthesis, breakdown, or design
+- review_2 designer-overlap override requires fallback_reason
+- review_2 designer-overlap override requires an existing unrelated reviewer unavailable evidence file
+```
+
+Cause: review-2 has not started, but its planning placeholder
+`primary_provider: codex` was interpreted by `review_provider_identity()` as an
+already selected OpenAI reviewer. Since OpenAI authored the inherited design,
+the validator correctly demanded an override for that apparent selection.
+
+Mechanical correction: keep `review_2.reviewer/provider/model` and the direct
+`primary_provider/fallback_provider` selection fields null until review-2
+actually begins; preserve the intended Codex→Claude route under
+`review_2.routing_plan`. No reviewer was changed, no override was claimed, and
+the fixed reviewed implementation range/fingerprint is unchanged.
+
+## Pre-Review Validation — PASS
+
+Run from a clean worktree after the placeholder-routing correction commit
+`47f38a9`:
+
+```text
+python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-cache-refresh-scheduler-v2
+phase=pre-review
+status=review_1
+diff_fingerprint=60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+```
+
+Result: `REVIEW_1_DISPATCH_READY`.
+
+## Kimi Formal Review-1 Evidence Validation
+
+The human returned the complete Kimi output on 2026-07-15. The bookkeeper
+mechanically preserved it in `30-review-1.md` and checked the final JSON object:
+
+```text
+review-1 strict JSON/schema: PASS
+role: first_reviewer
+model: kimi-code/kimi-for-coding
+verdict: ACCEPT
+reviewer_prior_involvement: none
+finding severities: [P3]
+required_fixes: []
+diff_fingerprint:
+60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+```
+
+Independent fingerprint recomputation produced the same value. The P3 points
+to `backend/services/snapshot_service.py:841`, where the inherited
+`_funding_history_cache` write uses the function-entry `now`. No P0/P1/P2 and no
+required fix were returned.
+
+## Review-2 Eligibility And Dispatch Preparation
+
+```text
+registered decision route: Codex primary, Claude fallback
+implementation/fix author identities: zhipu_glm / none
+Codex identity: openai; prior involvement: design; delivery-code authorship: none
+Claude identity: anthropic; prior involvement: breakdown; delivery-code authorship: none
+unrelated registered review-2 decision provider: none
+selected final reviewer: fresh read-only Codex gpt-5.5
+override evidence: review-2-unrelated-reviewer-unavailable.md
+checkpoint validator: PASS
+git diff --check: PASS
+```
+
+Result before the committed pre-review gate:
+`REVIEW_2_DISPATCH_PACKET_PREPARED`.
+
+## Review-2 Pre-Review Validation — PASS
+
+Run from a clean worktree after evidence/dispatch commit `d6dbe6f`:
+
+```text
+python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-cache-refresh-scheduler-v2
+phase=pre-review
+status=review_2
+diff_fingerprint=60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+```
+
+Result: `REVIEW_2_DISPATCH_READY`.
+
+## Human-Approved Independent Main TTL Example Correction
+
+The local display-acceptance startup exposed an old ignored `.env` value of
+`3600`; the runtime contract correctly rejected it. The human directed a direct
+template correction without rerunning review-1.
+
+```text
+local ignored .env: BINANCE_PRIVATE_CHANNEL_TTL_SECONDS=1800
+config_parse=PASS private_channel_ttl_seconds=1800
+main commit: 413aa94 fix: align private channel ttl example
+main:.env.example: BINANCE_PRIVATE_CHANNEL_TTL_SECONDS=1800
+main commit file scope: .env.example only
+stage reviewed head/fingerprint: unchanged
+```
+
+The correction is recorded in `14-main-env-example-amendment.md`. Review-2 must
+verify the independent main commit without substituting it into the stage
+fingerprint.
+
+Post-amendment clean-worktree gate:
+
+```text
+python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-cache-refresh-scheduler-v2
+phase=pre-review
+status=review_2
+diff_fingerprint=60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+```
+
+Gate commit: `7e736b2`.
+
+## Review-2 Human Model Selection — Opus4.8
+
+The human replaced the planned Codex reviewer with Claude Opus4.8. Routing was
+updated without changing the fixed implementation head or fingerprint:
+
+```text
+selected reviewer: claude / opus4.8
+provider identity: anthropic
+reviewer prior involvement: breakdown
+prior breakdown session: bcb07380-a298-4208-a461-e47fd629c85e
+implementation/fix author provider: zhipu_glm / none
+session requirement: fresh Anthropic-authenticated read-only plan session
+Fable5 quota exhaustion claimed: false
+selection authority: explicit human model choice
+prompt: review-2-opus48.prompt.md
+```
+
+No model dispatch was executed by the bookkeeper.
+
+Opus4.8 routing pre-review gate from a clean worktree after commit `8c4a57a`:
+
+```text
+python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-cache-refresh-scheduler-v2
+phase=pre-review
+status=review_2
+diff_fingerprint=60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+```
+
+Result: `OPUS48_REVIEW_2_DISPATCH_READY`.
+
+## Opus4.8 Formal Review-2 Evidence Validation
+
+Session: `d4039913-9a87-4b9e-9e49-cf24e420c358`.
+
+The final assistant output was extracted read-only from the local Claude session
+transcript without resuming the model. Its final JSON object passed the strict
+schema and binding checks:
+
+```text
+review-2 strict JSON/schema: PASS
+role: final_reviewer
+model: opus4.8
+verdict: ACCEPT
+reviewer_prior_involvement: breakdown
+findings: [P3, P3, P3]
+required_fixes: []
+next_action: stage_accepted_waiting_user
+diff_fingerprint:
+60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+```
+
+The raw transcript confirms the reviewer directly ran:
+
+```text
+python3 -m pytest backend/tests/test_background_worker.py backend/tests/test_private_client.py -q
+python3 -m pytest backend/tests -q
+python3 -m py_compile backend/config.py backend/adapters/binance_public.py backend/services/private_client.py backend/services/snapshot_service.py
+git diff --check
+git status --short
+independent stage diff sha256 recomputation
+```
+
+Reviewer results: focused `68 passed`, full backend `330 passed`, py_compile
+PASS, diff check PASS, clean worktree, and exact fingerprint match.
+
+The third P3 found a bookkeeper-only full-SHA transcription error. Independent
+verification:
+
+```text
+git rev-parse main
+=> 413aa94c3bc4d89088b77eca07d89f59d2285d4d
+```
+
+The short SHA `413aa94` and `.env.example 3600 -> 1800` content were correct.
+`14-main-env-example-amendment.md` and `status.json` are corrected; executed
+review prompts remain unchanged as immutable dispatch evidence.
+
+Result before committed acceptance gate: `REVIEW_2_ACCEPT_EVIDENCE_READY`.
+
+## Final Pre-Accept Validation — PASS
+
+Run from a clean worktree after review-2 acceptance evidence commit `03d9e65`:
+
+```text
+python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-accept
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-cache-refresh-scheduler-v2
+phase=pre-accept
+status=stage_accepted_waiting_user
+diff_fingerprint=60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+```
+
+Result: `STAGE_ACCEPTED_WAITING_USER`; merge remains unauthorized.

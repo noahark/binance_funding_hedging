@@ -1,0 +1,313 @@
+{
+  "stage_id": "2026-07-cache-refresh-scheduler-v2",
+  "status": "stage_accepted_waiting_user",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-cache-refresh-scheduler-v2",
+    "created_from_main_sha": "8aac137a46d228f2d68b2036a15575eda0e235a3",
+    "created_at": "2026-07-14T14:41:45Z",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "codex_bookkeeper_cache_refresh_v2",
+    "provider": "openai",
+    "model": "gpt-5",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "Codex migrates approved design evidence and prepares dispatch only; it must not implement or fix delivery code."
+  },
+  "current_inputs": [
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/00-task.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/10-design.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/11-adr.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/13-manual-delivery-amendment.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/14-main-env-example-amendment.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm-rework-1.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/20-implementation.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/30-review-1.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/50-review-2.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-opus48.prompt.md",
+    "backend/config.py",
+    "backend/adapters/binance_public.py",
+    "backend/services/private_client.py",
+    "backend/services/snapshot_service.py",
+    "backend/tests/test_config.py",
+    "backend/tests/test_background_worker.py",
+    "backend/tests/test_private_client.py"
+  ],
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "embedded_reviews": {},
+  "designer": {
+    "provider": "openai",
+    "model": "gpt-5",
+    "skill": "software_architect",
+    "source_stage": "2026-07-cache-refresh-scheduler-v1",
+    "prior_involvement": "design"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": {
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "session": "bcb07380-a298-4208-a461-e47fd629c85e",
+    "skill": "task_planner",
+    "source_stage": "2026-07-cache-refresh-scheduler-v1",
+    "acceptance_status": "accepted"
+  },
+  "implementer": {
+    "provider": "claude_glm",
+    "provider_identity": "zhipu_glm",
+    "model": "glm-5.2",
+    "skill": "senior_developer",
+    "session": null,
+    "state": "review_2_accepted_waiting_user"
+  },
+  "implementers": [
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2",
+      "role": "implementation_author"
+    }
+  ],
+  "fix_authors": [],
+  "reviewer_1": "kimi",
+  "reviewer_2": "claude",
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "task",
+      "owner": "claude_glm",
+      "reviewer": "kimi",
+      "r10_checklist": null,
+      "base_sha": "4c9d43800bd0d6d908892afa46c8b08e00b88877",
+      "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
+      "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:2e618f1c0c978ff65d429b5efcfa025496a69e1674cd4694fb152a6bd6a53942",
+      "test_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt",
+      "review_1": {
+        "reviewer": "kimi",
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0"
+      }
+    }
+  ],
+  "model_routing": {
+    "dominant_domain": "backend",
+    "implementation_owner": "claude_glm",
+    "planned_review_1": "kimi",
+    "excluded_for_core_work": ["codex", "kimi", "grok"],
+    "dispatch_mode": "human_dispatch",
+    "notes": [
+      "The human starts a fresh Claude-GLM terminal from the committed prompt.",
+      "Implementation attempt 1 returned with 325 passing tests but failed two bookkeeper adversarial checks before commit; the human runs implementation-claude-glm-rework-1.prompt.md for the bounded correction.",
+      "Correction 1 closed both pre-commit P1 findings; the implementation evidence commit is 60c91f7b32ab0f0a51f719a094915adfbec87c83 and formal review-1 is prepared for a fresh read-only Kimi session.",
+      "Kimi review-1 returned a schema-valid ACCEPT bound to the authoritative stage fingerprint, with one inherited non-blocking P3 and no required fixes.",
+      "The human replaced the planned Codex final reviewer with Claude Opus4.8. This is an explicit user model selection, not a Fable5 quota claim; the fresh Anthropic session discloses prior breakdown involvement.",
+      "Auto-review pipeline artifacts and routing are not part of v2.",
+      "Review-1 must use a fresh provider-isolated Kimi session."
+    ]
+  },
+  "complexity": {
+    "classification": "MEDIUM",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "Approved v1 product design and breakdown are migrated unchanged.",
+      "Backend-only bounded implementation on existing files."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "skipped_user_approved_lightweight_route",
+    "user_approved": true
+  },
+  "approved_design_amendments": {
+    "approved_by": "human",
+    "approved_at": "2026-07-14T09:31:19Z",
+    "resolutions": [
+      {
+        "finding": "P1_slow_private_transport_ttl_conflict",
+        "decision": "Use 1800 seconds and require the effective scheduled slow-private transport TTL to remain <=1800."
+      },
+      {
+        "finding": "P1_scheduled_cost_leg_call_graph",
+        "decision": "Separate scheduled Group A/B/C source updates from cache-only assembly and keep interestRateHistory selected-asset fallback-only."
+      },
+      {
+        "finding": "P1_homepage_borrow_universe_and_coverage",
+        "decision": "Use the strict homepage borrow predicate, remove the global top-50 cap, and exclude low-rate rows from scheduled borrow work and coverage."
+      }
+    ]
+  },
+  "migration": {
+    "source_stage": "2026-07-cache-refresh-scheduler-v1",
+    "source_commit": "4d3cdb3",
+    "source_archive_branch": "archive/cache-refresh-scheduler-pre-harness-rollback-2026-07-14",
+    "preserved_documents": ["00-task.md", "10-design.md", "11-adr.md", "12-development-breakdown.md"],
+    "excluded_state": ["auto authorization", "runner receipts", "seal state", "failure escalation state"]
+  },
+  "independent_main_baseline": {
+    "sha": "413aa94c3bc4d89088b77eca07d89f59d2285d4d",
+    "file": ".env.example",
+    "change": "BINANCE_PRIVATE_CHANNEL_TTL_SECONDS=3600 -> 1800",
+    "human_approved_review_1_skip": true,
+    "included_in_stage_diff_fingerprint": false,
+    "evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/14-main-env-example-amendment.md"
+  },
+  "base_sha": "8aac137a46d228f2d68b2036a15575eda0e235a3",
+  "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
+  "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0",
+  "changed_files": [
+    "reports/agent-runs/ACTIVE.json",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/00-intake.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/00-task.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/06-direction-synthesis.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/10-design.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/11-adr.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/13-manual-delivery-amendment.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/14-main-env-example-amendment.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/20-implementation.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/30-review-1.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/40-fix-report.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/50-review-2.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/70-handoff.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm-rework-1.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-codex.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-opus48.prompt.md",
+    "backend/config.py",
+    "backend/adapters/binance_public.py",
+    "backend/services/private_client.py",
+    "backend/services/snapshot_service.py",
+    "backend/tests/test_config.py",
+    "backend/tests/test_background_worker.py",
+    "backend/tests/test_private_client.py",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/status.json"
+  ],
+  "tests": {
+    "status": "passed",
+    "commands": [
+      "python3 -m pytest backend/tests -q => 325 passed in 12.97s",
+      "python3 -m py_compile backend/config.py backend/adapters/binance_public.py backend/services/private_client.py backend/services/snapshot_service.py => PASS",
+      "git diff --check => PASS",
+      "Correction 1 CC-3 exit/re-entry adversarial tests => PASS",
+      "Correction 1 FR-2/INV-5 non-zero-skew 1799/1800 real-I/O test => PASS",
+      "python3 -m pytest backend/tests/test_background_worker.py backend/tests/test_private_client.py -q => 68 passed in 1.52s",
+      "python3 -m pytest backend/tests -q => 330 passed in 13.01s",
+      "JSON duplicate-key and syntax validation => PASS",
+      "Kimi review-1 strict JSON/schema and authoritative diff_fingerprint validation => PASS (ACCEPT, P3 only)",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase checkpoint => PASS",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (review-1)",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (review-2, clean worktree after d6dbe6f)",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (post-main-amendment dispatch evidence, clean worktree after 7e736b2)",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (Opus4.8 review-2 routing, clean worktree after 8c4a57a)",
+      "Opus4.8 review-2 strict JSON/schema and authoritative diff_fingerprint validation => PASS (ACCEPT, P3 only)",
+      "Opus4.8 raw transcript test evidence => focused 68 passed, full backend 330 passed, py_compile/diff-check/clean-worktree PASS",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-accept => PASS (clean worktree after 03d9e65)"
+    ]
+  },
+  "checkpoint": {
+    "branch": "stage/2026-07-cache-refresh-scheduler-v2",
+    "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
+    "git_status": "review-2 ACCEPT evidence committed at 03d9e65 and clean-worktree pre-accept gate passed; fixed implementation head remains 60c91f7; main 413aa94 must be preserved at merge",
+    "test_status": "bookkeeper and Opus4.8 independently observed focused 68 passed and full backend 330 passed; py_compile, diff check, fingerprint, and verdict schema passed",
+    "open_findings": [
+      "P3: inherited funding_history_cache write uses fetch-entry time rather than completion time; review-1 judged non-blocking.",
+      "P3: Group A panel business cadence and fast transport TTL can diverge under environment overrides; defaults remain 60/60."
+    ],
+    "blockers": [],
+    "next_action": "human_accept_stage_and_authorize_merge_to_main"
+  },
+  "review_1": {
+    "reviewer": "kimi",
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0",
+    "reviewer_prior_involvement": "none",
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": "claude",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "primary_provider": "claude",
+    "fallback_provider": null,
+    "routing_plan": {
+      "configured_primary_provider": "codex",
+      "configured_fallback_provider": "claude",
+      "selected_provider": "claude",
+      "selected_model": "opus4.8",
+      "selection_reason": "explicit_human_model_selection",
+      "fable5_quota_exhaustion_claimed": false,
+      "selection_deferred_until_after_review_1": false
+    },
+    "fallback_reason": "design_conflict_ineligibility_no_unrelated_registered_decision_model",
+    "reviewer_prior_involvement": "breakdown",
+    "reviewer_prior_involvement_notes": "Anthropic Opus4.8 authored the inherited development breakdown in session bcb07380-a298-4208-a461-e47fd629c85e but no Anthropic session implemented or fixed delivery code. The human explicitly selected Opus4.8; the final review must use a fresh read-only Anthropic session. Eligibility evidence: reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md",
+    "design_conflict_override": {
+      "used": true,
+      "reason": "The registered Codex and Claude decision providers both have prior design-stage involvement and no unrelated registered review-2 decision provider is enabled. The human selected Opus4.8; Anthropic is provider-isolated from all delivery-code authors and uses the breakdown-involvement disclosure override.",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md"
+    },
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0",
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "rework_count": 0,
+  "max_rework": 3,
+  "residual_risks": [
+    "P3: Group A panel business due uses cache_ttl_seconds while private transport uses private_channel_fast_ttl_seconds; defaults are 60/60 and this stage does not change the configurable divergence contract.",
+    "P3: inherited _fetch_history_for writes funding_history_cache with the function-entry monotonic time rather than fetch completion time; review-1 found no separate transport-cache masquerade risk and did not require a fix."
+  ],
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "user_acceptance": {
+    "accepted": true,
+    "accepted_at": "2026-07-15T02:40:43Z",
+    "merge_authorized": true,
+    "source": "User explicitly requested the reviewed scheduler code be merged and pushed, then narrowed the immediate corrective scope to history refresh-due at 1500 seconds only. The v2 merge is used as the reviewed local main baseline; remote push waits for the corrective stage."
+  },
+  "terminal_reason": "stage_accepted_waiting_user",
+  "next_action": "merge_reviewed_stage_to_local_main_then_start_low_corrective_stage",
+  "updated_at": "2026-07-15T02:40:43Z"
+}
