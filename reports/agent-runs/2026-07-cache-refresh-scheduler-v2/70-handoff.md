@@ -26,6 +26,8 @@
 - Review-2: fresh read-only Codex `gpt-5.5`, provider `openai`, prior
   involvement `design`
 - Dispatch mode: manual human execution; no runner or auto-review pipeline
+- Clean-worktree `validate-stage --phase pre-review`: PASS after commit
+  `d6dbe6f`; preserved in `60-test-output.txt`
 
 ## Review-1 Evidence
 
@@ -75,6 +77,6 @@ review-2 decision; do not seek a Claude second opinion. `ACCEPT` may only move
 the stage to `stage_accepted_waiting_user`; it does not authorize merging to
 `main`.
 
-本地北京时间: 2026-07-15 08:54:53 CST
+本地北京时间: 2026-07-15 08:59:16 CST
 下一步模型: human → codex
 下一步任务: 在全新只读 Codex 会话执行固定提交范围的正式 review-2
