@@ -124,3 +124,19 @@ raw narrative received: no
 final JSON received/schema-validated: no
 gate disposition: non-accepting until complete output is returned
 ```
+
+## Review-1 Session Export And Verdict Validation
+
+The bookkeeper used the local, read-only `kimi export` command for the exact
+user-supplied Session ID. The session was not resumed or continued. Global logs
+were excluded from the export. The final reviewer response was preserved
+verbatim in `30-review-1.md`.
+
+```text
+session: session_c24f55dc-51b0-4f67-9cab-d43943935e1b
+review_1_json_schema=PASS
+verdict=ACCEPT
+findings=0
+diff_fingerprint=exact authoritative match
+reviewer_prior_involvement=none
+```

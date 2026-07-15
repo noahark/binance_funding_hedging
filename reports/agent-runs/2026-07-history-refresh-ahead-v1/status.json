@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-history-refresh-ahead-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-history-refresh-ahead-v1",
@@ -80,9 +80,9 @@
         "reviewer": "kimi",
         "provider": "kimi",
         "model": "kimi-code/kimi-for-coding",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601:a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3"
       }
     }
   ],
@@ -182,13 +182,14 @@
     "model": "kimi-code/kimi-for-coding",
     "session": "session_c24f55dc-51b0-4f67-9cab-d43943935e1b",
     "dispatch_reported_complete": true,
-    "raw_output_received": false,
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "raw_output_received": true,
+    "raw_output_path": "reports/agent-runs/2026-07-history-refresh-ahead-v1/30-review-1.md",
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601:a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3",
     "reviewer_prior_involvement": "none",
-    "fix_start_prompt_present": null,
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
@@ -227,12 +228,12 @@
     "recorded_at": "2026-07-15T03:55:38Z",
     "note": "No credential value is stored in repository artifacts."
   },
-  "blockers": ["Kimi review-1 raw narrative and final JSON verdict have not been returned"],
+  "blockers": ["human must execute the prepared fresh Claude review-2 dispatch"],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_return_complete_kimi_review_1_output",
-  "updated_at": "2026-07-15T04:21:09Z"
+  "next_action": "prepare_and_execute_claude_review_2",
+  "updated_at": "2026-07-15T04:23:43Z"
 }

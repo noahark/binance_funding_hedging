@@ -2,12 +2,11 @@
 
 ## Recovery Header
 
-- Active phase: `review_1` (dispatch ready)
-- Next action: human returns the complete output from Kimi session
-  `session_c24f55dc-51b0-4f67-9cab-d43943935e1b`, including the final JSON
+- Active phase: `review_2` (review-1 ACCEPT recorded)
+- Next action: prepare and run the clean-worktree review-2 gate, then human
+  executes the fresh Claude final-review prompt
 - Read-set: = `status.current_inputs`
-- Open blockers: Kimi raw narrative and schema-bound final JSON are not yet
-  present; Session ID alone is non-accepting evidence
+- Open blockers: human final-review dispatch required by Harness
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
   sessions, prior v2 implementation/review transcripts
 
@@ -56,11 +55,11 @@ Authoritative fingerprint:
 Clean-worktree `pre-review` validator and independent fingerprint recomputation:
 PASS after binding commit `6b12335`.
 
-The human reported Kimi Session
-`session_c24f55dc-51b0-4f67-9cab-d43943935e1b` completed, but did not yet return
-its raw narrative/final JSON. No verdict is recorded until that output is
-preserved and schema-validated.
+The bookkeeper exported Kimi Session
+`session_c24f55dc-51b0-4f67-9cab-d43943935e1b` locally without resuming it,
+preserved the raw final response in `30-review-1.md`, and validated the strict
+JSON. Verdict: `ACCEPT`; findings: zero; fingerprint: exact match.
 
-本地北京时间: 2026-07-15 12:21:09 CST
-下一步模型: human
-下一步任务: 回传 Kimi review-1 完整输出（含最后 JSON）
+本地北京时间: 2026-07-15 12:23:43 CST
+下一步模型: codex_bookkeeper
+下一步任务: 准备 Claude review-2 prompt 并运行 pre-review validator
