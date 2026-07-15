@@ -482,3 +482,18 @@ Review-2 reviewer eligibility preparation: 2026-07-15 21:54:57 CST
 - Eligibility evidence: `review-2-eligibility-evidence.md`.
 - Fixed-range packet: `review-2-codex.prompt.md`.
 - No model dispatch executed by the bookkeeper.
+
+---
+
+Review-2 committed-state pre-review: 2026-07-15 21:57:24 CST
+
+- Clean dispatch commit:
+  `2b78a1c5e7404c3c28eed57dbdbc8256a0ba6308`
+- Command:
+  `python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review`
+- Result: `STAGE VALIDATION PASSED`
+- Status: `review_2`
+- Validated full-stage fingerprint:
+  `0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed`
+- Exact output: `review-2-preflight.txt`
+- Disposition: human may execute the prepared fresh Codex review-2 dispatch.

@@ -7,7 +7,7 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `review-2`
-- Next action: Bookkeeper commits the prepared Codex review-2 packet and eligibility evidence, runs the committed-state pre-review validator, then hands the packet to the human for a fresh read-only Session.
+- Next action: Human executes the prepared Codex review-2 packet in a fresh schema-bound read-only Session and returns the complete output plus Session ID.
 - Read-set: = `status.current_inputs`
 - Open blockers: review-2 verdict not yet captured; final reviewer selection must satisfy the strong-reviewer disclosure rules because both registered decision providers participated in design work.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
@@ -18,7 +18,7 @@ not read `history/` at startup.
 - Status: `review_2` (Task A and Task B review-1 verdicts are schema-valid ACCEPT; evidence pending local commit)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Reviewed product/evidence head: `0a383f0f8528591898f12690c371108e7582a27e`
-- Git status: review-1 ACCEPT evidence is committed at `bfbd082`; review-2 prompt/eligibility/status checkpoint is pending local commit
+- Git status: review-1 evidence and review-2 packet are committed; preflight evidence checkpoint is pending local commit
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
@@ -128,6 +128,9 @@ not read `history/` at startup.
   unrelated to design.
 - Evidence: `review-2-eligibility-evidence.md`.
 - Prompt: `review-2-codex.prompt.md`.
+- Committed-state pre-review validation: PASS at clean dispatch commit
+  `2b78a1c5e7404c3c28eed57dbdbc8256a0ba6308`; exact output in
+  `review-2-preflight.txt`.
 
 ## Formal Review-1 Result
 
@@ -158,15 +161,14 @@ not read `history/` at startup.
 
 ## Next Action
 
-Commit `review-2-eligibility-evidence.md`, `review-2-codex.prompt.md` and the
-stage checkpoint. Run and preserve review-2 `pre-review` validation from the
-clean committed state. After PASS, the human executes the prompt with Codex
-`gpt-5.5`/`xhigh` in a fresh read-only Session and returns the complete output
-plus provider-native Session ID.
+The human executes `review-2-codex.prompt.md` with Codex `gpt-5.5`/`xhigh` in a
+fresh schema-bound read-only Session. Do not reuse the current bookkeeper
+Session. Return the complete narrative/footer/final JSON and provider-native
+Session ID for final gate validation.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-15 21:54:57 CST
-下一步模型: codex_bookkeeper
-下一步任务: 提交 review-2 packet 与 disclosure evidence，并运行 committed-state pre-review validator
+本地北京时间: 2026-07-15 21:57:24 CST
+下一步模型: codex / gpt-5.5（由人工启动 fresh read-only Session）
+下一步任务: 执行 formal review-2 并返回完整 raw verdict 与 provider-native Session ID
