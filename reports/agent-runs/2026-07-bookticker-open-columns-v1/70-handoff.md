@@ -7,7 +7,7 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `review-1`
-- Next action: Bookkeeper reruns the review-1 pre-review validator after the truthful unselected review-2 state correction; after PASS, human executes both prepared formal cross-review packets in fresh isolated sessions.
+- Next action: Human executes both prepared formal cross-review packets in fresh isolated sessions and returns the raw outputs plus Session IDs.
 - Read-set: = `status.current_inputs`
 - Open blockers: review-1 verdicts not yet captured.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
@@ -18,7 +18,7 @@ not read `history/` at startup.
 - Status: `review_1` (Task A and Task B committed with fingerprints; dispatch packets prepared)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Reviewed product/evidence head: `0a383f0f8528591898f12690c371108e7582a27e`
-- Git status: product/evidence range and review packets are committed; review-2 unselected-state bookkeeping correction is pending local commit
+- Git status: product/evidence range, review packets and preflight state correction are locally committed; preflight evidence checkpoint pending commit
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
@@ -88,6 +88,7 @@ not read `history/` at startup.
 - Task A review-1 packet: `review-1-task-a-kimi.prompt.md`
 - Task B review-1 packet: `review-1-task-b-claude-glm.prompt.md`
 - Test evidence: `60-test-output.txt`
+- Review-1 validator evidence: `review-1-preflight.txt`
 - Status: `status.json`
 - Formal review-1/review-2: pending until Task B is committed and full-stage tests pass
 
@@ -119,19 +120,22 @@ not read `history/` at startup.
 - The current reviewer fields remain null. Codex/Claude are recorded only as
   future selection preferences until review-2 actually begins. Product code,
   reviewed SHAs and all diff fingerprints are unchanged.
+- State correction commit:
+  `449b8f52c9435b643dd06602e4859301e9d47be5`.
+- Global, Task A and Task B `pre-review` validation reruns all passed from that
+  clean committed state. Exact output is preserved in `review-1-preflight.txt`.
 
 ## Next Action
 
-First rerun and preserve the global plus task-scoped `pre-review` validator.
-After it passes, the human operator executes `review-1-task-a-kimi.prompt.md`
-in a fresh Kimi session and `review-1-task-b-claude-glm.prompt.md` in a fresh
-Claude-GLM plan session. Neither reviewer may reuse its recorded implementation
-Session. Capture the complete response, footer and final JSON at each declared
+The human operator executes `review-1-task-a-kimi.prompt.md` in a fresh Kimi
+session and `review-1-task-b-claude-glm.prompt.md` in a fresh Claude-GLM plan
+session. Neither reviewer may reuse its recorded implementation Session. Capture
+the complete response, footer and final JSON at each declared
 `30-review-1-task-*.md` path, then return both Session IDs to the bookkeeper.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-15 21:30:35 CST
-下一步模型: codex_bookkeeper
-下一步任务: 重跑并保存 review-1 pre-review 校验；PASS 后交由人工启动 fresh Kimi 与 Claude-GLM review-1 session
+本地北京时间: 2026-07-15 21:31:50 CST
+下一步模型: kimi + claude_glm（由人工分别在 fresh session 执行）
+下一步任务: 完成 Task A/Task B formal review-1 并返回两个 raw verdict 与 Session ID

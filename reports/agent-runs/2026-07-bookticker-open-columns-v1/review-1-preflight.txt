@@ -1,0 +1,35 @@
+Review-1 committed-state preflight
+Stage: 2026-07-bookticker-open-columns-v1
+Clean-state bookkeeping commit: 449b8f52c9435b643dd06602e4859301e9d47be5
+Reviewed product/evidence range: fea9fdc3ecce7675b34b01fe0a4b9de08811f939..0a383f0f8528591898f12690c371108e7582a27e
+
+Command: python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review
+Result:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-bookticker-open-columns-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed
+
+Command: python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review --task task-a-backend-contract-cache
+Result:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-bookticker-open-columns-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed
+
+Command: python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review --task task-b-frontend-table-integration
+Result:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-bookticker-open-columns-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed
+
+Current Session ID: 019f639a-7890-7573-a04b-7a62debff633
+Session ID source: runtime_env (CODEX_THREAD_ID)
+Raw output path: reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-preflight.txt
+本地北京时间: 2026-07-15 21:31:50 CST
+下一步模型: kimi + claude_glm（由人工分别在 fresh session 执行）
+下一步任务: 完成 Task A/Task B formal review-1 并返回两个 raw verdict 与 Session ID

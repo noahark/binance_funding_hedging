@@ -408,3 +408,23 @@ Disposition:
 - No unrelated-reviewer unavailability evidence exists, so none was created.
 - Product commits, reviewed ranges, fingerprints and test results are
   unchanged. The validator will be rerun from a clean committed state.
+
+---
+
+Review-1 pre-review validator rerun: 2026-07-15 21:31:50 CST
+
+Clean-state bookkeeping commit:
+`449b8f52c9435b643dd06602e4859301e9d47be5`
+
+Results:
+
+- global `--phase pre-review`: PASS
+- Task A scoped `--phase pre-review --task task-a-backend-contract-cache`: PASS
+- Task B scoped `--phase pre-review --task task-b-frontend-table-integration`: PASS
+- all runs matched full-stage fingerprint:
+  `0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed`
+
+Exact output: `reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-preflight.txt`
+
+Disposition: formal task-specific review-1 packets are ready for human
+execution in fresh isolated Kimi and Claude-GLM sessions.

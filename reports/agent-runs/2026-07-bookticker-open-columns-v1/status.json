@@ -18,6 +18,7 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-2.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-a-kimi.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-b-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-preflight.txt",
     "schemas/api/public-market/snapshot.schema.json",
     "frontend/index.html",
     "frontend/self-check.js",
@@ -312,6 +313,7 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-2.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-a-kimi.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-b-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-preflight.txt",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md",
@@ -370,10 +372,13 @@
       "python3 -m py_compile backend/adapters/binance_public.py backend/domain/snapshot.py backend/services/snapshot_service.py (Task B Fix 2 final)",
       "python3 -m json.tool frontend/fixture/public-market-snapshot.json (Task B Fix 2 final)",
       "no uncommitted backend/schema/docs diff after Task B base",
-      "git diff --check (Task B Fix 2 final)"
+      "git diff --check (Task B Fix 2 final)",
+      "python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review",
+      "python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review --task task-a-backend-contract-cache",
+      "python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review --task task-b-frontend-table-integration"
     ],
     "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
-    "note": "All Task B pre-commit findings are closed. Final independent checks pass: frontend 77 PASS lines, full backend 375, py_compile, fixture JSON, file boundary and diff check. Ready for Task B evidence commit; formal review has not started."
+    "note": "All Task B pre-commit findings are closed and committed. Final independent checks pass: frontend 77 PASS lines, full backend 375, py_compile, fixture JSON, file boundary and diff check. Global and both task-scoped committed-state pre-review validators pass; formal review-1 packets are ready for human execution."
   },
   "review_1": {
     "reviewer": null,
@@ -473,6 +478,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/15-session-id-capture-evidence.md"
     }
   ],
-  "next_action": "Bookkeeper reruns and preserves the review-1 pre-review validator after recording review-2 as not yet selected; after PASS, human executes both prepared formal review-1 packets in fresh isolated sessions.",
-  "updated_at": "2026-07-15T13:30:35Z"
+  "next_action": "Human executes both prepared formal review-1 packets in fresh isolated sessions: Task A with Kimi and Task B with Claude-GLM. Capture each complete raw response at its declared 30-review-1-task-*.md path, then return both Session IDs to Codex bookkeeper.",
+  "updated_at": "2026-07-15T13:31:50Z"
 }
