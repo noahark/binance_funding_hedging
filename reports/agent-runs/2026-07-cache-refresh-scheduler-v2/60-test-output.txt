@@ -128,3 +128,26 @@ implementation task base:
 implementation task diff_fingerprint:
 60c91f7b32ab0f0a51f719a094915adfbec87c83:2e618f1c0c978ff65d429b5efcfa025496a69e1674cd4694fb152a6bd6a53942
 ```
+
+## Pre-Review Validation Attempt 1 — Placeholder Routing Correction
+
+The first clean-worktree pre-review validation after commit `977f753` failed:
+
+```text
+python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review
+STAGE VALIDATION FAILED
+- review_2 designer-overlap override requires reviewer_prior_involvement to be direction_synthesis, breakdown, or design
+- review_2 designer-overlap override requires fallback_reason
+- review_2 designer-overlap override requires an existing unrelated reviewer unavailable evidence file
+```
+
+Cause: review-2 has not started, but its planning placeholder
+`primary_provider: codex` was interpreted by `review_provider_identity()` as an
+already selected OpenAI reviewer. Since OpenAI authored the inherited design,
+the validator correctly demanded an override for that apparent selection.
+
+Mechanical correction: keep `review_2.reviewer/provider/model` and the direct
+`primary_provider/fallback_provider` selection fields null until review-2
+actually begins; preserve the intended Codex→Claude route under
+`review_2.routing_plan`. No reviewer was changed, no override was claimed, and
+the fixed reviewed implementation range/fingerprint is unchanged.

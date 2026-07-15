@@ -29,6 +29,9 @@
 - Grok Session `019f6180-7b6c-7351-abfc-b4cf11576fd5` was informal only and
   is not review evidence or a gate verdict
 - Dispatch mode: manual human execution; no runner or auto-review pipeline
+- Pre-review attempt 1 exposed a review-2 placeholder-routing conflict only;
+  direct review-2 selection fields are now null until that phase begins, while
+  the Codex→Claude plan remains recorded under `review_2.routing_plan`
 
 ## Implementation Evidence
 

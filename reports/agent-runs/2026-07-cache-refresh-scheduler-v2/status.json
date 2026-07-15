@@ -231,8 +231,13 @@
     "reviewer": null,
     "provider": null,
     "model": null,
-    "primary_provider": "codex",
-    "fallback_provider": "claude",
+    "primary_provider": null,
+    "fallback_provider": null,
+    "routing_plan": {
+      "primary_provider": "codex",
+      "fallback_provider": "claude",
+      "selection_deferred_until_after_review_1": true
+    },
     "fallback_reason": null,
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": "OpenAI authored the inherited design; Anthropic authored the inherited breakdown. Final routing must evaluate prior involvement after review-1.",
@@ -262,5 +267,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_execute_fresh_read_only_kimi_review_1_prompt",
-  "updated_at": "2026-07-15T00:03:11Z"
+  "updated_at": "2026-07-15T00:06:56Z"
 }
