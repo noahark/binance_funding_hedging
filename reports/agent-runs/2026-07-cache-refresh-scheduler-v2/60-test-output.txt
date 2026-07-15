@@ -221,3 +221,22 @@ diff_fingerprint=60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef7
 ```
 
 Result: `REVIEW_2_DISPATCH_READY`.
+
+## Human-Approved Independent Main TTL Example Correction
+
+The local display-acceptance startup exposed an old ignored `.env` value of
+`3600`; the runtime contract correctly rejected it. The human directed a direct
+template correction without rerunning review-1.
+
+```text
+local ignored .env: BINANCE_PRIVATE_CHANNEL_TTL_SECONDS=1800
+config_parse=PASS private_channel_ttl_seconds=1800
+main commit: 413aa94 fix: align private channel ttl example
+main:.env.example: BINANCE_PRIVATE_CHANNEL_TTL_SECONDS=1800
+main commit file scope: .env.example only
+stage reviewed head/fingerprint: unchanged
+```
+
+The correction is recorded in `14-main-env-example-amendment.md`. Review-2 must
+verify the independent main commit without substituting it into the stage
+fingerprint.

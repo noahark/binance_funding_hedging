@@ -28,6 +28,8 @@
 - Dispatch mode: manual human execution; no runner or auto-review pipeline
 - Clean-worktree `validate-stage --phase pre-review`: PASS after commit
   `d6dbe6f`; preserved in `60-test-output.txt`
+- Independent main baseline: `413aa94` aligns `.env.example` to `1800` under
+  explicit human direction to skip review-1; stage fingerprint remains fixed
 
 ## Review-1 Evidence
 
@@ -61,6 +63,14 @@ Evidence:
 The prompt treats the approved synthesis, PRD, and product/architecture
 documents as higher authority. Design and breakdown are evidence under review.
 Provider isolation from the implementation author `zhipu_glm` is preserved.
+
+## Independent Main Baseline Correction
+
+`main @ 413aa94` changes only `.env.example` from `3600` to `1800`. It was
+landed independently so the already accepted review-1 range remains truthful.
+The current stage branch copy is intentionally unchanged; final merge must
+preserve main's correction. Review-2 is instructed to inspect this commit in
+addition to the fixed stage range. See `14-main-env-example-amendment.md`.
 
 ## Review-2 Dispatch
 

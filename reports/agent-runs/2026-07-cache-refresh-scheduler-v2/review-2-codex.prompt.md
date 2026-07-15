@@ -45,6 +45,22 @@ command:
 git diff --binary 8aac137a46d228f2d68b2036a15575eda0e235a3..60c91f7b32ab0f0a51f719a094915adfbec87c83 -- . ':(exclude)reports/agent-runs/2026-07-cache-refresh-scheduler-v2/status.json'
 ```
 
+An independent human-approved one-line operational baseline correction exists
+on `main` at `413aa94c74e356d2a99595f11cc0b91b8448fece`: `.env.example` was aligned
+from `3600` to `1800`. It is intentionally outside the stage fingerprint and
+did not claim review-1 coverage. Verify it read-only with:
+
+```bash
+git show --format=fuller --stat 413aa94c74e356d2a99595f11cc0b91b8448fece
+git show 413aa94c74e356d2a99595f11cc0b91b8448fece -- .env.example
+```
+
+The current stage checkout still contains the base-branch copy of
+`.env.example`; the later merge must preserve main's `1800` correction. Judge
+the final deliverable as the fixed stage diff plus this already-landed main
+baseline correction. Do not substitute commit `413aa94` for the required stage
+fingerprint in the strict verdict.
+
 ## Requirements Authority And Required Raw Inputs
 
 Read these directly. Do not read another stage or any `history/` directory.
@@ -72,7 +88,9 @@ Evidence under review:
 16. `reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt`
 17. `reports/agent-runs/2026-07-cache-refresh-scheduler-v2/status.json`
 18. `reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-2-unrelated-reviewer-unavailable.md`
-19. the exact committed diff and every relevant source/test file in it.
+19. `reports/agent-runs/2026-07-cache-refresh-scheduler-v2/14-main-env-example-amendment.md`
+20. main baseline commit `413aa94c74e356d2a99595f11cc0b91b8448fece`
+21. the exact committed diff and every relevant source/test file in it.
 
 ## Independent Final-Gate Review Focus
 

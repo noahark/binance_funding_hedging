@@ -17,6 +17,9 @@
 - Review-1: schema-valid `ACCEPT`, one non-blocking P3, no required fixes.
 - Pre-review validator: `PASS` from clean worktree after commit `d6dbe6f`;
   evidence preserved in `60-test-output.txt`.
+- Independent main baseline: `413aa94` changes only `.env.example` from `3600`
+  to `1800`; human explicitly directed no review-1 rerun. Review-2 must verify
+  it alongside the unchanged fixed stage range.
 - Formal review-2 verdict: pending; this dispatch metadata is not a verdict.
 
 ## Prior Involvement Disclosure
@@ -31,7 +34,8 @@ author `zhipu_glm` is preserved.
 
 The prompt requires the reviewer to inspect the product requirements,
 architecture, workflow, full stage design/evidence set, review-1 raw verdict,
-fixed git diff, tests, and all relevant source files directly.
+fixed git diff, independent main baseline commit `413aa94`, tests, and all
+relevant source files directly.
 
 ## Findings
 

@@ -25,6 +25,7 @@
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/11-adr.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/12-development-breakdown.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/13-manual-delivery-amendment.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/14-main-env-example-amendment.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm-rework-1.prompt.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/20-implementation.md",
@@ -166,6 +167,14 @@
     "preserved_documents": ["00-task.md", "10-design.md", "11-adr.md", "12-development-breakdown.md"],
     "excluded_state": ["auto authorization", "runner receipts", "seal state", "failure escalation state"]
   },
+  "independent_main_baseline": {
+    "sha": "413aa94c74e356d2a99595f11cc0b91b8448fece",
+    "file": ".env.example",
+    "change": "BINANCE_PRIVATE_CHANNEL_TTL_SECONDS=3600 -> 1800",
+    "human_approved_review_1_skip": true,
+    "included_in_stage_diff_fingerprint": false,
+    "evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/14-main-env-example-amendment.md"
+  },
   "base_sha": "8aac137a46d228f2d68b2036a15575eda0e235a3",
   "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
   "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0",
@@ -178,6 +187,7 @@
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/11-adr.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/12-development-breakdown.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/13-manual-delivery-amendment.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/14-main-env-example-amendment.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/20-implementation.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/30-review-1.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/40-fix-report.md",
@@ -218,7 +228,7 @@
   "checkpoint": {
     "branch": "stage/2026-07-cache-refresh-scheduler-v2",
     "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
-    "git_status": "review-2 evidence and dispatch committed at d6dbe6f; clean-worktree pre-review gate passed; fixed reviewed implementation head remains 60c91f7",
+    "git_status": "fixed reviewed implementation head remains 60c91f7; independent main commit 413aa94 aligns .env.example and must be preserved at merge",
     "test_status": "focused 68 passed, full backend 330 passed, py_compile and diff check passed; both pre-commit P1 findings closed",
     "open_findings": [
       "P3: inherited funding_history_cache write uses fetch-entry time rather than completion time; review-1 judged non-blocking.",
@@ -283,5 +293,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_execute_fresh_read_only_codex_review_2_prompt",
-  "updated_at": "2026-07-15T00:59:16Z"
+  "updated_at": "2026-07-15T01:06:19Z"
 }
