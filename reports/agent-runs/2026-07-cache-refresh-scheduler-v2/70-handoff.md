@@ -29,6 +29,7 @@
 - Reviewer prior involvement: `breakdown`; fresh-session disclosure present
 - Required fixes: none
 - Final clean-worktree `pre-accept` gate: PASS after `03d9e65`
+- Post-merge accepted-state `pre-accept` gate: PASS on `main` after `def19e5`
 - Merge authority: granted by the user on 2026-07-15; use v2 as the reviewed
   local `main` baseline and defer remote push until the corrective stage passes
 

@@ -228,7 +228,8 @@
       "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-review => PASS (Opus4.8 review-2 routing, clean worktree after 8c4a57a)",
       "Opus4.8 review-2 strict JSON/schema and authoritative diff_fingerprint validation => PASS (ACCEPT, P3 only)",
       "Opus4.8 raw transcript test evidence => focused 68 passed, full backend 330 passed, py_compile/diff-check/clean-worktree PASS",
-      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-accept => PASS (clean worktree after 03d9e65)"
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-accept => PASS (clean worktree after 03d9e65)",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase pre-accept => PASS (accepted on main after merge f504527 and bookkeeping def19e5)"
     ]
   },
   "checkpoint": {
