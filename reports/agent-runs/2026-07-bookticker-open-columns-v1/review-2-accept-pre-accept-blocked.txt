@@ -1,0 +1,31 @@
+Review-2 ACCEPT to pre-accept transition check
+Local time: 2026-07-16 03:37:37 CST
+
+Committed review evidence HEAD:
+12cc422bd256fe18a27621254fa9b178365f62b9
+
+Command:
+python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-accept
+
+Exact result:
+STAGE VALIDATION FAILED
+- pre-accept requires status in ['accepted', 'stage_accepted_waiting_user'], got 'review_2'
+- review_1.diff_fingerprint must match status.diff_fingerprint
+
+Disposition:
+- The first item is a mechanical state transition that can be made only after
+  every other pre-accept condition is satisfiable.
+- The second item is substantive Harness evidence integrity. Formal review-1
+  accepted the pre-Task-C head; the user later added Task C and explicitly
+  requested only one new final review. Review-2 validly accepted the full
+  post-Task-C fingerprint, but the current validator does not provide an
+  exception for a stale review-1 fingerprint.
+- Do not rewrite review-1.diff_fingerprint: that would falsely claim the old
+  cross-review Sessions inspected Task C.
+- No merge, push or accepted terminal transition is allowed while this gate is
+  unresolved.
+- Safest existing-contract resolution is a fresh Claude-GLM cross-review of
+  Task C/current fixed fingerprint, followed by mechanical aggregate review-1
+  update and a clean pre-accept rerun. This is an additional model review and
+  requires the user's explicit approval because it supersedes the earlier
+  one-new-review limit.

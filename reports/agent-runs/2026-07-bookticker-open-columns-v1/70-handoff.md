@@ -7,9 +7,9 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `review_2`
-- Next action: Bookkeeper commits the captured schema-valid review-2 ACCEPT verdict, runs the required pre-accept validator and enters `stage_accepted_waiting_user` only if all hard gates pass.
+- Next action: Human decides whether to authorize one additional fresh Claude-GLM Task C cross-review; without it the stage remains review-2 ACCEPT but cannot pass pre-accept.
 - Read-set: = `status.current_inputs`
-- Open blockers: Review-2 ACCEPT is captured with no P0/P1/P2; pre-accept hard-gate validation remains before terminal transition.
+- Open blockers: Review-2 ACCEPT is valid, but pre-accept fails because the existing review-1 fingerprint predates Task C. The bookkeeper will not falsify that receipt.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
@@ -27,6 +27,9 @@ not read `history/` at startup.
   `019f6737-9397-7e00-991a-60a8679439c1`; verdict `ACCEPT`; 0 P0/P1/P2, 2 P3.
 - Raw verdict: `50-review-2.md`; JSON schema and fixed fingerprint independently
   validated by the bookkeeper.
+- Pre-accept evidence: `review-2-accept-pre-accept-blocked.txt`; safe resolution
+  under the existing Harness is one fresh Claude-GLM Task C cross-review, which
+  requires user approval because it adds a review beyond the earlier limit.
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
@@ -237,14 +240,14 @@ not read `history/` at startup.
 
 ## Next Action
 
-The bookkeeper commits the transcript-captured `50-review-2.md`, then runs the
-required clean-state `pre-accept` validator. An ACCEPT transition may stop only
-at `stage_accepted_waiting_user`; merge and push remain forbidden until a later
-explicit user acceptance.
+Review-2 ACCEPT is committed. Pre-accept failed closed because formal review-1
+covers the pre-Task-C fingerprint. The stage stays at `review_2`; merge and push
+remain forbidden. Human direction is required before preparing any additional
+cross-review packet.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-16 03:35:40 CST
-下一步模型: codex_bookkeeper
-下一步任务: 提交 ACCEPT 原始证据并运行 pre-accept hard gate；通过后等待用户明确合并授权
+本地北京时间: 2026-07-16 03:37:37 CST
+下一步模型: human
+下一步任务: 决定是否授权追加一次 fresh Claude-GLM Task C cross-review，以真实补齐 review-1 当前指纹

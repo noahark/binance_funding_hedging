@@ -672,3 +672,26 @@ Formal review-2 capture and bookkeeper validation: 2026-07-16 03:35:40 CST
   excluding that immutable raw capture is clean. No runtime impact.
 - Next verdict action: `stage_accepted_waiting_user`; final pre-accept validator
   still required before terminal transition.
+
+---
+
+Pre-accept hard-gate attempt: 2026-07-16 03:37:37 CST
+
+- Clean committed evidence HEAD:
+  `12cc422bd256fe18a27621254fa9b178365f62b9`.
+- Command:
+  `python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-accept`.
+- Result: FAIL CLOSED with exactly two conditions:
+  1. status is still `review_2`, not an acceptance terminal state;
+  2. `review_1.diff_fingerprint` does not match the post-Task-C full-stage
+     fingerprint.
+- Condition 1 is mechanical but must not be applied while condition 2 remains.
+- Condition 2 is real evidence integrity: the existing formal review-1 Sessions
+  predate Task C. The bookkeeper will not rewrite their fingerprint to imply
+  they reviewed code they never saw.
+- Formal review-2 ACCEPT remains valid for the fixed post-Task-C fingerprint.
+- Existing-contract resolution requires one fresh Task C cross-review by
+  Claude-GLM, which needs user approval because the user previously requested
+  only one new review.
+- Exact output and disposition:
+  `review-2-accept-pre-accept-blocked.txt`.
