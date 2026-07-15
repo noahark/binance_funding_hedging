@@ -503,16 +503,31 @@ setTimeout(async () => {
     console.log('[PASS] Drawer 宽度与卡片标签约束');
 
     // 6. 日费率 string-shift 格式化（含 null→—）
+    // 6-addendum. 资金费率固定 3 位小数百分比
+    const ausdtFundingCell = getRowCell(tbody, 'AUSDT', 4);
+    if (!ausdtFundingCell.includes('-0.060%')) {
+      throw new Error(`AUSDT 资金费率期望 -0.060%，单元格 ${ausdtFundingCell}`);
+    }
+    const cusdtFundingCell = getRowCell(tbody, 'CUSDT', 4);
+    if (!cusdtFundingCell.includes('+0.030%')) {
+      throw new Error(`CUSDT 资金费率期望 +0.030%，单元格 ${cusdtFundingCell}`);
+    }
+    const fusdtFundingCell = getRowCell(tbody, 'FUSDT', 4);
+    if (!fusdtFundingCell.includes('0.000%')) {
+      throw new Error(`FUSDT 资金费率期望 0.000%，单元格 ${fusdtFundingCell}`);
+    }
+    console.log('[PASS] 资金费率固定 3 位小数');
+
     const dailyRateChecks = [
-      ['AUSDT', '-0.06%'],
-      ['BUSDT', '-0.07%'],
-      ['CUSDT', '+0.03%'],
-      ['DUSDT', '-0.04%'],
-      ['EUSDT', '-0.08%'],
+      ['AUSDT', '-0.060%'],
+      ['BUSDT', '-0.070%'],
+      ['CUSDT', '+0.030%'],
+      ['DUSDT', '-0.040%'],
+      ['EUSDT', '-0.080%'],
       ['FUSDT', '—']
     ];
     for (const [sym, expected] of dailyRateChecks) {
-      const cell = getRowCell(tbody, sym, 4);
+      const cell = getRowCell(tbody, sym, 6);
       if (!cell.includes(expected)) {
         throw new Error(`${sym} 日费率期望 ${expected}，单元格 ${cell}`);
       }
@@ -520,23 +535,23 @@ setTimeout(async () => {
     console.log('[PASS] 日费率 string-shift 格式化（含 null→—）');
 
     // 6b. 年化三列格式化：AUSDT 三值齐全，BUSDT 7D/30D 为 null→—
-    const ausdtAnn24 = getRowCell(tbody, 'AUSDT', 5);
-    if (!ausdtAnn24.includes('-65.7%')) {
-      throw new Error(`AUSDT 年化 24h 期望 -65.7%，单元格 ${ausdtAnn24}`);
+    const ausdtAnn24 = getRowCell(tbody, 'AUSDT', 7);
+    if (!ausdtAnn24.includes('-65.70%')) {
+      throw new Error(`AUSDT 年化 24h 期望 -65.70%，单元格 ${ausdtAnn24}`);
     }
-    const ausdtAnn7 = getRowCell(tbody, 'AUSDT', 6);
-    if (!ausdtAnn7.includes('-0.260714%')) {
-      throw new Error(`AUSDT 年化 7D 期望 -0.260714%，单元格 ${ausdtAnn7}`);
+    const ausdtAnn7 = getRowCell(tbody, 'AUSDT', 8);
+    if (!ausdtAnn7.includes('-0.26%')) {
+      throw new Error(`AUSDT 年化 7D 期望 -0.26%，单元格 ${ausdtAnn7}`);
     }
-    const ausdtAnn30 = getRowCell(tbody, 'AUSDT', 7);
-    if (!ausdtAnn30.includes('-0.060833%')) {
-      throw new Error(`AUSDT 年化 30D 期望 -0.060833%，单元格 ${ausdtAnn30}`);
+    const ausdtAnn30 = getRowCell(tbody, 'AUSDT', 9);
+    if (!ausdtAnn30.includes('-0.06%')) {
+      throw new Error(`AUSDT 年化 30D 期望 -0.06%，单元格 ${ausdtAnn30}`);
     }
-    const busdtAnn7 = getRowCell(tbody, 'BUSDT', 6);
+    const busdtAnn7 = getRowCell(tbody, 'BUSDT', 8);
     if (!busdtAnn7.includes('—')) {
       throw new Error(`BUSDT 年化 7D 期望 —，单元格 ${busdtAnn7}`);
     }
-    const busdtAnn30 = getRowCell(tbody, 'BUSDT', 7);
+    const busdtAnn30 = getRowCell(tbody, 'BUSDT', 9);
     if (!busdtAnn30.includes('—')) {
       throw new Error(`BUSDT 年化 30D 期望 —，单元格 ${busdtAnn30}`);
     }
@@ -634,6 +649,39 @@ setTimeout(async () => {
     }
     console.log('[PASS] formatFundingRate / formatBeijing* 函数体未变');
 
+    // 14c. formatFundingRateFixed 固定小数位百分比（Task C addendum）
+    if (!helpers || typeof helpers.formatFundingRateFixed !== 'function') {
+      throw new Error('formatFundingRateFixed 辅助函数未暴露');
+    }
+    const fixedCases = [
+      // 资金费率/日费率 3 位
+      ['-0.00030000', 3, '-0.030%'],
+      ['0.00030000', 3, '+0.030%'],
+      ['0', 3, '0.000%'],
+      ['-0.00000000', 3, '0.000%'],
+      // 年化 2 位
+      ['-0.657', 2, '-65.70%'],
+      ['-0.00260714', 2, '-0.26%'],
+      ['-0.00060833', 2, '-0.06%'],
+      // HALF_UP 进位边界
+      ['0.00000999', 3, '+0.001%'],
+      ['0.00001999', 3, '+0.002%'],
+      ['0.999995', 2, '+100.00%'],
+      // 微小负值归一化为无符号零
+      ['-0.00000499', 3, '0.000%'],
+      // 无效/空输入
+      ['', 3, '—'],
+      [null, 3, '—'],
+      ['not-a-number', 3, '—']
+    ];
+    for (const [input, decimals, expected] of fixedCases) {
+      const actual = helpers.formatFundingRateFixed(input, decimals);
+      if (actual !== expected) {
+        throw new Error(`formatFundingRateFixed(${JSON.stringify(input)}, ${decimals}) 期望 ${expected}，实际 ${actual}`);
+      }
+    }
+    console.log('[PASS] formatFundingRateFixed 固定小数位百分比');
+
     // 14b. formatUsdt2 2 位 ROUND_HALF_UP
     if (!helpers || typeof helpers.formatUsdt2 !== 'function') {
       throw new Error('formatUsdt2 辅助函数未暴露');
@@ -727,7 +775,7 @@ setTimeout(async () => {
       ['FUSDT', '—', null]
     ];
     for (const [sym, expectedNet, expectedSource] of netYieldChecks) {
-      const cell = getRowCell(tbody, sym, 8);
+      const cell = getRowCell(tbody, sym, 10);
       if (!cell.includes(expectedNet)) {
         throw new Error(`${sym} 净收益期望 ${expectedNet}，单元格 ${cell}`);
       }
@@ -744,8 +792,8 @@ setTimeout(async () => {
     console.log('[PASS] 净收益列存在与格式');
 
     // 20. 负值净收益红色样式
-    const cusdtNetCell = getRowCell(tbody, 'CUSDT', 8);
-    const ausdtNetCell = getRowCell(tbody, 'AUSDT', 8);
+    const cusdtNetCell = getRowCell(tbody, 'CUSDT', 10);
+    const ausdtNetCell = getRowCell(tbody, 'AUSDT', 10);
     if (!ausdtNetCell.includes('positive')) {
       throw new Error('AUSDT 正净收益未应用 positive 样式');
     }
@@ -755,7 +803,7 @@ setTimeout(async () => {
     negativeNetFixture.rows[0].borrow_rate_source = null;
     helpers.ingestSnapshot(negativeNetFixture);
     const negTbody = elements['market-table-body'].innerHTML;
-    const negCell = getRowCell(negTbody, 'AUSDT', 8);
+    const negCell = getRowCell(negTbody, 'AUSDT', 10);
     if (!negCell.includes('negative')) {
       throw new Error('负净收益未应用 negative 红色样式');
     }
@@ -768,7 +816,7 @@ setTimeout(async () => {
     vip0Fixture.rows[1].borrow_rate_source = 'vip0_reference';
     helpers.ingestSnapshot(vip0Fixture);
     const vip0Tbody = elements['market-table-body'].innerHTML;
-    const vip0Cell = getRowCell(vip0Tbody, 'BUSDT', 8);
+    const vip0Cell = getRowCell(vip0Tbody, 'BUSDT', 10);
     if (!vip0Cell.includes('基准利率') || !vip0Cell.includes('vip0-reference')) {
       throw new Error('vip0_reference 未显著标注「基准利率」');
     }
@@ -941,8 +989,8 @@ setTimeout(async () => {
     let netCell = '';
     while (pos !== -1 && tdCount < 12) {
       const close = dRowHtml.indexOf('</td>', pos);
-      if (tdCount === 4) dailyCell = dRowHtml.slice(pos, close + 5);
-      if (tdCount === 8) netCell = dRowHtml.slice(pos, close + 5);
+      if (tdCount === 6) dailyCell = dRowHtml.slice(pos, close + 5);
+      if (tdCount === 10) netCell = dRowHtml.slice(pos, close + 5);
       pos = dRowHtml.indexOf('<td', close + 5);
       tdCount++;
     }
@@ -984,7 +1032,7 @@ setTimeout(async () => {
     console.log('[PASS] drawer DOM 在应用脚本之前');
 
     // 31. 成本腿命中行展示借币日利率（账户档）
-    const ausdtNetCell2 = getRowCell(tbody, 'AUSDT', 8);
+    const ausdtNetCell2 = getRowCell(tbody, 'AUSDT', 10);
     if (!ausdtNetCell2.includes('日借币')) {
       throw new Error('AUSDT 成本腿命中行未展示日借币子行');
     }
@@ -999,7 +1047,7 @@ setTimeout(async () => {
     vip0Fixture2.rows[1].borrow_validation.classic_margin.daily_interest_account = null;
     helpers.ingestSnapshot(vip0Fixture2);
     const vip0Tbody2 = elements['market-table-body'].innerHTML;
-    const busdtNetCell = getRowCell(vip0Tbody2, 'BUSDT', 8);
+    const busdtNetCell = getRowCell(vip0Tbody2, 'BUSDT', 10);
     if (!busdtNetCell.includes('日借币') || !busdtNetCell.includes('参考')) {
       throw new Error('VIP0 参考档未显示"参考"徽标: ' + busdtNetCell);
     }
@@ -1007,7 +1055,7 @@ setTimeout(async () => {
     console.log('[PASS] VIP0 参考档显示"参考"徽标');
 
     // 33. 正费率/无成本腿行不展示借币成本子行
-    const cusdtNetCell2 = getRowCell(tbody, 'CUSDT', 8);
+    const cusdtNetCell2 = getRowCell(tbody, 'CUSDT', 10);
     if (cusdtNetCell2.includes('日借币')) {
       throw new Error('CUSDT 正费率行不应展示日借币子行');
     }
@@ -1046,15 +1094,15 @@ setTimeout(async () => {
     console.log('[PASS] opening spread 独立 formatter 三向量');
 
     // 33c. 最终 12 列：严格表头顺序、每行 12 个 td、empty-state colspan=12、合并列结构
-    const taskBHeaders = ['标的', '借贷状态 / 资产', '资金费率', '结算时间', '日费率', '年化 24h', '年化 7D', '年化 30D', '日净收益', '标记价格 / 指数价格', '正向开单', '反向开单'];
+    const taskCHeaders = ['标的', '标记价格 / 指数价格', '正向开单', '反向开单', '资金费率', '结算时间', '日费率', '年化 24h', '年化 7D', '年化 30D', '日净收益', '借贷状态 / 资产'];
     const theadBlock = html.slice(html.indexOf('<thead>'), html.indexOf('</thead>') + 8);
     const renderedHeaders = [...theadBlock.matchAll(/<th[^>]*>([^\u003c]*)<\/th>/g)].map(m => m[1].trim());
     if (renderedHeaders.length !== 12) {
       throw new Error(`表头数量期望 12，实际 ${renderedHeaders.length}: ${JSON.stringify(renderedHeaders)}`);
     }
     for (let i = 0; i < 12; i++) {
-      if (renderedHeaders[i] !== taskBHeaders[i]) {
-        throw new Error(`表头第 ${i + 1} 项期望「${taskBHeaders[i]}」，实际「${renderedHeaders[i]}」`);
+      if (renderedHeaders[i] !== taskCHeaders[i]) {
+        throw new Error(`表头第 ${i + 1} 项期望「${taskCHeaders[i]}」，实际「${renderedHeaders[i]}」`);
       }
     }
     if (theadBlock.includes('提示标记') || theadBlock.includes('负费率状态')) {
@@ -1087,14 +1135,14 @@ setTimeout(async () => {
     elements['filter-search'].value = originalSearch;
     (elements['filter-search'].listeners.input || []).forEach(h => h());
 
-    // 合并列：AUSDT 状态 badge 位置早于资产 badge；额度只在 index 1，不在 index 8
-    const ausdtCombined = getRowCell(tbody, 'AUSDT', 1);
+    // 合并列：AUSDT 状态 badge 位置早于资产 badge；额度只在 index 11，不在 index 8
+    const ausdtCombined = getRowCell(tbody, 'AUSDT', 11);
     const statusIdx = ausdtCombined.indexOf('badge '); // 第一个 badge 是状态
     const assetIdx = ausdtCombined.indexOf('CRYPTO(加密货币)');
     if (statusIdx === -1 || assetIdx === -1 || statusIdx >= assetIdx) {
       throw new Error('AUSDT 合并列中状态 badge 应位于资产标签之前: ' + ausdtCombined);
     }
-    const ausdtNet = getRowCell(tbody, 'AUSDT', 8);
+    const ausdtNet = getRowCell(tbody, 'AUSDT', 10);
     if (ausdtNet.includes('可借:')) {
       throw new Error('AUSDT 日净收益格不应含可借额度: ' + ausdtNet);
     }
@@ -1102,7 +1150,7 @@ setTimeout(async () => {
 
     // 33d. 正向/反向开单列：腿标签、价格、百分比与颜色
     // AUSDT fresh: forward -0.04%, reverse +0.04%
-    const ausdtForward = getRowCell(tbody, 'AUSDT', 10);
+    const ausdtForward = getRowCell(tbody, 'AUSDT', 2);
     if (!ausdtForward.includes('合约买一') || !ausdtForward.includes('现货卖一')) {
       throw new Error('AUSDT 正向开单列上下腿标签错误: ' + ausdtForward);
     }
@@ -1115,7 +1163,7 @@ setTimeout(async () => {
     if (!ausdtForward.includes('negative')) {
       throw new Error('AUSDT 正向开单列负 spread 应使用 negative 色: ' + ausdtForward);
     }
-    const ausdtReverse = getRowCell(tbody, 'AUSDT', 11);
+    const ausdtReverse = getRowCell(tbody, 'AUSDT', 3);
     if (!ausdtReverse.includes('现货买一') || !ausdtReverse.includes('合约卖一')) {
       throw new Error('AUSDT 反向开单列上下腿标签错误: ' + ausdtReverse);
     }
@@ -1130,8 +1178,39 @@ setTimeout(async () => {
     }
     console.log('[PASS] 正向/反向开单列腿、价、百分比与颜色');
 
+    // 33d-task-c. Task C 新增布局断言（依赖 33d 已初始化的 ausdtForward / ausdtReverse）
+    // 标的不再显示 bStock 现货腿别名（保留数据语义与警告面板说明）
+    const bstockRow = designFixture.rows.find(r => r.asset_tag === 'BSTOCK');
+    if (bstockRow) {
+      const bstockSymbolCell = getRowCell(tbody, bstockRow.symbol, 0);
+      if (bstockSymbolCell.includes('B 后缀别名') || bstockSymbolCell.includes('现货腿:')) {
+        throw new Error('bStock 行标的单元格仍显示 B 后缀别名或现货腿: ' + bstockSymbolCell);
+      }
+    }
+    // 正向开单列文本顺序：合约买一 < 现货卖一 < 百分比
+    const forwardFirstLegIdx = ausdtForward.indexOf('合约买一');
+    const forwardSecondLegIdx = ausdtForward.indexOf('现货卖一');
+    const forwardPctIdx = ausdtForward.indexOf('-0.04%');
+    if (forwardFirstLegIdx === -1 || forwardSecondLegIdx === -1 || forwardPctIdx === -1 ||
+        !(forwardFirstLegIdx < forwardSecondLegIdx && forwardSecondLegIdx < forwardPctIdx)) {
+      throw new Error('AUSDT 正向开单列文本顺序应为 合约买一 < 现货卖一 < -0.04%: ' + ausdtForward);
+    }
+    // 反向开单列文本顺序：现货买一 < 合约卖一 < 百分比
+    const reverseFirstLegIdx = ausdtReverse.indexOf('现货买一');
+    const reverseSecondLegIdx = ausdtReverse.indexOf('合约卖一');
+    const reversePctIdx = ausdtReverse.indexOf('+0.04%');
+    if (reverseFirstLegIdx === -1 || reverseSecondLegIdx === -1 || reversePctIdx === -1 ||
+        !(reverseFirstLegIdx < reverseSecondLegIdx && reverseSecondLegIdx < reversePctIdx)) {
+      throw new Error('AUSDT 反向开单列文本顺序应为 现货买一 < 合约卖一 < +0.04%: ' + ausdtReverse);
+    }
+    // 开单单元格不再使用旧的 display:flex 水平布局
+    if (ausdtForward.includes('display:flex') || ausdtReverse.includes('display:flex')) {
+      throw new Error('开单单元格仍包含 display:flex 水平布局');
+    }
+    console.log('[PASS] Task C 别名移除、开单三行垂直顺序与 flex 布局移除');
+
     // 33e. incomplete 双方向独立：BUSDT forward 缺失 → —，reverse 有效 → +0.04%
-    const busdtForward = getRowCell(tbody, 'BUSDT', 10);
+    const busdtForward = getRowCell(tbody, 'BUSDT', 2);
     if (!busdtForward.includes('合约买一')) {
       throw new Error('BUSDT 正向开单列应仍渲染合约买一标签: ' + busdtForward);
     }
@@ -1149,7 +1228,7 @@ setTimeout(async () => {
     if (busdtForward.includes('-0.04%') || busdtForward.includes('+0.04%')) {
       throw new Error('BUSDT 正向开单列 forward spread 应为 —: ' + busdtForward);
     }
-    const busdtReverse = getRowCell(tbody, 'BUSDT', 11);
+    const busdtReverse = getRowCell(tbody, 'BUSDT', 3);
     if (!busdtReverse.includes('现货买一')) {
       throw new Error('BUSDT 反向开单列应渲染现货买一标签: ' + busdtReverse);
     }
@@ -1162,18 +1241,18 @@ setTimeout(async () => {
     console.log('[PASS] incomplete 双方向独立显示');
 
     // 33f. stale / unavailable / 缺失 降级为 —，不白屏
-    const cusdtForward = getRowCell(tbody, 'CUSDT', 10);
-    const cusdtReverse = getRowCell(tbody, 'CUSDT', 11);
+    const cusdtForward = getRowCell(tbody, 'CUSDT', 2);
+    const cusdtReverse = getRowCell(tbody, 'CUSDT', 3);
     if (!cusdtForward.includes('—') || !cusdtReverse.includes('—')) {
       throw new Error('CUSDT stale 开单列应显示 —: ' + cusdtForward + ' / ' + cusdtReverse);
     }
-    const dusdtForward = getRowCell(tbody, 'DUSDT', 10);
-    const dusdtReverse = getRowCell(tbody, 'DUSDT', 11);
+    const dusdtForward = getRowCell(tbody, 'DUSDT', 2);
+    const dusdtReverse = getRowCell(tbody, 'DUSDT', 3);
     if (!dusdtForward.includes('—') || !dusdtReverse.includes('—')) {
       throw new Error('DUSDT unavailable 开单列应显示 —: ' + dusdtForward + ' / ' + dusdtReverse);
     }
-    const fusdtForward = getRowCell(tbody, 'FUSDT', 10);
-    const fusdtReverse = getRowCell(tbody, 'FUSDT', 11);
+    const fusdtForward = getRowCell(tbody, 'FUSDT', 2);
+    const fusdtReverse = getRowCell(tbody, 'FUSDT', 3);
     if (!fusdtForward.includes('—') || !fusdtReverse.includes('—')) {
       throw new Error('FUSDT 缺失 opening_quotes 开单列应显示 —: ' + fusdtForward + ' / ' + fusdtReverse);
     }
@@ -1223,7 +1302,7 @@ setTimeout(async () => {
       { sym: 'FUSDT', label: '有利率·可借性未探测', cls: 'muted' },
     ];
     for (const { sym, label, cls } of labelCases) {
-      const cell = getRowCell(labelTbody, sym, 1);
+      const cell = getRowCell(labelTbody, sym, 11);
       if (!cell.includes(label)) {
         throw new Error(`${sym} 负费率状态期望 "${label}"，单元格 ${cell}`);
       }
@@ -1232,7 +1311,7 @@ setTimeout(async () => {
       }
     }
     // 第六态行：状态列「有利率·可借性未探测」AND 净收益列仍展示日借币子行
-    const fusdtNetCell = getRowCell(labelTbody, 'FUSDT', 8);
+    const fusdtNetCell = getRowCell(labelTbody, 'FUSDT', 10);
     if (!fusdtNetCell.includes('日借币') || !fusdtNetCell.includes('+0.01%')) {
       throw new Error(`FUSDT borrowability_not_probed 行应展示日借币子行，单元格 ${fusdtNetCell}`);
     }
@@ -1381,7 +1460,7 @@ setTimeout(async () => {
     metalFixture.rows[0].asset_tag = 'METAL';
     helpers.ingestSnapshot(metalFixture);
     const metalTbody = elements['market-table-body'].innerHTML;
-    const metalCell = getRowCell(metalTbody, 'AUSDT', 1);
+    const metalCell = getRowCell(metalTbody, 'AUSDT', 11);
     if (!metalCell.includes('METAL(金属)')) {
       throw new Error('METAL 行未渲染 METAL(金属) 徽章: ' + metalCell);
     }
@@ -1440,7 +1519,7 @@ setTimeout(async () => {
       helpers.ingestSnapshot(triFixture);
       const triTbody = elements['market-table-body'].innerHTML;
       // (a) AUSDT 借光
-      const ausdtStatus = getRowCell(triTbody, 'AUSDT', 1);
+      const ausdtStatus = getRowCell(triTbody, 'AUSDT', 11);
       if (!ausdtStatus.includes('可借 0(已借完)')) {
         throw new Error('AUSDT 借光未渲染「可借 0(已借完)」warn badge: ' + ausdtStatus);
       }
@@ -1457,7 +1536,7 @@ setTimeout(async () => {
         throw new Error('AUSDT 借光 ≈USDT 应显 0.00: ' + ausdtStatus);
       }
       // (b) BUSDT 有额度
-      const busdtStatus = getRowCell(triTbody, 'BUSDT', 1);
+      const busdtStatus = getRowCell(triTbody, 'BUSDT', 11);
       if (!busdtStatus.includes('已验证可借') || !busdtStatus.includes('badge success')) {
         throw new Error('BUSDT 有额度应渲染 success「已验证可借」: ' + busdtStatus);
       }
@@ -1471,7 +1550,7 @@ setTimeout(async () => {
         throw new Error('BUSDT 有额度不应含「已借完」: ' + busdtStatus);
       }
       // (c) CUSDT 未探测
-      const cusdtStatus = getRowCell(triTbody, 'CUSDT', 1);
+      const cusdtStatus = getRowCell(triTbody, 'CUSDT', 11);
       if (!cusdtStatus.includes('有利率·可借性未探测')) {
         throw new Error('CUSDT 未探测 badge 应保持「有利率·可借性未探测」: ' + cusdtStatus);
       }
@@ -1492,11 +1571,11 @@ setTimeout(async () => {
       };
       helpers.ingestSnapshot(triFixture);
       const triTbody2 = elements['market-table-body'].innerHTML;
-      const dusdtStatus = getRowCell(triTbody2, 'DUSDT', 1);
+      const dusdtStatus = getRowCell(triTbody2, 'DUSDT', 11);
       if (!dusdtStatus.includes('可借: 10.0') || !dusdtStatus.includes('≈ 1000.00 USDT')) {
         throw new Error('DUSDT borrow_rate_source=null 但 max_borrowable 已探测时合并列应显示额度: ' + dusdtStatus);
       }
-      const dusdtNet = getRowCell(triTbody2, 'DUSDT', 8);
+      const dusdtNet = getRowCell(triTbody2, 'DUSDT', 10);
       if (dusdtNet.includes('可借:')) {
         throw new Error('DUSDT 日净收益格不应显示可借额度: ' + dusdtNet);
       }
@@ -1523,7 +1602,7 @@ setTimeout(async () => {
       throw new Error(`抽屉标题期望含 AUSDT，实际 ${drawerTitle}`);
     }
     const drawerBody = elements['drawer-body'].innerHTML;
-    if (!drawerBody.includes('-65.7%') || !drawerBody.includes('-0.260714%') || !drawerBody.includes('-0.060833%')) {
+    if (!drawerBody.includes('-65.70%') || !drawerBody.includes('-0.26%') || !drawerBody.includes('-0.06%')) {
       throw new Error('抽屉未渲染 AUSDT 三个年化值: ' + drawerBody);
     }
     if (!drawerBody.includes('近 30 日已结算历史（北京时间）')) {
@@ -1646,7 +1725,7 @@ setTimeout(async () => {
       throw new Error(`available 响应不应产生错误: ${helpers.getDrawerHistoryError()}`);
     }
     const busdtDrawerBody = elements['drawer-body'].innerHTML;
-    if (!busdtDrawerBody.includes('-0.260714%') || !busdtDrawerBody.includes('-0.060833%')) {
+    if (!busdtDrawerBody.includes('-0.26%') || !busdtDrawerBody.includes('-0.06%')) {
       throw new Error('抽屉未渲染 BUSDT 合并后的 7D/30D 年化值: ' + busdtDrawerBody);
     }
     // newest-first: 较晚的 funding_time 先出现
@@ -1657,8 +1736,8 @@ setTimeout(async () => {
     }
     // 表格中的 BUSDT 行也已被更新
     const busdtTbodyAfterMerge = elements['market-table-body'].innerHTML;
-    const busdtAnn7Cell = getRowCell(busdtTbodyAfterMerge, 'BUSDT', 6);
-    if (!busdtAnn7Cell.includes('-0.260714%')) {
+    const busdtAnn7Cell = getRowCell(busdtTbodyAfterMerge, 'BUSDT', 8);
+    if (!busdtAnn7Cell.includes('-0.26%')) {
       throw new Error('合并后表格 BUSDT 年化 7D 未更新: ' + busdtAnn7Cell);
     }
     console.log('[PASS] available 响应合并到行与表');
@@ -1726,7 +1805,7 @@ setTimeout(async () => {
       throw new Error(`重试成功后不应有错误: ${helpers.getDrawerHistoryError()}`);
     }
     const dusdtDrawerBodyRetry = elements['drawer-body'].innerHTML;
-    if (!dusdtDrawerBodyRetry.includes('-1.042857%')) {
+    if (!dusdtDrawerBodyRetry.includes('-1.04%')) {
       throw new Error('重试成功后抽屉未渲染 DUSDT 7D 年化: ' + dusdtDrawerBodyRetry);
     }
     console.log('[PASS] 重试按钮重新 fetch 并更新抽屉');
@@ -1809,8 +1888,8 @@ setTimeout(async () => {
         throw new Error('response-body race: AUSDT drawer 被 stale 的 BUSDT res.json() 改变');
       }
       const raceTbody = elements['market-table-body'].innerHTML;
-      const busdtAnn7Race = getRowCell(raceTbody, 'BUSDT', 6);
-      if (busdtAnn7Race.includes('-0.260714%')) {
+      const busdtAnn7Race = getRowCell(raceTbody, 'BUSDT', 8);
+      if (busdtAnn7Race.includes('-0.26%')) {
         throw new Error('response-body race: BUSDT 行被 stale 响应提前合并');
       }
       console.log('[PASS] response-body race 隔离（res.json() 延迟后切换）');
@@ -1838,8 +1917,8 @@ setTimeout(async () => {
         throw new Error(`wrong-symbol 响应应产生 history_response_invalid，实际: ${helpers.getDrawerHistoryError()}`);
       }
       const dusdtTbodyWrong = elements['market-table-body'].innerHTML;
-      const dusdtAnn7Wrong = getRowCell(dusdtTbodyWrong, 'DUSDT', 6);
-      if (dusdtAnn7Wrong.includes('-0.521429%')) {
+      const dusdtAnn7Wrong = getRowCell(dusdtTbodyWrong, 'DUSDT', 8);
+      if (dusdtAnn7Wrong.includes('-0.52%')) {
         throw new Error('wrong-symbol 响应不应合并到 DUSDT 行');
       }
       console.log('[PASS] wrong-symbol/schema 响应被拒绝合并');
@@ -1988,8 +2067,8 @@ setTimeout(async () => {
       if (!bodyPartial.includes('premium_refresh_failed:DUSDT')) {
         throw new Error('partial notice 未透传后端 warnings');
       }
-      // row 被替换：ann7 -0.01042857 -> -1.042857%
-      if (!bodyPartial.includes('-1.042857%')) {
+      // row 被替换：ann7 -0.01042857 -> -1.04%
+      if (!bodyPartial.includes('-1.04%')) {
         throw new Error('partial 响应未替换/渲染 DUSDT 行的新年化值');
       }
       console.log('[PASS] refresh_status=partial 替换行并显示 warnings notice');

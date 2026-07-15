@@ -7,18 +7,18 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `implementation`
-- Next action: Human executes `task-c-fast-ui-layout-kimi.prompt.md` in a fresh Kimi Session and returns its Session ID; bookkeeper verifies the bounded diff before user page-display acceptance.
+- Next action: Bookkeeper creates the Task C local evidence commit, fixes the new full-stage fingerprint, runs review-2 preflight and prepares the sole fresh Codex final-review packet.
 - Read-set: = `status.current_inputs`
-- Open blockers: Task C is not implemented; user visual acceptance and the single fresh Codex final review are pending.
+- Open blockers: Implementation and user display acceptance are complete; the single fresh Codex final review is pending.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-bookticker-open-columns-v1`
-- Status: `implementing` (Task A/B baseline accepted; user-approved Task C fast UI amendment waiting for Kimi)
+- Status: `implementing` (Task A/B baseline accepted; Task C implementation, independent verification and user display acceptance complete; evidence commit pending)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Reviewed product/evidence head: `0a383f0f8528591898f12690c371108e7582a27e`
-- Git status: Grok advisory evidence is committed; Task C prompt/status checkpoint is pending local commit
+- Git status: verified Task C frontend/report work plus bookkeeper evidence are intentionally uncommitted immediately before the authorized local evidence commit
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
@@ -26,8 +26,10 @@ not read `history/` at startup.
 
 ## Task C Fast UI Amendment
 
-- Owner: fresh Kimi implementation Session; prompt
-  `task-c-fast-ui-layout-kimi.prompt.md`.
+- Owner: Kimi implementation Session
+  `session_b4a656b7-91c8-43ae-a994-68cb2e10c03f`; original prompt
+  `task-c-fast-ui-layout-kimi.prompt.md`, followed by
+  `task-c-fast-ui-layout-kimi-format-addendum.prompt.md`.
 - Allowed files: `frontend/index.html`, `frontend/self-check.js`, and
   `20-implementation-task-c.md` only.
 - Exact column order: `标的 → 标记价格 / 指数价格 → 正向开单 → 反向开单 → 资金费率 → 结算时间 → 日费率 → 年化 24h → 年化 7D → 年化 30D → 日净收益 → 借贷状态 / 资产`.
@@ -35,6 +37,11 @@ not read `history/` at startup.
   resolved-symbol semantics and the warnings-panel explanation.
 - Opening cells become vertical three-line stacks: two price legs followed by
   spread percentage on line 3.
+- Formatting addendum: table funding/daily rates use fixed 3-decimal percentage
+  display; table and drawer annualized 24h/7D/30D use fixed 2-decimal display.
+  Existing history, daily-net, borrow-cost, spread and price formats stay intact.
+- First-pass Kimi evidence reports 78 frontend PASS lines, 375 backend tests
+  passed and a clean diff check; final counts are pending the addendum rerun.
 - After deterministic verification, the user performs visual acceptance.
 - The newer user instruction supersedes the planned Opus4.8 route. Only one new
   fresh Codex final-review invocation is requested; prior review-1 remains
@@ -222,15 +229,15 @@ not read `history/` at startup.
 
 ## Next Action
 
-The human executes `task-c-fast-ui-layout-kimi.prompt.md` in a fresh Kimi
-implementation Session and returns the provider-native Session ID. The
-bookkeeper then verifies file boundaries and deterministic tests before asking
-the user to inspect the page. A clean visual result unlocks the single fresh
-Codex final-review packet.
+The bookkeeper creates the authorized local Task C evidence commit, records its
+fixed full-stage fingerprint, runs the committed-state review-2 preflight and
+prepares exactly one fresh read-only Codex final-review packet. The human then
+executes that packet in a new Codex Session; the current bookkeeper Session is
+forbidden as reviewer.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-16 02:42:41 CST
-下一步模型: kimi
-下一步任务: 执行 Task C fast UI layout prompt，返回 Session ID、bounded diff、测试结果和 raw report
+本地北京时间: 2026-07-16 03:10:33 CST
+下一步模型: codex_bookkeeper
+下一步任务: 创建 Task C 本地证据提交、重算 full-stage fingerprint 并准备唯一一次 fresh Codex final-review packet

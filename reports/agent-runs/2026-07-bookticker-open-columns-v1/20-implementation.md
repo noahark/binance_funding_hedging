@@ -2,7 +2,8 @@
 
 This file indexes the raw task implementation reports. It does not replace or
 rewrite implementer evidence. Task C is a user-approved frontend-only fast UI
-amendment and is currently awaiting execution.
+amendment. Its layout pass is complete and its same-session fixed-decimal
+display addendum is awaiting human execution.
 
 ## Task A — Backend Contract, Cache And Decimal Semantics
 
@@ -36,14 +37,26 @@ amendment and is currently awaiting execution.
 
 - Owner: Kimi / `moonshot_kimi` / `kimi-code/kimi-for-coding`
 - Prompt: `task-c-fast-ui-layout-kimi.prompt.md`
-- Raw report: `20-implementation-task-c.md` (pending)
+- Addendum: `task-c-fast-ui-layout-kimi-format-addendum.prompt.md`
+- Session: `session_b4a656b7-91c8-43ae-a994-68cb2e10c03f`
+- Raw report: `20-implementation-task-c.md` (final)
 - Allowed product files: `frontend/index.html`, `frontend/self-check.js`
 - Frozen 12-column order: symbol; mark/index; forward; reverse; funding;
   settlement; daily; annualized 24h/7d/30d; daily net yield; borrowing/asset.
 - Symbol-cell B-suffix alias text is removed from display only; bStock matching
   semantics and warnings remain.
 - Forward/reverse spread percentage moves below both price lines as line 3.
-- Status: prompt prepared; waiting for a fresh Kimi implementation Session.
+- Funding rate and daily rate must render fixed 3-decimal percentages; annualized
+  24h/7D/30D must render fixed 2-decimal percentages in table and drawer.
+- Existing funding-history, daily net yield, borrow-cost and spread formatting
+  remain unchanged.
+- Final independent checks: frontend 80 PASS lines, backend 375 passed,
+  py_compile/fixture/status JSON/file-boundary checks and `git diff --check`
+  all passed.
+- User page-display acceptance: passed and recorded at
+  `2026-07-15T19:10:33Z`.
+- Status: implementation and visual acceptance complete; waiting for local
+  evidence commit and the single fresh Codex final review.
 
 ## Task A/B Baseline Independent Checks
 
@@ -70,6 +83,6 @@ amendment and is currently awaiting execution.
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md
-本地北京时间: 2026-07-16 02:42:41 CST
-下一步模型: kimi
-下一步任务: 执行 Task C fast UI layout prompt，完成测试并返回 Session ID 与 raw implementation report
+本地北京时间: 2026-07-16 03:10:33 CST
+下一步模型: codex_bookkeeper
+下一步任务: 创建 Task C 本地证据提交、固定指纹并准备唯一一次 fresh Codex final-review packet

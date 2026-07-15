@@ -555,3 +555,50 @@ User-approved Task C fast UI route: 2026-07-16 02:42:41 CST
 - Review route: user visual acceptance, then one new fresh Codex final-review
   invocation; no second new review-1 invocation requested.
 - No product code has changed at this checkpoint.
+
+---
+
+Task C first-pass implementation receipt and formatting addendum checkpoint:
+2026-07-16 02:57:36 CST
+
+- Kimi implementation Session:
+  `session_b4a656b7-91c8-43ae-a994-68cb2e10c03f`
+- Base SHA: `f1790c15f56b9e9be8846b40fe03c88ed7210213`
+- First-pass product boundary observed by bookkeeper:
+  `frontend/index.html`, `frontend/self-check.js`, plus raw report
+  `20-implementation-task-c.md`.
+- Kimi first-pass report records:
+  - `node frontend/self-check.js`: 78 PASS lines
+  - `python3 -m pytest backend/tests -q`: 375 passed
+  - `git diff --check`: clean
+- User addendum: funding/daily percentage displays fixed at 3 decimals;
+  annualized 24h/7D/30D displays fixed at 2 decimals in table and drawer.
+- Addendum packet:
+  `task-c-fast-ui-layout-kimi-format-addendum.prompt.md`
+- Final deterministic checks: PENDING same-session Kimi completion and
+  independent bookkeeper verification.
+
+---
+
+Task C final independent bookkeeper verification: 2026-07-16 03:10:33 CST
+
+- Kimi Session:
+  `session_b4a656b7-91c8-43ae-a994-68cb2e10c03f`
+- `node frontend/self-check.js`: PASS; 80 `[PASS]` lines and final
+  `全部自检通过`.
+- `node frontend/self-check.js | rg -c '^\[PASS\]'`: `80`.
+- `python3 -m pytest backend/tests -q`:
+  `375 passed in 15.94s`.
+- `python3 -m py_compile backend/adapters/binance_public.py backend/domain/snapshot.py backend/services/snapshot_service.py`:
+  PASS.
+- `python3 -m json.tool frontend/fixture/public-market-snapshot.json`: PASS.
+- `python3 -m json.tool` for stage status and `ACTIVE.json`: PASS.
+- No uncommitted diff under `backend`, `schemas`, `docs`, or
+  `frontend/fixture`: PASS.
+- `git diff --check`: PASS.
+- Product boundary: only `frontend/index.html` and `frontend/self-check.js`
+  changed after Task C base; Task C raw report and bookkeeper stage evidence are
+  under the active stage directory.
+- User page-display acceptance: PASS, reported with the same Kimi Session ID.
+- Disposition: ready for local Task C evidence commit and single fresh Codex
+  final-review preparation.

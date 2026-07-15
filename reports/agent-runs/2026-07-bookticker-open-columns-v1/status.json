@@ -28,6 +28,8 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi-format-addendum.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-c.md",
     "schemas/api/public-market/snapshot.schema.json",
     "frontend/index.html",
     "frontend/self-check.js",
@@ -143,6 +145,16 @@
       "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
       "recorded_at": "2026-07-15T14:17:33Z"
+    },
+    {
+      "role": "implementation_task_c",
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": "session_b4a656b7-91c8-43ae-a994-68cb2e10c03f",
+      "session_id_source": "transcript_path",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-c.md",
+      "recorded_at": "2026-07-15T18:57:36Z"
     }
   ],
   "designer": {
@@ -167,7 +179,7 @@
     "provider": "kimi",
     "runtime_provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
-    "session_id": null,
+    "session_id": "session_b4a656b7-91c8-43ae-a994-68cb2e10c03f",
     "task_id": "task-c-fast-ui-layout"
   },
   "implementers": [
@@ -186,6 +198,14 @@
       "model": "kimi-code/kimi-for-coding",
       "session_id": "session_727145b3-694a-4467-8277-60a65dd1b1c5",
       "task_id": "task-b-frontend-table-integration"
+    },
+    {
+      "id": "kimi",
+      "provider": "kimi",
+      "runtime_provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": "session_b4a656b7-91c8-43ae-a994-68cb2e10c03f",
+      "task_id": "task-c-fast-ui-layout"
     }
   ],
   "fix_authors": [],
@@ -313,13 +333,15 @@
         "model": "kimi-code/kimi-for-coding"
       },
       "reviewer": "codex_final_review_only",
-      "status": "prompt_prepared_waiting_human_execution",
+      "status": "implementation_verified_visual_accepted_waiting_evidence_commit",
       "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi.prompt.md",
+      "addendum_prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi-format-addendum.prompt.md",
       "implementation_report": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-c.md",
+      "implementation_session_id": "session_b4a656b7-91c8-43ae-a994-68cb2e10c03f",
       "depends_on": [
         "task-b-frontend-table-integration"
       ],
-      "base_sha": null,
+      "base_sha": "f1790c15f56b9e9be8846b40fe03c88ed7210213",
       "head_sha": null,
       "diff_fingerprint": null,
       "test_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
@@ -328,7 +350,7 @@
         "frontend/self-check.js",
         "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-c.md"
       ],
-      "user_visual_acceptance": "pending",
+      "user_visual_acceptance": "accepted",
       "review_mode": "single_new_final_review_after_existing_review_1_baseline"
     }
   ],
@@ -401,8 +423,10 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi-format-addendum.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-c.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/21-bookkeeper-task-b-verification.md",
     "backend/adapters/binance_public.py",
@@ -425,7 +449,7 @@
     "reports/agent-runs/ACTIVE.json"
   ],
   "tests": {
-    "status": "pending_task_c",
+    "status": "passed_task_c_final",
     "scope": "task_b_precommit_independent_frontend_full_backend_and_mechanical_checks",
     "commands": [
       "python3 -m json.tool reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json",
@@ -465,7 +489,7 @@
       "python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review --task task-b-frontend-table-integration"
     ],
     "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
-    "note": "Task A/B baseline tests and review-1 passed. User-approved Task C fast UI layout adjustment is pending Kimi implementation and must rerun frontend plus full backend checks before the single new final review."
+    "note": "Task A/B baseline tests and review-1 passed. Kimi Task C final report and independent bookkeeper verification both passed: frontend self-check 80 PASS lines, full backend 375 passed, py_compile/fixture/status JSON/file-boundary/diff checks passed. User page-display acceptance is recorded; local evidence commit and the single fresh Codex final review remain."
   },
   "review_1": {
     "reviewer": "task_specific_cross_review",
@@ -509,7 +533,7 @@
     "provider": null,
     "model": null,
     "primary_provider": null,
-    "selection_status": "paused_for_user_approved_task_c_fast_ui_implementation",
+    "selection_status": "waiting_task_c_evidence_commit_before_dispatch",
     "preferred_primary_provider": "codex",
     "fallback_provider": "claude",
     "fallback_reason": null,
@@ -578,19 +602,19 @@
     "formal_reviewer_provider": "codex",
     "formal_reviewer_model": "gpt-5.5",
     "required_prior_involvement": "design",
-    "formal_dispatch_status": "not_prepared_waiting_prerequisites",
+    "formal_dispatch_status": "preparing_after_verified_task_c",
     "prerequisites": {
       "grok_advisory_review_round_2": "completed_ready_for_user_visual_acceptance",
-      "kimi_task_c_fast_ui_layout": "pending",
-      "user_visual_display_acceptance": "pending"
+      "kimi_task_c_fast_ui_layout": "completed_verified",
+      "user_visual_display_acceptance": "accepted"
     },
     "note": "The user's newer 2026-07-16 instruction supersedes the prior Opus4.8 route: Kimi performs one bounded frontend-only UI adjustment, the user visually accepts it, then one fresh Codex final-review invocation inspects the updated full range and Task C delta. Existing review-1 remains baseline evidence; no second new review-1 invocation is requested. The current bookkeeper Session cannot serve as reviewer."
   },
   "human_visual_acceptance": {
-    "status": "pending_task_c_implementation",
-    "scope": "12-column order, bStock alias display removal, combined cell last, opening spread third-line layout and unchanged interactions",
-    "evidence": null,
-    "recorded_at": null
+    "status": "accepted",
+    "scope": "12-column order, bStock alias display removal, combined cell last, opening spread third-line layout, funding/daily fixed 3 decimals, annualized fixed 2 decimals and unchanged interactions",
+    "evidence": "User message: Kimi execution completed and display acceptance passed; Session ID session_b4a656b7-91c8-43ae-a994-68cb2e10c03f.",
+    "recorded_at": "2026-07-15T19:10:33Z"
   },
   "rework_count": 0,
   "max_rework": 3,
@@ -636,8 +660,16 @@
       "product_runtime_impact": true,
       "harness_stage_exception": true,
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi.prompt.md"
+    },
+    {
+      "approved_by": "user",
+      "approved_at": "2026-07-15T18:57:36Z",
+      "summary": "Task C display-only addendum: funding rate and daily rate use fixed 3-decimal percentages; annualized 24h, 7D and 30D displays use fixed 2-decimal percentages in both table and drawer. Other rate and price displays remain unchanged.",
+      "product_runtime_impact": true,
+      "harness_stage_exception": true,
+      "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi-format-addendum.prompt.md"
     }
   ],
-  "next_action": "Human executes task-c-fast-ui-layout-kimi.prompt.md in a fresh Kimi implementation Session and returns the provider-native Session ID. Bookkeeper then verifies the bounded diff and tests before user page-display acceptance.",
-  "updated_at": "2026-07-15T18:42:41Z"
+  "next_action": "Bookkeeper creates the local Task C evidence commit, records its fixed full-stage fingerprint, runs review-2 preflight and prepares exactly one fresh read-only Codex final-review packet for human execution.",
+  "updated_at": "2026-07-15T19:10:33Z"
 }
