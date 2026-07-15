@@ -2,9 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: `review_1` (binding prepared)
-- Next action: commit review-1 binding, run the clean-worktree pre-review gate,
-  then human executes `review-1-kimi.prompt.md` in a fresh Kimi session
+- Active phase: `review_1` (dispatch ready)
+- Next action: human executes `review-1-kimi.prompt.md` in a fresh read-only
+  Kimi session and returns the complete output
 - Read-set: = `status.current_inputs`
 - Open blockers: human review-1 dispatch required by Harness
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
@@ -52,6 +52,9 @@ Reviewed implementation head:
 Authoritative fingerprint:
 `2cb72fd870b1ef29cc4787e7dff102ab56bf8601:a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3`
 
-本地北京时间: 2026-07-15 12:14:25 CST
-下一步模型: codex_bookkeeper
-下一步任务: 提交 review-1 binding 并运行 pre-review validator
+Clean-worktree `pre-review` validator and independent fingerprint recomputation:
+PASS after binding commit `6b12335`.
+
+本地北京时间: 2026-07-15 12:15:56 CST
+下一步模型: human
+下一步任务: 在 fresh Kimi 终端执行 review-1-kimi.prompt.md 并回传完整输出

@@ -161,17 +161,19 @@
       "Bookkeeper: python3 -m pytest backend/tests -q => 335 passed in 13.65s",
       "Bookkeeper: python3 -m py_compile backend/services/snapshot_service.py backend/tests/test_background_worker.py => PASS",
       "Bookkeeper: git diff --check => PASS",
-      "Bookkeeper adversarial failed-early-refresh retention at 1500/1799 and expiry at 1800 => PASS"
+      "Bookkeeper adversarial failed-early-refresh retention at 1500/1799 and expiry at 1800 => PASS",
+      "python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase pre-review => PASS (review-1, clean after 6b12335)",
+      "Independent authoritative fingerprint recomputation => PASS"
     ]
   },
   "checkpoint": {
     "branch": "stage/2026-07-history-refresh-ahead-v1",
     "head_sha": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601",
-    "git_status": "implementation evidence committed; review-1 binding artifacts pending commit",
+    "git_status": "review-1 binding committed at 6b12335; clean-worktree pre-review gate passed",
     "test_status": "focused 37 passed; full backend 335 passed; py_compile/diff-check/adversarial retention passed",
     "open_findings": [],
     "blockers": [],
-    "next_action": "commit_review_1_binding_run_pre_review_then_human_execute_kimi_prompt"
+    "next_action": "human_execute_fresh_kimi_review_1_prompt"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -228,6 +230,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "commit_review_1_binding_run_pre_review_then_human_execute_kimi_prompt",
-  "updated_at": "2026-07-15T04:14:25Z"
+  "next_action": "human_execute_fresh_kimi_review_1_prompt",
+  "updated_at": "2026-07-15T04:15:56Z"
 }
