@@ -2,59 +2,83 @@
 
 ## Recovery Header
 
-- Active phase: `implementation_dispatch_ready`
-- Next action: human executes the frozen Claude-GLM command in a fresh terminal
-- Read-set: = status.current_inputs
+- Active phase: `review_1_dispatch_ready`
+- Next action: human executes `review-1-kimi.prompt.md` in a fresh Kimi session
+- Read-set: = `status.current_inputs`
 - Open blockers: none
-- Do-not-read: `reports/agent-runs/**/history/**`, other stages, v1 runner Sessions, prior Claude memory
+- Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired runner
+  Sessions, prior Kimi/GLM/Grok transcript state
 
 ## Current State
 
 - Stage: `2026-07-cache-refresh-scheduler-v2`
-- Status: `implementing`
+- Status: `review_1`
 - Branch: `stage/2026-07-cache-refresh-scheduler-v2`
-- Branch base: `main@8aac137`
-- Dispatch packet commit: `201b3bb`; a subsequent status-only commit binds the implementation task base
-- Git status: clean before final handoff/base binding; no delivery-code changes
-- Bookkeeper: OpenAI Codex / GPT-5; not implementer or fix author
-- Implementer: fresh human-started `claude_glm` / `glm-5.2`
-- Parallel mode: disabled
-- Dispatch mode: manual human execution
+- Stage base: `8aac137a46d228f2d68b2036a15575eda0e235a3`
+- Reviewed implementation/evidence head:
+  `60c91f7b32ab0f0a51f719a094915adfbec87c83`
+- Stage fingerprint:
+  `60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0`
+- Implementation task base:
+  `4c9d43800bd0d6d908892afa46c8b08e00b88877`
+- Implementation task fingerprint:
+  `60c91f7b32ab0f0a51f719a094915adfbec87c83:2e618f1c0c978ff65d429b5efcfa025496a69e1674cd4694fb152a6bd6a53942`
+- Implementer: `claude_glm` / `glm-5.2`, provider identity `zhipu_glm`
+- Planned reviewer: fresh Kimi `kimi-code/kimi-for-coding`, provider identity
+  `moonshot_kimi`, prior involvement `none`
+- Grok Session `019f6180-7b6c-7351-abfc-b4cf11576fd5` was informal only and
+  is not review evidence or a gate verdict
+- Dispatch mode: manual human execution; no runner or auto-review pipeline
 
-## Artifact Index
+## Implementation Evidence
 
-- Intake: `00-intake.md`
-- Task: `00-task.md` (migrated approved v1 content)
-- Direction synthesis: skipped lightweight route in `06-direction-synthesis.md`
-- Design: `10-design.md` (migrated approved v1 content)
-- ADR: `11-adr.md` (migrated approved v1 content)
-- Breakdown: `12-development-breakdown.md` plus v2 process override in `13-manual-delivery-amendment.md`
-- Implementation prompt: `implementation-claude-glm.prompt.md`
-- Implementation report: `20-implementation.md`
-- Review 1: not started; planned fresh read-only Kimi
-- Fix report: not started
-- Review 2: not started
-- Test output: `60-test-output.txt`
-- Status JSON: `status.json`
+Implementation evidence commit:
 
-## Frozen Product Decisions
+```text
+60c91f7 stage: implement three-cadence cache scheduler
+```
 
-- Slow private TTL: 1800 seconds, effective scheduled value `<=1800`.
-- Scheduled source fetch and cache-only assembly stay separate.
-- Borrow work is homepage-only with strict rate threshold and no global top-50.
-- Low-rate rows outside the homepage threshold do not receive scheduled borrow checks.
+Bookkeeper verification before commit:
 
-## Blockers
+```text
+focused worker/private tests: 68 passed in 1.52s
+full backend suite: 330 passed in 13.01s
+py_compile: PASS
+git diff --check: PASS
+Correction 1 four-file boundary: PASS
+```
 
-- None.
-- Stop for human scope approval if a file outside the frozen write boundary is required.
+The two pre-commit P1 findings are closed:
 
-## Next Action
+- `CC-3 / INV-4`: coverage ledger now prunes on universe exit and re-entry
+  starts unattempted.
+- `FR-2 / INV-5`: successful business-cache writes use fetch completion time;
+  the non-zero-skew test proves 1799 reuse and real signed GET at 1800.
 
-The human starts Claude-GLM with `implementation-claude-glm.prompt.md`. The
-implementer writes code/tests and `20-implementation.md` only, runs the frozen
-tests, and returns control without committing or dispatching review.
+Non-blocking residual for reviewer judgment: Group A panel business due uses
+`cache_ttl_seconds`, while private fast transport uses
+`private_channel_fast_ttl_seconds`; defaults are 60/60 and Correction 1 did not
+change the configuration contract.
 
-本地北京时间: 2026-07-14 22:51:18 CST
-下一步模型: human → claude_glm
-下一步任务: 在全新 Claude-GLM 终端执行冻结实现提示
+## Review-1 Dispatch
+
+Prompt: `review-1-kimi.prompt.md`.
+
+The reviewer must inspect the fixed committed range, not moving `HEAD`, remain
+read-only, and end with a strict JSON object matching
+`schemas/review-verdict.schema.json`. A `REWORK` verdict must contain a complete
+`fix_start_prompt`.
+
+Human command:
+
+```bash
+cd "/Users/ark/Desktop/ai code/funding_hedging" && kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-1-kimi.prompt.md)"
+```
+
+Do not combine `--plan` or `-y` with `-p`; the installed Kimi CLI rejects those
+combinations. Return the complete raw output to the bookkeeper for schema
+validation and recording in `30-review-1.md`.
+
+本地北京时间: 2026-07-15 08:03:11 CST
+下一步模型: human → kimi
+下一步任务: 在全新 Kimi 会话执行固定提交范围的正式只读 review-1

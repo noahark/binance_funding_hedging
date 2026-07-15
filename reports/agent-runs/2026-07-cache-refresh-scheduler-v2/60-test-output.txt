@@ -109,3 +109,22 @@ Correction 1 four-file write boundary: PASS
 ```
 
 Result: `IMPLEMENTATION_READY_FOR_EVIDENCE_COMMIT`.
+
+## Implementation Evidence Commit And Review Binding
+
+```text
+implementation evidence commit:
+60c91f7b32ab0f0a51f719a094915adfbec87c83
+
+stage base:
+8aac137a46d228f2d68b2036a15575eda0e235a3
+
+stage diff_fingerprint:
+60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0
+
+implementation task base:
+4c9d43800bd0d6d908892afa46c8b08e00b88877
+
+implementation task diff_fingerprint:
+60c91f7b32ab0f0a51f719a094915adfbec87c83:2e618f1c0c978ff65d429b5efcfa025496a69e1674cd4694fb152a6bd6a53942
+```

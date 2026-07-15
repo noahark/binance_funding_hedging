@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-cache-refresh-scheduler-v2",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-cache-refresh-scheduler-v2",
@@ -26,6 +26,10 @@
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/12-development-breakdown.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/13-manual-delivery-amendment.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm-rework-1.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/20-implementation.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-1-kimi.prompt.md",
     "backend/config.py",
     "backend/adapters/binance_public.py",
     "backend/services/private_client.py",
@@ -63,9 +67,16 @@
     "model": "glm-5.2",
     "skill": "senior_developer",
     "session": null,
-    "state": "pending_human_start"
+    "state": "implementation_committed_waiting_review_1"
   },
-  "implementers": [],
+  "implementers": [
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2",
+      "role": "implementation_author"
+    }
+  ],
   "fix_authors": [],
   "reviewer_1": null,
   "reviewer_2": null,
@@ -77,13 +88,13 @@
       "reviewer": "kimi",
       "r10_checklist": null,
       "base_sha": "4c9d43800bd0d6d908892afa46c8b08e00b88877",
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
+      "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:2e618f1c0c978ff65d429b5efcfa025496a69e1674cd4694fb152a6bd6a53942",
       "test_evidence": "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt",
       "review_1": {
-        "reviewer": null,
-        "provider": null,
-        "model": null,
+        "reviewer": "kimi",
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -98,6 +109,8 @@
     "dispatch_mode": "human_dispatch",
     "notes": [
       "The human starts a fresh Claude-GLM terminal from the committed prompt.",
+      "Implementation attempt 1 returned with 325 passing tests but failed two bookkeeper adversarial checks before commit; the human runs implementation-claude-glm-rework-1.prompt.md for the bounded correction.",
+      "Correction 1 closed both pre-commit P1 findings; the implementation evidence commit is 60c91f7b32ab0f0a51f719a094915adfbec87c83 and formal review-1 is prepared for a fresh read-only Kimi session.",
       "Auto-review pipeline artifacts and routing are not part of v2.",
       "Review-1 must use a fresh provider-isolated Kimi session."
     ]
@@ -148,8 +161,8 @@
     "excluded_state": ["auto authorization", "runner receipts", "seal state", "failure escalation state"]
   },
   "base_sha": "8aac137a46d228f2d68b2036a15575eda0e235a3",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
+  "diff_fingerprint": "60c91f7b32ab0f0a51f719a094915adfbec87c83:f970f6be1afa92b55b3ef79f1135753647fa9d8693b5e83fa80aa6a27bdfbfb0",
   "changed_files": [
     "reports/agent-runs/ACTIVE.json",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/00-intake.md",
@@ -166,30 +179,45 @@
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/60-test-output.txt",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/70-handoff.md",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/implementation-claude-glm-rework-1.prompt.md",
+    "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/review-1-kimi.prompt.md",
+    "backend/config.py",
+    "backend/adapters/binance_public.py",
+    "backend/services/private_client.py",
+    "backend/services/snapshot_service.py",
+    "backend/tests/test_config.py",
+    "backend/tests/test_background_worker.py",
+    "backend/tests/test_private_client.py",
     "reports/agent-runs/2026-07-cache-refresh-scheduler-v2/status.json"
   ],
   "tests": {
-    "status": "dispatch_preparation_validated_no_delivery_code_changes",
+    "status": "passed",
     "commands": [
-      "JSON duplicate-key and syntax validation",
-      "git diff --check",
-      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase checkpoint",
-      "verify no delivery-code diff before dispatch"
+      "python3 -m pytest backend/tests -q => 325 passed in 12.97s",
+      "python3 -m py_compile backend/config.py backend/adapters/binance_public.py backend/services/private_client.py backend/services/snapshot_service.py => PASS",
+      "git diff --check => PASS",
+      "Correction 1 CC-3 exit/re-entry adversarial tests => PASS",
+      "Correction 1 FR-2/INV-5 non-zero-skew 1799/1800 real-I/O test => PASS",
+      "python3 -m pytest backend/tests/test_background_worker.py backend/tests/test_private_client.py -q => 68 passed in 1.52s",
+      "python3 -m pytest backend/tests -q => 330 passed in 13.01s",
+      "JSON duplicate-key and syntax validation => PASS",
+      "python3 scripts/validate-stage.py 2026-07-cache-refresh-scheduler-v2 --phase checkpoint => PASS"
     ]
   },
   "checkpoint": {
     "branch": "stage/2026-07-cache-refresh-scheduler-v2",
-    "head_sha": "4c9d43800bd0d6d908892afa46c8b08e00b88877",
-    "git_status": "final manual dispatch handoff committed; status-only task-base binding prepared; no delivery-code changes",
-    "test_status": "JSON, checkpoint validator, diff check, empty seven-file product diff, migration equality, and sanitized adapter availability checks passed",
+    "head_sha": "60c91f7b32ab0f0a51f719a094915adfbec87c83",
+    "git_status": "implementation evidence committed at 60c91f7; only review-1 bookkeeping artifacts follow the fixed reviewed head",
+    "test_status": "focused 68 passed, full backend 330 passed, py_compile and diff check passed; both pre-commit P1 findings closed",
     "open_findings": [],
     "blockers": [],
-    "next_action": "human_execute_claude_glm_implementation_prompt"
+    "next_action": "human_execute_fresh_read_only_kimi_review_1_prompt"
   },
   "review_1": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
+    "reviewer": "kimi",
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
@@ -224,12 +252,15 @@
   },
   "rework_count": 0,
   "max_rework": 3,
+  "residual_risks": [
+    "P3: Group A panel business due uses cache_ttl_seconds while private transport uses private_channel_fast_ttl_seconds; defaults are 60/60 and this stage does not change the configurable divergence contract."
+  ],
   "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_claude_glm_implementation_prompt",
-  "updated_at": "2026-07-14T14:51:48Z"
+  "next_action": "human_execute_fresh_read_only_kimi_review_1_prompt",
+  "updated_at": "2026-07-15T00:03:11Z"
 }
