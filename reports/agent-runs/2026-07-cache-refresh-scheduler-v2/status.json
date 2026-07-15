@@ -1,14 +1,14 @@
 {
   "stage_id": "2026-07-cache-refresh-scheduler-v2",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-cache-refresh-scheduler-v2",
     "created_from_main_sha": "8aac137a46d228f2d68b2036a15575eda0e235a3",
     "created_at": "2026-07-14T14:41:45Z",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "f5045272a51b3bc7db0c590763c57e87f4592966",
+    "merge_strategy": "main_side_merge_commit",
     "abandoned_reason": null
   },
   "bookkeeper": {
@@ -241,7 +241,7 @@
       "P3: Group A panel business cadence and fast transport TTL can diverge under environment overrides; defaults remain 60/60."
     ],
     "blockers": [],
-    "next_action": "human_accept_stage_and_authorize_merge_to_main"
+    "next_action": "start_low_history_refresh_ahead_corrective_stage"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -307,7 +307,7 @@
     "merge_authorized": true,
     "source": "User explicitly requested the reviewed scheduler code be merged and pushed, then narrowed the immediate corrective scope to history refresh-due at 1500 seconds only. The v2 merge is used as the reviewed local main baseline; remote push waits for the corrective stage."
   },
-  "terminal_reason": "stage_accepted_waiting_user",
-  "next_action": "merge_reviewed_stage_to_local_main_then_start_low_corrective_stage",
-  "updated_at": "2026-07-15T02:40:43Z"
+  "terminal_reason": "accepted",
+  "next_action": "start_low_history_refresh_ahead_corrective_stage",
+  "updated_at": "2026-07-15T02:42:09Z"
 }

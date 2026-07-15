@@ -2,10 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: `stage_accepted_waiting_user` with user acceptance recorded
-- Next action: merge the reviewed v2 branch to local `main`, then open the
-  user-approved LOW history refresh-ahead corrective stage; defer remote push
-  until the corrective stage passes
+- Active phase: `accepted`
+- Next action: open the user-approved LOW history refresh-ahead corrective
+  stage from merged local `main`; defer remote push until it passes
 - Read-set: = `status.current_inputs`
 - Open blockers: none
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired runner
@@ -14,8 +13,10 @@
 ## Final Gate State
 
 - Stage: `2026-07-cache-refresh-scheduler-v2`
-- Status: `stage_accepted_waiting_user`
-- Branch: `stage/2026-07-cache-refresh-scheduler-v2`
+- Status: `accepted`
+- Branch: merged from `stage/2026-07-cache-refresh-scheduler-v2` to `main`
+- Merge commit: `f5045272a51b3bc7db0c590763c57e87f4592966`
+- Merge strategy: `main_side_merge_commit`
 - Stage base: `8aac137a46d228f2d68b2036a15575eda0e235a3`
 - Reviewed implementation/evidence head:
   `60c91f7b32ab0f0a51f719a094915adfbec87c83`
@@ -76,6 +77,6 @@ max-borrowable, Group B, transport TTLs, and threshold re-entry semantics remain
 unchanged. Merge must preserve independently landed `main @ 413aa94`; do not
 rebase. Remote push waits until the corrective stage passes its required gates.
 
-本地北京时间: 2026-07-15 10:40:43 CST
+本地北京时间: 2026-07-15 10:42:09 CST
 下一步模型: codex_bookkeeper
-下一步任务: 合并 v2 到本地 main，并创建 LOW 历史 refresh-ahead corrective stage
+下一步任务: 从已合并 main 创建 LOW 历史 refresh-ahead corrective stage
