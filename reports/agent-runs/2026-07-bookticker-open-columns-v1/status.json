@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-bookticker-open-columns-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
-  "current_phase": "implementation",
+  "current_phase": "review-1",
   "current_inputs": [
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/00-task.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/10-design.md",
@@ -16,6 +16,8 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/21-bookkeeper-task-b-verification.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-1.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-2.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-a-kimi.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-b-claude-glm.prompt.md",
     "schemas/api/public-market/snapshot.schema.json",
     "frontend/index.html",
     "frontend/self-check.js",
@@ -202,6 +204,8 @@
       "head_sha": "01fca8cda4e3ce37ab2b976f1ca060ed9da109a0",
       "diff_fingerprint": "01fca8cda4e3ce37ab2b976f1ca060ed9da109a0:a8ad71a421cbf1122ec8bedf123646fcb3606b85fdc2651917519524d33222de",
       "test_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
+      "review_prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-a-kimi.prompt.md",
+      "review_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1-task-a.md",
       "review_1": {
         "reviewer": null,
         "provider": null,
@@ -220,7 +224,7 @@
         "model": "kimi-code/kimi-for-coding"
       },
       "reviewer": "claude_glm",
-      "status": "ready_for_evidence_commit",
+      "status": "evidence_committed_waiting_review_1",
       "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi.prompt.md",
       "fix_prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-2.prompt.md",
       "completed_fix_prompts": [
@@ -234,9 +238,11 @@
         "task-a-backend-contract-cache"
       ],
       "base_sha": "dff8b4785f43cd9fb82b7fab6214bc8c7d98ac88",
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "test_evidence": null,
+      "head_sha": "0a383f0f8528591898f12690c371108e7582a27e",
+      "diff_fingerprint": "0a383f0f8528591898f12690c371108e7582a27e:2fa0b74988af0ae96a4a2f252f0aa67346c5b5fd3e89a218c78802bec4a48dce",
+      "test_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
+      "review_prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-b-claude-glm.prompt.md",
+      "review_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1-task-b.md",
       "review_1": {
         "reviewer": null,
         "provider": null,
@@ -271,8 +277,8 @@
     "user_approved": true
   },
   "base_sha": "fea9fdc3ecce7675b34b01fe0a4b9de08811f939",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "0a383f0f8528591898f12690c371108e7582a27e",
+  "diff_fingerprint": "0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed",
   "changed_files": [
     "AGENTS.md",
     "docs/model-adapters.md",
@@ -304,6 +310,8 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-1.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-2.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-a-kimi.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-b-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md",
@@ -380,6 +388,28 @@
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
+  "review_1_dispatch": {
+    "mode": "task_specific_cross_review",
+    "status": "prepared_waiting_human_execution",
+    "task_a": {
+      "reviewer": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "required_fresh_session": true,
+      "forbidden_session_id": "session_727145b3-694a-4467-8277-60a65dd1b1c5",
+      "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-a-kimi.prompt.md",
+      "output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1-task-a.md",
+      "status": "prepared_waiting_human_execution"
+    },
+    "task_b": {
+      "reviewer": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "required_fresh_session": true,
+      "forbidden_session_id": "aaba9bdc-5a62-4f9b-b820-d590c58c30a4",
+      "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-1-task-b-claude-glm.prompt.md",
+      "output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1-task-b.md",
+      "status": "prepared_waiting_human_execution"
+    }
+  },
   "review_2": {
     "reviewer": null,
     "provider": null,
@@ -441,6 +471,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/15-session-id-capture-evidence.md"
     }
   ],
-  "next_action": "Codex bookkeeper creates the Task B evidence commit, computes the committed-state fingerprint, updates status/handoff, and prepares formal cross-review-1 dispatch packets for human execution.",
-  "updated_at": "2026-07-15T13:22:18Z"
+  "next_action": "Human executes both prepared formal review-1 packets in fresh isolated sessions: Task A with Kimi and Task B with Claude-GLM. Capture each raw response at its declared 30-review-1-task-*.md path, then return both Session IDs to Codex bookkeeper.",
+  "updated_at": "2026-07-15T13:26:50Z"
 }

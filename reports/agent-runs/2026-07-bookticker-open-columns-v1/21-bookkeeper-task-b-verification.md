@@ -92,12 +92,14 @@ Final independent results:
 - no uncommitted backend/schema/docs diff after Task B base: PASS.
 - `git diff --check`: PASS.
 
-All Task B pre-commit findings are closed. The bounded diff is ready for the
-bookkeeper evidence commit; formal review has not started.
+All Task B pre-commit findings are closed. The bounded diff was committed at
+`0a383f0f8528591898f12690c371108e7582a27e`; its standard fingerprint is
+`0a383f0f8528591898f12690c371108e7582a27e:2fa0b74988af0ae96a4a2f252f0aa67346c5b5fd3e89a218c78802bec4a48dce`.
+Formal review-1 is the next gate.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/21-bookkeeper-task-b-verification.md
-本地北京时间: 2026-07-15 21:22:18 CST
-下一步模型: codex_bookkeeper
-下一步任务: 创建 Task B evidence commit、计算 fingerprint 并准备 formal review-1 dispatch
+本地北京时间: 2026-07-15 21:26:50 CST
+下一步模型: claude_glm（由人工在 fresh session 执行）
+下一步任务: 使用 review-1-task-b-claude-glm.prompt.md 审查固定 Task B committed range

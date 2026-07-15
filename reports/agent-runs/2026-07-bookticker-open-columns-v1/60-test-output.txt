@@ -355,3 +355,31 @@ Task B Pre-Commit Fix 2 final independent recheck: 2026-07-15 21:22:18 CST
 - `git diff --check`: PASS.
 
 Disposition: all Task B pre-commit findings closed; ready for evidence commit.
+
+---
+
+Committed-state review preparation: 2026-07-15 21:26:50 CST
+
+Task B evidence commit:
+
+- Base: `dff8b4785f43cd9fb82b7fab6214bc8c7d98ac88`
+- Head: `0a383f0f8528591898f12690c371108e7582a27e`
+- Standard fingerprint:
+  `0a383f0f8528591898f12690c371108e7582a27e:2fa0b74988af0ae96a4a2f252f0aa67346c5b5fd3e89a218c78802bec4a48dce`
+- Commit subject: `feat(frontend): add opening quote columns`
+
+Full-stage review range:
+
+- Base: `fea9fdc3ecce7675b34b01fe0a4b9de08811f939`
+- Product/evidence head: `0a383f0f8528591898f12690c371108e7582a27e`
+- Standard fingerprint:
+  `0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed`
+
+Formal review-1 routing prepared:
+
+- Task A (`claude_glm` implementer) -> fresh Kimi reviewer:
+  `review-1-task-a-kimi.prompt.md`
+- Task B (Kimi implementer) -> fresh Claude-GLM reviewer:
+  `review-1-task-b-claude-glm.prompt.md`
+- Provider/session isolation is mandatory; the implementation Session IDs are
+  explicitly forbidden in the respective prompts.

@@ -6,22 +6,22 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `implementation`
-- Next action: Codex bookkeeper creates the Task B evidence commit, computes its committed-state fingerprint, then prepares formal cross-review-1 packets.
+- Active phase: `review-1`
+- Next action: Human executes both prepared formal cross-review packets in fresh isolated sessions and returns the raw outputs plus Session IDs.
 - Read-set: = `status.current_inputs`
-- Open blockers: none before the mechanical evidence commit.
+- Open blockers: review-1 verdicts not yet captured.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-bookticker-open-columns-v1`
-- Status: `implementing` (Task A committed/frozen; all Task B pre-commit findings closed; evidence commit next)
+- Status: `review_1` (Task A and Task B committed with fingerprints; dispatch packets prepared)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
-- HEAD: `dff8b4785f43cd9fb82b7fab6214bc8c7d98ac88`
-- Git status: Task B has three uncommitted frontend files plus `20-implementation-task-b.md`; bookkeeper verification/fix packet/status/handoff/test evidence are also pending. No evidence commit yet.
+- Reviewed product/evidence head: `0a383f0f8528591898f12690c371108e7582a27e`
+- Git status: bookkeeping prompt/status checkpoint pending local commit; product/evidence range is committed
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
-- Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; implementation complete pending bookkeeper evidence commit
+- Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
 - Parallel mode: disabled; serial Task A → Task B
 
 ## Task A Result
@@ -85,6 +85,8 @@ not read `history/` at startup.
 - Task B fix-2 packet: `task-b-frontend-kimi-fix-2.prompt.md`
 - Task B report: `20-implementation-task-b.md` (must be amended by fix 2)
 - Task B bookkeeper verification: `21-bookkeeper-task-b-verification.md`
+- Task A review-1 packet: `review-1-task-a-kimi.prompt.md`
+- Task B review-1 packet: `review-1-task-b-claude-glm.prompt.md`
 - Test evidence: `60-test-output.txt`
 - Status: `status.json`
 - Formal review-1/review-2: pending until Task B is committed and full-stage tests pass
@@ -94,22 +96,30 @@ not read `history/` at startup.
 - All Task B pre-commit findings are closed. Task A remains frozen. Formal
   review findings do not exist yet.
 
+## Committed Fingerprints
+
+- Task A:
+  `01fca8cda4e3ce37ab2b976f1ca060ed9da109a0:a8ad71a421cbf1122ec8bedf123646fcb3606b85fdc2651917519524d33222de`
+- Task B:
+  `0a383f0f8528591898f12690c371108e7582a27e:2fa0b74988af0ae96a4a2f252f0aa67346c5b5fd3e89a218c78802bec4a48dce`
+- Full stage:
+  `0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed`
+
 ## Blockers
 
-- None before the authorized mechanical evidence commit. Formal review remains
-  gated on a clean committed state and standard fingerprints.
+- Formal review-1 Task A and Task B raw verdicts are not yet captured.
 
 ## Next Action
 
-Codex bookkeeper creates one local Task B evidence commit from the bounded,
-tested worktree, computes the standard task fingerprint using base
-`dff8b4785f43cd9fb82b7fab6214bc8c7d98ac88`, updates status/handoff, and prepares
-fresh-session Task A→Kimi and Task B→Claude-GLM formal review-1 packets. The
-human operator executes those packets; Codex does not dispatch model terminals.
+The human operator executes `review-1-task-a-kimi.prompt.md` in a fresh Kimi
+session and `review-1-task-b-claude-glm.prompt.md` in a fresh Claude-GLM plan
+session. Neither reviewer may reuse its recorded implementation Session. Capture
+the complete response, footer and final JSON at each declared
+`30-review-1-task-*.md` path, then return both Session IDs to the bookkeeper.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-15 21:22:18 CST
-下一步模型: codex_bookkeeper
-下一步任务: 创建 Task B evidence commit、计算 fingerprint 并准备 formal review-1 dispatch
+本地北京时间: 2026-07-15 21:26:50 CST
+下一步模型: kimi + claude_glm（由人工分别在 fresh session 执行）
+下一步任务: 完成 Task A/Task B formal review-1 并返回两个 raw verdict 与 Session ID
