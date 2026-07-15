@@ -301,7 +301,13 @@
     "required": false,
     "reason": null
   },
+  "user_acceptance": {
+    "accepted": true,
+    "accepted_at": "2026-07-15T02:40:43Z",
+    "merge_authorized": true,
+    "source": "User explicitly requested the reviewed scheduler code be merged and pushed, then narrowed the immediate corrective scope to history refresh-due at 1500 seconds only. The v2 merge is used as the reviewed local main baseline; remote push waits for the corrective stage."
+  },
   "terminal_reason": "stage_accepted_waiting_user",
-  "next_action": "human_accept_stage_and_authorize_merge_to_main",
-  "updated_at": "2026-07-15T01:37:30Z"
+  "next_action": "merge_reviewed_stage_to_local_main_then_start_low_corrective_stage",
+  "updated_at": "2026-07-15T02:40:43Z"
 }

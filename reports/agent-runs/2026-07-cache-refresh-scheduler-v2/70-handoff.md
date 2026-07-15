@@ -2,9 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: `stage_accepted_waiting_user`
-- Next action: human accepts the stage and explicitly authorizes merge to
-  `main`, or requests further work
+- Active phase: `stage_accepted_waiting_user` with user acceptance recorded
+- Next action: merge the reviewed v2 branch to local `main`, then open the
+  user-approved LOW history refresh-ahead corrective stage; defer remote push
+  until the corrective stage passes
 - Read-set: = `status.current_inputs`
 - Open blockers: none
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired runner
@@ -27,7 +28,8 @@
 - Reviewer prior involvement: `breakdown`; fresh-session disclosure present
 - Required fixes: none
 - Final clean-worktree `pre-accept` gate: PASS after `03d9e65`
-- Merge authority: not granted; explicit human acceptance still required
+- Merge authority: granted by the user on 2026-07-15; use v2 as the reviewed
+  local `main` baseline and defer remote push until the corrective stage passes
 
 ## Verification
 
@@ -67,11 +69,13 @@ Executed review prompts remain unchanged as immutable dispatch evidence.
 
 ## Merge Requirement
 
-Review-2 `ACCEPT` does not authorize merge. When the human approves merge, the
-merge must preserve the independently landed `main @ 413aa94` correction and
-the stage delivery commits. Do not rebase; follow the recorded branch merge
-gate.
+The user accepted the reviewed v2 baseline and authorized merge while narrowing
+the immediate follow-up to one LOW correction: history becomes refresh-due at
+1500 seconds while its publication expiry remains 1800 seconds. Borrow-rate,
+max-borrowable, Group B, transport TTLs, and threshold re-entry semantics remain
+unchanged. Merge must preserve independently landed `main @ 413aa94`; do not
+rebase. Remote push waits until the corrective stage passes its required gates.
 
-本地北京时间: 2026-07-15 09:37:30 CST
-下一步模型: human
-下一步任务: 决定是否接受本阶段并明确授权合并到 main
+本地北京时间: 2026-07-15 10:40:43 CST
+下一步模型: codex_bookkeeper
+下一步任务: 合并 v2 到本地 main，并创建 LOW 历史 refresh-ahead corrective stage
