@@ -695,3 +695,25 @@ Pre-accept hard-gate attempt: 2026-07-16 03:37:37 CST
   only one new review.
 - Exact output and disposition:
   `review-2-accept-pre-accept-blocked.txt`.
+
+---
+
+Explicit fast-route acceptance and merge authorization:
+2026-07-16 03:42:10 CST
+
+- User instruction:
+  `不需要再 review，刚才说的就是这是一次 fast 前端修改。直接推送提交吧`
+- Interpretation: accept the schema-valid full-fingerprint review-2 verdict,
+  do not add the proposed Task C cross-review, and authorize fast-forward merge
+  plus push.
+- Evidence integrity: the bookkeeper did not rewrite the pre-Task-C review-1
+  fingerprint. The failed pre-accept validator output remains preserved.
+- Remote safety preflight:
+  - fetched `origin/main` successfully;
+  - local `main` equals `origin/main` at
+    `fea9fdc3ecce7675b34b01fe0a4b9de08811f939`;
+  - `origin/main` is an ancestor of the stage branch;
+  - divergence is `0 behind / 18 ahead` from the stage perspective;
+  - fast-forward is available without rebase or conflict resolution.
+- Next: commit acceptance evidence, fast-forward `main`, write final merge
+  metadata and push `origin/main`.

@@ -6,16 +6,16 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `review_2`
-- Next action: Human decides whether to authorize one additional fresh Claude-GLM Task C cross-review; without it the stage remains review-2 ACCEPT but cannot pass pre-accept.
+- Active phase: `accepted`
+- Next action: Bookkeeper commits the user's explicit fast-route acceptance, fast-forwards `main`, records merge metadata and pushes `origin/main`.
 - Read-set: = `status.current_inputs`
-- Open blockers: Review-2 ACCEPT is valid, but pre-accept fails because the existing review-1 fingerprint predates Task C. The bookkeeper will not falsify that receipt.
+- Open blockers: None. User explicitly waived an additional Task C review-1 and authorized direct merge/push after schema-valid full-fingerprint review-2 ACCEPT.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-bookticker-open-columns-v1`
-- Status: `review_2` (fresh Codex final review ACCEPT captured; pre-accept validation pending)
+- Status: `accepted` (explicit user fast-route acceptance and merge/push authorization recorded; merge pending)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Reviewed product/evidence head: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
 - Full-stage fingerprint: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377`
@@ -29,7 +29,8 @@ not read `history/` at startup.
   validated by the bookkeeper.
 - Pre-accept evidence: `review-2-accept-pre-accept-blocked.txt`; safe resolution
   under the existing Harness is one fresh Claude-GLM Task C cross-review, which
-  requires user approval because it adds a review beyond the earlier limit.
+  the user explicitly declined. The old receipt remains unchanged; the user
+  authorized the documented fast-route override and direct push.
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
@@ -240,14 +241,14 @@ not read `history/` at startup.
 
 ## Next Action
 
-Review-2 ACCEPT is committed. Pre-accept failed closed because formal review-1
-covers the pre-Task-C fingerprint. The stage stays at `review_2`; merge and push
-remain forbidden. Human direction is required before preparing any additional
-cross-review packet.
+Review-2 ACCEPT is committed. The user explicitly accepted the fast frontend
+stage, declined additional review and authorized direct push. The bookkeeper
+will preserve the failed validator evidence, leave the old review-1 receipt
+untouched, fast-forward `main`, record merge metadata and push.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-16 03:37:37 CST
-下一步模型: human
-下一步任务: 决定是否授权追加一次 fresh Claude-GLM Task C cross-review，以真实补齐 review-1 当前指纹
+本地北京时间: 2026-07-16 03:42:10 CST
+下一步模型: codex_bookkeeper
+下一步任务: 提交 fast-route 验收记录，快进 main、记录 merge metadata 并推送 origin/main
