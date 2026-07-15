@@ -26,6 +26,7 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-preflight.txt",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
     "schemas/api/public-market/snapshot.schema.json",
     "frontend/index.html",
     "frontend/self-check.js",
@@ -131,6 +132,16 @@
       "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/30-review-1-task-b.md",
       "recorded_at": "2026-07-15T13:51:59Z"
+    },
+    {
+      "role": "advisory_review_grok_round_2",
+      "provider": "grok",
+      "model": "grok-4.5",
+      "session_id": "019f6617-0199-7230-9d63-896434ea8b88",
+      "session_id_source": "active_session_registry",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
+      "recorded_at": "2026-07-15T14:17:33Z"
     }
   ],
   "designer": {
@@ -359,6 +370,7 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-preflight.txt",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md",
@@ -507,11 +519,22 @@
       "user_explicitly_enabled": true,
       "formal_gate": false,
       "provider": "grok",
-      "model": "grok-build",
-      "status": "prepared_waiting_human_execution",
+      "model": "grok-4.5",
+      "adapter_model_alias": "grok-build",
+      "status": "completed_ready_for_user_visual_acceptance",
       "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
       "output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
-      "session_id": null
+      "session_id": "019f6617-0199-7230-9d63-896434ea8b88",
+      "session_id_source": "active_session_registry",
+      "conclusion": "ready_for_user_visual_acceptance",
+      "open_p0_p1_p2": 0,
+      "p3_observations": 6,
+      "reported_checks": {
+        "focused_backend": "67 passed",
+        "full_backend": "375 passed",
+        "frontend_self_check": "77 PASS",
+        "full_stage_fingerprint": "matched"
+      }
     }
   },
   "review_2_routing_override": {
@@ -526,6 +549,10 @@
     "formal_reviewer_model": "opus4.8",
     "required_prior_involvement": "breakdown",
     "formal_dispatch_status": "not_prepared_waiting_prerequisites",
+    "prerequisites": {
+      "grok_advisory_review_round_2": "completed_ready_for_user_visual_acceptance",
+      "user_visual_display_acceptance": "pending"
+    },
     "note": "Grok is advisory only and user visual acceptance is a pre-final-review checkpoint; neither replaces schema-valid formal review-2 or the later explicit merge acceptance gate."
   },
   "rework_count": 0,
@@ -566,6 +593,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/15-session-id-capture-evidence.md"
     }
   ],
-  "next_action": "Human executes advisory-review-grok-round-2.prompt.md in a fresh read-only Grok Session and returns the raw output plus Session ID. After Grok reconciliation, the user performs page-display acceptance; only then will the bookkeeper prepare Opus4.8 formal review-2 with breakdown disclosure.",
-  "updated_at": "2026-07-15T14:08:14Z"
+  "next_action": "User performs page-display acceptance using the Grok-derived checklist and reports pass/fail observations. If accepted with no blocking finding, the bookkeeper records the human checkpoint and prepares Opus4.8 formal review-2 with reviewer_prior_involvement=breakdown.",
+  "updated_at": "2026-07-15T14:17:33Z"
 }

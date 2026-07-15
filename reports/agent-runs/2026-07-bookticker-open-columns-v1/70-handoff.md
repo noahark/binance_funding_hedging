@@ -7,7 +7,7 @@ not read `history/` at startup.
 ## Recovery Header
 
 - Active phase: `review-2`
-- Next action: Human executes the user-requested Grok round-2 advisory packet in a fresh read-only Session and returns its output plus Session ID; then the user performs page-display acceptance before Opus4.8 formal review-2 is prepared.
+- Next action: User performs page-display acceptance using the recorded Grok checklist and reports pass/fail observations; after a clean human checkpoint, the bookkeeper prepares Opus4.8 formal review-2.
 - Read-set: = `status.current_inputs`
 - Open blockers: review-2 verdict not yet captured; final reviewer selection must satisfy the strong-reviewer disclosure rules because both registered decision providers participated in design work.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
@@ -18,7 +18,7 @@ not read `history/` at startup.
 - Status: `review_2` (Task A and Task B review-1 verdicts are schema-valid ACCEPT; evidence pending local commit)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
 - Reviewed product/evidence head: `0a383f0f8528591898f12690c371108e7582a27e`
-- Git status: review-1 evidence and the unused Codex review-2 packet/preflight are committed; user-routing amendment and Grok advisory packet are pending local commit
+- Git status: user-routing amendment and Grok packet are committed; Grok raw capture/status checkpoint is pending local commit
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
@@ -147,6 +147,36 @@ not read `history/` at startup.
 - Grok packet: `advisory-review-grok-round-2.prompt.md`; expected raw output:
   `31-advisory-review-grok-round-2.md`.
 
+## Grok Round-2 Result
+
+- Session: `019f6617-0199-7230-9d63-896434ea8b88`, verified by active-session
+  registry, encoded-cwd session directory, live pid and matching cwd.
+- Actual model: `grok-4.5` through the `grok-build` plan adapter.
+- Advisory conclusion: ready for user page-display acceptance; no P0/P1/P2.
+- Reported/trace-confirmed checks: focused backend `67 passed`, full backend
+  `375 passed`, frontend `77 PASS`, fixed full-stage fingerprint match.
+- Six P3/residual observations: two review-1 repeats plus REST time skew,
+  all-dash incomplete density, existing direct price rendering, and schema not
+  enforcing exactly two decimal places. No rework recommended.
+- Raw capture: `31-advisory-review-grok-round-2.md`. Its original footer said
+  Session ID unavailable; the same Session later corrected this, and both the
+  original text and correction are preserved.
+
+## User Page-Display Checklist
+
+1. Confirm exactly 12 headers and that `日净收益` is present while `提示标记`
+   and a separate negative-rate-status column are absent.
+2. Confirm the combined cell places borrowing status/额度 above the asset tag,
+   and the net-yield cell does not repeat `可借:`.
+3. Confirm forward shows futures bid above spot ask; reverse shows spot bid
+   above futures ask; percentages remain two decimal percentage points.
+4. Confirm incomplete rows preserve valid legs and show `—` only for missing
+   values/directions; stale/unavailable collapse to dash.
+5. Check XAU-style rows never invent a spot leg, bStock-style rows use their
+   resolved B-suffix spot symbol, and HOME/ANIME live rows remain readable.
+6. Confirm row click/drawer, filters, refresh and private read-only panels still
+   behave normally, with no new execution action.
+
 ## Formal Review-1 Result
 
 - Task A raw reviewer output: `30-review-1-task-a.md`; Kimi Session
@@ -176,15 +206,14 @@ not read `history/` at startup.
 
 ## Next Action
 
-The human executes `advisory-review-grok-round-2.prompt.md` in a fresh read-only
-Grok Session and returns the complete response plus provider-native Session ID.
-The bookkeeper reconciles any findings; then the user performs page-display
-acceptance. Only after both prerequisites close will the bookkeeper prepare and
-preflight the Opus4.8 formal review-2 packet.
+The user runs the page and reports the checklist result, including any symbol or
+row whose layout/value differs from expectation. A clean result closes the
+human visual prerequisite; the bookkeeper will then prepare and preflight the
+fresh Opus4.8 formal review-2 packet with breakdown involvement disclosure.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-15 22:08:14 CST
-下一步模型: grok / grok-build（由人工启动 fresh read-only advisory Session）
-下一步任务: 完成非门禁 Grok round-2 advisory review 并返回 raw output 与 Session ID
+本地北京时间: 2026-07-15 22:17:33 CST
+下一步模型: human
+下一步任务: 按 Grok-derived checklist 完成页面显示验收并返回 pass/fail 观察

@@ -513,3 +513,26 @@ User review routing amendment: 2026-07-15 22:08:14 CST
   authored `12-development-breakdown.md`.
 - No product code, reviewed SHA or fingerprint changed.
 - Grok packet: `advisory-review-grok-round-2.prompt.md`.
+
+---
+
+Grok round-2 advisory capture: 2026-07-15 22:17:33 CST
+
+- Session ID: `019f6617-0199-7230-9d63-896434ea8b88`
+- Source: `active_session_registry`; cwd/pid/session-directory cross-check PASS
+- Actual model: `grok-4.5`; adapter role: `grok-build-plan`; effort: high
+- Formal gate: NO; user-explicit advisory round
+- Raw output: `31-advisory-review-grok-round-2.md`
+- Conclusion: no P0/P1/P2; ready for user page-display acceptance
+
+Transcript tool-result verification:
+
+- focused backend: `67 passed in 2.34s`
+- frontend self-check PASS-line count: `77`
+- full backend: `375 passed in 15.58s`
+- recomputed full-stage fingerprint:
+  `0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed`
+- expected fingerprint matched: `True`
+
+Findings disposition: six P3/residual observations, no rework recommended.
+Next checkpoint: user page-display acceptance before Opus4.8 formal review-2.
