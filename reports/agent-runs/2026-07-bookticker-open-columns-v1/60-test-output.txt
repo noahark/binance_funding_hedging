@@ -246,3 +246,112 @@ Task A evidence commit:
 - Task A head commit: `01fca8cda4e3ce37ab2b976f1ca060ed9da109a0`
 - Task A fingerprint: `01fca8cda4e3ce37ab2b976f1ca060ed9da109a0:a8ad71a421cbf1122ec8bedf123646fcb3606b85fdc2651917519524d33222de`
 - Fingerprint excludes only `reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json` under the Harness committed-state scheme.
+
+---
+
+Task B pre-commit bookkeeper verification: 2026-07-15 21:02:29 CST
+
+Implementer receipt:
+- Provider/model: `kimi` / `kimi-code/kimi-for-coding` (`moonshot_kimi`)
+- Session ID: `session_727145b3-694a-4467-8277-60a65dd1b1c5`
+- Source: Kimi transcript path, cross-checked with `state.json.workDir/lastPrompt`
+- Report: `reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md`
+
+Command: `node frontend/self-check.js`
+Result: PASS
+Key output: all 75 reported checks pass.
+
+Command: `python3 -m pytest backend/tests -q`
+Result: PASS
+Output: `375 passed in 15.64s`
+
+Command: `python3 -m json.tool frontend/fixture/public-market-snapshot.json`
+Result: PASS
+
+Command: `git diff --check`
+Result: PASS
+
+Command: `git status --short`
+Result: PASS
+Output:
+```text
+ M frontend/fixture/public-market-snapshot.json
+ M frontend/index.html
+ M frontend/self-check.js
+?? reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md
+```
+
+Bookkeeper disposition: PRE-COMMIT FIX REQUIRED despite passing commands.
+
+- XAUUSDT preview contradicts the frozen no-spot-leg `incomplete` contract.
+- max-borrowable display is incorrectly gated by `borrow_rate_source`.
+- deterministic checks do not yet prove exact header order, 12 cells per row,
+  empty-state colspan, status-before-asset order, or single-location额度 display.
+- Implementation report must be corrected after the above are fixed.
+
+Fix packet:
+`reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-1.prompt.md`
+
+No evidence commit was created and formal review has not started.
+
+Bookkeeper routing checkpoint: 2026-07-15 21:05:42 CST
+
+- `python3 -m json.tool` for stage `status.json` and `ACTIVE.json`: PASS
+- `python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase checkpoint`: PASS (`STAGE VALIDATION PASSED`)
+- `git diff --check`: PASS
+- Task B status: `precommit_fix_1_waiting_human_execution`
+
+---
+
+Task B Pre-Commit Fix 1 independent recheck: 2026-07-15 21:13:27 CST
+
+- Kimi Session: `session_727145b3-694a-4467-8277-60a65dd1b1c5` (same
+  transcript-path receipt; `workDir/lastPrompt` cross-check PASS)
+- File boundary: PASS; Kimi changed only the three Task B frontend files and
+  `20-implementation-task-b.md` relative to the pre-fix working tree.
+- `node frontend/self-check.js`: PASS; 77 `[PASS]` output lines (1 syntax + 76
+  behavioral checks).
+- `python3 -m pytest backend/tests -q`: PASS; `375 passed in 15.67s`.
+- `python3 -m py_compile backend/adapters/binance_public.py backend/domain/snapshot.py backend/services/snapshot_service.py`: PASS.
+- `python3 -m json.tool frontend/fixture/public-market-snapshot.json`: PASS.
+- `git diff --check`: PASS.
+
+Closed findings:
+
+- max-borrowable display no longer depends on `borrow_rate_source`;
+- XAUUSDT no-spot preview now follows usable `incomplete` semantics;
+- strict header order, per-row 12-cell, empty colspan, combined-cell order and
+  single-location额度 coverage added.
+
+Remaining before evidence commit:
+
+- BUSDT incomplete test must explicitly assert its invalid direction renders
+  `—`, rather than only excluding two sample percentages;
+- Task B report must remove its stale claim that XAUUSDT is `fresh` and record
+  the exact PASS-line count.
+
+Fix packet:
+`reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-2.prompt.md`
+
+No evidence commit was created; formal review remains pending.
+
+---
+
+Task B Pre-Commit Fix 2 final independent recheck: 2026-07-15 21:22:18 CST
+
+- Kimi Session receipt: `session_727145b3-694a-4467-8277-60a65dd1b1c5`,
+  transcript-path `workDir/lastPrompt` cross-check PASS.
+- BUSDT invalid forward direction now explicitly asserts valid futures bid,
+  both leg labels, and at least two `—` values: PASS.
+- Task B report XAU classification and exact PASS count: PASS.
+- `node frontend/self-check.js`: PASS.
+- `node frontend/self-check.js | rg -c '^\[PASS\]'`: `77`.
+- `python3 -m pytest backend/tests -q`: PASS; `375 passed in 15.66s`.
+- `python3 -m py_compile backend/adapters/binance_public.py backend/domain/snapshot.py backend/services/snapshot_service.py`: PASS.
+- `python3 -m json.tool frontend/fixture/public-market-snapshot.json`: PASS.
+- `python3 -m json.tool` for stage status and ACTIVE: PASS.
+- no uncommitted diff under `backend`, `schemas`, or `docs` after Task B base:
+  PASS.
+- `git diff --check`: PASS.
+
+Disposition: all Task B pre-commit findings closed; ready for evidence commit.

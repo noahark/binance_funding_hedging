@@ -212,6 +212,52 @@ designFixture.rows.forEach(r => {
   if (!('annualized_funding_7d' in r)) r.annualized_funding_7d = null;
   if (!('annualized_funding_30d' in r)) r.annualized_funding_30d = null;
 });
+// 为 opening_quotes 各态断言在内存注入；不修改 backend fixture。
+const OPENING_QUOTES_FRESH = {
+  status: 'fresh',
+  updated_at: '2026-07-15T06:51:57Z',
+  spot_bid_price: '64954.00000000',
+  spot_ask_price: '64954.01000000',
+  futures_bid_price: '64925.00',
+  futures_ask_price: '64925.10',
+  forward_spread_pct: '-0.04',
+  reverse_spread_pct: '0.04'
+};
+const OPENING_QUOTES_INCOMPLETE = {
+  status: 'incomplete',
+  updated_at: '2026-07-15T06:51:57Z',
+  spot_bid_price: '64954.00000000',
+  spot_ask_price: null,
+  futures_bid_price: '64925.00',
+  futures_ask_price: '64925.10',
+  forward_spread_pct: null,
+  reverse_spread_pct: '0.04'
+};
+const OPENING_QUOTES_STALE = {
+  status: 'stale',
+  updated_at: '2026-07-15T06:51:57Z',
+  spot_bid_price: null,
+  spot_ask_price: null,
+  futures_bid_price: null,
+  futures_ask_price: null,
+  forward_spread_pct: null,
+  reverse_spread_pct: null
+};
+const OPENING_QUOTES_UNAVAILABLE = {
+  status: 'unavailable',
+  updated_at: null,
+  spot_bid_price: null,
+  spot_ask_price: null,
+  futures_bid_price: null,
+  futures_ask_price: null,
+  forward_spread_pct: null,
+  reverse_spread_pct: null
+};
+if (designFixture.rows[0]) designFixture.rows[0].opening_quotes = OPENING_QUOTES_FRESH;
+if (designFixture.rows[1]) designFixture.rows[1].opening_quotes = OPENING_QUOTES_INCOMPLETE;
+if (designFixture.rows[2]) designFixture.rows[2].opening_quotes = OPENING_QUOTES_STALE;
+if (designFixture.rows[3]) designFixture.rows[3].opening_quotes = OPENING_QUOTES_UNAVAILABLE;
+// rows[4] (EUSDT) 与 rows[5] (FUSDT) 保持 opening_quotes 缺失，测试字段整体缺失降级。
 // 给 AUSDT 行附加 settled history，用于抽屉 newest-first / 负费率 / 北京时间测试。
 const ausdt = designFixture.rows.find(r => r.symbol === 'AUSDT');
 if (ausdt) {
@@ -375,7 +421,7 @@ setTimeout(async () => {
     }
     console.log('[PASS] 默认渲染 6 行');
 
-    // 5. 拆列：存在独立「资金费率」「结算时间」「日费率」「净收益」列，合并列消失
+    // 5. 拆列：存在独立「资金费率」「结算时间」「日费率」「日净收益」列，合并列消失
     if (!html.includes('>资金费率<')) {
       throw new Error('缺少「资金费率」列名');
     }
@@ -385,8 +431,8 @@ setTimeout(async () => {
     if (!html.includes('>日费率<')) {
       throw new Error('缺少「日费率」列名');
     }
-    if (!html.includes('>净收益<')) {
-      throw new Error('缺少「净收益」列名');
+    if (!html.includes('>日净收益<')) {
+      throw new Error('缺少「日净收益」列名');
     }
     if (html.includes('资金费率/结算时间')) {
       throw new Error('仍保留「资金费率/结算时间」合并列名');
@@ -408,9 +454,22 @@ setTimeout(async () => {
     }
     console.log('[PASS] 年化三列存在且文案区分预估/已结算');
 
-    // 5c. Task D: 默认表移除路由分类列，但保留路由过滤器与字段校验
+    // 5c. Task D: 默认表移除路由分类列，但保留路由过滤器与字段校验；
+    // Task B: 最终 12 列，无「提示标记」/独立「负费率状态」列，新增开单列。
     if (html.includes('<th>路由分类</th>')) {
       throw new Error('默认表仍保留「路由分类」列');
+    }
+    if (html.includes('<th>提示标记</th>')) {
+      throw new Error('默认表仍保留「提示标记」列');
+    }
+    if (html.includes('<th>负费率状态</th>')) {
+      throw new Error('默认表仍保留独立「负费率状态」列');
+    }
+    const requiredHeaders = ['借贷状态 / 资产', '日净收益', '正向开单', '反向开单'];
+    for (const h of requiredHeaders) {
+      if (!html.includes(`>${h}<`)) {
+        throw new Error(`缺少「${h}」列名`);
+      }
     }
     const marketTableStart = html.indexOf('id="market-table-body"');
     const marketTheadStart = html.lastIndexOf('<thead>', marketTableStart);
@@ -721,7 +780,7 @@ setTimeout(async () => {
     if (sortBasisBadge.style.display === 'none') {
       throw new Error('sort_basis 标注未显示');
     }
-    if (!sortBasisBadge.textContent.includes('净收益优先')) {
+    if (!sortBasisBadge.textContent.includes('日净收益优先')) {
       throw new Error(`sort_basis 标注内容错误: ${sortBasisBadge.textContent}`);
     }
     console.log('[PASS] sort_basis 标注');
@@ -954,6 +1013,179 @@ setTimeout(async () => {
     }
     console.log('[PASS] 正费率行不展示借币成本子行');
 
+    // 33b. opening_quotes 独立 formatter 三向量与 class 退化
+    const spreadFmtCases = [
+      ['-0.04', '-0.04%'],
+      ['0.04', '+0.04%'],
+      ['0.00', '0.00%'],
+      [null, '—'],
+      ['', '—'],
+      ['not-a-number', '—']
+    ];
+    for (const [input, expected] of spreadFmtCases) {
+      const actual = helpers.formatOpeningSpreadPct(input);
+      if (actual !== expected) {
+        throw new Error(`formatOpeningSpreadPct(${JSON.stringify(input)}) 期望 ${expected}，实际 ${actual}`);
+      }
+    }
+    // classForOpeningSpread 对 null/empty/invalid 均返回 muted
+    if (helpers.classForOpeningSpread(null) !== 'muted') {
+      throw new Error('classForOpeningSpread(null) 应返回 muted');
+    }
+    if (helpers.classForOpeningSpread('') !== 'muted') {
+      throw new Error('classForOpeningSpread("") 应返回 muted');
+    }
+    if (helpers.classForOpeningSpread('not-a-number') !== 'muted') {
+      throw new Error('classForOpeningSpread("not-a-number") 应返回 muted');
+    }
+    // 确认 formatter 不调用/复用 formatFundingRate（允许注释提及，不允许调用）
+    const spreadFormatterBody = helpers.formatOpeningSpreadPct.toString();
+    if (/formatFundingRate\s*\(/.test(spreadFormatterBody)) {
+      throw new Error('formatOpeningSpreadPct 不应调用 formatFundingRate');
+    }
+    console.log('[PASS] opening spread 独立 formatter 三向量');
+
+    // 33c. 最终 12 列：严格表头顺序、每行 12 个 td、empty-state colspan=12、合并列结构
+    const taskBHeaders = ['标的', '借贷状态 / 资产', '资金费率', '结算时间', '日费率', '年化 24h', '年化 7D', '年化 30D', '日净收益', '标记价格 / 指数价格', '正向开单', '反向开单'];
+    const theadBlock = html.slice(html.indexOf('<thead>'), html.indexOf('</thead>') + 8);
+    const renderedHeaders = [...theadBlock.matchAll(/<th[^>]*>([^\u003c]*)<\/th>/g)].map(m => m[1].trim());
+    if (renderedHeaders.length !== 12) {
+      throw new Error(`表头数量期望 12，实际 ${renderedHeaders.length}: ${JSON.stringify(renderedHeaders)}`);
+    }
+    for (let i = 0; i < 12; i++) {
+      if (renderedHeaders[i] !== taskBHeaders[i]) {
+        throw new Error(`表头第 ${i + 1} 项期望「${taskBHeaders[i]}」，实际「${renderedHeaders[i]}」`);
+      }
+    }
+    if (theadBlock.includes('提示标记') || theadBlock.includes('负费率状态')) {
+      throw new Error('最终表头仍含「提示标记」或独立「负费率状态」');
+    }
+    // 每行 data row 恰好 12 个 td
+    const dataRows = tbody.match(/<tr[^\u003e]*class="[^"]*selectable[^"]*"[^\u003e]*>/g) || [];
+    for (const rowStart of dataRows) {
+      const pos = tbody.indexOf(rowStart);
+      const end = tbody.indexOf('</tr>', pos);
+      const rowHtml = tbody.slice(pos, end + 5);
+      const tdCount = (rowHtml.match(/<td[\s>]/g) || []).length;
+      if (tdCount !== 12) {
+        const symMatch = rowHtml.match(/data-symbol="([^"]+)"/);
+        throw new Error(`${symMatch ? symMatch[1] : '某行'} 数据行 td 数量期望 12，实际 ${tdCount}`);
+      }
+    }
+    // empty-state colspan=12：触发无匹配行并断言
+    const originalSearch = elements['filter-search'].value;
+    elements['filter-search'].value = 'NO_SUCH_SYMBOL_XYZ';
+    (elements['filter-search'].listeners.input || []).forEach(h => h());
+    const emptyTbody = elements['market-table-body'].innerHTML;
+    if (!emptyTbody.includes('colspan="12"')) {
+      throw new Error('无匹配 empty-state 未使用 colspan="12"');
+    }
+    if ((emptyTbody.match(/<td/g) || []).length !== 1) {
+      throw new Error('empty-state 行应只含 1 个 td');
+    }
+    // 恢复 fixture 与搜索框，避免破坏后续测试
+    elements['filter-search'].value = originalSearch;
+    (elements['filter-search'].listeners.input || []).forEach(h => h());
+
+    // 合并列：AUSDT 状态 badge 位置早于资产 badge；额度只在 index 1，不在 index 8
+    const ausdtCombined = getRowCell(tbody, 'AUSDT', 1);
+    const statusIdx = ausdtCombined.indexOf('badge '); // 第一个 badge 是状态
+    const assetIdx = ausdtCombined.indexOf('CRYPTO(加密货币)');
+    if (statusIdx === -1 || assetIdx === -1 || statusIdx >= assetIdx) {
+      throw new Error('AUSDT 合并列中状态 badge 应位于资产标签之前: ' + ausdtCombined);
+    }
+    const ausdtNet = getRowCell(tbody, 'AUSDT', 8);
+    if (ausdtNet.includes('可借:')) {
+      throw new Error('AUSDT 日净收益格不应含可借额度: ' + ausdtNet);
+    }
+    console.log('[PASS] 最终 12 列表头顺序、行单元格数、empty-state colspan 与合并列结构');
+
+    // 33d. 正向/反向开单列：腿标签、价格、百分比与颜色
+    // AUSDT fresh: forward -0.04%, reverse +0.04%
+    const ausdtForward = getRowCell(tbody, 'AUSDT', 10);
+    if (!ausdtForward.includes('合约买一') || !ausdtForward.includes('现货卖一')) {
+      throw new Error('AUSDT 正向开单列上下腿标签错误: ' + ausdtForward);
+    }
+    if (!ausdtForward.includes('64,925.00') || !ausdtForward.includes('64,954.01000000')) {
+      throw new Error('AUSDT 正向开单列价格错误: ' + ausdtForward);
+    }
+    if (!ausdtForward.includes('-0.04%')) {
+      throw new Error('AUSDT 正向开单列百分比错误: ' + ausdtForward);
+    }
+    if (!ausdtForward.includes('negative')) {
+      throw new Error('AUSDT 正向开单列负 spread 应使用 negative 色: ' + ausdtForward);
+    }
+    const ausdtReverse = getRowCell(tbody, 'AUSDT', 11);
+    if (!ausdtReverse.includes('现货买一') || !ausdtReverse.includes('合约卖一')) {
+      throw new Error('AUSDT 反向开单列上下腿标签错误: ' + ausdtReverse);
+    }
+    if (!ausdtReverse.includes('64,954.00000000') || !ausdtReverse.includes('64,925.10')) {
+      throw new Error('AUSDT 反向开单列价格错误: ' + ausdtReverse);
+    }
+    if (!ausdtReverse.includes('+0.04%')) {
+      throw new Error('AUSDT 反向开单列百分比错误: ' + ausdtReverse);
+    }
+    if (!ausdtReverse.includes('positive')) {
+      throw new Error('AUSDT 反向开单列正 spread 应使用 positive 色: ' + ausdtReverse);
+    }
+    console.log('[PASS] 正向/反向开单列腿、价、百分比与颜色');
+
+    // 33e. incomplete 双方向独立：BUSDT forward 缺失 → —，reverse 有效 → +0.04%
+    const busdtForward = getRowCell(tbody, 'BUSDT', 10);
+    if (!busdtForward.includes('合约买一')) {
+      throw new Error('BUSDT 正向开单列应仍渲染合约买一标签: ' + busdtForward);
+    }
+    if (!busdtForward.includes('现货卖一')) {
+      throw new Error('BUSDT 正向开单列应渲染现货卖一标签: ' + busdtForward);
+    }
+    // 有效腿 futures_bid_price 显示格式化价格；缺失腿 spot_ask_price 显示 —；forward spread 显示 —
+    if (!busdtForward.includes('64,925.00')) {
+      throw new Error('BUSDT 正向开单列应显示有效合约买一价格 64,925.00: ' + busdtForward);
+    }
+    const busdtForwardDashCount = (busdtForward.match(/—/g) || []).length;
+    if (busdtForwardDashCount < 2) {
+      throw new Error(`BUSDT 正向开单列应至少包含 2 个 —（现货卖一 + spread），实际 ${busdtForwardDashCount}: ${busdtForward}`);
+    }
+    if (busdtForward.includes('-0.04%') || busdtForward.includes('+0.04%')) {
+      throw new Error('BUSDT 正向开单列 forward spread 应为 —: ' + busdtForward);
+    }
+    const busdtReverse = getRowCell(tbody, 'BUSDT', 11);
+    if (!busdtReverse.includes('现货买一')) {
+      throw new Error('BUSDT 反向开单列应渲染现货买一标签: ' + busdtReverse);
+    }
+    if (!busdtReverse.includes('合约卖一')) {
+      throw new Error('BUSDT 反向开单列应渲染合约卖一标签: ' + busdtReverse);
+    }
+    if (!busdtReverse.includes('+0.04%')) {
+      throw new Error('BUSDT 反向开单列 reverse spread 应有效 +0.04%: ' + busdtReverse);
+    }
+    console.log('[PASS] incomplete 双方向独立显示');
+
+    // 33f. stale / unavailable / 缺失 降级为 —，不白屏
+    const cusdtForward = getRowCell(tbody, 'CUSDT', 10);
+    const cusdtReverse = getRowCell(tbody, 'CUSDT', 11);
+    if (!cusdtForward.includes('—') || !cusdtReverse.includes('—')) {
+      throw new Error('CUSDT stale 开单列应显示 —: ' + cusdtForward + ' / ' + cusdtReverse);
+    }
+    const dusdtForward = getRowCell(tbody, 'DUSDT', 10);
+    const dusdtReverse = getRowCell(tbody, 'DUSDT', 11);
+    if (!dusdtForward.includes('—') || !dusdtReverse.includes('—')) {
+      throw new Error('DUSDT unavailable 开单列应显示 —: ' + dusdtForward + ' / ' + dusdtReverse);
+    }
+    const fusdtForward = getRowCell(tbody, 'FUSDT', 10);
+    const fusdtReverse = getRowCell(tbody, 'FUSDT', 11);
+    if (!fusdtForward.includes('—') || !fusdtReverse.includes('—')) {
+      throw new Error('FUSDT 缺失 opening_quotes 开单列应显示 —: ' + fusdtForward + ' / ' + fusdtReverse);
+    }
+    // 页面仍正常渲染 6 行（已在 #4 断言）
+    console.log('[PASS] stale/unavailable/缺失 降级为 —');
+
+    // 33g. 开单列标题/单元格携带参考报价说明
+    if (!html.includes('约 60 秒刷新') || !html.includes('非成交保证') || !html.includes('incomplete')) {
+      throw new Error('开单列头/单元格未明示参考报价说明');
+    }
+    console.log('[PASS] 开单列参考报价文案');
+
     // 34. 负费率状态行感知的六文案派生
     const labelFixtureBase = JSON.parse(JSON.stringify(designFixture));
     // 已验证可借：verified=true, pair_listed=true, asset_borrowable=true
@@ -991,7 +1223,7 @@ setTimeout(async () => {
       { sym: 'FUSDT', label: '有利率·可借性未探测', cls: 'muted' },
     ];
     for (const { sym, label, cls } of labelCases) {
-      const cell = getRowCell(labelTbody, sym, 10);
+      const cell = getRowCell(labelTbody, sym, 1);
       if (!cell.includes(label)) {
         throw new Error(`${sym} 负费率状态期望 "${label}"，单元格 ${cell}`);
       }
@@ -1162,7 +1394,7 @@ setTimeout(async () => {
     // 41. 借币三态：51061 借光 / 有额度 / 未探测（max_borrowable + error_code）。
     //   独立 deep-copy 场景，不动默认 6 行基线语义。
     //   (a) AUSDT 借光：max_borrowable='0'+error_code='51061' → warn badge
-    //       「可借 0(已借完)」（title 含 51061，非 success），net-yield 可借子行含
+    //       「可借 0(已借完)」（title 含 51061，非 success），合并列可借子行含
     //       「可借: 0」+「已借完」+「≈ 0.00 USDT」。
     //   (b) BUSDT 有额度：max_borrowable='5.0'+error_code=null → success badge
     //       「已验证可借」，可借子行含「可借: 5.0」+「≈ 30000.00 USDT」、无「已借完」。
@@ -1208,7 +1440,7 @@ setTimeout(async () => {
       helpers.ingestSnapshot(triFixture);
       const triTbody = elements['market-table-body'].innerHTML;
       // (a) AUSDT 借光
-      const ausdtStatus = getRowCell(triTbody, 'AUSDT', 10);
+      const ausdtStatus = getRowCell(triTbody, 'AUSDT', 1);
       if (!ausdtStatus.includes('可借 0(已借完)')) {
         throw new Error('AUSDT 借光未渲染「可借 0(已借完)」warn badge: ' + ausdtStatus);
       }
@@ -1218,39 +1450,58 @@ setTimeout(async () => {
       if (!ausdtStatus.includes('51061')) {
         throw new Error('AUSDT 借光 badge title 应含 error_code 51061: ' + ausdtStatus);
       }
-      const ausdtNet = getRowCell(triTbody, 'AUSDT', 8);
-      if (!ausdtNet.includes('可借: 0') || !ausdtNet.includes('已借完')) {
-        throw new Error('AUSDT 借光 net-yield 应含「可借: 0」与「已借完」: ' + ausdtNet);
+      if (!ausdtStatus.includes('可借: 0') || !ausdtStatus.includes('已借完')) {
+        throw new Error('AUSDT 借光合并列应含「可借: 0」与「已借完」: ' + ausdtStatus);
       }
-      if (!ausdtNet.includes('≈ 0.00 USDT')) {
-        throw new Error('AUSDT 借光 ≈USDT 应显 0.00: ' + ausdtNet);
+      if (!ausdtStatus.includes('≈ 0.00 USDT')) {
+        throw new Error('AUSDT 借光 ≈USDT 应显 0.00: ' + ausdtStatus);
       }
       // (b) BUSDT 有额度
-      const busdtStatus = getRowCell(triTbody, 'BUSDT', 10);
+      const busdtStatus = getRowCell(triTbody, 'BUSDT', 1);
       if (!busdtStatus.includes('已验证可借') || !busdtStatus.includes('badge success')) {
         throw new Error('BUSDT 有额度应渲染 success「已验证可借」: ' + busdtStatus);
       }
-      const busdtNet = getRowCell(triTbody, 'BUSDT', 8);
-      if (!busdtNet.includes('可借: 5.0')) {
-        throw new Error('BUSDT 有额度 net-yield 应含「可借: 5.0」: ' + busdtNet);
+      if (!busdtStatus.includes('可借: 5.0')) {
+        throw new Error('BUSDT 有额度合并列应含「可借: 5.0」: ' + busdtStatus);
       }
-      if (!busdtNet.includes('≈ 30000.00 USDT')) {
-        throw new Error('BUSDT 有额度 ≈USDT 应显 30000.00: ' + busdtNet);
+      if (!busdtStatus.includes('≈ 30000.00 USDT')) {
+        throw new Error('BUSDT 有额度 ≈USDT 应显 30000.00: ' + busdtStatus);
       }
-      if (busdtNet.includes('已借完')) {
-        throw new Error('BUSDT 有额度不应含「已借完」: ' + busdtNet);
+      if (busdtStatus.includes('已借完')) {
+        throw new Error('BUSDT 有额度不应含「已借完」: ' + busdtStatus);
       }
       // (c) CUSDT 未探测
-      const cusdtStatus = getRowCell(triTbody, 'CUSDT', 10);
+      const cusdtStatus = getRowCell(triTbody, 'CUSDT', 1);
       if (!cusdtStatus.includes('有利率·可借性未探测')) {
         throw new Error('CUSDT 未探测 badge 应保持「有利率·可借性未探测」: ' + cusdtStatus);
       }
-      const cusdtNet = getRowCell(triTbody, 'CUSDT', 8);
-      if (cusdtNet.includes('可借:')) {
-        throw new Error('CUSDT 未探测（max_borrowable=null）不应展示可借子行: ' + cusdtNet);
+      if (cusdtStatus.includes('可借:')) {
+        throw new Error('CUSDT 未探测（max_borrowable=null）不应展示可借子行: ' + cusdtStatus);
+      }
+      // (d) DUSDT：borrow_rate_source=null 但 portfolio_account.max_borrowable 已探测，
+      // 额度仍应显示在合并列，日净收益格仍不应显示额度。
+      triFixture.rows[3].negative_funding_status = 'PRIVATE_BORROW_VALIDATION_REQUIRED';
+      triFixture.rows[3].borrow_validation.verified = true;
+      triFixture.rows[3].borrow_validation.classic_margin.pair_listed = true;
+      triFixture.rows[3].borrow_validation.classic_margin.asset_borrowable = true;
+      triFixture.rows[3].borrow_rate_source = null;
+      triFixture.rows[3].borrow_validation.portfolio_account = {
+        max_borrowable: '10.0', borrow_limit: '100',
+        error_code: null, max_borrowable_value_usdt: '1000.00000000',
+        source: 'papi_max_borrowable'
+      };
+      helpers.ingestSnapshot(triFixture);
+      const triTbody2 = elements['market-table-body'].innerHTML;
+      const dusdtStatus = getRowCell(triTbody2, 'DUSDT', 1);
+      if (!dusdtStatus.includes('可借: 10.0') || !dusdtStatus.includes('≈ 1000.00 USDT')) {
+        throw new Error('DUSDT borrow_rate_source=null 但 max_borrowable 已探测时合并列应显示额度: ' + dusdtStatus);
+      }
+      const dusdtNet = getRowCell(triTbody2, 'DUSDT', 8);
+      if (dusdtNet.includes('可借:')) {
+        throw new Error('DUSDT 日净收益格不应显示可借额度: ' + dusdtNet);
       }
       helpers.ingestSnapshot(designFixture);
-      console.log('[PASS] 借币三态（51061 借光/有额度/未探测）');
+      console.log('[PASS] 借币三态（51061 借光/有额度/未探测/borrow_rate_source=null 但额度已探测）');
     }
 
     // 42. 右侧抽屉：打开、标题、年化值、已结算历史（北京时间 newest-first）

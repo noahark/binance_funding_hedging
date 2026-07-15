@@ -758,17 +758,17 @@
               <thead>
                 <tr>
                   <th>标的</th>
-                  <th>资产标签</th>
+                  <th>借贷状态 / 资产</th>
                   <th title="本周期实时预估">资金费率</th>
                   <th>结算时间</th>
                   <th title="按结算间隔年化">日费率</th>
                   <th title="预估 24h 年化 = 日费率 × 365">年化 24h</th>
                   <th title="已结算 7 日年化（日历窗口求和）">年化 7D</th>
                   <th title="已结算 30 日年化（日历窗口求和）">年化 30D</th>
-                  <th title="扣除借币成本后的净收益">净收益</th>
+                  <th title="扣除借币成本后的净收益">日净收益</th>
                   <th>标记价格 / 指数价格</th>
-                  <th>负费率状态</th>
-                  <th>提示标记</th>
+                  <th title="约 60 秒刷新；失败时 last-good 最多约两个周期（默认 120 秒）后停用；非成交保证。stale=数据超过可用窗口；incomplete=部分价格缺失。">正向开单</th>
+                  <th title="约 60 秒刷新；失败时 last-good 最多约两个周期（默认 120 秒）后停用；非成交保证。stale=数据超过可用窗口；incomplete=部分价格缺失。">反向开单</th>
                 </tr>
               </thead>
               <tbody id="market-table-body"></tbody>
@@ -1007,6 +1007,75 @@
         return n > 0 ? 'positive' : 'negative';
       }
 
+      function formatOpeningSpreadPct(str) {
+        // Independent formatter for backend *_spread_pct fields. The backend
+        // already multiplied by 100 and rounded to 2 places (percentage point).
+        // Do NOT call formatFundingRate here and do NOT multiply by 100.
+        if (str === undefined || str === null || str === '') return '—';
+        const s = String(str);
+        if (!/^-?\d+\.\d{2}$/.test(s)) return '—';
+        if (s === '0.00') return '0.00%';
+        const sign = s.startsWith('-') ? '' : '+';
+        return `${sign}${s}%`;
+      }
+
+      function classForOpeningSpread(str) {
+        if (str === undefined || str === null || str === '') return 'muted';
+        const s = String(str);
+        if (!/^-?\d+\.\d{2}$/.test(s) || s === '0.00') return 'muted';
+        return s.startsWith('-') ? 'negative' : 'positive';
+      }
+
+      function maxBorrowableSubline(row) {
+        const pa = row.borrow_validation && row.borrow_validation.portfolio_account;
+        if (!pa || pa.max_borrowable == null) return '';
+        const usdt2 = formatUsdt2(pa.max_borrowable_value_usdt);
+        const val = usdt2 != null ? ` (≈ ${usdt2} USDT)` : '';
+        const zeroTag = pa.max_borrowable === '0' ? ' <span class="badge compact warn">已借完</span>' : '';
+        return `<br/><span class="muted small">可借: ${escapeHtml(pa.max_borrowable)}${val}${zeroTag}</span>`;
+      }
+
+      function renderOpeningQuotesCell(row, direction) {
+        const oq = row.opening_quotes;
+        const title = '约 60 秒刷新；失败时 last-good 最多约两个周期（默认 120 秒）后停用；非成交保证。' +
+          'stale=数据超过可用窗口；incomplete=部分价格缺失。';
+        if (!oq || oq.status === 'stale' || oq.status === 'unavailable') {
+          return `<td title="${escapeHtml(title)}">—</td>`;
+        }
+        const statusNote = `status: ${escapeHtml(oq.status || 'unknown')}; updated_at: ${escapeHtml(oq.updated_at || '—')}`;
+        const cellTitle = `${title} ${statusNote}`;
+        if (direction === 'forward') {
+          const bidText = formatPrice(oq.futures_bid_price);
+          const askText = formatPrice(oq.spot_ask_price);
+          const pctText = formatOpeningSpreadPct(oq.forward_spread_pct);
+          const pctClass = classForOpeningSpread(oq.forward_spread_pct);
+          return `
+            <td title="${escapeHtml(cellTitle)}">
+              <div style="display:flex;gap:var(--space-3);align-items:center;">
+                <div>
+                  <div class="muted small">合约买一 ${bidText}</div>
+                  <div class="muted small">现货卖一 ${askText}</div>
+                </div>
+                <div class="${pctClass}">${pctText}</div>
+              </div>
+            </td>`;
+        }
+        const bidText = formatPrice(oq.spot_bid_price);
+        const askText = formatPrice(oq.futures_ask_price);
+        const pctText = formatOpeningSpreadPct(oq.reverse_spread_pct);
+        const pctClass = classForOpeningSpread(oq.reverse_spread_pct);
+        return `
+          <td title="${escapeHtml(cellTitle)}">
+            <div style="display:flex;gap:var(--space-3);align-items:center;">
+              <div>
+                <div class="muted small">现货买一 ${bidText}</div>
+                <div class="muted small">合约卖一 ${askText}</div>
+              </div>
+              <div class="${pctClass}">${pctText}</div>
+            </div>
+          </td>`;
+      }
+
       function sourceBadge(source) {
         if (!source) return '';
         const map = {
@@ -1022,7 +1091,7 @@
       }
 
       function sortBasisLabel(basis) {
-        if (basis === 'net_daily_yield') return '净收益优先';
+        if (basis === 'net_daily_yield') return '日净收益优先';
         if (basis === 'abs_daily_funding_rate') return '绝对日费率';
         return String(basis || '—');
       }
@@ -1051,17 +1120,6 @@
         };
         const cls = rc === 'MARGIN_SPOT_CANDIDATE' ? 'success' : rc === 'SPOT_ONLY_CANDIDATE' ? 'info' : 'muted';
         return `<span class="badge ${cls}">${escapeHtml(map[rc] || rc)}</span>`;
-      }
-
-      function badgeForUiFlag(flag) {
-        switch (flag) {
-          case 'PERP_ONLY_NO_SPOT_LEG':
-            return '<span class="badge compact muted" title="PERP_ONLY_NO_SPOT_LEG">无现货腿</span>';
-          case 'TRADIFI_BSTOCK':
-            return '<span class="badge compact accent" title="TRADIFI_BSTOCK">bStock</span>';
-          default:
-            return `<span class="badge compact muted" title="${escapeHtml(flag)}">${escapeHtml(flag)}</span>`;
-        }
       }
 
       function badgeForNegativeFundingStatus(row) {
@@ -1337,19 +1395,8 @@
           } else {
             borrowSubline = `<br/><span class="muted small">日借币: -</span>`;
           }
-          // 可借数量 + ≈USDT：仅在已探测 max_borrowable 时展示。
-          // null（未探测/系统错误）不展示，避免误导；"0" 加「已借完」compact 标。
-          const pa = row.borrow_validation && row.borrow_validation.portfolio_account;
-          if (pa && pa.max_borrowable != null) {
-            const usdt2 = formatUsdt2(pa.max_borrowable_value_usdt);
-            const val = usdt2 != null ? ` (≈ ${usdt2} USDT)` : '';
-            const zeroTag = pa.max_borrowable === '0' ? ' <span class="badge compact warn">已借完</span>' : '';
-            borrowSubline += `<br/><span class="muted small">可借: ${escapeHtml(pa.max_borrowable)}${val}${zeroTag}</span>`;
-          }
         }
-        const uiFlags = Array.isArray(row.ui_flags) && row.ui_flags.length > 0
-          ? row.ui_flags.filter(f => f !== 'MARGIN_PUBLIC_UNVERIFIED').map(badgeForUiFlag).join(' ')
-          : '<span class="muted small">—</span>';
+        const maxBorrowLine = maxBorrowableSubline(row);
         const spotAlias = row.spot && row.spot.match_type === 'bstock_b_suffix_alias' && row.spot.symbol && row.spot.symbol !== row.symbol
           ? `<br/><span class="muted small">现货腿: ${escapeHtml(row.spot.symbol)}</span> <span class="badge compact info">B 后缀别名</span>`
           : '';
@@ -1357,7 +1404,7 @@
         return `
           <tr class="${isBstock ? 'bstock' : ''} selectable" data-symbol="${escapeHtml(row.symbol)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(row.symbol)} 的年化与已结算历史">
             <td class="mono">${escapeHtml(row.symbol)}${dirBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span>${spotAlias}</td>
-            <td>${badgeForAssetTag(row.asset_tag)}</td>
+            <td>${badgeForNegativeFundingStatus(row)}${maxBorrowLine}<br/>${badgeForAssetTag(row.asset_tag)}</td>
             <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
             <td title="${escapeHtml(fullTime)}">${timeText}</td>
             <td class="${dailyRateClass}">${dailyRateCell}</td>
@@ -1366,8 +1413,8 @@
             <td class="${ann30Class}" title="${escapeHtml(ann30Title)}">${ann30Text}</td>
             <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
             <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
-            <td>${badgeForNegativeFundingStatus(row)}</td>
-            <td>${uiFlags}</td>
+            ${renderOpeningQuotesCell(row, 'forward')}
+            ${renderOpeningQuotesCell(row, 'reverse')}
           </tr>
         `;
       }
@@ -1923,6 +1970,8 @@
         formatBeijing,
         formatBeijingShort,
         formatUsdt2,
+        formatOpeningSpreadPct,
+        classForOpeningSpread,
         absDailyRateAtOrBelowThreshold,
         ingestSnapshot,
         togglePrivacy,

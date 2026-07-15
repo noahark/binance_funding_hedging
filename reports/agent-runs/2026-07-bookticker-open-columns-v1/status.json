@@ -11,6 +11,11 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/14-design-review-reconciliation.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/21-bookkeeper-task-b-verification.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-1.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-2.prompt.md",
     "schemas/api/public-market/snapshot.schema.json",
     "frontend/index.html",
     "frontend/self-check.js",
@@ -86,6 +91,16 @@
       "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
       "recorded_at": "2026-07-15T10:11:31Z"
+    },
+    {
+      "role": "implementation_task_b",
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": "session_727145b3-694a-4467-8277-60a65dd1b1c5",
+      "session_id_source": "transcript_path",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
+      "recorded_at": "2026-07-15T13:02:29Z"
     }
   ],
   "designer": {
@@ -106,12 +121,12 @@
     "completed_at": "2026-07-15T08:56:39Z"
   },
   "implementer": {
-    "id": "claude_glm",
-    "provider": "claude_glm",
-    "runtime_provider_identity": "zhipu_glm",
-    "model": "glm-5.2",
-    "session_id": "aaba9bdc-5a62-4f9b-b820-d590c58c30a4",
-    "task_id": "task-a-backend-contract-cache"
+    "id": "kimi",
+    "provider": "kimi",
+    "runtime_provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "session_id": "session_727145b3-694a-4467-8277-60a65dd1b1c5",
+    "task_id": "task-b-frontend-table-integration"
   },
   "implementers": [
     {
@@ -121,6 +136,14 @@
       "model": "glm-5.2",
       "session_id": "aaba9bdc-5a62-4f9b-b820-d590c58c30a4",
       "task_id": "task-a-backend-contract-cache"
+    },
+    {
+      "id": "kimi",
+      "provider": "kimi",
+      "runtime_provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": "session_727145b3-694a-4467-8277-60a65dd1b1c5",
+      "task_id": "task-b-frontend-table-integration"
     }
   ],
   "fix_authors": [],
@@ -197,13 +220,20 @@
         "model": "kimi-code/kimi-for-coding"
       },
       "reviewer": "claude_glm",
-      "status": "prepared_waiting_human_execution",
+      "status": "ready_for_evidence_commit",
       "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi.prompt.md",
+      "fix_prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-2.prompt.md",
+      "completed_fix_prompts": [
+        "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-1.prompt.md",
+        "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-2.prompt.md"
+      ],
       "implementation_report": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
+      "bookkeeper_verification": "reports/agent-runs/2026-07-bookticker-open-columns-v1/21-bookkeeper-task-b-verification.md",
+      "implementation_session_id": "session_727145b3-694a-4467-8277-60a65dd1b1c5",
       "depends_on": [
         "task-a-backend-contract-cache"
       ],
-      "base_sha": "01fca8cda4e3ce37ab2b976f1ca060ed9da109a0",
+      "base_sha": "dff8b4785f43cd9fb82b7fab6214bc8c7d98ac88",
       "head_sha": null,
       "diff_fingerprint": null,
       "test_evidence": null,
@@ -272,7 +302,12 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/design-review-grok.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-a-backend-claude-glm.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-1.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-b-frontend-kimi-fix-2.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-b.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/21-bookkeeper-task-b-verification.md",
     "backend/adapters/binance_public.py",
     "backend/domain/snapshot.py",
     "backend/services/snapshot_service.py",
@@ -284,6 +319,9 @@
     "docs/api/public-market-contract.md",
     "docs/architecture/ARCHITECTURE.md",
     "docs/development/DEVELOPMENT_GUIDE.md",
+    "frontend/index.html",
+    "frontend/self-check.js",
+    "frontend/fixture/public-market-snapshot.json",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
@@ -291,7 +329,7 @@
   ],
   "tests": {
     "status": "passed",
-    "scope": "task_a_independent_focused_full_backend_frontend_regression_and_mechanical_checks",
+    "scope": "task_b_precommit_independent_frontend_full_backend_and_mechanical_checks",
     "commands": [
       "python3 -m json.tool reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -309,10 +347,25 @@
       "pytest backend/tests/test_book_ticker.py backend/tests/test_snapshot.py backend/tests/test_background_worker.py backend/tests/test_symbol_snapshot_endpoint.py backend/tests/test_negative_schema.py -q",
       "pytest backend/tests -q",
       "node frontend/self-check.js",
-      "python3 -m py_compile backend/adapters/binance_public.py backend/domain/snapshot.py backend/services/snapshot_service.py"
+      "python3 -m py_compile backend/adapters/binance_public.py backend/domain/snapshot.py backend/services/snapshot_service.py",
+      "node frontend/self-check.js (Task B pre-commit: 75 reported checks)",
+      "python3 -m pytest backend/tests -q (Task B pre-commit: 375 passed)",
+      "python3 -m json.tool frontend/fixture/public-market-snapshot.json",
+      "git diff --check (Task B pre-commit)",
+      "node frontend/self-check.js (Task B Fix 1 recheck: 77 PASS lines)",
+      "python3 -m pytest backend/tests -q (Task B Fix 1 recheck: 375 passed)",
+      "python3 -m py_compile backend/adapters/binance_public.py backend/domain/snapshot.py backend/services/snapshot_service.py (Task B Fix 1 recheck)",
+      "python3 -m json.tool frontend/fixture/public-market-snapshot.json (Task B Fix 1 recheck)",
+      "git diff --check (Task B Fix 1 recheck)",
+      "node frontend/self-check.js (Task B Fix 2 final: 77 PASS lines)",
+      "python3 -m pytest backend/tests -q (Task B Fix 2 final: 375 passed)",
+      "python3 -m py_compile backend/adapters/binance_public.py backend/domain/snapshot.py backend/services/snapshot_service.py (Task B Fix 2 final)",
+      "python3 -m json.tool frontend/fixture/public-market-snapshot.json (Task B Fix 2 final)",
+      "no uncommitted backend/schema/docs diff after Task B base",
+      "git diff --check (Task B Fix 2 final)"
     ],
     "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
-    "note": "Task A independent bookkeeper verification passed: focused backend 142, full backend 375, frontend self-check all pass, py_compile and git diff --check clean. The unavailable `python` alias during intake was retried successfully with `python3`."
+    "note": "All Task B pre-commit findings are closed. Final independent checks pass: frontend 77 PASS lines, full backend 375, py_compile, fixture JSON, file boundary and diff check. Ready for Task B evidence commit; formal review has not started."
   },
   "review_1": {
     "reviewer": null,
@@ -388,6 +441,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/15-session-id-capture-evidence.md"
     }
   ],
-  "next_action": "Human executes task-b-frontend-kimi.prompt.md in a Kimi terminal. Kimi edits only the three frontend files plus 20-implementation-task-b.md, includes the verified Session receipt footer, and stops without review or commit.",
-  "updated_at": "2026-07-15T10:14:24Z"
+  "next_action": "Codex bookkeeper creates the Task B evidence commit, computes the committed-state fingerprint, updates status/handoff, and prepares formal cross-review-1 dispatch packets for human execution.",
+  "updated_at": "2026-07-15T13:22:18Z"
 }

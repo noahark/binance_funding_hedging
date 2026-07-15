@@ -103,7 +103,17 @@
       "annualized_funding_30d": "0.00739843",
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED"
-      ]
+      ],
+      "opening_quotes": {
+        "status": "fresh",
+        "updated_at": "2026-07-15T06:51:57Z",
+        "spot_bid_price": "64954.00000000",
+        "spot_ask_price": "64954.01000000",
+        "futures_bid_price": "64925.00",
+        "futures_ask_price": "64925.10",
+        "forward_spread_pct": "-0.04",
+        "reverse_spread_pct": "0.04"
+      }
     },
     {
       "symbol": "ETHUSDT",
@@ -144,7 +154,17 @@
       "annualized_funding_30d": null,
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED"
-      ]
+      ],
+      "opening_quotes": {
+        "status": "incomplete",
+        "updated_at": "2026-07-15T06:51:57Z",
+        "spot_bid_price": "1706.00000000",
+        "spot_ask_price": null,
+        "futures_bid_price": "1705.50000000",
+        "futures_ask_price": "1705.60000000",
+        "forward_spread_pct": null,
+        "reverse_spread_pct": "0.02"
+      }
     },
     {
       "symbol": "XVGUSDT",
@@ -185,7 +205,17 @@
       "annualized_funding_30d": null,
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED"
-      ]
+      ],
+      "opening_quotes": {
+        "status": "fresh",
+        "updated_at": "2026-07-15T06:51:57Z",
+        "spot_bid_price": "0.00224700",
+        "spot_ask_price": "0.00224800",
+        "futures_bid_price": "0.00224600",
+        "futures_ask_price": "0.00224900",
+        "forward_spread_pct": "-0.09",
+        "reverse_spread_pct": "-0.09"
+      }
     },
     {
       "symbol": "XMRUSDT",
@@ -227,7 +257,17 @@
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED",
         "PERP_ONLY_NO_SPOT_LEG"
-      ]
+      ],
+      "opening_quotes": {
+        "status": "stale",
+        "updated_at": "2026-07-15T06:51:57Z",
+        "spot_bid_price": null,
+        "spot_ask_price": null,
+        "futures_bid_price": null,
+        "futures_ask_price": null,
+        "forward_spread_pct": null,
+        "reverse_spread_pct": null
+      }
     },
     {
       "symbol": "MSTRUSDT",
@@ -270,7 +310,17 @@
         "MARGIN_PUBLIC_UNVERIFIED",
         "PERP_ONLY_NO_SPOT_LEG",
         "TRADIFI_BSTOCK"
-      ]
+      ],
+      "opening_quotes": {
+        "status": "unavailable",
+        "updated_at": null,
+        "spot_bid_price": null,
+        "spot_ask_price": null,
+        "futures_bid_price": null,
+        "futures_ask_price": null,
+        "forward_spread_pct": null,
+        "reverse_spread_pct": null
+      }
     },
     {
       "symbol": "TSLAUSDT",
@@ -312,7 +362,17 @@
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED",
         "TRADIFI_BSTOCK"
-      ]
+      ],
+      "opening_quotes": {
+        "status": "fresh",
+        "updated_at": "2026-07-15T06:51:57Z",
+        "spot_bid_price": "396.20000000",
+        "spot_ask_price": "396.21000000",
+        "futures_bid_price": "396.10000000",
+        "futures_ask_price": "396.11000000",
+        "forward_spread_pct": "-0.03",
+        "reverse_spread_pct": "0.02"
+      }
     },
     {
       "symbol": "XAUUSDT",
@@ -354,7 +414,17 @@
       "ui_flags": [
         "MARGIN_PUBLIC_UNVERIFIED",
         "PERP_ONLY_NO_SPOT_LEG"
-      ]
+      ],
+      "opening_quotes": {
+        "status": "incomplete",
+        "updated_at": "2026-07-15T06:51:57Z",
+        "spot_bid_price": null,
+        "spot_ask_price": null,
+        "futures_bid_price": "2599.90000000",
+        "futures_ask_price": "2600.00000000",
+        "forward_spread_pct": null,
+        "reverse_spread_pct": null
+      }
     }
   ],
   "warnings": [
