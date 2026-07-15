@@ -27,6 +27,107 @@ The registry remains the machine-readable source of routing truth:
   the moving symbolic `HEAD` when unrelated Harness commits may have happened
   after the reviewed stage commit.
 
+## Session ID Capture And Execution Receipts
+
+Every completed model execution must expose the navigation footer defined in
+`AGENTS.md`. The model should report its provider-native Session ID when the
+runtime exposes it; the runner or human operator then verifies and records the
+receipt in `status.json.session_receipts`.
+
+Use this evidence order. Stop at the first source that identifies the current
+session without ambiguity:
+
+1. Runtime environment or hook payload dedicated to the model session.
+2. Session ID printed by the CLI or runner for the current invocation.
+3. A session-specific scratchpad or exact transcript path tied to the current
+   invocation.
+4. An active-session registry matched by working directory and process id.
+5. A session-store directory matched by working directory plus transcript
+   content such as the current prompt.
+6. Operator-supplied ID, cross-checked against one of the sources above when
+   local evidence is available.
+
+Do not identify a session from newest modification time alone: several sessions
+for the same repository may be active, and transcript writes can lag. Never run
+`resume` merely to discover an ID, never invent an ID, and never record tokens,
+cookies, credentials, expanded environments, or unrelated diagnostic logs.
+
+The status receipt uses this shape:
+
+```json
+{
+  "role": "implementation_task_a",
+  "provider": "claude_glm",
+  "model": "glm-5.2",
+  "session_id": "<provider-native id or null>",
+  "session_id_source": "runtime_env",
+  "unavailable_reason": null,
+  "raw_output_path": "reports/agent-runs/<stage-id>/20-implementation-task-a.md",
+  "recorded_at": "<UTC date-time>"
+}
+```
+
+`session_id_source` is one of `runtime_env`, `hook_payload`, `cli_output`,
+`transcript_path`, `active_session_registry`, `operator`, or `unavailable`.
+When `session_id` is null, `unavailable_reason` is required. The raw output path
+is the evidence handoff; a Session ID by itself does not let another provider
+read the conversation.
+
+### Codex
+
+- Preferred runtime source: `CODEX_THREAD_ID`.
+- Cross-check: the current rollout file under
+  `~/.codex/sessions/YYYY/MM/DD/rollout-...-<thread-id>.jsonl`.
+- The CLI can manage saved sessions with `codex resume`, but resume is not a
+  discovery mechanism and must not be invoked by a bookkeeper just to inspect a
+  session.
+
+If `CODEX_THREAD_ID` is absent, use an exact runner receipt or a rollout file
+whose metadata matches the current invocation. Do not choose only by mtime.
+
+### Claude And Claude-GLM
+
+- Preferred runtime source inside Claude Code-launched tools/hooks:
+  `CLAUDE_CODE_SESSION_ID`.
+- Hook JSON payloads may expose `session_id` directly.
+- A session-specific scratchpad path may contain the same UUID.
+- Cross-check transcript:
+  `~/.claude/projects/<encoded-project-path>/<session-id>.jsonl`.
+
+Claude-GLM uses the Claude Code session container, so it uses the same lookup
+mechanics. This does not change its provider identity: `claude_glm` remains
+`zhipu_glm`, not Anthropic. When the environment variable is unavailable, an
+exact scratchpad/transcript match is stronger than newest-file inference.
+
+### Grok
+
+- Inspect `~/.grok/active_sessions.json` and match both repository cwd and the
+  live Grok process id when available.
+- Cross-check the corresponding directory under
+  `~/.grok/sessions/<encoded-cwd>/<session-id>/`.
+- Preserve a local transcript without a new model call with:
+  `grok export <session-id> <stage-raw-output-path>`.
+
+An active-session registry match is heuristic if multiple Grok processes share
+the same cwd; record `unavailable` instead of guessing when pid/cwd cannot
+disambiguate it.
+
+### Kimi
+
+- Locate the repository workspace under
+  `~/.kimi-code/sessions/wd_<workspace>_<hash>/session_<uuid>/`.
+- Verify `state.json` fields such as `workDir`, `lastPrompt`, and title against
+  the current invocation. Do not select only the newest directory.
+- `kimi -S <session-id>` resumes an already known session; it is not required
+  for discovery.
+- Optional local export uses
+  `kimi export <session-id> -o <zip-path> -y --no-include-global-log` so the
+  unrelated global diagnostic log is not bundled. The stage-facing raw Markdown
+  response must still be captured separately.
+
+Provider-native formatting may include a `session_` prefix. Preserve the exact
+value printed or verified by that provider instead of normalizing it.
+
 ## Adapter Availability Checks
 
 Run these checks from the same shell environment that the human operator will

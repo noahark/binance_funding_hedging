@@ -1,0 +1,217 @@
+{
+  "captured_at": "2026-07-15T06:51:57Z",
+  "endpoints": {
+    "spot_full": {
+      "method": "GET",
+      "url": "https://api.binance.com/api/v3/ticker/bookTicker",
+      "auth": "none",
+      "http_status": 200,
+      "bytes": 419404,
+      "observed_used_weight_1m_header_after_call": 38,
+      "notes": "Full universe; cumulative IP weight header (not isolated). Live recheck: each spot bookTicker variant adds ~4 to used-weight-1m.",
+      "weight_isolation": {
+        "single_delta": 2,
+        "batch3_delta": 4,
+        "full_used_weight_1m_after_call_recheck": 14,
+        "note": "full not cold-isolated; single +2 and batch3 +4 solid"
+      }
+    },
+    "futures_full": {
+      "method": "GET",
+      "url": "https://fapi.binance.com/fapi/v1/ticker/bookTicker",
+      "auth": "none",
+      "http_status": 200,
+      "bytes": 106997,
+      "observed_used_weight_1m_header_after_call": 5,
+      "docs_weight_full": 5,
+      "docs_weight_single": 2,
+      "weight_isolation": {
+        "full": 5,
+        "single_delta": 2
+      }
+    },
+    "spot_single": {
+      "url": "https://api.binance.com/api/v3/ticker/bookTicker?symbol=BTCUSDT",
+      "response_shape": "object",
+      "http_status": 200
+    },
+    "futures_single": {
+      "url": "https://fapi.binance.com/fapi/v1/ticker/bookTicker?symbol=BTCUSDT",
+      "response_shape": "object",
+      "http_status": 200,
+      "docs_weight": 2
+    },
+    "spot_symbols_batch": {
+      "url": "https://api.binance.com/api/v3/ticker/bookTicker?symbols=[\"BTCUSDT\",\"ETHUSDT\",\"SOLUSDT\"]",
+      "http_status": 200,
+      "row_count": 3,
+      "supported": true
+    },
+    "futures_symbols_batch_probe": {
+      "url": "https://fapi.binance.com/fapi/v1/ticker/bookTicker?symbols=[\"BTCUSDT\",\"ETHUSDT\"]",
+      "http_status": 200,
+      "supported": false,
+      "behavior": "symbols query ignored; returned full universe (708 rows), weight behaved like full (5)"
+    }
+  },
+  "spot_analysis": {
+    "market": "spot",
+    "row_count": 3639,
+    "usdt_suffix_count": 692,
+    "all_keys": [
+      "askPrice",
+      "askQty",
+      "bidPrice",
+      "bidQty",
+      "symbol"
+    ],
+    "key_presence_counts": {
+      "symbol": 3639,
+      "bidPrice": 3639,
+      "bidQty": 3639,
+      "askPrice": 3639,
+      "askQty": 3639
+    },
+    "empty_or_zero_bidPrice": 2282,
+    "empty_or_zero_askPrice": 2282,
+    "inverted_spread_count": 0,
+    "sample_symbols": {
+      "BTCUSDT": {
+        "symbol": "BTCUSDT",
+        "bidPrice": "64954.00000000",
+        "bidQty": "0.24350000",
+        "askPrice": "64954.01000000",
+        "askQty": "4.91826000"
+      },
+      "ETHUSDT": {
+        "symbol": "ETHUSDT",
+        "bidPrice": "1882.17000000",
+        "bidQty": "7.77780000",
+        "askPrice": "1882.18000000",
+        "askQty": "62.91070000"
+      },
+      "SOLUSDT": {
+        "symbol": "SOLUSDT",
+        "bidPrice": "78.20000000",
+        "bidQty": "420.27700000",
+        "askPrice": "78.21000000",
+        "askQty": "789.37700000"
+      },
+      "TSLABUSDT": {
+        "symbol": "TSLABUSDT",
+        "bidPrice": "397.78000000",
+        "bidQty": "1.47900000",
+        "askPrice": "397.95000000",
+        "askQty": "0.93000000"
+      }
+    },
+    "usdt_zero_bid": 243,
+    "usdt_zero_ask": 243
+  },
+  "futures_analysis": {
+    "market": "usdm_futures",
+    "row_count": 708,
+    "usdt_suffix_count": 659,
+    "all_keys": [
+      "askPrice",
+      "askQty",
+      "bidPrice",
+      "bidQty",
+      "lastUpdateId",
+      "symbol",
+      "time"
+    ],
+    "key_presence_counts": {
+      "symbol": 708,
+      "bidPrice": 708,
+      "bidQty": 708,
+      "askPrice": 708,
+      "askQty": 708,
+      "time": 708,
+      "lastUpdateId": 708
+    },
+    "empty_or_zero_bidPrice": 1,
+    "empty_or_zero_askPrice": 1,
+    "inverted_spread_count": 0,
+    "sample_symbols": {
+      "BTCUSDT": {
+        "symbol": "BTCUSDT",
+        "bidPrice": "64925.00",
+        "bidQty": "0.103",
+        "askPrice": "64925.10",
+        "askQty": "14.841",
+        "time": 1784098317819,
+        "lastUpdateId": 11051324939848
+      },
+      "ETHUSDT": {
+        "symbol": "ETHUSDT",
+        "bidPrice": "1881.38",
+        "bidQty": "83.319",
+        "askPrice": "1881.39",
+        "askQty": "198.084",
+        "time": 1784098317889,
+        "lastUpdateId": 11051324947556
+      },
+      "SOLUSDT": {
+        "symbol": "SOLUSDT",
+        "bidPrice": "78.1500",
+        "bidQty": "7186.71",
+        "askPrice": "78.1600",
+        "askQty": "3099.19",
+        "time": 1784098318107,
+        "lastUpdateId": 11051324964688
+      },
+      "XAUUSDT": {
+        "symbol": "XAUUSDT",
+        "bidPrice": "4033.94",
+        "bidQty": "39.635",
+        "askPrice": "4033.95",
+        "askQty": "71.531",
+        "time": 1784098317865,
+        "lastUpdateId": 11051324946203
+      }
+    },
+    "usdt_zero_bid": 0,
+    "usdt_zero_ask": 0
+  },
+  "btc_cross_market": {
+    "spot": {
+      "symbol": "BTCUSDT",
+      "bidPrice": "64954.00000000",
+      "bidQty": "0.24350000",
+      "askPrice": "64954.01000000",
+      "askQty": "4.91826000"
+    },
+    "futures": {
+      "symbol": "BTCUSDT",
+      "bidPrice": "64925.00",
+      "bidQty": "0.103",
+      "askPrice": "64925.10",
+      "askQty": "14.841",
+      "time": 1784098317819,
+      "lastUpdateId": 11051324939848
+    }
+  },
+  "field_delta": {
+    "spot_only_fields": [],
+    "futures_only_fields": [
+      "lastUpdateId",
+      "time"
+    ],
+    "common_fields": [
+      "askPrice",
+      "askQty",
+      "bidPrice",
+      "bidQty",
+      "symbol"
+    ]
+  },
+  "integration_notes": {
+    "recommended_fetch": "full universe both endpoints once per Group A cycle (60s)",
+    "cache_shape": {
+      "spot_book_ticker_by_sym": "{symbol: {bidPrice, bidQty, askPrice, askQty}}",
+      "futures_book_ticker_by_sym": "{symbol: {bidPrice, bidQty, askPrice, askQty, time?, lastUpdateId?}}"
+    },
+    "decimal_safe": "all price/qty fields are JSON strings (or number-like strings); keep as str"
+  }
+}

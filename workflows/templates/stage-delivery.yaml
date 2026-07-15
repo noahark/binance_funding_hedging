@@ -86,6 +86,32 @@ artifacts:
     - direction-drafts/*.md
     - 06-direction-synthesis.md
 
+session_receipts:
+  version: 1
+  adapter_reference: "docs/model-adapters.md#session-id-capture-and-execution-receipts"
+  status_path: "status.json.session_receipts"
+  required_for:
+    - direction_draft
+    - direction_synthesis
+    - development_breakdown
+    - implementation
+    - embedded_cross_review
+    - review_1
+    - fix
+    - review_2
+  footer_fields:
+    - current_session_id
+    - session_id_source
+    - raw_output_path
+    - local_beijing_time
+    - next_model
+    - next_task
+  rules:
+    - "Use provider-native runtime or runner evidence; never invent a Session ID."
+    - "If no ID is exposed, write unavailable with a reason and preserve the raw output path."
+    - "Session IDs are navigation metadata only; raw artifacts and committed state remain review evidence."
+    - "For strict JSON verdicts, place the navigation footer before the final JSON object."
+
 rotation:
   complexity_evaluator:
     provider: claude_glm
@@ -387,6 +413,7 @@ stages:
       - "Breakdown defines backend/frontend ownership, file boundaries, API/data contracts, tests, risk points, and do-not-touch areas."
       - "Breakdown author identity is recorded in status.json.breakdown_author."
       - "Breakdown is design involvement for review-2 disclosure purposes."
+      - "The model response and status.json.session_receipts capture the verified provider-native Session ID, source, and raw output path, or an explicit unavailable reason."
 
   - id: task-breakdown
     preflight:
@@ -453,6 +480,7 @@ stages:
       - "Changed files match task boundaries or deviations are explained."
       - "Implementation report lists design decisions and tests run."
       - "Parallel-mode implementation reports include the R10 receipt block, embedded review output path, and PASS/BLOCKER disposition."
+      - "The implementation report footer and status.json.session_receipts capture Session ID provenance and the raw output path."
 
   - id: embedded-cross-review-checkpoint
     run_when:
@@ -574,6 +602,10 @@ stages:
       - "reports/agent-runs/{{stage_id}}/30-review-1.md"
     output_contract:
       schema: schemas/review-verdict.schema.json
+      navigation_footer:
+        required: true
+        position: before_final_json_object
+        status_receipt_required: true
       rework_requires_fix_start_prompt: true
       fix_start_prompt:
         required_when: "verdict == REWORK"
@@ -627,6 +659,8 @@ stages:
       - "reports/agent-runs/{{stage_id}}/40-fix-report.md"
       - "source files within finding scope"
       - "tests within finding scope"
+    acceptance:
+      - "The fix report footer and status.json.session_receipts capture Session ID provenance and the raw output path."
     transitions:
       done: test
       limit_exceeded: human_escalation_required
@@ -699,6 +733,10 @@ stages:
       - "reports/agent-runs/{{stage_id}}/50-review-2.md"
     output_contract:
       schema: schemas/review-verdict.schema.json
+      navigation_footer:
+        required: true
+        position: before_final_json_object
+        status_receipt_required: true
       reviewer_prior_involvement_required: true
       rework_requires_fix_start_prompt: true
       fix_start_prompt:

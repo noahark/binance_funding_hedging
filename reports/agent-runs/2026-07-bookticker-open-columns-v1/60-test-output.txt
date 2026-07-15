@@ -1,0 +1,108 @@
+Stage: 2026-07-bookticker-open-columns-v1
+Phase: stage-design intake checkpoint
+Captured: 2026-07-15 15:49:53 CST
+
+Command: python -m json.tool <status/ACTIVE>
+Result: NOT AVAILABLE
+Output: zsh: command not found: python
+Disposition: environment command-name difference; rerun with available python3.
+
+Command: python3 -m json.tool reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json >/dev/null && python3 -m json.tool reports/agent-runs/ACTIVE.json >/dev/null
+Result: PASS
+
+Command: git diff --check
+Result: PASS
+
+Command: git cat-file -e fea9fdc3ecce7675b34b01fe0a4b9de08811f939^{commit}
+Result: PASS
+
+Command: git branch --show-current
+Result: PASS
+Output: stage/2026-07-bookticker-open-columns-v1
+
+Command: git diff --name-only -- backend frontend schemas docs
+Result: PASS
+Output: <empty>; no product, schema, or canonical-doc changes at intake.
+
+Product tests: NOT RUN
+Reason: intake-only checkpoint; no product implementation exists yet.
+
+---
+
+Stage-design checkpoint: 2026-07-15 16:27:57 CST
+
+Command: test -s for 00-task.md, 10-design.md, 11-adr.md, Claude packet, Grok packet
+Result: PASS
+
+Command: rg frozen reverse-order/formula/cache/UI terms across 00-task.md 10-design.md 11-adr.md
+Result: PASS
+Key matches:
+- reverse top = 现货买一
+- reverse bottom = 合约卖一
+- reverse formula denominator = 合约卖一 / futures ask
+- pair max usable age = 2 * Config.cache_ttl_seconds
+- 日净收益 / 提示标记 removal / 12-column layout present
+
+Command: git diff --name-only -- backend frontend schemas docs
+Result: PASS
+Output: <empty>; no product, schema, frontend, or canonical-doc changes during stage design.
+
+Command: git diff --check
+Result: PASS
+
+Product tests: NOT RUN
+Reason: stage-design documentation only; implementation has not started.
+
+Final design packet verification: 2026-07-15 16:30:28 CST
+
+Commands/results:
+- non-empty checks for all three design docs and both model packets: PASS
+- status.json and ACTIVE.json parsed with python3 -m json.tool: PASS
+- git diff --check: PASS
+- no changes under backend/frontend/schemas/docs: PASS
+- frozen reverse top/bottom strings present: PASS
+- incomplete-row per-direction independent calculation requirement present: PASS
+- current branch stage/2026-07-bookticker-open-columns-v1: PASS
+
+Model navigation footer amendment: 2026-07-15 16:54:24 CST
+
+Checks:
+- Claude packet requires provider-native Session ID or explicit unavailable reason: PASS
+- Grok packet requires provider-native Session ID or explicit unavailable reason: PASS
+- Both packets require raw output path: PASS
+- Both packets prohibit invented IDs and credential/environment disclosure: PASS
+
+---
+
+Design-review reconciliation and Session receipt Harness checkpoint: 2026-07-15 17:34:26 CST
+
+Review evidence:
+- Claude `12-development-breakdown.md`: READY; P0 none, P1 none, seven P2 constraints
+- Grok `13-design-review-grok.raw.md`: REVISE; three P1 and five P2
+- Bookkeeper disposition: all findings reconciled in `14-design-review-reconciliation.md`; no frozen product semantic changed
+
+Commands/results:
+- `python3 -m json.tool` for active stage status, ACTIVE and template status: PASS
+- `ruby -e 'require "yaml"; YAML.load_file("workflows/templates/stage-delivery.yaml")'`: PASS (`workflow_yaml=OK`)
+- `python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase checkpoint`: PASS
+- `git diff --check`: PASS
+- `jq` verifies three current-stage session receipts have ID/source/raw path: PASS
+- all amended Harness/template files are non-empty: PASS
+- all model-facing templates contain Session ID/source/raw-output footer fields: PASS
+- Claude/Grok/reconciliation/session-method/Task-A packet artifacts are non-empty: PASS
+- `git diff --name-only -- backend frontend schemas`: PASS (`product_runtime_diff=NONE`)
+
+Product tests: NOT RUN
+Reason: implementation has not started; this checkpoint changes design/Harness documents and dispatch metadata only.
+
+Final checkpoint verification: 2026-07-15 17:37:39 CST
+
+- JSON parse for active status, ACTIVE and template status: PASS
+- workflow YAML parse: PASS
+- `validate-stage.py --phase checkpoint`: PASS
+- final `git diff --check`: PASS
+- ACTIVE/status phase and Task A prepared state assertions: PASS
+- all provider method anchors and all template footer fields: PASS
+- Grok raw export credential-like assignment scan: PASS (`NONE`)
+- temporary Kimi ZIP export removed: PASS
+- product runtime diff under backend/frontend/schemas: NONE

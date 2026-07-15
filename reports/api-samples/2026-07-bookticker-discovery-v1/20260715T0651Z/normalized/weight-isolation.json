@@ -1,0 +1,24 @@
+{
+  "method": "sequential same-IP same-minute cumulative header",
+  "spot_api_binance_com": {
+    "after_full": 14,
+    "after_single_BTCUSDT": 16,
+    "delta_single": 2,
+    "after_symbols_batch3": 20,
+    "delta_batch3": 4,
+    "inferred_full_weight_upper_bound_if_minute_started_0": 14,
+    "note": "Full weight not isolated to cold IP; single delta=2, batch3 delta=4 is solid. Official docs historically list bookTicker full at weight 2-4."
+  },
+  "fapi_binance_com": {
+    "after_full": 5,
+    "after_single_BTCUSDT": 7,
+    "delta_single": 2,
+    "docs_and_observed_full": 5,
+    "docs_and_observed_single": 2
+  },
+  "rate_limit_budget_60s": {
+    "spot_full_per_min": "1 call (~2-14 weight) vs ~6000 IP weight/min typical",
+    "fapi_full_per_min": "1 call weight 5 vs fapi IP pool",
+    "verdict": "60s full refresh is trivial headroom"
+  }
+}

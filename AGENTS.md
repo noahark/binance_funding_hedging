@@ -436,13 +436,24 @@ Every model-facing report, handoff, review narrative, and significant
 bookkeeper response should end with:
 
 ```text
+当前 Session ID: <provider-native id | unavailable (reason)>
+Session ID 来源: <runtime_env | hook_payload | cli_output | transcript_path | active_session_registry | operator | unavailable>
+原始输出路径: <stage raw artifact path | unavailable (reason)>
 本地北京时间: YYYY-MM-DD HH:MM:SS CST
 下一步模型: <model-or-human>
 下一步任务: <specific next task>
 ```
 
 The timestamp must come from a local `date` command, not from model memory.
-This footer is a human navigation aid; `status.json` remains the authoritative
+Session IDs must come from provider/runtime evidence and must never be guessed.
+If the current model cannot see its provider-native ID, write `unavailable`
+with the reason; the runner or human operator may add the verified ID to
+`status.json.session_receipts`. Follow
+`docs/model-adapters.md#session-id-capture-and-execution-receipts` for the
+provider-specific lookup and verification order. A Session ID is navigation
+metadata, not a credential, raw review artifact, provider identity, or a
+cross-provider transcript locator. The raw output path and committed artifacts
+remain the review evidence, while `status.json` remains the authoritative
 machine-readable state. For strict JSON verdicts, place the footer before the
 final JSON block or inside schema-approved fields so the final JSON contract
 remains parseable.
@@ -457,6 +468,9 @@ another model to continue, update:
 - The active role report, such as `20-implementation.md`, `30-review-1.md`, or
   `50-review-2.md`
 - `60-test-output.txt` when tests or command checks were run
+- `status.json.session_receipts` for completed model executions, including an
+  explicit unavailable reason when no provider-native Session ID can be
+  verified
 
 The checkpoint must include current branch, `stage_branch` metadata, HEAD if
 available, git status, changed files, test status, open findings, blockers, and

@@ -26,6 +26,7 @@
     "r4_diff_reconciliation_required": false
   },
   "embedded_reviews": {},
+  "session_receipts": [],
   "designer": null,
   "direction_synthesizer": null,
   "breakdown_author": null,
@@ -124,6 +125,15 @@
     "reason": null
   },
   "terminal_reason": null,
+  "reporting_preferences": {
+    "execution_footer": {
+      "include_provider_native_session_id": true,
+      "include_session_id_source": true,
+      "include_raw_output_path": true,
+      "unknown_session_id_policy": "write unavailable with reason; never invent",
+      "session_id_is_navigation_only": true
+    }
+  },
   "next_action": "complexity-evaluator",
   "updated_at": null
 }
