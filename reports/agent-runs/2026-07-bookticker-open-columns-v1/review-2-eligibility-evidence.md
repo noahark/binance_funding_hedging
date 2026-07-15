@@ -72,3 +72,26 @@ Claude provider, record `reviewer_prior_involvement=breakdown`, preserve the
 Codex design-conflict/fallback rationale, create a new fixed-range Opus4.8
 packet, and rerun review-2 preflight. Grok and the user's display checkpoint do
 not replace the formal JSON gate or the later explicit merge acceptance.
+
+## Final User Routing Amendment — 2026-07-16 03:11:55 CST
+
+The user later superseded the unexecuted Opus4.8 route before any formal
+review-2 invocation. The final approved sequence is now:
+
+1. Kimi Task C frontend-only implementation in Session
+   `session_b4a656b7-91c8-43ae-a994-68cb2e10c03f`;
+2. independent bookkeeper tests and user page-display acceptance;
+3. exactly one fresh Codex `gpt-5.5` final review of the updated fixed full-stage
+   range.
+
+Task C is committed at `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`.
+Its author remains Kimi (`moonshot_kimi`), so Codex/OpenAI is isolated from all
+implementation and fix authors. Codex still has prior stage-design involvement;
+the design-conflict disclosure and evidence above remain required. The current
+bookkeeper Session `019f639a-7890-7573-a04b-7a62debff633` is forbidden; the
+human must start a fresh schema-bound read-only Codex Session.
+
+The old `review-2-codex.prompt.md` targets the pre-Task-C head and remains
+forbidden. The only executable packet is
+`review-2-codex-after-task-c.prompt.md` after its committed-state preflight
+passes.

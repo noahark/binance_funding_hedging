@@ -6,19 +6,23 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `implementation`
-- Next action: Bookkeeper creates the Task C local evidence commit, fixes the new full-stage fingerprint, runs review-2 preflight and prepares the sole fresh Codex final-review packet.
+- Active phase: `review_2`
+- Next action: Bookkeeper commits and preflights `review-2-codex-after-task-c.prompt.md`; human then executes exactly that packet in one fresh read-only Codex Session.
 - Read-set: = `status.current_inputs`
-- Open blockers: Implementation and user display acceptance are complete; the single fresh Codex final review is pending.
+- Open blockers: Implementation, tests and user display acceptance are complete; the single fresh Codex final-review verdict is pending.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-bookticker-open-columns-v1`
-- Status: `implementing` (Task A/B baseline accepted; Task C implementation, independent verification and user display acceptance complete; evidence commit pending)
+- Status: `review_2` (Task A/B baseline accepted; Task C committed, independently verified and visually accepted; one fresh Codex final review pending)
 - Branch: `stage/2026-07-bookticker-open-columns-v1`
-- Reviewed product/evidence head: `0a383f0f8528591898f12690c371108e7582a27e`
-- Git status: verified Task C frontend/report work plus bookkeeper evidence are intentionally uncommitted immediately before the authorized local evidence commit
+- Reviewed product/evidence head: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
+- Full-stage fingerprint: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377`
+- Git status: Task C evidence committed; final-review dispatch checkpoint pending local commit
+- Task C evidence commit: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
+- Executable review packet: `review-2-codex-after-task-c.prompt.md`; the older
+  `review-2-codex.prompt.md` is superseded and forbidden.
 - Bookkeeper: `codex / gpt-5 / codex_bookkeeper`, Session `019f639a-7890-7573-a04b-7a62debff633`; not an implementer/fix author
 - Task A implementer: Claude-GLM `glm-5.2` (`zhipu_glm`), Session `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
 - Task B owner: Kimi (`moonshot_kimi`), implementation Session `session_727145b3-694a-4467-8277-60a65dd1b1c5`; evidence committed
@@ -229,15 +233,15 @@ not read `history/` at startup.
 
 ## Next Action
 
-The bookkeeper creates the authorized local Task C evidence commit, records its
-fixed full-stage fingerprint, runs the committed-state review-2 preflight and
-prepares exactly one fresh read-only Codex final-review packet. The human then
-executes that packet in a new Codex Session; the current bookkeeper Session is
-forbidden as reviewer.
+The bookkeeper commits and preflights
+`review-2-codex-after-task-c.prompt.md`. The human then executes exactly that
+packet in one new Codex `gpt-5.5` read-only Session; the current bookkeeper
+Session is forbidden as reviewer. The older pre-Task-C Codex packet and the
+never-prepared Opus route remain superseded.
 
 当前 Session ID: 019f639a-7890-7573-a04b-7a62debff633
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
-本地北京时间: 2026-07-16 03:10:33 CST
+本地北京时间: 2026-07-16 03:11:55 CST
 下一步模型: codex_bookkeeper
-下一步任务: 创建 Task C 本地证据提交、重算 full-stage fingerprint 并准备唯一一次 fresh Codex final-review packet
+下一步任务: 提交并预检唯一的 post-Task-C Codex final-review packet，随后交人工启动 fresh reviewer Session

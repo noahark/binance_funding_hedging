@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-bookticker-open-columns-v1",
-  "status": "implementing",
+  "status": "review_2",
   "workflow": "stage-delivery",
-  "current_phase": "implementation",
+  "current_phase": "review_2",
   "current_inputs": [
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/00-task.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/10-design.md",
@@ -25,6 +25,8 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-preflight.txt",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex-after-task-c.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-after-task-c-preflight.txt",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi.prompt.md",
@@ -333,7 +335,7 @@
         "model": "kimi-code/kimi-for-coding"
       },
       "reviewer": "codex_final_review_only",
-      "status": "implementation_verified_visual_accepted_waiting_evidence_commit",
+      "status": "committed_waiting_final_review",
       "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi.prompt.md",
       "addendum_prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi-format-addendum.prompt.md",
       "implementation_report": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-c.md",
@@ -342,8 +344,8 @@
         "task-b-frontend-table-integration"
       ],
       "base_sha": "f1790c15f56b9e9be8846b40fe03c88ed7210213",
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "head_sha": "a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c",
+      "diff_fingerprint": "a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:2e35b267686d86f94d652bbec2da2ed6630de9436f2d1ebadd2b39e7e8ece4c2",
       "test_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
       "allowed_files": [
         "frontend/index.html",
@@ -378,8 +380,8 @@
     "user_approved": true
   },
   "base_sha": "fea9fdc3ecce7675b34b01fe0a4b9de08811f939",
-  "head_sha": "0a383f0f8528591898f12690c371108e7582a27e",
-  "diff_fingerprint": "0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed",
+  "head_sha": "a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c",
+  "diff_fingerprint": "a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377",
   "changed_files": [
     "AGENTS.md",
     "docs/model-adapters.md",
@@ -420,6 +422,8 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-preflight.txt",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex-after-task-c.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-after-task-c-preflight.txt",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/advisory-review-grok-round-2.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/31-advisory-review-grok-round-2.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi.prompt.md",
@@ -529,44 +533,50 @@
     }
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
-    "primary_provider": null,
-    "selection_status": "waiting_task_c_evidence_commit_before_dispatch",
+    "reviewer": "fresh_codex_pending_human_execution",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "primary_provider": "codex",
+    "selection_status": "selected_packet_prepared_waiting_human_execution",
     "preferred_primary_provider": "codex",
     "fallback_provider": "claude",
-    "fallback_reason": null,
-    "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": null,
-    "unrelated_reviewer_unavailable_evidence": null,
+    "fallback_reason": "design_conflict_ineligibility_no_unrelated_decision_provider",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "Codex provider designed and reconciled stage scope but did not implement or fix delivery code. The reviewer must use a fresh Session and review design artifacts as evidence under canonical product/user authority.",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
     "design_conflict_override": {
-      "used": false,
-      "reason": null,
-      "unrelated_reviewer_unavailable_evidence": null
+      "used": true,
+      "reason": "No registered review-2 provider is free of design involvement: Codex performed design; Anthropic Claude authored the breakdown. User selected one fresh Codex final review after Task C and visual acceptance.",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md"
     },
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "diff_fingerprint": "a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
   "review_2_dispatch": {
-    "status": "superseded_unexecuted_by_user_routing",
+    "status": "prepared_waiting_human_execution",
     "reviewer": "codex",
     "provider_identity": "codex",
     "model": "gpt-5.5",
     "reasoning_effort": "xhigh",
     "required_fresh_session": true,
     "forbidden_session_id": "019f639a-7890-7573-a04b-7a62debff633",
-    "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
+    "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex-after-task-c.prompt.md",
     "output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/50-review-2.md",
     "schema_path": "schemas/review-verdict.schema.json",
     "eligibility_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-eligibility-evidence.md",
-    "superseded_at": "2026-07-15T14:08:14Z",
-    "superseded_reason": "User requested Grok advisory review, then user visual acceptance, then Opus4.8 formal review-2. No Codex review-2 session was executed."
+    "prepared_at": "2026-07-15T19:11:55Z",
+    "reviewed_head_sha": "a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c",
+    "diff_fingerprint": "a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377",
+    "previous_unexecuted_dispatch": {
+      "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/review-2-codex.prompt.md",
+      "superseded_at": "2026-07-15T14:08:14Z",
+      "superseded_reason": "User changed the route before execution; this older packet targets the pre-Task-C head and remains forbidden."
+    }
   },
   "advisory_reviews": {
     "grok_round_2": {
@@ -602,7 +612,7 @@
     "formal_reviewer_provider": "codex",
     "formal_reviewer_model": "gpt-5.5",
     "required_prior_involvement": "design",
-    "formal_dispatch_status": "preparing_after_verified_task_c",
+    "formal_dispatch_status": "prepared_waiting_human_execution",
     "prerequisites": {
       "grok_advisory_review_round_2": "completed_ready_for_user_visual_acceptance",
       "kimi_task_c_fast_ui_layout": "completed_verified",
@@ -670,6 +680,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-c-fast-ui-layout-kimi-format-addendum.prompt.md"
     }
   ],
-  "next_action": "Bookkeeper creates the local Task C evidence commit, records its fixed full-stage fingerprint, runs review-2 preflight and prepares exactly one fresh read-only Codex final-review packet for human execution.",
-  "updated_at": "2026-07-15T19:10:33Z"
+  "next_action": "Bookkeeper commits the fresh Codex review-2 dispatch packet, runs and records committed-state pre-review validation, then the human executes exactly that packet in a new read-only Codex Session and returns its Session ID plus raw verdict.",
+  "updated_at": "2026-07-15T19:14:39Z"
 }

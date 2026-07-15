@@ -602,3 +602,24 @@ Task C final independent bookkeeper verification: 2026-07-16 03:10:33 CST
 - User page-display acceptance: PASS, reported with the same Kimi Session ID.
 - Disposition: ready for local Task C evidence commit and single fresh Codex
   final-review preparation.
+
+---
+
+Task C committed-state fingerprint checkpoint: 2026-07-16 03:14:39 CST
+
+- Task C evidence commit:
+  `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
+- Full-stage fixed fingerprint:
+  `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377`
+- Task C fixed fingerprint from
+  `f1790c15f56b9e9be8846b40fe03c88ed7210213`:
+  `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:2e35b267686d86f94d652bbec2da2ed6630de9436f2d1ebadd2b39e7e8ece4c2`
+- Protocol for both: SHA-256 of the binary commit diff excluding only active
+  stage `status.json`, prefixed with the fixed head SHA.
+- `python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase checkpoint`:
+  PASS at `status=review_2` with the fixed full-stage fingerprint.
+- Fresh packet:
+  `review-2-codex-after-task-c.prompt.md`.
+- Older `review-2-codex.prompt.md`: superseded and forbidden.
+- Formal review-2 model execution: NOT RUN by bookkeeper; pending human launch
+  in one fresh read-only Codex Session.
