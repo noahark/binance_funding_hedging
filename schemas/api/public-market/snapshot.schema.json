@@ -352,6 +352,73 @@
         },
         "borrow_validation": {
           "$ref": "#/$defs/borrow_validation"
+        },
+        "opening_quotes": {
+          "description": "Additive row-level opening quotes (2026-07-bookticker-open-columns-v1). Optional: legacy rows may omit the whole object and still validate; the current producer always emits a complete object. *_spread_pct are already-multiplied PERCENTAGE-POINT decimal strings (e.g. \"-0.04\" means -0.04%), NOT fractional rates — do NOT multiply by 100 again. About-60s public reference quotes, not an execution guarantee; last-good is publishable for at most ~2 cycles (default 120s) before status goes stale.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "updated_at",
+            "spot_bid_price",
+            "spot_ask_price",
+            "futures_bid_price",
+            "futures_ask_price",
+            "forward_spread_pct",
+            "reverse_spread_pct"
+          ],
+          "properties": {
+            "status": {
+              "enum": ["fresh", "incomplete", "stale", "unavailable"]
+            },
+            "updated_at": {
+              "description": "UTC completion time of the most recent successful paired bookTicker fetch; null only when the pair never succeeded (unavailable). Retained on stale.",
+              "type": ["string", "null"],
+              "format": "date-time"
+            },
+            "spot_bid_price": {
+              "description": "Spot best bid (reverse numerator left operand), or null when missing/zero/non-string.",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "spot_ask_price": {
+              "description": "Spot best ask (forward denominator / subtrahend), or null when missing/zero/non-string.",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "futures_bid_price": {
+              "description": "Futures best bid (forward minuend), or null when missing/zero/non-string.",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "futures_ask_price": {
+              "description": "Futures best ask (reverse denominator / subtrahend), or null when missing/zero/non-string.",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "forward_spread_pct": {
+              "description": "(futures_bid - spot_ask) / spot_ask * 100, ROUND_HALF_UP to 2 places, percentage-point decimal string (no '%' char); null when that direction's operands are not both valid >0.",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "reverse_spread_pct": {
+              "description": "(spot_bid - futures_ask) / futures_ask * 100, ROUND_HALF_UP to 2 places, percentage-point decimal string (no '%' char); null when that direction's operands are not both valid >0.",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            }
+          }
         }
       }
     },

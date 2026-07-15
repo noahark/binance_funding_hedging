@@ -69,13 +69,15 @@ _BTC_SEVEN = lambda s, **kw: _fixture("seven-day-flat.json")  # noqa: E731
 class _StubPublic:
     offline = False
 
-    def __init__(self, raw, history_fn=None, premium_fn=None):
+    def __init__(self, raw, history_fn=None, premium_fn=None, book_pair=None):
         self._raw = raw
         self._history_fn = history_fn or (lambda s, **kw: [])
         self._premium_fn = premium_fn or (lambda s: {})
+        self._book_pair = book_pair
         self.history_calls: list = []
         self.raw_calls = 0
         self.premium_calls = 0
+        self.book_ticker_calls = 0
 
     def fetch_raw(self):
         self.raw_calls += 1
@@ -89,6 +91,12 @@ class _StubPublic:
     def fetch_premium_index_for(self, symbol):
         self.premium_calls += 1
         return self._premium_fn(symbol)
+
+    def fetch_book_ticker_pair(self):
+        # 2026-07-bookticker-open-columns-v1: paired Group A public seam.
+        # Returns None when no pair was injected (never-succeeded -> unavailable).
+        self.book_ticker_calls += 1
+        return self._book_pair
 
     def fetch_ticker_price_map(self):
         return {}
@@ -129,9 +137,9 @@ class _StubPrivate:
         return None
 
 
-def _service(raw, history_fn=None, premium_fn=None, **cfg):
+def _service(raw, history_fn=None, premium_fn=None, book_pair=None, **cfg):
     service = SnapshotService(Config(offline=False, **cfg))
-    service.client = _StubPublic(raw, history_fn, premium_fn)
+    service.client = _StubPublic(raw, history_fn, premium_fn, book_pair)
     service._private = _StubPrivate()
     return service
 
@@ -591,3 +599,42 @@ def test_base_raw_none_click_does_no_fetch_raw():
     assert cmd.error == "base_not_ready"
     assert any("base_raw_unavailable" in w for w in cmd.warnings)
     assert service.client.raw_calls == raw_before  # ZERO full-universe fetch_raw()
+
+
+# =========================================================================
+# Stage 2026-07-bookticker-open-columns-v1 (D7): the selected-symbol click
+# reuses the canonical row's opening_quotes — it reads the SAME book_ticker_pair
+# cache the scheduled tick filled and must NOT issue a new bookTicker HTTP. The
+# projected row's opening_quotes is identical to the full-snapshot row's.
+# =========================================================================
+def _btc_pair():
+    return {
+        "spot": {"BTCUSDT": {"bid_price": "100.00", "ask_price": "100.01"}},
+        "futures": {"BTCUSDT": {"bid_price": "99.00", "ask_price": "99.01"}},
+    }
+
+
+def test_click_performs_no_book_ticker_http(schema):
+    # D7: the click path never calls fetch_book_ticker_pair — opening_quotes is
+    # read from the same cache the scheduled tick populated.
+    service = _service(_raw(_BTC), history_fn=_BTC_SEVEN, book_pair=_btc_pair())
+    service._scheduled_tick()                      # caches bookTicker once
+    assert service.client.book_ticker_calls == 1
+    cmd = RefreshSymbolCommand("BTCUSDT", deadline_monotonic=time.monotonic() + 30)
+    service._handle_refresh_command(cmd)
+    assert cmd.refresh_status == "ok"
+    assert service.client.book_ticker_calls == 1   # NO new bookTicker HTTP on click
+
+
+def test_click_projects_canonical_row_opening_quotes(schema):
+    # The click's projected row opening_quotes equals the full-snapshot row's
+    # opening_quotes (single source of truth: the same book_ticker_pair cache).
+    service = _service(_raw(_BTC), history_fn=_BTC_SEVEN, book_pair=_btc_pair())
+    service._scheduled_tick()
+    full_row = next(r for r in service.get_snapshot()["rows"] if r["symbol"] == "BTCUSDT")
+    cmd = RefreshSymbolCommand("BTCUSDT", deadline_monotonic=time.monotonic() + 30)
+    service._handle_refresh_command(cmd)
+    status, payload = service.get_symbol_snapshot("BTCUSDT")
+    assert status == 200
+    assert payload["row"]["opening_quotes"] == full_row["opening_quotes"]
+    assert payload["row"]["opening_quotes"]["status"] == "fresh"

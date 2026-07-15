@@ -49,6 +49,8 @@ future contract stage.
 Binance public REST or frozen public samples
   -> public adapter and normalizer
   -> route, asset-tag, funding, and trading-rule fields
+  -> paired full bookTicker (spot + USDⓈ-M) cached as a public Group A source
+       -> additive row-level opening_quotes (about-60s reference bid/ask spreads)
   -> optional private signed GET enrichment
        (account, balances, positions, borrow validation, borrow cost)
   -> normalized read-only snapshot
@@ -56,6 +58,12 @@ Binance public REST or frozen public samples
   -> same-origin backend API
   -> frontend opportunity table and private read-only panels
 ```
+
+The paired bookTicker source is public and always-on (independent of the private
+channel). It reuses `cache_ttl_seconds` (default 60s) as its Group A cadence and
+publishes last-good quotes for at most `2 * cache_ttl_seconds` (default 120s)
+before the row-level `opening_quotes.status` goes `stale`; a selected-symbol
+click reuses the canonical row's quotes and adds no bookTicker HTTP.
 
 ## Key Decisions
 

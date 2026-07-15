@@ -144,15 +144,19 @@ class _SeamStubPublic:
     to assert CC-1 source independence + FR-2 no-cache-on-failure."""
     offline = False
 
-    def __init__(self, raw, history_fn=None, *, fail_premium=False, fail_group_b=False):
+    def __init__(self, raw, history_fn=None, *, fail_premium=False,
+                 fail_group_b=False, fail_book_ticker=False, book_pair=None):
         self._raw = raw
         self._history_fn = history_fn or (lambda s, **kw: [])
         self._fail_premium = fail_premium
         self._fail_group_b = fail_group_b
+        self._fail_book_ticker = fail_book_ticker
+        self._book_pair = book_pair
         self.premium_calls = 0
         self.group_b_calls = 0
         self.raw_calls = 0
         self.ticker_calls = 0
+        self.book_ticker_calls = 0
         self.history_calls: list = []
 
     def fetch_raw(self):
@@ -175,6 +179,15 @@ class _SeamStubPublic:
             "funding_interval_by_sym": self._raw.get("funding_interval_by_sym", {}),
             "warnings": self._raw.get("warnings", []),
         }
+
+    def fetch_book_ticker_pair(self):
+        # 2026-07-bookticker-open-columns-v1: paired Group A public seam.
+        # Returns None when no pair was injected (never-succeeded -> unavailable);
+        # raises OSError to assert atomic one-side failure + FR-2 no-cache.
+        self.book_ticker_calls += 1
+        if self._fail_book_ticker:
+            raise OSError("bookTicker upstream down")
+        return self._book_pair
 
     def fetch_funding_rate(self, symbol, *, start_time_ms=None, end_time_ms=None, limit=1000):
         self.history_calls.append(symbol)
@@ -256,11 +269,13 @@ class _SeamStubPrivate:
 def _seam_service(
     raw, *, history_fn=None, classic_ref=None, account_info=None,
     next_hourly=None, rate_history=None, max_borrowable=None,
-    fail_premium=False, fail_group_b=False, **cfg,
+    fail_premium=False, fail_group_b=False, fail_book_ticker=False,
+    book_pair=None, **cfg,
 ):
     service = SnapshotService(Config(offline=False, **cfg))
     service.client = _SeamStubPublic(
         raw, history_fn, fail_premium=fail_premium, fail_group_b=fail_group_b,
+        fail_book_ticker=fail_book_ticker, book_pair=book_pair,
     )
     service._private = _SeamStubPrivate(
         classic_ref=classic_ref, account_info=account_info,
@@ -913,3 +928,126 @@ def test_global_source_cache_stamps_completion_time(monkeypatch):
         < cache["account_info"][0]
         < cache["price_map"][0]
     )
+
+
+# =========================================================================
+# Stage 2026-07-bookticker-open-columns-v1: paired bookTicker Group A cache.
+# Public + always-on (independent of the private channel); capability-checked
+# so the legacy no-seam _StubPublic stays never-succeeded -> rows publish
+# opening_quotes unavailable with NO AttributeError (P2-2). Atomic one-side
+# failure advances neither timestamp nor map (FR-2); CC-1 keeps it independent
+# of premium / group_b. The ~120s usability cutoff (2 * cache_ttl_seconds) is a
+# monotonic projection recomputed EVERY assembly (stale is NOT a fetch-failure
+# side effect) — exercised WITHOUT manufacturing a fetch failure.
+# =========================================================================
+def _btc_pair():
+    return {
+        "spot": {"BTCUSDT": {"bid_price": "100.00", "ask_price": "100.01"}},
+        "futures": {"BTCUSDT": {"bid_price": "99.00", "ask_price": "99.01"}},
+    }
+
+
+def test_book_ticker_cached_on_cold_success():
+    service = _seam_service(_raw(_BTC), book_pair=_btc_pair(),
+                            history_fn=lambda s, **kw: [])
+    assert "book_ticker_pair" not in service._global_source_cache
+    service._scheduled_tick()
+    assert service.client.book_ticker_calls == 1
+    entry = service._global_source_cache["book_ticker_pair"]
+    assert entry[1]["spot"]["BTCUSDT"]["bid_price"] == "100.00"
+    assert entry[1]["futures"]["BTCUSDT"]["ask_price"] == "99.01"
+    assert entry[1]["updated_at"]  # ISO-8601 Z completion stamp
+
+
+def test_book_ticker_follows_group_a_cadence(monkeypatch):
+    # bookTicker is Group A: cache_ttl_seconds (60s), NOT the Group B 1800s.
+    t = [0.0]
+    monkeypatch.setattr(snapshot_service.time, "monotonic", lambda: t[0])
+    service = _seam_service(_raw(_BTC), cache_ttl_seconds=60, book_pair=_btc_pair(),
+                            history_fn=lambda s, **kw: [])
+    service._scheduled_tick()                 # t=0: due -> fetch
+    assert service.client.book_ticker_calls == 1
+    t[0] = 30.0
+    service._scheduled_tick()                 # fresh -> no refetch
+    assert service.client.book_ticker_calls == 1
+    t[0] = 60.0
+    service._scheduled_tick()                 # 60s elapsed -> due -> refetch
+    assert service.client.book_ticker_calls == 2
+
+
+def test_book_ticker_atomic_failure_is_not_cached(monkeypatch):
+    # The adapter raises atomically (one endpoint failing -> whole pair fails);
+    # FR-2: the failure is NOT cached, so book_ticker_pair stays absent and the
+    # next tick retries. No partial spot/futures commit.
+    t = [0.0]
+    monkeypatch.setattr(snapshot_service.time, "monotonic", lambda: t[0])
+    service = _seam_service(_raw(_BTC), fail_book_ticker=True,
+                            history_fn=lambda s, **kw: [])
+    service._scheduled_tick()
+    assert service.client.book_ticker_calls == 1
+    assert "book_ticker_pair" not in service._global_source_cache  # FR-2
+    t[0] = 61.0
+    service._scheduled_tick()                 # still due (never cached) -> retry
+    assert service.client.book_ticker_calls == 2
+
+
+def test_book_ticker_failure_does_not_suppress_other_sources(monkeypatch):
+    # CC-1: a bookTicker failure does not suppress premium / group_b, and a
+    # snapshot still publishes (bookTicker only degrades opening_quotes).
+    t = [0.0]
+    monkeypatch.setattr(snapshot_service.time, "monotonic", lambda: t[0])
+    service = _seam_service(_raw(_BTC), fail_book_ticker=True,
+                            history_fn=lambda s, **kw: [])
+    service._scheduled_tick()
+    assert service.client.premium_calls == 1   # premium unaffected
+    assert service.client.group_b_calls == 1   # group_b unaffected
+    assert service._published_state is not None  # snapshot still published
+
+
+def test_book_ticker_fetched_even_when_private_channel_disabled():
+    # bookTicker is public + always-on; independent of the private channel.
+    service = _seam_service(_raw(_BTC), book_pair=_btc_pair(),
+                            history_fn=lambda s, **kw: [])  # no classic_ref
+    assert service._private.enabled is False
+    service._scheduled_tick()
+    assert service.client.book_ticker_calls == 1
+
+
+def test_usability_cutoff_119_usable_120_stale(monkeypatch):
+    # One success at t=0; the ~120s usability cutoff (2 * cache_ttl_seconds) is
+    # a monotonic projection recomputed EVERY assembly, NOT a fetch-failure side
+    # effect. No fetch failure is manufactured: the cache entry is the t=0
+    # success and the clock simply advances across the boundary.
+    t = [0.0]
+    monkeypatch.setattr(snapshot_service.time, "monotonic", lambda: t[0])
+    service = _seam_service(_raw(_BTC), cache_ttl_seconds=60, book_pair=_btc_pair(),
+                            history_fn=lambda s, **kw: [])
+    service._scheduled_tick()                 # t=0: success -> cache stamped at 0.0
+    assert service._global_source_cache["book_ticker_pair"][0] == 0.0
+
+    def project():
+        rows, _ = service._eligible_rows(service._base_raw)
+        service._attach_opening_quotes(rows)
+        return rows[0]["opening_quotes"]
+
+    t[0] = 119.0                             # age 119 < 120 -> usable -> fresh
+    oq = project()
+    assert oq["status"] == "fresh"
+    assert oq["forward_spread_pct"] is not None
+    t[0] = 120.0                             # age 120 == 2*ttl -> stale
+    oq = project()
+    assert oq["status"] == "stale"
+    assert oq["updated_at"] is not None      # retained on stale
+    assert oq["forward_spread_pct"] is None  # prices/spreads blanked
+
+
+def test_legacy_no_seam_stub_publishes_unavailable_without_error():
+    # _StubPublic (the legacy fallback-path stub) has no fetch_book_ticker_pair
+    # seam -> the capability check skips it entirely (NO AttributeError) and
+    # every published row's opening_quotes is unavailable (P2-2).
+    service = _service(_raw(_BTC))            # legacy _StubPublic, no seam
+    assert not hasattr(service.client, "fetch_book_ticker_pair")
+    service._scheduled_tick()
+    row = service._published_state.snapshot["rows"][0]
+    assert row["opening_quotes"]["status"] == "unavailable"
+    assert row["opening_quotes"]["updated_at"] is None

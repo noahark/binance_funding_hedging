@@ -106,3 +106,137 @@ Final checkpoint verification: 2026-07-15 17:37:39 CST
 - Grok raw export credential-like assignment scan: PASS (`NONE`)
 - temporary Kimi ZIP export removed: PASS
 - product runtime diff under backend/frontend/schemas: NONE
+
+---
+
+Task A independent bookkeeper verification: 2026-07-15 18:11:31 CST
+
+Implementer receipt:
+- Provider/model: `claude_glm` / `glm-5.2` (`zhipu_glm`)
+- Session ID: `aaba9bdc-5a62-4f9b-b820-d590c58c30a4`
+- Source: runtime env `CLAUDE_CODE_SESSION_ID`
+- Report: `reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md`
+
+Command:
+`pytest backend/tests/test_book_ticker.py backend/tests/test_snapshot.py backend/tests/test_background_worker.py backend/tests/test_symbol_snapshot_endpoint.py backend/tests/test_negative_schema.py -q`
+
+Output:
+```text
+........................................................................ [ 50%]
+......................................................................   [100%]
+142 passed in 6.66s
+```
+
+Result: PASS
+
+Command: `pytest backend/tests -q`
+
+Output:
+```text
+........................................................................ [ 19%]
+........................................................................ [ 38%]
+........................................................................ [ 57%]
+........................................................................ [ 76%]
+........................................................................ [ 96%]
+...............                                                          [100%]
+375 passed in 16.35s
+```
+
+Result: PASS
+
+Command: `node frontend/self-check.js`
+
+Output:
+```text
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认渲染 6 行
+[PASS] 拆列存在，合并列消失
+[PASS] 年化三列存在且文案区分预估/已结算
+[PASS] 路由分类列移除，过滤器与字段校验保留
+[PASS] Drawer 宽度与卡片标签约束
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 年化三列格式化（含 null→—）
+[PASS] 结算间隔标注 8h
+[PASS] 无排序控件 DOM
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] formatUsdt2 2 位 ROUND_HALF_UP
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 资产/负费率状态列中文格式与路由列移除检查
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 净收益列存在与格式
+[PASS] 负值净收益红色样式
+[PASS] vip0_reference 显著标注「基准利率」
+[PASS] sort_basis 标注
+[PASS] 私有面板 verified=true 状态
+[PASS] 时点合一与估值来源卡片删除
+[PASS] 页面不含矛盾运行约束文案
+[PASS] 隐私开关默认隐藏
+[PASS] 隐私开关点击切换
+[PASS] 私有面板 verified=false disabled 占位
+[PASS] 私有面板 verified=false error 占位
+[PASS] 行联动方向标（不带数量）
+[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示
+[PASS] private-panel 在市场表之前
+[PASS] drawer DOM 在应用脚本之前
+[PASS] 成本腿命中行展示借币日利率
+[PASS] VIP0 参考档显示"参考"徽标
+[PASS] 正费率行不展示借币成本子行
+[PASS] 负费率状态行感知的六文案派生
+[PASS] 余额卡片三行折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+[PASS] 余额数量整数千分位、小数原样保留
+[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）
+[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）
+[PASS] METAL 资产标签徽章与下拉选项
+[PASS] 借币三态（51061 借光/有额度/未探测）
+[PASS] 抽屉打开、标题、年化值、历史 newest-first
+[PASS] 抽屉关闭按钮
+[PASS] 抽屉 Escape 关闭
+[PASS] 抽屉 backdrop 关闭
+[PASS] 刷新保持抽屉
+[PASS] symbol 消失时抽屉关闭
+[PASS] drawer loading 与 same-origin 请求
+[PASS] available 响应合并到行与表
+[PASS] empty 响应显示无记录
+[PASS] HTTP 502 显示可重试失败状态
+[PASS] 重试按钮重新 fetch 并更新抽屉
+[PASS] stale 响应隔离
+[PASS] response-body race 隔离（res.json() 延迟后切换）
+[PASS] wrong-symbol/schema 响应被拒绝合并
+[PASS] schema_version mismatch 响应被拒绝
+[PASS] 缺 row 字段响应被拒绝
+[PASS] 含 rows 数组响应被拒绝
+[PASS] in-flight 守卫忽略同 symbol 重复点击
+[PASS] refresh_status=timeout 显示 notice 且保留上次行
+[PASS] refresh_status=partial 替换行并显示 warnings notice
+
+全部自检通过
+```
+
+Result: PASS
+
+Command:
+`python3 -m py_compile backend/adapters/binance_public.py backend/domain/snapshot.py backend/services/snapshot_service.py`
+
+Output: `<empty>`
+Result: PASS
+
+Command: `git diff --check`
+
+Output: `<empty>`
+Result: PASS
+
+Bookkeeper diff/file-boundary review:
+- Product changes are limited to the exact Task A backend/schema/test/doc allowlist plus the implementation report.
+- No frontend, config, private transport, history/borrow cadence, wire version, route, or execution-side-effect change was found.
+- Atomic pair commit, completion-time timestamp, per-assembly monotonic stale projection, resolved spot-symbol join, direction-independent Decimal formulas, and click no-extra-I/O are present in the actual diff.

@@ -22,6 +22,37 @@ def _read_json(path: Path) -> Any:
         return json.load(fh)
 
 
+def _normalize_book_ticker(rows: Any) -> Dict[str, Dict[str, str]]:
+    """Normalize a full bookTicker payload to ``{symbol: {bid_price, ask_price}}``.
+
+    Stage 2026-07-bookticker-open-columns-v1 (10-design §D3): the top-level
+    payload MUST be a non-empty list. ``bidPrice``/``askPrice`` enter the map
+    ONLY when the raw JSON value is a string — a number-typed price is rejected
+    (never ``str(number)``-coerced) and drops that symbol from the map. Non-dict
+    rows and rows without a string ``symbol`` are skipped. qty / futures ``time``
+    / ``lastUpdateId`` do not enter this contract. Decimal-safe: prices stay raw
+    strings (never float). Raises ``ValueError`` on a non-list / empty payload so
+    the service treats the whole pair as a failure and keeps last-good.
+    """
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("bookTicker payload must be a non-empty list")
+    out: Dict[str, Dict[str, str]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        sym = row.get("symbol")
+        if not isinstance(sym, str) or not sym:
+            continue
+        bid = row.get("bidPrice")
+        ask = row.get("askPrice")
+        if not isinstance(bid, str) or not isinstance(ask, str):
+            # A number-typed price must not become a computable string (no
+            # str(number)); that symbol's quote is simply unavailable.
+            continue
+        out[sym] = {"bid_price": bid, "ask_price": ask}
+    return out
+
+
 class BinancePublicClient:
     """Fetches only public, no-key endpoints. Offline reads frozen fixtures."""
 
@@ -123,6 +154,35 @@ class BinancePublicClient:
             "funding_interval_by_sym": funding_interval_by_sym,
             "warnings": warnings,
         }
+
+    def fetch_book_ticker_pair(self) -> dict:
+        """Group A live public seam: paired spot + USDⓈ-M futures full
+        ``bookTicker`` (2026-07-bookticker-open-columns-v1, 10-design §D1).
+
+        Requests the two endpoints sequentially with NO parameters (full
+        universe each), bumping a separate request-log key per real endpoint.
+        Both payloads must be a non-empty list and normalize to a non-empty map;
+        either side failing (transport, shape, or empty map) raises so the
+        service keeps last-good and does NOT partially commit one side. Returns
+        ``{"spot": {sym: {bid_price, ask_price}}, "futures": {...}}`` with raw
+        decimal-string prices (never float, never ``str(number)``).
+
+        Offline has no live bookTicker source -> returns ``None`` (the pair
+        source stays never-succeeded and rows publish ``unavailable``).
+        """
+        if self.offline:
+            return None
+        self._bump("GET /api/v3/ticker/bookTicker")
+        spot_rows = self._http_get(f"{self.spot_base_url}/api/v3/ticker/bookTicker")
+        self._bump("GET /fapi/v1/ticker/bookTicker")
+        futures_rows = self._http_get(
+            f"{self.futures_base_url}/fapi/v1/ticker/bookTicker"
+        )
+        spot_map = _normalize_book_ticker(spot_rows)
+        futures_map = _normalize_book_ticker(futures_rows)
+        if not spot_map or not futures_map:
+            raise ValueError("book_ticker_pair produced an empty market map")
+        return {"spot": spot_map, "futures": futures_map}
 
     def _fetch_funding_info_best_effort(self) -> Tuple[Dict[str, int], List[str]]:
         """E1 failure mode (10-design §2): ``/fapi/v1/fundingInfo`` is a public,

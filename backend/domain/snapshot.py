@@ -6,7 +6,7 @@ every decimal field is serialized as a string straight from the raw JSON.
 """
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Dict, List, Optional
 
 from .classify import classify_route, negative_funding_status
@@ -509,6 +509,115 @@ def compute_net_daily_yield(daily_funding_rate, daily_borrow_rate) -> Optional[s
     except (InvalidOperation, ValueError, TypeError):
         return None
     return _quantize_rate(abs(dfr) - borrow)
+
+
+# Stage 2026-07-bookticker-open-columns-v1: opening one-level cross-market
+# spreads (10-design §D5/§D6, breakdown §6/§8). Pure Decimal; the service owns
+# pair-cache age -> usable/stale projection and passes resolved quotes here.
+_OPENING_SPREAD_QUANT = Decimal("0.01")
+
+
+def compute_opening_spread_pct(bid, ask) -> Optional[str]:
+    """``(bid - ask) / ask * 100`` as a 2-place percentage-point string, or None.
+
+    One direction of an opening spread. Decimal-only; the operation order is
+    frozen (breakdown P2-1): subtract, then divide by the denominator (``ask``),
+    then multiply by 100, and quantize to ``0.01`` with ``ROUND_HALF_UP`` ONLY
+    on the final result. Either operand missing/empty/non-numeric, or a
+    denominator ``<= 0`` (covers ``"0.00000000"`` missing-liquidity books),
+    returns ``None`` — never raises, never divides by zero. Negative zero is
+    normalized to ``"0.00"``.
+
+    The result is already a percentage-point value (e.g. ``"-0.04"`` means
+    ``-0.04%``); callers must NOT multiply by 100 again.
+    """
+    if bid is None or bid == "" or ask is None or ask == "":
+        return None
+    try:
+        b = Decimal(str(bid))
+        a = Decimal(str(ask))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if b <= 0 or a <= 0:
+        return None
+    pct = (b - a) / a * Decimal(100)
+    quantized = pct.quantize(_OPENING_SPREAD_QUANT, ROUND_HALF_UP)
+    if quantized == 0:  # normalize -0.00 -> 0.00
+        quantized = Decimal("0.00")
+    return format(quantized, "f")
+
+
+def _opening_price(raw) -> Optional[str]:
+    """A row-level usable opening price: a raw decimal string parsed to a
+    strictly positive ``Decimal`` (``"0.00000000"`` is missing liquidity, not a
+    computable zero), else ``None``."""
+    if raw is None or raw == "":
+        return None
+    try:
+        if Decimal(str(raw)) > 0:
+            return str(raw)
+    except (InvalidOperation, ValueError, TypeError):
+        pass
+    return None
+
+
+def build_opening_quotes(
+    spot_quote: Optional[dict],
+    futures_quote: Optional[dict],
+    *,
+    usable: bool,
+    updated_at: Optional[str],
+) -> dict:
+    """Build the additive row-level ``opening_quotes`` object
+    (10-design §D5 truth table, breakdown §7).
+
+    ``spot_quote`` / ``futures_quote`` are ``{"bid_price": str, "ask_price":
+    str}`` maps (or None) for the row's resolved spot leg symbol and futures
+    symbol. ``usable`` is True only when the pair cache age is ``< 2 * ttl``; the
+    service computes it from the monotonic cache age every assembly. ``updated_at``
+    is the pair completion time, ``None`` only when the pair never succeeded.
+
+    Status rules: never succeeded (``usable`` False, ``updated_at`` None) ->
+    ``unavailable`` (all null, ``updated_at`` None); ``age >= 2*ttl``
+    (``usable`` False, ``updated_at`` set) -> ``stale`` (prices/spreads null,
+    ``updated_at`` retained); usable with all four prices valid ``>0`` ->
+    ``fresh``; usable with any price missing/non-numeric/zero -> ``incomplete``.
+    Each spread direction is computed independently from its own two operands,
+    so one missing leg never blanks the other direction. Published prices are
+    the individually-valid strings (invalid/zero -> null).
+    """
+    if not usable:
+        status = "stale" if updated_at is not None else "unavailable"
+        return {
+            "status": status,
+            "updated_at": updated_at,
+            "spot_bid_price": None,
+            "spot_ask_price": None,
+            "futures_bid_price": None,
+            "futures_ask_price": None,
+            "forward_spread_pct": None,
+            "reverse_spread_pct": None,
+        }
+    spot_bid = _opening_price((spot_quote or {}).get("bid_price"))
+    spot_ask = _opening_price((spot_quote or {}).get("ask_price"))
+    fut_bid = _opening_price((futures_quote or {}).get("bid_price"))
+    fut_ask = _opening_price((futures_quote or {}).get("ask_price"))
+    forward = compute_opening_spread_pct(fut_bid, spot_ask)
+    reverse = compute_opening_spread_pct(spot_bid, fut_ask)
+    four_valid = all(
+        p is not None for p in (spot_bid, spot_ask, fut_bid, fut_ask)
+    )
+    status = "fresh" if four_valid else "incomplete"
+    return {
+        "status": status,
+        "updated_at": updated_at,
+        "spot_bid_price": spot_bid,
+        "spot_ask_price": spot_ask,
+        "futures_bid_price": fut_bid,
+        "futures_ask_price": fut_ask,
+        "forward_spread_pct": forward,
+        "reverse_spread_pct": reverse,
+    }
 
 
 def select_borrow_candidates(

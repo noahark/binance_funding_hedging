@@ -45,6 +45,7 @@ from ..domain.snapshot import (
     assemble_borrow_validation,
     assemble_private_account,
     assemble_snapshot,
+    build_opening_quotes,
     build_rows,
     compute_net_daily_yield,
     default_view_history_symbols,
@@ -453,6 +454,45 @@ class SnapshotService:
         )
         return rows, data_time_ms
 
+    def _attach_opening_quotes(self, rows: List[dict]) -> None:
+        """Project the ``book_ticker_pair`` cache onto each row's
+        ``opening_quotes`` (2026-07-bookticker-open-columns-v1, 10-design §D2/D4).
+
+        Public and always-on; independent of the private channel. The cache age
+        is recomputed from ``time.monotonic()`` EVERY assembly, so a pair that
+        crosses ``2 * cache_ttl_seconds`` flips to ``stale`` on the next assembly
+        without waiting for another fetch failure. Joins use the row's resolved
+        leg symbols: futures quote by ``row.futures.symbol``, spot quote by the
+        already-resolved ``row.spot.symbol`` (bStock reuses its B-suffix alias,
+        e.g. futures ``TSLAUSDT`` -> spot ``TSLABUSDT``); a ``None`` spot leg
+        yields ``incomplete`` without guessing a substitute asset.
+        """
+        ttl = self.config.cache_ttl_seconds
+        now = time.monotonic()
+        entry = self._global_source_cache.get("book_ticker_pair")
+        if entry is None:
+            usable = False
+            updated_at = None
+            spot_map: Dict[str, dict] = {}
+            futures_map: Dict[str, dict] = {}
+        else:
+            success_ts, pair = entry
+            usable = (now - success_ts) < 2 * ttl
+            updated_at = pair.get("updated_at")
+            spot_map = pair.get("spot") or {}
+            futures_map = pair.get("futures") or {}
+        for row in rows:
+            fut_sym = (row.get("futures") or {}).get("symbol")
+            spot_sym = (row.get("spot") or {}).get("symbol")
+            futures_quote = futures_map.get(fut_sym) if fut_sym else None
+            spot_quote = spot_map.get(spot_sym) if spot_sym else None
+            row["opening_quotes"] = build_opening_quotes(
+                spot_quote,
+                futures_quote,
+                usable=usable,
+                updated_at=updated_at,
+            )
+
     def _assemble(
         self,
         base_raw: dict,
@@ -531,6 +571,12 @@ class SnapshotService:
                 borrowability_truncated=base in borrowability_unprobed_assets,
                 price_map=price_map,
             )
+
+        # opening_quotes (2026-07-bookticker-open-columns-v1): project the
+        # book_ticker_pair cache onto every row. Public + always-on; recomputed
+        # every assembly from the monotonic cache age (stale is a projection,
+        # not a fetch-failure side effect). Independent of the private channel.
+        self._attach_opening_quotes(rows)
 
         cost_leg_available = bool(
             classic_ref is not None and cost_leg and cost_leg.get("chain_hit_tier") is not None
@@ -1035,6 +1081,31 @@ class SnapshotService:
                         "spot_exchange_info": raw["spot_exchange_info"],
                         "funding_interval_by_sym": raw.get("funding_interval_by_sym", {}),
                         "warnings": raw.get("warnings", []),
+                    },
+                )
+        # ---- book_ticker_pair: Group A public, always-on cross-market quotes
+        # (2026-07-bookticker-open-columns-v1). Independent of the private
+        # channel and of the premium/group_b seams; capability-checked so a
+        # legacy client without the seam stays never-succeeded (P2-2). Atomic:
+        # cached only after BOTH endpoints + non-empty-list shape + non-empty-map
+        # normalization succeed (the adapter raises on any partial/empty side),
+        # so one side failing advances neither timestamp nor map (FR-2). ----
+        if hasattr(self.client, "fetch_book_ticker_pair") and self._source_due(
+            "book_ticker_pair", now, ttl_a
+        ):
+            try:
+                pair = self.client.fetch_book_ticker_pair()
+            except (urllib.error.URLError, OSError, ValueError):
+                pair = None
+            if pair is not None:
+                self._global_source_cache["book_ticker_pair"] = (
+                    time.monotonic(),
+                    {
+                        "updated_at": datetime.now(timezone.utc).strftime(
+                            "%Y-%m-%dT%H:%M:%SZ"
+                        ),
+                        "spot": pair["spot"],
+                        "futures": pair["futures"],
                     },
                 )
         # ---- Group B private reference: classic_reference (1800s) ----

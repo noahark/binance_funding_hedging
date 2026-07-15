@@ -71,6 +71,16 @@
       "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/13-design-review-grok.raw.md",
       "recorded_at": "2026-07-15T09:29:32Z"
+    },
+    {
+      "role": "implementation_task_a",
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "session_id": "aaba9bdc-5a62-4f9b-b820-d590c58c30a4",
+      "session_id_source": "runtime_env",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
+      "recorded_at": "2026-07-15T10:11:31Z"
     }
   ],
   "designer": {
@@ -90,8 +100,24 @@
     "verdict": "READY",
     "completed_at": "2026-07-15T08:56:39Z"
   },
-  "implementer": null,
-  "implementers": [],
+  "implementer": {
+    "id": "claude_glm",
+    "provider": "claude_glm",
+    "runtime_provider_identity": "zhipu_glm",
+    "model": "glm-5.2",
+    "session_id": "aaba9bdc-5a62-4f9b-b820-d590c58c30a4",
+    "task_id": "task-a-backend-contract-cache"
+  },
+  "implementers": [
+    {
+      "id": "claude_glm",
+      "provider": "claude_glm",
+      "runtime_provider_identity": "zhipu_glm",
+      "model": "glm-5.2",
+      "session_id": "aaba9bdc-5a62-4f9b-b820-d590c58c30a4",
+      "task_id": "task-a-backend-contract-cache"
+    }
+  ],
   "fix_authors": [],
   "reviewer_1": null,
   "reviewer_2": null,
@@ -140,14 +166,14 @@
         "model": "glm-5.2"
       },
       "reviewer": "kimi",
-      "status": "prepared_waiting_human_execution",
+      "status": "implemented_tests_passed_waiting_evidence_commit",
       "prompt_path": "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-a-backend-claude-glm.prompt.md",
       "implementation_report": "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
       "depends_on": [],
-      "base_sha": "fea9fdc3ecce7675b34b01fe0a4b9de08811f939",
+      "base_sha": "7c0c9a21d523425f7380e7f721de03ca0730a17a",
       "head_sha": null,
       "diff_fingerprint": null,
-      "test_evidence": null,
+      "test_evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
       "review_1": {
         "reviewer": null,
         "provider": null,
@@ -240,6 +266,18 @@
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/development-breakdown-claude.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/design-review-grok.prompt.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/task-a-backend-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation-task-a.md",
+    "backend/adapters/binance_public.py",
+    "backend/domain/snapshot.py",
+    "backend/services/snapshot_service.py",
+    "backend/tests/test_book_ticker.py",
+    "backend/tests/test_background_worker.py",
+    "backend/tests/test_negative_schema.py",
+    "backend/tests/test_symbol_snapshot_endpoint.py",
+    "schemas/api/public-market/snapshot.schema.json",
+    "docs/api/public-market-contract.md",
+    "docs/architecture/ARCHITECTURE.md",
+    "docs/development/DEVELOPMENT_GUIDE.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
@@ -247,7 +285,7 @@
   ],
   "tests": {
     "status": "passed",
-    "scope": "design_review_reconciliation_and_session_receipt_harness_mechanical_checks",
+    "scope": "task_a_independent_focused_full_backend_frontend_regression_and_mechanical_checks",
     "commands": [
       "python3 -m json.tool reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -261,10 +299,14 @@
       "jq session receipt shape check against status.json",
       "verify Session ID/source/raw-output footer fields across model-facing templates",
       "git diff --name-only -- backend frontend schemas",
-      "scan Grok raw export for credential-like assignment patterns and remove temporary Kimi export"
+      "scan Grok raw export for credential-like assignment patterns and remove temporary Kimi export",
+      "pytest backend/tests/test_book_ticker.py backend/tests/test_snapshot.py backend/tests/test_background_worker.py backend/tests/test_symbol_snapshot_endpoint.py backend/tests/test_negative_schema.py -q",
+      "pytest backend/tests -q",
+      "node frontend/self-check.js",
+      "python3 -m py_compile backend/adapters/binance_public.py backend/domain/snapshot.py backend/services/snapshot_service.py"
     ],
     "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
-    "note": "Intake/design plus review-reconciliation and Session receipt Harness checks passed. Product tests were not run because no product code has been implemented. The unavailable `python` alias was retried successfully with `python3`."
+    "note": "Task A independent bookkeeper verification passed: focused backend 142, full backend 375, frontend self-check all pass, py_compile and git diff --check clean. The unavailable `python` alias during intake was retried successfully with `python3`."
   },
   "review_1": {
     "reviewer": null,
@@ -340,6 +382,6 @@
       "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/15-session-id-capture-evidence.md"
     }
   ],
-  "next_action": "Human executes task-a-backend-claude-glm.prompt.md in the existing claude_glm terminal. The implementer stops after Task A and returns 20-implementation-task-a.md with the Session receipt footer; do not start Task B.",
-  "updated_at": "2026-07-15T09:37:39Z"
+  "next_action": "Bookkeeper creates the Task A evidence commit, records its head/fingerprint, then prepares the Kimi Task B frontend packet against that committed backend contract.",
+  "updated_at": "2026-07-15T10:11:31Z"
 }

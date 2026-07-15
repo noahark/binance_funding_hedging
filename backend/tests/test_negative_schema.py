@@ -129,3 +129,77 @@ def test_match_type_null_is_valid(schema):
     row["spot"]["status"] = None
     row["spot"]["match_type"] = None
     jsonschema.validate(_snapshot_with(row), schema)  # must NOT raise
+
+
+# =========================================================================
+# Stage 2026-07-bookticker-open-columns-v1: opening_quotes is additive. A row
+# may omit the whole object (legacy compatibility) or carry a complete object;
+# the nested object is closed (additionalProperties: false) and every price/
+# spread is decimal-string-or-null (a JSON number must be rejected).
+# =========================================================================
+_FULL_OPENING_QUOTES = {
+    "status": "fresh",
+    "updated_at": "2026-07-15T06:51:57Z",
+    "spot_bid_price": "100.00",
+    "spot_ask_price": "100.01",
+    "futures_bid_price": "99.00",
+    "futures_ask_price": "99.01",
+    "forward_spread_pct": "-1.01",
+    "reverse_spread_pct": "1.01",
+}
+
+
+def test_opening_quotes_omitted_is_legacy_compatible(schema):
+    # Additive: BASE_ROW (no opening_quotes) still validates.
+    jsonschema.validate(_snapshot_with(copy.deepcopy(BASE_ROW)), schema)
+
+
+def test_opening_quotes_full_object_is_valid(schema):
+    row = copy.deepcopy(BASE_ROW)
+    row["opening_quotes"] = copy.deepcopy(_FULL_OPENING_QUOTES)
+    jsonschema.validate(_snapshot_with(row), schema)
+
+
+def test_opening_quotes_unavailable_all_null_is_valid(schema):
+    row = copy.deepcopy(BASE_ROW)
+    row["opening_quotes"] = {
+        "status": "unavailable", "updated_at": None,
+        "spot_bid_price": None, "spot_ask_price": None,
+        "futures_bid_price": None, "futures_ask_price": None,
+        "forward_spread_pct": None, "reverse_spread_pct": None,
+    }
+    jsonschema.validate(_snapshot_with(row), schema)
+
+
+def test_reject_opening_quotes_unknown_nested_property(schema):
+    def mutate(r):
+        r["opening_quotes"] = {**_FULL_OPENING_QUOTES, "surprise": "x"}
+    _expect_rejected(schema, mutate)
+
+
+def test_reject_opening_quotes_number_price(schema):
+    # prices are decimal_string | null; a JSON number must be rejected (the
+    # adapter already drops number-typed raw prices, but the wire contract must
+    # also refuse them).
+    def mutate(r):
+        r["opening_quotes"] = {**_FULL_OPENING_QUOTES, "spot_bid_price": 100.0}
+    _expect_rejected(schema, mutate)
+
+
+def test_reject_opening_quotes_number_spread(schema):
+    def mutate(r):
+        r["opening_quotes"] = {**_FULL_OPENING_QUOTES, "forward_spread_pct": -0.04}
+    _expect_rejected(schema, mutate)
+
+
+def test_reject_opening_quotes_invalid_status(schema):
+    def mutate(r):
+        r["opening_quotes"] = {**_FULL_OPENING_QUOTES, "status": "old"}
+    _expect_rejected(schema, mutate)
+
+
+def test_reject_opening_quotes_missing_required_field(schema):
+    def mutate(r):
+        r["opening_quotes"] = {k: v for k, v in _FULL_OPENING_QUOTES.items()
+                               if k != "reverse_spread_pct"}
+    _expect_rejected(schema, mutate)

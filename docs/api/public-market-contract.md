@@ -1,6 +1,6 @@
 # Public Market API Contract
 
-Status: contract v0.6 as-built read-only snapshot. The wire `schema_version`
+Status: contract v0.7 as-built read-only snapshot. The wire `schema_version`
 stays `public-market-snapshot/v1`; every addition remains backward-compatible.
 The `GET /api/public-market/snapshot` route and `public-market-snapshot/v1`
 wire version are historical compatibility names. The payload now represents a
@@ -10,7 +10,8 @@ or schema-version bump is a future contract stage, not part of this status sync.
 v0.2 additions are in "Phase 2 Amendment (v0.2)"; v0.3 additions (net yield,
 cost-leg chain, `private_account`, `sort_basis`) are in "Private Account v1
 Amendment (v0.3)"; v0.4 through v0.6 UI/value-display, metal-tag, and
-borrowability refinements are in later amendments at the end of this file.
+borrowability refinements are in later amendments; v0.7 additive
+`opening_quotes` is in the final amendment at the end of this file.
 Binance public fields verified
 2026-07-03 by Claude-GLM against live no-key public calls and `llms-full.txt`;
 private fields verified 2026-07-05 by bookkeeper H_intake live capture
@@ -686,3 +687,105 @@ non-success "可借 0(已借完)" badge instead of the green "已验证可借".
 are unchanged. All v0.6 additions are additive; `max_borrowable` moving from `null`
 to `"0"` under 51061 is a bug-fix of a confirmed-zero state, not a shape change.
 `bStock` remains disabled for negative-funding arbitrage.
+
+## Opening Quotes Amendment (v0.7, stage `2026-07-bookticker-open-columns-v1`)
+
+Frozen 2026-07-15. Wire `schema_version` stays `public-market-snapshot/v1`; every
+change is **additive** (the v0.1–v0.6 normalized samples still validate). Adds an
+optional row-level `opening_quotes` block carrying about-60s reference cross-
+market bid/ask quotes so the workstation can show a one-level forward/reverse
+opening spread without the frontend calling Binance. Evidence: paired public
+`bookTicker` discovery under
+`reports/api-samples/2026-07-bookticker-discovery-v1/20260715T0651Z/`
+(`evidence-index.md` + normalized bookTicker summary). Authority order:
+`10-design.md` > this contract section.
+
+### Public source: paired full bookTicker (Group A, always-on)
+
+A new public source `book_ticker_pair` fetches the two full-universe bookTicker
+endpoints sequentially with **no parameters** each Group A cycle:
+
+- Spot: `GET /api/v3/ticker/bookTicker`
+- USDⓈ-M Futures: `GET /fapi/v1/ticker/bookTicker`
+
+Each call bumps its own request-log key (`GET /api/v3/ticker/bookTicker`,
+`GET /fapi/v1/ticker/bookTicker`). The source is **public and always-on** — it is
+NOT gated by the private channel or the classic reference. It reuses
+`cache_ttl_seconds` (default 60s) as its cadence and is capability-checked, so a
+legacy client without the seam stays never-succeeded without raising.
+
+**Atomic pair cache:** both payloads must be a non-empty list that normalizes to a
+non-empty map. Either side failing (transport, shape, or empty map) raises and
+advances neither the timestamp nor the map — one side failing never partially
+commits (FR-2: failure is not cached, last-good is retained).
+
+**Decimal discipline:** a raw `bidPrice`/`askPrice` enters the map ONLY when its
+JSON value is a string. A number-typed price is rejected (never `str(number)`-
+coerced) and that symbol's quote is simply unavailable. Prices stay raw decimal
+strings; `float` never touches a value path.
+
+### Join and usability projection
+
+Per row, the cache is joined by the row's resolved leg symbols: the futures quote
+by `row.futures.symbol`, the spot quote by the already-resolved `row.spot.symbol`
+(so bStock reuses its B-suffix alias, e.g. futures `TSLAUSDT` -> spot `TSLABUSDT`;
+no economic substitute asset is ever guessed). A `None` spot leg yields
+`incomplete` without a substitute.
+
+The usability cutoff is a monotonic projection recomputed **every assembly**, not
+a fetch-failure side effect: `age < 2 * cache_ttl_seconds` (default `< 120s`) is
+`usable`; `age >= 2 * cache_ttl_seconds` is `stale`. A pair that crosses 120s
+flips to `stale` on the next assembly without waiting for another fetch.
+
+### New row field `opening_quotes`
+
+Optional row-level object (the current producer always emits a complete object; a
+legacy row may omit the whole object and still validate). Its nested fields are all
+`required` and `additionalProperties=false`:
+
+- `status`: enum `fresh | incomplete | stale | unavailable`.
+- `updated_at`: UTC completion time of the most recent successful paired bookTicker
+  fetch (ISO-8601 `Z`); `null` ONLY when the pair never succeeded (`unavailable`);
+  retained on `stale`/`incomplete`.
+- `spot_bid_price` / `spot_ask_price` / `futures_bid_price` / `futures_ask_price`:
+  raw decimal string of the individually-valid `>0` price, or `null` when
+  missing/zero/non-string.
+- `forward_spread_pct`: `(futures_bid − spot_ask) / spot_ask × 100`,
+  `ROUND_HALF_UP` to 2 places.
+- `reverse_spread_pct`: `(spot_bid − futures_ask) / futures_ask × 100`,
+  `ROUND_HALF_UP` to 2 places.
+
+`*_spread_pct` are **already-multiplied percentage-point** decimal strings (e.g.
+`"-0.04"` means −0.04%), with no `%` char — the frontend must NOT multiply by 100
+again. Decimal-only; strict `(bid − ask) / ask × 100` operation order; quantize to
+`0.01` only on the final result; `-0.00` normalized to `0.00`.
+
+### Status truth table
+
+| status | trigger | prices | spreads | `updated_at` |
+|---|---|---|---|---|
+| `unavailable` | pair never succeeded (`usable=false`, no `updated_at`) | all null | all null | null |
+| `stale` | age `>= 2*ttl` (`usable=false`, `updated_at` retained) | all null | all null | retained |
+| `fresh` | usable AND all four prices valid `>0` | all present | both computed | retained |
+| `incomplete` | usable AND any price missing/zero/non-string | valid prices kept | per-direction | retained |
+
+Each spread direction is computed independently from its own two operands (forward
+needs `futures_bid` + `spot_ask`; reverse needs `spot_bid` + `futures_ask`), so one
+missing leg never blanks the other direction. `"0.00000000"` is missing liquidity,
+not a computable zero: that price is `null` and only the direction it gates is
+blanked.
+
+### Click path (D7, no extra I/O)
+
+The selected-symbol click reuses the canonical row's `opening_quotes`: it reads the
+SAME `book_ticker_pair` cache the scheduled tick filled, so it issues NO new
+bookTicker HTTP. The projected symbol-snapshot row's `opening_quotes` is identical
+to the full-snapshot row's.
+
+### Regression red lines (still unchanged)
+
+`negative_funding_status` / `route_class` / `asset_tag` enums and their priority,
+`classify.py`, `normalize.py`, the v0.1–v0.6 field set, and `sort_basis` semantics
+are unchanged. `opening_quotes` is additive and optional; the `symbol-snapshot`
+schema inherits it automatically via the shared row `$ref` (no change to that
+file). No new config/env, no per-symbol HTTP, no WebSocket, no execution path.

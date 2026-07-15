@@ -57,6 +57,16 @@ but signed private GET requests are not used unless
   PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider
   ```
 
+- Opening-quotes (paired bookTicker) targeted verification — adapter pair cache,
+  spread formulas, status truth table, Group A cadence, ~120s usability cutoff,
+  click no-extra-I/O, and schema compatibility:
+
+  ```bash
+  python3 -m pytest backend/tests/test_book_ticker.py backend/tests/test_snapshot.py \
+    backend/tests/test_background_worker.py backend/tests/test_symbol_snapshot_endpoint.py \
+    backend/tests/test_negative_schema.py -q
+  ```
+
 - Frontend contract/UI self-check:
 
   ```bash
