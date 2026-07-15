@@ -147,12 +147,15 @@
   },
   "checkpoint": {
     "branch": "stage/2026-07-history-refresh-ahead-v1",
-    "head_sha": "12b8e1c1ea5d86bf692bbba2183de08ee9429af4",
-    "git_status": "stage intake/design/dispatch artifacts pending commit; no delivery-code changes",
-    "test_status": "not run; implementation pending",
+    "head_sha": "5ca9852296b3ba3259c5f36cc227802572ea347e",
+    "git_status": "clean after committed intake/design/dispatch evidence",
+    "test_status": "checkpoint validator passed; delivery-code tests pending implementation",
     "open_findings": [],
-    "blockers": ["human must execute the prepared Claude-GLM dispatch"],
-    "next_action": "human_execute_implementation_claude_glm_prompt"
+    "blockers": [
+      "operator should rotate the credential exposed by interactive alias expansion",
+      "human must execute the prepared Claude-GLM dispatch"
+    ],
+    "next_action": "rotate_exposed_credential_then_human_execute_implementation_prompt"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -198,12 +201,15 @@
     "A fixed 300-second headroom assumes the current homepage candidate sweep completes within that window.",
     "The explicitly deferred threshold exit/re-entry coverage behavior remains unchanged."
   ],
-  "blockers": ["human model dispatch required"],
+  "blockers": [
+    "operator should rotate the credential exposed by interactive alias expansion before dispatch",
+    "human model dispatch required"
+  ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_execute_implementation_claude_glm_prompt",
-  "updated_at": "2026-07-15T02:44:33Z"
+  "next_action": "rotate_exposed_credential_then_human_execute_implementation_prompt",
+  "updated_at": "2026-07-15T03:49:09Z"
 }

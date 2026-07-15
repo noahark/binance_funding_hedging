@@ -11,3 +11,17 @@ status=implementing
 ```
 
 No delivery-code tests have run; implementation is pending human dispatch.
+
+## Clean Dispatch Checkpoint
+
+```text
+commit: 5ca9852296b3ba3259c5f36cc227802572ea347e
+git status --short: clean
+python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase checkpoint: PASS
+Claude-GLM adapter resolution: available
+```
+
+The interactive adapter availability check unexpectedly expanded authentication
+environment text in terminal output. No credential value was copied into any
+repository artifact. The operator should rotate the exposed credential before
+executing model dispatch.

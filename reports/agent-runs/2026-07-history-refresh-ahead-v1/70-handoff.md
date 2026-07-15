@@ -3,10 +3,12 @@
 ## Recovery Header
 
 - Active phase: `implementing` (dispatch prepared, human execution pending)
-- Next action: human starts a fresh Claude-GLM terminal with
+- Next action: operator rotates the credential exposed by an interactive alias
+  availability check, then starts a fresh Claude-GLM terminal with
   `implementation-claude-glm.prompt.md`
 - Read-set: = `status.current_inputs`
-- Open blockers: human model dispatch required by Harness
+- Open blockers: credential rotation, then human model dispatch required by
+  Harness
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
   sessions, prior v2 implementation/review transcripts
 
@@ -16,7 +18,8 @@
 - Status: `implementing`
 - Branch: `stage/2026-07-history-refresh-ahead-v1`
 - Baseline: `12b8e1c1ea5d86bf692bbba2183de08ee9429af4`
-- Git status: stage intake/design/dispatch artifacts pending commit
+- HEAD: `5ca9852296b3ba3259c5f36cc227802572ea347e`
+- Git status: clean after committed intake/design/dispatch evidence
 - Bookkeeper/designer: Codex / OpenAI; no code authorship
 - Implementer: Claude-GLM / `zhipu_glm`, human dispatch pending
 - Review-1: Kimi
@@ -38,6 +41,11 @@ Codex/GPT and Claude provider sessions must not execute model dispatch. The huma
 must run the prepared prompt in a fresh Claude-GLM implementation terminal and
 return the raw result/worktree for bookkeeper verification.
 
-本地北京时间: 2026-07-15 10:44:33 CST
+The interactive adapter availability check unexpectedly expanded authentication
+environment text in terminal output. No credential was written to repository
+artifacts. Rotate the exposed credential before starting the implementation
+terminal.
+
+本地北京时间: 2026-07-15 11:49:09 CST
 下一步模型: human
-下一步任务: 在 fresh Claude-GLM 终端执行 implementation-claude-glm.prompt.md
+下一步任务: 轮换暴露凭据后，在 fresh Claude-GLM 终端执行 implementation-claude-glm.prompt.md
