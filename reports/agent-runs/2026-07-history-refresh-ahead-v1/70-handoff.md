@@ -2,27 +2,31 @@
 
 ## Recovery Header
 
-- Active phase: `review_2` (dispatch ready)
-- Next action: human executes `review-2-claude.prompt.md` in a fresh Claude plan
-  session and returns the Session ID or complete output
+- Active phase: `stage_accepted_waiting_user` (pre-accept validation pending)
+- Next action: commit the collected review-2 evidence, run the clean-worktree
+  pre-accept validator, then wait for explicit user acceptance before merge
 - Read-set: = `status.current_inputs`
-- Open blockers: human final-review dispatch required by Harness
+- Open blockers: explicit user acceptance is required before merge to `main`
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
   sessions, prior v2 implementation/review transcripts
 
 ## Current State
 
 - Stage: `2026-07-history-refresh-ahead-v1`
-- Status: `implementing`
+- Status: `stage_accepted_waiting_user`
 - Branch: `stage/2026-07-history-refresh-ahead-v1`
 - Baseline: `12b8e1c1ea5d86bf692bbba2183de08ee9429af4`
-- HEAD: `5ca9852296b3ba3259c5f36cc227802572ea347e`
-- Git status: exactly three allowed implementation files modified; evidence
-  commit pending
+- Reviewed implementation/evidence HEAD:
+  `2cb72fd870b1ef29cc4787e7dff102ab56bf8601`
+- Current stage-branch bookkeeping HEAD before review-2 evidence commit:
+  `7a8e7a07c1c460e4aace596a1ed4560e9c4babcb`
+- Git status: review-2 evidence/checkpoint files modified; evidence commit and
+  clean-worktree pre-accept validation pending
 - Bookkeeper/designer: Codex / OpenAI; no code authorship
 - Implementer: Claude-GLM / `zhipu_glm`, implementation complete
 - Review-1: Kimi
-- Review-2: Claude provider, planned due Codex design involvement
+- Review-2: Anthropic Claude Opus4.8 `ACCEPT`, zero findings, schema-valid,
+  exact fingerprint
 - Parallel mode: disabled
 
 ## Frozen Scope
@@ -34,11 +38,11 @@
 - Allowed implementation files: `backend/services/snapshot_service.py`,
   `backend/tests/test_background_worker.py`, `20-implementation.md`.
 
-## Blocker
+## Merge Gate
 
-Codex/GPT and Claude provider sessions must not execute model dispatch. The human
-must run the prepared prompt in a fresh Claude-GLM implementation terminal and
-return the raw result/worktree for bookkeeper verification.
+Review-2 accepted the exact committed range. This terminal state does not
+authorize merging or pushing. Explicit user acceptance is required before the
+stage branch can be merged to `main`.
 
 The user explicitly chose to continue without rotating the credential mentioned
 in the prior checkpoint. No credential value is stored in repository artifacts.
@@ -67,6 +71,17 @@ Codex is skipped as the stage designer under the documented
 Clean-worktree review-2 `pre-review` validator and independent fingerprint
 recomputation: PASS after binding commit `3f7626d`.
 
-本地北京时间: 2026-07-15 12:28:48 CST
-下一步模型: human
-下一步任务: 在 fresh Claude plan session 执行 review-2-claude.prompt.md
+The human reported Fable5 quota exhaustion and dispatched the same final-review
+task to the configured same-provider fallback, Opus4.8. The local Claude
+session records actual model `claude-opus-4-8`. Its strict JSON verdict is
+schema-valid `ACCEPT`, with zero findings and the exact authoritative
+fingerprint.
+
+The Claude session container was not fresh and used `bypassPermissions` rather
+than plan mode. This is disclosed as a procedural variance. The current-stage
+transcript contains only Read and Bash inspection/test commands, no mutation or
+network tool calls, and finishes with a clean worktree.
+
+本地北京时间: 2026-07-15 12:41:18 CST
+下一步模型: codex_bookkeeper
+下一步任务: 提交 review-2 证据并运行 pre-accept validator

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-history-refresh-ahead-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-history-refresh-ahead-v1",
@@ -28,6 +28,7 @@
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/review-1-kimi.prompt.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/review-2-claude.prompt.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-history-refresh-ahead-v1/50-review-2.md",
     "reports/agent-runs/2026-07-history-refresh-ahead-v1/60-test-output.txt",
     "backend/services/snapshot_service.py",
     "backend/tests/test_background_worker.py"
@@ -98,7 +99,8 @@
       "The human starts a fresh Claude-GLM terminal from the committed implementation prompt.",
       "The human reported dispatching the prompt on 2026-07-15; no shared-worktree change or implementation report was present at the 11:55 CST checkpoint.",
       "The patch is limited to history refresh freshness and deterministic background-worker tests.",
-      "Kimi is review-only and excluded from implementation; Codex is designer/bookkeeper only."
+      "Kimi is review-only and excluded from implementation; Codex is designer/bookkeeper only.",
+      "The operator reported claude-fable-5 quota exhaustion and dispatched the same Anthropic review prompt to opus4.8; provider identity remains anthropic."
     ]
   },
   "complexity": {
@@ -168,17 +170,23 @@
       "Independent authoritative fingerprint recomputation => PASS",
       "Kimi review-1 local session export and strict JSON/schema validation => PASS (ACCEPT, zero findings)",
       "python3 scripts/validate-stage.py 2026-07-history-refresh-ahead-v1 --phase pre-review => PASS (review-2, clean after 3f7626d)",
-      "Review-2 independent authoritative fingerprint recomputation => PASS"
+      "Review-2 independent authoritative fingerprint recomputation => PASS",
+      "Claude Opus4.8 review-2 final JSON/schema validation => PASS (ACCEPT, zero findings, exact fingerprint)",
+      "Claude current-stage tool audit => Read/Bash inspection and deterministic test commands only; no edit/write/commit/network tool calls",
+      "Claude independently reran focused 37 passed, full backend 335 passed, py_compile and diff-check PASS"
     ]
   },
   "checkpoint": {
     "branch": "stage/2026-07-history-refresh-ahead-v1",
     "head_sha": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601",
-    "git_status": "review-2 binding committed at 3f7626d; clean-worktree pre-review gate passed",
+    "git_status": "review-2 ACCEPT raw output and actual-model fallback recorded; evidence commit and pre-accept gate pending",
     "test_status": "focused 37 passed; full backend 335 passed; py_compile/diff-check/adversarial retention passed",
     "open_findings": [],
-    "blockers": [],
-    "next_action": "human_execute_fresh_claude_review_2_prompt"
+    "blockers": [
+      "pre-accept validator must pass on committed evidence",
+      "explicit user acceptance is required before merge to main"
+    ],
+    "next_action": "commit_review_2_evidence_then_run_pre_accept_validator"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -202,12 +210,28 @@
     "reviewer": "claude",
     "provider": "claude",
     "provider_identity": "anthropic",
-    "model": "claude-fable-5",
+    "model": "opus4.8",
+    "requested_model": "claude-fable-5",
+    "session": "d4039913-9a87-4b9e-9e49-cf24e420c358",
+    "permission_mode": "bypassPermissions",
+    "dispatch_reported_complete": true,
+    "raw_output_received": true,
+    "raw_output_path": "reports/agent-runs/2026-07-history-refresh-ahead-v1/50-review-2.md",
+    "model_fallback_reason": "claude-fable-5 quota exhaustion reported by the human operator; same-provider opus4.8 fallback used",
+    "model_fallback_evidence": "reports/agent-runs/2026-07-history-refresh-ahead-v1/50-review-2.md",
+    "session_audit": {
+      "fresh_container": false,
+      "container_contains_prior_stage_review": true,
+      "current_stage_tools_read_only_in_effect": true,
+      "worktree_clean_at_reviewer_completion": true,
+      "note": "The requested plan mode was not used. Current-stage transcript audit found only Read and Bash inspection/test commands and no mutation or network tool calls."
+    },
     "routing_plan": {
       "configured_primary_provider": "codex",
       "configured_fallback_provider": "claude",
       "selected_provider": "claude",
-      "selected_model": "claude-fable-5",
+      "selected_model": "opus4.8",
+      "requested_model": "claude-fable-5",
       "selection_reason": "anti_self_review_ineligible_codex_is_stage_designer",
       "reviewer_has_prior_stage_involvement": false
     },
@@ -215,18 +239,18 @@
     "fallback_provider": "claude",
     "fallback_reason": "anti_self_review_ineligible_codex_is_stage_designer",
     "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": null,
+    "reviewer_prior_involvement_notes": "No implementation, fix, design, or bookkeeping involvement in this stage. Fable5 quota exhaustion was reported by the operator; Opus4.8 is the configured same-provider fallback.",
     "unrelated_reviewer_unavailable_evidence": null,
     "design_conflict_override": {
       "used": false,
       "reason": null,
       "unrelated_reviewer_unavailable_evidence": null
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "fix_start_prompt_present": null,
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "2cb72fd870b1ef29cc4787e7dff102ab56bf8601:a1406bde574ed193c12ee826f56102e99d6db029f6742d4412b44fea344b1ef3",
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
@@ -234,19 +258,22 @@
   "max_rework": 3,
   "residual_risks": [
     "A fixed 300-second headroom assumes the current homepage candidate sweep completes within that window.",
-    "The explicitly deferred threshold exit/re-entry coverage behavior remains unchanged."
+    "The explicitly deferred threshold exit/re-entry coverage behavior remains unchanged.",
+    "The inherited pre-fetch funding-history timestamp remains conservative but unchanged.",
+    "For configured history TTL <=300, refresh_ttl clamps to zero and each cursor visit refreshes, still bounded by <=10 symbols per tick.",
+    "Claude review-2 used an existing bypassPermissions session container rather than the requested fresh plan-mode container; the current-stage transcript contains only read/test operations and a clean-worktree result."
   ],
   "security_risk_acceptance": {
     "credential_rotation_deferred_by_user": true,
     "recorded_at": "2026-07-15T03:55:38Z",
     "note": "No credential value is stored in repository artifacts."
   },
-  "blockers": ["human must execute the prepared fresh Claude review-2 dispatch"],
+  "blockers": ["explicit user acceptance is required before merge to main"],
   "human_escalation": {
     "required": false,
     "reason": null
   },
-  "terminal_reason": null,
-  "next_action": "human_execute_fresh_claude_review_2_prompt",
-  "updated_at": "2026-07-15T04:28:48Z"
+  "terminal_reason": "stage_accepted_waiting_user",
+  "next_action": "commit_review_2_evidence_run_pre_accept_then_wait_for_explicit_user_acceptance",
+  "updated_at": "2026-07-15T04:41:18Z"
 }
