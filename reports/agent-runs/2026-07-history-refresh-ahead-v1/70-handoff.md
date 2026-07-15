@@ -2,11 +2,11 @@
 
 ## Recovery Header
 
-- Active phase: `stage_accepted_waiting_user` (final gate passed)
-- Next action: wait for explicit user acceptance before merging the stage branch
-  to `main`; pushing still requires the user's requested publish action
+- Active phase: `stage_accepted_waiting_user` (merge and push authorized)
+- Next action: commit the user's explicit acceptance, fetch remote state, merge
+  the stage branch to `main` without rebase, run the post-merge gate, and push
 - Read-set: = `status.current_inputs`
-- Open blockers: explicit user acceptance is required before merge to `main`
+- Open blockers: none
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages, retired model
   sessions, prior v2 implementation/review transcripts
 
@@ -41,6 +41,10 @@
 Review-2 accepted the exact committed range. This terminal state does not
 authorize merging or pushing. Explicit user acceptance is required before the
 stage branch can be merged to `main`.
+
+The user explicitly replied `验收并授权合并、推送` on 2026-07-15. Merge and
+push are now authorized; this acceptance record must be committed before the
+merge begins.
 
 The user explicitly chose to continue without rotating the credential mentioned
 in the prior checkpoint. No credential value is stored in repository artifacts.
@@ -83,6 +87,6 @@ network tool calls, and finishes with a clean worktree.
 Clean-worktree `pre-accept` validator and final independent fingerprint
 recomputation: PASS after review-2 evidence commit `ecaf107`.
 
-本地北京时间: 2026-07-15 12:42:59 CST
-下一步模型: human
-下一步任务: 明确接受本 stage 后，bookkeeper 才可合并至 main；推送按用户发布指令执行
+本地北京时间: 2026-07-15 12:46:52 CST
+下一步模型: codex_bookkeeper
+下一步任务: 提交用户验收记录，合并至 main，复验并推送

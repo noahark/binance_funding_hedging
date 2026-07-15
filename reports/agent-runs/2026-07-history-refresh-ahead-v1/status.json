@@ -184,8 +184,8 @@
     "git_status": "review-2 ACCEPT evidence committed at ecaf107; clean-worktree pre-accept gate passed",
     "test_status": "focused 37 passed; full backend 335 passed; py_compile/diff-check/adversarial retention passed",
     "open_findings": [],
-    "blockers": ["explicit user acceptance is required before merge to main"],
-    "next_action": "wait_for_explicit_user_acceptance_before_merge"
+    "blockers": [],
+    "next_action": "commit_user_acceptance_then_merge_to_main_and_push"
   },
   "review_1": {
     "reviewer": "kimi",
@@ -267,12 +267,19 @@
     "recorded_at": "2026-07-15T03:55:38Z",
     "note": "No credential value is stored in repository artifacts."
   },
-  "blockers": ["explicit user acceptance is required before merge to main"],
+  "user_acceptance": {
+    "explicit": true,
+    "message": "验收并授权合并、推送",
+    "recorded_at": "2026-07-15T04:46:52Z",
+    "merge_authorized": true,
+    "push_authorized": true
+  },
+  "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": "stage_accepted_waiting_user",
-  "next_action": "wait_for_explicit_user_acceptance_before_merge",
-  "updated_at": "2026-07-15T04:42:59Z"
+  "next_action": "commit_user_acceptance_then_merge_to_main_and_push",
+  "updated_at": "2026-07-15T04:46:52Z"
 }
