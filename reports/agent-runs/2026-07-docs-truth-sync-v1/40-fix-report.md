@@ -692,3 +692,132 @@ Session ID 来源: unavailable
 下一步模型: bookkeeper 动作（本轮由 Fable5 代理）：归档 Round-3 review → 逐字落盘 Round-4
             review → F11/F12 → 提交、重算标准指纹、保存 pre-review validator 结果
 下一步任务: 用户按既定路由派 opus4.8 对新指纹执行 review
+
+---
+
+# Round-5 Fix Report — Review-2 Round-5 REWORK，语义收敛版（2026-07-docs-truth-sync-v1）
+
+> Fix author：**Fable 5**（anthropic/claude-fable-5），用户第三次超限授权（rework 6，
+> `status.user_authorizations[2]`），按 `48-dispatch-fix-round6-fable5.md` 执行
+> **semantic-convergence** 路线：收缩 symbol-snapshot 失败矩阵的过度枚举面，而非继续补 token。
+> 依据原文：`50-review-2.md`（Round-5，codex session 019f6a94）。**本轮不 commit**，
+> 停手交 opus4.8 bookkeeper 对账。
+> 声明：F14 是我上轮"主动多加防 round-6"引入的回归——`base_raw_unavailable` 分支真实存在
+> 且走同一序列化路径，但我当时没有验证它在 HTTP 前置条件下是否可达。教训已体现在本轮
+> 方法里：枚举型承诺必须逐 token 验证端到端可达性，或干脆不枚举。
+
+## Round-5 发现→修复映射表
+
+| F# | 严重度 | 独立复核 | 修复方式 |
+|---|---|---|---|
+| F13 | P1 | ✅ 属实 | 三处无条件 row-source 句全部改 mode-dependent |
+| F14 | P1 | ✅ 属实（我上轮引入） | `base_raw_unavailable` 从公开契约完全删除 + 明写冷启动 503 |
+| F15 | P2 | bookkeeper-owned | 已由 bookkeeper 在前一检查点处理（`status.user_authorizations[2].convergence_spec[5]`） |
+
+## F13 — row-source 无条件句（独立复核）
+
+`_offline_symbol_snapshot`（`snapshot_service.py:374-393`）调 `get_snapshot()` 投影同步
+构建/缓存的 snapshot，`_published_state` 保持 None——"row always comes from published
+state" 对 offline 不成立。合同三处无条件句（旧 `:306-309` 总述、`:358-361` refresh_status
+总注、`:392` row 字段）与同合同刚修好的 `published_version` 两分支自相矛盾。
+
+**修法**（收敛，一处定义 + 处处引用）：
+- 总述改为 "the `row` source is mode-dependent: live … latest internal `PublishedState`
+  (last-good), offline … synchronously built / cached snapshot (no `PublishedState` is
+  involved)"，作为唯一权威定义。
+- refresh_status 总注、`row` 字段均改为引用 "the mode's row source above"，不再各自
+  复述一遍（复述面 = 漂移面）。
+- `published_version` offline 分支括注同步为 "synchronously built / cached"。
+- live-only same-PublishedState 身份、offline 0 sentinel、无跨请求保证：**原样保留**。
+
+## F14 — `base_raw_unavailable` 公开 wire 承诺不可达（独立复核，本人上轮引入）
+
+复核路径：① 端点 `:333-335`：`_published_state is None` → 立即 503 `snapshot_not_ready`，
+不提交 command；② `_base_raw` 全仓只有两处赋值——`:171` init None、`:998` `_scheduled_tick`
+在 `:1016` publish **之前**同 tick 设置——且无任何重置回 None 的路径，故能通过 503 门的
+状态必有 `_base_raw`；③ `:1395-1404` 防御分支仅 `test_base_raw_none_click_does_no_fetch_raw`
+直调内部 handler 触发；④ 定向测试 `test_not_ready_returns_503_before_first_publish` 断言
+公开冷启动为 503。结论：该 token 经 HTTP 不可达，上轮把它列为公开 200 timeout outcome
+是新引入的过度承诺。
+
+**修法**：从 timeout 成因与 warnings 清单**完全删除**（未选"标注内部不可达"保留项——
+契约零提及 = 零表面）；路径清单新增一条明确的公开事实："Live before the first publication
+exists: the endpoint returns HTTP 503 `snapshot_not_ready` before submitting any command —
+there is no 200 cold-start response on this endpoint."
+
+## 收敛（防 round-7 的结构性修法）
+
+- **timeout**：只保守陈述"本请求未产生新 publication；(live) row 用 last-good published
+  state"，明写"契约有意不枚举成因"；`cmd.error` 不上线、timeout 可无 warning 保留。
+- **warnings**：改开放式——"vocabulary is open-ended and NON-exhaustive; clients must not
+  assume completeness and must not branch on undocumented values; a `timeout` may carry no
+  warning at all; `refresh_status` remains the authoritative outcome field"。原 token 清单
+  降级为 **Non-normative examples**（per-source tokens、`refresh_deadline_exceeded`、
+  `refresh_command_expired:<symbol>`、`worker_not_running`——四者可达性均已逐一验证：
+  `:352-353`/`:356`/`:359`/`:1391→:353`），满足 codex "refresh_command_expired remains
+  documented" 与用户 convergence_spec "仅作非规范示例" 的交集。
+- **未按 dispatch 备选把 vocabulary 权威指向 schema**（schema 只有 string[] 无枚举，
+  且 :5/:39 prose 已陈旧）——与用户授权一致。
+- `partial` bullet 的 "e.g." 例子（rounds 3-5 codex 未质疑、全部可达）不动，维持最小 diff。
+
+## 命令输出（调度包要求的 6 条 + codex prompt 3 项定向测试，逐字）
+
+```text
+########## CMD #1 ##########
+$ rg -n 'published state|PublishedState|Offline|synchronously built|base_raw_unavailable|refresh_command_expired|snapshot_not_ready|non-exhaustive|open-ended' docs/api/public-market-contract.md
+rc=0（19 行命中；base_raw_unavailable 0 命中；snapshot_not_ready 命中 = 新增 503 行）
+
+########## CMD #2（gate）##########
+$ if rg -n 'base_raw_unavailable' docs/api/public-market-contract.md | rg -v 'internal|unreachable|not exposed'; then echo REVIEW-CONTEXT; fi
+（无输出——token 已完全删除，gate 通过）
+
+########## 定向测试（codex fix prompt CMD2）##########
+$ python3 -m pytest …test_not_ready_returns_503_before_first_publish …test_expired_queued_command_does_no_upstream_io …test_base_raw_none_click_does_no_fetch_raw -q
+3 passed in 0.10s
+
+########## CMD #3 ##########
+$ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_funding_history.py backend/tests/test_funding_history_endpoint.py backend/tests/test_symbol_snapshot_endpoint.py -q -p no:cacheprovider
+71 passed in 2.32s
+
+########## CMD #4 ##########
+$ node frontend/self-check.js
+80 [PASS]，全部自检通过；rc=0
+
+########## CMD #5 ##########
+$ git diff --check
+rc=0（无尾空白/冲突标记）
+
+########## CMD #6 ##########
+$ git diff --name-only
+docs/api/public-market-contract.md
+(+ 本追加段使 40-fix-report.md 成为第二个改动，append-only Allowed)
+```
+
+## 改动文件边界结果（Round-5 fix / rework 6）
+
+| 路径 | 是否 Allowed | F# |
+|---|---|---|
+| `docs/api/public-market-contract.md`（仅 symbol-snapshot 段） | ✅ Allowed | F13/F14+收敛 |
+| `reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md` | ✅ Allowed（append-only） | 报告本身 |
+
+Forbidden 集（backend/frontend/schemas/scripts、Stage-B/Harness-track、bookticker、
+active status/handoff/60-test/62-validate/ACTIVE）—— **0 改动，未 commit**。
+
+## 遗留 / 残余风险
+
+- `snapshot_service.py:320-322` docstring same-version、`symbol-snapshot.schema.json:5/:39`、
+  `funding-history.schema.json:34` prose drift：维持已披露 deferred，本轮不动。
+- `base_raw_unavailable` 防御分支的事实此后仅存于代码注释与单元测试（契约有意零提及）；
+  若未来该分支变为可达（如新增 `_base_raw` 重置路径），属行为变更，须走 contract-amendment。
+- funding-history 与 annualized 段未触碰。
+
+---
+
+当前 Session ID: unavailable (Claude Code 不向模型暴露 provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md
+本地北京时间: 2026-07-17 00:04:01 CST
+下一步模型: opus4.8（bookkeeper）——R4 对账：提交 fix、重算标准指纹、跑并留档
+            pre-review validator，然后按 `status.user_authorizations[2].routing`
+            直接派 Codex review-2（review-1 维持豁免）
+下一步任务: Codex review-2 round-6 对新指纹终审

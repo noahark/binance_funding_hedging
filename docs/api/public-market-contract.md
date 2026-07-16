@@ -304,9 +304,11 @@ Schema: `schemas/api/public-market/funding-history.schema.json`.
 ### GET /api/public-market/symbol-snapshot
 
 One-shot selected-symbol row view. The path taken depends on how the server is
-running, and the projected `row` always comes from the currently available
-published state — it does NOT necessarily come from a publication created by
-this request:
+running, and the `row` source is mode-dependent: live responses project from
+the latest internal `PublishedState` (last-good), offline responses project
+from the synchronously built / cached snapshot (no `PublishedState` is
+involved). In neither mode does the row necessarily come from a publication
+created by this request:
 
 - Live with the background worker running: the service submits one
   `RefreshSymbolCommand` to its serial worker and waits within a bounded
@@ -317,8 +319,11 @@ this request:
 - Live with no worker running: no command is submitted; the service projects the
   selected row from the latest published (last-good) state and returns
   `refresh_status: timeout`.
+- Live before the first publication exists: the endpoint returns HTTP 503
+  `snapshot_not_ready` before submitting any command — there is no 200
+  cold-start response on this endpoint.
 - Offline: no worker and no command; the service projects the synchronously
-  built row directly (`published_version: 0`, `refresh_status: ok`).
+  built / cached row directly (`published_version: 0`, `refresh_status: ok`).
 
 `published_version` is mode-dependent — it is NOT a version carried by the full
 snapshot:
@@ -326,7 +331,7 @@ snapshot:
 - Live (with or without a worker): the revision number of the internal
   `PublishedState` this `row` was projected from.
 - Offline: a fixed `0` sentinel by convention. Offline mode never creates a
-  `PublishedState` (the row is projected from the synchronously built
+  `PublishedState` (the row is projected from the synchronously built / cached
   snapshot), so offline `0` is NOT the revision number of any `PublishedState`.
 
 The full snapshot v1 wire payload (`snapshot.schema.json`) has no
@@ -356,9 +361,10 @@ NEVER contains a `rows` array.
     cross-request equality guarantee (see the mode note above).
   - `data_time`, `generated_at`: date-times.
   - `refresh_status`: `ok` | `partial` | `timeout`. It reflects what happened on
-    this request's refresh attempt (if any); the projected `row` is always taken
-    from the latest published state regardless of status, and is not proof that
-    a new publication was created by this request.
+    this request's refresh attempt (if any); regardless of status, the projected
+    `row` comes from the mode's row source above (live: latest published state;
+    offline: the synchronously built / cached snapshot), and is not proof that a
+    new publication was created by this request.
     - `ok`: either offline (the synchronously-built row, `published_version: 0`,
       no command), or a live worker command that completed a publication with no
       per-source `warnings`.
@@ -368,29 +374,23 @@ NEVER contains a `rows` array.
       or `max_borrowable_refresh_failed:<asset>`. `partial` does NOT imply that
       the public/history figures are fresh; read `warnings` for the actual failed
       source(s).
-    - `timeout`: no fresh publication resulted from this request, so the row is
-      the previously published (last-good) state. Causes include the shared
-      deadline expiring (either the endpoint wait elapsing, or the queued
-      command expiring before the worker started any upstream I/O), no live
-      worker running, no base snapshot yet (cold path), or an internal
-      assembly/validation/refresh failure that must not publish. Of these,
-      `warnings` may carry `refresh_deadline_exceeded` (endpoint wait elapsed
-      without the command settling), `refresh_command_expired:<symbol>` (the
-      queued command expired before the worker started it; zero upstream I/O),
-      `base_raw_unavailable:<symbol>` (cold path: no base snapshot yet), or
-      `worker_not_running`; the internal failures are recorded only in a
-      server-internal `cmd.error` that is NOT exposed on the response, so a
-      `timeout` can carry no specific reason at all. `timeout` therefore does
-      not prove that only a deadline expired.
-  - `warnings`: array of the reason strings actually serialized on this
-    response. Wire-visible values are the per-source `partial` tokens above
-    (which can also accompany a `timeout` when a command fails after collecting
-    them), plus `refresh_deadline_exceeded`, `refresh_command_expired:<symbol>`,
-    `base_raw_unavailable:<symbol>`, and `worker_not_running`. It is not a
-    complete account of every `timeout`: internal `cmd.error` values are not
-    exposed here (see `refresh_status`).
-  - `row`: a single element projected from the published state, identical in
-    shape to a `snapshot.rows[]` element (see
+    - `timeout`: this request produced no new publication; the (live) row is
+      the previously published (last-good) state. The contract deliberately
+      does not enumerate the possible causes: `warnings` may carry a diagnostic
+      reason string or none at all — internal failure reasons are recorded only
+      in a server-internal `cmd.error` that is NOT exposed on the response.
+      `timeout` therefore does not prove that only a deadline expired.
+  - `warnings`: array of diagnostic reason strings actually serialized for this
+    response. The vocabulary is open-ended and NON-exhaustive: clients must not
+    assume completeness and must not branch on undocumented values; a `timeout`
+    may carry no warning at all. `refresh_status` remains the authoritative
+    outcome field. Non-normative examples seen in practice: the per-source
+    tokens above (which can also accompany a `timeout` when a command fails
+    after collecting them), `refresh_deadline_exceeded`,
+    `refresh_command_expired:<symbol>`, and `worker_not_running`.
+  - `row`: a single element from the mode's row source above (live: the latest
+    `PublishedState.snapshot`; offline: the synchronously built / cached
+    snapshot), identical in shape to a `snapshot.rows[]` element (see
     `snapshot.schema.json#/$defs/row`, incl. `opening_quotes` and the annualized
     funding fields below). There is never a `rows` array on this payload.
 
