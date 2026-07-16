@@ -6,13 +6,25 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `intake`（D-B 已裁决，等待用户排期 Stage A + 决定内容回填顺序）
-- Next action: (1) 用户按 Fable5 裁决排期 **Stage A（模板仓 first）= RC4 分任务指纹
-  + authorized_exception 豁免机制**；(2) 决定本 stage 的内容回填（P0-2/3/4/5/6、
-  P1-8/9/10/11、P2）是现在做，还是随 Stage B 门建立后一并做。D-A 已由 Stage A 解决。
-- Read-set: = `status.current_inputs`（含 `81-harness-design-rootcause-review-fable5.md`）
-- Open blockers: None（等待用户排期，非阻塞）
+- Active phase: `implementation-dispatch`（内容回填已派工，等操作者执行 dispatch）
+- Next action: **操作者在 Claude-GLM 终端执行
+  `15-dispatch-content-backfill.md` 的 PROMPT BODY**；实现者产出
+  `20-implementation.md` + `60-test-output.txt` 后，bookkeeper 提交、算指纹、跑
+  `validate-stage.py --phase pre-review`、路由 review-1(Kimi)→review-2(Codex)。
+- 平行未决（不阻塞本 stage）：用户按 Fable5 裁决排期 **Stage A（模板仓 first）=
+  RC4 分任务指纹 + authorized_exception**（D-A 由此解决）。
+- Read-set: = `status.current_inputs`
+- Open blockers: None
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
+
+## Scope 收敛（本 stage 现在做 vs 延后）
+
+- 现在做（仓内项目文档）：P0-2 契约 annualized+两端点、P0-3 follow-ups 死链、
+  P0-4 DECISIONS source、P1-8 PRD、P1-9 bookticker living-docs 归一、P1-10 日期
+  (PRD/ARCHITECTURE/DEVELOPMENT_GUIDE)、P1-11 dev guide 环境变量+测试。
+- 延后 Stage B（生成化）：P0-5、P1-7(STAGE_INDEX/ROADMAP)、P1-13(manifest)。
+- 延后 Harness 轨（模板仓 first）：P0-6、P2-14、P1-12、P2-16。
+- 由 RC1 门驱动：P2-15(ADR)。 bookkeeper 直接：P2-17(记忆)。
 
 ## Current State
 

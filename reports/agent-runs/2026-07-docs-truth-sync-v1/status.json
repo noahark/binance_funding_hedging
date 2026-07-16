@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "planned",
+  "status": "implementing",
   "workflow": "stage-delivery",
-  "current_phase": "intake",
+  "current_phase": "implementation-dispatch",
   "current_inputs": [
     "reports/agent-runs/2026-07-docs-truth-sync-v1/00-intake.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/00-task.md",
@@ -43,14 +43,21 @@
       "note": "Claude Code session id not exposed to model at runtime; operator may backfill."
     }
   ],
-  "designer": null,
-  "direction_synthesizer": null,
-  "breakdown_author": null,
-  "implementer": null,
-  "implementers": [],
+  "designer": {"provider": "anthropic", "model": "claude-opus-4-8", "role": "bookkeeper-as-designer", "disclosure": "bookkeeper wrote 10-design.md and 12-development-breakdown.md; disclose to review-2 as design involvement (not implementation/fix)."},
+  "direction_synthesizer": {"provider": "four-model-audit+fable5", "note": "direction covered by existing audit + Fable5 verdict"},
+  "breakdown_author": {"provider": "anthropic", "model": "claude-opus-4-8", "note": "bookkeeper; review-2 design-involvement disclosure"},
+  "implementer": "claude_glm",
+  "implementers": [{"id": "claude_glm", "provider": "zhipu_glm", "domain": "backend/contract/data-semantics docs", "dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/15-dispatch-content-backfill.md"}],
   "fix_authors": [],
-  "reviewer_1": null,
-  "reviewer_2": null,
+  "reviewer_1": {"planned": "kimi", "provider": "moonshot", "rule": "cross-review isolation from claude_glm implementer"},
+  "reviewer_2": {"planned": "codex", "provider": "openai", "fallback": "claude (fable5 then opus4.8)", "note": "final gate; bookkeeper design-involvement must be disclosed"},
+  "model_routing": {
+    "implementation_owner": "claude_glm",
+    "excluded_from_implementation": ["codex"],
+    "review_1": "kimi",
+    "review_2_primary": "codex",
+    "parallel": false
+  },
   "r10_checklists": {},
   "tasks": [],
   "complexity": {
@@ -159,6 +166,17 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "user-schedules-stage-A-template-first; decide content-backfill sequencing for this stage",
+  "scope_amendments": [
+    {
+      "at": "2026-07-16T16:19:27Z",
+      "decision": "User approved: run in-repo project-doc content backfill now; leave STAGE_INDEX/ROADMAP for Stage B.",
+      "in_scope_now": ["P0-2", "P0-3", "P0-4", "P1-8", "P1-9", "P1-10(PRD/ARCHITECTURE/DEVELOPMENT_GUIDE only)", "P1-11"],
+      "deferred_to_stage_B": ["P0-5 (STAGE_INDEX cell)", "P1-7 (STAGE_INDEX/ROADMAP missing stages)", "P1-13 (harness-manifest RC7 classification)"],
+      "deferred_to_harness_track_template_first": ["P0-6 (harness-design Deferred)", "P2-14 (harness-design Current Scope)", "P1-12 (AGENTS known-gaps)", "P2-16 (stage-branch-mode/docs-README/phase2)"],
+      "deferred_driven_by_gate": ["P2-15 (ADR promotion, driven by RC1(a) going forward)"],
+      "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
+    }
+  ],
+  "next_action": "operator executes 15-dispatch-content-backfill.md in claude_glm terminal; then bookkeeper commits, computes fingerprint, runs pre-review validator, routes review-1 (kimi)",
   "updated_at": "2026-07-16T16:19:27Z"
 }
