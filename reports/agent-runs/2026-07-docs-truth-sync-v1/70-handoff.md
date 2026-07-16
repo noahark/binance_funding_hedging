@@ -6,14 +6,18 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `fixing`（用户已授权 F7 超限 fix + 豁免 round-4 review-1）
-- Next action: **操作者在 Claude-GLM 终端执行 `47-dispatch-fix-f7-claude-glm.md`**
-  （只改 F7 一段文字，不 commit）。回来后 bookkeeper R4 对账 → 重算指纹 → **直接派
-  Codex review-2（58-...，豁免 Kimi round-4 review-1）**。
-- ⚠️ 用户授权（`status.user_authorizations[0]`）：rework 3→4 超限；豁免 round-4
-  review-1。仍需：Codex review-2 ACCEPT + pre-accept + 用户终审合并。
-- ⚠️ RC4 注意：豁免 round-4 review-1 后，pre-accept 的 `review_1.diff_fingerprint`
-  会落后 round-4 head（假红门），将记为**用户授权的 review-1 豁免**，不伪造指纹。
+- Active phase: `review_2`（round 4；F7 fix 已对账、pre-review PASSED，等 Codex 终审）
+- Next action: **操作者执行 `58-dispatch-review-2-codex-round4.md`（Codex 终审，豁免
+  Kimi review-1）**。ACCEPT→bookkeeper 跑 `--phase pre-accept`→`stage_accepted_waiting_user`
+  （等你终审合并）。REWORK→再报你（已超授权范围）。
+- F7 fix 已对账：6 命令全过（pytest 71 + 前端 80），契约 published_version 改为内部
+  修订号 + 明说 full snapshot 无该字段/无跨请求保证 + schema:5 deferred；F8 bookkeeper 已处理。
+- ⚠️ 用户授权（`status.user_authorizations[0]`）：rework 4（超 max 3）+ 豁免 round-4
+  review-1。review-1 停在 round-3 ACCEPT（568fd41）。
+- ⚠️ RC4 假红门（已知）：pre-accept 时 `review_1.diff_fingerprint(568fd41)` ≠
+  `status.diff_fingerprint(a432284)` 会红——这是授权的 review-1 豁免，将如实记录、
+  不伪造指纹；到时把该假红门连同 stage 一起摆给你终审。
+- 受审范围（新）：`127a600..a432284`，fingerprint `a432284:06ea8e1a…`（pre-review PASSED）。
 - Round-3 结果：Kimi review-1 ACCEPT；Codex review-2 **REWORK**（`50-review-2.md`）。
   - **F7(P1)**：契约称 symbol-snapshot `published_version` 与 full snapshot 同版本，
     但 full snapshot wire schema/响应**无该字段**，客户端无法验证 → 过度承诺（本 stage

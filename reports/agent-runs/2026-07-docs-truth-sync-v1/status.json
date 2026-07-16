@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "fixing",
+  "status": "review_2",
   "workflow": "stage-delivery",
-  "current_phase": "fix-f7-user-authorized-override",
+  "current_phase": "review-2-round-4-user-authorized",
   "user_authorizations": [
     {
       "at": "2026-07-16T22:20:00Z",
@@ -100,11 +100,12 @@
     "note": "kimi final report relayed by operator; kimi CLI session did not persist assistant final text (interrupted mid-generation)."
   },
   "base_sha": "127a600281d60b7332be8aeb9552740a5e8c3254",
-  "head_sha": "568fd4160b67d3b73303134d6f078a6a59bb93d9",
-  "diff_fingerprint": "568fd4160b67d3b73303134d6f078a6a59bb93d9:ec91074df380632652180548168583da1756669a9e63d0077f73041621fc1ffe",
+  "head_sha": "a4322847d831105d587a36f6f5d305586d10c264",
+  "diff_fingerprint": "a4322847d831105d587a36f6f5d305586d10c264:06ea8e1a2bf7e8ffdb4c9bb7df626e6d91b5d0cca7712f824b07874726a15604",
   "prior_fingerprints": [
     {"round": 1, "head_sha": "c72987dc5cfe288e8df887cd14a965a48e93e3f3", "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812", "outcome": "review-2 REWORK (F1/F2/F3); superseded by fix a77a18a"},
-    {"round": 2, "head_sha": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1", "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9", "outcome": "review-1 ACCEPT, review-2 REWORK (F4/F5/F6); superseded by fix 568fd41"}
+    {"round": 2, "head_sha": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1", "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9", "outcome": "review-1 ACCEPT, review-2 REWORK (F4/F5/F6); superseded by fix 568fd41"},
+    {"round": 3, "head_sha": "568fd4160b67d3b73303134d6f078a6a59bb93d9", "diff_fingerprint": "568fd4160b67d3b73303134d6f078a6a59bb93d9:ec91074df380632652180548168583da1756669a9e63d0077f73041621fc1ffe", "outcome": "review-1 (kimi) ACCEPT, review-2 (codex) REWORK (F7/F8) -> human_escalation; user authorized bounded F7 override fix a432284"}
   ],
   "delivery_files_under_review": [
     "docs/api/public-market-contract.md",
@@ -149,7 +150,9 @@
     "reviewer_prior_involvement_notes": "Kimi was one of the four read-only audit models that informed the backlog; did not author design/breakdown/implementation/fix. Provider (Moonshot) is isolated from implementer claude_glm (Zhipu GLM).",
     "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md",
     "round": 3,
-    "note": "Round 3 re-review on fixed fingerprint 568fd41: ACCEPT, no required_fixes. F4/F5 confirmed resolved. Rounds 1-2 archived in review_rounds.",
+    "note": "Latest review-1 is the ROUND-3 ACCEPT on fingerprint 568fd41. Round-4 (F7 fix, head a432284) review-1 was WAIVED by the user (status.user_authorizations[0]) for this bounded single-finding doc fix, so this fingerprint intentionally trails the round-4 head a432284.",
+    "round4_waived": true,
+    "round4_waiver_authority": "user (status.user_authorizations[0])",
     "invalid_json_attempts": 0
   },
   "review_2": {
@@ -158,23 +161,17 @@
     "model": "gpt-5.5",
     "primary_provider": "codex",
     "fallback_provider": "claude",
-    "verdict": "REWORK",
-    "json_schema_valid": true,
-    "diff_fingerprint": "568fd4160b67d3b73303134d6f078a6a59bb93d9:ec91074df380632652180548168583da1756669a9e63d0077f73041621fc1ffe",
-    "round": 3,
-    "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md",
-    "report_capture": "Codex read-only codex exec (resumed session 019f6a94, no file write); recovered verbatim into 50-review-2.md. Round-1 at 51-, round-2 at 52-. RC9.",
-    "findings_summary": [
-      "F7 (P1): contract (P0-2-added symbol-snapshot section) claims published_version is 'same version as the full snapshot', but full snapshot wire schema/response has NO published_version field — no client-verifiable cross-response guarantee. Over-claim; same class as F1/F2/F4. Fix = one paragraph + bullet, disclose symbol-snapshot.schema.json:5 same-version prose as deferred.",
-      "F8 (P2, bookkeeper-owned): 60-test-output c72987d..a77a18a clean claim not reproducible (trailing ws in historical 30-review-1.md); handoff Current State still said planned/intake; ACTIVE.json top-level updated_at trailed. ALL handled by bookkeeper this checkpoint."
-    ],
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "round": 4,
     "reviewer_prior_involvement": "direction_synthesis",
     "reviewer_prior_involvement_notes": "Codex (openai) participated in the read-only four-model audit (direction-level); did NOT author design/breakdown/implementation/fix. Provider-isolated from implementer (zhipu_glm) and designer/breakdown author (Anthropic). reviewer provider != designer provider, so validate-stage.py:720-737 designer-overlap path is not triggered; no override invoked.",
     "design_conflict_override": {
       "used": false,
       "reason": "Not needed: reviewer provider (openai) != designer/breakdown-author provider (anthropic)."
     },
-    "note": "Round 3 = REWORK (F7 P1 doc over-claim + F8 P2 bookkeeper hygiene). rework budget 3/3 reached -> human_escalation_required. F8 fixed by bookkeeper. F7 requires user decision to authorize a rework-limit-override fix.",
+    "note": "Round 4 (user-authorized override fix for F7) re-review on fixed fingerprint a432284. Round-4 review-1 (Kimi) waived by user; going straight to Codex review-2. Rounds 1-3 archived in review_rounds; review-2 raw rounds at 51-/52-/50-.",
     "invalid_json_attempts": 0
   },
   "review_rounds": [
@@ -197,7 +194,7 @@
       "diff_fingerprint": "568fd4160b67d3b73303134d6f078a6a59bb93d9:ec91074df380632652180548168583da1756669a9e63d0077f73041621fc1ffe",
       "review_1": {"reviewer": "kimi", "verdict": "ACCEPT", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md", "note": "no required fixes; F4/F5 confirmed resolved"},
       "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md", "next_action": "human_escalation_required", "findings": ["F7 (P1) contract same-version over-claim vs full-snapshot wire schema (no published_version field)", "F8 (P2, bookkeeper-owned) diff-check non-reproducible note + handoff body + ACTIVE.json timestamp — handled by bookkeeper"]},
-      "fix": {"status": "blocked_on_human_authorization", "reason": "rework budget 3/3 reached; F7 fix requires user authorization to exceed the configured rework limit. F8 handled by bookkeeper."}
+      "fix": {"author": "claude_glm (F7)", "bookkeeper_corrections": "F8", "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md (round-3 section)", "head_after_fix": "a4322847d831105d587a36f6f5d305586d10c264", "status": "done", "authorization": "user-authorized rework-limit override (round 4); round-4 review-1 waived", "verification": "6 fix-prompt commands PASS incl. pytest 71 passed, frontend 80 passed; CMD2 gate grep clean; contract defines published_version as internal PublishedState revision, states full snapshot has no comparable field / no cross-request guarantee, discloses schema:5 deferred; F8 (diff-check reproducibility, handoff body, ACTIVE.json timestamp) applied by bookkeeper"}
     }
   ],
   "linked_decisions": [
@@ -230,21 +227,16 @@
     "verdict": "ACCEPT (direction and evidence hold); corrections F1/F2/F4/F5 required before report serves as D-B basis; cross-cutting R1 mandatory.",
     "report_corrections_applied": ["F1 RC2 citation (STAGE_INDEX obligation is in STAGE_INDEX.md header, not AGENTS.md)", "F2 schema path + follow-ups path", "F4 harness-design.md has no Status date line at all", "F5 symbol-snapshot 2 passing mentions vs funding-history 0"]
   },
-  "rework_count": 3,
+  "rework_count": 4,
   "max_rework": 3,
-  "blockers": [
-    {"id": "F7", "severity": "P1", "owner": "user_decision", "summary": "Contract symbol-snapshot claims published_version 'same as full snapshot', but full snapshot wire schema has no such field — client-unverifiable over-claim (bookkeeper-verified). One-paragraph doc fix, but requires authorization to exceed rework limit 3/3."}
-  ],
+  "rework_over_limit_note": "rework_count 4 exceeds max_rework 3 by explicit user authorization (status.user_authorizations[0]) — a one-time bounded F7 override fix. The earlier human_escalation (rework 3/3) was resolved by that authorization.",
+  "blockers": [],
   "human_escalation": {
-    "required": true,
-    "reason": "rework_limit_reached (3/3): review-2 round-3 REWORK on F7 (P1 doc over-claim). Per AGENTS.md terminal reason #4, a rework-limit hit escalates to the user. Bookkeeper independently verified F7 is a real defect (full snapshot schema/response has 0 published_version; contract's same-version claim was introduced by this stage's P0-2 backfill). F8 (P2 bookkeeper hygiene) already handled. User must choose: (a) authorize one bounded rework-limit-override F7 fix [recommended], (b) knowingly accept F7 as residual + follow-up, (c) abandon/other.",
-    "options": {
-      "a_authorize_override_fix": "Dispatch 47-...(to be created) to claude_glm for F7 only (one paragraph + bullet + schema:5 deferred disclosure); recompute fingerprint; re-review. Recommended: F7 is a real P1 exactly on this stage's doc-truth mission and is cheap.",
-      "b_accept_residual": "Record F7 as a known doc-truth debt + follow-up; move to stage_accepted_waiting_user. Weak: shipping a P1 over-claim contradicts the stage's own purpose.",
-      "c_abandon_or_other": "e.g. abandon stage, or split F7 into a separate tiny stage."
-    }
+    "required": false,
+    "resolved_by": "user authorization of bounded F7 override fix (status.user_authorizations[0])",
+    "prior_reason": "rework_limit_reached (3/3) on F7 P1 doc over-claim (bookkeeper-verified real). F8 P2 handled by bookkeeper."
   },
-  "terminal_reason": "human_escalation_required (rework limit 3/3)",
+  "terminal_reason": null,
   "reporting_preferences": {
     "execution_footer": {
       "include_provider_native_session_id": true,
@@ -265,6 +257,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "User authorized bounded F7 override fix + waived round-4 review-1. Operator executes 47-dispatch-fix-f7-claude-glm.md in claude_glm; then bookkeeper reconciles, recomputes fingerprint, dispatches Codex review-2 directly (58-...). NOTE: waiving round-4 review-1 means review_1.diff_fingerprint will trail the round-4 head — a known RC4 false-red at pre-accept; will be recorded as a user-authorized review-1 waiver, not a faked fingerprint.",
-  "updated_at": "2026-07-16T22:25:00Z"
+  "next_action": "F7 fix reconciled (6 commands PASS, new head a432284, new fingerprint). Operator executes Codex review-2 round-4 (58-...) directly (review-1 waived by user). ACCEPT -> bookkeeper runs pre-accept (review_1 fingerprint will trail head a432284 = known RC4 false-red under authorized review-1 waiver; recorded, not faked) -> stage_accepted_waiting_user -> user final acceptance + merge.",
+  "updated_at": "2026-07-16T22:35:00Z"
 }

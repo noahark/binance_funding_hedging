@@ -166,3 +166,15 @@ $ git diff --check c72987d..a77a18a -- docs/api/public-market-contract.md \
 #   -> clean (the four round-1 delivery-fix files)
 $ git diff --check 127a600..568fd41
 #   -> clean (current round-3 full fixed range)
+
+########################################################################
+## ROUND 3 FIX verification (F7) — user-authorized override; bookkeeper R4
+## fix head a432284; codex round-3 F7 addressed by claude_glm; F8 by bookkeeper
+########################################################################
+CMD1 rg published_version/full snapshot/internal PublishedState/cross-request/wire in contract -> PASS (hits)
+CMD2 gate: rg 'shares the same published_version as the full snapshot|same version as the full snapshot' -> PASS (no matches; banned phrases removed)
+CMD3 pytest funding_history + endpoint + symbol_snapshot_endpoint -> 71 passed
+CMD4 node frontend/self-check.js -> 全部自检通过 (80)
+CMD5 git diff --check -> clean
+CMD6 changed-file boundary -> PASS (contract + append-only 40-fix-report.md only; zero forbidden)
+F7 CHECK: contract defines published_version as internal PublishedState revision; states full snapshot v1 wire payload has no published_version field, no client-verifiable cross-request same-version guarantee; preserves row-from-same-internal-state fact; drift note discloses symbol-snapshot.schema.json:5 same-version prose as deferred.
