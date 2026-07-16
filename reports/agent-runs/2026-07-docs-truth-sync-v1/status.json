@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
-  "current_phase": "fix-after-review-2-rework",
+  "current_phase": "review-1-round-2",
   "current_inputs": [
     "reports/agent-runs/2026-07-docs-truth-sync-v1/00-task.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/10-design.md",
@@ -91,8 +91,11 @@
     "note": "kimi final report relayed by operator; kimi CLI session did not persist assistant final text (interrupted mid-generation)."
   },
   "base_sha": "127a600281d60b7332be8aeb9552740a5e8c3254",
-  "head_sha": "c72987dc5cfe288e8df887cd14a965a48e93e3f3",
-  "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812",
+  "head_sha": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1",
+  "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9",
+  "prior_fingerprints": [
+    {"round": 1, "head_sha": "c72987dc5cfe288e8df887cd14a965a48e93e3f3", "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812", "outcome": "review-2 REWORK; superseded by fix a77a18a"}
+  ],
   "delivery_files_under_review": [
     "docs/api/public-market-contract.md",
     "docs/architecture/ARCHITECTURE.md",
@@ -126,13 +129,13 @@
     "reviewer": "kimi",
     "provider": "moonshot",
     "model": "kimi-code/kimi-for-coding",
-    "verdict": "ACCEPT",
-    "json_schema_valid": true,
-    "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812",
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": "Kimi was one of the four read-only audit models that informed the backlog; did not author design/breakdown/implementation/fix. Provider (Moonshot) is isolated from implementer claude_glm (Zhipu GLM).",
-    "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md",
-    "p1_9_adjudication": "Review-1 accepts leaving bookticker status.json untouched as a frozen accepted-stage audit record (no contradictory tokens present; rewriting notes risks evidence tampering). Living-doc normalization satisfied via handoff + implementation reports.",
+    "round": 2,
+    "note": "Round 2 re-review on fixed fingerprint a77a18a. Prior round-1 verdict archived in review_rounds.",
     "invalid_json_attempts": 0
   },
   "review_2": {
@@ -141,32 +144,28 @@
     "model": "gpt-5.5",
     "primary_provider": "codex",
     "fallback_provider": "claude",
-    "verdict": "REWORK",
-    "json_schema_valid": true,
-    "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812",
-    "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md",
-    "report_capture": "Codex ran read-only codex exec (no file write); bookkeeper recovered raw output verbatim from Codex rollout session 019f6a94-9685-7f80-8b64-cb7ba5798daf and landed 50-review-2.md. Exercises RC9.",
-    "fix_start_prompt_present": true,
-    "fix_start_prompt_source": "codex verdict fix_start_prompt (verbatim in 45-dispatch-fix-claude-glm.md)",
-    "findings_summary": [
-      "F1 (P1): contract funding-history 'empty proves upstream fetch' is false vs snapshot_service pure PublishedState projection; document empty!=success, disclose funding-history.schema.json:34 stale prose as deferred schema-alignment.",
-      "F2 (P1): contract symbol-snapshot ok/partial/timeout enum described narrower than code (premium/history failures also partial; no-worker/no-new-publication also timeout); align to code, warnings carries reasons; disclose symbol-snapshot.schema.json:39 without changing schema.",
-      "F3 (P1): P1-9 normalization incomplete — bookticker status.json:518,653 + 70-handoff:63-66,129 + 20-implementation:79-82 still future/pending; historicize preserving all facts. OVERRULES review-1's leave-status.json decision."
-    ],
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "round": 2,
     "reviewer_prior_involvement": "direction_synthesis",
-    "reviewer_prior_involvement_notes": "Honest disclosure: Codex (openai) participated in the read-only four-model audit that produced the backlog (direction-level input). It did NOT author the stage design, development breakdown, implementation, or any fix. Provider isolation holds on every hard/preferred axis: Codex (openai) differs from the implementer claude_glm (zhipu_glm) and from the designer+breakdown author (Anthropic Opus). Because reviewer provider != designer provider, the validator's designer-overlap evidence-file requirement (validate-stage.py:720-737) does NOT apply; no strong-reviewer override is invoked.",
-    "isolation_analysis": {
-      "vs_implementer": "isolated (openai != zhipu_glm) — hard ban satisfied",
-      "vs_designer_and_breakdown_author": "isolated (openai != anthropic) — preferred isolation satisfied",
-      "vs_direction_audit": "NOT isolated — Codex was one of four read-only audit models; disclosed; dispatch requires independent re-verification against PRD/schema/code truth, not an echo of its own audit"
-    },
+    "reviewer_prior_involvement_notes": "Codex (openai) participated in the read-only four-model audit (direction-level); did NOT author design/breakdown/implementation/fix. Provider-isolated from implementer (zhipu_glm) and designer/breakdown author (Anthropic). reviewer provider != designer provider, so validate-stage.py:720-737 designer-overlap path is not triggered; no override invoked.",
     "design_conflict_override": {
       "used": false,
-      "reason": "Not needed: reviewer provider (openai) does not overlap the designer/breakdown-author provider (anthropic), so validate-stage.py's designer-overlap path is not triggered. The direction-audit participation is disclosed but does not require the override machinery."
+      "reason": "Not needed: reviewer provider (openai) != designer/breakdown-author provider (anthropic)."
     },
-    "verdict_dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/55-dispatch-review-2-codex.md",
+    "note": "Round 2 re-review on fixed fingerprint a77a18a. Prior round-1 REWORK archived in review_rounds.",
     "invalid_json_attempts": 0
   },
+  "review_rounds": [
+    {
+      "round": 1,
+      "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812",
+      "review_1": {"reviewer": "kimi", "verdict": "ACCEPT", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md"},
+      "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md", "findings": ["F1 contract funding-history empty semantics over-claim", "F2 symbol-snapshot ok/partial/timeout narrower than code", "F3 P1-9 incomplete incl. bookticker status.json (overruled review-1)"]},
+      "fix": {"author": "claude_glm", "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md", "head_after_fix": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1", "verification": "7 fix-prompt commands PASS incl. pytest 71 passed; bookticker status.json facts (SHA/fingerprint/verdict/authorization) verified unchanged, only wording historicized"}
+    }
+  ],
   "linked_decisions": [
     {
       "id": "D-A",
@@ -225,6 +224,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "operator executes fix dispatch (45-...) in claude_glm; then bookkeeper reconciles diff, updates 60-test-output, recomputes fingerprint, runs pre-review, and re-dispatches review-1 (kimi) then review-2 (codex) on the fixed range",
-  "updated_at": "2026-07-16T19:05:00Z"
+  "next_action": "operator executes round-2 review-1 (kimi) dispatch (36-...) on fixed range a77a18a; ACCEPT -> review-2 (codex, 56-...); then pre-accept -> stage_accepted_waiting_user",
+  "updated_at": "2026-07-16T19:20:00Z"
 }

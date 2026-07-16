@@ -110,3 +110,16 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-16 16:19:27 CST
 下一步模型: 待 review-1（Kimi）/ review-2（Codex/GPT 或 Claude）
 下一步任务: review-1 逐条核对「文档所述 == schema/server/前端真值」+ 禁改文件 0 改动 + P1-9 归一无残留
+
+########################################################################
+## ROUND 2 — post-fix verification (bookkeeper R4 reconciliation)
+## fix head a77a18a; Codex review-2 REWORK F1/F2/F3 addressed by claude_glm
+########################################################################
+CMD1 python3 -m json.tool bookticker/status.json  -> OK (valid JSON)
+CMD2 rg new semantics prose in contract           -> PASS (pure projection / does not prove / premium_refresh_failed / funding_history_unavailable / worker_not_running / warnings present)
+CMD3 rg old over-claim prose gone from contract    -> PASS (no matches)
+CMD4 rg old future/pending prose gone from bookticker files -> PASS (no matches)
+CMD5 pytest test_funding_history + _endpoint + test_symbol_snapshot_endpoint -> 71 passed in 1.50s
+CMD6 git diff --check                              -> PASS (clean)
+CMD7 changed-file boundary                          -> PASS (contract + bookticker 70-handoff/20-impl/status.json + 40-fix-report.md only; zero forbidden)
+BOOKKEEPER F3 FACT CHECK: bookticker status.json diff is 2 note fields only; status=accepted, user_acceptance=accepted_merged_and_pushed, merged_back_sha=9abad62, diff_fingerprint, review_2 verdict ACCEPT all unchanged.

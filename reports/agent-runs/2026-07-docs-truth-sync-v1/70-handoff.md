@@ -6,20 +6,16 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `fixing`（review-2 Codex = REWORK；rework 1/3；等 fix）
-- Next action: **操作者在 Claude-GLM 终端执行 `45-dispatch-fix-claude-glm.md` 的
-  PROMPT BODY**（Codex fix_start_prompt 原文，修 F1/F2/F3，写 `40-fix-report.md`，
-  不 commit）。fix 回来后 bookkeeper：R4 diff 对账 → 更新 `60-test-output.txt` →
-  重算指纹 → `validate-stage.py --phase pre-review` → **重派 review-1(Kimi) 再
-  review-2(Codex)** 于修复后的范围。
-- review-1：Kimi ACCEPT（`30-review-1.md`）。review-2：Codex REWORK
-  （`50-review-2.md`，schema-valid，指纹匹配）。
-- **三个必修（P1）**：F1 contract funding-history empty 语义过度承诺；F2 symbol-snapshot
-  ok/partial/timeout 语义比代码窄；F3 P1-9 归一不完整（含 bookticker status.json，
-  **review-2 覆盖 review-1 的保留裁决**）。
-- fix 允许文件：`docs/api/public-market-contract.md`、bookticker
-  `70-handoff.md`/`20-implementation.md`/`status.json`、新建 `40-fix-report.md`。
-  禁改本 active stage 的 status/handoff/60-test（bookkeeper-only）与全部代码/schema。
+- Active phase: `review-1`（round 2；fix 已完成并对账，pre-review PASSED，等重审）
+- Next action: **操作者在 Kimi 终端执行 `36-dispatch-review-1-kimi-round2.md`**；
+  ACCEPT→操作者执行 `56-dispatch-review-2-codex-round2.md`（Codex 终审）→ bookkeeper
+  跑 `--phase pre-accept` → `stage_accepted_waiting_user`（等你批准 promote+merge）。
+  任一 REWORK→用其 fix_start_prompt 再派 GLM（rework 账本届时 2/3）。
+- Round 1：Kimi ACCEPT → Codex REWORK（F1/F2/F3）→ GLM fix（已归档
+  `status.review_rounds[0]`）。
+- fix 已对账：7 条验证命令全过（pytest 71 passed）；bookticker status.json 仅措辞
+  历史化、事实零改；F1/F2 契约语义已对齐 `snapshot_service.py`、附 deferred schema 披露。
+- 受审范围（新）：`127a600..a77a18a`，fingerprint `a77a18a:4185db38…`（pre-review PASSED）。
 - 平行未决（不阻塞本 stage）：用户按 Fable5 裁决排期 **Stage A（模板仓 first）=
   RC4 分任务指纹 + authorized_exception**（D-A 由此解决）。
 - Read-set: = `status.current_inputs`
