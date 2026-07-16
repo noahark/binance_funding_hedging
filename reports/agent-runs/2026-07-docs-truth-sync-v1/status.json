@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "review_2",
+  "status": "accepted",
   "workflow": "stage-delivery",
-  "current_phase": "round-6-done-content-clean-awaiting-user-acceptance",
+  "current_phase": "accepted-user-authorized-merge",
   "user_authorizations": [
     {
       "at": "2026-07-16T22:20:00Z",
@@ -345,6 +345,24 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "Codex round-6 = REWORK but content CLEAN (F13/F14 resolved, no P1/contract findings); only F16/F17 P2 bookkeeper-ledger, FIXED by opus4.8 this checkpoint. HUMAN DECISION: (A) accept now [recommended] -> bookkeeper runs pre-accept (known RC4 review_1-fingerprint false-red under authorized waiver, recorded not faked) -> stage_accepted_waiting_user -> user merges; or (B) one more Codex confirm-round on the unchanged delivery fingerprint d59f823 to convert REWORK->ACCEPT on record.",
-  "updated_at": "2026-07-16T23:20:00Z"
+  "pre_accept": {
+    "validator": "scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-accept",
+    "result": "FAILED (fail-closed) — 3 assertions, all knowingly overridden by explicit user acceptance; NONE faked:",
+    "overridden_assertions": [
+      "status must be accepted/stage_accepted_waiting_user — mechanical, satisfied by this acceptance transition.",
+      "review_1.diff_fingerprint must match status.diff_fingerprint — RC4 false-red: review-1 was user-waived since round 4 (status.user_authorizations[0]), so it stays at round-3 568fd41 and cannot match the round-6 head d59f823. NOT faked; recorded as an authorized review-1 waiver.",
+      "review_2.verdict must be ACCEPT — Codex round-6 formal verdict is REWORK, but the reviewer explicitly confirmed the delivery CONTENT is clean (F13/F14 resolved, no P1, no contract findings); the REWORK was entirely P2 bookkeeper-ledger (F16/F17), already fixed. Verdict NOT rewritten; user knowingly accepts on the content-clean basis."
+    ],
+    "note": "This is the exact RC4 defect Stage A's authorized_exception mechanism is meant to encode. Until that lands, the validator cannot express a user-authorized review-1 waiver or a content-clean/ledger-only REWORK, so pre-accept stays red and the override is documented here instead of faked."
+  },
+  "user_acceptance": {
+    "status": "accepted_merge_and_push_authorized",
+    "accepted_at": "2026-07-17T00:50:00Z",
+    "instruction_verbatim": "接受 stage，推送合并吧",
+    "basis": "Codex round-6 confirmed delivery content clean (F13/F14 resolved, no P1/contract findings); 6 review rounds all resolved; F16/F17 bookkeeper-ledger fixed. User informed of the RC4 red pre-accept gate and accepted anyway.",
+    "authorizes": ["fast-forward merge stage/2026-07-docs-truth-sync-v1 to main", "push main"],
+    "overrides": "pre-accept validator (3 assertions above); no evidence faked."
+  },
+  "next_action": "Bookkeeper: set status=accepted, fast-forward merge to main, push, then set ACTIVE active=null / last_completed. STAGE_INDEX/ROADMAP registration deferred to Stage B generation (per scope amendment).",
+  "updated_at": "2026-07-17T00:50:00Z"
 }

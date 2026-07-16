@@ -6,8 +6,9 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `review_2` round 6 done → **awaiting user acceptance decision**
-  (content clean; only bookkeeper ledger items remained, now fixed).
+- Active phase: `accepted` → user authorized fast-forward merge to main + push
+  (content clean; F16/F17 ledger fixed; RC4 pre-accept red overridden by explicit
+  user acceptance, not faked — see `status.pre_accept` / `status.user_acceptance`).
 - Reviewed delivery fingerprint: `127a600..d59f823` /
   `d59f8234c4134e26843abeca6019b3e13a4062bd:361be6984dcc210dd77b952054b844a9ef865c8324394b1a83b69dbf0f35ea84`
   (pre-review PASSED; anchored — later bookkeeper commits do not move it).
