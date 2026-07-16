@@ -1,0 +1,150 @@
+{
+  "stage_id": "2026-07-docs-truth-sync-v1",
+  "status": "planned",
+  "workflow": "stage-delivery",
+  "current_phase": "intake",
+  "current_inputs": [
+    "reports/agent-runs/2026-07-docs-truth-sync-v1/00-intake.md",
+    "reports/agent-runs/2026-07-docs-truth-sync-v1/00-task.md",
+    "reports/agent-runs/2026-07-docs-truth-sync-v1/80-harness-design-rootcause.md",
+    "reports/agent-runs/2026-07-docs-truth-sync-v1/70-handoff.md"
+  ],
+  "stage_branch": {
+    "name": "stage/2026-07-docs-truth-sync-v1",
+    "created_from_main_sha": "127a600281d60b7332be8aeb9552740a5e8c3254",
+    "created_at": "2026-07-16T06:33:56Z",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "claude-code-opus-4-8",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "embedded_reviews": {},
+  "session_receipts": [
+    {
+      "role": "bookkeeper",
+      "provider": "anthropic",
+      "model": "claude-opus-4-8",
+      "session_id": "unavailable",
+      "session_id_source": "unavailable",
+      "note": "Claude Code session id not exposed to model at runtime; operator may backfill."
+    }
+  ],
+  "designer": null,
+  "direction_synthesizer": null,
+  "breakdown_author": null,
+  "implementer": null,
+  "implementers": [],
+  "fix_authors": [],
+  "reviewer_1": null,
+  "reviewer_2": null,
+  "r10_checklists": {},
+  "tasks": [],
+  "complexity": {
+    "classification": "MEDIUM",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "Documentation and stage-ledger truth-sync only; no product code or contract behavior change.",
+      "Direction input provided by a four-model read-only audit (codex/grok/claude-glm/kimi) plus local bookkeeper re-verification; equivalent to an existing synthesis.",
+      "User explicitly approved opening this stage on the lightweight route."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": "four-model-audit+bookkeeper",
+    "status": "covered_by_existing",
+    "user_approved": true
+  },
+  "audit_sources": {
+    "codex": "019f698c-fe76-7a93-8b0f-4a2a980f0bf0",
+    "grok": "019f698d-3684-7840-8404-dacc837f1b23",
+    "claude_glm": "66ecab0d-8ab7-4830-9c30-bb89c7bf33be",
+    "kimi": "session_7dd224db-3b22-4383-a85f-e0b7db9b2cbe",
+    "note": "kimi final report relayed by operator; kimi CLI session did not persist assistant final text (interrupted mid-generation)."
+  },
+  "base_sha": "127a600281d60b7332be8aeb9552740a5e8c3254",
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "changed_files": [],
+  "tests": {
+    "status": "not_applicable",
+    "commands": [],
+    "note": "Documentation-only stage; deterministic re-checks are grep/validator assertions listed in 00-task.md Acceptance Criteria."
+  },
+  "review_1": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "reviewer_prior_involvement": "none",
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": null,
+    "provider": null,
+    "model": null,
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "reviewer_prior_involvement": "none",
+    "invalid_json_attempts": 0
+  },
+  "linked_decisions": [
+    {
+      "id": "D-A",
+      "topic": "bookticker pre-accept validator red gate (P0-1)",
+      "options": ["re-review Task C and recompute review-1 fingerprint", "encode user-authorized fast-route exception in Harness", "knowingly accept as one-off historical exception and record it"],
+      "owner": "user",
+      "status": "open"
+    },
+    {
+      "id": "D-B",
+      "topic": "adopt Harness process changes from 80-harness-design-rootcause.md",
+      "note": "Harness contract change; template-repo first + strong review (Fable5). Operator routes.",
+      "owner": "user",
+      "status": "open"
+    }
+  ],
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "reporting_preferences": {
+    "execution_footer": {
+      "include_provider_native_session_id": true,
+      "include_session_id_source": true,
+      "include_raw_output_path": true,
+      "unknown_session_id_policy": "write unavailable with reason; never invent",
+      "session_id_is_navigation_only": true
+    }
+  },
+  "next_action": "human-review-backlog-and-rootcause",
+  "updated_at": "2026-07-16T06:33:56Z"
+}
