@@ -6,10 +6,13 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `review_2`（round 5 待派发；round-4 REWORK 的 F9/F10 fix 已由
-  Fable5 提交并对账，等用户裁决评审路由）
-- Next action: **用户裁决 round-5 评审路由**（见下"路由约束"），然后对新指纹派 review。
+- Active phase: `review_2`（round 5；用户裁定派 **Codex** 再审；opus4.8 转 bookkeeper）
+- Next action: **操作者执行 `59-dispatch-review-2-codex-round5.md`（Codex 终审）**。
   ACCEPT→bookkeeper 跑 `--phase pre-accept`→`stage_accepted_waiting_user`→用户终审合并。
+  REWORK→报用户（rework 已两次超限）。
+- ✅ 路由约束已解：用户选 **Codex(openai)**（非 opus4.8），与所有 fix author
+  （zhipu_glm、fable5/anthropic）跨厂商 → `validate-stage.py:717-718` 身份门通过；
+  之前担心的 anthropic 身份红门因 opus4.8 不再是 reviewer 而消解。opus4.8 恢复 bookkeeper。
 - 受审范围（新）：`127a600..e214d6f`，fingerprint
   `e214d6f819d76daa3b85865c1021b5aa2497ee95:d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e`。
 - ⚠️ **路由约束（用户待决）**：用户曾表示 opus4.8 做下一轮 review，但

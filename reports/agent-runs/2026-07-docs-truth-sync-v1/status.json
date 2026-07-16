@@ -83,7 +83,7 @@
       "model": "codex/gpt-5.5",
       "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf",
       "session_id_source": "runtime_env CODEX_THREAD_ID, self-reported in round-4 output; rounds 3-4 ran in this resumed session. Round-1/2 session ids unavailable.",
-      "note": "Raw outputs: 51-review-2-round1.md, 52-review-2-round2.md, 53-review-2-round3.md, 50-review-2.md (round 4, recovered verbatim from local codex rollout jsonl)."
+      "note": "Raw outputs: 51-review-2-round1.md, 52-review-2-round2.md, 53-review-2-round3.md, 54-review-2-round4.md (recovered verbatim from local codex rollout jsonl). Round 5 (pending) will land at 50-review-2.md."
     },
     {
       "role": "fix_author_round_4_and_acting_bookkeeper",
@@ -212,7 +212,8 @@
       "used": false,
       "reason": "Not needed: reviewer provider (openai) != designer/breakdown-author provider (anthropic)."
     },
-    "note": "Round 5 pending user routing decision. User stated opus4.8 will review the fable5 round-4 fix (head e214d6f), BUT validate-stage.py:717-718 hard-forbids review_2 provider == any fix-author provider with NO override: fable5 (anthropic) is now a fix author, so a formal review_2 by opus4.8 (anthropic) would permanently red the identity gate. Reviewer/verdict/fingerprint left null until the user picks: (a) opus4.8 informal user-side review + codex formal review_2 on e214d6f, or (b) knowingly accept a permanent red gate. Rounds 1-4 archived in review_rounds; raw at 51-/52-/53-/50-.",
+    "note": "Round 5 routing RESOLVED by user: dispatch Codex (not opus4.8) for another review. This cleanly satisfies validate-stage.py:717-718 — Codex (openai) differs from every fix-author provider (claude_glm=zhipu_glm, fable5=anthropic); the anthropic identity-gate concern is moot because opus4.8 is NOT reviewing. Target: committed range 127a600..e214d6f, fingerprint e214d6f:d93ff6d4 (validator-confirmed; later bookkeeping commits do not move the anchored fingerprint). Dispatch packet: 59-dispatch-review-2-codex-round5.md. Rounds 1-4 archived in review_rounds; raw at 51-/52-/53-/54-. Round-5 raw will land at 50-review-2.md.",
+    "verdict_dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/59-dispatch-review-2-codex-round5.md",
     "invalid_json_attempts": 0
   },
   "review_rounds": [
@@ -220,7 +221,7 @@
       "round": 1,
       "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812",
       "review_1": {"reviewer": "kimi", "verdict": "ACCEPT", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md"},
-      "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md", "findings": ["F1 contract funding-history empty semantics over-claim", "F2 symbol-snapshot ok/partial/timeout narrower than code", "F3 P1-9 incomplete incl. bookticker status.json (overruled review-1)"]},
+      "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/51-review-2-round1.md", "findings": ["F1 contract funding-history empty semantics over-claim", "F2 symbol-snapshot ok/partial/timeout narrower than code", "F3 P1-9 incomplete incl. bookticker status.json (overruled review-1)"]},
       "fix": {"author": "claude_glm", "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md", "head_after_fix": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1", "verification": "7 fix-prompt commands PASS incl. pytest 71 passed; bookticker status.json facts (SHA/fingerprint/verdict/authorization) verified unchanged, only wording historicized"}
     },
     {
@@ -234,14 +235,14 @@
       "round": 3,
       "diff_fingerprint": "568fd4160b67d3b73303134d6f078a6a59bb93d9:ec91074df380632652180548168583da1756669a9e63d0077f73041621fc1ffe",
       "review_1": {"reviewer": "kimi", "verdict": "ACCEPT", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md", "note": "no required fixes; F4/F5 confirmed resolved"},
-      "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md", "next_action": "human_escalation_required", "findings": ["F7 (P1) contract same-version over-claim vs full-snapshot wire schema (no published_version field)", "F8 (P2, bookkeeper-owned) diff-check non-reproducible note + handoff body + ACTIVE.json timestamp — handled by bookkeeper"]},
+      "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/53-review-2-round3.md", "next_action": "human_escalation_required", "findings": ["F7 (P1) contract same-version over-claim vs full-snapshot wire schema (no published_version field)", "F8 (P2, bookkeeper-owned) diff-check non-reproducible note + handoff body + ACTIVE.json timestamp — handled by bookkeeper"]},
       "fix": {"author": "claude_glm (F7)", "bookkeeper_corrections": "F8", "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md (round-3 section)", "head_after_fix": "a4322847d831105d587a36f6f5d305586d10c264", "status": "done", "authorization": "user-authorized rework-limit override (round 4); round-4 review-1 waived", "verification": "6 fix-prompt commands PASS incl. pytest 71 passed, frontend 80 passed; CMD2 gate grep clean; contract defines published_version as internal PublishedState revision, states full snapshot has no comparable field / no cross-request guarantee, discloses schema:5 deferred; F8 (diff-check reproducibility, handoff body, ACTIVE.json timestamp) applied by bookkeeper"}
     },
     {
       "round": 4,
       "diff_fingerprint": "a4322847d831105d587a36f6f5d305586d10c264:06ea8e1a2bf7e8ffdb4c9bb7df626e6d91b5d0cca7712f824b07874726a15604",
       "review_1": {"reviewer": "kimi", "verdict": null, "waived": true, "waiver_authority": "user (status.user_authorizations[0])"},
-      "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md", "next_action": "human_escalation_required", "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf", "findings": ["F9 (P1) offline published_version 0 still described as a PublishedState revision (offline creates none)", "F10 (P1) wire-visible warnings list omits refresh_command_expired:<symbol>", "F11 (P2, bookkeeper) handoff body still at round-3 escalation/intake-era next steps", "F12 (P2, bookkeeper) session_receipts missing completed models; fix_authors missing round-3"]},
+      "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/54-review-2-round4.md", "next_action": "human_escalation_required", "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf", "findings": ["F9 (P1) offline published_version 0 still described as a PublishedState revision (offline creates none)", "F10 (P1) wire-visible warnings list omits refresh_command_expired:<symbol>", "F11 (P2, bookkeeper) handoff body still at round-3 escalation/intake-era next steps", "F12 (P2, bookkeeper) session_receipts missing completed models; fix_authors missing round-3"]},
       "fix": {"author": "fable5 (F9/F10; user re-route, status.user_authorizations[1])", "bookkeeper_corrections": "F11/F12 by fable5 as acting bookkeeper (opus4.8 slated to review, must not reconcile the round it reviews)", "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md (Round-4 section)", "head_after_fix": "e214d6f819d76daa3b85865c1021b5aa2497ee95", "status": "done", "authorization": "second user rework-limit override (rework 5)", "verification": "6 fix-prompt commands PASS incl. pytest 71 passed, frontend 80 passed, json.tool OK, diff-check clean, only contract + append-only fix report changed; F9 independently re-verified against snapshot_service.py:344-393; F10 re-verified against :1389-1393/:352-353, PLUS reviewer-missed base_raw_unavailable:<symbol> (:1400-1404, same serialization path) added to the contract to avoid a round-6 repeat"}
     }
   ],
@@ -305,6 +306,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "Round-4 REWORK captured verbatim (50-review-2.md); fable5 F9/F10 fix committed (e214d6f) and reconciled with F11/F12; new fingerprint recorded; pre-review validator evidence at 62-validate-pre-review.txt. User decides round-5 review routing: opus4.8 (anthropic) as formal review_2 would permanently red the validate-stage.py:717-718 identity gate (fable5/anthropic is now a fix author; no override exists) — recommended: opus4.8 informal user-side review + codex formal review_2 on e214d6f. Then pre-accept (known review_1 fingerprint trail under authorized waiver) -> stage_accepted_waiting_user -> user final acceptance + merge.",
+  "next_action": "Round-5 review routing resolved (user: dispatch Codex). Operator executes 59-dispatch-review-2-codex-round5.md (codex review-2 on 127a600..e214d6f / e214d6f:d93ff6d4; review-1 still waived). ACCEPT -> bookkeeper runs pre-accept (known review_1-fingerprint trail under authorized waiver = RC4 false-red, recorded not faked) -> stage_accepted_waiting_user -> user final acceptance + merge. REWORK -> report to user (rework already well over limit by two authorizations).",
   "updated_at": "2026-07-16T23:20:00Z"
 }
