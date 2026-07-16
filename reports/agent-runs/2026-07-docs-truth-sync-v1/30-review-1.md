@@ -1,110 +1,114 @@
-# Review-1 Report — 2026-07-docs-truth-sync-v1
+# Review-1 Report — 2026-07-docs-truth-sync-v1 (round 2)
 
-Reviewer: Kimi (`kimi-code/kimi-for-coding`)  
-Role: review-1 (cross-review isolation from implementer `claude_glm`)  
-Provider: Moonshot  
+Reviewer: Kimi (`kimi-code/kimi-for-coding`)
+Role: review-1 round 2 (cross-review isolation from implementer `claude_glm`)
+Provider: Moonshot
 Read-only: no files modified.
 
 ## Scope Reviewed
 
-- Committed delivery range: `127a600281d60b7332be8aeb9552740a5e8c3254..c72987dc5cfe288e8df887cd14a965a48e93e3f3`
-- `diff_fingerprint` (pre-review validated, used as-given):
-  `c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812`
-- Delivery files under review (8):
+- Fixed delivery range: `git diff 127a600281d60b7332be8aeb9552740a5e8c3254..a77a18aa069ecc236c8448b8bdced40ea53bdeb1`
+- `diff_fingerprint` (bookkeeper pre-review PASS, used as-given):
+  `a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9`
+- Round 1 (`c72987d`) was ACCEPT by Kimi but REWORK by review-2 (Codex) for F1/F2/F3; claude_glm fixed and the new head is `a77a18a`. This report overwrites round-1's `30-review-1.md`; round-1 verdict is archived in `status.json.review_rounds[0]`.
+- Delivery files changed by the fix (4):
   - `docs/api/public-market-contract.md`
-  - `docs/product/PRD.md`
-  - `docs/development/DEVELOPMENT_GUIDE.md`
-  - `docs/planning/DECISIONS.md`
-  - `docs/architecture/ARCHITECTURE.md`
-  - `reports/follow-ups/README.md`
+  - `reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json`
   - `reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md`
   - `reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md`
+- All 8 original delivery files remain within the Allowed set; no Forbidden path was touched.
 - Background/task artifacts read:
-  - `00-task.md`, `10-design.md`, `12-development-breakdown.md`, `20-implementation.md`, `60-test-output.txt`, `62-validate-pre-review.txt`
+  - `00-task.md`, `10-design.md`, `12-development-breakdown.md`, `20-implementation.md`
+  - `40-fix-report.md` (fix mapping), `50-review-2.md` (Codex REWORK verdict)
+  - `60-test-output.txt`, `62-validate-pre-review.txt`
 - Truth references sampled:
   - `schemas/api/public-market/{snapshot,funding-history,symbol-snapshot}.schema.json`
-  - `backend/app/server.py`, `backend/config.py`
-  - `backend/tests/test_funding_history.py`, `backend/tests/test_funding_history_endpoint.py`
-  - `scripts/service-control.py`, `frontend/index.html`
+  - `backend/services/snapshot_service.py`
+  - `backend/tests/test_funding_history.py`, `backend/tests/test_funding_history_endpoint.py`, `backend/tests/test_symbol_snapshot_endpoint.py`
+  - `backend/app/server.py`, `backend/config.py`, `scripts/service-control.py`, `frontend/index.html`
 
-## Checklist Findings
+## Round-2 Fix Verification
 
-### 1. Contract vs schema consistency — PASS
+### F1 — funding-history `empty` no longer over-claims upstream success — PASS
 
-`docs/api/public-market-contract.md` now contains:
+`docs/api/public-market-contract.md` now states:
 
-- `### GET /api/public-market/funding-history` with required fields matching `funding-history.schema.json` exactly:
-  `schema_version`, `symbol`, `data_time`, `history_status`, `funding_history`, `annualized_funding_7d`, `annualized_funding_30d`.
-- Explicit statement that `annualized_funding_24h` is **not** on this payload — consistent with schema (the field is absent).
-- `### GET /api/public-market/symbol-snapshot` with required fields matching `symbol-snapshot.schema.json`:
-  `schema_version`, `symbol`, `published_version`, `data_time`, `generated_at`, `refresh_status`, `warnings`, `row`.
-  `refresh_status` enum `ok | partial | timeout` matches schema; `row` is a single projected snapshot row, never a `rows` array.
-- `### Annualized funding fields (row-level, as-built)` describing `annualized_funding_24h/7d/30d` semantics matching `snapshot.schema.json#/$defs/row` descriptions (24h estimate-derived = `daily_funding_rate × 365`; 7d/30d settled calendar-window sums; null semantics; estimate/settled never mixed).
-- Endpoint paths match `backend/app/server.py` route table (`/api/public-market/snapshot`, `/api/public-market/symbol-snapshot`, `/api/public-market/funding-history`).
+> `funding_history`: newest-first settled records inside the inclusive 30-day window ending at `data_time`; each item `{funding_time (ms int ≥0), funding_rate (decimal string)}`. This payload is a **pure projection of the already-published snapshot row**: the endpoint issues no upstream fetch for this request — it reads `funding_history` straight from the published state and sets `history_status` to `empty` whenever that list has no entries. `empty` therefore means only "no settled records in the published row"; it **does not prove** that this request (or any prior fetch) succeeded.
 
-No schema-nonexistent fields, endpoints, or parameters were introduced.
+This matches `snapshot_service.py:259-315` (`get_funding_history` / `_project_funding_history`), which performs zero upstream fetch and zero cache write, and `backend/tests/test_funding_history_endpoint.py:238-250` (`test_non_default_symbol_projects_when_present`), where an un-prewarmed symbol returns `200` / `history_status == "empty"` without any on-demand fetch.
 
-### 2. PRD as-built truthfulness — PASS
+The contract also discloses the deferred schema-prose drift at `funding-history.schema.json:34`, consistent with the docs-only boundary.
 
-`docs/product/PRD.md`:
+### F2 — symbol-snapshot `ok/partial/timeout` now covers actual service behavior — PASS
 
-- Removed the "Manual open preview: simulation only" existing-UI language and replaced it with an as-built opening-spread display description using `opening_quotes` / `forward_spread_pct` / `reverse_spread_pct`.
-- Added as-built mentions of the serial background refresh worker, `opening_quotes`, annualized funding columns, settled 7D/30D + estimate 24h, and the macOS launchd agent `com.aoke.funding-hedging.server` managed by `scripts/service-control.py`.
-- Split "Technology Direction" into as-built (stdlib `http.server` + static frontend) vs future (asyncio / React / TS) layers.
-- `frontend/index.html` confirms there is no order/open/borrow/transfer ticket; the only "开仓" reference is the `<th>开仓价</th>` / opening-spread column header.
+`docs/api/public-market-contract.md` now describes:
 
-### 3. Dead-link / retired wording — PASS
+- `ok`: a fresh publication completed with no per-source `warnings`.
+- `partial`: a fresh publication completed but at least one source emitted a `warnings` entry (`premium_refresh_failed:<symbol>`, `funding_history_unavailable:<symbol>`, `borrow_rate_refresh_failed:<asset>`, `max_borrowable_refresh_failed:<asset>`). A `partial` does NOT imply public/history figures are fresh.
+- `timeout`: no fresh publication was produced; row is projected from the previously published (last-good) state. Triggers include shared deadline (`refresh_deadline_exceeded`), no live worker (`worker_not_running`), and assembly/validation failures (`assemble_failed`, `validation_crossed_deadline`). A `timeout` does not prove only a deadline expired.
+- `warnings`: array of source-specific reason strings.
 
-- `reports/follow-ups/README.md` no longer frames `docs/auto-review-pipeline.md` / `scripts/auto-review-runner.py` as current normative contract; it now reads "retired by DEC-2026-07-14-002" and "deleted".
-- `docs/planning/DECISIONS.md` adds historical parentheticals to DEC-2026-07-14-001 Source entries pointing to the deleted files and to DEC-2026-07-14-002.
+This matches `snapshot_service.py`:
+- `:1527` — `cmd.refresh_status = "partial" if warnings else "ok"`.
+- `:1420-1437` — premium/history failures append `premium_refresh_failed` / `funding_history_unavailable`.
+- `:1446-1461` — borrow/max_borrowable failures append `borrow_rate_refresh_failed` / `max_borrowable_refresh_failed`.
+- `:347-359` — worker not running → `timeout` + `worker_not_running`; deadline exceeded → `timeout` + `refresh_deadline_exceeded`.
+- `:1397-1404, 1408-1411, 1465-1470, 1497-1502, 1514-1519, 1529-1533, 1535-1538` — base not ready, symbol not eligible, I/O post-deadline, assemble/validation failures all result in `timeout` without publishing.
 
-### 4. File boundaries — PASS
+And matches `backend/tests/test_symbol_snapshot_endpoint.py:252-270` (`test_history_failure_yields_partial_status`, `test_premium_failure_yields_partial_status`).
 
-`git diff --name-only 127a600..c72987d` lists exactly 8 delivery files, all within the Allowed set. No Forbidden paths were touched:
-`STAGE_INDEX.md`, `ROADMAP.md`, `harness-manifest.yaml`, `docs/harness-design.md`, `AGENTS.md`, `docs/planning/stage-branch-mode.md`, `docs/README`, `docs/architecture/ADR/`, and all `backend/` / `frontend/` / `schemas/` / `scripts/` code remain unchanged.
+The contract also discloses the deferred schema-prose drift at `symbol-snapshot.schema.json:39`, consistent with the docs-only boundary.
 
-### 5. P1-9 bookticker living-docs normalization — PASS
+### F3 — bookticker living-docs now historicized — PASS
 
-- `70-handoff.md` and `20-implementation.md` no longer contain contradictory intermediate-state tokens (`Formal review has not started`, `pending`, `awaiting`, `waiting for`, etc.).
-- `status.json` was not modified. A direct grep for pending/awaiting/waiting/not-started tokens in the current `status.json` returns no matches; the file records `status: accepted`, `user_acceptance: accepted_merged_and_pushed`, and complete `merge_result` / `review_2` ACCEPT data.
+`reports/agent-runs/2026-07-bookticker-open-columns-v1/{status.json,70-handoff.md,20-implementation.md}` no longer contain future/pending/current-tense wording that contradicts the accepted/merged/pushed state. Direct grep for the prior problematic phrases returns no matches in the fixed files.
 
-### 6. Adjudication of P1-9 boundary divergence — RESOLVED
+Verified that only two `status.json` note fields were changed (lines 518 and 653); all audit facts remain unchanged:
+- `status`: `accepted`
+- `user_acceptance`: `accepted_merged_and_pushed`
+- `merge_result.merged_back_sha`: `9abad62f...`
+- `review_2.verdict`: `ACCEPT`
+- `diff_fingerprint` and Session IDs preserved.
 
-Design P1-9 named `status.json` as a living-doc to normalize, but the implementer left it unchanged. Review-1 adjudicates:
+## Regression Check on Original 6 Acceptance Criteria
 
-- The bookticker stage `status.json` is a frozen accepted-stage audit record (`status: accepted`, `user_acceptance: accepted_merged_and_pushed`).
-- It contains no contradictory intermediate-state tokens.
-- Rewriting its historical notes would risk tampering with accepted-stage audit evidence.
-- Therefore, leaving `status.json` untouched is the correct boundary decision; the living-doc normalization requirement is satisfied by updating the handoff and implementation reports while preserving the accepted record verbatim.
+All original backfill acceptance criteria from round-1 remain satisfied and were not regressed by the fix:
 
-## Mechanical Assertions
+1. `grep -c annualized docs/api/public-market-contract.md` = 7 (> 0). PASS.
+2. Independent `funding-history` and `symbol-snapshot` endpoint section titles present. PASS.
+3. `reports/follow-ups/README.md` no longer frames auto-review-pipeline as current normative contract. PASS.
+4. `docs/product/PRD.md` no longer describes simulation-only manual-open as existing UI. PASS.
+5. `docs/development/DEVELOPMENT_GUIDE.md` documents `test_funding_history*.py`, `APP_BACKGROUND_REFRESH_*`, `APP_FUNDING_HISTORY_CACHE_TTL_SECONDS`. PASS.
+6. No Forbidden paths touched (diff contains only Allowed delivery files + stage metadata). PASS.
 
-All 6 acceptance assertions in `60-test-output.txt` passed:
+## Mechanical Verification
 
-1. `grep -c annualized docs/api/public-market-contract.md` = 7 (> 0).
-2. Independent `funding-history` and `symbol-snapshot` endpoint section titles present in contract.
-3. `reports/follow-ups/README.md` no longer contains "current normative" / "delivered on main" framing for auto-review-pipeline.
-4. `docs/product/PRD.md` no longer contains "simulation-only" existing-UI wording.
-5. `docs/development/DEVELOPMENT_GUIDE.md` documents `test_funding_history*.py`, `APP_BACKGROUND_REFRESH_*`, `APP_FUNDING_HISTORY_CACHE_TTL_SECONDS`.
-6. No Forbidden paths appear in the diff.
-
-`scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review` returned PASS with the expected fingerprint.
+- `scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review` (round 2): PASS with fingerprint `a77a18a:4185db38…`.
+- Fix-author verification commands (re-run as spot-checks):
+  - `python3 -m json.tool reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json` — valid JSON.
+  - `rg` for new semantics prose (`pure projection`, `does not prove`, `premium_refresh_failed`, `funding_history_unavailable`, `worker_not_running`, `warnings`) in contract — all present.
+  - `rg` for old over-claim prose in contract — no matches.
+  - `rg` for old future/pending prose in bookticker files — no matches.
+  - `python3 -m pytest backend/tests/test_funding_history.py backend/tests/test_funding_history_endpoint.py backend/tests/test_symbol_snapshot_endpoint.py -q` — 71 passed.
+  - `git diff --check 127a600..a77a18a` — clean (no trailing whitespace/conflict markers).
+  - `git diff --name-only 127a600..a77a18a` — only Allowed paths (contract + 3 bookticker living-docs + this stage's metadata; no backend/frontend/schema/script or deferred Harness-track files).
 
 ## Residual Risks / Notes
 
-- This stage deliberately deferred `STAGE_INDEX.md`, `ROADMAP.md`, `harness-manifest.yaml`, `docs/harness-design.md`, `AGENTS.md`, `docs/planning/stage-branch-mode.md`, `docs/README`, and `docs/architecture/ADR/` to Stage B or the Harness track. Review-1 confirms none of these were touched.
-- The current repository HEAD (`e5491a5`) includes two bookkeeper chore commits after the implementation head (`c72987d`). Those commits only add stage metadata (`status.json`, `70-handoff.md`, `62-validate-pre-review.txt`, `35-dispatch-review-1-kimi.md`) and do not alter the 8 delivery files. The review verdict uses the pre-review-validated fingerprint anchored at `c72987d`.
+- `funding-history.schema.json:34` and `symbol-snapshot.schema.json:39` prose descriptions remain narrower than the as-built server/test behavior. The contract explicitly discloses this as a deferred schema-alignment item; this stage does not alter schemas, per its Non-Goals.
+- Stage B / Harness-track files (`STAGE_INDEX.md`, `ROADMAP.md`, `harness-manifest.yaml`, `docs/harness-design.md`, `AGENTS.md`, `docs/planning/stage-branch-mode.md`, `docs/README`, `docs/architecture/ADR/`) remain untouched, as required.
+- The current repository HEAD (`f9d6447`) includes bookkeeper chore commits after the implementation/fix head (`a77a18a`). Those commits only add stage metadata (`status.json`, `70-handoff.md`, `62-validate-pre-review.txt`, dispatch packets) and do not alter the 8 delivery files. The review verdict uses the pre-review-validated fingerprint anchored at `a77a18a`.
 
 ## Verdict
 
-ACCEPT. The documentation backfill is consistent with schema, code, and frontend truth; file boundaries are respected; P1-9 normalization is complete; and the residual `status.json` boundary question is resolved in favor of preserving accepted-stage audit evidence.
+ACCEPT. F1, F2, and F3 from review-2 REWORK have been correctly addressed; the documentation now matches schema, server, and test truth; file boundaries are respected; and the residual schema-prose drift is properly disclosed as deferred.
 
 当前 Session ID: unavailable (Kimi CLI provider-native Session ID not exposed to model at runtime)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md
-本地北京时间: 2026-07-16 18:14:45 CST
+本地北京时间: 2026-07-16 19:46:44 CST
 下一步模型: review-2 (Codex/GPT primary; Claude Fable5/Opus4.8 fallback)
-下一步任务: 执行 final review 并产出 schema-valid JSON verdict
+下一步任务: 执行 round-2 final review 并产出 schema-valid JSON verdict
 
 ```json
 {
@@ -113,9 +117,9 @@ Session ID 来源: unavailable
   "role": "first_reviewer",
   "model": "kimi",
   "verdict": "ACCEPT",
-  "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812",
+  "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9",
   "reviewer_prior_involvement": "none",
-  "reviewer_prior_involvement_notes": "Kimi participated in the four-model read-only audit that informed the stage backlog, but did not author the stage design, development breakdown, implementation, or any fix. For review-1 cross-review isolation, provider identity is separate from the implementer claude_glm (Zhipu GLM).",
+  "reviewer_prior_involvement_notes": "Kimi reviewed the prior round-1 fingerprint, which was superseded by review-2 REWORK and claude_glm fix. Kimi did not author this stage's design, development breakdown, implementation, or fixes. Provider (Moonshot) is isolated from implementer claude_glm (Zhipu GLM).",
   "reviewed_artifacts": [
     "docs/api/public-market-contract.md",
     "docs/product/PRD.md",
@@ -125,37 +129,52 @@ Session ID 来源: unavailable
     "reports/follow-ups/README.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md",
     "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/00-task.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/10-design.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/12-development-breakdown.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md",
+    "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/62-validate-pre-review.txt",
     "schemas/api/public-market/snapshot.schema.json",
     "schemas/api/public-market/funding-history.schema.json",
     "schemas/api/public-market/symbol-snapshot.schema.json",
     "backend/app/server.py",
+    "backend/services/snapshot_service.py",
     "backend/config.py",
     "backend/tests/test_funding_history.py",
     "backend/tests/test_funding_history_endpoint.py",
+    "backend/tests/test_symbol_snapshot_endpoint.py",
     "scripts/service-control.py",
     "frontend/index.html"
   ],
   "findings": [
     {
       "severity": "P3",
-      "title": "P1-9 status.json left untouched as accepted-stage audit record",
+      "title": "F1/F2 contract wording now aligns with server/test truth; schema-prose drift disclosed as deferred",
+      "file": "docs/api/public-market-contract.md",
+      "line": null,
+      "evidence": "Contract now describes funding-history as pure PublishedState projection and symbol-snapshot ok/partial/timeout with all source warnings and timeout triggers found in snapshot_service.py and test_symbol_snapshot_endpoint.py. Both schema files' narrower prose is explicitly disclosed as deferred contract-amendment items.",
+      "impact": "Low. The docs-only fix correctly narrows human-readable contract to as-built behavior without altering schemas.",
+      "recommendation": "No fix required. ACCEPT."
+    },
+    {
+      "severity": "P3",
+      "title": "F3 bookticker living-docs historicized without altering audit facts",
       "file": "reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json",
       "line": null,
-      "evidence": "Design P1-9 named status.json for normalization, but the implementer did not modify it. Direct grep for pending/awaiting/waiting/not-started tokens in the current status.json returns no matches; the file records status=accepted, user_acceptance=accepted_merged_and_pushed, and complete merge_result/review_2 ACCEPT data.",
-      "impact": "Low. The historical accepted-stage record is preserved without modification, avoiding audit-evidence tampering. The handoff and implementation reports were normalized instead.",
-      "recommendation": "Review-1 accepts this boundary decision. No fix required."
+      "evidence": "status.json lines 518 and 653 now use past tense and reference completed review-2 ACCEPT and merge. All audit facts (SHA, fingerprint, Session ID, verdict, user_acceptance) remain unchanged.",
+      "impact": "Low. Resolves the P1-9 contradiction noted by review-2 while preserving accepted-stage evidence integrity.",
+      "recommendation": "No fix required. ACCEPT."
     }
   ],
   "required_fixes": [],
   "residual_risks": [
-    "Stage B will need to generate STAGE_INDEX.md/ROADMAP.md from status.json to avoid manual drift; this stage did not touch those files.",
-    "Harness-track documentation changes (harness-design.md, AGENTS.md known-gaps, stage-branch-mode.md, docs/README) remain deferred to the template-repo-first Harness track."
+    "funding-history.schema.json:34 and symbol-snapshot.schema.json:39 prose descriptions remain narrower than as-built behavior; alignment requires a separate contract-amendment stage with live/test evidence.",
+    "Stage B will need to generate STAGE_INDEX.md/ROADMAP.md from status.json to prevent future drift; this stage did not touch those files.",
+    "Harness-track documentation changes remain deferred to the template-repo-first Harness track."
   ],
   "next_action": "continue"
 }

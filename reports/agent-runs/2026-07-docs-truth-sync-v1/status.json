@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
-  "current_phase": "review-1-round-2",
+  "current_phase": "review-2-round-2",
   "current_inputs": [
     "reports/agent-runs/2026-07-docs-truth-sync-v1/00-task.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/10-design.md",
@@ -129,13 +129,14 @@
     "reviewer": "kimi",
     "provider": "moonshot",
     "model": "kimi-code/kimi-for-coding",
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9",
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": "Kimi was one of the four read-only audit models that informed the backlog; did not author design/breakdown/implementation/fix. Provider (Moonshot) is isolated from implementer claude_glm (Zhipu GLM).",
+    "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md",
     "round": 2,
-    "note": "Round 2 re-review on fixed fingerprint a77a18a. Prior round-1 verdict archived in review_rounds.",
+    "note": "Round 2 re-review on fixed fingerprint a77a18a: ACCEPT, no required_fixes. F1/F2/F3 confirmed resolved. Round-1 verdict archived in review_rounds.",
     "invalid_json_attempts": 0
   },
   "review_2": {
@@ -224,6 +225,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "operator executes round-2 review-1 (kimi) dispatch (36-...) on fixed range a77a18a; ACCEPT -> review-2 (codex, 56-...); then pre-accept -> stage_accepted_waiting_user",
-  "updated_at": "2026-07-16T19:20:00Z"
+  "next_action": "review-1 round-2 = kimi ACCEPT (recorded, committed, status=review_2, pre-review PASS). Operator RE-RUNS review-2 round-2 (codex, 56-...) — codex round-2 previously declined because preconditions (committed review_1 ACCEPT + status=review_2 + clean tree) were not yet met; they are now.",
+  "updated_at": "2026-07-16T19:50:00Z"
 }
