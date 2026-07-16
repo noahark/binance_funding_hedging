@@ -123,3 +123,16 @@ CMD5 pytest test_funding_history + _endpoint + test_symbol_snapshot_endpoint -> 
 CMD6 git diff --check                              -> PASS (clean)
 CMD7 changed-file boundary                          -> PASS (contract + bookticker 70-handoff/20-impl/status.json + 40-fix-report.md only; zero forbidden)
 BOOKKEEPER F3 FACT CHECK: bookticker status.json diff is 2 note fields only; status=accepted, user_acceptance=accepted_merged_and_pushed, merged_back_sha=9abad62, diff_fingerprint, review_2 verdict ACCEPT all unchanged.
+
+########################################################################
+## F6 correction (codex round-2, bookkeeper-owned): diff-check scope
+########################################################################
+# The round-2 "git diff --check clean" above was run on the uncommitted fix
+# working tree (round-1 fix, 4 delivery files). Precise re-statement:
+$ git diff --check c72987d..a77a18a          # round-1 fix delivery range -> clean
+$ git diff --check                            # current committed HEAD -> clean
+# NOTE (codex F6): the FULL fixed range 127a600..a77a18a reports 3 trailing-space
+#   lines inside the superseded round-1 reviewer file 30-review-1.md. That file is
+#   RAW reviewer output and must NOT be rewritten; it is not a delivery doc. The
+#   four fix-delivery files (contract + bookticker 70-handoff/20-impl/status.json)
+#   are clean under c72987d..a77a18a.
