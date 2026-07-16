@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "review_2",
+  "status": "human_escalation_required",
   "workflow": "stage-delivery",
-  "current_phase": "round-5-fable5-fix-reconciled-awaiting-review-routing",
+  "current_phase": "human-escalation-round-5-codex-rework-F13-F14-F15",
   "user_authorizations": [
     {
       "at": "2026-07-16T22:20:00Z",
@@ -202,18 +202,24 @@
     "model": "gpt-5.5",
     "primary_provider": "codex",
     "fallback_provider": "claude",
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "e214d6f819d76daa3b85865c1021b5aa2497ee95:d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e",
     "round": 5,
+    "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md",
+    "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf",
     "reviewer_prior_involvement": "direction_synthesis",
     "reviewer_prior_involvement_notes": "Codex (openai) participated in the read-only four-model audit (direction-level); did NOT author design/breakdown/implementation/fix. Provider-isolated from implementer (zhipu_glm), designer/breakdown author (anthropic), and round-4 fix author fable5 (anthropic).",
     "design_conflict_override": {
       "used": false,
       "reason": "Not needed: reviewer provider (openai) != designer/breakdown-author provider (anthropic)."
     },
-    "note": "Round 5 routing RESOLVED by user: dispatch Codex (not opus4.8) for another review. This cleanly satisfies validate-stage.py:717-718 — Codex (openai) differs from every fix-author provider (claude_glm=zhipu_glm, fable5=anthropic); the anthropic identity-gate concern is moot because opus4.8 is NOT reviewing. Target: committed range 127a600..e214d6f, fingerprint e214d6f:d93ff6d4 (validator-confirmed; later bookkeeping commits do not move the anchored fingerprint). Dispatch packet: 59-dispatch-review-2-codex-round5.md. Rounds 1-4 archived in review_rounds; raw at 51-/52-/53-/54-. Round-5 raw will land at 50-review-2.md.",
-    "verdict_dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/59-dispatch-review-2-codex-round5.md",
+    "findings_summary": [
+      "F13 (P1, bookkeeper-verified REAL, marginal): contract lines 306-309/358-361/392-395 still say row unconditionally comes from published state, but offline path projects a synchronously-built/cached snapshot with _published_state=None (snapshot_service.py:373-393). Residual precision gap on an already heavily mode-caveated section.",
+      "F14 (P1, bookkeeper-verified REAL + FIX-INTRODUCED REGRESSION): contract lists base_raw_unavailable:<symbol> as a public 200-timeout wire token, but it is HTTP-unreachable — cold path returns 503 before command submission (snapshot_service.py:333-335); _base_raw is always set at :998 before publish and never reset to None; the branch at :1395-1402 fires only via direct unit call. This token was ADDED by fable5's round-4 proactive fix. A doc-truth stage listing a wire token that cannot appear is self-contradictory — strongest reason not to ship as-is.",
+      "F15 (P2, bookkeeper-owned, FIXED THIS CHECKPOINT): status.current_phase + human_escalation.resolved_by + handoff lines 18/62/72 still said routing pending while Recovery Header/ACTIVE said Codex dispatched."
+    ],
+    "note": "Round 5 (Codex) = REWORK -> human_escalation_required again. rework 5 (two prior user overrides). F13/F14 are bookkeeper-verified real contract over-claims (F14 is a regression the round-4 fix introduced); F15 was bookkeeper hygiene, fixed here. No 6th fix authorized — user decision required. Rounds 1-4 raw at 51-/52-/53-/54-; round-5 at 50-.",
     "invalid_json_attempts": 0
   },
   "review_rounds": [
@@ -279,13 +285,16 @@
   "rework_count": 5,
   "max_rework": 3,
   "rework_over_limit_note": "rework_count 5 exceeds max_rework 3 by two explicit user authorizations: [0] bounded F7 fix (round 4), [1] fable5-authored F9/F10 fix (round 5) after codex round-4 REWORK. Each escalation was resolved by its authorization.",
-  "blockers": [],
+  "blockers": [
+    {"id": "F13", "severity": "P1", "owner": "user_decision", "summary": "Contract still says row unconditionally from published state; offline projects synchronous/cached snapshot (real, marginal precision)."},
+    {"id": "F14", "severity": "P1", "owner": "user_decision", "summary": "Contract lists base_raw_unavailable:<symbol> as a public wire token that is HTTP-unreachable — a regression introduced by fable5's round-4 fix (bookkeeper-verified). A doc-truth stage listing an impossible wire token is self-contradictory."}
+  ],
   "human_escalation": {
-    "required": false,
-    "resolved_by": "user re-route authorization (status.user_authorizations[1]): fable5 authors the round-5 fix; next review routing pending user decision (see review_2.note identity constraint)",
-    "prior_reason": "codex round-4 REWORK (F9/F10 P1, F11/F12 P2) with rework budget already exceeded."
+    "required": true,
+    "reason": "codex round-5 (user-routed) = REWORK: F13/F14 P1 contract over-claims (both bookkeeper-verified real; F14 is a regression the round-4 fix introduced). rework already 5 (two prior overrides). F15 P2 bookkeeper hygiene fixed this checkpoint. No 6th fix authorized. User must decide: (a) authorize a 6th fix but by SIMPLIFYING the over-specified symbol-snapshot failure-matrix prose rather than adding more tokens [recommended — breaks the 5-round precision spiral], (b) surgical F13/F14 token fix (risks a round-7 adjacent nit), (c) accept F13/F14 as documented residual doc-precision debt + follow-up and move to stage_accepted_waiting_user (weak for F14 since it's an impossible wire claim), (d) abandon/split.",
+    "prior_reason": "rounds 1-4 REWORK chain resolved by fixes/authorizations; see review_rounds."
   },
-  "terminal_reason": null,
+  "terminal_reason": "human_escalation_required (rework 5, codex round-5 REWORK F13/F14)",
   "reporting_preferences": {
     "execution_footer": {
       "include_provider_native_session_id": true,
@@ -306,6 +315,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "Round-5 review routing resolved (user: dispatch Codex). Operator executes 59-dispatch-review-2-codex-round5.md (codex review-2 on 127a600..e214d6f / e214d6f:d93ff6d4; review-1 still waived). ACCEPT -> bookkeeper runs pre-accept (known review_1-fingerprint trail under authorized waiver = RC4 false-red, recorded not faked) -> stage_accepted_waiting_user -> user final acceptance + merge. REWORK -> report to user (rework already well over limit by two authorizations).",
+  "next_action": "codex round-5 = REWORK (F13/F14 P1 bookkeeper-verified real; F14 fix-introduced regression). F15 (bookkeeper hygiene) fixed. HUMAN DECISION required (rework 5, no 6th authorization): (a) authorize 6th fix by SIMPLIFYING the symbol-snapshot failure-matrix prose [recommended], (b) surgical F13/F14 token fix, (c) accept residual + follow-up, (d) abandon/split. See human_escalation.reason.",
   "updated_at": "2026-07-16T23:20:00Z"
 }

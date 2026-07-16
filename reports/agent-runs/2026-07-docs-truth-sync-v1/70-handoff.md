@@ -6,13 +6,25 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `review_2`（round 5；用户裁定派 **Codex** 再审；opus4.8 转 bookkeeper）
-- Next action: **操作者执行 `59-dispatch-review-2-codex-round5.md`（Codex 终审）**。
-  ACCEPT→bookkeeper 跑 `--phase pre-accept`→`stage_accepted_waiting_user`→用户终审合并。
-  REWORK→报用户（rework 已两次超限）。
-- ✅ 路由约束已解：用户选 **Codex(openai)**（非 opus4.8），与所有 fix author
-  （zhipu_glm、fable5/anthropic）跨厂商 → `validate-stage.py:717-718` 身份门通过；
-  之前担心的 anthropic 身份红门因 opus4.8 不再是 reviewer 而消解。opus4.8 恢复 bookkeeper。
+- Active phase: `human_escalation_required`（Codex round-5 REWORK：F13/F14 P1；rework 5）
+- ⛔ Next action: **用户决策**（rework 5，无第 6 次授权）：
+  - (a) **授权第 6 次 fix，但改用"简化"策略**（推荐）：不再逐 token 补，而是把过度
+    枚举的 symbol-snapshot 失败矩阵 prose 收敛为保守描述（warnings=实际序列化的原因串，
+    详情见 schema），从源头消除过度承诺——打破 5 轮精度螺旋。
+  - (b) 外科式修 F13/F14 两个 token（风险:round-7 又在同段挑出相邻 nit）。
+  - (c) 知情接受 F13/F14 为已记录 doc-precision 债 + follow-up，进
+    `stage_accepted_waiting_user`。**F14 弱**：它是"不可能出现的 wire token",doc-truth
+    stage 收它自相矛盾。
+  - (d) 放弃 / 拆成新 stage。
+- Codex round-5 三 finding（原文 `50-review-2.md`；round-4 归档 `54-`）——**我已独立核实**：
+  - **F13(P1,真,偏细)**：契约 306/358/392 行仍无条件说 row 来自 published state,offline
+    实为同步/缓存 snapshot（`snapshot_service.py:373-393`）。
+  - **F14(P1,真,且是上轮 fix 引入的回归)**：契约把 `base_raw_unavailable:<symbol>` 列为
+    公开 wire token,但它经 HTTP **不可达**（冷启动 335 先 503;`_base_raw` 998 总在
+    publish 前设置且无重置路径;分支 1402 只单元测试直调可触发）。这正是 Fable5 上轮
+    "主动多加防 round-6"加进去的。
+  - **F15(P2,我的账本)**：✅ 已修——current_phase / human_escalation / handoff 正文
+    此前仍写"待派发"，与 Recovery Header/ACTIVE 矛盾，已同步。
 - 受审范围（新）：`127a600..e214d6f`，fingerprint
   `e214d6f819d76daa3b85865c1021b5aa2497ee95:d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e`。
 - ⚠️ **路由约束（用户待决）**：用户曾表示 opus4.8 做下一轮 review，但
@@ -59,7 +71,7 @@ not read `history/` at startup.
 ## Current State
 
 - Stage: `2026-07-docs-truth-sync-v1`
-- Status: `review_2`（round 5 待派发；rework 5，用户两次超限授权）
+- Status: `human_escalation_required`（Codex round-5 REWORK F13/F14；rework 5）
 - Branch: `stage/2026-07-docs-truth-sync-v1`
 - Base sha: `127a600281d60b7332be8aeb9552740a5e8c3254`
 - Head sha（fix commit，受审）: `e214d6f819d76daa3b85865c1021b5aa2497ee95`
@@ -69,7 +81,7 @@ not read `history/` at startup.
 - Review 历史：R1 Kimi ACCEPT→Codex REWORK(F1/F2/F3)；R2 Kimi ACCEPT→Codex REWORK
   (F4/F5/F6)；R3 Kimi ACCEPT→Codex REWORK(F7/F8)；R4 review-1 豁免→Codex REWORK
   (F9-F12)
-- 待用户决策：round-5 评审路由（见 Recovery Header 路由约束）
+- 待用户决策：round-5 REWORK 处置（见 Recovery Header 四选项 a/b/c/d）
 
 ## What Landed This Turn（Round-4 fix + 对账）
 
