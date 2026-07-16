@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
-  "current_phase": "fix-after-review-2-round-2-rework",
+  "current_phase": "review-1-round-3",
   "current_inputs": [
     "reports/agent-runs/2026-07-docs-truth-sync-v1/00-task.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/10-design.md",
@@ -91,10 +91,11 @@
     "note": "kimi final report relayed by operator; kimi CLI session did not persist assistant final text (interrupted mid-generation)."
   },
   "base_sha": "127a600281d60b7332be8aeb9552740a5e8c3254",
-  "head_sha": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1",
-  "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9",
+  "head_sha": "568fd4160b67d3b73303134d6f078a6a59bb93d9",
+  "diff_fingerprint": "568fd4160b67d3b73303134d6f078a6a59bb93d9:ec91074df380632652180548168583da1756669a9e63d0077f73041621fc1ffe",
   "prior_fingerprints": [
-    {"round": 1, "head_sha": "c72987dc5cfe288e8df887cd14a965a48e93e3f3", "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812", "outcome": "review-2 REWORK; superseded by fix a77a18a"}
+    {"round": 1, "head_sha": "c72987dc5cfe288e8df887cd14a965a48e93e3f3", "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812", "outcome": "review-2 REWORK (F1/F2/F3); superseded by fix a77a18a"},
+    {"round": 2, "head_sha": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1", "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9", "outcome": "review-1 ACCEPT, review-2 REWORK (F4/F5/F6); superseded by fix 568fd41"}
   ],
   "delivery_files_under_review": [
     "docs/api/public-market-contract.md",
@@ -132,14 +133,13 @@
     "reviewer": "kimi",
     "provider": "moonshot",
     "model": "kimi-code/kimi-for-coding",
-    "verdict": "ACCEPT",
-    "json_schema_valid": true,
-    "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9",
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": "Kimi was one of the four read-only audit models that informed the backlog; did not author design/breakdown/implementation/fix. Provider (Moonshot) is isolated from implementer claude_glm (Zhipu GLM).",
-    "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md",
-    "round": 2,
-    "note": "Round 2 re-review on fixed fingerprint a77a18a: ACCEPT, no required_fixes. F1/F2/F3 confirmed resolved. Round-1 verdict archived in review_rounds.",
+    "round": 3,
+    "note": "Round 3 re-review on fixed fingerprint 568fd41 (post F4/F5 fix). Rounds 1-2 archived in review_rounds.",
     "invalid_json_attempts": 0
   },
   "review_2": {
@@ -148,26 +148,17 @@
     "model": "gpt-5.5",
     "primary_provider": "codex",
     "fallback_provider": "claude",
-    "verdict": "REWORK",
-    "json_schema_valid": true,
-    "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9",
-    "round": 2,
-    "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md",
-    "report_capture": "Codex read-only codex exec (resumed session 019f6a94, no file write); bookkeeper recovered verbatim into 50-review-2.md. Round-1 review-2 preserved at 51-review-2-round1.md. RC9.",
-    "fix_start_prompt_present": true,
-    "fix_start_prompt_source": "codex round-2 verdict fix_start_prompt (verbatim in 46-dispatch-fix-round2-claude-glm.md)",
-    "findings_summary": [
-      "F4 (P1): F2 still open — contract symbol-snapshot intro (306-341) still unconditionally claims每次请求提交命令+从新发布投影, but snapshot_service.py has offline/no-worker last-good paths; warnings over-claimed as full timeout diagnostic (assemble/validation failures only in internal cmd.error, not wire); schema-prose disclosure missed symbol-snapshot.schema.json:5.",
-      "F5 (P2): bookticker 70-handoff conflates human_visual_acceptance.status=accepted with the later user_acceptance.status=accepted_merged_and_pushed.",
-      "F6 (P2, bookkeeper-owned): active status.json changed_files omitted bookticker status.json; ACTIVE.json stuck at phase=intake; 60-test-output diff-check scope unstated. Bookkeeper to correct during reconciliation."
-    ],
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "round": 3,
     "reviewer_prior_involvement": "direction_synthesis",
     "reviewer_prior_involvement_notes": "Codex (openai) participated in the read-only four-model audit (direction-level); did NOT author design/breakdown/implementation/fix. Provider-isolated from implementer (zhipu_glm) and designer/breakdown author (Anthropic). reviewer provider != designer provider, so validate-stage.py:720-737 designer-overlap path is not triggered; no override invoked.",
     "design_conflict_override": {
       "used": false,
       "reason": "Not needed: reviewer provider (openai) != designer/breakdown-author provider (anthropic)."
     },
-    "note": "Round 2 = REWORK (F4/F5/F6). Round-1 REWORK archived in review_rounds[0]; round-2 will archive when round-3 opens.",
+    "note": "Round 3 re-review on fixed fingerprint 568fd41. Rounds 1-2 archived in review_rounds. NOTE: rework budget is 2/3 — a round-3 REWORK triggers human_escalation_required.",
     "invalid_json_attempts": 0
   },
   "review_rounds": [
@@ -183,7 +174,7 @@
       "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9",
       "review_1": {"reviewer": "kimi", "verdict": "ACCEPT", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md", "note": "no required fixes; F1/F2/F3 confirmed resolved"},
       "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md", "round1_review_2_preserved": "reports/agent-runs/2026-07-docs-truth-sync-v1/51-review-2-round1.md", "findings": ["F4 (P1) F2 not fully closed: symbol-snapshot intro over-promises new-publication + warnings diagnostic; missed schema-prose line 5", "F5 (P2) bookticker handoff conflates human_visual_acceptance with user_acceptance", "F6 (P2, bookkeeper-owned) active status.json changed_files omitted bookticker status.json; ACTIVE.json stuck at intake; 60-test-output diff-check scope unstated"]},
-      "fix": {"author": "claude_glm (F4/F5)", "bookkeeper_corrections": "F6", "status": "in_progress"}
+      "fix": {"author": "claude_glm (F4/F5)", "bookkeeper_corrections": "F6", "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md (round-2 section)", "head_after_fix": "568fd4160b67d3b73303134d6f078a6a59bb93d9", "status": "done", "verification": "6 fix-prompt commands PASS incl. pytest 71 passed; contract symbol-snapshot now distinguishes live-worker/no-worker/offline, warnings limited to wire-visible, schema drift :5+:39 disclosed; handoff splits human_visual_acceptance vs user_acceptance; F6 applied by bookkeeper (ACTIVE.json, changed_files, 60-test-output scope)"}
     }
   ],
   "linked_decisions": [
@@ -244,6 +235,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "review-2 round-2 = codex REWORK (F4/F5/F6). Bookkeeper applied F6 (ACTIVE.json phase, changed_files, 60-test-output scope). Operator executes round-2 fix dispatch (46-...) in claude_glm for F4/F5; then bookkeeper reconciles, recomputes fingerprint, runs pre-review, re-dispatches round-3 review-1 (kimi) + review-2 (codex). rework 2/3 — one rework left before human escalation.",
-  "updated_at": "2026-07-16T20:10:00Z"
+  "next_action": "round-2 fix (F4/F5) reconciled: 6 commands PASS, pytest 71 passed, zero forbidden changes, new head 568fd41. Operator runs round-3 review-1 (kimi, 37-...); ACCEPT -> review-2 (codex, 57-...). rework 2/3 — a round-3 REWORK triggers human_escalation_required.",
+  "updated_at": "2026-07-16T20:35:00Z"
 }
