@@ -8,3 +8,9 @@ diff_fingerprint=c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c5
 # Bookkeeper note: run at 2026-07-16 (CST) before dispatching review-1 (Kimi).
 # base=127a600 (branch point from main) .. head=c72987d (implementation commit).
 # Clean worktree; fingerprint recomputed and matched.
+
+$ python3 scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review   # ROUND 2 (post-fix)
+STAGE VALIDATION PASSED
+phase=pre-review  status=review_1
+diff_fingerprint=a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9
+# base=127a600 .. head=a77a18a (fix). Clean worktree; fingerprint recomputed and matched.
