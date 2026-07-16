@@ -1,0 +1,10 @@
+$ python3 scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-docs-truth-sync-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812
+
+# Bookkeeper note: run at 2026-07-16 (CST) before dispatching review-1 (Kimi).
+# base=127a600 (branch point from main) .. head=c72987d (implementation commit).
+# Clean worktree; fingerprint recomputed and matched.

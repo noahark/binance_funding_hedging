@@ -6,11 +6,13 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `implementation-dispatch`（内容回填已派工，等操作者执行 dispatch）
-- Next action: **操作者在 Claude-GLM 终端执行
-  `15-dispatch-content-backfill.md` 的 PROMPT BODY**；实现者产出
-  `20-implementation.md` + `60-test-output.txt` 后，bookkeeper 提交、算指纹、跑
-  `validate-stage.py --phase pre-review`、路由 review-1(Kimi)→review-2(Codex)。
+- Active phase: `review-1`（实现已提交、指纹已算、pre-review 门 PASSED，等 review-1）
+- Next action: **操作者在 Kimi 终端执行 `35-dispatch-review-1-kimi.md` 的 PROMPT BODY**；
+  Kimi 产出 `30-review-1.md`（含 schema-valid JSON verdict）后，bookkeeper 记录 verdict：
+  ACCEPT→路由 review-2(Codex)；REWORK→用 fix_start_prompt 派 fix。
+- 受审范围：`127a600..c72987d`，fingerprint `c72987d:bfd3106…`（pre-review PASSED）。
+- 待 review-1 裁决的开放点：P1-9 bookticker `status.json` 是否需归一
+  （见 `status.review_1_open_observations`）。
 - 平行未决（不阻塞本 stage）：用户按 Fable5 裁决排期 **Stage A（模板仓 first）=
   RC4 分任务指纹 + authorized_exception**（D-A 由此解决）。
 - Read-set: = `status.current_inputs`
