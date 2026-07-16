@@ -29,3 +29,15 @@ diff_fingerprint=a4322847d831105d587a36f6f5d305586d10c264:06ea8e1a2bf7e8ffdb4c9b
 # NOTE: pre-review does not check review_1/2 verdict-fingerprint equality (that is pre-accept).
 #   review-1 stays at round-3 (568fd41) under user waiver; the review_1-fingerprint mismatch
 #   (RC4 false-red) will surface only at pre-accept and is a recorded authorized waiver.
+
+$ python3 scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review   # ROUND 5 (F9/F10 fable5 fix, second user authorization)
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-docs-truth-sync-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=e214d6f819d76daa3b85865c1021b5aa2497ee95:d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e
+# base=127a600 .. head=e214d6f (F9/F10 fix by fable5). Clean worktree (run after
+# reconcile commit 4a28437); fingerprint recomputed and matched.
+# Round-5 review routing pending user decision: validate-stage.py:717-718 forbids an
+# anthropic review_2 now that fable5 (anthropic) is a fix author (no override slot);
+# see status.user_authorizations[1].routing_constraint.
