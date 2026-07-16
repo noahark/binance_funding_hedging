@@ -178,3 +178,18 @@ CMD4 node frontend/self-check.js -> 全部自检通过 (80)
 CMD5 git diff --check -> clean
 CMD6 changed-file boundary -> PASS (contract + append-only 40-fix-report.md only; zero forbidden)
 F7 CHECK: contract defines published_version as internal PublishedState revision; states full snapshot v1 wire payload has no published_version field, no client-verifiable cross-request same-version guarantee; preserves row-from-same-internal-state fact; drift note discloses symbol-snapshot.schema.json:5 same-version prose as deferred.
+
+########################################################################
+## ROUND 4 FIX verification (F9/F10) — second user-authorized override;
+## fix author fable5 (user re-route); fix head e214d6f; F11/F12 by fable5
+## as acting bookkeeper (raw commands + rc codes verbatim below)
+########################################################################
+CMD1 rg 'published_version|PublishedState|Offline|sentinel|refresh_command_expired|refresh_deadline_exceeded|wire-visible|cross-request' docs/api/public-market-contract.md backend/services/snapshot_service.py -> rc=0 (50 hits)
+CMD2 PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_funding_history.py backend/tests/test_funding_history_endpoint.py backend/tests/test_symbol_snapshot_endpoint.py -q -p no:cacheprovider -> 71 passed in 2.68s, rc=0
+CMD3 node frontend/self-check.js -> 80 [PASS], 全部自检通过, rc=0
+CMD4 python3 -m json.tool reports/agent-runs/2026-07-docs-truth-sync-v1/status.json >/dev/null -> rc=0
+CMD5 git diff --check -> clean, rc=0
+CMD6 git diff --name-only -> docs/api/public-market-contract.md (+ append-only 40-fix-report.md), zero forbidden, rc=0
+F9 CHECK: contract published_version now mode-dependent — live = internal PublishedState revision; offline = fixed 0 sentinel, "Offline mode never creates a PublishedState … NOT the revision number of any PublishedState"; row-from-same-PublishedState limited to "(live mode only)"; full-snapshot no-field / no-cross-request statements preserved.
+F10 CHECK: wire-visible warnings list = per-source tokens (documented as also riding timeout) + refresh_deadline_exceeded + refresh_command_expired:<symbol> + base_raw_unavailable:<symbol> (reviewer-missed, snapshot_service.py:1400-1404, same cmd.warnings serialization at :353) + worker_not_running; timeout bullet distinguishes the four diagnostic tokens.
+FINGERPRINT: git diff --binary 127a600..e214d6f -- . ':(exclude)reports/agent-runs/2026-07-docs-truth-sync-v1/status.json' | shasum -a 256 -> d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e
