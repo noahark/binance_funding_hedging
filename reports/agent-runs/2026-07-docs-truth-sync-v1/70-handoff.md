@@ -6,16 +6,16 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `human_escalation_required`（Codex round-5 REWORK：F13/F14 P1；rework 5）
-- ⛔ Next action: **用户决策**（rework 5，无第 6 次授权）：
-  - (a) **授权第 6 次 fix，但改用"简化"策略**（推荐）：不再逐 token 补，而是把过度
-    枚举的 symbol-snapshot 失败矩阵 prose 收敛为保守描述（warnings=实际序列化的原因串，
-    详情见 schema），从源头消除过度承诺——打破 5 轮精度螺旋。
-  - (b) 外科式修 F13/F14 两个 token（风险:round-7 又在同段挑出相邻 nit）。
-  - (c) 知情接受 F13/F14 为已记录 doc-precision 债 + follow-up，进
-    `stage_accepted_waiting_user`。**F14 弱**：它是"不可能出现的 wire token",doc-truth
-    stage 收它自相矛盾。
-  - (d) 放弃 / 拆成新 stage。
+- Active phase: `fixing`（round-6 语义收敛 fix；用户第 3 次超限授权；Fable5 执行）
+- Next action: **操作者在 Fable5 终端执行 `48-dispatch-fix-round6-fable5.md`**（收敛
+  symbol-snapshot 失败矩阵 prose，一次修 F13+F14，不 commit）。回来后 opus4.8（bookkeeper）
+  R4 对账 → 重算指纹 → **直接派 Codex review-2**（review-1 维持豁免）。
+- ✅ 用户选 **(a) 语义收敛版**（非"指向 schema 当权威"——schema 无 token 枚举且 5/39
+  行 prose 已陈旧，指它会造新过度承诺）。收敛点：warnings 开放式非穷尽 + refresh_status
+  权威；row-source live/offline 两分；timeout 只保守说"无新 publication，用 last-good"；
+  明确冷启动 503 + 删 `base_raw_unavailable` 公开描述；token 最好完全不枚举。
+- 路由：Fable5 fix（anthropic）；opus4.8 bookkeeper（不 review，无双帽）；review-2 仍
+  Codex/OpenAI（与 anthropic fix author 隔离）。F15 已修。
 - Codex round-5 三 finding（原文 `50-review-2.md`；round-4 归档 `54-`）——**我已独立核实**：
   - **F13(P1,真,偏细)**：契约 306/358/392 行仍无条件说 row 来自 published state,offline
     实为同步/缓存 snapshot（`snapshot_service.py:373-393`）。

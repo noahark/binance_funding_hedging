@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "human_escalation_required",
+  "status": "fixing",
   "workflow": "stage-delivery",
-  "current_phase": "human-escalation-round-5-codex-rework-F13-F14-F15",
+  "current_phase": "fix-round6-semantic-convergence-fable5-user-authorized",
   "user_authorizations": [
     {
       "at": "2026-07-16T22:20:00Z",
@@ -17,7 +17,24 @@
       "scope": "F9/F10 (contract only) by Fable5 as fix author; F11/F12 bookkeeper-owned items executed by Fable5 as acting bookkeeper for this reconciliation (original bookkeeper opus4.8 is slated to review, so it must not reconcile the round it will review).",
       "waives": ["max_rework=3 limit again (this fix is rework 5)"],
       "still_required": ["round-5 review on the new fingerprint (routing constraint below)", "pre-accept validator", "user final acceptance before merge to main"],
-      "routing_constraint": "validate-stage.py:717-718 hard rule (NO override slot): review_2 provider identity must differ from EVERY implementation/fix author provider identity. Fable5 (anthropic) is now a fix author, so a formal review_2 by opus4.8 (anthropic) would permanently fail the identity gate. Options: (a) opus4.8 reviews as a user-side informal check and formal review_2 stays codex/openai on the new fingerprint; (b) user knowingly accepts a permanent identity red gate. Decision owner: user."
+      "routing_constraint": "validate-stage.py:717-718 hard rule (NO override slot): review_2 provider identity must differ from EVERY implementation/fix author provider identity. Fable5 (anthropic) is now a fix author, so a formal review_2 by opus4.8 (anthropic) would permanently fail the identity gate. Options: (a) opus4.8 reviews as a user-side informal check and formal review_2 stays codex/openai on the new fingerprint; (b) user knowingly accepts a permanent identity red gate. Decision owner: user.",
+      "resolved": "User chose Codex for round-5 review (not opus4.8), which cleanly satisfies the identity gate."
+    },
+    {
+      "at": "2026-07-17T00:10:00Z",
+      "decision": "Third rework-limit override (round 6). After codex round-5 REWORK (F13/F14 P1, both bookkeeper-verified real; F14 a regression the round-4 fix introduced), user chose option (a) SEMANTIC-CONVERGENCE, per Codex advice: rewrite the over-specified symbol-snapshot failure-matrix prose to a conservative, non-exhaustive form instead of chasing tokens. Explicitly NOT 'authoritative vocabulary = schema' (symbol-snapshot.schema.json only types warnings as string[] with no token enum, and its lines 5/39 prose are already confirmed stale — pointing authority there would create a NEW over-claim).",
+      "convergence_spec": [
+        "warnings: diagnostic reason strings actually serialized for this response; vocabulary is OPEN-ENDED and NON-EXHAUSTIVE; clients must not assume completeness or branch on undocumented values; a timeout may carry no warning; refresh_status remains authoritative.",
+        "row-source unified: live -> latest PublishedState; offline -> synchronously built/cached snapshot (fixes F13).",
+        "timeout: conservative only — 'this request produced no new publication; the live row uses the last-good published state' — do NOT enumerate all causes.",
+        "state that the public endpoint returns 503 before the first publication; REMOVE the public wire description of base_raw_unavailable (fixes F14).",
+        "refresh_command_expired may stay only as a non-normative example, or (safest) enumerate no tokens at all.",
+        "F15 (status/handoff routing sync) already done by bookkeeper in the prior checkpoint."
+      ],
+      "scope": "docs/api/public-market-contract.md symbol-snapshot section only + append-only 40-fix-report round-5 mapping. No backend/schema/product change.",
+      "waives": ["max_rework=3 limit (this fix is rework 6)"],
+      "routing": "Fable5 (anthropic/claude-fable-5) authors the round-6 fix; opus4.8 stays bookkeeper and reconciles (opus4.8 is NOT reviewing this stage, so no dual-hat with review); formal review-2 stays Codex/OpenAI (provider-isolated from the anthropic fix author). review-1 remains waived (continuation of the standing waiver).",
+      "still_required": ["Codex review-2 on the new fingerprint", "pre-accept validator (known review_1-fingerprint trail under authorized waiver = RC4 false-red)", "user final acceptance before merge"]
     }
   ],
   "current_inputs": [
@@ -99,7 +116,7 @@
   "breakdown_author": {"provider": "anthropic", "model": "claude-opus-4-8", "note": "bookkeeper; review-2 design-involvement disclosure"},
   "implementer": "claude_glm",
   "implementers": [{"id": "claude_glm", "provider": "zhipu_glm", "domain": "backend/contract/data-semantics docs", "dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/15-dispatch-content-backfill.md"}],
-  "fix_authors": [{"id": "claude_glm", "provider": "zhipu_glm", "round": 1, "dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/45-dispatch-fix-claude-glm.md", "note": "original implementer as fix author (allowed); reviewers codex/kimi excluded from fix"}, {"id": "claude_glm", "provider": "zhipu_glm", "round": 2, "dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/46-dispatch-fix-round2-claude-glm.md", "scope": "F4/F5 only; F6 is bookkeeper-owned"}, {"id": "claude_glm", "provider": "zhipu_glm", "round": 3, "dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/47-dispatch-fix-f7-claude-glm.md", "scope": "F7 only (user-authorized rework-limit override); F8 was bookkeeper-owned", "note": "backfilled per codex round-4 F12"}, {"id": "fable5", "provider": "anthropic", "model": "claude-fable-5", "round": 4, "dispatch_packet": null, "dispatch_note": "no packet: user re-routed the fix to Fable5 directly in chat (status.user_authorizations[1]) after 4 non-converging claude_glm rounds", "scope": "F9/F10 contract only; F11/F12 done by fable5 as acting bookkeeper in separate commits", "prior_involvement": "independent review of 80-harness-design-rootcause.md + D-A/D-B design rulings (81 file); never authored stage delivery files before this fix"}],
+  "fix_authors": [{"id": "claude_glm", "provider": "zhipu_glm", "round": 1, "dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/45-dispatch-fix-claude-glm.md", "note": "original implementer as fix author (allowed); reviewers codex/kimi excluded from fix"}, {"id": "claude_glm", "provider": "zhipu_glm", "round": 2, "dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/46-dispatch-fix-round2-claude-glm.md", "scope": "F4/F5 only; F6 is bookkeeper-owned"}, {"id": "claude_glm", "provider": "zhipu_glm", "round": 3, "dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/47-dispatch-fix-f7-claude-glm.md", "scope": "F7 only (user-authorized rework-limit override); F8 was bookkeeper-owned", "note": "backfilled per codex round-4 F12"}, {"id": "fable5", "provider": "anthropic", "model": "claude-fable-5", "round": 4, "dispatch_packet": null, "dispatch_note": "no packet: user re-routed the fix to Fable5 directly in chat (status.user_authorizations[1]) after 4 non-converging claude_glm rounds", "scope": "F9/F10 contract only; F11/F12 done by fable5 as acting bookkeeper in separate commits", "prior_involvement": "independent review of 80-harness-design-rootcause.md + D-A/D-B design rulings (81 file); never authored stage delivery files before this fix"}, {"id": "fable5", "provider": "anthropic", "model": "claude-fable-5", "round": 6, "dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/48-dispatch-fix-round6-fable5.md", "scope": "F13/F14 semantic-convergence of symbol-snapshot failure-matrix prose (user-authorized 3rd override, status.user_authorizations[2]); opus4.8 reconciles as bookkeeper (not reviewing)", "note": "no round-5 fix existed; numbering: round 6 = the 6th fix attempt overall / addressing round-5 review findings"}],
   "reviewer_1": {"planned": "kimi", "provider": "moonshot", "rule": "cross-review isolation from claude_glm implementer"},
   "reviewer_2": {"planned": "codex", "provider": "openai", "fallback": "claude (fable5 then opus4.8)", "note": "final gate; bookkeeper design-involvement must be disclosed"},
   "model_routing": {
@@ -282,19 +299,16 @@
     "verdict": "ACCEPT (direction and evidence hold); corrections F1/F2/F4/F5 required before report serves as D-B basis; cross-cutting R1 mandatory.",
     "report_corrections_applied": ["F1 RC2 citation (STAGE_INDEX obligation is in STAGE_INDEX.md header, not AGENTS.md)", "F2 schema path + follow-ups path", "F4 harness-design.md has no Status date line at all", "F5 symbol-snapshot 2 passing mentions vs funding-history 0"]
   },
-  "rework_count": 5,
+  "rework_count": 6,
   "max_rework": 3,
-  "rework_over_limit_note": "rework_count 5 exceeds max_rework 3 by two explicit user authorizations: [0] bounded F7 fix (round 4), [1] fable5-authored F9/F10 fix (round 5) after codex round-4 REWORK. Each escalation was resolved by its authorization.",
-  "blockers": [
-    {"id": "F13", "severity": "P1", "owner": "user_decision", "summary": "Contract still says row unconditionally from published state; offline projects synchronous/cached snapshot (real, marginal precision)."},
-    {"id": "F14", "severity": "P1", "owner": "user_decision", "summary": "Contract lists base_raw_unavailable:<symbol> as a public wire token that is HTTP-unreachable — a regression introduced by fable5's round-4 fix (bookkeeper-verified). A doc-truth stage listing an impossible wire token is self-contradictory."}
-  ],
+  "rework_over_limit_note": "rework_count 6 exceeds max_rework 3 by three explicit user authorizations: [0] bounded F7 fix (round 4), [1] fable5 F9/F10 fix (round 5), [2] fable5 F13/F14 semantic-convergence fix (round 6). Each escalation resolved by its authorization.",
+  "blockers": [],
   "human_escalation": {
-    "required": true,
-    "reason": "codex round-5 (user-routed) = REWORK: F13/F14 P1 contract over-claims (both bookkeeper-verified real; F14 is a regression the round-4 fix introduced). rework already 5 (two prior overrides). F15 P2 bookkeeper hygiene fixed this checkpoint. No 6th fix authorized. User must decide: (a) authorize a 6th fix but by SIMPLIFYING the over-specified symbol-snapshot failure-matrix prose rather than adding more tokens [recommended — breaks the 5-round precision spiral], (b) surgical F13/F14 token fix (risks a round-7 adjacent nit), (c) accept F13/F14 as documented residual doc-precision debt + follow-up and move to stage_accepted_waiting_user (weak for F14 since it's an impossible wire claim), (d) abandon/split.",
-    "prior_reason": "rounds 1-4 REWORK chain resolved by fixes/authorizations; see review_rounds."
+    "required": false,
+    "resolved_by": "user authorization [2]: option (a) semantic-convergence fix by Fable5 (status.user_authorizations[2]).",
+    "prior_reason": "codex round-5 REWORK (F13/F14 P1 verified real; F14 regression from round-4 fix). F15 P2 fixed by bookkeeper."
   },
-  "terminal_reason": "human_escalation_required (rework 5, codex round-5 REWORK F13/F14)",
+  "terminal_reason": null,
   "reporting_preferences": {
     "execution_footer": {
       "include_provider_native_session_id": true,
@@ -315,6 +329,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "codex round-5 = REWORK (F13/F14 P1 bookkeeper-verified real; F14 fix-introduced regression). F15 (bookkeeper hygiene) fixed. HUMAN DECISION required (rework 5, no 6th authorization): (a) authorize 6th fix by SIMPLIFYING the symbol-snapshot failure-matrix prose [recommended], (b) surgical F13/F14 token fix, (c) accept residual + follow-up, (d) abandon/split. See human_escalation.reason.",
+  "next_action": "User chose option (a) semantic-convergence; Fable5 authors round-6 fix. Operator executes 48-dispatch-fix-round6-fable5.md in Fable5; then opus4.8 (bookkeeper) reconciles, recomputes fingerprint, runs pre-review, dispatches Codex review-2 round-6 directly (review-1 waived). ACCEPT -> pre-accept (known review_1 trail) -> stage_accepted_waiting_user -> user merge.",
   "updated_at": "2026-07-16T23:20:00Z"
 }
