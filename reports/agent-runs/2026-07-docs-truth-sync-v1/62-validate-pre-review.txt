@@ -41,3 +41,9 @@ diff_fingerprint=e214d6f819d76daa3b85865c1021b5aa2497ee95:d93ff6d4be65eda9882a61
 # Round-5 review routing pending user decision: validate-stage.py:717-718 forbids an
 # anthropic review_2 now that fable5 (anthropic) is a fix author (no override slot);
 # see status.user_authorizations[1].routing_constraint.
+
+$ python3 scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review   # ROUND 6 (fable5 semantic-convergence fix, user authorization[2])
+STAGE VALIDATION PASSED
+phase=pre-review  status=review_2
+diff_fingerprint=d59f8234c4134e26843abeca6019b3e13a4062bd:361be6984dcc210dd77b952054b844a9ef865c8324394b1a83b69dbf0f35ea84
+# base=127a600 .. head=d59f823 (F13/F14 convergence). Clean worktree; fingerprint recomputed and matched.
