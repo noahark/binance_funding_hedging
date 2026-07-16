@@ -6,16 +6,15 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `review_1`（round 3；F4/F5 fix 已对账、pre-review PASSED，等重审）
-- Next action: **操作者在 Kimi 终端执行 `37-dispatch-review-1-kimi-round3.md`**；ACCEPT
-  →操作者执行 `57-dispatch-review-2-codex-round3.md`（Codex 终审）→ bookkeeper 跑
-  `--phase pre-accept`→`stage_accepted_waiting_user`（等你批准 promote+merge）。
-- Round-2 fix 已对账：6 命令全过（pytest 71 passed），F4（契约多路径 + warnings
-  wire-visible + schema:5/:39 披露）、F5（handoff 两门分开）修得对；F6 bookkeeper 已处理。
+- Active phase: `review_2`（round 3；review-1 Kimi ACCEPT 已登记提交，等 Codex 终审）
+- Next action: **操作者执行 `57-dispatch-review-2-codex-round3.md`（Codex 终审）**。
+  ACCEPT→bookkeeper 跑 `--phase pre-accept`→`stage_accepted_waiting_user`（等你批准
+  promote+merge）。REWORK→`human_escalation_required`（rework 已达 2/3，round-3 用尽）。
+- Round-3 review-1：Kimi ACCEPT（`30-review-1.md`，新指纹，无 required_fixes）。
 - 历史：R1 REWORK(F1/F2/F3)→fix；R2 Kimi ACCEPT + Codex REWORK(F4/F5/F6)→fix
-  （归档 `review_rounds[0..1]`；round-1/2 review-2 分别在 51-/50-）。
+  （归档 `review_rounds[0..1]`；round-1/2 review-2 在 51-/50-）。
 - ⚠️ **rework 账本 2/3**：round-3 若再 REWORK → `human_escalation_required`（终态，交你）。
-- 受审范围（新）：`127a600..568fd41`，fingerprint `568fd41:ec91074d…`（pre-review PASSED）。
+- 受审范围：`127a600..568fd41`，fingerprint `568fd41:ec91074d…`（pre-review PASSED）。
 - 平行未决（不阻塞本 stage）：用户按 Fable5 裁决排期 **Stage A（模板仓 first）=
   RC4 分任务指纹 + authorized_exception**（D-A 由此解决）。
 - Read-set: = `status.current_inputs`
