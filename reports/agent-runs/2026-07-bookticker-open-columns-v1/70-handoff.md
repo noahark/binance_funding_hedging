@@ -61,7 +61,9 @@ not read `history/` at startup.
   passed and a clean diff check; after the addendum rerun the final counts are
   frontend 80 PASS lines and backend 375 passed.
 - After deterministic verification, the user performed visual acceptance
-  (recorded as `accepted_merged_and_pushed`).
+  (recorded as `human_visual_acceptance.status: accepted`); the later,
+  independent stage-level gate is `user_acceptance.status:
+  accepted_merged_and_pushed`.
 - The newer user instruction superseded the planned Opus4.8 route. Only one new
   fresh Codex final-review invocation was requested and completed `ACCEPT`; prior
   review-1 remained baseline evidence. The bookkeeper Session was forbidden as

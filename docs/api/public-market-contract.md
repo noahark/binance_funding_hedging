@@ -303,12 +303,26 @@ Schema: `schemas/api/public-market/funding-history.schema.json`.
 
 ### GET /api/public-market/symbol-snapshot
 
-One-shot selected-symbol refresh + single-row projection. The backend submits
-one `RefreshSymbolCommand` to its serial background worker, waits within a
-bounded timeout, then projects ONLY the selected row from the newly published
-canonical published state. The projected `row` shares the same
-`published_version` as the full snapshot (same-version guarantee by
-construction). This payload NEVER contains a `rows` array.
+One-shot selected-symbol row view. The path taken depends on how the server is
+running, and the projected `row` always comes from the currently available
+published state — it does NOT necessarily come from a publication created by
+this request:
+
+- Live with the background worker running: the service submits one
+  `RefreshSymbolCommand` to its serial worker and waits within a bounded
+  timeout, then projects the selected row from the latest published state. A new
+  publication is produced only if the command settles in-window with no
+  assembly/validation failure; otherwise the row is the previously published
+  (last-good) state.
+- Live with no worker running: no command is submitted; the service projects the
+  selected row from the latest published (last-good) state and returns
+  `refresh_status: timeout`.
+- Offline: no worker and no command; the service projects the synchronously
+  built row directly (`published_version: 0`, `refresh_status: ok`).
+
+The projected `row` shares the same `published_version` as the full snapshot
+whenever both are read from the same published state (offline aside). This
+payload NEVER contains a `rows` array.
 
 - Method / path: `GET /api/public-market/symbol-snapshot`.
 - Input: query param `symbol` (required). A blank/missing value is treated as
@@ -321,36 +335,48 @@ construction). This payload NEVER contains a `rows` array.
   - `symbol`: the requested symbol.
   - `published_version`: integer ≥0, the same version as the full snapshot.
   - `data_time`, `generated_at`: date-times.
-  - `refresh_status`: `ok` | `partial` | `timeout`. The projected `row` is
-    always taken from the latest published state regardless of status.
-    - `ok`: a fresh publication completed with no per-source `warnings`.
-    - `partial`: a fresh publication completed but at least one source emitted a
-      `warnings` entry — e.g. `premium_refresh_failed:<symbol>`,
+  - `refresh_status`: `ok` | `partial` | `timeout`. It reflects what happened on
+    this request's refresh attempt (if any); the projected `row` is always taken
+    from the latest published state regardless of status, and is not proof that
+    a new publication was created by this request.
+    - `ok`: either offline (the synchronously-built row, `published_version: 0`,
+      no command), or a live worker command that completed a publication with no
+      per-source `warnings`.
+    - `partial`: a live worker command completed a publication but at least one
+      source emitted a `warnings` entry — e.g. `premium_refresh_failed:<symbol>`,
       `funding_history_unavailable:<symbol>`, `borrow_rate_refresh_failed:<asset>`,
-      or `max_borrowable_refresh_failed:<asset>`. A `partial` does NOT imply that
+      or `max_borrowable_refresh_failed:<asset>`. `partial` does NOT imply that
       the public/history figures are fresh; read `warnings` for the actual failed
       source(s).
-    - `timeout`: no fresh publication was produced, so the row is projected from
-      the previously published (last-good) state. Triggers include the shared
-      deadline expiring (`refresh_deadline_exceeded`), no live worker running
-      (`worker_not_running`), or an assembly/validation failure that must not
-      publish (`assemble_failed`, `validation_crossed_deadline`, etc.). A
-      `timeout` therefore does not prove that only a deadline expired.
-  - `warnings`: array of source-specific reason strings — the authoritative
-    breakdown of why a publication is `partial`, and the diagnostic for a
-    `timeout` that was not a plain deadline miss.
+    - `timeout`: no fresh publication resulted from this request, so the row is
+      the previously published (last-good) state. Causes include the shared
+      deadline expiring, no live worker running, or an internal
+      assembly/validation/refresh failure that must not publish. Of these,
+      `warnings` may carry `refresh_deadline_exceeded` or `worker_not_running`;
+      the internal failures are recorded only in a server-internal `cmd.error`
+      that is NOT exposed on the response, so a `timeout` can carry no specific
+      reason at all. `timeout` therefore does not prove that only a deadline
+      expired.
+  - `warnings`: array of the reason strings actually serialized on this
+    response. Wire-visible values are the per-source `partial` tokens above,
+    plus `refresh_deadline_exceeded` and `worker_not_running`. It is not a
+    complete account of every `timeout`: internal `cmd.error` values are not
+    exposed here (see `refresh_status`).
   - `row`: a single element projected from the published state, identical in
     shape to a `snapshot.rows[]` element (see
     `snapshot.schema.json#/$defs/row`, incl. `opening_quotes` and the annualized
     funding fields below). There is never a `rows` array on this payload.
 
-- Schema-prose drift (deferred): `symbol-snapshot.schema.json` line 39 still
-  narrows `partial` to a borrow-source fallback and `timeout` to the shared
-  deadline expiring — narrower than the as-built behavior above (which also maps
-  premium/history failures to `partial`, and worker-absence / assembly /
-  validation failures to `timeout`). This stage is docs-only and does not alter
-  schema; aligning that schema prose is a deferred contract-amendment item (see
-  Residual Risks).
+- Schema-prose drift (deferred): `symbol-snapshot.schema.json` carries two stale
+  prose descriptions. Line 5 (top-level `description`) still asserts an
+  unconditional submit-a-command + project-from-a-new-publication flow that does
+  not hold for the offline or worker-not-running paths above. Line 39
+  (`refresh_status` `description`) still narrows `partial` to a borrow-source
+  fallback and `timeout` to the shared deadline expiring — narrower than the
+  as-built behavior above (which also maps premium/history failures to
+  `partial`, and worker-absence / assembly / validation failures to `timeout`).
+  This stage is docs-only and does not alter schema; aligning that schema prose
+  is a deferred contract-amendment item (see Residual Risks).
 
 Schema: `schemas/api/public-market/symbol-snapshot.schema.json`.
 

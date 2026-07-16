@@ -190,3 +190,196 @@ Session ID 来源: unavailable
             70-handoff.md/ACTIVE.json、提交于 stage 分支、重算标准指纹、重跑并保存
             pre-review validator、重新派发 review-1/review-2）
 下一步任务: 以本修复为基线重入评审门
+
+---
+
+# Round-2 Fix Report — Review-2 Round-2 REWORK（2026-07-docs-truth-sync-v1）
+
+Fix author：`claude_glm`（本 stage 原实现者，允许当 fix 作者）。
+针对 Review-2 **Round-2** verdict `REWORK`（rework 账本 **2 / 3**，再一次 REWORK 将触发
+human escalation），审核指纹
+`a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9`
+（原始 Round-2 review + final verdict JSON：`50-review-2.md`；Round-1 review-2 归档于
+`51-review-2-round1.md`）。上方 Round-1 报告**逐字保留**。
+
+> 分工：**F4/F5 由 fix author 改文档；F6 是 bookkeeper-owned**（active `status.json`
+> 文件清单、`ACTIVE.json` phase 指针、`60-test-output.txt` 的 diff-check 范围说明），
+> **已由/将由 bookkeeper 处理，fix author 不碰 F6 任何文件**。本段仅映射 F4/F5。
+
+## Round-2 发现→修复映射表
+
+| # | 发现（severity） | 文件 : 行（before → after） | before 语义（缺陷） | after 语义（修复） |
+|---|---|---|---|---|
+| **F4** | symbol-snapshot 总述 + warnings 诊断过度承诺（P1） | `docs/api/public-market-contract.md:306-311`(intro) / `:324-341`(refresh_status+warnings) / `:347-353`(drift) → 全部重写 | 总述无条件称“每次请求都提交命令、从‘新发布’状态投影行”；warnings 列出 `assemble_failed`/`validation_crossed_deadline` 并称其能诊断非-deadline timeout | 区分 live-worker/offline/worker-not-running 三路径；row 不一定来自本次请求的新 publication；warnings 限定为线上可见值（partial token + `refresh_deadline_exceeded` + `worker_not_running`），内部 `cmd.error` 不暴露、可能表现为无原因的 timeout；披露 schema drift 在 `symbol-snapshot.schema.json:5` 与 `:39` |
+| **F5** | handoff 把视觉验收误归为 `accepted_merged_and_pushed`（P2） | `70-handoff.md:63-64` → `:63-66` | 视觉验收被记录为 `accepted_merged_and_pushed` | 分别点名 `human_visual_acceptance.status: accepted` 与后续独立门禁 `user_acceptance.status: accepted_merged_and_pushed`，保留所有标识符与结果 |
+| **F6** | active 阶段账本与 diff-check 范围未同步（P2） | active `status.json:99-118`、`ACTIVE.json:4`、`60-test-output.txt:123` | 遗漏 bookticker `status.json`；`ACTIVE.json` 仍 `intake`；diff-check 未声明范围 | **bookkeeper-owned，不在 fix author Allowed 集**：加入 bookticker `status.json` 到两文件清单、更新 `ACTIVE.json` phase/时间戳、向 `60-test-output.txt` 追加精确全范围/修复范围/当前 HEAD diff-check 结果（不改写原始 `30-review-1.md`） |
+
+## F4 — symbol-snapshot 过度承诺（仅改人工合同，未动服务端/schema）
+
+**代码真值（反驳 before）：**
+- `backend/services/snapshot_service.py:331-332`：`if self.client.offline: return
+  self._offline_symbol_snapshot(symbol)` —— offline **不提交任何命令**，`_offline_symbol_snapshot`
+  （`:373-393`）直接投影同步构建的 row，`published_version: 0`、`refresh_status: "ok"`、
+  无本次请求触发的新 worker publication。
+- `:338-340`：`cmd = None`；**仅当 `self._worker_running()` 为真**才 `cmd = self.submit_refresh(symbol)`。
+  worker 未运行时 `cmd` 保持 `None`。
+- `:344-345`：`latest = self._published_state` —— row 始终来自**当前可用** published state。
+- `:351-359`：`cmd is None`（worker 未运行）→ `refresh_status="timeout"` + `["worker_not_running"]`；
+  命令未在 deadline 内结算 → `timeout` + `cmd.warnings` + `refresh_deadline_exceeded`。
+- `:360-369`：响应 payload 只序列化计算后的 `warnings`（`:367`），**不包含** `error` 字段。
+- `:1497-1502 / :1514-1519 / :1529-1533 / :1535-1538`：assembly/validation/refresh 失败时，
+  `cmd.refresh_status="timeout"`，原因写入**内部** `cmd.error`（`assemble_crossed_deadline` /
+  `validation_crossed_deadline` / `assemble_failed:…` / `refresh_error:…`），`cmd.warnings` 只含
+  已累积的 per-source token。**`cmd.error` 不进响应** —— 故这些内部失败在线上仅表现为
+  `timeout`，且 `warnings` 可能不含任何具体原因。
+
+**Before（缺陷，contract 旧 `:306-311` intro）：**
+
+> The backend submits one `RefreshSymbolCommand` … then projects ONLY the selected
+> row from the newly published canonical published state.
+
+**After（contract 现 `:306-324` intro）：** 改为“One-shot selected-symbol row view”，分三条
+项目符号说明 path：**live worker**（提交命令、等 bounded timeout、从 latest published state 投影；
+仅当命令 in-window 结算且无 assembly/validation 失败才产生新 publication，否则投影 last-good）、
+**live no worker**（不提交命令、投影 last-good、返回 `refresh_status: timeout`）、**offline**
+（无 worker 无命令、直接投影同步构建 row、`published_version: 0`、`refresh_status: ok`）。并明确
+“the projected `row` … does NOT necessarily come from a publication created by this request”。
+
+**Before（缺陷，contract 旧 `:333-341`）：** `timeout` 触发含
+`assemble_failed`/`validation_crossed_deadline`（暗示进入 warnings）；`warnings` 被描述为
+“the diagnostic for a `timeout` that was not a plain deadline miss”。
+
+**After（contract 现 `:339-364`）：**
+- `refresh_status` 总注改为“反映本次请求 refresh attempt 的情况（如有）；row 始终取自 latest
+  published state，且**不证明**本次请求创建了新 publication”。
+- `ok`：offline（同步构建 row、`published_version: 0`、无命令）**或** live worker 命令完成一次
+  无 warning 的 publication。
+- `timeout`：明确“causes include … an internal assembly/validation/refresh failure that must
+  not publish. Of these, `warnings` may carry `refresh_deadline_exceeded` or `worker_not_running`;
+  the internal failures are recorded only in a server-internal `cmd.error` that is **NOT exposed**
+  on the response, so a `timeout` can carry no specific reason at all.”——即移除把
+  `assemble_failed`/`validation_crossed_deadline` 当作 warning 原因的错误暗示。
+- `warnings` 改为“array of the reason strings actually serialized on this response. Wire-visible
+  values are the per-source `partial` tokens above, plus `refresh_deadline_exceeded` and
+  `worker_not_running`. It is **not** a complete account of every `timeout`: internal `cmd.error`
+  values are **not exposed** here.”——取消“warnings 能诊断所有非-deadline timeout”的过度承诺。
+
+**Before（缺陷，contract 旧 `:347-353` drift 注记）：** 只披露 `symbol-snapshot.schema.json:39`，
+遗漏 `:5`（顶层 `description` 同样写“submits one RefreshSymbolCommand … projects ONLY the
+selected row from the newly published”）。
+
+**After（contract 现 `:368-378` drift 注记）：** 明确 schema 有**两处**过时 prose —— `:5`
+（顶层 description 仍声称无条件 submit+new-publication 投影，对 offline/worker-not-running 路径
+不成立）与 `:39`（`refresh_status` description 仍把 partial 窄化为 borrow 回退、timeout 窄化为
+deadline）。均作为 deferred contract-amendment 项披露，docs-only 不改 schema。
+
+## F5 — handoff 两道人工门禁混淆
+
+**真值（status.json）：** `human_visual_acceptance.status` = `accepted`（`:655-656`）；
+`user_acceptance.status` = `accepted_merged_and_pushed`（`:725-726`）。后者是视觉验收之后独立的
+阶段级门禁，二者不可合并。
+
+**Before（缺陷，70-handoff 旧 `:63-64`）：**
+
+> the user performed visual acceptance (recorded as `accepted_merged_and_pushed`).
+
+**After（70-handoff 现 `:63-66`）：**
+
+> the user performed visual acceptance (recorded as `human_visual_acceptance.status: accepted`);
+> the later, independent stage-level gate is `user_acceptance.status: accepted_merged_and_pushed`.
+
+保留全部标识符与结果（视觉验收=accepted；阶段接受/合并/推送=accepted_merged_and_pushed），仅把两道
+门禁分别点名。
+
+## 命令输出（Round-2 调度包要求的 6 条，逐字）
+
+```
+########## CMD #1 ##########
+$ rg -n 'offline|worker|latest published|last-good|cmd.error|not exposed|warnings|schema-prose drift' docs/api/public-market-contract.md
+215:  "warnings": []
+311:- Live with the background worker running: the service submits one
+312:  `RefreshSymbolCommand` to its serial worker and waits within a bounded
+313:  timeout, then projects the selected row from the latest published state. …
+316:  (last-good) state.
+317:- Live with no worker running: … returns
+320:- Offline: no worker and no command; …
+340:    from the latest published state regardless of status, and is not proof that
+342:    - `ok`: either offline … per-source `warnings`.
+345:    - `partial`: … `warnings` entry …
+352:    the previously published (last-good) state. …
+355:      `warnings` may carry `refresh_deadline_exceeded` or `worker_not_running`;
+356:      the internal failures are recorded only in a server-internal `cmd.error`
+360:  - `warnings`: array of the reason strings actually serialized on this
+362:    plus `refresh_deadline_exceeded` and `worker_not_running`. It is not a
+363:    complete account of every `timeout`: internal `cmd.error` values are not
+373:  not hold for the offline or worker-not-running paths above. …
+exit=0   (命中：offline / worker / latest published / last-good / cmd.error /
+          not exposed / warnings / schema-prose drift 均在；符合预期)
+
+########## CMD #2 ##########
+$ if rg -n 'then projects ONLY the selected row from the newly published|warnings.*diagnostic for a timeout|recorded as .accepted_merged_and_pushed.' \
+    docs/api/public-market-contract.md reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md; then exit 1; fi
+exit=non-zero   (3 个违规模式全部从契约 + handoff 消除)
+
+########## CMD #3 ##########
+$ python3 -m json.tool reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json >/dev/null
+exit=0   (bookticker status.json 仍为合法 JSON；本 round 只读引用其字段，未改)
+
+########## CMD #4 ##########
+$ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_funding_history.py backend/tests/test_funding_history_endpoint.py backend/tests/test_symbol_snapshot_endpoint.py -q -p no:cacheprovider
+.......................................................................  [100%]
+71 passed in 2.43s
+exit=0   (71 项针对性测试全过；本 stage 未改代码，测试用作行为真值回归基线)
+
+########## CMD #5 ##########
+$ git diff --check
+exit=0   (无尾空白 / 冲突标记)
+
+########## CMD #6 ##########
+$ git diff --name-only
+docs/api/public-market-contract.md
+reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
+(+ reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md：本追加段使该文件成为第三个改动，
+  属调度包明列的 append-only Allowed 文件)
+exit-ok   (仅两个交付文档 + append-only 40-fix-report.md；无 backend/ / frontend/ / schemas/ /
+          scripts/ 及任何 Stage-B/Harness-track / bookkeeper-only 文件)
+```
+
+## 改动文件边界结果（Round-2）
+
+| 路径 | 是否 Allowed | F# |
+|---|---|---|
+| `docs/api/public-market-contract.md` | ✅ Allowed（交付） | F4 |
+| `reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md` | ✅ Allowed | F5 |
+| `reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md` | ✅ Allowed（append-only 本段） | 报告本身 |
+
+Forbidden 集（`backend/`、`frontend/`、`schemas/`、`scripts/`、Stage-B/Harness-track 全部文件、
+bookticker `status.json`/`20-implementation.md`、active-stage `status.json`/`70-handoff.md`/
+`60-test-output.txt`/`ACTIVE.json`）—— **fix author 0 改动**。F6 的三处 bookkeeper-owned 修正
+（active `status.json` 文件清单、`ACTIVE.json` phase、`60-test-output.txt` diff-check 范围）
+按分工留给 bookkeeper；`30-review-1.md` 为原始 reviewer 输出，绝不改写。
+
+## 遗留 / 残余风险（与 Round-2 review 一致）
+
+- `symbol-snapshot.schema.json` `:5`（顶层 description）与 `:39`（`refresh_status` description）
+  的 prose 仍与多路径实际行为漂移；本轮仅要求人工合同明确披露（已在 contract `:368-378`），
+  不扩大为 schema 或服务端变更。
+- 固定全范围 `127a600..a77a18a` 会因已被 Round-2 reviewer 覆盖的旧 `30-review-1.md` 三处尾随空格
+  返回非零 diff-check；`c72987d..a77a18a`（限四个修复交付文件）与当前已提交 HEAD 均为 clean。
+  该范围说明属 F6，由 bookkeeper 在 `60-test-output.txt` 追加精确结果，不重写原始 reviewer 输出。
+- Stage-B / Harness-track 文档仍属已批准的后续范围，本轮不得顺带修改。
+- F1 已通过代码与非预热 endpoint 测试独立验证关闭；bookticker `status.json` 相对修复前提交仅有
+  Round-1 的两个 note 标量变化，SHA/指纹/verdict/merge/session/用户授权事实未变；71 项目标测试全过。
+
+---
+
+当前 Session ID: unavailable (Claude Code 不向模型暴露 provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md
+本地北京时间: 2026-07-16 21:47:48 CST
+下一步模型: bookkeeper（处理 F6：active `status.json` 两文件清单加入 bookticker `status.json`、
+            `ACTIVE.json` phase/时间戳、向 `60-test-output.txt` 追加精确 diff-check 范围结果；
+            更新 active `status.json`/`70-handoff.md`；提交于 stage 分支；重算标准指纹；重跑并保存
+            `scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review`；重新派发
+            Round-3 review-1/review-2）
+下一步任务: 以 F4/F5 + bookkeeper 的 F6 为基线重入 Round-3 评审门
