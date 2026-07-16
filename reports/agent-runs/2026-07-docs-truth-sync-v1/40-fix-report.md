@@ -553,3 +553,142 @@ Session ID 来源: unavailable
             `python3 scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review`；
             按用户授权豁免 Round-4 review-1，直接派 Codex review-2）
 下一步任务: 以 F7（+ bookkeeper 的 F8）为基线重入（豁免后的）review-2 评审门
+
+---
+
+# Round-4 Fix Report — Review-2 Round-4 REWORK（2026-07-docs-truth-sync-v1）
+
+> Fix author（本轮）：**Fable 5（anthropic/claude-fable-5）**，由用户在 rework 4/3 超限后
+> 明确改派（原 fix author claude_glm 连续 4 轮未收敛，用户指令："根据他的 review 结果
+> 亲自做一次 fix"）。Fable5 先前参与：80-harness-design-rootcause.md 的独立评审与
+> D-A/D-B 设计裁决（81 文件）——方向/设计层，从未实现或修改过本 stage 交付文件；
+> 与 Round-4 reviewer（codex/openai）、review-1（kimi/moonshot）供应商隔离。
+> 下一轮 review 由用户路由至 opus4.8。
+> 被修 finding 来源：Codex review-2 Round-4（session 019f6a94-9685-7f80-8b64-cb7ba5798daf，
+> 逐字存档于 50-review-2.md；Round-3 原文已先归档至 53-review-2-round3.md）。
+
+## Round-4 发现→修复映射表
+
+| F# | 严重度 | 结论 | 修复位置 |
+|---|---|---|---|
+| F9 | P1 | ✅ 已修（独立复核属实） | `docs/api/public-market-contract.md:323-356` |
+| F10 | P1 | ✅ 已修（独立复核属实，**并补 reviewer 漏列的第 2 个 token**） | `docs/api/public-market-contract.md:371-393` |
+| F11 | P2 | bookkeeper-owned，本轮由 Fable5 以代理 bookkeeper 身份同步（用户改派，见上） | `70-handoff.md` |
+| F12 | P2 | 同上 | `status.json` |
+
+## F9 — offline `published_version: 0` 被误述为 PublishedState 修订号
+
+**独立复核（不信转述）**：`backend/services/snapshot_service.py` `_offline_symbol_snapshot`
+（`:374-393`）直接调 `get_snapshot()` 组装响应、固定 `"published_version": 0`，全程不创建
+也不读取 `PublishedState`；live 路径（`:344-368`）才从 `latest = self._published_state` 投影
+并写 `latest.published_version`。Codex 证据成立。
+
+**Before**（合同旧 `:323-333` 段，无条件表述）：
+
+> `published_version` here is the revision number of the internal `PublishedState`
+> this `row` was projected from — … What IS preserved: this `row` is selected from
+> the same internal `PublishedState.snapshot` a `/snapshot` read projects from …
+
+**After**（新 `:323-341`）：改为 mode-dependent 两分支——live = 实际 `PublishedState` 修订号；
+offline = 固定 `0` sentinel，"Offline mode never creates a `PublishedState` … so offline `0`
+is NOT the revision number of any `PublishedState`"；row-from-same-`PublishedState.snapshot`
+限定为 "What IS preserved (live mode only)"。full-snapshot 无可比字段、无跨请求相等保证
+两条正确表述**原样保留**（`:332-336`）。
+
+**Before**（body 字段 bullet 旧 `:344-348`）：
+
+> `published_version`: integer ≥0, the revision number of the internal
+> `PublishedState` this `row` was projected from. …
+
+**After**（新 `:351-356`）："Live mode: the revision number of the internal `PublishedState`
+this `row` was projected from. Offline mode: the fixed `0` sentinel — no `PublishedState`
+exists or is created offline."
+
+## F10 — wire-visible warnings 清单遗漏（含 reviewer 未列出的一项）
+
+**独立复核**：`snapshot_service.py:1389-1393` 排队即过期分支设
+`cmd.warnings = [f"refresh_command_expired:{symbol}"]` + `refresh_status="timeout"`；
+端点 `:352-353` 在 `cmd.refresh_status` 已定时执行 `warnings = list(cmd.warnings)` 原样上线。
+Codex F10 成立。**追加发现**：同一机制下还有第二个被遗漏的 wire-visible token ——
+`:1400-1404` 冷路径（`base_raw is None`）设 `cmd.warnings = [f"base_raw_unavailable:{symbol}"]`
++ `refresh_status="timeout"`，同样经 `:353` 序列化。只按 codex 清单修会在下一轮复现同型缺陷，
+故一并写入。另核实 `:1465-1467` / `:1495-1500` 两个 mid/post-assemble deadline gate 会把已积累的
+per-source token 挂在 `timeout` 响应上（合同旧文暗示 per-source 仅随 `partial`），一并说明。
+
+**Before**（warnings bullet 旧 `:372-376`）：
+
+> Wire-visible values are the per-source `partial` tokens above, plus
+> `refresh_deadline_exceeded` and `worker_not_running`.
+
+**After**（新 `:384-390`）：wire-visible 值 = per-source tokens（注明 "can also accompany a
+`timeout` when a command fails after collecting them"）+ `refresh_deadline_exceeded` +
+`refresh_command_expired:<symbol>` + `base_raw_unavailable:<symbol>` + `worker_not_running`。
+`timeout` bullet（新 `:369-382`）同步展开四个诊断 token 的语义区分（endpoint 等待超时 vs
+排队即过期零上游 I/O vs 冷路径无 base snapshot vs 无 worker）。`cmd.error` 不上线、
+`timeout` 可无具体原因两条**原样保留**。
+
+## 命令输出（Round-4 调度包要求的 6 条，逐字）
+
+```text
+########## CMD #1 ##########
+$ rg -n 'published_version|PublishedState|Offline|sentinel|refresh_command_expired|refresh_deadline_exceeded|wire-visible|cross-request' docs/api/public-market-contract.md backend/services/snapshot_service.py
+rc1=0   (50 行命中；合同侧关键行：:323 mode-dependent、:328-330 offline sentinel 不是
+         PublishedState 修订号、:336 "What IS preserved (live mode only)"、:351-353 body
+         bullet live/offline 两分支、:377-379 + :388-389 refresh_command_expired 与
+         base_raw_unavailable 进入 wire-visible 清单)
+
+########## CMD #2 ##########
+$ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_funding_history.py backend/tests/test_funding_history_endpoint.py backend/tests/test_symbol_snapshot_endpoint.py -q -p no:cacheprovider
+71 passed in 2.68s
+rc2=0
+
+########## CMD #3 ##########
+$ node frontend/self-check.js
+（80 项 [PASS]，末行"全部自检通过"）
+rc3=0
+
+########## CMD #4 ##########
+$ python3 -m json.tool reports/agent-runs/2026-07-docs-truth-sync-v1/status.json >/dev/null
+rc4=0
+
+########## CMD #5 ##########
+$ git diff --check
+rc5=0   (无尾空白 / 冲突标记)
+
+########## CMD #6 ##########
+$ git diff --name-only
+docs/api/public-market-contract.md
+(+ 本追加段使 40-fix-report.md 成为第二个改动，属 append-only Allowed 文件)
+rc6=0
+```
+
+## 改动文件边界结果（Round-4）
+
+| 路径 | 是否 Allowed | F# |
+|---|---|---|
+| `docs/api/public-market-contract.md` | ✅ Allowed（交付） | F9/F10 |
+| `reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md` | ✅ Allowed（append-only 本段） | 报告本身 |
+
+`backend/`、`frontend/`、`schemas/`、`scripts/`、Stage-B/Harness-track、bookticker 文件
+—— fix author **0 改动**。F11/F12 属 bookkeeper-owned 文件，由 Fable5 以代理 bookkeeper
+身份在独立提交中处理（用户改派 + opus4.8 转任 reviewer，原 bookkeeper 不再适合边记账边受审）。
+
+## 遗留 / 残余风险
+
+- **代码注释漂移（超范围，仅披露不修）**：`snapshot_service.py:320-322` docstring 仍写
+  "same `published_version` as the full snapshot, by construction"——与本轮修正后的合同矛盾，
+  但 `backend/` 为 Forbidden；建议并入既有 deferred contract-amendment 项一起清。
+- `symbol-snapshot.schema.json:5/:39`、`funding-history.schema.json:34` prose drift 维持
+  deferred（合同已披露），本轮未动 schema。
+- 本轮为用户第二次超限授权（rework 4→5）；Round-4 review-1 waiver 不延伸，下一轮评审
+  路由（opus4.8）由用户指定。
+
+---
+
+当前 Session ID: unavailable (Claude Code 不向模型暴露 provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md
+本地北京时间: 2026-07-16 23:09:39 CST
+下一步模型: bookkeeper 动作（本轮由 Fable5 代理）：归档 Round-3 review → 逐字落盘 Round-4
+            review → F11/F12 → 提交、重算标准指纹、保存 pre-review validator 结果
+下一步任务: 用户按既定路由派 opus4.8 对新指纹执行 review

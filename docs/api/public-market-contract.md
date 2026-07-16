@@ -320,17 +320,24 @@ this request:
 - Offline: no worker and no command; the service projects the synchronously
   built row directly (`published_version: 0`, `refresh_status: ok`).
 
-`published_version` here is the revision number of the internal `PublishedState`
-this `row` was projected from — it is NOT a version carried by the full
-snapshot. The full snapshot v1 wire payload (`snapshot.schema.json`) has no
+`published_version` is mode-dependent — it is NOT a version carried by the full
+snapshot:
+
+- Live (with or without a worker): the revision number of the internal
+  `PublishedState` this `row` was projected from.
+- Offline: a fixed `0` sentinel by convention. Offline mode never creates a
+  `PublishedState` (the row is projected from the synchronously built
+  snapshot), so offline `0` is NOT the revision number of any `PublishedState`.
+
+The full snapshot v1 wire payload (`snapshot.schema.json`) has no
 `published_version` field at all, so there is no client-verifiable equality
 between this value and anything in a `/api/public-market/snapshot` response;
 two independent HTTP reads may also straddle a later publication, so there is no
-atomic cross-request same-version guarantee. What IS preserved: this `row` is
-selected from the same internal `PublishedState.snapshot` a `/snapshot` read
-projects from, so within a single read the row is identical in shape and content
-to the matching element of `snapshot.rows[]`. This payload NEVER contains a
-`rows` array.
+atomic cross-request same-version guarantee. What IS preserved (live mode only):
+this `row` is selected from the same internal `PublishedState.snapshot` a
+`/snapshot` read projects from, so within a single read the row is identical in
+shape and content to the matching element of `snapshot.rows[]`. This payload
+NEVER contains a `rows` array.
 
 - Method / path: `GET /api/public-market/symbol-snapshot`.
 - Input: query param `symbol` (required). A blank/missing value is treated as
@@ -341,11 +348,12 @@ to the matching element of `snapshot.rows[]`. This payload NEVER contains a
 - Body fields (per schema, no others):
   - `schema_version`: `public-market-symbol-snapshot/v1` (const).
   - `symbol`: the requested symbol.
-  - `published_version`: integer ≥0, the revision number of the internal
-    `PublishedState` this `row` was projected from. The full snapshot v1 wire
-    payload exposes no comparable field, so this is NOT verifiable against a
-    `/api/public-market/snapshot` response and gives no cross-request equality
-    guarantee (see the path note above).
+  - `published_version`: integer ≥0. Live mode: the revision number of the
+    internal `PublishedState` this `row` was projected from. Offline mode: the
+    fixed `0` sentinel — no `PublishedState` exists or is created offline. The
+    full snapshot v1 wire payload exposes no comparable field, so this is NOT
+    verifiable against a `/api/public-market/snapshot` response and gives no
+    cross-request equality guarantee (see the mode note above).
   - `data_time`, `generated_at`: date-times.
   - `refresh_status`: `ok` | `partial` | `timeout`. It reflects what happened on
     this request's refresh attempt (if any); the projected `row` is always taken
@@ -362,16 +370,23 @@ to the matching element of `snapshot.rows[]`. This payload NEVER contains a
       source(s).
     - `timeout`: no fresh publication resulted from this request, so the row is
       the previously published (last-good) state. Causes include the shared
-      deadline expiring, no live worker running, or an internal
+      deadline expiring (either the endpoint wait elapsing, or the queued
+      command expiring before the worker started any upstream I/O), no live
+      worker running, no base snapshot yet (cold path), or an internal
       assembly/validation/refresh failure that must not publish. Of these,
-      `warnings` may carry `refresh_deadline_exceeded` or `worker_not_running`;
-      the internal failures are recorded only in a server-internal `cmd.error`
-      that is NOT exposed on the response, so a `timeout` can carry no specific
-      reason at all. `timeout` therefore does not prove that only a deadline
-      expired.
+      `warnings` may carry `refresh_deadline_exceeded` (endpoint wait elapsed
+      without the command settling), `refresh_command_expired:<symbol>` (the
+      queued command expired before the worker started it; zero upstream I/O),
+      `base_raw_unavailable:<symbol>` (cold path: no base snapshot yet), or
+      `worker_not_running`; the internal failures are recorded only in a
+      server-internal `cmd.error` that is NOT exposed on the response, so a
+      `timeout` can carry no specific reason at all. `timeout` therefore does
+      not prove that only a deadline expired.
   - `warnings`: array of the reason strings actually serialized on this
-    response. Wire-visible values are the per-source `partial` tokens above,
-    plus `refresh_deadline_exceeded` and `worker_not_running`. It is not a
+    response. Wire-visible values are the per-source `partial` tokens above
+    (which can also accompany a `timeout` when a command fails after collecting
+    them), plus `refresh_deadline_exceeded`, `refresh_command_expired:<symbol>`,
+    `base_raw_unavailable:<symbol>`, and `worker_not_running`. It is not a
     complete account of every `timeout`: internal `cmd.error` values are not
     exposed here (see `refresh_status`).
   - `row`: a single element projected from the published state, identical in
