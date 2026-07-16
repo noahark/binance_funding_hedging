@@ -149,3 +149,20 @@ CMD5 git diff --check                            -> PASS (clean)
 CMD6 changed-file boundary                        -> PASS (contract + bookticker 70-handoff + 40-fix-report only; zero forbidden)
 F4 CHECK: contract distinguishes live-worker/no-worker/offline; row from latest published state (not necessarily this request's publication); warnings wire-visible only; schema drift disclosed at symbol-snapshot.schema.json:5 and :39.
 F5 CHECK: bookticker handoff names human_visual_acceptance.status=accepted and user_acceptance.status=accepted_merged_and_pushed separately.
+
+########################################################################
+## F8 correction (codex round-3, bookkeeper-owned): diff-check reproducibility
+########################################################################
+# Prior round-2 note said "git diff --check c72987d..a77a18a -> clean". That is
+# only true when SCOPED to the four delivery files. Precise, reproducible results:
+$ git diff --check c72987d..a77a18a
+#   -> exit 2: three trailing-whitespace lines in the HISTORICAL raw reviewer file
+#      reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md (round-1 output,
+#      later overwritten; raw reviewer artifact, must NOT be rewritten).
+$ git diff --check c72987d..a77a18a -- docs/api/public-market-contract.md \
+      reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md \
+      reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md \
+      reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json
+#   -> clean (the four round-1 delivery-fix files)
+$ git diff --check 127a600..568fd41
+#   -> clean (current round-3 full fixed range)
