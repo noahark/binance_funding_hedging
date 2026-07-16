@@ -6,16 +6,20 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `review-2`（review-1 Kimi ACCEPT 且 schema-valid，等 review-2 终审）
-- Next action: **操作者在 Codex 终端 `codex exec` 执行 `55-dispatch-review-2-codex.md`
-  的 PROMPT BODY**；Codex 产出 `50-review-2.md`（schema-valid JSON verdict）后，
-  bookkeeper 跑 `validate-stage.py --phase pre-accept`，ACCEPT→`stage_accepted_waiting_user`
-  （等用户批准 promote+merge），REWORK→用 fix_start_prompt 派 fix(GLM)。
-- review-1：Kimi ACCEPT，`30-review-1.md`，指纹匹配，P1-9 裁决=保留 bookticker
-  status.json 不动（合法历史记录）。
-- 受审范围：`127a600..c72987d`，fingerprint `c72987d:bfd3106…`（pre-review PASSED）。
-- review-2 身份：Codex(openai)，与实现者/设计者/breakdown 作者跨 provider；仅 direction
-  -audit 参与，已披露，无需 override（provider 不重叠设计者）。
+- Active phase: `fixing`（review-2 Codex = REWORK；rework 1/3；等 fix）
+- Next action: **操作者在 Claude-GLM 终端执行 `45-dispatch-fix-claude-glm.md` 的
+  PROMPT BODY**（Codex fix_start_prompt 原文，修 F1/F2/F3，写 `40-fix-report.md`，
+  不 commit）。fix 回来后 bookkeeper：R4 diff 对账 → 更新 `60-test-output.txt` →
+  重算指纹 → `validate-stage.py --phase pre-review` → **重派 review-1(Kimi) 再
+  review-2(Codex)** 于修复后的范围。
+- review-1：Kimi ACCEPT（`30-review-1.md`）。review-2：Codex REWORK
+  （`50-review-2.md`，schema-valid，指纹匹配）。
+- **三个必修（P1）**：F1 contract funding-history empty 语义过度承诺；F2 symbol-snapshot
+  ok/partial/timeout 语义比代码窄；F3 P1-9 归一不完整（含 bookticker status.json，
+  **review-2 覆盖 review-1 的保留裁决**）。
+- fix 允许文件：`docs/api/public-market-contract.md`、bookticker
+  `70-handoff.md`/`20-implementation.md`/`status.json`、新建 `40-fix-report.md`。
+  禁改本 active stage 的 status/handoff/60-test（bookkeeper-only）与全部代码/schema。
 - 平行未决（不阻塞本 stage）：用户按 Fable5 裁决排期 **Stage A（模板仓 first）=
   RC4 分任务指纹 + authorized_exception**（D-A 由此解决）。
 - Read-set: = `status.current_inputs`
