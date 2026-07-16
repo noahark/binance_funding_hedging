@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
-  "current_phase": "review-1",
+  "current_phase": "review-2",
   "current_inputs": [
     "reports/agent-runs/2026-07-docs-truth-sync-v1/00-task.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/10-design.md",
@@ -122,13 +122,16 @@
     "P1-9 scope named bookticker status.json, but implementer left it unchanged, judging line 518 a historical note inside an already-accepted record (status=accepted, user_acceptance=accepted_merged_and_pushed) and that rewriting a status.json note risks tampering with audit evidence. Bookkeeper did not self-fix; review-1 should adjudicate whether the residual 'remain' wording needs normalization or is legitimate history."
   ],
   "review_1": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "reviewer": "kimi",
+    "provider": "moonshot",
+    "model": "kimi-code/kimi-for-coding",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812",
     "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "Kimi was one of the four read-only audit models that informed the backlog; did not author design/breakdown/implementation/fix. Provider (Moonshot) is isolated from implementer claude_glm (Zhipu GLM).",
+    "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/30-review-1.md",
+    "p1_9_adjudication": "Review-1 accepts leaving bookticker status.json untouched as a frozen accepted-stage audit record (no contradictory tokens present; rewriting notes risks evidence tampering). Living-doc normalization satisfied via handoff + implementation reports.",
     "invalid_json_attempts": 0
   },
   "review_2": {
@@ -140,7 +143,18 @@
     "verdict": null,
     "json_schema_valid": null,
     "diff_fingerprint": null,
-    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement": "direction_synthesis",
+    "reviewer_prior_involvement_notes": "Honest disclosure: Codex (openai) participated in the read-only four-model audit that produced the backlog (direction-level input). It did NOT author the stage design, development breakdown, implementation, or any fix. Provider isolation holds on every hard/preferred axis: Codex (openai) differs from the implementer claude_glm (zhipu_glm) and from the designer+breakdown author (Anthropic Opus). Because reviewer provider != designer provider, the validator's designer-overlap evidence-file requirement (validate-stage.py:720-737) does NOT apply; no strong-reviewer override is invoked.",
+    "isolation_analysis": {
+      "vs_implementer": "isolated (openai != zhipu_glm) — hard ban satisfied",
+      "vs_designer_and_breakdown_author": "isolated (openai != anthropic) — preferred isolation satisfied",
+      "vs_direction_audit": "NOT isolated — Codex was one of four read-only audit models; disclosed; dispatch requires independent re-verification against PRD/schema/code truth, not an echo of its own audit"
+    },
+    "design_conflict_override": {
+      "used": false,
+      "reason": "Not needed: reviewer provider (openai) does not overlap the designer/breakdown-author provider (anthropic), so validate-stage.py's designer-overlap path is not triggered. The direction-audit participation is disclosed but does not require the override machinery."
+    },
+    "verdict_dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/55-dispatch-review-2-codex.md",
     "invalid_json_attempts": 0
   },
   "linked_decisions": [
@@ -201,6 +215,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "operator executes review-1 (kimi) dispatch; then bookkeeper records 30-review-1.md verdict and routes review-2 (codex) or fix",
-  "updated_at": "2026-07-16T16:19:27Z"
+  "next_action": "operator executes review-2 (codex) dispatch (55-...); then bookkeeper runs pre-accept validator and, on ACCEPT, sets stage_accepted_waiting_user",
+  "updated_at": "2026-07-16T18:20:00Z"
 }
