@@ -279,14 +279,25 @@ carries settled 7D/30D annualization only; it does NOT return the current-period
   - `history_status`: `available` | `empty`.
   - `funding_history`: newest-first settled records inside the inclusive 30-day
     window ending at `data_time`; each item `{funding_time (ms int ≥0),
-    funding_rate (decimal string)}`. Empty only when the upstream fetch
-    succeeded but the window has no settled records (`history_status: empty`).
+    funding_rate (decimal string)}`. This payload is a **pure projection of the
+    already-published snapshot row**: the endpoint issues no upstream fetch for
+    this request — it reads `funding_history` straight from the published state
+    and sets `history_status` to `empty` whenever that list has no entries.
+    `empty` therefore means only "no settled records in the published row"; it
+    **does not prove** that this request (or any prior fetch) succeeded. A symbol
+    whose row was published but never prewarmed, or whose earlier history fetch
+    failed, still projects as `empty` here with no on-demand retry.
   - `annualized_funding_7d`: settled 7-day calendar-window funding-rate sum ×
     (365 / 7), or `null` for an empty window.
   - `annualized_funding_30d`: settled 30-day calendar-window funding-rate sum ×
     (365 / 30), or `null` for an empty window.
 - There is deliberately NO `annualized_funding_24h` on this payload: the 24h
   estimate is a current-period figure that lives on the snapshot row, not here.
+- Schema-prose drift (deferred): `funding-history.schema.json` line 34 still
+  attributes `funding_history`'s emptiness to a *successful* upstream fetch over
+  an empty window — narrower than the as-built pure projection above. This stage
+  is docs-only and does not alter schema; aligning that schema prose is a
+  deferred contract-amendment item (see Residual Risks).
 
 Schema: `schemas/api/public-market/funding-history.schema.json`.
 
@@ -310,17 +321,36 @@ construction). This payload NEVER contains a `rows` array.
   - `symbol`: the requested symbol.
   - `published_version`: integer ≥0, the same version as the full snapshot.
   - `data_time`, `generated_at`: date-times.
-  - `refresh_status`: `ok` | `partial` | `timeout`.
-    - `ok`: all selected sources refreshed.
-    - `partial`: public/history refreshed but borrow fell back to last-good
-      (carried as a `warnings` entry).
-    - `timeout`: the command reached its shared deadline before publication, so
-      the row is projected from the previously published state.
-  - `warnings`: array of human-readable strings.
+  - `refresh_status`: `ok` | `partial` | `timeout`. The projected `row` is
+    always taken from the latest published state regardless of status.
+    - `ok`: a fresh publication completed with no per-source `warnings`.
+    - `partial`: a fresh publication completed but at least one source emitted a
+      `warnings` entry — e.g. `premium_refresh_failed:<symbol>`,
+      `funding_history_unavailable:<symbol>`, `borrow_rate_refresh_failed:<asset>`,
+      or `max_borrowable_refresh_failed:<asset>`. A `partial` does NOT imply that
+      the public/history figures are fresh; read `warnings` for the actual failed
+      source(s).
+    - `timeout`: no fresh publication was produced, so the row is projected from
+      the previously published (last-good) state. Triggers include the shared
+      deadline expiring (`refresh_deadline_exceeded`), no live worker running
+      (`worker_not_running`), or an assembly/validation failure that must not
+      publish (`assemble_failed`, `validation_crossed_deadline`, etc.). A
+      `timeout` therefore does not prove that only a deadline expired.
+  - `warnings`: array of source-specific reason strings — the authoritative
+    breakdown of why a publication is `partial`, and the diagnostic for a
+    `timeout` that was not a plain deadline miss.
   - `row`: a single element projected from the published state, identical in
     shape to a `snapshot.rows[]` element (see
     `snapshot.schema.json#/$defs/row`, incl. `opening_quotes` and the annualized
     funding fields below). There is never a `rows` array on this payload.
+
+- Schema-prose drift (deferred): `symbol-snapshot.schema.json` line 39 still
+  narrows `partial` to a borrow-source fallback and `timeout` to the shared
+  deadline expiring — narrower than the as-built behavior above (which also maps
+  premium/history failures to `partial`, and worker-absence / assembly /
+  validation failures to `timeout`). This stage is docs-only and does not alter
+  schema; aligning that schema prose is a deferred contract-amendment item (see
+  Residual Risks).
 
 Schema: `schemas/api/public-market/symbol-snapshot.schema.json`.
 

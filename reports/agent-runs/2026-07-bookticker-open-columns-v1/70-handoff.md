@@ -60,10 +60,12 @@ not read `history/` at startup.
 - First-pass Kimi evidence reports 78 frontend PASS lines, 375 backend tests
   passed and a clean diff check; after the addendum rerun the final counts are
   frontend 80 PASS lines and backend 375 passed.
-- After deterministic verification, the user performs visual acceptance.
-- The newer user instruction supersedes the planned Opus4.8 route. Only one new
-  fresh Codex final-review invocation is requested; prior review-1 remains
-  baseline evidence. Current bookkeeper Session is forbidden as reviewer.
+- After deterministic verification, the user performed visual acceptance
+  (recorded as `accepted_merged_and_pushed`).
+- The newer user instruction superseded the planned Opus4.8 route. Only one new
+  fresh Codex final-review invocation was requested and completed `ACCEPT`; prior
+  review-1 remained baseline evidence. The bookkeeper Session was forbidden as
+  reviewer.
 
 ## Task A Result
 
@@ -126,7 +128,7 @@ not read `history/` at startup.
 - Task B packet: `task-b-frontend-kimi.prompt.md`
 - Task B fix packet: `task-b-frontend-kimi-fix-1.prompt.md`
 - Task B fix-2 packet: `task-b-frontend-kimi-fix-2.prompt.md`
-- Task B report: `20-implementation-task-b.md` (must be amended by fix 2)
+- Task B report: `20-implementation-task-b.md` (amended by fix 2)
 - Task B bookkeeper verification: `21-bookkeeper-task-b-verification.md`
 - Task A review-1 packet: `review-1-task-a-kimi.prompt.md`
 - Task B review-1 packet: `review-1-task-b-claude-glm.prompt.md`

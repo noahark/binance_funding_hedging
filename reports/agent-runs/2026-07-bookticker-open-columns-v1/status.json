@@ -515,7 +515,7 @@
       "python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-review --task task-b-frontend-table-integration"
     ],
     "evidence": "reports/agent-runs/2026-07-bookticker-open-columns-v1/60-test-output.txt",
-    "note": "Task A/B baseline tests and review-1 passed. Kimi Task C final report and independent bookkeeper verification both passed: frontend self-check 80 PASS lines, full backend 375 passed, py_compile/fixture/status JSON/file-boundary/diff checks passed. User page-display acceptance is recorded; local evidence commit and the single fresh Codex final review remain."
+    "note": "Task A/B baseline tests and review-1 passed. Kimi Task C final report and independent bookkeeper verification both passed: frontend self-check 80 PASS lines, full backend 375 passed, py_compile/fixture/status JSON/file-boundary/diff checks passed. User page-display acceptance is recorded. The local evidence commit and the single fresh Codex final review (review-2) have since completed: review-2 verdict is ACCEPT and the stage was merged and pushed (see review_2 and merge_result)."
   },
   "review_1": {
     "reviewer": "task_specific_cross_review",
@@ -650,7 +650,7 @@
       "kimi_task_c_fast_ui_layout": "completed_verified",
       "user_visual_display_acceptance": "accepted"
     },
-    "note": "The user's newer 2026-07-16 instruction supersedes the prior Opus4.8 route: Kimi performs one bounded frontend-only UI adjustment, the user visually accepts it, then one fresh Codex final-review invocation inspects the updated full range and Task C delta. Existing review-1 remains baseline evidence; no second new review-1 invocation is requested. The current bookkeeper Session cannot serve as reviewer."
+    "note": "The user's newer 2026-07-16 instruction superseded the prior Opus4.8 route: Kimi performed one bounded frontend-only UI adjustment, the user visually accepted it, and one fresh Codex final-review invocation then inspected the updated full range and Task C delta (review-2, verdict ACCEPT). Existing review-1 remained baseline evidence; no second new review-1 invocation was requested. The bookkeeper Session that authored the design did not serve as reviewer."
   },
   "human_visual_acceptance": {
     "status": "accepted",
