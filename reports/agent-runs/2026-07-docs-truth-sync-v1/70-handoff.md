@@ -6,58 +6,38 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `review_2`（round 6；Fable5 收敛 fix 已对账、pre-review PASSED，等 Codex 终审）
-- Next action: **操作者执行 `60-dispatch-review-2-codex-round6.md`（Codex 终审，review-1
-  豁免）**。ACCEPT→bookkeeper 跑 `--phase pre-accept`→`stage_accepted_waiting_user`→用户
-  终审合并。REWORK→报用户。
-- Round-5 fix 已对账（Fable5 语义收敛，commit `d59f823`）：**F14** `base_raw_unavailable`
-  0 命中 + 冷启动 503 明写；**F13** row-source 唯一 mode-dependent 定义、无条件句全清；
-  warnings 开放式非穷尽 + refresh_status 权威；timeout 保守不枚举。CMD2 gate 干净、
-  pytest 71 + 前端 80、边界零越界。F15（我的账本）已修。
-- 受审范围（新）：`127a600..d59f823`，fingerprint `d59f823:361be698…`（pre-review PASSED）。
-- 历史：R1(F1-F3)→R2(F4-F6)→R3(F7/F8)→R4(F9-F12)→R5(F13-F15) 五轮 REWORK，均已修；
-  三次用户超限授权（rework 6）。review-2 原文存 51-/52-/53-/54-/50-review-2-round5.md。
-- Codex round-5 三 finding（原文 `50-review-2.md`；round-4 归档 `54-`）——**我已独立核实**：
-  - **F13(P1,真,偏细)**：契约 306/358/392 行仍无条件说 row 来自 published state,offline
-    实为同步/缓存 snapshot（`snapshot_service.py:373-393`）。
-  - **F14(P1,真,且是上轮 fix 引入的回归)**：契约把 `base_raw_unavailable:<symbol>` 列为
-    公开 wire token,但它经 HTTP **不可达**（冷启动 335 先 503;`_base_raw` 998 总在
-    publish 前设置且无重置路径;分支 1402 只单元测试直调可触发）。这正是 Fable5 上轮
-    "主动多加防 round-6"加进去的。
-  - **F15(P2,我的账本)**：✅ 已修——current_phase / human_escalation / handoff 正文
-    此前仍写"待派发"，与 Recovery Header/ACTIVE 矛盾，已同步。
-- 受审范围（新）：`127a600..e214d6f`，fingerprint
-  `e214d6f819d76daa3b85865c1021b5aa2497ee95:d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e`。
-- ⚠️ **路由约束（用户待决）**：用户曾表示 opus4.8 做下一轮 review，但
-  `validate-stage.py:717-718` 硬规定 review_2 厂商身份必须 ≠ 所有 fix author 厂商身份、
-  **无 override**。Fable5（anthropic）已是 round-4 fix author → opus4.8（anthropic）做
-  正式 review_2 会永久红身份门。选项：(a) opus4.8 做用户侧非正式复核 + 正式 review_2
-  仍由 codex（openai）对 e214d6f 执行；(b) 明知接受永久红门。记录于
-  `status.user_authorizations[1].routing_constraint`。
-- Round-4 结果（原文 `50-review-2.md`，Round-3 原文归档 `53-review-2-round3.md`）：
-  Codex REWORK——**F9(P1)** offline `published_version: 0` 被误述为 PublishedState
-  修订号（offline 不创建 PublishedState）；**F10(P1)** wire-visible warnings 清单漏
-  `refresh_command_expired:<symbol>`；F11/F12(P2) 簿记同步缺口。
-- Fix（rework 5，用户第二次超限授权 `status.user_authorizations[1]`，fix author 改派
-  **Fable5**）：F9 合同改 mode-dependent（live=真实修订号 / offline=0 sentinel、
-  row-from-same-PublishedState 限定 live）；F10 补 `refresh_command_expired:<symbol>`
-  **并补 reviewer 漏列的 `base_raw_unavailable:<symbol>`**（`snapshot_service.py:1400-1404`
-  同一序列化路径，独立复核发现）。6 命令全过（pytest 71 + 前端 80 + json.tool +
-  diff-check + 边界）。fix commit `e214d6f`；详见 `40-fix-report.md` Round-4 段。
-- F11/F12 已由 Fable5 以代理 bookkeeper 身份处理（opus4.8 拟转任 reviewer，不宜边记账
-  边受审）：本 handoff 全文同步、status.json 补 Round-3/4 fix authors + 全部已完成模型
-  session receipts + round-4 账目。
-- ⚠️ RC4 假红门（已知，维持原样）：pre-accept 时 `review_1.diff_fingerprint(568fd41)` ≠
-  `status.diff_fingerprint(e214d6f)` 会红——review-1 停在 round-3 ACCEPT，round-4 起
-  review-1 被用户豁免（豁免不自动延伸，round-5 是否补 review-1 由用户随路由一并定）；
-  如实记录、不伪造指纹。
-- 历史：R1 REWORK(F1/F2/F3)→fix；R2 REWORK(F4/F5/F6)→fix；R3 REWORK(F7/F8)→fix（用户
-  首次超限授权）；R4 REWORK(F9-F12)→fix（用户二次超限授权，fix author 改派 Fable5）。
-  review-2 四轮原文存于 51-/52-/53-/50-。Codex 四轮都发现真实 doc-truth 缺陷。
-- 平行未决（不阻塞本 stage）：用户按 Fable5 裁决排期 **Stage A（模板仓 first）=
-  RC4 分任务指纹 + authorized_exception**（D-A 由此解决）。
+- Active phase: `review_2` round 6 done → **awaiting user acceptance decision**
+  (content clean; only bookkeeper ledger items remained, now fixed).
+- Reviewed delivery fingerprint: `127a600..d59f823` /
+  `d59f8234c4134e26843abeca6019b3e13a4062bd:361be6984dcc210dd77b952054b844a9ef865c8324394b1a83b69dbf0f35ea84`
+  (pre-review PASSED; anchored — later bookkeeper commits do not move it).
+- **Codex round-6 verdict = REWORK, but F13/F14 (P1 contract) RESOLVED.** Codex
+  explicitly confirmed the contract is clean (row-source mode-dependent, cold-start
+  HTTP 503 documented, warnings open-ended/non-exhaustive, `base_raw_unavailable`
+  0 public-contract matches). The only 2 findings are **P2 bookkeeper-owned**:
+  - **F16** (Codex "F15 remains"): handoff body + status receipts still carried
+    obsolete round-4/5 (e214d6f / escalation / "routing pending") content while the
+    Recovery Header/ACTIVE said round-6. → **FIXED this checkpoint** (this rewrite +
+    status receipts/timestamps).
+  - **F17**: `60-test-output` said `git diff --check` clean without scope; the full
+    range 127a600..d59f823 exits 2 **only** on immutable raw reviewer-file whitespace
+    (`50-review-2.md:20-24`, `54-review-2-round4.md:26-30` — Codex footer markdown
+    line-breaks, not rewritten). Delivery-file scope + `e214d6f..d59f823` contract/fix
+    scope exit 0. → **FIXED this checkpoint** (precise correction appended).
+- ⛔ Next action — **user decision** (rework already 6, three prior overrides):
+  - (A) **Accept now** [recommended]: the final reviewer confirmed delivery content
+    is clean; the round-6 REWORK was purely bookkeeper ledger items, now reconciled.
+    User accepts → `stage_accepted_waiting_user` → user merges. The round-6 REWORK is
+    recorded as content-clean + bookkeeper-follow-ups-resolved.
+  - (B) One more Codex confirm-round on the same delivery fingerprint d59f823 (content
+    unchanged; would convert REWORK→ACCEPT on record). rework 7; process-formal but the
+    substantive gate is already passed.
+- ⚠️ RC4 known false-red (unchanged): at `pre-accept`, `review_1.diff_fingerprint`
+  (568fd41, round-3 ACCEPT) ≠ `status.diff_fingerprint` (d59f823) because review-1 has
+  been user-waived since round 4. Recorded as an authorized waiver; NOT faked. This is
+  the exact RC4 defect Stage A's authorized_exception mechanism is meant to encode.
 - Read-set: = `status.current_inputs`
-- Open blockers: None
+- Open blockers: None (F16/F17 fixed; content clean)
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Scope 收敛（本 stage 现在做 vs 延后）
@@ -72,51 +52,46 @@ not read `history/` at startup.
 ## Current State
 
 - Stage: `2026-07-docs-truth-sync-v1`
-- Status: `human_escalation_required`（Codex round-5 REWORK F13/F14；rework 5）
-- Branch: `stage/2026-07-docs-truth-sync-v1`
+- Status: `review_2`（round 6 完成，等用户接受决策）
+- Branch: `stage/2026-07-docs-truth-sync-v1`（未合并 main）
 - Base sha: `127a600281d60b7332be8aeb9552740a5e8c3254`
-- Head sha（fix commit，受审）: `e214d6f819d76daa3b85865c1021b5aa2497ee95`
+- Head sha（受审交付 fix）: `d59f8234c4134e26843abeca6019b3e13a4062bd`
 - Complexity: MEDIUM，lightweight route（用户批准，direction panel 跳过）
-- Tests: pytest 71 passed + frontend self-check 80 PASS（round-4 fix 范围重跑）；
-  纯文档 stage，产品无变更
-- Review 历史：R1 Kimi ACCEPT→Codex REWORK(F1/F2/F3)；R2 Kimi ACCEPT→Codex REWORK
-  (F4/F5/F6)；R3 Kimi ACCEPT→Codex REWORK(F7/F8)；R4 review-1 豁免→Codex REWORK
-  (F9-F12)
-- 待用户决策：round-5 REWORK 处置（见 Recovery Header 四选项 a/b/c/d）
+- Tests: pytest 71 passed + frontend self-check 80 PASS（round-6 范围重跑）；纯文档
+  stage，产品/schema 无变更。
+- 交付面（8+1 文件，见 `status.delivery_files_under_review`）：契约 annualized+两端点、
+  PRD、DEVELOPMENT_GUIDE、DECISIONS、ARCHITECTURE、follow-ups、bookticker 两 living-docs。
 
-## What Landed This Turn（Round-4 fix + 对账）
+## Review 历史（6 轮，均 REWORK→fix，内容已收敛干净）
 
-- `docs/api/public-market-contract.md`：F9 published_version live/offline 两分支 +
-  F10 wire-visible warnings 补全（含 reviewer 漏列的 base_raw_unavailable）。
-- `40-fix-report.md`：Round-4 段（发现→修复映射、独立复核证据、6 命令逐字输出、
-  边界表、残余风险——含超范围披露：`snapshot_service.py:320-322` docstring 仍写
-  same-version，backend Forbidden 不修，建议并入 deferred contract-amendment）。
-- `50-review-2.md`：Round-4 codex 原文逐字落盘（自本地 codex rollout jsonl 恢复，RC9）；
-  Round-3 原文先归档 `53-review-2-round3.md`。
-- `status.json`：F12 补录（fix_authors R3/R4、session receipts 全员）、round-4 账目、
-  新指纹、路由约束、rework 5。
-- `70-handoff.md`（本文件）：F11 全文同步。
-- `60-test-output.txt` / `62-validate-pre-review.txt`：Round-4 fix 验证与 pre-review
-  validator 证据追加。
+- R1 Kimi ACCEPT → Codex REWORK(F1/F2/F3) → glm fix
+- R2 Kimi ACCEPT → Codex REWORK(F4/F5/F6) → glm fix
+- R3 Kimi ACCEPT → Codex REWORK(F7/F8) → glm fix（用户 1 次超限授权）
+- R4 review-1 豁免 → Codex REWORK(F9-F12) → **fable5** fix（用户 2 次超限授权）
+- R5 review-1 豁免 → Codex REWORK(F13/F14 P1 + F15 P2) → **fable5** 语义收敛 fix
+  （用户 3 次超限授权，option a）
+- R6 review-1 豁免 → Codex REWORK **but F13/F14 RESOLVED**；仅剩 F16/F17 P2
+  bookkeeper 账本，已修
+- review-2 原文：`51-`/`52-`/`53-`/`54-`/`50-review-2-round5.md`/`50-review-2.md`(R6)。
+  Codex 六轮均发现真实 doc-truth 缺陷；收敛策略在 R6 终结了 P1 链。
 
 ## Open Decisions（用户）
 
-- **round-5 评审路由**：(a) opus4.8 非正式复核 + codex 正式 review_2（推荐，身份门可过）
-  vs (b) opus4.8 正式 review_2 + 明知接受 validate-stage.py:717-718 永久红门。
-  round-5 是否补 review-1（kimi）随路由一并定。
+- **本 stage 接受与否**：见 Recovery Header (A) 立即接受 [推荐] vs (B) 再一轮 Codex 确认。
 - D-A / D-B：已裁决（见 `status.linked_decisions`，Stage A/B 排期）。
+- 平行未决（不阻塞）：Stage A（模板仓 first）= RC4 分任务指纹 + authorized_exception。
 
 ## Next Steps
 
-1. 用户裁决 round-5 评审路由并派发（对指纹 `e214d6f:d93ff6d4…`）。
-2. Review ACCEPT → bookkeeper 跑 `--phase pre-accept`（已知 review_1 指纹落后 =
-   授权豁免下的如实记录）→ `stage_accepted_waiting_user`。
-3. 用户终审：批准 merge stage 分支回 main + push；ACTIVE 归位、STAGE_INDEX 待
+1. 用户选 (A) 接受 或 (B) 再确认一轮。
+2. 若 (A)：bookkeeper 跑 `--phase pre-accept`（会出现已知 RC4 review-1 假红门，如实记录
+   为授权豁免，连同 stage 摆给用户）→ 用户接受 → `stage_accepted_waiting_user`。
+3. 用户终审：批准 merge stage 分支回 main + push；ACTIVE 归位；STAGE_INDEX/ROADMAP 待
    Stage B 生成化统一收口。
 
 当前 Session ID: unavailable (Claude Code session id 未暴露)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-docs-truth-sync-v1/70-handoff.md
-本地北京时间: 2026-07-16 23:20 CST
-下一步模型: human（round-5 评审路由裁决）
-下一步任务: 对新指纹派 round-5 review；其后 pre-accept → 用户终审
+本地北京时间: 2026-07-17 00:30 CST
+下一步模型: human（接受决策）
+下一步任务: 选 (A) 立即接受 或 (B) 再一轮 Codex 确认；其后 pre-accept → 用户合并

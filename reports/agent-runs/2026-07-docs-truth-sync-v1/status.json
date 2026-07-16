@@ -2,7 +2,7 @@
   "stage_id": "2026-07-docs-truth-sync-v1",
   "status": "review_2",
   "workflow": "stage-delivery",
-  "current_phase": "review-2-round-6-codex",
+  "current_phase": "round-6-done-content-clean-awaiting-user-acceptance",
   "user_authorizations": [
     {
       "at": "2026-07-16T22:20:00Z",
@@ -95,20 +95,20 @@
       "note": "Backfilled per codex round-4 F12. Kimi review sessions not captured; raw verdicts preserved verbatim at 30-review-1.md (rounds appended)."
     },
     {
-      "role": "review_2_rounds_1-4",
+      "role": "review_2_rounds_1-6",
       "provider": "openai",
       "model": "codex/gpt-5.5",
       "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf",
-      "session_id_source": "runtime_env CODEX_THREAD_ID, self-reported in round-4 output; rounds 3-4 ran in this resumed session. Round-1/2 session ids unavailable.",
-      "note": "Raw outputs: 51-review-2-round1.md, 52-review-2-round2.md, 53-review-2-round3.md, 54-review-2-round4.md (recovered verbatim from local codex rollout jsonl). Round 5 (pending) will land at 50-review-2.md."
+      "session_id_source": "runtime_env CODEX_THREAD_ID, self-reported; rounds 3-6 ran in this resumed session. Round-1/2 session ids unavailable.",
+      "note": "Raw outputs (verbatim from local codex rollout jsonl): 51-review-2-round1.md, 52-review-2-round2.md, 53-review-2-round3.md, 54-review-2-round4.md, 50-review-2-round5.md, 50-review-2.md (round 6). Round 6 = REWORK but F13/F14 P1 RESOLVED; only F16/F17 P2 bookkeeper items remained (fixed)."
     },
     {
-      "role": "fix_author_round_4_and_acting_bookkeeper",
+      "role": "fix_author_rounds_4_and_6",
       "provider": "anthropic",
       "model": "claude-fable-5",
       "session_id": "unavailable",
       "session_id_source": "unavailable",
-      "note": "Claude Code does not expose a provider-native session id. Raw output: 40-fix-report.md Round-4 section; fix commit e214d6f."
+      "note": "Claude Code does not expose a provider-native session id. Round-4 fix (F9/F10) commit e214d6f + acting-bookkeeper reconcile; round-6 fix (F13/F14 semantic-convergence) commit d59f823. Raw: 40-fix-report.md Round-4 + Round-5 sections."
     }
   ],
   "designer": {"provider": "anthropic", "model": "claude-opus-4-8", "role": "bookkeeper-as-designer", "disclosure": "bookkeeper wrote 10-design.md and 12-development-breakdown.md; disclose to review-2 as design involvement (not implementation/fix)."},
@@ -220,18 +220,24 @@
     "model": "gpt-5.5",
     "primary_provider": "codex",
     "fallback_provider": "claude",
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "d59f8234c4134e26843abeca6019b3e13a4062bd:361be6984dcc210dd77b952054b844a9ef865c8324394b1a83b69dbf0f35ea84",
     "round": 6,
+    "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md",
+    "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf",
     "reviewer_prior_involvement": "direction_synthesis",
     "reviewer_prior_involvement_notes": "Codex (openai) participated in the read-only four-model audit (direction-level); did NOT author design/breakdown/implementation/fix. Provider-isolated from implementer (zhipu_glm), designer/breakdown author (anthropic), and fix authors claude_glm (zhipu_glm) + fable5 (anthropic).",
     "design_conflict_override": {
       "used": false,
       "reason": "Not needed: reviewer provider (openai) != any fix-author provider (zhipu_glm, anthropic)."
     },
-    "note": "Round 6 (Codex) re-review on fixed fingerprint d59f823 (fable5 semantic-convergence fix for F13/F14). review-1 waived. Rounds 1-5 archived in review_rounds; review-2 raw at 51-/52-/53-/54-/50-review-2-round5.md; round-6 lands at 50-review-2.md.",
-    "verdict_dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/60-dispatch-review-2-codex-round6.md",
+    "content_verdict": "F13/F14 (P1 contract over-claims) RESOLVED — Codex explicitly confirmed the contract is clean: row-source mode-dependent, cold-start HTTP 503 documented, warnings open-ended/non-exhaustive, base_raw_unavailable 0 public-contract matches. NO P1, NO contract findings. The doc-truth mission is substantively complete and verified by the final reviewer.",
+    "findings_summary": [
+      "F16 (P2, bookkeeper-owned): handoff body + status session_receipts still carried obsolete round-4/5 content (e214d6f, escalation, 'routing pending') while Recovery Header/ACTIVE said round-6. FIXED this checkpoint (full handoff rewrite + receipts/timestamps).",
+      "F17 (P2, bookkeeper-owned): 60-test-output said git diff --check clean without scope; full range 127a600..d59f823 exits 2 only on immutable raw reviewer-file whitespace (50-review-2.md:20-24, 54-review-2-round4.md:26-30); delivery-file + e214d6f..d59f823 scopes exit 0. FIXED this checkpoint (precise correction appended)."
+    ],
+    "note": "Round 6 (Codex) = REWORK, but the verdict is entirely bookkeeper-ledger: F13/F14 P1 contract RESOLVED, no contract findings. The 2 findings (F16/F17) are P2 bookkeeper-owned and FIXED by opus4.8 this checkpoint. Codex itself: 'This is a bookkeeper-only ledger repair—do not dispatch another product-contract token fix.' Delivery fingerprint d59f823 unchanged. Rounds 1-5 raw at 51-/52-/53-/54-/50-review-2-round5.md; round-6 at 50-review-2.md.",
     "invalid_json_attempts": 0
   },
   "review_rounds": [
@@ -269,6 +275,13 @@
       "review_1": {"reviewer": "kimi", "verdict": null, "waived": true, "waiver_authority": "user (standing waiver since round 4)"},
       "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2-round5.md", "next_action": "human_escalation_required", "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf", "findings": ["F13 (P1, verified real, marginal) row-source unconditional 'published state' vs offline synchronous/cache", "F14 (P1, verified real, regression from round-4 fix) base_raw_unavailable listed as public wire token but HTTP-unreachable", "F15 (P2, bookkeeper) routing not fully synced to handoff/status — fixed by bookkeeper"]},
       "fix": {"author": "fable5 (F13/F14 semantic-convergence; user authorization[2], option a)", "bookkeeper_corrections": "F15 by opus4.8 bookkeeper", "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md (Round-5 section)", "head_after_fix": "d59f8234c4134e26843abeca6019b3e13a4062bd", "status": "done", "authorization": "third user rework-limit override (rework 6)", "verification": "CMD2 gate clean (base_raw_unavailable 0 hits), codex 3-test subset PASS, pytest 71 passed, frontend 80 passed, diff-check clean, only contract + append-only fix report changed; row-source now single mode-dependent definition (no restatement surface); base_raw_unavailable fully removed + cold-start 503 documented; warnings open-ended/non-exhaustive, timeout conservative, refresh_status authoritative"}
+    },
+    {
+      "round": 6,
+      "diff_fingerprint": "d59f8234c4134e26843abeca6019b3e13a4062bd:361be6984dcc210dd77b952054b844a9ef865c8324394b1a83b69dbf0f35ea84",
+      "review_1": {"reviewer": "kimi", "verdict": null, "waived": true, "waiver_authority": "user (standing waiver since round 4)"},
+      "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md", "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf", "content_verdict": "F13/F14 RESOLVED, contract clean, NO P1 / NO contract findings", "findings": ["F16 (P2, bookkeeper-owned) handoff body + status receipts still had obsolete round-4/5 content — fixed by bookkeeper", "F17 (P2, bookkeeper-owned) 60-test-output diff-check scope overstated — corrected by bookkeeper"]},
+      "fix": {"author": "none (no fix author — bookkeeper-only)", "bookkeeper_corrections": "F16 (handoff full rewrite + status receipts/timestamps) + F17 (diff-check scope correction) by opus4.8; delivery fingerprint d59f823 unchanged", "status": "done", "note": "No content change; the round-6 REWORK was entirely bookkeeper-ledger. Awaiting user acceptance decision (accept now vs one more confirm round)."}
     }
   ],
   "linked_decisions": [
@@ -307,8 +320,9 @@
   "blockers": [],
   "human_escalation": {
     "required": false,
-    "resolved_by": "user authorization [2]: option (a) semantic-convergence fix by Fable5 (status.user_authorizations[2]).",
-    "prior_reason": "codex round-5 REWORK (F13/F14 P1 verified real; F14 regression from round-4 fix). F15 P2 fixed by bookkeeper."
+    "resolved_by": "Round-6 content is clean (Codex confirmed F13/F14 resolved, no P1, no contract findings). The round-6 REWORK was entirely P2 bookkeeper-ledger (F16/F17), fixed by opus4.8 this checkpoint. No defect blocks the stage.",
+    "prior_reason": "codex round-5 REWORK (F13/F14 P1 verified real); resolved by option-(a) semantic-convergence fix (user authorization[2]).",
+    "awaiting": "user acceptance decision: (A) accept now [recommended — content verified clean] or (B) one more Codex confirm-round on the same delivery fingerprint d59f823."
   },
   "terminal_reason": null,
   "reporting_preferences": {
@@ -331,6 +345,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "Fable5 semantic-convergence fix reconciled (F13/F14 resolved; CMD2 gate clean; pytest 71 + frontend 80; new head d59f823). Operator executes 60-dispatch-review-2-codex-round6.md (Codex review-2 on 127a600..d59f823 / d59f823:361be698; review-1 waived). ACCEPT -> bookkeeper runs pre-accept (known review_1-fingerprint trail = RC4 false-red, recorded not faked) -> stage_accepted_waiting_user -> user final acceptance + merge. REWORK -> report to user.",
+  "next_action": "Codex round-6 = REWORK but content CLEAN (F13/F14 resolved, no P1/contract findings); only F16/F17 P2 bookkeeper-ledger, FIXED by opus4.8 this checkpoint. HUMAN DECISION: (A) accept now [recommended] -> bookkeeper runs pre-accept (known RC4 review_1-fingerprint false-red under authorized waiver, recorded not faked) -> stage_accepted_waiting_user -> user merges; or (B) one more Codex confirm-round on the unchanged delivery fingerprint d59f823 to convert REWORK->ACCEPT on record.",
   "updated_at": "2026-07-16T23:20:00Z"
 }

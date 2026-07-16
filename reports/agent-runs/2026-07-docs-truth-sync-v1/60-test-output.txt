@@ -206,3 +206,18 @@ CMD3 pytest funding_history + endpoint + symbol_snapshot_endpoint -> 71 passed
 CMD4 node frontend/self-check.js -> 全部自检通过 (80)
 CMD5 git diff --check -> clean
 CMD6 changed-file boundary -> PASS (contract + append-only 40-fix-report.md only; zero forbidden)
+
+########################################################################
+## F17 correction (codex round-6, bookkeeper-owned): diff-check scope precision
+########################################################################
+# The round-5-fix note above recorded "CMD5 git diff --check -> clean" without stating
+# scope. Precise, reproducible results (delivery content IS clean; the full range trips
+# only on immutable raw reviewer-output whitespace, which must NOT be rewritten):
+$ git diff --check 127a600..d59f823
+#   -> exit 2: trailing-whitespace ONLY in immutable raw reviewer files
+#      50-review-2.md:20-24 and 54-review-2-round4.md:26-30 (Codex footer markdown
+#      line-break spaces; raw reviewer artifacts, preserved verbatim, not rewritten).
+$ git diff --check e214d6f..d59f823 -- docs/api/public-market-contract.md \
+      reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md
+#   -> exit 0 (the round-6 delivery-fix files are clean)
+# Delivery fingerprint d59f823:361be698 is over the reviewed range and unaffected.
