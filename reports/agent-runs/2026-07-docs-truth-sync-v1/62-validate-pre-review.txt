@@ -20,3 +20,12 @@ STAGE VALIDATION PASSED
 phase=pre-review  status=review_1
 diff_fingerprint=568fd4160b67d3b73303134d6f078a6a59bb93d9:ec91074df380632652180548168583da1756669a9e63d0077f73041621fc1ffe
 # base=127a600 .. head=568fd41. Clean worktree; fingerprint recomputed and matched.
+
+$ python3 scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review   # ROUND 4 (F7 fix, user-authorized)
+STAGE VALIDATION PASSED
+phase=pre-review  status=review_2
+diff_fingerprint=a4322847d831105d587a36f6f5d305586d10c264:06ea8e1a2bf7e8ffdb4c9bb7df626e6d91b5d0cca7712f824b07874726a15604
+# base=127a600 .. head=a432284 (F7 fix). Clean worktree; fingerprint recomputed and matched.
+# NOTE: pre-review does not check review_1/2 verdict-fingerprint equality (that is pre-accept).
+#   review-1 stays at round-3 (568fd41) under user waiver; the review_1-fingerprint mismatch
+#   (RC4 false-red) will surface only at pre-accept and is a recorded authorized waiver.
