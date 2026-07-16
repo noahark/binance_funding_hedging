@@ -383,3 +383,173 @@ Session ID 来源: unavailable
             `scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review`；重新派发
             Round-3 review-1/review-2）
 下一步任务: 以 F4/F5 + bookkeeper 的 F6 为基线重入 Round-3 评审门
+
+---
+
+# Round-3 Fix Report — Review-2 Round-3 REWORK（2026-07-docs-truth-sync-v1）
+
+Fix author：`claude_glm`（本 stage 原实现者，允许当 fix 作者）。本次为**用户授权的
+rework 上限豁免**（rework 账本已达 **3 / 3** → `human_escalation_required`；用户经
+`status.user_authorizations[0]` 明确授权最后一次限定 fix，并豁免 Round-4 review-1/Kimi，
+F7 fix 后直接派 Codex review-2）。审核 Round-3 指纹
+`568fd4160b67d3b73303134d6f078a6a59bb93d9:ec91074df380632652180548168583da1756669a9e63d0077f73041621fc1ffe`
+（原始 Round-3 review + final verdict JSON：`50-review-2.md`，JSON 为该文件末块）。上方
+Round-1 / Round-2 报告**逐字保留**。
+
+> 分工（dispatch 包 `47-...`）：**仅 F7 由 fix author 改一处契约文字**；F8（`60-test-output.txt`
+> 历史 diff-check 范围说明、active `70-handoff.md` 正文与 `ACTIVE.json` 顶层时间同步）是
+> **bookkeeper-owned，已由 bookkeeper 处理，本包不含**，fix author 不碰 F8 任何文件。本段仅映射 F7。
+
+## Round-3 发现→修复映射表
+
+| # | 发现（severity） | 文件 : 行（before → after） | before 语义（缺陷） | after 语义（修复） |
+|---|---|---|---|---|
+| **F7** | symbol-snapshot 合同承诺了 wire payload 无法表达/验证的 full-snapshot 同版本保证（P1） | `docs/api/public-market-contract.md:323-325`(path 段) / `:336`(字段定义) / `:370-379`(drift 注记) → 三处重写 | path 段称 projected row 与 full snapshot “share the same `published_version`”；字段定义称 `published_version` = “the same version as the full snapshot” | 定义 `published_version` 为投影所用内部 `PublishedState` 的修订号；明确 full snapshot v1 wire payload 无可比较字段、无客户端可验证的跨请求同版本保证；保留 row 来自同一内部 `PublishedState.snapshot` 的事实；drift 注记把 `symbol-snapshot.schema.json:5` 的 same-version prose 一并列入 deferred |
+| **F8** | 历史 diff-check 范围说明不可复现 + handoff 正文/ACTIVE 顶层时间未同步（P2×2） | `60-test-output.txt:132`、active `70-handoff.md:37`、`ACTIVE.json` | 未限定 `c72987d..a77a18a` 的 clean 不可复现；handoff 正文仍写 intake/planned；`ACTIVE.json` 顶层时间滞后 | **bookkeeper-owned，不在 fix author Allowed 集**：向 `60-test-output.txt` 追加（不重写）未限定 exit 2 + 四交付文件限定 clean + 当前 `127a600..568fd41` clean；同步 handoff 正文与 `ACTIVE.json` 顶层时间。按 dispatch 包 47 已由 bookkeeper 处理 |
+
+## F7 — published_version 同版本过度承诺（仅改人工合同，未动服务端/schema）
+
+**代码真值（反驳 before）：**
+- `backend/services/snapshot_service.py:237-257`（`get_snapshot`）：offline 返回 `self._cache[1]`
+  或 `build_snapshot()`；live 返回 `state.snapshot`（`self._published_state.snapshot`）。两条路径
+  都**只返回 canonical snapshot dict**，**从不向其添加 `published_version`**。
+- `backend/app/server.py:58-88`（`_handle_snapshot`）：`payload = json.dumps(snapshot, …)` 直接序列化
+  `get_snapshot()` 的结果，**无任何字段注入** —— full snapshot HTTP 响应**没有 `published_version`**。
+- `schemas/api/public-market/snapshot.schema.json`：`required`（`:7-15`）与 `properties`（`:16-83`）
+  均**无 `published_version`** 字段（full snapshot wire contract 不携带该值）。
+- `backend/tests/test_symbol_snapshot_endpoint.py:178-189`（`test_row_identical_to_same_version_full_snapshot`）：
+  `assert payload["row"] == full_row`（行内容，同一 PublishedState）；`assert payload["published_version"]
+  == service._published_version`（**只**与**内部** `service._published_version` 比较，**不**与 full
+  snapshot wire payload 的任何字段比较）。两个独立 HTTP 请求之间可能发生后续 publication —— 故不存在
+  客户端可观察的跨响应同版本保证。
+- `schemas/api/public-market/symbol-snapshot.schema.json:5`（顶层 `description`）：仍含
+  “The row shares the same published_version as the full snapshot (same-version guarantee by
+  construction)” —— 同一陈旧 prose，此前 drift 注记只覆盖了其无条件命令部分。
+
+**Before（缺陷，contract 旧 `:323-325` path 段）：**
+
+> The projected `row` shares the same `published_version` as the full snapshot whenever both are
+> read from the same published state (offline aside). This payload NEVER contains a `rows` array.
+
+**Before（缺陷，contract 旧 `:336` 字段定义）：**
+
+>   - `published_version`: integer ≥0, the same version as the full snapshot.
+
+**After（contract 现 `:323-332` path 段）：** 定义 `published_version` 为投影该 row 所用内部
+`PublishedState` 的修订号，**非** full snapshot 携带的版本；明确 full snapshot v1 wire payload
+（`snapshot.schema.json`）无 `published_version` 字段，故与 `/api/public-market/snapshot` 响应之间
+无可验证的相等关系；两个独立 HTTP 读可能跨越后续 publication，故**无原子跨请求同版本保证**。保留事实：
+该 `row` 选自 `/snapshot` 读所投影的同一内部 `PublishedState.snapshot`，故**单次读内** row 与
+`snapshot.rows[]` 对应元素在 shape 与内容上一致。仍保留“NEVER contains a `rows` array”。
+
+**After（contract 现 `:344-349` 字段定义）：** `published_version`: integer ≥0，投影该 row 所用
+内部 `PublishedState` 的修订号；full snapshot v1 wire payload 无可比较字段，故**不可**相对
+`/api/public-market/snapshot` 响应验证，且不提供跨请求相等保证（参见 path 注）。
+
+**Before（缺陷，contract 旧 `:370-379` drift 注记）：** 称 schema“carries two stale prose
+descriptions”，`:5` 仅披露无条件 submit-a-command + project-from-new-publication 流程，**遗漏**其
+same-version 保证陈旧 prose。
+
+**After（contract 现 `:384-395` drift 注记）：** 改为“carries three stale prose claims across two
+lines”，`:5` 现披露**两**项：(a) 无条件命令/新发布流程不成立；(b) same-version 保证 tying the row's
+`published_version` to the full snapshot —— 但 full snapshot v1 wire payload 无 `published_version`
+字段、无客户端可验证的跨请求相等保证。`:39`（`refresh_status` 窄化）描述保留。均作为 deferred
+contract-amendment 项，docs-only 不改 schema。
+
+> 命令 #2 门禁（`shares the same published_version as the full snapshot` | `same version as the
+> full snapshot`）已验证两处禁用短语从 contract 消除（drift 注记中对 `:5` 的转述用“same-version
+> guarantee tying the row's `published_version` to the full snapshot”，刻意避开被禁的逐字短语）。
+
+## 命令输出（Round-3 调度包要求的 6 条，逐字）
+
+```
+########## CMD #1 ##########
+$ rg -n 'published_version|full snapshot|internal PublishedState|cross-request|wire' docs/api/public-market-contract.md
+3:Status: contract v0.7 as-built read-only snapshot. The wire `schema_version`
+6:wire version are historical compatibility names. The payload now represents a
+37:extend the same wire contract with optional private read-only fields.
+321:  built row directly (`published_version: 0`, `refresh_status: ok`).
+323:`published_version` here is the revision number of the internal `PublishedState`
+325:snapshot. The full snapshot v1 wire payload (`snapshot.schema.json`) has no
+326:`published_version` field at all, so there is no client-verifiable equality
+329:atomic cross-request same-version guarantee. What IS preserved: this `row` is
+344:  - `published_version`: integer ≥0, the revision number of the internal
+345    `PublishedState` this `row` was projected from. The full snapshot v1 wire
+347    `/api/public-market/snapshot` response and gives no cross-request equality
+354    - `ok`: either offline (the synchronously-built row, `published_version: 0`,
+386:  and still asserts a same-version guarantee tying the row's `published_version`
+387:  to the full snapshot — but the full snapshot v1 wire payload has no
+388:  `published_version` field and there is no client-verifiable cross-request
+389:  equality guarantee (see the path and `published_version` notes above). Line 39
+rc1=0   (命中 published_version / full snapshot / internal PublishedState /
+         cross-request / wire 均在；符合预期)
+
+########## CMD #2 ##########
+$ if rg -n 'shares the same published_version as the full snapshot|same version as the full snapshot' \
+    docs/api/public-market-contract.md; then exit 1; fi
+rc2=0   (两处禁用同版本短语均从 contract 消除；门禁通过)
+
+########## CMD #3 ##########
+$ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_funding_history.py \
+    backend/tests/test_funding_history_endpoint.py backend/tests/test_symbol_snapshot_endpoint.py -q -p no:cacheprovider
+.......................................................................  [100%]
+71 passed in 2.63s
+rc3=0   (71 项针对性测试全过；本 stage 未改代码，测试用作行为真值回归基线)
+
+########## CMD #4 ##########
+$ node frontend/self-check.js
+[PASS] 内联脚本语法检查
+…（共 80 项）…
+[PASS] refresh_status=partial 替换行并显示 warnings notice
+全部自检通过
+rc4=0   (前端 80 项自检全过；本 stage docs-only 未改前端，用作回归基线)
+
+########## CMD #5 ##########
+$ git diff --check
+rc5=0   (无尾空白 / 冲突标记)
+
+########## CMD #6 ##########
+$ git diff --name-only
+docs/api/public-market-contract.md
+(+ reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md：本追加段使该文件成为第二个改动，
+  属调度包明列的 append-only Allowed 文件)
+rc6=0   (仅契约 + append-only 40-fix-report.md；无 backend/ / frontend/ / schemas/ / scripts/ 及
+          任何 Stage-B/Harness-track / bookkeeper-only 文件)
+```
+
+## 改动文件边界结果（Round-3）
+
+| 路径 | 是否 Allowed | F# |
+|---|---|---|
+| `docs/api/public-market-contract.md` | ✅ Allowed（交付） | F7 |
+| `reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md` | ✅ Allowed（append-only 本段） | 报告本身 |
+
+Forbidden 集（`backend/`、`frontend/`、`schemas/`、`scripts/`、Stage-B/Harness-track 全部文件、
+bookticker living-docs、active-stage `status.json`/`70-handoff.md`/`60-test-output.txt`/`ACTIVE.json`）
+—— **fix author 0 改动**。F8 的 bookkeeper-owned 修正（`60-test-output.txt` 历史 diff-check 范围、
+active `70-handoff.md` 正文、`ACTIVE.json` 顶层时间）按 dispatch 包 47 已由 bookkeeper 处理；
+`30-review-1.md` 等原始 reviewer 输出绝不改写。
+
+## 遗留 / 残余风险（与 Round-3 review 一致）
+
+- `symbol-snapshot.schema.json` `:5`（顶层 description：无条件命令流 + same-version 保证）与 `:39`
+  （`refresh_status` 窄化）、`funding-history.schema.json:34`（空历史归因）的 prose 仍与实际行为漂移；
+  本轮仅要求人工合同明确披露（contract `:384-395` 已把 `:5` 的 same-version prose 一并列入 deferred），
+  不扩大为 schema 或服务端变更。
+- F7 已通过 schema（`snapshot.schema.json` 无 `published_version`）、服务端（`get_snapshot`/`_handle_snapshot`
+  不注入该字段）、测试（仅比对内部 `_published_version`）三方独立验证关闭。
+- 本 round 为用户授权的 rework 上限（3/3）豁免；按 dispatch 包，F7 后直接派 Codex review-2（豁免
+  Round-4 review-1/Kimi）。固定全范围 `127a600..568fd41` diff-check clean（详见 F8 由 bookkeeper
+  追加至 `60-test-output.txt`）。
+- Stage-B / Harness-track 文档仍属已批准的后续范围，本轮不得顺带修改。
+
+---
+
+当前 Session ID: unavailable (Claude Code 不向模型暴露 provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md
+本地北京时间: 2026-07-16 22:42:11 CST
+下一步模型: bookkeeper（在 stage 分支提交 F7 + 已处理的 F8；重算标准指纹；重跑并保存
+            `python3 scripts/validate-stage.py 2026-07-docs-truth-sync-v1 --phase pre-review`；
+            按用户授权豁免 Round-4 review-1，直接派 Codex review-2）
+下一步任务: 以 F7（+ bookkeeper 的 F8）为基线重入（豁免后的）review-2 评审门

@@ -320,9 +320,17 @@ this request:
 - Offline: no worker and no command; the service projects the synchronously
   built row directly (`published_version: 0`, `refresh_status: ok`).
 
-The projected `row` shares the same `published_version` as the full snapshot
-whenever both are read from the same published state (offline aside). This
-payload NEVER contains a `rows` array.
+`published_version` here is the revision number of the internal `PublishedState`
+this `row` was projected from — it is NOT a version carried by the full
+snapshot. The full snapshot v1 wire payload (`snapshot.schema.json`) has no
+`published_version` field at all, so there is no client-verifiable equality
+between this value and anything in a `/api/public-market/snapshot` response;
+two independent HTTP reads may also straddle a later publication, so there is no
+atomic cross-request same-version guarantee. What IS preserved: this `row` is
+selected from the same internal `PublishedState.snapshot` a `/snapshot` read
+projects from, so within a single read the row is identical in shape and content
+to the matching element of `snapshot.rows[]`. This payload NEVER contains a
+`rows` array.
 
 - Method / path: `GET /api/public-market/symbol-snapshot`.
 - Input: query param `symbol` (required). A blank/missing value is treated as
@@ -333,7 +341,11 @@ payload NEVER contains a `rows` array.
 - Body fields (per schema, no others):
   - `schema_version`: `public-market-symbol-snapshot/v1` (const).
   - `symbol`: the requested symbol.
-  - `published_version`: integer ≥0, the same version as the full snapshot.
+  - `published_version`: integer ≥0, the revision number of the internal
+    `PublishedState` this `row` was projected from. The full snapshot v1 wire
+    payload exposes no comparable field, so this is NOT verifiable against a
+    `/api/public-market/snapshot` response and gives no cross-request equality
+    guarantee (see the path note above).
   - `data_time`, `generated_at`: date-times.
   - `refresh_status`: `ok` | `partial` | `timeout`. It reflects what happened on
     this request's refresh attempt (if any); the projected `row` is always taken
@@ -367,10 +379,14 @@ payload NEVER contains a `rows` array.
     `snapshot.schema.json#/$defs/row`, incl. `opening_quotes` and the annualized
     funding fields below). There is never a `rows` array on this payload.
 
-- Schema-prose drift (deferred): `symbol-snapshot.schema.json` carries two stale
-  prose descriptions. Line 5 (top-level `description`) still asserts an
-  unconditional submit-a-command + project-from-a-new-publication flow that does
-  not hold for the offline or worker-not-running paths above. Line 39
+- Schema-prose drift (deferred): `symbol-snapshot.schema.json` carries three
+  stale prose claims across two lines. Line 5 (top-level `description`) still
+  asserts an unconditional submit-a-command + project-from-a-new-publication
+  flow that does not hold for the offline or worker-not-running paths above,
+  and still asserts a same-version guarantee tying the row's `published_version`
+  to the full snapshot — but the full snapshot v1 wire payload has no
+  `published_version` field and there is no client-verifiable cross-request
+  equality guarantee (see the path and `published_version` notes above). Line 39
   (`refresh_status` `description`) still narrows `partial` to a borrow-source
   fallback and `timeout` to the shared deadline expiring — narrower than the
   as-built behavior above (which also maps premium/history failures to
