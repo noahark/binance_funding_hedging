@@ -24,7 +24,7 @@ not read `history/` at startup.
   `origin/main` verified by `git ls-remote`.
 - Reviewed product/evidence head: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
 - Full-stage fingerprint: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377`
-- Dispatch checkpoint HEAD: `ca829fc69c65a32dea241e735db979d057415b81`; pre-review passed and its evidence is pending the final local Harness commit
+- Dispatch checkpoint HEAD: `ca829fc69c65a32dea241e735db979d057415b81`; pre-review passed and its evidence is committed with the final local Harness commit
 - Task C evidence commit: `a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c`
 - Executable review packet: `review-2-codex-after-task-c.prompt.md`; the older
   `review-2-codex.prompt.md` is superseded and forbidden.
@@ -58,7 +58,8 @@ not read `history/` at startup.
   display; table and drawer annualized 24h/7D/30D use fixed 2-decimal display.
   Existing history, daily-net, borrow-cost, spread and price formats stay intact.
 - First-pass Kimi evidence reports 78 frontend PASS lines, 375 backend tests
-  passed and a clean diff check; final counts are pending the addendum rerun.
+  passed and a clean diff check; after the addendum rerun the final counts are
+  frontend 80 PASS lines and backend 375 passed.
 - After deterministic verification, the user performs visual acceptance.
 - The newer user instruction supersedes the planned Opus4.8 route. Only one new
   fresh Codex final-review invocation is requested; prior review-1 remains
@@ -111,7 +112,9 @@ not read `history/` at startup.
 - Final independent commands: frontend 77 PASS lines, full backend 375 PASS,
   py_compile PASS, fixture/status JSON PASS, file boundary PASS and diff check
   PASS.
-- Formal review has not started; stage `rework_count` remains 0.
+- Pre-commit snapshot: at this commit the formal cross-review had not begun and
+  `rework_count` was 0; the formal reviews later completed `ACCEPT` (see Recovery
+  Header and `status.json`).
 
 ## Artifact Index
 
@@ -130,7 +133,9 @@ not read `history/` at startup.
 - Test evidence: `60-test-output.txt`
 - Review-1 validator evidence: `review-1-preflight.txt`
 - Status: `status.json`
-- Formal review-1/review-2: pending until Task B is committed and full-stage tests pass
+- Formal review-1/review-2: completed `ACCEPT` after the Task B commit and a
+  full-stage test pass (see `30-review-1.md`, `50-review-2.md`, and the Recovery
+  Header)
 
 ## Open Findings
 
@@ -148,13 +153,15 @@ not read `history/` at startup.
 - Full stage:
   `0a383f0f8528591898f12690c371108e7582a27e:82b54a9742942623ea6ca63f53a4292da147fe9accd4daaff180648ad90a15ed`
 
-## Blockers
+## Blockers (resolved)
 
-- Review-2 verdict is not yet captured.
-- Codex is the stage designer/bookkeeper and Claude provider authored the
-  development breakdown. Final-review selection therefore requires the
-  documented strong-reviewer disclosure path; neither provider wrote delivery
-  code, so the hard implementation/fix-author ban is not implicated.
+- Review-2 verdict captured: Codex `gpt-5.5` `ACCEPT`, Session
+  `019f6737-9397-7e00-991a-60a8679439c1`; raw verdict `50-review-2.md`.
+- Codex is the stage designer/bookkeeper and the Claude provider authored the
+  development breakdown. Final-review selection applied the documented
+  strong-reviewer disclosure path (`reviewer_prior_involvement=design`);
+  neither provider wrote delivery code, so the hard implementation/fix-author
+  ban was not implicated.
 
 ## Review-2 Selection
 
@@ -172,20 +179,19 @@ not read `history/` at startup.
   `2b78a1c5e7404c3c28eed57dbdbc8256a0ba6308`; exact output in
   `review-2-preflight.txt`.
 
-## User Routing Amendment
+## User Routing Amendment (superseded)
 
-- No formal review-2 Session has executed.
-- The user superseded the prepared Codex dispatch before execution.
-- New order: Grok advisory review → user page-display acceptance → Opus4.8
-  formal review-2.
-- Grok is explicitly enabled for this advisory round but remains non-gating.
-- Opus4.8 formal review-2 is not yet prepared. Because Anthropic Claude authored
-  the development breakdown, its eventual verdict and status must disclose
-  `reviewer_prior_involvement=breakdown` under the strong-reviewer override.
-- The unused `review-2-codex.prompt.md` remains audit evidence and must not be
-  executed.
-- Grok packet: `advisory-review-grok-round-2.prompt.md`; expected raw output:
-  `31-advisory-review-grok-round-2.md`.
+- This intermediate plan (Grok advisory → user page-display acceptance →
+  Opus4.8 formal review-2) was superseded once more before execution.
+- The executed final route was: Kimi Task C fast UI amendment → user visual
+  acceptance → a single fresh Codex `gpt-5.5` final review of the updated full
+  range and the Task C delta (see `review_2_routing_override` in `status.json`
+  and "## Next Action" below). That Codex review-2 Session
+  `019f6737-9397-7e00-991a-60a8679439c1` returned `ACCEPT`.
+- Grok advisory round-2 packet: `advisory-review-grok-round-2.prompt.md`; raw
+  output `31-advisory-review-grok-round-2.md` (non-gating, advisory).
+- The unused `review-2-codex.prompt.md` remains audit evidence and was not
+  executed (superseded by `review-2-codex-after-task-c.prompt.md`).
 
 ## Grok Round-2 Result
 

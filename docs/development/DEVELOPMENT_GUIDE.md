@@ -1,6 +1,6 @@
 # Development Guide
 
-Status: as-built read-only workstation, 2026-07-10
+Status: as-built read-only workstation, 2026-07-16
 
 This file is the canonical approved development guide for the project.
 
@@ -44,6 +44,18 @@ Useful environment variables:
 - `BINANCE_PRIVATE_CHANNEL_TTL_SECONDS` and
   `BINANCE_PRIVATE_CHANNEL_FAST_TTL_SECONDS`: cache TTLs for private read-only
   data groups.
+- `APP_BACKGROUND_REFRESH_ENABLED` /
+  `FUNDING_HEDGING_BACKGROUND_REFRESH_ENABLED`: default-on kill switch for the
+  serial background refresh worker that owns the single immutable published
+  state and all domain-cache writes (default `true`; offline mode never starts
+  it). Companion knobs: `APP_BACKGROUND_TICK_SECONDS` (worker sweep cadence),
+  `APP_HISTORY_SWEEP_BATCH_SIZE` (default-view history rows refreshed per tick),
+  and `APP_SYMBOL_REFRESH_TIMEOUT_SECONDS` (bounded wait for a one-shot
+  selected-symbol refresh).
+- `APP_FUNDING_HISTORY_CACHE_TTL_SECONDS` /
+  `FUNDING_HEDGING_FUNDING_HISTORY_CACHE_TTL_SECONDS`: per-symbol settled-history
+  successful-result cache TTL (default 1800s = 30 minutes; failure results are
+  not cached).
 
 The private channel is deny-by-default. API keys may exist in the environment,
 but signed private GET requests are not used unless
@@ -65,6 +77,15 @@ but signed private GET requests are not used unless
   python3 -m pytest backend/tests/test_book_ticker.py backend/tests/test_snapshot.py \
     backend/tests/test_background_worker.py backend/tests/test_symbol_snapshot_endpoint.py \
     backend/tests/test_negative_schema.py -q
+  ```
+
+- Funding-history (settled 7D/30D projection + endpoint) targeted verification —
+  the per-symbol settled-history window, annualization, `history_status`, the
+  `symbol` query-param contract, and the funding-history schema:
+
+  ```bash
+  python3 -m pytest backend/tests/test_funding_history.py \
+    backend/tests/test_funding_history_endpoint.py -q
   ```
 
 - Frontend contract/UI self-check:
@@ -97,6 +118,22 @@ but signed private GET requests are not used unless
   ```bash
   BINANCE_PRIVATE_CHANNEL_ENABLED=true scripts/run-server.sh
   ```
+
+- macOS launchd local service, managed by `scripts/service-control.py` for the
+  agent `com.aoke.funding-hedging.server`. `render` / `status` / `doctor` are
+  read-only; `install` / `start` / `stop` / `restart` / `uninstall` require
+  `--confirm`:
+
+  ```bash
+  python3 scripts/service-control.py render
+  python3 scripts/service-control.py install --confirm
+  python3 scripts/service-control.py restart --confirm
+  python3 scripts/service-control.py status
+  python3 scripts/service-control.py doctor
+  ```
+
+  The plist runs `scripts/run-server.sh` with `KeepAlive=true`; `install` and
+  `restart` poll `/healthz` and `/readyz` before claiming success.
 
 No project-wide lint or typecheck command is currently defined.
 

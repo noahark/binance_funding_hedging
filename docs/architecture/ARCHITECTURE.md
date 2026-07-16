@@ -1,6 +1,6 @@
 # Architecture
 
-Status: as-built read-only snapshot, 2026-07-10
+Status: as-built read-only snapshot, 2026-07-16
 
 This file is the canonical approved architecture document for the project.
 

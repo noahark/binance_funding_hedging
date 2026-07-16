@@ -183,6 +183,14 @@ The field matrix must list, for every field used by backend or frontend:
 
 ## Backend API
 
+The public-market backend exposes three same-origin, read-only JSON endpoints
+(no CORS; the frontend never calls Binance). All reuse the canonical published
+state; `GET /healthz` (liveness) and `GET /readyz` (readiness) are separate
+health endpoints. Success (HTTP 200) responses carry `Cache-Control: no-store`;
+503 covers the brief pre-first-publication cold-start window for each route.
+
+### GET /api/public-market/snapshot
+
 Initial endpoint for Kimi frontend integration:
 
 ```text
@@ -248,6 +256,93 @@ Each `rows[]` item must include:
   "ui_flags": []
 }
 ```
+
+### GET /api/public-market/funding-history
+
+Same-origin, public read-only settled-history view for ONE eligible snapshot
+symbol. The browser never calls Binance; the backend reuses the snapshot
+`data_time` boundary and a per-symbol 30-minute successful-result cache. It
+carries settled 7D/30D annualization only; it does NOT return the current-period
+24h estimate (the selected snapshot row stays authoritative for that).
+
+- Method / path: `GET /api/public-market/funding-history`.
+- Input: query param `symbol` (required). A blank/missing value (`?symbol=` or
+  no param) is treated as missing and the service returns HTTP 400
+  `invalid_symbol`.
+- Success (200): body validates against
+  `schemas/api/public-market/funding-history.schema.json`
+  (`schema_version` = `public-market-funding-history/v1`).
+- Body fields (per schema, no others):
+  - `schema_version`: `public-market-funding-history/v1` (const).
+  - `symbol`: the requested symbol.
+  - `data_time`: the shared snapshot time boundary (date-time).
+  - `history_status`: `available` | `empty`.
+  - `funding_history`: newest-first settled records inside the inclusive 30-day
+    window ending at `data_time`; each item `{funding_time (ms int ≥0),
+    funding_rate (decimal string)}`. Empty only when the upstream fetch
+    succeeded but the window has no settled records (`history_status: empty`).
+  - `annualized_funding_7d`: settled 7-day calendar-window funding-rate sum ×
+    (365 / 7), or `null` for an empty window.
+  - `annualized_funding_30d`: settled 30-day calendar-window funding-rate sum ×
+    (365 / 30), or `null` for an empty window.
+- There is deliberately NO `annualized_funding_24h` on this payload: the 24h
+  estimate is a current-period figure that lives on the snapshot row, not here.
+
+Schema: `schemas/api/public-market/funding-history.schema.json`.
+
+### GET /api/public-market/symbol-snapshot
+
+One-shot selected-symbol refresh + single-row projection. The backend submits
+one `RefreshSymbolCommand` to its serial background worker, waits within a
+bounded timeout, then projects ONLY the selected row from the newly published
+canonical published state. The projected `row` shares the same
+`published_version` as the full snapshot (same-version guarantee by
+construction). This payload NEVER contains a `rows` array.
+
+- Method / path: `GET /api/public-market/symbol-snapshot`.
+- Input: query param `symbol` (required). A blank/missing value is treated as
+  missing and the service returns HTTP 400 `invalid_symbol`.
+- Success (200): body validates against
+  `schemas/api/public-market/symbol-snapshot.schema.json`
+  (`schema_version` = `public-market-symbol-snapshot/v1`).
+- Body fields (per schema, no others):
+  - `schema_version`: `public-market-symbol-snapshot/v1` (const).
+  - `symbol`: the requested symbol.
+  - `published_version`: integer ≥0, the same version as the full snapshot.
+  - `data_time`, `generated_at`: date-times.
+  - `refresh_status`: `ok` | `partial` | `timeout`.
+    - `ok`: all selected sources refreshed.
+    - `partial`: public/history refreshed but borrow fell back to last-good
+      (carried as a `warnings` entry).
+    - `timeout`: the command reached its shared deadline before publication, so
+      the row is projected from the previously published state.
+  - `warnings`: array of human-readable strings.
+  - `row`: a single element projected from the published state, identical in
+    shape to a `snapshot.rows[]` element (see
+    `snapshot.schema.json#/$defs/row`, incl. `opening_quotes` and the annualized
+    funding fields below). There is never a `rows` array on this payload.
+
+Schema: `schemas/api/public-market/symbol-snapshot.schema.json`.
+
+### Annualized funding fields (row-level, as-built)
+
+`snapshot.rows[]` carries three additive, optional annualization fields (already
+in `snapshot.schema.json`; a legacy row may omit them and still validate). They
+are decimal strings or `null`; `float` never touches a value path.
+
+- `annualized_funding_24h`: **estimate-derived** —
+  `daily_funding_rate × 365`, or `null` when `daily_funding_rate` is `null`.
+  Settled history never mixes in; this is the current-period 24h figure.
+- `annualized_funding_7d`: **settled** — 7-day calendar-window funding-rate sum
+  × (365 / 7), or `null` for an empty window. The current-period estimate /
+  `lastFundingRate` never mixes in.
+- `annualized_funding_30d`: **settled** — 30-day calendar-window funding-rate
+  sum × (365 / 30), or `null` for an empty window.
+
+The settled 7D/30D figures are also returned (those two only, never 24h) on the
+`GET /api/public-market/funding-history` payload; the current-period 24h
+estimate is exclusive to the snapshot row. This estimate-vs-settled split mirrors
+the `lastFundingRate` vs `funding_history` discipline (see Verified Findings).
 
 ## Enums
 

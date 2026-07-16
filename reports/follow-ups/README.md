@@ -26,20 +26,24 @@ Source: `2026-07-ui-filter-balance-metal-v1-residuals.md`.
 
 ## 2026-07-auto-review-pipeline
 
-Status: **delivered on `main`** via stage
-`2026-07-auto-review-pipeline-v1` (`accepted`, fast-forward merge).
-
-Normative contract (current): `docs/auto-review-pipeline.md` (with
-`AGENTS.md`, `workflows/templates/stage-delivery.yaml`, `agents/registry.yaml`).
+Status: **retired** by DEC-2026-07-14-002. The pipeline's cache-refresh pilot
+produced no delivery-code changes and exposed write-authorization, empty-diff,
+blocker-routing, seal-ordering, and stale-state defects, so
+`auto-review-pipeline/v1` was retired. `docs/auto-review-pipeline.md` and
+`scripts/auto-review-runner.py` have been **deleted**; they are no longer a
+live contract or runner. The canonical Harness files were restored from the
+existing `540513d` DRAFT-2 baseline (not a product-history reset); only the
+lightweight `ACTIVE.json` plus Recovery Header startup fast path were kept as a
+post-baseline usability addition.
 
 | Artifact | Role |
 |---|---|
 | `2026-07-auto-review-pipeline-design-note.md` | **Historical** original design note (pre-delivery) |
 | `2026-07-auto-review-pipeline-review-fable5.md` | **Historical** Fable5 review of design note (stale model/wall-clock claims may remain in body) |
 | `reports/agent-runs/2026-07-auto-review-pipeline-design-review/` | **Historical** decision freeze evidence (`40-operator-decision-table.md`) |
-| `reports/agent-runs/2026-07-auto-review-pipeline-v1/` | **Delivery stage** (accepted + merged); process evidence under `history/` |
+| `reports/agent-runs/2026-07-auto-review-pipeline-v1/` | **Historical** delivery stage (accepted + merged pre-retirement); process evidence under `history/` |
 
-Former freeze pointer (still valid as design archaeology):
+Design archaeology (historical only — not a live contract):
 
 `reports/agent-runs/2026-07-auto-review-pipeline-design-review/40-operator-decision-table.md`
 

@@ -1,0 +1,112 @@
+Mechanical assertions for stage 2026-07-docs-truth-sync-v1 (content backfill).
+No product code/schema change; acceptance = the 6 grep/diff assertions below +
+the bookticker P1-9 normalization self-check appended at the end.
+
+########################################################################
+## ASSERTION 1  — annualized field semantics present
+##   grep -c annualized docs/api/public-market-contract.md   (need >0)
+########################################################################
+$ grep -c annualized docs/api/public-market-contract.md
+7
+==> PASS (7 > 0)
+
+########################################################################
+## ASSERTION 2  — funding-history + symbol-snapshot independent endpoint
+##   section titles present
+##   grep -nE "funding-history|symbol-snapshot" docs/api/public-market-contract.md
+########################################################################
+$ grep -nE "funding-history|symbol-snapshot" docs/api/public-market-contract.md
+260:### GET /api/public-market/funding-history
+268:- Method / path: `GET /api/public-market/funding-history`.
+273:  `schemas/api/public-market/funding-history.schema.json`
+274:  (`schema_version` = `public-market-funding-history/v1`).
+276:  - `schema_version`: `public-market-funding-history/v1` (const).
+291:Schema: `schemas/api/public-market/funding-history.schema.json`.
+293:### GET /api/public-market/symbol-snapshot
+302:- Method / path: `GET /api/public-market/symbol-snapshot`.
+306:  `schemas/api/public-market/symbol-snapshot.schema.json`
+307:  (`schema_version` = `public-market-symbol-snapshot/v1`).
+309:  - `schema_version`: `public-market-symbol-snapshot/v1` (const).
+325:Schema: `schemas/api/public-market/symbol-snapshot.schema.json`.
+343:`GET /api/public-market/funding-history` payload; the current-period 24h
+877:bookTicker HTTP. The projected symbol-snapshot row's `opening_quotes` is identical
+884:are unchanged. `opening_quotes` is additive and optional; the `symbol-snapshot`
+==> PASS — independent section titles at lines 260 and 293:
+    `### GET /api/public-market/funding-history`
+    `### GET /api/public-market/symbol-snapshot`
+
+########################################################################
+## ASSERTION 3  — auto-review no longer framed as current normative contract
+##   grep -niE "current.*normative|delivered on .main"
+##       reports/follow-ups/README.md   (expect NO match)
+########################################################################
+$ grep -niE "current.*normative|delivered on .main" reports/follow-ups/README.md
+(exit status 1 — no match)
+==> PASS (auto-review entry now reads "retired by DEC-2026-07-14-002"; deleted
+    files no longer framed as a current contract)
+
+########################################################################
+## ASSERTION 4  — PRD no longer describes a simulation-only manual-open UI
+##   grep -niE "simulation only|simulation-only" docs/product/PRD.md
+##   (expect NO match as existing-UI description)
+########################################################################
+$ grep -niE "simulation only|simulation-only" docs/product/PRD.md
+(exit status 1 — no match)
+==> PASS (no simulation-only wording remains; the former "manual open preview"
+    bullet is replaced by the as-built opening-spread display, which carries no
+    execution action)
+
+########################################################################
+## ASSERTION 5  — DEVELOPMENT_GUIDE documents the funding-history tests and
+##   the new background-refresh / funding-history-cache env vars
+##   grep -niE "test_funding_history|APP_BACKGROUND_REFRESH|APP_FUNDING_HISTORY_CACHE"
+##       docs/development/DEVELOPMENT_GUIDE.md   (need matches)
+########################################################################
+$ grep -niE "test_funding_history|APP_BACKGROUND_REFRESH|APP_FUNDING_HISTORY_CACHE" docs/development/DEVELOPMENT_GUIDE.md
+47:- `APP_BACKGROUND_REFRESH_ENABLED` /
+55:- `APP_FUNDING_HISTORY_CACHE_TTL_SECONDS` /
+87:  python3 -m pytest backend/tests/test_funding_history.py \
+88:    backend/tests/test_funding_history_endpoint.py -q
+==> PASS (all three terms present)
+
+########################################################################
+## ASSERTION 6  — no Forbidden path touched
+##   git diff --name-only   (must NOT contain any Forbidden path)
+########################################################################
+$ git diff --name-only
+docs/api/public-market-contract.md
+docs/architecture/ARCHITECTURE.md
+docs/development/DEVELOPMENT_GUIDE.md
+docs/planning/DECISIONS.md
+docs/product/PRD.md
+reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md
+reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
+reports/follow-ups/README.md
+==> PASS — all 8 changed paths are within the Allowed set; none of
+    STAGE_INDEX.md / ROADMAP.md / harness-manifest.yaml / docs/harness-design.md
+    / AGENTS.md / docs/planning/stage-branch-mode.md / docs/README /
+    docs/architecture/ADR/ / backend/ / frontend/ / schemas/ / scripts/ appears.
+
+########################################################################
+## EXTRA SELF-CHECK — bookticker P1-9 living-docs normalization
+##   (no residual intermediate-state tokens contradicting the accepted state)
+########################################################################
+$ grep -niE "has not started|pending|not yet captured|has executed|not yet prepared|awaiting|waiting for" \
+    reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md
+(exit status 1 — no match)
+
+$ grep -niE "awaiting|waiting for|has not started|not yet prepared|pending" \
+    reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md
+(exit status 1 — no match)
+
+$ git diff --name-only | grep -E "STAGE_INDEX|ROADMAP|harness-manifest|harness-design|AGENTS\.md|stage-branch-mode|docs/README|docs/architecture/ADR|backend/|frontend/|schemas/|scripts/"
+(exit status 1 — no Forbidden path in diff)
+==> PASS — bookticker living-docs归一 to the accepted final state (Recovery Header
+    authority); no contradictory "Formal review has not started / pending" residue.
+
+当前 Session ID: unavailable (Claude Code 不向模型暴露 provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-docs-truth-sync-v1/60-test-output.txt
+本地北京时间: 2026-07-16 16:19:27 CST
+下一步模型: 待 review-1（Kimi）/ review-2（Codex/GPT 或 Claude）
+下一步任务: review-1 逐条核对「文档所述 == schema/server/前端真值」+ 禁改文件 0 改动 + P1-9 归一无残留

@@ -1,8 +1,8 @@
 # Binance Funding Hedging PRD
 
-Status: as-built read-only snapshot plus future execution requirements, 2026-07-10
+Status: as-built read-only snapshot plus future execution requirements, 2026-07-16
 
-Last updated: 2026-07-10
+Last updated: 2026-07-16
 
 ## Product Summary
 
@@ -18,9 +18,16 @@ hedging.
 Current as-built status: the repository has landed a read-only workstation
 slice, not execution. The backend serves public market data plus optional
 private signed GET enrichment for balances, positions, borrow validation,
-borrow-cost references, and sort basis. The frontend displays the opportunity
-table and private read-only account panels. There is no implemented order,
-borrow, repay, transfer, close, or automated execution surface yet.
+borrow-cost references, and sort basis. A serial background refresh worker owns
+a single immutable published state and all domain-cache writes; it also drives
+paired public bookTicker quotes surfaced as additive per-row `opening_quotes`
+and settled 7D/30D plus estimate-24h annualized funding fields. The frontend
+renders the opportunity table — including opening-spread and annualized funding
+columns — and the private read-only account panels; it has no order, open,
+borrow, repay, or transfer ticket of any kind. On macOS the local server runs
+under a launchd agent (`com.aoke.funding-hedging.server`) managed by
+`scripts/service-control.py`. There is no implemented order, borrow, repay,
+transfer, close, or automated execution surface yet.
 
 ## Background
 
@@ -463,9 +470,12 @@ review screens:
   depth sample availability.
 - Candidate detail: futures rules, spot rules, route classification reasoning,
   bStock detection reasoning, funding history, and raw sample file references.
-- Manual open preview: simulation only; no real orders. It shows
-  total notional, rounds, base-quantity planning, minimum-notional correction,
-  future 10-minute timeout fallback rule, and hard slippage limit.
+- Opening-spread display: per-row `opening_quotes` show about-60s public
+  bookTicker reference forward/reverse opening spreads
+  (`forward_spread_pct`, `reverse_spread_pct`; percentage points, 2 decimals)
+  with `fresh` / `incomplete` / `stale` / `unavailable` status. This is a public
+  reference quote, not an execution surface — the frontend exposes no order,
+  open, borrow, or transfer action.
 
 Execution UI remains future work. Later execution stages should expose these
 operational screens:
@@ -503,7 +513,21 @@ acceptance tests. No automatic close is allowed in v0.1.
 
 ## Technology Direction
 
-Preferred architecture:
+As-built (current read-only workstation):
+
+- Backend: Python standard library only (`http.server`, no web framework, no
+  `asyncio`); a serial background refresh thread owns the single immutable
+  published state and all domain-cache writes. Runtime dependency surface is
+  `jsonschema` only.
+- Frontend: same-origin static HTML/CSS/vanilla-JS workstation with a
+  `node frontend/self-check.js` contract self-check; no build step.
+- Persistence: none yet; the snapshot is rebuilt in memory from public HTTP or
+  frozen offline fixtures.
+- Local service: macOS launchd agent `com.aoke.funding-hedging.server` managed
+  by `scripts/service-control.py`; `scripts/run-server.sh` is the plist entry
+  point.
+
+Future direction (preferred architecture for the execution stages):
 
 - Backend: Python with `asyncio` for strategy state, Binance adapters,
   websocket subscriptions, Decimal calculations, and execution orchestration.
@@ -534,7 +558,7 @@ Rationale:
 - Planning preview aligns by base quantity, rounds by step size, and rechecks
   notional filters after rounding.
 - UI prototype shows public market discovery screens with realistic public
-  sample data and clearly labels manual open as simulation-only.
+  sample data and exposes no order, open, borrow, or execution action.
 - Tests cover classification, trading-rule parsing, funding-field
   normalization, minimum-notional selection, and planning preview.
 - No API credentials were added for that baseline.

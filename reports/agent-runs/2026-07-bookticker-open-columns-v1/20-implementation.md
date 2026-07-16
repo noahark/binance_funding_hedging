@@ -2,8 +2,8 @@
 
 This file indexes the raw task implementation reports. It does not replace or
 rewrite implementer evidence. Task C is a user-approved frontend-only fast UI
-amendment. Its layout pass is complete and its same-session fixed-decimal
-display addendum is awaiting human execution.
+amendment. Its layout pass and its same-session fixed-decimal display addendum
+are both complete.
 
 ## Task A — Backend Contract, Cache And Decimal Semantics
 
@@ -55,8 +55,9 @@ display addendum is awaiting human execution.
   all passed.
 - User page-display acceptance: passed and recorded at
   `2026-07-15T19:10:33Z`.
-- Status: implementation and visual acceptance complete; waiting for local
-  evidence commit and the single fresh Codex final review.
+- Status: implementation, visual acceptance, local evidence commit, and the
+  single fresh Codex final review (`ACCEPT`) all complete; stage accepted,
+  merged to `main`, and pushed.
 
 ## Task A/B Baseline Independent Checks
 
@@ -84,5 +85,5 @@ display addendum is awaiting human execution.
 Session ID 来源: runtime_env (`CODEX_THREAD_ID`)
 原始输出路径: reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md
 本地北京时间: 2026-07-16 03:10:33 CST
-下一步模型: codex_bookkeeper
-下一步任务: 创建 Task C 本地证据提交、固定指纹并准备唯一一次 fresh Codex final-review packet
+下一步模型: human
+下一步任务: 当前 stage 已完成、已合并至 main 并推送；等待下一阶段需求
