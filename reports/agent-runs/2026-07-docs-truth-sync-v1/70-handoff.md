@@ -6,16 +6,17 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `fixing`（round-6 语义收敛 fix；用户第 3 次超限授权；Fable5 执行）
-- Next action: **操作者在 Fable5 终端执行 `48-dispatch-fix-round6-fable5.md`**（收敛
-  symbol-snapshot 失败矩阵 prose，一次修 F13+F14，不 commit）。回来后 opus4.8（bookkeeper）
-  R4 对账 → 重算指纹 → **直接派 Codex review-2**（review-1 维持豁免）。
-- ✅ 用户选 **(a) 语义收敛版**（非"指向 schema 当权威"——schema 无 token 枚举且 5/39
-  行 prose 已陈旧，指它会造新过度承诺）。收敛点：warnings 开放式非穷尽 + refresh_status
-  权威；row-source live/offline 两分；timeout 只保守说"无新 publication，用 last-good"；
-  明确冷启动 503 + 删 `base_raw_unavailable` 公开描述；token 最好完全不枚举。
-- 路由：Fable5 fix（anthropic）；opus4.8 bookkeeper（不 review，无双帽）；review-2 仍
-  Codex/OpenAI（与 anthropic fix author 隔离）。F15 已修。
+- Active phase: `review_2`（round 6；Fable5 收敛 fix 已对账、pre-review PASSED，等 Codex 终审）
+- Next action: **操作者执行 `60-dispatch-review-2-codex-round6.md`（Codex 终审，review-1
+  豁免）**。ACCEPT→bookkeeper 跑 `--phase pre-accept`→`stage_accepted_waiting_user`→用户
+  终审合并。REWORK→报用户。
+- Round-5 fix 已对账（Fable5 语义收敛，commit `d59f823`）：**F14** `base_raw_unavailable`
+  0 命中 + 冷启动 503 明写；**F13** row-source 唯一 mode-dependent 定义、无条件句全清；
+  warnings 开放式非穷尽 + refresh_status 权威；timeout 保守不枚举。CMD2 gate 干净、
+  pytest 71 + 前端 80、边界零越界。F15（我的账本）已修。
+- 受审范围（新）：`127a600..d59f823`，fingerprint `d59f823:361be698…`（pre-review PASSED）。
+- 历史：R1(F1-F3)→R2(F4-F6)→R3(F7/F8)→R4(F9-F12)→R5(F13-F15) 五轮 REWORK，均已修；
+  三次用户超限授权（rework 6）。review-2 原文存 51-/52-/53-/54-/50-review-2-round5.md。
 - Codex round-5 三 finding（原文 `50-review-2.md`；round-4 归档 `54-`）——**我已独立核实**：
   - **F13(P1,真,偏细)**：契约 306/358/392 行仍无条件说 row 来自 published state,offline
     实为同步/缓存 snapshot（`snapshot_service.py:373-393`）。

@@ -193,3 +193,16 @@ CMD6 git diff --name-only -> docs/api/public-market-contract.md (+ append-only 4
 F9 CHECK: contract published_version now mode-dependent — live = internal PublishedState revision; offline = fixed 0 sentinel, "Offline mode never creates a PublishedState … NOT the revision number of any PublishedState"; row-from-same-PublishedState limited to "(live mode only)"; full-snapshot no-field / no-cross-request statements preserved.
 F10 CHECK: wire-visible warnings list = per-source tokens (documented as also riding timeout) + refresh_deadline_exceeded + refresh_command_expired:<symbol> + base_raw_unavailable:<symbol> (reviewer-missed, snapshot_service.py:1400-1404, same cmd.warnings serialization at :353) + worker_not_running; timeout bullet distinguishes the four diagnostic tokens.
 FINGERPRINT: git diff --binary 127a600..e214d6f -- . ':(exclude)reports/agent-runs/2026-07-docs-truth-sync-v1/status.json' | shasum -a 256 -> d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e
+
+########################################################################
+## ROUND 5 FIX verification (F13/F14 semantic-convergence) — bookkeeper R4
+## fix head d59f823; fable5; opus4.8 reconciles; user authorization[2]
+########################################################################
+CMD_F14gate grep -c base_raw_unavailable docs/api/public-market-contract.md -> 0 (PASS, fully removed)
+CMD_F14   cold-start 503 documented: "the endpoint returns HTTP 503 snapshot_not_ready before submitting any command — there is no 200 [cold-start]"
+CMD_F13   row-source unconditional phrasing ('always comes/taken from published state') -> 0 hits (single mode-dependent definition now authoritative)
+CMD_conv  warnings open-ended/non-exhaustive + refresh_status authoritative; timeout conservative (no enumeration, deliberately stated)
+CMD3 pytest funding_history + endpoint + symbol_snapshot_endpoint -> 71 passed
+CMD4 node frontend/self-check.js -> 全部自检通过 (80)
+CMD5 git diff --check -> clean
+CMD6 changed-file boundary -> PASS (contract + append-only 40-fix-report.md only; zero forbidden)

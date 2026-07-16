@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "fixing",
+  "status": "review_2",
   "workflow": "stage-delivery",
-  "current_phase": "fix-round6-semantic-convergence-fable5-user-authorized",
+  "current_phase": "review-2-round-6-codex",
   "user_authorizations": [
     {
       "at": "2026-07-16T22:20:00Z",
@@ -157,13 +157,14 @@
     "note": "kimi final report relayed by operator; kimi CLI session did not persist assistant final text (interrupted mid-generation)."
   },
   "base_sha": "127a600281d60b7332be8aeb9552740a5e8c3254",
-  "head_sha": "e214d6f819d76daa3b85865c1021b5aa2497ee95",
-  "diff_fingerprint": "e214d6f819d76daa3b85865c1021b5aa2497ee95:d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e",
+  "head_sha": "d59f8234c4134e26843abeca6019b3e13a4062bd",
+  "diff_fingerprint": "d59f8234c4134e26843abeca6019b3e13a4062bd:361be6984dcc210dd77b952054b844a9ef865c8324394b1a83b69dbf0f35ea84",
   "prior_fingerprints": [
     {"round": 1, "head_sha": "c72987dc5cfe288e8df887cd14a965a48e93e3f3", "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812", "outcome": "review-2 REWORK (F1/F2/F3); superseded by fix a77a18a"},
     {"round": 2, "head_sha": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1", "diff_fingerprint": "a77a18aa069ecc236c8448b8bdced40ea53bdeb1:4185db381c588a8e07659feb265c3106cf903f06c4f2ef24fbb789add56626c9", "outcome": "review-1 ACCEPT, review-2 REWORK (F4/F5/F6); superseded by fix 568fd41"},
     {"round": 3, "head_sha": "568fd4160b67d3b73303134d6f078a6a59bb93d9", "diff_fingerprint": "568fd4160b67d3b73303134d6f078a6a59bb93d9:ec91074df380632652180548168583da1756669a9e63d0077f73041621fc1ffe", "outcome": "review-1 (kimi) ACCEPT, review-2 (codex) REWORK (F7/F8) -> human_escalation; user authorized bounded F7 override fix a432284"},
-    {"round": 4, "head_sha": "a4322847d831105d587a36f6f5d305586d10c264", "diff_fingerprint": "a4322847d831105d587a36f6f5d305586d10c264:06ea8e1a2bf7e8ffdb4c9bb7df626e6d91b5d0cca7712f824b07874726a15604", "outcome": "review-1 waived (user), review-2 (codex) REWORK (F9/F10 P1, F11/F12 P2) -> human_escalation; user re-routed fix to fable5, superseded by fix e214d6f"}
+    {"round": 4, "head_sha": "a4322847d831105d587a36f6f5d305586d10c264", "diff_fingerprint": "a4322847d831105d587a36f6f5d305586d10c264:06ea8e1a2bf7e8ffdb4c9bb7df626e6d91b5d0cca7712f824b07874726a15604", "outcome": "review-1 waived (user), review-2 (codex) REWORK (F9/F10 P1, F11/F12 P2) -> human_escalation; user re-routed fix to fable5, superseded by fix e214d6f"},
+    {"round": 5, "head_sha": "e214d6f819d76daa3b85865c1021b5aa2497ee95", "diff_fingerprint": "e214d6f819d76daa3b85865c1021b5aa2497ee95:d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e", "outcome": "review-1 waived, review-2 (codex) REWORK (F13/F14 P1, F15 P2) -> human_escalation; user authorized option (a) semantic-convergence fix by fable5, superseded by fix d59f823"}
   ],
   "delivery_files_under_review": [
     "docs/api/public-market-contract.md",
@@ -219,24 +220,18 @@
     "model": "gpt-5.5",
     "primary_provider": "codex",
     "fallback_provider": "claude",
-    "verdict": "REWORK",
-    "json_schema_valid": true,
-    "diff_fingerprint": "e214d6f819d76daa3b85865c1021b5aa2497ee95:d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e",
-    "round": 5,
-    "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2.md",
-    "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf",
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "round": 6,
     "reviewer_prior_involvement": "direction_synthesis",
-    "reviewer_prior_involvement_notes": "Codex (openai) participated in the read-only four-model audit (direction-level); did NOT author design/breakdown/implementation/fix. Provider-isolated from implementer (zhipu_glm), designer/breakdown author (anthropic), and round-4 fix author fable5 (anthropic).",
+    "reviewer_prior_involvement_notes": "Codex (openai) participated in the read-only four-model audit (direction-level); did NOT author design/breakdown/implementation/fix. Provider-isolated from implementer (zhipu_glm), designer/breakdown author (anthropic), and fix authors claude_glm (zhipu_glm) + fable5 (anthropic).",
     "design_conflict_override": {
       "used": false,
-      "reason": "Not needed: reviewer provider (openai) != designer/breakdown-author provider (anthropic)."
+      "reason": "Not needed: reviewer provider (openai) != any fix-author provider (zhipu_glm, anthropic)."
     },
-    "findings_summary": [
-      "F13 (P1, bookkeeper-verified REAL, marginal): contract lines 306-309/358-361/392-395 still say row unconditionally comes from published state, but offline path projects a synchronously-built/cached snapshot with _published_state=None (snapshot_service.py:373-393). Residual precision gap on an already heavily mode-caveated section.",
-      "F14 (P1, bookkeeper-verified REAL + FIX-INTRODUCED REGRESSION): contract lists base_raw_unavailable:<symbol> as a public 200-timeout wire token, but it is HTTP-unreachable — cold path returns 503 before command submission (snapshot_service.py:333-335); _base_raw is always set at :998 before publish and never reset to None; the branch at :1395-1402 fires only via direct unit call. This token was ADDED by fable5's round-4 proactive fix. A doc-truth stage listing a wire token that cannot appear is self-contradictory — strongest reason not to ship as-is.",
-      "F15 (P2, bookkeeper-owned, FIXED THIS CHECKPOINT): status.current_phase + human_escalation.resolved_by + handoff lines 18/62/72 still said routing pending while Recovery Header/ACTIVE said Codex dispatched."
-    ],
-    "note": "Round 5 (Codex) = REWORK -> human_escalation_required again. rework 5 (two prior user overrides). F13/F14 are bookkeeper-verified real contract over-claims (F14 is a regression the round-4 fix introduced); F15 was bookkeeper hygiene, fixed here. No 6th fix authorized — user decision required. Rounds 1-4 raw at 51-/52-/53-/54-; round-5 at 50-.",
+    "note": "Round 6 (Codex) re-review on fixed fingerprint d59f823 (fable5 semantic-convergence fix for F13/F14). review-1 waived. Rounds 1-5 archived in review_rounds; review-2 raw at 51-/52-/53-/54-/50-review-2-round5.md; round-6 lands at 50-review-2.md.",
+    "verdict_dispatch_packet": "reports/agent-runs/2026-07-docs-truth-sync-v1/60-dispatch-review-2-codex-round6.md",
     "invalid_json_attempts": 0
   },
   "review_rounds": [
@@ -267,6 +262,13 @@
       "review_1": {"reviewer": "kimi", "verdict": null, "waived": true, "waiver_authority": "user (status.user_authorizations[0])"},
       "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/54-review-2-round4.md", "next_action": "human_escalation_required", "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf", "findings": ["F9 (P1) offline published_version 0 still described as a PublishedState revision (offline creates none)", "F10 (P1) wire-visible warnings list omits refresh_command_expired:<symbol>", "F11 (P2, bookkeeper) handoff body still at round-3 escalation/intake-era next steps", "F12 (P2, bookkeeper) session_receipts missing completed models; fix_authors missing round-3"]},
       "fix": {"author": "fable5 (F9/F10; user re-route, status.user_authorizations[1])", "bookkeeper_corrections": "F11/F12 by fable5 as acting bookkeeper (opus4.8 slated to review, must not reconcile the round it reviews)", "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md (Round-4 section)", "head_after_fix": "e214d6f819d76daa3b85865c1021b5aa2497ee95", "status": "done", "authorization": "second user rework-limit override (rework 5)", "verification": "6 fix-prompt commands PASS incl. pytest 71 passed, frontend 80 passed, json.tool OK, diff-check clean, only contract + append-only fix report changed; F9 independently re-verified against snapshot_service.py:344-393; F10 re-verified against :1389-1393/:352-353, PLUS reviewer-missed base_raw_unavailable:<symbol> (:1400-1404, same serialization path) added to the contract to avoid a round-6 repeat"}
+    },
+    {
+      "round": 5,
+      "diff_fingerprint": "e214d6f819d76daa3b85865c1021b5aa2497ee95:d93ff6d4be65eda9882a6145e69a8dfcb346b854af38f40da79ff49f5cdf965e",
+      "review_1": {"reviewer": "kimi", "verdict": null, "waived": true, "waiver_authority": "user (standing waiver since round 4)"},
+      "review_2": {"reviewer": "codex", "verdict": "REWORK", "json_schema_valid": true, "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/50-review-2-round5.md", "next_action": "human_escalation_required", "session_id": "019f6a94-9685-7f80-8b64-cb7ba5798daf", "findings": ["F13 (P1, verified real, marginal) row-source unconditional 'published state' vs offline synchronous/cache", "F14 (P1, verified real, regression from round-4 fix) base_raw_unavailable listed as public wire token but HTTP-unreachable", "F15 (P2, bookkeeper) routing not fully synced to handoff/status — fixed by bookkeeper"]},
+      "fix": {"author": "fable5 (F13/F14 semantic-convergence; user authorization[2], option a)", "bookkeeper_corrections": "F15 by opus4.8 bookkeeper", "report": "reports/agent-runs/2026-07-docs-truth-sync-v1/40-fix-report.md (Round-5 section)", "head_after_fix": "d59f8234c4134e26843abeca6019b3e13a4062bd", "status": "done", "authorization": "third user rework-limit override (rework 6)", "verification": "CMD2 gate clean (base_raw_unavailable 0 hits), codex 3-test subset PASS, pytest 71 passed, frontend 80 passed, diff-check clean, only contract + append-only fix report changed; row-source now single mode-dependent definition (no restatement surface); base_raw_unavailable fully removed + cold-start 503 documented; warnings open-ended/non-exhaustive, timeout conservative, refresh_status authoritative"}
     }
   ],
   "linked_decisions": [
@@ -329,6 +331,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "User chose option (a) semantic-convergence; Fable5 authors round-6 fix. Operator executes 48-dispatch-fix-round6-fable5.md in Fable5; then opus4.8 (bookkeeper) reconciles, recomputes fingerprint, runs pre-review, dispatches Codex review-2 round-6 directly (review-1 waived). ACCEPT -> pre-accept (known review_1 trail) -> stage_accepted_waiting_user -> user merge.",
+  "next_action": "Fable5 semantic-convergence fix reconciled (F13/F14 resolved; CMD2 gate clean; pytest 71 + frontend 80; new head d59f823). Operator executes 60-dispatch-review-2-codex-round6.md (Codex review-2 on 127a600..d59f823 / d59f823:361be698; review-1 waived). ACCEPT -> bookkeeper runs pre-accept (known review_1-fingerprint trail = RC4 false-red, recorded not faked) -> stage_accepted_waiting_user -> user final acceptance + merge. REWORK -> report to user.",
   "updated_at": "2026-07-16T23:20:00Z"
 }
