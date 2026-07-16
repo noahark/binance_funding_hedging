@@ -22,10 +22,13 @@ Stage: `2026-07-docs-truth-sync-v1`
 保证 promote 真的发生**：没有待办账本、没有验收门检查、没有强制 follow-up。于是
 schema/代码成为事实真值，canonical 文档腐化。
 
-**证据**：`snapshot.schema.json` 有 `annualized_*`（3 处），`public-market-contract.md`
-0 处（P0-2）；`server.py` 暴露 `funding-history` / `symbol-snapshot`，合同无一等
-契约；`docs/architecture/ADR/` 只剩模板，约 22 份阶段 `11-adr.md` 从未 promote
-（P2-15）。这直接违反了 Harness 自己在 `DEVELOPMENT_GUIDE.md` 写下的规则
+**证据**：`schemas/api/public-market/snapshot.schema.json` 有 `annualized_*`（3 处），
+`public-market-contract.md` 0 处（P0-2）；`server.py` 暴露 `funding-history`（合同
+0 处）/ `symbol-snapshot`（合同仅 2 处顺带提及，`public-market-contract.md:782,789`
+opening_quotes 段），合同无独立端点契约小节；`docs/architecture/ADR/` 只剩模板，
+恰好 22 份阶段 `11-adr.md` 从未 promote
+（P2-15）〔F2/F5 修正：补全 schema 路径；区分 funding-history 0 处 vs symbol-snapshot
+2 处顺带提及〕。这直接违反了 Harness 自己在 `DEVELOPMENT_GUIDE.md` 写下的规则
 「Contract changes must update both human documentation and JSON schema」——
 **规则存在，但无执行点**。
 
@@ -45,8 +48,11 @@ schema/代码成为事实真值，canonical 文档腐化。
 
 ## RC2 — 人类导航文档（INDEX/ROADMAP/PRD）是「should」义务，验收门只看机器态
 
-**机制**：`AGENTS.md` 说 bookkeeper「should update STAGE_INDEX when a stage reaches
-accepted/merged」——是 **should，不是 hard gate**。`validate-stage.py` 校验
+**机制**：「bookkeeper should update this index when a stage reaches ...
+accepted/merged」这句 should **只出现在 `STAGE_INDEX.md` 自己的头部**，`AGENTS.md`
+全文 0 处 STAGE_INDEX〔F1 修正：原文误记为出自 AGENTS.md；实际连治理文档都没这条
+义务，仅索引文件自我声明——反而**强化**本根因〕。它是 **should，不是 hard gate**。
+`validate-stage.py` 校验
 fingerprint / verdict / branch 等**机器态**，但**从不检查** STAGE_INDEX / ROADMAP
 是否收录了刚接受的 stage。于是 stage 可以合法地 accepted + merged + push，而人类
 索引静默漂移。
@@ -139,8 +145,10 @@ grep 全仓反向引用并一并处理」的清扫步骤。于是二级引用悬
 `Known open gaps` / `Next Product Work` 是 append-mostly 列表，**没有一步在事情落地
 时把它划掉**。
 
-**证据**：4 份 canonical 文档头部停在 07-10（P1-10）；`harness-design.md` Deferred
-仍列已完成项（P0-6）；`AGENTS.md` Known gaps 未纳入新出现的契约 gap（P1-12）；
+**证据**：有日期头的 canonical 文档（PRD、DEVELOPMENT_GUIDE 等）停在 07-10（P1-10），
+而 `harness-design.md` **根本没有 Status 日期行**——比"停在 07-10"更糟，连陈旧信号都
+缺〔F4 修正〕；`harness-design.md` Deferred 仍列已完成项（P0-6）；`AGENTS.md`
+Known gaps 未纳入新出现的契约 gap（P1-12）；
 `harness-design.md` §Current Scope「only document-level contract」与「multiple stages
 completed」自相矛盾（P2-14）。
 

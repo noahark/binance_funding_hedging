@@ -6,11 +6,12 @@ not read `history/` at startup.
 
 ## Recovery Header
 
-- Active phase: `intake`
-- Next action: 用户审阅 `00-task.md` backlog 与 `80-harness-design-rootcause.md`；
-  选定 D-A（P0-1 处置）；决定实现派工。Harness 根因报告等待用户路由 Fable5 review。
-- Read-set: = `status.current_inputs`
-- Open blockers: None（等待用户输入，非阻塞）
+- Active phase: `intake`（D-B 已裁决，等待用户排期 Stage A + 决定内容回填顺序）
+- Next action: (1) 用户按 Fable5 裁决排期 **Stage A（模板仓 first）= RC4 分任务指纹
+  + authorized_exception 豁免机制**；(2) 决定本 stage 的内容回填（P0-2/3/4/5/6、
+  P1-8/9/10/11、P2）是现在做，还是随 Stage B 门建立后一并做。D-A 已由 Stage A 解决。
+- Read-set: = `status.current_inputs`（含 `81-harness-design-rootcause-review-fable5.md`）
+- Open blockers: None（等待用户排期，非阻塞）
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State

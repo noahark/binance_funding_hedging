@@ -118,16 +118,30 @@
       "topic": "bookticker pre-accept validator red gate (P0-1)",
       "options": ["re-review Task C and recompute review-1 fingerprint", "encode user-authorized fast-route exception in Harness", "knowingly accept as one-off historical exception and record it"],
       "owner": "user",
-      "status": "open"
+      "status": "resolved",
+      "resolution": "Resolved via Stage A (RC4). After task-level fingerprint coverage + authorized_exception land, bookticker goes green through (a) per-task coverage or (b) recorded exemption; no hand-edit of historical fingerprints, no long-lived red gate. See 81 Q4."
     },
     {
       "id": "D-B",
       "topic": "adopt Harness process changes from 80-harness-design-rootcause.md",
-      "note": "Harness contract change; template-repo first + strong review (Fable5). Operator routes.",
       "owner": "user",
-      "status": "open"
+      "status": "resolved",
+      "resolution": "ADOPT, per Fable5 verdict (81-harness-design-rootcause-review-fable5.md). Two batches, template-repo first. Mandatory condition R1: every new pre-accept assertion must carry an authorized_exception + evidence-file slot, reusing validate-stage.py:735-737 override pattern, or it mass-copies the RC4 permanent-false-red defect.",
+      "landing_sequence": {
+        "stage_A_template_first": "RC4: task-level fingerprint coverage + authorized_exception mechanism (shared infra for all doc gates). Small diff, focused evidence-integrity review. Also resolves D-A.",
+        "stage_B_reuses_exemption": "Doc gates: RC1(a) pending_promotions[] ledger (contains RC1(b) as its trigger); RC2 generation of STAGE_INDEX from status.json (RC7 manifest classification as prerequisite; sidecar for human Note column; pre-accept thin assertion 'regenerator diff is empty'); RC3(a) living-doc token normalization.",
+        "batch_2_P1": "RC5(b) check-dangling-refs.py; RC3(a) with R1 exemption slot.",
+        "one_time_backfill": "Regenerate STAGE_INDEX (5 missing + 2 dangling per RC8) and half-generate ROADMAP Done after Stage B gates exist.",
+        "P2_unchanged": "RC6/RC9 remain P2.",
+        "two_repo_sync": "Template repo edits validator/schema -> manual cp downstream (no auto sync) -> next in-repo stage tests new gates. Do not overwrite AGENTS.md two-repo carve-out lines."
+      }
     }
   ],
+  "fable5_review": {
+    "file": "reports/agent-runs/2026-07-docs-truth-sync-v1/81-harness-design-rootcause-review-fable5.md",
+    "verdict": "ACCEPT (direction and evidence hold); corrections F1/F2/F4/F5 required before report serves as D-B basis; cross-cutting R1 mandatory.",
+    "report_corrections_applied": ["F1 RC2 citation (STAGE_INDEX obligation is in STAGE_INDEX.md header, not AGENTS.md)", "F2 schema path + follow-ups path", "F4 harness-design.md has no Status date line at all", "F5 symbol-snapshot 2 passing mentions vs funding-history 0"]
+  },
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [],
@@ -145,6 +159,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human-review-backlog-and-rootcause",
-  "updated_at": "2026-07-16T06:33:56Z"
+  "next_action": "user-schedules-stage-A-template-first; decide content-backfill sequencing for this stage",
+  "updated_at": "2026-07-16T16:19:27Z"
 }
