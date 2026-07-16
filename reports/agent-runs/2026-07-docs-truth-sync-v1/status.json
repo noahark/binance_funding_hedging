@@ -1,8 +1,17 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "human_escalation_required",
+  "status": "fixing",
   "workflow": "stage-delivery",
-  "current_phase": "human-escalation-rework-limit",
+  "current_phase": "fix-f7-user-authorized-override",
+  "user_authorizations": [
+    {
+      "at": "2026-07-16T22:20:00Z",
+      "decision": "Authorize one bounded rework-limit-override fix for F7 (rework goes 3->4, exceeding max_rework=3 by explicit user grant). Route: claude_glm fixes F7, then dispatch DIRECTLY to Codex review-2 — user waived a round-4 Kimi review-1 for this bounded single-finding doc fix.",
+      "scope": "F7 only (contract symbol-snapshot same-version over-claim; one paragraph + bullet + schema:5 deferred disclosure). No other files, no code/schema change.",
+      "waives": ["max_rework=3 limit (this fix is round 4)", "round-4 review-1 (Kimi) — go straight to review-2 (Codex) on the fixed range"],
+      "still_required": ["Codex review-2 ACCEPT on the new fingerprint", "pre-accept validator", "user final acceptance before merge to main"]
+    }
+  ],
   "current_inputs": [
     "reports/agent-runs/2026-07-docs-truth-sync-v1/00-task.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/10-design.md",
@@ -256,6 +265,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "HUMAN DECISION REQUIRED (rework 3/3, terminal human_escalation_required). User chooses: (a) authorize bounded F7 override fix [recommended], (b) accept F7 residual + follow-up, (c) abandon/other. F8 bookkeeper hygiene already fixed. See human_escalation.options.",
-  "updated_at": "2026-07-16T22:20:00Z"
+  "next_action": "User authorized bounded F7 override fix + waived round-4 review-1. Operator executes 47-dispatch-fix-f7-claude-glm.md in claude_glm; then bookkeeper reconciles, recomputes fingerprint, dispatches Codex review-2 directly (58-...). NOTE: waiving round-4 review-1 means review_1.diff_fingerprint will trail the round-4 head — a known RC4 false-red at pre-accept; will be recorded as a user-authorized review-1 waiver, not a faked fingerprint.",
+  "updated_at": "2026-07-16T22:25:00Z"
 }
