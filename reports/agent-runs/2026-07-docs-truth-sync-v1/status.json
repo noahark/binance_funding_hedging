@@ -1,12 +1,14 @@
 {
   "stage_id": "2026-07-docs-truth-sync-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
-  "current_phase": "implementation-dispatch",
+  "current_phase": "review-1",
   "current_inputs": [
-    "reports/agent-runs/2026-07-docs-truth-sync-v1/00-intake.md",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/00-task.md",
-    "reports/agent-runs/2026-07-docs-truth-sync-v1/80-harness-design-rootcause.md",
+    "reports/agent-runs/2026-07-docs-truth-sync-v1/10-design.md",
+    "reports/agent-runs/2026-07-docs-truth-sync-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-docs-truth-sync-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-docs-truth-sync-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-docs-truth-sync-v1/70-handoff.md"
   ],
   "stage_branch": {
@@ -89,14 +91,36 @@
     "note": "kimi final report relayed by operator; kimi CLI session did not persist assistant final text (interrupted mid-generation)."
   },
   "base_sha": "127a600281d60b7332be8aeb9552740a5e8c3254",
-  "head_sha": null,
-  "diff_fingerprint": null,
-  "changed_files": [],
+  "head_sha": "c72987dc5cfe288e8df887cd14a965a48e93e3f3",
+  "diff_fingerprint": "c72987dc5cfe288e8df887cd14a965a48e93e3f3:bfd3106dd5a636868a66c56adfc7fdf94c00e57b251878633c9edc9d7265d812",
+  "delivery_files_under_review": [
+    "docs/api/public-market-contract.md",
+    "docs/architecture/ARCHITECTURE.md",
+    "docs/development/DEVELOPMENT_GUIDE.md",
+    "docs/planning/DECISIONS.md",
+    "docs/product/PRD.md",
+    "reports/follow-ups/README.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md"
+  ],
+  "changed_files": [
+    "docs/api/public-market-contract.md",
+    "docs/architecture/ARCHITECTURE.md",
+    "docs/development/DEVELOPMENT_GUIDE.md",
+    "docs/planning/DECISIONS.md",
+    "docs/product/PRD.md",
+    "reports/follow-ups/README.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-bookticker-open-columns-v1/20-implementation.md"
+  ],
   "tests": {
-    "status": "not_applicable",
-    "commands": [],
-    "note": "Documentation-only stage; deterministic re-checks are grep/validator assertions listed in 00-task.md Acceptance Criteria."
+    "status": "passed",
+    "commands": ["6 mechanical grep/diff assertions in 60-test-output.txt"],
+    "note": "Documentation-only stage; no product code/schema change. All 6 acceptance assertions PASS; zero forbidden-file changes."
   },
+  "review_1_open_observations": [
+    "P1-9 scope named bookticker status.json, but implementer left it unchanged, judging line 518 a historical note inside an already-accepted record (status=accepted, user_acceptance=accepted_merged_and_pushed) and that rewriting a status.json note risks tampering with audit evidence. Bookkeeper did not self-fix; review-1 should adjudicate whether the residual 'remain' wording needs normalization or is legitimate history."
+  ],
   "review_1": {
     "reviewer": null,
     "provider": null,
@@ -177,6 +201,6 @@
       "bookkeeper_direct": ["P2-17 (auto-memory cleanup, non-repo)"]
     }
   ],
-  "next_action": "operator executes 15-dispatch-content-backfill.md in claude_glm terminal; then bookkeeper commits, computes fingerprint, runs pre-review validator, routes review-1 (kimi)",
+  "next_action": "operator executes review-1 (kimi) dispatch; then bookkeeper records 30-review-1.md verdict and routes review-2 (codex) or fix",
   "updated_at": "2026-07-16T16:19:27Z"
 }
