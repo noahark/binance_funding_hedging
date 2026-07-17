@@ -55,6 +55,35 @@
     "this_stage_in_future_fixture": "will read red at pre-accept until review receipts land — expected interim state, registered here in advance"
   },
   "d_i": "class-2 whitelist expansion NOT authorized (user has not ruled); no whitelist change made",
+  "session_receipts": [
+    {
+      "role": "implementer (direct-fix arc T0-T7 + fix round F1-F3)",
+      "model": "kimi-code/kimi-for-coding",
+      "provider": "moonshot_kimi",
+      "session_id": "unavailable",
+      "session_id_source": "unavailable",
+      "note": "Kimi CLI does not expose a provider-native session id to the model; no runtime_env/hook/cli_output/transcript evidence available in-session. Never invented, per convention.",
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/60-execution-log.md"
+    },
+    {
+      "role": "raw-diff reviewer (execution round, 68)",
+      "model": "claude-fable-5",
+      "provider": "anthropic",
+      "session_id": "unavailable (Claude Code session id 未暴露 — its own footer declaration)",
+      "session_id_source": "reviewer footer self-declaration",
+      "note": "D3-v2 design owner + plan/dispatch author; design involvement disclosed per convention.",
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/68-review-direct-fix-fable5.md"
+    },
+    {
+      "role": "raw-diff reviewer (execution round, 69)",
+      "model": "gpt5.6-sol (operator-designated name; CODEX_MODEL not exposed)",
+      "provider": "openai",
+      "session_id": "019f7065-f49c-75f1-999a-b40308b43bdd",
+      "session_id_source": "runtime_env",
+      "note": "REWORK verdict F1-F3; raw capture saved by Fable5 for the bookkeeper per reviewer instruction (RC9).",
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/69-review-direct-fix-gpt5.6-sol.md"
+    }
+  ],
   "zero_push": true,
   "updated_at": "2026-07-18T00:55:00+08:00"
 }

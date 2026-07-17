@@ -31,10 +31,12 @@ ff 进 main 后，T5 起全部在 main 上提交。
 
 ## T1 — D3-v2 重写（模板仓 commit `878db79`；证据 commit `01e9432`）
 
-- `validate_task_coverage()` 重写为路标模型（净 -113 行）：规则 1 前缀命中（全量 j=n
-  为常态）+ 规则 3 class-1 例外（review_k 无命中则不担保任何东西——A8b 实证；
-  task:<id> 盖 task.head 所在段，非路标则记录错误）。删除链式检查、
-  `_task_own_review_covers`（dev 坐标冒充口子）、`covers_through_task`（0/23）。
+- `validate_task_coverage()` 重写为路标模型：`validate-stage.py` numstat **+141/-172**
+  （净 -31；T1 commit 全量 +200/-178，含文档）。规则 1 前缀命中（全量 j=n 为常态）+
+  规则 3 class-1 例外（review_k 无命中则不担保任何东西——A8b 实证；task:<id> 盖
+  task.head 所在段，非路标则记录错误）。删除链式检查、`_task_own_review_covers`
+  （dev 坐标冒充口子）、`covers_through_task`（0/23）。〔行数口径 2026-07-18 订正：
+  初稿误写"净 -113 行"，Fable5 68-review F2 指正，以 numstat 为准。〕
 - DoD：A1-A8 对抗用例 **16/16 PASS**（`61-adversarial-d3v2.{driver.py,txt}`；
   A7 用 bookticker 真实数据在 funding 仓内存模拟 + class-1 → green_with_exception）。
 - 文档：模板仓 harness-design D3 段改 v2 + fixture 规则入文；Stage A 10-design §3/§5
@@ -97,6 +99,24 @@ ff 进 main 后，T5 起全部在 main 上提交。
 - 停下等：Codex + Fable5 raw-diff 独立评审（输入 = 两仓 diff + 61/62 + 63/64/65/66/67）
   → 用户终审 → 统一 push。
 
+## 修复轮（2026-07-18，71-dispatch）：F1/F2/F3(a)
+
+- **F1**: compare 升级为三比（verdict + 错误多重集 + applied_exceptions，`diff_results()`），
+  任何 drift 非零退出；sentinel 回归测试 `scripts/test-validate-all-stages-compare.py`
+  双仓 11/11 PASS（`72-compare-sentinel-tests.txt`）；模板仓先改（`3941f9e`）→ cp 下行、
+  逐字节一致（`0829b6e`）。错误集变化全量登记进 64 迁移表（无静默）。
+- **F2**: 09 追加用户 F3(a) 拍板原文 + 封印注记（`471c3a5`）；bookticker 例外
+  `evidence_file` 改指 09（真 verbatim），digest 重算、reason 改双源（`fda2716`）；
+  干净 main 复跑 pre-accept PASS-with-exception，输出 append 到 62-（`b97e92e`，旧段
+  未改写）。70-handoff 一字未动。
+- **F3(a)**: 64 迁移表补本弧 known_red 行（直修模式账本，不补造形态文件——用户拍板 (a)）；
+  本 stage `status.json` 补 `session_receipts`；本文件补行数订正与本页脚。
+
 ---
-执行者 Session ID: unavailable（Kimi CLI 未向模型暴露 provider-native id）
-本地北京时间: 2026-07-18 00:50 CST
+当前 Session ID: unavailable（Kimi CLI 未向模型暴露 provider-native id；本会话无
+  runtime_env/hook/cli_output/transcript 可考）
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-red-gate-greening-v1/60-execution-log.md
+本地北京时间: 2026-07-18 01:40:00 CST
+下一步模型: fable5 + gpt5.6-sol（重审 raw diff + 新证据）→ human（终审+push）
+下一步任务: 重审修复轮 diff（`96f5b44..HEAD`）与 72/62/40 证据；用户终审后统一 push
