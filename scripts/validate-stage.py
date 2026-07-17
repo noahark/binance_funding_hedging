@@ -1099,106 +1099,54 @@ def _exception_covering_review(
     return None
 
 
-def _task_own_review_covers(
-    root: Path, stage_dir: Path, task: dict[str, Any]
-) -> tuple[bool, str | None]:
-    """Classify a task's nested review_1 for D3 coverage (finding-2).
-
-    Returns (covered, error). A task own-review satisfies coverage ONLY when it
-    is complete and valid: identified reviewer/provider/model, verdict ACCEPT,
-    json_schema_valid true, cross-provider separation from the task
-    owner/implementer, and review.diff_fingerprint equal to the recomputed task
-    diff_fingerprint. An arbitrary non-empty string or incomplete object is a
-    fabricated review and MUST fail (error set). When no review is claimed
-    (absent, or no diff_fingerprint), returns (False, None) so the caller falls
-    back to a task-scoped authorized_exception."""
-    review = task.get("review_1")
-    if not isinstance(review, dict) or not _nonempty_string(review.get("diff_fingerprint")):
-        return False, None
-    task_id = task.get("id", "?")
-    prefix = f"task {task_id} review_1"
-    for field in ("reviewer", "provider", "model"):
-        if not _nonempty_string(review.get(field)):
-            return False, f"{prefix}.{field} must be a non-empty string for a task own-review"
-    if review.get("verdict") != "ACCEPT":
-        return False, f"{prefix}.verdict must be ACCEPT for a task own-review"
-    if not truthy(review.get("json_schema_valid")):
-        return False, f"{prefix}.json_schema_valid must be true for a task own-review"
-    # finding-1 (rework-2): task own-review isolation is PROVIDER-AUTHORITATIVE.
-    # The reviewer label must NOT override the declared provider — previously
-    # review_provider_identity() tried `reviewer` before `provider`, so an
-    # arbitrary unregistered reviewer string masked a same-provider self-review
-    # (round-2 finding-1). The global review_provider_identity() and the
-    # identity-separation main gate (validate_review_identity) are deliberately
-    # untouched; this is a task-specific strict resolution that does not leak
-    # into the main review identity gate.
-    owner_identity = provider_identity(task.get("owner") or task.get("implementer"))
-    if not owner_identity:
-        return False, (
-            f"{prefix} task owner/implementer provider must be a recognized, "
-            f"non-empty provider to establish cross-provider isolation for a task own-review"
-        )
-    declared_provider = provider_identity(review.get("provider"))
-    if not declared_provider:
-        return False, (
-            f"{prefix}.provider must be a recognized, non-empty provider for a task own-review "
-            f"(a reviewer label alone cannot establish provider identity)"
-        )
-    reviewer_label = str(review.get("reviewer", "")).strip()
-    if reviewer_label and reviewer_label in PROVIDER_IDENTITIES:
-        reviewer_provider = PROVIDER_IDENTITIES[reviewer_label]
-        if reviewer_provider != declared_provider:
-            return False, (
-                f"{prefix}.reviewer alias {reviewer_label!r} resolves to provider "
-                f"{reviewer_provider!r}, conflicting with declared .provider {declared_provider!r}"
-            )
-    if owner_identity == declared_provider:
-        return False, f"{prefix} provider identity must differ from task owner/implementer provider identity"
-    base = task.get("base_sha")
-    head = task.get("head_sha")
-    if base and head:
-        try:
-            expected = compute_diff_fingerprint(root, stage_dir, str(base), str(head))
-            if review.get("diff_fingerprint") != expected:
-                return False, (
-                    f"{prefix}.diff_fingerprint must equal recomputed task diff_fingerprint: "
-                    f"recorded={review.get('diff_fingerprint')}, expected={expected}"
-                )
-        except ValidationError as exc:
-            return False, f"{prefix} task fingerprint could not be recomputed: {exc}"
-    return True, None
-
-
-def _exception_covering_task(
-    valid_exceptions: list[dict[str, Any]], task_id: Any
-) -> dict[str, Any] | None:
-    """Return the first valid class-1 exception scoped to exactly task:<task_id>
-    (finding-4). Only the CANONICAL `task:<id>` scope is accepted — no raw-id
-    alias — and the assertion_id must be review_fingerprint_trails_status. This
-    keeps a review-scoped or raw-id-scoped waiver from silently widening to a
-    task, and makes one exception unable to cover two tasks."""
-    canonical = f"task:{task_id}"
-    for record in valid_exceptions:
-        if record.get("assertion_id") != "review_fingerprint_trails_status":
-            continue
-        if record.get("scope") == canonical:
-            return record
-    return None
-
-
 def validate_task_coverage(
     root: Path, stage_dir: Path, status_doc: dict[str, Any]
 ) -> tuple[list[str], list[dict[str, str]]]:
-    """RC4 D3: task-level fingerprint coverage via chain + prefix.
+    """RC4 D3 v2: waypoint coverage model.
 
-    Returns (errors, task_applied_exceptions). Degenerate cases (no tasks, or a
-    single task) return ([], []) and preserve the current single-fingerprint
-    behavior exactly. Multi-task stages require the task chain to tile
-    base..head, each review's diff_fingerprint to match the recomputed prefix up
-    to its covers_through_task, and every task beyond the covered prefix to have
-    a complete own review (finding-2) or a canonical task:<id> class-1 exception
-    (finding-4). Every task exception actually relied upon is returned so the
-    caller can surface it in the PASS-with-exception banner (finding-1)."""
+    Invariant: for ordered waypoints W0=base .. Wn=head (each a valid commit),
+    every adjacent segment (Wi, Wi+1) must be VOUCHED by one of:
+
+      1. top-level review prefix match — a review_1/review_2 diff_fingerprint
+         equal to the RECOMPUTED fingerprint(base..Wj) vouches every segment up
+         to Wj. A full-range review (j=n) vouches all segments and is the
+         normal case: no explicit waypoints are then needed.
+      2. class-1 authorized_exception (existing scope semantics):
+         - scope=review_k vouches the segments AFTER review_k's matched prefix
+           (the trailing range). Fail-closed: if review_k matches no prefix,
+           the exception vouches NOTHING — an exception extends a real review,
+           it never fabricates coverage out of thin air;
+         - scope=task:<id> vouches the single segment ENDING at that task's
+           head_sha, which must be one of the declared waypoints (otherwise an
+           error is recorded).
+
+    Waypoints come from status.coverage_waypoints[] (>=2 commit strings,
+    first==base_sha, last==head_sha, no duplicates, each a valid commit) or
+    default to [base_sha, head_sha]. A two-dot git diff is a tree snapshot
+    delta, so the segments tile base..head by construction; the only question
+    is vouching, and every vouch is recomputed by the validator from git,
+    never trusted from records.
+
+    Removed in v2 (ruling/plan: funding_hedging red-gate-greening-v1
+    06-direction-ruling-d3-fable5.md + 07-fable5-direct-fix-plan.md v2; design
+    text: docs/harness-design.md D3 section):
+      - the task chain check (task[0].base==status.base,
+        task[i+1].base==task[i].head): structurally unsatisfiable under real
+        bookkeeping, where bookkeeper evidence commits interleave between task
+        commits. task.base/head are demoted to bookkeeping metadata;
+      - the task own-review coverage path (formerly _task_own_review_covers,
+        finding-2): it recomputed coverage over task-local dev coordinates, so
+        a dev-branch diff could impersonate the integration segment, and it had
+        zero production use. Coverage duty moves to the (non-downgradable)
+        full-range review plus explicit user-authorized exceptions;
+      - covers_through_task: retired (0/23 stages used it). The key is now
+        ignored; prefix vouching is expressed only through waypoints.
+
+    Returns (errors, applied_exceptions). Degenerate cases (no tasks, or a
+    single task) return ([], []) and preserve the single-fingerprint behavior
+    exactly. Exceptions are structurally validated by validate_acceptance; here
+    we only consume the valid subset, and an exception is reported as applied
+    only when it vouches at least one otherwise-unvouched segment."""
     errors: list[str] = []
     applied: list[dict[str, str]] = []
     tasks, task_shape_errors = normalize_tasks(status_doc)
@@ -1210,90 +1158,111 @@ def validate_task_coverage(
 
     status_base = status_doc.get("base_sha")
     status_head = status_doc.get("head_sha")
-
-    # Chain: tasks[0].base == status.base; tasks[i+1].base == tasks[i].head;
-    # tasks[-1].head == status.head.
-    prev_head = status_base
-    chain_ok = True
-    for idx, task in enumerate(tasks):
-        if not isinstance(task, dict):
-            errors.append(f"task[{idx}] must be an object")
-            chain_ok = False
-            continue
-        task_id = task.get("id", f"[{idx}]")
-        expected_base = status_base if idx == 0 else prev_head
-        if task.get("base_sha") != expected_base:
-            errors.append(
-                f"task chain broken: task {task_id}.base_sha must equal {expected_base!r}, "
-                f"got {task.get('base_sha')!r}"
-            )
-            chain_ok = False
-        prev_head = task.get("head_sha")
-    if prev_head != status_head:
-        errors.append(
-            f"task chain broken: last task head_sha must equal status.head_sha "
-            f"{status_head!r}, got {prev_head!r}"
-        )
-        chain_ok = False
-    if not chain_ok:
+    if not status_base or not status_head:
+        # validate_common reports the missing fields; coverage has nothing to anchor.
         return errors, applied
 
-    # Exceptions are validated (and their structural errors surfaced) by
-    # validate_acceptance. Here we only consume the valid subset to decide
-    # task coverage; fail-closed in validate_authorized_exceptions means an empty
-    # valid set when any record is bad, so no task can rely on a bad exception.
-    _, valid_exceptions = validate_authorized_exceptions(root, stage_dir, status_doc)
+    # Waypoints: explicit status.coverage_waypoints[] or default [base, head].
+    raw_waypoints = status_doc.get("coverage_waypoints")
+    if raw_waypoints is None:
+        waypoints = [str(status_base), str(status_head)]
+    elif not isinstance(raw_waypoints, list) or len(raw_waypoints) < 2:
+        return ["coverage_waypoints must be a list of at least 2 commit strings when present"], []
+    else:
+        waypoints = list(raw_waypoints)
+    for idx, waypoint in enumerate(waypoints):
+        if not _nonempty_string(waypoint):
+            return [f"coverage_waypoints[{idx}] must be a non-empty commit string"], []
+    waypoints = [str(w) for w in waypoints]
+    waypoint_errors = False
+    if waypoints[0] != str(status_base):
+        errors.append("coverage_waypoints[0] must equal status.base_sha")
+        waypoint_errors = True
+    if waypoints[-1] != str(status_head):
+        errors.append("coverage_waypoints[-1] must equal status.head_sha")
+        waypoint_errors = True
+    if len(set(waypoints)) != len(waypoints):
+        errors.append("coverage_waypoints must not contain duplicate commits")
+        waypoint_errors = True
+    for idx, waypoint in enumerate(waypoints):
+        try:
+            require_commit(root, waypoint, f"coverage_waypoints[{idx}]")
+        except ValidationError:
+            errors.append(f"coverage_waypoints[{idx}] is not a valid commit: {waypoint!r}")
+            waypoint_errors = True
+    if waypoint_errors:
+        return errors, []
 
-    covered_indices: set[int] = set()
+    segment_count = len(waypoints) - 1
+    vouched = [False] * segment_count
+
+    # Rule 1: top-level review prefix matches (longest match wins).
+    review_prefix_match: dict[str, int] = {}
     for key in ("review_1", "review_2"):
         review = status_doc.get(key, {})
-        if not isinstance(review, dict):
-            continue
-        ref = review.get("covers_through_task")
-        if ref is None:
-            continue
-        task = _resolve_task(tasks, ref)
-        if task is None:
-            errors.append(f"{key}.covers_through_task does not resolve to a task: {ref!r}")
-            continue
-        j_idx = tasks.index(task)
-        try:
-            expected = compute_diff_fingerprint(root, stage_dir, status_base, task["head_sha"])
-        except (ValidationError, KeyError) as exc:
-            errors.append(f"{key} prefix fingerprint could not be computed: {exc}")
-            continue
-        if review.get("diff_fingerprint") != expected:
-            errors.append(
-                f"{key} prefix diff_fingerprint mismatch: recorded={review.get('diff_fingerprint')}, "
-                f"expected={expected}"
-            )
-        for k in range(0, j_idx + 1):
-            covered_indices.add(k)
+        matched = 0
+        if isinstance(review, dict) and _nonempty_string(review.get("diff_fingerprint")):
+            for candidate in range(1, len(waypoints)):
+                try:
+                    expected = compute_diff_fingerprint(
+                        root, stage_dir, str(status_base), waypoints[candidate]
+                    )
+                except ValidationError as exc:
+                    errors.append(f"{key} prefix fingerprint could not be computed: {exc}")
+                    break
+                if review.get("diff_fingerprint") == expected:
+                    matched = candidate
+        review_prefix_match[key] = matched
+        for k in range(matched):
+            vouched[k] = True
 
-    for idx, task in enumerate(tasks):
-        if not isinstance(task, dict) or idx in covered_indices:
+    # Rule 3: valid class-1 exceptions (structural validation lives in
+    # validate_acceptance; fail-closed there means an empty valid set here).
+    _, valid_exceptions = validate_authorized_exceptions(root, stage_dir, status_doc)
+    for record in valid_exceptions:
+        if record.get("assertion_id") != "review_fingerprint_trails_status":
             continue
-        task_id = task.get("id", f"[{idx}]")
-        own_ok, own_err = _task_own_review_covers(root, stage_dir, task)
-        if own_err is not None:
-            # A claimed-but-incomplete task review is a fabrication (finding-2);
-            # it cannot be rescued by a task exception.
-            errors.append(own_err)
-            continue
-        if own_ok:
-            continue  # covered by a complete, valid own review
-        covering = _exception_covering_task(valid_exceptions, task_id)
-        if covering is None:
-            errors.append(
-                f"uncovered task {task_id}: needs a complete own review or a class-1 "
-                f"authorized_exception scoped to task:{task_id}"
-            )
-        else:
+        scope = record.get("scope")
+        newly_vouched = False
+        if scope in ("review_1", "review_2"):
+            matched = review_prefix_match.get(scope, 0)
+            # Fail-closed: a review-scoped exception extends only a genuinely
+            # matched prefix; with no prefix match it vouches nothing at all.
+            if matched:
+                for k in range(matched, segment_count):
+                    if not vouched[k]:
+                        vouched[k] = True
+                        newly_vouched = True
+        elif isinstance(scope, str) and scope.startswith("task:"):
+            task_id = scope[len("task:"):]
+            task = _resolve_task(tasks, task_id)
+            if task is None:
+                errors.append(f"authorized_exceptions scope {scope!r} does not resolve to a task")
+                continue
+            task_head = task.get("head_sha")
+            if task_head not in waypoints[1:]:
+                errors.append(
+                    f"authorized_exceptions scope {scope!r}: task head_sha "
+                    f"{task_head!r} is not a coverage waypoint"
+                )
+                continue
+            segment_end = waypoints.index(task_head)
+            if not vouched[segment_end - 1]:
+                vouched[segment_end - 1] = True
+                newly_vouched = True
+        if newly_vouched:
             applied.append(
                 {
-                    "assertion_id": str(covering.get("assertion_id")),
-                    "scope": str(covering.get("scope")),
+                    "assertion_id": str(record.get("assertion_id")),
+                    "scope": str(record.get("scope")),
                 }
+            )
+
+    for idx in range(segment_count):
+        if not vouched[idx]:
+            errors.append(
+                f"uncovered segment {waypoints[idx]}..{waypoints[idx + 1]}: needs a "
+                f"top-level review prefix match or a class-1 authorized_exception"
             )
 
     return errors, applied

@@ -76,6 +76,7 @@
   "base_sha": null,
   "head_sha": null,
   "diff_fingerprint": null,
+  "coverage_waypoints": null,
   "changed_files": [],
   "tests": {
     "status": "not_run",

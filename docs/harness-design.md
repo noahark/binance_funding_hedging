@@ -312,6 +312,32 @@ The workflow may stop only for these terminal reasons:
 Other issues stay inside the active workflow as retry, fix, fallback, or evidence
 collection work.
 
+## Close-out Governance (Subordinate Rules)
+
+Three rules, encoded from the 2026-07 docs-truth-sync post-mortem and the
+red-gate-greening direct-fix arc. **All three are subordinate to the main
+line: a stage closes only through review-2 plus explicit user acceptance.
+These rules govern how residuals are recorded and batched; they never lower
+a gate, never waive a review, and never replace user acceptance.**
+
+1. **max_rework exhaustion is a hard stop, not an override conveyor.** When
+   `max_rework` is reached and the remaining findings are non-blocking, the
+   default close-out is: register the residuals as known issues (Deferred
+   Work registry + `reports/follow-ups/`), record a user-acceptance override
+   with the residuals disclosed, and stop. Repeated over-limit
+   authorizations (docs-truth-sync went 6 rounds with 3 overrides) are the
+   anti-pattern this rule replaces.
+2. **Documentation stages may close with P2-level residue, and semantic
+   convergence is the default contract posture.** A docs-only stage need not
+   chase exhaustive enumeration; under-claiming beats over-claiming
+   ("少承诺优于全枚举"). Reviewers should flag over-specified prose as a
+   defect, and fixes should narrow claims to what the artifact actually
+   guarantees. P2 doc residue at close-out is acceptable when registered.
+3. **Harness fixes default to register-and-batch.** A non-blocking Harness
+   defect is registered in the known-issue ledger instead of immediately
+   opening a stage; batched items are collected by the next Harness arc or
+   by explicit user decision.
+
 ## Model Adapters
 
 Workflow YAML must not directly interpolate shell commands for model execution.
@@ -489,12 +515,41 @@ waive the negative list, even with a record present:
 Any malformed record fails closed and invalidates every exception, so the
 downgrade path cannot fire on a bad record.
 
-For multi-task stages, `validate_task_coverage` adds chain-plus-prefix
-coverage: the task chain must tile `base..head`, each review's
-`diff_fingerprint` must match the recomputed prefix up to its
-`covers_through_task`, and every task beyond the covered prefix needs its own
-review record or a class-1 exception. Degenerate cases (no `tasks[]`, or a
-single task) preserve the current single-fingerprint behavior exactly.
+For multi-task stages, `validate_task_coverage` applies the D3-v2 waypoint
+coverage model (2026-07 red-gate-greening direct-fix; replaces the retired
+chain-plus-prefix model). For ordered waypoints `W0=base .. Wn=head` (each a
+valid commit), every adjacent segment `(Wi, Wi+1)` must be vouched by one of:
+
+1. **top-level review prefix match** — a `review_1`/`review_2`
+   `diff_fingerprint` equal to the recomputed `fingerprint(base..Wj)` vouches
+   every segment up to `Wj`. A full-range review (`j=n`) vouches all segments
+   and is the normal case; no explicit waypoints are then needed.
+2. **class-1 `authorized_exception`** (existing scope semantics):
+   `scope=review_k` vouches the segments after `review_k`'s matched prefix
+   (fail-closed: with no matched prefix the exception vouches nothing — an
+   exception extends a real review, it never fabricates coverage);
+   `scope=task:<id>` vouches the single segment ending at that task's
+   `head_sha`, which must be a declared waypoint.
+
+Waypoints come from `status.coverage_waypoints[]` (validated: >=2 commits,
+first==base, last==head, no duplicates) or default to `[base, head]`. A
+two-dot git diff is a tree snapshot delta, so segments tile `base..head` by
+construction; the only question is vouching, and every vouch is recomputed
+from git, never trusted from records. Retired in v2: the task chain check
+(structurally unsatisfiable with interleaved bookkeeper commits;
+`task.base/head` demoted to bookkeeping metadata), the task own-review
+coverage path (dev-coordinate recomputation could be impersonated by a
+dev-branch diff; zero production use), and `covers_through_task` (0/23 stages
+used it; the key is now ignored). Degenerate cases (no `tasks[]`, or a single
+task) preserve the single-fingerprint behavior exactly.
+
+**Fixture rule (structural anti-regression): any change to
+`scripts/validate-stage.py` must run `scripts/validate-all-stages.py` over all
+stages of every synced repo before review; the diff against the committed
+baseline may contain only pre-registered migrations.** The red-gate-greening
+arc is the evidence: on the D3-v2 change this rule caught the full real red
+population (11 stages) and would have made the earlier chain-model upgrade +
+ruling + repair stage unnecessary.
 
 ## Verdict Contract
 
@@ -568,3 +623,44 @@ Not implemented yet:
 - Manual first stage delivery execution.
 - Git commits for bootstrap.
 - Product PRD and technical stack decisions.
+
+## Known Issues Registry
+
+Registered non-blocking Harness defects and deferred design items. Each entry
+waits for its first real instance or an explicit user decision (whitelist
+principle); none of them may be "fixed" silently ahead of that. Also tracked
+in `reports/follow-ups/` of the project repo.
+
+- **class-2 exceptions (review-2 verdict REWORK but content clean)** — NOT
+  admitted in v1; `docs-truth-sync-v1` is the first real instance, recorded
+  as `known_red (class-2, pending user decision D-i)`. Admission would need a
+  new whitelisted `assertion_id` plus strict per-finding user disposition
+  evidence. Owner: user.
+- **Provider-identity governance (P3)** — an unregistered provider string in
+  a status file is currently self-declared; canonicalization (e.g. kimi →
+  moonshot_kimi) landed for the known set. Broader registry governance waits
+  for a concrete conflict.
+- **Pure-evidence-segment exemption** — a future stage whose inter-task
+  segments contain only bookkeeper evidence commits and no full-range review
+  would go red under D3-v2; no instance exists (review-2 always covers the
+  full range today). Collect on first instance.
+- **Waypoint ancestor-order hygiene (P3)** — D3-v2 does not require
+  waypoints to be ancestor-ordered (tree-diff transitivity does not depend on
+  it); an optional linearity lint may be added if disorder appears in
+  practice.
+- **Bookkeeper waypoint convention** — on multi-task stages the bookkeeper
+  records integration waypoints (`coverage_waypoints[]`) as a courtesy so
+  prefix reviews can vouch subranges; with a full-range review-2 they are
+  unnecessary (default `[base, head]`).
+- **Legacy stage-record reds (fixture-known)** — `harness-flow-optimization-v1`
+  (legacy status value `accepted_and_merged_to_main`; one-word migration to
+  `accepted` is an optional remediation, user decides),
+  `env-startup-v1` (incomplete early-manual records),
+  `local-service-launchd-v1` (review_1 trails; class-1-shaped, exception
+  available if the user authorizes it), `public-market-bstock-alias/impl/ui-cn`
+  (missing breakdown file / task-fingerprint record defects).
+- **Rule-3 note** — the review-scoped trailing-segment exception path has no
+  real user today (the only trailing-review stage, docs-truth-sync, stays red
+  on the non-downgradable verdict assertion). It is retained as defense in
+  depth and is covered by adversarial case A8; zero usage is not a deletion
+  argument.

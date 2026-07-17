@@ -1,0 +1,38 @@
+=== T5 carve-out verification (merge-not-copy) ===
+2026-07-18 00:27:15 CST
+
+--- 1. scripts identical to template (cp path, no local carve-out) ---
+validate-stage.py: IDENTICAL
+validate-all-stages.py: IDENTICAL
+
+--- 2. harness-design.md: only the local 3-line note differs ---
+27c27,29
+< The first manual stage delivery run is intentionally not started.
+---
+> Multiple bounded delivery stages have completed in this repository. The
+> Harness contract is currently held at the DRAFT-2 decision baseline
+> (`reports/agent-runs/2026-07-harness-flow-optimization-v1/05-harness-environment-snapshot.md`).
+diff-exit=1
+
+--- 3. _template/status.json: local fields preserved + coverage_waypoints added ---
+28a29
+>   "session_receipts": [],
+130a132,140
+>   "reporting_preferences": {
+>     "execution_footer": {
+>       "include_provider_native_session_id": true,
+>       "include_session_id_source": true,
+>       "include_raw_output_path": true,
+>       "unknown_session_id_policy": "write unavailable with reason; never invent",
+>       "session_id_is_navigation_only": true
+>     }
+>   },
+diff-exit=1
+assert OK: session_receipts + reporting_preferences + coverage_waypoints all present
+
+--- 4. AGENTS.md + model-adapters.md untouched by sync ---
+(empty = untouched)
+1
+
+--- 5. schemas unchanged ---
+review-verdict.schema.json: IDENTICAL (no sync needed)
