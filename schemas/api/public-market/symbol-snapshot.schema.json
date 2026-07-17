@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local.binance-funding-hedging/schemas/api/public-market/symbol-snapshot.schema.json",
   "title": "Public Market Symbol Snapshot",
-  "description": "One-shot selected-symbol refresh response (2026-07-history-background-refresh-v1). The backend submits one RefreshSymbolCommand to its serial background worker, waits within a bounded timeout, then projects ONLY the selected row from the newly published canonical PublishedState. The row shares the same published_version as the full snapshot (same-version guarantee by construction). This payload never contains a full rows array.",
+  "description": "One-shot selected-symbol row view. The row source is mode-dependent: live responses project the selected row from the latest internal PublishedState (last-good) — a RefreshSymbolCommand produces a new publication only when it settles within the bounded timeout — while offline responses project from the synchronously built / cached snapshot (published_version: 0). The full snapshot v1 wire payload carries no published_version field, so there is no client-verifiable cross-request equality guarantee; within a single live read the row is identical in shape and content to the matching snapshot.rows[] element. This payload never contains a full rows array.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -36,7 +36,7 @@
       "format": "date-time"
     },
     "refresh_status": {
-      "description": "ok = all selected sources refreshed; partial = public/history refreshed but borrow fell back to last-good (warning); timeout = the command reached its shared deadline before publication, so the row is projected from the previously published state.",
+      "description": "ok = offline (synchronously built / cached row, no command) or a live worker command that completed a publication with no per-source warnings; partial = a live worker command completed a publication but at least one source emitted a warnings entry; timeout = this request produced no new publication, so the (live) row is the previously published (last-good) state — the causes are deliberately not enumerated (worker absence or command failure included, not only deadline expiry); see warnings for diagnostics.",
       "enum": ["ok", "partial", "timeout"]
     },
     "warnings": {

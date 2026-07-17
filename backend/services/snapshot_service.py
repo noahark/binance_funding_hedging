@@ -318,8 +318,11 @@ class SnapshotService:
         """Selected-symbol row snapshot (breakdown §9 / 10-design D8).
 
         Submits one ``RefreshSymbolCommand`` and waits within the bounded
-        timeout, then projects the selected row from the LATEST published state
-        (same ``published_version`` as the full snapshot, by construction).
+        timeout, then projects the selected row from the LATEST published
+        state (a new publication only when the command settles in-window;
+        otherwise the previously published, last-good, state). The full
+        snapshot wire payload carries no ``published_version`` field, so this
+        value gives no client-verifiable cross-request equality guarantee.
 
           - 400 ``invalid_symbol`` (malformed; validated before command submit).
           - 404 ``symbol_not_found`` (well-formed but not an eligible published row).

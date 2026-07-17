@@ -31,7 +31,7 @@
     },
     "funding_history": {
       "type": "array",
-      "description": "Newest-first settled records inside the inclusive 30-day window ending at the snapshot data_time. Empty only when the upstream fetch succeeded but the window has no settled records (history_status: empty).",
+      "description": "Newest-first settled records inside the inclusive 30-day window ending at the snapshot data_time. Pure projection of the already-published snapshot row: empty whenever the published row has no settled records (history_status: empty) — this does not prove this request (or any prior fetch) succeeded; a row never prewarmed or whose earlier history fetch failed also projects as empty, with no on-demand retry.",
       "items": {
         "type": "object",
         "additionalProperties": false,

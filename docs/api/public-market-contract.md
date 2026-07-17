@@ -293,11 +293,6 @@ carries settled 7D/30D annualization only; it does NOT return the current-period
     (365 / 30), or `null` for an empty window.
 - There is deliberately NO `annualized_funding_24h` on this payload: the 24h
   estimate is a current-period figure that lives on the snapshot row, not here.
-- Schema-prose drift (deferred): `funding-history.schema.json` line 34 still
-  attributes `funding_history`'s emptiness to a *successful* upstream fetch over
-  an empty window — narrower than the as-built pure projection above. This stage
-  is docs-only and does not alter schema; aligning that schema prose is a
-  deferred contract-amendment item (see Residual Risks).
 
 Schema: `schemas/api/public-market/funding-history.schema.json`.
 
@@ -393,21 +388,6 @@ NEVER contains a `rows` array.
     snapshot), identical in shape to a `snapshot.rows[]` element (see
     `snapshot.schema.json#/$defs/row`, incl. `opening_quotes` and the annualized
     funding fields below). There is never a `rows` array on this payload.
-
-- Schema-prose drift (deferred): `symbol-snapshot.schema.json` carries three
-  stale prose claims across two lines. Line 5 (top-level `description`) still
-  asserts an unconditional submit-a-command + project-from-a-new-publication
-  flow that does not hold for the offline or worker-not-running paths above,
-  and still asserts a same-version guarantee tying the row's `published_version`
-  to the full snapshot — but the full snapshot v1 wire payload has no
-  `published_version` field and there is no client-verifiable cross-request
-  equality guarantee (see the path and `published_version` notes above). Line 39
-  (`refresh_status` `description`) still narrows `partial` to a borrow-source
-  fallback and `timeout` to the shared deadline expiring — narrower than the
-  as-built behavior above (which also maps premium/history failures to
-  `partial`, and worker-absence / assembly / validation failures to `timeout`).
-  This stage is docs-only and does not alter schema; aligning that schema prose
-  is a deferred contract-amendment item (see Residual Risks).
 
 Schema: `schemas/api/public-market/symbol-snapshot.schema.json`.
 
