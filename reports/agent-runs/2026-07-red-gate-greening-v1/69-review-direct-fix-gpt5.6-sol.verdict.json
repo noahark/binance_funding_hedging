@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-red-gate-greening-v1",
+  "role": "first_reviewer",
+  "model": "gpt5.6-sol",
+  "verdict": "REWORK",
+  "diff_fingerprint": "96f5b441edc37171e88d412217692d616b6d233f:ee0b0a03f29549858e82f900103e99b62e8cb7fccca39c4ff8e6ca6ffdb27833",
+  "reviewer_prior_involvement": "none",
+  "reviewed_artifacts": [
+    "AGENTS.md",
+    "workflows/templates/stage-delivery.yaml review-1 section",
+    "schemas/review-verdict.schema.json",
+    "funding_hedging git diff 9d28ec4..96f5b44",
+    "ai_project_harness git diff cdef1ee..d6cf9a3",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/08-dispatch-kimi-direct-fix.md",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/09-user-authorization.md",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/60-execution-log.md",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/61-adversarial-d3v2.driver.py",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/61-adversarial-d3v2.txt",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/62-bookticker-preaccept-green.txt",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/63-fixture-baseline-funding.json",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/64-fixture-migration-table.md",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/65-fixture-t2b-compare.txt",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/66-t5-carveout-verification.txt",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/67-final-fixture-compare.txt",
+    "scripts/validate-stage.py",
+    "scripts/validate-all-stages.py"
+  ],
+  "findings": [
+    {
+      "severity": "P1",
+      "title": "Golden fixture compare silently ignores error-set and exception drift",
+      "file": "scripts/validate-all-stages.py",
+      "line": 127,
+      "evidence": "The compare loop reads only old['verdict'] and record['verdict']. A read-only probe added 'SENTINEL: unregistered new validation failure' to the baseline errors for an already-red stage; the command still printed 'compare: no drift vs baseline' and exited 0. This contradicts 64-fixture-migration-table.md line 8, which requires no unregistered error-set changes.",
+      "impact": "A validator regression can add or remove failures on an already-red historical stage without tripping the structural anti-regression gate, so the new golden fixture cannot enforce its stated contract.",
+      "recommendation": "Compare verdict, the complete error multiset, and normalized applied_exceptions for every stage; report each category of drift and exit nonzero. Add adversarial coverage proving an error-only or exception-only change is detected."
+    },
+    {
+      "severity": "P1",
+      "title": "Bookticker authorized-exception digest seals a paraphrase rather than the claimed user verbatim",
+      "file": "reports/agent-runs/2026-07-bookticker-open-columns-v1/status.json",
+      "line": 413,
+      "evidence": "08-dispatch-kimi-direct-fix.md lines 76-77 claim 70-handoff.md lines 35-38 contain authorization verbatim. Those lines only say the user 'explicitly declined' and 'authorized' the route; the literal instruction appears in status fields/reason, not in the digest-sealed evidence_file.",
+      "impact": "Mechanical validation passes, but the mandatory human verification of the exact sealed authorization evidence cannot be completed from the selected blob. This weakens the release-critical anti-self-grant control.",
+      "recommendation": "Point evidence_file to a committed file containing the actual user authorization verbatim, preferably this stage's 09-user-authorization.md, recompute evidence_sha256, remove the inaccurate provenance claim from reason, and rerun clean-worktree pre-accept."
+    },
+    {
+      "severity": "P1",
+      "title": "Final fixture evidence predates the active-stage ledger and the stage cannot green from review receipts alone",
+      "file": "reports/agent-runs/2026-07-red-gate-greening-v1/status.json",
+      "line": 54,
+      "evidence": "67-final-fixture-compare.txt reports 23 stages and 7 red before this stage's status.json was committed. At current HEAD the runner reports 24 stages and 8 red. The active stage lacks 00-task.md, 10-design.md, 11-adr.md, 20-implementation.md, 60-test-output.txt, 30-review-1.md and 50-review-2.md, while status says the interim red lasts only until review receipts land. status.session_receipts is also absent and 60-execution-log.md does not contain the required complete footer.",
+      "impact": "Even after the two review receipts are added, this stage remains an unregistered historical red, invalidating the terminal fixture total and checkpoint auditability.",
+      "recommendation": "Complete the direct-fix stage's required artifact set and session receipts without rewriting raw reviews, map the two independent reviews into schema-valid review records, then rerun the complete fixture at the actual committed review head and update the migration/final evidence."
+    }
+  ],
+  "required_fixes": [
+    "Make validate-all-stages.py fail on unregistered error-set and applied-exception drift in both repositories, with adversarial regression coverage.",
+    "Replace the bookticker exception's paraphrase-only sealed evidence with committed verbatim user authorization and rerun pre-accept from a clean committed main.",
+    "Complete the direct-fix stage artifacts, raw test output, review records, session receipts and footer, then regenerate the full fixture evidence at the actual committed head."
+  ],
+  "residual_risks": [
+    "Waypoint ancestor ordering remains deliberately deferred as K4; it was not treated as a blocker in this review.",
+    "docs-truth-sync remains a registered class-2 known-red pending user decision D-i.",
+    "The concurrent untracked Fable5 review file prevented a fresh clean-worktree bookticker gate at the end of this review; it must be committed as raw evidence before the final rerun."
+  ],
+  "fix_start_prompt": "Stage 2026-07-red-gate-greening-v1, reviewed fingerprint 96f5b441edc37171e88d412217692d616b6d233f:ee0b0a03f29549858e82f900103e99b62e8cb7fccca39c4ff8e6ca6ffdb27833. First have the bookkeeper save the raw review at reports/agent-runs/2026-07-red-gate-greening-v1/69-review-direct-fix-gpt5.6-sol.md and its final JSON at the same basename with .verdict.json. F1: update both repositories' scripts/validate-all-stages.py so compare checks verdict, the complete error multiset, and applied exceptions; every unregistered change must be printed and return nonzero. Add a repeatable sentinel/error-set regression test. F2: do not modify historical reviews or fingerprints; change the bookticker class-1 exception evidence_file to committed evidence that actually contains the user's verbatim authorization, preferably this stage's 09-user-authorization.md, recompute the digest, correct reason, and rerun pre-accept on clean main. F3: add the direct-fix stage's missing 00-task, 10-design, 11-adr, 20-implementation, 60-test-output, 30/50 review records and session_receipts; preserve Codex and Fable5 raw output verbatim. Allowed files: both validate-all-stages.py copies and their tests; bookticker status; this stage's evidence/status/handoff files. Forbidden: D-i whitelist expansion, product/API behavior changes, edits to historical review text or fingerprints, push/deploy. Run python3 -m py_compile scripts/validate-stage.py scripts/validate-all-stages.py; the 61 adversarial driver against both repos; the new compare regression; both full fixture sweeps; bookticker pre-accept; python3 -m pytest backend/tests -q; node frontend/self-check.js; and git diff --check in both repos. 40-fix-report.md must map F1-F3 to exact changes and raw command outputs, record the new base/head/fingerprint and zero-push state. Success requires sentinel error drift to fail, sealed evidence to expose the user authorization directly, the actual committed HEAD fixture to contain no unregistered red/flip/error drift, and clean worktrees before two fresh independent raw-diff reviews.",
+  "next_action": "fix"
+}
