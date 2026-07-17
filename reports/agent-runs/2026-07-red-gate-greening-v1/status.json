@@ -1,0 +1,60 @@
+{
+  "stage_id": "2026-07-red-gate-greening-v1",
+  "status": "review_1",
+  "workflow": "direct-fix (user-authorized exception flow; not a stage-delivery instance — see 09-user-authorization.md and 08-dispatch-kimi-direct-fix.md)",
+  "current_phase": "implementation-complete-awaiting-raw-diff-review",
+  "stage_branch": {
+    "name": "stage/2026-07-red-gate-greening-v1",
+    "created_from_main_sha": "9d28ec4e9769d72d4aa8a1c14b2b8d126eb6d401",
+    "created_at": "2026-07-17T11:00:00Z",
+    "merged_back_to_main": true,
+    "merged_back_sha": "a05335d7beb1e13e335d8e565f6e30f49178304e",
+    "merge_strategy": "fast_forward (arc evidence); T5/T3/T4/T7 committed directly on main per dispatch packet (validator :540-544 recheck-on-main rule)",
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "kimi",
+    "provider": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "session_role": "implementer+bookkeeper (direct-fix mode, single-session; dual-hat disclosed in 09-user-authorization.md and offset by raw-diff review = codex + fable5)",
+    "also_implementer": true,
+    "dual_hat_disclosure": "direct-fix user routing; review isolation preserved via cross-provider raw-diff reviewers"
+  },
+  "implementer": "kimi (moonshot_kimi)",
+  "reviewers_planned": {
+    "raw_diff_review": [
+      {"id": "codex", "provider": "openai"},
+      {"id": "fable5", "provider": "anthropic", "prior_involvement": "design (D3 ruling author + plan author) — disclosed per convention"}
+    ],
+    "final_gate": "user"
+  },
+  "tasks": [],
+  "tasks_note": "Direct-fix task breakdown T0-T7 lives in 08-dispatch-kimi-direct-fix.md and 60-execution-log.md; coverage of the arc diff is assessed on the full base..head range by the raw-diff reviewers.",
+  "base_sha": "9d28ec4e9769d72d4aa8a1c14b2b8d126eb6d401",
+  "head_sha": "96f5b441edc37171e88d412217692d616b6d233f",
+  "diff_fingerprint": "96f5b441edc37171e88d412217692d616b6d233f:ee0b0a03f29549858e82f900103e99b62e8cb7fccca39c4ff8e6ca6ffdb27833",
+  "diff_fingerprint_note": "Anchored at 96f5b44 (final evidence commit). The later bookkeeping commit adding this status.json / 70-handoff.md / ACTIVE.json does not move the reviewed range (status.json is excluded from the fingerprint scheme).",
+  "tests": {
+    "status": "pass",
+    "commands": [
+      "python3 -m py_compile scripts/validate-stage.py scripts/validate-all-stages.py",
+      "61-adversarial-d3v2.driver.py (A1-A8): 16/16 PASS",
+      "validate-all-stages.py final rerun: migration table fully satisfied (67-final-fixture-compare.txt)",
+      "backend pytest: 375 passed",
+      "frontend self-check: 80 PASS",
+      "bookticker pre-accept on main: PASS-with-exception (62-bookticker-preaccept-green.txt)"
+    ]
+  },
+  "review_1": null,
+  "review_2": null,
+  "reviews_note": "Raw-diff reviews (codex + fable5) are dispatched by the operator after this checkpoint; their receipts will be recorded here before user final review and push.",
+  "known_state": {
+    "bookticker": "green_with_exception (T3 landed)",
+    "docs-truth-sync": "known_red (class-2, pending user decision D-i)",
+    "fixture_final": "15 green + 1 green_with_exception + 7 registered known-red (funding); 1 green (template)",
+    "this_stage_in_future_fixture": "will read red at pre-accept until review receipts land — expected interim state, registered here in advance"
+  },
+  "d_i": "class-2 whitelist expansion NOT authorized (user has not ruled); no whitelist change made",
+  "zero_push": true,
+  "updated_at": "2026-07-18T00:55:00+08:00"
+}
