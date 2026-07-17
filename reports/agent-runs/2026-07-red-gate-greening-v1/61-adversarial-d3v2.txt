@@ -1,0 +1,19 @@
+synthetic commits: base=00e25b4b W1=d53abc54 head=9ea36ab9
+PASS  A1: expect uncovered-segment error, nothing applied :: errors=['uncovered segment 00e25b4bb6e492ffbd974d1d7793ef10246fa6ad..9ea36ab91b341f734116c342ab63c2a269d84207: needs a top-level review prefix match or a class-1 authorized_exception']
+PASS  A2: expect nested own-review vouches nothing -> uncovered-segment fail :: errors=['uncovered segment 00e25b4bb6e492ffbd974d1d7793ef10246fa6ad..9ea36ab91b341f734116c342ab63c2a269d84207: needs a top-level review prefix match or a class-1 authorized_exception']
+PASS  A3a: expect first waypoint != base -> fail :: errors=['coverage_waypoints[0] must equal status.base_sha']
+PASS  A3b: expect last waypoint != head -> fail :: errors=['coverage_waypoints[-1] must equal status.head_sha']
+PASS  A4a: expect non-list waypoints -> fail :: errors=['coverage_waypoints must be a list of at least 2 commit strings when present']
+PASS  A4b: expect single waypoint -> fail :: errors=['coverage_waypoints must be a list of at least 2 commit strings when present']
+PASS  A4c: expect duplicate waypoints -> fail :: errors=['coverage_waypoints must not contain duplicate commits']
+PASS  A4d: expect non-commit waypoint -> fail :: errors=["coverage_waypoints[1] is not a valid commit: '0000000000000000000000000000000000000000'"]
+PASS  A5: expect single task -> ([], []) degenerate :: errors=[]
+PASS  A6: expect full-range review_2 -> no coverage errors :: errors=[]
+PASS  A7: expect bookticker real data + class-1 -> zero errors, exception surfaced :: errors=[] applied=[{'assertion_id': 'review_fingerprint_trails_status', 'scope': 'review_1'}]
+PASS  A8a: expect explicit waypoints, no vouch -> uncovered-segment fail :: errors=['uncovered segment 00e25b4bb6e492ffbd974d1d7793ef10246fa6ad..d53abc54a9259dd571baa2c80e6e9f39146d6f89: needs a top-level review prefix match or a class-1 authorized_exception', 'uncovered segment d53abc54a9259dd571baa2c80e6e9f39146d6f89..9ea36ab91b341f734116c342ab63c2a269d84207: needs a top-level review prefix match or a class-1 authorized_exception']
+PASS  A8b: expect exception without matched prefix vouches NOTHING -> still fail :: errors=['uncovered segment 00e25b4bb6e492ffbd974d1d7793ef10246fa6ad..d53abc54a9259dd571baa2c80e6e9f39146d6f89: needs a top-level review prefix match or a class-1 authorized_exception', 'uncovered segment d53abc54a9259dd571baa2c80e6e9f39146d6f89..9ea36ab91b341f734116c342ab63c2a269d84207: needs a top-level review prefix match or a class-1 authorized_exception'] applied=[]
+PASS  A8c: expect prefix match + exception -> green, exception applied :: errors=[] applied=[{'assertion_id': 'review_fingerprint_trails_status', 'scope': 'review_1'}]
+PASS  A8d1: expect task:t1 exception vouches segment 0 only -> segment 1 uncovered :: errors=['uncovered segment d53abc54a9259dd571baa2c80e6e9f39146d6f89..9ea36ab91b341f734116c342ab63c2a269d84207: needs a top-level review prefix match or a class-1 authorized_exception'] applied=[{'assertion_id': 'review_fingerprint_trails_status', 'scope': 'task:t1'}]
+PASS  A8d2: expect task.head not a waypoint -> recorded error :: errors=["authorized_exceptions scope 'task:t2': task head_sha 'ffffffffffffffffffffffffffffffffffffffff' is not a coverage waypoint", 'uncovered segment 00e25b4bb6e492ffbd974d1d7793ef10246fa6ad..d53abc54a9259dd571baa2c80e6e9f39146d6f89: needs a top-level review prefix match or a class-1 authorized_exception', 'uncovered segment d53abc54a9259dd571baa2c80e6e9f39146d6f89..9ea36ab91b341f734116c342ab63c2a269d84207: needs a top-level review prefix match or a class-1 authorized_exception']
+
+A-CASE SUMMARY: 16/16 passed — all adversarial expectations hold
