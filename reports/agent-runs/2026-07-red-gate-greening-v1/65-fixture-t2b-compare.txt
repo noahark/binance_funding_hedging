@@ -1,0 +1,74 @@
+=== T2b fixture rerun (v2 validator) vs golden baseline (v1) ===
+2026-07-18 00:18:12 CST
+
+--- funding_hedging ---
+green                2026-07-auto-review-pipeline-v1
+red                  2026-07-bookticker-open-columns-v1
+                     - review_1.diff_fingerprint must match status.diff_fingerprint
+green                2026-07-borrow-cost-coverage-v2
+green                2026-07-borrowability-error-zero-mapping-v1
+green                2026-07-cache-refresh-scheduler-v2
+red                  2026-07-docs-truth-sync-v1
+                     - review_1.diff_fingerprint must match status.diff_fingerprint
+                     - review_2.verdict must be ACCEPT
+red                  2026-07-env-startup-v1
+                     - missing diff_fingerprint
+                     - missing required stage file: 30-review-1.md
+                     - missing required stage file: 50-review-2.md
+                     - review_1.verdict must be ACCEPT
+                     - review_1.json_schema_valid must be true
+                     - review_2.verdict must be ACCEPT
+                     - review_2.json_schema_valid must be true
+                     - review_2 provider identity must differ from every implementation/fix author provider identity; no override is allowed
+                     - review_2 designer-overlap override requires reviewer_prior_involvement to be direction_synthesis, breakdown, or design
+                     - review_2 designer-overlap override requires fallback_reason
+                     - review_2 designer-overlap override requires an existing unrelated reviewer unavailable evidence file
+green                2026-07-funding-annualized-history-v1
+red                  2026-07-harness-flow-optimization-v1
+                     - status is not allowed: 'accepted_and_merged_to_main'
+                     - pre-accept requires status in ['accepted', 'stage_accepted_waiting_user'], got 'accepted_and_merged_to_main'
+                     - missing base_sha
+                     - missing head_sha
+                     - missing diff_fingerprint
+                     - missing required stage file: 00-task.md
+                     - missing required stage file: 10-design.md
+                     - missing required stage file: 11-adr.md
+                     - missing required stage file: 20-implementation.md
+                     - missing required stage file: 30-review-1.md
+                     - missing required stage file: 50-review-2.md
+                     - pre-accept requires tests.status pass/passed
+                     - review_1.verdict must be ACCEPT
+                     - review_1.json_schema_valid must be true
+                     - review_2.verdict must be ACCEPT
+                     - review_2.json_schema_valid must be true
+green                2026-07-harness-friction-fixes-v1
+green                2026-07-harness-hardening-followups-v1
+green                2026-07-harness-manifest-itbm-sync-v1
+green                2026-07-history-background-refresh-v1
+green                2026-07-history-refresh-ahead-v1
+red                  2026-07-local-service-launchd-v1
+                     - review_1.diff_fingerprint must match status.diff_fingerprint
+green                2026-07-phase2-borrow-sort-v1
+green                2026-07-private-account-ui-polish-v1
+green                2026-07-private-account-v1
+red                  2026-07-public-market-bstock-alias-v1
+                     - missing required stage file: 12-development-breakdown.md
+green                2026-07-public-market-contract-v2
+red                  2026-07-public-market-impl-v1
+                     - missing required stage file: 12-development-breakdown.md
+red                  2026-07-public-market-ui-cn-v1
+                     - task B: diff_fingerprint mismatch: recorded=ee9296c705d3590adb01bf2fff433e32e834523e:1ccb1c0d1ee3d0f059ecd90371019596a330ffc02754fe9b05f159828fb49d7a, expected=ee9296c705d3590adb01bf2fff433e32e834523e:cd74d63a122ee04ac19f775be88e021f806b5bcf6523793d5c17b80c066c03d3
+                     - task B: diff_fingerprint mismatch: recorded=ee9296c705d3590adb01bf2fff433e32e834523e:1ccb1c0d1ee3d0f059ecd90371019596a330ffc02754fe9b05f159828fb49d7a, expected=ee9296c705d3590adb01bf2fff433e32e834523e:cd74d63a122ee04ac19f775be88e021f806b5bcf6523793d5c17b80c066c03d3
+green                2026-07-ui-filter-balance-metal-v1
+summary: 15 green, 0 green_with_exception, 8 red (23 stages, repo=funding_hedging)
+FLIP 2026-07-funding-annualized-history-v1: red -> green
+FLIP 2026-07-phase2-borrow-sort-v1: red -> green
+FLIP 2026-07-private-account-v1: red -> green
+compare: DRIFT vs baseline (judge against migration table)
+compare-exit=1
+
+--- template repo ---
+green                2026-07-harness-authorized-exception-v1
+summary: 1 green, 0 green_with_exception, 0 red (1 stages, repo=ai_project_harness)
+compare: no drift vs baseline
+compare-exit=0
