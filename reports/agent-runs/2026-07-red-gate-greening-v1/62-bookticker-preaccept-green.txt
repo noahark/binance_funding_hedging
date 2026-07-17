@@ -1,0 +1,13 @@
+=== T3: bookticker pre-accept on main (real gate, v2 validator) ===
+2026-07-18 00:30:55 CST
+branch: main  HEAD: f322986f433b638712962b07e4781df92d99d5f4
+
+command: python3 scripts/validate-stage.py 2026-07-bookticker-open-columns-v1 --phase pre-accept
+
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-bookticker-open-columns-v1
+phase=pre-accept
+status=accepted
+diff_fingerprint=a9218b7f1f8b8b5273cd382b29c015e33ad3cf4c:dd72d6aec09a8e95c19af528dafd46635c3114d44dcb43fc3bebd5f75fd64377
+PASS (1 authorized exceptions applied: review_fingerprint_trails_status@review_1)
+exit=0
