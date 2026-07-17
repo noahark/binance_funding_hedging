@@ -1,0 +1,36 @@
+=== 72: compare sentinel regression tests (F1) ===
+2026-07-18 01:27:36 CST
+
+--- funding copy vs funding repo ---
+runner under test: /Users/ark/Desktop/ai code/funding_hedging/scripts/validate-all-stages.py
+repo for e2e: /Users/ark/Desktop/ai code/funding_hedging
+PASS  U0 identical -> no drift :: identical dicts
+PASS  U1 verdict flip -> FLIP :: ['FLIP s: red -> green']
+PASS  U2 error multiset shrink -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 2)', '  - e2']
+PASS  U3 error added (codex sentinel shape) -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 4)', '  + SENTINEL: new failure']
+PASS  U4 exception-only change -> EXCDRIFT :: ["EXCDRIFT s: [] -> ['review_fingerprint_trails_status@review_1']"]
+PASS  U5 added stage -> ADDED :: ['ADDED new-stage: verdict=green']
+PASS  U6 removed stage -> REMOVED :: ['REMOVED s: was verdict=red']
+PASS  E0 build temp baseline :: exit=0
+PASS  E1 unmodified compare -> exit 0, no drift :: exit=0
+PASS  E2 error-only injection -> ERRDRIFT + nonzero exit :: exit=1
+PASS  E3 exception-only injection -> EXCDRIFT + nonzero exit :: exit=1
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+exit=0
+
+--- template copy vs template repo ---
+runner under test: /Users/ark/Desktop/ai code/ai_project_harness/scripts/validate-all-stages.py
+repo for e2e: /Users/ark/Desktop/ai code/ai_project_harness
+PASS  U0 identical -> no drift :: identical dicts
+PASS  U1 verdict flip -> FLIP :: ['FLIP s: red -> green']
+PASS  U2 error multiset shrink -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 2)', '  - e2']
+PASS  U3 error added (codex sentinel shape) -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 4)', '  + SENTINEL: new failure']
+PASS  U4 exception-only change -> EXCDRIFT :: ["EXCDRIFT s: [] -> ['review_fingerprint_trails_status@review_1']"]
+PASS  U5 added stage -> ADDED :: ['ADDED new-stage: verdict=green']
+PASS  U6 removed stage -> REMOVED :: ['REMOVED s: was verdict=red']
+PASS  E0 build temp baseline :: exit=0
+PASS  E1 unmodified compare -> exit 0, no drift :: exit=0
+PASS  E2 error-only injection -> ERRDRIFT + nonzero exit :: exit=1
+PASS  E3 exception-only injection -> EXCDRIFT + nonzero exit :: exit=1
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+exit=0

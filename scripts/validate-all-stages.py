@@ -24,6 +24,7 @@ import argparse
 import importlib.util
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 
@@ -71,6 +72,51 @@ def iter_stage_dirs(root: Path) -> list[Path]:
         d for d in runs.iterdir()
         if d.is_dir() and d.name != "_template" and (d / "status.json").is_file()
     )
+
+
+def _exception_keys(applied) -> list[str]:
+    """Normalize applied_exceptions to comparable 'assertion_id@scope' keys."""
+    return sorted(
+        f"{entry.get('assertion_id')}@{entry.get('scope')}" for entry in applied or []
+    )
+
+
+def diff_results(baseline: dict, current: dict) -> list[str]:
+    """Three-way fixture diff per stage: verdict + complete error multiset +
+    normalized applied_exceptions. Returns drift lines (empty == no drift).
+
+    Every difference is printed with a category tag (FLIP / ERRDRIFT /
+    EXCDRIFT / ADDED / REMOVED); whether a drift line is registered in the
+    migration table is judged by the caller, never silently absorbed here.
+    """
+    drift: list[str] = []
+    for stage_id in sorted(set(baseline) | set(current)):
+        old = baseline.get(stage_id)
+        new = current.get(stage_id)
+        if old is None:
+            drift.append(f"ADDED {stage_id}: verdict={new.get('verdict')}")
+            continue
+        if new is None:
+            drift.append(f"REMOVED {stage_id}: was verdict={old.get('verdict')}")
+            continue
+        if old.get("verdict") != new.get("verdict"):
+            drift.append(f"FLIP {stage_id}: {old.get('verdict')} -> {new.get('verdict')}")
+        old_errors = Counter(old.get("errors") or [])
+        new_errors = Counter(new.get("errors") or [])
+        if old_errors != new_errors:
+            drift.append(
+                f"ERRDRIFT {stage_id}: error multiset changed "
+                f"({sum(old_errors.values())} -> {sum(new_errors.values())})"
+            )
+            for err, count in sorted((old_errors - new_errors).items()):
+                drift.append(f"  -{'' if count == 1 else f' x{count}'} {err}")
+            for err, count in sorted((new_errors - old_errors).items()):
+                drift.append(f"  +{'' if count == 1 else f' x{count}'} {err}")
+        old_exc = _exception_keys(old.get("applied_exceptions"))
+        new_exc = _exception_keys(new.get("applied_exceptions"))
+        if old_exc != new_exc:
+            drift.append(f"EXCDRIFT {stage_id}: {old_exc} -> {new_exc}")
+    return drift
 
 
 def main() -> int:
@@ -126,16 +172,9 @@ def main() -> int:
 
     if args.compare:
         baseline = json.loads(Path(args.compare).read_text())
-        drift = False
-        for stage_id, record in sorted(results.items()):
-            old = baseline.get(stage_id)
-            old_verdict = old.get("verdict") if old else "<absent>"
-            if old_verdict != record["verdict"]:
-                drift = True
-                print(f"FLIP {stage_id}: {old_verdict} -> {record['verdict']}")
-        for stage_id in sorted(set(baseline) - set(results)):
-            drift = True
-            print(f"REMOVED {stage_id}: was {baseline[stage_id]['verdict']}")
+        drift = diff_results(baseline, results)
+        for line in drift:
+            print(line)
         if drift:
             print("compare: DRIFT vs baseline (judge against migration table)")
             return 1
