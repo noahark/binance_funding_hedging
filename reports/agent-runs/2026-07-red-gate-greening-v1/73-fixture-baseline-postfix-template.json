@@ -1,0 +1,9 @@
+{
+  "2026-07-harness-authorized-exception-v1": {
+    "stage_id": "2026-07-harness-authorized-exception-v1",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  }
+}
