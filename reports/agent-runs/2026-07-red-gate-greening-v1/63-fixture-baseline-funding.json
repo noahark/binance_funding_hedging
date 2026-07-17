@@ -1,0 +1,227 @@
+{
+  "2026-07-auto-review-pipeline-v1": {
+    "stage_id": "2026-07-auto-review-pipeline-v1",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-bookticker-open-columns-v1": {
+    "stage_id": "2026-07-bookticker-open-columns-v1",
+    "status": "accepted",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "review_1.diff_fingerprint must match status.diff_fingerprint",
+      "task chain broken: task task-a-backend-contract-cache.base_sha must equal 'fea9fdc3ecce7675b34b01fe0a4b9de08811f939', got '7c0c9a21d523425f7380e7f721de03ca0730a17a'",
+      "task chain broken: task task-b-frontend-table-integration.base_sha must equal '01fca8cda4e3ce37ab2b976f1ca060ed9da109a0', got 'dff8b4785f43cd9fb82b7fab6214bc8c7d98ac88'",
+      "task chain broken: task task-c-fast-ui-layout.base_sha must equal '0a383f0f8528591898f12690c371108e7582a27e', got 'f1790c15f56b9e9be8846b40fe03c88ed7210213'"
+    ]
+  },
+  "2026-07-borrow-cost-coverage-v2": {
+    "stage_id": "2026-07-borrow-cost-coverage-v2",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-borrowability-error-zero-mapping-v1": {
+    "stage_id": "2026-07-borrowability-error-zero-mapping-v1",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-cache-refresh-scheduler-v2": {
+    "stage_id": "2026-07-cache-refresh-scheduler-v2",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-docs-truth-sync-v1": {
+    "stage_id": "2026-07-docs-truth-sync-v1",
+    "status": "accepted",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "review_1.diff_fingerprint must match status.diff_fingerprint",
+      "review_2.verdict must be ACCEPT"
+    ]
+  },
+  "2026-07-env-startup-v1": {
+    "stage_id": "2026-07-env-startup-v1",
+    "status": "accepted",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "missing diff_fingerprint",
+      "missing required stage file: 30-review-1.md",
+      "missing required stage file: 50-review-2.md",
+      "review_1.verdict must be ACCEPT",
+      "review_1.json_schema_valid must be true",
+      "review_2.verdict must be ACCEPT",
+      "review_2.json_schema_valid must be true",
+      "review_2 provider identity must differ from every implementation/fix author provider identity; no override is allowed",
+      "review_2 designer-overlap override requires reviewer_prior_involvement to be direction_synthesis, breakdown, or design",
+      "review_2 designer-overlap override requires fallback_reason",
+      "review_2 designer-overlap override requires an existing unrelated reviewer unavailable evidence file"
+    ]
+  },
+  "2026-07-funding-annualized-history-v1": {
+    "stage_id": "2026-07-funding-annualized-history-v1",
+    "status": "accepted",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "task chain broken: task backend-contract-and-history.base_sha must equal '7bdc90496a9cf801ca2d10ebd3cdf0c8e165adc1', got '0206f8bf7236e807b4cd69d7beed02eb41e8ec60'",
+      "task chain broken: task frontend-table-and-drawer.base_sha must equal '2e27efcbed960206b43c25054bf6105224942439', got '744ce5f0b9445a891c1322bcb34e06ce94c83446'",
+      "task chain broken: task selected-symbol-history-endpoint.base_sha must equal 'f9f86bb6bcc2040844ad55f4f85937e85d393e5d', got '5a5b9f6a6d6af744e86061278461ab91356177a4'",
+      "task chain broken: task drawer-history-and-table-refinement.base_sha must equal 'c2bb368d8235f8a8d69d8ebb19810a9c7657b41e', got '7480fdbffd13901e9a034b70dec237ac43c080f8'",
+      "task chain broken: last task head_sha must equal status.head_sha '4128905f652171d07ca3e757af858d5d9d87fc73', got 'd21536aa8a221a065c4fbe2b7640e199addca7dc'"
+    ]
+  },
+  "2026-07-harness-flow-optimization-v1": {
+    "stage_id": "2026-07-harness-flow-optimization-v1",
+    "status": "accepted_and_merged_to_main",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "status is not allowed: 'accepted_and_merged_to_main'",
+      "pre-accept requires status in ['accepted', 'stage_accepted_waiting_user'], got 'accepted_and_merged_to_main'",
+      "missing base_sha",
+      "missing head_sha",
+      "missing diff_fingerprint",
+      "missing required stage file: 00-task.md",
+      "missing required stage file: 10-design.md",
+      "missing required stage file: 11-adr.md",
+      "missing required stage file: 20-implementation.md",
+      "missing required stage file: 30-review-1.md",
+      "missing required stage file: 50-review-2.md",
+      "pre-accept requires tests.status pass/passed",
+      "review_1.verdict must be ACCEPT",
+      "review_1.json_schema_valid must be true",
+      "review_2.verdict must be ACCEPT",
+      "review_2.json_schema_valid must be true"
+    ]
+  },
+  "2026-07-harness-friction-fixes-v1": {
+    "stage_id": "2026-07-harness-friction-fixes-v1",
+    "status": "stage_accepted_waiting_user",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-harness-hardening-followups-v1": {
+    "stage_id": "2026-07-harness-hardening-followups-v1",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-harness-manifest-itbm-sync-v1": {
+    "stage_id": "2026-07-harness-manifest-itbm-sync-v1",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-history-background-refresh-v1": {
+    "stage_id": "2026-07-history-background-refresh-v1",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-history-refresh-ahead-v1": {
+    "stage_id": "2026-07-history-refresh-ahead-v1",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-local-service-launchd-v1": {
+    "stage_id": "2026-07-local-service-launchd-v1",
+    "status": "accepted",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "review_1.diff_fingerprint must match status.diff_fingerprint"
+    ]
+  },
+  "2026-07-phase2-borrow-sort-v1": {
+    "stage_id": "2026-07-phase2-borrow-sort-v1",
+    "status": "accepted",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "task chain broken: task A.base_sha must equal '4d47ad2d3f2068e86b634b5e39d5063dc4ed526f', got None",
+      "task chain broken: last task head_sha must equal status.head_sha '2a793a9c35e8e5fe8cdebe8875cada9b85f335d0', got None"
+    ]
+  },
+  "2026-07-private-account-ui-polish-v1": {
+    "stage_id": "2026-07-private-account-ui-polish-v1",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-private-account-v1": {
+    "stage_id": "2026-07-private-account-v1",
+    "status": "accepted",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "task A review_1.provider must be a non-empty string for a task own-review",
+      "task B review_1.provider must be a non-empty string for a task own-review"
+    ]
+  },
+  "2026-07-public-market-bstock-alias-v1": {
+    "stage_id": "2026-07-public-market-bstock-alias-v1",
+    "status": "accepted",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "missing required stage file: 12-development-breakdown.md",
+      "task chain broken: task B.base_sha must equal '548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9', got '6ea4504'",
+      "task chain broken: task C.base_sha must equal '5968c499d990c3dfaa54f5fd8b38172b9a0a0ddb', got 'a57581e'",
+      "task chain broken: last task head_sha must equal status.head_sha '548ae0d382c0010c9ab1d0dc26f11ca7a0f47de9', got '0842820ff21d30f563d25a3ff914cd705e6d9002'"
+    ]
+  },
+  "2026-07-public-market-contract-v2": {
+    "stage_id": "2026-07-public-market-contract-v2",
+    "status": "stage_accepted_waiting_user",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  },
+  "2026-07-public-market-impl-v1": {
+    "stage_id": "2026-07-public-market-impl-v1",
+    "status": "accepted",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "missing required stage file: 12-development-breakdown.md",
+      "task chain broken: task B.base_sha must equal 'a40b204658cfbe6df2cdeeee27ec5fc8f2bd4d72', got 'fc018eaae463053f500e9bd412c5f74356de7f20'"
+    ]
+  },
+  "2026-07-public-market-ui-cn-v1": {
+    "stage_id": "2026-07-public-market-ui-cn-v1",
+    "status": "accepted",
+    "verdict": "red",
+    "applied_exceptions": [],
+    "errors": [
+      "task B: diff_fingerprint mismatch: recorded=ee9296c705d3590adb01bf2fff433e32e834523e:1ccb1c0d1ee3d0f059ecd90371019596a330ffc02754fe9b05f159828fb49d7a, expected=ee9296c705d3590adb01bf2fff433e32e834523e:cd74d63a122ee04ac19f775be88e021f806b5bcf6523793d5c17b80c066c03d3",
+      "task B: diff_fingerprint mismatch: recorded=ee9296c705d3590adb01bf2fff433e32e834523e:1ccb1c0d1ee3d0f059ecd90371019596a330ffc02754fe9b05f159828fb49d7a, expected=ee9296c705d3590adb01bf2fff433e32e834523e:cd74d63a122ee04ac19f775be88e021f806b5bcf6523793d5c17b80c066c03d3",
+      "task chain broken: task C.base_sha must equal 'ee9296c705d3590adb01bf2fff433e32e834523e', got 'cc6ff1d557f8cb5f423196f0206543c951d36309'",
+      "task chain broken: last task head_sha must equal status.head_sha 'ee9296c705d3590adb01bf2fff433e32e834523e', got '9b0e62c4ef72691084443947e9bcdd4408480b6c'"
+    ]
+  },
+  "2026-07-ui-filter-balance-metal-v1": {
+    "stage_id": "2026-07-ui-filter-balance-metal-v1",
+    "status": "accepted",
+    "verdict": "green",
+    "applied_exceptions": [],
+    "errors": []
+  }
+}
