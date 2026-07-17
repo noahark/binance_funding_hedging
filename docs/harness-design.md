@@ -430,6 +430,72 @@ head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude
 Reviewer verdict JSON must echo this value. If code changes after review, the
 verdict is stale.
 
+## Authorized Exceptions (RC4)
+
+Pre-accept allows a review whose `diff_fingerprint` legitimately trails
+`status.diff_fingerprint` to be downgraded to PASS-with-exception, but only
+through a compliant `status.authorized_exceptions[]` record. This repairs the
+RC4 false-red without weakening the content seal: the diff fingerprint formula
+above is unchanged.
+
+The admissible `assertion_id` whitelist is source-enumerated in
+`scripts/validate-stage.py` (`AUTHORIZED_EXCEPTION_ASSERTION_IDS`); stage data
+references an exception class but cannot define one. Adding a class requires a
+template-repo code change plus strong review. v1 admits only class-1
+`review_fingerprint_trails_status`; class-2 (waiving `verdict == ACCEPT`) is
+not admitted because that is the heaviest weakening of the terminal gate.
+
+Each record requires `authorizer == "user"` (literal), a non-empty `reason`, a
+parseable ISO-8601 `at`, a repo-relative git-tracked `evidence_file` sealed by
+`evidence_sha256` (the sha256 of the committed blob), and
+`applies_to_fingerprint == status.diff_fingerprint`. The validator reads the
+COMMITTED content via `git show <HEAD>:<path>` — not the worktree — so an
+untracked file, an absolute path, a `../` escape, or a post-seal content swap
+cannot pose as evidence; it recomputes the blob's sha256 and rejects any
+mismatch with `evidence_sha256`. (Deliberately not bound to `status.head_sha`:
+post-head evidence is legal once it is tracked and digest-matched, which avoids
+the head/post-head ordering deadlock.) The fingerprint pin makes the waiver
+one-shot: any later fix changes `status.diff_fingerprint`, so the record
+auto-expires and the gate re-redds until the waiver is re-authorized. This
+prevents trading RC4's permanent false-red for a permanent false-green.
+
+Anti-self-grant is two layers, not an impossibility claim. The literal
+`authorizer == "user"`, the fingerprint pin, and the committed+digest-sealed
+evidence together make a self-granted waiver NON-SILENT: forging one requires
+committing fabricated authorization text into reviewed git history and surfacing
+it in the PASS-with-exception banner — a visible, traceable trail across reviews
+and to the operator. But code cannot PROVE the evidence text originated from a
+human (any bytes a model can write, a model can write). The final guarantee is
+mandatory human verification of the evidence verbatim before pre-accept release
+of any exception (the banner is the trigger); human verification is a workflow
+obligation (checklist + handoff), not something the validator can mechanically
+enforce — consistent with the RC methodology, not dressed up as a mechanical
+gate.
+
+Release is never silent. On PASS the validator prints
+`PASS (N authorized exceptions applied: <id>@<scope>, …)` and the pre-accept
+evidence must contain that line.
+
+The exemption mechanism cannot exempt itself. Authorized exceptions can never
+waive the negative list, even with a record present:
+
+1. `status.diff_fingerprint` recomputes consistently (the content seal itself).
+2. Clean worktree.
+3. Reviewer identity separation (no override).
+4. An exception record's own `evidence_file` being committed and digest-sealed.
+5. An exception record's own structural integrity (fields, authorizer,
+   `assertion_id`, fingerprint pin, `reason`, `at`).
+
+Any malformed record fails closed and invalidates every exception, so the
+downgrade path cannot fire on a bad record.
+
+For multi-task stages, `validate_task_coverage` adds chain-plus-prefix
+coverage: the task chain must tile `base..head`, each review's
+`diff_fingerprint` must match the recomputed prefix up to its
+`covers_through_task`, and every task beyond the covered prefix needs its own
+review record or a class-1 exception. Degenerate cases (no `tasks[]`, or a
+single task) preserve the current single-fingerprint behavior exactly.
+
 ## Verdict Contract
 
 Reviewer output must end with one JSON object matching
