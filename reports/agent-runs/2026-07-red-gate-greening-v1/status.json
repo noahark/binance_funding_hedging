@@ -31,9 +31,9 @@
   "tasks": [],
   "tasks_note": "Direct-fix task breakdown T0-T7 lives in 08-dispatch-kimi-direct-fix.md and 60-execution-log.md; coverage of the arc diff is assessed on the full base..head range by the raw-diff reviewers.",
   "base_sha": "9d28ec4e9769d72d4aa8a1c14b2b8d126eb6d401",
-  "head_sha": "96f5b441edc37171e88d412217692d616b6d233f",
-  "diff_fingerprint": "96f5b441edc37171e88d412217692d616b6d233f:ee0b0a03f29549858e82f900103e99b62e8cb7fccca39c4ff8e6ca6ffdb27833",
-  "diff_fingerprint_note": "Anchored at 96f5b44 (final evidence commit). The later bookkeeping commit adding this status.json / 70-handoff.md / ACTIVE.json does not move the reviewed range (status.json is excluded from the fingerprint scheme).",
+  "head_sha": "49529b3",
+  "diff_fingerprint": "49529b3:6bed788e17bd1b50149254f536fb1598f81006b16169fd01965899c75a149071",
+  "diff_fingerprint_note": "Fix-round anchor at 49529b3 (73 post-fix baselines). Supersedes the execution-round anchor 96f5b44:ee0b0a03 (recorded in 40-fix-report.md). Bookkeeping commits after the anchor (this status.json / 40- / 70-) do not move the reviewed range.",
   "tests": {
     "status": "pass",
     "commands": [
