@@ -80,6 +80,49 @@ Addendum（复核证实 F1/F2，F3 建议登记路线）。被审弧指纹（修
 本仓 main 领先 origin/main 由弧前 2 commit 增至弧全部——统一 push 待用户终审。
 
 ---
+
+# 追加段：复审 P2 → 账本修正映射（76-dispatch-kimi-ledger-final，2026-07-18）
+
+复审：`74-review-fix-round-gpt5.6-sol.md`（REWORK，仅 2 P2 账本项）+ `75-review-fix-round-fable5.md`
+（一致）。两路均确认 F1/F2/F3(a) 实质零遗留；本段为纯账本修正，实现代码/封印文件/
+raw review/bookticker status/D-i 白名单一律未动。
+
+| P2 | 修正 | 落点 |
+|---|---|---|
+| P2-1 status.json 滞留修复前叙述（7 红、补 receipts 即转绿）+ receipts 结构不合 model-adapters 契约 | `known_state.fixture_final` 改 15G+1GwE+**8 登记红**，本弧按用户 F3(a) **永久登记 known_red**（删除"补 receipts 后转绿"表述）；`current_phase`/`reviews_note`/`tests`/`updated_at` 同步；`session_receipts` 全量归一：不可见 id 用 `null`+`source:"unavailable"`+`unavailable_reason`，可见 id 保持原值+`unavailable_reason:null`，全部补 `recorded_at`，新增 74/75 两条复审 receipt | status.json |
+| P2-2 40 报告 diff-check 口径过宽（写两仓 clean，实测本仓修复区间 exit 2） | 如实订正：`git diff --check 96f5b44..49529b3` 全范围 **exit 2**，命中全部为**不可改写的 69 原文 Markdown 尾随空格**（69 一个字未改）；排除 69 后 exit 0；模板仓 exit 0 | 本文件 tests 段 + 本节 |
+
+## 验证（命令 + 原始输出，2026-07-18 02:05-02:12 CST）
+
+**1. receipts 字段/枚举自检**（对照 `docs/model-adapters.md` 契约）：
+`receipts checked: 5; failures: 0 — CONTRACT OK`（null id ⇒ source=unavailable + 非空
+unavailable_reason；id 在场 ⇒ unavailable_reason=null；source ∈ 允许枚举；recorded_at ISO）。
+
+**2. 两仓 compare vs 73 基线**：
+```
+funding:   summary: 15 green, 1 green_with_exception, 8 red (24 stages) / compare: no drift / exit 0
+template:  summary: 1 green / compare: no drift / exit 0
+```
+
+**3. clean main 上 bookticker pre-accept**（经 `git stash -u` 取得干净树实跑；账本改动
+均不触及 bookticker 门，等价于账本 commit 后状态）：
+```
+STAGE VALIDATION PASSED
+PASS (1 authorized exceptions applied: review_fingerprint_trails_status@review_1)
+exit=0
+```
+
+**4. diff-check（排除不可改写的 69 原文）**：
+```
+git diff --check 96f5b44..49529b3 -- . ':(exclude)reports/agent-runs/2026-07-red-gate-greening-v1/69-review-direct-fix-gpt5.6-sol.md'
+exit=0
+```
+全范围（含 69）exit 2 的全部命中均为 69 原文尾随空格；74/75/76 入库前自查无尾随空格。
+
+**5. 两仓 `git status`**：账本 commit 后两仓 clean；零 push（本仓 main 领先 origin/main
+为弧全部本地 commit，模板仓 main 领先 origin 含历史积压）。
+
+---
 当前 Session ID: unavailable（Kimi CLI 未向模型暴露 provider-native id）
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-red-gate-greening-v1/40-fix-report.md

@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "stage_id": "2026-07-red-gate-greening-v1",
+  "role": "first_reviewer",
+  "model": "gpt5.6-sol",
+  "verdict": "REWORK",
+  "diff_fingerprint": "49529b3:6bed788e17bd1b50149254f536fb1598f81006b16169fd01965899c75a149071",
+  "reviewer_prior_involvement": "none",
+  "reviewed_artifacts": [
+    "funding_hedging git diff 96f5b44..49529b3",
+    "ai_project_harness git diff d6cf9a3..3941f9e",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/40-fix-report.md",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/62-bookticker-preaccept-green.txt",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/64-fixture-migration-table.md",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/68-review-direct-fix-fable5.md",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/69-review-direct-fix-gpt5.6-sol.md",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/72-compare-sentinel-tests.txt",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/73-fixture-baseline-postfix-funding.json",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/73-fixture-baseline-postfix-template.json",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/status.json",
+    "reports/agent-runs/2026-07-red-gate-greening-v1/70-handoff.md",
+    "scripts/validate-all-stages.py",
+    "scripts/test-validate-all-stages-compare.py"
+  ],
+  "findings": [
+    {
+      "severity": "P2",
+      "title": "F3(a) authoritative checkpoint remains stale and session receipts are structurally nonconformant",
+      "file": "reports/agent-runs/2026-07-red-gate-greening-v1/status.json",
+      "line": 51,
+      "evidence": "Current fixture execution is 15 green + 1 green_with_exception + 8 red and 64 registers this stage as a user-authorized direct-fix known-red. status.known_state still says 7 registered red and claims this stage is red only until review receipts land. updated_at and ACTIVE.json remain at 00:55 despite the 01:55 fix checkpoint. All three session receipts omit recorded_at and unavailable_reason; unavailable IDs are strings rather than null, and the Fable5 source 'reviewer footer self-declaration' is outside the allowed source enum.",
+      "impact": "status.json is the authoritative machine-readable state, but it contradicts the user-approved F3(a) route and cannot serve as a conformant navigation/audit receipt.",
+      "recommendation": "Synchronize the ledger to the 8-red registered route, update phase/timestamps/test and review notes, and normalize every receipt to the documented null/unavailable_reason/recorded_at/source contract."
+    },
+    {
+      "severity": "P2",
+      "title": "Fix report records a clean committed-range diff check that does not pass",
+      "file": "reports/agent-runs/2026-07-red-gate-greening-v1/40-fix-report.md",
+      "line": 65,
+      "evidence": "git diff --check 96f5b44..49529b3 exits 2 with trailing-whitespace findings in immutable raw review 69. The same command excluding only 69 exits 0, and the template fix range exits 0.",
+      "impact": "The implementation is clean, but the preserved test evidence overstates what was run or passed, weakening the raw-evidence ledger.",
+      "recommendation": "Do not rewrite raw review 69. Correct the report to disclose the exact failure and the scoped exclusion result, then preserve both command outcomes."
+    }
+  ],
+  "required_fixes": [
+    "Correct status.json, ACTIVE.json and 70-handoff.md to reflect the user-approved 8-red F3(a) route and current fix/re-review checkpoint.",
+    "Normalize all session_receipts to the documented field types, source enum, unavailable reason and recorded timestamp contract, including the new re-review receipt.",
+    "Correct 40-fix-report.md so the diff-check evidence distinguishes the immutable raw-review whitespace from the clean implementation/evidence diff."
+  ],
+  "residual_risks": [
+    "The active direct-fix stage intentionally remains a registered known-red under the user's F3(a) decision.",
+    "docs-truth-sync remains a registered class-2 known-red pending D-i.",
+    "Waypoint ancestor ordering remains the registered K4 hygiene follow-up."
+  ],
+  "fix_start_prompt": "Stage 2026-07-red-gate-greening-v1, reviewed fingerprint 49529b3:6bed788e17bd1b50149254f536fb1598f81006b16169fd01965899c75a149071. Save this raw review as reports/agent-runs/2026-07-red-gate-greening-v1/74-review-fix-round-gpt5.6-sol.md and the final JSON as the same basename with .verdict.json. Perform bookkeeping-only corrections. Update status.json known_state to 15 green + 1 green_with_exception + 8 registered red and state that this stage remains known-red under the user's F3(a) decision; synchronize current_phase, reviews_note, tests, updated_at and ACTIVE.json. Normalize every session_receipts entry per docs/model-adapters.md: unavailable IDs are null with session_id_source='unavailable' and a non-empty unavailable_reason; available IDs retain their verified value and use unavailable_reason=null; all entries need recorded_at and a permitted source. Add the current 74 review receipt after capture. Correct 40-fix-report.md: git diff --check 96f5b44..49529b3 exits 2 solely because immutable raw review 69 contains Markdown trailing spaces; excluding 69 exits 0 and the template range exits 0. Preserve 68/69 verbatim. Allowed files: this stage's status.json, 40-fix-report.md, 70-handoff.md, ACTIVE.json, and new raw review receipt files. Forbidden: scripts, tests, 09-user-authorization.md, bookticker status, product code, D-i whitelist, edits to 68/69, push/deploy. Verification: validate receipt field types and source enums; run both compare-vs-73 commands expecting exit 0; run bookticker pre-accept from clean main; run git diff --check 96f5b44..49529b3 -- . ':(exclude)reports/agent-runs/2026-07-red-gate-greening-v1/69-review-direct-fix-gpt5.6-sol.md' expecting exit 0; confirm both worktrees clean. Append a P2-to-correction mapping to 40-fix-report.md. No implementation head change or product test rerun is required if only these post-anchor bookkeeping files change.",
+  "next_action": "fix"
+}

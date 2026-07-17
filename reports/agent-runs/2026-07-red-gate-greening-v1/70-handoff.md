@@ -2,9 +2,12 @@
 
 ## Recovery Header
 
-- Active phase: `fix round complete — awaiting re-review`。
-  修复轮 F1/F2/F3(a) 全部落地（`40-fix-report.md`），等 Fable5 + gpt5.6-sol 重审
-  修复轮 diff，其后用户终审、统一 push。
+- Active phase: `ledger closeout complete — awaiting final check`。
+  双路复审（74 gpt5.6-sol / 75 fable5）确认实现实质零遗留，仅 2 个 P2 账本项；
+  76 派工包的纯账本 commit 已落地（status.json 8 红 + F3(a) 永久登记表述、
+  session_receipts 按 model-adapters 契约归一、时间戳同步、40 报告 diff-check
+  口径订正、74/75/76 入库）。等 Fable5 + gpt5.6-sol 对该 commit 终检，
+  其后用户终审、统一 push。
 - 弧 diff 锚点（修复轮后）：base `9d28ec4` → head `49529b3`，指纹
   `49529b3:6bed788e…`（旧锚 `96f5b44:ee0b0a03…` 见 40-fix-report）。模板仓 head:
   `3941f9e`（F1 compare 升级）。
@@ -49,8 +52,7 @@
 
 ## Next Steps
 
-1. 操作者派 Fable5 + gpt5.6-sol **重审**（修复轮 diff：`96f5b44..49529b3` + 模板仓
-   `d6cf9a3..3941f9e`）；评审 receipt 记入 `status.json`。
+1. Fable5 + gpt5.6-sol 对账本收尾 commit 终检（本 commit 即全部改动）。
 2. 用户终审 → 统一 push 两仓 → `ACTIVE.json` 归位（last_completed 更新）。
 3. 悬置项跟踪：`reports/follow-ups/2026-07-harness-known-issues-registry.md`
    （K1 class-2 D-i；K6 legacy 红含 harness-flow-optimization 一词迁移可选补救）。
@@ -59,6 +61,6 @@
 当前 Session ID: unavailable（Kimi CLI 未向模型暴露 provider-native id）
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-red-gate-greening-v1/70-handoff.md
-本地北京时间: 2026-07-18 01:55:00 CST
-下一步模型: fable5 + gpt5.6-sol（修复轮重审）→ human（终审+push）
-下一步任务: 重审修复轮 diff 与 40/72/62/64 证据，出具 verdict；用户终审后统一 push
+本地北京时间: 2026-07-18 02:10:00 CST
+下一步模型: fable5 + gpt5.6-sol（终检账本 commit）→ human（终审+push）
+下一步任务: 终检后用户终审，统一 push 两仓，弧线闭合

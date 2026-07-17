@@ -2,7 +2,7 @@
   "stage_id": "2026-07-red-gate-greening-v1",
   "status": "review_1",
   "workflow": "direct-fix (user-authorized exception flow; not a stage-delivery instance — see 09-user-authorization.md and 08-dispatch-kimi-direct-fix.md)",
-  "current_phase": "implementation-complete-awaiting-raw-diff-review",
+  "current_phase": "ledger-closeout-complete-awaiting-final-check",
   "stage_branch": {
     "name": "stage/2026-07-red-gate-greening-v1",
     "created_from_main_sha": "9d28ec4e9769d72d4aa8a1c14b2b8d126eb6d401",
@@ -37,53 +37,79 @@
   "tests": {
     "status": "pass",
     "commands": [
-      "python3 -m py_compile scripts/validate-stage.py scripts/validate-all-stages.py",
-      "61-adversarial-d3v2.driver.py (A1-A8): 16/16 PASS",
+      "python3 -m py_compile scripts/validate-stage.py scripts/validate-all-stages.py (both repos)",
+      "61-adversarial-d3v2.driver.py (A1-A8): 16/16 PASS (rerun in fix round)",
+      "test-validate-all-stages-compare.py sentinel: 11/11 PASS both repos (72-compare-sentinel-tests.txt)",
       "validate-all-stages.py final rerun: migration table fully satisfied (67-final-fixture-compare.txt)",
+      "compare vs 73 post-fix baselines: no drift, exit 0 (both repos)",
       "backend pytest: 375 passed",
       "frontend self-check: 80 PASS",
-      "bookticker pre-accept on main: PASS-with-exception (62-bookticker-preaccept-green.txt)"
+      "bookticker pre-accept on main: PASS-with-exception (62-bookticker-preaccept-green.txt, F2 rerun appended)",
+      "git diff --check 96f5b44..49529b3: exit 2 full range (all hits = immutable raw review 69 trailing whitespace); exit 0 excluding 69; template range exit 0"
     ]
   },
   "review_1": null,
   "review_2": null,
-  "reviews_note": "Raw-diff reviews (codex + fable5) are dispatched by the operator after this checkpoint; their receipts will be recorded here before user final review and push.",
+  "reviews_note": "Execution round reviewed by fable5 (68, ACCEPT) and gpt5.6-sol (69, REWORK F1-F3); fix round re-reviewed by gpt5.6-sol (74, REWORK — ledger-only P2s, implementation verified clean) and fable5 (75, concurring). The 76 ledger-closeout commit lands the two P2 corrections. Awaiting final check of that commit by fable5 + gpt5.6-sol, then user final review and push.",
   "known_state": {
     "bookticker": "green_with_exception (T3 landed)",
     "docs-truth-sync": "known_red (class-2, pending user decision D-i)",
-    "fixture_final": "15 green + 1 green_with_exception + 7 registered known-red (funding); 1 green (template)",
-    "this_stage_in_future_fixture": "will read red at pre-accept until review receipts land — expected interim state, registered here in advance"
+    "fixture_final": "15 green + 1 green_with_exception + 8 registered known-red (73 post-fix baseline, funding); 1 green (template)",
+    "this_stage_in_future_fixture": "permanently registered known_red per user F3(a) ruling (direct-fix bookkeeping artifacts 06-09/60-76; no stage-delivery form documents will be fabricated). This is a terminal registered state, NOT an interim state pending review receipts."
   },
   "d_i": "class-2 whitelist expansion NOT authorized (user has not ruled); no whitelist change made",
   "session_receipts": [
     {
-      "role": "implementer (direct-fix arc T0-T7 + fix round F1-F3)",
-      "model": "kimi-code/kimi-for-coding",
+      "role": "implementer (direct-fix arc T0-T7 + fix round F1-F3 + ledger closeout)",
       "provider": "moonshot_kimi",
-      "session_id": "unavailable",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": null,
       "session_id_source": "unavailable",
-      "note": "Kimi CLI does not expose a provider-native session id to the model; no runtime_env/hook/cli_output/transcript evidence available in-session. Never invented, per convention.",
-      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/60-execution-log.md"
+      "unavailable_reason": "Kimi CLI does not expose a provider-native session id to the model; no runtime_env/hook/cli_output/transcript evidence available in-session. Never invented, per convention.",
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/60-execution-log.md",
+      "recorded_at": "2026-07-17T18:10:00Z"
     },
     {
-      "role": "raw-diff reviewer (execution round, 68)",
-      "model": "claude-fable-5",
+      "role": "raw-diff reviewer, execution round (68)",
       "provider": "anthropic",
-      "session_id": "unavailable (Claude Code session id 未暴露 — its own footer declaration)",
-      "session_id_source": "reviewer footer self-declaration",
-      "note": "D3-v2 design owner + plan/dispatch author; design involvement disclosed per convention.",
-      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/68-review-direct-fix-fable5.md"
+      "model": "claude-fable-5",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "Claude Code CLI 未向模型暴露 provider-native session id（68 文件页脚自申明）。D3-v2 设计者身份已按惯例披露。",
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/68-review-direct-fix-fable5.md",
+      "recorded_at": "2026-07-17T18:10:00Z"
     },
     {
-      "role": "raw-diff reviewer (execution round, 69)",
-      "model": "gpt5.6-sol (operator-designated name; CODEX_MODEL not exposed)",
+      "role": "raw-diff reviewer, execution round (69)",
       "provider": "openai",
+      "model": "gpt5.6-sol (operator-designated name; CODEX_MODEL not exposed)",
       "session_id": "019f7065-f49c-75f1-999a-b40308b43bdd",
       "session_id_source": "runtime_env",
-      "note": "REWORK verdict F1-F3; raw capture saved by Fable5 for the bookkeeper per reviewer instruction (RC9).",
-      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/69-review-direct-fix-gpt5.6-sol.md"
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/69-review-direct-fix-gpt5.6-sol.md",
+      "recorded_at": "2026-07-17T18:10:00Z"
+    },
+    {
+      "role": "re-reviewer, fix round (74)",
+      "provider": "openai",
+      "model": "gpt5.6-sol (operator-designated name; CODEX_MODEL not exposed)",
+      "session_id": "019f7065-f49c-75f1-999a-b40308b43bdd",
+      "session_id_source": "runtime_env",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/74-review-fix-round-gpt5.6-sol.md",
+      "recorded_at": "2026-07-17T18:10:00Z"
+    },
+    {
+      "role": "re-reviewer, fix round (75)",
+      "provider": "anthropic",
+      "model": "claude-fable-5",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "Claude Code CLI 未向模型暴露 provider-native session id（75 文件页脚自申明）。",
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/75-review-fix-round-fable5.md",
+      "recorded_at": "2026-07-17T18:10:00Z"
     }
   ],
   "zero_push": true,
-  "updated_at": "2026-07-18T00:55:00+08:00"
+  "updated_at": "2026-07-18T02:10:00+08:00"
 }
