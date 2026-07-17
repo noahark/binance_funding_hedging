@@ -359,6 +359,36 @@ dispatching the fix.
   `main` is merged into a stage branch by exception, record the reason, rerun
   tests and validator, recompute fingerprints, and re-enter or mechanically
   rebind review gates as the changed diff requires. Rebase is forbidden.
+- Pre-accept authorized exceptions (RC4): a review whose `diff_fingerprint`
+  legitimately trails `status.diff_fingerprint` may be downgraded to
+  PASS-with-exception ONLY by a compliant `status.authorized_exceptions[]`
+  record. The admissible `assertion_id` whitelist is source-enumerated in
+  `scripts/validate-stage.py` (`AUTHORIZED_EXCEPTION_ASSERTION_IDS`); stage
+  data may REFERENCE an exception class but cannot DEFINE one. Each record
+  requires `authorizer == "user"` (literal), a non-empty `reason`, a parseable
+  ISO-8601 `at`, `applies_to_fingerprint == status.diff_fingerprint` (the waiver
+  is pinned to one diff and auto-expires the next time the fingerprint changes),
+  and a repo-relative git-tracked `evidence_file` sealed by `evidence_sha256`
+  (the sha256 of its committed blob): the validator reads the committed content,
+  rejects absolute/outside/untracked paths and any digest mismatch. v1 admits
+  only class-1 `review_fingerprint_trails_status`; class-2 (waiving
+  `verdict == ACCEPT`) is NOT admitted. Anti-self-grant is two layers, not a
+  proof: the literal + pin + committed+sealed evidence make a forged waiver
+  non-silent (it must be committed into reviewed history and surfaced in the
+  banner), but code cannot prove the evidence text came from a human — the
+  final guarantee is mandatory human verification of the evidence verbatim
+  before release (the banner is the trigger), a workflow obligation the
+  validator cannot mechanically enforce. Release is never silent: on PASS the
+  validator prints
+  `PASS (N authorized exceptions applied: <id>@<scope>, …)`.
+- Authorized exceptions can NEVER waive the negative list, even with a record
+  present: (1) `status.diff_fingerprint` recomputes consistently, (2) clean
+  worktree, (3) reviewer identity separation, (4) an exception record's own
+  `evidence_file` being a committed, digest-sealed repo-relative file, (5) an
+  exception record's own structural integrity (fields, authorizer,
+  `assertion_id`, fingerprint pin, `reason`, `at`). The exemption mechanism
+  cannot exempt itself; any malformed record fails closed and invalidates every
+  exception.
 
 ## Standard Stage Delivery
 
