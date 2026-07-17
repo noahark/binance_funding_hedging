@@ -57,6 +57,32 @@
 接受原文。T0 按派工包规则处理：以 git 合并事实为准记账，接受 verbatim 证据缺口
 如实登记，不补造。
 
+## 授权原文 3（修复轮派工 + F3 处置拍板 (a)，2026-07-18，本会话）
+
+> 执行 71-dispatch-kimi-fix-f1f2f3.md。
+> - 第 0 步：先提交 68/69 两份评审落档（顺带解决 codex 抱怨的脏树问题）。
+> - F1：compare 升级为三比（verdict + 错误多重集 + applied_exceptions），任何未登记
+>   变化非零退出（现在连 FLIP 都退出 0，一并修）；交付 sentinel 回归测试留档 72-；
+>   模板仓先改、cp 下行、两仓逐字节一致。
+> - F2：09 文件追加你的 "a" 拍板原文并提交 → bookticker 例外的 evidence_file 改指
+>   09（真 verbatim）→ 重算 digest → 干净 main 复跑 pre-accept（输出 append 到
+>   62-，不改写旧段）。70-handoff 一个字不动——转述留在原处没错，错的只是拿它当
+>   封印源。
+> - F3(a)：迁移表补一行 known_red（理由=直修模式账本，真实产物 06/07/08/60-69）+
+>   补 session_receipts + 60- 页脚。明确不补造 10-design/11-adr 等形态文件。
+
+要点解读（非原文，执行者注记）：F3 处置拍板 = **(a) 登记 known_red**（否决 codex
+fix prompt 中"补齐全套 stage-delivery 形态文件"的路线）；F2 确认 bookticker 例外的
+digest 封印源改为本文件（含用户 verbatim 授权链），70-handoff 的转述文本保持原样、
+不再充当封印源。
+
+## 封印注记（2026-07-18，F2 后生效）
+
+本文件自修复轮 F2 起被 bookticker `authorized_exceptions[0].evidence_sha256` digest
+封印。**此后任何追加/修改都会破印并使 bookticker pre-accept 回红（设计的自动失效
+行为）。后续授权原文请另立新文件，不再追加到本文件。**
+
 ---
 记录人: Kimi（moonshot_kimi，本弧实现者）
-本地北京时间: 2026-07-17（第 0 步提交时以 git commit 时间为准）
+本地北京时间: 2026-07-17（第 0 步提交时以 git commit 时间为准）；授权原文 3 与封印
+注记追加于 2026-07-18（修复轮）

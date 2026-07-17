@@ -23,6 +23,7 @@ funding_hedging `stage/2026-07-red-gate-greening-v1` @ 第 0 步提交后。
 
 | stage | 基线红因 | (B)/(F) 预期 | 登记原因 |
 |---|---|---|---|
+| red-gate-greening-v1（本弧） | 无（基线时不存在） | **维持红**（ADDED 已登记） | 直修模式账本：真实产物为 06/07/08/09/60-69 + 双评审 68/69，非 stage-delivery 运行记录；缺 00-task/10-design/11-adr/20-implementation/60-test-output/30/50 review 等形态文件属流程形态差异，**不补造**（用户拍板 F3 处置 (a)，原文见 `09-user-authorization.md` 追加段）；评审 receipt 落账后可再评估 |
 | docs-truth-sync-v1 | review_1 尾随 + review_2.verdict≠ACCEPT | **维持红**（两条均在；verdict 不可降级、class-2 不收） | class-2, pending user decision D-i |
 | env-startup-v1 | 缺 diff_fingerprint、缺 30/50 review 文件、review verdict/身份多条 | **维持红**（全部与 D3 无关，原样保留） | legacy 记录不完整（早期手工流程），非本弧范围 |
 | harness-flow-optimization-v1 | status 值 ∉ 词表 + 缺指纹/文件/verdict 多条 | **维持红**（原样） | legacy status 值 `accepted_and_merged_to_main`；可选补救=一词迁移（用户另拍，见 T6 台账） |
@@ -30,6 +31,25 @@ funding_hedging `stage/2026-07-red-gate-greening-v1` @ 第 0 步提交后。
 | public-market-bstock-alias-v1 | 缺 12-development-breakdown.md + 3×链断 | **维持红**，错误集收窄为仅剩缺文件一条 | 缺必需文件（与 D3 无关）；legacy |
 | public-market-impl-v1 | 缺 12-development-breakdown.md + 1×链断 | **维持红**，收窄为仅剩缺文件一条 | 同上 |
 | public-market-ui-cn-v1 | task B 指纹重算不符 ×2 + 2×链断 | **维持红**，收窄为仅剩 task B 指纹不符 | task 级指纹记录缺陷（validate_tasks，与 D3 覆盖无关）；legacy |
+
+## 错误集/例外集变化登记（F1 三比升级后实测补登，2026-07-18）
+
+F1 修复后 compare 升级为三比（verdict + 错误多重集 + applied_exceptions）。对 63 基线
+全量复跑（升级版 compare）实测 drift 全集如下，**逐条登记，无静默**；其后的 73- 终态
+基线已吸收这些变化，对比 73- 退出 0。
+
+| stage | 类别 | 内容 | 登记理由 |
+|---|---|---|---|
+| bookticker-open-columns-v1 | FLIP + ERRDRIFT + EXCDRIFT | red→green_with_exception；错误 4→0（review_1 尾随+3×链断全清）；例外 []→[review_fingerprint_trails_status@review_1] | T1(D3-v2)+T3(class-1 例外）预期战果 |
+| funding-annualized-history-v1 | FLIP + ERRDRIFT | red→green；错误 5→0（链断全清） | v2 规则 1 j=n 预期战果 |
+| phase2-borrow-sort-v1 | FLIP + ERRDRIFT | red→green；错误 2→0 | 同上 |
+| private-account-v1 | FLIP + ERRDRIFT | red→green；错误 2→0（own-review 路径删除） | 同上 |
+| public-market-bstock-alias-v1 | ERRDRIFT | 错误 4→1（链断消失，仅剩缺文件） | 链式删除的收窄，已在上表登记 |
+| public-market-impl-v1 | ERRDRIFT | 错误 2→1（同上） | 同上 |
+| public-market-ui-cn-v1 | ERRDRIFT | 错误 4→2（链断消失，仅剩 task B 指纹不符 ×2） | 同上 |
+| red-gate-greening-v1 | ADDED | 新增 stage，verdict=red | 见上表首行（直修模式账本 known_red） |
+| docs-truth-sync-v1 / env-startup-v1 / harness-flow-optimization-v1 / local-service-launchd-v1 | 无变化 | 错误集与基线逐字符一致 | 实测确认无 D3-v2 引起的收窄外变化 |
+| 模板仓 harness-authorized-exception-v1 | 无变化 | green → green | no drift |
 
 ### 维持绿（12 个，不得翻转）
 
