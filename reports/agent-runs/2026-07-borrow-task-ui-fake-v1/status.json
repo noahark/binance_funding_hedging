@@ -70,7 +70,7 @@
       "owner": "kimi",
       "reviewer": "claude_glm",
       "r10_checklist": null,
-      "base_sha": "cf7efdef563f09a78c9cce99227dfdd3a8d5b13a",
+      "base_sha": "d9c2772b7725bc794224a99c70505526eaedf295",
       "head_sha": null,
       "diff_fingerprint": null,
       "test_evidence": "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/60-test-output.txt",
@@ -98,7 +98,7 @@
   },
   "direction_panel": {"panel_key": null, "members": {}},
   "direction_synthesis": {"provider": null, "status": "not_required_low_complexity", "user_approved": true},
-  "base_sha": "cf7efdef563f09a78c9cce99227dfdd3a8d5b13a",
+  "base_sha": "d9c2772b7725bc794224a99c70505526eaedf295",
   "head_sha": null,
   "diff_fingerprint": null,
   "coverage_waypoints": null,
@@ -136,5 +136,5 @@
     }
   },
   "next_action": "human_operator_execute_kimi_dispatch",
-  "updated_at": "2026-07-18T18:26:49+08:00"
+  "updated_at": "2026-07-18T18:30:45+08:00"
 }

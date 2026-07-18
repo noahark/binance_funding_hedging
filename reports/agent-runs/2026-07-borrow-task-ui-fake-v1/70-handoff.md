@@ -13,8 +13,8 @@
 - Stage: `2026-07-borrow-task-ui-fake-v1`
 - Status: `implementing`
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
-- HEAD: `cf7efdef563f09a78c9cce99227dfdd3a8d5b13a` (stage intake base; stage evidence commit pending)
-- Git status: stage evidence files uncommitted at this checkpoint
+- HEAD: `d9c2772b7725bc794224a99c70505526eaedf295` (H_intake evidence commit)
+- Git status: clean
 - Bookkeeper: Codex/GPT, independent from Kimi implementer; provider-native Session ID unavailable in current runtime
 - Parallel mode: disabled
 
