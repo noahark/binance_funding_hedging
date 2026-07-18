@@ -134,7 +134,7 @@
     "fix_start_prompt_source": null, "invalid_json_attempts": 0
   },
   "review_2": {
-    "reviewer": null, "provider": null, "model": null, "primary_provider": "codex",
+    "reviewer": null, "provider": null, "model": null, "primary_provider": null,
     "fallback_provider": "claude", "fallback_reason": null, "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": null,
     "unrelated_reviewer_unavailable_evidence": null,

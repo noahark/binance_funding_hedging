@@ -57,7 +57,7 @@
 
 - Operation-control real-DOM event binding is not executable under the self-check mock DOM; creation/validation/display paths are tested via `__appHelpers`, and event isolation is covered by structural assertion (review-1 must inspect `attachRowHandlers`).
 - Bookkeeper preflight found no blocker; independent `node frontend/self-check.js` and `git diff --check` both pass. This is not a formal review verdict.
-- The first pre-review validation correctly failed because review-2 had been predeclared as Codex despite its design involvement. The final reviewer is now intentionally unset; choose and disclose review-2 only after review-1 and the user's visual check.
+- The first two pre-review validation attempts correctly blocked dispatch because review-2 had been predeclared as Codex despite its design involvement (including as `primary_provider`). The final reviewer is now intentionally unset; choose and disclose review-2 only after review-1 and the user's visual check.
 
 ## Blockers
 
