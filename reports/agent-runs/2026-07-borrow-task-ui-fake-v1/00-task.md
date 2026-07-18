@@ -41,6 +41,7 @@ Allowed files:
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/23-implementation-frontend-visual-fix.md`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/64-test-output-frontend-visual-fix.txt`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/65-pre-review-validation-f3.txt`
+- `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/32-review-1-frontend-retry-1.md`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/status.json`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md`
 
