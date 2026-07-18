@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: review-1 / B1 verdict JSON retry pending
-- Next action: F2+F3 strict retry is schema-valid ACCEPT. Human operator executes `39-kimi-review-1-backend-b1-json-retry.dispatch.md` once in a fresh read-only Kimi session.
-- Read-set: `status.current_inputs`, original invalid `31-review-1-backend.md`, retry dispatch `39-kimi-review-1-backend-b1-json-retry.dispatch.md`, and valid F2+F3 retry `32-review-1-frontend-retry-1.md`
-- Open blockers: The previous review-1 ACCEPT is superseded by user-approved new requirements; B1→F2 are dependency-ordered and each needs its own cross-provider review-1 (B1→Kimi, F2→Claude-GLM) before review-2.
+- Active phase: review-1 / all task-scoped verdicts accepted; Harness aggregation decision pending
+- Next action: Do not fabricate a stage-level `review_1` verdict. Decide and land the task-scoped review-1 aggregation contract in the Harness before review-2 can lead to `pre-accept`.
+- Read-set: `status.current_inputs`, valid B1 retry `31-review-1-backend-retry-1.md`, valid F2+F3 retry `32-review-1-frontend-retry-1.md`, `scripts/validate-stage.py` review identity/acceptance logic, and the active workflow review sections.
+- Open blockers: B1→Kimi and F2+F3→Claude-GLM are individually provider-isolated, schema-valid ACCEPT reviews. The current top-level validator, however, rejects either reviewer as a single stage-level review-1 provider because each implemented delivery code in the other task.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
@@ -13,9 +13,9 @@
 - Stage: `2026-07-borrow-task-ui-fake-v1`
 - Status: `review_1` (F3 acceptance fix committed; prior review-1 packets are stale, and the historical old review remains non-accepting)
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
-- Reviewed delivery commit: `edb20022e3490b89a805fa6eda374574523317e2`
-- Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..edb20022e3490b89a805fa6eda374574523317e2` / `edb20022e3490b89a805fa6eda374574523317e2:e3e97e020a81270214b15ccf349a969f159f831c72047d24ddffe2b7b1bcf133`
-- Git status: B1 `623d059b52723d9ee412519db054a2a25cedf504`; F2 `ddcecf5533352c25886aeadfdc233a826603ba7b`; F3 `9d53204d450ee0dc4519f52201b575e5b71e948b`; rebound-review dispatch checkpoint pending commit
+- Reviewed delivery commit: `9d53204d450ee0dc4519f52201b575e5b71e948b`
+- Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..9d53204d450ee0dc4519f52201b575e5b71e948b` / `9d53204d450ee0dc4519f52201b575e5b71e948b:a51dccee4055065ceece4ee3cee037909c096da4cf36a55144d945e757d025f3`
+- Git status: B1 `623d059b52723d9ee412519db054a2a25cedf504`; F2 `ddcecf5533352c25886aeadfdc233a826603ba7b`; F3 `9d53204d450ee0dc4519f52201b575e5b71e948b`; Kimi B1 retry evidence pending commit
 - Implementer: Claude-GLM B1 complete (Session ID unavailable through harness); Kimi F2/F3 complete (Session ID `83684f19-df9d-44ba-885c-267a01656f75`, transcript_path)
 - Parallel mode: disabled
 
@@ -42,7 +42,7 @@
 - F3 implementation: `23-implementation-frontend-visual-fix.md`; test log: `64-test-output-frontend-visual-fix.txt`
 - Rebound review-1 dispatches: `36-kimi-review-1-backend-b1-rebound.dispatch.md` (B1) and `37-claude-glm-review-1-frontend-f2-f3-rebound.dispatch.md` (combined F2+F3)
 - Original F2+F3 review attempt: `32-review-1-frontend.md` (content ACCEPT, but non-accepting output format); retry dispatch: `38-claude-glm-review-1-frontend-f2-f3-json-retry.dispatch.md`
-- Valid F2+F3 strict retry: `32-review-1-frontend-retry-1.md` (ACCEPT); original B1 review: `31-review-1-backend.md` (content ACCEPT, but non-accepting output format); retry dispatch: `39-kimi-review-1-backend-b1-json-retry.dispatch.md`
+- Valid F2+F3 strict retry: `32-review-1-frontend-retry-1.md` (ACCEPT); original B1 review: `31-review-1-backend.md` (content ACCEPT, but non-accepting output format); valid B1 strict retry: `31-review-1-backend-retry-1.md` (ACCEPT)
 - Review-1 dispatch: `25-review-1.dispatch.md` (historical)
 - Review 1 raw output: `30-review-1.md` — ACCEPT for old diff, superseded by scope amendment
 - Fix report: pending `40-fix-report.md`
@@ -82,15 +82,15 @@
 
 ## Blockers
 
-- F2+F3 retry 1 is a schema-valid ACCEPT. B1 attempt 1 has an ACCEPT conclusion but is non-accepting because it prints a Markdown fence after the JSON verdict; the required same-model JSON-format retry is pending.
+- B1 retry 1 and F2+F3 retry 1 are schema-valid ACCEPT. The stage is blocked only by a Harness contract gap: task-scoped cross-reviews are valid, but `validate-stage.py --phase pre-accept` requires an additional top-level review-1 from a provider that cannot be either code-author provider. Do not invent such a verdict or waive it with an unauthorized exception.
 
 ## Next Action
 
-Human operator executes the one allowed B1 JSON-format retry. The bookkeeper validates its strict verdict, routes any REWORK to the supplied fix prompt, or prepares final review-2 after acceptance; do not use malformed attempts as gates.
+Decide the safe Harness change on `main` that permits a verified aggregate of task-scoped review-1 ACCEPT verdicts for split-domain stages. Only then rebind this stage to the updated Harness, run the prescribed validations, and prepare Review-2 with its separately required design-conflict disclosure.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-19 01:08:03 CST
-下一步模型: Kimi（由人类操作员只读执行）
-下一步任务: 运行 39 仅修正 B1 verdict 文件结尾格式
+本地北京时间: 2026-07-19 01:18:48 CST
+下一步模型: 人类产品/流程负责人
+下一步任务: 决定 task-scoped review-1 汇总的 Harness 合约修复路径
