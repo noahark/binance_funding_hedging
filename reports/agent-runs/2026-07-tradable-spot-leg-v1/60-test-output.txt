@@ -385,3 +385,31 @@ git -c diff.renames=true diff --binary 9a03069fa9942739c7d8077d3a33d4387afde048.
 The authoritative supported validator invocation passed from a clean committed state. Complete
 output, including the preceding unsupported `--evidence-out` adapter attempt, is preserved in
 `reports/agent-runs/2026-07-tradable-spot-leg-v1/61-pre-review-validation.txt`.
+
+2026-07-18 16:44:27 CST — post-merge verification on `main`: PASS
+
+The user accepted the reviewed stage and authorized merge and push. Local `main` was
+fast-forwarded from `9a03069fa9942739c7d8077d3a33d4387afde048` through the accepted stage tip
+`831cde887f0a5bf1b0e51d163c6078ba09a07122`, then the frozen verification suite was rerun.
+
+```text
+$ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_normalize.py -q -p no:cacheprovider
+17 passed in 0.03s
+exit=0
+
+$ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_snapshot.py -q -p no:cacheprovider
+31 passed in 1.98s
+exit=0
+
+$ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider
+381 passed in 18.02s
+exit=0
+
+$ node frontend/self-check.js
+[all checks emitted PASS]
+全部自检通过
+exit=0
+
+$ git diff --check
+exit=0
+```
