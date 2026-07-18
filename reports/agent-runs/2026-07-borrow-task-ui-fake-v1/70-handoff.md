@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: review-1 / all task-scoped verdicts accepted; Harness aggregation decision pending
-- Next action: Do not fabricate a stage-level `review_1` verdict. Decide and land the task-scoped review-1 aggregation contract in the Harness before review-2 can lead to `pre-accept`.
-- Read-set: `status.current_inputs`, valid B1 retry `31-review-1-backend-retry-1.md`, valid F2+F3 retry `32-review-1-frontend-retry-1.md`, `scripts/validate-stage.py` review identity/acceptance logic, and the active workflow review sections.
-- Open blockers: B1→Kimi and F2+F3→Claude-GLM are individually provider-isolated, schema-valid ACCEPT reviews. The current top-level validator, however, rejects either reviewer as a single stage-level review-1 provider because each implemented delivery code in the other task.
+- Active phase: review-2 / Opus 4.8 dispatch prepared
+- Next action: Human operator runs `41-claude-review-2-opus4.8.dispatch.md` in a fresh read-only Opus 4.8 session and preserves raw output at `50-review-2.md`.
+- Read-set: `status.current_inputs`, `66-review-2-strong-reviewer-override.md`, valid B1/F2+F3 task Review-1 retries, fixed delivery diff `d9c2772..9d53204`, and the active workflow Review-2 section.
+- Open blockers: The future Harness repair remains necessary for task-scoped Review-1 aggregation before pre-accept. It does not prevent collecting independent Review-2 code-quality evidence now.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
@@ -15,7 +15,7 @@
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
 - Reviewed delivery commit: `9d53204d450ee0dc4519f52201b575e5b71e948b`
 - Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..9d53204d450ee0dc4519f52201b575e5b71e948b` / `9d53204d450ee0dc4519f52201b575e5b71e948b:a51dccee4055065ceece4ee3cee037909c096da4cf36a55144d945e757d025f3`
-- Git status: B1 `623d059b52723d9ee412519db054a2a25cedf504`; F2 `ddcecf5533352c25886aeadfdc233a826603ba7b`; F3 `9d53204d450ee0dc4519f52201b575e5b71e948b`; Kimi B1 retry evidence pending commit
+- Git status: B1 `623d059b52723d9ee412519db054a2a25cedf504`; F2 `ddcecf5533352c25886aeadfdc233a826603ba7b`; F3 `9d53204d450ee0dc4519f52201b575e5b71e948b`; Opus 4.8 Review-2 packet pending commit
 - Implementer: Claude-GLM B1 complete (Session ID unavailable through harness); Kimi F2/F3 complete (Session ID `83684f19-df9d-44ba-885c-267a01656f75`, transcript_path)
 - Parallel mode: disabled
 
@@ -46,7 +46,8 @@
 - Review-1 dispatch: `25-review-1.dispatch.md` (historical)
 - Review 1 raw output: `30-review-1.md` — ACCEPT for old diff, superseded by scope amendment
 - Fix report: pending `40-fix-report.md`
-- Review 2: pending `50-review-2.md`
+- Review-2 strong-reviewer disclosure: `66-review-2-strong-reviewer-override.md`
+- Opus 4.8 Review-2 dispatch: `41-claude-review-2-opus4.8.dispatch.md`; raw output pending `50-review-2.md`
 - Test output: `60-test-output.txt`
 - Pre-review validation: `26-pre-review-validation.txt`
 - Status JSON: `status.json`
@@ -82,15 +83,15 @@
 
 ## Blockers
 
-- B1 retry 1 and F2+F3 retry 1 are schema-valid ACCEPT. The stage is blocked only by a Harness contract gap: task-scoped cross-reviews are valid, but `validate-stage.py --phase pre-accept` requires an additional top-level review-1 from a provider that cannot be either code-author provider. Do not invent such a verdict or waive it with an unauthorized exception.
+- B1 retry 1 and F2+F3 retry 1 are schema-valid ACCEPT. The top-level task-scoped Review-1 aggregation defect remains for the planned Harness repair. Opus 4.8 is an independent-from-code-authors Review-2 reviewer, with prior Anthropic breakdown involvement disclosed in `66-review-2-strong-reviewer-override.md`.
 
 ## Next Action
 
-Decide the safe Harness change on `main` that permits a verified aggregate of task-scoped review-1 ACCEPT verdicts for split-domain stages. Only then rebind this stage to the updated Harness, run the prescribed validations, and prepare Review-2 with its separately required design-conflict disclosure.
+Human operator executes the prepared Opus 4.8 read-only review. After its raw verdict is recorded, the user may direct the focused Harness repair; do not alter delivery code or invent a top-level Review-1 verdict.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-19 01:18:48 CST
-下一步模型: 人类产品/流程负责人
-下一步任务: 决定 task-scoped review-1 汇总的 Harness 合约修复路径
+本地北京时间: 2026-07-19 01:36:38 CST
+下一步模型: Opus 4.8（由人类操作员只读执行）
+下一步任务: 运行 41 dispatch 并将原始 Review-2 输出保存为 50-review-2.md

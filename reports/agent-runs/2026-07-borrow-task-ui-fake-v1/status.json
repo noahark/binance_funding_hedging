@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-borrow-task-ui-fake-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-borrow-task-ui-fake-v1",
@@ -54,7 +54,9 @@
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/31-review-1-backend.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/32-review-1-frontend-retry-1.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/39-kimi-review-1-backend-b1-json-retry.dispatch.md",
-    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/31-review-1-backend-retry-1.md"
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/31-review-1-backend-retry-1.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/66-review-2-strong-reviewer-override.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/41-claude-review-2-opus4.8.dispatch.md"
   ],
   "parallel_mode": {
     "enabled": false,
@@ -182,7 +184,7 @@
   "implementers": ["claude_glm", "kimi"],
   "fix_authors": [],
   "reviewer_1": null,
-  "reviewer_2": null,
+  "reviewer_2": "claude",
   "model_routing": {
     "backend-minimum-borrow-contract-b1": {
       "owner": "claude_glm",
@@ -341,11 +343,11 @@
     "fix_start_prompt_source": null, "invalid_json_attempts": 0
   },
   "review_2": {
-    "reviewer": null, "provider": null, "model": null, "primary_provider": null,
-    "fallback_provider": "claude", "fallback_reason": null, "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": null,
-    "unrelated_reviewer_unavailable_evidence": null,
-    "design_conflict_override": {"used": false, "reason": null, "unrelated_reviewer_unavailable_evidence": null},
+    "reviewer": "claude", "provider": "anthropic", "model": "opus4.8", "primary_provider": "codex",
+    "fallback_provider": "claude", "fallback_reason": "Codex/GPT is the recorded stage designer. The user selected Opus 4.8 for final review through the permitted design-conflict-ineligibility route; Anthropic provider prior breakdown involvement is disclosed, while no Anthropic model authored reviewed delivery or fix code.", "reviewer_prior_involvement": "breakdown",
+    "reviewer_prior_involvement_notes": "Anthropic authored 12-development-breakdown.md using Claude Fable5. See 66-review-2-strong-reviewer-override.md; Opus 4.8 wrote no reviewed delivery/fix code.",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/66-review-2-strong-reviewer-override.md",
+    "design_conflict_override": {"used": true, "reason": "Preferred Codex/GPT reviewer is design-conflicted; user selected Anthropic Opus 4.8, whose prior breakdown involvement is explicitly disclosed.", "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/66-review-2-strong-reviewer-override.md"},
     "open_p0_p1": null, "verdict": null, "json_schema_valid": null, "diff_fingerprint": null,
     "covers_through_task": null, "fix_start_prompt_present": null, "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
@@ -353,7 +355,7 @@
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": ["All three task-scoped review-1 verdicts are schema-valid ACCEPT. The current Harness validator nevertheless requires status.review_1 itself to be an ACCEPT from a provider distinct from every stage implementation/fix author. In this split B1/F2/F3 stage, the configured task cross-reviewers are Kimi and Claude-GLM, and each is a code author for the other task. A task-scoped-review aggregation contract is needed before the stage can satisfy pre-accept without fabricating a stage-level reviewer verdict."],
+  "blockers": ["All three task-scoped review-1 verdicts are schema-valid ACCEPT. The current Harness validator nevertheless requires status.review_1 itself to be an ACCEPT from a provider distinct from every stage implementation/fix author. In this split B1/F2/F3 stage, the configured task cross-reviewers are Kimi and Claude-GLM, and each is a code author for the other task. Opus 4.8 Review-2 is prepared as independent code-quality evidence; the later Harness repair remains required before final pre-accept can pass."],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
   "reporting_preferences": {
@@ -365,6 +367,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_decision_on_task_scoped_review_1_aggregation_contract",
-  "updated_at": "2026-07-19T01:18:48+08:00"
+  "next_action": "human_operator_execute_opus4_8_review_2",
+  "updated_at": "2026-07-19T01:36:38+08:00"
 }
