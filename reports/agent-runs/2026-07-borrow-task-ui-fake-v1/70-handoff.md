@@ -34,6 +34,7 @@
 - Fix report: pending `40-fix-report.md`
 - Review 2: pending `50-review-2.md`
 - Test output: `60-test-output.txt`
+- Pre-review validation: `26-pre-review-validation.txt`
 - Status JSON: `status.json`
 
 ## Implementation Summary
@@ -70,6 +71,6 @@ Run the Claude-GLM review-1 packet. If it returns ACCEPT with valid JSON, do not
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-18 19:46:42 CST
+本地北京时间: 2026-07-18 19:47:55 CST
 下一步模型: Claude-GLM
 下一步任务: 执行 25-review-1.dispatch.md 的只读交叉审查
