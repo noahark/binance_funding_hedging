@@ -57,6 +57,7 @@
 
 - Operation-control real-DOM event binding is not executable under the self-check mock DOM; creation/validation/display paths are tested via `__appHelpers`, and event isolation is covered by structural assertion (review-1 must inspect `attachRowHandlers`).
 - Bookkeeper preflight found no blocker; independent `node frontend/self-check.js` and `git diff --check` both pass. This is not a formal review verdict.
+- The first pre-review validation correctly failed because review-2 had been predeclared as Codex despite its design involvement. The final reviewer is now intentionally unset; choose and disclose review-2 only after review-1 and the user's visual check.
 
 ## Blockers
 
@@ -69,6 +70,6 @@ Run the Claude-GLM review-1 packet. If it returns ACCEPT with valid JSON, do not
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-18 19:43:44 CST
+本地北京时间: 2026-07-18 19:46:42 CST
 下一步模型: Claude-GLM
 下一步任务: 执行 25-review-1.dispatch.md 的只读交叉审查

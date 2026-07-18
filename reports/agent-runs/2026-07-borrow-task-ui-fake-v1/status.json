@@ -134,9 +134,9 @@
     "fix_start_prompt_source": null, "invalid_json_attempts": 0
   },
   "review_2": {
-    "reviewer": "codex", "provider": "openai", "model": "gpt-5.5", "primary_provider": "codex",
-    "fallback_provider": "claude", "fallback_reason": null, "reviewer_prior_involvement": "design",
-    "reviewer_prior_involvement_notes": "Codex prepared the stage design; use review-2 only with the documented strong-reviewer disclosure override after an unrelated decision-model availability failure.",
+    "reviewer": null, "provider": null, "model": null, "primary_provider": "codex",
+    "fallback_provider": "claude", "fallback_reason": null, "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": null,
     "unrelated_reviewer_unavailable_evidence": null,
     "design_conflict_override": {"used": false, "reason": null, "unrelated_reviewer_unavailable_evidence": null},
     "open_p0_p1": null, "verdict": null, "json_schema_valid": null, "diff_fingerprint": null,
@@ -159,5 +159,5 @@
     }
   },
   "next_action": "human_operator_execute_claude_glm_review_1_dispatch",
-  "updated_at": "2026-07-18T19:43:44+08:00"
+  "updated_at": "2026-07-18T19:46:42+08:00"
 }
