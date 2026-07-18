@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-borrow-task-ui-fake-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-borrow-task-ui-fake-v1",
@@ -119,7 +119,7 @@
   "implementer": "kimi",
   "implementers": ["claude_glm", "kimi"],
   "fix_authors": [],
-  "reviewer_1": "claude_glm",
+  "reviewer_1": null,
   "reviewer_2": null,
   "model_routing": {
     "backend-minimum-borrow-contract-b1": {
@@ -241,7 +241,7 @@
     }
   ],
   "review_1": {
-    "reviewer": "claude_glm", "provider": "zhipu_glm", "model": "glm-5.2", "open_p0_p1": null,
+    "reviewer": null, "provider": null, "model": null, "open_p0_p1": null,
     "verdict": null, "json_schema_valid": null, "diff_fingerprint": null, "covers_through_task": null,
     "reviewer_prior_involvement": "none", "fix_start_prompt_present": null,
     "fix_start_prompt_source": null, "invalid_json_attempts": 0
@@ -272,5 +272,5 @@
     }
   },
   "next_action": "human_operator_execute_cross_review_1_packets",
-  "updated_at": "2026-07-18T23:13:00+08:00"
+  "updated_at": "2026-07-18T23:14:53+08:00"
 }
