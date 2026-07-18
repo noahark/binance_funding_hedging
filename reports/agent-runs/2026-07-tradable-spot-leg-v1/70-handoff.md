@@ -4,8 +4,8 @@
 
 - Stage: `2026-07-tradable-spot-leg-v1`.
 - Branch: `stage/2026-07-tradable-spot-leg-v1`, base `9a03069`.
-- Phase: Fable5 review-2 returned schema-valid `ACCEPT`; raw output is restored verbatim and the
-  bookkeeper is committing final-review evidence before the pre-accept gate.
+- Phase: Fable5 review-2 returned schema-valid `ACCEPT`; stage is now
+  `stage_accepted_waiting_user`, with the validator-required accepted-state pre-accept run pending.
 - Complexity: LOW, user-approved lightweight route, no direction panel or development breakdown.
 - Owner: Claude-GLM (`zhipu_glm`) for backend/data semantics. Codex is excluded from code/fix
   authorship. Review-1 planned Kimi; review-2 planned Fable5 to avoid Codex design overlap.
@@ -55,14 +55,16 @@
 
 ## Next Action
 
-The bookkeeper commits `50-review-2.md` and its validation evidence, runs the pre-accept validator
-from a clean committed state, then moves only to `stage_accepted_waiting_user`. Merge, push,
-deployment, and `main` changes still require explicit user acceptance.
+The bookkeeper commits the validator-required accepted-state metadata, reruns pre-accept from a
+clean worktree, seals the result, and stops for explicit user acceptance. The first pre-accept
+attempt while status was `review_2` was rejected because the validator requires status
+`accepted`/`stage_accepted_waiting_user`; that adapter-order result will be preserved with the
+successful gate evidence. Merge, push, deployment, and `main` changes remain unauthorized.
 
 ---
 当前 Session ID: 019f734a-dd82-7a11-8367-93fc1a5e954c
 Session ID 来源: runtime_env
 原始输出路径: reports/agent-runs/2026-07-tradable-spot-leg-v1/70-handoff.md
-本地北京时间: 2026-07-18 14:35:38 CST
+本地北京时间: 2026-07-18 14:36:51 CST
 下一步模型: Codex bookkeeper
-下一步任务: 提交 review-2 原始证据、运行 pre-accept validator 并停在等待用户验收
+下一步任务: 提交 accepted-state metadata、重跑并封存 pre-accept gate，然后等待用户验收
