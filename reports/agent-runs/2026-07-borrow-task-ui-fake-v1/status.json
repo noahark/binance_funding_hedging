@@ -60,7 +60,8 @@
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/67-pre-review-validation-review2.txt",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/50-review-2.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/42-review-1-task-aggregate.md",
-    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/68-pre-accept-validation.txt"
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/68-pre-accept-validation.txt",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/69-pre-accept-validation-after-merge.txt"
   ],
   "parallel_mode": {
     "enabled": false,
@@ -386,5 +387,5 @@
     }
   },
   "next_action": "await_user_directed_next_stage",
-  "updated_at": "2026-07-19T02:07:51+08:00"
+  "updated_at": "2026-07-19T02:08:31+08:00"
 }

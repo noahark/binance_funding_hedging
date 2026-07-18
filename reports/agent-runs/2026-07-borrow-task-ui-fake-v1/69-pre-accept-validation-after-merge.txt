@@ -1,0 +1,11 @@
+$ scripts/validate-stage.py 2026-07-borrow-task-ui-fake-v1 --phase pre-accept
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-borrow-task-ui-fake-v1
+phase=pre-accept
+status=accepted
+diff_fingerprint=9d53204d450ee0dc4519f52201b575e5b71e948b:a51dccee4055065ceece4ee3cee037909c096da4cf36a55144d945e757d025f3
+
+$ git diff --check
+exit_code=0
+
+本地北京时间: 2026-07-19 02:08:31 CST
