@@ -48,7 +48,8 @@
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/63-pre-review-validation.txt",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/35-kimi-frontend-visual-fix-f3.dispatch.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/36-kimi-review-1-backend-b1-rebound.dispatch.md",
-    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/37-claude-glm-review-1-frontend-f2-f3-rebound.dispatch.md"
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/37-claude-glm-review-1-frontend-f2-f3-rebound.dispatch.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/65-pre-review-validation-f3.txt"
   ],
   "parallel_mode": {
     "enabled": false,
@@ -314,5 +315,5 @@
     }
   },
   "next_action": "human_operator_execute_rebound_cross_review_1_packets",
-  "updated_at": "2026-07-19T00:26:09+08:00"
+  "updated_at": "2026-07-19T00:28:04+08:00"
 }
