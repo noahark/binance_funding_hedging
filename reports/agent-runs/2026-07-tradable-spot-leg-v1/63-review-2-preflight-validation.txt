@@ -1,0 +1,9 @@
+2026-07-18 14:23:36 CST — review-2 preflight gate
+
+$ python3 scripts/validate-stage.py 2026-07-tradable-spot-leg-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-tradable-spot-leg-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50
+exit=0
