@@ -2,16 +2,16 @@
 
 ## Recovery Header
 
-- Active phase: review-2 / task-scoped Review-1 aggregate prepared; pre-accept pending
-- Next action: Commit the aggregate record, run pre-accept, then enter `stage_accepted_waiting_user` if it passes.
+- Active phase: stage_accepted_waiting_user / pre-accept candidate prepared
+- Next action: Run the committed-state `pre-accept` command. If it passes, wait for the user's explicit merge approval.
 - Read-set: `status.current_inputs`, `42-review-1-task-aggregate.md`, valid `50-review-2.md`, valid B1/F2+F3 task Review-1 retries, fixed delivery diff `d9c2772..9d53204`, and the active workflow final-gate section.
-- Open blockers: none. Earlier validator concern was a stage bookkeeping omission: existing Harness supports a provider-null, task-scoped Review-1 aggregate, as used by prior multi-task stages.
+- Open blockers: none. The terminal state remains a candidate until the required committed-state pre-accept command passes.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-borrow-task-ui-fake-v1`
-- Status: `review_2` (all task Review-1 evidence, the task-scoped aggregate, and Opus Review-2 are valid ACCEPT; pre-accept pending)
+- Status: `stage_accepted_waiting_user` candidate (all task Review-1 evidence, the task-scoped aggregate, and Opus Review-2 are valid ACCEPT; committed-state pre-accept pending)
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
 - Reviewed delivery commit: `9d53204d450ee0dc4519f52201b575e5b71e948b`
 - Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..9d53204d450ee0dc4519f52201b575e5b71e948b` / `9d53204d450ee0dc4519f52201b575e5b71e948b:a51dccee4055065ceece4ee3cee037909c096da4cf36a55144d945e757d025f3`
@@ -90,11 +90,11 @@
 
 ## Next Action
 
-Commit the aggregate record and run `scripts/validate-stage.py 2026-07-borrow-task-ui-fake-v1 --phase pre-accept`. If it passes, record `stage_accepted_waiting_user`; merge to `main` still requires the user's explicit acceptance.
+Run `scripts/validate-stage.py 2026-07-borrow-task-ui-fake-v1 --phase pre-accept` on the committed candidate. If it passes, preserve the validation log and wait for the user's explicit merge acceptance; do not merge solely because Review-2 accepted.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-19 01:54:28 CST
+本地北京时间: 2026-07-19 01:57:42 CST
 下一步模型: bookkeeper
-下一步任务: 提交 Review-1 aggregate 并运行 pre-accept
+下一步任务: 运行 committed-state pre-accept 验证

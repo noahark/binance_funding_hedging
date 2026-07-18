@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-borrow-task-ui-fake-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-borrow-task-ui-fake-v1",
@@ -374,7 +374,7 @@
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
-  "terminal_reason": null,
+  "terminal_reason": "stage_accepted_waiting_user",
   "reporting_preferences": {
     "execution_footer": {
       "include_provider_native_session_id": true,
@@ -384,6 +384,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "run_pre_accept_and_enter_stage_accepted_waiting_user",
-  "updated_at": "2026-07-19T01:54:28+08:00"
+  "next_action": "await_explicit_user_acceptance_before_merge_to_main",
+  "updated_at": "2026-07-19T01:57:42+08:00"
 }
