@@ -4,8 +4,8 @@
 
 - Stage: `2026-07-tradable-spot-leg-v1`.
 - Branch: `stage/2026-07-tradable-spot-leg-v1`, base `9a03069`.
-- Phase: Fable5 review-2 returned schema-valid `ACCEPT`; pre-accept passed with no authorized
-  exceptions, and the stage is `stage_accepted_waiting_user`.
+- Phase: user explicitly accepted the reviewed stage and authorized merge/push; fast-forward into
+  `main` is pending.
 - Complexity: LOW, user-approved lightweight route, no direction panel or development breakdown.
 - Owner: Claude-GLM (`zhipu_glm`) for backend/data semantics. Codex is excluded from code/fix
   authorship. Review-1 planned Kimi; review-2 planned Fable5 to avoid Codex design overlap.
@@ -47,6 +47,8 @@
   `51-review-2-validation.txt`. Open blockers: none.
 - Pre-accept evidence: `64-pre-accept-validation.txt`, PASS on the fixed delivery fingerprint with
   no authorized exceptions.
+- User authorization: `65-user-acceptance.md`; local `main` and `origin/main` both remain at base
+  `9a03069fa9942739c7d8077d3a33d4387afde048`, and that commit is an ancestor of the stage branch.
 - Gate evidence: `61-pre-review-validation.txt`. The checked-in validator does not support the
   documented `--evidence-out` option; the supported clean-state invocation passed and is the
   authoritative gate result.
@@ -57,15 +59,14 @@
 
 ## Next Action
 
-Stop for explicit user acceptance. If the user accepts the reviewed stage, the bookkeeper may
-merge or fast-forward the stage branch into `main`, rerun the relevant checks, update the final
-ledger/ACTIVE state, and push only under that explicit authorization. Until then, merge, push,
-deployment, and `main` changes remain unauthorized.
+Commit the user authorization on the stage branch, rerun pre-accept, fast-forward local `main`,
+run the frozen backend/frontend checks, update final ledger and `ACTIVE.json`, commit the closure,
+and push `main` to `origin`. Do not deploy or delete the stage branch.
 
 ---
 当前 Session ID: 019f734a-dd82-7a11-8367-93fc1a5e954c
 Session ID 来源: runtime_env
 原始输出路径: reports/agent-runs/2026-07-tradable-spot-leg-v1/70-handoff.md
-本地北京时间: 2026-07-18 14:37:30 CST
-下一步模型: human
-下一步任务: 显式验收或拒绝本阶段；未验收前不得 merge/push
+本地北京时间: 2026-07-18 16:41:49 CST
+下一步模型: Codex bookkeeper
+下一步任务: fast-forward 合并 main、运行合并后验证、提交最终台账并推送

@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-tradable-spot-leg-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
-  "current_phase": "stage-accepted-waiting-user",
+  "current_phase": "user-accepted-awaiting-main-fast-forward",
   "current_inputs": [
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/00-task.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/10-design.md",
@@ -20,7 +20,8 @@
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/63-review-2-preflight-validation.txt",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/50-review-2.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/51-review-2-validation.txt",
-    "reports/agent-runs/2026-07-tradable-spot-leg-v1/64-pre-accept-validation.txt"
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/64-pre-accept-validation.txt",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/65-user-acceptance.md"
   ],
   "stage_branch": {
     "name": "stage/2026-07-tradable-spot-leg-v1",
@@ -251,8 +252,16 @@
     "invalid_json_attempts": 0
   },
   "authorized_exceptions": [],
+  "user_acceptance": {
+    "accepted": true,
+    "accepted_at": "2026-07-18T16:41:49+08:00",
+    "evidence_file": "reports/agent-runs/2026-07-tradable-spot-leg-v1/65-user-acceptance.md",
+    "merge_to_main_authorized": true,
+    "push_main_authorized": true,
+    "deployment_authorized": false
+  },
   "rework_count": 0,
   "max_rework": 3,
   "zero_push": true,
-  "updated_at": "2026-07-18T14:37:30+08:00"
+  "updated_at": "2026-07-18T16:41:49+08:00"
 }
