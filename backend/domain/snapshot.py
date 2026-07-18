@@ -800,6 +800,38 @@ def _max_borrowable_value_usdt(asset, max_borrowable, price_map):
     return _quantize_rate(value)
 
 
+def _user_min_borrow_value_usdt(asset, user_min_borrow, price_map):
+    """≈USDT value of the classic-margin user_min_borrow (additive, 2dp string).
+
+    Stage 2026-07-borrow-task-ui-fake-v1 B1. Same amount/price routing as
+    ``_max_borrowable_value_usdt`` (stable USD assets priced at 1; ``<ASSET>USDT``
+    price lookup; ``None`` on null/blank/invalid amount or missing/invalid
+    price; raw ``"0"`` -> ``"0.00"``), but quantized to exactly two decimals
+    with ``ROUND_HALF_UP``. Deliberately does NOT reuse the 8dp ``_quantize_rate``
+    path used by ``portfolio_account.max_borrowable_value_usdt``. Emits no
+    warnings: this is guidance valuation, not an account alert.
+    """
+    if user_min_borrow is None or user_min_borrow == "":
+        return None
+    try:
+        amt = Decimal(str(user_min_borrow))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if asset in _STABLE_USD_ASSETS:
+        value = amt
+    else:
+        price = price_map.get(f"{asset}USDT")
+        if price is None or price == "":
+            return None
+        try:
+            value = amt * Decimal(str(price))
+        except (InvalidOperation, ValueError, TypeError):
+            return None
+    if value == 0:
+        value = Decimal(0)
+    return format(value.quantize(Decimal("0.01"), ROUND_HALF_UP), "f")
+
+
 def _balance_sort_key(row_with_index):
     idx, row = row_with_index
     raw = row.get("value_usdt")
@@ -1032,6 +1064,8 @@ def assemble_borrow_validation(
                 "asset_borrowable": None,
                 "daily_interest_vip0": None,
                 "daily_interest_account": None,
+                "user_min_borrow": None,
+                "user_min_borrow_value_usdt": None,
                 "source": "sapi_reference",
             },
             "portfolio_account": {
@@ -1048,9 +1082,13 @@ def assemble_borrow_validation(
     if pair_listed:
         asset_borrowable = classic_ref.get("asset_borrowable_by_name", {}).get(base)
         daily_vip0 = classic_ref.get("daily_interest_vip0_by_coin", {}).get(base)
+        user_min_borrow = classic_ref.get("user_min_borrow_by_name", {}).get(base)
     else:
         asset_borrowable = None
         daily_vip0 = None
+        user_min_borrow = None
+    user_min_borrow_value_usdt = _user_min_borrow_value_usdt(
+        base, user_min_borrow, price_map or {})
     if borrowability_truncated:
         # Borrowability NOT probed (beyond the maxBorrowable budget) but the
         # classic reference is valid and the borrow rate IS covered: keep the
@@ -1063,6 +1101,8 @@ def assemble_borrow_validation(
                 "asset_borrowable": asset_borrowable,
                 "daily_interest_vip0": daily_vip0,
                 "daily_interest_account": daily_interest_account,
+                "user_min_borrow": user_min_borrow,
+                "user_min_borrow_value_usdt": user_min_borrow_value_usdt,
                 "source": "sapi_reference",
             },
             "portfolio_account": {
@@ -1083,6 +1123,8 @@ def assemble_borrow_validation(
             "asset_borrowable": asset_borrowable,
             "daily_interest_vip0": daily_vip0,
             "daily_interest_account": daily_interest_account,
+            "user_min_borrow": user_min_borrow,
+            "user_min_borrow_value_usdt": user_min_borrow_value_usdt,
             "source": "sapi_reference",
         },
         "portfolio_account": {

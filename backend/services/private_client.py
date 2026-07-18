@@ -236,8 +236,9 @@ class PrivateClient:
         """Market-level classic-margin reference (W1+W2+W3), 1h TTL.
 
         Returns ``{"pair_listed_by_symbol", "asset_borrowable_by_name",
-        "daily_interest_vip0_by_coin"}`` or ``None`` (disabled/failed). On
-        failure sets ``last_error``; caller records verified=false.
+        "daily_interest_vip0_by_coin", "user_min_borrow_by_name"}`` or ``None``
+        (disabled/failed). On failure sets ``last_error``; caller records
+        verified=false.
         """
         if not self.enabled:
             self.last_error = "private_channel_disabled"
@@ -264,6 +265,13 @@ class PrivateClient:
             },
             "asset_borrowable_by_name": {
                 x.get("assetName"): bool(x.get("isBorrowable")) for x in all_assets
+            },
+            # Stage 2026-07-borrow-task-ui-fake-v1 B1: classic-margin
+            # userMinBorrow preserved as the RAW decimal string keyed by assetName
+            # (no bool/float/Decimal coercion). A record missing userMinBorrow
+            # maps to None; assembly gates this exactly like asset_borrowable.
+            "user_min_borrow_by_name": {
+                x.get("assetName"): x.get("userMinBorrow") for x in all_assets
             },
             "daily_interest_vip0_by_coin": {
                 x.get("coin"): x.get("dailyInterest")

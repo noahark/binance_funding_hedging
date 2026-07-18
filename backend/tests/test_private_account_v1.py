@@ -29,6 +29,7 @@ from backend.domain.snapshot import (
     sort_rows,
 )
 from backend.domain.snapshot import _max_borrowable_value_usdt
+from backend.domain.snapshot import _user_min_borrow_value_usdt
 from backend.services import private_client
 from backend.services.private_client import PrivateClient, _select_chain_tier
 
@@ -240,6 +241,178 @@ def test_borrow_validation_truncated_state():
     assert bv["classic_margin"]["daily_interest_account"] == "0.00010000"  # KEPT
     assert bv["checked_at"] == "t"  # KEPT
     assert bv["portfolio_account"]["max_borrowable"] is None  # cleared
+
+
+# =========================================================================
+# Stage 2026-07-borrow-task-ui-fake-v1 B1 — classic_margin user_min_borrow
+# additive contract: raw-string preservation, asset_borrowable-mirrored gates,
+# 2dp ROUND_HALF_UP valuation, borrowability_truncated retention, schema, and
+# the unchanged 8dp max_borrowable_value_usdt.
+# =========================================================================
+_UMB_ROW = {"symbol": "BTCUSDT", "base_asset": "BTC"}
+
+
+def _umb_ref(umb_by_name):
+    return {
+        "pair_listed_by_symbol": {"BTCUSDT": True},
+        "asset_borrowable_by_name": {"BTC": True},
+        "daily_interest_vip0_by_coin": {"BTC": "0.0003"},
+        "user_min_borrow_by_name": umb_by_name,
+    }
+
+
+def test_user_min_borrow_value_usdt_stable_and_half_up():
+    # Stable USD assets price at 1; 2dp ROUND_HALF_UP (1.005 -> 1.01).
+    assert _user_min_borrow_value_usdt("USDT", "1.005", {}) == "1.01"
+    assert _user_min_borrow_value_usdt("USDC", "0", {}) == "0.00"  # raw zero -> "0.00"
+    assert _user_min_borrow_value_usdt("USDT", "123.4", {}) == "123.40"  # exactly 2dp
+
+
+def test_user_min_borrow_value_usdt_nonstable_price_routing():
+    # Non-stable uses <ASSET>USDT price; half-up at the third decimal (55.555 -> 55.56).
+    assert _user_min_borrow_value_usdt("BTC", "0.001", {"BTCUSDT": "60000"}) == "60.00"
+    assert _user_min_borrow_value_usdt("BTC", "0.001", {"BTCUSDT": "55555"}) == "55.56"
+
+
+def test_user_min_borrow_value_usdt_null_on_missing_or_invalid():
+    # Missing price, invalid/non-parseable amount, None/blank -> None (no warning).
+    assert _user_min_borrow_value_usdt("BTC", "0.001", {}) is None          # no price
+    assert _user_min_borrow_value_usdt("BTC", "abc", {"BTCUSDT": "1"}) is None  # bad amount
+    assert _user_min_borrow_value_usdt("BTC", None, {}) is None
+    assert _user_min_borrow_value_usdt("BTC", "", {}) is None
+
+
+def test_user_min_borrow_value_usdt_always_two_decimals():
+    import re
+    for asset, amt, pm, expected in [
+        ("USDT", "1.005", {}, "1.01"),
+        ("BTC", "0.001", {"BTCUSDT": "60000"}, "60.00"),
+        ("USDC", "0", {}, "0.00"),
+        ("USDT", "1000", {}, "1000.00"),
+    ]:
+        v = _user_min_borrow_value_usdt(asset, amt, pm)
+        assert v == expected
+        assert re.fullmatch(r"-?\d+\.\d{2}", v)  # exactly two decimals
+
+
+def test_assemble_user_min_borrow_classic_ref_none_branch():
+    bv = assemble_borrow_validation(_UMB_ROW, None, {}, None, "private_channel_disabled")
+    cm = bv["classic_margin"]
+    assert cm["user_min_borrow"] is None
+    assert cm["user_min_borrow_value_usdt"] is None
+
+
+def test_assemble_user_min_borrow_pair_not_listed_branch():
+    ref = _umb_ref({"BTC": "0.001"})
+    ref["pair_listed_by_symbol"] = {"BTCUSDT": False}  # not listed
+    bv = assemble_borrow_validation(_UMB_ROW, ref, {}, "t", None, price_map={"BTCUSDT": "60000"})
+    cm = bv["classic_margin"]
+    assert cm["user_min_borrow"] is None
+    assert cm["user_min_borrow_value_usdt"] is None
+
+
+def test_assemble_user_min_borrow_pair_listed_preserves_raw_and_values():
+    ref = _umb_ref({"BTC": "0.001"})  # synthetic nonzero raw (test-only)
+    bv = assemble_borrow_validation(_UMB_ROW, ref, {}, "t", None, price_map={"BTCUSDT": "60000"})
+    cm = bv["classic_margin"]
+    # raw decimal string preserved VERBATIM (output === input)
+    assert cm["user_min_borrow"] == "0.001"
+    assert cm["user_min_borrow_value_usdt"] == "60.00"  # 0.001 * 60000
+    # raw "0" (the real captured value) is valid and values to "0.00"
+    ref0 = _umb_ref({"BTC": "0"})
+    bv0 = assemble_borrow_validation(_UMB_ROW, ref0, {}, "t", None, price_map={"BTCUSDT": "60000"})
+    assert bv0["classic_margin"]["user_min_borrow"] == "0"
+    assert bv0["classic_margin"]["user_min_borrow_value_usdt"] == "0.00"
+
+
+def test_assemble_user_min_borrow_map_missing_key_is_null():
+    # pair listed but base_asset absent from user_min_borrow_by_name -> null
+    ref = _umb_ref({})  # no BTC key
+    bv = assemble_borrow_validation(_UMB_ROW, ref, {}, "t", None, price_map={"BTCUSDT": "60000"})
+    assert bv["classic_margin"]["user_min_borrow"] is None
+    assert bv["classic_margin"]["user_min_borrow_value_usdt"] is None
+
+
+def test_assemble_user_min_borrow_truncated_branch_retained():
+    # borrowability_truncated keeps classic_margin incl. both user_min_borrow*
+    # exactly as it keeps asset_borrowable / daily_interest_account.
+    ref = {
+        "pair_listed_by_symbol": {"XUSDT": True},
+        "asset_borrowable_by_name": {"X": True},
+        "daily_interest_vip0_by_coin": {"X": "0.0003"},
+        "user_min_borrow_by_name": {"X": "0.5"},
+    }
+    bv = assemble_borrow_validation(
+        {"symbol": "XUSDT", "base_asset": "X"}, ref, {}, "t", None,
+        daily_interest_account="0.00010000", borrowability_truncated=True,
+        price_map={"XUSDT": "2"},
+    )
+    cm = bv["classic_margin"]
+    assert cm["user_min_borrow"] == "0.5"           # retained
+    assert cm["user_min_borrow_value_usdt"] == "1.00"  # 0.5 * 2, retained
+    assert cm["daily_interest_account"] == "0.00010000"  # existing retention unchanged
+    assert bv["portfolio_account"]["max_borrowable"] is None  # only portfolio cleared
+
+
+def test_assemble_max_borrowable_value_usdt_keeps_eight_decimals():
+    # The new 2dp field must NOT alter the existing 8dp max_borrowable_value_usdt.
+    assert _max_borrowable_value_usdt("BTC", "0.001", {"BTCUSDT": "60000"}) == "60.00000000"
+    bv = assemble_borrow_validation(
+        _UMB_ROW, _umb_ref({"BTC": "0.001"}), {"BTC": {"max_borrowable": "0.001", "borrow_limit": "60"}},
+        "t", None, price_map={"BTCUSDT": "60000"},
+    )
+    pa = bv["portfolio_account"]
+    cm = bv["classic_margin"]
+    assert pa["max_borrowable_value_usdt"] == "60.00000000"  # 8dp untouched
+    assert cm["user_min_borrow_value_usdt"] == "60.00"        # 2dp, distinct path
+
+
+def test_user_min_borrow_schema_accepts_decimal_string_or_null(v03_schema):
+    # Positive: a listed classic_ref yields a non-null raw user_min_borrow (decimal
+    # string) and a null value (no price via the helper) — both schema-valid.
+    rows = _two_rows()
+    snap = _assemble_with_private(
+        rows, _enabled_pa(),
+        {"pair_listed_by_symbol": {"BTCUSDT": True}, "asset_borrowable_by_name": {"BTC": True},
+         "daily_interest_vip0_by_coin": {"BTC": "0.0003"},
+         "user_min_borrow_by_name": {"BTC": "0.001"}},
+        _select_chain_tier({"BTC": "0.00000500"}, {}, {"0": {}}, "5"),
+        "2026-07-06T00:00:00Z", None,
+    )
+    jsonschema.validate(snap, v03_schema)
+    btc = next(r for r in snap["rows"] if r["symbol"] == "BTCUSDT")
+    cm = btc["borrow_validation"]["classic_margin"]
+    assert cm["user_min_borrow"] == "0.001"          # decimal_string accepted
+    assert cm["user_min_borrow_value_usdt"] is None  # null accepted
+    # A hand-set 2dp decimal string for the value field is also schema-valid.
+    cm["user_min_borrow_value_usdt"] = "60.00"
+    jsonschema.validate(snap, v03_schema)
+
+
+def test_user_min_borrow_schema_rejects_missing_field_and_extra_property(v03_schema):
+    rows = _two_rows()
+    snap = _assemble_with_private(
+        rows, _enabled_pa(),
+        {"pair_listed_by_symbol": {"BTCUSDT": True}, "asset_borrowable_by_name": {"BTC": True},
+         "daily_interest_vip0_by_coin": {"BTC": "0.0003"}},
+        _select_chain_tier({"BTC": "0.00000500"}, {}, {"0": {}}, "5"),
+        "2026-07-06T00:00:00Z", None,
+    )
+    btc = next(r for r in snap["rows"] if r["symbol"] == "BTCUSDT")
+    cm = btc["borrow_validation"]["classic_margin"]
+    # baseline valid (7 classic_margin fields incl. both new fields, null here)
+    jsonschema.validate(snap, v03_schema)
+    assert "user_min_borrow" in cm and "user_min_borrow_value_usdt" in cm
+    # negative: missing a required new field
+    bad_missing = dict(cm)
+    del bad_missing["user_min_borrow"]
+    btc["borrow_validation"]["classic_margin"] = bad_missing
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(snap, v03_schema)
+    # negative: undeclared property (additionalProperties: false)
+    btc["borrow_validation"]["classic_margin"] = dict(cm, bogus_field="x")
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(snap, v03_schema)
 
 
 # =========================================================================

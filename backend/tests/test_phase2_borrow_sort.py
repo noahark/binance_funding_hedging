@@ -225,10 +225,15 @@ def test_offline_full_snapshot_validates_v02_schema(schema):
             "asset_borrowable",
             "daily_interest_vip0",
             "daily_interest_account",
+            "user_min_borrow",
+            "user_min_borrow_value_usdt",
             "source",
         }
         assert set(bv["portfolio_account"]) == {"max_borrowable", "borrow_limit", "error_code", "max_borrowable_value_usdt", "source"}
-        # offline -> classic_ref None branch: both additive fields are None
+        # offline -> classic_ref None branch: every classic_margin additive
+        # field (incl. user_min_borrow*) and portfolio amount fields are None.
+        assert bv["classic_margin"]["user_min_borrow"] is None
+        assert bv["classic_margin"]["user_min_borrow_value_usdt"] is None
         assert bv["portfolio_account"]["error_code"] is None
         assert bv["portfolio_account"]["max_borrowable_value_usdt"] is None
 

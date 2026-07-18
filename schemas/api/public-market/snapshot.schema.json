@@ -431,7 +431,7 @@
         "classic_margin": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["pair_listed", "asset_borrowable", "daily_interest_vip0", "daily_interest_account", "source"],
+          "required": ["pair_listed", "asset_borrowable", "daily_interest_vip0", "daily_interest_account", "user_min_borrow", "user_min_borrow_value_usdt", "source"],
           "properties": {
             "pair_listed": { "type": ["boolean", "null"] },
             "asset_borrowable": { "type": ["boolean", "null"] },
@@ -442,6 +442,18 @@
               ]
             },
             "daily_interest_account": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "user_min_borrow": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "user_min_borrow_value_usdt": {
               "anyOf": [
                 { "$ref": "#/$defs/decimal_string" },
                 { "type": "null" }

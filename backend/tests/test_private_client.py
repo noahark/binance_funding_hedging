@@ -246,18 +246,43 @@ def test_classic_reference_maps_raw_fields(monkeypatch):
     client = _make_client(monkeypatch, [
         (json.dumps([{"symbol": "BTCUSDT", "isMarginTrade": True},
                      {"symbol": "FOOUSDT", "isMarginTrade": False}]), 200),
-        (json.dumps([{"assetName": "BTC", "isBorrowable": True}]), 200),
+        (json.dumps([{"assetName": "BTC", "isBorrowable": True, "userMinBorrow": "0"},
+                     {"assetName": "FOO", "isBorrowable": False}]), 200),  # FOO missing userMinBorrow -> None
         (json.dumps([{"coin": "BTC", "vipLevel": 0, "dailyInterest": "0.0005"},
                      {"coin": "BTC", "vipLevel": 1, "dailyInterest": "0.0004"}]), 200),
     ])
     ref = client.fetch_classic_reference()
     assert ref == {
         "pair_listed_by_symbol": {"BTCUSDT": True, "FOOUSDT": False},
-        "asset_borrowable_by_name": {"BTC": True},
+        "asset_borrowable_by_name": {"BTC": True, "FOO": False},
         "daily_interest_vip0_by_coin": {"BTC": "0.0005"},  # only vipLevel 0
+        # B1: userMinBorrow preserved verbatim as the raw decimal string keyed by
+        # assetName; a record missing the field maps to None (no coercion).
+        "user_min_borrow_by_name": {"BTC": "0", "FOO": None},
         # S3 (§5.1): additive full VIP-level daily-interest table shared with the
         # vip0 view; assembly derives tier③/④ borrow rates from it.
         "cross_margin_daily_by_vip": {"0": {"BTC": "0.0005"}, "1": {"BTC": "0.0004"}},
+    }
+
+
+def test_classic_reference_user_min_borrow_preserves_nonzero_raw(monkeypatch):
+    # B1: a synthetic NONZERO userMinBorrow (test-only — the real captured sample
+    # is uniformly "0") is preserved VERBATIM as the raw decimal string: no
+    # coercion, rounding, or normalization. Output === input exactly.
+    client = _make_client(monkeypatch, [
+        (json.dumps([{"symbol": "BTCUSDT", "isMarginTrade": True}]), 200),
+        (json.dumps([
+            {"assetName": "BTC", "isBorrowable": True, "userMinBorrow": "0.001"},
+            {"assetName": "ETH", "isBorrowable": True, "userMinBorrow": "0.0005"},
+            {"assetName": "X", "isBorrowable": False},  # field absent -> None
+        ]), 200),
+        (json.dumps([{"coin": "BTC", "vipLevel": 0, "dailyInterest": "0.0005"}]), 200),
+    ])
+    ref = client.fetch_classic_reference()
+    assert ref["user_min_borrow_by_name"] == {
+        "BTC": "0.001",    # 3dp preserved verbatim, not rounded
+        "ETH": "0.0005",   # 4dp preserved verbatim
+        "X": None,         # missing field -> None, no coercion
     }
 
 
