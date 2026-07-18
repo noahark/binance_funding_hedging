@@ -32,6 +32,7 @@
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/25-review-1.dispatch.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/30-review-1.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/13-scope-amendment-v2.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/14-user-min-borrow-contract-amendment.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/27-claude-development-breakdown.dispatch.md"
   ],
   "parallel_mode": {
@@ -120,7 +121,8 @@
       "Frontend-only fake prototype with no backend, API, credentials, persistence, or external side effects.",
       "User explicitly requested the fake UI first and deferred backend logic.",
       "Changes are bounded to existing frontend and self-check files.",
-      "User scope amendment adds a task state machine, soft deletion, task configuration edits, and state filters; MEDIUM development breakdown is required."
+      "User scope amendment adds a task state machine, soft deletion, task configuration edits, and state filters; MEDIUM development breakdown is required.",
+      "An additive existing-classic-reference backend/schema field is required to render minimum-borrow placeholder guidance; no new endpoint or external side effect is introduced."
     ]
   },
   "direction_panel": {"panel_key": null, "members": {}},
@@ -173,7 +175,7 @@
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": ["User-approved scope amendment supersedes review-1 round 1; awaiting human-executed Claude development-breakdown dispatch before Kimi implementation."],
+  "blockers": ["User-approved scope amendments supersede review-1 round 1; awaiting human-executed Claude development-breakdown dispatch before dependency-ordered Claude-GLM and Kimi implementation."],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
   "reporting_preferences": {
@@ -186,5 +188,5 @@
     }
   },
   "next_action": "human_operator_execute_claude_development_breakdown_dispatch",
-  "updated_at": "2026-07-18T21:40:44+08:00"
+  "updated_at": "2026-07-18T21:53:57+08:00"
 }

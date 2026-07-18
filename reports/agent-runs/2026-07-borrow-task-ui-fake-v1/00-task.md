@@ -21,6 +21,13 @@ Allowed files:
 
 - `frontend/index.html`
 - `frontend/self-check.js`
+- `backend/services/private_client.py`
+- `backend/domain/snapshot.py`
+- `backend/tests/test_private_client.py`
+- `backend/tests/test_private_account_v1.py`
+- `backend/tests/fixtures/private-account-v1-design.json`
+- `schemas/api/public-market/snapshot.schema.json`
+- `reports/api-samples/2026-07-borrow-task-ui-fake-v1/sapi-v1-margin-allAssets.json`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/20-implementation.md`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/60-test-output.txt`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/status.json`
@@ -33,7 +40,7 @@ Forbidden or out-of-scope files:
 - `docs/**`
 - `workflows/**`
 - `agents/**`
-- API fixtures and public-market contracts
+- canonical API documentation (this amendment remains in stage evidence pending user-approved promotion)
 
 ## Acceptance Criteria
 
@@ -62,6 +69,16 @@ Additional acceptance criteria:
 - The borrow-task list exposes per-task amount and total-success-target inputs plus a confirmation control. Valid edits update only that in-memory task, retain its success count, and recalculate its displayed total. Invalid/readonly edits create no state change and show a local error.
 - The borrow-task title has working filters 全部、借币中、已暂停、已删除、已完成. 全部 includes every in-memory task. The completed filter/state is rendered correctly even though this fake stage supplies no automatic or manual completion mechanism.
 - Self-check covers default active state, pause/start transitions, soft deletion, filter counts and membership, valid/invalid task edits, readonly deleted/completed state, and the absence of borrow fetches/retry timers for every new action.
+
+## Amendment v3 — Minimum Borrow Guidance
+
+See `14-user-min-borrow-contract-amendment.md` for raw evidence and frozen semantics.
+
+Additional acceptance criteria:
+
+- Backend maps `allAssets[].userMinBorrow` by `assetName` into `classic_ref.user_min_borrow_by_name`, preserving raw decimal-string values and following the same row lookup gates as `asset_borrowable`.
+- Every `classic_margin` producer branch emits `user_min_borrow` as decimal string or null; schema, design fixture, negative schema coverage, and raw public sample evidence are updated accordingly.
+- The fee-market operation amount input remains empty and changes only its placeholder from fixed `如 1000` to `最小借币量 <value>` or `最小借币量 —`. It must not modify validation, task creation, task-list edit controls, network behavior, timers, or persistence.
 
 ## Designer
 

@@ -10,6 +10,8 @@
 
 同时删除额度子行中的独立“已借完”徽标；保留借贷状态徽标“可借 0(已借完)”。
 
+用户追加了最小借币量契约：已有 `GET /sapi/v1/margin/allAssets` 的 `userMinBorrow` 按 `assetName` 保存并装配到 `rows[].borrow_validation.classic_margin.user_min_borrow`，匹配规则与 `asset_borrowable` 相同。行情表操作列的单次借币数量输入保持空值，只将固定“如 1000”替换成最小借币量占位提示。
+
 ## Classification
 
 - Complexity: `MEDIUM`
@@ -25,6 +27,7 @@
 - 用户明确要求先完成前端 fake 并在视觉确认后再增加后端逻辑，等同于批准轻量路线。
 - 现有表格行已经提供 `base_asset`，可作为任务资产，不需要新增资产选择器或伪造行情行。
 - 用户追加了任务状态机、软删除、列表内参数编辑和状态筛选；这已超出 LOW 的一次性 UI 原型，但仍是用户明确批准的前端 fake 范围。
+- 最小借币量是现有 classic-reference 链路的窄幅后端/契约扩展；它需要原始公共样例、schema 和后端测试，但不增加新 endpoint、写操作或外部副作用。
 
 ## Human Gates
 

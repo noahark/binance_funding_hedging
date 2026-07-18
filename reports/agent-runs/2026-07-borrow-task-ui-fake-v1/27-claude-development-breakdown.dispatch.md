@@ -13,10 +13,11 @@ Read these raw artifacts before writing:
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/10-design.md`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/11-adr.md`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/13-scope-amendment-v2.md`
+- `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/14-user-min-borrow-contract-amendment.md`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/30-review-1.md`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/status.json`
 
-Write `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/12-development-breakdown.md`. It must define one Kimi-owned implementation task with:
+Write `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/12-development-breakdown.md`. It must define two dependency-ordered implementation tasks: Claude-GLM owns the backend/schema/raw-sample contract amendment; Kimi owns the frontend task-state/filter/edit UI and consumes the new field after the backend contract lands. It must include:
 
 - allowed and forbidden files;
 - the task status model (`borrowing`, `paused`, `deleted`, `completed`), exact start/pause/delete transition and button-enable rules;
@@ -26,8 +27,10 @@ Write `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/12-development-breakdow
 - no-fetch/no-timer/no-persistence/non-backend boundaries;
 - self-check cases, manual visual checks, risks, and review focus;
 - treatment of the old review-1 ACCEPT as superseded by the user scope amendment.
+- the exact `allAssets[].userMinBorrow → classic_ref.user_min_borrow_by_name → rows[].borrow_validation.classic_margin.user_min_borrow` mapping, null/pair-listed gates matching `asset_borrowable`, raw-string preservation, schema/fixture/test requirements, and the required raw public sample copy under `reports/api-samples/2026-07-borrow-task-ui-fake-v1/`;
+- the market operation amount input placeholder rule `最小借币量 <value>` / `最小借币量 —`, including that the input value stays empty and task-list edit inputs are not changed by this rule.
 
-Do not make up a backend contract, retry behavior, API endpoint, storage model, simulated-success button, or a fake HOME market row. Retain the two P3 notes from old review-1 as optional review inputs, not mandatory work unless your breakdown identifies a direct conflict.
+Do not make up a new backend endpoint, retry behavior, storage model, simulated-success button, fake HOME market row, or a nonzero raw `userMinBorrow` sample. Retain the two P3 notes from old review-1 as optional review inputs, not mandatory work unless your breakdown identifies a direct conflict.
 
 Then update only this stage's `status.json` to record you as `breakdown_author` and append a session receipt with verified provider-native Session ID or explicit unavailable reason. Update `70-handoff.md` with the next action. Include the mandatory footer in the breakdown report.
 

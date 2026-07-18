@@ -60,6 +60,14 @@ Replace the borrow-task cards with an accessible task list/table layout that can
 
 Review focus: correct state transition/button enablement, soft-delete visibility, filter membership, preservation of amount/target validation, explicit fake disclosures, no external side effects, and no regressions to existing market drawer event handling.
 
+## Amendment v3 Design — Minimum Borrow Guidance
+
+The existing classic-margin reference already fetches `allAssets`. Add a parallel `user_min_borrow_by_name` map keyed by `assetName`, then project it through `assemble_borrow_validation` exactly where `asset_borrowable_by_name` is projected. Do not reuse `max_borrowable`: the former is a minimum request amount; the latter is current account/pool capacity.
+
+The contract field is a raw decimal string or null, not a JavaScript/float value. The frontend derives an amount-input placeholder only; it does not write the value into the input. This keeps the existing user-confirmation semantics and avoids treating a minimum as a recommendation, available amount, or a real borrow instruction.
+
+Backend and frontend are separable but contract-dependent: Claude-GLM lands the map/assembly/schema/raw sample/tests first; Kimi then consumes the additive field in the existing market operation-cell placeholder while implementing the v2 task UI state work. The development breakdown must make that dependency explicit and keep both tasks within the same stage.
+
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/10-design.md

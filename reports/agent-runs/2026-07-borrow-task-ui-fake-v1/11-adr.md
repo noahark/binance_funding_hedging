@@ -55,6 +55,12 @@ There is no completion transition in this fake because no scheduler or success e
 
 Task configuration edits are presentation-only local mutations, not an instruction to an external scheduler. Allowing edits while borrowing is intentional for this fake preview; later backend design must decide whether active-task edits require a pause/restart, optimistic concurrency, and audit records.
 
+## Amendment v3: Minimum Is Not Availability
+
+`userMinBorrow` is a classic-margin asset rule and must remain distinct from `portfolio_account.max_borrowable`, which is account/pool availability. The field follows the exact pair-listed gate used by `asset_borrowable` so an asset is not shown as having a usable minimum for a non-margin pair.
+
+The UI renders the field as a placeholder, not as an input value. A minimum of `"0"` is a valid raw response and must display faithfully; it does not mean a task should be created with zero (existing validation still rejects zero). Missing/private-unavailable data renders `最小借币量 —` rather than a fabricated fallback value.
+
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/11-adr.md
