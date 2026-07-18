@@ -42,7 +42,8 @@
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/22-implementation-frontend-v2.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/62-test-output-frontend-v2.txt",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/33-kimi-review-1-backend-b1.dispatch.md",
-    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/34-claude-glm-review-1-frontend-f2.dispatch.md"
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/34-claude-glm-review-1-frontend-f2.dispatch.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/63-pre-review-validation.txt"
   ],
   "parallel_mode": {
     "enabled": false,
@@ -272,5 +273,5 @@
     }
   },
   "next_action": "human_operator_execute_cross_review_1_packets",
-  "updated_at": "2026-07-18T23:14:53+08:00"
+  "updated_at": "2026-07-18T23:15:28+08:00"
 }
