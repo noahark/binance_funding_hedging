@@ -2,20 +2,20 @@
 
 ## Recovery Header
 
-- Active phase: review-2 / Opus 4.8 dispatch prepared
-- Next action: Human operator runs `41-claude-review-2-opus4.8.dispatch.md` in a fresh read-only Opus 4.8 session and preserves raw output at `50-review-2.md`.
-- Read-set: `status.current_inputs`, `66-review-2-strong-reviewer-override.md`, valid B1/F2+F3 task Review-1 retries, fixed delivery diff `d9c2772..9d53204`, and the active workflow Review-2 section.
-- Open blockers: The future Harness repair remains necessary for task-scoped Review-1 aggregation before pre-accept. It does not prevent collecting independent Review-2 code-quality evidence now.
+- Active phase: review-2 / Opus 4.8 schema-valid ACCEPT recorded; Harness repair pending
+- Next action: Await the user's focused Harness-repair instruction; do not alter delivery code or mark the stage accepted before the repaired validator can pass pre-accept.
+- Read-set: `status.current_inputs`, valid `50-review-2.md`, `66-review-2-strong-reviewer-override.md`, valid B1/F2+F3 task Review-1 retries, fixed delivery diff `d9c2772..9d53204`, and the active workflow Review-2/final-gate sections.
+- Open blockers: The future Harness repair remains necessary for task-scoped Review-1 aggregation before pre-accept. Review-2 is independently ACCEPT with five non-blocking P3 findings.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-borrow-task-ui-fake-v1`
-- Status: `review_1` (F3 acceptance fix committed; prior review-1 packets are stale, and the historical old review remains non-accepting)
+- Status: `review_2` (all task Review-1 evidence and Opus Review-2 are valid ACCEPT; the only gate defect is task-scoped Review-1 aggregation)
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
 - Reviewed delivery commit: `9d53204d450ee0dc4519f52201b575e5b71e948b`
 - Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..9d53204d450ee0dc4519f52201b575e5b71e948b` / `9d53204d450ee0dc4519f52201b575e5b71e948b:a51dccee4055065ceece4ee3cee037909c096da4cf36a55144d945e757d025f3`
-- Git status: B1 `623d059b52723d9ee412519db054a2a25cedf504`; F2 `ddcecf5533352c25886aeadfdc233a826603ba7b`; F3 `9d53204d450ee0dc4519f52201b575e5b71e948b`; Opus 4.8 Review-2 packet pending commit
+- Git status: B1 `623d059b52723d9ee412519db054a2a25cedf504`; F2 `ddcecf5533352c25886aeadfdc233a826603ba7b`; F3 `9d53204d450ee0dc4519f52201b575e5b71e948b`; Opus 4.8 Review-2 evidence pending commit
 - Implementer: Claude-GLM B1 complete (Session ID unavailable through harness); Kimi F2/F3 complete (Session ID `83684f19-df9d-44ba-885c-267a01656f75`, transcript_path)
 - Parallel mode: disabled
 
@@ -47,7 +47,7 @@
 - Review 1 raw output: `30-review-1.md` — ACCEPT for old diff, superseded by scope amendment
 - Fix report: pending `40-fix-report.md`
 - Review-2 strong-reviewer disclosure: `66-review-2-strong-reviewer-override.md`
-- Opus 4.8 Review-2 dispatch: `41-claude-review-2-opus4.8.dispatch.md`; raw output pending `50-review-2.md`
+- Opus 4.8 Review-2 dispatch: `41-claude-review-2-opus4.8.dispatch.md`; raw output `50-review-2.md` (schema-valid ACCEPT)
 - Test output: `60-test-output.txt`
 - Pre-review validation: `26-pre-review-validation.txt`
 - Review-2 pre-review validation: `67-pre-review-validation-review2.txt` (PASS for fixed fingerprint)
@@ -81,18 +81,19 @@
 - v3 frozen interpretation: `userMinBorrow` is a raw string distinct from current availability; `user_min_borrow_value_usdt` uses the same price routing but is stored with exactly two decimal places (`ROUND_HALF_UP`), while the existing max-borrow value remains eight-decimal. They are market-operation placeholder guidance only. Existing raw evidence contains the field but only `"0"` values, so synthetic coverage must supplement—not replace—the stage-local raw copy.
 - F2 implementation disclosure: browser visual/Network-panel checks were not run in the model environment; DOM self-check coverage passed. The existing class of unsubmitted-input reset on whole-list re-render also applies to other task cards after lifecycle/filter/edit actions; this is a disclosed P3 review concern, not an accepted manual-test result.
 - F3 acceptance interpretation: lifecycle disablement was already correct (`borrowing` disables 启动; `paused` disables 暂停), but action colours were absent. F3 adds explicit disabled-grey styling plus green 启动, grey 暂停, and red 删除 themes without changing fake task semantics.
+- Opus Review-2 finds five non-blocking P3s: a whitespace-only stage dispatch issue; sub-1e-6 fake amount display; incomplete scheduler-primitive assertion coverage; escaped-symbol ID consistency; and task-scoped Review-1 aggregation. Carry the unsubmitted-edit rerender behavior and the pre-existing row `role="button"`/focusable-control accessibility debt into the real-borrow UI stage before enabling execution.
 
 ## Blockers
 
-- B1 retry 1 and F2+F3 retry 1 are schema-valid ACCEPT. The top-level task-scoped Review-1 aggregation defect remains for the planned Harness repair. Opus 4.8 is an independent-from-code-authors Review-2 reviewer, with prior Anthropic breakdown involvement disclosed in `66-review-2-strong-reviewer-override.md`.
+- B1 retry 1, F2+F3 retry 1, and Opus 4.8 Review-2 are schema-valid ACCEPT. The top-level task-scoped Review-1 aggregation defect remains for the planned Harness repair. Do not use an authorized exception to waive an ACCEPT verdict or reviewer identity requirement.
 
 ## Next Action
 
-Human operator executes the prepared Opus 4.8 read-only review. After its raw verdict is recorded, the user may direct the focused Harness repair; do not alter delivery code or invent a top-level Review-1 verdict.
+Await the user's command for the focused Harness repair. After it lands on `main`, follow the recorded branch-sync exception procedure, rebind/revalidate this stage, and only then enter `stage_accepted_waiting_user` if pre-accept passes.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-19 01:38:50 CST
-下一步模型: Opus 4.8（由人类操作员只读执行）
-下一步任务: 运行 41 dispatch 并将原始 Review-2 输出保存为 50-review-2.md
+本地北京时间: 2026-07-19 01:49:40 CST
+下一步模型: 人类产品/流程负责人
+下一步任务: 下达 task-scoped Review-1 Harness 修复指令
