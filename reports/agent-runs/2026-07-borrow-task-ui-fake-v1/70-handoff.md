@@ -2,19 +2,20 @@
 
 ## Recovery Header
 
-- Active phase: implementation complete, awaiting review-gate commit
-- Next action: Bookkeeper inspects diff + test evidence, creates the local review-gate commit on `stage/2026-07-borrow-task-ui-fake-v1`, computes the standard `diff_fingerprint`, runs `scripts/validate-stage.py 2026-07-borrow-task-ui-fake-v1 --phase pre-review`, then dispatches review-1 (claude_glm).
-- Read-set: `status.current_inputs`, `20-implementation.md`, `60-test-output.txt`, git diff of the worktree
-- Open blockers: worktree is intentionally uncommitted (dispatch required the implementer not to commit); review gates require a committed state.
+- Active phase: review-1 dispatch prepared
+- Next action: Human operator runs the fresh Claude-GLM read-only review packet `25-review-1.dispatch.md`, records raw output in `30-review-1.md`, and returns the result to the bookkeeper.
+- Read-set: `status.current_inputs`, `20-implementation.md`, `60-test-output.txt`, `25-review-1.dispatch.md`, and committed diff `d9c2772..edb2002`
+- Open blockers: Human-run review-1 dispatch is required; no review verdict exists yet.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-borrow-task-ui-fake-v1`
-- Status: `implementing` (implementation done in worktree; no review-gate commit yet)
+- Status: `review_1` (delivery commit is frozen; formal cross-review verdict pending)
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
-- HEAD: `b12838a31c49bc67db4aa0b1f710fa7d167d010a` (dispatch checkpoint commit)
-- Git status: uncommitted changes in `frontend/index.html`, `frontend/self-check.js`, `60-test-output.txt`, `20-implementation.md`, `status.json`, `70-handoff.md` — left intentionally for the bookkeeper's review-gate commit
+- Reviewed delivery commit: `edb20022e3490b89a805fa6eda374574523317e2`
+- Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..edb20022e3490b89a805fa6eda374574523317e2` / `edb20022e3490b89a805fa6eda374574523317e2:e3e97e020a81270214b15ccf349a969f159f831c72047d24ddffe2b7b1bcf133`
+- Git status: review metadata checkpoint pending commit
 - Implementer: Kimi (`kimi-code/kimi-for-coding`), Session ID `83684f19-df9d-44ba-885c-267a01656f75` (transcript_path)
 - Parallel mode: disabled
 
@@ -28,7 +29,8 @@
 - Kimi dispatch: `15-kimi-implementation.dispatch.md`
 - Implementation: `20-implementation.md`
 - Embedded review checkpoints: not applicable
-- Review 1: pending `30-review-1.md`
+- Review-1 dispatch: `25-review-1.dispatch.md`
+- Review 1 raw output: pending `30-review-1.md`
 - Fix report: pending `40-fix-report.md`
 - Review 2: pending `50-review-2.md`
 - Test output: `60-test-output.txt`
@@ -53,19 +55,20 @@
 
 ## Open Findings
 
-- None from implementation. Operation-control real-DOM event binding is not executable under the self-check mock DOM; creation/validation/display paths are tested via `__appHelpers`, and event isolation is covered by structural assertion (review-1 may want to eyeball `attachRowHandlers`).
+- Operation-control real-DOM event binding is not executable under the self-check mock DOM; creation/validation/display paths are tested via `__appHelpers`, and event isolation is covered by structural assertion (review-1 must inspect `attachRowHandlers`).
+- Bookkeeper preflight found no blocker; independent `node frontend/self-check.js` and `git diff --check` both pass. This is not a formal review verdict.
 
 ## Blockers
 
-- Worktree intentionally uncommitted; review gates require the bookkeeper's local commit.
+- Human operator must execute the prepared fresh Claude-GLM review-1 dispatch. This bookkeeper session may prepare the packet but must not invoke the reviewer.
 
 ## Next Action
 
-Bookkeeper: review the diff and test evidence, create the review-gate commit on the stage branch, compute `base_sha..head_sha` `diff_fingerprint`, run `scripts/validate-stage.py 2026-07-borrow-task-ui-fake-v1 --phase pre-review`, then dispatch review-1 to claude_glm with raw artifacts.
+Run the Claude-GLM review-1 packet. If it returns ACCEPT with valid JSON, do not start review-2 yet: wait for the user's visual acceptance request. If it returns REWORK, dispatch its verbatim `fix_start_prompt` to Kimi.
 
-当前 Session ID: 83684f19-df9d-44ba-885c-267a01656f75
-Session ID 来源: transcript_path
+当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
+Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-18 19:00:34 CST
-下一步模型: bookkeeper (Codex/GPT)
-下一步任务: review-gate commit + validate-stage pre-review + 派发 review-1 (claude_glm)
+本地北京时间: 2026-07-18 19:43:44 CST
+下一步模型: Claude-GLM
+下一步任务: 执行 25-review-1.dispatch.md 的只读交叉审查
