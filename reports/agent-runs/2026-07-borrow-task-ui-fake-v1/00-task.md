@@ -31,13 +31,17 @@ Allowed files:
 - `reports/api-samples/2026-07-borrow-task-ui-fake-v1/sapi-v1-margin-allAssets.json`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/20-implementation.md`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/60-test-output.txt`
+- `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/21-implementation-backend.md`
+- `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/61-test-output-backend.txt`
+- `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/22-implementation-frontend-v2.md`
+- `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/62-test-output-frontend-v2.txt`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/status.json`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md`
 
-Forbidden or out-of-scope files:
+Forbidden or out-of-scope files (except the explicitly listed amendment files above):
 
-- `backend/**`
-- `schemas/**`
+- other `backend/**`
+- other `schemas/**`
 - `docs/**`
 - `workflows/**`
 - `agents/**`

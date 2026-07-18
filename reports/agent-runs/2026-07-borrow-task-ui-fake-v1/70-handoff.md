@@ -2,20 +2,20 @@
 
 ## Recovery Header
 
-- Active phase: scope amendment / development breakdown
-- Next action: Human operator runs `27-claude-development-breakdown.dispatch.md`; then Claude-GLM implements the dependent backend/schema/raw-sample amendment and Kimi implements the amended frontend fake task before a new review-1.
-- Read-set: `status.current_inputs`, `13-scope-amendment-v2.md`, `14-user-min-borrow-contract-amendment.md`, prior `30-review-1.md`, and `27-claude-development-breakdown.dispatch.md`
-- Open blockers: The previous review-1 ACCEPT is superseded by user-approved new requirements. Claude development breakdown must be captured before MEDIUM-stage implementation.
+- Active phase: implementation / backend Task B1 ready for human dispatch
+- Next action: Human operator executes `28-claude-glm-backend-b1.dispatch.md`. Kimi Task F2 (§3) is dispatched only after B1 lands on the stage branch with green tests and byte-identical raw-sample evidence.
+- Read-set: `status.current_inputs`, `12-development-breakdown.md`, `28-claude-glm-backend-b1.dispatch.md`, `13-scope-amendment-v2.md`, `14-user-min-borrow-contract-amendment.md`, prior `30-review-1.md`
+- Open blockers: The previous review-1 ACCEPT is superseded by user-approved new requirements; B1→F2 are dependency-ordered and each needs its own cross-provider review-1 (B1→Kimi, F2→Claude-GLM) before review-2.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-borrow-task-ui-fake-v1`
-- Status: `designing` (MEDIUM scope amendment; prior review-1 is historical evidence only)
+- Status: `implementing` (MEDIUM scope amendment; prior review-1 is historical evidence only)
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
 - Reviewed delivery commit: `edb20022e3490b89a805fa6eda374574523317e2`
 - Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..edb20022e3490b89a805fa6eda374574523317e2` / `edb20022e3490b89a805fa6eda374574523317e2:e3e97e020a81270214b15ccf349a969f159f831c72047d24ddffe2b7b1bcf133`
-- Git status: review metadata checkpoint pending commit
+- Git status: task-breakdown/dispatch checkpoint pending commit
 - Implementer: Kimi (`kimi-code/kimi-for-coding`), Session ID `83684f19-df9d-44ba-885c-267a01656f75` (transcript_path)
 - Parallel mode: disabled
 
@@ -32,7 +32,8 @@
 - Scope amendment: `13-scope-amendment-v2.md`
 - Minimum-borrow contract amendment: `14-user-min-borrow-contract-amendment.md`
 - Development-breakdown dispatch: `27-claude-development-breakdown.dispatch.md`
-- Development breakdown: pending `12-development-breakdown.md`
+- Development breakdown: `12-development-breakdown.md` (Claude Fable5, 2026-07-18; defines Task B1 backend / Task F2 frontend split, evidence paths 21/61 and 22/62)
+- Claude-GLM B1 dispatch: `28-claude-glm-backend-b1.dispatch.md`
 - Review-1 dispatch: `25-review-1.dispatch.md` (historical)
 - Review 1 raw output: `30-review-1.md` — ACCEPT for old diff, superseded by scope amendment
 - Fix report: pending `40-fix-report.md`
@@ -66,15 +67,15 @@
 
 ## Blockers
 
-- Human operator must execute the prepared Claude development-breakdown dispatch. This bookkeeper session may prepare the packet but must not invoke the model.
+- Human operator must execute the prepared Claude-GLM backend Task B1 packet. Kimi Task F2 stays blocked until B1 is committed on the stage branch with `python3 -m pytest backend/tests -q` green and the stage-local raw sample's SHA-256 matching its source.
 
 ## Next Action
 
-Run the Claude development-breakdown packet, collect `12-development-breakdown.md`, then prepare a Claude-GLM backend task followed by its dependent Kimi frontend task. The amended implementation must receive a fresh review-1 and review-2; do not reuse the prior ACCEPT.
+Human operator executes the prepared Claude-GLM Task B1 dispatch (backend `user_min_borrow` contract: map in `fetch_classic_reference`, assembly gates matching `asset_borrowable`, 2dp `ROUND_HALF_UP` valuation, schema/fixture/tests, byte-identical raw sample copy under `reports/api-samples/2026-07-borrow-task-ui-fake-v1/`). After B1 lands, dispatch Kimi Task F2 (task state machine/filters/edits + placeholder consuming the new fields). Then fresh review-1 per task (B1→Kimi, F2→Claude-GLM) and review-2; do not reuse the prior ACCEPT.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-18 22:01:37 CST
-下一步模型: Claude
-下一步任务: 执行 27-claude-development-breakdown.dispatch.md 的 MEDIUM 阶段开发细化
+本地北京时间: 2026-07-18 22:13:37 CST
+下一步模型: Claude-GLM（由人类操作员执行）
+下一步任务: 执行 28-claude-glm-backend-b1.dispatch.md，实现后端 Task B1 并提交原始报告/测试日志
