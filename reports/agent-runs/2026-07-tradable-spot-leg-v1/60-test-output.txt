@@ -1,0 +1,46 @@
+2026-07-18 12:23:14 CST — intake/design checks
+
+- branch: stage/2026-07-tradable-spot-leg-v1
+- base: 9a03069fa9942739c7d8077d3a33d4387afde048
+- main/origin-main equality before branch creation: PASS
+- Binance public sample requests: PASS
+- AERGOUSDT/XMRUSDT/LITUSDT spot status: BREAK/BREAK/BREAK
+- AERGOUSDT/XMRUSDT/LITUSDT spot book bid+ask: zero for all three
+- AERGOUSDT/XMRUSDT/LITUSDT futures book bid+ask: positive for all three
+- Claude-GLM adapter availability: PASS (alias resolved; expanded alias environment intentionally not retained)
+- implementation tests: PENDING HUMAN-EXECUTED CLAUDE-GLM DISPATCH
+
+2026-07-18 12:29:25 CST — frozen sample and stage checkpoint validation
+
+Commands:
+
+```text
+find reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/raw -name '*.json' -print0 | xargs -0 -n1 jq empty
+jq -r '.symbols[] | [.symbol,.status,(.isMarginTradingAllowed|tostring)] | @tsv' reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/raw/api-v3-exchangeInfo-symbols.json
+jq -r '.[] | [.symbol,.bidPrice,.askPrice] | @tsv' reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/raw/api-v3-ticker-bookTicker-symbols.json
+for sample in reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/raw/fapi-v1-ticker-bookTicker-*.json; do jq -r '[.symbol,.bidPrice,.askPrice] | @tsv' "$sample"; done
+jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-tradable-spot-leg-v1/status.json
+git diff --check
+python3 scripts/validate-stage.py 2026-07-tradable-spot-leg-v1 --phase checkpoint
+```
+
+Raw output:
+
+```text
+XMRUSDT    BREAK    false
+LITUSDT    BREAK    false
+AERGOUSDT  BREAK    false
+XMRUSDT    0.00000000  0.00000000
+LITUSDT    0.00000000  0.00000000
+AERGOUSDT  0.00000000  0.00000000
+AERGOUSDT  0.0238300   0.0238400
+LITUSDT    2.248700    2.248800
+XMRUSDT    332.03      332.06
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-tradable-spot-leg-v1
+phase=checkpoint
+status=implementing
+```
+
+Result: PASS. All JSON parsed, the observed spot/futures contrast is preserved, `git diff --check`
+was silent, and the stage checkpoint validator passed. Delivery tests remain pending implementation.
