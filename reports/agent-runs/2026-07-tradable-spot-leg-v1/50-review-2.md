@@ -1,0 +1,40 @@
+# Review-2 — 2026-07-tradable-spot-leg-v1（Anthropic / claude-fable-5）
+
+## 结论：ACCEPT
+
+固定指纹范围 `9a03069..7522ec3` 内的交付满足 PRD/合同要求，所有终审门禁问题逐项独立核验通过，无 P0/P1/P2 发现。
+
+## 身份与范围核验
+
+- 我以只读方式评审，未修改任何文件、未提交、未派工。评审方 provider 为 `anthropic`，与实现方 `zhipu_glm`、review-1 方 `moonshot_kimi`、设计方 `openai/Codex` 均无重叠；本人对本阶段无任何先前介入（`reviewer_prior_involvement: none`）。
+- 指纹独立复算：`git diff --binary 9a03069..7522ec3 -- . ':(exclude).../status.json' | shasum -a 256` = `79afe4f3...62ac50`，与派工、`status.json`、review-1、61/63 两次 validator 输出完全一致。
+- 交付头之后的 5 个提交（`90354bc..008a339`）仅为 Harness/评审簿记；`git diff 7522ec3..HEAD -- backend docs schemas frontend` 为空，工作区干净，故对工作区的只读复跑等价于对交付头的复跑。
+
+## 门禁问题逐项核验
+
+1. **仅 `status == "TRADING"` 解析（exact 与 alias 双路径）** — `backend/domain/normalize.py:70` 新增私有 helper `_tradable_spot`，严格字符串相等判断；`resolve_spot_leg` 两个候选（normalize.py:116、120）都经它解析。缺失键经 `spot.get("status")` 返回 `None` 不相等，未知值不相等——失败关闭由构造保证，不依赖枚举清单。
+2. **非交易 exact 不阻塞交易 alias** — exact 命中失败后代码顺序进入 `TRADIFI_PERPETUAL` alias 分支；`test_spot_leg_non_trading_exact_does_not_block_trading_alias`（exact BREAK + alias TRADING → `bstock_b_suffix_alias`）直接断言。反向约束（非交易 alias 不解析、PERPETUAL 不落 alias）分别由 case 5 与既有 `test_resolve_spot_leg_alias_not_triggered_for_perpetual` 钉住。
+3. **下游合同一致性** — `build_rows`（snapshot.py:141-200）与 `classify.py` 零改动：spot 为 `None` 时序列化为既有 no-leg 形状（`exists=false`、三字段 null），`classify_route` 对 `spot_symbol is None` 返回 `PERP_ONLY_EXCLUDED`，`negative_funding_status` 优先级第 1 条给出 `DISABLED_PERP_ONLY`，`positive_funding_enabled` 由 route 派生为 `False`。case 2 测试端到端驱动 `build_rows` 断言全部五项。match-type 字符串未增未改。附带收益：解析成功的 spot 记录现在必带 `status` 键，`spot["status"]` 序列化不再可能对无 status 记录 KeyError。
+4. **fixture 修复边界** — diff 确认恰好 4 处 `"status": "TRADING"` 字段添加，分布于 3 个旧测试（test_normalize.py:99、107、131-132），零断言/测试名/生产代码改动，与 `07-scope-extension-authorization.md`（user 授权，2026-07-18T13:43:26+08:00）及 09 派工包枚举精确一致。原始失败是新失败关闭语义下的预期 `TypeError`，不是被掩盖的生产缺陷；早前 `3 failed, 378 passed` 运行在 `60-test-output.txt` 原样留档。
+5. **样本真实支撑合同修订** — 我直接读了冻结原始 JSON：`api-v3-exchangeInfo-symbols.json` 中 AERGOUSDT/XMRUSDT/LITUSDT 全部 `"status":"BREAK"`、`isMarginTradingAllowed:false`；现货 bookTicker 三者双边 `0.00000000`；对应永续 bookTicker 报价正常（如 XMR 332.03/332.06）。manifest 记录全部为无签名公共 GET。满足"合同修订必须有 raw public sample"硬门禁。
+6. **文档与实现零漂移** — PRD 与 public-market-contract 的修订均为窄化措辞（`spot.exists` = 当前可交易已解析腿；`PERP_ONLY_EXCLUDED` 含"存在但非 TRADING"情形），与代码行为逐句对得上；合同其余部分（match_type 枚举、优先级表）未受影响。diff 文件清单不含 schema、frontend、私有账户、执行或凭据路径；ARCHITECTURE.md 无需改动也未改。
+7. **测试证据现时且充分** — `60-test-output.txt` 记录 17/31/381 passed + 前端自检 + `git diff --check`，bookkeeper 已独立复核；61（pre-review）与 63（review-2 preflight）validator 均 PASS 且指纹匹配。我本人以 `PYTHONDONTWRITEBYTECODE=1 … -p no:cacheprovider` 复跑：**381 passed，exit=0**；`node frontend/self-check.js` 全部通过；`git diff --check <base>..<head>` 干净。
+8. **review-1 有效性** — 我用 `jsonschema` 独立校验了 30-review-1.md 尾部 JSON：schema-valid，`ACCEPT`，指纹匹配，provider 隔离成立（moonshot_kimi ≠ zhipu_glm），31 号验证文件的 sha256 verbatim 复制链完整。其 P3（设计矩阵第 5 行"exact 缺失 + alias 非 TRADING"无字面单测）我独立评估后同意仅为可选项：`_tradable_spot` 对"缺失"与"非 TRADING"是同一返回路径，alias 分支只有一条，case 5 与 `test_resolve_spot_leg_none_when_no_spot` 的组合已钉住全部行为，不构成 required fix。
+9. **簿记与身份治理** — bookkeeper 兼设计（Codex）已在 `status.json` 披露且非实现/修复作者；实现与 fixture 修复同一 zhipu_glm 会话有 receipts；review-2 选 Anthropic 优先正是为保持与设计方隔离，无需 strong-reviewer override。`rework_count=0`，`zero_push=true`。
+
+## 残余风险（不阻塞）
+
+- 非交易现货记录的原始 status（如 BREAK）不再出现在行内，为 ADR 备选 3 的有意延后；若未来需要观测元数据须另行合同修订。
+- 变为 no-leg 的行退出历史预热且开单报价侧显示 incomplete——是本次排除语义的一致后果，review-1 已记录，前端自检覆盖。
+
+按硬门禁，本 ACCEPT 仅使 stage 进入 `stage_accepted_waiting_user`；不授权 merge、push、部署或任何 `main` 变更，合并需用户显式验收。
+
+---
+当前 Session ID: 36fe5cff-9d9e-4e63-b7b1-873f8dc0ae66
+Session ID 来源: runtime_env
+原始输出路径: reports/agent-runs/2026-07-tradable-spot-leg-v1/50-review-2.md
+本地北京时间: 2026-07-18 14:29:04 CST
+下一步模型: human
+下一步任务: 将本输出存为 50-review-2.md，bookkeeper 校验 verdict JSON 后置 stage_accepted_waiting_user，等待用户显式验收决定是否合并 main
+
+{"schema_version": 1, "stage_id": "2026-07-tradable-spot-leg-v1", "role": "final_reviewer", "model": "claude-fable-5", "verdict": "ACCEPT", "diff_fingerprint": "7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50", "reviewer_prior_involvement": "none", "reviewed_artifacts": ["AGENTS.md", "workflows/templates/stage-delivery.yaml (review-2 section)", "agents/skills/reality-checker.md", "schemas/review-verdict.schema.json", "docs/product/PRD.md", "docs/architecture/ARCHITECTURE.md", "docs/api/public-market-contract.md", "reports/agent-runs/2026-07-tradable-spot-leg-v1/00-task.md", "reports/agent-runs/2026-07-tradable-spot-leg-v1/10-design.md", "reports/agent-runs/2026-07-tradable-spot-leg-v1/11-adr.md", "reports/agent-runs/2026-07-tradable-spot-leg-v1/05-live-sample-analysis.md", "reports/agent-runs/2026-07-tradable-spot-leg-v1/07-scope-extension-authorization.md", "reports/agent-runs/2026-07-tradable-spot-leg-v1/20-implementation.md", "reports/agent-runs/2026-07-tradable-spot-leg-v1/60-test-output.txt", "reports/agent-runs/2026-07-tradable-spot-leg-v1/61-pre-review-validation.txt", "reports/agent-runs/2026-07-tradable-spot-leg-v1/30-review-1.md", "reports/agent-runs/2026-07-tradable-spot-leg-v1/31-review-1-validation.txt", "reports/agent-runs/2026-07-tradable-spot-leg-v1/63-review-2-preflight-validation.txt", "reports/agent-runs/2026-07-tradable-spot-leg-v1/status.json", "reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/request-manifest.md", "reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/raw/api-v3-exchangeInfo-symbols.json", "reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/raw/api-v3-ticker-bookTicker-symbols.json", "reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/raw/fapi-v1-ticker-bookTicker-AERGOUSDT.json", "reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/raw/fapi-v1-ticker-bookTicker-LITUSDT.json", "reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/raw/fapi-v1-ticker-bookTicker-XMRUSDT.json", "git diff 9a03069fa9942739c7d8077d3a33d4387afde048..7522ec3645f7c51e0abb602268b7e1f89b5556da (fingerprint independently recomputed and matched)", "backend/domain/normalize.py", "backend/domain/snapshot.py", "backend/domain/classify.py", "backend/services/snapshot_service.py", "backend/tests/test_normalize.py", "backend/tests/test_snapshot.py", "independent rerun: PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider (381 passed); node frontend/self-check.js (all pass); git diff --check base..head (clean)"], "findings": [{"severity": "P3", "title": "Design matrix row 5 literal variant (absent exact + non-TRADING alias) covered by composition, not by one literal test", "file": "backend/tests/test_snapshot.py", "line": 515, "evidence": "test_spot_leg_non_trading_alias_does_not_resolve uses exact BREAK + alias HALT; the absent-exact path is pinned separately by test_normalize.py::test_resolve_spot_leg_none_when_no_spot (TRADIFI with empty spot map). _tradable_spot returns None identically for absent and non-TRADING records and the alias branch is a single code path, so the composed behavior is fully pinned.", "impact": "No functional gap; test-completeness nit only. Independently evaluated and confirmed as optional, agreeing with (not merely adopting) the review-1 P3.", "recommendation": "Optional: add one literal case with no exact record and a non-TRADING alias asserting (None, None). Not required for acceptance."}], "required_fixes": [], "residual_risks": ["A non-TRADING spot record serializes as the no-leg shape without preserving its raw status (e.g. BREAK); this observation-metadata gap was consciously deferred in 11-adr.md alternative 3 and would require a future contract amendment with raw-sample grounding.", "Rows whose spot leg becomes non-trading leave default_view_history_symbols prewarm and render the spot side of opening quotes as incomplete; both are intended, frontend-covered consequences of the exclusion semantics."], "next_action": "stage_accepted_waiting_user"}

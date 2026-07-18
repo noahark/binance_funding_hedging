@@ -4,8 +4,8 @@
 
 - Stage: `2026-07-tradable-spot-leg-v1`.
 - Branch: `stage/2026-07-tradable-spot-leg-v1`, base `9a03069`.
-- Phase: Kimi review-1 evidence is committed with schema-valid `ACCEPT`; review-2 preflight passed,
-  and the Fable5 fixed-fingerprint final-review packet is waiting for human execution.
+- Phase: Fable5 review-2 returned schema-valid `ACCEPT`; raw output is restored verbatim and the
+  bookkeeper is committing final-review evidence before the pre-accept gate.
 - Complexity: LOW, user-approved lightweight route, no direction panel or development breakdown.
 - Owner: Claude-GLM (`zhipu_glm`) for backend/data semantics. Codex is excluded from code/fix
   authorship. Review-1 planned Kimi; review-2 planned Fable5 to avoid Codex design overlap.
@@ -40,6 +40,11 @@
   strong-reviewer override is needed.
 - Review-2 preflight evidence: `63-review-2-preflight-validation.txt`, PASS on the fixed delivery
   fingerprint.
+- Review-2 result: `ACCEPT`, no required fixes, one optional P3 literal-test-variant suggestion.
+  Reviewer Session ID `36fe5cff-9d9e-4e63-b7b1-873f8dc0ae66`, model `claude-fable-5`, provider
+  `anthropic`, prior involvement `none`.
+- Raw final review: `50-review-2.md`; verbatim collection and schema validation:
+  `51-review-2-validation.txt`. Open blockers: none.
 - Gate evidence: `61-pre-review-validation.txt`. The checked-in validator does not support the
   documented `--evidence-out` option; the supported clean-state invocation passed and is the
   authoritative gate result.
@@ -50,21 +55,14 @@
 
 ## Next Action
 
-The human operator runs this command from the repository root in a fresh Anthropic session and
-preserves the complete output as `50-review-2.md`:
-
-```bash
-claude --model claude-fable-5 --permission-mode plan --json-schema "$(cat schemas/review-verdict.schema.json)" -p "$(cat reports/agent-runs/2026-07-tradable-spot-leg-v1/48-dispatch-claude-fable-review-2.md)"
-```
-
-No implementation, repair, or review-1 dispatch remains. On a schema-valid final `ACCEPT`, the
-bookkeeper may move only to `stage_accepted_waiting_user`; merge and push still require explicit
-user acceptance.
+The bookkeeper commits `50-review-2.md` and its validation evidence, runs the pre-accept validator
+from a clean committed state, then moves only to `stage_accepted_waiting_user`. Merge, push,
+deployment, and `main` changes still require explicit user acceptance.
 
 ---
 当前 Session ID: 019f734a-dd82-7a11-8367-93fc1a5e954c
 Session ID 来源: runtime_env
 原始输出路径: reports/agent-runs/2026-07-tradable-spot-leg-v1/70-handoff.md
-本地北京时间: 2026-07-18 14:23:36 CST
-下一步模型: human → claude-fable-5
-下一步任务: 执行 48 固定指纹只读 review-2，并保存完整输出到 50-review-2.md
+本地北京时间: 2026-07-18 14:35:38 CST
+下一步模型: Codex bookkeeper
+下一步任务: 提交 review-2 原始证据、运行 pre-accept validator 并停在等待用户验收

@@ -1,0 +1,41 @@
+2026-07-18 14:35:38 CST — Fable5 review-2 collection and validation
+
+Session evidence:
+
+```text
+session_id=36fe5cff-9d9e-4e63-b7b1-873f8dc0ae66
+session_id_source=runtime_env (review footer; transcript cross-check)
+transcript=~/.claude/projects/-Users-ark-Desktop-ai-code-funding-hedging/36fe5cff-9d9e-4e63-b7b1-873f8dc0ae66.jsonl
+model=claude-fable-5
+provider_identity=anthropic
+reviewer_prior_involvement=none
+```
+
+Raw-output recovery:
+
+```text
+source=Claude transcript final assistant text
+destination=reports/agent-runs/2026-07-tradable-spot-leg-v1/50-review-2.md
+source_sha256=2bd6f45a3aa082fb356f80dea82da69d3d7b25358b52d5e732b8d30ceb7720d3
+destination_sha256=2bd6f45a3aa082fb356f80dea82da69d3d7b25358b52d5e732b8d30ceb7720d3
+verbatim_match=PASS
+```
+
+Final verdict validation:
+
+```text
+schema=schemas/review-verdict.schema.json
+schema_valid=PASS
+stage_id=2026-07-tradable-spot-leg-v1
+role=final_reviewer
+model=claude-fable-5
+verdict=ACCEPT
+diff_fingerprint=7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50
+reviewer_prior_involvement=none
+required_fixes=[]
+next_action=stage_accepted_waiting_user
+```
+
+The final assistant output ends with the unfenced JSON object and no trailing narrative. Review-2
+contains one optional P3 literal-test-variant suggestion and no required fixes. Anthropic provider
+identity differs from the OpenAI/Codex designer and `zhipu_glm` implementer; no override applies.
