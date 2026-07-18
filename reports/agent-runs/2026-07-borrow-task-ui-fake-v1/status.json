@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-borrow-task-ui-fake-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-borrow-task-ui-fake-v1",
@@ -41,10 +41,14 @@
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/29-kimi-frontend-f2.dispatch.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/22-implementation-frontend-v2.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/62-test-output-frontend-v2.txt",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/23-implementation-frontend-visual-fix.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/64-test-output-frontend-visual-fix.txt",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/33-kimi-review-1-backend-b1.dispatch.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/34-claude-glm-review-1-frontend-f2.dispatch.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/63-pre-review-validation.txt",
-    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/35-kimi-frontend-visual-fix-f3.dispatch.md"
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/35-kimi-frontend-visual-fix-f3.dispatch.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/36-kimi-review-1-backend-b1-rebound.dispatch.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/37-claude-glm-review-1-frontend-f2-f3-rebound.dispatch.md"
   ],
   "parallel_mode": {
     "enabled": false,
@@ -113,6 +117,16 @@
       "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/22-implementation-frontend-v2.md",
       "recorded_at": "2026-07-18T15:07:03Z"
+    },
+    {
+      "role": "implementation_frontend_visual_fix_f3",
+      "provider": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": "83684f19-df9d-44ba-885c-267a01656f75",
+      "session_id_source": "transcript_path",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/23-implementation-frontend-visual-fix.md",
+      "recorded_at": "2026-07-18T16:20:31Z"
     }
   ],
   "designer": "codex",
@@ -178,8 +192,8 @@
       "reviewer": "claude_glm",
       "r10_checklist": null,
       "base_sha": "82db8414b97819b72294ba8eee33bd0b7ec0dfd4",
-      "head_sha": "ddcecf5533352c25886aeadfdc233a826603ba7b",
-      "diff_fingerprint": "ddcecf5533352c25886aeadfdc233a826603ba7b:c58dec3deda3453b000d9749488ff80f6d7eef8d4beb48fbae4507293e9387d0",
+      "head_sha": "9d53204d450ee0dc4519f52201b575e5b71e948b",
+      "diff_fingerprint": "9d53204d450ee0dc4519f52201b575e5b71e948b:22dd12e96cfe49cc0578fb248a6fb91085cd22c817e28c113b82e75fd1913db5",
       "test_evidence": "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/62-test-output-frontend-v2.txt",
       "review_1": {
         "reviewer": "claude_glm",
@@ -195,9 +209,9 @@
       "owner": "kimi",
       "reviewer": "claude_glm",
       "r10_checklist": null,
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "base_sha": "8d0930db5a2d91e313d7f27e522e490d08a4db3e",
+      "head_sha": "9d53204d450ee0dc4519f52201b575e5b71e948b",
+      "diff_fingerprint": "9d53204d450ee0dc4519f52201b575e5b71e948b:aad73fc9163b324712db52897333a299ae6fa1f6f225e02039382b983265857b",
       "test_evidence": "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/64-test-output-frontend-visual-fix.txt",
       "review_1": {
         "reviewer": "claude_glm",
@@ -226,8 +240,8 @@
   "direction_panel": {"panel_key": null, "members": {}},
   "direction_synthesis": {"provider": null, "status": "not_required_low_complexity", "user_approved": true},
   "base_sha": "d9c2772b7725bc794224a99c70505526eaedf295",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "9d53204d450ee0dc4519f52201b575e5b71e948b",
+  "diff_fingerprint": "9d53204d450ee0dc4519f52201b575e5b71e948b:a51dccee4055065ceece4ee3cee037909c096da4cf36a55144d945e757d025f3",
   "coverage_waypoints": null,
   "changed_files": [
     "backend/services/private_client.py",
@@ -246,6 +260,8 @@
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/61-test-output-backend.txt",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/22-implementation-frontend-v2.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/62-test-output-frontend-v2.txt",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/23-implementation-frontend-visual-fix.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/64-test-output-frontend-visual-fix.txt",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/status.json",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md"
   ],
@@ -285,7 +301,7 @@
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": ["Human operator must execute 35-kimi-frontend-visual-fix-f3.dispatch.md. The prior unexecuted review-1 packets are superseded by Amendment v4 and must be rebound to the post-F3 committed diff."],
+  "blockers": ["Human operator must execute the rebound read-only review-1 packets: B1 by Kimi and combined F2+F3 by Claude-GLM. Each must return a schema-valid verdict before review-2 can be prepared."],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
   "reporting_preferences": {
@@ -297,6 +313,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_execute_kimi_frontend_visual_fix_f3_dispatch",
-  "updated_at": "2026-07-19T00:10:24+08:00"
+  "next_action": "human_operator_execute_rebound_cross_review_1_packets",
+  "updated_at": "2026-07-19T00:26:09+08:00"
 }

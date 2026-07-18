@@ -2,21 +2,21 @@
 
 ## Recovery Header
 
-- Active phase: implementation / F3 frontend visual acceptance fix ready for human dispatch
-- Next action: Human operator executes `35-kimi-frontend-visual-fix-f3.dispatch.md`. The unexecuted F2 review-1 packet must be rebound after this new user-directed diff lands.
-- Read-set: `status.current_inputs`, `00-task.md` Amendment v4, `12-development-breakdown.md` §3, `22-implementation-frontend-v2.md`, `35-kimi-frontend-visual-fix-f3.dispatch.md`
+- Active phase: review-1 dispatch preparation / F3 committed
+- Next action: Human operator executes `36-kimi-review-1-backend-b1-rebound.dispatch.md` and `37-claude-glm-review-1-frontend-f2-f3-rebound.dispatch.md` in fresh, read-only sessions.
+- Read-set: `status.current_inputs`, `00-task.md` Amendment v4, `12-development-breakdown.md`, `21-implementation-backend.md`, `22-implementation-frontend-v2.md`, `23-implementation-frontend-visual-fix.md`, and both rebound review packets
 - Open blockers: The previous review-1 ACCEPT is superseded by user-approved new requirements; B1→F2 are dependency-ordered and each needs its own cross-provider review-1 (B1→Kimi, F2→Claude-GLM) before review-2.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-borrow-task-ui-fake-v1`
-- Status: `implementing` (F3 acceptance fix; prior review-1 packets are stale, and the historical old review remains non-accepting)
+- Status: `review_1` (F3 acceptance fix committed; prior review-1 packets are stale, and the historical old review remains non-accepting)
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
 - Reviewed delivery commit: `edb20022e3490b89a805fa6eda374574523317e2`
 - Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..edb20022e3490b89a805fa6eda374574523317e2` / `edb20022e3490b89a805fa6eda374574523317e2:e3e97e020a81270214b15ccf349a969f159f831c72047d24ddffe2b7b1bcf133`
-- Git status: B1 evidence committed at `623d059b52723d9ee412519db054a2a25cedf504`; F2 evidence committed at `ddcecf5533352c25886aeadfdc233a826603ba7b`; review dispatch checkpoint pending commit
-- Implementer: Claude-GLM B1 complete (Session ID unavailable through harness); Kimi F2 complete (Session ID `83684f19-df9d-44ba-885c-267a01656f75`, transcript_path)
+- Git status: B1 `623d059b52723d9ee412519db054a2a25cedf504`; F2 `ddcecf5533352c25886aeadfdc233a826603ba7b`; F3 `9d53204d450ee0dc4519f52201b575e5b71e948b`; rebound-review dispatch checkpoint pending commit
+- Implementer: Claude-GLM B1 complete (Session ID unavailable through harness); Kimi F2/F3 complete (Session ID `83684f19-df9d-44ba-885c-267a01656f75`, transcript_path)
 - Parallel mode: disabled
 
 ## Artifact Index
@@ -39,6 +39,8 @@
 - Frontend implementation: `22-implementation-frontend-v2.md`; frontend test log: `62-test-output-frontend-v2.txt`
 - Fresh review-1 dispatches: `33-kimi-review-1-backend-b1.dispatch.md` (B1) and `34-claude-glm-review-1-frontend-f2.dispatch.md` (F2)
 - F3 Kimi dispatch: `35-kimi-frontend-visual-fix-f3.dispatch.md`
+- F3 implementation: `23-implementation-frontend-visual-fix.md`; test log: `64-test-output-frontend-visual-fix.txt`
+- Rebound review-1 dispatches: `36-kimi-review-1-backend-b1-rebound.dispatch.md` (B1) and `37-claude-glm-review-1-frontend-f2-f3-rebound.dispatch.md` (combined F2+F3)
 - Review-1 dispatch: `25-review-1.dispatch.md` (historical)
 - Review 1 raw output: `30-review-1.md` — ACCEPT for old diff, superseded by scope amendment
 - Fix report: pending `40-fix-report.md`
@@ -77,15 +79,15 @@
 
 ## Blockers
 
-- Human operator must execute the prepared F3 Kimi visual-fix packet. Existing review-1 dispatches were not executed and are superseded by the user-directed visual change.
+- Human operator must execute both rebound fresh, read-only review-1 packets. Their strict JSON verdicts are required before final review-2.
 
 ## Next Action
 
-Human operator executes F3, then the bookkeeper commits it, recomputes the full stage fingerprint, re-runs pre-review validation, and prepares re-bound fresh review-1 packets before review-2; do not reuse the prior ACCEPT or pre-F3 packets.
+Human operator executes both rebound review-1 packets. The bookkeeper validates their JSON verdicts, routes any REWORK to the supplied fix prompt, or prepares final review-2 after acceptance; do not reuse the prior ACCEPT or pre-F3 packets.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-19 00:10:24 CST
-下一步模型: Kimi（由人类操作员执行）
-下一步任务: 执行 35-kimi-frontend-visual-fix-f3.dispatch.md，完成 F3 样式与自检
+本地北京时间: 2026-07-19 00:26:09 CST
+下一步模型: Kimi 与 Claude-GLM（均由人类操作员以只读模式执行）
+下一步任务: 分别执行 36 和 37 rebound review-1 派发包，提交 schema-valid 原始 verdict
