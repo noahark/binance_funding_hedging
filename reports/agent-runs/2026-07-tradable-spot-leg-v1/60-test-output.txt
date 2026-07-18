@@ -379,3 +379,9 @@ Fingerprint input command:
 ```text
 git -c diff.renames=true diff --binary 9a03069fa9942739c7d8077d3a33d4387afde048..7522ec3645f7c51e0abb602268b7e1f89b5556da -- . ':(exclude)reports/agent-runs/2026-07-tradable-spot-leg-v1/status.json'
 ```
+
+2026-07-18 14:05:03 CST — pre-review gate: PASS
+
+The authoritative supported validator invocation passed from a clean committed state. Complete
+output, including the preceding unsupported `--evidence-out` adapter attempt, is preserved in
+`reports/agent-runs/2026-07-tradable-spot-leg-v1/61-pre-review-validation.txt`.

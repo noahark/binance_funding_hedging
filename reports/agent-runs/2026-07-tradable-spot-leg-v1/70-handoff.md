@@ -4,8 +4,8 @@
 
 - Stage: `2026-07-tradable-spot-leg-v1`.
 - Branch: `stage/2026-07-tradable-spot-leg-v1`, base `9a03069`.
-- Phase: delivery evidence is committed and the fixed-fingerprint Kimi review-1 packet is prepared;
-  the bookkeeper is sealing review metadata and the pre-review validator evidence.
+- Phase: delivery evidence and review metadata are committed, the pre-review validator passed, and
+  the fixed-fingerprint Kimi review-1 packet is waiting for human execution.
 - Complexity: LOW, user-approved lightweight route, no direction panel or development breakdown.
 - Owner: Claude-GLM (`zhipu_glm`) for backend/data semantics. Codex is excluded from code/fix
   authorship. Review-1 planned Kimi; review-2 planned Fable5 to avoid Codex design overlap.
@@ -31,6 +31,9 @@
   `7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50`.
 - Review-1 packet: `28-dispatch-kimi-review-1.md`; reviewer is a fresh Kimi session under provider
   `moonshot_kimi`, isolated from the `zhipu_glm` implementer. Open blockers: none.
+- Gate evidence: `61-pre-review-validation.txt`. The checked-in validator does not support the
+  documented `--evidence-out` option; the supported clean-state invocation passed and is the
+  authoritative gate result.
 - Security note: an availability check expanded the local `claude-glm` alias environment in the
   active terminal. No value is copied into repository artifacts; rotate the GLM token after this
   run. Do not use an alias-expanding diagnostic in evidence capture.
@@ -38,14 +41,20 @@
 
 ## Next Action
 
-The bookkeeper commits the review metadata, runs and seals the pre-review validator evidence, then
-hands `28-dispatch-kimi-review-1.md` to the human operator for execution in a fresh Kimi terminal.
-No implementation or repair dispatch remains.
+The human operator runs this command from the repository root in a fresh Kimi session and preserves
+its complete output as `30-review-1.md`:
+
+```bash
+kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-tradable-spot-leg-v1/28-dispatch-kimi-review-1.md)"
+```
+
+No implementation or repair dispatch remains. Codex/bookkeeper must validate the final JSON before
+routing ACCEPT to review-2 or REWORK to the original implementer.
 
 ---
 当前 Session ID: 019f734a-dd82-7a11-8367-93fc1a5e954c
 Session ID 来源: runtime_env
 原始输出路径: reports/agent-runs/2026-07-tradable-spot-leg-v1/70-handoff.md
-本地北京时间: 2026-07-18 14:02:34 CST
-下一步模型: Codex bookkeeper
-下一步任务: 提交 review metadata、运行 pre-review validator 并交付 Kimi review-1 派工包
+本地北京时间: 2026-07-18 14:05:03 CST
+下一步模型: human → kimi
+下一步任务: 执行 28 固定指纹只读 review-1，并保存完整输出到 30-review-1.md

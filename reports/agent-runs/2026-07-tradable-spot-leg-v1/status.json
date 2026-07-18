@@ -11,6 +11,7 @@
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/07-scope-extension-authorization.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/20-implementation.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/61-pre-review-validation.txt",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/09-dispatch-claude-glm-test-fixture-repair.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/28-dispatch-kimi-review-1.md"
   ],
@@ -223,5 +224,5 @@
   "rework_count": 0,
   "max_rework": 3,
   "zero_push": true,
-  "updated_at": "2026-07-18T14:02:34+08:00"
+  "updated_at": "2026-07-18T14:05:03+08:00"
 }

@@ -1,0 +1,24 @@
+2026-07-18 14:04 CST — pre-review gate
+
+Attempt 1 (documented adapter form; unsupported by the checked-in CLI):
+
+$ python3 scripts/validate-stage.py 2026-07-tradable-spot-leg-v1 --phase pre-review --evidence-out reports/agent-runs/2026-07-tradable-spot-leg-v1/61-pre-review-validation.txt
+usage: validate-stage.py [-h]
+                         [--phase {dispatch-ready,pre-review,pre-accept,checkpoint}]
+                         [--task TASK]
+                         stage
+validate-stage.py: error: unrecognized arguments: --evidence-out reports/agent-runs/2026-07-tradable-spot-leg-v1/61-pre-review-validation.txt
+exit=2
+
+Disposition: non-gate CLI adapter mismatch. The repository validator was rerun from the same clean
+committed state using its supported argument surface; its result below is the authoritative gate.
+
+Attempt 2 (supported command; authoritative gate):
+
+$ python3 scripts/validate-stage.py 2026-07-tradable-spot-leg-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-tradable-spot-leg-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50
+exit=0
