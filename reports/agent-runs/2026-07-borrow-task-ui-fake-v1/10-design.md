@@ -62,9 +62,9 @@ Review focus: correct state transition/button enablement, soft-delete visibility
 
 ## Amendment v3 Design — Minimum Borrow Guidance
 
-The existing classic-margin reference already fetches `allAssets`. Add a parallel `user_min_borrow_by_name` map keyed by `assetName`, then project it through `assemble_borrow_validation` exactly where `asset_borrowable_by_name` is projected. Do not reuse `max_borrowable`: the former is a minimum request amount; the latter is current account/pool capacity.
+The existing classic-margin reference already fetches `allAssets`. Add a parallel `user_min_borrow_by_name` map keyed by `assetName`, then project it through `assemble_borrow_validation` exactly where `asset_borrowable_by_name` is projected. Preserve the raw amount as `user_min_borrow`; separately calculate `user_min_borrow_value_usdt` with the existing stablecoin and `<ASSET>USDT` price routing, quantized by `Decimal`/`ROUND_HALF_UP` to exactly two decimal places. Do not reuse or change `max_borrowable_value_usdt`: the former is a minimum request amount with two-decimal display value, while the latter is current account/pool capacity with its existing eight-decimal contract.
 
-The contract field is a raw decimal string or null, not a JavaScript/float value. The frontend derives an amount-input placeholder only; it does not write the value into the input. This keeps the existing user-confirmation semantics and avoids treating a minimum as a recommendation, available amount, or a real borrow instruction.
+The raw minimum and its two-decimal valuation are decimal strings or null, not JavaScript/float values. The frontend derives an amount-input placeholder only: `最小借币量 X (≈ Y USDT)` when both are known, `最小借币量 X (≈ — USDT)` without a price, otherwise `最小借币量 —`. It does not write either value into the input. This keeps the existing user-confirmation semantics and avoids treating a minimum as a recommendation, available amount, or a real borrow instruction.
 
 Backend and frontend are separable but contract-dependent: Claude-GLM lands the map/assembly/schema/raw sample/tests first; Kimi then consumes the additive field in the existing market operation-cell placeholder while implementing the v2 task UI state work. The development breakdown must make that dependency explicit and keep both tasks within the same stage.
 

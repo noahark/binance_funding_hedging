@@ -57,9 +57,9 @@ Task configuration edits are presentation-only local mutations, not an instructi
 
 ## Amendment v3: Minimum Is Not Availability
 
-`userMinBorrow` is a classic-margin asset rule and must remain distinct from `portfolio_account.max_borrowable`, which is account/pool availability. The field follows the exact pair-listed gate used by `asset_borrowable` so an asset is not shown as having a usable minimum for a non-margin pair.
+`userMinBorrow` is a classic-margin asset rule and must remain distinct from `portfolio_account.max_borrowable`, which is account/pool availability. The field follows the exact pair-listed gate used by `asset_borrowable` so an asset is not shown as having a usable minimum for a non-margin pair. Its USDT display value follows the existing stablecoin and market-price routing but is stored with two decimal places and `ROUND_HALF_UP`; the existing maximum-borrow value remains eight-decimal.
 
-The UI renders the field as a placeholder, not as an input value. A minimum of `"0"` is a valid raw response and must display faithfully; it does not mean a task should be created with zero (existing validation still rejects zero). Missing/private-unavailable data renders `最小借币量 —` rather than a fabricated fallback value.
+The UI renders the field as a placeholder, not as an input value. A minimum of `"0"` is a valid raw response and displays with `0.00 USDT` when valuated; it does not mean a task should be created with zero (existing validation still rejects zero). A known minimum without a price shows `≈ — USDT`; missing/private-unavailable data renders `最小借币量 —` rather than a fabricated fallback value.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable

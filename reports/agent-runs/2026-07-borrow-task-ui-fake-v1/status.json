@@ -118,7 +118,7 @@
     "user_approved_lightweight_route": true,
     "lightweight_skip_allowed": true,
     "rationale": [
-      "Frontend-only fake prototype with no backend, API, credentials, persistence, or external side effects.",
+      "Frontend fake prototype plus a narrow existing-contract extension, with no credentials, persistence, or external side effects.",
       "User explicitly requested the fake UI first and deferred backend logic.",
       "Changes are bounded to existing frontend and self-check files.",
       "User scope amendment adds a task state machine, soft deletion, task configuration edits, and state filters; MEDIUM development breakdown is required.",
@@ -188,5 +188,5 @@
     }
   },
   "next_action": "human_operator_execute_claude_development_breakdown_dispatch",
-  "updated_at": "2026-07-18T21:53:57+08:00"
+  "updated_at": "2026-07-18T22:01:37+08:00"
 }

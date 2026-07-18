@@ -25,6 +25,7 @@ Allowed files:
 - `backend/domain/snapshot.py`
 - `backend/tests/test_private_client.py`
 - `backend/tests/test_private_account_v1.py`
+- `backend/tests/test_phase2_borrow_sort.py`
 - `backend/tests/fixtures/private-account-v1-design.json`
 - `schemas/api/public-market/snapshot.schema.json`
 - `reports/api-samples/2026-07-borrow-task-ui-fake-v1/sapi-v1-margin-allAssets.json`
@@ -77,8 +78,8 @@ See `14-user-min-borrow-contract-amendment.md` for raw evidence and frozen seman
 Additional acceptance criteria:
 
 - Backend maps `allAssets[].userMinBorrow` by `assetName` into `classic_ref.user_min_borrow_by_name`, preserving raw decimal-string values and following the same row lookup gates as `asset_borrowable`.
-- Every `classic_margin` producer branch emits `user_min_borrow` as decimal string or null; schema, design fixture, negative schema coverage, and raw public sample evidence are updated accordingly.
-- The fee-market operation amount input remains empty and changes only its placeholder from fixed `如 1000` to `最小借币量 <value>` or `最小借币量 —`. It must not modify validation, task creation, task-list edit controls, network behavior, timers, or persistence.
+- Every `classic_margin` producer branch emits `user_min_borrow` and `user_min_borrow_value_usdt` as decimal strings or null. The latter uses the existing stablecoin/price routing with `Decimal` `ROUND_HALF_UP` quantization to exactly two decimal places; the existing eight-decimal `max_borrowable_value_usdt` contract is unchanged. Schema, design fixture, negative schema coverage, and raw public sample evidence are updated accordingly.
+- The fee-market operation amount input remains empty and changes only its placeholder from fixed `如 1000` to `最小借币量 <value> (≈ <two-decimal-value> USDT)`, `最小借币量 <value> (≈ — USDT)`, or `最小借币量 —`. It must not modify validation, task creation, task-list edit controls, network behavior, timers, or persistence.
 
 ## Designer
 

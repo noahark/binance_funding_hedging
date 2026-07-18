@@ -62,7 +62,7 @@
 
 - Prior review-1 ACCEPT has two P3 inputs-reset/a11y notes; retained in `13-scope-amendment-v2.md` for new review awareness.
 - v2 frozen interpretation: deletion is soft deletion; completed is a filterable/read-only state without an automatic or manual fake-completion UI transition.
-- v3 frozen interpretation: `userMinBorrow` is a raw string distinct from current availability; it is market-operation placeholder guidance only. Existing raw evidence contains the field but only `"0"` values, so synthetic coverage must supplement—not replace—the stage-local raw copy.
+- v3 frozen interpretation: `userMinBorrow` is a raw string distinct from current availability; `user_min_borrow_value_usdt` uses the same price routing but is stored with exactly two decimal places (`ROUND_HALF_UP`), while the existing max-borrow value remains eight-decimal. They are market-operation placeholder guidance only. Existing raw evidence contains the field but only `"0"` values, so synthetic coverage must supplement—not replace—the stage-local raw copy.
 
 ## Blockers
 
@@ -75,6 +75,6 @@ Run the Claude development-breakdown packet, collect `12-development-breakdown.m
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-18 21:53:57 CST
+本地北京时间: 2026-07-18 22:01:37 CST
 下一步模型: Claude
 下一步任务: 执行 27-claude-development-breakdown.dispatch.md 的 MEDIUM 阶段开发细化

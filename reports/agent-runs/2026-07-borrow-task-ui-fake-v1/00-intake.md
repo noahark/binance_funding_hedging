@@ -10,7 +10,7 @@
 
 同时删除额度子行中的独立“已借完”徽标；保留借贷状态徽标“可借 0(已借完)”。
 
-用户追加了最小借币量契约：已有 `GET /sapi/v1/margin/allAssets` 的 `userMinBorrow` 按 `assetName` 保存并装配到 `rows[].borrow_validation.classic_margin.user_min_borrow`，匹配规则与 `asset_borrowable` 相同。行情表操作列的单次借币数量输入保持空值，只将固定“如 1000”替换成最小借币量占位提示。
+用户追加了最小借币量契约：已有 `GET /sapi/v1/margin/allAssets` 的 `userMinBorrow` 按 `assetName` 保存并装配到 `rows[].borrow_validation.classic_margin.user_min_borrow`，匹配规则与 `asset_borrowable` 相同；同一最小量的 USDT 价值按现有价格规则计算为 `user_min_borrow_value_usdt`，保留两位小数。行情表操作列的单次借币数量输入保持空值，只将固定“如 1000”替换成最小借币量及其 USDT 价值占位提示。
 
 ## Classification
 
@@ -22,7 +22,7 @@
 
 ## Rationale
 
-- 改动限定在现有单文件前端和已有 Node 自检，未触及后端、API 契约或数据语义。
+- 原始 fake 任务改动限定在现有单文件前端和已有 Node 自检；本次补充的最小借币量为窄幅后端、API 契约和数据语义扩展。
 - 借币任务在浏览器内存中 fake，明确不产生外部副作用。
 - 用户明确要求先完成前端 fake 并在视觉确认后再增加后端逻辑，等同于批准轻量路线。
 - 现有表格行已经提供 `base_asset`，可作为任务资产，不需要新增资产选择器或伪造行情行。
