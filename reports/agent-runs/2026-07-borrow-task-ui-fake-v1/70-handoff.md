@@ -2,16 +2,16 @@
 
 ## Recovery Header
 
-- Active phase: stage_accepted_waiting_user / pre-accept candidate prepared
-- Next action: Run the committed-state `pre-accept` command. If it passes, wait for the user's explicit merge approval.
+- Active phase: stage_accepted_waiting_user / pre-accept PASS
+- Next action: Wait for the user's explicit merge approval.
 - Read-set: `status.current_inputs`, `42-review-1-task-aggregate.md`, valid `50-review-2.md`, valid B1/F2+F3 task Review-1 retries, fixed delivery diff `d9c2772..9d53204`, and the active workflow final-gate section.
-- Open blockers: none. The terminal state remains a candidate until the required committed-state pre-accept command passes.
+- Open blockers: none. The committed-state pre-accept command passed; merge remains a human approval gate.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-borrow-task-ui-fake-v1`
-- Status: `stage_accepted_waiting_user` candidate (all task Review-1 evidence, the task-scoped aggregate, and Opus Review-2 are valid ACCEPT; committed-state pre-accept pending)
+- Status: `stage_accepted_waiting_user` (all task Review-1 evidence, the task-scoped aggregate, and Opus Review-2 are valid ACCEPT; committed-state pre-accept passed)
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
 - Reviewed delivery commit: `9d53204d450ee0dc4519f52201b575e5b71e948b`
 - Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..9d53204d450ee0dc4519f52201b575e5b71e948b` / `9d53204d450ee0dc4519f52201b575e5b71e948b:a51dccee4055065ceece4ee3cee037909c096da4cf36a55144d945e757d025f3`
@@ -52,6 +52,7 @@
 - Test output: `60-test-output.txt`
 - Pre-review validation: `26-pre-review-validation.txt`
 - Review-2 pre-review validation: `67-pre-review-validation-review2.txt` (PASS for fixed fingerprint)
+- Pre-accept validation: `68-pre-accept-validation.txt` (PASS for fixed fingerprint)
 - Status JSON: `status.json`
 
 ## Implementation Summary
@@ -90,11 +91,11 @@
 
 ## Next Action
 
-Run `scripts/validate-stage.py 2026-07-borrow-task-ui-fake-v1 --phase pre-accept` on the committed candidate. If it passes, preserve the validation log and wait for the user's explicit merge acceptance; do not merge solely because Review-2 accepted.
+Wait for the user's explicit merge acceptance. The user must approve merging this stage branch to `main`; Review-2 ACCEPT and pre-accept PASS are not by themselves merge authority.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-19 01:57:42 CST
-下一步模型: bookkeeper
-下一步任务: 运行 committed-state pre-accept 验证
+本地北京时间: 2026-07-19 01:58:18 CST
+下一步模型: 人类产品负责人
+下一步任务: 明确接受后允许合并 stage branch 到 main
