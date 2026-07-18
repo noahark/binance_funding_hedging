@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-borrow-task-ui-fake-v1",
-  "status": "review_1",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-borrow-task-ui-fake-v1",
@@ -43,7 +43,8 @@
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/62-test-output-frontend-v2.txt",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/33-kimi-review-1-backend-b1.dispatch.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/34-claude-glm-review-1-frontend-f2.dispatch.md",
-    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/63-pre-review-validation.txt"
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/63-pre-review-validation.txt",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/35-kimi-frontend-visual-fix-f3.dispatch.md"
   ],
   "parallel_mode": {
     "enabled": false,
@@ -143,6 +144,12 @@
       "reviewer_1": "claude_glm",
       "allowed_files": ["frontend/index.html", "frontend/self-check.js"],
       "excluded_for_core_work": ["codex", "claude_glm", "grok"]
+    },
+    "frontend-borrow-task-visual-fix-f3": {
+      "owner": "kimi",
+      "reviewer_1": "claude_glm",
+      "allowed_files": ["frontend/index.html", "frontend/self-check.js"],
+      "excluded_for_core_work": ["codex", "claude_glm", "grok"]
     }
   },
   "r10_checklists": {},
@@ -182,6 +189,24 @@
         "json_schema_valid": null,
         "diff_fingerprint": null
       }
+    },
+    {
+      "id": "frontend-borrow-task-visual-fix-f3",
+      "owner": "kimi",
+      "reviewer": "claude_glm",
+      "r10_checklist": null,
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/64-test-output-frontend-visual-fix.txt",
+      "review_1": {
+        "reviewer": "claude_glm",
+        "provider": "zhipu_glm",
+        "model": "glm-5.2",
+        "verdict": null,
+        "json_schema_valid": null,
+        "diff_fingerprint": null
+      }
     }
   ],
   "complexity": {
@@ -201,8 +226,8 @@
   "direction_panel": {"panel_key": null, "members": {}},
   "direction_synthesis": {"provider": null, "status": "not_required_low_complexity", "user_approved": true},
   "base_sha": "d9c2772b7725bc794224a99c70505526eaedf295",
-  "head_sha": "ddcecf5533352c25886aeadfdc233a826603ba7b",
-  "diff_fingerprint": "ddcecf5533352c25886aeadfdc233a826603ba7b:b32d6b5a15d3002adee058a43c4d2ee8b149e65ce815044862380c692f3ac5a8",
+  "head_sha": null,
+  "diff_fingerprint": null,
   "coverage_waypoints": null,
   "changed_files": [
     "backend/services/private_client.py",
@@ -260,7 +285,7 @@
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": ["Human operator must execute the two prepared read-only review-1 packets: B1 by Kimi and F2 by Claude-GLM. Each must return a schema-valid verdict before review-2 can be prepared."],
+  "blockers": ["Human operator must execute 35-kimi-frontend-visual-fix-f3.dispatch.md. The prior unexecuted review-1 packets are superseded by Amendment v4 and must be rebound to the post-F3 committed diff."],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
   "reporting_preferences": {
@@ -272,6 +297,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_execute_cross_review_1_packets",
-  "updated_at": "2026-07-18T23:15:28+08:00"
+  "next_action": "human_operator_execute_kimi_frontend_visual_fix_f3_dispatch",
+  "updated_at": "2026-07-19T00:10:24+08:00"
 }

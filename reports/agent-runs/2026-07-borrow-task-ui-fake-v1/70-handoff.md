@@ -2,16 +2,16 @@
 
 ## Recovery Header
 
-- Active phase: review-1 dispatch preparation
-- Next action: Human operator executes both prepared read-only review-1 packets: `33-kimi-review-1-backend-b1.dispatch.md` and `34-claude-glm-review-1-frontend-f2.dispatch.md`.
-- Read-set: `status.current_inputs`, `12-development-breakdown.md`, `21-implementation-backend.md`, `22-implementation-frontend-v2.md`, `33-kimi-review-1-backend-b1.dispatch.md`, `34-claude-glm-review-1-frontend-f2.dispatch.md`, prior `30-review-1.md`
+- Active phase: implementation / F3 frontend visual acceptance fix ready for human dispatch
+- Next action: Human operator executes `35-kimi-frontend-visual-fix-f3.dispatch.md`. The unexecuted F2 review-1 packet must be rebound after this new user-directed diff lands.
+- Read-set: `status.current_inputs`, `00-task.md` Amendment v4, `12-development-breakdown.md` §3, `22-implementation-frontend-v2.md`, `35-kimi-frontend-visual-fix-f3.dispatch.md`
 - Open blockers: The previous review-1 ACCEPT is superseded by user-approved new requirements; B1→F2 are dependency-ordered and each needs its own cross-provider review-1 (B1→Kimi, F2→Claude-GLM) before review-2.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-borrow-task-ui-fake-v1`
-- Status: `review_1` (MEDIUM scope amendment; prior review-1 is historical evidence only)
+- Status: `implementing` (F3 acceptance fix; prior review-1 packets are stale, and the historical old review remains non-accepting)
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
 - Reviewed delivery commit: `edb20022e3490b89a805fa6eda374574523317e2`
 - Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..edb20022e3490b89a805fa6eda374574523317e2` / `edb20022e3490b89a805fa6eda374574523317e2:e3e97e020a81270214b15ccf349a969f159f831c72047d24ddffe2b7b1bcf133`
@@ -38,6 +38,7 @@
 - Kimi F2 dispatch: `29-kimi-frontend-f2.dispatch.md`
 - Frontend implementation: `22-implementation-frontend-v2.md`; frontend test log: `62-test-output-frontend-v2.txt`
 - Fresh review-1 dispatches: `33-kimi-review-1-backend-b1.dispatch.md` (B1) and `34-claude-glm-review-1-frontend-f2.dispatch.md` (F2)
+- F3 Kimi dispatch: `35-kimi-frontend-visual-fix-f3.dispatch.md`
 - Review-1 dispatch: `25-review-1.dispatch.md` (historical)
 - Review 1 raw output: `30-review-1.md` — ACCEPT for old diff, superseded by scope amendment
 - Fix report: pending `40-fix-report.md`
@@ -72,18 +73,19 @@
 - v2 frozen interpretation: deletion is soft deletion; completed is a filterable/read-only state without an automatic or manual fake-completion UI transition.
 - v3 frozen interpretation: `userMinBorrow` is a raw string distinct from current availability; `user_min_borrow_value_usdt` uses the same price routing but is stored with exactly two decimal places (`ROUND_HALF_UP`), while the existing max-borrow value remains eight-decimal. They are market-operation placeholder guidance only. Existing raw evidence contains the field but only `"0"` values, so synthetic coverage must supplement—not replace—the stage-local raw copy.
 - F2 implementation disclosure: browser visual/Network-panel checks were not run in the model environment; DOM self-check coverage passed. The existing class of unsubmitted-input reset on whole-list re-render also applies to other task cards after lifecycle/filter/edit actions; this is a disclosed P3 review concern, not an accepted manual-test result.
+- F3 acceptance interpretation: lifecycle disablement was already correct (`borrowing` disables 启动; `paused` disables 暂停), but action colours were absent. F3 adds explicit disabled-grey styling plus green 启动, grey 暂停, and red 删除 themes without changing fake task semantics.
 
 ## Blockers
 
-- Human operator must execute both prepared, fresh, read-only review-1 packets. Their strict JSON verdicts are required before final review-2.
+- Human operator must execute the prepared F3 Kimi visual-fix packet. Existing review-1 dispatches were not executed and are superseded by the user-directed visual change.
 
 ## Next Action
 
-Human operator executes both formal review-1 packets (B1→Kimi and F2→Claude-GLM). The bookkeeper validates their JSON verdicts, routes any REWORK to the provided fix prompt, or prepares final review-2 after both accepting task reviews; do not reuse the prior ACCEPT.
+Human operator executes F3, then the bookkeeper commits it, recomputes the full stage fingerprint, re-runs pre-review validation, and prepares re-bound fresh review-1 packets before review-2; do not reuse the prior ACCEPT or pre-F3 packets.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-18 23:15:28 CST
-下一步模型: Kimi 与 Claude-GLM（均由人类操作员以只读模式执行）
-下一步任务: 分别执行 33 与 34 review-1 派发包，提交 schema-valid 原始 verdict
+本地北京时间: 2026-07-19 00:10:24 CST
+下一步模型: Kimi（由人类操作员执行）
+下一步任务: 执行 35-kimi-frontend-visual-fix-f3.dispatch.md，完成 F3 样式与自检

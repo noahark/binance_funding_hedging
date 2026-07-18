@@ -38,6 +38,8 @@ Allowed files:
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/31-review-1-backend.md`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/32-review-1-frontend.md`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/63-pre-review-validation.txt`
+- `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/23-implementation-frontend-visual-fix.md`
+- `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/64-test-output-frontend-visual-fix.txt`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/status.json`
 - `reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md`
 
@@ -93,3 +95,12 @@ Additional acceptance criteria:
 - Model: Codex/GPT
 - Skill: software_architect
 - Date: 2026-07-18
+
+## Amendment v4 — Borrow-Task Action Visual Acceptance Fix
+
+This user-directed visual fix is covered by the existing v2 task-state design and does not change task semantics:
+
+- Keep the existing state matrix explicit: a `borrowing` task has a disabled/visually greyed 启动 button; a `paused` task has a disabled/visually greyed 暂停 button.
+- The enabled 启动 action uses the green success theme; 暂停 uses a grey/neutral theme; 删除 uses a red danger theme.
+- Disabled action buttons must have an explicit disabled presentation, independent of their normal action theme. Do not alter lifecycle transitions, filters, edit behavior, fake/no-side-effect boundaries, or any backend contract.
+- Extend the frontend self-check to assert both the status-dependent disabled attributes and the three button-theme classes/styles.
