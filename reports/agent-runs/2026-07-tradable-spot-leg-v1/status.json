@@ -2,7 +2,7 @@
   "stage_id": "2026-07-tradable-spot-leg-v1",
   "status": "review_1",
   "workflow": "stage-delivery",
-  "current_phase": "review-1-dispatch-prepared-awaiting-human-execution",
+  "current_phase": "review-1-accepted-awaiting-review-2-preflight",
   "current_inputs": [
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/00-task.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/10-design.md",
@@ -13,7 +13,9 @@
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/61-pre-review-validation.txt",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/09-dispatch-claude-glm-test-fixture-repair.md",
-    "reports/agent-runs/2026-07-tradable-spot-leg-v1/28-dispatch-kimi-review-1.md"
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/28-dispatch-kimi-review-1.md",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/30-review-1.md",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/31-review-1-validation.txt"
   ],
   "stage_branch": {
     "name": "stage/2026-07-tradable-spot-leg-v1",
@@ -68,6 +70,17 @@
       "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/20-implementation.md",
       "recorded_at": "2026-07-18T05:54:16Z"
+    },
+    {
+      "role": "review_1",
+      "provider": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "actual_model": "kimi-code/k3",
+      "session_id": "session_27b4389b-4fed-471f-8c98-c3b48575fe41",
+      "session_id_source": "transcript_path",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/30-review-1.md",
+      "recorded_at": "2026-07-18T06:13:26Z"
     }
   ],
   "designer": {
@@ -102,7 +115,7 @@
       "id": "backend-spot-status-gate",
       "owner": "claude_glm",
       "reviewer": "kimi",
-      "status": "review_1_dispatch_prepared",
+      "status": "review_1_accepted",
       "initial_prompt_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/08-dispatch-claude-glm-implementation.md",
       "prompt_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/09-dispatch-claude-glm-test-fixture-repair.md",
       "allowed_files": [
@@ -131,8 +144,9 @@
         "reviewer": "kimi",
         "provider": "moonshot_kimi",
         "model": "kimi-code/kimi-for-coding",
-        "verdict": null,
-        "json_schema_valid": null,
+        "actual_model": "kimi-code/k3",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
         "diff_fingerprint": "7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50"
       }
     }
@@ -186,13 +200,14 @@
     "reviewer": "kimi",
     "provider": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
+    "actual_model": "kimi-code/k3",
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
     "diff_fingerprint": "7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50",
-    "covers_through_task": null,
+    "covers_through_task": "backend-spot-status-gate",
     "reviewer_prior_involvement": "none",
-    "fix_start_prompt_present": null,
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
   },
@@ -224,5 +239,5 @@
   "rework_count": 0,
   "max_rework": 3,
   "zero_push": true,
-  "updated_at": "2026-07-18T14:05:03+08:00"
+  "updated_at": "2026-07-18T14:20:31+08:00"
 }

@@ -1,0 +1,40 @@
+2026-07-18 14:20:31 CST — Kimi review-1 collection and validation
+
+Session evidence:
+
+```text
+session_id=session_27b4389b-4fed-471f-8c98-c3b48575fe41
+session_id_source=transcript_path
+session_store=~/.kimi-code/sessions/wd_funding_hedging_312b78e68b47/session_27b4389b-4fed-471f-8c98-c3b48575fe41/
+configured_cli_alias=kimi-code/kimi-for-coding
+resolved_wire_model=kimi-code/k3
+provider_identity=moonshot_kimi
+```
+
+Raw-output recovery:
+
+```text
+source=agents/main/wire.jsonl final text part
+destination=reports/agent-runs/2026-07-tradable-spot-leg-v1/30-review-1.md
+source_sha256=d237cecd2765585f2009e0a3079369eab4058d6e88757415e44b59a5217c58be
+destination_sha256=d237cecd2765585f2009e0a3079369eab4058d6e88757415e44b59a5217c58be
+verbatim_match=PASS
+```
+
+Verdict validation:
+
+```text
+schema=schemas/review-verdict.schema.json
+schema_valid=PASS
+stage_id=2026-07-tradable-spot-leg-v1
+role=first_reviewer
+verdict=ACCEPT
+diff_fingerprint=7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50
+reviewer_prior_involvement=none
+required_fixes=[]
+next_action=continue
+```
+
+The JSON object is preserved inside the reviewer's final Markdown `json` fence and validates
+without modification. No narrative follows that final fenced verdict block. Review-1 records one
+optional P3 test-literal-variant suggestion and no required fixes.
