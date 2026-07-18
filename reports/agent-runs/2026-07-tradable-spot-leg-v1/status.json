@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-tradable-spot-leg-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
-  "current_phase": "review-1-accepted-awaiting-review-2-preflight",
+  "current_phase": "review-2-dispatch-prepared-awaiting-preflight-validation",
   "current_inputs": [
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/00-task.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/10-design.md",
@@ -15,7 +15,8 @@
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/09-dispatch-claude-glm-test-fixture-repair.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/28-dispatch-kimi-review-1.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/30-review-1.md",
-    "reports/agent-runs/2026-07-tradable-spot-leg-v1/31-review-1-validation.txt"
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/31-review-1-validation.txt",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/48-dispatch-claude-fable-review-2.md"
   ],
   "stage_branch": {
     "name": "stage/2026-07-tradable-spot-leg-v1",
@@ -229,7 +230,7 @@
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "diff_fingerprint": "7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50",
     "covers_through_task": null,
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
@@ -239,5 +240,5 @@
   "rework_count": 0,
   "max_rework": 3,
   "zero_push": true,
-  "updated_at": "2026-07-18T14:20:31+08:00"
+  "updated_at": "2026-07-18T14:22:04+08:00"
 }

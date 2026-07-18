@@ -4,8 +4,8 @@
 
 - Stage: `2026-07-tradable-spot-leg-v1`.
 - Branch: `stage/2026-07-tradable-spot-leg-v1`, base `9a03069`.
-- Phase: Kimi review-1 returned schema-valid `ACCEPT`; raw output has been recovered verbatim and
-  the bookkeeper is committing review-1 evidence before review-2 preflight.
+- Phase: Kimi review-1 evidence is committed with schema-valid `ACCEPT`; the Fable5 review-2 packet
+  is prepared and awaiting its preflight validator gate.
 - Complexity: LOW, user-approved lightweight route, no direction panel or development breakdown.
 - Owner: Claude-GLM (`zhipu_glm`) for backend/data semantics. Codex is excluded from code/fix
   authorship. Review-1 planned Kimi; review-2 planned Fable5 to avoid Codex design overlap.
@@ -35,6 +35,9 @@
   Identity is isolated from the `zhipu_glm` implementer.
 - Raw review: `30-review-1.md`; verbatim collection and schema validation:
   `31-review-1-validation.txt`. Open blockers: none.
+- Review-2 packet: `48-dispatch-claude-fable-review-2.md`; selected final reviewer is Anthropic
+  Fable5, unrelated to the OpenAI/Codex designer and `zhipu_glm` implementation author. No
+  strong-reviewer override is needed.
 - Gate evidence: `61-pre-review-validation.txt`. The checked-in validator does not support the
   documented `--evidence-out` option; the supported clean-state invocation passed and is the
   authoritative gate result.
@@ -45,14 +48,14 @@
 
 ## Next Action
 
-The bookkeeper commits `30-review-1.md` and its validation evidence, transitions status to
-`review_2`, runs the review-2 pre-review validator, and prepares the human-executed Fable5 final
-review packet. No implementation, repair, or review-1 dispatch remains.
+The bookkeeper commits the review-2 routing metadata, runs and seals the review-2 pre-review
+validator, then hands `48-dispatch-claude-fable-review-2.md` to the human operator. No
+implementation, repair, or review-1 dispatch remains.
 
 ---
 当前 Session ID: 019f734a-dd82-7a11-8367-93fc1a5e954c
 Session ID 来源: runtime_env
 原始输出路径: reports/agent-runs/2026-07-tradable-spot-leg-v1/70-handoff.md
-本地北京时间: 2026-07-18 14:20:31 CST
+本地北京时间: 2026-07-18 14:22:04 CST
 下一步模型: Codex bookkeeper
-下一步任务: 提交 review-1 原始证据并准备 Fable5 review-2 固定指纹终审
+下一步任务: 提交 review-2 metadata、运行 preflight validator 并交付 Fable5 终审派工包

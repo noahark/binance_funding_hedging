@@ -1,9 +1,9 @@
 {
   "active": {
     "stage_id": "2026-07-tradable-spot-leg-v1",
-    "phase": "review-1-accepted-awaiting-review-2-preflight",
+    "phase": "review-2-dispatch-prepared-awaiting-preflight-validation",
     "handoff": "reports/agent-runs/2026-07-tradable-spot-leg-v1/70-handoff.md",
-    "updated_at": "2026-07-18T14:20:31+08:00"
+    "updated_at": "2026-07-18T14:22:04+08:00"
   },
   "last_completed": "2026-07-red-gate-greening-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
