@@ -143,7 +143,8 @@ const ids = [
   'summary-row', 'status-area', 'market-table-body', 'footer-note',
   'private-panel', 'private-panel-subtitle', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
   'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close',
-  'nav-market', 'nav-borrow-tasks', 'borrow-task-count', 'market-view', 'borrow-task-view', 'borrow-task-list'
+  'nav-market', 'nav-borrow-tasks', 'borrow-task-count', 'market-view', 'borrow-task-view', 'borrow-task-list',
+  'borrow-task-filters'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -331,8 +332,8 @@ global.fetch = async (url) => {
 global.document = {
   getElementById: (id) => {
     if (!elements[id]) {
-      // 借币任务操作控件为按 symbol 动态生成的 id，按需惰性 mock（最小 mock 能力补足）
-      if (/^borrow-(amount|count|error)-[A-Za-z0-9_]+$/.test(id)) return makeElement(id);
+      // 借币任务操作控件为按 symbol/任务 id 动态生成的 id，按需惰性 mock（最小 mock 能力补足）
+      if (/^(borrow-(amount|count|error)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-\d+)$/.test(id)) return makeElement(id);
       throw new Error(`未 mock 的元素: ${id}`);
     }
     return elements[id];
@@ -378,6 +379,33 @@ function getRowCell(tbodyHtml, symbol, cellIndex) {
     tdCount++;
   }
   throw new Error(`${symbol} 行缺少第 ${cellIndex + 1} 个单元格`);
+}
+
+// 借币任务卡解析：按 data-task-id 截取单张卡的 HTML
+function getTaskCardHtml(listHtml, id) {
+  const marker = `<div class="borrow-task-card" data-task-id="${id}">`;
+  const start = listHtml.indexOf(marker);
+  if (start === -1) throw new Error(`未找到任务卡 ${id}: ${listHtml}`);
+  const next = listHtml.indexOf('<div class="borrow-task-card"', start + marker.length);
+  return listHtml.slice(start, next === -1 ? listHtml.length : next);
+}
+
+function taskActionBtnHtml(cardHtml, action) {
+  const m = cardHtml.match(new RegExp(`<button[^>]*data-task-action="${action}"[^>]*>`));
+  if (!m) throw new Error(`任务卡缺少 ${action} 按钮: ${cardHtml}`);
+  return m[0];
+}
+
+function taskEditConfirmBtnHtml(cardHtml, id) {
+  const m = cardHtml.match(new RegExp(`<button[^>]*data-task-edit-confirm="${id}"[^>]*>`));
+  if (!m) throw new Error(`任务卡缺少编辑确认按钮: ${cardHtml}`);
+  return m[0];
+}
+
+function taskEditInputHtml(cardHtml, kind, id) {
+  const tagStart = cardHtml.indexOf(`<input id="task-edit-${kind}-${id}"`);
+  if (tagStart === -1) throw new Error(`任务卡缺少 task-edit-${kind}-${id} 输入: ${cardHtml}`);
+  return cardHtml.slice(tagStart, cardHtml.indexOf('/>', tagStart) + 2);
 }
 
 // 等待 async 渲染
@@ -2291,6 +2319,248 @@ setTimeout(async () => {
       }
       helpers.ingestSnapshot(designFixture);
       console.log('[PASS] maxBorrowableSubline 不再重复「已借完」');
+    }
+
+    // 68. 任务状态机按钮矩阵：borrowing/paused/completed/deleted 逐格
+    {
+      const tasksNow = helpers.getBorrowTasks();
+      if (tasksNow.length !== 2 || tasksNow[0].status !== 'borrowing' || tasksNow[1].status !== 'borrowing') {
+        throw new Error(`新建任务默认状态应为 borrowing: ${JSON.stringify(tasksNow)}`);
+      }
+      helpers.setActiveView('borrow-tasks');
+      // borrowing 矩阵：启动禁用 / 暂停可用 / 删除可用 / 编辑可用
+      let card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
+      if (!taskActionBtnHtml(card1, 'start').includes('disabled')) throw new Error('borrowing: 启动应禁用');
+      if (taskActionBtnHtml(card1, 'pause').includes('disabled')) throw new Error('borrowing: 暂停应可用');
+      if (taskActionBtnHtml(card1, 'delete').includes('disabled')) throw new Error('borrowing: 删除应可用');
+      if (taskEditConfirmBtnHtml(card1, 1).includes('disabled')) throw new Error('borrowing: 编辑确认应可用');
+      if (taskEditInputHtml(card1, 'amount', 1).includes('disabled')) throw new Error('borrowing: 编辑输入应可用');
+      // paused 矩阵：启动可用 / 暂停禁用 / 删除可用 / 编辑可用
+      if (!helpers.pauseBorrowTask(1).ok) throw new Error('pauseBorrowTask(1) 应成功');
+      card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
+      if (taskActionBtnHtml(card1, 'start').includes('disabled')) throw new Error('paused: 启动应可用');
+      if (!taskActionBtnHtml(card1, 'pause').includes('disabled')) throw new Error('paused: 暂停应禁用');
+      if (taskActionBtnHtml(card1, 'delete').includes('disabled')) throw new Error('paused: 删除应可用');
+      if (taskEditConfirmBtnHtml(card1, 1).includes('disabled')) throw new Error('paused: 编辑确认应可用');
+      if (!helpers.startBorrowTask(1).ok) throw new Error('startBorrowTask(1) 应成功');
+      // completed 矩阵（test-only 注入）：启动/暂停禁用、删除可用、编辑禁用/只读
+      helpers.getBorrowTasks().push({ id: 900, asset: 'TESTC', amountPerAttempt: 2, successTarget: 4, successCount: 4, status: 'completed' });
+      helpers.setBorrowTaskFilter('all');
+      const card900 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 900);
+      if (!taskActionBtnHtml(card900, 'start').includes('disabled')) throw new Error('completed: 启动应禁用');
+      if (!taskActionBtnHtml(card900, 'pause').includes('disabled')) throw new Error('completed: 暂停应禁用');
+      if (taskActionBtnHtml(card900, 'delete').includes('disabled')) throw new Error('completed: 删除应可用');
+      if (!taskEditConfirmBtnHtml(card900, 900).includes('disabled')) throw new Error('completed: 编辑确认应禁用');
+      if (!taskEditInputHtml(card900, 'amount', 900).includes('disabled')) throw new Error('completed: 编辑输入应禁用');
+      // deleted 矩阵：全部生命周期与编辑控件禁用
+      if (!helpers.deleteBorrowTask(2).ok) throw new Error('deleteBorrowTask(2) 应成功');
+      const card2 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 2);
+      if (!taskActionBtnHtml(card2, 'start').includes('disabled')) throw new Error('deleted: 启动应禁用');
+      if (!taskActionBtnHtml(card2, 'pause').includes('disabled')) throw new Error('deleted: 暂停应禁用');
+      if (!taskActionBtnHtml(card2, 'delete').includes('disabled')) throw new Error('deleted: 删除应禁用');
+      if (!taskEditConfirmBtnHtml(card2, 2).includes('disabled')) throw new Error('deleted: 编辑确认应禁用');
+      if (!taskEditInputHtml(card2, 'amount', 2).includes('disabled')) throw new Error('deleted: 编辑输入应禁用');
+      // 非法转换守卫
+      if (helpers.pauseBorrowTask(2).ok) throw new Error('deleted 任务不应可暂停');
+      if (helpers.startBorrowTask(1).ok) throw new Error('borrowing 任务不应可启动');
+      if (helpers.deleteBorrowTask(2).ok) throw new Error('重复删除不应成功');
+      console.log('[PASS] 任务状态机按钮矩阵（四状态逐格）与非法转换守卫');
+    }
+
+    // 69. 暂停→启动往返：状态字段、徽标翻转、进度不变
+    {
+      if (!helpers.pauseBorrowTask(1).ok) throw new Error('往返: 暂停应成功');
+      if (helpers.getBorrowTasks()[0].status !== 'paused') throw new Error('往返: 状态应为 paused');
+      let card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
+      if (!card1.includes('已暂停')) throw new Error('往返: 已暂停徽标未渲染');
+      if (!helpers.startBorrowTask(1).ok) throw new Error('往返: 启动应成功');
+      if (helpers.getBorrowTasks()[0].status !== 'borrowing') throw new Error('往返: 状态应为 borrowing');
+      card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
+      if (!card1.includes('借币中')) throw new Error('往返: 借币中徽标未渲染');
+      if (helpers.getBorrowTasks()[0].successCount !== 0 || helpers.getBorrowTasks()[0].successTarget !== 10) {
+        throw new Error('往返: 暂停/启动不应改变进度或目标');
+      }
+      console.log('[PASS] 暂停/启动往返转换与徽标翻转');
+    }
+
+    // 70. 软删除：对象保留、全部/已删除可见、completed 删除后变 deleted
+    {
+      const lenBefore = helpers.getBorrowTasks().length;
+      // id2 已在 #68 删除；验证对象仍在数组中且状态为 deleted
+      const task2 = helpers.getBorrowTasks().find(t => t.id === 2);
+      if (!task2 || task2.status !== 'deleted') throw new Error('软删除对象应保留且 status=deleted');
+      if (helpers.getBorrowTasks().length !== lenBefore) throw new Error('软删除不应移除任务对象');
+      // 全部 含 deleted；已删除 只含 deleted；借币中 不含 deleted
+      helpers.setBorrowTaskFilter('all');
+      const allHtml = elements['borrow-task-list'].innerHTML;
+      if (!allHtml.includes('data-task-id="2"')) throw new Error('全部筛选应包含软删除任务');
+      helpers.setBorrowTaskFilter('deleted');
+      const delHtml = elements['borrow-task-list'].innerHTML;
+      if (!delHtml.includes('data-task-id="2"') || delHtml.includes('data-task-id="1"')) {
+        throw new Error('已删除筛选成员错误');
+      }
+      if (!getTaskCardHtml(delHtml, 2).includes('已删除')) throw new Error('已删除任务卡应渲染已删除徽标');
+      helpers.setBorrowTaskFilter('borrowing');
+      if (elements['borrow-task-list'].innerHTML.includes('data-task-id="2"')) {
+        throw new Error('借币中筛选不应包含软删除任务');
+      }
+      // completed 任务删除后变 deleted（#68 注入的 id900 仍为 completed）
+      if (!helpers.deleteBorrowTask(900).ok) throw new Error('completed 任务删除应成功');
+      const task900 = helpers.getBorrowTasks().find(t => t.id === 900);
+      if (!task900 || task900.status !== 'deleted') throw new Error('completed 删除后应为 deleted');
+      if (helpers.getBorrowTasks().length !== lenBefore) throw new Error('completed 软删除不应移除对象');
+      console.log('[PASS] 软删除保留对象、筛选可见性与 completed→deleted');
+    }
+
+    // 71. 筛选成员与计数（全部含 deleted；计数只从 state.borrowTasks 派生）
+    {
+      // 当前：id1 borrowing、id2 deleted、id900 deleted；再注入一个 test-only completed
+      helpers.getBorrowTasks().push({ id: 901, asset: 'TESTD', amountPerAttempt: 3, successTarget: 3, successCount: 3, status: 'completed' });
+      helpers.setBorrowTaskFilter('all');
+      const filtersHtml = elements['borrow-task-filters'].innerHTML;
+      const expectedCounts = ['全部 (4)', '借币中 (1)', '已暂停 (0)', '已删除 (2)', '已完成 (1)'];
+      for (const text of expectedCounts) {
+        if (!filtersHtml.includes(text)) throw new Error(`筛选计数缺少「${text}」: ${filtersHtml}`);
+      }
+      const allCards = (elements['borrow-task-list'].innerHTML.match(/borrow-task-card/g) || []).length;
+      if (allCards !== 4) throw new Error(`全部筛选应渲染 4 张卡，实际 ${allCards}`);
+      helpers.setBorrowTaskFilter('completed');
+      const compHtml = elements['borrow-task-list'].innerHTML;
+      if (!compHtml.includes('data-task-id="901"') || compHtml.includes('已完成') === false) {
+        throw new Error('已完成筛选应渲染 completed 任务卡');
+      }
+      if (compHtml.includes('data-task-id="1"') || compHtml.includes('data-task-id="2"')) {
+        throw new Error('已完成筛选成员错误');
+      }
+      // 已暂停 为空但可渲染（空态不白屏）
+      helpers.setBorrowTaskFilter('paused');
+      const pausedHtml = elements['borrow-task-list'].innerHTML;
+      if (!pausedHtml.includes('暂无「已暂停」任务')) throw new Error(`已暂停空态未渲染: ${pausedHtml}`);
+      helpers.setBorrowTaskFilter('deleted');
+      const delHtml2 = elements['borrow-task-list'].innerHTML;
+      if (!delHtml2.includes('data-task-id="2"') || !delHtml2.includes('data-task-id="900"') || delHtml2.includes('data-task-id="901"')) {
+        throw new Error('已删除筛选成员错误（应含 2 与 900）');
+      }
+      helpers.setBorrowTaskFilter('all');
+      console.log('[PASS] 筛选成员、计数与空态渲染');
+    }
+
+    // 72. 任务编辑：预填当前值、有效编辑保留进度并重算总量、无效/只读报错不改状态
+    {
+      helpers.setBorrowTaskFilter('all');
+      const card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
+      if (!taskEditInputHtml(card1, 'amount', 1).includes('value="1000"')) {
+        throw new Error('编辑数量输入应预填精确当前值 1000');
+      }
+      if (!taskEditInputHtml(card1, 'count', 1).includes('value="10"')) {
+        throw new Error('编辑次数输入应预填精确当前值 10');
+      }
+      // 有效编辑：1000/10 → 250/7，successCount 保留，总量 250*7=1750 → 1,750
+      const amountEl = document.getElementById('task-edit-amount-1');
+      const countEl = document.getElementById('task-edit-count-1');
+      const errorEl = document.getElementById('task-edit-error-1');
+      amountEl.value = '250';
+      countEl.value = '7';
+      const r1 = helpers.submitBorrowTaskEdit(1);
+      if (!r1.ok) throw new Error(`有效编辑失败: ${r1.error}`);
+      const task1 = helpers.getBorrowTasks().find(t => t.id === 1);
+      if (task1.amountPerAttempt !== 250 || task1.successTarget !== 7 || task1.successCount !== 0) {
+        throw new Error(`有效编辑后任务字段错误: ${JSON.stringify(task1)}`);
+      }
+      const card1After = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
+      if (!card1After.includes('250 HOME/次') || !card1After.includes('0 / 7 次成功') || !card1After.includes('目标 1,750 HOME')) {
+        throw new Error(`有效编辑后展示未更新: ${card1After}`);
+      }
+      if (errorEl.textContent !== '') throw new Error('有效编辑后错误应清除');
+      // 无效编辑：值不变 + 就近局部错误
+      amountEl.value = 'abc';
+      countEl.value = '7';
+      const r2 = helpers.submitBorrowTaskEdit(1);
+      if (r2.ok) throw new Error('非法数量编辑不应成功');
+      if (!errorEl.textContent.includes('大于 0')) throw new Error(`无效编辑就近错误未显示: ${errorEl.textContent}`);
+      if (task1.amountPerAttempt !== 250 || task1.successTarget !== 7) throw new Error('无效编辑不应改变任务值');
+      amountEl.value = '250';
+      countEl.value = '2.5';
+      const r3 = helpers.submitBorrowTaskEdit(1);
+      if (r3.ok) throw new Error('非整数目标编辑不应成功');
+      if (task1.successTarget !== 7) throw new Error('无效目标编辑不应改变任务值');
+      // 只读编辑：deleted（id2）与 completed（id901）不改变状态并报错
+      const r4 = helpers.submitBorrowTaskEdit(2);
+      if (r4.ok) throw new Error('deleted 任务编辑不应成功');
+      const errorEl2 = document.getElementById('task-edit-error-2');
+      if (!errorEl2.textContent.includes('只读')) throw new Error(`deleted 编辑错误未就近显示: ${errorEl2.textContent}`);
+      const r5 = helpers.submitBorrowTaskEdit(901);
+      if (r5.ok) throw new Error('completed 任务编辑不应成功');
+      const task901 = helpers.getBorrowTasks().find(t => t.id === 901);
+      if (task901.amountPerAttempt !== 3 || task901.successTarget !== 3) throw new Error('只读编辑不应改变任务值');
+      console.log('[PASS] 任务编辑预填、有效/无效/只读路径与进度保留');
+    }
+
+    // 73. 最小借币量占位符三分支（含 raw "0"/"0.00"）；输入值为空；任务编辑输入不受影响
+    {
+      const phFixture = JSON.parse(JSON.stringify(designFixture));
+      phFixture.rows[0].borrow_validation.classic_margin.user_min_borrow = '0';
+      phFixture.rows[0].borrow_validation.classic_margin.user_min_borrow_value_usdt = '0.00';
+      phFixture.rows[1].borrow_validation.classic_margin.user_min_borrow = '0.001';
+      phFixture.rows[1].borrow_validation.classic_margin.user_min_borrow_value_usdt = null;
+      phFixture.rows[2].borrow_validation.classic_margin.user_min_borrow = null;
+      phFixture.rows[2].borrow_validation.classic_margin.user_min_borrow_value_usdt = null;
+      phFixture.rows[3].borrow_validation.classic_margin.user_min_borrow = '2.5';
+      phFixture.rows[3].borrow_validation.classic_margin.user_min_borrow_value_usdt = '123.46';
+      helpers.ingestSnapshot(phFixture);
+      const phTbody = elements['market-table-body'].innerHTML;
+      const phCases = [
+        ['AUSDT', 'placeholder="最小借币量 0 (≈ 0.00 USDT)"'],
+        ['BUSDT', 'placeholder="最小借币量 0.001 (≈ — USDT)"'],
+        ['CUSDT', 'placeholder="最小借币量 —"'],
+        ['DUSDT', 'placeholder="最小借币量 2.5 (≈ 123.46 USDT)"']
+      ];
+      for (const [sym, expected] of phCases) {
+        const cell = getRowCell(phTbody, sym, 12);
+        if (!cell.includes(expected)) {
+          throw new Error(`${sym} 占位符期望 ${expected}，单元格 ${cell}`);
+        }
+        // 输入值保持为空：数量输入标签内不得出现 value 属性
+        const tagStart = cell.indexOf(`<input id="borrow-amount-${sym}"`);
+        const tag = cell.slice(tagStart, cell.indexOf('/>', tagStart));
+        if (tag.includes('value=')) {
+          throw new Error(`${sym} 数量输入不应带 value 属性: ${tag}`);
+        }
+      }
+      // 任务列表编辑输入不受占位符规则影响：仍有 value 预填、无 placeholder
+      const card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
+      const editInput = taskEditInputHtml(card1, 'amount', 1);
+      if (!editInput.includes('value="250"')) throw new Error('任务编辑输入预填不应受占位符规则影响');
+      if (editInput.includes('placeholder=')) throw new Error('任务编辑输入不应携带占位符');
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] 最小借币量占位符三分支、空输入值与编辑输入不受影响');
+    }
+
+    // 74. 全部新动作零副作用：无 fetch / 定时器 / localStorage 写入
+    {
+      const fetchBefore = fetchCallLog.length;
+      const intervalsBefore = intervalCalls.length;
+      const lsKeysBefore = Object.keys(localStorageData).length;
+      helpers.setActiveView('borrow-tasks');
+      helpers.pauseBorrowTask(1);
+      helpers.startBorrowTask(1);
+      helpers.setBorrowTaskFilter('deleted');
+      helpers.setBorrowTaskFilter('all');
+      const amountEl = document.getElementById('task-edit-amount-1');
+      const countEl = document.getElementById('task-edit-count-1');
+      amountEl.value = '300';
+      countEl.value = '6';
+      if (!helpers.submitBorrowTaskEdit(1).ok) throw new Error('74: 编辑应成功');
+      if (fetchCallLog.length !== fetchBefore) {
+        throw new Error(`任务操作不应发起 fetch: ${fetchCallLog.slice(fetchBefore)}`);
+      }
+      if (intervalCalls.length !== intervalsBefore) {
+        throw new Error('任务操作不应注册任何新定时器');
+      }
+      if (Object.keys(localStorageData).length !== lsKeysBefore) {
+        throw new Error('任务操作不应写 localStorage');
+      }
+      console.log('[PASS] 状态转换/编辑/筛选零 fetch、零定时器、零持久化');
     }
 
     console.log('\n全部自检通过');

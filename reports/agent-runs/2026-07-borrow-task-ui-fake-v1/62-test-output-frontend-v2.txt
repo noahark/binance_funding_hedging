@@ -1,0 +1,100 @@
+$ node frontend/self-check.js
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认渲染 6 行
+[PASS] 拆列存在，合并列消失
+[PASS] 年化三列存在且文案区分预估/已结算
+[PASS] 路由分类列移除，过滤器与字段校验保留
+[PASS] Drawer 宽度与卡片标签约束
+[PASS] 资金费率固定 3 位小数
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 年化三列格式化（含 null→—）
+[PASS] 结算间隔标注 8h
+[PASS] 无排序控件 DOM
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] formatFundingRateFixed 固定小数位百分比
+[PASS] formatUsdt2 2 位 ROUND_HALF_UP
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 资产/负费率状态列中文格式与路由列移除检查
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 净收益列存在与格式
+[PASS] 负值净收益红色样式
+[PASS] vip0_reference 显著标注「基准利率」
+[PASS] sort_basis 标注
+[PASS] 私有面板 verified=true 状态
+[PASS] 时点合一与估值来源卡片删除
+[PASS] 页面不含矛盾运行约束文案
+[PASS] 隐私开关默认隐藏
+[PASS] 隐私开关点击切换
+[PASS] 私有面板 verified=false disabled 占位
+[PASS] 私有面板 verified=false error 占位
+[PASS] 行联动方向标（不带数量）
+[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示
+[PASS] private-panel 在市场表之前
+[PASS] drawer DOM 在应用脚本之前
+[PASS] 成本腿命中行展示借币日利率
+[PASS] VIP0 参考档显示"参考"徽标
+[PASS] 正费率行不展示借币成本子行
+[PASS] opening spread 独立 formatter 三向量
+[PASS] 最终 13 列表头顺序、行单元格数、empty-state colspan 与合并列结构
+[PASS] 正向/反向开单列腿、价、百分比与颜色
+[PASS] Task C 别名移除、开单三行垂直顺序与 flex 布局移除
+[PASS] incomplete 双方向独立显示
+[PASS] stale/unavailable/缺失 降级为 —
+[PASS] 开单列参考报价文案
+[PASS] 负费率状态行感知的六文案派生
+[PASS] 余额卡片三行折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+[PASS] 余额数量整数千分位、小数原样保留
+[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）
+[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）
+[PASS] METAL 资产标签徽章与下拉选项
+[PASS] 借币三态（51061 借光/有额度/未探测/borrow_rate_source=null 但额度已探测）
+[PASS] 抽屉打开、标题、年化值、历史 newest-first
+[PASS] 抽屉关闭按钮
+[PASS] 抽屉 Escape 关闭
+[PASS] 抽屉 backdrop 关闭
+[PASS] 刷新保持抽屉
+[PASS] symbol 消失时抽屉关闭
+[PASS] drawer loading 与 same-origin 请求
+[PASS] available 响应合并到行与表
+[PASS] empty 响应显示无记录
+[PASS] HTTP 502 显示可重试失败状态
+[PASS] 重试按钮重新 fetch 并更新抽屉
+[PASS] stale 响应隔离
+[PASS] response-body race 隔离（res.json() 延迟后切换）
+[PASS] wrong-symbol/schema 响应被拒绝合并
+[PASS] schema_version mismatch 响应被拒绝
+[PASS] 缺 row 字段响应被拒绝
+[PASS] 含 rows 数组响应被拒绝
+[PASS] in-flight 守卫忽略同 symbol 重复点击
+[PASS] refresh_status=timeout 显示 notice 且保留上次行
+[PASS] refresh_status=partial 替换行并显示 warnings notice
+[PASS] 操作单元格两输入一按钮、标签与事件隔离
+[PASS] 借币任务导航切换、空态与恢复市场视图
+[PASS] 借币任务输入校验（数量/次数非法不创建）
+[PASS] HOME 任务创建、展示值、零 fetch 与零重试定时器
+[PASS] 操作单元格 UI 提交路径与就近错误
+[PASS] maxBorrowableSubline 不再重复「已借完」
+[PASS] 任务状态机按钮矩阵（四状态逐格）与非法转换守卫
+[PASS] 暂停/启动往返转换与徽标翻转
+[PASS] 软删除保留对象、筛选可见性与 completed→deleted
+[PASS] 筛选成员、计数与空态渲染
+[PASS] 任务编辑预填、有效/无效/只读路径与进度保留
+[PASS] 最小借币量占位符三分支、空输入值与编辑输入不受影响
+[PASS] 状态转换/编辑/筛选零 fetch、零定时器、零持久化
+
+全部自检通过
+exit_code=0
+
+$ git diff --check
+exit_code=0
