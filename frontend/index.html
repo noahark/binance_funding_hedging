@@ -679,6 +679,29 @@
       gap: var(--space-2);
       flex-wrap: wrap;
     }
+    /* 任务操作按钮主题：启动=绿、暂停=灰、删除=红；显式禁用态覆盖主题色 */
+    .btn.action-start {
+      border-color: #a8dbc0;
+      background: var(--success-soft);
+      color: var(--success);
+    }
+    .btn.action-pause {
+      border-color: var(--line-strong);
+      background: var(--surface-2);
+      color: var(--muted);
+    }
+    .btn.action-delete {
+      border-color: #ffc0b8;
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      border-color: var(--line);
+      background: var(--surface-2);
+      color: var(--faint);
+    }
     .borrow-task-edit {
       display: flex;
       align-items: center;
@@ -2249,9 +2272,9 @@
                 <div>策略：每 30 秒尝试一次，失败等待下次，达到成功次数后停止</div>
               </div>
               <div class="borrow-task-controls">
-                <button class="btn compact" type="button" data-task-action="start" data-task-id="${task.id}"${startDisabled}>启动</button>
-                <button class="btn compact" type="button" data-task-action="pause" data-task-id="${task.id}"${pauseDisabled}>暂停</button>
-                <button class="btn compact" type="button" data-task-action="delete" data-task-id="${task.id}"${deleteDisabled}>删除</button>
+                <button class="btn compact action-start" type="button" data-task-action="start" data-task-id="${task.id}"${startDisabled}>启动</button>
+                <button class="btn compact action-pause" type="button" data-task-action="pause" data-task-id="${task.id}"${pauseDisabled}>暂停</button>
+                <button class="btn compact action-delete" type="button" data-task-action="delete" data-task-id="${task.id}"${deleteDisabled}>删除</button>
               </div>
               <div class="borrow-task-edit">
                 <label for="task-edit-amount-${task.id}">单次借币数量</label>

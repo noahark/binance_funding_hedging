@@ -2563,6 +2563,49 @@ setTimeout(async () => {
       console.log('[PASS] 状态转换/编辑/筛选零 fetch、零定时器、零持久化');
     }
 
+    // 75. 操作按钮视觉主题（启动绿/暂停灰/删除红）与显式禁用态
+    {
+      // 显式禁用样式与三类操作主题类存在（禁用样式位于主题之后以覆盖主题色）
+      if (!html.includes('.btn:disabled')) {
+        throw new Error('缺少显式 .btn:disabled 禁用样式');
+      }
+      if (!html.includes('.btn.action-start') || !html.includes('.btn.action-pause') || !html.includes('.btn.action-delete')) {
+        throw new Error('缺少 action-start/action-pause/action-delete 主题类样式');
+      }
+      if (html.indexOf('.btn:disabled') < html.indexOf('.btn.action-start')) {
+        throw new Error('禁用样式应位于操作主题之后以覆盖主题色');
+      }
+      helpers.setActiveView('borrow-tasks');
+      helpers.setBorrowTaskFilter('all');
+      // borrowing（id1）：启动 绿主题+disabled；暂停 灰主题可用；删除 红主题可用
+      const card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
+      const startBtn1 = taskActionBtnHtml(card1, 'start');
+      if (!startBtn1.includes('action-start') || !startBtn1.includes('disabled')) {
+        throw new Error(`borrowing 启动应为 action-start 且 disabled: ${startBtn1}`);
+      }
+      const pauseBtn1 = taskActionBtnHtml(card1, 'pause');
+      if (!pauseBtn1.includes('action-pause') || pauseBtn1.includes('disabled')) {
+        throw new Error(`borrowing 暂停应为 action-pause 且可用: ${pauseBtn1}`);
+      }
+      const deleteBtn1 = taskActionBtnHtml(card1, 'delete');
+      if (!deleteBtn1.includes('action-delete') || deleteBtn1.includes('disabled')) {
+        throw new Error(`borrowing 删除应为 action-delete 且可用: ${deleteBtn1}`);
+      }
+      // paused：暂停 disabled（灰主题保留），启动可用（绿主题保留）
+      if (!helpers.pauseBorrowTask(1).ok) throw new Error('75: 暂停应成功');
+      const card1Paused = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
+      const pauseBtnP = taskActionBtnHtml(card1Paused, 'pause');
+      if (!pauseBtnP.includes('action-pause') || !pauseBtnP.includes('disabled')) {
+        throw new Error(`paused 暂停应为 action-pause 且 disabled: ${pauseBtnP}`);
+      }
+      const startBtnP = taskActionBtnHtml(card1Paused, 'start');
+      if (!startBtnP.includes('action-start') || startBtnP.includes('disabled')) {
+        throw new Error(`paused 启动应为 action-start 且可用: ${startBtnP}`);
+      }
+      if (!helpers.startBorrowTask(1).ok) throw new Error('75: 启动应成功');
+      console.log('[PASS] 操作按钮绿/灰/红主题与 borrowing/paused 禁用态显式呈现');
+    }
+
     console.log('\n全部自检通过');
     process.exit(0);
   } catch (err) {
