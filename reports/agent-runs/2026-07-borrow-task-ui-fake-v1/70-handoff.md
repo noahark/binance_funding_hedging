@@ -2,9 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: review-1 / F2+F3 verdict JSON retry pending
-- Next action: Kimi continues B1 review; human operator executes `38-claude-glm-review-1-frontend-f2-f3-json-retry.dispatch.md` once in a fresh read-only Claude-GLM session.
-- Read-set: `status.current_inputs`, original invalid `32-review-1-frontend.md`, retry dispatch `38-claude-glm-review-1-frontend-f2-f3-json-retry.dispatch.md`, and B1 packet `36-kimi-review-1-backend-b1-rebound.dispatch.md`
+- Active phase: review-1 / B1 verdict JSON retry pending
+- Next action: F2+F3 strict retry is schema-valid ACCEPT. Human operator executes `39-kimi-review-1-backend-b1-json-retry.dispatch.md` once in a fresh read-only Kimi session.
+- Read-set: `status.current_inputs`, original invalid `31-review-1-backend.md`, retry dispatch `39-kimi-review-1-backend-b1-json-retry.dispatch.md`, and valid F2+F3 retry `32-review-1-frontend-retry-1.md`
 - Open blockers: The previous review-1 ACCEPT is superseded by user-approved new requirements; B1→F2 are dependency-ordered and each needs its own cross-provider review-1 (B1→Kimi, F2→Claude-GLM) before review-2.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
@@ -42,6 +42,7 @@
 - F3 implementation: `23-implementation-frontend-visual-fix.md`; test log: `64-test-output-frontend-visual-fix.txt`
 - Rebound review-1 dispatches: `36-kimi-review-1-backend-b1-rebound.dispatch.md` (B1) and `37-claude-glm-review-1-frontend-f2-f3-rebound.dispatch.md` (combined F2+F3)
 - Original F2+F3 review attempt: `32-review-1-frontend.md` (content ACCEPT, but non-accepting output format); retry dispatch: `38-claude-glm-review-1-frontend-f2-f3-json-retry.dispatch.md`
+- Valid F2+F3 strict retry: `32-review-1-frontend-retry-1.md` (ACCEPT); original B1 review: `31-review-1-backend.md` (content ACCEPT, but non-accepting output format); retry dispatch: `39-kimi-review-1-backend-b1-json-retry.dispatch.md`
 - Review-1 dispatch: `25-review-1.dispatch.md` (historical)
 - Review 1 raw output: `30-review-1.md` — ACCEPT for old diff, superseded by scope amendment
 - Fix report: pending `40-fix-report.md`
@@ -81,15 +82,15 @@
 
 ## Blockers
 
-- Kimi B1 review remains pending. F2+F3 attempt 1 has an ACCEPT conclusion but is non-accepting because it prints a Markdown fence after the JSON verdict; the required same-model JSON-format retry is pending.
+- F2+F3 retry 1 is a schema-valid ACCEPT. B1 attempt 1 has an ACCEPT conclusion but is non-accepting because it prints a Markdown fence after the JSON verdict; the required same-model JSON-format retry is pending.
 
 ## Next Action
 
-Human operator executes the one allowed F2+F3 JSON-format retry while Kimi completes B1 review. The bookkeeper validates both strict verdicts, routes any REWORK to the supplied fix prompt, or prepares final review-2 after acceptance; do not use the malformed attempt as a gate.
+Human operator executes the one allowed B1 JSON-format retry. The bookkeeper validates its strict verdict, routes any REWORK to the supplied fix prompt, or prepares final review-2 after acceptance; do not use malformed attempts as gates.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-19 00:46:11 CST
-下一步模型: Claude-GLM（由人类操作员只读执行）与 Kimi（B1 review 继续）
-下一步任务: 运行 38 仅修正 F2+F3 verdict 文件结尾格式；等待 Kimi B1 strict verdict
+本地北京时间: 2026-07-19 01:08:03 CST
+下一步模型: Kimi（由人类操作员只读执行）
+下一步任务: 运行 39 仅修正 B1 verdict 文件结尾格式
