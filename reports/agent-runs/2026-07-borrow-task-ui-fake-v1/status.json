@@ -56,7 +56,8 @@
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/39-kimi-review-1-backend-b1-json-retry.dispatch.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/31-review-1-backend-retry-1.md",
     "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/66-review-2-strong-reviewer-override.md",
-    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/41-claude-review-2-opus4.8.dispatch.md"
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/41-claude-review-2-opus4.8.dispatch.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/67-pre-review-validation-review2.txt"
   ],
   "parallel_mode": {
     "enabled": false,
@@ -368,5 +369,5 @@
     }
   },
   "next_action": "human_operator_execute_opus4_8_review_2",
-  "updated_at": "2026-07-19T01:36:38+08:00"
+  "updated_at": "2026-07-19T01:38:50+08:00"
 }
