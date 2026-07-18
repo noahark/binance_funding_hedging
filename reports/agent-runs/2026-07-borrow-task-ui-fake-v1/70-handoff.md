@@ -2,9 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: implementation / frontend Task F2 ready for human dispatch
-- Next action: Human operator executes `29-kimi-frontend-f2.dispatch.md`. B1 is committed, backend tests are green, and the stage-local raw sample is byte-identical to its source.
-- Read-set: `status.current_inputs`, `12-development-breakdown.md`, `21-implementation-backend.md`, `29-kimi-frontend-f2.dispatch.md`, `13-scope-amendment-v2.md`, `14-user-min-borrow-contract-amendment.md`, prior `30-review-1.md`
+- Active phase: review-1 dispatch preparation
+- Next action: Human operator executes both prepared read-only review-1 packets: `33-kimi-review-1-backend-b1.dispatch.md` and `34-claude-glm-review-1-frontend-f2.dispatch.md`.
+- Read-set: `status.current_inputs`, `12-development-breakdown.md`, `21-implementation-backend.md`, `22-implementation-frontend-v2.md`, `33-kimi-review-1-backend-b1.dispatch.md`, `34-claude-glm-review-1-frontend-f2.dispatch.md`, prior `30-review-1.md`
 - Open blockers: The previous review-1 ACCEPT is superseded by user-approved new requirements; B1→F2 are dependency-ordered and each needs its own cross-provider review-1 (B1→Kimi, F2→Claude-GLM) before review-2.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
@@ -15,8 +15,8 @@
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
 - Reviewed delivery commit: `edb20022e3490b89a805fa6eda374574523317e2`
 - Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..edb20022e3490b89a805fa6eda374574523317e2` / `edb20022e3490b89a805fa6eda374574523317e2:e3e97e020a81270214b15ccf349a969f159f831c72047d24ddffe2b7b1bcf133`
-- Git status: B1 evidence committed at `623d059b52723d9ee412519db054a2a25cedf504`; F2 dispatch checkpoint pending commit
-- Implementer: Claude-GLM B1 complete (Session ID unavailable through harness); Kimi F2 pending
+- Git status: B1 evidence committed at `623d059b52723d9ee412519db054a2a25cedf504`; F2 evidence committed at `ddcecf5533352c25886aeadfdc233a826603ba7b`; review dispatch checkpoint pending commit
+- Implementer: Claude-GLM B1 complete (Session ID unavailable through harness); Kimi F2 complete (Session ID `83684f19-df9d-44ba-885c-267a01656f75`, transcript_path)
 - Parallel mode: disabled
 
 ## Artifact Index
@@ -36,6 +36,8 @@
 - Claude-GLM B1 dispatch: `28-claude-glm-backend-b1.dispatch.md`
 - Backend implementation: `21-implementation-backend.md`; backend test log: `61-test-output-backend.txt`
 - Kimi F2 dispatch: `29-kimi-frontend-f2.dispatch.md`
+- Frontend implementation: `22-implementation-frontend-v2.md`; frontend test log: `62-test-output-frontend-v2.txt`
+- Fresh review-1 dispatches: `33-kimi-review-1-backend-b1.dispatch.md` (B1) and `34-claude-glm-review-1-frontend-f2.dispatch.md` (F2)
 - Review-1 dispatch: `25-review-1.dispatch.md` (historical)
 - Review 1 raw output: `30-review-1.md` — ACCEPT for old diff, superseded by scope amendment
 - Fix report: pending `40-fix-report.md`
@@ -68,18 +70,19 @@
 - Prior review-1 ACCEPT has two P3 inputs-reset/a11y notes; retained in `13-scope-amendment-v2.md` for new review awareness.
 - v2 frozen interpretation: deletion is soft deletion; completed is a filterable/read-only state without an automatic or manual fake-completion UI transition.
 - v3 frozen interpretation: `userMinBorrow` is a raw string distinct from current availability; `user_min_borrow_value_usdt` uses the same price routing but is stored with exactly two decimal places (`ROUND_HALF_UP`), while the existing max-borrow value remains eight-decimal. They are market-operation placeholder guidance only. Existing raw evidence contains the field but only `"0"` values, so synthetic coverage must supplement—not replace—the stage-local raw copy.
+- F2 implementation disclosure: browser visual/Network-panel checks were not run in the model environment; DOM self-check coverage passed. The existing class of unsubmitted-input reset on whole-list re-render also applies to other task cards after lifecycle/filter/edit actions; this is a disclosed P3 review concern, not an accepted manual-test result.
 
 ## Blockers
 
-- Human operator must execute the prepared Kimi Task F2 packet. Formal cross-review is then required for B1 by Kimi and F2 by Claude-GLM before final review-2.
+- Human operator must execute both prepared, fresh, read-only review-1 packets. Their strict JSON verdicts are required before final review-2.
 
 ## Next Action
 
-Human operator executes the prepared Kimi Task F2 dispatch (task state machine, filters, edits, and the operation-input placeholder consuming B1's two fields). Then the bookkeeper commits F2, prepares fresh review-1 per task (B1→Kimi, F2→Claude-GLM), and runs review-2; do not reuse the prior ACCEPT.
+Human operator executes both formal review-1 packets (B1→Kimi and F2→Claude-GLM). The bookkeeper validates their JSON verdicts, routes any REWORK to the provided fix prompt, or prepares final review-2 after both accepting task reviews; do not reuse the prior ACCEPT.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-18 22:35:55 CST
-下一步模型: Kimi（由人类操作员执行）
-下一步任务: 执行 29-kimi-frontend-f2.dispatch.md，实现前端 Task F2 并提交原始报告/测试日志
+本地北京时间: 2026-07-18 23:13:00 CST
+下一步模型: Kimi 与 Claude-GLM（均由人类操作员以只读模式执行）
+下一步任务: 分别执行 33 与 34 review-1 派发包，提交 schema-valid 原始 verdict
