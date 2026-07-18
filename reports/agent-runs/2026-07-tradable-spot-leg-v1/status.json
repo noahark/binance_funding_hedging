@@ -2,7 +2,7 @@
   "stage_id": "2026-07-tradable-spot-leg-v1",
   "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
-  "current_phase": "stage-accepted-waiting-user-pre-accept-validation-pending",
+  "current_phase": "stage-accepted-waiting-user",
   "current_inputs": [
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/00-task.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/10-design.md",
@@ -19,7 +19,8 @@
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/48-dispatch-claude-fable-review-2.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/63-review-2-preflight-validation.txt",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/50-review-2.md",
-    "reports/agent-runs/2026-07-tradable-spot-leg-v1/51-review-2-validation.txt"
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/51-review-2-validation.txt",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/64-pre-accept-validation.txt"
   ],
   "stage_branch": {
     "name": "stage/2026-07-tradable-spot-leg-v1",
@@ -253,5 +254,5 @@
   "rework_count": 0,
   "max_rework": 3,
   "zero_push": true,
-  "updated_at": "2026-07-18T14:36:51+08:00"
+  "updated_at": "2026-07-18T14:37:30+08:00"
 }

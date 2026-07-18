@@ -1,0 +1,26 @@
+2026-07-18 14:37:30 CST — pre-accept gate
+
+Attempt 1 (review verdict recorded, status still `review_2`):
+
+$ python3 scripts/validate-stage.py 2026-07-tradable-spot-leg-v1 --phase pre-accept
+STAGE VALIDATION FAILED
+- pre-accept requires status in ['accepted', 'stage_accepted_waiting_user'], got 'review_2'
+exit=1
+
+Disposition: state-order precondition, not a delivery/review failure. The checked-in validator
+requires the accepted waiting state to be committed before it will evaluate the acceptance
+assertions. The bookkeeper committed only the terminal metadata transition; no delivery,
+fingerprint, verdict, test, merge, or push state changed.
+
+Attempt 2 (validator-required accepted waiting state, clean worktree; authoritative gate):
+
+$ python3 scripts/validate-stage.py 2026-07-tradable-spot-leg-v1 --phase pre-accept
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-tradable-spot-leg-v1
+phase=pre-accept
+status=stage_accepted_waiting_user
+diff_fingerprint=7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50
+exit=0
+
+No authorized exceptions applied. Merge, push, deployment, and `main` changes remain pending
+explicit user acceptance.

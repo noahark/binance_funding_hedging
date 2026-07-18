@@ -4,8 +4,8 @@
 
 - Stage: `2026-07-tradable-spot-leg-v1`.
 - Branch: `stage/2026-07-tradable-spot-leg-v1`, base `9a03069`.
-- Phase: Fable5 review-2 returned schema-valid `ACCEPT`; stage is now
-  `stage_accepted_waiting_user`, with the validator-required accepted-state pre-accept run pending.
+- Phase: Fable5 review-2 returned schema-valid `ACCEPT`; pre-accept passed with no authorized
+  exceptions, and the stage is `stage_accepted_waiting_user`.
 - Complexity: LOW, user-approved lightweight route, no direction panel or development breakdown.
 - Owner: Claude-GLM (`zhipu_glm`) for backend/data semantics. Codex is excluded from code/fix
   authorship. Review-1 planned Kimi; review-2 planned Fable5 to avoid Codex design overlap.
@@ -45,6 +45,8 @@
   `anthropic`, prior involvement `none`.
 - Raw final review: `50-review-2.md`; verbatim collection and schema validation:
   `51-review-2-validation.txt`. Open blockers: none.
+- Pre-accept evidence: `64-pre-accept-validation.txt`, PASS on the fixed delivery fingerprint with
+  no authorized exceptions.
 - Gate evidence: `61-pre-review-validation.txt`. The checked-in validator does not support the
   documented `--evidence-out` option; the supported clean-state invocation passed and is the
   authoritative gate result.
@@ -55,16 +57,15 @@
 
 ## Next Action
 
-The bookkeeper commits the validator-required accepted-state metadata, reruns pre-accept from a
-clean worktree, seals the result, and stops for explicit user acceptance. The first pre-accept
-attempt while status was `review_2` was rejected because the validator requires status
-`accepted`/`stage_accepted_waiting_user`; that adapter-order result will be preserved with the
-successful gate evidence. Merge, push, deployment, and `main` changes remain unauthorized.
+Stop for explicit user acceptance. If the user accepts the reviewed stage, the bookkeeper may
+merge or fast-forward the stage branch into `main`, rerun the relevant checks, update the final
+ledger/ACTIVE state, and push only under that explicit authorization. Until then, merge, push,
+deployment, and `main` changes remain unauthorized.
 
 ---
 当前 Session ID: 019f734a-dd82-7a11-8367-93fc1a5e954c
 Session ID 来源: runtime_env
 原始输出路径: reports/agent-runs/2026-07-tradable-spot-leg-v1/70-handoff.md
-本地北京时间: 2026-07-18 14:36:51 CST
-下一步模型: Codex bookkeeper
-下一步任务: 提交 accepted-state metadata、重跑并封存 pre-accept gate，然后等待用户验收
+本地北京时间: 2026-07-18 14:37:30 CST
+下一步模型: human
+下一步任务: 显式验收或拒绝本阶段；未验收前不得 merge/push
