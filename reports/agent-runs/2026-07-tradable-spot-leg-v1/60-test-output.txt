@@ -364,3 +364,18 @@ exit=0
 $ git diff --check
 exit=0
 ```
+
+2026-07-18 14:02:34 CST — committed delivery range and canonical fingerprint
+
+```text
+base_sha=9a03069fa9942739c7d8077d3a33d4387afde048
+head_sha=7522ec3645f7c51e0abb602268b7e1f89b5556da
+diff_sha256=79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50
+diff_fingerprint=7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50
+```
+
+Fingerprint input command:
+
+```text
+git -c diff.renames=true diff --binary 9a03069fa9942739c7d8077d3a33d4387afde048..7522ec3645f7c51e0abb602268b7e1f89b5556da -- . ':(exclude)reports/agent-runs/2026-07-tradable-spot-leg-v1/status.json'
+```

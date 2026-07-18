@@ -1,8 +1,8 @@
 {
   "stage_id": "2026-07-tradable-spot-leg-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
-  "current_phase": "testing-complete-awaiting-evidence-commit",
+  "current_phase": "review-1-dispatch-prepared-awaiting-human-execution",
   "current_inputs": [
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/00-task.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/10-design.md",
@@ -11,7 +11,8 @@
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/07-scope-extension-authorization.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/20-implementation.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/60-test-output.txt",
-    "reports/agent-runs/2026-07-tradable-spot-leg-v1/09-dispatch-claude-glm-test-fixture-repair.md"
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/09-dispatch-claude-glm-test-fixture-repair.md",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/28-dispatch-kimi-review-1.md"
   ],
   "stage_branch": {
     "name": "stage/2026-07-tradable-spot-leg-v1",
@@ -100,7 +101,7 @@
       "id": "backend-spot-status-gate",
       "owner": "claude_glm",
       "reviewer": "kimi",
-      "status": "implementation_complete",
+      "status": "review_1_dispatch_prepared",
       "initial_prompt_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/08-dispatch-claude-glm-implementation.md",
       "prompt_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/09-dispatch-claude-glm-test-fixture-repair.md",
       "allowed_files": [
@@ -122,8 +123,8 @@
         "reason": "Three pre-existing tradable resolver fixtures omit status and must declare TRADING under the approved fail-closed contract."
       },
       "base_sha": "9a03069fa9942739c7d8077d3a33d4387afde048",
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "head_sha": "7522ec3645f7c51e0abb602268b7e1f89b5556da",
+      "diff_fingerprint": "7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50",
       "test_evidence": "reports/agent-runs/2026-07-tradable-spot-leg-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "kimi",
@@ -131,7 +132,7 @@
         "model": "kimi-code/kimi-for-coding",
         "verdict": null,
         "json_schema_valid": null,
-        "diff_fingerprint": null
+        "diff_fingerprint": "7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50"
       }
     }
   ],
@@ -157,8 +158,8 @@
     "user_approved": true
   },
   "base_sha": "9a03069fa9942739c7d8077d3a33d4387afde048",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "7522ec3645f7c51e0abb602268b7e1f89b5556da",
+  "diff_fingerprint": "7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50",
   "coverage_waypoints": null,
   "changed_files": [
     "backend/domain/normalize.py",
@@ -187,7 +188,7 @@
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "diff_fingerprint": "7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50",
     "covers_through_task": null,
     "reviewer_prior_involvement": "none",
     "fix_start_prompt_present": null,
@@ -222,5 +223,5 @@
   "rework_count": 0,
   "max_rework": 3,
   "zero_push": true,
-  "updated_at": "2026-07-18T14:00:43+08:00"
+  "updated_at": "2026-07-18T14:02:34+08:00"
 }

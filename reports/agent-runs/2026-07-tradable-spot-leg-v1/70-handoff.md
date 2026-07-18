@@ -4,8 +4,8 @@
 
 - Stage: `2026-07-tradable-spot-leg-v1`.
 - Branch: `stage/2026-07-tradable-spot-leg-v1`, base `9a03069`.
-- Phase: implementation and authorized fixture repair completed; tests are green and the
-  bookkeeper is preparing the committed review range.
+- Phase: delivery evidence is committed and the fixed-fingerprint Kimi review-1 packet is prepared;
+  the bookkeeper is sealing review metadata and the pre-review validator evidence.
 - Complexity: LOW, user-approved lightweight route, no direction panel or development breakdown.
 - Owner: Claude-GLM (`zhipu_glm`) for backend/data semantics. Codex is excluded from code/fix
   authorship. Review-1 planned Kimi; review-2 planned Fable5 to avoid Codex design overlap.
@@ -26,8 +26,11 @@
 - Green evidence: `test_normalize.py` 17 passed, `test_snapshot.py` 31 passed, full backend 381
   passed, frontend self-check passed, and `git diff --check` passed. The bookkeeper independently
   reran the same checks; evidence is in `60-test-output.txt`.
-- Current implementation changes are uncommitted and must be preserved until the bookkeeper
-  creates the delivery evidence commit. Open blockers: none.
+- Review range: base `9a03069fa9942739c7d8077d3a33d4387afde048`, delivery head
+  `7522ec3645f7c51e0abb602268b7e1f89b5556da`, fingerprint
+  `7522ec3645f7c51e0abb602268b7e1f89b5556da:79afe4f3c9a5cd7cc4ff3253183104679c91ffda36ac5672926e80b08162ac50`.
+- Review-1 packet: `28-dispatch-kimi-review-1.md`; reviewer is a fresh Kimi session under provider
+  `moonshot_kimi`, isolated from the `zhipu_glm` implementer. Open blockers: none.
 - Security note: an availability check expanded the local `claude-glm` alias environment in the
   active terminal. No value is copied into repository artifacts; rotate the GLM token after this
   run. Do not use an alias-expanding diagnostic in evidence capture.
@@ -35,14 +38,14 @@
 
 ## Next Action
 
-The bookkeeper commits the bounded delivery and evidence, computes the canonical
-`base_sha..head_sha` fingerprint, runs the pre-review validator, and prepares the human-executed
-Kimi review-1 packet. No implementation or repair dispatch remains.
+The bookkeeper commits the review metadata, runs and seals the pre-review validator evidence, then
+hands `28-dispatch-kimi-review-1.md` to the human operator for execution in a fresh Kimi terminal.
+No implementation or repair dispatch remains.
 
 ---
 当前 Session ID: 019f734a-dd82-7a11-8367-93fc1a5e954c
 Session ID 来源: runtime_env
 原始输出路径: reports/agent-runs/2026-07-tradable-spot-leg-v1/70-handoff.md
-本地北京时间: 2026-07-18 14:00:43 CST
+本地北京时间: 2026-07-18 14:02:34 CST
 下一步模型: Codex bookkeeper
-下一步任务: 创建本地 delivery evidence commit、计算指纹并准备 Kimi review-1
+下一步任务: 提交 review metadata、运行 pre-review validator 并交付 Kimi review-1 派工包
