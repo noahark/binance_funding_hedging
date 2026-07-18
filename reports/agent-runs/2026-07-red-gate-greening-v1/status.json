@@ -2,7 +2,8 @@
   "stage_id": "2026-07-red-gate-greening-v1",
   "status": "review_1",
   "workflow": "direct-fix (user-authorized exception flow; not a stage-delivery instance — see 09-user-authorization.md and 08-dispatch-kimi-direct-fix.md)",
-  "current_phase": "ledger-closeout-complete-awaiting-final-check",
+  "current_phase": "closed-registered-known-red-after-final-review-and-push",
+  "status_note": "The status value intentionally remains review_1 so this user-approved direct-fix record stays in the F3(a) registered-known-red fixture class. Operational closure is recorded by current_phase, ACTIVE.active=null, the final-review receipts, and the pushed origin heads; this is not a stage-delivery acceptance claim.",
   "stage_branch": {
     "name": "stage/2026-07-red-gate-greening-v1",
     "created_from_main_sha": "9d28ec4e9769d72d4aa8a1c14b2b8d126eb6d401",
@@ -19,6 +20,13 @@
     "session_role": "implementer+bookkeeper (direct-fix mode, single-session; dual-hat disclosed in 09-user-authorization.md and offset by raw-diff review = codex + fable5)",
     "also_implementer": true,
     "dual_hat_disclosure": "direct-fix user routing; review isolation preserved via cross-provider raw-diff reviewers"
+  },
+  "closeout_operator": {
+    "id": "codex",
+    "provider": "openai",
+    "model": "Codex (runtime model identifier unavailable)",
+    "scope": "User-directed mechanical terminal bookkeeping only: archive 77/78, update status/ACTIVE/handoff, commit, and push. No implementation or verdict authorship.",
+    "authorization_source": "User instruction in the active conversation on 2026-07-18: 归档 77/78、更新 status/ACTIVE/handoff、提交并推送最终台账收口"
   },
   "implementer": "kimi (moonshot_kimi)",
   "reviewers_planned": {
@@ -45,17 +53,19 @@
       "backend pytest: 375 passed",
       "frontend self-check: 80 PASS",
       "bookticker pre-accept on main: PASS-with-exception (62-bookticker-preaccept-green.txt, F2 rerun appended)",
-      "git diff --check 96f5b44..49529b3: exit 2 full range (all hits = immutable raw review 69 trailing whitespace); exit 0 excluding 69; template range exit 0"
+      "git diff --check 96f5b44..49529b3: exit 2 full range (all hits = immutable raw review 69 trailing whitespace); exit 0 excluding 69; template range exit 0",
+      "ledger final review: 77 gpt5.6-sol ACCEPT (schema-valid JSON, 0 findings) + 78 fable5 ACCEPT (0 findings)",
+      "published repository state verified before terminal archive: funding HEAD == origin/main == d18bcd026911c4a8fca78db7cfd094241e8c5694; template HEAD == origin/main == 3941f9e33dd51fae7a5ffd316a4e81fe7cfd46b8"
     ]
   },
   "review_1": null,
   "review_2": null,
-  "reviews_note": "Execution round reviewed by fable5 (68, ACCEPT) and gpt5.6-sol (69, REWORK F1-F3); fix round re-reviewed by gpt5.6-sol (74, REWORK — ledger-only P2s, implementation verified clean) and fable5 (75, concurring). The 76 ledger-closeout commit lands the two P2 corrections. Awaiting final check of that commit by fable5 + gpt5.6-sol, then user final review and push.",
+  "reviews_note": "Execution round: fable5 68 ACCEPT; gpt5.6-sol 69 REWORK F1-F3. Fix round: gpt5.6-sol 74 REWORK limited to two P2 ledger items; fable5 75 concurred that implementation was clean. Commit d18bcd0 landed the ledger corrections. Final ledger review: gpt5.6-sol 77 ACCEPT with schema-valid JSON and 0 findings; fable5 78 ACCEPT with 0 findings. The user then confirmed the code had been merged and pushed and explicitly directed final ledger archival. Standard review_1/review_2 slots remain null because F3(a) preserves this custom direct-fix record as a registered known-red rather than fabricating a stage-delivery run.",
   "known_state": {
     "bookticker": "green_with_exception (T3 landed)",
     "docs-truth-sync": "known_red (class-2, pending user decision D-i)",
     "fixture_final": "15 green + 1 green_with_exception + 8 registered known-red (73 post-fix baseline, funding); 1 green (template)",
-    "this_stage_in_future_fixture": "permanently registered known_red per user F3(a) ruling (direct-fix bookkeeping artifacts 06-09/60-76; no stage-delivery form documents will be fabricated). This is a terminal registered state, NOT an interim state pending review receipts."
+    "this_stage_in_future_fixture": "permanently registered known_red per user F3(a) ruling (direct-fix bookkeeping artifacts 06-09/60-78; no stage-delivery form documents will be fabricated). Both final ledger reviews ACCEPT and both repository heads were pushed; this is a closed terminal registered state, NOT an interim state pending review receipts."
   },
   "d_i": "class-2 whitelist expansion NOT authorized (user has not ruled); no whitelist change made",
   "session_receipts": [
@@ -108,8 +118,38 @@
       "unavailable_reason": "Claude Code CLI 未向模型暴露 provider-native session id（75 文件页脚自申明）。",
       "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/75-review-fix-round-fable5.md",
       "recorded_at": "2026-07-17T18:10:00Z"
+    },
+    {
+      "role": "final ledger reviewer (77)",
+      "provider": "openai",
+      "model": "gpt5.6-sol (operator-designated name; CODEX_MODEL not exposed)",
+      "session_id": "019f7065-f49c-75f1-999a-b40308b43bdd",
+      "session_id_source": "runtime_env",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/77-review-ledger-final-gpt5.6-sol.md",
+      "recorded_at": "2026-07-17T18:18:10Z"
+    },
+    {
+      "role": "final ledger reviewer (78)",
+      "provider": "anthropic",
+      "model": "claude-fable-5",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "Claude Code CLI did not expose a provider-native session id in the 78 review artifact.",
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/78-review-ledger-final-fable5.md",
+      "recorded_at": "2026-07-17T18:25:00Z"
+    },
+    {
+      "role": "final closeout operator (user-directed mechanical bookkeeping)",
+      "provider": "openai",
+      "model": "Codex (runtime model identifier unavailable)",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The current runtime does not expose a provider-native Codex session id or model identifier; no id was guessed.",
+      "raw_output_path": "reports/agent-runs/2026-07-red-gate-greening-v1/70-handoff.md",
+      "recorded_at": "2026-07-18T03:56:37Z"
     }
   ],
-  "zero_push": true,
-  "updated_at": "2026-07-18T02:10:00+08:00"
+  "zero_push": false,
+  "updated_at": "2026-07-18T11:56:37+08:00"
 }
