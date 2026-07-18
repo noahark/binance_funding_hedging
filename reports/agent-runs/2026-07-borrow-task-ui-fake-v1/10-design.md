@@ -48,6 +48,18 @@
 - `frontend/index.html`
 - `frontend/self-check.js`
 
+## Amendment v2 Design
+
+Replace the borrow-task cards with an accessible task list/table layout that can show state, progress, lifecycle controls, task-parameter edit controls, and list filters without altering market data. Each in-memory task gains `status` with one of `borrowing`, `paused`, `deleted`, or `completed`; new tasks default to `borrowing`.
+
+- Lifecycle transitions are local functions: `startBorrowTask`, `pauseBorrowTask`, and `deleteBorrowTask`. Delete first invokes the same local stop semantics when needed, then assigns `deleted`; it never removes the task object.
+- The page stores `borrowTaskFilter`. A title-level filter control derives the displayed list and selected-filter count from the canonical `state.borrowTasks` array. 全部 is not a status; it displays all task objects, including soft-deleted ones.
+- Task edit controls use separate per-task IDs/data attributes and exact current values. Confirm validates with the existing positive finite amount / positive integer target rules, updates the selected task only, retains `successCount`, and re-renders task view/count/filter UI. No edit path calls `fetch`, localStorage, or a timer.
+- `completed` is a supported display/filter state but has no UI transition in this fake. Tests may construct a pure in-memory completed task through a test-only helper or a bounded state fixture; production UI must not add an unrequested simulated-success button.
+- Lifecycle and edit controls must be disabled according to frozen semantics in `13-scope-amendment-v2.md`; deleted and completed items remain inspectable, not mutable.
+
+Review focus: correct state transition/button enablement, soft-delete visibility, filter membership, preservation of amount/target validation, explicit fake disclosures, no external side effects, and no regressions to existing market drawer event handling.
+
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/10-design.md

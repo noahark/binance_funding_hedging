@@ -42,6 +42,19 @@
 
 不要把固定 30 秒或 `0/N` 前端展示误判为后台调度实现。若 diff 中出现 `/api/` 借币请求、私有签名、`setInterval` 任务重试、后端文件或 fixture 市场行，则属于越界。
 
+## Amendment v2: Explicit UI State Machine
+
+The user requested lifecycle controls and a deleted-status filter. A physical removal would make “已删除” impossible to inspect, so the stage adopts soft deletion as a UI-only state. The state machine is deliberately small:
+
+```text
+new task → borrowing ↔ paused
+borrowing | paused | completed → deleted
+```
+
+There is no completion transition in this fake because no scheduler or success event exists. `completed` is nevertheless a first-class display/filter state so the UI contract does not need restructuring when a later backend supplies progress.
+
+Task configuration edits are presentation-only local mutations, not an instruction to an external scheduler. Allowing edits while borrowing is intentional for this fake preview; later backend design must decide whether active-task edits require a pause/restart, optimistic concurrency, and audit records.
+
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/11-adr.md

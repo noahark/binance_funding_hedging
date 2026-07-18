@@ -50,6 +50,19 @@ Forbidden or out-of-scope files:
 
 真实借币、后台重试、私有 API、账户风险和任何持久化都需要用户审阅本原型后的明确批准。
 
+## Amendment v2 — Task Controls, Editing, And Filters
+
+This user-approved amendment is part of the same stage and replaces the old review-gate scope. See `13-scope-amendment-v2.md` for frozen fake semantics.
+
+Additional acceptance criteria:
+
+- Every newly created task starts in visible `借币中` state: 启动 is disabled, 暂停 and 删除 are available, and no API/timer/real borrow action occurs.
+- 暂停 switches an active task to `已暂停`; 暂停 becomes disabled and 启动 becomes available. 启动 reverses that exact UI-only transition.
+- 删除 performs a fake stop then **soft-deletes** the task. It remains visible under 全部/已删除, shows 已删除, and all start/pause/edit controls are disabled.
+- The borrow-task list exposes per-task amount and total-success-target inputs plus a confirmation control. Valid edits update only that in-memory task, retain its success count, and recalculate its displayed total. Invalid/readonly edits create no state change and show a local error.
+- The borrow-task title has working filters 全部、借币中、已暂停、已删除、已完成. 全部 includes every in-memory task. The completed filter/state is rendered correctly even though this fake stage supplies no automatic or manual completion mechanism.
+- Self-check covers default active state, pause/start transitions, soft deletion, filter counts and membership, valid/invalid task edits, readonly deleted/completed state, and the absence of borrow fetches/retry timers for every new action.
+
 ## Designer
 
 - Model: Codex/GPT

@@ -12,7 +12,7 @@
 
 ## Classification
 
-- Complexity: `LOW`
+- Complexity: `MEDIUM`
 - Direction panel required: `false`
 - Existing synthesis covers this work: `false`
 - User approved lightweight route: `true`
@@ -24,6 +24,7 @@
 - 借币任务在浏览器内存中 fake，明确不产生外部副作用。
 - 用户明确要求先完成前端 fake 并在视觉确认后再增加后端逻辑，等同于批准轻量路线。
 - 现有表格行已经提供 `base_asset`，可作为任务资产，不需要新增资产选择器或伪造行情行。
+- 用户追加了任务状态机、软删除、列表内参数编辑和状态筛选；这已超出 LOW 的一次性 UI 原型，但仍是用户明确批准的前端 fake 范围。
 
 ## Human Gates
 
@@ -32,7 +33,7 @@
 
 ## Routing Decision
 
-- Next node: `implementation`
+- Next node: `development-breakdown`
 
 ## Bookkeeper
 
