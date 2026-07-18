@@ -25,6 +25,7 @@ new Function(script);
 console.log('[PASS] 内联脚本语法检查');
 
 let fetchUrl = null;
+const fetchCallLog = [];    // 记录全部 fetch URL，用于断言借币任务零网络请求
 
 // mock setInterval / clearInterval，记录调用以便验证自动刷新计时器重调度
 let intervalIdSeq = 0;
@@ -141,7 +142,8 @@ const ids = [
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only', 'filter-hide-low-daily-rate',
   'summary-row', 'status-area', 'market-table-body', 'footer-note',
   'private-panel', 'private-panel-subtitle', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
-  'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close'
+  'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close',
+  'nav-market', 'nav-borrow-tasks', 'borrow-task-count', 'market-view', 'borrow-task-view', 'borrow-task-list'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -302,6 +304,7 @@ function buildFetchResponse(response, jsonDelay) {
 
 global.fetch = async (url) => {
   const urlStr = String(url);
+  fetchCallLog.push(urlStr);
   if (urlStr === '/api/public-market/snapshot') {
     fetchUrl = urlStr;
     return buildFetchResponse({ status: 200, body: fixtureToFetch });
@@ -327,7 +330,11 @@ global.fetch = async (url) => {
 
 global.document = {
   getElementById: (id) => {
-    if (!elements[id]) throw new Error(`未 mock 的元素: ${id}`);
+    if (!elements[id]) {
+      // 借币任务操作控件为按 symbol 动态生成的 id，按需惰性 mock（最小 mock 能力补足）
+      if (/^borrow-(amount|count|error)-[A-Za-z0-9_]+$/.test(id)) return makeElement(id);
+      throw new Error(`未 mock 的元素: ${id}`);
+    }
     return elements[id];
   },
   body: {
@@ -455,7 +462,8 @@ setTimeout(async () => {
     console.log('[PASS] 年化三列存在且文案区分预估/已结算');
 
     // 5c. Task D: 默认表移除路由分类列，但保留路由过滤器与字段校验；
-    // Task B: 最终 12 列，无「提示标记」/独立「负费率状态」列，新增开单列。
+    // Task B: 无「提示标记」/独立「负费率状态」列，新增开单列；
+    // 借币任务阶段：最终 13 列（第 13 列为「操作」）。
     if (html.includes('<th>路由分类</th>')) {
       throw new Error('默认表仍保留「路由分类」列');
     }
@@ -465,7 +473,7 @@ setTimeout(async () => {
     if (html.includes('<th>负费率状态</th>')) {
       throw new Error('默认表仍保留独立「负费率状态」列');
     }
-    const requiredHeaders = ['借贷状态 / 资产', '日净收益', '正向开单', '反向开单'];
+    const requiredHeaders = ['借贷状态 / 资产', '日净收益', '正向开单', '反向开单', '操作'];
     for (const h of requiredHeaders) {
       if (!html.includes(`>${h}<`)) {
         throw new Error(`缺少「${h}」列名`);
@@ -476,8 +484,8 @@ setTimeout(async () => {
     const marketTheadEnd = html.indexOf('</thead>', marketTheadStart) + 8;
     const marketTheadHtml = html.slice(marketTheadStart, marketTheadEnd);
     const headerCount = (marketTheadHtml.match(/<th[\s>]/g) || []).length;
-    if (headerCount !== 12) {
-      throw new Error(`市场表头应为 12 列，实际 ${headerCount} 列`);
+    if (headerCount !== 13) {
+      throw new Error(`市场表头应为 13 列，实际 ${headerCount} 列`);
     }
     // 路由过滤器仍保留
     if (!html.includes('id="filter-route"')) {
@@ -987,7 +995,7 @@ setTimeout(async () => {
     let pos = dRowHtml.indexOf('<td');
     let dailyCell = '';
     let netCell = '';
-    while (pos !== -1 && tdCount < 12) {
+    while (pos !== -1 && tdCount < 13) {
       const close = dRowHtml.indexOf('</td>', pos);
       if (tdCount === 6) dailyCell = dRowHtml.slice(pos, close + 5);
       if (tdCount === 10) netCell = dRowHtml.slice(pos, close + 5);
@@ -1093,14 +1101,14 @@ setTimeout(async () => {
     }
     console.log('[PASS] opening spread 独立 formatter 三向量');
 
-    // 33c. 最终 12 列：严格表头顺序、每行 12 个 td、empty-state colspan=12、合并列结构
-    const taskCHeaders = ['标的', '标记价格 / 指数价格', '正向开单', '反向开单', '资金费率', '结算时间', '日费率', '年化 24h', '年化 7D', '年化 30D', '日净收益', '借贷状态 / 资产'];
+    // 33c. 最终 13 列：严格表头顺序、每行 13 个 td、empty-state colspan=13、合并列结构
+    const taskCHeaders = ['标的', '标记价格 / 指数价格', '正向开单', '反向开单', '资金费率', '结算时间', '日费率', '年化 24h', '年化 7D', '年化 30D', '日净收益', '借贷状态 / 资产', '操作'];
     const theadBlock = html.slice(html.indexOf('<thead>'), html.indexOf('</thead>') + 8);
     const renderedHeaders = [...theadBlock.matchAll(/<th[^>]*>([^\u003c]*)<\/th>/g)].map(m => m[1].trim());
-    if (renderedHeaders.length !== 12) {
-      throw new Error(`表头数量期望 12，实际 ${renderedHeaders.length}: ${JSON.stringify(renderedHeaders)}`);
+    if (renderedHeaders.length !== 13) {
+      throw new Error(`表头数量期望 13，实际 ${renderedHeaders.length}: ${JSON.stringify(renderedHeaders)}`);
     }
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 13; i++) {
       if (renderedHeaders[i] !== taskCHeaders[i]) {
         throw new Error(`表头第 ${i + 1} 项期望「${taskCHeaders[i]}」，实际「${renderedHeaders[i]}」`);
       }
@@ -1108,25 +1116,25 @@ setTimeout(async () => {
     if (theadBlock.includes('提示标记') || theadBlock.includes('负费率状态')) {
       throw new Error('最终表头仍含「提示标记」或独立「负费率状态」');
     }
-    // 每行 data row 恰好 12 个 td
+    // 每行 data row 恰好 13 个 td
     const dataRows = tbody.match(/<tr[^\u003e]*class="[^"]*selectable[^"]*"[^\u003e]*>/g) || [];
     for (const rowStart of dataRows) {
       const pos = tbody.indexOf(rowStart);
       const end = tbody.indexOf('</tr>', pos);
       const rowHtml = tbody.slice(pos, end + 5);
       const tdCount = (rowHtml.match(/<td[\s>]/g) || []).length;
-      if (tdCount !== 12) {
+      if (tdCount !== 13) {
         const symMatch = rowHtml.match(/data-symbol="([^"]+)"/);
-        throw new Error(`${symMatch ? symMatch[1] : '某行'} 数据行 td 数量期望 12，实际 ${tdCount}`);
+        throw new Error(`${symMatch ? symMatch[1] : '某行'} 数据行 td 数量期望 13，实际 ${tdCount}`);
       }
     }
-    // empty-state colspan=12：触发无匹配行并断言
+    // empty-state colspan=13：触发无匹配行并断言
     const originalSearch = elements['filter-search'].value;
     elements['filter-search'].value = 'NO_SUCH_SYMBOL_XYZ';
     (elements['filter-search'].listeners.input || []).forEach(h => h());
     const emptyTbody = elements['market-table-body'].innerHTML;
-    if (!emptyTbody.includes('colspan="12"')) {
-      throw new Error('无匹配 empty-state 未使用 colspan="12"');
+    if (!emptyTbody.includes('colspan="13"')) {
+      throw new Error('无匹配 empty-state 未使用 colspan="13"');
     }
     if ((emptyTbody.match(/<td/g) || []).length !== 1) {
       throw new Error('empty-state 行应只含 1 个 td');
@@ -1146,7 +1154,7 @@ setTimeout(async () => {
     if (ausdtNet.includes('可借:')) {
       throw new Error('AUSDT 日净收益格不应含可借额度: ' + ausdtNet);
     }
-    console.log('[PASS] 最终 12 列表头顺序、行单元格数、empty-state colspan 与合并列结构');
+    console.log('[PASS] 最终 13 列表头顺序、行单元格数、empty-state colspan 与合并列结构');
 
     // 33d. 正向/反向开单列：腿标签、价格、百分比与颜色
     // AUSDT fresh: forward -0.04%, reverse +0.04%
@@ -2076,6 +2084,214 @@ setTimeout(async () => {
 
     // 恢复默认 fixture
     helpers.ingestSnapshot(designFixture);
+
+    // 62. 操作列：每行第 13 格恰好两个可编辑输入 + 一个确认按钮，且事件隔离
+    {
+      const opTbody = elements['market-table-body'].innerHTML;
+      for (const sym of ['AUSDT', 'BUSDT', 'CUSDT', 'DUSDT', 'EUSDT', 'FUSDT']) {
+        const cell = getRowCell(opTbody, sym, 12);
+        const inputCount = (cell.match(/<input/g) || []).length;
+        if (inputCount !== 2) {
+          throw new Error(`${sym} 操作单元格应恰好 2 个输入，实际 ${inputCount}: ${cell}`);
+        }
+        if (!cell.includes(`id="borrow-amount-${sym}"`) || !cell.includes(`id="borrow-count-${sym}"`)) {
+          throw new Error(`${sym} 操作单元格缺少数量/次数输入 id: ${cell}`);
+        }
+        if (!cell.includes('<label') || !cell.includes('单次借币数量') || !cell.includes('成功借币次数')) {
+          throw new Error(`${sym} 操作单元格缺少可访问标签: ${cell}`);
+        }
+        const btnCount = (cell.match(/<button/g) || []).length;
+        if (btnCount !== 1 || !cell.includes(`data-borrow-confirm="${sym}"`)) {
+          throw new Error(`${sym} 操作单元格应恰好 1 个确认按钮: ${cell}`);
+        }
+        if (!cell.includes(`id="borrow-error-${sym}"`)) {
+          throw new Error(`${sym} 操作单元格缺少就近错误容器: ${cell}`);
+        }
+      }
+      if (!script.includes('stopPropagation')) {
+        throw new Error('操作控件缺少事件隔离 stopPropagation');
+      }
+      console.log('[PASS] 操作单元格两输入一按钮、标签与事件隔离');
+    }
+
+    // 63. 借币任务导航：空态 -> 切换 -> 恢复市场视图
+    {
+      helpers.setActiveView('borrow-tasks');
+      if (helpers.getActiveView() !== 'borrow-tasks') {
+        throw new Error('setActiveView(borrow-tasks) 后 activeView 应为 borrow-tasks');
+      }
+      if (elements['borrow-task-view'].style.display === 'none') {
+        throw new Error('借币任务视图应显示');
+      }
+      if (elements['market-view'].style.display !== 'none') {
+        throw new Error('借币任务视图激活时市场视图应隐藏');
+      }
+      if (!elements['nav-borrow-tasks'].classList.contains('active')) {
+        throw new Error('借币任务导航应为 active');
+      }
+      if (elements['nav-market'].classList.contains('active')) {
+        throw new Error('费率行情导航在借币视图下不应为 active');
+      }
+      const emptyList = elements['borrow-task-list'].innerHTML;
+      if (!emptyList.includes('暂无借币任务')) {
+        throw new Error(`借币任务空态未渲染: ${emptyList}`);
+      }
+      // 导航计数初始为 0
+      if (elements['borrow-task-count'].textContent !== '0') {
+        throw new Error(`借币任务计数应为 0: ${elements['borrow-task-count'].textContent}`);
+      }
+      // 强免责声明
+      if (!html.includes('未发起真实借币请求')) {
+        throw new Error('借币任务视图缺少「未发起真实借币请求」声明');
+      }
+      helpers.setActiveView('market');
+      if (helpers.getActiveView() !== 'market') {
+        throw new Error('setActiveView(market) 后 activeView 应为 market');
+      }
+      if (elements['market-view'].style.display === 'none') {
+        throw new Error('返回费率行情后市场视图应恢复显示');
+      }
+      if (elements['borrow-task-view'].style.display !== 'none') {
+        throw new Error('返回费率行情后借币任务视图应隐藏');
+      }
+      console.log('[PASS] 借币任务导航切换、空态与恢复市场视图');
+    }
+
+    // 64. 输入校验：非法数量/次数不创建任务
+    {
+      const before = helpers.getBorrowTasks().length;
+      const badAmounts = ['', '   ', '0', '-5', 'abc', 'Infinity', 'NaN'];
+      for (const a of badAmounts) {
+        const r = helpers.createBorrowTask('AUSDT', a, '10');
+        if (r.ok) {
+          throw new Error(`非法数量 ${JSON.stringify(a)} 不应创建任务`);
+        }
+      }
+      const badCounts = ['', '0', '-1', '2.5', 'abc', 'Infinity'];
+      for (const c of badCounts) {
+        const r = helpers.createBorrowTask('AUSDT', '1000', c);
+        if (r.ok) {
+          throw new Error(`非法次数 ${JSON.stringify(c)} 不应创建任务`);
+        }
+      }
+      if (helpers.getBorrowTasks().length !== before) {
+        throw new Error('非法输入不应增加任务数');
+      }
+      console.log('[PASS] 借币任务输入校验（数量/次数非法不创建）');
+    }
+
+    // 65. HOME 内存行创建任务（1000 / 10）与展示值；零 fetch、零新定时器
+    {
+      const homeFixture = JSON.parse(JSON.stringify(designFixture));
+      // 仅内存改写 base_asset；symbol 保持 AUSDT，不伪造 HOMEUSDT 行情行
+      homeFixture.rows[0].base_asset = 'HOME';
+      helpers.ingestSnapshot(homeFixture);
+      const fetchLogBefore = fetchCallLog.length;
+      const intervalsBefore = intervalCalls.length;
+      const r = helpers.createBorrowTask('AUSDT', '1000', '10');
+      if (!r.ok) {
+        throw new Error(`HOME 任务创建失败: ${r.error}`);
+      }
+      if (r.task.asset !== 'HOME') {
+        throw new Error(`任务资产应为 HOME，实际 ${r.task.asset}`);
+      }
+      if (r.task.amountPerAttempt !== 1000 || r.task.successTarget !== 10 || r.task.successCount !== 0) {
+        throw new Error(`任务字段错误: ${JSON.stringify(r.task)}`);
+      }
+      if (fetchCallLog.length !== fetchLogBefore) {
+        throw new Error(`创建借币任务不应发起任何 fetch: ${fetchCallLog.slice(fetchLogBefore)}`);
+      }
+      if (intervalCalls.length !== intervalsBefore) {
+        throw new Error('创建借币任务不应启动任何新定时器');
+      }
+      // 全部既有定时器仅允许 60000 自动刷新与 1000 倒计时
+      for (const c of intervalCalls) {
+        if (c.delay !== 60000 && c.delay !== 1000) {
+          throw new Error(`存在非法借币重试定时器: delay=${c.delay}`);
+        }
+      }
+      if (elements['borrow-task-count'].textContent !== '1') {
+        throw new Error(`借币任务计数应为 1: ${elements['borrow-task-count'].textContent}`);
+      }
+      helpers.setActiveView('borrow-tasks');
+      const listHtml = elements['borrow-task-list'].innerHTML;
+      const expectedBits = ['HOME', '1,000 HOME/次', '0 / 10 次成功', '目标 10,000 HOME', '每 30 秒尝试一次', '前端演示', '未发起真实借币请求'];
+      for (const bit of expectedBits) {
+        if (!listHtml.includes(bit)) {
+          throw new Error(`任务卡缺少「${bit}」: ${listHtml}`);
+        }
+      }
+      if (listHtml.includes('HOMEUSDT')) {
+        throw new Error('任务视图不得伪造 HOMEUSDT 行情行');
+      }
+      helpers.setActiveView('market');
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] HOME 任务创建、展示值、零 fetch 与零重试定时器');
+    }
+
+    // 66. 操作单元格 UI 提交路径：非法输入就近报错，合法输入创建并清除错误
+    {
+      const amountEl = document.getElementById('borrow-amount-AUSDT');
+      const countEl = document.getElementById('borrow-count-AUSDT');
+      const errorEl = document.getElementById('borrow-error-AUSDT');
+      const before = helpers.getBorrowTasks().length;
+      amountEl.value = 'abc';
+      countEl.value = '10';
+      const r1 = helpers.submitBorrowTask('AUSDT');
+      if (r1.ok) {
+        throw new Error('非法数量的 UI 提交不应成功');
+      }
+      if (!errorEl.textContent.includes('大于 0')) {
+        throw new Error(`就近错误未显示: ${errorEl.textContent}`);
+      }
+      if (helpers.getBorrowTasks().length !== before) {
+        throw new Error('非法 UI 提交不应创建任务');
+      }
+      amountEl.value = '500';
+      countEl.value = '3';
+      const r2 = helpers.submitBorrowTask('AUSDT');
+      if (!r2.ok) {
+        throw new Error(`合法 UI 提交失败: ${r2.error}`);
+      }
+      if (errorEl.textContent !== '') {
+        throw new Error('合法提交后就近错误应清除');
+      }
+      if (helpers.getBorrowTasks().length !== before + 1) {
+        throw new Error('合法 UI 提交应新增 1 条任务');
+      }
+      if (elements['borrow-task-count'].textContent !== String(before + 1)) {
+        throw new Error(`导航计数应为 ${before + 1}: ${elements['borrow-task-count'].textContent}`);
+      }
+      console.log('[PASS] 操作单元格 UI 提交路径与就近错误');
+    }
+
+    // 67. maxBorrowableSubline 不再重复「已借完」（唯一保留：状态徽标「可借 0(已借完)」）
+    {
+      const exhaustedFixture = JSON.parse(JSON.stringify(designFixture));
+      exhaustedFixture.rows[0].negative_funding_status = 'PRIVATE_BORROW_VALIDATION_REQUIRED';
+      exhaustedFixture.rows[0].borrow_validation.verified = true;
+      exhaustedFixture.rows[0].borrow_validation.classic_margin.pair_listed = true;
+      exhaustedFixture.rows[0].borrow_validation.classic_margin.asset_borrowable = true;
+      exhaustedFixture.rows[0].borrow_validation.portfolio_account = {
+        max_borrowable: '0', borrow_limit: null,
+        error_code: '51061', max_borrowable_value_usdt: '0.00000000',
+        source: 'papi_max_borrowable'
+      };
+      helpers.ingestSnapshot(exhaustedFixture);
+      const exhaustedCell = getRowCell(elements['market-table-body'].innerHTML, 'AUSDT', 11);
+      const exhaustedCount = (exhaustedCell.match(/已借完/g) || []).length;
+      if (exhaustedCount !== 1) {
+        throw new Error(`「已借完」应只出现 1 次（状态徽标），实际 ${exhaustedCount}: ${exhaustedCell}`);
+      }
+      if (!exhaustedCell.includes('可借 0(已借完)')) {
+        throw new Error('状态徽标「可借 0(已借完)」应保留: ' + exhaustedCell);
+      }
+      if (!exhaustedCell.includes('可借: 0')) {
+        throw new Error('额度子行应保留「可借: 0」: ' + exhaustedCell);
+      }
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] maxBorrowableSubline 不再重复「已借完」');
+    }
 
     console.log('\n全部自检通过');
     process.exit(0);

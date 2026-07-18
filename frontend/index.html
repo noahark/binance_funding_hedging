@@ -610,6 +610,71 @@
       box-shadow: inset 3px 0 0 var(--brand);
     }
 
+    /* 借币任务视图与市场视图容器 */
+    #market-view {
+      display: grid;
+      gap: var(--space-5);
+      align-content: start;
+    }
+    .nav-count {
+      margin-left: auto;
+    }
+
+    /* 操作列（fake 借币任务创建控件） */
+    .borrow-op-cell { white-space: normal; }
+    .borrow-op-inputs {
+      display: grid;
+      gap: var(--space-1);
+      justify-items: start;
+    }
+    .borrow-op-inputs label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .borrow-op-inputs input {
+      min-height: 30px;
+      width: 150px;
+      padding: 0 var(--space-2);
+      font-size: 12px;
+    }
+    .borrow-op-error {
+      margin-top: var(--space-1);
+      max-width: 190px;
+      color: var(--danger);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    /* 借币任务列表 */
+    .borrow-task-list {
+      display: grid;
+      gap: var(--space-3);
+    }
+    .borrow-task-card {
+      display: grid;
+      gap: var(--space-2);
+      padding: var(--space-4);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+    }
+    .borrow-task-head {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .borrow-task-lines {
+      display: grid;
+      gap: 2px;
+      font-size: 13px;
+    }
+    .borrow-task-disclaimer {
+      color: var(--warn);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
     @media (max-width: 1100px) {
       .app-shell { grid-template-columns: 1fr; }
       .sidebar { position: static; height: auto; padding: var(--space-4); }
@@ -640,11 +705,18 @@
       </div>
 
       <nav class="nav">
-        <button class="nav-button active" aria-current="page">
+        <button class="nav-button active" id="nav-market" aria-current="page">
           <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M4 17 9 8l4 6 3-5 4 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           费率行情
+        </button>
+        <button class="nav-button" id="nav-borrow-tasks">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M3 10h18M7 10V7a5 5 0 0 1 10 0v3M5 10l1.5 10h11L19 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          借币任务
+          <span class="badge compact nav-count" id="borrow-task-count">0</span>
         </button>
       </nav>
 
@@ -663,6 +735,7 @@
         </div>
       </header>
 
+      <div id="market-view">
       <section class="panel" id="warnings-panel" style="display:none;">
         <div class="panel-header">
           <div class="panel-title">
@@ -769,6 +842,7 @@
                   <th title="已结算 30 日年化（日历窗口求和）">年化 30D</th>
                   <th title="扣除借币成本后的净收益">日净收益</th>
                   <th>借贷状态 / 资产</th>
+                  <th>操作</th>
                 </tr>
               </thead>
               <tbody id="market-table-body"></tbody>
@@ -778,6 +852,22 @@
       </section>
 
       <footer class="footer-note" id="footer-note"></footer>
+      </div>
+
+      <section class="panel" id="borrow-task-view" style="display:none;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>借币任务</h2>
+            <p class="subtitle">从市场表「操作」列创建的 fake 借币任务（仅当前浏览器会话内存）</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="status-banner warn" style="margin-bottom: var(--space-4);">
+            前端演示：本页任务仅保存在浏览器内存，未发起真实借币请求，刷新页面后消失。
+          </div>
+          <div class="borrow-task-list" id="borrow-task-list"></div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -836,7 +926,10 @@
         drawerOpen: false,
         drawerLoading: false,
         drawerHistoryError: null,
-        drawerNotice: null
+        drawerNotice: null,
+        // 借币任务 fake 原型：仅会话内存；activeView: 'market' | 'borrow-tasks'
+        borrowTasks: [],
+        activeView: 'market'
       };
 
       const els = {
@@ -868,7 +961,13 @@
         drawerBackdrop: document.getElementById('drawer-backdrop'),
         drawerTitle: document.getElementById('drawer-title'),
         drawerBody: document.getElementById('drawer-body'),
-        drawerClose: document.getElementById('drawer-close')
+        drawerClose: document.getElementById('drawer-close'),
+        navMarket: document.getElementById('nav-market'),
+        navBorrowTasks: document.getElementById('nav-borrow-tasks'),
+        borrowTaskCount: document.getElementById('borrow-task-count'),
+        marketView: document.getElementById('market-view'),
+        borrowTaskView: document.getElementById('borrow-task-view'),
+        borrowTaskList: document.getElementById('borrow-task-list')
       };
 
       function loadPrivacyHidden() {
@@ -1079,8 +1178,8 @@
         if (!pa || pa.max_borrowable == null) return '';
         const usdt2 = formatUsdt2(pa.max_borrowable_value_usdt);
         const val = usdt2 != null ? ` (≈ ${usdt2} USDT)` : '';
-        const zeroTag = pa.max_borrowable === '0' ? ' <span class="badge compact warn">已借完</span>' : '';
-        return `<br/><span class="muted small">可借: ${escapeHtml(pa.max_borrowable)}${val}${zeroTag}</span>`;
+        // 耗尽文案只保留状态徽标「可借 0(已借完)」，额度子行不再重复「已借完」标记。
+        return `<br/><span class="muted small">可借: ${escapeHtml(pa.max_borrowable)}${val}</span>`;
       }
 
       function renderOpeningQuotesCell(row, direction) {
@@ -1362,7 +1461,7 @@
         if (state.blocked) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="12">
+              <td colspan="13">
                 <div class="empty-state">
                   <strong>集成阻塞</strong><br/>
                   ${escapeHtml(state.blockedReason)}
@@ -1377,7 +1476,7 @@
         if (rows.length === 0) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="12"><div class="empty-state">没有符合筛选条件的数据</div></td>
+              <td colspan="13"><div class="empty-state">没有符合筛选条件的数据</div></td>
             </tr>`;
           renderSummary();
           return;
@@ -1452,6 +1551,16 @@
             <td class="${ann30Class}" title="${escapeHtml(ann30Title)}">${ann30Text}</td>
             <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
             <td>${badgeForNegativeFundingStatus(row)}${maxBorrowLine}<br/>${badgeForAssetTag(row.asset_tag)}</td>
+            <td class="borrow-op-cell">
+              <div class="borrow-op-inputs">
+                <label for="borrow-amount-${escapeHtml(row.symbol)}">单次借币数量 (${escapeHtml(row.base_asset)})</label>
+                <input id="borrow-amount-${escapeHtml(row.symbol)}" type="text" inputmode="decimal" placeholder="如 1000" autocomplete="off"/>
+                <label for="borrow-count-${escapeHtml(row.symbol)}">成功借币次数</label>
+                <input id="borrow-count-${escapeHtml(row.symbol)}" type="text" inputmode="numeric" placeholder="如 10" autocomplete="off"/>
+                <button class="btn compact primary" type="button" data-borrow-confirm="${escapeHtml(row.symbol)}" aria-label="确认创建 ${escapeHtml(row.symbol)} 借币任务">确认</button>
+              </div>
+              <div class="borrow-op-error" id="borrow-error-${escapeHtml(row.symbol)}" role="alert" aria-live="polite"></div>
+            </td>
           </tr>
         `;
       }
@@ -1466,6 +1575,22 @@
             openDrawer(symbol);
           }
         });
+        // 操作列事件隔离：输入框/确认按钮的点击与按键不得触发行点击抽屉。
+        // mock DOM 的 tr 无 querySelector，跳过绑定（自检经 __appHelpers 直测）。
+        if (typeof tr.querySelector === 'function') {
+          const opCell = tr.querySelector('.borrow-op-cell');
+          if (opCell) {
+            opCell.addEventListener('click', (e) => e.stopPropagation());
+            opCell.addEventListener('keydown', (e) => e.stopPropagation());
+          }
+          const confirmBtn = tr.querySelector('[data-borrow-confirm]');
+          if (confirmBtn) {
+            confirmBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              submitBorrowTask(symbol);
+            });
+          }
+        }
       }
 
       // Idempotent: a freshly replaced <tr> has no data-bound marker, so it gets
@@ -1891,6 +2016,122 @@
         els.footerNote.textContent = `生成时间: ${generated} · 数据时间: ${dataTime} · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）`;
       }
 
+      // ---- 借币任务（前端 fake 原型：仅会话内存，无 fetch / 定时器 / 持久化） ----
+      let borrowTaskIdSeq = 0;
+
+      function parseBorrowAmount(raw) {
+        if (raw === undefined || raw === null) return null;
+        const s = String(raw).trim();
+        if (s === '') return null;
+        const n = Number(s);
+        if (!Number.isFinite(n) || n <= 0) return null;
+        return n;
+      }
+
+      function parseSuccessTarget(raw) {
+        if (raw === undefined || raw === null) return null;
+        const s = String(raw).trim();
+        if (s === '') return null;
+        const n = Number(s);
+        if (!Number.isInteger(n) || n <= 0) return null;
+        return n;
+      }
+
+      // 校验并创建一条内存 fake 任务。资产取自该行 base_asset（HOME 等任意
+      // 资产走同一通用路径）。绝不发起 fetch、不启动重试定时器、不写持久化。
+      function createBorrowTask(symbol, amountRaw, countRaw) {
+        const row = (state.snapshot && state.snapshot.rows || []).find(r => r.symbol === symbol);
+        if (!row) return { ok: false, error: '未找到该行行情数据' };
+        const amount = parseBorrowAmount(amountRaw);
+        if (amount === null) return { ok: false, error: '单次借币数量必须是大于 0 的有限数值' };
+        const successTarget = parseSuccessTarget(countRaw);
+        if (successTarget === null) return { ok: false, error: '成功借币次数必须是大于 0 的整数' };
+        const task = {
+          id: ++borrowTaskIdSeq,
+          asset: row.base_asset,
+          amountPerAttempt: amount,
+          successTarget,
+          successCount: 0
+        };
+        state.borrowTasks.push(task);
+        updateBorrowTaskNav();
+        if (state.activeView === 'borrow-tasks') renderBorrowTasks();
+        return { ok: true, task };
+      }
+
+      // 操作列确认按钮入口：读输入值 -> 创建 -> 就近显示/清除错误。
+      function submitBorrowTask(symbol) {
+        const amountEl = document.getElementById(`borrow-amount-${symbol}`);
+        const countEl = document.getElementById(`borrow-count-${symbol}`);
+        const errorEl = document.getElementById(`borrow-error-${symbol}`);
+        const result = createBorrowTask(symbol, amountEl ? amountEl.value : '', countEl ? countEl.value : '');
+        if (errorEl) errorEl.textContent = result.ok ? '' : result.error;
+        return result;
+      }
+
+      function updateBorrowTaskNav() {
+        els.borrowTaskCount.textContent = String(state.borrowTasks.length);
+      }
+
+      function formatTaskAmount(value) {
+        // 整数千分位、小数原样；先经 toPrecision(12) 消除二进制浮点尾差。
+        if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+        const normalized = Number(value.toPrecision(12));
+        const [intPart, fracPart] = String(normalized).split('.');
+        const intFormatted = Number(intPart).toLocaleString('en-US');
+        return fracPart !== undefined ? `${intFormatted}.${fracPart}` : intFormatted;
+      }
+
+      function renderBorrowTasks() {
+        const tasks = state.borrowTasks;
+        if (tasks.length === 0) {
+          els.borrowTaskList.innerHTML = `
+            <div class="empty-state">
+              <strong>暂无借币任务</strong><br/>
+              <span class="muted small">在市场表「操作」列输入单次借币数量与成功次数并确认后创建</span>
+            </div>`;
+          return;
+        }
+        els.borrowTaskList.innerHTML = tasks.map(task => {
+          const asset = escapeHtml(task.asset);
+          const amountText = formatTaskAmount(task.amountPerAttempt);
+          const totalText = formatTaskAmount(task.amountPerAttempt * task.successTarget);
+          return `
+            <div class="borrow-task-card" data-task-id="${task.id}">
+              <div class="borrow-task-head">
+                <h3>${asset}</h3>
+                <span class="badge warn">前端演示</span>
+              </div>
+              <div class="borrow-task-lines">
+                <div>单次数量：<strong>${amountText} ${asset}/次</strong></div>
+                <div>成功进度：<strong>${task.successCount} / ${task.successTarget} 次成功</strong></div>
+                <div>目标总量：目标 ${totalText} ${asset}</div>
+                <div>策略：每 30 秒尝试一次，失败等待下次，达到成功次数后停止</div>
+              </div>
+              <div class="borrow-task-disclaimer">前端演示：未发起真实借币请求；该任务仅记录在当前浏览器会话内存中。</div>
+            </div>`;
+        }).join('');
+      }
+
+      function setActiveView(view) {
+        state.activeView = view === 'borrow-tasks' ? 'borrow-tasks' : 'market';
+        const isBorrow = state.activeView === 'borrow-tasks';
+        els.marketView.style.display = isBorrow ? 'none' : '';
+        els.borrowTaskView.style.display = isBorrow ? '' : 'none';
+        if (isBorrow) {
+          els.navBorrowTasks.classList.add('active');
+          els.navMarket.classList.remove('active');
+          els.navBorrowTasks.setAttribute('aria-current', 'page');
+          els.navMarket.removeAttribute('aria-current');
+          renderBorrowTasks();
+        } else {
+          els.navMarket.classList.add('active');
+          els.navBorrowTasks.classList.remove('active');
+          els.navMarket.setAttribute('aria-current', 'page');
+          els.navBorrowTasks.removeAttribute('aria-current');
+        }
+      }
+
       function applyFiltersAndRender() {
         renderTable();
         renderSortBasis();
@@ -1967,6 +2208,8 @@
 
       function bindEvents() {
         els.btnRefresh.addEventListener('click', loadApi);
+        els.navMarket.addEventListener('click', () => setActiveView('market'));
+        els.navBorrowTasks.addEventListener('click', () => setActiveView('borrow-tasks'));
         els.btnPrivacy.addEventListener('click', togglePrivacy);
         els.drawerClose.addEventListener('click', closeDrawer);
         els.drawerBackdrop.addEventListener('click', closeDrawer);
@@ -2001,6 +2244,7 @@
       state.privacyHidden = loadPrivacyHidden();
       updatePrivacyToggleUi();
       savePrivacyHidden(state.privacyHidden);
+      updateBorrowTaskNav();
 
       globalThis.__appHelpers = {
         formatFundingRate,
@@ -2022,7 +2266,12 @@
         getDrawerHistoryError: () => state.drawerHistoryError,
         getDrawerNotice: () => state.drawerNotice,
         fetchSymbolSnapshot,
-        getSnapshot: () => state.snapshot
+        getSnapshot: () => state.snapshot,
+        createBorrowTask,
+        submitBorrowTask,
+        getBorrowTasks: () => state.borrowTasks,
+        getActiveView: () => state.activeView,
+        setActiveView
       };
 
       bindEvents();
