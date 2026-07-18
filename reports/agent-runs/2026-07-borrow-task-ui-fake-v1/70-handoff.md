@@ -2,20 +2,20 @@
 
 ## Recovery Header
 
-- Active phase: review-2 / Opus 4.8 schema-valid ACCEPT recorded; Harness repair pending
-- Next action: Await the user's focused Harness-repair instruction; do not alter delivery code or mark the stage accepted before the repaired validator can pass pre-accept.
-- Read-set: `status.current_inputs`, valid `50-review-2.md`, `66-review-2-strong-reviewer-override.md`, valid B1/F2+F3 task Review-1 retries, fixed delivery diff `d9c2772..9d53204`, and the active workflow Review-2/final-gate sections.
-- Open blockers: The future Harness repair remains necessary for task-scoped Review-1 aggregation before pre-accept. Review-2 is independently ACCEPT with five non-blocking P3 findings.
+- Active phase: review-2 / task-scoped Review-1 aggregate prepared; pre-accept pending
+- Next action: Commit the aggregate record, run pre-accept, then enter `stage_accepted_waiting_user` if it passes.
+- Read-set: `status.current_inputs`, `42-review-1-task-aggregate.md`, valid `50-review-2.md`, valid B1/F2+F3 task Review-1 retries, fixed delivery diff `d9c2772..9d53204`, and the active workflow final-gate section.
+- Open blockers: none. Earlier validator concern was a stage bookkeeping omission: existing Harness supports a provider-null, task-scoped Review-1 aggregate, as used by prior multi-task stages.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-borrow-task-ui-fake-v1`
-- Status: `review_2` (all task Review-1 evidence and Opus Review-2 are valid ACCEPT; the only gate defect is task-scoped Review-1 aggregation)
+- Status: `review_2` (all task Review-1 evidence, the task-scoped aggregate, and Opus Review-2 are valid ACCEPT; pre-accept pending)
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
 - Reviewed delivery commit: `9d53204d450ee0dc4519f52201b575e5b71e948b`
 - Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..9d53204d450ee0dc4519f52201b575e5b71e948b` / `9d53204d450ee0dc4519f52201b575e5b71e948b:a51dccee4055065ceece4ee3cee037909c096da4cf36a55144d945e757d025f3`
-- Git status: B1 `623d059b52723d9ee412519db054a2a25cedf504`; F2 `ddcecf5533352c25886aeadfdc233a826603ba7b`; F3 `9d53204d450ee0dc4519f52201b575e5b71e948b`; Opus 4.8 Review-2 evidence pending commit
+- Git status: B1 `623d059b52723d9ee412519db054a2a25cedf504`; F2 `ddcecf5533352c25886aeadfdc233a826603ba7b`; F3 `9d53204d450ee0dc4519f52201b575e5b71e948b`; task-scoped Review-1 aggregate pending commit
 - Implementer: Claude-GLM B1 complete (Session ID unavailable through harness); Kimi F2/F3 complete (Session ID `83684f19-df9d-44ba-885c-267a01656f75`, transcript_path)
 - Parallel mode: disabled
 
@@ -45,6 +45,7 @@
 - Valid F2+F3 strict retry: `32-review-1-frontend-retry-1.md` (ACCEPT); original B1 review: `31-review-1-backend.md` (content ACCEPT, but non-accepting output format); valid B1 strict retry: `31-review-1-backend-retry-1.md` (ACCEPT)
 - Review-1 dispatch: `25-review-1.dispatch.md` (historical)
 - Review 1 raw output: `30-review-1.md` — ACCEPT for old diff, superseded by scope amendment
+- Task-scoped Review-1 aggregate: `42-review-1-task-aggregate.md` (B1 Kimi ACCEPT + F2/F3 Claude-GLM ACCEPT, provider-null stage aggregate)
 - Fix report: pending `40-fix-report.md`
 - Review-2 strong-reviewer disclosure: `66-review-2-strong-reviewer-override.md`
 - Opus 4.8 Review-2 dispatch: `41-claude-review-2-opus4.8.dispatch.md`; raw output `50-review-2.md` (schema-valid ACCEPT)
@@ -85,15 +86,15 @@
 
 ## Blockers
 
-- B1 retry 1, F2+F3 retry 1, and Opus 4.8 Review-2 are schema-valid ACCEPT. The top-level task-scoped Review-1 aggregation defect remains for the planned Harness repair. Do not use an authorized exception to waive an ACCEPT verdict or reviewer identity requirement.
+- B1 retry 1, F2+F3 retry 1, and Opus 4.8 Review-2 are schema-valid ACCEPT. The current task-scoped aggregate follows the existing Harness pattern; it is not a third model review and has no individual reviewer/provider identity.
 
 ## Next Action
 
-Await the user's command for the focused Harness repair. After it lands on `main`, follow the recorded branch-sync exception procedure, rebind/revalidate this stage, and only then enter `stage_accepted_waiting_user` if pre-accept passes.
+Commit the aggregate record and run `scripts/validate-stage.py 2026-07-borrow-task-ui-fake-v1 --phase pre-accept`. If it passes, record `stage_accepted_waiting_user`; merge to `main` still requires the user's explicit acceptance.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-19 01:49:40 CST
-下一步模型: 人类产品/流程负责人
-下一步任务: 下达 task-scoped Review-1 Harness 修复指令
+本地北京时间: 2026-07-19 01:54:28 CST
+下一步模型: bookkeeper
+下一步任务: 提交 Review-1 aggregate 并运行 pre-accept
