@@ -2,16 +2,16 @@
 
 ## Recovery Header
 
-- Active phase: stage_accepted_waiting_user / pre-accept PASS
-- Next action: Wait for the user's explicit merge approval.
+- Active phase: accepted / merged to main by user authorization
+- Next action: Wait for the user's next-stage direction.
 - Read-set: `status.current_inputs`, `42-review-1-task-aggregate.md`, valid `50-review-2.md`, valid B1/F2+F3 task Review-1 retries, fixed delivery diff `d9c2772..9d53204`, and the active workflow final-gate section.
-- Open blockers: none. The committed-state pre-accept command passed; merge remains a human approval gate.
+- Open blockers: none. The user explicitly accepted the stage; it was fast-forwarded to main at `3a760c74191f98aa6409ac96bf70209a60b0a366`.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-borrow-task-ui-fake-v1`
-- Status: `stage_accepted_waiting_user` (all task Review-1 evidence, the task-scoped aggregate, and Opus Review-2 are valid ACCEPT; committed-state pre-accept passed)
+- Status: `accepted` (all task Review-1 evidence, the task-scoped aggregate, and Opus Review-2 are valid ACCEPT; pre-accept passed and stage is merged to main)
 - Branch: `stage/2026-07-borrow-task-ui-fake-v1`
 - Reviewed delivery commit: `9d53204d450ee0dc4519f52201b575e5b71e948b`
 - Diff range / fingerprint: `d9c2772b7725bc794224a99c70505526eaedf295..9d53204d450ee0dc4519f52201b575e5b71e948b` / `9d53204d450ee0dc4519f52201b575e5b71e948b:a51dccee4055065ceece4ee3cee037909c096da4cf36a55144d945e757d025f3`
@@ -91,11 +91,11 @@
 
 ## Next Action
 
-Wait for the user's explicit merge acceptance. The user must approve merging this stage branch to `main`; Review-2 ACCEPT and pre-accept PASS are not by themselves merge authority.
+The stage is complete and merged to main. Wait for the user's direction to create the next delivery stage; do not reopen this stage for new product scope.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-borrow-task-ui-fake-v1/70-handoff.md
-本地北京时间: 2026-07-19 01:58:18 CST
+本地北京时间: 2026-07-19 02:07:51 CST
 下一步模型: 人类产品负责人
-下一步任务: 明确接受后允许合并 stage branch 到 main
+下一步任务: 给出下一 delivery stage 的需求与启动授权
