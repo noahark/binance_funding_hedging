@@ -2,13 +2,16 @@
   "stage_id": "2026-07-tradable-spot-leg-v1",
   "status": "implementing",
   "workflow": "stage-delivery",
-  "current_phase": "implementation-dispatch-prepared-awaiting-human-execution",
+  "current_phase": "testing-complete-awaiting-evidence-commit",
   "current_inputs": [
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/00-task.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/10-design.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/11-adr.md",
     "reports/agent-runs/2026-07-tradable-spot-leg-v1/05-live-sample-analysis.md",
-    "reports/agent-runs/2026-07-tradable-spot-leg-v1/08-dispatch-claude-glm-implementation.md"
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/07-scope-extension-authorization.md",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/09-dispatch-claude-glm-test-fixture-repair.md"
   ],
   "stage_branch": {
     "name": "stage/2026-07-tradable-spot-leg-v1",
@@ -43,6 +46,26 @@
       "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/70-handoff.md",
       "recorded_at": "2026-07-18T04:23:14Z"
+    },
+    {
+      "role": "implementation_backend_spot_status_gate",
+      "provider": "zhipu_glm",
+      "model": "glm-5.2",
+      "session_id": "bb16025d-d15d-47d1-969a-0df4a2f4be14",
+      "session_id_source": "transcript_path",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/20-implementation.md",
+      "recorded_at": "2026-07-18T05:22:32Z"
+    },
+    {
+      "role": "implementation_fixture_repair",
+      "provider": "zhipu_glm",
+      "model": "glm-5.2",
+      "session_id": "bb16025d-d15d-47d1-969a-0df4a2f4be14",
+      "session_id_source": "transcript_path",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/20-implementation.md",
+      "recorded_at": "2026-07-18T05:54:16Z"
     }
   ],
   "designer": {
@@ -52,8 +75,15 @@
   },
   "direction_synthesizer": null,
   "breakdown_author": null,
-  "implementer": "claude_glm (planned; human dispatch required)",
-  "implementers": [],
+  "implementer": "claude_glm",
+  "implementers": [
+    {
+      "id": "claude_glm",
+      "provider": "zhipu_glm",
+      "model": "glm-5.2",
+      "session_id": "bb16025d-d15d-47d1-969a-0df4a2f4be14"
+    }
+  ],
   "fix_authors": [],
   "model_routing": {
     "implementation_owner": "claude_glm",
@@ -70,16 +100,27 @@
       "id": "backend-spot-status-gate",
       "owner": "claude_glm",
       "reviewer": "kimi",
-      "status": "dispatch_prepared",
-      "prompt_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/08-dispatch-claude-glm-implementation.md",
+      "status": "implementation_complete",
+      "initial_prompt_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/08-dispatch-claude-glm-implementation.md",
+      "prompt_path": "reports/agent-runs/2026-07-tradable-spot-leg-v1/09-dispatch-claude-glm-test-fixture-repair.md",
       "allowed_files": [
         "backend/domain/normalize.py",
+        "backend/tests/test_normalize.py",
         "backend/tests/test_snapshot.py",
         "docs/product/PRD.md",
         "docs/api/public-market-contract.md",
         "reports/agent-runs/2026-07-tradable-spot-leg-v1/20-implementation.md",
         "reports/agent-runs/2026-07-tradable-spot-leg-v1/60-test-output.txt"
       ],
+      "scope_extension": {
+        "authorized_by": "user",
+        "authorized_at": "2026-07-18T13:43:26+08:00",
+        "evidence_file": "reports/agent-runs/2026-07-tradable-spot-leg-v1/07-scope-extension-authorization.md",
+        "added_files": [
+          "backend/tests/test_normalize.py"
+        ],
+        "reason": "Three pre-existing tradable resolver fixtures omit status and must declare TRADING under the approved fail-closed contract."
+      },
       "base_sha": "9a03069fa9942739c7d8077d3a33d4387afde048",
       "head_sha": null,
       "diff_fingerprint": null,
@@ -119,10 +160,20 @@
   "head_sha": null,
   "diff_fingerprint": null,
   "coverage_waypoints": null,
-  "changed_files": [],
+  "changed_files": [
+    "backend/domain/normalize.py",
+    "backend/tests/test_normalize.py",
+    "backend/tests/test_snapshot.py",
+    "docs/api/public-market-contract.md",
+    "docs/product/PRD.md",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-tradable-spot-leg-v1/60-test-output.txt"
+  ],
   "tests": {
-    "status": "not_run",
+    "status": "passed",
+    "summary": "Fixture tests pass (17), focused snapshot tests pass (31), full backend passes (381), frontend self-check passes, and git diff --check is clean; independently rerun by the bookkeeper.",
     "commands": [
+      "python3 -m pytest backend/tests/test_normalize.py -q",
       "python3 -m pytest backend/tests/test_snapshot.py -q",
       "python3 -m pytest backend/tests -q",
       "node frontend/self-check.js",
@@ -171,5 +222,5 @@
   "rework_count": 0,
   "max_rework": 3,
   "zero_push": true,
-  "updated_at": "2026-07-18T12:29:25+08:00"
+  "updated_at": "2026-07-18T14:00:43+08:00"
 }

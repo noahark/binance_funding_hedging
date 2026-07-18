@@ -130,13 +130,25 @@ therefore cannot rely only on exact futures/spot symbol equality. The frozen
 spot-leg resolution rule is implemented in
 `backend/domain/normalize.py:resolve_spot_leg`:
 
-1. normal crypto: join by exact symbol (`BTCUSDT` -> `BTCUSDT`) ->
-   `spot.match_type = "exact_symbol"`;
-2. `TRADIFI_PERPETUAL` / `BSTOCK`: first try exact, then try the alias
-   `futures.baseAsset + "B" + futures.quoteAsset` (`TSLAUSDT` -> `TSLABUSDT`);
-   on alias hit `spot.match_type = "bstock_b_suffix_alias"`. The alias fires ONLY
-   for `TRADIFI_PERPETUAL`, so normal crypto exact matching is never polluted;
-3. no spot leg found -> `spot.exists = false`, `spot.match_type = null`, route
+A spot record resolves ONLY when its `status == "TRADING"`. `BREAK`, `HALT`, a
+missing `status`, and any other non-`TRADING` value do NOT form a usable spot leg
+(frozen evidence: `reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/`
+— AERGOUSDT/XMRUSDT/LITUSDT remain in spot `exchangeInfo` with `status="BREAK"`
+and a zero bookTicker while their perpetuals quote normally). `spot.exists`
+therefore means a currently tradable resolved spot leg, not merely that Binance
+retains a historical/non-trading exchangeInfo record. For `TRADIFI_PERPETUAL`, a
+non-trading exact record is skipped before trying the alias, and the alias
+resolves only when it is itself `TRADING`:
+
+1. normal crypto: join by exact symbol (`BTCUSDT` -> `BTCUSDT`), tradable only
+   (`status == "TRADING"`) -> `spot.match_type = "exact_symbol"`;
+2. `TRADIFI_PERPETUAL` / `BSTOCK`: first try exact (must be `TRADING`), then try
+   the alias `futures.baseAsset + "B" + futures.quoteAsset` (`TSLAUSDT` ->
+   `TSLABUSDT`), which must also be `TRADING`; on alias hit
+   `spot.match_type = "bstock_b_suffix_alias"`. The alias fires ONLY for
+   `TRADIFI_PERPETUAL`, so normal crypto exact matching is never polluted;
+3. no tradable spot leg found (absent symbol, or any non-`TRADING` status such as
+   `BREAK`/`HALT`) -> `spot.exists = false`, `spot.match_type = null`, route
    `PERP_ONLY_EXCLUDED`.
 
 Consequences (driven entirely by the existing classifier, unchanged this stage):

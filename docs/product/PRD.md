@@ -95,7 +95,10 @@ operator's account can borrow, trade, or hold a given asset.
 For each USDT perpetual symbol:
 
 1. Verify that a USDⓈ-M perpetual contract exists and is trading.
-2. Join it against public spot exchange information.
+2. Join it against public spot exchange information. Only a spot symbol with
+   `status == "TRADING"` counts as a usable spot leg; Binance keeps non-trading
+   symbols (e.g. `BREAK`, `HALT`) in `exchangeInfo`, but such a record is not a
+   currently tradable leg.
 3. Mark whether the spot symbol publicly indicates margin support.
 4. Mark bStocks or other tokenized equity-like products separately from route
    class.
@@ -110,9 +113,10 @@ Route class values:
 - `SPOT_ONLY_CANDIDATE`: has USDT perpetual and USDT spot, but public spot data
   does not indicate margin support. Positive-funding hedge can be observed as a
   normal spot route candidate. Negative-funding hedge is disabled.
-- `PERP_ONLY_EXCLUDED`: has USDT perpetual but no corresponding USDT spot leg.
-  It cannot form a contract-spot hedge and is excluded from executable
-  candidates.
+- `PERP_ONLY_EXCLUDED`: has USDT perpetual but no currently tradable USDT spot
+  leg (the spot symbol is either absent from `exchangeInfo`, or present with a
+  non-`TRADING` status such as `BREAK` or `HALT`). It cannot form a contract-spot
+  hedge and is excluded from executable candidates.
 
 Asset tags are independent from route class:
 

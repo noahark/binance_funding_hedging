@@ -12,7 +12,7 @@ from collections import Counter
 import jsonschema
 
 from backend.config import Config
-from backend.domain.normalize import iso_from_ms
+from backend.domain.normalize import iso_from_ms, resolve_spot_leg
 from backend.domain.snapshot import build_rows, select_borrow_candidates, top_symbols_by_abs_rate
 from backend.services.snapshot_service import SnapshotService
 
@@ -446,3 +446,90 @@ def test_metal_snapshot_row_validates_schema(schema):
     )
     jsonschema.validate(snap, schema)
     assert snap["summary"]["asset_tag_counts"].get("METAL") == 1
+
+
+# --- tradable spot-leg status gate (2026-07-tradable-spot-leg-v1) ---
+# Frozen public evidence: reports/api-samples/2026-07-tradable-spot-leg-v1/
+# 20260718T042314Z/ — AERGOUSDT/XMRUSDT/LITUSDT remain in spot exchangeInfo with
+# status="BREAK" (isMarginTradingAllowed=false) and a zero bookTicker while their
+# perpetuals quote normally. Symbol presence alone is therefore not evidence of a
+# tradable spot leg: resolve_spot_leg must resolve only status=="TRADING" spot
+# records, and a non-trading exact record must not block a trading B-suffix alias.
+
+
+def test_spot_leg_exact_trading_resolves():
+    """Case 1: an exact TRADING spot record remains eligible (exact_symbol)."""
+    spot = {"FOOUSDT": {"symbol": "FOOUSDT", "status": "TRADING", "isMarginTradingAllowed": True}}
+    leg, match = resolve_spot_leg("PERPETUAL", "FOO", "USDT", spot)
+    assert leg is spot["FOOUSDT"]
+    assert match == "exact_symbol"
+
+
+def test_spot_leg_exact_break_does_not_resolve_and_excludes_route():
+    """Case 2: an exact BREAK record resolves to no leg, and a TRADING futures row
+    builds the expected PERP_ONLY_EXCLUDED excluded shape (spot.exists=false,
+    spot fields null, negative_funding_status=DISABLED_PERP_ONLY)."""
+    spot = {"FOOUSDT": {"symbol": "FOOUSDT", "status": "BREAK", "isMarginTradingAllowed": False}}
+    leg, match = resolve_spot_leg("PERPETUAL", "FOO", "USDT", spot)
+    assert leg is None
+    assert match is None
+    rows = build_rows(
+        [{"symbol": "FOOUSDT", "baseAsset": "FOO", "quoteAsset": "USDT",
+          "contractType": "PERPETUAL", "status": "TRADING"}],
+        {"FOOUSDT": {"lastFundingRate": "0.00010000"}},
+        spot,
+        {},
+    )
+    row = rows[0]
+    assert row["route_class"] == "PERP_ONLY_EXCLUDED"
+    assert row["negative_funding_status"] == "DISABLED_PERP_ONLY"
+    assert row["positive_funding_enabled"] is False
+    assert row["spot"]["exists"] is False
+    assert row["spot"]["symbol"] is None
+    assert row["spot"]["status"] is None
+    assert row["spot"]["match_type"] is None
+
+
+def test_spot_leg_exact_halt_does_not_resolve():
+    """Case 3: an exact HALT record does not resolve (even with margin allowed)."""
+    spot = {"FOOUSDT": {"symbol": "FOOUSDT", "status": "HALT", "isMarginTradingAllowed": True}}
+    leg, match = resolve_spot_leg("PERPETUAL", "FOO", "USDT", spot)
+    assert leg is None
+    assert match is None
+
+
+def test_spot_leg_non_trading_exact_does_not_block_trading_alias():
+    """Case 4: for TRADIFI_PERPETUAL a non-trading exact record is skipped and a
+    trading B-suffix alias still resolves (bstock_b_suffix_alias)."""
+    spot = {
+        "TSLAUSDT": {"symbol": "TSLAUSDT", "status": "BREAK", "isMarginTradingAllowed": False},
+        "TSLABUSDT": {"symbol": "TSLABUSDT", "status": "TRADING", "isMarginTradingAllowed": True},
+    }
+    leg, match = resolve_spot_leg("TRADIFI_PERPETUAL", "TSLA", "USDT", spot)
+    assert leg is spot["TSLABUSDT"]
+    assert match == "bstock_b_suffix_alias"
+
+
+def test_spot_leg_non_trading_alias_does_not_resolve():
+    """Case 5: a non-trading B-suffix alias does not resolve (exact non-trading +
+    alias non-trading -> no leg)."""
+    spot = {
+        "TSLAUSDT": {"symbol": "TSLAUSDT", "status": "BREAK", "isMarginTradingAllowed": False},
+        "TSLABUSDT": {"symbol": "TSLABUSDT", "status": "HALT", "isMarginTradingAllowed": True},
+    }
+    leg, match = resolve_spot_leg("TRADIFI_PERPETUAL", "TSLA", "USDT", spot)
+    assert leg is None
+    assert match is None
+
+
+def test_spot_leg_missing_or_unknown_status_fails_closed():
+    """Case 6: a record with a missing status field, and one with an unrecognized
+    status value, both fail closed (not treated as tradable)."""
+    missing = {"FOOUSDT": {"symbol": "FOOUSDT", "isMarginTradingAllowed": True}}
+    leg, match = resolve_spot_leg("PERPETUAL", "FOO", "USDT", missing)
+    assert leg is None
+    assert match is None
+    unknown = {"BARUSDT": {"symbol": "BARUSDT", "status": "AUCTION_MATCHING", "isMarginTradingAllowed": True}}
+    leg, match = resolve_spot_leg("PERPETUAL", "BAR", "USDT", unknown)
+    assert leg is None
+    assert match is None

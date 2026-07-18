@@ -96,7 +96,7 @@ def test_iso_from_ms_ignores_subsecond_part():
 
 
 def test_resolve_spot_leg_exact_symbol():
-    spot = {"BTCUSDT": {"symbol": "BTCUSDT"}}
+    spot = {"BTCUSDT": {"symbol": "BTCUSDT", "status": "TRADING"}}
     obj, match_type = resolve_spot_leg("PERPETUAL", "BTC", "USDT", spot)
     assert obj["symbol"] == "BTCUSDT"
     assert match_type == "exact_symbol"
@@ -104,7 +104,7 @@ def test_resolve_spot_leg_exact_symbol():
 
 def test_resolve_spot_leg_bstock_alias_for_tradifi():
     # Futures TSLAUSDT -> spot TSLABUSDT via baseAsset+"B"+quoteAsset alias.
-    spot = {"TSLABUSDT": {"symbol": "TSLABUSDT"}}
+    spot = {"TSLABUSDT": {"symbol": "TSLABUSDT", "status": "TRADING"}}
     obj, match_type = resolve_spot_leg("TRADIFI_PERPETUAL", "TSLA", "USDT", spot)
     assert obj["symbol"] == "TSLABUSDT"
     assert match_type == "bstock_b_suffix_alias"
@@ -128,8 +128,8 @@ def test_resolve_spot_leg_exact_beats_alias_for_tradifi():
     # If a TRADIFI futures symbol coincidentally also has an EXACT spot symbol,
     # exact-symbol matching wins (alias is a fallback, never a replacement).
     spot = {
-        "TSLAUSDT": {"symbol": "TSLAUSDT"},
-        "TSLABUSDT": {"symbol": "TSLABUSDT"},
+        "TSLAUSDT": {"symbol": "TSLAUSDT", "status": "TRADING"},
+        "TSLABUSDT": {"symbol": "TSLABUSDT", "status": "TRADING"},
     }
     obj, match_type = resolve_spot_leg("TRADIFI_PERPETUAL", "TSLA", "USDT", spot)
     assert obj["symbol"] == "TSLAUSDT"

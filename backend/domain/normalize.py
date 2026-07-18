@@ -67,6 +67,23 @@ def iso_from_ms(ms_epoch: int) -> str:
     )
 
 
+def _tradable_spot(spot_by_sym: dict, symbol: str) -> Optional[dict]:
+    """Return the spot record for ``symbol`` only when it is currently tradable.
+
+    A record resolves only when its ``status == "TRADING"``. Absent, a missing
+    ``status``, ``BREAK``, ``HALT``, and every other value fail closed (return
+    None): Binance keeps non-trading symbols in ``exchangeInfo`` (frozen evidence
+    under ``reports/api-samples/2026-07-tradable-spot-leg-v1/20260718T042314Z/`` —
+    AERGOUSDT/XMRUSDT/LITUSDT sit there with ``status="BREAK"`` and a zero
+    bookTicker while their perpetuals quote normally), but such a record is not a
+    usable spot leg.
+    """
+    spot = spot_by_sym.get(symbol)
+    if spot is not None and spot.get("status") == "TRADING":
+        return spot
+    return None
+
+
 def resolve_spot_leg(
     contract_type: str,
     base_asset: str,
@@ -78,24 +95,28 @@ def resolve_spot_leg(
     Returns ``(spot_obj|None, match_type|None)``:
 
     1. ``exact_symbol`` — ``spot_by_sym[base_asset + quote_asset]`` (normal
-       crypto; futures symbol equals spot symbol).
+       crypto; futures symbol equals spot symbol), but only when that spot record
+       is currently tradable (``status == "TRADING"``).
     2. ``bstock_b_suffix_alias`` — only when ``contract_type ==
-       "TRADIFI_PERPETUAL"``: ``spot_by_sym[base_asset + "B" + quote_asset]``.
-       Binance bStocks use a "B"-suffixed spot/margin symbol, e.g. futures
-       ``TSLAUSDT`` -> spot ``TSLABUSDT``.
-    3. ``(None, None)`` — no public spot leg.
+       "TRADIFI_PERPETUAL"``: ``spot_by_sym[base_asset + "B" + quote_asset]``,
+       again only when tradable. Binance bStocks use a "B"-suffixed spot/margin
+       symbol, e.g. futures ``TSLAUSDT`` -> spot ``TSLABUSDT``.
+    3. ``(None, None)`` — no currently tradable public spot leg.
 
-    The alias is gated on ``TRADIFI_PERPETUAL`` so normal crypto exact-symbol
-    matching is never polluted. ``asset_tag_for`` already marks TRADIFI as
-    ``BSTOCK``; the existing ``negative_funding_status`` priority then yields
-    ``DISABLED_BSTOCK`` for a bStock even when its route is
+    Both candidates gate on ``status == "TRADING"`` via :func:`_tradable_spot`, so
+    a non-trading exact record (``BREAK``/``HALT``/missing/unknown) is skipped
+    before the alias is tried; the alias is then used only if it is itself
+    tradable. The alias is also gated on ``TRADIFI_PERPETUAL`` so normal crypto
+    exact-symbol matching is never polluted. ``asset_tag_for`` already marks
+    TRADIFI as ``BSTOCK``; the existing ``negative_funding_status`` priority then
+    yields ``DISABLED_BSTOCK`` for a bStock even when its route is
     ``MARGIN_SPOT_CANDIDATE`` — no classifier change is needed.
     """
-    exact = spot_by_sym.get(base_asset + quote_asset)
+    exact = _tradable_spot(spot_by_sym, base_asset + quote_asset)
     if exact is not None:
         return exact, "exact_symbol"
     if contract_type == "TRADIFI_PERPETUAL":
-        alias = spot_by_sym.get(base_asset + "B" + quote_asset)
+        alias = _tradable_spot(spot_by_sym, base_asset + "B" + quote_asset)
         if alias is not None:
             return alias, "bstock_b_suffix_alias"
     return None, None
