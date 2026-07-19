@@ -52,8 +52,9 @@
 - Formal Review-1 aggregate: `30-review-1.md` (**both task verdicts schema-valid,
   fixed fingerprints matched; no required fix**)
 - Review-2 override evidence: `66-review-2-strong-reviewer-override.md`
-  (**Codex design involvement disclosed; no unrelated configured decision reviewer**)
-- Review-2 packet: `review-2-codex.prompt.md` (**prepared; human execution required**)
+  (**Fable5 breakdown involvement disclosed; user selected configured fallback**)
+- Superseded Review-2 packet: `review-2-codex.prompt.md` (prepared but not dispatched)
+- Active Review-2 packet: `review-2-fable5.prompt.md` (**prepared; human execution required**)
 - Review-2 preflight validator: `63-review-2-preflight-validation.txt` (**PASS**)
 - Status JSON: `status.json`
 
@@ -73,8 +74,8 @@
 ## Next Action
 
 Commit the Review-2 packet and run the clean-worktree pre-review validator.
-Then the human operator executes `review-2-codex.prompt.md` in a **fresh**
-Codex/GPT read-only session. Save the raw response as `50-review-2.md`, retain
+Then the human operator executes `review-2-fable5.prompt.md` in a **fresh**
+Anthropic Fable5 plan/read-only session. Save the raw response as `50-review-2.md`, retain
 the strict JSON at its exact end, and backfill the packet receipt plus
 `status.json.session_receipts` from verified provider-native session evidence.
 
@@ -82,5 +83,5 @@ the strict JSON at its exact end, and backfill the packet receipt plus
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
 本地北京时间: 2026-07-19 20:43:47 CST
-下一步模型: Codex/GPT review-2 candidate
+下一步模型: Anthropic Fable5 review-2 candidate
 下一步任务: 对完整固定 stage range 执行最终 Review-2，并披露 design involvement
