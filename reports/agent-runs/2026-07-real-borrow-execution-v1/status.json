@@ -412,6 +412,13 @@
           "fix_report_path": "embedded-review-A-round1.fix-note.md"
         }
       ],
+      "formal_review": {
+        "output": "30-review-1-backend.md",
+        "base_sha": "6c870414a951550331676fe5db0c4e3a46aab555",
+        "head_sha": "40efb028ead50d667bb32dbe10e9af6a7d77409e",
+        "diff_fingerprint": "40efb028ead50d667bb32dbe10e9af6a7d77409e:a3e3a9bcd8b6233b581f4587e88b64478cc9cb356b1d40b1cddc9a1f3c33d3bc",
+        "verdict": "ACCEPT"
+      },
       "escalations": []
     },
     "B": {
@@ -431,6 +438,13 @@
           "fix_report_path": null
         }
       ],
+      "formal_review": {
+        "output": "30-review-1-frontend.md",
+        "base_sha": "40efb028ead50d667bb32dbe10e9af6a7d77409e",
+        "head_sha": "4bab47d250b739539c0c2f09786baa75bba25d6d",
+        "diff_fingerprint": "4bab47d250b739539c0c2f09786baa75bba25d6d:5f815252ed8e55c7a3aa97efa7a8f4db700abd27e2e1bca998b2af923b728a81",
+        "verdict": "ACCEPT"
+      },
       "escalations": []
     }
   },
