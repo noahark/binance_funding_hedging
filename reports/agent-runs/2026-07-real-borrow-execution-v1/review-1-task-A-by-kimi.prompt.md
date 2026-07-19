@@ -1,11 +1,11 @@
 <!-- RECEIPT — bookkeeper fills this metadata after the human operator executes the packet.
-status: pending
+status: done
 target_model: kimi / kimi-code/kimi-for-coding (fresh read-only review session)
 adapter_cmd: kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-real-borrow-execution-v1/review-1-task-A-by-kimi.prompt.md)"
-started_at:
-completed_at:
-session_id:
-session_id_source:
+started_at: unavailable (not captured by operator)
+completed_at: 2026-07-19T20:30:10+08:00
+session_id: session_e45eb13b-9589-405c-95c5-fbe7a4723e82
+session_id_source: transcript_path (reviewer's reported Kimi session location)
 output: reports/agent-runs/2026-07-real-borrow-execution-v1/30-review-1-backend.md
 next_dispatch: ACCEPT → task-B Review-1 / then stage Review-2; REWORK → Task A scope-contained fix
 -->

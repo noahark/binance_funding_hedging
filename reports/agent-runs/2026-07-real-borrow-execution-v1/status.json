@@ -143,6 +143,26 @@
       "session_id_source": "unavailable: implementation transcript supplied no provider-native Session ID",
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/20-implementation-frontend.md",
       "recorded_at": "2026-07-19T19:56:38+08:00"
+    },
+    {
+      "role": "review_1",
+      "task_id": "A",
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": "session_e45eb13b-9589-405c-95c5-fbe7a4723e82",
+      "session_id_source": "transcript_path: reviewer reported a matching Kimi session directory",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/30-review-1-backend.md",
+      "recorded_at": "2026-07-19T20:30:10+08:00"
+    },
+    {
+      "role": "review_1",
+      "task_id": "B",
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "session_id": "2a0f36a0-c780-4e25-bae3-005b6a66a691",
+      "session_id_source": "operator: verified provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/30-review-1-frontend.md",
+      "recorded_at": "2026-07-19T20:19:04+08:00"
     }
   ],
   "designer": {
@@ -282,10 +302,14 @@
       "head_sha": "40efb028ead50d667bb32dbe10e9af6a7d77409e",
       "diff_fingerprint": "40efb028ead50d667bb32dbe10e9af6a7d77409e:a3e3a9bcd8b6233b581f4587e88b64478cc9cb356b1d40b1cddc9a1f3c33d3bc",
       "review_1": {
-        "status": "pending",
+        "status": "accepted",
         "reviewer": {"provider": "kimi", "model": "kimi-code/kimi-for-coding", "fresh_session": true},
         "prompt_path": "review-1-task-A-by-kimi.prompt.md",
-        "output_path": "30-review-1-backend.md"
+        "output_path": "30-review-1-backend.md",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "40efb028ead50d667bb32dbe10e9af6a7d77409e:a3e3a9bcd8b6233b581f4587e88b64478cc9cb356b1d40b1cddc9a1f3c33d3bc",
+        "session_id": "session_e45eb13b-9589-405c-95c5-fbe7a4723e82"
       },
       "r10_checklist": {
         "task_prompt_path": "task-A-claude-glm.prompt.md",
@@ -321,10 +345,14 @@
       "head_sha": "4bab47d250b739539c0c2f09786baa75bba25d6d",
       "diff_fingerprint": "4bab47d250b739539c0c2f09786baa75bba25d6d:5f815252ed8e55c7a3aa97efa7a8f4db700abd27e2e1bca998b2af923b728a81",
       "review_1": {
-        "status": "pending",
+        "status": "accepted",
         "reviewer": {"provider": "claude_glm", "model": "glm-5.2", "fresh_session": true},
         "prompt_path": "review-1-task-B-by-claude-glm.prompt.md",
-        "output_path": "30-review-1-frontend.md"
+        "output_path": "30-review-1-frontend.md",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "4bab47d250b739539c0c2f09786baa75bba25d6d:5f815252ed8e55c7a3aa97efa7a8f4db700abd27e2e1bca998b2af923b728a81",
+        "session_id": "2a0f36a0-c780-4e25-bae3-005b6a66a691"
       },
       "r10_checklist": {
         "task_prompt_path": "task-B-kimi.prompt.md",
@@ -396,7 +424,7 @@
     }
   },
   "tests": {
-    "status": "committed_regression_passed",
+    "status": "passed",
     "commands": [
       {
         "command": "python3 scripts/validate-stage.py 2026-07-real-borrow-execution-v1 --phase dispatch-ready",
@@ -456,19 +484,36 @@
       "verdict": "PASS"
     }
   ],
-  "review_1": {"status": "pending", "task_scoped": true},
+  "review_1": {
+    "status": "accepted",
+    "mode": "task_scoped_cross_review",
+    "task_scoped": true,
+    "reviewer": null,
+    "provider": null,
+    "model": "aggregate: Kimi(Task A) + Claude-GLM(Task B)",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "4bab47d250b739539c0c2f09786baa75bba25d6d:54e166f1c4c4a6378f987c6a7c4cde60fa390599888129924c68d8be33fa6f08",
+    "aggregate_evidence_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/30-review-1.md",
+    "task_verdicts": {
+      "A": "reports/agent-runs/2026-07-real-borrow-execution-v1/30-review-1-backend.md",
+      "B": "reports/agent-runs/2026-07-real-borrow-execution-v1/30-review-1-frontend.md"
+    },
+    "open_p0_p1": false,
+    "invalid_json_attempts": 0
+  },
   "review_2": null,
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "No implementation blocker: Task A round-2 embedded review PASS and Task B embedded review PASS; R4 scoped diff reconciliation PASS. Stage-level test/review gates remain."
+    "No blocking finding: task-scoped formal Review-1 ACCEPT for Task A and Task B. Review-2 remains the final gate."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "review_1_dispatch",
-  "updated_at": "2026-07-19T20:02:53+08:00"
+  "next_action": "review_2_prepare",
+  "updated_at": "2026-07-19T20:43:47+08:00"
 }

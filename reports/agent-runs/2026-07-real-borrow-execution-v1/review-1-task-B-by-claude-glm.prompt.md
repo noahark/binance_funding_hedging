@@ -1,11 +1,11 @@
 <!-- RECEIPT — bookkeeper fills this metadata after the human operator executes the packet.
-status: pending
+status: done
 target_model: claude_glm / glm-5.2 (fresh plan/read-only review session)
 adapter_cmd: claude-glm --model glm-5.2 --permission-mode plan -p "$(cat reports/agent-runs/2026-07-real-borrow-execution-v1/review-1-task-B-by-claude-glm.prompt.md)"
-started_at:
-completed_at:
-session_id:
-session_id_source:
+started_at: unavailable (not captured by operator)
+completed_at: 2026-07-19T20:19:04+08:00
+session_id: 2a0f36a0-c780-4e25-bae3-005b6a66a691
+session_id_source: operator (verified provider-native Session ID)
 output: reports/agent-runs/2026-07-real-borrow-execution-v1/30-review-1-frontend.md
 next_dispatch: ACCEPT → task-A Review-1 / then stage Review-2; REWORK → Task B scope-contained fix
 -->
