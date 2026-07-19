@@ -54,6 +54,7 @@
 - Review-2 override evidence: `66-review-2-strong-reviewer-override.md`
   (**Codex design involvement disclosed; no unrelated configured decision reviewer**)
 - Review-2 packet: `review-2-codex.prompt.md` (**prepared; human execution required**)
+- Review-2 preflight validator: `63-review-2-preflight-validation.txt` (**PASS**)
 - Status JSON: `status.json`
 
 ## Capacity Recon Highlights (pointer only — read the raw report)
