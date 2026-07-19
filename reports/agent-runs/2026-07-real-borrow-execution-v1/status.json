@@ -1,0 +1,206 @@
+{
+  "stage_id": "2026-07-real-borrow-execution-v1",
+  "status": "designing",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-real-borrow-execution-v1",
+    "created_from_main_sha": "5b2b3232673fa7ee193efdcc6f80c4df82aa0fa9",
+    "created_at": "2026-07-19T15:57:10+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "codex",
+    "provider": "codex",
+    "model": "gpt",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "session_receipts": [
+    {
+      "role": "complexity_evaluator",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/00-intake.md"
+    },
+    {
+      "role": "direction_draft",
+      "provider": "claude",
+      "model": "claude-fable-5",
+      "session_id": "8a5c4194-53d4-4aad-809f-7f05d14d21e1",
+      "session_id_source": "operator: verified provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/direction-drafts/claude.md",
+      "recorded_at": "2026-07-19T07:41:02+08:00"
+    },
+    {
+      "role": "direction_draft",
+      "provider": "grok",
+      "model": "grok-build",
+      "session_id": "019f778f-4efe-7ce0-ab37-483ed47b51c2",
+      "session_id_source": "active_session_registry",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/direction-drafts/grok-build.md",
+      "recorded_at": "2026-07-19T07:30:41+08:00"
+    },
+    {
+      "role": "direction_draft",
+      "provider": "kimi",
+      "model": "kimi-2.7",
+      "session_id": "session_e0bf32e7-bf49-4adc-8386-0e4f3fad7aa4",
+      "session_id_source": "operator: verified provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/direction-drafts/kimi27.md",
+      "recorded_at": "2026-07-19T07:41:02+08:00"
+    },
+    {
+      "role": "direction_draft",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": "df0c797c-b955-4a66-8969-a41ad4244bfa",
+      "session_id_source": "operator: verified provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/direction-drafts/glm52.md",
+      "recorded_at": "2026-07-19T07:41:02+08:00"
+    },
+    {
+      "role": "direction_synthesis",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/06-direction-synthesis.md",
+      "recorded_at": "2026-07-19T07:41:02+08:00"
+    },
+    {
+      "role": "borrow_api_capacity_recon",
+      "provider": "grok",
+      "model": "grok-build",
+      "session_id": "019f778f-4efe-7ce0-ab37-483ed47b51c2",
+      "session_id_source": "active_session_registry",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/03-grok-borrow-api-capacity-recon.md",
+      "recorded_at": "2026-07-19T12:33:11+08:00"
+    },
+    {
+      "role": "stage_design",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/{00-task.md,10-design.md,11-adr.md}",
+      "recorded_at": "2026-07-19T15:57:10+08:00"
+    }
+  ],
+  "designer": {
+    "id": "codex",
+    "provider": "codex",
+    "model": "gpt",
+    "skill": "software_architect",
+    "scope": "A+B durable local borrow-task design; no Binance writes"
+  },
+  "direction_synthesizer": {
+    "id": "codex",
+    "provider": "codex",
+    "model": "gpt"
+  },
+  "breakdown_author": null,
+  "implementer": null,
+  "implementers": [],
+  "fix_authors": [],
+  "complexity": {
+    "classification": "MILESTONE",
+    "direction_panel_required": true,
+    "existing_synthesis_covers_task": false,
+    "user_approved_lightweight_route": false,
+    "lightweight_skip_allowed": false,
+    "rationale": [
+      "Real borrowing creates account liabilities through a private write API.",
+      "The requested automatic retry job needs persistence, idempotency, lifecycle, risk controls, and failure recovery.",
+      "MILESTONE workflow requires the registered direction panel and user approval of its synthesis."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": "direction_panels.default",
+    "members": {
+      "codex": {"provider": "codex", "model": "gpt", "status": "complete", "output": "direction-drafts/codex.md"},
+      "claude": {"provider": "claude", "model": "claude", "status": "complete", "output": "direction-drafts/claude.md"},
+      "glm52": {"provider": "claude_glm", "model": "glm-5.2[1m]", "status": "complete", "output": "direction-drafts/glm52.md"},
+      "kimi27": {"provider": "kimi", "model": "kimi-2.7", "status": "complete", "output": "direction-drafts/kimi27.md"},
+      "grok-build": {"provider": "grok", "model": "grok-build", "status": "complete", "output": "direction-drafts/grok-build.md"}
+    }
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "user_approved",
+    "user_approved": true,
+    "approved_at": "2026-07-19T15:57:10+08:00",
+    "approved_scope": "A+B only; Boundary C live Binance POST remains separately authorized"
+  },
+  "model_routing": {
+    "backend_owner": "claude_glm",
+    "frontend_owner": "kimi",
+    "breakdown_author": "claude-fable-5",
+    "core_work_exclusions": ["codex"],
+    "user_enabled_grok_code": false
+  },
+  "current_inputs": [
+    "AGENTS.md",
+    "workflows/templates/stage-delivery.yaml (stage-design, development-breakdown and task-breakdown sections)",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/00-intake.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/01-direction-panel-dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/02-grok-borrow-api-capacity-recon.dispatch.md",
+    "reports/agent-runs/2026-07-borrow-task-ui-fake-v1/00-intake.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/direction-drafts/{codex,claude,glm52,kimi27,grok-build}.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/06-direction-synthesis.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/03-grok-borrow-api-capacity-recon.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/00-task.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/10-design.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/11-adr.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/09-fable5-development-breakdown.dispatch.md"
+  ],
+  "base_sha": "5b2b3232673fa7ee193efdcc6f80c4df82aa0fa9",
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "changed_files": [
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/00-intake.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/status.json",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/01-direction-panel-dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/direction-drafts/codex.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/direction-drafts/{claude,glm52,kimi27,grok-build}.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/02-grok-borrow-api-capacity-recon.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/03-grok-borrow-api-capacity-recon.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/06-direction-synthesis.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/00-task.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/10-design.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/11-adr.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/09-fable5-development-breakdown.dispatch.md",
+    "reports/agent-runs/ACTIVE.json"
+  ],
+  "tests": {
+    "status": "not_run",
+    "commands": []
+  },
+  "review_1": null,
+  "review_2": null,
+  "authorized_exceptions": [],
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [
+    "Fable5 development breakdown is required before implementation dispatch; the human operator must execute 09-fable5-development-breakdown.dispatch.md."
+  ],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "next_action": "development_breakdown_dispatch",
+  "updated_at": "2026-07-19T16:03:02+08:00"
+}
