@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-review-dispatch-fast-fix-v1",
-  "status": "designing",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "review_artifact_protocol": "raw-plus-strict-json/v1",
   "stage_branch": {
@@ -63,6 +63,17 @@
       "session_id": null,
       "session_id_source": "unavailable (review artifact does not provide a verified provider-native ID)",
       "output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/09-plan-review-grok.md"
+    },
+    {
+      "role": "abandoned_implementation_attempt_h1",
+      "model": "grok-4.5",
+      "provider": "xai_grok",
+      "session_id": "019f7ae4-25a4-7ee1-81bd-29f4b3172f1d",
+      "session_id_source": "operator",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/20-implementation-grok-abandoned.md",
+      "recorded_at": "2026-07-19T23:14:17+08:00",
+      "disposition": "source changes fully rolled back by explicit user instruction before commit"
     }
   ],
   "designer": {
@@ -78,8 +89,26 @@
     "model": "gpt",
     "output": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/12-development-breakdown.md"
   },
-  "implementer": null,
-  "implementers": [],
+  "implementer": {
+    "id": "fable5",
+    "provider": "anthropic",
+    "model": "claude-fable-5",
+    "assigned_by": "user",
+    "assignment_note": "User explicitly rolled back the Grok attempt and reassigned clean implementation to Fable5",
+    "prior_stage_involvement": "independent plan reviewer",
+    "prior_involvement_evidence": "09-plan-review-fable5.md"
+  },
+  "implementers": [
+    {
+      "id": "fable5",
+      "provider": "anthropic",
+      "model": "claude-fable-5",
+      "assigned_by": "user",
+      "assignment_note": "Clean implementation from committed baseline; prior Grok source was not retained",
+      "prior_stage_involvement": "independent plan reviewer",
+      "prior_involvement_evidence": "09-plan-review-fable5.md"
+    }
+  ],
   "fix_authors": [],
   "complexity": {
     "classification": "MEDIUM",
@@ -93,15 +122,23 @@
       "Independent plan review precedes implementation by a different user-selected model."
     ]
   },
-  "direction_panel": {"panel_key": null, "members": {}},
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
   "direction_synthesis": {
     "provider": null,
     "status": "not_required_user_approved_fast_fix",
     "user_approved": true
   },
   "model_routing": {
-    "plan_reviewers": ["kimi", "fable5", "claude_glm", "grok"],
-    "implementation_owner": null,
+    "plan_reviewers": [
+      "kimi",
+      "fable5",
+      "claude_glm",
+      "grok"
+    ],
+    "implementation_owner": "fable5",
     "codex_excluded_from_implementation": true
   },
   "current_inputs": [
@@ -110,21 +147,33 @@
     "workflows/templates/stage-delivery.yaml",
     "docs/model-adapters.md",
     "scripts/validate-stage.py",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-intake.md,00-task.md,05-root-cause-and-fix-plan.md,10-design.md,11-adr.md,12-development-breakdown.md,13-plan-review-synthesis-and-amendment.md,09-plan-review-index.md,09-plan-review.md,09-plan-review-fable5.md,09-plan-review-claude-glm.md,09-plan-review-grok.md}"
+    "scripts/validate-all-stages.py",
+    "agents/developer-discipline.md",
+    "agents/skills/minimal-change-engineer.md",
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,05-root-cause-and-fix-plan.md,12-development-breakdown.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,23-implementation-fable5.prompt.md}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
   "head_sha": null,
   "diff_fingerprint": null,
   "coverage_waypoints": null,
   "changed_files": [
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/**",
-    "reports/agent-runs/ACTIVE.json"
+    "AGENTS.md",
+    "docs/model-adapters.md",
+    "docs/parallel-development-mode.md",
+    "harness-manifest.yaml",
+    "reports/agent-runs/_template/status.json",
+    "scripts/review_artifacts.py",
+    "scripts/tests/test_review_artifacts.py",
+    "scripts/validate-stage.py",
+    "scripts/validate-all-stages.py",
+    "workflows/templates/stage-delivery.yaml",
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/**"
   ],
   "tasks": [
     {
       "id": "H1",
       "name": "review dispatch simplification and strict evidence capture",
-      "owner": null,
+      "owner": "fable5",
       "reviewer": null,
       "base_sha": null,
       "head_sha": null,
@@ -134,19 +183,21 @@
     }
   ],
   "tests": {
-    "status": "plan_checkpoint_passed",
-    "commands": [
-      "python3 -m json.tool reports/agent-runs/ACTIVE.json",
-      "python3 -m json.tool reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/status.json",
-      "python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint",
-      "git diff --check"
-    ],
+    "status": "reimplementation_pending",
+    "commands": [],
     "evidence": "60-test-output.txt",
-    "implementation_tests_pending": true
+    "implementation_tests_pending": true,
+    "bookkeeper_reconciliation": "21-bookkeeper-reconciliation.md",
+    "abandoned_attempt_tests_are_not_acceptance_evidence": true
   },
   "plan_review": {
     "status": "direction_accepted_mandatory_amendment_applied",
-    "reviewers": ["kimi", "fable5", "claude_glm", "grok"],
+    "reviewers": [
+      "kimi",
+      "fable5",
+      "claude_glm",
+      "grok"
+    ],
     "prompt_path": "08-plan-review.prompt.md",
     "output_paths": [
       "09-plan-review.md",
@@ -164,8 +215,11 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [],
-  "human_escalation": {"required": false, "reason": null},
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
   "terminal_reason": null,
-  "next_action": "user_selects_implementation_model",
-  "updated_at": "2026-07-19T22:50:53+08:00"
+  "next_action": "human_operator_executes_23_implementation_fable5_prompt",
+  "updated_at": "2026-07-19T23:32:37+08:00"
 }

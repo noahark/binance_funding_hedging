@@ -25,6 +25,7 @@ strict verdict JSON are captured mechanically before a stage can advance.
 - `docs/model-adapters.md`
 - `harness-manifest.yaml`
 - `scripts/validate-stage.py`
+- `scripts/validate-all-stages.py`
 - one new shared deterministic review-artifact helper/CLI under `scripts/`
 - focused tests/fixtures for the validator and capture helper under `scripts/`
 - `reports/agent-runs/_template/**`
@@ -99,12 +100,15 @@ strict verdict JSON are captured mechanically before a stage can advance.
 
 - The user chooses the independent plan reviewer.
 - After plan review, the user chooses a different implementation model.
+- On 2026-07-19 the user authorized `scripts/validate-all-stages.py` as a
+  necessary Task H1 integration path and replaced the abandoned Grok attempt
+  with Fable5 implementation from the committed baseline.
 - No merge or push occurs until Codex verifies the bounded diff and tests and
   the user-approved fast-fix route is satisfied.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/00-task.md
-本地北京时间: 2026-07-19 22:50:53 CST
-下一步模型: user-selected non-Codex implementation model
-下一步任务: 按 13-plan-review-synthesis-and-amendment.md 实现 Task H1
+本地北京时间: 2026-07-19 23:32:37 CST
+下一步模型: Fable5 / Anthropic
+下一步任务: 从 committed baseline 按 23-implementation-fable5.prompt.md 实现 Task H1

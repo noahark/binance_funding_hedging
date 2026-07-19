@@ -1,23 +1,118 @@
-Plan-amendment checkpoint validation
-Timestamp: 2026-07-19 22:50:53 CST
+=== date ===
+2026-07-19 23:13:18 CST
+=== py_compile ===
+OK
+=== focused review_artifacts tests ===
+PASS  parse transport newline
+PASS  reject fenced JSON
+PASS  reject narrative prefix
+PASS  reject narrative suffix
+PASS  reject empty raw
+PASS  schema accepts valid :: []
+PASS  REWORK requires fix_start_prompt :: ['fix_start_prompt is required and must be non-empty when verdict is REWORK']
+PASS  invalid role rejected :: ["role must be one of ['designer_review', 'final_reviewer', 'first_reviewer', 'reality_checker']"]
+PASS  additionalProperties rejected :: ["verdict has unknown properties: ['extra_field']"]
+PASS  finding structure ok
+PASS  incomplete finding rejected :: ["findings[0] missing required property 'evidence'", "findings[0] missing required property 'impact'", "findings[0] missing required property 'recommendation'"]
+PASS  producer non-zero fails
+PASS  producer fail leaves no verdict
+PASS  capture ok
+PASS  verdict no trailing newline
+PASS  verdict matches object
+PASS  receipt has sha256
+PASS  refuse overwrite
+PASS  failed capture preserves prior verdict
+PASS  raw/verdict mismatch detected :: ['raw/verdict decoded objects differ: mismatch.raw-output.md vs mismatch.verdict.json']
+PASS  missing protocol -> legacy
+PASS  exact protocol -> v1
+PASS  unknown protocol fails :: ["unknown review_artifact_protocol 'future/v9'; expected 'raw-plus-strict-json/v1' or omit the field for legacy stages"]
+PASS  empty protocol fails :: ["review_artifact_protocol is present but empty; expected 'raw-plus-strict-json/v1' or omit the field for legacy stages"]
+PASS  task review1 names
+PASS  serial review1 names
+PASS  review2 names
+PASS  retry suffix
+PASS  executor:self rejected at dispatch-ready :: ["task A r10_checklist.next_dispatch_executor must not be 'self'; external model dispatches use executor: human_operator"]
+PASS  embedded off passes without artifacts :: []
+PASS  embedded enabled incomplete fails :: ['parallel_mode.embedded_review.enabled requires at least one embedded_reviews entry before pre-review/pre-accept']
+PASS  pre-review requires Review-1 pair for review_2 status :: []
+PASS  pre-review does not require Review-2 pair :: []
+PASS  pre-accept requires Review-2 pair :: ['Review-2: missing raw review artifact: 50-review-2.raw-output.md', 'Review-2: missing verdict review artifact: 50-review-2.verdict.json']
+REVIEW ARTIFACT CAPTURE PASSED
+{
+  "diff_fingerprint": "abc:0000000000000000000000000000000000000000000000000000000000000000",
+  "model": "kimi",
+  "ok": true,
+  "producer_exit_code": 0,
+  "protocol": "raw-plus-strict-json/v1",
+  "raw_bytes": 356,
+  "raw_path": "/var/folders/tt/73pl2lrx5ldc5c4hl9wy9qt40000gn/T/tmplz2z2bt4/r.raw-output.md",
+  "raw_sha256": "23a1daa462f8adc0d7b58ec217ac60dd4fc552ccc0455205b467f807a38e8c5b",
+  "role": "first_reviewer",
+  "schema_path": null,
+  "schema_valid": true,
+  "session_id": null,
+  "session_id_source": null,
+  "stage_id": "demo-stage",
+  "verdict": "ACCEPT",
+  "verdict_bytes": 334,
+  "verdict_path": "/var/folders/tt/73pl2lrx5ldc5c4hl9wy9qt40000gn/T/tmplz2z2bt4/r.verdict.json",
+  "verdict_sha256": "eaeeaddfd19969b7f657a470fc33ea8120b9d27f55612b066b662ea6d3ebaaaa"
+}
+PASS  CLI exit 0
+PASS  CLI wrote verdict
+PASS  jsonschema parity (valid cases)
+PASS  jsonschema parity (invalid role) :: stdlib=["role must be one of ['designer_review', 'final_reviewer', 'first_reviewer', 'reality_checker']"] schema_ok=False
+PASS  six-incident coverage documented :: dispatch authority contradiction -> executor:self rejected; nested same-provider launch -> human_operator only; missing raw/verdict -> phase gate fails; fenced/narrative JSON -> parse fails; schema-invalid verdict -> capture fails; raw/verdict mismatch -> load_and_parse_pair fails
 
-Command: python3 -m json.tool reports/agent-runs/ACTIVE.json
-Result: PASS
-
-Command: python3 -m json.tool reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/status.json
-Result: PASS
-
-Command: python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint
-Result: PASS
-Output:
+39/39 passed
+=== checkpoint current stage ===
 STAGE VALIDATION PASSED
 stage=reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1
 phase=checkpoint
 status=designing
+=== validate-all-stages summary ===
+                     - review_1 must be an object
+                     - review_2 must be an object
+green                2026-07-tradable-spot-leg-v1
+green                2026-07-ui-filter-balance-metal-v1
+summary: 18 green, 1 green_with_exception, 9 red (28 stages, repo=funding_hedging)
+=== compare baseline (expect ADDED only) ===
+                     - missing required stage file: 11-adr.md
+                     - missing required stage file: 20-implementation.md
+                     - missing required stage file: 60-test-output.txt
+                     - missing required stage file: 30-review-1.md
+                     - missing required stage file: 50-review-2.md
+                     - review_1 must be an object
+                     - review_2 must be an object
+green                2026-07-tradable-spot-leg-v1
+green                2026-07-ui-filter-balance-metal-v1
+summary: 18 green, 1 green_with_exception, 9 red (28 stages, repo=funding_hedging)
+ADDED 2026-07-borrow-task-ui-fake-v1: verdict=green
+ADDED 2026-07-harness-review-dispatch-fast-fix-v1: verdict=red
+ADDED 2026-07-real-borrow-execution-v1: verdict=green
+ADDED 2026-07-tradable-spot-leg-v1: verdict=green
+compare: DRIFT vs baseline (judge against migration table)
+=== git diff --check ===
+OK
+=== json template ===
+OK
+=== compare note ===
+baseline compare exits 1 only for ADDED stages since red-gate baseline; no FLIP/ERRDRIFT on historical stages
 
-Command: git diff --check
-Result: PASS
+=== bookkeeper independent rerun 2026-07-19 23:22:26 CST ===
+python3 scripts/tests/test_review_artifacts.py: 39/39 PASS
+python3 -m py_compile scripts/review_artifacts.py scripts/validate-stage.py scripts/validate-all-stages.py: PASS
+python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint: PASS (status=implementing)
+git diff --check: PASS
 
-Scope note: this checkpoint validates stage evidence and the reviewed plan
-amendment only. Harness implementation has not started, so implementation tests
-remain pending.
+Reconciliation result: FIX REQUIRED before evidence commit. Passing tests do not
+cover, and in one case contradict, the frozen active-stage protocol requirement.
+See 21-bookkeeper-reconciliation.md for exact findings.
+
+=== user-authorized rollback and reassignment 2026-07-19 23:32:37 CST ===
+Disposition: all uncommitted Grok Harness source/template changes rolled back.
+Tracked Harness source diff against HEAD: empty.
+Untracked Grok helper/test files removed.
+Failed-attempt narrative retained as 20-implementation-grok-abandoned.md.
+Fable5 clean implementation packet: 23-implementation-fable5.prompt.md.
+Implementation acceptance tests: pending fresh Fable5 delivery.
