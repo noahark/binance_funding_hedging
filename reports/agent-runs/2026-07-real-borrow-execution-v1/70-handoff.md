@@ -3,7 +3,7 @@
 ## Recovery Header
 
 - Active phase: `review-1 dispatch preparation`
-- Next action: prepare two task-scoped formal Review-1 packets from the committed ranges.
+- Next action: human operator executes two prepared task-scoped formal Review-1 packets from the committed ranges.
 - Read-set: `status.current_inputs`
 - Open blockers: no implementation blocker. Both embedded checkpoints PASS, R4 matched, delivery commits and full regression are complete; formal review gates remain.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
@@ -44,6 +44,9 @@
 - Task B implementation: complete; GLM retry-1 embedded review PASS
 - R4 reconciliation: `61-r4-diff-reconciliation.txt` (**Task A + Task B exact patch match**)
 - Committed-state regression: `60-test-output.txt` (**507 backend tests + frontend self-check + diff check PASS**)
+- Pre-Review validator: `62-pre-review-validation.txt` (**PASS**)
+- Formal Review-1 packets: `review-1-task-A-by-kimi.prompt.md` and
+  `review-1-task-B-by-claude-glm.prompt.md` (**prepared; human execution required**)
 - Status JSON: `status.json`
 
 ## Capacity Recon Highlights (pointer only — read the raw report)
@@ -61,11 +64,16 @@
 
 ## Next Action
 
-Prepare and dispatch formal task-scoped Review-1: fresh Kimi reviews Task A range `6c87041..40efb02`; fresh Claude-GLM reviews Task B range `40efb02..4bab47d`. Both must use the committed task fingerprints in `status.json`; embedded checkpoint output is supporting evidence only.
+Human operator dispatches formal task-scoped Review-1: fresh Kimi reviews Task A
+range `6c87041..40efb02`; fresh Claude-GLM reviews Task B range
+`40efb02..4bab47d`. Both must use the committed task fingerprints in
+`status.json`; embedded checkpoint output is supporting evidence only. Preserve
+each raw output at the path specified in its packet and backfill its RECEIPT
+with verified provider-native session metadata where available.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
-本地北京时间: 2026-07-19 19:56:38 CST
+本地北京时间: 2026-07-19 20:02:53 CST
 下一步模型: Kimi 与 Claude-GLM（fresh formal Review-1 sessions）
 下一步任务: 对各自独立的 committed task range 执行 schema-valid formal Review-1
