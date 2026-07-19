@@ -1,6 +1,7 @@
 /**
  * 前端自检脚本：在 Node 环境下用 mock DOM 运行 index.html 的内联脚本，
- * 加载设计期 fixture 数据并断言市场表渲染结果。
+ * 加载设计期 fixture 数据并断言市场表渲染结果；借币任务/借币日志/调度设置
+ * 全部经 §3 冻结契约形状的 fetch mock 断言（含同源白名单与零任务定时器证明）。
  *
  * 运行: node frontend/self-check.js
  */
@@ -25,7 +26,7 @@ new Function(script);
 console.log('[PASS] 内联脚本语法检查');
 
 let fetchUrl = null;
-const fetchCallLog = [];    // 记录全部 fetch URL，用于断言借币任务零网络请求
+const fetchCallLog = [];    // 记录全部 fetch {url, method, body}，用于同源白名单断言
 
 // mock setInterval / clearInterval，记录调用以便验证自动刷新计时器重调度
 let intervalIdSeq = 0;
@@ -144,7 +145,10 @@ const ids = [
   'private-panel', 'private-panel-subtitle', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
   'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close',
   'nav-market', 'nav-borrow-tasks', 'borrow-task-count', 'market-view', 'borrow-task-view', 'borrow-task-list',
-  'borrow-task-filters'
+  'borrow-task-filters',
+  'borrow-tab-tasks', 'borrow-tab-logs', 'borrow-tasks-panel', 'borrow-logs-panel',
+  'borrow-interval-input', 'borrow-interval-confirm', 'borrow-interval-error', 'borrow-interval-note',
+  'borrow-tasks-error', 'borrow-logs-error', 'borrow-log-list', 'borrow-logs-refresh', 'borrow-logs-load-more'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -289,9 +293,102 @@ let historyResolve = null;
 let historyJsonResolve = null;
 let lastHistoryUrl = null;
 
+// ---- 借币任务 API mock（逐字段复制 12-development-breakdown.md §3 冻结示例文档） ----
+// §3.3 任务文档示例（HOME）；派生文档经 deepCopy 覆盖字段值，不改字段形状。
+const MOCK_TASK_HOME = {
+  schema_version: 'borrow-tasks/v1',
+  id: 'uuid4-string',
+  asset: 'HOME',
+  amount_per_attempt: '12.5',
+  success_target: 3,
+  success_count: 1,
+  status: 'borrowing',
+  version: 4,
+  unresolved_attempt_id: null,
+  latest_result: {
+    result_category: 'execution_disabled',
+    business_code: null,
+    reason: 'executor_disabled',
+    tran_id: null,
+    finished_at: '2026-07-19T08:00:00.123456Z'
+  },
+  created_at: '2026-07-19T07:59:55.000000Z',
+  updated_at: '2026-07-19T08:00:00.123456Z'
+};
+
+function deepCopy(base, overrides) {
+  const t = JSON.parse(JSON.stringify(base));
+  Object.assign(t, overrides || {});
+  return t;
+}
+
+function mockTaskListDoc(tasks) {
+  return { schema_version: 'borrow-tasks/v1', tasks };
+}
+
+// §3.5 调度设置文档：默认种子行 "5"/5000000；PUT 后 "0.5"/500000（§3.5 示例值）。
+const MOCK_SETTINGS_DEFAULT = {
+  schema_version: 'borrow-tasks/v1',
+  interval_seconds: '5',
+  interval_us: 5000000,
+  round_robin_cursor: null,
+  global_cooldown_until: null,
+  version: 1,
+  updated_at: '2026-07-19T08:00:00.000000Z'
+};
+const MOCK_SETTINGS_05 = deepCopy(MOCK_SETTINGS_DEFAULT, { interval_seconds: '0.5', interval_us: 500000, version: 2 });
+
+// §3.6 日志页示例（HOME 条目 verbatim）+ 派生旧条目，供两页游标分页。
+const MOCK_LOG_ENTRY_HOME = {
+  id: 42,
+  task_id: 'uuid4-string',
+  asset: 'HOME',
+  sequence: 7,
+  outcome: 'resolved',
+  result_category: 'success',
+  business_code: null,
+  reason: null,
+  http_status: null,
+  tran_id: 'paper-1',
+  requested_amount: '12.5',
+  scheduled_at: '2026-07-19T08:00:00.000000Z',
+  dispatched_at: '2026-07-19T08:00:00.001000Z',
+  finished_at: '2026-07-19T08:00:00.002000Z',
+  latency_ms: 1,
+  effective_gap_us: 500123
+};
+const MOCK_LOG_PAGE_1 = {
+  schema_version: 'borrow-tasks/v1',
+  entries: [
+    MOCK_LOG_ENTRY_HOME,
+    deepCopy(MOCK_LOG_ENTRY_HOME, { id: 41, asset: 'BTC', sequence: 3, result_category: 'known_rejection', reason: 'borrow_rejected', business_code: '51061', tran_id: null })
+  ],
+  next_cursor: 'cursor-page-2'
+};
+const MOCK_LOG_PAGE_2 = {
+  schema_version: 'borrow-tasks/v1',
+  entries: [
+    deepCopy(MOCK_LOG_ENTRY_HOME, { id: 40, asset: 'ETH', sequence: 2, result_category: 'execution_disabled', reason: 'executor_disabled', tran_id: null }),
+    deepCopy(MOCK_LOG_ENTRY_HOME, { id: 39, asset: 'ETH', sequence: 1, outcome: 'pending', result_category: null, tran_id: null, finished_at: null, latency_ms: null, effective_gap_us: null })
+  ],
+  next_cursor: null
+};
+
+// 各 borrow 路由的响应槽：每个测试块显式设置；未设置时 503（§3.7 错误形状）。
+let borrowTasksGetResponse = null;
+let borrowTasksPostResponse = null;
+let borrowActionResponses = {};
+let borrowLogsResponses = [];
+let borrowSettingsGetResponse = null;
+let borrowSettingsPutResponse = null;
+
+function mockBorrow503() {
+  return { status: 503, body: { error: 'borrow_service_unavailable', detail: 'mock 未设置该路由响应' } };
+}
+
 function buildFetchResponse(response, jsonDelay) {
   return {
-    ok: response.status === 200,
+    ok: response.status >= 200 && response.status < 300,
     status: response.status,
     statusText: response.statusText || (response.status === 200 ? 'OK' : 'Error'),
     json: async () => {
@@ -303,9 +400,14 @@ function buildFetchResponse(response, jsonDelay) {
   };
 }
 
-global.fetch = async (url) => {
+global.fetch = async (url, options) => {
   const urlStr = String(url);
-  fetchCallLog.push(urlStr);
+  const method = (options && options.method) || 'GET';
+  let body = null;
+  if (options && typeof options.body === 'string') {
+    try { body = JSON.parse(options.body); } catch (e) { body = options.body; }
+  }
+  fetchCallLog.push({ url: urlStr, method, body });
   if (urlStr === '/api/public-market/snapshot') {
     fetchUrl = urlStr;
     return buildFetchResponse({ status: 200, body: fixtureToFetch });
@@ -326,14 +428,35 @@ global.fetch = async (url) => {
     }
     return buildFetchResponse(historyResponse);
   }
-  throw new Error(`Unexpected fetch URL: ${urlStr}`);
+  // 借币任务冻结路由（§3.1）：mock 响应逐块设置，未设置时 503。
+  if (urlStr === '/api/borrow-tasks' && method === 'GET') {
+    return buildFetchResponse(borrowTasksGetResponse || mockBorrow503());
+  }
+  if (urlStr === '/api/borrow-tasks' && method === 'POST') {
+    return buildFetchResponse(borrowTasksPostResponse || mockBorrow503());
+  }
+  const borrowActionMatch = urlStr.match(/^\/api\/borrow-tasks\/([^/]+)\/(start|pause|delete|edit)$/);
+  if (borrowActionMatch && method === 'POST') {
+    const key = `${decodeURIComponent(borrowActionMatch[1])}:${borrowActionMatch[2]}`;
+    return buildFetchResponse(borrowActionResponses[key] || mockBorrow503());
+  }
+  if (urlStr.startsWith('/api/borrow-logs?') && method === 'GET') {
+    return buildFetchResponse(borrowLogsResponses.length > 0 ? borrowLogsResponses.shift() : mockBorrow503());
+  }
+  if (urlStr === '/api/borrow-scheduler-settings' && method === 'GET') {
+    return buildFetchResponse(borrowSettingsGetResponse || mockBorrow503());
+  }
+  if (urlStr === '/api/borrow-scheduler-settings' && method === 'PUT') {
+    return buildFetchResponse(borrowSettingsPutResponse || mockBorrow503());
+  }
+  throw new Error(`Unexpected fetch URL: ${urlStr} (${method})`);
 };
 
 global.document = {
   getElementById: (id) => {
     if (!elements[id]) {
-      // 借币任务操作控件为按 symbol/任务 id 动态生成的 id，按需惰性 mock（最小 mock 能力补足）
-      if (/^(borrow-(amount|count|error)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-\d+)$/.test(id)) return makeElement(id);
+      // 借币任务操作控件为按 symbol/任务 id（字符串 UUID）动态生成的 id，按需惰性 mock（最小 mock 能力补足）
+      if (/^(borrow-(amount|count|error)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+)$/.test(id)) return makeElement(id);
       throw new Error(`未 mock 的元素: ${id}`);
     }
     return elements[id];
@@ -2142,9 +2265,19 @@ setTimeout(async () => {
       console.log('[PASS] 操作单元格两输入一按钮、标签与事件隔离');
     }
 
-    // 63. 借币任务导航：空态 -> 切换 -> 恢复市场视图
+    // ---- 借币任务后端权威迁移（Task B；全部 API 交互走 §3 冻结形状的 mock） ----
+
+    function borrowFetchCalls() {
+      return fetchCallLog.filter(c => c.url.startsWith('/api/borrow'));
+    }
+
+    // 63. 借币任务导航 + 进入视图经 API 加载（GET tasks/settings），空态与真实文案
     {
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([]) };
+      borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
+      const fetchBefore = fetchCallLog.length;
       helpers.setActiveView('borrow-tasks');
+      await new Promise(r => setTimeout(r, 0));
       if (helpers.getActiveView() !== 'borrow-tasks') {
         throw new Error('setActiveView(borrow-tasks) 后 activeView 应为 borrow-tasks');
       }
@@ -2160,17 +2293,33 @@ setTimeout(async () => {
       if (elements['nav-market'].classList.contains('active')) {
         throw new Error('费率行情导航在借币视图下不应为 active');
       }
+      // 进入视图触发 GET 任务列表 + GET 调度设置
+      const newCalls = fetchCallLog.slice(fetchBefore);
+      const getTasks = newCalls.find(c => c.url === '/api/borrow-tasks' && c.method === 'GET');
+      const getSettings = newCalls.find(c => c.url === '/api/borrow-scheduler-settings' && c.method === 'GET');
+      if (!getTasks || !getSettings) {
+        throw new Error(`进入借币视图应 GET 任务列表与调度设置: ${JSON.stringify(newCalls)}`);
+      }
       const emptyList = elements['borrow-task-list'].innerHTML;
       if (!emptyList.includes('暂无借币任务')) {
         throw new Error(`借币任务空态未渲染: ${emptyList}`);
       }
-      // 导航计数初始为 0
       if (elements['borrow-task-count'].textContent !== '0') {
         throw new Error(`借币任务计数应为 0: ${elements['borrow-task-count'].textContent}`);
       }
-      // 强免责声明
-      if (!html.includes('未发起真实借币请求')) {
-        throw new Error('借币任务视图缺少「未发起真实借币请求」声明');
+      // 真实的持久化/执行未启用文案；旧的 fake/浏览器内存声明全部移除
+      if (!html.includes('执行未启用')) {
+        throw new Error('借币任务视图缺少「执行未启用」声明');
+      }
+      if (html.includes('前端演示') || html.includes('浏览器内存')) {
+        throw new Error('页面仍残留 fake/浏览器内存免责声明');
+      }
+      // 间隔编辑器渲染 mock 的 "5"
+      if (elements['borrow-interval-input'].value !== '5') {
+        throw new Error(`间隔输入应预填 5: ${elements['borrow-interval-input'].value}`);
+      }
+      if (!elements['borrow-interval-note'].textContent.includes('每 5 秒')) {
+        throw new Error(`间隔说明应显示当前 5 秒: ${elements['borrow-interval-note'].textContent}`);
       }
       helpers.setActiveView('market');
       if (helpers.getActiveView() !== 'market') {
@@ -2182,68 +2331,72 @@ setTimeout(async () => {
       if (elements['borrow-task-view'].style.display !== 'none') {
         throw new Error('返回费率行情后借币任务视图应隐藏');
       }
-      console.log('[PASS] 借币任务导航切换、空态与恢复市场视图');
+      console.log('[PASS] 借币任务导航切换、API 加载、空态与真实文案');
     }
 
-    // 64. 输入校验：非法数量/次数不创建任务
+    // 64. 输入校验：非法数量/次数本地拒绝，不发送任何 borrow POST
     {
-      const before = helpers.getBorrowTasks().length;
-      const badAmounts = ['', '   ', '0', '-5', 'abc', 'Infinity', 'NaN'];
+      const postsBefore = borrowFetchCalls().filter(c => c.method === 'POST').length;
+      const badAmounts = ['', '   ', '0', '0.0', '-5', 'abc', 'Infinity', 'NaN', '1.2.3', '1e3', '+5'];
       for (const a of badAmounts) {
-        const r = helpers.createBorrowTask('AUSDT', a, '10');
+        const r = await helpers.createBorrowTask('AUSDT', a, '10');
         if (r.ok) {
           throw new Error(`非法数量 ${JSON.stringify(a)} 不应创建任务`);
         }
       }
       const badCounts = ['', '0', '-1', '2.5', 'abc', 'Infinity'];
       for (const c of badCounts) {
-        const r = helpers.createBorrowTask('AUSDT', '1000', c);
+        const r = await helpers.createBorrowTask('AUSDT', '1000', c);
         if (r.ok) {
           throw new Error(`非法次数 ${JSON.stringify(c)} 不应创建任务`);
         }
       }
-      if (helpers.getBorrowTasks().length !== before) {
-        throw new Error('非法输入不应增加任务数');
+      const postsAfter = borrowFetchCalls().filter(c => c.method === 'POST').length;
+      if (postsAfter !== postsBefore) {
+        throw new Error('非法输入不应触发任何 borrow POST');
       }
-      console.log('[PASS] 借币任务输入校验（数量/次数非法不创建）');
+      console.log('[PASS] 借币任务输入本地校验（非法数量/次数不发请求）');
     }
 
-    // 65. HOME 内存行创建任务（1000 / 10）与展示值；零 fetch、零新定时器
+    // 65. HOME 创建：POST 冻结 body（十进制字符串原样），渲染返回的 borrowing 文档
     {
       const homeFixture = JSON.parse(JSON.stringify(designFixture));
       // 仅内存改写 base_asset；symbol 保持 AUSDT，不伪造 HOMEUSDT 行情行
       homeFixture.rows[0].base_asset = 'HOME';
       helpers.ingestSnapshot(homeFixture);
-      const fetchLogBefore = fetchCallLog.length;
-      const intervalsBefore = intervalCalls.length;
-      const r = helpers.createBorrowTask('AUSDT', '1000', '10');
+      const fetchBefore = fetchCallLog.length;
+      borrowTasksPostResponse = { status: 201, body: MOCK_TASK_HOME };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([MOCK_TASK_HOME]) };
+      const r = await helpers.createBorrowTask('AUSDT', '12.5', '3');
       if (!r.ok) {
         throw new Error(`HOME 任务创建失败: ${r.error}`);
       }
-      if (r.task.asset !== 'HOME') {
-        throw new Error(`任务资产应为 HOME，实际 ${r.task.asset}`);
+      if (r.task.id !== 'uuid4-string' || r.task.asset !== 'HOME' || r.task.status !== 'borrowing') {
+        throw new Error(`创建返回文档错误: ${JSON.stringify(r.task)}`);
       }
-      if (r.task.amountPerAttempt !== 1000 || r.task.successTarget !== 10 || r.task.successCount !== 0) {
-        throw new Error(`任务字段错误: ${JSON.stringify(r.task)}`);
+      const calls = fetchCallLog.slice(fetchBefore);
+      // 恰好 POST 创建 + GET 重拉（渲染以后端列表为准，不是本地创建态）
+      const postCall = calls.find(c => c.url === '/api/borrow-tasks' && c.method === 'POST');
+      const getCall = calls.find(c => c.url === '/api/borrow-tasks' && c.method === 'GET');
+      if (!postCall || !getCall || calls.length !== 2) {
+        throw new Error(`创建后应恰好 POST+GET 各一次: ${JSON.stringify(calls)}`);
       }
-      if (fetchCallLog.length !== fetchLogBefore) {
-        throw new Error(`创建借币任务不应发起任何 fetch: ${fetchCallLog.slice(fetchLogBefore)}`);
+      const expectedBody = JSON.stringify({ asset: 'HOME', amount_per_attempt: '12.5', success_target: 3 });
+      if (JSON.stringify(postCall.body) !== expectedBody) {
+        throw new Error(`创建 body 应为冻结形状 ${expectedBody}: ${JSON.stringify(postCall.body)}`);
       }
-      if (intervalCalls.length !== intervalsBefore) {
-        throw new Error('创建借币任务不应启动任何新定时器');
-      }
-      // 全部既有定时器仅允许 60000 自动刷新与 1000 倒计时
-      for (const c of intervalCalls) {
-        if (c.delay !== 60000 && c.delay !== 1000) {
-          throw new Error(`存在非法借币重试定时器: delay=${c.delay}`);
-        }
+      // 渲染缓存 == 后端文档（borrowing 即刻可被后端调度，无二次启动）
+      const cached = helpers.getBorrowTasks();
+      if (cached.length !== 1 || cached[0].id !== 'uuid4-string' || cached[0].status !== 'borrowing') {
+        throw new Error(`渲染缓存应等于后端任务文档: ${JSON.stringify(cached)}`);
       }
       if (elements['borrow-task-count'].textContent !== '1') {
         throw new Error(`借币任务计数应为 1: ${elements['borrow-task-count'].textContent}`);
       }
       helpers.setActiveView('borrow-tasks');
+      await new Promise(r => setTimeout(r, 0));
       const listHtml = elements['borrow-task-list'].innerHTML;
-      const expectedBits = ['HOME', '1,000 HOME/次', '0 / 10 次成功', '目标 10,000 HOME', '每 30 秒尝试一次', '前端演示', '未发起真实借币请求'];
+      const expectedBits = ['HOME', '12.5 HOME/次', '1 / 3 次成功', '目标 37.5 HOME', '借币中', '执行未启用', '每 5 秒', '任务持久化在后端'];
       for (const bit of expectedBits) {
         if (!listHtml.includes(bit)) {
           throw new Error(`任务卡缺少「${bit}」: ${listHtml}`);
@@ -2254,43 +2407,47 @@ setTimeout(async () => {
       }
       helpers.setActiveView('market');
       helpers.ingestSnapshot(designFixture);
-      console.log('[PASS] HOME 任务创建、展示值、零 fetch 与零重试定时器');
+      console.log('[PASS] HOME 创建 POST 冻结 body、渲染后端 borrowing 文档');
     }
 
-    // 66. 操作单元格 UI 提交路径：非法输入就近报错，合法输入创建并清除错误
+    // 66. 操作单元格 UI 提交路径：本地校验就近报错；API 400 detail 就近显示；成功后清除
     {
       const amountEl = document.getElementById('borrow-amount-AUSDT');
       const countEl = document.getElementById('borrow-count-AUSDT');
       const errorEl = document.getElementById('borrow-error-AUSDT');
-      const before = helpers.getBorrowTasks().length;
       amountEl.value = 'abc';
       countEl.value = '10';
-      const r1 = helpers.submitBorrowTask('AUSDT');
+      const r1 = await helpers.submitBorrowTask('AUSDT');
       if (r1.ok) {
         throw new Error('非法数量的 UI 提交不应成功');
       }
       if (!errorEl.textContent.includes('大于 0')) {
         throw new Error(`就近错误未显示: ${errorEl.textContent}`);
       }
-      if (helpers.getBorrowTasks().length !== before) {
-        throw new Error('非法 UI 提交不应创建任务');
-      }
-      amountEl.value = '500';
+      // API 400 invalid_field：detail 原样就近显示
+      borrowTasksPostResponse = { status: 400, body: { error: 'invalid_field', detail: 'amount_per_attempt below minimum' } };
+      amountEl.value = '0.001';
       countEl.value = '3';
-      const r2 = helpers.submitBorrowTask('AUSDT');
-      if (!r2.ok) {
-        throw new Error(`合法 UI 提交失败: ${r2.error}`);
+      const r2 = await helpers.submitBorrowTask('AUSDT');
+      if (r2.ok) {
+        throw new Error('API 400 的 UI 提交不应成功');
+      }
+      if (errorEl.textContent !== 'amount_per_attempt below minimum') {
+        throw new Error(`API 400 detail 应原样显示: ${errorEl.textContent}`);
+      }
+      // 成功路径：清除错误
+      borrowTasksPostResponse = { status: 201, body: MOCK_TASK_HOME };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([MOCK_TASK_HOME]) };
+      amountEl.value = '12.5';
+      countEl.value = '3';
+      const r3 = await helpers.submitBorrowTask('AUSDT');
+      if (!r3.ok) {
+        throw new Error(`合法 UI 提交失败: ${r3.error}`);
       }
       if (errorEl.textContent !== '') {
         throw new Error('合法提交后就近错误应清除');
       }
-      if (helpers.getBorrowTasks().length !== before + 1) {
-        throw new Error('合法 UI 提交应新增 1 条任务');
-      }
-      if (elements['borrow-task-count'].textContent !== String(before + 1)) {
-        throw new Error(`导航计数应为 ${before + 1}: ${elements['borrow-task-count'].textContent}`);
-      }
-      console.log('[PASS] 操作单元格 UI 提交路径与就近错误');
+      console.log('[PASS] 操作单元格 UI 提交路径、本地校验与 API 400 detail');
     }
 
     // 67. maxBorrowableSubline 不再重复「已借完」（唯一保留：状态徽标「可借 0(已借完)」）
@@ -2321,179 +2478,344 @@ setTimeout(async () => {
       console.log('[PASS] maxBorrowableSubline 不再重复「已借完」');
     }
 
-    // 68. 任务状态机按钮矩阵：borrowing/paused/completed/deleted 逐格
+    // 68. 任务状态机按钮矩阵（四状态逐格）+ 冻结 mutation 路由/body + 409 就近显示
     {
-      const tasksNow = helpers.getBorrowTasks();
-      if (tasksNow.length !== 2 || tasksNow[0].status !== 'borrowing' || tasksNow[1].status !== 'borrowing') {
-        throw new Error(`新建任务默认状态应为 borrowing: ${JSON.stringify(tasksNow)}`);
-      }
-      helpers.setActiveView('borrow-tasks');
-      // borrowing 矩阵：启动禁用 / 暂停可用 / 删除可用 / 编辑可用
-      let card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
-      if (!taskActionBtnHtml(card1, 'start').includes('disabled')) throw new Error('borrowing: 启动应禁用');
-      if (taskActionBtnHtml(card1, 'pause').includes('disabled')) throw new Error('borrowing: 暂停应可用');
-      if (taskActionBtnHtml(card1, 'delete').includes('disabled')) throw new Error('borrowing: 删除应可用');
-      if (taskEditConfirmBtnHtml(card1, 1).includes('disabled')) throw new Error('borrowing: 编辑确认应可用');
-      if (taskEditInputHtml(card1, 'amount', 1).includes('disabled')) throw new Error('borrowing: 编辑输入应可用');
-      // paused 矩阵：启动可用 / 暂停禁用 / 删除可用 / 编辑可用
-      if (!helpers.pauseBorrowTask(1).ok) throw new Error('pauseBorrowTask(1) 应成功');
-      card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
-      if (taskActionBtnHtml(card1, 'start').includes('disabled')) throw new Error('paused: 启动应可用');
-      if (!taskActionBtnHtml(card1, 'pause').includes('disabled')) throw new Error('paused: 暂停应禁用');
-      if (taskActionBtnHtml(card1, 'delete').includes('disabled')) throw new Error('paused: 删除应可用');
-      if (taskEditConfirmBtnHtml(card1, 1).includes('disabled')) throw new Error('paused: 编辑确认应可用');
-      if (!helpers.startBorrowTask(1).ok) throw new Error('startBorrowTask(1) 应成功');
-      // completed 矩阵（test-only 注入）：启动/暂停禁用、删除可用、编辑禁用/只读
-      helpers.getBorrowTasks().push({ id: 900, asset: 'TESTC', amountPerAttempt: 2, successTarget: 4, successCount: 4, status: 'completed' });
+      const taskB = deepCopy(MOCK_TASK_HOME, { id: 'task-b', status: 'borrowing', version: 4 });
+      const taskP = deepCopy(MOCK_TASK_HOME, { id: 'task-p', status: 'paused', latest_result: null });
+      const taskC = deepCopy(MOCK_TASK_HOME, { id: 'task-c', status: 'completed', success_count: 3 });
+      const taskD = deepCopy(MOCK_TASK_HOME, { id: 'task-d', status: 'deleted' });
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([taskB, taskP, taskC, taskD]) };
+      await helpers.loadBorrowTasks();
       helpers.setBorrowTaskFilter('all');
-      const card900 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 900);
-      if (!taskActionBtnHtml(card900, 'start').includes('disabled')) throw new Error('completed: 启动应禁用');
-      if (!taskActionBtnHtml(card900, 'pause').includes('disabled')) throw new Error('completed: 暂停应禁用');
-      if (taskActionBtnHtml(card900, 'delete').includes('disabled')) throw new Error('completed: 删除应可用');
-      if (!taskEditConfirmBtnHtml(card900, 900).includes('disabled')) throw new Error('completed: 编辑确认应禁用');
-      if (!taskEditInputHtml(card900, 'amount', 900).includes('disabled')) throw new Error('completed: 编辑输入应禁用');
-      // deleted 矩阵：全部生命周期与编辑控件禁用
-      if (!helpers.deleteBorrowTask(2).ok) throw new Error('deleteBorrowTask(2) 应成功');
-      const card2 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 2);
-      if (!taskActionBtnHtml(card2, 'start').includes('disabled')) throw new Error('deleted: 启动应禁用');
-      if (!taskActionBtnHtml(card2, 'pause').includes('disabled')) throw new Error('deleted: 暂停应禁用');
-      if (!taskActionBtnHtml(card2, 'delete').includes('disabled')) throw new Error('deleted: 删除应禁用');
-      if (!taskEditConfirmBtnHtml(card2, 2).includes('disabled')) throw new Error('deleted: 编辑确认应禁用');
-      if (!taskEditInputHtml(card2, 'amount', 2).includes('disabled')) throw new Error('deleted: 编辑输入应禁用');
-      // 非法转换守卫
-      if (helpers.pauseBorrowTask(2).ok) throw new Error('deleted 任务不应可暂停');
-      if (helpers.startBorrowTask(1).ok) throw new Error('borrowing 任务不应可启动');
-      if (helpers.deleteBorrowTask(2).ok) throw new Error('重复删除不应成功');
-      console.log('[PASS] 任务状态机按钮矩阵（四状态逐格）与非法转换守卫');
-    }
-
-    // 69. 暂停→启动往返：状态字段、徽标翻转、进度不变
-    {
-      if (!helpers.pauseBorrowTask(1).ok) throw new Error('往返: 暂停应成功');
-      if (helpers.getBorrowTasks()[0].status !== 'paused') throw new Error('往返: 状态应为 paused');
-      let card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
-      if (!card1.includes('已暂停')) throw new Error('往返: 已暂停徽标未渲染');
-      if (!helpers.startBorrowTask(1).ok) throw new Error('往返: 启动应成功');
-      if (helpers.getBorrowTasks()[0].status !== 'borrowing') throw new Error('往返: 状态应为 borrowing');
-      card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
-      if (!card1.includes('借币中')) throw new Error('往返: 借币中徽标未渲染');
-      if (helpers.getBorrowTasks()[0].successCount !== 0 || helpers.getBorrowTasks()[0].successTarget !== 10) {
-        throw new Error('往返: 暂停/启动不应改变进度或目标');
+      if (elements['borrow-task-count'].textContent !== '4') {
+        throw new Error(`四任务计数应为 4: ${elements['borrow-task-count'].textContent}`);
       }
-      console.log('[PASS] 暂停/启动往返转换与徽标翻转');
-    }
-
-    // 70. 软删除：对象保留、全部/已删除可见、completed 删除后变 deleted
-    {
-      const lenBefore = helpers.getBorrowTasks().length;
-      // id2 已在 #68 删除；验证对象仍在数组中且状态为 deleted
-      const task2 = helpers.getBorrowTasks().find(t => t.id === 2);
-      if (!task2 || task2.status !== 'deleted') throw new Error('软删除对象应保留且 status=deleted');
-      if (helpers.getBorrowTasks().length !== lenBefore) throw new Error('软删除不应移除任务对象');
-      // 全部 含 deleted；已删除 只含 deleted；借币中 不含 deleted
-      helpers.setBorrowTaskFilter('all');
-      const allHtml = elements['borrow-task-list'].innerHTML;
-      if (!allHtml.includes('data-task-id="2"')) throw new Error('全部筛选应包含软删除任务');
-      helpers.setBorrowTaskFilter('deleted');
-      const delHtml = elements['borrow-task-list'].innerHTML;
-      if (!delHtml.includes('data-task-id="2"') || delHtml.includes('data-task-id="1"')) {
-        throw new Error('已删除筛选成员错误');
-      }
-      if (!getTaskCardHtml(delHtml, 2).includes('已删除')) throw new Error('已删除任务卡应渲染已删除徽标');
-      helpers.setBorrowTaskFilter('borrowing');
-      if (elements['borrow-task-list'].innerHTML.includes('data-task-id="2"')) {
-        throw new Error('借币中筛选不应包含软删除任务');
-      }
-      // completed 任务删除后变 deleted（#68 注入的 id900 仍为 completed）
-      if (!helpers.deleteBorrowTask(900).ok) throw new Error('completed 任务删除应成功');
-      const task900 = helpers.getBorrowTasks().find(t => t.id === 900);
-      if (!task900 || task900.status !== 'deleted') throw new Error('completed 删除后应为 deleted');
-      if (helpers.getBorrowTasks().length !== lenBefore) throw new Error('completed 软删除不应移除对象');
-      console.log('[PASS] 软删除保留对象、筛选可见性与 completed→deleted');
-    }
-
-    // 71. 筛选成员与计数（全部含 deleted；计数只从 state.borrowTasks 派生）
-    {
-      // 当前：id1 borrowing、id2 deleted、id900 deleted；再注入一个 test-only completed
-      helpers.getBorrowTasks().push({ id: 901, asset: 'TESTD', amountPerAttempt: 3, successTarget: 3, successCount: 3, status: 'completed' });
-      helpers.setBorrowTaskFilter('all');
+      // 全部 含软删除（计数只从渲染缓存派生）
       const filtersHtml = elements['borrow-task-filters'].innerHTML;
-      const expectedCounts = ['全部 (4)', '借币中 (1)', '已暂停 (0)', '已删除 (2)', '已完成 (1)'];
-      for (const text of expectedCounts) {
+      for (const text of ['全部 (4)', '借币中 (1)', '已暂停 (1)', '已删除 (1)', '已完成 (1)']) {
         if (!filtersHtml.includes(text)) throw new Error(`筛选计数缺少「${text}」: ${filtersHtml}`);
       }
-      const allCards = (elements['borrow-task-list'].innerHTML.match(/borrow-task-card/g) || []).length;
-      if (allCards !== 4) throw new Error(`全部筛选应渲染 4 张卡，实际 ${allCards}`);
-      helpers.setBorrowTaskFilter('completed');
-      const compHtml = elements['borrow-task-list'].innerHTML;
-      if (!compHtml.includes('data-task-id="901"') || compHtml.includes('已完成') === false) {
-        throw new Error('已完成筛选应渲染 completed 任务卡');
+      // 按钮矩阵：borrowing 禁启动；paused 禁暂停；completed 禁启动/暂停/编辑；deleted 全禁
+      let card = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'task-b');
+      if (!taskActionBtnHtml(card, 'start').includes('disabled')) throw new Error('borrowing: 启动应禁用');
+      if (!taskActionBtnHtml(card, 'start').includes('action-start')) throw new Error('borrowing: 启动应保留 action-start 主题');
+      if (taskActionBtnHtml(card, 'pause').includes('disabled')) throw new Error('borrowing: 暂停应可用');
+      if (!taskActionBtnHtml(card, 'pause').includes('action-pause')) throw new Error('borrowing: 暂停应保留 action-pause 主题');
+      if (taskActionBtnHtml(card, 'delete').includes('disabled')) throw new Error('borrowing: 删除应可用');
+      if (!taskActionBtnHtml(card, 'delete').includes('action-delete')) throw new Error('borrowing: 删除应保留 action-delete 主题');
+      if (taskEditConfirmBtnHtml(card, 'task-b').includes('disabled')) throw new Error('borrowing: 编辑确认应可用');
+      card = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'task-p');
+      if (taskActionBtnHtml(card, 'start').includes('disabled')) throw new Error('paused: 启动应可用');
+      if (!taskActionBtnHtml(card, 'pause').includes('disabled')) throw new Error('paused: 暂停应禁用');
+      card = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'task-c');
+      if (!taskActionBtnHtml(card, 'start').includes('disabled')) throw new Error('completed: 启动应禁用');
+      if (!taskActionBtnHtml(card, 'pause').includes('disabled')) throw new Error('completed: 暂停应禁用');
+      if (taskActionBtnHtml(card, 'delete').includes('disabled')) throw new Error('completed: 删除应可用');
+      if (!taskEditConfirmBtnHtml(card, 'task-c').includes('disabled')) throw new Error('completed: 编辑确认应禁用');
+      if (!taskEditInputHtml(card, 'amount', 'task-c').includes('disabled')) throw new Error('completed: 编辑输入应禁用');
+      card = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'task-d');
+      for (const action of ['start', 'pause', 'delete']) {
+        if (!taskActionBtnHtml(card, action).includes('disabled')) throw new Error(`deleted: ${action} 应禁用`);
       }
-      if (compHtml.includes('data-task-id="1"') || compHtml.includes('data-task-id="2"')) {
-        throw new Error('已完成筛选成员错误');
+      if (!taskEditConfirmBtnHtml(card, 'task-d').includes('disabled')) throw new Error('deleted: 编辑确认应禁用');
+      if (!taskEditInputHtml(card, 'amount', 'task-d').includes('disabled')) throw new Error('deleted: 编辑输入应禁用');
+      // 操作按钮视觉主题（启动绿/暂停灰/删除红）与显式禁用态样式保留
+      if (!html.includes('.btn:disabled')) throw new Error('缺少显式 .btn:disabled 禁用样式');
+      if (!html.includes('.btn.action-start') || !html.includes('.btn.action-pause') || !html.includes('.btn.action-delete')) {
+        throw new Error('缺少 action-start/action-pause/action-delete 主题类样式');
       }
-      // 已暂停 为空但可渲染（空态不白屏）
-      helpers.setBorrowTaskFilter('paused');
-      const pausedHtml = elements['borrow-task-list'].innerHTML;
-      if (!pausedHtml.includes('暂无「已暂停」任务')) throw new Error(`已暂停空态未渲染: ${pausedHtml}`);
-      helpers.setBorrowTaskFilter('deleted');
-      const delHtml2 = elements['borrow-task-list'].innerHTML;
-      if (!delHtml2.includes('data-task-id="2"') || !delHtml2.includes('data-task-id="900"') || delHtml2.includes('data-task-id="901"')) {
-        throw new Error('已删除筛选成员错误（应含 2 与 900）');
+      if (html.indexOf('.btn:disabled') < html.indexOf('.btn.action-start')) {
+        throw new Error('禁用样式应位于操作主题之后以覆盖主题色');
       }
-      helpers.setBorrowTaskFilter('all');
-      console.log('[PASS] 筛选成员、计数与空态渲染');
+
+      // start：POST /{id}/start，body {}，用返回文档 + 重拉渲染
+      const taskPStarted = deepCopy(taskP, { status: 'borrowing', version: 5 });
+      borrowActionResponses = { 'task-p:start': { status: 200, body: taskPStarted } };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([taskB, taskPStarted, taskC, taskD]) };
+      let mark = fetchCallLog.length;
+      const rStart = await helpers.startBorrowTask('task-p');
+      if (!rStart.ok) throw new Error(`start 应成功: ${rStart.error}`);
+      let calls = fetchCallLog.slice(mark);
+      let post = calls.find(c => c.method === 'POST');
+      if (!post || post.url !== '/api/borrow-tasks/task-p/start' || JSON.stringify(post.body) !== '{}') {
+        throw new Error(`start 请求应为 POST /api/borrow-tasks/task-p/start body {}: ${JSON.stringify(calls)}`);
+      }
+      if (!calls.some(c => c.url === '/api/borrow-tasks' && c.method === 'GET')) {
+        throw new Error('start 成功后应重拉任务列表');
+      }
+      if (!getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'task-p').includes('借币中')) {
+        throw new Error('start 后应渲染借币中徽标');
+      }
+
+      // pause：POST /{id}/pause
+      const taskBPaused = deepCopy(taskB, { status: 'paused', version: 5 });
+      borrowActionResponses = { 'task-b:pause': { status: 200, body: taskBPaused } };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([taskBPaused, taskPStarted, taskC, taskD]) };
+      mark = fetchCallLog.length;
+      const rPause = await helpers.pauseBorrowTask('task-b');
+      if (!rPause.ok) throw new Error(`pause 应成功: ${rPause.error}`);
+      calls = fetchCallLog.slice(mark);
+      post = calls.find(c => c.method === 'POST');
+      if (!post || post.url !== '/api/borrow-tasks/task-b/pause' || JSON.stringify(post.body) !== '{}') {
+        throw new Error(`pause 请求错误: ${JSON.stringify(calls)}`);
+      }
+      if (!getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'task-b').includes('已暂停')) {
+        throw new Error('pause 后应渲染已暂停徽标');
+      }
+
+      // delete：POST /{id}/delete（completed → deleted 软删除，任务行保留）
+      const taskCDeleted = deepCopy(taskC, { status: 'deleted', version: 5 });
+      borrowActionResponses = { 'task-c:delete': { status: 200, body: taskCDeleted } };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([taskBPaused, taskPStarted, taskCDeleted, taskD]) };
+      mark = fetchCallLog.length;
+      const rDelete = await helpers.deleteBorrowTask('task-c');
+      if (!rDelete.ok) throw new Error(`delete 应成功: ${rDelete.error}`);
+      calls = fetchCallLog.slice(mark);
+      post = calls.find(c => c.method === 'POST');
+      if (!post || post.url !== '/api/borrow-tasks/task-c/delete' || JSON.stringify(post.body) !== '{}') {
+        throw new Error(`delete 请求错误: ${JSON.stringify(calls)}`);
+      }
+      if (!helpers.getBorrowTasks().some(t => t.id === 'task-c' && t.status === 'deleted')) {
+        throw new Error('软删除后任务行应保留且 status=deleted');
+      }
+
+      // edit：body 携带 amount_per_attempt/success_target/version（乐观并发）
+      const taskPEdited = deepCopy(taskPStarted, { amount_per_attempt: '7.25', success_target: 5, version: 6 });
+      borrowActionResponses = { 'task-p:edit': { status: 200, body: taskPEdited } };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([taskBPaused, taskPEdited, taskCDeleted, taskD]) };
+      mark = fetchCallLog.length;
+      const rEdit = await helpers.editBorrowTask('task-p', '7.25', '5');
+      if (!rEdit.ok) throw new Error(`edit 应成功: ${rEdit.error}`);
+      calls = fetchCallLog.slice(mark);
+      post = calls.find(c => c.method === 'POST');
+      const expectedEditBody = JSON.stringify({ amount_per_attempt: '7.25', success_target: 5, version: 5 });
+      if (!post || post.url !== '/api/borrow-tasks/task-p/edit' || JSON.stringify(post.body) !== expectedEditBody) {
+        throw new Error(`edit body 应为 ${expectedEditBody}: ${JSON.stringify(post && post.body)}`);
+      }
+      const cardPEdited = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'task-p');
+      if (!cardPEdited.includes('7.25 HOME/次') || !cardPEdited.includes('目标 36.25 HOME')) {
+        throw new Error(`edit 后展示未更新: ${cardPEdited}`);
+      }
+
+      // 409 invalid_transition：detail 原样返回，缓存不被污染
+      borrowActionResponses = { 'task-d:start': { status: 409, body: { error: 'invalid_transition', detail: 'cannot start a deleted task' } } };
+      const beforeConflict = JSON.stringify(helpers.getBorrowTasks());
+      const rConflict1 = await helpers.startBorrowTask('task-d');
+      if (rConflict1.ok) throw new Error('deleted 任务 start 不应成功');
+      if (rConflict1.error !== 'cannot start a deleted task') {
+        throw new Error(`409 detail 应原样返回: ${rConflict1.error}`);
+      }
+      if (JSON.stringify(helpers.getBorrowTasks()) !== beforeConflict) {
+        throw new Error('409 后渲染缓存不应变化');
+      }
+      // 409 version_conflict
+      borrowActionResponses = { 'task-p:edit': { status: 409, body: { error: 'version_conflict', detail: 'task version changed, reload first' } } };
+      const rConflict2 = await helpers.editBorrowTask('task-p', '8', '2');
+      if (rConflict2.ok) throw new Error('版本冲突的 edit 不应成功');
+      if (rConflict2.error !== 'task version changed, reload first') {
+        throw new Error(`version_conflict detail 应原样返回: ${rConflict2.error}`);
+      }
+      // 本地校验失败不发请求
+      mark = fetchCallLog.length;
+      const rLocal = await helpers.editBorrowTask('task-p', 'abc', '2');
+      if (rLocal.ok) throw new Error('非法数量 edit 不应成功');
+      if (fetchCallLog.length !== mark) throw new Error('本地校验失败不应发送请求');
+      console.log('[PASS] 任务状态机按钮矩阵、冻结 mutation 路由/body 与 409 就近显示');
     }
 
-    // 72. 任务编辑：预填当前值、有效编辑保留进度并重算总量、无效/只读报错不改状态
+    // 69. latest_result 五类冻结中文标签 + 未知阻塞徽标（unresolved_attempt_id）
     {
+      const catTasks = [
+        deepCopy(MOCK_TASK_HOME, { id: 'task-cat-success', latest_result: deepCopy(MOCK_TASK_HOME.latest_result, { result_category: 'success', reason: null, tran_id: 'paper-1' }) }),
+        deepCopy(MOCK_TASK_HOME, { id: 'task-cat-known', latest_result: deepCopy(MOCK_TASK_HOME.latest_result, { result_category: 'known_rejection', reason: 'borrow_rejected' }) }),
+        deepCopy(MOCK_TASK_HOME, { id: 'task-cat-rate', latest_result: deepCopy(MOCK_TASK_HOME.latest_result, { result_category: 'rate_limited', reason: 'retry_after' }) }),
+        deepCopy(MOCK_TASK_HOME, { id: 'task-cat-unknown', latest_result: deepCopy(MOCK_TASK_HOME.latest_result, { result_category: 'unknown', reason: 'timeout' }), unresolved_attempt_id: 'attempt-9' }),
+        deepCopy(MOCK_TASK_HOME, { id: 'task-cat-disabled' }),
+        deepCopy(MOCK_TASK_HOME, { id: 'task-cat-none', latest_result: null })
+      ];
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc(catTasks) };
+      await helpers.loadBorrowTasks();
       helpers.setBorrowTaskFilter('all');
-      const card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
-      if (!taskEditInputHtml(card1, 'amount', 1).includes('value="1000"')) {
-        throw new Error('编辑数量输入应预填精确当前值 1000');
+      const listHtml = elements['borrow-task-list'].innerHTML;
+      const labelCases = [
+        ['task-cat-success', '<span class="badge success">成功</span>'],
+        ['task-cat-known', '<span class="badge warn">已知拒绝</span>'],
+        ['task-cat-rate', '<span class="badge info">限频冷却</span>'],
+        ['task-cat-unknown', '<span class="badge danger">未知·待对账</span>'],
+        ['task-cat-disabled', '<span class="badge muted">执行未启用</span>']
+      ];
+      for (const [id, badge] of labelCases) {
+        const cardHtml = getTaskCardHtml(listHtml, id);
+        if (!cardHtml.includes(badge)) {
+          throw new Error(`${id} 应渲染冻结结果标签 ${badge}: ${cardHtml}`);
+        }
       }
-      if (!taskEditInputHtml(card1, 'count', 1).includes('value="10"')) {
-        throw new Error('编辑次数输入应预填精确当前值 10');
+      // 未知阻塞：阻塞徽标 + 启动/暂停禁用（不会被调度）；删除仍可用（退出通道）
+      const blockedCard = getTaskCardHtml(listHtml, 'task-cat-unknown');
+      if (!blockedCard.includes('待对账·暂停调度')) {
+        throw new Error(`未知阻塞任务应渲染阻塞徽标: ${blockedCard}`);
       }
-      // 有效编辑：1000/10 → 250/7，successCount 保留，总量 250*7=1750 → 1,750
-      const amountEl = document.getElementById('task-edit-amount-1');
-      const countEl = document.getElementById('task-edit-count-1');
-      const errorEl = document.getElementById('task-edit-error-1');
+      if (!taskActionBtnHtml(blockedCard, 'start').includes('disabled') || !taskActionBtnHtml(blockedCard, 'pause').includes('disabled')) {
+        throw new Error('未知阻塞任务的启动/暂停应禁用');
+      }
+      if (taskActionBtnHtml(blockedCard, 'delete').includes('disabled')) {
+        throw new Error('未知阻塞任务的删除应可用（operator 退出通道）');
+      }
+      // latest_result null → 暂无执行记录
+      const noneCard = getTaskCardHtml(listHtml, 'task-cat-none');
+      if (!noneCard.includes('暂无执行记录')) {
+        throw new Error(`latest_result=null 应渲染暂无执行记录: ${noneCard}`);
+      }
+      console.log('[PASS] latest_result 五类标签、未知阻塞徽标与空结果占位');
+    }
+
+    // 70. 筛选成员与软删除可见性（全部含 deleted；借币中不含 deleted）
+    {
+      const fTasks = [
+        deepCopy(MOCK_TASK_HOME, { id: 'task-f1', status: 'borrowing' }),
+        deepCopy(MOCK_TASK_HOME, { id: 'task-f2', status: 'paused' }),
+        deepCopy(MOCK_TASK_HOME, { id: 'task-f3', status: 'completed', success_count: 3 }),
+        deepCopy(MOCK_TASK_HOME, { id: 'task-f4', status: 'deleted' })
+      ];
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc(fTasks) };
+      await helpers.loadBorrowTasks();
+      helpers.setBorrowTaskFilter('all');
+      let listHtml = elements['borrow-task-list'].innerHTML;
+      if ((listHtml.match(/borrow-task-card/g) || []).length !== 4) {
+        throw new Error('全部筛选应渲染 4 张卡');
+      }
+      for (const id of ['task-f1', 'task-f2', 'task-f3', 'task-f4']) {
+        if (!listHtml.includes(`data-task-id="${id}"`)) throw new Error(`全部筛选应包含 ${id}`);
+      }
+      helpers.setBorrowTaskFilter('deleted');
+      listHtml = elements['borrow-task-list'].innerHTML;
+      if (!listHtml.includes('data-task-id="task-f4"') || listHtml.includes('data-task-id="task-f1"')) {
+        throw new Error('已删除筛选成员错误');
+      }
+      if (!getTaskCardHtml(listHtml, 'task-f4').includes('已删除')) {
+        throw new Error('已删除任务卡应渲染已删除徽标');
+      }
+      helpers.setBorrowTaskFilter('borrowing');
+      listHtml = elements['borrow-task-list'].innerHTML;
+      if (listHtml.includes('data-task-id="task-f4"') || !listHtml.includes('data-task-id="task-f1"')) {
+        throw new Error('借币中筛选成员错误');
+      }
+      helpers.setBorrowTaskFilter('paused');
+      if (!elements['borrow-task-list'].innerHTML.includes('data-task-id="task-f2"')) {
+        throw new Error('已暂停筛选成员错误');
+      }
+      helpers.setBorrowTaskFilter('completed');
+      if (!elements['borrow-task-list'].innerHTML.includes('data-task-id="task-f3"')) {
+        throw new Error('已完成筛选成员错误');
+      }
+      helpers.setBorrowTaskFilter('all');
+      console.log('[PASS] 筛选成员与软删除可见性');
+    }
+
+    // 71. 任务编辑 UI 路径：预填后端原值、submitBorrowTaskEdit 成功/409/只读就近显示
+    {
+      // 当前缓存为 #70 的 f1..f4；f1 borrowing version 4
+      const card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'task-f1');
+      if (!taskEditInputHtml(card1, 'amount', 'task-f1').includes('value="12.5"')) {
+        throw new Error('编辑数量输入应预填后端十进制原值 12.5');
+      }
+      if (!taskEditInputHtml(card1, 'count', 'task-f1').includes('value="3"')) {
+        throw new Error('编辑次数输入应预填当前值 3');
+      }
+      const amountEl = document.getElementById('task-edit-amount-task-f1');
+      const countEl = document.getElementById('task-edit-count-task-f1');
+      const errorEl = document.getElementById('task-edit-error-task-f1');
       amountEl.value = '250';
       countEl.value = '7';
-      const r1 = helpers.submitBorrowTaskEdit(1);
+      const f1Edited = deepCopy(MOCK_TASK_HOME, { id: 'task-f1', status: 'borrowing', amount_per_attempt: '250', success_target: 7, version: 5 });
+      borrowActionResponses = { 'task-f1:edit': { status: 200, body: f1Edited } };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([
+        f1Edited,
+        deepCopy(MOCK_TASK_HOME, { id: 'task-f2', status: 'paused' }),
+        deepCopy(MOCK_TASK_HOME, { id: 'task-f3', status: 'completed', success_count: 3 }),
+        deepCopy(MOCK_TASK_HOME, { id: 'task-f4', status: 'deleted' })
+      ]) };
+      const r1 = await helpers.submitBorrowTaskEdit('task-f1');
       if (!r1.ok) throw new Error(`有效编辑失败: ${r1.error}`);
-      const task1 = helpers.getBorrowTasks().find(t => t.id === 1);
-      if (task1.amountPerAttempt !== 250 || task1.successTarget !== 7 || task1.successCount !== 0) {
-        throw new Error(`有效编辑后任务字段错误: ${JSON.stringify(task1)}`);
-      }
-      const card1After = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
-      if (!card1After.includes('250 HOME/次') || !card1After.includes('0 / 7 次成功') || !card1After.includes('目标 1,750 HOME')) {
+      if (errorEl.textContent !== '') throw new Error('有效编辑后错误应清除');
+      const card1After = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'task-f1');
+      if (!card1After.includes('250 HOME/次') || !card1After.includes('1 / 7 次成功') || !card1After.includes('目标 1,750 HOME')) {
         throw new Error(`有效编辑后展示未更新: ${card1After}`);
       }
-      if (errorEl.textContent !== '') throw new Error('有效编辑后错误应清除');
-      // 无效编辑：值不变 + 就近局部错误
-      amountEl.value = 'abc';
-      countEl.value = '7';
-      const r2 = helpers.submitBorrowTaskEdit(1);
-      if (r2.ok) throw new Error('非法数量编辑不应成功');
-      if (!errorEl.textContent.includes('大于 0')) throw new Error(`无效编辑就近错误未显示: ${errorEl.textContent}`);
-      if (task1.amountPerAttempt !== 250 || task1.successTarget !== 7) throw new Error('无效编辑不应改变任务值');
+      // 409 version_conflict 就近显示
       amountEl.value = '250';
-      countEl.value = '2.5';
-      const r3 = helpers.submitBorrowTaskEdit(1);
-      if (r3.ok) throw new Error('非整数目标编辑不应成功');
-      if (task1.successTarget !== 7) throw new Error('无效目标编辑不应改变任务值');
-      // 只读编辑：deleted（id2）与 completed（id901）不改变状态并报错
-      const r4 = helpers.submitBorrowTaskEdit(2);
-      if (r4.ok) throw new Error('deleted 任务编辑不应成功');
-      const errorEl2 = document.getElementById('task-edit-error-2');
-      if (!errorEl2.textContent.includes('只读')) throw new Error(`deleted 编辑错误未就近显示: ${errorEl2.textContent}`);
-      const r5 = helpers.submitBorrowTaskEdit(901);
-      if (r5.ok) throw new Error('completed 任务编辑不应成功');
-      const task901 = helpers.getBorrowTasks().find(t => t.id === 901);
-      if (task901.amountPerAttempt !== 3 || task901.successTarget !== 3) throw new Error('只读编辑不应改变任务值');
-      console.log('[PASS] 任务编辑预填、有效/无效/只读路径与进度保留');
+      countEl.value = '7';
+      borrowActionResponses = { 'task-f1:edit': { status: 409, body: { error: 'version_conflict', detail: 'task version changed, reload first' } } };
+      const r2 = await helpers.submitBorrowTaskEdit('task-f1');
+      if (r2.ok) throw new Error('版本冲突编辑不应成功');
+      if (!errorEl.textContent.includes('task version changed')) {
+        throw new Error(`409 detail 未就近显示: ${errorEl.textContent}`);
+      }
+      // 只读状态（deleted）经 API 409 invalid_transition 就近显示
+      const errorEl4 = document.getElementById('task-edit-error-task-f4');
+      const amountEl4 = document.getElementById('task-edit-amount-task-f4');
+      const countEl4 = document.getElementById('task-edit-count-task-f4');
+      amountEl4.value = '5';
+      countEl4.value = '2';
+      borrowActionResponses = { 'task-f4:edit': { status: 409, body: { error: 'invalid_transition', detail: 'cannot edit a deleted task' } } };
+      const r3 = await helpers.submitBorrowTaskEdit('task-f4');
+      if (r3.ok) throw new Error('deleted 任务编辑不应成功');
+      if (!errorEl4.textContent.includes('cannot edit a deleted task')) {
+        throw new Error(`只读任务 409 detail 未就近显示: ${errorEl4.textContent}`);
+      }
+      console.log('[PASS] 任务编辑预填、有效/409/只读路径');
+    }
+
+    // 72. 顶层 tab：借币任务 | 借币日志；状态筛选只在任务 tab 内
+    {
+      // 结构断言：筛选容器在 tasks panel 内、logs panel 之外；tab 按钮齐全
+      const tasksPanelIdx = html.indexOf('id="borrow-tasks-panel"');
+      const filtersIdx = html.indexOf('id="borrow-task-filters"');
+      const logsPanelIdx = html.indexOf('id="borrow-logs-panel"');
+      if (tasksPanelIdx === -1 || logsPanelIdx === -1 || filtersIdx === -1 ||
+          !(tasksPanelIdx < filtersIdx && filtersIdx < logsPanelIdx)) {
+        throw new Error('状态筛选容器必须位于借币任务 tab 内（borrow-tasks-panel 与 borrow-logs-panel 之间）');
+      }
+      if (!html.includes('id="borrow-tab-tasks"') || !html.includes('id="borrow-tab-logs"')) {
+        throw new Error('缺少借币任务/借币日志顶层 tab 按钮');
+      }
+      // 初始：任务 tab 显示、日志 tab 隐藏（mock 不解析 HTML 内联 display:none，先对齐初始态）
+      elements['borrow-logs-panel'].style.display = 'none';
+      borrowLogsResponses = [{ status: 200, body: MOCK_LOG_PAGE_1 }];
+      helpers.setActiveView('borrow-tasks');
+      await new Promise(r => setTimeout(r, 0));
+      if (elements['borrow-tasks-panel'].style.display === 'none') {
+        throw new Error('初始应显示借币任务 tab');
+      }
+      if (elements['borrow-logs-panel'].style.display !== 'none') {
+        throw new Error('初始应隐藏借币日志 tab');
+      }
+      // 切到日志 tab：拉第 1 页
+      let mark = fetchCallLog.length;
+      helpers.setBorrowTab('logs');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getBorrowTab() !== 'logs') throw new Error('borrowTab 应为 logs');
+      if (elements['borrow-logs-panel'].style.display === 'none' || elements['borrow-tasks-panel'].style.display !== 'none') {
+        throw new Error('日志 tab 激活后面板显隐错误');
+      }
+      const logCalls = fetchCallLog.slice(mark).filter(c => c.url.startsWith('/api/borrow-logs'));
+      if (logCalls.length !== 1 || logCalls[0].url !== '/api/borrow-logs?limit=50' || logCalls[0].method !== 'GET') {
+        throw new Error(`日志 tab 激活应 GET /api/borrow-logs?limit=50: ${JSON.stringify(logCalls)}`);
+      }
+      // 切回任务 tab：重新拉任务列表
+      mark = fetchCallLog.length;
+      helpers.setBorrowTab('tasks');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getBorrowTab() !== 'tasks') throw new Error('borrowTab 应为 tasks');
+      if (elements['borrow-tasks-panel'].style.display === 'none' || elements['borrow-logs-panel'].style.display !== 'none') {
+        throw new Error('任务 tab 激活后面板显隐错误');
+      }
+      const taskCalls = fetchCallLog.slice(mark).filter(c => c.url === '/api/borrow-tasks' && c.method === 'GET');
+      if (taskCalls.length !== 1) {
+        throw new Error('任务 tab 激活应重拉任务列表');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 借币任务/借币日志顶层 tab 切换与筛选归属');
     }
 
     // 73. 最小借币量占位符三分支（含 raw "0"/"0.00"）；输入值为空；任务编辑输入不受影响
@@ -2528,82 +2850,178 @@ setTimeout(async () => {
         }
       }
       // 任务列表编辑输入不受占位符规则影响：仍有 value 预填、无 placeholder
-      const card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
-      const editInput = taskEditInputHtml(card1, 'amount', 1);
+      const card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 'task-f1');
+      const editInput = taskEditInputHtml(card1, 'amount', 'task-f1');
       if (!editInput.includes('value="250"')) throw new Error('任务编辑输入预填不应受占位符规则影响');
       if (editInput.includes('placeholder=')) throw new Error('任务编辑输入不应携带占位符');
       helpers.ingestSnapshot(designFixture);
       console.log('[PASS] 最小借币量占位符三分支、空输入值与编辑输入不受影响');
     }
 
-    // 74. 全部新动作零副作用：无 fetch / 定时器 / localStorage 写入
+    // 74. 借币日志：newest-first 两页游标分页、加载更多、显式刷新
     {
-      const fetchBefore = fetchCallLog.length;
-      const intervalsBefore = intervalCalls.length;
-      const lsKeysBefore = Object.keys(localStorageData).length;
+      borrowLogsResponses = [{ status: 200, body: MOCK_LOG_PAGE_1 }, { status: 200, body: MOCK_LOG_PAGE_2 }];
       helpers.setActiveView('borrow-tasks');
-      helpers.pauseBorrowTask(1);
-      helpers.startBorrowTask(1);
-      helpers.setBorrowTaskFilter('deleted');
-      helpers.setBorrowTaskFilter('all');
-      const amountEl = document.getElementById('task-edit-amount-1');
-      const countEl = document.getElementById('task-edit-count-1');
-      amountEl.value = '300';
-      countEl.value = '6';
-      if (!helpers.submitBorrowTaskEdit(1).ok) throw new Error('74: 编辑应成功');
-      if (fetchCallLog.length !== fetchBefore) {
-        throw new Error(`任务操作不应发起 fetch: ${fetchCallLog.slice(fetchBefore)}`);
+      await new Promise(r => setTimeout(r, 0));
+      helpers.setBorrowTab('logs');
+      await new Promise(r => setTimeout(r, 0));
+      let listHtml = elements['borrow-log-list'].innerHTML;
+      // newest-first：mock 返回顺序原样渲染（id 42 在 41 前）
+      if (!(listHtml.indexOf('paper-1') !== -1 && listHtml.indexOf('paper-1') < listHtml.indexOf('borrow_rejected'))) {
+        throw new Error(`日志第 1 页未按 newest-first 渲染: ${listHtml}`);
       }
-      if (intervalCalls.length !== intervalsBefore) {
-        throw new Error('任务操作不应注册任何新定时器');
+      if (!listHtml.includes('成功') || !listHtml.includes('已知拒绝') || !listHtml.includes('51061')) {
+        throw new Error(`日志第 1 页结果/业务码未渲染: ${listHtml}`);
       }
-      if (Object.keys(localStorageData).length !== lsKeysBefore) {
-        throw new Error('任务操作不应写 localStorage');
+      if (!listHtml.includes('2026-07-19')) {
+        throw new Error('日志时间未渲染为北京时间');
       }
-      console.log('[PASS] 状态转换/编辑/筛选零 fetch、零定时器、零持久化');
+      // 加载更多可见 → 点击携带 next_cursor
+      if (elements['borrow-logs-load-more'].style.display === 'none') {
+        throw new Error('next_cursor 存在时加载更多应可见');
+      }
+      let mark = fetchCallLog.length;
+      await Promise.all((elements['borrow-logs-load-more'].listeners.click || []).map(h => h()));
+      await new Promise(r => setTimeout(r, 0));
+      const moreCalls = fetchCallLog.slice(mark).filter(c => c.url.startsWith('/api/borrow-logs'));
+      if (moreCalls.length !== 1 || moreCalls[0].url !== '/api/borrow-logs?limit=50&cursor=cursor-page-2') {
+        throw new Error(`加载更多应携带 next_cursor: ${JSON.stringify(moreCalls)}`);
+      }
+      listHtml = elements['borrow-log-list'].innerHTML;
+      // 两页拼接顺序保持 newest-first
+      const orderOk = listHtml.indexOf('paper-1') < listHtml.indexOf('borrow_rejected') &&
+                      listHtml.indexOf('borrow_rejected') < listHtml.indexOf('executor_disabled');
+      if (!orderOk) {
+        throw new Error(`两页拼接后顺序错误: ${listHtml}`);
+      }
+      if (!listHtml.includes('执行未启用') || !listHtml.includes('进行中')) {
+        throw new Error('执行未启用/pending 条目应渲染对应徽标');
+      }
+      // next_cursor null → 加载更多隐藏
+      if (elements['borrow-logs-load-more'].style.display !== 'none') {
+        throw new Error('next_cursor 为 null 后加载更多应隐藏');
+      }
+      if (helpers.getBorrowLogs().entries.length !== 4) {
+        throw new Error(`两页拼接后应为 4 条: ${helpers.getBorrowLogs().entries.length}`);
+      }
+      // 显式刷新重拉第 1 页（重置条目）
+      borrowLogsResponses = [{ status: 200, body: MOCK_LOG_PAGE_1 }];
+      mark = fetchCallLog.length;
+      await Promise.all((elements['borrow-logs-refresh'].listeners.click || []).map(h => h()));
+      await new Promise(r => setTimeout(r, 0));
+      const refreshCalls = fetchCallLog.slice(mark).filter(c => c.url.startsWith('/api/borrow-logs'));
+      if (refreshCalls.length !== 1 || refreshCalls[0].url !== '/api/borrow-logs?limit=50') {
+        throw new Error(`显式刷新应重拉第 1 页: ${JSON.stringify(refreshCalls)}`);
+      }
+      if (helpers.getBorrowLogs().entries.length !== 2) {
+        throw new Error('刷新后日志应重置为第 1 页 2 条');
+      }
+      helpers.setBorrowTab('tasks');
+      await new Promise(r => setTimeout(r, 0));
+      helpers.setActiveView('market');
+      console.log('[PASS] 借币日志 newest-first 游标分页、加载更多与显式刷新');
     }
 
-    // 75. 操作按钮视觉主题（启动绿/暂停灰/删除红）与显式禁用态
+    // 75. 全局间隔编辑器：GET 渲染、PUT 十进制字符串、invalid_interval 400 就近显示
     {
-      // 显式禁用样式与三类操作主题类存在（禁用样式位于主题之后以覆盖主题色）
-      if (!html.includes('.btn:disabled')) {
-        throw new Error('缺少显式 .btn:disabled 禁用样式');
-      }
-      if (!html.includes('.btn.action-start') || !html.includes('.btn.action-pause') || !html.includes('.btn.action-delete')) {
-        throw new Error('缺少 action-start/action-pause/action-delete 主题类样式');
-      }
-      if (html.indexOf('.btn:disabled') < html.indexOf('.btn.action-start')) {
-        throw new Error('禁用样式应位于操作主题之后以覆盖主题色');
-      }
+      borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
       helpers.setActiveView('borrow-tasks');
-      helpers.setBorrowTaskFilter('all');
-      // borrowing（id1）：启动 绿主题+disabled；暂停 灰主题可用；删除 红主题可用
-      const card1 = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
-      const startBtn1 = taskActionBtnHtml(card1, 'start');
-      if (!startBtn1.includes('action-start') || !startBtn1.includes('disabled')) {
-        throw new Error(`borrowing 启动应为 action-start 且 disabled: ${startBtn1}`);
+      await new Promise(r => setTimeout(r, 0));
+      if (elements['borrow-interval-input'].value !== '5') {
+        throw new Error(`间隔输入应渲染 mock 的 5: ${elements['borrow-interval-input'].value}`);
       }
-      const pauseBtn1 = taskActionBtnHtml(card1, 'pause');
-      if (!pauseBtn1.includes('action-pause') || pauseBtn1.includes('disabled')) {
-        throw new Error(`borrowing 暂停应为 action-pause 且可用: ${pauseBtn1}`);
+      // PUT "0.5" 成功：body 为冻结形状，说明与任务卡策略行更新
+      borrowSettingsPutResponse = { status: 200, body: MOCK_SETTINGS_05 };
+      let mark = fetchCallLog.length;
+      elements['borrow-interval-input'].value = '0.5';
+      const r1 = await helpers.submitSchedulerInterval();
+      if (!r1.ok) throw new Error(`PUT 0.5 应成功: ${r1.error}`);
+      const putCalls = fetchCallLog.slice(mark).filter(c => c.url === '/api/borrow-scheduler-settings');
+      if (putCalls.length !== 1 || putCalls[0].method !== 'PUT' ||
+          JSON.stringify(putCalls[0].body) !== JSON.stringify({ interval_seconds: '0.5' })) {
+        throw new Error(`PUT body 应为 {"interval_seconds":"0.5"}: ${JSON.stringify(putCalls)}`);
       }
-      const deleteBtn1 = taskActionBtnHtml(card1, 'delete');
-      if (!deleteBtn1.includes('action-delete') || deleteBtn1.includes('disabled')) {
-        throw new Error(`borrowing 删除应为 action-delete 且可用: ${deleteBtn1}`);
+      if (!elements['borrow-interval-note'].textContent.includes('每 0.5 秒')) {
+        throw new Error(`PUT 后间隔说明应更新为 0.5 秒: ${elements['borrow-interval-note'].textContent}`);
       }
-      // paused：暂停 disabled（灰主题保留），启动可用（绿主题保留）
-      if (!helpers.pauseBorrowTask(1).ok) throw new Error('75: 暂停应成功');
-      const card1Paused = getTaskCardHtml(elements['borrow-task-list'].innerHTML, 1);
-      const pauseBtnP = taskActionBtnHtml(card1Paused, 'pause');
-      if (!pauseBtnP.includes('action-pause') || !pauseBtnP.includes('disabled')) {
-        throw new Error(`paused 暂停应为 action-pause 且 disabled: ${pauseBtnP}`);
+      if (!elements['borrow-task-list'].innerHTML.includes('每 0.5 秒')) {
+        throw new Error('PUT 后任务卡策略行应引用新间隔');
       }
-      const startBtnP = taskActionBtnHtml(card1Paused, 'start');
-      if (!startBtnP.includes('action-start') || startBtnP.includes('disabled')) {
-        throw new Error(`paused 启动应为 action-start 且可用: ${startBtnP}`);
+      if (elements['borrow-interval-error'].textContent !== '') {
+        throw new Error('PUT 成功后错误应清除');
       }
-      if (!helpers.startBorrowTask(1).ok) throw new Error('75: 启动应成功');
-      console.log('[PASS] 操作按钮绿/灰/红主题与 borrowing/paused 禁用态显式呈现');
+      // 400 invalid_interval：detail 就近显示，设置保持 0.5
+      borrowSettingsPutResponse = { status: 400, body: { error: 'invalid_interval', detail: 'interval_seconds must be a positive decimal string' } };
+      elements['borrow-interval-input'].value = '-1';
+      const r2 = await helpers.submitSchedulerInterval();
+      if (r2.ok) throw new Error('invalid_interval 不应成功');
+      if (elements['borrow-interval-error'].textContent !== 'interval_seconds must be a positive decimal string') {
+        throw new Error(`400 detail 应原样就近显示: ${elements['borrow-interval-error'].textContent}`);
+      }
+      if (!elements['borrow-interval-note'].textContent.includes('每 0.5 秒')) {
+        throw new Error('400 后间隔设置应保持不变');
+      }
+      // 空输入本地拒绝，不发 PUT
+      mark = fetchCallLog.length;
+      elements['borrow-interval-input'].value = '   ';
+      const r3 = await helpers.submitSchedulerInterval();
+      if (r3.ok) throw new Error('空间隔不应成功');
+      if (fetchCallLog.slice(mark).some(c => c.url === '/api/borrow-scheduler-settings' && c.method === 'PUT')) {
+        throw new Error('空输入不应发送 PUT');
+      }
+      if (!elements['borrow-interval-error'].textContent.includes('不能为空')) {
+        throw new Error('空输入应显示本地校验错误');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 全局间隔编辑器 GET/PUT、400 与本地校验');
+    }
+
+    // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 仅隐私键
+    {
+      const allowedPatterns = [
+        /^\/api\/public-market\/snapshot$/,
+        /^\/api\/public-market\/symbol-snapshot\?/,
+        /^\/api\/borrow-tasks$/,
+        /^\/api\/borrow-tasks\/[^/]+\/(start|pause|delete|edit)$/,
+        /^\/api\/borrow-logs\?/,
+        /^\/api\/borrow-scheduler-settings$/
+      ];
+      for (const c of fetchCallLog) {
+        if (/binance/i.test(c.url)) {
+          throw new Error(`fetch 出现 Binance URL: ${c.url}`);
+        }
+        if (/^[a-z][a-z0-9+.-]*:\/\//i.test(c.url)) {
+          throw new Error(`fetch 出现绝对外部源: ${c.url}`);
+        }
+        if (!allowedPatterns.some(re => re.test(c.url))) {
+          throw new Error(`fetch URL 不在同源白名单: ${c.url}`);
+        }
+      }
+      // 方法白名单：快照/日志/任务列表 GET；任务创建/动作 POST；设置 GET/PUT
+      for (const c of fetchCallLog) {
+        if (c.url === '/api/borrow-scheduler-settings') {
+          if (c.method !== 'GET' && c.method !== 'PUT') throw new Error(`设置路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/borrow-tasks') {
+          if (c.method !== 'GET' && c.method !== 'POST') throw new Error(`任务路由非法方法 ${c.method}`);
+        } else if (/^\/api\/borrow-tasks\/[^/]+\//.test(c.url)) {
+          if (c.method !== 'POST') throw new Error(`任务动作路由非法方法 ${c.method}`);
+        } else if (c.method !== 'GET') {
+          throw new Error(`只读路由非法方法 ${c.method}: ${c.url}`);
+        }
+      }
+      // 无新定时器：全部 interval 注册只允许 60000 快照刷新与 1000 倒计时
+      for (const call of intervalCalls) {
+        if (call.delay !== 60000 && call.delay !== 1000) {
+          throw new Error(`存在非法任务定时器: delay=${call.delay}`);
+        }
+      }
+      // localStorage 仅隐私开关键（无任务持久化）
+      for (const k of Object.keys(localStorageData)) {
+        if (k !== 'funding_hedging_privacy_hidden') {
+          throw new Error(`localStorage 出现非隐私键: ${k}`);
+        }
+      }
+      console.log('[PASS] fetch 同源白名单、零 Binance/外域、零新任务定时器、localStorage 仅隐私键');
     }
 
     console.log('\n全部自检通过');

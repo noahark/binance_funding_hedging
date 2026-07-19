@@ -620,7 +620,7 @@
       margin-left: auto;
     }
 
-    /* 操作列（fake 借币任务创建控件） */
+    /* 操作列（借币任务创建控件） */
     .borrow-op-cell { white-space: normal; }
     .borrow-op-inputs {
       display: grid;
@@ -669,10 +669,9 @@
       gap: 2px;
       font-size: 13px;
     }
-    .borrow-task-disclaimer {
-      color: var(--warn);
+    .borrow-task-note {
+      color: var(--muted);
       font-size: 12px;
-      font-weight: 600;
     }
     .borrow-task-controls {
       display: flex;
@@ -723,6 +722,38 @@
       display: flex;
       gap: var(--space-2);
       flex-wrap: wrap;
+    }
+
+    /* 借币视图顶层 tab、全局调度间隔设置与借币日志 */
+    .borrow-view-tabs {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+    .borrow-settings-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-4);
+    }
+    #borrow-interval-input {
+      min-height: 32px;
+      width: 110px;
+      padding: 0 var(--space-2);
+      font-size: 12px;
+    }
+    .borrow-logs-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: var(--space-3);
+    }
+    .borrow-logs-more {
+      display: flex;
+      justify-content: center;
+    }
+    .borrow-logs-more .btn {
+      margin-top: var(--space-3);
     }
 
     @media (max-width: 1100px) {
@@ -908,15 +939,45 @@
         <div class="panel-header">
           <div class="panel-title">
             <h2>借币任务</h2>
-            <p class="subtitle">从市场表「操作」列创建的 fake 借币任务（仅当前浏览器会话内存）</p>
+            <p class="subtitle">任务与日志由后端 SQLite 持久化并调度；本阶段不发起真实借币（执行未启用）</p>
           </div>
-          <div class="panel-actions" id="borrow-task-filters"></div>
+          <div class="panel-actions">
+            <div class="borrow-view-tabs" role="tablist" aria-label="借币任务与日志视图切换">
+              <button class="btn compact primary" id="borrow-tab-tasks" type="button" role="tab" aria-selected="true">借币任务</button>
+              <button class="btn compact" id="borrow-tab-logs" type="button" role="tab" aria-selected="false">借币日志</button>
+            </div>
+          </div>
         </div>
         <div class="panel-body">
-          <div class="status-banner warn" style="margin-bottom: var(--space-4);">
-            前端演示：本页任务仅保存在浏览器内存，未发起真实借币请求，刷新页面后消失。
+          <div class="status-banner info" style="margin-bottom: var(--space-4);">
+            任务与日志持久化在后端（SQLite），刷新或重启不丢失；本阶段后端调度仅记录尝试结果、不发起真实借币，所有尝试结果均为「执行未启用」。浏览器不调度、不模拟、不请求 Binance。
           </div>
-          <div class="borrow-task-list" id="borrow-task-list"></div>
+          <div class="borrow-settings-row">
+            <div class="control">
+              <label for="borrow-interval-input">全局调度间隔（秒）</label>
+              <input id="borrow-interval-input" type="text" inputmode="decimal" placeholder="如 5 或 0.5" autocomplete="off"/>
+              <button class="btn compact primary" id="borrow-interval-confirm" type="button">确认</button>
+            </div>
+            <span class="muted small" id="borrow-interval-note">当前：—（调度设置未加载）</span>
+          </div>
+          <div class="borrow-op-error" id="borrow-interval-error" role="alert" aria-live="polite"></div>
+
+          <div id="borrow-tasks-panel">
+            <div id="borrow-task-filters" style="margin-bottom: var(--space-3);"></div>
+            <div class="status-banner error" id="borrow-tasks-error" style="display:none; margin-bottom: var(--space-3);"></div>
+            <div class="borrow-task-list" id="borrow-task-list"></div>
+          </div>
+
+          <div id="borrow-logs-panel" style="display:none;">
+            <div class="borrow-logs-toolbar">
+              <button class="btn compact" id="borrow-logs-refresh" type="button">刷新</button>
+            </div>
+            <div class="status-banner error" id="borrow-logs-error" style="display:none; margin-bottom: var(--space-3);"></div>
+            <div id="borrow-log-list"></div>
+            <div class="borrow-logs-more">
+              <button class="btn compact" id="borrow-logs-load-more" type="button" style="display:none;">加载更多</button>
+            </div>
+          </div>
         </div>
       </section>
     </main>
@@ -978,8 +1039,14 @@
         drawerLoading: false,
         drawerHistoryError: null,
         drawerNotice: null,
-        // 借币任务 fake 原型：仅会话内存；activeView: 'market' | 'borrow-tasks'
+        // 借币任务：后端 SQLite 是唯一权威；state.borrowTasks 只是最近一次
+        // GET /api/borrow-tasks 的渲染缓存。activeView: 'market' | 'borrow-tasks'
         borrowTasks: [],
+        borrowTasksError: null,
+        borrowSchedulerSettings: null,
+        borrowTab: 'tasks',
+        borrowLogs: { entries: [], nextCursor: null, loaded: false },
+        borrowLogsError: null,
         activeView: 'market',
         borrowTaskFilter: 'all'
       };
@@ -1020,7 +1087,20 @@
         marketView: document.getElementById('market-view'),
         borrowTaskView: document.getElementById('borrow-task-view'),
         borrowTaskList: document.getElementById('borrow-task-list'),
-        borrowTaskFilters: document.getElementById('borrow-task-filters')
+        borrowTaskFilters: document.getElementById('borrow-task-filters'),
+        borrowTabTasks: document.getElementById('borrow-tab-tasks'),
+        borrowTabLogs: document.getElementById('borrow-tab-logs'),
+        borrowTasksPanel: document.getElementById('borrow-tasks-panel'),
+        borrowLogsPanel: document.getElementById('borrow-logs-panel'),
+        borrowIntervalInput: document.getElementById('borrow-interval-input'),
+        borrowIntervalConfirm: document.getElementById('borrow-interval-confirm'),
+        borrowIntervalError: document.getElementById('borrow-interval-error'),
+        borrowIntervalNote: document.getElementById('borrow-interval-note'),
+        borrowTasksError: document.getElementById('borrow-tasks-error'),
+        borrowLogsError: document.getElementById('borrow-logs-error'),
+        borrowLogList: document.getElementById('borrow-log-list'),
+        borrowLogsRefresh: document.getElementById('borrow-logs-refresh'),
+        borrowLogsLoadMore: document.getElementById('borrow-logs-load-more')
       };
 
       function loadPrivacyHidden() {
@@ -2081,16 +2161,62 @@
         els.footerNote.textContent = `生成时间: ${generated} · 数据时间: ${dataTime} · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）`;
       }
 
-      // ---- 借币任务（前端 fake 原型：仅会话内存，无 fetch / 定时器 / 持久化） ----
-      let borrowTaskIdSeq = 0;
+      // ---- 借币任务（后端权威：任务真相来自同源 API，state.borrowTasks 仅为渲染缓存） ----
+      // 浏览器不调度、不模拟、不签名、不请求 Binance；所有任务动作都是用户触发的
+      // 同源 API 调用，渲染以服务端返回文档为准。
 
-      function parseBorrowAmount(raw) {
+      const BORROW_LOG_PAGE_LIMIT = 50;
+
+      const BORROW_TASK_STATUS_LABELS = { borrowing: '借币中', paused: '已暂停', deleted: '已删除', completed: '已完成' };
+      const BORROW_TASK_STATUS_BADGE = { borrowing: 'success', paused: 'muted', deleted: 'danger', completed: 'info' };
+      const BORROW_TASK_FILTERS = [
+        ['all', '全部'],
+        ['borrowing', '借币中'],
+        ['paused', '已暂停'],
+        ['deleted', '已删除'],
+        ['completed', '已完成']
+      ];
+      // 冻结的最近结果中文标签（breakdown §3.11）
+      const BORROW_RESULT_LABELS = {
+        success: '成功',
+        known_rejection: '已知拒绝',
+        rate_limited: '限频冷却',
+        unknown: '未知·待对账',
+        execution_disabled: '执行未启用'
+      };
+      const BORROW_RESULT_BADGE = { success: 'success', known_rejection: 'warn', rate_limited: 'info', unknown: 'danger', execution_disabled: 'muted' };
+
+      // 同源 JSON API 客户端：非 2xx 抛出携带后端 detail 的 Error（§3.7 错误形状）。
+      async function borrowApi(path, options) {
+        const opts = options || {};
+        const fetchOpts = { method: opts.method || 'GET' };
+        if (opts.body !== undefined) {
+          fetchOpts.headers = { 'Content-Type': 'application/json' };
+          fetchOpts.body = JSON.stringify(opts.body);
+        }
+        const res = await fetch(path, fetchOpts);
+        let data = null;
+        try { data = await res.json(); } catch (e) { data = null; }
+        if (!res.ok) {
+          const err = new Error(data && typeof data.detail === 'string' ? data.detail : `HTTP ${res.status}`);
+          err.errorCode = data && typeof data.error === 'string' ? data.error : 'unknown_error';
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      }
+
+      function borrowTaskActionPath(id, action) {
+        return `/api/borrow-tasks/${encodeURIComponent(id)}/${action}`;
+      }
+
+      // 十进制字符串校验：只接受 ^[0-9]+(\.[0-9]+)?$ 且值 > 0，原样上送（无 float）。
+      function normalizeBorrowAmount(raw) {
         if (raw === undefined || raw === null) return null;
         const s = String(raw).trim();
-        if (s === '') return null;
-        const n = Number(s);
-        if (!Number.isFinite(n) || n <= 0) return null;
-        return n;
+        if (!/^[0-9]+(\.[0-9]+)?$/.test(s)) return null;
+        if (!/[1-9]/.test(s)) return null;
+        return s;
       }
 
       function parseSuccessTarget(raw) {
@@ -2102,118 +2228,168 @@
         return n;
       }
 
-      // 校验并创建一条内存 fake 任务。资产取自该行 base_asset（HOME 等任意
-      // 资产走同一通用路径）。绝不发起 fetch、不启动重试定时器、不写持久化。
-      function createBorrowTask(symbol, amountRaw, countRaw) {
-        const row = (state.snapshot && state.snapshot.rows || []).find(r => r.symbol === symbol);
-        if (!row) return { ok: false, error: '未找到该行行情数据' };
-        const amount = parseBorrowAmount(amountRaw);
-        if (amount === null) return { ok: false, error: '单次借币数量必须是大于 0 的有限数值' };
-        const successTarget = parseSuccessTarget(countRaw);
-        if (successTarget === null) return { ok: false, error: '成功借币次数必须是大于 0 的整数' };
-        const task = {
-          id: ++borrowTaskIdSeq,
-          asset: row.base_asset,
-          amountPerAttempt: amount,
-          successTarget,
-          successCount: 0,
-          status: 'borrowing'
-        };
-        state.borrowTasks.push(task);
-        updateBorrowTaskNav();
-        if (state.activeView === 'borrow-tasks') renderBorrowTasks();
-        return { ok: true, task };
+      // 十进制字符串 × 正整数（BigInt，无 float），输出整数千分位、小数原样。
+      function multiplyDecimalString(decStr, intMultiplier) {
+        if (typeof decStr !== 'string' || !/^[0-9]+(\.[0-9]+)?$/.test(decStr)) return '—';
+        if (!Number.isInteger(intMultiplier) || intMultiplier <= 0) return '—';
+        const [intPart, fracPart = ''] = decStr.split('.');
+        const scaled = BigInt(intPart + fracPart) * BigInt(intMultiplier);
+        const raw = scaled.toString().padStart(fracPart.length + 1, '0');
+        const intOut = fracPart.length ? raw.slice(0, -fracPart.length) : raw;
+        const fracOut = fracPart.length ? raw.slice(-fracPart.length).replace(/0+$/, '') : '';
+        const intFormatted = Number(intOut).toLocaleString('en-US');
+        return fracOut ? `${intFormatted}.${fracOut}` : intFormatted;
       }
 
-      // 操作列确认按钮入口：读输入值 -> 创建 -> 就近显示/清除错误。
-      function submitBorrowTask(symbol) {
-        const amountEl = document.getElementById(`borrow-amount-${symbol}`);
-        const countEl = document.getElementById(`borrow-count-${symbol}`);
-        const errorEl = document.getElementById(`borrow-error-${symbol}`);
-        const result = createBorrowTask(symbol, amountEl ? amountEl.value : '', countEl ? countEl.value : '');
-        if (errorEl) errorEl.textContent = result.ok ? '' : result.error;
-        return result;
+      function findBorrowTask(id) {
+        return state.borrowTasks.find(t => t.id === id) || null;
       }
 
       function updateBorrowTaskNav() {
         els.borrowTaskCount.textContent = String(state.borrowTasks.length);
       }
 
-      function formatTaskAmount(value) {
-        // 整数千分位、小数原样；先经 toPrecision(12) 消除二进制浮点尾差。
-        if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
-        const normalized = Number(value.toPrecision(12));
-        const [intPart, fracPart] = String(normalized).split('.');
-        const intFormatted = Number(intPart).toLocaleString('en-US');
-        return fracPart !== undefined ? `${intFormatted}.${fracPart}` : intFormatted;
-      }
-
-      const BORROW_TASK_STATUS_LABELS = { borrowing: '借币中', paused: '已暂停', deleted: '已删除', completed: '已完成' };
-      const BORROW_TASK_STATUS_BADGE = { borrowing: 'success', paused: 'muted', deleted: 'danger', completed: 'info' };
-      const BORROW_TASK_FILTERS = [
-        ['all', '全部'],
-        ['borrowing', '借币中'],
-        ['paused', '已暂停'],
-        ['deleted', '已删除'],
-        ['completed', '已完成']
-      ];
-
-      function findBorrowTask(id) {
-        return state.borrowTasks.find(t => t.id === id) || null;
-      }
-
-      // 暂停/启动是互逆的纯 UI 转换：不触发 fetch / 定时器 / 进度变化。
-      function pauseBorrowTask(id) {
-        const task = findBorrowTask(id);
-        if (!task || task.status !== 'borrowing') return { ok: false, error: '仅借币中的任务可以暂停' };
-        task.status = 'paused';
-        renderBorrowTasks();
-        return { ok: true, task };
-      }
-
-      function startBorrowTask(id) {
-        const task = findBorrowTask(id);
-        if (!task || task.status !== 'paused') return { ok: false, error: '仅已暂停的任务可以启动' };
-        task.status = 'borrowing';
-        renderBorrowTasks();
-        return { ok: true, task };
-      }
-
-      // 删除 = 先应用本地 stop 语义（本阶段无调度器，stop 仅为状态语义）再软删除：
-      // 置 status='deleted'，对象绝不从 state.borrowTasks 移除；completed 也可删除。
-      function deleteBorrowTask(id) {
-        const task = findBorrowTask(id);
-        if (!task || task.status === 'deleted') return { ok: false, error: '任务已删除' };
-        task.status = 'deleted';
-        renderBorrowTasks();
-        return { ok: true, task };
-      }
-
-      // 仅 borrowing/paused 可编辑；保留 successCount，重算展示目标总量。
-      // 无效值或只读（deleted/completed）编辑：不改状态，返回错误由调用方就近展示。
-      function editBorrowTask(id, amountRaw, countRaw) {
-        const task = findBorrowTask(id);
-        if (!task) return { ok: false, error: '未找到该任务' };
-        if (task.status !== 'borrowing' && task.status !== 'paused') {
-          return { ok: false, error: '已删除/已完成的任务为只读，不能修改' };
+      // 任务列表是唯一任务真相来源；加载失败保留旧缓存渲染并显示错误横幅。
+      async function loadBorrowTasks() {
+        try {
+          const doc = await borrowApi('/api/borrow-tasks');
+          state.borrowTasks = Array.isArray(doc.tasks) ? doc.tasks : [];
+          state.borrowTasksError = null;
+        } catch (err) {
+          state.borrowTasksError = err.message || '借币任务加载失败';
         }
-        const amount = parseBorrowAmount(amountRaw);
-        if (amount === null) return { ok: false, error: '单次借币数量必须是大于 0 的有限数值' };
+        updateBorrowTaskNav();
+        renderBorrowTasks();
+      }
+
+      async function loadSchedulerSettings() {
+        try {
+          state.borrowSchedulerSettings = await borrowApi('/api/borrow-scheduler-settings');
+          if (els.borrowIntervalError) els.borrowIntervalError.textContent = '';
+        } catch (err) {
+          if (els.borrowIntervalError) els.borrowIntervalError.textContent = `调度设置加载失败：${err.message}`;
+        }
+        renderSchedulerSettings();
+      }
+
+      // 所有任务变更共用路径：调后端 → 用返回文档打补丁 → 重新拉取任务列表
+      // （§3.11 刷新策略 b）。前端不发明任务状态或执行结果；错误取后端 detail 原样。
+      async function mutateBorrowTask(request) {
+        let doc;
+        try {
+          doc = await request();
+        } catch (err) {
+          return { ok: false, error: err.message || '请求失败' };
+        }
+        if (doc && typeof doc.id === 'string') {
+          const idx = state.borrowTasks.findIndex(t => t.id === doc.id);
+          if (idx !== -1) state.borrowTasks[idx] = doc; else state.borrowTasks.push(doc);
+          updateBorrowTaskNav();
+          renderBorrowTasks();
+        }
+        await loadBorrowTasks();
+        return { ok: true, task: doc };
+      }
+
+      // 市场行确认创建：本地只做形状校验，随后 POST /api/borrow-tasks；返回文档
+      // 即后端状态（borrowing，立即可被后端调度），无需跳转或二次启动。
+      async function createBorrowTask(symbol, amountRaw, countRaw) {
+        const row = (state.snapshot && state.snapshot.rows || []).find(r => r.symbol === symbol);
+        if (!row) return { ok: false, error: '未找到该行行情数据' };
+        const amount = normalizeBorrowAmount(amountRaw);
+        if (amount === null) return { ok: false, error: '单次借币数量必须是大于 0 的十进制数值' };
         const successTarget = parseSuccessTarget(countRaw);
         if (successTarget === null) return { ok: false, error: '成功借币次数必须是大于 0 的整数' };
-        task.amountPerAttempt = amount;
-        task.successTarget = successTarget;
-        renderBorrowTasks();
-        return { ok: true, task };
+        return mutateBorrowTask(() => borrowApi('/api/borrow-tasks', {
+          method: 'POST',
+          body: { asset: row.base_asset, amount_per_attempt: amount, success_target: successTarget }
+        }));
       }
 
-      function submitBorrowTaskEdit(id) {
+      // 操作列确认按钮入口：读输入值 -> 创建 -> 就近显示/清除错误。
+      async function submitBorrowTask(symbol) {
+        const amountEl = document.getElementById(`borrow-amount-${symbol}`);
+        const countEl = document.getElementById(`borrow-count-${symbol}`);
+        const errorEl = document.getElementById(`borrow-error-${symbol}`);
+        const result = await createBorrowTask(symbol, amountEl ? amountEl.value : '', countEl ? countEl.value : '');
+        if (errorEl) errorEl.textContent = result.ok ? '' : result.error;
+        return result;
+      }
+
+      async function startBorrowTask(id) {
+        return mutateBorrowTask(() => borrowApi(borrowTaskActionPath(id, 'start'), { method: 'POST', body: {} }));
+      }
+
+      async function pauseBorrowTask(id) {
+        return mutateBorrowTask(() => borrowApi(borrowTaskActionPath(id, 'pause'), { method: 'POST', body: {} }));
+      }
+
+      // 删除 = 后端软删除（borrowing|paused|completed → deleted），任务行与其日志保留。
+      async function deleteBorrowTask(id) {
+        return mutateBorrowTask(() => borrowApi(borrowTaskActionPath(id, 'delete'), { method: 'POST', body: {} }));
+      }
+
+      // 编辑携带乐观并发 version；success_count 由后端保留。409 detail 原样返回并就近展示。
+      async function editBorrowTask(id, amountRaw, countRaw) {
+        const task = findBorrowTask(id);
+        if (!task) return { ok: false, error: '未找到该任务' };
+        const amount = normalizeBorrowAmount(amountRaw);
+        if (amount === null) return { ok: false, error: '单次借币数量必须是大于 0 的十进制数值' };
+        const successTarget = parseSuccessTarget(countRaw);
+        if (successTarget === null) return { ok: false, error: '成功借币次数必须是大于 0 的整数' };
+        return mutateBorrowTask(() => borrowApi(borrowTaskActionPath(id, 'edit'), {
+          method: 'POST',
+          body: { amount_per_attempt: amount, success_target: successTarget, version: task.version }
+        }));
+      }
+
+      async function submitBorrowTaskEdit(id) {
         const amountEl = document.getElementById(`task-edit-amount-${id}`);
         const countEl = document.getElementById(`task-edit-count-${id}`);
         const errorEl = document.getElementById(`task-edit-error-${id}`);
-        const result = editBorrowTask(id, amountEl ? amountEl.value : '', countEl ? countEl.value : '');
+        const result = await editBorrowTask(id, amountEl ? amountEl.value : '', countEl ? countEl.value : '');
         if (errorEl) errorEl.textContent = result.ok ? '' : result.error;
         return result;
+      }
+
+      function showBorrowTaskActionError(id, message) {
+        const errorEl = document.getElementById(`task-edit-error-${id}`);
+        if (errorEl) errorEl.textContent = message || '';
+      }
+
+      // 全局调度间隔：用户输入的十进制字符串原样 PUT；API 400 detail 就近展示。
+      async function submitSchedulerInterval() {
+        const raw = els.borrowIntervalInput ? els.borrowIntervalInput.value : '';
+        const s = String(raw === undefined || raw === null ? '' : raw).trim();
+        if (s === '') {
+          const msg = '调度间隔不能为空（十进制秒，如 5 或 0.5）';
+          if (els.borrowIntervalError) els.borrowIntervalError.textContent = msg;
+          return { ok: false, error: msg };
+        }
+        try {
+          state.borrowSchedulerSettings = await borrowApi('/api/borrow-scheduler-settings', {
+            method: 'PUT',
+            body: { interval_seconds: s }
+          });
+          if (els.borrowIntervalError) els.borrowIntervalError.textContent = '';
+          renderSchedulerSettings();
+          renderBorrowTasks();
+          return { ok: true, settings: state.borrowSchedulerSettings };
+        } catch (err) {
+          if (els.borrowIntervalError) els.borrowIntervalError.textContent = err.message || '调度间隔更新失败';
+          return { ok: false, error: err.message || '调度间隔更新失败' };
+        }
+      }
+
+      function renderSchedulerSettings() {
+        const settings = state.borrowSchedulerSettings;
+        const current = settings && typeof settings.interval_seconds === 'string' ? settings.interval_seconds : null;
+        if (els.borrowIntervalNote) {
+          els.borrowIntervalNote.textContent = current !== null
+            ? `当前：每 ${current} 秒后端全局轮转尝试一次（全部任务共用，确认后即时生效）`
+            : '当前：—（调度设置未加载）';
+        }
+        if (els.borrowIntervalInput && current !== null) els.borrowIntervalInput.value = current;
       }
 
       function setBorrowTaskFilter(filter) {
@@ -2221,7 +2397,7 @@
         renderBorrowTasks();
       }
 
-      // 计数与成员只从权威数组 state.borrowTasks 派生；全部 含软删除任务。
+      // 计数与成员只从渲染缓存（最近一次 GET /api/borrow-tasks）派生；全部 含软删除任务。
       function renderBorrowTaskFilters() {
         const counts = { borrowing: 0, paused: 0, deleted: 0, completed: 0 };
         state.borrowTasks.forEach(t => {
@@ -2234,8 +2410,21 @@
         }).join('');
       }
 
+      function borrowResultBadge(resultCategory) {
+        const label = BORROW_RESULT_LABELS[resultCategory] || String(resultCategory || '—');
+        const cls = BORROW_RESULT_BADGE[resultCategory] || 'muted';
+        return `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
+      }
+
       function renderBorrowTasks() {
         renderBorrowTaskFilters();
+        if (state.borrowTasksError) {
+          els.borrowTasksError.style.display = '';
+          els.borrowTasksError.textContent = `借币任务加载失败：${state.borrowTasksError}`;
+        } else {
+          els.borrowTasksError.style.display = 'none';
+          els.borrowTasksError.textContent = '';
+        }
         const tasks = state.borrowTaskFilter === 'all'
           ? state.borrowTasks
           : state.borrowTasks.filter(t => t.status === state.borrowTaskFilter);
@@ -2246,68 +2435,190 @@
           els.borrowTaskList.innerHTML = `<div class="empty-state">${emptyText}</div>`;
           return;
         }
-        els.borrowTaskList.innerHTML = tasks.map(task => {
-          const asset = escapeHtml(task.asset);
-          const amountText = formatTaskAmount(task.amountPerAttempt);
-          const totalText = formatTaskAmount(task.amountPerAttempt * task.successTarget);
-          const statusLabel = BORROW_TASK_STATUS_LABELS[task.status] || task.status;
-          const statusBadge = BORROW_TASK_STATUS_BADGE[task.status] || 'muted';
-          // 按钮矩阵：borrowing 禁启动；paused 禁暂停；completed 禁启动/暂停/编辑；
-          // deleted 全部禁用（含编辑只读）。
-          const startDisabled = task.status !== 'paused' ? ' disabled' : '';
-          const pauseDisabled = task.status !== 'borrowing' ? ' disabled' : '';
-          const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
-          const editDisabled = (task.status === 'deleted' || task.status === 'completed') ? ' disabled' : '';
-          return `
-            <div class="borrow-task-card" data-task-id="${task.id}">
-              <div class="borrow-task-head">
-                <h3>${asset}</h3>
-                <span class="badge ${statusBadge}">${statusLabel}</span>
-                <span class="badge warn">前端演示</span>
-              </div>
-              <div class="borrow-task-lines">
-                <div>单次数量：<strong>${amountText} ${asset}/次</strong></div>
-                <div>成功进度：<strong>${task.successCount} / ${task.successTarget} 次成功</strong></div>
-                <div>目标总量：目标 ${totalText} ${asset}</div>
-                <div>策略：每 30 秒尝试一次，失败等待下次，达到成功次数后停止</div>
-              </div>
-              <div class="borrow-task-controls">
-                <button class="btn compact action-start" type="button" data-task-action="start" data-task-id="${task.id}"${startDisabled}>启动</button>
-                <button class="btn compact action-pause" type="button" data-task-action="pause" data-task-id="${task.id}"${pauseDisabled}>暂停</button>
-                <button class="btn compact action-delete" type="button" data-task-action="delete" data-task-id="${task.id}"${deleteDisabled}>删除</button>
-              </div>
-              <div class="borrow-task-edit">
-                <label for="task-edit-amount-${task.id}">单次借币数量</label>
-                <input id="task-edit-amount-${task.id}" type="text" inputmode="decimal" value="${escapeHtml(String(task.amountPerAttempt))}"${editDisabled}/>
-                <label for="task-edit-count-${task.id}">成功借币次数目标</label>
-                <input id="task-edit-count-${task.id}" type="text" inputmode="numeric" value="${escapeHtml(String(task.successTarget))}"${editDisabled}/>
-                <button class="btn compact primary" type="button" data-task-edit-confirm="${task.id}"${editDisabled}>确认修改</button>
-              </div>
-              <div class="borrow-op-error" id="task-edit-error-${task.id}" role="alert" aria-live="polite"></div>
-              <div class="borrow-task-disclaimer">前端演示：未发起真实借币请求；该任务仅记录在当前浏览器会话内存中。</div>
-            </div>`;
-        }).join('');
+        const intervalText = state.borrowSchedulerSettings && typeof state.borrowSchedulerSettings.interval_seconds === 'string'
+          ? state.borrowSchedulerSettings.interval_seconds
+          : '—';
+        els.borrowTaskList.innerHTML = tasks.map(task => renderBorrowTaskCard(task, intervalText)).join('');
         bindBorrowTaskControls();
       }
 
+      function renderBorrowTaskCard(task, intervalText) {
+        const asset = escapeHtml(task.asset);
+        const amountText = formatPrice(task.amount_per_attempt);
+        const totalText = multiplyDecimalString(task.amount_per_attempt, task.success_target);
+        const statusLabel = BORROW_TASK_STATUS_LABELS[task.status] || task.status;
+        const statusBadge = BORROW_TASK_STATUS_BADGE[task.status] || 'muted';
+        const blocked = task.unresolved_attempt_id !== null && task.unresolved_attempt_id !== undefined;
+        const latestBadge = task.latest_result && task.latest_result.result_category
+          ? borrowResultBadge(task.latest_result.result_category)
+          : '<span class="badge muted">暂无执行记录</span>';
+        const blockedBadge = blocked
+          ? '<span class="badge danger" title="存在未知结果的尝试，后端已暂停调度该任务，等待对账">待对账·暂停调度</span>'
+          : '';
+        const blockedLine = blocked
+          ? '<div class="borrow-task-note">该任务存在未知结果的尝试，后端已暂停调度，等待对账；如需退出可删除该任务。</div>'
+          : '';
+        // 按钮矩阵：borrowing 禁启动；paused 禁暂停；completed 禁启动/暂停/编辑；
+        // deleted 全部禁用（含编辑只读）；待对账任务禁启动/暂停（不会被调度）。
+        const startDisabled = (task.status !== 'paused' || blocked) ? ' disabled' : '';
+        const pauseDisabled = (task.status !== 'borrowing' || blocked) ? ' disabled' : '';
+        const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
+        const editDisabled = (task.status === 'deleted' || task.status === 'completed') ? ' disabled' : '';
+        const idAttr = escapeHtml(task.id);
+        return `
+          <div class="borrow-task-card" data-task-id="${idAttr}">
+            <div class="borrow-task-head">
+              <h3>${asset}</h3>
+              <span class="badge ${statusBadge}">${statusLabel}</span>
+              ${latestBadge}
+              ${blockedBadge}
+            </div>
+            <div class="borrow-task-lines">
+              <div>单次数量：<strong>${amountText} ${asset}/次</strong></div>
+              <div>成功进度：<strong>${task.success_count} / ${task.success_target} 次成功</strong></div>
+              <div>目标总量：目标 ${totalText} ${asset}</div>
+              <div>策略：后端调度器每 ${escapeHtml(intervalText)} 秒全局轮转尝试一次，失败等待下次，达到成功次数后停止</div>
+              ${blockedLine}
+              <div class="borrow-task-note">任务持久化在后端；本阶段不发起真实借币（执行未启用）。</div>
+            </div>
+            <div class="borrow-task-controls">
+              <button class="btn compact action-start" type="button" data-task-action="start" data-task-id="${idAttr}"${startDisabled}>启动</button>
+              <button class="btn compact action-pause" type="button" data-task-action="pause" data-task-id="${idAttr}"${pauseDisabled}>暂停</button>
+              <button class="btn compact action-delete" type="button" data-task-action="delete" data-task-id="${idAttr}"${deleteDisabled}>删除</button>
+            </div>
+            <div class="borrow-task-edit">
+              <label for="task-edit-amount-${idAttr}">单次借币数量</label>
+              <input id="task-edit-amount-${idAttr}" type="text" inputmode="decimal" value="${escapeHtml(String(task.amount_per_attempt))}"${editDisabled}/>
+              <label for="task-edit-count-${idAttr}">成功借币次数目标</label>
+              <input id="task-edit-count-${idAttr}" type="text" inputmode="numeric" value="${escapeHtml(String(task.success_target))}"${editDisabled}/>
+              <button class="btn compact primary" type="button" data-task-edit-confirm="${idAttr}"${editDisabled}>确认修改</button>
+            </div>
+            <div class="borrow-op-error" id="task-edit-error-${idAttr}" role="alert" aria-live="polite"></div>
+          </div>`;
+      }
+
       // 列表按钮绑定（真实 DOM）；mock DOM 的 querySelectorAll 对任务选择器返回
-      // 空数组，自检经 __appHelpers 直测状态转换与编辑路径。
+      // 空数组，自检经 __appHelpers 直测 API 动作路径。
       function bindBorrowTaskControls() {
         if (typeof els.borrowTaskList.querySelectorAll !== 'function') return;
         els.borrowTaskList.querySelectorAll('[data-task-action]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const id = Number(btn.getAttribute('data-task-id'));
+          btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-task-id');
             const action = btn.getAttribute('data-task-action');
-            if (action === 'start') startBorrowTask(id);
-            else if (action === 'pause') pauseBorrowTask(id);
-            else if (action === 'delete') deleteBorrowTask(id);
+            let result = null;
+            if (action === 'start') result = await startBorrowTask(id);
+            else if (action === 'pause') result = await pauseBorrowTask(id);
+            else if (action === 'delete') result = await deleteBorrowTask(id);
+            if (result) showBorrowTaskActionError(id, result.ok ? '' : result.error);
           });
         });
         els.borrowTaskList.querySelectorAll('[data-task-edit-confirm]').forEach(btn => {
           btn.addEventListener('click', () => {
-            submitBorrowTaskEdit(Number(btn.getAttribute('data-task-edit-confirm')));
+            submitBorrowTaskEdit(btn.getAttribute('data-task-edit-confirm'));
           });
         });
+      }
+
+      // ---- 借币日志（newest-first 分页；只在 tab 激活/显式刷新拉第 1 页，加载更多用 next_cursor） ----
+      async function loadBorrowLogs(reset) {
+        const isReset = reset !== false;
+        const cursor = isReset ? null : state.borrowLogs.nextCursor;
+        if (!isReset && !cursor) return { ok: false, error: '没有更多日志' };
+        let path = `/api/borrow-logs?limit=${BORROW_LOG_PAGE_LIMIT}`;
+        if (cursor) path += `&cursor=${encodeURIComponent(cursor)}`;
+        try {
+          const doc = await borrowApi(path);
+          const entries = Array.isArray(doc.entries) ? doc.entries : [];
+          state.borrowLogs.entries = isReset ? entries : state.borrowLogs.entries.concat(entries);
+          state.borrowLogs.nextCursor = typeof doc.next_cursor === 'string' ? doc.next_cursor : null;
+          state.borrowLogs.loaded = true;
+          state.borrowLogsError = null;
+        } catch (err) {
+          state.borrowLogsError = err.message || '借币日志加载失败';
+        }
+        renderBorrowLogs();
+        return state.borrowLogsError ? { ok: false, error: state.borrowLogsError } : { ok: true };
+      }
+
+      function borrowLogTimeText(entry) {
+        const raw = entry.finished_at || entry.dispatched_at || entry.scheduled_at || null;
+        if (!raw) return '—';
+        const ms = new Date(raw).getTime();
+        return Number.isNaN(ms) ? '—' : formatBeijing(ms);
+      }
+
+      function renderBorrowLogs() {
+        if (state.borrowLogsError) {
+          els.borrowLogsError.style.display = '';
+          els.borrowLogsError.textContent = `借币日志加载失败：${state.borrowLogsError}`;
+        } else {
+          els.borrowLogsError.style.display = 'none';
+          els.borrowLogsError.textContent = '';
+        }
+        const entries = state.borrowLogs.entries;
+        if (entries.length === 0) {
+          els.borrowLogList.innerHTML = '<div class="empty-state"><strong>暂无借币日志</strong><br/><span class="muted small">后端每次调度尝试都会在此留下持久化记录（最新在前）</span></div>';
+        } else {
+          els.borrowLogList.innerHTML = `
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>时间</th>
+                    <th>资产</th>
+                    <th>结果</th>
+                    <th>原因 / 业务码</th>
+                    <th>请求数量</th>
+                    <th>tran_id</th>
+                    <th>耗时</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${entries.map(entry => {
+                    const resultBadge = entry.outcome === 'pending'
+                      ? '<span class="badge muted">进行中</span>'
+                      : borrowResultBadge(entry.result_category);
+                    const reason = [entry.reason, entry.business_code]
+                      .filter(v => v !== null && v !== undefined && v !== '')
+                      .join(' / ') || '—';
+                    const latency = (entry.latency_ms === null || entry.latency_ms === undefined) ? '—' : `${entry.latency_ms} ms`;
+                    return `
+                      <tr>
+                        <td class="mono">${escapeHtml(borrowLogTimeText(entry))}</td>
+                        <td>${escapeHtml(entry.asset || '—')}</td>
+                        <td>${resultBadge}</td>
+                        <td>${escapeHtml(reason)}</td>
+                        <td class="mono">${escapeHtml(entry.requested_amount || '—')}</td>
+                        <td class="mono">${escapeHtml(entry.tran_id || '—')}</td>
+                        <td class="mono">${latency}</td>
+                      </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>`;
+        }
+        els.borrowLogsLoadMore.style.display = state.borrowLogs.nextCursor ? '' : 'none';
+      }
+
+      // 借币视图内顶层 tab：借币任务 | 借币日志。状态筛选只在任务 tab 内。
+      function setBorrowTab(tab) {
+        state.borrowTab = tab === 'logs' ? 'logs' : 'tasks';
+        const isLogs = state.borrowTab === 'logs';
+        els.borrowTasksPanel.style.display = isLogs ? 'none' : '';
+        els.borrowLogsPanel.style.display = isLogs ? '' : 'none';
+        if (isLogs) {
+          els.borrowTabLogs.classList.add('primary');
+          els.borrowTabTasks.classList.remove('primary');
+          els.borrowTabLogs.setAttribute('aria-selected', 'true');
+          els.borrowTabTasks.setAttribute('aria-selected', 'false');
+          loadBorrowLogs(true);
+        } else {
+          els.borrowTabTasks.classList.add('primary');
+          els.borrowTabLogs.classList.remove('primary');
+          els.borrowTabTasks.setAttribute('aria-selected', 'true');
+          els.borrowTabLogs.setAttribute('aria-selected', 'false');
+          loadBorrowTasks();
+        }
       }
 
       function setActiveView(view) {
@@ -2320,7 +2631,14 @@
           els.navMarket.classList.remove('active');
           els.navBorrowTasks.setAttribute('aria-current', 'page');
           els.navMarket.removeAttribute('aria-current');
+          // 进入借币视图：拉取后端任务列表与调度设置（§3.11 刷新策略 a）；
+          // 日志 tab 激活时同时拉取日志第 1 页。先用缓存渲染一帧。
           renderBorrowTasks();
+          renderSchedulerSettings();
+          renderBorrowLogs();
+          loadBorrowTasks();
+          loadSchedulerSettings();
+          if (state.borrowTab === 'logs') loadBorrowLogs(true);
         } else {
           els.navMarket.classList.add('active');
           els.navBorrowTasks.classList.remove('active');
@@ -2401,12 +2719,22 @@
             closeDrawer();
           }
         }
+        // 既有快照刷新 tick 顺带刷新借币任务列表（仅当借币视图激活；
+        // §3.11 刷新策略 c —— 它永远不是任务执行时钟，日志不随 tick 轮询）
+        if (state.activeView === 'borrow-tasks') {
+          loadBorrowTasks();
+        }
       }
 
       function bindEvents() {
         els.btnRefresh.addEventListener('click', loadApi);
         els.navMarket.addEventListener('click', () => setActiveView('market'));
         els.navBorrowTasks.addEventListener('click', () => setActiveView('borrow-tasks'));
+        els.borrowTabTasks.addEventListener('click', () => setBorrowTab('tasks'));
+        els.borrowTabLogs.addEventListener('click', () => setBorrowTab('logs'));
+        els.borrowIntervalConfirm.addEventListener('click', () => { submitSchedulerInterval(); });
+        els.borrowLogsRefresh.addEventListener('click', () => { loadBorrowLogs(true); });
+        els.borrowLogsLoadMore.addEventListener('click', () => { loadBorrowLogs(false); });
         // 筛选按钮经容器事件委托（按钮随 renderBorrowTaskFilters 重渲染）
         els.borrowTaskFilters.addEventListener('click', (e) => {
           const btn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-borrow-filter]') : null;
@@ -2480,7 +2808,16 @@
         editBorrowTask,
         submitBorrowTaskEdit,
         setBorrowTaskFilter,
-        getBorrowTaskFilter: () => state.borrowTaskFilter
+        getBorrowTaskFilter: () => state.borrowTaskFilter,
+        loadBorrowTasks,
+        loadSchedulerSettings,
+        submitSchedulerInterval,
+        getBorrowSchedulerSettings: () => state.borrowSchedulerSettings,
+        setBorrowTab,
+        getBorrowTab: () => state.borrowTab,
+        loadBorrowLogs,
+        getBorrowLogs: () => state.borrowLogs,
+        multiplyDecimalString
       };
 
       bindEvents();
