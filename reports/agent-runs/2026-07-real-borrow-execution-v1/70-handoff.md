@@ -55,6 +55,7 @@
   (**Fable5 breakdown involvement disclosed; user selected configured fallback**)
 - Superseded Review-2 packet: `review-2-codex.prompt.md` (prepared but not dispatched)
 - Active Review-2 packet: `review-2-fable5.prompt.md` (**prepared; human execution required**)
+- Fable5 Review-2 preflight validator: `64-review-2-fable5-preflight-validation.txt` (**PASS**)
 - Review-2 preflight validator: `63-review-2-preflight-validation.txt` (**PASS**)
 - Status JSON: `status.json`
 
