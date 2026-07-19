@@ -2,6 +2,7 @@
   "stage_id": "<stage-id>",
   "status": "planned",
   "workflow": "stage-delivery",
+  "review_artifact_protocol": "raw-plus-strict-json/v1",
   "stage_branch": {
     "name": null,
     "created_from_main_sha": null,
@@ -23,7 +24,11 @@
     "enabled": false,
     "contract": "docs/parallel-development-mode.md",
     "r10_dispatch_tail_required": false,
-    "r4_diff_reconciliation_required": false
+    "r4_diff_reconciliation_required": false,
+    "embedded_review": {
+      "enabled": false,
+      "reason": null
+    }
   },
   "embedded_reviews": {},
   "session_receipts": [],
@@ -52,7 +57,9 @@
         "model": null,
         "verdict": null,
         "json_schema_valid": null,
-        "diff_fingerprint": null
+        "diff_fingerprint": null,
+        "raw_output_path": null,
+        "verdict_path": null
       }
     }
   ],
@@ -90,6 +97,8 @@
     "verdict": null,
     "json_schema_valid": null,
     "diff_fingerprint": null,
+    "raw_output_path": null,
+    "verdict_path": null,
     "covers_through_task": null,
     "reviewer_prior_involvement": "none",
     "fix_start_prompt_present": null,
@@ -115,6 +124,8 @@
     "verdict": null,
     "json_schema_valid": null,
     "diff_fingerprint": null,
+    "raw_output_path": null,
+    "verdict_path": null,
     "covers_through_task": null,
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,

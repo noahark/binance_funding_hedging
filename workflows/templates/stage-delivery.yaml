@@ -28,7 +28,9 @@ guards:
   forbid_rebase: true
   require_committed_state_before_review: true
   model_dispatch_execution_requires_human: true
-  codex_gpt_claude_must_not_execute_model_dispatch: true
+  no_model_session_may_execute_model_dispatch: true
+  external_dispatch_executor: human_operator
+  review_artifact_protocol_default: "raw-plus-strict-json/v1"
   forbid_worktree_fingerprint: true
   validate_stage_script: "scripts/validate-stage.py"
   fail_closed_on_invalid_json: true
@@ -36,6 +38,7 @@ guards:
   parallel_mode_contract: "docs/parallel-development-mode.md"
   require_r10_dispatch_tail_when_parallel_mode: true
   require_r4_diff_reconciliation_before_parallel_task_commits: true
+  embedded_review_requires_explicit_opt_in: "parallel_mode.embedded_review.enabled=true plus a non-empty reason"
   max_rework_per_stage: 3
   no_self_review:
     final_reviewer_prefer_not_designer: true
@@ -72,10 +75,27 @@ artifacts:
     - 60-test-output.txt
     - 70-handoff.md
     - status.json
+  review_artifact_protocol_v1:
+    # Under review_artifact_protocol raw-plus-strict-json/v1 the authoritative
+    # review gate artifacts are the raw/verdict pairs below; bare 30-review-1.md
+    # and 50-review-2.md become non-authoritative compatibility narratives.
+    task_review_1_pair:
+      - "30-review-1-<task-id>[-retry-N].raw-output.md"
+      - "30-review-1-<task-id>[-retry-N].verdict.json"
+    serial_review_1_pair:
+      - "30-review-1[-retry-N].raw-output.md"
+      - "30-review-1[-retry-N].verdict.json"
+    review_2_pair:
+      - "50-review-2[-retry-N].raw-output.md"
+      - "50-review-2[-retry-N].verdict.json"
+    selected_attempt_recorded_in: "status.json review_1/review_2 (and tasks[].review_1) raw_output_path/verdict_path"
+    capture_helper: "scripts/review_artifacts.py capture (human-invoked, capture-only)"
   conditional_files:
     medium_high_milestone:
       - 12-development-breakdown.md
-    parallel_development_with_embedded_cross_review:
+    embedded_review_opt_in_only:
+      # Required only when parallel_mode.embedded_review.enabled=true with a
+      # recorded reason; embedded review never replaces formal Review-1.
       - "embedded-review-<task-id>-round<N>.diff.patch"
       - "embedded-review-<task-id>-round<N>.dispatch.md"
       - "embedded-review-<task-id>-round<N>.raw-output.md"
@@ -110,7 +130,8 @@ session_receipts:
     - "Use provider-native runtime or runner evidence; never invent a Session ID."
     - "If no ID is exposed, write unavailable with a reason and preserve the raw output path."
     - "Session IDs are navigation metadata only; raw artifacts and committed state remain review evidence."
-    - "For strict JSON verdicts, place the navigation footer before the final JSON object."
+    - "Protocol-v1 review stdout is exactly one JSON object and carries no navigation footer; navigation, timestamps, producer exit status, and Session ID source live in the operator capture receipt and status.json.session_receipts."
+    - "Legacy (pre-protocol) strict JSON verdicts place the navigation footer before the final JSON object."
 
 rotation:
   complexity_evaluator:
@@ -464,7 +485,6 @@ stages:
       - "source files within task boundary"
       - "tests within task boundary"
       - "reports/agent-runs/{{stage_id}}/20-implementation.md"
-      - "parallel-mode embedded review artifacts when R10 next_dispatch is executed"
     routing_rules:
       - "Apply status.json.model_routing stage-specific owner and exclusion rules before generic actor_pool selection."
       - "A model listed in status.json.model_routing.excluded_for_core_work is ineligible for current-stage implementation even if it appears in this generic actor_pool."
@@ -474,23 +494,24 @@ stages:
       - "If backend work is the large majority and frontend work is light, dispatch the whole bounded task to claude_glm."
       - "If frontend work is the large majority and backend work is light, dispatch the whole bounded task to kimi."
       - "If backend and frontend work are both substantial and separable, split implementation by domain owner."
-      - "Bookkeeper, Codex/GPT, and Claude sessions prepare implementation dispatch packets only; the human operator executes them in the selected implementer terminal."
-      - "When docs/parallel-development-mode.md applies, the implementer must execute or escalate any next_dispatch marked executor:self before reporting completion."
+      - "All model sessions prepare dispatch packets only; the human operator executes every external dispatch in the selected implementer terminal."
+      - "No model session may invoke another model or model adapter. A session that reaches an external next_dispatch stops and returns the prepared packet path; every external dispatch records executor: human_operator."
     acceptance:
       - "Changed files match task boundaries or deviations are explained."
       - "Implementation report lists design decisions and tests run."
-      - "Parallel-mode implementation reports include the R10 receipt block, embedded review output path, and PASS/BLOCKER disposition."
+      - "When parallel_mode.embedded_review.enabled=true, implementation reports include the embedded checkpoint output path and PASS/BLOCKER disposition."
       - "The implementation report footer and status.json.session_receipts capture Session ID provenance and the raw output path."
 
   - id: embedded-cross-review-checkpoint
     run_when:
       - "docs/parallel-development-mode.md applies"
-      - "an implementation task dispatch packet declares next_dispatch with executor:self"
+      - "the stage explicitly opts in with parallel_mode.embedded_review.enabled=true and a recorded reason"
       - "before the bookkeeper creates H_A/H_B committed evidence"
-    actor: implementing_terminal
+    actor: embedded_reviewer_fresh_read_only_session
+    dispatch_executor: human_operator
     skill: code_reviewer
     mode: read_only_checkpoint
-    status_effect: "remain implementing; this is not formal review-1"
+    status_effect: "remain implementing; this is not formal review-1 and never replaces it"
     reads:
       - "prewritten prompt path from the implementation task's R10 dispatch tail"
       - "task-local diff.patch generated by the exact R10 command"
@@ -501,8 +522,9 @@ stages:
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.raw-output.md"
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.fix-note.md when fixed"
     rules:
-      - "The implementing terminal only executes a prewritten adapter command; it must not rewrite the review prompt or select different artifacts."
+      - "The human operator executes the prewritten adapter command from the dispatch file; no model session rewrites the review prompt, selects different artifacts, or launches the reviewer itself."
       - "The reviewer session must be fresh and read-only/plan mode."
+      - "Each executed round records a non-formal result PASS|BLOCKER in status.json embedded_reviews round_artifacts; this result is not a Review-1 verdict and does not use the verdict schema."
       - "Local embedded review/fix loops are capped at two rounds and do not count as stage rework_count."
       - "A scope-contained BLOCKER routes to a local implementation fix, then embedded review round 2."
       - "Round 2 is the cap. A second BLOCKER, scope/contract dispute, missing evidence, or unsafe fix requirement escalates to bookkeeper-decision."
@@ -570,10 +592,10 @@ stages:
       - "Bookkeeper must locally commit reviewed artifacts before preparing the human-executed dispatch packet."
       - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_1."
-      - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
+      - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log. Under protocol v1 this preflight (status review_1) validates protocol and routing only; the Review-1 result pair cannot exist yet and is not required."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring the reviewer unavailable."
-      - "Codex/GPT and Claude sessions prepare review-1 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
+      - "All model sessions prepare review-1 dispatch packets only; the human operator executes them in the target model terminal, captures the producer exit status, and records raw output evidence."
     actor:
       selection: rotation.review_1
     skill: code_reviewer
@@ -599,13 +621,23 @@ stages:
       reviewer_session_must_be_fresh: true
       reviewer_may_equal_designer: true
     writes:
-      - "reports/agent-runs/{{stage_id}}/30-review-1.md"
+      protocol_raw_plus_strict_json_v1:
+        - "reports/agent-runs/{{stage_id}}/30-review-1-<task-id>[-retry-N].raw-output.md and .verdict.json for task reviews"
+        - "reports/agent-runs/{{stage_id}}/30-review-1[-retry-N].raw-output.md and .verdict.json for serial reviews"
+      legacy:
+        - "reports/agent-runs/{{stage_id}}/30-review-1.md"
     output_contract:
       schema: schemas/review-verdict.schema.json
-      navigation_footer:
-        required: true
-        position: before_final_json_object
-        status_receipt_required: true
+      protocol_raw_plus_strict_json_v1:
+        stdout: "exactly one JSON object; no Markdown, no fences, no narrative, no navigation footer"
+        raw_output: "exact captured stdout persisted as the .raw-output.md attempt file"
+        verdict: "deterministic canonical JSON published by scripts/review_artifacts.py capture; the .verdict.json file is the gate authority"
+        navigation_and_session_data: "operator capture receipt and status.json.session_receipts only; never inside reviewer_prior_involvement_notes or outside the verdict JSON"
+      legacy:
+        navigation_footer:
+          required: true
+          position: before_final_json_object
+          status_receipt_required: true
       rework_requires_fix_start_prompt: true
       fix_start_prompt:
         required_when: "verdict == REWORK"
@@ -626,6 +658,7 @@ stages:
         first: retry_same_model_once
         max_attempts_per_model: 2
         then: human_escalation_required
+        retry_artifacts: "each retry uses new -retry-N raw/verdict attempt paths; status points to the selected attempt"
     transitions:
       ACCEPT: review-2
       REWORK: fix
@@ -671,11 +704,11 @@ stages:
       - "Bookkeeper must locally commit reviewed artifacts before preparing the human-executed dispatch packet."
       - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_2."
-      - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
+      - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log. Under protocol v1 this preflight (status review_2) requires every task/serial Review-1 raw+verdict pair to pass; the Review-2 pair cannot exist yet and is not required."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring Codex or Claude unavailable."
       - "If the selected final reviewer participated in direction synthesis, breakdown, or design, record the design-conflict override evidence before preparing dispatch."
-      - "Codex/GPT and Claude sessions prepare review-2 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
+      - "All model sessions prepare review-2 dispatch packets only; the human operator executes them in the target model terminal, captures the producer exit status, and records raw output evidence."
     actor:
       primary: codex
       fallback: claude
@@ -730,13 +763,22 @@ stages:
       - "Use the user-approved synthesis, PRD, and product documents as higher authority than 00-task.md/10-design.md/11-adr.md."
       - "Disclose the prior involvement in the narrative and in the strict JSON verdict."
     writes:
-      - "reports/agent-runs/{{stage_id}}/50-review-2.md"
+      protocol_raw_plus_strict_json_v1:
+        - "reports/agent-runs/{{stage_id}}/50-review-2[-retry-N].raw-output.md and .verdict.json"
+      legacy:
+        - "reports/agent-runs/{{stage_id}}/50-review-2.md"
     output_contract:
       schema: schemas/review-verdict.schema.json
-      navigation_footer:
-        required: true
-        position: before_final_json_object
-        status_receipt_required: true
+      protocol_raw_plus_strict_json_v1:
+        stdout: "exactly one JSON object; no Markdown, no fences, no narrative, no navigation footer"
+        raw_output: "exact captured stdout persisted as the .raw-output.md attempt file"
+        verdict: "deterministic canonical JSON published by scripts/review_artifacts.py capture; the .verdict.json file is the gate authority"
+        navigation_and_session_data: "operator capture receipt and status.json.session_receipts only; never inside reviewer_prior_involvement_notes or outside the verdict JSON"
+      legacy:
+        navigation_footer:
+          required: true
+          position: before_final_json_object
+          status_receipt_required: true
       reviewer_prior_involvement_required: true
       rework_requires_fix_start_prompt: true
       fix_start_prompt:
@@ -759,6 +801,7 @@ stages:
         max_attempts_per_model: 2
         then: fallback_if_allowed
         exhausted: human_escalation_required
+        retry_artifacts: "each retry uses new -retry-N raw/verdict attempt paths; status points to the selected attempt"
     transitions:
       ACCEPT: stage_accepted_waiting_user
       REWORK: fix

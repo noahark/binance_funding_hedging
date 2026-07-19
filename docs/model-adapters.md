@@ -16,16 +16,61 @@ The registry remains the machine-readable source of routing truth:
 - Development/fix agents may use write mode only inside the active stage scope.
 - Yolo/bypass modes require explicit user or runner authorization. They are not
   default review modes.
-- Codex/GPT and Claude provider sessions may prepare dispatch prompt files and
-  command templates, but must not execute model-dispatch commands or invoke
-  other model terminals. Human operators execute prepared dispatch packets in
-  the selected model terminal and record the raw output or receipt evidence.
+- No model session of any provider may execute model-dispatch commands or
+  invoke another model terminal or adapter. Model sessions prepare dispatch
+  prompt files and command templates only, then stop and return the packet
+  path. Human operators execute prepared dispatch packets in the selected model
+  terminal, capture the producer exit status, and record the raw output or
+  receipt evidence with `executor: human_operator`.
 - A model is unavailable only after the runner-level adapter check fails. A
   bookkeeper or implementation session lacking a built-in tool for that model is
   not enough.
 - For review gates, use `base_sha` and `head_sha` from `status.json`. Do not use
   the moving symbolic `HEAD` when unrelated Harness commits may have happened
   after the reviewed stage commit.
+
+## Review Output Capture (Protocol v1)
+
+Under `review_artifact_protocol: raw-plus-strict-json/v1`, a formal review's
+stdout is exactly one JSON object. The human operator runs the review adapter,
+captures the exit status, and only then invokes the capture-only helper to
+publish the canonical verdict:
+
+```bash
+# 1. Human-launched review; stdout captured to the frozen raw attempt path.
+claude --model claude-fable-5 --permission-mode plan \
+  -p "$(cat <review-prompt-file>)" \
+  > reports/agent-runs/<stage-id>/30-review-1.raw-output.md
+producer_exit=$?
+echo "producer_exit=${producer_exit}"
+
+# 2. Capture-only normalization; the helper never dispatches anything.
+python3 scripts/review_artifacts.py capture \
+  --raw reports/agent-runs/<stage-id>/30-review-1.raw-output.md \
+  --verdict reports/agent-runs/<stage-id>/30-review-1.verdict.json \
+  --schema schemas/review-verdict.schema.json \
+  --producer-exit-status "${producer_exit}"
+helper_exit=$?
+echo "helper_exit=${helper_exit}"
+```
+
+Rules:
+
+- Prefer redirecting stdout to the raw file as above so the producer exit
+  status is captured directly. If a pipeline (for example `| tee`) is ever
+  used, `set -o pipefail` is mandatory and the producer and helper exit
+  results must still be exposed separately; no example may hide a failure in
+  the left side of a pipe.
+- A non-zero producer exit fails the attempt. The captured raw bytes stay in
+  place as attempt evidence; retries use a new `-retry-N` attempt path.
+- The helper refuses to overwrite an existing verdict and publishes
+  atomically; it never selects a model, never runs an adapter, never edits
+  stage state, and never advances the workflow.
+- Producer exit status, Session ID, and navigation data belong in the operator
+  receipt and `status.json.session_receipts`, not inside the verdict JSON.
+- One-shot output capture is preferred. If a review ran in an interactive
+  session, export the exact transcript bytes to the raw attempt file; a
+  paraphrased or partial transcript is not raw evidence.
 
 ## Session ID Capture And Execution Receipts
 

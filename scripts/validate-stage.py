@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 import hashlib
+import importlib.util
 import json
 import re
 import subprocess
@@ -18,6 +19,27 @@ import sys
 from pathlib import Path
 from typing import Any
 
+
+_REVIEW_ARTIFACTS_MODULE = None
+
+
+def review_artifacts_module():
+    """Load scripts/review_artifacts.py (shared protocol-v1 helpers) once."""
+    global _REVIEW_ARTIFACTS_MODULE
+    if _REVIEW_ARTIFACTS_MODULE is None:
+        spec = importlib.util.spec_from_file_location(
+            "review_artifacts", Path(__file__).with_name("review_artifacts.py")
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _REVIEW_ARTIFACTS_MODULE = module
+    return _REVIEW_ARTIFACTS_MODULE
+
+
+PROTOCOL_V1 = "raw-plus-strict-json/v1"
+REVIEW_1_ROLES = {"first_reviewer"}
+REVIEW_2_ROLES = {"final_reviewer", "reality_checker"}
+EMBEDDED_ROUND_RESULTS = {"PASS", "BLOCKER"}
 
 ALLOWED_STATUSES = {
     "planned",
@@ -409,6 +431,223 @@ def evidence_path_exists(root: Path, stage_dir: Path, value: Any) -> bool:
     return False
 
 
+def active_stage_id(root: Path) -> str | None:
+    """Return the stage id named by reports/agent-runs/ACTIVE.json, or None.
+
+    ACTIVE.json is the explicit active-stage evidence used by the protocol-v1
+    gate (no date heuristics). A missing pointer file means no active-stage
+    evidence; a malformed one fails closed."""
+    path = root / "reports" / "agent-runs" / "ACTIVE.json"
+    if not path.is_file():
+        return None
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValidationError(f"invalid ACTIVE.json: {exc}") from exc
+    active = doc.get("active") if isinstance(doc, dict) else None
+    if isinstance(active, dict) and active.get("stage_id"):
+        return str(active["stage_id"])
+    return None
+
+
+def _protocol_pair_errors(
+    root: Path,
+    stage_dir: Path,
+    status_doc: dict[str, Any],
+    record: Any,
+    *,
+    kind: str,
+    task_id: str | None,
+    prefix: str,
+    implementer_identities: set[str],
+    expected_fingerprint: str | None,
+    require_accept: bool,
+) -> list[str]:
+    """Validate one protocol-v1 raw/verdict pair selected by a status review
+    record, then cross-check the parsed verdict against the authoritative
+    status fields. The verdict file is the authority; matching status fields
+    are derived cache and must agree with the parsed file."""
+    ra = review_artifacts_module()
+    if not isinstance(record, dict):
+        return [f"{prefix} must be an object recording the protocol-v1 raw/verdict pair"]
+    errors: list[str] = []
+
+    raw_path, raw_attempt, raw_errors = ra.resolve_stage_local_artifact(
+        root, stage_dir, record.get("raw_output_path"), kind, task_id,
+        ra.RAW_SUFFIX, f"{prefix}.raw_output_path",
+    )
+    errors.extend(raw_errors)
+    verdict_path, verdict_attempt, verdict_errors = ra.resolve_stage_local_artifact(
+        root, stage_dir, record.get("verdict_path"), kind, task_id,
+        ra.VERDICT_SUFFIX, f"{prefix}.verdict_path",
+    )
+    errors.extend(verdict_errors)
+    if errors:
+        return errors
+    if raw_attempt != verdict_attempt:
+        return [
+            f"{prefix} raw_output_path and verdict_path select different attempts "
+            f"({raw_attempt or 'base'} vs {verdict_attempt or 'base'})"
+        ]
+
+    obj, pair_errors = ra.load_and_parse_pair(raw_path, verdict_path, prefix)
+    errors.extend(pair_errors)
+    if obj is None:
+        return errors
+
+    expected_stage_id = str(status_doc.get("stage_id") or stage_dir.name)
+    if obj.get("stage_id") != expected_stage_id:
+        errors.append(
+            f"{prefix} verdict stage_id {obj.get('stage_id')!r} does not match stage {expected_stage_id!r}"
+        )
+
+    expected_roles = REVIEW_2_ROLES if kind == "review_2" else REVIEW_1_ROLES
+    if obj.get("role") not in expected_roles:
+        errors.append(f"{prefix} verdict role must be one of {sorted(expected_roles)}, got {obj.get('role')!r}")
+
+    recorded_model = record.get("model")
+    if not _nonempty_string(recorded_model):
+        errors.append(f"{prefix}.model must record the reviewer model")
+    elif obj.get("model") != recorded_model:
+        errors.append(
+            f"{prefix} verdict model {obj.get('model')!r} does not match status-recorded model {recorded_model!r}"
+        )
+
+    reviewer_identity = review_provider_identity(record)
+    if not reviewer_identity:
+        errors.append(f"{prefix} must record a normalizable reviewer provider for isolation checks")
+    elif reviewer_identity in implementer_identities:
+        errors.append(
+            f"{prefix} reviewer provider identity {reviewer_identity!r} matches an implementation/fix "
+            "author provider identity; self-review is forbidden"
+        )
+
+    recorded_fingerprint = record.get("diff_fingerprint")
+    if not _nonempty_string(recorded_fingerprint):
+        errors.append(f"{prefix}.diff_fingerprint must record the reviewed fingerprint")
+    elif obj.get("diff_fingerprint") != recorded_fingerprint:
+        errors.append(
+            f"{prefix} verdict diff_fingerprint {obj.get('diff_fingerprint')!r} does not match "
+            f"status-recorded {recorded_fingerprint!r}"
+        )
+    if expected_fingerprint and obj.get("diff_fingerprint") != expected_fingerprint:
+        errors.append(
+            f"{prefix} verdict diff_fingerprint {obj.get('diff_fingerprint')!r} does not match the "
+            f"committed task fingerprint {expected_fingerprint!r}"
+        )
+
+    recorded_verdict = record.get("verdict")
+    if recorded_verdict is not None and obj.get("verdict") != recorded_verdict:
+        errors.append(
+            f"{prefix} verdict value {obj.get('verdict')!r} does not match status-recorded {recorded_verdict!r}"
+        )
+    if require_accept and obj.get("verdict") != "ACCEPT":
+        errors.append(f"{prefix} verdict must be ACCEPT before this phase, got {obj.get('verdict')!r}")
+
+    return errors
+
+
+def validate_review_artifact_protocol(
+    root: Path,
+    stage_dir: Path,
+    status_doc: dict[str, Any],
+    phase: str,
+    active_id: str | None,
+) -> list[str]:
+    """Protocol-v1 gate.
+
+    - Unknown protocol values fail closed at every phase.
+    - A missing protocol fails closed at dispatch-ready always, and at
+      pre-review/pre-accept for the stage named by ACTIVE.json (explicit
+      active-stage evidence). Cold historical stages without the field keep
+      legacy validation.
+    - Phase timing under v1: pre-review with status review_1 validates
+      protocol presence only (the Review-1 result cannot exist yet);
+      pre-review with status review_2 requires the task/serial Review-1
+      pairs; pre-accept requires Review-1 pairs and the Review-2 pair."""
+    protocol = status_doc.get("review_artifact_protocol")
+    stage_name = stage_dir.name
+    if protocol is None:
+        if phase == "dispatch-ready":
+            return [f"review_artifact_protocol is required at dispatch-ready; set {PROTOCOL_V1!r}"]
+        if phase in {"pre-review", "pre-accept"} and active_id == stage_name:
+            return [
+                f"active stage {stage_name} (per reports/agent-runs/ACTIVE.json) must declare "
+                f"review_artifact_protocol {PROTOCOL_V1!r} at {phase}; missing protocol fails closed"
+            ]
+        return []
+    if protocol != PROTOCOL_V1:
+        return [
+            f"unknown review_artifact_protocol {protocol!r}; only {PROTOCOL_V1!r} is supported "
+            "and unknown values fail closed"
+        ]
+    if phase not in {"pre-review", "pre-accept"}:
+        return []
+
+    status = status_doc.get("status")
+    require_review_1 = phase == "pre-accept" or (phase == "pre-review" and status == "review_2")
+    require_review_2 = phase == "pre-accept"
+    if not (require_review_1 or require_review_2):
+        return []
+
+    errors: list[str] = []
+    implementer_identities = collect_implementer_identities(status_doc)
+
+    if require_review_1:
+        parallel_mode = status_doc.get("parallel_mode", {})
+        parallel_enabled = isinstance(parallel_mode, dict) and truthy(parallel_mode.get("enabled"))
+        if parallel_enabled:
+            tasks, _ = normalize_tasks(status_doc)
+            object_tasks = [task for task in tasks if isinstance(task, dict)]
+            if not object_tasks:
+                errors.append("protocol v1 requires at least one task Review-1 pair for parallel stages")
+            for task in object_tasks:
+                task_id = task.get("id")
+                if not _nonempty_string(task_id):
+                    errors.append("protocol v1 task Review-1 pairs require non-empty task ids")
+                    continue
+                # Review-1 isolation is per task: the reviewer must not share
+                # provider identity with this task's own implementer/fix author
+                # (cross-review pairs review each other's tasks by design).
+                task_identities = {
+                    identity
+                    for key in ("owner", "implementer", "fix_author")
+                    if (identity := provider_identity(task.get(key)))
+                }
+                errors.extend(
+                    _protocol_pair_errors(
+                        root, stage_dir, status_doc, task.get("review_1"),
+                        kind="review_1_task", task_id=str(task_id),
+                        prefix=f"task {task_id} review_1",
+                        implementer_identities=task_identities or implementer_identities,
+                        expected_fingerprint=task.get("diff_fingerprint")
+                        if _nonempty_string(task.get("diff_fingerprint")) else None,
+                        require_accept=True,
+                    )
+                )
+        else:
+            errors.extend(
+                _protocol_pair_errors(
+                    root, stage_dir, status_doc, status_doc.get("review_1"),
+                    kind="review_1_serial", task_id=None, prefix="review_1",
+                    implementer_identities=implementer_identities,
+                    expected_fingerprint=None, require_accept=True,
+                )
+            )
+
+    if require_review_2:
+        errors.extend(
+            _protocol_pair_errors(
+                root, stage_dir, status_doc, status_doc.get("review_2"),
+                kind="review_2", task_id=None, prefix="review_2",
+                implementer_identities=implementer_identities,
+                expected_fingerprint=None, require_accept=False,
+            )
+        )
+
+    return errors
+
+
 def validate_parallel_mode(root: Path, stage_dir: Path, status_doc: dict[str, Any], phase: str) -> list[str]:
     errors: list[str] = []
 
@@ -438,12 +677,23 @@ def validate_parallel_mode(root: Path, stage_dir: Path, status_doc: dict[str, An
     if not truthy(parallel_mode.get("r4_diff_reconciliation_required")):
         errors.append("parallel_mode.enabled requires r4_diff_reconciliation_required=true")
 
+    # Embedded review is an explicit opt-in (parallel_mode.embedded_review.enabled
+    # plus a non-empty reason). When off or absent, no embedded artifacts are
+    # required; recorded legacy entries are still validated below. Bookkeeper R4
+    # diff reconciliation and committed task fingerprints stay mandatory either way.
+    embedded_cfg = parallel_mode.get("embedded_review")
+    embedded_enabled = isinstance(embedded_cfg, dict) and truthy(embedded_cfg.get("enabled"))
+    if embedded_enabled and not _nonempty_string(embedded_cfg.get("reason")):
+        errors.append("parallel_mode.embedded_review.enabled requires a non-empty reason")
+
     embedded = status_doc.get("embedded_reviews")
     if not isinstance(embedded, dict):
         errors.append("parallel_mode.enabled requires top-level embedded_reviews object")
         return errors
-    if phase in {"pre-review", "pre-accept"} and not embedded:
-        errors.append("parallel_mode pre-review/pre-accept requires at least one embedded_reviews entry")
+    if embedded_enabled and phase in {"pre-review", "pre-accept"} and not embedded:
+        errors.append(
+            "parallel_mode.embedded_review.enabled requires at least one embedded_reviews entry at pre-review/pre-accept"
+        )
 
     for key, entry in embedded.items():
         prefix = f"embedded_reviews.{key}"
@@ -472,6 +722,15 @@ def validate_parallel_mode(root: Path, stage_dir: Path, status_doc: dict[str, An
                 errors.append(f"{prefix}.round_artifacts entries must be objects")
                 continue
             round_no = artifact.get("round", "?")
+            if embedded_enabled:
+                if not isinstance(artifact.get("round"), int) or isinstance(artifact.get("round"), bool) or artifact.get("round") < 1:
+                    errors.append(f"{prefix}.round_artifacts[{round_no}].round must be an integer >= 1")
+                result = artifact.get("result")
+                if result not in EMBEDDED_ROUND_RESULTS:
+                    errors.append(
+                        f"{prefix}.round_artifacts[{round_no}].result must be one of "
+                        f"{sorted(EMBEDDED_ROUND_RESULTS)} (non-formal checkpoint result, not a Review-1 verdict)"
+                    )
             for path_field in ("dispatch_path", "worktree_diff_path", "raw_output_path"):
                 path_value = artifact.get(path_field)
                 if not path_value:
@@ -597,6 +856,12 @@ def validate_dispatch_ready(root: Path, stage_dir: Path, status_doc: dict[str, A
     if classification in {"MEDIUM", "HIGH", "MILESTONE"} and not (stage_dir / "12-development-breakdown.md").exists():
         errors.append("dispatch-ready missing required stage file: 12-development-breakdown.md")
 
+    embedded_cfg = parallel_mode.get("embedded_review")
+    embedded_enabled = isinstance(embedded_cfg, dict) and truthy(embedded_cfg.get("enabled"))
+    if embedded_enabled and not _nonempty_string(embedded_cfg.get("reason")):
+        errors.append("parallel_mode.embedded_review.enabled requires a non-empty reason")
+
+    ra = review_artifacts_module()
     tasks, task_shape_errors = normalize_tasks(status_doc)
     errors.extend(task_shape_errors)
     errors.extend(_task_id_errors(tasks))
@@ -614,27 +879,75 @@ def validate_dispatch_ready(root: Path, stage_dir: Path, status_doc: dict[str, A
             errors.append(f"{prefix} missing; use tasks[].r10_checklist or r10_checklists.{task_id}")
             continue
 
-        string_fields = [
-            "task_prompt_path",
+        # Default packet: implementation owner, self tests, the committed formal
+        # Review-1 pair paths, and cross-provider reviewer routing. All external
+        # dispatch is executed by the human operator.
+        for field in ("task_prompt_path", "self_tests_command"):
+            if not _nonempty_string(checklist.get(field)):
+                errors.append(f"{prefix}.{field} must be a non-empty string")
+        task_prompt_path = checklist.get("task_prompt_path")
+        if _nonempty_string(task_prompt_path) and not evidence_path_exists(root, stage_dir, task_prompt_path):
+            errors.append(f"{prefix}.task_prompt_path does not exist: {task_prompt_path}")
+
+        for field, suffix in (
+            ("formal_review_raw_output_path", ra.RAW_SUFFIX),
+            ("formal_review_verdict_path", ra.VERDICT_SUFFIX),
+        ):
+            value = checklist.get(field)
+            if not _nonempty_string(value):
+                errors.append(f"{prefix}.{field} must be a non-empty string")
+                continue
+            _, _, path_errors = ra.resolve_stage_local_artifact(
+                root, stage_dir, value, "review_1_task", task_id, suffix, f"{prefix}.{field}"
+            )
+            errors.extend(path_errors)
+
+        if expected_reviewer:
+            adapter = checklist.get("cross_review_adapter")
+            if adapter != expected_reviewer:
+                errors.append(
+                    f"{prefix}.cross_review_adapter must be {expected_reviewer!r} for implementer provider {owner_provider!r}, got {adapter!r}"
+                )
+        elif owner_provider:
+            errors.append(f"{prefix}: no cross-review reviewer can be derived for implementer provider {owner_provider!r}")
+        else:
+            errors.append(f"{prefix}: missing task owner/implementer provider")
+
+        executor = checklist.get("next_dispatch_executor")
+        if executor == "self":
+            errors.append(
+                f"{prefix}.next_dispatch_executor 'self' is forbidden: external model dispatch is "
+                "always executed by the human operator"
+            )
+        elif executor != "human_operator":
+            errors.append(f"{prefix}.next_dispatch_executor must be 'human_operator', got {executor!r}")
+        if checklist.get("manual_user_handoff_allowed") is False:
+            errors.append(
+                f"{prefix}.manual_user_handoff_allowed=false is forbidden: the human operator "
+                "executes every external dispatch"
+            )
+
+        if not embedded_enabled:
+            continue
+
+        # Opt-in extension: embedded pre-review checkpoint artifacts.
+        embedded_string_fields = [
             "embedded_review_prompt_path",
-            "self_tests_command",
             "diff_patch_command",
             "diff_patch_path",
-            "cross_review_adapter",
             "cross_review_command_ref",
             "cross_review_raw_output_path",
             "cross_review_dispatch_path",
             "pass_branch",
             "blocker_branch",
         ]
-        for field in string_fields:
+        for field in embedded_string_fields:
             if not _nonempty_string(checklist.get(field)):
                 errors.append(f"{prefix}.{field} must be a non-empty string")
 
-        for path_field in ("task_prompt_path", "embedded_review_prompt_path"):
-            value = checklist.get(path_field)
-            if value and not evidence_path_exists(root, stage_dir, value):
-                errors.append(f"{prefix}.{path_field} does not exist: {value}")
+        embedded_prompt = checklist.get("embedded_review_prompt_path")
+        if _nonempty_string(embedded_prompt) and not evidence_path_exists(root, stage_dir, embedded_prompt):
+            errors.append(f"{prefix}.embedded_review_prompt_path does not exist: {embedded_prompt}")
 
         diff_patch_path = checklist.get("diff_patch_path")
         if _nonempty_string(diff_patch_path) and not str(diff_patch_path).endswith(".diff.patch"):
@@ -647,25 +960,12 @@ def validate_dispatch_ready(root: Path, stage_dir: Path, status_doc: dict[str, A
             errors.append(f"{prefix}.cross_review_dispatch_path must end with .dispatch.md")
 
         if expected_reviewer:
-            adapter = checklist.get("cross_review_adapter")
-            if adapter != expected_reviewer:
-                errors.append(
-                    f"{prefix}.cross_review_adapter must be {expected_reviewer!r} for implementer provider {owner_provider!r}, got {adapter!r}"
-                )
             expected_ref = f"agents/registry.yaml#adapters.{expected_reviewer}.embedded_read_only_review_command"
             if checklist.get("cross_review_command_ref") != expected_ref:
                 errors.append(f"{prefix}.cross_review_command_ref must be {expected_ref!r}")
             if not registry_has_embedded_review_command(root, expected_reviewer):
                 errors.append(f"registry missing adapters.{expected_reviewer}.embedded_read_only_review_command")
-        elif owner_provider:
-            errors.append(f"{prefix}: no cross-review reviewer can be derived for implementer provider {owner_provider!r}")
-        else:
-            errors.append(f"{prefix}: missing task owner/implementer provider")
 
-        if checklist.get("next_dispatch_executor") != "self":
-            errors.append(f"{prefix}.next_dispatch_executor must be 'self'")
-        if checklist.get("manual_user_handoff_allowed") is not False:
-            errors.append(f"{prefix}.manual_user_handoff_allowed must be false")
         if checklist.get("max_rounds") != 2:
             errors.append(f"{prefix}.max_rounds must be 2")
 
@@ -746,7 +1046,11 @@ def validate_required_files(stage_dir: Path, status_doc: dict[str, Any], phase: 
     classification = complexity.get("classification") if isinstance(complexity, dict) else None
     if status_doc.get("workflow") == "stage-delivery" and classification in {"MEDIUM", "HIGH", "MILESTONE"}:
         required.append("12-development-breakdown.md")
-    if phase == "pre-accept":
+    if phase == "pre-accept" and status_doc.get("review_artifact_protocol") != PROTOCOL_V1:
+        # Legacy stages gate on the narrative review files. Under protocol v1
+        # the authoritative raw/verdict pairs are enforced by
+        # validate_review_artifact_protocol; bare 30-review-1.md/50-review-2.md
+        # are non-authoritative compatibility artifacts.
         required += ["30-review-1.md", "50-review-2.md"]
     missing = [name for name in required if not (stage_dir / name).exists()]
     return [f"missing required stage file: {name}" for name in missing]
@@ -1356,6 +1660,11 @@ def main() -> int:
         errors.extend(validate_common(root, stage_dir, status_doc, args.phase))
         errors.extend(validate_stage_branch(root, status_doc, args.phase))
         errors.extend(validate_parallel_mode(root, stage_dir, status_doc, args.phase))
+        errors.extend(
+            validate_review_artifact_protocol(
+                root, stage_dir, status_doc, args.phase, active_stage_id(root)
+            )
+        )
         if args.phase == "dispatch-ready":
             errors.extend(validate_dispatch_ready(root, stage_dir, status_doc))
         if args.phase in {"pre-review", "pre-accept"}:

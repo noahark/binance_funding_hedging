@@ -44,6 +44,11 @@ def validate_one(vs, root: Path, stage_dir: Path) -> dict:
     applied: list[dict[str, str]] = []
     errors.extend(vs.validate_common(root, stage_dir, status_doc, phase))
     errors.extend(vs.validate_parallel_mode(root, stage_dir, status_doc, phase))
+    errors.extend(
+        vs.validate_review_artifact_protocol(
+            root, stage_dir, status_doc, phase, vs.active_stage_id(root)
+        )
+    )
     errors.extend(vs.validate_required_files(stage_dir, status_doc, phase))
     errors.extend(vs.validate_tasks(root, stage_dir, status_doc, None))
     acc_errors, acc_applied = vs.validate_acceptance(root, stage_dir, status_doc)

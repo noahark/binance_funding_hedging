@@ -116,3 +116,62 @@ Untracked Grok helper/test files removed.
 Failed-attempt narrative retained as 20-implementation-grok-abandoned.md.
 Fable5 clean implementation packet: 23-implementation-fable5.prompt.md.
 Implementation acceptance tests: pending fresh Fable5 delivery.
+
+=== Fable5 clean reimplementation evidence 2026-07-20 07:05:13 CST ===
+--- python3 scripts/tests/test_review_artifacts.py (summary; full verbose log reproducible) ---
+Ran 86 tests in 0.151s
+OK
+--- python3 -m py_compile scripts/review_artifacts.py scripts/validate-stage.py scripts/validate-all-stages.py ---
+PASS
+--- python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint ---
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1
+phase=checkpoint
+status=implementing
+--- python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase dispatch-ready ---
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1
+phase=dispatch-ready
+status=implementing
+--- python3 scripts/validate-all-stages.py --repo-root . (summary) ---
+summary: 18 green, 1 green_with_exception, 9 red (28 stages, repo=funding_hedging)
+--- validate-all-stages compare vs pre-change baseline (captured on committed baseline 2eae7bd before edits) ---
+ERRDRIFT 2026-07-harness-review-dispatch-fast-fix-v1: error multiset changed (9 -> 9)
+  - missing required stage file: 30-review-1.md
+  - missing required stage file: 50-review-2.md
+  + review_1 must be an object recording the protocol-v1 raw/verdict pair
+  + review_2 must be an object recording the protocol-v1 raw/verdict pair
+compare: DRIFT vs baseline (judge against migration table)
+expected drift: only this in-flight stage swaps narrative-file errors for protocol-pair errors (9 -> 9); zero drift on all 27 other stages
+--- python3 scripts/test-validate-all-stages-compare.py --help ---
+usage: test-validate-all-stages-compare.py [-h] --repo-root REPO_ROOT
+--- python3 scripts/test-validate-all-stages-compare.py --repo-root . ---
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+--- git diff --check ---
+PASS
+--- YAML/JSON parse of edited config files ---
+PASS
+--- residual model-side self-dispatch token sweep (expect only the validator rejection line) ---
+scripts/validate-stage.py:924:        if checklist.get("manual_user_handoff_allowed") is False:
+scripts/validate-stage.py:926:                f"{prefix}.manual_user_handoff_allowed=false is forbidden: the human operator "
+
+=== Codex bookkeeper independent reconciliation 2026-07-20 07:19:33 CST ===
+python3 scripts/tests/test_review_artifacts.py: Ran 86 tests in 0.152s, OK
+python3 -m py_compile scripts/review_artifacts.py scripts/validate-stage.py scripts/validate-all-stages.py: PASS
+python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint: PASS
+python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase dispatch-ready: PASS
+python3 scripts/test-validate-all-stages-compare.py --repo-root .: 11/11 PASS
+git diff --check: PASS
+workflows/templates/stage-delivery.yaml + harness-manifest.yaml YAML parse: PASS
+reports/agent-runs/_template/status.json JSON parse: PASS
+
+Detached baseline comparison against committed pre-implementation commit 2eae7bd:
+- all 27 historical stages: zero FLIP / ERRDRIFT / EXCDRIFT
+- active stage only: expected ERRDRIFT because protocol-v1 replaces legacy
+  narrative-file errors and the canonical Fable5 implementation report now
+  satisfies the former missing-20-implementation.md error
+- verdict totals remain 18 green / 1 green_with_exception / 9 red
+
+Bookkeeper scope reconciliation: PASS. Source/template files are all within
+00-task.md Allowed Files; Fable5 did not edit status.json, 70-handoff.md, or
+ACTIVE.json and did not dispatch another model.

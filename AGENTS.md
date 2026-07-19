@@ -134,12 +134,17 @@ The bookkeeper must not:
 - Feed reviewers only its own narrative summary.
 - Record credentials, tokens, cookies, private keys, or full environment dumps.
 
-Codex/GPT and Claude provider sessions may prepare model-facing dispatch
-artifacts, but must not execute them. The human operator executes dispatch by
-copying the prepared prompt or command into the selected model terminal and then
-records the resulting raw output or receipt under the stage evidence path. This
-applies to implementation, embedded pre-review, review-1, review-2, and fix
-dispatches.
+Dispatch authority is actor-neutral: no model session — bookkeeper,
+implementer, reviewer, designer, or any other — may execute model-dispatch
+commands or invoke another model terminal or adapter. Model sessions prepare
+model-facing dispatch artifacts only; a session that reaches an external
+dispatch stops and returns the prepared packet path. The human operator
+executes dispatch by copying the prepared prompt or command into the selected
+model terminal, captures the producer exit status, and records the resulting
+raw output or receipt under the stage evidence path. Every external
+implementation, optional embedded pre-review, review-1, review-2, and fix
+dispatch records `executor: human_operator`. A model claim that it launched
+another model is never dispatch evidence.
 
 ### Designers
 
@@ -261,10 +266,18 @@ Strong-reviewer disclosure override:
 - `scripts/validate-stage.py` must fail acceptance if these disclosure fields or
   evidence paths are missing.
 
-Reviewer output must end with a strict JSON verdict matching
-`schemas/review-verdict.schema.json`. If the JSON is missing or invalid, the
-review attempt is non-accepting and must route to retry, fallback, fix, or one
-of the allowed terminal stop reasons.
+Reviewer output is a strict JSON verdict matching
+`schemas/review-verdict.schema.json`. Under
+`review_artifact_protocol: raw-plus-strict-json/v1` (the default for new
+stages) the review stdout is exactly one JSON object with no Markdown, fences,
+narrative, or footer; the operator captures it to the stage
+`*.raw-output.md` file and publishes the canonical `*.verdict.json` with the
+capture-only helper `scripts/review_artifacts.py capture`. The verdict file is
+the gate authority; matching status fields are derived cache. On legacy
+(pre-protocol) stages the verdict JSON ends the review narrative instead. If
+the JSON is missing or invalid, the review attempt is non-accepting and must
+route to retry, fallback, fix, or one of the allowed terminal stop reasons;
+retries use new `-retry-N` attempt paths.
 
 If a reviewer returns `REWORK`, the verdict JSON must include
 `fix_start_prompt`: a ready-to-send repair prompt for the fix implementer. The
@@ -306,6 +319,21 @@ dispatching the fix.
 - Before dispatching `review-1`, dispatching `review-2`, or writing an accepted
   terminal state, run `scripts/validate-stage.py <stage-id> --phase <phase>` and
   preserve the output in the stage evidence.
+- `review_artifact_protocol: raw-plus-strict-json/v1` is default-on in the
+  stage template and mandatory for active/new stages at dispatch-ready,
+  pre-review, and pre-accept; missing or unknown values fail closed. The
+  active stage is identified by `reports/agent-runs/ACTIVE.json`, never by a
+  date heuristic. Cold historical stages without the field keep legacy
+  validation and are not rewritten. Under v1 each formal review gates on a
+  stage-local raw/verdict pair (`30-review-1[-<task-id>][-retry-N].*` and
+  `50-review-2[-retry-N].*`): the raw file decodes as exactly one JSON object,
+  the verdict file is its deterministic canonical serialization with no
+  surrounding bytes or trailing newline, both decode to the same object, and
+  the verdict is cross-checked against stage/task status for `stage_id`, role,
+  model, fingerprint, and normalized reviewer provider isolation. Phase
+  timing: `pre-review` with status `review_1` does not require the Review-1
+  result pair; `pre-review` with status `review_2` requires every task/serial
+  Review-1 pair; `pre-accept` additionally requires the Review-2 pair.
 - Before entering implementation for a parallel development stage, run
   `scripts/validate-stage.py <stage-id> --phase dispatch-ready` and preserve the
   output in the stage evidence. This gate checks the R10 checklist, task prompt
@@ -335,11 +363,12 @@ dispatching the fix.
   when strict JSON verdict output is required. Do not rely on `codex review`
   for schema-constrained verdicts.
 - Model dispatch preparation must use `docs/model-adapters.md` and
-  `agents/registry.yaml`. Codex/GPT and Claude sessions must not execute model
-  dispatch; the human operator executes prepared dispatch packets in the target
-  model terminal. A bookkeeper or implementation session lacking a built-in tool
-  for a model is not sufficient to mark that model unavailable; the runner-level
-  adapter check must fail.
+  `agents/registry.yaml`. No model session may execute model dispatch or invoke
+  another model terminal/adapter; the human operator executes prepared dispatch
+  packets in the target model terminal and every external dispatch records
+  `executor: human_operator`. A bookkeeper or implementation session lacking a
+  built-in tool for a model is not sufficient to mark that model unavailable;
+  the runner-level adapter check must fail.
 - Review-2 fallback or strong-reviewer override is allowed only for quota,
   authentication, service availability, timeout, repeated invalid verdict JSON,
   or design-conflict ineligibility of the preferred unrelated reviewer. Do not
@@ -348,12 +377,16 @@ dispatching the fix.
   gate and must not be substituted into review-1 unless the user explicitly
   enables it for the stage.
 - Stages using `docs/parallel-development-mode.md` must follow that document's
-  R1-R10 rules. In particular, implementation task prompts must include the R10
-  dispatch tail, `next_dispatch` entries marked `executor: self` must be
-  executed or escalated before the implementer reports completion, and the
-  bookkeeper must perform R4 diff reconciliation before creating H_A/H_B
-  evidence commits. R10 checklist data belongs in `status.json` task metadata
-  or dispatch RECEIPT metadata, not inside immutable PROMPT BODY text.
+  R1-R10 rules. The default parallel flow is: implementation reports and
+  self-tests, bookkeeper R4 scope/diff reconciliation, committed task
+  ranges/fingerprints, one fresh cross-provider formal Review-1 per committed
+  task fingerprint, then Review-2. Embedded pre-review is an explicit opt-in
+  (`parallel_mode.embedded_review.enabled: true` plus a non-empty reason); it
+  never replaces formal Review-1, and its dispatches are executed by the human
+  operator like every other external dispatch. R4 diff reconciliation before
+  H_A/H_B evidence commits stays mandatory even when embedded review is off.
+  R10 checklist data belongs in `status.json` task metadata or dispatch RECEIPT
+  metadata, not inside immutable PROMPT BODY text.
 - Harness/template sync lands on `main` only and must not be mixed into an
   active stage branch unless that stage needs the new Harness behavior. If
   `main` is merged into a stage branch by exception, record the reason, rerun
@@ -414,9 +447,11 @@ The intended stage delivery flow is:
    launching implementers.
 10. Implement the bounded task.
 11. Run deterministic tests, lint, type checks, or replay checks.
-12. For parallel development stages, run embedded cross-review checkpoints from
-   `docs/parallel-development-mode.md` before the formal review gate; these
-   checkpoints do not replace committed-state review-1.
+12. For parallel development stages that explicitly opt in with
+   `parallel_mode.embedded_review.enabled: true` and a recorded reason, run
+   embedded cross-review checkpoints from `docs/parallel-development-mode.md`
+   before the formal review gate; these checkpoints are off by default and
+   never replace committed-state review-1.
 13. Commit the bounded stage artifacts locally on the stage branch, compute the
    standard
    `diff_fingerprint`, run `scripts/validate-stage.py <stage-id> --phase
@@ -484,9 +519,14 @@ provider-specific lookup and verification order. A Session ID is navigation
 metadata, not a credential, raw review artifact, provider identity, or a
 cross-provider transcript locator. The raw output path and committed artifacts
 remain the review evidence, while `status.json` remains the authoritative
-machine-readable state. For strict JSON verdicts, place the footer before the
-final JSON block or inside schema-approved fields so the final JSON contract
-remains parseable.
+machine-readable state. Review outputs under
+`review_artifact_protocol: raw-plus-strict-json/v1` are exempt from this
+footer: their stdout is exactly one JSON object, and navigation, timestamps,
+producer exit status, and Session ID data live in the operator capture receipt
+and `status.json.session_receipts` — never inside
+`reviewer_prior_involvement_notes` or outside the verdict JSON. On legacy
+(pre-protocol) stages, place the footer before the final JSON block so the
+final JSON contract remains parseable.
 
 ## Checkpoint Requirements
 
