@@ -1,0 +1,21 @@
+# Stage Regression — Committed Delivery State
+
+Recorded: 2026-07-19 19:56:38 CST
+Reviewed delivery head: `4bab47d250b739539c0c2f09786baa75bba25d6d`
+
+The backend suite was re-run in two disjoint file groups to keep each local
+command below the runner wall-time limit. Together they are exactly all 19
+`backend/tests/test_*.py` files.
+
+```text
+backend group 1 (background_worker through funding_history): 237 passed in 17.92s
+backend group 2 (funding_history_endpoint through symbol_snapshot_endpoint): 270 passed in 14.34s
+combined backend/tests total: 507 passed
+node frontend/self-check.js: PASS (exit 0; all printed assertions passed)
+git diff --check: PASS (exit 0)
+git status --short: clean before this evidence checkpoint
+```
+
+The prior task-local captures remain raw supporting evidence:
+`60-test-output-backend.txt` (113 backend borrow-slice tests) and
+`60-test-output-frontend.txt` (frontend self-check).

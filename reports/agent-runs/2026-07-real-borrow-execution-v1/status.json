@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-real-borrow-execution-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-real-borrow-execution-v1",
@@ -123,6 +123,26 @@
       "session_id_source": "operator: verified provider-native Session ID; wrapper session 43a4f9b1-8e40-4890-9dd0-a9f1d5ffcd36 corroborates fresh plan-mode subprocess",
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-B-round1-retry-1.raw-output.md",
       "recorded_at": "2026-07-19T18:40:50+08:00"
+    },
+    {
+      "role": "implementation",
+      "task_id": "A",
+      "provider": "claude_glm",
+      "model": "glm-5.2",
+      "session_id": null,
+      "session_id_source": "unavailable: implementation transcript supplied no provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/20-implementation-backend.md",
+      "recorded_at": "2026-07-19T19:56:38+08:00"
+    },
+    {
+      "role": "implementation",
+      "task_id": "B",
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": null,
+      "session_id_source": "unavailable: implementation transcript supplied no provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/20-implementation-frontend.md",
+      "recorded_at": "2026-07-19T19:56:38+08:00"
     }
   ],
   "designer": {
@@ -147,8 +167,8 @@
   },
   "implementer": null,
   "implementers": [
-    {"task_id": "A", "provider": "claude_glm", "model": "glm-5.2", "status": "fixing_after_embedded_review_round_1"},
-    {"task_id": "B", "provider": "kimi", "model": "kimi-code/kimi-for-coding", "status": "embedded_review_passed_waiting_r4"}
+    {"task_id": "A", "provider": "claude_glm", "model": "glm-5.2", "status": "implemented_embedded_review_round_2_passed_committed"},
+    {"task_id": "B", "provider": "kimi", "model": "kimi-code/kimi-for-coding", "status": "implemented_embedded_review_round_1_passed_committed"}
   ],
   "fix_authors": [],
   "complexity": {
@@ -204,11 +224,14 @@
     "reports/agent-runs/2026-07-real-borrow-execution-v1/12-development-breakdown.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/13-user-decisions-and-contract-amendment.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/{task-A-claude-glm,task-B-kimi,embedded-review-A,embedded-review-B}.prompt.md",
-    "reports/agent-runs/2026-07-real-borrow-execution-v1/60-dispatch-ready-validation.txt"
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/60-dispatch-ready-validation.txt",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/{20-implementation.md,20-implementation-backend.md,20-implementation-frontend.md,60-test-output.txt,61-r4-diff-reconciliation.txt}",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A-round2-retry-1.{prompt.md,dispatch.md,raw-output.md}",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-B-round1-retry-1.{dispatch.md,raw-output.md}"
   ],
   "base_sha": "5b2b3232673fa7ee193efdcc6f80c4df82aa0fa9",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "4bab47d250b739539c0c2f09786baa75bba25d6d",
+  "diff_fingerprint": "4bab47d250b739539c0c2f09786baa75bba25d6d:54e166f1c4c4a6378f987c6a7c4cde60fa390599888129924c68d8be33fa6f08",
   "changed_files": [
     "reports/agent-runs/2026-07-real-borrow-execution-v1/00-intake.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/status.json",
@@ -230,6 +253,18 @@
     "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A.prompt.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-B.prompt.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/60-dispatch-ready-validation.txt",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/20-implementation-backend.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/20-implementation-frontend.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/61-r4-diff-reconciliation.txt",
+    "backend/borrow_tasks/**",
+    "backend/app/server.py",
+    "backend/config.py",
+    "backend/tests/{borrow_paper_executor.py,test_borrow_*.py}",
+    "schemas/api/borrow-tasks/**",
+    "frontend/{index.html,self-check.js}",
+    ".gitignore",
     "reports/agent-runs/ACTIVE.json"
   ],
   "tasks": [
@@ -242,9 +277,9 @@
       "prompt_path": "task-A-claude-glm.prompt.md",
       "implementation_report_path": "20-implementation-backend.md",
       "test_output_path": "60-test-output-backend.txt",
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "base_sha": "6c870414a951550331676fe5db0c4e3a46aab555",
+      "head_sha": "40efb028ead50d667bb32dbe10e9af6a7d77409e",
+      "diff_fingerprint": "40efb028ead50d667bb32dbe10e9af6a7d77409e:a3e3a9bcd8b6233b581f4587e88b64478cc9cb356b1d40b1cddc9a1f3c33d3bc",
       "review_1": null,
       "r10_checklist": {
         "task_prompt_path": "task-A-claude-glm.prompt.md",
@@ -276,9 +311,9 @@
       "prompt_path": "task-B-kimi.prompt.md",
       "implementation_report_path": "20-implementation-frontend.md",
       "test_output_path": "60-test-output-frontend.txt",
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "base_sha": "40efb028ead50d667bb32dbe10e9af6a7d77409e",
+      "head_sha": "4bab47d250b739539c0c2f09786baa75bba25d6d",
+      "diff_fingerprint": "4bab47d250b739539c0c2f09786baa75bba25d6d:5f815252ed8e55c7a3aa97efa7a8f4db700abd27e2e1bca998b2af923b728a81",
       "review_1": null,
       "r10_checklist": {
         "task_prompt_path": "task-B-kimi.prompt.md",
@@ -350,13 +385,31 @@
     }
   },
   "tests": {
-    "status": "dispatch_ready_passed",
+    "status": "committed_regression_passed",
     "commands": [
       {
         "command": "python3 scripts/validate-stage.py 2026-07-real-borrow-execution-v1 --phase dispatch-ready",
         "status": "passed",
         "output": "reports/agent-runs/2026-07-real-borrow-execution-v1/60-dispatch-ready-validation.txt",
         "at": "2026-07-19T16:31:56+08:00"
+      },
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_background_worker.py backend/tests/test_book_ticker.py backend/tests/test_borrow_api.py backend/tests/test_borrow_domain.py backend/tests/test_borrow_executor.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_store.py backend/tests/test_classify.py backend/tests/test_config.py backend/tests/test_funding_history.py -q -p no:cacheprovider",
+        "status": "passed",
+        "summary": "237 passed in 17.92s",
+        "at": "2026-07-19T19:56:38+08:00"
+      },
+      {
+        "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_funding_history_endpoint.py backend/tests/test_negative_schema.py backend/tests/test_normalize.py backend/tests/test_phase2_borrow_sort.py backend/tests/test_private_account_v1.py backend/tests/test_private_client.py backend/tests/test_service_health.py backend/tests/test_snapshot.py backend/tests/test_symbol_snapshot_endpoint.py -q -p no:cacheprovider",
+        "status": "passed",
+        "summary": "270 passed in 14.34s",
+        "at": "2026-07-19T19:56:38+08:00"
+      },
+      {
+        "command": "node frontend/self-check.js && git diff --check",
+        "status": "passed",
+        "summary": "frontend self-check exit 0; diff check exit 0",
+        "at": "2026-07-19T19:56:38+08:00"
       }
     ]
   },
@@ -392,7 +445,7 @@
       "verdict": "PASS"
     }
   ],
-  "review_1": null,
+  "review_1": {"status": "pending", "task_scoped": true},
   "review_2": null,
   "authorized_exceptions": [],
   "rework_count": 0,
@@ -405,6 +458,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "serial_commit_h_a_h_b",
-  "updated_at": "2026-07-19T19:49:54+08:00"
+  "next_action": "review_1_dispatch",
+  "updated_at": "2026-07-19T19:56:38+08:00"
 }

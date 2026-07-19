@@ -2,19 +2,20 @@
 
 ## Recovery Header
 
-- Active phase: `R4 reconciled; serial delivery commits pending`
-- Next action: bookkeeper creates serial H_A backend and H_B frontend commits, then re-runs full stage tests.
+- Active phase: `review-1 dispatch preparation`
+- Next action: prepare two task-scoped formal Review-1 packets from the committed ranges.
 - Read-set: `status.current_inputs`
-- Open blockers: no implementation blocker. Both embedded checkpoints PASS and R4 patch reconciliation matched; formal test/review gates remain.
+- Open blockers: no implementation blocker. Both embedded checkpoints PASS, R4 matched, delivery commits and full regression are complete; formal review gates remain.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-real-borrow-execution-v1`
-- Status: `implementing` (Task A round-2 PASS; Task B PASS; awaiting serial code commits)
+- Status: `review_1` (H_A/H_B committed; committed-state regression green)
 - Branch: `stage/2026-07-real-borrow-execution-v1`
 - Last committed design baseline: `8ffc81b21154bdf8a6255ae68cba936fbed12a99`
-- H_intake dispatch evidence commit: `90e66c3f9cd6fa048cd962cde206b391230b50bb`; no delivery code changes.
+- H_A backend commit: `40efb028ead50d667bb32dbe10e9af6a7d77409e`
+- H_B frontend commit / delivery head: `4bab47d250b739539c0c2f09786baa75bba25d6d`
 - Bookkeeper: Codex/GPT.
 - Direction panel: complete (five drafts).
 - User approval: recorded for A+B at 2026-07-19 15:57:10 CST; Boundary C remains separately authorized.
@@ -42,6 +43,7 @@
 - Task A implementation: complete; round-1 repaired and round-2 Kimi review PASS
 - Task B implementation: complete; GLM retry-1 embedded review PASS
 - R4 reconciliation: `61-r4-diff-reconciliation.txt` (**Task A + Task B exact patch match**)
+- Committed-state regression: `60-test-output.txt` (**507 backend tests + frontend self-check + diff check PASS**)
 - Status JSON: `status.json`
 
 ## Capacity Recon Highlights (pointer only — read the raw report)
@@ -59,11 +61,11 @@
 
 ## Next Action
 
-Bookkeeper performs serial H_A/H_B commits after the matching R4 evidence, re-runs canonical backend/frontend stage tests, computes the committed fingerprint, and then prepares formal task-scoped Review-1 dispatches.
+Prepare and dispatch formal task-scoped Review-1: fresh Kimi reviews Task A range `6c87041..40efb02`; fresh Claude-GLM reviews Task B range `40efb02..4bab47d`. Both must use the committed task fingerprints in `status.json`; embedded checkpoint output is supporting evidence only.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
-本地北京时间: 2026-07-19 19:49:54 CST
-下一步模型: Codex/bookkeeper
-下一步任务: 按 R4 对账结果串行提交 H_A/H_B，随后运行全量回归和 formal Review-1 准备
+本地北京时间: 2026-07-19 19:56:38 CST
+下一步模型: Kimi 与 Claude-GLM（fresh formal Review-1 sessions）
+下一步任务: 对各自独立的 committed task range 执行 schema-valid formal Review-1
