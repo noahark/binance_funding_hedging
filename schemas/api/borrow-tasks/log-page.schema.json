@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/log-page.schema.json",
+  "title": "Borrow Attempt Log Page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "entries", "next_cursor"],
+  "properties": {
+    "schema_version": {"const": "borrow-tasks/v1"},
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "task_id",
+          "asset",
+          "sequence",
+          "outcome",
+          "result_category",
+          "business_code",
+          "reason",
+          "http_status",
+          "tran_id",
+          "requested_amount",
+          "scheduled_at",
+          "dispatched_at",
+          "finished_at",
+          "latency_ms",
+          "effective_gap_us"
+        ],
+        "properties": {
+          "id": {"type": "integer", "minimum": 1},
+          "task_id": {"type": "string", "minLength": 1},
+          "asset": {"type": "string", "pattern": "^[A-Z0-9]+$"},
+          "sequence": {"type": "integer", "minimum": 1},
+          "outcome": {"enum": ["pending", "resolved"]},
+          "result_category": {
+            "type": ["string", "null"],
+            "enum": [
+              null,
+              "success",
+              "known_rejection",
+              "rate_limited",
+              "unknown",
+              "execution_disabled"
+            ]
+          },
+          "business_code": {"type": ["string", "null"]},
+          "reason": {"type": ["string", "null"]},
+          "http_status": {"type": ["integer", "null"]},
+          "tran_id": {"type": ["string", "null"]},
+          "requested_amount": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$"},
+          "scheduled_at": {"type": "string"},
+          "dispatched_at": {"type": ["string", "null"]},
+          "finished_at": {"type": ["string", "null"]},
+          "latency_ms": {"type": ["integer", "null"]},
+          "effective_gap_us": {"type": ["integer", "null"]}
+        }
+      }
+    },
+    "next_cursor": {"type": ["string", "null"]}
+  }
+}

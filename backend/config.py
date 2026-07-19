@@ -17,6 +17,10 @@ FROZEN_RAW_DIR = (
     REPO_ROOT
     / "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw"
 )
+# Stage 2026-07-real-borrow-execution-v1 (A+B): local SQLite path for the
+# durable borrow-task store. Default lives under ``data/`` (gitignored). Tests
+# point this at a ``TemporaryDirectory``.
+BORROW_DB_PATH = REPO_ROOT / "data" / "borrow-tasks.sqlite3"
 SCHEMA_PATH = REPO_ROOT / "schemas/api/public-market/snapshot.schema.json"
 FRONTEND_DIR = REPO_ROOT / "frontend"
 FROZEN_SOURCE_SAMPLE_ID = "20260703T051738Z"
@@ -78,6 +82,11 @@ class Config:
     # whose upstream I/O completes after this monotonic deadline must NOT commit
     # cache changes or publish a new PublishedState.
     symbol_refresh_timeout_seconds: float = 30.0
+    # Stage 2026-07-real-borrow-execution-v1 (A+B): the only borrow executor
+    # reachable from configuration is the no-network ``disabled`` one. A "live"
+    # selection is rejected, not implemented (Boundary C is a separate stage).
+    borrow_executor: str = "disabled"
+    borrow_db_path: Path = BORROW_DB_PATH
 
 
 # Stage 2026-07-cache-refresh-scheduler-v2: fixed Group B shared/unified source
@@ -162,6 +171,19 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
             f"{private_channel_ttl_seconds!r} (effective slow scheduled private "
             "transport TTL must be <=1800)"
         )
+    borrow_executor = _env(
+        env,
+        "APP_BORROW_EXECUTOR",
+        DEFAULT.borrow_executor,
+        "FUNDING_HEDGING_BORROW_EXECUTOR",
+    )
+    # Breakdown §3.9: only the no-network disabled executor is implemented in
+    # A+B. Any other selection (a "live" adapter) is rejected, not built.
+    if borrow_executor != "disabled":
+        raise ValueError(
+            f"invalid borrow executor {borrow_executor!r}: only 'disabled' is "
+            "implemented in A+B (Boundary C is a separate stage)"
+        )
     return Config(
         bind_host=_env(env, "APP_BIND_HOST", DEFAULT.bind_host, "FUNDING_HEDGING_BIND_HOST"),
         bind_port=_env_int(env, "APP_BIND_PORT", DEFAULT.bind_port, "FUNDING_HEDGING_BIND_PORT"),
@@ -239,5 +261,12 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
             "APP_SYMBOL_REFRESH_TIMEOUT_SECONDS",
             DEFAULT.symbol_refresh_timeout_seconds,
             "FUNDING_HEDGING_SYMBOL_REFRESH_TIMEOUT_SECONDS",
+        ),
+        borrow_executor=borrow_executor,
+        borrow_db_path=_env_path(
+            env,
+            "APP_BORROW_DB_PATH",
+            DEFAULT.borrow_db_path,
+            "FUNDING_HEDGING_BORROW_DB_PATH",
         ),
     )

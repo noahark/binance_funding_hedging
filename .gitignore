@@ -28,6 +28,9 @@ secrets/
 tmp/
 reports/agent-runs/**/raw-transcripts/
 
+# Local borrow-task SQLite store (stage 2026-07-real-borrow-execution-v1)
+data/
+
 # Local reference inputs; keep available on disk but do not commit.
 llms-full.txt
 币安套费率策略，逐仓杠杆.js

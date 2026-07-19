@@ -1,11 +1,11 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status:        pending
+status:        done (PASS; fresh read-only Kimi execution, Session ID unavailable)
 target_model:  kimi / kimi-code/kimi-for-coding (fresh read-only session)
 adapter_cmd:   kimi --model kimi-code/kimi-for-coding -p "$(awk '/^<!-- ===== PROMPT BODY/{body=1; next} body {print}' reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A-round2-retry-1.prompt.md)" | tee reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A-round2-retry-1.raw-output.md
-started_at:    n/a
-completed_at:  n/a
-session_id:    n/a
-outputs:       pending
+started_at:    unavailable (execution receipt did not expose a start timestamp)
+completed_at:  2026-07-19T19:45:00+08:00 (raw output footer)
+session_id:    unavailable (interactive Kimi session did not expose a provider-native Session ID; no operator-provided ID is available)
+outputs:       embedded-review-A-round2-retry-1.raw-output.md (PASS; no remaining finding)
 next_dispatch: executor: bookkeeper — reconcile R4 on PASS; escalate on any BLOCKER because R4 cap is reached
 ===== END RECEIPT ===== -->
 

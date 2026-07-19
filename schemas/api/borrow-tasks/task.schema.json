@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/task.schema.json",
+  "title": "Borrow Task",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "asset",
+    "amount_per_attempt",
+    "success_target",
+    "success_count",
+    "status",
+    "version",
+    "unresolved_attempt_id",
+    "latest_result",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "borrow-tasks/v1"},
+    "id": {"type": "string", "minLength": 1},
+    "asset": {"type": "string", "pattern": "^[A-Z0-9]+$"},
+    "amount_per_attempt": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$"},
+    "success_target": {"type": "integer", "minimum": 1},
+    "success_count": {"type": "integer", "minimum": 0},
+    "status": {"enum": ["borrowing", "paused", "deleted", "completed"]},
+    "version": {"type": "integer", "minimum": 1},
+    "unresolved_attempt_id": {"type": ["integer", "null"]},
+    "latest_result": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "result_category",
+            "business_code",
+            "reason",
+            "tran_id",
+            "finished_at"
+          ],
+          "properties": {
+            "result_category": {
+              "enum": [
+                "success",
+                "known_rejection",
+                "rate_limited",
+                "unknown",
+                "execution_disabled"
+              ]
+            },
+            "business_code": {"type": ["string", "null"]},
+            "reason": {"type": ["string", "null"]},
+            "tran_id": {"type": ["string", "null"]},
+            "finished_at": {"type": ["string", "null"]}
+          }
+        }
+      ]
+    },
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"}
+  }
+}

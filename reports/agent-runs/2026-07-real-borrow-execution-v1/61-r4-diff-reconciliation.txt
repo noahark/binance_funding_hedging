@@ -1,0 +1,23 @@
+R4 diff reconciliation — 2026-07-19 19:49:54 CST
+
+Task A (backend): regenerated the current scoped binary diff after temporarily
+marking only Task-A untracked files as intent-to-add, then restored the clean
+index. The regenerated patch SHA-256 exactly matched the round-two reviewer
+snapshot:
+
+2757c8587ac96ce4186f732938d4b6672d6b64c83c63615f1bed5514c421dda1
+  current Task A scoped patch
+2757c8587ac96ce4186f732938d4b6672d6b64c83c63615f1bed5514c421dda1
+  embedded-review-A-round2.diff.patch
+
+Task B (frontend): regenerated the current scoped binary diff. Its SHA-256
+exactly matched the verified review snapshot:
+
+5f815252ed8e55c7a3aa97efa7a8f4db700abd27e2e1bca998b2af923b728a81
+  current Task B scoped patch
+5f815252ed8e55c7a3aa97efa7a8f4db700abd27e2e1bca998b2af923b728a81
+  embedded-review-B-round1.diff.patch
+
+`git diff --check` passed and the index was clean after reconciliation. The
+temporary system directory containing regenerated comparison copies is outside
+the repository and is not delivery evidence.

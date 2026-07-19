@@ -1,20 +1,29 @@
-=== COMMAND 1: borrow slice suite ===
-$ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_borrow_domain.py backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_executor.py backend/tests/test_borrow_api.py -q -p no:cacheprovider
-........................................................................ [ 68%]
-.................................                                        [100%]
-105 passed in 11.16s
+# 60 — Task A Backend Test Output (round-1 fix capture)
 
-=== COMMAND 2: full backend/tests suite ===
+Stage: 2026-07-real-borrow-execution-v1
+Implementer: Claude-GLM (glm-5.2), Task A round-1 scope-contained repair
+Slice: A+B only (zero Binance writes / authed reads / signing / live executor).
+
+## COMMAND 1 (borrow slice)
+$ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_borrow_domain.py backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_executor.py backend/tests/test_borrow_api.py -q -p no:cacheprovider
+
+........................................................................ [ 63%]
+.........................................                                [100%]
+113 passed in 15.32s
+
+## COMMAND 2 (full backend)
 $ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider
+
 ........................................................................ [ 14%]
 ........................................................................ [ 28%]
-........................................................................ [ 43%]
-........................................................................ [ 57%]
-........................................................................ [ 72%]
-........................................................................ [ 86%]
-...................................................................      [100%]
-499 passed in 29.20s
+........................................................................ [ 42%]
+........................................................................ [ 56%]
+........................................................................ [ 71%]
+........................................................................ [ 85%]
+........................................................................ [ 99%]
+...                                                                      [100%]
+507 passed in 32.52s
 
-=== COMMAND 3: git diff --check ===
+## COMMAND 3 (git diff --check)
 $ git diff --check
-git-diff-check-exit=0
+exit=0

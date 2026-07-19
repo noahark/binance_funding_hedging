@@ -310,7 +310,7 @@
       "reviewer": {"provider": "kimi", "model": "kimi-code/kimi-for-coding", "fresh_session": true},
       "prompt_path": "embedded-review-A.prompt.md",
       "r10_checklist_ref": "tasks.A.r10_checklist",
-      "rounds": 1,
+      "rounds": 2,
       "round_artifacts": [
         {
           "round": 1,
@@ -318,6 +318,13 @@
           "worktree_diff_path": "embedded-review-A-round1.diff.patch",
           "raw_output_path": "embedded-review-A-round1.raw-output.md",
           "fix_report_path": null
+        },
+        {
+          "round": 2,
+          "dispatch_path": "embedded-review-A-round2-retry-1.dispatch.md",
+          "worktree_diff_path": "embedded-review-A-round2.diff.patch",
+          "raw_output_path": "embedded-review-A-round2-retry-1.raw-output.md",
+          "fix_report_path": "embedded-review-A-round1.fix-note.md"
         }
       ],
       "escalations": []
@@ -373,6 +380,16 @@
       "session_id_source": "operator: verified provider-native Session ID; wrapper session 43a4f9b1-8e40-4890-9dd0-a9f1d5ffcd36 corroborates fresh plan-mode subprocess",
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-B-round1-retry-1.raw-output.md",
       "verdict": "PASS"
+    },
+    {
+      "task_id": "A",
+      "round": 2,
+      "provider": "kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": null,
+      "session_id_source": "unavailable: interactive Kimi session did not expose a provider-native Session ID and no operator-provided ID is available",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A-round2-retry-1.raw-output.md",
+      "verdict": "PASS"
     }
   ],
   "review_1": null,
@@ -381,13 +398,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "Task A embedded review round 1 BLOCKER: preserve unknown-outcome block across restart; return borrow-path unsupported methods as JSON 405; reject unknown mutation fields; enforce body cap on optional-body mutations. All are scope-contained and route to GLM local repair round 2."
+    "No implementation blocker: Task A round-2 embedded review PASS and Task B embedded review PASS; R4 scoped diff reconciliation PASS. Stage-level test/review gates remain."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "task_a_scope_fix_round_2",
-  "updated_at": "2026-07-19T18:49:41+08:00"
+  "next_action": "serial_commit_h_a_h_b",
+  "updated_at": "2026-07-19T19:49:54+08:00"
 }

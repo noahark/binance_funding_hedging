@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/task-list.schema.json",
+  "title": "Borrow Task List",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tasks"],
+  "properties": {
+    "schema_version": {"const": "borrow-tasks/v1"},
+    "tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/task.schema.json"
+      }
+    }
+  }
+}
