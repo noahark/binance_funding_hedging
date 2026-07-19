@@ -1,0 +1,5 @@
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-execution-v1
+phase=pre-accept
+status=stage_accepted_waiting_user
+diff_fingerprint=4bab47d250b739539c0c2f09786baa75bba25d6d:54e166f1c4c4a6378f987c6a7c4cde60fa390599888129924c68d8be33fa6f08

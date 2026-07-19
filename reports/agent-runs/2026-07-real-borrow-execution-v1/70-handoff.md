@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: `stage_accepted_waiting_user` candidate
-- Next action: run the pre-accept validator; if it passes, wait for explicit user acceptance before any merge to main.
+- Active phase: `stage_accepted_waiting_user`
+- Next action: wait for explicit user acceptance before any merge to main.
 - Read-set: `status.current_inputs`
-- Open blockers: no technical blocker. Review-1 and Review-2 ACCEPT; only the explicit user merge-acceptance gate remains after pre-accept validation.
+- Open blockers: no technical blocker. Review-1 and Review-2 ACCEPT; pre-accept validation PASS. Only the explicit user merge-acceptance gate remains.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
@@ -61,6 +61,7 @@
   `50-review-2-retry-1.md` — Fable5 ACCEPT, Session
   `f64e6dea-a2bf-49a9-b3e1-9a3631384b8d`; retry preserves JSON exactly and
   removes only the original terminal LF.
+- Pre-accept validator: `65-pre-accept-validation.txt` (**PASS**)
 - Status JSON: `status.json`
 
 ## Capacity Recon Highlights (pointer only — read the raw report)
@@ -78,14 +79,14 @@
 
 ## Next Action
 
-Run `scripts/validate-stage.py 2026-07-real-borrow-execution-v1 --phase
-pre-accept` from a clean committed worktree and save the result. If it passes,
-stop at `stage_accepted_waiting_user`. Do not merge the stage branch to main
-until the user explicitly accepts this delivery.
+Stop at `stage_accepted_waiting_user`. Do not merge the stage branch to main
+until the user explicitly accepts this delivery. Upon acceptance, merge or
+fast-forward according to the stage-branch rules, record merge metadata, and
+rerun pre-accept validation on the resulting main state.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
-本地北京时间: 2026-07-19 21:48:44 CST
+本地北京时间: 2026-07-19 21:51:03 CST
 下一步模型: human user
-下一步任务: 审阅 accepted candidate 并明确授权或拒绝合并 stage branch 到 main
+下一步任务: 审阅 accepted stage 并明确授权或拒绝合并 stage branch 到 main
