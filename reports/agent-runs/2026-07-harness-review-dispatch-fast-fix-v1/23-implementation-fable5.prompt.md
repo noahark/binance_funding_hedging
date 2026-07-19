@@ -1,14 +1,14 @@
 <!-- ===== DISPATCH RECEIPT =====
-status: pending
+status: done
 target_model: claude-fable-5 / anthropic
 executor: human_operator
 adapter_cmd: claude --model claude-fable-5 --permission-mode acceptEdits -p "$(cat reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/23-implementation-fable5.prompt.md)"
-started_at:
-completed_at:
-session_id:
-session_id_source:
-outputs: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/20-implementation-fable5.md, reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/60-test-output.txt
-next_dispatch: stop for Codex bookkeeper reconciliation; do not invoke a reviewer
+started_at: unavailable (operator did not provide exact start time)
+completed_at: 2026-07-20T07:05:57+08:00
+session_id: 81560638-a8c5-456b-ad9a-68714587b413
+session_id_source: runtime_env (CLAUDE_CODE_SESSION_ID), recorded in implementation report
+outputs: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/20-implementation.md, reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/60-test-output.txt
+next_dispatch: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1-kimi.prompt.md (executor: human_operator)
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY (immutable after dispatch) ===== -->

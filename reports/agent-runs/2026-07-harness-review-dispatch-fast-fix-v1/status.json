@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-review-dispatch-fast-fix-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "review_artifact_protocol": "raw-plus-strict-json/v1",
   "stage_branch": {
@@ -74,6 +74,16 @@
       "raw_output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/20-implementation-grok-abandoned.md",
       "recorded_at": "2026-07-19T23:14:17+08:00",
       "disposition": "source changes fully rolled back by explicit user instruction before commit"
+    },
+    {
+      "role": "implementation_h1",
+      "model": "claude-fable-5",
+      "provider": "anthropic",
+      "session_id": "81560638-a8c5-456b-ad9a-68714587b413",
+      "session_id_source": "runtime_env",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/20-implementation.md",
+      "recorded_at": "2026-07-20T07:05:57+08:00"
     }
   ],
   "designer": {
@@ -150,12 +160,15 @@
     "scripts/validate-all-stages.py",
     "agents/developer-discipline.md",
     "agents/skills/minimal-change-engineer.md",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,05-root-cause-and-fix-plan.md,12-development-breakdown.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,23-implementation-fable5.prompt.md}"
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,20-implementation.md,60-test-output.txt,30-review-1-kimi.prompt.md}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
-  "head_sha": null,
-  "diff_fingerprint": null,
-  "coverage_waypoints": null,
+  "head_sha": "73752dbba16beaf41ff6fdfec3b3b84b1944306b",
+  "diff_fingerprint": "73752dbba16beaf41ff6fdfec3b3b84b1944306b:7cf1d8d251a5b628f735455b1c7f03b8977fa790efed6019d583b32719224619",
+  "coverage_waypoints": [
+    "8cf810d2335d5af08e2ff18181964e5e053e56b9",
+    "73752dbba16beaf41ff6fdfec3b3b84b1944306b"
+  ],
   "changed_files": [
     "AGENTS.md",
     "docs/model-adapters.md",
@@ -174,19 +187,26 @@
       "id": "H1",
       "name": "review dispatch simplification and strict evidence capture",
       "owner": "fable5",
-      "reviewer": null,
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
-      "test_evidence": null,
+      "reviewer": "kimi",
+      "base_sha": "2eae7bd8c0921d599d1a884145ba11e750cd5743",
+      "head_sha": "73752dbba16beaf41ff6fdfec3b3b84b1944306b",
+      "diff_fingerprint": "73752dbba16beaf41ff6fdfec3b3b84b1944306b:af472925a436f5b4622b95d33e344243ba4fd215325f09f6a7b3baa2e7e201a6",
+      "test_evidence": "60-test-output.txt",
       "review_1": null
     }
   ],
   "tests": {
-    "status": "reimplementation_pending",
-    "commands": [],
+    "status": "passed",
+    "commands": [
+      "python3 scripts/tests/test_review_artifacts.py",
+      "python3 -m py_compile scripts/review_artifacts.py scripts/validate-stage.py scripts/validate-all-stages.py",
+      "python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint",
+      "python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase dispatch-ready",
+      "python3 scripts/test-validate-all-stages-compare.py --repo-root .",
+      "git diff --check"
+    ],
     "evidence": "60-test-output.txt",
-    "implementation_tests_pending": true,
+    "implementation_tests_pending": false,
     "bookkeeper_reconciliation": "21-bookkeeper-reconciliation.md",
     "abandoned_attempt_tests_are_not_acceptance_evidence": true
   },
@@ -209,7 +229,24 @@
     "synthesis_and_amendment": "13-plan-review-synthesis-and-amendment.md",
     "another_plan_review_required": false
   },
-  "review_1": null,
+  "review_1": {
+    "reviewer": "kimi",
+    "provider": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "role": "first_reviewer",
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": "73752dbba16beaf41ff6fdfec3b3b84b1944306b:7cf1d8d251a5b628f735455b1c7f03b8977fa790efed6019d583b32719224619",
+    "raw_output_path": "30-review-1.raw-output.md",
+    "verdict_path": "30-review-1.verdict.json",
+    "covers_through_task": "H1",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": "Prior independent plan review only; no direction synthesis, breakdown, design, implementation, or fix authorship.",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
   "review_2": null,
   "authorized_exceptions": [],
   "rework_count": 0,
@@ -220,6 +257,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_operator_executes_23_implementation_fable5_prompt",
-  "updated_at": "2026-07-19T23:32:37+08:00"
+  "next_action": "bookkeeper_commits_review_metadata_then_human_executes_30_review_1_kimi_prompt",
+  "updated_at": "2026-07-20T07:20:38+08:00"
 }
