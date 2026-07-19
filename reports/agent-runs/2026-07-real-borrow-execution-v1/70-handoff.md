@@ -13,8 +13,8 @@
 - Stage: `2026-07-real-borrow-execution-v1`
 - Status: `designing`
 - Branch: `stage/2026-07-real-borrow-execution-v1`
-- HEAD: `5b2b3232673fa7ee193efdcc6f80c4df82aa0fa9`
-- Git status: stage evidence is uncommitted; no delivery code changes.
+- Last committed design baseline: `8ffc81b21154bdf8a6255ae68cba936fbed12a99`
+- Git status at checkpoint: clean; no delivery code changes.
 - Bookkeeper: Codex/GPT.
 - Direction panel: complete (five drafts).
 - User approval: recorded for A+B at 2026-07-19 15:57:10 CST; Boundary C remains separately authorized.
@@ -58,6 +58,6 @@ Human operator executes `09-fable5-development-breakdown.dispatch.md`. Fable5 mu
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
-本地北京时间: 2026-07-19 16:03:02 CST
+本地北京时间: 2026-07-19 16:04:30 CST
 下一步模型: Fable5
 下一步任务: 仅写入 12-development-breakdown.md，拆分 A+B 后端/前端实现边界、契约、测试与审阅重点
