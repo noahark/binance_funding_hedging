@@ -2,16 +2,16 @@
 
 ## Recovery Header
 
-- Active phase: `review-2 dispatch preparation`
-- Next action: commit and validate the final Review-2 packet, then have the human operator dispatch it to a fresh Codex/GPT read-only session.
+- Active phase: `stage_accepted_waiting_user` candidate
+- Next action: run the pre-accept validator; if it passes, wait for explicit user acceptance before any merge to main.
 - Read-set: `status.current_inputs`
-- Open blockers: no implementation blocker. Both formal task-scoped Review-1 verdicts ACCEPT; Review-2 is the remaining final review gate.
+- Open blockers: no technical blocker. Review-1 and Review-2 ACCEPT; only the explicit user merge-acceptance gate remains after pre-accept validation.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-real-borrow-execution-v1`
-- Status: `review_2` pending (H_A/H_B committed; both task-scoped Review-1 verdicts ACCEPT)
+- Status: `stage_accepted_waiting_user` candidate (pending pre-accept validation)
 - Branch: `stage/2026-07-real-borrow-execution-v1`
 - Last committed design baseline: `8ffc81b21154bdf8a6255ae68cba936fbed12a99`
 - H_A backend commit: `40efb028ead50d667bb32dbe10e9af6a7d77409e`
@@ -57,6 +57,10 @@
 - Active Review-2 packet: `review-2-fable5.prompt.md` (**prepared; human execution required**)
 - Fable5 Review-2 preflight validator: `64-review-2-fable5-preflight-validation.txt` (**PASS**)
 - Review-2 preflight validator: `63-review-2-preflight-validation.txt` (**PASS**)
+- Final Review-2: original raw output `50-review-2.md` plus strict-format retry
+  `50-review-2-retry-1.md` — Fable5 ACCEPT, Session
+  `f64e6dea-a2bf-49a9-b3e1-9a3631384b8d`; retry preserves JSON exactly and
+  removes only the original terminal LF.
 - Status JSON: `status.json`
 
 ## Capacity Recon Highlights (pointer only — read the raw report)
@@ -74,15 +78,14 @@
 
 ## Next Action
 
-Commit the Review-2 packet and run the clean-worktree pre-review validator.
-Then the human operator executes `review-2-fable5.prompt.md` in a **fresh**
-Anthropic Fable5 plan/read-only session. Save the raw response as `50-review-2.md`, retain
-the strict JSON at its exact end, and backfill the packet receipt plus
-`status.json.session_receipts` from verified provider-native session evidence.
+Run `scripts/validate-stage.py 2026-07-real-borrow-execution-v1 --phase
+pre-accept` from a clean committed worktree and save the result. If it passes,
+stop at `stage_accepted_waiting_user`. Do not merge the stage branch to main
+until the user explicitly accepts this delivery.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
-本地北京时间: 2026-07-19 20:43:47 CST
-下一步模型: Anthropic Fable5 review-2 candidate
-下一步任务: 对完整固定 stage range 执行最终 Review-2，并披露 design involvement
+本地北京时间: 2026-07-19 21:48:44 CST
+下一步模型: human user
+下一步任务: 审阅 accepted candidate 并明确授权或拒绝合并 stage branch 到 main

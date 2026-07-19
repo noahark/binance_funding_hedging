@@ -1,11 +1,11 @@
 <!-- RECEIPT — bookkeeper fills this metadata after the human operator executes the packet.
-status: pending
+status: done
 target_model: claude / claude-fable-5 (fresh plan/read-only session)
 adapter_cmd: claude --model claude-fable-5 --permission-mode plan --json-schema "$(cat schemas/review-verdict.schema.json)" -p "$(cat reports/agent-runs/2026-07-real-borrow-execution-v1/review-2-fable5.prompt.md)"
-started_at:
-completed_at:
-session_id:
-session_id_source:
+started_at: unavailable (not captured by operator)
+completed_at: 2026-07-19T21:09:04+08:00
+session_id: f64e6dea-a2bf-49a9-b3e1-9a3631384b8d
+session_id_source: operator (verified provider-native Session ID)
 output: reports/agent-runs/2026-07-real-borrow-execution-v1/50-review-2.md
 next_dispatch: ACCEPT → stage_accepted_waiting_user; REWORK → bounded domain-owner fix
 -->

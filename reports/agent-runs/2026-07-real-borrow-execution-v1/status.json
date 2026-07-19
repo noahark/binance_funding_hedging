@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-real-borrow-execution-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-real-borrow-execution-v1",
@@ -163,6 +163,17 @@
       "session_id_source": "operator: verified provider-native Session ID",
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/30-review-1-frontend.md",
       "recorded_at": "2026-07-19T20:19:04+08:00"
+    },
+    {
+      "role": "review_2",
+      "provider": "claude",
+      "model": "claude-fable-5",
+      "session_id": "f64e6dea-a2bf-49a9-b3e1-9a3631384b8d",
+      "session_id_source": "operator: verified provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/50-review-2.md",
+      "strict_verdict_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/50-review-2-retry-1.md",
+      "format_retry_note": "The original model output is preserved. The retry file is byte-identical except that its single terminal LF was removed using the operator-recorded capture-normalization command; its JSON object, verdict, and fingerprint are unchanged.",
+      "recorded_at": "2026-07-19T21:09:04+08:00"
     }
   ],
   "designer": {
@@ -503,12 +514,13 @@
     "invalid_json_attempts": 0
   },
   "review_2": {
-    "status": "pending",
+    "status": "accepted",
     "reviewer": "claude-fable-5",
     "provider": "claude",
     "model": "claude-fable-5",
     "prompt_path": "review-2-fable5.prompt.md",
-    "output_path": "50-review-2.md",
+    "output_path": "50-review-2-retry-1.md",
+    "original_output_path": "50-review-2.md",
     "reviewer_prior_involvement": "breakdown",
     "fallback_reason": "User selected the configured Anthropic fallback after Codex/GPT design-conflict ineligibility. Fable5 has development-breakdown involvement, so it is used under the documented strong-reviewer disclosure; Claude-GLM and Kimi are code-author providers and Grok is not enabled as a Review-2 gate.",
     "design_conflict_override": {
@@ -516,19 +528,23 @@
       "reason": "Fresh Anthropic Fable5 review-2 is user-selected as the configured fallback after Codex/GPT design-conflict ineligibility. It did not implement or fix delivery code, but did author the development breakdown. No unrelated configured decision reviewer exists.",
       "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-real-borrow-execution-v1/66-review-2-strong-reviewer-override.md"
     },
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "4bab47d250b739539c0c2f09786baa75bba25d6d:54e166f1c4c4a6378f987c6a7c4cde60fa390599888129924c68d8be33fa6f08",
+    "session_id": "f64e6dea-a2bf-49a9-b3e1-9a3631384b8d",
     "invalid_json_attempts": 0
   },
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "No blocking finding: task-scoped formal Review-1 ACCEPT for Task A and Task B. Review-2 remains the final gate."
+    "No open blocking finding: Review-1 and Review-2 ACCEPT. Awaiting explicit user acceptance before merge to main."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
-  "terminal_reason": null,
-  "next_action": "review_2_dispatch",
-  "updated_at": "2026-07-19T20:56:43+08:00"
+  "terminal_reason": "stage_accepted_waiting_user",
+  "next_action": "await_user_acceptance",
+  "updated_at": "2026-07-19T21:48:44+08:00"
 }
