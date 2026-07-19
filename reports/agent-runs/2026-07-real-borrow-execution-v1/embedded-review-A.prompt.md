@@ -1,11 +1,11 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status:        pending
+status:        done
 target_model:  kimi / kimi-code/kimi-for-coding
-adapter_cmd:   kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A.prompt.md)"
-started_at:    n/a
-completed_at:  n/a
-session_id:    n/a
-outputs:       reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A-round1.raw-output.md
+adapter_cmd:   kimi interactive fresh read-only session, prompt file handed by human operator (interactive equivalent of: kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A.prompt.md)")
+started_at:    2026-07-19T18:39:15+08:00 (first execution evidence; read phase preceded)
+completed_at:  2026-07-19T18:42:46+08:00
+session_id:    session_f58f8533-7c05-4079-812c-5b867789a95f (operator-verified provider-native Kimi Session ID)
+outputs:       reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A-round1.raw-output.md (verdict: BLOCKER — 1 high + 3 minor findings, all scope-contained, no R3 escalation)
 next_dispatch: executor: bookkeeper — record checkpoint and reconcile Task A after PASS/BLOCKER
 ===== END RECEIPT ===== -->
 

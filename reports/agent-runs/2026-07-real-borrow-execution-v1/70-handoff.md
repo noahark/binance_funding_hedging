@@ -2,16 +2,16 @@
 
 ## Recovery Header
 
-- Active phase: `implementation dispatch ready`
-- Next action: human operator launches the two committed implementation prompts in parallel; implementation remains bounded to A+B and zero Binance writes.
+- Active phase: `implementation / Task A embedded-review repair`
+- Next action: human operator dispatches the scope-contained GLM Task A repair, then a fresh Kimi round-2 embedded review.
 - Read-set: `status.current_inputs`
-- Open blockers: no design blocker; implementation awaits human-operated model dispatch.
+- Open blockers: Task A round-1 embedded review returned a scope-contained BLOCKER; Task B retry review is PASS.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-real-borrow-execution-v1`
-- Status: `designing` (dispatch-ready passed; moves to `implementing` when the human launches the task prompts)
+- Status: `implementing` (Task A repairing four round-1 findings; Task B ready for R4 reconciliation)
 - Branch: `stage/2026-07-real-borrow-execution-v1`
 - Last committed design baseline: `8ffc81b21154bdf8a6255ae68cba936fbed12a99`
 - H_intake dispatch evidence commit: `90e66c3f9cd6fa048cd962cde206b391230b50bb`; no delivery code changes.
@@ -39,7 +39,8 @@
 - Task B frontend dispatch: `task-B-kimi.prompt.md` (**ready**)
 - Embedded review prompts: `embedded-review-A.prompt.md`, `embedded-review-B.prompt.md` (**prewritten; immutable after H_intake**)
 - Dispatch-ready validator: `60-dispatch-ready-validation.txt` (**PASS**)
-- Implementation / reviews: not started
+- Task A implementation: complete but round-1 embedded review BLOCKER — repair dispatch ready
+- Task B implementation: complete; verified GLM retry-1 embedded review PASS
 - Status JSON: `status.json`
 
 ## Capacity Recon Highlights (pointer only — read the raw report)
@@ -53,15 +54,16 @@
 
 ## Blockers
 
+- Task A: Kimi round-1 found a high fail-closed restart defect plus three scope-contained HTTP-contract defects. They must be repaired and re-reviewed once by Kimi before H_A commit.
 - No live `marginLoan`, authenticated probe or Binance write is authorized in A+B.
 
 ## Next Action
 
-The H_intake packet is committed. The human operator may now dispatch `task-A-claude-glm.prompt.md` and `task-B-kimi.prompt.md` in parallel. Each implementation task must run its R10 self-tests and invoke its prewritten fresh embedded cross-review prompt; no implementer commits or edits stage state.
+Human operator dispatches `task-A-embedded-review-round1-fix.dispatch.md`. GLM may modify only Task A scope, must write the required fix note and rerun all backend tests, then a fresh Kimi session performs the one permitted round-2 embedded review. Task B’s verified retry-1 PASS waits unchanged for R4 reconciliation.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
-本地北京时间: 2026-07-19 16:33:46 CST
-下一步模型: Claude-GLM 与 Kimi（由人类操作员并行派发）
-下一步任务: 在各自冻结边界内实现 A+B，并完成 R10 嵌入交叉预审
+本地北京时间: 2026-07-19 18:49:41 CST
+下一步模型: Claude-GLM（由人类操作员派发）
+下一步任务: 修复 Task A round-1 四项范围内 finding，随后触发 Kimi round-2 预审

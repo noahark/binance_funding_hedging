@@ -1,0 +1,3065 @@
+diff --git a/.gitignore b/.gitignore
+index 38f1a1d..9a67903 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -28,6 +28,9 @@ secrets/
+ tmp/
+ reports/agent-runs/**/raw-transcripts/
+ 
++# Local borrow-task SQLite store (stage 2026-07-real-borrow-execution-v1)
++data/
++
+ # Local reference inputs; keep available on disk but do not commit.
+ llms-full.txt
+ 币安套费率策略，逐仓杠杆.js
+diff --git a/backend/app/server.py b/backend/app/server.py
+index f85f151..7c2f165 100644
+--- a/backend/app/server.py
++++ b/backend/app/server.py
+@@ -18,18 +18,46 @@ from __future__ import annotations
+ 
+ import json
+ import mimetypes
++import re
+ import sys
+ from datetime import datetime, timezone
+ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+ from pathlib import Path
+ from urllib.parse import parse_qs, unquote, urlparse
+ 
++from ..borrow_tasks import BorrowError, BorrowTaskService
++from ..borrow_tasks import domain as borrow_domain
+ from ..config import Config, DEFAULT, from_env
+ from ..services.snapshot_service import SnapshotNotReady, SnapshotService
+ 
++# Borrow-task route table (breakdown §3.1). Path templates with their allowed
++# methods; matched longest-first. These routes are dispatched ONLY here and do
++# not alter any GET snapshot/static behavior.
++_BORROW_ROUTES = (
++    (re.compile(r"^/api/borrow-tasks/(?P<task_id>[^/]+)/start$"), ("POST",), "_borrow_start"),
++    (re.compile(r"^/api/borrow-tasks/(?P<task_id>[^/]+)/pause$"), ("POST",), "_borrow_pause"),
++    (re.compile(r"^/api/borrow-tasks/(?P<task_id>[^/]+)/delete$"), ("POST",), "_borrow_delete"),
++    (re.compile(r"^/api/borrow-tasks/(?P<task_id>[^/]+)/edit$"), ("POST",), "_borrow_edit"),
++    (re.compile(r"^/api/borrow-tasks$"), ("GET", "POST"), "_borrow_tasks"),
++    (re.compile(r"^/api/borrow-logs$"), ("GET",), "_borrow_logs"),
++    (re.compile(r"^/api/borrow-scheduler-settings$"), ("GET", "PUT"), "_borrow_settings"),
++)
++
++
++def _is_borrow_path(path: str) -> bool:
++    return (
++        path == "/api/borrow-tasks"
++        or path.startswith("/api/borrow-tasks/")
++        or path == "/api/borrow-logs"
++        or path.startswith("/api/borrow-logs/")
++        or path == "/api/borrow-scheduler-settings"
++        or path.startswith("/api/borrow-scheduler-settings/")
++    )
++
+ 
+ class _Handler(BaseHTTPRequestHandler):
+     service = None  # injected via build_server
++    borrow_service = None  # injected via build_server; None -> 503 on borrow routes
+     frontend_dir = None
+     server_version = "funding-hedging-public-market/1.0"
+ 
+@@ -37,6 +65,8 @@ class _Handler(BaseHTTPRequestHandler):
+         return
+ 
+     def do_GET(self):
++        if self._try_borrow("GET"):
++            return
+         path = urlparse(self.path).path
+         if path == "/healthz":
+             self._handle_healthz()
+@@ -55,6 +85,16 @@ class _Handler(BaseHTTPRequestHandler):
+             return
+         self._serve_static(path)
+ 
++    def do_POST(self):
++        if self._try_borrow("POST"):
++            return
++        self._send_borrow(404, {"error": "not_found", "detail": "unknown path"})
++
++    def do_PUT(self):
++        if self._try_borrow("PUT"):
++            return
++        self._send_borrow(404, {"error": "not_found", "detail": "unknown path"})
++
+     def _handle_snapshot(self):
+         try:
+             snapshot = self.service.get_snapshot()
+@@ -148,6 +188,138 @@ class _Handler(BaseHTTPRequestHandler):
+         self.end_headers()
+         self.wfile.write(body)
+ 
++    # ------------------------------------------------------------------ borrow
++
++    def _try_borrow(self, method: str) -> bool:
++        """Dispatch borrow-task routes. Returns True if handled (incl. errors).
++
++        A borrow-prefix path with no borrow service wired answers 503; a known
++        path with a disallowed method answers 405; a borrow-prefix path that
++        matches no known route answers 404. Non-borrow paths return False so
++        the caller falls through to the existing handlers.
++        """
++        path = urlparse(self.path).path
++        if not _is_borrow_path(path):
++            return False
++        if self.borrow_service is None:
++            self._send_borrow(
++                503,
++                {"error": "borrow_service_unavailable", "detail": "borrow service not configured"},
++            )
++            return True
++        for regex, allowed, handler_name in _BORROW_ROUTES:
++            match = regex.match(path)
++            if match is None:
++                continue
++            if method not in allowed:
++                self._send_borrow(
++                    405, {"error": "method_not_allowed", "detail": f"{method} not allowed on {path}"}
++                )
++                return True
++            getattr(self, handler_name)(**match.groupdict())
++            return True
++        self._send_borrow(404, {"error": "not_found", "detail": f"unknown borrow path {path}"})
++        return True
++
++    def _send_borrow(self, status: int, payload: dict) -> None:
++        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
++        self.send_response(status)
++        self.send_header("Content-Type", "application/json; charset=utf-8")
++        self.send_header("Content-Length", str(len(body)))
++        self.end_headers()
++        self.wfile.write(body)
++
++    def _read_json_body(self, required: bool = True):
++        """Return ``(data, error)`` where error is a ``(status, payload)`` pair."""
++        try:
++            length = int(self.headers.get("Content-Length", "") or "0")
++        except ValueError:
++            return None, (400, {"error": "invalid_json", "detail": "invalid Content-Length"})
++        if length > borrow_domain.BODY_MAX_BYTES:
++            return None, (
++                413,
++                {"error": "body_too_large", "detail": f"request body exceeds {borrow_domain.BODY_MAX_BYTES} bytes"},
++            )
++        raw = self.rfile.read(length) if length > 0 else b""
++        if required:
++            ctype = self.headers.get("Content-Type", "")
++            if not ctype.startswith("application/json"):
++                return None, (400, {"error": "invalid_json", "detail": "content-type must be application/json"})
++            if not raw:
++                return None, (400, {"error": "invalid_json", "detail": "empty request body"})
++        try:
++            text = raw.decode("utf-8")
++        except UnicodeDecodeError:
++            return None, (400, {"error": "invalid_json", "detail": "body is not valid UTF-8"})
++        if not text.strip():
++            return ({} if not required else None), (
++                None if not required else (400, {"error": "invalid_json", "detail": "empty request body"})
++            )
++        try:
++            return json.loads(text), None
++        except json.JSONDecodeError:
++            return None, (400, {"error": "invalid_json", "detail": "malformed JSON"})
++
++    def _drain_body(self) -> None:
++        """Read and discard a body for body-optional mutations."""
++        try:
++            length = int(self.headers.get("Content-Length", "") or "0")
++        except ValueError:
++            return
++        if length > 0:
++            self.rfile.read(length)
++
++    def _safe(self, fn, *args):
++        try:
++            return fn(*args)
++        except BorrowError as exc:
++            return exc.status, exc.as_payload()
++
++    def _borrow_tasks(self):
++        if self.command == "GET":
++            self._send_borrow(*self.borrow_service.list_tasks())
++            return
++        data, error = self._read_json_body(required=True)
++        if error is not None:
++            self._send_borrow(*error)
++            return
++        self._send_borrow(*self._safe(self.borrow_service.create_task, data))
++
++    def _borrow_start(self, task_id):
++        self._drain_body()
++        self._send_borrow(*self._safe(self.borrow_service.post_start, task_id))
++
++    def _borrow_pause(self, task_id):
++        self._drain_body()
++        self._send_borrow(*self._safe(self.borrow_service.post_pause, task_id))
++
++    def _borrow_delete(self, task_id):
++        self._drain_body()
++        self._send_borrow(*self._safe(self.borrow_service.post_delete, task_id))
++
++    def _borrow_edit(self, task_id):
++        data, error = self._read_json_body(required=True)
++        if error is not None:
++            self._send_borrow(*error)
++            return
++        self._send_borrow(*self._safe(self.borrow_service.post_edit, task_id, data))
++
++    def _borrow_logs(self):
++        query = parse_qs(urlparse(self.path).query)
++        cursor = query.get("cursor", [None])[0]
++        limit = query.get("limit", [None])[0]
++        self._send_borrow(*self._safe(self.borrow_service.get_logs, cursor, limit))
++
++    def _borrow_settings(self):
++        if self.command == "GET":
++            self._send_borrow(*self.borrow_service.get_settings())
++            return
++        data, error = self._read_json_body(required=True)
++        if error is not None:
++            self._send_borrow(*error)
++            return
++        self._send_borrow(*self._safe(self.borrow_service.put_settings, data))
++
+     def _serve_static(self, path: str):
+         if path == "/":
+             path = "/index.html"
+@@ -170,8 +342,13 @@ class _Handler(BaseHTTPRequestHandler):
+         self.wfile.write(data)
+ 
+ 
+-def build_server(config: Config, service: SnapshotService) -> ThreadingHTTPServer:
++def build_server(
++    config: Config,
++    service: SnapshotService,
++    borrow_service: BorrowTaskService | None = None,
++) -> ThreadingHTTPServer:
+     _Handler.service = service
++    _Handler.borrow_service = borrow_service
+     _Handler.frontend_dir = config.frontend_dir
+     return ThreadingHTTPServer((config.bind_host, config.bind_port), _Handler)
+ 
+@@ -196,7 +373,12 @@ def _emit_lifecycle(event: str, **fields) -> None:
+ def run(config: Config = None) -> None:
+     config = config or DEFAULT
+     service = SnapshotService(config)
++    borrow_service = BorrowTaskService(str(config.borrow_db_path))
++    # build_server keeps its original 2-arg call shape here so process-level
++    # stubs of build_server keep working; the borrow authority is wired onto the
++    # handler class separately (build_server defaults it to None first).
+     server = build_server(config, service)
++    _Handler.borrow_service = borrow_service
+     _emit_lifecycle("server_start", host=config.bind_host, port=config.bind_port)
+     print(
+         f"serving public-market snapshot on http://{config.bind_host}:{config.bind_port}"
+@@ -211,6 +393,7 @@ def run(config: Config = None) -> None:
+         # and clean up, exactly like a main-loop failure. launchd (KeepAlive=true)
+         # then restarts the process.
+         service.start_worker()
++        borrow_service.start()
+         server.serve_forever()
+     except KeyboardInterrupt:
+         pass
+@@ -221,6 +404,11 @@ def run(config: Config = None) -> None:
+         _emit_lifecycle("server_fatal_error", exception_class=type(exc).__name__)
+     finally:
+         _emit_lifecycle("server_stop")
++        try:
++            borrow_service.stop()
++        except Exception:
++            # cleanup must never mask the fatal exit or raise a secondary error
++            pass
+         try:
+             service.stop_worker()
+         except Exception:
+diff --git a/backend/borrow_tasks/__init__.py b/backend/borrow_tasks/__init__.py
+new file mode 100644
+index 0000000..9dfdc0d
+--- /dev/null
++++ b/backend/borrow_tasks/__init__.py
+@@ -0,0 +1,26 @@
++"""Durable borrow-task core (A+B slice).
++
++Isolated modular-monolith package for backend-owned borrow tasks. It is
++independent of snapshot assembly and the future Binance adapter: no
++``backend/services`` or ``backend/domain`` module imports this package, and
++this package imports none of them. No network or signing primitives are used
++anywhere under this package.
++"""
++from __future__ import annotations
++
++from .domain import BorrowError
++from .executor import BorrowExecutor, DisabledBorrowExecutor, ExecutorResult
++from .scheduler import BorrowScheduler, select_next_task
++from .service import BorrowTaskService
++from .store import BorrowTaskStore
++
++__all__ = [
++    "BorrowError",
++    "BorrowExecutor",
++    "BorrowTaskService",
++    "BorrowTaskStore",
++    "BorrowScheduler",
++    "DisabledBorrowExecutor",
++    "ExecutorResult",
++    "select_next_task",
++]
+diff --git a/backend/borrow_tasks/domain.py b/backend/borrow_tasks/domain.py
+new file mode 100644
+index 0000000..052cbdc
+--- /dev/null
++++ b/backend/borrow_tasks/domain.py
+@@ -0,0 +1,201 @@
++"""Borrow-task domain primitives for the A+B durable slice.
++
++Pure constants, validation and representation helpers. No SQLite, no network,
++ no executor. This module is imported by the store, service and tests; it must
++never import any network transport or cryptographic signing/hashing primitive
++so the zero-network proof (breakdown §5.1-9) holds.
++
++Decimal discipline: money (``amount_per_attempt``) and the scheduler interval
++cross the HTTP boundary as JSON strings, are parsed with :class:`Decimal`, and
++are stored/echoed verbatim. No float ever touches a value path.
++
++Time discipline (breakdown §3.10): all API timestamps are UTC ISO-8601 with
++microsecond precision and a trailing ``Z``. Internally every timestamp is an
++integer count of microseconds since the Unix epoch, so a 0.5-second gap is
++observable (``effective_gap_us``). Two clocks are used: a monotonic clock for
++tick spacing and a wall clock for recorded timestamps.
++"""
++from __future__ import annotations
++
++import base64
++import re
++from datetime import datetime, timedelta, timezone
++from decimal import Decimal, InvalidOperation
++
++# ---------------------------------------------------------------------------
++# Frozen vocabulary and constants (breakdown §3.3 / §3.5 / §3.6)
++# ---------------------------------------------------------------------------
++
++SCHEMA_VERSION = "borrow-tasks/v1"
++
++STATUS_BORROWING = "borrowing"
++STATUS_PAUSED = "paused"
++STATUS_DELETED = "deleted"
++STATUS_COMPLETED = "completed"
++ALL_STATUSES = (STATUS_BORROWING, STATUS_PAUSED, STATUS_DELETED, STATUS_COMPLETED)
++RUNNABLE_STATUSES = (STATUS_BORROWING, STATUS_PAUSED)  # editable states
++
++OUTCOME_PENDING = "pending"
++OUTCOME_RESOLVED = "resolved"
++
++RESULT_SUCCESS = "success"
++RESULT_KNOWN_REJECTION = "known_rejection"
++RESULT_RATE_LIMITED = "rate_limited"
++RESULT_UNKNOWN = "unknown"
++RESULT_EXECUTION_DISABLED = "execution_disabled"
++ALL_RESULT_CATEGORIES = (
++    RESULT_SUCCESS,
++    RESULT_KNOWN_REJECTION,
++    RESULT_RATE_LIMITED,
++    RESULT_UNKNOWN,
++    RESULT_EXECUTION_DISABLED,
++)
++
++# Seed scheduler row (breakdown §3.5): one global frequency default of 5s.
++DEFAULT_INTERVAL_SECONDS = "5"
++DEFAULT_INTERVAL_US = 5_000_000
++
++# HTTP body cap and log page bounds (breakdown §3.6 / §3.7).
++BODY_MAX_BYTES = 16384
++LIMIT_DEFAULT = 50
++LIMIT_MIN = 1
++LIMIT_MAX = 200
++
++# Shape regexes (breakdown §3.3 / §3.4 / §3.5).
++_ASSET_RE = re.compile(r"^[A-Z0-9]+$")
++_AMOUNT_RE = re.compile(r"^[0-9]+(\.[0-9]+)?$")
++_INTERVAL_RE = re.compile(r"^[0-9]+(\.[0-9]+)?$")
++
++_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
++
++
++# ---------------------------------------------------------------------------
++# Errors (deterministic 4xx mapping, breakdown §3.7)
++# ---------------------------------------------------------------------------
++
++
++class BorrowError(Exception):
++    """A deterministic, sanitized borrow-API error carrying its HTTP shape."""
++
++    def __init__(self, status: int, code: str, detail: str):
++        super().__init__(f"{code}: {detail}")
++        self.status = status
++        self.code = code
++        self.detail = detail
++
++    def as_payload(self) -> dict:
++        return {"error": self.code, "detail": self.detail}
++
++
++def invalid_field(name: str, reason: str) -> BorrowError:
++    return BorrowError(400, "invalid_field", f"{name}: {reason}")
++
++
++# ---------------------------------------------------------------------------
++# Validation (raises BorrowError on any deviation; deterministic)
++# ---------------------------------------------------------------------------
++
++
++def validate_asset(value) -> str:
++    if not isinstance(value, str) or not _ASSET_RE.match(value):
++        raise invalid_field("asset", "must be a non-empty A-Z0-9 string")
++    return value
++
++
++def validate_amount(value) -> str:
++    if not isinstance(value, str) or not _AMOUNT_RE.match(value):
++        raise invalid_field("amount_per_attempt", "must be a decimal string ^[0-9]+(\\.[0-9]+)?$")
++    try:
++        amount = Decimal(value)
++    except InvalidOperation as exc:  # pragma: no cover - regex already guards
++        raise invalid_field("amount_per_attempt", "not a finite decimal") from exc
++    if not amount.is_finite() or amount <= 0:
++        raise invalid_field("amount_per_attempt", "must be finite and > 0")
++    return value  # echoed verbatim, no float on the value path
++
++
++def validate_success_target(value) -> int:
++    if isinstance(value, bool) or not isinstance(value, int):
++        raise invalid_field("success_target", "must be a positive integer")
++    if value < 1:
++        raise invalid_field("success_target", "must be >= 1")
++    return value
++
++
++def parse_interval_seconds(value):
++    """Return ``(interval_seconds, interval_us)`` or raise ``invalid_interval``.
++
++    A JSON number is rejected (decimal discipline). The string must match the
++    decimal shape, be finite and > 0, and normalize to an exact integer number
++    of microseconds >= 1. Finer-than-microsecond values (e.g. ``"0.0000001"``)
++    are rejected. There is no upper bound or product minimum.
++    """
++    if not isinstance(value, str):
++        raise BorrowError(400, "invalid_interval", "interval_seconds must be a JSON string")
++    if not _INTERVAL_RE.match(value):
++        raise BorrowError(400, "invalid_interval", "interval_seconds must match ^[0-9]+(\\.[0-9]+)?$")
++    try:
++        seconds = Decimal(value)
++    except InvalidOperation as exc:  # pragma: no cover - regex already guards
++        raise BorrowError(400, "invalid_interval", "interval_seconds is not a finite decimal") from exc
++    if not seconds.is_finite() or seconds <= 0:
++        raise BorrowError(400, "invalid_interval", "interval_seconds must be finite and > 0")
++    scaled = seconds * Decimal(1_000_000)
++    truncated = scaled.to_integral_value()
++    if scaled != truncated or truncated < 1:
++        raise BorrowError(400, "invalid_interval", "interval_seconds is finer than one microsecond")
++    return value, int(truncated)
++
++
++def validate_limit(value):
++    """Return a bounded integer page size or raise ``invalid_limit``."""
++    if value is None:
++        return LIMIT_DEFAULT
++    if isinstance(value, bool) or not isinstance(value, int):
++        raise BorrowError(400, "invalid_limit", "limit must be an integer")
++    if value < LIMIT_MIN or value > LIMIT_MAX:
++        raise BorrowError(400, "invalid_limit", f"limit must be in [{LIMIT_MIN}, {LIMIT_MAX}]")
++    return value
++
++
++# ---------------------------------------------------------------------------
++# Cursor (opaque, encodes the full COALESCE sort boundary per amendment §3)
++# ---------------------------------------------------------------------------
++
++
++def encode_cursor(effective_ts_us: int, attempt_id: int) -> str:
++    raw = f"{effective_ts_us}:{attempt_id}".encode("ascii")
++    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
++
++
++def decode_cursor(value):
++    """Return ``(effective_ts_us, attempt_id)`` or ``None`` if undecodable."""
++    if not isinstance(value, str) or not value:
++        return None
++    try:
++        padding = "=" * (-len(value) % 4)
++        decoded = base64.urlsafe_b64decode(value + padding).decode("ascii")
++        ts_str, id_str = decoded.split(":", 1)
++        return int(ts_str), int(id_str)
++    except Exception:
++        return None
++
++
++def effective_ts_us(finished_at_us, dispatched_at_us, scheduled_at_us) -> int:
++    """Newest-completion-first sort key (amendment §3)."""
++    for candidate in (finished_at_us, dispatched_at_us, scheduled_at_us):
++        if candidate is not None:
++            return candidate
++    return 0
++
++
++# ---------------------------------------------------------------------------
++# Time representation
++# ---------------------------------------------------------------------------
++
++
++def us_to_iso(us) -> str | None:
++    if us is None:
++        return None
++    dt = _EPOCH + timedelta(microseconds=int(us))
++    return dt.strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
+diff --git a/backend/borrow_tasks/executor.py b/backend/borrow_tasks/executor.py
+new file mode 100644
+index 0000000..cf83358
+--- /dev/null
++++ b/backend/borrow_tasks/executor.py
+@@ -0,0 +1,52 @@
++"""Borrow executor seam — the no-network port (breakdown §3.9).
++
++The executor returns a typed :class:`ExecutorResult` rather than an HTTP
++object. In A+B the only runtime-reachable executor is
++:class:`DisabledBorrowExecutor`, which performs zero I/O. The test-only
++``PaperBorrowExecutor`` lives in ``backend/tests/borrow_paper_executor.py`` so
++no runtime configuration can ever select it.
++
++Neither executor performs network I/O, signing, or any call to Binance. This
++module imports only :mod:`decimal` and :mod:`dataclasses`; it must never import
++network or signing primitives (grep proof, breakdown §5.1-9).
++"""
++from __future__ import annotations
++
++from dataclasses import dataclass
++from decimal import Decimal
++from typing import Protocol
++
++from .domain import RESULT_EXECUTION_DISABLED
++
++
++@dataclass(frozen=True)
++class ExecutorResult:
++    """Frozen executor result fields (the sanitized vocabulary of §3.6)."""
++
++    result_category: str
++    business_code: str | None = None
++    reason: str | None = None
++    http_status: int | None = None
++    tran_id: str | None = None
++    retry_after_seconds: Decimal | None = None
++
++
++class BorrowExecutor(Protocol):
++    """Executor port. ``execute`` must not hold a store transaction/lock."""
++
++    def execute(self, task: dict, attempt: dict) -> ExecutorResult: ...
++
++
++class DisabledBorrowExecutor:
++    """The ONLY executor reachable from configuration in A+B.
++
++    Returns ``execution_disabled`` with no network I/O. Every scheduled backend
++    attempt therefore persists one sanitized ``execution_disabled`` row and
++    never contacts Binance; it is not a browser simulation.
++    """
++
++    def execute(self, task: dict, attempt: dict) -> ExecutorResult:
++        return ExecutorResult(
++            result_category=RESULT_EXECUTION_DISABLED,
++            reason="executor_disabled",
++        )
+diff --git a/backend/borrow_tasks/scheduler.py b/backend/borrow_tasks/scheduler.py
+new file mode 100644
+index 0000000..1617581
+--- /dev/null
++++ b/backend/borrow_tasks/scheduler.py
+@@ -0,0 +1,71 @@
++"""Borrow scheduler — global decimal round-robin dispatch (breakdown §3.8).
++
++The selection algorithm is a pure function (testable without a database). The
++:class:`BorrowScheduler` thread wrapper drives :meth:`BorrowTaskService.tick` on
++the monotonic cadence and is the only writer of the service's last-tick cursor.
++It is decoupled from the snapshot worker: neither module imports the other.
++
++No network imports.
++"""
++from __future__ import annotations
++
++import threading
++
++
++def select_next_task(eligible_tasks: list[dict], cursor_task_id: str | None) -> dict | None:
++    """Pick the next eligible task strictly after the cursor, wrapping.
++
++    ``eligible_tasks`` is ordered by ascending ``creation_seq``. The cursor is
++    the task id dispatched last (or ``None``). With three eligible tasks the
++    order is A -> B -> C -> A. ``None`` is returned only when no task is
++    eligible.
++    """
++    if not eligible_tasks:
++        return None
++    if cursor_task_id is None:
++        return eligible_tasks[0]
++    cursor_seq = None
++    for task in eligible_tasks:
++        if task["id"] == cursor_task_id:
++            cursor_seq = task["creation_seq"]
++            break
++    for task in eligible_tasks:
++        if cursor_seq is None or task["creation_seq"] > cursor_seq:
++            return task
++    return eligible_tasks[0]  # wrap around
++
++
++class BorrowScheduler:
++    """Daemon thread that calls ``tick_callback`` on the monotonic cadence."""
++
++    def __init__(self, tick_callback, get_interval_us, mono_us):
++        self._tick = tick_callback
++        self._get_interval_us = get_interval_us
++        self._mono_us = mono_us
++        self._stop = threading.Event()
++        self._thread: threading.Thread | None = None
++
++    def start(self) -> None:
++        if self._thread is not None and self._thread.is_alive():
++            return
++        self._stop.clear()
++        self._thread = threading.Thread(
++            target=self._loop, name="borrow-scheduler", daemon=True
++        )
++        self._thread.start()
++
++    def stop(self) -> None:
++        self._stop.set()
++        thread = self._thread
++        self._thread = None
++        if thread is not None:
++            thread.join(timeout=2.0)
++
++    def _loop(self) -> None:
++        while not self._stop.is_set():
++            self._tick()
++            interval_us = self._get_interval_us() or 1
++            # Poll at a fraction of the interval so sub-second cadences stay
++            # responsive; the tick callback is the authority on what is due.
++            slice_seconds = max(min(interval_us / 1_000_000 / 2.0, 0.25), 0.005)
++            self._stop.wait(slice_seconds)
+diff --git a/backend/borrow_tasks/service.py b/backend/borrow_tasks/service.py
+new file mode 100644
+index 0000000..4503794
+--- /dev/null
++++ b/backend/borrow_tasks/service.py
+@@ -0,0 +1,304 @@
++"""Borrow task service — HTTP-facing orchestration over the store + executor.
++
++The service is the single borrow authority for A+B. It owns the store, the
++executor and the scheduler thread, and exposes the local same-origin API
++methods consumed by ``backend/app/server.py``. Handlers delegate here only;
++they never touch SQL or the executor directly (breakdown §3.10).
++
++Dispatch invariant (amendment §2): the pending attempt is persisted in one
++short transaction, the executor is invoked with no store lock or transaction
++held, and the attempt is resolved in a second short transaction. A+B disabled
++execution is synchronous only because it performs no I/O; it is not a
++commitment to a synchronous future-C adapter.
++"""
++from __future__ import annotations
++
++import threading
++import time
++import uuid
++from typing import Callable
++
++from . import domain as D
++from .executor import BorrowExecutor, DisabledBorrowExecutor
++from .scheduler import BorrowScheduler, select_next_task
++from .store import BorrowTaskStore, UnknownTaskError, VersionConflictError
++
++
++def _real_mono_us() -> int:
++    return int(time.monotonic() * 1_000_000)
++
++
++def _real_wall_us() -> int:
++    return int(time.time() * 1_000_000)
++
++
++def _latest_result_to_doc(task: dict) -> dict | None:
++    if task.get("latest_result_category") is None:
++        return None
++    return {
++        "result_category": task["latest_result_category"],
++        "business_code": task["latest_result_business_code"],
++        "reason": task["latest_result_reason"],
++        "tran_id": task["latest_result_tran_id"],
++        "finished_at": D.us_to_iso(task["latest_result_finished_at_us"]),
++    }
++
++
++def task_to_doc(task: dict) -> dict:
++    return {
++        "schema_version": D.SCHEMA_VERSION,
++        "id": task["id"],
++        "asset": task["asset"],
++        "amount_per_attempt": task["amount_per_attempt"],
++        "success_target": task["success_target"],
++        "success_count": task["success_count"],
++        "status": task["status"],
++        "version": task["version"],
++        "unresolved_attempt_id": task["unresolved_attempt_id"],
++        "latest_result": _latest_result_to_doc(task),
++        "created_at": D.us_to_iso(task["created_at_us"]),
++        "updated_at": D.us_to_iso(task["updated_at_us"]),
++    }
++
++
++def attempt_to_doc(attempt: dict) -> dict:
++    return {
++        "id": attempt["id"],
++        "task_id": attempt["task_id"],
++        "asset": attempt["asset"],
++        "sequence": attempt["sequence"],
++        "outcome": attempt["outcome"],
++        "result_category": attempt["result_category"],
++        "business_code": attempt["business_code"],
++        "reason": attempt["reason"],
++        "http_status": attempt["http_status"],
++        "tran_id": attempt["tran_id"],
++        "requested_amount": attempt["requested_amount"],
++        "scheduled_at": D.us_to_iso(attempt["scheduled_at_us"]),
++        "dispatched_at": D.us_to_iso(attempt["dispatched_at_us"]),
++        "finished_at": D.us_to_iso(attempt["finished_at_us"]),
++        "latency_ms": attempt["latency_ms"],
++        "effective_gap_us": attempt["effective_gap_us"],
++    }
++
++
++def settings_to_doc(settings: dict) -> dict:
++    return {
++        "schema_version": D.SCHEMA_VERSION,
++        "interval_seconds": settings["interval_seconds"],
++        "interval_us": settings["interval_us"],
++        "round_robin_cursor": settings["round_robin_cursor"],
++        "global_cooldown_until": D.us_to_iso(settings["global_cooldown_until_us"]),
++        "version": settings["version"],
++        "updated_at": D.us_to_iso(settings["updated_at_us"]),
++    }
++
++
++class BorrowTaskService:
++    def __init__(
++        self,
++        db_path: str,
++        *,
++        executor: BorrowExecutor | None = None,
++        mono_us: Callable[[], int] | None = None,
++        wall_us: Callable[[], int] | None = None,
++    ):
++        self._store = BorrowTaskStore(db_path)
++        self._executor: BorrowExecutor = executor or DisabledBorrowExecutor()
++        self._mono_us = mono_us or _real_mono_us
++        self._wall_us = wall_us or _real_wall_us
++        self._last_tick_mono: int | None = None
++        self._lock = threading.Lock()  # serializes tick() against itself
++        self._scheduler = BorrowScheduler(
++            self.tick, self._store.get_interval_us, self._mono_us
++        )
++
++    # --------------------------------------------------------------- lifecycle
++
++    def close(self) -> None:
++        self.stop()
++        self._store.close()
++
++    def start(self) -> None:
++        self._scheduler.start()
++
++    def stop(self) -> None:
++        self._scheduler.stop()
++
++    @property
++    def store(self) -> BorrowTaskStore:
++        return self._store
++
++    # ------------------------------------------------------------------ tasks
++
++    def create_task(self, body) -> tuple[int, dict]:
++        if not isinstance(body, dict):
++            raise D.BorrowError(400, "invalid_json", "request body must be a JSON object")
++        asset = D.validate_asset(body.get("asset"))
++        amount = D.validate_amount(body.get("amount_per_attempt"))
++        target = D.validate_success_target(body.get("success_target"))
++        task_id = str(uuid.uuid4())
++        now_us = self._wall_us()
++        task = self._store.create_task(task_id, asset, amount, target, now_us)
++        return 201, task_to_doc(task)
++
++    def list_tasks(self) -> tuple[int, dict]:
++        tasks = [task_to_doc(t) for t in self._store.list_tasks()]
++        return 200, {"schema_version": D.SCHEMA_VERSION, "tasks": tasks}
++
++    def post_start(self, task_id: str) -> tuple[int, dict]:
++        task = self._store.get_task(task_id)
++        if task is None:
++            raise D.BorrowError(404, "unknown_task", f"unknown task {task_id}")
++        if task["status"] != D.STATUS_PAUSED:
++            raise D.BorrowError(409, "invalid_transition", "start requires status paused")
++        updated = self._store.set_task_status(task_id, D.STATUS_BORROWING, self._wall_us())
++        return 200, task_to_doc(updated)
++
++    def post_pause(self, task_id: str) -> tuple[int, dict]:
++        task = self._store.get_task(task_id)
++        if task is None:
++            raise D.BorrowError(404, "unknown_task", f"unknown task {task_id}")
++        if task["status"] != D.STATUS_BORROWING:
++            raise D.BorrowError(409, "invalid_transition", "pause requires status borrowing")
++        updated = self._store.set_task_status(task_id, D.STATUS_PAUSED, self._wall_us())
++        return 200, task_to_doc(updated)
++
++    def post_delete(self, task_id: str) -> tuple[int, dict]:
++        task = self._store.get_task(task_id)
++        if task is None:
++            raise D.BorrowError(404, "unknown_task", f"unknown task {task_id}")
++        if task["status"] == D.STATUS_DELETED:
++            raise D.BorrowError(409, "invalid_transition", "task already deleted")
++        updated = self._store.set_task_status(task_id, D.STATUS_DELETED, self._wall_us())
++        return 200, task_to_doc(updated)
++
++    def post_edit(self, task_id: str, body) -> tuple[int, dict]:
++        if not isinstance(body, dict):
++            raise D.BorrowError(400, "invalid_json", "request body must be a JSON object")
++        task = self._store.get_task(task_id)
++        if task is None:
++            raise D.BorrowError(404, "unknown_task", f"unknown task {task_id}")
++        if task["status"] not in D.RUNNABLE_STATUSES:
++            raise D.BorrowError(409, "invalid_transition", "edit requires status borrowing or paused")
++        amount = D.validate_amount(body.get("amount_per_attempt"))
++        target = D.validate_success_target(body.get("success_target"))
++        if target <= task["success_count"]:
++            raise D.invalid_field(
++                "success_target", "must be strictly greater than current success_count"
++            )
++        version = body.get("version")
++        if isinstance(version, bool) or not isinstance(version, int):
++            raise D.invalid_field("version", "must be an integer")
++        try:
++            updated = self._store.edit_task(task_id, amount, target, version, self._wall_us())
++        except VersionConflictError as exc:
++            raise D.BorrowError(409, "version_conflict", "edit version does not match current") from exc
++        return 200, task_to_doc(updated)
++
++    # ----------------------------------------------------------------- logs
++
++    def get_logs(self, cursor_str, limit_raw) -> tuple[int, dict]:
++        limit = self._parse_limit(limit_raw)
++        cursor_ts, cursor_id = self._parse_cursor(cursor_str)
++        entries, has_more = self._store.list_attempts_page(limit, cursor_ts, cursor_id)
++        next_cursor = None
++        if has_more and entries:
++            last = entries[-1]
++            ets = D.effective_ts_us(
++                last["finished_at_us"], last["dispatched_at_us"], last["scheduled_at_us"]
++            )
++            next_cursor = D.encode_cursor(ets, last["id"])
++        return 200, {
++            "schema_version": D.SCHEMA_VERSION,
++            "entries": [attempt_to_doc(e) for e in entries],
++            "next_cursor": next_cursor,
++        }
++
++    def _parse_limit(self, limit_raw) -> int:
++        if limit_raw is None:
++            return D.LIMIT_DEFAULT
++        try:
++            value = int(str(limit_raw).strip())
++        except (TypeError, ValueError) as exc:
++            raise D.BorrowError(400, "invalid_limit", "limit must be an integer") from exc
++        return D.validate_limit(value)
++
++    def _parse_cursor(self, cursor_str):
++        if cursor_str is None or cursor_str == "":
++            return None, None
++        decoded = D.decode_cursor(cursor_str)
++        if decoded is None:
++            raise D.BorrowError(400, "invalid_cursor", "cursor is not a valid opaque token")
++        return decoded
++
++    # --------------------------------------------------------------- settings
++
++    def get_settings(self) -> tuple[int, dict]:
++        return 200, settings_to_doc(self._store.get_settings())
++
++    def put_settings(self, body) -> tuple[int, dict]:
++        if not isinstance(body, dict):
++            raise D.BorrowError(400, "invalid_json", "request body must be a JSON object")
++        if "interval_seconds" not in body:
++            raise D.invalid_field("interval_seconds", "is required")
++        seconds_str, interval_us = D.parse_interval_seconds(body["interval_seconds"])
++        updated = self._store.update_settings(seconds_str, interval_us, self._wall_us())
++        return 200, settings_to_doc(updated)
++
++    # --------------------------------------------------------------- scheduler
++
++    def tick(self) -> bool:
++        """Run one due-tick check; dispatch at most one attempt.
++
++        Returns whether an attempt was dispatched. Tests drive this directly
++        with injected clocks; the scheduler thread calls it on the cadence.
++        """
++        with self._lock:
++            now = self._mono_us()
++            interval = self._store.get_interval_us()
++            if self._last_tick_mono is None:
++                self._last_tick_mono = now
++                return self._dispatch_one(self._wall_us())
++            if now < self._last_tick_mono + interval:
++                return False
++            self._last_tick_mono = self._last_tick_mono + interval
++            return self._dispatch_one(self._wall_us())
++
++    def _dispatch_one(self, scheduled_us: int) -> bool:
++        settings = self._store.get_settings()
++        cooldown = settings["global_cooldown_until_us"]
++        if cooldown is not None and cooldown > scheduled_us:
++            return False
++        eligible = self._store.list_eligible_tasks()
++        chosen = select_next_task(eligible, settings["round_robin_cursor"])
++        if chosen is None:
++            return False
++        dispatched_us = self._wall_us()
++        # Transaction 1: persist pending attempt + advance cursor (no executor).
++        attempt = self._store.insert_pending_attempt(
++            chosen["id"],
++            chosen["asset"],
++            chosen["amount_per_attempt"],
++            scheduled_us,
++            dispatched_us,
++            chosen["id"],
++        )
++        # Executor invoked with NO store lock or transaction held (amendment §2).
++        result = self._executor.execute(chosen, attempt)
++        # Transaction 2: resolve the attempt + apply task/settings effects.
++        self._store.resolve_attempt(attempt["id"], result, self._wall_us())
++        return True
++
++    # ------------------------------------------------------------- test seam
++
++    def clear_unresolved(self, task_id: str) -> None:
++        """Python-level (not HTTP) seam to clear an unresolved marker.
++
++        Reconciliation of a genuinely unknown outcome is Boundary C; A+B ships
++        no HTTP unblock endpoint. Tests use this to restore eligibility.
++        """
++        try:
++            self._store.clear_unresolved(task_id, self._wall_us())
++        except UnknownTaskError as exc:
++            raise D.BorrowError(404, "unknown_task", f"unknown task {task_id}") from exc
+diff --git a/backend/borrow_tasks/store.py b/backend/borrow_tasks/store.py
+new file mode 100644
+index 0000000..3dfcd77
+--- /dev/null
++++ b/backend/borrow_tasks/store.py
+@@ -0,0 +1,493 @@
++"""SQLite-backed durable borrow-task store (breakdown §3.6 / §3.8 / §3.10).
++
++A modular-monolith local store. One connection guarded by a single lock is the
++frozen concurrency answer (breakdown §6.2): every public method takes the lock
++and write groups use a short ``with self._conn:`` transaction. The executor is
++never invoked while a transaction or the lock is held (the service inserts the
++pending attempt in one short transaction, releases it, invokes the executor,
++then resolves in a second short transaction — amendment §2).
++
++Internal time is integer microseconds since epoch (breakdown §3.10). The store
++holds no JSON/HTTP/executor concerns; the service serializes rows to documents.
++
++No network imports: only :mod:`sqlite3`, :mod:`threading` and :mod:`time`.
++"""
++from __future__ import annotations
++
++import os
++import sqlite3
++import threading
++import time
++from typing import Any
++
++from . import domain as D
++from .executor import ExecutorResult
++
++_SCHEMA = """
++CREATE TABLE IF NOT EXISTS borrow_task (
++    id                          TEXT PRIMARY KEY,
++    asset                       TEXT NOT NULL,
++    amount_per_attempt          TEXT NOT NULL,
++    success_target              INTEGER NOT NULL,
++    success_count               INTEGER NOT NULL DEFAULT 0,
++    status                      TEXT NOT NULL,
++    version                     INTEGER NOT NULL DEFAULT 1,
++    creation_seq                INTEGER NOT NULL,
++    created_at_us               INTEGER NOT NULL,
++    updated_at_us               INTEGER NOT NULL,
++    unresolved_attempt_id       INTEGER,
++    latest_result_category      TEXT,
++    latest_result_business_code TEXT,
++    latest_result_reason        TEXT,
++    latest_result_tran_id       TEXT,
++    latest_result_finished_at_us INTEGER
++);
++CREATE TABLE IF NOT EXISTS borrow_attempt (
++    id                INTEGER PRIMARY KEY AUTOINCREMENT,
++    task_id           TEXT NOT NULL,
++    asset             TEXT NOT NULL,
++    sequence          INTEGER NOT NULL,
++    outcome           TEXT NOT NULL,
++    result_category   TEXT,
++    business_code     TEXT,
++    reason            TEXT,
++    http_status       INTEGER,
++    tran_id           TEXT,
++    requested_amount  TEXT NOT NULL,
++    scheduled_at_us   INTEGER NOT NULL,
++    dispatched_at_us  INTEGER,
++    finished_at_us    INTEGER,
++    latency_ms        INTEGER,
++    effective_gap_us  INTEGER
++);
++CREATE TABLE IF NOT EXISTS borrow_settings (
++    id                       INTEGER PRIMARY KEY CHECK (id = 1),
++    interval_seconds         TEXT NOT NULL,
++    interval_us              INTEGER NOT NULL,
++    round_robin_cursor       TEXT,
++    global_cooldown_until_us INTEGER,
++    version                  INTEGER NOT NULL DEFAULT 1,
++    updated_at_us            INTEGER NOT NULL
++);
++CREATE INDEX IF NOT EXISTS idx_borrow_attempt_effective
++    ON borrow_attempt (finished_at_us DESC, dispatched_at_us DESC, scheduled_at_us DESC, id DESC);
++"""
++
++
++class StoreError(Exception):
++    """Base store-level error."""
++
++
++class UnknownTaskError(StoreError):
++    pass
++
++
++class VersionConflictError(StoreError):
++    pass
++
++
++def _row_to_task(row: sqlite3.Row) -> dict:
++    return {
++        "id": row["id"],
++        "asset": row["asset"],
++        "amount_per_attempt": row["amount_per_attempt"],
++        "success_target": row["success_target"],
++        "success_count": row["success_count"],
++        "status": row["status"],
++        "version": row["version"],
++        "creation_seq": row["creation_seq"],
++        "created_at_us": row["created_at_us"],
++        "updated_at_us": row["updated_at_us"],
++        "unresolved_attempt_id": row["unresolved_attempt_id"],
++        "latest_result_category": row["latest_result_category"],
++        "latest_result_business_code": row["latest_result_business_code"],
++        "latest_result_reason": row["latest_result_reason"],
++        "latest_result_tran_id": row["latest_result_tran_id"],
++        "latest_result_finished_at_us": row["latest_result_finished_at_us"],
++    }
++
++
++def _row_to_attempt(row: sqlite3.Row) -> dict:
++    return {
++        "id": row["id"],
++        "task_id": row["task_id"],
++        "asset": row["asset"],
++        "sequence": row["sequence"],
++        "outcome": row["outcome"],
++        "result_category": row["result_category"],
++        "business_code": row["business_code"],
++        "reason": row["reason"],
++        "http_status": row["http_status"],
++        "tran_id": row["tran_id"],
++        "requested_amount": row["requested_amount"],
++        "scheduled_at_us": row["scheduled_at_us"],
++        "dispatched_at_us": row["dispatched_at_us"],
++        "finished_at_us": row["finished_at_us"],
++        "latency_ms": row["latency_ms"],
++        "effective_gap_us": row["effective_gap_us"],
++    }
++
++
++class BorrowTaskStore:
++    def __init__(self, db_path: str):
++        self._lock = threading.RLock()
++        # Ensure the parent directory exists (the default path lives under the
++        # gitignored ``data/`` dir, which is not created at checkout time).
++        parent = os.path.dirname(os.path.abspath(db_path))
++        if parent and not os.path.isdir(parent):
++            os.makedirs(parent, exist_ok=True)
++        self._conn = sqlite3.connect(db_path, check_same_thread=False)
++        self._conn.row_factory = sqlite3.Row
++        self._conn.executescript(_SCHEMA)
++        with self._lock, self._conn:
++            cur = self._conn.execute(
++                "SELECT COUNT(*) FROM borrow_settings WHERE id = 1"
++            )
++            if cur.fetchone()[0] == 0:
++                self._conn.execute(
++                    "INSERT INTO borrow_settings"
++                    " (id, interval_seconds, interval_us, round_robin_cursor,"
++                    "  global_cooldown_until_us, version, updated_at_us)"
++                    " VALUES (1, ?, ?, NULL, NULL, 1, ?)",
++                    (
++                        D.DEFAULT_INTERVAL_SECONDS,
++                        D.DEFAULT_INTERVAL_US,
++                        int(time.time() * 1_000_000),
++                    ),
++                )
++            # Fail-closed recovery (breakdown §3.8): a pending attempt found at
++            # startup blocks its task until reconciliation (Boundary C).
++            self._conn.execute(
++                "UPDATE borrow_task SET unresolved_attempt_id = ("
++                "  SELECT MAX(a.id) FROM borrow_attempt a"
++                "  WHERE a.task_id = borrow_task.id AND a.outcome = ?)",
++                (D.OUTCOME_PENDING,),
++            )
++
++    def close(self) -> None:
++        with self._lock:
++            self._conn.close()
++
++    # ------------------------------------------------------------------ tasks
++
++    def create_task(
++        self, task_id: str, asset: str, amount: str, target: int, now_us: int
++    ) -> dict:
++        with self._lock, self._conn:
++            seq_row = self._conn.execute(
++                "SELECT COALESCE(MAX(creation_seq), 0) + 1 FROM borrow_task"
++            ).fetchone()
++            creation_seq = seq_row[0]
++            self._conn.execute(
++                "INSERT INTO borrow_task"
++                " (id, asset, amount_per_attempt, success_target, success_count,"
++                "  status, version, creation_seq, created_at_us, updated_at_us,"
++                "  unresolved_attempt_id, latest_result_category,"
++                "  latest_result_business_code, latest_result_reason,"
++                "  latest_result_tran_id, latest_result_finished_at_us)"
++                " VALUES (?, ?, ?, ?, 0, ?, 1, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL)",
++                (
++                    task_id,
++                    asset,
++                    amount,
++                    target,
++                    D.STATUS_BORROWING,
++                    creation_seq,
++                    now_us,
++                    now_us,
++                ),
++            )
++            row = self._conn.execute(
++                "SELECT * FROM borrow_task WHERE id = ?", (task_id,)
++            ).fetchone()
++            return _row_to_task(row)
++
++    def get_task(self, task_id: str) -> dict | None:
++        with self._lock:
++            row = self._conn.execute(
++                "SELECT * FROM borrow_task WHERE id = ?", (task_id,)
++            ).fetchone()
++            return _row_to_task(row) if row is not None else None
++
++    def list_tasks(self) -> list[dict]:
++        with self._lock:
++            rows = self._conn.execute(
++                "SELECT * FROM borrow_task ORDER BY creation_seq ASC, id ASC"
++            ).fetchall()
++            return [_row_to_task(r) for r in rows]
++
++    def list_eligible_tasks(self) -> list[dict]:
++        """Tasks selectable by the round-robin scheduler (breakdown §3.8)."""
++        with self._lock:
++            rows = self._conn.execute(
++                "SELECT * FROM borrow_task"
++                " WHERE status = ? AND unresolved_attempt_id IS NULL"
++                " ORDER BY creation_seq ASC, id ASC",
++                (D.STATUS_BORROWING,),
++            ).fetchall()
++            return [_row_to_task(r) for r in rows]
++
++    def set_task_status(self, task_id: str, status: str, now_us: int) -> dict:
++        with self._lock, self._conn:
++            cur = self._conn.execute(
++                "UPDATE borrow_task SET status = ?, version = version + 1,"
++                " updated_at_us = ? WHERE id = ?",
++                (status, now_us, task_id),
++            )
++            if cur.rowcount == 0:
++                raise UnknownTaskError(task_id)
++            row = self._conn.execute(
++                "SELECT * FROM borrow_task WHERE id = ?", (task_id,)
++            ).fetchone()
++            return _row_to_task(row)
++
++    def edit_task(
++        self,
++        task_id: str,
++        amount: str,
++        target: int,
++        expected_version: int,
++        now_us: int,
++    ) -> dict:
++        with self._lock, self._conn:
++            cur = self._conn.execute(
++                "UPDATE borrow_task SET amount_per_attempt = ?, success_target = ?,"
++                " version = version + 1, updated_at_us = ?"
++                " WHERE id = ? AND version = ?",
++                (amount, target, now_us, task_id, expected_version),
++            )
++            if cur.rowcount == 0:
++                raise VersionConflictError(task_id)
++            row = self._conn.execute(
++                "SELECT * FROM borrow_task WHERE id = ?", (task_id,)
++            ).fetchone()
++            return _row_to_task(row)
++
++    def clear_unresolved(self, task_id: str, now_us: int) -> None:
++        """Test-seam: clear the unresolved marker so a task is eligible again."""
++        with self._lock, self._conn:
++            cur = self._conn.execute(
++                "UPDATE borrow_task SET unresolved_attempt_id = NULL,"
++                " version = version + 1, updated_at_us = ? WHERE id = ?",
++                (now_us, task_id),
++            )
++            if cur.rowcount == 0:
++                raise UnknownTaskError(task_id)
++
++    # --------------------------------------------------------------- settings
++
++    def get_settings(self) -> dict:
++        with self._lock:
++            row = self._conn.execute(
++                "SELECT * FROM borrow_settings WHERE id = 1"
++            ).fetchone()
++            return {
++                "interval_seconds": row["interval_seconds"],
++                "interval_us": row["interval_us"],
++                "round_robin_cursor": row["round_robin_cursor"],
++                "global_cooldown_until_us": row["global_cooldown_until_us"],
++                "version": row["version"],
++                "updated_at_us": row["updated_at_us"],
++            }
++
++    def get_interval_us(self) -> int:
++        with self._lock:
++            return self._conn.execute(
++                "SELECT interval_us FROM borrow_settings WHERE id = 1"
++            ).fetchone()[0]
++
++    def update_settings(self, seconds_str: str, interval_us: int, now_us: int) -> dict:
++        with self._lock, self._conn:
++            self._conn.execute(
++                "UPDATE borrow_settings SET interval_seconds = ?, interval_us = ?,"
++                " version = version + 1, updated_at_us = ? WHERE id = 1",
++                (seconds_str, interval_us, now_us),
++            )
++            row = self._conn.execute(
++                "SELECT * FROM borrow_settings WHERE id = 1"
++            ).fetchone()
++            return {
++                "interval_seconds": row["interval_seconds"],
++                "interval_us": row["interval_us"],
++                "round_robin_cursor": row["round_robin_cursor"],
++                "global_cooldown_until_us": row["global_cooldown_until_us"],
++                "version": row["version"],
++                "updated_at_us": row["updated_at_us"],
++            }
++
++    # ---------------------------------------------------------------- attempts
++
++    def insert_pending_attempt(
++        self,
++        task_id: str,
++        asset: str,
++        requested_amount: str,
++        scheduled_at_us: int,
++        dispatched_at_us: int,
++        new_cursor_task_id: str,
++    ) -> dict:
++        """Atomically insert the pending attempt and advance the cursor.
++
++        The pending row is written BEFORE executor invocation; the cursor moves
++        in the same transaction so a crash cannot double-dispatch one turn
++        (breakdown §3.8).
++        """
++        with self._lock, self._conn:
++            seq_row = self._conn.execute(
++                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM borrow_attempt"
++                " WHERE task_id = ?",
++                (task_id,),
++            ).fetchone()
++            sequence = seq_row[0]
++            cur = self._conn.execute(
++                "INSERT INTO borrow_attempt"
++                " (task_id, asset, sequence, outcome, result_category,"
++                "  business_code, reason, http_status, tran_id, requested_amount,"
++                "  scheduled_at_us, dispatched_at_us, finished_at_us, latency_ms,"
++                "  effective_gap_us)"
++                " VALUES (?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, NULL,"
++                "         NULL, NULL)",
++                (
++                    task_id,
++                    asset,
++                    sequence,
++                    D.OUTCOME_PENDING,
++                    requested_amount,
++                    scheduled_at_us,
++                    dispatched_at_us,
++                ),
++            )
++            attempt_id = cur.lastrowid
++            self._conn.execute(
++                "UPDATE borrow_settings SET round_robin_cursor = ?,"
++                " version = version + 1, updated_at_us = ? WHERE id = 1",
++                (new_cursor_task_id, scheduled_at_us),
++            )
++            row = self._conn.execute(
++                "SELECT * FROM borrow_attempt WHERE id = ?", (attempt_id,)
++            ).fetchone()
++            return _row_to_attempt(row)
++
++    def resolve_attempt(
++        self, attempt_id: int, result: ExecutorResult, finished_at_us: int
++    ) -> dict:
++        """Resolve the attempt and apply its task/settings effects.
++
++        Exactly one ledger row per attempt: this updates the pending row in
++        place (append-only ledger; no second insert, no delete).
++        """
++        category = result.result_category
++        with self._lock, self._conn:
++            attempt = self._conn.execute(
++                "SELECT * FROM borrow_attempt WHERE id = ?", (attempt_id,)
++            ).fetchone()
++            if attempt is None:
++                raise UnknownTaskError(f"attempt {attempt_id}")
++            dispatched_at_us = attempt["dispatched_at_us"]
++            prev_row = self._conn.execute(
++                "SELECT dispatched_at_us FROM borrow_attempt"
++                " WHERE dispatched_at_us IS NOT NULL AND id < ?"
++                " ORDER BY id DESC LIMIT 1",
++                (attempt_id,),
++            ).fetchone()
++            effective_gap_us = (
++                dispatched_at_us - prev_row["dispatched_at_us"]
++                if (dispatched_at_us is not None and prev_row is not None)
++                else None
++            )
++            latency_ms = (
++                (finished_at_us - dispatched_at_us) // 1000
++                if dispatched_at_us is not None
++                else None
++            )
++            self._conn.execute(
++                "UPDATE borrow_attempt SET outcome = ?, result_category = ?,"
++                " business_code = ?, reason = ?, http_status = ?, tran_id = ?,"
++                " finished_at_us = ?, latency_ms = ?, effective_gap_us = ?"
++                " WHERE id = ?",
++                (
++                    D.OUTCOME_RESOLVED,
++                    category,
++                    result.business_code,
++                    result.reason,
++                    result.http_status,
++                    result.tran_id,
++                    finished_at_us,
++                    latency_ms,
++                    effective_gap_us,
++                    attempt_id,
++                ),
++            )
++            task_id = attempt["task_id"]
++            task = self._conn.execute(
++                "SELECT * FROM borrow_task WHERE id = ?", (task_id,)
++            ).fetchone()
++            if task is not None:
++                new_count = task["success_count"]
++                new_status = task["status"]
++                if category == D.RESULT_SUCCESS:
++                    new_count = task["success_count"] + 1
++                    if new_count >= task["success_target"]:
++                        new_status = D.STATUS_COMPLETED
++                self._conn.execute(
++                    "UPDATE borrow_task SET"
++                    " latest_result_category = ?, latest_result_business_code = ?,"
++                    " latest_result_reason = ?, latest_result_tran_id = ?,"
++                    " latest_result_finished_at_us = ?, success_count = ?,"
++                    " status = ?, version = version + 1, updated_at_us = ?"
++                    " WHERE id = ?",
++                    (
++                        category,
++                        result.business_code,
++                        result.reason,
++                        result.tran_id,
++                        finished_at_us,
++                        new_count,
++                        new_status,
++                        finished_at_us,
++                        task_id,
++                    ),
++                )
++                if category == D.RESULT_UNKNOWN:
++                    self._conn.execute(
++                        "UPDATE borrow_task SET unresolved_attempt_id = ?"
++                        " WHERE id = ?",
++                        (attempt_id, task_id),
++                    )
++            if category == D.RESULT_RATE_LIMITED and result.retry_after_seconds is not None:
++                cooldown_us = finished_at_us + int(
++                    (result.retry_after_seconds * 1_000_000).to_integral_value()
++                )
++                self._conn.execute(
++                    "UPDATE borrow_settings SET global_cooldown_until_us = ?,"
++                    " version = version + 1, updated_at_us = ? WHERE id = 1",
++                    (cooldown_us, finished_at_us),
++                )
++            row = self._conn.execute(
++                "SELECT * FROM borrow_attempt WHERE id = ?", (attempt_id,)
++            ).fetchone()
++            return _row_to_attempt(row)
++
++    def list_attempts_page(self, limit: int, cursor_ts: int | None, cursor_id: int | None):
++        """Return ``(entries, has_more)`` newest-completion-first (amendment §3)."""
++        order = (
++            " ORDER BY COALESCE(finished_at_us, dispatched_at_us, scheduled_at_us) DESC,"
++            " id DESC LIMIT ?"
++        )
++        with self._lock:
++            if cursor_ts is None:
++                rows = self._conn.execute(
++                    "SELECT * FROM borrow_attempt" + order, (limit + 1,)
++                ).fetchall()
++            else:
++                rows = self._conn.execute(
++                    "SELECT * FROM borrow_attempt"
++                    " WHERE (COALESCE(finished_at_us, dispatched_at_us, scheduled_at_us) < ?"
++                    "       OR (COALESCE(finished_at_us, dispatched_at_us, scheduled_at_us) = ?"
++                    "           AND id < ?))"
++                    + order,
++                    (cursor_ts, cursor_ts, cursor_id, limit + 1),
++                ).fetchall()
++        has_more = len(rows) > limit
++        entries = [_row_to_attempt(r) for r in rows[:limit]]
++        return entries, has_more
+diff --git a/backend/config.py b/backend/config.py
+index df0d735..d9d9ea2 100644
+--- a/backend/config.py
++++ b/backend/config.py
+@@ -17,6 +17,10 @@ FROZEN_RAW_DIR = (
+     REPO_ROOT
+     / "reports/api-samples/public-market-contract-v2/20260703T051738Z/raw"
+ )
++# Stage 2026-07-real-borrow-execution-v1 (A+B): local SQLite path for the
++# durable borrow-task store. Default lives under ``data/`` (gitignored). Tests
++# point this at a ``TemporaryDirectory``.
++BORROW_DB_PATH = REPO_ROOT / "data" / "borrow-tasks.sqlite3"
+ SCHEMA_PATH = REPO_ROOT / "schemas/api/public-market/snapshot.schema.json"
+ FRONTEND_DIR = REPO_ROOT / "frontend"
+ FROZEN_SOURCE_SAMPLE_ID = "20260703T051738Z"
+@@ -78,6 +82,11 @@ class Config:
+     # whose upstream I/O completes after this monotonic deadline must NOT commit
+     # cache changes or publish a new PublishedState.
+     symbol_refresh_timeout_seconds: float = 30.0
++    # Stage 2026-07-real-borrow-execution-v1 (A+B): the only borrow executor
++    # reachable from configuration is the no-network ``disabled`` one. A "live"
++    # selection is rejected, not implemented (Boundary C is a separate stage).
++    borrow_executor: str = "disabled"
++    borrow_db_path: Path = BORROW_DB_PATH
+ 
+ 
+ # Stage 2026-07-cache-refresh-scheduler-v2: fixed Group B shared/unified source
+@@ -162,6 +171,19 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
+             f"{private_channel_ttl_seconds!r} (effective slow scheduled private "
+             "transport TTL must be <=1800)"
+         )
++    borrow_executor = _env(
++        env,
++        "APP_BORROW_EXECUTOR",
++        DEFAULT.borrow_executor,
++        "FUNDING_HEDGING_BORROW_EXECUTOR",
++    )
++    # Breakdown §3.9: only the no-network disabled executor is implemented in
++    # A+B. Any other selection (a "live" adapter) is rejected, not built.
++    if borrow_executor != "disabled":
++        raise ValueError(
++            f"invalid borrow executor {borrow_executor!r}: only 'disabled' is "
++            "implemented in A+B (Boundary C is a separate stage)"
++        )
+     return Config(
+         bind_host=_env(env, "APP_BIND_HOST", DEFAULT.bind_host, "FUNDING_HEDGING_BIND_HOST"),
+         bind_port=_env_int(env, "APP_BIND_PORT", DEFAULT.bind_port, "FUNDING_HEDGING_BIND_PORT"),
+@@ -240,4 +262,11 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
+             DEFAULT.symbol_refresh_timeout_seconds,
+             "FUNDING_HEDGING_SYMBOL_REFRESH_TIMEOUT_SECONDS",
+         ),
++        borrow_executor=borrow_executor,
++        borrow_db_path=_env_path(
++            env,
++            "APP_BORROW_DB_PATH",
++            DEFAULT.borrow_db_path,
++            "FUNDING_HEDGING_BORROW_DB_PATH",
++        ),
+     )
+diff --git a/backend/tests/borrow_paper_executor.py b/backend/tests/borrow_paper_executor.py
+new file mode 100644
+index 0000000..753335a
+--- /dev/null
++++ b/backend/tests/borrow_paper_executor.py
+@@ -0,0 +1,61 @@
++"""Test-only paper borrow executor (breakdown §3.9).
++
++Lives in the test tree (NOT in the product package) so no runtime configuration
++can ever select it. Tests inject it through the ``BorrowTaskService`` constructor.
++It replays a scripted deterministic result list covering every §3.6 category and
++performs zero network I/O.
++"""
++from __future__ import annotations
++
++from decimal import Decimal
++
++from backend.borrow_tasks import domain as D
++from backend.borrow_tasks.executor import ExecutorResult
++
++
++def success(tran_id: str = "paper-1") -> ExecutorResult:
++    return ExecutorResult(result_category=D.RESULT_SUCCESS, tran_id=tran_id)
++
++
++def known_rejection(business_code: str = "-2014", reason: str = "not_vip_qualified") -> ExecutorResult:
++    return ExecutorResult(
++        result_category=D.RESULT_KNOWN_REJECTION,
++        business_code=business_code,
++        reason=reason,
++    )
++
++
++def rate_limited(retry_after_seconds=2, reason: str = "rate_limited") -> ExecutorResult:
++    return ExecutorResult(
++        result_category=D.RESULT_RATE_LIMITED,
++        reason=reason,
++        retry_after_seconds=Decimal(str(retry_after_seconds)),
++    )
++
++
++def unknown(reason: str = "unknown_outcome") -> ExecutorResult:
++    return ExecutorResult(result_category=D.RESULT_UNKNOWN, reason=reason)
++
++
++def execution_disabled() -> ExecutorResult:
++    return ExecutorResult(
++        result_category=D.RESULT_EXECUTION_DISABLED, reason="executor_disabled"
++    )
++
++
++class PaperBorrowExecutor:
++    """Replay a scripted result list; hold the last result once exhausted."""
++
++    def __init__(self, results):
++        self._results = list(results)
++        self._index = 0
++        self.calls: list = []
++
++    def execute(self, task: dict, attempt: dict) -> ExecutorResult:
++        if not self._results:
++            result = execution_disabled()
++        else:
++            result = self._results[min(self._index, len(self._results) - 1)]
++        self._index += 1
++        self.calls.append((task["id"], attempt["id"], result.result_category))
++        return result
+diff --git a/backend/tests/test_borrow_api.py b/backend/tests/test_borrow_api.py
+new file mode 100644
+index 0000000..382b95d
+--- /dev/null
++++ b/backend/tests/test_borrow_api.py
+@@ -0,0 +1,390 @@
++"""HTTP API contract tests for the borrow-task routes (breakdown §3.1/§3.2/§3.7).
++
++In-process ``ThreadingHTTPServer`` on an OS-assigned loopback port (no real
++launchd, no network). Every 2xx body is validated against its §3.2 schema (with
++cross-file ``$ref`` resolved through a ``referencing`` registry), every §3.7
++error code is shown reachable and determinate, the runtime ``DisabledBorrow``
++path is shown to persist one sanitized ``execution_disabled`` ledger row, and
++the borrow wiring is shown not to shadow the existing snapshot/healthz routes.
++"""
++from __future__ import annotations
++
++import http.client
++import json
++import threading
++from contextlib import contextmanager
++from pathlib import Path
++
++import jsonschema
++import pytest
++import referencing
++
++from backend.app.server import build_server
++from backend.borrow_tasks.service import BorrowTaskService
++from backend.borrow_tasks.executor import DisabledBorrowExecutor
++from backend.borrow_tasks import domain as D
++from backend.config import Config
++from backend.tests.borrow_paper_executor import (
++    PaperBorrowExecutor,
++    execution_disabled,
++)
++
++REPO_ROOT = Path(__file__).resolve().parents[2]
++SCHEMA_DIR = REPO_ROOT / "schemas" / "api" / "borrow-tasks"
++
++
++class _StubSnapshotService:
++    """Snapshot stub so build_server's ``service`` arg is satisfied with no I/O."""
++
++    def __init__(self, snapshot=None):
++        self._snapshot = snapshot if snapshot is not None else {"rows": []}
++
++    def get_snapshot(self):
++        return self._snapshot
++
++
++class _Clock:
++    def __init__(self, t0=0):
++        self.t = t0
++
++    def mono_us(self):
++        return self.t
++
++    def wall_us(self):
++        return self.t
++
++
++def _create(svc, asset, target=3):
++    status, doc = svc.create_task(
++        {"asset": asset, "amount_per_attempt": "1", "success_target": target}
++    )
++    assert status == 201
++    return doc["id"]
++
++
++# ---------------------------------------------------------------------------
++# Schema validators: all five §3.2 schemas registered together so the
++# task-list -> task $ref resolves without a filesystem registry.
++# ---------------------------------------------------------------------------
++@pytest.fixture(scope="module")
++def validators():
++    registry = referencing.Registry()
++    schemas = {}
++    for name in ("task", "task-list", "log-page", "scheduler-settings", "error"):
++        schema = json.loads((SCHEMA_DIR / f"{name}.schema.json").read_text())
++        schemas[name] = schema
++        registry = registry.with_resource(
++            schema["$id"], referencing.Resource.from_contents(schema)
++        )
++    return {
++        name: jsonschema.Draft202012Validator(schema, registry=registry)
++        for name, schema in schemas.items()
++    }
++
++
++# ---------------------------------------------------------------------------
++# In-process server harness
++# ---------------------------------------------------------------------------
++@contextmanager
++def _server(borrow_service, snapshot_service=None):
++    cfg = Config(bind_port=0)
++    server = build_server(
++        cfg, snapshot_service or _StubSnapshotService(), borrow_service
++    )
++    thread = threading.Thread(target=server.serve_forever, daemon=True)
++    thread.start()
++    host, port = server.server_address[:2]
++    try:
++        yield host, port
++    finally:
++        server.shutdown()
++        server.server_close()
++        if borrow_service is not None:
++            borrow_service.close()
++
++
++def _req(host, port, method, path, body=None, content_type=None, extra=None):
++    conn = http.client.HTTPConnection(host, port, timeout=5)
++    headers = dict(extra or {})
++    data = None
++    if body is not None:
++        data = body.encode("utf-8") if isinstance(body, str) else body
++        headers["Content-Length"] = str(len(data))
++        if content_type:
++            headers["Content-Type"] = content_type
++    conn.request(method, path, body=data, headers=headers)
++    resp = conn.getresponse()
++    out = resp.status, resp.getheader("Content-Type"), resp.read()
++    conn.close()
++    return out
++
++
++def _json(payload):
++    return json.loads(payload.decode("utf-8"))
++
++
++def _post_json(obj):
++    return json.dumps(obj), "application/json"
++
++
++# ===========================================================================
++# Create + list: 201, schema-valid, borrowing on creation (§3.1 / §3.3)
++# ===========================================================================
++def test_create_task_returns_201_schema_valid_and_borrowing(validators, tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    with _server(svc) as (host, port):
++        body, ctype = _post_json(
++            {"asset": "BTC", "amount_per_attempt": "1.5", "success_target": 3}
++        )
++        status, ct, payload = _req(host, port, "POST", "/api/borrow-tasks", body=body, content_type=ctype)
++        assert status == 201
++        assert ct == "application/json; charset=utf-8"
++        doc = _json(payload)
++        validators["task"].validate(doc)
++        assert doc["schema_version"] == D.SCHEMA_VERSION
++        assert doc["asset"] == "BTC"
++        assert doc["amount_per_attempt"] == "1.5"          # echoed verbatim, no float
++        assert doc["status"] == "borrowing"                # created runnable (§3.1)
++        assert doc["success_count"] == 0
++        assert doc["unresolved_attempt_id"] is None
++        assert doc["latest_result"] is None
++
++        status, _, payload = _req(host, port, "GET", "/api/borrow-tasks")
++        assert status == 200
++        page = _json(payload)
++        validators["task-list"].validate(page)
++        assert [t["id"] for t in page["tasks"]] == [doc["id"]]
++
++
++def test_decimal_amount_echoed_verbatim_no_float(validators, tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    with _server(svc) as (host, port):
++        body, ctype = _post_json(
++            {"asset": "ETH", "amount_per_attempt": "0.00100000", "success_target": 1}
++        )
++        status, _, payload = _req(host, port, "POST", "/api/borrow-tasks", body=body, content_type=ctype)
++        assert status == 201
++        assert _json(payload)["amount_per_attempt"] == "0.00100000"
++
++
++# ===========================================================================
++# Settings: GET default + PUT fractional interval, schema-valid (§3.5)
++# ===========================================================================
++def test_settings_get_default_then_put_fractional(validators, tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    with _server(svc) as (host, port):
++        status, _, payload = _req(host, port, "GET", "/api/borrow-scheduler-settings")
++        assert status == 200
++        settings = _json(payload)
++        validators["scheduler-settings"].validate(settings)
++        assert settings["interval_seconds"] == "5"
++        assert settings["interval_us"] == 5_000_000
++        assert settings["round_robin_cursor"] is None
++        assert settings["global_cooldown_until"] is None
++
++        body, ctype = _post_json({"interval_seconds": "0.5"})
++        status, _, payload = _req(
++            host, port, "PUT", "/api/borrow-scheduler-settings", body=body, content_type=ctype
++        )
++        assert status == 200
++        updated = _json(payload)
++        validators["scheduler-settings"].validate(updated)
++        assert updated["interval_seconds"] == "0.5"
++        assert updated["interval_us"] == 500_000            # sub-second observable
++
++
++# ===========================================================================
++# Logs: newest-first cursor pagination, schema-valid, sanitized category (§3.6)
++# ===========================================================================
++def test_logs_pagination_cursor_boundary_and_schema(validators, tmp_path):
++    clock = _Clock(0)
++    svc = BorrowTaskService(
++        str(tmp_path / "bt.sqlite3"),
++        executor=PaperBorrowExecutor([execution_disabled()] * 5),
++        mono_us=clock.mono_us,
++        wall_us=clock.wall_us,
++    )
++    svc.put_settings({"interval_seconds": "1"})
++    _create(svc, "BTC")
++    for t in (0, 1_000_000, 2_000_000):
++        clock.t = t
++        svc.tick()
++    with _server(svc) as (host, port):
++        status, _, payload = _req(host, port, "GET", "/api/borrow-logs?limit=2")
++        assert status == 200
++        page1 = _json(payload)
++        validators["log-page"].validate(page1)
++        assert len(page1["entries"]) == 2
++        assert page1["next_cursor"] is not None
++        # newest first
++        assert page1["entries"][0]["id"] > page1["entries"][1]["id"]
++        assert page1["entries"][0]["result_category"] == "execution_disabled"
++
++        status, _, payload = _req(
++            host, port, "GET", f"/api/borrow-logs?limit=2&cursor={page1['next_cursor']}"
++        )
++        assert status == 200
++        page2 = _json(payload)
++        validators["log-page"].validate(page2)
++        ids1 = {e["id"] for e in page1["entries"]}
++        ids2 = {e["id"] for e in page2["entries"]}
++        assert ids1.isdisjoint(ids2)                       # no overlap across the boundary
++
++
++# ===========================================================================
++# Runtime DisabledBorrow path persists ONE sanitized execution_disabled row
++# ===========================================================================
++def test_runtime_disabled_executor_persists_sanitized_row(validators, tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))  # default Disabled executor
++    assert isinstance(svc._executor, DisabledBorrowExecutor)
++    svc.put_settings({"interval_seconds": "1"})
++    _create(svc, "BTC")
++    assert svc.tick() is True                              # one backend attempt
++    with _server(svc) as (host, port):
++        status, _, payload = _req(host, port, "GET", "/api/borrow-logs")
++        assert status == 200
++        page = _json(payload)
++        validators["log-page"].validate(page)
++        assert len(page["entries"]) == 1
++        entry = page["entries"][0]
++        assert entry["outcome"] == "resolved"
++        assert entry["result_category"] == "execution_disabled"
++        assert entry["reason"] == "executor_disabled"
++        assert entry["tran_id"] is None                    # no Binance id (zero writes)
++
++
++# ===========================================================================
++# §3.7 error vocabulary — every code is reachable, determinate, schema-valid
++# ===========================================================================
++_STATIC_ERROR_CASES = [
++    # (label, method, path, body, content_type, expected_status, expected_code)
++    ("invalid_json_malformed", "POST", "/api/borrow-tasks", "{bad", "application/json", 400, "invalid_json"),
++    ("invalid_json_missing_content_type", "POST", "/api/borrow-tasks",
++     json.dumps({"asset": "BTC", "amount_per_attempt": "1", "success_target": 1}),
++     None, 400, "invalid_json"),
++    ("invalid_field_bad_asset", "POST", "/api/borrow-tasks",
++     json.dumps({"asset": "btc", "amount_per_attempt": "1", "success_target": 1}),
++     "application/json", 400, "invalid_field"),
++    ("invalid_interval_zero", "PUT", "/api/borrow-scheduler-settings",
++     json.dumps({"interval_seconds": "0"}), "application/json", 400, "invalid_interval"),
++    ("invalid_cursor_garbage", "GET", "/api/borrow-logs?cursor=!!!", None, None, 400, "invalid_cursor"),
++    ("invalid_limit_zero", "GET", "/api/borrow-logs?limit=0", None, None, 400, "invalid_limit"),
++    ("unknown_task_pause", "POST", "/api/borrow-tasks/no-such-task/pause", None, None, 404, "unknown_task"),
++    ("not_found_deep_subpath", "GET", "/api/borrow-tasks/x/y/z", None, None, 404, "not_found"),
++    ("method_not_allowed_put_collection", "PUT", "/api/borrow-tasks", None, None, 405, "method_not_allowed"),
++    ("body_too_large", "POST", "/api/borrow-tasks", "x" * 17_000, "application/json", 413, "body_too_large"),
++]
++
++
++@pytest.mark.parametrize(
++    "label,method,path,body,content_type,expected_status,expected_code",
++    _STATIC_ERROR_CASES,
++    ids=[c[0] for c in _STATIC_ERROR_CASES],
++)
++def test_static_error_codes_reachable_and_determinate(
++    validators, tmp_path, label, method, path, body, content_type, expected_status, expected_code
++):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    with _server(svc) as (host, port):
++        status, ct, payload = _req(host, port, method, path, body=body, content_type=content_type)
++        assert status == expected_status, (label, payload)
++        assert ct == "application/json; charset=utf-8"
++        err = _json(payload)
++        validators["error"].validate(err)
++        assert err["error"] == expected_code
++        assert "detail" in err and isinstance(err["detail"], str)
++
++
++def test_invalid_transition_pause_when_not_borrowing(validators, tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    task_id = _create(svc, "BTC")
++    with _server(svc) as (host, port):
++        status, _, _ = _req(host, port, "POST", f"/api/borrow-tasks/{task_id}/pause")
++        assert status == 200
++        # already paused -> cannot pause again
++        status, _, payload = _req(host, port, "POST", f"/api/borrow-tasks/{task_id}/pause")
++        assert status == 409
++        err = _json(payload)
++        validators["error"].validate(err)
++        assert err["error"] == "invalid_transition"
++
++
++def test_invalid_transition_start_when_borrowing(validators, tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    task_id = _create(svc, "BTC")                       # borrowing
++    with _server(svc) as (host, port):
++        status, _, payload = _req(host, port, "POST", f"/api/borrow-tasks/{task_id}/start")
++        assert status == 409
++        err = _json(payload)
++        validators["error"].validate(err)
++        assert err["error"] == "invalid_transition"
++
++
++def test_version_conflict_on_stale_edit(validators, tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    task_id = _create(svc, "BTC")                       # version 1
++    with _server(svc) as (host, port):
++        body, ctype = _post_json({"amount_per_attempt": "2", "success_target": 3, "version": 1})
++        status, _, _ = _req(host, port, "POST", f"/api/borrow-tasks/{task_id}/edit", body=body, content_type=ctype)
++        assert status == 200                            # -> version 2
++        # stale version 1 again -> conflict
++        body, ctype = _post_json({"amount_per_attempt": "3", "success_target": 3, "version": 1})
++        status, _, payload = _req(host, port, "POST", f"/api/borrow-tasks/{task_id}/edit", body=body, content_type=ctype)
++        assert status == 409
++        err = _json(payload)
++        validators["error"].validate(err)
++        assert err["error"] == "version_conflict"
++
++
++def test_edit_success_returns_updated_task(validators, tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    task_id = _create(svc, "BTC")                       # version 1
++    with _server(svc) as (host, port):
++        body, ctype = _post_json({"amount_per_attempt": "2", "success_target": 5, "version": 1})
++        status, _, payload = _req(host, port, "POST", f"/api/borrow-tasks/{task_id}/edit", body=body, content_type=ctype)
++        assert status == 200
++        doc = _json(payload)
++        validators["task"].validate(doc)
++        assert doc["version"] == 2
++        assert doc["amount_per_attempt"] == "2"
++        assert doc["success_target"] == 5
++
++
++def test_borrow_routes_503_when_service_not_wired(validators):
++    # build_server with borrow_service=None -> every borrow route answers 503.
++    with _server(None) as (host, port):
++        status, ct, payload = _req(host, port, "GET", "/api/borrow-tasks")
++        assert status == 503
++        err = _json(payload)
++        validators["error"].validate(err)
++        assert err["error"] == "borrow_service_unavailable"
++
++
++# ===========================================================================
++# Regression: borrow wiring does not shadow healthz / snapshot / static routes
++# ===========================================================================
++def test_borrow_wiring_does_not_shadow_healthz_or_snapshot(tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    snap = _StubSnapshotService({"rows": [{"symbol": "BTCUSDT"}]})
++    with _server(svc, snapshot_service=snap) as (host, port):
++        status, _, payload = _req(host, port, "GET", "/healthz")
++        assert status == 200
++        assert _json(payload)["status"] == "ok"
++        status, _, payload = _req(host, port, "GET", "/api/public-market/snapshot")
++        assert status == 200
++        assert "rows" in _json(payload)                 # snapshot handler still reached
++        # and a borrow GET still works alongside them
++        status, _, payload = _req(host, port, "GET", "/api/borrow-tasks")
++        assert status == 200
++
++
++def test_delete_then_delete_is_invalid_transition(validators, tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    task_id = _create(svc, "BTC")
++    with _server(svc) as (host, port):
++        status, _, payload = _req(host, port, "POST", f"/api/borrow-tasks/{task_id}/delete")
++        assert status == 200
++        assert _json(payload)["status"] == "deleted"
++        status, _, payload = _req(host, port, "POST", f"/api/borrow-tasks/{task_id}/delete")
++        assert status == 409
++        assert _json(payload)["error"] == "invalid_transition"
+diff --git a/backend/tests/test_borrow_domain.py b/backend/tests/test_borrow_domain.py
+new file mode 100644
+index 0000000..9f60b03
+--- /dev/null
++++ b/backend/tests/test_borrow_domain.py
+@@ -0,0 +1,145 @@
++"""Pure domain tests for backend/borrow_tasks/domain.py (breakdown §3.3–§3.6).
++
++No SQLite, no HTTP, no network. Covers decimal/interval parsing discipline,
++asset/amount/target validation, opaque-cursor round-trip, the COALESCE
++effective-timestamp key, and the ISO microsecond representation.
++"""
++from __future__ import annotations
++
++import pytest
++
++from backend.borrow_tasks import domain as D
++
++
++# ---------------------------------------------------------------------------
++# Interval parsing — decimal string -> exact integer microseconds (§3.5)
++# ---------------------------------------------------------------------------
++@pytest.mark.parametrize(
++    "value, expected_us",
++    [
++        ("5", 5_000_000),
++        ("0.5", 500_000),
++        ("3", 3_000_000),
++        ("0.000001", 1),          # exactly one microsecond is the floor
++        ("1.5", 1_500_000),
++        ("100", 100_000_000),
++    ],
++)
++def test_parse_interval_accepts_positive_decimals(value, expected_us):
++    seconds_str, interval_us = D.parse_interval_seconds(value)
++    assert seconds_str == value            # echoed verbatim
++    assert interval_us == expected_us
++
++
++@pytest.mark.parametrize(
++    "value",
++    ["0", "-1", "0.0", "0.0000001", "0.0000015", "abc", "", "1e3", " 1", "1 "],
++)
++def test_parse_interval_rejects_invalid_strings(value):
++    with pytest.raises(D.BorrowError) as exc:
++        D.parse_interval_seconds(value)
++    assert exc.value.code == "invalid_interval"
++    assert exc.value.status == 400
++
++
++def test_parse_interval_rejects_json_number():
++    # Decimal discipline: a JSON number must be rejected at the boundary.
++    with pytest.raises(D.BorrowError) as exc:
++        D.parse_interval_seconds(0.5)
++    assert exc.value.code == "invalid_interval"
++
++
++def test_parse_interval_error_is_deterministic_payload():
++    try:
++        D.parse_interval_seconds("bad")
++    except D.BorrowError as exc:
++        assert exc.as_payload() == {"error": "invalid_interval", "detail": exc.detail}
++    else:
++        pytest.fail("expected BorrowError")
++
++
++# ---------------------------------------------------------------------------
++# Amount / asset / success_target validation (§3.3 / §3.4)
++# ---------------------------------------------------------------------------
++@pytest.mark.parametrize("value", ["12.5", "1", "0.001", "100.000000"])
++def test_validate_amount_accepts_decimal_strings(value):
++    assert D.validate_amount(value) == value
++
++
++@pytest.mark.parametrize("value", ["0", "-1", "0.0", "1.2.3", "abc", "", "1e2", 12.5, None])
++def test_validate_amount_rejects_invalid(value):
++    with pytest.raises(D.BorrowError) as exc:
++        D.validate_amount(value)
++    assert exc.value.code == "invalid_field"
++
++
++@pytest.mark.parametrize("value", ["BTC", "HOME", "ABC123", "A"])
++def test_validate_asset_accepts_uppercase(value):
++    assert D.validate_asset(value) == value
++
++
++@pytest.mark.parametrize("value", ["btc", "BT-C", "BTC USDT", "", "ab", 1, None])
++def test_validate_asset_rejects_non_uppercase(value):
++    with pytest.raises(D.BorrowError) as exc:
++        D.validate_asset(value)
++    assert exc.value.code == "invalid_field"
++
++
++def test_validate_success_target_rejects_non_positive_and_non_integer():
++    for bad in [0, -1, 1.5, "1", True, None]:
++        with pytest.raises(D.BorrowError):
++            D.validate_success_target(bad)
++    assert D.validate_success_target(3) == 3
++
++
++# ---------------------------------------------------------------------------
++# Limit bounds (§3.6)
++# ---------------------------------------------------------------------------
++def test_validate_limit_defaults_and_bounds():
++    assert D.validate_limit(None) == 50
++    assert D.validate_limit(1) == 1
++    assert D.validate_limit(200) == 200
++    for bad in [0, -1, 201, 1.5]:
++        with pytest.raises(D.BorrowError) as exc:
++            D.validate_limit(bad)
++        assert exc.value.code == "invalid_limit"
++
++
++# ---------------------------------------------------------------------------
++# Opaque cursor encodes the full COALESCE boundary (amendment §3)
++# ---------------------------------------------------------------------------
++def test_cursor_round_trip_presolves_boundary():
++    token = D.encode_cursor(1_700_000_000_000_000, 42)
++    assert D.decode_cursor(token) == (1_700_000_000_000_000, 42)
++
++
++def test_cursor_decode_rejects_garbage():
++    for bad in ["!!!", "notb64", "1", "1:2", "==", "AAAA", None]:
++        assert D.decode_cursor(bad) is None
++
++
++def test_cursor_omits_padding():
++    token = D.encode_cursor(100, 5)
++    assert "=" not in token
++
++
++# ---------------------------------------------------------------------------
++# Effective timestamp + ISO representation
++# ---------------------------------------------------------------------------
++def test_effective_ts_uses_first_available():
++    assert D.effective_ts_us(3, 2, 1) == 3
++    assert D.effective_ts_us(None, 2, 1) == 2
++    assert D.effective_ts_us(None, None, 1) == 1
++    assert D.effective_ts_us(None, None, None) == 0
++
++
++def test_us_to_iso_is_utc_microsecond_with_z():
++    # 2026-07-19T08:00:00.000000Z = epoch us 1784448000000000
++    iso = D.us_to_iso(1_784_448_000_000_000)
++    assert iso == "2026-07-19T08:00:00.000000Z"
++    assert iso.endswith("Z")
++    assert len(iso.split("T")[1]) == len("08:00:00.000000Z")
++
++
++def test_us_to_iso_none_passthrough():
++    assert D.us_to_iso(None) is None
+diff --git a/backend/tests/test_borrow_executor.py b/backend/tests/test_borrow_executor.py
+new file mode 100644
+index 0000000..efac960
+--- /dev/null
++++ b/backend/tests/test_borrow_executor.py
+@@ -0,0 +1,173 @@
++"""Executor seam + zero-network / no-credential proofs (breakdown §3.9 / §5.1-9).
++
++Covers DisabledBorrowExecutor (the only runtime-reachable executor), the
++test-only PaperBorrowExecutor, the grep-level proof that the borrow package
++uses no network or signing primitives, a runtime proof that a full scheduler +
++API scenario issues zero ``urlopen`` calls, and a proof that poisoned
++environment secrets never reach the ledger or any API body.
++"""
++from __future__ import annotations
++
++import json
++from pathlib import Path
++
++import pytest
++import urllib.request
++
++from backend.borrow_tasks import domain as D
++from backend.borrow_tasks.executor import DisabledBorrowExecutor, ExecutorResult
++from backend.borrow_tasks.service import BorrowTaskService
++from backend.tests.borrow_paper_executor import (
++    PaperBorrowExecutor,
++    execution_disabled,
++    known_rejection,
++    rate_limited,
++    success,
++    unknown,
++)
++
++REPO_ROOT = Path(__file__).resolve().parents[2]
++BORROW_PKG = REPO_ROOT / "backend" / "borrow_tasks"
++
++
++class _Clock:
++    def __init__(self, t0=0):
++        self.t = t0
++
++    def mono_us(self):
++        return self.t
++
++    def wall_us(self):
++        return self.t
++
++
++# ---------------------------------------------------------------------------
++# DisabledBorrowExecutor — the only runtime-reachable executor
++# ---------------------------------------------------------------------------
++def test_disabled_executor_returns_execution_disabled_with_no_io():
++    result = DisabledBorrowExecutor().execute({"id": "t"}, {"id": 1})
++    assert result.result_category == D.RESULT_EXECUTION_DISABLED
++    assert result.reason == "executor_disabled"
++    assert result.tran_id is None
++    assert result.retry_after_seconds is None
++
++
++def test_service_default_executor_is_disabled(tmp_path):
++    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
++    assert isinstance(svc._executor, DisabledBorrowExecutor)
++
++
++# ---------------------------------------------------------------------------
++# PaperBorrowExecutor — deterministic scripted replay (test-only)
++# ---------------------------------------------------------------------------
++def test_paper_executor_replays_categories_in_order_then_holds_last():
++    exe = PaperBorrowExecutor(
++        [success("t1"), known_rejection(), rate_limited(3), unknown(), execution_disabled()]
++    )
++    outs = [exe.execute({"id": "a"}, {"id": i}) for i in range(6)]
++    categories = [o.result_category for o in outs[:5]]
++    assert categories == [
++        D.RESULT_SUCCESS,
++        D.RESULT_KNOWN_REJECTION,
++        D.RESULT_RATE_LIMITED,
++        D.RESULT_UNKNOWN,
++        D.RESULT_EXECUTION_DISABLED,
++    ]
++    assert outs[5].result_category == D.RESULT_EXECUTION_DISABLED   # holds last
++    assert outs[0].tran_id == "t1"
++    assert exe.calls[0] == ("a", 0, D.RESULT_SUCCESS)
++
++
++# ---------------------------------------------------------------------------
++# AST-level proof: no network / signing modules are imported in the borrow
++# package (substring grep would false-flag the docstrings that document the
++# prohibition; an import scan is the precise, honest proof).
++# ---------------------------------------------------------------------------
++def test_no_network_or_signing_imports_in_borrow_package():
++    import ast
++
++    forbidden_roots = {"urllib", "http", "socket", "hmac", "hashlib", "ssl", "requests"}
++    bad = []
++    for py in BORROW_PKG.rglob("*.py"):
++        tree = ast.parse(py.read_text(encoding="utf-8"), filename=str(py))
++        for node in ast.walk(tree):
++            if isinstance(node, ast.Import):
++                for alias in node.names:
++                    if alias.name.split(".")[0] in forbidden_roots:
++                        bad.append((py.name, alias.name))
++            elif isinstance(node, ast.ImportFrom):
++                root = (node.module or "").split(".")[0]
++                if root in forbidden_roots:
++                    bad.append((py.name, node.module))
++    assert bad == [], f"forbidden network/signing imports in borrow_tasks: {bad}"
++
++
++def test_paper_executor_lives_outside_product_package():
++    # PaperBorrowExecutor must NOT be importable from the product package, so no
++    # runtime config can ever select it.
++    import backend.borrow_tasks as pkg
++    assert not hasattr(pkg, "PaperBorrowExecutor")
++
++
++# ---------------------------------------------------------------------------
++# Runtime proof: a full scenario issues ZERO urllib calls
++# ---------------------------------------------------------------------------
++def test_full_scenario_makes_zero_urllib_calls(tmp_path, monkeypatch):
++    def boom(*args, **kwargs):
++        raise AssertionError("urlopen must never be called on a borrow path")
++
++    monkeypatch.setattr(urllib.request, "urlopen", boom)
++    clock = _Clock(0)
++    exe = PaperBorrowExecutor(
++        [success(), unknown(), rate_limited(2), known_rejection(), execution_disabled()]
++    )
++    svc = BorrowTaskService(
++        str(tmp_path / "bt.sqlite3"),
++        executor=exe,
++        mono_us=clock.mono_us,
++        wall_us=clock.wall_us,
++    )
++    svc.put_settings({"interval_seconds": "1"})
++    for asset in ("BTC", "ETH", "XRP", "SOL", "ADA"):
++        svc.create_task({"asset": asset, "amount_per_attempt": "1", "success_target": 9})
++    for t in range(5):
++        clock.t = t * 1_000_000
++        svc.tick()                    # exercises every category
++    # exercise the read API surface too
++    svc.list_tasks()
++    svc.get_settings()
++    svc.get_logs(None, None)
++    # reaching here proves no borrow path attempted a network call
++
++
++# ---------------------------------------------------------------------------
++# No-credential proof: poisoned env secrets never reach ledger or API bodies
++# ---------------------------------------------------------------------------
++def test_poisoned_env_secrets_never_leak(tmp_path, monkeypatch):
++    secrets = {
++        "BINANCE_API_KEY": "SECRETKEY-AAAA",
++        "BINANCE_API_SECRET": "SECRETSECRET-BBBB",
++        "BINANCE_SIGNATURE": "SIG-CCCC-DDDD",
++    }
++    for key, value in secrets.items():
++        monkeypatch.setenv(key, value)
++    clock = _Clock(0)
++    svc = BorrowTaskService(
++        str(tmp_path / "bt.sqlite3"),
++        executor=PaperBorrowExecutor([execution_disabled()]),
++        mono_us=clock.mono_us,
++        wall_us=clock.wall_us,
++    )
++    svc.put_settings({"interval_seconds": "1"})
++    svc.create_task({"asset": "BTC", "amount_per_attempt": "1", "success_target": 5})
++    clock.t = 0
++    svc.tick()
++    _, tasks = svc.list_tasks()
++    _, logs = svc.get_logs(None, None)
++    _, settings = svc.get_settings()
++    blob = json.dumps([tasks, logs, settings])
++    for secret in secrets.values():
++        assert secret not in blob
++    # executor reasons are sanitized controlled vocabulary only
++    for entry in logs["entries"]:
++        assert entry["reason"] in (None, "executor_disabled")
+diff --git a/backend/tests/test_borrow_scheduler.py b/backend/tests/test_borrow_scheduler.py
+new file mode 100644
+index 0000000..226a660
+--- /dev/null
++++ b/backend/tests/test_borrow_scheduler.py
+@@ -0,0 +1,246 @@
++"""Scheduler tests for backend/borrow_tasks (breakdown §3.8 / acceptance 2,4,5).
++
++Drives ``BorrowTaskService.tick`` with an injected fake clock and a test-only
++:class:`PaperBorrowExecutor` — no real scheduler thread, no network. Covers the
++global decimal round-robin order, fractional-interval effective gaps, skipping
++of paused/deleted/completed/blocked tasks, cursor survival across restart, the
++cooldown gate, the per-task at-most-one-unresolved invariant, and completion.
++"""
++from __future__ import annotations
++
++from backend.borrow_tasks import domain as D
++from backend.borrow_tasks.executor import ExecutorResult
++from backend.borrow_tasks.scheduler import select_next_task
++from backend.borrow_tasks.service import BorrowTaskService
++from backend.tests.borrow_paper_executor import (
++    PaperBorrowExecutor,
++    execution_disabled,
++    rate_limited,
++    success,
++    unknown,
++)
++
++NOW_US = 1_784_448_000_000_000  # 2026-07-19T08:00:00Z (store wall timestamps)
++
++
++class FakeClock:
++    """Single time source used as both monotonic and wall clock in tests."""
++
++    def __init__(self, t0: int = 0):
++        self.t = t0
++
++    def mono_us(self) -> int:
++        return self.t
++
++    def wall_us(self) -> int:
++        return self.t
++
++
++def _service(tmp_path, executor, clock):
++    return BorrowTaskService(
++        str(tmp_path / "borrow.sqlite3"),
++        executor=executor,
++        mono_us=clock.mono_us,
++        wall_us=clock.wall_us,
++    )
++
++
++def _create(svc, asset, target=5):
++    status, doc = svc.create_task({"asset": asset, "amount_per_attempt": "1", "success_target": target})
++    assert status == 201
++    return doc["id"]
++
++
++# ---------------------------------------------------------------------------
++# Pure selection function
++# ---------------------------------------------------------------------------
++def _t(task_id, seq):
++    return {"id": task_id, "creation_seq": seq}
++
++
++def test_select_next_task_order_and_wrap():
++    a, b, c = _t("A", 1), _t("B", 2), _t("C", 3)
++    assert select_next_task([a, b, c], None)["id"] == "A"
++    assert select_next_task([a, b, c], "A")["id"] == "B"
++    assert select_next_task([a, b, c], "B")["id"] == "C"
++    assert select_next_task([a, b, c], "C")["id"] == "A"   # wrap
++    assert select_next_task([], None) is None
++
++
++def test_select_next_task_cursor_points_at_removed_task():
++    # cursor references a task no longer eligible (deleted) -> restart from first
++    b, c = _t("B", 2), _t("C", 3)
++    assert select_next_task([b, c], "A")["id"] == "B"
++
++
++# ---------------------------------------------------------------------------
++# Round-robin A -> B -> C -> A on a 3s setting (acceptance 2)
++# ---------------------------------------------------------------------------
++def test_round_robin_abc_at_3s(tmp_path):
++    clock = FakeClock(0)
++    exe = PaperBorrowExecutor([])
++    svc = _service(tmp_path, exe, clock)
++    svc.put_settings({"interval_seconds": "3"})
++    ids = [_create(svc, a) for a in ("BTC", "ETH", "XRP")]
++    for t in (0, 3_000_000, 6_000_000, 9_000_000):
++        clock.t = t
++        svc.tick()
++    order = [task_id for (task_id, _att, _cat) in exe.calls]
++    assert order == [ids[0], ids[1], ids[2], ids[0]]
++
++
++def test_scheduler_skips_paused_deleted_completed_blocked(tmp_path):
++    clock = FakeClock(0)
++    exe = PaperBorrowExecutor([execution_disabled()] * 10)
++    svc = _service(tmp_path, exe, clock)
++    svc.put_settings({"interval_seconds": "1"})
++    a = _create(svc, "BTC")            # stays eligible
++    b_paused = _create(svc, "ETH")
++    c_deleted = _create(svc, "XRP")
++    d_completed = _create(svc, "SOL", target=1)
++    e_blocked = _create(svc, "ADA")
++
++    # Put B/C/D/E into the four non-eligible states directly via the store
++    # (these states are not reachable by ticks in A+B; the point is that the
++    # scheduler selection skips every one of them).
++    svc.store.set_task_status(b_paused, D.STATUS_PAUSED, NOW_US)
++    svc.store.set_task_status(c_deleted, D.STATUS_DELETED, NOW_US)
++    # complete D with one store-level success
++    att_d = svc.store.insert_pending_attempt(d_completed, "SOL", "1", NOW_US, NOW_US + 1, d_completed)
++    svc.store.resolve_attempt(att_d["id"], ExecutorResult(result_category=D.RESULT_SUCCESS, tran_id="t"), NOW_US + 2)
++    assert svc.store.get_task(d_completed)["status"] == D.STATUS_COMPLETED
++    # block E with an unknown outcome
++    att_e = svc.store.insert_pending_attempt(e_blocked, "ADA", "1", NOW_US, NOW_US + 1, e_blocked)
++    svc.store.resolve_attempt(att_e["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="u"), NOW_US + 2)
++    assert svc.store.get_task(e_blocked)["unresolved_attempt_id"] is not None
++
++    # Only A is eligible -> A is the sole task rotated across both ticks.
++    clock.t = 0
++    svc.tick()
++    clock.t = 1_000_000
++    svc.tick()
++    order = [task_id for (task_id, _a, _c) in exe.calls]
++    assert order == [a, a]
++
++
++def test_cursor_survives_restart_mid_cycle(tmp_path):
++    path = str(tmp_path / "borrow.sqlite3")
++    clock = FakeClock(0)
++    svc = _service(tmp_path, PaperBorrowExecutor([]), clock)
++    svc.put_settings({"interval_seconds": "3"})
++    ids = [_create(svc, a) for a in ("BTC", "ETH", "XRP")]
++    clock.t = 0
++    svc.tick()                       # A dispatched, cursor -> A
++    svc.close()
++
++    clock2 = FakeClock(3_000_000)
++    exe2 = PaperBorrowExecutor([])
++    svc2 = BorrowTaskService(
++        path, executor=exe2, mono_us=clock2.mono_us, wall_us=clock2.wall_us
++    )
++    svc2.tick()                      # cursor was A -> next is B
++    order = [task_id for (task_id, _a, _c) in exe2.calls]
++    assert order == [ids[1]]
++
++
++# ---------------------------------------------------------------------------
++# Fractional interval + observable effective gap (acceptance 2)
++# ---------------------------------------------------------------------------
++def test_fractional_interval_stored_and_effective_gap(tmp_path):
++    clock = FakeClock(0)
++    exe = PaperBorrowExecutor([])
++    svc = _service(tmp_path, exe, clock)
++    status, doc = svc.put_settings({"interval_seconds": "0.5"})
++    assert status == 200 and doc["interval_us"] == 500_000
++    _create(svc, "BTC", target=10)
++    for t in (0, 500_000, 1_000_000):
++        clock.t = t
++        svc.tick()
++    _status, page = svc.get_logs(None, None)
++    entries = page["entries"]                          # newest first
++    assert [e["effective_gap_us"] for e in entries] == [500_000, 500_000, None]
++
++
++# ---------------------------------------------------------------------------
++# Cooldown gate (acceptance 5)
++# ---------------------------------------------------------------------------
++def test_rate_limit_cooldown_suppresses_until_expiry(tmp_path):
++    clock = FakeClock(0)
++    exe = PaperBorrowExecutor([rate_limited(retry_after_seconds=10), execution_disabled()])
++    svc = _service(tmp_path, exe, clock)
++    svc.put_settings({"interval_seconds": "1"})
++    _create(svc, "BTC", target=10)
++    clock.t = 0
++    assert svc.tick() is True                          # rate_limited -> cooldown set
++    clock.t = 1_000_000
++    assert svc.tick() is False                         # suppressed (cooldown future)
++    clock.t = 5_000_000
++    assert svc.tick() is False                         # still suppressed
++    clock.t = 11_000_000
++    assert svc.tick() is True                          # cooldown expired -> dispatch
++    assert len(exe.calls) == 2                         # only the two real dispatches
++
++
++# ---------------------------------------------------------------------------
++# Unknown blocks only its task; others rotate; seam unblocks (acceptance 4)
++# ---------------------------------------------------------------------------
++def test_unknown_blocks_only_its_task_and_seam_unblocks(tmp_path):
++    clock = FakeClock(0)
++    exe = PaperBorrowExecutor(
++        [unknown(), execution_disabled(), execution_disabled(), execution_disabled()]
++    )
++    svc = _service(tmp_path, exe, clock)
++    svc.put_settings({"interval_seconds": "1"})
++    ids = [_create(svc, a) for a in ("BTC", "ETH", "XRP")]
++    clock.t = 0
++    svc.tick()                        # A -> unknown -> blocked
++    clock.t = 1_000_000
++    svc.tick()                        # B
++    clock.t = 2_000_000
++    svc.tick()                        # C
++    clock.t = 3_000_000
++    svc.tick()                        # B again (A blocked, cursor C wraps to B)
++    order = [task_id for (task_id, _a, _c) in exe.calls]
++    assert order == [ids[0], ids[1], ids[2], ids[1]]
++    assert svc.store.get_task(ids[0])["unresolved_attempt_id"] is not None
++    svc.clear_unresolved(ids[0])
++    assert svc.store.get_task(ids[0])["unresolved_attempt_id"] is None
++
++
++# ---------------------------------------------------------------------------
++# Success increments + completion stops dispatch (acceptance 5)
++# ---------------------------------------------------------------------------
++def test_success_completes_and_stops_dispatch(tmp_path):
++    clock = FakeClock(0)
++    exe = PaperBorrowExecutor([success(), success(), success()])
++    svc = _service(tmp_path, exe, clock)
++    svc.put_settings({"interval_seconds": "1"})
++    a = _create(svc, "BTC", target=2)
++    clock.t = 0
++    svc.tick()                        # success_count 1
++    clock.t = 1_000_000
++    svc.tick()                        # success_count 2 -> completed
++    clock.t = 2_000_000
++    assert svc.tick() is False        # completed -> not eligible -> no dispatch
++    task = svc.store.get_task(a)
++    assert task["status"] == "completed"
++    assert task["success_count"] == 2
++    assert len(exe.calls) == 2
++
++
++# ---------------------------------------------------------------------------
++# No eligible tick records nothing and keeps the cursor (§3.8)
++# ---------------------------------------------------------------------------
++def test_no_eligible_tick_records_nothing_and_keeps_cursor(tmp_path):
++    clock = FakeClock(0)
++    exe = PaperBorrowExecutor([])
++    svc = _service(tmp_path, exe, clock)
++    svc.put_settings({"interval_seconds": "1"})
++    clock.t = 0
++    assert svc.tick() is False
++    assert svc.store.get_settings()["round_robin_cursor"] is None
++    paused = _create(svc, "BTC")
++    svc.post_pause(paused)
++    clock.t = 1_000_000
++    assert svc.tick() is False
++    assert exe.calls == []
+diff --git a/backend/tests/test_borrow_store.py b/backend/tests/test_borrow_store.py
+new file mode 100644
+index 0000000..549e579
+--- /dev/null
++++ b/backend/tests/test_borrow_store.py
+@@ -0,0 +1,265 @@
++"""SQLite store tests for backend/borrow_tasks/store.py (breakdown §3.6/§3.8).
++
++Deterministic, no network. Uses pytest's ``tmp_path`` (a TemporaryDirectory)
++for the SQLite file. Covers restart durability, the fail-closed pending-attempt
++recovery, every result-category effect on task/settings state, the
++effective-gap computation, newest-completion-first cursor pagination, the
++optimistic-concurrency edit conflict, and soft-deletion retaining attempts.
++"""
++from __future__ import annotations
++
++from decimal import Decimal
++
++import pytest
++
++from backend.borrow_tasks import domain as D
++from backend.borrow_tasks.executor import ExecutorResult
++from backend.borrow_tasks.store import (
++    BorrowTaskStore,
++    UnknownTaskError,
++    VersionConflictError,
++)
++
++NOW = 1_784_448_000_000_000  # 2026-07-19T08:00:00Z
++
++
++def _store(tmp_path):
++    return BorrowTaskStore(str(tmp_path / "borrow.sqlite3"))
++
++
++def _disabled():
++    return ExecutorResult(result_category=D.RESULT_EXECUTION_DISABLED, reason="executor_disabled")
++
++
++# ---------------------------------------------------------------------------
++# Restart durability (acceptance 1)
++# ---------------------------------------------------------------------------
++def test_restart_preserves_tasks_settings_cursor_attempts(tmp_path):
++    path = str(tmp_path / "borrow.sqlite3")
++    s1 = BorrowTaskStore(path)
++    s1.create_task("A", "BTC", "1.5", 3, NOW)
++    s1.create_task("B", "ETH", "2", 2, NOW + 1)
++    s1.set_task_status("B", "paused", NOW + 2)
++    s1.update_settings("0.5", 500_000, NOW + 3)
++    att = s1.insert_pending_attempt("A", "BTC", "1.5", NOW + 10, NOW + 11, "A")
++    s1.resolve_attempt(att["id"], _disabled(), NOW + 12)
++    s1.close()
++
++    s2 = BorrowTaskStore(path)
++    tasks = s2.list_tasks()
++    assert [t["id"] for t in tasks] == ["A", "B"]
++    assert tasks[1]["status"] == "paused"
++    assert tasks[0]["latest_result_category"] == D.RESULT_EXECUTION_DISABLED
++    settings = s2.get_settings()
++    assert settings["interval_seconds"] == "0.5"
++    assert settings["interval_us"] == 500_000
++    assert settings["round_robin_cursor"] == "A"        # cursor survived
++    # seed(1) + update_settings(2) + insert_pending_attempt cursor bump(3)
++    assert settings["version"] == 3
++    entries, has_more = s2.list_attempts_page(50, None, None)
++    assert has_more is False
++    assert len(entries) == 1
++    assert entries[0]["result_category"] == D.RESULT_EXECUTION_DISABLED
++
++
++def test_restart_fail_closed_blocks_pending_attempt(tmp_path):
++    # A pending attempt orphaned by a crash blocks its task (breakdown §3.8).
++    path = str(tmp_path / "borrow.sqlite3")
++    s1 = BorrowTaskStore(path)
++    s1.create_task("A", "BTC", "1", 1, NOW)
++    s1.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")  # left pending
++    s1.close()
++
++    s2 = BorrowTaskStore(path)
++    task = s2.get_task("A")
++    assert task["unresolved_attempt_id"] is not None    # fail-closed
++    assert s2.list_eligible_tasks() == []               # blocked -> ineligible
++
++
++# ---------------------------------------------------------------------------
++# Settings seed + update (§3.5)
++# ---------------------------------------------------------------------------
++def test_settings_default_seed(tmp_path):
++    s = _store(tmp_path)
++    st = s.get_settings()
++    assert st["interval_seconds"] == "5"
++    assert st["interval_us"] == 5_000_000
++    assert st["round_robin_cursor"] is None
++    assert st["global_cooldown_until_us"] is None
++    assert st["version"] == 1
++
++
++def test_update_settings_bumps_version(tmp_path):
++    s = _store(tmp_path)
++    st = s.update_settings("0.5", 500_000, NOW)
++    assert st["version"] == 2
++    assert s.get_interval_us() == 500_000
++
++
++# ---------------------------------------------------------------------------
++# Task listing + eligibility (§3.3 / §3.8)
++# ---------------------------------------------------------------------------
++def test_list_tasks_creation_order_includes_soft_deleted(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 1, NOW)
++    s.create_task("B", "ETH", "1", 1, NOW + 1)
++    s.create_task("C", "XRP", "1", 1, NOW + 2)
++    s.set_task_status("B", "deleted", NOW + 3)
++    tasks = s.list_tasks()
++    assert [t["id"] for t in tasks] == ["A", "B", "C"]  # creation order, deleted retained
++    assert tasks[1]["status"] == "deleted"
++
++
++def test_list_eligible_excludes_non_borrowing_and_unresolved(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 1, NOW)              # eligible
++    s.create_task("B", "ETH", "1", 1, NOW + 1)          # eligible
++    s.create_task("C", "XRP", "1", 1, NOW + 2)
++    s.set_task_status("C", "paused", NOW + 3)           # paused -> excluded
++    s.create_task("D", "SOL", "1", 1, NOW + 4)
++    s.set_task_status("D", "deleted", NOW + 5)          # deleted -> excluded
++    s.create_task("E", "ADA", "1", 1, NOW + 6)          # will be blocked
++    att = s.insert_pending_attempt("E", "ADA", "1", NOW + 7, NOW + 8, "E")
++    s.resolve_attempt(
++        att["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="unk"), NOW + 9
++    )
++    eligible = s.list_eligible_tasks()
++    assert [t["id"] for t in eligible] == ["A", "B"]
++
++
++# ---------------------------------------------------------------------------
++# Resolution effects per category (§3.6 / §3.8)
++# ---------------------------------------------------------------------------
++def test_resolve_success_increments_then_completes(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 2, NOW)
++    a1 = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
++    s.resolve_attempt(a1["id"], ExecutorResult(result_category=D.RESULT_SUCCESS, tran_id="t1"), NOW + 12)
++    t = s.get_task("A")
++    assert t["success_count"] == 1 and t["status"] == "borrowing"
++    a2 = s.insert_pending_attempt("A", "BTC", "1", NOW + 20, NOW + 21, "A")
++    s.resolve_attempt(a2["id"], ExecutorResult(result_category=D.RESULT_SUCCESS, tran_id="t2"), NOW + 22)
++    t = s.get_task("A")
++    assert t["success_count"] == 2 and t["status"] == "completed"
++    assert t["latest_result_tran_id"] == "t2"
++
++
++def test_resolve_known_rejection_leaves_runnable(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 1, NOW)
++    att = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
++    s.resolve_attempt(
++        att["id"],
++        ExecutorResult(result_category=D.RESULT_KNOWN_REJECTION, business_code="-2014", reason="r"),
++        NOW + 12,
++    )
++    t = s.get_task("A")
++    assert t["unresolved_attempt_id"] is None
++    assert t["success_count"] == 0 and t["status"] == "borrowing"
++    assert t["latest_result_category"] == D.RESULT_KNOWN_REJECTION
++    assert t["latest_result_business_code"] == "-2014"
++
++
++def test_resolve_rate_limited_sets_global_cooldown(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 1, NOW)
++    att = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
++    s.resolve_attempt(
++        att["id"],
++        ExecutorResult(
++            result_category=D.RESULT_RATE_LIMITED, reason="rl", retry_after_seconds=Decimal("2")
++        ),
++        NOW + 12,
++    )
++    st = s.get_settings()
++    assert st["global_cooldown_until_us"] == NOW + 12 + 2_000_000
++    assert s.get_task("A")["status"] == "borrowing"     # still runnable later
++
++
++def test_resolve_unknown_blocks_task(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 1, NOW)
++    att = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
++    s.resolve_attempt(
++        att["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="unk"), NOW + 12
++    )
++    t = s.get_task("A")
++    assert t["unresolved_attempt_id"] == att["id"]
++    assert t["latest_result_category"] == D.RESULT_UNKNOWN
++
++
++# ---------------------------------------------------------------------------
++# Effective gap + pagination (§3.6, amendment §3)
++# ---------------------------------------------------------------------------
++def test_effective_gap_uses_previous_dispatched(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 5, NOW)
++    a1 = s.insert_pending_attempt("A", "BTC", "1", NOW, NOW + 100, "A")
++    s.resolve_attempt(a1["id"], _disabled(), NOW + 200)
++    a2 = s.insert_pending_attempt("A", "BTC", "1", NOW + 1000, NOW + 1100, "A")
++    s.resolve_attempt(a2["id"], _disabled(), NOW + 1200)
++    entries, _ = s.list_attempts_page(50, None, None)
++    assert entries[0]["id"] == a2["id"]                 # newest first
++    assert entries[0]["effective_gap_us"] == (NOW + 1100) - (NOW + 100)
++    assert entries[1]["effective_gap_us"] is None       # first attempt
++
++
++def test_pagination_newest_first_with_cursor_boundary(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 100, NOW)
++    for i in range(5):
++        att = s.insert_pending_attempt("A", "BTC", "1", NOW + i * 1000, NOW + i * 1000 + 10, "A")
++        s.resolve_attempt(att["id"], _disabled(), NOW + i * 1000 + 20)
++    page1, more1 = s.list_attempts_page(2, None, None)
++    assert more1 is True
++    assert [e["id"] for e in page1] == [5, 4]
++    last = page1[-1]
++    ets = D.effective_ts_us(last["finished_at_us"], last["dispatched_at_us"], last["scheduled_at_us"])
++    page2, more2 = s.list_attempts_page(2, ets, last["id"])
++    assert more2 is True
++    assert [e["id"] for e in page2] == [3, 2]
++    last = page2[-1]
++    ets = D.effective_ts_us(last["finished_at_us"], last["dispatched_at_us"], last["scheduled_at_us"])
++    page3, more3 = s.list_attempts_page(2, ets, last["id"])
++    assert more3 is False
++    assert [e["id"] for e in page3] == [1]
++
++
++# ---------------------------------------------------------------------------
++# Optimistic concurrency + soft delete (§3.4)
++# ---------------------------------------------------------------------------
++def test_edit_version_conflict_raises(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 3, NOW)              # version 1
++    s.edit_task("A", "2", 3, 1, NOW + 1)                # -> version 2
++    with pytest.raises(VersionConflictError):
++        s.edit_task("A", "3", 3, 1, NOW + 2)            # stale version 1
++
++
++def test_soft_delete_retains_attempts(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 1, NOW)
++    att = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
++    s.resolve_attempt(att["id"], _disabled(), NOW + 12)
++    s.set_task_status("A", "deleted", NOW + 20)
++    entries, _ = s.list_attempts_page(50, None, None)
++    assert len(entries) == 1                            # ledger untouched
++    assert s.get_task("A")["status"] == "deleted"
++
++
++def test_clear_unresolved_test_seam(tmp_path):
++    s = _store(tmp_path)
++    s.create_task("A", "BTC", "1", 1, NOW)
++    att = s.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
++    s.resolve_attempt(
++        att["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="unk"), NOW + 12
++    )
++    assert s.list_eligible_tasks() == []
++    s.clear_unresolved("A", NOW + 30)
++    assert [t["id"] for t in s.list_eligible_tasks()] == ["A"]
++
++
++def test_resolve_unknown_attempt_raises_for_missing(tmp_path):
++    s = _store(tmp_path)
++    with pytest.raises(UnknownTaskError):
++        s.resolve_attempt(999, _disabled(), NOW)
+diff --git a/schemas/api/borrow-tasks/error.schema.json b/schemas/api/borrow-tasks/error.schema.json
+new file mode 100644
+index 0000000..0f5e365
+--- /dev/null
++++ b/schemas/api/borrow-tasks/error.schema.json
+@@ -0,0 +1,27 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/error.schema.json",
++  "title": "Borrow API Error",
++  "type": "object",
++  "additionalProperties": false,
++  "required": ["error", "detail"],
++  "properties": {
++    "error": {
++      "enum": [
++        "invalid_json",
++        "invalid_field",
++        "invalid_interval",
++        "invalid_cursor",
++        "invalid_limit",
++        "unknown_task",
++        "not_found",
++        "method_not_allowed",
++        "invalid_transition",
++        "version_conflict",
++        "body_too_large",
++        "borrow_service_unavailable"
++      ]
++    },
++    "detail": {"type": "string"}
++  }
++}
+diff --git a/schemas/api/borrow-tasks/log-page.schema.json b/schemas/api/borrow-tasks/log-page.schema.json
+new file mode 100644
+index 0000000..5e65d73
+--- /dev/null
++++ b/schemas/api/borrow-tasks/log-page.schema.json
+@@ -0,0 +1,65 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/log-page.schema.json",
++  "title": "Borrow Attempt Log Page",
++  "type": "object",
++  "additionalProperties": false,
++  "required": ["schema_version", "entries", "next_cursor"],
++  "properties": {
++    "schema_version": {"const": "borrow-tasks/v1"},
++    "entries": {
++      "type": "array",
++      "items": {
++        "type": "object",
++        "additionalProperties": false,
++        "required": [
++          "id",
++          "task_id",
++          "asset",
++          "sequence",
++          "outcome",
++          "result_category",
++          "business_code",
++          "reason",
++          "http_status",
++          "tran_id",
++          "requested_amount",
++          "scheduled_at",
++          "dispatched_at",
++          "finished_at",
++          "latency_ms",
++          "effective_gap_us"
++        ],
++        "properties": {
++          "id": {"type": "integer", "minimum": 1},
++          "task_id": {"type": "string", "minLength": 1},
++          "asset": {"type": "string", "pattern": "^[A-Z0-9]+$"},
++          "sequence": {"type": "integer", "minimum": 1},
++          "outcome": {"enum": ["pending", "resolved"]},
++          "result_category": {
++            "type": ["string", "null"],
++            "enum": [
++              null,
++              "success",
++              "known_rejection",
++              "rate_limited",
++              "unknown",
++              "execution_disabled"
++            ]
++          },
++          "business_code": {"type": ["string", "null"]},
++          "reason": {"type": ["string", "null"]},
++          "http_status": {"type": ["integer", "null"]},
++          "tran_id": {"type": ["string", "null"]},
++          "requested_amount": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$"},
++          "scheduled_at": {"type": "string"},
++          "dispatched_at": {"type": ["string", "null"]},
++          "finished_at": {"type": ["string", "null"]},
++          "latency_ms": {"type": ["integer", "null"]},
++          "effective_gap_us": {"type": ["integer", "null"]}
++        }
++      }
++    },
++    "next_cursor": {"type": ["string", "null"]}
++  }
++}
+diff --git a/schemas/api/borrow-tasks/scheduler-settings.schema.json b/schemas/api/borrow-tasks/scheduler-settings.schema.json
+new file mode 100644
+index 0000000..6d5a7e9
+--- /dev/null
++++ b/schemas/api/borrow-tasks/scheduler-settings.schema.json
+@@ -0,0 +1,25 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/scheduler-settings.schema.json",
++  "title": "Borrow Scheduler Settings",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schema_version",
++    "interval_seconds",
++    "interval_us",
++    "round_robin_cursor",
++    "global_cooldown_until",
++    "version",
++    "updated_at"
++  ],
++  "properties": {
++    "schema_version": {"const": "borrow-tasks/v1"},
++    "interval_seconds": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$"},
++    "interval_us": {"type": "integer", "minimum": 1},
++    "round_robin_cursor": {"type": ["string", "null"]},
++    "global_cooldown_until": {"type": ["string", "null"]},
++    "version": {"type": "integer", "minimum": 1},
++    "updated_at": {"type": "string"}
++  }
++}
+diff --git a/schemas/api/borrow-tasks/task-list.schema.json b/schemas/api/borrow-tasks/task-list.schema.json
+new file mode 100644
+index 0000000..ea64b69
+--- /dev/null
++++ b/schemas/api/borrow-tasks/task-list.schema.json
+@@ -0,0 +1,17 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/task-list.schema.json",
++  "title": "Borrow Task List",
++  "type": "object",
++  "additionalProperties": false,
++  "required": ["schema_version", "tasks"],
++  "properties": {
++    "schema_version": {"const": "borrow-tasks/v1"},
++    "tasks": {
++      "type": "array",
++      "items": {
++        "$ref": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/task.schema.json"
++      }
++    }
++  }
++}
+diff --git a/schemas/api/borrow-tasks/task.schema.json b/schemas/api/borrow-tasks/task.schema.json
+new file mode 100644
+index 0000000..eea7592
+--- /dev/null
++++ b/schemas/api/borrow-tasks/task.schema.json
+@@ -0,0 +1,65 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/task.schema.json",
++  "title": "Borrow Task",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schema_version",
++    "id",
++    "asset",
++    "amount_per_attempt",
++    "success_target",
++    "success_count",
++    "status",
++    "version",
++    "unresolved_attempt_id",
++    "latest_result",
++    "created_at",
++    "updated_at"
++  ],
++  "properties": {
++    "schema_version": {"const": "borrow-tasks/v1"},
++    "id": {"type": "string", "minLength": 1},
++    "asset": {"type": "string", "pattern": "^[A-Z0-9]+$"},
++    "amount_per_attempt": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$"},
++    "success_target": {"type": "integer", "minimum": 1},
++    "success_count": {"type": "integer", "minimum": 0},
++    "status": {"enum": ["borrowing", "paused", "deleted", "completed"]},
++    "version": {"type": "integer", "minimum": 1},
++    "unresolved_attempt_id": {"type": ["integer", "null"]},
++    "latest_result": {
++      "oneOf": [
++        {"type": "null"},
++        {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "result_category",
++            "business_code",
++            "reason",
++            "tran_id",
++            "finished_at"
++          ],
++          "properties": {
++            "result_category": {
++              "enum": [
++                "success",
++                "known_rejection",
++                "rate_limited",
++                "unknown",
++                "execution_disabled"
++              ]
++            },
++            "business_code": {"type": ["string", "null"]},
++            "reason": {"type": ["string", "null"]},
++            "tran_id": {"type": ["string", "null"]},
++            "finished_at": {"type": ["string", "null"]}
++          }
++        }
++      ]
++    },
++    "created_at": {"type": "string"},
++    "updated_at": {"type": "string"}
++  }
++}
