@@ -2,24 +2,24 @@
 
 ## Recovery Header
 
-- Active phase: `development-breakdown dispatch preparation`
-- Next action: human operator dispatches the prepared Fable5 development-breakdown prompt; implementation remains paused until that artifact is complete.
+- Active phase: `implementation dispatch ready`
+- Next action: human operator launches the two committed implementation prompts in parallel; implementation remains bounded to A+B and zero Binance writes.
 - Read-set: `status.current_inputs`
-- Open blockers: Fable5 development breakdown is required before implementation dispatch.
+- Open blockers: no design blocker; implementation awaits human-operated model dispatch.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-real-borrow-execution-v1`
-- Status: `designing`
+- Status: `designing` (dispatch-ready passed; moves to `implementing` when the human launches the task prompts)
 - Branch: `stage/2026-07-real-borrow-execution-v1`
 - Last committed design baseline: `8ffc81b21154bdf8a6255ae68cba936fbed12a99`
-- Git status at checkpoint: clean; no delivery code changes.
+- Git status at prior checkpoint: clean; no delivery code changes. H_intake dispatch evidence is being committed next.
 - Bookkeeper: Codex/GPT.
 - Direction panel: complete (five drafts).
 - User approval: recorded for A+B at 2026-07-19 15:57:10 CST; Boundary C remains separately authorized.
 - Capacity recon: **complete** — Grok Build session `019f778f-4efe-7ce0-ab37-483ed47b51c2` → `03-grok-borrow-api-capacity-recon.md` (read-only; no live authenticated calls).
-- Parallel mode: disabled.
+- Parallel mode: enabled — disjoint backend Task A / frontend Task B with frozen API contract, R10 tails and prewritten embedded cross-review prompts.
 
 ## Artifact Index
 
@@ -33,7 +33,12 @@
 - Design: `10-design.md`
 - ADR: `11-adr.md`
 - Fable5 development-breakdown dispatch: `09-fable5-development-breakdown.dispatch.md` (**ready for operator**)
-- Development breakdown: pending (`12-development-breakdown.md`)
+- Development breakdown: `12-development-breakdown.md` (**complete**)
+- User-decision amendment: `13-user-decisions-and-contract-amendment.md` (**creation immediately starts backend scheduling; C concurrency/log-order clarification**)
+- Task A backend dispatch: `task-A-claude-glm.prompt.md` (**ready**)
+- Task B frontend dispatch: `task-B-kimi.prompt.md` (**ready**)
+- Embedded review prompts: `embedded-review-A.prompt.md`, `embedded-review-B.prompt.md` (**prewritten; immutable after H_intake**)
+- Dispatch-ready validator: `60-dispatch-ready-validation.txt` (**PASS**)
 - Implementation / reviews: not started
 - Status JSON: `status.json`
 
@@ -48,16 +53,15 @@
 
 ## Blockers
 
-- Do not start implementation until Fable5 completes `12-development-breakdown.md` and its backend/frontend ownership, file boundaries, test plan and review focus are recorded.
 - No live `marginLoan`, authenticated probe or Binance write is authorized in A+B.
 
 ## Next Action
 
-Human operator executes `09-fable5-development-breakdown.dispatch.md`. Fable5 must read the approved synthesis, task, design and ADR; preserve A+B zero-write constraints; split Claude-GLM backend work from Kimi frontend work; and write only `12-development-breakdown.md`.
+After H_intake is committed, the human operator dispatches `task-A-claude-glm.prompt.md` and `task-B-kimi.prompt.md` in parallel. Each implementation task must run its R10 self-tests and invoke its prewritten fresh embedded cross-review prompt; no implementer commits or edits stage state.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
-本地北京时间: 2026-07-19 16:04:30 CST
-下一步模型: Fable5
-下一步任务: 仅写入 12-development-breakdown.md，拆分 A+B 后端/前端实现边界、契约、测试与审阅重点
+本地北京时间: 2026-07-19 16:31:56 CST
+下一步模型: Claude-GLM 与 Kimi（由人类操作员并行派发）
+下一步任务: 在各自冻结边界内实现 A+B，并完成 R10 嵌入交叉预审

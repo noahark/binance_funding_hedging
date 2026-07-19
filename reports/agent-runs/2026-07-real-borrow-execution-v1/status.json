@@ -20,10 +20,10 @@
     "dual_hat_disclosure": null
   },
   "parallel_mode": {
-    "enabled": false,
+    "enabled": true,
     "contract": "docs/parallel-development-mode.md",
-    "r10_dispatch_tail_required": false,
-    "r4_diff_reconciliation_required": false
+    "r10_dispatch_tail_required": true,
+    "r4_diff_reconciliation_required": true
   },
   "session_receipts": [
     {
@@ -96,6 +96,15 @@
       "session_id_source": "unavailable: current runtime does not expose provider-native session ID",
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/{00-task.md,10-design.md,11-adr.md}",
       "recorded_at": "2026-07-19T15:57:10+08:00"
+    },
+    {
+      "role": "development_breakdown",
+      "provider": "claude",
+      "model": "claude-fable-5",
+      "session_id": null,
+      "session_id_source": "unavailable: Claude Code runtime did not expose a provider-native Session ID; operator may backfill verified CLI evidence",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-execution-v1/12-development-breakdown.md",
+      "recorded_at": "2026-07-19T16:10:24+08:00"
     }
   ],
   "designer": {
@@ -110,7 +119,14 @@
     "provider": "codex",
     "model": "gpt"
   },
-  "breakdown_author": null,
+  "breakdown_author": {
+    "id": "claude-fable-5",
+    "provider": "claude",
+    "model": "claude-fable-5",
+    "skill": "task_planner",
+    "output": "reports/agent-runs/2026-07-real-borrow-execution-v1/12-development-breakdown.md",
+    "design_involvement_for_review_2": true
+  },
   "implementer": null,
   "implementers": [],
   "fix_authors": [],
@@ -163,7 +179,11 @@
     "reports/agent-runs/2026-07-real-borrow-execution-v1/00-task.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/10-design.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/11-adr.md",
-    "reports/agent-runs/2026-07-real-borrow-execution-v1/09-fable5-development-breakdown.dispatch.md"
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/09-fable5-development-breakdown.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/13-user-decisions-and-contract-amendment.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/{task-A-claude-glm,task-B-kimi,embedded-review-A,embedded-review-B}.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/60-dispatch-ready-validation.txt"
   ],
   "base_sha": "5b2b3232673fa7ee193efdcc6f80c4df82aa0fa9",
   "head_sha": null,
@@ -182,11 +202,119 @@
     "reports/agent-runs/2026-07-real-borrow-execution-v1/10-design.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/11-adr.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/09-fable5-development-breakdown.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/13-user-decisions-and-contract-amendment.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/task-A-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/task-B-kimi.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-B.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/60-dispatch-ready-validation.txt",
     "reports/agent-runs/ACTIVE.json"
   ],
+  "tasks": [
+    {
+      "id": "A",
+      "name": "backend durable borrow-task core",
+      "scope": ["backend/borrow_tasks/**", "backend/app/server.py", "backend/config.py", "schemas/api/borrow-tasks/**", "backend/tests/test_borrow_*.py", "backend/tests/borrow_paper_executor.py", "backend/tests/conftest.py only if essential", ".gitignore data path only"],
+      "owner": {"provider": "claude_glm", "model": "glm-5.2"},
+      "reviewer": {"provider": "kimi", "model": "kimi-code/kimi-for-coding", "fresh_session": true},
+      "prompt_path": "task-A-claude-glm.prompt.md",
+      "implementation_report_path": "20-implementation-backend.md",
+      "test_output_path": "60-test-output-backend.txt",
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "review_1": null,
+      "r10_checklist": {
+        "task_prompt_path": "task-A-claude-glm.prompt.md",
+        "embedded_review_prompt_path": "embedded-review-A.prompt.md",
+        "self_tests_command": "PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_borrow_domain.py backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_executor.py backend/tests/test_borrow_api.py -q -p no:cacheprovider && PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider && git diff --check",
+        "diff_patch_command": "git diff --binary -- backend/borrow_tasks backend/app/server.py backend/config.py schemas/api/borrow-tasks backend/tests .gitignore > reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A-round1.diff.patch",
+        "diff_patch_path": "embedded-review-A-round1.diff.patch",
+        "cross_review_adapter": "kimi",
+        "cross_review_command_ref": "agents/registry.yaml#adapters.kimi.embedded_read_only_review_command",
+        "cross_review_raw_output_path": "embedded-review-A-round1.raw-output.md",
+        "cross_review_dispatch_path": "embedded-review-A-round1.dispatch.md",
+        "next_dispatch_executor": "self",
+        "manual_user_handoff_allowed": false,
+        "max_rounds": 2,
+        "pass_branch": "report PASS and stop for bookkeeper",
+        "blocker_branch": "scope-contained fix then round 2; contract/schema/shared changes escalate",
+        "unavailable_branch": {
+          "failure_classes": ["model_unavailable", "adapter_missing", "command_error", "permission_error", "timeout", "invalid_pre_review_output", "scope_or_contract_dispute"],
+          "escalation_artifact": "embedded-review-A-round1.dispatch.md"
+        }
+      }
+    },
+    {
+      "id": "B",
+      "name": "frontend backend-authority migration",
+      "scope": ["frontend/index.html", "frontend/self-check.js"],
+      "owner": {"provider": "kimi", "model": "kimi-code/kimi-for-coding"},
+      "reviewer": {"provider": "claude_glm", "model": "glm-5.2", "fresh_session": true},
+      "prompt_path": "task-B-kimi.prompt.md",
+      "implementation_report_path": "20-implementation-frontend.md",
+      "test_output_path": "60-test-output-frontend.txt",
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "review_1": null,
+      "r10_checklist": {
+        "task_prompt_path": "task-B-kimi.prompt.md",
+        "embedded_review_prompt_path": "embedded-review-B.prompt.md",
+        "self_tests_command": "node frontend/self-check.js && git diff --check",
+        "diff_patch_command": "git diff --binary -- frontend/index.html frontend/self-check.js > reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-B-round1.diff.patch",
+        "diff_patch_path": "embedded-review-B-round1.diff.patch",
+        "cross_review_adapter": "claude_glm",
+        "cross_review_command_ref": "agents/registry.yaml#adapters.claude_glm.embedded_read_only_review_command",
+        "cross_review_raw_output_path": "embedded-review-B-round1.raw-output.md",
+        "cross_review_dispatch_path": "embedded-review-B-round1.dispatch.md",
+        "next_dispatch_executor": "self",
+        "manual_user_handoff_allowed": false,
+        "max_rounds": 2,
+        "pass_branch": "report PASS and stop for bookkeeper",
+        "blocker_branch": "scope-contained fix then round 2; contract/schema/shared changes escalate",
+        "unavailable_branch": {
+          "failure_classes": ["model_unavailable", "adapter_missing", "command_error", "permission_error", "timeout", "invalid_pre_review_output", "scope_or_contract_dispute"],
+          "escalation_artifact": "embedded-review-B-round1.dispatch.md"
+        }
+      }
+    }
+  ],
+  "embedded_reviews": {
+    "A": {
+      "task_id": "A",
+      "scope": ["backend/borrow_tasks/**", "backend/app/server.py", "backend/config.py", "schemas/api/borrow-tasks/**", "backend/tests/**", ".gitignore"],
+      "implementer": {"provider": "claude_glm", "model": "glm-5.2"},
+      "reviewer": {"provider": "kimi", "model": "kimi-code/kimi-for-coding", "fresh_session": true},
+      "prompt_path": "embedded-review-A.prompt.md",
+      "r10_checklist_ref": "tasks.A.r10_checklist",
+      "rounds": 0,
+      "round_artifacts": [],
+      "escalations": []
+    },
+    "B": {
+      "task_id": "B",
+      "scope": ["frontend/index.html", "frontend/self-check.js"],
+      "implementer": {"provider": "kimi", "model": "kimi-code/kimi-for-coding"},
+      "reviewer": {"provider": "claude_glm", "model": "glm-5.2", "fresh_session": true},
+      "prompt_path": "embedded-review-B.prompt.md",
+      "r10_checklist_ref": "tasks.B.r10_checklist",
+      "rounds": 0,
+      "round_artifacts": [],
+      "escalations": []
+    }
+  },
   "tests": {
-    "status": "not_run",
-    "commands": []
+    "status": "dispatch_ready_passed",
+    "commands": [
+      {
+        "command": "python3 scripts/validate-stage.py 2026-07-real-borrow-execution-v1 --phase dispatch-ready",
+        "status": "passed",
+        "output": "reports/agent-runs/2026-07-real-borrow-execution-v1/60-dispatch-ready-validation.txt",
+        "at": "2026-07-19T16:31:56+08:00"
+      }
+    ]
   },
   "review_1": null,
   "review_2": null,
@@ -194,13 +322,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "Fable5 development breakdown is required before implementation dispatch; the human operator must execute 09-fable5-development-breakdown.dispatch.md."
+    "Dispatch-ready validation and an H_intake evidence commit are required before the human operator launches the two implementation prompts."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "development_breakdown_dispatch",
-  "updated_at": "2026-07-19T16:03:02+08:00"
+  "next_action": "dispatch_ready_validation",
+  "updated_at": "2026-07-19T16:31:56+08:00"
 }

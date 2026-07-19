@@ -1,0 +1,10 @@
+Command:
+python3 scripts/validate-stage.py 2026-07-real-borrow-execution-v1 --phase dispatch-ready
+
+Output:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-execution-v1
+phase=dispatch-ready
+status=designing
+
+Recorded at: 2026-07-19 16:31:56 CST
