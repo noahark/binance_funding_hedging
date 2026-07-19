@@ -1,0 +1,23 @@
+Plan-amendment checkpoint validation
+Timestamp: 2026-07-19 22:50:53 CST
+
+Command: python3 -m json.tool reports/agent-runs/ACTIVE.json
+Result: PASS
+
+Command: python3 -m json.tool reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/status.json
+Result: PASS
+
+Command: python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint
+Result: PASS
+Output:
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1
+phase=checkpoint
+status=designing
+
+Command: git diff --check
+Result: PASS
+
+Scope note: this checkpoint validates stage evidence and the reviewed plan
+amendment only. Harness implementation has not started, so implementation tests
+remain pending.

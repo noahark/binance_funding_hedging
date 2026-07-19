@@ -1,5 +1,9 @@
 # Root Cause And Fast-Fix Plan
 
+> Normative amendment: the four independent plan reviews are synthesized in
+> `13-plan-review-synthesis-and-amendment.md`. Its frozen clarifications govern
+> implementation where this original plan is less specific.
+
 ## Outcome
 
 The six incidents share three system causes, not six unrelated operator
@@ -102,8 +106,9 @@ Required behavior:
    not create/replace the canonical verdict file.
 
 The gate reads `*.verdict.json`; reviewers' prose belongs in structured JSON
-findings/residual risks. Footer/navigation data goes in the schema-approved
-`reviewer_prior_involvement_notes` field.
+findings/residual risks. Review-gate stdout is exempt from the normal Markdown
+footer. Footer/navigation data belongs in the operator receipt and
+`status.json.session_receipts`; it must not overload the prior-involvement field.
 
 ## Versioning And Historical Compatibility
 
@@ -113,7 +118,8 @@ Add an explicit status protocol field for new stages, for example:
 "review_artifact_protocol": "raw-plus-strict-json/v1"
 ```
 
-- New stages using the field must satisfy the new raw + verdict rules.
+- The field is default-on in the stage template and mandatory for active/new
+  stages at dispatch-ready, pre-review, and pre-accept.
 - Historical stages without the field retain legacy validation behavior.
 - Do not mutate or mass-normalize completed evidence.
 - `scripts/validate-all-stages.py` must remain green against historical stages.
@@ -133,7 +139,8 @@ Add an explicit status protocol field for new stages, for example:
 ### Review-1 / Review-2
 
 - Require raw output and strict verdict paths to exist and be non-empty.
-- Parse the entire verdict file, validate schema, fingerprint, role, model, and
+- Parse both raw and verdict as entire JSON documents, require their decoded
+  objects to match, then validate schema, fingerprint, role, model, and
   reviewer-provider isolation.
 - Reject Markdown fences and bytes after the JSON object.
 - Do not advance based only on a model's chat claim or Session ID.
@@ -164,6 +171,11 @@ Negative:
   JSON, wrong fingerprint, wrong role/model, same-provider self-review.
 - Capture interrupted before atomic rename; an earlier canonical verdict must
   remain untouched.
+- Raw/verdict JSON objects differ.
+- A live/new stage omits the protocol field.
+- Embedded review is absent while disabled (pass) and incomplete while enabled
+  (fail).
+- Serial Review-1 and task-scoped Review-1 both enforce the correct phase gate.
 
 ## Implementation Split
 
@@ -180,6 +192,10 @@ Suggested order:
 5. Run focused tests, `py_compile`, `git diff --check`, relevant stage
    validation, and historical all-stage comparison.
 
+The implementation also updates `harness-manifest.yaml` so the shared helper and
+its tests ship with Harness sync. Runtime validation remains dependency-free;
+optional `jsonschema` is used only by parity tests when installed.
+
 ## Reviewer Questions
 
 The independent plan reviewer should answer:
@@ -194,6 +210,6 @@ The independent plan reviewer should answer:
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/05-root-cause-and-fix-plan.md
-本地北京时间: 2026-07-19 22:12:37 CST
-下一步模型: user-selected independent plan reviewer
-下一步任务: 对五个 reviewer questions 给出 ACCEPT 或带证据的修改建议
+本地北京时间: 2026-07-19 22:50:53 CST
+下一步模型: user-selected non-Codex implementation model
+下一步任务: 按规范性 amendment 实现 Task H1

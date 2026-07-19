@@ -1,13 +1,13 @@
 <!-- ===== DISPATCH RECEIPT =====
-status: pending
-target_model: user-selected independent plan reviewer
+status: completed_multiple_independent_reviews
+target_model: kimi, fable5, claude_glm, grok
 adapter_cmd: operator supplies the selected model's read-only command
-started_at:
-completed_at:
-session_id:
-session_id_source:
-outputs: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/09-plan-review.md
-next_dispatch: user selects a different implementation model after review
+started_at: unavailable (multiple operator-run sessions)
+completed_at: 2026-07-19T22:46:25+08:00
+session_id: see status.json.session_receipts and 09-plan-review-index.md
+session_id_source: operator plus reviewer artifacts
+outputs: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/09-plan-review*.md
+next_dispatch: user selects the implementation model after reading the synthesized amendment
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY (immutable) ===== -->

@@ -2,6 +2,7 @@
   "stage_id": "2026-07-harness-review-dispatch-fast-fix-v1",
   "status": "designing",
   "workflow": "stage-delivery",
+  "review_artifact_protocol": "raw-plus-strict-json/v1",
   "stage_branch": {
     "name": "stage/2026-07-harness-review-dispatch-fast-fix-v1",
     "created_from_main_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
@@ -23,10 +24,47 @@
     "enabled": false,
     "contract": "docs/parallel-development-mode.md",
     "r10_dispatch_tail_required": false,
-    "r4_diff_reconciliation_required": false
+    "r4_diff_reconciliation_required": false,
+    "embedded_review": {
+      "enabled": false,
+      "reason": null
+    }
   },
   "embedded_reviews": {},
-  "session_receipts": [],
+  "session_receipts": [
+    {
+      "role": "plan_reviewer",
+      "model": "kimi",
+      "provider": "moonshot_kimi",
+      "session_id": "session_e7dd8ea6-f702-40b3-b7f1-ecb406f9ed2c",
+      "session_id_source": "review_artifact",
+      "output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/09-plan-review.md"
+    },
+    {
+      "role": "plan_reviewer",
+      "model": "fable5",
+      "provider": "anthropic",
+      "session_id": "882462e9-e856-461c-95fc-b876af7954f5",
+      "session_id_source": "operator_and_review_artifact",
+      "output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/09-plan-review-fable5.md"
+    },
+    {
+      "role": "plan_reviewer",
+      "model": "glm-5.2",
+      "provider": "zhipu_glm",
+      "session_id": null,
+      "session_id_source": "unavailable (review artifact does not provide a verified provider-native ID)",
+      "output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/09-plan-review-claude-glm.md"
+    },
+    {
+      "role": "plan_reviewer",
+      "model": "grok-4.5",
+      "provider": "xai_grok",
+      "session_id": null,
+      "session_id_source": "unavailable (review artifact does not provide a verified provider-native ID)",
+      "output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/09-plan-review-grok.md"
+    }
+  ],
   "designer": {
     "id": "codex",
     "provider": "codex",
@@ -62,7 +100,7 @@
     "user_approved": true
   },
   "model_routing": {
-    "plan_reviewer": null,
+    "plan_reviewers": ["kimi", "fable5", "claude_glm", "grok"],
     "implementation_owner": null,
     "codex_excluded_from_implementation": true
   },
@@ -72,7 +110,7 @@
     "workflows/templates/stage-delivery.yaml",
     "docs/model-adapters.md",
     "scripts/validate-stage.py",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-intake.md,00-task.md,05-root-cause-and-fix-plan.md,10-design.md,11-adr.md,12-development-breakdown.md,08-plan-review.prompt.md}"
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-intake.md,00-task.md,05-root-cause-and-fix-plan.md,10-design.md,11-adr.md,12-development-breakdown.md,13-plan-review-synthesis-and-amendment.md,09-plan-review-index.md,09-plan-review.md,09-plan-review-fable5.md,09-plan-review-claude-glm.md,09-plan-review-grok.md}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
   "head_sha": null,
@@ -95,12 +133,30 @@
       "review_1": null
     }
   ],
-  "tests": {"status": "not_run", "commands": []},
+  "tests": {
+    "status": "plan_checkpoint_passed",
+    "commands": [
+      "python3 -m json.tool reports/agent-runs/ACTIVE.json",
+      "python3 -m json.tool reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/status.json",
+      "python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint",
+      "git diff --check"
+    ],
+    "evidence": "60-test-output.txt",
+    "implementation_tests_pending": true
+  },
   "plan_review": {
-    "status": "pending",
-    "reviewer": null,
+    "status": "direction_accepted_mandatory_amendment_applied",
+    "reviewers": ["kimi", "fable5", "claude_glm", "grok"],
     "prompt_path": "08-plan-review.prompt.md",
-    "output_path": "09-plan-review.md"
+    "output_paths": [
+      "09-plan-review.md",
+      "09-plan-review-fable5.md",
+      "09-plan-review-claude-glm.md",
+      "09-plan-review-grok.md"
+    ],
+    "provenance_index": "09-plan-review-index.md",
+    "synthesis_and_amendment": "13-plan-review-synthesis-and-amendment.md",
+    "another_plan_review_required": false
   },
   "review_1": null,
   "review_2": null,
@@ -110,6 +166,6 @@
   "blockers": [],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
-  "next_action": "independent_plan_review",
-  "updated_at": "2026-07-19T22:12:37+08:00"
+  "next_action": "user_selects_implementation_model",
+  "updated_at": "2026-07-19T22:50:53+08:00"
 }
