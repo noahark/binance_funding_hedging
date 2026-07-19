@@ -1,14 +1,14 @@
 {
   "stage_id": "2026-07-real-borrow-execution-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-real-borrow-execution-v1",
     "created_from_main_sha": "5b2b3232673fa7ee193efdcc6f80c4df82aa0fa9",
     "created_at": "2026-07-19T15:57:10+08:00",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "72064232434f3d3c0df0c3b7b0b7414e389051df",
+    "merge_strategy": "fast_forward",
     "abandoned_reason": null
   },
   "bookkeeper": {
@@ -552,13 +552,13 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "No open blocking finding: Review-1 and Review-2 ACCEPT. Awaiting explicit user acceptance before merge to main."
+    "No open blocking finding: user accepted the delivery; stage branch was fast-forwarded to main at 72064232434f3d3c0df0c3b7b0b7414e389051df. Post-merge pre-accept recheck remains."
   ],
   "human_escalation": {
     "required": false,
     "reason": null
   },
-  "terminal_reason": "stage_accepted_waiting_user",
-  "next_action": "await_user_acceptance",
-  "updated_at": "2026-07-19T21:51:03+08:00"
+  "terminal_reason": "accepted",
+  "next_action": "post_merge_pre_accept_validation",
+  "updated_at": "2026-07-19T21:52:51+08:00"
 }

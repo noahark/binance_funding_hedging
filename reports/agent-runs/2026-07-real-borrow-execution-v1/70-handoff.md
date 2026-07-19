@@ -2,20 +2,21 @@
 
 ## Recovery Header
 
-- Active phase: `stage_accepted_waiting_user`
-- Next action: wait for explicit user acceptance before any merge to main.
+- Active phase: `accepted` candidate on main
+- Next action: run post-merge pre-accept validation on main, then close the active-stage pointer.
 - Read-set: `status.current_inputs`
-- Open blockers: no technical blocker. Review-1 and Review-2 ACCEPT; pre-accept validation PASS. Only the explicit user merge-acceptance gate remains.
+- Open blockers: no technical blocker. User explicitly accepted; stage branch was fast-forwarded to main. Post-merge pre-accept validation remains.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
 
 - Stage: `2026-07-real-borrow-execution-v1`
-- Status: `stage_accepted_waiting_user` candidate (pending pre-accept validation)
-- Branch: `stage/2026-07-real-borrow-execution-v1`
+- Status: `accepted` candidate (pending post-merge pre-accept validation)
+- Branch: `main` (fast-forwarded from `stage/2026-07-real-borrow-execution-v1`)
 - Last committed design baseline: `8ffc81b21154bdf8a6255ae68cba936fbed12a99`
 - H_A backend commit: `40efb028ead50d667bb32dbe10e9af6a7d77409e`
 - H_B frontend commit / delivery head: `4bab47d250b739539c0c2f09786baa75bba25d6d`
+- Merge head: `72064232434f3d3c0df0c3b7b0b7414e389051df` (fast-forward)
 - Bookkeeper: Codex/GPT.
 - Direction panel: complete (five drafts).
 - User approval: recorded for A+B at 2026-07-19 15:57:10 CST; Boundary C remains separately authorized.
@@ -79,14 +80,14 @@
 
 ## Next Action
 
-Stop at `stage_accepted_waiting_user`. Do not merge the stage branch to main
-until the user explicitly accepts this delivery. Upon acceptance, merge or
-fast-forward according to the stage-branch rules, record merge metadata, and
-rerun pre-accept validation on the resulting main state.
+Run `scripts/validate-stage.py 2026-07-real-borrow-execution-v1 --phase
+pre-accept` from a clean committed main worktree and save the result. Then mark
+the stage accepted, clear `ACTIVE.json.active`, and set this stage as
+`last_completed`. Do not push unless the user separately requests it.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
 本地北京时间: 2026-07-19 21:51:03 CST
-下一步模型: human user
-下一步任务: 审阅 accepted stage 并明确授权或拒绝合并 stage branch 到 main
+下一步模型: bookkeeper
+下一步任务: 在 main 上执行合并后 pre-accept 复验并关闭 active stage 指针
