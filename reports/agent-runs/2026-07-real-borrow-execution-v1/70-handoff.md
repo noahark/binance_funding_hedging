@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: `accepted` candidate on main
-- Next action: run post-merge pre-accept validation on main, then close the active-stage pointer.
+- Active phase: `accepted` on main
+- Next action: none; stage is complete. A new stage may now be opened from main.
 - Read-set: `status.current_inputs`
-- Open blockers: no technical blocker. User explicitly accepted; stage branch was fast-forwarded to main. Post-merge pre-accept validation remains.
+- Open blockers: none.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
 
 ## Current State
@@ -63,6 +63,7 @@
   `f64e6dea-a2bf-49a9-b3e1-9a3631384b8d`; retry preserves JSON exactly and
   removes only the original terminal LF.
 - Pre-accept validator: `65-pre-accept-validation.txt` (**PASS**)
+- Post-merge pre-accept validator: `67-post-merge-pre-accept-validation.txt` (**PASS on main**)
 - Status JSON: `status.json`
 
 ## Capacity Recon Highlights (pointer only — read the raw report)
@@ -80,14 +81,13 @@
 
 ## Next Action
 
-Run `scripts/validate-stage.py 2026-07-real-borrow-execution-v1 --phase
-pre-accept` from a clean committed main worktree and save the result. Then mark
-the stage accepted, clear `ACTIVE.json.active`, and set this stage as
-`last_completed`. Do not push unless the user separately requests it.
+Stage merged and verified on `main`. Do not push unless the user separately
+requests it. A future delivery starts from current `main` with a new stage
+branch and a new active-stage pointer.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
-本地北京时间: 2026-07-19 21:51:03 CST
-下一步模型: bookkeeper
-下一步任务: 在 main 上执行合并后 pre-accept 复验并关闭 active stage 指针
+本地北京时间: 2026-07-19 21:53:38 CST
+下一步模型: human user
+下一步任务: 如需继续，提出下一个阶段需求

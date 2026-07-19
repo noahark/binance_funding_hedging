@@ -259,7 +259,7 @@
     "reports/agent-runs/2026-07-real-borrow-execution-v1/{20-implementation.md,20-implementation-backend.md,20-implementation-frontend.md,60-test-output.txt,61-r4-diff-reconciliation.txt}",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A-round2-retry-1.{prompt.md,dispatch.md,raw-output.md}",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-B-round1-retry-1.{dispatch.md,raw-output.md}",
-    "reports/agent-runs/2026-07-real-borrow-execution-v1/{62-pre-review-validation.txt,63-review-2-preflight-validation.txt,64-review-2-fable5-preflight-validation.txt,65-pre-accept-validation.txt,30-review-1.md,30-review-1-backend.md,30-review-1-frontend.md,50-review-2.md,50-review-2-retry-1.md,66-review-2-strong-reviewer-override.md,review-2-codex.prompt.md,review-2-fable5.prompt.md}"
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/{62-pre-review-validation.txt,63-review-2-preflight-validation.txt,64-review-2-fable5-preflight-validation.txt,65-pre-accept-validation.txt,67-post-merge-pre-accept-validation.txt,30-review-1.md,30-review-1-backend.md,30-review-1-frontend.md,50-review-2.md,50-review-2-retry-1.md,66-review-2-strong-reviewer-override.md,review-2-codex.prompt.md,review-2-fable5.prompt.md}"
   ],
   "base_sha": "5b2b3232673fa7ee193efdcc6f80c4df82aa0fa9",
   "head_sha": "4bab47d250b739539c0c2f09786baa75bba25d6d",
@@ -559,6 +559,6 @@
     "reason": null
   },
   "terminal_reason": "accepted",
-  "next_action": "post_merge_pre_accept_validation",
-  "updated_at": "2026-07-19T21:52:51+08:00"
+  "next_action": "complete",
+  "updated_at": "2026-07-19T21:53:38+08:00"
 }
