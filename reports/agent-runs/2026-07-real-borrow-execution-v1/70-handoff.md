@@ -14,7 +14,7 @@
 - Status: `designing` (dispatch-ready passed; moves to `implementing` when the human launches the task prompts)
 - Branch: `stage/2026-07-real-borrow-execution-v1`
 - Last committed design baseline: `8ffc81b21154bdf8a6255ae68cba936fbed12a99`
-- Git status at prior checkpoint: clean; no delivery code changes. H_intake dispatch evidence is being committed next.
+- H_intake dispatch evidence commit: `90e66c3f9cd6fa048cd962cde206b391230b50bb`; no delivery code changes.
 - Bookkeeper: Codex/GPT.
 - Direction panel: complete (five drafts).
 - User approval: recorded for A+B at 2026-07-19 15:57:10 CST; Boundary C remains separately authorized.
@@ -57,11 +57,11 @@
 
 ## Next Action
 
-After H_intake is committed, the human operator dispatches `task-A-claude-glm.prompt.md` and `task-B-kimi.prompt.md` in parallel. Each implementation task must run its R10 self-tests and invoke its prewritten fresh embedded cross-review prompt; no implementer commits or edits stage state.
+The H_intake packet is committed. The human operator may now dispatch `task-A-claude-glm.prompt.md` and `task-B-kimi.prompt.md` in parallel. Each implementation task must run its R10 self-tests and invoke its prewritten fresh embedded cross-review prompt; no implementer commits or edits stage state.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
-本地北京时间: 2026-07-19 16:31:56 CST
+本地北京时间: 2026-07-19 16:33:46 CST
 下一步模型: Claude-GLM 与 Kimi（由人类操作员并行派发）
 下一步任务: 在各自冻结边界内实现 A+B，并完成 R10 嵌入交叉预审
