@@ -2,10 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: formal Review-1 dispatch preparation
-- Next action: bookkeeper commits review metadata and proves pre-review clean;
-  then human operator runs `30-review-1-kimi.prompt.md` in a fresh read-only
-  Kimi session and captures JSON-only stdout.
+- Active phase: formal Review-1 ready for human dispatch
+- Next action: human operator runs `30-review-1-kimi.prompt.md` in a fresh
+  read-only Kimi session and captures JSON-only stdout.
 - Read-set: `status.current_inputs`
 - Open blockers: none. Review-1 must use a non-Anthropic provider.
 - Do-not-read: other stage history unless a reviewer cites an exact artifact.
@@ -41,6 +40,9 @@ py_compile, checkpoint, dispatch-ready, YAML/JSON parsing, diff checks, the
 All 27 cold historical stages have zero drift. Implementation commit:
 `73752dbba16beaf41ff6fdfec3b3b84b1944306b`.
 
+The committed-state pre-review gate passed on a clean worktree. Exact evidence:
+`61-validation-pre-review.txt`.
+
 Formal serial Review-1 range and fingerprint:
 
 - `8cf810d2335d5af08e2ff18181964e5e053e56b9..73752dbba16beaf41ff6fdfec3b3b84b1944306b`
@@ -48,16 +50,14 @@ Formal serial Review-1 range and fingerprint:
 
 ## Next Action
 
-1. **Bookkeeper:** commit this state/prompt metadata and run the clean-worktree
-   pre-review gate.
-2. **Human operator:** run `30-review-1-kimi.prompt.md`; save exact stdout to
+1. **Human operator:** run `30-review-1-kimi.prompt.md`; save exact stdout to
    `30-review-1.raw-output.md` and record the producer exit status/Session ID.
-3. **Bookkeeper:** run `scripts/review_artifacts.py capture`, validate the
+2. **Bookkeeper:** run `scripts/review_artifacts.py capture`, validate the
    canonical verdict, and route ACCEPT/REWORK without rewriting evidence.
 
 当前 Session ID: unavailable (current Codex runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/70-handoff.md
-本地北京时间: 2026-07-20 07:20:38 CST
+本地北京时间: 2026-07-20 07:23:31 CST
 下一步模型: Kimi / Moonshot（由 human operator 执行）
 下一步任务: 执行 30-review-1-kimi.prompt.md，stdout 只允许一个 JSON object

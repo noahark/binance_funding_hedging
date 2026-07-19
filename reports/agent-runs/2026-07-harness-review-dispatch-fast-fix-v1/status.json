@@ -160,7 +160,7 @@
     "scripts/validate-all-stages.py",
     "agents/developer-discipline.md",
     "agents/skills/minimal-change-engineer.md",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,20-implementation.md,60-test-output.txt,30-review-1-kimi.prompt.md}"
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,20-implementation.md,60-test-output.txt,61-validation-pre-review.txt,30-review-1-kimi.prompt.md}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
   "head_sha": "73752dbba16beaf41ff6fdfec3b3b84b1944306b",
@@ -257,6 +257,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "bookkeeper_commits_review_metadata_then_human_executes_30_review_1_kimi_prompt",
-  "updated_at": "2026-07-20T07:20:38+08:00"
+  "next_action": "human_operator_executes_30_review_1_kimi_prompt",
+  "updated_at": "2026-07-20T07:23:31+08:00"
 }
