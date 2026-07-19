@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-real-borrow-execution-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-real-borrow-execution-v1",
@@ -248,7 +248,7 @@
     "reports/agent-runs/2026-07-real-borrow-execution-v1/{20-implementation.md,20-implementation-backend.md,20-implementation-frontend.md,60-test-output.txt,61-r4-diff-reconciliation.txt}",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-A-round2-retry-1.{prompt.md,dispatch.md,raw-output.md}",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/embedded-review-B-round1-retry-1.{dispatch.md,raw-output.md}",
-    "reports/agent-runs/2026-07-real-borrow-execution-v1/{62-pre-review-validation.txt,review-1-task-A-by-kimi.prompt.md,review-1-task-B-by-claude-glm.prompt.md}"
+    "reports/agent-runs/2026-07-real-borrow-execution-v1/{62-pre-review-validation.txt,30-review-1.md,30-review-1-backend.md,30-review-1-frontend.md,66-review-2-strong-reviewer-override.md,review-2-codex.prompt.md}"
   ],
   "base_sha": "5b2b3232673fa7ee193efdcc6f80c4df82aa0fa9",
   "head_sha": "4bab47d250b739539c0c2f09786baa75bba25d6d",
@@ -502,7 +502,22 @@
     "open_p0_p1": false,
     "invalid_json_attempts": 0
   },
-  "review_2": null,
+  "review_2": {
+    "status": "pending",
+    "reviewer": "codex",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "prompt_path": "review-2-codex.prompt.md",
+    "output_path": "50-review-2.md",
+    "reviewer_prior_involvement": "design",
+    "fallback_reason": "No configured unrelated decision reviewer is eligible: Codex/GPT authored the stage synthesis and design; Anthropic Claude authored the development breakdown; Claude-GLM and Kimi are code-author providers; Grok is not enabled as a Review-2 gate.",
+    "design_conflict_override": {
+      "used": true,
+      "reason": "Fresh Codex/GPT review-2 is selected as the preferred decision-model route despite prior stage design involvement. It did not implement or fix delivery code. The only other configured decision provider, Anthropic Claude, has development-breakdown involvement, so no unrelated configured decision reviewer exists.",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-real-borrow-execution-v1/66-review-2-strong-reviewer-override.md"
+    },
+    "invalid_json_attempts": 0
+  },
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
@@ -514,6 +529,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "review_2_prepare",
+  "next_action": "review_2_dispatch",
   "updated_at": "2026-07-19T20:43:47+08:00"
 }

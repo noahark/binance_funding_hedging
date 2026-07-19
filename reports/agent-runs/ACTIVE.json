@@ -1,7 +1,7 @@
 {
   "active": {
     "stage_id": "2026-07-real-borrow-execution-v1",
-    "phase": "review-2-preparation",
+    "phase": "review-2-dispatch-preparation",
     "handoff": "reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md",
     "updated_at": "2026-07-19T20:43:47+08:00"
   },

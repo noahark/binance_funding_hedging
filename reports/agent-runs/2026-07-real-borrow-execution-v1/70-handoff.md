@@ -2,8 +2,8 @@
 
 ## Recovery Header
 
-- Active phase: `review-2 preparation`
-- Next action: prepare the final Review-2 packet after the task-scoped formal Review-1 ACCEPT aggregation.
+- Active phase: `review-2 dispatch preparation`
+- Next action: commit and validate the final Review-2 packet, then have the human operator dispatch it to a fresh Codex/GPT read-only session.
 - Read-set: `status.current_inputs`
 - Open blockers: no implementation blocker. Both formal task-scoped Review-1 verdicts ACCEPT; Review-2 is the remaining final review gate.
 - Do-not-read: `reports/agent-runs/**/history/**`, other stages
@@ -11,7 +11,7 @@
 ## Current State
 
 - Stage: `2026-07-real-borrow-execution-v1`
-- Status: `review_1` accepted (H_A/H_B committed; committed-state regression green)
+- Status: `review_2` pending (H_A/H_B committed; both task-scoped Review-1 verdicts ACCEPT)
 - Branch: `stage/2026-07-real-borrow-execution-v1`
 - Last committed design baseline: `8ffc81b21154bdf8a6255ae68cba936fbed12a99`
 - H_A backend commit: `40efb028ead50d667bb32dbe10e9af6a7d77409e`
@@ -51,6 +51,9 @@
   provider-native Session `2a0f36a0-c780-4e25-bae3-005b6a66a691`
 - Formal Review-1 aggregate: `30-review-1.md` (**both task verdicts schema-valid,
   fixed fingerprints matched; no required fix**)
+- Review-2 override evidence: `66-review-2-strong-reviewer-override.md`
+  (**Codex design involvement disclosed; no unrelated configured decision reviewer**)
+- Review-2 packet: `review-2-codex.prompt.md` (**prepared; human execution required**)
 - Status JSON: `status.json`
 
 ## Capacity Recon Highlights (pointer only — read the raw report)
@@ -68,17 +71,15 @@
 
 ## Next Action
 
-Prepare final Review-2. The reviewer must inspect the full committed stage range
-`5b2b323..4bab47d`, both raw Review-1 outputs, the aggregate, source, schemas,
-tests, and the P3 observations. Review-2 may not be authored by either code
-provider (`zhipu_glm` or `moonshot_kimi`). Codex/GPT is the preferred final
-reviewer but has design/synthesis involvement; if selected, record the required
-strong-reviewer disclosure and availability evidence for an unrelated decision
-model before human dispatch.
+Commit the Review-2 packet and run the clean-worktree pre-review validator.
+Then the human operator executes `review-2-codex.prompt.md` in a **fresh**
+Codex/GPT read-only session. Save the raw response as `50-review-2.md`, retain
+the strict JSON at its exact end, and backfill the packet receipt plus
+`status.json.session_receipts` from verified provider-native session evidence.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-execution-v1/70-handoff.md
 本地北京时间: 2026-07-19 20:43:47 CST
 下一步模型: Codex/GPT review-2 candidate
-下一步任务: 选择合规最终审阅者并准备 Review-2 派发包
+下一步任务: 对完整固定 stage range 执行最终 Review-2，并披露 design involvement
