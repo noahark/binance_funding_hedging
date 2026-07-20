@@ -244,19 +244,28 @@ and stage-scoped.
 
 The intended pattern is:
 
-1. The designer/breakdown author writes task prompts, file boundaries,
-   prewritten cross-review prompts, and R10 dispatch tails before coding starts.
+1. The designer/breakdown author writes task prompts, file boundaries, and R10
+   dispatch tails before coding starts; if the stage opts in to embedded
+   review, the cross-review prompts are prewritten at the same time.
 2. GLM/Claude-GLM and Kimi, or other assigned implementers, develop in separate
    terminals without touching git or `status.json`.
-3. Each implementation terminal immediately executes its own `next_dispatch`
-   when marked `executor: self`, launching a fresh read-only opposite-model
-   embedded pre-review through the adapter command written in the prompt.
-4. Local pre-review/fix loops are capped at two rounds. They are checkpoints,
-   not formal review-1 verdicts, because they happen before committed evidence.
+3. Embedded cross-review is default-off. It runs only when the stage
+   explicitly opts in with `parallel_mode.embedded_review.enabled: true` plus
+   a non-empty recorded reason. Like every other external dispatch, an
+   embedded pre-review is executed only by the human operator, who copies the
+   prewritten prompt into a fresh read-only opposite-model terminal and
+   records the raw output under the stage evidence path. No implementation
+   terminal or other model session launches another model or adapter; a
+   session that reaches an external `next_dispatch` stops and returns the
+   prepared packet path.
+4. Opted-in pre-review/fix loops are capped at two rounds. They are
+   checkpoints, not formal review-1 verdicts, because they happen before
+   committed evidence; they never replace the committed formal Review-1.
 5. The bookkeeper re-generates each task diff, reconciles it with the
    implementer-produced diff, creates H_A/H_B evidence commits in order, then
    prepares the formal review-1 dispatch packet against committed fingerprints
-   for human execution.
+   for human execution. This R4 reconciliation and the committed formal
+   Review-1 stay mandatory whether or not embedded review is enabled.
 
 This mode improves wall-clock time without changing the evidence model:
 committed-state fingerprints, validator checks, formal review-1, and review-2

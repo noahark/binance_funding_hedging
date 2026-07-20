@@ -11,7 +11,9 @@ reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/21-bookkeeper-rec
 - frozen serial/task/Review-2 artifact names, -retry-N variants, and stage
   containment (absolute/traversal/foreign paths);
 - protocol resolution: live-missing vs cold-legacy via explicit ACTIVE.json
-  evidence, unknown values fail closed;
+  evidence; unknown protocol values and structurally invalid ACTIVE.json
+  shapes (scalar/list root, missing/scalar/list active, missing/non-string/
+  blank stage_id) fail closed;
 - phase timing: pre-review+review_1 needs no result pair, pre-review+review_2
   needs Review-1 pairs, pre-accept needs Review-1 and Review-2 pairs;
 - stage/provider identity binding (stage_id, role, model, fingerprint,
@@ -537,6 +539,40 @@ class TestProtocolResolutionAndPhaseTiming(PairFixture):
         with self.assertRaises(vs.ValidationError):
             vs.active_stage_id(self.root)
 
+    def test_missing_active_pointer_means_no_evidence(self):
+        self.assertIsNone(vs.active_stage_id(self.root))
+
+    def test_structurally_invalid_active_pointer_fails_closed(self):
+        invalid_docs = [
+            ("scalar string root", '"stage-a"'),
+            ("scalar number root", "5"),
+            ("list root", '[{"active": {"stage_id": "stage-a"}}]'),
+            ("missing active key", "{}"),
+            ("scalar active", '{"active": "stage-a"}'),
+            ("list active", '{"active": ["stage-a"]}'),
+            ("missing stage_id", '{"active": {}}'),
+            ("non-string stage_id", '{"active": {"stage_id": 5}}'),
+            ("empty stage_id", '{"active": {"stage_id": ""}}'),
+            ("blank stage_id", '{"active": {"stage_id": "   "}}'),
+        ]
+        for name, text in invalid_docs:
+            (self.runs / "ACTIVE.json").write_text(text)
+            with self.subTest(case=name):
+                with self.assertRaises(vs.ValidationError):
+                    vs.active_stage_id(self.root)
+
+    def test_active_pointer_extra_metadata_not_required(self):
+        (self.runs / "ACTIVE.json").write_text(
+            json.dumps(
+                {
+                    "active": {"stage_id": "stage-a", "phase": "review_1", "updated_at": "x"},
+                    "last_completed": "stage-z",
+                    "note": "pointer",
+                }
+            )
+        )
+        self.assertEqual(vs.active_stage_id(self.root), "stage-a")
+
     def _valid_serial_setup(self, stage_id="stage-v1", status="review_2"):
         stage = self.make_stage(stage_id)
         obj = valid_verdict(stage_id=stage_id)
@@ -1019,6 +1055,7 @@ class TestHarnessTextContracts(unittest.TestCase):
 
     NORMATIVE_FILES = [
         REPO_ROOT / "AGENTS.md",
+        REPO_ROOT / "docs" / "harness-design.md",
         REPO_ROOT / "docs" / "parallel-development-mode.md",
         REPO_ROOT / "docs" / "model-adapters.md",
         REPO_ROOT / "workflows" / "templates" / "stage-delivery.yaml",

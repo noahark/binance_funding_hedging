@@ -1,15 +1,18 @@
 <!-- ===== DISPATCH RECEIPT =====
-status: pending
-target_model: claude-fable-5 / anthropic
+status: completed_with_quota_fallback
+target_model: claude-fable-5 → opus4.8 / anthropic
 executor: human_operator
 adapter_cmd: claude --model claude-fable-5 --permission-mode acceptEdits -p "$(cat reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/34-implementation-followup-fable5.prompt.md)"
-started_at:
-completed_at:
-session_id:
-session_id_source:
-producer_exit_status:
+fallback_reason: claude-fable-5 quota exhausted after partial implementation; human operator continued the same bounded packet with opus4.8
+fallback_adapter_cmd: unavailable (operator did not provide the exact command)
+started_at: unavailable (operator did not provide exact start time)
+completed_at: 2026-07-20T16:52:38+08:00
+fable5_session_id: unavailable (quota-exhausted partial run; no verified provider-native ID supplied)
+opus4.8_session_id: 8e7ef534-4310-4033-8bca-5f17b79ce77a
+session_id_source: implementation report runtime_env plus human operator model identification
+producer_exit_status: unavailable (operator reported PASS but did not provide a numeric exit status)
 outputs: authorized Harness files, reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/20-implementation.md, reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/60-test-output.txt
-next_dispatch: stop for Codex bookkeeper reconciliation; do not invoke another model
+next_dispatch: completed; returned to Codex bookkeeper reconciliation without invoking a reviewer
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY (immutable after dispatch) ===== -->

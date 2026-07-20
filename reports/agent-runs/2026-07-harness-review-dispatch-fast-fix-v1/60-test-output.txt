@@ -181,3 +181,63 @@ jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-harness-revie
 python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint: PASS (status=implementing)
 git diff --check: PASS
 Scope note: no Harness source/product files changed; follow-up implementation tests remain pending human execution of 34-implementation-followup-fable5.prompt.md.
+
+=== Fable5 authorized five-item follow-up evidence 2026-07-20 11:23:27 CST ===
+
+$ python3 scripts/tests/test_review_artifacts.py
+Ran 89 tests in 0.181s
+OK
+(89 tests: 86 prior + 3 new ACTIVE.json shape tests; exit=0)
+
+$ python3 -m py_compile scripts/review_artifacts.py scripts/validate-stage.py scripts/validate-all-stages.py
+PASS (exit=0)
+
+$ python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1
+phase=checkpoint
+status=implementing
+diff_fingerprint=73752dbba16beaf41ff6fdfec3b3b84b1944306b:7cf1d8d251a5b628f735455b1c7f03b8977fa790efed6019d583b32719224619
+exit=0
+
+$ python3 scripts/validate-all-stages.py --repo-root .
+summary: 18 green, 1 green_with_exception, 9 red (28 stages, repo=funding_hedging)
+exit=0
+(verdict totals identical to committed baseline: 18 green / 1 green_with_exception / 9 red over 28 stages)
+
+$ python3 scripts/test-validate-all-stages-compare.py --repo-root .
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+exit=0
+
+$ git diff --check
+PASS (exit=0, no output)
+
+--- focused text/YAML checks ---
+$ grep -n "executor: self\|executor:self\|immediately executes its own" docs/harness-design.md ; echo "grep exit=$?"
+grep exit=1 (1 = no stale self-dispatch language survives)
+
+$ grep -n "30-review-1\.md\|50-review-2\.md" workflows/templates/stage-delivery.yaml
+77:    - 30-review-1.md  # legacy compatibility narrative (pre-protocol stages only)
+79:    - 50-review-2.md  # legacy compatibility narrative (pre-protocol stages only)
+85:    # review gate artifacts are the raw/verdict pairs below; bare 30-review-1.md
+86:    # and 50-review-2.md become non-authoritative compatibility narratives.
+633:        - "reports/agent-runs/{{stage_id}}/30-review-1.md (legacy pre-protocol narrative output only; non-authoritative under protocol v1)"
+697:      - "reports/agent-runs/{{stage_id}}/30-review-1.md on legacy (pre-protocol) stages, or as a non-authoritative compatibility narrative when present"
+698:      - "reports/agent-runs/{{stage_id}}/50-review-2.md on legacy (pre-protocol) stages, or as a non-authoritative compatibility narrative when present"
+771:      - "30-review-1.md on legacy (pre-protocol) stages, or as a non-authoritative compatibility narrative when present"
+781:        - "reports/agent-runs/{{stage_id}}/50-review-2.md (legacy pre-protocol narrative output only; non-authoritative under protocol v1)"
+
+$ python3 -c "import yaml; yaml.safe_load(open(\"workflows/templates/stage-delivery.yaml\")); print(\"stage-delivery.yaml parses OK\")"
+stage-delivery.yaml parses OK
+
+=== Codex bookkeeper independent five-item reconciliation 2026-07-20 17:00:18 CST ===
+python3 scripts/tests/test_review_artifacts.py: Ran 89 tests in 0.172s, OK
+python3 -m py_compile scripts/review_artifacts.py scripts/validate-stage.py scripts/validate-all-stages.py: PASS
+python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint: PASS (status=implementing at rerun)
+python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase dispatch-ready: PASS (status=implementing at rerun)
+python3 scripts/validate-all-stages.py --repo-root .: 18 green / 1 green_with_exception / 9 red across 28 stages, unchanged aggregate distribution
+python3 scripts/test-validate-all-stages-compare.py --repo-root .: 11/11 PASS
+workflows/templates/stage-delivery.yaml YAML parse: PASS
+residual self-dispatch token sweep across normative Harness docs: no matches
+git diff --check: PASS
+Scope reconciliation: PASS; exactly seven modified files, all authorized by 00-task.md, with no product/API/sample/credential/completed-stage changes.

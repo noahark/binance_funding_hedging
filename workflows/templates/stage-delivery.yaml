@@ -69,9 +69,14 @@ artifacts:
     - 10-design.md
     - 11-adr.md
     - 20-implementation.md
-    - 30-review-1.md
+    # The two bare review narratives below are legacy-only requirements:
+    # pre-accept enforces them solely for stages WITHOUT
+    # review_artifact_protocol raw-plus-strict-json/v1. Under protocol v1 they
+    # are non-authoritative compatibility narratives and the gate authority is
+    # the review_artifact_protocol_v1 raw/verdict pairs.
+    - 30-review-1.md  # legacy compatibility narrative (pre-protocol stages only)
     - 40-fix-report.md
-    - 50-review-2.md
+    - 50-review-2.md  # legacy compatibility narrative (pre-protocol stages only)
     - 60-test-output.txt
     - 70-handoff.md
     - status.json
@@ -625,7 +630,7 @@ stages:
         - "reports/agent-runs/{{stage_id}}/30-review-1-<task-id>[-retry-N].raw-output.md and .verdict.json for task reviews"
         - "reports/agent-runs/{{stage_id}}/30-review-1[-retry-N].raw-output.md and .verdict.json for serial reviews"
       legacy:
-        - "reports/agent-runs/{{stage_id}}/30-review-1.md"
+        - "reports/agent-runs/{{stage_id}}/30-review-1.md (legacy pre-protocol narrative output only; non-authoritative under protocol v1)"
     output_contract:
       schema: schemas/review-verdict.schema.json
       protocol_raw_plus_strict_json_v1:
@@ -685,8 +690,12 @@ stages:
       - "reports/agent-runs/{{stage_id}}/10-design.md"
       - "reports/agent-runs/{{stage_id}}/11-adr.md"
       - "reports/agent-runs/{{stage_id}}/06-direction-synthesis.md when present"
-      - "reports/agent-runs/{{stage_id}}/30-review-1.md"
-      - "reports/agent-runs/{{stage_id}}/50-review-2.md"
+      # Under protocol v1 the authoritative review inputs for a fix are the
+      # selected raw/verdict pairs plus the reviewer fix_start_prompt; the bare
+      # narrative files below are legacy compatibility inputs only.
+      - "under protocol v1: the status-selected 30-review-1*.raw-output.md/.verdict.json (and 50-review-2*.raw-output.md/.verdict.json when the REWORK came from Review-2) pairs"
+      - "reports/agent-runs/{{stage_id}}/30-review-1.md on legacy (pre-protocol) stages, or as a non-authoritative compatibility narrative when present"
+      - "reports/agent-runs/{{stage_id}}/50-review-2.md on legacy (pre-protocol) stages, or as a non-authoritative compatibility narrative when present"
       - "reviewer-provided fix_start_prompt from the active REWORK verdict"
     writes:
       - "reports/agent-runs/{{stage_id}}/40-fix-report.md"
@@ -756,7 +765,10 @@ stages:
       - "20-implementation.md"
       - "40-fix-report.md"
       - "60-test-output.txt"
-      - "30-review-1.md"
+      # Review-1 evidence input: protocol-aware, with the bare narrative kept
+      # only as a legacy compatibility input.
+      - "under protocol v1: every status-selected 30-review-1*.raw-output.md/.verdict.json pair"
+      - "30-review-1.md on legacy (pre-protocol) stages, or as a non-authoritative compatibility narrative when present"
       - "relevant source files"
     override_prompt_requirements:
       - "When reviewer_prior_involvement is not none, review the stage design and breakdown as evidence under review."
@@ -766,7 +778,7 @@ stages:
       protocol_raw_plus_strict_json_v1:
         - "reports/agent-runs/{{stage_id}}/50-review-2[-retry-N].raw-output.md and .verdict.json"
       legacy:
-        - "reports/agent-runs/{{stage_id}}/50-review-2.md"
+        - "reports/agent-runs/{{stage_id}}/50-review-2.md (legacy pre-protocol narrative output only; non-authoritative under protocol v1)"
     output_contract:
       schema: schemas/review-verdict.schema.json
       protocol_raw_plus_strict_json_v1:

@@ -436,7 +436,11 @@ def active_stage_id(root: Path) -> str | None:
 
     ACTIVE.json is the explicit active-stage evidence used by the protocol-v1
     gate (no date heuristics). A missing pointer file means no active-stage
-    evidence; a malformed one fails closed."""
+    evidence. A present pointer fails closed unless its root is an object with
+    an "active" member that is either null (no stage in flight) or an object
+    carrying a non-empty string stage_id; unparseable JSON or any other shape
+    raises instead of silently selecting the legacy protocol path. Unrelated
+    optional metadata fields are not required."""
     path = root / "reports" / "agent-runs" / "ACTIVE.json"
     if not path.is_file():
         return None
@@ -444,10 +448,25 @@ def active_stage_id(root: Path) -> str | None:
         doc = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValidationError(f"invalid ACTIVE.json: {exc}") from exc
-    active = doc.get("active") if isinstance(doc, dict) else None
-    if isinstance(active, dict) and active.get("stage_id"):
-        return str(active["stage_id"])
-    return None
+    if not isinstance(doc, dict):
+        raise ValidationError(
+            f"invalid ACTIVE.json: root must be a JSON object, got {type(doc).__name__}"
+        )
+    if "active" not in doc:
+        raise ValidationError("invalid ACTIVE.json: missing required 'active' key")
+    active = doc["active"]
+    if active is None:
+        return None
+    if not isinstance(active, dict):
+        raise ValidationError(
+            f"invalid ACTIVE.json: 'active' must be null or an object, got {type(active).__name__}"
+        )
+    stage_id = active.get("stage_id")
+    if not isinstance(stage_id, str) or not stage_id.strip():
+        raise ValidationError(
+            "invalid ACTIVE.json: active.stage_id must be a non-empty string"
+        )
+    return stage_id
 
 
 def _protocol_pair_errors(

@@ -1,11 +1,11 @@
 {
   "active": {
     "stage_id": "2026-07-harness-review-dispatch-fast-fix-v1",
-    "phase": "implementation-dispatch-required",
+    "phase": "bookkeeper-reconciliation",
     "handoff": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/70-handoff.md",
-    "updated_at": "2026-07-20T11:01:36+08:00"
+    "updated_at": "2026-07-20T17:00:18+08:00"
   },
   "last_completed": "2026-07-real-borrow-execution-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-20T11:01:36+08:00"
+  "updated_at": "2026-07-20T17:00:18+08:00"
 }

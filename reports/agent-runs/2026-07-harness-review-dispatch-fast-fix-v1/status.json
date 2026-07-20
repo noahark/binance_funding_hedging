@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-review-dispatch-fast-fix-v1",
-  "status": "implementing",
+  "status": "testing",
   "workflow": "stage-delivery",
   "review_artifact_protocol": "raw-plus-strict-json/v1",
   "stage_branch": {
@@ -97,6 +97,26 @@
       "unavailable_reason": "current runtime does not expose provider-native session ID",
       "raw_output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/35-bookkeeper-user-authorized-followup.md",
       "recorded_at": "2026-07-20T11:01:36+08:00"
+    },
+    {
+      "role": "implementation_h1_followup_partial",
+      "model": "claude-fable-5",
+      "provider": "anthropic",
+      "session_id": null,
+      "session_id_source": "unavailable (human operator reported quota exhaustion before completion; no verified provider-native ID supplied)",
+      "unavailable_reason": "claude-fable-5 quota exhausted after partial follow-up implementation",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/36-followup-authorship-receipt.md",
+      "recorded_at": "2026-07-20T17:00:18+08:00"
+    },
+    {
+      "role": "implementation_h1_followup_completion",
+      "model": "opus4.8",
+      "provider": "anthropic",
+      "session_id": "8e7ef534-4310-4033-8bca-5f17b79ce77a",
+      "session_id_source": "implementation_report_runtime_env_plus_human_operator_model_identification",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/20-implementation.md",
+      "recorded_at": "2026-07-20T16:52:38+08:00"
     }
   ],
   "designer": {
@@ -130,6 +150,15 @@
       "assignment_note": "Clean implementation from committed baseline; prior Grok source was not retained",
       "prior_stage_involvement": "independent plan reviewer",
       "prior_involvement_evidence": "09-plan-review-fable5.md"
+    },
+    {
+      "id": "opus4.8",
+      "provider": "anthropic",
+      "model": "opus4.8",
+      "assigned_by": "user",
+      "assignment_note": "Completed the bounded five-item H1 follow-up after Fable5 quota exhaustion; same Anthropic provider identity",
+      "prior_stage_involvement": "none",
+      "prior_involvement_evidence": "36-followup-authorship-receipt.md"
     }
   ],
   "fix_authors": [],
@@ -174,7 +203,7 @@
     "scripts/validate-all-stages.py",
     "agents/developer-discipline.md",
     "agents/skills/minimal-change-engineer.md",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,20-implementation.md,60-test-output.txt,34-implementation-followup-fable5.prompt.md,35-bookkeeper-user-authorized-followup.md}"
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,20-implementation.md,60-test-output.txt,34-implementation-followup-fable5.prompt.md,35-bookkeeper-user-authorized-followup.md,36-followup-authorship-receipt.md,37-bookkeeper-followup-reconciliation.md}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
   "head_sha": "73752dbba16beaf41ff6fdfec3b3b84b1944306b",
@@ -210,7 +239,7 @@
     }
   ],
   "tests": {
-    "status": "pending_user_authorized_followup",
+    "status": "passed",
     "commands": [
       "python3 scripts/tests/test_review_artifacts.py",
       "python3 -m py_compile scripts/review_artifacts.py scripts/validate-stage.py scripts/validate-all-stages.py",
@@ -220,7 +249,7 @@
       "git diff --check"
     ],
     "evidence": "60-test-output.txt",
-    "implementation_tests_pending": true,
+    "implementation_tests_pending": false,
     "bookkeeper_reconciliation": "21-bookkeeper-reconciliation.md",
     "abandoned_attempt_tests_are_not_acceptance_evidence": true
   },
@@ -271,8 +300,8 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "human operator has not yet executed the user-authorized Fable5 follow-up implementation packet",
-    "follow-up tests, committed fingerprint, fresh protocol-valid Review-1, and Review-2 are pending",
+    "follow-up implementation is uncommitted, so the new head_sha and diff_fingerprint are not yet anchored",
+    "fresh protocol-valid Review-1 and Review-2 are pending",
     "current Harness forbids merging main before both review gates accept the updated fingerprint"
   ],
   "human_escalation": {
@@ -280,6 +309,6 @@
     "reason": "Resolved by the user's 2026-07-20 instruction to implement the five Kimi follow-ups in this stage and continue through fresh formal review gates."
   },
   "terminal_reason": null,
-  "next_action": "human_operator_executes_34_implementation_followup_fable5_prompt",
-  "updated_at": "2026-07-20T11:01:36+08:00"
+  "next_action": "bookkeeper_commits_followup_and_recomputes_standard_fingerprint",
+  "updated_at": "2026-07-20T17:00:18+08:00"
 }

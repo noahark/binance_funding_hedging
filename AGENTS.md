@@ -336,9 +336,11 @@ dispatching the fix.
   Review-1 pair; `pre-accept` additionally requires the Review-2 pair.
 - Before entering implementation for a parallel development stage, run
   `scripts/validate-stage.py <stage-id> --phase dispatch-ready` and preserve the
-  output in the stage evidence. This gate checks the R10 checklist, task prompt
-  paths, embedded pre-review prompt paths, cross-review routing, and failure
-  escalation branches before any implementer starts coding.
+  output in the stage evidence. For every parallel stage this gate checks the
+  R10 checklist, task prompt paths, cross-review routing, and the
+  human-operator dispatch fields before any implementer starts coding. The
+  embedded pre-review prompt, round-cap, and failure escalation branch checks
+  apply only when `parallel_mode.embedded_review.enabled == true`.
 - Unknown status values, unknown fingerprint protocols, or bookkeeper/model-invented
   state machine transitions fail closed and route to `human_escalation_required`
   unless the Harness schema, docs, and validator are updated first.

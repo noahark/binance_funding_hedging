@@ -2,15 +2,14 @@
 
 ## Recovery Header
 
-- Active phase: implementation dispatch required for user-authorized H1
-  follow-up
-- Next action: human operator executes
-  `34-implementation-followup-fable5.prompt.md` in Fable5, captures the receipt,
-  and returns control to the Codex bookkeeper for reconciliation.
+- Active phase: bookkeeper reconciliation and committed-evidence preparation
+- Next action: commit the independently verified seven-file follow-up, compute
+  the standard stage/task fingerprints, run pre-review validation, and prepare
+  a fresh Kimi Review-1 packet pinned to the new commit.
 - Read-set: `status.current_inputs`
-- Open blockers: follow-up implementation has not run; its tests and committed
-  fingerprint do not exist; fresh protocol-valid Review-1 and Review-2 are
-  pending; `main` cannot be merged in this state.
+- Open blockers: the verified follow-up is not yet committed; fresh
+  protocol-valid Review-1 and Review-2 are pending; `main` cannot be merged in
+  this state.
 - Do-not-read: other stage history unless a reviewer cites an exact artifact.
 
 ## Current State
@@ -78,22 +77,28 @@ executed. Preserve all earlier attempt files as historical evidence.
 
 ## Next Action
 
-The user-authorized extension is recorded in `00-task.md`; the exact Fable5
-packet is `34-implementation-followup-fable5.prompt.md`; the bookkeeper scope
-checkpoint is `35-bookkeeper-user-authorized-followup.md`.
+Fable5 began the bounded follow-up and exhausted quota partway through. The
+human operator reassigned the remainder to Opus4.8, which completed the same
+packet and stopped without commit, push, merge, review dispatch, or another
+model invocation. Both authors normalize to the Anthropic provider; the
+authorship correction is recorded in `36-followup-authorship-receipt.md` and
+the packet receipt header.
 
-1. Human operator executes the packet in a write-capable Fable5 terminal and
-   fills its receipt metadata.
-2. Fable5 implements only the five named follow-ups, runs the exact tests,
-   updates its own `20-implementation.md`, appends `60-test-output.txt`, and
-   stops without committing, pushing, or dispatching a reviewer.
-3. Codex bookkeeper reconciles scope and tests, commits the implementation,
-   recomputes the stage/task fingerprints, runs pre-review validation, and
-   prepares a fresh Kimi Review-1 packet for the new fingerprint.
+Codex independently inspected the seven-file diff and reran 89 tests,
+py_compile, checkpoint, dispatch-ready, the 28-stage aggregate, 11/11 compare
+sentinel, YAML parsing, residual-token search, and `git diff --check`; all
+follow-up acceptance checks passed. Exact reconciliation is in
+`37-bookkeeper-followup-reconciliation.md` and `60-test-output.txt`.
+
+1. Create the bounded local implementation evidence commit.
+2. Compute the standard stage and H1 fingerprints from committed state and
+   update status cache.
+3. Run and preserve `--phase pre-review`, then prepare a fresh Kimi Review-1
+   packet. Do not execute the superseded old-fingerprint retry-2 packet.
 
 当前 Session ID: unavailable (current Codex runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/70-handoff.md
-本地北京时间: 2026-07-20 11:01:36 CST
-下一步模型: human operator → Fable5 / Anthropic
-下一步任务: 执行 34-implementation-followup-fable5.prompt.md，完成五项补充修复并返回 bookkeeper
+本地北京时间: 2026-07-20 17:00:18 CST
+下一步模型: Codex bookkeeper
+下一步任务: 固化实现证据提交、重算指纹并准备新指纹的 Kimi Review-1 包
