@@ -9,7 +9,7 @@
     "created_at": "2026-07-19T22:12:37+08:00",
     "pushed_to_origin": true,
     "remote_branch": "origin/stage/2026-07-harness-review-dispatch-fast-fix-v1",
-    "last_pushed_commit": "d223ebe",
+    "last_pushed_commit": "7dab85d8bb7f1bd235bcfa3315f7e9f9141702a6",
     "merged_back_to_main": false,
     "merged_back_sha": null,
     "merge_strategy": null,
@@ -163,7 +163,7 @@
     "scripts/validate-all-stages.py",
     "agents/developer-discipline.md",
     "agents/skills/minimal-change-engineer.md",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,20-implementation.md,60-test-output.txt,61-validation-pre-review.txt,30-review-1-kimi.prompt.md,31-review-1-attempt-1-capture-failure.md,30-review-1-kimi-retry-1.prompt.md,30-review-1-retry-1.raw-output.md,32-review-1-retry-1-invalid-output.md,30-review-1-kimi-retry-2.prompt.md}"
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,20-implementation.md,60-test-output.txt,61-validation-pre-review.txt,30-review-1-kimi.prompt.md,31-review-1-attempt-1-capture-failure.md,30-review-1-kimi-retry-1.prompt.md,30-review-1-retry-1.raw-output.md,32-review-1-retry-1-invalid-output.md,30-review-1-kimi-retry-2.prompt.md,33-bookkeeper-current-progress.md}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
   "head_sha": "73752dbba16beaf41ff6fdfec3b3b84b1944306b",
@@ -258,12 +258,16 @@
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [],
+  "blockers": [
+    "formal Review-1 has no protocol-valid raw/verdict pair",
+    "Review-2 has not run",
+    "current Harness forbids merging main before both review gates accept"
+  ],
   "human_escalation": {
-    "required": false,
-    "reason": null
+    "required": true,
+    "reason": "User requested skipping the remaining review gates and merging; current hard gates do not authorize that transition. Human must choose a compliant review continuation or separately approved Harness rule-change stage."
   },
   "terminal_reason": null,
-  "next_action": "formal_review_1_and_review_2_are_required_before_main_merge",
-  "updated_at": "2026-07-20T10:46:45+08:00"
+  "next_action": "human_chooses_compliant_review_continuation_or_separate_harness_rule_change",
+  "updated_at": "2026-07-20T10:50:55+08:00"
 }
