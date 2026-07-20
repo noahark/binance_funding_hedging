@@ -28,13 +28,17 @@ guards:
   forbid_rebase: true
   require_committed_state_before_review: true
   model_dispatch_execution_requires_human: true
-  codex_gpt_claude_must_not_execute_model_dispatch: true
+  all_model_sessions_must_not_execute_model_dispatch: true
+  forbid_model_self_dispatch: true
   forbid_worktree_fingerprint: true
   validate_stage_script: "scripts/validate-stage.py"
   fail_closed_on_invalid_json: true
   reviewer_uses_raw_artifacts: true
   parallel_mode_contract: "docs/parallel-development-mode.md"
   require_r10_dispatch_tail_when_parallel_mode: true
+  # v0.5 semantics: the R10 dispatch tail is self-test commands + exact artifact
+  # paths + the stop-for-bookkeeper instruction. It never contains a command
+  # that invokes another model session.
   require_r4_diff_reconciliation_before_parallel_task_commits: true
   max_rework_per_stage: 3
   no_self_review:
@@ -66,7 +70,6 @@ artifacts:
     - 10-design.md
     - 11-adr.md
     - 20-implementation.md
-    - 30-review-1.md
     - 40-fix-report.md
     - 50-review-2.md
     - 60-test-output.txt
@@ -75,12 +78,20 @@ artifacts:
   conditional_files:
     medium_high_milestone:
       - 12-development-breakdown.md
+    single_task_stage:
+      # Unsuffixed review-1 artifact; parallel stages use task-level files instead.
+      - 30-review-1.md
     parallel_development_with_embedded_cross_review:
-      - "embedded-review-<task-id>-round<N>.diff.patch"
-      - "embedded-review-<task-id>-round<N>.dispatch.md"
-      - "embedded-review-<task-id>-round<N>.raw-output.md"
-      - "embedded-review-<task-id>-round<N>.fix-note.md when fixed"
-      - "embedded-review-<task-id>.prompt.md"
+      # Formal review-1 is one task-level file per task (v0.5); the unsuffixed
+      # 30-review-1.md is neither required nor produced in parallel stages.
+      - "30-review-1-<task-id>.md (one per task)"
+      # Embedded pre-review artifacts only when the stage opts in via
+      # status.json.parallel_mode.embedded_review.enabled=true (v0.5).
+      - "embedded-review-<task-id>-round<N>.diff.patch (embedded pre-review opt-in only)"
+      - "embedded-review-<task-id>-round<N>.dispatch.md (embedded pre-review opt-in only)"
+      - "embedded-review-<task-id>-round<N>.raw-output.md (embedded pre-review opt-in only)"
+      - "embedded-review-<task-id>-round<N>.fix-note.md when fixed (embedded pre-review opt-in only)"
+      - "embedded-review-<task-id>-round<N>.prompt.md (embedded pre-review opt-in only)"
       - "pre-review-task-<task-id>-by-<reviewer>.prompt.md"
   direction_files_required_for_milestone_freeze:
     - direction-drafts/*.md
@@ -432,7 +443,7 @@ stages:
     acceptance:
       - "Implementation tasks have clear owners, dependencies, and file boundaries."
       - "For multi-task stages, status.json records each task with owner, reviewer, base_sha/head_sha/diff_fingerprint, review verdict, and test evidence path."
-      - "For parallel development stages, dispatch packets include R10 self-executing next_dispatch commands and exact artifact paths."
+      - "For parallel development stages, dispatch packets include the R10 dispatch tail (exact self-test commands, exact artifact paths, and the stop-for-bookkeeper instruction); every cross-model next_dispatch entry is marked executor:human_operator and executed only by the human operator."
       - "For parallel development stages, status.json records tasks[].r10_checklist or r10_checklists.<task-id> with machine-readable dispatch-ready fields."
 
   - id: implementation
@@ -464,7 +475,7 @@ stages:
       - "source files within task boundary"
       - "tests within task boundary"
       - "reports/agent-runs/{{stage_id}}/20-implementation.md"
-      - "parallel-mode embedded review artifacts when R10 next_dispatch is executed"
+      - "parallel-mode task diff.patch only when embedded pre-review is opted in (status.json.parallel_mode.embedded_review.enabled=true)"
     routing_rules:
       - "Apply status.json.model_routing stage-specific owner and exclusion rules before generic actor_pool selection."
       - "A model listed in status.json.model_routing.excluded_for_core_work is ineligible for current-stage implementation even if it appears in this generic actor_pool."
@@ -475,24 +486,24 @@ stages:
       - "If frontend work is the large majority and backend work is light, dispatch the whole bounded task to kimi."
       - "If backend and frontend work are both substantial and separable, split implementation by domain owner."
       - "Bookkeeper, Codex/GPT, and Claude sessions prepare implementation dispatch packets only; the human operator executes them in the selected implementer terminal."
-      - "When docs/parallel-development-mode.md applies, the implementer must execute or escalate any next_dispatch marked executor:self before reporting completion."
+      - "No model session of any provider may invoke, launch, or relay to another model session. When docs/parallel-development-mode.md applies, the implementer's closing duty is self-tests, the required artifact paths, the implementation report, and stopping for the bookkeeper; any next_dispatch entry for a cross-model call is executor:human_operator and is executed only by the human operator."
     acceptance:
       - "Changed files match task boundaries or deviations are explained."
       - "Implementation report lists design decisions and tests run."
-      - "Parallel-mode implementation reports include the R10 receipt block, embedded review output path, and PASS/BLOCKER disposition."
+      - "Parallel-mode implementation reports include the R10 closing evidence (self-test results, artifact paths) and, when embedded pre-review is opted in, the embedded review output path and PASS/BLOCKER disposition."
       - "The implementation report footer and status.json.session_receipts capture Session ID provenance and the raw output path."
 
   - id: embedded-cross-review-checkpoint
     run_when:
       - "docs/parallel-development-mode.md applies"
-      - "an implementation task dispatch packet declares next_dispatch with executor:self"
+      - "status.json.parallel_mode.embedded_review.enabled == true with a non-empty reason (opt-in since v0.5; skipped entirely otherwise)"
       - "before the bookkeeper creates H_A/H_B committed evidence"
-    actor: implementing_terminal
+    actor: human_operator_executes_prewritten_dispatch
     skill: code_reviewer
     mode: read_only_checkpoint
     status_effect: "remain implementing; this is not formal review-1"
     reads:
-      - "prewritten prompt path from the implementation task's R10 dispatch tail"
+      - "prewritten round-N prompt path prepared by the designer at H_intake"
       - "task-local diff.patch generated by the exact R10 command"
       - "raw artifacts listed in the prompt"
     writes:
@@ -501,10 +512,11 @@ stages:
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.raw-output.md"
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.fix-note.md when fixed"
     rules:
-      - "The implementing terminal only executes a prewritten adapter command; it must not rewrite the review prompt or select different artifacts."
+      - "The human operator executes the bookkeeper-prepared dispatch file verbatim in a fresh reviewer session; no model session may invoke, launch, or relay to another model session."
+      - "The implementing terminal never executes the review dispatch; its closing duty ends at self-tests, the diff.patch, and the implementation report."
       - "The reviewer session must be fresh and read-only/plan mode."
       - "Local embedded review/fix loops are capped at two rounds and do not count as stage rework_count."
-      - "A scope-contained BLOCKER routes to a local implementation fix, then embedded review round 2."
+      - "A scope-contained BLOCKER routes to a local implementation fix, then embedded review round 2 (prewritten round-2 prompt enabled by the bookkeeper)."
       - "Round 2 is the cap. A second BLOCKER, scope/contract dispute, missing evidence, or unsafe fix requirement escalates to bookkeeper-decision."
       - "Embedded checkpoint failure classes come from agents/registry.yaml failure_classes.embedded_checkpoint and route to bookkeeper-decision, not directly to a terminal stop."
       - "The bookkeeper must re-generate and reconcile each task diff before committing, per R4."
@@ -573,7 +585,7 @@ stages:
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring the reviewer unavailable."
-      - "Codex/GPT and Claude sessions prepare review-1 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
+      - "Model sessions of any provider prepare review-1 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence. Every review dispatch prompt begins with the [HARNESS-EXECUTOR-CONTRACT v1] preamble marker."
     actor:
       selection: rotation.review_1
     skill: code_reviewer
@@ -599,9 +611,11 @@ stages:
       reviewer_session_must_be_fresh: true
       reviewer_may_equal_designer: true
     writes:
-      - "reports/agent-runs/{{stage_id}}/30-review-1.md"
+      - "reports/agent-runs/{{stage_id}}/30-review-1.md (single-task stages)"
+      - "reports/agent-runs/{{stage_id}}/30-review-1-<task-id>.md (parallel stages, one per task)"
     output_contract:
       schema: schemas/review-verdict.schema.json
+      gate_verdict_authority: "The gate verdict is authoritative only as parsed from the review artifact file by validate-stage.py; status.json verdict fields are cross-checks, not the source of truth."
       navigation_footer:
         required: true
         position: before_final_json_object
@@ -675,7 +689,7 @@ stages:
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring Codex or Claude unavailable."
       - "If the selected final reviewer participated in direction synthesis, breakdown, or design, record the design-conflict override evidence before preparing dispatch."
-      - "Codex/GPT and Claude sessions prepare review-2 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence."
+      - "Model sessions of any provider prepare review-2 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence. Every review dispatch prompt begins with the [HARNESS-EXECUTOR-CONTRACT v1] preamble marker."
     actor:
       primary: codex
       fallback: claude
@@ -733,6 +747,7 @@ stages:
       - "reports/agent-runs/{{stage_id}}/50-review-2.md"
     output_contract:
       schema: schemas/review-verdict.schema.json
+      gate_verdict_authority: "The gate verdict is authoritative only as parsed from the review artifact file by validate-stage.py; status.json verdict fields are cross-checks, not the source of truth."
       navigation_footer:
         required: true
         position: before_final_json_object
