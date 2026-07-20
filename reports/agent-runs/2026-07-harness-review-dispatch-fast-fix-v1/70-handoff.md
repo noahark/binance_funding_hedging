@@ -2,16 +2,12 @@
 
 ## Recovery Header
 
-- Active phase: Review-1 interactive response captured; numeric exit status
-  required
-- Next action: human operator exits the still-running Kimi TUI normally in its
-  original zellij pane and immediately prints `$?`, then returns that numeric
-  status to Codex for capture-only verdict publication.
+- Active phase: abandoned by explicit user decision
+- Next action: none on this branch. Return to `main` and resume product
+  development without merging or cherry-picking this Harness stage.
 - Read-set: `status.current_inputs`
-- Open blockers: no numeric producer exit status exists while the interactive
-  Kimi process remains open; canonical Review-1 verdict is not published; the
-  REWORK P1 requires user authorization to add `reports/agent-runs/README.md`
-  to fix scope; Review-2 is pending; `main` cannot be merged in this state.
+- Open blockers: none. Unresolved Harness review findings remain branch-local
+  audit evidence and are not carried into product development on `main`.
 - Do-not-read: other stage history unless a reviewer cites an exact artifact.
 
 ## Current State
@@ -128,9 +124,33 @@ open at the interactive prompt at 18:21 CST, so no process exit status existed.
 The bookkeeper did not infer `0` and did not publish a verdict file. Exact
 checkpoint: `39-review-1-retry-3-interactive-capture-pending.md`.
 
+## Abandonment Decision
+
+On 2026-07-20 the user explicitly chose to abandon this Harness-only stage and
+return to `main`, observing that the Harness had become increasingly heavy and
+confusing. The stage contains no product feature work. Neither the original
+Harness implementation nor any follow-up or review-evidence commit was merged
+to `main`.
+
+Disposition:
+
+- Preserve branch `stage/2026-07-harness-review-dispatch-fast-fix-v1` and its
+  remote as cold audit evidence.
+- Do not merge, fast-forward, cherry-pick, or sync any commit from this stage to
+  `main`.
+- Do not require the user to exit the existing Kimi TUI or provide an exit code
+  for an abandoned review gate.
+- Set `ACTIVE.json.active` to `null`; keep
+  `last_completed=2026-07-real-borrow-execution-v1` because an abandoned stage
+  is not completed delivery.
+- Resume future product requirement discussion from clean `main` at
+  `8cf810d2335d5af08e2ff18181964e5e053e56b9`.
+
+Full terminal decision: `69-abandonment-decision.md`.
+
 当前 Session ID: unavailable (current Codex runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/70-handoff.md
-本地北京时间: 2026-07-20 18:21:17 CST
-下一步模型: human operator
-下一步任务: 在原 Kimi pane 正常退出并立即运行 printf 'producer_exit=%s\n' "$?"，把数字返回 Codex
+本地北京时间: 2026-07-20 18:30:58 CST
+下一步模型: human → Codex on main
+下一步任务: 提供下一项产品需求；本 Harness stage 不合并

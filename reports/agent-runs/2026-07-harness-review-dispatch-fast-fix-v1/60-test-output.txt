@@ -261,3 +261,10 @@ schema-v1 semantics: PASS
 diff fingerprint binding: PASS
 reported verdict=REWORK; finding severities=P1,P3
 producer exit status=PENDING: interactive Kimi PID 13886 remained open, so no exit value existed and no canonical verdict was published.
+
+=== Terminal abandonment checkpoint 2026-07-20 18:30:58 CST ===
+python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint: PASS
+status=abandoned
+jq parse ACTIVE.json + status.json: PASS
+git diff --check: PASS
+Disposition: no stage commit merges to main; branch retained as audit evidence.

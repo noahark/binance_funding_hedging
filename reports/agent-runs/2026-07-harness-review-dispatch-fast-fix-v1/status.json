@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-review-dispatch-fast-fix-v1",
-  "status": "review_1",
+  "status": "abandoned",
   "workflow": "stage-delivery",
   "review_artifact_protocol": "raw-plus-strict-json/v1",
   "stage_branch": {
@@ -9,11 +9,11 @@
     "created_at": "2026-07-19T22:12:37+08:00",
     "pushed_to_origin": true,
     "remote_branch": "origin/stage/2026-07-harness-review-dispatch-fast-fix-v1",
-    "last_pushed_commit": "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28",
+    "last_pushed_commit": "b49a6080bdcbb617ced7e4595d6f6398b033978b",
     "merged_back_to_main": false,
     "merged_back_sha": null,
     "merge_strategy": null,
-    "abandoned_reason": null
+    "abandoned_reason": "User explicitly abandoned this Harness-only stage on 2026-07-20 because the workflow had become too heavy and confusing. No stage commit was merged to main; retain the remote branch as audit evidence only."
   },
   "bookkeeper": {
     "id": "codex",
@@ -225,7 +225,7 @@
     "scripts/validate-all-stages.py",
     "agents/developer-discipline.md",
     "agents/skills/minimal-change-engineer.md",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,10-design.md,11-adr.md,12-development-breakdown.md,13-plan-review-synthesis-and-amendment.md,20-implementation.md,21-bookkeeper-reconciliation.md,34-implementation-followup-fable5.prompt.md,36-followup-authorship-receipt.md,37-bookkeeper-followup-reconciliation.md,38-bookkeeper-review-1-preflight.md,39-review-1-retry-3-interactive-capture-pending.md,60-test-output.txt,61-validation-pre-review-followup.txt,30-review-1-kimi-retry-3.prompt.md,30-review-1-retry-3.raw-output.md}"
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{69-abandonment-decision.md,70-handoff.md,status.json}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
   "head_sha": "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28",
@@ -332,17 +332,12 @@
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
-  "blockers": [
-    "Review-1 retry-3 returned schema-valid REWORK JSON, but the interactive Kimi process remains open and no numeric producer exit status exists yet; canonical verdict publication is blocked",
-    "the P1 fix requires explicit user authorization to add reports/agent-runs/README.md to the stage Allowed Files",
-    "Review-2 is pending",
-    "current Harness forbids merging main before both review gates accept the updated fingerprint"
-  ],
+  "blockers": [],
   "human_escalation": {
     "required": false,
-    "reason": "Resolved by the user's 2026-07-20 instruction to implement the five Kimi follow-ups in this stage and continue through fresh formal review gates."
+    "reason": "Resolved by the user's explicit decision to abandon the Harness-only stage and return to main for product development."
   },
-  "terminal_reason": null,
-  "next_action": "human_operator_exits_same_kimi_tui_normally_and_immediately_reports_numeric_shell_exit_status",
-  "updated_at": "2026-07-20T18:21:17+08:00"
+  "terminal_reason": "human_escalation_required",
+  "next_action": "checkout_main_and_resume_product_development_without_merging_this_stage",
+  "updated_at": "2026-07-20T18:30:58+08:00"
 }
