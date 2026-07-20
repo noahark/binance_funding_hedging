@@ -175,3 +175,9 @@ Detached baseline comparison against committed pre-implementation commit 2eae7bd
 Bookkeeper scope reconciliation: PASS. Source/template files are all within
 00-task.md Allowed Files; Fable5 did not edit status.json, 70-handoff.md, or
 ACTIVE.json and did not dispatch another model.
+
+=== Codex bookkeeper follow-up dispatch checkpoint 2026-07-20 11:04:43 CST ===
+jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/status.json: PASS
+python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint: PASS (status=implementing)
+git diff --check: PASS
+Scope note: no Harness source/product files changed; follow-up implementation tests remain pending human execution of 34-implementation-followup-fable5.prompt.md.

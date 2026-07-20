@@ -20,6 +20,7 @@ strict verdict JSON are captured mechanically before a stage can advance.
 ## Allowed Files
 
 - `AGENTS.md`
+- `docs/harness-design.md`
 - `docs/parallel-development-mode.md`
 - `workflows/templates/stage-delivery.yaml`
 - `docs/model-adapters.md`
@@ -95,6 +96,22 @@ strict verdict JSON are captured mechanically before a stage can advance.
     review, serial Review-1, phase timing, and failed overwrite/partial-write.
 14. Harness docs, workflow YAML, templates, validator, helper, and tests describe
     one consistent flow.
+15. `docs/harness-design.md` no longer directs an implementation model to launch
+    another model or records `executor: self`; it states that embedded review is
+    default-off, explicit opt-in only, and human-operator executed.
+16. Every bare `30-review-1.md` or `50-review-2.md` reference in the workflow is
+    explicitly identified as legacy-only or is replaced by a protocol-aware
+    raw/verdict reference, without weakening legacy compatibility.
+17. The AGENTS dispatch-ready rule states that embedded-review prompt and
+    escalation checks apply only when
+    `parallel_mode.embedded_review.enabled == true`.
+18. The Fable5 implementation report names its actual canonical path,
+    `20-implementation.md`, while preserving the report's authorship and audit
+    history.
+19. `ACTIVE.json` fails closed not only on invalid JSON but also when the JSON
+    root or `active` member has an invalid shape. Only `active: null` or an
+    object with a non-empty string `stage_id` is accepted; focused tests cover
+    scalar, list, missing-key, missing-stage-id, non-string, and blank values.
 
 ## Human Gates
 
@@ -103,12 +120,19 @@ strict verdict JSON are captured mechanically before a stage can advance.
 - On 2026-07-19 the user authorized `scripts/validate-all-stages.py` as a
   necessary Task H1 integration path and replaced the abandoned Grok attempt
   with Fable5 implementation from the committed baseline.
-- No merge or push occurs until Codex verifies the bounded diff and tests and
-  the user-approved fast-fix route is satisfied.
+- On 2026-07-20 the user explicitly authorized the five non-blocking Kimi
+  follow-ups above as an in-stage H1 continuation and requested commit and push.
+  The implementation remains assigned to Fable5; the changed implementation
+  fingerprint must receive a fresh protocol-valid Review-1 and Review-2 before
+  user acceptance or merge.
+- User-authorized stage evidence checkpoints may be committed and pushed to the
+  stage branch. No implementation merge to `main` occurs until Codex verifies
+  the bounded diff and tests, both review gates accept the updated fingerprint,
+  and the user explicitly accepts the stage.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/00-task.md
-本地北京时间: 2026-07-19 23:32:37 CST
-下一步模型: Fable5 / Anthropic
-下一步任务: 从 committed baseline 按 23-implementation-fable5.prompt.md 实现 Task H1
+本地北京时间: 2026-07-20 11:01:36 CST
+下一步模型: human operator → Fable5 / Anthropic
+下一步任务: 人工执行 34-implementation-followup-fable5.prompt.md，完成五项用户授权补充修复
