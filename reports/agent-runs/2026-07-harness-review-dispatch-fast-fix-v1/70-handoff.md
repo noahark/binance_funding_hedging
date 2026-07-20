@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: formal Review-1 evidence-capture retry 1 ready
+- Active phase: formal Review-1 strict-output retry 2 ready
 - Next action: human operator resumes Kimi Session
   `session_c18a8dee-303f-4973-8b0b-61f13d304b9a`, runs
-  `30-review-1-kimi-retry-1.prompt.md`, and captures JSON-only stdout plus the
+  `30-review-1-kimi-retry-2.prompt.md`, and captures JSON-only stdout plus the
   producer exit status.
 - Read-set: `status.current_inputs`
 - Open blockers: none. Review-1 must use a non-Anthropic provider.
@@ -57,15 +57,21 @@ exit status reached the shared stage directory. It is non-accepting evidence;
 see `31-review-1-attempt-1-capture-failure.md`. No verdict or exit status was
 inferred.
 
+Retry 1 completed with producer exit `0`, but its raw stdout contained an
+explanatory bullet before the JSON and trailing newline bytes. The capture-only
+helper rejected it and created no verdict. The immutable raw bytes and failure
+record are preserved in `30-review-1-retry-1.raw-output.md` and
+`32-review-1-retry-1-invalid-output.md`.
+
 1. **Human operator:** resume the same Kimi session and run
-   `30-review-1-kimi-retry-1.prompt.md`; save exact stdout to
-   `30-review-1-retry-1.raw-output.md` and record the producer exit status.
+   `30-review-1-kimi-retry-2.prompt.md`; save exact stdout to
+   `30-review-1-retry-2.raw-output.md` and record the producer exit status.
 2. **Bookkeeper:** run `scripts/review_artifacts.py capture`, validate the
    canonical verdict, and route ACCEPT/REWORK without rewriting evidence.
 
 当前 Session ID: unavailable (current Codex runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/70-handoff.md
-本地北京时间: 2026-07-20 10:28:48 CST
+本地北京时间: 2026-07-20 10:40:33 CST
 下一步模型: Kimi / Moonshot（同一 Session，由 human operator 执行）
-下一步任务: 执行 30-review-1-kimi-retry-1.prompt.md 并捕获 stdout 与退出码
+下一步任务: 执行 30-review-1-kimi-retry-2.prompt.md 并捕获严格 JSON stdout 与退出码

@@ -160,7 +160,7 @@
     "scripts/validate-all-stages.py",
     "agents/developer-discipline.md",
     "agents/skills/minimal-change-engineer.md",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,20-implementation.md,60-test-output.txt,61-validation-pre-review.txt,30-review-1-kimi.prompt.md,31-review-1-attempt-1-capture-failure.md,30-review-1-kimi-retry-1.prompt.md}"
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,20-implementation.md,60-test-output.txt,61-validation-pre-review.txt,30-review-1-kimi.prompt.md,31-review-1-attempt-1-capture-failure.md,30-review-1-kimi-retry-1.prompt.md,30-review-1-retry-1.raw-output.md,32-review-1-retry-1-invalid-output.md,30-review-1-kimi-retry-2.prompt.md}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
   "head_sha": "73752dbba16beaf41ff6fdfec3b3b84b1944306b",
@@ -238,17 +238,18 @@
     "verdict": null,
     "json_schema_valid": null,
     "diff_fingerprint": "73752dbba16beaf41ff6fdfec3b3b84b1944306b:7cf1d8d251a5b628f735455b1c7f03b8977fa790efed6019d583b32719224619",
-    "raw_output_path": "30-review-1-retry-1.raw-output.md",
-    "verdict_path": "30-review-1-retry-1.verdict.json",
+    "raw_output_path": "30-review-1-retry-2.raw-output.md",
+    "verdict_path": "30-review-1-retry-2.verdict.json",
     "covers_through_task": "H1",
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": "Prior independent plan review only; no direction synthesis, breakdown, design, implementation, or fix authorship.",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0,
-    "capture_retry": 1,
-    "capture_retry_reason": "attempt 1 producer exit status and raw stdout were not captured",
-    "attempt_1_evidence": "31-review-1-attempt-1-capture-failure.md"
+    "invalid_json_attempts": 1,
+    "capture_retry": 2,
+    "capture_retry_reason": "attempt 1 lacked raw/exit evidence; retry 1 had producer exit 0 but raw stdout was not exactly one JSON document",
+    "attempt_1_evidence": "31-review-1-attempt-1-capture-failure.md",
+    "retry_1_evidence": "32-review-1-retry-1-invalid-output.md"
   },
   "review_2": null,
   "authorized_exceptions": [],
@@ -260,6 +261,6 @@
     "reason": null
   },
   "terminal_reason": null,
-  "next_action": "human_operator_resumes_kimi_and_executes_30_review_1_kimi_retry_1_prompt",
-  "updated_at": "2026-07-20T10:28:48+08:00"
+  "next_action": "human_operator_resumes_kimi_and_executes_30_review_1_kimi_retry_2_prompt",
+  "updated_at": "2026-07-20T10:40:33+08:00"
 }
