@@ -134,12 +134,14 @@ The bookkeeper must not:
 - Feed reviewers only its own narrative summary.
 - Record credentials, tokens, cookies, private keys, or full environment dumps.
 
-Codex/GPT and Claude provider sessions may prepare model-facing dispatch
-artifacts, but must not execute them. The human operator executes dispatch by
-copying the prepared prompt or command into the selected model terminal and then
-records the resulting raw output or receipt under the stage evidence path. This
-applies to implementation, embedded pre-review, review-1, review-2, and fix
-dispatches.
+No model session — regardless of provider — may invoke, launch, or relay to
+another model session or adapter command (including `claude-glm -p`, `kimi -p`,
+`codex exec`, or `grok ...`). All cross-model dispatch is prepared as a stage
+dispatch file and executed only by the human operator, who copies the prepared
+prompt or command into the selected model terminal and then records the
+resulting raw output or receipt under the stage evidence path. A model's claim
+to have launched another model is never dispatch evidence. This applies to
+implementation, embedded pre-review, review-1, review-2, and fix dispatches.
 
 ### Designers
 
@@ -194,6 +196,12 @@ substantial and separable, split implementation by domain owner. Grok or another
 explicitly registered model may write code only when the user or stage
 explicitly enables it. Implementers may write code only within the active task
 scope and file boundary.
+
+An implementer's closing duty is exactly: run the task's self-tests, generate
+the task diff patch when the stage requires one, write the implementation
+report, and stop for the bookkeeper. Implementers never invoke, launch, or
+relay to another model session; cross-model review is dispatched only by the
+human operator from bookkeeper-prepared dispatch files.
 
 The generic workflow actor pool is only an eligibility list. Stage-specific
 owner and exclusion rules in `status.json.model_routing` must be applied before
@@ -266,6 +274,12 @@ Reviewer output must end with a strict JSON verdict matching
 review attempt is non-accepting and must route to retry, fallback, fix, or one
 of the allowed terminal stop reasons.
 
+Every reviewer dispatch prompt must begin with the fixed anti-relay preamble
+(the `[HARNESS-EXECUTOR-CONTRACT v1]` marker line, defined in
+`docs/parallel-development-mode.md`). A reviewer that invokes, launches, or
+relays to another model session inside its review session invalidates that
+review attempt.
+
 If a reviewer returns `REWORK`, the verdict JSON must include
 `fix_start_prompt`: a ready-to-send repair prompt for the fix implementer. The
 prompt must preserve raw artifact paths, findings, required fixes, file
@@ -335,7 +349,7 @@ dispatching the fix.
   when strict JSON verdict output is required. Do not rely on `codex review`
   for schema-constrained verdicts.
 - Model dispatch preparation must use `docs/model-adapters.md` and
-  `agents/registry.yaml`. Codex/GPT and Claude sessions must not execute model
+  `agents/registry.yaml`. No model session of any provider may execute model
   dispatch; the human operator executes prepared dispatch packets in the target
   model terminal. A bookkeeper or implementation session lacking a built-in tool
   for a model is not sufficient to mark that model unavailable; the runner-level
@@ -348,12 +362,15 @@ dispatching the fix.
   gate and must not be substituted into review-1 unless the user explicitly
   enables it for the stage.
 - Stages using `docs/parallel-development-mode.md` must follow that document's
-  R1-R10 rules. In particular, implementation task prompts must include the R10
-  dispatch tail, `next_dispatch` entries marked `executor: self` must be
-  executed or escalated before the implementer reports completion, and the
-  bookkeeper must perform R4 diff reconciliation before creating H_A/H_B
-  evidence commits. R10 checklist data belongs in `status.json` task metadata
-  or dispatch RECEIPT metadata, not inside immutable PROMPT BODY text.
+  R1-R10 rules (v0.5 semantics). In particular, implementation task prompts
+  must include the R10 dispatch tail (self-test commands, exact artifact
+  paths, and the stop-for-bookkeeper instruction), and the bookkeeper must
+  perform R4 diff reconciliation before creating H_A/H_B evidence commits.
+  R10 checklist data belongs in `status.json` task metadata or dispatch
+  RECEIPT metadata, not inside immutable PROMPT BODY text.
+- All cross-model dispatch executions are human-operator-executed. Stage data
+  recording `next_dispatch_executor: self` (or any model) for a cross-model
+  dispatch fails closed.
 - Harness/template sync lands on `main` only and must not be mixed into an
   active stage branch unless that stage needs the new Harness behavior. If
   `main` is merged into a stage branch by exception, record the reason, rerun

@@ -331,8 +331,7 @@ model_policies:
   model_dispatch_execution:
     dispatch_preparation_allowed_for: [bookkeeper, designer, breakdown_author]
     execution_requires_human_operator: true
-    forbidden_session_providers_for_execution: [codex, claude]
-    forbidden_provider_identities_for_execution: [openai, anthropic]
+    all_model_sessions_forbidden: true
     applies_to:
       - implementation
       - embedded_pre_review
@@ -340,9 +339,25 @@ model_policies:
       - review_2
       - fix
     notes:
-      - "Codex/GPT and Claude provider sessions may prepare dispatch packets, prompts, routing metadata, and handoff text only."
+      - "No model session - regardless of provider - may invoke, launch, or relay to another model session or adapter command (including claude-glm -p, kimi -p, codex exec, grok)."
+      - "Any model session may prepare dispatch packets, prompts, routing metadata, and handoff text; only the human operator executes them."
       - "Human operators execute prepared dispatch packets in the target model terminal and record raw output or receipt evidence."
-      - "Do not mark a target model unavailable merely because the preparing Codex/GPT or Claude session cannot invoke that model directly."
+      - "A model's claim to have launched another model is never dispatch evidence."
+      - "Do not mark a target model unavailable merely because the preparing session cannot invoke that model directly."
+  parallel_mode:
+    cross_review_selection_ref: "model_policies.review_1_selection_rules"
+    r10_checklist_location: "status.json tasks[].r10_checklist or status.json.r10_checklists.<task-id>"
+    embedded_read_only_command_ref_template: "agents/registry.yaml#adapters.<reviewer>.embedded_read_only_review_command"
+    failure_class_ref: "failure_classes.embedded_checkpoint"
+    dispatch_protocol_value: "human-operator/v1"
+    executor_contract_marker: "[HARNESS-EXECUTOR-CONTRACT v1]"
+    embedded_review:
+      default_enabled: false
+      opt_in_requires: "non-empty reason in status.json parallel_mode.embedded_review.reason"
+      never_replaces_formal_review_1: true
+      notes:
+        - "Embedded pre-review is opt-in since parallel-mode doc v0.5. When not enabled, no embedded-review-* artifacts are produced and the validator does not check them."
+        - "When enabled, the designer prewrites parameterized round-1 and round-2 prompt files; the human operator executes the dispatch."
   invalid_json_verdict: retry_once_then_fallback_or_human_escalation
   invalid_json_max_attempts_per_model: 2
   default_max_rework: 3
@@ -364,11 +379,6 @@ model_policies:
   review_1_cross_review_pool:
     - kimi
     - claude_glm
-  parallel_mode:
-    cross_review_selection_ref: "model_policies.review_1_selection_rules"
-    r10_checklist_location: "status.json tasks[].r10_checklist or status.json.r10_checklists.<task-id>"
-    embedded_read_only_command_ref_template: "agents/registry.yaml#adapters.<reviewer>.embedded_read_only_review_command"
-    failure_class_ref: "failure_classes.embedded_checkpoint"
   review_1_selection_rules:
     - "If implementer provider is claude_glm, review-1 uses kimi."
     - "If implementer provider is kimi, review-1 uses claude_glm."

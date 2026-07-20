@@ -10,13 +10,13 @@ reports/agent-runs/<stage-id>/
   11-adr.md
   12-development-breakdown.md   (MEDIUM/HIGH/MILESTONE stages)
   20-implementation.md
-  embedded-review-<task-id>-round<N>.diff.patch      (parallel-mode checkpoint)
-  embedded-review-<task-id>-round<N>.prompt-for-<reviewer>.md
-  embedded-review-<task-id>-round<N>.raw-output.md
-  embedded-review-<task-id>-round<N>.fix-note.md     (when fixed)
+  embedded-review-<task-id>-round<N>.diff.patch      (parallel-mode checkpoint，仅 opt-in 启用时)
+  embedded-review-<task-id>-round<N>.prompt.md       (parallel-mode checkpoint，仅 opt-in 启用时)
+  embedded-review-<task-id>-round<N>.raw-output.md   (仅 opt-in 启用时)
+  embedded-review-<task-id>-round<N>.fix-note.md     (when fixed，仅 opt-in 启用时)
   pre-review-task-<task-id>-by-<reviewer>.prompt.md
-  30-review-1.md
-  30-review-1-<task-id>.md   (optional for multi-task stages)
+  30-review-1.md                  (单任务 stage)
+  30-review-1-<task-id>.md        (并行 stage，每任务一份；并行 stage 不再产生无后缀文件)
   40-fix-report.md
   50-review-2.md
   60-test-output.txt
@@ -80,10 +80,10 @@ docs/planning/DECISIONS.md
 | `11-adr.md` | Designer | Stage decision context, alternatives, tradeoffs, reviewer notes |
 | `12-development-breakdown.md` | Breakdown author | Implementation boundaries, contracts, tests, owner split, review focus |
 | `20-implementation.md` | Implementer | Changed files, decisions, tests, remaining work |
-| `embedded-review-<task-id>-round<N>.*` | Implementer-dispatched fresh reviewer | Pre-commit embedded cross-review checkpoint; not formal review-1 |
-| `pre-review-task-<task-id>-by-<reviewer>.prompt.md` | Designer / bookkeeper | Prewritten prompt used by the implementation terminal's R10 dispatch tail |
-| `30-review-1.md` | Reviewer | First review findings and strict JSON verdict |
-| `30-review-1-<task-id>.md` | Reviewer | Task-specific cross-review verdict for multi-task stages |
+| `embedded-review-<task-id>-round<N>.*` | human operator 执行的 fresh reviewer（bookkeeper 准备 dispatch 文件） | Pre-commit embedded cross-review checkpoint（opt-in）；not formal review-1 |
+| `pre-review-task-<task-id>-by-<reviewer>.prompt.md` | Designer / bookkeeper | Prewritten prompt executed by the human operator from the dispatch file |
+| `30-review-1.md` | Reviewer | First review findings and strict JSON verdict（单任务 stage） |
+| `30-review-1-<task-id>.md` | Reviewer | Task-specific cross-review verdict（并行 stage 的标准命名，每任务一份） |
 | `40-fix-report.md` | Implementer | Fix mapping and retest evidence |
 | `50-review-2.md` | Final reviewer | Final raw-artifact review and strict JSON verdict |
 | `60-test-output.txt` | Bookkeeper / stage operator | Raw or scrubbed command output |
@@ -161,19 +161,38 @@ to one of the terminal stop reasons above in `terminal_reason` or
 - Model dispatch must follow `docs/model-adapters.md`. A bookkeeper or
   implementation session that lacks a built-in tool for a model must not skip
   the runner-level CLI adapter check.
-- For stages using `docs/parallel-development-mode.md`, every implementation
-  task prompt must include the R10 dispatch tail: exact self-test commands,
-  exact diff command, exact prewritten cross-review adapter command, artifact
-  paths, PASS/BLOCKER handling, and receipt block.
-- A `next_dispatch` marked `executor: self` is executable work, not a note. The
-  implementation terminal must execute it or write an escalation reason before
-  reporting completion.
-- Embedded cross-review checkpoints happen before committed review gates. They
-  may catch and fix local issues, but they do not replace formal review-1 after
-  the bookkeeper creates committed H_A/H_B evidence.
-- Before committing task evidence in a parallel-mode stage, the bookkeeper must
-  regenerate the task diff and reconcile it with the implementer-produced
-  `embedded-review-*.diff.patch`. Differences require a fix note or escalation.
+- For stages using `docs/parallel-development-mode.md`（v0.5 语义），every
+  implementation task prompt must include the R10 dispatch tail：写死的自测
+  命令、（嵌入预审 opt-in 启用时）diff.patch 生成命令、落档路径清单、
+  「停止等待 bookkeeper」指令。收尾段不再包含调用对侧模型的 adapter 命令。
+- 跨模型 dispatch 的唯一执行者是 human operator（actor-neutral，v0.5）：
+  任何模型会话（不限 provider）都不得调用、启动或转派另一模型会话或
+  adapter 命令；`next_dispatch` 的 executor 只允许 `human_operator` 或
+  `none`；stage 数据记录 `next_dispatch_executor: self`（或任何模型）即
+  fail closed。模型自称「已启动某模型」永远不是 dispatch 证据。
+- 新协议 stage 在 `status.json` 记录 `dispatch_protocol: "human-operator/v1"`；
+  上述 v0.5 检查只对该字段的 stage 生效，无该字段的历史 stage 语义与审计
+  证据不变。
+- 每份发给模型的 dispatch 文件 PROMPT BODY 顶部必须含固定前言标记行
+  `[HARNESS-EXECUTOR-CONTRACT v1]`（全文见 parallel doc R11）。
+- Embedded cross-review checkpoints（自 v0.5 起为 opt-in）：仅当
+  `status.json.parallel_mode.embedded_review = {"enabled": true, "reason": "<非空>"}`
+  时启用；启用时仍是 commit 前 checkpoint，永不替代 bookkeeper 落盘
+  H_A/H_B 后的正式 review-1；未启用时不产生任何 embedded-review-*
+  artifact，账外存在即报错。
+- review 门的 verdict 以 validator 解析为准（v0.5）：
+  `scripts/validate-stage.py` 从 review artifact 文件容错解析（取尾部最后
+  一个可解析 JSON object）并按 `schemas/review-verdict.schema.json` 校验；
+  `status.json` 的 verdict 字段只做交叉一致性检查，
+  `review_*.json_schema_valid` 不再是门禁断言；文件缺失或不可解析即
+  fail closed。正式 review 必须在 status.json 记录对应 dispatch 文件路径
+  （`review_1.dispatch_path` / `tasks[].review_1.dispatch_path` /
+  `review_2.dispatch_path`），receipt 的 session_id 与 review artifact
+  footer 自报的 Session ID 必须一致（均为 unavailable 类时视为一致）。
+- Before committing task evidence in a parallel-mode stage（嵌入预审 opt-in
+  启用时）, the bookkeeper must regenerate the task diff and reconcile it with
+  the implementer-produced `embedded-review-*.diff.patch`. Differences require
+  a fix note or escalation.
 - Run `scripts/validate-stage.py <stage-id> --phase pre-review` before
   dispatching `review-1` or `review-2`.
 - Run `scripts/validate-stage.py <stage-id> --phase pre-accept` before writing
@@ -181,8 +200,9 @@ to one of the terminal stop reasons above in `terminal_reason` or
 - `review_1` and `review_2` verdicts are tracked separately.
 - Multi-task stages should record each implementation task in
   `status.json.tasks` with owner, reviewer, base_sha, head_sha,
-  diff_fingerprint, review verdict, and test evidence path. Task-specific
-  cross-review files should use `30-review-1-<task-id>.md`.
+  diff_fingerprint, review verdict, and test evidence path. 并行 stage 的
+  task-specific cross-review 文件必须使用任务级命名 `30-review-1-<task-id>.md`
+  （v0.5 起无后缀 `30-review-1.md` 在并行 stage 不再被要求也不再产生）。
 - Parallel-mode embedded checkpoint history belongs in the top-level
   `status.json.embedded_reviews` object, using the rich structure defined in
   `docs/parallel-development-mode.md` section 5. Do not duplicate a second
