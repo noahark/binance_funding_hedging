@@ -1,18 +1,20 @@
 <!-- ===== DISPATCH RECEIPT =====
-status: pending
+status: response_captured_exit_pending
 target_model: kimi-code/kimi-for-coding / moonshot_kimi
 executor: human_operator
 fresh_session_required: true
 adapter_cmd: kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1-kimi-retry-3.prompt.md)" > reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1-retry-3.raw-output.md
-started_at:
-completed_at:
-session_id:
-session_id_source:
-producer_exit_status:
+started_at: unavailable (interactive operator launch; exact start time not supplied)
+response_completed_at: 2026-07-20T17:54:36+08:00
+completed_at: pending (interactive Kimi process remains open)
+session_id: session_25515ecd-daa6-4a4b-abb1-d5396de62ceb
+session_id_source: operator plus locally verified Kimi state.json
+producer_exit_status: pending (process PID 13886 was still running at 2026-07-20T18:21:17+08:00)
 raw_output: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1-retry-3.raw-output.md
 verdict_output: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1-retry-3.verdict.json
 capture_cmd: python3 scripts/review_artifacts.py capture --raw reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1-retry-3.raw-output.md --verdict reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1-retry-3.verdict.json --schema schemas/review-verdict.schema.json --producer-exit-status <numeric-producer-exit-status>
-next_dispatch: stop for Codex bookkeeper validation; do not invoke Review-2
+raw_capture_note: exact final assistant message extracted from the verified local Kimi wire record; raw equals provider message bytes plus one permitted transport newline
+next_dispatch: human operator exits the same Kimi TUI normally, immediately captures shell $?, and returns the numeric status to Codex; do not invoke Review-2
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY (immutable after dispatch) ===== -->

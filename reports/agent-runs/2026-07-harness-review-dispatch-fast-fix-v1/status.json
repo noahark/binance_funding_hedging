@@ -127,6 +127,18 @@
       "unavailable_reason": "current runtime does not expose provider-native session ID",
       "raw_output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/38-bookkeeper-review-1-preflight.md",
       "recorded_at": "2026-07-20T17:13:10+08:00"
+    },
+    {
+      "role": "review_1_retry_3_interactive_response",
+      "model": "kimi-code/kimi-for-coding",
+      "provider": "moonshot_kimi",
+      "session_id": "session_25515ecd-daa6-4a4b-abb1-d5396de62ceb",
+      "session_id_source": "operator_plus_locally_verified_kimi_state_json",
+      "unavailable_reason": "numeric producer exit status pending because the interactive Kimi process remains open",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1-retry-3.raw-output.md",
+      "recorded_at": "2026-07-20T18:21:17+08:00",
+      "producer_exit_status": null,
+      "capture_status": "exact_response_captured_exit_pending"
     }
   ],
   "designer": {
@@ -213,7 +225,7 @@
     "scripts/validate-all-stages.py",
     "agents/developer-discipline.md",
     "agents/skills/minimal-change-engineer.md",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,10-design.md,11-adr.md,12-development-breakdown.md,13-plan-review-synthesis-and-amendment.md,20-implementation.md,21-bookkeeper-reconciliation.md,34-implementation-followup-fable5.prompt.md,36-followup-authorship-receipt.md,37-bookkeeper-followup-reconciliation.md,38-bookkeeper-review-1-preflight.md,60-test-output.txt,61-validation-pre-review-followup.txt,30-review-1-kimi-retry-3.prompt.md}"
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,10-design.md,11-adr.md,12-development-breakdown.md,13-plan-review-synthesis-and-amendment.md,20-implementation.md,21-bookkeeper-reconciliation.md,34-implementation-followup-fable5.prompt.md,36-followup-authorship-receipt.md,37-bookkeeper-followup-reconciliation.md,38-bookkeeper-review-1-preflight.md,39-review-1-retry-3-interactive-capture-pending.md,60-test-output.txt,61-validation-pre-review-followup.txt,30-review-1-kimi-retry-3.prompt.md,30-review-1-retry-3.raw-output.md}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
   "head_sha": "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28",
@@ -308,14 +320,22 @@
     "attempt_1_evidence": "31-review-1-attempt-1-capture-failure.md",
     "retry_1_evidence": "32-review-1-retry-1-invalid-output.md",
     "attempts_disposition": "attempts 1/retry-1/retry-2 prompt are superseded old-fingerprint evidence; retry-3 is a fresh review in a fresh Kimi session against acc7ff32",
-    "fresh_session_required": true
+    "fresh_session_required": true,
+    "session_id": "session_25515ecd-daa6-4a4b-abb1-d5396de62ceb",
+    "raw_sha256": "4c63fedaa52c6c59fd818d86c5db9d2825f9608370e2f0773b1486707ade1a09",
+    "raw_json_schema_valid": true,
+    "raw_reported_verdict": "REWORK",
+    "producer_exit_status": null,
+    "capture_status": "exact_interactive_response_captured_exit_pending"
   },
   "review_2": null,
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "fresh protocol-valid Review-1 and Review-2 are pending",
+    "Review-1 retry-3 returned schema-valid REWORK JSON, but the interactive Kimi process remains open and no numeric producer exit status exists yet; canonical verdict publication is blocked",
+    "the P1 fix requires explicit user authorization to add reports/agent-runs/README.md to the stage Allowed Files",
+    "Review-2 is pending",
     "current Harness forbids merging main before both review gates accept the updated fingerprint"
   ],
   "human_escalation": {
@@ -323,6 +343,6 @@
     "reason": "Resolved by the user's 2026-07-20 instruction to implement the five Kimi follow-ups in this stage and continue through fresh formal review gates."
   },
   "terminal_reason": null,
-  "next_action": "human_operator_executes_fresh_kimi_review_1_retry_3_and_captures_exact_stdout",
-  "updated_at": "2026-07-20T17:13:10+08:00"
+  "next_action": "human_operator_exits_same_kimi_tui_normally_and_immediately_reports_numeric_shell_exit_status",
+  "updated_at": "2026-07-20T18:21:17+08:00"
 }

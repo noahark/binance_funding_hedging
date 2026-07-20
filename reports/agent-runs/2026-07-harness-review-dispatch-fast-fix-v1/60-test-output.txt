@@ -248,3 +248,16 @@ status=review_1
 head_sha=acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28
 diff_fingerprint=acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28:96063b4b4372ebd4370f7a3309b1dd6f1a7120b49280965e04a182abe8c0d537
 Worktree was clean during the pre-review command; exact output is preserved in 61-validation-pre-review-followup.txt.
+
+=== Codex exact Kimi retry-3 interactive response extraction 2026-07-20 18:21:17 CST ===
+verified session_id=session_25515ecd-daa6-4a4b-abb1-d5396de62ceb
+wire final assistant content parts=1
+wire message bytes=13020
+raw artifact bytes=13021
+raw equals provider message bytes plus one transport newline: PASS
+raw sha256=4c63fedaa52c6c59fd818d86c5db9d2825f9608370e2f0773b1486707ade1a09
+parse as exactly one JSON object: PASS
+schema-v1 semantics: PASS
+diff fingerprint binding: PASS
+reported verdict=REWORK; finding severities=P1,P3
+producer exit status=PENDING: interactive Kimi PID 13886 remained open, so no exit value existed and no canonical verdict was published.
