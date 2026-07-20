@@ -1,0 +1,5 @@
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28:96063b4b4372ebd4370f7a3309b1dd6f1a7120b49280965e04a182abe8c0d537

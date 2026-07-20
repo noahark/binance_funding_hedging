@@ -104,9 +104,13 @@ The bounded implementation evidence commit is
 3. Return to the bookkeeper for protocol-pair validation and Review-2 routing.
    Do not execute the superseded old-fingerprint retry-2 packet.
 
+Committed-state pre-review validation passed on 2026-07-20 at 17:13 CST. Exact
+output: `61-validation-pre-review-followup.txt`. Dispatch checkpoint:
+`38-bookkeeper-review-1-preflight.md`.
+
 当前 Session ID: unavailable (current Codex runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/70-handoff.md
-本地北京时间: 2026-07-20 17:09:01 CST
+本地北京时间: 2026-07-20 17:13:10 CST
 下一步模型: human operator → fresh Kimi
 下一步任务: 执行 30-review-1-kimi-retry-3.prompt.md，精确捕获 raw stdout 与退出码并运行 capture helper

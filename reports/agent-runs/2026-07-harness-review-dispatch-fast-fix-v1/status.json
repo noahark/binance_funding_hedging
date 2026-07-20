@@ -117,6 +117,16 @@
       "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/20-implementation.md",
       "recorded_at": "2026-07-20T16:52:38+08:00"
+    },
+    {
+      "role": "bookkeeper_followup_reconciliation_and_review_1_preflight",
+      "model": "gpt",
+      "provider": "codex",
+      "session_id": null,
+      "session_id_source": "unavailable (current runtime does not expose provider-native session ID)",
+      "unavailable_reason": "current runtime does not expose provider-native session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/38-bookkeeper-review-1-preflight.md",
+      "recorded_at": "2026-07-20T17:13:10+08:00"
     }
   ],
   "designer": {
@@ -203,7 +213,7 @@
     "scripts/validate-all-stages.py",
     "agents/developer-discipline.md",
     "agents/skills/minimal-change-engineer.md",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,10-design.md,11-adr.md,12-development-breakdown.md,13-plan-review-synthesis-and-amendment.md,20-implementation.md,21-bookkeeper-reconciliation.md,34-implementation-followup-fable5.prompt.md,36-followup-authorship-receipt.md,37-bookkeeper-followup-reconciliation.md,60-test-output.txt,30-review-1-kimi-retry-3.prompt.md}"
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,10-design.md,11-adr.md,12-development-breakdown.md,13-plan-review-synthesis-and-amendment.md,20-implementation.md,21-bookkeeper-reconciliation.md,34-implementation-followup-fable5.prompt.md,36-followup-authorship-receipt.md,37-bookkeeper-followup-reconciliation.md,38-bookkeeper-review-1-preflight.md,60-test-output.txt,61-validation-pre-review-followup.txt,30-review-1-kimi-retry-3.prompt.md}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
   "head_sha": "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28",
@@ -314,5 +324,5 @@
   },
   "terminal_reason": null,
   "next_action": "human_operator_executes_fresh_kimi_review_1_retry_3_and_captures_exact_stdout",
-  "updated_at": "2026-07-20T17:09:01+08:00"
+  "updated_at": "2026-07-20T17:13:10+08:00"
 }
