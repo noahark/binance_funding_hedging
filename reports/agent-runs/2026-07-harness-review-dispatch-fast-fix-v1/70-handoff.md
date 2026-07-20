@@ -20,6 +20,8 @@
   `81560638-a8c5-456b-ad9a-68714587b413`
 - Codex role: bookkeeper / later validator; not implementation author
 - Product scope: none; Harness-only
+- Remote branch: `origin/stage/2026-07-harness-review-dispatch-fast-fix-v1`
+  pushed through commit `d223ebe`; `main` was not modified.
 - Normative plan: `13-plan-review-synthesis-and-amendment.md` (no further plan
   review required)
 
@@ -72,6 +74,6 @@ record are preserved in `30-review-1-retry-1.raw-output.md` and
 当前 Session ID: unavailable (current Codex runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/70-handoff.md
-本地北京时间: 2026-07-20 10:40:33 CST
-下一步模型: Kimi / Moonshot（同一 Session，由 human operator 执行）
-下一步任务: 执行 30-review-1-kimi-retry-2.prompt.md 并捕获严格 JSON stdout 与退出码
+本地北京时间: 2026-07-20 10:46:45 CST
+下一步模型: human operator
+下一步任务: 当前 Harness 硬门要求有效 Review-1 与 Review-2 后才能合并 main
