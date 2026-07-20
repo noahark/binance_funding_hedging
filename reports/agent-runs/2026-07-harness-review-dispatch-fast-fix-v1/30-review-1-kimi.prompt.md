@@ -1,16 +1,16 @@
 <!-- ===== DISPATCH RECEIPT =====
-status: pending
+status: evidence_missing
 target_model: kimi-code/kimi-for-coding / moonshot_kimi
 executor: human_operator
 adapter_cmd: kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1-kimi.prompt.md)"
 started_at:
-completed_at:
-session_id:
-session_id_source:
-producer_exit_status:
+completed_at: unavailable (operator did not provide exact completion time)
+session_id: session_c18a8dee-303f-4973-8b0b-61f13d304b9a
+session_id_source: operator
+producer_exit_status: unavailable (not captured)
 raw_output: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1.raw-output.md
 verdict_output: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1.verdict.json
-next_dispatch: stop for Codex bookkeeper capture/validation; do not invoke another model
+next_dispatch: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/30-review-1-kimi-retry-1.prompt.md (executor: human_operator)
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY (immutable after dispatch) ===== -->
