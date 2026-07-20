@@ -2,14 +2,13 @@
 
 ## Recovery Header
 
-- Active phase: bookkeeper reconciliation and committed-evidence preparation
-- Next action: commit the independently verified seven-file follow-up, compute
-  the standard stage/task fingerprints, run pre-review validation, and prepare
-  a fresh Kimi Review-1 packet pinned to the new commit.
+- Active phase: fresh Review-1 dispatch required for the updated fingerprint
+- Next action: human operator executes
+  `30-review-1-kimi-retry-3.prompt.md` in a fresh Kimi session, captures exact
+  stdout and producer exit status, then runs the capture-only helper.
 - Read-set: `status.current_inputs`
-- Open blockers: the verified follow-up is not yet committed; fresh
-  protocol-valid Review-1 and Review-2 are pending; `main` cannot be merged in
-  this state.
+- Open blockers: fresh protocol-valid Review-1 and Review-2 are pending; `main`
+  cannot be merged in this state.
 - Do-not-read: other stage history unless a reviewer cites an exact artifact.
 
 ## Current State
@@ -22,8 +21,9 @@
 - Codex role: bookkeeper / later validator; not implementation author
 - Product scope: none; Harness-only
 - Remote branch: `origin/stage/2026-07-harness-review-dispatch-fast-fix-v1`
-  was synchronized through commit `91000493b8b5790646a80b1d95a4e95635c507a7`
-  before this follow-up packet;
+  is synchronized through implementation evidence commit
+  `acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28`; the Review-1 dispatch checkpoint
+  will be pushed after pre-review validation evidence is committed;
   `main` and `origin/main` remain at `8cf810d`; no merge occurred.
 - Normative plan: `13-plan-review-synthesis-and-amendment.md` (no further plan
   review required)
@@ -90,15 +90,23 @@ sentinel, YAML parsing, residual-token search, and `git diff --check`; all
 follow-up acceptance checks passed. Exact reconciliation is in
 `37-bookkeeper-followup-reconciliation.md` and `60-test-output.txt`.
 
-1. Create the bounded local implementation evidence commit.
-2. Compute the standard stage and H1 fingerprints from committed state and
-   update status cache.
-3. Run and preserve `--phase pre-review`, then prepare a fresh Kimi Review-1
-   packet. Do not execute the superseded old-fingerprint retry-2 packet.
+The bounded implementation evidence commit is
+`acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28`. The standard fingerprints are:
+
+- stage: `acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28:96063b4b4372ebd4370f7a3309b1dd6f1a7120b49280965e04a182abe8c0d537`
+- H1: `acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28:d2087a57efd9a6729a0a570086d6a506872815e2d25682df1007ec5b92ed4737`
+
+1. Human operator executes the fresh Kimi packet without `-S`; the reviewer
+   must inspect the full committed range and emit exactly one JSON object.
+2. Preserve stdout at `30-review-1-retry-3.raw-output.md`, capture the numeric
+   producer exit status, and publish
+   `30-review-1-retry-3.verdict.json` only through the capture helper.
+3. Return to the bookkeeper for protocol-pair validation and Review-2 routing.
+   Do not execute the superseded old-fingerprint retry-2 packet.
 
 当前 Session ID: unavailable (current Codex runtime does not expose provider-native session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/70-handoff.md
-本地北京时间: 2026-07-20 17:00:18 CST
-下一步模型: Codex bookkeeper
-下一步任务: 固化实现证据提交、重算指纹并准备新指纹的 Kimi Review-1 包
+本地北京时间: 2026-07-20 17:09:01 CST
+下一步模型: human operator → fresh Kimi
+下一步任务: 执行 30-review-1-kimi-retry-3.prompt.md，精确捕获 raw stdout 与退出码并运行 capture helper

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-review-dispatch-fast-fix-v1",
-  "status": "testing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "review_artifact_protocol": "raw-plus-strict-json/v1",
   "stage_branch": {
@@ -9,7 +9,7 @@
     "created_at": "2026-07-19T22:12:37+08:00",
     "pushed_to_origin": true,
     "remote_branch": "origin/stage/2026-07-harness-review-dispatch-fast-fix-v1",
-    "last_pushed_commit": "91000493b8b5790646a80b1d95a4e95635c507a7",
+    "last_pushed_commit": "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28",
     "merged_back_to_main": false,
     "merged_back_sha": null,
     "merge_strategy": null,
@@ -203,17 +203,19 @@
     "scripts/validate-all-stages.py",
     "agents/developer-discipline.md",
     "agents/skills/minimal-change-engineer.md",
-    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,13-plan-review-synthesis-and-amendment.md,21-bookkeeper-reconciliation.md,20-implementation.md,60-test-output.txt,34-implementation-followup-fable5.prompt.md,35-bookkeeper-user-authorized-followup.md,36-followup-authorship-receipt.md,37-bookkeeper-followup-reconciliation.md}"
+    "reports/agent-runs/2026-07-harness-review-dispatch-fast-fix-v1/{00-task.md,10-design.md,11-adr.md,12-development-breakdown.md,13-plan-review-synthesis-and-amendment.md,20-implementation.md,21-bookkeeper-reconciliation.md,34-implementation-followup-fable5.prompt.md,36-followup-authorship-receipt.md,37-bookkeeper-followup-reconciliation.md,60-test-output.txt,30-review-1-kimi-retry-3.prompt.md}"
   ],
   "base_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
-  "head_sha": "73752dbba16beaf41ff6fdfec3b3b84b1944306b",
-  "diff_fingerprint": "73752dbba16beaf41ff6fdfec3b3b84b1944306b:7cf1d8d251a5b628f735455b1c7f03b8977fa790efed6019d583b32719224619",
+  "head_sha": "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28",
+  "diff_fingerprint": "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28:96063b4b4372ebd4370f7a3309b1dd6f1a7120b49280965e04a182abe8c0d537",
   "coverage_waypoints": [
     "8cf810d2335d5af08e2ff18181964e5e053e56b9",
-    "73752dbba16beaf41ff6fdfec3b3b84b1944306b"
+    "73752dbba16beaf41ff6fdfec3b3b84b1944306b",
+    "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28"
   ],
   "changed_files": [
     "AGENTS.md",
+    "docs/harness-design.md",
     "docs/model-adapters.md",
     "docs/parallel-development-mode.md",
     "harness-manifest.yaml",
@@ -232,8 +234,8 @@
       "owner": "fable5",
       "reviewer": "kimi",
       "base_sha": "2eae7bd8c0921d599d1a884145ba11e750cd5743",
-      "head_sha": "73752dbba16beaf41ff6fdfec3b3b84b1944306b",
-      "diff_fingerprint": "73752dbba16beaf41ff6fdfec3b3b84b1944306b:af472925a436f5b4622b95d33e344243ba4fd215325f09f6a7b3baa2e7e201a6",
+      "head_sha": "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28",
+      "diff_fingerprint": "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28:d2087a57efd9a6729a0a570086d6a506872815e2d25682df1007ec5b92ed4737",
       "test_evidence": "60-test-output.txt",
       "review_1": null
     }
@@ -245,7 +247,9 @@
       "python3 -m py_compile scripts/review_artifacts.py scripts/validate-stage.py scripts/validate-all-stages.py",
       "python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase checkpoint",
       "python3 scripts/validate-stage.py 2026-07-harness-review-dispatch-fast-fix-v1 --phase dispatch-ready",
+      "python3 scripts/validate-all-stages.py --repo-root .",
       "python3 scripts/test-validate-all-stages-compare.py --repo-root .",
+      "python3 -c 'import yaml; yaml.safe_load(open(\"workflows/templates/stage-delivery.yaml\"))'",
       "git diff --check"
     ],
     "evidence": "60-test-output.txt",
@@ -280,27 +284,27 @@
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
-    "diff_fingerprint": "73752dbba16beaf41ff6fdfec3b3b84b1944306b:7cf1d8d251a5b628f735455b1c7f03b8977fa790efed6019d583b32719224619",
-    "raw_output_path": "30-review-1-retry-2.raw-output.md",
-    "verdict_path": "30-review-1-retry-2.verdict.json",
+    "diff_fingerprint": "acc7ff32fb4fd8e7d74813a2fc46ec7874db1d28:96063b4b4372ebd4370f7a3309b1dd6f1a7120b49280965e04a182abe8c0d537",
+    "raw_output_path": "30-review-1-retry-3.raw-output.md",
+    "verdict_path": "30-review-1-retry-3.verdict.json",
     "covers_through_task": "H1",
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": "Prior independent plan review only; no direction synthesis, breakdown, design, implementation, or fix authorship.",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 1,
-    "capture_retry": 2,
-    "capture_retry_reason": "attempt 1 lacked raw/exit evidence; retry 1 had producer exit 0 but raw stdout was not exactly one JSON document",
+    "capture_retry": 3,
+    "capture_retry_reason": "fresh full Review-1 required for the new acc7ff32 committed fingerprint; retry-3 naming avoids overwriting or confusing the preserved old-fingerprint attempts",
     "attempt_1_evidence": "31-review-1-attempt-1-capture-failure.md",
     "retry_1_evidence": "32-review-1-retry-1-invalid-output.md",
-    "attempts_disposition": "superseded by the user-authorized five-item scope extension; preserve as historical evidence and prepare a fresh Review-1 packet after the new implementation fingerprint is committed"
+    "attempts_disposition": "attempts 1/retry-1/retry-2 prompt are superseded old-fingerprint evidence; retry-3 is a fresh review in a fresh Kimi session against acc7ff32",
+    "fresh_session_required": true
   },
   "review_2": null,
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "follow-up implementation is uncommitted, so the new head_sha and diff_fingerprint are not yet anchored",
     "fresh protocol-valid Review-1 and Review-2 are pending",
     "current Harness forbids merging main before both review gates accept the updated fingerprint"
   ],
@@ -309,6 +313,6 @@
     "reason": "Resolved by the user's 2026-07-20 instruction to implement the five Kimi follow-ups in this stage and continue through fresh formal review gates."
   },
   "terminal_reason": null,
-  "next_action": "bookkeeper_commits_followup_and_recomputes_standard_fingerprint",
-  "updated_at": "2026-07-20T17:00:18+08:00"
+  "next_action": "human_operator_executes_fresh_kimi_review_1_retry_3_and_captures_exact_stdout",
+  "updated_at": "2026-07-20T17:09:01+08:00"
 }
