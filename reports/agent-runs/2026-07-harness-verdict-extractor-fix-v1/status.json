@@ -1,0 +1,230 @@
+{
+  "stage_id": "2026-07-harness-verdict-extractor-fix-v1",
+  "status": "implementing",
+  "workflow": "stage-delivery",
+  "dispatch_protocol": "human-operator/v1",
+  "stage_branch": {
+    "name": "harness/dispatch-review-reform-v1",
+    "created_from_main_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
+    "created_at": "2026-07-20T20:16:44+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "branch_exception": {
+    "authorized_by": "user",
+    "authorized_at": "2026-07-21T14:32:12+08:00",
+    "reason": "Use the existing dedicated Harness reform branch for the lightweight verdict-extractor repair instead of creating a second product stage branch.",
+    "eventual_target": "main",
+    "boundary_c_product_branch_untouched": true
+  },
+  "bookkeeper": {
+    "id": "codex",
+    "provider": "codex",
+    "model": "gpt",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false,
+    "embedded_review": {
+      "enabled": false,
+      "reason": null
+    }
+  },
+  "embedded_reviews": {},
+  "session_receipts": [
+    {
+      "role": "lightweight_route_and_dispatch_preparation",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/{00-intake.md,00-task.md,10-design.md,11-adr.md,task-H-claude-glm.prompt.md,task-H-claude-glm.dispatch.md}",
+      "result": "immutable_claude_glm_prompt_and_human_operator_receipt_prepared_no_dispatch_executed",
+      "recorded_at": "2026-07-21T14:36:22+08:00"
+    }
+  ],
+  "designer": {
+    "id": "codex",
+    "provider": "codex",
+    "model": "gpt",
+    "scope": "bounded extractor semantics and deterministic test strategy; no implementation"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": null,
+  "implementer": {
+    "provider": "claude_glm",
+    "provider_identity": "zhipu_glm",
+    "model": "glm-5.2[1m]",
+    "task_id": "H",
+    "status": "dispatch_prepared_waiting_human_execution"
+  },
+  "implementers": [],
+  "fix_authors": [],
+  "reviewer_1": {
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "fresh_session_required": true
+  },
+  "reviewer_2": {
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "claude-fable-5 with opus4.8 quota fallback",
+    "selection_reason": "independent final decision provider because the Codex bookkeeper authored this lightweight design"
+  },
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "H",
+      "name": "harness-final-top-level-verdict-extractor",
+      "owner": {
+        "provider": "claude_glm",
+        "provider_identity": "zhipu_glm",
+        "model": "glm-5.2[1m]"
+      },
+      "reviewer": {
+        "provider": "kimi",
+        "provider_identity": "moonshot_kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "fresh_session": true
+      },
+      "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.prompt.md",
+      "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md",
+      "next_dispatch_executor": "human_operator",
+      "r10_checklist": null,
+      "base_sha": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+      "review_1": {
+        "artifact_path": null,
+        "dispatch_path": null,
+        "verdict": null,
+        "json_schema_valid": null,
+        "fresh_session": true,
+        "diff_fingerprint": null
+      }
+    }
+  ],
+  "complexity": {
+    "classification": "LOW",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": false,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "The code change is bounded to one extractor, its tests, and one matching contract paragraph.",
+      "Gate-critical impact requires deterministic tests and independent review but not a new direction panel or breakdown."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "skipped_user_approved_lightweight_route",
+    "user_approved": true
+  },
+  "current_inputs": [
+    "AGENTS.md",
+    "agents/developer-discipline.md",
+    "docs/parallel-development-mode.md",
+    "scripts/validate-stage.py",
+    "scripts/tests/test_validate_stage_dispatch_protocol.py",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/00-intake.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/00-task.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/10-design.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/11-adr.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md"
+  ],
+  "base_sha": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "coverage_waypoints": [
+    "8cf810d2335d5af08e2ff18181964e5e053e56b9",
+    "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a"
+  ],
+  "changed_files": [],
+  "tests": {
+    "status": "baseline_green_reproduction_red_implementation_not_started",
+    "commands": [
+      "python3 -m pytest scripts/tests -q: 114 passed",
+      "python3 scripts/test-validate-all-stages-compare.py --repo-root .: 11/11 passed",
+      "findings-bearing reproduction: ACTUAL_HAS_VERDICT=False",
+      "python3 -m json.tool on ACTIVE.json and status.json: PASS",
+      "python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint: PASS",
+      "R11 marker and nine-field pending human-operator dispatch receipt audit: PASS",
+      "git diff --check: clean"
+    ]
+  },
+  "review_1": {
+    "reviewer": "kimi",
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "covers_through_task": null,
+    "reviewer_prior_involvement": "none",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "review_2": {
+    "reviewer": null,
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "claude-fable-5 with opus4.8 quota fallback",
+    "primary_provider": "claude",
+    "fallback_provider": null,
+    "fallback_reason": "anti_self_review_ineligible: Codex authored the maintenance design; use the unrelated Anthropic decision provider",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": null,
+    "unrelated_reviewer_unavailable_evidence": null,
+    "design_conflict_override": {
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
+    },
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
+    "covers_through_task": null,
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
+  "authorized_exceptions": [],
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "reporting_preferences": {
+    "execution_footer": {
+      "include_provider_native_session_id": true,
+      "include_session_id_source": true,
+      "include_raw_output_path": true,
+      "unknown_session_id_policy": "write unavailable with reason; never invent",
+      "session_id_is_navigation_only": true
+    }
+  },
+  "next_action": "human_operator_executes_task_H_claude_glm_prompt_then_bookkeeper_intakes_evidence",
+  "updated_at": "2026-07-21T14:41:50+08:00"
+}

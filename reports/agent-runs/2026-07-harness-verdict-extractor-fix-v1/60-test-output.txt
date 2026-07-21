@@ -1,0 +1,56 @@
+# Harness verdict extractor repair — baseline evidence
+
+Run at 2026-07-21 14:32–14:36 CST on branch
+`harness/dispatch-review-reform-v1`, before any implementation edit.
+
+```text
+$ python3 -m pytest scripts/tests -q
+........................................................................ [ 63%]
+..........................................                               [100%]
+114 passed in 2.14s
+
+$ python3 scripts/test-validate-all-stages-compare.py --repo-root .
+PASS U0-U6
+PASS E0-E3
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+
+$ findings-bearing extractor reproduction
+actual={"evidence":"y","id":"F2","impact":"y","recommendation":"y","severity":"P3","summary":"last"}
+EXPECTED_TOP_LEVEL_VERDICT=REWORK
+ACTUAL_HAS_VERDICT=False
+```
+
+Disposition: the existing Harness suite and historical compare sentinel are
+green but do not cover a non-empty findings array. The independent reproduction
+returns the last nested finding and proves the new regression test must fail
+before the implementation change.
+
+All implementation-time command output must be appended below this baseline;
+do not overwrite it.
+
+## Bookkeeper dispatch-packet checkpoint
+
+Run at 2026-07-21 14:41:50 CST.
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+exit 0
+
+$ python3 -m json.tool reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/status.json
+exit 0
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=checkpoint
+status=implementing
+
+$ head -1 task-H-claude-glm.prompt.md
+[HARNESS-EXECUTOR-CONTRACT v1]
+
+$ dispatch receipt field audit
+all nine machine-readable fields present; status=pending; executor=human_operator
+
+$ git diff --check
+exit 0 (clean)
+```

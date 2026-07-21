@@ -1,6 +1,12 @@
 {
-  "active": null,
+  "active": {
+    "stage_id": "2026-07-harness-verdict-extractor-fix-v1",
+    "phase": "implementation",
+    "handoff": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md",
+    "note": "User-approved lightweight Harness maintenance route on the existing harness/dispatch-review-reform-v1 branch. The immutable Claude-GLM implementation prompt and human-operator dispatch receipt are prepared and checkpoint validation passes; no implementation, model dispatch, main merge, Boundary C synchronization, review, or acceptance has occurred. Boundary C remains preserved on its stage branch.",
+    "updated_at": "2026-07-21T14:41:50+08:00"
+  },
   "last_completed": "2026-07-real-borrow-execution-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-19T21:53:38+08:00"
+  "updated_at": "2026-07-21T14:41:50+08:00"
 }
