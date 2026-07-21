@@ -515,3 +515,20 @@ local transcript because the expected artifact was absent. The visibly
 truncated chat rendering was not used. Intermediate tool/environment output
 was not copied. The final ACCEPT still requires committed evidence and a clean
 pre-accept gate before entering `stage_accepted_waiting_user`.
+
+## Initial pre-accept ordering check
+
+Run at 2026-07-21 20:12:42 CST after final-review evidence commit `4410351`
+from a clean worktree.
+
+```text
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase pre-accept
+STAGE VALIDATION FAILED
+- pre-accept requires status in ['accepted', 'stage_accepted_waiting_user'], got 'review_2'
+- pre-accept requires tests.status pass/passed
+```
+
+This is a mechanical terminal-state ordering failure, not an invalid verdict
+or test failure. The validator requires the terminal status and normalized
+tests status to be committed before it can validate pre-accept. Those two
+fields are updated in the next checkpoint; no merge or acceptance is inferred.

@@ -1,19 +1,19 @@
-# Handoff — Task H Final ACCEPT Pending Pre-Accept Gate
+# Handoff — Task H Terminal State Written, Pre-Accept Pending
 
 ## Recovery Header
 
-- Active phase: `review_2`
-  (`valid_ACCEPT_bookkeeper_intake_complete_evidence_commit_and_pre_accept_pending`).
+- Active phase: `stage_accepted_waiting_user`
+  (`terminal_state_written_clean_pre_accept_pending`).
 - Branch: `harness/dispatch-review-reform-v1`.
 - Reviewed base: `4b1fcdd5fb0562eb00467437bf2ec9ad0286581a`.
 - Reviewed head: `569be63a6f467e4e5e255a4713f94a08e37cd9b8`.
 - Diff fingerprint:
   `569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655`.
-- Next action: bookkeeper commits `50-review-2.md`, the Opus receipt,
-  Fable5 quota evidence, intake audit, and state checkpoint; then runs
-  `scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1
-  --phase pre-accept` from a clean worktree. Only on pass may status move to
-  `stage_accepted_waiting_user`.
+- Next action: bookkeeper commits this mechanical terminal-state checkpoint,
+  then runs `scripts/validate-stage.py
+  2026-07-harness-verdict-extractor-fix-v1 --phase pre-accept` from a clean
+  worktree. On pass, remain at `stage_accepted_waiting_user` and stop for
+  explicit user acceptance.
 - Read-set: `status.current_inputs` only.
 - Do not read credentials, `.env*`, expanded adapter environments,
   intermediate reviewer tool/environment output, unrelated stages, or history.
@@ -54,6 +54,15 @@
 - Repaired extractor intake: `ACCEPT`, `opus4.8`, zero findings,
   `stage_accepted_waiting_user`, zero schema errors.
 
+## Pre-Accept Ordering
+
+- Final review/fallback evidence commit: `4410351`.
+- The first clean pre-accept invocation failed closed because validator requires
+  terminal `status` and `tests.status=pass/passed` before validating the
+  terminal state.
+- This checkpoint writes exactly those mechanical fields. It does not claim the
+  pre-accept gate has passed; the clean rerun remains required.
+
 ## Authority Boundaries
 
 - The bookkeeper did not execute Fable5 or Opus4.8 and did not rewrite the raw
@@ -66,6 +75,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md
-本地北京时间: 2026-07-21 20:08:12 CST
+本地北京时间: 2026-07-21 20:12:42 CST
 下一步模型: bookkeeper
-下一步任务: commit final review and fallback evidence, run clean pre-accept validation, and stop at stage_accepted_waiting_user without merging main
+下一步任务: commit the mechanical terminal-state fields, pass clean pre-accept validation, and wait for explicit user acceptance without merging main

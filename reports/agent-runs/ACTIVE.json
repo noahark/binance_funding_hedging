@@ -1,12 +1,12 @@
 {
   "active": {
     "stage_id": "2026-07-harness-verdict-extractor-fix-v1",
-    "phase": "review_2",
+    "phase": "stage_accepted_waiting_user",
     "handoff": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md",
-    "note": "Final Anthropic review-2 completed with schema-valid ACCEPT by actual model Opus4.8, zero findings, exact fixed fingerprint, and fresh /clear transcript evidence. Human operator reports Fable5 quota exhaustion; the same-provider fallback attestation is recorded without inventing unavailable raw CLI text. Final review, receipt, and fallback evidence await a local commit and clean pre-accept gate before stage_accepted_waiting_user. Formal rework_count remains 0. No main merge, Boundary C synchronization, deployment, product acceptance, or real borrowing is authorized.",
-    "updated_at": "2026-07-21T20:08:12+08:00"
+    "note": "Final Anthropic review-2 is schema-valid ACCEPT by actual model Opus4.8 with zero findings and exact fixed fingerprint. Final review/fallback evidence is committed at 4410351. The terminal state is mechanically written as stage_accepted_waiting_user with tests.status=passed so the required clean pre-accept validator can run; that gate is still pending. Human operator Fable5 quota attestation is recorded without inventing unavailable raw CLI text. No main merge, Boundary C synchronization, deployment, product acceptance, or real borrowing is authorized.",
+    "updated_at": "2026-07-21T20:12:42+08:00"
   },
   "last_completed": "2026-07-real-borrow-execution-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T20:08:12+08:00"
+  "updated_at": "2026-07-21T20:12:42+08:00"
 }

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-verdict-extractor-fix-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "stage_branch": {
@@ -341,7 +341,7 @@
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md"
   ],
   "tests": {
-    "status": "all_green_BK_H_001_closed_evidence_commit_pending",
+    "status": "passed",
     "commands": [
       "python3 -m pytest scripts/tests -q: 114 passed",
       "python3 scripts/test-validate-all-stages-compare.py --repo-root .: 11/11 passed",
@@ -357,7 +357,10 @@
       "BK-H-001 packet JSON, checkpoint validator, R11 marker and git diff check: PASS",
       "BK-H-001 fix: targeted 52 passed; full Harness 128 passed; py_compile exit 0; compare sentinel 11/11; checkpoint PASS; diff check clean",
       "bookkeeper independent final intake: targeted 52 passed; full Harness 128 passed; py_compile/checkpoint/diff check PASS; compare sentinel 11/11",
-      "semantic matrix: [valid_verdict] and [[valid_verdict]] fail closed; committed Boundary C artifact returns REWORK with five findings; harmless footer bracket text preserves ACCEPT"
+      "semantic matrix: [valid_verdict] and [[valid_verdict]] fail closed; committed Boundary C artifact returns REWORK with five findings; harmless footer bracket text preserves ACCEPT",
+      "Kimi review-1 independent rerun: targeted 52 passed; full Harness 128 passed; py_compile PASS; historical sentinel 11/11; fixed fingerprint matched",
+      "Opus4.8 review-2 independent rerun: targeted 52 passed; full Harness 128 passed; py_compile PASS; historical sentinel 11/11; pre-review PASS; fixed fingerprint matched",
+      "initial clean pre-accept after final evidence commit: expected fail-closed until terminal status and tests.status were normalized"
     ]
   },
   "review_1": {
@@ -389,7 +392,7 @@
     "model": "opus4.8",
     "runtime_model_metadata": "claude-opus-4-8",
     "fallback_model_on_quota": "opus4.8",
-    "status": "valid_ACCEPT_bookkeeper_intake_complete_evidence_commit_and_pre_accept_pending",
+    "status": "valid_ACCEPT_evidence_committed_terminal_state_written_clean_pre_accept_pending",
     "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
     "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
@@ -448,7 +451,7 @@
     "required": false,
     "reason": null
   },
-  "terminal_reason": null,
+  "terminal_reason": "stage_accepted_waiting_user",
   "reporting_preferences": {
     "execution_footer": {
       "include_provider_native_session_id": true,
@@ -458,6 +461,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "bookkeeper_commits_final_ACCEPT_fallback_and_receipt_evidence_runs_clean_pre_accept_gate_then_sets_stage_accepted_waiting_user_without_merging_main",
-  "updated_at": "2026-07-21T20:08:12+08:00"
+  "next_action": "bookkeeper_commits_terminal_state_runs_clean_pre_accept_gate_then_waits_for_explicit_user_acceptance_before_any_main_merge_or_Boundary_C_sync",
+  "updated_at": "2026-07-21T20:12:42+08:00"
 }
