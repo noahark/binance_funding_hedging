@@ -1,12 +1,12 @@
 {
   "active": {
     "stage_id": "2026-07-real-borrow-boundary-c-v1",
-    "phase": "review_1",
+    "phase": "review_2",
     "handoff": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
-    "note": "Boundary C review_1 round 2 is dispatch-ready. Evidence head 87c19273c3f488cf6d9ca80f8541704bb198cb81 and fingerprint 87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162 passed pre-review validation at committed packet HEAD 6b1ac92b50413cc540fe888f8cf91e7b68dde6ee. Human operator must use fresh Kimi context and capture output to 30-review-1-round-2.md; historical 30-review-1.md stays immutable. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or Boundary C acceptance is authorized.",
-    "updated_at": "2026-07-21T20:35:49+08:00"
+    "note": "Boundary C review-1 round 2 is a schema-valid ACCEPT on fingerprint 87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162, recovered verbatim from verified Kimi transcript 1f494594-8f80-4e81-be7b-18a261138285. Two P3 findings remain non-blocking. Stage enters review_2 with fresh read-only Codex gpt-5.5 under explicit design-involvement override because Codex authored design/direction synthesis and Anthropic authored breakdown; neither wrote implementation/fix code. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or Boundary C acceptance is authorized.",
+    "updated_at": "2026-07-21T21:02:02+08:00"
   },
   "last_completed": "2026-07-harness-verdict-extractor-fix-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T20:35:49+08:00"
+  "updated_at": "2026-07-21T21:02:02+08:00"
 }

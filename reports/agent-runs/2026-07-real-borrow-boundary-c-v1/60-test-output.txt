@@ -1359,3 +1359,34 @@ exit 0 (clean)
 $ git status --short --branch
 ## stage/2026-07-real-borrow-boundary-c-v1
 ```
+
+## 2026-07-21 21:02:02 CST — Review-1 round-2 bookkeeper intake
+
+The human-reported output was absent from the stage path, so the bookkeeper
+located the exact Kimi session by the operator-provided UUID and recovered the
+final assistant text verbatim from the last transcript `content.part` event.
+
+```text
+$ find /Users/ark/.kimi-code/sessions -type d -name 'session_1f494594-8f80-4e81-be7b-18a261138285' -print
+/Users/ark/.kimi-code/sessions/wd_funding_hedging_312b78e68b47/session_1f494594-8f80-4e81-be7b-18a261138285
+
+$ shasum -a 256 reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.md
+f1081fc6360c2f472f780de7b409d0c9ca1f9287fb84e6eb21e36f8ea0379287
+
+$ <extract final Kimi text from verified wire.jsonl> | shasum -a 256
+f1081fc6360c2f472f780de7b409d0c9ca1f9287fb84e6eb21e36f8ea0379287
+
+$ <current Harness _parse_review_artifact + receipt/session consistency checks>
+verdict=ACCEPT
+findings=2
+parse_errors=[]
+receipt_errors=[]
+session_errors=[]
+
+$ git diff --binary c9df14591ac4ca00977ce0e4d80c0950aae44c19..87c19273c3f488cf6d9ca80f8541704bb198cb81 -- . ':(exclude)reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json' | shasum -a 256
+29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162  -
+```
+
+Review-1 round 2 is a formal schema-valid `ACCEPT`, with two retained P3
+findings and no required fixes. No credentials or real Binance transport were
+used during intake.

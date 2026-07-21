@@ -1,13 +1,12 @@
-# Handoff — Boundary C Fresh Review-1 Round 2 Dispatch Ready
+# Handoff — Boundary C Review-1 Accepted, Review-2 Preparing
 
 ## Recovery Header
 
-- Active phase: `review_1`
-  (`round_2_pre_review_passed_waiting_human_dispatch`).
-- Next action: the human operator executes the committed Kimi prompt in a new
-  terminal or after `/clear` followed by `/new`, captures the raw output
-  verbatim at `30-review-1-round-2.md`, fills the dispatch receipt and returns
-  to bookkeeper intake.
+- Active phase: `review_2`
+  (`review_1_round_2_ACCEPT_review_2_packet_preparing`).
+- Next action: commit the verified review-1 artifact and Codex review-2 packet,
+  run/preserve the review-2 pre-review gate, then the human operator executes
+  fresh read-only Codex `gpt-5.5` and captures `50-review-2.md` verbatim.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
@@ -121,6 +120,26 @@
 - Packet commit: `6b1ac92b50413cc540fe888f8cf91e7b68dde6ee`.
 - `scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase
   pre-review`: PASS on that clean committed packet.
+
+## Review-1 Round 2 Intake
+
+- Raw artifact: `30-review-1-round-2.md`.
+- Verified Kimi Session ID: `1f494594-8f80-4e81-be7b-18a261138285`.
+- Raw artifact/transcript SHA-256:
+  `f1081fc6360c2f472f780de7b409d0c9ca1f9287fb84e6eb21e36f8ea0379287`.
+- Extractor/schema/receipt/Session-ID/fingerprint validation: PASS.
+- Verdict: `ACCEPT`, zero P0/P1, two retained P3, no required fixes.
+- Intake: `30-review-1-round-2.bookkeeper-intake.md`.
+
+## Review-2 Routing
+
+- Selected reviewer: fresh read-only Codex `gpt-5.5`.
+- Codex/OpenAI differs from implementer/fix provider `zhipu_glm`.
+- Strong-reviewer disclosure is required because Codex authored stage design
+  and direction synthesis. Anthropic is not unrelated because it authored the
+  breakdown. Evidence: `review-2-design-conflict-override.md`.
+- Review-2 must treat PRD, user-approved synthesis and product documents as
+  higher authority; design/ADR/breakdown are evidence under review.
 - The earlier review dispatch packet also omitted the machine receipt block.
   The narrative receipt remains verbatim; a mechanical non-accepting block was
   added, and fix-4 uses the required machine format from the start.
@@ -159,6 +178,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 20:35:49 CST
-下一步模型: human operator → Kimi
-下一步任务: execute review-1-kimi-round-2.prompt.md in fresh Kimi context, capture 30-review-1-round-2.md verbatim, fill the receipt, and return to bookkeeper
+本地北京时间: 2026-07-21 21:02:02 CST
+下一步模型: bookkeeper → human operator → Codex gpt-5.5
+下一步任务: commit review-1 intake and review-2 packet, pass pre-review validation, then execute the fresh read-only Codex final review

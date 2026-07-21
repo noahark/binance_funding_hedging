@@ -1,13 +1,13 @@
 <!-- ===== DISPATCH RECEIPT（bookkeeper mechanical intake） =====
-status:        prepared
+status:        done
 target_model:  kimi / kimi-code/kimi-for-coding
 adapter_cmd:   kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.prompt.md)"
 executor:      human_operator
-started_at:    not_started
-completed_at:  not_started
-session_id:    unavailable:not executed yet
+started_at:    2026-07-21T20:39:26+08:00
+completed_at:  2026-07-21T20:55:17+08:00
+session_id:    1f494594-8f80-4e81-be7b-18a261138285（本会话工具输出路径中出现的本地
 outputs:       reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.md
-next_dispatch: none; wait for human operator execution and bookkeeper intake
+next_dispatch: bookkeeper intakes the raw ACCEPT verdict and prepares review-2
 ===== END RECEIPT ===== -->
 
 # Boundary C Formal Review-1 Round 2 — Kimi Dispatch
@@ -53,9 +53,24 @@ next_dispatch: none; wait for human operator execution and bookkeeper intake
    `unavailable:<reason>`, output path and result.
 5. Stop for bookkeeper intake. Do not dispatch a fix or review-2 yourself.
 
-当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
-Session ID 来源: unavailable
-原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.dispatch.md
-本地北京时间: 2026-07-21 20:30:12 CST
-下一步模型: human operator → Kimi
-下一步任务: run the committed round-2 prompt in fresh Kimi context, capture raw output verbatim, fill this receipt, and return to bookkeeper
+## Execution Receipt
+
+- Executor: human operator.
+- Transcript path:
+  `/Users/ark/.kimi-code/sessions/wd_funding_hedging_312b78e68b47/session_1f494594-8f80-4e81-be7b-18a261138285/agents/main/wire.jsonl`.
+- Transcript birth time: `2026-07-21 20:39:26 +0800`.
+- Reviewer completion time: `2026-07-21 20:55:17 CST`.
+- Complete final assistant text was recovered verbatim from the final Kimi
+  `content.part` text event into `30-review-1-round-2.md`.
+- Verified navigation UUID: `1f494594-8f80-4e81-be7b-18a261138285`. The
+  machine receipt preserves the longer no-whitespace token consumed by the
+  current footer regex because the raw artifact appends a Chinese annotation
+  directly after the UUID; the raw artifact itself was not rewritten.
+- Reported verdict: `ACCEPT`; two P3 findings, no required fixes.
+
+当前 Session ID: 1f494594-8f80-4e81-be7b-18a261138285
+Session ID 来源: transcript_path
+原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.md
+本地北京时间: 2026-07-21 20:55:17 CST
+下一步模型: bookkeeper
+下一步任务: parse and validate the raw round-2 ACCEPT verdict, record review-1, then prepare the review-2 dispatch

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-real-borrow-boundary-c-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "stage_branch": {
@@ -504,6 +504,22 @@
       "evidence_commit": "87c19273c3f488cf6d9ca80f8541704bb198cb81",
       "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
       "recorded_at": "2026-07-21T20:30:12+08:00"
+    },
+    {
+      "role": "first_reviewer_round_2",
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": "1f494594-8f80-4e81-be7b-18a261138285",
+      "session_id_source": "transcript_path",
+      "session_id_notes": "Verified navigation UUID; the raw footer appends a no-whitespace Chinese annotation, preserved verbatim and disclosed in the intake report",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.md",
+      "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.dispatch.md",
+      "executor": "human_operator",
+      "verdict": "ACCEPT",
+      "artifact_sha256": "f1081fc6360c2f472f780de7b409d0c9ca1f9287fb84e6eb21e36f8ea0379287",
+      "recorded_at": "2026-07-21T21:02:02+08:00"
     }
   ],
   "designer": {
@@ -606,7 +622,14 @@
     "fresh_session": true,
     "prior_involvement": "design"
   },
-  "reviewer_2": null,
+  "reviewer_2": {
+    "provider": "codex",
+    "provider_identity": "openai",
+    "model": "gpt-5.5",
+    "fresh_session": true,
+    "prior_involvement": "design",
+    "override_evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-design-conflict-override.md"
+  },
   "r10_checklists": {},
   "tasks": [
     {
@@ -632,14 +655,15 @@
       "review_1": {
         "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.md",
         "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.dispatch.md",
-        "verdict": null,
-        "json_schema_valid": null,
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
         "fresh_session": true,
         "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
-        "open_p0_p1": null,
-        "fix_start_prompt_present": null,
+        "open_p0_p1": 0,
+        "fix_start_prompt_present": false,
         "previous_artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
-        "previous_verdict": "REWORK"
+        "previous_verdict": "REWORK",
+        "intake_audit_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.bookkeeper-intake.md"
       },
       "implementation_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation.md",
       "implementation_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation-bookkeeper-audit.md",
@@ -839,6 +863,11 @@
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.prompt.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.bookkeeper-intake.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-design-conflict-override.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-codex.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-codex.dispatch.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/03-grok-borrow-api-capacity-recon.md",
     "backend/borrow_tasks/**",
@@ -1039,23 +1068,23 @@
     "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.md",
     "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.dispatch.md",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "reported_verdict": null,
-    "artifact_json_schema_valid": null,
-    "gate_disposition": "pre_review_passed_waiting_human_operator_fresh_context_dispatch",
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "reported_verdict": "ACCEPT",
+    "artifact_json_schema_valid": true,
+    "gate_disposition": "ACCEPT_parsed_from_verbatim_transcript_recovery_ready_for_review_2",
     "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
     "covers_through_task": "C",
     "reviewer_prior_involvement": "design",
     "reviewer_prior_involvement_notes": "Kimi previously supplied an independent design review at reports/agent-runs/2026-07-real-borrow-boundary-c-v1/design-review.raw-output-kimi.md; review-1 provider isolation from the zhipu_glm implementation/fix author remains intact.",
-    "fix_start_prompt_present": null,
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
-    "intake_audit_path": null,
+    "intake_audit_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.bookkeeper-intake.md",
     "future_retry_required": false,
     "future_retry_requires_new_provider_session": false,
     "future_retry_requires_fresh_context": true,
-    "fresh_context_evidence": "pending human operator execution: use a new Kimi terminal or execute /clear then /new before the round-2 prompt",
+    "fresh_context_evidence": "new Kimi session directory created at 2026-07-21 20:39:26 +0800 with verified Session ID 1f494594-8f80-4e81-be7b-18a261138285",
     "pre_review_validation": {
       "result": "PASS",
       "validated_packet_head": "6b1ac92b50413cc540fe888f8cf91e7b68dde6ee",
@@ -1074,19 +1103,24 @@
     ]
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
-    "primary_provider": null,
+    "reviewer": "codex",
+    "provider": "codex",
+    "provider_identity": "openai",
+    "model": "gpt-5.5",
+    "fresh_session": true,
+    "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md",
+    "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-codex.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-codex.dispatch.md",
+    "primary_provider": "codex",
     "fallback_provider": "claude",
-    "fallback_reason": null,
-    "reviewer_prior_involvement": "none",
-    "reviewer_prior_involvement_notes": null,
-    "unrelated_reviewer_unavailable_evidence": null,
+    "fallback_reason": "No unrelated registered decision provider exists: Codex authored design/direction synthesis and Anthropic authored the breakdown; select configured primary Codex under the design-conflict strong-reviewer disclosure path",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "Codex authored the Boundary C task/design/ADR and upstream direction synthesis but wrote no implementation or fix code; those artifacts must be reviewed as evidence under user-approved synthesis and canonical product authority",
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-design-conflict-override.md",
     "design_conflict_override": {
-      "used": false,
-      "reason": null,
-      "unrelated_reviewer_unavailable_evidence": null
+      "used": true,
+      "reason": "Both registered decision providers have design involvement; neither shares the zhipu_glm implementation/fix provider identity, and Codex is the configured primary",
+      "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-design-conflict-override.md"
     },
     "open_p0_p1": null,
     "verdict": null,
@@ -1353,6 +1387,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_executes_review_1_kimi_round_2_in_fresh_context_captures_raw_output_and_fills_receipt_then_bookkeeper_intakes",
-  "updated_at": "2026-07-21T20:35:49+08:00"
+  "next_action": "commit_review_1_accept_and_review_2_packet_run_pre_review_gate_then_human_operator_executes_fresh_read_only_codex_gpt_5_5_final_review",
+  "updated_at": "2026-07-21T21:02:02+08:00"
 }
