@@ -1,14 +1,14 @@
-# Handoff — Boundary C Fix Evidence Committed, Harness Prerequisite Pending
+# Handoff — Boundary C Harness Sync Authorized
 
 ## Recovery Header
 
 - Active phase: `testing`
-  (`review_1_rework_fix_evidence_committed_harness_prerequisite_pending`).
-- Next action: wait for explicit user authorization to route the dedicated
-  main-only verdict-extractor repair. After that repair lands on `main`, merge
-  `main` into this stage branch under the recorded exception, rerun tests and
-  validator, recompute the committed fingerprint, and only then prepare a fresh
-  Kimi review-1 dispatch.
+  (`review_1_rework_fix_evidence_committed_main_sync_authorized`).
+- Next action: commit `main-sync-authorization.md`, merge updated `main` at
+  `1e672abe66c24e93459e1e31c4ec5361e7e0eaff` into this stage branch without
+  rebasing, rerun fake-only product and Harness tests plus validator, create a
+  new committed review head, recompute the fixed fingerprint, and only then
+  prepare a fresh-context Kimi review-1 dispatch.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
@@ -77,24 +77,20 @@
 - All blocking F1/F2/F3 and bookkeeper residual P1 findings are closed. F4/F5
   remain disclosed P3 polish only. Formal `rework_count` remains `1`.
 
-## Harness Follow-Up
+## Harness Follow-Up And User Authorization
 
 - Evidence: `harness-review-verdict-extractor.follow-up.md`
 - Current v0.5 `extract_last_json_object` returns the last nested finding
   instead of the final top-level verdict when `findings` is non-empty.
 - Robust end-of-file extraction independently validates the current JSON;
   therefore this is a Harness extractor defect, not invalid reviewer JSON.
-- The main-only Harness repair is not authorized in the product fix packet.
-  It needs dedicated tests and main promotion. `main` is currently
-  `8cf810d2335d5af08e2ff18181964e5e053e56b9` and does not yet contain the v0.5
-  dispatch/review reform. `harness/dispatch-review-reform-v1` is two commits
-  ahead at `4b1fcdd5fb0562eb00467437bf2ec9ad0286581a` and contains the defective
-  extractor. Explicit user authorization is therefore required before routing
-  the repair and landing the reform on `main`.
-- If corrected `main` is synchronized into this stage later, record the
-  exception, do not rebase, rerun product and Harness tests plus validator,
-  create a new committed review head, recompute the fingerprint, and re-enter
-  fresh Kimi review-1.
+- The dedicated Task H repair passed Kimi review-1 and Opus4.8 review-2, was
+  explicitly accepted by the user, and now exists on `main` at
+  `1e672abe66c24e93459e1e31c4ec5361e7e0eaff` with post-merge validation.
+- The same user decision explicitly authorizes synchronizing corrected `main`
+  into this stage without rebasing, followed by product/Harness tests,
+  validator, a new committed fingerprint and fresh Kimi review-1. Evidence is
+  `main-sync-authorization.md`.
 - The earlier review dispatch packet also omitted the machine receipt block.
   The narrative receipt remains verbatim; a mechanical non-accepting block was
   added, and fix-4 uses the required machine format from the start.
@@ -117,7 +113,8 @@
   after that local commit. Subsequent status/handoff/test-log edits only record
   the fixed review head and Harness prerequisite; they do not change product
   code or the anchored `base_sha..head_sha` range.
-- No live Binance write, push, merge, deployment or acceptance is authorized.
+- The main-to-stage merge is authorized. No live Binance write, push,
+  deployment, Boundary C-to-main merge or Boundary C acceptance is authorized.
 - `reports/agent-runs/_proposals/**` remains unrelated user-owned state and
   was not edited, staged, committed or cleaned.
 - Freshness-correction checkpoint HEAD:
@@ -132,6 +129,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 14:13:41 CST
-下一步模型: human
-下一步任务: authorize or decline the dedicated main-only verdict-extractor repair and subsequent main-to-stage synchronization before fresh Kimi review-1
+本地北京时间: 2026-07-21 20:22:07 CST
+下一步模型: bookkeeper
+下一步任务: commit the authorization checkpoint, merge updated main without rebase, then rerun fake-only tests and recompute the Boundary C review fingerprint

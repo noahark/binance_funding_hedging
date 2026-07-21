@@ -3,10 +3,10 @@
     "stage_id": "2026-07-real-borrow-boundary-c-v1",
     "phase": "testing",
     "handoff": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
-    "note": "Formal review-1 rework_count remains 1. Claude-GLM micro fix-6 and bookkeeper intake closed all blocking F1/F2/F3 and residual P1 findings; optional reviewer P3 items remain disclosed and non-blocking. Independent final verification passed: backend 630, frontend 97 checks, Harness 114, py_compile and diff check. Local fix evidence commit a7a9d53467f915c71f1a74cdf6e82a7fe2823899 now anchors fingerprint a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08. Fresh Kimi review-1 is not dispatched: main at 8cf810d lacks the v0.5 reform while harness/dispatch-review-reform-v1 at 4b1fcdd contains the bugged extractor, so explicit user authorization is required for the main-only repair and subsequent stage synchronization. No acceptance, merge to main, deployment, or live Binance write is authorized.",
-    "updated_at": "2026-07-21T14:13:41+08:00"
+    "note": "Formal review-1 rework_count remains 1; fix-4/fix-5/fix-6 closed all blocking findings. The user explicitly authorized the accepted Task H main-to-stage Harness sync without rebase and the required fake-only retest/fingerprint/review restart. Boundary C pre-merge HEAD is 9ee24399ee664bb5e4aec890b72c0a57e1bad52a, updated main is 1e672abe66c24e93459e1e31c4ec5361e7e0eaff, and the authorization is sealed in main-sync-authorization.md. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or Boundary C acceptance is authorized.",
+    "updated_at": "2026-07-21T20:22:07+08:00"
   },
   "last_completed": "2026-07-real-borrow-execution-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T14:13:41+08:00"
+  "updated_at": "2026-07-21T20:22:07+08:00"
 }

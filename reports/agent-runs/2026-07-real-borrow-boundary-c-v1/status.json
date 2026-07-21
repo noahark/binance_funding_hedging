@@ -43,6 +43,34 @@
       "historical_zero_drift": "27 historical stages are byte-for-byte identical in validator baseline output between c9df145^1 and the current validator; the current validate-all total is 28 only because it also includes this active Boundary C stage."
     }
   },
+  "main_sync_authorization": {
+    "status": "authorized_pending_merge",
+    "authorized_by": "user",
+    "verbatim": "批准执行",
+    "authorized_at": "2026-07-21T20:16:59+08:00",
+    "evidence_file": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/main-sync-authorization.md",
+    "stage_branch": "stage/2026-07-real-borrow-boundary-c-v1",
+    "pre_merge_stage_head": "9ee24399ee664bb5e4aec890b72c0a57e1bad52a",
+    "main_head": "1e672abe66c24e93459e1e31c4ec5361e7e0eaff",
+    "merge_base": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
+    "strategy": "merge_without_rebase",
+    "required_after_merge": [
+      "rerun_boundary_c_fake_only_product_tests",
+      "rerun_harness_tests_and_stage_validator",
+      "create_new_committed_review_head",
+      "recompute_standard_diff_fingerprint",
+      "reenter_fresh_kimi_review_1"
+    ],
+    "not_authorized": [
+      "push",
+      "deploy",
+      "credential_access",
+      "real_binance_request",
+      "start_live_borrowing",
+      "merge_boundary_c_to_main",
+      "accept_boundary_c"
+    ]
+  },
   "bookkeeper": {
     "id": "codex",
     "provider": "codex",
@@ -773,6 +801,8 @@
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.prompt.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.dispatch.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/harness-review-verdict-extractor.follow-up.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/main-sync-authorization.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/80-user-acceptance.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/03-grok-borrow-api-capacity-recon.md",
     "backend/borrow_tasks/**",
@@ -1243,9 +1273,7 @@
     "review_dispatch_ready": false,
     "review_dispatch_blocker": "main-only verdict extractor repair and stage sync"
   },
-  "blockers": [
-    "explicit user authorization is required before routing and landing the main-only verdict-extractor repair and synchronizing main into the active stage branch"
-  ],
+  "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
@@ -1260,6 +1288,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "wait_for_user_authorization_for_main_only_verdict_extractor_repair_then_sync_stage_retest_recompute_fingerprint_and_route_fresh_kimi_review_1",
-  "updated_at": "2026-07-21T14:13:41+08:00"
+  "next_action": "commit_user_authorization_then_merge_main_without_rebase_retest_recompute_fingerprint_and_route_fresh_kimi_review_1",
+  "updated_at": "2026-07-21T20:22:07+08:00"
 }

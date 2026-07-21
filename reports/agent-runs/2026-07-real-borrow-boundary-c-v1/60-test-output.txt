@@ -1218,3 +1218,42 @@ diff_fingerprint=a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf3
 $ git diff --check
 exit 0 (clean)
 ```
+
+## 2026-07-21 20:22:07 CST — User-authorized main-to-stage sync preflight
+
+```text
+$ git status --short --branch
+## stage/2026-07-real-borrow-boundary-c-v1
+
+$ git rev-parse HEAD main
+9ee24399ee664bb5e4aec890b72c0a57e1bad52a
+1e672abe66c24e93459e1e31c4ec5361e7e0eaff
+
+$ git merge-base HEAD main
+4b1fcdd5fb0562eb00467437bf2ec9ad0286581a
+```
+
+The user explicitly replied `批准执行`, authorizing a merge of updated `main`
+into the Boundary C stage without rebase, followed by fake-only product and
+Harness tests, validator, a new committed fingerprint and fresh Kimi review-1.
+The authorization does not include push, deployment, credential access, any
+real Binance request, live-borrow startup, Boundary C-to-main merge or Boundary
+C acceptance. See `main-sync-authorization.md`.
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+exit 0
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+exit 0
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=testing
+diff_fingerprint=a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08
+
+$ git diff --check
+exit 0 (clean)
+```
