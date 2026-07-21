@@ -42,6 +42,10 @@
   `reviewer_prior_involvement=design`. It did not implement or fix code, and
   provider isolation from `zhipu_glm` remains intact.
 - Bookkeeper/designer: Codex/GPT; no implementation or fix authorship.
+- Review-2 is intentionally unselected until review-1 completes. The routing
+  preference remains Codex first, but prior design involvement requires the
+  documented eligibility/override check before any final-review selection is
+  recorded.
 - Parallel mode and embedded review: disabled.
 
 ## Closed Intake And Verification

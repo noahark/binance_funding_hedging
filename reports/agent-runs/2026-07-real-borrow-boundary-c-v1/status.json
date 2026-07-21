@@ -734,7 +734,7 @@
     "reviewer": null,
     "provider": null,
     "model": null,
-    "primary_provider": "codex",
+    "primary_provider": null,
     "fallback_provider": "claude",
     "fallback_reason": null,
     "reviewer_prior_involvement": "none",
