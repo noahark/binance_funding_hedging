@@ -367,3 +367,21 @@ exit 0 (clean)
 The branch and changed-file scope match the recorded Task H packet. The next
 authorized operation is a local evidence commit only; no push, merge, model
 dispatch, review verdict, Boundary C synchronization, or acceptance occurs.
+
+## Review-1 preflight validation
+
+Run at 2026-07-21 17:04:23 CST from a clean worktree after the evidence and
+review-packet commits.
+
+```text
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655
+```
+
+This validates dispatch readiness only. Kimi has not been executed, and no
+review verdict, main merge, Boundary C synchronization, or acceptance is
+claimed.

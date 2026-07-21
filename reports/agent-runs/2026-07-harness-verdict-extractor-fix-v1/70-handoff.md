@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `review_1` (`prepared_waiting_human_dispatch`).
+- Active phase: `review_1` (`pre_review_passed_waiting_human_dispatch`).
 - Branch: `harness/dispatch-review-reform-v1`.
 - Reviewed base: `4b1fcdd5fb0562eb00467437bf2ec9ad0286581a`.
 - Reviewed head: `569be63a6f467e4e5e255a4713f94a08e37cd9b8`.
@@ -30,6 +30,7 @@
   compare sentinel: `11/11 passed`; `py_compile`, checkpoint validator, and
   diff check: pass.
 - Open implementation-intake findings and blockers: none.
+- Formal `--phase pre-review` validator: pass against the fixed fingerprint.
 - Formal `rework_count`: `0`; formal review-1 has not yet returned a verdict.
 
 ## Review Routing
@@ -55,6 +56,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md
-本地北京时间: 2026-07-21 17:00:16 CST
+本地北京时间: 2026-07-21 17:04:23 CST
 下一步模型: human operator → fresh Kimi / kimi-code/kimi-for-coding
 下一步任务: execute review-1-kimi.prompt.md in a new read-only Kimi session, capture 30-review-1.md verbatim, fill the receipt, and return to bookkeeper
