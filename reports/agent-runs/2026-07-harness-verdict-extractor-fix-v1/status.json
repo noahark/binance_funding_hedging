@@ -1,0 +1,507 @@
+{
+  "stage_id": "2026-07-harness-verdict-extractor-fix-v1",
+  "status": "accepted",
+  "workflow": "stage-delivery",
+  "dispatch_protocol": "human-operator/v1",
+  "stage_branch": {
+    "name": "harness/dispatch-review-reform-v1",
+    "created_from_main_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
+    "created_at": "2026-07-20T20:16:44+08:00",
+    "merged_back_to_main": true,
+    "merged_back_sha": "f8015d68f24f3a33a0e8b32efecd6a4408c5826e",
+    "merge_strategy": "fast_forward",
+    "abandoned_reason": null
+  },
+  "branch_exception": {
+    "authorized_by": "user",
+    "authorized_at": "2026-07-21T14:32:12+08:00",
+    "reason": "Use the existing dedicated Harness reform branch for the lightweight verdict-extractor repair instead of creating a second product stage branch.",
+    "eventual_target": "main",
+    "boundary_c_product_branch_untouched": true
+  },
+  "bookkeeper": {
+    "id": "codex",
+    "provider": "codex",
+    "model": "gpt",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false,
+    "embedded_review": {
+      "enabled": false,
+      "reason": null
+    }
+  },
+  "embedded_reviews": {},
+  "session_receipts": [
+    {
+      "role": "lightweight_route_and_dispatch_preparation",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/{00-intake.md,00-task.md,10-design.md,11-adr.md,task-H-claude-glm.prompt.md,task-H-claude-glm.dispatch.md}",
+      "result": "immutable_claude_glm_prompt_and_human_operator_receipt_prepared_no_dispatch_executed",
+      "recorded_at": "2026-07-21T14:36:22+08:00"
+    },
+    {
+      "role": "implementation",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": "37d9d7c4-c33f-4012-bcbf-16e6e6d3b461",
+      "session_id_source": "runtime_env",
+      "session_id_notes": "Claude Code runtime session ID verified by matching transcript path; the provider-native Zhipu/GLM ID was not separately exposed",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md",
+      "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md",
+      "executor": "human_operator",
+      "result": "submitted_tests_green_bookkeeper_intake_found_blocking_BK_H_001_array_wrapper_residual",
+      "recorded_at": "2026-07-21T15:59:10+08:00"
+    },
+    {
+      "role": "implementation_intake_audit",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md",
+      "result": "original_findings_bug_closed_blocking_BK_H_001_array_wrapper_micro_fix_prepared",
+      "recorded_at": "2026-07-21T15:59:10+08:00"
+    },
+    {
+      "role": "implementation_fix",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": "37d9d7c4-c33f-4012-bcbf-16e6e6d3b461",
+      "session_id_source": "runtime_env",
+      "session_id_notes": "Same verified Claude Code runtime session as Task H; the provider-native Zhipu/GLM ID was not separately exposed",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md",
+      "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md",
+      "executor": "human_operator",
+      "result": "BK_H_001_closed_all_tests_green_ready_for_evidence_commit",
+      "recorded_at": "2026-07-21T16:45:41+08:00"
+    },
+    {
+      "role": "implementation_fix_intake_audit",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md",
+      "result": "BK_H_001_closed_ready_for_committed_review_evidence",
+      "recorded_at": "2026-07-21T16:45:41+08:00"
+    },
+    {
+      "role": "evidence_commit_and_review_1_dispatch_preparation",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/{review-1-kimi.prompt.md,review-1-kimi.dispatch.md,status.json,70-handoff.md}",
+      "result": "local_evidence_commit_569be63_created_standard_fingerprint_computed_pre_review_validator_passed_fresh_Kimi_review_1_packet_ready_no_dispatch_executed",
+      "recorded_at": "2026-07-21T17:04:23+08:00"
+    },
+    {
+      "role": "review_1",
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": "unavailable: reviewer runtime exposed no provider-native Session ID",
+      "session_id_source": "transcript_path",
+      "session_navigation_id": "session_8793582a-a47d-4006-a2a0-2274586b2c89",
+      "session_id_notes": "Artifact footer and machine dispatch receipt remain unavailable-class; matching local state.json and wire transcript verify the repository, prompt, timestamps, and fresh task context",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
+      "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
+      "executor": "human_operator",
+      "result": "schema_valid_ACCEPT_zero_findings_ready_for_review_2_preparation",
+      "recorded_at": "2026-07-21T19:39:58+08:00"
+    },
+    {
+      "role": "review_1_acceptance_commit_and_review_2_dispatch_preparation",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/{30-review-1.md,30-review-1.bookkeeper-intake.md,review-2-claude.prompt.md,review-2-claude.dispatch.md,status.json,70-handoff.md}",
+      "result": "review_1_ACCEPT_evidence_committed_at_79167ea_independent_Claude_review_2_packet_committed_at_ed373e4_clean_review_2_preflight_passed_no_dispatch_executed",
+      "recorded_at": "2026-07-21T19:47:30+08:00"
+    },
+    {
+      "role": "review_2_preferred_model_availability",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "claude-fable-5",
+      "session_id": "unavailable: Fable5 quota attempt produced no preserved transcript or provider-native Session ID",
+      "session_id_source": "operator",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md",
+      "executor": "human_operator",
+      "result": "quota_exhausted_routed_to_registered_same_provider_opus4_8_fallback",
+      "recorded_at": "2026-07-21T20:08:12+08:00"
+    },
+    {
+      "role": "review_2",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "runtime_model_metadata": "claude-opus-4-8",
+      "session_id": "unavailable: reviewer runtime exposed no provider-native Session ID",
+      "session_id_source": "transcript_path",
+      "session_navigation_id": "7fc9407a-24ca-4fa6-99e6-6e17a7c0c875",
+      "session_id_notes": "Artifact footer and dispatch receipt remain unavailable-class; transcript records /clear, repository cwd, immutable prompt, actual Opus model metadata, and fresh review context",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
+      "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
+      "executor": "human_operator",
+      "result": "schema_valid_final_ACCEPT_zero_findings_pending_committed_pre_accept_gate",
+      "recorded_at": "2026-07-21T20:08:12+08:00"
+    },
+    {
+      "role": "terminal_pre_accept_gate",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+      "result": "clean_pre_accept_passed_stage_accepted_waiting_user_no_merge_performed",
+      "recorded_at": "2026-07-21T20:13:43+08:00"
+    },
+    {
+      "role": "post_main_merge_validation",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+      "result": "accepted_status_clean_pre_accept_passed_on_main_after_fast_forward_no_push",
+      "recorded_at": "2026-07-21T20:19:38+08:00"
+    }
+  ],
+  "designer": {
+    "id": "codex",
+    "provider": "codex",
+    "model": "gpt",
+    "scope": "bounded extractor semantics and deterministic test strategy; no implementation"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": null,
+  "implementer": {
+    "provider": "claude_glm",
+    "provider_identity": "zhipu_glm",
+    "model": "glm-5.2[1m]",
+    "task_id": "H",
+    "status": "implementation_and_BK_H_001_closed_evidence_commit_pending"
+  },
+  "implementers": [
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "task_id": "H",
+      "report_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md"
+    }
+  ],
+  "fix_authors": [
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "task_id": "H",
+      "fix_round": "bookkeeper-intake-fix-1",
+      "finding_ids": ["BK-H-001"],
+      "report_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md"
+    }
+  ],
+  "reviewer_1": {
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "fresh_session_required": true,
+    "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
+    "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
+    "dispatch_executor": "human_operator"
+  },
+  "reviewer_2": {
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "runtime_model_metadata": "claude-opus-4-8",
+    "fallback_model_on_quota": "opus4.8",
+    "selection_reason": "Codex/GPT authored the lightweight stage design and is the bookkeeper, so the workflow primary is anti-self-review ineligible; unrelated Anthropic Claude is the independent final-review provider. The preferred Fable5 model was quota-exhausted per human-operator evidence, so the registered same-provider Opus4.8 fallback executed.",
+    "model_fallback_reason": "quota_exhausted",
+    "model_fallback_evidence": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md",
+    "fresh_session_required": true,
+    "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
+    "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
+    "dispatch_executor": "human_operator"
+  },
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "H",
+      "name": "harness-final-top-level-verdict-extractor",
+      "owner": {
+        "provider": "claude_glm",
+        "provider_identity": "zhipu_glm",
+        "model": "glm-5.2[1m]"
+      },
+      "reviewer": {
+        "provider": "kimi",
+        "provider_identity": "moonshot_kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "fresh_session": true
+      },
+      "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.prompt.md",
+      "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md",
+      "fix_prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md",
+      "fix_dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md",
+      "next_dispatch_executor": "human_operator",
+      "r10_checklist": null,
+      "base_sha": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
+      "head_sha": "569be63a6f467e4e5e255a4713f94a08e37cd9b8",
+      "diff_fingerprint": "569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655",
+      "test_evidence": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+      "review_1": {
+        "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
+        "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
+        "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
+        "status": "valid_ACCEPT_evidence_committed_clean_pre_review_passed",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "fresh_session": true,
+        "diff_fingerprint": "569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655",
+        "open_p0_p1": 0,
+        "covers_through_task": "H",
+        "reviewer_prior_involvement": "none",
+        "fix_start_prompt_present": false,
+        "intake_audit_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.bookkeeper-intake.md"
+      }
+    }
+  ],
+  "complexity": {
+    "classification": "LOW",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": false,
+    "user_approved_lightweight_route": true,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "The code change is bounded to one extractor, its tests, and one matching contract paragraph.",
+      "Gate-critical impact requires deterministic tests and independent review but not a new direction panel or breakdown."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {}
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "skipped_user_approved_lightweight_route",
+    "user_approved": true
+  },
+  "current_inputs": [
+    "AGENTS.md",
+    "agents/developer-discipline.md",
+    "docs/parallel-development-mode.md",
+    "scripts/validate-stage.py",
+    "scripts/tests/test_validate_stage_dispatch_protocol.py",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/00-intake.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/00-task.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/10-design.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/11-adr.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md",
+    "agents/registry.yaml",
+    "agents/skills/code-reviewer.md",
+    "docs/model-adapters.md",
+    "schemas/review-verdict.schema.json",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.bookkeeper-intake.md",
+    "agents/skills/reality-checker.md",
+    "docs/product/PRD.md",
+    "docs/architecture/ARCHITECTURE.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.bookkeeper-intake.md"
+  ],
+  "base_sha": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
+  "head_sha": "569be63a6f467e4e5e255a4713f94a08e37cd9b8",
+  "diff_fingerprint": "569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655",
+  "coverage_waypoints": [
+    "8cf810d2335d5af08e2ff18181964e5e053e56b9",
+    "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
+    "569be63a6f467e4e5e255a4713f94a08e37cd9b8"
+  ],
+  "changed_files": [
+    "docs/parallel-development-mode.md",
+    "scripts/validate-stage.py",
+    "scripts/tests/test_validate_stage_dispatch_protocol.py",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md"
+  ],
+  "tests": {
+    "status": "passed",
+    "commands": [
+      "python3 -m pytest scripts/tests -q: 114 passed",
+      "python3 scripts/test-validate-all-stages-compare.py --repo-root .: 11/11 passed",
+      "findings-bearing reproduction: ACTUAL_HAS_VERDICT=False",
+      "python3 -m json.tool on ACTIVE.json and status.json: PASS",
+      "python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint: PASS",
+      "R11 marker and nine-field pending human-operator dispatch receipt audit: PASS",
+      "git diff --check: clean",
+      "Claude-GLM implementation: targeted 49 passed; full Harness 125 passed; py_compile exit 0; compare sentinel 11/11; checkpoint PASS; diff check clean",
+      "bookkeeper independent intake: targeted 49 passed; full Harness 125 passed; py_compile exit 0; compare sentinel 11/11; diff check clean",
+      "bookkeeper committed Boundary C artifact check: REWORK with five findings extracted",
+      "BK-H-001 reproduction: top-level [valid_verdict] parsed as ACCEPT with zero schema errors",
+      "BK-H-001 packet JSON, checkpoint validator, R11 marker and git diff check: PASS",
+      "BK-H-001 fix: targeted 52 passed; full Harness 128 passed; py_compile exit 0; compare sentinel 11/11; checkpoint PASS; diff check clean",
+      "bookkeeper independent final intake: targeted 52 passed; full Harness 128 passed; py_compile/checkpoint/diff check PASS; compare sentinel 11/11",
+      "semantic matrix: [valid_verdict] and [[valid_verdict]] fail closed; committed Boundary C artifact returns REWORK with five findings; harmless footer bracket text preserves ACCEPT",
+      "Kimi review-1 independent rerun: targeted 52 passed; full Harness 128 passed; py_compile PASS; historical sentinel 11/11; fixed fingerprint matched",
+      "Opus4.8 review-2 independent rerun: targeted 52 passed; full Harness 128 passed; py_compile PASS; historical sentinel 11/11; pre-review PASS; fixed fingerprint matched",
+      "initial clean pre-accept after final evidence commit: expected fail-closed until terminal status and tests.status were normalized"
+    ]
+  },
+  "review_1": {
+    "reviewer": "kimi",
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "status": "valid_ACCEPT_evidence_committed_clean_pre_review_passed",
+    "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
+    "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655",
+    "covers_through_task": "H",
+    "reviewer_prior_involvement": "none",
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0,
+    "intake_audit_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.bookkeeper-intake.md",
+    "reviewed_at": "2026-07-21T17:31:04+08:00",
+    "intake_completed_at": "2026-07-21T19:39:58+08:00"
+  },
+  "review_2": {
+    "reviewer": "claude",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "runtime_model_metadata": "claude-opus-4-8",
+    "fallback_model_on_quota": "opus4.8",
+    "status": "valid_ACCEPT_clean_pre_accept_passed_stage_accepted_waiting_user",
+    "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
+    "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
+    "fallback_reason": "anti_self_review_ineligible: Codex authored the maintenance design; use the unrelated Anthropic decision provider",
+    "model_fallback_reason": "quota_exhausted: human operator reports Fable5 quota insufficient; routed to registered same-provider Opus4.8 fallback",
+    "model_fallback_evidence": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md",
+    "reviewer_prior_involvement": "none",
+    "reviewer_prior_involvement_notes": null,
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md",
+    "design_conflict_override": {
+      "used": false,
+      "reason": null,
+      "unrelated_reviewer_unavailable_evidence": null
+    },
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655",
+    "covers_through_task": "H",
+    "fix_start_prompt_present": false,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0,
+    "intake_audit_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.bookkeeper-intake.md",
+    "reviewed_at": "2026-07-21T20:02:52+08:00",
+    "intake_completed_at": "2026-07-21T20:08:12+08:00"
+  },
+  "authorized_exceptions": [],
+  "rework_count": 0,
+  "max_rework": 3,
+  "implementation_intake_audit": {
+    "status": "closed_ready_for_committed_review_evidence",
+    "audit_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md",
+    "closed_findings": [
+      "original_findings_bearing_nested_dict_bug",
+      "BK-H-001"
+    ],
+    "open_findings": [],
+    "formal_rework_count_incremented": false
+  },
+  "implementation_fix_dispatch_round_1": {
+    "task_id": "H",
+    "round": "bookkeeper-intake-fix-1",
+    "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md",
+    "target_provider": "claude_glm",
+    "target_model": "glm-5.2[1m]",
+    "executor": "human_operator",
+    "status": "completed_bookkeeper_intake_closed",
+    "required_findings": ["BK-H-001"],
+    "formal_rework_count_incremented": false
+  },
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": "accepted",
+  "user_acceptance": {
+    "decision": "accepted",
+    "verbatim": "批准执行",
+    "accepted_at": "2026-07-21T20:16:59+08:00",
+    "evidence_file": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/80-user-acceptance.md",
+    "authorized_actions": [
+      "fast_forward_harness_dispatch_review_reform_v1_to_main",
+      "merge_updated_main_into_stage_2026_07_real_borrow_boundary_c_v1_without_rebase",
+      "rerun_boundary_c_tests_validator_recompute_fingerprint_and_reenter_review"
+    ],
+    "not_authorized": [
+      "push",
+      "deploy",
+      "credential_access",
+      "real_binance_request",
+      "start_live_borrowing",
+      "merge_boundary_c_to_main",
+      "accept_boundary_c"
+    ]
+  },
+  "reporting_preferences": {
+    "execution_footer": {
+      "include_provider_native_session_id": true,
+      "include_session_id_source": true,
+      "include_raw_output_path": true,
+      "unknown_session_id_policy": "write unavailable with reason; never invent",
+      "session_id_is_navigation_only": true
+    }
+  },
+  "accepted_at": "2026-07-21T20:18:25+08:00",
+  "next_action": "switch_to_Boundary_C_and_merge_updated_main_without_rebase_under_user_authorized_exception_then_retest_recompute_fingerprint_and_reenter_review",
+  "updated_at": "2026-07-21T20:19:38+08:00"
+}

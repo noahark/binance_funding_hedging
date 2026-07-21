@@ -714,3 +714,209 @@ class TestTolerantExtraction:
         del payload["fix_start_prompt"]
         errors = vs._mini_schema_errors(payload, schema, schema)
         assert any("fix_start_prompt" in err for err in errors)
+
+
+# ---------------------------------------------------------------------------
+# Task H: final top-level verdict extraction (findings-bearing fix)
+# ---------------------------------------------------------------------------
+
+
+class TestFinalTopLevelVerdictExtraction:
+    """extract_last_json_object returns the final top-level object, never a
+    nested finding (Task H requirements 1-7)."""
+
+    @staticmethod
+    def _verdict_obj(verdict="ACCEPT", findings=None, **overrides):
+        payload = {
+            "schema_version": 1,
+            "stage_id": "fixture-stage",
+            "role": "first_reviewer",
+            "model": "kimi-2.7",
+            "verdict": verdict,
+            "diff_fingerprint": FINGERPRINT,
+            "reviewer_prior_involvement": "none",
+            "reviewed_artifacts": ["reports/agent-runs/fixture-stage/20-implementation.md"],
+            "findings": findings or [],
+            "required_fixes": [],
+            "next_action": "continue",
+        }
+        if verdict == "REWORK":
+            payload["fix_start_prompt"] = "Fix the listed findings within scope."
+            payload["next_action"] = "fix"
+        payload.update(overrides)
+        return payload
+
+    @staticmethod
+    def _wrap(obj):
+        return "```json\n" + json.dumps(obj, indent=2) + "\n```\n"
+
+    @staticmethod
+    def _finding(title):
+        return {
+            "severity": "P3",
+            "title": title,
+            "evidence": "evidence text",
+            "impact": "impact text",
+            "recommendation": "recommendation text",
+        }
+
+    def test_zero_findings(self):
+        obj = self._verdict_obj("ACCEPT")
+        got = vs.extract_last_json_object(self._wrap(obj))
+        assert got["verdict"] == "ACCEPT"
+        assert got["findings"] == []
+
+    def test_one_finding_returns_verdict(self):
+        obj = self._verdict_obj("REWORK", findings=[self._finding("only")])
+        got = vs.extract_last_json_object(self._wrap(obj))
+        assert got["verdict"] == "REWORK"
+        assert got["findings"][0]["title"] == "only"
+        assert "severity" not in got  # the single finding did not win
+
+    def test_multiple_findings_return_verdict_not_last_finding(self):
+        obj = self._verdict_obj(
+            "REWORK", findings=[self._finding("first"), self._finding("last")]
+        )
+        got = vs.extract_last_json_object(self._wrap(obj))
+        assert got["verdict"] == "REWORK"
+        assert "severity" not in got  # last finding did not win
+        assert got["findings"][-1]["title"] == "last"
+
+    def test_nested_metadata_object_in_finding(self):
+        # Schema-independent: an extra object nested inside a finding must not
+        # be mistaken for the verdict.
+        finding = self._finding("t")
+        finding["metadata"] = {"k": "v"}
+        obj = self._verdict_obj("REWORK", findings=[finding])
+        got = vs.extract_last_json_object(self._wrap(obj))
+        assert got["verdict"] == "REWORK"
+        assert got["findings"][0]["metadata"] == {"k": "v"}
+
+    def test_braces_and_escaped_quotes_inside_strings(self):
+        finding = self._finding("t")
+        finding["recommendation"] = 'replace {"x": 1} with {"y": "\\"q\\""}'
+        obj = self._verdict_obj("ACCEPT", findings=[finding])
+        got = vs.extract_last_json_object(self._wrap(obj))
+        assert got["verdict"] == "ACCEPT"
+        assert "x" not in got  # braces inside the string did not win
+
+    def test_prose_fence_footer_trailing_whitespace_and_malformed_brace(self):
+        obj = self._verdict_obj("ACCEPT")
+        text = (
+            "叙述 prose before the verdict.\n\n"
+            "```json\n" + json.dumps(obj, indent=2) + "\n```\n\n"
+            "当前 Session ID: session_x\n"
+            "Session ID 来源: cli_output\n"
+            "   \n"
+            "{ unmatched trailing brace\n"
+        )
+        got = vs.extract_last_json_object(text)
+        assert got["verdict"] == "ACCEPT"
+
+    def test_earlier_standalone_object_then_final_verdict(self):
+        earlier = {"note": "standalone non-verdict object"}
+        final = self._verdict_obj("ACCEPT")
+        text = json.dumps(earlier, indent=2) + "\nprose between two objects\n" + self._wrap(final)
+        got = vs.extract_last_json_object(text)
+        assert got.get("verdict") == "ACCEPT"
+        assert "note" not in got
+
+    def test_parse_review_artifact_accepts_findings_bearing_rework(self, harness):
+        root, stage_dir = harness
+        obj = self._verdict_obj(
+            "REWORK", findings=[self._finding("first"), self._finding("last")]
+        )
+        _write_review_artifact(stage_dir, "30-review-1.md", json.dumps(obj, indent=2))
+        schema = vs.load_review_verdict_schema(root)
+        verdict, errors = vs._parse_review_artifact(
+            root, stage_dir, "30-review-1.md", "review_1", schema
+        )
+        assert errors == []
+        assert verdict is not None
+        assert verdict["verdict"] == "REWORK"
+        assert [f["title"] for f in verdict["findings"]] == ["first", "last"]
+
+    def test_final_schema_invalid_does_not_fall_back_to_earlier_valid(self, harness):
+        root, stage_dir = harness
+        earlier = self._verdict_obj("ACCEPT")
+        final = {"not": "a schema-valid verdict"}  # top-level dict, but invalid
+        text = json.dumps(earlier, indent=2) + "\nprose\n" + self._wrap(final)
+        (stage_dir / "30-review-1.md").write_text(text)
+        schema = vs.load_review_verdict_schema(root)
+        verdict, errors = vs._parse_review_artifact(
+            root, stage_dir, "30-review-1.md", "review_1", schema
+        )
+        # The final (schema-invalid) object is authoritative: no silent
+        # fallback to the earlier ACCEPT.
+        assert verdict is None
+        assert any("fails schemas/review-verdict.schema.json" in e for e in errors)
+
+    def test_top_level_array_wrapping_verdict_fails_closed(self, harness):
+        # BK-H-001: a top-level [valid_verdict] must not promote its inner dict.
+        root, stage_dir = harness
+        obj = self._verdict_obj("ACCEPT")
+        text = "# narrative\n\n```json\n" + json.dumps([obj], indent=2) + "\n```\n"
+        assert vs.extract_last_json_object(text) is None
+        (stage_dir / "30-review-1.md").write_text(text)
+        schema = vs.load_review_verdict_schema(root)
+        verdict, errors = vs._parse_review_artifact(
+            root, stage_dir, "30-review-1.md", "review_1", schema
+        )
+        assert verdict is None
+        assert any("no parseable JSON verdict object" in e for e in errors)
+
+    def test_nested_top_level_arrays_wrapping_verdict_fails_closed(self):
+        # BK-H-001: [[valid_verdict]] must also fail closed.
+        obj = self._verdict_obj("ACCEPT")
+        text = "```json\n" + json.dumps([[obj]], indent=2) + "\n```\n"
+        assert vs.extract_last_json_object(text) is None
+
+    def test_footer_harmless_bracket_text_keeps_valid_verdict(self):
+        # BK-H-001: harmless brackets in footer prose must not nest away a
+        # preceding valid top-level verdict.
+        obj = self._verdict_obj("ACCEPT")
+        text = (
+            "```json\n" + json.dumps(obj, indent=2) + "\n```\n\n"
+            "footer mentions [harmless bracket] and [another] notes\n"
+        )
+        got = vs.extract_last_json_object(text)
+        assert got is not None
+        assert got["verdict"] == "ACCEPT"
+
+
+# ---------------------------------------------------------------------------
+# Task H: Session-ID footer consistency for unavailable reasons (req 8)
+# ---------------------------------------------------------------------------
+
+
+class TestSessionFooterUnavailableConsistency:
+    """The unavailable explanation may be introduced by an ASCII space or by
+    full-width punctuation; both must remain consistent with the receipt
+    (Task H requirement 8)."""
+
+    def _errors(self, harness, footer_line, receipt_session_id):
+        root, stage_dir = harness
+        (stage_dir / "30-review-1.md").write_text(
+            "# review\n\n```json\n" + _verdict_json("ACCEPT") + "\n```\n\n"
+            + footer_line + "\n"
+        )
+        receipt = {"session_id": receipt_session_id}
+        return vs._session_consistency_errors(
+            root, stage_dir, "30-review-1.md", receipt, "review_1"
+        )
+
+    def test_unavailable_reason_after_ascii_space_is_consistent(self, harness):
+        errors = self._errors(
+            harness,
+            "当前 Session ID: unavailable (runtime exposes no provider-native id)",
+            "unavailable: runtime exposes no provider-native id",
+        )
+        assert errors == []
+
+    def test_unavailable_reason_after_full_width_punctuation_is_consistent(self, harness):
+        errors = self._errors(
+            harness,
+            "当前 Session ID：unavailable（运行时未暴露 provider-native id）",
+            "unavailable: runtime exposes no provider-native id",
+        )
+        assert errors == []

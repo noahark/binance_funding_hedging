@@ -345,8 +345,11 @@ validator 在 dispatch-ready 只 grep `[HARNESS-EXECUTOR-CONTRACT v1]` 这一
 
 **R12 verdict 以 validator 解析为准（v0.5）。** review 门的 verdict 与
 schema 合规性由 `scripts/validate-stage.py` 从 review artifact 文件中
-容错解析（从文件尾部向前找最后一个可解析的 JSON object，兼容 ```json
-围栏与 footer 文本）并按 `schemas/review-verdict.schema.json` 校验；
+容错解析（选取最后一个 top-level JSON object：候选 dict 的解码跨度若被
+其他可解码 dict 或 list container 的跨度严格包含即为嵌套，不得胜出——findings 数组里的
+嵌套 finding 不会覆盖外层 verdict，top-level array `[verdict]` 也不得提升其内层 dict；兼容 ```json
+围栏与 footer 文本，且最终 schema-invalid 的 top-level object 仍 fail
+closed，不回退到更早的对象）并按 `schemas/review-verdict.schema.json` 校验；
 `status.json` 的 verdict 字段只做交叉一致性检查，
 `review_*.json_schema_valid` 字段不再是门禁断言。文件缺失或 verdict 不可
 解析 = fail closed。每次跨模型 dispatch（含正式 review）必须在

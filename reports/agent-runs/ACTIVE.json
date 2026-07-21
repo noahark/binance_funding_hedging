@@ -6,7 +6,7 @@
     "note": "Formal review-1 rework_count remains 1; fix-4/fix-5/fix-6 closed all blocking findings. The user explicitly authorized the accepted Task H main-to-stage Harness sync without rebase and the required fake-only retest/fingerprint/review restart. Boundary C pre-merge HEAD is 9ee24399ee664bb5e4aec890b72c0a57e1bad52a, updated main is 1e672abe66c24e93459e1e31c4ec5361e7e0eaff, and the authorization is sealed in main-sync-authorization.md. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or Boundary C acceptance is authorized.",
     "updated_at": "2026-07-21T20:22:07+08:00"
   },
-  "last_completed": "2026-07-real-borrow-execution-v1",
+  "last_completed": "2026-07-harness-verdict-extractor-fix-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
   "updated_at": "2026-07-21T20:22:07+08:00"
 }
