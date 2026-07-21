@@ -1,12 +1,12 @@
 {
   "active": {
     "stage_id": "2026-07-real-borrow-boundary-c-v1",
-    "phase": "testing",
+    "phase": "review_1",
     "handoff": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
-    "note": "Formal review-1 rework_count remains 1; all blocking findings are closed. Accepted main 1e672abe66c24e93459e1e31c4ec5361e7e0eaff was merged without rebase at eaa75a8a0e9b0c9e196e97a6f8d05bd9e5893912. Post-sync fake-only verification passed: Boundary core 331, backend 630, frontend 97, Harness 128, compare sentinel 11/11 and py_compile. A new committed review head/fingerprint and fresh-context Kimi review-1 packet remain pending. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or Boundary C acceptance is authorized.",
-    "updated_at": "2026-07-21T20:29:21+08:00"
+    "note": "Boundary C re-enters review_1 at committed evidence head 87c19273c3f488cf6d9ca80f8541704bb198cb81 with fingerprint 87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162. All blocking round-1 findings are closed; accepted main sync and all post-sync fake-only checks passed. Round-2 Kimi review must use fresh context and the new artifact path without overwriting historical 30-review-1.md. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or Boundary C acceptance is authorized.",
+    "updated_at": "2026-07-21T20:30:12+08:00"
   },
   "last_completed": "2026-07-harness-verdict-extractor-fix-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T20:29:21+08:00"
+  "updated_at": "2026-07-21T20:30:12+08:00"
 }

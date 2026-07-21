@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-real-borrow-boundary-c-v1",
-  "status": "testing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "stage_branch": {
@@ -46,7 +46,7 @@
     }
   },
   "main_sync_authorization": {
-    "status": "merged_tests_passed_fingerprint_pending",
+    "status": "review_head_committed_ready_for_fresh_review_1",
     "authorized_by": "user",
     "verbatim": "批准执行",
     "authorized_at": "2026-07-21T20:16:59+08:00",
@@ -68,7 +68,9 @@
       "historical_compare_sentinel": "11/11 passed",
       "py_compile": "exit 0",
       "checkpoint_validator": "PASS",
-      "git_diff_check": "clean"
+      "git_diff_check": "clean",
+      "evidence_head": "87c19273c3f488cf6d9ca80f8541704bb198cb81",
+      "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162"
     },
     "required_after_merge": [
       "rerun_boundary_c_fake_only_product_tests",
@@ -489,6 +491,18 @@
       "evidence_commit": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899",
       "diff_fingerprint": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
       "recorded_at": "2026-07-21T14:08:44+08:00"
+    },
+    {
+      "role": "main_sync_post_merge_verification_and_review_head",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/{main-sync-authorization.md,status.json,70-handoff.md,60-test-output.txt}",
+      "result": "authorized_main_sync_merged_without_rebase_all_post_merge_fake_only_checks_passed_new_review_head_committed",
+      "evidence_commit": "87c19273c3f488cf6d9ca80f8541704bb198cb81",
+      "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
+      "recorded_at": "2026-07-21T20:30:12+08:00"
     }
   ],
   "designer": {
@@ -523,7 +537,7 @@
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2[1m]",
     "task_id": "C",
-    "status": "review_1_rework_all_blocking_findings_closed_evidence_committed_harness_extractor_prerequisite_pending"
+    "status": "review_1_round_2_prepared_all_blocking_findings_closed_main_sync_verified"
   },
   "implementers": [
     {
@@ -611,18 +625,20 @@
       "next_dispatch_executor": "human_operator",
       "r10_checklist": null,
       "base_sha": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
-      "head_sha": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899",
-      "diff_fingerprint": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
+      "head_sha": "87c19273c3f488cf6d9ca80f8541704bb198cb81",
+      "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
       "test_evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt",
       "review_1": {
-        "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
-        "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
-        "verdict": "REWORK",
-        "json_schema_valid": true,
+        "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.md",
+        "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.dispatch.md",
+        "verdict": null,
+        "json_schema_valid": null,
         "fresh_session": true,
-        "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
-        "open_p0_p1": 0,
-        "fix_start_prompt_present": true
+        "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
+        "open_p0_p1": null,
+        "fix_start_prompt_present": null,
+        "previous_artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
+        "previous_verdict": "REWORK"
       },
       "implementation_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation.md",
       "implementation_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation-bookkeeper-audit.md",
@@ -819,6 +835,9 @@
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/harness-review-verdict-extractor.follow-up.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/main-sync-authorization.md",
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/80-user-acceptance.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.dispatch.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/03-grok-borrow-api-capacity-recon.md",
     "backend/borrow_tasks/**",
@@ -830,12 +849,15 @@
     "matching backend/frontend tests"
   ],
   "base_sha": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
-  "head_sha": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899",
-  "diff_fingerprint": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
+  "head_sha": "87c19273c3f488cf6d9ca80f8541704bb198cb81",
+  "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
   "coverage_waypoints": [
     "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
     "61ce536dfba6ddd347586cf324209acdfdc6afd9",
-    "a7a9d53467f915c71f1a74cdf6e82a7fe2823899"
+    "a7a9d53467f915c71f1a74cdf6e82a7fe2823899",
+    "1e672abe66c24e93459e1e31c4ec5361e7e0eaff",
+    "eaa75a8a0e9b0c9e196e97a6f8d05bd9e5893912",
+    "87c19273c3f488cf6d9ca80f8541704bb198cb81"
   ],
   "changed_files": [
     "reports/agent-runs/ACTIVE.json",
@@ -910,7 +932,7 @@
     "schemas/api/borrow-tasks/task.schema.json"
   ],
   "tests": {
-    "status": "review_1_REWORK_all_blocking_findings_closed_main_sync_complete_post_merge_fake_only_verification_passed_fingerprint_pending",
+    "status": "passed",
     "commands": [
       "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -1011,27 +1033,38 @@
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
     "fresh_session": true,
-    "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
-    "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.prompt.md",
-    "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
-    "open_p0_p1": 0,
-    "verdict": "REWORK",
-    "json_schema_valid": true,
-    "reported_verdict": "REWORK",
-    "artifact_json_schema_valid": true,
-    "gate_disposition": "REWORK_historical_verdict_all_blocking_findings_closed_fix_evidence_committed_harness_extractor_prerequisite_pending",
-    "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
+    "round": 2,
+    "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.md",
+    "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi-round-2.dispatch.md",
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "reported_verdict": null,
+    "artifact_json_schema_valid": null,
+    "gate_disposition": "prepared_waiting_human_operator_fresh_context_dispatch",
+    "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
     "covers_through_task": "C",
     "reviewer_prior_involvement": "design",
     "reviewer_prior_involvement_notes": "Kimi previously supplied an independent design review at reports/agent-runs/2026-07-real-borrow-boundary-c-v1/design-review.raw-output-kimi.md; review-1 provider isolation from the zhipu_glm implementation/fix author remains intact.",
-    "fix_start_prompt_present": true,
-    "fix_start_prompt_source": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
-    "intake_audit_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md",
-    "future_retry_required": true,
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "intake_audit_path": null,
+    "future_retry_required": false,
     "future_retry_requires_new_provider_session": false,
     "future_retry_requires_fresh_context": true,
-    "fresh_context_evidence": "human operator attested /clear followed by /new before executing review-1; provider-native Session ID uniqueness is not a Harness requirement",
-    "invalid_json_attempts": 0
+    "fresh_context_evidence": "pending human operator execution: use a new Kimi terminal or execute /clear then /new before the round-2 prompt",
+    "invalid_json_attempts": 0,
+    "historical_attempts": [
+      {
+        "round": 1,
+        "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
+        "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
+        "verdict": "REWORK",
+        "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
+        "all_blocking_findings_closed": true
+      }
+    ]
   },
   "review_2": {
     "reviewer": null,
@@ -1313,6 +1346,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "run_checkpoint_validator_commit_post_sync_evidence_recompute_fingerprint_and_route_fresh_kimi_review_1",
-  "updated_at": "2026-07-21T20:29:21+08:00"
+  "next_action": "run_pre_review_validator_commit_dispatch_packet_then_human_operator_executes_fresh_context_kimi_review_1_round_2",
+  "updated_at": "2026-07-21T20:30:12+08:00"
 }

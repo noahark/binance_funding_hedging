@@ -1,12 +1,12 @@
-# Handoff — Boundary C Harness Sync Verified, Fingerprint Pending
+# Handoff — Boundary C Fresh Review-1 Round 2 Prepared
 
 ## Recovery Header
 
-- Active phase: `testing`
-  (`main_sync_complete_post_merge_verification_passed_fingerprint_pending`).
-- Next action: run the checkpoint validator, commit the post-sync evidence,
-  recompute the standard fixed fingerprint from the effective delivery base,
-  then change the stage to `review_1` and prepare a fresh-context Kimi dispatch.
+- Active phase: `review_1`
+  (`round_2_packet_prepared_pre_review_validation_pending`).
+- Next action: run and preserve the pre-review validator, commit the dispatch
+  packet, then the human operator executes the new Kimi prompt in a new terminal
+  or after `/clear` followed by `/new`.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
@@ -108,6 +108,15 @@
 - `git diff --check`: clean.
 - All commands were fake-only; no credential source or real Binance transport
   was used.
+
+## New Review Head
+
+- Base: `c9df14591ac4ca00977ce0e4d80c0950aae44c19`.
+- Head: `87c19273c3f488cf6d9ca80f8541704bb198cb81`.
+- Fingerprint:
+  `87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162`.
+- Round-1 raw evidence remains immutable at `30-review-1.md`.
+- Round-2 output target is `30-review-1-round-2.md`.
 - The earlier review dispatch packet also omitted the machine receipt block.
   The narrative receipt remains verbatim; a mechanical non-accepting block was
   added, and fix-4 uses the required machine format from the start.
@@ -146,6 +155,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 20:29:21 CST
-下一步模型: bookkeeper
-下一步任务: run checkpoint validation, commit post-sync evidence, recompute the fixed fingerprint, and prepare fresh-context Kimi review-1
+本地北京时间: 2026-07-21 20:30:12 CST
+下一步模型: human operator → Kimi
+下一步任务: after bookkeeper pre-review validation and packet commit, execute review-1-kimi-round-2.prompt.md in fresh Kimi context and capture the raw output verbatim
