@@ -742,3 +742,48 @@ The unrelated user-owned untracked `reports/agent-runs/_proposals/**` files were
 not edited, staged, committed, cleaned, or fingerprinted. Their exact directory
 is locally ignored through `.git/info/exclude` so the committed active-stage
 worktree can satisfy the clean review gate without mutating those files.
+
+---
+
+## Bookkeeper intake of Kimi review-1 attempt
+
+Run at 2026-07-21 12:02:59 CST. No network or credential source was used.
+
+```text
+$ robustly select the final top-level JSON object ending at EOF and validate it
+FINAL_JSON_SCHEMA_VALID REWORK 5 True
+FINAL_JSON_IDENTITY 2026-07-real-borrow-boundary-c-v1 first_reviewer kimi-code/kimi-for-coding
+FINAL_JSON_FINGERPRINT 61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984
+
+$ scripts.validate-stage.extract_last_json_object on the same raw artifact
+CURRENT_EXTRACT_KEYS ['evidence', 'file', 'impact', 'line', 'recommendation', 'severity', 'title']
+CURRENT_EXTRACT_IS_VERDICT False
+CURRENT_PARSE_VERDICT None
+CURRENT_PARSE_ERRORS ["review_1: parsed verdict fails schemas/review-verdict.schema.json: $: missing required property 'schema_version'; $: missing required property 'stage_id'; $: missing required property 'role'; $: missing required property 'model'; $: missing required property 'verdict'"]
+
+$ scripts.validate-stage.parse_dispatch_receipt on the originally prepared packet
+CURRENT_MACHINE_RECEIPT None
+
+$ verify reported Kimi Session ID in the local active-session registry
+path=/Users/ark/.kimi-code/sessions/wd_funding_hedging_312b78e68b47/session_9bb7a540-1d7e-428f-9ab8-ebfb580cbb35/state.json
+workDir=/Users/ark/Desktop/ai code/funding_hedging
+createdAt=2026-07-20T13:59:51.788Z
+updatedAt=2026-07-21T02:44:48.965Z
+lastPrompt=matches the current review-1 execution request
+DISPOSITION=NON_ACCEPTING_SESSION_NOT_FRESH
+
+$ fixed-head product evidence inspection
+F1 CONFIRMED: frontend/index.html lines 942, 953 and 2548 retain static no-real-borrow copy
+F2 CONFIRMED: market-row create path renders amount/count/Confirm and posts without pre-submit total/interval display
+F3 CONFIRMED: startup restores pending blocker only; due reconciliation requires resolved unknown plus non-null schedule
+F4 CONFIRMED P3: BorrowHttpResponse.raw_body has no reader
+F5 CONFIRMED P3: .env.example omits both dedicated borrow credential names
+```
+
+The final JSON itself is valid and is preserved unchanged in
+`30-review-1.md`. The attempt is non-accepting because the provider session
+was not fresh; it is not counted as invalid JSON and does not increment formal
+`rework_count`. The three independently confirmed P1 findings route to
+`task-C-bookkeeper-fix-4.prompt.md` as a pre-formal correction. The nested
+object extraction failure is recorded separately as a main-only Harness
+follow-up.

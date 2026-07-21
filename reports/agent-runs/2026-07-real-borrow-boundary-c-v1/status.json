@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-real-borrow-boundary-c-v1",
-  "status": "review_1",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "stage_branch": {
@@ -322,6 +322,31 @@
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt",
       "result": "pre_review_validator_passed_committed_clean_state",
       "recorded_at": "2026-07-21T10:41:38+08:00"
+    },
+    {
+      "role": "review_1_attempt",
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": "9bb7a540-1d7e-428f-9ab8-ebfb580cbb35",
+      "session_id_source": "active_session_registry + transcript_path",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
+      "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
+      "executor": "human_operator",
+      "reported_verdict": "REWORK",
+      "result": "non_accepting_session_not_fresh_schema_valid_findings_preserved_for_bookkeeper_correction",
+      "recorded_at": "2026-07-21T12:02:59+08:00"
+    },
+    {
+      "role": "review_1_intake_audit",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md",
+      "result": "three_P1_findings_independently_confirmed_preformal_fix_4_prepared_formal_rework_count_unchanged",
+      "recorded_at": "2026-07-21T12:02:59+08:00"
     }
   ],
   "designer": {
@@ -356,7 +381,7 @@
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2[1m]",
     "task_id": "C",
-    "status": "implementation_complete_bookkeeper_intake_closed_ready_for_evidence_commit"
+    "status": "bookkeeper_preformal_correction_4_prepared_waiting_human_dispatch"
   },
   "implementers": [
     {
@@ -426,8 +451,8 @@
       "review_1": null,
       "implementation_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation.md",
       "implementation_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation-bookkeeper-audit.md",
-      "fix_prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-3.prompt.md",
-      "fix_dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-3.dispatch.md",
+      "fix_prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.prompt.md",
+      "fix_dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.dispatch.md",
       "fix_rounds": [
         {
           "round": "bookkeeper-intake-fix-1",
@@ -446,6 +471,13 @@
           "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-3.prompt.md",
           "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-3.dispatch.md",
           "result": "completed_test_evidence_restored_intake_closed"
+        },
+        {
+          "round": "bookkeeper-preformal-fix-4",
+          "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.prompt.md",
+          "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.dispatch.md",
+          "result": "prepared_waiting_human_dispatch",
+          "formal_rework_count_incremented": false
         }
       ]
     }
@@ -581,6 +613,11 @@
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-3.dispatch.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.prompt.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/harness-review-verdict-extractor.follow-up.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/03-grok-borrow-api-capacity-recon.md",
     "backend/borrow_tasks/**",
@@ -639,6 +676,11 @@
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.prompt.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/harness-review-verdict-extractor.follow-up.md",
     "backend/app/server.py",
     "backend/borrow_tasks/domain.py",
     "backend/borrow_tasks/executor.py",
@@ -666,7 +708,7 @@
     "schemas/api/borrow-tasks/task.schema.json"
   ],
   "tests": {
-    "status": "all_completion_tests_passed_pre_review_validator_passed_waiting_human_kimi_dispatch",
+    "status": "review_1_attempt_json_schema_valid_but_nonaccepting_nonfresh_session_three_P1_independently_confirmed_fix_4_prepared",
     "commands": [
       "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -719,7 +761,11 @@
       "bookkeeper fix-3 re-audit: two fully contract-valid matching candidates remain blocked by ambiguity; independent malformed-row regression remains",
       "bookkeeper independent completion: parser/matcher 59 passed; full backend 624 passed; Harness tests 114 passed; frontend self-check passed; py_compile exit 0; git diff --check clean",
       "pre-review validator first attempt failed closed on premature review-2 primary selection; review-2 selection deferred without altering routing policy",
-      "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase pre-review after committed metadata correction: PASS"
+      "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase pre-review after committed metadata correction: PASS",
+      "bookkeeper robust EOF top-level extraction plus full jsonschema validation: reported REWORK, 5 findings, complete fix_start_prompt, fingerprint match",
+      "current extract_last_json_object reproduction: returns last finding object and _parse_review_artifact fails required verdict fields",
+      "Kimi active-session registry verification: reported session exists but state.json.createdAt predates review execution, so fresh-session gate fails",
+      "bookkeeper fixed-head inspection independently confirms F1 stale copy, F2 missing pre-create total/interval, and F3 orphan pending outside due reconciliation"
     ]
   },
   "review_1": {
@@ -727,19 +773,25 @@
     "provider": "kimi",
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
-    "fresh_session": true,
+    "fresh_session": false,
     "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
     "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
-    "open_p0_p1": null,
+    "open_p0_p1": 3,
     "verdict": null,
     "json_schema_valid": null,
+    "reported_verdict": "REWORK",
+    "artifact_json_schema_valid": true,
+    "gate_disposition": "non_accepting_session_not_fresh",
     "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
     "covers_through_task": "C",
     "reviewer_prior_involvement": "design",
     "reviewer_prior_involvement_notes": "Kimi previously supplied an independent design review at reports/agent-runs/2026-07-real-borrow-boundary-c-v1/design-review.raw-output-kimi.md; review-1 provider isolation from the zhipu_glm implementation/fix author remains intact.",
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
+    "intake_audit_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md",
+    "future_retry_required": true,
+    "future_retry_requires_new_provider_session": true,
     "invalid_json_attempts": 0
   },
   "review_2": {
@@ -840,6 +892,31 @@
     "result_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation.md",
     "test_evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt"
   },
+  "implementation_fix_dispatch_round_4": {
+    "task_id": "C",
+    "round": "bookkeeper-preformal-fix-4",
+    "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.dispatch.md",
+    "target_provider": "claude_glm",
+    "target_model": "glm-5.2[1m]",
+    "executor": "human_operator",
+    "status": "prepared_waiting_human_dispatch",
+    "source_review_artifact": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
+    "source_review_gate_disposition": "non_accepting_session_not_fresh",
+    "required_findings": ["F1", "F2", "F3"],
+    "optional_findings": ["F4", "F5"],
+    "formal_rework_count_incremented": false,
+    "live_binance_write_authorized": false,
+    "credential_read_authorized": false
+  },
+  "harness_follow_up": {
+    "status": "open_main_only",
+    "path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/harness-review-verdict-extractor.follow-up.md",
+    "finding": "extract_last_json_object_returns_nested_finding_for_nonempty_findings_verdict",
+    "product_fix_dispatch_blocked": false,
+    "required_before_next_findings_bearing_formal_review_gate": true,
+    "active_stage_harness_edit_authorized": false
+  },
   "blockers": [],
   "human_escalation": {
     "required": false,
@@ -855,6 +932,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_executes_review_1_kimi_prompt_in_fresh_kimi_session_captures_full_raw_output_as_30_review_1_fills_dispatch_receipt_then_stops_for_bookkeeper_intake",
-  "updated_at": "2026-07-21T10:41:38+08:00"
+  "next_action": "human_operator_executes_task_C_bookkeeper_fix_4_prompt_in_original_claude_glm_terminal_fills_machine_receipt_and_stops_for_bookkeeper_intake",
+  "updated_at": "2026-07-21T12:02:59+08:00"
 }
