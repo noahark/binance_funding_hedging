@@ -724,8 +724,8 @@
       "next_dispatch_executor": "human_operator",
       "r10_checklist": null,
       "base_sha": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
-      "head_sha": "87c19273c3f488cf6d9ca80f8541704bb198cb81",
-      "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
+      "head_sha": "2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a",
+      "diff_fingerprint": "2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a:c63d17254570877c5c48c04fbb1bd32526460f151af8dc61695357ef2bd60fd8",
       "test_evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt",
       "review_1": {
         "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1-round-2.md",
@@ -982,8 +982,8 @@
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.dispatch.md"
   ],
   "base_sha": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
-  "head_sha": "87c19273c3f488cf6d9ca80f8541704bb198cb81",
-  "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
+  "head_sha": "2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a",
+  "diff_fingerprint": "2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a:c63d17254570877c5c48c04fbb1bd32526460f151af8dc61695357ef2bd60fd8",
   "coverage_waypoints": [
     "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
     "61ce536dfba6ddd347586cf324209acdfdc6afd9",
@@ -1286,17 +1286,30 @@
     "evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-design-conflict-override.md"
   },
   "review_1_shortcut_authorization": {
-    "status": "user_authorized_pending_new_committed_fingerprint",
+    "status": "sealed_for_current_committed_fingerprint",
     "authorizer": "user",
     "verbatim": "这流程感觉有点太长了， 为了尾部 10% 的小问题，要再加 50% 的时间。能不能精简一下直接做 review2 就行",
     "evidence_file": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-fingerprint-exception-authorization.md",
     "assertion_id": "review_fingerprint_trails_status",
     "scope": "review_1",
     "recorded_at": "2026-07-21T22:55:21+08:00",
-    "pinning_deferred_until": "Fix-8 all-green evidence commit creates the new standard diff_fingerprint",
+    "sealed_at": "2026-07-21T23:13:48+08:00",
+    "applies_to_fingerprint": "2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a:c63d17254570877c5c48c04fbb1bd32526460f151af8dc61695357ef2bd60fd8",
+    "evidence_sha256": "2f7d1dd40056b0b8397f54d52e2c43033c0fc28464e264b2ec2fbac3fd41ad01",
     "cannot_waive": ["review_1_ACCEPT", "review_2_ACCEPT", "tests", "clean_worktree", "fingerprint_recompute", "reviewer_identity", "exception_integrity"]
   },
-  "authorized_exceptions": [],
+  "authorized_exceptions": [
+    {
+      "assertion_id": "review_fingerprint_trails_status",
+      "scope": "review_1",
+      "authorizer": "user",
+      "reason": "User authorized retaining the existing Kimi Review-1 ACCEPT across the bounded fix fingerprint to route directly to final review; this waives only the Review-1 fingerprint trail.",
+      "at": "2026-07-21T23:13:48+08:00",
+      "applies_to_fingerprint": "2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a:c63d17254570877c5c48c04fbb1bd32526460f151af8dc61695357ef2bd60fd8",
+      "evidence_file": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-fingerprint-exception-authorization.md",
+      "evidence_sha256": "2f7d1dd40056b0b8397f54d52e2c43033c0fc28464e264b2ec2fbac3fd41ad01"
+    }
+  ],
   "rework_count": 1,
   "max_rework": 3,
   "implementation_dispatch": {
@@ -1496,7 +1509,9 @@
     "changed_lines_semantics": ["two scheduler test fixtures use 2 seconds", "complete scenario fake clock advances 2 seconds to retain five-category coverage"],
     "tests": {"test_borrow_executor": "7 passed", "backend_full": "650 passed", "frontend": "passed", "harness": "128 passed", "py_compile": "exit 0", "compare": "11/11 passed", "diff_check": "clean"},
     "live_binance_write_authorized": false,
-    "next_action": "commit evidence; do not claim Review-2 ACCEPT without an eligible final reviewer"
+    "evidence_commit": "2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a",
+    "diff_fingerprint": "2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a:c63d17254570877c5c48c04fbb1bd32526460f151af8dc61695357ef2bd60fd8",
+    "next_action": "user decides whether to request an eligible Anthropic Review-2; do not claim Review-2 ACCEPT without an actual review"
   },
   "harness_follow_up": {
     "status": "open_main_only",
@@ -1626,6 +1641,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "bookkeeper_commits_all_green_direct_micro_fix_8_evidence_and_new_fingerprint_then_waits_for_user_decision_on_formal_eligible_Anthropic_review_2_or_non-Harness_release_handling",
-  "updated_at": "2026-07-21T23:10:25+08:00"
+  "next_action": "await_user_decision_on_formal_eligible_Anthropic_review_2_or_non_Harness_release_handling; do_not_claim_review_2_ACCEPT_without_actual_review",
+  "updated_at": "2026-07-21T23:13:48+08:00"
 }

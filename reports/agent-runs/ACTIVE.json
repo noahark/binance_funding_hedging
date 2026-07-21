@@ -3,10 +3,10 @@
     "stage_id": "2026-07-real-borrow-boundary-c-v1",
     "phase": "fixing",
     "handoff": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
-    "note": "Boundary C has an all-green user-authorized Codex direct Micro Fix-8: the two test fixtures now use the frozen two-second interval and the five-category scenario advances its fake clock by two seconds. Full backend is 650 passed; frontend/Harness/compile/compare/diff checks pass. Codex is now a fix author and cannot perform Review-2. The prior Kimi Review-1 ACCEPT may later be retained only through the user-authorized RC4 fingerprint exception; it does not waive an actual eligible Review-2. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or acceptance is authorized.",
-    "updated_at": "2026-07-21T23:10:25+08:00"
+    "note": "Boundary C direct Micro Fix-8 is all green and committed at 2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a (650 backend passed; frontend/Harness/compile/compare/diff checks pass). Codex is now a fix author and cannot perform Review-2. The user-authorized RC4 exception is sealed to the resulting fingerprint only for the prior Kimi Review-1 trail; it does not waive an actual eligible Review-2. Await user decision on whether to request Anthropic final review. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or acceptance is authorized.",
+    "updated_at": "2026-07-21T23:13:48+08:00"
   },
   "last_completed": "2026-07-harness-verdict-extractor-fix-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T23:10:25+08:00"
+  "updated_at": "2026-07-21T23:13:48+08:00"
 }

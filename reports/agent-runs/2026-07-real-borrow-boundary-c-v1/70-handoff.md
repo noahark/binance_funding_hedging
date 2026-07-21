@@ -33,21 +33,24 @@
 - Full local verification is green: test file `7 passed`, backend `650 passed`,
   frontend self-check passed, Harness `128 passed`, py_compile exit 0, compare
   sentinel `11/11`, and diff check clean.
+- All-green evidence commit: `2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a`.
+  Standard fingerprint:
+  `2bfd0deef0e87471aaf3b103fbc9a33fb1e26b8a:c63d17254570877c5c48c04fbb1bd32526460f151af8dc61695357ef2bd60fd8`.
 - This direct edit makes Codex/OpenAI a fix author. If a formal Review-2 is
   requested later, it must not use Codex; Anthropic is the eligible final-review
   fallback with its existing breakdown/design-involvement disclosure.
 - Fix-8 routing/evidence packet commit:
   `54de9b54567d14aa8707e4a2fcf543109f33f197`. Immediately after that commit,
   only the eleven Fix-7 product source/test/schema paths remained modified.
-- Formal `rework_count` stays `1`; no new review fingerprint exists yet and
-  `tests.status` is intentionally failed until the full suite is green.
-- After commit, bookkeeper can compute a new standard fingerprint and seal the
-  user's RC4 `review_fingerprint_trails_status@review_1` authorization to it.
-  That exception never turns an unexecuted Review-2 into ACCEPT.
+- Formal `rework_count` stays `1`; tests are green and the new fingerprint is
+  recorded above.
+- The user's RC4 `review_fingerprint_trails_status@review_1` authorization is
+  sealed to that fingerprint in `status.authorized_exceptions[]`. It waives
+  only the old Review-1 fingerprint trail; it never turns an unexecuted
+  Review-2 into ACCEPT.
 - User-authorization evidence:
-  `review-1-fingerprint-exception-authorization.md`. The actual
-  `authorized_exceptions[]` record remains empty until it can be pinned to the
-  new committed fingerprint and sealed with the committed evidence digest.
+  `review-1-fingerprint-exception-authorization.md`; its committed SHA-256 is
+  sealed in the active exception record.
 - No merge, deployment, credential access, live Binance request, live-borrow
   start or acceptance is authorized.
 
