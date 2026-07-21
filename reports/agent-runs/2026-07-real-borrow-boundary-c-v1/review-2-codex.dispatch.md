@@ -1,7 +1,7 @@
 <!-- ===== DISPATCH RECEIPT（bookkeeper mechanical intake） =====
 status:        prepared
 target_model:  codex / gpt-5.5
-adapter_cmd:   codex exec -C '/Users/ark/Desktop/ai code/funding_hedging' -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-codex.prompt.md
+adapter_cmd:   codex exec -C '/Users/ark/Desktop/ai code/funding_hedging' -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-codex.prompt.md > reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md
 executor:      human_operator
 started_at:    not_started
 completed_at:  not_started
@@ -37,8 +37,9 @@ next_dispatch: none; wait for human operator execution and bookkeeper intake
 ## Human Operator Instructions
 
 1. Execute the exact receipt command from the repository shell. `codex exec`
-   creates the fresh review session.
-2. Preserve the complete schema-valid stdout verbatim as `50-review-2.md`.
+   creates the fresh review session and the shell redirection writes the
+   schema-valid stdout directly to `50-review-2.md`.
+2. Do not edit or post-process `50-review-2.md` after execution.
 3. Record the exact start/completion timestamps and provider-native Session ID
    if exposed; otherwise use `unavailable:<reason>` without guessing.
 4. Fill this receipt and stop for bookkeeper. Do not dispatch a fix, fallback
