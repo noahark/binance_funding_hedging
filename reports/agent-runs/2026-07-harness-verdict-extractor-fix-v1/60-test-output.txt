@@ -553,3 +553,30 @@ diff_fingerprint=569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195
 Task H is accepted by the formal review gates and now waits for explicit user
 acceptance. No merge to `main`, Boundary C synchronization, deployment,
 credential access, or real borrow occurred.
+
+## User-authorized main fast-forward
+
+Run at 2026-07-21 20:18:25 CST after committing user acceptance evidence at
+`f8015d6`.
+
+```text
+$ git merge-base --is-ancestor main harness/dispatch-review-reform-v1
+exit 0
+
+$ git switch main
+Switched to branch 'main'
+
+$ git merge --ff-only harness/dispatch-review-reform-v1
+Updating 8cf810d..f8015d6
+Fast-forward
+
+$ git status --short --branch
+## main...origin/main [ahead 13]
+
+$ git rev-parse HEAD
+f8015d68f24f3a33a0e8b32efecd6a4408c5826e
+```
+
+The accepted Harness branch is now on local `main` via fast-forward. No push,
+deployment, Boundary C merge, credential access, external request, or real
+borrow occurred in this operation.

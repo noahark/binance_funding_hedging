@@ -1,17 +1,17 @@
-# Handoff — Task H User Accepted, Main Merge Authorized
+# Handoff — Task H Accepted And Fast-Forwarded To Main
 
 ## Recovery Header
 
-- Active phase: `stage_accepted_waiting_user`
-  (`user_accepted_merge_authorization_checkpoint_pending`).
-- Branch: `harness/dispatch-review-reform-v1`.
+- Active phase: `accepted`.
+- Accepted branch: `harness/dispatch-review-reform-v1`.
+- Current branch: `main`.
 - Reviewed base: `4b1fcdd5fb0562eb00467437bf2ec9ad0286581a`.
 - Reviewed head: `569be63a6f467e4e5e255a4713f94a08e37cd9b8`.
 - Diff fingerprint:
   `569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655`.
-- Next action: commit `80-user-acceptance.md` and the authorization checkpoint,
-  then fast-forward `main` to the accepted Harness branch head. Record the main
-  merge before performing the separately authorized no-rebase Boundary C sync.
+- Next action: commit the post-merge accepted checkpoint on `main`, rerun
+  pre-accept, then switch to `stage/2026-07-real-borrow-boundary-c-v1` and merge
+  updated `main` without rebasing under the recorded user authorization.
 - Read-set: `status.current_inputs` only.
 - Do not read credentials, `.env*`, expanded adapter environments,
   intermediate reviewer tool/environment output, unrelated stages, or history.
@@ -72,9 +72,17 @@
 - Push, deployment, credential access, real Binance traffic, live-borrow start,
   Boundary C-to-main merge, and Boundary C acceptance remain unauthorized.
 
+## Main Merge Result
+
+- Main before merge: `8cf810d2335d5af08e2ff18181964e5e053e56b9`.
+- Accepted Harness head: `f8015d68f24f3a33a0e8b32efecd6a4408c5826e`.
+- Strategy: `git merge --ff-only harness/dispatch-review-reform-v1`.
+- Result: fast-forward succeeded; no conflict, rebase, rewrite, push, or remote
+  mutation occurred.
+
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md
-本地北京时间: 2026-07-21 20:16:59 CST
+本地北京时间: 2026-07-21 20:18:25 CST
 下一步模型: bookkeeper
-下一步任务: commit the user acceptance evidence, fast-forward main to the accepted Harness branch, and record the merge before Boundary C synchronization
+下一步任务: commit the accepted main-merge checkpoint, rerun pre-accept, then perform the authorized no-rebase main-to-Boundary-C synchronization
