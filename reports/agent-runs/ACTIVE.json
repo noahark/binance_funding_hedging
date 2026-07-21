@@ -3,10 +3,10 @@
     "stage_id": "2026-07-real-borrow-boundary-c-v1",
     "phase": "review-1",
     "handoff": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
-    "note": "Claude-GLM micro fix 3 restored the fully contract-valid multiple-candidate ambiguity test with zero product-source change. Bookkeeper independently closed BK-C-001..004 and all test-evidence findings, verified 59 parser/matcher, 624 backend and 114 Harness tests plus frontend/compile/diff checks, and created local evidence commit 61ce536 with fixed fingerprint. Fresh Kimi review-1 packet is prepared for human execution after the pre-review validator is preserved. No review verdict, acceptance, merge, deployment, or live Binance write is authorized.",
-    "updated_at": "2026-07-21T10:36:23+08:00"
+    "note": "Claude-GLM micro fix 3 restored the fully contract-valid multiple-candidate ambiguity test with zero product-source change. Bookkeeper independently closed BK-C-001..004 and all test-evidence findings, verified 59 parser/matcher, 624 backend and 114 Harness tests plus frontend/compile/diff checks, created local evidence commit 61ce536 with fixed fingerprint, and passed the committed clean-state pre-review validator. Fresh Kimi review-1 packet is ready for human execution. No review verdict, acceptance, merge, deployment, or live Binance write is authorized.",
+    "updated_at": "2026-07-21T10:41:38+08:00"
   },
   "last_completed": "2026-07-real-borrow-execution-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T10:36:23+08:00"
+  "updated_at": "2026-07-21T10:41:38+08:00"
 }

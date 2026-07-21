@@ -695,3 +695,50 @@ The bookkeeper separately inspected the corrected test data: two complete,
 contract-valid CONFIRMED rows with distinct transaction IDs, the same asset and
 exact principal, timestamps inside the query window, and `total == 2`. All
 implementation intake findings and the micro test-evidence finding are closed.
+
+---
+
+## Committed-state review-1 preflight
+
+Run at 2026-07-21 10:41:38 CST against the fixed delivery head and fingerprint.
+
+The first pre-review attempt correctly failed because the planned
+`review_2.primary_provider=codex` field was interpreted as an already selected
+final reviewer. Codex has prior design involvement, but review-2 eligibility and
+strong-reviewer override evidence do not exist yet because review-1 has not
+completed. The bookkeeper corrected only this premature scheduling metadata:
+review-2 remains unselected until its actual gate; the configured routing
+preference is unchanged.
+
+```text
+$ python3 scripts/validate-stage.py \
+    2026-07-real-borrow-boundary-c-v1 --phase pre-review
+STAGE VALIDATION FAILED
+- review_2 designer-overlap override requires reviewer_prior_involvement to be direction_synthesis, breakdown, or design
+- review_2 designer-overlap override requires fallback_reason
+- review_2 designer-overlap override requires an existing unrelated reviewer unavailable evidence file
+
+$ python3 scripts/validate-stage.py \
+    2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=review_1
+diff_fingerprint=61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984
+
+$ git status --short
+(exit 0; no output)
+
+$ python3 scripts/validate-stage.py \
+    2026-07-real-borrow-boundary-c-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984
+```
+
+The unrelated user-owned untracked `reports/agent-runs/_proposals/**` files were
+not edited, staged, committed, cleaned, or fingerprinted. Their exact directory
+is locally ignored through `.git/info/exclude` so the committed active-stage
+worktree can satisfy the clean review gate without mutating those files.

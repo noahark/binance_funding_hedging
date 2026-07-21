@@ -312,6 +312,16 @@
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/{status.json,70-handoff.md,review-1-kimi.prompt.md,review-1-kimi.dispatch.md}",
       "result": "local_evidence_commit_created_fixed_fingerprint_recorded_fresh_kimi_review_1_packet_prepared",
       "recorded_at": "2026-07-21T10:36:23+08:00"
+    },
+    {
+      "role": "review_1_preflight",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt",
+      "result": "pre_review_validator_passed_committed_clean_state",
+      "recorded_at": "2026-07-21T10:41:38+08:00"
     }
   ],
   "designer": {
@@ -656,7 +666,7 @@
     "schemas/api/borrow-tasks/task.schema.json"
   ],
   "tests": {
-    "status": "all_completion_tests_passed_committed_fingerprint_fixed_review_1_preflight_pending",
+    "status": "all_completion_tests_passed_pre_review_validator_passed_waiting_human_kimi_dispatch",
     "commands": [
       "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -707,7 +717,9 @@
       "git diff --check after micro fix-3 packet preparation: clean",
       "Claude-GLM micro fix-3 fake-only completion: live executor 37 passed; parser/matcher 59 passed; full backend 624 passed; frontend self-check passed; py_compile exit 0; git diff --check clean",
       "bookkeeper fix-3 re-audit: two fully contract-valid matching candidates remain blocked by ambiguity; independent malformed-row regression remains",
-      "bookkeeper independent completion: parser/matcher 59 passed; full backend 624 passed; Harness tests 114 passed; frontend self-check passed; py_compile exit 0; git diff --check clean"
+      "bookkeeper independent completion: parser/matcher 59 passed; full backend 624 passed; Harness tests 114 passed; frontend self-check passed; py_compile exit 0; git diff --check clean",
+      "pre-review validator first attempt failed closed on premature review-2 primary selection; review-2 selection deferred without altering routing policy",
+      "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase pre-review after committed metadata correction: PASS"
     ]
   },
   "review_1": {
@@ -843,6 +855,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "bookkeeper_commits_review_1_metadata_runs_and_preserves_pre_review_validator_then_human_operator_executes_review_1_kimi_prompt_in_fresh_session_and_captures_30_review_1",
-  "updated_at": "2026-07-21T10:36:23+08:00"
+  "next_action": "human_operator_executes_review_1_kimi_prompt_in_fresh_kimi_session_captures_full_raw_output_as_30_review_1_fills_dispatch_receipt_then_stops_for_bookkeeper_intake",
+  "updated_at": "2026-07-21T10:41:38+08:00"
 }

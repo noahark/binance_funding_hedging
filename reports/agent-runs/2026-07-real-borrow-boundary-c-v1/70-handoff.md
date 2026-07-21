@@ -3,11 +3,10 @@
 ## Recovery Header
 
 - Active phase: `review-1`
-  (`committed_evidence_fingerprint_fixed_pre_review_validation_pending`).
-- Next action: bookkeeper commits review metadata, runs
-  `scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase pre-review`,
-  and preserves the output. Only after PASS does the human operator execute
-  `review-1-kimi.prompt.md` in a fresh Kimi session.
+  (`pre_review_validated_waiting_human_kimi_dispatch`).
+- Next action: human operator executes `review-1-kimi.prompt.md` in a fresh Kimi
+  session, captures the complete raw response verbatim as `30-review-1.md`, and
+  fills `review-1-kimi.dispatch.md` before returning to the bookkeeper.
 - Read-set: = `status.current_inputs`, plus the fixed
   `c9df1459..61ce536d` git diff and the prepared Kimi prompt/dispatch packet.
 - All bookkeeper intake findings `BK-C-001..004` and the contract-valid
@@ -63,6 +62,9 @@
   - frontend self-check: passed
   - byte compilation: exit 0
   - `git diff --check`: clean after mechanical whitespace normalization
+- Committed clean-state gate:
+  `python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase pre-review`
+  → PASS; output is preserved in `60-test-output.txt`.
 - No real/authenticated/production-reachable Binance request was made. Tests
   used injected fake/recording transports and dummy credentials. No credential
   source was read.
@@ -90,12 +92,10 @@
 
 ## Next Action
 
-1. Bookkeeper commits the review metadata packet and preserves a passing
-   pre-review validator output.
-2. Human operator executes `review-1-kimi.prompt.md` in a fresh Kimi terminal,
+1. Human operator executes `review-1-kimi.prompt.md` in a fresh Kimi terminal,
    captures the full raw response verbatim as `30-review-1.md`, and fills
    `review-1-kimi.dispatch.md`.
-3. Bookkeeper validates the final JSON from the artifact. `ACCEPT` routes to
+2. Bookkeeper validates the final JSON from the artifact. `ACCEPT` routes to
    review-2 preparation; `REWORK` routes the reviewer-provided
    `fix_start_prompt` to the original Claude-GLM author; invalid JSON retries
    Kimi once.
@@ -103,6 +103,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 10:36:23 CST
-下一步模型: bookkeeper → human operator → fresh Kimi / kimi-code/kimi-for-coding
-下一步任务: commit review metadata, preserve a passing pre-review validator result, then execute review-1-kimi.prompt.md and capture 30-review-1.md
+本地北京时间: 2026-07-21 10:41:38 CST
+下一步模型: human operator → fresh Kimi / kimi-code/kimi-for-coding
+下一步任务: execute review-1-kimi.prompt.md, capture the complete raw response as 30-review-1.md, fill review-1-kimi.dispatch.md, and stop for bookkeeper intake
