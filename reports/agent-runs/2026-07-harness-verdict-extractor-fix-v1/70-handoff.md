@@ -2,16 +2,16 @@
 
 ## Recovery Header
 
-- Active phase: `review_2` (`prepared_pending_clean_review_2_preflight`).
+- Active phase: `review_2` (`pre_review_passed_waiting_human_dispatch`).
 - Branch: `harness/dispatch-review-reform-v1`.
 - Reviewed base: `4b1fcdd5fb0562eb00467437bf2ec9ad0286581a`.
 - Reviewed head: `569be63a6f467e4e5e255a4713f94a08e37cd9b8`.
 - Diff fingerprint:
   `569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655`.
-- Next action: bookkeeper commits the review-2 packet, runs
-  `scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1
-  --phase pre-review` from a clean worktree, records the pass, then gives the
-  packet to the human operator.
+- Next action: the human operator executes `review-2-claude.prompt.md` in a
+  fresh read-only Anthropic Fable5 session and returns the verbatim artifact
+  and completed receipt. If Fable5 returns a qualifying failure, preserve it
+  and stop for bookkeeper routing before any Opus attempt.
 - Read-set: `status.current_inputs` only.
 - Do not read credentials, `.env*`, expanded alias environments, intermediate
   Kimi environment output, unrelated stages, or history directories.
@@ -48,6 +48,8 @@
   compare sentinel: `11/11 passed`; `py_compile` and diff checks: pass.
 - Review-1 artifact and intake are committed and remain outside the fixed code
   fingerprint as later review evidence.
+- Review-2 packet commit: `ed373e4`; clean `status=review_2` pre-review gate:
+  pass.
 
 ## Authority Boundaries
 
@@ -62,6 +64,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md
-本地北京时间: 2026-07-21 19:43:11 CST
-下一步模型: bookkeeper
-下一步任务: commit the review-2 packet, pass the clean pre-review gate, then hand the Fable5 review to the human operator
+本地北京时间: 2026-07-21 19:47:30 CST
+下一步模型: human operator → fresh Claude / claude-fable-5
+下一步任务: execute the final read-only review, capture 50-review-2.md verbatim, fill the receipt, and return it to bookkeeper

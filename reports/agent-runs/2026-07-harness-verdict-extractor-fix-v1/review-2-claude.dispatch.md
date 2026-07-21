@@ -36,7 +36,7 @@ next_dispatch: executor: human_operator — run Fable5 in a fresh read-only Anth
 - Reviewed Head SHA: `569be63a6f467e4e5e255a4713f94a08e37cd9b8`
 - Diff fingerprint:
   `569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655`
-- Status: `prepared_pending_clean_review_2_preflight`
+- Status: `pre_review_passed_waiting_human_dispatch`
 - Prepared at: `2026-07-21 19:43:11 CST`
 - Credential/environment dump or network access authorized: no
 - Repository writes by reviewer authorized: no

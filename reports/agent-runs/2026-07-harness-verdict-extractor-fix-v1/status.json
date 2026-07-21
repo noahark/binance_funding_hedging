@@ -132,8 +132,8 @@
       "session_id": null,
       "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
       "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/{30-review-1.md,30-review-1.bookkeeper-intake.md,review-2-claude.prompt.md,review-2-claude.dispatch.md,status.json,70-handoff.md}",
-      "result": "review_1_ACCEPT_evidence_committed_at_79167ea_clean_pre_review_passed_independent_Claude_review_2_packet_prepared_no_dispatch_executed",
-      "recorded_at": "2026-07-21T19:43:11+08:00"
+      "result": "review_1_ACCEPT_evidence_committed_at_79167ea_independent_Claude_review_2_packet_committed_at_ed373e4_clean_review_2_preflight_passed_no_dispatch_executed",
+      "recorded_at": "2026-07-21T19:47:30+08:00"
     }
   ],
   "designer": {
@@ -353,7 +353,7 @@
     "provider_identity": "anthropic",
     "model": "claude-fable-5",
     "fallback_model_on_quota": "opus4.8",
-    "status": "prepared_pending_clean_review_2_preflight",
+    "status": "pre_review_passed_waiting_human_dispatch",
     "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
     "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
@@ -417,6 +417,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "bookkeeper_commits_review_2_packet_runs_clean_pre_review_gate_then_human_operator_executes_fresh_Anthropic_Fable5_review_2",
-  "updated_at": "2026-07-21T19:43:11+08:00"
+  "next_action": "human_operator_executes_review_2_in_a_fresh_read_only_Anthropic_Fable5_session_and_returns_verbatim_artifact_and_receipt_or_preserves_a_qualifying_failure_for_Opus_fallback_routing",
+  "updated_at": "2026-07-21T19:47:30+08:00"
 }
