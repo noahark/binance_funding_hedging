@@ -2,14 +2,27 @@
 
 ## Recovery Header
 
-- Active phase: `fixing`
-  (`user_authorized_codex_direct_micro_fix_8_all_tests_green`).
-- Next action: bookkeeper commits the all-green evidence and computes a new
-  fingerprint. Do not call the prior Review-2 passed; Codex is now a fix author
-  and therefore hard-ineligible to review this stage.
+- Active phase: `release_authorized_pending_local_main_merge`.
+- Next action: bookkeeper records the user acceptance checkpoint and merges the
+  stage into local `main` without rebase. The user will then add non-secret
+  variable references in `.env` and restart the service.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
+
+## User Release Authorization
+
+- Evidence: `80-user-acceptance.md`.
+- The user explicitly waives a fresh formal Review-2 and authorizes the local
+  merge to `main` for online acceptance. This is a human release decision, not
+  an invented `Review-2 ACCEPT` verdict.
+- The user, not the bookkeeper, will configure
+  `BINANCE_BORROW_API_KEY="${BINANCE_API_KEY}"` and the corresponding secret
+  reference in `.env`, then restart the service. No `.env` or credential is
+  read or edited by the bookkeeper.
+- Before deleting tasks or considering live operation, inspect the new service
+  read-only. The global Start gate and any real Binance borrow remain disabled
+  until an explicit later user action.
 
 ## Fix-7 Intake And Direct Micro Fix-8 Closure
 

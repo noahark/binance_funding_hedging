@@ -852,6 +852,17 @@
       "recorded_at": "2026-07-21T23:10:25+08:00",
       "scope": "three mechanical test-fixture literals in backend/tests/test_borrow_executor.py",
       "does_not_authorize": ["claiming an unexecuted Review-2 is ACCEPT", "merge", "deployment", "credential access", "real Binance request", "live-borrow start"]
+    },
+    "user_release_authorization": {
+      "verbatim": "我批准 review-2 免试通过了，现在最要紧的是让我能在线上验收通过借币的功能最重要",
+      "evidence_file": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/80-user-acceptance.md",
+      "recorded_at": "2026-07-21T23:27:09+08:00",
+      "formal_review_2_waived_by_user": true,
+      "merge_to_local_main_authorized": true,
+      "deployment_preflight_authorized": true,
+      "real_binance_borrow_authorized": false,
+      "global_start_authorized": false,
+      "credential_read_or_edit_authorized": false
     }
   },
   "design_review": {
@@ -1641,6 +1652,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "await_user_decision_on_formal_eligible_Anthropic_review_2_or_non_Harness_release_handling; do_not_claim_review_2_ACCEPT_without_actual_review",
-  "updated_at": "2026-07-21T23:13:48+08:00"
+  "next_action": "bookkeeper_creates_user_acceptance_checkpoint_and_merges_stage_to_local_main_without_rebase; user_then_restarts_service_after_local_env_alias_configuration; no_real_borrow_or_global_start",
+  "updated_at": "2026-07-21T23:27:09+08:00"
 }
