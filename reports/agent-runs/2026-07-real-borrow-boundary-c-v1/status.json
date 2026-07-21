@@ -1331,6 +1331,18 @@
     "live_binance_write_authorized": false,
     "credential_read_authorized": false
   },
+  "review_2_attempt_1_intake_checkpoint": {
+    "recorded_at": "2026-07-21T22:03:49+08:00",
+    "branch": "stage/2026-07-real-borrow-boundary-c-v1",
+    "packet_commit": "55c1cdea68b064a45bfb4366022a6c1981b53749",
+    "worktree_clean_immediately_after_commit": true,
+    "checkpoint_validator": "PASS with status fixing",
+    "raw_artifact_sha256": "23e00e348e187c0069b7d3762be2ce1ff403c2eb0d0d7f1eff6fbc9f15ec18a8",
+    "formal_gate_valid": false,
+    "blocking_findings": ["R2-A1-interval-floor", "R2-A2-classification-order", "R2-A3-atomic-live-authorization"],
+    "fix_packet": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.prompt.md",
+    "next_action": "human operator executes the prepared Fix-7 packet with the original zhipu_glm implementer"
+  },
   "harness_follow_up": {
     "status": "open_main_only",
     "path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/harness-review-verdict-extractor.follow-up.md",
@@ -1464,5 +1476,5 @@
     }
   },
   "next_action": "human_operator_executes_task_C_review_2_fix_7_with_original_claude_glm_implementer_then_returns_to_bookkeeper_for_audit_tests_new_fingerprint_and_fresh_reviews",
-  "updated_at": "2026-07-21T22:03:09+08:00"
+  "updated_at": "2026-07-21T22:03:49+08:00"
 }

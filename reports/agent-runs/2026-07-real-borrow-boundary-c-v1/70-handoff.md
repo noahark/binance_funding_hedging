@@ -36,6 +36,9 @@
   mechanical routing/footer tail).
 - Dispatch: `task-C-review-2-fix-7.dispatch.md`, human operator only, original
   `zhipu_glm` author. The P3 items remain outside this bounded fix.
+- Fix-7 intake/dispatch packet evidence commit:
+  `55c1cdea68b064a45bfb4366022a6c1981b53749`; the worktree was clean and the
+  checkpoint validator passed immediately afterward.
 - After successful fix intake, bookkeeper tests and a new committed fingerprint,
   re-enter fresh Review-1 and then a correctly executed Review-2.
 - No merge, deployment, credential access, real Binance request, live-borrow
@@ -213,6 +216,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 22:03:09 CST
+本地北京时间: 2026-07-21 22:03:49 CST
 下一步模型: human operator → Claude-GLM / zhipu_glm / glm-5.2[1m]
 下一步任务: execute task-C-review-2-fix-7.prompt.md, fill its receipt, and stop for bookkeeper intake; do not dispatch a reviewer or merge

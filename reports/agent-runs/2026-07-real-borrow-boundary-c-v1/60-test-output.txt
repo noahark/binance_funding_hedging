@@ -1219,6 +1219,24 @@ $ git diff --check
 exit 0 (clean)
 ```
 
+Fix-7 packet commit and post-commit checkpoint:
+
+```text
+$ git commit -m "harness: route Boundary C review-2 safety fixes"
+[stage/2026-07-real-borrow-boundary-c-v1 55c1cde] harness: route Boundary C review-2 safety fixes
+9 files changed, 549 insertions(+), 33 deletions(-)
+
+$ git status --short --branch
+## stage/2026-07-real-borrow-boundary-c-v1
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=fixing
+diff_fingerprint=87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162
+```
+
 ## 2026-07-21 20:22:07 CST — User-authorized main-to-stage sync preflight
 
 ```text
