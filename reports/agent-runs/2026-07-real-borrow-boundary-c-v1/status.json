@@ -46,7 +46,7 @@
     }
   },
   "main_sync_authorization": {
-    "status": "review_head_committed_ready_for_fresh_review_1",
+    "status": "review_packet_committed_pre_review_passed_waiting_human_dispatch",
     "authorized_by": "user",
     "verbatim": "批准执行",
     "authorized_at": "2026-07-21T20:16:59+08:00",
@@ -70,7 +70,8 @@
       "checkpoint_validator": "PASS",
       "git_diff_check": "clean",
       "evidence_head": "87c19273c3f488cf6d9ca80f8541704bb198cb81",
-      "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162"
+      "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
+      "pre_review_validator": "PASS at committed packet HEAD 6b1ac92b50413cc540fe888f8cf91e7b68dde6ee"
     },
     "required_after_merge": [
       "rerun_boundary_c_fake_only_product_tests",
@@ -1024,7 +1025,8 @@
       "post-main-sync historical compare sentinel: 11/11 passed",
       "post-main-sync py_compile: exit 0",
       "post-main-sync checkpoint validator: PASS",
-      "post-main-sync git diff --check: clean"
+      "post-main-sync git diff --check: clean",
+      "round-2 pre-review validator at committed packet HEAD 6b1ac92b50413cc540fe888f8cf91e7b68dde6ee: PASS"
     ]
   },
   "review_1": {
@@ -1042,7 +1044,7 @@
     "json_schema_valid": null,
     "reported_verdict": null,
     "artifact_json_schema_valid": null,
-    "gate_disposition": "prepared_waiting_human_operator_fresh_context_dispatch",
+    "gate_disposition": "pre_review_passed_waiting_human_operator_fresh_context_dispatch",
     "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
     "covers_through_task": "C",
     "reviewer_prior_involvement": "design",
@@ -1054,6 +1056,11 @@
     "future_retry_requires_new_provider_session": false,
     "future_retry_requires_fresh_context": true,
     "fresh_context_evidence": "pending human operator execution: use a new Kimi terminal or execute /clear then /new before the round-2 prompt",
+    "pre_review_validation": {
+      "result": "PASS",
+      "validated_packet_head": "6b1ac92b50413cc540fe888f8cf91e7b68dde6ee",
+      "recorded_at": "2026-07-21T20:35:49+08:00"
+    },
     "invalid_json_attempts": 0,
     "historical_attempts": [
       {
@@ -1346,6 +1353,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "run_pre_review_validator_commit_dispatch_packet_then_human_operator_executes_fresh_context_kimi_review_1_round_2",
-  "updated_at": "2026-07-21T20:30:12+08:00"
+  "next_action": "human_operator_executes_review_1_kimi_round_2_in_fresh_context_captures_raw_output_and_fills_receipt_then_bookkeeper_intakes",
+  "updated_at": "2026-07-21T20:35:49+08:00"
 }

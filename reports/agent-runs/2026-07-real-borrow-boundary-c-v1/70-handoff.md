@@ -1,12 +1,13 @@
-# Handoff — Boundary C Fresh Review-1 Round 2 Prepared
+# Handoff — Boundary C Fresh Review-1 Round 2 Dispatch Ready
 
 ## Recovery Header
 
 - Active phase: `review_1`
-  (`round_2_packet_prepared_pre_review_validation_pending`).
-- Next action: run and preserve the pre-review validator, commit the dispatch
-  packet, then the human operator executes the new Kimi prompt in a new terminal
-  or after `/clear` followed by `/new`.
+  (`round_2_pre_review_passed_waiting_human_dispatch`).
+- Next action: the human operator executes the committed Kimi prompt in a new
+  terminal or after `/clear` followed by `/new`, captures the raw output
+  verbatim at `30-review-1-round-2.md`, fills the dispatch receipt and returns
+  to bookkeeper intake.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
@@ -117,6 +118,9 @@
   `87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162`.
 - Round-1 raw evidence remains immutable at `30-review-1.md`.
 - Round-2 output target is `30-review-1-round-2.md`.
+- Packet commit: `6b1ac92b50413cc540fe888f8cf91e7b68dde6ee`.
+- `scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase
+  pre-review`: PASS on that clean committed packet.
 - The earlier review dispatch packet also omitted the machine receipt block.
   The narrative receipt remains verbatim; a mechanical non-accepting block was
   added, and fix-4 uses the required machine format from the start.
@@ -155,6 +159,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 20:30:12 CST
+本地北京时间: 2026-07-21 20:35:49 CST
 下一步模型: human operator → Kimi
-下一步任务: after bookkeeper pre-review validation and packet commit, execute review-1-kimi-round-2.prompt.md in fresh Kimi context and capture the raw output verbatim
+下一步任务: execute review-1-kimi-round-2.prompt.md in fresh Kimi context, capture 30-review-1-round-2.md verbatim, fill the receipt, and return to bookkeeper

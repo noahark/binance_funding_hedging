@@ -1336,3 +1336,26 @@ $ git status --short --branch
 
 New standard fingerprint:
 `87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162`.
+
+## 2026-07-21 20:35:49 CST — Review-1 round-2 pre-review gate
+
+The prompt, dispatch packet and review status were committed at
+`6b1ac92b50413cc540fe888f8cf91e7b68dde6ee` before this gate.
+
+```text
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162
+
+$ git diff --binary c9df14591ac4ca00977ce0e4d80c0950aae44c19..87c19273c3f488cf6d9ca80f8541704bb198cb81 -- . ':(exclude)reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json' | shasum -a 256
+29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162  -
+
+$ git diff --check
+exit 0 (clean)
+
+$ git status --short --branch
+## stage/2026-07-real-borrow-boundary-c-v1
+```
