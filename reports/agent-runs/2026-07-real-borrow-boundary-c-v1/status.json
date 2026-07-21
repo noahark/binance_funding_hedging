@@ -1435,11 +1435,13 @@
     "recorded_at": "2026-07-21T22:55:21+08:00",
     "branch": "stage/2026-07-real-borrow-boundary-c-v1",
     "head_before_fix_evidence_commit": "e08dedf9a5c8c14b2609ee744eb19468e2985cbb",
-    "git_status": "Fix-7 source/tests/report uncommitted; Micro Fix-8 packet prepared; no new review fingerprint created",
+    "micro_fix_8_packet_commit": "54de9b54567d14aa8707e4a2fcf543109f33f197",
+    "git_status": "after packet commit, only the eleven Fix-7 product source/test/schema files remain modified; Micro Fix-8 has not executed and no new review fingerprint exists",
     "source_findings_closed": ["R2-A1-interval-floor", "R2-A2-classification-order", "R2-A3-atomic-live-authorization"],
     "blocking_findings": ["BK-R2-FIX7-001"],
     "test_status": "focused 214 passed; test_borrow_executor.py 2 failed and 5 passed solely due to two 1-second fixtures; all-green gate intentionally withheld",
     "verified_fix_session_id": "db43835f-2fd3-49cf-b877-bb9841020efa",
+    "checkpoint_validator": "PASS with status fixing",
     "next_action": "human operator executes task-C-review-2-fix-8.prompt.md with the original zhipu_glm fix author"
   },
   "harness_follow_up": {
@@ -1573,5 +1575,5 @@
     }
   },
   "next_action": "human_operator_executes_task_C_review_2_fix_8_with_original_claude_glm_fix_author_then_returns_to_bookkeeper_for_all_green_audit_evidence_commit_new_fingerprint_RC4_review_1_exception_and_direct_review_2",
-  "updated_at": "2026-07-21T22:55:21+08:00"
+  "updated_at": "2026-07-21T23:01:23+08:00"
 }

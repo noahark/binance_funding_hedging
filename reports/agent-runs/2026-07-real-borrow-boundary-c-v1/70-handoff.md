@@ -29,6 +29,9 @@
   so Micro Fix-8 also changes its fake-clock step to two seconds.
 - Micro Fix-8 exact code boundary: `backend/tests/test_borrow_executor.py`.
   Product source, frontend, schemas and Harness are frozen.
+- Fix-8 routing/evidence packet commit:
+  `54de9b54567d14aa8707e4a2fcf543109f33f197`. Immediately after that commit,
+  only the eleven Fix-7 product source/test/schema paths remained modified.
 - Formal `rework_count` stays `1`; no new review fingerprint exists yet and
   `tests.status` is intentionally failed until the full suite is green.
 - After successful Fix-8 intake, bookkeeper will commit the complete evidence,

@@ -4,9 +4,9 @@
     "phase": "fixing",
     "handoff": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
     "note": "Boundary C is in Micro Fix-8. Fix-7 closed all three Review-2 P1 source findings; the focused 214-test suite passes. Full backend is held red only by two test_borrow_executor.py fixtures that still request the newly forbidden one-second interval; the first fixture also needs a two-second fake-clock step to preserve five-category coverage. BK-R2-FIX7-001 is routed to the original zhipu_glm fix author through task-C-review-2-fix-8.prompt.md. Formal rework_count remains 1. After all-green intake and a new fingerprint, the user-authorized RC4 Review-1 fingerprint exception will preserve the prior Kimi ACCEPT and route directly to a correctly executed Review-2. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or acceptance is authorized.",
-    "updated_at": "2026-07-21T22:55:21+08:00"
+    "updated_at": "2026-07-21T23:01:23+08:00"
   },
   "last_completed": "2026-07-harness-verdict-extractor-fix-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T22:55:21+08:00"
+  "updated_at": "2026-07-21T23:01:23+08:00"
 }

@@ -79,4 +79,3 @@ Success criteria:
   that review.
 - Append the required six-line runtime footer to the new Micro Fix-8 report
   section, using a verified Session ID/source or an explicit unavailable reason.
-
