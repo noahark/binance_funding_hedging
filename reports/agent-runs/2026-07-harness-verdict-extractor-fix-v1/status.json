@@ -134,6 +134,35 @@
       "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/{30-review-1.md,30-review-1.bookkeeper-intake.md,review-2-claude.prompt.md,review-2-claude.dispatch.md,status.json,70-handoff.md}",
       "result": "review_1_ACCEPT_evidence_committed_at_79167ea_independent_Claude_review_2_packet_committed_at_ed373e4_clean_review_2_preflight_passed_no_dispatch_executed",
       "recorded_at": "2026-07-21T19:47:30+08:00"
+    },
+    {
+      "role": "review_2_preferred_model_availability",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "claude-fable-5",
+      "session_id": "unavailable: Fable5 quota attempt produced no preserved transcript or provider-native Session ID",
+      "session_id_source": "operator",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md",
+      "executor": "human_operator",
+      "result": "quota_exhausted_routed_to_registered_same_provider_opus4_8_fallback",
+      "recorded_at": "2026-07-21T20:08:12+08:00"
+    },
+    {
+      "role": "review_2",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "runtime_model_metadata": "claude-opus-4-8",
+      "session_id": "unavailable: reviewer runtime exposed no provider-native Session ID",
+      "session_id_source": "transcript_path",
+      "session_navigation_id": "7fc9407a-24ca-4fa6-99e6-6e17a7c0c875",
+      "session_id_notes": "Artifact footer and dispatch receipt remain unavailable-class; transcript records /clear, repository cwd, immutable prompt, actual Opus model metadata, and fresh review context",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
+      "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
+      "executor": "human_operator",
+      "result": "schema_valid_final_ACCEPT_zero_findings_pending_committed_pre_accept_gate",
+      "recorded_at": "2026-07-21T20:08:12+08:00"
     }
   ],
   "designer": {
@@ -184,9 +213,12 @@
   "reviewer_2": {
     "provider": "claude",
     "provider_identity": "anthropic",
-    "model": "claude-fable-5",
+    "model": "opus4.8",
+    "runtime_model_metadata": "claude-opus-4-8",
     "fallback_model_on_quota": "opus4.8",
-    "selection_reason": "Codex/GPT authored the lightweight stage design and is the bookkeeper, so the workflow primary is anti-self-review ineligible; unrelated Anthropic Claude is the independent final reviewer",
+    "selection_reason": "Codex/GPT authored the lightweight stage design and is the bookkeeper, so the workflow primary is anti-self-review ineligible; unrelated Anthropic Claude is the independent final-review provider. The preferred Fable5 model was quota-exhausted per human-operator evidence, so the registered same-provider Opus4.8 fallback executed.",
+    "model_fallback_reason": "quota_exhausted",
+    "model_fallback_evidence": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md",
     "fresh_session_required": true,
     "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
@@ -284,7 +316,10 @@
     "docs/product/PRD.md",
     "docs/architecture/ARCHITECTURE.md",
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
-    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md"
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.bookkeeper-intake.md"
   ],
   "base_sha": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
   "head_sha": "569be63a6f467e4e5e255a4713f94a08e37cd9b8",
@@ -351,31 +386,37 @@
     "reviewer": "claude",
     "provider": "claude",
     "provider_identity": "anthropic",
-    "model": "claude-fable-5",
+    "model": "opus4.8",
+    "runtime_model_metadata": "claude-opus-4-8",
     "fallback_model_on_quota": "opus4.8",
-    "status": "pre_review_passed_waiting_human_dispatch",
+    "status": "valid_ACCEPT_bookkeeper_intake_complete_evidence_commit_and_pre_accept_pending",
     "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
     "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
     "primary_provider": "codex",
     "fallback_provider": "claude",
     "fallback_reason": "anti_self_review_ineligible: Codex authored the maintenance design; use the unrelated Anthropic decision provider",
+    "model_fallback_reason": "quota_exhausted: human operator reports Fable5 quota insufficient; routed to registered same-provider Opus4.8 fallback",
+    "model_fallback_evidence": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md",
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": null,
-    "unrelated_reviewer_unavailable_evidence": null,
+    "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md",
     "design_conflict_override": {
       "used": false,
       "reason": null,
       "unrelated_reviewer_unavailable_evidence": null
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
     "diff_fingerprint": "569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655",
-    "covers_through_task": null,
-    "fix_start_prompt_present": null,
+    "covers_through_task": "H",
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0
+    "invalid_json_attempts": 0,
+    "intake_audit_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.bookkeeper-intake.md",
+    "reviewed_at": "2026-07-21T20:02:52+08:00",
+    "intake_completed_at": "2026-07-21T20:08:12+08:00"
   },
   "authorized_exceptions": [],
   "rework_count": 0,
@@ -417,6 +458,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_executes_review_2_in_a_fresh_read_only_Anthropic_Fable5_session_and_returns_verbatim_artifact_and_receipt_or_preserves_a_qualifying_failure_for_Opus_fallback_routing",
-  "updated_at": "2026-07-21T19:47:30+08:00"
+  "next_action": "bookkeeper_commits_final_ACCEPT_fallback_and_receipt_evidence_runs_clean_pre_accept_gate_then_sets_stage_accepted_waiting_user_without_merging_main",
+  "updated_at": "2026-07-21T20:08:12+08:00"
 }

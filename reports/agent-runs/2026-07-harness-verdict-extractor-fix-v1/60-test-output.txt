@@ -477,3 +477,41 @@ diff_fingerprint=569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195
 
 The final-review dispatch gate is ready. No Claude/Opus invocation, final
 verdict, main merge, Boundary C synchronization, or acceptance occurred.
+
+## Bookkeeper intake of Opus4.8 final review-2
+
+Run at 2026-07-21 20:08:12 CST.
+
+```text
+$ repaired extractor + _parse_review_artifact on 50-review-2.md
+PARSED=True
+MODEL=opus4.8
+VERDICT=ACCEPT
+FINDINGS=0
+FINGERPRINT=569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655
+NEXT_ACTION=stage_accepted_waiting_user
+ERRORS=[]
+
+$ verified Claude transcript
+navigation_session=7fc9407a-24ca-4fa6-99e6-6e17a7c0c875
+runtime_model=claude-opus-4-8
+fresh_context=/clear then one Task H review-2 prompt
+review_started_at=2026-07-21T19:54:28+08:00
+final_text_at=2026-07-21T20:02:52+08:00
+
+$ Fable5 fallback evidence
+operator_reported_failure_class=quota_exhausted
+preferred_model=claude-fable-5
+fallback_model=opus4.8
+raw_fable_cli_output=unavailable (not preserved; no wording invented)
+evidence_path=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-fable5.unavailable.md
+
+$ git diff --check
+exit 0 (clean)
+```
+
+The raw final Opus assistant text was recovered verbatim from the matching
+local transcript because the expected artifact was absent. The visibly
+truncated chat rendering was not used. Intermediate tool/environment output
+was not copied. The final ACCEPT still requires committed evidence and a clean
+pre-accept gate before entering `stage_accepted_waiting_user`.

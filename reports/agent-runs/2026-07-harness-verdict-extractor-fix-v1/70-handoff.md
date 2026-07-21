@@ -1,69 +1,71 @@
-# Handoff — Task H Review-2 Packet Prepared
+# Handoff — Task H Final ACCEPT Pending Pre-Accept Gate
 
 ## Recovery Header
 
-- Active phase: `review_2` (`pre_review_passed_waiting_human_dispatch`).
+- Active phase: `review_2`
+  (`valid_ACCEPT_bookkeeper_intake_complete_evidence_commit_and_pre_accept_pending`).
 - Branch: `harness/dispatch-review-reform-v1`.
 - Reviewed base: `4b1fcdd5fb0562eb00467437bf2ec9ad0286581a`.
 - Reviewed head: `569be63a6f467e4e5e255a4713f94a08e37cd9b8`.
 - Diff fingerprint:
   `569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655`.
-- Next action: the human operator executes `review-2-claude.prompt.md` in a
-  fresh read-only Anthropic Fable5 session and returns the verbatim artifact
-  and completed receipt. If Fable5 returns a qualifying failure, preserve it
-  and stop for bookkeeper routing before any Opus attempt.
+- Next action: bookkeeper commits `50-review-2.md`, the Opus receipt,
+  Fable5 quota evidence, intake audit, and state checkpoint; then runs
+  `scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1
+  --phase pre-accept` from a clean worktree. Only on pass may status move to
+  `stage_accepted_waiting_user`.
 - Read-set: `status.current_inputs` only.
-- Do not read credentials, `.env*`, expanded alias environments, intermediate
-  Kimi environment output, unrelated stages, or history directories.
+- Do not read credentials, `.env*`, expanded adapter environments,
+  intermediate reviewer tool/environment output, unrelated stages, or history.
 
-## Completed Review-1 Gate
+## Final Review Result
 
-- Evidence commit: `79167ea`.
-- Reviewer: Kimi / `moonshot_kimi`.
-- Verdict: schema-valid `ACCEPT`; findings / required fixes: `0 / 0`.
-- Fingerprint, provider isolation, prior-involvement disclosure, receipt/footer
-  consistency, and fresh-context transcript evidence: pass.
-- Clean `--phase pre-review` gate after the review-1 evidence commit: pass.
+- Provider: Anthropic Claude.
+- Actual model: `opus4.8`; transcript metadata: `claude-opus-4-8`.
+- Verdict: schema-valid final `ACCEPT`.
+- Findings / required fixes: `0 / 0`.
+- Next action in verdict: `stage_accepted_waiting_user`.
+- Fingerprint: exact fixed match.
+- Reviewer prior involvement: `none`.
+- Provider isolation: passes against `zhipu_glm` implementation/fix,
+  `moonshot_kimi` review-1, and Codex design/bookkeeping.
 - Formal `rework_count`: `0`.
 
-## Review-2 Routing
+## Fable5 To Opus4.8 Fallback
 
-- Default Codex/GPT review-2 primary is anti-self-review ineligible because
-  Codex authored the lightweight Task H design and is the bookkeeper.
-- Selected independent provider: Anthropic Claude.
-- Preferred model: `claude-fable-5`.
-- `opus4.8` may be used only after the human operator observes and preserves a
-  qualifying Fable5 quota/auth/service/timeout failure at an Anthropic endpoint.
-- Prompt: `review-2-claude.prompt.md`.
-- Dispatch receipt: `review-2-claude.dispatch.md`.
-- Expected raw artifact: `50-review-2.md`.
-- Reviewer prior involvement: `none`; implementation/fix provider is
-  `zhipu_glm`, so provider isolation passes.
+- Preferred Fable5 model was reported quota-exhausted by the human operator.
+- Evidence path: `review-2-fable5.unavailable.md`.
+- Raw Fable CLI error text/transcript was not preserved; the evidence records
+  this explicitly and does not invent command output or an unavailable ID.
+- The configured same-provider fallback was used. Actual Opus execution is
+  independently verified by local transcript model metadata.
 
-## Frozen Evidence
+## Raw Artifact And Fresh Context
 
-- Code evidence commit under review:
-  `569be63a6f467e4e5e255a4713f94a08e37cd9b8`.
-- Targeted tests: `52 passed`; full Harness tests: `128 passed`; historical
-  compare sentinel: `11/11 passed`; `py_compile` and diff checks: pass.
-- Review-1 artifact and intake are committed and remain outside the fixed code
-  fingerprint as later review evidence.
-- Review-2 packet commit: `ed373e4`; clean `status=review_2` pre-review gate:
-  pass.
+- The human run did not initially create `50-review-2.md`. The bookkeeper
+  recovered only the final completed `end_turn` text verbatim from the matching
+  Claude transcript; chat-rendered/truncated JSON was not used.
+- Local navigation transcript:
+  `7fc9407a-24ca-4fa6-99e6-6e17a7c0c875.jsonl`.
+- Transcript records repository cwd, `/clear`, the immutable Task H prompt,
+  actual Opus model metadata, and final output.
+- Reviewer footer and machine receipt both remain unavailable-class. The local
+  transcript UUID is navigation/fresh-context evidence only.
+- Repaired extractor intake: `ACCEPT`, `opus4.8`, zero findings,
+  `stage_accepted_waiting_user`, zero schema errors.
 
 ## Authority Boundaries
 
-- The bookkeeper prepared but did not execute the Claude dispatch.
-- Only the human operator may run Fable5 or, after a recorded qualifying
-  failure, authorize the routed Opus fallback.
-- Review-2 is strictly read-only. A valid ACCEPT advances only to
-  `stage_accepted_waiting_user`.
-- No `main` merge, push, deployment, Boundary C synchronization, final
-  acceptance, or stage completion is authorized at this checkpoint.
+- The bookkeeper did not execute Fable5 or Opus4.8 and did not rewrite the raw
+  final reviewer output.
+- Final ACCEPT does not itself merge the Harness branch. A passing pre-accept
+  gate moves only to `stage_accepted_waiting_user`.
+- No `main` merge, push, deployment, Boundary C synchronization, product
+  acceptance, credential access, or real borrow is authorized here.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md
-本地北京时间: 2026-07-21 19:47:30 CST
-下一步模型: human operator → fresh Claude / claude-fable-5
-下一步任务: execute the final read-only review, capture 50-review-2.md verbatim, fill the receipt, and return it to bookkeeper
+本地北京时间: 2026-07-21 20:08:12 CST
+下一步模型: bookkeeper
+下一步任务: commit final review and fallback evidence, run clean pre-accept validation, and stop at stage_accepted_waiting_user without merging main
