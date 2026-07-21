@@ -177,3 +177,58 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-21 14:04:00 CST
 下一步模型: bookkeeper
 下一步任务: create the local fix evidence commit, compute the new standard fingerprint, then close the main-only verdict-extractor prerequisite before fresh Kimi review-1
+
+---
+
+## Fix-7 Intake Addendum — Product P1s Closed, One Mechanical Test Residual
+
+Fix-7 is accepted for source-level intake on all three Review-2 P1 findings:
+
+- the backend interval authority now rejects values below the frozen two-second
+  capacity floor while preserving exact Decimal/microsecond handling;
+- all 2xx responses are classified before business rejection codes, every 5xx
+  remains unknown, and known rejection is restricted to the three archived
+  codes on definite 4xx responses after rate-limit handling;
+- `insert_pending_attempt(..., live_gates=True)` now rechecks
+  `live_authorized == 1` inside the same transaction before inserting intent.
+
+The targeted Fix-7 suite independently passes (`214 passed`). The implementer
+also ran the wider signing/transport suite (`345 passed`), frontend self-check,
+Harness tests (`128 passed`), py_compile, compare sentinel (`11/11`) and
+`git diff --check`; those results are internally consistent with the changed
+files and recorded raw output.
+
+One mechanical residual remains:
+
+### BK-R2-FIX7-001 — two zero-network fixtures still request a forbidden 1s interval
+
+Independent execution of `backend/tests/test_borrow_executor.py` produced
+exactly `2 failed, 5 passed`. Both failures occur before the tests' actual
+zero-urllib/no-secret assertions because lines 130 and 161 still configure
+`interval_seconds: "1"`, which Fix-7 now correctly rejects. This file was not
+in the Review-2 fix prompt's allowed list, so the GLM executor correctly stopped
+instead of widening scope.
+
+The closure is deliberately mechanical and separately authorized in Micro
+Fix-8: change both settings to `"2"`. The first scenario must also advance its
+fake clock by `2_000_000` microseconds per iteration; otherwise it would run
+only three of the five queued result categories while retaining the misleading
+comment that every category was exercised. No product source change is needed.
+
+The Fix-7 transcript-path Session ID
+`db43835f-2fd3-49cf-b877-bb9841020efa` was independently verified from the
+matching Claude Code JSONL metadata. The original dispatch receipt remained
+`prepared`; the bookkeeper corrected it from verified transcript/report facts.
+
+Formal `rework_count` remains `1`. No review gate, acceptance, merge,
+deployment, credential access, live Binance request or live-borrow start is
+authorized. After Micro Fix-8 is all green, bookkeeper will create a new
+committed fingerprint and apply the user's narrow RC4 authorization to retain
+the prior Kimi ACCEPT while routing directly to a correctly executed Review-2.
+
+当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md
+本地北京时间: 2026-07-21 22:55:21 CST
+下一步模型: human operator → Claude-GLM / zhipu_glm / glm-5.2[1m]
+下一步任务: execute task-C-review-2-fix-8.prompt.md, close BK-R2-FIX7-001, append fake-only evidence, and stop for bookkeeper intake

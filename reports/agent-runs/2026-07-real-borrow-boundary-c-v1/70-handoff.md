@@ -1,15 +1,46 @@
-# Handoff — Boundary C Fix-7 Dispatch Ready
+# Handoff — Boundary C Micro Fix-8 Dispatch Ready
 
 ## Recovery Header
 
 - Active phase: `fixing`
-  (`review_2_attempt_execution_contract_invalid_three_P1_reproduced`).
+  (`fix_7_three_P1_closed_one_mechanical_test_fixture_residual`).
 - Next action: the human operator executes
-  `task-C-review-2-fix-7.prompt.md` with the original Claude-GLM / zhipu_glm
-  implementer, fills the dispatch receipt and returns to bookkeeper intake.
+  `task-C-review-2-fix-8.prompt.md` with the original Claude-GLM / zhipu_glm
+  fix author, fills the dispatch receipt and returns to bookkeeper intake.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
+
+## Fix-7 Intake And Micro Fix-8 Routing
+
+- Fix-7 transcript Session ID
+  `db43835f-2fd3-49cf-b877-bb9841020efa` was independently verified from the
+  matching Claude Code JSONL metadata; the stale `prepared` dispatch receipt
+  has been corrected from that evidence and the report footer.
+- Source audit closes all three P1 findings: frozen two-second interval floor;
+  2xx-first/all-5xx-unknown classification; atomic `live_authorized=1`
+  recheck before intent insertion.
+- Independent focused verification: `214 passed`.
+- Independent isolation of `backend/tests/test_borrow_executor.py`:
+  `2 failed, 5 passed`; both failures occur during setup because two fixtures
+  still configure `interval_seconds="1"`.
+- The first fixture also advances only one second per loop. Merely changing the
+  interval literal would execute three rather than all five queued categories,
+  so Micro Fix-8 also changes its fake-clock step to two seconds.
+- Micro Fix-8 exact code boundary: `backend/tests/test_borrow_executor.py`.
+  Product source, frontend, schemas and Harness are frozen.
+- Formal `rework_count` stays `1`; no new review fingerprint exists yet and
+  `tests.status` is intentionally failed until the full suite is green.
+- After successful Fix-8 intake, bookkeeper will commit the complete evidence,
+  compute a new standard fingerprint, seal the user's RC4
+  `review_fingerprint_trails_status@review_1` authorization to that fingerprint,
+  validate the packet, and route directly to a correctly executed Review-2.
+- User-authorization evidence:
+  `review-1-fingerprint-exception-authorization.md`. The actual
+  `authorized_exceptions[]` record remains empty until it can be pinned to the
+  new committed fingerprint and sealed with the committed evidence digest.
+- No merge, deployment, credential access, live Binance request, live-borrow
+  start or acceptance is authorized.
 
 ## Review-2 Attempt 1 Intake And Fix-7 Routing
 

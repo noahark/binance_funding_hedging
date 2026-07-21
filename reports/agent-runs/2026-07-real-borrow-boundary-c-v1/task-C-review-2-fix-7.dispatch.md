@@ -1,13 +1,13 @@
 <!-- ===== DISPATCH RECEIPT（human operator fills after execution） =====
-status:        prepared
+status:        executed_stop_for_bookkeeper_residual_test_fixture
 target_model:  claude_glm / zhipu_glm / glm-5.2[1m]
 adapter_cmd:   claude-glm --model glm-5.2 -p "$(cat reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.prompt.md)"
 executor:      human_operator
-started_at:    not_started
-completed_at:  not_started
-session_id:    unavailable:not executed yet
-outputs:       append reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md; append reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt; bounded allowed source/tests from prompt
-next_dispatch: none; stop for bookkeeper intake, audit, tests, commit, fingerprint and fresh reviews
+started_at:    unavailable:not exposed in verified transcript metadata
+completed_at:  2026-07-21 22:41:33 CST
+session_id:    db43835f-2fd3-49cf-b877-bb9841020efa (transcript_path verified by bookkeeper)
+outputs:       allowed Fix-7 source/tests; append 40-fix-report.md; append 60-test-output.txt; three P1 source fixes complete; full backend left two out-of-allowlist fixture failures
+next_dispatch: bookkeeper prepared Micro Fix-8 for BK-R2-FIX7-001; human operator executes it with the same provider
 ===== END RECEIPT ===== -->
 
 # Task C — Review-2 Safety Findings / Fix-7 Dispatch
@@ -33,6 +33,6 @@ next_dispatch: none; stop for bookkeeper intake, audit, tests, commit, fingerpri
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.dispatch.md
-本地北京时间: 2026-07-21 21:57:54 CST
+本地北京时间: 2026-07-21 22:55:21 CST
 下一步模型: human operator → Claude-GLM / zhipu_glm / glm-5.2[1m]
-下一步任务: run the exact prepared GLM command, fill this receipt, and stop for bookkeeper; do not dispatch any reviewer or merge action
+下一步任务: execute task-C-review-2-fix-8.prompt.md to close the isolated test-fixture residual, then stop for bookkeeper

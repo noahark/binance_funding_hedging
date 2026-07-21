@@ -1540,3 +1540,364 @@ exit 0
 $ git diff --check
 exit 0 (clean)
 ```
+
+## Fix-7 (review-2 bounded repair) — real fake-only verification output
+
+Runner: glm-5.2[1m] via Claude Code harness, single session, no model/adapter
+relay (HARNESS-EXECUTOR-CONTRACT v1). All eight reviewer-prescribed commands
+ran to completion in THIS session; the block below is the real captured
+stdout/stderr plus the per-command exit code. No fabrication. Commands
+1, 2, 4, 5, 6, 7, 8 are green; command 3 (`pytest backend/tests`) reports
+2 failed / 648 passed — its two failures are `backend/tests/test_borrow_executor.py`
+cases that set a sub-floor `interval_seconds: "1"` and are now (correctly)
+rejected by the new P1-1 floor (`domain.py:210`). That test file is OUTSIDE
+the review-2 allowed-files list (Forbidden: "Every file not listed above"),
+so it was NOT modified in this bounded repair; see the Fix-7 section of
+`40-fix-report.md` for the full file-boundary analysis and the suggested
+one-line mechanical follow-up for the bookkeeper/reviewer.
+
+===== CMD 1: borrow-focused suites =====
+........................................................................ [ 33%]
+........................................................................ [ 67%]
+......................................................................   [100%]
+214 passed in 18.81s
+EXIT_1: 0
+
+===== CMD 2: signing/transport/config suites =====
+........................................................................ [ 20%]
+........................................................................ [ 41%]
+........................................................................ [ 62%]
+........................................................................ [ 83%]
+.........................................................                [100%]
+345 passed in 26.06s
+EXIT_2: 0
+
+===== CMD 3: full backend/tests =====
+........................................................................ [ 11%]
+........................................................................ [ 22%]
+........................FF.............................................. [ 33%]
+........................................................................ [ 44%]
+........................................................................ [ 55%]
+........................................................................ [ 66%]
+........................................................................ [ 77%]
+........................................................................ [ 88%]
+........................................................................ [ 99%]
+..                                                                       [100%]
+=================================== FAILURES ===================================
+__________________ test_full_scenario_makes_zero_urllib_calls __________________
+
+tmp_path = PosixPath('/private/var/folders/tt/73pl2lrx5ldc5c4hl9wy9qt40000gn/T/pytest-of-ark/pytest-118/test_full_scenario_makes_zero_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107594b20>
+
+    def test_full_scenario_makes_zero_urllib_calls(tmp_path, monkeypatch):
+        def boom(*args, **kwargs):
+            raise AssertionError("urlopen must never be called on a borrow path")
+
+        monkeypatch.setattr(urllib.request, "urlopen", boom)
+        clock = _Clock(0)
+        exe = PaperBorrowExecutor(
+            [success(), unknown(), rate_limited(2), known_rejection(), execution_disabled()]
+        )
+        svc = BorrowTaskService(
+            str(tmp_path / "bt.sqlite3"),
+            executor=exe,
+            mono_us=clock.mono_us,
+            wall_us=clock.wall_us,
+        )
+>       svc.put_settings({"interval_seconds": "1"})
+
+backend/tests/test_borrow_executor.py:130:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/borrow_tasks/service.py:309: in put_settings
+    seconds_str, interval_us = D.parse_interval_seconds(body["interval_seconds"])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+value = '1'
+
+    def parse_interval_seconds(value):
+        """Return ``(interval_seconds, interval_us)`` or raise ``invalid_interval``.
+
+        A JSON number is rejected (decimal discipline). The string must match the
+        decimal shape, be finite and > 0, normalize to an exact integer number of
+        microseconds >= 1, and respect the frozen 2-second exchange-capacity floor
+        (Boundary C §3.5 / breakdown §514,545-553). Finer-than-microsecond values
+        and sub-2-second cadences (e.g. ``"0.5"``, ``"1.999"``) are rejected. There
+        is no upper bound.
+        """
+        if not isinstance(value, str):
+            raise BorrowError(400, "invalid_interval", "interval_seconds must be a JSON string")
+        if not _INTERVAL_RE.match(value):
+            raise BorrowError(400, "invalid_interval", "interval_seconds must match ^[0-9]+(\\.[0-9]+)?$")
+        try:
+            seconds = Decimal(value)
+        except InvalidOperation as exc:  # pragma: no cover - regex already guards
+            raise BorrowError(400, "invalid_interval", "interval_seconds is not a finite decimal") from exc
+        if not seconds.is_finite() or seconds <= 0:
+            raise BorrowError(400, "invalid_interval", "interval_seconds must be finite and > 0")
+        scaled = seconds * Decimal(1_000_000)
+        truncated = scaled.to_integral_value()
+        if scaled != truncated or truncated < 1:
+            raise BorrowError(400, "invalid_interval", "interval_seconds is finer than one microsecond")
+        if seconds < MIN_INTERVAL_SECONDS:
+>           raise BorrowError(
+                400,
+                "invalid_interval",
+                "interval_seconds must be >= 2 (frozen shared-IP capacity floor)",
+            )
+E           backend.borrow_tasks.domain.BorrowError: invalid_interval: interval_seconds must be >= 2 (frozen shared-IP capacity floor)
+
+backend/borrow_tasks/domain.py:211: BorrowError
+_____________________ test_poisoned_env_secrets_never_leak _____________________
+
+tmp_path = PosixPath('/private/var/folders/tt/73pl2lrx5ldc5c4hl9wy9qt40000gn/T/pytest-of-ark/pytest-118/test_poisoned_env_secrets_neve0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107593040>
+
+    def test_poisoned_env_secrets_never_leak(tmp_path, monkeypatch):
+        secrets = {
+            "BINANCE_API_KEY": "SECRETKEY-AAAA",
+            "BINANCE_API_SECRET": "SECRETSECRET-BBBB",
+            "BINANCE_SIGNATURE": "SIG-CCCC-DDDD",
+        }
+        for key, value in secrets.items():
+            monkeypatch.setenv(key, value)
+        clock = _Clock(0)
+        svc = BorrowTaskService(
+            str(tmp_path / "bt.sqlite3"),
+            executor=PaperBorrowExecutor([execution_disabled()]),
+            mono_us=clock.mono_us,
+            wall_us=clock.wall_us,
+        )
+>       svc.put_settings({"interval_seconds": "1"})
+
+backend/tests/test_borrow_executor.py:161:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/borrow_tasks/service.py:309: in put_settings
+    seconds_str, interval_us = D.parse_interval_seconds(body["interval_seconds"])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+value = '1'
+
+    def parse_interval_seconds(value):
+        """Return ``(interval_seconds, interval_us)`` or raise ``invalid_interval``.
+
+        A JSON number is rejected (decimal discipline). The string must match the
+        decimal shape, be finite and > 0, normalize to an exact integer number of
+        microseconds >= 1, and respect the frozen 2-second exchange-capacity floor
+        (Boundary C §3.5 / breakdown §514,545-553). Finer-than-microsecond values
+        and sub-2-second cadences (e.g. ``"0.5"``, ``"1.999"``) are rejected. There
+        is no upper bound.
+        """
+        if not isinstance(value, str):
+            raise BorrowError(400, "invalid_interval", "interval_seconds must be a JSON string")
+        if not _INTERVAL_RE.match(value):
+            raise BorrowError(400, "invalid_interval", "interval_seconds must match ^[0-9]+(\\.[0-9]+)?$")
+        try:
+            seconds = Decimal(value)
+        except InvalidOperation as exc:  # pragma: no cover - regex already guards
+            raise BorrowError(400, "invalid_interval", "interval_seconds is not a finite decimal") from exc
+        if not seconds.is_finite() or seconds <= 0:
+            raise BorrowError(400, "invalid_interval", "interval_seconds must be finite and > 0")
+        scaled = seconds * Decimal(1_000_000)
+        truncated = scaled.to_integral_value()
+        if scaled != truncated or truncated < 1:
+            raise BorrowError(400, "invalid_interval", "interval_seconds is finer than one microsecond")
+        if seconds < MIN_INTERVAL_SECONDS:
+>           raise BorrowError(
+                400,
+                "invalid_interval",
+                "interval_seconds must be >= 2 (frozen shared-IP capacity floor)",
+            )
+E           backend.borrow_tasks.domain.BorrowError: invalid_interval: interval_seconds must be >= 2 (frozen shared-IP capacity floor)
+
+backend/borrow_tasks/domain.py:211: BorrowError
+=========================== short test summary info ============================
+FAILED backend/tests/test_borrow_executor.py::test_full_scenario_makes_zero_urllib_calls
+FAILED backend/tests/test_borrow_executor.py::test_poisoned_env_secrets_never_leak
+2 failed, 648 passed in 38.52s
+EXIT_3: 1
+
+===== DONE GROUP A (cmd 1-3) =====
+===== CMD 4: frontend self-check =====
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明区可见且内容已渲染
+[PASS] 默认渲染 6 行
+[PASS] 拆列存在，合并列消失
+[PASS] 年化三列存在且文案区分预估/已结算
+[PASS] 路由分类列移除，过滤器与字段校验保留
+[PASS] Drawer 宽度与卡片标签约束
+[PASS] 资金费率固定 3 位小数
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 年化三列格式化（含 null→—）
+[PASS] 结算间隔标注 8h
+[PASS] 无排序控件 DOM
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] formatFundingRateFixed 固定小数位百分比
+[PASS] formatUsdt2 2 位 ROUND_HALF_UP
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 资产/负费率状态列中文格式与路由列移除检查
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 净收益列存在与格式
+[PASS] 负值净收益红色样式
+[PASS] vip0_reference 显著标注「基准利率」
+[PASS] sort_basis 标注
+[PASS] 私有面板 verified=true 状态
+[PASS] 时点合一与估值来源卡片删除
+[PASS] 页面不含矛盾运行约束文案
+[PASS] 隐私开关默认隐藏
+[PASS] 隐私开关点击切换
+[PASS] 私有面板 verified=false disabled 占位
+[PASS] 私有面板 verified=false error 占位
+[PASS] 行联动方向标（不带数量）
+[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示
+[PASS] private-panel 在市场表之前
+[PASS] drawer DOM 在应用脚本之前
+[PASS] 成本腿命中行展示借币日利率
+[PASS] VIP0 参考档显示"参考"徽标
+[PASS] 正费率行不展示借币成本子行
+[PASS] opening spread 独立 formatter 三向量
+[PASS] 最终 13 列表头顺序、行单元格数、empty-state colspan 与合并列结构
+[PASS] 正向/反向开单列腿、价、百分比与颜色
+[PASS] Task C 别名移除、开单三行垂直顺序与 flex 布局移除
+[PASS] incomplete 双方向独立显示
+[PASS] stale/unavailable/缺失 降级为 —
+[PASS] 开单列参考报价文案
+[PASS] 负费率状态行感知的六文案派生
+[PASS] 余额卡片三行折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+[PASS] 余额数量整数千分位、小数原样保留
+[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）
+[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）
+[PASS] METAL 资产标签徽章与下拉选项
+[PASS] 借币三态（51061 借光/有额度/未探测/borrow_rate_source=null 但额度已探测）
+[PASS] 抽屉打开、标题、年化值、历史 newest-first
+[PASS] 抽屉关闭按钮
+[PASS] 抽屉 Escape 关闭
+[PASS] 抽屉 backdrop 关闭
+[PASS] 刷新保持抽屉
+[PASS] symbol 消失时抽屉关闭
+[PASS] drawer loading 与 same-origin 请求
+[PASS] available 响应合并到行与表
+[PASS] empty 响应显示无记录
+[PASS] HTTP 502 显示可重试失败状态
+[PASS] 重试按钮重新 fetch 并更新抽屉
+[PASS] stale 响应隔离
+[PASS] response-body race 隔离（res.json() 延迟后切换）
+[PASS] wrong-symbol/schema 响应被拒绝合并
+[PASS] schema_version mismatch 响应被拒绝
+[PASS] 缺 row 字段响应被拒绝
+[PASS] 含 rows 数组响应被拒绝
+[PASS] in-flight 守卫忽略同 symbol 重复点击
+[PASS] refresh_status=timeout 显示 notice 且保留上次行
+[PASS] refresh_status=partial 替换行并显示 warnings notice
+[PASS] 操作单元格两输入一按钮、标签与事件隔离
+[PASS] 创建前预览资产/数量/次数/目标总量/当前全局间隔
+[PASS] 借币任务导航切换、API 加载、空态与真实文案
+[PASS] 借币任务输入本地校验（非法数量/次数不发请求）
+[PASS] HOME 创建 POST 冻结 body、渲染后端 borrowing 文档
+[PASS] 操作单元格 UI 提交路径、本地校验与 API 400 detail
+[PASS] 创建前 fail-closed：未加载/loaded→503 零 POST，加载 interval=5 后恰好一次 POST
+[PASS] maxBorrowableSubline 不再重复「已借完」
+[PASS] 任务状态机按钮矩阵、冻结 mutation 路由/body 与 409 就近显示
+[PASS] latest_result 五类标签、未知阻塞徽标与空结果占位
+[PASS] 筛选成员与软删除可见性
+[PASS] 任务编辑预填、有效/409/只读路径
+[PASS] 借币任务/借币日志顶层 tab 切换与筛选归属
+[PASS] 最小借币量占位符三分支、空输入值与编辑输入不受影响
+[PASS] 借币日志 newest-first 游标分页、加载更多与显式刷新
+[PASS] 全局间隔编辑器 GET/PUT（≥2s）、sub-floor 400 与本地校验
+[PASS] fetch 同源白名单、零 Binance/外域、零新任务定时器、localStorage 仅隐私键
+
+全部自检通过
+EXIT_4: 0
+
+===== CMD 5: scripts/tests =====
+........................................................................ [ 56%]
+........................................................                 [100%]
+128 passed in 2.19s
+EXIT_5: 0
+
+===== CMD 6: py_compile =====
+EXIT_6: 0
+
+===== CMD 7: validate-all-stages-compare =====
+runner under test: /Users/ark/Desktop/ai code/funding_hedging/scripts/validate-all-stages.py
+repo for e2e: /Users/ark/Desktop/ai code/funding_hedging
+PASS  U0 identical -> no drift :: identical dicts
+PASS  U1 verdict flip -> FLIP :: ['FLIP s: red -> green']
+PASS  U2 error multiset shrink -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 2)', '  - e2']
+PASS  U3 error added (codex sentinel shape) -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 4)', '  + SENTINEL: new failure']
+PASS  U4 exception-only change -> EXCDRIFT :: ["EXCDRIFT s: [] -> ['review_fingerprint_trails_status@review_1']"]
+PASS  U5 added stage -> ADDED :: ['ADDED new-stage: verdict=green']
+PASS  U6 removed stage -> REMOVED :: ['REMOVED s: was verdict=red']
+PASS  E0 build temp baseline :: exit=0
+PASS  E1 unmodified compare -> exit 0, no drift :: exit=0
+PASS  E2 error-only injection -> ERRDRIFT + nonzero exit :: exit=1
+PASS  E3 exception-only injection -> EXCDRIFT + nonzero exit :: exit=1
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+EXIT_7: 0
+
+===== CMD 8: git diff --check =====
+EXIT_8: 0
+
+===== DONE GROUP B (cmd 4-8) =====
+
+-----------------------------------------------------------------------
+Fix-7 verification summary (real, this session):
+
+  CMD 1  borrow-focused suites ............... 214 passed ............ exit 0
+  CMD 2  signing/transport/config suites ..... 345 passed ............ exit 0
+  CMD 3  full backend/tests .................. 2 failed / 648 passed . exit 1  (*)
+  CMD 4  node frontend/self-check.js ......... 全部自检通过 ........... exit 0
+  CMD 5  pytest scripts/tests ................ 128 passed ............ exit 0
+  CMD 6  py_compile (signer/transport/...) ... (no output) ........... exit 0
+  CMD 7  validate-all-stages-compare ......... 11/11 sentinel PASS ... exit 0
+  CMD 8  git diff --check .................... (clean) .............. exit 0
+
+(*) CMD 3's only two failures are `test_borrow_executor.py::
+    test_full_scenario_makes_zero_urllib_calls` and `::test_poisoned_env_secrets_never_leak`,
+    both dying at `backend/borrow_tasks/domain.py:211` because they call
+    `svc.put_settings({"interval_seconds": "1"})`. The "1" is below the
+    P1-1 floor, so the parser rejects it exactly as review-2 requires
+    ("make 1.999/0.5 fail with invalid_interval"). The fix for these two
+    cases is a one-line `"1" -> "2"` in that test file, which is outside
+    the review-2 allowed-files list and therefore deferred to the
+    bookkeeper/reviewer (see 40-fix-report.md Fix-7 section).
+-----------------------------------------------------------------------
+
+===== BOOKKEEPER FIX-7 INTAKE — 2026-07-21 22:55:21 CST =====
+
+CMD BK-1:
+PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_borrow_domain.py backend/tests/test_live_borrow_executor.py backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_api.py -q -p no:cacheprovider
+
+OUTPUT:
+........................................................................ [ 33%]
+........................................................................ [ 67%]
+......................................................................   [100%]
+214 passed in 18.86s
+EXIT_BK_1: 0
+
+CMD BK-2:
+PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_borrow_executor.py -q -p no:cacheprovider
+
+OUTPUT (failure bodies omitted here; both terminate at domain.py:211 with the
+same `interval_seconds must be >= 2` BorrowError and are preserved in the
+bookkeeper runtime output):
+.....FF                                                                  [100%]
+FAILED backend/tests/test_borrow_executor.py::test_full_scenario_makes_zero_urllib_calls
+FAILED backend/tests/test_borrow_executor.py::test_poisoned_env_secrets_never_leak
+2 failed, 5 passed in 0.10s
+EXIT_BK_2: 1
+
+INTAKE DISPOSITION:
+- Three Fix-7 product P1 corrections independently pass their 214-test focused suite.
+- The only remaining failure is BK-R2-FIX7-001: two out-of-allowlist test fixtures use the now-invalid 1-second interval.
+- Micro Fix-8 prepared; no evidence commit or review fingerprint until all tests are green.

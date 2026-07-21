@@ -438,3 +438,247 @@ Session ID 来源: transcript_path
 本地北京时间: 2026-07-21 13:52:45 CST
 下一步模型: bookkeeper
 下一步任务: intake micro fix-6, independently rerun tests, and create a new committed fingerprint only if every gate closes
+
+---
+
+## Fix-7 (review-2 bounded repair — P1-1 / P1-2 / P1-3)
+
+- Stage: `2026-07-real-borrow-boundary-c-v1`.
+- Executor: `claude_glm` / provider identity `zhipu_glm` / `glm-5.2[1m]` — the
+  original Task C implementer/fix author, single executor session, no
+  model/adapter relay (HARNESS-EXECUTOR-CONTRACT v1).
+- Reviewed fingerprint (the verdict this repair closes):
+  `87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162`
+- Source review: `50-review-2.md` (its final JSON object is the raw verdict).
+- Repair prompt: `task-C-review-2-fix-7.prompt.md`.
+- Dispatch receipt: `task-C-review-2-fix-7.dispatch.md` (prepared by the human
+  operator; this executor did NOT edit it — it is outside the allowed-files
+  list). Anti-relay markers verified before editing
+  (`fix_prompt_verbatim_prefix=PASS`, `anti_relay_marker=PASS`,
+  `human_operator_dispatch=PASS` — recorded in `60-test-output.txt`).
+- Real fake-only verification outputs (append-only): `60-test-output.txt`,
+  section **Fix-7 (review-2 bounded repair) — real fake-only verification
+  output**.
+
+### Contract compliance (self-attested, executor session only)
+
+- Single executor; no other model session or adapter command was called,
+  launched, or dispatched. No `ESCALATED`.
+- No real / authenticated / production-reachable Binance request; every
+  transport exercise used injected fake/recording transport + dummy
+  credentials.
+- No `.env` / key file / cookie / credential store / signing-key material was
+  read or logged.
+- No second POST, no hidden retry, no retry-anyway / force-clear route added;
+  the frozen endpoint, signer, credential, retry, reconciliation, and result
+  contracts are unchanged.
+- No commit / push / merge / deploy.
+- The two nonblocking P3 observations (`raw_body` retained in memory; missing
+  dedicated borrow variables in `.env.example`) were NOT addressed — they are
+  explicitly out of scope for this bounded safety fix.
+- File boundaries respected: the diff touches only the review-2 allowed-files
+  list (table below). The raw review (`50-review-2.md`) was not rewritten or
+  hidden. **One file-boundary conflict is documented below (command 3); it was
+  NOT resolved by editing a forbidden file.**
+
+### Source / test files changed (fix-7 scope only)
+
+| File | Role |
+| --- | --- |
+| `backend/borrow_tasks/domain.py` | P1-1: `MIN_INTERVAL_SECONDS=Decimal("2")` constant + parser floor |
+| `backend/services/live_borrow_executor.py` | P1-2: classify every 2xx first, every 5xx stays unknown, `known_rejection` only on a definite 4xx |
+| `backend/borrow_tasks/store.py` | P1-3: recheck `live_authorized==1` inside the same atomic `insert_pending_attempt` transaction |
+| `backend/tests/test_borrow_domain.py` | P1-1 regression: sub-floor reject + 2-second boundary accept |
+| `backend/tests/test_borrow_scheduler.py` | P1-1 collateral (`"1"->"2"` + clock re-baseline) and P1-3 live-mode dispatch tests |
+| `backend/tests/test_borrow_api.py` | P1-1 collateral (`"1"->"2"`) + new sub-floor `invalid_interval` static case |
+| `backend/tests/test_borrow_store.py` | P1-1 collateral (`"0.5"->"2.5"`) + P1-3 `live_gates` block test |
+| `backend/tests/test_live_borrow_executor.py` | P1-2 regression: 2xx/5xx with a known code -> unknown; 4xx known codes stay `known_rejection`; one-POST-only |
+| `frontend/index.html` | P1-1 UI copy: drop the 0.5 example, state the >= 2 floor |
+| `frontend/self-check.js` | P1-1 self-check: PUT `"2.5"` ok + PUT `"0.5"` -> 400 `invalid_interval` |
+| `schemas/api/borrow-tasks/scheduler-settings.schema.json` | P1-1 output contract: `interval_us` minimum `1` -> `2000000` |
+
+### Finding -> change -> test mapping
+
+#### P1-1 — parser has no product minimum and accepts 0.5s (`domain.py:175`)
+
+- **Root cause.** `parse_interval_seconds` capped only at one microsecond; it
+  accepted `"0.5"`/`"1.999"`. `00-task.md:35-37` and
+  `12-development-breakdown.md:514,545-553` freeze a 2-second shared-IP
+  capacity floor (`ceil(60 / (0.5 * 6000 / 100)) = 2`); a sub-floor cadence
+  risks a shared-IP 429/418 ban that would also take down the read-only
+  snapshot channel.
+- **Changes.**
+  - `backend/borrow_tasks/domain.py:108-117` — added
+    `MIN_INTERVAL_SECONDS = Decimal("2")` / `MIN_INTERVAL_US = 2_000_000` with
+    a comment deriving the floor from the archived POST weight (100) and the
+    6000/min shared per-IP budget reserving half for reads/reconciliation.
+  - `backend/borrow_tasks/domain.py:186-216` — `parse_interval_seconds`
+    docstring now states the 2-second floor; after the microsecond check it
+    raises `invalid_interval` (`interval_seconds must be >= 2 (frozen shared-IP
+    capacity floor)`) when `seconds < MIN_INTERVAL_SECONDS`. `1.999`/`0.5`/`1`
+  fail; `2`/`2.0`/`2.5` succeed.
+  - `frontend/index.html` — placeholder now `如 5（最小 2 秒）`; the local
+    validation error message now `最小 2 秒` (the misleading `0.5` example is
+    gone).
+  - `frontend/self-check.js` — mock settings `2.5`/`2500000`; item 75 now PUTs
+    `"2.5"` (ok) then PUTs `"0.5"` and asserts a 400 whose detail is exactly
+    `interval_seconds must be >= 2 (frozen shared-IP capacity floor)`.
+  - `schemas/api/borrow-tasks/scheduler-settings.schema.json` — `interval_us`
+    minimum raised `1` -> `2000000` so the output contract matches the parser.
+- **Tests.** `test_borrow_domain.py::test_parse_interval_floor_boundary`
+  (2/2.0 accepted; 1.999/0.5 rejected as `invalid_interval`); the parametrized
+  accept/reject lists were rebased accordingly.
+  `test_borrow_api.py` gains an `invalid_interval_sub_floor` static-error case
+  (`"0.5"` -> 400). `frontend/self-check.js` item 75 (above).
+- **Collateral (unavoidable: `service.put_settings` routes through
+  `parse_interval_seconds`).** Every scheduler/API/store test that seeded a
+  sub-floor interval was rebased to the floor and its clock re-derived:
+  `test_borrow_scheduler.py` (`"1"->"2"` everywhere + per-test clock
+  re-baseline), `test_borrow_api.py` (`"1"->"2"` + clock), `test_borrow_store.py`
+  (`"0.5"->"2.5"`). The default stays `5s`.
+
+#### P1-2 — known-code classified before the 2xx branch (`live_borrow_executor.py:185`)
+
+- **Root cause.** The known-code branch ran before the 2xx branch, so HTTP 200
+  `{"code":-51006}` was returned as `known_rejection` (rotation-eligible)
+  instead of `unknown` (blocks + reconciles). The same ordering could treat a
+  5xx carrying a listed code as definitely rejected. Impact: after an
+  ambiguous response the task returns to rotation and can issue a second
+  borrow POST (`00-task.md:161-168`).
+- **Change.** `backend/services/live_borrow_executor.py:160-238` —
+  `classify_post_response` is reordered fail-closed:
+  1. transport error / `http_status is None` -> `unknown`;
+  2. `429` or `400`+`code=-1003` -> `rate_limited`;
+  3. `418` -> `rate_limited` ban (300s, manual rearm);
+  4. **every 2xx**: valid normalized `tranId` -> `success`, otherwise
+     `unknown` (`malformed_2xx_no_tranid`) — including a 2xx whose body
+     carries a known rejection code;
+  5. **every 5xx** -> `unknown` (`possibly_accepted_5xx_{status}`) — even if
+     the body carries a known code;
+  6. **a definite 4xx whose code is in `{-51006,-51014,-51061}`** ->
+     `known_rejection`;
+  7. everything else -> `unknown`.
+  The docstring (161-171) records this ordering and why it prevents an
+  ambiguous 2xx/5xx from authorizing a second POST.
+- **Tests.** `test_live_borrow_executor.py`:
+  `test_classify_2xx_with_known_code_is_unknown` (parametrized over the three
+  codes), `test_classify_5xx_with_known_code_is_unknown` (parametrized),
+  `test_classify_4xx_with_known_code_remains_known_rejection` (parametrized —
+  positive control preserved), and
+  `test_executor_2xx_known_code_is_unknown_one_post_only` (end-to-end: a 200
+  carrying `-51006` classifies `unknown`, the task blocks, and exactly one
+  POST is issued).
+
+#### P1-3 — `insert_pending_attempt` never checks `live_authorized` under `live_gates` (`store.py:583-607`)
+
+- **Root cause.** `insert_pending_attempt` selected `live_authorized` but,
+  when `live_gates=True`, never re-checked it inside the atomic transaction.
+  A fake-only reproduction (`status=borrowing`, `live_authorized=0`,
+  `execution_enabled=1`) created a pending attempt row, violating
+  `00-task.md:155-160` and `12-development-breakdown.md:288-305,569-571`.
+  Impact: a migrated/inconsistent/unauthorized persisted task could pass the
+  final intent-before-send gate and reach a real POST.
+- **Change.** `backend/borrow_tasks/store.py:596-603` — inside the
+  `if live_gates:` block, as its FIRST statement and inside the same
+  `with self._lock, self._conn:` transaction (before the settings lookup),
+  recheck `if task["live_authorized"] != 1: return None`. A failed predicate
+  creates zero attempt rows and zero POSTs. The docstring (571-581) records
+  the durable live gates now including `live_authorized=1`.
+- **Tests.** `test_borrow_store.py::test_insert_pending_live_gates_block_when_not_live_authorized`
+  (a borrowing task with `live_authorized=0` + `live_gates=True` returns
+  `None` and writes zero attempt rows). `test_borrow_scheduler.py`:
+  `test_live_mode_unauthorized_task_dispatches_nothing` and
+  `test_live_mode_authorized_task_dispatches_once` (end-to-end dispatch
+  behavior at the scheduler seam).
+
+### File-boundary conflict on command 3 (deferred — NOT resolved by editing a forbidden file)
+
+Command 3 (`pytest backend/tests`) reports **2 failed / 648 passed**. Both
+failures are in `backend/tests/test_borrow_executor.py`:
+
+- `test_full_scenario_makes_zero_urllib_calls` (`test_borrow_executor.py:130`)
+- `test_poisoned_env_secrets_never_leak` (`test_borrow_executor.py:161`)
+
+Both die at `backend/borrow_tasks/domain.py:211` because they call
+`svc.put_settings({"interval_seconds": "1"})`, and `"1"` is below the new
+P1-1 floor.
+
+**Analysis.**
+
+1. This is the *direct, correct* consequence of P1-1. Review-2 explicitly
+   requires `make 1.999/0.5 fail with invalid_interval`. These two tests use
+   `"1"` (also sub-floor), so they now fail — exactly the behavior review-2
+   mandates. The `"1"` is incidental scenery for the zero-network /
+   no-credential-leak proofs (breakdown §3.9 / §5.1-9), not a sub-floor value
+   the review asked to remove.
+2. `test_borrow_executor.py` is NOT in the review-2 allowed-files list
+   (`task-C-review-2-fix-7.prompt.md:25-38`). The review-2 Forbidden clause
+   (`:40-41`) states "Every file not listed above". The original `00-task.md`
+   allowed the wildcard `backend/tests/test_borrow_*.py`, but review-2
+   deliberately narrowed the list to four named `test_borrow_*.py` files plus
+   `test_live_borrow_executor.py` — and named, in the P1-1 finding
+   (`:14`), exactly the files that "codify the invalid sub-floor value":
+   `test_borrow_api.py:192-200`, `test_borrow_scheduler.py:155-167`,
+   `index.html:964`, `self-check.js:3074-3103`. `test_borrow_executor.py` was
+   not named.
+3. This is a genuine inside-the-prompt contradiction: the narrowed
+   allowed-files list omits the one additional test file P1-1 touches, while
+   command 3 (`pytest backend/tests`) covers it.
+
+**Decision.** This executor respected the explicit Forbidden clause and did
+NOT edit `test_borrow_executor.py` (editing it would be a scope expansion,
+which `:42` forbids). The diff stays entirely inside the allowed-files list.
+The two failures are recorded truthfully in `60-test-output.txt`; they do not
+touch any of the three P1 reproductions (commands 1 and 2 — the borrow-focused
+and signing/transport suites — are fully green, including every new P1
+regression test) and they do not weaken any safety property (they are the
+correct rejection of a sub-floor value).
+
+**Suggested mechanical follow-up for the bookkeeper/reviewer** (one line,
+outside this executor's allowed scope): in `test_borrow_executor.py:130` and
+`:161`, change `interval_seconds: "1"` to `"2"`. The zero-urllib /
+no-credential-leak proofs are independent of the interval value, so this
+restores command 3 to green without altering what those tests prove. If the
+bookkeeper instead prefers to widen the review-2 allowed-files list and have
+this executor apply the change, that is also acceptable — but it requires an
+explicit scope decision from the reviewer/bookkeeper, not this executor.
+
+### Verification summary (real fake-only, fix-7)
+
+| Command | Result |
+| --- | --- |
+| `pytest test_borrow_domain test_live_borrow_executor test_borrow_store test_borrow_scheduler test_borrow_api` | **214 passed** (exit 0) |
+| `pytest test_binance_signing test_portfolio_margin_borrow_client test_live_borrow_executor test_borrow_store test_borrow_scheduler test_borrow_api test_config test_private_client test_private_account_v1 test_service_health` | **345 passed** (exit 0) |
+| `pytest backend/tests` | **2 failed / 648 passed** (exit 1) — see file-boundary note above |
+| `node frontend/self-check.js` | `全部自检通过` (exit 0) |
+| `pytest scripts/tests` | **128 passed** (exit 0) |
+| `py_compile` signer/transport/live_executor/private_client/borrow_tasks/app/config | exit 0 |
+| `scripts/test-validate-all-stages-compare.py --repo-root .` | 11/11 sentinel PASS (exit 0) |
+| `git diff --check` | clean (exit 0) |
+
+Full real outputs are appended to `60-test-output.txt` (Fix-7 section). No
+backend or frontend file outside the allowed-files list was modified.
+
+### Status / handoff
+
+- All three P1 fail-closed corrections are implemented and their positive
+  controls pass (commands 1 and 2). The frozen endpoint / signer / credential
+  / retry / reconciliation / result contracts are unchanged; the non-catch-up
+  scheduler, one-shot POST, unknown latch, cooldown/manual-rearm, migration,
+  ownership, and read-only `PrivateClient` behavior are preserved.
+- The single non-green item (command 3's two `test_borrow_executor.py`
+  failures) is a documented file-boundary conflict, not a P1 defect, and is
+  deferred to the bookkeeper/reviewer (mechanical one-line follow-up or an
+  allowed-files widening).
+- New committed fingerprint: still **pending bookkeeper commit** (this
+  executor did not commit). Formal `rework_count` remains `1`. This report
+  claims no review and no acceptance; a genuinely fresh reviewer session must
+  re-run formal review against the new committed fingerprint.
+- Stopping for bookkeeper intake of fix-7.
+
+当前 Session ID: db43835f-2fd3-49cf-b877-bb9841020efa (Claude Code harness session id read from the transcript path `/Users/ark/.claude/projects/-Users-ark-Desktop-ai-code-funding-hedging/db43835f-2fd3-49cf-b877-bb9841020efa.jsonl`; provider-native GLM session id is not separately exposed by this runtime)
+Session ID 来源: transcript_path
+原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md
+本地北京时间: 2026-07-21 22:41:33 CST
+下一步模型: bookkeeper
+下一步任务: intake fix-7, resolve the documented test_borrow_executor.py file-boundary conflict (apply the one-line `"1"->"2"` follow-up or widen the review-2 allowed-files list), independently rerun the eight verification commands, and create a new committed fingerprint only if every gate closes

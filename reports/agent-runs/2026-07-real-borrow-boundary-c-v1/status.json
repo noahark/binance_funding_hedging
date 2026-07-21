@@ -538,6 +538,31 @@
       "artifact_sha256": "23e00e348e187c0069b7d3762be2ce1ff403c2eb0d0d7f1eff6fbc9f15ec18a8",
       "result": "schema_valid_REWORK_but_formal_gate_invalid_actual_model_and_sandbox_mismatch_three_P1_independently_reproduced_and_routed_to_fix",
       "recorded_at": "2026-07-21T21:57:54+08:00"
+    },
+    {
+      "role": "implementation_fix",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": "db43835f-2fd3-49cf-b877-bb9841020efa",
+      "session_id_source": "transcript_path",
+      "session_id_notes": "Claude Code harness Session ID independently verified from the matching JSONL metadata; provider-native GLM ID was not separately exposed",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
+      "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.dispatch.md",
+      "executor": "human_operator",
+      "result": "fix_7_three_P1_source_corrections_closed_full_backend_left_one_out_of_allowlist_mechanical_test_fixture_residual",
+      "recorded_at": "2026-07-21T22:41:33+08:00"
+    },
+    {
+      "role": "implementation_fix_intake_audit",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
+      "result": "fix_7_three_P1_closed_BK_R2_FIX7_001_mechanical_test_fixture_micro_fix_8_prepared_rework_count_unchanged_1",
+      "recorded_at": "2026-07-21T22:55:21+08:00"
     }
   ],
   "designer": {
@@ -631,6 +656,14 @@
       "task_id": "C",
       "round": "review-1-rework-micro-fix-6",
       "report_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md"
+    },
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "task_id": "C",
+      "round": "review-2-safety-findings-fix-7-and-micro-fix-8",
+      "report_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md"
     }
   ],
   "reviewer_1": {
@@ -685,8 +718,8 @@
       },
       "implementation_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation.md",
       "implementation_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation-bookkeeper-audit.md",
-      "fix_prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.prompt.md",
-      "fix_dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.dispatch.md",
+      "fix_prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.prompt.md",
+      "fix_dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.dispatch.md",
       "fix_rounds": [
         {
           "round": "bookkeeper-intake-fix-1",
@@ -728,6 +761,22 @@
           "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.prompt.md",
           "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.dispatch.md",
           "result": "completed_bookkeeper_intake_closed",
+          "formal_review_rework_round": 1,
+          "formal_rework_count_incremented": false
+        },
+        {
+          "round": "review-2-safety-findings-fix-7",
+          "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.prompt.md",
+          "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.dispatch.md",
+          "result": "completed_bookkeeper_intake_one_mechanical_test_fixture_residual",
+          "formal_review_rework_round": 1,
+          "formal_rework_count_incremented": false
+        },
+        {
+          "round": "review-2-micro-fix-8",
+          "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.prompt.md",
+          "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.dispatch.md",
+          "result": "prepared_waiting_human_operator",
           "formal_review_rework_round": 1,
           "formal_rework_count_incremented": false
         }
@@ -987,10 +1036,15 @@
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.bookkeeper-intake.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.prompt.md",
-    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.dispatch.md"
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-fingerprint-exception-authorization.md",
+    "backend/tests/test_borrow_executor.py"
   ],
   "tests": {
-    "status": "passed",
+    "status": "failed",
     "commands": [
       "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -1086,7 +1140,12 @@
       "round-2 pre-review validator at committed packet HEAD 6b1ac92b50413cc540fe888f8cf91e7b68dde6ee: PASS",
       "Review-2 artifact recovered verbatim from verified Codex rollout; transcript/artifact SHA-256 match; JSON schema zero errors; fixed fingerprint matches",
       "Review-2 execution-contract audit: actual gpt-5.6-sol and danger-full-access differ from committed gpt-5.5 read-only dispatch; attempt is non-accepting",
-      "bookkeeper fake-only reproductions: 0.5s accepted; HTTP 200/500 with -51006 classified known_rejection; live_authorized=0 created one pending attempt"
+      "bookkeeper fake-only reproductions: 0.5s accepted; HTTP 200/500 with -51006 classified known_rejection; live_authorized=0 created one pending attempt",
+      "Claude-GLM Fix-7: 214 focused passed; 345 wider passed; full backend 648 passed and 2 failed only in out-of-allowlist test_borrow_executor.py 1-second fixtures; frontend/Harness/py_compile/compare/diff checks passed",
+      "bookkeeper Fix-7 source audit: two-second floor, fail-closed 2xx/5xx classification ordering, and atomic live_authorized recheck closed the three P1s",
+      "bookkeeper independent Fix-7 focused suite: 214 passed",
+      "bookkeeper independent test_borrow_executor isolation: exactly 2 failed and 5 passed; both failures are interval_seconds=1 fixture setup before zero-network/no-secret assertions",
+      "Fix-7 transcript Session ID db43835f-2fd3-49cf-b877-bb9841020efa verified from matching Claude Code JSONL metadata"
     ]
   },
   "review_1": {
@@ -1184,6 +1243,17 @@
     },
     "formal_rework_count_incremented": false,
     "invalid_json_attempts": 0
+  },
+  "review_1_shortcut_authorization": {
+    "status": "user_authorized_pending_new_committed_fingerprint",
+    "authorizer": "user",
+    "verbatim": "这流程感觉有点太长了， 为了尾部 10% 的小问题，要再加 50% 的时间。能不能精简一下直接做 review2 就行",
+    "evidence_file": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-fingerprint-exception-authorization.md",
+    "assertion_id": "review_fingerprint_trails_status",
+    "scope": "review_1",
+    "recorded_at": "2026-07-21T22:55:21+08:00",
+    "pinning_deferred_until": "Fix-8 all-green evidence commit creates the new standard diff_fingerprint",
+    "cannot_waive": ["review_1_ACCEPT", "review_2_ACCEPT", "tests", "clean_worktree", "fingerprint_recompute", "reviewer_identity", "exception_integrity"]
   },
   "authorized_exceptions": [],
   "rework_count": 1,
@@ -1322,11 +1392,29 @@
     "target_provider": "claude_glm",
     "target_model": "glm-5.2[1m]",
     "executor": "human_operator",
-    "status": "prepared_waiting_human_operator",
+    "status": "completed_bookkeeper_intake_one_mechanical_test_fixture_residual",
     "source_review_artifact": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md",
     "source_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.bookkeeper-intake.md",
     "required_findings": ["R2-A1-interval-floor", "R2-A2-classification-order", "R2-A3-atomic-live-authorization"],
     "optional_findings_out_of_scope": ["R2-P3-raw-body", "R2-P3-env-example"],
+    "formal_rework_count_incremented": false,
+    "live_binance_write_authorized": false,
+    "credential_read_authorized": false
+  },
+  "implementation_fix_dispatch_round_8": {
+    "task_id": "C",
+    "round": "review-2-micro-fix-8",
+    "formal_review_rework_round": 1,
+    "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.dispatch.md",
+    "target_provider": "claude_glm",
+    "target_model": "glm-5.2[1m]",
+    "executor": "human_operator",
+    "status": "prepared_waiting_human_operator",
+    "source_fix_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
+    "source_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
+    "required_findings": ["BK-R2-FIX7-001"],
+    "allowed_code_files": ["backend/tests/test_borrow_executor.py"],
     "formal_rework_count_incremented": false,
     "live_binance_write_authorized": false,
     "credential_read_authorized": false
@@ -1342,6 +1430,17 @@
     "blocking_findings": ["R2-A1-interval-floor", "R2-A2-classification-order", "R2-A3-atomic-live-authorization"],
     "fix_packet": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.prompt.md",
     "next_action": "human operator executes the prepared Fix-7 packet with the original zhipu_glm implementer"
+  },
+  "fix_7_intake_checkpoint": {
+    "recorded_at": "2026-07-21T22:55:21+08:00",
+    "branch": "stage/2026-07-real-borrow-boundary-c-v1",
+    "head_before_fix_evidence_commit": "e08dedf9a5c8c14b2609ee744eb19468e2985cbb",
+    "git_status": "Fix-7 source/tests/report uncommitted; Micro Fix-8 packet prepared; no new review fingerprint created",
+    "source_findings_closed": ["R2-A1-interval-floor", "R2-A2-classification-order", "R2-A3-atomic-live-authorization"],
+    "blocking_findings": ["BK-R2-FIX7-001"],
+    "test_status": "focused 214 passed; test_borrow_executor.py 2 failed and 5 passed solely due to two 1-second fixtures; all-green gate intentionally withheld",
+    "verified_fix_session_id": "db43835f-2fd3-49cf-b877-bb9841020efa",
+    "next_action": "human operator executes task-C-review-2-fix-8.prompt.md with the original zhipu_glm fix author"
   },
   "harness_follow_up": {
     "status": "open_main_only",
@@ -1457,9 +1556,7 @@
     "review_dispatch_blocker": "main-only verdict extractor repair and stage sync"
   },
   "blockers": [
-    "R2-A1: scheduler interval authority accepts values below the frozen two-second capacity floor",
-    "R2-A2: known rejection codes can override malformed-2xx/all-5xx fail-closed unknown classification",
-    "R2-A3: atomic live pending insert does not recheck live_authorized=1"
+    "BK-R2-FIX7-001: two test_borrow_executor.py fixtures still configure the now-invalid one-second interval; the five-category scenario also needs a two-second fake-clock step"
   ],
   "human_escalation": {
     "required": false,
@@ -1475,6 +1572,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_executes_task_C_review_2_fix_7_with_original_claude_glm_implementer_then_returns_to_bookkeeper_for_audit_tests_new_fingerprint_and_fresh_reviews",
-  "updated_at": "2026-07-21T22:03:49+08:00"
+  "next_action": "human_operator_executes_task_C_review_2_fix_8_with_original_claude_glm_fix_author_then_returns_to_bookkeeper_for_all_green_audit_evidence_commit_new_fingerprint_RC4_review_1_exception_and_direct_review_2",
+  "updated_at": "2026-07-21T22:55:21+08:00"
 }
