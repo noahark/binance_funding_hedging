@@ -580,3 +580,23 @@ f8015d68f24f3a33a0e8b32efecd6a4408c5826e
 The accepted Harness branch is now on local `main` via fast-forward. No push,
 deployment, Boundary C merge, credential access, external request, or real
 borrow occurred in this operation.
+
+## Post-main-merge accepted validation
+
+Run at 2026-07-21 20:19:38 CST after accepted-state checkpoint `0f98f95`.
+
+```text
+$ git status --short --branch
+## main...origin/main [ahead 14]
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase pre-accept
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=pre-accept
+status=accepted
+diff_fingerprint=569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655
+```
+
+Task H is fully accepted on local `main`. The next authorized operation is the
+recorded no-rebase merge from updated `main` into Boundary C. No push or
+product-stage acceptance occurred.

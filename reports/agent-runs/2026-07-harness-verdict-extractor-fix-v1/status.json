@@ -173,6 +173,16 @@
       "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
       "result": "clean_pre_accept_passed_stage_accepted_waiting_user_no_merge_performed",
       "recorded_at": "2026-07-21T20:13:43+08:00"
+    },
+    {
+      "role": "post_main_merge_validation",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+      "result": "accepted_status_clean_pre_accept_passed_on_main_after_fast_forward_no_push",
+      "recorded_at": "2026-07-21T20:19:38+08:00"
     }
   ],
   "designer": {
@@ -492,6 +502,6 @@
     }
   },
   "accepted_at": "2026-07-21T20:18:25+08:00",
-  "next_action": "record_accepted_main_merge_then_switch_to_Boundary_C_and_merge_main_without_rebase_under_user_authorized_exception",
-  "updated_at": "2026-07-21T20:18:25+08:00"
+  "next_action": "switch_to_Boundary_C_and_merge_updated_main_without_rebase_under_user_authorized_exception_then_retest_recompute_fingerprint_and_reenter_review",
+  "updated_at": "2026-07-21T20:19:38+08:00"
 }
