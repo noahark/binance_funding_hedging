@@ -1,12 +1,12 @@
 {
   "active": {
     "stage_id": "2026-07-harness-verdict-extractor-fix-v1",
-    "phase": "testing",
+    "phase": "review_1",
     "handoff": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md",
-    "note": "Task H and same-author BK-H-001 micro-fix are independently verified and all blocking intake findings are closed. Array and nested-array wrappers fail closed; the committed Boundary C artifact extracts REWORK with five findings; targeted 52, full Harness 128, py_compile, checkpoint, diff check and historical sentinel 11/11 pass. The bookkeeper may create the local evidence commit and standard fingerprint, then prepare a fresh Kimi review-1 packet. Formal rework_count remains 0. No main merge, Boundary C synchronization, review verdict, or acceptance is authorized.",
-    "updated_at": "2026-07-21T16:52:59+08:00"
+    "note": "Task H and BK-H-001 are frozen in local evidence commit 569be63a6f467e4e5e255a4713f94a08e37cd9b8 with standard fingerprint 569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655. All intake findings and tests are closed. Fresh read-only Kimi review-1 packet is prepared for human execution; no model dispatch has been executed by the bookkeeper. Formal rework_count remains 0. No main merge, Boundary C synchronization, review verdict, or acceptance is authorized.",
+    "updated_at": "2026-07-21T17:00:16+08:00"
   },
   "last_completed": "2026-07-real-borrow-execution-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T16:52:59+08:00"
+  "updated_at": "2026-07-21T17:00:16+08:00"
 }

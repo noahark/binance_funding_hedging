@@ -1,66 +1,60 @@
-# Handoff — Task H and BK-H-001 Closed, Evidence Commit Pending
+# Handoff — Task H Awaiting Fresh Kimi Review-1
 
 ## Recovery Header
 
-- Active phase: `testing` (`all_intake_findings_closed_evidence_commit_pending`).
+- Active phase: `review_1` (`prepared_waiting_human_dispatch`).
 - Branch: `harness/dispatch-review-reform-v1`.
-- Next action: the bookkeeper creates the local evidence commit, computes the
-  standard fingerprint over fixed `base_sha..head_sha`, runs the pre-review
-  validator, and prepares a human-executed fresh Kimi review-1 packet.
+- Reviewed base: `4b1fcdd5fb0562eb00467437bf2ec9ad0286581a`.
+- Reviewed head: `569be63a6f467e4e5e255a4713f94a08e37cd9b8`.
+- Diff fingerprint:
+  `569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655`.
+- Next action: the human operator executes `review-1-kimi.prompt.md` in a
+  genuinely fresh Kimi session, captures the complete response verbatim in
+  `30-review-1.md`, fills `review-1-kimi.dispatch.md`, and returns both to the
+  bookkeeper.
 - Read-set: `status.current_inputs` only.
 - Do not read credentials, `.env*`, expanded alias environments, unrelated
   stages, or history directories.
 
-## Fixed Scope
+## Frozen Evidence
 
-- Code: `scripts/validate-stage.py`.
-- Tests: `scripts/tests/test_validate_stage_dispatch_protocol.py`.
-- Matching contract prose: `docs/parallel-development-mode.md` R12 only.
-- Reports: this maintenance directory's task, design, implementation, test,
-  audit, dispatch, status, and handoff files.
-- No product, schema, workflow, registry, canonical product docs, or Boundary C
-  edits.
+- Local evidence commit: `569be63a6f467e4e5e255a4713f94a08e37cd9b8`
+  (`fix(harness): select final top-level verdict object`).
+- Task H and same-author BK-H-001 fix were written by Claude-GLM /
+  `zhipu_glm` in verified runtime session
+  `37d9d7c4-c33f-4012-bcbf-16e6e6d3b461`.
+- Independent intake confirms top-level and nested array wrappers fail closed,
+  the fixed Boundary C artifact yields `REWORK` with five findings, and
+  harmless footer bracket text remains compatible.
+- Targeted tests: `52 passed`; full Harness tests: `128 passed`; historical
+  compare sentinel: `11/11 passed`; `py_compile`, checkpoint validator, and
+  diff check: pass.
+- Open implementation-intake findings and blockers: none.
+- Formal `rework_count`: `0`; formal review-1 has not yet returned a verdict.
 
-## Closed Implementation Intake
+## Review Routing
 
-- Claude-GLM implemented Task H and the same-author BK-H-001 micro-fix in the
-  verified Claude Code runtime session
-  `37d9d7c4-c33f-4012-bcbf-16e6e6d3b461`. The Zhipu/GLM provider-native ID was
-  not separately exposed.
-- The repaired extractor selects the last successfully decoded top-level
-  dictionary in artifact order. Nested dictionaries remain excluded without
-  schema matching.
-- Decoded arrays are containment spans only and are never returned. A valid
-  verdict inside `[verdict]` or `[[verdict]]` now fails closed.
-- The committed Boundary C findings-bearing review artifact extracts the full
-  top-level `REWORK` verdict with five findings; harmless footer bracket text
-  remains compatible.
-- Formal `rework_count` remains `0` because no formal review has occurred.
-
-## Verification
-
-- Targeted extractor/dispatch protocol tests: `52 passed`.
-- Full Harness script tests: `128 passed`.
-- Historical compare sentinel: `11/11 passed`.
-- `py_compile`, Harness checkpoint validation, and `git diff --check`: pass.
-- Independent semantic matrix: top-level and nested array wrappers fail closed;
-  Boundary C returns `REWORK` with five findings; harmless footer returns
-  `ACCEPT`.
-- Open intake findings and blockers: none.
+- Reviewer: fresh Kimi / `moonshot_kimi` /
+  `kimi-code/kimi-for-coding`.
+- Reviewer prior involvement: `none`.
+- Prompt: `review-1-kimi.prompt.md`.
+- Human dispatch receipt: `review-1-kimi.dispatch.md`.
+- Expected raw artifact: `30-review-1.md`.
+- Registered Kimi adapter is locally discoverable; only the human operator may
+  execute it. Do not resume or compact an earlier Kimi session for this gate.
 
 ## Authority Boundaries
 
-- The bookkeeper did not author the implementation or micro-fix and did not
-  execute either model dispatch.
-- The human operator is the only cross-model dispatch executor.
-- A fresh Kimi session is required for review-1 and must review the fixed
-  committed range and fingerprint in read-only mode.
-- No `main` merge, push, deployment, Boundary C synchronization, review verdict,
-  acceptance, or stage completion is authorized at this checkpoint.
+- The bookkeeper created the local evidence commit and prepared the packet but
+  did not execute Kimi or any other model.
+- Review-1 is strictly read-only and anchored to the fixed committed range,
+  even if later bookkeeping commits move repository `HEAD`.
+- No `main` merge, push, deployment, Boundary C synchronization, review
+  verdict, acceptance, or stage completion is authorized here.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md
-本地北京时间: 2026-07-21 16:51:23 CST
-下一步模型: bookkeeper
-下一步任务: create the local evidence commit, compute the standard fingerprint, run pre-review validation, and prepare a fresh Kimi review-1 packet
+本地北京时间: 2026-07-21 17:00:16 CST
+下一步模型: human operator → fresh Kimi / kimi-code/kimi-for-coding
+下一步任务: execute review-1-kimi.prompt.md in a new read-only Kimi session, capture 30-review-1.md verbatim, fill the receipt, and return to bookkeeper
