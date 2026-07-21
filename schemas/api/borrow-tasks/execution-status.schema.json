@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.binance-funding-hedging/schemas/api/borrow-tasks/execution-status.schema.json",
+  "title": "Borrow Execution Status",
+  "description": "Boundary C read-only execution-status projection (borrow-execution/v1). The single source of truth for whether the process may dispatch a signed borrow POST and, if not, the sanitized fail-closed block_reason. Never carries a secret, an environment value, or an exception string.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "execution_enabled",
+    "can_execute",
+    "block_reason",
+    "in_flight_attempt_id",
+    "global_cooldown_until",
+    "live_authorized_task_count",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "borrow-execution/v1"},
+    "mode": {"enum": ["disabled", "live"]},
+    "execution_enabled": {"type": "boolean"},
+    "can_execute": {"type": "boolean"},
+    "block_reason": {
+      "type": ["string", "null"],
+      "enum": [
+        null,
+        "executor_disabled",
+        "globally_stopped",
+        "borrow_credentials_missing",
+        "not_execution_owner",
+        "rate_limited",
+        "invalid_configuration"
+      ]
+    },
+    "in_flight_attempt_id": {"type": ["integer", "null"]},
+    "global_cooldown_until": {"type": ["string", "null"]},
+    "live_authorized_task_count": {"type": "integer", "minimum": 0},
+    "updated_at": {"type": "string"}
+  }
+}

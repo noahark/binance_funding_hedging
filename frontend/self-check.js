@@ -148,7 +148,8 @@ const ids = [
   'borrow-task-filters',
   'borrow-tab-tasks', 'borrow-tab-logs', 'borrow-tasks-panel', 'borrow-logs-panel',
   'borrow-interval-input', 'borrow-interval-confirm', 'borrow-interval-error', 'borrow-interval-note',
-  'borrow-tasks-error', 'borrow-logs-error', 'borrow-log-list', 'borrow-logs-refresh', 'borrow-logs-load-more'
+  'borrow-tasks-error', 'borrow-logs-error', 'borrow-log-list', 'borrow-logs-refresh', 'borrow-logs-load-more',
+  'borrow-execution-badge', 'borrow-execution-start', 'borrow-execution-stop', 'borrow-execution-detail'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -326,7 +327,7 @@ function mockTaskListDoc(tasks) {
   return { schema_version: 'borrow-tasks/v1', tasks };
 }
 
-// §3.5 调度设置文档：默认种子行 "5"/5000000；PUT 后 "0.5"/500000（§3.5 示例值）。
+// §3.5 调度设置文档：默认种子行 "5"/5000000；PUT 后 "2.5"/2500000（≥2s 容量地板示例值）。
 const MOCK_SETTINGS_DEFAULT = {
   schema_version: 'borrow-tasks/v1',
   interval_seconds: '5',
@@ -336,7 +337,7 @@ const MOCK_SETTINGS_DEFAULT = {
   version: 1,
   updated_at: '2026-07-19T08:00:00.000000Z'
 };
-const MOCK_SETTINGS_05 = deepCopy(MOCK_SETTINGS_DEFAULT, { interval_seconds: '0.5', interval_us: 500000, version: 2 });
+const MOCK_SETTINGS_2_5 = deepCopy(MOCK_SETTINGS_DEFAULT, { interval_seconds: '2.5', interval_us: 2500000, version: 2 });
 
 // §3.6 日志页示例（HOME 条目 verbatim）+ 派生旧条目，供两页游标分页。
 const MOCK_LOG_ENTRY_HOME = {
@@ -381,9 +382,29 @@ let borrowActionResponses = {};
 let borrowLogsResponses = [];
 let borrowSettingsGetResponse = null;
 let borrowSettingsPutResponse = null;
+// Boundary C 执行控制响应槽（§3.2）；未设置时回放默认 disabled 投影。
+let borrowExecutionStatusResponse = null;
 
 function mockBorrow503() {
   return { status: 503, body: { error: 'borrow_service_unavailable', detail: 'mock 未设置该路由响应' } };
+}
+
+// 默认执行状态投影：disabled 模式、execution_enabled=false、can_execute=false。
+function mockExecutionStatusDisabled() {
+  return {
+    status: 200,
+    body: {
+      schema_version: 'borrow-execution/v1',
+      mode: 'disabled',
+      execution_enabled: false,
+      can_execute: false,
+      block_reason: 'executor_disabled',
+      in_flight_attempt_id: null,
+      global_cooldown_until: null,
+      live_authorized_task_count: 0,
+      updated_at: '2026-07-21T00:00:00.000000Z'
+    }
+  };
 }
 
 function buildFetchResponse(response, jsonDelay) {
@@ -449,6 +470,13 @@ global.fetch = async (url, options) => {
   if (urlStr === '/api/borrow-scheduler-settings' && method === 'PUT') {
     return buildFetchResponse(borrowSettingsPutResponse || mockBorrow503());
   }
+  // Boundary C 执行控制（§3.2）：status GET 回放投影；start/stop POST 回显同一投影。
+  if (urlStr === '/api/borrow-execution/status' && method === 'GET') {
+    return buildFetchResponse(borrowExecutionStatusResponse || mockExecutionStatusDisabled());
+  }
+  if ((urlStr === '/api/borrow-execution/start' || urlStr === '/api/borrow-execution/stop') && method === 'POST') {
+    return buildFetchResponse(borrowExecutionStatusResponse || mockExecutionStatusDisabled());
+  }
   throw new Error(`Unexpected fetch URL: ${urlStr} (${method})`);
 };
 
@@ -456,7 +484,7 @@ global.document = {
   getElementById: (id) => {
     if (!elements[id]) {
       // 借币任务操作控件为按 symbol/任务 id（字符串 UUID）动态生成的 id，按需惰性 mock（最小 mock 能力补足）
-      if (/^(borrow-(amount|count|error)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+)$/.test(id)) return makeElement(id);
+      if (/^(borrow-(amount|count|error|preview)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+)$/.test(id)) return makeElement(id);
       throw new Error(`未 mock 的元素: ${id}`);
     }
     return elements[id];
@@ -2258,11 +2286,47 @@ setTimeout(async () => {
         if (!cell.includes(`id="borrow-error-${sym}"`)) {
           throw new Error(`${sym} 操作单元格缺少就近错误容器: ${cell}`);
         }
+        // F2：创建前预览容器（一个 div，不增减输入/按钮计数）
+        if (!cell.includes(`id="borrow-preview-${sym}"`)) {
+          throw new Error(`${sym} 操作单元格缺少创建前预览容器: ${cell}`);
+        }
       }
       if (!script.includes('stopPropagation')) {
         throw new Error('操作控件缺少事件隔离 stopPropagation');
       }
       console.log('[PASS] 操作单元格两输入一按钮、标签与事件隔离');
+    }
+
+    // 62b. 创建前预览（F2/ADR-001）：输入数量×次数后展示资产/单次数量/成功次数/目标总量/当前全局间隔
+    {
+      // 加载全局调度设置（提供当前间隔 "5"），失败不应影响预览其余字段
+      borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
+      await helpers.loadSchedulerSettings();
+      const amountEl = document.getElementById('borrow-amount-AUSDT');
+      const countEl = document.getElementById('borrow-count-AUSDT');
+      amountEl.value = '12.5';
+      countEl.value = '3';
+      helpers.renderBorrowPreview('AUSDT');
+      const txt = document.getElementById('borrow-preview-AUSDT').textContent;
+      // AUSDT 在 self-check fixture 的 base_asset 为 A
+      if (!txt.includes('资产 A')) throw new Error(`预览应包含资产 A: ${txt}`);
+      if (!txt.includes('12.5')) throw new Error(`预览应包含单次数量 12.5: ${txt}`);
+      if (!txt.includes('成功 3 次')) throw new Error(`预览应包含成功次数 3: ${txt}`);
+      if (!txt.includes('目标总量')) throw new Error(`预览应含「目标总量」字样: ${txt}`);
+      if (!txt.includes('37.5')) throw new Error(`预览应包含目标总量 37.5（12.5×3，BigInt 无 float）: ${txt}`);
+      if (!txt.includes('当前全局间隔') || !txt.includes('5 秒')) throw new Error(`预览应包含当前全局间隔 5 秒: ${txt}`);
+      // 预览仅就近展示，不引入浏览器侧调度/签名/联系 Binance
+      if (txt.includes('Binance') || txt.includes('签名')) throw new Error(`预览不得联系/签名 Binance: ${txt}`);
+      // 部分输入（仅数量）应回到提示态，不展示半成品目标总量
+      countEl.value = '';
+      helpers.renderBorrowPreview('AUSDT');
+      const partial = document.getElementById('borrow-preview-AUSDT').textContent;
+      if (partial.includes('37.5') || partial.includes('单次 12.5')) throw new Error(`部分输入不应展示半成品目标总量: ${partial}`);
+      // 还原输入，避免影响后续测试
+      amountEl.value = '';
+      countEl.value = '';
+      helpers.renderBorrowPreview('AUSDT');
+      console.log('[PASS] 创建前预览资产/数量/次数/目标总量/当前全局间隔');
     }
 
     // ---- 借币任务后端权威迁移（Task B；全部 API 交互走 §3 冻结形状的 mock） ----
@@ -2313,6 +2377,18 @@ setTimeout(async () => {
       }
       if (html.includes('前端演示') || html.includes('浏览器内存')) {
         throw new Error('页面仍残留 fake/浏览器内存免责声明');
+      }
+      // F1（Review-1 REWORK）：过期「不发起真实借币 / 所有尝试结果均为执行未启用」静态文案
+      // 已删除（执行徽标才是 mode/enabled 真相来源）；仍属实的浏览器陈述（不调度/不模拟/不签名/
+      // 不请求 Binance）保留。执行未启用 仅作为 result_category 标签存在（见下方断言）。
+      if (html.includes('不发起真实借币')) {
+        throw new Error('借币任务视图仍残留「不发起真实借币」过期文案');
+      }
+      if (html.includes('所有尝试结果均为「执行未启用」')) {
+        throw new Error('借币任务视图仍残留「所有尝试结果均为执行未启用」过期文案');
+      }
+      if (!html.includes('不签名') || !html.includes('不请求 Binance')) {
+        throw new Error('借币任务视图应保留浏览器不签名/不请求 Binance 的属实陈述');
       }
       // 间隔编辑器渲染 mock 的 "5"
       if (elements['borrow-interval-input'].value !== '5') {
@@ -2448,6 +2524,71 @@ setTimeout(async () => {
         throw new Error('合法提交后就近错误应清除');
       }
       console.log('[PASS] 操作单元格 UI 提交路径、本地校验与 API 400 detail');
+    }
+
+    // 66b. 创建前 fail-closed（BK-R1-FIX4-001 / micro fix-6）：scheduler settings 未加载/加载失败时
+    //      createBorrowTask ok=false 且 /api/borrow-tasks POST 数为 0；submit 入口先重投影预览（如实
+    //      标注「未加载」）再 fail closed，仍零 POST；加载 interval=5 后显示完整预览且恰好一次 task POST；
+    //      loaded→503 不得用旧间隔放行（失败路径作废缓存）。结尾还原到 item 66 末尾状态。
+    {
+      const amountEl = document.getElementById('borrow-amount-AUSDT');
+      const countEl = document.getElementById('borrow-count-AUSDT');
+      const errorEl = document.getElementById('borrow-error-AUSDT');
+      const previewEl = document.getElementById('borrow-preview-AUSDT');
+      const taskPosts = () => borrowFetchCalls().filter(c => c.url === '/api/borrow-tasks' && c.method === 'POST').length;
+
+      // 负向：强制「间隔未加载」（模拟启动一次性 GET 未完成 / 失败），create 直接拒绝且零 POST
+      helpers.clearBorrowSchedulerSettings();
+      const negBefore = taskPosts();
+      const r1 = await helpers.createBorrowTask('AUSDT', '12.5', '3');
+      if (r1.ok) throw new Error('调度设置未加载时不应创建任务（fail closed）');
+      if (!r1.error || !r1.error.includes('间隔')) throw new Error(`未加载错误应说明间隔未加载: ${r1.error}`);
+      if (taskPosts() !== negBefore) throw new Error(`调度设置未加载时不应发送任务 POST: Δ=${taskPosts() - negBefore}`);
+
+      // submit 入口在未加载时先重投影预览（如实标注「未加载」）再 fail closed，仍零 POST
+      amountEl.value = '12.5';
+      countEl.value = '3';
+      const r1b = await helpers.submitBorrowTask('AUSDT');
+      if (r1b.ok) throw new Error('未加载时 submit 也不应创建任务');
+      if (!errorEl.textContent.includes('间隔')) throw new Error(`submit 就近错误应说明间隔未加载: ${errorEl.textContent}`);
+      if (!previewEl.textContent.includes('未加载')) throw new Error(`submit 应先重投影预览并标注未加载: ${previewEl.textContent}`);
+      if (taskPosts() !== negBefore) throw new Error(`未加载时 submit 仍不应发送任务 POST: Δ=${taskPosts() - negBefore}`);
+
+      // 正向：加载 interval=5 后预览显示真实间隔 5 秒；create 成功且恰好一次 task POST
+      borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
+      await helpers.loadSchedulerSettings();
+      helpers.renderBorrowPreview('AUSDT');
+      if (!previewEl.textContent.includes('当前全局间隔 5 秒')) throw new Error(`加载后预览应显示真实间隔 5 秒: ${previewEl.textContent}`);
+      borrowTasksPostResponse = { status: 201, body: MOCK_TASK_HOME };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([MOCK_TASK_HOME]) };
+      const posBefore = taskPosts();
+      const r2 = await helpers.createBorrowTask('AUSDT', '12.5', '3');
+      if (!r2.ok) throw new Error(`加载 interval=5 后应创建成功: ${r2.error}`);
+      if (taskPosts() - posBefore !== 1) throw new Error(`正向应恰好一次任务 POST: Δ=${taskPosts() - posBefore}`);
+
+      // loaded→503（micro fix-6）：保留 phase 3 已加载的 interval=5，不得先 clear；让 GET 返回 503，
+      // loadSchedulerSettings 失败路径作废缓存 → state=null、预览回退「未加载」、create fail-closed、零 POST
+      borrowSettingsGetResponse = null; // -> mockBorrow503()
+      await helpers.loadSchedulerSettings();
+      if (helpers.getBorrowSchedulerSettings() !== null) throw new Error('loaded→503 后缓存设置应被作废（不得用旧间隔放行）');
+      helpers.renderBorrowPreview('AUSDT');
+      if (!previewEl.textContent.includes('未加载')) throw new Error(`loaded→503 后预览应回退未加载: ${previewEl.textContent}`);
+      const r3 = await helpers.createBorrowTask('AUSDT', '12.5', '3');
+      if (r3.ok) throw new Error('loaded→503 后不应创建任务（fail closed，旧间隔已作废）');
+      if (!r3.error || !r3.error.includes('间隔')) throw new Error(`loaded→503 错误应说明间隔未加载: ${r3.error}`);
+      if (taskPosts() !== posBefore + 1) throw new Error('loaded→503 后不应发送任务 POST');
+
+      // 还原到 item 66 末尾状态：间隔已加载 + item 66 的 task mock + 输入/预览/错误，避免影响 item 67+
+      borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
+      await helpers.loadSchedulerSettings();
+      borrowTasksPostResponse = { status: 201, body: MOCK_TASK_HOME };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([MOCK_TASK_HOME]) };
+      await helpers.loadBorrowTasks();
+      amountEl.value = '12.5';
+      countEl.value = '3';
+      errorEl.textContent = '';
+      helpers.renderBorrowPreview('AUSDT');
+      console.log('[PASS] 创建前 fail-closed：未加载/loaded→503 零 POST，加载 interval=5 后恰好一次 POST');
     }
 
     // 67. maxBorrowableSubline 不再重复「已借完」（唯一保留：状态徽标「可借 0(已借完)」）
@@ -2922,7 +3063,7 @@ setTimeout(async () => {
       console.log('[PASS] 借币日志 newest-first 游标分页、加载更多与显式刷新');
     }
 
-    // 75. 全局间隔编辑器：GET 渲染、PUT 十进制字符串、invalid_interval 400 就近显示
+    // 75. 全局间隔编辑器：GET 渲染、PUT 合法十进制（≥2s）、sub-floor 400 就近显示
     {
       borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
       helpers.setActiveView('borrow-tasks');
@@ -2930,35 +3071,35 @@ setTimeout(async () => {
       if (elements['borrow-interval-input'].value !== '5') {
         throw new Error(`间隔输入应渲染 mock 的 5: ${elements['borrow-interval-input'].value}`);
       }
-      // PUT "0.5" 成功：body 为冻结形状，说明与任务卡策略行更新
-      borrowSettingsPutResponse = { status: 200, body: MOCK_SETTINGS_05 };
+      // PUT "2.5" 成功（≥2s 容量地板的合法小数）：body 为冻结形状，说明与任务卡策略行更新
+      borrowSettingsPutResponse = { status: 200, body: MOCK_SETTINGS_2_5 };
       let mark = fetchCallLog.length;
-      elements['borrow-interval-input'].value = '0.5';
+      elements['borrow-interval-input'].value = '2.5';
       const r1 = await helpers.submitSchedulerInterval();
-      if (!r1.ok) throw new Error(`PUT 0.5 应成功: ${r1.error}`);
+      if (!r1.ok) throw new Error(`PUT 2.5 应成功: ${r1.error}`);
       const putCalls = fetchCallLog.slice(mark).filter(c => c.url === '/api/borrow-scheduler-settings');
       if (putCalls.length !== 1 || putCalls[0].method !== 'PUT' ||
-          JSON.stringify(putCalls[0].body) !== JSON.stringify({ interval_seconds: '0.5' })) {
-        throw new Error(`PUT body 应为 {"interval_seconds":"0.5"}: ${JSON.stringify(putCalls)}`);
+          JSON.stringify(putCalls[0].body) !== JSON.stringify({ interval_seconds: '2.5' })) {
+        throw new Error(`PUT body 应为 {"interval_seconds":"2.5"}: ${JSON.stringify(putCalls)}`);
       }
-      if (!elements['borrow-interval-note'].textContent.includes('每 0.5 秒')) {
-        throw new Error(`PUT 后间隔说明应更新为 0.5 秒: ${elements['borrow-interval-note'].textContent}`);
+      if (!elements['borrow-interval-note'].textContent.includes('每 2.5 秒')) {
+        throw new Error(`PUT 后间隔说明应更新为 2.5 秒: ${elements['borrow-interval-note'].textContent}`);
       }
-      if (!elements['borrow-task-list'].innerHTML.includes('每 0.5 秒')) {
+      if (!elements['borrow-task-list'].innerHTML.includes('每 2.5 秒')) {
         throw new Error('PUT 后任务卡策略行应引用新间隔');
       }
       if (elements['borrow-interval-error'].textContent !== '') {
         throw new Error('PUT 成功后错误应清除');
       }
-      // 400 invalid_interval：detail 就近显示，设置保持 0.5
-      borrowSettingsPutResponse = { status: 400, body: { error: 'invalid_interval', detail: 'interval_seconds must be a positive decimal string' } };
-      elements['borrow-interval-input'].value = '-1';
+      // 400 invalid_interval：sub-floor "0.5" 被后端容量地板拒绝，detail 就近显示，设置保持 2.5
+      borrowSettingsPutResponse = { status: 400, body: { error: 'invalid_interval', detail: 'interval_seconds must be >= 2 (frozen shared-IP capacity floor)' } };
+      elements['borrow-interval-input'].value = '0.5';
       const r2 = await helpers.submitSchedulerInterval();
-      if (r2.ok) throw new Error('invalid_interval 不应成功');
-      if (elements['borrow-interval-error'].textContent !== 'interval_seconds must be a positive decimal string') {
+      if (r2.ok) throw new Error('sub-floor 0.5 不应成功');
+      if (elements['borrow-interval-error'].textContent !== 'interval_seconds must be >= 2 (frozen shared-IP capacity floor)') {
         throw new Error(`400 detail 应原样就近显示: ${elements['borrow-interval-error'].textContent}`);
       }
-      if (!elements['borrow-interval-note'].textContent.includes('每 0.5 秒')) {
+      if (!elements['borrow-interval-note'].textContent.includes('每 2.5 秒')) {
         throw new Error('400 后间隔设置应保持不变');
       }
       // 空输入本地拒绝，不发 PUT
@@ -2973,7 +3114,7 @@ setTimeout(async () => {
         throw new Error('空输入应显示本地校验错误');
       }
       helpers.setActiveView('market');
-      console.log('[PASS] 全局间隔编辑器 GET/PUT、400 与本地校验');
+      console.log('[PASS] 全局间隔编辑器 GET/PUT（≥2s）、sub-floor 400 与本地校验');
     }
 
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 仅隐私键
@@ -2984,7 +3125,9 @@ setTimeout(async () => {
         /^\/api\/borrow-tasks$/,
         /^\/api\/borrow-tasks\/[^/]+\/(start|pause|delete|edit)$/,
         /^\/api\/borrow-logs\?/,
-        /^\/api\/borrow-scheduler-settings$/
+        /^\/api\/borrow-scheduler-settings$/,
+        // Boundary C execution control (exact anchored paths, no prefix/wildcard).
+        /^\/api\/borrow-execution\/(status|start|stop)$/
       ];
       for (const c of fetchCallLog) {
         if (/binance/i.test(c.url)) {
@@ -2997,7 +3140,8 @@ setTimeout(async () => {
           throw new Error(`fetch URL 不在同源白名单: ${c.url}`);
         }
       }
-      // 方法白名单：快照/日志/任务列表 GET；任务创建/动作 POST；设置 GET/PUT
+      // 方法白名单：快照/日志/任务列表 GET；任务创建/动作 POST；设置 GET/PUT；
+      // 执行控制：status GET、start/stop POST
       for (const c of fetchCallLog) {
         if (c.url === '/api/borrow-scheduler-settings') {
           if (c.method !== 'GET' && c.method !== 'PUT') throw new Error(`设置路由非法方法 ${c.method}`);
@@ -3005,13 +3149,18 @@ setTimeout(async () => {
           if (c.method !== 'GET' && c.method !== 'POST') throw new Error(`任务路由非法方法 ${c.method}`);
         } else if (/^\/api\/borrow-tasks\/[^/]+\//.test(c.url)) {
           if (c.method !== 'POST') throw new Error(`任务动作路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/borrow-execution/status') {
+          if (c.method !== 'GET') throw new Error(`执行状态路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/borrow-execution/start' || c.url === '/api/borrow-execution/stop') {
+          if (c.method !== 'POST') throw new Error(`执行控制路由非法方法 ${c.method}`);
         } else if (c.method !== 'GET') {
           throw new Error(`只读路由非法方法 ${c.method}: ${c.url}`);
         }
       }
-      // 无新定时器：全部 interval 注册只允许 60000 快照刷新与 1000 倒计时
+      // 无新定时器：全部 interval 注册只允许 60000 快照刷新、1000 倒计时、
+      // 与 2000 执行状态轮询（Boundary C 单一 2s 显示轮询，浏览器从不签名/调度）
       for (const call of intervalCalls) {
-        if (call.delay !== 60000 && call.delay !== 1000) {
+        if (call.delay !== 60000 && call.delay !== 1000 && call.delay !== 2000) {
           throw new Error(`存在非法任务定时器: delay=${call.delay}`);
         }
       }

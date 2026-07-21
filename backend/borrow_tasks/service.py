@@ -1,15 +1,17 @@
 """Borrow task service — HTTP-facing orchestration over the store + executor.
 
-The service is the single borrow authority for A+B. It owns the store, the
-executor and the scheduler thread, and exposes the local same-origin API
-methods consumed by ``backend/app/server.py``. Handlers delegate here only;
-they never touch SQL or the executor directly (breakdown §3.10).
+The service is the single borrow authority. It owns the store, the executor, the
+scheduler thread and (for live mode) the execution-owner sidecar lock, and
+exposes the local same-origin API methods consumed by ``backend/app/server.py``.
+Handlers delegate here only; they never touch SQL or the executor directly
+(breakdown §3.10).
 
-Dispatch invariant (amendment §2): the pending attempt is persisted in one
-short transaction, the executor is invoked with no store lock or transaction
-held, and the attempt is resolved in a second short transaction. A+B disabled
-execution is synchronous only because it performs no I/O; it is not a
-commitment to a synchronous future-C adapter.
+Dispatch invariant (amendment §2 / Boundary C §4.5): the pending attempt is
+persisted in one short conditional transaction (which re-checks every gate
+atomically), the executor is invoked with no store lock or transaction held, and
+the attempt is resolved in a second short transaction. A non-owner process never
+dispatches even on a forced tick; a rate-limit cooldown blocks every signed
+borrow-client call including reconciliation GETs.
 """
 from __future__ import annotations
 
@@ -19,7 +21,8 @@ import uuid
 from typing import Callable
 
 from . import domain as D
-from .executor import BorrowExecutor, DisabledBorrowExecutor
+from .executor import BorrowExecutor, DisabledBorrowExecutor, ExecutorResult
+from .ownership import BorrowDbOwnership
 from .scheduler import BorrowScheduler, select_next_task
 from .store import BorrowTaskStore, UnknownTaskError, VersionConflictError
 
@@ -60,6 +63,7 @@ def task_to_doc(task: dict) -> dict:
         "success_count": task["success_count"],
         "status": task["status"],
         "version": task["version"],
+        "live_authorized": bool(task["live_authorized"]),
         "unresolved_attempt_id": task["unresolved_attempt_id"],
         "latest_result": _latest_result_to_doc(task),
         "created_at": D.us_to_iso(task["created_at_us"]),
@@ -108,12 +112,24 @@ class BorrowTaskService:
         executor: BorrowExecutor | None = None,
         mono_us: Callable[[], int] | None = None,
         wall_us: Callable[[], int] | None = None,
+        mode: str = "disabled",
+        credentials_present: bool = False,
+        ownership: BorrowDbOwnership | None = None,
     ):
         self._store = BorrowTaskStore(db_path)
         self._executor: BorrowExecutor = executor or DisabledBorrowExecutor()
         self._mono_us = mono_us or _real_mono_us
         self._wall_us = wall_us or _real_wall_us
+        self._mode = mode
+        self._live_mode = mode == "live"
+        self._credentials_present = credentials_present
+        # Execution-owner sidecar lock (§4.3): acquired before any scheduler can
+        # start and held for process lifetime. A non-owner still constructs and
+        # serves read/mutation APIs but never dispatches.
+        self._ownership = ownership or BorrowDbOwnership(db_path)
+        self._is_execution_owner = self._ownership.try_acquire()
         self._last_tick_mono: int | None = None
+        self._in_flight_attempt_id: int | None = None
         self._lock = threading.Lock()  # serializes tick() against itself
         self._scheduler = BorrowScheduler(
             self.tick, self._store.get_interval_us, self._mono_us
@@ -123,9 +139,17 @@ class BorrowTaskService:
 
     def close(self) -> None:
         self.stop()
+        try:
+            self._ownership.close()
+        except Exception:
+            pass
         self._store.close()
 
     def start(self) -> None:
+        # Only the execution owner starts a scheduler; a non-owner serves APIs
+        # but never schedules or dispatches (§4.3 / acceptance 15).
+        if not self._is_execution_owner:
+            return
         self._scheduler.start()
 
     def stop(self) -> None:
@@ -134,6 +158,20 @@ class BorrowTaskService:
     @property
     def store(self) -> BorrowTaskStore:
         return self._store
+
+    @property
+    def is_execution_owner(self) -> bool:
+        return self._is_execution_owner
+
+    @property
+    def mode(self) -> str:
+        return self._mode
+
+    @property
+    def credentials_present(self) -> bool:
+        # Non-secret boolean: whether dedicated borrow credentials are configured.
+        # Exposed for sanitized startup lifecycle (the value itself is never logged).
+        return self._credentials_present
 
     # ------------------------------------------------------------------ tasks
 
@@ -157,9 +195,26 @@ class BorrowTaskService:
         task = self._store.get_task(task_id)
         if task is None:
             raise D.BorrowError(404, "unknown_task", f"unknown task {task_id}")
-        if task["status"] != D.STATUS_PAUSED:
+        status = task["status"]
+        if status == D.STATUS_BORROWING:
             raise D.BorrowError(409, "invalid_transition", "start requires status paused")
-        updated = self._store.set_task_status(task_id, D.STATUS_BORROWING, self._wall_us())
+        if status == D.STATUS_DELETED:
+            raise D.BorrowError(409, "invalid_transition", "cannot start a deleted task")
+        now_us = self._wall_us()
+        if status == D.STATUS_COMPLETED:
+            # Idempotent: completed stays completed; never re-opens eligibility.
+            return 200, task_to_doc(task)
+        # status == paused: explicit Start marks the task live-authorized (§4.4).
+        # Start-at-target completes instead of moving to borrowing so a task
+        # already at its count cannot receive an extra POST (§5.4 belt+braces).
+        if task["success_count"] >= task["success_target"]:
+            updated = self._store.set_task_status(
+                task_id, D.STATUS_COMPLETED, now_us, live_authorized=1
+            )
+        else:
+            updated = self._store.set_task_status(
+                task_id, D.STATUS_BORROWING, now_us, live_authorized=1
+            )
         return 200, task_to_doc(updated)
 
     def post_pause(self, task_id: str) -> tuple[int, dict]:
@@ -255,26 +310,91 @@ class BorrowTaskService:
         updated = self._store.update_settings(seconds_str, interval_us, self._wall_us())
         return 200, settings_to_doc(updated)
 
+    # --------------------------------------------------- execution control (C)
+
+    def get_execution_status(self) -> tuple[int, dict]:
+        """Read-only ``borrow-execution/v1`` projection (§3.3)."""
+        settings = self._store.get_settings()
+        now_us = self._wall_us()
+        execution_enabled = bool(settings["execution_enabled"])
+        cooldown_until_us = settings["global_cooldown_until_us"]
+        in_cooldown = cooldown_until_us is not None and cooldown_until_us > now_us
+        rate_blocked = in_cooldown or bool(settings["requires_rearm"])
+        # can_execute deliberately excludes the transient cooldown so the badge
+        # does not flicker during ordinary 429 handling (§3.3).
+        can_execute = (
+            self._live_mode
+            and execution_enabled
+            and self._credentials_present
+            and self._is_execution_owner
+        )
+        if not self._live_mode:
+            block_reason = D.BLOCK_EXECUTOR_DISABLED
+        elif not self._credentials_present:
+            block_reason = D.BLOCK_BORROW_CREDENTIALS_MISSING
+        elif not self._is_execution_owner:
+            block_reason = D.BLOCK_NOT_EXECUTION_OWNER
+        elif not execution_enabled:
+            block_reason = D.BLOCK_GLOBALLY_STOPPED
+        elif rate_blocked:
+            block_reason = D.BLOCK_RATE_LIMITED
+        else:
+            block_reason = None
+        return 200, {
+            "schema_version": D.EXECUTION_SCHEMA_VERSION,
+            "mode": self._mode,
+            "execution_enabled": execution_enabled,
+            "can_execute": can_execute,
+            "block_reason": block_reason,
+            "in_flight_attempt_id": self._in_flight_attempt_id,
+            "global_cooldown_until": D.us_to_iso(cooldown_until_us),
+            "live_authorized_task_count": self._store.count_live_authorized_tasks(),
+            "updated_at": D.us_to_iso(now_us),
+        }
+
+    def post_execution_start(self) -> tuple[int, dict]:
+        # Idempotent durable Start; also re-arms after a 418 ban (§5.1).
+        self._store.set_execution_enabled(True, self._wall_us())
+        return self.get_execution_status()
+
+    def post_execution_stop(self) -> tuple[int, dict]:
+        # Idempotent durable Stop: blocks new POSTs, never rewrites an in-flight
+        # attempt. Reconciliation GETs may still continue once not rate-limited.
+        self._store.set_execution_enabled(False, self._wall_us())
+        return self.get_execution_status()
+
     # --------------------------------------------------------------- scheduler
 
     def tick(self) -> bool:
-        """Run one due-tick check; dispatch at most one attempt.
+        """Run one due-tick check; dispatch at most one attempt, then reconcile.
 
         Returns whether an attempt was dispatched. Tests drive this directly
         with injected clocks; the scheduler thread calls it on the cadence.
+        ``_last_tick_mono`` advances to ``now`` (never by accumulated intervals)
+        so missed time is never replayed as a burst of dispatches (§9-6).
         """
         with self._lock:
             now = self._mono_us()
             interval = self._store.get_interval_us()
             if self._last_tick_mono is None:
                 self._last_tick_mono = now
-                return self._dispatch_one(self._wall_us())
-            if now < self._last_tick_mono + interval:
-                return False
-            self._last_tick_mono = self._last_tick_mono + interval
-            return self._dispatch_one(self._wall_us())
+                dispatched = self._dispatch_one(self._wall_us())
+            elif now < self._last_tick_mono + interval:
+                dispatched = False
+            else:
+                self._last_tick_mono = now
+                dispatched = self._dispatch_one(self._wall_us())
+            self._reconcile_pass(self._wall_us())
+            return dispatched
 
     def _dispatch_one(self, scheduled_us: int) -> bool:
+        # A non-owner process never dispatches even on a forced tick (§4.3).
+        if not self._is_execution_owner:
+            return False
+        # Dedicated-credentials gate (§4.2): live mode never dispatches without
+        # credentials, so no signed POST can leave the process with empty keys.
+        if self._live_mode and not self._credentials_present:
+            return False
         settings = self._store.get_settings()
         cooldown = settings["global_cooldown_until_us"]
         if cooldown is not None and cooldown > scheduled_us:
@@ -284,7 +404,8 @@ class BorrowTaskService:
         if chosen is None:
             return False
         dispatched_us = self._wall_us()
-        # Transaction 1: persist pending attempt + advance cursor (no executor).
+        # Transaction 1: atomic conditional pending insert + advance cursor +
+        # set the in-flight marker (live gates apply only in live mode).
         attempt = self._store.insert_pending_attempt(
             chosen["id"],
             chosen["asset"],
@@ -292,20 +413,93 @@ class BorrowTaskService:
             scheduled_us,
             dispatched_us,
             chosen["id"],
+            live_gates=self._live_mode,
         )
-        # Executor invoked with NO store lock or transaction held (amendment §2).
-        result = self._executor.execute(chosen, attempt)
-        # Transaction 2: resolve the attempt + apply task/settings effects.
-        self._store.resolve_attempt(attempt["id"], result, self._wall_us())
+        if attempt is None:
+            return False  # a gate failed atomically — zero row and zero POST
+        self._in_flight_attempt_id = attempt["id"]
+        try:
+            # Executor invoked with NO store lock or transaction held (§4.5).
+            result = self._executor.execute(chosen, attempt)
+        except Exception as exc:
+            # Containment (§5.2): an executor exception maps to unknown, never
+            # re-raised, so the scheduler thread cannot be killed by it.
+            result = ExecutorResult(
+                result_category=D.RESULT_UNKNOWN,
+                reason=f"executor_exception:{type(exc).__name__}",
+            )
+        finally:
+            self._in_flight_attempt_id = None
+        try:
+            # Transaction 2: resolve the attempt + apply task/settings effects.
+            self._store.resolve_attempt(attempt["id"], result, self._wall_us())
+        except Exception:
+            # Containment (§5.2): a store/projection exception must not kill the
+            # scheduler; the attempt stays pending and its task stays blocked.
+            pass
         return True
+
+    def _reconcile_pass(self, now_us: int) -> None:
+        """Prove success for due unresolved unknown attempts (§5.3).
+
+        A rate-limit cooldown blocks ALL signed borrow-client traffic including
+        reconciliation GETs, so the pass is skipped while cooling down or while
+        a 418 ban awaits manual re-arm.
+        """
+        settings = self._store.get_settings()
+        cooldown = settings["global_cooldown_until_us"]
+        if cooldown is not None and cooldown > now_us:
+            return
+        if settings["requires_rearm"]:
+            return
+        due = self._store.list_due_reconciliations(now_us)
+        for attempt in due:
+            task = self._store.get_task(attempt["task_id"])
+            if task is None:
+                continue
+            try:
+                outcome = self._executor.reconcile(task, attempt)
+            except Exception:
+                # Containment: a reconcile exception must not kill the pass.
+                outcome = None
+            if outcome is None:
+                break  # executor cannot reconcile (disabled / non-live)
+            if outcome.rate_limited:
+                if outcome.retry_after_seconds is not None:
+                    self._store.set_rate_cooldown(outcome.retry_after_seconds, now_us)
+                if outcome.requires_rearm:
+                    # A reconciliation GET can observe a 418 ban; persist the
+                    # manual-rearm requirement so execution does not auto-resume
+                    # after the 300s local cooldown (§5.1).
+                    self._store.set_requires_rearm(now_us)
+                break  # stop the pass while rate-limited
+            if outcome.matched:
+                # Cross-task attribution gate (§5.3 / risk §11): only credit the
+                # attempt when the candidate is unambiguously its own — never
+                # attribute a loan record another task/attempt could also match.
+                if self._store.attribution_is_unique(
+                    attempt["id"],
+                    attempt["task_id"],
+                    attempt["asset"],
+                    attempt["requested_amount"],
+                    outcome.tran_id,
+                ):
+                    self._store.resolve_reconciliation_success(
+                        attempt["id"], outcome.tran_id, now_us
+                    )
+                else:
+                    self._store.advance_reconciliation(attempt["id"], now_us)
+            else:
+                self._store.advance_reconciliation(attempt["id"], now_us)
 
     # ------------------------------------------------------------- test seam
 
     def clear_unresolved(self, task_id: str) -> None:
         """Python-level (not HTTP) seam to clear an unresolved marker.
 
-        Reconciliation of a genuinely unknown outcome is Boundary C; A+B ships
-        no HTTP unblock endpoint. Tests use this to restore eligibility.
+        Reconciliation of a genuinely unknown outcome has no HTTP unblock route;
+        a blocked task's only operator exit is delete. Tests use this to restore
+        eligibility for deterministic scheduling scenarios.
         """
         try:
             self._store.clear_unresolved(task_id, self._wall_us())

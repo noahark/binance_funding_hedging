@@ -8,7 +8,7 @@ evidence).
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping
 
@@ -82,11 +82,17 @@ class Config:
     # whose upstream I/O completes after this monotonic deadline must NOT commit
     # cache changes or publish a new PublishedState.
     symbol_refresh_timeout_seconds: float = 30.0
-    # Stage 2026-07-real-borrow-execution-v1 (A+B): the only borrow executor
-    # reachable from configuration is the no-network ``disabled`` one. A "live"
-    # selection is rejected, not implemented (Boundary C is a separate stage).
+    # Boundary C: the borrow executor is one of ``disabled`` (default, no-network)
+    # or ``live`` (the exact-path PM borrow client, still off-by-default until an
+    # explicit operator Start). Any other selection is rejected in from_env.
     borrow_executor: str = "disabled"
     borrow_db_path: Path = BORROW_DB_PATH
+    # Dedicated PM borrow credentials (Boundary C). Empty by default. ``live``
+    # mode with empty credentials is a dispatch gate (block_reason
+    # ``borrow_credentials_missing``), not a crash. Both are ``repr=False`` so a
+    # Config repr/log can never leak the secret.
+    binance_borrow_api_key: str = field(default="", repr=False)
+    binance_borrow_api_secret: str = field(default="", repr=False)
 
 
 # Stage 2026-07-cache-refresh-scheduler-v2: fixed Group B shared/unified source
@@ -177,12 +183,13 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
         DEFAULT.borrow_executor,
         "FUNDING_HEDGING_BORROW_EXECUTOR",
     )
-    # Breakdown §3.9: only the no-network disabled executor is implemented in
-    # A+B. Any other selection (a "live" adapter) is rejected, not built.
-    if borrow_executor != "disabled":
+    # Boundary C: ``disabled`` (default, no-network) and ``live`` (the exact-path
+    # PM borrow client, off-by-default until an explicit operator Start) are the
+    # only two selections. Anything else is rejected, not built.
+    if borrow_executor not in {"disabled", "live"}:
         raise ValueError(
-            f"invalid borrow executor {borrow_executor!r}: only 'disabled' is "
-            "implemented in A+B (Boundary C is a separate stage)"
+            f"invalid borrow executor {borrow_executor!r}: only 'disabled' or "
+            "'live' is implemented"
         )
     return Config(
         bind_host=_env(env, "APP_BIND_HOST", DEFAULT.bind_host, "FUNDING_HEDGING_BIND_HOST"),
@@ -269,4 +276,8 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
             DEFAULT.borrow_db_path,
             "FUNDING_HEDGING_BORROW_DB_PATH",
         ),
+        # Dedicated PM borrow credentials (Boundary C). Read verbatim from the
+        # environment only; .env itself is never parsed here. Empty unless set.
+        binance_borrow_api_key=_env(env, "BINANCE_BORROW_API_KEY", "") or "",
+        binance_borrow_api_secret=_env(env, "BINANCE_BORROW_API_SECRET", "") or "",
     )

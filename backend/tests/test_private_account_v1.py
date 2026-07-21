@@ -1004,7 +1004,9 @@ def test_no_websocket_listenkey_scaffolding():
 
 def test_single_hmac_exit_unchased_after_v03():
     # Re-asserts the grep guard from test_private_client for completeness: only
-    # private_client.py touches hmac/hashlib/signature after the v0.3 expansion.
+    # binance_signing.py (the shared signer extracted in Boundary C) constructs
+    # the hmac/hashlib/signature surface; private_client.py and the borrow
+    # transport delegate to it and build none inline.
     import re
     hmac_re = re.compile(r"\bhmac\b")
     hash_re = re.compile(r"hashlib")
@@ -1012,12 +1014,12 @@ def test_single_hmac_exit_unchased_after_v03():
     bad = []
     for py in (REPO_ROOT / "backend").rglob("*.py"):
         rel = py.relative_to(REPO_ROOT)
-        if "tests" in rel.parts or rel.name == "private_client.py":
+        if "tests" in rel.parts or rel.name == "binance_signing.py":
             continue
         text = py.read_text(encoding="utf-8")
         if hmac_re.search(text) or hash_re.search(text) or sig_re.search(text):
             bad.append(str(rel))
-    assert bad == [], f"hmac/hashlib/signature outside private_client.py: {bad}"
+    assert bad == [], f"hmac/hashlib/signature outside binance_signing.py: {bad}"
 
 
 def test_offline_snapshot_v03_fields_validate(v03_schema):

@@ -1,6 +1,12 @@
 {
-  "active": null,
+  "active": {
+    "stage_id": "2026-07-real-borrow-boundary-c-v1",
+    "phase": "release_authorized_pending_local_main_merge",
+    "handoff": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
+    "note": "Boundary C is all-green at 2bfd0de; the user explicitly waives fresh formal Review-2 and authorizes a local no-rebase merge to main for online acceptance (evidence: 80-user-acceptance.md). The user will configure non-secret alias references in .env and restart the service. Task deletion is authorized only after the new service enumerates exact targets; the durable global Start gate and every real Binance borrow remain disabled pending a later explicit action.",
+    "updated_at": "2026-07-21T23:27:09+08:00"
+  },
   "last_completed": "2026-07-harness-verdict-extractor-fix-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T20:18:25+08:00"
+  "updated_at": "2026-07-21T23:27:09+08:00"
 }

@@ -1,11 +1,13 @@
-"""Private read-only Binance client — the repo's SINGLE HMAC exit point.
+"""Private read-only Binance client — GET-only signed reads via the shared signer.
 
 Security gates (all reviewer-checked + negative-tested in
 ``backend/tests/test_private_client.py``):
 
-1. **Single HMAC exit.** This module is the only place in the repo that
-   constructs an HMAC-SHA256 signature. A grep-level test asserts the
-   ``hmac``/``hashlib``/``signature`` surface appears only here.
+1. **Single HMAC exit.** :mod:`binance_signing` is the only module in the repo
+   that constructs an HMAC-SHA256 signature; this client (and the borrow
+   transport) delegate to it and construct no signature inline. A grep-level test
+   asserts the signing-primitive surface appears only in
+   :mod:`binance_signing`, and that neither HTTP client builds one itself.
 2. **deny-by-default whitelist.** ``WHITELIST`` maps ``(method, exact-path)``
    pairs to their base URL and is the single source of truth. Any path not in
    the whitelist, or any non-GET method, raises in ``_require_whitelisted``
@@ -33,13 +35,13 @@ Decimal discipline: amount/rate values are passed through as raw strings
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 import time
 import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
+
+from . import binance_signing
 
 # ---- deny-by-default whitelist: (method, exact-path) -> base URL (hardcoded) ----
 # This is the single source of truth for which private endpoints may be called.
@@ -129,7 +131,7 @@ class PrivateClient:
             raise PermissionError(f"private client is GET-only: {method} {path}")
         return WHITELIST[(method, path)]
 
-    # -- single HMAC exit --
+    # -- signed GET via the shared signer (single HMAC exit in binance_signing) --
     def _signed_get(
         self,
         method: str,
@@ -143,11 +145,10 @@ class PrivateClient:
         p = dict(params or {})
         p["recvWindow"] = str(self._recv_window)
         p["timestamp"] = str(int(time.time() * 1000))
-        qs = "&".join(f"{k}={v}" for k, v in sorted(p.items()))
-        signature = hmac.new(
-            self.api_secret.encode("utf-8"), qs.encode("utf-8"), hashlib.sha256
-        ).hexdigest()
-        url = f"{base}{path}?{qs}&signature={signature}"
+        # The signed query string IS the sent query string (signature last); the
+        # single HMAC exit in binance_signing produces both from one totalParams.
+        payload = binance_signing.signed_payload(p, self.api_secret)
+        url = f"{base}{path}?{payload}"
         req = urllib.request.Request(
             url,
             headers={"X-MBX-APIKEY": self.api_key, "User-Agent": self._user_agent},

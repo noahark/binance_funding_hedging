@@ -127,11 +127,11 @@ def test_full_scenario_makes_zero_urllib_calls(tmp_path, monkeypatch):
         mono_us=clock.mono_us,
         wall_us=clock.wall_us,
     )
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     for asset in ("BTC", "ETH", "XRP", "SOL", "ADA"):
         svc.create_task({"asset": asset, "amount_per_attempt": "1", "success_target": 9})
     for t in range(5):
-        clock.t = t * 1_000_000
+        clock.t = t * 2_000_000
         svc.tick()                    # exercises every category
     # exercise the read API surface too
     svc.list_tasks()
@@ -158,7 +158,7 @@ def test_poisoned_env_secrets_never_leak(tmp_path, monkeypatch):
         mono_us=clock.mono_us,
         wall_us=clock.wall_us,
     )
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     svc.create_task({"asset": "BTC", "amount_per_attempt": "1", "success_target": 5})
     clock.t = 0
     svc.tick()

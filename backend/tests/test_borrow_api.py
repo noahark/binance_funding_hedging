@@ -19,7 +19,7 @@ import jsonschema
 import pytest
 import referencing
 
-from backend.app.server import build_server
+from backend.app.server import build_server, _build_borrow_service
 from backend.borrow_tasks.service import BorrowTaskService
 from backend.borrow_tasks.executor import DisabledBorrowExecutor
 from backend.borrow_tasks import domain as D
@@ -70,7 +70,14 @@ def _create(svc, asset, target=3):
 def validators():
     registry = referencing.Registry()
     schemas = {}
-    for name in ("task", "task-list", "log-page", "scheduler-settings", "error"):
+    for name in (
+        "task",
+        "task-list",
+        "log-page",
+        "scheduler-settings",
+        "execution-status",
+        "error",
+    ):
         schema = json.loads((SCHEMA_DIR / f"{name}.schema.json").read_text())
         schemas[name] = schema
         registry = registry.with_resource(
@@ -182,15 +189,24 @@ def test_settings_get_default_then_put_fractional(validators, tmp_path):
         assert settings["round_robin_cursor"] is None
         assert settings["global_cooldown_until"] is None
 
-        body, ctype = _post_json({"interval_seconds": "0.5"})
+        # A fractional interval at/above the frozen 2-second floor is accepted.
+        body, ctype = _post_json({"interval_seconds": "2.5"})
         status, _, payload = _req(
             host, port, "PUT", "/api/borrow-scheduler-settings", body=body, content_type=ctype
         )
         assert status == 200
         updated = _json(payload)
         validators["scheduler-settings"].validate(updated)
-        assert updated["interval_seconds"] == "0.5"
-        assert updated["interval_us"] == 500_000            # sub-second observable
+        assert updated["interval_seconds"] == "2.5"
+        assert updated["interval_us"] == 2_500_000
+
+        # A sub-floor fractional value is rejected at the backend authority.
+        body, ctype = _post_json({"interval_seconds": "0.5"})
+        status, _, payload = _req(
+            host, port, "PUT", "/api/borrow-scheduler-settings", body=body, content_type=ctype
+        )
+        assert status == 400
+        assert _json(payload)["error"] == "invalid_interval"
 
 
 # ===========================================================================
@@ -204,9 +220,9 @@ def test_logs_pagination_cursor_boundary_and_schema(validators, tmp_path):
         mono_us=clock.mono_us,
         wall_us=clock.wall_us,
     )
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     _create(svc, "BTC")
-    for t in (0, 1_000_000, 2_000_000):
+    for t in (0, 2_000_000, 4_000_000):
         clock.t = t
         svc.tick()
     with _server(svc) as (host, port):
@@ -237,7 +253,7 @@ def test_logs_pagination_cursor_boundary_and_schema(validators, tmp_path):
 def test_runtime_disabled_executor_persists_sanitized_row(validators, tmp_path):
     svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))  # default Disabled executor
     assert isinstance(svc._executor, DisabledBorrowExecutor)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     _create(svc, "BTC")
     assert svc.tick() is True                              # one backend attempt
     with _server(svc) as (host, port):
@@ -267,6 +283,8 @@ _STATIC_ERROR_CASES = [
      "application/json", 400, "invalid_field"),
     ("invalid_interval_zero", "PUT", "/api/borrow-scheduler-settings",
      json.dumps({"interval_seconds": "0"}), "application/json", 400, "invalid_interval"),
+    ("invalid_interval_sub_floor", "PUT", "/api/borrow-scheduler-settings",
+     json.dumps({"interval_seconds": "0.5"}), "application/json", 400, "invalid_interval"),
     ("invalid_cursor_garbage", "GET", "/api/borrow-logs?cursor=!!!", None, None, 400, "invalid_cursor"),
     ("invalid_limit_zero", "GET", "/api/borrow-logs?limit=0", None, None, 400, "invalid_limit"),
     ("unknown_task_pause", "POST", "/api/borrow-tasks/no-such-task/pause", None, None, 404, "unknown_task"),
@@ -430,7 +448,7 @@ def test_edit_rejects_unknown_field(validators, tmp_path):
 def test_settings_rejects_unknown_field(validators, tmp_path):
     svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
     with _server(svc) as (host, port):
-        body, ctype = _post_json({"interval_seconds": "1", "bogus_field": 9})
+        body, ctype = _post_json({"interval_seconds": "5", "bogus_field": 9})
         status, _, payload = _req(
             host, port, "PUT", "/api/borrow-scheduler-settings", body=body, content_type=ctype
         )
@@ -455,3 +473,115 @@ def test_pause_oversized_body_returns_413(validators, tmp_path):
         err = _json(payload)
         validators["error"].validate(err)
         assert err["error"] == "body_too_large"
+
+
+# ===========================================================================
+# Boundary C execution control routes (§3.2 / §3.3): status / start / stop
+# ===========================================================================
+def test_execution_status_disabled_projection_schema_valid(validators, tmp_path):
+    # Default service is mode=disabled: read-only status is schema-valid and
+    # reports the fail-closed projection (can_execute False, executor_disabled).
+    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
+    with _server(svc) as (host, port):
+        status, ct, payload = _req(host, port, "GET", "/api/borrow-execution/status")
+        assert status == 200
+        assert ct == "application/json; charset=utf-8"
+        doc = _json(payload)
+        validators["execution-status"].validate(doc)
+        assert doc["schema_version"] == D.EXECUTION_SCHEMA_VERSION
+        assert doc["mode"] == "disabled"
+        assert doc["execution_enabled"] is False
+        assert doc["can_execute"] is False
+        assert doc["block_reason"] == "executor_disabled"
+        assert doc["live_authorized_task_count"] == 0
+
+        # A live-authorized task is reflected in the count even in disabled mode.
+        _create(svc, "BTC")
+        status, _, payload = _req(host, port, "GET", "/api/borrow-execution/status")
+        assert _json(payload)["live_authorized_task_count"] == 1
+
+
+def test_execution_start_then_stop_toggle_and_schema(validators, tmp_path):
+    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
+    with _server(svc) as (host, port):
+        status, _, payload = _req(host, port, "POST", "/api/borrow-execution/start")
+        assert status == 200
+        started = _json(payload)
+        validators["execution-status"].validate(started)
+        assert started["execution_enabled"] is True
+
+        status, _, payload = _req(host, port, "POST", "/api/borrow-execution/stop")
+        assert status == 200
+        stopped = _json(payload)
+        validators["execution-status"].validate(stopped)
+        assert stopped["execution_enabled"] is False
+
+
+def test_execution_start_oversized_body_returns_413(validators, tmp_path):
+    # Start/Stop drain the body under the same cap as every other mutation.
+    svc = BorrowTaskService(str(tmp_path / "bt.sqlite3"))
+    with _server(svc) as (host, port):
+        status, ct, payload = _req(
+            host, port, "POST", "/api/borrow-execution/start", body="x" * 17_000
+        )
+        assert status == 413
+        assert ct == "application/json; charset=utf-8"
+        assert _json(payload)["error"] == "body_too_large"
+
+
+def test_execution_status_never_leaks_credentials(validators, tmp_path):
+    # §3.3: the status projection carries mode + presence, never the secret. Build
+    # the real live wiring with leak-marked dedicated credentials and assert the
+    # response body contains neither (the GET never invokes the client -> no
+    # network; construction stores the key/secret but does not contact Binance).
+    cfg = Config(
+        bind_port=0,
+        borrow_executor="live",
+        borrow_db_path=tmp_path / "bt.sqlite3",
+        binance_borrow_api_key="LEAK-KEY-AAAA",
+        binance_borrow_api_secret="LEAK-SECRET-BBBB",
+    )
+    svc = _build_borrow_service(cfg)
+    try:
+        assert svc.is_execution_owner is True
+        with _server(svc) as (host, port):
+            status, _, payload = _req(host, port, "GET", "/api/borrow-execution/status")
+            assert status == 200
+            blob = payload.decode("utf-8")
+            assert "LEAK-KEY-AAAA" not in blob
+            assert "LEAK-SECRET-BBBB" not in blob
+            doc = _json(payload)
+            validators["execution-status"].validate(doc)
+            assert doc["mode"] == "live"
+            # creds present + owner, but execution_enabled defaults to 0 -> stopped.
+            assert doc["block_reason"] == "globally_stopped"
+            assert doc["can_execute"] is False
+    finally:
+        svc.close()
+
+
+def test_live_missing_credentials_blocks_dispatch_zero_signed_traffic(validators, tmp_path):
+    # §4.2: live mode with no credentials reports borrow_credentials_missing and,
+    # even after a global Start, dispatches nothing (zero signed POSTs). The HTTP
+    # status path plus a forced tick together prove the dual-layer gate.
+    exe = PaperBorrowExecutor([execution_disabled()] * 5)
+    svc = BorrowTaskService(
+        str(tmp_path / "bt.sqlite3"),
+        executor=exe,
+        mode="live",
+        credentials_present=False,
+    )
+    _create(svc, "BTC")
+    with _server(svc) as (host, port):
+        status, _, payload = _req(host, port, "GET", "/api/borrow-execution/status")
+        assert status == 200
+        doc = _json(payload)
+        validators["execution-status"].validate(doc)
+        assert doc["block_reason"] == "borrow_credentials_missing"
+        assert doc["can_execute"] is False
+
+        # Operator Start flips execution_enabled, yet dispatch is still gated by
+        # the missing-credentials layer -> no executor call, no signed POST.
+        _req(host, port, "POST", "/api/borrow-execution/start")
+        assert svc.tick() is False
+        assert exe.calls == []

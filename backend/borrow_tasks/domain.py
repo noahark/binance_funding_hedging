@@ -27,6 +27,9 @@ from decimal import Decimal, InvalidOperation
 # ---------------------------------------------------------------------------
 
 SCHEMA_VERSION = "borrow-tasks/v1"
+# Boundary C execution-status document (§3.3): a distinct schema_version so the
+# projection is validated independently of the task/log contracts.
+EXECUTION_SCHEMA_VERSION = "borrow-execution/v1"
 
 STATUS_BORROWING = "borrowing"
 STATUS_PAUSED = "paused"
@@ -34,6 +37,53 @@ STATUS_DELETED = "deleted"
 STATUS_COMPLETED = "completed"
 ALL_STATUSES = (STATUS_BORROWING, STATUS_PAUSED, STATUS_DELETED, STATUS_COMPLETED)
 RUNNABLE_STATUSES = (STATUS_BORROWING, STATUS_PAUSED)  # editable states
+
+# Boundary C §3.3 sanitized block_reason enum (never an environment value).
+BLOCK_EXECUTOR_DISABLED = "executor_disabled"
+BLOCK_GLOBALLY_STOPPED = "globally_stopped"
+BLOCK_BORROW_CREDENTIALS_MISSING = "borrow_credentials_missing"
+BLOCK_NOT_EXECUTION_OWNER = "not_execution_owner"
+BLOCK_RATE_LIMITED = "rate_limited"
+BLOCK_INVALID_CONFIGURATION = "invalid_configuration"
+ALL_BLOCK_REASONS = (
+    BLOCK_EXECUTOR_DISABLED,
+    BLOCK_GLOBALLY_STOPPED,
+    BLOCK_BORROW_CREDENTIALS_MISSING,
+    BLOCK_NOT_EXECUTION_OWNER,
+    BLOCK_RATE_LIMITED,
+    BLOCK_INVALID_CONFIGURATION,
+)
+
+# Boundary C §5.3: reconciliation read delays measured from the moment the
+# attempt became unresolved. Five reads (~21 min), then terminal exhaustion.
+RECONCILE_DELAYS_SECONDS = (5, 15, 60, 300, 900)
+# Boundary C §5.3: persisted reason distinguishing history-inferred success.
+REASON_RECONCILED_UNIQUE_TXID_MATCH = "reconciled_unique_txid_match"
+# Boundary C §5.3 / ADR-006: marker for a crash-orphaned pending attempt that
+# never resolved (the process died mid-flight); it enters the bounded
+# reconciliation schedule at startup as a response-less unknown.
+REASON_CRASH_ORPHAN_RESPONSELESS = "crash_orphan_responseless"
+
+# Boundary C §5.1: Retry-After fail-closed default and clamp window. A missing or
+# nonsensical Retry-After falls back to the 60s floor; any value is clamped to
+# [60, 300]. Pure Decimal helper shared by the executor (response classification)
+# and the store (cooldown persistence) so both boundaries clamp identically.
+RETRY_AFTER_DEFAULT_SECONDS = Decimal("60")
+RETRY_AFTER_MIN_SECONDS = 60
+RETRY_AFTER_MAX_SECONDS = 300
+
+
+def clamp_retry_after(raw_seconds) -> Decimal:
+    """Missing/unparseable/non-positive -> 60s; otherwise clamp to [60, 300]."""
+    if raw_seconds is None:
+        return RETRY_AFTER_DEFAULT_SECONDS
+    try:
+        seconds = int(raw_seconds)
+    except (TypeError, ValueError):
+        return RETRY_AFTER_DEFAULT_SECONDS
+    if seconds < 1:
+        return RETRY_AFTER_DEFAULT_SECONDS
+    return Decimal(min(max(seconds, RETRY_AFTER_MIN_SECONDS), RETRY_AFTER_MAX_SECONDS))
 
 OUTCOME_PENDING = "pending"
 OUTCOME_RESOLVED = "resolved"
@@ -54,6 +104,17 @@ ALL_RESULT_CATEGORIES = (
 # Seed scheduler row (breakdown §3.5): one global frequency default of 5s.
 DEFAULT_INTERVAL_SECONDS = "5"
 DEFAULT_INTERVAL_US = 5_000_000
+
+# Boundary C §3.5 / 12-development-breakdown.md:514,545-553: the scheduler
+# interval is an exchange-capacity constraint, not a product throughput promise.
+# The archived POST weight is 100 and the shared per-IP budget is 6000/min;
+# reserving half for reads/reconciliation freezes the floor at 2 seconds:
+#   ceil(60 / (0.5 * 6000 / 100)) = 2.
+# The parser enforces it as the product minimum so a sub-floor cadence cannot
+# risk a shared-IP 429/418 ban that would also take down the read-only snapshot
+# channel. The default stays 5 seconds.
+MIN_INTERVAL_SECONDS = Decimal("2")
+MIN_INTERVAL_US = 2_000_000
 
 # HTTP body cap and log page bounds (breakdown §3.6 / §3.7).
 BODY_MAX_BYTES = 16384
@@ -126,9 +187,11 @@ def parse_interval_seconds(value):
     """Return ``(interval_seconds, interval_us)`` or raise ``invalid_interval``.
 
     A JSON number is rejected (decimal discipline). The string must match the
-    decimal shape, be finite and > 0, and normalize to an exact integer number
-    of microseconds >= 1. Finer-than-microsecond values (e.g. ``"0.0000001"``)
-    are rejected. There is no upper bound or product minimum.
+    decimal shape, be finite and > 0, normalize to an exact integer number of
+    microseconds >= 1, and respect the frozen 2-second exchange-capacity floor
+    (Boundary C §3.5 / breakdown §514,545-553). Finer-than-microsecond values
+    and sub-2-second cadences (e.g. ``"0.5"``, ``"1.999"``) are rejected. There
+    is no upper bound.
     """
     if not isinstance(value, str):
         raise BorrowError(400, "invalid_interval", "interval_seconds must be a JSON string")
@@ -144,6 +207,12 @@ def parse_interval_seconds(value):
     truncated = scaled.to_integral_value()
     if scaled != truncated or truncated < 1:
         raise BorrowError(400, "invalid_interval", "interval_seconds is finer than one microsecond")
+    if seconds < MIN_INTERVAL_SECONDS:
+        raise BorrowError(
+            400,
+            "invalid_interval",
+            "interval_seconds must be >= 2 (frozen shared-IP capacity floor)",
+        )
     return value, int(truncated)
 
 
