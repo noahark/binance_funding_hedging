@@ -462,6 +462,26 @@
     "reason": null
   },
   "terminal_reason": "stage_accepted_waiting_user",
+  "user_acceptance": {
+    "decision": "accepted",
+    "verbatim": "批准执行",
+    "accepted_at": "2026-07-21T20:16:59+08:00",
+    "evidence_file": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/80-user-acceptance.md",
+    "authorized_actions": [
+      "fast_forward_harness_dispatch_review_reform_v1_to_main",
+      "merge_updated_main_into_stage_2026_07_real_borrow_boundary_c_v1_without_rebase",
+      "rerun_boundary_c_tests_validator_recompute_fingerprint_and_reenter_review"
+    ],
+    "not_authorized": [
+      "push",
+      "deploy",
+      "credential_access",
+      "real_binance_request",
+      "start_live_borrowing",
+      "merge_boundary_c_to_main",
+      "accept_boundary_c"
+    ]
+  },
   "reporting_preferences": {
     "execution_footer": {
       "include_provider_native_session_id": true,
@@ -471,6 +491,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "wait_for_explicit_user_acceptance_before_merging_the_Harness_branch_to_main_then_separately_record_and_execute_the_authorized_main_to_Boundary_C_sync",
-  "updated_at": "2026-07-21T20:13:43+08:00"
+  "next_action": "commit_user_acceptance_fast_forward_Harness_branch_to_main_record_accepted_merge_then_merge_main_into_Boundary_C_without_rebase",
+  "updated_at": "2026-07-21T20:16:59+08:00"
 }

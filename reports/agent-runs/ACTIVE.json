@@ -3,10 +3,10 @@
     "stage_id": "2026-07-harness-verdict-extractor-fix-v1",
     "phase": "stage_accepted_waiting_user",
     "handoff": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md",
-    "note": "Task H final Anthropic review-2 is schema-valid ACCEPT by actual model Opus4.8 with zero findings and exact fixed fingerprint. Fable5 quota fallback evidence, raw final review, receipt, and intake are committed; clean pre-accept passes. Stage is now stage_accepted_waiting_user. Explicit user acceptance is required before merging the Harness branch to main; Boundary C synchronization remains a separate recorded action afterward. No merge, deployment, product acceptance, credential access, or real borrowing has occurred.",
-    "updated_at": "2026-07-21T20:13:43+08:00"
+    "note": "User explicitly accepted Task H and authorized fast-forwarding the accepted Harness branch to main, followed by the recorded no-rebase main-to-Boundary-C synchronization, retest, fingerprint recomputation, and review re-entry. Acceptance evidence is being committed before the main merge. No push, deployment, credential access, real Binance traffic, live-borrow start, Boundary C main merge, or Boundary C acceptance is authorized.",
+    "updated_at": "2026-07-21T20:16:59+08:00"
   },
   "last_completed": "2026-07-real-borrow-execution-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T20:13:43+08:00"
+  "updated_at": "2026-07-21T20:16:59+08:00"
 }

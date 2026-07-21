@@ -1,17 +1,17 @@
-# Handoff — Task H Accepted, Waiting For User
+# Handoff — Task H User Accepted, Main Merge Authorized
 
 ## Recovery Header
 
 - Active phase: `stage_accepted_waiting_user`
-  (`valid_ACCEPT_clean_pre_accept_passed`).
+  (`user_accepted_merge_authorization_checkpoint_pending`).
 - Branch: `harness/dispatch-review-reform-v1`.
 - Reviewed base: `4b1fcdd5fb0562eb00467437bf2ec9ad0286581a`.
 - Reviewed head: `569be63a6f467e4e5e255a4713f94a08e37cd9b8`.
 - Diff fingerprint:
   `569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655`.
-- Next action: wait for explicit user acceptance. Only after that authorization
-  may the bookkeeper merge the Harness branch to `main`; Boundary C
-  synchronization is a separate recorded follow-up after the Harness merge.
+- Next action: commit `80-user-acceptance.md` and the authorization checkpoint,
+  then fast-forward `main` to the accepted Harness branch head. Record the main
+  merge before performing the separately authorized no-rebase Boundary C sync.
 - Read-set: `status.current_inputs` only.
 - Do not read credentials, `.env*`, expanded adapter environments,
   intermediate reviewer tool/environment output, unrelated stages, or history.
@@ -67,12 +67,14 @@
   final reviewer output.
 - Final ACCEPT does not itself merge the Harness branch. A passing pre-accept
   gate moves only to `stage_accepted_waiting_user`; that is the current state.
-- No `main` merge, push, deployment, Boundary C synchronization, product
-  acceptance, credential access, or real borrow is authorized here.
+- User acceptance now authorizes the Harness-to-main fast-forward and the
+  subsequent main-to-Boundary-C merge/retest/review-reentry workflow.
+- Push, deployment, credential access, real Binance traffic, live-borrow start,
+  Boundary C-to-main merge, and Boundary C acceptance remain unauthorized.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md
-本地北京时间: 2026-07-21 20:13:43 CST
-下一步模型: human user
-下一步任务: explicitly accept or reject the Task H Harness stage; no main merge or Boundary C synchronization occurs without that decision
+本地北京时间: 2026-07-21 20:16:59 CST
+下一步模型: bookkeeper
+下一步任务: commit the user acceptance evidence, fast-forward main to the accepted Harness branch, and record the merge before Boundary C synchronization
