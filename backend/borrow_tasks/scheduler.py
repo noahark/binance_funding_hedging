@@ -63,8 +63,20 @@ class BorrowScheduler:
 
     def _loop(self) -> None:
         while not self._stop.is_set():
-            self._tick()
-            interval_us = self._get_interval_us() or 1
+            # Last-resort containment (Boundary C §5.2): a store/projection
+            # exception inside tick() must not silently kill the scheduler
+            # thread — that would stop reconciliation of unknown attempts. The
+            # service's _dispatch_one/_reconcile_pass already contain their own
+            # exceptions; this is the belt-and-braces outer net so an unexpected
+            # raise from anywhere in the tick path cannot terminate dispatch.
+            try:
+                self._tick()
+            except Exception:
+                pass
+            try:
+                interval_us = self._get_interval_us() or 1
+            except Exception:
+                interval_us = 1
             # Poll at a fraction of the interval so sub-second cadences stay
             # responsive; the tick callback is the authority on what is due.
             slice_seconds = max(min(interval_us / 1_000_000 / 2.0, 0.25), 0.005)

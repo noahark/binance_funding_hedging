@@ -191,3 +191,55 @@ def test_group_b_refresh_seconds_is_fixed_1800():
     # CC-2: Group B business cadence is a fixed module constant, not
     # environment-configurable, and must not be amplified.
     assert GROUP_B_REFRESH_SECONDS == 1800
+
+
+# --- Boundary C: borrow executor mode + dedicated credentials ---
+
+def test_borrow_executor_defaults_disabled():
+    assert DEFAULT.borrow_executor == "disabled"
+    assert from_env({}).borrow_executor == "disabled"
+
+
+def test_borrow_executor_accepts_live_and_disabled():
+    assert from_env({"APP_BORROW_EXECUTOR": "live"}).borrow_executor == "live"
+    assert from_env({"APP_BORROW_EXECUTOR": "disabled"}).borrow_executor == "disabled"
+    # legacy alias is honored too
+    assert from_env({"FUNDING_HEDGING_BORROW_EXECUTOR": "live"}).borrow_executor == "live"
+
+
+def test_borrow_executor_rejects_unknown_mode():
+    # Any non-empty value outside {disabled, live} is rejected; an empty value
+    # falls back to the disabled default (consistent with every other env var).
+    with pytest.raises(ValueError, match="invalid borrow executor"):
+        from_env({"APP_BORROW_EXECUTOR": "paper"})
+    with pytest.raises(ValueError, match="invalid borrow executor"):
+        from_env({"APP_BORROW_EXECUTOR": "simulation"})
+    assert from_env({"APP_BORROW_EXECUTOR": ""}).borrow_executor == "disabled"
+
+
+def test_borrow_credentials_default_empty():
+    assert DEFAULT.binance_borrow_api_key == ""
+    assert DEFAULT.binance_borrow_api_secret == ""
+    assert from_env({}).binance_borrow_api_key == ""
+    assert from_env({}).binance_borrow_api_secret == ""
+
+
+def test_borrow_credentials_read_from_env():
+    cfg = from_env({
+        "BINANCE_BORROW_API_KEY": "borrow-key-xyz",
+        "BINANCE_BORROW_API_SECRET": "borrow-secret-xyz",
+    })
+    assert cfg.binance_borrow_api_key == "borrow-key-xyz"
+    assert cfg.binance_borrow_api_secret == "borrow-secret-xyz"
+
+
+def test_borrow_credentials_never_in_repr():
+    # repr=False on both credential fields: a Config repr/log can never leak them.
+    cfg = from_env({
+        "BINANCE_BORROW_API_KEY": "LEAK-KEY-AAAA",
+        "BINANCE_BORROW_API_SECRET": "LEAK-SECRET-BBBB",
+    })
+    blob = repr(cfg)
+    assert "LEAK-KEY-AAAA" not in blob
+    assert "LEAK-SECRET-BBBB" not in blob
+    assert "binance_borrow_api_secret" not in blob  # field omitted entirely

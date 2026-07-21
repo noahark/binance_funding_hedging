@@ -20,6 +20,7 @@ import json
 import mimetypes
 import re
 import sys
+import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -41,6 +42,11 @@ _BORROW_ROUTES = (
     (re.compile(r"^/api/borrow-tasks$"), ("GET", "POST"), "_borrow_tasks"),
     (re.compile(r"^/api/borrow-logs$"), ("GET",), "_borrow_logs"),
     (re.compile(r"^/api/borrow-scheduler-settings$"), ("GET", "PUT"), "_borrow_settings"),
+    # Boundary C execution control (§3.2): read-only status + idempotent global
+    # Start/Stop. These never carry secrets and never accept a body field.
+    (re.compile(r"^/api/borrow-execution/status$"), ("GET",), "_borrow_execution_status"),
+    (re.compile(r"^/api/borrow-execution/start$"), ("POST",), "_borrow_execution_start"),
+    (re.compile(r"^/api/borrow-execution/stop$"), ("POST",), "_borrow_execution_stop"),
 )
 
 
@@ -52,6 +58,10 @@ def _is_borrow_path(path: str) -> bool:
         or path.startswith("/api/borrow-logs/")
         or path == "/api/borrow-scheduler-settings"
         or path.startswith("/api/borrow-scheduler-settings/")
+        or path == "/api/borrow-execution/status"
+        or path == "/api/borrow-execution/start"
+        or path == "/api/borrow-execution/stop"
+        or path.startswith("/api/borrow-execution/")
     )
 
 
@@ -366,6 +376,26 @@ class _Handler(BaseHTTPRequestHandler):
             return
         self._send_borrow(*self._safe(self.borrow_service.put_settings, data))
 
+    # Boundary C execution control handlers (§3.2). Status is a pure read;
+    # Start/Stop accept only an (optional, empty) body — no fields are read, so
+    # the toggle cannot be influenced by request content.
+    def _borrow_execution_status(self):
+        self._send_borrow(*self.borrow_service.get_execution_status())
+
+    def _borrow_execution_start(self):
+        error = self._drain_body()
+        if error is not None:
+            self._send_borrow(*error)
+            return
+        self._send_borrow(*self.borrow_service.post_execution_start())
+
+    def _borrow_execution_stop(self):
+        error = self._drain_body()
+        if error is not None:
+            self._send_borrow(*error)
+            return
+        self._send_borrow(*self.borrow_service.post_execution_stop())
+
     def _serve_static(self, path: str):
         if path == "/":
             path = "/index.html"
@@ -416,16 +446,72 @@ def _emit_lifecycle(event: str, **fields) -> None:
     sys.stderr.flush()
 
 
+def _now_ms() -> int:
+    return int(time.time() * 1000)
+
+
+def _build_borrow_service(config: Config) -> BorrowTaskService:
+    """Construct the borrow authority with the config-selected executor (§4.1).
+
+    In ``live`` mode the exact-path PM borrow client is built from the dedicated
+    credentials; empty credentials keep the process safe — the dispatch gate
+    blocks and ``block_reason`` reports ``borrow_credentials_missing``. The
+    sidecar execution-owner lock is acquired inside the service constructor; a
+    non-owner process still serves read/mutation APIs but never dispatches.
+    """
+    mode = config.borrow_executor
+    executor = None
+    credentials_present = False
+    if mode == "live":
+        from ..services.live_borrow_executor import LiveBorrowExecutor
+        from ..services.portfolio_margin_borrow_client import PortfolioMarginBorrowClient
+
+        client = PortfolioMarginBorrowClient(
+            api_key=config.binance_borrow_api_key,
+            api_secret=config.binance_borrow_api_secret,
+            user_agent=config.user_agent,
+        )
+        executor = LiveBorrowExecutor(client, now_ms=_now_ms)
+        credentials_present = client.credentials_present
+    return BorrowTaskService(
+        str(config.borrow_db_path),
+        executor=executor,
+        mode=mode,
+        credentials_present=credentials_present,
+    )
+
+
 def run(config: Config = None) -> None:
     config = config or DEFAULT
     service = SnapshotService(config)
-    borrow_service = BorrowTaskService(str(config.borrow_db_path))
+    borrow_service = _build_borrow_service(config)
     # build_server keeps its original 2-arg call shape here so process-level
     # stubs of build_server keep working; the borrow authority is wired onto the
     # handler class separately (build_server defaults it to None first).
     server = build_server(config, service)
     _Handler.borrow_service = borrow_service
     _emit_lifecycle("server_start", host=config.bind_host, port=config.bind_port)
+    # Boundary C observability (D2/D7): report sanitized mode + ownership + the
+    # frozen startup recovery counts. Only non-secret integer/enum/ownership
+    # facts — no credential value, response body, signed data, or env value.
+    _emit_lifecycle(
+        "borrow_execution_mode",
+        mode=config.borrow_executor,
+        execution_owner=borrow_service.is_execution_owner,
+        live_authorized_task_count=borrow_service.store.count_live_authorized_tasks(),
+        recovered_orphan_blocker_count=borrow_service.store.count_pending_orphan_attempts(),
+    )
+    # Distinct sanitized startup event when live mode cannot execute because the
+    # dedicated borrow credentials are missing/empty (§3.4): the process still
+    # starts and serves, emits the frozen blocked markers, and sends zero signed
+    # borrow traffic. Credential presence is a boolean here; the value is never
+    # logged.
+    if config.borrow_executor == "live" and not borrow_service.credentials_present:
+        _emit_lifecycle(
+            "borrow_execution_blocked",
+            borrow_executor="live",
+            borrow_execution_blocked=borrow_domain.BLOCK_BORROW_CREDENTIALS_MISSING,
+        )
     print(
         f"serving public-market snapshot on http://{config.bind_host}:{config.bind_port}"
         f" (offline={config.offline}, top_n={config.top_n}, ttl={config.cache_ttl_seconds}s,"

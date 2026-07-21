@@ -952,6 +952,12 @@
           <div class="status-banner info" style="margin-bottom: var(--space-4);">
             任务与日志持久化在后端（SQLite），刷新或重启不丢失；本阶段后端调度仅记录尝试结果、不发起真实借币，所有尝试结果均为「执行未启用」。浏览器不调度、不模拟、不请求 Binance。
           </div>
+          <div class="borrow-execution-row borrow-settings-row">
+            <span class="badge muted" id="borrow-execution-badge">执行状态：加载中</span>
+            <button class="btn compact primary" id="borrow-execution-start" type="button">启动执行</button>
+            <button class="btn compact" id="borrow-execution-stop" type="button">停止执行</button>
+            <span class="muted small" id="borrow-execution-detail"></span>
+          </div>
           <div class="borrow-settings-row">
             <div class="control">
               <label for="borrow-interval-input">全局调度间隔（秒）</label>
@@ -1100,7 +1106,11 @@
         borrowLogsError: document.getElementById('borrow-logs-error'),
         borrowLogList: document.getElementById('borrow-log-list'),
         borrowLogsRefresh: document.getElementById('borrow-logs-refresh'),
-        borrowLogsLoadMore: document.getElementById('borrow-logs-load-more')
+        borrowLogsLoadMore: document.getElementById('borrow-logs-load-more'),
+        borrowExecutionBadge: document.getElementById('borrow-execution-badge'),
+        borrowExecutionStart: document.getElementById('borrow-execution-start'),
+        borrowExecutionStop: document.getElementById('borrow-execution-stop'),
+        borrowExecutionDetail: document.getElementById('borrow-execution-detail')
       };
 
       function loadPrivacyHidden() {
@@ -2272,6 +2282,62 @@
         renderSchedulerSettings();
       }
 
+      // Boundary C 执行控制（§3.2）：只读状态投影 + 幂等全局 Start/Stop。浏览器
+      // 仅展示与触发后端开关，从不签名、调度或联系 Binance。单一 2s 显示轮询
+      // （EXECUTION_POLL_MS，self-check timer 白名单）。
+      const EXECUTION_POLL_MS = 2000;
+      const EXECUTION_BLOCK_LABEL = {
+        executor_disabled: '执行器未启用',
+        globally_stopped: '执行已停止',
+        borrow_credentials_missing: '缺少借币凭证',
+        not_execution_owner: '非执行所有者',
+        rate_limited: '速率受限',
+        invalid_configuration: '配置无效'
+      };
+
+      function renderExecutionStatus(doc) {
+        const d = doc || {};
+        state.borrowExecutionStatus = d;
+        if (els.borrowExecutionBadge) {
+          const mode = d.mode === 'live' ? 'live' : 'disabled';
+          const parts = [`模式 ${mode}`, d.execution_enabled ? '已启动' : '已停止'];
+          if (d.block_reason) parts.push(EXECUTION_BLOCK_LABEL[d.block_reason] || d.block_reason);
+          els.borrowExecutionBadge.textContent = `执行：${parts.join(' · ')}`;
+        }
+        if (els.borrowExecutionStart) els.borrowExecutionStart.disabled = !!d.can_execute;
+        if (els.borrowExecutionStop) els.borrowExecutionStop.disabled = !d.execution_enabled;
+        if (els.borrowExecutionDetail) {
+          const segs = [];
+          if (d.global_cooldown_until) segs.push(`冷却至 ${d.global_cooldown_until}`);
+          if (d.in_flight_attempt_id != null) segs.push(`在途 #${d.in_flight_attempt_id}`);
+          if (typeof d.live_authorized_task_count === 'number') segs.push(`已授权任务 ${d.live_authorized_task_count}`);
+          els.borrowExecutionDetail.textContent = segs.join(' · ');
+        }
+      }
+
+      async function loadExecutionStatus() {
+        try {
+          renderExecutionStatus(await borrowApi('/api/borrow-execution/status'));
+        } catch (err) {
+          if (els.borrowExecutionBadge) {
+            els.borrowExecutionBadge.textContent = `执行状态：加载失败 (${err.message})`;
+          }
+        }
+      }
+
+      async function submitExecutionToggle(action) {
+        const path = action === 'start'
+          ? '/api/borrow-execution/start'
+          : '/api/borrow-execution/stop';
+        try {
+          renderExecutionStatus(await borrowApi(path, { method: 'POST' }));
+        } catch (err) {
+          if (els.borrowExecutionDetail) {
+            els.borrowExecutionDetail.textContent = `${action} 失败：${err.message}`;
+          }
+        }
+      }
+
       // 所有任务变更共用路径：调后端 → 用返回文档打补丁 → 重新拉取任务列表
       // （§3.11 刷新策略 b）。前端不发明任务状态或执行结果；错误取后端 detail 原样。
       async function mutateBorrowTask(request) {
@@ -2638,6 +2704,7 @@
           renderBorrowLogs();
           loadBorrowTasks();
           loadSchedulerSettings();
+          loadExecutionStatus();
           if (state.borrowTab === 'logs') loadBorrowLogs(true);
         } else {
           els.navMarket.classList.add('active');
@@ -2735,6 +2802,10 @@
         els.borrowIntervalConfirm.addEventListener('click', () => { submitSchedulerInterval(); });
         els.borrowLogsRefresh.addEventListener('click', () => { loadBorrowLogs(true); });
         els.borrowLogsLoadMore.addEventListener('click', () => { loadBorrowLogs(false); });
+        // Boundary C 执行控制：幂等全局 Start/Stop（无 body）；2s 显示轮询仅刷新投影。
+        els.borrowExecutionStart.addEventListener('click', () => { submitExecutionToggle('start'); });
+        els.borrowExecutionStop.addEventListener('click', () => { submitExecutionToggle('stop'); });
+        setInterval(loadExecutionStatus, EXECUTION_POLL_MS);
         // 筛选按钮经容器事件委托（按钮随 renderBorrowTaskFilters 重渲染）
         els.borrowTaskFilters.addEventListener('click', (e) => {
           const btn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-borrow-filter]') : null;

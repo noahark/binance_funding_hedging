@@ -148,7 +148,8 @@ const ids = [
   'borrow-task-filters',
   'borrow-tab-tasks', 'borrow-tab-logs', 'borrow-tasks-panel', 'borrow-logs-panel',
   'borrow-interval-input', 'borrow-interval-confirm', 'borrow-interval-error', 'borrow-interval-note',
-  'borrow-tasks-error', 'borrow-logs-error', 'borrow-log-list', 'borrow-logs-refresh', 'borrow-logs-load-more'
+  'borrow-tasks-error', 'borrow-logs-error', 'borrow-log-list', 'borrow-logs-refresh', 'borrow-logs-load-more',
+  'borrow-execution-badge', 'borrow-execution-start', 'borrow-execution-stop', 'borrow-execution-detail'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -381,9 +382,29 @@ let borrowActionResponses = {};
 let borrowLogsResponses = [];
 let borrowSettingsGetResponse = null;
 let borrowSettingsPutResponse = null;
+// Boundary C 执行控制响应槽（§3.2）；未设置时回放默认 disabled 投影。
+let borrowExecutionStatusResponse = null;
 
 function mockBorrow503() {
   return { status: 503, body: { error: 'borrow_service_unavailable', detail: 'mock 未设置该路由响应' } };
+}
+
+// 默认执行状态投影：disabled 模式、execution_enabled=false、can_execute=false。
+function mockExecutionStatusDisabled() {
+  return {
+    status: 200,
+    body: {
+      schema_version: 'borrow-execution/v1',
+      mode: 'disabled',
+      execution_enabled: false,
+      can_execute: false,
+      block_reason: 'executor_disabled',
+      in_flight_attempt_id: null,
+      global_cooldown_until: null,
+      live_authorized_task_count: 0,
+      updated_at: '2026-07-21T00:00:00.000000Z'
+    }
+  };
 }
 
 function buildFetchResponse(response, jsonDelay) {
@@ -448,6 +469,13 @@ global.fetch = async (url, options) => {
   }
   if (urlStr === '/api/borrow-scheduler-settings' && method === 'PUT') {
     return buildFetchResponse(borrowSettingsPutResponse || mockBorrow503());
+  }
+  // Boundary C 执行控制（§3.2）：status GET 回放投影；start/stop POST 回显同一投影。
+  if (urlStr === '/api/borrow-execution/status' && method === 'GET') {
+    return buildFetchResponse(borrowExecutionStatusResponse || mockExecutionStatusDisabled());
+  }
+  if ((urlStr === '/api/borrow-execution/start' || urlStr === '/api/borrow-execution/stop') && method === 'POST') {
+    return buildFetchResponse(borrowExecutionStatusResponse || mockExecutionStatusDisabled());
   }
   throw new Error(`Unexpected fetch URL: ${urlStr} (${method})`);
 };
@@ -2984,7 +3012,9 @@ setTimeout(async () => {
         /^\/api\/borrow-tasks$/,
         /^\/api\/borrow-tasks\/[^/]+\/(start|pause|delete|edit)$/,
         /^\/api\/borrow-logs\?/,
-        /^\/api\/borrow-scheduler-settings$/
+        /^\/api\/borrow-scheduler-settings$/,
+        // Boundary C execution control (exact anchored paths, no prefix/wildcard).
+        /^\/api\/borrow-execution\/(status|start|stop)$/
       ];
       for (const c of fetchCallLog) {
         if (/binance/i.test(c.url)) {
@@ -2997,7 +3027,8 @@ setTimeout(async () => {
           throw new Error(`fetch URL 不在同源白名单: ${c.url}`);
         }
       }
-      // 方法白名单：快照/日志/任务列表 GET；任务创建/动作 POST；设置 GET/PUT
+      // 方法白名单：快照/日志/任务列表 GET；任务创建/动作 POST；设置 GET/PUT；
+      // 执行控制：status GET、start/stop POST
       for (const c of fetchCallLog) {
         if (c.url === '/api/borrow-scheduler-settings') {
           if (c.method !== 'GET' && c.method !== 'PUT') throw new Error(`设置路由非法方法 ${c.method}`);
@@ -3005,13 +3036,18 @@ setTimeout(async () => {
           if (c.method !== 'GET' && c.method !== 'POST') throw new Error(`任务路由非法方法 ${c.method}`);
         } else if (/^\/api\/borrow-tasks\/[^/]+\//.test(c.url)) {
           if (c.method !== 'POST') throw new Error(`任务动作路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/borrow-execution/status') {
+          if (c.method !== 'GET') throw new Error(`执行状态路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/borrow-execution/start' || c.url === '/api/borrow-execution/stop') {
+          if (c.method !== 'POST') throw new Error(`执行控制路由非法方法 ${c.method}`);
         } else if (c.method !== 'GET') {
           throw new Error(`只读路由非法方法 ${c.method}: ${c.url}`);
         }
       }
-      // 无新定时器：全部 interval 注册只允许 60000 快照刷新与 1000 倒计时
+      // 无新定时器：全部 interval 注册只允许 60000 快照刷新、1000 倒计时、
+      // 与 2000 执行状态轮询（Boundary C 单一 2s 显示轮询，浏览器从不签名/调度）
       for (const call of intervalCalls) {
-        if (call.delay !== 60000 && call.delay !== 1000) {
+        if (call.delay !== 60000 && call.delay !== 1000 && call.delay !== 2000) {
           throw new Error(`存在非法任务定时器: delay=${call.delay}`);
         }
       }

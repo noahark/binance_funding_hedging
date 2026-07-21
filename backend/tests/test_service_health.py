@@ -26,6 +26,7 @@ import pytest
 
 from backend.app import server as server_module
 from backend.app.server import build_server
+from backend.borrow_tasks.domain import BLOCK_BORROW_CREDENTIALS_MISSING
 from backend.config import Config
 from backend.services.snapshot_service import SnapshotNotReady, SnapshotService
 
@@ -373,3 +374,93 @@ def test_run_keyboard_interrupt_cleans_up_and_exits_zero(monkeypatch, capsys):
     assert instances[0].start_calls == 1
     assert instances[0].stop_calls == 1
     assert srv.close_calls == 1
+
+
+# =========================================================================
+# borrow startup observability (Boundary C D2/D7 / §3.4) — bookkeeper BK-C-004
+# =========================================================================
+class _StubBorrowStore:
+    """Only the two sanitized integer counts the startup event reads."""
+
+    def __init__(self, live_authorized=0, orphan=0):
+        self._live_authorized = live_authorized
+        self._orphan = orphan
+
+    def count_live_authorized_tasks(self):
+        return self._live_authorized
+
+    def count_pending_orphan_attempts(self):
+        return self._orphan
+
+
+class _StubBorrowService:
+    """Stand-in for BorrowTaskService: exposes only the sanitized startup facts."""
+
+    def __init__(self, *, credentials_present, owner=True, live_authorized=0, orphan=0):
+        self.credentials_present = credentials_present
+        self.is_execution_owner = owner
+        self.store = _StubBorrowStore(live_authorized, orphan)
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+
+def _wire_run(monkeypatch, borrow_service):
+    # Drive run() straight into the KeyboardInterrupt exit so it emits the
+    # borrow startup events and then cleans up, without a real HTTP loop.
+    monkeypatch.setattr(server_module, "SnapshotService", _RunStubService)
+    monkeypatch.setattr(
+        server_module, "build_server", lambda c, s: _StubServer(loop_exc=KeyboardInterrupt())
+    )
+    monkeypatch.setattr(server_module, "_build_borrow_service", lambda config: borrow_service)
+
+
+def test_run_emits_borrow_execution_mode_with_recovery_counts(monkeypatch, capsys):
+    # D2/D7: startup emits the sanitized borrow mode event carrying the frozen
+    # recovery counts (live-authorized tasks + recovered orphan blockers) as
+    # plain integers plus the ownership boolean — no secret value on stderr.
+    _wire_run(
+        monkeypatch,
+        _StubBorrowService(credentials_present=False, owner=True,
+                           live_authorized=2, orphan=1),
+    )
+    server_module.run(Config(borrow_executor="disabled", bind_port=0))
+
+    events = _parse_lifecycle(capsys.readouterr().err)
+    mode = next(e for e in events if e["event"] == "borrow_execution_mode")
+    assert mode["mode"] == "disabled"
+    assert mode["execution_owner"] is True
+    assert mode["live_authorized_task_count"] == 2
+    assert mode["recovered_orphan_blocker_count"] == 1
+    # Not blocked: no distinct blocked event in this (non-live) startup.
+    assert "borrow_execution_blocked" not in [e["event"] for e in events]
+
+
+def test_run_live_missing_credentials_emits_distinct_blocked_event(monkeypatch, capsys):
+    # §3.4: live mode with empty dedicated credentials still starts and serves,
+    # but emits a DISTINCT sanitized blocked event marking the missing creds.
+    # The credential VALUE is never on stderr — only the boolean presence is.
+    secret = "LIVE-BORROW-SECRET-DO-NOT-LOG-xyz"
+    _wire_run(
+        monkeypatch,
+        _StubBorrowService(credentials_present=False, owner=True),
+    )
+    server_module.run(Config(
+        borrow_executor="live",
+        binance_borrow_api_key=secret,
+        binance_borrow_api_secret=secret,
+        bind_port=0,
+    ))
+
+    err = capsys.readouterr().err
+    events = _parse_lifecycle(err)
+    names = [e["event"] for e in events]
+    assert "borrow_execution_mode" in names
+    blocked = next((e for e in events if e["event"] == "borrow_execution_blocked"), None)
+    assert blocked is not None
+    assert blocked["borrow_executor"] == "live"
+    assert blocked["borrow_execution_blocked"] == BLOCK_BORROW_CREDENTIALS_MISSING
+    assert secret not in err  # credential value never emitted

@@ -1,0 +1,697 @@
+# Boundary C Test Evidence
+
+Status: design checkpoint passed. No product code has been implemented and no
+live or authenticated request has been made.
+
+Run at 2026-07-20 19:35:54 CST:
+
+```text
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=designing
+
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+PASS
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+PASS
+
+$ python3 yaml.safe_load(workflows/templates/stage-delivery.yaml)
+JSON/YAML parse PASS
+
+$ git diff --check
+PASS
+
+$ branch/base checks
+current branch = stage/2026-07-real-borrow-boundary-c-v1
+main/base       = 8cf810d2335d5af08e2ff18181964e5e053e56b9
+PASS
+```
+
+Harness reform reconcile run at 2026-07-20 21:01:56 CST:
+
+```text
+$ python3 -m pytest scripts/tests -q
+114 passed in 1.98s
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=designing
+
+$ python3 scripts/test-validate-all-stages-compare.py --repo-root .
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+
+$ pre-reform (c9df145^1) versus current validator baseline comparison
+HISTORICAL VALIDATION ZERO DRIFT
+before_count=27
+after_historical_count=27
+after_total_count=28
+```
+
+The 28-stage current total contains 27 cold historical stages plus the active
+Boundary C stage. The active stage is intentionally still `designing` and is
+therefore not part of the historical zero-drift comparison.
+
+Multi-review synthesis checkpoint at 2026-07-20 21:43:05 CST:
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+PASS
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+PASS
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=designing
+
+$ rg exact R11 marker in design-review-round-2.opus.prompt.md
+1:[HARNESS-EXECUTOR-CONTRACT v1]
+
+$ git diff --check
+PASS
+```
+
+This checkpoint validates stage bookkeeping and prompt structure only. No
+product code changed, no implementation test was required, and no live or
+authenticated Binance request was made.
+
+Round-2 amendment and public-evidence checkpoint at 2026-07-20 23:15:46 CST:
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+PASS
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+PASS
+
+$ python3 yaml.safe_load(workflows/templates/stage-delivery.yaml)
+PASS
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=designing
+
+$ git diff --check
+PASS
+
+$ trailing-whitespace scan over amended task/design/ADR, handoff, breakdown prompt, and public evidence
+PASS
+
+$ rg exact R11 marker in development-breakdown.prompt.md
+1:[HARNESS-EXECUTOR-CONTRACT v1]
+
+$ cross-document endpoint/capacity/rejection/evidence-gate consistency scan
+PASS: exact POST/GET, weight 100, budget 6000, -51006/-51014/-51061, and CLOSED_WITH_FAIL_CLOSED_DEFAULTS are present in their authoritative artifacts
+
+$ branch / commit / worktree checkpoint
+branch = stage/2026-07-real-borrow-boundary-c-v1
+HEAD = c9df14591ac4ca00977ce0e4d80c0950aae44c19
+main = 8cf810d2335d5af08e2ff18181964e5e053e56b9
+stage and API-evidence artifacts remain uncommitted/untracked before development breakdown; no implementation or review gate is being entered
+```
+
+This run verifies document/bookkeeping consistency only. No product code,
+authenticated request, private response, or Binance POST was involved.
+
+Opus development-breakdown intake checkpoint at 2026-07-21 07:07:33 CST:
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+PASS
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+PASS
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=designing
+
+$ git diff --check
+PASS
+
+$ trailing-whitespace scan over canonical breakdown, receipt, audit, amendment prompt, and handoff
+PASS
+
+$ rg exact R11 marker in development-breakdown-amendment.prompt.md
+1:[HARNESS-EXECUTOR-CONTRACT v1]
+
+$ semantic intake against status.tasks[0].id and evidence-index.md
+TARGETED_AMENDMENT_REQUIRED
+- task id C conflicts with breakdown id boundary-c-live-borrow
+- exact three-code known_rejection set conflicts with empty-set shipping text
+- verified POST/weight/6000 capacity is also described as unresolved/inference/interim
+- archived loan-record field names are also described as pending evidence
+```
+
+The Opus output and user-selected substitution are recorded, but the canonical
+breakdown gate remains open pending the prepared narrow amendment. No product
+code or implementation test ran, and no authenticated or live Binance request
+was made.
+
+Breakdown closure and Task C dispatch-ready checkpoint at
+2026-07-21 07:23:27 CST:
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+PASS
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+PASS
+
+$ python3 yaml.safe_load(workflows/templates/stage-delivery.yaml)
+PASS
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=implementing
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase dispatch-ready
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=dispatch-ready
+status=implementing
+
+$ git diff --check
+PASS
+
+$ trailing-whitespace scan over canonical breakdown, audit/receipt, Task C prompt/receipt, and handoff
+PASS
+
+$ rg exact R11 marker in task-C-claude-glm.prompt.md
+1:[HARNESS-EXECUTOR-CONTRACT v1]
+
+$ canonical-breakdown semantic closure assertions
+PASS: task id C; exact non-empty three-code rejection set; satisfied POST/capacity evidence; verified loan-record fields; residual unknowns isolated; no hard implementation blocker
+
+$ Task C receipt assertions
+PASS: executor=human_operator; status=prepared_waiting_human_dispatch; live write=no; model self-dispatch=no
+```
+
+This is document/routing validation only. Claude-GLM has not yet been executed,
+no product file has been changed by this checkpoint, and no authenticated or
+live Binance request was made.
+
+Task C implementation checkpoint at 2026-07-21 08:35:00 CST:
+
+```text
+$ python3 -m pytest \
+    backend/tests/test_borrow_domain.py \
+    backend/tests/test_borrow_store.py \
+    backend/tests/test_borrow_scheduler.py \
+    backend/tests/test_borrow_executor.py \
+    backend/tests/test_borrow_api.py \
+    backend/tests/test_private_client.py \
+    backend/tests/test_binance_signing.py \
+    backend/tests/test_portfolio_margin_borrow_client.py \
+    backend/tests/test_live_borrow_executor.py \
+    backend/tests/test_config.py -q
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 85%]
+......................................                                   [100%]
+254 passed in 18.25s
+
+$ python3 -m pytest backend/tests -q
+........................................................................ [ 36%]
+........................................................................ [ 48%]
+........................................................................ [ 60%]
+........................................................................ [ 73%]
+........................................................................ [ 85%]
+........................................................................ [ 97%]
+...............                                                          [100%]
+591 passed in 37.11s
+
+$ node frontend/self-check.js
+[PASS] 最小借币量占位符三分支、空输入值与编辑输入不受影响
+[PASS] 借币日志 newest-first 游标分页、加载更多与显式刷新
+[PASS] 全局间隔编辑器 GET/PUT、400 与本地校验
+[PASS] fetch 同源白名单、零 Binance/外域、零新任务定时器、localStorage 仅隐私键
+全部自检通过
+
+$ python3 -m py_compile \
+    backend/services/binance_signing.py \
+    backend/services/portfolio_margin_borrow_client.py \
+    backend/services/live_borrow_executor.py \
+    backend/services/private_client.py \
+    backend/borrow_tasks/*.py \
+    backend/app/server.py backend/config.py
+(exit 0; no output)
+
+$ git diff --check
+(exit 0; no output)
+```
+
+Per-file Boundary C test counts (collected at the same checkpoint):
+test_binance_signing.py=5, test_portfolio_margin_borrow_client.py=17,
+test_live_borrow_executor.py=24, test_borrow_store.py=31,
+test_borrow_scheduler.py=23, test_borrow_api.py=34, test_config.py=26,
+test_private_client.py=37.
+
+Every transport exercise used an injected fake/recording transport (RecordingTransport
+or monkeypatched urlopen) with dummy credentials; no real, authenticated, or
+production-reachable Binance request was made. No `.env`, key file, cookie, or
+credential store was read.
+
+Two cross-cutting guard updates were required by the in-scope extraction of the
+single signing primitive into backend/services/binance_signing.py:
+- test_private_client.py::test_single_hmac_exit_in_product_code and
+  test_private_account_v1.py::test_single_hmac_exit_unchased_after_v03 now name
+  binance_signing.py (not private_client.py) as the single HMAC exit; the
+  private_client.py docstring was reworded so its prose no longer carries the
+  lowercase scan tokens that previously kept it on the allow-list.
+
+No commit, push, merge, status.json/handoff change, or review dispatch was
+performed. Stopping for the bookkeeper.
+
+Bookkeeper Task C implementation-intake audit at 2026-07-21 08:46:32 CST:
+
+```text
+$ inspect archived loan-record contract and current official Binance response
+PASS: GET /papi/v1/margin/marginLoan publishes an object envelope with
+      rows: object[] and total: int64; the official 200 example is
+      {"rows":[{"txId":...,"asset":...,"principal":...,"timestamp":...,
+      "status":"CONFIRMED"}],"total":1}
+
+$ inspect PortfolioMarginBorrowClient.records_from and reconciliation tests
+BLOCK: product helper accepts only a top-level list; all fake success tests use
+       that synthetic shape. Real documented envelope normalizes to [].
+
+$ inspect LiveBorrowExecutor.reconcile, BorrowTaskService._reconcile_pass,
+  BorrowTaskStore, and the claimed cross-task test
+BLOCK: no other task/attempt participates in candidate attribution; the test
+       labelled cross-task only supplies ETH while the current task is BTC.
+
+$ inspect 418 cooldown/re-arm propagation through executor, service, and store
+BLOCK: Start clears active cooldown/rearm immediately; reconciliation-GET 418
+       loses the manual-rearm signal and becomes an ordinary cooldown.
+
+$ inspect server startup lifecycle against frozen design/breakdown
+BLOCK: status API is fail-closed, but the distinct missing-credential startup
+       event and live-authorized/recovered-orphan startup counts are absent.
+```
+
+Disposition: `IMPLEMENTATION_FIX_REQUIRED` before any evidence commit or
+review-1. Findings and exact raw paths are recorded in
+`20-implementation-bookkeeper-audit.md`; the human-operated original-implementer
+packet is `task-C-bookkeeper-fix-1.prompt.md`. This audit made no network call,
+read no credential source, and edited no implementation source.
+
+Bookkeeper deterministic reproductions and checkpoint at
+2026-07-21 08:50:53 CST:
+
+```text
+$ python3 <in-memory documented-envelope + temporary-SQLite 418 reproduction>
+documented_envelope_rows_parsed= []
+before_early_start= {'requires_rearm': 1, 'cooldown': 301000004}
+after_early_start= {'requires_rearm': 0, 'cooldown': None}
+
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+(exit 0; no output)
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+(exit 0; no output)
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=implementing
+
+$ R11 + executor + no-live + no-self-dispatch assertions
+PASS: R11 marker, human_operator execution, no-live and no-self-dispatch assertions
+
+$ git diff --check
+(exit 0; no output)
+
+$ git branch --show-current
+stage/2026-07-real-borrow-boundary-c-v1
+
+$ git rev-parse HEAD
+c9df14591ac4ca00977ce0e4d80c0950aae44c19
+```
+
+The reproduction used only an in-memory `BorrowHttpResponse` and a temporary
+SQLite database. It made zero network calls and used no credentials.
+
+---
+
+## Bookkeeper intake fix 1 — completion re-run
+
+Fake-only re-run of the five completion commands after correcting BK-C-001..004
+inside the original Task C boundary. No real, authenticated, or
+production-reachable Binance request was made; every transport exercise used an
+injected fake/recording transport with dummy credentials. No `.env`, key file,
+cookie, or credential store was read.
+
+Run at 2026-07-21 09:23:54 CST:
+
+```text
+$ python3 -m pytest \
+    backend/tests/test_portfolio_margin_borrow_client.py \
+    backend/tests/test_live_borrow_executor.py \
+    backend/tests/test_borrow_store.py \
+    backend/tests/test_borrow_scheduler.py \
+    backend/tests/test_borrow_api.py \
+    backend/tests/test_service_health.py -q
+164 passed in 22.71s
+
+$ python3 -m pytest \
+    backend/tests/test_binance_signing.py \
+    backend/tests/test_portfolio_margin_borrow_client.py \
+    backend/tests/test_live_borrow_executor.py \
+    backend/tests/test_borrow_store.py \
+    backend/tests/test_borrow_scheduler.py \
+    backend/tests/test_borrow_api.py \
+    backend/tests/test_config.py \
+    backend/tests/test_private_client.py \
+    backend/tests/test_private_account_v1.py \
+    backend/tests/test_service_health.py -q
+315 passed in 25.35s
+
+$ python3 -m pytest backend/tests -q
+614 passed in 38.10s
+
+$ node frontend/self-check.js
+[PASS] 借币任务输入本地校验（非法数量/次数不发请求）
+[PASS] HOME 创建 POST 冻结 body、渲染后端 borrowing 文档
+[PASS] 操作单元格 UI 提交路径、本地校验与 API 400 detail
+[PASS] maxBorrowableSubline 不再重复「已借完」
+[PASS] 任务状态机按钮矩阵、冻结 mutation 路由/body 与 409 就近显示
+[PASS] latest_result 五类标签、未知阻塞徽标与空结果占位
+[PASS] 筛选成员与软删除可见性
+[PASS] 任务编辑预填、有效/409/只读路径
+[PASS] 借币任务/借币日志顶层 tab 切换与筛选归属
+[PASS] 最小借币量占位符三分支、空输入值与编辑输入不受影响
+[PASS] 借币日志 newest-first 游标分页、加载更多与显式刷新
+[PASS] 全局间隔编辑器 GET/PUT、400 与本地校验
+[PASS] fetch 同源白名单、零 Binance/外域、零新任务定时器、localStorage 仅隐私键
+全部自检通过
+EXIT=0
+
+$ python3 -m py_compile \
+    backend/services/binance_signing.py \
+    backend/services/portfolio_margin_borrow_client.py \
+    backend/services/live_borrow_executor.py \
+    backend/services/private_client.py \
+    backend/borrow_tasks/*.py \
+    backend/app/server.py backend/config.py
+PY_COMPILE_OK exit=0
+
+$ git diff --check
+GIT_DIFF_CHECK_CLEAN exit=0
+```
+
+Branch: stage/2026-07-real-borrow-boundary-c-v1. Re-run used only in-process
+pytest, the offline `frontend/self-check.js`, byte-compile, and a whitespace
+check — zero outbound network, dummy credentials only.
+
+---
+
+## Bookkeeper fix-1 semantic re-audit
+
+Run at `2026-07-21 09:32:08 CST` with no network and no credential source:
+
+```text
+$ inspect durable cross-task attribution gate + unit/service tests
+PASS: BK-C-002 closed; claimed txId and other-task unresolved Decimal-equal
+      asset/amount candidates stay blocked, with a non-ambiguous positive path.
+
+$ inspect ordinary/418 cooldown, manual re-arm, and reconcile-GET 418 paths
+PASS: BK-C-003 closed; early Start cannot bypass, expiry alone cannot resume a
+      418, post-expiry Start re-arms, and reconciliation 418 persists the flag.
+
+$ inspect startup recovery counts, missing-credentials event, and redaction test
+PASS: BK-C-004 closed; only sanitized integer/enum/ownership facts are emitted.
+
+$ python3 <in-memory loan-record residual reproductions>
+missing_total ReconcileOutcome(matched=True, tran_id='7', rate_limited=False, retry_after_seconds=None, requires_rearm=False)
+bool_total ReconcileOutcome(matched=True, tran_id='8', rate_limited=False, retry_after_seconds=None, requires_rearm=False)
+total_less_than_rows ReconcileOutcome(matched=True, tran_id='9', rate_limited=False, retry_after_seconds=None, requires_rearm=False)
+known_txid_mismatch ReconcileOutcome(matched=True, tran_id='999', rate_limited=False, retry_after_seconds=None, requires_rearm=False)
+missing_timestamp ReconcileOutcome(matched=True, tran_id='10', rate_limited=False, retry_after_seconds=None, requires_rearm=False)
+```
+
+Disposition: fix 1 is partial closure. Residual BK-C-001 remains blocking before
+evidence commit/review. The narrow human-operated correction packet is
+`task-C-bookkeeper-fix-2.prompt.md`. The reproductions used only injected fake
+objects; zero outbound traffic and no real credentials.
+
+Fix-2 packet checkpoint at `2026-07-21 09:38:01 CST`:
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+(exit 0; no output)
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+(exit 0; no output)
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=implementing
+
+$ fix-2 R11 + executor + no-live + no-self-dispatch assertions
+PASS: fix-2 R11/human_operator/no-live/no-self-dispatch assertions
+
+$ git diff --check
+(exit 0; no output)
+
+$ git branch --show-current
+stage/2026-07-real-borrow-boundary-c-v1
+
+$ git rev-parse HEAD
+c9df14591ac4ca00977ce0e4d80c0950aae44c19
+```
+
+No evidence commit/fingerprint or review dispatch was created because residual
+BK-C-001 remains open.
+
+---
+
+## Bookkeeper fix-2 semantic and test-evidence re-audit
+
+Run at `2026-07-21 10:12:03 CST`, using only injected fake objects:
+
+```text
+$ reproduce six residual negative cases and key positives
+missing_total False None
+bool_total False None
+total_less_than_rows False None
+known_txid_mismatch False None
+missing_timestamp False None
+valid_plus_malformed False None
+positive_complete True 12
+positive_known True 555
+
+$ inspect test_reconcile_multiple_confirmed_not_matched
+BLOCK (test evidence only): second CONFIRMED row has no timestamp. The stricter
+row-contract gate rejects the envelope as malformed before len(confirmed)==2,
+so the test no longer proves ambiguity between two contract-valid candidates.
+
+$ inspect independent malformed-row regression
+PASS: test_reconcile_malformed_row_not_silently_dropped separately covers the
+valid-plus-malformed fail-closed behavior.
+```
+
+Disposition: all product-code findings are closed. A micro test-evidence fix is
+required before evidence commit/review. `task-C-bookkeeper-fix-3.prompt.md`
+allows no product source change and only restores the fully contract-valid
+multiple-candidate case. No network call or credential source was used.
+
+Micro fix-3 packet checkpoint at `2026-07-21 10:14:51 CST`:
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+(exit 0; no output)
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+(exit 0; no output)
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=implementing
+
+$ fix-3 R11 + executor + no-live + no-product-source + no-self-dispatch assertions
+PASS: fix-3 R11/human_operator/no-live/no-source/no-self-dispatch assertions
+
+$ git diff --check
+(exit 0; no output)
+```
+
+No evidence commit/fingerprint or review dispatch was created while the required
+multiple-candidate test evidence remains open.
+
+---
+
+## Bookkeeper intake fix 2 — BK-C-001 residual closure
+
+Fake-only re-run of the five completion commands after closing the residual
+BK-C-001 fail-closed matching gaps (parser + matcher + their two test files
+only). No real, authenticated, or production-reachable Binance request was made;
+every transport exercise used an injected fake client with dummy credentials.
+No `.env`, key file, cookie, or credential store was read.
+
+Run at 2026-07-21 10:00:51 CST:
+
+```text
+$ python3 -m pytest \
+    backend/tests/test_portfolio_margin_borrow_client.py \
+    backend/tests/test_live_borrow_executor.py -q
+59 passed in 0.13s
+
+$ python3 -m pytest \
+    backend/tests/test_binance_signing.py \
+    backend/tests/test_portfolio_margin_borrow_client.py \
+    backend/tests/test_live_borrow_executor.py \
+    backend/tests/test_borrow_store.py \
+    backend/tests/test_borrow_scheduler.py \
+    backend/tests/test_borrow_api.py \
+    backend/tests/test_config.py \
+    backend/tests/test_private_client.py \
+    backend/tests/test_private_account_v1.py \
+    backend/tests/test_service_health.py -q
+325 passed in 24.93s
+
+$ python3 -m pytest backend/tests -q
+624 passed in 35.20s
+
+$ node frontend/self-check.js
+全部自检通过
+EXIT=0
+
+$ python3 -m py_compile \
+    backend/services/binance_signing.py \
+    backend/services/portfolio_margin_borrow_client.py \
+    backend/services/live_borrow_executor.py \
+    backend/services/private_client.py \
+    backend/borrow_tasks/*.py \
+    backend/app/server.py backend/config.py
+PY_COMPILE_OK exit=0
+
+$ git diff --check
+GIT_DIFF_CHECK_CLEAN exit=0
+```
+
+The six deterministic reproductions now return matched=False (missing total,
+boolean total, total below raw row count, known tran_id vs response txId
+mismatch, row missing timestamp, one valid + one malformed row); the three
+positive cases still succeed (complete rows/total envelope unique match, known
+tranId 555 + response txId 555, response-less candidate timestamp inside the
+dispatched [startTime, endTime] window). Branch: stage/2026-07-real-borrow-
+boundary-c-v1. Re-run used only in-process pytest, the offline
+`frontend/self-check.js`, byte-compile, and a whitespace check — zero outbound
+network, dummy credentials only.
+
+---
+
+## Bookkeeper intake micro fix 3 — multiple-candidate evidence
+
+Test-only micro fix (zero product-code change). The second CONFIRMED row in
+`test_reconcile_multiple_confirmed_not_matched` was missing its `timestamp`, so
+under the fix-2 strict row contract the read failed closed at contract
+validation (malformed-row rejection) instead of reaching the multiple-candidate
+ambiguity check. The independent malformed-row regression already covers the
+malformed path, so this required-evidence test was restored to its intent: two
+complete, contract-valid matching candidates (same asset, exact Decimal-equal
+principal, distinct `txId`, `total == 2`) that stay blocked purely by ambiguity.
+
+Run at 2026-07-21 10:20:48 CST:
+
+```text
+$ python3 -m pytest backend/tests/test_live_borrow_executor.py -q
+37 passed in 0.07s
+
+$ python3 -m pytest \
+    backend/tests/test_portfolio_margin_borrow_client.py \
+    backend/tests/test_live_borrow_executor.py -q
+59 passed in 0.04s
+
+$ python3 -m pytest backend/tests -q
+624 passed in 34.16s
+
+$ node frontend/self-check.js
+全部自检通过
+EXIT=0
+
+$ python3 -m py_compile backend/services/live_borrow_executor.py
+PY_COMPILE_OK exit=0
+
+$ git diff --check
+GIT_DIFF_CHECK_CLEAN exit=0
+```
+
+Change: a single test-data line in
+`backend/tests/test_live_borrow_executor.py` — the second CONFIRMED row now
+carries `"timestamp": 1500` alongside `txId`/`asset`/`principal`/`status`. No
+product source, no other test, and no guard was touched. The legitimate
+multiple-candidate ambiguity test and the independent malformed-row regression
+both remain. Zero outbound network, dummy credentials only.
+
+---
+
+## Bookkeeper independent completion verification after micro fix 3
+
+Run at 2026-07-21 10:30:57 CST. These checks exercised only local tests,
+injected fake transports/dummy credentials, static byte compilation, and the
+offline frontend self-check. No credential source or live/authenticated/
+production-reachable Binance endpoint was used.
+
+```text
+$ python3 -m pytest \
+    backend/tests/test_portfolio_margin_borrow_client.py \
+    backend/tests/test_live_borrow_executor.py -q
+...........................................................              [100%]
+59 passed in 0.05s
+
+$ python3 -m pytest backend/tests -q
+........................................................................ [ 11%]
+........................................................................ [ 23%]
+........................................................................ [ 34%]
+........................................................................ [ 46%]
+........................................................................ [ 57%]
+........................................................................ [ 69%]
+........................................................................ [ 80%]
+........................................................................ [ 92%]
+................................................                         [100%]
+624 passed in 35.01s
+
+$ python3 -m pytest scripts/tests -q
+........................................................................ [ 63%]
+..........................................                               [100%]
+114 passed in 3.97s
+
+$ node frontend/self-check.js
+[PASS] all self-check assertions (full raw output captured by the bookkeeper command)
+全部自检通过
+EXIT=0
+
+$ python3 -m py_compile \
+    backend/services/binance_signing.py \
+    backend/services/portfolio_margin_borrow_client.py \
+    backend/services/live_borrow_executor.py \
+    backend/services/private_client.py \
+    backend/borrow_tasks/*.py \
+    backend/app/server.py backend/config.py
+PY_COMPILE_OK exit=0
+```
+
+The bookkeeper separately inspected the corrected test data: two complete,
+contract-valid CONFIRMED rows with distinct transaction IDs, the same asset and
+exact principal, timestamps inside the query window, and `total == 2`. All
+implementation intake findings and the micro test-evidence finding are closed.

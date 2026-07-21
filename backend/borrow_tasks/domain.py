@@ -27,6 +27,9 @@ from decimal import Decimal, InvalidOperation
 # ---------------------------------------------------------------------------
 
 SCHEMA_VERSION = "borrow-tasks/v1"
+# Boundary C execution-status document (§3.3): a distinct schema_version so the
+# projection is validated independently of the task/log contracts.
+EXECUTION_SCHEMA_VERSION = "borrow-execution/v1"
 
 STATUS_BORROWING = "borrowing"
 STATUS_PAUSED = "paused"
@@ -34,6 +37,49 @@ STATUS_DELETED = "deleted"
 STATUS_COMPLETED = "completed"
 ALL_STATUSES = (STATUS_BORROWING, STATUS_PAUSED, STATUS_DELETED, STATUS_COMPLETED)
 RUNNABLE_STATUSES = (STATUS_BORROWING, STATUS_PAUSED)  # editable states
+
+# Boundary C §3.3 sanitized block_reason enum (never an environment value).
+BLOCK_EXECUTOR_DISABLED = "executor_disabled"
+BLOCK_GLOBALLY_STOPPED = "globally_stopped"
+BLOCK_BORROW_CREDENTIALS_MISSING = "borrow_credentials_missing"
+BLOCK_NOT_EXECUTION_OWNER = "not_execution_owner"
+BLOCK_RATE_LIMITED = "rate_limited"
+BLOCK_INVALID_CONFIGURATION = "invalid_configuration"
+ALL_BLOCK_REASONS = (
+    BLOCK_EXECUTOR_DISABLED,
+    BLOCK_GLOBALLY_STOPPED,
+    BLOCK_BORROW_CREDENTIALS_MISSING,
+    BLOCK_NOT_EXECUTION_OWNER,
+    BLOCK_RATE_LIMITED,
+    BLOCK_INVALID_CONFIGURATION,
+)
+
+# Boundary C §5.3: reconciliation read delays measured from the moment the
+# attempt became unresolved. Five reads (~21 min), then terminal exhaustion.
+RECONCILE_DELAYS_SECONDS = (5, 15, 60, 300, 900)
+# Boundary C §5.3: persisted reason distinguishing history-inferred success.
+REASON_RECONCILED_UNIQUE_TXID_MATCH = "reconciled_unique_txid_match"
+
+# Boundary C §5.1: Retry-After fail-closed default and clamp window. A missing or
+# nonsensical Retry-After falls back to the 60s floor; any value is clamped to
+# [60, 300]. Pure Decimal helper shared by the executor (response classification)
+# and the store (cooldown persistence) so both boundaries clamp identically.
+RETRY_AFTER_DEFAULT_SECONDS = Decimal("60")
+RETRY_AFTER_MIN_SECONDS = 60
+RETRY_AFTER_MAX_SECONDS = 300
+
+
+def clamp_retry_after(raw_seconds) -> Decimal:
+    """Missing/unparseable/non-positive -> 60s; otherwise clamp to [60, 300]."""
+    if raw_seconds is None:
+        return RETRY_AFTER_DEFAULT_SECONDS
+    try:
+        seconds = int(raw_seconds)
+    except (TypeError, ValueError):
+        return RETRY_AFTER_DEFAULT_SECONDS
+    if seconds < 1:
+        return RETRY_AFTER_DEFAULT_SECONDS
+    return Decimal(min(max(seconds, RETRY_AFTER_MIN_SECONDS), RETRY_AFTER_MAX_SECONDS))
 
 OUTCOME_PENDING = "pending"
 OUTCOME_RESOLVED = "resolved"

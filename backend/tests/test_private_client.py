@@ -75,23 +75,27 @@ def _http_error(code: int, body: str) -> urllib.error.HTTPError:
 
 # ---- 1. single HMAC exit (grep-level over product code) ----
 def test_single_hmac_exit_in_product_code():
-    """No product module other than private_client.py touches hmac/hashlib/signature."""
+    """Only binance_signing.py touches hmac/hashlib/signature; neither HTTP client
+    (private_client.py for GET reads, portfolio_margin_borrow_client.py for the
+    borrow POST + loan-record GET) constructs a signature inline."""
+    allowed = {"binance_signing.py"}
     bad = []
     for py in BACKEND_DIR.rglob("*.py"):
         rel = py.relative_to(REPO_ROOT)
-        if "tests" in rel.parts or rel.name == "private_client.py":
+        if "tests" in rel.parts or rel.name in allowed:
             continue
         text = py.read_text(encoding="utf-8")
         if _HMAC_RE.search(text) or _HASHLIB_RE.search(text) or _SIGNATURE_ASSIGN_RE.search(text):
             bad.append(str(rel))
-    assert bad == [], f"hmac/hashlib/signature found outside private_client.py: {bad}"
+    assert bad == [], f"hmac/hashlib/signature found outside binance_signing.py: {bad}"
 
 
 def test_urlopen_only_in_designated_http_clients():
-    """Direct-HTTP guard: only private_client.py and binance_public.py may call
-    urlopen, so no other product module can bypass them to hit Binance directly
-    (with or without a signature)."""
-    allowed = {"private_client.py", "binance_public.py"}
+    """Direct-HTTP guard: only the three designated HTTP clients may call urlopen
+    (private_client.py for GET reads, binance_public.py for public market, and
+    portfolio_margin_borrow_client.py for the borrow POST + loan-record GET), so no
+    other product module can bypass them to hit Binance directly."""
+    allowed = {"private_client.py", "binance_public.py", "portfolio_margin_borrow_client.py"}
     bad = []
     for py in BACKEND_DIR.rglob("*.py"):
         rel = py.relative_to(REPO_ROOT)
@@ -99,7 +103,7 @@ def test_urlopen_only_in_designated_http_clients():
             continue
         if "urlopen" in py.read_text(encoding="utf-8"):
             bad.append(str(rel))
-    assert bad == [], f"urlopen found outside the two HTTP clients: {bad}"
+    assert bad == [], f"urlopen found outside the designated HTTP clients: {bad}"
 
 
 # ---- 2. deny-by-default whitelist + GET-only ----
