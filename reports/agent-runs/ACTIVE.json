@@ -3,10 +3,10 @@
     "stage_id": "2026-07-real-borrow-boundary-c-v1",
     "phase": "review_2",
     "handoff": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
-    "note": "Boundary C review-2 is dispatch-ready. Kimi round-2 review-1 is schema-valid ACCEPT on fingerprint 87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162 with two non-blocking P3 findings. Fresh read-only Codex gpt-5.5 is selected under explicit design-involvement override; review-2 pre-review validation passed at committed packet HEAD 585fd8fc9cd84f21410bb148e84a449969e6607d. Human operator must execute review-2-codex.prompt.md and capture 50-review-2.md. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or Boundary C acceptance is authorized.",
-    "updated_at": "2026-07-21T21:09:26+08:00"
+    "note": "Boundary C review-2 is dispatch-ready. Kimi round-2 review-1 is schema-valid ACCEPT on fingerprint 87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162 with two non-blocking P3 findings. Fresh read-only Codex gpt-5.5 is selected under explicit design-involvement override; review-2 pre-review validation passed at committed packet HEAD 253c6051b93e26a81ee2038addc5884fdf77fea1, whose exact command redirects schema-bound stdout to 50-review-2.md. No push, deployment, credential access, real Binance request, live-borrow start, Boundary C-to-main merge, or Boundary C acceptance is authorized.",
+    "updated_at": "2026-07-21T21:10:52+08:00"
   },
   "last_completed": "2026-07-harness-verdict-extractor-fix-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T21:09:26+08:00"
+  "updated_at": "2026-07-21T21:10:52+08:00"
 }

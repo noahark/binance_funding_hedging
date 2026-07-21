@@ -1414,3 +1414,22 @@ exit 0 (clean)
 $ git status --short --branch
 ## stage/2026-07-real-borrow-boundary-c-v1
 ```
+
+## 2026-07-21 21:10:52 CST — Explicit review-2 capture revalidation
+
+The dispatch command was committed at
+`253c6051b93e26a81ee2038addc5884fdf77fea1` with direct stdout redirection to
+`50-review-2.md`, preventing an otherwise-valid terminal result from remaining
+unfiled.
+
+```text
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162
+
+$ git status --short --branch
+## stage/2026-07-real-borrow-boundary-c-v1
+```

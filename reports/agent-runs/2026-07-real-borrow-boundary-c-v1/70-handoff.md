@@ -140,7 +140,9 @@
   breakdown. Evidence: `review-2-design-conflict-override.md`.
 - Review-2 must treat PRD, user-approved synthesis and product documents as
   higher authority; design/ADR/breakdown are evidence under review.
-- Packet commit: `585fd8fc9cd84f21410bb148e84a449969e6607d`.
+- Review evidence/packet commit: `585fd8fc9cd84f21410bb148e84a449969e6607d`.
+- Final capture-command commit: `253c6051b93e26a81ee2038addc5884fdf77fea1`;
+  the exact command redirects schema-bound stdout directly to `50-review-2.md`.
 - `scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase
   pre-review`: PASS on that clean committed packet.
 - The earlier review dispatch packet also omitted the machine receipt block.
@@ -181,6 +183,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 21:09:26 CST
+本地北京时间: 2026-07-21 21:10:52 CST
 下一步模型: human operator → Codex gpt-5.5
 下一步任务: execute the exact review-2-codex.dispatch.md command, capture 50-review-2.md verbatim, fill the receipt, and return to bookkeeper

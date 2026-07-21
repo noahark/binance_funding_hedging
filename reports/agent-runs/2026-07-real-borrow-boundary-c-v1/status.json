@@ -1124,8 +1124,9 @@
     },
     "pre_review_validation": {
       "result": "PASS",
-      "validated_packet_head": "585fd8fc9cd84f21410bb148e84a449969e6607d",
-      "recorded_at": "2026-07-21T21:09:26+08:00"
+      "validated_packet_head": "253c6051b93e26a81ee2038addc5884fdf77fea1",
+      "recorded_at": "2026-07-21T21:10:52+08:00",
+      "capture_command": "schema-bound stdout redirects directly to 50-review-2.md"
     },
     "open_p0_p1": null,
     "verdict": null,
@@ -1393,5 +1394,5 @@
     }
   },
   "next_action": "human_operator_executes_review_2_codex_gpt_5_5_schema_bound_read_only_command_captures_50_review_2_and_fills_receipt_then_bookkeeper_intakes",
-  "updated_at": "2026-07-21T21:09:26+08:00"
+  "updated_at": "2026-07-21T21:10:52+08:00"
 }
