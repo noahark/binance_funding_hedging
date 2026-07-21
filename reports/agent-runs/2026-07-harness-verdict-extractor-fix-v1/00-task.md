@@ -11,7 +11,9 @@ schema validation.
 
 1. `extract_last_json_object(text)` returns the final top-level JSON object.
    A parseable object whose decoded span is strictly contained inside another
-   decoded object is nested and cannot win.
+   decoded JSON container — dictionary or array — is nested and cannot win.
+   In particular, `[valid_verdict]` must fail closed rather than promote its
+   contained dictionary.
 2. For a verdict with zero, one, or multiple `findings`, the complete verdict
    object is returned.
 3. Prose, Markdown JSON fences, navigation footers, trailing whitespace,
@@ -69,6 +71,6 @@ required six-line runtime footer, and stop for bookkeeper intake.
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/00-task.md
-本地北京时间: 2026-07-21 14:36:22 CST
-下一步模型: human operator → Claude-GLM / glm-5.2[1m]
-下一步任务: implement only Task H, run the exact Harness checks, fill the receipt, and stop for bookkeeper
+本地北京时间: 2026-07-21 15:59:10 CST
+下一步模型: human operator → original Claude-GLM / glm-5.2[1m]
+下一步任务: execute the bounded BK-H-001 array-container micro-fix, rerun the exact Harness checks, fill the receipt, and stop for bookkeeper

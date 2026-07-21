@@ -12,7 +12,9 @@ review, the user decides whether the corrected Harness commits land on `main`.
 
 Status: accepted.
 
-The extractor selects the final non-nested decoded dictionary. It does not
+The extractor selects the final decoded dictionary that is not contained by a
+decoded dictionary or array span. A dictionary inside a top-level array remains
+nested and cannot be promoted. The extractor does not
 search backwards for the first object that happens to satisfy the verdict
 schema, because that could hide a final malformed or schema-invalid verdict by
 falling back to stale earlier JSON.
@@ -37,6 +39,6 @@ user authorization before any `main` merge.
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/11-adr.md
-本地北京时间: 2026-07-21 14:36:22 CST
-下一步模型: human operator → Claude-GLM / glm-5.2[1m]
-下一步任务: execute the bounded implementation and return raw evidence to the bookkeeper
+本地北京时间: 2026-07-21 15:59:10 CST
+下一步模型: human operator → original Claude-GLM / glm-5.2[1m]
+下一步任务: execute the bounded BK-H-001 array-container micro-fix and return raw evidence to the bookkeeper

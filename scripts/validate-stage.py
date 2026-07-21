@@ -366,25 +366,80 @@ def _resolve_evidence_path(root: Path, stage_dir: Path, value: Any) -> Path:
 
 
 def extract_last_json_object(text: str) -> dict[str, Any] | None:
-    """Tolerant verdict extraction: scan '{' candidates from the END of the
-    file backwards and return the first one that json-decodes to an object.
-    Compatible with ```json fences and navigation footers (P6).
+    """Tolerant verdict extraction: return the final top-level JSON object in
+    ``text``. Compatible with ```json fences and navigation footers (P6).
 
     We deliberately do NOT require the whole file/stdout to be one JSON
     document: the fast-fix strict single-JSON stdout protocol failed on its
     own first retry when a model prefixed the verdict with prose, so the
-    reform standard is "last parseable JSON object wins" (proposal 3.5-7)."""
+    reform standard is "last parseable JSON object wins" (proposal 3.5-7).
+
+    HVX fix: "last parseable object" is selected at top-level granularity.
+    Scan every ``{`` and ``[`` and record each candidate that raw_decode()
+    accepts as a dict, paired with its decoded source span [start, end). A
+    dict candidate whose complete span is strictly contained inside another
+    decoded dict or list container's span is nested and cannot win — that is
+    exactly what happens to each entry of a verdict's non-empty ``findings``
+    array, so the earlier reverse-suffix scan returned the last finding
+    instead of the enclosing verdict. We keep the non-nested dict candidates
+    and return the last one in document order.
+
+    BK-H-001 fix: a decoded JSON array is never returned as a verdict, but its
+    span is a container for nesting. A top-level ``[valid_verdict]`` (or
+    ``[[valid_verdict]]``) must not promote its inner verdict dict; the inner
+    dict is strictly contained in the array span, so it is nested, nothing is
+    non-nested, and the extractor returns None — failing closed downstream.
+
+    JSONDecoder already ignores braces, brackets and escaped quotes inside
+    JSON strings, so the scan is string-aware; arrays and scalars are never
+    returned, and a final unparseable trailing brace simply yields no
+    candidate. The extractor stays schema-independent: schema validation
+    happens downstream in _parse_review_artifact, so a final schema-invalid
+    object still fails closed instead of falling back to an earlier object."""
     decoder = json.JSONDecoder()
-    idx = text.rfind("{")
-    while idx >= 0:
+    # Decoded dict candidates (potential verdicts) with their spans, plus every
+    # decoded dict OR list container span used for nesting detection.
+    dict_candidates: list[tuple[int, int, dict[str, Any]]] = []
+    container_spans: list[tuple[int, int]] = []
+    idx = 0
+    while True:
+        brace = text.find("{", idx)
+        bracket = text.find("[", idx)
+        if brace == -1 and bracket == -1:
+            break
+        if brace == -1:
+            pos = bracket
+        elif bracket == -1 or brace <= bracket:
+            pos = brace
+        else:
+            pos = bracket
         try:
-            obj, _end = decoder.raw_decode(text[idx:])
+            obj, consumed = decoder.raw_decode(text[pos:])
         except json.JSONDecodeError:
             obj = None
         if isinstance(obj, dict):
-            return obj
-        idx = text.rfind("{", 0, idx)
-    return None
+            dict_candidates.append((pos, pos + consumed, obj))
+            container_spans.append((pos, pos + consumed))
+        elif isinstance(obj, list):
+            container_spans.append((pos, pos + consumed))
+        idx = pos + 1
+    if not dict_candidates:
+        return None
+    # A dict candidate is nested when another decoded dict OR list container
+    # strictly contains its whole span. A candidate's own span is the only
+    # equal span (raw_decode is deterministic and each structural char is
+    # scanned once), so equality identifies self and is excluded.
+    non_nested: list[tuple[int, int, dict[str, Any]]] = []
+    for start, end, obj in dict_candidates:
+        if not any(
+            (cs, ce) != (start, end) and cs <= start and end <= ce
+            for cs, ce in container_spans
+        ):
+            non_nested.append((start, end, obj))
+    if not non_nested:
+        return None
+    non_nested.sort(key=lambda item: item[0])
+    return non_nested[-1][2]
 
 
 _SCHEMA_STRUCTURAL_KEYS = {

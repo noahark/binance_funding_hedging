@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-verdict-extractor-fix-v1",
-  "status": "implementing",
+  "status": "testing",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "stage_branch": {
@@ -48,6 +48,56 @@
       "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/{00-intake.md,00-task.md,10-design.md,11-adr.md,task-H-claude-glm.prompt.md,task-H-claude-glm.dispatch.md}",
       "result": "immutable_claude_glm_prompt_and_human_operator_receipt_prepared_no_dispatch_executed",
       "recorded_at": "2026-07-21T14:36:22+08:00"
+    },
+    {
+      "role": "implementation",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": "37d9d7c4-c33f-4012-bcbf-16e6e6d3b461",
+      "session_id_source": "runtime_env",
+      "session_id_notes": "Claude Code runtime session ID verified by matching transcript path; the provider-native Zhipu/GLM ID was not separately exposed",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md",
+      "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md",
+      "executor": "human_operator",
+      "result": "submitted_tests_green_bookkeeper_intake_found_blocking_BK_H_001_array_wrapper_residual",
+      "recorded_at": "2026-07-21T15:59:10+08:00"
+    },
+    {
+      "role": "implementation_intake_audit",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md",
+      "result": "original_findings_bug_closed_blocking_BK_H_001_array_wrapper_micro_fix_prepared",
+      "recorded_at": "2026-07-21T15:59:10+08:00"
+    },
+    {
+      "role": "implementation_fix",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": "37d9d7c4-c33f-4012-bcbf-16e6e6d3b461",
+      "session_id_source": "runtime_env",
+      "session_id_notes": "Same verified Claude Code runtime session as Task H; the provider-native Zhipu/GLM ID was not separately exposed",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md",
+      "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md",
+      "executor": "human_operator",
+      "result": "BK_H_001_closed_all_tests_green_ready_for_evidence_commit",
+      "recorded_at": "2026-07-21T16:45:41+08:00"
+    },
+    {
+      "role": "implementation_fix_intake_audit",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md",
+      "result": "BK_H_001_closed_ready_for_committed_review_evidence",
+      "recorded_at": "2026-07-21T16:45:41+08:00"
     }
   ],
   "designer": {
@@ -63,10 +113,28 @@
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2[1m]",
     "task_id": "H",
-    "status": "dispatch_prepared_waiting_human_execution"
+    "status": "implementation_and_BK_H_001_closed_evidence_commit_pending"
   },
-  "implementers": [],
-  "fix_authors": [],
+  "implementers": [
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "task_id": "H",
+      "report_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md"
+    }
+  ],
+  "fix_authors": [
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "task_id": "H",
+      "fix_round": "bookkeeper-intake-fix-1",
+      "finding_ids": ["BK-H-001"],
+      "report_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md"
+    }
+  ],
   "reviewer_1": {
     "provider": "kimi",
     "provider_identity": "moonshot_kimi",
@@ -97,6 +165,8 @@
       },
       "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.prompt.md",
       "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md",
+      "fix_prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md",
+      "fix_dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md",
       "next_dispatch_executor": "human_operator",
       "r10_checklist": null,
       "base_sha": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
@@ -144,8 +214,11 @@
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/10-design.md",
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/11-adr.md",
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md",
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.prompt.md",
-    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md"
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md"
   ],
   "base_sha": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
   "head_sha": null,
@@ -154,9 +227,19 @@
     "8cf810d2335d5af08e2ff18181964e5e053e56b9",
     "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a"
   ],
-  "changed_files": [],
+  "changed_files": [
+    "docs/parallel-development-mode.md",
+    "scripts/validate-stage.py",
+    "scripts/tests/test_validate_stage_dispatch_protocol.py",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md"
+  ],
   "tests": {
-    "status": "baseline_green_reproduction_red_implementation_not_started",
+    "status": "all_green_BK_H_001_closed_evidence_commit_pending",
     "commands": [
       "python3 -m pytest scripts/tests -q: 114 passed",
       "python3 scripts/test-validate-all-stages-compare.py --repo-root .: 11/11 passed",
@@ -164,7 +247,15 @@
       "python3 -m json.tool on ACTIVE.json and status.json: PASS",
       "python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint: PASS",
       "R11 marker and nine-field pending human-operator dispatch receipt audit: PASS",
-      "git diff --check: clean"
+      "git diff --check: clean",
+      "Claude-GLM implementation: targeted 49 passed; full Harness 125 passed; py_compile exit 0; compare sentinel 11/11; checkpoint PASS; diff check clean",
+      "bookkeeper independent intake: targeted 49 passed; full Harness 125 passed; py_compile exit 0; compare sentinel 11/11; diff check clean",
+      "bookkeeper committed Boundary C artifact check: REWORK with five findings extracted",
+      "BK-H-001 reproduction: top-level [valid_verdict] parsed as ACCEPT with zero schema errors",
+      "BK-H-001 packet JSON, checkpoint validator, R11 marker and git diff check: PASS",
+      "BK-H-001 fix: targeted 52 passed; full Harness 128 passed; py_compile exit 0; compare sentinel 11/11; checkpoint PASS; diff check clean",
+      "bookkeeper independent final intake: targeted 52 passed; full Harness 128 passed; py_compile/checkpoint/diff check PASS; compare sentinel 11/11",
+      "semantic matrix: [valid_verdict] and [[valid_verdict]] fail closed; committed Boundary C artifact returns REWORK with five findings; harmless footer bracket text preserves ACCEPT"
     ]
   },
   "review_1": {
@@ -210,6 +301,28 @@
   "authorized_exceptions": [],
   "rework_count": 0,
   "max_rework": 3,
+  "implementation_intake_audit": {
+    "status": "closed_ready_for_committed_review_evidence",
+    "audit_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md",
+    "closed_findings": [
+      "original_findings_bearing_nested_dict_bug",
+      "BK-H-001"
+    ],
+    "open_findings": [],
+    "formal_rework_count_incremented": false
+  },
+  "implementation_fix_dispatch_round_1": {
+    "task_id": "H",
+    "round": "bookkeeper-intake-fix-1",
+    "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md",
+    "target_provider": "claude_glm",
+    "target_model": "glm-5.2[1m]",
+    "executor": "human_operator",
+    "status": "completed_bookkeeper_intake_closed",
+    "required_findings": ["BK-H-001"],
+    "formal_rework_count_incremented": false
+  },
   "blockers": [],
   "human_escalation": {
     "required": false,
@@ -225,6 +338,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_executes_task_H_claude_glm_prompt_then_bookkeeper_intakes_evidence",
-  "updated_at": "2026-07-21T14:41:50+08:00"
+  "next_action": "bookkeeper_creates_local_evidence_commit_computes_standard_fingerprint_runs_pre_review_and_prepares_fresh_Kimi_review_1_packet",
+  "updated_at": "2026-07-21T16:52:59+08:00"
 }

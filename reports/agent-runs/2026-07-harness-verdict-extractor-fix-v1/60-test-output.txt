@@ -54,3 +54,316 @@ all nine machine-readable fields present; status=pending; executor=human_operato
 $ git diff --check
 exit 0 (clean)
 ```
+
+## Task H — implementation-time verification
+
+Run at 2026-07-21 15:43:14 CST on branch harness/dispatch-review-reform-v1.
+
+```text
+$ python3 -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+.................................................                        [100%]
+49 passed in 0.75s
+exit=0
+
+$ python3 -m pytest scripts/tests -q
+........................................................................ [ 57%]
+.....................................................                    [100%]
+125 passed in 1.91s
+exit=0
+
+$ python3 -m py_compile scripts/validate-stage.py
+exit=0
+
+$ python3 scripts/test-validate-all-stages-compare.py --repo-root .
+runner under test: /Users/ark/Desktop/ai code/funding_hedging/scripts/validate-all-stages.py
+repo for e2e: /Users/ark/Desktop/ai code/funding_hedging
+PASS  U0 identical -> no drift :: identical dicts
+PASS  U1 verdict flip -> FLIP :: ['FLIP s: red -> green']
+PASS  U2 error multiset shrink -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 2)', '  - e2']
+PASS  U3 error added (codex sentinel shape) -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 4)', '  + SENTINEL: new failure']
+PASS  U4 exception-only change -> EXCDRIFT :: ["EXCDRIFT s: [] -> ['review_fingerprint_trails_status@review_1']"]
+PASS  U5 added stage -> ADDED :: ['ADDED new-stage: verdict=green']
+PASS  U6 removed stage -> REMOVED :: ['REMOVED s: was verdict=red']
+PASS  E0 build temp baseline :: exit=0
+PASS  E1 unmodified compare -> exit 0, no drift :: exit=0
+PASS  E2 error-only injection -> ERRDRIFT + nonzero exit :: exit=1
+PASS  E3 exception-only injection -> EXCDRIFT + nonzero exit :: exit=1
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+exit=0
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=checkpoint
+status=implementing
+exit=0
+
+$ git diff --check
+exit=0
+
+$ git status --short
+ M docs/parallel-development-mode.md
+ M scripts/tests/test_validate_stage_dispatch_protocol.py
+ M scripts/validate-stage.py
+exit=0
+```
+
+## Task H — final re-verification after report backfill
+
+Run at 2026-07-21 15:51:41 CST on branch harness/dispatch-review-reform-v1.
+
+```text
+$ python3 -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+.................................................                        [100%]
+49 passed in 0.93s
+exit=0
+
+$ python3 -m pytest scripts/tests -q
+........................................................................ [ 57%]
+.....................................................                    [100%]
+125 passed in 2.14s
+exit=0
+
+$ python3 -m py_compile scripts/validate-stage.py
+exit=0
+
+$ python3 scripts/test-validate-all-stages-compare.py --repo-root .
+runner under test: /Users/ark/Desktop/ai code/funding_hedging/scripts/validate-all-stages.py
+repo for e2e: /Users/ark/Desktop/ai code/funding_hedging
+PASS  U0 identical -> no drift :: identical dicts
+PASS  U1 verdict flip -> FLIP :: ['FLIP s: red -> green']
+PASS  U2 error multiset shrink -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 2)', '  - e2']
+PASS  U3 error added (codex sentinel shape) -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 4)', '  + SENTINEL: new failure']
+PASS  U4 exception-only change -> EXCDRIFT :: ["EXCDRIFT s: [] -> ['review_fingerprint_trails_status@review_1']"]
+PASS  U5 added stage -> ADDED :: ['ADDED new-stage: verdict=green']
+PASS  U6 removed stage -> REMOVED :: ['REMOVED s: was verdict=red']
+PASS  E0 build temp baseline :: exit=0
+PASS  E1 unmodified compare -> exit 0, no drift :: exit=0
+PASS  E2 error-only injection -> ERRDRIFT + nonzero exit :: exit=1
+PASS  E3 exception-only injection -> EXCDRIFT + nonzero exit :: exit=1
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+exit=0
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=checkpoint
+status=implementing
+exit=0
+
+$ git diff --check
+exit=0
+
+$ git status --short
+ M docs/parallel-development-mode.md
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md
+ M scripts/tests/test_validate_stage_dispatch_protocol.py
+ M scripts/validate-stage.py
+exit=0
+```
+
+## Bookkeeper independent intake — BK-H-001
+
+Run at 2026-07-21 15:59:10 CST. No implementation file was modified by the
+bookkeeper during these checks.
+
+```text
+$ python3 -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+.................................................                        [100%]
+49 passed in 0.79s
+
+$ python3 -m pytest scripts/tests -q
+........................................................................ [ 57%]
+.....................................................                    [100%]
+125 passed in 1.91s
+
+$ python3 scripts/test-validate-all-stages-compare.py --repo-root .
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+
+$ python3 -m py_compile scripts/validate-stage.py
+exit 0
+
+$ git diff --check
+exit 0 (clean)
+
+$ committed Boundary C review-1 artifact through the repaired extractor
+BOUNDARY_C_TYPE=dict
+BOUNDARY_C_VERDICT=REWORK
+BOUNDARY_C_FINDINGS=5
+
+$ top-level array wrapper reproduction through extractor + _parse_review_artifact
+EXTRACTED_TYPE=dict
+EXTRACTED_VERDICT=ACCEPT
+PARSED_VERDICT=ACCEPT
+ERRORS=[]
+EXPECTED=fail_closed_for_top_level_array
+
+$ implementation Session-ID transcript navigation check
+/Users/ark/.claude/projects/-Users-ark-Desktop-ai-code-funding-hedging/37d9d7c4-c33f-4012-bcbf-16e6e6d3b461.jsonl
+mtime=2026-07-21 15:56:06 +0800
+```
+
+Disposition: the original findings-bearing defect is closed and all submitted
+tests pass, but BK-H-001 is a blocking pre-review intake finding. The algorithm
+tracks only decoded dictionary spans, so the dictionary inside a decoded
+top-level array has no containing dictionary span and is incorrectly promoted
+as the verdict. Formal `rework_count` remains `0`; review-1 has not started.
+
+### BK-H-001 micro-fix packet checkpoint
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+exit 0
+
+$ python3 -m json.tool reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/status.json
+exit 0
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=checkpoint
+status=fixing
+
+$ head -1 task-H-bookkeeper-fix-1.prompt.md
+[HARNESS-EXECUTOR-CONTRACT v1]
+
+$ git diff --check
+exit 0 (clean)
+```
+## Task H — BK-H-001 micro-fix verification
+
+Run at 2026-07-21 16:25:36 CST on branch harness/dispatch-review-reform-v1.
+Same-author pre-review micro-fix (formal rework_count stays 0).
+
+```text
+$ python3 -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+....................................................                     [100%]
+52 passed in 0.87s
+exit=0
+
+$ python3 -m pytest scripts/tests -q
+........................................................................ [ 56%]
+........................................................                 [100%]
+128 passed in 1.99s
+exit=0
+
+$ python3 -m py_compile scripts/validate-stage.py
+exit=0
+
+$ python3 scripts/test-validate-all-stages-compare.py --repo-root .
+runner under test: /Users/ark/Desktop/ai code/funding_hedging/scripts/validate-all-stages.py
+repo for e2e: /Users/ark/Desktop/ai code/funding_hedging
+PASS  U0 identical -> no drift :: identical dicts
+PASS  U1 verdict flip -> FLIP :: ['FLIP s: red -> green']
+PASS  U2 error multiset shrink -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 2)', '  - e2']
+PASS  U3 error added (codex sentinel shape) -> ERRDRIFT :: ['ERRDRIFT s: error multiset changed (3 -> 4)', '  + SENTINEL: new failure']
+PASS  U4 exception-only change -> EXCDRIFT :: ["EXCDRIFT s: [] -> ['review_fingerprint_trails_status@review_1']"]
+PASS  U5 added stage -> ADDED :: ['ADDED new-stage: verdict=green']
+PASS  U6 removed stage -> REMOVED :: ['REMOVED s: was verdict=red']
+PASS  E0 build temp baseline :: exit=0
+PASS  E1 unmodified compare -> exit 0, no drift :: exit=0
+PASS  E2 error-only injection -> ERRDRIFT + nonzero exit :: exit=1
+PASS  E3 exception-only injection -> EXCDRIFT + nonzero exit :: exit=1
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+exit=0
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=checkpoint
+status=fixing
+exit=0
+
+$ git diff --check
+exit=0
+
+$ git status --short
+ M docs/parallel-development-mode.md
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/00-task.md
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/10-design.md
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/11-adr.md
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.md
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/status.json
+ M reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-claude-glm.dispatch.md
+ M reports/agent-runs/ACTIVE.json
+ M scripts/tests/test_validate_stage_dispatch_protocol.py
+ M scripts/validate-stage.py
+?? reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/20-implementation.bookkeeper-audit.md
+?? reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.dispatch.md
+?? reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/task-H-bookkeeper-fix-1.prompt.md
+exit=0
+```
+
+## Bookkeeper independent final intake of BK-H-001
+
+Run at 2026-07-21 16:45:41 CST.
+
+```text
+$ python3 -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+....................................................                     [100%]
+52 passed in 0.81s
+
+$ python3 -m pytest scripts/tests -q
+........................................................................ [ 56%]
+........................................................                 [100%]
+128 passed in 1.97s
+
+$ python3 scripts/test-validate-all-stages-compare.py --repo-root .
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+
+$ python3 -m py_compile scripts/validate-stage.py
+exit 0
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=checkpoint
+status=fixing
+
+$ semantic matrix
+ARRAY_EXTRACTED=None
+ARRAY_PARSED=None
+ARRAY_ERRORS=['review_1: no parseable JSON verdict object in review.md']
+NESTED_ARRAY_EXTRACTED=None
+NESTED_ARRAY_PARSED=None
+NESTED_ARRAY_ERRORS=['review_1: no parseable JSON verdict object in review.md']
+BOUNDARY_C_VERDICT=REWORK
+BOUNDARY_C_FINDINGS=5
+HARMLESS_FOOTER_VERDICT=ACCEPT
+
+$ git diff --check
+exit 0 (clean)
+```
+
+All blocking intake findings are closed. No model dispatch, commit, push,
+merge, Boundary C synchronization, review verdict or acceptance occurred in
+this independent verification.
+
+## Bookkeeper evidence-commit preflight
+
+Run at 2026-07-21 16:52:59 CST.
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+exit 0
+
+$ python3 -m json.tool reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/status.json
+exit 0
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=checkpoint
+status=testing
+
+$ git diff --check
+exit 0 (clean)
+```
+
+The branch and changed-file scope match the recorded Task H packet. The next
+authorized operation is a local evidence commit only; no push, merge, model
+dispatch, review verdict, Boundary C synchronization, or acceptance occurs.
