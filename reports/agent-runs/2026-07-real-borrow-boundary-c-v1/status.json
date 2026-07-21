@@ -1122,6 +1122,11 @@
       "reason": "Both registered decision providers have design involvement; neither shares the zhipu_glm implementation/fix provider identity, and Codex is the configured primary",
       "unrelated_reviewer_unavailable_evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-design-conflict-override.md"
     },
+    "pre_review_validation": {
+      "result": "PASS",
+      "validated_packet_head": "585fd8fc9cd84f21410bb148e84a449969e6607d",
+      "recorded_at": "2026-07-21T21:09:26+08:00"
+    },
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
@@ -1387,6 +1392,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "commit_review_1_accept_and_review_2_packet_run_pre_review_gate_then_human_operator_executes_fresh_read_only_codex_gpt_5_5_final_review",
-  "updated_at": "2026-07-21T21:02:02+08:00"
+  "next_action": "human_operator_executes_review_2_codex_gpt_5_5_schema_bound_read_only_command_captures_50_review_2_and_fills_receipt_then_bookkeeper_intakes",
+  "updated_at": "2026-07-21T21:09:26+08:00"
 }

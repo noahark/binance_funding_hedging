@@ -1,12 +1,12 @@
-# Handoff — Boundary C Review-1 Accepted, Review-2 Preparing
+# Handoff — Boundary C Review-2 Dispatch Ready
 
 ## Recovery Header
 
 - Active phase: `review_2`
-  (`review_1_round_2_ACCEPT_review_2_packet_preparing`).
-- Next action: commit the verified review-1 artifact and Codex review-2 packet,
-  run/preserve the review-2 pre-review gate, then the human operator executes
-  fresh read-only Codex `gpt-5.5` and captures `50-review-2.md` verbatim.
+  (`review_1_round_2_ACCEPT_review_2_pre_review_passed`).
+- Next action: the human operator executes the committed schema-bound read-only
+  Codex `gpt-5.5` command, captures `50-review-2.md` verbatim, fills the receipt
+  and returns to bookkeeper intake.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
@@ -140,6 +140,9 @@
   breakdown. Evidence: `review-2-design-conflict-override.md`.
 - Review-2 must treat PRD, user-approved synthesis and product documents as
   higher authority; design/ADR/breakdown are evidence under review.
+- Packet commit: `585fd8fc9cd84f21410bb148e84a449969e6607d`.
+- `scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase
+  pre-review`: PASS on that clean committed packet.
 - The earlier review dispatch packet also omitted the machine receipt block.
   The narrative receipt remains verbatim; a mechanical non-accepting block was
   added, and fix-4 uses the required machine format from the start.
@@ -178,6 +181,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 21:02:02 CST
-下一步模型: bookkeeper → human operator → Codex gpt-5.5
-下一步任务: commit review-1 intake and review-2 packet, pass pre-review validation, then execute the fresh read-only Codex final review
+本地北京时间: 2026-07-21 21:09:26 CST
+下一步模型: human operator → Codex gpt-5.5
+下一步任务: execute the exact review-2-codex.dispatch.md command, capture 50-review-2.md verbatim, fill the receipt, and return to bookkeeper

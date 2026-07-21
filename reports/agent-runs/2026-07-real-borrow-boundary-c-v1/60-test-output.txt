@@ -1390,3 +1390,27 @@ $ git diff --binary c9df14591ac4ca00977ce0e4d80c0950aae44c19..87c19273c3f488cf6d
 Review-1 round 2 is a formal schema-valid `ACCEPT`, with two retained P3
 findings and no required fixes. No credentials or real Binance transport were
 used during intake.
+
+## 2026-07-21 21:09:26 CST — Review-2 pre-review gate
+
+The verified review-1 artifact, receipt, intake, strong-reviewer disclosure and
+Codex review-2 packet were committed at
+`585fd8fc9cd84f21410bb148e84a449969e6607d` before this gate.
+
+```text
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162
+
+$ git diff --binary c9df14591ac4ca00977ce0e4d80c0950aae44c19..87c19273c3f488cf6d9ca80f8541704bb198cb81 -- . ':(exclude)reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json' | shasum -a 256
+29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162  -
+
+$ git diff --check
+exit 0 (clean)
+
+$ git status --short --branch
+## stage/2026-07-real-borrow-boundary-c-v1
+```
