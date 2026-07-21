@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-real-borrow-boundary-c-v1",
-  "status": "review_2",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "stage_branch": {
@@ -520,6 +520,24 @@
       "verdict": "ACCEPT",
       "artifact_sha256": "f1081fc6360c2f472f780de7b409d0c9ca1f9287fb84e6eb21e36f8ea0379287",
       "recorded_at": "2026-07-21T21:02:02+08:00"
+    },
+    {
+      "role": "final_reviewer_attempt_1",
+      "provider": "codex",
+      "provider_identity": "openai",
+      "model": "gpt-5.6-sol",
+      "reported_model": "gpt-5.5",
+      "session_id": "019f84e0-20a8-7191-b366-a0f251662f48",
+      "session_id_source": "transcript_path",
+      "session_id_notes": "Exact rollout metadata matches repository cwd, stage branch and starting HEAD; the reviewer response itself reported unavailable, and the human operator supplied the post-run navigation UUID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md",
+      "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-codex.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-codex.dispatch.md",
+      "executor": "human_operator",
+      "reported_verdict": "REWORK",
+      "artifact_sha256": "23e00e348e187c0069b7d3762be2ce1ff403c2eb0d0d7f1eff6fbc9f15ec18a8",
+      "result": "schema_valid_REWORK_but_formal_gate_invalid_actual_model_and_sandbox_mismatch_three_P1_independently_reproduced_and_routed_to_fix",
+      "recorded_at": "2026-07-21T21:57:54+08:00"
     }
   ],
   "designer": {
@@ -753,7 +771,9 @@
     "model_or_test_live_binance_write_authorized": false,
     "human_ui_task_is_live_side_effect_authorization": true,
     "risk_control": "operator-managed account principal plus amount_per_attempt plus success_target",
-    "borrow_only_naked_debt_scope_acknowledged": true
+    "borrow_only_naked_debt_scope_acknowledged": true,
+    "post_accept_runtime_intent": "After valid review acceptance and explicit merge/deploy approval, configure the deployment environment for live borrowing while retaining the reviewed fail-closed code default and explicit durable global Start gate",
+    "post_accept_risk_control_intent": "operator-managed Binance margin plus task amount_per_attempt plus success_target; this is future deployment intent, not current merge/deploy/live-write authorization"
   },
   "design_review": {
     "status": "round_2_pass_applied_public_evidence_closed",
@@ -876,7 +896,11 @@
     "backend/app/server.py",
     "schemas/api/borrow-tasks/**",
     "frontend/index.html (borrow-task sections)",
-    "matching backend/frontend tests"
+    "matching backend/frontend tests",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.bookkeeper-intake.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.dispatch.md"
   ],
   "base_sha": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
   "head_sha": "87c19273c3f488cf6d9ca80f8541704bb198cb81",
@@ -959,7 +983,11 @@
     "frontend/index.html",
     "frontend/self-check.js",
     "schemas/api/borrow-tasks/execution-status.schema.json",
-    "schemas/api/borrow-tasks/task.schema.json"
+    "schemas/api/borrow-tasks/task.schema.json",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.bookkeeper-intake.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.dispatch.md"
   ],
   "tests": {
     "status": "passed",
@@ -1055,7 +1083,10 @@
       "post-main-sync py_compile: exit 0",
       "post-main-sync checkpoint validator: PASS",
       "post-main-sync git diff --check: clean",
-      "round-2 pre-review validator at committed packet HEAD 6b1ac92b50413cc540fe888f8cf91e7b68dde6ee: PASS"
+      "round-2 pre-review validator at committed packet HEAD 6b1ac92b50413cc540fe888f8cf91e7b68dde6ee: PASS",
+      "Review-2 artifact recovered verbatim from verified Codex rollout; transcript/artifact SHA-256 match; JSON schema zero errors; fixed fingerprint matches",
+      "Review-2 execution-contract audit: actual gpt-5.6-sol and danger-full-access differ from committed gpt-5.5 read-only dispatch; attempt is non-accepting",
+      "bookkeeper fake-only reproductions: 0.5s accepted; HTTP 200/500 with -51006 classified known_rejection; live_authorized=0 created one pending attempt"
     ]
   },
   "review_1": {
@@ -1128,13 +1159,30 @@
       "recorded_at": "2026-07-21T21:10:52+08:00",
       "capture_command": "schema-bound stdout redirects directly to 50-review-2.md"
     },
-    "open_p0_p1": null,
+    "open_p0_p1": 3,
     "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "covers_through_task": null,
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
+    "reported_verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162",
+    "covers_through_task": "C",
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md",
+    "intake_audit_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.bookkeeper-intake.md",
+    "artifact_sha256": "23e00e348e187c0069b7d3762be2ce1ff403c2eb0d0d7f1eff6fbc9f15ec18a8",
+    "formal_gate_valid": false,
+    "gate_disposition": "INVALID_EXECUTION_CONTRACT_actionable_three_P1_independently_reproduced_and_routed_to_fix",
+    "actual_execution": {
+      "session_id": "019f84e0-20a8-7191-b366-a0f251662f48",
+      "session_id_source": "transcript_path",
+      "originator": "codex-tui",
+      "actual_model": "gpt-5.6-sol",
+      "reported_model": "gpt-5.5",
+      "sandbox": "danger-full-access",
+      "required_sandbox": "read-only",
+      "observed_repository_mutation": false,
+      "model_relay_observed": false
+    },
+    "formal_rework_count_incremented": false,
     "invalid_json_attempts": 0
   },
   "authorized_exceptions": [],
@@ -1265,6 +1313,24 @@
     "live_binance_write_authorized": false,
     "credential_read_authorized": false
   },
+  "implementation_fix_dispatch_round_7": {
+    "task_id": "C",
+    "round": "review-2-safety-findings-fix-7",
+    "formal_review_rework_round": 1,
+    "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-7.dispatch.md",
+    "target_provider": "claude_glm",
+    "target_model": "glm-5.2[1m]",
+    "executor": "human_operator",
+    "status": "prepared_waiting_human_operator",
+    "source_review_artifact": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md",
+    "source_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.bookkeeper-intake.md",
+    "required_findings": ["R2-A1-interval-floor", "R2-A2-classification-order", "R2-A3-atomic-live-authorization"],
+    "optional_findings_out_of_scope": ["R2-P3-raw-body", "R2-P3-env-example"],
+    "formal_rework_count_incremented": false,
+    "live_binance_write_authorized": false,
+    "credential_read_authorized": false
+  },
   "harness_follow_up": {
     "status": "open_main_only",
     "path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/harness-review-verdict-extractor.follow-up.md",
@@ -1378,7 +1444,11 @@
     "review_dispatch_ready": false,
     "review_dispatch_blocker": "main-only verdict extractor repair and stage sync"
   },
-  "blockers": [],
+  "blockers": [
+    "R2-A1: scheduler interval authority accepts values below the frozen two-second capacity floor",
+    "R2-A2: known rejection codes can override malformed-2xx/all-5xx fail-closed unknown classification",
+    "R2-A3: atomic live pending insert does not recheck live_authorized=1"
+  ],
   "human_escalation": {
     "required": false,
     "reason": null
@@ -1393,6 +1463,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_executes_review_2_codex_gpt_5_5_schema_bound_read_only_command_captures_50_review_2_and_fills_receipt_then_bookkeeper_intakes",
-  "updated_at": "2026-07-21T21:10:52+08:00"
+  "next_action": "human_operator_executes_task_C_review_2_fix_7_with_original_claude_glm_implementer_then_returns_to_bookkeeper_for_audit_tests_new_fingerprint_and_fresh_reviews",
+  "updated_at": "2026-07-21T22:03:09+08:00"
 }

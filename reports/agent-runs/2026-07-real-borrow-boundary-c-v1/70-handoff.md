@@ -1,15 +1,45 @@
-# Handoff — Boundary C Review-2 Dispatch Ready
+# Handoff — Boundary C Fix-7 Dispatch Ready
 
 ## Recovery Header
 
-- Active phase: `review_2`
-  (`review_1_round_2_ACCEPT_review_2_pre_review_passed`).
-- Next action: the human operator executes the committed schema-bound read-only
-  Codex `gpt-5.5` command, captures `50-review-2.md` verbatim, fills the receipt
-  and returns to bookkeeper intake.
+- Active phase: `fixing`
+  (`review_2_attempt_execution_contract_invalid_three_P1_reproduced`).
+- Next action: the human operator executes
+  `task-C-review-2-fix-7.prompt.md` with the original Claude-GLM / zhipu_glm
+  implementer, fills the dispatch receipt and returns to bookkeeper intake.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
+
+## Review-2 Attempt 1 Intake And Fix-7 Routing
+
+- Human-reported Codex Session ID:
+  `019f84e0-20a8-7191-b366-a0f251662f48`.
+- Exact rollout:
+  `/Users/ark/.codex/sessions/2026/07/21/rollout-2026-07-21T21-31-48-019f84e0-20a8-7191-b366-a0f251662f48.jsonl`.
+- The target raw file was absent; the unique transcript `final_answer` was
+  recovered verbatim to `50-review-2.md`.
+- Transcript/artifact SHA-256:
+  `23e00e348e187c0069b7d3762be2ce1ff403c2eb0d0d7f1eff6fbc9f15ec18a8`.
+- Artifact mechanics: JSON/schema/fingerprint PASS; reported `REWORK`, three P1,
+  two P3 and complete `fix_start_prompt`.
+- Formal gate disposition: **non-accepting execution-contract mismatch**. The
+  rollout records actual model `gpt-5.6-sol`, `codex-tui` and
+  `danger-full-access`; the committed packet required `gpt-5.5` through
+  schema-bound `codex exec -s read-only`. The verdict self-reported `gpt-5.5`.
+- No mutation/model relay was observed, but that cannot waive the fixed runner
+  contract. Formal `rework_count` remains `1`.
+- Bookkeeper independently reproduced all three P1s fake-only: `0.5s` is
+  accepted; HTTP 200/500 with `-51006` are `known_rejection`; and
+  `live_authorized=0` creates a pending attempt under live gates.
+- Fix prompt: `task-C-review-2-fix-7.prompt.md` (reviewer prompt verbatim plus
+  mechanical routing/footer tail).
+- Dispatch: `task-C-review-2-fix-7.dispatch.md`, human operator only, original
+  `zhipu_glm` author. The P3 items remain outside this bounded fix.
+- After successful fix intake, bookkeeper tests and a new committed fingerprint,
+  re-enter fresh Review-1 and then a correctly executed Review-2.
+- No merge, deployment, credential access, real Binance request, live-borrow
+  start or acceptance is authorized.
 
 ## Review-1 Freshness Correction And Formal Disposition
 
@@ -183,6 +213,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 21:10:52 CST
-下一步模型: human operator → Codex gpt-5.5
-下一步任务: execute the exact review-2-codex.dispatch.md command, capture 50-review-2.md verbatim, fill the receipt, and return to bookkeeper
+本地北京时间: 2026-07-21 22:03:09 CST
+下一步模型: human operator → Claude-GLM / zhipu_glm / glm-5.2[1m]
+下一步任务: execute task-C-review-2-fix-7.prompt.md, fill its receipt, and stop for bookkeeper intake; do not dispatch a reviewer or merge

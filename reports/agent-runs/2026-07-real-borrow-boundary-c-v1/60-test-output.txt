@@ -1433,3 +1433,92 @@ diff_fingerprint=87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261f
 $ git status --short --branch
 ## stage/2026-07-real-borrow-boundary-c-v1
 ```
+
+## 2026-07-21 22:02:23 CST — Review-2 attempt-1 intake and Fix-7 routing
+
+The human-reported target file was absent. The bookkeeper located the exact
+Codex rollout from the operator-supplied Session ID and recovered the unique
+assistant final answer verbatim.
+
+```text
+$ <extract final_answer from verified rollout> | shasum -a 256
+23e00e348e187c0069b7d3762be2ce1ff403c2eb0d0d7f1eff6fbc9f15ec18a8  -
+
+$ shasum -a 256 reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md
+23e00e348e187c0069b7d3762be2ce1ff403c2eb0d0d7f1eff6fbc9f15ec18a8  reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md
+
+$ <review-verdict jsonschema validation>
+jsonschema_errors=0
+verdict=REWORK
+P1=3
+P3=2
+required_fixes=3
+fix_prompt_preamble=PASS
+fingerprint_match=PASS
+```
+
+Execution-contract audit from rollout metadata:
+
+```text
+session_id=019f84e0-20a8-7191-b366-a0f251662f48
+cwd=/Users/ark/Desktop/ai code/funding_hedging
+originator=codex-tui
+actual_model=gpt-5.6-sol
+reported_model=gpt-5.5
+sandbox=danger-full-access
+required_model=gpt-5.5
+required_sandbox=read-only
+observed_apply_patch=0
+observed_model_relay=0
+formal_gate_valid=false
+```
+
+Bookkeeper fake-only reproduction (temporary SQLite and in-memory response
+objects; no credentials or network):
+
+```text
+interval_0_5= ('0.5', 500000)
+http_200_known_code= known_rejection
+http_500_known_code= known_rejection
+live_authorized= 0
+pending_attempt_created= True
+attempt_count= 1
+```
+
+Two earlier construction checks failed before the clean reproduction: the
+first passed a nonexistent `headers` argument to `BorrowHttpResponse`; the
+second called nonexistent `BorrowTaskStore.list_logs` after already printing
+the first four reproduced facts. Neither touched tracked files. The corrected
+command above completed successfully.
+
+```text
+$ <assert reviewer fix_start_prompt is exact prefix of Fix-7 prompt>
+fix_prompt_verbatim_prefix=PASS
+anti_relay_marker=PASS
+human_operator_dispatch=PASS
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION FAILED
+- status is not allowed: 'fix'
+```
+
+The bookkeeper corrected the status to the validator-enumerated `fixing` value
+without changing product code or the reviewed fingerprint, then reran:
+
+```text
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=fixing
+diff_fingerprint=87c19273c3f488cf6d9ca80f8541704bb198cb81:29f0f587f3ef0dcc01261fa84047ff56fdbf717dcaa7cf20dddb13495229c162
+
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+exit 0
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+exit 0
+
+$ git diff --check
+exit 0 (clean)
+```

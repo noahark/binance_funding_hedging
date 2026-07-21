@@ -1,13 +1,13 @@
 <!-- ===== DISPATCH RECEIPT（bookkeeper mechanical intake） =====
-status:        prepared
+status:        executed_invalid_contract_stop_for_bookkeeper
 target_model:  codex / gpt-5.5
 adapter_cmd:   codex exec -C '/Users/ark/Desktop/ai code/funding_hedging' -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-codex.prompt.md > reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md
 executor:      human_operator
-started_at:    not_started
-completed_at:  not_started
-session_id:    unavailable:not executed yet
-outputs:       reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md
-next_dispatch: none; wait for human operator execution and bookkeeper intake
+started_at:    2026-07-21 21:31:48 CST (verified rollout session metadata)
+completed_at:  2026-07-21 21:47:06 CST (reviewer footer)
+session_id:    unavailable:review response reported unavailable inside the runtime; post-run rollout independently verifies navigation thread 019f84e0-20a8-7191-b366-a0f251662f48
+outputs:       reports/agent-runs/2026-07-real-borrow-boundary-c-v1/50-review-2.md (recovered verbatim from the verified rollout because the target file was absent)
+next_dispatch: bookkeeper routes independently reproduced P1 findings to original GLM implementer; this attempt is not a formal Review-2 gate because actual model/sandbox differ from the committed command
 ===== END RECEIPT ===== -->
 
 # Boundary C Final Review-2 — Codex Dispatch
@@ -33,6 +33,17 @@ next_dispatch: none; wait for human operator execution and bookkeeper intake
 - Credential access authorized: no.
 - Repository write, commit, push, merge or deployment authorized: no.
 - Bookkeeper/model self-dispatch authorized: no.
+
+## Post-Execution Intake Note
+
+- Verified Codex navigation thread:
+  `019f84e0-20a8-7191-b366-a0f251662f48`, source `transcript_path`.
+- Actual rollout model: `gpt-5.6-sol`; verdict self-reported `gpt-5.5`.
+- Actual rollout sandbox: `danger-full-access`; committed dispatch required
+  `-s read-only`.
+- Gate disposition: execution-contract-invalid, non-accepting. The schema-valid
+  `REWORK` artifact is preserved verbatim and its three independently reproduced
+  P1 safety findings are routed to Fix-7.
 
 ## Human Operator Instructions
 
