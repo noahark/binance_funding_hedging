@@ -385,3 +385,42 @@ diff_fingerprint=569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195
 This validates dispatch readiness only. Kimi has not been executed, and no
 review verdict, main merge, Boundary C synchronization, or acceptance is
 claimed.
+
+## Bookkeeper intake of Kimi review-1
+
+Run at 2026-07-21 19:39:58 CST.
+
+```text
+$ repaired extractor + _parse_review_artifact on 30-review-1.md
+PARSED=True
+VERDICT=ACCEPT
+FINDINGS=0
+FINGERPRINT=569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655
+ERRORS=[]
+
+$ local Kimi transcript timing and fresh-context check
+started_at=2026-07-21T17:07:54+08:00
+completed_at=2026-07-21T17:31:04+08:00
+navigation_session=session_8793582a-a47d-4006-a2a0-2274586b2c89
+operator_task_prompts=1
+prior_task_conversation=0
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=checkpoint
+status=review_1
+diff_fingerprint=569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655
+
+$ pre-review gate before evidence commit
+EXPECTED FAIL-CLOSED: uncommitted 30-review-1.md and updated dispatch receipt
+
+$ git diff --check
+exit 0 (clean)
+```
+
+The raw final assistant text was recovered verbatim from the verified local
+Kimi transcript because the human run did not create the expected artifact.
+Intermediate tool/environment output was not copied. The ACCEPT verdict is
+schema-valid and ready for a committed clean-worktree pre-review gate; it is
+not review-2 or final stage acceptance.

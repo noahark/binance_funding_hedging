@@ -108,6 +108,22 @@
       "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/{review-1-kimi.prompt.md,review-1-kimi.dispatch.md,status.json,70-handoff.md}",
       "result": "local_evidence_commit_569be63_created_standard_fingerprint_computed_pre_review_validator_passed_fresh_Kimi_review_1_packet_ready_no_dispatch_executed",
       "recorded_at": "2026-07-21T17:04:23+08:00"
+    },
+    {
+      "role": "review_1",
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": "unavailable: reviewer runtime exposed no provider-native Session ID",
+      "session_id_source": "transcript_path",
+      "session_navigation_id": "session_8793582a-a47d-4006-a2a0-2274586b2c89",
+      "session_id_notes": "Artifact footer and machine dispatch receipt remain unavailable-class; matching local state.json and wire transcript verify the repository, prompt, timestamps, and fresh task context",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
+      "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
+      "executor": "human_operator",
+      "result": "schema_valid_ACCEPT_zero_findings_ready_for_review_2_preparation",
+      "recorded_at": "2026-07-21T19:39:58+08:00"
     }
   ],
   "designer": {
@@ -191,11 +207,16 @@
         "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
         "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
         "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
-        "status": "pre_review_passed_waiting_human_dispatch",
-        "verdict": null,
-        "json_schema_valid": null,
+        "status": "valid_ACCEPT_bookkeeper_intake_complete_evidence_commit_pending",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
         "fresh_session": true,
-        "diff_fingerprint": "569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655"
+        "diff_fingerprint": "569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655",
+        "open_p0_p1": 0,
+        "covers_through_task": "H",
+        "reviewer_prior_involvement": "none",
+        "fix_start_prompt_present": false,
+        "intake_audit_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.bookkeeper-intake.md"
       }
     }
   ],
@@ -240,7 +261,9 @@
     "docs/model-adapters.md",
     "schemas/review-verdict.schema.json",
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
-    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md"
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.bookkeeper-intake.md"
   ],
   "base_sha": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
   "head_sha": "569be63a6f467e4e5e255a4713f94a08e37cd9b8",
@@ -286,19 +309,22 @@
     "provider": "kimi",
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
-    "status": "pre_review_passed_waiting_human_dispatch",
+    "status": "valid_ACCEPT_bookkeeper_intake_complete_evidence_commit_pending",
     "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
     "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
+    "open_p0_p1": 0,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
     "diff_fingerprint": "569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655",
-    "covers_through_task": null,
+    "covers_through_task": "H",
     "reviewer_prior_involvement": "none",
-    "fix_start_prompt_present": null,
+    "fix_start_prompt_present": false,
     "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0
+    "invalid_json_attempts": 0,
+    "intake_audit_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.bookkeeper-intake.md",
+    "reviewed_at": "2026-07-21T17:31:04+08:00",
+    "intake_completed_at": "2026-07-21T19:39:58+08:00"
   },
   "review_2": {
     "reviewer": null,
@@ -365,6 +391,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_executes_review_1_Kimi_packet_in_a_genuinely_fresh_read_only_session_then_returns_verbatim_artifact_and_receipt_to_bookkeeper",
-  "updated_at": "2026-07-21T17:04:23+08:00"
+  "next_action": "bookkeeper_commits_valid_review_1_ACCEPT_evidence_reruns_clean_pre_review_gate_then_prepares_independent_Claude_review_2_packet",
+  "updated_at": "2026-07-21T19:39:58+08:00"
 }
