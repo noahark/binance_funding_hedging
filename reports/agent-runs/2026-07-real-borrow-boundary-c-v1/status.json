@@ -20,7 +20,9 @@
     "validator_and_tests_commit": "4b1fcdd",
     "merge_commit": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
     "merged_at_phase": "stage-design",
-    "main_merged_into_stage": false,
+    "main_merged_into_stage": true,
+    "accepted_main_head": "1e672abe66c24e93459e1e31c4ec5361e7e0eaff",
+    "accepted_main_merge_commit": "eaa75a8a0e9b0c9e196e97a6f8d05bd9e5893912",
     "changed_files": [
       "AGENTS.md",
       "agents/registry.yaml",
@@ -44,7 +46,7 @@
     }
   },
   "main_sync_authorization": {
-    "status": "authorized_pending_merge",
+    "status": "merged_tests_passed_fingerprint_pending",
     "authorized_by": "user",
     "verbatim": "批准执行",
     "authorized_at": "2026-07-21T20:16:59+08:00",
@@ -54,6 +56,20 @@
     "main_head": "1e672abe66c24e93459e1e31c4ec5361e7e0eaff",
     "merge_base": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
     "strategy": "merge_without_rebase",
+    "authorization_checkpoint_commit": "44e9bcd07b610f0181e94648903b3795bbdfa0cc",
+    "merge_commit": "eaa75a8a0e9b0c9e196e97a6f8d05bd9e5893912",
+    "merged_at": "2026-07-21T20:26:04+08:00",
+    "conflict_resolution": "ACTIVE.json only: retained Boundary C as active and recorded Task H as last_completed",
+    "post_merge_test_status": {
+      "boundary_core_10_files": "331 passed",
+      "backend_full": "630 passed",
+      "frontend_self_check": "97 PASS items; all checks passed",
+      "harness_full": "128 passed",
+      "historical_compare_sentinel": "11/11 passed",
+      "py_compile": "exit 0",
+      "checkpoint_validator": "PASS",
+      "git_diff_check": "clean"
+    },
     "required_after_merge": [
       "rerun_boundary_c_fake_only_product_tests",
       "rerun_harness_tests_and_stage_validator",
@@ -894,7 +910,7 @@
     "schemas/api/borrow-tasks/task.schema.json"
   ],
   "tests": {
-    "status": "review_1_REWORK_all_blocking_findings_closed_final_fake_only_verification_passed_evidence_committed_harness_extractor_prerequisite_pending",
+    "status": "review_1_REWORK_all_blocking_findings_closed_main_sync_complete_post_merge_fake_only_verification_passed_fingerprint_pending",
     "commands": [
       "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -977,7 +993,16 @@
       "implementer report and fix-6 dispatch six-line runtime footer audit: PASS",
       "local fix evidence commit a7a9d53467f915c71f1a74cdf6e82a7fe2823899 created on stage/2026-07-real-borrow-boundary-c-v1",
       "standard diff hash for c9df14591ac4ca00977ce0e4d80c0950aae44c19..a7a9d53467f915c71f1a74cdf6e82a7fe2823899 excluding status.json: e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
-      "git status immediately after local fix evidence commit: clean"
+      "git status immediately after local fix evidence commit: clean",
+      "user-authorized merge without rebase: main 1e672abe66c24e93459e1e31c4ec5361e7e0eaff merged at eaa75a8a0e9b0c9e196e97a6f8d05bd9e5893912",
+      "post-main-sync Boundary C core ten-file suite: 331 passed",
+      "post-main-sync full backend suite: 630 passed",
+      "post-main-sync frontend self-check: 97 PASS items; all checks passed",
+      "post-main-sync Harness suite: 128 passed",
+      "post-main-sync historical compare sentinel: 11/11 passed",
+      "post-main-sync py_compile: exit 0",
+      "post-main-sync checkpoint validator: PASS",
+      "post-main-sync git diff --check: clean"
     ]
   },
   "review_1": {
@@ -1288,6 +1313,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "commit_user_authorization_then_merge_main_without_rebase_retest_recompute_fingerprint_and_route_fresh_kimi_review_1",
-  "updated_at": "2026-07-21T20:22:07+08:00"
+  "next_action": "run_checkpoint_validator_commit_post_sync_evidence_recompute_fingerprint_and_route_fresh_kimi_review_1",
+  "updated_at": "2026-07-21T20:29:21+08:00"
 }

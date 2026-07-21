@@ -1,14 +1,12 @@
-# Handoff — Boundary C Harness Sync Authorized
+# Handoff — Boundary C Harness Sync Verified, Fingerprint Pending
 
 ## Recovery Header
 
 - Active phase: `testing`
-  (`review_1_rework_fix_evidence_committed_main_sync_authorized`).
-- Next action: commit `main-sync-authorization.md`, merge updated `main` at
-  `1e672abe66c24e93459e1e31c4ec5361e7e0eaff` into this stage branch without
-  rebasing, rerun fake-only product and Harness tests plus validator, create a
-  new committed review head, recompute the fixed fingerprint, and only then
-  prepare a fresh-context Kimi review-1 dispatch.
+  (`main_sync_complete_post_merge_verification_passed_fingerprint_pending`).
+- Next action: run the checkpoint validator, commit the post-sync evidence,
+  recompute the standard fixed fingerprint from the effective delivery base,
+  then change the stage to `review_1` and prepare a fresh-context Kimi dispatch.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
@@ -91,6 +89,25 @@
   into this stage without rebasing, followed by product/Harness tests,
   validator, a new committed fingerprint and fresh Kimi review-1. Evidence is
   `main-sync-authorization.md`.
+- Authorization checkpoint: `44e9bcd07b610f0181e94648903b3795bbdfa0cc`.
+- Merge commit: `eaa75a8a0e9b0c9e196e97a6f8d05bd9e5893912` with parents
+  `44e9bcd07b610f0181e94648903b3795bbdfa0cc` and
+  `1e672abe66c24e93459e1e31c4ec5361e7e0eaff`; no rebase occurred.
+- The only merge conflict was `ACTIVE.json`; resolution retained Boundary C as
+  active and set Task H as `last_completed`.
+
+## Post-Sync Verification
+
+- Boundary C ten-file core suite: `331 passed`.
+- Full backend suite: `630 passed`.
+- Frontend self-check: all `97` items passed.
+- Harness suite: `128 passed`.
+- Historical validator compare sentinel: `11/11 passed`.
+- `py_compile`: exit 0.
+- Checkpoint stage validator: PASS.
+- `git diff --check`: clean.
+- All commands were fake-only; no credential source or real Binance transport
+  was used.
 - The earlier review dispatch packet also omitted the machine receipt block.
   The narrative receipt remains verbatim; a mechanical non-accepting block was
   added, and fix-4 uses the required machine format from the start.
@@ -129,6 +146,6 @@
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 20:22:07 CST
+本地北京时间: 2026-07-21 20:29:21 CST
 下一步模型: bookkeeper
-下一步任务: commit the authorization checkpoint, merge updated main without rebase, then rerun fake-only tests and recompute the Boundary C review fingerprint
+下一步任务: run checkpoint validation, commit post-sync evidence, recompute the fixed fingerprint, and prepare fresh-context Kimi review-1

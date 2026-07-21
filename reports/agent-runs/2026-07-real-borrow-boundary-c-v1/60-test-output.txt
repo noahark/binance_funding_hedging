@@ -1257,3 +1257,66 @@ diff_fingerprint=a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf3
 $ git diff --check
 exit 0 (clean)
 ```
+
+## 2026-07-21 20:27:16 CST — Accepted main sync and fake-only regression
+
+The user-authorized no-rebase merge completed as
+`eaa75a8a0e9b0c9e196e97a6f8d05bd9e5893912`, with parents
+`44e9bcd07b610f0181e94648903b3795bbdfa0cc` and
+`1e672abe66c24e93459e1e31c4ec5361e7e0eaff`. The only conflict was
+`ACTIVE.json`; Boundary C remains active and Task H is `last_completed`.
+
+All commands below ran locally against injected fake/recording transports and
+test fixtures. No credential source or real/authenticated/production-reachable
+Binance request was used.
+
+```text
+$ python3 -m pytest backend/tests/test_binance_signing.py backend/tests/test_portfolio_margin_borrow_client.py backend/tests/test_live_borrow_executor.py backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_api.py backend/tests/test_config.py backend/tests/test_private_client.py backend/tests/test_private_account_v1.py backend/tests/test_service_health.py -q
+........................................................................ [ 21%]
+........................................................................ [ 43%]
+........................................................................ [ 65%]
+........................................................................ [ 87%]
+...........................................                              [100%]
+331 passed in 25.36s
+
+$ python3 -m pytest backend/tests -q
+........................................................................ [ 11%]
+........................................................................ [ 22%]
+........................................................................ [ 34%]
+........................................................................ [ 45%]
+........................................................................ [ 57%]
+........................................................................ [ 68%]
+........................................................................ [ 80%]
+........................................................................ [ 91%]
+......................................................                   [100%]
+630 passed in 37.63s
+
+$ node frontend/self-check.js
+97 [PASS] items
+全部自检通过
+exit 0
+
+$ python3 -m pytest scripts/tests -q
+........................................................................ [ 56%]
+........................................................                 [100%]
+128 passed in 2.22s
+
+$ python3 -m py_compile backend/services/binance_signing.py backend/services/portfolio_margin_borrow_client.py backend/services/live_borrow_executor.py backend/services/private_client.py backend/borrow_tasks/*.py backend/app/server.py backend/config.py
+exit 0
+
+$ python3 scripts/test-validate-all-stages-compare.py --repo-root .
+PASS U0/U1/U2/U3/U4/U5/U6 and E0/E1/E2/E3
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+```
+
+```text
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=testing
+diff_fingerprint=a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08
+
+$ git diff --check
+exit 0 (clean)
+```
