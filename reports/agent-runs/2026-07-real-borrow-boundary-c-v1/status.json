@@ -433,6 +433,18 @@
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
       "result": "all_blocking_review_1_and_bookkeeper_findings_closed_ready_for_local_evidence_commit",
       "recorded_at": "2026-07-21T14:04:00+08:00"
+    },
+    {
+      "role": "fix_evidence_commit_and_fingerprint",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/{status.json,70-handoff.md,60-test-output.txt}",
+      "result": "local_fix_evidence_commit_created_new_standard_fingerprint_recorded_worktree_clean",
+      "evidence_commit": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899",
+      "diff_fingerprint": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
+      "recorded_at": "2026-07-21T14:08:44+08:00"
     }
   ],
   "designer": {
@@ -467,7 +479,7 @@
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2[1m]",
     "task_id": "C",
-    "status": "review_1_rework_all_blocking_findings_closed_evidence_commit_pending"
+    "status": "review_1_rework_all_blocking_findings_closed_evidence_committed_harness_extractor_prerequisite_pending"
   },
   "implementers": [
     {
@@ -555,8 +567,8 @@
       "next_dispatch_executor": "human_operator",
       "r10_checklist": null,
       "base_sha": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
-      "head_sha": "61ce536dfba6ddd347586cf324209acdfdc6afd9",
-      "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
+      "head_sha": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899",
+      "diff_fingerprint": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
       "test_evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt",
       "review_1": {
         "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
@@ -772,11 +784,12 @@
     "matching backend/frontend tests"
   ],
   "base_sha": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
-  "head_sha": "61ce536dfba6ddd347586cf324209acdfdc6afd9",
-  "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
+  "head_sha": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899",
+  "diff_fingerprint": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
   "coverage_waypoints": [
     "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
-    "61ce536dfba6ddd347586cf324209acdfdc6afd9"
+    "61ce536dfba6ddd347586cf324209acdfdc6afd9",
+    "a7a9d53467f915c71f1a74cdf6e82a7fe2823899"
   ],
   "changed_files": [
     "reports/agent-runs/ACTIVE.json",
@@ -851,7 +864,7 @@
     "schemas/api/borrow-tasks/task.schema.json"
   ],
   "tests": {
-    "status": "review_1_REWORK_all_blocking_findings_closed_final_fake_only_verification_passed_evidence_commit_pending_harness_extractor_follow_up_open",
+    "status": "review_1_REWORK_all_blocking_findings_closed_final_fake_only_verification_passed_evidence_committed_harness_extractor_prerequisite_pending",
     "commands": [
       "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -931,7 +944,10 @@
       "Claude-GLM micro fix-6 completion: frontend self-check 97 items passed; store 47 passed; full backend 630 passed; py_compile exit 0; git diff --check clean",
       "bookkeeper independent final intake: full backend 630 passed; frontend self-check 97 items passed; Harness tests 114 passed; py_compile exit 0; git diff --check clean",
       "bookkeeper loaded-to-503 audit: failed GET invalidates scheduler settings, preview renders unloaded, create fails closed and task POST delta is zero",
-      "implementer report and fix-6 dispatch six-line runtime footer audit: PASS"
+      "implementer report and fix-6 dispatch six-line runtime footer audit: PASS",
+      "local fix evidence commit a7a9d53467f915c71f1a74cdf6e82a7fe2823899 created on stage/2026-07-real-borrow-boundary-c-v1",
+      "standard diff hash for c9df14591ac4ca00977ce0e4d80c0950aae44c19..a7a9d53467f915c71f1a74cdf6e82a7fe2823899 excluding status.json: e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
+      "git status immediately after local fix evidence commit: clean"
     ]
   },
   "review_1": {
@@ -948,7 +964,7 @@
     "json_schema_valid": true,
     "reported_verdict": "REWORK",
     "artifact_json_schema_valid": true,
-    "gate_disposition": "REWORK_all_blocking_findings_closed_evidence_commit_pending_harness_extractor_defect_recorded_separately",
+    "gate_disposition": "REWORK_historical_verdict_all_blocking_findings_closed_fix_evidence_committed_harness_extractor_prerequisite_pending",
     "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
     "covers_through_task": "C",
     "reviewer_prior_involvement": "design",
@@ -1120,7 +1136,21 @@
     "finding": "extract_last_json_object_returns_nested_finding_for_nonempty_findings_verdict",
     "product_fix_dispatch_blocked": false,
     "required_before_next_findings_bearing_formal_review_gate": true,
-    "active_stage_harness_edit_authorized": false
+    "fresh_review_1_dispatch_blocked": true,
+    "active_stage_harness_edit_authorized": false,
+    "main_head": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
+    "main_contains_dispatch_review_reform": false,
+    "reform_branch": "harness/dispatch-review-reform-v1",
+    "reform_branch_head": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
+    "reform_branch_ahead_of_main_by_commits": 2,
+    "user_authorization_required_for_main_repair_and_stage_sync": true,
+    "stage_sync_requirements": [
+      "land the corrected Harness behavior on main only",
+      "merge main into the active stage branch by recorded exception; do not rebase",
+      "rerun product and Harness tests plus validator",
+      "create a new committed review head and recompute the standard fingerprint",
+      "re-enter fresh Kimi review-1"
+    ]
   },
   "bookkeeping_correction_checkpoint": {
     "recorded_at": "2026-07-21T12:23:18+08:00",
@@ -1191,15 +1221,31 @@
     "recorded_at": "2026-07-21T14:04:00+08:00",
     "branch": "stage/2026-07-real-borrow-boundary-c-v1",
     "head_before_evidence_commit": "b9b64e9038448d494608151ad644e0acd5a21a2e",
-    "git_status": "fix-4/fix-5/fix-6 source, tests, reports and bookkeeping are uncommitted; ready for a local stage evidence commit",
+    "evidence_commit": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899",
+    "evidence_commit_created_at": "2026-07-21T14:08:44+08:00",
+    "diff_hash": "e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
+    "diff_fingerprint": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
+    "git_status": "clean immediately after local fix evidence commit",
     "test_status": "backend 630 passed; frontend 97 checks passed; Harness 114 passed; py_compile and git diff --check passed",
     "closed_findings": ["F1", "F2", "F3", "BK-R1-FIX4-001", "BK-R1-FIX4-002", "BK-R1-FIX5-001"],
     "open_nonblocking_findings": ["F4", "F5"],
     "blocking_findings": [],
     "blockers": ["main-only verdict extractor repair and stage sync required before findings-bearing fresh review-1 can be validated"],
-    "next_action": "bookkeeper creates local fix evidence commit and computes new standard fingerprint"
+    "next_action": "wait for explicit user authorization to route the main-only Harness repair and subsequent stage synchronization"
   },
-  "blockers": [],
+  "fix_evidence_commit": {
+    "base_sha": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
+    "head_sha": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899",
+    "diff_hash": "e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
+    "diff_fingerprint": "a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08",
+    "committed_at": "2026-07-21T14:08:44+08:00",
+    "worktree_clean_immediately_after_commit": true,
+    "review_dispatch_ready": false,
+    "review_dispatch_blocker": "main-only verdict extractor repair and stage sync"
+  },
+  "blockers": [
+    "explicit user authorization is required before routing and landing the main-only verdict-extractor repair and synchronizing main into the active stage branch"
+  ],
   "human_escalation": {
     "required": false,
     "reason": null
@@ -1214,6 +1260,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "bookkeeper_creates_local_fix_evidence_commit_computes_new_fingerprint_then_routes_main_only_verdict_extractor_repair",
-  "updated_at": "2026-07-21T14:04:00+08:00"
+  "next_action": "wait_for_user_authorization_for_main_only_verdict_extractor_repair_then_sync_stage_retest_recompute_fingerprint_and_route_fresh_kimi_review_1",
+  "updated_at": "2026-07-21T14:13:41+08:00"
 }

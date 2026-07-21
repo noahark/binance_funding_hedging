@@ -1,13 +1,14 @@
-# Handoff — Boundary C Review-1 Rework Fixes Closed, Evidence Commit Pending
+# Handoff — Boundary C Fix Evidence Committed, Harness Prerequisite Pending
 
 ## Recovery Header
 
 - Active phase: `testing`
-  (`review_1_rework_all_blocking_findings_closed_evidence_commit_pending`).
-- Next action: bookkeeper creates the local fix evidence commit and computes the
-  standard `base_sha..<new_head_sha>` fingerprint. Do not dispatch fresh Kimi
-  review-1 until the main-only verdict-extractor prerequisite is repaired and
-  synchronized under the recorded Harness exception rule.
+  (`review_1_rework_fix_evidence_committed_harness_prerequisite_pending`).
+- Next action: wait for explicit user authorization to route the dedicated
+  main-only verdict-extractor repair. After that repair lands on `main`, merge
+  `main` into this stage branch under the recorded exception, rerun tests and
+  validator, recompute the committed fingerprint, and only then prepare a fresh
+  Kimi review-1 dispatch.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
@@ -84,9 +85,16 @@
 - Robust end-of-file extraction independently validates the current JSON;
   therefore this is a Harness extractor defect, not invalid reviewer JSON.
 - The main-only Harness repair is not authorized in the product fix packet.
-  It needs dedicated tests and main promotion. If synced into this stage later,
-  the stage must record the exception, rerun tests/validator, recompute the
-  fingerprint and re-enter review.
+  It needs dedicated tests and main promotion. `main` is currently
+  `8cf810d2335d5af08e2ff18181964e5e053e56b9` and does not yet contain the v0.5
+  dispatch/review reform. `harness/dispatch-review-reform-v1` is two commits
+  ahead at `4b1fcdd5fb0562eb00467437bf2ec9ad0286581a` and contains the defective
+  extractor. Explicit user authorization is therefore required before routing
+  the repair and landing the reform on `main`.
+- If corrected `main` is synchronized into this stage later, record the
+  exception, do not rebase, rerun product and Harness tests plus validator,
+  create a new committed review head, recompute the fingerprint, and re-enter
+  fresh Kimi review-1.
 - The earlier review dispatch packet also omitted the machine receipt block.
   The narrative receipt remains verbatim; a mechanical non-accepting block was
   added, and fix-4 uses the required machine format from the start.
@@ -100,6 +108,15 @@
   `61ce536dfba6ddd347586cf324209acdfdc6afd9`
 - Previously reviewed fingerprint:
   `61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984`
+- Fix evidence commit:
+  `a7a9d53467f915c71f1a74cdf6e82a7fe2823899`
+- New fix fingerprint:
+  `a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08`
+- The fix evidence commit contains the fix-4/fix-5/fix-6 code, tests, reports,
+  receipts and completed bookkeeper intake. The worktree was clean immediately
+  after that local commit. Subsequent status/handoff/test-log edits only record
+  the fixed review head and Harness prerequisite; they do not change product
+  code or the anchored `base_sha..head_sha` range.
 - No live Binance write, push, merge, deployment or acceptance is authorized.
 - `reports/agent-runs/_proposals/**` remains unrelated user-owned state and
   was not edited, staged, committed or cleaned.
@@ -109,17 +126,12 @@
   the append-only test log were modified and uncommitted; no GLM fix result was
   yet visible. JSON validation, checkpoint validation and scoped
   `git diff --check` passed.
-- Fix-4 remains uncommitted on top of bookkeeper checkpoint HEAD
-  `b9b64e9038448d494608151ad644e0acd5a21a2e`; the old reviewed head/fingerprint
-  remain authoritative until intake closure and a new local evidence commit.
-- At final intake, fix-4/fix-5/fix-6 code, tests, reports, receipts and
-  bookkeeping remain uncommitted on that HEAD. The bookkeeper is now authorized
-  to create the local evidence commit; no push, merge to main, deployment,
-  acceptance or live Binance write is authorized.
+- Fresh review-1 is deliberately not prepared or dispatched while the main-only
+  extractor prerequisite is open. Formal `rework_count` remains `1`.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 14:04:00 CST
-下一步模型: bookkeeper
-下一步任务: create the local fix evidence commit, compute the new standard fingerprint, then route the main-only verdict-extractor prerequisite before fresh Kimi review-1
+本地北京时间: 2026-07-21 14:13:41 CST
+下一步模型: human
+下一步任务: authorize or decline the dedicated main-only verdict-extractor repair and subsequent main-to-stage synchronization before fresh Kimi review-1

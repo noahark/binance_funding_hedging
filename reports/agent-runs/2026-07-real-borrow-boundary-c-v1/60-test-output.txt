@@ -1163,3 +1163,58 @@ The first parallel backend invocation was not counted because its output ended
 at 80% without a completion code. The command was rerun independently and
 polled to explicit exit 0 / `630 passed`. All blocking review-1 findings and
 bookkeeper intake residuals are closed; no live Binance write occurred.
+
+## Local fix evidence commit and standard fingerprint checkpoint
+
+Run at 2026-07-21 14:13:41 CST. This checkpoint records the committed fix
+evidence and the remaining main-only Harness prerequisite; it did not execute
+product code, contact Binance, read credentials, dispatch a model, push, merge,
+deploy, or mark the stage accepted.
+
+```text
+$ git status --short --branch  # immediately after the local evidence commit
+## stage/2026-07-real-borrow-boundary-c-v1
+
+$ git show -s --format='%H%n%cI%n%s' a7a9d53467f915c71f1a74cdf6e82a7fe2823899
+a7a9d53467f915c71f1a74cdf6e82a7fe2823899
+2026-07-21T14:08:44+08:00
+fix: close Boundary C review-1 findings
+
+$ git diff --binary c9df14591ac4ca00977ce0e4d80c0950aae44c19..a7a9d53467f915c71f1a74cdf6e82a7fe2823899 -- . ':(exclude)reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json' | shasum -a 256
+e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08  -
+
+$ git rev-parse main harness/dispatch-review-reform-v1
+8cf810d2335d5af08e2ff18181964e5e053e56b9
+4b1fcdd5fb0562eb00467437bf2ec9ad0286581a
+
+$ git rev-list --left-right --count main...harness/dispatch-review-reform-v1
+0	2
+```
+
+The authoritative fix review range is
+`c9df14591ac4ca00977ce0e4d80c0950aae44c19..a7a9d53467f915c71f1a74cdf6e82a7fe2823899`
+with fingerprint
+`a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08`.
+Fresh Kimi review-1 remains undispatched until the separately recorded
+verdict-extractor defect is repaired on `main` and corrected `main` is
+synchronized into this stage under the Harness exception rule.
+
+### Post-fingerprint bookkeeping validation
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+exit 0
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+exit 0
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-real-borrow-boundary-c-v1
+phase=checkpoint
+status=testing
+diff_fingerprint=a7a9d53467f915c71f1a74cdf6e82a7fe2823899:e9023d0720e631a6a04bf37c8273640d1137e94fe7f3012bb29ce4e369521d08
+
+$ git diff --check
+exit 0 (clean)
+```
