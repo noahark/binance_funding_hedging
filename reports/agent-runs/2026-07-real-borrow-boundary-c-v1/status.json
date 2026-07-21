@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-real-borrow-boundary-c-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "stage_branch": {
@@ -302,6 +302,16 @@
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation-bookkeeper-audit.md",
       "result": "all_BK_C_findings_and_required_test_evidence_closed_ready_for_committed_review_evidence",
       "recorded_at": "2026-07-21T10:30:57+08:00"
+    },
+    {
+      "role": "evidence_commit_and_review_1_preparation",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/{status.json,70-handoff.md,review-1-kimi.prompt.md,review-1-kimi.dispatch.md}",
+      "result": "local_evidence_commit_created_fixed_fingerprint_recorded_fresh_kimi_review_1_packet_prepared",
+      "recorded_at": "2026-07-21T10:36:23+08:00"
     }
   ],
   "designer": {
@@ -373,7 +383,13 @@
       "report_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation.md"
     }
   ],
-  "reviewer_1": null,
+  "reviewer_1": {
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "fresh_session": true,
+    "prior_involvement": "design"
+  },
   "reviewer_2": null,
   "r10_checklists": {},
   "tasks": [
@@ -393,9 +409,9 @@
       "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-claude-glm.dispatch.md",
       "next_dispatch_executor": "human_operator",
       "r10_checklist": null,
-      "base_sha": null,
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "base_sha": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
+      "head_sha": "61ce536dfba6ddd347586cf324209acdfdc6afd9",
+      "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
       "test_evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt",
       "review_1": null,
       "implementation_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation.md",
@@ -553,6 +569,8 @@
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-2.dispatch.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-3.prompt.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-3.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/03-grok-borrow-api-capacity-recon.md",
     "backend/borrow_tasks/**",
@@ -564,9 +582,12 @@
     "matching backend/frontend tests"
   ],
   "base_sha": "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
-  "head_sha": null,
-  "diff_fingerprint": null,
-  "coverage_waypoints": null,
+  "head_sha": "61ce536dfba6ddd347586cf324209acdfdc6afd9",
+  "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
+  "coverage_waypoints": [
+    "c9df14591ac4ca00977ce0e4d80c0950aae44c19",
+    "61ce536dfba6ddd347586cf324209acdfdc6afd9"
+  ],
   "changed_files": [
     "reports/agent-runs/ACTIVE.json",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/00-intake.md",
@@ -606,6 +627,8 @@
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
     "backend/app/server.py",
     "backend/borrow_tasks/domain.py",
     "backend/borrow_tasks/executor.py",
@@ -633,7 +656,7 @@
     "schemas/api/borrow-tasks/task.schema.json"
   ],
   "tests": {
-    "status": "all_completion_tests_passed_bookkeeper_intake_closed_ready_for_evidence_commit",
+    "status": "all_completion_tests_passed_committed_fingerprint_fixed_review_1_preflight_pending",
     "commands": [
       "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -688,15 +711,21 @@
     ]
   },
   "review_1": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
+    "reviewer": "kimi",
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "fresh_session": true,
+    "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
+    "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "covers_through_task": null,
-    "reviewer_prior_involvement": "none",
+    "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
+    "covers_through_task": "C",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "Kimi previously supplied an independent design review at reports/agent-runs/2026-07-real-borrow-boundary-c-v1/design-review.raw-output-kimi.md; review-1 provider isolation from the zhipu_glm implementation/fix author remains intact.",
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
     "invalid_json_attempts": 0
@@ -814,6 +843,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "bookkeeper_creates_local_evidence_commit_computes_fixed_diff_fingerprint_runs_pre_review_validator_and_prepares_fresh_kimi_review_1_packet_for_human_operator_execution",
-  "updated_at": "2026-07-21T10:30:57+08:00"
+  "next_action": "bookkeeper_commits_review_1_metadata_runs_and_preserves_pre_review_validator_then_human_operator_executes_review_1_kimi_prompt_in_fresh_session_and_captures_30_review_1",
+  "updated_at": "2026-07-21T10:36:23+08:00"
 }

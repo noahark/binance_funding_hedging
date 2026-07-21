@@ -1,128 +1,104 @@
-# Handoff — Boundary C Task C Intake Fix Required
+# Handoff — Boundary C Formal Review-1 Prepared
 
 ## Recovery Header
 
-- Active phase: `implementation` (`bookkeeper_intake_micro_fix_3_prepared_waiting_human_dispatch`).
-- Next action: human operator executes `task-C-bookkeeper-fix-3.prompt.md` in
-  the original registered Claude-GLM / GLM-5.2 implementation terminal and
-  fills `task-C-bookkeeper-fix-3.dispatch.md` afterward.
-- Read-set: = `status.current_inputs`; the fix implementer begins with
-  `AGENTS.md`, developer discipline, frozen task/design/ADR/breakdown, original
-  implementation report, bookkeeper intake audit, archived loan-record
-  contract, current source/tests, and append-only test evidence.
-- Product-code findings `BK-C-001..004` are closed. One test-evidence-only
-  correction remains: restore two fully contract-valid matching rows in the
-  multiple-candidate ambiguity test.
+- Active phase: `review-1`
+  (`committed_evidence_fingerprint_fixed_pre_review_validation_pending`).
+- Next action: bookkeeper commits review metadata, runs
+  `scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase pre-review`,
+  and preserves the output. Only after PASS does the human operator execute
+  `review-1-kimi.prompt.md` in a fresh Kimi session.
+- Read-set: = `status.current_inputs`, plus the fixed
+  `c9df1459..61ce536d` git diff and the prepared Kimi prompt/dispatch packet.
+- All bookkeeper intake findings `BK-C-001..004` and the contract-valid
+  multiple-candidate test-evidence finding are closed.
 - Do-not-read: credentials, `.env`, expanded alias environment,
-  `reports/agent-runs/**/history/**`, and unrelated stages.
+  `reports/agent-runs/**/history/**`, and unrelated stages except the exact
+  prior synthesis path named by the review prompt.
 
-## Current State
+## Fixed Review Identity
 
 - Stage: `2026-07-real-borrow-boundary-c-v1`
 - Branch: `stage/2026-07-real-borrow-boundary-c-v1`
-- Created from main: `8cf810d2335d5af08e2ff18181964e5e053e56b9`
-- Current HEAD/effective delivery base:
+- Effective delivery base:
   `c9df14591ac4ca00977ce0e4d80c0950aae44c19`
-- Status: `implementing`; Task C is uncommitted and formal review has not begun.
-- Bookkeeper/designer: Codex/GPT; no implementation or fix authorship.
-- Implementation/fix owner: `claude_glm` / provider `zhipu_glm` /
+- Reviewed head:
+  `61ce536dfba6ddd347586cf324209acdfdc6afd9`
+- Diff fingerprint:
+  `61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984`
+- Evidence commit: `61ce536`
+  (`feat: add fail-closed live borrow boundary C`)
+- Formal `rework_count`: `0`; all three corrections were pre-review
+  bookkeeper intake fixes.
+
+## Author And Reviewer Separation
+
+- Implementation and all fix authors:
+  `claude_glm` / provider identity `zhipu_glm` /
   `glm-5.2[1m]`.
-- Review-1 after corrected committed evidence: fresh Kimi session.
+- Review-1: fresh Kimi / provider identity `moonshot_kimi` /
+  `kimi-code/kimi-for-coding`.
+- Kimi previously contributed an independent design review, so review-1 records
+  `reviewer_prior_involvement=design`. It did not implement or fix code, and
+  provider isolation from `zhipu_glm` remains intact.
+- Bookkeeper/designer: Codex/GPT; no implementation or fix authorship.
 - Parallel mode and embedded review: disabled.
-- Formal `rework_count`: `0`; this is a pre-review bookkeeper intake correction.
 
-## Implementation Evidence Received
+## Closed Intake And Verification
 
-- Original prompt/receipt: `task-C-claude-glm.prompt.md` /
-  `task-C-claude-glm.dispatch.md`
-- Raw model report: `20-implementation.md`
-- Append-only tests: `60-test-output.txt`
-- Original implementer results: targeted `254 passed`, full backend
-  `591 passed`; fix-1 results: direct `164 passed`, targeted `315 passed`, full
-  backend `614 passed`; frontend self-check, `py_compile`, and
-  `git diff --check` passed in both checkpoints.
-- Every reported transport exercise used fake/recording transport and dummy
-  credentials. No live/authenticated/production-reachable Binance request was
-  authorized or reported.
-- Provider-native Session ID remains unverified; the receipt records an
-  unavailable reason and no ID is guessed.
+- Audit: `20-implementation-bookkeeper-audit.md`
+- Implementation/fix report: `20-implementation.md`
+- Append-only raw tests: `60-test-output.txt`
+- Original Task C plus fix receipts:
+  `task-C-claude-glm.dispatch.md` and
+  `task-C-bookkeeper-fix-{1,2,3}.dispatch.md`
+- Final bookkeeper verification:
+  - parser/matcher: `59 passed`
+  - complete backend: `624 passed`
+  - Harness validator tests: `114 passed`
+  - frontend self-check: passed
+  - byte compilation: exit 0
+  - `git diff --check`: clean after mechanical whitespace normalization
+- No real/authenticated/production-reachable Binance request was made. Tests
+  used injected fake/recording transports and dummy credentials. No credential
+  source was read.
 
-## Bookkeeper Intake Disposition
+## Review-1 Packet
 
-Audit: `20-implementation-bookkeeper-audit.md`
+- Prompt: `review-1-kimi.prompt.md`
+- Human receipt: `review-1-kimi.dispatch.md`
+- Expected raw artifact: `30-review-1.md`
+- Executor: `human_operator` only.
+- Reviewer is strictly read-only and may not dispatch another model.
+- The reviewer must use the fixed SHA range and fingerprint, inspect raw
+  artifacts and source, write the six-line footer before the final JSON, and
+  end with a verdict matching `schemas/review-verdict.schema.json`.
+- A `REWORK` verdict must include a paste-ready `fix_start_prompt` preserving
+  raw findings, file boundaries, exact tests, and the stop-for-bookkeeper rule.
 
-Disposition: `MICRO_FIX_3_TEST_EVIDENCE_REQUIRED`. No local evidence commit,
-fingerprint, pre-review validator run, or Kimi review dispatch may occur yet.
+## Worktree Discipline
 
-1. `BK-C-002`: **closed** by the durable attribution gate plus real two-task
-   negative and non-ambiguous positive tests.
-2. `BK-C-003`: **closed** across early Start, post-expiry manual re-arm,
-   ordinary cooldown, and reconciliation-GET 418.
-3. `BK-C-004`: **closed** by sanitized recovery counts, a distinct blocked
-   event, real credential-presence wiring, and lifecycle redaction tests.
-4. `BK-C-001`: **closed**. Six negative reproductions now fail closed and key
-   positives remain successful.
-5. Required test evidence: **open**. The multiple-CONFIRMED test's second row
-   lacks `timestamp`, so it currently proves malformed-envelope rejection,
-   not ambiguity between two fully contract-valid candidates. A separate
-   malformed-row test already covers that earlier gate.
-
-## Prepared Fix Dispatch
-
-- Prompt: `task-C-bookkeeper-fix-3.prompt.md`
-- Receipt: `task-C-bookkeeper-fix-3.dispatch.md`
-- Executor: `human_operator` only; no model may self-dispatch.
-- Target: original Claude-GLM implementer, preserving future Kimi review-1
-  provider isolation.
-- Required output: one test-row timestamp correction, with zero product source
-  changes; amended `20-implementation.md`; append-only
-  `60-test-output.txt`; filled receipt; then stop for bookkeeper re-audit.
-- Forbidden: real/authenticated Binance traffic, credentials reads, commit,
-  push, merge, review dispatch, status/handoff/ACTIVE edits, or acceptance
-  claims.
-
-## Worktree Checkpoint
-
-- Delivery code: 8 new and 17 modified files as enumerated in
-  `20-implementation.md`; the bookkeeper added only active-stage audit/dispatch
-  and checkpoint documents.
-- Bookkeeper checkpoint files changed in this intake:
-  `reports/agent-runs/ACTIVE.json`, `status.json`, `70-handoff.md`,
-  `20-implementation-bookkeeper-audit.md`,
-  `task-C-bookkeeper-fix-1.prompt.md`,
-  `task-C-bookkeeper-fix-1.dispatch.md`,
-  `task-C-bookkeeper-fix-2.prompt.md`,
-  `task-C-bookkeeper-fix-2.dispatch.md`,
-  `task-C-bookkeeper-fix-3.prompt.md`,
-  `task-C-bookkeeper-fix-3.dispatch.md`, and append-only
-  `60-test-output.txt`.
-- `reports/agent-runs/_proposals/**` remains unrelated user-owned untracked
-  state and must not be staged, edited, or cleaned.
-- No evidence commit exists after the Task C implementation. `base_sha` remains
-  `c9df14591ac4ca00977ce0e4d80c0950aae44c19`; `head_sha` and
-  `diff_fingerprint` remain null.
-- Bookkeeper no-network re-audit closed all product behavior and identified one
-  mechanically weakened required test. Review remains unauthorized.
-- JSON validation, Harness checkpoint validation, fix-2 R11/human-operator/
-  no-live/no-self-dispatch assertions, and `git diff --check` pass.
-- Micro fix-3 R11/human-operator/no-live/no-product-source/no-self-dispatch
-  assertions and the refreshed Harness checkpoint pass.
+- The delivery evidence commit contains only the active stage, its implementation,
+  tests, schema/frontend integration, and exact public contract evidence.
+- `reports/agent-runs/_proposals/**` is unrelated user-owned untracked state.
+  It was not edited, staged, committed, cleaned, or included in the fingerprint.
+- No push, merge, deployment, acceptance, or live Binance write is authorized.
 
 ## Next Action
 
-1. Human operator executes `task-C-bookkeeper-fix-3.prompt.md` verbatim through
-   the registered Claude-GLM adapter.
-2. Original implementer adds the missing timestamp to the second fully matching
-   test row, changes no product source, runs fake-only checks, amends evidence,
-   fills the receipt, and stops.
-3. Bookkeeper re-audits raw diff/evidence. Only after all findings close does it
-   rerun completion checks, create the local evidence commit/fingerprint,
-   validate `--phase pre-review`, and prepare fresh Kimi review-1 for human
-   execution.
+1. Bookkeeper commits the review metadata packet and preserves a passing
+   pre-review validator output.
+2. Human operator executes `review-1-kimi.prompt.md` in a fresh Kimi terminal,
+   captures the full raw response verbatim as `30-review-1.md`, and fills
+   `review-1-kimi.dispatch.md`.
+3. Bookkeeper validates the final JSON from the artifact. `ACCEPT` routes to
+   review-2 preparation; `REWORK` routes the reviewer-provided
+   `fix_start_prompt` to the original Claude-GLM author; invalid JSON retries
+   Kimi once.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 10:14:51 CST
-下一步模型: human operator → Claude-GLM / GLM-5.2
-下一步任务: execute task-C-bookkeeper-fix-3.prompt.md; restore the contract-valid multiple-candidate ambiguity test with zero product source changes and stop for bookkeeper re-audit
+本地北京时间: 2026-07-21 10:36:23 CST
+下一步模型: bookkeeper → human operator → fresh Kimi / kimi-code/kimi-for-coding
+下一步任务: commit review metadata, preserve a passing pre-review validator result, then execute review-1-kimi.prompt.md and capture 30-review-1.md
