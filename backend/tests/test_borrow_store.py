@@ -40,7 +40,7 @@ def test_restart_preserves_tasks_settings_cursor_attempts(tmp_path):
     s1.create_task("A", "BTC", "1.5", 3, NOW)
     s1.create_task("B", "ETH", "2", 2, NOW + 1)
     s1.set_task_status("B", "paused", NOW + 2)
-    s1.update_settings("0.5", 500_000, NOW + 3)
+    s1.update_settings("2.5", 2_500_000, NOW + 3)
     att = s1.insert_pending_attempt("A", "BTC", "1.5", NOW + 10, NOW + 11, "A")
     s1.resolve_attempt(att["id"], _disabled(), NOW + 12)
     s1.close()
@@ -51,8 +51,8 @@ def test_restart_preserves_tasks_settings_cursor_attempts(tmp_path):
     assert tasks[1]["status"] == "paused"
     assert tasks[0]["latest_result_category"] == D.RESULT_EXECUTION_DISABLED
     settings = s2.get_settings()
-    assert settings["interval_seconds"] == "0.5"
-    assert settings["interval_us"] == 500_000
+    assert settings["interval_seconds"] == "2.5"
+    assert settings["interval_us"] == 2_500_000
     assert settings["round_robin_cursor"] == "A"        # cursor survived
     # seed(1) + update_settings(2) + insert_pending_attempt cursor bump(3)
     assert settings["version"] == 3
@@ -116,9 +116,9 @@ def test_settings_default_seed(tmp_path):
 
 def test_update_settings_bumps_version(tmp_path):
     s = _store(tmp_path)
-    st = s.update_settings("0.5", 500_000, NOW)
+    st = s.update_settings("2.5", 2_500_000, NOW)
     assert st["version"] == 2
-    assert s.get_interval_us() == 500_000
+    assert s.get_interval_us() == 2_500_000
 
 
 # ---------------------------------------------------------------------------
@@ -539,6 +539,21 @@ def test_insert_pending_live_gates_block_when_rearm_required(tmp_path):
     s.clear_unresolved("A", NOW + 4)  # test-seam: make it eligible again
     blocked = s.insert_pending_attempt("A", "BTC", "1", NOW + 5, NOW + 6, "A", live_gates=True)
     assert blocked is None  # rearm gate blocks even though eligible otherwise
+
+
+def test_insert_pending_live_gates_block_when_not_live_authorized(tmp_path):
+    # Review-2 P1: a borrowing task with live_authorized=0 (migrated/inconsistent
+    # state) must fail the atomic live gate INSIDE the transaction — zero attempt
+    # row — even with execution enabled and no cooldown/rearm. The pre-fix code
+    # selected live_authorized but never checked it under live_gates.
+    s = _store(tmp_path)
+    s.create_task("A", "BTC", "1", 1, NOW)
+    s.set_task_status("A", D.STATUS_BORROWING, NOW, live_authorized=0)
+    s.set_execution_enabled(True, NOW)
+    att = s.insert_pending_attempt("A", "BTC", "1", NOW + 1, NOW + 2, "A", live_gates=True)
+    assert att is None
+    entries, _ = s.list_attempts_page(50, None, None)
+    assert entries == []                       # zero attempt rows persisted
 
 
 def test_insert_pending_live_gates_pass_when_all_open(tmp_path):

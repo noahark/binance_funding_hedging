@@ -563,6 +563,20 @@
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
       "result": "fix_7_three_P1_closed_BK_R2_FIX7_001_mechanical_test_fixture_micro_fix_8_prepared_rework_count_unchanged_1",
       "recorded_at": "2026-07-21T22:55:21+08:00"
+    },
+    {
+      "role": "implementation_fix",
+      "provider": "codex",
+      "provider_identity": "openai",
+      "model": "gpt-5",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
+      "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.dispatch.md",
+      "executor": "user-authorized Codex direct edit; no model dispatch",
+      "result": "micro_fix_8_test_only_repair_all_fake_only_verification_green",
+      "recorded_at": "2026-07-21T23:10:25+08:00"
     }
   ],
   "designer": {
@@ -662,8 +676,18 @@
       "provider_identity": "zhipu_glm",
       "model": "glm-5.2[1m]",
       "task_id": "C",
-      "round": "review-2-safety-findings-fix-7-and-micro-fix-8",
+      "round": "review-2-safety-findings-fix-7",
       "report_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md"
+    },
+    {
+      "provider": "codex",
+      "provider_identity": "openai",
+      "model": "gpt-5",
+      "task_id": "C",
+      "round": "user-authorized-direct-micro-fix-8-test-only",
+      "report_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
+      "user_reenabled": true,
+      "scope": "backend/tests/test_borrow_executor.py only"
     }
   ],
   "reviewer_1": {
@@ -776,7 +800,7 @@
           "round": "review-2-micro-fix-8",
           "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.prompt.md",
           "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.dispatch.md",
-          "result": "prepared_waiting_human_operator",
+          "result": "completed_user_authorized_codex_direct_test_only_fix",
           "formal_review_rework_round": 1,
           "formal_rework_count_incremented": false
         }
@@ -822,7 +846,13 @@
     "risk_control": "operator-managed account principal plus amount_per_attempt plus success_target",
     "borrow_only_naked_debt_scope_acknowledged": true,
     "post_accept_runtime_intent": "After valid review acceptance and explicit merge/deploy approval, configure the deployment environment for live borrowing while retaining the reviewed fail-closed code default and explicit durable global Start gate",
-    "post_accept_risk_control_intent": "operator-managed Binance margin plus task amount_per_attempt plus success_target; this is future deployment intent, not current merge/deploy/live-write authorization"
+    "post_accept_risk_control_intent": "operator-managed Binance margin plus task amount_per_attempt plus success_target; this is future deployment intent, not current merge/deploy/live-write authorization",
+    "user_authorized_direct_micro_fix_8": {
+      "verbatim": "那就没必要再走流程了，你直接修改，就算 review-2 通过了",
+      "recorded_at": "2026-07-21T23:10:25+08:00",
+      "scope": "three mechanical test-fixture literals in backend/tests/test_borrow_executor.py",
+      "does_not_authorize": ["claiming an unexecuted Review-2 is ACCEPT", "merge", "deployment", "credential access", "real Binance request", "live-borrow start"]
+    }
   },
   "design_review": {
     "status": "round_2_pass_applied_public_evidence_closed",
@@ -1044,7 +1074,7 @@
     "backend/tests/test_borrow_executor.py"
   ],
   "tests": {
-    "status": "failed",
+    "status": "passed",
     "commands": [
       "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -1145,7 +1175,8 @@
       "bookkeeper Fix-7 source audit: two-second floor, fail-closed 2xx/5xx classification ordering, and atomic live_authorized recheck closed the three P1s",
       "bookkeeper independent Fix-7 focused suite: 214 passed",
       "bookkeeper independent test_borrow_executor isolation: exactly 2 failed and 5 passed; both failures are interval_seconds=1 fixture setup before zero-network/no-secret assertions",
-      "Fix-7 transcript Session ID db43835f-2fd3-49cf-b877-bb9841020efa verified from matching Claude Code JSONL metadata"
+      "Fix-7 transcript Session ID db43835f-2fd3-49cf-b877-bb9841020efa verified from matching Claude Code JSONL metadata",
+      "user-authorized Codex direct Micro Fix-8: test_borrow_executor 7 passed; full backend 650 passed; frontend self-check passed; Harness 128 passed; py_compile exit 0; compare sentinel 11/11; git diff --check clean"
     ]
   },
   "review_1": {
@@ -1243,6 +1274,16 @@
     },
     "formal_rework_count_incremented": false,
     "invalid_json_attempts": 0
+  },
+  "review_2_next_route": {
+    "status": "not_dispatched",
+    "required_if_formal_gate_is_requested": true,
+    "codex_eligible": false,
+    "codex_ineligibility_reason": "Codex directly authored the user-authorized Micro Fix-8 test change; reviewer/fix-author separation has no override",
+    "eligible_provider": "claude",
+    "preferred_model": "opus4.8",
+    "design_involvement_disclosure_required": true,
+    "evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-2-design-conflict-override.md"
   },
   "review_1_shortcut_authorization": {
     "status": "user_authorized_pending_new_committed_fingerprint",
@@ -1409,12 +1450,14 @@
     "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-review-2-fix-8.dispatch.md",
     "target_provider": "claude_glm",
     "target_model": "glm-5.2[1m]",
-    "executor": "human_operator",
-    "status": "prepared_waiting_human_operator",
+    "executor": "user-authorized Codex direct edit; no model dispatch",
+    "status": "completed_user_authorized_codex_direct_test_only_fix",
     "source_fix_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
     "source_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
     "required_findings": ["BK-R2-FIX7-001"],
     "allowed_code_files": ["backend/tests/test_borrow_executor.py"],
+    "actual_changed_code_files": ["backend/tests/test_borrow_executor.py"],
+    "user_authorization_verbatim": "那就没必要再走流程了，你直接修改，就算 review-2 通过了",
     "formal_rework_count_incremented": false,
     "live_binance_write_authorized": false,
     "credential_read_authorized": false
@@ -1436,13 +1479,24 @@
     "branch": "stage/2026-07-real-borrow-boundary-c-v1",
     "head_before_fix_evidence_commit": "e08dedf9a5c8c14b2609ee744eb19468e2985cbb",
     "micro_fix_8_packet_commit": "54de9b54567d14aa8707e4a2fcf543109f33f197",
-    "git_status": "after packet commit, only the eleven Fix-7 product source/test/schema files remain modified; Micro Fix-8 has not executed and no new review fingerprint exists",
+    "git_status": "Fix-7 product source/test/schema plus the user-authorized direct test fixture repair are uncommitted; no new review fingerprint exists",
     "source_findings_closed": ["R2-A1-interval-floor", "R2-A2-classification-order", "R2-A3-atomic-live-authorization"],
-    "blocking_findings": ["BK-R2-FIX7-001"],
-    "test_status": "focused 214 passed; test_borrow_executor.py 2 failed and 5 passed solely due to two 1-second fixtures; all-green gate intentionally withheld",
+    "blocking_findings": [],
+    "test_status": "focused 214 passed; direct Micro Fix-8 test file 7 passed; full backend 650 passed; frontend/Harness/compile/compare/diff checks passed",
     "verified_fix_session_id": "db43835f-2fd3-49cf-b877-bb9841020efa",
     "checkpoint_validator": "PASS with status fixing",
-    "next_action": "human operator executes task-C-review-2-fix-8.prompt.md with the original zhipu_glm fix author"
+    "next_action": "bookkeeper commits all-green evidence and computes a new fingerprint; formal final review, if requested, routes to Anthropic because Codex is now a fix author"
+  },
+  "direct_micro_fix_8_checkpoint": {
+    "recorded_at": "2026-07-21T23:10:25+08:00",
+    "author": "codex",
+    "author_provider_identity": "openai",
+    "authorization": "explicit user direct-edit instruction",
+    "changed_file": "backend/tests/test_borrow_executor.py",
+    "changed_lines_semantics": ["two scheduler test fixtures use 2 seconds", "complete scenario fake clock advances 2 seconds to retain five-category coverage"],
+    "tests": {"test_borrow_executor": "7 passed", "backend_full": "650 passed", "frontend": "passed", "harness": "128 passed", "py_compile": "exit 0", "compare": "11/11 passed", "diff_check": "clean"},
+    "live_binance_write_authorized": false,
+    "next_action": "commit evidence; do not claim Review-2 ACCEPT without an eligible final reviewer"
   },
   "harness_follow_up": {
     "status": "open_main_only",
@@ -1557,9 +1611,7 @@
     "review_dispatch_ready": false,
     "review_dispatch_blocker": "main-only verdict extractor repair and stage sync"
   },
-  "blockers": [
-    "BK-R2-FIX7-001: two test_borrow_executor.py fixtures still configure the now-invalid one-second interval; the five-category scenario also needs a two-second fake-clock step"
-  ],
+  "blockers": [],
   "human_escalation": {
     "required": false,
     "reason": null
@@ -1574,6 +1626,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_executes_task_C_review_2_fix_8_with_original_claude_glm_fix_author_then_returns_to_bookkeeper_for_all_green_audit_evidence_commit_new_fingerprint_RC4_review_1_exception_and_direct_review_2",
-  "updated_at": "2026-07-21T23:01:23+08:00"
+  "next_action": "bookkeeper_commits_all_green_direct_micro_fix_8_evidence_and_new_fingerprint_then_waits_for_user_decision_on_formal_eligible_Anthropic_review_2_or_non-Harness_release_handling",
+  "updated_at": "2026-07-21T23:10:25+08:00"
 }

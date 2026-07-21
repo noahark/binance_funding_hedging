@@ -8,6 +8,7 @@ matching, the credentials self-defense gate, and reconciliation prove/ambiguity
 """
 from __future__ import annotations
 
+import pytest
 from decimal import Decimal
 
 from backend.borrow_tasks import domain as D
@@ -79,6 +80,37 @@ def test_classify_418_ban_300s_no_auto_resume():
 def test_classify_5xx_is_unknown():
     r = classify_post_response(_resp(503, "upstream"))
     assert r.result_category == D.RESULT_UNKNOWN
+
+
+@pytest.mark.parametrize("code", ["-51006", "-51014", "-51061"])
+def test_classify_2xx_with_known_code_is_unknown(code):
+    # Review-2 P1 regression: a 2xx body carrying a known rejection code is NOT
+    # a clean rejection — the 2xx may still have been accepted — so it fails
+    # closed to unknown and blocks the task for reconciliation instead of
+    # returning to rotation and authorizing a second borrow POST.
+    r = classify_post_response(_resp(200, {"code": int(code)}))
+    assert r.result_category == D.RESULT_UNKNOWN
+    assert r.business_code == code
+    assert r.tran_id is None
+
+
+@pytest.mark.parametrize("code", ["-51006", "-51014", "-51061"])
+def test_classify_5xx_with_known_code_is_unknown(code):
+    # A 5xx is possibly accepted by the exchange; a body carrying a known code
+    # does not make it a definite rejection, so every 5xx stays unknown.
+    for status in (500, 502, 503):
+        r = classify_post_response(_resp(status, {"code": int(code)}))
+        assert r.result_category == D.RESULT_UNKNOWN
+        assert r.business_code == code
+
+
+@pytest.mark.parametrize("code", ["-51006", "-51014", "-51061"])
+def test_classify_4xx_with_known_code_remains_known_rejection(code):
+    # Positive control: on a definite 4xx (after rate-limit handling) the three
+    # archived codes still classify as known_rejection and stay in rotation.
+    r = classify_post_response(_resp(400, {"code": int(code)}))
+    assert r.result_category == D.RESULT_KNOWN_REJECTION
+    assert r.business_code == code
 
 
 def test_classify_transport_error_is_unknown():
@@ -182,6 +214,21 @@ def test_executor_credentials_gate_blocks_post():
     r = exe.execute(_task(), _attempt())
     assert r.result_category == D.RESULT_EXECUTION_DISABLED
     assert fc.posts == []  # zero signed POST
+
+
+def test_executor_2xx_known_code_is_unknown_one_post_only():
+    # Service-level zero-second-POST regression (review-2 P1): a 2xx body
+    # carrying a known rejection code is classified unknown (not
+    # known_rejection), so exactly ONE POST leaves the executor and the task
+    # blocks for reconciliation — it is never returned to rotation for a second
+    # borrow POST after an ambiguous response.
+    fc = FakeClient()
+    fc.post_response = _resp(200, {"code": -51006})
+    exe = LiveBorrowExecutor(fc, now_ms=lambda: 1000)
+    r = exe.execute(_task(), _attempt())
+    assert r.result_category == D.RESULT_UNKNOWN
+    assert r.tran_id is None
+    assert fc.posts == [("BTC", "1.5", 1000)]  # exactly one POST, then block
 
 
 # ---------------------------------------------------------------------------

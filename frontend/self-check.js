@@ -327,7 +327,7 @@ function mockTaskListDoc(tasks) {
   return { schema_version: 'borrow-tasks/v1', tasks };
 }
 
-// §3.5 调度设置文档：默认种子行 "5"/5000000；PUT 后 "0.5"/500000（§3.5 示例值）。
+// §3.5 调度设置文档：默认种子行 "5"/5000000；PUT 后 "2.5"/2500000（≥2s 容量地板示例值）。
 const MOCK_SETTINGS_DEFAULT = {
   schema_version: 'borrow-tasks/v1',
   interval_seconds: '5',
@@ -337,7 +337,7 @@ const MOCK_SETTINGS_DEFAULT = {
   version: 1,
   updated_at: '2026-07-19T08:00:00.000000Z'
 };
-const MOCK_SETTINGS_05 = deepCopy(MOCK_SETTINGS_DEFAULT, { interval_seconds: '0.5', interval_us: 500000, version: 2 });
+const MOCK_SETTINGS_2_5 = deepCopy(MOCK_SETTINGS_DEFAULT, { interval_seconds: '2.5', interval_us: 2500000, version: 2 });
 
 // §3.6 日志页示例（HOME 条目 verbatim）+ 派生旧条目，供两页游标分页。
 const MOCK_LOG_ENTRY_HOME = {
@@ -3063,7 +3063,7 @@ setTimeout(async () => {
       console.log('[PASS] 借币日志 newest-first 游标分页、加载更多与显式刷新');
     }
 
-    // 75. 全局间隔编辑器：GET 渲染、PUT 十进制字符串、invalid_interval 400 就近显示
+    // 75. 全局间隔编辑器：GET 渲染、PUT 合法十进制（≥2s）、sub-floor 400 就近显示
     {
       borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
       helpers.setActiveView('borrow-tasks');
@@ -3071,35 +3071,35 @@ setTimeout(async () => {
       if (elements['borrow-interval-input'].value !== '5') {
         throw new Error(`间隔输入应渲染 mock 的 5: ${elements['borrow-interval-input'].value}`);
       }
-      // PUT "0.5" 成功：body 为冻结形状，说明与任务卡策略行更新
-      borrowSettingsPutResponse = { status: 200, body: MOCK_SETTINGS_05 };
+      // PUT "2.5" 成功（≥2s 容量地板的合法小数）：body 为冻结形状，说明与任务卡策略行更新
+      borrowSettingsPutResponse = { status: 200, body: MOCK_SETTINGS_2_5 };
       let mark = fetchCallLog.length;
-      elements['borrow-interval-input'].value = '0.5';
+      elements['borrow-interval-input'].value = '2.5';
       const r1 = await helpers.submitSchedulerInterval();
-      if (!r1.ok) throw new Error(`PUT 0.5 应成功: ${r1.error}`);
+      if (!r1.ok) throw new Error(`PUT 2.5 应成功: ${r1.error}`);
       const putCalls = fetchCallLog.slice(mark).filter(c => c.url === '/api/borrow-scheduler-settings');
       if (putCalls.length !== 1 || putCalls[0].method !== 'PUT' ||
-          JSON.stringify(putCalls[0].body) !== JSON.stringify({ interval_seconds: '0.5' })) {
-        throw new Error(`PUT body 应为 {"interval_seconds":"0.5"}: ${JSON.stringify(putCalls)}`);
+          JSON.stringify(putCalls[0].body) !== JSON.stringify({ interval_seconds: '2.5' })) {
+        throw new Error(`PUT body 应为 {"interval_seconds":"2.5"}: ${JSON.stringify(putCalls)}`);
       }
-      if (!elements['borrow-interval-note'].textContent.includes('每 0.5 秒')) {
-        throw new Error(`PUT 后间隔说明应更新为 0.5 秒: ${elements['borrow-interval-note'].textContent}`);
+      if (!elements['borrow-interval-note'].textContent.includes('每 2.5 秒')) {
+        throw new Error(`PUT 后间隔说明应更新为 2.5 秒: ${elements['borrow-interval-note'].textContent}`);
       }
-      if (!elements['borrow-task-list'].innerHTML.includes('每 0.5 秒')) {
+      if (!elements['borrow-task-list'].innerHTML.includes('每 2.5 秒')) {
         throw new Error('PUT 后任务卡策略行应引用新间隔');
       }
       if (elements['borrow-interval-error'].textContent !== '') {
         throw new Error('PUT 成功后错误应清除');
       }
-      // 400 invalid_interval：detail 就近显示，设置保持 0.5
-      borrowSettingsPutResponse = { status: 400, body: { error: 'invalid_interval', detail: 'interval_seconds must be a positive decimal string' } };
-      elements['borrow-interval-input'].value = '-1';
+      // 400 invalid_interval：sub-floor "0.5" 被后端容量地板拒绝，detail 就近显示，设置保持 2.5
+      borrowSettingsPutResponse = { status: 400, body: { error: 'invalid_interval', detail: 'interval_seconds must be >= 2 (frozen shared-IP capacity floor)' } };
+      elements['borrow-interval-input'].value = '0.5';
       const r2 = await helpers.submitSchedulerInterval();
-      if (r2.ok) throw new Error('invalid_interval 不应成功');
-      if (elements['borrow-interval-error'].textContent !== 'interval_seconds must be a positive decimal string') {
+      if (r2.ok) throw new Error('sub-floor 0.5 不应成功');
+      if (elements['borrow-interval-error'].textContent !== 'interval_seconds must be >= 2 (frozen shared-IP capacity floor)') {
         throw new Error(`400 detail 应原样就近显示: ${elements['borrow-interval-error'].textContent}`);
       }
-      if (!elements['borrow-interval-note'].textContent.includes('每 0.5 秒')) {
+      if (!elements['borrow-interval-note'].textContent.includes('每 2.5 秒')) {
         throw new Error('400 后间隔设置应保持不变');
       }
       // 空输入本地拒绝，不发 PUT
@@ -3114,7 +3114,7 @@ setTimeout(async () => {
         throw new Error('空输入应显示本地校验错误');
       }
       helpers.setActiveView('market');
-      console.log('[PASS] 全局间隔编辑器 GET/PUT、400 与本地校验');
+      console.log('[PASS] 全局间隔编辑器 GET/PUT（≥2s）、sub-floor 400 与本地校验');
     }
 
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 仅隐私键

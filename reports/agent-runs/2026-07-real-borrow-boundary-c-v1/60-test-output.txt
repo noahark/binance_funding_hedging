@@ -1901,3 +1901,36 @@ INTAKE DISPOSITION:
 - Three Fix-7 product P1 corrections independently pass their 214-test focused suite.
 - The only remaining failure is BK-R2-FIX7-001: two out-of-allowlist test fixtures use the now-invalid 1-second interval.
 - Micro Fix-8 prepared; no evidence commit or review fingerprint until all tests are green.
+
+===== USER-AUTHORIZED CODEX DIRECT MICRO FIX-8 — 2026-07-21 23:10:25 CST =====
+
+CMD D-1:
+PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests/test_borrow_executor.py -q -p no:cacheprovider
+.......                                                                  [100%]
+7 passed in 0.08s
+EXIT_D_1: 0
+
+CMD D-2:
+PYTHONDONTWRITEBYTECODE=1 python3 -m pytest backend/tests -q -p no:cacheprovider
+650 passed in 38.30s
+EXIT_D_2: 0
+
+CMD D-3: node frontend/self-check.js
+全部自检通过
+EXIT_D_3: 0
+
+CMD D-4:
+PYTHONDONTWRITEBYTECODE=1 python3 -m pytest scripts/tests -q -p no:cacheprovider
+128 passed in 2.25s
+EXIT_D_4: 0
+
+CMD D-5: PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile backend/services/binance_signing.py backend/services/portfolio_margin_borrow_client.py backend/services/live_borrow_executor.py backend/services/private_client.py backend/borrow_tasks/*.py backend/app/server.py backend/config.py
+EXIT_D_5: 0
+
+CMD D-6:
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-validate-all-stages-compare.py --repo-root .
+SENTINEL SUMMARY: 11/11 passed — compare gate catches all three drift categories
+EXIT_D_6: 0
+
+CMD D-7: git diff --check
+EXIT_D_7: 0

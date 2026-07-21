@@ -1,17 +1,17 @@
-# Handoff — Boundary C Micro Fix-8 Dispatch Ready
+# Handoff — Boundary C Direct Micro Fix-8 Verified
 
 ## Recovery Header
 
 - Active phase: `fixing`
-  (`fix_7_three_P1_closed_one_mechanical_test_fixture_residual`).
-- Next action: the human operator executes
-  `task-C-review-2-fix-8.prompt.md` with the original Claude-GLM / zhipu_glm
-  fix author, fills the dispatch receipt and returns to bookkeeper intake.
+  (`user_authorized_codex_direct_micro_fix_8_all_tests_green`).
+- Next action: bookkeeper commits the all-green evidence and computes a new
+  fingerprint. Do not call the prior Review-2 passed; Codex is now a fix author
+  and therefore hard-ineligible to review this stage.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
 
-## Fix-7 Intake And Micro Fix-8 Routing
+## Fix-7 Intake And Direct Micro Fix-8 Closure
 
 - Fix-7 transcript Session ID
   `db43835f-2fd3-49cf-b877-bb9841020efa` was independently verified from the
@@ -27,17 +27,23 @@
 - The first fixture also advances only one second per loop. Merely changing the
   interval literal would execute three rather than all five queued categories,
   so Micro Fix-8 also changes its fake-clock step to two seconds.
-- Micro Fix-8 exact code boundary: `backend/tests/test_borrow_executor.py`.
-  Product source, frontend, schemas and Harness are frozen.
+- The user explicitly authorized Codex to apply Micro Fix-8 directly. The exact
+  change is three test literals: two `"1" -> "2"` settings values and the first
+  scenario's fake-clock step `1_000_000 -> 2_000_000`.
+- Full local verification is green: test file `7 passed`, backend `650 passed`,
+  frontend self-check passed, Harness `128 passed`, py_compile exit 0, compare
+  sentinel `11/11`, and diff check clean.
+- This direct edit makes Codex/OpenAI a fix author. If a formal Review-2 is
+  requested later, it must not use Codex; Anthropic is the eligible final-review
+  fallback with its existing breakdown/design-involvement disclosure.
 - Fix-8 routing/evidence packet commit:
   `54de9b54567d14aa8707e4a2fcf543109f33f197`. Immediately after that commit,
   only the eleven Fix-7 product source/test/schema paths remained modified.
 - Formal `rework_count` stays `1`; no new review fingerprint exists yet and
   `tests.status` is intentionally failed until the full suite is green.
-- After successful Fix-8 intake, bookkeeper will commit the complete evidence,
-  compute a new standard fingerprint, seal the user's RC4
-  `review_fingerprint_trails_status@review_1` authorization to that fingerprint,
-  validate the packet, and route directly to a correctly executed Review-2.
+- After commit, bookkeeper can compute a new standard fingerprint and seal the
+  user's RC4 `review_fingerprint_trails_status@review_1` authorization to it.
+  That exception never turns an unexecuted Review-2 into ACCEPT.
 - User-authorization evidence:
   `review-1-fingerprint-exception-authorization.md`. The actual
   `authorized_exceptions[]` record remains empty until it can be pinned to the

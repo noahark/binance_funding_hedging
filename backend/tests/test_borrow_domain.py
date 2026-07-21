@@ -18,10 +18,10 @@ from backend.borrow_tasks import domain as D
     "value, expected_us",
     [
         ("5", 5_000_000),
-        ("0.5", 500_000),
         ("3", 3_000_000),
-        ("0.000001", 1),          # exactly one microsecond is the floor
-        ("1.5", 1_500_000),
+        ("2", 2_000_000),         # frozen 2-second capacity floor (inclusive)
+        ("2.0", 2_000_000),
+        ("2.5", 2_500_000),       # fractional but at/above the floor
         ("100", 100_000_000),
     ],
 )
@@ -33,13 +33,28 @@ def test_parse_interval_accepts_positive_decimals(value, expected_us):
 
 @pytest.mark.parametrize(
     "value",
-    ["0", "-1", "0.0", "0.0000001", "0.0000015", "abc", "", "1e3", " 1", "1 "],
+    [
+        "0", "-1", "0.0", "0.0000001", "0.0000015", "abc", "", "1e3", " 1", "1 ",
+        # sub-floor cadences are rejected (Boundary C §3.5 frozen 2s floor)
+        "0.5", "1", "1.5", "1.999", "0.000001",
+    ],
 )
 def test_parse_interval_rejects_invalid_strings(value):
     with pytest.raises(D.BorrowError) as exc:
         D.parse_interval_seconds(value)
     assert exc.value.code == "invalid_interval"
     assert exc.value.status == 400
+
+
+def test_parse_interval_floor_boundary():
+    # The frozen shared-IP capacity floor is 2 seconds: 2 and 2.0 pass, every
+    # sub-2 value (including 1.999 and 0.5) fails with invalid_interval.
+    assert D.parse_interval_seconds("2") == ("2", 2_000_000)
+    assert D.parse_interval_seconds("2.0") == ("2.0", 2_000_000)
+    for sub_floor in ("1.999", "0.5", "1", "1.5"):
+        with pytest.raises(D.BorrowError) as exc:
+            D.parse_interval_seconds(sub_floor)
+        assert exc.value.code == "invalid_interval"
 
 
 def test_parse_interval_rejects_json_number():

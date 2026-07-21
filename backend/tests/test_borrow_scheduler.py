@@ -99,7 +99,7 @@ def test_scheduler_skips_paused_deleted_completed_blocked(tmp_path):
     clock = FakeClock(0)
     exe = PaperBorrowExecutor([execution_disabled()] * 10)
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     a = _create(svc, "BTC")            # stays eligible
     b_paused = _create(svc, "ETH")
     c_deleted = _create(svc, "XRP")
@@ -123,7 +123,7 @@ def test_scheduler_skips_paused_deleted_completed_blocked(tmp_path):
     # Only A is eligible -> A is the sole task rotated across both ticks.
     clock.t = 0
     svc.tick()
-    clock.t = 1_000_000
+    clock.t = 2_000_000
     svc.tick()
     order = [task_id for (task_id, _a, _c) in exe.calls]
     assert order == [a, a]
@@ -156,15 +156,15 @@ def test_fractional_interval_stored_and_effective_gap(tmp_path):
     clock = FakeClock(0)
     exe = PaperBorrowExecutor([])
     svc = _service(tmp_path, exe, clock)
-    status, doc = svc.put_settings({"interval_seconds": "0.5"})
-    assert status == 200 and doc["interval_us"] == 500_000
+    status, doc = svc.put_settings({"interval_seconds": "2.5"})
+    assert status == 200 and doc["interval_us"] == 2_500_000
     _create(svc, "BTC", target=10)
-    for t in (0, 500_000, 1_000_000):
+    for t in (0, 2_500_000, 5_000_000):
         clock.t = t
         svc.tick()
     _status, page = svc.get_logs(None, None)
     entries = page["entries"]                          # newest first
-    assert [e["effective_gap_us"] for e in entries] == [500_000, 500_000, None]
+    assert [e["effective_gap_us"] for e in entries] == [2_500_000, 2_500_000, None]
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ def test_rate_limit_cooldown_suppresses_until_expiry(tmp_path):
     clock = FakeClock(0)
     exe = PaperBorrowExecutor([rate_limited(retry_after_seconds=10), execution_disabled()])
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     _create(svc, "BTC", target=10)
     clock.t = 0
     assert svc.tick() is True                          # rate_limited -> cooldown set
@@ -196,15 +196,15 @@ def test_unknown_blocks_only_its_task_and_seam_unblocks(tmp_path):
         [unknown(), execution_disabled(), execution_disabled(), execution_disabled()]
     )
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     ids = [_create(svc, a) for a in ("BTC", "ETH", "XRP")]
     clock.t = 0
     svc.tick()                        # A -> unknown -> blocked
-    clock.t = 1_000_000
-    svc.tick()                        # B
     clock.t = 2_000_000
+    svc.tick()                        # B
+    clock.t = 4_000_000
     svc.tick()                        # C
-    clock.t = 3_000_000
+    clock.t = 6_000_000
     svc.tick()                        # B again (A blocked, cursor C wraps to B)
     order = [task_id for (task_id, _a, _c) in exe.calls]
     assert order == [ids[0], ids[1], ids[2], ids[1]]
@@ -220,13 +220,13 @@ def test_success_completes_and_stops_dispatch(tmp_path):
     clock = FakeClock(0)
     exe = PaperBorrowExecutor([success(), success(), success()])
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     a = _create(svc, "BTC", target=2)
     clock.t = 0
     svc.tick()                        # success_count 1
-    clock.t = 1_000_000
-    svc.tick()                        # success_count 2 -> completed
     clock.t = 2_000_000
+    svc.tick()                        # success_count 2 -> completed
+    clock.t = 4_000_000
     assert svc.tick() is False        # completed -> not eligible -> no dispatch
     task = svc.store.get_task(a)
     assert task["status"] == "completed"
@@ -241,7 +241,7 @@ def test_no_eligible_tick_records_nothing_and_keeps_cursor(tmp_path):
     clock = FakeClock(0)
     exe = PaperBorrowExecutor([])
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     clock.t = 0
     assert svc.tick() is False
     assert svc.store.get_settings()["round_robin_cursor"] is None
@@ -326,6 +326,39 @@ def test_live_mode_globally_stopped_dispatches_nothing(tmp_path):
     svc.close()
 
 
+def test_live_mode_unauthorized_task_dispatches_nothing(tmp_path):
+    # Review-2 P1 regression: a borrowing task with live_authorized=0
+    # (migrated/inconsistent) must fail the atomic live gate inside
+    # insert_pending_attempt — zero attempt rows and zero executor POSTs — even
+    # with execution enabled, credentials present, and ownership held.
+    clock = FakeClock(0)
+    exe = PaperBorrowExecutor([success()])
+    svc = _live_service(tmp_path, exe, clock)
+    svc.store.set_execution_enabled(True, NOW_US)
+    tid = _create(svc, "BTC")                       # live_authorized=1 by Confirm
+    svc.store.set_task_status(tid, D.STATUS_BORROWING, NOW_US, live_authorized=0)
+    clock.t = 0
+    assert svc.tick() is False
+    assert exe.calls == []                          # zero signed POSTs
+    entries, _ = svc.store.list_attempts_page(50, None, None)
+    assert entries == []                            # zero attempt rows persisted
+    svc.close()
+
+
+def test_live_mode_authorized_task_dispatches_once(tmp_path):
+    # Positive control: live_authorized=1 with every gate open passes the atomic
+    # live_authorized recheck inside the transaction and dispatches exactly once.
+    clock = FakeClock(0)
+    exe = PaperBorrowExecutor([success()])
+    svc = _live_service(tmp_path, exe, clock)
+    svc.store.set_execution_enabled(True, NOW_US)
+    _create(svc, "BTC")                             # live_authorized=1 by Confirm
+    clock.t = 0
+    assert svc.tick() is True
+    assert len(exe.calls) == 1
+    svc.close()
+
+
 @pytest.mark.parametrize(
     "result",
     [
@@ -343,7 +376,7 @@ def test_one_executor_call_per_tick_regardless_of_category(tmp_path, result):
     clock = FakeClock(0)
     exe = PaperBorrowExecutor([result])
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     _create(svc, "BTC", target=10)
     clock.t = 0
     svc.tick()
@@ -359,7 +392,7 @@ def test_missed_time_is_not_replayed_as_a_burst(tmp_path):
     clock = FakeClock(0)
     exe = PaperBorrowExecutor([success()] * 100)
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     _create(svc, "BTC", target=100)
     clock.t = 0
     svc.tick()                                    # dispatch 1, _last_tick_mono = 0
@@ -381,7 +414,7 @@ def test_executor_exception_is_contained_as_unknown(tmp_path):
 
     clock = FakeClock(0)
     svc = _service(tmp_path, BoomExecutor(), clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     tid = _create(svc, "BTC", target=10)
     clock.t = 0
     assert svc.tick() is True                      # did not raise; dispatch happened
@@ -399,7 +432,7 @@ def test_store_resolve_exception_does_not_kill_tick(tmp_path):
     clock = FakeClock(0)
     exe = PaperBorrowExecutor([success()])
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     _create(svc, "BTC", target=10)
 
     def boom(*_a, **_kw):
@@ -459,7 +492,7 @@ def test_reconciliation_pass_via_tick_proves_success(tmp_path):
     clock = FakeClock(0)
     exe = ReconcilingExecutor([unknown()], [ReconcileOutcome(matched=True, tran_id="777")])
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     tid = _create(svc, "BTC", target=2)
     clock.t = 0
     svc.tick()                                     # dispatch -> unknown -> blocked
@@ -492,7 +525,7 @@ def test_restart_orphan_reconciles_via_tick_with_no_second_post(tmp_path):
     clock = FakeClock(0)
     exe1 = ReconcilingExecutor([])
     svc1 = _service(tmp_path, exe1, clock)
-    svc1.put_settings({"interval_seconds": "1"})
+    svc1.put_settings({"interval_seconds": "2"})
     tid = _create(svc1, "BTC", target=2)
     # Simulate a crash mid-flight: a pending attempt committed, resolve never ran.
     svc1.store.insert_pending_attempt(tid, "BTC", "1", NOW_US, NOW_US + 1, tid)
@@ -528,12 +561,12 @@ def test_reconciliation_does_not_credit_when_another_task_competes(tmp_path):
         [ReconcileOutcome(matched=True, tran_id="4242")],
     )
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     a = _create(svc, "BTC")  # amount "1"
     b = _create(svc, "BTC")  # amount "1" — same asset + amount, different task id
     clock.t = 0
     svc.tick()                # A -> unknown -> blocked
-    clock.t = 1_000_000
+    clock.t = 2_000_000
     svc.tick()                # B -> unknown -> blocked
     assert svc.store.get_task(a)["unresolved_attempt_id"] is not None
     assert svc.store.get_task(b)["unresolved_attempt_id"] is not None
@@ -559,7 +592,7 @@ def test_reconciliation_get_418_persists_rearm_until_manual_start(tmp_path):
                           retry_after_seconds=Decimal("300"))],
     )
     svc = _service(tmp_path, exe, clock)
-    svc.put_settings({"interval_seconds": "1"})
+    svc.put_settings({"interval_seconds": "2"})
     a = _create(svc, "BTC")
     clock.t = 0
     svc.tick()                # A -> unknown -> blocked

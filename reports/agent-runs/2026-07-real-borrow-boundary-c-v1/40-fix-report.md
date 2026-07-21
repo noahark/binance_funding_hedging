@@ -682,3 +682,48 @@ Session ID 来源: transcript_path
 本地北京时间: 2026-07-21 22:41:33 CST
 下一步模型: bookkeeper
 下一步任务: intake fix-7, resolve the documented test_borrow_executor.py file-boundary conflict (apply the one-line `"1"->"2"` follow-up or widen the review-2 allowed-files list), independently rerun the eight verification commands, and create a new committed fingerprint only if every gate closes
+
+---
+
+## Micro Fix-8 — Explicit User-Authorized Direct Mechanical Test Repair
+
+The user explicitly instructed Codex to make the previously isolated
+`BK-R2-FIX7-001` fixture repair directly rather than dispatching the prepared
+Claude-GLM Micro Fix-8 packet. This is a narrow re-enable of Codex for this
+test-only change; it does not authorize Codex to self-review the stage.
+
+Changed `backend/tests/test_borrow_executor.py` only:
+
+- `test_full_scenario_makes_zero_urllib_calls`: scheduler fixture `"1"` to
+  `"2"`, and fake-clock increments from `1_000_000` to `2_000_000` µs so all
+  five queued executor categories remain exercised under the frozen 2-second
+  floor.
+- `test_poisoned_env_secrets_never_leak`: scheduler fixture `"1"` to `"2"`.
+
+No product code, endpoint, signer, credentials, retry/reconciliation path,
+frontend, schema or live transport behavior changed. This restores the tests'
+original assertions rather than weakening them.
+
+### Actual local fake-only verification
+
+| Command | Result |
+| --- | --- |
+| `pytest backend/tests/test_borrow_executor.py` | **7 passed** |
+| `pytest backend/tests` | **650 passed** |
+| `node frontend/self-check.js` | all checks passed |
+| `pytest scripts/tests` | **128 passed** |
+| `py_compile` reviewed modules | exit 0 |
+| `test-validate-all-stages-compare.py` | **11/11 passed** |
+| `git diff --check` | clean |
+
+The result is all-green code/test evidence. This report does not claim
+Review-2 acceptance. Because Codex wrote this direct test repair, a later
+formal Review-2 cannot use Codex; it must use a provider that did not author
+implementation or fixes.
+
+当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md
+本地北京时间: 2026-07-21 23:10:25 CST
+下一步模型: human operator or Anthropic final reviewer
+下一步任务: bookkeeper commits the all-green direct repair and records the new fingerprint; do not mark Review-2 passed without an actual eligible review

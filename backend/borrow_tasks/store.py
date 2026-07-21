@@ -594,6 +594,13 @@ class BorrowTaskStore:
             if task["success_count"] >= task["success_target"]:
                 return None
             if live_gates:
+                # Final intent-before-send authorization (00-task.md:155-160 /
+                # breakdown §4.5): recheck live_authorized INSIDE the same
+                # transaction. A migrated/inconsistent/unauthorized task must
+                # fail closed here — zero attempt row, zero POST — even if every
+                # other gate is open.
+                if task["live_authorized"] != 1:
+                    return None
                 settings = self._conn.execute(
                     "SELECT execution_enabled, requires_rearm, global_cooldown_until_us"
                     " FROM borrow_settings WHERE id = 1"

@@ -158,7 +158,17 @@ def _row_contract_valid(row) -> bool:
 
 
 def classify_post_response(response: BorrowHttpResponse) -> ExecutorResult:
-    """Map a POST /papi/v1/marginLoan response to the frozen result vocabulary."""
+    """Map a POST /papi/v1/marginLoan response to the frozen result vocabulary.
+
+    Ordering is fail-closed (Boundary C §5.1 / 00-task.md:161-168): rate-limit
+    handling first, then EVERY 2xx (valid normalized ``tranId`` => success, any
+    other 2xx — empty/malformed body OR a 2xx carrying a known rejection code —
+    => unknown), then EVERY 5xx (possibly accepted by the exchange) => unknown.
+    ``known_rejection`` is recognized only on a definite 4xx response after
+    rate-limit handling, and only for the three archived codes; every other 4xx
+    stays unknown. This keeps an ambiguous 2xx/5xx from being returned to
+    rotation as a clean ``known_rejection`` and authorizing a second borrow POST.
+    """
     if response.transport_error is not None or response.http_status is None:
         return ExecutorResult(
             result_category=D.RESULT_UNKNOWN,
@@ -182,13 +192,9 @@ def classify_post_response(response: BorrowHttpResponse) -> ExecutorResult:
             reason="rate_limited_418_ban",
             retry_after_seconds=_BAN_COOLDOWN_SECONDS,
         )
-    if code in _KNOWN_REJECTION_CODES:
-        return ExecutorResult(
-            result_category=D.RESULT_KNOWN_REJECTION,
-            http_status=status,
-            business_code=code,
-            reason=f"known_rejection:{code}",
-        )
+    # 2xx first: a valid normalized tranId is the only success proof; every
+    # other 2xx (including one whose body carries a known rejection code) is
+    # unknown so the task blocks and reconciles instead of re-entering rotation.
     if 200 <= status < 300:
         tran_id = None
         if isinstance(response.body, dict):
@@ -203,7 +209,26 @@ def classify_post_response(response: BorrowHttpResponse) -> ExecutorResult:
         return ExecutorResult(
             result_category=D.RESULT_UNKNOWN,
             http_status=status,
+            business_code=code,
             reason="malformed_2xx_no_tranid",
+        )
+    # 5xx may have been accepted by the exchange, so it stays unknown and
+    # reconciles — even if the body happens to carry a known rejection code.
+    if 500 <= status < 600:
+        return ExecutorResult(
+            result_category=D.RESULT_UNKNOWN,
+            http_status=status,
+            business_code=code,
+            reason=f"possibly_accepted_5xx_{status}",
+        )
+    # known_rejection: only on a definite 4xx (after rate-limit handling) and
+    # only for the three archived codes; every other 4xx stays unknown.
+    if 400 <= status < 500 and code in _KNOWN_REJECTION_CODES:
+        return ExecutorResult(
+            result_category=D.RESULT_KNOWN_REJECTION,
+            http_status=status,
+            business_code=code,
+            reason=f"known_rejection:{code}",
         )
     return ExecutorResult(
         result_category=D.RESULT_UNKNOWN,

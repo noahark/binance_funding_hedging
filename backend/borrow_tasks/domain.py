@@ -105,6 +105,17 @@ ALL_RESULT_CATEGORIES = (
 DEFAULT_INTERVAL_SECONDS = "5"
 DEFAULT_INTERVAL_US = 5_000_000
 
+# Boundary C §3.5 / 12-development-breakdown.md:514,545-553: the scheduler
+# interval is an exchange-capacity constraint, not a product throughput promise.
+# The archived POST weight is 100 and the shared per-IP budget is 6000/min;
+# reserving half for reads/reconciliation freezes the floor at 2 seconds:
+#   ceil(60 / (0.5 * 6000 / 100)) = 2.
+# The parser enforces it as the product minimum so a sub-floor cadence cannot
+# risk a shared-IP 429/418 ban that would also take down the read-only snapshot
+# channel. The default stays 5 seconds.
+MIN_INTERVAL_SECONDS = Decimal("2")
+MIN_INTERVAL_US = 2_000_000
+
 # HTTP body cap and log page bounds (breakdown §3.6 / §3.7).
 BODY_MAX_BYTES = 16384
 LIMIT_DEFAULT = 50
@@ -176,9 +187,11 @@ def parse_interval_seconds(value):
     """Return ``(interval_seconds, interval_us)`` or raise ``invalid_interval``.
 
     A JSON number is rejected (decimal discipline). The string must match the
-    decimal shape, be finite and > 0, and normalize to an exact integer number
-    of microseconds >= 1. Finer-than-microsecond values (e.g. ``"0.0000001"``)
-    are rejected. There is no upper bound or product minimum.
+    decimal shape, be finite and > 0, normalize to an exact integer number of
+    microseconds >= 1, and respect the frozen 2-second exchange-capacity floor
+    (Boundary C §3.5 / breakdown §514,545-553). Finer-than-microsecond values
+    and sub-2-second cadences (e.g. ``"0.5"``, ``"1.999"``) are rejected. There
+    is no upper bound.
     """
     if not isinstance(value, str):
         raise BorrowError(400, "invalid_interval", "interval_seconds must be a JSON string")
@@ -194,6 +207,12 @@ def parse_interval_seconds(value):
     truncated = scaled.to_integral_value()
     if scaled != truncated or truncated < 1:
         raise BorrowError(400, "invalid_interval", "interval_seconds is finer than one microsecond")
+    if seconds < MIN_INTERVAL_SECONDS:
+        raise BorrowError(
+            400,
+            "invalid_interval",
+            "interval_seconds must be >= 2 (frozen shared-IP capacity floor)",
+        )
     return value, int(truncated)
 
 

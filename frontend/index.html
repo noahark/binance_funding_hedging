@@ -961,7 +961,7 @@
           <div class="borrow-settings-row">
             <div class="control">
               <label for="borrow-interval-input">全局调度间隔（秒）</label>
-              <input id="borrow-interval-input" type="text" inputmode="decimal" placeholder="如 5 或 0.5" autocomplete="off"/>
+              <input id="borrow-interval-input" type="text" inputmode="decimal" placeholder="如 5（最小 2 秒）" autocomplete="off"/>
               <button class="btn compact primary" id="borrow-interval-confirm" type="button">确认</button>
             </div>
             <span class="muted small" id="borrow-interval-note">当前：—（调度设置未加载）</span>
@@ -2494,7 +2494,7 @@
         const raw = els.borrowIntervalInput ? els.borrowIntervalInput.value : '';
         const s = String(raw === undefined || raw === null ? '' : raw).trim();
         if (s === '') {
-          const msg = '调度间隔不能为空（十进制秒，如 5 或 0.5）';
+          const msg = '调度间隔不能为空（十进制秒，最小 2 秒）';
           if (els.borrowIntervalError) els.borrowIntervalError.textContent = msg;
           return { ok: false, error: msg };
         }
