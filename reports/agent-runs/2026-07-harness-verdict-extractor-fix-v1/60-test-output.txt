@@ -532,3 +532,24 @@ This is a mechanical terminal-state ordering failure, not an invalid verdict
 or test failure. The validator requires the terminal status and normalized
 tests status to be committed before it can validate pre-accept. Those two
 fields are updated in the next checkpoint; no merge or acceptance is inferred.
+
+## Clean terminal pre-accept gate
+
+Run at 2026-07-21 20:13:43 CST after terminal-state checkpoint commit
+`6aecffe`.
+
+```text
+$ git status --short --branch
+## harness/dispatch-review-reform-v1
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase pre-accept
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=pre-accept
+status=stage_accepted_waiting_user
+diff_fingerprint=569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655
+```
+
+Task H is accepted by the formal review gates and now waits for explicit user
+acceptance. No merge to `main`, Boundary C synchronization, deployment,
+credential access, or real borrow occurred.

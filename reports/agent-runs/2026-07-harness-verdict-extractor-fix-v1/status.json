@@ -163,6 +163,16 @@
       "executor": "human_operator",
       "result": "schema_valid_final_ACCEPT_zero_findings_pending_committed_pre_accept_gate",
       "recorded_at": "2026-07-21T20:08:12+08:00"
+    },
+    {
+      "role": "terminal_pre_accept_gate",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/60-test-output.txt",
+      "result": "clean_pre_accept_passed_stage_accepted_waiting_user_no_merge_performed",
+      "recorded_at": "2026-07-21T20:13:43+08:00"
     }
   ],
   "designer": {
@@ -392,7 +402,7 @@
     "model": "opus4.8",
     "runtime_model_metadata": "claude-opus-4-8",
     "fallback_model_on_quota": "opus4.8",
-    "status": "valid_ACCEPT_evidence_committed_terminal_state_written_clean_pre_accept_pending",
+    "status": "valid_ACCEPT_clean_pre_accept_passed_stage_accepted_waiting_user",
     "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
     "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
@@ -461,6 +471,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "bookkeeper_commits_terminal_state_runs_clean_pre_accept_gate_then_waits_for_explicit_user_acceptance_before_any_main_merge_or_Boundary_C_sync",
-  "updated_at": "2026-07-21T20:12:42+08:00"
+  "next_action": "wait_for_explicit_user_acceptance_before_merging_the_Harness_branch_to_main_then_separately_record_and_execute_the_authorized_main_to_Boundary_C_sync",
+  "updated_at": "2026-07-21T20:13:43+08:00"
 }
