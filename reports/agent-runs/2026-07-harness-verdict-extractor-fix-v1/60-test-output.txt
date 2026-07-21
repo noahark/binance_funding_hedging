@@ -424,3 +424,34 @@ Kimi transcript because the human run did not create the expected artifact.
 Intermediate tool/environment output was not copied. The ACCEPT verdict is
 schema-valid and ready for a committed clean-worktree pre-review gate; it is
 not review-2 or final stage acceptance.
+
+## Committed review-1 gate and review-2 packet preparation
+
+Run at 2026-07-21 19:43:11 CST.
+
+```text
+$ git commit -m 'chore(harness): record Task H review one acceptance'
+[harness/dispatch-review-reform-v1 79167ea] ...
+
+$ git status --short --branch
+## harness/dispatch-review-reform-v1
+
+$ python3 scripts/validate-stage.py 2026-07-harness-verdict-extractor-fix-v1 --phase pre-review
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655
+
+$ command -v claude
+/Users/ark/.local/bin/claude
+
+$ required final-review authority documents
+docs/product/PRD.md: present
+docs/architecture/ARCHITECTURE.md: present
+```
+
+Review-1 ACCEPT evidence is committed and its clean gate passes. The
+independent Claude review-2 prompt/receipt is prepared but has not been
+executed. Fable5 quota or Anthropic endpoint availability has not been probed
+by the bookkeeper.

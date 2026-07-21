@@ -1,12 +1,12 @@
 {
   "active": {
     "stage_id": "2026-07-harness-verdict-extractor-fix-v1",
-    "phase": "review_1",
+    "phase": "review_2",
     "handoff": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/70-handoff.md",
-    "note": "Kimi review-1 completed with schema-valid ACCEPT, zero findings, exact fixed fingerprint, and verified provider isolation/fresh task context. The raw final assistant text was recovered verbatim from the matching local Kimi transcript because the expected artifact file was absent; intermediate tool/environment outputs were not copied. Review-1 evidence is awaiting a local bookkeeping commit and clean pre-review validation before independent Claude review-2 preparation. Formal rework_count remains 0. No main merge, Boundary C synchronization, final acceptance, or review-2 dispatch is authorized yet.",
-    "updated_at": "2026-07-21T19:39:58+08:00"
+    "note": "Kimi review-1 ACCEPT evidence is committed at 79167ea and the clean pre-review gate passes. Independent Anthropic Claude review-2 packet is prepared with Fable5 preferred and Opus4.8 permitted only after recorded qualifying Fable5 unavailability. Codex is not the final reviewer because it authored the Task H design and acts as bookkeeper. The review-2 packet still needs a clean committed preflight before human execution. Formal rework_count remains 0. No main merge, Boundary C synchronization, final acceptance, or model dispatch has occurred.",
+    "updated_at": "2026-07-21T19:43:11+08:00"
   },
   "last_completed": "2026-07-real-borrow-execution-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T19:39:58+08:00"
+  "updated_at": "2026-07-21T19:43:11+08:00"
 }

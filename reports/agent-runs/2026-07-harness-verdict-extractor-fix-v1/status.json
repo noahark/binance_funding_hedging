@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-harness-verdict-extractor-fix-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "stage_branch": {
@@ -124,6 +124,16 @@
       "executor": "human_operator",
       "result": "schema_valid_ACCEPT_zero_findings_ready_for_review_2_preparation",
       "recorded_at": "2026-07-21T19:39:58+08:00"
+    },
+    {
+      "role": "review_1_acceptance_commit_and_review_2_dispatch_preparation",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/{30-review-1.md,30-review-1.bookkeeper-intake.md,review-2-claude.prompt.md,review-2-claude.dispatch.md,status.json,70-handoff.md}",
+      "result": "review_1_ACCEPT_evidence_committed_at_79167ea_clean_pre_review_passed_independent_Claude_review_2_packet_prepared_no_dispatch_executed",
+      "recorded_at": "2026-07-21T19:43:11+08:00"
     }
   ],
   "designer": {
@@ -174,8 +184,14 @@
   "reviewer_2": {
     "provider": "claude",
     "provider_identity": "anthropic",
-    "model": "claude-fable-5 with opus4.8 quota fallback",
-    "selection_reason": "independent final decision provider because the Codex bookkeeper authored this lightweight design"
+    "model": "claude-fable-5",
+    "fallback_model_on_quota": "opus4.8",
+    "selection_reason": "Codex/GPT authored the lightweight stage design and is the bookkeeper, so the workflow primary is anti-self-review ineligible; unrelated Anthropic Claude is the independent final reviewer",
+    "fresh_session_required": true,
+    "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
+    "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
+    "dispatch_executor": "human_operator"
   },
   "r10_checklists": {},
   "tasks": [
@@ -207,7 +223,7 @@
         "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
         "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
         "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
-        "status": "valid_ACCEPT_bookkeeper_intake_complete_evidence_commit_pending",
+        "status": "valid_ACCEPT_evidence_committed_clean_pre_review_passed",
         "verdict": "ACCEPT",
         "json_schema_valid": true,
         "fresh_session": true,
@@ -263,7 +279,12 @@
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
     "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
-    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.bookkeeper-intake.md"
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.bookkeeper-intake.md",
+    "agents/skills/reality-checker.md",
+    "docs/product/PRD.md",
+    "docs/architecture/ARCHITECTURE.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
+    "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md"
   ],
   "base_sha": "4b1fcdd5fb0562eb00467437bf2ec9ad0286581a",
   "head_sha": "569be63a6f467e4e5e255a4713f94a08e37cd9b8",
@@ -309,7 +330,7 @@
     "provider": "kimi",
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
-    "status": "valid_ACCEPT_bookkeeper_intake_complete_evidence_commit_pending",
+    "status": "valid_ACCEPT_evidence_committed_clean_pre_review_passed",
     "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-1-kimi.dispatch.md",
     "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/30-review-1.md",
@@ -327,12 +348,17 @@
     "intake_completed_at": "2026-07-21T19:39:58+08:00"
   },
   "review_2": {
-    "reviewer": null,
+    "reviewer": "claude",
     "provider": "claude",
     "provider_identity": "anthropic",
-    "model": "claude-fable-5 with opus4.8 quota fallback",
-    "primary_provider": "claude",
-    "fallback_provider": null,
+    "model": "claude-fable-5",
+    "fallback_model_on_quota": "opus4.8",
+    "status": "prepared_pending_clean_review_2_preflight",
+    "prompt_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/review-2-claude.dispatch.md",
+    "artifact_path": "reports/agent-runs/2026-07-harness-verdict-extractor-fix-v1/50-review-2.md",
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
     "fallback_reason": "anti_self_review_ineligible: Codex authored the maintenance design; use the unrelated Anthropic decision provider",
     "reviewer_prior_involvement": "none",
     "reviewer_prior_involvement_notes": null,
@@ -345,7 +371,7 @@
     "open_p0_p1": null,
     "verdict": null,
     "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "diff_fingerprint": "569be63a6f467e4e5e255a4713f94a08e37cd9b8:397f66903914de11923195e8831f3192f725dc771fd04893a790075c9765b655",
     "covers_through_task": null,
     "fix_start_prompt_present": null,
     "fix_start_prompt_source": null,
@@ -391,6 +417,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "bookkeeper_commits_valid_review_1_ACCEPT_evidence_reruns_clean_pre_review_gate_then_prepares_independent_Claude_review_2_packet",
-  "updated_at": "2026-07-21T19:39:58+08:00"
+  "next_action": "bookkeeper_commits_review_2_packet_runs_clean_pre_review_gate_then_human_operator_executes_fresh_Anthropic_Fable5_review_2",
+  "updated_at": "2026-07-21T19:43:11+08:00"
 }
