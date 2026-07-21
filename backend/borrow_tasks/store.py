@@ -199,6 +199,34 @@ class BorrowTaskStore:
                 " unresolved_attempt_id)",
                 (D.OUTCOME_PENDING,),
             )
+            # Crash-orphan reconciliation intake (Boundary C §5.3 / ADR-006): a
+            # pending attempt whose insert committed but whose resolve never ran
+            # (the process died mid-flight) is the most ambiguous case — the POST
+            # may have reached Binance. Transition it into the bounded
+            # reconciliation schedule as a response-less ``unknown`` so the
+            # existing ``_reconcile_pass`` can prove/exclude a real loan via the
+            # loan-record API under the same unique-match + attribution_is_unique
+            # gates. Idempotent: only ``outcome='pending'`` rows are touched, so a
+            # second startup finds none and re-schedules nothing. The task's
+            # ``unresolved_attempt_id`` marker (set pre-crash by
+            # ``insert_pending_attempt`` and reconfirmed just above) keeps it
+            # blocked until reconciliation resolves it. No second POST, no
+            # force-clear, no retry-anyway.
+            recovery_now_us = int(time.time() * 1_000_000)
+            self._conn.execute(
+                "UPDATE borrow_attempt SET outcome = ?, result_category = ?,"
+                " reason = ?, finished_at_us = COALESCE(finished_at_us, ?),"
+                " reconcile_step = 0, reconcile_next_at_us = ?"
+                " WHERE outcome = ?",
+                (
+                    D.OUTCOME_RESOLVED,
+                    D.RESULT_UNKNOWN,
+                    D.REASON_CRASH_ORPHAN_RESPONSELESS,
+                    recovery_now_us,
+                    recovery_now_us + int(D.RECONCILE_DELAYS_SECONDS[0]) * 1_000_000,
+                    D.OUTCOME_PENDING,
+                ),
+            )
 
     def _migrate(self) -> None:
         """Idempotent PRAGMA user_version schema gate (Boundary C §4.4).
@@ -426,16 +454,33 @@ class BorrowTaskStore:
             ).fetchone()[0]
 
     def count_pending_orphan_attempts(self) -> int:
-        """Count pending attempts (crash-orphaned in-flight markers).
+        """Count tasks currently blocked by a crash orphan (D7 / ADR-006).
 
-        At startup these are the attempts a previous process dispatched but never
-        resolved; each blocks its task through ``unresolved_attempt_id`` until
-        reconciliation. Reported as a sanitized startup recovery count (D7).
+        A task is counted when its ``unresolved_attempt_id`` marker points at an
+        attempt that is either still ``pending`` (a freshly dispatched in-flight
+        marker a previous process never resolved) or has been recovered at
+        startup into a response-less ``unknown``
+        (``reason='crash_orphan_responseless'``). Counting by the task's *current*
+        marker — not by a bare outcome scan — keeps the count stable across the
+        pending→response-less-unknown transition and across a second (idempotent)
+        restart, while ensuring it returns to zero once reconciliation clears the
+        marker (unique match success) and stays non-zero while no-match
+        reconciliation keeps the marker. Historical orphan rows that were
+        resolved/reconciled but still live in the ledger are not re-counted,
+        because their task's marker was cleared. Only a sanitized integer is
+        reported; no asset / amount / txId / credential / private response.
         """
         with self._lock:
-            return self._conn.execute(
-                "SELECT COUNT(*) FROM borrow_attempt WHERE outcome = ?", (D.OUTCOME_PENDING,)
-            ).fetchone()[0]
+            return int(self._conn.execute(
+                "SELECT COUNT(*) FROM borrow_task t"
+                " WHERE t.unresolved_attempt_id IS NOT NULL"
+                "   AND EXISTS ("
+                "     SELECT 1 FROM borrow_attempt a"
+                "     WHERE a.id = t.unresolved_attempt_id"
+                "       AND (a.outcome = ? OR a.reason = ?)"
+                "   )",
+                (D.OUTCOME_PENDING, D.REASON_CRASH_ORPHAN_RESPONSELESS),
+            ).fetchone()[0])
 
     def set_execution_enabled(self, enabled: bool, now_us: int) -> None:
         """Toggle the durable global switch (§3.3).
@@ -784,7 +829,11 @@ class BorrowTaskStore:
         Records the matched id with ``reason=reconciled_unique_txid_match`` so
         audit distinguishes response-proven from history-inferred success, then
         applies the §5.4 matrix (increment, complete at target, deleted stays
-        deleted) and clears the in-flight marker.
+        deleted) and clears the in-flight marker. It also finalizes the attempt
+        row itself (``outcome='resolved'``, ``finished_at_us`` set if still null)
+        so a formerly-pending crash orphan — recovered into the schedule as a
+        response-less unknown — is not left dangling after reconciliation proves
+        success.
         """
         with self._lock, self._conn:
             attempt = self._conn.execute(
@@ -794,9 +843,16 @@ class BorrowTaskStore:
                 raise UnknownTaskError(f"attempt {attempt_id}")
             self._conn.execute(
                 "UPDATE borrow_attempt SET tran_id = ?, reason = ?,"
+                " outcome = ?, finished_at_us = COALESCE(finished_at_us, ?),"
                 " reconcile_next_at_us = NULL, reconcile_exhausted = 0"
                 " WHERE id = ?",
-                (tran_id, D.REASON_RECONCILED_UNIQUE_TXID_MATCH, attempt_id),
+                (
+                    tran_id,
+                    D.REASON_RECONCILED_UNIQUE_TXID_MATCH,
+                    D.OUTCOME_RESOLVED,
+                    now_us,
+                    attempt_id,
+                ),
             )
             task_id = attempt["task_id"]
             task = self._conn.execute(

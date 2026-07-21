@@ -1,12 +1,12 @@
 {
   "active": {
     "stage_id": "2026-07-real-borrow-boundary-c-v1",
-    "phase": "implementation",
+    "phase": "testing",
     "handoff": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
-    "note": "Kimi produced a schema-valid reported REWORK with three P1 and two P3 findings, but the reported provider session was created before this review and fails the mandatory fresh-session gate; the formal review verdict remains unset and rework_count remains 0. Bookkeeper independently confirmed P1 F1/F2/F3 and prepared task-C-bookkeeper-fix-4 as a pre-formal correction for human-operated Claude-GLM. The findings-bearing verdict extractor defect is recorded as a main-only Harness follow-up. No acceptance, merge, deployment, or live Binance write is authorized.",
-    "updated_at": "2026-07-21T12:02:59+08:00"
+    "note": "Formal review-1 rework_count remains 1. Claude-GLM micro fix-6 and bookkeeper intake closed all blocking F1/F2/F3 and residual P1 findings; optional reviewer P3 items remain disclosed and non-blocking. Independent final verification passed: backend 630, frontend 97 checks, Harness 114, py_compile and diff check. The bookkeeper is authorized to create the local fix evidence commit and compute a new fingerprint. Fresh Kimi review-1 remains blocked until the separately recorded main-only verdict-extractor defect is repaired and synchronized under the Harness exception rule. No acceptance, merge to main, deployment, or live Binance write is authorized.",
+    "updated_at": "2026-07-21T14:04:00+08:00"
   },
   "last_completed": "2026-07-real-borrow-execution-v1",
   "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T12:02:59+08:00"
+  "updated_at": "2026-07-21T14:04:00+08:00"
 }

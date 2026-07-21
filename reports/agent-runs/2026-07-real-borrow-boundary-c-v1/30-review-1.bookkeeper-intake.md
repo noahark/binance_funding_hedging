@@ -1,29 +1,31 @@
-# Review-1 Bookkeeper Intake — Non-Accepting Attempt, Findings Preserved
+# Review-1 Bookkeeper Intake — REWORK Restored After Freshness Correction
 
 ## Disposition
 
 The Kimi artifact at `30-review-1.md` contains a complete final JSON object
-that independently passes `schemas/review-verdict.schema.json`: reported
-verdict `REWORK`, five findings (three P1, two P3), a matching fixed
-fingerprint, and a complete `fix_start_prompt`.
+that independently passes `schemas/review-verdict.schema.json`: verdict
+`REWORK`, five findings (three P1, two P3), a matching fixed fingerprint, and
+a complete `fix_start_prompt`.
 
-It is **not accepted as the formal review-1 gate verdict** for two independent
-Harness reasons:
+The human operator subsequently confirmed that `/clear` followed by `/new`
+was executed in Kimi before the review prompt. This is the relevant freshness
+evidence: the active prompt/tool context was reset before formal review. The
+reported Session ID resolves to an older on-disk session directory, but neither
+`AGENTS.md` nor the workflow requires a different provider-native Session ID,
+and storage-container creation time alone cannot prove transcript reuse.
 
-1. The provider session is not fresh. The reported Session ID resolves to
-   `~/.kimi-code/sessions/wd_funding_hedging_312b78e68b47/session_9bb7a540-1d7e-428f-9ab8-ebfb580cbb35/`.
-   Its `state.json` records `createdAt=2026-07-20T13:59:51.788Z`, before this
-   review execution, while `lastPrompt` matches the current review task.
-   Reusing an existing provider session contradicts the explicit fresh-session
-   review-1 gate. There is no disclosure override for reviewer session
-   freshness.
-2. The merged v0.5 validator cannot parse a findings-bearing verdict. Its
-   `extract_last_json_object` scans opening braces backwards and returns the
-   last nested finding object. On this artifact,
-   `_parse_review_artifact` therefore reports missing `schema_version`,
-   `stage_id`, `role`, `model`, and `verdict`, even though a robust
-   end-of-file top-level extraction validates successfully. This is a Harness
-   defect, not invalid reviewer JSON.
+The earlier bookkeeper classification based only on `state.json.createdAt`
+was over-strict and is withdrawn. Review-1 provider isolation also remains
+valid: Kimi / `moonshot_kimi` is distinct from the Claude-GLM /
+`zhipu_glm` implementation and fix author. The artifact is therefore restored
+as formal **`REWORK`**, and formal `rework_count` is incremented to `1`.
+
+One separate Harness defect remains: merged v0.5
+`extract_last_json_object` scans opening braces backwards and returns the last
+nested finding object. On this artifact, `_parse_review_artifact` therefore
+reports missing top-level verdict fields even though robust end-of-file
+top-level extraction validates the complete JSON. This is a validator defect,
+not invalid reviewer JSON or a reason to rerun the same review for freshness.
 
 The prepared dispatch packet also lacked the machine-readable
 `DISPATCH RECEIPT` block required by the same v0.5 validator. The human-filled
@@ -31,8 +33,10 @@ narrative receipt is preserved unchanged; the bookkeeper added a mechanical
 non-accepting block at its top and will use the correct block format for all
 subsequent packets.
 
-Formal `rework_count` remains `0`, `review_1.verdict` remains unset, and a
-fresh-session retry remains mandatory after correction and a new fingerprint.
+Formal `review_1.verdict` is `REWORK`, `rework_count` is `1`, and the already
+human-dispatched fix-4 packet remains in progress without scope changes. A new
+review is required after the fix because the committed fingerprint will
+change, not because the current provider-native Session ID was reused.
 
 ## Finding Intake
 
@@ -56,20 +60,20 @@ evidence. The bookkeeper independently inspected the fixed reviewed head
   variable names.
 
 Because the three P1s independently violate frozen AC #7/#12/#13 and
-ADR-001/ADR-006, the bookkeeper prepared
-`task-C-bookkeeper-fix-4.prompt.md` as a pre-formal intake correction. It
-preserves the raw review path, findings, allowed/forbidden boundaries, exact
-fake-only tests and stop-for-bookkeeper rule. This route does not convert the
-non-fresh attempt into a formal verdict.
+ADR-001/ADR-006, `task-C-bookkeeper-fix-4.prompt.md` is now tracked as the fix
+for formal review-1 rework round 1. Its already dispatched prompt body is kept
+immutable even though it contains the superseded `pre-formal` label; findings,
+file boundaries, fake-only tests and safety constraints are unchanged.
 
 ## Harness Follow-Up
 
 The JSON extractor defect must be repaired through a dedicated Harness change
 that lands on `main`, with non-empty-findings regression coverage and no
 historical-stage drift. It is not authorized inside the product fix packet.
-Before the next formal review packet, the bookkeeper must also require:
+Before the next formal review packet, the bookkeeper must require:
 
-- a newly created Kimi provider session verified from `state.json.createdAt`;
+- fresh Kimi prompt/tool context, with operator reset evidence recorded; a new
+  provider-native Session ID is recommended for clarity but not mandatory;
 - a machine-readable dispatch receipt with exact command, ISO timestamps,
   human executor and verified Session ID;
 - a Session ID footer whose ID token is separated from explanatory text so the
@@ -78,6 +82,6 @@ Before the next formal review packet, the bookkeeper must also require:
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md
-本地北京时间: 2026-07-21 12:02:59 CST
-下一步模型: human operator → Claude-GLM / glm-5.2[1m]
-下一步任务: execute task-C-bookkeeper-fix-4.prompt.md as a pre-formal correction; after bookkeeper intake and a new fingerprint, run formal review-1 again in a genuinely fresh Kimi session
+本地北京时间: 2026-07-21 12:21:18 CST
+下一步模型: Claude-GLM / glm-5.2[1m] → bookkeeper
+下一步任务: finish the already dispatched formal review-1 rework fix for F1/F2/F3, then stop for bookkeeper intake and fingerprint refresh

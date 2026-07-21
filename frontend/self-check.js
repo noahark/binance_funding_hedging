@@ -484,7 +484,7 @@ global.document = {
   getElementById: (id) => {
     if (!elements[id]) {
       // 借币任务操作控件为按 symbol/任务 id（字符串 UUID）动态生成的 id，按需惰性 mock（最小 mock 能力补足）
-      if (/^(borrow-(amount|count|error)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+)$/.test(id)) return makeElement(id);
+      if (/^(borrow-(amount|count|error|preview)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+)$/.test(id)) return makeElement(id);
       throw new Error(`未 mock 的元素: ${id}`);
     }
     return elements[id];
@@ -2286,11 +2286,47 @@ setTimeout(async () => {
         if (!cell.includes(`id="borrow-error-${sym}"`)) {
           throw new Error(`${sym} 操作单元格缺少就近错误容器: ${cell}`);
         }
+        // F2：创建前预览容器（一个 div，不增减输入/按钮计数）
+        if (!cell.includes(`id="borrow-preview-${sym}"`)) {
+          throw new Error(`${sym} 操作单元格缺少创建前预览容器: ${cell}`);
+        }
       }
       if (!script.includes('stopPropagation')) {
         throw new Error('操作控件缺少事件隔离 stopPropagation');
       }
       console.log('[PASS] 操作单元格两输入一按钮、标签与事件隔离');
+    }
+
+    // 62b. 创建前预览（F2/ADR-001）：输入数量×次数后展示资产/单次数量/成功次数/目标总量/当前全局间隔
+    {
+      // 加载全局调度设置（提供当前间隔 "5"），失败不应影响预览其余字段
+      borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
+      await helpers.loadSchedulerSettings();
+      const amountEl = document.getElementById('borrow-amount-AUSDT');
+      const countEl = document.getElementById('borrow-count-AUSDT');
+      amountEl.value = '12.5';
+      countEl.value = '3';
+      helpers.renderBorrowPreview('AUSDT');
+      const txt = document.getElementById('borrow-preview-AUSDT').textContent;
+      // AUSDT 在 self-check fixture 的 base_asset 为 A
+      if (!txt.includes('资产 A')) throw new Error(`预览应包含资产 A: ${txt}`);
+      if (!txt.includes('12.5')) throw new Error(`预览应包含单次数量 12.5: ${txt}`);
+      if (!txt.includes('成功 3 次')) throw new Error(`预览应包含成功次数 3: ${txt}`);
+      if (!txt.includes('目标总量')) throw new Error(`预览应含「目标总量」字样: ${txt}`);
+      if (!txt.includes('37.5')) throw new Error(`预览应包含目标总量 37.5（12.5×3，BigInt 无 float）: ${txt}`);
+      if (!txt.includes('当前全局间隔') || !txt.includes('5 秒')) throw new Error(`预览应包含当前全局间隔 5 秒: ${txt}`);
+      // 预览仅就近展示，不引入浏览器侧调度/签名/联系 Binance
+      if (txt.includes('Binance') || txt.includes('签名')) throw new Error(`预览不得联系/签名 Binance: ${txt}`);
+      // 部分输入（仅数量）应回到提示态，不展示半成品目标总量
+      countEl.value = '';
+      helpers.renderBorrowPreview('AUSDT');
+      const partial = document.getElementById('borrow-preview-AUSDT').textContent;
+      if (partial.includes('37.5') || partial.includes('单次 12.5')) throw new Error(`部分输入不应展示半成品目标总量: ${partial}`);
+      // 还原输入，避免影响后续测试
+      amountEl.value = '';
+      countEl.value = '';
+      helpers.renderBorrowPreview('AUSDT');
+      console.log('[PASS] 创建前预览资产/数量/次数/目标总量/当前全局间隔');
     }
 
     // ---- 借币任务后端权威迁移（Task B；全部 API 交互走 §3 冻结形状的 mock） ----
@@ -2341,6 +2377,18 @@ setTimeout(async () => {
       }
       if (html.includes('前端演示') || html.includes('浏览器内存')) {
         throw new Error('页面仍残留 fake/浏览器内存免责声明');
+      }
+      // F1（Review-1 REWORK）：过期「不发起真实借币 / 所有尝试结果均为执行未启用」静态文案
+      // 已删除（执行徽标才是 mode/enabled 真相来源）；仍属实的浏览器陈述（不调度/不模拟/不签名/
+      // 不请求 Binance）保留。执行未启用 仅作为 result_category 标签存在（见下方断言）。
+      if (html.includes('不发起真实借币')) {
+        throw new Error('借币任务视图仍残留「不发起真实借币」过期文案');
+      }
+      if (html.includes('所有尝试结果均为「执行未启用」')) {
+        throw new Error('借币任务视图仍残留「所有尝试结果均为执行未启用」过期文案');
+      }
+      if (!html.includes('不签名') || !html.includes('不请求 Binance')) {
+        throw new Error('借币任务视图应保留浏览器不签名/不请求 Binance 的属实陈述');
       }
       // 间隔编辑器渲染 mock 的 "5"
       if (elements['borrow-interval-input'].value !== '5') {
@@ -2476,6 +2524,71 @@ setTimeout(async () => {
         throw new Error('合法提交后就近错误应清除');
       }
       console.log('[PASS] 操作单元格 UI 提交路径、本地校验与 API 400 detail');
+    }
+
+    // 66b. 创建前 fail-closed（BK-R1-FIX4-001 / micro fix-6）：scheduler settings 未加载/加载失败时
+    //      createBorrowTask ok=false 且 /api/borrow-tasks POST 数为 0；submit 入口先重投影预览（如实
+    //      标注「未加载」）再 fail closed，仍零 POST；加载 interval=5 后显示完整预览且恰好一次 task POST；
+    //      loaded→503 不得用旧间隔放行（失败路径作废缓存）。结尾还原到 item 66 末尾状态。
+    {
+      const amountEl = document.getElementById('borrow-amount-AUSDT');
+      const countEl = document.getElementById('borrow-count-AUSDT');
+      const errorEl = document.getElementById('borrow-error-AUSDT');
+      const previewEl = document.getElementById('borrow-preview-AUSDT');
+      const taskPosts = () => borrowFetchCalls().filter(c => c.url === '/api/borrow-tasks' && c.method === 'POST').length;
+
+      // 负向：强制「间隔未加载」（模拟启动一次性 GET 未完成 / 失败），create 直接拒绝且零 POST
+      helpers.clearBorrowSchedulerSettings();
+      const negBefore = taskPosts();
+      const r1 = await helpers.createBorrowTask('AUSDT', '12.5', '3');
+      if (r1.ok) throw new Error('调度设置未加载时不应创建任务（fail closed）');
+      if (!r1.error || !r1.error.includes('间隔')) throw new Error(`未加载错误应说明间隔未加载: ${r1.error}`);
+      if (taskPosts() !== negBefore) throw new Error(`调度设置未加载时不应发送任务 POST: Δ=${taskPosts() - negBefore}`);
+
+      // submit 入口在未加载时先重投影预览（如实标注「未加载」）再 fail closed，仍零 POST
+      amountEl.value = '12.5';
+      countEl.value = '3';
+      const r1b = await helpers.submitBorrowTask('AUSDT');
+      if (r1b.ok) throw new Error('未加载时 submit 也不应创建任务');
+      if (!errorEl.textContent.includes('间隔')) throw new Error(`submit 就近错误应说明间隔未加载: ${errorEl.textContent}`);
+      if (!previewEl.textContent.includes('未加载')) throw new Error(`submit 应先重投影预览并标注未加载: ${previewEl.textContent}`);
+      if (taskPosts() !== negBefore) throw new Error(`未加载时 submit 仍不应发送任务 POST: Δ=${taskPosts() - negBefore}`);
+
+      // 正向：加载 interval=5 后预览显示真实间隔 5 秒；create 成功且恰好一次 task POST
+      borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
+      await helpers.loadSchedulerSettings();
+      helpers.renderBorrowPreview('AUSDT');
+      if (!previewEl.textContent.includes('当前全局间隔 5 秒')) throw new Error(`加载后预览应显示真实间隔 5 秒: ${previewEl.textContent}`);
+      borrowTasksPostResponse = { status: 201, body: MOCK_TASK_HOME };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([MOCK_TASK_HOME]) };
+      const posBefore = taskPosts();
+      const r2 = await helpers.createBorrowTask('AUSDT', '12.5', '3');
+      if (!r2.ok) throw new Error(`加载 interval=5 后应创建成功: ${r2.error}`);
+      if (taskPosts() - posBefore !== 1) throw new Error(`正向应恰好一次任务 POST: Δ=${taskPosts() - posBefore}`);
+
+      // loaded→503（micro fix-6）：保留 phase 3 已加载的 interval=5，不得先 clear；让 GET 返回 503，
+      // loadSchedulerSettings 失败路径作废缓存 → state=null、预览回退「未加载」、create fail-closed、零 POST
+      borrowSettingsGetResponse = null; // -> mockBorrow503()
+      await helpers.loadSchedulerSettings();
+      if (helpers.getBorrowSchedulerSettings() !== null) throw new Error('loaded→503 后缓存设置应被作废（不得用旧间隔放行）');
+      helpers.renderBorrowPreview('AUSDT');
+      if (!previewEl.textContent.includes('未加载')) throw new Error(`loaded→503 后预览应回退未加载: ${previewEl.textContent}`);
+      const r3 = await helpers.createBorrowTask('AUSDT', '12.5', '3');
+      if (r3.ok) throw new Error('loaded→503 后不应创建任务（fail closed，旧间隔已作废）');
+      if (!r3.error || !r3.error.includes('间隔')) throw new Error(`loaded→503 错误应说明间隔未加载: ${r3.error}`);
+      if (taskPosts() !== posBefore + 1) throw new Error('loaded→503 后不应发送任务 POST');
+
+      // 还原到 item 66 末尾状态：间隔已加载 + item 66 的 task mock + 输入/预览/错误，避免影响 item 67+
+      borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
+      await helpers.loadSchedulerSettings();
+      borrowTasksPostResponse = { status: 201, body: MOCK_TASK_HOME };
+      borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([MOCK_TASK_HOME]) };
+      await helpers.loadBorrowTasks();
+      amountEl.value = '12.5';
+      countEl.value = '3';
+      errorEl.textContent = '';
+      helpers.renderBorrowPreview('AUSDT');
+      console.log('[PASS] 创建前 fail-closed：未加载/loaded→503 零 POST，加载 interval=5 后恰好一次 POST');
     }
 
     // 67. maxBorrowableSubline 不再重复「已借完」（唯一保留：状态徽标「可借 0(已借完)」）

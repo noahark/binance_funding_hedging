@@ -1,72 +1,80 @@
-# Handoff — Boundary C Pre-Formal Correction 4 Prepared
+# Handoff — Boundary C Review-1 Rework Fixes Closed, Evidence Commit Pending
 
 ## Recovery Header
 
-- Active phase: `implementation`
-  (`bookkeeper_preformal_fix_4_prepared_waiting_human_dispatch`).
-- Next action: human operator executes
-  `task-C-bookkeeper-fix-4.prompt.md` in the original registered
-  Claude-GLM / GLM-5.2 implementation terminal, fills the machine receipt in
-  `task-C-bookkeeper-fix-4.dispatch.md`, and stops for bookkeeper intake.
-- Read-set: = `status.current_inputs`; the implementer additionally follows
-  the exact read list and file boundaries in the fix-4 prompt.
+- Active phase: `testing`
+  (`review_1_rework_all_blocking_findings_closed_evidence_commit_pending`).
+- Next action: bookkeeper creates the local fix evidence commit and computes the
+  standard `base_sha..<new_head_sha>` fingerprint. Do not dispatch fresh Kimi
+  review-1 until the main-only verdict-extractor prerequisite is repaired and
+  synchronized under the recorded Harness exception rule.
+- Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
 
-## Why The Reported Review Is Non-Accepting
+## Review-1 Freshness Correction And Formal Disposition
 
 - Raw artifact: `30-review-1.md`
 - Bookkeeper intake: `30-review-1.bookkeeper-intake.md`
-- Reported result: schema-valid `REWORK`, three P1 and two P3 findings, full
+- Formal result: schema-valid **`REWORK`**, three P1 and two P3 findings, full
   `fix_start_prompt`, matching fixed fingerprint.
-- Formal gate result: **unset / non-accepting**.
 - Provider Session ID:
   `9bb7a540-1d7e-428f-9ab8-ebfb580cbb35`, verified at
   `~/.kimi-code/sessions/wd_funding_hedging_312b78e68b47/session_9bb7a540-1d7e-428f-9ab8-ebfb580cbb35/`.
-- The matching `state.json` records
-  `createdAt=2026-07-20T13:59:51.788Z`, before this review execution, while
-  its last prompt matches this task. The session was therefore not fresh.
-  Review-1 freshness has no override.
-- Formal `rework_count` remains `0`; `review_1.verdict` remains null.
+- The human operator confirmed that `/clear` followed by `/new` was executed
+  before the Kimi review prompt. That is direct operator evidence that the
+  active prompt/tool context was reset. The matching `state.json` records an
+  older on-disk storage container, but the Harness does not require a unique
+  provider-native Session ID or a newly created session directory.
+- The earlier bookkeeper inference that `state.json.createdAt` alone proved a
+  non-fresh review was over-strict and is withdrawn. Provider isolation from
+  the zhipu_glm implementer remained intact throughout.
+- Formal `review_1.verdict` is restored to `REWORK`; `rework_count` is `1`.
+- The current validator's findings-bearing JSON extraction defect is retained
+  as a separate Harness follow-up. It does not turn the independently
+  schema-valid reviewer artifact into invalid JSON or require a session retry.
 
-## Independently Confirmed Corrections
+## Fix-4 Intake
 
-The bookkeeper re-inspected reviewed head
-`61ce536dfba6ddd347586cf324209acdfdc6afd9` and confirmed:
+- Receipt and report are complete; source/test edits stayed within the allowed
+  fix-4 boundary.
+- GLM evidence: targeted `143 passed`, wide `330 passed`, full backend
+  `629 passed`, frontend self-check passed, `py_compile` exit 0 and
+  `git diff --check` clean.
+- Independent bookkeeper checks: targeted `143 passed`, frontend self-check
+  passed and `py_compile` exit 0.
+- **F1 is closed.** The stale no-real-borrow/all-disabled static copy is gone
+  while the accurate browser safety boundary and runtime result label remain.
+- **F2 residual / BK-R1-FIX4-001 (P1):** when scheduler settings are absent,
+  the preview says the interval is not loaded but `createBorrowTask()` can
+  still POST. An immediate click or failed settings GET bypasses the frozen
+  current-interval confirmation.
+- **F3 residual / BK-R1-FIX4-002 (P1):** startup correctly converts a pending
+  orphan to response-less unknown reconciliation, but the lifecycle count still
+  queries only pending outcomes. A real temporary-SQLite reproduction observed
+  pending count `1` before restart and recovered count `0` after restart while
+  the task remained blocked.
+- Audit: `40-fix-report.bookkeeper-audit.md`.
+- No new evidence commit or fingerprint is authorized until both residuals
+  close. Formal `rework_count` stays `1`.
 
-1. **F1 / P1:** three stale frontend strings claim real borrowing is disabled
-   while the same screen can show live execution started.
-2. **F2 / P1:** the market-row create path posts after amount/count validation
-   without showing asset, amount × count maximum target quantity and current
-   global interval before submission.
-3. **F3 / P1:** startup restores a pending orphan only as a blocker;
-   `list_due_reconciliations` selects resolved unknown attempts with a
-   non-null schedule, so the crash orphan never enters +5/+15/+60/+300/+900s
-   reconciliation.
-4. F4/F5 are confirmed P3 polish: unused transient `raw_body` and missing
-   empty credential-name documentation in `.env.example`.
+## Fix-4 / Fix-5 / Micro Fix-6 Closure
 
-Because F1-F3 violate frozen AC #7/#12/#13 and ADR-001/ADR-006, they are routed
-as a bookkeeper pre-formal correction rather than converted into a formal
-review verdict.
-
-## Fix-4 Packet
-
-- Prompt: `task-C-bookkeeper-fix-4.prompt.md`
-- Human receipt: `task-C-bookkeeper-fix-4.dispatch.md`
-- Required output: `40-fix-report.md`
-- Test evidence: append only to `60-test-output.txt`
-- Author: original Claude-GLM / provider identity `zhipu_glm`
-- Required findings: F1, F2, F3
-- Optional findings: F4, F5
-- Allowed files and exact fake-only commands are frozen in the prompt.
-- Forbidden: real/authenticated/production-reachable Binance traffic,
-  credential reads, second POST, hidden retry, force-clear/retry-anyway,
-  Harness/state/design/raw-review edits, commit/push/merge or model relay.
-
-After bookkeeper intake, the correction receives a new committed head and
-fingerprint. Formal review-1 then restarts in a genuinely fresh Kimi provider
-session; the current raw artifact is preserved and will not be overwritten.
+- Fix-4 closed stale UI copy, created the before-create projection and moved
+  crash-orphan pending attempts into bounded reconciliation.
+- Fix-5 closed initial settings-unavailable zero-POST behavior and restored the
+  recovered-orphan blocker lifecycle count across first/second restart,
+  exhaustion and success clearing.
+- Micro fix-6 closed the final loaded→503 stale-cache path: failed GET now
+  invalidates settings; item 66b proves state null, unloaded preview, `ok=false`
+  and zero task POST without a clear seam.
+- Implementer report and fix-6 dispatch end with verified transcript-path
+  Session ID `358ab38a-1631-4cfa-869b-19ab824ff5b8` and complete six-line
+  footers.
+- Independent final verification: backend `630 passed`, frontend `97` checks,
+  Harness `114 passed`, `py_compile` exit 0, `git diff --check` clean.
+- All blocking F1/F2/F3 and bookkeeper residual P1 findings are closed. F4/F5
+  remain disclosed P3 polish only. Formal `rework_count` remains `1`.
 
 ## Harness Follow-Up
 
@@ -95,10 +103,23 @@ session; the current raw artifact is preserved and will not be overwritten.
 - No live Binance write, push, merge, deployment or acceptance is authorized.
 - `reports/agent-runs/_proposals/**` remains unrelated user-owned state and
   was not edited, staged, committed or cleaned.
+- Freshness-correction checkpoint HEAD:
+  `b9b64e9038448d494608151ad644e0acd5a21a2e`.
+- At `2026-07-21 12:23:18 CST`, only the four bookkeeper correction files plus
+  the append-only test log were modified and uncommitted; no GLM fix result was
+  yet visible. JSON validation, checkpoint validation and scoped
+  `git diff --check` passed.
+- Fix-4 remains uncommitted on top of bookkeeper checkpoint HEAD
+  `b9b64e9038448d494608151ad644e0acd5a21a2e`; the old reviewed head/fingerprint
+  remain authoritative until intake closure and a new local evidence commit.
+- At final intake, fix-4/fix-5/fix-6 code, tests, reports, receipts and
+  bookkeeping remain uncommitted on that HEAD. The bookkeeper is now authorized
+  to create the local evidence commit; no push, merge to main, deployment,
+  acceptance or live Binance write is authorized.
 
 当前 Session ID: unavailable (current runtime does not expose provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md
-本地北京时间: 2026-07-21 12:02:59 CST
-下一步模型: human operator → Claude-GLM / glm-5.2[1m]
-下一步任务: execute task-C-bookkeeper-fix-4.prompt.md, fix F1/F2/F3 with fake-only evidence, fill the machine receipt, and stop for bookkeeper intake
+本地北京时间: 2026-07-21 14:04:00 CST
+下一步模型: bookkeeper
+下一步任务: create the local fix evidence commit, compute the new standard fingerprint, then route the main-only verdict-extractor prerequisite before fresh Kimi review-1

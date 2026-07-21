@@ -59,6 +59,10 @@ ALL_BLOCK_REASONS = (
 RECONCILE_DELAYS_SECONDS = (5, 15, 60, 300, 900)
 # Boundary C §5.3: persisted reason distinguishing history-inferred success.
 REASON_RECONCILED_UNIQUE_TXID_MATCH = "reconciled_unique_txid_match"
+# Boundary C §5.3 / ADR-006: marker for a crash-orphaned pending attempt that
+# never resolved (the process died mid-flight); it enters the bounded
+# reconciliation schedule at startup as a response-less unknown.
+REASON_CRASH_ORPHAN_RESPONSELESS = "crash_orphan_responseless"
 
 # Boundary C §5.1: Retry-After fail-closed default and clamp window. A missing or
 # nonsensical Retry-After falls back to the 60s floor; any value is clamped to

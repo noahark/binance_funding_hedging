@@ -939,7 +939,7 @@
         <div class="panel-header">
           <div class="panel-title">
             <h2>借币任务</h2>
-            <p class="subtitle">任务与日志由后端 SQLite 持久化并调度；本阶段不发起真实借币（执行未启用）</p>
+            <p class="subtitle">任务与日志由后端 SQLite 持久化并调度；执行模式（live/disabled）与启停状态见下方执行徽标</p>
           </div>
           <div class="panel-actions">
             <div class="borrow-view-tabs" role="tablist" aria-label="借币任务与日志视图切换">
@@ -950,7 +950,7 @@
         </div>
         <div class="panel-body">
           <div class="status-banner info" style="margin-bottom: var(--space-4);">
-            任务与日志持久化在后端（SQLite），刷新或重启不丢失；本阶段后端调度仅记录尝试结果、不发起真实借币，所有尝试结果均为「执行未启用」。浏览器不调度、不模拟、不请求 Binance。
+            任务与日志持久化在后端（SQLite），刷新或重启不丢失；执行模式（live/disabled）与启停状态以上方执行徽标为准。浏览器不调度、不模拟、不签名、不请求 Binance。
           </div>
           <div class="borrow-execution-row borrow-settings-row">
             <span class="badge muted" id="borrow-execution-badge">执行状态：加载中</span>
@@ -1714,6 +1714,7 @@
                 <input id="borrow-count-${escapeHtml(row.symbol)}" type="text" inputmode="numeric" placeholder="如 10" autocomplete="off"/>
                 <button class="btn compact primary" type="button" data-borrow-confirm="${escapeHtml(row.symbol)}" aria-label="确认创建 ${escapeHtml(row.symbol)} 借币任务">确认</button>
               </div>
+              <div class="borrow-op-preview muted small" id="borrow-preview-${escapeHtml(row.symbol)}" aria-live="polite"></div>
               <div class="borrow-op-error" id="borrow-error-${escapeHtml(row.symbol)}" role="alert" aria-live="polite"></div>
             </td>
           </tr>
@@ -1730,6 +1731,8 @@
             openDrawer(symbol);
           }
         });
+        // 创建前预览：行渲染即投影一次（空输入显示提示），输入变化时实时刷新。
+        renderBorrowPreview(symbol);
         // 操作列事件隔离：输入框/确认按钮的点击与按键不得触发行点击抽屉。
         // mock DOM 的 tr 无 querySelector，跳过绑定（自检经 __appHelpers 直测）。
         if (typeof tr.querySelector === 'function') {
@@ -1745,6 +1748,11 @@
               submitBorrowTask(symbol);
             });
           }
+          // 输入变化实时刷新创建前预览（目标总量/间隔）。
+          const amountInput = tr.querySelector(`#borrow-amount-${symbol}`);
+          const countInput = tr.querySelector(`#borrow-count-${symbol}`);
+          if (amountInput) amountInput.addEventListener('input', () => renderBorrowPreview(symbol));
+          if (countInput) countInput.addEventListener('input', () => renderBorrowPreview(symbol));
         }
       }
 
@@ -2277,9 +2285,15 @@
           state.borrowSchedulerSettings = await borrowApi('/api/borrow-scheduler-settings');
           if (els.borrowIntervalError) els.borrowIntervalError.textContent = '';
         } catch (err) {
+          // BK-R1-FIX4-001（micro fix-6）：GET 失败时立即作废上次缓存的设置，使
+          // currentIntervalSeconds() 返回 null、预览回退「未加载」、创建 fail-closed 零 POST
+          // （成功加载 interval=5 后再 503，不得用旧间隔继续放行）。不新增定时器/签名/外域请求。
+          state.borrowSchedulerSettings = null;
           if (els.borrowIntervalError) els.borrowIntervalError.textContent = `调度设置加载失败：${err.message}`;
         }
         renderSchedulerSettings();
+        // 全局间隔变化后，刷新已渲染行情行的创建前预览间隔投影。
+        renderBorrowPreviews();
       }
 
       // Boundary C 执行控制（§3.2）：只读状态投影 + 幂等全局 Start/Stop。浏览器
@@ -2357,11 +2371,61 @@
         return { ok: true, task: doc };
       }
 
-      // 市场行确认创建：本地只做形状校验，随后 POST /api/borrow-tasks；返回文档
-      // 即后端状态（borrowing，立即可被后端调度），无需跳转或二次启动。
+      // 当前全局调度间隔：仅当 scheduler settings 已加载且 interval_seconds 形状有效
+      // （正十进制）时返回归一化字符串，否则 null。预览与创建 fail-closed 共用同一判定，
+      // 保证“显示的间隔”与“提交前确认的间隔”一致（BK-R1-FIX4-001）。
+      function currentIntervalSeconds() {
+        const s = state.borrowSchedulerSettings;
+        const raw = s && typeof s.interval_seconds === 'string' ? s.interval_seconds : null;
+        if (raw === null) return null;
+        const t = raw.trim();
+        if (!/^[0-9]+(\.[0-9]+)?$/.test(t) || !/[1-9]/.test(t)) return null;
+        return t;
+      }
+
+      // 创建前预览（F2 / ADR-001）：在行情表创建路径提交 POST 前，把资产、单次数量、成功
+      // 次数、amount×count 最大目标总量与当前全局调度间隔投影到就近预览行。沿用 BigInt 精度
+      // 纪律（multiplyDecimalString，禁 float）；间隔取 currentIntervalSeconds（已加载且形状
+      // 有效），未加载则如实标注（不引入任务状态机或浏览器侧调度/签名）。仅就近展示，POST
+      // 仍由确认按钮触发。
+      function renderBorrowPreview(symbol) {
+        const previewEl = document.getElementById(`borrow-preview-${symbol}`);
+        if (!previewEl) return;
+        const row = (state.snapshot && state.snapshot.rows || []).find(r => r.symbol === symbol);
+        const asset = row ? row.base_asset : symbol;
+        const amountEl = document.getElementById(`borrow-amount-${symbol}`);
+        const countEl = document.getElementById(`borrow-count-${symbol}`);
+        const amount = normalizeBorrowAmount(amountEl ? amountEl.value : '');
+        const successTarget = parseSuccessTarget(countEl ? countEl.value : '');
+        const intervalText = currentIntervalSeconds();
+        if (amount !== null && successTarget !== null) {
+          const total = multiplyDecimalString(amount, successTarget);
+          const intervalLine = intervalText !== null
+            ? `当前全局间隔 ${intervalText} 秒`
+            : '当前全局间隔未加载（进入借币任务视图加载）';
+          previewEl.textContent = `创建预览：资产 ${asset}，单次 ${amount}，成功 ${successTarget} 次，目标总量 ${total} ${asset}，${intervalLine}。确认即提交后端，立即可被调度。`;
+        } else {
+          previewEl.textContent = `创建预览：资产 ${asset}。输入单次数量与成功次数后查看目标总量与当前全局间隔。`;
+        }
+      }
+
+      // 间隔刷新后（loadSchedulerSettings 完成）刷新所有已渲染行情行的预览间隔投影。
+      function renderBorrowPreviews() {
+        if (!state.snapshot) return;
+        (state.snapshot.rows || []).forEach(r => renderBorrowPreview(r.symbol));
+      }
+
+      // 市场行确认创建：本地校验后 POST /api/borrow-tasks；返回文档即后端状态
+      // （borrowing，立即可被后端调度），无需跳转或二次启动。BK-R1-FIX4-001：POST 前
+      // fail-closed——必须已加载形状有效的当前全局间隔（currentIntervalSeconds），否则
+      // 就近中文错误且零任务 POST（启动的 loadSchedulerSettings 是一次性未 await GET，
+      // 用户可在其完成前/失败后点击，此时不得创建立即可调度任务）。
       async function createBorrowTask(symbol, amountRaw, countRaw) {
         const row = (state.snapshot && state.snapshot.rows || []).find(r => r.symbol === symbol);
         if (!row) return { ok: false, error: '未找到该行行情数据' };
+        if (currentIntervalSeconds() === null) {
+          return { ok: false, error: '当前全局调度间隔尚未加载，请稍候或进入借币任务视图加载后再创建' };
+        }
         const amount = normalizeBorrowAmount(amountRaw);
         if (amount === null) return { ok: false, error: '单次借币数量必须是大于 0 的十进制数值' };
         const successTarget = parseSuccessTarget(countRaw);
@@ -2372,11 +2436,13 @@
         }));
       }
 
-      // 操作列确认按钮入口：读输入值 -> 创建 -> 就近显示/清除错误。
+      // 操作列确认按钮入口：读输入值 -> 提交前重新投影预览（资产/数量/次数/BigInt 目标
+      // 总量/真实当前间隔与将提交的输入一致，BK-R1-FIX4-001）-> 创建 -> 就近显示/清除错误。
       async function submitBorrowTask(symbol) {
         const amountEl = document.getElementById(`borrow-amount-${symbol}`);
         const countEl = document.getElementById(`borrow-count-${symbol}`);
         const errorEl = document.getElementById(`borrow-error-${symbol}`);
+        renderBorrowPreview(symbol);
         const result = await createBorrowTask(symbol, amountEl ? amountEl.value : '', countEl ? countEl.value : '');
         if (errorEl) errorEl.textContent = result.ok ? '' : result.error;
         return result;
@@ -2545,7 +2611,7 @@
               <div>目标总量：目标 ${totalText} ${asset}</div>
               <div>策略：后端调度器每 ${escapeHtml(intervalText)} 秒全局轮转尝试一次，失败等待下次，达到成功次数后停止</div>
               ${blockedLine}
-              <div class="borrow-task-note">任务持久化在后端；本阶段不发起真实借币（执行未启用）。</div>
+              <div class="borrow-task-note">任务持久化在后端；执行模式与启停状态见借币任务视图顶部执行徽标。</div>
             </div>
             <div class="borrow-task-controls">
               <button class="btn compact action-start" type="button" data-task-action="start" data-task-id="${idAttr}"${startDisabled}>启动</button>
@@ -2888,11 +2954,17 @@
         getBorrowTab: () => state.borrowTab,
         loadBorrowLogs,
         getBorrowLogs: () => state.borrowLogs,
-        multiplyDecimalString
+        multiplyDecimalString,
+        renderBorrowPreview,
+        // test seam: force the “interval not loaded” state to exercise the
+        // BK-R1-FIX4-001 fail-closed gate (createBorrowTask must refuse to POST).
+        clearBorrowSchedulerSettings: () => { state.borrowSchedulerSettings = null; }
       };
 
       bindEvents();
       loadApi();
+      // 启动即加载全局调度设置，使行情视图创建前预览的间隔投影可用（失败由进入借币视图重试）。
+      loadSchedulerSettings();
       startAutoRefresh();
     })();
   </script>

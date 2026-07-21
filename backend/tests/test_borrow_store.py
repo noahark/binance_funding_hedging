@@ -447,6 +447,56 @@ def test_count_pending_orphan_attempts_reports_crash_orphans(tmp_path):
     assert s.count_pending_orphan_attempts() == 1
 
 
+def test_count_pending_orphan_attempts_covers_recovered_orphan_lifecycle(tmp_path):
+    # BK-R1-FIX4-002: the sanitized count must represent tasks currently blocked
+    # by a crash orphan across the pending -> response-less-unknown transition
+    # and a second (idempotent) restart, return to zero after a unique-match
+    # reconciliation clears the marker, and stay non-zero while no-match
+    # reconciliation keeps the marker. Counting is by the task's current marker,
+    # so a resolved-but-still-in-ledger orphan is not re-counted.
+    path = str(tmp_path / "borrow.sqlite3")
+    s1 = BorrowTaskStore(path)
+    s1.create_task("A", "BTC", "1", 3, NOW)
+    s1.insert_pending_attempt("A", "BTC", "1", NOW + 1, NOW + 2, "A")  # orphaned pending
+    assert s1.count_pending_orphan_attempts() == 1
+    s1.close()
+
+    # First recovery: orphan -> resolved/unknown/crash_orphan_responseless,
+    # marker retained -> still counted (regression under fix-4 was 0 here).
+    s2 = BorrowTaskStore(path)
+    assert s2.count_pending_orphan_attempts() == 1
+    # Second reopen: recovery is idempotent; evidence does not disappear.
+    s2.close()
+    s3 = BorrowTaskStore(path)
+    assert s3.count_pending_orphan_attempts() == 1
+    att_id = s3.get_task("A")["unresolved_attempt_id"]
+
+    # No-match reconciliation keeps the marker -> still counted.
+    base = s3.get_attempt(att_id)["finished_at_us"]
+    for i in range(1, len(D.RECONCILE_DELAYS_SECONDS) + 1):
+        s3.advance_reconciliation(att_id, base + i * 1_000_000)
+    assert s3.get_attempt(att_id)["reconcile_exhausted"] == 1
+    assert s3.get_task("A")["unresolved_attempt_id"] == att_id   # marker retained
+    assert s3.count_pending_orphan_attempts() == 1
+
+    # A DIFFERENT task with a unique-match success clears its marker -> not counted.
+    s3.create_task("B", "ETH", "2", 1, NOW + 100)
+    att_b = s3.insert_pending_attempt("B", "ETH", "2", NOW + 101, NOW + 102, "B")
+    s3.resolve_reconciliation_success(att_b["id"], "999", NOW + 200)
+    assert s3.get_task("B")["unresolved_attempt_id"] is None       # marker cleared
+    # B was never a crash orphan (resolved via reconcile), so it is not counted;
+    # A still is -> count stays 1 (not 2).
+    assert s3.count_pending_orphan_attempts() == 1
+    s3.close()
+
+    # Reconciling A's orphan to success clears A's marker -> count drops to 0.
+    s4 = BorrowTaskStore(path)
+    att_a = s4.get_task("A")["unresolved_attempt_id"]
+    s4.resolve_reconciliation_success(att_a, "4242", NOW + 300)
+    assert s4.get_task("A")["unresolved_attempt_id"] is None
+    assert s4.count_pending_orphan_attempts() == 0
+
+
 def test_set_rate_cooldown_clamps_to_band(tmp_path):
     s = _store(tmp_path)
     s.set_rate_cooldown(5, NOW)        # below floor -> 60s
@@ -548,6 +598,121 @@ def test_advance_reconciliation_steps_then_exhausts(tmp_path):
     assert row["reconcile_next_at_us"] is None  # terminal: no more reads
     # Still blocked
     assert s.list_eligible_tasks() == []
+
+
+# ---------------------------------------------------------------------------
+# Crash-orphan pending attempts enter bounded reconciliation (F3 / ADR-006)
+# ---------------------------------------------------------------------------
+def test_restart_orphan_pending_enters_reconciliation_schedule(tmp_path):
+    # A crash-orphaned pending attempt (insert committed, resolve never ran) is
+    # transitioned at startup into the bounded reconciliation schedule as a
+    # response-less unknown; the task stays blocked (marker preserved) and
+    # ineligible until reconciliation resolves it.
+    path = str(tmp_path / "borrow.sqlite3")
+    s1 = BorrowTaskStore(path)
+    s1.create_task("A", "BTC", "1", 1, NOW)
+    s1.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")  # orphaned pending
+    s1.close()
+
+    s2 = BorrowTaskStore(path)
+    task = s2.get_task("A")
+    assert task["unresolved_attempt_id"] is not None      # marker preserved -> blocked
+    assert s2.list_eligible_tasks() == []                 # ineligible
+    att = s2.get_attempt(task["unresolved_attempt_id"])
+    assert att["outcome"] == D.OUTCOME_RESOLVED
+    assert att["result_category"] == D.RESULT_UNKNOWN
+    assert att["reason"] == D.REASON_CRASH_ORPHAN_RESPONSELESS
+    assert att["reconcile_step"] == 0
+    assert att["reconcile_exhausted"] == 0
+    # First read anchored at recovery_now + DELAYS[0] (recovery clock, finished_at_us set).
+    assert att["finished_at_us"] is not None
+    expected_first = att["finished_at_us"] + int(D.RECONCILE_DELAYS_SECONDS[0]) * 1_000_000
+    assert att["reconcile_next_at_us"] == expected_first
+    # Not due before the scheduled time; due at/after it.
+    assert s2.list_due_reconciliations(att["reconcile_next_at_us"] - 1) == []
+    due = s2.list_due_reconciliations(att["reconcile_next_at_us"])
+    assert [d["id"] for d in due] == [att["id"]]
+
+
+def test_restart_orphan_reconciliation_success_finalizes_and_counts(tmp_path):
+    # Unique CONFIRMED match (attribution_is_unique) -> success credited; the
+    # formerly-pending orphan row is finalized (outcome/finished_at_us kept,
+    # tran_id + reason recorded) and the marker cleared.
+    path = str(tmp_path / "borrow.sqlite3")
+    s1 = BorrowTaskStore(path)
+    s1.create_task("A", "BTC", "1", 1, NOW)
+    s1.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
+    s1.close()
+
+    s2 = BorrowTaskStore(path)
+    att_id = s2.get_task("A")["unresolved_attempt_id"]
+    finished_at_recovery = s2.get_attempt(att_id)["finished_at_us"]
+    due_now = s2.get_attempt(att_id)["reconcile_next_at_us"]
+    # attribution_is_unique: no competing attempt for this asset/amount/txId
+    assert s2.attribution_is_unique(att_id, "A", "BTC", "1", "4242") is True
+    s2.resolve_reconciliation_success(att_id, "4242", due_now)
+    task = s2.get_task("A")
+    assert task["status"] == D.STATUS_COMPLETED
+    assert task["success_count"] == 1
+    assert task["unresolved_attempt_id"] is None
+    row = s2.get_attempt(att_id)
+    assert row["outcome"] == D.OUTCOME_RESOLVED
+    assert row["result_category"] == D.RESULT_UNKNOWN
+    assert row["tran_id"] == "4242"
+    assert row["reason"] == D.REASON_RECONCILED_UNIQUE_TXID_MATCH
+    assert row["finished_at_us"] == finished_at_recovery   # finalized (kept, no longer null)
+    assert row["reconcile_next_at_us"] is None             # schedule cleared
+
+
+def test_restart_orphan_no_match_exhausts_stays_blocked(tmp_path):
+    # Five reads, all no-match -> terminal reconciliation_exhausted; the orphan
+    # stays blocked (no force-clear / retry-anyway).
+    path = str(tmp_path / "borrow.sqlite3")
+    s1 = BorrowTaskStore(path)
+    s1.create_task("A", "BTC", "1", 1, NOW)
+    s1.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
+    s1.close()
+
+    s2 = BorrowTaskStore(path)
+    att_id = s2.get_task("A")["unresolved_attempt_id"]
+    base = s2.get_attempt(att_id)["finished_at_us"]
+    exhausted = False
+    for i in range(1, len(D.RECONCILE_DELAYS_SECONDS) + 1):
+        exhausted = s2.advance_reconciliation(att_id, base + i * 1_000_000)
+    assert exhausted is True
+    row = s2.get_attempt(att_id)
+    assert row["reconcile_exhausted"] == 1
+    assert row["reconcile_next_at_us"] is None
+    # Still blocked and ineligible
+    assert s2.list_eligible_tasks() == []
+    assert s2.get_task("A")["unresolved_attempt_id"] == att_id
+
+
+def test_restart_orphan_recovery_is_idempotent(tmp_path):
+    # Recovery only touches outcome='pending' rows, so a second startup finds
+    # none and does NOT reset/re-anchor the schedule (no double scheduling).
+    path = str(tmp_path / "borrow.sqlite3")
+    s1 = BorrowTaskStore(path)
+    s1.create_task("A", "BTC", "1", 1, NOW)
+    s1.insert_pending_attempt("A", "BTC", "1", NOW + 10, NOW + 11, "A")
+    s1.close()
+
+    s2 = BorrowTaskStore(path)
+    att_id = s2.get_task("A")["unresolved_attempt_id"]
+    first = s2.get_attempt(att_id)
+    assert first["outcome"] == D.OUTCOME_RESOLVED          # transitioned on first startup
+    s2.close()
+
+    s3 = BorrowTaskStore(path)
+    second = s3.get_attempt(att_id)
+    assert second["outcome"] == D.OUTCOME_RESOLVED
+    assert second["reconcile_step"] == first["reconcile_step"]
+    assert second["reconcile_next_at_us"] == first["reconcile_next_at_us"]
+    assert second["reason"] == first["reason"]
+    # Still exactly one attempt row (no duplication).
+    entries, has_more = s3.list_attempts_page(50, None, None)
+    assert has_more is False
+    assert len(entries) == 1
 
 
 # ---- idempotent migration from a raw pre-C database ----

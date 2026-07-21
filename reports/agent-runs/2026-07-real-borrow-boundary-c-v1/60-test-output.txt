@@ -787,3 +787,379 @@ was not fresh; it is not counted as invalid JSON and does not increment formal
 `task-C-bookkeeper-fix-4.prompt.md` as a pre-formal correction. The nested
 object extraction failure is recorded separately as a main-only Harness
 follow-up.
+
+## Review-1 freshness bookkeeping correction
+
+Run at 2026-07-21 12:23:18 CST. No network, credential source, product code or
+in-flight dispatch prompt was touched.
+
+```text
+$ human-operator freshness evidence
+operator confirmed: /clear followed by /new before executing Kimi review-1
+corrected disposition: fresh-context schema-valid REWORK
+formal rework_count: 1
+provider-native Session ID uniqueness required by Harness: no
+
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+exit 0
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+exit 0
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+status=fixing
+diff_fingerprint=61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984
+
+$ git diff --check -- <four bookkeeper correction files>
+clean
+```
+
+The earlier `NON_ACCEPTING_SESSION_NOT_FRESH` conclusion was based only on the
+age of the persisted Kimi session directory and is superseded. The validator
+extractor defect remains separately open; Claude-GLM fix-4 remains in progress
+with unchanged scope.
+
+## Fix-4 REWORK (F1/F2/F3) — Claude-GLM / glm-5.2[1m] real fake-only outputs
+
+Run at 2026-07-21 12:46:31 CST by the original Task C implementer (claude_glm / zhipu_glm /
+glm-5.2[1m]), single executor session. No real/authenticated/production-
+reachable Binance request; all transport exercise used injected fake/
+recording transport + dummy credentials. No .env / key file / cookie /
+credential store / expanded alias environment read. No second POST, no
+hidden retry, no retry-anyway/force-clear route added; no exact-path /
+HMAC / urlopen / AST / UI guard weakened. No commit/push/merge, no model
+dispatch. Scope of source edits: F1/F2/F3 only (frontend/index.html,
+frontend/self-check.js, backend/borrow_tasks/domain.py,
+backend/borrow_tasks/store.py) plus matching tests
+(backend/tests/test_borrow_store.py, backend/tests/test_borrow_scheduler.py).
+
+Note on the four bookkeeping files (status.json, 70-handoff.md,
+30-review-1.bookkeeper-intake.md, ACTIVE.json): they were modified
+externally (operator/bookkeeper, ~2026-07-21 12:22-12:24 CST, the
+`review-1 freshness bookkeeping correction` reflected in the section
+above) and are NOT part of this fix-4 execution; this executor did not
+touch them. This section only appends the real fake-only verification
+outputs below.
+
+```text
+$ python3 -m pytest backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_api.py backend/tests/test_live_borrow_executor.py -q
+........................................................................ [ 50%]
+.......................................................................  [100%]
+143 passed in 18.19s
+
+$ python3 -m pytest backend/tests/test_binance_signing.py backend/tests/test_portfolio_margin_borrow_client.py backend/tests/test_live_borrow_executor.py backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_api.py backend/tests/test_config.py backend/tests/test_private_client.py backend/tests/test_private_account_v1.py backend/tests/test_service_health.py -q
+........................................................................ [ 87%]
+..........................................                               [100%]
+330 passed in 25.42s
+
+$ python3 -m pytest backend/tests -q
+........................................................................ [ 91%]
+.....................................................                    [100%]
+629 passed in 37.74s
+
+$ node frontend/self-check.js
+
+全部自检通过
+node frontend/self-check.js -> exit 0
+
+$ python3 -m py_compile backend/services/binance_signing.py backend/services/portfolio_margin_borrow_client.py backend/services/live_borrow_executor.py backend/services/private_client.py backend/borrow_tasks/*.py backend/app/server.py backend/config.py
+py_compile -> exit 0
+
+$ git diff --check
+git diff --check -> exit 0 (clean)
+
+$ git diff --stat -- <fix-4 source/test files only>
+ backend/borrow_tasks/domain.py         |   4 ++
+ backend/borrow_tasks/store.py          |  43 +++++++++++-
+ backend/tests/test_borrow_scheduler.py |  35 ++++++++++
+ backend/tests/test_borrow_store.py     | 115 +++++++++++++++++++++++++++++++++
+ frontend/index.html                    |  54 ++++++++++++++--
+ frontend/self-check.js                 |  50 +++++++++++++-
+ 6 files changed, 294 insertions(+), 7 deletions(-)
+```
+
+## Bookkeeper intake of fix-4 — two residual P1 gates
+
+Run at 2026-07-21 12:54:57 CST. No network, credential source or product file
+was modified by the bookkeeper.
+
+```text
+$ python3 -m pytest backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_api.py backend/tests/test_live_borrow_executor.py -q
+........................................................................ [ 50%]
+.......................................................................  [100%]
+143 passed in 17.93s
+
+$ node frontend/self-check.js
+全部自检通过
+exit 0
+
+$ python3 -m py_compile backend/services/binance_signing.py backend/services/portfolio_margin_borrow_client.py backend/services/live_borrow_executor.py backend/services/private_client.py backend/borrow_tasks/*.py backend/app/server.py backend/config.py
+exit 0
+
+$ temporary SQLite restart-orphan lifecycle-count reproduction
+before_restart_pending_count= 1
+after_restart_recovered_orphan_count= 0
+after_restart_reason= crash_orphan_responseless
+after_restart_outcome= resolved
+after_restart_task_blocked= True
+
+$ source audit of the create path
+renderBorrowPreview when settings absent: 当前全局间隔未加载
+createBorrowTask scheduler-settings availability gate: absent
+startup loadSchedulerSettings await before confirmation becomes possible: no
+DISPOSITION=FIX_5_REQUIRED
+```
+
+F1 is closed. BK-R1-FIX4-001 requires zero task POST until the actual current
+interval is loaded and rendered. BK-R1-FIX4-002 requires the startup sanitized
+count to follow current orphan-blocked task markers across recovery/restart and
+clear only when reconciliation clears the blocker. Formal `rework_count`
+remains `1`; no new fingerprint was created.
+
+### Fix-5 packet mechanical checkpoint
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+exit 0
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+exit 0
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+status=fixing
+diff_fingerprint=61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984
+
+$ head -1 task-C-bookkeeper-fix-5.prompt.md
+[HARNESS-EXECUTOR-CONTRACT v1]
+
+$ fix-5 receipt/prompt assertions
+status=pending; executor=human_operator; live request=no; stop-for-bookkeeper present
+
+$ git diff --check
+clean
+```
+
+## Fix-5 intake closure (BK-R1-FIX4-001 / BK-R1-FIX4-002) — Claude-GLM / glm-5.2[1m] real fake-only outputs
+
+Run at 2026-07-21 13:25:42 CST by the original Task C implementer / fix-4 author
+(claude_glm / zhipu_glm / glm-5.2[1m]), single executor session, continuing the
+same registered Claude-GLM terminal. No real/authenticated/production-reachable
+Binance request; all transport exercise used injected fake/recording transport +
+dummy credentials. No .env / key file / cookie / credential store / expanded
+alias environment read. No second POST, no hidden retry, no retry-anyway /
+force-clear route added; no exact-path / HMAC / urlopen / import / UI guard
+weakened. No commit/push/merge, no model dispatch. Formal review `rework_count`
+remains `1`; no new committed fingerprint was created.
+
+Scope of source edits this round (fix-5 only): BK-R1-FIX4-001
+(frontend/index.html, frontend/self-check.js) and BK-R1-FIX4-002
+(backend/borrow_tasks/store.py) plus a matching lifecycle test
+(backend/tests/test_borrow_store.py). The fix-4 changes already in the working
+tree (backend/borrow_tasks/domain.py `REASON_CRASH_ORPHAN_RESPONSELESS` constant,
+backend/tests/test_borrow_scheduler.py F3 restart-orphan test, and the fix-4
+parts of store.py / test_borrow_store.py / index.html / self-check.js) are
+carried over unchanged and were not re-touched here. `backend/app/server.py`'s
+event field name (`recovered_orphan_blocker_count`) is unchanged; the count now
+backed by the corrected `count_pending_orphan_attempts()`.
+
+The externally-modified-not-by-this-executor bookkeeping files (status.json,
+70-handoff.md, 30-review-1.bookkeeper-intake.md, ACTIVE.json,
+task-C-bookkeeper-fix-4.dispatch.md) were not touched in this fix-5 round
+either.
+
+```text
+$ python3 -m pytest backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_api.py backend/tests/test_live_borrow_executor.py backend/tests/test_service_health.py -q
+........................................................................ [ 45%]
+........................................................................ [ 91%]
+..............                                                           [100%]
+158 passed in 22.74s
+
+$ python3 -m pytest backend/tests/test_binance_signing.py backend/tests/test_portfolio_margin_borrow_client.py backend/tests/test_live_borrow_executor.py backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_api.py backend/tests/test_config.py backend/tests/test_private_client.py backend/tests/test_private_account_v1.py backend/tests/test_service_health.py -q
+........................................................................ [ 21%]
+........................................................................ [ 43%]
+........................................................................ [ 65%]
+........................................................................ [ 87%]
+...........................................                              [100%]
+331 passed in 25.18s
+
+$ python3 -m pytest backend/tests -q
+........................................................................ [ 11%]
+........................................................................ [ 22%]
+........................................................................ [ 34%]
+........................................................................ [ 45%]
+........................................................................ [ 57%]
+........................................................................ [ 68%]
+........................................................................ [ 80%]
+........................................................................ [ 91%]
+......................................................                   [100%]
+630 passed in 37.60s
+
+$ node frontend/self-check.js
+[PASS] 创建前 fail-closed：间隔未加载/加载失败零 POST，加载 interval=5 后恰好一次 POST
+（共 97 项 [PASS]，末行：）
+全部自检通过
+node frontend/self-check.js -> exit 0 (97 [PASS] items)
+
+$ python3 -m py_compile backend/services/binance_signing.py backend/services/portfolio_margin_borrow_client.py backend/services/live_borrow_executor.py backend/services/private_client.py backend/borrow_tasks/*.py backend/app/server.py backend/config.py
+py_compile -> exit 0
+
+$ git diff --check
+git diff --check -> exit 0 (clean)
+
+$ git diff --stat -- <fix-4+fix-5 source/test files in working tree, uncommitted>
+ backend/borrow_tasks/domain.py         |   4 +
+ backend/borrow_tasks/store.py          | 76 +++++++++++++--
+ backend/tests/test_borrow_scheduler.py | 35 +++++++
+ backend/tests/test_borrow_store.py     | 165 +++++++++++++++++++++++++++++++++
+ frontend/index.html                    |  82 ++++++++++++++--
+ frontend/self-check.js                 | 112 +++++++++++++++++++++-
+ 6 files changed, 456 insertions(+), 18 deletions(-)
+```
+
+## Bookkeeper intake of fix-5 — one loaded-to-503 residual
+
+Run at 2026-07-21 13:34:51 CST. No network, credential source or product file
+was modified by the bookkeeper.
+
+```text
+$ python3 -m pytest backend/tests/test_borrow_store.py backend/tests/test_borrow_scheduler.py backend/tests/test_borrow_api.py backend/tests/test_live_borrow_executor.py backend/tests/test_service_health.py -q
+........................................................................ [ 45%]
+........................................................................ [ 91%]
+..............                                                           [100%]
+158 passed in 23.05s
+
+$ node frontend/self-check.js
+97 [PASS] items
+全部自检通过
+exit 0
+
+$ python3 -m py_compile backend/services/binance_signing.py backend/services/portfolio_margin_borrow_client.py backend/services/live_borrow_executor.py backend/services/private_client.py backend/borrow_tasks/*.py backend/app/server.py backend/config.py
+exit 0
+
+$ loaded-to-503 source-state audit
+successful load assigns state.borrowSchedulerSettings
+failed load catch clears state.borrowSchedulerSettings: no
+currentIntervalSeconds after a prior success and later 503: stale prior value
+task POST gate after that transition: allowed
+existing 66b failure setup: clearBorrowSchedulerSettings before 503
+DISPOSITION=MICRO_FIX_6_REQUIRED
+
+$ implementer report footer audit
+40-fix-report.md ends with required six-line footer: no
+```
+
+The store lifecycle-count residual is closed. The initial-unloaded and
+clear-then-503 paths are blocked, but a loaded-to-503 transition retains a stale
+interval and remains P1 under AC #12 and the fix-5 prompt. Micro fix-6 must
+invalidate the cached settings in the GET failure path, test that exact
+transition with zero task POST, and append the required execution footer.
+Formal `rework_count` remains `1`; no new fingerprint was created.
+
+### Micro fix-6 packet mechanical checkpoint
+
+```text
+$ python3 -m json.tool reports/agent-runs/ACTIVE.json
+exit 0
+
+$ python3 -m json.tool reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json
+exit 0
+
+$ python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint
+STAGE VALIDATION PASSED
+status=fixing
+diff_fingerprint=61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984
+
+$ head -1 task-C-bookkeeper-fix-6.prompt.md
+[HARNESS-EXECUTOR-CONTRACT v1]
+
+$ micro fix-6 receipt/prompt assertions
+status=pending; executor=human_operator; live request=no; loaded-to-503 closure present; stop-for-bookkeeper present
+
+$ git diff --check
+clean
+```
+
+## Micro fix-6 (BK-R1-FIX5-001 stale loaded→503 interval) — Claude-GLM / glm-5.2[1m] real fake-only outputs
+
+Run at 2026-07-21 13:52:45 CST by the original Task C implementer / fix-4 / fix-5
+author (claude_glm / zhipu_glm / glm-5.2[1m]), single executor session, continuing
+the same registered Claude-GLM terminal. No real/authenticated/production-reachable
+Binance request; all transport exercise used injected fake/recording transport +
+dummy credentials. No `.env` / key file / cookie / credential store / expanded
+alias environment read. No second POST, no hidden retry, no retry-anyway /
+force-clear route added; no exact-path / HMAC / urlopen / import / UI guard
+weakened. No commit/push/merge, no model dispatch. Formal review `rework_count`
+remains `1`; no new committed fingerprint was created.
+
+Scope of source edits this round (micro fix-6 only): BK-R1-FIX5-001
+(frontend/index.html — one line in the `loadSchedulerSettings()` catch branch;
+frontend/self-check.js — item 66b phase 4 rewritten). No backend file was
+touched (backend regressions re-run only for confirmation). The PUT failure path
+(`submitSchedulerSettings`) is intentionally unchanged: a failed PUT means the
+server value did not change, so the prior cached value remains the legitimate
+current value; only the GET failure path invalidates, because a failed GET can no
+longer confirm the current interval.
+
+```text
+$ node frontend/self-check.js
+[PASS] 创建前 fail-closed：未加载/loaded→503 零 POST，加载 interval=5 后恰好一次 POST
+（共 97 项 [PASS]，末行：）
+全部自检通过
+node frontend/self-check.js -> exit 0 (97 [PASS] items)
+
+$ python3 -m pytest backend/tests/test_borrow_store.py -q
+...............................................                          [100%]
+47 passed in 0.27s
+
+$ python3 -m pytest backend/tests -q
+........................................................................ [ 80%]
+........................................................................ [ 91%]
+......................................................                   [100%]
+630 passed in 37.50s
+
+$ python3 -m py_compile backend/borrow_tasks/*.py backend/app/server.py backend/config.py
+py_compile -> exit 0
+
+$ git diff --check
+git diff --check -> exit 0 (clean)
+
+$ git diff --stat -- <micro fix-6 frontend source files in working tree, uncommitted>
+ frontend/index.html    |  86 +++++++++++++++++++++++++++++++++---
+ frontend/self-check.js | 115 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 193 insertions(+), 8 deletions(-)
+```
+
+## Bookkeeper final intake of micro fix-6
+
+Run at 2026-07-21 14:04:00 CST. Fake-only; no network or credential source was
+used.
+
+```text
+$ python3 -m pytest backend/tests -q
+........................................................................ [ 91%]
+......................................................                   [100%]
+630 passed in 38.30s
+
+$ node frontend/self-check.js
+97 [PASS] items
+全部自检通过
+exit 0
+
+$ python3 -m pytest scripts/tests -q
+........................................................................ [ 63%]
+..........................................                               [100%]
+114 passed in 2.08s
+
+$ python3 -m py_compile backend/services/binance_signing.py backend/services/portfolio_margin_borrow_client.py backend/services/live_borrow_executor.py backend/services/private_client.py backend/borrow_tasks/*.py backend/app/server.py backend/config.py
+exit 0
+
+$ git diff --check
+clean
+```
+
+The first parallel backend invocation was not counted because its output ended
+at 80% without a completion code. The command was rerun independently and
+polled to explicit exit 0 / `630 passed`. All blocking review-1 findings and
+bookkeeper intake residuals are closed; no live Binance write occurred.

@@ -483,6 +483,41 @@ def test_reconciliation_pass_via_tick_proves_success(tmp_path):
     svc.close()
 
 
+def test_restart_orphan_reconciles_via_tick_with_no_second_post(tmp_path):
+    # F3 / ADR-006: a crash-orphaned pending attempt (dispatched, the process died
+    # before resolve) is recovered at startup into the bounded reconciliation
+    # schedule. A later tick's _reconcile_pass proves a unique match and credits
+    # success WITHOUT a second executor.execute (POST): the orphan never re-enters
+    # dispatch because the unresolved marker blocks eligibility.
+    clock = FakeClock(0)
+    exe1 = ReconcilingExecutor([])
+    svc1 = _service(tmp_path, exe1, clock)
+    svc1.put_settings({"interval_seconds": "1"})
+    tid = _create(svc1, "BTC", target=2)
+    # Simulate a crash mid-flight: a pending attempt committed, resolve never ran.
+    svc1.store.insert_pending_attempt(tid, "BTC", "1", NOW_US, NOW_US + 1, tid)
+    svc1.close()
+    assert exe1.calls == []                       # we inserted directly — no execute ran
+
+    # Restart: store recovery transitions the orphan to a response-less unknown in
+    # the reconciliation schedule (real recovery clock). Align the fake clock to
+    # that schedule so the next tick's _reconcile_pass (injected wall clock) sees
+    # the orphan due.
+    exe2 = ReconcilingExecutor([], [ReconcileOutcome(matched=True, tran_id="4242")])
+    svc2 = _service(tmp_path, exe2, clock)
+    att_id = svc2.store.get_task(tid)["unresolved_attempt_id"]
+    clock.t = svc2.store.get_attempt(att_id)["reconcile_next_at_us"]
+    svc2.tick()
+    # Zero second POST: reconciled via a loan-record GET, never re-dispatched.
+    assert exe2.calls == []
+    assert exe2.reconcile_calls == 1
+    task = svc2.store.get_task(tid)
+    assert task["success_count"] == 1
+    assert task["status"] == D.STATUS_BORROWING    # 1 < target 2
+    assert task["unresolved_attempt_id"] is None   # unblocked
+    svc2.close()
+
+
 def test_reconciliation_does_not_credit_when_another_task_competes(tmp_path):
     # §5.3 / risk §11: two tasks with the same asset + exact Decimal amount, both
     # blocked on unknown. A reconciliation envelope with one CONFIRMED row must

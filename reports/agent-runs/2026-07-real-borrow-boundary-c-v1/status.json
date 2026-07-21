@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-real-borrow-boundary-c-v1",
-  "status": "implementing",
+  "status": "testing",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "stage_branch": {
@@ -335,7 +335,9 @@
       "dispatch_receipt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
       "executor": "human_operator",
       "reported_verdict": "REWORK",
-      "result": "non_accepting_session_not_fresh_schema_valid_findings_preserved_for_bookkeeper_correction",
+      "fresh_context": true,
+      "fresh_context_evidence": "human operator attested /clear followed by /new before executing the review prompt; the Harness does not require a new provider-native Session ID",
+      "result": "schema_valid_fresh_context_REWORK_three_P1_fix_required",
       "recorded_at": "2026-07-21T12:02:59+08:00"
     },
     {
@@ -345,8 +347,92 @@
       "session_id": null,
       "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
       "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md",
-      "result": "three_P1_findings_independently_confirmed_preformal_fix_4_prepared_formal_rework_count_unchanged",
+      "result": "freshness_overstrictness_corrected_REWORK_restored_rework_count_1_fix_4_in_progress",
       "recorded_at": "2026-07-21T12:02:59+08:00"
+    },
+    {
+      "role": "review_1_freshness_bookkeeping_correction",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md",
+      "operator_evidence": "human operator confirmed /clear followed by /new before Kimi review-1",
+      "result": "review_1_REWORK_restored_formal_rework_count_1_no_rerun_required_for_session_id",
+      "recorded_at": "2026-07-21T12:21:18+08:00"
+    },
+    {
+      "role": "implementation_fix",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable: completed receipt states that the execution runtime did not expose a provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
+      "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.dispatch.md",
+      "executor": "human_operator",
+      "result": "fix_4_F1_closed_F2_F3_residual_bookkeeper_fix_5_required",
+      "recorded_at": "2026-07-21T12:49:29+08:00"
+    },
+    {
+      "role": "implementation_fix_intake_audit",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
+      "result": "F1_closed_two_residual_P1_gates_fix_5_prepared_rework_count_unchanged_1",
+      "recorded_at": "2026-07-21T12:54:57+08:00"
+    },
+    {
+      "role": "implementation_fix",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable: completed receipt states that the execution runtime did not expose a provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
+      "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-5.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-5.dispatch.md",
+      "executor": "human_operator",
+      "result": "fix_5_store_count_closed_initial_unloaded_gate_closed_loaded_to_503_residual_fix_6_required",
+      "recorded_at": "2026-07-21T13:25:42+08:00"
+    },
+    {
+      "role": "implementation_fix_intake_audit",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
+      "result": "store_count_closed_one_loaded_to_503_stale_interval_P1_micro_fix_6_prepared_rework_count_unchanged_1",
+      "recorded_at": "2026-07-21T13:34:51+08:00"
+    },
+    {
+      "role": "implementation_fix",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": "358ab38a-1631-4cfa-869b-19ab824ff5b8",
+      "session_id_source": "transcript_path",
+      "session_id_notes": "Claude Code harness session ID verified from the matching transcript path; provider-native GLM Session ID was not separately exposed",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
+      "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.dispatch.md",
+      "executor": "human_operator",
+      "result": "micro_fix_6_loaded_to_503_closed_report_footer_complete",
+      "recorded_at": "2026-07-21T13:52:45+08:00"
+    },
+    {
+      "role": "implementation_fix_intake_audit",
+      "provider": "codex",
+      "model": "gpt",
+      "session_id": null,
+      "session_id_source": "unavailable: current runtime does not expose provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
+      "result": "all_blocking_review_1_and_bookkeeper_findings_closed_ready_for_local_evidence_commit",
+      "recorded_at": "2026-07-21T14:04:00+08:00"
     }
   ],
   "designer": {
@@ -381,7 +467,7 @@
     "provider_identity": "zhipu_glm",
     "model": "glm-5.2[1m]",
     "task_id": "C",
-    "status": "bookkeeper_preformal_correction_4_prepared_waiting_human_dispatch"
+    "status": "review_1_rework_all_blocking_findings_closed_evidence_commit_pending"
   },
   "implementers": [
     {
@@ -416,6 +502,30 @@
       "task_id": "C",
       "round": "bookkeeper-intake-fix-3",
       "report_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation.md"
+    },
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "task_id": "C",
+      "round": "review-1-rework-fix-4",
+      "report_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md"
+    },
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "task_id": "C",
+      "round": "review-1-rework-fix-5",
+      "report_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md"
+    },
+    {
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "task_id": "C",
+      "round": "review-1-rework-micro-fix-6",
+      "report_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md"
     }
   ],
   "reviewer_1": {
@@ -448,11 +558,20 @@
       "head_sha": "61ce536dfba6ddd347586cf324209acdfdc6afd9",
       "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
       "test_evidence": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt",
-      "review_1": null,
+      "review_1": {
+        "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
+        "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
+        "verdict": "REWORK",
+        "json_schema_valid": true,
+        "fresh_session": true,
+        "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
+        "open_p0_p1": 0,
+        "fix_start_prompt_present": true
+      },
       "implementation_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation.md",
       "implementation_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/20-implementation-bookkeeper-audit.md",
-      "fix_prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.prompt.md",
-      "fix_dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.dispatch.md",
+      "fix_prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.prompt.md",
+      "fix_dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.dispatch.md",
       "fix_rounds": [
         {
           "round": "bookkeeper-intake-fix-1",
@@ -476,7 +595,25 @@
           "round": "bookkeeper-preformal-fix-4",
           "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.prompt.md",
           "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.dispatch.md",
-          "result": "prepared_waiting_human_dispatch",
+          "result": "completed_bookkeeper_intake_two_residual_P1",
+          "formal_review_rework_round": 1,
+          "formal_rework_count_incremented": true,
+          "bookkeeping_correction": "The immutable dispatched prompt retains its pre-formal label; operator-attested /clear + /new restores the source review as formal REWORK without changing fix scope."
+        },
+        {
+          "round": "review-1-rework-fix-5-intake-closure",
+          "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-5.prompt.md",
+          "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-5.dispatch.md",
+          "result": "completed_bookkeeper_intake_one_loaded_to_503_residual_P1",
+          "formal_review_rework_round": 1,
+          "formal_rework_count_incremented": false
+        },
+        {
+          "round": "review-1-rework-micro-fix-6",
+          "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.prompt.md",
+          "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.dispatch.md",
+          "result": "completed_bookkeeper_intake_closed",
+          "formal_review_rework_round": 1,
           "formal_rework_count_incremented": false
         }
       ]
@@ -617,6 +754,12 @@
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.prompt.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-5.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-5.dispatch.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.prompt.md",
+    "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.dispatch.md",
     "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/harness-review-verdict-extractor.follow-up.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-real-borrow-execution-v1/03-grok-borrow-api-capacity-recon.md",
@@ -708,7 +851,7 @@
     "schemas/api/borrow-tasks/task.schema.json"
   ],
   "tests": {
-    "status": "review_1_attempt_json_schema_valid_but_nonaccepting_nonfresh_session_three_P1_independently_confirmed_fix_4_prepared",
+    "status": "review_1_REWORK_all_blocking_findings_closed_final_fake_only_verification_passed_evidence_commit_pending_harness_extractor_follow_up_open",
     "commands": [
       "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint",
       "python3 -m json.tool reports/agent-runs/ACTIVE.json",
@@ -764,8 +907,31 @@
       "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase pre-review after committed metadata correction: PASS",
       "bookkeeper robust EOF top-level extraction plus full jsonschema validation: reported REWORK, 5 findings, complete fix_start_prompt, fingerprint match",
       "current extract_last_json_object reproduction: returns last finding object and _parse_review_artifact fails required verdict fields",
-      "Kimi active-session registry verification: reported session exists but state.json.createdAt predates review execution, so fresh-session gate fails",
-      "bookkeeper fixed-head inspection independently confirms F1 stale copy, F2 missing pre-create total/interval, and F3 orphan pending outside due reconciliation"
+      "Kimi active-session registry verification: the on-disk Session ID predates review execution, but the human operator attested /clear followed by /new before dispatch; storage-container age alone does not disprove fresh prompt/tool context",
+      "bookkeeper fixed-head inspection independently confirms F1 stale copy, F2 missing pre-create total/interval, and F3 orphan pending outside due reconciliation",
+      "human operator freshness correction: /clear followed by /new before Kimi review-1 restores fresh-context compliance; formal verdict REWORK and rework_count 1",
+      "python3 -m json.tool on ACTIVE.json and status.json after freshness bookkeeping correction: PASS",
+      "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint after freshness bookkeeping correction: PASS",
+      "git diff --check on the four bookkeeper correction files: clean",
+      "Claude-GLM fix-4 completion: targeted 143 passed; wide 330 passed; full backend 629 passed; frontend self-check passed; py_compile exit 0; git diff --check clean",
+      "bookkeeper independent fix-4 intake: targeted 143 passed; frontend self-check passed; py_compile exit 0",
+      "bookkeeper deterministic temporary-SQLite reproduction: pending orphan count 1 before restart but recovered_orphan_blocker_count path returns 0 after pending-to-unknown recovery",
+      "bookkeeper source audit: createBorrowTask can POST while scheduler settings are absent and preview says current interval unloaded",
+      "python3 -m json.tool on ACTIVE.json and status.json after fix-5 packet preparation: PASS",
+      "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint after fix-5 packet preparation: PASS",
+      "git diff --check after fix-5 packet preparation: clean",
+      "Claude-GLM fix-5 completion: targeted 158 passed; wide 331 passed; full backend 630 passed; frontend self-check 97 items passed; py_compile exit 0; git diff --check clean",
+      "bookkeeper independent fix-5 intake: targeted 158 passed; frontend self-check 97 items passed; py_compile exit 0",
+      "bookkeeper source audit: loadSchedulerSettings catch preserves previously loaded settings, so loaded interval 5 followed by HTTP 503 still permits task POST",
+      "fix-5 report footer audit: required six-line execution footer absent; micro fix-6 must append it without rewriting prior evidence",
+      "python3 -m json.tool on ACTIVE.json and status.json after micro fix-6 packet preparation: PASS",
+      "python3 scripts/validate-stage.py 2026-07-real-borrow-boundary-c-v1 --phase checkpoint after micro fix-6 packet preparation: PASS",
+      "micro fix-6 R11 marker, executor=human_operator, live write=no, loaded-to-503 closure and stop-for-bookkeeper assertions: PASS",
+      "git diff --check after micro fix-6 packet preparation: clean",
+      "Claude-GLM micro fix-6 completion: frontend self-check 97 items passed; store 47 passed; full backend 630 passed; py_compile exit 0; git diff --check clean",
+      "bookkeeper independent final intake: full backend 630 passed; frontend self-check 97 items passed; Harness tests 114 passed; py_compile exit 0; git diff --check clean",
+      "bookkeeper loaded-to-503 audit: failed GET invalidates scheduler settings, preview renders unloaded, create fails closed and task POST delta is zero",
+      "implementer report and fix-6 dispatch six-line runtime footer audit: PASS"
     ]
   },
   "review_1": {
@@ -773,16 +939,16 @@
     "provider": "kimi",
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
-    "fresh_session": false,
+    "fresh_session": true,
     "artifact_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
     "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/review-1-kimi.dispatch.md",
-    "open_p0_p1": 3,
-    "verdict": null,
-    "json_schema_valid": null,
+    "open_p0_p1": 0,
+    "verdict": "REWORK",
+    "json_schema_valid": true,
     "reported_verdict": "REWORK",
     "artifact_json_schema_valid": true,
-    "gate_disposition": "non_accepting_session_not_fresh",
+    "gate_disposition": "REWORK_all_blocking_findings_closed_evidence_commit_pending_harness_extractor_defect_recorded_separately",
     "diff_fingerprint": "61ce536dfba6ddd347586cf324209acdfdc6afd9:449b46378a324fa3c8bdd9ec9425b1e59b7509cb55e6c129d8991322dcb1a984",
     "covers_through_task": "C",
     "reviewer_prior_involvement": "design",
@@ -791,7 +957,9 @@
     "fix_start_prompt_source": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
     "intake_audit_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md",
     "future_retry_required": true,
-    "future_retry_requires_new_provider_session": true,
+    "future_retry_requires_new_provider_session": false,
+    "future_retry_requires_fresh_context": true,
+    "fresh_context_evidence": "human operator attested /clear followed by /new before executing review-1; provider-native Session ID uniqueness is not a Harness requirement",
     "invalid_json_attempts": 0
   },
   "review_2": {
@@ -819,7 +987,7 @@
     "invalid_json_attempts": 0
   },
   "authorized_exceptions": [],
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "implementation_dispatch": {
     "task_id": "C",
@@ -895,16 +1063,53 @@
   "implementation_fix_dispatch_round_4": {
     "task_id": "C",
     "round": "bookkeeper-preformal-fix-4",
+    "formal_review_rework_round": 1,
     "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.prompt.md",
     "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-4.dispatch.md",
     "target_provider": "claude_glm",
     "target_model": "glm-5.2[1m]",
     "executor": "human_operator",
-    "status": "prepared_waiting_human_dispatch",
+    "status": "completed_bookkeeper_intake_two_residual_P1",
     "source_review_artifact": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.md",
-    "source_review_gate_disposition": "non_accepting_session_not_fresh",
+    "source_review_gate_disposition": "REWORK_fix_4_intake_two_residual_P1_fix_5_prepared_harness_extractor_defect_recorded_separately",
     "required_findings": ["F1", "F2", "F3"],
     "optional_findings": ["F4", "F5"],
+    "formal_rework_count_incremented": true,
+    "bookkeeping_correction": "The human operator confirmed /clear + /new before Kimi review-1. The existing provider-native Session ID is a storage/navigation identifier, not proof of reused review context; the already dispatched fix packet remains immutable and its scope is unchanged.",
+    "live_binance_write_authorized": false,
+    "credential_read_authorized": false
+  },
+  "implementation_fix_dispatch_round_5": {
+    "task_id": "C",
+    "round": "review-1-rework-fix-5-intake-closure",
+    "formal_review_rework_round": 1,
+    "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-5.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-5.dispatch.md",
+    "target_provider": "claude_glm",
+    "target_model": "glm-5.2[1m]",
+    "executor": "human_operator",
+    "status": "completed_bookkeeper_intake_one_loaded_to_503_residual_P1",
+    "source_fix_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
+    "source_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
+    "required_findings": ["BK-R1-FIX4-001", "BK-R1-FIX4-002"],
+    "formal_rework_count_incremented": false,
+    "live_binance_write_authorized": false,
+    "credential_read_authorized": false
+  },
+  "implementation_fix_dispatch_round_6": {
+    "task_id": "C",
+    "round": "review-1-rework-micro-fix-6",
+    "formal_review_rework_round": 1,
+    "prompt_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.prompt.md",
+    "dispatch_path": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.dispatch.md",
+    "target_provider": "claude_glm",
+    "target_model": "glm-5.2[1m]",
+    "executor": "human_operator",
+    "status": "completed_bookkeeper_intake_closed",
+    "source_fix_report": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.md",
+    "source_intake_audit": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
+    "required_findings": ["BK-R1-FIX5-001"],
+    "mechanical_requirements": ["append_40_fix_report_execution_footer"],
     "formal_rework_count_incremented": false,
     "live_binance_write_authorized": false,
     "credential_read_authorized": false
@@ -916,6 +1121,83 @@
     "product_fix_dispatch_blocked": false,
     "required_before_next_findings_bearing_formal_review_gate": true,
     "active_stage_harness_edit_authorized": false
+  },
+  "bookkeeping_correction_checkpoint": {
+    "recorded_at": "2026-07-21T12:23:18+08:00",
+    "branch": "stage/2026-07-real-borrow-boundary-c-v1",
+    "head": "b9b64e9038448d494608151ad644e0acd5a21a2e",
+    "git_status": "four bookkeeper files modified and uncommitted; no GLM fix output visible at checkpoint",
+    "changed_files": [
+      "reports/agent-runs/ACTIVE.json",
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/status.json",
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/30-review-1.bookkeeper-intake.md",
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/60-test-output.txt"
+    ],
+    "test_status": "checkpoint validator PASS; JSON valid; scoped diff check clean",
+    "open_findings": ["F1", "F2", "F3", "F4", "F5"],
+    "blocking_findings": ["F1", "F2", "F3"],
+    "blockers": [],
+    "next_action": "wait for human report of Claude-GLM fix-4 completion"
+  },
+  "fix_4_intake_checkpoint": {
+    "recorded_at": "2026-07-21T12:59:29+08:00",
+    "branch": "stage/2026-07-real-borrow-boundary-c-v1",
+    "head": "b9b64e9038448d494608151ad644e0acd5a21a2e",
+    "git_status": "fix-4 source/test/report evidence plus bookkeeper correction and fix-5 packet are uncommitted; no new fingerprint created",
+    "fix_4_changed_source_test_files": [
+      "backend/borrow_tasks/domain.py",
+      "backend/borrow_tasks/store.py",
+      "backend/tests/test_borrow_scheduler.py",
+      "backend/tests/test_borrow_store.py",
+      "frontend/index.html",
+      "frontend/self-check.js"
+    ],
+    "bookkeeper_new_files": [
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/40-fix-report.bookkeeper-audit.md",
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-5.prompt.md",
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-5.dispatch.md"
+    ],
+    "test_status": "GLM full backend 629 passed; bookkeeper targeted 143 passed; frontend self-check and py_compile passed; checkpoint validator passed; git diff --check clean",
+    "closed_findings": ["F1"],
+    "open_findings": ["BK-R1-FIX4-001", "BK-R1-FIX4-002", "F4", "F5"],
+    "blocking_findings": ["BK-R1-FIX4-001", "BK-R1-FIX4-002"],
+    "blockers": [],
+    "next_action": "human operator executes task-C-bookkeeper-fix-5.prompt.md"
+  },
+  "fix_5_intake_checkpoint": {
+    "recorded_at": "2026-07-21T13:38:21+08:00",
+    "branch": "stage/2026-07-real-borrow-boundary-c-v1",
+    "head": "b9b64e9038448d494608151ad644e0acd5a21a2e",
+    "git_status": "fix-4/fix-5 source, tests and reports remain uncommitted; micro fix-6 packet prepared; no new fingerprint created",
+    "fix_5_changed_source_test_files": [
+      "frontend/index.html",
+      "frontend/self-check.js",
+      "backend/borrow_tasks/store.py",
+      "backend/tests/test_borrow_store.py"
+    ],
+    "bookkeeper_new_files": [
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.prompt.md",
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/task-C-bookkeeper-fix-6.dispatch.md"
+    ],
+    "test_status": "GLM full backend 630 passed; bookkeeper targeted 158 passed; frontend self-check 97 items and py_compile passed",
+    "closed_findings": ["BK-R1-FIX4-002", "BK-R1-FIX4-001_initial_unloaded_path"],
+    "open_findings": ["BK-R1-FIX5-001", "F4", "F5"],
+    "blocking_findings": ["BK-R1-FIX5-001"],
+    "blockers": [],
+    "next_action": "human operator executes task-C-bookkeeper-fix-6.prompt.md"
+  },
+  "fix_6_intake_checkpoint": {
+    "recorded_at": "2026-07-21T14:04:00+08:00",
+    "branch": "stage/2026-07-real-borrow-boundary-c-v1",
+    "head_before_evidence_commit": "b9b64e9038448d494608151ad644e0acd5a21a2e",
+    "git_status": "fix-4/fix-5/fix-6 source, tests, reports and bookkeeping are uncommitted; ready for a local stage evidence commit",
+    "test_status": "backend 630 passed; frontend 97 checks passed; Harness 114 passed; py_compile and git diff --check passed",
+    "closed_findings": ["F1", "F2", "F3", "BK-R1-FIX4-001", "BK-R1-FIX4-002", "BK-R1-FIX5-001"],
+    "open_nonblocking_findings": ["F4", "F5"],
+    "blocking_findings": [],
+    "blockers": ["main-only verdict extractor repair and stage sync required before findings-bearing fresh review-1 can be validated"],
+    "next_action": "bookkeeper creates local fix evidence commit and computes new standard fingerprint"
   },
   "blockers": [],
   "human_escalation": {
@@ -932,6 +1214,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "human_operator_executes_task_C_bookkeeper_fix_4_prompt_in_original_claude_glm_terminal_fills_machine_receipt_and_stops_for_bookkeeper_intake",
-  "updated_at": "2026-07-21T12:02:59+08:00"
+  "next_action": "bookkeeper_creates_local_fix_evidence_commit_computes_new_fingerprint_then_routes_main_only_verdict_extractor_repair",
+  "updated_at": "2026-07-21T14:04:00+08:00"
 }
