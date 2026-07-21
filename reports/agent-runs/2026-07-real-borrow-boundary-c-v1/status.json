@@ -7,9 +7,9 @@
     "name": "stage/2026-07-real-borrow-boundary-c-v1",
     "created_from_main_sha": "8cf810d2335d5af08e2ff18181964e5e053e56b9",
     "created_at": "2026-07-20T19:27:29+08:00",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "7d0c92525190610be02cab340a286a8709850cfb",
+    "merge_strategy": "no_ff_merge",
     "abandoned_reason": null
   },
   "harness_sync_exception": {
@@ -1652,6 +1652,15 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "bookkeeper_creates_user_acceptance_checkpoint_and_merges_stage_to_local_main_without_rebase; user_then_restarts_service_after_local_env_alias_configuration; no_real_borrow_or_global_start",
-  "updated_at": "2026-07-21T23:27:09+08:00"
+  "post_merge_online_acceptance": {
+    "merge_commit": "7d0c92525190610be02cab340a286a8709850cfb",
+    "merged_at": "2026-07-21T23:29:16+08:00",
+    "service_restart_by": "user",
+    "required_env_names_user_configures": ["APP_BORROW_EXECUTOR=live", "BINANCE_BORROW_API_KEY=${BINANCE_API_KEY}", "BINANCE_BORROW_API_SECRET=${BINANCE_API_SECRET}"],
+    "preflight_before_task_deletion": ["healthz and readyz", "borrow execution status", "enumerate exact borrow-task targets"],
+    "real_binance_borrow_authorized": false,
+    "global_start_authorized": false
+  },
+  "next_action": "user_restarts_local_service_after_env_alias_configuration_then_bookkeeper_reads_new_execution_and_task_apis_before_authorized_task_deletion; no_real_borrow_or_global_start",
+  "updated_at": "2026-07-21T23:29:16+08:00"
 }

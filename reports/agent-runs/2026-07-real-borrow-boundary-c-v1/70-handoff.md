@@ -2,10 +2,11 @@
 
 ## Recovery Header
 
-- Active phase: `release_authorized_pending_local_main_merge`.
-- Next action: bookkeeper records the user acceptance checkpoint and merges the
-  stage into local `main` without rebase. The user will then add non-secret
-  variable references in `.env` and restart the service.
+- Active phase: `merged_to_local_main_pending_user_service_restart`.
+- Local no-rebase merge complete: `7d0c92525190610be02cab340a286a8709850cfb`.
+- Next action: the user adds non-secret variable references plus
+  `APP_BORROW_EXECUTOR=live` in `.env` and restarts the service. Bookkeeper
+  then performs read-only online preflight before task deletion.
 - Read-set: = `status.current_inputs`.
 - Do-not-read: credentials, `.env`, expanded alias environment,
   `reports/agent-runs/**/history/**`, and unrelated stages.
@@ -18,8 +19,8 @@
   an invented `Review-2 ACCEPT` verdict.
 - The user, not the bookkeeper, will configure
   `BINANCE_BORROW_API_KEY="${BINANCE_API_KEY}"` and the corresponding secret
-  reference in `.env`, then restart the service. No `.env` or credential is
-  read or edited by the bookkeeper.
+  reference plus `APP_BORROW_EXECUTOR=live` in `.env`, then restart the
+  service. No `.env` or credential is read or edited by the bookkeeper.
 - Before deleting tasks or considering live operation, inspect the new service
   read-only. The global Start gate and any real Binance borrow remain disabled
   until an explicit later user action.
