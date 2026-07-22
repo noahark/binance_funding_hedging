@@ -186,12 +186,12 @@ def test_settings_get_default_then_put_fractional(validators, tmp_path):
         assert status == 200
         settings = _json(payload)
         validators["scheduler-settings"].validate(settings)
-        assert settings["interval_seconds"] == "5"
-        assert settings["interval_us"] == 5_000_000
+        assert settings["interval_seconds"] == "1"
+        assert settings["interval_us"] == 1_000_000
         assert settings["round_robin_cursor"] is None
         assert settings["global_cooldown_until"] is None
 
-        # A fractional interval at/above the frozen 2-second floor is accepted.
+        # A fractional interval at/above the 0.1-second floor is accepted.
         body, ctype = _post_json({"interval_seconds": "2.5"})
         status, _, payload = _req(
             host, port, "PUT", "/api/borrow-scheduler-settings", body=body, content_type=ctype
@@ -203,7 +203,7 @@ def test_settings_get_default_then_put_fractional(validators, tmp_path):
         assert updated["interval_us"] == 2_500_000
 
         # A sub-floor fractional value is rejected at the backend authority.
-        body, ctype = _post_json({"interval_seconds": "0.5"})
+        body, ctype = _post_json({"interval_seconds": "0.05"})
         status, _, payload = _req(
             host, port, "PUT", "/api/borrow-scheduler-settings", body=body, content_type=ctype
         )
@@ -295,7 +295,7 @@ _STATIC_ERROR_CASES = [
     ("invalid_interval_zero", "PUT", "/api/borrow-scheduler-settings",
      json.dumps({"interval_seconds": "0"}), "application/json", 400, "invalid_interval"),
     ("invalid_interval_sub_floor", "PUT", "/api/borrow-scheduler-settings",
-     json.dumps({"interval_seconds": "0.5"}), "application/json", 400, "invalid_interval"),
+     json.dumps({"interval_seconds": "0.05"}), "application/json", 400, "invalid_interval"),
     ("invalid_cursor_garbage", "GET", "/api/borrow-logs?cursor=!!!", None, None, 400, "invalid_cursor"),
     ("invalid_limit_zero", "GET", "/api/borrow-logs?limit=0", None, None, 400, "invalid_limit"),
     ("unknown_task_pause", "POST", "/api/borrow-tasks/no-such-task/pause", None, None, 404, "unknown_task"),

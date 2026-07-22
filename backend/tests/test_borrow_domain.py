@@ -19,9 +19,14 @@ from backend.borrow_tasks import domain as D
     [
         ("5", 5_000_000),
         ("3", 3_000_000),
-        ("2", 2_000_000),         # frozen 2-second capacity floor (inclusive)
+        ("2", 2_000_000),
         ("2.0", 2_000_000),
-        ("2.5", 2_500_000),       # fractional but at/above the floor
+        ("2.5", 2_500_000),
+        ("1", 1_000_000),            # default value
+        ("0.5", 500_000),            # above 0.1s floor
+        ("0.1", 100_000),            # at the floor (inclusive)
+        ("1.5", 1_500_000),
+        ("1.999", 1_999_000),
         ("100", 100_000_000),
     ],
 )
@@ -35,8 +40,8 @@ def test_parse_interval_accepts_positive_decimals(value, expected_us):
     "value",
     [
         "0", "-1", "0.0", "0.0000001", "0.0000015", "abc", "", "1e3", " 1", "1 ",
-        # sub-floor cadences are rejected (Boundary C §3.5 frozen 2s floor)
-        "0.5", "1", "1.5", "1.999", "0.000001",
+        # sub-floor cadences are rejected (floor is 0.1s)
+        "0.09", "0.000001",
     ],
 )
 def test_parse_interval_rejects_invalid_strings(value):
@@ -47,11 +52,11 @@ def test_parse_interval_rejects_invalid_strings(value):
 
 
 def test_parse_interval_floor_boundary():
-    # The frozen shared-IP capacity floor is 2 seconds: 2 and 2.0 pass, every
-    # sub-2 value (including 1.999 and 0.5) fails with invalid_interval.
+    # The floor is 0.1 seconds: 0.1 and above pass, anything below fails.
+    assert D.parse_interval_seconds("0.1") == ("0.1", 100_000)
+    assert D.parse_interval_seconds("1") == ("1", 1_000_000)
     assert D.parse_interval_seconds("2") == ("2", 2_000_000)
-    assert D.parse_interval_seconds("2.0") == ("2.0", 2_000_000)
-    for sub_floor in ("1.999", "0.5", "1", "1.5"):
+    for sub_floor in ("0.09", "0.05", "0.000001"):
         with pytest.raises(D.BorrowError) as exc:
             D.parse_interval_seconds(sub_floor)
         assert exc.value.code == "invalid_interval"

@@ -109,20 +109,18 @@ COALESCEABLE_FAILURE_CATEGORIES = frozenset({
     RESULT_EXECUTION_DISABLED,
 })
 
-# Seed scheduler row (breakdown §3.5): one global frequency default of 5s.
-DEFAULT_INTERVAL_SECONDS = "5"
-DEFAULT_INTERVAL_US = 5_000_000
+# Seed scheduler row (breakdown §3.5): one global frequency default of 1s.
+DEFAULT_INTERVAL_SECONDS = "1"
+DEFAULT_INTERVAL_US = 1_000_000
 
-# Boundary C §3.5 / 12-development-breakdown.md:514,545-553: the scheduler
-# interval is an exchange-capacity constraint, not a product throughput promise.
-# The archived POST weight is 100 and the shared per-IP budget is 6000/min;
-# reserving half for reads/reconciliation freezes the floor at 2 seconds:
-#   ceil(60 / (0.5 * 6000 / 100)) = 2.
-# The parser enforces it as the product minimum so a sub-floor cadence cannot
-# risk a shared-IP 429/418 ban that would also take down the read-only snapshot
-# channel. The default stays 5 seconds.
-MIN_INTERVAL_SECONDS = Decimal("2")
-MIN_INTERVAL_US = 2_000_000
+# Boundary C §3.5: the scheduler interval floor is set to 0.1 seconds.
+# The exchange-capacity math (POST weight 100, shared-IP budget 6000/min,
+# half reserved for reads) originally froze the floor at 2 s, but the
+# operator has chosen to lower it to 0.1 s for higher-frequency use cases.
+# Callers must ensure their actual cadence does not breach exchange rate
+# limits (429/418); the product no longer enforces the capacity floor.
+MIN_INTERVAL_SECONDS = Decimal("0.1")
+MIN_INTERVAL_US = 100_000
 
 # HTTP body cap and log page bounds (breakdown §3.6 / §3.7).
 BODY_MAX_BYTES = 16384
@@ -219,7 +217,7 @@ def parse_interval_seconds(value):
         raise BorrowError(
             400,
             "invalid_interval",
-            "interval_seconds must be >= 2 (frozen shared-IP capacity floor)",
+            "interval_seconds must be >= 0.1",
         )
     return value, int(truncated)
 

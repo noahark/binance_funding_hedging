@@ -107,8 +107,8 @@ def test_restart_preserves_unknown_outcome_block(tmp_path):
 def test_settings_default_seed(tmp_path):
     s = _store(tmp_path)
     st = s.get_settings()
-    assert st["interval_seconds"] == "5"
-    assert st["interval_us"] == 5_000_000
+    assert st["interval_seconds"] == "1"
+    assert st["interval_us"] == 1_000_000
     assert st["round_robin_cursor"] is None
     assert st["global_cooldown_until_us"] is None
     assert st["version"] == 1
