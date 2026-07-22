@@ -61,6 +61,25 @@ design time.
   them from production): perp `@bookTicker` real JSON (confirm `e`/`E`/`T`);
   spot `@depth5@100ms` `E` presence; perp host `/public` migration.
 
+**DECISION LOCKED (2026-07-22, user) — this is the smooth-open time-gate ADR.**
+- **Option B chosen.** Spot `@bookTicker` (realtime) + **local-receive
+  timestamp**; perp `@bookTicker` + **exchange `E`/`T`**. Gate:
+  `|E_perp − t_spot_local| ≤ 200ms`. This cross-leg check already rejects a
+  stale perp push (old `E_perp` → large gap) — the intended defense — so no
+  separate perp-staleness rule is strictly required, though a per-leg
+  `now_local − E_perp` check may be added as belt-and-suspenders.
+- **Perp `@bookTicker` carries `E`/`T`: confirmed by the user from production
+  use.** Closes the changelog-inferred open item; no separate real sample
+  needed for this.
+- **Perp WS host `/public` is already in use in the user's code** (old `/ws`
+  retired): confirmed.
+- **Config to bake into the design:** NTP / Binance `serverTime` calibration +
+  monitor & log the local-vs-server clock offset, so `t_spot_local` and
+  `E_perp` share one clock and drift is detected rather than silently skewing
+  the 200ms gate.
+- Option A (depth5 exchange-E) is **not** taken; `depth5`-carries-`E` is parked,
+  not a blocker.
+
 ## DI-2: Safety model — carry Boundary C posture
 Dry-run/disabled executor default; `APP_HEDGE_EXECUTOR=live` gate; durable
 SQLite; global Start; read-only preflight. (From intake; listed here so design

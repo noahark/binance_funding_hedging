@@ -49,14 +49,13 @@
       "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/api-recon-websocket.prompt.md",
       "delegated_to": "Sonnet 4.6 (user-delegated)",
       "executor": "human_operator",
-      "status": "completed_with_open_items",
+      "status": "completed_decisions_locked",
       "result_path": "reports/api-samples/2026-07-hedge-open-live-v1/websocket-bookticker-recon.md",
-      "key_findings": "spot @bookTicker has NO E/T timestamp (official sample, confirmed); perp @bookTicker E/T inferred from changelog (needs real-sample confirmation); perp host migrated to /public (old /ws reportedly retired 2026-04-23); recommends spot @depth5@100ms (has E) + perp @bookTicker, gate |E_perp - E_spot| <= 150ms (both exchange E)",
-      "open_items_for_bookkeeper_or_user": [
-        "CONFLICT vs user DI-1: Sonnet recommends both-legs exchange-E (spot via depth5@100ms), whereas the user's chosen policy is spot=local-recv / perp=exchange-E to defend against stale perp pushes. Both defend against perp staleness; decision needed on spot stream (bookTicker realtime+local-ts vs depth5@100ms+exchange-E). See DI-1.",
-        "perp @bookTicker E/T presence is changelog-inferred, not a real sample; user likely already knows from production use — confirm",
-        "spot @depth5@100ms E-field presence unconfirmed (gates Sonnet's recommended option)",
-        "perp WS host migration date (2026-04-23 /ws retirement) to cross-verify against current code"
+      "key_findings": "spot @bookTicker has NO E/T (official sample, confirmed); perp @bookTicker carries E/T (user-confirmed from production); perp host /public in use (user-confirmed)",
+      "decisions_locked_2026_07_22_user": [
+        "Option B: spot @bookTicker realtime + local-receive timestamp; perp @bookTicker + exchange E/T; smooth-open gate |E_perp - t_spot_local| <= 200ms (inherently rejects stale perp). See design-inputs DI-1 DECISION LOCKED.",
+        "Config to design: NTP/serverTime calibration + clock-offset monitoring so t_spot_local and E_perp share one clock.",
+        "Option A (spot depth5 exchange-E) not taken; depth5-E presence parked, not a blocker."
       ]
     },
     "order_endpoint_and_filters_recon": {
