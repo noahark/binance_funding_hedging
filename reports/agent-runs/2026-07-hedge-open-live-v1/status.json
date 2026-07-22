@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-live-v1",
-  "status": "fixing",
+  "status": "review_1",
   "rework_count": 1,
   "review_1_round_1": {
     "hedge_fe": "ACCEPT (Claude-GLM, 1 P3 benign)",
@@ -14,8 +14,9 @@
   },
   "workflow": "stage-delivery",
   "base_sha": "6639b0025682f406f9a726104ef8d3b9e6f8fadd",
-  "head_sha": "b773a470de62053207b85e58148bbf7c285026fd",
-  "diff_fingerprint": "b773a470de62053207b85e58148bbf7c285026fd:d904f8f08e787a238dac2cf1790a01fca03279e7c213c4d429b6a6f61857bd28",
+  "head_sha": "bd01eb52e9ec5464bb9f026f5ce666bc883db441",
+  "diff_fingerprint": "bd01eb52e9ec5464bb9f026f5ce666bc883db441:48b8545d53b607c4ce1f396e0f76e81bc1c95d2cae9147aad695d2933278e22b",
+  "prev_head_sha_round1": "b773a470de62053207b85e58148bbf7c285026fd",
   "first_round_scope": "immediate-open only (1 fill/sec, no websocket); smooth-open (ws basis gate + clock calibration) deferred to the next round. Both rounds are dry-run record transport; real orders need later APP_HEDGE_EXECUTOR=live authorization.",
   "r4_reconciliation": {
     "status": "passed_after_hedge_fe_r4_fix_1",
@@ -85,7 +86,16 @@
         "next_dispatch_executor": "human_operator",
         "verdict": "REWORK",
         "findings_summary": "F-001(P1) ?status=all excludes deleted (§3.1 seam break); F-002(P2) mode=smooth accepted+dispatched; 4 P3 = live-round follow-ups",
-        "fix_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-fix-1.prompt.md"
+        "fix_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-fix-1.prompt.md",
+        "fix_report_path": "reports/agent-runs/2026-07-hedge-open-live-v1/40-fix-1-hedge-be.md",
+        "fix_head_sha": "bd01eb52e9ec5464bb9f026f5ce666bc883db441",
+        "round_2": {
+          "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.prompt.md",
+          "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.dispatch.md",
+          "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be-round-2.md",
+          "reviewer_provider": "kimi",
+          "verdict": null
+        }
       },
       "next_dispatch_executor": "human_operator",
       "r10_checklist": {
