@@ -2,7 +2,12 @@
 
 ## Recovery Header
 
-- Active phase: `dispatch_ready_waiting_human_dispatch`.
+- Active phase: `review_1_packets_prepared_waiting_human_dispatch`.
+- Both parallel tasks implemented (hedge-be Claude-GLM: pytest 785; hedge-fe
+  Kimi: self-check 108). R4 reconciliation: boundaries clean, one finding R4-001
+  (single_amount number→decimal-string) fixed via hedge-fe R4-fix-1, R4 re-check
+  PASS. Evidence head `b773a470` (base `6639b002`), fingerprint recorded,
+  pre-review validator PASS.
 - Both recon reports done and archived under
   `reports/api-samples/2026-07-hedge-open-live-v1/` (websocket → Sonnet;
   order-endpoints/filters → GPT); decisions locked into DI-1 (option B) and DI-4.
@@ -13,15 +18,18 @@
 - This is stage 2 of the hedge program: the **live backend open executor**.
   Direction is frozen (three-stage discussion + accepted stage-1 contracts);
   classification HIGH + user-approved lightweight route (no direction panel).
-- Next action: user approved the design + frozen contract. Parallel dispatch
-  packets prepared and `--phase dispatch-ready` PASS. The human operator
-  dispatches both prompts (`task-hedge-be-claude-glm.prompt.md` via claude-glm,
-  `task-hedge-fe-kimi.prompt.md` via kimi); each writes
-  `20-implementation-<task>.md` + appends `60-test-output.txt` and stops. Then
-  the bookkeeper does R4 diff reconciliation, serial evidence commits +
-  fingerprints, and review-1 (hedge-be→Kimi, hedge-fe→Claude-GLM). Real orders
-  remain gated (dry-run default; live needs `APP_HEDGE_EXECUTOR=live` + global
-  Start + human first task, after review).
+- Next action: human operator dispatches the two cross-review-1 packets —
+  hedge-be→Kimi (`review-1-hedge-be-kimi.prompt.md`), hedge-fe→Claude-GLM
+  (`review-1-hedge-fe-claude-glm.prompt.md`), each fresh + read-only, saving raw
+  output to `30-review-1-<task>.md`. Bookkeeper intakes each verdict; on both
+  ACCEPT → review-2 (Codex first, else Claude fallback with disclosure); any
+  REWORK → route the reviewer `fix_start_prompt` to that task's implementer.
+  Real orders remain gated (dry-run default; live needs `APP_HEDGE_EXECUTOR=live`
+  + global Start + human first task, after review).
+- Note: the unrelated untracked `scripts/check_symbol_mismatch.py` (a user tool,
+  not this stage's) was moved to scratchpad to satisfy the clean-worktree gate;
+  awaiting the user's decision on its home (commit to main / gitignore / keep in
+  scratchpad).
 - Read-set: `00-intake.md`, `api-recon-websocket.prompt.md`, `status.json`, and
   the stage-1 contracts (`reports/agent-runs/2026-07-hedge-open-fake-ui-v1/`
   `{10-design.md,11-adr.md,00-task.md}`).
