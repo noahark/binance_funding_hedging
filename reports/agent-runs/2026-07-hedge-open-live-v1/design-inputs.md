@@ -10,32 +10,29 @@ review gates run.
 `<symbol>@bookTicker` does not return `E`/`T` event timestamps, whereas USDⓈ-M
 perp `bookTicker` does.
 
-**User's existing solution (2026-07-22).** On receiving a spot push, stamp the
-**local receive time** into `E`/`T` so the spot message has the same shape as
-the perp message; use it for price-freshness checks. Structural uniformity is
-good and is retained.
+**User's decision (2026-07-22, FINAL — carries into ADR).** Stamp **local
+receive time** into spot `E`/`T` (spot has no exchange timestamp); keep the
+perp's **exchange-native `E`/`T`**. Same message shape downstream, but different
+provenance by design: `spot = local-recv`, `perp = exchange`.
 
-**Bookkeeper/designer refinement to settle at design time.** The
-smooth-open gate has TWO distinct time uses; they should not share one field
-blindly:
+**Rationale (real production failure).** The perp websocket has been observed
+pushing **stale prices — seconds to ~1 minute old**. Using the perp's exchange
+`E` makes such stale data FAIL the ≤200ms gate (`spot-local − old perp-E` = a
+large gap), which is exactly the intended defense. Stamping *local receive
+time* on the perp leg would DEFEAT this — a 1-minute-old price stamped "now"
+looks fresh and would pass. So the earlier "both-legs-local-receive" idea is
+**withdrawn**. The ≤200ms gate thus does double duty in one check: perp
+staleness + rough cross-leg alignment.
 
-1. **Cross-leg alignment** (`|t_spot − t_perp| <= 200ms`, the "期现延迟" gate):
-   this must compare same-reference-frame times. If spot uses *local receive
-   time* but perp uses the *exchange event time* `E` (server-emit time), the two
-   are not同源 — the difference then absorbs network latency + clock skew rather
-   than the true spot-vs-perp generation gap. Recommendation: for cross-leg
-   alignment, stamp a **local receive time on BOTH legs** and compare those;
-   this measures "how close together the two books actually arrived here", which
-   is the real synchronization signal.
-2. **Per-leg staleness** (is one book too old?): use the **exchange** timestamp
-   where available (perp `E`/`T`): `now_local − E_perp`. Spot has no exchange
-   timestamp, so spot staleness can only be approximated by local
-   receive-interval.
-
-**Net:** keep the uniform `E`/`T` shape, but make the field's provenance
-explicit (`spot: local-recv`, `perp: exchange`), and drive the 200ms cross-leg
-gate off a **both-legs-local-receive** timestamp. Confirm with the user at
-design time; then record as an ADR.
+**Completion point to settle at design (not a reversal).** Because the gate
+subtracts spot-local from perp-exchange-`E` directly, it implicitly assumes the
+**local clock is aligned with Binance's server clock**; a fixed clock skew leaks
+straight into the 200ms judgment (a drifting clock would make the gate
+always-pass or always-fail). Mitigation to bake into the design: keep NTP
+synced, optionally calibrate against Binance server time (`/time` / serverTime),
+and **monitor + log the local-vs-server offset** so clock drift is detected
+rather than silently skewing the gate. Record the whole DI-1 as an ADR at
+design time.
 
 ## DI-2: Safety model — carry Boundary C posture
 Dry-run/disabled executor default; `APP_HEDGE_EXECUTOR=live` gate; durable
