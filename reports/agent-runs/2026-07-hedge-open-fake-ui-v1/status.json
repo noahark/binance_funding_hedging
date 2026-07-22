@@ -4,8 +4,8 @@
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "base_sha": "46ea46f6caacf78dca4ef5345f60518c77d6e378",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "78475d69bd8756e2128bbcc6510eaca00713529c",
+  "diff_fingerprint": "78475d69bd8756e2128bbcc6510eaca00713529c:7492ed9921af11d69cf773650c7b7869e654ae756c034db1ccf8baaa8f3cf52a",
   "complexity": {
     "classification": "MEDIUM",
     "direction_panel_required": false,
@@ -140,6 +140,16 @@
       "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.prompt.md",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.dispatch.md",
       "next_dispatch_executor": "human_operator",
+      "base_sha": "46ea46f6caacf78dca4ef5345f60518c77d6e378",
+      "head_sha": "78475d69bd8756e2128bbcc6510eaca00713529c",
+      "diff_fingerprint": "78475d69bd8756e2128bbcc6510eaca00713529c:7492ed9921af11d69cf773650c7b7869e654ae756c034db1ccf8baaa8f3cf52a",
+      "review_1": {
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.dispatch.md",
+        "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.prompt.md",
+        "reviewer_provider": "claude_glm",
+        "next_dispatch_executor": "human_operator",
+        "verdict": null
+      },
       "r10_checklist": {
         "self_test_commands": ["node frontend/self-check.js"],
         "artifact_paths": {
