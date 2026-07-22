@@ -35,6 +35,9 @@ Base path `/api/hedge-open-*`. All list/among JSON uses these exact field names.
 
 ### 3.1 Endpoints
 - `POST /api/hedge-open-tasks` body `{coin, direction, mode, single_amount, target_n}`
+  — **`single_amount` is a decimal STRING** `^[0-9]+(\.[0-9]+)?$` (money precision;
+  post the raw user-entered string, never `Number(...)`); `target_n` is an
+  integer; `mode="immediate"` this round. (R4-001 contract amendment 2026-07-23.)
   → `201` Task JSON. Preflight runs here; insufficient balance → `400`
   `{error:"insufficient_balance", direction, required, available}` (FE shows the
   stage-1 modal copy `正向开单 USDT 余额不足` / `反向开单现货余额不足`). Other
