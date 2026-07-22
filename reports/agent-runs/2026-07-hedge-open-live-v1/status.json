@@ -1,0 +1,59 @@
+{
+  "stage_id": "2026-07-hedge-open-live-v1",
+  "status": "planned",
+  "workflow": "stage-delivery",
+  "dispatch_protocol": "human-operator/v1",
+  "complexity": {
+    "classification": "HIGH",
+    "direction_panel_required": false,
+    "lightweight_route_user_approved": true,
+    "evaluator": { "provider": "claude", "model": "opus4.8", "role": "bookkeeper" }
+  },
+  "stage_branch": {
+    "name": "stage/2026-07-hedge-open-live-v1",
+    "created_from_main_sha": "4253889c838baa67aa441807588df426a4db8c9d",
+    "created_at": "2026-07-22T21:40:33+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "claude-opus-4-8",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "session_role": "bookkeeper",
+    "also_implementer": false
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "candidate": true,
+    "note": "Likely a backend(Claude-GLM) + frontend(Kimi) split; decide at design/breakdown time whether the two tasks are disjoint and interface-frozen enough to parallelize."
+  },
+  "direction_source": {
+    "frozen_by": [
+      "2026-07-22 three-stage requirement discussion",
+      "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/{10-design.md,11-adr.md,00-task.md}",
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1 (safety model)"
+    ]
+  },
+  "human_gates": [
+    "real funds; no real Binance order, no production execution websocket, no credential access, no push authorized by intake",
+    "APP_HEDGE_EXECUTOR=live + global Start + first real task are human-only actions after implementation and review",
+    "order endpoint/filters/stream-format contract changes must be grounded in real public API samples under reports/api-samples/"
+  ],
+  "pending_before_design": {
+    "websocket_recon": {
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/api-recon-websocket.prompt.md",
+      "delegated_to": "user-delegated external model (sonnet/opus)",
+      "executor": "human_operator",
+      "status": "prompt_prepared_waiting_recon_result",
+      "result_archive_target": "reports/api-samples/2026-07-hedge-open-live-v1/"
+    },
+    "order_endpoint_and_filters_recon": "still needed (papi spot margin market + UM perp market endpoints/params + exchange filters); separate recon",
+    "first_round_scope": "smooth+immediate together vs immediate-first — confirm at design time"
+  },
+  "notes": "Stage 2 of the hedge program: live backend open executor. Direction frozen by the three-stage discussion + accepted stage-1 contracts; HIGH + user-approved lightweight route (no direction panel). Safety modeled on Boundary C (dry-run default, APP_HEDGE_EXECUTOR=live gate, durable SQLite, global Start, read-only preflight). Currently: intake done, awaiting websocket + order-endpoint recon facts before stage design."
+}

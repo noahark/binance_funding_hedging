@@ -1,6 +1,12 @@
 {
-  "active": null,
+  "active": {
+    "stage_id": "2026-07-hedge-open-live-v1",
+    "phase": "intake_done_recon_pending",
+    "handoff": "reports/agent-runs/2026-07-hedge-open-live-v1/70-handoff.md",
+    "note": "Stage 2 of the hedge program: live backend open executor. Direction frozen by the 2026-07-22 three-stage discussion + accepted stage-1 contracts; HIGH + user-approved lightweight route (no direction panel). Safety modeled on Boundary C (dry-run default, APP_HEDGE_EXECUTOR=live gate, durable SQLite, global Start, read-only preflight). Branch created from main 4253889. Next: human operator delegates api-recon-websocket.prompt.md to an external model for real Binance spot + USDⓈ-M perp order-book stream facts; bookkeeper archives to reports/api-samples/2026-07-hedge-open-live-v1/ then writes stage design. Order-endpoint/filters recon is a separate follow-up. No real order/websocket/credential/push authorized yet.",
+    "updated_at": "2026-07-22T21:40:33+08:00"
+  },
   "last_completed": "2026-07-hedge-open-fake-ui-v1",
-  "note": "Fixed-path active-stage pointer. Stage 1 (hedge-open-fake-ui-v1, front-end fake prototype) was accepted under an explicit user release that waived formal review-2 (Codex + Fable5 out of quota; fresh Opus4.8 declined since it backs the bookkeeper session) on review-1 (Claude-GLM) ACCEPT + green validator + zero-risk fake surface; see 80-user-acceptance.md. No-ff merged to LOCAL main at 1aee0fe (merge recorded at 59343f1); NOT pushed. Next: stage 2 = stage/2026-07-hedge-open-live-v1 (live backend open executor) — a real-funds MILESTONE, currently in technical-design confirmation with the user BEFORE its branch + intake are created; nothing real (order/websocket/credential/push) is authorized yet. Separately, Boundary C operator follow-up (user sets APP_BORROW_EXECUTOR=live + restart, then read-only preflight before task deletion) is still pending and tracked in reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md.",
-  "updated_at": "2026-07-22T21:24:21+08:00"
+  "note": "Fixed-path active-stage pointer. Stage 1 (hedge-open-fake-ui-v1, front-end fake) was accepted under an explicit user release that waived formal review-2 (Codex + Fable5 out of quota; fresh Opus4.8 declined since it backs the bookkeeper session) on review-1 (Claude-GLM) ACCEPT + green validator + zero-risk fake surface; no-ff merged to LOCAL main at 1aee0fe (recorded 59343f1), NOT pushed. Separately, Boundary C operator follow-up (APP_BORROW_EXECUTOR=live restart + read-only preflight before task deletion) is still pending, tracked in reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md.",
+  "updated_at": "2026-07-22T21:40:33+08:00"
 }
