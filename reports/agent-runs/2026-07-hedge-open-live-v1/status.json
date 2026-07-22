@@ -1,7 +1,8 @@
 {
   "stage_id": "2026-07-hedge-open-live-v1",
-  "status": "planned",
+  "status": "designing",
   "workflow": "stage-delivery",
+  "first_round_scope": "immediate-open only (1 fill/sec, no websocket); smooth-open (ws basis gate + clock calibration) deferred to the next round. Both rounds are dry-run record transport; real orders need later APP_HEDGE_EXECUTOR=live authorization.",
   "dispatch_protocol": "human-operator/v1",
   "complexity": {
     "classification": "HIGH",

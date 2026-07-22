@@ -2,18 +2,23 @@
 
 ## Recovery Header
 
-- Active phase: `intake_done_recon_pending`.
+- Active phase: `round1_design_draft_ready_for_user_review`.
+- Both recon reports done and archived under
+  `reports/api-samples/2026-07-hedge-open-live-v1/` (websocket → Sonnet;
+  order-endpoints/filters → GPT); decisions locked into DI-1 (option B) and DI-4.
+- Round-1 scope = immediate open only (1 fill/sec, no websocket), dry-run record
+  transport. Design draft written: `00-task.md`, `10-design.md`, `11-adr.md`.
 - Stage branch: `stage/2026-07-hedge-open-live-v1`, created from main
   `4253889c838baa67aa441807588df426a4db8c9d`. Not merged back.
 - This is stage 2 of the hedge program: the **live backend open executor**.
   Direction is frozen (three-stage discussion + accepted stage-1 contracts);
   classification HIGH + user-approved lightweight route (no direction panel).
-- Next action: the human operator delegates the websocket recon prompt
-  (`api-recon-websocket.prompt.md`) to an external model (sonnet/opus) and
-  returns the raw result; the bookkeeper archives it under
-  `reports/api-samples/2026-07-hedge-open-live-v1/`, then writes stage design.
-  Order-endpoint/filters recon is a separate follow-up before the executor is
-  designed.
+- Next action: user reviews the round-1 design draft (`00-task.md`,
+  `10-design.md`, `11-adr.md`). After the user approves/adjusts, the bookkeeper
+  writes `12-development-breakdown.md` and prepares the backend (Claude-GLM) +
+  frontend (Kimi) dispatch, deciding parallel mode once the API + Task/Fill JSON
+  are frozen. Real orders remain gated (dry-run default; live needs
+  `APP_HEDGE_EXECUTOR=live` + global Start + human first task, after review).
 - Read-set: `00-intake.md`, `api-recon-websocket.prompt.md`, `status.json`, and
   the stage-1 contracts (`reports/agent-runs/2026-07-hedge-open-fake-ui-v1/`
   `{10-design.md,11-adr.md,00-task.md}`).
