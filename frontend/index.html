@@ -704,6 +704,65 @@
       line-height: 1.4;
     }
 
+    /* 开单操作列（fake 原型）：复用借币输入控件布局 */
+    .hedge-op-cell { white-space: normal; }
+    .hedge-op-cell .borrow-op-inputs input { width: 110px; }
+    /* 推荐方向高亮：仅视觉推荐，另一方向保持可点（ADR-3） */
+    .btn.hedge-reco {
+      border-color: #a8dbc0;
+      background: var(--success-soft);
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    /* 开单任务卡假盘口块 */
+    .hedge-book-lines {
+      display: grid;
+      gap: 2px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* 开单余额不足弹框（fake） */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 24, 39, 0.45);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+      z-index: 110;
+    }
+    .modal-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -46%);
+      min-width: 320px;
+      max-width: 90vw;
+      padding: var(--space-4);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+      z-index: 111;
+    }
+    .modal.open {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, -50%);
+    }
+    .modal h3 { margin: 0 0 var(--space-2); font-size: 15px; }
+    .modal .modal-body { margin: 0 0 var(--space-4); font-size: 13px; color: var(--muted); }
+    .modal .modal-actions { display: flex; justify-content: flex-end; }
+
     /* 借币任务列表 */
     .borrow-task-list {
       display: grid;
@@ -882,6 +941,13 @@
           借币任务
           <span class="badge compact nav-count" id="borrow-task-count">0</span>
         </button>
+        <button class="nav-button" id="nav-hedge-tasks">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M7 17 17 7M7 7h4M7 7v4M17 17h-4M17 17v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          开单任务
+          <span class="badge compact nav-count" id="hedge-task-count">0</span>
+        </button>
       </nav>
 
     </aside>
@@ -996,8 +1062,8 @@
               <thead>
                 <tr>
                   <th>标的</th>
-                  <th title="约 60 秒刷新；失败时 last-good 最多约两个周期（默认 120 秒）后停用；非成交保证。stale=数据超过可用窗口；incomplete=部分价格缺失。">正向开单</th>
-                  <th title="约 60 秒刷新；失败时 last-good 最多约两个周期（默认 120 秒）后停用；非成交保证。stale=数据超过可用窗口；incomplete=部分价格缺失。">反向开单</th>
+                  <th title="约 60 秒刷新；失败时 last-good 最多约两个周期（默认 120 秒）后停用；非成交保证。stale=数据超过可用窗口；incomplete=部分价格缺失。">正向开单率</th>
+                  <th title="约 60 秒刷新；失败时 last-good 最多约两个周期（默认 120 秒）后停用；非成交保证。stale=数据超过可用窗口；incomplete=部分价格缺失。">反向开单率</th>
                   <th title="本周期实时预估">资金费率</th>
                   <th>结算时间</th>
                   <th title="按结算间隔年化">日费率</th>
@@ -1008,6 +1074,8 @@
                   <th title="扣除借币成本后的净收益">日净收益</th>
                   <th>借贷状态 / 资产</th>
                   <th>借币</th>
+                  <th title="本地 fake 开单：仅写入浏览器 localStorage，不发请求、不触碰真实账户">正向开单</th>
+                  <th title="本地 fake 开单：仅写入浏览器 localStorage，不发请求、不触碰真实账户">反向开单</th>
                 </tr>
               </thead>
               <tbody id="market-table-body"></tbody>
@@ -1069,6 +1137,21 @@
           </div>
         </div>
       </section>
+
+      <section class="panel" id="hedge-task-view" style="display:none;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>开单任务</h2>
+            <p class="subtitle">纯前端 fake 原型：任务与持仓仅存浏览器 localStorage，盘口为带漂移的假数据；不发请求、不触碰真实账户</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="status-banner info" style="margin-bottom: var(--space-4);">
+            本页全部为本地模拟：无后端、无真实行情、无真实成交；反向开单只查 fake 现货可卖额度，不自动借币。
+          </div>
+          <div class="borrow-task-list" id="hedge-task-list"></div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -1087,6 +1170,15 @@
     </div>
     <div class="drawer-body" id="drawer-body"></div>
   </aside>
+
+  <div class="modal-backdrop" id="hedge-modal-backdrop" aria-hidden="true"></div>
+  <div class="modal" id="hedge-modal" role="dialog" aria-modal="true" aria-labelledby="hedge-modal-title" aria-hidden="true">
+    <h3 id="hedge-modal-title">—</h3>
+    <p class="modal-body" id="hedge-modal-body"></p>
+    <div class="modal-actions">
+      <button class="btn compact primary" id="hedge-modal-close" type="button">知道了</button>
+    </div>
+  </div>
 
   <script>
     (function () {
@@ -1149,7 +1241,12 @@
         borrowLogsError: null,
         activeView: 'market',
         // Nav badge + default list filter: 借币中 only (not all statuses / soft-deleted).
-        borrowTaskFilter: 'borrowing'
+        borrowTaskFilter: 'borrowing',
+        // 开单 fake 原型（2026-07-hedge-open-fake-ui-v1）：任务持久化在 localStorage，
+        // state.hedgeTasks 只是其内存镜像；hedgeBooks 为带漂移的假盘口；hedgeModal 为余额不足弹框状态。
+        hedgeTasks: [],
+        hedgeBooks: {},
+        hedgeModal: null
       };
 
       const els = {
@@ -1204,7 +1301,16 @@
         borrowExecutionBadge: document.getElementById('borrow-execution-badge'),
         borrowExecutionStart: document.getElementById('borrow-execution-start'),
         borrowExecutionStop: document.getElementById('borrow-execution-stop'),
-        borrowExecutionDetail: document.getElementById('borrow-execution-detail')
+        borrowExecutionDetail: document.getElementById('borrow-execution-detail'),
+        navHedgeTasks: document.getElementById('nav-hedge-tasks'),
+        hedgeTaskCount: document.getElementById('hedge-task-count'),
+        hedgeTaskView: document.getElementById('hedge-task-view'),
+        hedgeTaskList: document.getElementById('hedge-task-list'),
+        hedgeModal: document.getElementById('hedge-modal'),
+        hedgeModalBackdrop: document.getElementById('hedge-modal-backdrop'),
+        hedgeModalTitle: document.getElementById('hedge-modal-title'),
+        hedgeModalBody: document.getElementById('hedge-modal-body'),
+        hedgeModalClose: document.getElementById('hedge-modal-close')
       };
 
       function loadPrivacyHidden() {
@@ -1907,7 +2013,7 @@
         if (state.blocked) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="13">
+              <td colspan="15">
                 <div class="empty-state">
                   <strong>集成阻塞</strong><br/>
                   ${escapeHtml(state.blockedReason)}
@@ -1922,7 +2028,7 @@
         if (rows.length === 0) {
           els.tableBody.innerHTML = `
             <tr>
-              <td colspan="13"><div class="empty-state">没有符合筛选条件的数据</div></td>
+              <td colspan="15"><div class="empty-state">没有符合筛选条件的数据</div></td>
             </tr>`;
           renderSummary();
           return;
@@ -2002,6 +2108,8 @@
             <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
             <td>${badgeForNegativeFundingStatus(row)}${maxBorrowLine}<br/>${badgeForAssetTag(row.asset_tag)}</td>
             ${renderBorrowOpCell(row)}
+            ${renderHedgeOpCell(row, 'forward')}
+            ${renderHedgeOpCell(row, 'reverse')}
           </tr>
         `;
       }
@@ -2063,6 +2171,19 @@
           const countInput = tr.querySelector(`#borrow-count-${symbol}`);
           if (amountInput) amountInput.addEventListener('input', () => renderBorrowPreview(symbol));
           if (countInput) countInput.addEventListener('input', () => renderBorrowPreview(symbol));
+          // 开单操作列（fake）：同样与行点击抽屉隔离；按钮直接走本地 submitHedgeOpen。
+          if (typeof tr.querySelectorAll === 'function') {
+            tr.querySelectorAll('.hedge-op-cell').forEach(cell => {
+              cell.addEventListener('click', (e) => e.stopPropagation());
+              cell.addEventListener('keydown', (e) => e.stopPropagation());
+            });
+            tr.querySelectorAll('[data-hedge-open]').forEach(btn => {
+              btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                submitHedgeOpen(symbol, btn.getAttribute('data-hedge-dir'), btn.getAttribute('data-hedge-open'));
+              });
+            });
+          }
         }
       }
 
@@ -2480,6 +2601,8 @@
             <h3>UM 持仓</h3>
             ${umPositions}
           </div>
+
+          ${renderHedgePositionsSection()}
         `;
       }
 
@@ -3115,16 +3238,675 @@
         }
       }
 
+      // ==================== 对冲开单 fake 原型（2026-07-hedge-open-fake-ui-v1） ====================
+      // 纯前端模拟：无后端、无网络、无真实 websocket、无真实成交、无凭证。
+      // 任务/持仓状态存 localStorage（design §4 冻结键与字段名，stage 2 复用）；
+      // 盘口为按币播种、每秒漂移的假数据。反向开单只查 fake 现货可卖额度，不自动借币。
+      const HEDGE_TASKS_KEY = 'hedge_open_tasks';
+      const HEDGE_ACCOUNT_KEY = 'hedge_fake_account';
+      const HEDGE_BASIS_THRESHOLD = 0.0005; // 0.05%（ADR-2 / design §4.3，锁死）
+      const HEDGE_ENGINE_TICK_MS = 1000;
+      // fake 计提速率：资金费按合约名义本金、反向借币利息按现货名义本金，每小时线性累计。
+      const HEDGE_FUNDING_RATE_PER_HOUR = 0.0001;
+      const HEDGE_BORROW_INTEREST_PER_HOUR = 0.0002;
+
+      const HEDGE_TASK_STATUS_LABELS = { running: '运行', paused: '暂停', done: '完成', exposure_alert: '敞口告警' };
+      const HEDGE_TASK_STATUS_BADGE = { running: 'success', paused: 'muted', done: 'info', exposure_alert: 'danger' };
+
+      // 可 seed 的确定性随机源（mulberry32）：同时驱动盘口漂移与失败注入，
+      // 自检经 __appHelpers.setHedgeSeed / queueHedgeFillOutcomes 实现确定性。
+      let hedgeRngState = 20260721 >>> 0;
+      function hedgeRng() {
+        hedgeRngState = (hedgeRngState + 0x6D2B79F5) >>> 0;
+        let t = hedgeRngState;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      }
+      // 失败注入队列：非空时优先于随机源逐条消费（'success' | 'fail' | 'leg_exposure'）。
+      let hedgeForcedOutcomes = [];
+      // 「立即成交所有」运行时集合：每秒一笔，直到完成/暂停/终止；不持久化。
+      const hedgeFillAllActive = new Set();
+
+      function formatMockPrice(n) {
+        if (typeof n !== 'number' || Number.isNaN(n)) return '—';
+        const s = n.toFixed(4);
+        return s.includes('.') ? s.replace(/0+$/, '').replace(/\.$/, '') : s;
+      }
+
+      function formatHedgeBasisPct(rate) {
+        if (typeof rate !== 'number' || Number.isNaN(rate)) return '—';
+        const pct = rate * 100;
+        const sign = pct > 0 ? '+' : pct < 0 ? '-' : '';
+        return `${sign}${Math.abs(pct).toFixed(4)}%`;
+      }
+
+      function formatHedgeSigned(n) {
+        if (typeof n !== 'number' || Number.isNaN(n)) return '—';
+        const sign = n > 0 ? '+' : n < 0 ? '-' : '';
+        return `${sign}${formatMockPrice(Math.abs(n))}`;
+      }
+
+      function classForSignedNumber(n) {
+        if (typeof n !== 'number' || Number.isNaN(n) || n === 0) return 'muted';
+        return n > 0 ? 'positive' : 'negative';
+      }
+
+      // ---- 假盘口（design §5：单一带周期漂移的 mock-book tick） ----
+      function hedgeBasePriceForCoin(coin) {
+        let h = 0;
+        for (let i = 0; i < coin.length; i++) h = (h * 31 + coin.charCodeAt(i)) >>> 0;
+        return 10 + (h % 1990);
+      }
+
+      function ensureHedgeBook(coin) {
+        if (!state.hedgeBooks[coin]) {
+          const mid = hedgeBasePriceForCoin(coin);
+          state.hedgeBooks[coin] = {
+            mid,
+            spot_bid1: mid * 0.9998,
+            spot_ask1: mid * 1.0002,
+            perp_bid1: mid * 0.9999,
+            perp_ask1: mid * 1.0001
+          };
+        }
+        return state.hedgeBooks[coin];
+      }
+
+      function driftHedgeBooks() {
+        for (const coin of Object.keys(state.hedgeBooks)) {
+          const b = state.hedgeBooks[coin];
+          // 整体 mid 漂移（±0.2%）：四价同比例跟随，保留既有期现相对偏移；
+          // 合约两价额外乘 ±0.08% 期现偏移，使基差在阈值两侧摆动。
+          const drift = (hedgeRng() - 0.5) * 0.004;
+          const skew = (hedgeRng() - 0.5) * 0.0016;
+          b.mid *= (1 + drift);
+          b.spot_bid1 *= (1 + drift);
+          b.spot_ask1 *= (1 + drift);
+          b.perp_bid1 *= (1 + drift) * (1 + skew);
+          b.perp_ask1 *= (1 + drift) * (1 + skew);
+        }
+      }
+
+      // 方向/基差口径（ADR-2 锁死，不得改符号或腿映射）：
+      // 正向 = 卖合约@合约买一、买现货@现货卖一；反向 = 卖现货@现货买一、买合约@合约卖一。
+      function hedgeBasisRates(book) {
+        const fMid = (book.perp_bid1 + book.spot_ask1) / 2;
+        const rMid = (book.spot_bid1 + book.perp_ask1) / 2;
+        return {
+          forward: (book.perp_bid1 - book.spot_ask1) / fMid,
+          reverse: (book.spot_bid1 - book.perp_ask1) / rMid
+        };
+      }
+
+      // ---- fake 账户（localStorage `hedge_fake_account`，首次使用播种） ----
+      function defaultHedgeAccount() {
+        return { usdt_free: 10000, reverse_quota: { default: 5 } };
+      }
+
+      function saveHedgeAccount(account) {
+        try {
+          localStorage.setItem(HEDGE_ACCOUNT_KEY, JSON.stringify(account));
+        } catch (e) {
+          // 只读模式或隐私浏览中忽略写入失败
+        }
+      }
+
+      function loadHedgeAccount() {
+        try {
+          const raw = localStorage.getItem(HEDGE_ACCOUNT_KEY);
+          if (raw) {
+            const a = JSON.parse(raw);
+            if (a && typeof a.usdt_free === 'number' && a.reverse_quota && typeof a.reverse_quota === 'object') {
+              return a;
+            }
+          }
+        } catch (e) {
+          // 解析失败视为未初始化，重新播种
+        }
+        const seeded = defaultHedgeAccount();
+        saveHedgeAccount(seeded);
+        return seeded;
+      }
+
+      function hedgeReverseQuotaFor(account, base) {
+        const q = account.reverse_quota || {};
+        if (typeof q[base] === 'number') return q[base];
+        return typeof q.default === 'number' ? q.default : 0;
+      }
+
+      // ---- 任务持久化（localStorage `hedge_open_tasks`，字段名冻结见 design §4.2） ----
+      function saveHedgeTasks() {
+        try {
+          localStorage.setItem(HEDGE_TASKS_KEY, JSON.stringify(state.hedgeTasks));
+        } catch (e) {
+          // 只读模式或隐私浏览中忽略写入失败
+        }
+      }
+
+      function loadHedgeTasks() {
+        try {
+          const raw = localStorage.getItem(HEDGE_TASKS_KEY);
+          if (!raw) return [];
+          const arr = JSON.parse(raw);
+          if (!Array.isArray(arr)) return [];
+          return arr.filter(t => t && typeof t.id === 'string' && typeof t.coin === 'string' &&
+            (t.direction === 'forward' || t.direction === 'reverse') &&
+            (t.mode === 'smooth' || t.mode === 'immediate') &&
+            typeof t.single_amount === 'number' && typeof t.target_n === 'number' &&
+            typeof t.success_count === 'number' && typeof t.fail_count === 'number' &&
+            typeof t.status === 'string' && Array.isArray(t.fills));
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function loadHedgeState() {
+        state.hedgeTasks = loadHedgeTasks();
+        loadHedgeAccount(); // 首次使用播种 fake 账户
+        hedgeFillAllActive.clear();
+        hedgeForcedOutcomes = [];
+        state.hedgeTasks.forEach(t => ensureHedgeBook(t.coin));
+      }
+
+      function findHedgeTask(id) {
+        return state.hedgeTasks.find(t => t.id === id) || null;
+      }
+
+      // 累计失败 >3 → 计划终止（ADR-4）：无独立 terminated 字段，由 fail_count 派生。
+      function isHedgeTaskTerminated(task) {
+        return task.fail_count > 3;
+      }
+
+      function updateHedgeTaskNav() {
+        els.hedgeTaskCount.textContent = String(state.hedgeTasks.filter(t => t.status === 'running').length);
+      }
+
+      function afterHedgeMutation(dirty) {
+        if (dirty !== false) saveHedgeTasks();
+        updateHedgeTaskNav();
+        if (state.activeView === 'hedge-tasks') renderHedgeTasks();
+        if (els.privatePanel.style.display !== 'none' &&
+            state.snapshot && state.snapshot.private_account &&
+            state.snapshot.private_account.verified === true) {
+          renderPrivatePanel();
+        }
+      }
+
+      // ---- 余额不足弹框 ----
+      function showHedgeModal(title, body) {
+        state.hedgeModal = { title, body };
+        els.hedgeModalTitle.textContent = title;
+        els.hedgeModalBody.textContent = body;
+        els.hedgeModal.classList.add('open');
+        els.hedgeModalBackdrop.classList.add('open');
+        els.hedgeModal.setAttribute('aria-hidden', 'false');
+        els.hedgeModalBackdrop.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeHedgeModal() {
+        state.hedgeModal = null;
+        els.hedgeModal.classList.remove('open');
+        els.hedgeModalBackdrop.classList.remove('open');
+        els.hedgeModal.setAttribute('aria-hidden', 'true');
+        els.hedgeModalBackdrop.setAttribute('aria-hidden', 'true');
+      }
+
+      // ---- 市场表开单操作列（T1） ----
+      // 两列恒可点；仅按该行费率符号高亮推荐方向按钮（ADR-3：正→正向、负→反向、0/null→都不高亮）。
+      function renderHedgeOpCell(row, direction) {
+        const sym = escapeHtml(row.symbol);
+        const reco = (direction === 'forward' && isPositiveFundingRate(row)) ||
+                     (direction === 'reverse' && isNegativeFundingRate(row));
+        const btnCls = reco ? 'btn compact hedge-reco' : 'btn compact';
+        return `
+            <td class="hedge-op-cell">
+              <div class="borrow-op-inputs">
+                <label for="hedge-amount-${direction}-${sym}">单次开单币量</label>
+                <input id="hedge-amount-${direction}-${sym}" type="text" inputmode="decimal" placeholder="如 0.01" autocomplete="off"/>
+                <label for="hedge-count-${direction}-${sym}">成功开单次数</label>
+                <input id="hedge-count-${direction}-${sym}" type="text" inputmode="numeric" placeholder="如 5" autocomplete="off"/>
+                <button class="${btnCls}" type="button" data-hedge-open="smooth" data-hedge-dir="${direction}" aria-label="平滑开单 ${sym} ${direction}">平滑开单</button>
+                <button class="${btnCls}" type="button" data-hedge-open="immediate" data-hedge-dir="${direction}" aria-label="立即开单 ${sym} ${direction}">立即开单</button>
+              </div>
+              <div class="borrow-op-error" id="hedge-error-${direction}-${sym}" role="alert" aria-live="polite"></div>
+            </td>`;
+      }
+
+      function baseAssetForSymbol(symbol) {
+        const rows = (state.snapshot && state.snapshot.rows) || [];
+        const row = rows.find(r => r && r.symbol === symbol);
+        if (row && row.base_asset) return row.base_asset;
+        return String(symbol).replace(/USDT$/i, '');
+      }
+
+      // 开单前 fake 余额校验（design §1.3）：正向查 USDT（币量×N×参考价），
+      // 反向查该币可卖额度（币量×N）；不足弹框、不建任务；足额扣减额度并建任务。
+      function submitHedgeOpen(symbol, direction, mode) {
+        const errEl = document.getElementById(`hedge-error-${direction}-${symbol}`);
+        const amountEl = document.getElementById(`hedge-amount-${direction}-${symbol}`);
+        const countEl = document.getElementById(`hedge-count-${direction}-${symbol}`);
+        const setErr = (msg) => { if (errEl) errEl.textContent = msg; };
+        const amountStr = normalizeBorrowAmount(amountEl ? amountEl.value : '');
+        if (!amountStr) {
+          setErr('单次开单币量需为正数');
+          return { ok: false, error: 'invalid_amount' };
+        }
+        const n = parseSuccessTarget(countEl ? countEl.value : '');
+        if (n === null) {
+          setErr('成功开单次数需为 ≥1 的整数');
+          return { ok: false, error: 'invalid_count' };
+        }
+        setErr('');
+        const amount = Number(amountStr);
+        const book = ensureHedgeBook(symbol);
+        const account = loadHedgeAccount();
+        if (direction === 'forward') {
+          const required = amount * n * book.mid;
+          if (required > account.usdt_free) {
+            showHedgeModal('正向开单 USDT 余额不足',
+              `需要约 ${required.toFixed(2)} USDT（${amountStr} × ${n} 次 × 参考价 ${formatMockPrice(book.mid)}），当前可用 ${account.usdt_free.toFixed(2)} USDT。`);
+            return { ok: false, error: 'insufficient_usdt' };
+          }
+          account.usdt_free -= required;
+        } else {
+          const base = baseAssetForSymbol(symbol);
+          const quota = hedgeReverseQuotaFor(account, base);
+          const requiredQty = amount * n;
+          if (requiredQty > quota) {
+            showHedgeModal('反向开单现货余额不足',
+              `需要 ${requiredQty} ${base} 可卖额度（${amountStr} × ${n} 次），当前可用 ${quota} ${base}。`);
+            return { ok: false, error: 'insufficient_spot_quota' };
+          }
+          account.reverse_quota[base] = quota - requiredQty;
+        }
+        saveHedgeAccount(account);
+        const task = createHedgeTask(symbol, direction, mode, amount, n);
+        return { ok: true, task };
+      }
+
+      // ---- 任务生命周期（T2） ----
+      function createHedgeTask(coin, direction, mode, singleAmount, targetN) {
+        const now = Date.now();
+        const task = {
+          id: `h-${now.toString(36)}-${Math.floor(hedgeRng() * 1e9).toString(36)}`,
+          coin,
+          direction,
+          mode,
+          single_amount: singleAmount,
+          target_n: targetN,
+          success_count: 0,
+          fail_count: 0,
+          status: 'running',
+          fills: [],
+          leg_exposure: null,
+          created_at: now,
+          updated_at: now
+        };
+        state.hedgeTasks.push(task);
+        ensureHedgeBook(coin);
+        afterHedgeMutation();
+        return task;
+      }
+
+      // 单笔成交尝试：两腿上齐为成功；可注入普通失败与单腿成交（ADR-4）。
+      function hedgeAttemptFill(task) {
+        const book = ensureHedgeBook(task.coin);
+        let outcome = hedgeForcedOutcomes.length > 0 ? hedgeForcedOutcomes.shift() : null;
+        if (!outcome) {
+          const roll = hedgeRng();
+          outcome = roll < 0.02 ? 'leg_exposure' : roll < 0.07 ? 'fail' : 'success';
+        }
+        const now = Date.now();
+        if (outcome === 'success') {
+          const rates = hedgeBasisRates(book);
+          // 成交价取实际成交腿的对手价（ADR-2：卖腿吃买一、买腿吃卖一）。
+          const spotPrice = task.direction === 'forward' ? book.spot_ask1 : book.spot_bid1;
+          const perpPrice = task.direction === 'forward' ? book.perp_bid1 : book.perp_ask1;
+          task.fills.push({
+            ts: now,
+            spot_price: spotPrice,
+            perp_price: perpPrice,
+            qty: task.single_amount,
+            basis_rate: rates[task.direction]
+          });
+          task.success_count += 1;
+          if (task.success_count >= task.target_n) {
+            task.status = 'done';
+            hedgeFillAllActive.delete(task.id);
+          }
+        } else if (outcome === 'leg_exposure') {
+          // 单腿成交：卖腿先成交、买腿失败 → 记录敞口、敞口告警并暂停，无自动对冲、无回滚。
+          task.fail_count += 1;
+          const leg = task.direction === 'forward' ? 'perp' : 'spot';
+          task.leg_exposure = {
+            leg,
+            qty: task.single_amount,
+            price: leg === 'perp' ? book.perp_bid1 : book.spot_bid1,
+            ts: now
+          };
+          task.status = 'exposure_alert';
+          hedgeFillAllActive.delete(task.id);
+        } else {
+          task.fail_count += 1;
+          if (isHedgeTaskTerminated(task)) {
+            // 累计失败 >3：终止计划并暂停，不再补发。
+            task.status = task.leg_exposure ? 'exposure_alert' : 'paused';
+            hedgeFillAllActive.delete(task.id);
+          }
+        }
+        task.updated_at = now;
+      }
+
+      function pauseHedgeTask(id) {
+        const task = findHedgeTask(id);
+        if (!task) return { ok: false, error: '任务不存在' };
+        if (task.status !== 'running') return { ok: false, error: '仅运行中的任务可暂停' };
+        task.status = 'paused';
+        task.updated_at = Date.now();
+        hedgeFillAllActive.delete(id);
+        afterHedgeMutation();
+        return { ok: true };
+      }
+
+      function startHedgeTask(id) {
+        const task = findHedgeTask(id);
+        if (!task) return { ok: false, error: '任务不存在' };
+        if (isHedgeTaskTerminated(task)) return { ok: false, error: '累计失败超过 3 次，开单计划已终止，不再补发' };
+        if (task.status === 'done') return { ok: false, error: '任务已完成' };
+        if (task.status === 'running') return { ok: false, error: '任务已在运行中' };
+        task.status = 'running';
+        task.updated_at = Date.now();
+        afterHedgeMutation();
+        return { ok: true };
+      }
+
+      function deleteHedgeTask(id) {
+        const idx = state.hedgeTasks.findIndex(t => t.id === id);
+        if (idx === -1) return { ok: false, error: '任务不存在' };
+        state.hedgeTasks.splice(idx, 1);
+        hedgeFillAllActive.delete(id);
+        afterHedgeMutation();
+        return { ok: true };
+      }
+
+      // 成交1次：立即推进恰好一笔（异步两腿），不看基差/模式；完成/终止/敞口告警中不可手动补。
+      function hedgeFillOnceNow(id) {
+        const task = findHedgeTask(id);
+        if (!task) return { ok: false, error: '任务不存在' };
+        if (task.status === 'done') return { ok: false, error: '任务已完成' };
+        if (isHedgeTaskTerminated(task)) return { ok: false, error: '开单计划已终止，不再补发' };
+        if (task.status === 'exposure_alert') return { ok: false, error: '存在单腿敞口，请先人工处理后启动' };
+        hedgeAttemptFill(task);
+        afterHedgeMutation();
+        return { ok: true };
+      }
+
+      // 立即成交所有：剩余 N−success 笔，每秒一笔异步对冲成交，直到完成或任务暂停/终止。
+      function hedgeFillAll(id) {
+        const task = findHedgeTask(id);
+        if (!task) return { ok: false, error: '任务不存在' };
+        if (task.status === 'done') return { ok: false, error: '任务已完成' };
+        if (isHedgeTaskTerminated(task)) return { ok: false, error: '开单计划已终止，不再补发' };
+        if (task.status === 'exposure_alert') return { ok: false, error: '存在单腿敞口，请先人工处理后启动' };
+        if (task.status === 'paused') {
+          task.status = 'running';
+          task.updated_at = Date.now();
+        }
+        hedgeFillAllActive.add(id);
+        afterHedgeMutation();
+        return { ok: true };
+      }
+
+      // fake 引擎 tick（design §5）：漂移盘口 → 平滑任务基差达标推进一笔；
+      // 立即模式与「立即成交所有」每 tick 一笔，不看基差。
+      function hedgeEngineTick() {
+        driftHedgeBooks();
+        let dirty = false;
+        for (const task of state.hedgeTasks) {
+          if (task.status !== 'running' || isHedgeTaskTerminated(task)) continue;
+          const fillAll = hedgeFillAllActive.has(task.id);
+          if (task.mode === 'immediate' || fillAll) {
+            hedgeAttemptFill(task);
+            dirty = true;
+          } else {
+            const book = ensureHedgeBook(task.coin);
+            const basis = hedgeBasisRates(book)[task.direction];
+            if (basis >= HEDGE_BASIS_THRESHOLD && task.success_count < task.target_n) {
+              hedgeAttemptFill(task);
+              dirty = true;
+            }
+          }
+          if (task.status !== 'running') hedgeFillAllActive.delete(task.id);
+        }
+        afterHedgeMutation(dirty);
+      }
+
+      // ---- 开单任务页渲染（T2） ----
+      function renderHedgeTasks() {
+        if (state.hedgeTasks.length === 0) {
+          els.hedgeTaskList.innerHTML = `
+            <div class="empty-state">
+              <strong>暂无开单任务</strong><br/>
+              <span class="muted small">在市场表「正向开单 / 反向开单」操作列输入单次币量与成功次数，点击平滑开单或立即开单创建（全部为本地模拟）</span>
+            </div>`;
+          return;
+        }
+        els.hedgeTaskList.innerHTML = state.hedgeTasks.map(task => renderHedgeTaskCard(task)).join('');
+        bindHedgeTaskControls();
+      }
+
+      function renderHedgeTaskCard(task) {
+        const book = ensureHedgeBook(task.coin);
+        const rates = hedgeBasisRates(book);
+        const dirLabel = task.direction === 'forward' ? '正向' : '反向';
+        const dirCls = task.direction === 'forward' ? 'success' : 'warn';
+        const modeLabel = task.mode === 'smooth' ? '平滑' : '立即';
+        const statusLabel = HEDGE_TASK_STATUS_LABELS[task.status] || task.status;
+        const statusBadge = HEDGE_TASK_STATUS_BADGE[task.status] || 'muted';
+        const fwdCls = classForSignedNumber(rates.forward);
+        const revCls = classForSignedNumber(rates.reverse);
+        const basis = rates[task.direction];
+        const basisMet = basis >= HEDGE_BASIS_THRESHOLD;
+        const smoothLine = task.mode === 'smooth'
+          ? `<div>当前基差率 <strong class="${basisMet ? 'positive' : 'muted'}">${formatHedgeBasisPct(basis)}</strong>（阈值 0.05%）${basisMet ? '<span class="badge success">已满足</span>' : '<span class="badge muted">未满足</span>'}</div>`
+          : '';
+        const exposureLine = task.leg_exposure
+          ? `<div class="borrow-task-note">单腿敞口：${task.leg_exposure.leg === 'spot' ? '现货' : '合约'}腿已成交 ${task.leg_exposure.qty} @ ${formatMockPrice(task.leg_exposure.price)}，另一腿失败；任务已暂停，等待人工处理。</div>`
+          : '';
+        const terminatedLine = isHedgeTaskTerminated(task)
+          ? '<div class="borrow-task-note">累计失败超过 3 次，开单计划已终止并暂停，不再补发。</div>'
+          : '';
+        const inactive = task.status === 'done' || isHedgeTaskTerminated(task) || task.status === 'exposure_alert';
+        const pauseDisabled = task.status !== 'running' ? ' disabled' : '';
+        const startDisabled = (task.status === 'running' || task.status === 'done' || isHedgeTaskTerminated(task)) ? ' disabled' : '';
+        const fillDisabled = inactive ? ' disabled' : '';
+        const idAttr = escapeHtml(task.id);
+        return `
+          <div class="borrow-task-card" data-hedge-task-id="${idAttr}">
+            <div class="borrow-task-head">
+              <h3>${escapeHtml(task.coin)}</h3>
+              <span class="badge ${dirCls}">${dirLabel}</span>
+              <span class="badge info">${modeLabel}</span>
+              <span class="badge ${statusBadge}">${statusLabel}</span>
+            </div>
+            <div class="borrow-task-lines">
+              <div>单次币量：<strong>${formatMockPrice(task.single_amount)}</strong> · 目标次数：<strong>${task.target_n}</strong></div>
+              <div>已成功 <strong>${task.success_count} / ${task.target_n}</strong> · 失败 <strong>${task.fail_count} / 3</strong></div>
+              ${smoothLine}
+              ${exposureLine}
+              ${terminatedLine}
+            </div>
+            <div class="hedge-book-lines">
+              <div>现货买一 ${formatMockPrice(book.spot_bid1)} · 现货卖一 ${formatMockPrice(book.spot_ask1)}（模拟盘口）</div>
+              <div>合约买一 ${formatMockPrice(book.perp_bid1)} · 合约卖一 ${formatMockPrice(book.perp_ask1)}（模拟盘口）</div>
+              <div>正向开单率 <span class="${fwdCls}">${formatHedgeBasisPct(rates.forward)}</span> · 反向开单率 <span class="${revCls}">${formatHedgeBasisPct(rates.reverse)}</span></div>
+            </div>
+            <div class="borrow-task-controls">
+              <button class="btn compact action-pause" type="button" data-hedge-action="pause" data-task-id="${idAttr}"${pauseDisabled}>暂停</button>
+              <button class="btn compact action-start" type="button" data-hedge-action="start" data-task-id="${idAttr}"${startDisabled}>启动</button>
+              <button class="btn compact action-delete" type="button" data-hedge-action="delete" data-task-id="${idAttr}">删除</button>
+              <button class="btn compact primary" type="button" data-hedge-action="fill1" data-task-id="${idAttr}"${fillDisabled}>成交1次</button>
+              <button class="btn compact primary" type="button" data-hedge-action="fill-all" data-task-id="${idAttr}"${fillDisabled}>立即成交所有</button>
+            </div>
+            <div class="borrow-op-error" id="hedge-task-error-${idAttr}" role="alert" aria-live="polite"></div>
+          </div>`;
+      }
+
+      // 列表按钮绑定（真实 DOM）；mock DOM 的 querySelectorAll 对任务选择器返回
+      // 空数组，自检经 __appHelpers 直测任务动作路径。
+      function bindHedgeTaskControls() {
+        if (typeof els.hedgeTaskList.querySelectorAll !== 'function') return;
+        els.hedgeTaskList.querySelectorAll('[data-hedge-action]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-task-id');
+            const action = btn.getAttribute('data-hedge-action');
+            let result = null;
+            if (action === 'pause') result = pauseHedgeTask(id);
+            else if (action === 'start') result = startHedgeTask(id);
+            else if (action === 'delete') result = deleteHedgeTask(id);
+            else if (action === 'fill1') result = hedgeFillOnceNow(id);
+            else if (action === 'fill-all') result = hedgeFillAll(id);
+            if (result) showHedgeTaskActionError(id, result.ok ? '' : result.error);
+          });
+        });
+      }
+
+      function showHedgeTaskActionError(id, msg) {
+        const el = document.getElementById(`hedge-task-error-${id}`);
+        if (el) el.textContent = msg || '';
+      }
+
+      // ---- fake 持仓聚合（T3，design §3：按币种聚合任务成交，均价=名义/数量） ----
+      function computeHedgePositions(tasks, books, nowMs) {
+        const groups = {};
+        for (const task of tasks || []) {
+          for (const fill of task.fills || []) {
+            const key = `${task.coin}|${task.direction}`;
+            if (!groups[key]) {
+              groups[key] = { coin: task.coin, direction: task.direction, qty: 0, spotNotional: 0, perpNotional: 0, basisQtyWeight: 0, fills: [] };
+            }
+            const g = groups[key];
+            g.qty += fill.qty;
+            g.spotNotional += fill.qty * fill.spot_price;
+            g.perpNotional += fill.qty * fill.perp_price;
+            g.basisQtyWeight += fill.basis_rate * fill.qty;
+            g.fills.push(fill);
+          }
+        }
+        return Object.values(groups).map(g => {
+          const spotAvg = g.spotNotional / g.qty;
+          const perpAvg = g.perpNotional / g.qty;
+          const openBasisRate = g.basisQtyWeight / g.qty;
+          const book = books && books[g.coin];
+          // 标记价取当前假盘口双侧中点；无盘口时退化为均价（价格盈亏为 0）。
+          const spotMark = book ? (book.spot_bid1 + book.spot_ask1) / 2 : spotAvg;
+          const perpMark = book ? (book.perp_bid1 + book.perp_ask1) / 2 : perpAvg;
+          // 对冲双腿盯市：正向=多现货+空合约，反向=空现货+多合约（合计接近 0）。
+          const pricePnl = g.direction === 'forward'
+            ? (spotMark - spotAvg) * g.qty + (perpAvg - perpMark) * g.qty
+            : (spotAvg - spotMark) * g.qty + (perpMark - perpAvg) * g.qty;
+          let funding = 0;
+          let interest = 0;
+          for (const f of g.fills) {
+            const hours = Math.max(0, (nowMs - f.ts) / 3600000);
+            funding += f.qty * f.perp_price * HEDGE_FUNDING_RATE_PER_HOUR * hours;
+            if (g.direction === 'reverse') {
+              interest += f.qty * f.spot_price * HEDGE_BORROW_INTEREST_PER_HOUR * hours;
+            }
+          }
+          return {
+            coin: g.coin,
+            direction: g.direction,
+            position_qty: g.qty,
+            spot_avg: spotAvg,
+            perp_avg: perpAvg,
+            open_basis_rate: openBasisRate,
+            price_pnl: pricePnl,
+            funding_accrued: funding,
+            borrow_interest: interest,
+            net_pnl: pricePnl + funding - interest
+          };
+        });
+      }
+
+      function renderHedgePositionsSection() {
+        const positions = computeHedgePositions(state.hedgeTasks, state.hedgeBooks, Date.now());
+        if (positions.length === 0) {
+          return `
+          <div class="account-section">
+            <h3>对冲开单持仓（本地模拟）</h3>
+            <div class="empty-state"><span class="muted small">暂无模拟持仓；开单任务成交后按币种聚合展示</span></div>
+          </div>`;
+        }
+        return `
+          <div class="account-section">
+            <h3>对冲开单持仓（本地模拟）</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>币种</th>
+                    <th>方向</th>
+                    <th>持仓数量</th>
+                    <th>现货均价</th>
+                    <th>合约均价</th>
+                    <th>开单价差率</th>
+                    <th>价格未实现盈亏</th>
+                    <th>累计资金费</th>
+                    <th>借币利息</th>
+                    <th>净盈亏</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${positions.map(p => {
+                    const dirLabel = p.direction === 'forward' ? '正向' : '反向';
+                    const priceCls = classForSignedNumber(p.price_pnl);
+                    const netCls = classForSignedNumber(p.net_pnl);
+                    return `
+                      <tr>
+                        <td class="mono">${escapeHtml(p.coin)}</td>
+                        <td>${dirLabel}</td>
+                        <td class="mono">${formatMockPrice(p.position_qty)}</td>
+                        <td class="mono">${formatMockPrice(p.spot_avg)}</td>
+                        <td class="mono">${formatMockPrice(p.perp_avg)}</td>
+                        <td class="mono">${formatHedgeBasisPct(p.open_basis_rate)}</td>
+                        <td class="mono ${priceCls}">${formatHedgeSigned(p.price_pnl)}</td>
+                        <td class="mono">${formatMockPrice(p.funding_accrued)}</td>
+                        <td class="mono">${formatMockPrice(p.borrow_interest)}</td>
+                        <td class="mono ${netCls}">${formatHedgeSigned(p.net_pnl)}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>`;
+      }
+
       function setActiveView(view) {
-        state.activeView = view === 'borrow-tasks' ? 'borrow-tasks' : 'market';
+        state.activeView = (view === 'borrow-tasks' || view === 'hedge-tasks') ? view : 'market';
         const isBorrow = state.activeView === 'borrow-tasks';
-        els.marketView.style.display = isBorrow ? 'none' : '';
+        const isHedge = state.activeView === 'hedge-tasks';
+        els.marketView.style.display = (isBorrow || isHedge) ? 'none' : '';
         els.borrowTaskView.style.display = isBorrow ? '' : 'none';
+        els.hedgeTaskView.style.display = isHedge ? '' : 'none';
+        // 三个导航入口互斥高亮，exactly one panel visible at a time。
+        const navEntries = [
+          ['market', els.navMarket],
+          ['borrow-tasks', els.navBorrowTasks],
+          ['hedge-tasks', els.navHedgeTasks]
+        ];
+        for (const [name, btn] of navEntries) {
+          if (state.activeView === name) {
+            btn.classList.add('active');
+            btn.setAttribute('aria-current', 'page');
+          } else {
+            btn.classList.remove('active');
+            btn.removeAttribute('aria-current');
+          }
+        }
         if (isBorrow) {
-          els.navBorrowTasks.classList.add('active');
-          els.navMarket.classList.remove('active');
-          els.navBorrowTasks.setAttribute('aria-current', 'page');
-          els.navMarket.removeAttribute('aria-current');
           // 进入借币任务：默认选中「借币中」（不是「全部」）。
           state.borrowTaskFilter = 'borrowing';
           // 进入借币视图：拉取后端任务列表与调度设置（§3.11 刷新策略 a）；
@@ -3136,11 +3918,9 @@
           loadSchedulerSettings();
           loadExecutionStatus();
           if (state.borrowTab === 'logs') loadBorrowLogs(true);
-        } else {
-          els.navMarket.classList.add('active');
-          els.navBorrowTasks.classList.remove('active');
-          els.navMarket.setAttribute('aria-current', 'page');
-          els.navBorrowTasks.removeAttribute('aria-current');
+        } else if (isHedge) {
+          // 开单任务页为纯本地渲染：从 localStorage 镜像直接出卡，不发任何请求。
+          renderHedgeTasks();
         }
       }
 
@@ -3241,6 +4021,9 @@
         }
         els.navMarket.addEventListener('click', () => setActiveView('market'));
         els.navBorrowTasks.addEventListener('click', () => setActiveView('borrow-tasks'));
+        els.navHedgeTasks.addEventListener('click', () => setActiveView('hedge-tasks'));
+        els.hedgeModalClose.addEventListener('click', closeHedgeModal);
+        els.hedgeModalBackdrop.addEventListener('click', closeHedgeModal);
         els.borrowTabTasks.addEventListener('click', () => setBorrowTab('tasks'));
         els.borrowTabLogs.addEventListener('click', () => setBorrowTab('logs'));
         els.borrowIntervalConfirm.addEventListener('click', () => { submitSchedulerInterval(); });
@@ -3262,6 +4045,10 @@
           if (e.key === 'Escape' && state.drawerOpen) {
             e.preventDefault();
             closeDrawer();
+          }
+          if (e.key === 'Escape' && state.hedgeModal) {
+            e.preventDefault();
+            closeHedgeModal();
           }
         });
         els.filterSearch.addEventListener('input', () => {
@@ -3355,7 +4142,44 @@
         renderBorrowPreview,
         // test seam: force the “interval not loaded” state to exercise the
         // BK-R1-FIX4-001 fail-closed gate (createBorrowTask must refuse to POST).
-        clearBorrowSchedulerSettings: () => { state.borrowSchedulerSettings = null; }
+        clearBorrowSchedulerSettings: () => { state.borrowSchedulerSettings = null; },
+        // ---- 开单 fake 原型（2026-07-hedge-open-fake-ui-v1） ----
+        submitHedgeOpen,
+        createHedgeTask,
+        pauseHedgeTask,
+        startHedgeTask,
+        deleteHedgeTask,
+        hedgeFillOnceNow,
+        hedgeFillAll,
+        hedgeEngineTick,
+        hedgeBasisRates,
+        ensureHedgeBook,
+        computeHedgePositions,
+        isHedgeTaskTerminated,
+        loadHedgeAccount,
+        loadHedgeState,
+        renderHedgeTasks,
+        renderPrivatePanel,
+        closeHedgeModal,
+        getHedgeTasks: () => state.hedgeTasks,
+        getHedgeBooks: () => state.hedgeBooks,
+        getHedgeModal: () => state.hedgeModal,
+        // test seams：确定性失败注入队列与可 seed 随机源重置
+        queueHedgeFillOutcomes: (arr) => { hedgeForcedOutcomes = Array.isArray(arr) ? arr.slice() : []; },
+        setHedgeSeed: (n) => { hedgeRngState = (Number(n) >>> 0) || 1; },
+        resetHedgeStateForTest: () => {
+          state.hedgeTasks = [];
+          state.hedgeBooks = {};
+          hedgeFillAllActive.clear();
+          hedgeForcedOutcomes = [];
+          try {
+            localStorage.removeItem(HEDGE_TASKS_KEY);
+            localStorage.removeItem(HEDGE_ACCOUNT_KEY);
+          } catch (e) {
+            // 忽略清理失败
+          }
+          updateHedgeTaskNav();
+        }
       };
 
       bindEvents();
@@ -3365,6 +4189,10 @@
       // 启动即拉借币任务列表，使市场页导航「借币任务 N」在未点进视图前即为「借币中」真实数量。
       loadBorrowTasks();
       startAutoRefresh();
+      // 开单 fake 原型：恢复 localStorage 任务/账户，注册 1s 漂移+成交引擎 tick。
+      loadHedgeState();
+      updateHedgeTaskNav();
+      setInterval(hedgeEngineTick, HEDGE_ENGINE_TICK_MS);
     })();
   </script>
 </body>

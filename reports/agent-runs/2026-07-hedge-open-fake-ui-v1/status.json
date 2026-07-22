@@ -1,8 +1,11 @@
 {
   "stage_id": "2026-07-hedge-open-fake-ui-v1",
-  "status": "designing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
+  "base_sha": "46ea46f6caacf78dca4ef5345f60518c77d6e378",
+  "head_sha": null,
+  "diff_fingerprint": null,
   "complexity": {
     "classification": "MEDIUM",
     "direction_panel_required": false,
@@ -35,6 +38,43 @@
     "embedded_review": { "enabled": false, "reason": "single-owner front-end task; no second disjoint implementation task" }
   },
   "embedded_reviews": {},
+  "session_receipts": [
+    {
+      "role": "stage_design_and_breakdown",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "session_id": null,
+      "session_id_source": "unavailable: Claude Code runtime does not expose a provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/{00-intake.md,00-task.md,10-design.md,11-adr.md,12-development-breakdown.md}",
+      "recorded_at": "2026-07-22T18:51:35+08:00"
+    },
+    {
+      "role": "implementation",
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": null,
+      "session_id_source": "unavailable: Kimi CLI runtime does not expose a provider-native Session ID; operator may backfill",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md",
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.dispatch.md",
+      "executor": "human_operator",
+      "result": "implementation_complete_self_tests_passed",
+      "recorded_at": "2026-07-22T19:35:18+08:00"
+    },
+    {
+      "role": "implementation_intake_audit",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "session_id": null,
+      "session_id_source": "unavailable: Claude Code runtime does not expose a provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md",
+      "result": "clean_boundary_two_allowed_files_only; independent self-check re-run exit 0, 108 PASS, 0 FAIL; column rename + operation columns after 借币 + basis formula spot-checked; single inline <script>; no intake fix required",
+      "recorded_at": "2026-07-22T19:43:17+08:00"
+    }
+  ],
   "designer": {
     "id": "claude-opus-4-8",
     "provider": "claude",
@@ -57,7 +97,7 @@
     "provider_identity": "moonshot_kimi",
     "model": "kimi-code/kimi-for-coding",
     "task_id": "OPEN-FAKE-UI",
-    "status": "dispatch_packet_prepared_waiting_human_operator"
+    "status": "implementation_complete_intake_passed_review_1_packet_prepared"
   },
   "implementers": [
     {

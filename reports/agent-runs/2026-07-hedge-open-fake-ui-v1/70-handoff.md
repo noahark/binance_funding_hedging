@@ -2,17 +2,20 @@
 
 ## Recovery Header
 
-- Active phase: `design_and_breakdown_complete_waiting_human_dispatch_to_kimi`.
+- Active phase: `review_1_packet_prepared_waiting_human_dispatch_to_claude_glm`.
 - Stage branch: `stage/2026-07-hedge-open-fake-ui-v1`, created from main
   `e6b836831391da8b98101d9c6a85353e9fa8273e`. Not merged back.
-- Next action: the human operator dispatches the Kimi implementation packet
-  (`task-hedge-open-fake-ui-kimi.dispatch.md`). The bookkeeper does not launch
-  Kimi. After Kimi stops, the bookkeeper collects `20-implementation.md` +
-  `60-test-output.txt`, creates a local evidence commit, computes the standard
-  `diff_fingerprint`, runs `scripts/validate-stage.py 2026-07-hedge-open-fake-ui-v1
-  --phase pre-review`, then dispatches review-1 (Claude-GLM).
+- Kimi implementation complete and bookkeeper-intake-audited: boundary clean
+  (only `frontend/index.html` + `frontend/self-check.js`), independent
+  `node frontend/self-check.js` re-run exit 0, 108 PASS / 0 FAIL. Evidence
+  committed on the stage branch; standard `diff_fingerprint` recorded in
+  `status.json` (base `46ea46f6` .. head = fix-evidence commit).
+- Next action: the human operator dispatches review-1 to Claude-GLM
+  (`review-1-claude-glm.dispatch.md`). The bookkeeper does not launch it. On
+  ACCEPT → dispatch review-2 (Codex first; no-quota → Claude fallback with
+  disclosure). On REWORK → route the reviewer `fix_start_prompt` to Kimi.
 - Read-set: `00-task.md`, `10-design.md`, `11-adr.md`,
-  `12-development-breakdown.md`, `status.json`.
+  `12-development-breakdown.md`, `20-implementation.md`, `status.json`.
 - Do-not-read: credentials, `.env`, unrelated stages, any `history/`.
 
 ## Scope recap
