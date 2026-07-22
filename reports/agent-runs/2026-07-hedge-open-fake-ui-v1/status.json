@@ -1,0 +1,116 @@
+{
+  "stage_id": "2026-07-hedge-open-fake-ui-v1",
+  "status": "designing",
+  "workflow": "stage-delivery",
+  "dispatch_protocol": "human-operator/v1",
+  "complexity": {
+    "classification": "MEDIUM",
+    "direction_panel_required": false,
+    "lightweight_route_user_approved": true,
+    "evaluator": { "provider": "claude", "model": "opus4.8", "role": "bookkeeper" }
+  },
+  "stage_branch": {
+    "name": "stage/2026-07-hedge-open-fake-ui-v1",
+    "created_from_main_sha": "e6b836831391da8b98101d9c6a85353e9fa8273e",
+    "created_at": "2026-07-22T18:51:35+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "claude-opus-4-8",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "bookkeeper also authors 12-development-breakdown.md (design involvement); it is not an implementer or fix author. Review-2 must treat this as design-involvement isolation."
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": true,
+    "r4_diff_reconciliation_required": false,
+    "embedded_review": { "enabled": false, "reason": "single-owner front-end task; no second disjoint implementation task" }
+  },
+  "embedded_reviews": {},
+  "designer": {
+    "id": "claude-opus-4-8",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "skill": "software_architect",
+    "scope": "hedge open fake UI stage design + ADR + development breakdown; no implementation"
+  },
+  "breakdown_author": {
+    "id": "claude-opus-4-8",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "design_involvement": true,
+    "output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/12-development-breakdown.md",
+    "status": "complete"
+  },
+  "implementer": {
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "task_id": "OPEN-FAKE-UI",
+    "status": "dispatch_packet_prepared_waiting_human_operator"
+  },
+  "implementers": [
+    {
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "task_id": "OPEN-FAKE-UI",
+      "report_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md"
+    }
+  ],
+  "fix_authors": [],
+  "reviewer_1": {
+    "provider": "claude_glm",
+    "provider_identity": "zhipu_glm",
+    "model": "glm-5.2[1m]",
+    "fresh_session": true,
+    "prior_involvement": null,
+    "routing_reason": "cross-provider isolation from Kimi implementer"
+  },
+  "reviewer_2": {
+    "provider": "codex",
+    "provider_identity": "openai",
+    "model": "gpt",
+    "fresh_session": true,
+    "prior_involvement": null,
+    "planned_fallback": {
+      "reason": "GPT/Codex reported no quota during this stage's discussion; if runner-level check confirms unavailability, fall back to Claude (anthropic) as strong-reviewer with design-involvement disclosure (breakdown author is Claude).",
+      "fallback_provider": "claude",
+      "fallback_requires_disclosure": true
+    }
+  },
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "OPEN-FAKE-UI",
+      "name": "hedge-open-fake-ui",
+      "owner": { "provider": "kimi", "model": "kimi-code/kimi-for-coding" },
+      "reviewer": { "provider": "claude_glm", "model": "glm-5.2[1m]", "fresh_session": true },
+      "allowed_files": ["frontend/index.html", "frontend/self-check.js"],
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.prompt.md",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.dispatch.md",
+      "next_dispatch_executor": "human_operator",
+      "r10_checklist": {
+        "self_test_commands": ["node frontend/self-check.js"],
+        "artifact_paths": {
+          "implementation_report": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md",
+          "test_output": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/60-test-output.txt"
+        },
+        "stop_for_bookkeeper": true
+      },
+      "test_evidence": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/60-test-output.txt",
+      "implementation_report": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md"
+    }
+  ],
+  "notes": "Front-end fake prototype of the hedge OPEN surface. No backend, no real websocket, no order path, no credentials. Stage 2 (stage/2026-07-hedge-open-live-v1) and stage 3 (close) carry the real risk and their own review discipline."
+}

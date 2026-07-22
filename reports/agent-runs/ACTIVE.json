@@ -1,12 +1,12 @@
 {
   "active": {
-    "stage_id": "2026-07-real-borrow-boundary-c-v1",
-    "phase": "merged_to_local_main_pending_user_service_restart",
-    "handoff": "reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md",
-    "note": "Boundary C was merged to local main at 7d0c925 under explicit user release authorization. The user will configure APP_BORROW_EXECUTOR=live and non-secret alias references in .env, then restart the service. Task deletion is authorized only after the new service enumerates exact targets; the durable global Start gate and every real Binance borrow remain disabled pending a later explicit action.",
-    "updated_at": "2026-07-21T23:29:16+08:00"
+    "stage_id": "2026-07-hedge-open-fake-ui-v1",
+    "phase": "design_and_breakdown_complete_waiting_human_dispatch_to_kimi",
+    "handoff": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/70-handoff.md",
+    "note": "Front-end fake prototype of the hedge OPEN surface (market-table open columns + 开单任务 page + private-account fake positions). Pure client mock: no backend, no real websocket, no order path, no credentials. Stage design + ADR + development breakdown are complete; the Kimi implementation dispatch packet is prepared and awaits human-operator execution. Next: human dispatches Kimi, then bookkeeper collects evidence, commits, fingerprints, runs pre-review validator, and dispatches review-1 (Claude-GLM).",
+    "updated_at": "2026-07-22T18:51:35+08:00"
   },
-  "last_completed": "2026-07-harness-verdict-extractor-fix-v1",
-  "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. When a stage starts, the bookkeeper sets active to {stage_id, phase, handoff, updated_at}; when the stage is accepted/merged/abandoned, active returns to null and last_completed is updated.",
-  "updated_at": "2026-07-21T23:29:16+08:00"
+  "last_completed": "2026-07-real-borrow-boundary-c-v1",
+  "note": "Fixed-path active-stage pointer. A new session reads this first to locate the active stage in one hop, without scanning reports/agent-runs/. Boundary C was merged to local main (7d0c925) under user release authorization; its remaining items are operator-side (user configures APP_BORROW_EXECUTOR=live + non-secret aliases in .env and restarts the service, then read-only online preflight before task deletion) and are preserved in reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md. The durable global Start gate and every real Binance borrow remain disabled pending a later explicit user action; that operator work is independent of the now-active hedge-open-fake-ui stage.",
+  "updated_at": "2026-07-22T18:51:35+08:00"
 }
