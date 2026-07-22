@@ -1,7 +1,18 @@
 {
   "stage_id": "2026-07-hedge-open-fake-ui-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
+  "user_release": {
+    "decision": "waive_formal_review_2_and_accept",
+    "authorized_by": "user",
+    "verbatim": "codex 和 fable5 都没有额度…开始下一阶段的开发；显式豁免 review-2，授权验收",
+    "authorized_at": "2026-07-22T21:24:21+08:00",
+    "evidence_file": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/80-user-acceptance.md",
+    "basis": "review-1 (Claude-GLM) schema-valid ACCEPT + pre-review validator green + pure front-end fake surface (no funds/backend/order/websocket/credentials); Codex and Fable5 out of quota, and the only remaining lawful Claude final review (fresh Opus4.8) was declined because Opus4.8 backs the bookkeeper session and cannot self-review",
+    "is_human_release_not_model_verdict": true,
+    "authorized_merge_local_main": true,
+    "not_authorized": ["push", "real_binance_request", "real_order", "real_websocket", "credential_access", "stage_2_beyond_intake_design_until_its_gates"]
+  },
   "dispatch_protocol": "human-operator/v1",
   "base_sha": "46ea46f6caacf78dca4ef5345f60518c77d6e378",
   "head_sha": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6",
@@ -123,6 +134,14 @@
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/30-review-1.md",
       "result": "archived raw verdict to 30-review-1.md; jsonschema validate PASS against schemas/review-verdict.schema.json; verdict ACCEPT; diff_fingerprint char-for-char equals status; role first_reviewer, prior_involvement none, cross-provider isolation from Kimi(moonshot) confirmed; advanced status to review_2 and prepared review-2 packet",
       "recorded_at": "2026-07-22T21:11:15+08:00"
+    },
+    {
+      "role": "user_release_acceptance",
+      "provider": "user",
+      "model": "human",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/80-user-acceptance.md",
+      "result": "user waived formal review-2 (Codex + Fable5 out of quota; fresh Opus4.8 declined since it backs the bookkeeper session) and accepted the stage on review-1 ACCEPT + green validator + zero-risk fake surface; authorized no-ff merge to local main as stage-2 base; push/real-execution not authorized",
+      "recorded_at": "2026-07-22T21:24:21+08:00"
     }
   ],
   "designer": {
@@ -218,7 +237,9 @@
         "fallback_reviewer": "claude",
         "fallback_requires_runner_unavailability_evidence": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-codex-unavailable.md",
         "next_dispatch_executor": "human_operator",
-        "verdict": null
+        "verdict": "waived_by_user_release",
+        "waiver_note": "Codex and Fable5 out of quota; fresh Opus4.8 (the only remaining lawful Claude final reviewer) declined since Opus4.8 backs the bookkeeper session. User waived formal review-2 via 80-user-acceptance.md. The prepared review-2 packet is retained for reuse if a later stage reinstates a formal final review.",
+        "packet_prepared_but_unused": true
       },
       "r10_checklist": {
         "self_test_commands": ["node frontend/self-check.js"],
