@@ -56,12 +56,15 @@
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.dispatch.md",
       "next_dispatch_executor": "human_operator",
       "r10_checklist": {
-        "self_test_commands": ["python -m pytest backend/tests -q"],
-        "artifact_paths": {
-          "implementation_report": "reports/agent-runs/2026-07-hedge-open-live-v1/20-implementation-hedge-be.md",
-          "test_output": "reports/agent-runs/2026-07-hedge-open-live-v1/60-test-output.txt"
-        },
-        "stop_for_bookkeeper": true
+        "task_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.prompt.md",
+        "self_tests_command": "python -m pytest backend/tests -q",
+        "pass_branch": "write 20-implementation-hedge-be.md + append 60-test-output.txt, then stop for bookkeeper (no commit, no status.json edit, no relay)",
+        "blocker_branch": "output ESCALATED with reason and stop; bookkeeper routes retry/fallback/fix",
+        "next_dispatch_executor": "human_operator",
+        "unavailable_branch": {
+          "failure_classes": ["model_unavailable", "adapter_missing", "command_error", "permission_error", "timeout"],
+          "escalation_artifact": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.dispatch.md"
+        }
       },
       "status": "dispatch_packet_prepared_waiting_human_operator"
     },
@@ -75,12 +78,15 @@
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.dispatch.md",
       "next_dispatch_executor": "human_operator",
       "r10_checklist": {
-        "self_test_commands": ["node frontend/self-check.js"],
-        "artifact_paths": {
-          "implementation_report": "reports/agent-runs/2026-07-hedge-open-live-v1/20-implementation-hedge-fe.md",
-          "test_output": "reports/agent-runs/2026-07-hedge-open-live-v1/60-test-output.txt"
-        },
-        "stop_for_bookkeeper": true
+        "task_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.prompt.md",
+        "self_tests_command": "node frontend/self-check.js",
+        "pass_branch": "write 20-implementation-hedge-fe.md + append 60-test-output.txt, then stop for bookkeeper (no commit, no status.json edit, no relay)",
+        "blocker_branch": "output ESCALATED with reason and stop; bookkeeper routes retry/fallback/fix",
+        "next_dispatch_executor": "human_operator",
+        "unavailable_branch": {
+          "failure_classes": ["model_unavailable", "adapter_missing", "command_error", "permission_error", "timeout"],
+          "escalation_artifact": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.dispatch.md"
+        }
       },
       "status": "dispatch_packet_prepared_waiting_human_operator"
     }
