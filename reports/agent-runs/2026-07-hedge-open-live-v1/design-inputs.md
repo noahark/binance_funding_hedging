@@ -85,7 +85,52 @@ Dry-run/disabled executor default; `APP_HEDGE_EXECUTOR=live` gate; durable
 SQLite; global Start; read-only preflight. (From intake; listed here so design
 keeps it front-and-center.)
 
-## DI-3: Pending recon before design
-- WebSocket facts (in progress, Sonnet 4.6) → `api-recon-websocket.prompt.md`.
-- Order endpoints (papi spot margin market + UM perp market) + exchange filters
-  (stepSize/minNotional) → separate recon still needed.
+## DI-3: Recon status
+- WebSocket facts — **DONE** (Sonnet 4.6), see DI-1 DECISION LOCKED and
+  `reports/api-samples/2026-07-hedge-open-live-v1/websocket-bookticker-recon.md`.
+- Order endpoints + filters — **DONE** (GPT/Codex), see DI-4 and
+  `reports/api-samples/2026-07-hedge-open-live-v1/order-endpoints-filters-recon.md`.
+
+## DI-4: Order/execution contract (from GPT recon — design inputs, "directly usable")
+Source: `order-endpoints-filters-recon.md` (papi base `https://papi.binance.com`;
+endpoints cross-verified against official SDK `@binance/derivatives-trading-
+portfolio-margin` v6.0.0; filters backed by real public exchangeInfo samples).
+
+- **Endpoints:** spot leg `POST /papi/v1/margin/order`, perp leg
+  `POST /papi/v1/um/order` (both weight 1, signed TRADE). Use
+  `newOrderRespType=RESULT`, a unique `newClientOrderId` per leg.
+- **Quantity:** both legs `quantity=q` (base coin) — NOT `quoteOrderQty`. Align
+  both legs on a common filter grid (decimal `lcm(step_spot, step_um)`) to one
+  `q_common`; reject if below any min / above any max. **Never round the two
+  legs independently — that manufactures directional exposure.**
+- **sideEffectType (reverse "no auto-borrow"):** `NO_SIDE_EFFECT` for BOTH
+  directions' spot leg. papi enumerates only `NO_SIDE_EFFECT`/`MARGIN_BUY`/
+  `AUTO_REPAY` — there is NO `AUTO_BORROW_REPAY`. Reverse preflight must confirm
+  `crossMarginFree(base) >= q`; `maxBorrowable` is NOT proof of sellable amount.
+- **positionSide:** query `GET /papi/v1/um/positionSide/dual` (never change
+  mode in the flow). Direction map: forward = spot `BUY` + um `SELL`
+  (`positionSide` BOTH one-way / SHORT hedge); reverse = spot `SELL` + um `BUY`
+  (BOTH / LONG). No `reduceOnly` on opens.
+- **Filters:** papi has NO exchangeInfo — read public
+  `api.binance.com/api/v3/exchangeInfo` (spot) + `fapi.binance.com/fapi/v1/
+  exchangeInfo` (perp) per symbol, don't hardcode. Honor
+  `LOT_SIZE`/`MARKET_LOT_SIZE` (a 0 field = that limit disabled) / spot
+  `NOTIONAL`(minNotional, applyMinToMarket) / perp `MIN_NOTIONAL`. Decimal
+  fixed-point `floor(q/step)*step`.
+- **Balance/quota:** `/papi/v1/balance` (`crossMarginFree` etc), `/account`,
+  `/margin/maxBorrowable` (verify only), `/um/positionRisk`.
+- **Single-leg exposure (matches our locked policy):** don't trust the POST
+  return alone; on timeout/5xx/non-`FILLED`, query
+  `margin/order`+`um/order`+`myTrades`+`userTrades`+`positionRisk` by client id;
+  one leg `FILLED` + other not = single-leg risk → stop, record both legs, NO
+  auto-hedge/close. Never re-send the same client id.
+- **Rate limit:** both weight 1 → one hedge = 2 order events; read
+  `/papi/v1/rateLimit/order`; on 429 stop and keep unsent tasks, don't retry to
+  accelerate.
+- **Dry-run:** no PAPI testnet exists; use a **record transport** (log the
+  would-send signed requests + filter versions + preflight snapshot + client
+  ids, no network POST). Any minimal real PAPI validation needs separate human
+  authorization. This matches the Boundary C posture (DI-2).
+- **Open real-sample item (Hard Gate):** the real order-response JSON must come
+  from a later human-authorized real order; not fabricated. Does not block
+  design (design uses the official response schema + record transport).

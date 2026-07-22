@@ -63,8 +63,10 @@
       "delegated_to": "GPT (quota restored)",
       "reference_doc": "llms-full.txt (Binance API full Chinese docs, in repo root)",
       "executor": "human_operator",
-      "status": "prompt_prepared_waiting_recon_result",
-      "result_archive_target": "reports/api-samples/2026-07-hedge-open-live-v1/"
+      "status": "completed",
+      "result_path": "reports/api-samples/2026-07-hedge-open-live-v1/order-endpoints-filters-recon.md",
+      "key_findings": "endpoints margin/order + um/order (weight 1, SDK v6.0.0 cross-verified); quantity=q base coin on a common filter grid for both legs (never independent rounding); reverse spot SELL = NO_SIDE_EFFECT (papi has no AUTO_BORROW_REPAY; reverse preflight crossMarginFree>=q, maxBorrowable is not sellable proof); positionSide via /um/positionSide/dual; filters via public spot+fapi exchangeInfo (real BTCUSDT samples); single-leg exposure via client-id query state machine (never trust POST return alone); both weight 1 so 1 hedge=2 order events, read /papi/v1/rateLimit/order; no PAPI testnet -> dry-run record transport",
+      "open_item": "real order-response JSON needs a later human-authorized real order (not fabricated); does NOT block design (official response schema + record transport used). See DI-4."
     },
     "first_round_scope": "smooth+immediate together vs immediate-first — confirm at design time"
   },
