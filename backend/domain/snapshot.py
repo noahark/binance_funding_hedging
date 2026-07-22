@@ -162,6 +162,7 @@ def build_rows(
             funding_history_by_sym.get(sym, []), t_end_ms
         )
         annualized_24h = compute_annualized_funding_24h(daily_rate)
+        funding_sum_24h = compute_funding_sum_window(funding_history, t_end_ms, 1)
         annualized_7d = compute_annualized_funding_window(funding_history, t_end_ms, 7)
         annualized_30d = compute_annualized_funding_window(funding_history, t_end_ms, 30)
 
@@ -205,6 +206,7 @@ def build_rows(
                 "funding_history": funding_history,
                 "funding_interval_hours": interval_hours,
                 "daily_funding_rate": daily_rate,
+                "funding_sum_24h": funding_sum_24h,
                 "annualized_funding_24h": annualized_24h,
                 "annualized_funding_7d": annualized_7d,
                 "annualized_funding_30d": annualized_30d,
@@ -392,21 +394,15 @@ def compute_annualized_funding_24h(daily_funding_rate) -> Optional[str]:
     return _quantize_rate(rate * Decimal(365))
 
 
-def compute_annualized_funding_window(
+def _sum_funding_in_window(
     funding_history: List[dict], t_end_ms: Optional[int], days: int
-) -> Optional[str]:
-    """Settled-window annualization for ``days in {7, 30}``.
+) -> Optional[Decimal]:
+    """Sum settled ``funding_rate`` in the inclusive window
+    ``[t_end - days*86_400_000, t_end]``.
 
-    Sums ``Decimal(funding_rate)`` for entries whose ``funding_time`` falls in
-    the inclusive calendar window ``[t_end - days*86_400_000, t_end]`` and
-    multiplies by ``365 / days`` (calendar denominator, ADR-1). No observed-span
-    denominator, no mean-period formula, no ``lastFundingRate``. An empty window
-    yields ``None`` (a new listing is not inflated). Quantized to 8 places;
-    negative zero normalized.
-
-    ``funding_history`` entries carry ``funding_time`` (ms int) and
-    ``funding_rate`` (decimal string). ``t_end_ms`` None / ``days`` <= 0 / no
-    in-window entries -> ``None``. Decimal-only; unparseable entries are skipped.
+    Both edges are included once (no half-open interval): a point exactly at
+    ``start`` or ``t_end`` contributes once; a point 1ms outside either edge is
+    excluded. Empty / unknown ``t_end`` / ``days <= 0`` -> ``None``.
     """
     if t_end_ms is None or days <= 0:
         return None
@@ -424,6 +420,7 @@ def compute_annualized_funding_window(
             ft = int(entry.get("funding_time"))
         except (TypeError, ValueError):
             continue
+        # Inclusive both ends — do not use half-open (start, t_end] or [start, t_end).
         if start <= ft <= t_end:
             try:
                 total += Decimal(str(entry.get("funding_rate")))
@@ -431,6 +428,44 @@ def compute_annualized_funding_window(
             except (InvalidOperation, ValueError, TypeError):
                 continue
     if count == 0:
+        return None
+    return total
+
+
+def compute_funding_sum_window(
+    funding_history: List[dict], t_end_ms: Optional[int], days: int
+) -> Optional[str]:
+    """Settled-window **sum** of funding rates (not annualized).
+
+    Same inclusive calendar window as :func:`compute_annualized_funding_window`.
+    Used for the market-table 「近 24h」 column (``days=1``): sum of every
+    settled ``funding_rate`` with ``funding_time`` in the last 24 hours ending
+    at snapshot ``data_time``. Empty window -> ``None``.
+    """
+    total = _sum_funding_in_window(funding_history, t_end_ms, days)
+    if total is None:
+        return None
+    return _quantize_rate(total)
+
+
+def compute_annualized_funding_window(
+    funding_history: List[dict], t_end_ms: Optional[int], days: int
+) -> Optional[str]:
+    """Settled-window annualization for ``days in {7, 30}``.
+
+    Sums ``Decimal(funding_rate)`` for entries whose ``funding_time`` falls in
+    the inclusive calendar window ``[t_end - days*86_400_000, t_end]`` and
+    multiplies by ``365 / days`` (calendar denominator, ADR-1). No observed-span
+    denominator, no mean-period formula, no ``lastFundingRate``. An empty window
+    yields ``None`` (a new listing is not inflated). Quantized to 8 places;
+    negative zero normalized.
+
+    ``funding_history`` entries carry ``funding_time`` (ms int) and
+    ``funding_rate`` (decimal string). ``t_end_ms`` None / ``days`` <= 0 / no
+    in-window entries -> ``None``. Decimal-only; unparseable entries are skipped.
+    """
+    total = _sum_funding_in_window(funding_history, t_end_ms, days)
+    if total is None:
         return None
     return _quantize_rate(total * Decimal(365) / Decimal(days))
 

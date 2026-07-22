@@ -61,6 +61,10 @@
       display: grid;
       grid-template-columns: 248px minmax(0, 1fr);
       min-height: 100vh;
+      transition: grid-template-columns 0.22s ease;
+    }
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: 0 minmax(0, 1fr);
     }
 
     .sidebar {
@@ -73,7 +77,55 @@
       padding: var(--space-5);
       background: #172322;
       color: #f7fbfa;
+      overflow: hidden;
+      min-width: 0;
+      transition: opacity 0.18s ease, padding 0.22s ease;
     }
+    .app-shell.sidebar-collapsed .sidebar {
+      opacity: 0;
+      padding: 0;
+      pointer-events: none;
+    }
+
+    /* Edge control: sits on the sidebar/content boundary; stays usable when collapsed. */
+    .sidebar-toggle {
+      position: fixed;
+      z-index: 40;
+      top: 50%;
+      left: 248px;
+      transform: translate(-50%, -50%);
+      width: 28px;
+      height: 56px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      box-shadow: var(--shadow);
+    }
+    .sidebar-toggle:hover,
+    .sidebar-toggle:focus-visible {
+      outline: none;
+      color: var(--brand-dark);
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+    .app-shell.sidebar-collapsed .sidebar-toggle {
+      left: 0;
+      transform: translate(0, -50%);
+      border-radius: 0 10px 10px 0;
+      width: 26px;
+    }
+    .sidebar-toggle .icon {
+      width: 16px;
+      height: 16px;
+    }
+    .sidebar-toggle .icon-expand { display: none; }
+    .app-shell.sidebar-collapsed .sidebar-toggle .icon-collapse { display: none; }
+    .app-shell.sidebar-collapsed .sidebar-toggle .icon-expand { display: inline-grid; }
 
     .brand { display: grid; gap: var(--space-1); }
     .brand-mark {
@@ -763,8 +815,33 @@
     }
 
     @media (max-width: 1100px) {
-      .app-shell { grid-template-columns: 1fr; }
-      .sidebar { position: static; height: auto; padding: var(--space-4); }
+      .app-shell,
+      .app-shell.sidebar-collapsed { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        height: auto;
+        padding: var(--space-4);
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .app-shell.sidebar-collapsed .sidebar {
+        display: none;
+      }
+      .sidebar-toggle {
+        top: auto;
+        bottom: var(--space-4);
+        left: var(--space-4);
+        transform: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+      }
+      .app-shell.sidebar-collapsed .sidebar-toggle {
+        left: var(--space-4);
+        transform: none;
+        border-radius: 999px;
+        width: 40px;
+      }
     }
     @media (max-width: 760px) {
       .content { padding: var(--space-3); }
@@ -777,8 +854,8 @@
   </style>
 </head>
 <body>
-  <div class="app-shell">
-    <aside class="sidebar" aria-label="主导航">
+  <div class="app-shell" id="app-shell">
+    <aside class="sidebar" id="app-sidebar" aria-label="主导航">
       <div class="brand">
         <div class="brand-mark">
           <span class="brand-icon" aria-hidden="true">
@@ -809,16 +886,26 @@
 
     </aside>
 
+    <button type="button" class="sidebar-toggle" id="sidebar-toggle"
+      aria-controls="app-sidebar" aria-expanded="true" title="收起侧栏" aria-label="收起侧栏">
+      <svg class="icon icon-collapse" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M15 6 9 12l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg class="icon icon-expand" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M9 6 15 12l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
     <main class="content">
       <header class="topbar">
         <div class="title-block">
           <h1>资金费率对冲工作台</h1>
           <p class="subtitle">行情公开 · 账户需 key 私有只读</p>
         </div>
-        <div class="badge-row" aria-label="运行约束">
-          <span class="badge success">行情公开</span>
-          <span class="badge info">账户只读</span>
-          <span class="badge warn">自动刷新 60s</span>
+        <div class="badge-row" aria-label="刷新与排序">
+          <span class="sort-basis-badge" id="sort-basis-badge" style="display:none;">排序基准: —</span>
+          <span class="badge muted" id="refresh-countdown">下次刷新: 60s</span>
+          <button class="btn compact primary" id="btn-refresh" type="button">手动刷新</button>
         </div>
       </header>
 
@@ -848,11 +935,6 @@
             <p class="subtitle" id="market-snapshot-meta">生成时间: — · 数据时间: — · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）</p>
             <p class="subtitle" id="data-source-label">数据源: /api/public-market/snapshot</p>
           </div>
-          <div class="panel-actions">
-            <span class="sort-basis-badge" id="sort-basis-badge" style="display:none;">基准: —</span>
-            <span class="badge muted" id="refresh-countdown">下次刷新: 60s</span>
-            <button class="btn compact primary" id="btn-refresh" type="button">手动刷新</button>
-          </div>
         </div>
         <div class="panel-body">
           <div class="controls" style="margin-bottom: var(--space-4);">
@@ -874,9 +956,9 @@
               <label for="filter-route">路由分类</label>
               <select id="filter-route">
                 <option value="">全部</option>
-                <option value="MARGIN_SPOT_CANDIDATE">MARGIN_SPOT_CANDIDATE(杠杆现货候选)</option>
-                <option value="SPOT_ONLY_CANDIDATE">SPOT_ONLY_CANDIDATE(仅现货候选)</option>
-                <option value="PERP_ONLY_EXCLUDED">PERP_ONLY_EXCLUDED(仅合约，排除)</option>
+                <option value="MARGIN_SPOT_CANDIDATE">杠杆现货候选</option>
+                <option value="SPOT_ONLY_CANDIDATE">仅现货候选</option>
+                <option value="PERP_ONLY_EXCLUDED">仅合约(排除)</option>
               </select>
             </div>
             <div class="control">
@@ -891,6 +973,18 @@
                 隐藏 |日费率| ≤ 0.03%
               </label>
             </div>
+            <div class="control">
+              <label title="有符号比较：日净收益 ≤ 0.03%（含全部负值与零）则隐藏；null 不隐藏。与「隐藏 |日费率|」的绝对值语义不同。">
+                <input id="filter-hide-low-net-yield" type="checkbox" checked />
+                隐藏 日净收益 ≤ 0.03%
+              </label>
+            </div>
+            <div class="control">
+              <label title="在当前筛选结果内，将可开场景（正费率，或负费率且可借数量&gt;0）按日净收益倒序置顶；其余保持原序。不新增隐藏条件。">
+                <input id="filter-prefer-openable" type="checkbox" checked />
+                可开优先展示
+              </label>
+            </div>
           </div>
 
           <div class="summary-row" id="summary-row" style="margin-bottom: var(--space-4);"></div>
@@ -902,18 +996,18 @@
               <thead>
                 <tr>
                   <th>标的</th>
-                  <th>标记价格 / 指数价格</th>
                   <th title="约 60 秒刷新；失败时 last-good 最多约两个周期（默认 120 秒）后停用；非成交保证。stale=数据超过可用窗口；incomplete=部分价格缺失。">正向开单</th>
                   <th title="约 60 秒刷新；失败时 last-good 最多约两个周期（默认 120 秒）后停用；非成交保证。stale=数据超过可用窗口；incomplete=部分价格缺失。">反向开单</th>
                   <th title="本周期实时预估">资金费率</th>
                   <th>结算时间</th>
                   <th title="按结算间隔年化">日费率</th>
+                  <th title="最近 24 小时资金费率之和（含窗口两端，各计一次；非年化）">近 24h</th>
                   <th title="预估 24h 年化 = 日费率 × 365">年化 24h</th>
                   <th title="已结算 7 日年化（日历窗口求和）">年化 7D</th>
                   <th title="已结算 30 日年化（日历窗口求和）">年化 30D</th>
                   <th title="扣除借币成本后的净收益">日净收益</th>
                   <th>借贷状态 / 资产</th>
-                  <th>操作</th>
+                  <th>借币</th>
                 </tr>
               </thead>
               <tbody id="market-table-body"></tbody>
@@ -1005,6 +1099,14 @@
         'funding_history', 'ui_flags', 'annualized_funding_24h',
         'annualized_funding_7d', 'annualized_funding_30d'
       ];
+      // Additive / optional on the wire schema (frozen snapshots may omit).
+      // Live backend emits them; missing keys normalize to null for display.
+      const OPTIONAL_RATE_FIELDS = [
+        'funding_sum_24h',
+        'daily_funding_rate',
+        'net_daily_yield',
+        'borrow_rate_source'
+      ];
 
       const AUTO_REFRESH_MS = 60000; // 与后端 Config.cache_ttl_seconds=60 对齐
       const PRIVACY_STORAGE_KEY = 'funding_hedging_privacy_hidden';
@@ -1026,7 +1128,10 @@
           assetTag: '',
           routeClass: '',
           showPerpOnly: false,
-          hideLowDailyRate: true
+          hideLowDailyRate: true,
+          hideLowNetYield: true,
+          // 可开优先展示：默认 on；仅对筛选后的可见集 re-rank，不新增隐藏条件。
+          preferOpenable: true
         },
         privacyHidden: true,
         selectedSymbol: null,
@@ -1048,6 +1153,8 @@
       };
 
       const els = {
+        appShell: document.getElementById('app-shell'),
+        sidebarToggle: document.getElementById('sidebar-toggle'),
         marketSnapshotMeta: document.getElementById('market-snapshot-meta'),
         dataSourceLabel: document.getElementById('data-source-label'),
         sortBasisBadge: document.getElementById('sort-basis-badge'),
@@ -1058,6 +1165,8 @@
         filterRoute: document.getElementById('filter-route'),
         filterShowPerpOnly: document.getElementById('filter-show-perp-only'),
         filterHideLowDailyRate: document.getElementById('filter-hide-low-daily-rate'),
+        filterHideLowNetYield: document.getElementById('filter-hide-low-net-yield'),
+        filterPreferOpenable: document.getElementById('filter-prefer-openable'),
         summaryRow: document.getElementById('summary-row'),
         statusArea: document.getElementById('status-area'),
         tableBody: document.getElementById('market-table-body'),
@@ -1331,21 +1440,22 @@
         const pa = row.borrow_validation && row.borrow_validation.portfolio_account;
         if (!pa || pa.max_borrowable == null) return '';
         const usdt2 = formatUsdt2(pa.max_borrowable_value_usdt);
-        const val = usdt2 != null ? ` (≈ ${usdt2} USDT)` : '';
+        // No parentheses around ≈USDT (ops: redundant).
+        const val = usdt2 != null ? ` ≈ ${usdt2} USDT` : '';
         // 耗尽文案只保留状态徽标「可借 0(已借完)」，额度子行不再重复「已借完」标记。
         return `<br/><span class="muted small">可借: ${escapeHtml(pa.max_borrowable)}${val}</span>`;
       }
 
-      // 操作列数量输入占位符：仅展示 B1 契约的 raw 最小借币量指引，不写入输入值、
+      // 借币列数量输入占位符：仅展示 B1 契约的 raw 最小借币量指引，不写入输入值、
       // 不影响校验/创建、不暗示当前可借。raw 为 null/缺失 → 「最小借币量 —」；
-      // raw 有值而估值缺失 → 「(≈ — USDT)」；raw "0"/"0.00" 正常展示。
+      // raw 有值而估值缺失 → 「≈ — USDT」（无括号）；raw "0"/"0.00" 正常展示。
       function minBorrowPlaceholder(row) {
         const cm = row.borrow_validation && row.borrow_validation.classic_margin;
         const raw = cm ? cm.user_min_borrow : null;
         if (typeof raw !== 'string' || raw === '') return '最小借币量 —';
         const val = cm.user_min_borrow_value_usdt;
-        if (typeof val !== 'string' || val === '') return `最小借币量 ${raw} (≈ — USDT)`;
-        return `最小借币量 ${raw} (≈ ${val} USDT)`;
+        if (typeof val !== 'string' || val === '') return `最小借币量 ${raw} ≈ — USDT`;
+        return `最小借币量 ${raw} ≈ ${val} USDT`;
       }
 
       function renderOpeningQuotesCell(row, direction) {
@@ -1427,12 +1537,17 @@
         return `<span class="badge ${cls}">${escapeHtml(map[rc] || rc)}</span>`;
       }
 
+      // Primary rate string for sign / openable checks: prefer daily_funding_rate.
+      function primaryFundingRateRaw(row) {
+        if (row.daily_funding_rate != null && row.daily_funding_rate !== '') {
+          return row.daily_funding_rate;
+        }
+        return row.futures && row.futures.last_funding_rate;
+      }
+
       // Sign-only: true when the primary rate string is strictly > 0 (no float).
-      // Prefer daily_funding_rate (product day basis); fall back to last funding.
       function isPositiveFundingRate(row) {
-        const raw = (row.daily_funding_rate != null && row.daily_funding_rate !== '')
-          ? row.daily_funding_rate
-          : (row.futures && row.futures.last_funding_rate);
+        const raw = primaryFundingRateRaw(row);
         if (raw === undefined || raw === null || raw === '') return false;
         const m = String(raw).trim().match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
         if (!m) return false;
@@ -1441,6 +1556,114 @@
         const intPart = m[2].replace(/^0+/, '') || '0';
         const fracPart = (m[3] || '').replace(/0+$/, '');
         return !(intPart === '0' && fracPart === '');
+      }
+
+      // Sign-only: true when the primary rate string is strictly < 0 (no float).
+      function isNegativeFundingRate(row) {
+        const raw = primaryFundingRateRaw(row);
+        if (raw === undefined || raw === null || raw === '') return false;
+        const m = String(raw).trim().match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+        if (!m || m[1] !== '-') return false;
+        const intPart = m[2].replace(/^0+/, '') || '0';
+        const fracPart = (m[3] || '').replace(/0+$/, '');
+        return !(intPart === '0' && fracPart === '');
+      }
+
+      // Decimal string strictly > 0 (no float). null / '' / non-numeric / ≤0 → false.
+      function isStrictlyPositiveDecimalString(str) {
+        if (str === undefined || str === null || str === '') return false;
+        const m = String(str).trim().match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+        if (!m) return false;
+        if (m[1] === '-') return false;
+        const intPart = m[2].replace(/^0+/, '') || '0';
+        const fracPart = (m[3] || '').replace(/0+$/, '');
+        return !(intPart === '0' && fracPart === '');
+      }
+
+      // 可开篮子（进 A 组）：仅判定资格，不做 route/现货腿额外限制。
+      // 1) 正费率；2) 负费率且已验证可借且 max_borrowable > 0。未探测/可借0/不可借不进。
+      function isOpenablePreferredRow(row) {
+        if (isPositiveFundingRate(row)) return true;
+        if (!isNegativeFundingRate(row)) return false;
+        const bv = row.borrow_validation;
+        if (!bv || bv.verified !== true) return false;
+        const cm = bv.classic_margin || {};
+        if (cm.pair_listed !== true || cm.asset_borrowable !== true) return false;
+        const pa = bv.portfolio_account || {};
+        return isStrictlyPositiveDecimalString(pa.max_borrowable);
+      }
+
+      function parseDecimalParts(str) {
+        if (str === undefined || str === null || str === '') return null;
+        const m = String(str).trim().match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+        if (!m) return null;
+        return {
+          neg: m[1] === '-',
+          intPart: (m[2].replace(/^0+/, '') || '0'),
+          frac: m[3] || ''
+        };
+      }
+
+      // Compare decimal strings for DESC order (higher algebraic value first). nulls last.
+      // Returns <0 if a should come before b. Pure string/BigInt — no float.
+      function compareDecimalStringsDesc(aStr, bStr) {
+        const pa = parseDecimalParts(aStr);
+        const pb = parseDecimalParts(bStr);
+        if (!pa && !pb) return 0;
+        if (!pa) return 1;
+        if (!pb) return -1;
+        if (pa.neg !== pb.neg) return pa.neg ? 1 : -1; // non-negative before negative
+        const maxFrac = Math.max(pa.frac.length, pb.frac.length);
+        const maxInt = Math.max(pa.intPart.length, pb.intPart.length);
+        const aAbs = pa.intPart.padStart(maxInt, '0') + pa.frac.padEnd(maxFrac, '0');
+        const bAbs = pb.intPart.padStart(maxInt, '0') + pb.frac.padEnd(maxFrac, '0');
+        if (aAbs === bAbs) return 0;
+        if (!pa.neg) {
+          // both ≥0: larger abs first
+          return aAbs > bAbs ? -1 : 1;
+        }
+        // both <0: larger algebraically = smaller abs first
+        return aAbs < bAbs ? -1 : 1;
+      }
+
+      function absDecimalString(str) {
+        const p = parseDecimalParts(str);
+        if (!p) return null;
+        return p.intPart + (p.frac ? '.' + p.frac : '');
+      }
+
+      // A-group sort: net_daily_yield DESC; missing net → |daily_funding_rate| DESC; then symbol ASC.
+      function compareOpenableRows(a, b) {
+        const aNet = a.net_daily_yield;
+        const bNet = b.net_daily_yield;
+        const aHasNet = parseDecimalParts(aNet) != null;
+        const bHasNet = parseDecimalParts(bNet) != null;
+        if (aHasNet || bHasNet) {
+          if (aHasNet && bHasNet) {
+            const c = compareDecimalStringsDesc(aNet, bNet);
+            if (c !== 0) return c;
+          } else {
+            // Prefer rows that have net over those that only have daily abs.
+            if (aHasNet !== bHasNet) return aHasNet ? -1 : 1;
+          }
+        } else {
+          const aAbs = absDecimalString(a.daily_funding_rate);
+          const bAbs = absDecimalString(b.daily_funding_rate);
+          if (aAbs != null || bAbs != null) {
+            if (aAbs != null && bAbs != null) {
+              const c = compareDecimalStringsDesc(aAbs, bAbs);
+              if (c !== 0) return c;
+            } else {
+              if (aAbs != null) return -1;
+              if (bAbs != null) return 1;
+            }
+          }
+        }
+        const sa = String(a.symbol || '');
+        const sb = String(b.symbol || '');
+        if (sa < sb) return -1;
+        if (sa > sb) return 1;
+        return 0;
       }
 
       function badgeForNegativeFundingStatus(row) {
@@ -1529,6 +1752,10 @@
           if (!row.futures || !('last_funding_rate' in row.futures) || !('next_funding_time' in row.futures)) {
             return { ok: false, reason: `rows[${i}].futures 缺少 last_funding_rate 或 next_funding_time` };
           }
+          // Do not fail closed on additive rate fields; fill null so 「近 24h」等列可渲染。
+          for (const f of OPTIONAL_RATE_FIELDS) {
+            if (!(f in row)) row[f] = null;
+          }
         }
         return { ok: true };
       }
@@ -1545,6 +1772,7 @@
         // parseFloat() touches the threshold comparison (avoids float boundary
         // drift). null/undefined/''/invalid -> false (NOT hidden by this filter),
         // so a null daily_funding_rate row is never hidden here.
+        // Used only by 「隐藏 |日费率| ≤ 0.03%」 (absolute-value semantics).
         if (rateStr === null || rateStr === undefined || rateStr === '') return false;
         const m = String(rateStr).match(/^(-?)(\d+)(?:\.(\d+))?$/);
         if (!m) return false;
@@ -1559,6 +1787,26 @@
         return absScaled <= thresholdScaled;
       }
 
+      function netYieldAtOrBelowThreshold(rateStr) {
+        // Signed: rateStr <= 0.00030000 (0.03%)? Pure string/BigInt — no float.
+        // Used only by 「隐藏 日净收益 ≤ 0.03%」. NOT absolute-value:
+        // every negative / zero / small positive (≤0.03%) is hidden; only net > 0.03% stays.
+        // null/undefined/''/invalid -> false (NOT hidden).
+        if (rateStr === null || rateStr === undefined || rateStr === '') return false;
+        const m = String(rateStr).match(/^(-?)(\d+)(?:\.(\d+))?$/);
+        if (!m) return false;
+        const neg = m[1] === '-';
+        const intPart = m[2];
+        const fracPart = m[3] || '';
+        const scale = Math.max(fracPart.length, 8);
+        const fracPadded = fracPart.padEnd(scale, '0');
+        const absScaled = BigInt(intPart) * (10n ** BigInt(scale)) + BigInt(fracPadded || '0');
+        const thresholdScaled = 30000n * (10n ** BigInt(scale - 8));
+        // All negatives (and -0) are algebraically ≤ +0.03%.
+        if (neg) return true;
+        return absScaled <= thresholdScaled;
+      }
+
       function filteredRows() {
         if (!state.snapshot) return [];
         const q = state.filters.search.trim().toUpperCase();
@@ -1567,9 +1815,27 @@
           if (state.filters.assetTag && row.asset_tag !== state.filters.assetTag) return false;
           if (state.filters.routeClass && row.route_class !== state.filters.routeClass) return false;
           if (!state.filters.showPerpOnly && row.route_class === 'PERP_ONLY_EXCLUDED') return false;
+          // 日费率：绝对值 |daily| ≤ 0.03%
           if (state.filters.hideLowDailyRate && absDailyRateAtOrBelowThreshold(row.daily_funding_rate)) return false;
+          // 日净收益：有符号 net ≤ 0.03%（含全部负值）；null 不隐藏
+          if (state.filters.hideLowNetYield && netYieldAtOrBelowThreshold(row.net_daily_yield)) return false;
           return true;
         });
+      }
+
+      // 筛选后可选 re-rank：可开篮子按日净收益 DESC 置顶；其余保持 payload 相对顺序。
+      // 不新增隐藏条件；关「可开优先」时 == filteredRows()。
+      function displayRows() {
+        const rows = filteredRows();
+        if (!state.filters.preferOpenable) return rows;
+        const openable = [];
+        const rest = [];
+        for (const row of rows) {
+          if (isOpenablePreferredRow(row)) openable.push(row);
+          else rest.push(row);
+        }
+        openable.sort(compareOpenableRows);
+        return openable.concat(rest);
       }
 
       function renderSummary() {
@@ -1581,16 +1847,38 @@
         const s = state.snapshot.summary || {};
         const parts = [
           `共 ${rows.length} 行`,
-          `路由: ${countString(s.route_counts)}`,
-          `资产: ${countString(s.asset_tag_counts)}`,
-          `负费率: ${countString(s.negative_funding_status_counts)}`
+          `路由: ${countString(s.route_counts, ROUTE_CLASS_LABEL_ZH)}`,
+          `资产: ${countString(s.asset_tag_counts, ASSET_TAG_LABEL_ZH)}`,
+          `负费率: ${countString(s.negative_funding_status_counts, NEGATIVE_FUNDING_STATUS_LABEL_ZH)}`
         ];
         els.summaryRow.innerHTML = parts.map(p => `<span class="badge">${escapeHtml(p)}</span>`).join('');
       }
 
-      function countString(counts) {
+      // Summary-row Chinese labels (wire enum keys remain for filters/API).
+      const ROUTE_CLASS_LABEL_ZH = {
+        MARGIN_SPOT_CANDIDATE: '杠杆现货候选',
+        SPOT_ONLY_CANDIDATE: '仅现货候选',
+        PERP_ONLY_EXCLUDED: '仅合约(排除)'
+      };
+      const ASSET_TAG_LABEL_ZH = {
+        CRYPTO: '加密货币',
+        BSTOCK: '美股代币',
+        METAL: '金属',
+        UNKNOWN: '未知'
+      };
+      const NEGATIVE_FUNDING_STATUS_LABEL_ZH = {
+        PRIVATE_BORROW_VALIDATION_REQUIRED: '需私有验证',
+        DISABLED_PERP_ONLY: '仅合约不可借',
+        DISABLED_SPOT_ONLY: '仅现货不可借',
+        DISABLED_BSTOCK: '美股代币不可借'
+      };
+
+      function countString(counts, labelMap) {
         if (!counts || typeof counts !== 'object') return '—';
-        return Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(' / ') || '—';
+        const map = labelMap || {};
+        return Object.entries(counts)
+          .map(([k, v]) => `${map[k] || k}: ${v}`)
+          .join(' / ') || '—';
       }
 
       function getUmPositionSymbols() {
@@ -1630,7 +1918,7 @@
           return;
         }
 
-        const rows = filteredRows();
+        const rows = displayRows();
         if (rows.length === 0) {
           els.tableBody.innerHTML = `
             <tr>
@@ -1669,8 +1957,12 @@
           ? '—'
           : `${dailyRateText}${intervalBadge ? ' ' + intervalBadge : ''}`;
         const netClass = classForFundingRate(row.net_daily_yield);
-        const netText = formatFundingRate(row.net_daily_yield);
+        // 日净收益列统一 3 位小数百分比（与日费率列一致）
+        const netText = formatFundingRateFixed(row.net_daily_yield, 3);
         const netSource = sourceBadge(row.borrow_rate_source);
+        const sum24Class = classForFundingRate(row.funding_sum_24h);
+        const sum24Text = formatFundingRateFixed(row.funding_sum_24h, 3);
+        const sum24Title = `原始值 ${escapeHtml(row.funding_sum_24h || 'null')} · 近 24h 资金费率之和（含 [data_time-24h, data_time] 两端，非年化）`;
         const ann24Class = classForFundingRate(row.annualized_funding_24h);
         const ann24Text = formatFundingRateFixed(row.annualized_funding_24h, 2);
         const ann24Title = `原始值 ${escapeHtml(row.annualized_funding_24h || 'null')} · 预估 24h 年化（日费率 × 365），非已结算历史`;
@@ -1698,12 +1990,12 @@
         return `
           <tr class="${isBstock ? 'bstock' : ''} selectable" data-symbol="${escapeHtml(row.symbol)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(row.symbol)} 的年化与已结算历史">
             <td class="mono">${escapeHtml(row.symbol)}${dirBadge}<br/><span class="muted small">${escapeHtml(row.base_asset)}/${escapeHtml(row.quote_asset)}</span></td>
-            <td class="mono">${formatPrice(row.futures.mark_price)}<br/><span class="muted">${formatPrice(row.futures.index_price)}</span></td>
             ${renderOpeningQuotesCell(row, 'forward')}
             ${renderOpeningQuotesCell(row, 'reverse')}
             <td class="${rateClass}" title="${escapeHtml(rateTitle)}">${rateText}</td>
             <td title="${escapeHtml(fullTime)}">${timeText}</td>
             <td class="${dailyRateClass}">${dailyRateCell}</td>
+            <td class="${sum24Class}" title="${escapeHtml(sum24Title)}">${sum24Text}</td>
             <td class="${ann24Class}" title="${escapeHtml(ann24Title)}">${ann24Text}</td>
             <td class="${ann7Class}" title="${escapeHtml(ann7Title)}">${ann7Text}</td>
             <td class="${ann30Class}" title="${escapeHtml(ann30Title)}">${ann30Text}</td>
@@ -2076,7 +2368,7 @@
           return;
         }
         els.sortBasisBadge.style.display = '';
-        els.sortBasisBadge.textContent = `基准: ${sortBasisLabel(basis)}`;
+        els.sortBasisBadge.textContent = `排序基准: ${sortBasisLabel(basis)}`;
         els.sortBasisBadge.title = '后端已按此基准排好序，前端按 payload 顺序渲染（零客户端排序）';
       }
 
@@ -2610,7 +2902,7 @@
           : state.borrowTasks.filter(t => t.status === state.borrowTaskFilter);
         if (tasks.length === 0) {
           const emptyText = state.borrowTasks.length === 0
-            ? '<strong>暂无借币任务</strong><br/><span class="muted small">在市场表「操作」列输入单次借币数量与成功次数并确认后创建</span>'
+            ? '<strong>暂无借币任务</strong><br/><span class="muted small">在市场表「借币」列输入单次借币数量与成功次数并确认后创建</span>'
             : `<strong>暂无「${BORROW_TASK_STATUS_LABELS[state.borrowTaskFilter]}」任务</strong>`;
           els.borrowTaskList.innerHTML = `<div class="empty-state">${emptyText}</div>`;
           return;
@@ -2928,8 +3220,25 @@
         }
       }
 
+      function setSidebarCollapsed(collapsed) {
+        if (!els.appShell || !els.sidebarToggle) return;
+        els.appShell.classList.toggle('sidebar-collapsed', !!collapsed);
+        const open = !collapsed;
+        els.sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        els.sidebarToggle.setAttribute('aria-label', open ? '收起侧栏' : '展开侧栏');
+        els.sidebarToggle.title = open ? '收起侧栏' : '展开侧栏';
+      }
+
+      function toggleSidebar() {
+        const collapsed = els.appShell && els.appShell.classList.contains('sidebar-collapsed');
+        setSidebarCollapsed(!collapsed);
+      }
+
       function bindEvents() {
         els.btnRefresh.addEventListener('click', loadApi);
+        if (els.sidebarToggle) {
+          els.sidebarToggle.addEventListener('click', toggleSidebar);
+        }
         els.navMarket.addEventListener('click', () => setActiveView('market'));
         els.navBorrowTasks.addEventListener('click', () => setActiveView('borrow-tasks'));
         els.borrowTabTasks.addEventListener('click', () => setBorrowTab('tasks'));
@@ -2975,6 +3284,18 @@
           state.filters.hideLowDailyRate = els.filterHideLowDailyRate.checked;
           applyFiltersAndRender();
         });
+        if (els.filterHideLowNetYield) {
+          els.filterHideLowNetYield.addEventListener('change', () => {
+            state.filters.hideLowNetYield = els.filterHideLowNetYield.checked;
+            applyFiltersAndRender();
+          });
+        }
+        if (els.filterPreferOpenable) {
+          els.filterPreferOpenable.addEventListener('change', () => {
+            state.filters.preferOpenable = els.filterPreferOpenable.checked;
+            applyFiltersAndRender();
+          });
+        }
       }
 
       state.privacyHidden = loadPrivacyHidden();
@@ -2991,6 +3312,13 @@
         formatOpeningSpreadPct,
         classForOpeningSpread,
         absDailyRateAtOrBelowThreshold,
+        netYieldAtOrBelowThreshold,
+        isPositiveFundingRate,
+        isNegativeFundingRate,
+        isOpenablePreferredRow,
+        isStrictlyPositiveDecimalString,
+        displayRows,
+        filteredRows,
         ingestSnapshot,
         togglePrivacy,
         getPrivacyHidden: () => state.privacyHidden,

@@ -71,6 +71,16 @@ The private channel is deny-by-default. API keys may exist in the environment,
 but signed private GET requests are not used unless
 `BINANCE_PRIVATE_CHANNEL_ENABLED=true` or its `FUNDING_HEDGING_` alias is set.
 
+### Market table filters & 近 24h (as of 2026-07-22)
+
+Product decisions: `DEC-2026-07-22-004`…`006` and
+`docs/planning/CHANGELOG-2026-07-22-market-table-filters.md`.
+
+- Column **近 24h** = `funding_sum_24h` (inclusive 24h settled sum, not annualized).
+- **可开优先展示** = frontend re-rank after filters (not a hard hide).
+- Hide **|日费率| ≤ 0.03%** uses abs; hide **日净收益 ≤ 0.03%** uses signed `≤`.
+- Filters do not re-fetch; they operate on the current snapshot in memory.
+
 ### Live borrow ops (as of 2026-07-22)
 
 Product decisions: `DEC-2026-07-22-001`…`003` and

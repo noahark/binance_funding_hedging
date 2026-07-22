@@ -25,6 +25,10 @@ This file is the canonical approved roadmap.
 
 - Stabilize live borrow ops UX under operator-accepted risk choices (4xx and
   transport failures keep rotating; log coalesce; liability display).
+- Market table ops polish (accepted locally 2026-07-22): **近 24h** sum column,
+  **可开优先展示** re-rank, dual hide filters (abs daily vs signed net). See
+  `docs/planning/CHANGELOG-2026-07-22-market-table-filters.md` and
+  DEC-2026-07-22-004…006.
 - Keep canonical docs aligned with as-built code (this roadmap, DECISIONS,
   DEVELOPMENT_GUIDE, public-market contract).
 - Formal Harness dual-review packaging for the 2026-07-22 fast patches remains

@@ -98,6 +98,7 @@
           "funding_rate": "0.00010000"
         }
       ],
+      "funding_sum_24h": null,
       "annualized_funding_24h": "0.10950000",
       "annualized_funding_7d": "0.03170755",
       "annualized_funding_30d": "0.00739843",
@@ -149,6 +150,7 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "funding_sum_24h": null,
       "annualized_funding_24h": "0.08915830",
       "annualized_funding_7d": null,
       "annualized_funding_30d": null,
@@ -200,6 +202,7 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "funding_sum_24h": null,
       "annualized_funding_24h": "1.32659250",
       "annualized_funding_7d": null,
       "annualized_funding_30d": null,
@@ -251,6 +254,7 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "funding_sum_24h": null,
       "annualized_funding_24h": "0.10950000",
       "annualized_funding_7d": null,
       "annualized_funding_30d": null,
@@ -303,6 +307,7 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "funding_sum_24h": null,
       "annualized_funding_24h": "0.00000000",
       "annualized_funding_7d": null,
       "annualized_funding_30d": null,
@@ -356,6 +361,7 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "funding_sum_24h": null,
       "annualized_funding_24h": "0.10950000",
       "annualized_funding_7d": null,
       "annualized_funding_30d": null,
@@ -408,6 +414,7 @@
         "source": "unverified"
       },
       "funding_history": [],
+      "funding_sum_24h": null,
       "annualized_funding_24h": "0.10950000",
       "annualized_funding_7d": null,
       "annualized_funding_30d": null,
@@ -437,14 +444,40 @@
   "private_account": {
     "verified": true,
     "balances_unified": [
-      {"asset": "BTC", "total_balance": "0.01000000", "value_usdt": "615.09447312"},
-      {"asset": "ETH", "total_balance": "0.10000000", "value_usdt": "170.54715194"},
-      {"asset": "USDT", "total_balance": "1000.00000000", "value_usdt": "1000.00000000"},
-      {"asset": "NOPRICE", "total_balance": "5.00000000", "value_usdt": null}
+      {
+        "asset": "BTC",
+        "total_balance": "0.01000000",
+        "value_usdt": "615.09447312"
+      },
+      {
+        "asset": "ETH",
+        "total_balance": "0.10000000",
+        "value_usdt": "170.54715194"
+      },
+      {
+        "asset": "USDT",
+        "total_balance": "1000.00000000",
+        "value_usdt": "1000.00000000"
+      },
+      {
+        "asset": "NOPRICE",
+        "total_balance": "5.00000000",
+        "value_usdt": null
+      }
     ],
     "balances_spot": [
-      {"asset": "BTC", "free": "0.00500000", "locked": "0.00500000", "value_usdt": "615.09447312"},
-      {"asset": "USDC", "free": "500.00000000", "locked": "0", "value_usdt": "500.00000000"}
+      {
+        "asset": "BTC",
+        "free": "0.00500000",
+        "locked": "0.00500000",
+        "value_usdt": "615.09447312"
+      },
+      {
+        "asset": "USDC",
+        "free": "500.00000000",
+        "locked": "0",
+        "value_usdt": "500.00000000"
+      }
     ],
     "um_positions": [
       {
@@ -458,7 +491,10 @@
       }
     ],
     "total_value_usdt": "3300.64189818",
-    "valuation": {"price_source": "api_v3_ticker_price", "priced_at": "2026-07-03T05:17:38Z"},
+    "valuation": {
+      "price_source": "api_v3_ticker_price",
+      "priced_at": "2026-07-03T05:17:38Z"
+    },
     "checked_at": "2026-07-03T05:17:38Z",
     "error": null
   }

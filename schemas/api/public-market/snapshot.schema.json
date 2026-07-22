@@ -313,6 +313,13 @@
             { "type": "null" }
           ]
         },
+        "funding_sum_24h": {
+          "description": "Settled funding-rate sum over the inclusive last 24h window [data_time-24h, data_time]. Not annualized. Null when the window is empty or data_time unknown.",
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
         "annualized_funding_24h": {
           "description": "Estimate-derived 24h annualization (daily_funding_rate * 365), or null when the daily rate is null. Settled history never mixes in.",
           "anyOf": [

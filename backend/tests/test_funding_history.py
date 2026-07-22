@@ -28,6 +28,7 @@ import pytest
 
 from backend.domain.snapshot import (
     _build_funding_history,
+    compute_funding_sum_window,
     assemble_snapshot,
     build_rows,
     compute_annualized_funding_24h,
@@ -105,6 +106,31 @@ def test_inclusive_boundaries_and_exclusions():
     assert compute_annualized_funding_window(wire, T_END, 30) == "0.01216667"
 
 
+def test_funding_sum_24h_inclusive_edges_once():
+    # 24h window uses the same inclusive edges as 7D/30D annualization.
+    # On t_end (0.0001) is included; 1ms before (t_end-24h) is excluded when
+    # only the 7D-lower-edge points exist farther out — craft with points at
+    # t_end, t_end-24h, t_end-24h-1, t_end+1.
+    raw = [
+        {"fundingTime": T_END, "fundingRate": "0.00010000"},
+        {"fundingTime": T_END - DAY, "fundingRate": "0.00020000"},
+        {"fundingTime": T_END - DAY - 1, "fundingRate": "0.00050000"},
+        {"fundingTime": T_END + 1, "fundingRate": "0.00060000"},
+        {"fundingTime": T_END - DAY // 2, "fundingRate": "0.00005000"},
+    ]
+    wire = _build_funding_history(raw, T_END)
+    # In window: t_end + mid + lower edge = 0.0001 + 0.00005 + 0.0002 = 0.00035
+    assert compute_funding_sum_window(wire, T_END, 1) == "0.00035000"
+    # Outside points must not be counted
+    assert compute_funding_sum_window(wire, T_END, 1) != "0.00145000"
+
+
+def test_funding_sum_24h_empty_is_null():
+    wire = _build_funding_history(_fixture("out-of-window.json"), T_END)
+    assert compute_funding_sum_window(wire, T_END, 1) is None
+    assert compute_funding_sum_window(wire, None, 1) is None
+
+
 def test_mixed_interval_sum_independent_of_spacing():
     # 1h/4h-ish spacing, all inside 7D: the sum does not depend on interval.
     wire = _build_funding_history(_fixture("mixed-interval.json"), T_END)
@@ -175,6 +201,8 @@ def test_build_rows_emits_three_annualized_fields_from_history():
     row = rows[0]
     # daily = lastFundingRate 0.0001 * (24/8h) = 0.0003 -> 24h = 0.0003 * 365
     assert row["daily_funding_rate"] == "0.00030000"
+    # seven-day-flat is one point/day: inclusive [t_end-24h, t_end] keeps 2 points
+    assert row["funding_sum_24h"] == "0.00020000"
     assert row["annualized_funding_24h"] == "0.10950000"
     assert row["annualized_funding_7d"] == "0.03650000"
     assert row["annualized_funding_30d"] == "0.00851667"
@@ -215,6 +243,7 @@ def test_build_rows_no_t_end_yields_null_window_fields_but_24h():
     )
     row = rows[0]
     assert row["annualized_funding_24h"] == "0.10950000"   # estimate still computed
+    assert row["funding_sum_24h"] is None                   # needs data_time / t_end
     assert row["annualized_funding_7d"] is None
     assert row["annualized_funding_30d"] is None
     # history is passed through unfiltered when no window end is known
@@ -231,14 +260,20 @@ def test_build_rows_daily_null_yields_24h_null():
 
 def test_build_rows_always_emits_three_annualized_fields():
     # Service output guarantee (operator direction): the live backend ALWAYS
-    # outputs the three annualized keys on every row, even with no history. They
-    # are additive/optional on the schema (frozen v0.1 snapshots stay valid), but
-    # the current-snapshot service contract is presence.
+    # outputs the annualized + funding_sum_24h keys on every row, even with no
+    # history. They are additive/optional on the schema (frozen v0.1 snapshots
+    # stay valid), but the current-snapshot service contract is presence.
     rows = build_rows(
         [_SYM], {"BTCUSDT": {"lastFundingRate": "0.00010000"}}, {}, {}, t_end_ms=T_END,
     )
-    keys = {"annualized_funding_24h", "annualized_funding_7d", "annualized_funding_30d"}
+    keys = {
+        "funding_sum_24h",
+        "annualized_funding_24h",
+        "annualized_funding_7d",
+        "annualized_funding_30d",
+    }
     assert keys.issubset(rows[0].keys())
+    assert rows[0]["funding_sum_24h"] is None              # no history -> null
     assert rows[0]["annualized_funding_24h"] == "0.10950000"  # estimate present
     assert rows[0]["annualized_funding_7d"] is None            # no history -> null
     assert rows[0]["annualized_funding_30d"] is None

@@ -82,7 +82,14 @@ function makeElement(id) {
       return {
         add: (c) => { self._classList.add(c); },
         remove: (c) => { self._classList.delete(c); },
-        contains: (c) => self._classList.has(c)
+        contains: (c) => self._classList.has(c),
+        toggle: (c, force) => {
+          if (force === true) { self._classList.add(c); return true; }
+          if (force === false) { self._classList.delete(c); return false; }
+          if (self._classList.has(c)) { self._classList.delete(c); return false; }
+          self._classList.add(c);
+          return true;
+        }
       };
     },
     get style() {
@@ -138,8 +145,10 @@ function makeElement(id) {
 
 const elements = {};
 const ids = [
+  'app-shell', 'app-sidebar', 'sidebar-toggle',
   'market-snapshot-meta', 'data-source-label', 'sort-basis-badge', 'btn-refresh', 'refresh-countdown',
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only', 'filter-hide-low-daily-rate',
+  'filter-hide-low-net-yield', 'filter-prefer-openable',
   'summary-row', 'status-area', 'market-table-body',
   'private-panel', 'private-panel-subtitle', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
   'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close',
@@ -213,8 +222,9 @@ function _makeTrEl(symbol, bound) {
 // 加载设计期 fixture
 const designFixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
-// Task B 要求前端把 annualized 字段视为当前服务契约字段；给设计期 fixture 补齐。
+// Task B 要求前端把 annualized / funding_sum 字段视为当前服务契约字段；给设计期 fixture 补齐。
 designFixture.rows.forEach(r => {
+  if (!('funding_sum_24h' in r)) r.funding_sum_24h = null;
   if (!('annualized_funding_24h' in r)) r.annualized_funding_24h = null;
   if (!('annualized_funding_7d' in r)) r.annualized_funding_7d = null;
   if (!('annualized_funding_30d' in r)) r.annualized_funding_30d = null;
@@ -274,6 +284,8 @@ if (ausdt) {
     { funding_time: tEnd - 2 * day, funding_rate: '-0.00010000' },
     { funding_time: tEnd - day, funding_rate: '0.00005000' }
   ];
+  // 近 24h 窗口 [tEnd-24h, tEnd] 仅含下沿点 0.00005（上沿无点；-2d 在窗外）
+  ausdt.funding_sum_24h = '0.00005000';
   // daily_funding_rate -0.00060000 * (24/8) = -0.00180000
   ausdt.annualized_funding_24h = '-0.65700000';
   // sum -0.00005000
@@ -597,8 +609,15 @@ setTimeout(async () => {
     // 开启行为由 #39 独立低费率边界场景覆盖（实现 prompt §6.2；design review 推荐 B）。
     elements['filter-hide-low-daily-rate'].checked = false;
     (elements['filter-hide-low-daily-rate'].listeners.change || []).forEach(h => h());
+    // 低日净收益过滤默认 on 会藏 net≤0.03%（有符号；设计 fixture BUSDT net=0.0001）；legacy 基线关闭。
+    elements['filter-hide-low-net-yield'].checked = false;
+    (elements['filter-hide-low-net-yield'].listeners.change || []).forEach(h => h());
+    // 可开优先默认 on 会 re-rank；legacy 顺序断言要求 payload 序，此处显式关闭。
+    // 可开优先行为由后续独立场景覆盖。
+    elements['filter-prefer-openable'].checked = false;
+    (elements['filter-prefer-openable'].listeners.change || []).forEach(h => h());
 
-    // 4. 默认渲染 6 行（设计期 fixture；legacy 基线已关闭低日费率过滤）
+    // 4. 默认渲染 6 行（设计期 fixture；legacy 基线已关闭低日费率/低净收益过滤与可开优先）
     let tbody = elements['market-table-body'].innerHTML;
     let rowCount = (tbody.match(/<tr/g) || []).length;
     if (rowCount !== 6) {
@@ -641,7 +660,7 @@ setTimeout(async () => {
 
     // 5c. Task D: 默认表移除路由分类列，但保留路由过滤器与字段校验；
     // Task B: 无「提示标记」/独立「负费率状态」列，新增开单列；
-    // 借币任务阶段：最终 13 列（第 13 列为「操作」）。
+    // 借币任务阶段：最终 13 列（第 13 列为「借币」）。
     if (html.includes('<th>路由分类</th>')) {
       throw new Error('默认表仍保留「路由分类」列');
     }
@@ -651,7 +670,7 @@ setTimeout(async () => {
     if (html.includes('<th>负费率状态</th>')) {
       throw new Error('默认表仍保留独立「负费率状态」列');
     }
-    const requiredHeaders = ['借贷状态 / 资产', '日净收益', '正向开单', '反向开单', '操作'];
+    const requiredHeaders = ['借贷状态 / 资产', '日净收益', '正向开单', '反向开单', '借币'];
     for (const h of requiredHeaders) {
       if (!html.includes(`>${h}<`)) {
         throw new Error(`缺少「${h}」列名`);
@@ -690,15 +709,15 @@ setTimeout(async () => {
 
     // 6. 日费率 string-shift 格式化（含 null→—）
     // 6-addendum. 资金费率固定 3 位小数百分比
-    const ausdtFundingCell = getRowCell(tbody, 'AUSDT', 4);
+    const ausdtFundingCell = getRowCell(tbody, 'AUSDT', 3);
     if (!ausdtFundingCell.includes('-0.060%')) {
       throw new Error(`AUSDT 资金费率期望 -0.060%，单元格 ${ausdtFundingCell}`);
     }
-    const cusdtFundingCell = getRowCell(tbody, 'CUSDT', 4);
+    const cusdtFundingCell = getRowCell(tbody, 'CUSDT', 3);
     if (!cusdtFundingCell.includes('+0.030%')) {
       throw new Error(`CUSDT 资金费率期望 +0.030%，单元格 ${cusdtFundingCell}`);
     }
-    const fusdtFundingCell = getRowCell(tbody, 'FUSDT', 4);
+    const fusdtFundingCell = getRowCell(tbody, 'FUSDT', 3);
     if (!fusdtFundingCell.includes('0.000%')) {
       throw new Error(`FUSDT 资金费率期望 0.000%，单元格 ${fusdtFundingCell}`);
     }
@@ -713,12 +732,23 @@ setTimeout(async () => {
       ['FUSDT', '—']
     ];
     for (const [sym, expected] of dailyRateChecks) {
-      const cell = getRowCell(tbody, sym, 6);
+      const cell = getRowCell(tbody, sym, 5);
       if (!cell.includes(expected)) {
         throw new Error(`${sym} 日费率期望 ${expected}，单元格 ${cell}`);
       }
     }
     console.log('[PASS] 日费率 string-shift 格式化（含 null→—）');
+
+    // 6a. 近 24h 列：费率之和（非年化），固定 3 位小数；AUSDT 有值，BUSDT null→—
+    const ausdtSum24 = getRowCell(tbody, 'AUSDT', 6);
+    if (!ausdtSum24.includes('+0.005%')) {
+      throw new Error(`AUSDT 近 24h 期望 +0.005%，单元格 ${ausdtSum24}`);
+    }
+    const busdtSum24 = getRowCell(tbody, 'BUSDT', 6);
+    if (!busdtSum24.includes('—')) {
+      throw new Error(`BUSDT 近 24h 期望 —，单元格 ${busdtSum24}`);
+    }
+    console.log('[PASS] 近 24h 列格式化（3 位小数，null→—）');
 
     // 6b. 年化三列格式化：AUSDT 三值齐全，BUSDT 7D/30D 为 null→—
     const ausdtAnn24 = getRowCell(tbody, 'AUSDT', 7);
@@ -749,16 +779,19 @@ setTimeout(async () => {
     }
     console.log('[PASS] 结算间隔标注 8h');
 
-    // 8. 无排序控件 DOM（sort_basis 只读标注允许存在，但控制区不得有排序按钮/下拉）
+    // 8. 无通用排序控件 DOM（允许「可开优先展示」展示偏好；禁止排序按钮/下拉/「排序」字样）
     const controlsStart = html.indexOf('<div class="controls"');
     const controlsEnd = html.indexOf('</div>', controlsStart) + 6;
     const controlsHtml = html.slice(controlsStart, controlsEnd);
+    if (!html.includes('id="filter-prefer-openable"') || !html.includes('可开优先展示')) {
+      throw new Error('缺少「可开优先展示」筛选项');
+    }
     if (controlsHtml.includes('排序') || controlsHtml.includes('sort') || controlsHtml.includes('Sort')) {
       throw new Error('页面控制区不应包含排序按钮或排序状态');
     }
-    console.log('[PASS] 无排序控件 DOM');
+    console.log('[PASS] 无通用排序控件 DOM；可开优先控件存在');
 
-    // 9. 渲染顺序 == fixture 顺序（AUSDT > BUSDT > CUSDT > DUSDT > EUSDT > FUSDT）
+    // 9. 渲染顺序 == fixture 顺序（可开优先已关：AUSDT > BUSDT > CUSDT > DUSDT > EUSDT > FUSDT）
     assertOrder(tbody, ['AUSDT', 'BUSDT', 'CUSDT', 'DUSDT', 'EUSDT', 'FUSDT']);
     console.log('[PASS] 渲染顺序等于 payload 顺序');
 
@@ -951,11 +984,11 @@ setTimeout(async () => {
     }
     console.log('[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立');
 
-    // 19. 净收益列存在与格式
+    // 19. 净收益列存在与格式（统一 3 位小数百分比）
     const netYieldChecks = [
-      ['AUSDT', '+0.04%', 'next_hourly'],
-      ['BUSDT', '+0.01%', 'cross_margin_tier'],
-      ['CUSDT', '+0.03%', null],
+      ['AUSDT', '+0.040%', 'next_hourly'],
+      ['BUSDT', '+0.010%', 'cross_margin_tier'],
+      ['CUSDT', '+0.030%', null],
       ['DUSDT', '—', null],
       ['EUSDT', '—', null],
       ['FUSDT', '—', null]
@@ -1191,9 +1224,10 @@ setTimeout(async () => {
     let pos = dRowHtml.indexOf('<td');
     let dailyCell = '';
     let netCell = '';
+    // Columns after removing mark/index: 5=日费率, 9=日净收益
     while (pos !== -1 && tdCount < 13) {
       const close = dRowHtml.indexOf('</td>', pos);
-      if (tdCount === 6) dailyCell = dRowHtml.slice(pos, close + 5);
+      if (tdCount === 5) dailyCell = dRowHtml.slice(pos, close + 5);
       if (tdCount === 10) netCell = dRowHtml.slice(pos, close + 5);
       pos = dRowHtml.indexOf('<td', close + 5);
       tdCount++;
@@ -1298,7 +1332,7 @@ setTimeout(async () => {
     console.log('[PASS] opening spread 独立 formatter 三向量');
 
     // 33c. 最终 13 列：严格表头顺序、每行 13 个 td、empty-state colspan=13、合并列结构
-    const taskCHeaders = ['标的', '标记价格 / 指数价格', '正向开单', '反向开单', '资金费率', '结算时间', '日费率', '年化 24h', '年化 7D', '年化 30D', '日净收益', '借贷状态 / 资产', '操作'];
+    const taskCHeaders = ['标的', '正向开单', '反向开单', '资金费率', '结算时间', '日费率', '近 24h', '年化 24h', '年化 7D', '年化 30D', '日净收益', '借贷状态 / 资产', '借币'];
     const theadBlock = html.slice(html.indexOf('<thead>'), html.indexOf('</thead>') + 8);
     const renderedHeaders = [...theadBlock.matchAll(/<th[^>]*>([^\u003c]*)<\/th>/g)].map(m => m[1].trim());
     if (renderedHeaders.length !== 13) {
@@ -1354,7 +1388,7 @@ setTimeout(async () => {
 
     // 33d. 正向/反向开单列：腿标签、价格、百分比与颜色
     // AUSDT fresh: forward -0.04%, reverse +0.04%
-    const ausdtForward = getRowCell(tbody, 'AUSDT', 2);
+    const ausdtForward = getRowCell(tbody, 'AUSDT', 1);
     if (!ausdtForward.includes('合约买一') || !ausdtForward.includes('现货卖一')) {
       throw new Error('AUSDT 正向开单列上下腿标签错误: ' + ausdtForward);
     }
@@ -1371,7 +1405,7 @@ setTimeout(async () => {
     if (!ausdtForward.includes('negative')) {
       throw new Error('AUSDT 正向开单列负 spread 应使用 negative 色: ' + ausdtForward);
     }
-    const ausdtReverse = getRowCell(tbody, 'AUSDT', 3);
+    const ausdtReverse = getRowCell(tbody, 'AUSDT', 2);
     if (!ausdtReverse.includes('现货买一') || !ausdtReverse.includes('合约卖一')) {
       throw new Error('AUSDT 反向开单列上下腿标签错误: ' + ausdtReverse);
     }
@@ -1422,7 +1456,7 @@ setTimeout(async () => {
     console.log('[PASS] Task C 别名移除、开单三行垂直顺序与 flex 布局移除');
 
     // 33e. incomplete 双方向独立：BUSDT forward 缺失 → —，reverse 有效 → +0.04%
-    const busdtForward = getRowCell(tbody, 'BUSDT', 2);
+    const busdtForward = getRowCell(tbody, 'BUSDT', 1);
     if (!busdtForward.includes('合约买一')) {
       throw new Error('BUSDT 正向开单列应仍渲染合约买一标签: ' + busdtForward);
     }
@@ -1440,7 +1474,7 @@ setTimeout(async () => {
     if (busdtForward.includes('-0.04%') || busdtForward.includes('+0.04%')) {
       throw new Error('BUSDT 正向开单列 forward spread 应为 —: ' + busdtForward);
     }
-    const busdtReverse = getRowCell(tbody, 'BUSDT', 3);
+    const busdtReverse = getRowCell(tbody, 'BUSDT', 2);
     if (!busdtReverse.includes('现货买一')) {
       throw new Error('BUSDT 反向开单列应渲染现货买一标签: ' + busdtReverse);
     }
@@ -1453,18 +1487,18 @@ setTimeout(async () => {
     console.log('[PASS] incomplete 双方向独立显示');
 
     // 33f. stale / unavailable / 缺失 降级为 —，不白屏
-    const cusdtForward = getRowCell(tbody, 'CUSDT', 2);
-    const cusdtReverse = getRowCell(tbody, 'CUSDT', 3);
+    const cusdtForward = getRowCell(tbody, 'CUSDT', 1);
+    const cusdtReverse = getRowCell(tbody, 'CUSDT', 2);
     if (!cusdtForward.includes('—') || !cusdtReverse.includes('—')) {
       throw new Error('CUSDT stale 开单列应显示 —: ' + cusdtForward + ' / ' + cusdtReverse);
     }
-    const dusdtForward = getRowCell(tbody, 'DUSDT', 2);
-    const dusdtReverse = getRowCell(tbody, 'DUSDT', 3);
+    const dusdtForward = getRowCell(tbody, 'DUSDT', 1);
+    const dusdtReverse = getRowCell(tbody, 'DUSDT', 2);
     if (!dusdtForward.includes('—') || !dusdtReverse.includes('—')) {
       throw new Error('DUSDT unavailable 开单列应显示 —: ' + dusdtForward + ' / ' + dusdtReverse);
     }
-    const fusdtForward = getRowCell(tbody, 'FUSDT', 2);
-    const fusdtReverse = getRowCell(tbody, 'FUSDT', 3);
+    const fusdtForward = getRowCell(tbody, 'FUSDT', 1);
+    const fusdtReverse = getRowCell(tbody, 'FUSDT', 2);
     if (!fusdtForward.includes('—') || !fusdtReverse.includes('—')) {
       throw new Error('FUSDT 缺失 opening_quotes 开单列应显示 —: ' + fusdtForward + ' / ' + fusdtReverse);
     }
@@ -1683,6 +1717,146 @@ setTimeout(async () => {
     }
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）');
+
+    // 39a. 低日净收益过滤 UI：有符号 net ≤ 0.03% 隐藏（非 abs）；null 不过滤；与日费率 |x| 独立
+    if (!html.includes('id="filter-hide-low-net-yield"') || !html.includes('隐藏 日净收益 ≤ 0.03%')) {
+      throw new Error('缺少「隐藏 日净收益 ≤ 0.03%」筛选项');
+    }
+    if (typeof helpers.netYieldAtOrBelowThreshold !== 'function') {
+      throw new Error('netYieldAtOrBelowThreshold 辅助函数未暴露');
+    }
+    // 单元：有符号 vs 日费率 abs 的差异（大负净收益：有符号藏、abs 不藏）
+    const netUnitCases = [
+      ['0.00030000', true],
+      ['0.00030001', false],
+      ['-0.00030000', true],
+      ['-0.00100000', true],   // 大负值：有符号仍 ≤0.03% → 藏（abs 会保留）
+      ['0.00010000', true],
+      [null, false],
+      ['', false]
+    ];
+    for (const [input, expected] of netUnitCases) {
+      const actual = helpers.netYieldAtOrBelowThreshold(input);
+      if (actual !== expected) {
+        throw new Error(`netYieldAtOrBelowThreshold(${JSON.stringify(input)}) 期望 ${expected}，实际 ${actual}`);
+      }
+    }
+    // abs 对照：大负值日费率不过滤
+    if (helpers.absDailyRateAtOrBelowThreshold('-0.00100000') !== false) {
+      throw new Error('日费率过滤应对 |−0.1%| 保留（abs > 0.03%）');
+    }
+    const lowNetFixture = JSON.parse(JSON.stringify(designFixture));
+    // 关闭日费率过滤，只测净收益过滤
+    elements['filter-hide-low-daily-rate'].checked = false;
+    (elements['filter-hide-low-daily-rate'].listeners.change || []).forEach(h => h());
+    lowNetFixture.rows[0].net_daily_yield = '0.00030000';   // AUSDT 边界 -> 隐藏
+    lowNetFixture.rows[1].net_daily_yield = '-0.00100000';  // BUSDT 大负值 -> 有符号隐藏（非 abs）
+    lowNetFixture.rows[2].net_daily_yield = '0.00030001';   // CUSDT 超边界 -> 可见
+    lowNetFixture.rows[3].net_daily_yield = null;           // DUSDT null -> 可见
+    elements['filter-hide-low-net-yield'].checked = true;
+    (elements['filter-hide-low-net-yield'].listeners.change || []).forEach(h => h());
+    helpers.ingestSnapshot(lowNetFixture);
+    const lowNetTbody = elements['market-table-body'].innerHTML;
+    const lowNetCount = (lowNetTbody.match(/<tr/g) || []).length;
+    if (lowNetCount !== 4) {
+      throw new Error(`低日净收益过滤开启后期望 4 行可见（AUSDT/BUSDT 被隐藏），实际 ${lowNetCount} 行`);
+    }
+    if (lowNetTbody.includes('AUSDT') || lowNetTbody.includes('BUSDT')) {
+      throw new Error('低日净收益边界/负值行 AUSDT/BUSDT 应被隐藏');
+    }
+    if (!lowNetTbody.includes('CUSDT') || !lowNetTbody.includes('DUSDT')) {
+      throw new Error('超边界 CUSDT 与 null net 的 DUSDT 应保留可见');
+    }
+    elements['filter-hide-low-net-yield'].checked = false;
+    (elements['filter-hide-low-net-yield'].listeners.change || []).forEach(h => h());
+    const lowNetTbody2 = elements['market-table-body'].innerHTML;
+    if ((lowNetTbody2.match(/<tr/g) || []).length !== 6) {
+      throw new Error('低日净收益过滤关闭后应恢复 6 行');
+    }
+    helpers.ingestSnapshot(designFixture);
+    console.log('[PASS] 低日净收益过滤 UI 行为（有符号 ≤0.03%；大负值隐藏；null 不过滤）');
+
+    // 39b. 可开优先展示：筛选后 re-rank；正费率 / 负费率可借>0 进 A 组按日净收益 DESC
+    if (typeof helpers.isOpenablePreferredRow !== 'function' || typeof helpers.displayRows !== 'function') {
+      throw new Error('可开优先辅助函数未暴露');
+    }
+    // 单元：资格判定
+    if (!helpers.isStrictlyPositiveDecimalString('0.00000001')) {
+      throw new Error('isStrictlyPositiveDecimalString 应接受极小正数');
+    }
+    if (helpers.isStrictlyPositiveDecimalString('0') || helpers.isStrictlyPositiveDecimalString('0.00000000')
+        || helpers.isStrictlyPositiveDecimalString(null) || helpers.isStrictlyPositiveDecimalString('<AMOUNT>')) {
+      throw new Error('isStrictlyPositiveDecimalString 应拒绝 0/null/非数字');
+    }
+    const openableFixture = JSON.parse(JSON.stringify(designFixture));
+    // 保持 payload 序 A B C D E F；制造可开差异：
+    // A: 负费率 + 可借>0，net 0.00010000
+    // B: 负费率 + 可借>0，net 0.00040000（应排 A 组最前）
+    // C: 正费率（进 A），net 0.00030000
+    // D: 负费率 + 不可借（不进 A）
+    // E: 负费率 + 未探测（不进 A）
+    // F: 零费率 / null 日费率（不进 A）
+    openableFixture.rows[0].daily_funding_rate = '-0.00060000';
+    openableFixture.rows[0].net_daily_yield = '0.00010000';
+    openableFixture.rows[0].borrow_validation = {
+      verified: true,
+      classic_margin: { pair_listed: true, asset_borrowable: true, daily_interest_account: '0.00010000' },
+      portfolio_account: { max_borrowable: '10', max_borrowable_value_usdt: '100', source: 'papi_max_borrowable' }
+    };
+    openableFixture.rows[1].daily_funding_rate = '-0.00070000';
+    openableFixture.rows[1].net_daily_yield = '0.00040000';
+    openableFixture.rows[1].borrow_validation = {
+      verified: true,
+      classic_margin: { pair_listed: true, asset_borrowable: true, daily_interest_vip0: '0.00020000' },
+      portfolio_account: { max_borrowable: '5', max_borrowable_value_usdt: '50', source: 'papi_max_borrowable' }
+    };
+    openableFixture.rows[2].daily_funding_rate = '0.00050000';
+    openableFixture.rows[2].net_daily_yield = '0.00030000';
+    openableFixture.rows[2].borrow_validation = {
+      verified: true,
+      classic_margin: { pair_listed: true, asset_borrowable: true },
+      portfolio_account: { max_borrowable: '0', source: 'papi_max_borrowable' }
+    };
+    openableFixture.rows[3].daily_funding_rate = '-0.00040000';
+    openableFixture.rows[3].net_daily_yield = null;
+    openableFixture.rows[3].borrow_validation = {
+      verified: true,
+      classic_margin: { pair_listed: true, asset_borrowable: false },
+      portfolio_account: { max_borrowable: null }
+    };
+    openableFixture.rows[4].daily_funding_rate = '-0.00080000';
+    openableFixture.rows[4].net_daily_yield = null;
+    openableFixture.rows[4].borrow_validation = {
+      verified: false,
+      error: 'not_probed_this_round',
+      classic_margin: {},
+      portfolio_account: {}
+    };
+    // F 保持 daily null / last 0 — 不进 A
+    // 关低费率、开可开优先
+    elements['filter-hide-low-daily-rate'].checked = false;
+    (elements['filter-hide-low-daily-rate'].listeners.change || []).forEach(h => h());
+    elements['filter-prefer-openable'].checked = true;
+    (elements['filter-prefer-openable'].listeners.change || []).forEach(h => h());
+    helpers.ingestSnapshot(openableFixture);
+    // A 组：B(0.0004) > C(0.0003) > A(0.0001)；B 组：D E F 保持相对序
+    assertOrder(elements['market-table-body'].innerHTML, ['BUSDT', 'CUSDT', 'AUSDT', 'DUSDT', 'EUSDT', 'FUSDT']);
+    // 关开关恢复 payload 序
+    elements['filter-prefer-openable'].checked = false;
+    (elements['filter-prefer-openable'].listeners.change || []).forEach(h => h());
+    assertOrder(elements['market-table-body'].innerHTML, ['AUSDT', 'BUSDT', 'CUSDT', 'DUSDT', 'EUSDT', 'FUSDT']);
+    // 负费率可借=0 不进 A：把 A 的 max 置 0，正费率 C 仍进 A
+    openableFixture.rows[0].borrow_validation.portfolio_account.max_borrowable = '0';
+    openableFixture.rows[1].borrow_validation.portfolio_account.max_borrowable = '0';
+    elements['filter-prefer-openable'].checked = true;
+    (elements['filter-prefer-openable'].listeners.change || []).forEach(h => h());
+    helpers.ingestSnapshot(openableFixture);
+    assertOrder(elements['market-table-body'].innerHTML, ['CUSDT', 'AUSDT', 'BUSDT', 'DUSDT', 'EUSDT', 'FUSDT']);
+    // 恢复基线：关可开优先 + 原 fixture
+    elements['filter-prefer-openable'].checked = false;
+    (elements['filter-prefer-openable'].listeners.change || []).forEach(h => h());
+    helpers.ingestSnapshot(designFixture);
+    console.log('[PASS] 可开优先展示 re-rank（正费率/可借>0 置顶，可借0/未探测不进，关闭恢复 payload 序）');
 
     // 40. METAL 资产标签徽章（中性样式，非 danger/accent）与下拉选项
     if (!html.includes('<option value="METAL">METAL(金属)</option>')) {
@@ -3026,10 +3200,10 @@ setTimeout(async () => {
       helpers.ingestSnapshot(phFixture);
       const phTbody = elements['market-table-body'].innerHTML;
       const phCases = [
-        ['AUSDT', 'placeholder="最小借币量 0 (≈ 0.00 USDT)"'],
-        ['BUSDT', 'placeholder="最小借币量 0.001 (≈ — USDT)"'],
+        ['AUSDT', 'placeholder="最小借币量 0 ≈ 0.00 USDT"'],
+        ['BUSDT', 'placeholder="最小借币量 0.001 ≈ — USDT"'],
         ['CUSDT', 'placeholder="最小借币量 —"'],
-        ['DUSDT', 'placeholder="最小借币量 2.5 (≈ 123.46 USDT)"']
+        ['DUSDT', 'placeholder="最小借币量 2.5 ≈ 123.46 USDT"']
       ];
       for (const [sym, expected] of phCases) {
         const cell = getRowCell(phTbody, sym, 12);
