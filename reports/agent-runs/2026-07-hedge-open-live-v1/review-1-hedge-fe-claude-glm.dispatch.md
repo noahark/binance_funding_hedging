@@ -1,3 +1,15 @@
+===== DISPATCH RECEIPT =====
+status: done
+target_model: claude_glm/glm-5.2[1m]
+adapter_cmd: claude-glm -p "$(cat reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-fe-claude-glm.prompt.md)"
+executor: human_operator
+started_at: 2026-07-23T07:00:00+08:00
+completed_at: 2026-07-23T07:14:46+08:00
+session_id: unavailable:Claude-GLM (Claude Code) runtime did not expose a provider-native session ID; bookkeeper recorded the human-operator execution window
+outputs: reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-fe.md
+next_dispatch: bookkeeper intake -> ACCEPT
+===== END RECEIPT =====
+
 # Dispatch Receipt — review-1 hedge-fe (Claude-GLM)
 
 - Stage `2026-07-hedge-open-live-v1`, Task `hedge-fe`, role `first_reviewer`.

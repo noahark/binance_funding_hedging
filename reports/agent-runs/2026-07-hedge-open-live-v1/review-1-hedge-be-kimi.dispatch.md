@@ -1,3 +1,15 @@
+===== DISPATCH RECEIPT =====
+status: done
+target_model: kimi/kimi-code-for-coding
+adapter_cmd: kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.prompt.md)"
+executor: human_operator
+started_at: 2026-07-23T07:00:00+08:00
+completed_at: 2026-07-23T07:15:34+08:00
+session_id: unavailable:Kimi CLI runtime did not expose a provider-native session ID; bookkeeper recorded the human-operator execution window
+outputs: reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be.md
+next_dispatch: bookkeeper intake -> REWORK -> hedge-be fix-1
+===== END RECEIPT =====
+
 # Dispatch Receipt — review-1 hedge-be (Kimi)
 
 - Stage `2026-07-hedge-open-live-v1`, Task `hedge-be`, role `first_reviewer`.
