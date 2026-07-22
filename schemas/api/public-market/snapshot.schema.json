@@ -508,10 +508,17 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["asset", "total_balance"],
+            "required": ["asset", "total_balance", "cross_margin_borrowed"],
             "properties": {
               "asset": { "type": "string" },
               "total_balance": {
+                "anyOf": [
+                  { "$ref": "#/$defs/decimal_string" },
+                  { "type": "null" }
+                ]
+              },
+              "cross_margin_borrowed": {
+                "description": "PM full-cross margin liability from papi balance.crossMarginBorrowed (raw decimal string | null).",
                 "anyOf": [
                   { "$ref": "#/$defs/decimal_string" },
                   { "type": "null" }

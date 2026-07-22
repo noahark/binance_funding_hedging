@@ -47,15 +47,34 @@ def test_classify_malformed_2xx_no_tranid_is_unknown():
 
 
 def test_classify_known_rejection_exact_codes():
-    for code in ("-51006", "-51014", "-51061"):
-        r = classify_post_response(_resp(400, {"code": int(code)}))
+    # Docs use negative form; live PAPI wire has returned positive 51061 (DEXE).
+    for raw in (-51006, -51014, -51061, 51006, 51014, 51061):
+        r = classify_post_response(_resp(400, {"code": raw}))
         assert r.result_category == D.RESULT_KNOWN_REJECTION
-        assert r.business_code == code
+        assert r.business_code == str(raw)
 
 
-def test_classify_other_4xx_is_unknown():
+def test_classify_other_4xx_is_known_rejection_stays_in_rotation():
+    # Scheme A: definite 4xx (auth / unlisted business) are known_rejection so
+    # the task is not blocked for reconciliation — only 2xx/5xx/transport stay unknown.
     r = classify_post_response(_resp(400, {"code": -2014}))
-    assert r.result_category == D.RESULT_UNKNOWN
+    assert r.result_category == D.RESULT_KNOWN_REJECTION
+    assert r.business_code == "-2014"
+    for raw in (-51007, 51007, 51099):
+        r2 = classify_post_response(_resp(400, {"code": raw}))
+        assert r2.result_category == D.RESULT_KNOWN_REJECTION
+        assert r2.business_code == str(raw)
+
+
+def test_classify_http_401_2015_is_known_rejection_not_blocked():
+    # Live DEXE: unlisted_http_401 / -2015 must not become unknown (待对账).
+    r = classify_post_response(
+        _resp(401, {"code": -2015, "msg": "Invalid API-key, IP, or permissions for action."})
+    )
+    assert r.result_category == D.RESULT_KNOWN_REJECTION
+    assert r.http_status == 401
+    assert r.business_code == "-2015"
+    assert r.reason == "known_rejection:-2015"
 
 
 def test_classify_429_rate_limited_with_clamped_retry_after():
@@ -82,41 +101,55 @@ def test_classify_5xx_is_unknown():
     assert r.result_category == D.RESULT_UNKNOWN
 
 
-@pytest.mark.parametrize("code", ["-51006", "-51014", "-51061"])
-def test_classify_2xx_with_known_code_is_unknown(code):
+@pytest.mark.parametrize("raw", [-51006, -51014, -51061, 51006, 51014, 51061])
+def test_classify_2xx_with_known_code_is_unknown(raw):
     # Review-2 P1 regression: a 2xx body carrying a known rejection code is NOT
     # a clean rejection — the 2xx may still have been accepted — so it fails
     # closed to unknown and blocks the task for reconciliation instead of
     # returning to rotation and authorizing a second borrow POST.
-    r = classify_post_response(_resp(200, {"code": int(code)}))
+    r = classify_post_response(_resp(200, {"code": raw}))
     assert r.result_category == D.RESULT_UNKNOWN
-    assert r.business_code == code
+    assert r.business_code == str(raw)
     assert r.tran_id is None
 
 
-@pytest.mark.parametrize("code", ["-51006", "-51014", "-51061"])
-def test_classify_5xx_with_known_code_is_unknown(code):
+@pytest.mark.parametrize("raw", [-51006, -51014, -51061, 51006, 51014, 51061])
+def test_classify_5xx_with_known_code_is_unknown(raw):
     # A 5xx is possibly accepted by the exchange; a body carrying a known code
     # does not make it a definite rejection, so every 5xx stays unknown.
     for status in (500, 502, 503):
-        r = classify_post_response(_resp(status, {"code": int(code)}))
+        r = classify_post_response(_resp(status, {"code": raw}))
         assert r.result_category == D.RESULT_UNKNOWN
-        assert r.business_code == code
+        assert r.business_code == str(raw)
 
 
-@pytest.mark.parametrize("code", ["-51006", "-51014", "-51061"])
-def test_classify_4xx_with_known_code_remains_known_rejection(code):
-    # Positive control: on a definite 4xx (after rate-limit handling) the three
-    # archived codes still classify as known_rejection and stay in rotation.
-    r = classify_post_response(_resp(400, {"code": int(code)}))
+@pytest.mark.parametrize("raw", [-51006, -51014, -51061, 51006, 51014, 51061])
+def test_classify_4xx_with_known_code_remains_known_rejection(raw):
+    # Positive control: definite 4xx with either documented (-) or wire (+) form
+    # classifies as known_rejection and stays in rotation.
+    r = classify_post_response(_resp(400, {"code": raw}))
     assert r.result_category == D.RESULT_KNOWN_REJECTION
-    assert r.business_code == code
+    assert r.business_code == str(raw)
 
 
-def test_classify_transport_error_is_unknown():
-    r = classify_post_response(_resp(None, None, transport_error="timeout"))
-    assert r.result_category == D.RESULT_UNKNOWN
-    assert r.http_status is None
+def test_classify_dexe_style_positive_51061_is_known_rejection():
+    # Live DEXE marginLoan: HTTP 400 body code 51061 (positive) must not become
+    # unlisted_http_400 / unknown.
+    r = classify_post_response(
+        _resp(400, {"code": 51061, "msg": "insufficient loanable assets"})
+    )
+    assert r.result_category == D.RESULT_KNOWN_REJECTION
+    assert r.business_code == "51061"
+    assert r.reason == "known_rejection:51061"
+
+
+def test_classify_transport_error_is_known_rejection_scheme_c():
+    # Scheme C: timeout / connection_error must not enter unknown/recon block.
+    for err in ("timeout", "connection_error", "URLError"):
+        r = classify_post_response(_resp(None, None, transport_error=err))
+        assert r.result_category == D.RESULT_KNOWN_REJECTION
+        assert r.http_status is None
+        assert r.reason == f"transport_error:{err}"
 
 
 # ---------------------------------------------------------------------------

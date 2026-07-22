@@ -138,10 +138,9 @@ function makeElement(id) {
 
 const elements = {};
 const ids = [
-  'warnings-panel', 'warnings-list', 'warnings-raw', 'warnings-raw-content', 'margin-public-note',
-  'data-source-label', 'sort-basis-badge', 'btn-refresh', 'refresh-countdown',
+  'market-snapshot-meta', 'data-source-label', 'sort-basis-badge', 'btn-refresh', 'refresh-countdown',
   'filter-search', 'filter-asset', 'filter-route', 'filter-show-perp-only', 'filter-hide-low-daily-rate',
-  'summary-row', 'status-area', 'market-table-body', 'footer-note',
+  'summary-row', 'status-area', 'market-table-body',
   'private-panel', 'private-panel-subtitle', 'private-panel-body', 'btn-privacy', 'privacy-label', 'privacy-icon-path',
   'drawer', 'drawer-backdrop', 'drawer-title', 'drawer-body', 'drawer-close',
   'nav-market', 'nav-borrow-tasks', 'borrow-task-count', 'market-view', 'borrow-task-view', 'borrow-task-list',
@@ -575,22 +574,22 @@ setTimeout(async () => {
     }
     console.log('[PASS] 数据源标签显示后端 API');
 
-    // 3. 数据说明区可见且渲染
-    const warningsDisplay = elements['warnings-panel'].style.display;
-    if (warningsDisplay === 'none') throw new Error('数据说明面板被隐藏');
-    const marginNote = elements['margin-public-note'].innerHTML;
-    if (!marginNote.includes('账户与借币验证通过私有只读 API key 读取')) {
-      throw new Error('页面级杠杆可借性说明未渲染');
+    // 3. 数据说明模块已删除；市场表标题下一行展示北京时间快照元信息
+    if (html.includes('id="warnings-panel"') || html.includes('>数据说明<')) {
+      throw new Error('数据说明面板应已删除');
     }
-    const warningsHtml = elements['warnings-list'].innerHTML;
-    if (!warningsHtml.includes('isMarginTradingAllowed') || !warningsHtml.includes('已结算历史') || !warningsHtml.includes('bStock')) {
-      throw new Error('数据说明中文内容未渲染');
+    if (html.includes('id="footer-note"')) {
+      throw new Error('页脚 footer-note 应已删除（时间已移到市场表标题下）');
     }
-    const rawText = elements['warnings-raw-content'].textContent;
-    if (!rawText.includes('net_daily_yield') || !rawText.includes('not_probed_this_round')) {
-      throw new Error('数据说明英文原文未渲染');
+    const meta = elements['market-snapshot-meta'].textContent;
+    if (!meta.includes('生成时间') || !meta.includes('数据时间') || !meta.includes('60 秒')) {
+      throw new Error(`市场表标题下元信息缺失: ${meta}`);
     }
-    console.log('[PASS] 数据说明区可见且内容已渲染');
+    // fixture generated_at/data_time are Zulu; UI must render Asia/Shanghai wall clock (not raw Z)
+    if (meta.includes('T') && meta.includes('Z')) {
+      throw new Error(`快照时间应已转为北京时间，不应再显示 ISO Z: ${meta}`);
+    }
+    console.log('[PASS] 数据说明已删除；市场表下北京时间元信息已渲染');
 
     // 低日费率过滤默认开启：设计期 fixture 的 CUSDT daily_funding_rate 正好是边界
     // 0.00030000，默认会被隐藏（6→5）。legacy 6 行基线段在此显式关闭该过滤并重渲染，
@@ -1032,6 +1031,24 @@ setTimeout(async () => {
     if (!privateBody.includes('统一账户余额')) {
       throw new Error('私有面板未渲染统一账户余额');
     }
+    if (!privateBody.includes('已借:')) {
+      throw new Error('统一账户余额卡应展示「已借」行（cross_margin_borrowed）');
+    }
+    // 已借 > 0 时用红色 class borrowed-debt 高亮
+    {
+      const debtFixture = JSON.parse(JSON.stringify(designFixture));
+      if (debtFixture.private_account && Array.isArray(debtFixture.private_account.balances_unified)
+          && debtFixture.private_account.balances_unified[0]) {
+        debtFixture.private_account.balances_unified[0].cross_margin_borrowed = '1.5';
+        debtFixture.private_account.balances_unified[0].total_balance = '1.5';
+        helpers.ingestSnapshot(debtFixture);
+        const debtBody = elements['private-panel-body'].innerHTML;
+        if (!debtBody.includes('borrowed-debt') || !debtBody.includes('已借:')) {
+          throw new Error('已借>0 应使用 borrowed-debt 红色样式: ' + debtBody);
+        }
+        helpers.ingestSnapshot(designFixture);
+      }
+    }
     if (!privateBody.includes('现货账户余额')) {
       throw new Error('私有面板未渲染现货账户余额');
     }
@@ -1341,8 +1358,12 @@ setTimeout(async () => {
     if (!ausdtForward.includes('合约买一') || !ausdtForward.includes('现货卖一')) {
       throw new Error('AUSDT 正向开单列上下腿标签错误: ' + ausdtForward);
     }
-    if (!ausdtForward.includes('64,925.00') || !ausdtForward.includes('64,954.01000000')) {
+    // Trailing fractional zeros trimmed (64,925.00 → 64,925; 64,954.01000000 → 64,954.01)
+    if (!ausdtForward.includes('64,925') || !ausdtForward.includes('64,954.01')) {
       throw new Error('AUSDT 正向开单列价格错误: ' + ausdtForward);
+    }
+    if (ausdtForward.includes('64,954.01000000') || ausdtForward.includes('64,925.00')) {
+      throw new Error('AUSDT 正向开单列应省略价格末尾零: ' + ausdtForward);
     }
     if (!ausdtForward.includes('-0.04%')) {
       throw new Error('AUSDT 正向开单列百分比错误: ' + ausdtForward);
@@ -1354,8 +1375,12 @@ setTimeout(async () => {
     if (!ausdtReverse.includes('现货买一') || !ausdtReverse.includes('合约卖一')) {
       throw new Error('AUSDT 反向开单列上下腿标签错误: ' + ausdtReverse);
     }
-    if (!ausdtReverse.includes('64,954.00000000') || !ausdtReverse.includes('64,925.10')) {
+    // 64,954.00000000 → 64,954; 64,925.10 kept (non-trailing significant digit)
+    if (!ausdtReverse.includes('64,954') || !ausdtReverse.includes('64,925.1')) {
       throw new Error('AUSDT 反向开单列价格错误: ' + ausdtReverse);
+    }
+    if (ausdtReverse.includes('64,954.00000000')) {
+      throw new Error('AUSDT 反向开单列应省略价格末尾零: ' + ausdtReverse);
     }
     if (!ausdtReverse.includes('+0.04%')) {
       throw new Error('AUSDT 反向开单列百分比错误: ' + ausdtReverse);
@@ -1405,8 +1430,8 @@ setTimeout(async () => {
       throw new Error('BUSDT 正向开单列应渲染现货卖一标签: ' + busdtForward);
     }
     // 有效腿 futures_bid_price 显示格式化价格；缺失腿 spot_ask_price 显示 —；forward spread 显示 —
-    if (!busdtForward.includes('64,925.00')) {
-      throw new Error('BUSDT 正向开单列应显示有效合约买一价格 64,925.00: ' + busdtForward);
+    if (!busdtForward.includes('64,925')) {
+      throw new Error('BUSDT 正向开单列应显示有效合约买一价格 64,925: ' + busdtForward);
     }
     const busdtForwardDashCount = (busdtForward.match(/—/g) || []).length;
     if (busdtForwardDashCount < 2) {
@@ -1478,6 +1503,8 @@ setTimeout(async () => {
     labelFixtureBase.rows[5].borrow_validation.error = 'borrowability_not_probed';
     labelFixtureBase.rows[5].borrow_validation.classic_margin.daily_interest_account = '0.00010000';
     labelFixtureBase.rows[5].borrow_rate_source = 'next_hourly';
+    // AUSDT 日费率为负 → 仍「已验证可借」
+    labelFixtureBase.rows[0].daily_funding_rate = '-0.00060000';
     helpers.ingestSnapshot(labelFixtureBase);
     const labelTbody = elements['market-table-body'].innerHTML;
     const labelCases = [
@@ -1501,6 +1528,24 @@ setTimeout(async () => {
     const fusdtNetCell = getRowCell(labelTbody, 'FUSDT', 10);
     if (!fusdtNetCell.includes('日借币') || !fusdtNetCell.includes('+0.01%')) {
       throw new Error(`FUSDT borrowability_not_probed 行应展示日借币子行，单元格 ${fusdtNetCell}`);
+    }
+    // 正资金费率 + classic 可借 → 「正费率」，不再绿标「已验证可借」
+    const posRateFixture = JSON.parse(JSON.stringify(labelFixtureBase));
+    posRateFixture.rows[0].daily_funding_rate = '0.00180000';
+    posRateFixture.rows[0].borrow_validation.verified = true;
+    posRateFixture.rows[0].borrow_validation.classic_margin.pair_listed = true;
+    posRateFixture.rows[0].borrow_validation.classic_margin.asset_borrowable = true;
+    posRateFixture.rows[0].borrow_validation.portfolio_account = {
+      max_borrowable: null, borrow_limit: null, error_code: null,
+      max_borrowable_value_usdt: null, source: 'papi_max_borrowable'
+    };
+    helpers.ingestSnapshot(posRateFixture);
+    const posCell = getRowCell(elements['market-table-body'].innerHTML, 'AUSDT', 11);
+    if (!posCell.includes('正费率') || !posCell.includes('badge info')) {
+      throw new Error(`正费率+可借应渲染 info「正费率」: ${posCell}`);
+    }
+    if (posCell.includes('已验证可借')) {
+      throw new Error(`正费率行不应再显示「已验证可借」: ${posCell}`);
     }
     helpers.ingestSnapshot(designFixture);
     console.log('[PASS] 负费率状态行感知的六文案派生');
@@ -1680,8 +1725,9 @@ setTimeout(async () => {
         error_code: '51061', max_borrowable_value_usdt: '0.00000000',
         source: 'papi_max_borrowable'
       };
-      // (b) BUSDT 有额度
+      // (b) BUSDT 有额度（负费率，仍为「已验证可借」）
       triFixture.rows[1].negative_funding_status = 'PRIVATE_BORROW_VALIDATION_REQUIRED';
+      triFixture.rows[1].daily_funding_rate = '-0.00070000';
       triFixture.rows[1].borrow_validation.verified = true;
       triFixture.rows[1].borrow_validation.classic_margin.pair_listed = true;
       triFixture.rows[1].borrow_validation.classic_margin.asset_borrowable = true;
@@ -2317,15 +2363,21 @@ setTimeout(async () => {
       if (!txt.includes('当前全局间隔') || !txt.includes('5 秒')) throw new Error(`预览应包含当前全局间隔 5 秒: ${txt}`);
       // 预览仅就近展示，不引入浏览器侧调度/签名/联系 Binance
       if (txt.includes('Binance') || txt.includes('签名')) throw new Error(`预览不得联系/签名 Binance: ${txt}`);
-      // 部分输入（仅数量）应回到提示态，不展示半成品目标总量
+      // 部分输入（仅数量）应清空预览，不展示半成品目标总量，也不展示空态占位文案
       countEl.value = '';
       helpers.renderBorrowPreview('AUSDT');
       const partial = document.getElementById('borrow-preview-AUSDT').textContent;
       if (partial.includes('37.5') || partial.includes('单次 12.5')) throw new Error(`部分输入不应展示半成品目标总量: ${partial}`);
+      if (partial.includes('输入单次数量与成功次数后查看')) {
+        throw new Error(`空/部分输入不应再展示创建预览占位文案: ${partial}`);
+      }
       // 还原输入，避免影响后续测试
       amountEl.value = '';
       countEl.value = '';
       helpers.renderBorrowPreview('AUSDT');
+      if (document.getElementById('borrow-preview-AUSDT').textContent !== '') {
+        throw new Error('空输入时创建预览应为空字符串');
+      }
       console.log('[PASS] 创建前预览资产/数量/次数/目标总量/当前全局间隔');
     }
 
@@ -2627,10 +2679,11 @@ setTimeout(async () => {
       const taskD = deepCopy(MOCK_TASK_HOME, { id: 'task-d', status: 'deleted' });
       borrowTasksGetResponse = { status: 200, body: mockTaskListDoc([taskB, taskP, taskC, taskD]) };
       await helpers.loadBorrowTasks();
-      helpers.setBorrowTaskFilter('all');
-      if (elements['borrow-task-count'].textContent !== '4') {
-        throw new Error(`四任务计数应为 4: ${elements['borrow-task-count'].textContent}`);
+      // Nav badge = 借币中 only (1); filter chips still show full status breakdown.
+      if (elements['borrow-task-count'].textContent !== '1') {
+        throw new Error(`导航借币中计数应为 1: ${elements['borrow-task-count'].textContent}`);
       }
+      helpers.setBorrowTaskFilter('all');
       // 全部 含软删除（计数只从渲染缓存派生）
       const filtersHtml = elements['borrow-task-filters'].innerHTML;
       for (const text of ['全部 (4)', '借币中 (1)', '已暂停 (1)', '已删除 (1)', '已完成 (1)']) {

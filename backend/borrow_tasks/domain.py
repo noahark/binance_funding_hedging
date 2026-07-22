@@ -100,6 +100,14 @@ ALL_RESULT_CATEGORIES = (
     RESULT_UNKNOWN,
     RESULT_EXECUTION_DISABLED,
 )
+# Failures that may coalesce into the previous same-task ledger row (bump
+# finished_at only) instead of growing the log. success stays one row per hit
+# so success timestamps remain visible; unknown never coalesces (recon identity).
+COALESCEABLE_FAILURE_CATEGORIES = frozenset({
+    RESULT_KNOWN_REJECTION,
+    RESULT_RATE_LIMITED,
+    RESULT_EXECUTION_DISABLED,
+})
 
 # Seed scheduler row (breakdown §3.5): one global frequency default of 5s.
 DEFAULT_INTERVAL_SECONDS = "5"

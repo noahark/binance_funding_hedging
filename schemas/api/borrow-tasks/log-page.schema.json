@@ -48,6 +48,9 @@
             ]
           },
           "business_code": {"type": ["string", "null"]},
+          "business_code_name": {"type": ["string", "null"]},
+          "business_code_message": {"type": ["string", "null"]},
+          "business_code_message_zh": {"type": ["string", "null"]},
           "reason": {"type": ["string", "null"]},
           "http_status": {"type": ["integer", "null"]},
           "tran_id": {"type": ["string", "null"]},

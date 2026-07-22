@@ -1,6 +1,6 @@
 # Decisions
 
-Status: approved decision log, 2026-07-14
+Status: approved decision log, 2026-07-22
 
 This file records approved product, business, financial, and technical decisions.
 
@@ -10,6 +10,9 @@ Draft decisions belong in `reports/agent-runs/<stage-id>/` until user approval.
 
 | ID | Date | Decision | Owner | Source |
 |---|---|---|---|---|
+| DEC-2026-07-22-003 | 2026-07-22 | Live borrow **Scheme C**: transport-layer failures (`timeout`, `connection_error`, missing HTTP status) classify as `known_rejection` so tasks stay in scheduler rotation. Operator accepts possible over-borrow when a POST may have reached Binance without a local response, for high-frequency empty-pool hunting. 5xx and malformed 2xx remain `unknown` + recon. | User / Grok | `backend/services/live_borrow_executor.py`, `docs/planning/CHANGELOG-2026-07-22-live-borrow-ops.md` |
+| DEC-2026-07-22-002 | 2026-07-22 | Live borrow **Scheme A** (4xx): every definite HTTP 4xx after rate-limit handling is `known_rejection` (task not blocked). Includes pool codes 51006/51014/51061 with either wire sign, and auth rejects such as HTTP 401 / `-2015`. Rate limits 429/400+`-1003`/418 unchanged. | User / Grok | `backend/services/live_borrow_executor.py`, `docs/planning/CHANGELOG-2026-07-22-live-borrow-ops.md` |
+| DEC-2026-07-22-001 | 2026-07-22 | Borrow attempt **log coalesce**: if this task’s last result is the same coalesceable failure (`known_rejection` / `rate_limited` / `execution_disabled` with identical reason + business_code), do not keep a second log row — only refresh the previous failure’s `finished_at`. Success always keeps its own row; unknown never coalesces. | User / Grok | `backend/borrow_tasks/store.py`, `backend/borrow_tasks/domain.py`, `docs/planning/CHANGELOG-2026-07-22-live-borrow-ops.md` |
 | DEC-2026-07-03-001 | 2026-07-03 | Archive the Grok public-market implementation and restart Phase 1 from the approved PRD with a contract-first split: Claude-GLM owns backend Binance public API contract discovery and backend implementation; Kimi owns frontend UI and integration against the frozen backend contract; Grok is excluded from core backend and contract work for this phase. | User / Codex | `reports/archives/2026-07-03-grok-public-market-discovery/`, `reports/agent-runs/2026-07-public-market-contract-v2/11-adr.md` |
 | DEC-2026-07-05-001 | 2026-07-05 | Adopt stage-branch mode: from the next stage onward, the bookkeeper creates `stage/<stage-id>` at H_intake, all stage commits and fingerprints anchor to the branch, and the branch merges back to main only after user acceptance; Harness/template syncs stay on main. Execution deferred until the in-flight stage `2026-07-phase2-borrow-sort-v1` completes (its fingerprints are bound to main commits). The rule change lands template-first (ai_project_harness) with GPT review, then syncs down. | User / Fable5 | `docs/planning/stage-branch-mode.md` |
 | DEC-2026-07-08-001 | 2026-07-08 | Update Harness model routing: Codex/GPT is no longer an implementation or fix author; Claude-GLM owns backend/API/contract/schema/data-semantics work; Kimi owns frontend/UI/client-integration work; dominant mixed tasks may be dispatched wholly to the dominant owner; Claude uses Fable5 first and Opus4.8 after Fable5 quota exhaustion. | User / Codex | `AGENTS.md`, `agents/registry.yaml`, `docs/model-adapters.md`, `workflows/templates/stage-delivery.yaml` |

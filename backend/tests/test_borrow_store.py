@@ -221,8 +221,17 @@ def test_effective_gap_uses_previous_dispatched(tmp_path):
     s.create_task("A", "BTC", "1", 5, NOW)
     a1 = s.insert_pending_attempt("A", "BTC", "1", NOW, NOW + 100, "A")
     s.resolve_attempt(a1["id"], _disabled(), NOW + 200)
+    # Distinct failure reason so the second row is not coalesced away.
     a2 = s.insert_pending_attempt("A", "BTC", "1", NOW + 1000, NOW + 1100, "A")
-    s.resolve_attempt(a2["id"], _disabled(), NOW + 1200)
+    s.resolve_attempt(
+        a2["id"],
+        ExecutorResult(
+            result_category=D.RESULT_KNOWN_REJECTION,
+            business_code="51061",
+            reason="known_rejection:51061",
+        ),
+        NOW + 1200,
+    )
     entries, _ = s.list_attempts_page(50, None, None)
     assert entries[0]["id"] == a2["id"]                 # newest first
     assert entries[0]["effective_gap_us"] == (NOW + 1100) - (NOW + 100)
@@ -232,9 +241,18 @@ def test_effective_gap_uses_previous_dispatched(tmp_path):
 def test_pagination_newest_first_with_cursor_boundary(tmp_path):
     s = _store(tmp_path)
     s.create_task("A", "BTC", "1", 100, NOW)
+    # Distinct reasons so coalesce does not collapse the page set.
     for i in range(5):
         att = s.insert_pending_attempt("A", "BTC", "1", NOW + i * 1000, NOW + i * 1000 + 10, "A")
-        s.resolve_attempt(att["id"], _disabled(), NOW + i * 1000 + 20)
+        s.resolve_attempt(
+            att["id"],
+            ExecutorResult(
+                result_category=D.RESULT_KNOWN_REJECTION,
+                business_code=str(51000 + i),
+                reason=f"known_rejection:{51000 + i}",
+            ),
+            NOW + i * 1000 + 20,
+        )
     page1, more1 = s.list_attempts_page(2, None, None)
     assert more1 is True
     assert [e["id"] for e in page1] == [5, 4]
@@ -248,6 +266,114 @@ def test_pagination_newest_first_with_cursor_boundary(tmp_path):
     page3, more3 = s.list_attempts_page(2, ets, last["id"])
     assert more3 is False
     assert [e["id"] for e in page3] == [1]
+
+
+def test_same_failure_coalesces_updates_finished_at_only(tmp_path):
+    s = _store(tmp_path)
+    s.create_task("A", "BTC", "1", 5, NOW)
+    rej = ExecutorResult(
+        result_category=D.RESULT_KNOWN_REJECTION,
+        business_code="51061",
+        reason="known_rejection:51061",
+    )
+    a1 = s.insert_pending_attempt("A", "BTC", "1", NOW, NOW + 100, "A")
+    r1 = s.resolve_attempt(a1["id"], rej, NOW + 200)
+    assert r1["id"] == a1["id"]
+    a2 = s.insert_pending_attempt("A", "BTC", "1", NOW + 1000, NOW + 1100, "A")
+    r2 = s.resolve_attempt(a2["id"], rej, NOW + 1200)
+    # Second attempt deleted; first row kept with bumped finished_at.
+    assert r2["id"] == a1["id"]
+    assert r2["finished_at_us"] == NOW + 1200
+    assert r2["dispatched_at_us"] == NOW + 100  # first-seen dispatch kept
+    assert r2["result_category"] == D.RESULT_KNOWN_REJECTION
+    assert r2["business_code"] == "51061"
+    entries, _ = s.list_attempts_page(50, None, None)
+    assert len(entries) == 1
+    assert entries[0]["id"] == a1["id"]
+    assert entries[0]["finished_at_us"] == NOW + 1200
+    t = s.get_task("A")
+    assert t["unresolved_attempt_id"] is None
+    assert t["latest_result_finished_at_us"] == NOW + 1200
+    assert t["latest_result_category"] == D.RESULT_KNOWN_REJECTION
+    assert s.get_attempt(a2["id"]) is None
+
+
+def test_different_failure_reason_does_not_coalesce(tmp_path):
+    s = _store(tmp_path)
+    s.create_task("A", "BTC", "1", 5, NOW)
+    a1 = s.insert_pending_attempt("A", "BTC", "1", NOW, NOW + 10, "A")
+    s.resolve_attempt(
+        a1["id"],
+        ExecutorResult(
+            result_category=D.RESULT_KNOWN_REJECTION,
+            business_code="51061",
+            reason="known_rejection:51061",
+        ),
+        NOW + 20,
+    )
+    a2 = s.insert_pending_attempt("A", "BTC", "1", NOW + 100, NOW + 110, "A")
+    s.resolve_attempt(
+        a2["id"],
+        ExecutorResult(
+            result_category=D.RESULT_KNOWN_REJECTION,
+            business_code="51006",
+            reason="known_rejection:51006",
+        ),
+        NOW + 120,
+    )
+    entries, _ = s.list_attempts_page(50, None, None)
+    assert len(entries) == 2
+    assert {e["business_code"] for e in entries} == {"51061", "51006"}
+
+
+def test_success_after_failure_is_own_row_then_failure_again_new_cluster(tmp_path):
+    s = _store(tmp_path)
+    s.create_task("A", "BTC", "1", 5, NOW)
+    rej = ExecutorResult(
+        result_category=D.RESULT_KNOWN_REJECTION,
+        business_code="51061",
+        reason="known_rejection:51061",
+    )
+    a1 = s.insert_pending_attempt("A", "BTC", "1", NOW, NOW + 10, "A")
+    s.resolve_attempt(a1["id"], rej, NOW + 20)
+    a2 = s.insert_pending_attempt("A", "BTC", "1", NOW + 100, NOW + 110, "A")
+    s.resolve_attempt(
+        a2["id"],
+        ExecutorResult(result_category=D.RESULT_SUCCESS, tran_id="t1"),
+        NOW + 120,
+    )
+    a3 = s.insert_pending_attempt("A", "BTC", "1", NOW + 200, NOW + 210, "A")
+    s.resolve_attempt(a3["id"], rej, NOW + 220)
+    a4 = s.insert_pending_attempt("A", "BTC", "1", NOW + 300, NOW + 310, "A")
+    r4 = s.resolve_attempt(a4["id"], rej, NOW + 320)
+    # Rows: fail#1, success, fail#2 (a4 coalesced into a3)
+    entries, _ = s.list_attempts_page(50, None, None)
+    assert len(entries) == 3
+    assert r4["id"] == a3["id"]
+    assert r4["finished_at_us"] == NOW + 320
+    cats = [e["result_category"] for e in entries]
+    assert cats == [
+        D.RESULT_KNOWN_REJECTION,
+        D.RESULT_SUCCESS,
+        D.RESULT_KNOWN_REJECTION,
+    ]
+
+
+def test_unknown_does_not_coalesce(tmp_path):
+    s = _store(tmp_path)
+    s.create_task("A", "BTC", "1", 5, NOW)
+    a1 = s.insert_pending_attempt("A", "BTC", "1", NOW, NOW + 10, "A")
+    s.resolve_attempt(
+        a1["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="u"), NOW + 20
+    )
+    # Task blocked; clear marker so a second unknown can be inserted for the test.
+    s.clear_unresolved("A", NOW + 50)
+    a2 = s.insert_pending_attempt("A", "BTC", "1", NOW + 100, NOW + 110, "A")
+    s.resolve_attempt(
+        a2["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="u"), NOW + 120
+    )
+    entries, _ = s.list_attempts_page(50, None, None)
+    assert len(entries) == 2
 
 
 # ---------------------------------------------------------------------------

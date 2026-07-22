@@ -545,7 +545,9 @@ class PrivateClient:
 
         Returns the raw list or ``None`` (disabled/failed). Per §1.4 the
         ``totalWalletBalance`` already includes um/cm/crossMargin sub-accounts
-        (anti-double-count); sub-fields are exposure only.
+        (anti-double-count). Assembly maps ``totalWalletBalance`` and the
+        full-cross liability field ``crossMarginBorrowed`` (display-only;
+        not re-added into ``total_value_usdt``).
         """
         if not self.enabled:
             return None

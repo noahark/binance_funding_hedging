@@ -418,6 +418,27 @@ def test_user_min_borrow_schema_rejects_missing_field_and_extra_property(v03_sch
 # =========================================================================
 # §1.4 private_account + anti-double-count hard rule
 # =========================================================================
+def test_assemble_private_account_maps_cross_margin_borrowed():
+    unified = [
+        {
+            "asset": "CETUS",
+            "totalWalletBalance": "1",
+            "crossMarginBorrowed": "1",
+            "crossMarginInterest": "0.0001",
+        },
+        {"asset": "USDT", "totalWalletBalance": "10", "crossMarginBorrowed": "0"},
+    ]
+    block, _ = assemble_private_account(
+        unified, [], [], {"CETUSUSDT": "0.05", "USDTUSDT": "1"},
+        checked_at="t", error=None,
+    )
+    by_asset = {b["asset"]: b for b in block["balances_unified"]}
+    assert by_asset["CETUS"]["cross_margin_borrowed"] == "1"
+    assert by_asset["USDT"]["cross_margin_borrowed"] == "0"
+    # Liability is display-only: total still from totalWalletBalance only.
+    assert block["total_value_usdt"] == "10.05000000"
+
+
 def test_assemble_private_account_anti_double_count():
     # total = sum(unified totalWalletBalance priced) + sum(spot free+locked priced).
     # um/cm sub-fields inside totalWalletBalance are NOT re-added; um_positions
@@ -439,8 +460,18 @@ def test_assemble_private_account_anti_double_count():
     # 90000 + 100 + 7500 + 50 = 97650; um nominal (10*60000=600000) excluded.
     assert block["total_value_usdt"] == "97650.00000000"
     assert block["balances_unified"] == [
-        {"asset": "BTC", "total_balance": "1.5", "value_usdt": "90000.00000000"},
-        {"asset": "USDT", "total_balance": "100", "value_usdt": "100.00000000"},
+        {
+            "asset": "BTC",
+            "total_balance": "1.5",
+            "cross_margin_borrowed": None,
+            "value_usdt": "90000.00000000",
+        },
+        {
+            "asset": "USDT",
+            "total_balance": "100",
+            "cross_margin_borrowed": None,
+            "value_usdt": "100.00000000",
+        },
     ]
     assert block["balances_spot"][0] == {"asset": "ETH", "free": "2", "locked": "0.5", "value_usdt": "7500.00000000"}
     assert block["balances_spot"][1] == {"asset": "USDC", "free": "50", "locked": "0", "value_usdt": "50.00000000"}

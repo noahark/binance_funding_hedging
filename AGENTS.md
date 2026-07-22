@@ -31,16 +31,18 @@ when an exact review, audit, or finding reference names them.
 
 ## Project State
 
-Product as built: the repository currently contains a read-only Binance funding
-snapshot workstation. The backend serves a normalized public-market snapshot
-with optional private signed GET enrichment for account balances, positions,
-borrow validation, borrow cost, and sort basis. The frontend consumes that
-backend contract and exposes the opportunity table and private read-only
-account panels.
+Product as built: the repository contains a Binance funding snapshot workstation
+with optional private signed GET enrichment (balances, positions, borrow
+validation, borrow cost, sort basis) and an **optional live Portfolio Margin
+borrow path** (durable SQLite tasks, global Start, `POST /papi/v1/marginLoan`
+when `APP_BORROW_EXECUTOR=live`). Frontend: opportunity table, private account
+panels, borrow tasks/logs.
 
-No order, borrow, repay, transfer, close, or other trading execution surface is
-implemented. Manual execution, accounting, reconciliation, and live order flows
-remain future product stages.
+No spot/perp market-order, repay, transfer, or full accounting execution surface
+is implemented yet. Manual hedge execution and broader accounting remain future
+stages. Live-borrow classification and UI ops patches from 2026-07-22 are
+recorded in `docs/planning/CHANGELOG-2026-07-22-live-borrow-ops.md` and
+DEC-2026-07-22-001…003.
 
 Harness as built: multiple manual delivery stages have run, with evidence under
 `reports/agent-runs/`. The Harness contract is currently held at the DRAFT-2

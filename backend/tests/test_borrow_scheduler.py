@@ -154,7 +154,12 @@ def test_cursor_survives_restart_mid_cycle(tmp_path):
 # ---------------------------------------------------------------------------
 def test_fractional_interval_stored_and_effective_gap(tmp_path):
     clock = FakeClock(0)
-    exe = PaperBorrowExecutor([])
+    # Distinct results so same-failure coalesce does not collapse gap rows.
+    exe = PaperBorrowExecutor([
+        execution_disabled(),
+        known_rejection(business_code="51061", reason="known_rejection:51061"),
+        rate_limited(),
+    ])
     svc = _service(tmp_path, exe, clock)
     status, doc = svc.put_settings({"interval_seconds": "2.5"})
     assert status == 200 and doc["interval_us"] == 2_500_000

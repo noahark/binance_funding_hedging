@@ -1,6 +1,6 @@
 # Development Guide
 
-Status: as-built read-only workstation, 2026-07-16
+Status: as-built workstation with optional live PM borrow, 2026-07-22
 
 This file is the canonical approved development guide for the project.
 
@@ -55,11 +55,47 @@ Useful environment variables:
 - `APP_FUNDING_HISTORY_CACHE_TTL_SECONDS` /
   `FUNDING_HEDGING_FUNDING_HISTORY_CACHE_TTL_SECONDS`: per-symbol settled-history
   successful-result cache TTL (default 1800s = 30 minutes; failure results are
-  not cached).
+  not cached). Also used as the Group C component TTL for borrow-rate /
+  maxBorrowable business caches.
+- `APP_BORROW_EXECUTOR` / `FUNDING_HEDGING_BORROW_EXECUTOR`: `disabled` (default,
+  no signed borrow POST) or `live` (exact-path PM borrow client). Live mode still
+  requires explicit global Start and per-task live authorization.
+- `BINANCE_BORROW_API_KEY` / `BINANCE_BORROW_API_SECRET`: dedicated Portfolio
+  Margin borrow credentials (not interchangeable with the read-only private
+  channel keys unless the operator deliberately reuses them). Empty keys in live
+  mode block dispatch with `borrow_credentials_missing`.
+- `APP_BORROW_DB_PATH` / `FUNDING_HEDGING_BORROW_DB_PATH`: SQLite path for durable
+  borrow tasks (default `data/borrow-tasks.sqlite3`).
 
 The private channel is deny-by-default. API keys may exist in the environment,
 but signed private GET requests are not used unless
 `BINANCE_PRIVATE_CHANNEL_ENABLED=true` or its `FUNDING_HEDGING_` alias is set.
+
+### Live borrow ops (as of 2026-07-22)
+
+Product decisions: `DEC-2026-07-22-001`…`003` and
+`docs/planning/CHANGELOG-2026-07-22-live-borrow-ops.md`.
+
+**Classification (POST `/papi/v1/marginLoan`):**
+
+| Observation | `result_category` | Task stays in rotation? |
+|---|---|---|
+| Valid `tranId` on 2xx | `success` | Yes (until success target) |
+| HTTP 4xx (incl. 401/-2015, 51061 either sign) | `known_rejection` | Yes |
+| Transport timeout / connection_error | `known_rejection` (Scheme C) | Yes — over-borrow risk accepted |
+| 429 / 400+`-1003` / 418 | `rate_limited` | Global cooldown |
+| 5xx / malformed 2xx (no `tranId`) | `unknown` | **No** — recon block |
+
+**Logging:** same-task same-failure coalesce updates last failure time only.
+There is no durable `fail_count`; count failures from the attempt ledger with
+coalesce in mind.
+
+**Private balances:** unified cards show `total_balance` and
+`cross_margin_borrowed` (red when &gt; 0). Source field is Binance
+`crossMarginBorrowed` on `GET /papi/v1/balance`.
+
+**Local DB hygiene:** attempt spam and soft-deleted tasks may be cleared by the
+operator on a stopped server; always take a `.bak` copy first.
 
 ## Commands
 

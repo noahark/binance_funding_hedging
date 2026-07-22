@@ -3,10 +3,15 @@
 Wraps :class:`PortfolioMarginBorrowClient` and maps every transport/exchange
 observation into the frozen :class:`ExecutorResult` vocabulary (deny by
 default). It performs NO classification of its own beyond the archived rules:
-success requires a valid normalized ``tranId``; ``known_rejection`` is exactly
-``-51006/-51014/-51061``; ``-1003``/429/418 are rate-limited; everything else
-(timeout, connection loss, malformed/empty 2xx, 5xx, unlisted 4xx, exceptions)
-is ``unknown``.
+success requires a valid normalized ``tranId``; every definite HTTP 4xx after
+rate-limit handling is ``known_rejection`` (includes the
+``51006/51014/51061`` pool family and auth rejects such as HTTP 401/``-2015``)
+so the task stays in rotation; **Scheme C (operator product choice):**
+transport failures (timeout / connection_error / missing status) are also
+``known_rejection`` so high-frequency borrow tasks keep rotating — the operator
+accepts possible over-borrow when a POST may have landed without a local
+response; ``-1003``/429/418 are rate-limited; malformed/empty 2xx and 5xx remain
+``unknown`` (exchange may have accepted without a usable body).
 
 Reconciliation (§5.3) queries the loan-record endpoint and proves success only
 on a unique ``CONFIRMED`` record whose ``asset`` and ``Decimal(principal)`` match
@@ -27,8 +32,6 @@ from ..borrow_tasks import domain as D
 from ..borrow_tasks.executor import ExecutorResult, ReconcileOutcome
 from .portfolio_margin_borrow_client import BorrowHttpResponse, PortfolioMarginBorrowClient
 
-# The frozen known-rejection set (Boundary C §5.1). Every other 4xx -> unknown.
-_KNOWN_REJECTION_CODES = {"-51006", "-51014", "-51061"}
 # -1003 TOO_MANY_REQUESTS is verified; its exact PAPI HTTP representation is not,
 # so HTTP 400 body code -1003 OR HTTP 429 are both rate-limited.
 _RATE_LIMIT_BODY_CODE = "-1003"
@@ -158,20 +161,24 @@ def _row_contract_valid(row) -> bool:
 
 
 def classify_post_response(response: BorrowHttpResponse) -> ExecutorResult:
-    """Map a POST /papi/v1/marginLoan response to the frozen result vocabulary.
+    """Map a POST /papi/v1/marginLoan response to the result vocabulary.
 
-    Ordering is fail-closed (Boundary C §5.1 / 00-task.md:161-168): rate-limit
-    handling first, then EVERY 2xx (valid normalized ``tranId`` => success, any
-    other 2xx — empty/malformed body OR a 2xx carrying a known rejection code —
-    => unknown), then EVERY 5xx (possibly accepted by the exchange) => unknown.
-    ``known_rejection`` is recognized only on a definite 4xx response after
-    rate-limit handling, and only for the three archived codes; every other 4xx
-    stays unknown. This keeps an ambiguous 2xx/5xx from being returned to
-    rotation as a clean ``known_rejection`` and authorizing a second borrow POST.
+    Ordering:
+
+    1. transport error / missing status → ``known_rejection`` (Scheme C: stay in
+       rotation; reason ``transport_error:…``). Operator accepts over-borrow risk.
+    2. rate-limit: 429, 400+``-1003``, 418 → ``rate_limited``
+    3. 2xx: valid ``tranId`` → ``success``; otherwise ``unknown``
+    4. 5xx → ``unknown`` (exchange may have accepted)
+    5. any other definite 4xx → ``known_rejection`` (request rejected; task
+       stays in rotation). Covers pool codes 51006/14/61, auth HTTP 401/``-2015``,
+       and other client/business 4xx.
     """
     if response.transport_error is not None or response.http_status is None:
+        # Scheme C: do not block the task on connection/timeout — high-frequency
+        # borrow of empty-pool assets prefers keep-trying over recon freeze.
         return ExecutorResult(
-            result_category=D.RESULT_UNKNOWN,
+            result_category=D.RESULT_KNOWN_REJECTION,
             http_status=None,
             reason=f"transport_error:{response.transport_error or 'none'}",
         )
@@ -221,14 +228,19 @@ def classify_post_response(response: BorrowHttpResponse) -> ExecutorResult:
             business_code=code,
             reason=f"possibly_accepted_5xx_{status}",
         )
-    # known_rejection: only on a definite 4xx (after rate-limit handling) and
-    # only for the three archived codes; every other 4xx stays unknown.
-    if 400 <= status < 500 and code in _KNOWN_REJECTION_CODES:
+    # Definite 4xx: exchange rejected the request (no accepted loan). Stay in
+    # rotation — includes 401/-2015 auth rejects and 510xx pool rejects.
+    if 400 <= status < 500:
+        reason = (
+            f"known_rejection:{code}"
+            if code is not None
+            else f"known_rejection:http_{status}"
+        )
         return ExecutorResult(
             result_category=D.RESULT_KNOWN_REJECTION,
             http_status=status,
             business_code=code,
-            reason=f"known_rejection:{code}",
+            reason=reason,
         )
     return ExecutorResult(
         result_category=D.RESULT_UNKNOWN,

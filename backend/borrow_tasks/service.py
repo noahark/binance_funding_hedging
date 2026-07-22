@@ -21,6 +21,7 @@ import uuid
 from typing import Callable
 
 from . import domain as D
+from .binance_error_codes import business_code_display_fields
 from .executor import BorrowExecutor, DisabledBorrowExecutor, ExecutorResult
 from .ownership import BorrowDbOwnership
 from .scheduler import BorrowScheduler, select_next_task
@@ -44,13 +45,16 @@ def _real_wall_us() -> int:
 def _latest_result_to_doc(task: dict) -> dict | None:
     if task.get("latest_result_category") is None:
         return None
-    return {
+    code = task["latest_result_business_code"]
+    doc = {
         "result_category": task["latest_result_category"],
-        "business_code": task["latest_result_business_code"],
+        "business_code": code,
         "reason": task["latest_result_reason"],
         "tran_id": task["latest_result_tran_id"],
         "finished_at": D.us_to_iso(task["latest_result_finished_at_us"]),
     }
+    doc.update(business_code_display_fields(code))
+    return doc
 
 
 def task_to_doc(task: dict) -> dict:
@@ -72,14 +76,15 @@ def task_to_doc(task: dict) -> dict:
 
 
 def attempt_to_doc(attempt: dict) -> dict:
-    return {
+    code = attempt["business_code"]
+    doc = {
         "id": attempt["id"],
         "task_id": attempt["task_id"],
         "asset": attempt["asset"],
         "sequence": attempt["sequence"],
         "outcome": attempt["outcome"],
         "result_category": attempt["result_category"],
-        "business_code": attempt["business_code"],
+        "business_code": code,
         "reason": attempt["reason"],
         "http_status": attempt["http_status"],
         "tran_id": attempt["tran_id"],
@@ -90,6 +95,9 @@ def attempt_to_doc(attempt: dict) -> dict:
         "latency_ms": attempt["latency_ms"],
         "effective_gap_us": attempt["effective_gap_us"],
     }
+    # Display-only official map (PM + margin auth codes); null when unmapped.
+    doc.update(business_code_display_fields(code))
+    return doc
 
 
 def settings_to_doc(settings: dict) -> dict:

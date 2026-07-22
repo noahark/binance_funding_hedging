@@ -654,15 +654,44 @@ class BorrowTaskStore:
             ).fetchone()
             return _row_to_attempt(row)
 
+    @staticmethod
+    def _same_failure_signature(
+        category: str,
+        reason: str | None,
+        business_code: str | None,
+        *,
+        other_category,
+        other_reason,
+        other_business_code,
+    ) -> bool:
+        """True when two failure outcomes are the same log-coalesce key."""
+        return (
+            other_category == category
+            and other_reason == reason
+            and other_business_code == business_code
+        )
+
     def resolve_attempt(
         self, attempt_id: int, result: ExecutorResult, finished_at_us: int
     ) -> dict:
         """Resolve the attempt and apply its task/settings effects.
 
-        Exactly one ledger row per attempt: this updates the pending row in
-        place (append-only ledger; no second insert, no delete). The resolve
-        matrix (§5.4) is applied on success; the in-flight marker clears on any
-        terminal non-``unknown`` resolution and is retained on ``unknown``.
+        Product log rule for repeated failures (same task / asset attempt
+        stream): if **this task's last result** is already the same coalesceable
+        failure (same ``result_category`` + ``reason`` + ``business_code``),
+        do **not** keep a second log line — only refresh that previous failure
+        row's ``finished_at_us`` (and latency), and discard the in-flight
+        pending row created for this dispatch.
+
+        Why a pending row still exists before this method runs: the scheduler
+        must insert intent **before** the signed POST so a crash mid-flight
+        leaves the task blocked for reconciliation. At insert time the outcome
+        is unknown, so the "update last failure only" decision can only happen
+        here, after the executor returns. Success always keeps its own row;
+        unknown never coalesces (recon identity).
+
+        The in-flight marker clears on any terminal non-``unknown`` resolution
+        and is retained on ``unknown``.
         """
         category = result.result_category
         with self._lock, self._conn:
@@ -671,7 +700,80 @@ class BorrowTaskStore:
             ).fetchone()
             if attempt is None:
                 raise UnknownTaskError(f"attempt {attempt_id}")
+            task_id = attempt["task_id"]
             dispatched_at_us = attempt["dispatched_at_us"]
+            latency_ms = (
+                (finished_at_us - dispatched_at_us) // 1000
+                if dispatched_at_us is not None
+                else None
+            )
+            task = self._conn.execute(
+                "SELECT * FROM borrow_task WHERE id = ?", (task_id,)
+            ).fetchone()
+
+            # -----------------------------------------------------------------
+            # Same-failure log coalesce (user-facing rule):
+            #   1) look at this task's last result (latest_result_*)
+            #   2) if it is the same failure as now → update that failure's time
+            #   3) drop this dispatch's pending row so the UI is not spammed
+            # Uses the task's last result (not "any historical same code") so a
+            # success between two identical failures still creates a new cluster.
+            # -----------------------------------------------------------------
+            if (
+                category in D.COALESCEABLE_FAILURE_CATEGORIES
+                and task is not None
+                and self._same_failure_signature(
+                    category,
+                    result.reason,
+                    result.business_code,
+                    other_category=task["latest_result_category"],
+                    other_reason=task["latest_result_reason"],
+                    other_business_code=task["latest_result_business_code"],
+                )
+            ):
+                # Locate the ledger row that currently represents that last failure.
+                last_failure = self._conn.execute(
+                    "SELECT * FROM borrow_attempt"
+                    " WHERE task_id = ? AND outcome = ? AND id < ?"
+                    " ORDER BY id DESC LIMIT 1",
+                    (task_id, D.OUTCOME_RESOLVED, attempt_id),
+                ).fetchone()
+                if last_failure is not None and self._same_failure_signature(
+                    category,
+                    result.reason,
+                    result.business_code,
+                    other_category=last_failure["result_category"],
+                    other_reason=last_failure["reason"],
+                    other_business_code=last_failure["business_code"],
+                ):
+                    kept_id = last_failure["id"]
+                    self._conn.execute(
+                        "UPDATE borrow_attempt SET finished_at_us = ?, latency_ms = ?"
+                        " WHERE id = ?",
+                        (finished_at_us, latency_ms, kept_id),
+                    )
+                    self._conn.execute(
+                        "DELETE FROM borrow_attempt WHERE id = ?", (attempt_id,)
+                    )
+                    # Refresh last-result clock; clear marker (must not point at
+                    # the deleted pending id). success_count/status unchanged.
+                    self._conn.execute(
+                        "UPDATE borrow_task SET"
+                        " latest_result_finished_at_us = ?,"
+                        " unresolved_attempt_id = NULL,"
+                        " version = version + 1, updated_at_us = ?"
+                        " WHERE id = ?",
+                        (finished_at_us, finished_at_us, task_id),
+                    )
+                    if category == D.RESULT_RATE_LIMITED:
+                        self._apply_rate_limit(result, finished_at_us)
+                    row = self._conn.execute(
+                        "SELECT * FROM borrow_attempt WHERE id = ?", (kept_id,)
+                    ).fetchone()
+                    return _row_to_attempt(row)
+                # Inconsistent ledger vs latest_result_*: fall through and keep
+                # this attempt as a normal resolved row.
+
             prev_row = self._conn.execute(
                 "SELECT dispatched_at_us FROM borrow_attempt"
                 " WHERE dispatched_at_us IS NOT NULL AND id < ?"
@@ -681,11 +783,6 @@ class BorrowTaskStore:
             effective_gap_us = (
                 dispatched_at_us - prev_row["dispatched_at_us"]
                 if (dispatched_at_us is not None and prev_row is not None)
-                else None
-            )
-            latency_ms = (
-                (finished_at_us - dispatched_at_us) // 1000
-                if dispatched_at_us is not None
                 else None
             )
             # Unknown attempts schedule their first reconciliation read at +5s.
@@ -714,10 +811,6 @@ class BorrowTaskStore:
                     attempt_id,
                 ),
             )
-            task_id = attempt["task_id"]
-            task = self._conn.execute(
-                "SELECT * FROM borrow_task WHERE id = ?", (task_id,)
-            ).fetchone()
             if task is not None:
                 new_count = task["success_count"]
                 new_status = task["status"]

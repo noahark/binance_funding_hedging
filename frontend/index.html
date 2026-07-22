@@ -449,6 +449,12 @@
       font-size: 12px;
       margin-top: var(--space-1);
     }
+    .balance-card .amount.borrowed-debt {
+      color: var(--danger, #c0392b);
+      font-size: 12px;
+      margin-top: var(--space-1);
+      font-weight: 600;
+    }
 
     /* 隐私开关 */
     .privacy-toggle {
@@ -817,23 +823,6 @@
       </header>
 
       <div id="market-view">
-      <section class="panel" id="warnings-panel" style="display:none;">
-        <div class="panel-header">
-          <div class="panel-title">
-            <h2>数据说明</h2>
-            <p class="subtitle">来自后端快照服务的行情公开数据与账户私有只读验证说明</p>
-          </div>
-        </div>
-        <div class="panel-body">
-          <div class="info-note" id="margin-public-note" style="margin-bottom: var(--space-3);"></div>
-          <div class="info-list" id="warnings-list"></div>
-          <details id="warnings-raw">
-            <summary>API 返回的英文原文（可审计）</summary>
-            <pre id="warnings-raw-content"></pre>
-          </details>
-        </div>
-      </section>
-
       <section class="panel" id="private-panel" style="display:none;">
         <div class="panel-header">
           <div class="panel-title">
@@ -856,6 +845,7 @@
         <div class="panel-header">
           <div class="panel-title">
             <h2>市场表</h2>
+            <p class="subtitle" id="market-snapshot-meta">生成时间: — · 数据时间: — · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）</p>
             <p class="subtitle" id="data-source-label">数据源: /api/public-market/snapshot</p>
           </div>
           <div class="panel-actions">
@@ -932,7 +922,6 @@
         </div>
       </section>
 
-      <footer class="footer-note" id="footer-note"></footer>
       </div>
 
       <section class="panel" id="borrow-task-view" style="display:none;">
@@ -1054,15 +1043,12 @@
         borrowLogs: { entries: [], nextCursor: null, loaded: false },
         borrowLogsError: null,
         activeView: 'market',
-        borrowTaskFilter: 'all'
+        // Nav badge + default list filter: 借币中 only (not all statuses / soft-deleted).
+        borrowTaskFilter: 'borrowing'
       };
 
       const els = {
-        warningsPanel: document.getElementById('warnings-panel'),
-        warningsList: document.getElementById('warnings-list'),
-        warningsRaw: document.getElementById('warnings-raw'),
-        warningsRawContent: document.getElementById('warnings-raw-content'),
-        marginPublicNote: document.getElementById('margin-public-note'),
+        marketSnapshotMeta: document.getElementById('market-snapshot-meta'),
         dataSourceLabel: document.getElementById('data-source-label'),
         sortBasisBadge: document.getElementById('sort-basis-badge'),
         btnRefresh: document.getElementById('btn-refresh'),
@@ -1075,7 +1061,6 @@
         summaryRow: document.getElementById('summary-row'),
         statusArea: document.getElementById('status-area'),
         tableBody: document.getElementById('market-table-body'),
-        footerNote: document.getElementById('footer-note'),
         privatePanel: document.getElementById('private-panel'),
         privatePanelSubtitle: document.getElementById('private-panel-subtitle'),
         privatePanelBody: document.getElementById('private-panel-body'),
@@ -1270,6 +1255,32 @@
         return fracPart !== undefined ? `${intFormatted}.${fracPart}` : intFormatted;
       }
 
+      // Opening-quote display: same as formatPrice but strip trailing fractional zeros
+      // (e.g. 0.05000000 → 0.05, 1.1000 → 1.1, 2.0000 → 2). Integer part still
+      // uses thousands separators. Does not change mark/index formatPrice paths.
+      function formatPriceTrimZeros(str) {
+        if (str === undefined || str === null || str === '') return '—';
+        const s = String(str).trim();
+        if (!/^-?\d+(\.\d+)?$/.test(s)) return formatPrice(str);
+        const neg = s.startsWith('-');
+        const body = neg ? s.slice(1) : s;
+        const [intPart, fracPart = ''] = body.split('.');
+        const fracTrim = fracPart.replace(/0+$/, '');
+        const intFormatted = Number(intPart).toLocaleString('en-US');
+        const sign = neg ? '-' : '';
+        return fracTrim ? `${sign}${intFormatted}.${fracTrim}` : `${sign}${intFormatted}`;
+      }
+
+      function isPositiveBorrowedAmount(str) {
+        if (str === undefined || str === null || str === '') return false;
+        const m = String(str).trim().match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+        if (!m) return false;
+        if (m[1] === '-') return false;
+        const intPart = m[2].replace(/^0+/, '') || '0';
+        const fracPart = (m[3] || '').replace(/0+$/, '');
+        return !(intPart === '0' && fracPart === '');
+      }
+
       function formatUsdt2(str) {
         // 2-place ROUND_HALF_UP display for per-balance value_usdt (8-place string).
         if (str === undefined || str === null || str === '') return null;
@@ -1347,8 +1358,8 @@
         const statusNote = `status: ${escapeHtml(oq.status || 'unknown')}; updated_at: ${escapeHtml(oq.updated_at || '—')}`;
         const cellTitle = `${title} ${statusNote}`;
         if (direction === 'forward') {
-          const bidText = formatPrice(oq.futures_bid_price);
-          const askText = formatPrice(oq.spot_ask_price);
+          const bidText = formatPriceTrimZeros(oq.futures_bid_price);
+          const askText = formatPriceTrimZeros(oq.spot_ask_price);
           const pctText = formatOpeningSpreadPct(oq.forward_spread_pct);
           const pctClass = classForOpeningSpread(oq.forward_spread_pct);
           return `
@@ -1358,8 +1369,8 @@
               <div class="${pctClass}">${pctText}</div>
             </td>`;
         }
-        const bidText = formatPrice(oq.spot_bid_price);
-        const askText = formatPrice(oq.futures_ask_price);
+        const bidText = formatPriceTrimZeros(oq.spot_bid_price);
+        const askText = formatPriceTrimZeros(oq.futures_ask_price);
         const pctText = formatOpeningSpreadPct(oq.reverse_spread_pct);
         const pctClass = classForOpeningSpread(oq.reverse_spread_pct);
         return `
@@ -1416,6 +1427,22 @@
         return `<span class="badge ${cls}">${escapeHtml(map[rc] || rc)}</span>`;
       }
 
+      // Sign-only: true when the primary rate string is strictly > 0 (no float).
+      // Prefer daily_funding_rate (product day basis); fall back to last funding.
+      function isPositiveFundingRate(row) {
+        const raw = (row.daily_funding_rate != null && row.daily_funding_rate !== '')
+          ? row.daily_funding_rate
+          : (row.futures && row.futures.last_funding_rate);
+        if (raw === undefined || raw === null || raw === '') return false;
+        const m = String(raw).trim().match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+        if (!m) return false;
+        const sign = m[1];
+        if (sign === '-') return false;
+        const intPart = m[2].replace(/^0+/, '') || '0';
+        const fracPart = (m[3] || '').replace(/0+$/, '');
+        return !(intPart === '0' && fracPart === '');
+      }
+
       function badgeForNegativeFundingStatus(row) {
         const ns = row.negative_funding_status;
         if (ns === 'DISABLED_PERP_ONLY') {
@@ -1437,6 +1464,11 @@
             // render a warn badge instead of the green success one.
             if (pa.max_borrowable === '0') {
               return `<span class="badge warn" title="PRIVATE_BORROW_VALIDATION_REQUIRED · code ${escapeHtml(pa.error_code || '')}">可借 0(已借完)</span>`;
+            }
+            // Positive funding: classic "borrowable" is not a short-hedge signal —
+            // show 正费率 instead of the misleading green「已验证可借」.
+            if (isPositiveFundingRate(row)) {
+              return `<span class="badge info" title="正资金费率 · 非做空对冲优先">正费率</span>`;
             }
             return `<span class="badge success" title="PRIVATE_BORROW_VALIDATION_REQUIRED">已验证可借</span>`;
           }
@@ -1467,35 +1499,6 @@
         // METAL is a product tag, not a borrow prohibition.
         const cls = tag === 'BSTOCK' ? 'accent' : tag === 'UNKNOWN' ? 'warn' : '';
         return `<span class="badge ${cls}">${escapeHtml(map[tag] || tag)}</span>`;
-      }
-
-      const WARNING_CHINESE = [
-        '杠杆交易对与可借性通过私有只读 API key 验证；未配置或请求失败时标为需私有验证，候选初筛仍使用公开现货 isMarginTradingAllowed 字段。',
-        '表中资金费率为本周期实时预估值，将于所示结算时间收取，结算前会漂移；已结算历史以 /fapi/v1/fundingRate 为准。',
-        'bStock（美股）合约的现货腿按 baseAsset+B+quoteAsset 别名连接（如 TSLAUSDT → TSLABUSDT）；质押率动态未知，未做任何硬编码。'
-      ];
-
-      function renderWarnings(warnings) {
-        if (!Array.isArray(warnings) || warnings.length === 0) {
-          els.warningsPanel.style.display = 'none';
-          return;
-        }
-        els.warningsPanel.style.display = '';
-        els.marginPublicNote.innerHTML = `
-          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 16v-4m0-4h.01M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span>账户与借币验证通过私有只读 API key 读取；未配置或失败时降级为需私有验证，公开行情仍可展示。</span>
-        `;
-        els.warningsList.innerHTML = WARNING_CHINESE.map((cn, i) => `
-          <div class="info-item">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 15v-2m0-6v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <span>${escapeHtml(cn)}</span>
-          </div>
-        `).join('');
-        els.warningsRawContent.textContent = warnings.map((w, i) => `[${i + 1}] ${w}`).join('\n\n');
       }
 
       function escapeHtml(s) {
@@ -1706,19 +1709,34 @@
             <td class="${ann30Class}" title="${escapeHtml(ann30Title)}">${ann30Text}</td>
             <td class="net-yield ${netClass}">${netText}${netSource}${borrowSubline}</td>
             <td>${badgeForNegativeFundingStatus(row)}${maxBorrowLine}<br/>${badgeForAssetTag(row.asset_tag)}</td>
-            <td class="borrow-op-cell">
-              <div class="borrow-op-inputs">
-                <label for="borrow-amount-${escapeHtml(row.symbol)}">单次借币数量 (${escapeHtml(row.base_asset)})</label>
-                <input id="borrow-amount-${escapeHtml(row.symbol)}" type="text" inputmode="decimal" placeholder="${escapeHtml(minBorrowPlaceholder(row))}" autocomplete="off"/>
-                <label for="borrow-count-${escapeHtml(row.symbol)}">成功借币次数</label>
-                <input id="borrow-count-${escapeHtml(row.symbol)}" type="text" inputmode="numeric" placeholder="如 10" autocomplete="off"/>
-                <button class="btn compact primary" type="button" data-borrow-confirm="${escapeHtml(row.symbol)}" aria-label="确认创建 ${escapeHtml(row.symbol)} 借币任务">确认</button>
-              </div>
-              <div class="borrow-op-preview muted small" id="borrow-preview-${escapeHtml(row.symbol)}" aria-live="polite"></div>
-              <div class="borrow-op-error" id="borrow-error-${escapeHtml(row.symbol)}" role="alert" aria-live="polite"></div>
-            </td>
+            ${renderBorrowOpCell(row)}
           </tr>
         `;
+      }
+
+      // bStock / 仅合约排除行：无可用现货借币腿，操作列不展示创建控件（留 —）。
+      function isBorrowOpDisabledRow(row) {
+        return row.route_class === 'PERP_ONLY_EXCLUDED' || row.asset_tag === 'BSTOCK';
+      }
+
+      function renderBorrowOpCell(row) {
+        if (isBorrowOpDisabledRow(row)) {
+          return '<td class="borrow-op-cell muted">—</td>';
+        }
+        const sym = escapeHtml(row.symbol);
+        const base = escapeHtml(row.base_asset);
+        return `
+            <td class="borrow-op-cell">
+              <div class="borrow-op-inputs">
+                <label for="borrow-amount-${sym}">单次借币数量 (${base})</label>
+                <input id="borrow-amount-${sym}" type="text" inputmode="decimal" placeholder="${escapeHtml(minBorrowPlaceholder(row))}" autocomplete="off"/>
+                <label for="borrow-count-${sym}">成功借币次数</label>
+                <input id="borrow-count-${sym}" type="text" inputmode="numeric" placeholder="如 10" autocomplete="off"/>
+                <button class="btn compact primary" type="button" data-borrow-confirm="${sym}" aria-label="确认创建 ${sym} 借币任务">确认</button>
+              </div>
+              <div class="borrow-op-preview muted small" id="borrow-preview-${sym}" aria-live="polite"></div>
+              <div class="borrow-op-error" id="borrow-error-${sym}" role="alert" aria-live="polite"></div>
+            </td>`;
       }
 
       function attachRowHandlers(tr) {
@@ -2089,13 +2107,17 @@
         const total = maskAmount(pa.total_value_usdt);
 
         const unifiedBalances = Array.isArray(pa.balances_unified) && pa.balances_unified.length > 0
-          ? pa.balances_unified.map(b => `
+          ? pa.balances_unified.map(b => {
+              const borrowedPositive = isPositiveBorrowedAmount(b.cross_margin_borrowed);
+              const borrowedCls = borrowedPositive ? 'borrowed-debt' : 'locked';
+              return `
               <div class="balance-card">
                 <div class="asset">${escapeHtml(b.asset || '—')}</div>
                 <div class="amount">${formatBalanceAmount(b.total_balance)}</div>
+                <div class="amount ${borrowedCls}">已借: ${formatBalanceAmount(b.cross_margin_borrowed)}</div>
                 <div class="amount value-usdt">${approximateUsdtLine(b.value_usdt)}</div>
-              </div>
-            `).join('')
+              </div>`;
+            }).join('')
           : '<span class="muted small">无数据</span>';
 
         const spotBalances = Array.isArray(pa.balances_spot) && pa.balances_spot.length > 0
@@ -2169,14 +2191,25 @@
         `;
       }
 
-      function renderFooter() {
+      function formatSnapshotTimeBeijing(iso) {
+        if (iso === undefined || iso === null || iso === '') return '—';
+        const ms = Date.parse(String(iso));
+        if (Number.isNaN(ms)) return String(iso);
+        return formatBeijing(ms);
+      }
+
+      // Under 「市场表」title: snapshot times in Asia/Shanghai + refresh note.
+      function renderMarketSnapshotMeta() {
+        if (!els.marketSnapshotMeta) return;
         if (!state.snapshot) {
-          els.footerNote.textContent = '';
+          els.marketSnapshotMeta.textContent =
+            '生成时间: — · 数据时间: — · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）';
           return;
         }
-        const generated = state.snapshot.generated_at || '—';
-        const dataTime = state.snapshot.data_time || '—';
-        els.footerNote.textContent = `生成时间: ${generated} · 数据时间: ${dataTime} · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）`;
+        const generated = formatSnapshotTimeBeijing(state.snapshot.generated_at);
+        const dataTime = formatSnapshotTimeBeijing(state.snapshot.data_time);
+        els.marketSnapshotMeta.textContent =
+          `生成时间: ${generated} · 数据时间: ${dataTime} · 数据每 60 秒自动刷新（后端缓存 TTL 60 秒）`;
       }
 
       // ---- 借币任务（后端权威：任务真相来自同源 API，state.borrowTasks 仅为渲染缓存） ----
@@ -2263,8 +2296,13 @@
         return state.borrowTasks.find(t => t.id === id) || null;
       }
 
+      function countBorrowingTasks() {
+        return state.borrowTasks.filter(t => t && t.status === 'borrowing').length;
+      }
+
       function updateBorrowTaskNav() {
-        els.borrowTaskCount.textContent = String(state.borrowTasks.length);
+        // Title badge: 借币中 count only (not 全部 / deleted / paused / completed).
+        els.borrowTaskCount.textContent = String(countBorrowingTasks());
       }
 
       // 任务列表是唯一任务真相来源；加载失败保留旧缓存渲染并显示错误横幅。
@@ -2277,7 +2315,11 @@
           state.borrowTasksError = err.message || '借币任务加载失败';
         }
         updateBorrowTaskNav();
-        renderBorrowTasks();
+        // Only re-render the task list when the borrow view is visible; market
+        // view still needs the nav badge updated (boot + background refresh).
+        if (state.activeView === 'borrow-tasks') {
+          renderBorrowTasks();
+        }
       }
 
       async function loadSchedulerSettings() {
@@ -2392,6 +2434,12 @@
         const previewEl = document.getElementById(`borrow-preview-${symbol}`);
         if (!previewEl) return;
         const row = (state.snapshot && state.snapshot.rows || []).find(r => r.symbol === symbol);
+        // bStock / PERP_ONLY 行无预览容器；可创建行：仅在数量+次数齐全时展示汇总，
+        // 空输入不再刷「创建预览：资产 X。输入…」占位文案。
+        if (row && isBorrowOpDisabledRow(row)) {
+          previewEl.textContent = '';
+          return;
+        }
         const asset = row ? row.base_asset : symbol;
         const amountEl = document.getElementById(`borrow-amount-${symbol}`);
         const countEl = document.getElementById(`borrow-count-${symbol}`);
@@ -2405,7 +2453,7 @@
             : '当前全局间隔未加载（进入借币任务视图加载）';
           previewEl.textContent = `创建预览：资产 ${asset}，单次 ${amount}，成功 ${successTarget} 次，目标总量 ${total} ${asset}，${intervalLine}。确认即提交后端，立即可被调度。`;
         } else {
-          previewEl.textContent = `创建预览：资产 ${asset}。输入单次数量与成功次数后查看目标总量与当前全局间隔。`;
+          previewEl.textContent = '';
         }
       }
 
@@ -2525,7 +2573,7 @@
       }
 
       function setBorrowTaskFilter(filter) {
-        state.borrowTaskFilter = BORROW_TASK_FILTERS.some(([key]) => key === filter) ? filter : 'all';
+        state.borrowTaskFilter = BORROW_TASK_FILTERS.some(([key]) => key === filter) ? filter : 'borrowing';
         renderBorrowTasks();
       }
 
@@ -2580,20 +2628,27 @@
         const totalText = multiplyDecimalString(task.amount_per_attempt, task.success_target);
         const statusLabel = BORROW_TASK_STATUS_LABELS[task.status] || task.status;
         const statusBadge = BORROW_TASK_STATUS_BADGE[task.status] || 'muted';
-        const blocked = task.unresolved_attempt_id !== null && task.unresolved_attempt_id !== undefined;
-        const latestBadge = task.latest_result && task.latest_result.result_category
-          ? borrowResultBadge(task.latest_result.result_category)
+        // unresolved_attempt_id is set for TWO cases:
+        //   (1) in-flight pending (marker set before POST; cleared on known_rejection/success)
+        //   (2) true unknown outcome awaiting reconciliation
+        // Only (2) should show「待对账·暂停调度」. Case (1) used to flash that badge
+        // every scheduler tick when poll hit the POST window (often ~100–400ms).
+        const hasUnresolved = task.unresolved_attempt_id !== null && task.unresolved_attempt_id !== undefined;
+        const latestCat = task.latest_result && task.latest_result.result_category;
+        const reconBlocked = hasUnresolved && latestCat === 'unknown';
+        const latestBadge = latestCat
+          ? borrowResultBadge(latestCat)
           : '<span class="badge muted">暂无执行记录</span>';
-        const blockedBadge = blocked
+        const blockedBadge = reconBlocked
           ? '<span class="badge danger" title="存在未知结果的尝试，后端已暂停调度该任务，等待对账">待对账·暂停调度</span>'
           : '';
-        const blockedLine = blocked
+        const blockedLine = reconBlocked
           ? '<div class="borrow-task-note">该任务存在未知结果的尝试，后端已暂停调度，等待对账；如需退出可删除该任务。</div>'
           : '';
         // 按钮矩阵：borrowing 禁启动；paused 禁暂停；completed 禁启动/暂停/编辑；
-        // deleted 全部禁用（含编辑只读）；待对账任务禁启动/暂停（不会被调度）。
-        const startDisabled = (task.status !== 'paused' || blocked) ? ' disabled' : '';
-        const pauseDisabled = (task.status !== 'borrowing' || blocked) ? ' disabled' : '';
+        // deleted 全部禁用（含编辑只读）；仅「真·待对账」(unknown) 禁启动/暂停。
+        const startDisabled = (task.status !== 'paused' || reconBlocked) ? ' disabled' : '';
+        const pauseDisabled = (task.status !== 'borrowing' || reconBlocked) ? ' disabled' : '';
         const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
         const editDisabled = (task.status === 'deleted' || task.status === 'completed') ? ' disabled' : '';
         const idAttr = escapeHtml(task.id);
@@ -2610,6 +2665,15 @@
               <div>成功进度：<strong>${task.success_count} / ${task.success_target} 次成功</strong></div>
               <div>目标总量：目标 ${totalText} ${asset}</div>
               <div>策略：后端调度器每 ${escapeHtml(intervalText)} 秒全局轮转尝试一次，失败等待下次，达到成功次数后停止</div>
+              ${(() => {
+                const lr = task.latest_result;
+                if (!lr) return '';
+                const zh = lr.business_code_message_zh || lr.business_code_message;
+                if (!zh) return '';
+                const name = lr.business_code_name ? ` · ${escapeHtml(lr.business_code_name)}` : '';
+                const code = lr.business_code ? ` (${escapeHtml(String(lr.business_code))})` : '';
+                return `<div class="borrow-task-note">交易所说明：${escapeHtml(zh)}${name}${code}</div>`;
+              })()}
               ${blockedLine}
               <div class="borrow-task-note">任务持久化在后端；执行模式与启停状态见借币任务视图顶部执行徽标。</div>
             </div>
@@ -2713,13 +2777,19 @@
                     const reason = [entry.reason, entry.business_code]
                       .filter(v => v !== null && v !== undefined && v !== '')
                       .join(' / ') || '—';
+                    // Official Binance map (additive API fields); zh preferred for UI.
+                    const codeZh = entry.business_code_message_zh || entry.business_code_message || '';
+                    const codeName = entry.business_code_name || '';
+                    const officialLine = codeZh
+                      ? `<div class="muted small" title="${escapeHtml(entry.business_code_message || codeZh)}">${escapeHtml(codeZh)}${codeName ? ` · ${escapeHtml(codeName)}` : ''}</div>`
+                      : '';
                     const latency = (entry.latency_ms === null || entry.latency_ms === undefined) ? '—' : `${entry.latency_ms} ms`;
                     return `
                       <tr>
                         <td class="mono">${escapeHtml(borrowLogTimeText(entry))}</td>
                         <td>${escapeHtml(entry.asset || '—')}</td>
                         <td>${resultBadge}</td>
-                        <td>${escapeHtml(reason)}</td>
+                        <td>${escapeHtml(reason)}${officialLine}</td>
                         <td class="mono">${escapeHtml(entry.requested_amount || '—')}</td>
                         <td class="mono">${escapeHtml(entry.tran_id || '—')}</td>
                         <td class="mono">${latency}</td>
@@ -2763,6 +2833,8 @@
           els.navMarket.classList.remove('active');
           els.navBorrowTasks.setAttribute('aria-current', 'page');
           els.navMarket.removeAttribute('aria-current');
+          // 进入借币任务：默认选中「借币中」（不是「全部」）。
+          state.borrowTaskFilter = 'borrowing';
           // 进入借币视图：拉取后端任务列表与调度设置（§3.11 刷新策略 a）；
           // 日志 tab 激活时同时拉取日志第 1 页。先用缓存渲染一帧。
           renderBorrowTasks();
@@ -2784,7 +2856,7 @@
         renderTable();
         renderSortBasis();
         renderPrivatePanel();
-        renderFooter();
+        renderMarketSnapshotMeta();
         if (state.drawerOpen && state.selectedSymbol) {
           const visible = filteredRows().some(r => r.symbol === state.selectedSymbol);
           if (visible) {
@@ -2812,7 +2884,6 @@
           state.snapshot = null;
           state.blocked = true;
           state.blockedReason = `请求后端失败: ${err.message}。`;
-          renderWarnings([]);
           applyFiltersAndRender();
         } finally {
           refreshState.isRefreshing = false;
@@ -2833,14 +2904,12 @@
           state.snapshot = null;
           state.blocked = true;
           state.blockedReason = validation.reason;
-          renderWarnings([]);
           applyFiltersAndRender();
           return;
         }
         state.snapshot = data;
         state.blocked = false;
         state.blockedReason = '';
-        renderWarnings(data.warnings);
         clearStatus();
         applyFiltersAndRender();
         if (state.drawerOpen && state.selectedSymbol) {
@@ -2965,6 +3034,8 @@
       loadApi();
       // 启动即加载全局调度设置，使行情视图创建前预览的间隔投影可用（失败由进入借币视图重试）。
       loadSchedulerSettings();
+      // 启动即拉借币任务列表，使市场页导航「借币任务 N」在未点进视图前即为「借币中」真实数量。
+      loadBorrowTasks();
       startAutoRefresh();
     })();
   </script>

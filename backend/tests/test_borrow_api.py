@@ -27,6 +27,8 @@ from backend.config import Config
 from backend.tests.borrow_paper_executor import (
     PaperBorrowExecutor,
     execution_disabled,
+    known_rejection,
+    rate_limited,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -214,9 +216,16 @@ def test_settings_get_default_then_put_fractional(validators, tmp_path):
 # ===========================================================================
 def test_logs_pagination_cursor_boundary_and_schema(validators, tmp_path):
     clock = _Clock(0)
+    # Distinct outcomes so same-failure coalesce does not collapse the page set.
     svc = BorrowTaskService(
         str(tmp_path / "bt.sqlite3"),
-        executor=PaperBorrowExecutor([execution_disabled()] * 5),
+        executor=PaperBorrowExecutor([
+            known_rejection(business_code="51061", reason="known_rejection:51061"),
+            known_rejection(business_code="51006", reason="known_rejection:51006"),
+            known_rejection(business_code="51014", reason="known_rejection:51014"),
+            execution_disabled(),
+            rate_limited(),
+        ]),
         mono_us=clock.mono_us,
         wall_us=clock.wall_us,
     )
@@ -234,7 +243,9 @@ def test_logs_pagination_cursor_boundary_and_schema(validators, tmp_path):
         assert page1["next_cursor"] is not None
         # newest first
         assert page1["entries"][0]["id"] > page1["entries"][1]["id"]
-        assert page1["entries"][0]["result_category"] == "execution_disabled"
+        assert page1["entries"][0]["result_category"] in (
+            "known_rejection", "execution_disabled", "rate_limited"
+        )
 
         status, _, payload = _req(
             host, port, "GET", f"/api/borrow-logs?limit=2&cursor={page1['next_cursor']}"

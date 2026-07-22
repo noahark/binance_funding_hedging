@@ -890,6 +890,10 @@ def assemble_private_account(
     string | null) computed by the same price map. Missing/bad amount or price
     -> null with warning; valid zero -> ``"0.00000000"``. The frontend must not
     re-derive ``total_value_usdt`` from row values.
+
+    Additive liability field on each unified row: ``cross_margin_borrowed`` from
+    Binance ``crossMarginBorrowed`` (full-cross margin debt). Raw string | null;
+    never folded into ``total_value_usdt``.
     """
     warnings: List[str] = []
     if unified is None and spot is None:
@@ -920,10 +924,13 @@ def assemble_private_account(
         value = _usdt_value_optional(
             asset, x.get("totalWalletBalance"), price_map, warnings
         )
+        # crossMarginBorrowed = PM full-cross (全仓) margin liability for this asset
+        # (from GET /papi/v1/balance). Raw string | null; not added into total_value_usdt.
         unified_out.append(
             {
                 "asset": asset,
                 "total_balance": x.get("totalWalletBalance"),
+                "cross_margin_borrowed": x.get("crossMarginBorrowed"),
                 "value_usdt": _quantize_rate(value) if value is not None else None,
             }
         )

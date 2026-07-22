@@ -683,12 +683,20 @@ unaffected.
 ### `private_account` block (§1.4, three-state)
 
 Top-level `private_account`: `verified`, `balances_unified` (E3
-`totalWalletBalance`), `balances_spot` (E6 `free`/`locked`), `um_positions` (E4
+`totalWalletBalance` + additive `cross_margin_borrowed` from
+`crossMarginBorrowed`), `balances_spot` (E6 `free`/`locked`), `um_positions` (E4
 exposure view), `total_value_usdt`, `valuation.{price_source, priced_at}`,
 `checked_at`, `error`. Env-missing / both-balance-sources-failed → `verified=false`,
 three arrays empty, `total_value_usdt` null, `error` carries the reason; the public
 snapshot still renders. A single failed source degrades to an empty array (block
 stays `verified=true`).
+
+Each `balances_unified[]` item carries additive **`cross_margin_borrowed`**
+(raw decimal string | null): Portfolio Margin full-cross margin liability from
+`GET /papi/v1/balance` field `crossMarginBorrowed`. Display-only; never counted
+into `total_value_usdt` (liability is not an asset). Frontend balance cards show
+`已借: <amount>` and highlight in red when the amount is strictly greater than
+zero (2026-07-22 ops patch).
 
 **Anti-double-count hard rule (test-asserted):** `total_value_usdt = Σ(unified
 totalWalletBalance priced) + Σ(spot free+locked priced)`, priced via the P5 price
@@ -838,6 +846,12 @@ to `required` (all three backend exits emit them stably):
   400 body is `{code,msg}` with no `borrowLimit` field, so `borrow_limit` is `null`.
 - `max_borrowable=null` + `error="borrowability_not_probed"` — borrowability not
   probed (beyond the `maxBorrowable` budget). `null` is reserved for "unknown".
+- Frontend badge note (2026-07-22): when classic margin reports pair listed +
+  asset borrowable and `verified=true`, but **daily funding rate is strictly
+  positive**, the market table shows **正费率** instead of green **已验证可借**.
+  Negative/zero rate rows keep the prior green verified-borrowable badge when
+  max is not the confirmed-zero state. Green still does **not** require a
+  non-null `max_borrowable` (classic-only verification remains possible).
 - A non-51061 business error, network failure, 5xx, or `-1003` retry-exhausted
   failure → `max_borrowable=null`, `error_code=null`. An *unknown* business code (a
   real Binance `code` not in the confirmed-zero set) is **not** enumerated today: it
