@@ -1,7 +1,7 @@
 {
   "active": {
     "stage_id": "2026-07-hedge-open-live-v1",
-    "phase": "review_1_packets_prepared_waiting_human_dispatch",
+    "phase": "review_1_round_2_hedge_be_pending",
     "handoff": "reports/agent-runs/2026-07-hedge-open-live-v1/70-handoff.md",
     "note": "Stage 2 of the hedge program: live backend open executor. HIGH + user-approved lightweight route. Both recon reports done+archived (websocket→Sonnet, order-endpoints/filters→GPT) and locked into DI-1 (option B: spot @bookTicker+local ts / perp @bookTicker+exchange E, gate |E_perp-t_spot_local|<=200ms, NTP calibration) and DI-4 (margin/order+um/order, NO_SIDE_EFFECT reverse no-auto-borrow, common-grid rounding, single-leg client-id state machine, dry-run record transport, no PAPI testnet). Round-1 scope = immediate open only (1 fill/sec, no ws), dry-run default. Design draft written (00-task/10-design/11-adr), awaiting user review; then breakdown + backend(Claude-GLM)/frontend(Kimi) dispatch. Safety: Boundary C posture — real order needs APP_HEDGE_EXECUTOR=live + global Start + human first task after review; nothing real authorized yet.",
     "updated_at": "2026-07-22T23:30:00+08:00"
