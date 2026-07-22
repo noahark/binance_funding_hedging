@@ -3474,10 +3474,30 @@ setTimeout(async () => {
       if (!postCall || postCall.url !== '/api/hedge-open-tasks') {
         throw new Error(`创建应 POST /api/hedge-open-tasks，实际: ${JSON.stringify(createCalls)}`);
       }
-      const expectedBody = { coin: 'AUSDT', direction: 'forward', mode: 'immediate', single_amount: 0.5, target_n: 3 };
+      const expectedBody = { coin: 'AUSDT', direction: 'forward', mode: 'immediate', single_amount: '0.5', target_n: 3 };
       if (JSON.stringify(postCall.body) !== JSON.stringify(expectedBody)) {
         throw new Error(`POST body 与 §3.1 冻结形状不符: ${JSON.stringify(postCall.body)}`);
       }
+      // R4-fix-1：single_amount 必须为 decimal string（后端 validate_single_amount 要求
+      // ^[0-9]+(\.[0-9]+)?$，number 会被 400 invalid_field）；target_n 维持整数 number。
+      if (typeof postCall.body.single_amount !== 'string' || !/^[0-9]+(\.[0-9]+)?$/.test(postCall.body.single_amount)) {
+        throw new Error(`single_amount 应为 decimal string: ${JSON.stringify(postCall.body.single_amount)}`);
+      }
+      if (typeof postCall.body.target_n !== 'number' || !Number.isInteger(postCall.body.target_n)) {
+        throw new Error(`target_n 应为整数 number: ${JSON.stringify(postCall.body.target_n)}`);
+      }
+      // 规范化：输入 `.5` 应上送 '0.5'（trim + 前导零，不走 float 往返）
+      // （重置 GET 槽为新对象：mock 按引用返回 body，前一次创建 push 进的是旧槽别名数组）
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [] } };
+      document.getElementById('hedge-amount-forward-AUSDT').value = ' .5 ';
+      const markDot5 = fetchCallLog.length;
+      const rDot5 = await helpers.submitHedgeOpen('AUSDT', 'forward', 'immediate');
+      if (!rDot5.ok) throw new Error('`.5` 应规范化后创建成功: ' + rDot5.error);
+      const dot5Post = fetchCallLog.slice(markDot5).find(c => c.method === 'POST');
+      if (!dot5Post || dot5Post.body.single_amount !== '0.5') {
+        throw new Error(`'.5' 应规范化为 '0.5' 上送: ${JSON.stringify(dot5Post && dot5Post.body)}`);
+      }
+      document.getElementById('hedge-amount-forward-AUSDT').value = '0.5';
       // 创建成功后重拉列表（§3：GET /api/hedge-open-tasks?status=all）
       const listCall = createCalls.find(c => c.method === 'GET' && c.url.startsWith('/api/hedge-open-tasks'));
       if (!listCall || listCall.url !== '/api/hedge-open-tasks?status=all') {

@@ -1,10 +1,13 @@
 {
   "stage_id": "2026-07-hedge-open-live-v1",
-  "status": "designing",
+  "status": "review_1",
   "workflow": "stage-delivery",
+  "base_sha": "6639b0025682f406f9a726104ef8d3b9e6f8fadd",
+  "head_sha": null,
+  "diff_fingerprint": null,
   "first_round_scope": "immediate-open only (1 fill/sec, no websocket); smooth-open (ws basis gate + clock calibration) deferred to the next round. Both rounds are dry-run record transport; real orders need later APP_HEDGE_EXECUTOR=live authorization.",
   "r4_reconciliation": {
-    "status": "not_passed_1_blocking_finding",
+    "status": "passed_after_hedge_fe_r4_fix_1",
     "record_path": "reports/agent-runs/2026-07-hedge-open-live-v1/r4-reconciliation.md",
     "boundaries": "clean (hedge-be backend-only, hedge-fe frontend-only, disjoint, no cross-edit)",
     "independent_reruns": "python -m pytest backend/tests -q -> 785 passed; node frontend/self-check.js -> 108 PASS",

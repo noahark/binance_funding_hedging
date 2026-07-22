@@ -104,3 +104,24 @@ Session ID 来源: transcript_path（kimi-code session 目录路径）
 本地北京时间: 2026-07-23 00:53:44 CST
 下一步模型: bookkeeper（claude-opus-4-8）收证据 → review-1 Claude-GLM（人类操作员派发）
 下一步任务: bookkeeper 收证据、R4 diff 核对、串行 commit、算指纹、调度 review-1
+
+## R4-fix-1：single_amount 类型对齐（decimal string）
+
+- 改动点（`frontend/index.html`）：`POST /api/hedge-open-tasks` body 的
+  `single_amount` 由 `Number(amountStr)` 改为上送前端校验后的原始十进制字符串；
+  新增 `normalizeHedgeAmount`（trim + `.5`→`0.5` 前导零，只接受
+  `^[0-9]+(\.[0-9]+)?$` 且值 > 0，不走 float 往返），替换原先复用的
+  `normalizeBorrowAmount`。`target_n` 维持整数 number 不变（后端要 int）。
+- 改动点（`frontend/self-check.js`）：块 78 创建断言收紧——POST body 逐字段比对
+  `single_amount: '0.5'`（string），新增类型/正则断言（string 且匹配
+  `^[0-9]+(\.[0-9]+)?$`）、`target_n` 整数 number 断言、`.5`→`'0.5'` 规范化用例；
+  修复 mock 按引用返回 body 导致的状态别名（重置 GET 槽为新对象）。
+- 自测结果：`node frontend/self-check.js` exit=0，108 个 [PASS]，0 个 [FAIL]，
+  完整输出已追加至 `60-test-output.txt` 的「hedge-fe R4-fix-1」段。
+
+当前 Session ID: 4a912c95-c1cb-4cb7-82f5-e21357b341c0
+Session ID 来源: transcript_path（kimi-code session 目录路径）
+原始输出路径: reports/agent-runs/2026-07-hedge-open-live-v1/60-test-output.txt
+本地北京时间: 2026-07-23 01:16:48 CST
+下一步模型: bookkeeper（claude-opus-4-8）重核 R4 → review-1 Claude-GLM（人类操作员派发）
+下一步任务: bookkeeper 重核 R4、串行证据 commit、算指纹、调度 review-1

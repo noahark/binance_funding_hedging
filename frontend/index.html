@@ -3454,6 +3454,17 @@
             </td>`;
       }
 
+      // 开单币量规范化：trim + `.5`→`0.5`，只接受 ^[0-9]+(\.[0-9]+)?$ 且值 > 0，
+      // 原样上送十进制字符串（§3.1 single_amount 为 decimal string，不走 float 往返）。
+      function normalizeHedgeAmount(raw) {
+        if (raw === undefined || raw === null) return null;
+        let s = String(raw).trim();
+        if (s.startsWith('.')) s = `0${s}`;
+        if (!/^[0-9]+(\.[0-9]+)?$/.test(s)) return null;
+        if (!/[1-9]/.test(s)) return null;
+        return s;
+      }
+
       // 立即开单（§3：POST /api/hedge-open-tasks，body 逐字 {coin, direction, mode,
       // single_amount, target_n}）。余额预检在后端：insufficient_balance 按 direction 弹
       // stage-1 文案；invalid_field / invalid_state 行内报错；前端不做余额模拟。
@@ -3466,7 +3477,7 @@
           setErr('平滑开单下一轮接入，本轮请使用立即开单');
           return { ok: false, error: 'smooth_next_round' };
         }
-        const amountStr = normalizeBorrowAmount(amountEl ? amountEl.value : '');
+        const amountStr = normalizeHedgeAmount(amountEl ? amountEl.value : '');
         if (!amountStr) {
           setErr('单次开单币量需为正数');
           return { ok: false, error: 'invalid_amount' };
@@ -3481,7 +3492,7 @@
         try {
           task = await hedgeApi('/api/hedge-open-tasks', {
             method: 'POST',
-            body: { coin: symbol, direction, mode: 'immediate', single_amount: Number(amountStr), target_n: n }
+            body: { coin: symbol, direction, mode: 'immediate', single_amount: amountStr, target_n: n }
           });
         } catch (err) {
           const payload = err.payload || {};

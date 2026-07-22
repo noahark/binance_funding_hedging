@@ -51,5 +51,16 @@ decodes to a Python `int`. Aligned.
    fingerprint and dispatch review-1 (hedge-be→Kimi, hedge-fe→Claude-GLM).
 
 ## Status
-R4 NOT passed (1 blocking interface finding). Current worktree checkpoint-committed
-to protect the ~2.1k-line BE module; product code is not yet an evidence commit.
+R4-001 was routed to hedge-fe R4-fix-1 (checkpoint commit 1749d94 protected the
+BE module).
+
+## R4 re-check after hedge-fe R4-fix-1 (2026-07-23) — PASS
+- FE now posts `single_amount` as the raw normalized decimal string
+  (`frontend/index.html:3495` `single_amount: amountStr`; `normalizeHedgeAmount`
+  at 3459 enforces `^[0-9]+(\.[0-9]+)?$`, `.5`→`0.5`, no float round-trip),
+  matching BE `validate_single_amount`. `target_n` stays an integer (aligned).
+- Boundaries still clean (only `frontend/index.html`, `frontend/self-check.js`).
+- Independent re-run: `node frontend/self-check.js` exit 0, 108 PASS, 0 FAIL
+  (incl. the new single_amount-is-string assertion). BE unchanged (pytest 785
+  still green from the prior re-run).
+- **R4 PASSED.** Proceeding to evidence commit + fingerprint + review-1.
