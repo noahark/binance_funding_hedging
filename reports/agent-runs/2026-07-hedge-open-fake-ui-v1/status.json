@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-fake-ui-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "base_sha": "46ea46f6caacf78dca4ef5345f60518c77d6e378",
@@ -96,6 +96,33 @@
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/{10-design.md,11-adr.md,00-task.md}",
       "result": "boundary still clean (frontend/index.html + frontend/self-check.js); independent self-check re-run exit 0, 108 PASS; spot-check found done/completed are separate hedge vs borrow contexts (no bug); frozen Task.status contract amended with 'deleted' and recorded in 10-design §2.1b/§4.2, 11-adr ADR-5, 00-task T2; re-fingerprinted base 46ea46f6 .. head f2afabe5; review-1 packet updated to new range before dispatch",
       "recorded_at": "2026-07-22T20:45:16+08:00"
+    },
+    {
+      "role": "review_1_attempt",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable: fresh-context Claude-GLM session did not expose a provider-native Session ID; operator may backfill",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/30-review-1.md",
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.dispatch.md",
+      "executor": "human_operator",
+      "fresh_context": true,
+      "verdict": "ACCEPT",
+      "result": "schema-valid ACCEPT; fingerprint f2afabe5… matches locked range; cross-provider isolation from Kimi; 0 P0/P1/P2, 2 P3, required_fixes empty",
+      "recorded_at": "2026-07-22T21:00:32+08:00"
+    },
+    {
+      "role": "review_1_intake_audit",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "session_id": null,
+      "session_id_source": "unavailable: Claude Code runtime does not expose a provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/30-review-1.md",
+      "result": "archived raw verdict to 30-review-1.md; jsonschema validate PASS against schemas/review-verdict.schema.json; verdict ACCEPT; diff_fingerprint char-for-char equals status; role first_reviewer, prior_involvement none, cross-provider isolation from Kimi(moonshot) confirmed; advanced status to review_2 and prepared review-2 packet",
+      "recorded_at": "2026-07-22T21:11:15+08:00"
     }
   ],
   "designer": {
@@ -169,7 +196,27 @@
       "review_1": {
         "dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.dispatch.md",
         "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.prompt.md",
+        "artifact_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/30-review-1.md",
         "reviewer_provider": "claude_glm",
+        "reviewer_provider_identity": "zhipu_glm",
+        "next_dispatch_executor": "human_operator",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "fresh_session": true,
+        "reviewer_prior_involvement": "none",
+        "diff_fingerprint": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6:05ea25bb543c798ec2b35573e127d5828ed01ba576aa8ca0fe75e798c5d99f1b",
+        "open_p0_p1": 0,
+        "findings_summary": "2 P3 informational (fill-all in-memory flag not persisted; soft-delete does not refund fake quota); required_fixes empty",
+        "intake_audit": "bookkeeper archived raw output to 30-review-1.md; jsonschema validate PASS; fingerprint matches status; cross-provider isolation from Kimi confirmed"
+      },
+      "review_2": {
+        "codex_prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-codex.prompt.md",
+        "codex_dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-codex.dispatch.md",
+        "claude_fallback_prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-claude.prompt.md",
+        "claude_fallback_dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-claude.dispatch.md",
+        "preferred_reviewer": "codex",
+        "fallback_reviewer": "claude",
+        "fallback_requires_runner_unavailability_evidence": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-codex-unavailable.md",
         "next_dispatch_executor": "human_operator",
         "verdict": null
       },

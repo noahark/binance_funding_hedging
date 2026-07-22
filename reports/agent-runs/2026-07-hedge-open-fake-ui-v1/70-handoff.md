@@ -2,7 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: `review_1_packet_prepared_waiting_human_dispatch_to_claude_glm`.
+- Active phase: `review_2_packet_prepared_waiting_human_dispatch`.
+- review-1 (Claude-GLM, `zhipu_glm`, fresh, cross-provider from Kimi): **ACCEPT**,
+  archived at `30-review-1.md`. Bookkeeper intake: jsonschema PASS, fingerprint
+  char-for-char matches locked range, 0 P0/P1/P2, 2 P3, required_fixes empty.
 - Stage branch: `stage/2026-07-hedge-open-fake-ui-v1`, created from main
   `e6b836831391da8b98101d9c6a85353e9fa8273e`. Not merged back.
 - Kimi implementation + a user follow-up (开单任务 status filter bar + soft
@@ -14,10 +17,14 @@
   committed on the stage branch; standard `diff_fingerprint` recorded in
   `status.json` (base `46ea46f6` .. head `f2afabe5`). review-1 packet updated to
   the new range.
-- Next action: the human operator dispatches review-1 to Claude-GLM
-  (`review-1-claude-glm.dispatch.md`). The bookkeeper does not launch it. On
-  ACCEPT → dispatch review-2 (Codex first; no-quota → Claude fallback with
-  disclosure). On REWORK → route the reviewer `fix_start_prompt` to Kimi.
+- Next action: the human operator dispatches review-2. **Codex/GPT first**
+  (`review-2-codex.dispatch.md`, runner-level check). If Codex fails at runner
+  level, paste the raw failure back so the bookkeeper records
+  `review-2-codex-unavailable.md`, then dispatch Claude Fable5
+  (`review-2-claude.dispatch.md`, strong-reviewer with design-involvement
+  disclosure). Bookkeeper does not launch either. On final-review ACCEPT →
+  `stage_accepted_waiting_user` (merge to main needs explicit user acceptance).
+  On REWORK → route `fix_start_prompt` to Kimi.
 - Read-set: `00-task.md`, `10-design.md`, `11-adr.md`,
   `12-development-breakdown.md`, `20-implementation.md`, `status.json`.
 - Do-not-read: credentials, `.env`, unrelated stages, any `history/`.
