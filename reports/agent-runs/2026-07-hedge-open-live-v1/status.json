@@ -3,8 +3,8 @@
   "status": "review_1",
   "workflow": "stage-delivery",
   "base_sha": "6639b0025682f406f9a726104ef8d3b9e6f8fadd",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "b773a470de62053207b85e58148bbf7c285026fd",
+  "diff_fingerprint": "b773a470de62053207b85e58148bbf7c285026fd:d904f8f08e787a238dac2cf1790a01fca03279e7c213c4d429b6a6f61857bd28",
   "first_round_scope": "immediate-open only (1 fill/sec, no websocket); smooth-open (ws basis gate + clock calibration) deferred to the next round. Both rounds are dry-run record transport; real orders need later APP_HEDGE_EXECUTOR=live authorization.",
   "r4_reconciliation": {
     "status": "passed_after_hedge_fe_r4_fix_1",
@@ -66,6 +66,14 @@
       "allowed_files": ["backend/hedge_open_tasks/**", "backend/app/server.py", "backend/tests/**", "schemas/api/hedge-open/**"],
       "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.prompt.md",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.dispatch.md",
+      "review_1": {
+        "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.prompt.md",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.dispatch.md",
+        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be.md",
+        "reviewer_provider": "kimi",
+        "next_dispatch_executor": "human_operator",
+        "verdict": null
+      },
       "next_dispatch_executor": "human_operator",
       "r10_checklist": {
         "task_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.prompt.md",
@@ -88,6 +96,14 @@
       "allowed_files": ["frontend/index.html", "frontend/self-check.js"],
       "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.prompt.md",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.dispatch.md",
+      "review_1": {
+        "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-fe-claude-glm.prompt.md",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-fe-claude-glm.dispatch.md",
+        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-fe.md",
+        "reviewer_provider": "claude_glm",
+        "next_dispatch_executor": "human_operator",
+        "verdict": null
+      },
       "next_dispatch_executor": "human_operator",
       "r10_checklist": {
         "task_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.prompt.md",
