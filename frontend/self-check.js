@@ -158,7 +158,7 @@ const ids = [
   'borrow-interval-input', 'borrow-interval-confirm', 'borrow-interval-error', 'borrow-interval-note',
   'borrow-tasks-error', 'borrow-logs-error', 'borrow-log-list', 'borrow-logs-refresh', 'borrow-logs-load-more',
   'borrow-execution-badge', 'borrow-execution-start', 'borrow-execution-stop', 'borrow-execution-detail',
-  'nav-hedge-tasks', 'hedge-task-count', 'hedge-task-view', 'hedge-task-list',
+  'nav-hedge-tasks', 'hedge-task-count', 'hedge-task-view', 'hedge-task-list', 'hedge-task-filters',
   'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
@@ -3532,10 +3532,54 @@ setTimeout(async () => {
       if (elements['hedge-task-count'].textContent !== '1') throw new Error('导航徽标应为运行中任务数 1');
       helpers.setActiveView('market');
       if (elements['hedge-task-view'].style.display !== 'none') throw new Error('切回市场后开单任务视图应隐藏');
-      // 删除
+      // 状态筛选栏（对齐借币任务）：重新进页默认「执行中」，五按钮带计数
+      helpers.setActiveView('hedge-tasks');
+      if (helpers.getHedgeTaskFilter() !== 'running') throw new Error('进入开单任务页默认筛选应为执行中');
+      const filterBar = elements['hedge-task-filters'].innerHTML;
+      for (const piece of ['全部 (1)', '执行中 (1)', '已暂停 (0)', '已删除 (0)', '已完成 (0)',
+        'data-hedge-filter="all"', 'data-hedge-filter="running"', 'data-hedge-filter="paused"',
+        'data-hedge-filter="deleted"', 'data-hedge-filter="done"']) {
+        if (!filterBar.includes(piece)) throw new Error(`筛选栏缺少「${piece}」: ${filterBar}`);
+      }
+      if (!/<button class="btn compact primary"[^>]*data-hedge-filter="running"/.test(filterBar)) {
+        throw new Error('默认应有且仅有「执行中」筛选按钮为激活态: ' + filterBar);
+      }
+      // 暂停后：执行中筛选空态、已暂停筛选可见
+      if (!helpers.pauseHedgeTask(smooth.id).ok) throw new Error('筛选测试前暂停失败');
+      helpers.setHedgeTaskFilter('running');
+      if (elements['hedge-task-list'].innerHTML.includes('data-hedge-task-id')) {
+        throw new Error('执行中筛选不应列出已暂停任务');
+      }
+      if (!elements['hedge-task-list'].innerHTML.includes('暂无「执行中」任务')) {
+        throw new Error('执行中筛选空态文案错误: ' + elements['hedge-task-list'].innerHTML);
+      }
+      helpers.setHedgeTaskFilter('paused');
+      if (!elements['hedge-task-list'].innerHTML.includes(smooth.id)) throw new Error('已暂停筛选应列出该任务');
+      // 软删除：任务保留、状态 deleted、仅 全部/已删除 可见；徽标只计执行中
       if (!helpers.deleteHedgeTask(smooth.id).ok) throw new Error('删除失败');
-      if (helpers.getHedgeTasks().length !== 0) throw new Error('删除后任务列表应为空');
-      console.log('[PASS] 任务生命周期：成交1次/暂停/启动/立即成交所有至完成/删除 + 平滑基差门控 + 卡片与导航');
+      if (helpers.getHedgeTasks().length !== 1) throw new Error('软删除后任务应保留在列表中');
+      if (smooth.status !== 'deleted') throw new Error('软删除后状态应为 deleted');
+      if (elements['hedge-task-count'].textContent !== '0') throw new Error('导航徽标只计执行中，应为 0');
+      helpers.setHedgeTaskFilter('paused');
+      if (elements['hedge-task-list'].innerHTML.includes(smooth.id)) throw new Error('已暂停筛选不应列出已删除任务');
+      helpers.setHedgeTaskFilter('deleted');
+      const deletedList = elements['hedge-task-list'].innerHTML;
+      if (!deletedList.includes(smooth.id) || !deletedList.includes('已删除')) {
+        throw new Error('已删除筛选应列出软删除任务及其徽标');
+      }
+      helpers.setHedgeTaskFilter('all');
+      if (!elements['hedge-task-list'].innerHTML.includes(smooth.id)) throw new Error('全部筛选应列出软删除任务');
+      // 已删除任务动作全部拒绝；软删除持久化
+      if (helpers.startHedgeTask(smooth.id).ok) throw new Error('已删除任务不应允许启动');
+      if (helpers.hedgeFillOnceNow(smooth.id).ok) throw new Error('已删除任务不应允许成交1次');
+      if (helpers.hedgeFillAll(smooth.id).ok) throw new Error('已删除任务不应允许立即成交所有');
+      if (helpers.deleteHedgeTask(smooth.id).ok) throw new Error('重复删除应拒绝');
+      const storedAfterDelete = JSON.parse(localStorageData['hedge_open_tasks']);
+      if (storedAfterDelete.length !== 1 || storedAfterDelete[0].status !== 'deleted') {
+        throw new Error('软删除状态应持久化到 hedge_open_tasks');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 任务生命周期：成交1次/暂停/启动/立即成交所有至完成/软删除 + 平滑基差门控 + 状态筛选（默认执行中）');
     }
 
     // 81. 累计失败 >3 终止 + 单腿敞口

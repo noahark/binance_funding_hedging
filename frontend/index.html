@@ -1149,6 +1149,7 @@
           <div class="status-banner info" style="margin-bottom: var(--space-4);">
             本页全部为本地模拟：无后端、无真实行情、无真实成交；反向开单只查 fake 现货可卖额度，不自动借币。
           </div>
+          <div id="hedge-task-filters" style="margin-bottom: var(--space-3);"></div>
           <div class="borrow-task-list" id="hedge-task-list"></div>
         </div>
       </section>
@@ -1246,7 +1247,9 @@
         // state.hedgeTasks 只是其内存镜像；hedgeBooks 为带漂移的假盘口；hedgeModal 为余额不足弹框状态。
         hedgeTasks: [],
         hedgeBooks: {},
-        hedgeModal: null
+        hedgeModal: null,
+        // 开单任务筛选（对齐借币任务）：默认「执行中」；删除为软删除（status='deleted'）。
+        hedgeTaskFilter: 'running'
       };
 
       const els = {
@@ -1306,6 +1309,7 @@
         hedgeTaskCount: document.getElementById('hedge-task-count'),
         hedgeTaskView: document.getElementById('hedge-task-view'),
         hedgeTaskList: document.getElementById('hedge-task-list'),
+        hedgeTaskFilters: document.getElementById('hedge-task-filters'),
         hedgeModal: document.getElementById('hedge-modal'),
         hedgeModalBackdrop: document.getElementById('hedge-modal-backdrop'),
         hedgeModalTitle: document.getElementById('hedge-modal-title'),
@@ -3250,8 +3254,19 @@
       const HEDGE_FUNDING_RATE_PER_HOUR = 0.0001;
       const HEDGE_BORROW_INTEREST_PER_HOUR = 0.0002;
 
-      const HEDGE_TASK_STATUS_LABELS = { running: '运行', paused: '暂停', done: '完成', exposure_alert: '敞口告警' };
-      const HEDGE_TASK_STATUS_BADGE = { running: 'success', paused: 'muted', done: 'info', exposure_alert: 'danger' };
+      const HEDGE_TASK_STATUS_LABELS = { running: '运行', paused: '暂停', done: '完成', exposure_alert: '敞口告警', deleted: '已删除' };
+      const HEDGE_TASK_STATUS_BADGE = { running: 'success', paused: 'muted', done: 'info', exposure_alert: 'danger', deleted: 'danger' };
+      // 状态筛选（对齐借币任务）：默认「执行中」；敞口告警无专属筛选，仅在「全部」可见。
+      const HEDGE_TASK_FILTERS = [
+        ['all', '全部'],
+        ['running', '执行中'],
+        ['paused', '已暂停'],
+        ['deleted', '已删除'],
+        ['done', '已完成']
+      ];
+      const HEDGE_TASK_FILTER_LABELS = {
+        all: '全部', running: '执行中', paused: '已暂停', deleted: '已删除', done: '已完成'
+      };
 
       // 可 seed 的确定性随机源（mulberry32）：同时驱动盘口漂移与失败注入，
       // 自检经 __appHelpers.setHedgeSeed / queueHedgeFillOutcomes 实现确定性。
@@ -3612,6 +3627,7 @@
       function startHedgeTask(id) {
         const task = findHedgeTask(id);
         if (!task) return { ok: false, error: '任务不存在' };
+        if (task.status === 'deleted') return { ok: false, error: '任务已删除' };
         if (isHedgeTaskTerminated(task)) return { ok: false, error: '累计失败超过 3 次，开单计划已终止，不再补发' };
         if (task.status === 'done') return { ok: false, error: '任务已完成' };
         if (task.status === 'running') return { ok: false, error: '任务已在运行中' };
@@ -3621,10 +3637,14 @@
         return { ok: true };
       }
 
+      // 软删除（对齐借币任务）：置 status='deleted' 并保留在列表中，供「已删除」筛选查看；
+      // 软删除任务不再参与引擎推进与持仓聚合。
       function deleteHedgeTask(id) {
-        const idx = state.hedgeTasks.findIndex(t => t.id === id);
-        if (idx === -1) return { ok: false, error: '任务不存在' };
-        state.hedgeTasks.splice(idx, 1);
+        const task = findHedgeTask(id);
+        if (!task) return { ok: false, error: '任务不存在' };
+        if (task.status === 'deleted') return { ok: false, error: '任务已删除' };
+        task.status = 'deleted';
+        task.updated_at = Date.now();
         hedgeFillAllActive.delete(id);
         afterHedgeMutation();
         return { ok: true };
@@ -3634,6 +3654,7 @@
       function hedgeFillOnceNow(id) {
         const task = findHedgeTask(id);
         if (!task) return { ok: false, error: '任务不存在' };
+        if (task.status === 'deleted') return { ok: false, error: '任务已删除' };
         if (task.status === 'done') return { ok: false, error: '任务已完成' };
         if (isHedgeTaskTerminated(task)) return { ok: false, error: '开单计划已终止，不再补发' };
         if (task.status === 'exposure_alert') return { ok: false, error: '存在单腿敞口，请先人工处理后启动' };
@@ -3646,6 +3667,7 @@
       function hedgeFillAll(id) {
         const task = findHedgeTask(id);
         if (!task) return { ok: false, error: '任务不存在' };
+        if (task.status === 'deleted') return { ok: false, error: '任务已删除' };
         if (task.status === 'done') return { ok: false, error: '任务已完成' };
         if (isHedgeTaskTerminated(task)) return { ok: false, error: '开单计划已终止，不再补发' };
         if (task.status === 'exposure_alert') return { ok: false, error: '存在单腿敞口，请先人工处理后启动' };
@@ -3683,16 +3705,36 @@
       }
 
       // ---- 开单任务页渲染（T2） ----
+      function setHedgeTaskFilter(filter) {
+        state.hedgeTaskFilter = HEDGE_TASK_FILTERS.some(([key]) => key === filter) ? filter : 'running';
+        renderHedgeTasks();
+      }
+
+      function renderHedgeTaskFilters() {
+        const counts = { running: 0, paused: 0, deleted: 0, done: 0 };
+        state.hedgeTasks.forEach(t => {
+          if (counts[t.status] !== undefined) counts[t.status] += 1;
+        });
+        els.hedgeTaskFilters.innerHTML = HEDGE_TASK_FILTERS.map(([key, label]) => {
+          const active = state.hedgeTaskFilter === key;
+          const count = key === 'all' ? state.hedgeTasks.length : counts[key];
+          return `<button class="btn compact${active ? ' primary' : ''}" type="button" data-hedge-filter="${key}" aria-pressed="${active}">${label} (${count})</button>`;
+        }).join('');
+      }
+
       function renderHedgeTasks() {
-        if (state.hedgeTasks.length === 0) {
-          els.hedgeTaskList.innerHTML = `
-            <div class="empty-state">
-              <strong>暂无开单任务</strong><br/>
-              <span class="muted small">在市场表「正向开单 / 反向开单」操作列输入单次币量与成功次数，点击平滑开单或立即开单创建（全部为本地模拟）</span>
-            </div>`;
+        renderHedgeTaskFilters();
+        const tasks = state.hedgeTaskFilter === 'all'
+          ? state.hedgeTasks
+          : state.hedgeTasks.filter(t => t.status === state.hedgeTaskFilter);
+        if (tasks.length === 0) {
+          const emptyText = state.hedgeTasks.length === 0
+            ? '<strong>暂无开单任务</strong><br/><span class="muted small">在市场表「正向开单 / 反向开单」操作列输入单次币量与成功次数，点击平滑开单或立即开单创建（全部为本地模拟）</span>'
+            : `<strong>暂无「${HEDGE_TASK_FILTER_LABELS[state.hedgeTaskFilter]}」任务</strong>`;
+          els.hedgeTaskList.innerHTML = `<div class="empty-state">${emptyText}</div>`;
           return;
         }
-        els.hedgeTaskList.innerHTML = state.hedgeTasks.map(task => renderHedgeTaskCard(task)).join('');
+        els.hedgeTaskList.innerHTML = tasks.map(task => renderHedgeTaskCard(task)).join('');
         bindHedgeTaskControls();
       }
 
@@ -3717,9 +3759,10 @@
         const terminatedLine = isHedgeTaskTerminated(task)
           ? '<div class="borrow-task-note">累计失败超过 3 次，开单计划已终止并暂停，不再补发。</div>'
           : '';
-        const inactive = task.status === 'done' || isHedgeTaskTerminated(task) || task.status === 'exposure_alert';
+        const inactive = task.status === 'done' || task.status === 'deleted' || isHedgeTaskTerminated(task) || task.status === 'exposure_alert';
         const pauseDisabled = task.status !== 'running' ? ' disabled' : '';
-        const startDisabled = (task.status === 'running' || task.status === 'done' || isHedgeTaskTerminated(task)) ? ' disabled' : '';
+        const startDisabled = ((task.status !== 'paused' && task.status !== 'exposure_alert') || isHedgeTaskTerminated(task)) ? ' disabled' : '';
+        const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
         const fillDisabled = inactive ? ' disabled' : '';
         const idAttr = escapeHtml(task.id);
         return `
@@ -3745,7 +3788,7 @@
             <div class="borrow-task-controls">
               <button class="btn compact action-pause" type="button" data-hedge-action="pause" data-task-id="${idAttr}"${pauseDisabled}>暂停</button>
               <button class="btn compact action-start" type="button" data-hedge-action="start" data-task-id="${idAttr}"${startDisabled}>启动</button>
-              <button class="btn compact action-delete" type="button" data-hedge-action="delete" data-task-id="${idAttr}">删除</button>
+              <button class="btn compact action-delete" type="button" data-hedge-action="delete" data-task-id="${idAttr}"${deleteDisabled}>删除</button>
               <button class="btn compact primary" type="button" data-hedge-action="fill1" data-task-id="${idAttr}"${fillDisabled}>成交1次</button>
               <button class="btn compact primary" type="button" data-hedge-action="fill-all" data-task-id="${idAttr}"${fillDisabled}>立即成交所有</button>
             </div>
@@ -3781,6 +3824,7 @@
       function computeHedgePositions(tasks, books, nowMs) {
         const groups = {};
         for (const task of tasks || []) {
+          if (task.status === 'deleted') continue; // 软删除任务不再计入持仓聚合
           for (const fill of task.fills || []) {
             const key = `${task.coin}|${task.direction}`;
             if (!groups[key]) {
@@ -3920,6 +3964,8 @@
           if (state.borrowTab === 'logs') loadBorrowLogs(true);
         } else if (isHedge) {
           // 开单任务页为纯本地渲染：从 localStorage 镜像直接出卡，不发任何请求。
+          // 进入开单任务页：默认选中「执行中」（对齐借币任务默认「借币中」）。
+          state.hedgeTaskFilter = 'running';
           renderHedgeTasks();
         }
       }
@@ -4024,6 +4070,11 @@
         els.navHedgeTasks.addEventListener('click', () => setActiveView('hedge-tasks'));
         els.hedgeModalClose.addEventListener('click', closeHedgeModal);
         els.hedgeModalBackdrop.addEventListener('click', closeHedgeModal);
+        // 开单任务筛选按钮经容器事件委托（按钮随 renderHedgeTaskFilters 重渲染）
+        els.hedgeTaskFilters.addEventListener('click', (e) => {
+          const btn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-hedge-filter]') : null;
+          if (btn) setHedgeTaskFilter(btn.getAttribute('data-hedge-filter'));
+        });
         els.borrowTabTasks.addEventListener('click', () => setBorrowTab('tasks'));
         els.borrowTabLogs.addEventListener('click', () => setBorrowTab('logs'));
         els.borrowIntervalConfirm.addEventListener('click', () => { submitSchedulerInterval(); });
@@ -4161,6 +4212,8 @@
         renderHedgeTasks,
         renderPrivatePanel,
         closeHedgeModal,
+        setHedgeTaskFilter,
+        getHedgeTaskFilter: () => state.hedgeTaskFilter,
         getHedgeTasks: () => state.hedgeTasks,
         getHedgeBooks: () => state.hedgeBooks,
         getHedgeModal: () => state.hedgeModal,

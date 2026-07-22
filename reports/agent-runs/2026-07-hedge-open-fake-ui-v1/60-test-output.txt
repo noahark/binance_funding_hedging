@@ -100,7 +100,7 @@
 [PASS] 开单操作列两输入两按钮、推荐方向按费率符号高亮且两列恒可点
 [PASS] 基差口径：forward=(perp_bid1−spot_ask1)/mid、reverse=(spot_bid1−perp_ask1)/mid
 [PASS] fake 余额校验：正向 USDT/反向现货两弹框路径、非法输入行内报错、足额创建并扣额
-[PASS] 任务生命周期：成交1次/暂停/启动/立即成交所有至完成/删除 + 平滑基差门控 + 卡片与导航
+[PASS] 任务生命周期：成交1次/暂停/启动/立即成交所有至完成/软删除 + 平滑基差门控 + 状态筛选（默认执行中）
 [PASS] 累计失败 >3 终止不补发 + 单腿敞口 exposure_alert/leg_exposure
 [PASS] 持仓聚合数学：均价/量权基差/价格盈亏/资金费/借币利息/净盈亏
 [PASS] localStorage 往返（hedge_open_tasks/hedge_fake_account 冻结字段名）+ 私有面板持仓表

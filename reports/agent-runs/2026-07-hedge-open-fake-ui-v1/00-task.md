@@ -31,6 +31,11 @@ backend change, no real websocket.
   - Buttons per card: 暂停 / 启动 / 删除 / 成交1次 (advance exactly one fill by
     the single-open amount) / 立即成交所有 (run the remaining count, one async
     hedged fill per 1 second, until N reached).
+  - Status filter bar + soft delete (user follow-up 2026-07-22): a filter bar
+    全部/执行中/已暂停/已删除/已完成 with live counts, defaulting to 执行中; 删除
+    becomes a soft delete (`status='deleted'`, kept persisted, all buttons
+    disabled, skipped by the engine and position aggregation, excluded from the
+    running nav badge). Adds `"deleted"` to `Task.status`. See design §2.1b.
 
 - **T3 Private-account fake position table** (aggregate by coin, all fields):
   - open basis rate (locked-basis average across fills), position quantity,

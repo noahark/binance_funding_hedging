@@ -60,3 +60,21 @@ must drive already exist and are exercised in the mock.
 
 **Consequence.** The task card must render 敞口告警 and terminated/paused states;
 the self-check exercises the >3-fail termination path.
+
+## ADR-5: Status filter bar + soft delete (user follow-up 2026-07-22)
+
+**Decision.** The 开单任务 page gets a status filter bar
+(`全部/执行中/已暂停/已删除/已完成`, live counts, default `执行中`), aligned
+with the borrow task page. `删除` becomes a **soft delete**: the task's status
+is set to `"deleted"` and it stays persisted in `hedge_open_tasks`.
+
+**Why.** User asked for parity with the borrow task page so deleted plans stay
+auditable and filterable rather than vanishing.
+
+**Consequence.** This amends the previously frozen `Task.status` enum (design
+§4.2) by adding a fifth value `"deleted"`. A deleted task is fully
+button-disabled, rejects 启动/成交1次/立即成交所有/重复删除, is skipped by the
+engine and by `computeHedgePositions`, and is excluded from the running-count
+nav badge. `exposure_alert` has no dedicated filter and shows only under `全部`.
+**Stage 2 must carry the `"deleted"` status value forward** when it replaces the
+mock with the real executor.

@@ -98,6 +98,26 @@ node frontend/self-check.js  →  exit 0
 - fake 持仓表挂入 `private-panel` verified 分支（design §3 指定位置）；无私有
   key 时该面板整体隐藏，持仓表随之不显示。
 
+## 追加变更（2026-07-22，用户追加需求：状态筛选）
+
+- 开单任务页顶部新增状态筛选栏（对齐借币任务）：`全部 / 执行中 / 已暂停 / 已删除 /
+  已完成`，按钮带实时计数（`hedge-task-filters` + `renderHedgeTaskFilters` +
+  `setHedgeTaskFilter`，容器事件委托绑定）；`exposure_alert` 无专属筛选，仅在
+  「全部」可见。
+- 进入开单任务页默认选中「执行中」（`setActiveView('hedge-tasks')` 重置
+  `state.hedgeTaskFilter = 'running'`）。
+- 删除改为软删除：`deleteHedgeTask` 置 `status='deleted'` 并保留在
+  `hedge_open_tasks` 中持久化（支撑「已删除」筛选；对齐借币任务软删除语义）。
+  注意：这使 Task.status 取值在冻结四态（running/paused/done/exposure_alert）之外
+  新增 `'deleted'`，属用户直接要求的契约修订，stage 2 接真实后端时需一并沿用。
+- 软删除任务：卡片全按钮禁用；启动/成交1次/立即成交所有/重复删除均拒绝；不参与
+  引擎推进与持仓聚合（`computeHedgePositions` 跳过 `status==='deleted'`）。
+- 左侧导航 `开单任务` 徽标维持「执行中」任务数（`updateHedgeTaskNav` 计
+  `status==='running'`），与需求一致。
+- self-check：生命周期块尾部重写为软删除 + 筛选断言（默认执行中、五按钮计数、
+  激活态、各筛选可见性、已删除动作拒绝、软删除持久化）；元素表新增
+  `hedge-task-filters`。`node frontend/self-check.js` → exit 0，[PASS] × 108。
+
 ## R10 边界声明
 
 - 未 commit、未改 `status.json`、未触碰允许边界外任何文件（仅 `frontend/index.html`、
@@ -108,6 +128,6 @@ node frontend/self-check.js  →  exit 0
 当前 Session ID: unavailable（Kimi CLI 会话内无法读取 provider-native Session ID；运行时可由 operator 补录 status.json.session_receipts）
 Session ID 来源: unavailable（本会话无 runtime_env/hook_payload/cli_output/transcript_path 可查）
 原始输出路径: reports/agent-runs/2026-07-hedge-open-fake-ui-v1/60-test-output.txt
-本地北京时间: 2026-07-22 19:35:18 CST
+本地北京时间: 2026-07-22 19:58:22 CST
 下一步模型: bookkeeper（人工 operator 执行收证据/commit/validator），随后 review-1 = Claude-GLM
 下一步任务: 收串行 commit、计算 diff_fingerprint、跑 scripts/validate-stage.py --phase pre-review、调度 review-1

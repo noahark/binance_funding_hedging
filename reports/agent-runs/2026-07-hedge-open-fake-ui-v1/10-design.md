@@ -49,6 +49,18 @@ harness already mocks `localStorage`, `setInterval`/`clearInterval`, and
   parallel to `borrow-task-view`. Wire nav switching in the existing nav
   handler so exactly one panel is visible at a time.
 
+### 2.1b Status filter bar (user follow-up 2026-07-22)
+- A filter bar (`hedge-task-filters`) atop the list, aligned with the borrow
+  task page: `全部 / 执行中(running) / 已暂停(paused) / 已删除(deleted) /
+  已完成(done)`, each button with a live count. `exposure_alert` has no own
+  filter and shows only under `全部`.
+- Entering the page defaults to `执行中` (`state.hedgeTaskFilter = 'running'`).
+- `删除` is a **soft delete**: `deleteHedgeTask` sets `status='deleted'` and
+  keeps the task persisted (supports the `已删除` filter). A deleted task has
+  all buttons disabled; 启动/成交1次/立即成交所有/重复删除 are rejected; it is
+  skipped by the engine and by position aggregation. The nav badge counts only
+  `running` tasks.
+
 ### 2.2 Task card (vertical list `hedge-task-list`)
 Each card (styled after `.borrow-task-list` cards) shows:
 - Header: coin, direction badge (`正向`/`反向`), mode badge (`平滑`/`立即`).
@@ -57,7 +69,7 @@ Each card (styled after `.borrow-task-list` cards) shows:
 - Live book block (mock, drifting): spot bid1/ask1, perp bid1/ask1, and the
   `正向开单率` / `反向开单率` combo computed from the current mock book.
 - Smooth mode only: `当前基差率 X% (阈值 0.05%)` with a met/unmet indicator.
-- Buttons: `暂停` / `启动` / `删除` / `成交1次` / `立即成交所有`.
+- Buttons: `暂停` / `启动` / `删除`(soft delete, see §2.1b) / `成交1次` / `立即成交所有`.
   - `成交1次`: advance exactly one fill by `single_amount` immediately (async
     both legs), regardless of basis/mode.
   - `立即成交所有`: run the remaining `N − success_count` fills, one async
@@ -97,7 +109,11 @@ Task = {
   target_n: number,           // success target
   success_count: number,
   fail_count: number,         // cumulative; >3 terminates
-  status: "running"|"paused"|"done"|"exposure_alert",
+  status: "running"|"paused"|"done"|"exposure_alert"|"deleted",
+  // "deleted" added 2026-07-22 (user follow-up: soft delete). A deleted task
+  // stays persisted in hedge_open_tasks, is fully button-disabled, is skipped
+  // by the engine and by computeHedgePositions, and is excluded from the
+  // running-count nav badge. Stage 2 must carry this status value forward.
   fills: Fill[],
   leg_exposure: null | { leg: "spot"|"perp", qty: number, price: number, ts: number },
   created_at: number, updated_at: number
