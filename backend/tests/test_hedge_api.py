@@ -222,6 +222,22 @@ def test_bad_direction_is_invalid_field(tmp_path):
         assert _json(payload)["error"] == "invalid_field"
 
 
+def test_smooth_mode_rejected_as_invalid_field(tmp_path):
+    # Frozen §3.1 freezes mode=immediate this round; ``smooth`` is a reserved
+    # vocabulary word for a later round and must be rejected at create (400
+    # invalid_field) so the immediate engine never dispatches a smooth-labeled
+    # task — never silently accepted with a 201.
+    with _server(_svc(tmp_path)) as (host, port):
+        status, _, payload = _post_create(
+            host, port, {"coin": "BTCUSDT", "direction": "forward", "mode": "smooth",
+                         "single_amount": "0.5", "target_n": 1}
+        )
+        assert status == 400
+        doc = _json(payload)
+        assert set(doc.keys()) == _ERROR_KEYS
+        assert doc["error"] == "invalid_field"
+
+
 def test_malformed_json_is_invalid_json(tmp_path):
     with _server(_svc(tmp_path)) as (host, port):
         status, _, payload = _req(
@@ -308,6 +324,27 @@ def test_soft_delete_excludes_from_default_list(tmp_path):
         status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{a}/delete")
         assert status == 409
         assert _json(payload)["error"] == "invalid_state"
+
+
+def test_status_all_includes_deleted_default_excludes(tmp_path):
+    # Frozen §3.1: ``status=all`` is the one list view that surfaces soft-deleted
+    # tasks (the default view excludes them, ``status=deleted`` surfaces only
+    # them). FE index.html fetches ``?status=all`` and depends on deleted being
+    # present for the deleted filter.
+    with _server(_svc(tmp_path)) as (host, port):
+        a = _create_task(host, port)["id"]
+        _create_task(host, port)["id"]  # a non-deleted task to prove selectivity
+        _, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{a}/delete")
+        assert _json(payload)["status"] == "deleted"
+        # default list excludes the deleted task.
+        _, _, payload = _req(host, port, "GET", "/api/hedge-open-tasks")
+        assert a not in {t["id"] for t in _json(payload)["tasks"]}
+        # status=all includes the deleted task.
+        _, _, payload = _req(host, port, "GET", "/api/hedge-open-tasks?status=all")
+        assert a in {t["id"] for t in _json(payload)["tasks"]}
+        # status=deleted surfaces only the deleted task.
+        _, _, payload = _req(host, port, "GET", "/api/hedge-open-tasks?status=deleted")
+        assert [t["id"] for t in _json(payload)["tasks"]] == [a]
 
 
 # ===========================================================================

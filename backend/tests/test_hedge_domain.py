@@ -339,8 +339,13 @@ def test_validate_limit_bounds():
 
 
 def test_filter_status_for_list_mapping():
+    # Frozen §3.1: the default view (None/"") excludes deleted and maps to the
+    # ``None`` sentinel; ``status=all`` must NOT collapse onto the default — it
+    # returns the distinct ``LIST_ALL`` marker so the store includes deleted.
+    # ``deleted``/``running`` filter to that status; unknown -> invalid_field.
     assert D.filter_status_for_list(None) is None
-    assert D.filter_status_for_list("all") is None
+    assert D.filter_status_for_list("") is None
+    assert D.filter_status_for_list("all") == D.LIST_ALL
     assert D.filter_status_for_list("deleted") == D.STATUS_DELETED
     assert D.filter_status_for_list("running") == D.STATUS_RUNNING
     with pytest.raises(D.HedgeError):

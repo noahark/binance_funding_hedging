@@ -239,11 +239,12 @@ class HedgeOpenStore:
             return _row_to_task(row) if row is not None else None
 
     def list_tasks(self, status_filter: str | None = None) -> list[dict]:
-        """List tasks, defaulting to exclude ``deleted`` unless requested.
+        """List tasks per the resolved status filter from
+        :func:`domain.filter_status_for_list` (frozen §3.1).
 
-        ``status_filter`` is the resolved SQL status from
-        :func:`domain.filter_status_for_list`: ``None`` excludes deleted, a
-        concrete status filters to it.
+        ``None`` (the default view) excludes ``deleted``; ``LIST_ALL`` returns
+        every task including ``deleted``; any other concrete status filters to
+        that status only.
         """
         with self._lock:
             if status_filter is None:
@@ -251,6 +252,11 @@ class HedgeOpenStore:
                     "SELECT * FROM hedge_open_task"
                     " WHERE status != ? ORDER BY creation_seq ASC, id ASC",
                     (D.STATUS_DELETED,),
+                ).fetchall()
+            elif status_filter == D.LIST_ALL:
+                rows = self._conn.execute(
+                    "SELECT * FROM hedge_open_task"
+                    " ORDER BY creation_seq ASC, id ASC",
                 ).fetchall()
             else:
                 rows = self._conn.execute(

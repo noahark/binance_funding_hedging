@@ -51,6 +51,10 @@ ALL_STATUSES = (
 ACTIVE_RUNNABLE_STATUSES = (STATUS_RUNNING,)
 # Statuses excluded from the default list view unless ``status=all|deleted``.
 DEFAULT_HIDDEN_STATUS = STATUS_DELETED
+# Sentinel :func:`filter_status_for_list` returns for ``status=all`` so the store
+# lists every task *including* ``deleted`` (frozen §3.1). It is distinct from
+# ``None``, which is the default view and excludes ``deleted``.
+LIST_ALL = "__all__"
 
 # direction (DI-4 / ADR-3 locked mapping).
 DIR_FORWARD = "forward"  # funding > 0: buy spot + open short perp
@@ -700,13 +704,17 @@ def fmt_decimal(value) -> str | None:
 
 
 def filter_status_for_list(status: str | None) -> str | None:
-    """Map the ``?status=`` query value to a SQL status filter.
+    """Map the ``?status=`` query value to a SQL status filter (frozen §3.1).
 
-    ``all``/None -> no filter (deleted excluded by default); ``deleted`` -> only
-    deleted; any other known status -> that status only. Unknown -> invalid_field.
+    ``all`` -> every task including ``deleted`` (returns the :data:`LIST_ALL`
+    sentinel so the store applies no deleted exclusion); None/"" -> the default
+    view, which excludes ``deleted``; ``deleted`` -> only deleted; any other
+    known status -> that status only. Unknown -> invalid_field.
     """
-    if status in (None, "", "all"):
+    if status in (None, ""):
         return None
+    if status == "all":
+        return LIST_ALL
     if status == DEFAULT_HIDDEN_STATUS:
         return STATUS_DELETED
     if status in ALL_STATUSES:

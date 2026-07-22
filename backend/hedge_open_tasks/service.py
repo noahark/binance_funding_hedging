@@ -194,6 +194,12 @@ class HedgeOpenTaskService:
         coin = D.validate_coin(body.get("coin"))
         direction = D.validate_direction(body.get("direction"))
         mode = D.validate_mode(body.get("mode") or D.DEFAULT_MODE)
+        # Round-1 freeze (frozen §3.1): only ``immediate`` is dispatchable this
+        # round. ``smooth`` remains a reserved vocabulary word (validate_mode
+        # accepts it) but is rejected here so the immediate engine never runs a
+        # smooth-labeled task.
+        if mode != D.MODE_IMMEDIATE:
+            raise D.invalid_field("mode", f"round-1 supports only {D.MODE_IMMEDIATE!r}")
         single_amount = D.validate_single_amount(body.get("single_amount"))
         target_n = D.validate_target_n(body.get("target_n"))
 
