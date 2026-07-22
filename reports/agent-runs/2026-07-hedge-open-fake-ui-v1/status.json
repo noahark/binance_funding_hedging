@@ -4,8 +4,8 @@
   "workflow": "stage-delivery",
   "dispatch_protocol": "human-operator/v1",
   "base_sha": "46ea46f6caacf78dca4ef5345f60518c77d6e378",
-  "head_sha": "78475d69bd8756e2128bbcc6510eaca00713529c",
-  "diff_fingerprint": "78475d69bd8756e2128bbcc6510eaca00713529c:7492ed9921af11d69cf773650c7b7869e654ae756c034db1ccf8baaa8f3cf52a",
+  "head_sha": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6",
+  "diff_fingerprint": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6:05ea25bb543c798ec2b35573e127d5828ed01ba576aa8ca0fe75e798c5d99f1b",
   "complexity": {
     "classification": "MEDIUM",
     "direction_panel_required": false,
@@ -73,6 +73,29 @@
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md",
       "result": "clean_boundary_two_allowed_files_only; independent self-check re-run exit 0, 108 PASS, 0 FAIL; column rename + operation columns after 借币 + basis formula spot-checked; single inline <script>; no intake fix required",
       "recorded_at": "2026-07-22T19:43:17+08:00"
+    },
+    {
+      "role": "implementation_followup",
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": null,
+      "session_id_source": "unavailable: Kimi CLI runtime does not expose a provider-native Session ID; operator may backfill",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md",
+      "executor": "human_operator",
+      "result": "user follow-up: 开单任务 status filter bar (全部/执行中/已暂停/已删除/已完成) + soft delete adding Task.status 'deleted'; done before review-1 dispatch",
+      "recorded_at": "2026-07-22T19:58:22+08:00"
+    },
+    {
+      "role": "implementation_followup_intake_audit",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "session_id": null,
+      "session_id_source": "unavailable: Claude Code runtime does not expose a provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/{10-design.md,11-adr.md,00-task.md}",
+      "result": "boundary still clean (frontend/index.html + frontend/self-check.js); independent self-check re-run exit 0, 108 PASS; spot-check found done/completed are separate hedge vs borrow contexts (no bug); frozen Task.status contract amended with 'deleted' and recorded in 10-design §2.1b/§4.2, 11-adr ADR-5, 00-task T2; re-fingerprinted base 46ea46f6 .. head f2afabe5; review-1 packet updated to new range before dispatch",
+      "recorded_at": "2026-07-22T20:45:16+08:00"
     }
   ],
   "designer": {
@@ -141,8 +164,8 @@
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.dispatch.md",
       "next_dispatch_executor": "human_operator",
       "base_sha": "46ea46f6caacf78dca4ef5345f60518c77d6e378",
-      "head_sha": "78475d69bd8756e2128bbcc6510eaca00713529c",
-      "diff_fingerprint": "78475d69bd8756e2128bbcc6510eaca00713529c:7492ed9921af11d69cf773650c7b7869e654ae756c034db1ccf8baaa8f3cf52a",
+      "head_sha": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6",
+      "diff_fingerprint": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6:05ea25bb543c798ec2b35573e127d5828ed01ba576aa8ca0fe75e798c5d99f1b",
       "review_1": {
         "dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.dispatch.md",
         "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.prompt.md",

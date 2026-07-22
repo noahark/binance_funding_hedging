@@ -7,8 +7,8 @@
 - Executor: **human operator only**. The bookkeeper does not launch the review.
 - Run on branch `stage/2026-07-hedge-open-fake-ui-v1` in a fresh Claude-GLM
   terminal (if reusing a terminal, `/clear` first). Read-only.
-- Review range: `46ea46f6caacf78dca4ef5345f60518c77d6e378..78475d69bd8756e2128bbcc6510eaca00713529c`
-- Fingerprint: `78475d69bd8756e2128bbcc6510eaca00713529c:7492ed9921af11d69cf773650c7b7869e654ae756c034db1ccf8baaa8f3cf52a`
+- Review range: `46ea46f6caacf78dca4ef5345f60518c77d6e378..f2afabe5ece95169e6eb38b6835d50dbc11fb1e6`
+- Fingerprint: `f2afabe5ece95169e6eb38b6835d50dbc11fb1e6:05ea25bb543c798ec2b35573e127d5828ed01ba576aa8ca0fe75e798c5d99f1b`
 - Adapter command (human operator runs; claude-glm is a local alias/function —
   do not record its expanded environment):
 

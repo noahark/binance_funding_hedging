@@ -30,11 +30,11 @@
 - Stage: `2026-07-hedge-open-fake-ui-v1`
 - Role: `first_reviewer`
 - Base SHA: `46ea46f6caacf78dca4ef5345f60518c77d6e378`
-- Head SHA: `78475d69bd8756e2128bbcc6510eaca00713529c`
+- Head SHA: `f2afabe5ece95169e6eb38b6835d50dbc11fb1e6`
 - Diff fingerprint:
-  `78475d69bd8756e2128bbcc6510eaca00713529c:7492ed9921af11d69cf773650c7b7869e654ae756c034db1ccf8baaa8f3cf52a`
+  `f2afabe5ece95169e6eb38b6835d50dbc11fb1e6:05ea25bb543c798ec2b35573e127d5828ed01ba576aa8ca0fe75e798c5d99f1b`
 - 查看被审改动：
-  `git diff 46ea46f6caacf78dca4ef5345f60518c77d6e378..78475d69bd8756e2128bbcc6510eaca00713529c`
+  `git diff 46ea46f6caacf78dca4ef5345f60518c77d6e378..f2afabe5ece95169e6eb38b6835d50dbc11fb1e6`
 
 ## 必读原始 artifact
 - `reports/agent-runs/2026-07-hedge-open-fake-ui-v1/00-task.md`
@@ -59,6 +59,11 @@
 7. 冻结契约字段名（Task/Fill/localStorage 键）逐字符合 design §4。
 8. scope 蔓延：无真实 websocket、无后端桩、无下单路径、无新文件/依赖；反向开单
    不自动借币（只查 fake 额度）。
+9. 用户追加需求（状态筛选+软删除，见 10-design §2.1b/§4.2、11-adr ADR-5）：状态
+   筛选栏 全部/执行中/已暂停/已删除/已完成 带实时计数、默认执行中；删除为软删除
+   （status='deleted' 保留持久化、卡片全按钮禁用、拒绝 启动/成交1次/立即成交所有/
+   重复删除、被引擎与持仓聚合跳过、不计入导航「执行中」徽标）。核查新增 'deleted'
+   态在各处状态标识符的一致性，以及 exposure_alert 仅在「全部」可见。
 
 ## 自行验证
 - 运行 `node frontend/self-check.js`，确认 exit 0 且既有+新增断言全绿；把你实际

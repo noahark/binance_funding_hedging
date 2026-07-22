@@ -5,11 +5,15 @@
 - Active phase: `review_1_packet_prepared_waiting_human_dispatch_to_claude_glm`.
 - Stage branch: `stage/2026-07-hedge-open-fake-ui-v1`, created from main
   `e6b836831391da8b98101d9c6a85353e9fa8273e`. Not merged back.
-- Kimi implementation complete and bookkeeper-intake-audited: boundary clean
-  (only `frontend/index.html` + `frontend/self-check.js`), independent
-  `node frontend/self-check.js` re-run exit 0, 108 PASS / 0 FAIL. Evidence
+- Kimi implementation + a user follow-up (开单任务 status filter bar + soft
+  delete adding `Task.status "deleted"`) complete and bookkeeper-intake-audited:
+  boundary clean (only `frontend/index.html` + `frontend/self-check.js`),
+  independent `node frontend/self-check.js` re-run exit 0, 108 PASS / 0 FAIL.
+  The frozen `Task.status` contract amendment is recorded in 10-design §2.1b/§4.2,
+  11-adr ADR-5, 00-task T2 (stage 2 must carry `"deleted"` forward). Evidence
   committed on the stage branch; standard `diff_fingerprint` recorded in
-  `status.json` (base `46ea46f6` .. head = fix-evidence commit).
+  `status.json` (base `46ea46f6` .. head `f2afabe5`). review-1 packet updated to
+  the new range.
 - Next action: the human operator dispatches review-1 to Claude-GLM
   (`review-1-claude-glm.dispatch.md`). The bookkeeper does not launch it. On
   ACCEPT → dispatch review-2 (Codex first; no-quota → Claude fallback with
