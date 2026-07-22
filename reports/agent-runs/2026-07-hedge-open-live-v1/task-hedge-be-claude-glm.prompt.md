@@ -1,3 +1,15 @@
+===== DISPATCH RECEIPT =====
+status: done
+target_model: claude_glm/glm-5.2[1m]
+adapter_cmd: claude-glm -p "$(cat reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.prompt.md)"
+executor: human_operator
+started_at: 2026-07-22T23:45:00+08:00
+completed_at: 2026-07-23T01:05:00+08:00
+session_id: unavailable:Claude-GLM (Claude Code) runtime did not expose a provider-native session ID; bookkeeper recorded the human-operator execution window
+outputs: reports/agent-runs/2026-07-hedge-open-live-v1/20-implementation-hedge-be.md; reports/agent-runs/2026-07-hedge-open-live-v1/60-test-output.txt
+next_dispatch: bookkeeper R4 reconciliation + evidence commit + review-1 (Kimi)
+===== END RECEIPT =====
+
 [HARNESS-EXECUTOR-CONTRACT v1]
 你是本任务的唯一执行者。
 1. 禁止调用、启动或转派任何其他模型会话或 adapter 命令（包括但不限于

@@ -1,3 +1,15 @@
+===== DISPATCH RECEIPT =====
+status: done
+target_model: kimi/kimi-code-for-coding
+adapter_cmd: kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.prompt.md)"
+executor: human_operator
+started_at: 2026-07-22T23:45:00+08:00
+completed_at: 2026-07-23T01:05:00+08:00
+session_id: unavailable:Kimi CLI runtime did not expose a provider-native session ID; bookkeeper recorded the human-operator execution window
+outputs: reports/agent-runs/2026-07-hedge-open-live-v1/20-implementation-hedge-fe.md; reports/agent-runs/2026-07-hedge-open-live-v1/60-test-output.txt
+next_dispatch: bookkeeper R4 reconciliation (R4-fix-1) + evidence commit + review-1 (Claude-GLM)
+===== END RECEIPT =====
+
 [HARNESS-EXECUTOR-CONTRACT v1]
 你是本任务的唯一执行者。
 1. 禁止调用、启动或转派任何其他模型会话或 adapter 命令（包括但不限于
