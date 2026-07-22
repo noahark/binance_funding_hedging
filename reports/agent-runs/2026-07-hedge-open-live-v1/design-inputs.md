@@ -134,3 +134,14 @@ portfolio-margin` v6.0.0; filters backed by real public exchangeInfo samples).
 - **Open real-sample item (Hard Gate):** the real order-response JSON must come
   from a later human-authorized real order; not fabricated. Does not block
   design (design uses the official response schema + record transport).
+
+## DI-5: Dry-run demo preflight deferred (user decision 2026-07-23)
+The round-1 server wires `DisabledPreflightProvider` (zero network), so `q_common`
+is unknown and a created immediate task stays idle (no fills, `公共网格量=—`),
+and the global Start gate defaults off — both are the safest defaults. Page-level
+演练 of immediate open → fills → positions → exposure-alert therefore shows
+nothing out of the box. **User decided (2026-07-23) to NOT add a demo/mock
+preflight provider this round; it is deferred to the next round that wires real
+data** (mock filters or real public `exchangeInfo` + read-only balance),
+alongside the live-round follow-ups F-003..F-006. Round-1 dry-run stays
+"idle but safe".
