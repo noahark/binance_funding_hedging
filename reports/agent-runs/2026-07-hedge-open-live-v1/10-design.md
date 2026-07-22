@@ -71,9 +71,15 @@ copy), no task Start.
   balanced fill → `success_count++`. Reaching N → `done`.
 - **Dry-run record transport (default):** the executor records the fully-formed
   signed-request params (no secrets), filter versions, preflight snapshot, and
-  client ids to the log/fills tables, and returns a simulated non-committal
-  outcome. It performs **no network POST**. Live path (§9) is the only place a
-  real POST can happen.
+  client ids to the log/fills tables, and returns a simulated outcome. It
+  performs **no network POST**. Live path (§9) is the only place a real POST can
+  happen.
+- **Injectable outcomes (user decision):** the dry-run simulated outcome is
+  seedable/injectable — it can force single-leg failures and exposures so
+  `exposure_alert` and the `>3`-fail termination path are exercised end-to-end
+  without any real order. Default (no injection) simulates balanced dual-leg
+  fills. The injection seam is test-only/ops-only and never affects the live
+  executor.
 
 ## 7. Single-leg exposure state machine (DI-4, locked policy)
 Do not trust the POST return alone. Per attempt:
