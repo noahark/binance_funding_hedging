@@ -157,7 +157,9 @@ const ids = [
   'borrow-tab-tasks', 'borrow-tab-logs', 'borrow-tasks-panel', 'borrow-logs-panel',
   'borrow-interval-input', 'borrow-interval-confirm', 'borrow-interval-error', 'borrow-interval-note',
   'borrow-tasks-error', 'borrow-logs-error', 'borrow-log-list', 'borrow-logs-refresh', 'borrow-logs-load-more',
-  'borrow-execution-badge', 'borrow-execution-start', 'borrow-execution-stop', 'borrow-execution-detail'
+  'borrow-execution-badge', 'borrow-execution-start', 'borrow-execution-stop', 'borrow-execution-detail',
+  'nav-hedge-tasks', 'hedge-task-count', 'hedge-task-view', 'hedge-task-list', 'hedge-task-filters',
+  'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -494,8 +496,9 @@ global.fetch = async (url, options) => {
 global.document = {
   getElementById: (id) => {
     if (!elements[id]) {
-      // 借币任务操作控件为按 symbol/任务 id（字符串 UUID）动态生成的 id，按需惰性 mock（最小 mock 能力补足）
-      if (/^(borrow-(amount|count|error|preview)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+)$/.test(id)) return makeElement(id);
+      // 借币任务操作控件为按 symbol/任务 id（字符串 UUID）动态生成的 id，按需惰性 mock（最小 mock 能力补足）；
+      // 开单 fake 原型的操作列输入/行内错误与任务动作错误元素同样按需惰性 mock。
+      if (/^(borrow-(amount|count|error|preview)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+|hedge-(amount|count|error)-(forward|reverse)-[A-Za-z0-9_]+|hedge-task-error-[A-Za-z0-9-]+)$/.test(id)) return makeElement(id);
       throw new Error(`未 mock 的元素: ${id}`);
     }
     return elements[id];
@@ -660,7 +663,9 @@ setTimeout(async () => {
 
     // 5c. Task D: 默认表移除路由分类列，但保留路由过滤器与字段校验；
     // Task B: 无「提示标记」/独立「负费率状态」列，新增开单列；
-    // 借币任务阶段：最终 13 列（第 13 列为「借币」）。
+    // 借币任务阶段：第 13 列为「借币」；
+    // 开单 fake 阶段：估算列改名「正向开单率/反向开单率」，借币列后新增两操作列
+    // 「正向开单」「反向开单」→ 最终 15 列。
     if (html.includes('<th>路由分类</th>')) {
       throw new Error('默认表仍保留「路由分类」列');
     }
@@ -670,7 +675,7 @@ setTimeout(async () => {
     if (html.includes('<th>负费率状态</th>')) {
       throw new Error('默认表仍保留独立「负费率状态」列');
     }
-    const requiredHeaders = ['借贷状态 / 资产', '日净收益', '正向开单', '反向开单', '借币'];
+    const requiredHeaders = ['借贷状态 / 资产', '日净收益', '正向开单率', '反向开单率', '借币', '正向开单', '反向开单'];
     for (const h of requiredHeaders) {
       if (!html.includes(`>${h}<`)) {
         throw new Error(`缺少「${h}」列名`);
@@ -681,8 +686,8 @@ setTimeout(async () => {
     const marketTheadEnd = html.indexOf('</thead>', marketTheadStart) + 8;
     const marketTheadHtml = html.slice(marketTheadStart, marketTheadEnd);
     const headerCount = (marketTheadHtml.match(/<th[\s>]/g) || []).length;
-    if (headerCount !== 13) {
-      throw new Error(`市场表头应为 13 列，实际 ${headerCount} 列`);
+    if (headerCount !== 15) {
+      throw new Error(`市场表头应为 15 列，实际 ${headerCount} 列`);
     }
     // 路由过滤器仍保留
     if (!html.includes('id="filter-route"')) {
@@ -1331,14 +1336,14 @@ setTimeout(async () => {
     }
     console.log('[PASS] opening spread 独立 formatter 三向量');
 
-    // 33c. 最终 13 列：严格表头顺序、每行 13 个 td、empty-state colspan=13、合并列结构
-    const taskCHeaders = ['标的', '正向开单', '反向开单', '资金费率', '结算时间', '日费率', '近 24h', '年化 24h', '年化 7D', '年化 30D', '日净收益', '借贷状态 / 资产', '借币'];
+    // 33c. 最终 15 列（开单 fake 阶段：估算列带「率」，借币后新增两操作列）：严格表头顺序、每行 15 个 td、empty-state colspan=15、合并列结构
+    const taskCHeaders = ['标的', '正向开单率', '反向开单率', '资金费率', '结算时间', '日费率', '近 24h', '年化 24h', '年化 7D', '年化 30D', '日净收益', '借贷状态 / 资产', '借币', '正向开单', '反向开单'];
     const theadBlock = html.slice(html.indexOf('<thead>'), html.indexOf('</thead>') + 8);
     const renderedHeaders = [...theadBlock.matchAll(/<th[^>]*>([^\u003c]*)<\/th>/g)].map(m => m[1].trim());
-    if (renderedHeaders.length !== 13) {
-      throw new Error(`表头数量期望 13，实际 ${renderedHeaders.length}: ${JSON.stringify(renderedHeaders)}`);
+    if (renderedHeaders.length !== 15) {
+      throw new Error(`表头数量期望 15，实际 ${renderedHeaders.length}: ${JSON.stringify(renderedHeaders)}`);
     }
-    for (let i = 0; i < 13; i++) {
+    for (let i = 0; i < 15; i++) {
       if (renderedHeaders[i] !== taskCHeaders[i]) {
         throw new Error(`表头第 ${i + 1} 项期望「${taskCHeaders[i]}」，实际「${renderedHeaders[i]}」`);
       }
@@ -1346,25 +1351,25 @@ setTimeout(async () => {
     if (theadBlock.includes('提示标记') || theadBlock.includes('负费率状态')) {
       throw new Error('最终表头仍含「提示标记」或独立「负费率状态」');
     }
-    // 每行 data row 恰好 13 个 td
+    // 每行 data row 恰好 15 个 td
     const dataRows = tbody.match(/<tr[^\u003e]*class="[^"]*selectable[^"]*"[^\u003e]*>/g) || [];
     for (const rowStart of dataRows) {
       const pos = tbody.indexOf(rowStart);
       const end = tbody.indexOf('</tr>', pos);
       const rowHtml = tbody.slice(pos, end + 5);
       const tdCount = (rowHtml.match(/<td[\s>]/g) || []).length;
-      if (tdCount !== 13) {
+      if (tdCount !== 15) {
         const symMatch = rowHtml.match(/data-symbol="([^"]+)"/);
-        throw new Error(`${symMatch ? symMatch[1] : '某行'} 数据行 td 数量期望 13，实际 ${tdCount}`);
+        throw new Error(`${symMatch ? symMatch[1] : '某行'} 数据行 td 数量期望 15，实际 ${tdCount}`);
       }
     }
-    // empty-state colspan=13：触发无匹配行并断言
+    // empty-state colspan=15：触发无匹配行并断言
     const originalSearch = elements['filter-search'].value;
     elements['filter-search'].value = 'NO_SUCH_SYMBOL_XYZ';
     (elements['filter-search'].listeners.input || []).forEach(h => h());
     const emptyTbody = elements['market-table-body'].innerHTML;
-    if (!emptyTbody.includes('colspan="13"')) {
-      throw new Error('无匹配 empty-state 未使用 colspan="13"');
+    if (!emptyTbody.includes('colspan="15"')) {
+      throw new Error('无匹配 empty-state 未使用 colspan="15"');
     }
     if ((emptyTbody.match(/<td/g) || []).length !== 1) {
       throw new Error('empty-state 行应只含 1 个 td');
@@ -1384,7 +1389,7 @@ setTimeout(async () => {
     if (ausdtNet.includes('可借:')) {
       throw new Error('AUSDT 日净收益格不应含可借额度: ' + ausdtNet);
     }
-    console.log('[PASS] 最终 13 列表头顺序、行单元格数、empty-state colspan 与合并列结构');
+    console.log('[PASS] 最终 15 列表头顺序、行单元格数、empty-state colspan 与合并列结构');
 
     // 33d. 正向/反向开单列：腿标签、价格、百分比与颜色
     // AUSDT fresh: forward -0.04%, reverse +0.04%
@@ -3344,7 +3349,360 @@ setTimeout(async () => {
       console.log('[PASS] 全局间隔编辑器 GET/PUT（≥2s）、sub-floor 400 与本地校验');
     }
 
-    // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 仅隐私键
+    // ==================== 开单 fake 原型（2026-07-hedge-open-fake-ui-v1，design §6） ====================
+    // 77. 开单操作列渲染与推荐方向高亮
+    function approxEq(a, b) { return Math.abs(a - b) <= 1e-9; }
+    {
+      // 重新灌入全新 fixture 副本并复位全部筛选，保证 6 行全量、payload 序渲染。
+      elements['filter-search'].value = '';
+      (elements['filter-search'].listeners.input || []).forEach(h => h());
+      elements['filter-asset'].value = '';
+      (elements['filter-asset'].listeners.change || []).forEach(h => h());
+      elements['filter-route'].value = '';
+      (elements['filter-route'].listeners.change || []).forEach(h => h());
+      elements['filter-hide-low-daily-rate'].checked = false;
+      (elements['filter-hide-low-daily-rate'].listeners.change || []).forEach(h => h());
+      elements['filter-hide-low-net-yield'].checked = false;
+      (elements['filter-hide-low-net-yield'].listeners.change || []).forEach(h => h());
+      elements['filter-prefer-openable'].checked = false;
+      (elements['filter-prefer-openable'].listeners.change || []).forEach(h => h());
+      helpers.ingestSnapshot(JSON.parse(JSON.stringify(designFixture)));
+      const hedgeTbody = elements['market-table-body'].innerHTML;
+      if ((hedgeTbody.match(/<tr/g) || []).length !== 6) {
+        throw new Error('开单断言前置：期望 6 行全量渲染');
+      }
+      // 操作列结构：两输入 + 两按钮，列内无 disabled（ADR-3 恒可点）
+      const cusdtFwdOp = getRowCell(hedgeTbody, 'CUSDT', 13);
+      const cusdtRevOp = getRowCell(hedgeTbody, 'CUSDT', 14);
+      for (const [name, cell] of [['CUSDT 正向操作列', cusdtFwdOp], ['CUSDT 反向操作列', cusdtRevOp]]) {
+        for (const piece of ['单次开单币量', '成功开单次数', '平滑开单', '立即开单', 'data-hedge-open="smooth"', 'data-hedge-open="immediate"']) {
+          if (!cell.includes(piece)) throw new Error(`${name} 缺少「${piece}」: ${cell}`);
+        }
+        if (cell.includes('disabled')) throw new Error(`${name} 不应出现 disabled（两列恒可点）: ${cell}`);
+      }
+      // 推荐高亮：CUSDT 正费率 → 正向列按钮高亮、反向列不高亮
+      if (!cusdtFwdOp.includes('hedge-reco')) throw new Error('正费率行正向开单按钮应高亮推荐: ' + cusdtFwdOp);
+      if (cusdtRevOp.includes('hedge-reco')) throw new Error('正费率行反向开单按钮不应高亮: ' + cusdtRevOp);
+      // AUSDT 负费率 → 反向列高亮、正向列不高亮
+      const ausdtFwdOp = getRowCell(hedgeTbody, 'AUSDT', 13);
+      const ausdtRevOp = getRowCell(hedgeTbody, 'AUSDT', 14);
+      if (ausdtFwdOp.includes('hedge-reco')) throw new Error('负费率行正向开单按钮不应高亮: ' + ausdtFwdOp);
+      if (!ausdtRevOp.includes('hedge-reco')) throw new Error('负费率行反向开单按钮应高亮推荐: ' + ausdtRevOp);
+      // FUSDT 零费率 → 两列都不高亮
+      const fusdtFwdOp = getRowCell(hedgeTbody, 'FUSDT', 13);
+      const fusdtRevOp = getRowCell(hedgeTbody, 'FUSDT', 14);
+      if (fusdtFwdOp.includes('hedge-reco') || fusdtRevOp.includes('hedge-reco')) {
+        throw new Error('零费率行两个方向都不应高亮');
+      }
+      console.log('[PASS] 开单操作列两输入两按钮、推荐方向按费率符号高亮且两列恒可点');
+    }
+
+    // 78. 方向/基差口径（ADR-2 锁死：卖腿吃买一、买腿吃卖一）
+    {
+      const rates = helpers.hedgeBasisRates({ spot_bid1: 99, spot_ask1: 100, perp_bid1: 101, perp_ask1: 102 });
+      if (!approxEq(rates.forward, (101 - 100) / ((101 + 100) / 2))) {
+        throw new Error(`正向基差口径错误: ${rates.forward}`);
+      }
+      if (!approxEq(rates.reverse, (99 - 102) / ((99 + 102) / 2))) {
+        throw new Error(`反向基差口径错误: ${rates.reverse}`);
+      }
+      console.log('[PASS] 基差口径：forward=(perp_bid1−spot_ask1)/mid、reverse=(spot_bid1−perp_ask1)/mid');
+    }
+
+    // 79. fake 余额校验弹框两路径 + 非法输入行内报错 + 足额创建
+    const fetchMarkBeforeHedge = fetchCallLog.length;
+    {
+      // 79a. 正向 USDT 不足 → 弹框、不建任务
+      helpers.resetHedgeStateForTest();
+      localStorageData['hedge_fake_account'] = JSON.stringify({ usdt_free: 1, reverse_quota: { default: 5 } });
+      document.getElementById('hedge-amount-forward-AUSDT').value = '1';
+      document.getElementById('hedge-count-forward-AUSDT').value = '5';
+      const rIns = helpers.submitHedgeOpen('AUSDT', 'forward', 'smooth');
+      if (rIns.ok) throw new Error('USDT 不足不应创建任务');
+      const modal1 = helpers.getHedgeModal();
+      if (!modal1 || modal1.title !== '正向开单 USDT 余额不足') {
+        throw new Error(`正向余额不足弹框标题错误: ${JSON.stringify(modal1)}`);
+      }
+      if (!elements['hedge-modal'].classList.contains('open')) throw new Error('弹框应为 open 态');
+      if (helpers.getHedgeTasks().length !== 0) throw new Error('余额不足不应创建任务');
+      helpers.closeHedgeModal();
+      if (helpers.getHedgeModal() !== null || elements['hedge-modal'].classList.contains('open')) {
+        throw new Error('弹框关闭后状态应清空');
+      }
+      // 79b. 非法输入 → 行内报错、不弹框、不建任务
+      document.getElementById('hedge-amount-forward-AUSDT').value = 'abc';
+      const rBad = helpers.submitHedgeOpen('AUSDT', 'forward', 'smooth');
+      if (rBad.ok) throw new Error('非法币量不应创建任务');
+      if (!document.getElementById('hedge-error-forward-AUSDT').textContent.includes('正数')) {
+        throw new Error('非法币量应行内报错');
+      }
+      if (helpers.getHedgeModal() !== null) throw new Error('非法输入不应弹框');
+      document.getElementById('hedge-amount-forward-AUSDT').value = '1';
+      document.getElementById('hedge-count-forward-AUSDT').value = '0';
+      const rBadN = helpers.submitHedgeOpen('AUSDT', 'forward', 'smooth');
+      if (rBadN.ok) throw new Error('非法次数不应创建任务');
+      // 79c. 正向 USDT 足额 → 建任务并扣减 fake USDT
+      document.getElementById('hedge-count-forward-AUSDT').value = '5';
+      localStorageData['hedge_fake_account'] = JSON.stringify({ usdt_free: 1000000000, reverse_quota: { default: 5 } });
+      const rOk = helpers.submitHedgeOpen('AUSDT', 'forward', 'smooth');
+      if (!rOk.ok || !rOk.task) throw new Error('足额应创建任务');
+      if (helpers.getHedgeTasks().length !== 1) throw new Error('足额后应有 1 个任务');
+      const accAfter = JSON.parse(localStorageData['hedge_fake_account']);
+      if (!(accAfter.usdt_free < 1000000000)) throw new Error('足额开单应扣减 fake USDT 额度');
+      // 79d. 反向现货额度不足 → 弹框、不建任务
+      helpers.resetHedgeStateForTest();
+      localStorageData['hedge_fake_account'] = JSON.stringify({ usdt_free: 10000, reverse_quota: { default: 0.001 } });
+      document.getElementById('hedge-amount-reverse-AUSDT').value = '1';
+      document.getElementById('hedge-count-reverse-AUSDT').value = '5';
+      const rRevIns = helpers.submitHedgeOpen('AUSDT', 'reverse', 'immediate');
+      if (rRevIns.ok) throw new Error('现货额度不足不应创建任务');
+      const modal2 = helpers.getHedgeModal();
+      if (!modal2 || modal2.title !== '反向开单现货余额不足') {
+        throw new Error(`反向余额不足弹框标题错误: ${JSON.stringify(modal2)}`);
+      }
+      if (helpers.getHedgeTasks().length !== 0) throw new Error('反向额度不足不应创建任务');
+      helpers.closeHedgeModal();
+      // 79e. 反向额度足额 → 建任务并扣减该币可卖额度
+      localStorageData['hedge_fake_account'] = JSON.stringify({ usdt_free: 10000, reverse_quota: { default: 100 } });
+      const rRevOk = helpers.submitHedgeOpen('AUSDT', 'reverse', 'immediate');
+      if (!rRevOk.ok) throw new Error('反向足额应创建任务');
+      const accRev = JSON.parse(localStorageData['hedge_fake_account']);
+      const ausdtBase = 'A';
+      if (!approxEq(accRev.reverse_quota[ausdtBase], 100 - 5)) {
+        throw new Error(`反向开单应按币扣减可卖额度: ${JSON.stringify(accRev.reverse_quota)}`);
+      }
+      console.log('[PASS] fake 余额校验：正向 USDT/反向现货两弹框路径、非法输入行内报错、足额创建并扣额');
+    }
+
+    // 80. 任务生命周期 + 平滑基差门控 + 卡片渲染 + 导航切换
+    {
+      helpers.resetHedgeStateForTest();
+      localStorageData['hedge_fake_account'] = JSON.stringify({ usdt_free: 1000000000, reverse_quota: { default: 100 } });
+      document.getElementById('hedge-amount-forward-AUSDT').value = '0.5';
+      document.getElementById('hedge-count-forward-AUSDT').value = '3';
+      const created = helpers.submitHedgeOpen('AUSDT', 'forward', 'smooth');
+      if (!created.ok) throw new Error('创建平滑任务失败');
+      const taskId = created.task.id;
+      // 成交1次：注入成功 → 成功数 +1
+      helpers.queueHedgeFillOutcomes(['success']);
+      const f1 = helpers.hedgeFillOnceNow(taskId);
+      if (!f1.ok) throw new Error('成交1次失败: ' + f1.error);
+      let task = helpers.getHedgeTasks().find(t => t.id === taskId);
+      if (task.success_count !== 1 || task.fills.length !== 1) throw new Error('成交1次应推进恰好一笔');
+      const fill = task.fills[0];
+      for (const k of ['ts', 'spot_price', 'perp_price', 'qty', 'basis_rate']) {
+        if (!(k in fill)) throw new Error(`Fill 缺少冻结字段 ${k}`);
+      }
+      if (fill.qty !== 0.5) throw new Error('Fill 数量应等于单次币量');
+      // 暂停/启动
+      if (!helpers.pauseHedgeTask(taskId).ok) throw new Error('暂停失败');
+      if (task.status !== 'paused') throw new Error('暂停后状态应为 paused');
+      const fillWhilePaused = helpers.hedgeEngineTick();
+      if (task.success_count !== 1) throw new Error('暂停后引擎不应推进');
+      if (!helpers.startHedgeTask(taskId).ok) throw new Error('启动失败');
+      if (task.status !== 'running') throw new Error('启动后状态应为 running');
+      // 立即成交所有：每 tick 一笔直至完成
+      helpers.queueHedgeFillOutcomes(['success', 'success']);
+      if (!helpers.hedgeFillAll(taskId).ok) throw new Error('立即成交所有失败');
+      helpers.hedgeEngineTick();
+      if (task.success_count !== 2 || task.status !== 'running') throw new Error('立即成交所有每 tick 应推进一笔');
+      helpers.hedgeEngineTick();
+      if (task.success_count !== 3 || task.status !== 'done') throw new Error('达到目标次数应置 done');
+      // 平滑基差门控：压低基差不推进，抬高后达标推进
+      helpers.resetHedgeStateForTest();
+      localStorageData['hedge_fake_account'] = JSON.stringify({ usdt_free: 1000000000, reverse_quota: { default: 100 } });
+      const smooth = helpers.createHedgeTask('AUSDT', 'forward', 'smooth', 0.5, 2);
+      const book = helpers.getHedgeBooks()['AUSDT'];
+      book.perp_bid1 = book.mid * 0.99; // 基差 ≈ -1.2%，漂移扰动不会越阈
+      helpers.queueHedgeFillOutcomes(['success']);
+      helpers.hedgeEngineTick();
+      if (smooth.success_count !== 0) throw new Error('基差低于 0.05% 阈值时平滑任务不应推进');
+      book.perp_bid1 = book.mid * 1.02; // 基差 ≈ +1.8%，漂移扰动不会跌破阈值
+      helpers.hedgeEngineTick();
+      if (smooth.success_count !== 1) throw new Error('基差 ≥ 0.05% 时平滑任务应推进一笔');
+      // 卡片渲染与导航切换
+      helpers.setActiveView('hedge-tasks');
+      if (elements['hedge-task-view'].style.display === 'none') throw new Error('开单任务视图应显示');
+      if (elements['market-view'].style.display !== 'none') throw new Error('市场视图应隐藏');
+      const cards = elements['hedge-task-list'].innerHTML;
+      for (const piece of ['AUSDT', '正向', '平滑', '已成功', '/ 3', '阈值 0.05%', '正向开单率', '反向开单率',
+        '暂停', '启动', '删除', '成交1次', '立即成交所有', '现货买一', '合约卖一']) {
+        if (!cards.includes(piece)) throw new Error(`开单任务卡缺少「${piece}」`);
+      }
+      if (elements['hedge-task-count'].textContent !== '1') throw new Error('导航徽标应为运行中任务数 1');
+      helpers.setActiveView('market');
+      if (elements['hedge-task-view'].style.display !== 'none') throw new Error('切回市场后开单任务视图应隐藏');
+      // 状态筛选栏（对齐借币任务）：重新进页默认「执行中」，五按钮带计数
+      helpers.setActiveView('hedge-tasks');
+      if (helpers.getHedgeTaskFilter() !== 'running') throw new Error('进入开单任务页默认筛选应为执行中');
+      const filterBar = elements['hedge-task-filters'].innerHTML;
+      for (const piece of ['全部 (1)', '执行中 (1)', '已暂停 (0)', '已删除 (0)', '已完成 (0)',
+        'data-hedge-filter="all"', 'data-hedge-filter="running"', 'data-hedge-filter="paused"',
+        'data-hedge-filter="deleted"', 'data-hedge-filter="done"']) {
+        if (!filterBar.includes(piece)) throw new Error(`筛选栏缺少「${piece}」: ${filterBar}`);
+      }
+      if (!/<button class="btn compact primary"[^>]*data-hedge-filter="running"/.test(filterBar)) {
+        throw new Error('默认应有且仅有「执行中」筛选按钮为激活态: ' + filterBar);
+      }
+      // 暂停后：执行中筛选空态、已暂停筛选可见
+      if (!helpers.pauseHedgeTask(smooth.id).ok) throw new Error('筛选测试前暂停失败');
+      helpers.setHedgeTaskFilter('running');
+      if (elements['hedge-task-list'].innerHTML.includes('data-hedge-task-id')) {
+        throw new Error('执行中筛选不应列出已暂停任务');
+      }
+      if (!elements['hedge-task-list'].innerHTML.includes('暂无「执行中」任务')) {
+        throw new Error('执行中筛选空态文案错误: ' + elements['hedge-task-list'].innerHTML);
+      }
+      helpers.setHedgeTaskFilter('paused');
+      if (!elements['hedge-task-list'].innerHTML.includes(smooth.id)) throw new Error('已暂停筛选应列出该任务');
+      // 软删除：任务保留、状态 deleted、仅 全部/已删除 可见；徽标只计执行中
+      if (!helpers.deleteHedgeTask(smooth.id).ok) throw new Error('删除失败');
+      if (helpers.getHedgeTasks().length !== 1) throw new Error('软删除后任务应保留在列表中');
+      if (smooth.status !== 'deleted') throw new Error('软删除后状态应为 deleted');
+      if (elements['hedge-task-count'].textContent !== '0') throw new Error('导航徽标只计执行中，应为 0');
+      helpers.setHedgeTaskFilter('paused');
+      if (elements['hedge-task-list'].innerHTML.includes(smooth.id)) throw new Error('已暂停筛选不应列出已删除任务');
+      helpers.setHedgeTaskFilter('deleted');
+      const deletedList = elements['hedge-task-list'].innerHTML;
+      if (!deletedList.includes(smooth.id) || !deletedList.includes('已删除')) {
+        throw new Error('已删除筛选应列出软删除任务及其徽标');
+      }
+      helpers.setHedgeTaskFilter('all');
+      if (!elements['hedge-task-list'].innerHTML.includes(smooth.id)) throw new Error('全部筛选应列出软删除任务');
+      // 已删除任务动作全部拒绝；软删除持久化
+      if (helpers.startHedgeTask(smooth.id).ok) throw new Error('已删除任务不应允许启动');
+      if (helpers.hedgeFillOnceNow(smooth.id).ok) throw new Error('已删除任务不应允许成交1次');
+      if (helpers.hedgeFillAll(smooth.id).ok) throw new Error('已删除任务不应允许立即成交所有');
+      if (helpers.deleteHedgeTask(smooth.id).ok) throw new Error('重复删除应拒绝');
+      const storedAfterDelete = JSON.parse(localStorageData['hedge_open_tasks']);
+      if (storedAfterDelete.length !== 1 || storedAfterDelete[0].status !== 'deleted') {
+        throw new Error('软删除状态应持久化到 hedge_open_tasks');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 任务生命周期：成交1次/暂停/启动/立即成交所有至完成/软删除 + 平滑基差门控 + 状态筛选（默认执行中）');
+    }
+
+    // 81. 累计失败 >3 终止 + 单腿敞口
+    {
+      helpers.resetHedgeStateForTest();
+      localStorageData['hedge_fake_account'] = JSON.stringify({ usdt_free: 1000000000, reverse_quota: { default: 100 } });
+      const t1 = helpers.createHedgeTask('AUSDT', 'forward', 'immediate', 0.5, 5);
+      helpers.queueHedgeFillOutcomes(['fail', 'fail', 'fail', 'fail']);
+      for (let i = 0; i < 4; i++) {
+        const r = helpers.hedgeFillOnceNow(t1.id);
+        if (!r.ok) throw new Error(`第 ${i + 1} 次注入失败路径异常: ${r.error}`);
+      }
+      if (t1.fail_count !== 4) throw new Error(`累计失败应为 4，实际 ${t1.fail_count}`);
+      if (!helpers.isHedgeTaskTerminated(t1)) throw new Error('fail_count > 3 应判定计划终止');
+      if (t1.status !== 'paused') throw new Error('终止后应暂停，实际 ' + t1.status);
+      const restart = helpers.startHedgeTask(t1.id);
+      if (restart.ok) throw new Error('已终止计划不应允许启动（不补发）');
+      helpers.hedgeEngineTick();
+      if (t1.success_count !== 0 || t1.fail_count !== 4) throw new Error('已终止计划引擎不应再推进');
+      // 单腿敞口：exposure_alert + leg_exposure 四字段
+      const t2 = helpers.createHedgeTask('BUSDT', 'reverse', 'smooth', 0.5, 3);
+      helpers.queueHedgeFillOutcomes(['leg_exposure']);
+      const rExp = helpers.hedgeFillOnceNow(t2.id);
+      if (!rExp.ok) throw new Error('单腿注入路径异常: ' + rExp.error);
+      if (t2.status !== 'exposure_alert') throw new Error('单腿成交应置 exposure_alert');
+      const leg = t2.leg_exposure;
+      if (!leg || (leg.leg !== 'spot' && leg.leg !== 'perp') || !(leg.qty > 0) || !(leg.price > 0) || !(leg.ts > 0)) {
+        throw new Error(`leg_exposure 字段不完整: ${JSON.stringify(leg)}`);
+      }
+      if (t2.success_count !== 0) throw new Error('单腿成交不应计入成功数');
+      helpers.hedgeEngineTick();
+      if (t2.success_count !== 0 || t2.status !== 'exposure_alert') throw new Error('敞口告警中引擎不应推进');
+      const fillOnAlert = helpers.hedgeFillOnceNow(t2.id);
+      if (fillOnAlert.ok) throw new Error('敞口告警中不应允许手动成交1次');
+      // 敞口告警可经人工启动恢复运行（leg_exposure 记录保留）
+      if (!helpers.startHedgeTask(t2.id).ok) throw new Error('敞口告警人工处理后应可启动');
+      if (t2.status !== 'running' || !t2.leg_exposure) throw new Error('启动后应运行且保留敞口记录');
+      console.log('[PASS] 累计失败 >3 终止不补发 + 单腿敞口 exposure_alert/leg_exposure');
+    }
+
+    // 82. 持仓聚合数学（design §3）：均价=名义/数量、量权基差、净盈亏=价格盈亏+资金费−利息
+    {
+      const posTasksFwd = [{ coin: 'XUSDT', direction: 'forward', fills: [
+        { ts: 1000, spot_price: 100, perp_price: 101, qty: 2, basis_rate: 0.001 },
+        { ts: 1000, spot_price: 102, perp_price: 103, qty: 4, basis_rate: 0.003 }
+      ] }];
+      const posBooks = {
+        XUSDT: { spot_bid1: 99.9, spot_ask1: 100.1, perp_bid1: 100.9, perp_ask1: 101.1 },
+        YUSDT: { spot_bid1: 99.9, spot_ask1: 100.1, perp_bid1: 100.9, perp_ask1: 101.1 }
+      };
+      const p1 = helpers.computeHedgePositions(posTasksFwd, posBooks, 1000 + 3600000)[0];
+      if (!approxEq(p1.position_qty, 6)) throw new Error('持仓数量应为 6');
+      if (!approxEq(p1.spot_avg, 608 / 6)) throw new Error(`现货均价应为名义/数量: ${p1.spot_avg}`);
+      if (!approxEq(p1.perp_avg, 614 / 6)) throw new Error(`合约均价应为名义/数量: ${p1.perp_avg}`);
+      if (!approxEq(p1.open_basis_rate, 0.014 / 6)) throw new Error(`开单价差率应为量权平均: ${p1.open_basis_rate}`);
+      if (!approxEq(p1.price_pnl, 0)) throw new Error(`对冲双腿盯市应接近 0: ${p1.price_pnl}`);
+      if (!approxEq(p1.funding_accrued, 614 * 0.0001)) throw new Error(`资金费应为合约名义×速率×小时: ${p1.funding_accrued}`);
+      if (!approxEq(p1.borrow_interest, 0)) throw new Error('正向不应计借币利息');
+      if (!approxEq(p1.net_pnl, 614 * 0.0001)) throw new Error('净盈亏应为 价格盈亏+资金费−利息');
+      const posTasksRev = [{ coin: 'YUSDT', direction: 'reverse', fills: [
+        { ts: 1000, spot_price: 100, perp_price: 101, qty: 2, basis_rate: 0.002 }
+      ] }];
+      const p2 = helpers.computeHedgePositions(posTasksRev, posBooks, 1000 + 3600000)[0];
+      if (!approxEq(p2.price_pnl, 0)) throw new Error(`反向盯市应接近 0: ${p2.price_pnl}`);
+      if (!approxEq(p2.funding_accrued, 2 * 101 * 0.0001)) throw new Error(`反向资金费错误: ${p2.funding_accrued}`);
+      if (!approxEq(p2.borrow_interest, 2 * 100 * 0.0002)) throw new Error(`反向借币利息错误: ${p2.borrow_interest}`);
+      if (!approxEq(p2.net_pnl, 2 * 101 * 0.0001 - 2 * 100 * 0.0002)) throw new Error(`反向净盈亏错误: ${p2.net_pnl}`);
+      console.log('[PASS] 持仓聚合数学：均价/量权基差/价格盈亏/资金费/借币利息/净盈亏');
+    }
+
+    // 83. localStorage 往返：冻结键与 Task/Fill 字段名（design §4，stage 2 复用） + 私有面板持仓表渲染
+    {
+      helpers.resetHedgeStateForTest();
+      localStorageData['hedge_fake_account'] = JSON.stringify({ usdt_free: 1000000000, reverse_quota: { default: 100 } });
+      const t = helpers.createHedgeTask('AUSDT', 'forward', 'immediate', 0.5, 2);
+      helpers.queueHedgeFillOutcomes(['success']);
+      helpers.hedgeFillOnceNow(t.id);
+      const rawTasks = localStorageData['hedge_open_tasks'];
+      if (!rawTasks) throw new Error('缺少 hedge_open_tasks 持久化键');
+      const stored = JSON.parse(rawTasks);
+      if (!Array.isArray(stored) || stored.length !== 1) throw new Error('hedge_open_tasks 应为单任务数组');
+      const st = stored[0];
+      for (const k of ['id', 'coin', 'direction', 'mode', 'single_amount', 'target_n', 'success_count',
+        'fail_count', 'status', 'fills', 'leg_exposure', 'created_at', 'updated_at']) {
+        if (!(k in st)) throw new Error(`持久化 Task 缺少冻结字段 ${k}`);
+      }
+      if (st.coin !== 'AUSDT' || st.direction !== 'forward' || st.mode !== 'immediate') {
+        throw new Error('持久化 Task 币种/方向/模式错误');
+      }
+      for (const k of ['ts', 'spot_price', 'perp_price', 'qty', 'basis_rate']) {
+        if (!(k in st.fills[0])) throw new Error(`持久化 Fill 缺少冻结字段 ${k}`);
+      }
+      const rawAcc = JSON.parse(localStorageData['hedge_fake_account']);
+      if (typeof rawAcc.usdt_free !== 'number' || typeof rawAcc.reverse_quota.default !== 'number') {
+        throw new Error('hedge_fake_account 形状不符 { usdt_free, reverse_quota: { default } }');
+      }
+      // 往返：重新加载后任务与成交完整恢复
+      helpers.loadHedgeState();
+      const reloaded = helpers.getHedgeTasks();
+      if (reloaded.length !== 1 || reloaded[0].id !== t.id || reloaded[0].fills.length !== 1 ||
+          reloaded[0].success_count !== 1) {
+        throw new Error('localStorage 往返后任务恢复不完整');
+      }
+      // 私有面板 fake 持仓表渲染（真实成交驱动）
+      helpers.renderPrivatePanel();
+      const privHtml = elements['private-panel-body'].innerHTML;
+      for (const piece of ['对冲开单持仓', '币种', '方向', '持仓数量', '现货均价', '合约均价', '开单价差率',
+        '价格未实现盈亏', '累计资金费', '借币利息', '净盈亏', 'AUSDT', '正向']) {
+        if (!privHtml.includes(piece)) throw new Error(`私有面板持仓表缺少「${piece}」`);
+      }
+      console.log('[PASS] localStorage 往返（hedge_open_tasks/hedge_fake_account 冻结字段名）+ 私有面板持仓表');
+    }
+
+    // 84. 开单功能零新 fetch / 零跨域（全部本地 localStorage + 内存）
+    {
+      if (fetchCallLog.length !== fetchMarkBeforeHedge) {
+        const news = fetchCallLog.slice(fetchMarkBeforeHedge).map(c => `${c.method} ${c.url}`).join(', ');
+        throw new Error(`开单功能不应产生新 fetch: ${news}`);
+      }
+      console.log('[PASS] 开单 fake 原型零新 fetch、零跨域请求');
+    }
+
+    // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 白名单
     {
       const allowedPatterns = [
         /^\/api\/public-market\/snapshot$/,
@@ -3385,19 +3743,21 @@ setTimeout(async () => {
         }
       }
       // 无新定时器：全部 interval 注册只允许 60000 快照刷新、1000 倒计时、
-      // 与 2000 执行状态轮询（Boundary C 单一 2s 显示轮询，浏览器从不签名/调度）
+      // 与 2000 执行状态轮询（Boundary C 单一 2s 显示轮询，浏览器从不签名/调度）。
+      // 开单 fake 引擎复用 1000ms tick（漂移+成交推进），不引入新周期。
       for (const call of intervalCalls) {
         if (call.delay !== 60000 && call.delay !== 1000 && call.delay !== 2000) {
           throw new Error(`存在非法任务定时器: delay=${call.delay}`);
         }
       }
-      // localStorage 仅隐私开关键（无任务持久化）
+      // localStorage 白名单：隐私开关键 + 开单 fake 原型两个冻结键（design §4.1）
+      const allowedStorageKeys = ['funding_hedging_privacy_hidden', 'hedge_open_tasks', 'hedge_fake_account'];
       for (const k of Object.keys(localStorageData)) {
-        if (k !== 'funding_hedging_privacy_hidden') {
-          throw new Error(`localStorage 出现非隐私键: ${k}`);
+        if (!allowedStorageKeys.includes(k)) {
+          throw new Error(`localStorage 出现白名单外键: ${k}`);
         }
       }
-      console.log('[PASS] fetch 同源白名单、零 Binance/外域、零新任务定时器、localStorage 仅隐私键');
+      console.log('[PASS] fetch 同源白名单、零 Binance/外域、零新任务定时器、localStorage 白名单（隐私键 + 开单 fake 键）');
     }
 
     console.log('\n全部自检通过');

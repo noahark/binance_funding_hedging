@@ -1,0 +1,257 @@
+{
+  "stage_id": "2026-07-hedge-open-fake-ui-v1",
+  "status": "stage_accepted_waiting_user",
+  "workflow": "stage-delivery",
+  "user_release": {
+    "decision": "waive_formal_review_2_and_accept",
+    "authorized_by": "user",
+    "verbatim": "codex 和 fable5 都没有额度…开始下一阶段的开发；显式豁免 review-2，授权验收",
+    "authorized_at": "2026-07-22T21:24:21+08:00",
+    "evidence_file": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/80-user-acceptance.md",
+    "basis": "review-1 (Claude-GLM) schema-valid ACCEPT + pre-review validator green + pure front-end fake surface (no funds/backend/order/websocket/credentials); Codex and Fable5 out of quota, and the only remaining lawful Claude final review (fresh Opus4.8) was declined because Opus4.8 backs the bookkeeper session and cannot self-review",
+    "is_human_release_not_model_verdict": true,
+    "authorized_merge_local_main": true,
+    "not_authorized": ["push", "real_binance_request", "real_order", "real_websocket", "credential_access", "stage_2_beyond_intake_design_until_its_gates"]
+  },
+  "dispatch_protocol": "human-operator/v1",
+  "base_sha": "46ea46f6caacf78dca4ef5345f60518c77d6e378",
+  "head_sha": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6",
+  "diff_fingerprint": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6:05ea25bb543c798ec2b35573e127d5828ed01ba576aa8ca0fe75e798c5d99f1b",
+  "complexity": {
+    "classification": "MEDIUM",
+    "direction_panel_required": false,
+    "lightweight_route_user_approved": true,
+    "evaluator": { "provider": "claude", "model": "opus4.8", "role": "bookkeeper" }
+  },
+  "stage_branch": {
+    "name": "stage/2026-07-hedge-open-fake-ui-v1",
+    "created_from_main_sha": "e6b836831391da8b98101d9c6a85353e9fa8273e",
+    "created_at": "2026-07-22T18:51:35+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "claude-opus-4-8",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": "bookkeeper also authors 12-development-breakdown.md (design involvement); it is not an implementer or fix author. Review-2 must treat this as design-involvement isolation."
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": true,
+    "r4_diff_reconciliation_required": false,
+    "embedded_review": { "enabled": false, "reason": "single-owner front-end task; no second disjoint implementation task" }
+  },
+  "embedded_reviews": {},
+  "session_receipts": [
+    {
+      "role": "stage_design_and_breakdown",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "session_id": null,
+      "session_id_source": "unavailable: Claude Code runtime does not expose a provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/{00-intake.md,00-task.md,10-design.md,11-adr.md,12-development-breakdown.md}",
+      "recorded_at": "2026-07-22T18:51:35+08:00"
+    },
+    {
+      "role": "implementation",
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": null,
+      "session_id_source": "unavailable: Kimi CLI runtime does not expose a provider-native Session ID; operator may backfill",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md",
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.dispatch.md",
+      "executor": "human_operator",
+      "result": "implementation_complete_self_tests_passed",
+      "recorded_at": "2026-07-22T19:35:18+08:00"
+    },
+    {
+      "role": "implementation_intake_audit",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "session_id": null,
+      "session_id_source": "unavailable: Claude Code runtime does not expose a provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md",
+      "result": "clean_boundary_two_allowed_files_only; independent self-check re-run exit 0, 108 PASS, 0 FAIL; column rename + operation columns after 借币 + basis formula spot-checked; single inline <script>; no intake fix required",
+      "recorded_at": "2026-07-22T19:43:17+08:00"
+    },
+    {
+      "role": "implementation_followup",
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "session_id": null,
+      "session_id_source": "unavailable: Kimi CLI runtime does not expose a provider-native Session ID; operator may backfill",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md",
+      "executor": "human_operator",
+      "result": "user follow-up: 开单任务 status filter bar (全部/执行中/已暂停/已删除/已完成) + soft delete adding Task.status 'deleted'; done before review-1 dispatch",
+      "recorded_at": "2026-07-22T19:58:22+08:00"
+    },
+    {
+      "role": "implementation_followup_intake_audit",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "session_id": null,
+      "session_id_source": "unavailable: Claude Code runtime does not expose a provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/{10-design.md,11-adr.md,00-task.md}",
+      "result": "boundary still clean (frontend/index.html + frontend/self-check.js); independent self-check re-run exit 0, 108 PASS; spot-check found done/completed are separate hedge vs borrow contexts (no bug); frozen Task.status contract amended with 'deleted' and recorded in 10-design §2.1b/§4.2, 11-adr ADR-5, 00-task T2; re-fingerprinted base 46ea46f6 .. head f2afabe5; review-1 packet updated to new range before dispatch",
+      "recorded_at": "2026-07-22T20:45:16+08:00"
+    },
+    {
+      "role": "review_1_attempt",
+      "provider": "claude_glm",
+      "provider_identity": "zhipu_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable: fresh-context Claude-GLM session did not expose a provider-native Session ID; operator may backfill",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/30-review-1.md",
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.prompt.md",
+      "dispatch_receipt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.dispatch.md",
+      "executor": "human_operator",
+      "fresh_context": true,
+      "verdict": "ACCEPT",
+      "result": "schema-valid ACCEPT; fingerprint f2afabe5… matches locked range; cross-provider isolation from Kimi; 0 P0/P1/P2, 2 P3, required_fixes empty",
+      "recorded_at": "2026-07-22T21:00:32+08:00"
+    },
+    {
+      "role": "review_1_intake_audit",
+      "provider": "claude",
+      "provider_identity": "anthropic",
+      "model": "opus4.8",
+      "session_id": null,
+      "session_id_source": "unavailable: Claude Code runtime does not expose a provider-native Session ID",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/30-review-1.md",
+      "result": "archived raw verdict to 30-review-1.md; jsonschema validate PASS against schemas/review-verdict.schema.json; verdict ACCEPT; diff_fingerprint char-for-char equals status; role first_reviewer, prior_involvement none, cross-provider isolation from Kimi(moonshot) confirmed; advanced status to review_2 and prepared review-2 packet",
+      "recorded_at": "2026-07-22T21:11:15+08:00"
+    },
+    {
+      "role": "user_release_acceptance",
+      "provider": "user",
+      "model": "human",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/80-user-acceptance.md",
+      "result": "user waived formal review-2 (Codex + Fable5 out of quota; fresh Opus4.8 declined since it backs the bookkeeper session) and accepted the stage on review-1 ACCEPT + green validator + zero-risk fake surface; authorized no-ff merge to local main as stage-2 base; push/real-execution not authorized",
+      "recorded_at": "2026-07-22T21:24:21+08:00"
+    }
+  ],
+  "designer": {
+    "id": "claude-opus-4-8",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "skill": "software_architect",
+    "scope": "hedge open fake UI stage design + ADR + development breakdown; no implementation"
+  },
+  "breakdown_author": {
+    "id": "claude-opus-4-8",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "design_involvement": true,
+    "output_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/12-development-breakdown.md",
+    "status": "complete"
+  },
+  "implementer": {
+    "provider": "kimi",
+    "provider_identity": "moonshot_kimi",
+    "model": "kimi-code/kimi-for-coding",
+    "task_id": "OPEN-FAKE-UI",
+    "status": "implementation_complete_intake_passed_review_1_packet_prepared"
+  },
+  "implementers": [
+    {
+      "provider": "kimi",
+      "provider_identity": "moonshot_kimi",
+      "model": "kimi-code/kimi-for-coding",
+      "task_id": "OPEN-FAKE-UI",
+      "report_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md"
+    }
+  ],
+  "fix_authors": [],
+  "reviewer_1": {
+    "provider": "claude_glm",
+    "provider_identity": "zhipu_glm",
+    "model": "glm-5.2[1m]",
+    "fresh_session": true,
+    "prior_involvement": null,
+    "routing_reason": "cross-provider isolation from Kimi implementer"
+  },
+  "reviewer_2": {
+    "provider": "codex",
+    "provider_identity": "openai",
+    "model": "gpt",
+    "fresh_session": true,
+    "prior_involvement": null,
+    "planned_fallback": {
+      "reason": "GPT/Codex reported no quota during this stage's discussion; if runner-level check confirms unavailability, fall back to Claude (anthropic) as strong-reviewer with design-involvement disclosure (breakdown author is Claude).",
+      "fallback_provider": "claude",
+      "fallback_requires_disclosure": true
+    }
+  },
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "OPEN-FAKE-UI",
+      "name": "hedge-open-fake-ui",
+      "owner": { "provider": "kimi", "model": "kimi-code/kimi-for-coding" },
+      "reviewer": { "provider": "claude_glm", "model": "glm-5.2[1m]", "fresh_session": true },
+      "allowed_files": ["frontend/index.html", "frontend/self-check.js"],
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.prompt.md",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/task-hedge-open-fake-ui-kimi.dispatch.md",
+      "next_dispatch_executor": "human_operator",
+      "base_sha": "46ea46f6caacf78dca4ef5345f60518c77d6e378",
+      "head_sha": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6",
+      "diff_fingerprint": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6:05ea25bb543c798ec2b35573e127d5828ed01ba576aa8ca0fe75e798c5d99f1b",
+      "review_1": {
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.dispatch.md",
+        "prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-1-claude-glm.prompt.md",
+        "artifact_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/30-review-1.md",
+        "reviewer_provider": "claude_glm",
+        "reviewer_provider_identity": "zhipu_glm",
+        "next_dispatch_executor": "human_operator",
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "fresh_session": true,
+        "reviewer_prior_involvement": "none",
+        "diff_fingerprint": "f2afabe5ece95169e6eb38b6835d50dbc11fb1e6:05ea25bb543c798ec2b35573e127d5828ed01ba576aa8ca0fe75e798c5d99f1b",
+        "open_p0_p1": 0,
+        "findings_summary": "2 P3 informational (fill-all in-memory flag not persisted; soft-delete does not refund fake quota); required_fixes empty",
+        "intake_audit": "bookkeeper archived raw output to 30-review-1.md; jsonschema validate PASS; fingerprint matches status; cross-provider isolation from Kimi confirmed"
+      },
+      "review_2": {
+        "codex_prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-codex.prompt.md",
+        "codex_dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-codex.dispatch.md",
+        "claude_fallback_prompt_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-claude.prompt.md",
+        "claude_fallback_dispatch_path": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-claude.dispatch.md",
+        "preferred_reviewer": "codex",
+        "fallback_reviewer": "claude",
+        "fallback_requires_runner_unavailability_evidence": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/review-2-codex-unavailable.md",
+        "next_dispatch_executor": "human_operator",
+        "verdict": "waived_by_user_release",
+        "waiver_note": "Codex and Fable5 out of quota; fresh Opus4.8 (the only remaining lawful Claude final reviewer) declined since Opus4.8 backs the bookkeeper session. User waived formal review-2 via 80-user-acceptance.md. The prepared review-2 packet is retained for reuse if a later stage reinstates a formal final review.",
+        "packet_prepared_but_unused": true
+      },
+      "r10_checklist": {
+        "self_test_commands": ["node frontend/self-check.js"],
+        "artifact_paths": {
+          "implementation_report": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md",
+          "test_output": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/60-test-output.txt"
+        },
+        "stop_for_bookkeeper": true
+      },
+      "test_evidence": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/60-test-output.txt",
+      "implementation_report": "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/20-implementation.md"
+    }
+  ],
+  "notes": "Front-end fake prototype of the hedge OPEN surface. No backend, no real websocket, no order path, no credentials. Stage 2 (stage/2026-07-hedge-open-live-v1) and stage 3 (close) carry the real risk and their own review discipline."
+}
