@@ -63,7 +63,7 @@
         },
         "stop_for_bookkeeper": true
       },
-      "status": "breakdown_done_prompt_pending"
+      "status": "dispatch_packet_prepared_waiting_human_operator"
     },
     {
       "id": "hedge-fe",
@@ -82,7 +82,7 @@
         },
         "stop_for_bookkeeper": true
       },
-      "status": "breakdown_done_prompt_pending"
+      "status": "dispatch_packet_prepared_waiting_human_operator"
     }
   ],
   "direction_source": {
