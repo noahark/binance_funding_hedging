@@ -52,7 +52,14 @@
       "status": "prompt_prepared_waiting_recon_result",
       "result_archive_target": "reports/api-samples/2026-07-hedge-open-live-v1/"
     },
-    "order_endpoint_and_filters_recon": "still needed (papi spot margin market + UM perp market endpoints/params + exchange filters); separate recon",
+    "order_endpoint_and_filters_recon": {
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/api-recon-order-endpoints.prompt.md",
+      "delegated_to": "GPT (quota restored)",
+      "reference_doc": "llms-full.txt (Binance API full Chinese docs, in repo root)",
+      "executor": "human_operator",
+      "status": "prompt_prepared_waiting_recon_result",
+      "result_archive_target": "reports/api-samples/2026-07-hedge-open-live-v1/"
+    },
     "first_round_scope": "smooth+immediate together vs immediate-first — confirm at design time"
   },
   "notes": "Stage 2 of the hedge program: live backend open executor. Direction frozen by the three-stage discussion + accepted stage-1 contracts; HIGH + user-approved lightweight route (no direction panel). Safety modeled on Boundary C (dry-run default, APP_HEDGE_EXECUTOR=live gate, durable SQLite, global Start, read-only preflight). Currently: intake done, awaiting websocket + order-endpoint recon facts before stage design."
