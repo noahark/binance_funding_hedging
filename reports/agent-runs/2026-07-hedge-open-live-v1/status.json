@@ -1,6 +1,17 @@
 {
   "stage_id": "2026-07-hedge-open-live-v1",
-  "status": "review_1",
+  "status": "fixing",
+  "rework_count": 1,
+  "review_1_round_1": {
+    "hedge_fe": "ACCEPT (Claude-GLM, 1 P3 benign)",
+    "hedge_be": "REWORK (Kimi): F-001(P1) ?status=all excludes deleted (contract §3.1 seam break, same class as R4-001), F-002(P2) mode=smooth accepted+dispatched; fix-1 dispatched to Claude-GLM",
+    "live_round_followups": [
+      "F-003 _qty_bounds LOT_SIZE fallback + zero-value step string normalization",
+      "F-004 rate-limit throttle enforcement + preflight snapshot rate_limit_order",
+      "F-005 attempt persist-before-send seam + AttemptContext docstring",
+      "F-006 fill-all ATTEMPT_DISABLED guard + fill-once/all Start-gate bypass re-audit"
+    ]
+  },
   "workflow": "stage-delivery",
   "base_sha": "6639b0025682f406f9a726104ef8d3b9e6f8fadd",
   "head_sha": "b773a470de62053207b85e58148bbf7c285026fd",
@@ -72,7 +83,9 @@
         "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be.md",
         "reviewer_provider": "kimi",
         "next_dispatch_executor": "human_operator",
-        "verdict": null
+        "verdict": "REWORK",
+        "findings_summary": "F-001(P1) ?status=all excludes deleted (§3.1 seam break); F-002(P2) mode=smooth accepted+dispatched; 4 P3 = live-round follow-ups",
+        "fix_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-fix-1.prompt.md"
       },
       "next_dispatch_executor": "human_operator",
       "r10_checklist": {
@@ -102,7 +115,8 @@
         "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-fe.md",
         "reviewer_provider": "claude_glm",
         "next_dispatch_executor": "human_operator",
-        "verdict": null
+        "verdict": "ACCEPT",
+        "findings_summary": "1 P3 (create path does not reload positions, benign); frontend not touched by the hedge-be fix-1"
       },
       "next_dispatch_executor": "human_operator",
       "r10_checklist": {
