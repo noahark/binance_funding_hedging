@@ -86,7 +86,9 @@ packets. Real activation and the first live task remain separate human actions.
   **862 passed in 43.58s**, `node frontend/self-check.js` with all checks
   passing, and `git diff --check` passing. See `14-r4-verification.md`.
 - Formal Review-1 packets are prepared but not yet human-dispatched:
-  `30-review-1-backend.dispatch.md` (Kimi K3 reviews backend) and
+  `30-review-1-backend-opus46.dispatch.md` (Claude Opus 4.6 reviews backend;
+  the prior Kimi packet remains unused after the operator reported quota
+  exhaustion, see `15-kimi-review-1-unavailable.md`) and
   `30-review-1-frontend.dispatch.md` (Claude-GLM reviews frontend).
 - Before the clean `pre-review` validator can pass, the human operator must
   append real R9 dispatch receipts to the already completed Task A and Task B
@@ -104,6 +106,6 @@ packets. Real activation and the first live task remain separate human actions.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-23 23:35:22 CST
+本地北京时间: 2026-07-23 23:59:59 CST
 下一步模型: human operator
 下一步任务: record completed implementation dispatch receipts, then execute the two prepared formal Review-1 packets
