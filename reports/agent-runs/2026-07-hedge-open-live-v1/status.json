@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-live-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "rework_count": 2,
   "fix_3_user_clarification": {
     "trigger": "user product clarification 2026-07-23 (NOT a review REWORK): skip executed-qty check on dual fills; forward vs reverse order methods make base qty non-alignable",
@@ -269,5 +269,23 @@
     "backend": "pytest backend/tests -q -> 790 passed",
     "frontend": "node frontend/self-check.js -> 108 PASS",
     "note": "dry-run only; no real Binance request in any test"
+  },
+  "user_acceptance": {
+    "decision": "accept round 1 + authorize no-ff merge to local main (dry-run skeleton acceptance)",
+    "authorized_by": "user",
+    "verbatim": "开始执行吧",
+    "at": "2026-07-23T10:12:22+08:00",
+    "evidence_file": "reports/agent-runs/2026-07-hedge-open-live-v1/80-user-acceptance.md",
+    "full_review_not_waiver": "review-1 both ACCEPT + review-2 Codex ACCEPT + pre-accept PASS",
+    "deferred_to_real_api_round": "DI-6 order-parameter model rebuild (spot buy quoteOrderQty), real preflight/executor + margin/amount/count risk controls, smooth-open ws gate (DI-1), dry-run demo preflight, F-003..F-006, both_mismatched representation",
+    "not_authorized": [
+      "push",
+      "real_binance_order",
+      "real_websocket",
+      "credential_access",
+      "APP_HEDGE_EXECUTOR=live",
+      "global_start_gate",
+      "first_real_task"
+    ]
   }
 }
