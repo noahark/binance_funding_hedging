@@ -35,6 +35,30 @@ stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
 phase=checkpoint
 status=planned
 
+===== direction-draft intake integrity checks (2026-07-23 16:45:40 CST) =====
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0; stage status parses)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+No product-code tests were run: this checkpoint only registers raw direction
+evidence and records its applicability to the frozen execution contract.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 16:45:40 CST
+下一步模型: human operator
+下一步任务: obtain the remaining Codex and Grok direction-panel evidence
+
 ===== SHA correction and final checkpoint (2026-07-23 16:36:54 CST) =====
 Initial checkpoint after the main merge failed only because the recorded merge
 SHA ended in `efc` rather than the actual `ef3c`; no source or stage behavior

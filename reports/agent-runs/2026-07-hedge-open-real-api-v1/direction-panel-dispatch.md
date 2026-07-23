@@ -7,6 +7,17 @@ model. Preserve each raw response unchanged at:
 
 `reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/<model-id>.md`
 
+## Evidence Already Received
+
+- `claude-opus-4-8.md` is accepted as the `claude` panel draft.
+- `glm52.md` is accepted as the `glm52` panel draft.
+- `kimi27.md` keeps its historical filename, but the human operator confirmed it
+  was executed by **K3** before the routing rename. It is therefore accepted as
+  the `kimi_k3` panel draft; do not rerun Kimi merely to rename the artifact.
+
+The remaining independent drafts are `codex` and `grok-build` (or a respective
+explicit unavailable record).
+
 ## Task
 
 Provide an independent Chinese product/architecture direction draft for the

@@ -2,13 +2,13 @@
 
 ## Recovery Header
 
-- Active phase: `planned / design discussion before direction drafts`.
+- Active phase: `planned / direction-panel evidence collection`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
-  `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is the same and no
-  stage commit exists yet.
-- Classification: `MILESTONE`; default direction panel is mandatory. No panel
-  member has been dispatched because only the human operator may execute model
-  dispatch. Recon is complete and `direction-panel-dispatch.md` is ready.
+  `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
+  `e57ff47`. Stage evidence commits exist; no implementation has started.
+- Classification: `MILESTONE`; default direction panel is mandatory. Independent
+  raw drafts are received from Claude Opus 4.8, GLM-5.2, and Kimi K3. Codex and
+  Grok evidence (or explicit unavailable records) remain before synthesis.
 - Harness/main sync exception: user-selected Kimi K3 routing was committed on
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
@@ -47,19 +47,19 @@
   not used in this stage. Regular Portfolio Margin is the account assumption;
   PM-Pro is out of scope.
 - Kimi direction routing is now `kimi_k3` / `kimi-k3`. The already stored
-  `direction-drafts/kimi27.md` is immutable pre-change evidence, not a K3
-  result; a K3 dispatch writes `direction-drafts/kimi_k3.md`.
+  `direction-drafts/kimi27.md` remains immutable under its historical filename;
+  the human operator confirmed it was in fact executed by K3, so it is the
+  valid K3 panel result and does not require rerun.
 
 ## Next Action
 
-The human operator executes the prepared mandatory direction-panel packet once
-for each default-panel member, saving independent raw drafts under
-`direction-drafts/`. The bookkeeper then synthesizes those raw drafts for user
-approval.
+The human operator obtains independent `codex` and `grok-build` direction
+drafts (or explicit unavailable records) using `direction-panel-dispatch.md`.
+The bookkeeper will then synthesize all raw drafts for user approval.
 
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-23 16:36:54 CST
+本地北京时间: 2026-07-23 16:45:40 CST
 下一步模型: human operator
-下一步任务: execute the mandatory direction-panel packet for each registered panel member, using Kimi K3 for kimi_k3
+下一步任务: obtain the remaining Codex and Grok direction-panel evidence

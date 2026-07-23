@@ -36,6 +36,36 @@
       "unavailable_reason": null,
       "raw_output_path": "reports/api-samples/2026-07-hedge-open-real-api-v1/order-model-and-live-seams-recon.md",
       "recorded_at": "2026-07-23T14:29:44+08:00"
+    },
+    {
+      "role": "direction_panel",
+      "provider": "claude",
+      "model": "Claude Opus 4.8",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The preserved raw direction draft does not provide a provider-native Session ID.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/claude-opus-4-8.md",
+      "recorded_at": "2026-07-23T16:45:40+08:00"
+    },
+    {
+      "role": "direction_panel",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The preserved raw direction draft does not provide a provider-native Session ID.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/glm52.md",
+      "recorded_at": "2026-07-23T16:45:40+08:00"
+    },
+    {
+      "role": "direction_panel",
+      "provider": "kimi",
+      "model": "kimi-k3",
+      "session_id": null,
+      "session_id_source": "operator",
+      "unavailable_reason": "The preserved raw draft does not provide a provider-native Session ID; the human operator confirmed it was executed by K3 before the routing rename.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/kimi27.md",
+      "recorded_at": "2026-07-23T16:45:40+08:00"
     }
   ],
   "designer": null,
@@ -84,13 +114,14 @@
     "panel_key": "default",
     "members": {
       "codex": {"provider": "codex", "model": "gpt", "status": "pending_human_operator_dispatch"},
-      "claude": {"provider": "claude", "model": "claude", "status": "pending_human_operator_dispatch"},
-      "glm52": {"provider": "claude_glm", "model": "glm-5.2[1m]", "status": "pending_human_operator_dispatch"},
+      "claude": {"provider": "claude", "model": "Claude Opus 4.8", "status": "received", "raw_output_path": "direction-drafts/claude-opus-4-8.md"},
+      "glm52": {"provider": "claude_glm", "model": "glm-5.2[1m]", "status": "received", "raw_output_path": "direction-drafts/glm52.md"},
       "kimi_k3": {
         "provider": "kimi",
         "model": "kimi-k3",
-        "status": "pending_human_operator_dispatch",
-        "legacy_raw_artifact": "direction-drafts/kimi27.md is preserved evidence from before the K3 routing change and is not a K3-labelled dispatch result"
+        "status": "received",
+        "raw_output_path": "direction-drafts/kimi27.md",
+        "legacy_filename_note": "The file name predates the routing rename. The human operator confirmed this raw draft was executed by K3, so it satisfies the kimi_k3 panel member without a rerun."
       },
       "grok-build": {"provider": "grok", "model": "grok-build", "status": "pending_human_operator_dispatch"}
     }
@@ -109,6 +140,10 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/00-intake.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/01-design-discussion.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/02-api-recon-intake.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/03-direction-draft-intake.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/claude-opus-4-8.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/glm52.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/kimi27.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/api-recon-order-model-and-live-seams.prompt.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-panel-dispatch.md",
@@ -148,11 +183,11 @@
   "max_rework": 3,
   "blockers": [
     "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task.",
-    "The mandatory direction-panel drafts and a user-approved synthesis are required before implementation."
+    "The remaining mandatory direction-panel evidence (Codex and Grok, or explicit unavailable evidence) and a user-approved synthesis are required before implementation."
   ],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
   "reporting_preferences": {"execution_footer": {"include_provider_native_session_id": true, "include_session_id_source": true, "include_raw_output_path": true, "unknown_session_id_policy": "write unavailable with reason; never invent", "session_id_is_navigation_only": true}},
-  "next_action": "Human operator executes the prepared mandatory direction-panel packet once for every default-panel member; bookkeeper then synthesizes the raw drafts for user approval.",
-  "updated_at": "2026-07-23T16:36:54+08:00"
+  "next_action": "Human operator obtains the remaining Codex and Grok independent panel drafts (or explicit unavailable notes); bookkeeper then synthesizes all raw evidence for user approval.",
+  "updated_at": "2026-07-23T16:45:40+08:00"
 }
