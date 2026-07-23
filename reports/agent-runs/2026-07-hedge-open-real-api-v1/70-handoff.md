@@ -93,6 +93,10 @@ packets. Real activation and the first live task remain separate human actions.
   implementation packets. Their raw reports do not expose the executed adapter
   commands or provider-native session IDs; the bookkeeper must not invent them.
   Real activation and the first live task remain separate human actions.
+- The human operator has now supplied the Task A Claude-GLM runner Session ID
+  `694ea9e3-20e9-4f42-800e-940f9530a9bb` and Task B Kimi Session ID
+  `session_135dcaae-ea96-456c-960e-00762ebc1fe8`; both are recorded in
+  `status.json.session_receipts` with source `operator`.
 - `20-implementation.md` is only an index required by the stage template. It
   points reviewers to the unedited Task A, Task B, and R4 raw reports and is
   not a substitute for those reports.
@@ -100,6 +104,6 @@ packets. Real activation and the first live task remain separate human actions.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-23 23:28:57 CST
+本地北京时间: 2026-07-23 23:35:22 CST
 下一步模型: human operator
 下一步任务: record completed implementation dispatch receipts, then execute the two prepared formal Review-1 packets

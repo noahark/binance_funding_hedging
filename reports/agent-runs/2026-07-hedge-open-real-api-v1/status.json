@@ -121,9 +121,9 @@
       "task_id": "backend",
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
-      "session_id": null,
-      "session_id_source": "unavailable",
-      "unavailable_reason": "The raw report states that GLM provider-native Session ID was not exposed. The human supplied Claude Code runner-session reference 694ea9e3-20e9-4f42-800e-940f9530a9bb, retained only in 13-r4-diff-reconciliation.md as navigation metadata.",
+      "session_id": "694ea9e3-20e9-4f42-800e-940f9530a9bb",
+      "session_id_source": "operator",
+      "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/20-implementation-backend.md",
       "recorded_at": "2026-07-23T22:21:00+08:00"
     },
@@ -132,9 +132,9 @@
       "task_id": "frontend",
       "provider": "kimi",
       "model": "kimi-k3",
-      "session_id": null,
-      "session_id_source": "unavailable",
-      "unavailable_reason": "The raw Kimi report states that the CLI did not expose a provider-native Session ID.",
+      "session_id": "session_135dcaae-ea96-456c-960e-00762ebc1fe8",
+      "session_id_source": "operator",
+      "unavailable_reason": null,
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/20-implementation-frontend.md",
       "recorded_at": "2026-07-23T20:50:26+08:00"
     },
@@ -433,5 +433,5 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-frontend.dispatch.md"
   ],
   "next_action": "Human operator supplies or records the completed Task A and Task B implementation dispatch receipts (real adapter command, ISO times, and session-ID/unavailable reason). Then the bookkeeper runs the clean pre-review validator and the human operator executes the two prepared formal review-1 packets.",
-  "updated_at": "2026-07-23T23:28:57+08:00"
+  "updated_at": "2026-07-23T23:35:22+08:00"
 }
