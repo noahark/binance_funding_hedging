@@ -1,0 +1,291 @@
+{
+  "stage_id": "2026-07-hedge-open-live-v1",
+  "status": "accepted",
+  "rework_count": 2,
+  "fix_3_user_clarification": {
+    "trigger": "user product clarification 2026-07-23 (NOT a review REWORK): skip executed-qty check on dual fills; forward vs reverse order methods make base qty non-alignable",
+    "scope": "domain.classify_attempt drop spot_qty==perp_qty (both FILLED -> success); single-leg failure -> exposure, >3 -> pause unchanged; + tests",
+    "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-fix-3.prompt.md",
+    "report_path": "reports/agent-runs/2026-07-hedge-open-live-v1/40-fix-3-hedge-be.md"
+  },
+  "order_param_model_defect_deferred": "DI-6: spot market BUY needs quoteOrderQty (total USDT); contract buy/sell + spot sell use quantity. Current DI-4/ADR-2 'both legs quantity=q_common + common grid + qty equality' is WRONG for forward opens (legs' units differ, base qty non-alignable). dry-run records incorrect forward params but no real POST. REBUILD at the real-API round (order params per direction, amount->notional, frontend input semantics, real preflight/executor + margin/amount/count risk controls).",
+  "review_1_both_accept": "hedge-fe ACCEPT (round-1, b773a470); hedge-be ACCEPT (round-2, bd01eb52 after fix-1). hedge-fe review fingerprint trails status (frontend untouched by fix-1) — to be rebound at pre-accept via authorized_exception or a quick fe re-review.",
+  "review_2": {
+    "codex_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex.prompt.md",
+    "codex_dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex.dispatch.md",
+    "claude_fallback_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-claude.prompt.md",
+    "claude_fallback_dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-claude.dispatch.md",
+    "preferred_reviewer": "codex",
+    "fallback_requires_runner_unavailability_evidence": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-unavailable.md",
+    "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/50-review-2-round-2.md",
+    "round_1_artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/50-review-2.md",
+    "next_dispatch_executor": "human_operator",
+    "verdict": "ACCEPT",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-round-2.dispatch.md",
+    "round_1_verdict": "REWORK",
+    "reviewer": "codex",
+    "finding_round_1": "F-007(P1) leg_exposure contract drift: BE emits {filled_leg,spot,perp,ts}, frozen §3.2 + FE use {leg,qty,price,ts}; single-leg alert misstates leg/qty/price (safety-critical). THIRD cross-seam drift (R4-001, F-001, F-007) — all masked by each side's own mock.",
+    "fix_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-fix-2.prompt.md",
+    "fix_report_path": "reports/agent-runs/2026-07-hedge-open-live-v1/40-fix-2-hedge-be.md",
+    "round_2": {
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-round-2.prompt.md",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-round-2.dispatch.md",
+      "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/50-review-2-round-2.md",
+      "verdict": "ACCEPT"
+    },
+    "diff_fingerprint": "02bcc24abe134dcdb0541af462cea765ffc5cbdf:1b771bc938a907d3cd024421dc35d070f821f57a312296ae9b88dee7d2c95bbf"
+  },
+  "review_1_round_1": {
+    "hedge_fe": "ACCEPT (Claude-GLM, 1 P3 benign)",
+    "hedge_be": "REWORK (Kimi): F-001(P1) ?status=all excludes deleted (contract §3.1 seam break, same class as R4-001), F-002(P2) mode=smooth accepted+dispatched; fix-1 dispatched to Claude-GLM",
+    "live_round_followups": [
+      "F-003 _qty_bounds LOT_SIZE fallback + zero-value step string normalization",
+      "F-004 rate-limit throttle enforcement + preflight snapshot rate_limit_order",
+      "F-005 attempt persist-before-send seam + AttemptContext docstring",
+      "F-006 fill-all ATTEMPT_DISABLED guard + fill-once/all Start-gate bypass re-audit"
+    ]
+  },
+  "workflow": "stage-delivery",
+  "base_sha": "6639b0025682f406f9a726104ef8d3b9e6f8fadd",
+  "head_sha": "02bcc24abe134dcdb0541af462cea765ffc5cbdf",
+  "diff_fingerprint": "02bcc24abe134dcdb0541af462cea765ffc5cbdf:1b771bc938a907d3cd024421dc35d070f821f57a312296ae9b88dee7d2c95bbf",
+  "prev_head_sha_fix2": "f05b61dfd688616dd7e4f6d39db1460b19f6232c",
+  "prev_head_sha_round1": "b773a470de62053207b85e58148bbf7c285026fd",
+  "prev_head_sha_fix1": "bd01eb52e9ec5464bb9f026f5ce666bc883db441",
+  "both_mismatched_contract_gap": "§3.2 leg_exposure {leg,qty,price,ts} cannot represent a both-filled-but-quantity-mismatched exposure; fix-2 degrades it to leg_exposure=null + exposure_alert pause + full detail in fills (bookkeeper accepted). Recorded as a live-round contract follow-up (design a mismatch representation before real orders).",
+  "first_round_scope": "immediate-open only (1 fill/sec, no websocket); smooth-open (ws basis gate + clock calibration) deferred to the next round. Both rounds are dry-run record transport; real orders need later APP_HEDGE_EXECUTOR=live authorization.",
+  "r4_reconciliation": {
+    "status": "passed_after_hedge_fe_r4_fix_1",
+    "record_path": "reports/agent-runs/2026-07-hedge-open-live-v1/r4-reconciliation.md",
+    "boundaries": "clean (hedge-be backend-only, hedge-fe frontend-only, disjoint, no cross-edit)",
+    "independent_reruns": "python -m pytest backend/tests -q -> 785 passed; node frontend/self-check.js -> 108 PASS",
+    "finding_R4_001": "single_amount type mismatch: FE (index.html:3484) posts number; BE (domain.py:615-617) requires decimal string. BE correct (money precision). breakdown §3.1 amended to pin decimal string; BE unchanged; hedge-fe R4-fix-1 dispatched to align FE.",
+    "fe_fix_prompt": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi-r4-fix-1.prompt.md",
+    "next": "after FE fix + re-run green, create the evidence commit + fingerprint, then review-1 (hedge-be->Kimi, hedge-fe->Claude-GLM)"
+  },
+  "dispatch_protocol": "human-operator/v1",
+  "complexity": {
+    "classification": "HIGH",
+    "direction_panel_required": false,
+    "lightweight_route_user_approved": true,
+    "evaluator": {
+      "provider": "claude",
+      "model": "opus4.8",
+      "role": "bookkeeper"
+    }
+  },
+  "stage_branch": {
+    "name": "stage/2026-07-hedge-open-live-v1",
+    "created_from_main_sha": "4253889c838baa67aa441807588df426a4db8c9d",
+    "created_at": "2026-07-22T21:40:33+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "claude-opus-4-8",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "session_role": "bookkeeper",
+    "also_implementer": false
+  },
+  "parallel_mode": {
+    "enabled": true,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": true,
+    "r4_diff_reconciliation_required": true,
+    "embedded_review": {
+      "enabled": false,
+      "reason": "standard committed-state review-1 per task this round"
+    },
+    "note": "Two disjoint tasks (backend/** vs frontend/**) with a design-frozen API contract (12-development-breakdown.md §3); FE consumes only the frozen contract, so both run concurrently."
+  },
+  "breakdown_author": {
+    "id": "claude-opus-4-8",
+    "provider": "claude",
+    "provider_identity": "anthropic",
+    "model": "opus4.8",
+    "design_involvement": true,
+    "output_path": "reports/agent-runs/2026-07-hedge-open-live-v1/12-development-breakdown.md",
+    "status": "complete"
+  },
+  "bookkeeper_dual_hat_disclosure": "bookkeeper also authored design (00-task/10-design/11-adr) and the development breakdown; NOT an implementer/fix author. review-2 must treat this as design involvement.",
+  "tasks": [
+    {
+      "id": "hedge-be",
+      "name": "hedge-open backend module + API + tests",
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]"
+      },
+      "reviewer": {
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "fresh_session": true
+      },
+      "allowed_files": [
+        "backend/hedge_open_tasks/**",
+        "backend/app/server.py",
+        "backend/tests/**",
+        "schemas/api/hedge-open/**"
+      ],
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.prompt.md",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.dispatch.md",
+      "review_1": {
+        "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.prompt.md",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.dispatch.md",
+        "round_1_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.prompt.md",
+        "round_1_dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.dispatch.md",
+        "artifact_path": "30-review-1-hedge-be-round-2.md",
+        "round_1_artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be.md",
+        "reviewer_provider": "kimi",
+        "next_dispatch_executor": "human_operator",
+        "verdict": "ACCEPT",
+        "verdict_history": "round-1 REWORK (F-001 P1 + F-002 P2) -> fix-1 (Claude-GLM) -> round-2 ACCEPT (fixed, no regression)",
+        "findings_summary": "round-2 ACCEPT; 4 P3 = live-round follow-ups (F-003..006)",
+        "fix_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-fix-1.prompt.md",
+        "fix_report_path": "reports/agent-runs/2026-07-hedge-open-live-v1/40-fix-1-hedge-be.md",
+        "fix_head_sha": "bd01eb52e9ec5464bb9f026f5ce666bc883db441",
+        "round_2": {
+          "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.prompt.md",
+          "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.dispatch.md",
+          "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be-round-2.md",
+          "reviewer_provider": "kimi",
+          "verdict": "ACCEPT",
+          "session_id": "be725b2b-8041-4f1c-9059-c16a2de15fbc"
+        }
+      },
+      "next_dispatch_executor": "human_operator",
+      "r10_checklist": {
+        "task_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.prompt.md",
+        "self_tests_command": "python -m pytest backend/tests -q",
+        "pass_branch": "write 20-implementation-hedge-be.md + append 60-test-output.txt, then stop for bookkeeper (no commit, no status.json edit, no relay)",
+        "blocker_branch": "output ESCALATED with reason and stop; bookkeeper routes retry/fallback/fix",
+        "next_dispatch_executor": "human_operator",
+        "unavailable_branch": {
+          "failure_classes": [
+            "model_unavailable",
+            "adapter_missing",
+            "command_error",
+            "permission_error",
+            "timeout"
+          ],
+          "escalation_artifact": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.dispatch.md"
+        }
+      },
+      "status": "implementation_complete_r4_checked_see_r4_reconciliation"
+    },
+    {
+      "id": "hedge-fe",
+      "name": "frontend wiring to frozen hedge-open API + self-check",
+      "owner": {
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding"
+      },
+      "reviewer": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "fresh_session": true
+      },
+      "allowed_files": [
+        "frontend/index.html",
+        "frontend/self-check.js"
+      ],
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.prompt.md",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.dispatch.md",
+      "review_1": {
+        "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-fe-claude-glm.prompt.md",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-fe-claude-glm.dispatch.md",
+        "artifact_path": "30-review-1-hedge-fe.md",
+        "reviewer_provider": "claude_glm",
+        "next_dispatch_executor": "human_operator",
+        "verdict": "ACCEPT",
+        "findings_summary": "1 P3 (create path does not reload positions, benign); frontend not touched by the hedge-be fix-1"
+      },
+      "next_dispatch_executor": "human_operator",
+      "r10_checklist": {
+        "task_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.prompt.md",
+        "self_tests_command": "node frontend/self-check.js",
+        "pass_branch": "write 20-implementation-hedge-fe.md + append 60-test-output.txt, then stop for bookkeeper (no commit, no status.json edit, no relay)",
+        "blocker_branch": "output ESCALATED with reason and stop; bookkeeper routes retry/fallback/fix",
+        "next_dispatch_executor": "human_operator",
+        "unavailable_branch": {
+          "failure_classes": [
+            "model_unavailable",
+            "adapter_missing",
+            "command_error",
+            "permission_error",
+            "timeout"
+          ],
+          "escalation_artifact": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.dispatch.md"
+        }
+      },
+      "status": "implementation_complete_r4_checked_see_r4_reconciliation"
+    }
+  ],
+  "direction_source": {
+    "frozen_by": [
+      "2026-07-22 three-stage requirement discussion",
+      "reports/agent-runs/2026-07-hedge-open-fake-ui-v1/{10-design.md,11-adr.md,00-task.md}",
+      "reports/agent-runs/2026-07-real-borrow-boundary-c-v1 (safety model)"
+    ]
+  },
+  "human_gates": [
+    "real funds; no real Binance order, no production execution websocket, no credential access, no push authorized by intake",
+    "APP_HEDGE_EXECUTOR=live + global Start + first real task are human-only actions after implementation and review",
+    "order endpoint/filters/stream-format contract changes must be grounded in real public API samples under reports/api-samples/"
+  ],
+  "pending_before_design": {
+    "websocket_recon": {
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/api-recon-websocket.prompt.md",
+      "delegated_to": "Sonnet 4.6 (user-delegated)",
+      "executor": "human_operator",
+      "status": "completed_decisions_locked",
+      "result_path": "reports/api-samples/2026-07-hedge-open-live-v1/websocket-bookticker-recon.md",
+      "key_findings": "spot @bookTicker has NO E/T (official sample, confirmed); perp @bookTicker carries E/T (user-confirmed from production); perp host /public in use (user-confirmed)",
+      "decisions_locked_2026_07_22_user": [
+        "Option B: spot @bookTicker realtime + local-receive timestamp; perp @bookTicker + exchange E/T; smooth-open gate |E_perp - t_spot_local| <= 200ms (inherently rejects stale perp). See design-inputs DI-1 DECISION LOCKED.",
+        "Config to design: NTP/serverTime calibration + clock-offset monitoring so t_spot_local and E_perp share one clock.",
+        "Option A (spot depth5 exchange-E) not taken; depth5-E presence parked, not a blocker."
+      ]
+    },
+    "order_endpoint_and_filters_recon": {
+      "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/api-recon-order-endpoints.prompt.md",
+      "delegated_to": "GPT (quota restored)",
+      "reference_doc": "llms-full.txt (Binance API full Chinese docs, in repo root)",
+      "executor": "human_operator",
+      "status": "completed",
+      "result_path": "reports/api-samples/2026-07-hedge-open-live-v1/order-endpoints-filters-recon.md",
+      "key_findings": "endpoints margin/order + um/order (weight 1, SDK v6.0.0 cross-verified); quantity=q base coin on a common filter grid for both legs (never independent rounding); reverse spot SELL = NO_SIDE_EFFECT (papi has no AUTO_BORROW_REPAY; reverse preflight crossMarginFree>=q, maxBorrowable is not sellable proof); positionSide via /um/positionSide/dual; filters via public spot+fapi exchangeInfo (real BTCUSDT samples); single-leg exposure via client-id query state machine (never trust POST return alone); both weight 1 so 1 hedge=2 order events, read /papi/v1/rateLimit/order; no PAPI testnet -> dry-run record transport",
+      "open_item": "real order-response JSON needs a later human-authorized real order (not fabricated); does NOT block design (official response schema + record transport used). See DI-4."
+    },
+    "first_round_scope": "smooth+immediate together vs immediate-first — confirm at design time"
+  },
+  "notes": "Stage 2 of the hedge program: live backend open executor. Direction frozen by the three-stage discussion + accepted stage-1 contracts; HIGH + user-approved lightweight route (no direction panel). Safety modeled on Boundary C (dry-run default, APP_HEDGE_EXECUTOR=live gate, durable SQLite, global Start, read-only preflight). Currently: intake done, awaiting websocket + order-endpoint recon facts before stage design.",
+  "tests": {
+    "status": "passed",
+    "backend": "pytest backend/tests -q -> 790 passed",
+    "frontend": "node frontend/self-check.js -> 108 PASS",
+    "note": "dry-run only; no real Binance request in any test"
+  },
+  "user_acceptance": {
+    "decision": "accept round 1 + authorize no-ff merge to local main (dry-run skeleton acceptance)",
+    "authorized_by": "user",
+    "verbatim": "开始执行吧",
+    "at": "2026-07-23T10:12:22+08:00",
+    "evidence_file": "reports/agent-runs/2026-07-hedge-open-live-v1/80-user-acceptance.md",
+    "full_review_not_waiver": "review-1 both ACCEPT + review-2 Codex ACCEPT + pre-accept PASS",
+    "deferred_to_real_api_round": "DI-6 order-parameter model rebuild (spot buy quoteOrderQty), real preflight/executor + margin/amount/count risk controls, smooth-open ws gate (DI-1), dry-run demo preflight, F-003..F-006, both_mismatched representation",
+    "not_authorized": [
+      "push",
+      "real_binance_order",
+      "real_websocket",
+      "credential_access",
+      "APP_HEDGE_EXECUTOR=live",
+      "global_start_gate",
+      "first_real_task"
+    ]
+  }
+}

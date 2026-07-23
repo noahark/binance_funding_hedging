@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
 import sys
 import time
@@ -29,6 +30,9 @@ from urllib.parse import parse_qs, unquote, urlparse
 from ..borrow_tasks import BorrowError, BorrowTaskService
 from ..borrow_tasks import domain as borrow_domain
 from ..config import Config, DEFAULT, from_env
+from ..hedge_open_tasks import HedgeError as HedgeOpenError
+from ..hedge_open_tasks import HedgeOpenTaskService
+from ..hedge_open_tasks import domain as hedge_open_domain
 from ..services.snapshot_service import SnapshotNotReady, SnapshotService
 
 # Borrow-task route table (breakdown §3.1). Path templates with their allowed
@@ -65,9 +69,46 @@ def _is_borrow_path(path: str) -> bool:
     )
 
 
+# Hedge-open route table (stage 2026-07-hedge-open-live-v1, breakdown §3.1). Path
+# templates with their allowed methods; matched longest-first. These routes are
+# dispatched ONLY here and do not alter any borrow or snapshot/static behavior.
+_HEDGE_OPEN_ROUTES = (
+    (
+        re.compile(
+            r"^/api/hedge-open-tasks/(?P<task_id>[^/]+)/(?P<action>pause|start|delete|fill-once|fill-all)$"
+        ),
+        ("POST",),
+        "_hedge_open_action",
+    ),
+    (re.compile(r"^/api/hedge-open-tasks$"), ("GET", "POST"), "_hedge_open_tasks"),
+    (re.compile(r"^/api/hedge-open-settings$"), ("GET",), "_hedge_open_settings"),
+    (re.compile(r"^/api/hedge-open-logs$"), ("GET",), "_hedge_open_logs"),
+    (re.compile(r"^/api/hedge-open-positions$"), ("GET",), "_hedge_open_positions"),
+)
+
+_HEDGE_OPEN_ACTIONS = {
+    "pause": "post_pause",
+    "start": "post_start",
+    "delete": "post_delete",
+    "fill-once": "post_fill_once",
+    "fill-all": "post_fill_all",
+}
+
+
+def _is_hedge_open_path(path: str) -> bool:
+    return (
+        path == "/api/hedge-open-tasks"
+        or path.startswith("/api/hedge-open-tasks/")
+        or path == "/api/hedge-open-settings"
+        or path == "/api/hedge-open-logs"
+        or path == "/api/hedge-open-positions"
+    )
+
+
 class _Handler(BaseHTTPRequestHandler):
     service = None  # injected via build_server
     borrow_service = None  # injected via build_server; None -> 503 on borrow routes
+    hedge_open_service = None  # injected via build_server; None -> 503 on hedge routes
     frontend_dir = None
     server_version = "funding-hedging-public-market/1.0"
 
@@ -75,6 +116,8 @@ class _Handler(BaseHTTPRequestHandler):
         return
 
     def do_GET(self):
+        if self._try_hedge_open("GET"):
+            return
         if self._try_borrow("GET"):
             return
         path = urlparse(self.path).path
@@ -96,21 +139,29 @@ class _Handler(BaseHTTPRequestHandler):
         self._serve_static(path)
 
     def do_POST(self):
+        if self._try_hedge_open("POST"):
+            return
         if self._try_borrow("POST"):
             return
         self._send_borrow(404, {"error": "not_found", "detail": "unknown path"})
 
     def do_PUT(self):
+        if self._try_hedge_open("PUT"):
+            return
         if self._try_borrow("PUT"):
             return
         self._send_borrow(404, {"error": "not_found", "detail": "unknown path"})
 
     def do_DELETE(self):
+        if self._try_hedge_open("DELETE"):
+            return
         if self._try_borrow("DELETE"):
             return
         self._send_borrow(404, {"error": "not_found", "detail": "unknown path"})
 
     def do_PATCH(self):
+        if self._try_hedge_open("PATCH"):
+            return
         if self._try_borrow("PATCH"):
             return
         self._send_borrow(404, {"error": "not_found", "detail": "unknown path"})
@@ -396,6 +447,126 @@ class _Handler(BaseHTTPRequestHandler):
             return
         self._send_borrow(*self.borrow_service.post_execution_stop())
 
+    # ------------------------------------------------------------ hedge-open
+
+    def _try_hedge_open(self, method: str) -> bool:
+        """Dispatch hedge-open routes. Returns True if handled (incl. errors).
+
+        Mirrors ``_try_borrow``: a hedge-open path with no service wired answers
+        503; a known path with a disallowed method answers 405; a hedge-open path
+        matching no known route answers 404. Non-hedge paths return False so the
+        caller falls through to the borrow/static handlers.
+        """
+        path = urlparse(self.path).path
+        if not _is_hedge_open_path(path):
+            return False
+        if self.hedge_open_service is None:
+            self._send_hedge_open(
+                503,
+                {"error": "hedge_open_service_unavailable", "detail": "hedge-open service not configured"},
+            )
+            return True
+        for regex, allowed, handler_name in _HEDGE_OPEN_ROUTES:
+            match = regex.match(path)
+            if match is None:
+                continue
+            if method not in allowed:
+                self._send_hedge_open(
+                    405, {"error": "method_not_allowed", "detail": f"{method} not allowed on {path}"}
+                )
+                return True
+            getattr(self, handler_name)(**match.groupdict())
+            return True
+        self._send_hedge_open(404, {"error": "not_found", "detail": f"unknown hedge-open path {path}"})
+        return True
+
+    def _send_hedge_open(self, status: int, payload: dict) -> None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self._send_json(status, body)
+
+    def _read_hedge_body(self, required: bool = True):
+        """Return ``(data, error)`` for a hedge-open JSON body (own body cap)."""
+        try:
+            length = int(self.headers.get("Content-Length", "") or "0")
+        except ValueError:
+            return None, (400, {"error": "invalid_json", "detail": "invalid Content-Length"})
+        if length > hedge_open_domain.BODY_MAX_BYTES:
+            return None, (
+                413,
+                {"error": "body_too_large", "detail": f"request body exceeds {hedge_open_domain.BODY_MAX_BYTES} bytes"},
+            )
+        raw = self.rfile.read(length) if length > 0 else b""
+        if required:
+            ctype = self.headers.get("Content-Type", "")
+            if not ctype.startswith("application/json"):
+                return None, (400, {"error": "invalid_json", "detail": "content-type must be application/json"})
+            if not raw:
+                return None, (400, {"error": "invalid_json", "detail": "empty request body"})
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            return None, (400, {"error": "invalid_json", "detail": "body is not valid UTF-8"})
+        if not text.strip():
+            return ({} if not required else None), (
+                None if not required else (400, {"error": "invalid_json", "detail": "empty request body"})
+            )
+        try:
+            return json.loads(text), None
+        except json.JSONDecodeError:
+            return None, (400, {"error": "invalid_json", "detail": "malformed JSON"})
+
+    def _drain_hedge_body(self):
+        """Enforce the hedge-open body cap then read/discard an optional body."""
+        try:
+            length = int(self.headers.get("Content-Length", "") or "0")
+        except ValueError:
+            return (400, {"error": "invalid_json", "detail": "invalid Content-Length"})
+        if length > hedge_open_domain.BODY_MAX_BYTES:
+            return (
+                413,
+                {"error": "body_too_large", "detail": f"request body exceeds {hedge_open_domain.BODY_MAX_BYTES} bytes"},
+            )
+        if length > 0:
+            self.rfile.read(length)
+        return None
+
+    def _safe_hedge(self, fn, *args):
+        try:
+            return fn(*args)
+        except HedgeOpenError as exc:
+            return exc.status, exc.as_payload()
+
+    def _hedge_open_tasks(self):
+        if self.command == "GET":
+            status = parse_qs(urlparse(self.path).query).get("status", [None])[0]
+            self._send_hedge_open(*self._safe_hedge(self.hedge_open_service.list_tasks, status))
+            return
+        data, error = self._read_hedge_body(required=True)
+        if error is not None:
+            self._send_hedge_open(*error)
+            return
+        self._send_hedge_open(*self._safe_hedge(self.hedge_open_service.create_task, data))
+
+    def _hedge_open_action(self, task_id, action):
+        error = self._drain_hedge_body()
+        if error is not None:
+            self._send_hedge_open(*error)
+            return
+        method = _HEDGE_OPEN_ACTIONS[action]
+        self._send_hedge_open(*self._safe_hedge(getattr(self.hedge_open_service, method), task_id))
+
+    def _hedge_open_settings(self):
+        self._send_hedge_open(*self.hedge_open_service.get_settings())
+
+    def _hedge_open_logs(self):
+        query = parse_qs(urlparse(self.path).query)
+        cursor = query.get("cursor", [None])[0]
+        limit = query.get("limit", [None])[0]
+        self._send_hedge_open(*self._safe_hedge(self.hedge_open_service.get_logs, cursor, limit))
+
+    def _hedge_open_positions(self):
+        self._send_hedge_open(*self.hedge_open_service.get_positions())
+
     def _serve_static(self, path: str):
         if path == "/":
             path = "/index.html"
@@ -422,9 +593,11 @@ def build_server(
     config: Config,
     service: SnapshotService,
     borrow_service: BorrowTaskService | None = None,
+    hedge_open_service: HedgeOpenTaskService | None = None,
 ) -> ThreadingHTTPServer:
     _Handler.service = service
     _Handler.borrow_service = borrow_service
+    _Handler.hedge_open_service = hedge_open_service
     _Handler.frontend_dir = config.frontend_dir
     return ThreadingHTTPServer((config.bind_host, config.bind_port), _Handler)
 
@@ -481,16 +654,41 @@ def _build_borrow_service(config: Config) -> BorrowTaskService:
     )
 
 
+def _build_hedge_service(config: Config) -> HedgeOpenTaskService:
+    """Construct the hedge-open authority (stage 2026-07-hedge-open-live-v1).
+
+    Executor mode comes from ``APP_HEDGE_EXECUTOR`` (read here, not from
+    ``config.py`` — this stage's file boundary does not include it); default
+    ``disabled``. Round 1 wires only the dry-run record transport: even in
+    ``live`` mode no live executor (real POST) is constructed, so the default
+    disabled/record-transport executor stays and a real POST remains unreachable
+    (ADR-5). The durable SQLite store lives next to the borrow store under the
+    gitignored ``data/`` dir.
+    """
+    mode = os.environ.get("APP_HEDGE_EXECUTOR", "disabled")
+    if mode not in {"disabled", "live"}:
+        mode = "disabled"
+    db_path = config.borrow_db_path.parent / "hedge-open-tasks.sqlite3"
+    return HedgeOpenTaskService(str(db_path), mode=mode)
+
+
 def run(config: Config = None) -> None:
     config = config or DEFAULT
     service = SnapshotService(config)
     borrow_service = _build_borrow_service(config)
+    hedge_open_service = _build_hedge_service(config)
     # build_server keeps its original 2-arg call shape here so process-level
     # stubs of build_server keep working; the borrow authority is wired onto the
     # handler class separately (build_server defaults it to None first).
     server = build_server(config, service)
     _Handler.borrow_service = borrow_service
+    _Handler.hedge_open_service = hedge_open_service
     _emit_lifecycle("server_start", host=config.bind_host, port=config.bind_port)
+    _emit_lifecycle(
+        "hedge_open_execution_mode",
+        mode=hedge_open_service.mode,
+        start_gate=hedge_open_service.is_start_gate_on(),
+    )
     # Boundary C observability (D2/D7): report sanitized mode + ownership + the
     # frozen startup recovery counts. Only non-secret integer/enum/ownership
     # facts — no credential value, response body, signed data, or env value.
@@ -526,6 +724,7 @@ def run(config: Config = None) -> None:
         # then restarts the process.
         service.start_worker()
         borrow_service.start()
+        hedge_open_service.start()
         server.serve_forever()
     except KeyboardInterrupt:
         pass
@@ -540,6 +739,10 @@ def run(config: Config = None) -> None:
             borrow_service.stop()
         except Exception:
             # cleanup must never mask the fatal exit or raise a secondary error
+            pass
+        try:
+            hedge_open_service.stop()
+        except Exception:
             pass
         try:
             service.stop_worker()
