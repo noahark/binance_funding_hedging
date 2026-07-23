@@ -1,3 +1,15 @@
+===== DISPATCH RECEIPT =====
+status: done
+target_model: openai/codex
+adapter_cmd: codex exec "$(cat reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-round-2.prompt.md)"
+executor: human_operator
+started_at: 2026-07-23T09:30:00+08:00
+completed_at: 2026-07-23T09:52:32+08:00
+session_id: unavailable:Codex runtime does not expose a provider-native session ID; bookkeeper recorded the human-operator execution window
+outputs: reports/agent-runs/2026-07-hedge-open-live-v1/50-review-2-round-2.md
+next_dispatch: bookkeeper intake -> ACCEPT -> stage_accepted_waiting_user
+===== END RECEIPT =====
+
 # Dispatch Receipt — review-2 round 2 (Codex/GPT)
 
 - Stage `2026-07-hedge-open-live-v1`, role `final_reviewer`, round 2 (after fix-2 + fix-3).

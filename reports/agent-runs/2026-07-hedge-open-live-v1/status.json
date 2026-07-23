@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-live-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "rework_count": 2,
   "fix_3_user_clarification": {
     "trigger": "user product clarification 2026-07-23 (NOT a review REWORK): skip executed-qty check on dual fills; forward vs reverse order methods make base qty non-alignable",
@@ -20,7 +20,8 @@
     "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/50-review-2-round-2.md",
     "round_1_artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/50-review-2.md",
     "next_dispatch_executor": "human_operator",
-    "verdict": null,
+    "verdict": "ACCEPT",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-round-2.dispatch.md",
     "round_1_verdict": "REWORK",
     "reviewer": "codex",
     "finding_round_1": "F-007(P1) leg_exposure contract drift: BE emits {filled_leg,spot,perp,ts}, frozen §3.2 + FE use {leg,qty,price,ts}; single-leg alert misstates leg/qty/price (safety-critical). THIRD cross-seam drift (R4-001, F-001, F-007) — all masked by each side's own mock.",
@@ -30,7 +31,7 @@
       "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-round-2.prompt.md",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-round-2.dispatch.md",
       "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/50-review-2-round-2.md",
-      "verdict": null
+      "verdict": "ACCEPT"
     }
   },
   "review_1_round_1": {
