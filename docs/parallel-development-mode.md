@@ -388,7 +388,7 @@ status.json 增加记录块（示意；仅嵌入预审 opt-in 启用时必填；
     "task_id": "A",
     "scope": ["backend/**"],
     "implementer": {"provider": "claude_glm", "model": "glm-5.2[1m]"},
-    "reviewer": {"provider": "kimi", "model": "kimi-2.7", "fresh_session": true},
+    "reviewer": {"provider": "kimi", "model": "kimi-k3", "fresh_session": true},
     "prompt_path": "embedded-review-A-round1.prompt.md",
     "r10_checklist_ref": "tasks.A.r10_checklist",
     "rounds": 1,

@@ -180,9 +180,9 @@ direction_panels:
         provider: claude_glm
         model: "glm-5.2[1m]"
         skill: product_strategist
-      - id: kimi27
+      - id: kimi_k3
         provider: kimi
-        model: "kimi-2.7"
+        model: "kimi-k3"
         skill: product_strategist
       - id: grok-build
         provider: grok
@@ -220,11 +220,11 @@ direction_panels:
         model: "glm-5.2[1m]"
         skill: product_strategist
         output: "glm52.md"
-      - id: kimi27
+      - id: kimi_k3
         provider: kimi
-        model: "kimi-2.7"
+        model: "kimi-k3"
         skill: product_strategist
-        output: "kimi27.md"
+        output: "kimi_k3.md"
       - id: grok-build
         provider: grok
         model: "grok-build"
@@ -467,7 +467,7 @@ rotation_defaults:
   review_1:
     cross_review_pool:
       - provider: kimi
-        model: "kimi-2.7"
+        model: "kimi-k3"
       - provider: claude_glm
         model: "glm-5.2[1m]"
     selection:
