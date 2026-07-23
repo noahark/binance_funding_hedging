@@ -2,12 +2,17 @@
 
 ## Recovery Header
 
-- Active phase: `review_1_packets_prepared_waiting_human_dispatch`.
-- Both parallel tasks implemented (hedge-be Claude-GLM: pytest 785; hedge-fe
-  Kimi: self-check 108). R4 reconciliation: boundaries clean, one finding R4-001
-  (single_amount number→decimal-string) fixed via hedge-fe R4-fix-1, R4 re-check
-  PASS. Evidence head `b773a470` (base `6639b002`), fingerprint recorded,
-  pre-review validator PASS.
+- Active phase: `ACCEPTED + no-ff merged to local main` — round 1 complete.
+- Final: user accepted round 1 (dry-run skeleton); no-ff merged to LOCAL main
+  `1f65042` (NOT pushed). Product head `02bcc24` (base `6639b002`). review-1 both
+  ACCEPT + review-2 Codex ACCEPT + pre-accept PASS. rework 2/3. Three cross-seam
+  drifts caught+fixed (R4-001/F-001/F-007).
+- **Next stage = the real-API round** (user: 直接上真实 api): rebuild the order-
+  parameter model per DI-6 (spot market BUY = quoteOrderQty; DI-4/ADR-2 wrong for
+  forward), real preflight/executor + APP_HEDGE_EXECUTOR=live + global Start +
+  user margin/amount/count risk controls, smooth-open ws gate (DI-1),
+  F-003..F-006, both-mismatched representation. Nothing real authorized yet.
+  See `80-user-acceptance.md` + `design-inputs.md`.
 - Both recon reports done and archived under
   `reports/api-samples/2026-07-hedge-open-live-v1/` (websocket → Sonnet;
   order-endpoints/filters → GPT); decisions locked into DI-1 (option B) and DI-4.
