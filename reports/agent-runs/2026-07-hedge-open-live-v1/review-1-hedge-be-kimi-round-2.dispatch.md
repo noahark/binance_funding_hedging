@@ -1,3 +1,15 @@
+===== DISPATCH RECEIPT =====
+status: done
+target_model: kimi/kimi-code-for-coding
+adapter_cmd: kimi --model kimi-code/kimi-for-coding -p "$(cat reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.prompt.md)"
+executor: human_operator
+started_at: 2026-07-23T07:40:00+08:00
+completed_at: 2026-07-23T07:51:43+08:00
+session_id: be725b2b-8041-4f1c-9059-c16a2de15fbc
+outputs: reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be-round-2.md
+next_dispatch: bookkeeper intake -> ACCEPT -> review-2
+===== END RECEIPT =====
+
 # Dispatch Receipt — review-1 hedge-be round 2 (Kimi)
 
 - Stage `2026-07-hedge-open-live-v1`, Task `hedge-be`, role `first_reviewer`, round 2.

@@ -1,7 +1,8 @@
 {
   "stage_id": "2026-07-hedge-open-live-v1",
-  "status": "review_1",
+  "status": "review_2",
   "rework_count": 1,
+  "review_1_both_accept": "hedge-fe ACCEPT (round-1, b773a470); hedge-be ACCEPT (round-2, bd01eb52 after fix-1). hedge-fe review fingerprint trails status (frontend untouched by fix-1) — to be rebound at pre-accept via authorized_exception or a quick fe re-review.",
   "review_1_round_1": {
     "hedge_fe": "ACCEPT (Claude-GLM, 1 P3 benign)",
     "hedge_be": "REWORK (Kimi): F-001(P1) ?status=all excludes deleted (contract §3.1 seam break, same class as R4-001), F-002(P2) mode=smooth accepted+dispatched; fix-1 dispatched to Claude-GLM",
@@ -81,11 +82,13 @@
       "review_1": {
         "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.prompt.md",
         "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.dispatch.md",
-        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be.md",
+        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be-round-2.md",
+        "round_1_artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be.md",
         "reviewer_provider": "kimi",
         "next_dispatch_executor": "human_operator",
-        "verdict": "REWORK",
-        "findings_summary": "F-001(P1) ?status=all excludes deleted (§3.1 seam break); F-002(P2) mode=smooth accepted+dispatched; 4 P3 = live-round follow-ups",
+        "verdict": "ACCEPT",
+        "verdict_history": "round-1 REWORK (F-001 P1 + F-002 P2) -> fix-1 (Claude-GLM) -> round-2 ACCEPT (fixed, no regression)",
+        "findings_summary": "round-2 ACCEPT; 4 P3 = live-round follow-ups (F-003..006)",
         "fix_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-fix-1.prompt.md",
         "fix_report_path": "reports/agent-runs/2026-07-hedge-open-live-v1/40-fix-1-hedge-be.md",
         "fix_head_sha": "bd01eb52e9ec5464bb9f026f5ce666bc883db441",
@@ -94,7 +97,8 @@
           "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.dispatch.md",
           "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be-round-2.md",
           "reviewer_provider": "kimi",
-          "verdict": null
+          "verdict": "ACCEPT",
+          "session_id": "be725b2b-8041-4f1c-9059-c16a2de15fbc"
         }
       },
       "next_dispatch_executor": "human_operator",
