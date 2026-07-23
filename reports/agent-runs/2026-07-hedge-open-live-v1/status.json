@@ -91,8 +91,10 @@
       "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.prompt.md",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.dispatch.md",
       "review_1": {
-        "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.prompt.md",
-        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.dispatch.md",
+        "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.prompt.md",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.dispatch.md",
+        "round_1_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.prompt.md",
+        "round_1_dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.dispatch.md",
         "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be-round-2.md",
         "round_1_artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be.md",
         "reviewer_provider": "kimi",
