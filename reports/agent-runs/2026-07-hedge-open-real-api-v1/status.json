@@ -255,6 +255,13 @@
   },
   "base_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
   "head_sha": "53831d2c65d9502c289a9aab4899623f2533ef3c",
+  "latest_bookkeeper_checkpoint": {
+    "branch": "stage/2026-07-hedge-open-real-api-v1",
+    "head_sha": "133d286684713f3245d28249e7f9da62ff2d4b1f",
+    "git_status": "clean at dispatch-ready evidence commit",
+    "tests": "dispatch-ready validator passed; harness protocol tests passed 52/52; git diff --check passed",
+    "next_action": "human operator may execute Task A and Task B concurrently from immutable packets"
+  },
   "diff_fingerprint": null,
   "coverage_waypoints": null,
   "changed_files": [
@@ -338,5 +345,5 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/task-B-kimi.prompt.md"
   ],
   "next_action": "Run the dispatch-ready validator, preserve its output, then the human operator may run Task A (Claude-GLM backend) and Task B (Kimi K3 frontend) concurrently from their immutable prompt packets.",
-  "updated_at": "2026-07-23T20:18:17+08:00"
+  "updated_at": "2026-07-23T20:22:29+08:00"
 }
