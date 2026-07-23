@@ -20,10 +20,14 @@
     "dual_hat_disclosure": null
   },
   "parallel_mode": {
-    "enabled": false,
+    "enabled": true,
     "contract": "docs/parallel-development-mode.md",
-    "r10_dispatch_tail_required": false,
-    "r4_diff_reconciliation_required": false
+    "r10_dispatch_tail_required": true,
+    "r4_diff_reconciliation_required": true,
+    "embedded_review": {
+      "enabled": false,
+      "reason": "The Opus breakdown recommends formal cross-review gates without an embedded pre-review loop; the backend is one serial owner and the frontend is independently contract-bound."
+    }
   },
   "embedded_reviews": {},
   "session_receipts": [
@@ -86,6 +90,16 @@
       "unavailable_reason": "Human operator reported no remaining Grok quota; no model execution occurred.",
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/grok-build.unavailable.md",
       "recorded_at": "2026-07-23T19:00:05+08:00"
+    },
+    {
+      "role": "development_breakdown",
+      "provider": "claude",
+      "model": "Claude Opus 4.8",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "Claude Code CLI did not expose a provider-native Session ID in the preserved raw breakdown.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/12-development-breakdown.md",
+      "recorded_at": "2026-07-23T19:57:00+08:00"
     }
   ],
   "designer": {
@@ -103,8 +117,10 @@
   "breakdown_author": {
     "provider": "claude",
     "model": "Claude Opus 4.8",
-    "status": "pending_human_operator_dispatch",
-    "dispatch_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/development-breakdown-dispatch.md"
+    "status": "received",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/development-breakdown-dispatch.md",
+    "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/12-development-breakdown.md",
+    "recorded_at": "2026-07-23T20:02:49+08:00"
   },
   "implementer": null,
   "implementers": [],
@@ -188,6 +204,7 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/10-design.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/11-adr.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/12-development-breakdown.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/development-breakdown-dispatch.md",
     "docs/product/PRD.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/claude-opus-4-8.md",
@@ -247,6 +264,6 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/11-adr.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/codex.md"
   ],
-  "next_action": "Human operator executes development-breakdown-dispatch.md in a fresh Claude Opus 4.8 session and preserves raw output as 12-development-breakdown.md.",
-  "updated_at": "2026-07-23T19:49:06+08:00"
+  "next_action": "User decides whether one-second dispatch is per running task or globally serialized; bookkeeper then freezes task metadata and prepares human-operated implementation dispatch packets.",
+  "updated_at": "2026-07-23T20:05:26+08:00"
 }
