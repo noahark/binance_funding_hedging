@@ -1,10 +1,10 @@
 {
   "active": {
     "stage_id": "2026-07-hedge-open-live-v1",
-    "phase": "fix3_user_clarification_pending_then_review2_round2",
+    "phase": "review_2_round_2_codex_ready_after_fix3",
     "handoff": "reports/agent-runs/2026-07-hedge-open-live-v1/70-handoff.md",
     "note": "Stage 2 live open executor, round-1 dry-run (no real POST). Design/breakdown done; parallel impl hedge-be(Claude-GLM)+hedge-fe(Kimi) done. THREE cross-seam drifts caught+fixed: R4-001 single_amount number/string, F-001 ?status=all excludes deleted (fix-1), F-007 leg_exposure shape (fix-2). review-1 both ACCEPT (fe round-1, be round-2). review-2 round-1 REWORK (F-007) -> fix-2 -> review-2 round-2 packet prepared but NOT yet dispatched. NOW: fix-3 (user clarification, NOT a review REWORK: drop executed-qty check in classify_attempt, both filled -> success) pending; after fix-3 -> re-fingerprint -> dispatch review-2 round-2 (Codex). DI-6: order-parameter model defect (spot market BUY needs quoteOrderQty; DI-4/ADR-2 wrong for forward) DEFERRED to the real-API round (user: 'directly on real api next round'). rework 2/3. Safety: dry-run default, nothing real authorized (APP_HEDGE_EXECUTOR=live + global Start + human first task still required later).",
-    "updated_at": "2026-07-23T08:40:00+08:00"
+    "updated_at": "2026-07-23T09:00:00+08:00"
   },
   "last_completed": "2026-07-hedge-open-fake-ui-v1",
   "note": "Fixed-path active-stage pointer. Stage 1 (hedge-open-fake-ui-v1, front-end fake) was accepted under an explicit user release that waived formal review-2 (Codex + Fable5 out of quota; fresh Opus4.8 declined since it backs the bookkeeper session) on review-1 (Claude-GLM) ACCEPT + green validator + zero-risk fake surface; no-ff merged to LOCAL main at 1aee0fe (recorded 59343f1), NOT pushed. Separately, Boundary C operator follow-up (APP_BORROW_EXECUTOR=live restart + read-only preflight before task deletion) is still pending, tracked in reports/agent-runs/2026-07-real-borrow-boundary-c-v1/70-handoff.md.",
