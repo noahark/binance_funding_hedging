@@ -96,7 +96,7 @@ def test_apply_success_increments_and_completes_at_target(tmp_path):
 def test_apply_single_leg_sets_exposure_and_alert(tmp_path):
     store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
     _create(store, "t1")
-    exposure = {"filled_leg": "spot", "spot": {"filled_qty": "0.5"}, "perp": {"status": "REJECTED"}}
+    exposure = {"leg": "spot", "qty": "0.5", "price": "50000", "ts": "2026-07-22T08:00:00.000000Z"}
     task = store.apply_attempt_outcome(
         "t1",
         _outcome(category=D.ATTEMPT_SINGLE_LEG_EXPOSURE, perp_status=D.LEG_REJECTED,

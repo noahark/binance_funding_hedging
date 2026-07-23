@@ -240,16 +240,38 @@ def test_classify_neither_filled_is_failed():
     assert D.classify_attempt(_leg("REJECTED", "0"), _leg("EXPIRED", "0")) == D.ATTEMPT_FAILED
 
 
-def test_build_leg_exposure_records_filled_leg():
-    exp = D.build_leg_exposure(_leg("FILLED", "0.5"), _leg("REJECTED", "0"), 1)
+def test_build_leg_exposure_spot_only_is_section_3_2_shape():
+    # Frozen §3.2: leg_exposure is null|{leg,qty,price,ts}. Spot-only fill ->
+    # leg="spot" with the spot leg's actual qty/price; the failed perp leg is
+    # NOT carried here (its full detail lives in the Fill JSON, §3.3).
+    exp = D.build_leg_exposure(_leg("FILLED", "0.5", "50000"), _leg("REJECTED", "0"), 1)
     assert exp is not None
-    assert exp["filled_leg"] == "spot"
-    assert exp["spot"]["filled_qty"] == "0.5"
-    assert exp["perp"]["status"] == "REJECTED"
+    assert set(exp.keys()) == {"leg", "qty", "price", "ts"}
+    assert exp["leg"] == "spot"
+    assert exp["qty"] == "0.5"
+    assert exp["price"] == "50000"
+
+
+def test_build_leg_exposure_perp_only_is_section_3_2_shape():
+    # Perp-only fill -> leg="perp" with the perp leg's actual qty/price.
+    exp = D.build_leg_exposure(_leg("REJECTED", "0"), _leg("FILLED", "0.5", "50000"), 1)
+    assert exp is not None
+    assert set(exp.keys()) == {"leg", "qty", "price", "ts"}
+    assert exp["leg"] == "perp"
+    assert exp["qty"] == "0.5"
+    assert exp["price"] == "50000"
 
 
 def test_build_leg_exposure_none_when_neither_filled():
     assert D.build_leg_exposure(_leg("REJECTED", "0"), _leg("REJECTED", "0"), 1) is None
+
+
+def test_build_leg_exposure_none_when_both_filled_mismatched():
+    # Both legs filled with mismatched qtys cannot be represented unambiguously
+    # under §3.2's single {leg,qty,price} field; the full detail stays in the
+    # fills table and the contract gap is escalated (see 40-fix-2-hedge-be.md).
+    # classify_attempt still flags this as single-leg exposure -> exposure_alert.
+    assert D.build_leg_exposure(_leg("FILLED", "0.5"), _leg("FILLED", "0.4"), 1) is None
 
 
 # ---------------------------------------------------------------------------

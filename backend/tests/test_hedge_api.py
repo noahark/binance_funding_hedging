@@ -289,7 +289,9 @@ def test_fill_once_advances_then_done_is_invalid_state(tmp_path):
 
 def test_injected_single_leg_exposure_blocks_further_fill(tmp_path):
     # The record-transport executor is injectable: seed a single-leg fill so the
-    # exposure drill is reachable end-to-end over HTTP.
+    # exposure drill is reachable end-to-end over HTTP. Frozen §3.2 requires the
+    # Task response's leg_exposure to be {leg,qty,price,ts}; spot-only fill ->
+    # leg="spot" with the spot leg's actual qty/price (dry-run placeholder price).
     exe = RecordTransportExecutor([OutcomeSpec.spot_only_filled()])
     with _server(_svc(tmp_path, executor=exe)) as (host, port):
         tid = _create_task(host, port)["id"]
@@ -297,7 +299,30 @@ def test_injected_single_leg_exposure_blocks_further_fill(tmp_path):
         assert status == 200
         doc = _json(payload)
         assert doc["status"] == "exposure_alert"
-        assert doc["leg_exposure"]["filled_leg"] == "spot"
+        assert set(doc["leg_exposure"].keys()) == {"leg", "qty", "price", "ts"}
+        assert doc["leg_exposure"]["leg"] == "spot"
+        assert doc["leg_exposure"]["qty"] == "0.5"
+        assert doc["leg_exposure"]["price"] == "1"  # dry-run placeholder, no preflight
+        # a further fill while exposed -> invalid_state.
+        status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
+        assert status == 409
+        assert _json(payload)["error"] == "invalid_state"
+
+
+def test_injected_perp_only_exposure_http_shape(tmp_path):
+    # §3.2 HTTP regression for the other single-leg direction: perp-only fill ->
+    # leg="perp" with the perp leg's actual qty/price, not the failed spot leg.
+    exe = RecordTransportExecutor([OutcomeSpec.perp_only_filled()])
+    with _server(_svc(tmp_path, executor=exe)) as (host, port):
+        tid = _create_task(host, port)["id"]
+        status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
+        assert status == 200
+        doc = _json(payload)
+        assert doc["status"] == "exposure_alert"
+        assert set(doc["leg_exposure"].keys()) == {"leg", "qty", "price", "ts"}
+        assert doc["leg_exposure"]["leg"] == "perp"
+        assert doc["leg_exposure"]["qty"] == "0.5"
+        assert doc["leg_exposure"]["price"] == "1"  # dry-run placeholder, no preflight
         # a further fill while exposed -> invalid_state.
         status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
         assert status == 409

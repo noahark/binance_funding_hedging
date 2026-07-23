@@ -182,7 +182,10 @@ def test_injected_single_leg_exposure_drills_alert(tmp_path):
     out = svc.post_fill_once(doc["id"])[1]
     assert out["status"] == D.STATUS_EXPOSURE_ALERT
     assert out["leg_exposure"] is not None
-    assert out["leg_exposure"]["filled_leg"] == "spot"
+    assert set(out["leg_exposure"].keys()) == {"leg", "qty", "price", "ts"}
+    assert out["leg_exposure"]["leg"] == "spot"
+    assert out["leg_exposure"]["qty"] == "0.5"
+    assert out["leg_exposure"]["price"] == "1"  # dry-run placeholder (no preflight)
     # a second fill on an exposure-alert task -> invalid_state.
     with pytest.raises(D.HedgeError):
         svc.post_fill_once(doc["id"])

@@ -533,32 +533,33 @@ def classify_attempt(spot_leg: dict | None, perp_leg: dict | None) -> str:
 
 
 def build_leg_exposure(spot_leg: dict | None, perp_leg: dict | None, ts_us: int) -> dict | None:
-    """Build the persisted ``leg_exposure`` document for a single-leg event.
+    """Build the persisted ``leg_exposure`` document (frozen §3.2 shape).
 
-    Records the leg that filled vs the leg that did not, with each leg's actual
-    qty/price/order id, so an operator can see the real exposure. ``None`` when
-    neither leg filled (a plain failure, not an exposure).
+    Emits ``{leg, qty, price, ts}`` for a single-leg event: the one leg that
+    filled, with that leg's actual filled quantity and average price. ``leg`` is
+    ``"spot"`` when only the spot leg filled, ``"perp"`` when only the perp leg
+    filled. ``qty``/``price`` are decimal strings, matching the Fill JSON (§3.3).
+
+    Returns ``None`` when neither leg filled (a plain failure, not an exposure),
+    and also when both legs filled with mismatched quantities: §3.2's single
+    ``leg`` field cannot represent a dual-leg mismatch without ambiguity, so the
+    full detail stays in the fills table (§3.3) and the gap is escalated for
+    contract handling rather than silently misrepresented here (see
+    40-fix-2-hedge-be.md). The task still pauses via ``exposure_alert`` either
+    way, driven by ``classify_attempt``.
     """
     spot_filled = leg_is_filled(spot_leg)
     perp_filled = leg_is_filled(perp_leg)
     if not (spot_filled or perp_filled):
         return None
+    if spot_filled and perp_filled:
+        return None
 
-    def _leg_doc(leg: dict | None, filled: bool) -> dict:
-        leg = leg or {}
-        return {
-            "status": leg.get("status", LEG_UNKNOWN),
-            "filled_qty": str(leg.get("filled_qty", "0")),
-            "avg_price": str(leg.get("avg_price", "0")) if leg.get("avg_price") is not None else None,
-            "order_id": leg.get("order_id"),
-        }
-
+    leg = (spot_leg if spot_filled else perp_leg) or {}
     return {
-        "filled_leg": "spot" if spot_filled and not perp_filled else (
-            "perp" if perp_filled and not spot_filled else "both_mismatched"
-        ),
-        "spot": _leg_doc(spot_leg, spot_filled),
-        "perp": _leg_doc(perp_leg, perp_filled),
+        "leg": "spot" if spot_filled else "perp",
+        "qty": str(leg.get("filled_qty", "0")),
+        "price": str(leg.get("avg_price")) if leg.get("avg_price") is not None else None,
         "ts": us_to_iso(ts_us),
     }
 

@@ -135,14 +135,21 @@ def test_seed_spot_only_filled_is_single_leg_exposure():
     out = exe.execute(_ctx())
     assert out.category == D.ATTEMPT_SINGLE_LEG_EXPOSURE
     assert out.exposure is not None
-    assert out.exposure["filled_leg"] == "spot"
+    assert set(out.exposure.keys()) == {"leg", "qty", "price", "ts"}
+    assert out.exposure["leg"] == "spot"
+    assert out.exposure["qty"] == "0.5"
+    assert out.exposure["price"] == "50000"
 
 
 def test_seed_perp_only_filled_is_single_leg_exposure():
     exe = RecordTransportExecutor([OutcomeSpec.perp_only_filled()])
     out = exe.execute(_ctx())
     assert out.category == D.ATTEMPT_SINGLE_LEG_EXPOSURE
-    assert out.exposure["filled_leg"] == "perp"
+    assert out.exposure is not None
+    assert set(out.exposure.keys()) == {"leg", "qty", "price", "ts"}
+    assert out.exposure["leg"] == "perp"
+    assert out.exposure["qty"] == "0.5"
+    assert out.exposure["price"] == "50000"
 
 
 def test_seed_both_failed_is_failed():
@@ -156,6 +163,9 @@ def test_seed_qty_mismatch_is_single_leg_exposure():
     exe = RecordTransportExecutor([OutcomeSpec.qty_mismatch(Decimal("0.5"), Decimal("0.4"))])
     out = exe.execute(_ctx())
     assert out.category == D.ATTEMPT_SINGLE_LEG_EXPOSURE
+    # §3.2 cannot represent a dual-leg mismatch; leg_exposure is null and the
+    # gap is escalated (see 40-fix-2-hedge-be.md). Status still -> exposure_alert.
+    assert out.exposure is None
 
 
 def test_seeds_consumed_in_order_then_balanced():
