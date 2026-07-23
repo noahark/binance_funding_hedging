@@ -1148,6 +1148,8 @@
           <div id="hedge-task-filters" style="margin-bottom: var(--space-3);"></div>
           <div class="status-banner error" id="hedge-tasks-error" style="display:none; margin-bottom: var(--space-3);"></div>
           <div class="borrow-task-list" id="hedge-task-list"></div>
+          <div class="status-banner error" id="hedge-attempts-error" style="display:none; margin-top: var(--space-3);"></div>
+          <div id="hedge-attempt-list" style="margin-top: var(--space-4);"></div>
         </div>
       </section>
     </main>
@@ -1249,6 +1251,10 @@
         hedgePositions: [],
         hedgeSettings: null,
         hedgeModal: null,
+        // attempt 时间线（2026-07-hedge-open-real-api-v1，12-breakdown §3.4）：
+        // GET /api/hedge-open-logs 返回中 attempt 形状文档的渲染缓存，后端是唯一权威。
+        hedgeAttempts: [],
+        hedgeAttemptsError: null,
         // 开单任务筛选（对齐借币任务）：默认「执行中」；删除为软删除（status='deleted'）。
         hedgeTaskFilter: 'running'
       };
@@ -1314,6 +1320,8 @@
         hedgeExecutionBadge: document.getElementById('hedge-execution-badge'),
         hedgeExecutionDetail: document.getElementById('hedge-execution-detail'),
         hedgeTasksError: document.getElementById('hedge-tasks-error'),
+        hedgeAttemptList: document.getElementById('hedge-attempt-list'),
+        hedgeAttemptsError: document.getElementById('hedge-attempts-error'),
         hedgeModal: document.getElementById('hedge-modal'),
         hedgeModalBackdrop: document.getElementById('hedge-modal-backdrop'),
         hedgeModalTitle: document.getElementById('hedge-modal-title'),
@@ -3262,6 +3270,24 @@
       const HEDGE_TASK_FILTER_LABELS = {
         all: '全部', running: '执行中', paused: '已暂停', deleted: '已删除', done: '已完成'
       };
+      // real-api-v1（12-breakdown §3.4）：pair_outcome / pause_reason 仅做中文标签映射，
+      // 未收录的取值原样展示，前端不发明后端语义。
+      const HEDGE_PAIR_OUTCOME_LABELS = {
+        accepted_pair: '已受理', confirmed_failed: '已确认失败', querying: '查询中'
+      };
+      const HEDGE_PAIR_OUTCOME_BADGE = {
+        accepted_pair: 'success', confirmed_failed: 'danger', querying: 'info'
+      };
+      const HEDGE_PAUSE_REASON_LABELS = {
+        consecutive_submission_failure: '连续提交失败达到阈值'
+      };
+
+      // 十进制字符串/计数原样展示（§3.4 Decimal 均为字符串）：不经过 JavaScript 浮点，
+      // 缺失/空值降级为 '—'。调用侧负责 escapeHtml。
+      function hedgeText(v) {
+        if (v === null || v === undefined || v === '') return '—';
+        return String(v);
+      }
 
       // 契约数值字段兼容数字与十进制字符串；无法解析 → NaN → 格式化显示 '—'。
       function hedgeNum(v) {
@@ -3396,6 +3422,7 @@
         }
         await loadHedgeTasks();
         await loadHedgePositions();
+        await loadHedgeAttempts();
         return { ok: true, task: doc };
       }
 
@@ -3608,6 +3635,12 @@
         const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
         const fillDisabled = inactive ? ' disabled' : '';
         const idAttr = escapeHtml(task.id);
+        // real-api-v1 增量计数（12-breakdown §3.4，字段缺失时逐项降级为 —）：
+        // 已调度组数 / 已受理组数 / 连续提交失败 vs 任务快照阈值；pause_reason 仅展示不推断。
+        const countersLine = `<div>已调度 <strong>${hedgeText(task.scheduled_attempt_count)}</strong> 组 · 已受理 <strong>${hedgeText(task.accepted_pair_count)}</strong> 组 · 连续提交失败 <strong>${hedgeText(task.consecutive_submission_failures)}</strong> / 暂停阈值 <strong>${hedgeText(task.failure_pause_threshold)}</strong></div>`;
+        const pauseReasonLine = task.pause_reason
+          ? `<div class="borrow-task-note">暂停原因：${escapeHtml(HEDGE_PAUSE_REASON_LABELS[task.pause_reason] || String(task.pause_reason))}</div>`
+          : '';
         return `
           <div class="borrow-task-card" data-hedge-task-id="${idAttr}">
             <div class="borrow-task-head">
@@ -3619,8 +3652,10 @@
             <div class="borrow-task-lines">
               <div>单次币量：<strong>${formatMockPrice(hedgeNum(task.single_amount))}</strong> · 目标次数：<strong>${task.target_n}</strong></div>
               <div>公共网格量：<strong>${task.q_common != null ? formatMockPrice(hedgeNum(task.q_common)) : '—'}</strong> · 已成功 <strong>${task.success_count} / ${task.target_n}</strong> · 失败 <strong>${task.fail_count} / 3</strong></div>
+              ${countersLine}
               ${exposureLine}
               ${terminatedLine}
+              ${pauseReasonLine}
             </div>
             <div class="borrow-task-controls">
               <button class="btn compact action-pause" type="button" data-hedge-action="pause" data-task-id="${idAttr}"${pauseDisabled}>暂停</button>
@@ -3712,6 +3747,120 @@
           </div>`;
       }
 
+      // ---- attempt 时间线（2026-07-hedge-open-real-api-v1，12-breakdown §3.4） ----
+      // 数据源为既有 GET /api/hedge-open-logs（路由表不变；attempt 文档由后端在该读接口
+      // 下增量携带）。提取对信封宽容：扫描 attempts / fills / logs / entries 数组，条目
+      // 自身或其 payload 为 attempt 形状（attempt_seq / pair_outcome / spot / perp 对象）
+      // 即采纳；其余日志条目忽略。字段缺失逐项降级，绝不补造。
+      function isHedgeAttemptShaped(obj) {
+        return Boolean(obj) && typeof obj === 'object' && (
+          obj.attempt_seq !== undefined || obj.pair_outcome !== undefined ||
+          (obj.spot !== null && typeof obj.spot === 'object') ||
+          (obj.perp !== null && typeof obj.perp === 'object')
+        );
+      }
+
+      function normalizeHedgeAttempt(item) {
+        if (!item || typeof item !== 'object') return null;
+        let src = item;
+        if (!isHedgeAttemptShaped(src) && src.payload && typeof src.payload === 'object' && isHedgeAttemptShaped(src.payload)) {
+          src = Object.assign({ task_id: item.task_id }, src.payload);
+        }
+        if (!isHedgeAttemptShaped(src)) return null;
+        return {
+          task_id: typeof src.task_id === 'string' ? src.task_id : null,
+          attempt_id: src.attempt_id !== undefined && src.attempt_id !== null ? String(src.attempt_id) : null,
+          attempt_seq: src.attempt_seq !== undefined ? src.attempt_seq : null,
+          direction: src.direction,
+          q_common: src.q_common,
+          pair_outcome: src.pair_outcome !== undefined ? src.pair_outcome : null,
+          spot: src.spot && typeof src.spot === 'object' ? src.spot : null,
+          perp: src.perp && typeof src.perp === 'object' ? src.perp : null,
+          residual: src.residual,
+          ts: src.ts
+        };
+      }
+
+      function extractHedgeAttempts(doc) {
+        const out = [];
+        if (!doc || typeof doc !== 'object') return out;
+        [doc.attempts, doc.fills, doc.logs, doc.entries].forEach(list => {
+          if (!Array.isArray(list)) return;
+          list.forEach(item => {
+            const attempt = normalizeHedgeAttempt(item);
+            if (attempt) out.push(attempt);
+          });
+        });
+        return out;
+      }
+
+      async function loadHedgeAttempts() {
+        try {
+          const doc = await hedgeApi('/api/hedge-open-logs?limit=100');
+          state.hedgeAttempts = extractHedgeAttempts(doc);
+          state.hedgeAttemptsError = null;
+        } catch (err) {
+          state.hedgeAttemptsError = err.message || '尝试记录加载失败';
+        }
+        if (state.activeView === 'hedge-tasks') renderHedgeAttempts();
+      }
+
+      // 单腿渲染：订单号 / 状态 / 累计数量 / 累计成交额 / 加权均价 /（现货）手续费，
+      // 全部逐字展示后端十进制字符串，缺失项降级为 —。
+      function renderHedgeAttemptLeg(label, leg) {
+        const l = leg || {};
+        const feeText = l.fee_amount !== undefined && l.fee_amount !== null
+          ? ` · 手续费 ${escapeHtml(hedgeText(l.fee_amount))} ${escapeHtml(hedgeText(l.fee_asset))}`
+          : '';
+        return `<div>${label}：订单号 <span class="mono">${escapeHtml(hedgeText(l.order_id))}</span> · 客户单号 <span class="mono">${escapeHtml(hedgeText(l.client_order_id))}</span> · 状态 ${escapeHtml(hedgeText(l.status))} · 累计数量 <span class="mono">${escapeHtml(hedgeText(l.cumulative_base_qty))}</span> · 累计成交额 <span class="mono">${escapeHtml(hedgeText(l.cumulative_quote_amt))}</span> · 加权均价 <span class="mono">${escapeHtml(hedgeText(l.avg_price))}</span>${feeText}</div>`;
+      }
+
+      function renderHedgeAttemptCard(attempt) {
+        const dirLabel = attempt.direction === 'forward' ? '正向' : attempt.direction === 'reverse' ? '反向' : hedgeText(attempt.direction);
+        const outcomeLabel = attempt.pair_outcome
+          ? (HEDGE_PAIR_OUTCOME_LABELS[attempt.pair_outcome] || String(attempt.pair_outcome))
+          : '—';
+        const outcomeBadge = HEDGE_PAIR_OUTCOME_BADGE[attempt.pair_outcome] || 'muted';
+        const linkedTask = attempt.task_id ? findHedgeTask(attempt.task_id) : null;
+        const taskLabel = linkedTask ? escapeHtml(linkedTask.coin) : escapeHtml(hedgeText(attempt.task_id));
+        return `
+          <div class="borrow-task-card">
+            <div class="borrow-task-head">
+              <h3>第 ${escapeHtml(hedgeText(attempt.attempt_seq))} 组</h3>
+              <span class="badge info">${escapeHtml(dirLabel)}</span>
+              <span class="badge ${outcomeBadge}">${escapeHtml(outcomeLabel)}</span>
+              <span class="muted small">任务 ${taskLabel} · ${escapeHtml(hedgeText(attempt.ts))}</span>
+            </div>
+            <div class="borrow-task-lines">
+              <div>公共网格量：<strong class="mono">${escapeHtml(hedgeText(attempt.q_common))}</strong> · 残差 residual：<strong class="mono">${escapeHtml(hedgeText(attempt.residual))}</strong></div>
+              ${renderHedgeAttemptLeg('现货腿', attempt.spot)}
+              ${renderHedgeAttemptLeg('合约腿', attempt.perp)}
+            </div>
+          </div>`;
+      }
+
+      function renderHedgeAttempts() {
+        if (!els.hedgeAttemptList) return;
+        if (els.hedgeAttemptsError) {
+          els.hedgeAttemptsError.style.display = state.hedgeAttemptsError ? '' : 'none';
+          els.hedgeAttemptsError.textContent = state.hedgeAttemptsError || '';
+        }
+        const attempts = state.hedgeAttempts;
+        if (attempts.length === 0) {
+          els.hedgeAttemptList.innerHTML = `
+            <div class="account-section">
+              <h3>尝试时间线</h3>
+              <div class="empty-state"><span class="muted small">暂无尝试记录；任务发出开单组后按组展示两腿订单与成交累计</span></div>
+            </div>`;
+          return;
+        }
+        els.hedgeAttemptList.innerHTML = `
+          <div class="account-section">
+            <h3>尝试时间线</h3>
+            <div class="borrow-task-list">${attempts.map(a => renderHedgeAttemptCard(a)).join('')}</div>
+          </div>`;
+      }
+
       function setActiveView(view) {
         state.activeView = (view === 'borrow-tasks' || view === 'hedge-tasks') ? view : 'market';
         const isBorrow = state.activeView === 'borrow-tasks';
@@ -3748,13 +3897,15 @@
           if (state.borrowTab === 'logs') loadBorrowLogs(true);
         } else if (isHedge) {
           // 进入开单任务页：默认选中「执行中」（对齐借币任务默认「借币中」）。
-          // 先用缓存渲染一帧，同时拉取后端任务列表 / 持仓 / 执行设置（§3 冻结契约）。
+          // 先用缓存渲染一帧，同时拉取后端任务列表 / 持仓 / 执行设置 / 尝试时间线（§3 冻结契约）。
           state.hedgeTaskFilter = 'running';
           renderHedgeTasks();
           renderHedgeExecutionStatus(state.hedgeSettings);
+          renderHedgeAttempts();
           loadHedgeTasks();
           loadHedgePositions();
           loadHedgeSettings();
+          loadHedgeAttempts();
         }
       }
 
@@ -3999,7 +4150,11 @@
         loadHedgeTasks,
         loadHedgePositions,
         loadHedgeSettings,
+        loadHedgeAttempts,
         renderHedgeTasks,
+        renderHedgeAttempts,
+        extractHedgeAttempts,
+        getHedgeAttempts: () => state.hedgeAttempts,
         renderPrivatePanel,
         closeHedgeModal,
         setHedgeTaskFilter,
@@ -4013,6 +4168,8 @@
           state.hedgeTasksError = null;
           state.hedgePositions = [];
           state.hedgeSettings = null;
+          state.hedgeAttempts = [];
+          state.hedgeAttemptsError = null;
           updateHedgeTaskNav();
         }
       };

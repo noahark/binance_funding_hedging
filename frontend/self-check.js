@@ -160,6 +160,7 @@ const ids = [
   'borrow-execution-badge', 'borrow-execution-start', 'borrow-execution-stop', 'borrow-execution-detail',
   'nav-hedge-tasks', 'hedge-task-count', 'hedge-task-view', 'hedge-task-list', 'hedge-task-filters',
   'hedge-execution-badge', 'hedge-execution-detail', 'hedge-tasks-error',
+  'hedge-attempt-list', 'hedge-attempts-error',
   'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
@@ -407,12 +408,15 @@ let hedgeTasksPostResponse = null;
 let hedgeActionResponses = {};
 let hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'disabled', start_gate: false, interval_seconds: 1 } };
 let hedgePositionsGetResponse = { status: 200, body: { positions: [] } };
+// real-api-v1：attempt 时间线数据源（既有 GET /api/hedge-open-logs，路由表不变）。
+let hedgeLogsGetResponse = { status: 200, body: { logs: [], next_cursor: null } };
 
 function mockHedge503() {
   return { status: 503, body: { error: 'hedge_service_unavailable', detail: 'mock 未设置该路由响应' } };
 }
 
-// §3.2 Task JSON 冻结字段名（含 round-2 新增 q_common / leg_exposure / position_side_mode）。
+// §3.2 Task JSON 冻结字段名（含 round-2 新增 q_common / leg_exposure / position_side_mode，
+// 及 real-api-v1 §3.4 新增计数/阈值/暂停原因字段）。
 function mockHedgeTask(overrides) {
   return Object.assign({
     id: 'h-1',
@@ -427,8 +431,45 @@ function mockHedgeTask(overrides) {
     q_common: 0.5,
     position_side_mode: 'BOTH',
     leg_exposure: null,
+    scheduled_attempt_count: 0,
+    accepted_pair_count: 0,
+    consecutive_submission_failures: 0,
+    failure_pause_threshold: 3,
+    pause_reason: null,
     created_at: '2026-07-22T08:00:00.000000Z',
     updated_at: '2026-07-22T08:00:00.000000Z'
+  }, overrides || {});
+}
+
+// real-api-v1 §3.4 per-attempt 冻结文档形状（Decimal 均为字符串）。
+function mockHedgeAttempt(overrides) {
+  return Object.assign({
+    task_id: 'h-1',
+    attempt_id: 'att-1',
+    attempt_seq: 1,
+    direction: 'forward',
+    q_common: '0.003',
+    pair_outcome: 'accepted_pair',
+    spot: {
+      client_order_id: 'hgo-att1-s',
+      order_id: '9001',
+      status: 'FILLED',
+      cumulative_base_qty: '0.003',
+      cumulative_quote_amt: '0.36210000',
+      avg_price: '120.70000000',
+      fee_amount: '0.00000010',
+      fee_asset: 'BNB'
+    },
+    perp: {
+      client_order_id: 'hgo-att1-p',
+      order_id: '9002',
+      status: 'FILLED',
+      cumulative_base_qty: '0.003',
+      cumulative_quote_amt: '0.36210900',
+      avg_price: '120.70300000'
+    },
+    residual: '0',
+    ts: '2026-07-23T12:00:01.000000Z'
   }, overrides || {});
 }
 
@@ -541,6 +582,10 @@ global.fetch = async (url, options) => {
   }
   if (urlStr === '/api/hedge-open-positions' && method === 'GET') {
     return buildFetchResponse(hedgePositionsGetResponse || mockHedge503());
+  }
+  // real-api-v1：attempt 时间线读取（既有 logs 路由，GET，支持 ?limit=/cursor 参数）。
+  if (urlStr.startsWith('/api/hedge-open-logs') && method === 'GET') {
+    return buildFetchResponse(hedgeLogsGetResponse || mockHedge503());
   }
   throw new Error(`Unexpected fetch URL: ${urlStr} (${method})`);
 };
@@ -3758,7 +3803,131 @@ setTimeout(async () => {
       console.log('[PASS] 执行徽标：executor_mode disabled→dry-run / live + start_gate Start 状态');
     }
 
-    // 84. 开单 API 全部同源相对路径、零跨域 fetch
+    // 84. real-api-v1 任务卡新字段（§3.4）：调度/受理计数、连续失败 vs 阈值、暂停原因；
+    //     字段缺失时逐项降级为 —，不崩溃
+    {
+      helpers.resetHedgeStateForTest();
+      const richTask = mockHedgeTask({
+        id: 'h-new-1', coin: 'DUSDT', status: 'paused',
+        scheduled_attempt_count: 7, accepted_pair_count: 6,
+        consecutive_submission_failures: 3, failure_pause_threshold: 3,
+        pause_reason: 'consecutive_submission_failure'
+      });
+      // 旧后端文档：完全没有 real-api-v1 新字段
+      const legacyTask = {
+        id: 'h-legacy-1', coin: 'EUSDT', direction: 'reverse', mode: 'immediate',
+        single_amount: 0.5, target_n: 3, success_count: 0, fail_count: 0,
+        status: 'running', q_common: 0.5, position_side_mode: 'BOTH', leg_exposure: null,
+        created_at: '2026-07-22T08:00:00.000000Z', updated_at: '2026-07-22T08:00:00.000000Z'
+      };
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [richTask, legacyTask] } };
+      await helpers.loadHedgeTasks();
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTaskFilter('all');
+      const cards = elements['hedge-task-list'].innerHTML;
+      const richStart = cards.indexOf('data-hedge-task-id="h-new-1"');
+      const legacyStart = cards.indexOf('data-hedge-task-id="h-legacy-1"');
+      if (richStart === -1 || legacyStart === -1) throw new Error('缺少新字段/旧字段任务卡');
+      const richCard = cards.slice(richStart, legacyStart);
+      const legacyCard = cards.slice(legacyStart);
+      for (const piece of ['已调度 <strong>7</strong> 组', '已受理 <strong>6</strong> 组',
+        '连续提交失败 <strong>3</strong>', '暂停阈值 <strong>3</strong>',
+        '暂停原因：连续提交失败达到阈值']) {
+        if (!richCard.includes(piece)) throw new Error(`新字段任务卡缺少「${piece}」: ${richCard}`);
+      }
+      // 旧文档降级：四个新字段全部为 —，且不出现暂停原因行、不抛错
+      for (const piece of ['已调度 <strong>—</strong> 组', '已受理 <strong>—</strong> 组',
+        '连续提交失败 <strong>—</strong>', '暂停阈值 <strong>—</strong>']) {
+        if (!legacyCard.includes(piece)) throw new Error(`旧字段任务卡应降级为 —（${piece}）: ${legacyCard}`);
+      }
+      if (legacyCard.includes('暂停原因')) throw new Error('pause_reason 缺失时不应渲染暂停原因行');
+      helpers.setActiveView('market');
+      console.log('[PASS] 任务卡 real-api-v1 新字段：调度/受理/连续失败/阈值渲染 + 暂停原因 + 旧文档逐项降级 —');
+    }
+
+    // 85. attempt 时间线（§3.4）：logs 路由取数、两腿订单号/状态/累计/均价/手续费逐字渲染、
+    //     payload 内嵌兼容、非 attempt 日志忽略、十进制字符串零浮点重排
+    {
+      helpers.resetHedgeStateForTest();
+      const task = mockHedgeTask({ id: 'h-att-1', coin: 'AUSDT' });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [task] } };
+      await helpers.loadHedgeTasks();
+      const attemptA = mockHedgeAttempt({ task_id: 'h-att-1', attempt_seq: 2, residual: '0.00000100' });
+      const attemptB = mockHedgeAttempt({
+        task_id: 'h-att-1', attempt_id: 'att-2', attempt_seq: 1, direction: 'reverse',
+        pair_outcome: 'querying', residual: '-0.00010000',
+        spot: {
+          client_order_id: 'hgo-att2-s', order_id: null, status: 'NEW',
+          cumulative_base_qty: '0.00000000', cumulative_quote_amt: '0.00000000', avg_price: '0'
+        },
+        perp: null
+      });
+      hedgeLogsGetResponse = { status: 200, body: {
+        logs: [
+          // 直接 attempt 形状条目
+          attemptA,
+          // payload 内嵌 attempt 文档（logs 条目包装）
+          { id: 99, task_id: 'h-att-1', ts: '2026-07-23T12:00:00.000000Z', attempt_id: 'att-2', kind: 'attempt', payload: attemptB },
+          // 非 attempt 日志条目：必须被忽略
+          { id: 98, task_id: 'h-att-1', ts: '2026-07-23T11:59:00.000000Z', attempt_id: null, kind: 'info', payload: { message: 'scheduler tick' } }
+        ],
+        next_cursor: null
+      } };
+      const markAtt = fetchCallLog.length;
+      await helpers.loadHedgeAttempts();
+      const attCall = fetchCallLog.slice(markAtt).find(c => c.url.includes('hedge-open-logs'));
+      if (!attCall || attCall.url !== '/api/hedge-open-logs?limit=100' || attCall.method !== 'GET') {
+        throw new Error(`尝试时间线应 GET /api/hedge-open-logs?limit=100: ${JSON.stringify(attCall)}`);
+      }
+      if (helpers.getHedgeAttempts().length !== 2) {
+        throw new Error(`应提取 2 条 attempt（忽略非 attempt 日志），实际 ${helpers.getHedgeAttempts().length}`);
+      }
+      helpers.setActiveView('hedge-tasks');
+      const timeline = elements['hedge-attempt-list'].innerHTML;
+      // 十进制字符串逐字：任何浮点重排都会改变这些字面量
+      for (const piece of ['尝试时间线', '第 2 组', '第 1 组', '正向', '反向', '已受理', '查询中',
+        '0.003', 'hgo-att1-s', 'hgo-att1-p', '9001', '9002', 'FILLED',
+        '0.36210000', '120.70000000', '0.00000010', 'BNB',
+        '0.00000100', '-0.00010000', 'hgo-att2-s', 'NEW', '0.00000000',
+        '现货腿', '合约腿', '加权均价', '累计成交额', '手续费', '残差 residual']) {
+        if (!timeline.includes(piece)) throw new Error(`attempt 时间线缺少「${piece}」`);
+      }
+      // perp 腿缺失（null）：降级为 — 且不崩溃
+      if (!timeline.includes('订单号 <span class="mono">—</span>')) {
+        throw new Error('缺失腿文档应降级为 —');
+      }
+      // 关联任务币种标签（task_id → 任务卡 coin）
+      if (!timeline.includes('任务 AUSDT')) throw new Error('attempt 应标注关联任务币种');
+      helpers.setActiveView('market');
+      console.log('[PASS] attempt 时间线：logs 取数 + 两腿字段逐字渲染 + payload 内嵌兼容 + 非 attempt 忽略 + 缺腿降级');
+    }
+
+    // 86. attempt 时间线降级：空记录空态、503 错误横幅不崩溃
+    {
+      helpers.resetHedgeStateForTest();
+      hedgeLogsGetResponse = { status: 200, body: { logs: [], next_cursor: null } };
+      await helpers.loadHedgeAttempts();
+      helpers.setActiveView('hedge-tasks');
+      if (!elements['hedge-attempt-list'].innerHTML.includes('暂无尝试记录')) {
+        throw new Error('空 attempt 应渲染空态');
+      }
+      if (elements['hedge-attempts-error'].style.display !== 'none') {
+        throw new Error('空记录不应显示错误横幅');
+      }
+      hedgeLogsGetResponse = { status: 503, body: { error: 'hedge_service_unavailable', detail: 'mock 故障' } };
+      await helpers.loadHedgeAttempts();
+      if (elements['hedge-attempts-error'].style.display === 'none') {
+        throw new Error('logs 503 应显示错误横幅');
+      }
+      if (!elements['hedge-attempts-error'].textContent) throw new Error('错误横幅应有文案');
+      // 恢复默认，避免污染后续块
+      hedgeLogsGetResponse = { status: 200, body: { logs: [], next_cursor: null } };
+      await helpers.loadHedgeAttempts();
+      helpers.setActiveView('market');
+      console.log('[PASS] attempt 时间线降级：空态 + 503 错误横幅 + 恢复');
+    }
+
+    // 87. 开单 API 全部同源相对路径、零跨域 fetch
     {
       const hedgeCalls = fetchCallLog.filter(c => c.url.includes('/api/hedge-open'));
       if (hedgeCalls.length === 0) throw new Error('应有开单 API 调用记录');
@@ -3786,7 +3955,9 @@ setTimeout(async () => {
         /^\/api\/hedge-open-tasks\?status=/,
         /^\/api\/hedge-open-tasks\/[^/]+\/(pause|start|delete|fill-once|fill-all)$/,
         /^\/api\/hedge-open-settings$/,
-        /^\/api\/hedge-open-positions$/
+        /^\/api\/hedge-open-positions$/,
+        // real-api-v1：attempt 时间线经既有 logs 路由读取（同源、GET）。
+        /^\/api\/hedge-open-logs\?/
       ];
       for (const c of fetchCallLog) {
         if (/binance/i.test(c.url)) {
@@ -3821,6 +3992,8 @@ setTimeout(async () => {
           if (c.method !== 'POST') throw new Error(`开单任务动作路由非法方法 ${c.method}`);
         } else if (c.url === '/api/hedge-open-settings' || c.url === '/api/hedge-open-positions') {
           if (c.method !== 'GET') throw new Error(`开单设置/持仓路由非法方法 ${c.method}`);
+        } else if (c.url.startsWith('/api/hedge-open-logs')) {
+          if (c.method !== 'GET') throw new Error(`开单日志路由非法方法 ${c.method}`);
         } else if (c.method !== 'GET') {
           throw new Error(`只读路由非法方法 ${c.method}: ${c.url}`);
         }
