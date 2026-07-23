@@ -35,6 +35,55 @@ stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
 phase=checkpoint
 status=planned
 
+===== panel completion and user-policy intake checks (2026-07-23 19:00:05 CST) =====
+Command: sha256sum reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/codex.md
+Result: PASS
+ac55ce31611ac1261c437b728dbdd1bc9535f25ea06cae42de3a20170f68fea8
+
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0; stage status parses)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+No product-code tests were run: this checkpoint records direction-panel evidence
+and the user-approved-in-discussion execution-policy input.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 19:00:05 CST
+下一步模型: bookkeeper
+下一步任务: present 06-direction-synthesis.md to the user for approval
+
+===== direction-synthesis checkpoint (2026-07-23 19:05:44 CST) =====
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0; stage status parses)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 19:05:44 CST
+下一步模型: human
+下一步任务: approve or edit 06-direction-synthesis.md before detailed stage design
+
 ===== direction-draft intake integrity checks (2026-07-23 16:45:40 CST) =====
 Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
 Result: PASS (exit 0; stage status parses)

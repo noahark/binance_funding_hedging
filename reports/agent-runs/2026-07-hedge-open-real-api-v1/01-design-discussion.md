@@ -184,9 +184,27 @@ This recommendation does not change the user's goal of using the real API; it
 separates read-only/live-market truth from irreversible order placement so the
 risk parameters and reconciliation semantics are proven first.
 
+## Later User Policy Supersession — 2026-07-23
+
+This document preserves the earlier discussion chronology. Its earlier
+recommendations to pause on partial/unresolved results, block the next attempt,
+apply numeric caps, or defer the real POST adapter are superseded where they
+conflict with the latest user policy recorded in
+`04-user-execution-policy.md` and `status.json.scope_decisions`:
+
+- immediate mode sends one fixed-`q_common` concurrent pair every second;
+- returned `orderId` values are persisted and queried to terminal status;
+- actual fills are accumulated for weighted average accounting, not used as a
+  current hedge-equality or cadence gate; and
+- a configurable consecutive confirmed-failure threshold defaults to three and
+  pauses future opening once reached.
+
+Historical analysis remains useful for filters, endpoint facts, and the need to
+query ambiguous responses by client ID without blindly retransmitting a POST.
+
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/01-design-discussion.md
-本地北京时间: 2026-07-23 14:29:44 CST
-下一步模型: human operator
-下一步任务: execute the mandatory direction-panel packet for each registered panel member
+本地北京时间: 2026-07-23 19:00:05 CST
+下一步模型: bookkeeper
+下一步任务: synthesize the complete panel and latest user policy

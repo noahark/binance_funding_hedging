@@ -10,15 +10,17 @@ not bookkeeper summaries:
 | `claude` | Claude Opus 4.8 | `direction-drafts/claude-opus-4-8.md` | received |
 | `glm52` | GLM-5.2 | `direction-drafts/glm52.md` | received |
 | `kimi_k3` | Kimi K3 | `direction-drafts/kimi27.md` | received; historical filename only |
+| `codex` | GPT-5 Codex | `direction-drafts/codex.md` | received; SHA-256 verified |
+| `grok-build` | — | `direction-drafts/grok-build.unavailable.md` | unavailable: operator reported no quota |
 
 The human operator confirmed on 2026-07-23 that `kimi27.md` was run by K3
 before the K3 routing rename. The filename is preserved as raw evidence, while
 the stage metadata identifies it as the K3 result. It must not be rerun merely
 to obtain a K3-labelled filename.
 
-The default MILESTONE panel is not yet complete: `codex` and `grok-build` still
-need independent raw drafts, or an explicit unavailable/quota record. No formal
-`06-direction-synthesis.md` is produced until that condition is met.
+The default MILESTONE panel now has every available independent draft and an
+explicit unavailable record for Grok. The formal `06-direction-synthesis.md`
+may proceed after this user-policy update is incorporated.
 
 ## Cross-Draft Consensus
 
@@ -35,9 +37,9 @@ All three received drafts support the frozen execution contract:
 4. The real PAPI adapter belongs in this stage but remains gated by executor
    configuration, global Start, and separate human authorization of the first
    live task. No private call or live order is authorized by this intake.
-5. Single-leg, timeout, unknown, or actual partial outcomes require pause and
-   reconciliation by client ID; there is no automatic close, repair, borrow,
-   or repay. F-003 through F-006 remain delivery work, not optional notes.
+5. Client-ID reconciliation, persistent order accounting, and no automatic
+   close, repair, borrow, or repay remain required. The later user-selected
+   one-second cadence supersedes earlier fill-state pause recommendations.
 
 ## Evidence Applicability Note
 
@@ -56,26 +58,19 @@ This note narrows applicability; it does not alter the raw recon artifact.
 
 ## Design Tension To Resolve In Synthesis
 
-The raw drafts correctly flag a distinction that must be written precisely:
-the user has frozen **no equality check between the two filled legs' actual
-quantities**. Therefore a final design may record a signed residual and leave a
-two-leg `FILLED` outcome unpaused solely because those two actual values differ.
-
-It must not silently replace that decision with a tolerance or a numerical
-product limit. Separately, the final state machine still needs a non-numeric
-definition of exchange-reported partial/unknown execution (for example,
-non-final order status, timeout, or a reconciliation result that reports a
-partial state). The synthesis will distinguish those cases without turning a
-cross-leg residual comparison into a gate.
+The user subsequently selected a one-second immediate cadence: actual fills,
+residuals, partial states, and prior unresolved attempts are recorded and
+queried but do not gate the next scheduled pair. A configurable default of
+three confirmed consecutive failed pairs pauses further opening. See
+`04-user-execution-policy.md` for the authoritative update.
 
 ## Remaining Questions For Direction
 
-- For a forward base-quantity BUY, define the factual USDT-availability
-  preflight source and estimate. Any extra slippage buffer is a risk-policy
-  number and needs explicit user approval rather than an implicit new limit.
-- Choose the F-006 live behavior: retain `fill-all` only if every attempt is
-  re-gated, or remove it from the live surface. The received drafts favor
-  re-gating/removing the old bypass behavior; no final choice is made here.
+- Reconcile the user-approved no-cap, fixed-base-quantity contract with the
+  older canonical PRD, which still mandates notional caps and a notional/rounds
+  input model.
+- Decide whether the canonical PRD's manual-close-before-first-real-open gate
+  remains in force or is explicitly amended.
 
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable

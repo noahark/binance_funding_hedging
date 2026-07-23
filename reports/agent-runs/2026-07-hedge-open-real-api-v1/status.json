@@ -66,6 +66,26 @@
       "unavailable_reason": "The preserved raw draft does not provide a provider-native Session ID; the human operator confirmed it was executed by K3 before the routing rename.",
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/kimi27.md",
       "recorded_at": "2026-07-23T16:45:40+08:00"
+    },
+    {
+      "role": "direction_panel",
+      "provider": "codex",
+      "model": "GPT-5 Codex",
+      "session_id": "019f8e94-a17e-7210-9d4a-462a45471554",
+      "session_id_source": "runtime_env",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/codex.md",
+      "recorded_at": "2026-07-23T18:50:29+08:00"
+    },
+    {
+      "role": "direction_panel",
+      "provider": "grok",
+      "model": "grok-build",
+      "session_id": null,
+      "session_id_source": "operator",
+      "unavailable_reason": "Human operator reported no remaining Grok quota; no model execution occurred.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/grok-build.unavailable.md",
+      "recorded_at": "2026-07-23T19:00:05+08:00"
     }
   ],
   "designer": null,
@@ -95,7 +115,11 @@
     "real_post_adapter_in_stage": true,
     "numeric_risk_caps": "none; the operator controls exposure through entered order amount, attempt count, and margin allocation",
     "forward_fill_mismatch_numeric_tolerance": "none; a both-filled mismatch is recorded but does not by itself trigger a numeric-threshold pause",
-    "single_leg_or_unknown_outcome": "must still pause and reconcile; this is not a numeric residual limit",
+    "fill_and_residual_policy": "actual filled quantities, values, residuals, partial states, and prior unresolved attempts are persisted and queried but do not gate the next immediate scheduled pair",
+    "order_acceptance_and_reconciliation": "a returned orderId is accepted-order evidence; persist it and query to terminal state; timeout/missing response first queries deterministic client order ID and never blindly resends",
+    "immediate_cadence": "submit one concurrent hedge pair every 1 second; order-status tracking runs independently and does not block the next pair",
+    "confirmed_failure_pause": "configurable consecutive_failure_pause_threshold defaults to 3; reaching it pauses further opening; a successful accepted pair resets the counter",
+    "fill_accounting": "persist cumulative actual base and quote quantities per leg and calculate weighted average price as cumulative quote divided by cumulative base; data is audit/display only in this stage",
     "smooth_mode": "deferred to a separate next stage",
     "forward_spot_market_buy_working_rule": "send base quantity q_common, not quoteOrderQty; fixed base quantity is the frontend input and both hedge legs submit it concurrently",
     "forward_execution_policy": "concurrent; persist one attempt before both POSTs, then submit two fixed-q_common legs concurrently",
@@ -113,7 +137,7 @@
   "direction_panel": {
     "panel_key": "default",
     "members": {
-      "codex": {"provider": "codex", "model": "gpt", "status": "pending_human_operator_dispatch"},
+      "codex": {"provider": "codex", "model": "GPT-5 Codex", "status": "received", "raw_output_path": "direction-drafts/codex.md", "sha256": "ac55ce31611ac1261c437b728dbdd1bc9535f25ea06cae42de3a20170f68fea8"},
       "claude": {"provider": "claude", "model": "Claude Opus 4.8", "status": "received", "raw_output_path": "direction-drafts/claude-opus-4-8.md"},
       "glm52": {"provider": "claude_glm", "model": "glm-5.2[1m]", "status": "received", "raw_output_path": "direction-drafts/glm52.md"},
       "kimi_k3": {
@@ -123,12 +147,13 @@
         "raw_output_path": "direction-drafts/kimi27.md",
         "legacy_filename_note": "The file name predates the routing rename. The human operator confirmed this raw draft was executed by K3, so it satisfies the kimi_k3 panel member without a rerun."
       },
-      "grok-build": {"provider": "grok", "model": "grok-build", "status": "pending_human_operator_dispatch"}
+      "grok-build": {"provider": "grok", "model": "grok-build", "status": "unavailable", "raw_output_path": "direction-drafts/grok-build.unavailable.md", "reason": "Human operator reported no remaining quota."}
     }
   },
   "direction_synthesis": {
     "provider": "codex",
-    "status": "not_started",
+    "status": "completed_waiting_user_approval",
+    "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md",
     "user_approved": false
   },
   "base_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
@@ -141,9 +166,13 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/01-design-discussion.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/02-api-recon-intake.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/03-direction-draft-intake.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/04-user-execution-policy.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/claude-opus-4-8.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/glm52.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/kimi27.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/codex.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/grok-build.unavailable.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/api-recon-order-model-and-live-seams.prompt.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-panel-dispatch.md",
@@ -183,11 +212,18 @@
   "max_rework": 3,
   "blockers": [
     "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task.",
-    "The remaining mandatory direction-panel evidence (Codex and Grok, or explicit unavailable evidence) and a user-approved synthesis are required before implementation."
+    "A user-approved direction synthesis is required before implementation.",
+    "The canonical PRD still conflicts with the user's chosen no-cap, fixed-base-quantity contract and manual-close-first-live-open gate; the synthesis must surface these for user approval rather than change canonical documents now."
   ],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
   "reporting_preferences": {"execution_footer": {"include_provider_native_session_id": true, "include_session_id_source": true, "include_raw_output_path": true, "unknown_session_id_policy": "write unavailable with reason; never invent", "session_id_is_navigation_only": true}},
-  "next_action": "Human operator obtains the remaining Codex and Grok independent panel drafts (or explicit unavailable notes); bookkeeper then synthesizes all raw evidence for user approval.",
-  "updated_at": "2026-07-23T16:45:40+08:00"
+  "current_inputs": [
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/03-direction-draft-intake.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/04-user-execution-policy.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/codex.md"
+  ],
+  "next_action": "Human reviews and approves or edits 06-direction-synthesis.md; only then does the bookkeeper begin detailed stage design.",
+  "updated_at": "2026-07-23T19:00:05+08:00"
 }
