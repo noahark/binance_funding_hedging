@@ -2,11 +2,12 @@
 
 ## Recovery Header
 
-- Active phase: `fixing / R4 reconciliation found bounded backend rework`.
+- Active phase: `testing / R4 implementation verified; formal Review-1 preparation`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
-  last bookkeeper checkpoint HEAD was `133d286684713f3245d28249e7f9da62ff2d4b1f`.
-  Stage evidence commits exist; no implementation has started.
+  backend R4 delivery is `d90f2f18acec7fe6286f2ae3fc8e187580bf0793` and frontend
+  delivery is `d873699d4c06f8dec343c9a6dcfa5fecc22d74b5`.
+  Stage evidence commits exist; implementation is complete pending formal review.
 - Classification: `MILESTONE`; default direction panel is mandatory. Independent
   raw drafts are received from Claude Opus 4.8, GLM-5.2, Kimi K3, and GPT-5
   Codex. Grok has an explicit unavailable record because the operator reported
@@ -62,37 +63,40 @@
 
 ## Next Action
 
-The user approved `06-direction-synthesis.md`, removal of the stale Manual
-Close Design Gate, and the canonical PRD restructuring. `00-task.md`,
-`10-design.md`, `11-adr.md`, and `05-cadence-resolution.md` now freeze the
-detailed stage design. The user selected per-task independent asynchronous
-one-second cadence; the prior breakdown open item is resolved without editing
-its raw artifact. Claude Opus 4.8's raw `12-development-breakdown.md` recommends
-parallel backend (Claude-GLM) / frontend (Kimi) work with embedded pre-review
-opted out. The bookkeeper has prepared immutable task packets
-`task-A-claude-glm.prompt.md` and `task-B-kimi.prompt.md`; run the dispatch-ready
-validator before the human operator runs them concurrently. Real activation and
-the first live task remain separate human actions.
+The user-approved design remains frozen in `00-task.md`, `10-design.md`,
+`11-adr.md`, and `05-cadence-resolution.md`. Backend and frontend delivery are
+already committed, and R4 is verified. Do not rerun implementation.
+
+The next procedural gate is formal Review-1. First obtain the human operator's
+real R9 receipt data for the completed Task A/Task B dispatches and append it
+to their existing packets without changing their prompt bodies. Then set the
+stage to `review_1`, run the clean `pre-review` validator, and have the human
+operator execute the prepared Kimi backend and Claude-GLM frontend review
+packets. Real activation and the first live task remain separate human actions.
 
 ## Implementation intake and R4 status
 
 - Task A / Claude-GLM and Task B / Kimi raw implementation reports are received
   at `20-implementation-backend.md` and `20-implementation-frontend.md`.
+- The bounded backend fix is received in `40-fix-backend-r4.md`. R4-1 adds the
+  durable additive `attempts` projection required by the frontend timeline;
+  R4-2 starts one worker per eligible task so a slow card does not block a
+  sibling card's same-tick submission.
 - Bookkeeper reproduced `.venv/bin/python -m pytest backend/tests -q` with
-  **856 passed in 43.12s**, and `node frontend/self-check.js` with all checks
-  passing. The source file boundaries and `git diff --check` also passed.
-- Do not commit or formally review the current implementation diff yet.
-  `13-r4-diff-reconciliation.md` records two P1 integration gaps: no durable
-  attempt projection reaches the frontend timeline, and task-card cadence is
-  still serialized while live calls wait. The bounded backend fix packet is
-  `backend-r4-fix.prompt.md`; only the human operator may execute it.
-- Task B is compatible with the required additive `attempts` response and has
-  no requested fix. Real activation and the first live task remain separate
-  human actions.
+  **862 passed in 43.58s**, `node frontend/self-check.js` with all checks
+  passing, and `git diff --check` passing. See `14-r4-verification.md`.
+- Formal Review-1 packets are prepared but not yet human-dispatched:
+  `30-review-1-backend.dispatch.md` (Kimi K3 reviews backend) and
+  `30-review-1-frontend.dispatch.md` (Claude-GLM reviews frontend).
+- Before the clean `pre-review` validator can pass, the human operator must
+  append real R9 dispatch receipts to the already completed Task A and Task B
+  implementation packets. Their raw reports do not expose the executed adapter
+  commands or provider-native session IDs; the bookkeeper must not invent them.
+  Real activation and the first live task remain separate human actions.
 
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-23 22:32:36 CST
+本地北京时间: 2026-07-23 23:23:41 CST
 下一步模型: human operator
-下一步任务: execute the bounded Claude-GLM R4 backend fix packet and preserve 40-fix-backend-r4.md
+下一步任务: record completed implementation dispatch receipts, then execute the two prepared formal Review-1 packets

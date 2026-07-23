@@ -250,3 +250,38 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-23 22:32:36 CST
 下一步模型: human operator
 下一步任务: execute backend-r4-fix.prompt.md with Claude-GLM and preserve the raw fix report
+
+===== R4 fix verification and formal Review-1 preparation (2026-07-23 23:17:19 CST) =====
+Command: .venv/bin/python -m pytest backend/tests -q
+Result: PASS (862 passed in 43.58s)
+
+Command: node frontend/self-check.js
+Result: PASS (全部自检通过)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+The R4 implementation resolves the two prior P1 findings: the logs API now
+projects first-class durable attempts for the timeline, and a deterministic
+blocking-executor test proves independent task-card dispatch. No real Binance
+network activity, credential access, live activation, or order occurred.
+
+Formal Review-1 dispatch packets are prepared. The `pre-review` validator is
+intentionally not run yet: completed Task A/Task B implementation packets lack
+the human operator's actual R9 dispatch receipts, and the bookkeeper cannot
+invent adapter commands or session metadata.
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=testing
+diff_fingerprint=d873699d4c06f8dec343c9a6dcfa5fecc22d74b5:fe8b6dc9349dc4d4f847cdc5e6298e2f4e14b4b2332038bf4911d20377d8099c
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 23:23:41 CST
+下一步模型: human operator
+下一步任务: fill completed implementation dispatch receipts before formal Review-1 validation and dispatch
