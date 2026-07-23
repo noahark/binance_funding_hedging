@@ -1,7 +1,7 @@
 {
   "stage_id": "2026-07-hedge-open-live-v1",
-  "status": "review_2",
-  "rework_count": 1,
+  "status": "fixing",
+  "rework_count": 2,
   "review_1_both_accept": "hedge-fe ACCEPT (round-1, b773a470); hedge-be ACCEPT (round-2, bd01eb52 after fix-1). hedge-fe review fingerprint trails status (frontend untouched by fix-1) — to be rebound at pre-accept via authorized_exception or a quick fe re-review.",
   "review_2": {
     "codex_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex.prompt.md",
@@ -12,7 +12,10 @@
     "fallback_requires_runner_unavailability_evidence": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-unavailable.md",
     "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/50-review-2.md",
     "next_dispatch_executor": "human_operator",
-    "verdict": null
+    "verdict": "REWORK",
+    "reviewer": "codex",
+    "finding": "F-007(P1) leg_exposure contract drift: BE emits {filled_leg,spot,perp,ts}, frozen §3.2 + FE use {leg,qty,price,ts}; single-leg alert misstates leg/qty/price (safety-critical). THIRD cross-seam drift (R4-001, F-001, F-007) — all masked by each side's own mock.",
+    "fix_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-fix-2.prompt.md"
   },
   "review_1_round_1": {
     "hedge_fe": "ACCEPT (Claude-GLM, 1 P3 benign)",
