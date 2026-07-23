@@ -81,10 +81,16 @@ LEG_REJECTED = "REJECTED"
 LEG_EXPIRED = "EXPIRED"
 LEG_UNKNOWN = "UNKNOWN"  # timeout / 5xx / disconnect -> unresolved
 
-# Attempt outcome categories (the single-leg exposure state machine, ADR-4).
-ATTEMPT_SUCCESS = "success"  # both legs FILLED (no executed-qty check, see DI-6)
-ATTEMPT_SINGLE_LEG_EXPOSURE = "single_leg_exposure"  # one leg filled, other not
-ATTEMPT_FAILED = "failed"  # neither leg filled (no exposure)
+# Attempt outcome categories — now keyed on ACCEPTANCE, not fill (breakdown
+# §1.3 / ADR-3). A leg is "accepted" when Binance returned an orderId (the
+# order was taken); fill state is observational accounting only. Both legs
+# accepted = success (an accepted pair); client-ID lookup proved neither leg
+# was accepted = failed (a confirmed submission failure); exactly one accepted
+# = single_leg_exposure, which is ADVISORY: it records the leg_exposure but
+# does not freeze scheduling and is never counted toward the pause threshold.
+ATTEMPT_SUCCESS = "success"  # both legs accepted (orderId returned on both)
+ATTEMPT_SINGLE_LEG_EXPOSURE = "single_leg_exposure"  # exactly one leg accepted
+ATTEMPT_FAILED = "failed"  # neither leg accepted (confirmed submission failure)
 ATTEMPT_DISABLED = "execution_disabled"  # disabled executor, no record transport
 ALL_ATTEMPT_CATEGORIES = (
     ATTEMPT_SUCCESS,
@@ -98,10 +104,62 @@ ALL_ATTEMPT_CATEGORIES = (
 # never auto-borrows. papi enumerates no AUTO_BORROW_REPAY.
 SIDE_EFFECT_NO_SIDE_EFFECT = "NO_SIDE_EFFECT"
 
-# Cumulative failure threshold: >3 failed attempts terminate the plan and pause
-# (ADR-4 / 10-design §7.5). Single-leg exposure pauses immediately and is not
-# counted toward this threshold.
-FAIL_TERMINATE_THRESHOLD = 3
+# Task-snapshotted consecutive *submission*-failure pause threshold (ADR-3 /
+# 10-design §7). Default 3; reaching it (>=) pauses future opening. This is NOT
+# a module constant compared inline: each task snapshots its own value so a
+# later change ("may be 1 or 2", PRD §6.4) does not retroactively move the bar
+# for in-flight tasks. Fill/residual/partial values never touch this counter.
+DEFAULT_FAILURE_PAUSE_THRESHOLD = 3
+# Pause reason recorded on the task when the threshold is reached.
+PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE = "consecutive_submission_failure"
+
+# Boundary C sanitized block_reason enum (never an environment value). Mirrors
+# the borrow domain's BLOCK_* set; surfaced in the startup lifecycle event when
+# the live executor is configured but cannot execute (no real credential ever
+# leaves the process — the live adapter refuses to POST).
+BLOCK_EXECUTOR_DISABLED = "executor_disabled"
+BLOCK_HEDGE_CREDENTIALS_MISSING = "hedge_credentials_missing"
+BLOCK_RATE_LIMITED = "rate_limited"
+ALL_BLOCK_REASONS = (
+    BLOCK_EXECUTOR_DISABLED,
+    BLOCK_HEDGE_CREDENTIALS_MISSING,
+    BLOCK_RATE_LIMITED,
+)
+
+# Attempt pair outcome (10-design §Dispatch; the scheduler counter keys off this
+# resolved state, never off raw fill/residual). Resolved only after both legs
+# reach an acceptance verdict: two accepted = accepted_pair; client-ID lookup
+# proved both legs never accepted = confirmed_failed. A leg still being queried
+# keeps the attempt in the unresolved ``querying`` state — neither success nor a
+# counted failure until the lookup proves absence. An asymmetric single-leg
+# acceptance resolves to ``single_leg``: ADVISORY only, recorded but never a gate
+# (breakdown §4.5; the breakdown's §3.3 list of three values omits this fourth
+# advisory state, which is required so a single-leg acceptance is distinguishable
+# from a clean failure on the attempt row).
+PAIR_ACCEPTED = "accepted_pair"
+PAIR_CONFIRMED_FAILED = "confirmed_failed"
+PAIR_QUERYING = "querying"
+PAIR_SINGLE_LEG = "single_leg"
+ALL_PAIR_OUTCOMES = (
+    PAIR_ACCEPTED,
+    PAIR_CONFIRMED_FAILED,
+    PAIR_QUERYING,
+    PAIR_SINGLE_LEG,
+)
+
+# Per-leg dispatch state (10-design §Dispatch; one row advances through these).
+LEG_PREPARED = "PREPARED"
+LEG_DISPATCHING = "DISPATCHING"
+LEG_ACCEPTED_OR_QUERYING = "ACCEPTED_OR_QUERYING"
+LEG_UNKNOWN_QUERYING = "UNKNOWN_QUERYING"
+LEG_TERMINAL_RECORDED = "TERMINAL_RECORDED"
+ALL_LEG_DISPATCH_STATES = (
+    LEG_PREPARED,
+    LEG_DISPATCHING,
+    LEG_ACCEPTED_OR_QUERYING,
+    LEG_UNKNOWN_QUERYING,
+    LEG_TERMINAL_RECORDED,
+)
 
 # Rejection reasons surfaced by the preflight quantity/balance checks.
 REJECT_INSUFFICIENT_BALANCE = "insufficient_balance"
@@ -499,7 +557,11 @@ def compute_preflight(
 
 
 def leg_is_filled(leg: dict | None) -> bool:
-    """A leg is "filled" only when status is FILLED with positive executed qty."""
+    """A leg is "filled" only when status is FILLED with positive executed qty.
+
+    Used for observational fill accounting (cumulative base/quote, averages,
+    residual) — never as the scheduler's pair-success signal (ADR-3).
+    """
     if not leg:
         return False
     if leg.get("status") != LEG_FILLED:
@@ -511,52 +573,63 @@ def leg_is_filled(leg: dict | None) -> bool:
         return False
 
 
-def classify_attempt(spot_leg: dict | None, perp_leg: dict | None) -> str:
-    """Classify one attempt's two legs (10-design §7.3/7.4).
+def leg_is_accepted(leg: dict | None) -> bool:
+    """A leg is "accepted" when Binance returned an orderId for it (ADR-3).
 
-    Both legs FILLED -> success. Exactly one filled -> single-leg exposure.
-    Neither filled -> failed.
-
-    No executed-qty equality check is applied: a spot market BUY sends
-    ``quoteOrderQty`` (total USDT) while the perp leg and a spot SELL send
-    ``quantity``, so the two legs' filled base qtys cannot be pre-aligned for
-    forward opens. Per the user's 2026-07-23 clarification, 成交数量校验 is
-    intentionally skipped this round (see DI-6); the order-parameter model is
-    rebuilt in the real-API round.
+    This is the scheduler's pair-success signal: an orderId proves the order
+    was taken (it may still be NEW/PARTIALLY_FILLED, polling to terminal). A
+    missing orderId means either not-yet-dispatched, querying, or confirmed
+    absent — the caller resolves which before counting a submission failure.
     """
-    spot_filled = leg_is_filled(spot_leg)
-    perp_filled = leg_is_filled(perp_leg)
-    if spot_filled and perp_filled:
+    if not leg:
+        return False
+    return bool(leg.get("order_id"))
+
+
+def classify_attempt(spot_leg: dict | None, perp_leg: dict | None) -> str:
+    """Classify one attempt's two legs on ACCEPTANCE (breakdown §1.3 / ADR-3).
+
+    Both legs accepted (orderId on both) -> success (an accepted pair). Exactly
+    one accepted -> single_leg_exposure (advisory; recorded, never a gate).
+    Neither accepted -> failed (a confirmed submission failure). No executed-qty
+    equality check is applied: both legs send the same Decimal ``q_common`` and
+    are submitted concurrently, but actual fills may differ and are recorded
+    only — never auto-repaired (ADR-3 / user policy).
+    """
+    spot_accepted = leg_is_accepted(spot_leg)
+    perp_accepted = leg_is_accepted(perp_leg)
+    if spot_accepted and perp_accepted:
         return ATTEMPT_SUCCESS
-    if spot_filled or perp_filled:
+    if spot_accepted or perp_accepted:
         return ATTEMPT_SINGLE_LEG_EXPOSURE
     return ATTEMPT_FAILED
 
 
 def build_leg_exposure(spot_leg: dict | None, perp_leg: dict | None, ts_us: int) -> dict | None:
-    """Build the persisted ``leg_exposure`` document (frozen §3.2 shape).
+    """Build the advisory ``leg_exposure`` document (frozen §3.2 shape, ADR-3).
 
-    Emits ``{leg, qty, price, ts}`` for a single-leg event: the one leg that
-    filled, with that leg's actual filled quantity and average price. ``leg`` is
-    ``"spot"`` when only the spot leg filled, ``"perp"`` when only the perp leg
-    filled. ``qty``/``price`` are decimal strings, matching the Fill JSON (§3.3).
+    Emits ``{leg, qty, price, ts}`` for a single-leg event: the one leg that was
+    ACCEPTED (orderId returned) while the other was not, with that leg's actual
+    filled quantity and average price as observational figures. ``leg`` is
+    ``"spot"`` when only the spot leg was accepted, ``"perp"`` when only the
+    perp leg was accepted. ``qty``/``price`` are decimal strings.
 
-    Returns ``None`` when neither leg filled (a plain failure, not an exposure)
-    and when both legs filled: there is no single exposed leg to name in either
-    case. Since fix-3 (DI-6) a both-legs-FILLED attempt classifies as ``success``
-    and no longer routes here, the both-filled branch is a defensive guard kept
-    for safety; the full fill detail always lives in the fills table (§3.3).
+    Advisory only (breakdown §4.5): recording an exposure does NOT freeze the
+    task or count toward the pause threshold. Returns ``None`` when neither leg
+    was accepted (a plain failure, not an exposure) and when both were accepted
+    (an accepted pair). The full per-leg detail always lives in the attempt/leg
+    tables (§3.3).
     """
-    spot_filled = leg_is_filled(spot_leg)
-    perp_filled = leg_is_filled(perp_leg)
-    if not (spot_filled or perp_filled):
+    spot_accepted = leg_is_accepted(spot_leg)
+    perp_accepted = leg_is_accepted(perp_leg)
+    if not (spot_accepted or perp_accepted):
         return None
-    if spot_filled and perp_filled:
+    if spot_accepted and perp_accepted:
         return None
 
-    leg = (spot_leg if spot_filled else perp_leg) or {}
+    leg = (spot_leg if spot_accepted else perp_leg) or {}
     return {
-        "leg": "spot" if spot_filled else "perp",
+        "leg": "spot" if spot_accepted else "perp",
         "qty": str(leg.get("filled_qty", "0")),
         "price": str(leg.get("avg_price")) if leg.get("avg_price") is not None else None,
         "ts": us_to_iso(ts_us),
@@ -571,25 +644,31 @@ def build_leg_exposure(spot_leg: dict | None, perp_leg: dict | None, ts_us: int)
 def resolve_status_after_attempt(
     current_status: str,
     category: str,
-    new_success_count: int,
+    accepted_count: int,
     target_n: int,
-    new_fail_count: int,
+    consecutive_failures: int,
+    failure_pause_threshold: int,
 ) -> str:
-    """Apply the attempt outcome to a task's status.
+    """Apply one attempt's resolved acceptance verdict to a task's status.
 
-    ``deleted`` is sticky (never revived by an attempt). Success reaching the
-    target -> ``done``. Single-leg exposure -> ``exposure_alert`` (pause, no
-    auto-remediation). Cumulative failures > threshold -> ``paused`` (terminated).
-    Otherwise the running status is preserved.
+    ``deleted`` is sticky. An accepted pair reaching the target -> ``done``.
+    Confirmed consecutive *submission* failures reaching the task-snapshotted
+    threshold (``>=``, i.e. the threshold-th) -> ``paused``. A single-leg
+    exposure is ADVISORY: it does NOT change the status (breakdown §4.5) — the
+    task keeps scheduling and the exposure is recorded, never a gate. Fill /
+    residual / partial values are observational and never reach this function.
     """
     if current_status == STATUS_DELETED:
         return STATUS_DELETED
-    if category == ATTEMPT_SINGLE_LEG_EXPOSURE:
-        return STATUS_EXPOSURE_ALERT
-    if category == ATTEMPT_SUCCESS and new_success_count >= target_n:
+    if category == ATTEMPT_SUCCESS and accepted_count >= target_n:
         return STATUS_DONE
-    if category == ATTEMPT_FAILED and new_fail_count > FAIL_TERMINATE_THRESHOLD:
+    if (
+        category == ATTEMPT_FAILED
+        and consecutive_failures >= failure_pause_threshold
+    ):
         return STATUS_PAUSED
+    # SINGLE_LEG_EXPOSURE is advisory: preserve the current status (a running
+    # task keeps running; it is not frozen and the exposure is not counted).
     return current_status
 
 

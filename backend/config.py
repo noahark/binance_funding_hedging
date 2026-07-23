@@ -93,6 +93,18 @@ class Config:
     # Config repr/log can never leak the secret.
     binance_borrow_api_key: str = field(default="", repr=False)
     binance_borrow_api_secret: str = field(default="", repr=False)
+    # Stage 2026-07-hedge-open-real-api-v1: hedge-open executor mode. One of
+    # ``disabled`` (default, no-network) or ``live`` (the narrow exact-path PAPI
+    # margin/UM order adapter, still off-by-default until an explicit operator
+    # Start AND a fresh preflight). Mirrors ``borrow_executor``; any other value
+    # is rejected in from_env (breakdown §3.9).
+    hedge_executor: str = "disabled"
+    # Dedicated hedge-open credentials (distinct auditable surface from the
+    # borrow client). Empty by default; ``live`` mode with empty credentials is
+    # a dispatch gate (the live adapter never POSTs), not a crash. ``repr=False``
+    # so a Config repr/log can never leak the secret.
+    binance_hedge_api_key: str = field(default="", repr=False)
+    binance_hedge_api_secret: str = field(default="", repr=False)
 
 
 # Stage 2026-07-cache-refresh-scheduler-v2: fixed Group B shared/unified source
@@ -191,6 +203,20 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
             f"invalid borrow executor {borrow_executor!r}: only 'disabled' or "
             "'live' is implemented"
         )
+    hedge_executor = _env(
+        env,
+        "APP_HEDGE_EXECUTOR",
+        DEFAULT.hedge_executor,
+        "FUNDING_HEDGING_HEDGE_EXECUTOR",
+    )
+    # breakdown §3.9: APP_HEDGE_EXECUTOR default ``disabled`` preserves current
+    # behavior; an invalid selection is rejected here (moved out of server.py for
+    # parity with borrow_executor), not silently clamped.
+    if hedge_executor not in {"disabled", "live"}:
+        raise ValueError(
+            f"invalid hedge executor {hedge_executor!r}: only 'disabled' or "
+            "'live' is implemented"
+        )
     return Config(
         bind_host=_env(env, "APP_BIND_HOST", DEFAULT.bind_host, "FUNDING_HEDGING_BIND_HOST"),
         bind_port=_env_int(env, "APP_BIND_PORT", DEFAULT.bind_port, "FUNDING_HEDGING_BIND_PORT"),
@@ -280,4 +306,9 @@ def from_env(environ: Mapping[str, str] | None = None) -> Config:
         # environment only; .env itself is never parsed here. Empty unless set.
         binance_borrow_api_key=_env(env, "BINANCE_BORROW_API_KEY", "") or "",
         binance_borrow_api_secret=_env(env, "BINANCE_BORROW_API_SECRET", "") or "",
+        hedge_executor=hedge_executor,
+        # Dedicated hedge-open credentials (read verbatim; .env never parsed
+        # here). Empty by default — the live adapter refuses to POST without them.
+        binance_hedge_api_key=_env(env, "BINANCE_HEDGE_API_KEY", "") or "",
+        binance_hedge_api_secret=_env(env, "BINANCE_HEDGE_API_SECRET", "") or "",
     )

@@ -3,19 +3,24 @@
 No HTTP, no network. Covers task create with an injectable preflight provider
 (accept / insufficient_balance / filter violation / dry-run no-snapshot), the
 task lifecycle (start/pause/delete/fill-once/fill-all) incl. invalid_state, the
-single-leg exposure drill and >3-fail termination via injected record-transport
-seeds, the Start-gated scheduler tick, and the round-1 safety posture: even in
-``live`` mode the executor is the dry-run record transport, so a real POST is
-unreachable this round.
+single-leg exposure (advisory, never a freeze) and the >=threshold
+consecutive-submission-failure pause via injected record-transport seeds, the
+Start-gated per-task scheduler tick, and the default-off posture: with no live
+executor injected the dry-run record transport stays and a real POST is
+unreachable (a real POST requires an injected live executor + Start + a fresh
+preflight, wired only by the server under ``APP_HEDGE_EXECUTOR=live``).
 """
 from __future__ import annotations
 
+import threading
+import time
 from decimal import Decimal
 
 import pytest
 
 from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.executor import (
+    AttemptOutcome,
     DisabledHedgeExecutor,
     OutcomeSpec,
     RecordTransportExecutor,
@@ -172,32 +177,40 @@ def test_fill_all_runs_to_done(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Injectable single-leg exposure + >3-fail termination
+# Injectable single-leg exposure (advisory) + >=threshold consecutive-failure pause
 # ---------------------------------------------------------------------------
 
-def test_injected_single_leg_exposure_drills_alert(tmp_path):
+def test_injected_single_leg_exposure_is_advisory(tmp_path):
     exe = RecordTransportExecutor([OutcomeSpec.spot_only_filled()])
     svc = _svc(tmp_path, executor=exe)
     _, doc = svc.create_task(_create_body(target_n=3))
     out = svc.post_fill_once(doc["id"])[1]
-    assert out["status"] == D.STATUS_EXPOSURE_ALERT
+    # Single-leg exposure is ADVISORY (breakdown §4.5): the task is NOT frozen.
+    assert out["status"] == D.STATUS_RUNNING
     assert out["leg_exposure"] is not None
     assert set(out["leg_exposure"].keys()) == {"leg", "qty", "price", "ts"}
     assert out["leg_exposure"]["leg"] == "spot"
     assert out["leg_exposure"]["qty"] == "0.5"
     assert out["leg_exposure"]["price"] == "1"  # dry-run placeholder (no preflight)
-    # a second fill on an exposure-alert task -> invalid_state.
-    with pytest.raises(D.HedgeError):
-        svc.post_fill_once(doc["id"])
+    # exposure does not increment success/fail or the consecutive counter.
+    assert out["success_count"] == 0
+    assert out["consecutive_submission_failures"] == 0
+    # a second fill is still allowed (advisory never blocks scheduling).
+    out2 = svc.post_fill_once(doc["id"])[1]
+    assert out2["status"] == D.STATUS_RUNNING
 
 
-def test_injected_failures_terminate_over_threshold(tmp_path):
+def test_injected_failures_pause_at_threshold(tmp_path):
     exe = RecordTransportExecutor([OutcomeSpec.both_failed()] * 4)
     svc = _svc(tmp_path, executor=exe)
     _, doc = svc.create_task(_create_body(target_n=5))
     out = svc.post_fill_all(doc["id"])[1]
-    assert out["fail_count"] == 4
-    assert out["status"] == D.STATUS_PAUSED  # >3 -> terminated
+    # The 3rd consecutive submission failure reaches the >=3 threshold -> paused;
+    # fill-all stops dispatching once the task is no longer running.
+    assert out["fail_count"] == 3
+    assert out["consecutive_submission_failures"] == 3
+    assert out["status"] == D.STATUS_PAUSED
+    assert out["pause_reason"] == D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
 
 
 # ---------------------------------------------------------------------------
@@ -224,14 +237,16 @@ def test_tick_no_eligible_task_returns_false(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Round-1 safety posture (ADR-5): real POST unreachable this round
+# Default-off posture: a real POST requires an injected live executor
 # ---------------------------------------------------------------------------
 
-def test_live_mode_still_uses_record_transport_no_real_post(tmp_path):
-    # Even with mode="live", round 1 wires no live executor: the default dry-run
-    # record transport stays, so no real POST is reachable.
+def test_live_mode_without_injected_executor_still_record_transport(tmp_path):
+    # ``mode="live"`` alone (no live executor injected by the caller) keeps the
+    # default dry-run record transport: a real POST is unreachable until the
+    # server injects a LiveHedgeExecutor under APP_HEDGE_EXECUTOR=live.
     svc = _svc(tmp_path, mode="live")
     assert svc.is_live_mode is True
+    assert svc._live_dispatch_capable() is False  # no dispatch() on the executor
     assert isinstance(svc.executor, RecordTransportExecutor)
 
 
@@ -246,3 +261,238 @@ def test_disabled_executor_is_injectable_and_records_no_fill(tmp_path):
     # A disabled attempt neither fills nor terminates; counts stay zero.
     assert task["success_count"] == 0
     assert task["status"] == D.STATUS_RUNNING
+
+
+# ---------------------------------------------------------------------------
+# R4-1: additive `attempts` timeline projection on the logs read (§3.4 / PRD §9.2)
+# ---------------------------------------------------------------------------
+
+def test_get_logs_includes_attempts_projection_for_record_fill(tmp_path):
+    # The logs read endpoint carries a first-class additive `attempts` array
+    # projecting the durable attempt + both legs (breakdown §3.4), alongside
+    # the unchanged legacy logs/cursor.
+    exe = RecordTransportExecutor()
+    svc = _svc(tmp_path, executor=exe)
+    _, doc = svc.create_task(_create_body(target_n=1))
+    svc.post_fill_once(doc["id"])
+    status, page = svc.get_logs(None, None)
+    assert status == 200
+    assert set(page.keys()) == {"logs", "attempts", "next_cursor"}
+    assert len(page["attempts"]) == 1
+    a = page["attempts"][0]
+    # frozen §3.4 attempt fields (task_id is additive for UI linking).
+    assert {"attempt_id", "attempt_seq", "direction", "q_common", "pair_outcome",
+            "spot", "perp", "residual", "ts", "task_id"} <= set(a.keys())
+    assert a["attempt_seq"] == 1
+    assert a["direction"] == D.DIR_FORWARD
+    assert a["pair_outcome"] == D.PAIR_ACCEPTED
+    assert a["task_id"] == doc["id"]
+    # frozen per-leg fields; FILLED with cumulative figures + weighted average.
+    for leg in (a["spot"], a["perp"]):
+        assert {"client_order_id", "order_id", "status", "cumulative_base_qty",
+                "cumulative_quote_amt", "avg_price"} <= set(leg.keys())
+    assert a["spot"]["status"] == D.LEG_FILLED
+    assert a["spot"]["cumulative_base_qty"] == "0.5"
+    assert a["spot"]["avg_price"] == "1"  # quote 0.5 / base 0.5
+    # residual is a decimal STRING (no float): 0.5 - 0.5 == "0".
+    assert a["residual"] == "0"
+    assert isinstance(a["residual"], str)
+    # legacy logs/cursor still present and unchanged.
+    assert len(page["logs"]) == 1
+    assert page["logs"][0]["kind"] == "record_transport"
+    assert page["next_cursor"] is None  # only one log row -> no next page
+
+
+def test_get_logs_attempts_includes_prepared_querying_attempt(tmp_path):
+    # A PREPARED/QUERYING attempt has no log row yet (it exists from the
+    # durable-before-send transaction, before any resolve), but it must still
+    # project so the UI shows in-flight pairs mid-query.
+    svc = _svc(tmp_path)
+    _, doc = svc.create_task(_create_body(target_n=1))
+    svc.store.prepare_attempt(
+        doc["id"], "uuid-q", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "1"}, "hgo-uuid-q-s", {"side": "BUY"},
+        "hgo-uuid-q-p", {"side": "SELL"}, 1000,
+    )
+    status, page = svc.get_logs(None, None)
+    assert status == 200
+    # logs is empty (nothing resolved yet), but attempts surfaces the PREPARED pair.
+    assert page["logs"] == []
+    assert len(page["attempts"]) == 1
+    a = page["attempts"][0]
+    assert a["pair_outcome"] is None  # unresolved
+    assert a["spot"]["status"] is None  # PREPARED — no exchange status yet
+    assert a["spot"]["order_id"] is None
+    assert a["spot"]["client_order_id"] == "hgo-uuid-q-s"
+    assert a["spot"]["cumulative_base_qty"] == "0"
+    assert a["spot"]["avg_price"] is None  # no base fill -> no weighted average
+    assert a["residual"] == "0"  # 0 - 0
+
+
+def test_get_logs_attempts_residual_is_signed_decimal_no_float(tmp_path):
+    # residual = spot_base - perp_base as a decimal string. A single-leg spot
+    # fill (perp rejected, 0 base) leaves a non-zero residual; it must be a
+    # string, never a float, and the pair_outcome is the advisory single_leg.
+    exe = RecordTransportExecutor([OutcomeSpec.spot_only_filled()])
+    svc = _svc(tmp_path, executor=exe)
+    _, doc = svc.create_task(_create_body(target_n=2))
+    svc.post_fill_once(doc["id"])
+    _, page = svc.get_logs(None, None)
+    a = page["attempts"][0]
+    assert a["spot"]["cumulative_base_qty"] == "0.5"
+    assert a["perp"]["cumulative_base_qty"] == "0"  # rejected
+    assert a["residual"] == "0.5"  # 0.5 - 0
+    assert isinstance(a["residual"], str)
+    assert a["pair_outcome"] == D.PAIR_SINGLE_LEG
+
+
+# ---------------------------------------------------------------------------
+# R4-2: per-task independent asynchronous cadence (PRD §6.3 / 05-cadence-resolution)
+# ---------------------------------------------------------------------------
+
+class _BlockingExecutor:
+    """Record/dry-run transport that blocks inside execute() until released,
+    counting how many task workers have entered dispatch. Thread-safe so two
+    task workers can block concurrently. No network."""
+
+    def __init__(self):
+        self._count_lock = threading.Lock()
+        self.entered_count = 0
+        self.release = threading.Event()
+
+    def execute(self, ctx) -> AttemptOutcome:
+        with self._count_lock:
+            self.entered_count += 1
+        # Block until the test releases us. A serial tick() would never reach
+        # the second task (the first worker blocks forever), so reaching 2 here
+        # proves the two cards dispatch concurrently (R4-2).
+        self.release.wait(timeout=10)
+        qty = str(ctx.q_common) if ctx.q_common is not None else str(ctx.single_amount)
+        return AttemptOutcome(
+            attempt_id=ctx.attempt_id,
+            category=D.ATTEMPT_SUCCESS,
+            spot={"status": D.LEG_FILLED, "filled_qty": qty, "avg_price": "1",
+                  "order_id": f"s-{ctx.attempt_id}",
+                  "client_order_id": f"hgo-{ctx.attempt_id}-s"},
+            perp={"status": D.LEG_FILLED, "filled_qty": qty, "avg_price": "1",
+                  "order_id": f"p-{ctx.attempt_id}",
+                  "client_order_id": f"hgo-{ctx.attempt_id}-p"},
+            record_payload={"transport": "blocking_test", "posted": False},
+            exposure=None,
+        )
+
+
+def test_tick_dispatches_eligible_tasks_concurrently(tmp_path):
+    # R4-2: each running card is an independent async worker; several tasks may
+    # submit their own pair in the same second. A blocking executor proves BOTH
+    # eligible tasks enter dispatch before either is released — impossible if
+    # tick() dispatched them serially (the first worker would block forever and
+    # the second would never run). No network, no sleep race: the release Event
+    # is the deterministic gate.
+    exe = _BlockingExecutor()
+    clock = _Clock(0)
+    svc = _svc(tmp_path, executor=exe, clock=clock)
+    svc.set_start_gate(True)
+    _, d1 = svc.create_task(_create_body(target_n=2))
+    _, d2 = svc.create_task(_create_body(target_n=2))
+    clock.t = 1_000_000  # advance past the 1s interval -> due
+    # tick() joins its workers, so run it on a background thread.
+    tick_done = threading.Event()
+    holder = {}
+
+    def run():
+        holder["ret"] = svc.tick()
+        tick_done.set()
+
+    th = threading.Thread(target=run)
+    th.start()
+    # Wait until BOTH task workers entered dispatch. Serial dispatch would leave
+    # entered_count stuck at 1 (first worker blocks, second never starts).
+    deadline = time.time() + 5
+    while exe.entered_count < 2:
+        assert time.time() < deadline, (
+            f"only {exe.entered_count} task(s) entered dispatch — "
+            "tick() dispatched serially, not per-task concurrently (R4-2)"
+        )
+        time.sleep(0.01)
+    assert exe.entered_count >= 2
+    # Release both workers; tick() returns True.
+    exe.release.set()
+    assert tick_done.wait(timeout=5)
+    assert holder["ret"] is True
+    th.join(timeout=5)
+    # Each task issued exactly one pair this tick (one pair per second per task;
+    # no same-task re-entry, no cross-task serialization).
+    _, listing = svc.list_tasks(None)
+    by_id = {t["id"]: t for t in listing["tasks"]}
+    assert by_id[d1["id"]]["scheduled_attempt_count"] == 1
+    assert by_id[d2["id"]]["scheduled_attempt_count"] == 1
+
+
+def test_tick_slow_card_does_not_block_other_card_submission(tmp_path):
+    # R4-2 corollary: a slow live preflight/POST/query on one card must not
+    # delay another card's same-tick submission. Card 1 blocks inside execute();
+    # card 2 uses a fast executor and must complete (scheduled_attempt_count == 1)
+    # BEFORE card 1 is released.
+    class _FastExecutor:
+        def execute(self, ctx):
+            qty = str(ctx.single_amount)
+            return AttemptOutcome(
+                attempt_id=ctx.attempt_id, category=D.ATTEMPT_SUCCESS,
+                spot={"status": D.LEG_FILLED, "filled_qty": qty, "avg_price": "1",
+                      "order_id": f"s-{ctx.attempt_id}", "client_order_id": f"hgo-{ctx.attempt_id}-s"},
+                perp={"status": D.LEG_FILLED, "filled_qty": qty, "avg_price": "1",
+                      "order_id": f"p-{ctx.attempt_id}", "client_order_id": f"hgo-{ctx.attempt_id}-p"},
+                record_payload={"transport": "fast_test", "posted": False}, exposure=None,
+            )
+
+    # One shared blocking executor would serialize; instead inject per-task via
+    # a router that blocks card 1 and fast-paths card 2.
+    blocked = _BlockingExecutor()
+    fast = _FastExecutor()
+
+    class _RoutingExecutor:
+        def __init__(self, blocked_task_id, fast_task_id):
+            self._blocked = blocked_task_id
+            self._fast = fast_task_id
+
+        def execute(self, ctx):
+            if ctx.task_id == self._blocked:
+                return blocked.execute(ctx)
+            return fast.execute(ctx)
+
+    clock = _Clock(0)
+    svc = _svc(tmp_path, clock=clock)
+    svc.set_start_gate(True)
+    _, d1 = svc.create_task(_create_body(target_n=2))
+    _, d2 = svc.create_task(_create_body(target_n=2))
+    svc._executor = _RoutingExecutor(d1["id"], d2["id"])  # inject after build
+    clock.t = 1_000_000
+    tick_done = threading.Event()
+
+    def run():
+        svc.tick()
+        tick_done.set()
+
+    th = threading.Thread(target=run)
+    th.start()
+    # Wait until the blocking card has entered dispatch, then assert the fast
+    # card already completed its pair this tick — proving it was not blocked.
+    assert _wait_until(lambda: blocked.entered_count >= 1, timeout=5)
+    _, listing = svc.list_tasks(None)
+    by_id = {t["id"]: t for t in listing["tasks"]}
+    assert by_id[d2["id"]]["scheduled_attempt_count"] == 1  # fast card done
+    # Release the blocking card so tick() can return and the test cleans up.
+    blocked.release.set()
+    assert tick_done.wait(timeout=5)
+    th.join(timeout=5)
+    assert by_id[d1["id"]]["scheduled_attempt_count"] == 1  # blocking card done too
+
+
+def _wait_until(predicate, timeout=5):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.01)
+    return False
