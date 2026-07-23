@@ -1,0 +1,132 @@
+{
+  "stage_id": "2026-07-hedge-open-real-api-v1",
+  "status": "planned",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-hedge-open-real-api-v1",
+    "created_from_main_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
+    "created_at": "2026-07-23T13:41:25+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "independent_stage_bookkeeper",
+    "provider": "codex",
+    "model": "GPT-5 Codex",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": false,
+    "r4_diff_reconciliation_required": false
+  },
+  "embedded_reviews": {},
+  "session_receipts": [
+    {
+      "role": "api_recon",
+      "provider": "claude",
+      "model": "Claude Opus 4.6 Thinking",
+      "session_id": "3a6a68e2-87ec-4fd8-907f-7e91f7df7bfe",
+      "session_id_source": "operator",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/api-samples/2026-07-hedge-open-real-api-v1/order-model-and-live-seams-recon.md",
+      "recorded_at": "2026-07-23T14:29:44+08:00"
+    }
+  ],
+  "designer": null,
+  "direction_synthesizer": null,
+  "breakdown_author": null,
+  "implementer": null,
+  "implementers": [],
+  "fix_authors": [],
+  "reviewer_1": null,
+  "reviewer_2": null,
+  "r10_checklists": {},
+  "tasks": [],
+  "complexity": {
+    "classification": "MILESTONE",
+    "direction_panel_required": true,
+    "existing_synthesis_covers_task": false,
+    "user_approved_lightweight_route": false,
+    "lightweight_skip_allowed": false,
+    "rationale": [
+      "The stage can introduce real trading POSTs and durable risk-control semantics.",
+      "It introduces real trading POSTs, a corrected concurrent fixed-base-quantity order model, and durable execution safety state.",
+      "Its product and risk limits require a human-approved direction before implementation."
+    ]
+  },
+  "scope_decisions": {
+    "recorded_from_user_at": "2026-07-23T13:55:36+08:00",
+    "real_post_adapter_in_stage": true,
+    "numeric_risk_caps": "none; the operator controls exposure through entered order amount, attempt count, and margin allocation",
+    "forward_fill_mismatch_numeric_tolerance": "none; a both-filled mismatch is recorded but does not by itself trigger a numeric-threshold pause",
+    "single_leg_or_unknown_outcome": "must still pause and reconcile; this is not a numeric residual limit",
+    "smooth_mode": "deferred to a separate next stage",
+    "forward_spot_market_buy_working_rule": "send base quantity q_common, not quoteOrderQty; fixed base quantity is the frontend input and both hedge legs submit it concurrently",
+    "forward_execution_policy": "concurrent; persist one attempt before both POSTs, then submit two fixed-q_common legs concurrently",
+    "input_semantics": "single_amount is fixed base-asset quantity per attempt and target_n is number of attempts",
+    "decimal_contract": "spot and UM quantities and preflight price/notional estimates have independent decimal/filter rules; use Decimal fixed-point and per-leg formatting",
+    "account_contract": "regular Portfolio Margin as documented in the repository PRD; PM-Pro is out of this stage unless the user corrects this assumption"
+  },
+  "api_recon": {
+    "status": "received",
+    "raw_output": "reports/api-samples/2026-07-hedge-open-real-api-v1/order-model-and-live-seams-recon.md",
+    "received_at": "2026-07-23T14:13:00+08:00",
+    "design_caveat": "The raw recon's serial proposal was superseded by the user's explicit concurrent fixed-base-quantity design decision. quoteOrderQty remains supported evidence but is not used in this stage's execution path.",
+    "open_human_decisions": []
+  },
+  "direction_panel": {
+    "panel_key": "default",
+    "members": {
+      "codex": {"provider": "codex", "model": "gpt", "status": "pending_human_operator_dispatch"},
+      "claude": {"provider": "claude", "model": "claude", "status": "pending_human_operator_dispatch"},
+      "glm52": {"provider": "claude_glm", "model": "glm-5.2[1m]", "status": "pending_human_operator_dispatch"},
+      "kimi27": {"provider": "kimi", "model": "kimi-2.7", "status": "pending_human_operator_dispatch"},
+      "grok-build": {"provider": "grok", "model": "grok-build", "status": "pending_human_operator_dispatch"}
+    }
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "not_started",
+    "user_approved": false
+  },
+  "base_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
+  "head_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
+  "diff_fingerprint": null,
+  "coverage_waypoints": null,
+  "changed_files": [
+    "reports/agent-runs/ACTIVE.json",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/00-intake.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/01-design-discussion.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/02-api-recon-intake.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/api-recon-order-model-and-live-seams.prompt.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-panel-dispatch.md",
+    "reports/api-samples/2026-07-hedge-open-real-api-v1/order-model-and-live-seams-recon.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json"
+  ],
+  "tests": {
+    "status": "not_run",
+    "commands": []
+  },
+  "review_1": {"reviewer": null, "provider": null, "model": null, "open_p0_p1": null, "verdict": null, "json_schema_valid": null, "diff_fingerprint": null, "covers_through_task": null, "reviewer_prior_involvement": "none", "fix_start_prompt_present": null, "fix_start_prompt_source": null, "invalid_json_attempts": 0},
+  "review_2": {"reviewer": null, "provider": null, "model": null, "primary_provider": "codex", "fallback_provider": "claude", "fallback_reason": null, "reviewer_prior_involvement": "none", "reviewer_prior_involvement_notes": null, "unrelated_reviewer_unavailable_evidence": null, "design_conflict_override": {"used": false, "reason": null, "unrelated_reviewer_unavailable_evidence": null}, "open_p0_p1": null, "verdict": null, "json_schema_valid": null, "diff_fingerprint": null, "covers_through_task": null, "fix_start_prompt_present": null, "fix_start_prompt_source": null, "invalid_json_attempts": 0},
+  "authorized_exceptions": [],
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [
+    "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task.",
+    "The mandatory direction-panel drafts and a user-approved synthesis are required before implementation."
+  ],
+  "human_escalation": {"required": false, "reason": null},
+  "terminal_reason": null,
+  "reporting_preferences": {"execution_footer": {"include_provider_native_session_id": true, "include_session_id_source": true, "include_raw_output_path": true, "unknown_session_id_policy": "write unavailable with reason; never invent", "session_id_is_navigation_only": true}},
+  "next_action": "Human operator executes the prepared mandatory direction-panel packet once for every default-panel member; bookkeeper then synthesizes the raw drafts for user approval.",
+  "updated_at": "2026-07-23T15:27:04+08:00"
+}
