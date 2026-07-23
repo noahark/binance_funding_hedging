@@ -82,7 +82,7 @@ LEG_EXPIRED = "EXPIRED"
 LEG_UNKNOWN = "UNKNOWN"  # timeout / 5xx / disconnect -> unresolved
 
 # Attempt outcome categories (the single-leg exposure state machine, ADR-4).
-ATTEMPT_SUCCESS = "success"  # both legs FILLED at aligned qty
+ATTEMPT_SUCCESS = "success"  # both legs FILLED (no executed-qty check, see DI-6)
 ATTEMPT_SINGLE_LEG_EXPOSURE = "single_leg_exposure"  # one leg filled, other not
 ATTEMPT_FAILED = "failed"  # neither leg filled (no exposure)
 ATTEMPT_DISABLED = "execution_disabled"  # disabled executor, no record transport
@@ -514,19 +514,20 @@ def leg_is_filled(leg: dict | None) -> bool:
 def classify_attempt(spot_leg: dict | None, perp_leg: dict | None) -> str:
     """Classify one attempt's two legs (10-design §7.3/7.4).
 
-    Both legs FILLED at aligned qty -> success. Exactly one filled -> single-leg
-    exposure. Neither filled -> failed. Qty alignment: the two executed qtys must
-    be equal (both legs send the same ``q_common``); a partial on one leg with a
-    mismatched qty is treated as exposure even if both report FILLED.
+    Both legs FILLED -> success. Exactly one filled -> single-leg exposure.
+    Neither filled -> failed.
+
+    No executed-qty equality check is applied: a spot market BUY sends
+    ``quoteOrderQty`` (total USDT) while the perp leg and a spot SELL send
+    ``quantity``, so the two legs' filled base qtys cannot be pre-aligned for
+    forward opens. Per the user's 2026-07-23 clarification, 成交数量校验 is
+    intentionally skipped this round (see DI-6); the order-parameter model is
+    rebuilt in the real-API round.
     """
     spot_filled = leg_is_filled(spot_leg)
     perp_filled = leg_is_filled(perp_leg)
     if spot_filled and perp_filled:
-        spot_qty = Decimal(str(spot_leg["filled_qty"]))
-        perp_qty = Decimal(str(perp_leg["filled_qty"]))
-        if spot_qty == perp_qty:
-            return ATTEMPT_SUCCESS
-        return ATTEMPT_SINGLE_LEG_EXPOSURE  # mismatched filled qtys
+        return ATTEMPT_SUCCESS
     if spot_filled or perp_filled:
         return ATTEMPT_SINGLE_LEG_EXPOSURE
     return ATTEMPT_FAILED
@@ -540,13 +541,11 @@ def build_leg_exposure(spot_leg: dict | None, perp_leg: dict | None, ts_us: int)
     ``"spot"`` when only the spot leg filled, ``"perp"`` when only the perp leg
     filled. ``qty``/``price`` are decimal strings, matching the Fill JSON (§3.3).
 
-    Returns ``None`` when neither leg filled (a plain failure, not an exposure),
-    and also when both legs filled with mismatched quantities: §3.2's single
-    ``leg`` field cannot represent a dual-leg mismatch without ambiguity, so the
-    full detail stays in the fills table (§3.3) and the gap is escalated for
-    contract handling rather than silently misrepresented here (see
-    40-fix-2-hedge-be.md). The task still pauses via ``exposure_alert`` either
-    way, driven by ``classify_attempt``.
+    Returns ``None`` when neither leg filled (a plain failure, not an exposure)
+    and when both legs filled: there is no single exposed leg to name in either
+    case. Since fix-3 (DI-6) a both-legs-FILLED attempt classifies as ``success``
+    and no longer routes here, the both-filled branch is a defensive guard kept
+    for safety; the full fill detail always lives in the fills table (§3.3).
     """
     spot_filled = leg_is_filled(spot_leg)
     perp_filled = leg_is_filled(perp_leg)

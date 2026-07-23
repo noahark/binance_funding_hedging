@@ -232,8 +232,10 @@ def test_classify_one_filled_one_rejected_is_exposure():
     assert D.classify_attempt(_leg("REJECTED", "0"), _leg("FILLED", "0.5")) == D.ATTEMPT_SINGLE_LEG_EXPOSURE
 
 
-def test_classify_qty_mismatch_is_exposure():
-    assert D.classify_attempt(_leg("FILLED", "0.5"), _leg("FILLED", "0.4")) == D.ATTEMPT_SINGLE_LEG_EXPOSURE
+def test_classify_both_filled_mismatched_qty_is_success():
+    # fix-3 (DI-6): 成交数量校验 removed — both legs FILLED is success even when
+    # the filled qtys differ (spot market BUY vs quantity legs cannot pre-align).
+    assert D.classify_attempt(_leg("FILLED", "0.5"), _leg("FILLED", "0.4")) == D.ATTEMPT_SUCCESS
 
 
 def test_classify_neither_filled_is_failed():
@@ -267,10 +269,9 @@ def test_build_leg_exposure_none_when_neither_filled():
 
 
 def test_build_leg_exposure_none_when_both_filled_mismatched():
-    # Both legs filled with mismatched qtys cannot be represented unambiguously
-    # under §3.2's single {leg,qty,price} field; the full detail stays in the
-    # fills table and the contract gap is escalated (see 40-fix-2-hedge-be.md).
-    # classify_attempt still flags this as single-leg exposure -> exposure_alert.
+    # fix-3 (DI-6): both legs FILLED now classifies as success, so this input no
+    # longer reaches build_leg_exposure in practice; the None here is its
+    # defensive both-filled guard. The full detail lives in the fills table (§3.3).
     assert D.build_leg_exposure(_leg("FILLED", "0.5"), _leg("FILLED", "0.4"), 1) is None
 
 

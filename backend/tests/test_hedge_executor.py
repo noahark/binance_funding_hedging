@@ -159,12 +159,12 @@ def test_seed_both_failed_is_failed():
     assert out.exposure is None
 
 
-def test_seed_qty_mismatch_is_single_leg_exposure():
+def test_seed_qty_mismatch_is_success():
     exe = RecordTransportExecutor([OutcomeSpec.qty_mismatch(Decimal("0.5"), Decimal("0.4"))])
     out = exe.execute(_ctx())
-    assert out.category == D.ATTEMPT_SINGLE_LEG_EXPOSURE
-    # §3.2 cannot represent a dual-leg mismatch; leg_exposure is null and the
-    # gap is escalated (see 40-fix-2-hedge-be.md). Status still -> exposure_alert.
+    # fix-3 (DI-6): both legs FILLED -> success regardless of filled-qty mismatch.
+    assert out.category == D.ATTEMPT_SUCCESS
+    # success does not build a leg_exposure document.
     assert out.exposure is None
 
 
