@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `planned / approved direction; detailed design next`.
+- Active phase: `planned / detailed design complete; development breakdown pending`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   `62c4cac`. Stage evidence commits exist; no implementation has started.
@@ -57,13 +57,15 @@
 ## Next Action
 
 The user approved `06-direction-synthesis.md`, removal of the stale Manual
-Close Design Gate, and the canonical PRD restructuring. Next, prepare detailed
-stage design, ADR, acceptance criteria, and implementation breakdown. Real
-activation and the first live task remain separate human actions.
+Close Design Gate, and the canonical PRD restructuring. `00-task.md`,
+`10-design.md`, and `11-adr.md` now freeze the detailed stage design. The human
+operator must run `development-breakdown-dispatch.md` in fresh Claude Opus 4.8
+and save the raw response as `12-development-breakdown.md`. Real activation and
+the first live task remain separate human actions.
 
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-23 19:38:44 CST
-下一步模型: bookkeeper
-下一步任务: prepare detailed stage design from the approved direction
+本地北京时间: 2026-07-23 19:49:06 CST
+下一步模型: human operator
+下一步任务: execute the Opus 4.8 development-breakdown packet and preserve raw output

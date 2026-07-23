@@ -88,9 +88,24 @@
       "recorded_at": "2026-07-23T19:00:05+08:00"
     }
   ],
-  "designer": null,
+  "designer": {
+    "provider": "codex",
+    "model": "GPT-5 Codex",
+    "role": "stage_designer",
+    "raw_output_paths": [
+      "reports/agent-runs/2026-07-hedge-open-real-api-v1/00-task.md",
+      "reports/agent-runs/2026-07-hedge-open-real-api-v1/10-design.md",
+      "reports/agent-runs/2026-07-hedge-open-real-api-v1/11-adr.md"
+    ],
+    "recorded_at": "2026-07-23T19:44:12+08:00"
+  },
   "direction_synthesizer": null,
-  "breakdown_author": null,
+  "breakdown_author": {
+    "provider": "claude",
+    "model": "Claude Opus 4.8",
+    "status": "pending_human_operator_dispatch",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/development-breakdown-dispatch.md"
+  },
   "implementer": null,
   "implementers": [],
   "fix_authors": [],
@@ -165,11 +180,15 @@
   "changed_files": [
     "reports/agent-runs/ACTIVE.json",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/00-intake.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/00-task.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/01-design-discussion.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/02-api-recon-intake.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/03-direction-draft-intake.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/04-user-execution-policy.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/10-design.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/11-adr.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/development-breakdown-dispatch.md",
     "docs/product/PRD.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/claude-opus-4-8.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/glm52.md",
@@ -223,8 +242,11 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/03-direction-draft-intake.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/04-user-execution-policy.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/00-task.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/10-design.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/11-adr.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/codex.md"
   ],
-  "next_action": "Bookkeeper prepares the detailed stage design, ADR, acceptance criteria, and implementation breakdown from the approved direction.",
-  "updated_at": "2026-07-23T19:38:44+08:00"
+  "next_action": "Human operator executes development-breakdown-dispatch.md in a fresh Claude Opus 4.8 session and preserves raw output as 12-development-breakdown.md.",
+  "updated_at": "2026-07-23T19:49:06+08:00"
 }
