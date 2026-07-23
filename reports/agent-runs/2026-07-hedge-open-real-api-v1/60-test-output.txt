@@ -279,9 +279,21 @@ phase=checkpoint
 status=testing
 diff_fingerprint=d873699d4c06f8dec343c9a6dcfa5fecc22d74b5:fe8b6dc9349dc4d4f847cdc5e6298e2f4e14b4b2332038bf4911d20377d8099c
 
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: EXPECTED GATE HOLD (exit 1)
+STAGE VALIDATION FAILED
+- pre-review requires status in ['review_1', 'review_2'], got 'testing'
+- task backend implementation dispatch: dispatch file task-A-claude-glm.prompt.md has no DISPATCH RECEIPT block
+- task frontend implementation dispatch: dispatch file task-B-kimi.prompt.md has no DISPATCH RECEIPT block
+
+The required aggregate implementation index was added before this rerun. These
+three remaining messages are procedural: status intentionally remains `testing`
+until the two completed human-dispatch receipts are recorded. They do not
+indicate a source-test, design, or code-contract failure.
+
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
-本地北京时间: 2026-07-23 23:23:41 CST
+本地北京时间: 2026-07-23 23:28:57 CST
 下一步模型: human operator
 下一步任务: fill completed implementation dispatch receipts before formal Review-1 validation and dispatch

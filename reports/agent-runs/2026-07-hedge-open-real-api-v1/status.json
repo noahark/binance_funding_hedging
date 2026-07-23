@@ -405,7 +405,8 @@
   "rework_count": 0,
   "max_rework": 3,
   "blockers": [
-    "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task. This is not a blocker to design or implementation."
+    "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task. This is not a blocker to design or implementation.",
+    "Formal Review-1 requires the human operator's actual R9 receipts for the completed Task A and Task B dispatches. The bookkeeper cannot infer or invent their adapter commands, timestamps, or provider-native Session IDs."
   ],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
@@ -432,5 +433,5 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-frontend.dispatch.md"
   ],
   "next_action": "Human operator supplies or records the completed Task A and Task B implementation dispatch receipts (real adapter command, ISO times, and session-ID/unavailable reason). Then the bookkeeper runs the clean pre-review validator and the human operator executes the two prepared formal review-1 packets.",
-  "updated_at": "2026-07-23T23:27:51+08:00"
+  "updated_at": "2026-07-23T23:28:57+08:00"
 }
