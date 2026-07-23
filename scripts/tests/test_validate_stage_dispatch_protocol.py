@@ -174,7 +174,7 @@ def _setup_dispatch_ready(stage_dir, status, *, marker=True):
             _write_prompt(stage_dir, checklist["embedded_review_prompt_path"], marker=marker)
 
 
-def _verdict_json(verdict="ACCEPT", *, role="first_reviewer", model="kimi-2.7"):
+def _verdict_json(verdict="ACCEPT", *, role="first_reviewer", model="kimi-k3"):
     payload = {
         "schema_version": 1,
         "stage_id": "fixture-stage",
@@ -225,7 +225,7 @@ def _write_dispatch(
     receipt = (
         "<!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====\n"
         f"status:        {status}\n"
-        "target_model:  kimi/kimi-2.7\n"
+        "target_model:  kimi/kimi-k3\n"
         f"adapter_cmd:   {adapter_cmd}\n"
         f"executor:      {executor}\n"
         f"started_at:    {started}\n"
@@ -731,7 +731,7 @@ class TestFinalTopLevelVerdictExtraction:
             "schema_version": 1,
             "stage_id": "fixture-stage",
             "role": "first_reviewer",
-            "model": "kimi-2.7",
+            "model": "kimi-k3",
             "verdict": verdict,
             "diff_fingerprint": FINGERPRINT,
             "reviewer_prior_involvement": "none",

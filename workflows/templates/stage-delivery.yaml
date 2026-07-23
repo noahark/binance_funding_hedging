@@ -163,7 +163,7 @@ rotation:
   review_1:
     cross_review_pool:
       - provider: kimi
-        model: "kimi-2.7"
+        model: "kimi-k3"
       - provider: claude_glm
         model: "glm-5.2[1m]"
     selection:

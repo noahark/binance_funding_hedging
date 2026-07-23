@@ -68,6 +68,7 @@ PROVIDER_IDENTITIES = {
     "glm52": "zhipu_glm",
     "zhipu_glm": "zhipu_glm",
     "kimi": "moonshot_kimi",
+    "kimi_k3": "moonshot_kimi",
     "kimi27": "moonshot_kimi",
     "moonshot_kimi": "moonshot_kimi",
     "grok": "xai_grok",

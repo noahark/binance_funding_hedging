@@ -139,7 +139,7 @@ For direction-panel tasks:
 1. GPT/Codex writes its own direction draft.
 2. Claude writes its own direction draft.
 3. GLM5.2 writes its own direction draft.
-4. Kimi 2.7 writes its own direction draft.
+4. Kimi K3 writes its own direction draft.
 5. Grok Build writes its own direction draft.
 6. GPT/Codex reads all five raw drafts, synthesizes the final direction, and
    formats it for user review.
