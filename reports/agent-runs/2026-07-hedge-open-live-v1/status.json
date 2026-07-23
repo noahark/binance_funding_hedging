@@ -3,6 +3,17 @@
   "status": "review_2",
   "rework_count": 1,
   "review_1_both_accept": "hedge-fe ACCEPT (round-1, b773a470); hedge-be ACCEPT (round-2, bd01eb52 after fix-1). hedge-fe review fingerprint trails status (frontend untouched by fix-1) — to be rebound at pre-accept via authorized_exception or a quick fe re-review.",
+  "review_2": {
+    "codex_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex.prompt.md",
+    "codex_dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex.dispatch.md",
+    "claude_fallback_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-claude.prompt.md",
+    "claude_fallback_dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-claude.dispatch.md",
+    "preferred_reviewer": "codex",
+    "fallback_requires_runner_unavailability_evidence": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-unavailable.md",
+    "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/50-review-2.md",
+    "next_dispatch_executor": "human_operator",
+    "verdict": null
+  },
   "review_1_round_1": {
     "hedge_fe": "ACCEPT (Claude-GLM, 1 P3 benign)",
     "hedge_be": "REWORK (Kimi): F-001(P1) ?status=all excludes deleted (contract §3.1 seam break, same class as R4-001), F-002(P2) mode=smooth accepted+dispatched; fix-1 dispatched to Claude-GLM",
