@@ -1,7 +1,14 @@
 {
   "stage_id": "2026-07-hedge-open-live-v1",
-  "status": "review_2",
+  "status": "fixing",
   "rework_count": 2,
+  "fix_3_user_clarification": {
+    "trigger": "user product clarification 2026-07-23 (NOT a review REWORK): skip executed-qty check on dual fills; forward vs reverse order methods make base qty non-alignable",
+    "scope": "domain.classify_attempt drop spot_qty==perp_qty (both FILLED -> success); single-leg failure -> exposure, >3 -> pause unchanged; + tests",
+    "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-fix-3.prompt.md",
+    "report_path": "reports/agent-runs/2026-07-hedge-open-live-v1/40-fix-3-hedge-be.md"
+  },
+  "order_param_model_defect_deferred": "DI-6: spot market BUY needs quoteOrderQty (total USDT); contract buy/sell + spot sell use quantity. Current DI-4/ADR-2 'both legs quantity=q_common + common grid + qty equality' is WRONG for forward opens (legs' units differ, base qty non-alignable). dry-run records incorrect forward params but no real POST. REBUILD at the real-API round (order params per direction, amount->notional, frontend input semantics, real preflight/executor + margin/amount/count risk controls).",
   "review_1_both_accept": "hedge-fe ACCEPT (round-1, b773a470); hedge-be ACCEPT (round-2, bd01eb52 after fix-1). hedge-fe review fingerprint trails status (frontend untouched by fix-1) — to be rebound at pre-accept via authorized_exception or a quick fe re-review.",
   "review_2": {
     "codex_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex.prompt.md",

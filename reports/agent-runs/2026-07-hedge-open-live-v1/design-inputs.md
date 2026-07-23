@@ -145,3 +145,24 @@ preflight provider this round; it is deferred to the next round that wires real
 data** (mock filters or real public `exchangeInfo` + read-only balance),
 alongside the live-round follow-ups F-003..F-006. Round-1 dry-run stays
 "idle but safe".
+
+## DI-6: Order-parameter model defect — spot market BUY needs quoteOrderQty (real-API round rebuild)
+User clarification (2026-07-23): a **spot market BUY can only pass
+`quoteOrderQty` (total USDT)**, while contract buy/sell and spot sell pass
+`quantity`. Therefore:
+- **Forward** (buy spot + sell perp): spot leg = `quoteOrderQty` (USDT amount),
+  perp leg = `quantity`. The two legs' units differ, so the executed base qty
+  cannot be pre-aligned — **common-grid rounding (ADR-2) and executed-qty equality
+  do NOT hold for forward opens**.
+- **Reverse** (sell spot + buy perp): both legs = `quantity`, can align.
+
+So the current DI-4 / ADR-2 model ("both legs `quantity=q_common` + common grid +
+executed-qty equality") is **wrong for forward opens**. The current dry-run record
+transport records incorrect forward-leg params, but performs no real POST, so no
+harm yet. **Deferred to the real-API round** (user: "直接上真实 api"): redesign
+order params per direction (spot buy = `quoteOrderQty` derived from amount×price;
+others = `quantity`), the amount→notional conversion, the frontend input
+semantics, and real preflight/executor + the user's margin/amount/count risk
+controls. This round's **fix-3 only removes the executed-qty check** in
+`classify_attempt` (both legs filled → success), matching the user's "暂时不做
+成交数量校验"; the order-parameter rebuild is explicitly NOT in this round.
