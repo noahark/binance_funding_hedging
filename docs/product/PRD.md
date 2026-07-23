@@ -117,8 +117,10 @@ borrow it.
 
 ### 6.3 Immediate scheduling and durable submission
 
-1. A task schedules one concurrent pair every second until it issues `target_n`
-   planned attempts or is paused.
+1. Each running task owns an independent asynchronous scheduler and submits one
+   concurrent pair every second until it issues `target_n` planned attempts or
+   is paused. Several running tasks may each submit their own pair in the same
+   second; there is no product-level global one-pair serialization.
 2. Before each pair, current public/private preflight verifies market filters,
    account/position mode, available balance, and rate-limit eligibility.
 3. Before any POST, SQLite persistently records the immutable attempt, both

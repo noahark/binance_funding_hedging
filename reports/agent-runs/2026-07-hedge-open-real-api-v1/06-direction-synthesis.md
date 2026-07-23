@@ -89,7 +89,10 @@ total-notional/rounds、2% uplift、可配置 notional cap 和 manual-close-firs
 
 用户于 2026-07-23 批准本综合进入详细设计，并授权 PRD 重构与删除旧的 Manual Close
 Design Gate。本阶段按固定 `q_common`、每秒一组、`orderId` 查询、默认连续 3 次已确认
-失败暂停、成交偏差仅记录的合同推进；真实启用与第一笔订单仍是独立人类动作。
+失败暂停、成交偏差仅记录的合同推进；真实启用与第一笔订单仍是独立人类动作。用户随后明确：
+每张运行任务卡片都是独立异步子进程，各自每秒一组，多个任务可以在同一秒各自提交；后续平滑
+开单会按任务各自建立 WebSocket 价差监控，满足自身价差率条件才触发对冲。该平滑/WebSocket
+能力仍不进入本阶段 immediate 实现范围。
 
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable

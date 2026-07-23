@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `planned / detailed design complete; development breakdown pending`.
+- Active phase: `planned / implementation dispatch-ready preparation`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   `62c4cac`. Stage evidence commits exist; no implementation has started.
@@ -27,10 +27,13 @@
 - Safety: no credential access, Binance network call, real POST, push, global
   Start activation, or first live task is authorized. Do not infer authorization
   from `APP_HEDGE_EXECUTOR=live` being implemented in a future diff.
-- Latest user policy: send one concurrent pair each second; accepted orders are
-  tracked by `orderId` to terminal state; actual amounts are accumulated for
-  weighted averages but do not gate cadence; three confirmed consecutive failed
-  pairs pause, with that threshold configurable. See `04-user-execution-policy.md`.
+- Latest user policy: each running task card is an independent asynchronous
+  worker and sends one concurrent pair each second; multiple cards may submit in
+  the same second. Accepted orders are tracked by `orderId` to terminal state;
+  actual amounts are accumulated for weighted averages but do not gate cadence;
+  three confirmed consecutive failed pairs pause, with that threshold
+  configurable. See `04-user-execution-policy.md` and
+  `05-cadence-resolution.md`.
 
 ## User-Frozen Scope
 
@@ -43,7 +46,9 @@
   ambiguous no-response cases are queried by client ID, never blindly resent.
   Three confirmed consecutive failed pairs pause by default; no automatic repair
   or close occurs.
-- Immediate only; smooth WebSocket mode is a separate next stage.
+- Immediate only; smooth WebSocket mode is a separate next stage. Each future
+  smooth task will independently monitor its price spread through WebSocket and
+  trigger only on its own configured spread-rate condition.
 - Working rule is forward margin MARKET BUY with `quoteOrderQty`; reverse spot
   sell and both UM sides use `quantity`. **Superseded:** user selects concurrent
   fixed base `quantity=q_common` for every immediate hedge leg; quoteOrderQty is
@@ -58,17 +63,19 @@
 
 The user approved `06-direction-synthesis.md`, removal of the stale Manual
 Close Design Gate, and the canonical PRD restructuring. `00-task.md`,
-`10-design.md`, and `11-adr.md` now freeze the detailed stage design. Claude
-Opus 4.8's raw `12-development-breakdown.md` was received and recommends
+`10-design.md`, `11-adr.md`, and `05-cadence-resolution.md` now freeze the
+detailed stage design. The user selected per-task independent asynchronous
+one-second cadence; the prior breakdown open item is resolved without editing
+its raw artifact. Claude Opus 4.8's raw `12-development-breakdown.md` recommends
 parallel backend (Claude-GLM) / frontend (Kimi) work with embedded pre-review
-opted out. One human product decision remains before implementation dispatch:
-whether one-second dispatch applies to every running task independently or is
-globally serialized across all running tasks. Real activation and the first live
-task remain separate human actions.
+opted out. The bookkeeper has prepared immutable task packets
+`task-A-claude-glm.prompt.md` and `task-B-kimi.prompt.md`; run the dispatch-ready
+validator before the human operator runs them concurrently. Real activation and
+the first live task remain separate human actions.
 
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-23 20:05:26 CST
-下一步模型: human
-下一步任务: choose per-task versus globally serialized one-second dispatch
+本地北京时间: 2026-07-23 20:18:17 CST
+下一步模型: human operator
+下一步任务: run immutable Task A/B packets in separate implementation terminals; preserve each complete raw implementation report

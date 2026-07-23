@@ -51,8 +51,10 @@ PREPARED -> DISPATCHING -> ACCEPTED_OR_QUERYING -> TERMINAL_RECORDED
   A pair only increments it when required lookup proves a leg never accepted.
 - Terminal fill/residual/partial data is recorded and visible, but is not a
   scheduler gate. The next planned pair may dispatch after one second.
-- Start, executor mode, task pause/done state, and exchange rate-limit cooldown
-  still block sends.
+- Each running task owns an independent asynchronous one-second loop; there is
+  no product-level global serialization across task cards. Start, executor
+  mode, that task's pause/done state, and exchange rate-limit cooldown still
+  block sends.
 
 ## Live Adapter Boundary
 

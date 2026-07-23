@@ -12,9 +12,10 @@ all read-only, borrow-task, and dry-run behavior outside this hedge-open scope.
 - Both legs use Decimal-filtered `q_common` and are submitted concurrently.
 - Forward: PAPI margin BUY + UM SELL; reverse: PAPI margin SELL + UM BUY; every
   margin leg uses `NO_SIDE_EFFECT`; no `quoteOrderQty`.
-- Create one pair each second until `target_n` attempts are issued or the task
-  pauses. Earlier fills, residuals, partial status, or pending queries do not
-  block the next pair.
+- Each running task owns an independent asynchronous one-pair-per-second loop
+  until its `target_n` attempts are issued or it pauses. Several tasks may send
+  in the same second. Earlier fills, residuals, partial status, or pending
+  queries do not block that task's next pair.
 - Persist one immutable attempt and two client IDs before either POST. Query a
   timeout/ambiguous response by client ID; never blindly resend it.
 - A returned `orderId` starts terminal-state polling. Persist actual amounts,

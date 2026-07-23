@@ -29,6 +29,21 @@
       "reason": "The Opus breakdown recommends formal cross-review gates without an embedded pre-review loop; the backend is one serial owner and the frontend is independently contract-bound."
     }
   },
+  "dispatch_protocol": "human-operator/v1",
+  "model_routing": {
+    "backend": {
+      "owner_provider": "claude_glm",
+      "owner_model": "glm-5.2[1m]",
+      "task_id": "backend"
+    },
+    "frontend": {
+      "owner_provider": "kimi",
+      "owner_model": "kimi-k3",
+      "task_id": "frontend"
+    },
+    "excluded_from_core_implementation_and_fix": ["codex"],
+    "human_operator_executes_cross_model_dispatch": true
+  },
   "embedded_reviews": {},
   "session_receipts": [
     {
@@ -128,7 +143,56 @@
   "reviewer_1": null,
   "reviewer_2": null,
   "r10_checklists": {},
-  "tasks": [],
+  "tasks": [
+    {
+      "id": "backend",
+      "owner": {"provider": "claude_glm", "model": "glm-5.2[1m]"},
+      "allowed_files": [
+        "backend/hedge_open_tasks/domain.py",
+        "backend/hedge_open_tasks/store.py",
+        "backend/hedge_open_tasks/service.py",
+        "backend/hedge_open_tasks/executor.py",
+        "backend/hedge_open_tasks/scheduler.py",
+        "backend/services/hedge_open_live_client.py",
+        "backend/services/live_hedge_executor.py",
+        "backend/services/hedge_preflight_provider.py",
+        "backend/config.py",
+        "backend/app/server.py",
+        "backend/tests/test_hedge_*.py",
+        "backend/tests/test_hedge_open_live_client.py",
+        "backend/tests/test_live_hedge_executor.py"
+      ],
+      "forbidden_files": ["frontend/**", "backend/services/binance_signing.py", "backend/borrow_tasks/**", "docs/**", "reports/api-samples/**", "reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json", "reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md"],
+      "dependencies": [],
+      "implementation_report_path": "20-implementation-backend.md",
+      "review_1": {"provider": "kimi", "model": "kimi-k3", "artifact_path": "30-review-1-backend.md", "dispatch_path": null, "verdict": null},
+      "r10_checklist": {
+        "task_prompt_path": "task-A-claude-glm.prompt.md",
+        "self_tests_command": ".venv/bin/python -m pytest backend/tests -q",
+        "next_dispatch_executor": "human_operator",
+        "pass_branch": "write 20-implementation-backend.md with actual test result and stop for bookkeeper",
+        "blocker_branch": "scope-contained fix then rerun self-tests; contract/schema/shared-field/live-gate changes escalate to bookkeeper",
+        "unavailable_branch": {"failure_classes": ["model_unavailable", "adapter_missing", "command_error", "permission_error", "timeout"], "escalation_artifact": "task-A-round1.dispatch.md"}
+      }
+    },
+    {
+      "id": "frontend",
+      "owner": {"provider": "kimi", "model": "kimi-k3"},
+      "allowed_files": ["frontend/index.html", "frontend/self-check.js"],
+      "forbidden_files": ["backend/**", "docs/**", "reports/api-samples/**", "reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json", "reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md"],
+      "dependencies": ["frozen additive JSON contract in 12-development-breakdown.md §3.4"],
+      "implementation_report_path": "20-implementation-frontend.md",
+      "review_1": {"provider": "claude_glm", "model": "glm-5.2[1m]", "artifact_path": "30-review-1-frontend.md", "dispatch_path": null, "verdict": null},
+      "r10_checklist": {
+        "task_prompt_path": "task-B-kimi.prompt.md",
+        "self_tests_command": "node frontend/self-check.js",
+        "next_dispatch_executor": "human_operator",
+        "pass_branch": "write 20-implementation-frontend.md with actual self-check result and stop for bookkeeper",
+        "blocker_branch": "scope-contained fix then rerun self-check; any missing or renamed backend field escalates to bookkeeper and is never invented",
+        "unavailable_branch": {"failure_classes": ["model_unavailable", "adapter_missing", "command_error", "permission_error", "timeout"], "escalation_artifact": "task-B-round1.dispatch.md"}
+      }
+    }
+  ],
   "complexity": {
     "classification": "MILESTONE",
     "direction_panel_required": true,
@@ -148,10 +212,10 @@
     "forward_fill_mismatch_numeric_tolerance": "none; a both-filled mismatch is recorded but does not by itself trigger a numeric-threshold pause",
     "fill_and_residual_policy": "actual filled quantities, values, residuals, partial states, and prior unresolved attempts are persisted and queried but do not gate the next immediate scheduled pair",
     "order_acceptance_and_reconciliation": "a returned orderId is accepted-order evidence; persist it and query to terminal state; timeout/missing response first queries deterministic client order ID and never blindly resends",
-    "immediate_cadence": "submit one concurrent hedge pair every 1 second; order-status tracking runs independently and does not block the next pair",
+    "immediate_cadence": "each running task card owns an independent asynchronous scheduler that submits one concurrent hedge pair every 1 second; multiple tasks may submit in the same second; order-status tracking runs independently and does not block that task's next pair",
     "confirmed_failure_pause": "configurable consecutive_failure_pause_threshold defaults to 3; reaching it pauses further opening; a successful accepted pair resets the counter",
     "fill_accounting": "persist cumulative actual base and quote quantities per leg and calculate weighted average price as cumulative quote divided by cumulative base; data is audit/display only in this stage",
-    "smooth_mode": "deferred to a separate next stage",
+    "smooth_mode": "deferred to a separate next stage; each future smooth task will own its own WebSocket price-spread monitor and trigger only when its own spread-rate condition is met",
     "forward_spot_market_buy_working_rule": "send base quantity q_common, not quoteOrderQty; fixed base quantity is the frontend input and both hedge legs submit it concurrently",
     "forward_execution_policy": "concurrent; persist one attempt before both POSTs, then submit two fixed-q_common legs concurrently",
     "input_semantics": "single_amount is fixed base-asset quantity per attempt and target_n is number of attempts",
@@ -201,10 +265,13 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/02-api-recon-intake.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/03-direction-draft-intake.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/04-user-execution-policy.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/05-cadence-resolution.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/10-design.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/11-adr.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/task-A-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/task-B-kimi.prompt.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/development-breakdown-dispatch.md",
     "docs/product/PRD.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/claude-opus-4-8.md",
@@ -229,7 +296,10 @@
     "status": "passed",
     "commands": [
       ".venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q (52 passed)",
-      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint (passed)"
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint (passed)",
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready (passed)",
+      ".venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q (52 passed)",
+      "git diff --check (passed)"
     ]
   },
   "review_1": {"reviewer": null, "provider": null, "model": null, "open_p0_p1": null, "verdict": null, "json_schema_valid": null, "diff_fingerprint": null, "covers_through_task": null, "reviewer_prior_involvement": "none", "fix_start_prompt_present": null, "fix_start_prompt_source": null, "invalid_json_attempts": 0},
@@ -258,12 +328,15 @@
   "current_inputs": [
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/03-direction-draft-intake.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/04-user-execution-policy.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/05-cadence-resolution.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/00-task.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/10-design.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/11-adr.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/codex.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/task-A-claude-glm.prompt.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/task-B-kimi.prompt.md"
   ],
-  "next_action": "User decides whether one-second dispatch is per running task or globally serialized; bookkeeper then freezes task metadata and prepares human-operated implementation dispatch packets.",
-  "updated_at": "2026-07-23T20:05:26+08:00"
+  "next_action": "Run the dispatch-ready validator, preserve its output, then the human operator may run Task A (Claude-GLM backend) and Task B (Kimi K3 frontend) concurrently from their immutable prompt packets.",
+  "updated_at": "2026-07-23T20:18:17+08:00"
 }

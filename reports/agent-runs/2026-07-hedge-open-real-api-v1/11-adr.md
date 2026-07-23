@@ -48,6 +48,21 @@ are irreversible.
 **Consequence:** fake/record transports prove CI behavior; first real task is a
 separate human authorization. Manual close is future scope, not a precondition.
 
+## ADR-5: Per-task cadence owns future event sources
+
+**Decision:** every running immediate task card owns an independent asynchronous
+one-pair-per-second scheduler. A future smooth-mode task will likewise own its
+own WebSocket price-spread monitor and will submit only when its own configured
+spread condition is met. Smooth mode and WebSocket connections are not part of
+this stage.
+
+**Why:** multiple independently operated tasks must not wait for a global
+product scheduler, and a future smooth strategy needs per-task market context.
+
+**Consequence:** task pause, completion, failure count, polling, and future
+price-monitor lifecycle are task-scoped. Exchange-wide rate-limit cooldowns
+remain a shared exchange safety gate.
+
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/11-adr.md
