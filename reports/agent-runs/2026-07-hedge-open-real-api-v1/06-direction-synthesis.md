@@ -70,13 +70,13 @@ weighted_average_price = cumulative_quote_amount / cumulative_base_qty
 - 使用 regular Portfolio Margin、USDT、one-way position mode（`positionSide=BOTH`）；检测到 hedge mode 或账户不健康则拒绝发送，不在流程中切换账户模式。
 - 自动化测试只用 fake/record transport。PAPI 没有可用于此合同的 testnet；任何真实 POST、private API 读取、凭据访问或第一笔 real task 都是后续单独的人类授权。
 
-## 与旧 PRD 的关系
+## 与 PRD 的对齐
 
-用户最新选择与现有 `docs/product/PRD.md` 的若干旧文本不一致：PRD 仍写 total-notional/rounds、2% uplift、可配置 notional caps，并规定 real manual-open 前需 manual close。
-
-本阶段方向采用用户最新选择：固定基础数量 + 计划次数、无产品金额/次数/保证金上限、无自动重算次数。正式批准后，后续阶段设计应以此作为 PRD amendment 的依据；在用户批准前不修改 canonical PRD。
-
-当前 PRD 的 **manual-close-first-live-open** 条款仍保留为第一笔真实开仓的阻断条件。它不阻止本阶段实现和审查 dormant live adapter，但若要在尚无 manual close 的情况下执行首笔真实开仓，必须由用户明确批准修订该条款。
+用户于 2026-07-23 批准本方向并授权重构 canonical PRD。新的 PRD 已以固定基础数量 +
+计划次数、无产品金额/次数/保证金上限、无自动重算次数为当前 immediate 合同；旧的
+total-notional/rounds、2% uplift、可配置 notional cap 和 manual-close-first-live-open
+门槛均不再适用。手动平仓仍是后续产品能力，但不是本阶段或首笔经人工授权的 real open
+的前置条件。
 
 ## 方向面板证据与分歧处理
 
@@ -85,13 +85,15 @@ weighted_average_price = cumulative_quote_amount / cumulative_base_qty
 - 全体稿件同意 quantity 并发、Decimal/filter、POST 前持久化、client-ID 查询、真实 adapter 受门控。
 - 原稿中“partial/单腿/unknown 立即暂停”和“此前未决 attempt 阻止下一组”的意见，因与用户的每秒节拍政策冲突而未采纳；未知响应仍必须查询，防止重复下单。
 
-## 请用户批准的方向
+## 用户批准记录
 
-批准本综合即表示：本阶段按固定 `q_common`、每秒一组、`orderId` 查询、默认连续 3 次已确认失败暂停、成交偏差仅记录的合同进入详细设计；真实启用与第一笔订单仍保留为独立人类动作，并继续受当前 PRD manual-close 条款约束，除非你另行明确修订。
+用户于 2026-07-23 批准本综合进入详细设计，并授权 PRD 重构与删除旧的 Manual Close
+Design Gate。本阶段按固定 `q_common`、每秒一组、`orderId` 查询、默认连续 3 次已确认
+失败暂停、成交偏差仅记录的合同推进；真实启用与第一笔订单仍是独立人类动作。
 
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md
-本地北京时间: 2026-07-23 19:00:05 CST
-下一步模型: human
-下一步任务: approve or edit this direction synthesis before detailed stage design
+本地北京时间: 2026-07-23 19:37:27 CST
+下一步模型: bookkeeper
+下一步任务: begin detailed stage design from the approved direction

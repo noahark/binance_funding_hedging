@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: `planned / direction synthesis waiting for user approval`.
+- Active phase: `planned / approved direction; detailed design next`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
-  `034d89e`. Stage evidence commits exist; no implementation has started.
+  `62c4cac`. Stage evidence commits exist; no implementation has started.
 - Classification: `MILESTONE`; default direction panel is mandatory. Independent
   raw drafts are received from Claude Opus 4.8, GLM-5.2, Kimi K3, and GPT-5
   Codex. Grok has an explicit unavailable record because the operator reported
@@ -56,13 +56,14 @@
 
 ## Next Action
 
-The completed `06-direction-synthesis.md` awaits user approval or edits. It
-surfaces the older PRD's manual-close-first-live-open gate and no-cap/input
-contract conflict; canonical documents remain unchanged until user approval.
+The user approved `06-direction-synthesis.md`, removal of the stale Manual
+Close Design Gate, and the canonical PRD restructuring. Next, prepare detailed
+stage design, ADR, acceptance criteria, and implementation breakdown. Real
+activation and the first live task remain separate human actions.
 
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-23 19:00:05 CST
-下一步模型: human
-下一步任务: approve or edit 06-direction-synthesis.md before detailed stage design
+本地北京时间: 2026-07-23 19:38:44 CST
+下一步模型: bookkeeper
+下一步任务: prepare detailed stage design from the approved direction

@@ -66,11 +66,9 @@ three confirmed consecutive failed pairs pauses further opening. See
 
 ## Remaining Questions For Direction
 
-- Reconcile the user-approved no-cap, fixed-base-quantity contract with the
-  older canonical PRD, which still mandates notional caps and a notional/rounds
-  input model.
-- Decide whether the canonical PRD's manual-close-before-first-real-open gate
-  remains in force or is explicitly amended.
+- Resolved on 2026-07-23: the user approved replacement of the stale PRD
+  notional/rounds and cap model with the current fixed-base-quantity immediate
+  contract, and removal of the stale manual-close-first-live-open gate.
 
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable

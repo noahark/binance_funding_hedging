@@ -84,6 +84,33 @@ Session ID 来源: unavailable
 下一步模型: human
 下一步任务: approve or edit 06-direction-synthesis.md before detailed stage design
 
+===== approved PRD restructuring checkpoint (2026-07-23 19:38:44 CST) =====
+Command: ! rg -n '^## Manual Close Design Gate$|Manual close is required before real manual-open' docs/product/PRD.md
+Result: PASS (the stale PRD section and requirement are absent)
+
+Command: ! jq -r '.blockers[]' reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json | rg -i 'manual.close'
+Result: PASS (the stale gate is not an active-stage blocker)
+
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json && git diff --check
+Result: PASS
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+No product-code tests were run: this checkpoint changes approved product/stage
+documentation only.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 19:38:44 CST
+下一步模型: bookkeeper
+下一步任务: prepare detailed stage design and implementation breakdown
+
 ===== direction-draft intake integrity checks (2026-07-23 16:45:40 CST) =====
 Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
 Result: PASS (exit 0; stage status parses)
