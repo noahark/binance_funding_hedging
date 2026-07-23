@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-live-v1",
-  "status": "fixing",
+  "status": "review_2",
   "rework_count": 2,
   "fix_3_user_clarification": {
     "trigger": "user product clarification 2026-07-23 (NOT a review REWORK): skip executed-qty check on dual fills; forward vs reverse order methods make base qty non-alignable",
@@ -45,8 +45,9 @@
   },
   "workflow": "stage-delivery",
   "base_sha": "6639b0025682f406f9a726104ef8d3b9e6f8fadd",
-  "head_sha": "f05b61dfd688616dd7e4f6d39db1460b19f6232c",
-  "diff_fingerprint": "f05b61dfd688616dd7e4f6d39db1460b19f6232c:24f505b87d6985d8cec21c8003923ca6532aa9d3af8910b8226e8e0a58dfc7c8",
+  "head_sha": "02bcc24abe134dcdb0541af462cea765ffc5cbdf",
+  "diff_fingerprint": "02bcc24abe134dcdb0541af462cea765ffc5cbdf:1b771bc938a907d3cd024421dc35d070f821f57a312296ae9b88dee7d2c95bbf",
+  "prev_head_sha_fix2": "f05b61dfd688616dd7e4f6d39db1460b19f6232c",
   "prev_head_sha_round1": "b773a470de62053207b85e58148bbf7c285026fd",
   "prev_head_sha_fix1": "bd01eb52e9ec5464bb9f026f5ce666bc883db441",
   "both_mismatched_contract_gap": "§3.2 leg_exposure {leg,qty,price,ts} cannot represent a both-filled-but-quantity-mismatched exposure; fix-2 degrades it to leg_exposure=null + exposure_alert pause + full detail in fills (bookkeeper accepted). Recorded as a live-round contract follow-up (design a mismatch representation before real orders).",
