@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-real-api-v1",
-  "status": "planned",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-real-api-v1",
@@ -115,6 +115,28 @@
       "unavailable_reason": "Claude Code CLI did not expose a provider-native Session ID in the preserved raw breakdown.",
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/12-development-breakdown.md",
       "recorded_at": "2026-07-23T19:57:00+08:00"
+    },
+    {
+      "role": "implementation",
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The raw report states that GLM provider-native Session ID was not exposed. The human supplied Claude Code runner-session reference 694ea9e3-20e9-4f42-800e-940f9530a9bb, retained only in 13-r4-diff-reconciliation.md as navigation metadata.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/20-implementation-backend.md",
+      "recorded_at": "2026-07-23T22:21:00+08:00"
+    },
+    {
+      "role": "implementation",
+      "task_id": "frontend",
+      "provider": "kimi",
+      "model": "kimi-k3",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The raw Kimi report states that the CLI did not expose a provider-native Session ID.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/20-implementation-frontend.md",
+      "recorded_at": "2026-07-23T20:50:26+08:00"
     }
   ],
   "designer": {
@@ -165,6 +187,7 @@
       "forbidden_files": ["frontend/**", "backend/services/binance_signing.py", "backend/borrow_tasks/**", "docs/**", "reports/api-samples/**", "reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json", "reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md"],
       "dependencies": [],
       "implementation_report_path": "20-implementation-backend.md",
+      "implementation_status": "received_r4_rework_required",
       "review_1": {"provider": "kimi", "model": "kimi-k3", "artifact_path": "30-review-1-backend.md", "dispatch_path": null, "verdict": null},
       "r10_checklist": {
         "task_prompt_path": "task-A-claude-glm.prompt.md",
@@ -182,6 +205,7 @@
       "forbidden_files": ["backend/**", "docs/**", "reports/api-samples/**", "reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json", "reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md"],
       "dependencies": ["frozen additive JSON contract in 12-development-breakdown.md §3.4"],
       "implementation_report_path": "20-implementation-frontend.md",
+      "implementation_status": "received_r4_compatible_no_fix_requested",
       "review_1": {"provider": "claude_glm", "model": "glm-5.2[1m]", "artifact_path": "30-review-1-frontend.md", "dispatch_path": null, "verdict": null},
       "r10_checklist": {
         "task_prompt_path": "task-B-kimi.prompt.md",
@@ -263,6 +287,28 @@
     "next_action": "human operator may execute Task A and Task B concurrently from immutable packets"
   },
   "diff_fingerprint": null,
+  "r4_diff_reconciliation": {
+    "status": "rework_required",
+    "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/13-r4-diff-reconciliation.md",
+    "findings": [
+      "R4-1 P1: first-class durable attempt/leg timeline is not exposed through the existing logs read API, so the completed frontend timeline has no real backend document to render.",
+      "R4-2 P1: tick iterates every eligible task but blocks task B on task A's live preflight/POST/query work; this violates the approved independent per-task asynchronous cadence."
+    ],
+    "authority_resolution": "Record/dry-run remains the safe default under approved PRD §3 and 10-design.md §Scope; the raw breakdown's isolated zero-record wording is not a rework item.",
+    "fix_prompt_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/backend-r4-fix.prompt.md",
+    "next_dispatch_executor": "human_operator"
+  },
+  "implementation_worktree_files": {
+    "backend": [
+      "backend/app/server.py", "backend/config.py",
+      "backend/hedge_open_tasks/domain.py", "backend/hedge_open_tasks/service.py", "backend/hedge_open_tasks/store.py",
+      "backend/services/hedge_open_live_client.py", "backend/services/hedge_preflight_provider.py", "backend/services/live_hedge_executor.py",
+      "backend/tests/test_hedge_api.py", "backend/tests/test_hedge_domain.py", "backend/tests/test_hedge_service.py", "backend/tests/test_hedge_store.py", "backend/tests/test_private_client.py",
+      "backend/tests/test_hedge_open_live_client.py", "backend/tests/test_hedge_purity.py", "backend/tests/test_live_hedge_executor.py"
+    ],
+    "frontend": ["frontend/index.html", "frontend/self-check.js"],
+    "raw_reports": ["20-implementation-backend.md", "20-implementation-frontend.md"]
+  },
   "coverage_waypoints": null,
   "changed_files": [
     "reports/agent-runs/ACTIVE.json",
@@ -306,7 +352,10 @@
       ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint (passed)",
       ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready (passed)",
       ".venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q (52 passed)",
-      "git diff --check (passed)"
+      "git diff --check (passed)",
+      ".venv/bin/python -m pytest backend/tests -q (856 passed in 43.12s; bookkeeper R4 reproduction)",
+      "node frontend/self-check.js (passed; bookkeeper R4 reproduction)",
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint (passed; status fixing)"
     ]
   },
   "review_1": {"reviewer": null, "provider": null, "model": null, "open_p0_p1": null, "verdict": null, "json_schema_valid": null, "diff_fingerprint": null, "covers_through_task": null, "reviewer_prior_involvement": "none", "fix_start_prompt_present": null, "fix_start_prompt_source": null, "invalid_json_attempts": 0},
@@ -341,9 +390,13 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/10-design.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/11-adr.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/13-r4-diff-reconciliation.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/task-A-claude-glm.prompt.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/task-B-kimi.prompt.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/task-B-kimi.prompt.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/20-implementation-backend.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/20-implementation-frontend.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/backend-r4-fix.prompt.md"
   ],
-  "next_action": "Run the dispatch-ready validator, preserve its output, then the human operator may run Task A (Claude-GLM backend) and Task B (Kimi K3 frontend) concurrently from their immutable prompt packets.",
-  "updated_at": "2026-07-23T20:22:29+08:00"
+  "next_action": "Human operator executes backend-r4-fix.prompt.md with Claude-GLM; then bookkeeper repeats R4 reconciliation, creates committed H_A/H_B evidence, and enters formal review-1.",
+  "updated_at": "2026-07-23T22:32:36+08:00"
 }

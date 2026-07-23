@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `planned / implementation dispatch-ready preparation`.
+- Active phase: `fixing / R4 reconciliation found bounded backend rework`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   last bookkeeper checkpoint HEAD was `133d286684713f3245d28249e7f9da62ff2d4b1f`.
@@ -74,9 +74,25 @@ opted out. The bookkeeper has prepared immutable task packets
 validator before the human operator runs them concurrently. Real activation and
 the first live task remain separate human actions.
 
+## Implementation intake and R4 status
+
+- Task A / Claude-GLM and Task B / Kimi raw implementation reports are received
+  at `20-implementation-backend.md` and `20-implementation-frontend.md`.
+- Bookkeeper reproduced `.venv/bin/python -m pytest backend/tests -q` with
+  **856 passed in 43.12s**, and `node frontend/self-check.js` with all checks
+  passing. The source file boundaries and `git diff --check` also passed.
+- Do not commit or formally review the current implementation diff yet.
+  `13-r4-diff-reconciliation.md` records two P1 integration gaps: no durable
+  attempt projection reaches the frontend timeline, and task-card cadence is
+  still serialized while live calls wait. The bounded backend fix packet is
+  `backend-r4-fix.prompt.md`; only the human operator may execute it.
+- Task B is compatible with the required additive `attempts` response and has
+  no requested fix. Real activation and the first live task remain separate
+  human actions.
+
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-23 20:22:29 CST
+本地北京时间: 2026-07-23 22:32:36 CST
 下一步模型: human operator
-下一步任务: run immutable Task A/B packets in separate implementation terminals; preserve each complete raw implementation report
+下一步任务: execute the bounded Claude-GLM R4 backend fix packet and preserve 40-fix-backend-r4.md
