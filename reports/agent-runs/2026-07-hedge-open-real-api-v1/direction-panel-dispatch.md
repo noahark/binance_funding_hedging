@@ -1,7 +1,7 @@
 # Direction Panel Dispatch — Hedge Open Real API v1
 
 Human operator: run this packet once in each registered direction-panel model
-(`codex`, `claude`, `glm52`, `kimi27`, `grok-build`). Replace `<model-id>` with
+(`codex`, `claude`, `glm52`, `kimi_k3`, `grok-build`). Replace `<model-id>` with
 the actual model identifier. The model must not launch or relay to another
 model. Preserve each raw response unchanged at:
 

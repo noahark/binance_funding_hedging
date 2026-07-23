@@ -9,6 +9,10 @@
 - Classification: `MILESTONE`; default direction panel is mandatory. No panel
   member has been dispatched because only the human operator may execute model
   dispatch. Recon is complete and `direction-panel-dispatch.md` is ready.
+- Harness/main sync exception: user-selected Kimi K3 routing was committed on
+  local main `5659f79` and merged into this stage as `53831d2`, because the
+  pending mandatory panel must use K3. The Harness protocol suite passed
+  52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
 - Read next: `status.json`, `00-intake.md`, and `01-design-discussion.md`.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
@@ -42,6 +46,9 @@
   fixed base `quantity=q_common` for every immediate hedge leg; quoteOrderQty is
   not used in this stage. Regular Portfolio Margin is the account assumption;
   PM-Pro is out of scope.
+- Kimi direction routing is now `kimi_k3` / `kimi-k3`. The already stored
+  `direction-drafts/kimi27.md` is immutable pre-change evidence, not a K3
+  result; a K3 dispatch writes `direction-drafts/kimi_k3.md`.
 
 ## Next Action
 
@@ -53,6 +60,6 @@ approval.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-23 15:27:04 CST
+本地北京时间: 2026-07-23 16:36:54 CST
 下一步模型: human operator
-下一步任务: execute the mandatory direction-panel packet for each registered panel member
+下一步任务: execute the mandatory direction-panel packet for each registered panel member, using Kimi K3 for kimi_k3

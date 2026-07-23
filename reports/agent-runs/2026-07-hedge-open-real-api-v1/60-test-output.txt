@@ -23,3 +23,26 @@ Result: PASS (exit 0)
 
 Command: git status --short
 Result: expected uncommitted bookkeeper evidence only: ACTIVE pointer, active stage artifacts, and raw API recon.
+
+===== Kimi K3 Harness/main sync checks (2026-07-23 16:34:31 CST) =====
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (52 passed in 1.21s)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+===== SHA correction and final checkpoint (2026-07-23 16:36:54 CST) =====
+Initial checkpoint after the main merge failed only because the recorded merge
+SHA ended in `efc` rather than the actual `ef3c`; no source or stage behavior
+was implicated. The bookkeeper corrected the literal SHA in status.json.
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
