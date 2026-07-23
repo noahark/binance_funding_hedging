@@ -32,7 +32,8 @@
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-2-codex-round-2.dispatch.md",
       "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/50-review-2-round-2.md",
       "verdict": "ACCEPT"
-    }
+    },
+    "diff_fingerprint": "02bcc24abe134dcdb0541af462cea765ffc5cbdf:1b771bc938a907d3cd024421dc35d070f821f57a312296ae9b88dee7d2c95bbf"
   },
   "review_1_round_1": {
     "hedge_fe": "ACCEPT (Claude-GLM, 1 P3 benign)",
@@ -67,7 +68,11 @@
     "classification": "HIGH",
     "direction_panel_required": false,
     "lightweight_route_user_approved": true,
-    "evaluator": { "provider": "claude", "model": "opus4.8", "role": "bookkeeper" }
+    "evaluator": {
+      "provider": "claude",
+      "model": "opus4.8",
+      "role": "bookkeeper"
+    }
   },
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-live-v1",
@@ -91,7 +96,10 @@
     "contract": "docs/parallel-development-mode.md",
     "r10_dispatch_tail_required": true,
     "r4_diff_reconciliation_required": true,
-    "embedded_review": { "enabled": false, "reason": "standard committed-state review-1 per task this round" },
+    "embedded_review": {
+      "enabled": false,
+      "reason": "standard committed-state review-1 per task this round"
+    },
     "note": "Two disjoint tasks (backend/** vs frontend/**) with a design-frozen API contract (12-development-breakdown.md §3); FE consumes only the frozen contract, so both run concurrently."
   },
   "breakdown_author": {
@@ -108,9 +116,21 @@
     {
       "id": "hedge-be",
       "name": "hedge-open backend module + API + tests",
-      "owner": { "provider": "claude_glm", "model": "glm-5.2[1m]" },
-      "reviewer": { "provider": "kimi", "model": "kimi-code/kimi-for-coding", "fresh_session": true },
-      "allowed_files": ["backend/hedge_open_tasks/**", "backend/app/server.py", "backend/tests/**", "schemas/api/hedge-open/**"],
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]"
+      },
+      "reviewer": {
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding",
+        "fresh_session": true
+      },
+      "allowed_files": [
+        "backend/hedge_open_tasks/**",
+        "backend/app/server.py",
+        "backend/tests/**",
+        "schemas/api/hedge-open/**"
+      ],
       "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.prompt.md",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.dispatch.md",
       "review_1": {
@@ -118,7 +138,7 @@
         "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi-round-2.dispatch.md",
         "round_1_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.prompt.md",
         "round_1_dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-be-kimi.dispatch.md",
-        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be-round-2.md",
+        "artifact_path": "30-review-1-hedge-be-round-2.md",
         "round_1_artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-be.md",
         "reviewer_provider": "kimi",
         "next_dispatch_executor": "human_operator",
@@ -145,7 +165,13 @@
         "blocker_branch": "output ESCALATED with reason and stop; bookkeeper routes retry/fallback/fix",
         "next_dispatch_executor": "human_operator",
         "unavailable_branch": {
-          "failure_classes": ["model_unavailable", "adapter_missing", "command_error", "permission_error", "timeout"],
+          "failure_classes": [
+            "model_unavailable",
+            "adapter_missing",
+            "command_error",
+            "permission_error",
+            "timeout"
+          ],
           "escalation_artifact": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-be-claude-glm.dispatch.md"
         }
       },
@@ -154,15 +180,25 @@
     {
       "id": "hedge-fe",
       "name": "frontend wiring to frozen hedge-open API + self-check",
-      "owner": { "provider": "kimi", "model": "kimi-code/kimi-for-coding" },
-      "reviewer": { "provider": "claude_glm", "model": "glm-5.2[1m]", "fresh_session": true },
-      "allowed_files": ["frontend/index.html", "frontend/self-check.js"],
+      "owner": {
+        "provider": "kimi",
+        "model": "kimi-code/kimi-for-coding"
+      },
+      "reviewer": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "fresh_session": true
+      },
+      "allowed_files": [
+        "frontend/index.html",
+        "frontend/self-check.js"
+      ],
       "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.prompt.md",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.dispatch.md",
       "review_1": {
         "prompt_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-fe-claude-glm.prompt.md",
         "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-v1/review-1-hedge-fe-claude-glm.dispatch.md",
-        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-v1/30-review-1-hedge-fe.md",
+        "artifact_path": "30-review-1-hedge-fe.md",
         "reviewer_provider": "claude_glm",
         "next_dispatch_executor": "human_operator",
         "verdict": "ACCEPT",
@@ -176,7 +212,13 @@
         "blocker_branch": "output ESCALATED with reason and stop; bookkeeper routes retry/fallback/fix",
         "next_dispatch_executor": "human_operator",
         "unavailable_branch": {
-          "failure_classes": ["model_unavailable", "adapter_missing", "command_error", "permission_error", "timeout"],
+          "failure_classes": [
+            "model_unavailable",
+            "adapter_missing",
+            "command_error",
+            "permission_error",
+            "timeout"
+          ],
           "escalation_artifact": "reports/agent-runs/2026-07-hedge-open-live-v1/task-hedge-fe-kimi.dispatch.md"
         }
       },
@@ -221,5 +263,11 @@
     },
     "first_round_scope": "smooth+immediate together vs immediate-first — confirm at design time"
   },
-  "notes": "Stage 2 of the hedge program: live backend open executor. Direction frozen by the three-stage discussion + accepted stage-1 contracts; HIGH + user-approved lightweight route (no direction panel). Safety modeled on Boundary C (dry-run default, APP_HEDGE_EXECUTOR=live gate, durable SQLite, global Start, read-only preflight). Currently: intake done, awaiting websocket + order-endpoint recon facts before stage design."
+  "notes": "Stage 2 of the hedge program: live backend open executor. Direction frozen by the three-stage discussion + accepted stage-1 contracts; HIGH + user-approved lightweight route (no direction panel). Safety modeled on Boundary C (dry-run default, APP_HEDGE_EXECUTOR=live gate, durable SQLite, global Start, read-only preflight). Currently: intake done, awaiting websocket + order-endpoint recon facts before stage design.",
+  "tests": {
+    "status": "passed",
+    "backend": "pytest backend/tests -q -> 790 passed",
+    "frontend": "node frontend/self-check.js -> 108 PASS",
+    "note": "dry-run only; no real Binance request in any test"
+  }
 }
