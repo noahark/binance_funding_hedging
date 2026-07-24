@@ -29,6 +29,24 @@
       "reason": "The Opus breakdown recommends formal cross-review gates without an embedded pre-review loop; the backend is one serial owner and the frontend is independently contract-bound."
     }
   },
+  "local_readonly_research_subagents": {
+    "enabled": true,
+    "user_approved_at": "2026-07-25T00:07:54+08:00",
+    "artifact_path": "22-local-readonly-research-subagent-opt-in.md",
+    "applies_to": {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "dispatch_path": "62-review-1-backend-r2-task-local.dispatch.md"
+    },
+    "maximum_count": 2,
+    "allowed_roles": ["Plan", "Explore"],
+    "same_provider_runtime_only": true,
+    "read_only": true,
+    "formal_evidence": false,
+    "formal_review_allowed": false,
+    "notes": "The parent GLM session is the sole code/test/report author. Helpers cannot write, invoke adapters/terminals, spawn, review, verdict, access network/credentials, or become evidence."
+  },
   "dispatch_protocol": "human-operator/v1",
   "model_routing": {
     "backend": {
@@ -517,15 +535,15 @@
     "approval_scope": "User approved the immediate-open direction, removal of the stale Manual Close Design Gate, and the canonical PRD restructuring."
   },
   "base_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
-  "head_sha": "8af3f22d92354fdac61a6a057eb25760b924004b",
+  "head_sha": "b02c92d20360094a67374bf80bcd588fb154db6c",
   "latest_bookkeeper_checkpoint": {
     "branch": "stage/2026-07-hedge-open-real-api-v1",
-    "head_sha": "e89994f85546d06ddac24dd74c1edfca00a4e78d",
-    "git_status": "user amendment 21 and superseding packet 62 are pending the next evidence commit",
+    "head_sha": "b02c92d20360094a67374bf80bcd588fb154db6c",
+    "git_status": "Harness local-readonly-research exception merged from main; stage opt-in/status checkpoint pending the next evidence commit",
     "tests": "882 backend passed; focused 63 passed; frontend self-check passed; Harness protocol 55 passed; git diff --check passed",
-    "next_action": "human operator runs packet 62 in a fresh write-capable Claude-GLM session; no live action is authorized"
+    "next_action": "current human-launched Claude-GLM packet 62 may complete with at most two read-only Plan/Explore helpers; no live action is authorized"
   },
-  "diff_fingerprint": "8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320",
+  "diff_fingerprint": "b02c92d20360094a67374bf80bcd588fb154db6c:81f74d59d61ef6723b8399beb640e847906c6addb25d7c939313c2aa6a3e3cb0",
   "r4_diff_reconciliation": {
     "status": "passed",
     "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/13-r4-diff-reconciliation.md",
@@ -646,7 +664,10 @@
       "git diff --check (passed; final replacement R4 reconciliation)"
       ,".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review (passed; committed renewed Review-1 packets 58/59)",
       ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready (passed; Review-1 split result recorded and final packet 61 prepared)",
-      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready (passed; amendment 21 and superseding packet 62)"
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready (passed; amendment 21 and superseding packet 62)",
+      ".venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q (55 passed in 0.95s; main Harness local-readonly-research exception)",
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint (passed; main sync b02c92d and stage opt-in 22)",
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready (passed; main sync b02c92d and stage opt-in 22)"
     ]
   },
   "review_1": {"reviewer": "task-level cross-review pool", "provider": null, "model": null, "open_p0_p1": 2, "verdict": null, "json_schema_valid": null, "diff_fingerprint": null, "covers_through_task": null, "reviewer_prior_involvement": null, "fix_start_prompt_present": true, "fix_start_prompt_source": "58-review-1-backend-r2.md", "invalid_json_attempts": 0, "status": "split_result_backend_rework_frontend_accepted", "summary": "Frontend Review-1 at 59-review-1-frontend-r2.md ACCEPTed with only a P3 visual note. Backend Review-1 at 58-review-1-backend-r2.md returned two verified P1 findings. User amendment 21 supersedes unexecuted packet 61 with packet 62: no global guardian/query loop; task-local bounded workers; 429 and insufficient balance pause only that task pending manual recovery."},
@@ -703,6 +724,17 @@
       "diff_fingerprint": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff",
       "review_rebind_required": true,
       "rebind_evidence": "48-review-2-harness-rebind.md"
+    },
+    {
+      "main_commit": "9ebf4e1a0f394e8ad22ea219cdcfbe1476cae25e",
+      "merge_commit": "b02c92d20360094a67374bf80bcd588fb154db6c",
+      "at": "2026-07-25T00:07:54+08:00",
+      "reason": "User approved a narrow Harness refinement: an explicitly opted-in implementation/fix session may use at most two same-provider runtime-built-in read-only Plan/Explore research helpers. Formal implementation/fix/review dispatch remains human-operated. The active stage needed the behavior because the human cannot operate the in-flight GLM terminal.",
+      "tests": "scripts/tests/test_validate_stage_dispatch_protocol.py: 55 passed in 1.01s on main worktree",
+      "validator": "scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint: passed; --phase dispatch-ready: passed",
+      "diff_fingerprint": "b02c92d20360094a67374bf80bcd588fb154db6c:81f74d59d61ef6723b8399beb640e847906c6addb25d7c939313c2aa6a3e3cb0",
+      "review_rebind_required": true,
+      "rebind_evidence": "22-local-readonly-research-subagent-opt-in.md"
     }
   ],
   "rework_count": 3,
@@ -741,6 +773,7 @@
     "Live block remains: backend Review-1 found two P1 gaps. Do not enable APP_HEDGE_EXECUTOR=live, Start, or a first real task until packet 62 passes renewed Review-1 and Review-2.",
     "Packet 62 is the third and final allowed rework. It is limited to direction-independent preflight completeness, bounded task-local workers, and task-local manual pause; P2 rate-usage headers remain a recorded future risk.",
     "Do not dispatch superseded packets 52/53 or unexecuted packet 61. Packets 54-57 completed and passed R4 reconciliation; packet 62 is the only active implementation packet.",
+    "Only the current GLM packet-62 parent session may use the explicit 22 opt-in: at most two same-provider read-only Plan/Explore helpers. They cannot write, run formal review, invoke adapters/terminals, access network/credentials, or become evidence.",
     "No source change in this stage authorizes Binance, live mode, Start, a first order, WebSocket, or smooth opening.",
     "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task after review acceptance."
   ],
@@ -803,8 +836,9 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/59-review-1-frontend-r2.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/61-review-1-backend-r2-rework.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/21-task-local-runtime-and-manual-pause-amendment.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/62-review-1-backend-r2-task-local.dispatch.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/62-review-1-backend-r2-task-local.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/22-local-readonly-research-subagent-opt-in.md"
   ],
-  "next_action": "Review-1 split result recorded: frontend ACCEPT, backend REWORK. User amendment 21 supersedes unexecuted packet 61; human operator may run packet 62 in a fresh write-capable Claude-GLM session. Do not activate live mode, Start, or a first real order.",
-  "updated_at": "2026-07-24T23:15:34+08:00"
+  "next_action": "The already human-launched GLM packet-62 session may continue. It may use only the stage-authorized read-only Plan/Explore helpers in 22; the parent session remains the sole code/test/report author. Do not activate live mode, Start, or a first real order.",
+  "updated_at": "2026-07-25T00:07:54+08:00"
 }

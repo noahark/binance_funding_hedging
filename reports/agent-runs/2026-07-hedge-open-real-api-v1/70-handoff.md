@@ -6,7 +6,7 @@
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   delivery evidence is `8af3f22d92354fdac61a6a057eb25760b924004b`; the latest
-  bookkeeping commit before this checkpoint is `49740640a205abb4128fd53cec365536fc77b227`.
+  Harness-only main sync is merge `b02c92d20360094a67374bf80bcd588fb154db6c`.
   Fresh task-level Review-1 has split: frontend ACCEPT at `59-review-1-frontend-r2.md`,
   backend REWORK at `58-review-1-backend-r2.md`. User amendment 21 supersedes
   unexecuted packet 61; the only active implementation packet is
@@ -20,7 +20,8 @@
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
 - Read next: `status.json`, `21-task-local-runtime-and-manual-pause-amendment.md`,
-  `58-review-1-backend-r2.md`, and `62-review-1-backend-r2-task-local.dispatch.md`.
+  `22-local-readonly-research-subagent-opt-in.md`, `58-review-1-backend-r2.md`,
+  and `62-review-1-backend-r2-task-local.dispatch.md`.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
@@ -190,9 +191,20 @@ GLM Review-1; do not reuse the historical Kimi ownership for this new code.
 - 后端修复完成后，bookkeeper 必须核对实际 diff、复跑测试、提交证据并重新派发后端
   Review-1；前端源码未变，其 ACCEPT 证据保留。之后才可进入最终 Review-2。
 
+## 本地只读子代理例外
+
+- 用户批准并已从 main 合并 Harness 窄范围调整：正式实现/修复/Review-1/Review-2 仍须由
+  human operator 启动独立会话；仅实现/修复会话可在任务书和 stage 明确 opt-in 时使用同
+  provider/runtime 的只读 Plan/Explore helper。
+- 本 stage 的 `22-local-readonly-research-subagent-opt-in.md` 只允许当前 GLM 的 packet-62
+  父会话使用两个 helper（Plan、Explore）。它们不能写文件、执行正式命令、调用 adapter、
+  继续派发、联网/读取凭据、评审或成为证据；父会话仍是唯一代码作者、测试执行者和报告作者。
+- 在用户批准记录前，human operator 报告 GLM 已启动同范围的两个只读 helper；bookkeeper
+  当时检查工作树干净，未发现任何代码或证据写入。现在可以在 22 的边界内继续。
+
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 23:15:34 CST
-下一步模型: human operator
-下一步任务: run packet 62 in a fresh write-capable Claude-GLM session; do not activate live trading
+本地北京时间: 2026-07-25 00:07:54 CST
+下一步模型: Claude-GLM
+下一步任务: complete packet 62 as sole code/test/report author; only the 22-authorized Plan/Explore helpers may remain read-only

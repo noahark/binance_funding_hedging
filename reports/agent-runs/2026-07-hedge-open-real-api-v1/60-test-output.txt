@@ -708,3 +708,40 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-24 23:15:34 CST
 下一步模型: human operator
 下一步任务: run packet 62 in a fresh write-capable Claude-GLM session; do not activate live trading
+
+===== Harness local read-only research exception (2026-07-25 00:07:54 CST) =====
+
+Main-only Harness commit: `9ebf4e1a0f394e8ad22ea219cdcfbe1476cae25e`
+Stage exception merge: `b02c92d20360094a67374bf80bcd588fb154db6c`
+Stage opt-in: `22-local-readonly-research-subagent-opt-in.md`
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (55 passed in 0.95s)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+phase=checkpoint
+status=fixing
+diff_fingerprint=b02c92d20360094a67374bf80bcd588fb154db6c:81f74d59d61ef6723b8399beb640e847906c6addb25d7c939313c2aa6a3e3cb0
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+phase=dispatch-ready
+status=fixing
+diff_fingerprint=b02c92d20360094a67374bf80bcd588fb154db6c:81f74d59d61ef6723b8399beb640e847906c6addb25d7c939313c2aa6a3e3cb0
+
+The exception permits only the current packet-62 GLM parent session to use at
+most two same-provider runtime-built-in Plan/Explore helpers as read-only
+internal research. Formal dispatch/review, code authorship, test execution,
+reports, and evidence remain parent-session/human-operated responsibilities.
+No credential access, Binance request, live activation, Start action, or real
+order occurred.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 00:07:54 CST
+下一步模型: Claude-GLM
+下一步任务: complete packet 62 as sole code/test/report author; only the 22-authorized Plan/Explore helpers may remain read-only
