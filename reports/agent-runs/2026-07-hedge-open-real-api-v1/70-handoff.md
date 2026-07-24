@@ -81,11 +81,9 @@ received with a verified Session ID recorded in `status.json`. It freezes the
 new one-active-pair task contract, the task-local error matrix, and the
 additive `entries` opening-log projection. `54-review-2-rework-backend.dispatch.md`
 (Claude-GLM) and `55-review-2-rework-frontend.dispatch.md` (Claude Sonnet 5)
-passed the parallel `dispatch-ready` gate. They are the only current
-implementation packets and may be run by the human operator in separate fresh
-write-capable sessions after this checkpoint commit. The Sonnet frontend owner
-must later receive provider-isolated GLM Review-1; do not reuse the historical
-Kimi ownership for this new code.
+passed the parallel `dispatch-ready` gate and their raw implementation reports
+are now received. The Sonnet frontend owner must later receive provider-isolated
+GLM Review-1; do not reuse the historical Kimi ownership for this new code.
 
 ## Implementation intake and R4 status
 
@@ -122,9 +120,44 @@ Kimi ownership for this new code.
   points reviewers to the unedited Task A, Task B, and R4 raw reports and is
   not a substitute for those reports.
 
+## Replacement rework intake and current R4 result
+
+- Replacement backend report `40-fix-review-2-backend.md` and frontend report
+  `40-fix-review-2-frontend.md` are received. The bookkeeper independently
+  reproduced **880 backend tests**, the frontend self-check, the 55-test
+  Harness protocol suite, and `git diff --check`, all passing. No credential,
+  Binance, Start, or real-order action occurred.
+- R4 found one P1 interface problem before any evidence commit: the new
+  opening-log entries combine attempt records with task events but reuse a
+  `next_cursor` belonging only to old logs. Clicking 「加载更多」 can repeat a
+  task event. This affects audit display only, not order creation; it still
+  must be repaired before review.
+- `17-opening-log-pagination-compatibility.md` freezes the small additive
+  correction: legacy `cursor` / `limit` / `next_cursor` stay unchanged; the
+  opening-log page uses `entries_limit`, `entries_cursor`, and
+  `entries_next_cursor`. Individual entry fields remain unchanged.
+- `56-open-log-pagination-backend.dispatch.md` (Claude-GLM) and
+  `57-open-log-pagination-frontend.dispatch.md` (Claude Sonnet 5) are the
+  only current implementation packets. They may be human-run in fresh,
+  separate write-capable sessions. They must not change trade behavior or
+  activate anything live.
+
+## Replacement R4 完成状态
+
+- 56/57 的原始报告均已收到：`41-fix-open-log-pagination-backend.md` 与
+  `41-fix-open-log-pagination-frontend.md`。日志分页已经从旧日志游标中分离：后端
+  用稳定的三段排序游标；前端只使用 `entries_next_cursor`，不会回退到旧游标。
+- Bookkeeper 完整复跑后端测试 **882 passed in 46.25s**；分页相关后端组合测试
+  **63 passed in 13.59s**；前端自检和 55 项 Harness 协议测试均通过；`git diff
+  --check` 通过。详情见 `19-replacement-r4-final-reconciliation.md`。
+- 54-57 均已完成，R4 对账无待修问题。旧的 Review-1 与 Review-2 都只覆盖返工前
+  指纹，不能直接放行这次代码；下一步是本地证据提交和新的 provider-isolated
+  Review-1（不同供应商交叉复核）。
+- 始终禁止实盘：不得启用 `APP_HEDGE_EXECUTOR=live`、Start 或首笔真实任务。
+
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 15:32:53 CST
-下一步模型: human operator
-下一步任务: run 54-review-2-rework-backend.dispatch.md and 55-review-2-rework-frontend.dispatch.md in separate fresh write-capable sessions; do not activate live trading
+本地北京时间: 2026-07-24 21:19:04 CST
+下一步模型: bookkeeper
+下一步任务: create the reconciled evidence commit, compute its fingerprint, then prepare fresh provider-isolated Review-1 packets

@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS hedge_open_task (
     accepted_pair_count             INTEGER NOT NULL DEFAULT 0,
     consecutive_submission_failures INTEGER NOT NULL DEFAULT 0,
     failure_pause_threshold         INTEGER NOT NULL DEFAULT 3,
-    pause_reason                    TEXT
+    pause_reason                    TEXT,
+    stop_reason                     TEXT
 );
 CREATE TABLE IF NOT EXISTS hedge_open_attempt (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,6 +69,9 @@ CREATE TABLE IF NOT EXISTS hedge_open_attempt (
     preflight_fingerprint TEXT NOT NULL,
     position_side_mode    TEXT NOT NULL,
     pair_outcome          TEXT,
+    error_category        TEXT,
+    error_code            TEXT,
+    error_reason_zh       TEXT,
     log_ref               INTEGER,
     created_at_us         INTEGER NOT NULL
 );
@@ -85,6 +89,8 @@ CREATE TABLE IF NOT EXISTS hedge_open_leg (
     cumulative_quote_amt TEXT NOT NULL DEFAULT '0',
     fee_amount           TEXT,
     fee_asset            TEXT,
+    error_code           TEXT,
+    error_category       TEXT,
     dispatched_at_us     INTEGER,
     last_query_at_us     INTEGER,
     terminal             INTEGER NOT NULL DEFAULT 0
@@ -177,6 +183,7 @@ def _row_to_task(row: sqlite3.Row) -> dict:
         "consecutive_submission_failures": row["consecutive_submission_failures"],
         "failure_pause_threshold": row["failure_pause_threshold"],
         "pause_reason": row["pause_reason"],
+        "stop_reason": row["stop_reason"],
     }
 
 
@@ -216,6 +223,9 @@ def _row_to_attempt(row: sqlite3.Row) -> dict:
         "preflight_fingerprint": row["preflight_fingerprint"],
         "position_side_mode": row["position_side_mode"],
         "pair_outcome": row["pair_outcome"],
+        "error_category": row["error_category"],
+        "error_code": row["error_code"],
+        "error_reason_zh": row["error_reason_zh"],
         "log_ref": row["log_ref"],
         "created_at_us": row["created_at_us"],
     }
@@ -236,6 +246,8 @@ def _row_to_leg(row: sqlite3.Row) -> dict:
         "cumulative_quote_amt": row["cumulative_quote_amt"],
         "fee_amount": row["fee_amount"],
         "fee_asset": row["fee_asset"],
+        "error_code": row["error_code"],
+        "error_category": row["error_category"],
         "dispatched_at_us": row["dispatched_at_us"],
         "last_query_at_us": row["last_query_at_us"],
         "terminal": row["terminal"],
@@ -289,8 +301,8 @@ class HedgeOpenStore:
                 )
 
     def _migrate(self) -> None:
-        """Additive-forward migration (breakdown §3.9). New task columns are
-        added with per-column ALTER guards and backfilled to the frozen defaults;
+        """Additive-forward migration (breakdown §3.9). New columns are added
+        with per-column ALTER guards and backfilled to the frozen defaults;
         pre-existing rows keep their data and stay readable. Idempotent."""
         task_cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(hedge_open_task)")}
         additions = (
@@ -299,10 +311,30 @@ class HedgeOpenStore:
             ("consecutive_submission_failures", "INTEGER NOT NULL DEFAULT 0"),
             ("failure_pause_threshold", "INTEGER NOT NULL DEFAULT 3"),
             ("pause_reason", "TEXT"),
+            ("stop_reason", "TEXT"),
         )
         for col, decl in additions:
             if col not in task_cols:
                 self._conn.execute(f"ALTER TABLE hedge_open_task ADD COLUMN {col} {decl}")
+        attempt_cols = {
+            r["name"] for r in self._conn.execute("PRAGMA table_info(hedge_open_attempt)")
+        }
+        attempt_additions = (
+            ("error_category", "TEXT"),
+            ("error_code", "TEXT"),
+            ("error_reason_zh", "TEXT"),
+        )
+        for col, decl in attempt_additions:
+            if col not in attempt_cols:
+                self._conn.execute(f"ALTER TABLE hedge_open_attempt ADD COLUMN {col} {decl}")
+        leg_cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(hedge_open_leg)")}
+        leg_additions = (
+            ("error_code", "TEXT"),
+            ("error_category", "TEXT"),
+        )
+        for col, decl in leg_additions:
+            if col not in leg_cols:
+                self._conn.execute(f"ALTER TABLE hedge_open_leg ADD COLUMN {col} {decl}")
 
     def close(self) -> None:
         with self._lock:
@@ -441,15 +473,24 @@ class HedgeOpenStore:
 
     def list_eligible_tasks(self) -> list[dict]:
         """Tasks the scheduler may dispatch one pair for this tick (breakdown
-        §4.4 / §3.6). Eligibility: ``running``, below its target. A single-leg
+        §4.4 / §3.6 + amendment cadence). Eligibility is the per-task serial
+        gate: ``running`` AND ``scheduled_attempt_count < target_n`` (the planned-
+        attempt hard cap, A-1) AND no unresolved in-flight pair for that task
+        (amendment: the next pair of the same task never starts while that task
+        has an unresolved pair — A-9 per-task sequentiality). A single-leg
         exposure is advisory and does NOT block dispatch (§4.5); reaching the
         pause threshold sets status ``paused``, so the status filter excludes
-        paused tasks. Every eligible task is dispatched (per-task cadence)."""
+        paused tasks. Other tasks stay independent (cross-task concurrency).
+        """
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM hedge_open_task"
-                " WHERE status = ? AND success_count < target_n"
-                " ORDER BY creation_seq ASC, id ASC",
+                "SELECT * FROM hedge_open_task t"
+                " WHERE t.status = ?"
+                "   AND t.scheduled_attempt_count < t.target_n"
+                "   AND NOT EXISTS ("
+                "       SELECT 1 FROM hedge_open_attempt a"
+                "       WHERE a.task_id = t.id AND a.pair_outcome IS NULL)"
+                " ORDER BY t.creation_seq ASC, t.id ASC",
                 (D.STATUS_RUNNING,),
             ).fetchall()
             return [_row_to_task(r) for r in rows]
@@ -482,7 +523,7 @@ class HedgeOpenStore:
         """
         with self._lock, self._conn:
             task = self._conn.execute(
-                "SELECT status, success_count, target_n FROM hedge_open_task"
+                "SELECT status, scheduled_attempt_count, target_n FROM hedge_open_task"
                 " WHERE id = ?",
                 (task_id,),
             ).fetchone()
@@ -490,7 +531,22 @@ class HedgeOpenStore:
                 return None
             if task["status"] != D.STATUS_RUNNING:
                 return None
-            if task["success_count"] >= task["target_n"]:
+            # A-1: the planned-attempt hard cap, checked atomically inside the
+            # same transaction that increments the counter, shared by every entry
+            # path (scheduler / fill-once / concurrent workers — I-1). Failed and
+            # single-leg outcomes are never replaced, so the count is consumed
+            # once a pair is reserved regardless of its later outcome.
+            if task["scheduled_attempt_count"] >= task["target_n"]:
+                return None
+            # I-1 / amendment cadence: never open a second concurrent pair for the
+            # same task. An unresolved pair (pair_outcome IS NULL) blocks this
+            # task's next pair; it never blocks another task.
+            in_flight = self._conn.execute(
+                "SELECT 1 FROM hedge_open_attempt"
+                " WHERE task_id = ? AND pair_outcome IS NULL LIMIT 1",
+                (task_id,),
+            ).fetchone()
+            if in_flight is not None:
                 return None
             seq = self._conn.execute(
                 "SELECT COALESCE(MAX(attempt_seq), 0) + 1 FROM hedge_open_attempt"
@@ -559,23 +615,47 @@ class HedgeOpenStore:
             ).fetchone()
             return _row_to_attempt(row)
 
-    def _leg_final_fields(self, leg_outcome: dict) -> tuple[str, str, str, str]:
-        """Return ``(exchange_status, order_id, base_qty, quote_amt)`` for one
-        resolved leg outcome, computing ``quote = filled_qty * avg_price`` in
-        Decimal (no binary float). A non-FILLED leg records zero fill figures
-        but keeps any returned orderId (proof of acceptance)."""
+    def _leg_final_fields(
+        self, leg_outcome: dict
+    ) -> tuple[str, str | None, str, str, str | None, str | None]:
+        """Return ``(exchange_status, order_id, base_qty, quote_amt, fee_amount,
+        fee_asset)`` for one resolved leg outcome (A-6).
+
+        Persists the ACTUAL cumulative quote when the outcome carries one (the
+        live path returns the exchange's ``cummulativeQuoteQty``); otherwise it
+        falls back to ``filled_qty * avg_price`` in Decimal (no binary float). A
+        non-FILLED leg records zero fill figures but keeps any returned orderId
+        (proof of acceptance) and any partial cumulative figures it carried.
+        Available fee figures pass through verbatim.
+        """
         status = leg_outcome.get("status") or D.LEG_UNKNOWN
         order_id = leg_outcome.get("order_id")
         filled_qty = _num(leg_outcome.get("filled_qty"))
         avg_price = leg_outcome.get("avg_price")
-        if status == D.LEG_FILLED and filled_qty > 0 and avg_price is not None:
+        cumulative_quote = leg_outcome.get("cumulative_quote")
+        fee_amount = leg_outcome.get("fee_amount")
+        fee_asset = leg_outcome.get("fee_asset")
+        if cumulative_quote not in (None, "", "0", 0):
+            try:
+                quote = Decimal(str(cumulative_quote))
+            except InvalidOperation:
+                quote = Decimal(0)
+        elif filled_qty > 0 and avg_price is not None:
             quote = filled_qty * _num(avg_price)
         else:
             quote = Decimal(0)
-        return status, order_id, str(filled_qty), str(quote)
+        return (
+            status,
+            order_id,
+            str(filled_qty),
+            str(quote),
+            str(fee_amount) if fee_amount is not None else None,
+            str(fee_asset) if fee_asset is not None else None,
+        )
 
     def _apply_task_counters(
-        self, task_id: str, category: str, exposure: dict | None, now_us: int
+        self, task_id: str, category: str, exposure: dict | None, now_us: int,
+        *, fatal: bool = False, stop_reason: str | None = None,
     ) -> tuple[dict, str | None, str | None]:
         """Apply one pair's acceptance verdict to the task counters + status.
 
@@ -585,6 +665,8 @@ class HedgeOpenStore:
         ``(updated_task, pair_outcome, pause_reason)``; the caller stamps
         ``pair_outcome`` onto the attempt row.
 
+        - fatal submission (amendment rows 1–2) -> ``stopped`` + ``stop_reason``
+          immediately, no failure-threshold wait, no counter churn.
         - accepted pair (both orderId) -> accepted/success ++, consecutive reset;
           pair_outcome ``accepted_pair``.
         - confirmed failed (neither orderId) -> fail ++, consecutive ++; reaching
@@ -602,39 +684,55 @@ class HedgeOpenStore:
         new_fail = task["fail_count"]
         new_consecutive = task["consecutive_submission_failures"]
         leg_exposure_json = task["leg_exposure"]
-        pair_outcome: str | None = None
         pause_reason = task["pause_reason"]
-        if category == D.ATTEMPT_SUCCESS:
+        new_stop_reason: str | None = task["stop_reason"]
+        if fatal:
+            # Amendment rows 1–2 / I-2: stop immediately. The attempt was already
+            # counted at reservation; the consecutive-failure counter is untouched
+            # (a fatal stop is terminal, not a threshold failure). A fatal pair is
+            # not an accepted pair.
+            pair_outcome = D.PAIR_CONFIRMED_FAILED
+            new_status = D.STATUS_STOPPED
+            new_stop_reason = stop_reason or D.STOP_REASON_EXCHANGE_FATAL
+        elif category == D.ATTEMPT_SUCCESS:
             new_accepted = task["accepted_pair_count"] + 1
             new_success = task["success_count"] + 1
             new_consecutive = 0
             pair_outcome = D.PAIR_ACCEPTED
+            new_status = D.resolve_status_after_attempt(
+                task["status"], category, new_accepted, task["target_n"],
+                new_consecutive, task["failure_pause_threshold"],
+            )
         elif category == D.ATTEMPT_FAILED:
             new_fail = task["fail_count"] + 1
             new_consecutive = task["consecutive_submission_failures"] + 1
             pair_outcome = D.PAIR_CONFIRMED_FAILED
+            new_status = D.resolve_status_after_attempt(
+                task["status"], category, new_accepted, task["target_n"],
+                new_consecutive, task["failure_pause_threshold"],
+            )
+            if new_status == D.STATUS_PAUSED:
+                pause_reason = D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
         elif category == D.ATTEMPT_SINGLE_LEG_EXPOSURE:
             # Advisory (§4.5): record the exposure but do not touch the
             # counters or freeze scheduling.
             pair_outcome = D.PAIR_SINGLE_LEG
+            new_status = D.resolve_status_after_attempt(
+                task["status"], category, new_accepted, task["target_n"],
+                new_consecutive, task["failure_pause_threshold"],
+            )
             if exposure:
                 leg_exposure_json = exposure
-        new_status = D.resolve_status_after_attempt(
-            task["status"],
-            category,
-            new_accepted,
-            task["target_n"],
-            new_consecutive,
-            task["failure_pause_threshold"],
-        )
-        if new_status == D.STATUS_PAUSED and category == D.ATTEMPT_FAILED:
-            pause_reason = D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
+        else:
+            # ATTEMPT_DISABLED / unknown: preserve status, no counter change.
+            pair_outcome = None
+            new_status = task["status"]
         self._conn.execute(
             "UPDATE hedge_open_task SET accepted_pair_count = ?,"
             " success_count = ?, fail_count = ?,"
             " consecutive_submission_failures = ?, status = ?,"
-            " leg_exposure = ?, pause_reason = ?, updated_at_us = ?"
-            " WHERE id = ?",
+            " leg_exposure = ?, pause_reason = ?, stop_reason = ?,"
+            " updated_at_us = ? WHERE id = ?",
             (
                 new_accepted,
                 new_success,
@@ -643,6 +741,7 @@ class HedgeOpenStore:
                 new_status,
                 json.dumps(leg_exposure_json) if leg_exposure_json is not None else None,
                 pause_reason,
+                new_stop_reason,
                 now_us,
                 task_id,
             ),
@@ -650,7 +749,64 @@ class HedgeOpenStore:
         row = self._conn.execute(
             "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
         ).fetchone()
+        # Amendment §5 entries: surface the task-level lifecycle events (fatal
+        # stop, consecutive-failure threshold pause) on the additive entries
+        # timeline. Guarded on the status transition so a repeated call never
+        # double-records. These share hedge_open_log with attempt_id NULL.
+        if fatal and task["status"] != D.STATUS_STOPPED:
+            self._conn.execute(
+                "INSERT INTO hedge_open_log (task_id, ts_us, attempt_id, kind, payload)"
+                " VALUES (?, ?, NULL, ?, ?)",
+                (
+                    task_id,
+                    now_us,
+                    "task_stopped",
+                    json.dumps(
+                        {
+                            "stop_reason": new_stop_reason,
+                            "reason_zh": D.stop_reason_zh(new_stop_reason),
+                            "source": "submission",
+                        },
+                        ensure_ascii=False,
+                    ),
+                ),
+            )
+        elif (
+            new_status == D.STATUS_PAUSED
+            and task["status"] != D.STATUS_PAUSED
+            and pause_reason == D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
+        ):
+            self._conn.execute(
+                "INSERT INTO hedge_open_log (task_id, ts_us, attempt_id, kind, payload)"
+                " VALUES (?, ?, NULL, ?, ?)",
+                (
+                    task_id,
+                    now_us,
+                    "threshold_paused",
+                    json.dumps(
+                        {
+                            "reason": D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE,
+                            "consecutive_submission_failures": new_consecutive,
+                        },
+                        ensure_ascii=False,
+                    ),
+                ),
+            )
         return _row_to_task(row), pair_outcome, pause_reason
+
+    @staticmethod
+    def _outcome_error(outcome) -> tuple[bool, str | None, str | None, str | None]:
+        """Derive ``(fatal, stop_reason, error_code, error_reason_zh)`` from an
+        outcome (amendment rows 1–2). A live outcome whose ``error_category`` is
+        ``"fatal"`` (an exchange code for insufficient balance/margin/filter/
+        min-notional/symbol/mode) stops the task immediately. The dry-run record
+        transport carries no error category, so it is never fatal here."""
+        error_category = getattr(outcome, "error_category", None)
+        error_code = getattr(outcome, "error_code", None)
+        if error_category == "fatal":
+            stop_reason = D.STOP_REASON_EXCHANGE_FATAL
+            return True, stop_reason, error_code, D.stop_reason_zh(stop_reason)
+        return False, None, error_code, getattr(outcome, "error_reason_zh", None)
 
     def resolve_attempt(
         self, attempt_id: int, outcome: AttemptOutcome, now_us: int,
@@ -676,6 +832,7 @@ class HedgeOpenStore:
         The record-transport log row is written here and linked from the attempt.
         """
         category = outcome.category
+        fatal, stop_reason, error_code, error_reason_zh = self._outcome_error(outcome)
         with self._lock, self._conn:
             attempt = self._conn.execute(
                 "SELECT * FROM hedge_open_attempt WHERE id = ?", (attempt_id,)
@@ -684,21 +841,24 @@ class HedgeOpenStore:
                 raise UnknownTaskError(f"attempt {attempt_id}")
             task_id = attempt["task_id"]
 
-            spot_status, spot_oid, spot_base, spot_quote = self._leg_final_fields(
-                outcome.spot
+            spot_status, spot_oid, spot_base, spot_quote, spot_fee, spot_fee_asset = (
+                self._leg_final_fields(outcome.spot)
             )
-            perp_status, perp_oid, perp_base, perp_quote = self._leg_final_fields(
-                outcome.perp
+            perp_status, perp_oid, perp_base, perp_quote, perp_fee, perp_fee_asset = (
+                self._leg_final_fields(outcome.perp)
             )
             terminal_map = leg_terminal or {}
-            for leg_name, oid, status, base, quote in (
-                ("spot", spot_oid, spot_status, spot_base, spot_quote),
-                ("perp", perp_oid, perp_status, perp_base, perp_quote),
+            for leg_name, oid, status, base, quote, fee_amt, fee_asset in (
+                ("spot", spot_oid, spot_status, spot_base, spot_quote, spot_fee, spot_fee_asset),
+                ("perp", perp_oid, perp_status, perp_base, perp_quote, perp_fee, perp_fee_asset),
             ):
+                leg_outcome = outcome.spot if leg_name == "spot" else outcome.perp
                 is_terminal = 1 if terminal_map.get(leg_name, True) else 0
                 self._conn.execute(
                     "UPDATE hedge_open_leg SET order_id = ?, exchange_status = ?,"
                     " cumulative_base_qty = ?, cumulative_quote_amt = ?,"
+                    " fee_amount = ?, fee_asset = ?,"
+                    " error_code = ?, error_category = ?,"
                     " dispatch_state = ?, terminal = ?,"
                     " dispatched_at_us = COALESCE(dispatched_at_us, ?),"
                     " last_query_at_us = COALESCE(last_query_at_us, ?)"
@@ -708,6 +868,10 @@ class HedgeOpenStore:
                         status,
                         base,
                         quote,
+                        fee_amt,
+                        fee_asset,
+                        leg_outcome.get("error_code"),
+                        leg_outcome.get("error_category"),
                         D.LEG_TERMINAL_RECORDED if is_terminal else D.LEG_ACCEPTED_OR_QUERYING,
                         is_terminal,
                         now_us,
@@ -731,12 +895,15 @@ class HedgeOpenStore:
             )
             log_id = log_cur.lastrowid
             updated_task, pair_outcome, _ = self._apply_task_counters(
-                task_id, category, outcome.exposure, now_us
+                task_id, category, outcome.exposure, now_us,
+                fatal=fatal, stop_reason=stop_reason,
             )
+            error_category = "fatal" if fatal else getattr(outcome, "error_category", None)
             self._conn.execute(
-                "UPDATE hedge_open_attempt SET pair_outcome = ?, log_ref = ?"
+                "UPDATE hedge_open_attempt SET pair_outcome = ?, log_ref = ?,"
+                " error_category = ?, error_code = ?, error_reason_zh = ?"
                 " WHERE id = ?",
-                (pair_outcome, log_id, attempt_id),
+                (pair_outcome, log_id, error_category, error_code, error_reason_zh, attempt_id),
             )
             return updated_task
 
@@ -813,12 +980,26 @@ class HedgeOpenStore:
             exposure = None
             if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE:
                 exposure = self._exposure_from_legs(spot, perp, now_us)
-            updated_task, pair_outcome, _ = self._apply_task_counters(
-                attempt["task_id"], category, exposure, now_us
+            # Amendment rows 1–2: a reconciled leg carrying a fatal exchange code
+            # (insufficient balance/margin/filter/etc.) stops the task. The fatal
+            # flag may live on either leg's error_category column.
+            fatal_leg = next(
+                (row for row in legs if row["error_category"] == "fatal"), None
             )
+            fatal = fatal_leg is not None
+            stop_reason = D.STOP_REASON_EXCHANGE_FATAL if fatal else None
+            error_code = fatal_leg["error_code"] if fatal_leg is not None else None
+            error_reason_zh = D.stop_reason_zh(stop_reason) if fatal else None
+            updated_task, pair_outcome, _ = self._apply_task_counters(
+                attempt["task_id"], category, exposure, now_us,
+                fatal=fatal, stop_reason=stop_reason,
+            )
+            error_category = "fatal" if fatal else None
             self._conn.execute(
-                "UPDATE hedge_open_attempt SET pair_outcome = ? WHERE id = ?",
-                (pair_outcome, attempt_id),
+                "UPDATE hedge_open_attempt SET pair_outcome = ?,"
+                " error_category = ?, error_code = ?, error_reason_zh = ?"
+                " WHERE id = ?",
+                (pair_outcome, error_category, error_code, error_reason_zh, attempt_id),
             )
             return updated_task
 
@@ -904,6 +1085,51 @@ class HedgeOpenStore:
                 out.append((attempt, legs.get("spot"), legs.get("perp")))
             return out
 
+    def list_attempts_entries_page(
+        self, limit: int,
+        cur_ts: int | None, cur_rank: int | None, cur_id: int | None,
+    ) -> list[tuple[dict, dict | None, dict | None]]:
+        """Newest-first attempt page for the unified additive ``entries``
+        stream (amendment 17). Independent of the legacy logs cursor.
+
+        Ranked by the unified key ``(created_at_us, rank=0, id)`` DESC. The
+        caller passes ``limit = entries_limit + 1`` so has-more is read from the
+        unified stream. The three-part cursor ``(cur_ts, cur_rank, cur_id)`` is
+        SHARED with :meth:`list_task_event_logs_page`; this source's rank is the
+        constant 0, so a cursor that just passed an event (rank 1) at the same
+        ts still admits same-ts attempts (they rank earlier in DESC order), and
+        a cursor at an attempt (rank 0) admits only strictly older-tiebreak
+        same-ts attempts. The expanded OR is the lexicographic ``<`` of the two
+        three-part keys.
+        """
+        with self._lock:
+            if cur_ts is None:
+                rows = self._conn.execute(
+                    "SELECT * FROM hedge_open_attempt"
+                    " ORDER BY created_at_us DESC, id DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT * FROM hedge_open_attempt"
+                    " WHERE (created_at_us < ?)"
+                    "    OR (created_at_us = ? AND 0 < ?)"
+                    "    OR (created_at_us = ? AND 0 = ? AND id < ?)"
+                    " ORDER BY created_at_us DESC, id DESC LIMIT ?",
+                    (cur_ts, cur_ts, cur_rank, cur_ts, cur_rank, cur_id, limit),
+                ).fetchall()
+            out: list[tuple[dict, dict | None, dict | None]] = []
+            for row in rows:
+                attempt = _row_to_attempt(row)
+                leg_rows = self._conn.execute(
+                    "SELECT * FROM hedge_open_leg WHERE attempt_id = ?"
+                    " ORDER BY leg ASC",
+                    (attempt["id"],),
+                ).fetchall()
+                legs = {r["leg"]: _row_to_leg(r) for r in leg_rows}
+                out.append((attempt, legs.get("spot"), legs.get("perp")))
+            return out
+
     def list_non_terminal_legs(self) -> list[dict]:
         """Legs carrying an unresolved query obligation (DISPATCHING or
         UNKNOWN_QUERYING / ACCEPTED_OR_QUERYING without terminal fill). The
@@ -935,17 +1161,23 @@ class HedgeOpenStore:
         fee_asset: str | None,
         now_us: int,
         terminal: bool = True,
+        error_code: str | None = None,
+        error_category: str | None = None,
     ) -> None:
         """Apply one client-ID query result to a leg (breakdown §3.5). A terminal
-        status (FILLED/REJECTED/EXPIRED) closes the leg; NEW/PARTIALLY_FILLED
-        keeps it querying (``terminal=False``); the caller re-derives the task
-        counters via the attempt's pair outcome when both legs close."""
+        status (FILLED/REJECTED/EXPIRED/CANCELED) closes the leg (retaining any
+        partial fill); NEW/PARTIALLY_FILLED keeps it querying
+        (``terminal=False``); the caller re-derives the task counters via the
+        attempt's pair outcome when both legs close. ``error_code``/``error_category``
+        carry the exchange business code + its classification (fatal / absent /
+        auth) so a fatal reconciled leg can stop the task."""
         with self._lock, self._conn:
             self._conn.execute(
                 "UPDATE hedge_open_leg SET exchange_status = ?,"
                 " order_id = COALESCE(?, order_id),"
                 " cumulative_base_qty = ?, cumulative_quote_amt = ?,"
                 " fee_amount = ?, fee_asset = ?,"
+                " error_code = ?, error_category = ?,"
                 " dispatch_state = ?, terminal = ?,"
                 " last_query_at_us = ? WHERE id = ?",
                 (
@@ -955,6 +1187,8 @@ class HedgeOpenStore:
                     quote_amt,
                     fee_amount,
                     fee_asset,
+                    error_code,
+                    error_category,
                     D.LEG_TERMINAL_RECORDED if terminal else D.LEG_ACCEPTED_OR_QUERYING,
                     1 if terminal else 0,
                     now_us,
@@ -1058,6 +1292,99 @@ class HedgeOpenStore:
                 return None
             return json.loads(row["payload"])
 
+    def stop_task_fatal(
+        self, task_id: str, stop_reason: str, now_us: int,
+    ) -> dict | None:
+        """Set a task to the additive fatal-stop state (amendment rows 1–2 /
+        I-4): ``status=stopped`` + nullable ``stop_reason``. Used when a fatal
+        preflight fact or a fatal reconciled leg is detected. Final for that
+        task; the operator corrects the cause and creates a NEW task. No counter
+        churn — a stopped task never dispatches again. Returns the updated task
+        or ``None`` when the task is gone."""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "UPDATE hedge_open_task SET status = ?, stop_reason = ?,"
+                " updated_at_us = ? WHERE id = ?",
+                (D.STATUS_STOPPED, stop_reason, now_us, task_id),
+            )
+            if cur.rowcount == 0:
+                return None
+            row = self._conn.execute(
+                "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            return _row_to_task(row) if row is not None else None
+
+    def record_task_event(
+        self, task_id: str, kind: str, payload: dict, now_us: int,
+    ) -> int:
+        """Append a task-level event log row for the additive ``entries``
+        projection (breakdown §5): fatal stop, threshold pause, pre-``orderId``
+        preflight events, or a 429/Retry-After delay. ``attempt_id`` is NULL
+        (these are task events, not per-attempt). Returns the new log row id."""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "INSERT INTO hedge_open_log"
+                " (task_id, ts_us, attempt_id, kind, payload)"
+                " VALUES (?, ?, NULL, ?, ?)",
+                (task_id, now_us, kind, json.dumps(payload, ensure_ascii=False)),
+            )
+            return cur.lastrowid
+
+    def list_task_event_logs(
+        self, limit: int, kinds: tuple[str, ...] | None = None,
+    ) -> list[dict]:
+        """Newest-first task-event log rows of the given kinds (the additive
+        ``entries`` projection, breakdown §5). ``kinds=None`` returns every
+        task-event kind."""
+        with self._lock:
+            if kinds:
+                placeholders = ",".join("?" for _ in kinds)
+                rows = self._conn.execute(
+                    f"SELECT * FROM hedge_open_log WHERE kind IN ({placeholders})"
+                    " ORDER BY ts_us DESC, id DESC LIMIT ?",
+                    (*kinds, limit),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT * FROM hedge_open_log ORDER BY ts_us DESC, id DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            return [_row_to_log(r) for r in rows]
+
+    def list_task_event_logs_page(
+        self, limit: int, kinds: tuple[str, ...] | None,
+        cur_ts: int | None, cur_rank: int | None, cur_id: int | None,
+    ) -> list[dict]:
+        """Newest-first task-event page for the unified additive ``entries``
+        stream (amendment 17). Ranked by ``(ts_us, rank=1, id)`` DESC; this
+        source's rank is the constant 1. The shared three-part cursor is the
+        same as :meth:`list_attempts_entries_page`: a cursor at an event (rank
+        1) admits only strictly older-tiebreak same-ts events, and a cursor at
+        an attempt (rank 0) admits NO same-ts events (they rank later in DESC
+        order, i.e. come after that attempt in the page). ``kinds`` filters the
+        event set; the caller passes ``limit = entries_limit + 1`` for has-more.
+        """
+        with self._lock:
+            clauses: list[str] = []
+            params: list = []
+            if kinds:
+                placeholders = ",".join("?" for _ in kinds)
+                clauses.append(f"kind IN ({placeholders})")
+                params.extend(kinds)
+            if cur_ts is not None:
+                clauses.append(
+                    "((ts_us < ?) OR (ts_us = ? AND 1 < ?)"
+                    " OR (ts_us = ? AND 1 = ? AND id < ?))"
+                )
+                params.extend([cur_ts, cur_ts, cur_rank, cur_ts, cur_rank, cur_id])
+            where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+            rows = self._conn.execute(
+                f"SELECT * FROM hedge_open_log{where}"
+                " ORDER BY ts_us DESC, id DESC LIMIT ?",
+                (*params, limit),
+            ).fetchall()
+            return [_row_to_log(r) for r in rows]
+
     # ------------------------------------------------------------- positions
 
     def aggregate_positions(self) -> list[dict]:
@@ -1115,7 +1442,10 @@ class HedgeOpenStore:
                 sign = Decimal(-1) if row["direction"] == D.DIR_FORWARD else Decimal(1)
                 b["position_qty"] += sign * q
         for row in leg_rows:
-            if row["exchange_status"] != D.LEG_FILLED:
+            # A-6: aggregate any leg with a POSITIVE actual fill regardless of the
+            # literal exchange status — a CANCELED/PARTIALLY_FILLED/EXPIRED leg that
+            # filled partially still contributes real base/quote to the position.
+            if _num(row["cumulative_base_qty"]) <= 0:
                 continue
             b = _bucket(row["coin"], row["direction"])
             q = _num(row["cumulative_base_qty"])

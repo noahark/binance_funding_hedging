@@ -33,21 +33,27 @@ from math import gcd
 SCHEMA_VERSION = "hedge-open-tasks/v1"
 FILL_SCHEMA_VERSION = "hedge-open-fills/v1"
 
-# Task.status (stage-1 five states carried forward verbatim, ADR-7).
+# Task.status (stage-1 states carried forward + amendment additive `stopped`,
+# ADR-7 / breakdown §2.1 I-4). `stopped` = fatal stop (amendment error-matrix
+# rows 1–2): final for that task; the operator corrects the cause and creates a
+# NEW task. It is not dispatch-eligible and never auto-resumes.
 STATUS_RUNNING = "running"
 STATUS_PAUSED = "paused"
 STATUS_DONE = "done"
+STATUS_STOPPED = "stopped"
 STATUS_EXPOSURE_ALERT = "exposure_alert"
 STATUS_DELETED = "deleted"
 ALL_STATUSES = (
     STATUS_RUNNING,
     STATUS_PAUSED,
     STATUS_DONE,
+    STATUS_STOPPED,
     STATUS_EXPOSURE_ALERT,
     STATUS_DELETED,
 )
-# A running task with success_count < target is dispatch-eligible; exposure_alert
-# and paused are operator-paused / frozen states (10-design §7).
+# A running task below its target with no in-flight pair is dispatch-eligible;
+# exposure_alert/paused are operator-paused/frozen states, stopped is a fatal
+# final state (10-design §7 / amendment §Error handling).
 ACTIVE_RUNNABLE_STATUSES = (STATUS_RUNNING,)
 # Statuses excluded from the default list view unless ``status=all|deleted``.
 DEFAULT_HIDDEN_STATUS = STATUS_DELETED
@@ -79,6 +85,7 @@ LEG_NEW = "NEW"
 LEG_PARTIALLY_FILLED = "PARTIALLY_FILLED"
 LEG_REJECTED = "REJECTED"
 LEG_EXPIRED = "EXPIRED"
+LEG_CANCELED = "CANCELED"
 LEG_UNKNOWN = "UNKNOWN"  # timeout / 5xx / disconnect -> unresolved
 
 # Attempt outcome categories — now keyed on ACCEPTANCE, not fill (breakdown
@@ -92,11 +99,17 @@ ATTEMPT_SUCCESS = "success"  # both legs accepted (orderId returned on both)
 ATTEMPT_SINGLE_LEG_EXPOSURE = "single_leg_exposure"  # exactly one leg accepted
 ATTEMPT_FAILED = "failed"  # neither leg accepted (confirmed submission failure)
 ATTEMPT_DISABLED = "execution_disabled"  # disabled executor, no record transport
+# Fatal submission (amendment error-matrix rows 1–2): a preflight fact OR an
+# exchange code that means insufficient balance/margin/available qty, symbol
+# unavailable, invalid account/position mode, or a filter/min-notional violation.
+# It stops the task immediately without waiting for the failure threshold (I-2).
+ATTEMPT_FATAL = "fatal_submission"
 ALL_ATTEMPT_CATEGORIES = (
     ATTEMPT_SUCCESS,
     ATTEMPT_SINGLE_LEG_EXPOSURE,
     ATTEMPT_FAILED,
     ATTEMPT_DISABLED,
+    ATTEMPT_FATAL,
 )
 
 # Spot leg sideEffectType is always NO_SIDE_EFFECT for BOTH directions (ADR-3):
@@ -112,6 +125,28 @@ SIDE_EFFECT_NO_SIDE_EFFECT = "NO_SIDE_EFFECT"
 DEFAULT_FAILURE_PAUSE_THRESHOLD = 3
 # Pause reason recorded on the task when the threshold is reached.
 PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE = "consecutive_submission_failure"
+
+# Fatal-stop reasons (amendment error-matrix rows 1–2 / breakdown I-4). Recorded
+# on the task as the nullable `stop_reason` alongside `status=stopped`. A fatal
+# stop is final for that task; the operator corrects the cause and creates a new
+# task. These mirror the fatal preflight/exchange facts; a Chinese display reason
+# is provided by :func:`stop_reason_zh`.
+STOP_REASON_INSUFFICIENT_BALANCE = "insufficient_balance"
+STOP_REASON_BELOW_MIN_QTY = "below_min_qty"
+STOP_REASON_ABOVE_MAX_QTY = "above_max_qty"
+STOP_REASON_BELOW_MIN_NOTIONAL = "below_min_notional"
+STOP_REASON_SYMBOL_UNAVAILABLE = "symbol_unavailable"
+STOP_REASON_POSITION_MODE_INVALID = "position_mode_invalid"
+STOP_REASON_EXCHANGE_FATAL = "exchange_fatal"
+ALL_STOP_REASONS = (
+    STOP_REASON_INSUFFICIENT_BALANCE,
+    STOP_REASON_BELOW_MIN_QTY,
+    STOP_REASON_ABOVE_MAX_QTY,
+    STOP_REASON_BELOW_MIN_NOTIONAL,
+    STOP_REASON_SYMBOL_UNAVAILABLE,
+    STOP_REASON_POSITION_MODE_INVALID,
+    STOP_REASON_EXCHANGE_FATAL,
+)
 
 # Boundary C sanitized block_reason enum (never an environment value). Mirrors
 # the borrow domain's BLOCK_* set; surfaced in the startup lifecycle event when
@@ -161,11 +196,81 @@ ALL_LEG_DISPATCH_STATES = (
     LEG_TERMINAL_RECORDED,
 )
 
-# Rejection reasons surfaced by the preflight quantity/balance checks.
+# Rejection reasons surfaced by the preflight quantity/balance checks. The fatal
+# ones (all facts were readable; a hard rule failed) map 1:1 to a stop reason and
+# stop the task (amendment rows 1–2). The incomplete one means a required fact
+# could NOT be read (market step / price / rate-limit) — fail-closed: no attempt,
+# no POST, no failure count; the still-running task retries its loop after pacing
+# (breakdown I-7).
 REJECT_INSUFFICIENT_BALANCE = "insufficient_balance"
 REJECT_BELOW_MIN_QTY = "below_min_qty"
 REJECT_ABOVE_MAX_QTY = "above_max_qty"
 REJECT_BELOW_MIN_NOTIONAL = "below_min_notional"
+REJECT_SYMBOL_UNAVAILABLE = "symbol_unavailable"
+REJECT_POSITION_MODE_INVALID = "position_mode_invalid"
+REJECT_PREFLIGHT_INCOMPLETE = "preflight_incomplete"
+# Fatal preflight facts: the task stops immediately. A below/above/notional
+# violation is fatal only when the market step WAS readable (a real filter rule
+# failed); an unreadable step is REJECT_PREFLIGHT_INCOMPLETE, not fatal. A symbol
+# that is readable but NOT TRADING, and a non-one-way position mode
+# (dualSidePosition != false), are also fatal (amendment rows 1–2).
+PREFLIGHT_FATAL_REASONS = frozenset(
+    (
+        REJECT_INSUFFICIENT_BALANCE,
+        REJECT_BELOW_MIN_QTY,
+        REJECT_ABOVE_MAX_QTY,
+        REJECT_BELOW_MIN_NOTIONAL,
+        REJECT_SYMBOL_UNAVAILABLE,
+        REJECT_POSITION_MODE_INVALID,
+    )
+)
+
+# Map a fatal preflight rejection reason to the task stop_reason vocabulary.
+REJECT_TO_STOP_REASON = {
+    REJECT_INSUFFICIENT_BALANCE: STOP_REASON_INSUFFICIENT_BALANCE,
+    REJECT_BELOW_MIN_QTY: STOP_REASON_BELOW_MIN_QTY,
+    REJECT_ABOVE_MAX_QTY: STOP_REASON_ABOVE_MAX_QTY,
+    REJECT_BELOW_MIN_NOTIONAL: STOP_REASON_BELOW_MIN_NOTIONAL,
+    REJECT_SYMBOL_UNAVAILABLE: STOP_REASON_SYMBOL_UNAVAILABLE,
+    REJECT_POSITION_MODE_INVALID: STOP_REASON_POSITION_MODE_INVALID,
+}
+
+# Exchange business codes (Binance PAPI ``code`` field). Used by the live
+# executor to classify a 4xx into fatal-stop vs known-non-fatal-rejection vs
+# auth/signature/timestamp ambiguity (the last stays UNKNOWN — keep querying by
+# client ID, never resend). These sets are deliberately conservative and named
+# for clarity; an unlisted 4xx defaults to a known non-fatal rejection (counter).
+# Insufficient balance/margin/available, or a filter/min-notional/param
+# violation -> fatal stop (amendment rows 1–2).
+FATAL_EXCHANGE_CODES = frozenset(
+    (
+        "-2010",  # Account has insufficient balance/margin.
+        "-2019",  # Margin is insufficient.
+        "-3041",  # PM account level insufficient.
+        "-1013",  # Invalid quantity (filter/param).
+        "-1100", "-1101", "-1102", "-1103", "-1104", "-1105", "-1106", "-1107",
+        "-1108", "-1109", "-1110", "-1111", "-1112", "-1113", "-1114", "-1115",
+        "-1128", "-1130", "-1136", "-1140", "-1170", "-1180", "-1190", "-1210",
+        "-1212", "-1270",  # LOT_SIZE / PRICE_FILTER / MIN_NOTIONAL / etc. families.
+    )
+)
+# Auth/signature/timestamp/permission ambiguity: the response is NOT trustworthy
+# as an acceptance verdict, so the leg stays UNKNOWN and is queried by client ID
+# (amendment row 5). Rate-limit codes are handled separately (process-wide delay,
+# never a business stop — amendment row 6).
+AUTH_AMBIGUOUS_EXCHANGE_CODES = frozenset(
+    (
+        "-1000",  # UNKNOWN
+        "-1021",  # Timestamp recvWindow.
+        "-1022",  # Timestamp out of recvWindow.
+        "-1099",  # Timestamp for this request outside.
+        "-2011",  # Unknown order sent.
+        "-2014",  # API key format invalid.
+        "-2015",  # Invalid API key / permission.
+        "-2017",  # No authority / no trading permissions.
+        "-2018",  # No authority.
+    )
+)
 
 # Round-1 scheduler interval is fixed at 1 second (immediate mode, ADR-6).
 DEFAULT_INTERVAL_SECONDS = "1"
@@ -176,6 +281,14 @@ BODY_MAX_BYTES = 16384
 LIMIT_DEFAULT = 50
 LIMIT_MIN = 1
 LIMIT_MAX = 200
+
+# Open-log entries timeline page bounds (amendment 17 — opening-log-pagination-
+# compatibility). The additive ``entries`` stream paginates INDEPENDENTLY of the
+# legacy ``logs``/``attempts`` page: its own ``entries_limit`` (1..100), its own
+# opaque ``entries_cursor``, and its own ``entries_next_cursor``. The legacy
+# ``limit`` (1..200) keeps driving ``logs``/``attempts``/``next_cursor``.
+ENTRIES_LIMIT_DEFAULT = 50
+ENTRIES_LIMIT_MAX = 100
 
 # Quote asset assumption for the round-1 funding-hedging universe (spot/perp
 # symbols are USDT-margined). base asset is derived by stripping this suffix.
@@ -350,24 +463,30 @@ def effective_market_step(filters: dict) -> Decimal | None:
 
 
 def _qty_bounds(filters: dict) -> tuple[Decimal | None, Decimal | None]:
-    """Return ``(min_qty, max_qty)`` honoring the MARKET filter when enabled,
-    else the LOT_SIZE bounds. A 0/None bound means that limit is disabled.
+    """Return ``(min_qty, max_qty)`` with a PER-CONSTRAINT ``MARKET_LOT_SIZE`` →
+    ``LOT_SIZE`` fallback (breakdown A-3 / recon §4.3). Each bound (min/max)
+    independently honors ``MARKET_LOT_SIZE`` when that constraint carries a
+    usable value, and otherwise falls back to ``LOT_SIZE``; a 0/None value at
+    both means that one bound is disabled. This is stricter than picking one
+    filter wholesale: a symbol whose MARKET max is disabled still honors the
+    LOT_SIZE max rather than dropping the upper bound.
     """
     market = filters.get("market_lot_size") or {}
     lot = filters.get("lot_size") or {}
-    source = market if (market.get("step_size") not in (None, 0, "0")) else lot
 
-    def _val(spec: dict, key: str) -> Decimal | None:
-        raw = spec.get(key)
-        if raw is None or raw == 0 or raw == "0":
-            return None
-        try:
-            value = Decimal(str(raw))
-        except InvalidOperation:
-            return None
-        return value if value > 0 else None
+    def _val(market_key: str, lot_key: str) -> Decimal | None:
+        for spec, key in ((market, market_key), (lot, lot_key)):
+            raw = spec.get(key)
+            if raw is None or raw == 0 or raw == "0":
+                continue
+            try:
+                value = Decimal(str(raw))
+            except InvalidOperation:
+                continue
+            return value if value > 0 else None
+        return None
 
-    return _val(source, "min_qty"), _val(source, "max_qty")
+    return _val("min_qty", "min_qty"), _val("max_qty", "max_qty")
 
 
 def min_notional(filters: dict) -> Decimal | None:
@@ -406,6 +525,10 @@ class PreflightSnapshot:
     position_mode: str  # BOTH | hedge
     est_price: Decimal | None = None  # conservative price for forward notional
     rate_limit_order: int | None = None  # GET /papi/v1/rateLimit/order limit
+    # True only when the symbol was readable AND both markets report status
+    # TRADING. False (read but not tradable) is a fatal fact (amendment rows 1–2);
+    # a missing read fails the whole snapshot closed upstream instead.
+    symbol_tradable: bool = True
 
 
 @dataclass(frozen=True)
@@ -484,16 +607,45 @@ def compute_preflight(
             rejection=None,
             snapshot_record=empty_record,
         )
-    spot_step = effective_market_step(snapshot.spot_filters)
-    perp_step = effective_market_step(snapshot.perp_filters)
-    if spot_step is None or perp_step is None:
+    # Fatal preflight facts (amendment rows 1–2): a readable symbol that is NOT
+    # TRADING, or a non-one-way position mode (dualSidePosition != false), stop
+    # the task immediately. These are READ facts, not unreadable gaps, so they
+    # are fatal rather than fail-closed retry.
+    if not snapshot.symbol_tradable:
         return PreflightResult(
             q_common=None,
             position_side_mode=snapshot.position_mode,
             balance_ok=None,
             required=None,
             available=None,
-            rejection=REJECT_BELOW_MIN_QTY,  # cannot read a market step -> reject
+            rejection=REJECT_SYMBOL_UNAVAILABLE,
+            snapshot_record={"available": False, "reason": "symbol_not_trading"},
+        )
+    if snapshot.position_mode != POS_MODE_BOTH:
+        return PreflightResult(
+            q_common=None,
+            position_side_mode=snapshot.position_mode,
+            balance_ok=None,
+            required=None,
+            available=None,
+            rejection=REJECT_POSITION_MODE_INVALID,
+            snapshot_record={"available": False, "reason": "position_mode_not_one_way"},
+        )
+    spot_step = effective_market_step(snapshot.spot_filters)
+    perp_step = effective_market_step(snapshot.perp_filters)
+    if spot_step is None or perp_step is None:
+        # A required market step could not be read -> fail-closed INCOMPLETE
+        # (amendment I-7): this is not a filter violation, so it never stops the
+        # task; the still-running task retries its loop after pacing. Returning
+        # REJECT_BELOW_MIN_QTY here would wrongly fatal-stop on an unreadable
+        # fact, conflating a missing read with a violated rule.
+        return PreflightResult(
+            q_common=None,
+            position_side_mode=snapshot.position_mode,
+            balance_ok=None,
+            required=None,
+            available=None,
+            rejection=REJECT_PREFLIGHT_INCOMPLETE,  # cannot read a market step
             snapshot_record={"available": True, "reason": "step_unreadable"},
         )
     grid = decimal_lcm(spot_step, perp_step)
@@ -524,14 +676,15 @@ def compute_preflight(
     base = base_asset(coin)
     if direction == DIR_FORWARD:
         if snapshot.est_price is None or snapshot.est_price <= 0:
-            # Cannot size USDT need without a price -> unknown, not a rejection.
+            # A required price fact is missing -> fail-closed INCOMPLETE (I-7):
+            # cannot size the USDT need, but this is not a balance violation.
             return PreflightResult(
                 q_common=q_common,
                 position_side_mode=snapshot.position_mode,
                 balance_ok=None,
                 required=None,
                 available=None,
-                rejection=None,
+                rejection=REJECT_PREFLIGHT_INCOMPLETE,
                 snapshot_record=snapshot_record,
             )
         required = q_common * target_n * snapshot.est_price
@@ -651,15 +804,19 @@ def resolve_status_after_attempt(
 ) -> str:
     """Apply one attempt's resolved acceptance verdict to a task's status.
 
-    ``deleted`` is sticky. An accepted pair reaching the target -> ``done``.
-    Confirmed consecutive *submission* failures reaching the task-snapshotted
-    threshold (``>=``, i.e. the threshold-th) -> ``paused``. A single-leg
-    exposure is ADVISORY: it does NOT change the status (breakdown §4.5) — the
-    task keeps scheduling and the exposure is recorded, never a gate. Fill /
-    residual / partial values are observational and never reach this function.
+    ``deleted`` is sticky. A fatal submission (amendment rows 1–2) -> ``stopped``
+    immediately, regardless of the failure threshold. An accepted pair reaching
+    the target -> ``done``. Confirmed consecutive *submission* failures reaching
+    the task-snapshotted threshold (``>=``, i.e. the threshold-th) -> ``paused``.
+    A single-leg exposure is ADVISORY: it does NOT change the status (breakdown
+    §4.5) — the task keeps scheduling and the exposure is recorded, never a gate.
+    Fill / residual / partial values are observational and never reach this
+    function.
     """
     if current_status == STATUS_DELETED:
         return STATUS_DELETED
+    if category == ATTEMPT_FATAL:
+        return STATUS_STOPPED
     if category == ATTEMPT_SUCCESS and accepted_count >= target_n:
         return STATUS_DONE
     if (
@@ -732,6 +889,23 @@ def validate_limit(value):
     return value
 
 
+def validate_entries_limit(value):
+    """Same parsing/default discipline as :func:`validate_limit`, but the
+    additive ``entries`` stream is capped at ``ENTRIES_LIMIT_MAX`` (amendment
+    17). ``None`` -> ``ENTRIES_LIMIT_DEFAULT``."""
+    if value is None:
+        return ENTRIES_LIMIT_DEFAULT
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise HedgeError(400, "invalid_limit", "entries_limit must be an integer")
+    if value < LIMIT_MIN or value > ENTRIES_LIMIT_MAX:
+        raise HedgeError(
+            400,
+            "invalid_limit",
+            f"entries_limit must be in [{LIMIT_MIN}, {ENTRIES_LIMIT_MAX}]",
+        )
+    return value
+
+
 # ---------------------------------------------------------------------------
 # Cursor (opaque, encodes the log/fill page boundary)
 # ---------------------------------------------------------------------------
@@ -750,6 +924,38 @@ def decode_cursor(value):
         decoded = base64.urlsafe_b64decode(value + padding).decode("ascii")
         ts_str, id_str = decoded.split(":", 1)
         return int(ts_str), int(id_str)
+    except Exception:
+        return None
+
+
+def encode_entries_cursor(ts_us: int, rank: int, row_id: int) -> str:
+    """Opaque cursor for the additive ``entries`` unified stream (amendment 17).
+
+    Encodes the three-part stable sort key ``(ts_us, rank, row_id)`` — ``rank``
+    disambiguates the two source tables (attempt vs task event) whose own
+    ``row_id`` autoincrement sequences collide. Distinct from the two-part
+    :func:`encode_cursor` so an entries cursor can never be confused with a
+    legacy logs cursor.
+    """
+    raw = f"{ts_us}:{rank}:{row_id}".encode("ascii")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def decode_entries_cursor(value):
+    """Inverse of :func:`encode_entries_cursor`; returns ``(ts, rank, id)`` or
+    ``None`` on any malformed input (the service raises ``invalid_cursor``)."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        padding = "=" * (-len(value) % 4)
+        decoded = base64.urlsafe_b64decode(value + padding).decode("ascii")
+        ts_str, rank_str, id_str = decoded.split(":", 2)
+        ts = int(ts_str)
+        rank = int(rank_str)
+        rid = int(id_str)
+        if rank not in (0, 1):
+            return None
+        return ts, rank, rid
     except Exception:
         return None
 
@@ -798,4 +1004,27 @@ def filter_status_for_list(status: str | None) -> str | None:
         return STATUS_DELETED
     if status in ALL_STATUSES:
         return status
-    raise invalid_field("status", "must be one of all|running|paused|done|deleted|exposure_alert")
+    raise invalid_field(
+        "status",
+        "must be one of all|running|paused|done|stopped|deleted|exposure_alert",
+    )
+
+
+def stop_reason_zh(reason: str | None) -> str | None:
+    """Safe Chinese display reason for a fatal-stop reason (amendment §Error
+    handling: every recorded error carries a machine-readable code + a safe
+    Chinese reason; never a key/signature/secret)."""
+    if reason is None:
+        return None
+    return _STOP_REASON_ZH.get(reason, "致命错误，任务已终止，请修正后新建任务")
+
+
+_STOP_REASON_ZH = {
+    STOP_REASON_INSUFFICIENT_BALANCE: "账户余额/保证金不足，任务已终止，请补充后新建任务",
+    STOP_REASON_BELOW_MIN_QTY: "下单数量低于最小成交量，任务已终止，请调整后新建任务",
+    STOP_REASON_ABOVE_MAX_QTY: "下单数量超过最大成交量，任务已终止，请调整后新建任务",
+    STOP_REASON_BELOW_MIN_NOTIONAL: "下单金额低于最小名义价值，任务已终止，请调整后新建任务",
+    STOP_REASON_SYMBOL_UNAVAILABLE: "交易对不可用，任务已终止，请确认后新建任务",
+    STOP_REASON_POSITION_MODE_INVALID: "仓位模式无效（需单向 BOTH），任务已终止，请修正后新建任务",
+    STOP_REASON_EXCHANGE_FATAL: "交易所致命错误，任务已终止，请检查后新建任务",
+}

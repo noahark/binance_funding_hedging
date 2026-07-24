@@ -562,7 +562,17 @@ class _Handler(BaseHTTPRequestHandler):
         query = parse_qs(urlparse(self.path).query)
         cursor = query.get("cursor", [None])[0]
         limit = query.get("limit", [None])[0]
-        self._send_hedge_open(*self._safe_hedge(self.hedge_open_service.get_logs, cursor, limit))
+        # Amendment 17: the additive entries timeline paginates on its own
+        # entries_limit / entries_cursor (independent of the legacy cursor/limit
+        # that still drive logs/attempts/next_cursor). Both are optional and
+        # opaque; parse_qs drops blank values, so ``?entries_cursor=`` is treated
+        # as absent (first page), matching the legacy cursor convention.
+        entries_cursor = query.get("entries_cursor", [None])[0]
+        entries_limit = query.get("entries_limit", [None])[0]
+        self._send_hedge_open(*self._safe_hedge(
+            self.hedge_open_service.get_logs,
+            cursor, limit, entries_cursor, entries_limit,
+        ))
 
     def _hedge_open_positions(self):
         self._send_hedge_open(*self.hedge_open_service.get_positions())

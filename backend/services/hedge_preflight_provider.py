@@ -143,23 +143,25 @@ class HedgePreflightProvider:
         except Exception:
             return None
 
-    def _read_spot_filters(self, coin: str) -> Optional[dict]:
+    def _read_spot_filters(self, coin: str) -> Optional[tuple[dict, bool]]:
         data = self._read_public_json(f"{_SPOT_API_BASE}/api/v3/exchangeInfo?symbol={coin}")
         if not isinstance(data, dict):
             return None
         symbol = _find_symbol(data.get("symbols", []), coin)
         if symbol is None:
             return None
-        return _parse_spot_filters(symbol)
+        tradable = symbol.get("status") == "TRADING"
+        return _parse_spot_filters(symbol), tradable
 
-    def _read_perp_filters(self, coin: str) -> Optional[dict]:
+    def _read_perp_filters(self, coin: str) -> Optional[tuple[dict, bool]]:
         data = self._read_public_json(f"{_FAPI_BASE}/fapi/v1/exchangeInfo")
         if not isinstance(data, dict):
             return None
         symbol = _find_symbol(data.get("symbols", []), coin)
         if symbol is None:
             return None
-        return _parse_perp_filters(symbol)
+        tradable = symbol.get("status") == "TRADING"
+        return _parse_perp_filters(symbol), tradable
 
     def _read_est_price(self, coin: str) -> Optional[Decimal]:
         """Conservative spot price for the forward min-notional estimate."""
@@ -210,13 +212,17 @@ class HedgePreflightProvider:
             or response.http_status >= 400
             or not isinstance(response.body, dict)
         ):
-            return None
+            return None  # read failed -> fail-closed incomplete
         dual = response.body.get("dualSidePosition")
-        # Hedge mode (dualSidePosition=true) fails preflight closed: the frozen
-        # contract is one-way BOTH (PRD §5 / recon §4.3).
+        # A readable dualSidePosition=true is a two-way (hedge) account: a fatal
+        # fact downstream (the frozen contract is one-way BOTH, PRD §5 / recon
+        # §4.3). A literal false is the only one-way confirmation; a missing or
+        # ambiguous value cannot confirm one-way, so it fails closed (clause 3).
         if dual is True:
-            return None
-        return D.POS_MODE_BOTH
+            return D.POS_MODE_HEDGE
+        if dual is False:
+            return D.POS_MODE_BOTH
+        return None
 
     def _read_rate_limit_order(self) -> Optional[int]:
         if self._client is None:
@@ -241,21 +247,36 @@ class HedgePreflightProvider:
         """Assemble a fresh preflight snapshot, or ``None`` on any gap.
 
         ``None`` covers both the dry-run default (no live client) and a live read
-        that could not be fully assembled (a hedge-mode account, a missing
-        filter/step, or a failed balance/position read). The service never
-        authorizes a live send on a ``None`` snapshot.
+        that could not be fully assembled (a missing filter/step, a failed
+        balance/position/rate-limit read, or an ambiguous one-way confirmation).
+        The service never authorizes a live send on a ``None`` snapshot. A
+        readable-but-not-tradable symbol or a two-way position mode is NOT ``None``
+        here — it is a fully-read fatal fact surfaced via the snapshot so
+        :func:`domain.compute_preflight` can stop the task (amendment rows 1–2).
         """
         if self._client is None or not self._client.credentials_present:
             return None
-        spot_filters = self._read_spot_filters(coin)
-        perp_filters = self._read_perp_filters(coin)
+        spot = self._read_spot_filters(coin)
+        perp = self._read_perp_filters(coin)
         balances = self._read_balances()
         position_mode = self._read_position_mode()
         rate_limit = self._read_rate_limit_order()
         est_price = self._read_est_price(coin)
-        # Any gap fails closed — never assemble a half-populated snapshot.
-        if spot_filters is None or perp_filters is None or balances is None or position_mode is None:
+        # Any read gap fails closed — never assemble a half-populated snapshot
+        # (amendment clause 3: account/symbol status, position mode, price/
+        # balance, NOTIONAL/MIN_NOTIONAL, the current order rate-limit fact; a
+        # missing one is rejected). The rate-limit fact is direction-independent,
+        # so a missing read fails the snapshot here.
+        if (
+            spot is None
+            or perp is None
+            or balances is None
+            or position_mode is None
+            or rate_limit is None
+        ):
             return None
+        spot_filters, spot_tradable = spot
+        perp_filters, perp_tradable = perp
         return D.PreflightSnapshot(
             spot_filters=spot_filters,
             perp_filters=perp_filters,
@@ -263,4 +284,5 @@ class HedgePreflightProvider:
             position_mode=position_mode,
             est_price=est_price,
             rate_limit_order=rate_limit,
+            symbol_tradable=spot_tradable and perp_tradable,
         )

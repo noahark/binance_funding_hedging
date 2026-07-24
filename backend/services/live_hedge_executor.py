@@ -145,7 +145,18 @@ def _decimal_str(value, default: str = "0") -> str:
 
 @dataclass(frozen=True)
 class LegDispatch:
-    """One leg's POST verdict + the observational fill figures from the response."""
+    """One leg's POST verdict + the observational fill figures from the response.
+
+    ``error_category`` in {None, "auth", "fatal", "absent"} classifies the
+    exchange response for the error matrix (amendment §Error handling):
+    "auth" = auth/signature/timestamp/permission ambiguity -> stay UNKNOWN and
+    query by client ID (never resend); "fatal" = insufficient balance/margin/
+    filter/min-notional/symbol/mode -> stops the task; "absent" = the order was
+    never accepted (confirmed non-fatal failure). ``error_code`` is the exchange
+    business code when available. ``retry_after_seconds`` carries a stated
+    exchange wait (429/Retry-After) so the service delays new writes without
+    changing any task's business state (amendment row 6).
+    """
 
     leg: str  # "spot" | "perp"
     dispatch_state: str  # LEG_ACCEPTED | LEG_REJECTED | LEG_UNKNOWN_QUERYING
@@ -155,6 +166,9 @@ class LegDispatch:
     cumulative_quote: str
     avg_price: Optional[str]
     rate_limited: bool = False
+    error_code: Optional[str] = None
+    error_category: Optional[str] = None
+    retry_after_seconds: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -166,9 +180,14 @@ class LiveAttemptDispatch:
     perp: LegDispatch
     record_payload: dict
     rate_limited: bool  # any leg surfaced a 429/-1003/418 -> extend shared cooldown
+    retry_after_seconds: Optional[int]  # stated exchange wait (amendment row 6)
 
 
-def _empty_dispatch(leg: str, dispatch_state: str, *, rate_limited: bool = False) -> LegDispatch:
+def _empty_dispatch(
+    leg: str, dispatch_state: str, *, rate_limited: bool = False,
+    error_code: Optional[str] = None, error_category: Optional[str] = None,
+    retry_after_seconds: Optional[int] = None,
+) -> LegDispatch:
     return LegDispatch(
         leg=leg,
         dispatch_state=dispatch_state,
@@ -178,15 +197,23 @@ def _empty_dispatch(leg: str, dispatch_state: str, *, rate_limited: bool = False
         cumulative_quote="0",
         avg_price=None,
         rate_limited=rate_limited,
+        error_code=error_code,
+        error_category=error_category,
+        retry_after_seconds=retry_after_seconds,
     )
 
 
 def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
-    """Map one leg's POST response to a dispatch verdict (recon §3.3)."""
+    """Map one leg's POST response to a dispatch verdict (recon §3.3 + amendment
+    §Error handling)."""
     if response.transport_error is not None or response.http_status is None:
         return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
     if _is_rate_limited(response):
-        return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING, rate_limited=True)
+        # 429 / -1003 / 418: process-wide write delay, never a business verdict.
+        return _empty_dispatch(
+            leg, LEG_UNKNOWN_QUERYING, rate_limited=True,
+            retry_after_seconds=response.retry_after_seconds,
+        )
     status = response.http_status
     # 5xx: possibly accepted, EXCEPT a confirmed 503 throttle failure.
     if 500 <= status < 600:
@@ -224,9 +251,23 @@ def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
             cumulative_quote=cumulative_quote,
             avg_price=avg_price,
         )
-    # Definite 4xx (non-rate-limit): confirmed not accepted.
+    # Definite 4xx (non-rate-limit). The amendment error matrix splits these:
+    # auth/signature/timestamp/permission ambiguity -> stay UNKNOWN and query by
+    # client ID (never resend, amendment row 5); a fatal code (insufficient
+    # balance/margin/filter/min-notional/symbol/mode) -> confirmed not accepted
+    # AND stops the task (rows 1–2); any other definite rejection -> confirmed
+    # not accepted, a known non-fatal counted failure (row 3).
     if 400 <= status < 500:
-        return _empty_dispatch(leg, LEG_REJECTED)
+        code = _business_code(response)
+        if code in D.AUTH_AMBIGUOUS_EXCHANGE_CODES:
+            return _empty_dispatch(
+                leg, LEG_UNKNOWN_QUERYING, error_code=code, error_category="auth"
+            )
+        if code in D.FATAL_EXCHANGE_CODES:
+            return _empty_dispatch(
+                leg, LEG_REJECTED, error_code=code, error_category="fatal"
+            )
+        return _empty_dispatch(leg, LEG_REJECTED, error_code=code)
     return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
 
 
@@ -246,8 +287,17 @@ def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[L
     if status >= 500:
         return None  # query itself failed ambiguously — keep querying
     if 400 <= status < 500:
-        # 404 / absent: the order was never accepted by the exchange.
-        return _empty_dispatch(leg, LEG_REJECTED)
+        # Amendment row 5: ONLY an explicit order-absent signal confirms the
+        # order was never accepted. A literal 404 or Binance -2013 (order does
+        # not exist) is the authoritative absent signal. Auth/signature/
+        # timestamp/permission codes, and any other ambiguous 4xx, stay
+        # inconclusive (return None -> keep querying by client ID, never resend).
+        code = _business_code(response)
+        if status == 404 or code == "-2013":
+            return _empty_dispatch(
+                leg, LEG_REJECTED, error_code=code or "http_404", error_category="absent"
+            )
+        return None
     if 200 <= status < 300 and isinstance(response.body, dict):
         order_id = _normalize_order_id(response.body.get("orderId"))
         exchange_status = response.body.get("status")
@@ -370,7 +420,8 @@ class LiveHedgeExecutor:
             query_response = querier(symbol, client_order_id, timestamp_ms=self._now_ms())
             resolved = classify_query_response(query_response, leg)
             if resolved is not None:
-                # Preserve the rate-limited signal from the original POST.
+                # Preserve the rate-limited signal + wait + error classification
+                # from the original POST.
                 return LegDispatch(
                     leg=resolved.leg,
                     dispatch_state=resolved.dispatch_state,
@@ -380,6 +431,9 @@ class LiveHedgeExecutor:
                     cumulative_quote=resolved.cumulative_quote,
                     avg_price=resolved.avg_price,
                     rate_limited=verdict.rate_limited,
+                    error_code=resolved.error_code,
+                    error_category=resolved.error_category,
+                    retry_after_seconds=verdict.retry_after_seconds,
                 )
         return verdict
 
@@ -428,12 +482,17 @@ class LiveHedgeExecutor:
         spot = outcomes.get("spot") or _error_leg("spot", errors.get("spot"))
         perp = outcomes.get("perp") or _error_leg("perp", errors.get("perp"))
         rate_limited = spot.rate_limited or perp.rate_limited
+        # The stated exchange wait (Retry-After) for a 429/-1003/418: the longest
+        # of the two legs governs the process-wide write delay (amendment row 6).
+        waits = [w for w in (spot.retry_after_seconds, perp.retry_after_seconds) if w]
+        retry_after = max(waits) if waits else None
         return LiveAttemptDispatch(
             attempt_id=ctx.attempt_id,
             spot=spot,
             perp=perp,
             record_payload=record_payload,
             rate_limited=rate_limited,
+            retry_after_seconds=retry_after,
         )
 
     def query_leg(self, leg: str, symbol: str, client_order_id: str) -> Optional[LegDispatch]:

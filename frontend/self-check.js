@@ -161,6 +161,8 @@ const ids = [
   'nav-hedge-tasks', 'hedge-task-count', 'hedge-task-view', 'hedge-task-list', 'hedge-task-filters',
   'hedge-execution-badge', 'hedge-execution-detail', 'hedge-tasks-error',
   'hedge-attempt-list', 'hedge-attempts-error',
+  'hedge-tab-tasks', 'hedge-tab-logs', 'hedge-tasks-panel', 'hedge-logs-panel',
+  'hedge-logs-error', 'hedge-log-list', 'hedge-logs-refresh', 'hedge-logs-load-more',
   'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
@@ -408,8 +410,11 @@ let hedgeTasksPostResponse = null;
 let hedgeActionResponses = {};
 let hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'disabled', start_gate: false, interval_seconds: 1 } };
 let hedgePositionsGetResponse = { status: 200, body: { positions: [] } };
-// real-api-v1：attempt 时间线数据源（既有 GET /api/hedge-open-logs，路由表不变）。
+// real-api-v1：attempt 时间线数据源（既有 GET /api/hedge-open-logs，路由表不变，?limit=100 无 cursor）。
 let hedgeLogsGetResponse = { status: 200, body: { logs: [], next_cursor: null } };
+// 17 号兼容修正：开单日志页分页队列（?entries_limit=50[&entries_cursor=...]，响应带
+// entries_next_cursor），与上面 attempt 时间线的 ?limit=100 请求区分，逐页 shift；未设置时 503。
+let hedgeLogPageResponses = [];
 
 function mockHedge503() {
   return { status: 503, body: { error: 'hedge_service_unavailable', detail: 'mock 未设置该路由响应' } };
@@ -436,6 +441,8 @@ function mockHedgeTask(overrides) {
     consecutive_submission_failures: 0,
     failure_pause_threshold: 3,
     pause_reason: null,
+    // I-4（15 号修正案）：stopped 为致命错误终止的新增字段，与 pause_reason 并存。
+    stop_reason: null,
     created_at: '2026-07-22T08:00:00.000000Z',
     updated_at: '2026-07-22T08:00:00.000000Z'
   }, overrides || {});
@@ -472,6 +479,104 @@ function mockHedgeAttempt(overrides) {
     ts: '2026-07-23T12:00:01.000000Z'
   }, overrides || {});
 }
+
+// 16 号拆分 §5 冻结契约：开单日志页 entries[] 条目形状（Decimal 均为字符串）。
+function mockHedgeLogEntry(overrides) {
+  return Object.assign({
+    entry_id: 'e-1',
+    entry_type: 'attempt',
+    task_id: 'h-1',
+    coin: 'AUSDT',
+    direction: 'forward',
+    attempt_seq: 1,
+    created_ts: '2026-07-23T12:00:00.000000Z',
+    submitted_ts: '2026-07-23T12:00:00.500000Z',
+    final_ts: '2026-07-23T12:00:01.000000Z',
+    q_common: '0.003',
+    planned_quote_amount: '0.36',
+    spot: {
+      side: 'BUY',
+      client_order_id: 'hgo-e1-s',
+      order_id: '9101',
+      status: 'FILLED',
+      cumulative_base_qty: '0.003',
+      cumulative_quote_amt: '0.36210000',
+      avg_price: '120.70000000',
+      fee_amount: '0.00000010',
+      fee_asset: 'BNB'
+    },
+    perp: {
+      side: 'SELL',
+      client_order_id: 'hgo-e1-p',
+      order_id: '9102',
+      status: 'FILLED',
+      cumulative_base_qty: '0.003',
+      cumulative_quote_amt: '0.36210900',
+      avg_price: '120.70300000',
+      fee_amount: null,
+      fee_asset: null
+    },
+    residual: '0',
+    overall_result: 'filled',
+    error_category: null, error_code: null, error_reason_zh: null,
+    next_action: 'continue_next_attempt'
+  }, overrides || {});
+}
+
+// 开单日志页固定装置：single_leg（缺 perp 腿）、task_event（无 orderId 的任务级事件，
+// attempt/leg 字段全 null）、confirmed_failed（两腿均无 orderId 的确认失败，即“no orderId
+// error 行”）。newest-first 两页游标分页装置。
+const HEDGE_LOG_ENTRY_SINGLE_LEG = mockHedgeLogEntry({
+  entry_id: 'e-10', task_id: 'h-log-1', coin: 'AUSDT', direction: 'forward', attempt_seq: 2,
+  created_ts: '2026-07-24T10:00:00.000000Z', submitted_ts: '2026-07-24T10:00:00.400000Z',
+  final_ts: '2026-07-24T10:00:01.000000Z', q_common: '0.004', planned_quote_amount: '0.48',
+  spot: {
+    side: 'BUY', client_order_id: 'hgo-e10-s', order_id: '9201', status: 'FILLED',
+    cumulative_base_qty: '0.004', cumulative_quote_amt: '0.48280000', avg_price: '120.70000000',
+    fee_amount: '0.00000012', fee_asset: 'BNB'
+  },
+  perp: null,
+  residual: '0.004',
+  overall_result: 'single_leg', error_category: null, error_code: null, error_reason_zh: null,
+  next_action: 'continue_next_attempt'
+});
+const HEDGE_LOG_ENTRY_TASK_EVENT = mockHedgeLogEntry({
+  entry_id: 'e-9', entry_type: 'task_event', task_id: 'h-log-1', coin: 'AUSDT', direction: 'forward',
+  attempt_seq: null, created_ts: '2026-07-24T09:59:00.000000Z', submitted_ts: null,
+  final_ts: '2026-07-24T09:59:00.000000Z', q_common: null, planned_quote_amount: null,
+  spot: null, perp: null, residual: null,
+  overall_result: 'task_paused', error_category: 'exchange_rate_limit', error_code: '429',
+  error_reason_zh: '交易所限频，已延迟新开单请求', next_action: 'waiting_query'
+});
+const HEDGE_LOG_ENTRY_NO_ORDERID_FAIL = mockHedgeLogEntry({
+  entry_id: 'e-8', task_id: 'h-log-2', coin: 'BUSDT', direction: 'reverse', attempt_seq: 1,
+  created_ts: '2026-07-24T09:00:00.000000Z', submitted_ts: '2026-07-24T09:00:00.200000Z',
+  final_ts: '2026-07-24T09:00:00.900000Z', q_common: '0.002', planned_quote_amount: '0.24',
+  spot: {
+    side: 'SELL', client_order_id: 'hgo-e8-s', order_id: null, status: null,
+    cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null, fee_amount: null, fee_asset: null
+  },
+  perp: {
+    side: 'BUY', client_order_id: 'hgo-e8-p', order_id: null, status: null,
+    cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null, fee_amount: null, fee_asset: null
+  },
+  residual: '0',
+  overall_result: 'confirmed_failed', error_category: 'insufficient_balance', error_code: '51008',
+  error_reason_zh: '可用余额不足', next_action: 'stopped'
+});
+// 17 号兼容修正：entries 分页用独立的 entries_next_cursor，绝不回退到旧 next_cursor。
+// 两个 fixture 都刻意携带一个与 entries_next_cursor 不同的旧 next_cursor 值，用来证明
+// 前端翻页请求只采信 entries_next_cursor。
+const HEDGE_LOG_PAGE_1 = {
+  logs: [], attempts: [], next_cursor: 'legacy-cursor-should-be-ignored',
+  entries: [HEDGE_LOG_ENTRY_SINGLE_LEG, HEDGE_LOG_ENTRY_TASK_EVENT],
+  entries_next_cursor: 'entries-cursor-page-2'
+};
+const HEDGE_LOG_PAGE_2 = {
+  logs: [], attempts: [], next_cursor: 'legacy-cursor-should-also-be-ignored',
+  entries: [HEDGE_LOG_ENTRY_NO_ORDERID_FAIL],
+  entries_next_cursor: null
+};
 
 function mockBorrow503() {
   return { status: 503, body: { error: 'borrow_service_unavailable', detail: 'mock 未设置该路由响应' } };
@@ -583,9 +688,15 @@ global.fetch = async (url, options) => {
   if (urlStr === '/api/hedge-open-positions' && method === 'GET') {
     return buildFetchResponse(hedgePositionsGetResponse || mockHedge503());
   }
-  // real-api-v1：attempt 时间线读取（既有 logs 路由，GET，支持 ?limit=/cursor 参数）。
+  // real-api-v1：attempt 时间线读取（既有 logs 路由，GET，固定 ?limit=100 无 cursor，
+  // 17 号兼容修正未改动这条）；开单日志页改用独立加法式 ?entries_limit=[&entries_cursor=]
+  // 走独立分页队列，二者共享同一路由但请求形状不同（不同字面量 query string），
+  // mock 按此区分，不影响生产代码。
   if (urlStr.startsWith('/api/hedge-open-logs') && method === 'GET') {
-    return buildFetchResponse(hedgeLogsGetResponse || mockHedge503());
+    if (urlStr === '/api/hedge-open-logs?limit=100') {
+      return buildFetchResponse(hedgeLogsGetResponse || mockHedge503());
+    }
+    return buildFetchResponse(hedgeLogPageResponses.length > 0 ? hedgeLogPageResponses.shift() : mockHedge503());
   }
   throw new Error(`Unexpected fetch URL: ${urlStr} (${method})`);
 };
@@ -3471,7 +3582,7 @@ setTimeout(async () => {
       const cusdtFwdOp = getRowCell(hedgeTbody, 'CUSDT', 13);
       const cusdtRevOp = getRowCell(hedgeTbody, 'CUSDT', 14);
       for (const [name, cell] of [['CUSDT 正向操作列', cusdtFwdOp], ['CUSDT 反向操作列', cusdtRevOp]]) {
-        for (const piece of ['单次开单币量', '成功开单次数', '平滑开单', '立即开单', 'data-hedge-open="smooth"', 'data-hedge-open="immediate"']) {
+        for (const piece of ['单次开单币量', '计划尝试次数', '平滑开单', '立即开单', 'data-hedge-open="smooth"', 'data-hedge-open="immediate"']) {
           if (!cell.includes(piece)) throw new Error(`${name} 缺少「${piece}」: ${cell}`);
         }
         const smoothBtnMatch = cell.match(/<button[^>]*data-hedge-open="smooth"[^>]*>/);
@@ -3702,42 +3813,77 @@ setTimeout(async () => {
       console.log('[PASS] 任务生命周期：pause/start/fill-once/fill-all/delete 冻结路由 + 状态推进 + 软删除筛选与导航徽标');
     }
 
-    // 81. exposure_alert 渲染（§3.2 status + leg_exposure）+ 累计失败 >3 终止行 + 按钮矩阵 + invalid_state 409
+    // 81. stopped/paused 语义返工（15 号修正案 I-4）：single_leg 只是提示且任务仍继续调度
+    //     （除非后端 status 为 paused/stopped）；stopped 显示致命错误终止 stop_reason；
+    //     删除旧的「累计失败 >3」推导与硬编码 /3；按钮矩阵只服从后端 status；invalid_state 409。
     {
       helpers.resetHedgeStateForTest();
-      const expTask = mockHedgeTask({
-        id: 'h-exp-1', coin: 'BUSDT', direction: 'reverse', status: 'exposure_alert', fail_count: 1,
+      // running + leg_exposure：单腿只是提示，绝不能显示“任务已暂停/等待人工处理”。
+      const runningExpTask = mockHedgeTask({
+        id: 'h-exp-1', coin: 'BUSDT', direction: 'reverse', status: 'running',
         leg_exposure: { leg: 'spot', qty: 0.5, price: 123.45, ts: '2026-07-22T08:01:00.000000Z' }
       });
-      const termTask = mockHedgeTask({ id: 'h-term-1', coin: 'CUSDT', status: 'paused', fail_count: 4 });
-      hedgeTasksGetResponse = { status: 200, body: { tasks: [expTask, termTask] } };
+      // paused + leg_exposure：此时才允许展示“任务当前处于暂停”（真实后端状态驱动）。
+      const pausedExpTask = mockHedgeTask({
+        id: 'h-exp-2', coin: 'FUSDT', direction: 'forward', status: 'paused',
+        pause_reason: 'consecutive_submission_failure',
+        leg_exposure: { leg: 'perp', qty: 0.3, price: 88.1, ts: '2026-07-22T08:02:00.000000Z' }
+      });
+      // stopped：致命错误终止，需人工修正后新建任务；不再由 fail_count > 3 推导。
+      const termTask = mockHedgeTask({
+        id: 'h-term-1', coin: 'CUSDT', status: 'stopped', stop_reason: '现货可用余额不足'
+      });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [runningExpTask, pausedExpTask, termTask] } };
       await helpers.loadHedgeTasks();
       helpers.setActiveView('hedge-tasks');
       helpers.setHedgeTaskFilter('all');
       const cards = elements['hedge-task-list'].innerHTML;
-      for (const piece of ['敞口告警', '单腿敞口：现货腿已成交 0.5 @ 123.45', '累计失败超过 3 次',
-        '公共网格量', '已成功', '/ 3', '暂停', '启动', '删除', '成交1次', '立即成交所有']) {
+      for (const piece of ['运行', '暂停', '已终止', '单腿敞口：现货腿已成交 0.5 @ 123.45',
+        '单腿敞口：合约腿已成交 0.3 @ 88.1', '任务仍继续调度下一组', '任务当前处于「暂停」',
+        '任务已终止（致命错误，不再补发）：现货可用余额不足', '需人工修正原因后新建任务',
+        '计划尝试次数', '公共网格量', '暂停原因：连续提交失败达到阈值',
+        '删除', '成交1次', '立即成交所有']) {
         if (!cards.includes(piece)) throw new Error(`开单任务卡缺少「${piece}」`);
+      }
+      if (cards.includes('已暂停，等待人工处理') || cards.includes('累计失败超过 3 次') ||
+          cards.includes('已成功') || cards.includes('/ 3')) {
+        throw new Error('任务卡不应再出现虚假暂停文案或旧的累计失败 >3 硬编码');
       }
       if (cards.includes('模拟盘口') || cards.includes('本地模拟')) {
         throw new Error('任务卡不应再渲染模拟盘口/本地模拟文案');
       }
-      // exposure_alert 卡：启动可用（人工处理后恢复），暂停/成交按钮 disabled
-      const expStart = cards.indexOf('data-hedge-task-id="h-exp-1"');
+      const runExpStart = cards.indexOf('data-hedge-task-id="h-exp-1"');
+      const pauseExpStart = cards.indexOf('data-hedge-task-id="h-exp-2"');
       const termStart = cards.indexOf('data-hedge-task-id="h-term-1"');
-      if (expStart === -1 || termStart === -1) throw new Error('缺少 exposure/terminated 任务卡');
-      const expCard = cards.slice(expStart, termStart);
+      if (runExpStart === -1 || pauseExpStart === -1 || termStart === -1) {
+        throw new Error('缺少 running/paused/stopped 任务卡');
+      }
+      const runCard = cards.slice(runExpStart, pauseExpStart);
+      const pauseCard = cards.slice(pauseExpStart, termStart);
       const termCard = cards.slice(termStart);
-      const expStartBtn = expCard.match(/<button[^>]*data-hedge-action="start"[^>]*>/)[0];
-      if (expStartBtn.includes('disabled')) throw new Error('exposure_alert 任务应允许人工启动');
-      const expFillBtn = expCard.match(/<button[^>]*data-hedge-action="fill1"[^>]*>/)[0];
-      if (!expFillBtn.includes('disabled')) throw new Error('exposure_alert 任务成交1次应 disabled');
+      // running：暂停可用、启动 disabled（已在运行）、成交按钮可用（单腿只是提示，不冻结调度）。
+      const runPauseBtn = runCard.match(/<button[^>]*data-hedge-action="pause"[^>]*>/)[0];
+      if (runPauseBtn.includes('disabled')) throw new Error('running 任务暂停按钮应可用');
+      const runStartBtn = runCard.match(/<button[^>]*data-hedge-action="start"[^>]*>/)[0];
+      if (!runStartBtn.includes('disabled')) throw new Error('running 任务启动按钮应 disabled');
+      const runFillBtn = runCard.match(/<button[^>]*data-hedge-action="fill1"[^>]*>/)[0];
+      if (runFillBtn.includes('disabled')) throw new Error('running 任务成交1次不应因单腿提示被禁用');
+      // paused：启动可用（人工处理后恢复），暂停/成交 disabled。
+      const pauseStartBtn = pauseCard.match(/<button[^>]*data-hedge-action="start"[^>]*>/)[0];
+      if (pauseStartBtn.includes('disabled')) throw new Error('paused 任务启动按钮应可用');
+      const pausePauseBtn = pauseCard.match(/<button[^>]*data-hedge-action="pause"[^>]*>/)[0];
+      if (!pausePauseBtn.includes('disabled')) throw new Error('paused 任务暂停按钮应 disabled');
+      // 后端 _require_fillable 只拦截 deleted/done（backend/hedge_open_tasks/service.py），
+      // paused 不阻塞人工 fill-once/fill-all；前端按钮矩阵必须服从后端，不得比后端更严格。
+      const pauseFillBtn = pauseCard.match(/<button[^>]*data-hedge-action="fill1"[^>]*>/)[0];
+      if (pauseFillBtn.includes('disabled')) throw new Error('paused 任务成交1次不应被前端额外禁用（后端未拦截）');
+      // stopped：启动/成交 disabled，需人工修正后新建任务；删除仍可用（软删除脱离列表）。
       const termStartBtn = termCard.match(/<button[^>]*data-hedge-action="start"[^>]*>/)[0];
-      if (!termStartBtn.includes('disabled')) throw new Error('已终止任务启动应 disabled');
+      if (!termStartBtn.includes('disabled')) throw new Error('stopped 任务启动应 disabled');
       const termFillBtn = termCard.match(/<button[^>]*data-hedge-action="fill-all"[^>]*>/)[0];
-      if (!termFillBtn.includes('disabled')) throw new Error('已终止任务立即成交所有应 disabled');
-      const storedTerm = helpers.getHedgeTasks().find(t => t.id === 'h-term-1');
-      if (!helpers.isHedgeTaskTerminated(storedTerm)) throw new Error('fail_count > 3 应判定计划终止');
+      if (!termFillBtn.includes('disabled')) throw new Error('stopped 任务立即成交所有应 disabled');
+      const termDeleteBtn = termCard.match(/<button[^>]*data-hedge-action="delete"[^>]*>/)[0];
+      if (termDeleteBtn.includes('disabled')) throw new Error('stopped 任务删除应可用（软删除）');
       // invalid_state 409 → 就近中文报错，前端不发明状态
       hedgeActionResponses['h-term-1:start'] = { status: 409, body: { error: 'invalid_state' } };
       const r409 = await helpers.startHedgeTask('h-term-1');
@@ -3745,7 +3891,7 @@ setTimeout(async () => {
       if (r409.errorCode !== 'invalid_state') throw new Error('应携带 invalid_state 错误码: ' + JSON.stringify(r409));
       if (!r409.error.includes('状态不允许')) throw new Error('409 应映射就近中文提示: ' + r409.error);
       helpers.setActiveView('market');
-      console.log('[PASS] exposure_alert 渲染 + 累计失败 >3 终止 + 按钮 disabled 矩阵 + invalid_state 409 就近报错');
+      console.log('[PASS] stopped/paused 语义返工：single_leg 提示但继续调度 + stop_reason 终止展示 + 按钮矩阵服从后端 status + invalid_state 409 就近报错');
     }
 
     // 82. 持仓表从 positions 端点渲染（§3.4 Position JSON 字段逐字，含 accrued_funding）
@@ -3807,10 +3953,12 @@ setTimeout(async () => {
     //     字段缺失时逐项降级为 —，不崩溃
     {
       helpers.resetHedgeStateForTest();
+      // 阈值刻意用非默认值 5（默认建构 mockHedgeTask 为 3）：证明展示直接读自后端任务
+      // 快照字段，而不是前端硬编码的固定阈值 3。
       const richTask = mockHedgeTask({
         id: 'h-new-1', coin: 'DUSDT', status: 'paused',
         scheduled_attempt_count: 7, accepted_pair_count: 6,
-        consecutive_submission_failures: 3, failure_pause_threshold: 3,
+        consecutive_submission_failures: 5, failure_pause_threshold: 5,
         pause_reason: 'consecutive_submission_failure'
       });
       // 旧后端文档：完全没有 real-api-v1 新字段
@@ -3831,9 +3979,12 @@ setTimeout(async () => {
       const richCard = cards.slice(richStart, legacyStart);
       const legacyCard = cards.slice(legacyStart);
       for (const piece of ['已调度 <strong>7</strong> 组', '已受理 <strong>6</strong> 组',
-        '连续提交失败 <strong>3</strong>', '暂停阈值 <strong>3</strong>',
+        '连续提交失败 <strong>5</strong>', '暂停阈值 <strong>5</strong>',
         '暂停原因：连续提交失败达到阈值']) {
         if (!richCard.includes(piece)) throw new Error(`新字段任务卡缺少「${piece}」: ${richCard}`);
+      }
+      if (richCard.includes('暂停阈值 <strong>3</strong>')) {
+        throw new Error('暂停阈值不应回退成前端硬编码的默认值 3: ' + richCard);
       }
       // 旧文档降级：四个新字段全部为 —，且不出现暂停原因行、不抛错
       for (const piece of ['已调度 <strong>—</strong> 组', '已受理 <strong>—</strong> 组',
@@ -3931,6 +4082,220 @@ setTimeout(async () => {
       await helpers.loadHedgeAttempts();
       helpers.setActiveView('market');
       console.log('[PASS] attempt 时间线降级：空态 + 503 错误横幅 + 恢复');
+    }
+
+    // 88. 开单日志顶层 tab（15 号修正案 §开单日志页 / 16 号拆分 §5 / 17 号兼容修正）：
+    //     结构位置、切换、首屏拉取第 1 页（?entries_limit=50，无 entries_cursor）
+    {
+      const tasksPanelIdx = html.indexOf('id="hedge-tasks-panel"');
+      const filtersIdx = html.indexOf('id="hedge-task-filters"');
+      const logsPanelIdx = html.indexOf('id="hedge-logs-panel"');
+      if (tasksPanelIdx === -1 || logsPanelIdx === -1 || filtersIdx === -1 ||
+          !(tasksPanelIdx < filtersIdx && filtersIdx < logsPanelIdx)) {
+        throw new Error('开单任务筛选容器必须位于 hedge-tasks-panel 内（hedge-tasks-panel 与 hedge-logs-panel 之间）');
+      }
+      if (!html.includes('id="hedge-tab-tasks"') || !html.includes('id="hedge-tab-logs"')) {
+        throw new Error('缺少开单任务/开单日志顶层 tab 按钮');
+      }
+      helpers.resetHedgeStateForTest();
+      elements['hedge-logs-panel'].style.display = 'none';
+      hedgeLogPageResponses = [{ status: 200, body: HEDGE_LOG_PAGE_1 }];
+      helpers.setActiveView('hedge-tasks');
+      if (elements['hedge-tasks-panel'].style.display === 'none') throw new Error('初始应显示开单任务 tab');
+      if (elements['hedge-logs-panel'].style.display !== 'none') throw new Error('初始应隐藏开单日志 tab');
+      const mark = fetchCallLog.length;
+      helpers.setHedgeTab('logs');
+      await new Promise(r => setTimeout(r, 0));
+      if (helpers.getHedgeTab() !== 'logs') throw new Error('hedgeTab 应为 logs');
+      if (elements['hedge-logs-panel'].style.display === 'none' || elements['hedge-tasks-panel'].style.display !== 'none') {
+        throw new Error('开单日志 tab 激活后面板显隐错误');
+      }
+      const logCalls = fetchCallLog.slice(mark).filter(c => c.url.startsWith('/api/hedge-open-logs'));
+      if (logCalls.length !== 1 || logCalls[0].url !== '/api/hedge-open-logs?entries_limit=50' || logCalls[0].method !== 'GET') {
+        throw new Error(`开单日志 tab 激活应 GET /api/hedge-open-logs?entries_limit=50: ${JSON.stringify(logCalls)}`);
+      }
+      if (helpers.getHedgeLogs().entries.length !== 2) throw new Error('第 1 页应加载 2 条 entries');
+      helpers.setHedgeTab('tasks');
+      helpers.setActiveView('market');
+      console.log('[PASS] 开单日志顶层 tab 结构位置 + 切换 + 首屏拉取第 1 页（entries_limit）');
+    }
+
+    // 89. 开单日志逐字渲染：single_leg 缺 perp 腿降级为 —、task_event 行（attempt/leg 全 —）、
+    //     安全错误 category/code/中文原因、next_action 中文映射；十进制字符串原样展示
+    {
+      helpers.resetHedgeStateForTest();
+      hedgeLogPageResponses = [{ status: 200, body: HEDGE_LOG_PAGE_1 }];
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTab('logs');
+      await new Promise(r => setTimeout(r, 0));
+      const listHtml = elements['hedge-log-list'].innerHTML;
+      for (const piece of [
+        '第 2 组', '任务 h-log-1', 'AUSDT', '正向', '单腿成交',
+        '0.004', '0.48', 'hgo-e10-s', '9201', 'FILLED', '0.48280000', '120.70000000',
+        '0.00000012', 'BNB', '继续下一组',
+        '任务事件', '任务暂停', '安全错误：exchange_rate_limit / 429', '交易所限频，已延迟新开单请求',
+        '等待查询终态'
+      ]) {
+        if (!listHtml.includes(piece)) throw new Error(`开单日志缺少「${piece}」: ${listHtml}`);
+      }
+      // single_leg 行缺 perp 腿：降级为 —，不崩溃
+      if (!listHtml.includes('合约腿：方向 — · 订单号 <span class="mono">—</span>')) {
+        throw new Error('缺失腿文档应降级为 —');
+      }
+      // task_event 行：attempt_seq/q_common/spot/perp 全 null，逐项降级为 —
+      const eventStart = listHtml.indexOf('>任务事件<');
+      const eventCard = listHtml.slice(eventStart, eventStart + 900);
+      for (const piece of ['计划 q_common：<strong class="mono">—</strong>',
+        '现货腿：方向 — · 订单号 <span class="mono">—</span>']) {
+        if (!eventCard.includes(piece)) throw new Error(`task_event 行未逐项降级为 —（${piece}）: ${eventCard}`);
+      }
+      helpers.setHedgeTab('tasks');
+      helpers.setActiveView('market');
+      console.log('[PASS] 开单日志逐字渲染：缺腿降级 — + task_event 全 — + 安全错误 + next_action 中文映射');
+    }
+
+    // 90. 开单日志：no-orderId 确认失败行（两腿均无 orderId）+ newest-first 两页
+    //     entries_cursor 分页（17 号兼容修正：只采信 entries_next_cursor，绝不回退到旧
+    //     next_cursor——两个 fixture 页都携带一个与 entries_next_cursor 不同的旧 next_cursor
+    //     值来证明这点）+ 加载更多 + 显式刷新重置为第 1 页
+    {
+      helpers.resetHedgeStateForTest();
+      hedgeLogPageResponses = [{ status: 200, body: HEDGE_LOG_PAGE_1 }, { status: 200, body: HEDGE_LOG_PAGE_2 }];
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTab('logs');
+      await new Promise(r => setTimeout(r, 0));
+      if (elements['hedge-logs-load-more'].style.display === 'none') {
+        throw new Error('entries_next_cursor 存在时加载更多应可见');
+      }
+      let mark = fetchCallLog.length;
+      await Promise.all((elements['hedge-logs-load-more'].listeners.click || []).map(h => h()));
+      await new Promise(r => setTimeout(r, 0));
+      const moreCalls = fetchCallLog.slice(mark).filter(c => c.url.startsWith('/api/hedge-open-logs'));
+      if (moreCalls.length !== 1 || moreCalls[0].url !== '/api/hedge-open-logs?entries_limit=50&entries_cursor=entries-cursor-page-2') {
+        throw new Error(`加载更多应仅携带 entries_next_cursor（不得回退旧 next_cursor）: ${JSON.stringify(moreCalls)}`);
+      }
+      const listHtml = elements['hedge-log-list'].innerHTML;
+      // no-orderId 确认失败行：两腿 order_id 均为 null，仍需渲染客户单号与安全错误原因
+      if (!listHtml.includes('确认失败')) throw new Error('应渲染确认失败行');
+      if (!listHtml.includes('现货腿：方向 SELL · 订单号 <span class="mono">—</span> · 客户单号 <span class="mono">hgo-e8-s</span>')) {
+        throw new Error(`no-orderId 失败行现货腿应降级订单号为 — 但保留客户单号: ${listHtml}`);
+      }
+      if (!listHtml.includes('安全错误：insufficient_balance / 51008') || !listHtml.includes('可用余额不足')) {
+        throw new Error('no-orderId 失败行应展示安全错误 category/code/中文原因');
+      }
+      if (!listHtml.includes('已终止')) throw new Error('no-orderId 失败行 next_action=stopped 应映射为已终止');
+      // 两页拼接顺序保持 newest-first：第 1 页的「单腿成交」应排在第 2 页的「确认失败」之前
+      if (!(listHtml.indexOf('单腿成交') !== -1 && listHtml.indexOf('单腿成交') < listHtml.indexOf('确认失败'))) {
+        throw new Error(`两页拼接后顺序错误: ${listHtml}`);
+      }
+      // entry_id 不重复：两页共 3 条 entries，逐条 entry_id 唯一
+      const mergedEntries = helpers.getHedgeLogs().entries;
+      if (mergedEntries.length !== 3) {
+        throw new Error(`两页拼接后应为 3 条: ${mergedEntries.length}`);
+      }
+      const entryIds = mergedEntries.map(e => e.entry_id);
+      if (new Set(entryIds).size !== entryIds.length) {
+        throw new Error(`两页拼接后 entry_id 出现重复: ${JSON.stringify(entryIds)}`);
+      }
+      if (elements['hedge-logs-load-more'].style.display !== 'none') {
+        throw new Error('entries_next_cursor 为 null 后加载更多应隐藏');
+      }
+      // 显式刷新重拉第 1 页（重置条目，且不带 entries_cursor）
+      hedgeLogPageResponses = [{ status: 200, body: HEDGE_LOG_PAGE_1 }];
+      mark = fetchCallLog.length;
+      await Promise.all((elements['hedge-logs-refresh'].listeners.click || []).map(h => h()));
+      await new Promise(r => setTimeout(r, 0));
+      const refreshCalls = fetchCallLog.slice(mark).filter(c => c.url.startsWith('/api/hedge-open-logs'));
+      if (refreshCalls.length !== 1 || refreshCalls[0].url !== '/api/hedge-open-logs?entries_limit=50') {
+        throw new Error(`显式刷新应重拉第 1 页（无 entries_cursor）: ${JSON.stringify(refreshCalls)}`);
+      }
+      if (helpers.getHedgeLogs().entries.length !== 2) throw new Error('刷新后开单日志应重置为第 1 页 2 条');
+      helpers.setHedgeTab('tasks');
+      helpers.setActiveView('market');
+      console.log('[PASS] 开单日志 no-orderId 确认失败行 + newest-first 两页 entries_cursor 分页（不回退旧 next_cursor）+ entry_id 不重复 + 加载更多 + 显式刷新');
+    }
+
+    // 90b. 开单日志分页安全降级（17 号兼容修正规则 5）：entries_next_cursor 缺失/非字符串时
+    //      安全地当作没有更多，即使旧 next_cursor 仍然真值存在，也绝不回退使用它翻页
+    {
+      helpers.resetHedgeStateForTest();
+      hedgeLogPageResponses = [{
+        status: 200,
+        body: {
+          logs: [], attempts: [],
+          entries: [HEDGE_LOG_ENTRY_SINGLE_LEG],
+          next_cursor: 'legacy-cursor-truthy-but-must-be-ignored',
+          entries_next_cursor: 123 // 非字符串：必须安全降级为「没有更多」
+        }
+      }];
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTab('logs');
+      await new Promise(r => setTimeout(r, 0));
+      if (elements['hedge-logs-load-more'].style.display !== 'none') {
+        throw new Error('entries_next_cursor 非字符串时加载更多应隐藏（不得回退旧 next_cursor）');
+      }
+      if (helpers.getHedgeLogs().nextCursor !== null) {
+        throw new Error('entries_next_cursor 非字符串时内部游标应安全置空');
+      }
+      const rNoMore = await helpers.loadHedgeLogs(false);
+      if (rNoMore.ok) throw new Error('没有更多游标时 loadHedgeLogs(false) 应返回失败且不发请求');
+      helpers.setHedgeTab('tasks');
+      helpers.setActiveView('market');
+      console.log('[PASS] entries_next_cursor 缺失/非字符串安全降级为没有更多，不回退旧 next_cursor');
+    }
+
+    // 91. 开单日志降级：空记录空态、503 错误横幅不崩溃
+    {
+      helpers.resetHedgeStateForTest();
+      hedgeLogPageResponses = [{ status: 200, body: { logs: [], attempts: [], entries: [], entries_next_cursor: null } }];
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTab('logs');
+      await new Promise(r => setTimeout(r, 0));
+      if (!elements['hedge-log-list'].innerHTML.includes('暂无开单日志')) {
+        throw new Error('空 entries 应渲染空态');
+      }
+      if (elements['hedge-logs-error'].style.display !== 'none') {
+        throw new Error('空记录不应显示错误横幅');
+      }
+      hedgeLogPageResponses = [];
+      await helpers.loadHedgeLogs(true);
+      if (elements['hedge-logs-error'].style.display === 'none') {
+        throw new Error('开单日志 503 应显示错误横幅');
+      }
+      if (!elements['hedge-logs-error'].textContent) throw new Error('错误横幅应有文案');
+      hedgeLogPageResponses = [{ status: 200, body: { logs: [], attempts: [], entries: [], entries_next_cursor: null } }];
+      await helpers.loadHedgeLogs(true);
+      helpers.setHedgeTab('tasks');
+      helpers.setActiveView('market');
+      console.log('[PASS] 开单日志降级：空态 + 503 错误横幅 + 恢复');
+    }
+
+    // 92. 开单日志：overall_result=querying 组渲染查询中/等待终态（与任务内时间线
+    //     pair_outcome=null 的查询中语义一致）
+    {
+      helpers.resetHedgeStateForTest();
+      const queryingEntry = mockHedgeLogEntry({
+        entry_id: 'e-20', task_id: 'h-log-3', coin: 'GUSDT', attempt_seq: 1,
+        overall_result: 'querying', next_action: 'waiting_query',
+        spot: {
+          side: 'BUY', client_order_id: 'hgo-e20-s', order_id: '9301', status: 'NEW',
+          cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null, fee_amount: null, fee_asset: null
+        },
+        perp: {
+          side: 'SELL', client_order_id: 'hgo-e20-p', order_id: '9302', status: 'NEW',
+          cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null, fee_amount: null, fee_asset: null
+        }
+      });
+      hedgeLogPageResponses = [{ status: 200, body: { logs: [], attempts: [], entries: [queryingEntry], entries_next_cursor: null } }];
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTab('logs');
+      await new Promise(r => setTimeout(r, 0));
+      const listHtml = elements['hedge-log-list'].innerHTML;
+      if (!listHtml.includes('查询中')) throw new Error('overall_result=querying 应渲染查询中');
+      if (!listHtml.includes('等待查询终态')) throw new Error('next_action=waiting_query 应渲染等待查询终态');
+      helpers.setHedgeTab('tasks');
+      helpers.setActiveView('market');
+      console.log('[PASS] 开单日志 querying 组渲染查询中/等待终态');
     }
 
     // 87. 开单 API 全部同源相对路径、零跨域 fetch

@@ -59,6 +59,14 @@ class AttemptOutcome:
     perp: dict
     record_payload: dict  # would-send params, filter versions, preflight, ids
     exposure: dict | None  # leg_exposure document when single-leg
+    # Machine-readable error classification surfaced by the live path (amendment
+    # §Error handling): error_category in {None, "auth", "fatal", "absent"},
+    # error_code = the exchange business code when available. A "fatal" category
+    # stops the task (amendment rows 1–2). The dry-run record transport leaves
+    # these None (no real exchange response to classify).
+    error_category: str | None = None
+    error_code: str | None = None
+    error_reason_zh: str | None = None
 
 
 @dataclass(frozen=True)
@@ -105,14 +113,17 @@ class OutcomeSpec:
 def build_spot_order_params(
     coin: str, actions: D.LegActions, quantity: Decimal, client_order_id: str
 ) -> dict:
-    """The would-send params for POST /papi/v1/margin/order (no secrets).
+    """The exact signed-body params for POST /papi/v1/margin/order (no secrets).
 
-    Records the exact order shape (symbol/side/type/quantity/sideEffectType/
-    newClientOrderId/newOrderRespType) WITHOUT the API key, timestamp, recvWindow
-    or HMAC signature. The record transport logs this shape, never sends it.
+    Records ONLY the approved wire keys (symbol/side/type/quantity/
+    sideEffectType/newClientOrderId/newOrderRespType) WITHOUT the API key,
+    timestamp, recvWindow or HMAC signature. The endpoint path and every internal
+    metadata field are deliberately ABSENT — they are recorded separately on the
+    leg row, never signed. The live client adds timestamp/recvWindow/signature to
+    this exact shape and posts it verbatim (A-4 wire/metadata separation). The
+    record transport logs this shape, never sends it.
     """
     return {
-        "endpoint": D.SPOT_ORDER_PATH,
         "symbol": coin,
         "side": actions.spot_side,
         "type": D.ORDER_TYPE_MARKET,
@@ -126,13 +137,14 @@ def build_spot_order_params(
 def build_perp_order_params(
     coin: str, actions: D.LegActions, quantity: Decimal, client_order_id: str
 ) -> dict:
-    """The would-send params for POST /papi/v1/um/order (no secrets).
+    """The exact signed-body params for POST /papi/v1/um/order (no secrets).
 
     ``positionSide`` is BOTH one-way / LONG|SHORT hedge from the preflight
-    snapshot; ``reduceOnly`` is never set on opens (ADR-3).
+    snapshot; ``reduceOnly`` is never set on opens (ADR-3). Only the approved
+    wire keys are present — the endpoint path is metadata recorded on the leg
+    row, never signed (A-4).
     """
     return {
-        "endpoint": D.PERP_ORDER_PATH,
         "symbol": coin,
         "side": actions.perp_side,
         "type": D.ORDER_TYPE_MARKET,
@@ -154,10 +166,15 @@ def _simulate_leg(
     """Simulate one leg's filled result for the record transport (no network)."""
     if status == D.LEG_FILLED:
         filled_qty = qty_override if qty_override is not None else full_qty
+        # A-6: persist the actual cumulative quote (= filled_qty * avg_price in
+        # Decimal) so the record transport exercises the same end-to-end fill
+        # accounting the live path uses.
+        cumulative_quote = (filled_qty * price) if price is not None else Decimal(0)
         return {
             "status": D.LEG_FILLED,
             "filled_qty": str(filled_qty),
             "avg_price": str(price),
+            "cumulative_quote": str(cumulative_quote),
             "order_id": order_id,
         }
     # Non-FILLED: zero executed qty; the real state machine would reconcile via
@@ -166,6 +183,7 @@ def _simulate_leg(
         "status": status,
         "filled_qty": "0",
         "avg_price": None,
+        "cumulative_quote": "0",
         "order_id": None,
     }
 

@@ -22,6 +22,8 @@ import json
 import threading
 import time
 import uuid
+from dataclasses import dataclass
+from decimal import Decimal
 from typing import Callable, Protocol
 
 from . import domain as D
@@ -46,6 +48,26 @@ _CREATE_BODY_KEYS = ("coin", "direction", "mode", "single_amount", "target_n")
 # it is a local fail-safe, not a Binance SLA.
 RATE_LIMIT_COOLDOWN_US = 60 * 1_000_000
 
+# Task-level lifecycle events surfaced on the additive ``entries`` timeline
+# (amendment §5): a fatal stop, a consecutive-failure threshold pause, a
+# fail-closed preflight retry, and a shared 429/Retry-After write delay. These
+# share the ``hedge_open_log`` table (attempt_id NULL); an attempt's own row
+# projects separately with ``kind="attempt"``.
+_ENTRY_EVENT_KINDS = (
+    "task_stopped",
+    "threshold_paused",
+    "preflight_incomplete",
+    "rate_limited",
+)
+
+# Unified-stream source ranks for the additive ``entries`` timeline (amendment
+# 17): the attempt and task-event tables have INDEPENDENT ``id`` autoincrement
+# sequences, so a fixed rank disambiguates them inside the stable
+# ``(ts_us, rank, id)`` sort key. DESC order: at equal ts a rank-1 event
+# precedes a rank-0 attempt (a deterministic same-ts tie-break, never a clash).
+_ENTRY_ATTEMPT_RANK = 0
+_ENTRY_EVENT_RANK = 1
+
 
 def _real_mono_us() -> int:
     return int(time.monotonic() * 1_000_000)
@@ -53,6 +75,22 @@ def _real_mono_us() -> int:
 
 def _real_wall_us() -> int:
     return int(time.time() * 1_000_000)
+
+
+@dataclass(frozen=True)
+class _FreshPreflight:
+    """Resolved fresh preflight for one dispatch (A-2). ``ok`` means the pair may
+    proceed with this exact ``q_common``/snapshot; ``fatal`` means a fatal fact
+    stops the task (amendment rows 1–2); a ``None`` result from the resolver
+    means an incomplete read -> fail-closed retry (I-7)."""
+
+    q_common: Decimal | None
+    position_side_mode: str | None
+    snapshot_record: dict
+    rejection: str | None
+    ok: bool
+    fatal: bool
+    stop_reason: str | None
 
 
 class PreflightProvider(Protocol):
@@ -99,6 +137,8 @@ def task_to_doc(task: dict) -> dict:
         "consecutive_submission_failures": task["consecutive_submission_failures"],
         "failure_pause_threshold": task["failure_pause_threshold"],
         "pause_reason": task["pause_reason"],
+        # Amendment additive (I-4): a fatal stop's reason alongside status=stopped.
+        "stop_reason": task["stop_reason"],
         "created_at": D.us_to_iso(task["created_at_us"]),
         "updated_at": D.us_to_iso(task["updated_at_us"]),
     }
@@ -195,6 +235,97 @@ def attempt_to_doc(
         "residual": D.fmt_decimal(spot_base - perp_base),
         "ts": D.us_to_iso(attempt.get("created_at_us")),
     }
+
+
+# ---------------------------------------------------------------------------
+# §5 frozen additive `entries` projection helpers (field names are frozen; a
+# change is a bookkeeper escalation, never a local rename).
+# ---------------------------------------------------------------------------
+
+
+def _entry_side(direction: str | None, position_side_mode: str | None) -> tuple[str | None, str | None]:
+    """Return ``(spot_side, perp_side)`` for an entry leg, or ``(None, None)``."""
+    if not direction:
+        return None, None
+    actions = D.direction_to_leg_actions(direction, position_side_mode or D.POS_MODE_BOTH)
+    return actions.spot_side, actions.perp_side
+
+
+def _entry_spot_leg(leg: dict | None, spot_side: str | None) -> dict:
+    leg = leg or {}
+    base = D.Decimal(leg.get("cumulative_base_qty") or "0")
+    quote = D.Decimal(leg.get("cumulative_quote_amt") or "0")
+    avg = D.fmt_decimal(quote / base) if base > 0 else None
+    return {
+        "side": spot_side,
+        "client_order_id": leg.get("client_order_id"),
+        "order_id": leg.get("order_id"),
+        "status": leg.get("exchange_status"),
+        "cumulative_base_qty": D.fmt_decimal(base),
+        "cumulative_quote_amt": D.fmt_decimal(quote),
+        "avg_price": avg,
+        "fee_amount": leg.get("fee_amount"),
+        "fee_asset": leg.get("fee_asset"),
+    }
+
+
+def _entry_perp_leg(leg: dict | None, perp_side: str | None) -> dict:
+    leg = leg or {}
+    base = D.Decimal(leg.get("cumulative_base_qty") or "0")
+    quote = D.Decimal(leg.get("cumulative_quote_amt") or "0")
+    avg = D.fmt_decimal(quote / base) if base > 0 else None
+    return {
+        "side": perp_side,
+        "client_order_id": leg.get("client_order_id"),
+        "order_id": leg.get("order_id"),
+        "status": leg.get("exchange_status"),
+        "cumulative_base_qty": D.fmt_decimal(base),
+        "cumulative_quote_amt": D.fmt_decimal(quote),
+        "avg_price": avg,
+    }
+
+
+# Null-filled leg shapes for task_event entries (§5: task events carry null
+# attempt/leg fields; the UI renders —). Spot carries fee_* keys, perp does not.
+_NULL_SPOT_LEG = {
+    "side": None, "client_order_id": None, "order_id": None, "status": None,
+    "cumulative_base_qty": None, "cumulative_quote_amt": None, "avg_price": None,
+    "fee_amount": None, "fee_asset": None,
+}
+_NULL_PERP_LEG = {
+    "side": None, "client_order_id": None, "order_id": None, "status": None,
+    "cumulative_base_qty": None, "cumulative_quote_amt": None, "avg_price": None,
+}
+
+
+def _entry_attempt_overall(
+    pair_outcome: str | None, spot_status: str | None, perp_status: str | None,
+) -> str:
+    """Map a pair outcome + leg fill states to the §5 ``overall_result`` enum."""
+    if pair_outcome is None or pair_outcome == D.PAIR_QUERYING:
+        return "querying"
+    if pair_outcome == D.PAIR_SINGLE_LEG:
+        return "single_leg"
+    if pair_outcome == D.PAIR_CONFIRMED_FAILED:
+        return "confirmed_failed"
+    if pair_outcome == D.PAIR_ACCEPTED:
+        if spot_status == D.LEG_FILLED and perp_status == D.LEG_FILLED:
+            return "filled"
+        return "both_accepted"
+    return "querying"
+
+
+def _entry_next_action(task_status: str | None, overall: str) -> str:
+    """Map the task status + attempt overall to the §5 ``next_action`` enum."""
+    if task_status == D.STATUS_STOPPED:
+        return "stopped"
+    if task_status == D.STATUS_PAUSED:
+        return "paused"
+    if task_status == D.STATUS_DONE:
+        return "completed"
+    if overall == "querying":
+        return "waiting_query"
+    return "continue_next_attempt"
 
 
 class HedgeOpenTaskService:
@@ -405,7 +536,10 @@ class HedgeOpenTaskService:
     def get_settings(self) -> tuple[int, dict]:
         return 200, settings_to_doc(self._store.get_settings(), self._mode)
 
-    def get_logs(self, cursor_str, limit_raw) -> tuple[int, dict]:
+    def get_logs(
+        self, cursor_str, limit_raw,
+        entries_cursor_str=None, entries_limit_raw=None,
+    ) -> tuple[int, dict]:
         limit = self._parse_limit(limit_raw)
         cursor_ts, cursor_id = self._parse_cursor(cursor_str)
         rows, has_more = self._store.list_logs_page(limit, cursor_ts, cursor_id)
@@ -419,10 +553,182 @@ class HedgeOpenTaskService:
         # QUERYING / resolved attempts so the UI shows in-flight pairs mid-query.
         # The legacy logs list and the next_cursor contract are unchanged.
         attempt_rows = self._store.list_attempts_page(limit, cursor_ts, cursor_id)
+        # Amendment 17 (opening-log-pagination-compatibility): the additive
+        # ``entries`` timeline paginates on its OWN entries_limit /
+        # entries_cursor / entries_next_cursor, fully independent of the legacy
+        # cursor/limit/next_cursor above. The attempt and task-event tables are
+        # two different (ts, id) sequences, so they cannot share the legacy
+        # cursor — doing so re-surfaces task events on every page (the R4
+        # defect). ``entries_next_cursor`` is derived from THIS page's last
+        # unified entry, never from the legacy logs cursor.
+        entries_limit = self._parse_entries_limit(entries_limit_raw)
+        entries, entries_next_cursor = self._entries_page(
+            entries_limit, entries_cursor_str
+        )
         return 200, {
             "logs": [log_to_doc(r) for r in rows],
             "attempts": [attempt_to_doc(a, s, p) for (a, s, p) in attempt_rows],
+            "entries": entries,
             "next_cursor": next_cursor,
+            "entries_next_cursor": entries_next_cursor,
+        }
+
+    def _entries_page(
+        self, entries_limit: int, entries_cursor_str: str | None,
+    ) -> tuple[list[dict], str | None]:
+        """§5 frozen additive entries timeline, paginated on its OWN cursor
+        (amendment 17). Newest-first; field names frozen.
+
+        Merges each attempt (any status — PREPARED, QUERYING, or resolved) with
+        the task-level lifecycle events recorded on ``hedge_open_log`` into one
+        stable stream keyed by ``(ts_us, rank, source_id)`` DESC. The two source
+        tables have independent ``id`` sequences, so a fixed ``rank`` (attempt=0,
+        event=1) is the deterministic same-ts tie-break — never a clash, never a
+        duplicate across pages.
+
+        Each source is read with ``entries_limit + 1`` and the SAME decoded
+        three-part cursor; merging the two windows and taking the top
+        ``entries_limit + 1`` yields the unified page, so has-more is read from
+        the unified stream (the (limit+1)th row). ``entries_next_cursor`` is the
+        last entry's key when has-more, else ``None``. Legacy logs/attempts/
+        next_cursor are untouched by this path.
+        """
+        cur_ts, cur_rank, cur_id = self._parse_entries_cursor(entries_cursor_str)
+        window = entries_limit + 1
+        entries: list[dict] = []
+        task_briefs: dict[str, dict] = {}
+
+        def _brief(task_id: str) -> dict:
+            brief = task_briefs.get(task_id)
+            if brief is None:
+                row = self._store.get_task(task_id) or {}
+                brief = {
+                    "coin": row.get("coin"),
+                    "direction": row.get("direction"),
+                    "position_side_mode": row.get("position_side_mode"),
+                    "status": row.get("status"),
+                }
+                task_briefs[task_id] = brief
+            return brief
+
+        for attempt, spot_leg, perp_leg in self._store.list_attempts_entries_page(
+            window, cur_ts, cur_rank, cur_id
+        ):
+            brief = _brief(attempt.get("task_id"))
+            entries.append(self._attempt_to_entry(attempt, spot_leg, perp_leg, brief))
+        for ev in self._store.list_task_event_logs_page(
+            window, _ENTRY_EVENT_KINDS, cur_ts, cur_rank, cur_id
+        ):
+            brief = _brief(ev["task_id"])
+            entries.append(self._event_to_entry(ev, brief))
+        entries.sort(
+            key=lambda e: (e["_sort_ts"] or 0, e["_sort_rank"], e["_sort_id"] or 0),
+            reverse=True,
+        )
+        has_more = len(entries) > entries_limit
+        entries = entries[:entries_limit]
+        next_cursor = None
+        if has_more and entries:
+            last = entries[-1]
+            next_cursor = D.encode_entries_cursor(
+                last["_sort_ts"] or 0, last["_sort_rank"], last["_sort_id"] or 0
+            )
+        for e in entries:
+            e.pop("_sort_ts", None)
+            e.pop("_sort_rank", None)
+            e.pop("_sort_id", None)
+        return entries, next_cursor
+
+    @staticmethod
+    def _attempt_to_entry(
+        attempt: dict, spot_leg: dict | None, perp_leg: dict | None, brief: dict,
+    ) -> dict:
+        """Project one attempt + both legs to the §5 entry shape (entry_type=attempt)."""
+        direction = attempt.get("direction") or brief.get("direction")
+        spot_side, perp_side = _entry_side(direction, brief.get("position_side_mode"))
+        spot_base = D.Decimal((spot_leg or {}).get("cumulative_base_qty") or "0")
+        perp_base = D.Decimal((perp_leg or {}).get("cumulative_base_qty") or "0")
+        overall = _entry_attempt_overall(
+            attempt.get("pair_outcome"),
+            (spot_leg or {}).get("exchange_status"),
+            (perp_leg or {}).get("exchange_status"),
+        )
+        # submitted_ts = earliest leg dispatch; final_ts = latest leg query/resolve.
+        dispatches = [
+            (spot_leg or {}).get("dispatched_at_us"),
+            (perp_leg or {}).get("dispatched_at_us"),
+        ]
+        queries = [
+            (spot_leg or {}).get("last_query_at_us"),
+            (perp_leg or {}).get("last_query_at_us"),
+        ]
+        valid_dispatches = [d for d in dispatches if d]
+        valid_queries = [q for q in queries if q]
+        return {
+            "entry_id": f"attempt:{attempt.get('attempt_uuid')}",
+            "entry_type": "attempt",
+            "task_id": attempt.get("task_id"),
+            "coin": brief.get("coin"),
+            "direction": direction,
+            "attempt_seq": attempt.get("attempt_seq"),
+            "created_ts": D.us_to_iso(attempt.get("created_at_us")),
+            "submitted_ts": D.us_to_iso(min(valid_dispatches)) if valid_dispatches else None,
+            "final_ts": D.us_to_iso(max(valid_queries)) if valid_queries else None,
+            "q_common": attempt.get("q_common"),
+            "planned_quote_amount": None,
+            "spot": _entry_spot_leg(spot_leg, spot_side),
+            "perp": _entry_perp_leg(perp_leg, perp_side),
+            "residual": D.fmt_decimal(spot_base - perp_base),
+            "overall_result": overall,
+            "error_category": attempt.get("error_category"),
+            "error_code": attempt.get("error_code"),
+            "error_reason_zh": attempt.get("error_reason_zh"),
+            "next_action": _entry_next_action(brief.get("status"), overall),
+            "_sort_ts": attempt.get("created_at_us"),
+            "_sort_rank": _ENTRY_ATTEMPT_RANK,
+            "_sort_id": attempt.get("id"),
+        }
+
+    @staticmethod
+    def _event_to_entry(ev: dict, brief: dict) -> dict:
+        """Project one task event to the §5 entry shape (entry_type=task_event)."""
+        raw = ev["payload"]
+        try:
+            payload = json.loads(raw) if isinstance(raw, str) else raw
+        except (TypeError, ValueError):
+            payload = raw
+        payload = payload if isinstance(payload, dict) else {}
+        kind = ev["kind"]
+        overall = {"task_stopped": "task_stopped", "threshold_paused": "task_paused"}.get(kind)
+        if kind == "task_stopped":
+            next_action, error_category = "stopped", "fatal"
+        elif kind == "threshold_paused":
+            next_action, error_category = "paused", None
+        else:  # rate_limited / preflight_incomplete: a wait, not an attempt outcome
+            next_action, error_category = "waiting_query", None
+        return {
+            "entry_id": f"event:{ev['id']}",
+            "entry_type": "task_event",
+            "task_id": ev["task_id"],
+            "coin": brief.get("coin"),
+            "direction": brief.get("direction"),
+            "attempt_seq": None,
+            "created_ts": D.us_to_iso(ev["ts_us"]),
+            "submitted_ts": None,
+            "final_ts": None,
+            "q_common": None,
+            "planned_quote_amount": None,
+            "spot": dict(_NULL_SPOT_LEG),
+            "perp": dict(_NULL_PERP_LEG),
+            "residual": None,
+            "overall_result": overall,
+            "error_category": error_category,
+            "error_code": None,
+            "error_reason_zh": payload.get("reason_zh"),
+            "next_action": next_action,
+            "_sort_ts": ev["ts_us"],
+            "_sort_rank": _ENTRY_EVENT_RANK,
+            "_sort_id": ev["id"],
         }
 
     def get_positions(self) -> tuple[int, dict]:
@@ -443,6 +749,29 @@ class HedgeOpenTaskService:
         decoded = D.decode_cursor(cursor_str)
         if decoded is None:
             raise D.HedgeError(400, "invalid_cursor", "cursor is not a valid opaque token")
+        return decoded
+
+    def _parse_entries_limit(self, limit_raw) -> int:
+        # Amendment 17: same parse/default discipline as the legacy limit, but
+        # the entries stream is capped at ENTRIES_LIMIT_MAX (1..100).
+        if limit_raw is None:
+            return D.validate_entries_limit(None)
+        try:
+            value = int(str(limit_raw).strip())
+        except (TypeError, ValueError) as exc:
+            raise D.HedgeError(
+                400, "invalid_limit", "entries_limit must be an integer"
+            ) from exc
+        return D.validate_entries_limit(value)
+
+    def _parse_entries_cursor(self, cursor_str):
+        if cursor_str is None or cursor_str == "":
+            return None, None, None
+        decoded = D.decode_entries_cursor(cursor_str)
+        if decoded is None:
+            raise D.HedgeError(
+                400, "invalid_cursor", "entries_cursor is not a valid opaque token"
+            )
         return decoded
 
     # ------------------------------------------------------------- start gate
@@ -466,34 +795,59 @@ class HedgeOpenTaskService:
             and now_mono < self._rate_limited_until_mono
         )
 
-    def _enter_rate_limit_cooldown(self, now_mono: int) -> None:
-        self._rate_limited_until_mono = now_mono + RATE_LIMIT_COOLDOWN_US
+    def _enter_rate_limit_cooldown(
+        self, now_mono: int, retry_after_seconds: float | None = None
+    ) -> None:
+        """Enter the shared exchange rate-limit cooldown (breakdown §3.6 / I-5).
+
+        When the live executor surfaces a server ``Retry-After`` (seconds) we
+        honor it exactly; otherwise we fall back to the conservative fixed
+        window. This is a process-wide technical write delay only — it never
+        marks a task failed/paused/stopped/done, and it never alters another
+        task's business state (amendment row 6)."""
+        if retry_after_seconds:
+            wait_us = int(float(retry_after_seconds) * 1_000_000)
+        else:
+            wait_us = RATE_LIMIT_COOLDOWN_US
+        self._rate_limited_until_mono = now_mono + wait_us
 
     # --------------------------------------------------------------- scheduler
 
     def tick(self) -> bool:
-        """Run one due-tick check; dispatch one pair for EVERY eligible task.
+        """Run one tick: reconcile first, then dispatch one pair for EVERY
+        eligible task if due.
 
         The automatic scheduler respects the global Start gate (§9) and the
         shared exchange rate-limit cooldown; explicit ``fill-once``/``fill-all``
         bypass the gate because they are operator manual triggers of the record
-        transport and never POST. ``_last_tick_mono`` advances to ``now`` so
-        missed time is never replayed as a burst.
+        transport and never POST.
 
-        Per-task async cadence (R4-2 / PRD §6.3 / 05-cadence-resolution): each
-        eligible running task is dispatched on its OWN worker so a slow live
-        preflight/POST/query on one card cannot block another card's same-second
-        pair submission. Both legs still dispatch concurrently within one pair
-        (the live executor joins its own two-leg threads). The shared Start gate
-        and exchange rate-limit cooldown checked above remain the ONLY global
-        cadence controls — there is no product-wide one-pair-per-second lock.
-        Workers are joined before returning so a task still issues one pair per
-        second (no same-task re-entry across ticks) and one card's failure is
-        contained (never stops the others). Durable-before-send and the
+        Reconciliation runs FIRST on EVERY tick (amendment I-6): already-
+        persisted non-terminal legs are polled to a final outcome independent of
+        the Start gate, the pacing floor, and the eligible set. A task's
+        unresolved pair blocks only that task's next pair; polling continues even
+        when Start is off, the task is done/paused/stopped, or no task is
+        dispatch-eligible.
+
+        Per-task async cadence (R4-2 / amendment): each eligible running task is
+        dispatched on its OWN worker so a slow live preflight/POST/query on one
+        card cannot block another card's same-tick pair submission. Both legs
+        dispatch concurrently within one pair. The per-task serial rule (one
+        in-flight pair, A-9) — not the interval timer — is the pair-N+1 gate
+        (amendment I-3: ``interval_seconds`` is a worker/poll pacing floor only).
+        Workers are joined before returning so a task still issues at most one
+        pair per tick (no same-task re-entry). Durable-before-send and the
         timeout→client-ID query (no resend) rule are unchanged.
         """
         with self._lock:
             now = self._mono_us()
+            # Reconcile is never abandoned (I-6): runs every tick, unconditionally.
+            try:
+                self._reconcile_pending(self._wall_us())
+            except Exception:
+                pass
+            # Dispatch pacing baseline (I-3): interval_seconds paces new
+            # submissions uniformly; it never gates pair finality or another task.
             interval = self._store.get_interval_us()
             if self._last_tick_mono is None:
                 self._last_tick_mono = now
@@ -514,11 +868,6 @@ class HedgeOpenTaskService:
                 return False
             now_us = self._wall_us()
             self._dispatch_eligible_concurrently(eligible, now_us)
-            # Reconcile querying legs left by earlier live dispatches (no resend).
-            try:
-                self._reconcile_pending(now_us)
-            except Exception:
-                pass
             return True
 
     def _dispatch_eligible_concurrently(self, eligible: list[dict], now_us: int) -> None:
@@ -563,13 +912,19 @@ class HedgeOpenTaskService:
         """A real POST is reachable only with a live executor + live mode."""
         return self._live_mode and hasattr(self._executor, "dispatch")
 
-    def _fresh_preflight_ok(self, task: dict) -> bool:
-        """A live send requires a fresh factual preflight immediately before send
-        (breakdown §4.3). Any read gap or rejection fails the pair closed (no
-        POST this tick; the scheduler retries next second)."""
+    def _resolve_fresh_preflight(self, task: dict) -> _FreshPreflight | None:
+        """Compute a fresh factual preflight immediately before send (A-2).
+
+        Returns ``None`` for an incomplete read -> fail-closed retry (I-7): no
+        attempt, no POST, no count, no simulated call. A ``fatal`` result stops
+        the task (amendment rows 1–2); an ``ok`` result carries the exact
+        ``q_common``/snapshot this pair will post. Non-fatal rejections that are
+        not incomplete (e.g. a transient balance gap on a non-fatal path) are
+        also treated as fail-closed retry.
+        """
         snapshot = self._preflight.get_snapshot(task["coin"])
         if snapshot is None:
-            return False
+            return None
         preflight = D.compute_preflight(
             snapshot,
             task["coin"],
@@ -577,24 +932,106 @@ class HedgeOpenTaskService:
             D.Decimal(task["single_amount"]),
             task["target_n"],
         )
-        return preflight.rejection is None and preflight.balance_ok is not False
+        if preflight.rejection == D.REJECT_PREFLIGHT_INCOMPLETE:
+            return None
+        if preflight.rejection in D.PREFLIGHT_FATAL_REASONS:
+            stop_reason = D.REJECT_TO_STOP_REASON.get(
+                preflight.rejection, D.STOP_REASON_EXCHANGE_FATAL
+            )
+            return _FreshPreflight(
+                q_common=preflight.q_common,
+                position_side_mode=preflight.position_side_mode,
+                snapshot_record=preflight.snapshot_record,
+                rejection=preflight.rejection,
+                ok=False,
+                fatal=True,
+                stop_reason=stop_reason,
+            )
+        if preflight.rejection is not None or preflight.balance_ok is False:
+            # Non-fatal reject or a balance gap that is not a fatal rule failure:
+            # fail-closed retry next tick (no attempt, no POST).
+            return None
+        return _FreshPreflight(
+            q_common=preflight.q_common,
+            position_side_mode=preflight.position_side_mode,
+            snapshot_record=preflight.snapshot_record,
+            rejection=None,
+            ok=True,
+            fatal=False,
+            stop_reason=None,
+        )
+
+    def _stop_task_fatal_preflight(
+        self, task: dict, fresh: _FreshPreflight, now_us: int
+    ) -> dict | None:
+        """A fatal preflight fact stops the task (amendment rows 1–2): no attempt,
+        no POST. Records a machine-readable ``stop_reason`` + a task-stopped
+        audit event with the safe Chinese cause."""
+        stop_reason = fresh.stop_reason or D.STOP_REASON_EXCHANGE_FATAL
+        updated = self._store.stop_task_fatal(task["id"], stop_reason, now_us)
+        self._store.record_task_event(
+            task["id"],
+            "task_stopped",
+            {
+                "stop_reason": stop_reason,
+                "reason_zh": D.stop_reason_zh(stop_reason),
+                "coin": task["coin"],
+                "direction": task["direction"],
+                "rejection": fresh.rejection,
+            },
+            now_us,
+        )
+        return updated
+
+    def _record_preflight_incomplete(self, task: dict, now_us: int) -> None:
+        """Fail-closed (I-7): a missing preflight fact records a retry event but
+        performs no attempt, no POST, and no business-state change."""
+        self._store.record_task_event(
+            task["id"],
+            "preflight_incomplete",
+            {
+                "reason": "preflight_incomplete",
+                "coin": task["coin"],
+                "direction": task["direction"],
+            },
+            now_us,
+        )
 
     def _dispatch_one_for_task(self, task: dict, now_us: int) -> dict:
-        """Durable-before-send: persist the immutable attempt + both client IDs +
-        sanitized request shapes in ONE transaction BEFORE any executor call
-        (ADR-2). The executor is then invoked with no store transaction held; the
-        outcome is resolved in a second short transaction.
+        """Durable-before-send: a fresh preflight (live path only) -> persist the
+        immutable attempt + both client IDs + sanitized request shapes in ONE
+        transaction BEFORE any executor call (ADR-2). The executor is then
+        invoked with no store transaction held; the outcome is resolved in a
+        second short transaction.
 
-        Live path (real POST) is taken only when a live executor is present AND
-        the Start gate is on AND a fresh preflight passes — otherwise the
-        record/disabled simulated path runs (no network POST).
+        Fresh-preflight-first + fail-closed (A-2/A-3) applies ONLY on the live
+        POST path. A fatal fact stops the task (no attempt/POST); an incomplete
+        read is fail-closed retry (no attempt/POST/count). The dry-run record
+        transport reuses the stored q_common/snapshot and never POSTs.
         """
+        live = self._live_dispatch_capable() and self.is_start_gate_on()
+        if live:
+            fresh = self._resolve_fresh_preflight(task)
+            if fresh is None or not fresh.ok:
+                # incomplete read -> fail-closed retry (I-7); fatal -> stop (rows 1–2).
+                if fresh is not None and fresh.fatal:
+                    self._stop_task_fatal_preflight(task, fresh, now_us)
+                else:
+                    self._record_preflight_incomplete(task, now_us)
+                return self._store.get_task(task["id"]) or task
+            q_common = fresh.q_common
+            position_side_mode = fresh.position_side_mode
+            snapshot_record = fresh.snapshot_record
+        else:
+            q_common = D.Decimal(task["q_common"]) if task["q_common"] else None
+            position_side_mode = task["position_side_mode"]
+            snapshot_record = task["preflight_snapshot"] or {}
+
         attempt_uuid = uuid.uuid4().hex
         spot_cid, perp_cid = _client_order_ids(attempt_uuid)
         actions = D.direction_to_leg_actions(
-            task["direction"], task["position_side_mode"] or D.POS_MODE_BOTH
+            task["direction"], position_side_mode or D.POS_MODE_BOTH
         )
-        q_common = D.Decimal(task["q_common"]) if task["q_common"] else None
         send_qty = q_common if q_common is not None else D.Decimal(task["single_amount"])
         spot_shape = build_spot_order_params(task["coin"], actions, send_qty, spot_cid)
         perp_shape = build_perp_order_params(task["coin"], actions, send_qty, perp_cid)
@@ -604,8 +1041,8 @@ class HedgeOpenTaskService:
             attempt_uuid,
             task["direction"],
             q_common_str,
-            task["position_side_mode"],
-            task["preflight_snapshot"] or {},
+            position_side_mode,
+            snapshot_record,
             spot_cid,
             spot_shape,
             perp_cid,
@@ -613,7 +1050,7 @@ class HedgeOpenTaskService:
             now_us,
         )
         if attempt is None:
-            # Task is no longer eligible (paused/done/deleted) — no POST.
+            # Task is no longer eligible (paused/done/deleted/out-of-budget) — no POST.
             return self._store.get_task(task["id"]) or task
         ctx = AttemptContext(
             attempt_id=attempt_uuid,
@@ -622,17 +1059,13 @@ class HedgeOpenTaskService:
             direction=task["direction"],
             single_amount=D.Decimal(task["single_amount"]),
             q_common=q_common,
-            position_side_mode=task["position_side_mode"],
-            preflight_snapshot=task["preflight_snapshot"] or {},
-            filter_versions=task["preflight_snapshot"] or {},
+            position_side_mode=position_side_mode,
+            preflight_snapshot=snapshot_record,
+            filter_versions=snapshot_record,
             target_n=task["target_n"],
             ts_us=now_us,
         )
-        if (
-            self._live_dispatch_capable()
-            and self.is_start_gate_on()
-            and self._fresh_preflight_ok(task)
-        ):
+        if live:
             self._dispatch_live(attempt, ctx, now_us)
         else:
             self._dispatch_simulated(attempt, ctx, now_us)
@@ -659,8 +1092,23 @@ class HedgeOpenTaskService:
         reconcile pass — the write POST is never resent (ADR-2).
         """
         dispatch = self._executor.dispatch(ctx)
+        retry_after = getattr(dispatch, "retry_after_seconds", None)
         if getattr(dispatch, "rate_limited", False):
-            self._enter_rate_limit_cooldown(self._mono_us())
+            # Amendment row 6 / I-5: a process-wide technical write delay for the
+            # stated exchange wait (shared account/IP limit). Never marks any
+            # task failed/paused/stopped/done, never alters another task's state.
+            self._enter_rate_limit_cooldown(self._mono_us(), retry_after)
+            self._store.record_task_event(
+                ctx.task_id,
+                "rate_limited",
+                {
+                    "reason": "rate_limited",
+                    "retry_after_seconds": retry_after,
+                    "coin": ctx.coin,
+                    "direction": ctx.direction,
+                },
+                now_us,
+            )
         spot = dispatch.spot
         perp = dispatch.perp
         spot_querying = spot.dispatch_state == D.LEG_UNKNOWN_QUERYING
@@ -707,22 +1155,31 @@ class HedgeOpenTaskService:
     @staticmethod
     def _dispatch_to_outcome(attempt_uuid, spot, perp, record_payload) -> AttemptOutcome:
         """Build an AttemptOutcome from two resolved live leg dispatches. Keys the
-        category off ``order_id`` presence via :func:`domain.classify_attempt`."""
+        category off ``order_id`` presence via :func:`domain.classify_attempt`;
+        carries the real cumulative quote (A-6) and the machine-readable error
+        classification (A-7). A fatal error on either leg surfaces an outcome-
+        level ``error_category="fatal"`` so the store stops the task (rows 1–2)."""
         spot_leg = {
             "status": D.LEG_REJECTED if spot.dispatch_state == D.LEG_TERMINAL_RECORDED
             else (spot.exchange_status or D.LEG_NEW),
             "filled_qty": spot.executed_qty,
             "avg_price": spot.avg_price,
+            "cumulative_quote": spot.cumulative_quote,
             "order_id": spot.order_id,
             "client_order_id": None,
+            "error_code": getattr(spot, "error_code", None),
+            "error_category": getattr(spot, "error_category", None),
         }
         perp_leg = {
             "status": D.LEG_REJECTED if perp.dispatch_state == D.LEG_TERMINAL_RECORDED
             else (perp.exchange_status or D.LEG_NEW),
             "filled_qty": perp.executed_qty,
             "avg_price": perp.avg_price,
+            "cumulative_quote": perp.cumulative_quote,
             "order_id": perp.order_id,
             "client_order_id": None,
+            "error_code": getattr(perp, "error_code", None),
+            "error_category": getattr(perp, "error_category", None),
         }
         category = D.classify_attempt(spot_leg, perp_leg)
         exposure = (
@@ -730,6 +1187,22 @@ class HedgeOpenTaskService:
             if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE
             else None
         )
+        # A fatal exchange fact on either leg (insufficient balance/margin/filter/
+        # min-notional/symbol/mode) stops the task (amendment rows 1–2). The leg's
+        # error_code is carried up so the stopped task surfaces the exact reason.
+        fatal = (
+            spot_leg["error_category"] == "fatal"
+            or perp_leg["error_category"] == "fatal"
+        )
+        if fatal:
+            fatal_leg = spot_leg if spot_leg["error_category"] == "fatal" else perp_leg
+            error_category = "fatal"
+            error_code = fatal_leg["error_code"]
+            error_reason_zh = D.stop_reason_zh(D.STOP_REASON_EXCHANGE_FATAL)
+        else:
+            error_category = None
+            error_code = None
+            error_reason_zh = None
         return AttemptOutcome(
             attempt_id=attempt_uuid,
             category=category,
@@ -737,6 +1210,9 @@ class HedgeOpenTaskService:
             perp=perp_leg,
             record_payload=record_payload,
             exposure=exposure,
+            error_category=error_category,
+            error_code=error_code,
+            error_reason_zh=error_reason_zh,
         )
 
     def _reconcile_pending(self, now_us: int) -> None:
@@ -775,6 +1251,8 @@ class HedgeOpenTaskService:
                     fee_asset=None,
                     now_us=now_us,
                     terminal=terminal,
+                    error_code=getattr(verdict, "error_code", None),
+                    error_category=getattr(verdict, "error_category", None),
                 )
             except Exception:
                 continue
@@ -789,7 +1267,9 @@ class HedgeOpenTaskService:
     @staticmethod
     def _query_verdict_terminal(verdict) -> bool:
         """A query verdict is terminal when confirmed rejected/absent, or when an
-        accepted leg reaches FILLED. NEW/PARTIALLY_FILLED keep querying."""
+        accepted leg reaches a final outcome (FILLED/CANCELED/EXPIRED/REJECTED),
+        retaining any partial fill. NEW/PARTIALLY_FILLED keep querying
+        (amendment: query both legs until each has a final outcome)."""
         if verdict.dispatch_state == D.LEG_TERMINAL_RECORDED:
             return True
         if verdict.dispatch_state == D.LEG_ACCEPTED_OR_QUERYING:
@@ -797,6 +1277,7 @@ class HedgeOpenTaskService:
                 D.LEG_FILLED,
                 D.LEG_REJECTED,
                 D.LEG_EXPIRED,
+                D.LEG_CANCELED,
             )
         return False
 

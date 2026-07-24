@@ -36,6 +36,8 @@ _TASK_KEYS = {
     # Real-API attempt/acceptance/pause counters (breakdown §3.4).
     "scheduled_attempt_count", "accepted_pair_count",
     "consecutive_submission_failures", "failure_pause_threshold", "pause_reason",
+    # Amendment additive (I-4): nullable stop_reason alongside status=stopped.
+    "stop_reason",
     "created_at", "updated_at",
 }
 _SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds"}
@@ -403,7 +405,9 @@ def test_logs_pagination_and_record_transport_payload(tmp_path):
         status, _, payload = _req(host, port, "GET", "/api/hedge-open-logs?limit=2")
         assert status == 200
         page = _json(payload)
-        assert set(page.keys()) == {"logs", "attempts", "next_cursor"}
+        assert set(page.keys()) == {
+            "logs", "attempts", "entries", "next_cursor", "entries_next_cursor",
+        }
         assert len(page["logs"]) == 2
         assert page["next_cursor"] is not None
         # newest first.
@@ -447,6 +451,41 @@ def test_logs_includes_additive_attempts_timeline(tmp_path):
         assert isinstance(a["residual"], str)
         # legacy logs/cursor still present alongside the additive attempts array.
         assert "logs" in page and "next_cursor" in page
+
+
+def test_logs_entries_pagination_params_threaded_through_http(tmp_path):
+    # Amendment 17 (opening-log-pagination-compatibility): entries_limit /
+    # entries_cursor thread through the HTTP route; the response carries the
+    # independent entries_next_cursor. Legacy limit/cursor still drive
+    # logs/next_cursor and are unaffected. The entries cursor never re-surfaces
+    # an entry across pages (the R4 defect). An invalid entries_cursor is
+    # rejected (fail-closed), not silently treated as page 1.
+    exe = RecordTransportExecutor()
+    with _server(_svc(tmp_path, executor=exe)) as (host, port):
+        tid = _create_task(host, port, _create_body(target_n=3))["id"]
+        _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-all")
+        status, _, payload = _req(host, port, "GET", "/api/hedge-open-logs?entries_limit=2")
+        assert status == 200
+        page = _json(payload)
+        assert "entries_next_cursor" in page
+        assert len(page["entries"]) <= 2
+        cur = page["entries_next_cursor"]
+        assert cur is not None  # 3 attempts > 2 -> has-more
+        status2, _, payload2 = _req(
+            host, port, "GET", f"/api/hedge-open-logs?entries_limit=2&entries_cursor={cur}"
+        )
+        assert status2 == 200
+        page2 = _json(payload2)
+        ids1 = {e["entry_id"] for e in page["entries"]}
+        ids2 = {e["entry_id"] for e in page2["entries"]}
+        assert ids1 and ids2
+        assert not (ids1 & ids2)  # no duplicate across pages (R4 defect would)
+        assert page2["entries_next_cursor"] is None  # only 1 entry left
+        # Invalid entries_cursor is rejected, not silently treated as page 1.
+        status3, _, _ = _req(
+            host, port, "GET", "/api/hedge-open-logs?entries_cursor=not-a-cursor"
+        )
+        assert status3 == 400
 
 
 # ===========================================================================

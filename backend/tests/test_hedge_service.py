@@ -277,7 +277,9 @@ def test_get_logs_includes_attempts_projection_for_record_fill(tmp_path):
     svc.post_fill_once(doc["id"])
     status, page = svc.get_logs(None, None)
     assert status == 200
-    assert set(page.keys()) == {"logs", "attempts", "next_cursor"}
+    assert set(page.keys()) == {
+        "logs", "attempts", "entries", "next_cursor", "entries_next_cursor",
+    }
     assert len(page["attempts"]) == 1
     a = page["attempts"][0]
     # frozen §3.4 attempt fields (task_id is additive for UI linking).

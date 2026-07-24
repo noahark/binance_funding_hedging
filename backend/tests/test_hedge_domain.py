@@ -201,6 +201,9 @@ def test_preflight_snapshot_none_is_dry_run_unknown():
 
 
 def test_preflight_step_unreadable_rejects():
+    # A required market step that cannot be read is fail-closed INCOMPLETE
+    # (amendment I-7), NOT a below_min_qty filter violation. Conflating the two
+    # would wrongly fatal-stop the task on a missing read instead of retrying.
     bad = {
         "lot_size": {"step_size": "0"},
         "market_lot_size": {"step_size": "0"},
@@ -214,7 +217,7 @@ def test_preflight_step_unreadable_rejects():
         ),
         "BTCUSDT", D.DIR_FORWARD, Decimal("0.5"), 1,
     )
-    assert pf.rejection == D.REJECT_BELOW_MIN_QTY
+    assert pf.rejection == D.REJECT_PREFLIGHT_INCOMPLETE
 
 
 # ---------------------------------------------------------------------------
