@@ -322,13 +322,20 @@ The cross-review reviewer is derived from the implementer provider using
 `kimi -> claude_glm`, otherwise first available cross-review pool member with a
 different provider). It is not inferred from "backend" or "frontend" wording.
 
-The prohibition is against any model-to-model dispatch, not only unlogged
-chat-window relay. Dispatch execution is human-operated for every provider:
-any model session may prepare the dispatch file, but none may invoke another
-model terminal or adapter command. The human operator runs the prepared prompt
-or adapter command in the selected target terminal, and that action must be
-driven by the dispatch file and recorded in the required `.dispatch.md`
+The prohibition is against any **formal** model-to-model dispatch, not only
+unlogged chat-window relay. Dispatch execution is human-operated for every
+provider: any model session may prepare the dispatch file, but none may invoke
+another model terminal or adapter command. The human operator runs the prepared
+prompt or adapter command in the selected target terminal, and that action must
+be driven by the dispatch file and recorded in the required `.dispatch.md`
 evidence.
+
+An implementation/fix packet may explicitly opt in to the AGENTS.md narrow
+local read-only research-subagent exception. Such a Plan/Explore helper is not
+a formal dispatch, reviewer, evidence source, or code author; it is same-
+provider/runtime only, read-only, cannot spawn, cannot invoke an adapter or
+terminal, and cannot write files, tests, reports, verdicts, or task state.
+Reviewers remain single-session and may not use this exception.
 
 **R11 dispatch prompt 固定前言（v0.5）。** 每份发给模型的 dispatch 文件
 （实现任务书、预审 prompt、正式 review-1/review-2 prompt）的 PROMPT BODY
@@ -338,9 +345,11 @@ grep）：
 ```text
 [HARNESS-EXECUTOR-CONTRACT v1]
 你是本任务的唯一执行者。
-1. 禁止调用、启动或转派任何其他模型会话或 adapter 命令（包括但不限于
-   claude-glm -p、kimi -p、codex exec、grok）。需要其他模型时，输出
-   ESCALATED 及原因并停止。
+1. 禁止调用、启动或转派任何正式模型会话或 adapter 命令（包括但不限于
+   claude-glm -p、kimi -p、codex exec、grok）。仅当本任务书显式允许时，
+   实现/修复会话可使用同 provider/runtime 的只读 Plan/Explore 子代理；它不是
+   正式派发、不得写文件/运行命令/继续派发/评审或产出 verdict。需要正式其他模型时，
+   输出 ESCALATED 及原因并停止。
 2. 禁止编造未实际执行的命令结果或未实际读取的文件内容；你写下的每一条
    执行记录都必须对应你本会话内真实发生的动作。
 3. 你的评审/实现依据只能是本 prompt 列出的 raw artifact 路径与你自己

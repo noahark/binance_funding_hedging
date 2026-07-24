@@ -486,7 +486,7 @@ stages:
       - "If frontend work is the large majority and backend work is light, dispatch the whole bounded task to kimi."
       - "If backend and frontend work are both substantial and separable, split implementation by domain owner."
       - "Bookkeeper, Codex/GPT, and Claude sessions prepare implementation dispatch packets only; the human operator executes them in the selected implementer terminal."
-      - "No model session of any provider may invoke, launch, or relay to another model session. When docs/parallel-development-mode.md applies, the implementer's closing duty is self-tests, the required artifact paths, the implementation report, and stopping for the bookkeeper; any next_dispatch entry for a cross-model call is executor:human_operator and is executed only by the human operator."
+      - "No model session of any provider may invoke, launch, or relay a formal implementation, fix, or review session. An implementation/fix packet may explicitly opt in to the AGENTS.md local read-only same-provider research-subagent exception; it never applies to reviewers or formal evidence. When docs/parallel-development-mode.md applies, the implementer's closing duty is self-tests, the required artifact paths, the implementation report, and stopping for the bookkeeper; any next_dispatch entry for a formal cross-model call is executor:human_operator and is executed only by the human operator."
     acceptance:
       - "Changed files match task boundaries or deviations are explained."
       - "Implementation report lists design decisions and tests run."

@@ -138,12 +138,25 @@ The bookkeeper must not:
 
 No model session — regardless of provider — may invoke, launch, or relay to
 another model session or adapter command (including `claude-glm -p`, `kimi -p`,
-`codex exec`, or `grok ...`). All cross-model dispatch is prepared as a stage
-dispatch file and executed only by the human operator, who copies the prepared
-prompt or command into the selected model terminal and then records the
-resulting raw output or receipt under the stage evidence path. A model's claim
-to have launched another model is never dispatch evidence. This applies to
-implementation, embedded pre-review, review-1, review-2, and fix dispatches.
+`codex exec`, or `grok ...`) for a **formal** implementation, fix, embedded
+review, review-1, or review-2 role. All such cross-model dispatch is prepared
+as a stage dispatch file and executed only by the human operator, who copies
+the prepared prompt or command into the selected model terminal and then
+records the resulting raw output or receipt under the stage evidence path. A
+model's claim to have launched another model is never formal dispatch evidence.
+
+Narrow implementation-research exception: an implementation or fix prompt may
+explicitly permit a runtime-built-in, same-provider **local read-only research
+subagent** (for example Plan/Explore). It may only inspect the active task's
+listed repository files and return internal notes to its parent session. It may
+not write files, run write-capable commands, access credentials or networks,
+invoke an adapter/terminal, spawn another subagent, perform a formal review,
+produce a verdict, or become evidence. The parent remains the sole code author,
+test runner, report author, and accountable execution session. This exception
+does not apply to reviewers, bookkeepers, direction panels, or any formal
+cross-provider/model dispatch. The prompt and stage evidence must record the
+opt-in and the maximum number of local research subagents; absent that explicit
+opt-in, the default prohibition remains in force.
 
 ### Human Operator Boundaries
 
@@ -226,8 +239,9 @@ scope and file boundary.
 An implementer's closing duty is exactly: run the task's self-tests, generate
 the task diff patch when the stage requires one, write the implementation
 report, and stop for the bookkeeper. Implementers never invoke, launch, or
-relay to another model session; cross-model review is dispatched only by the
-human operator from bookkeeper-prepared dispatch files.
+relay a formal model session; the only exception is an explicitly permitted
+local read-only research subagent under the rule above. Cross-model review is
+dispatched only by the human operator from bookkeeper-prepared dispatch files.
 
 The generic workflow actor pool is only an eligibility list. Stage-specific
 owner and exclusion rules in `status.json.model_routing` must be applied before
