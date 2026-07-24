@@ -404,3 +404,23 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-24 12:45:15 CST
 下一步模型: human operator
 下一步任务: execute only 51-review-2-rebound.dispatch.md in a fresh read-only Codex session
+
+===== rebound final-review gate (2026-07-24 12:51:05 CST) =====
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff
+
+This was run from a clean committed worktree after the rebound Review-2 packet
+was committed. The final reviewer may now be dispatched through
+`51-review-2-rebound.dispatch.md`. No live trading action is authorized.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 12:51:05 CST
+下一步模型: human operator
+下一步任务: execute only 51-review-2-rebound.dispatch.md in a fresh read-only Codex session
