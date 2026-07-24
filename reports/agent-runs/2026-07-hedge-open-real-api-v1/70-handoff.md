@@ -170,6 +170,10 @@ GLM Review-1; do not reuse the historical Kimi ownership for this new code.
 `scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review`
 已在干净提交工作树通过。58/59 现在可以执行。
 
+补充审计：56 号包为 entries 不透明游标在 `backend/hedge_open_tasks/domain.py`
+新增纯编解码函数，超出其最窄文件清单但不改变交易业务。偏差已记录在
+`20-r4-scope-deviation-domain-cursor.md`，58 后端审查者必须结合实际 diff 核对。
+
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md

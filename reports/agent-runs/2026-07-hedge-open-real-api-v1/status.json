@@ -521,6 +521,11 @@
     "diff_fingerprint": "8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320",
     "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/19-replacement-r4-final-reconciliation.md",
     "superseded_interim_artifact": "reports/agent-runs/2026-07-hedge-open-real-api-v1/18-replacement-r4-diff-reconciliation.md",
+    "scope_deviations": [{
+      "file": "backend/hedge_open_tasks/domain.py",
+      "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/20-r4-scope-deviation-domain-cursor.md",
+      "reason": "Packet 56 required a pure, reusable opaque entries-cursor codec. The deviation has no trade, network, signing, credential, or risk-policy effect and is explicitly in fresh backend Review-1 scope."
+    }],
     "verification": {
       "backend_tests": "882 passed in 46.25s",
       "focused_backend_tests": "63 passed in 13.59s",
@@ -751,6 +756,7 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/41-fix-open-log-pagination-backend.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/41-fix-open-log-pagination-frontend.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/19-replacement-r4-final-reconciliation.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/20-r4-scope-deviation-domain-cursor.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/58-review-1-backend-r2.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/59-review-1-frontend-r2.dispatch.md"
   ],
