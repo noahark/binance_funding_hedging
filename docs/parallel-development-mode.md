@@ -240,6 +240,14 @@ next_dispatch: <下一步该执行的 dispatch 文件名，终点写 none>
 （需要改 = 回到设计层出新版本文件），回执块由执行者/记账者在运行时填写。
 执行者只需按 `next_dispatch` 链找到文件并执行，全链路可审计、可断点续跑。
 
+**历史兼容例外（仅实现任务）**：对于早于回执区块规范、且整个启动文案中**完全
+没有** `DISPATCH RECEIPT` 区块的历史实现任务，validator 可接受一个等价的
+`status.json.session_receipts` 记录。该记录必须精确匹配 task、实现 provider、
+已经存在的原始实现报告路径，并有可验证的 Session ID（或明确 unavailable 原因）和
+ISO 时间。此例外不适用于评审 dispatch，也不适用于已有但填写不完整/错误的回执；
+新任务仍必须使用本节的完整回执区块。它只避免“旧文案格式缺失”阻碍已存在的业务
+证据，不降低新任务的派发审计要求。
+
 **解读约定**：发给模型执行时，任务正文只有 PROMPT BODY；RECEIPT 是审计
 元数据，模型不得把回执字段（status/next_dispatch 等）解读为任务要求。
 向模型转发 dispatch 文件时可以只发 body，或发全文并声明本约定。

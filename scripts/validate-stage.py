@@ -674,6 +674,110 @@ def validate_dispatch_receipt(
     return errors, receipt
 
 
+def _legacy_implementation_receipt_errors(
+    root: Path,
+    stage_dir: Path,
+    status_doc: dict[str, Any],
+    task: dict[str, Any],
+    label: str,
+) -> list[str]:
+    """Validate the narrow fallback for a historical task packet with no R9
+    receipt block at all.
+
+    The compatibility path is intentionally unavailable to review packets and
+    to any implementation packet that *has* a receipt block (including an
+    incomplete or malformed one). It accepts only an existing raw implementation
+    report plus one matching, timestamped ``status.json.session_receipts`` entry.
+    This avoids making an old packet's formatting omission block a code review,
+    without turning status.json into a general substitute for live dispatch
+    evidence on newly created packets.
+    """
+    task_id = task.get("id")
+    report_value = task.get("implementation_report_path")
+    expected_provider = provider_key(task.get("owner"))
+    if not _nonempty_string(report_value):
+        return [
+            f"{label}: legacy receipt compatibility requires task "
+            "implementation_report_path"
+        ]
+    report_path = _resolve_evidence_path(root, stage_dir, report_value)
+    if not report_path.exists():
+        return [
+            f"{label}: legacy receipt compatibility requires existing raw "
+            f"implementation report: {report_value}"
+        ]
+
+    receipts = status_doc.get("session_receipts")
+    if not isinstance(receipts, list):
+        return [
+            f"{label}: legacy receipt compatibility requires "
+            "status.json.session_receipts"
+        ]
+
+    for entry in receipts:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("role") != "implementation" or str(entry.get("task_id")) != str(task_id):
+            continue
+        if expected_provider and provider_key(entry.get("provider")) != expected_provider:
+            continue
+        raw_value = entry.get("raw_output_path")
+        if not _nonempty_string(raw_value):
+            continue
+        raw_path = _resolve_evidence_path(root, stage_dir, raw_value)
+        if raw_path != report_path or not raw_path.exists():
+            continue
+
+        session_id = entry.get("session_id")
+        if _nonempty_string(session_id):
+            session_errors = _session_id_field_errors(session_id, label)
+        elif entry.get("session_id_source") == "unavailable" and _nonempty_string(
+            entry.get("unavailable_reason")
+        ):
+            session_errors = []
+        else:
+            session_errors = [
+                f"{label}: legacy receipt compatibility requires a verified "
+                "session_id or session_id_source=unavailable with a reason"
+            ]
+        if session_errors:
+            return session_errors
+        if not _valid_iso8601(entry.get("recorded_at")):
+            return [
+                f"{label}: legacy receipt compatibility requires a parseable "
+                f"session_receipts.recorded_at, got {entry.get('recorded_at')!r}"
+            ]
+        return []
+
+    return [
+        f"{label}: legacy receipt compatibility requires one matching "
+        "implementation session receipt (task, provider, raw report, and session evidence)"
+    ]
+
+
+def validate_implementation_dispatch_evidence(
+    root: Path,
+    stage_dir: Path,
+    status_doc: dict[str, Any],
+    task: dict[str, Any],
+    dispatch_value: Any,
+    label: str,
+) -> list[str]:
+    """Keep R9 strict for normal packets, with a precise historical fallback.
+
+    Only a packet with *no* receipt block can use the recorded implementation
+    report/session receipt path. A present receipt remains authoritative and is
+    checked by ``validate_dispatch_receipt`` without relaxation.
+    """
+    receipt_errors, receipt = validate_dispatch_receipt(root, stage_dir, dispatch_value, label)
+    if receipt is not None:
+        return receipt_errors
+    if len(receipt_errors) != 1 or "has no DISPATCH RECEIPT block" not in receipt_errors[0]:
+        return receipt_errors
+    legacy_errors = _legacy_implementation_receipt_errors(root, stage_dir, status_doc, task, label)
+    return legacy_errors if legacy_errors else []
+
+
 def _session_consistency_errors(
     root: Path, stage_dir: Path, artifact_value: Any, receipt: dict[str, str], label: str
 ) -> list[str]:
@@ -813,15 +917,23 @@ def validate_review_artifacts(
         if receipt is not None and receipt.get("status") == "done":
             errors.extend(_session_consistency_errors(root, stage_dir, artifact_value, receipt, label))
 
-    # Implementation dispatch receipts (parallel r10 packet task prompts).
+    # Implementation dispatch receipts (parallel R10 packet task prompts). A
+    # receipt block remains mandatory for current packets; the helper permits a
+    # narrow, report-and-session-backed compatibility path for old packets that
+    # have no block at all.
     for task in object_tasks:
         checklist = _checklist_for_task(status_doc, task)
         if not isinstance(checklist, dict):
             continue
         prompt_value = checklist.get("task_prompt_path")
         if _nonempty_string(prompt_value):
-            receipt_errors, _ = validate_dispatch_receipt(
-                root, stage_dir, prompt_value, f"task {task.get('id')} implementation dispatch"
+            receipt_errors = validate_implementation_dispatch_evidence(
+                root,
+                stage_dir,
+                status_doc,
+                task,
+                prompt_value,
+                f"task {task.get('id')} implementation dispatch",
             )
             errors.extend(receipt_errors)
 
