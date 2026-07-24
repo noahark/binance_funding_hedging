@@ -297,3 +297,29 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-23 23:28:57 CST
 下一步模型: human operator
 下一步任务: fill completed implementation dispatch receipts before formal Review-1 validation and dispatch
+
+===== frontend Review-1 bounded rework verification (2026-07-24 11:47:10 CST) =====
+Command: node frontend/self-check.js
+Result: PASS (全部自检通过，退出码 0)
+
+Bookkeeper verified the committed source repair `820dd1e` is limited to
+frontend/index.html, frontend/self-check.js, and the raw fix report. It renders
+`single_leg`（只成交一条腿）as Chinese "单腿成交" with a warning badge, renders
+`pair_outcome:null`（仍在查询）as "查询中" with an info badge, and adds matching
+self-check coverage. No backend, API contract, order-submission, risk-policy,
+credential, or Binance-network behavior changed.
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=fixing
+diff_fingerprint=820dd1e:661ce0295bdc625d2f9772328f09bec55c70207bc6289feda6916e06149b09b7
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 11:51:36 CST
+下一步模型: human operator
+下一步任务: execute the bounded Claude-GLM frontend re-review packet

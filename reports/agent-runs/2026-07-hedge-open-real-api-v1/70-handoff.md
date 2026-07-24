@@ -68,9 +68,9 @@ The user-approved design remains frozen in `00-task.md`, `10-design.md`,
 already committed, and R4 is verified. Do not rerun implementation.
 
 Review-1 evidence is now received. Backend review is ACCEPT with two non-blocking
-follow-up observations. Frontend review is REWORK for a small display/test
-correction. The user-selected Sonnet 5 fallback packet is
-`frontend-r1-rework-sonnet5.dispatch.md`; it changes only the Chinese labels and
+follow-up observations. The frontend rework is committed at `820dd1e` and its
+self-check passed. The only next task is the narrow Claude-GLM re-review packet
+`45-review-1-frontend-rfix.dispatch.md`, which checks the Chinese labels and
 tests for "querying" and "single-leg" attempt states. Real activation and the
 first live task remain separate human actions.
 
@@ -93,6 +93,10 @@ first live task remain separate human actions.
   show `single_leg` as Chinese "单腿成交" with a warning, and `pair_outcome:null`
   as "查询中" rather than a dash. Self-check fixtures must cover those two real
   states. No trading, backend, API, or risk-rule change is requested.
+- Sonnet 5 completed the bounded correction in `40-fix-frontend-r1.md`, committed
+  as `820dd1e`. Bookkeeper independently reran `node frontend/self-check.js`:
+  all checks passed. The new task fingerprint is
+  `820dd1e:cd44c9a921e4f6bb21697c1a4c3ab776dc860b2791dd38b887cb5b7dc7f44c6b`.
 - The raw backend review identifies itself as Opus 4.6. The user-reported
   Sonnet 5 session back-filled dispatch metadata and performed a limited
   spot-check; it did not author a separate review verdict.
@@ -112,6 +116,6 @@ first live task remain separate human actions.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 11:39:01 CST
+本地北京时间: 2026-07-24 11:51:36 CST
 下一步模型: human operator
-下一步任务: execute the bounded Sonnet 5 frontend rework packet and preserve 40-fix-frontend-r1.md
+下一步任务: execute the narrow Claude-GLM frontend re-review packet and preserve 45-review-1-frontend-rfix.md
