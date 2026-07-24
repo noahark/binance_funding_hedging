@@ -145,6 +145,30 @@ resulting raw output or receipt under the stage evidence path. A model's claim
 to have launched another model is never dispatch evidence. This applies to
 implementation, embedded pre-review, review-1, review-2, and fix dispatches.
 
+### Human Operator Boundaries
+
+The human operator supplies product decisions, authorization, external
+configuration, and model-terminal execution. Do not ask the human operator to
+manually edit business source code, canonical product documents, or stage
+evidence: the assigned model or bookkeeper performs those repository writes and
+records the human's decision.
+
+The exception is local security configuration that only the human should
+operate, such as entering or rotating API keys, secrets, permissions, and
+environment settings. Agents must never request, read, print, or store the
+secret value itself. They may explain the required configuration by name and
+verify safe non-secret state only when the user authorizes it.
+
+### Communication With The Human
+
+When explaining a product, review, risk, or implementation issue to the human,
+lead with plain Chinese and the practical effect. On first use, translate every
+English technical term, abbreviation, status, or scenario in parentheses; for
+example, `single_leg`（只成交了一条腿）and `REWORK`（需要返工）. Do not make the
+human infer meaning from raw English identifiers, framework rules, or code
+paths. Keep process detail secondary to the business decision and the next
+useful action.
+
 ### Designers
 
 Before a milestone direction or requirement set is frozen, the bookkeeper must

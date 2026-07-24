@@ -20,6 +20,9 @@ Coverage (proposal 3.9 groups 1-9):
     footer extraction / status.json cross-check mismatch;
   * receipt sanity: ``adapter_cmd: n/a`` with ``status: done`` is rejected,
     a model recorded as executor is rejected;
+  * historical implementation packets with no receipt block may use one
+    matching raw report + session receipt, but malformed current receipt blocks
+    remain strict;
   * preamble marker grep: dispatch prompt without
     ``[HARNESS-EXECUTOR-CONTRACT v1]`` fails dispatch-ready;
   * embedded pre-review opt-in: off-book artifacts when disabled fail, an
@@ -442,6 +445,58 @@ class TestReceiptSanity:
         )
         status = _single_review_status()
         assert vs.validate_review_artifacts(root, stage_dir, status, "pre-review") == []
+
+
+class TestLegacyImplementationReceiptCompatibility:
+    def _status(self):
+        return {
+            "stage_id": "fixture-stage",
+            "status": "review_2",
+            "dispatch_protocol": vs.HUMAN_OPERATOR_DISPATCH_PROTOCOL,
+            "tasks": [
+                {
+                    "id": "backend",
+                    "owner": {"provider": "claude_glm"},
+                    "implementation_report_path": "20-implementation-backend.md",
+                    "r10_checklist": {"task_prompt_path": "task-backend.prompt.md"},
+                }
+            ],
+            "session_receipts": [
+                {
+                    "role": "implementation",
+                    "task_id": "backend",
+                    "provider": "claude_glm",
+                    "model": "glm-5.2",
+                    "session_id": "session_backend",
+                    "session_id_source": "operator",
+                    "unavailable_reason": None,
+                    "raw_output_path": "20-implementation-backend.md",
+                    "recorded_at": "2026-07-20T10:05:00+08:00",
+                }
+            ],
+        }
+
+    def test_missing_legacy_receipt_block_uses_matching_report_and_session(self, harness):
+        root, stage_dir = harness
+        _write_prompt(stage_dir, "task-backend.prompt.md")
+        (stage_dir / "20-implementation-backend.md").write_text("# raw implementation\n")
+        assert vs.validate_review_artifacts(root, stage_dir, self._status(), "pre-review") == []
+
+    def test_present_malformed_receipt_does_not_get_legacy_bypass(self, harness):
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "task-backend.prompt.md", adapter_cmd="n/a")
+        (stage_dir / "20-implementation-backend.md").write_text("# raw implementation\n")
+        errors = vs.validate_review_artifacts(root, stage_dir, self._status(), "pre-review")
+        assert any("real executed adapter_cmd" in error for error in errors)
+
+    def test_mismatched_report_cannot_use_legacy_compatibility(self, harness):
+        root, stage_dir = harness
+        _write_prompt(stage_dir, "task-backend.prompt.md")
+        (stage_dir / "20-implementation-backend.md").write_text("# raw implementation\n")
+        status = self._status()
+        status["session_receipts"][0]["raw_output_path"] = "other-report.md"
+        errors = vs.validate_review_artifacts(root, stage_dir, status, "pre-review")
+        assert any("matching implementation session receipt" in error for error in errors)
 
 
 # ---------------------------------------------------------------------------
