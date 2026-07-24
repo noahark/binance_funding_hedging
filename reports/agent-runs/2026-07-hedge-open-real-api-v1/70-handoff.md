@@ -2,14 +2,15 @@
 
 ## Recovery Header
 
-- Active phase: `fixing / final bounded backend Review-1 repair is dispatch-ready`.
+- Active phase: `fixing / task-local backend Review-1 repair is dispatch-ready`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   delivery evidence is `8af3f22d92354fdac61a6a057eb25760b924004b`; the latest
   bookkeeping commit before this checkpoint is `49740640a205abb4128fd53cec365536fc77b227`.
   Fresh task-level Review-1 has split: frontend ACCEPT at `59-review-1-frontend-r2.md`,
-  backend REWORK at `58-review-1-backend-r2.md`. The only active implementation packet
-  is `61-review-1-backend-r2-rework.dispatch.md`.
+  backend REWORK at `58-review-1-backend-r2.md`. User amendment 21 supersedes
+  unexecuted packet 61; the only active implementation packet is
+  `62-review-1-backend-r2-task-local.dispatch.md`.
 - Classification: `MILESTONE`; the mandatory direction panel is complete. The
   user approved a bounded design amendment at
   `15-immediate-loop-and-open-log-amendment.md`; Fable's replacement task
@@ -18,8 +19,8 @@
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `58-review-1-backend-r2.md`,
-  `59-review-1-frontend-r2.md`, and `61-review-1-backend-r2-rework.dispatch.md`.
+- Read next: `status.json`, `21-task-local-runtime-and-manual-pause-amendment.md`,
+  `58-review-1-backend-r2.md`, and `62-review-1-backend-r2-task-local.dispatch.md`.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
@@ -29,7 +30,7 @@
   fixed-quantity route, so quoteOrderQty is not used this stage.
 - Safety: no credential access, Binance network call, real POST, push, global
   Start activation, or first live task is authorized. Do not enable
-  `APP_HEDGE_EXECUTOR=live`, Start, or a first live task until packet 61 and
+  `APP_HEDGE_EXECUTOR=live`, Start, or a first live task until packet 62 and
   renewed Review-1/Review-2 pass.
 - Latest user policy: each task card is an independent asynchronous worker, but
   its count is sequential. It submits exactly one concurrent spot/perpetual
@@ -178,8 +179,13 @@ GLM Review-1; do not reuse the historical Kimi ownership for this new code.
   不在本次后端修复中顺带扩展。
 - 后端 Review-1 为 **REWORK**，两个 P1 都是会影响真实开单的业务问题：反向任务拿不到
   价格时可能跳过最小下单金额校验；慢订单查询会把其它独立任务的新一组下单一起拖慢。
-- `61-review-1-backend-r2-rework.dispatch.md` 已逐字保留审查者的修复提示，只授权这两项。
-  这会使用 `rework_count=3 / max_rework=3` 的最后一次返工额度。P2 的实时限频用量响应头
+- `61-review-1-backend-r2-rework.dispatch.md` 保留为未执行的审查原文证据；用户批准的
+  `21-task-local-runtime-and-manual-pause-amendment.md` 已用 `62` 替换其运行时方案：没有
+  新的长期全局守护/全局查询循环，每张任务在自己的短生命周期 worker 内下单和查询。
+- 确认 429 或余额/保证金/可用数量不足时，只把当前任务 durable `paused` 并退出 worker，
+  等人工恢复；本应用不暂停、停止、计数或延迟其它任务。Binance 仍可能因外部 account/IP
+  限频拒绝其它任务，不能保证交易所层面的独立接受。
+- 这会使用 `rework_count=3 / max_rework=3` 的最后一次返工额度。P2 的实时限频用量响应头
   只作为后续风险记录，本轮不扩范围。
 - 后端修复完成后，bookkeeper 必须核对实际 diff、复跑测试、提交证据并重新派发后端
   Review-1；前端源码未变，其 ACCEPT 证据保留。之后才可进入最终 Review-2。
@@ -187,6 +193,6 @@ GLM Review-1; do not reuse the historical Kimi ownership for this new code.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 22:35:36 CST
+本地北京时间: 2026-07-24 23:15:34 CST
 下一步模型: human operator
-下一步任务: run packet 61 in a fresh write-capable Claude-GLM session; do not activate live trading
+下一步任务: run packet 62 in a fresh write-capable Claude-GLM session; do not activate live trading
