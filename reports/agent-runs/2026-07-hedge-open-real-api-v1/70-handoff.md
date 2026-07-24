@@ -167,9 +167,12 @@ GLM Review-1; do not reuse the historical Kimi ownership for this new code.
 
 两者都必须由 human operator 在独立新会话执行；不允许任何审查者改动文件或代为启动模型。
 
+`scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review`
+已在干净提交工作树通过。58/59 现在可以执行。
+
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 21:24:42 CST
+本地北京时间: 2026-07-24 21:26:56 CST
 下一步模型: human operator
-下一步任务: after the metadata checkpoint commits and pre-review validation passes, run packets 58 and 59 in separate fresh read-only sessions
+下一步任务: run packets 58 and 59 in separate fresh read-only sessions; do not activate live trading

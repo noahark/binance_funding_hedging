@@ -613,6 +613,27 @@ Session ID 来源: unavailable
 下一步模型: bookkeeper
 下一步任务: create the reconciled evidence commit and prepare fresh Review-1 packets
 
+===== renewed Review-1 pre-review gate (2026-07-24 21:26:56 CST) =====
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: PASS
+STAGE VALIDATION PASSED
+phase=pre-review
+status=review_1
+diff_fingerprint=8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320
+
+The check ran on a clean committed worktree after `8af3f22` (delivery evidence)
+and `46c0411` (review-packet metadata). It authorizes only human-operated,
+read-only Review-1 execution from packets 58 and 59. It does not authorize
+live mode, Start, credential access, Binance network access, or a real order.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 21:26:56 CST
+下一步模型: human operator
+下一步任务: run packets 58 and 59 in separate fresh read-only sessions
+
 Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
 Result: PASS
 STAGE VALIDATION PASSED

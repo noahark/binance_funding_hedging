@@ -491,9 +491,9 @@
   "latest_bookkeeper_checkpoint": {
     "branch": "stage/2026-07-hedge-open-real-api-v1",
     "head_sha": "8af3f22d92354fdac61a6a057eb25760b924004b",
-    "git_status": "delivery evidence commit created; status metadata commit remains pending",
+    "git_status": "clean committed worktree at 46c0411 when pre-review validation passed",
     "tests": "882 backend passed; focused 63 passed; frontend self-check passed; Harness protocol 55 passed; git diff --check passed",
-    "next_action": "metadata commit will record the fresh Review-1 packets; human operator then runs both provider-isolated review sessions"
+    "next_action": "human operator runs both committed fresh provider-isolated Review-1 packets"
   },
   "diff_fingerprint": "8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320",
   "r4_diff_reconciliation": {
@@ -609,6 +609,7 @@
       "node frontend/self-check.js (passed; final replacement R4 reconciliation)",
       ".venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q (55 passed in 1.03s; final replacement R4 reconciliation)",
       "git diff --check (passed; final replacement R4 reconciliation)"
+      ,".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review (passed; committed renewed Review-1 packets 58/59)"
     ]
   },
   "review_1": {"reviewer": "task-level cross-review pool", "provider": null, "model": null, "open_p0_p1": null, "verdict": null, "json_schema_valid": null, "diff_fingerprint": null, "covers_through_task": null, "reviewer_prior_involvement": null, "fix_start_prompt_present": null, "fix_start_prompt_source": null, "invalid_json_attempts": 0, "status": "required_after_rework_evidence_commit", "summary": "Historical task-level Review-1 verdicts are preserved under task history but do not cover packets 54-57. Fresh provider-isolated Review-1 is required after the new committed fingerprint is recorded."},
@@ -753,6 +754,6 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/58-review-1-backend-r2.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/59-review-1-frontend-r2.dispatch.md"
   ],
-  "next_action": "Evidence commit 8af3f22 is fingerprinted and fresh Review-1 packets 58/59 are prepared. After the metadata commit and pre-review validator pass, the human operator may run both packets. Do not activate live mode, Start, or a first real order.",
-  "updated_at": "2026-07-24T21:24:42+08:00"
+  "next_action": "Pre-review passed. The human operator may run committed fresh Review-1 packets 58/59 in separate read-only sessions. Do not activate live mode, Start, or a first real order.",
+  "updated_at": "2026-07-24T21:26:56+08:00"
 }
