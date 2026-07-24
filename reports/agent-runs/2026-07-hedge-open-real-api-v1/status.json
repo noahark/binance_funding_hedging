@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-real-api-v1",
-  "status": "review_1",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-real-api-v1",
@@ -74,6 +74,13 @@
       "status": "evidence_committed",
       "dispatch_path": "57-open-log-pagination-frontend.dispatch.md",
       "reason": "Consumer-side counterpart of the frozen additive entries pagination seam; no trading behavior changes."
+    },
+    "review_1_backend_r2_rework": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_ready",
+      "dispatch_path": "61-review-1-backend-r2-rework.dispatch.md",
+      "reason": "Claude Sonnet 5 Review-1 returned REWORK with two verified P1 backend findings. This is the third and final allowed rework: direction-independent est_price completeness and reconciliation that cannot block an unrelated task's dispatch."
     },
     "excluded_from_core_implementation_and_fix": ["codex"],
     "human_operator_executes_cross_model_dispatch": true
@@ -290,6 +297,28 @@
       "unavailable_reason": "The packet 57 raw frontend report states that the provider-native Session ID was not exposed.",
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/41-fix-open-log-pagination-frontend.md",
       "recorded_at": "2026-07-24T21:19:04+08:00"
+    },
+    {
+      "role": "review_1",
+      "task_id": "backend",
+      "provider": "claude",
+      "model": "Claude Sonnet 5",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The raw backend Review-1 report states that Claude Code did not expose a provider-native Session ID.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/58-review-1-backend-r2.md",
+      "recorded_at": "2026-07-24T22:19:33+08:00"
+    },
+    {
+      "role": "review_1",
+      "task_id": "frontend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The raw frontend Review-1 report states that its runtime did not expose a provider-native Session ID.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/59-review-1-frontend-r2.md",
+      "recorded_at": "2026-07-24T22:02:00+08:00"
     }
   ],
   "designer": {
@@ -381,22 +410,22 @@
       ],
       "forbidden_files": ["frontend/**", "backend/services/binance_signing.py", "backend/borrow_tasks/**", "docs/**", "reports/api-samples/**", "reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json", "reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md"],
       "dependencies": [],
-      "implementation_report_path": "41-fix-open-log-pagination-backend.md",
-      "implementation_reports": ["40-fix-review-2-backend.md", "41-fix-open-log-pagination-backend.md"],
-      "implementation_status": "evidence_committed_review_1_required",
+      "implementation_report_path": "40-fix-review-1-backend-r2.md",
+      "implementation_reports": ["40-fix-review-2-backend.md", "41-fix-open-log-pagination-backend.md", "40-fix-review-1-backend-r2.md"],
+      "implementation_status": "fix_dispatch_ready_after_review_1_rework",
       "base_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
       "head_sha": "8af3f22d92354fdac61a6a057eb25760b924004b",
       "diff_fingerprint": "8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320",
       "review_1_history": [{"provider": "claude", "model": "Claude Opus 4.6", "artifact_path": "30-review-1-backend.md", "dispatch_path": "30-review-1-backend-opus46.dispatch.md", "verdict": "ACCEPT", "reviewer_prior_involvement": "design", "open_p0_p1": 0, "findings_summary": "Two P2 follow-up improvements only: recvWindow tightening and bounded pending-leg reconciliation.", "fallback_from": {"provider": "kimi", "model": "kimi-k3", "reason": "Human operator reported Kimi quota exhaustion before review dispatch.", "evidence_path": "15-kimi-review-1-unavailable.md"}}],
-      "review_1": null,
-      "review_1_required_reason": "Packets 54/56 changed backend delivery code after the historical task-level ACCEPT; a fresh provider-isolated review is mandatory.",
+      "review_1": {"provider": "claude", "model": "Claude Sonnet 5", "artifact_path": "58-review-1-backend-r2.md", "dispatch_path": "58-review-1-backend-r2.dispatch.md", "verdict": "REWORK", "reviewer_prior_involvement": "none", "open_p0_p1": 2, "required_fixes": ["Reverse-direction preflight must reject unreadable/invalid est_price as REJECT_PREFLIGHT_INCOMPLETE.", "Slow pending-order reconciliation must not block an unrelated task's next-pair dispatch."], "fix_start_prompt_source": "58-review-1-backend-r2.md"},
+      "review_1_required_reason": "Review-1 returned REWORK; packet 61 is the final bounded backend repair before renewed Review-1.",
       "r10_checklist": {
-        "task_prompt_path": "56-open-log-pagination-backend.dispatch.md",
-        "self_tests_command": ".venv/bin/python -m pytest backend/tests/test_hedge_review2_regressions.py backend/tests/test_hedge_api.py backend/tests/test_hedge_service.py -q; .venv/bin/python -m pytest backend/tests -q; node frontend/self-check.js; git diff --check",
+        "task_prompt_path": "61-review-1-backend-r2-rework.dispatch.md",
+        "self_tests_command": ".venv/bin/python -m pytest backend/tests/test_hedge_domain.py backend/tests/test_hedge_store.py backend/tests/test_hedge_service.py backend/tests/test_hedge_api.py backend/tests/test_hedge_open_live_client.py backend/tests/test_live_hedge_executor.py backend/tests/test_hedge_executor.py backend/tests/test_hedge_purity.py backend/tests/test_hedge_review2_regressions.py -q; .venv/bin/python -m pytest backend/tests -q; node frontend/self-check.js; .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q; git diff --check",
         "next_dispatch_executor": "human_operator",
-        "pass_branch": "write 41-fix-open-log-pagination-backend.md with actual test results and stop for bookkeeper",
-        "blocker_branch": "scope-contained backend pagination fix then rerun self-tests; any change to the frozen additive seam, live gate, or frontend files escalates to bookkeeper",
-        "unavailable_branch": {"failure_classes": ["model_unavailable", "adapter_missing", "command_error", "permission_error", "timeout"], "escalation_artifact": "56-open-log-pagination-backend.dispatch.md"}
+        "pass_branch": "write 40-fix-review-1-backend-r2.md with actual test results and stop for bookkeeper",
+        "blocker_branch": "scope-contained P1 backend repair then rerun self-tests; any frontend, live-gate, credential, or contract change escalates to bookkeeper",
+        "unavailable_branch": {"failure_classes": ["model_unavailable", "adapter_missing", "command_error", "permission_error", "timeout"], "escalation_artifact": "61-review-1-backend-r2-rework.dispatch.md"}
       }
     },
     {
@@ -414,8 +443,8 @@
       "diff_fingerprint": "8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320",
       "review_1_history": [{"provider": "claude_glm", "model": "glm-5.2[1m]", "artifact_path": "30-review-1-frontend.md", "dispatch_path": "30-review-1-frontend.dispatch.md", "verdict": "REWORK", "reviewer_prior_involvement": "none", "open_p0_p1": 0, "required_fixes": ["Map null pair_outcome to Chinese 查询中 and single_leg to Chinese 单腿成交 with a warning badge.", "Align self-check fixtures and assertions with null and single_leg."], "fix_start_prompt_source": "30-review-1-frontend.md"}],
       "review_1_rework_prior": {"provider": "claude_glm", "model": "glm-5.2[1m]", "artifact_path": "45-review-1-frontend-rfix.md", "dispatch_path": "45-review-1-frontend-rfix.dispatch.md", "verdict": "ACCEPT", "reviewer_prior_involvement": "none", "open_p0_p1": 0, "findings_summary": "All bounded frontend rework requirements and the optional source de-duplication improvement were verified; only non-blocking pagination, attempt-id display, and exchange-status language observations remain.", "re_review_of": "30-review-1-frontend.md"},
-      "review_1": null,
-      "review_1_required_reason": "Packets 55/57 changed frontend delivery code after the historical task-level ACCEPT; a fresh provider-isolated review is mandatory.",
+      "review_1": {"provider": "claude_glm", "model": "glm-5.2[1m]", "artifact_path": "59-review-1-frontend-r2.md", "dispatch_path": "59-review-1-frontend-r2.dispatch.md", "verdict": "ACCEPT", "reviewer_prior_involvement": "none", "open_p0_p1": 0, "findings_summary": "One P3 visual badge-class mismatch only; no business, safety, API, or pagination finding. The frontend is untouched by packet 61."},
+      "review_1_required_reason": "Accepted for the committed frontend range 28c550d..8af3f22; it remains valid while packet 61 changes only backend files.",
       "r10_checklist": {
         "task_prompt_path": "57-open-log-pagination-frontend.dispatch.md",
         "self_tests_command": "node frontend/self-check.js; git diff --check",
@@ -490,10 +519,10 @@
   "head_sha": "8af3f22d92354fdac61a6a057eb25760b924004b",
   "latest_bookkeeper_checkpoint": {
     "branch": "stage/2026-07-hedge-open-real-api-v1",
-    "head_sha": "8af3f22d92354fdac61a6a057eb25760b924004b",
-    "git_status": "clean committed worktree at 46c0411 when pre-review validation passed",
+    "head_sha": "49740640a205abb4128fd53cec365536fc77b227",
+    "git_status": "two raw Review-1 reports and packet 61 are pending the next evidence commit",
     "tests": "882 backend passed; focused 63 passed; frontend self-check passed; Harness protocol 55 passed; git diff --check passed",
-    "next_action": "human operator runs both committed fresh provider-isolated Review-1 packets"
+    "next_action": "human operator runs packet 61 in a fresh write-capable Claude-GLM session; no live action is authorized"
   },
   "diff_fingerprint": "8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320",
   "r4_diff_reconciliation": {
@@ -614,10 +643,11 @@
       "node frontend/self-check.js (passed; final replacement R4 reconciliation)",
       ".venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q (55 passed in 1.03s; final replacement R4 reconciliation)",
       "git diff --check (passed; final replacement R4 reconciliation)"
-      ,".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review (passed; committed renewed Review-1 packets 58/59)"
+      ,".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review (passed; committed renewed Review-1 packets 58/59)",
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready (passed; Review-1 split result recorded and final packet 61 prepared)"
     ]
   },
-  "review_1": {"reviewer": "task-level cross-review pool", "provider": null, "model": null, "open_p0_p1": null, "verdict": null, "json_schema_valid": null, "diff_fingerprint": null, "covers_through_task": null, "reviewer_prior_involvement": null, "fix_start_prompt_present": null, "fix_start_prompt_source": null, "invalid_json_attempts": 0, "status": "required_after_rework_evidence_commit", "summary": "Historical task-level Review-1 verdicts are preserved under task history but do not cover packets 54-57. Fresh provider-isolated Review-1 is required after the new committed fingerprint is recorded."},
+  "review_1": {"reviewer": "task-level cross-review pool", "provider": null, "model": null, "open_p0_p1": 2, "verdict": null, "json_schema_valid": null, "diff_fingerprint": null, "covers_through_task": null, "reviewer_prior_involvement": null, "fix_start_prompt_present": true, "fix_start_prompt_source": "58-review-1-backend-r2.md", "invalid_json_attempts": 0, "status": "split_result_backend_rework_frontend_accepted", "summary": "Frontend Review-1 at 59-review-1-frontend-r2.md ACCEPTed with only a P3 visual note. Backend Review-1 at 58-review-1-backend-r2.md returned two verified P1 findings. Packet 61 preserves its fix_start_prompt and is the final bounded rework."},
   "review_2": {
     "reviewer": "codex",
     "provider": "codex",
@@ -673,7 +703,7 @@
       "rebind_evidence": "48-review-2-harness-rebind.md"
     }
   ],
-  "rework_count": 2,
+  "rework_count": 3,
   "max_rework": 3,
   "scope_amendment": {
     "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/15-immediate-loop-and-open-log-amendment.md",
@@ -699,8 +729,9 @@
     "next_required_artifact": "local evidence commit and fresh provider-isolated Review-1 reports for the reconciled replacement diff"
   },
   "blockers": [
-    "Live block remains: the reconciled replacement code has not received fresh Review-1/Review-2 acceptance. Do not enable APP_HEDGE_EXECUTOR=live, Start, or a first real task.",
-    "Do not dispatch superseded packets 52/53. Packets 54-57 have completed and passed final R4 reconciliation; they now require committed-state review, not further implementation.",
+    "Live block remains: backend Review-1 found two P1 gaps. Do not enable APP_HEDGE_EXECUTOR=live, Start, or a first real task until packet 61 passes renewed Review-1 and Review-2.",
+    "Packet 61 is the third and final allowed rework. It is limited to direction-independent preflight completeness and reconciliation that cannot delay another task's dispatch; P2 rate-usage headers remain a recorded future risk.",
+    "Do not dispatch superseded packets 52/53. Packets 54-57 completed and passed R4 reconciliation; packet 61 is the only active implementation packet.",
     "No source change in this stage authorizes Binance, live mode, Start, a first order, WebSocket, or smooth opening.",
     "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task after review acceptance."
   ],
@@ -758,8 +789,11 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/19-replacement-r4-final-reconciliation.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/20-r4-scope-deviation-domain-cursor.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/58-review-1-backend-r2.dispatch.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/59-review-1-frontend-r2.dispatch.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/59-review-1-frontend-r2.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/58-review-1-backend-r2.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/59-review-1-frontend-r2.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/61-review-1-backend-r2-rework.dispatch.md"
   ],
-  "next_action": "Pre-review passed. The human operator may run committed fresh Review-1 packets 58/59 in separate read-only sessions. Do not activate live mode, Start, or a first real order.",
-  "updated_at": "2026-07-24T21:26:56+08:00"
+  "next_action": "Review-1 split result recorded: frontend ACCEPT, backend REWORK. Human operator may run packet 61 in a fresh write-capable Claude-GLM session. Do not activate live mode, Start, or a first real order.",
+  "updated_at": "2026-07-24T22:35:36+08:00"
 }

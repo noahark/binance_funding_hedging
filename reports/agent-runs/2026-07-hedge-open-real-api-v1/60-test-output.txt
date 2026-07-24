@@ -656,3 +656,28 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-24 17:39:24 CST
 下一步模型: human operator
 下一步任务: execute packets 56 and 57; do not activate live trading
+
+===== Review-1 split-result / final backend repair dispatch gate (2026-07-24 22:35:36 CST) =====
+
+Raw Review-1 evidence:
+- Backend: `58-review-1-backend-r2.md` — schema-valid REWORK with two P1 findings.
+- Frontend: `59-review-1-frontend-r2.md` — schema-valid ACCEPT; one P3 visual-only badge class note.
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+phase=dispatch-ready
+status=fixing
+diff_fingerprint=8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320
+
+The gate authorizes only human-operated execution of packet 61. It does not
+authorize credentials, Binance network access, live mode, Start, a first real
+order, or any frontend change. Packet 61 uses the third and final allowed
+rework slot and is limited to the two backend P1 findings.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 22:35:36 CST
+下一步模型: human operator
+下一步任务: run packet 61 in a fresh write-capable Claude-GLM session; do not activate live trading

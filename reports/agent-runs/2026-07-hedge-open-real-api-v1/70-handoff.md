@@ -2,16 +2,14 @@
 
 ## Recovery Header
 
-- Active phase: `fixing / replacement breakdown and bounded repair packets are dispatch-ready`.
+- Active phase: `fixing / final bounded backend Review-1 repair is dispatch-ready`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
-  backend R4 delivery is `d90f2f18acec7fe6286f2ae3fc8e187580bf0793` and frontend
-  delivery was corrected at `820dd1ec88f0d2727bb0bd3cd06bc28d6c4afc55`; the
-  reviewed stage head was rebound to `01d3a4712c89efab79772ce2e5ee2ba415e1e43c`
-  after a main-only Harness compatibility merge.
-  Stage evidence commits exist; implementation and task-level Review-1 are complete.
-  The rebound final Review-2 was executed against its fixed range and returned
-  `REWORK`; its raw verdict is `50-review-2.md`.
+  delivery evidence is `8af3f22d92354fdac61a6a057eb25760b924004b`; the latest
+  bookkeeping commit before this checkpoint is `49740640a205abb4128fd53cec365536fc77b227`.
+  Fresh task-level Review-1 has split: frontend ACCEPT at `59-review-1-frontend-r2.md`,
+  backend REWORK at `58-review-1-backend-r2.md`. The only active implementation packet
+  is `61-review-1-backend-r2-rework.dispatch.md`.
 - Classification: `MILESTONE`; the mandatory direction panel is complete. The
   user approved a bounded design amendment at
   `15-immediate-loop-and-open-log-amendment.md`; Fable's replacement task
@@ -20,9 +18,8 @@
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `15-immediate-loop-and-open-log-amendment.md`,
-  `16-replacement-development-breakdown.md`, `50-review-2.md`, and the two
-  replacement dispatch packets.
+- Read next: `status.json`, `58-review-1-backend-r2.md`,
+  `59-review-1-frontend-r2.md`, and `61-review-1-backend-r2-rework.dispatch.md`.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
@@ -31,10 +28,9 @@
   per-leg decimal/filter behavior, and no PAPI testnet. The user selects the
   fixed-quantity route, so quoteOrderQty is not used this stage.
 - Safety: no credential access, Binance network call, real POST, push, global
-  Start activation, or first live task is authorized. Review-2 found that a
-  task configured for one planned group could keep creating additional groups
-  after a `single_leg` result. Do not enable `APP_HEDGE_EXECUTOR=live`, Start,
-  or a first live task until the bounded repair passes renewed review.
+  Start activation, or first live task is authorized. Do not enable
+  `APP_HEDGE_EXECUTOR=live`, Start, or a first live task until packet 61 and
+  renewed Review-1/Review-2 pass.
 - Latest user policy: each task card is an independent asynchronous worker, but
   its count is sequential. It submits exactly one concurrent spot/perpetual
   pair, queries that pair to a final result, and only then may submit its next
@@ -168,15 +164,29 @@ GLM Review-1; do not reuse the historical Kimi ownership for this new code.
 两者都必须由 human operator 在独立新会话执行；不允许任何审查者改动文件或代为启动模型。
 
 `scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review`
-已在干净提交工作树通过。58/59 现在可以执行。
+已在 58/59 派发前的干净提交工作树通过。现在两份原始审查报告已经收到，不能再把
+58/59 当作待派发任务。
 
 补充审计：56 号包为 entries 不透明游标在 `backend/hedge_open_tasks/domain.py`
 新增纯编解码函数，超出其最窄文件清单但不改变交易业务。偏差已记录在
 `20-r4-scope-deviation-domain-cursor.md`，58 后端审查者必须结合实际 diff 核对。
 
+## Review-1 结果与唯一下一步
+
+- 前端 Review-1 为 **ACCEPT**。唯一 P3 是 `single_leg` 尝试时间线徽标使用了
+  `warning`，样式表使用 `warn`，所以少了警示色；这不改变下单、状态、日志或风险规则，
+  不在本次后端修复中顺带扩展。
+- 后端 Review-1 为 **REWORK**，两个 P1 都是会影响真实开单的业务问题：反向任务拿不到
+  价格时可能跳过最小下单金额校验；慢订单查询会把其它独立任务的新一组下单一起拖慢。
+- `61-review-1-backend-r2-rework.dispatch.md` 已逐字保留审查者的修复提示，只授权这两项。
+  这会使用 `rework_count=3 / max_rework=3` 的最后一次返工额度。P2 的实时限频用量响应头
+  只作为后续风险记录，本轮不扩范围。
+- 后端修复完成后，bookkeeper 必须核对实际 diff、复跑测试、提交证据并重新派发后端
+  Review-1；前端源码未变，其 ACCEPT 证据保留。之后才可进入最终 Review-2。
+
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 21:26:56 CST
+本地北京时间: 2026-07-24 22:35:36 CST
 下一步模型: human operator
-下一步任务: run packets 58 and 59 in separate fresh read-only sessions; do not activate live trading
+下一步任务: run packet 61 in a fresh write-capable Claude-GLM session; do not activate live trading
