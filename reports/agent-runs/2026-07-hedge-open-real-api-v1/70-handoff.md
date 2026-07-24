@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `fixing / Review-2 returned REWORK because the planned-attempt cap is unsafe`.
+- Active phase: `design_amendment / user replaced the immediate cadence and added opening logs`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   backend R4 delivery is `d90f2f18acec7fe6286f2ae3fc8e187580bf0793` and frontend
@@ -12,14 +12,16 @@
   Stage evidence commits exist; implementation and task-level Review-1 are complete.
   The rebound final Review-2 was executed against its fixed range and returned
   `REWORK`; its raw verdict is `50-review-2.md`.
-- Classification: `MILESTONE`; the mandatory direction panel and the user
-  approval are complete. No design reopening is pending in this stage.
+- Classification: `MILESTONE`; the mandatory direction panel is complete. The
+  user approved a bounded design amendment at
+  `15-immediate-loop-and-open-log-amendment.md`; replacement task breakdown is
+  now required before any repair implementation dispatch.
 - Harness/main sync exception: user-selected Kimi K3 routing was committed on
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `50-review-2.dispatch.md`,
-  `46-review-2-routing-disclosure.md`, and the two task-level Review-1 reports.
+- Read next: `status.json`, `15-immediate-loop-and-open-log-amendment.md`,
+  `50-review-2.md`, and the two task-level Review-1 reports.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
@@ -32,13 +34,12 @@
   task configured for one planned group could keep creating additional groups
   after a `single_leg` result. Do not enable `APP_HEDGE_EXECUTOR=live`, Start,
   or a first live task until the bounded repair passes renewed review.
-- Latest user policy: each running task card is an independent asynchronous
-  worker and sends one concurrent pair each second; multiple cards may submit in
-  the same second. Accepted orders are tracked by `orderId` to terminal state;
-  actual amounts are accumulated for weighted averages but do not gate cadence;
-  three confirmed consecutive failed pairs pause, with that threshold
-  configurable. See `04-user-execution-policy.md` and
-  `05-cadence-resolution.md`.
+- Latest user policy: each task card is an independent asynchronous worker, but
+  its count is sequential. It submits exactly one concurrent spot/perpetual
+  pair, queries that pair to a final result, and only then may submit its next
+  counted pair. Business errors stop only the affected task when classified as
+  fatal; an opening-log page records all outcomes. See
+  `15-immediate-loop-and-open-log-amendment.md`.
 
 ## User-Frozen Scope
 
@@ -46,11 +47,11 @@
   still a separate human authorization after implementation/review.
 - No product numeric risk caps and no numeric both-filled mismatch threshold;
   the operator controls amount, count, and margin allocation.
-- Actual fills/residuals and previous unresolved attempts do not block the
-  one-second immediate schedule. `orderId` orders are queried to terminal state;
-  ambiguous no-response cases are queried by client ID, never blindly resent.
-  Three confirmed consecutive failed pairs pause by default; no automatic repair
-  or close occurs.
+- An unresolved attempt blocks only its own task's next pair. `orderId` orders
+  are queried to terminal state; ambiguous no-response cases are queried by
+  client ID, never blindly resent. Three confirmed consecutive non-fatal
+  failures pause by default, while a classified fatal error (such as insufficient
+  balance) stops its own task immediately. No automatic repair or close occurs.
 - Immediate only; smooth WebSocket mode is a separate next stage. Each future
   smooth task will independently monitor its price spread through WebSocket and
   trigger only on its own configured spread-rate condition.
@@ -64,33 +65,19 @@
 
 ## Next Action
 
-The user-approved product direction remains frozen in `00-task.md`,
-`10-design.md`, `11-adr.md`, and `05-cadence-resolution.md`. Do not change
-those documents to make the implementation appear acceptable.
+The final review at `50-review-2.md` remains schema-valid `REWORK`. Its P0
+attempt-cap fix is still mandatory, but the user has replaced the timing model:
+one task now owns one active pair at a time, while the two legs of that pair
+remain concurrent. The same amendment adds a durable, paginated opening-log
+page and task-local fatal-error stops. It does not authorize any real order.
 
-The executed rebound final-review packet is
-`51-review-2-rebound.dispatch.md`; its raw result,
-`50-review-2.md`, is schema-valid `REWORK`, not an acceptance. Its P0 finding
-is simple: `target_n` must cap the number of planned order-pairs, but the
-current code caps only successful pairs. A single-leg or failed result can
-therefore cause another real pair to be submitted beyond the operator's chosen
-count. The review also found six P1 implementation gaps around fresh preflight,
-strict live facts, wire parameters, independent reconciliation, fill accounting,
-and UI state.
-
-Two bounded, human-operated repair packets are ready and may run in parallel:
-
-- `52-review-2-rework-backend.dispatch.md` — Claude-GLM fixes the P0 and
-  backend P1 items. It must not touch frontend or stage state.
-- `53-review-2-rework-frontend.dispatch.md` — Claude Sonnet 5 fixes only the
-  UI wording/state mismatch because Kimi is quota-unavailable. It must not
-  touch backend or stage state.
-
-Both implementers must report and stop. The bookkeeper then reconciles their
-diffs, records tests, commits the repaired state, and sends it through renewed
-provider-isolated Review-1 and Review-2. The P2 main-sync SHA was corrected in
-`status.json` to `9a0fabf74f004f4a34d8befd3676042963b5e66f`; that correction
-will be sealed with this REWORK checkpoint.
+`52-review-2-rework-backend.dispatch.md` and
+`53-review-2-rework-frontend.dispatch.md` are preserved as immutable evidence
+but are superseded before execution. Do not give either to a model. The next
+bookkeeper work is a replacement development breakdown that maps the unchanged
+Review-2 findings plus `15-immediate-loop-and-open-log-amendment.md` to new
+backend/frontend boundaries, test evidence, and provider-isolated review
+routing. Only then may replacement dispatch packets be prepared.
 
 ## Implementation intake and R4 status
 
@@ -130,6 +117,6 @@ will be sealed with this REWORK checkpoint.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 13:56:13 CST
-下一步模型: human operator
-下一步任务: run 52-review-2-rework-backend.dispatch.md and 53-review-2-rework-frontend.dispatch.md in separate fresh write-capable sessions; do not activate live trading
+本地北京时间: 2026-07-24 14:24:42 CST
+下一步模型: bookkeeper
+下一步任务: prepare the replacement development breakdown; do not dispatch 52 or 53 and do not activate live trading

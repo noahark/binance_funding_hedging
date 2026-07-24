@@ -482,3 +482,36 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-24 13:56:13 CST
 下一步模型: human operator
 下一步任务: execute the two bounded Review-2 repair packets; do not activate live trading
+
+===== user-approved immediate-loop amendment checkpoint (2026-07-24 14:24:42 CST) =====
+Artifact: `15-immediate-loop-and-open-log-amendment.md`
+
+The user replaced the immediate one-new-pair-per-second rule with one active
+pair at a time per task, while keeping the two legs concurrent. The amendment
+also adds task-local fatal-error handling and a durable paginated opening-log
+page. Packets `52-review-2-rework-backend.dispatch.md` and
+`53-review-2-rework-frontend.dispatch.md` are preserved but superseded before
+human execution.
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=fixing
+
+No product code, credential, network, live activation, or exchange action was
+performed by this design checkpoint.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/15-immediate-loop-and-open-log-amendment.md
+本地北京时间: 2026-07-24 14:24:42 CST
+下一步模型: bookkeeper
+下一步任务: prepare the replacement development breakdown and replacement dispatch packets; do not dispatch 52 or 53

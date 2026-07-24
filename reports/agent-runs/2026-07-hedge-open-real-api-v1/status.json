@@ -50,14 +50,14 @@
     "review_2_rework_backend": {
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
-      "status": "dispatch_prepared",
-      "reason": "Review-2 P0/P1 repair is backend-dominant and keeps the existing backend owner."
+      "status": "superseded_before_execution",
+      "reason": "The user replaced the one-pair-per-second contract with one-active-pair-per-task sequential execution and added a durable open-log page. See 15-immediate-loop-and-open-log-amendment.md; packet 52 must not be dispatched."
     },
     "review_2_rework_frontend": {
       "provider": "claude",
       "model": "Claude Sonnet 5",
-      "status": "dispatch_prepared",
-      "reason": "Kimi remains quota-unavailable; the user previously selected Sonnet 5 for the bounded frontend fallback. The frontend repair is provider-isolated from its planned GLM reviewer."
+      "status": "superseded_before_execution",
+      "reason": "The user added a dedicated opening-log page and replaced the one-pair-per-second UI semantics. See 15-immediate-loop-and-open-log-amendment.md; packet 53 must not be dispatched."
     },
     "excluded_from_core_implementation_and_fix": ["codex"],
     "human_operator_executes_cross_model_dispatch": true
@@ -525,8 +525,20 @@
   ],
   "rework_count": 2,
   "max_rework": 3,
+  "scope_amendment": {
+    "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/15-immediate-loop-and-open-log-amendment.md",
+    "user_approved_at": "2026-07-24T14:24:42+08:00",
+    "supersedes": [
+      "the one-new-pair-per-second immediate cadence in 00-task.md/04-user-execution-policy.md/05-cadence-resolution.md",
+      "52-review-2-rework-backend.dispatch.md",
+      "53-review-2-rework-frontend.dispatch.md"
+    ],
+    "implementation_dispatch_allowed": false,
+    "next_required_artifact": "replacement development breakdown and replacement bounded dispatch packets"
+  },
   "blockers": [
     "P0 live block: target_n currently limits successful pairs instead of planned attempts, so single-leg/failed outcomes can produce attempts beyond the operator-entered count. Do not enable APP_HEDGE_EXECUTOR=live, Start, or a first real task until the Review-2 fix is accepted.",
+    "User-approved cadence amendment: do not dispatch packets 52 or 53. Replacement packets must implement one active pair at a time per task and the durable opening-log page before any renewed review.",
     "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task after review acceptance."
   ],
   "human_escalation": {"required": false, "reason": null},
@@ -536,6 +548,7 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/03-direction-draft-intake.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/04-user-execution-policy.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/05-cadence-resolution.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/15-immediate-loop-and-open-log-amendment.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/00-task.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/10-design.md",
@@ -569,6 +582,6 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/52-review-2-rework-backend.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/53-review-2-rework-frontend.dispatch.md"
   ],
-  "next_action": "Review-2 returned REWORK with a P0 attempt-cap defect. Human operator may dispatch the prepared backend and frontend bounded fix packets in parallel; live mode, Start, and first real order remain prohibited until both fixes and renewed reviews pass.",
-  "updated_at": "2026-07-24T13:56:13+08:00"
+  "next_action": "The user approved a scope amendment: each task has one sequential active pair while its two legs submit concurrently, with task-local error handling and a dedicated opening-log page. Packets 52/53 are superseded before execution. Prepare a replacement breakdown and bounded dispatch packets; live mode, Start, and first real order remain prohibited.",
+  "updated_at": "2026-07-24T14:24:42+08:00"
 }
