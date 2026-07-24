@@ -155,9 +155,21 @@ GLM Review-1; do not reuse the historical Kimi ownership for this new code.
   Review-1（不同供应商交叉复核）。
 - 始终禁止实盘：不得启用 `APP_HEDGE_EXECUTOR=live`、Start 或首笔真实任务。
 
+## 当前 Review-1 派发
+
+证据提交为 `8af3f22`，固定审查指纹为
+`8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320`。
+
+- 后端交叉复核：`58-review-1-backend-r2.dispatch.md`，由 Claude Sonnet 5 只读审查
+  Claude-GLM 后端；
+- 前端交叉复核：`59-review-1-frontend-r2.dispatch.md`，由 Claude-GLM 只读审查
+  Claude Sonnet 5 前端。
+
+两者都必须由 human operator 在独立新会话执行；不允许任何审查者改动文件或代为启动模型。
+
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 21:19:04 CST
-下一步模型: bookkeeper
-下一步任务: create the reconciled evidence commit, compute its fingerprint, then prepare fresh provider-isolated Review-1 packets
+本地北京时间: 2026-07-24 21:24:42 CST
+下一步模型: human operator
+下一步任务: after the metadata checkpoint commits and pre-review validation passes, run packets 58 and 59 in separate fresh read-only sessions
