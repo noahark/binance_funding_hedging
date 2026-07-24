@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-real-api-v1",
-  "status": "testing",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-real-api-v1",
@@ -40,6 +40,12 @@
       "owner_provider": "kimi",
       "owner_model": "kimi-k3",
       "task_id": "frontend"
+    },
+    "frontend_rework": {
+      "proposed_provider": "claude",
+      "proposed_model": "Claude Sonnet 5",
+      "status": "dispatch_packet_prepared",
+      "reason": "Kimi quota is unavailable; the user requested a Sonnet 5 fallback rework packet. The provider becomes a fix author only if the human operator executes that packet."
     },
     "excluded_from_core_implementation_and_fix": ["codex"],
     "human_operator_executes_cross_model_dispatch": true
@@ -148,6 +154,28 @@
       "unavailable_reason": "The R4 raw fix report states that the GLM provider-native Session ID was not exposed.",
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/40-fix-backend-r4.md",
       "recorded_at": "2026-07-23T23:05:02+08:00"
+    },
+    {
+      "role": "review_1",
+      "task_id": "backend",
+      "provider": "claude",
+      "model": "Claude Opus 4.6",
+      "session_id": "4094d12a-8eff-4a59-9455-05a05adefcc6",
+      "session_id_source": "cli_output",
+      "unavailable_reason": null,
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-backend.md",
+      "recorded_at": "2026-07-24T00:10:00+08:00"
+    },
+    {
+      "role": "review_1",
+      "task_id": "frontend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The raw frontend Review-1 report states that the Claude Code session did not expose a provider-native Session ID.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-frontend.md",
+      "recorded_at": "2026-07-23T23:59:42+08:00"
     }
   ],
   "designer": {
@@ -198,11 +226,11 @@
       "forbidden_files": ["frontend/**", "backend/services/binance_signing.py", "backend/borrow_tasks/**", "docs/**", "reports/api-samples/**", "reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json", "reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md"],
       "dependencies": [],
       "implementation_report_path": "20-implementation-backend.md",
-      "implementation_status": "r4_fixed_pending_human_dispatch_receipt",
+      "implementation_status": "review_1_accepted",
       "base_sha": "bf31e8d757aac72c0ca4318ac606893f1af061ad",
       "head_sha": "d90f2f18acec7fe6286f2ae3fc8e187580bf0793",
       "diff_fingerprint": "d90f2f18acec7fe6286f2ae3fc8e187580bf0793:3f22d26e58e6a0c120d17e1612306413c201c568c6d98463dc91d21b4cc6d843",
-      "review_1": {"provider": "claude", "model": "Claude Opus 4.6", "artifact_path": "30-review-1-backend.md", "dispatch_path": "30-review-1-backend-opus46.dispatch.md", "verdict": null, "fallback_from": {"provider": "kimi", "model": "kimi-k3", "reason": "Human operator reported Kimi quota exhaustion before review dispatch.", "evidence_path": "15-kimi-review-1-unavailable.md"}},
+      "review_1": {"provider": "claude", "model": "Claude Opus 4.6", "artifact_path": "30-review-1-backend.md", "dispatch_path": "30-review-1-backend-opus46.dispatch.md", "verdict": "ACCEPT", "reviewer_prior_involvement": "design", "open_p0_p1": 0, "findings_summary": "Two P2 follow-up improvements only: recvWindow tightening and bounded pending-leg reconciliation.", "fallback_from": {"provider": "kimi", "model": "kimi-k3", "reason": "Human operator reported Kimi quota exhaustion before review dispatch.", "evidence_path": "15-kimi-review-1-unavailable.md"}},
       "r10_checklist": {
         "task_prompt_path": "task-A-claude-glm.prompt.md",
         "self_tests_command": ".venv/bin/python -m pytest backend/tests -q",
@@ -219,11 +247,11 @@
       "forbidden_files": ["backend/**", "docs/**", "reports/api-samples/**", "reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json", "reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md"],
       "dependencies": ["frozen additive JSON contract in 12-development-breakdown.md §3.4"],
       "implementation_report_path": "20-implementation-frontend.md",
-      "implementation_status": "received_r4_compatible_pending_human_dispatch_receipt",
+      "implementation_status": "review_1_rework_pending",
       "base_sha": "d90f2f18acec7fe6286f2ae3fc8e187580bf0793",
       "head_sha": "d873699d4c06f8dec343c9a6dcfa5fecc22d74b5",
       "diff_fingerprint": "d873699d4c06f8dec343c9a6dcfa5fecc22d74b5:fd4e7a0a20c5c5dce3f7df8b6488cddfc0b33b245e731b2b8bea1325182a581d",
-      "review_1": {"provider": "claude_glm", "model": "glm-5.2[1m]", "artifact_path": "30-review-1-frontend.md", "dispatch_path": "30-review-1-frontend.dispatch.md", "verdict": null},
+      "review_1": {"provider": "claude_glm", "model": "glm-5.2[1m]", "artifact_path": "30-review-1-frontend.md", "dispatch_path": "30-review-1-frontend.dispatch.md", "verdict": "REWORK", "reviewer_prior_involvement": "none", "open_p0_p1": 0, "required_fixes": ["Map null pair_outcome to Chinese 查询中 and single_leg to Chinese 单腿成交 with a warning badge.", "Align self-check fixtures and assertions with null and single_leg."], "fix_start_prompt_source": "30-review-1-frontend.md", "prepared_fix_dispatch_path": "frontend-r1-rework-sonnet5.dispatch.md"},
       "r10_checklist": {
         "task_prompt_path": "task-B-kimi.prompt.md",
         "self_tests_command": "node frontend/self-check.js",
@@ -402,7 +430,7 @@
       "review_rebind_required": false
     }
   ],
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "blockers": [
     "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task. This is not a blocker to design or implementation.",
@@ -432,8 +460,11 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/40-fix-backend-r4.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-backend.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-backend-opus46.dispatch.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-frontend.dispatch.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-frontend.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-backend.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-frontend.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/frontend-r1-rework-sonnet5.dispatch.md"
   ],
-  "next_action": "Human operator supplies or records the completed Task A and Task B implementation dispatch receipts (real adapter command, ISO times, and session-ID/unavailable reason). Then the bookkeeper runs the clean pre-review validator and the human operator executes the two prepared formal review-1 packets.",
-  "updated_at": "2026-07-23T23:59:59+08:00"
+  "next_action": "Human operator runs the prepared bounded Sonnet 5 frontend rework packet. The fix is limited to accurate Chinese attempt-state display and matching frontend self-check coverage; it does not modify order submission, backend, API contract, or risk policy.",
+  "updated_at": "2026-07-24T11:39:01+08:00"
 }

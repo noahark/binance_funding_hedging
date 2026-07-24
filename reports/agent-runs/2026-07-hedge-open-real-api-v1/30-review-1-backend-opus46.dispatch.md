@@ -1,13 +1,23 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: claude/opus4.6
-adapter_cmd:
+adapter_cmd: Antigravity CLI (Claude Opus 4.6 Thinking), human-operator-launched; not a Harness-registry adapter command
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable (not captured by the original operator run)
+completed_at: 2026-07-24T00:10:00+08:00
+session_id: 4094d12a-8eff-4a59-9455-05a05adefcc6
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-backend.md
 next_dispatch: none
+note: The Antigravity/Opus 4.6 session produced a complete review file (verdict ACCEPT,
+  schema-valid JSON footer) but the human operator's quota was exhausted before this
+  RECEIPT block was back-filled. This block was back-filled in a Claude Sonnet 5
+  Claude Code session at the operator's explicit request, after independently
+  re-verifying: (1) the recomputed diff_fingerprint
+  (sha256 of git diff --binary bf31e8d..d90f2f1, excluding status.json) matches both
+  the dispatch task fingerprint and the value recorded in 30-review-1-backend.md; (2)
+  spot-checked factual claims (DEFAULT_RECV_WINDOW_MS=60_000, single-attempt urlopen
+  no-retry, _require_whitelisted raises before signing) against current source. No
+  review content was authored or altered by the Sonnet 5 session.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable） ===== -->

@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `testing / R4 implementation verified; formal Review-1 preparation`.
+- Active phase: `fixing / Review-1 accepted backend and returned a bounded frontend rework`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   backend R4 delivery is `d90f2f18acec7fe6286f2ae3fc8e187580bf0793` and frontend
@@ -67,12 +67,12 @@ The user-approved design remains frozen in `00-task.md`, `10-design.md`,
 `11-adr.md`, and `05-cadence-resolution.md`. Backend and frontend delivery are
 already committed, and R4 is verified. Do not rerun implementation.
 
-The next procedural gate is formal Review-1. First obtain the human operator's
-real R9 receipt data for the completed Task A/Task B dispatches and append it
-to their existing packets without changing their prompt bodies. Then set the
-stage to `review_1`, run the clean `pre-review` validator, and have the human
-operator execute the prepared Kimi backend and Claude-GLM frontend review
-packets. Real activation and the first live task remain separate human actions.
+Review-1 evidence is now received. Backend review is ACCEPT with two non-blocking
+follow-up observations. Frontend review is REWORK for a small display/test
+correction. The user-selected Sonnet 5 fallback packet is
+`frontend-r1-rework-sonnet5.dispatch.md`; it changes only the Chinese labels and
+tests for "querying" and "single-leg" attempt states. Real activation and the
+first live task remain separate human actions.
 
 ## Implementation intake and R4 status
 
@@ -85,11 +85,17 @@ packets. Real activation and the first live task remain separate human actions.
 - Bookkeeper reproduced `.venv/bin/python -m pytest backend/tests -q` with
   **862 passed in 43.58s**, `node frontend/self-check.js` with all checks
   passing, and `git diff --check` passing. See `14-r4-verification.md`.
-- Formal Review-1 packets are prepared but not yet human-dispatched:
-  `30-review-1-backend-opus46.dispatch.md` (Claude Opus 4.6 reviews backend;
-  the prior Kimi packet remains unused after the operator reported quota
-  exhaustion, see `15-kimi-review-1-unavailable.md`) and
-  `30-review-1-frontend.dispatch.md` (Claude-GLM reviews frontend).
+- Backend Review-1 at `30-review-1-backend.md` is **ACCEPT**. Its P2 items are
+  future hardening only: reduce `recvWindow` from 60 seconds toward 5 seconds,
+  and cap per-tick pending-order reconciliation for a much larger task count.
+  Neither changes the current business contract.
+- Frontend Review-1 at `30-review-1-frontend.md` is **REWORK**. The UI should
+  show `single_leg` as Chinese "单腿成交" with a warning, and `pair_outcome:null`
+  as "查询中" rather than a dash. Self-check fixtures must cover those two real
+  states. No trading, backend, API, or risk-rule change is requested.
+- The raw backend review identifies itself as Opus 4.6. The user-reported
+  Sonnet 5 session back-filled dispatch metadata and performed a limited
+  spot-check; it did not author a separate review verdict.
 - Before the clean `pre-review` validator can pass, the human operator must
   append real R9 dispatch receipts to the already completed Task A and Task B
   implementation packets. Their raw reports do not expose the executed adapter
@@ -106,6 +112,6 @@ packets. Real activation and the first live task remain separate human actions.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-23 23:59:59 CST
+本地北京时间: 2026-07-24 11:39:01 CST
 下一步模型: human operator
-下一步任务: record completed implementation dispatch receipts, then execute the two prepared formal Review-1 packets
+下一步任务: execute the bounded Sonnet 5 frontend rework packet and preserve 40-fix-frontend-r1.md
