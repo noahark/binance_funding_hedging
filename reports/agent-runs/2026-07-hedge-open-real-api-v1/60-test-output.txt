@@ -424,3 +424,61 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-24 12:51:05 CST
 下一步模型: human operator
 下一步任务: execute only 51-review-2-rebound.dispatch.md in a fresh read-only Codex session
+
+===== Review-2 REWORK validation checkpoint (2026-07-24 13:53:47 CST) =====
+Raw final-review artifact: `50-review-2.md`
+Verdict: `REWORK` (schema-valid; it binds to
+`01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff`).
+
+The final reviewer recorded these offline, read-only results:
+
+Command: .venv/bin/python -m pytest backend/tests -q
+Result: PASS (862 passed in 44.33s)
+
+Command: node frontend/self-check.js
+Result: PASS (all self-checks passed)
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (55 passed in 1.01s)
+
+No credentials were read. No Binance connection, private request, real POST,
+Start activation, or live task occurred.
+
+The result is non-accepting despite passing regressions: deterministic offline
+reproduction showed that `target_n=1` can produce five `single_leg` attempts
+while the task remains running. Live mode remains blocked until the planned-
+attempt cap and all Review-2 required fixes are implemented and pass renewed
+review. The bookkeeper also corrected the recorded main-sync SHA to
+`9a0fabf74f004f4a34d8befd3676042963b5e66f`; it will be sealed in the REWORK
+evidence commit.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 13:53:47 CST
+下一步模型: human operator
+下一步任务: execute the two bounded Review-2 repair packets; do not activate live trading
+
+===== bookkeeper REWORK checkpoint checks (2026-07-24 13:56:13 CST) =====
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=fixing
+
+No product code, credential, network, live activation, or exchange action was
+performed by this checkpoint.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 13:56:13 CST
+下一步模型: human operator
+下一步任务: execute the two bounded Review-2 repair packets; do not activate live trading

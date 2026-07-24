@@ -2,15 +2,16 @@
 
 ## Recovery Header
 
-- Active phase: `review_2 / both bounded tasks are accepted at Review-1; Harness preflight is green and the rebound final packet is ready`.
+- Active phase: `fixing / Review-2 returned REWORK because the planned-attempt cap is unsafe`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   backend R4 delivery is `d90f2f18acec7fe6286f2ae3fc8e187580bf0793` and frontend
   delivery was corrected at `820dd1ec88f0d2727bb0bd3cd06bc28d6c4afc55`; the
   reviewed stage head was rebound to `01d3a4712c89efab79772ce2e5ee2ba415e1e43c`
   after a main-only Harness compatibility merge.
-  Stage evidence commits exist; implementation and task-level Review-1 are complete,
-  pending a final whole-stage Review-2.
+  Stage evidence commits exist; implementation and task-level Review-1 are complete.
+  The rebound final Review-2 was executed against its fixed range and returned
+  `REWORK`; its raw verdict is `50-review-2.md`.
 - Classification: `MILESTONE`; the mandatory direction panel and the user
   approval are complete. No design reopening is pending in this stage.
 - Harness/main sync exception: user-selected Kimi K3 routing was committed on
@@ -27,8 +28,10 @@
   per-leg decimal/filter behavior, and no PAPI testnet. The user selects the
   fixed-quantity route, so quoteOrderQty is not used this stage.
 - Safety: no credential access, Binance network call, real POST, push, global
-  Start activation, or first live task is authorized. Do not infer authorization
-  from `APP_HEDGE_EXECUTOR=live` being implemented in a future diff.
+  Start activation, or first live task is authorized. Review-2 found that a
+  task configured for one planned group could keep creating additional groups
+  after a `single_leg` result. Do not enable `APP_HEDGE_EXECUTOR=live`, Start,
+  or a first live task until the bounded repair passes renewed review.
 - Latest user policy: each running task card is an independent asynchronous
   worker and sends one concurrent pair each second; multiple cards may submit in
   the same second. Accepted orders are tracked by `orderId` to terminal state;
@@ -61,28 +64,33 @@
 
 ## Next Action
 
-The user-approved design remains frozen in `00-task.md`, `10-design.md`,
-`11-adr.md`, and `05-cadence-resolution.md`. Backend and frontend delivery are
-already committed, and R4 is verified. Do not rerun implementation.
+The user-approved product direction remains frozen in `00-task.md`,
+`10-design.md`, `11-adr.md`, and `05-cadence-resolution.md`. Do not change
+those documents to make the implementation appear acceptable.
 
-Review-1 evidence is complete. Backend review is ACCEPT with two non-blocking
-follow-up observations. The frontend rework is committed at `820dd1e`, its
-self-check passed, and the provider-isolated Claude-GLM re-review at
-`45-review-1-frontend-rfix.md` is ACCEPT. Both tasks therefore meet the user's
-"only after both tasks are accepted" condition for final review.
+The executed rebound final-review packet is
+`51-review-2-rebound.dispatch.md`; its raw result,
+`50-review-2.md`, is schema-valid `REWORK`, not an acceptance. Its P0 finding
+is simple: `target_n` must cap the number of planned order-pairs, but the
+current code caps only successful pairs. A single-leg or failed result can
+therefore cause another real pair to be submitted beyond the operator's chosen
+count. The review also found six P1 implementation gaps around fresh preflight,
+strict live facts, wire parameters, independent reconciliation, fill accounting,
+and UI state.
 
-`51-review-2-rebound.dispatch.md` is the only current fresh read-only Codex
-final-review packet. `50-review-2.dispatch.md` is preserved but superseded
-without execution because it used the old stage fingerprint.
-`46-review-2-routing-disclosure.md` explains the necessary disclosure:
-Claude/Anthropic cannot be final reviewer because Sonnet 5 wrote the frontend
-rework; Codex wrote stage design but no delivery code, so it is the only eligible
-decision reviewer under the strong-reviewer disclosure route. The fast
-main-only Harness correction is verified in `48-review-2-harness-rebind.md`:
-it accepts existing raw report + recorded Session ID for genuinely headerless
-historical implementation packets, but keeps all current/malformed receipts
-strict. The `pre-review` gate now passes. Real activation and the first live
-task remain separate human actions.
+Two bounded, human-operated repair packets are ready and may run in parallel:
+
+- `52-review-2-rework-backend.dispatch.md` — Claude-GLM fixes the P0 and
+  backend P1 items. It must not touch frontend or stage state.
+- `53-review-2-rework-frontend.dispatch.md` — Claude Sonnet 5 fixes only the
+  UI wording/state mismatch because Kimi is quota-unavailable. It must not
+  touch backend or stage state.
+
+Both implementers must report and stop. The bookkeeper then reconciles their
+diffs, records tests, commits the repaired state, and sends it through renewed
+provider-isolated Review-1 and Review-2. The P2 main-sync SHA was corrected in
+`status.json` to `9a0fabf74f004f4a34d8befd3676042963b5e66f`; that correction
+will be sealed with this REWORK checkpoint.
 
 ## Implementation intake and R4 status
 
@@ -122,6 +130,6 @@ task remain separate human actions.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 12:45:15 CST
-下一步模型: bookkeeper
-下一步任务: give 51-review-2-rebound.dispatch.md to the human operator for a fresh read-only Codex final review, then validate the returned verdict
+本地北京时间: 2026-07-24 13:56:13 CST
+下一步模型: human operator
+下一步任务: run 52-review-2-rework-backend.dispatch.md and 53-review-2-rework-frontend.dispatch.md in separate fresh write-capable sessions; do not activate live trading

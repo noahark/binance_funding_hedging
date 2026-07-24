@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-real-api-v1",
-  "status": "review_2",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-real-api-v1",
@@ -46,6 +46,18 @@
       "proposed_model": "Claude Sonnet 5",
       "status": "review_1_accepted_after_rework",
       "reason": "Kimi quota was unavailable; the user selected Claude Sonnet 5 for the bounded frontend rework. Claude-GLM's provider-isolated re-review at 45-review-1-frontend-rfix.md returned ACCEPT."
+    },
+    "review_2_rework_backend": {
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_prepared",
+      "reason": "Review-2 P0/P1 repair is backend-dominant and keeps the existing backend owner."
+    },
+    "review_2_rework_frontend": {
+      "provider": "claude",
+      "model": "Claude Sonnet 5",
+      "status": "dispatch_prepared",
+      "reason": "Kimi remains quota-unavailable; the user previously selected Sonnet 5 for the bounded frontend fallback. The frontend repair is provider-isolated from its planned GLM reviewer."
     },
     "excluded_from_core_implementation_and_fix": ["codex"],
     "human_operator_executes_cross_model_dispatch": true
@@ -198,6 +210,16 @@
       "unavailable_reason": "The frontend re-review report states that its Claude Code session did not expose a provider-native Session ID.",
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/45-review-1-frontend-rfix.md",
       "recorded_at": "2026-07-24T12:17:25+08:00"
+    },
+    {
+      "role": "review_2",
+      "provider": "codex",
+      "model": "GPT-5 Codex",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The final Review-2 raw report states that its Codex session did not expose a provider-native Session ID.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/50-review-2.md",
+      "recorded_at": "2026-07-24T13:42:29+08:00"
     }
   ],
   "designer": {
@@ -254,7 +276,7 @@
       "forbidden_files": ["frontend/**", "backend/services/binance_signing.py", "backend/borrow_tasks/**", "docs/**", "reports/api-samples/**", "reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json", "reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md"],
       "dependencies": [],
       "implementation_report_path": "20-implementation-backend.md",
-      "implementation_status": "review_1_accepted",
+      "implementation_status": "review_2_rework_pending",
       "base_sha": "bf31e8d757aac72c0ca4318ac606893f1af061ad",
       "head_sha": "d90f2f18acec7fe6286f2ae3fc8e187580bf0793",
       "diff_fingerprint": "d90f2f18acec7fe6286f2ae3fc8e187580bf0793:3f22d26e58e6a0c120d17e1612306413c201c568c6d98463dc91d21b4cc6d843",
@@ -275,7 +297,7 @@
       "forbidden_files": ["backend/**", "docs/**", "reports/api-samples/**", "reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json", "reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md"],
       "dependencies": ["frozen additive JSON contract in 12-development-breakdown.md §3.4"],
       "implementation_report_path": "20-implementation-frontend.md",
-      "implementation_status": "review_1_accepted_after_rework",
+      "implementation_status": "review_2_rework_pending",
       "base_sha": "d873699d4c06f8dec343c9a6dcfa5fecc22d74b5",
       "head_sha": "820dd1e",
       "diff_fingerprint": "820dd1e:cd44c9a921e4f6bb21697c1a4c3ab776dc860b2791dd38b887cb5b7dc7f44c6b",
@@ -468,13 +490,13 @@
     },
     "dispatch_path": "51-review-2-rebound.dispatch.md",
     "artifact_path": "50-review-2.md",
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
+    "open_p0_p1": 7,
+    "verdict": "REWORK",
+    "json_schema_valid": true,
     "diff_fingerprint": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff",
     "covers_through_task": "backend, frontend, and the main-synced Harness compatibility change",
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "50-review-2.md",
     "invalid_json_attempts": 0
   },
   "authorized_exceptions": [],
@@ -490,7 +512,7 @@
       "review_rebind_required": false
     },
     {
-      "main_commit": "9a0fabf7d436f0806229c8eefa6e4f7ed04b5f43",
+      "main_commit": "9a0fabf74f004f4a34d8befd3676042963b5e66f",
       "merge_commit": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c",
       "at": "2026-07-24T12:45:15+08:00",
       "reason": "User authorized a fast, narrow Harness relaxation: historical implementation packets with no receipt header may use already-recorded matching raw report and Session ID evidence. The active stage needed this behavior to run its final-review preflight; no trading source or risk contract changed.",
@@ -501,10 +523,11 @@
       "rebind_evidence": "48-review-2-harness-rebind.md"
     }
   ],
-  "rework_count": 1,
+  "rework_count": 2,
   "max_rework": 3,
   "blockers": [
-    "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task. This is not a blocker to review or implementation."
+    "P0 live block: target_n currently limits successful pairs instead of planned attempts, so single-leg/failed outcomes can produce attempts beyond the operator-entered count. Do not enable APP_HEDGE_EXECUTOR=live, Start, or a first real task until the Review-2 fix is accepted.",
+    "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task after review acceptance."
   ],
   "human_escalation": {"required": false, "reason": null},
   "terminal_reason": null,
@@ -541,8 +564,11 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/50-review-2.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/47-pre-review-gate-hold.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/48-review-2-harness-rebind.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/51-review-2-rebound.dispatch.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/51-review-2-rebound.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/50-review-2.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/52-review-2-rework-backend.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/53-review-2-rework-frontend.dispatch.md"
   ],
-  "next_action": "Both tasks are accepted at Review-1 and the main-synced Harness compatibility gate is green. The only current action is human execution of the fresh read-only 51-review-2-rebound.dispatch.md packet; it cannot activate live trading or place an order.",
-  "updated_at": "2026-07-24T12:45:15+08:00"
+  "next_action": "Review-2 returned REWORK with a P0 attempt-cap defect. Human operator may dispatch the prepared backend and frontend bounded fix packets in parallel; live mode, Start, and first real order remain prohibited until both fixes and renewed reviews pass.",
+  "updated_at": "2026-07-24T13:56:13+08:00"
 }
