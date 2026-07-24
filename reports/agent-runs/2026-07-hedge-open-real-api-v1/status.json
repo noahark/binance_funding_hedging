@@ -352,15 +352,15 @@
     "approval_scope": "User approved the immediate-open direction, removal of the stale Manual Close Design Gate, and the canonical PRD restructuring."
   },
   "base_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
-  "head_sha": "820dd1e",
+  "head_sha": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c",
   "latest_bookkeeper_checkpoint": {
     "branch": "stage/2026-07-hedge-open-real-api-v1",
-    "head_sha": "820dd1e",
-    "git_status": "clean after the committed bounded frontend Review-1 rework before this bookkeeping checkpoint",
-    "tests": "frontend R1 rework: node frontend/self-check.js passed; git diff --check passed",
-    "next_action": "human operator executes the prepared frontend re-review packet"
+    "head_sha": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c",
+    "git_status": "clean after the main-only Harness compatibility merge before the Review-2 rebind checkpoint",
+    "tests": "Harness validator protocol tests: 55 passed; pre-review validation passed",
+    "next_action": "human operator executes only the rebound final-review packet 51-review-2-rebound.dispatch.md"
   },
-  "diff_fingerprint": "820dd1e:661ce0295bdc625d2f9772328f09bec55c70207bc6289feda6916e06149b09b7",
+  "diff_fingerprint": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff",
   "r4_diff_reconciliation": {
     "status": "passed",
     "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/13-r4-diff-reconciliation.md",
@@ -444,11 +444,39 @@
       ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint (passed; status testing)",
       "node frontend/self-check.js (passed; Review-2 packet preparation)",
       ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint (passed; status review_2)",
-      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review (held only by missing R9 receipt headers in the historical Task A/Task B packets; see 47-pre-review-gate-hold.md)"
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review (held only by missing R9 receipt headers in the historical Task A/Task B packets; see 47-pre-review-gate-hold.md)",
+      ".venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q (55 passed after legacy receipt compatibility change)",
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review (passed after Harness merge; rebound final-review scope at 01d3a47)"
     ]
   },
   "review_1": {"reviewer": "task-level cross-review pool", "provider": null, "model": null, "open_p0_p1": 0, "verdict": "ACCEPT", "json_schema_valid": true, "diff_fingerprint": null, "covers_through_task": "backend and frontend", "reviewer_prior_involvement": "none", "fix_start_prompt_present": false, "fix_start_prompt_source": null, "invalid_json_attempts": 0, "summary": "Both parallel tasks are accepted: backend at 30-review-1-backend.md and frontend after bounded rework at 45-review-1-frontend-rfix.md. This aggregate is navigation metadata; task-level verdicts remain authoritative."},
-  "review_2": {"reviewer": "codex", "provider": "codex", "model": "GPT-5 Codex", "primary_provider": "codex", "preferred_provider": "codex", "fallback_provider": "claude", "fallback_reason": "Anthropic/Claude is not eligible as the unrelated final reviewer because Claude Sonnet 5 authored the accepted frontend rework. zhipu_glm and Kimi are code-author providers. Codex is the only remaining non-code-author decision provider and must use the documented design-involvement strong-reviewer disclosure route.", "reviewer_prior_involvement": "design", "reviewer_prior_involvement_notes": "Codex authored stage design and direction synthesis but did not write any delivery or fix code. A fresh read-only Codex reviewer must independently review the PRD and user-approved direction as top authority; design/breakdown are evidence under review.", "unrelated_reviewer_unavailable_evidence": "46-review-2-routing-disclosure.md", "design_conflict_override": {"used": true, "reason": "No provider is both unrelated to the stage design and free of delivery/fix authorship. Anthropic is hard-ineligible because Sonnet 5 wrote the frontend rework; use Codex with disclosed prior design involvement.", "unrelated_reviewer_unavailable_evidence": "46-review-2-routing-disclosure.md"}, "dispatch_path": "50-review-2.dispatch.md", "artifact_path": "50-review-2.md", "open_p0_p1": null, "verdict": null, "json_schema_valid": null, "diff_fingerprint": "820dd1e:661ce0295bdc625d2f9772328f09bec55c70207bc6289feda6916e06149b09b7", "covers_through_task": "backend and frontend", "fix_start_prompt_present": null, "fix_start_prompt_source": null, "invalid_json_attempts": 0},
+  "review_2": {
+    "reviewer": "codex",
+    "provider": "codex",
+    "model": "GPT-5 Codex",
+    "primary_provider": "codex",
+    "preferred_provider": "codex",
+    "fallback_provider": "claude",
+    "fallback_reason": "Anthropic/Claude is not eligible as the unrelated final reviewer because Claude Sonnet 5 authored the accepted frontend rework. zhipu_glm and Kimi are code-author providers. Codex is the only remaining non-code-author decision provider and must use the documented design-involvement strong-reviewer disclosure route.",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "Codex authored stage design and direction synthesis but did not write any delivery or fix code. A fresh read-only Codex reviewer must independently review the PRD and user-approved direction as top authority; design/breakdown are evidence under review.",
+    "unrelated_reviewer_unavailable_evidence": "46-review-2-routing-disclosure.md",
+    "design_conflict_override": {
+      "used": true,
+      "reason": "No provider is both unrelated to the stage design and free of delivery/fix authorship. Anthropic is hard-ineligible because Sonnet 5 wrote the frontend rework; use Codex with disclosed prior design involvement.",
+      "unrelated_reviewer_unavailable_evidence": "46-review-2-routing-disclosure.md"
+    },
+    "dispatch_path": "51-review-2-rebound.dispatch.md",
+    "artifact_path": "50-review-2.md",
+    "open_p0_p1": null,
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff",
+    "covers_through_task": "backend, frontend, and the main-synced Harness compatibility change",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
+    "invalid_json_attempts": 0
+  },
   "authorized_exceptions": [],
   "main_syncs": [
     {
@@ -460,12 +488,22 @@
       "validator": "scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint: passed",
       "diff_fingerprint": null,
       "review_rebind_required": false
+    },
+    {
+      "main_commit": "9a0fabf7d436f0806229c8eefa6e4f7ed04b5f43",
+      "merge_commit": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c",
+      "at": "2026-07-24T12:45:15+08:00",
+      "reason": "User authorized a fast, narrow Harness relaxation: historical implementation packets with no receipt header may use already-recorded matching raw report and Session ID evidence. The active stage needed this behavior to run its final-review preflight; no trading source or risk contract changed.",
+      "tests": "scripts/tests/test_validate_stage_dispatch_protocol.py: 55 passed",
+      "validator": "scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review: passed",
+      "diff_fingerprint": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff",
+      "review_rebind_required": true,
+      "rebind_evidence": "48-review-2-harness-rebind.md"
     }
   ],
   "rework_count": 1,
   "max_rework": 3,
   "blockers": [
-    "Pre-review is mechanically held by missing R9 receipt headers in the two historical implementation packets. This is a Harness compatibility issue, not a product, source, test, or risk-policy issue; see 47-pre-review-gate-hold.md. Do not ask the human to hand-edit evidence or invent historical command/timestamp details.",
     "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task. This is not a blocker to review or implementation."
   ],
   "human_escalation": {"required": false, "reason": null},
@@ -501,8 +539,10 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/45-review-1-frontend-rfix.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/46-review-2-routing-disclosure.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/50-review-2.dispatch.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/47-pre-review-gate-hold.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/47-pre-review-gate-hold.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/48-review-2-harness-rebind.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/51-review-2-rebound.dispatch.md"
   ],
-  "next_action": "Both tasks are accepted at Review-1 and the final Codex packet is ready. Keep it undispatched until a separately reviewed Harness compatibility change resolves the historical receipt-header gate; neither state activates live trading or places an order.",
-  "updated_at": "2026-07-24T12:25:24+08:00"
+  "next_action": "Both tasks are accepted at Review-1 and the main-synced Harness compatibility gate is green. The only current action is human execution of the fresh read-only 51-review-2-rebound.dispatch.md packet; it cannot activate live trading or place an order.",
+  "updated_at": "2026-07-24T12:45:15+08:00"
 }

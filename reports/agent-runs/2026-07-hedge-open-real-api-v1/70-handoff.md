@@ -2,11 +2,13 @@
 
 ## Recovery Header
 
-- Active phase: `review_2 preflight hold / both bounded tasks are accepted at Review-1; final packet is prepared but undispatched`.
+- Active phase: `review_2 / both bounded tasks are accepted at Review-1; Harness preflight is green and the rebound final packet is ready`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   backend R4 delivery is `d90f2f18acec7fe6286f2ae3fc8e187580bf0793` and frontend
-  delivery was corrected at `820dd1ec88f0d2727bb0bd3cd06bc28d6c4afc55`.
+  delivery was corrected at `820dd1ec88f0d2727bb0bd3cd06bc28d6c4afc55`; the
+  reviewed stage head was rebound to `01d3a4712c89efab79772ce2e5ee2ba415e1e43c`
+  after a main-only Harness compatibility merge.
   Stage evidence commits exist; implementation and task-level Review-1 are complete,
   pending a final whole-stage Review-2.
 - Classification: `MILESTONE`; the mandatory direction panel and the user
@@ -69,15 +71,18 @@ self-check passed, and the provider-isolated Claude-GLM re-review at
 `45-review-1-frontend-rfix.md` is ACCEPT. Both tasks therefore meet the user's
 "only after both tasks are accepted" condition for final review.
 
-`50-review-2.dispatch.md` is the prepared fresh read-only Codex final-review
-packet. `46-review-2-routing-disclosure.md` explains the necessary disclosure:
+`51-review-2-rebound.dispatch.md` is the only current fresh read-only Codex
+final-review packet. `50-review-2.dispatch.md` is preserved but superseded
+without execution because it used the old stage fingerprint.
+`46-review-2-routing-disclosure.md` explains the necessary disclosure:
 Claude/Anthropic cannot be final reviewer because Sonnet 5 wrote the frontend
 rework; Codex wrote stage design but no delivery code, so it is the only eligible
-decision reviewer under the strong-reviewer disclosure route. Its dispatch is
-currently held only by the historical R9 receipt-header compatibility issue
-recorded in `47-pre-review-gate-hold.md`; it is not a trading-code or test
-finding and must not be repaired by asking the human to edit evidence. Real
-activation and the first live task remain separate human actions.
+decision reviewer under the strong-reviewer disclosure route. The fast
+main-only Harness correction is verified in `48-review-2-harness-rebind.md`:
+it accepts existing raw report + recorded Session ID for genuinely headerless
+historical implementation packets, but keeps all current/malformed receipts
+strict. The `pre-review` gate now passes. Real activation and the first live
+task remain separate human actions.
 
 ## Implementation intake and R4 status
 
@@ -117,6 +122,6 @@ activation and the first live task remain separate human actions.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 12:25:24 CST
+本地北京时间: 2026-07-24 12:45:15 CST
 下一步模型: bookkeeper
-下一步任务: preserve the pre-review hold and route its receipt-header compatibility issue through a separate Harness change before dispatching the prepared final review
+下一步任务: give 51-review-2-rebound.dispatch.md to the human operator for a fresh read-only Codex final review, then validate the returned verdict
