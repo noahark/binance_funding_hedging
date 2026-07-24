@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `review_2 / both bounded tasks are accepted at Review-1; final review packet is prepared`.
+- Active phase: `review_2 preflight hold / both bounded tasks are accepted at Review-1; final packet is prepared but undispatched`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   backend R4 delivery is `d90f2f18acec7fe6286f2ae3fc8e187580bf0793` and frontend
@@ -73,8 +73,11 @@ self-check passed, and the provider-isolated Claude-GLM re-review at
 packet. `46-review-2-routing-disclosure.md` explains the necessary disclosure:
 Claude/Anthropic cannot be final reviewer because Sonnet 5 wrote the frontend
 rework; Codex wrote stage design but no delivery code, so it is the only eligible
-decision reviewer under the strong-reviewer disclosure route. Real activation
-and the first live task remain separate human actions.
+decision reviewer under the strong-reviewer disclosure route. Its dispatch is
+currently held only by the historical R9 receipt-header compatibility issue
+recorded in `47-pre-review-gate-hold.md`; it is not a trading-code or test
+finding and must not be repaired by asking the human to edit evidence. Real
+activation and the first live task remain separate human actions.
 
 ## Implementation intake and R4 status
 
@@ -116,4 +119,4 @@ Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
 本地北京时间: 2026-07-24 12:25:24 CST
 下一步模型: bookkeeper
-下一步任务: commit the received frontend re-review evidence, run the pre-review gate, then hand the final Codex review packet to the human operator only if that gate passes
+下一步任务: preserve the pre-review hold and route its receipt-header compatibility issue through a separate Harness change before dispatching the prepared final review

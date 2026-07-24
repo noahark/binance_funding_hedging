@@ -441,7 +441,10 @@
       ".venv/bin/python -m pytest backend/tests -q (862 passed in 43.58s; bookkeeper R4 verification)",
       "node frontend/self-check.js (passed; bookkeeper R4 verification)",
       "git diff --check (passed; R4 verification)",
-      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint (passed; status testing)"
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint (passed; status testing)",
+      "node frontend/self-check.js (passed; Review-2 packet preparation)",
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint (passed; status review_2)",
+      ".venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review (held only by missing R9 receipt headers in the historical Task A/Task B packets; see 47-pre-review-gate-hold.md)"
     ]
   },
   "review_1": {"reviewer": "task-level cross-review pool", "provider": null, "model": null, "open_p0_p1": 0, "verdict": "ACCEPT", "json_schema_valid": true, "diff_fingerprint": null, "covers_through_task": "backend and frontend", "reviewer_prior_involvement": "none", "fix_start_prompt_present": false, "fix_start_prompt_source": null, "invalid_json_attempts": 0, "summary": "Both parallel tasks are accepted: backend at 30-review-1-backend.md and frontend after bounded rework at 45-review-1-frontend-rfix.md. This aggregate is navigation metadata; task-level verdicts remain authoritative."},
@@ -462,6 +465,7 @@
   "rework_count": 1,
   "max_rework": 3,
   "blockers": [
+    "Pre-review is mechanically held by missing R9 receipt headers in the two historical implementation packets. This is a Harness compatibility issue, not a product, source, test, or risk-policy issue; see 47-pre-review-gate-hold.md. Do not ask the human to hand-edit evidence or invent historical command/timestamp details.",
     "A human must separately authorize actual activation: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task. This is not a blocker to review or implementation."
   ],
   "human_escalation": {"required": false, "reason": null},
@@ -496,8 +500,9 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/45-review-1-frontend-rfix.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/45-review-1-frontend-rfix.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/46-review-2-routing-disclosure.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/50-review-2.dispatch.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/50-review-2.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/47-pre-review-gate-hold.md"
   ],
-  "next_action": "Both tasks are accepted at Review-1. Run the recorded pre-review validation, then the fresh read-only Codex Review-2 packet; neither action activates live trading or places an order.",
+  "next_action": "Both tasks are accepted at Review-1 and the final Codex packet is ready. Keep it undispatched until a separately reviewed Harness compatibility change resolves the historical receipt-header gate; neither state activates live trading or places an order.",
   "updated_at": "2026-07-24T12:25:24+08:00"
 }

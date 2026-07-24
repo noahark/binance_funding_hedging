@@ -350,3 +350,24 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-24 12:25:24 CST
 下一步模型: bookkeeper
 下一步任务: commit the re-review evidence, run pre-review validation, and dispatch final review only if the required gate passes
+
+===== final-review preflight (2026-07-24 12:25:24 CST) =====
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: EXPECTED GATE HOLD (exit 1)
+STAGE VALIDATION FAILED
+- task backend implementation dispatch: dispatch file task-A-claude-glm.prompt.md has no DISPATCH RECEIPT block
+- task frontend implementation dispatch: dispatch file task-B-kimi.prompt.md has no DISPATCH RECEIPT block
+
+Interpretation: both task-level Review-1 verdicts are accepted, the frontend
+self-check and checkpoint validation pass, and no source/test/trading-policy
+defect was reported here. The two messages concern only historic packet headers
+that predate the receipt form. The raw reports and the operator-provided Session
+IDs are already preserved in `status.json`; do not invent retroactive command
+text or exact start timestamps. See `47-pre-review-gate-hold.md`.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 12:25:24 CST
+下一步模型: bookkeeper
+下一步任务: keep Review-2 undispatched until the separately reviewed Harness receipt compatibility change is available
