@@ -515,3 +515,32 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-24 14:24:42 CST
 下一步模型: bookkeeper
 下一步任务: prepare the replacement development breakdown and replacement dispatch packets; do not dispatch 52 or 53
+
+===== replacement breakdown and dispatch-ready checkpoint (2026-07-24 15:32:53 CST) =====
+Raw replacement breakdown: `16-replacement-development-breakdown.md`
+Replacement packets: `54-review-2-rework-backend.dispatch.md` and
+`55-review-2-rework-frontend.dispatch.md`.
+
+Command: jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=dispatch-ready
+status=fixing
+
+The gate authorizes only human-operated implementation dispatch from packets
+54 and 55. It does not authorize credentials, Binance network access, live
+mode, Start, a first order, WebSocket code, or use of superseded packets 52/53.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/16-replacement-development-breakdown.md
+本地北京时间: 2026-07-24 15:32:53 CST
+下一步模型: human operator
+下一步任务: execute packets 54 and 55 in separate fresh write-capable sessions; do not activate live trading

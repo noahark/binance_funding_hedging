@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `design_amendment / user replaced the immediate cadence and added opening logs`.
+- Active phase: `fixing / replacement breakdown and bounded repair packets are dispatch-ready`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   backend R4 delivery is `d90f2f18acec7fe6286f2ae3fc8e187580bf0793` and frontend
@@ -14,14 +14,15 @@
   `REWORK`; its raw verdict is `50-review-2.md`.
 - Classification: `MILESTONE`; the mandatory direction panel is complete. The
   user approved a bounded design amendment at
-  `15-immediate-loop-and-open-log-amendment.md`; replacement task breakdown is
-  now required before any repair implementation dispatch.
+  `15-immediate-loop-and-open-log-amendment.md`; Fable's replacement task
+  breakdown is received at `16-replacement-development-breakdown.md`.
 - Harness/main sync exception: user-selected Kimi K3 routing was committed on
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
 - Read next: `status.json`, `15-immediate-loop-and-open-log-amendment.md`,
-  `50-review-2.md`, and the two task-level Review-1 reports.
+  `16-replacement-development-breakdown.md`, `50-review-2.md`, and the two
+  replacement dispatch packets.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
@@ -73,11 +74,18 @@ page and task-local fatal-error stops. It does not authorize any real order.
 
 `52-review-2-rework-backend.dispatch.md` and
 `53-review-2-rework-frontend.dispatch.md` are preserved as immutable evidence
-but are superseded before execution. Do not give either to a model. The next
-bookkeeper work is a replacement development breakdown that maps the unchanged
-Review-2 findings plus `15-immediate-loop-and-open-log-amendment.md` to new
-backend/frontend boundaries, test evidence, and provider-isolated review
-routing. Only then may replacement dispatch packets be prepared.
+but are superseded before execution. Do not give either to a model.
+
+Fable's replacement breakdown `16-replacement-development-breakdown.md` is
+received with a verified Session ID recorded in `status.json`. It freezes the
+new one-active-pair task contract, the task-local error matrix, and the
+additive `entries` opening-log projection. `54-review-2-rework-backend.dispatch.md`
+(Claude-GLM) and `55-review-2-rework-frontend.dispatch.md` (Claude Sonnet 5)
+passed the parallel `dispatch-ready` gate. They are the only current
+implementation packets and may be run by the human operator in separate fresh
+write-capable sessions after this checkpoint commit. The Sonnet frontend owner
+must later receive provider-isolated GLM Review-1; do not reuse the historical
+Kimi ownership for this new code.
 
 ## Implementation intake and R4 status
 
@@ -117,6 +125,6 @@ routing. Only then may replacement dispatch packets be prepared.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 14:24:42 CST
-下一步模型: bookkeeper
-下一步任务: prepare the replacement development breakdown; do not dispatch 52 or 53 and do not activate live trading
+本地北京时间: 2026-07-24 15:32:53 CST
+下一步模型: human operator
+下一步任务: run 54-review-2-rework-backend.dispatch.md and 55-review-2-rework-frontend.dispatch.md in separate fresh write-capable sessions; do not activate live trading
