@@ -2,23 +2,21 @@
 
 ## Recovery Header
 
-- Active phase: `fixing / Review-1 accepted backend and returned a bounded frontend rework`.
+- Active phase: `review_2 / both bounded tasks are accepted at Review-1; final review packet is prepared`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   backend R4 delivery is `d90f2f18acec7fe6286f2ae3fc8e187580bf0793` and frontend
-  delivery is `d873699d4c06f8dec343c9a6dcfa5fecc22d74b5`.
-  Stage evidence commits exist; implementation is complete pending formal review.
-- Classification: `MILESTONE`; default direction panel is mandatory. Independent
-  raw drafts are received from Claude Opus 4.8, GLM-5.2, Kimi K3, and GPT-5
-  Codex. Grok has an explicit unavailable record because the operator reported
-  no quota. The panel is complete and synthesis may begin.
+  delivery was corrected at `820dd1ec88f0d2727bb0bd3cd06bc28d6c4afc55`.
+  Stage evidence commits exist; implementation and task-level Review-1 are complete,
+  pending a final whole-stage Review-2.
+- Classification: `MILESTONE`; the mandatory direction panel and the user
+  approval are complete. No design reopening is pending in this stage.
 - Harness/main sync exception: user-selected Kimi K3 routing was committed on
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `06-direction-synthesis.md`,
-  `04-user-execution-policy.md`, and raw `direction-drafts/` only if auditing
-  the synthesis.
+- Read next: `status.json`, `50-review-2.dispatch.md`,
+  `46-review-2-routing-disclosure.md`, and the two task-level Review-1 reports.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
@@ -51,11 +49,9 @@
 - Immediate only; smooth WebSocket mode is a separate next stage. Each future
   smooth task will independently monitor its price spread through WebSocket and
   trigger only on its own configured spread-rate condition.
-- Working rule is forward margin MARKET BUY with `quoteOrderQty`; reverse spot
-  sell and both UM sides use `quantity`. **Superseded:** user selects concurrent
-  fixed base `quantity=q_common` for every immediate hedge leg; quoteOrderQty is
-  not used in this stage. Regular Portfolio Margin is the account assumption;
-  PM-Pro is out of scope.
+- Working rule is concurrent fixed base `quantity=q_common` for every immediate
+  hedge leg; `quoteOrderQty` is not used in this stage. Regular Portfolio Margin
+  is the account assumption; PM-Pro is out of scope.
 - Kimi direction routing is now `kimi_k3` / `kimi-k3`. The already stored
   `direction-drafts/kimi27.md` remains immutable under its historical filename;
   the human operator confirmed it was in fact executed by K3, so it is the
@@ -67,12 +63,18 @@ The user-approved design remains frozen in `00-task.md`, `10-design.md`,
 `11-adr.md`, and `05-cadence-resolution.md`. Backend and frontend delivery are
 already committed, and R4 is verified. Do not rerun implementation.
 
-Review-1 evidence is now received. Backend review is ACCEPT with two non-blocking
-follow-up observations. The frontend rework is committed at `820dd1e` and its
-self-check passed. The only next task is the narrow Claude-GLM re-review packet
-`45-review-1-frontend-rfix.dispatch.md`, which checks the Chinese labels and
-tests for "querying" and "single-leg" attempt states. Real activation and the
-first live task remain separate human actions.
+Review-1 evidence is complete. Backend review is ACCEPT with two non-blocking
+follow-up observations. The frontend rework is committed at `820dd1e`, its
+self-check passed, and the provider-isolated Claude-GLM re-review at
+`45-review-1-frontend-rfix.md` is ACCEPT. Both tasks therefore meet the user's
+"only after both tasks are accepted" condition for final review.
+
+`50-review-2.dispatch.md` is the prepared fresh read-only Codex final-review
+packet. `46-review-2-routing-disclosure.md` explains the necessary disclosure:
+Claude/Anthropic cannot be final reviewer because Sonnet 5 wrote the frontend
+rework; Codex wrote stage design but no delivery code, so it is the only eligible
+decision reviewer under the strong-reviewer disclosure route. Real activation
+and the first live task remain separate human actions.
 
 ## Implementation intake and R4 status
 
@@ -89,22 +91,18 @@ first live task remain separate human actions.
   future hardening only: reduce `recvWindow` from 60 seconds toward 5 seconds,
   and cap per-tick pending-order reconciliation for a much larger task count.
   Neither changes the current business contract.
-- Frontend Review-1 at `30-review-1-frontend.md` is **REWORK**. The UI should
-  show `single_leg` as Chinese "单腿成交" with a warning, and `pair_outcome:null`
-  as "查询中" rather than a dash. Self-check fixtures must cover those two real
-  states. No trading, backend, API, or risk-rule change is requested.
-- Sonnet 5 completed the bounded correction in `40-fix-frontend-r1.md`, committed
-  as `820dd1e`. Bookkeeper independently reran `node frontend/self-check.js`:
-  all checks passed. The new task fingerprint is
+- Frontend Review-1 initially returned **REWORK** because `single_leg` and a
+  null `pair_outcome` were not shown in plain Chinese and the self-check did not
+  cover their real backend values. Sonnet 5 completed the bounded correction in
+  `40-fix-frontend-r1.md`, committed as `820dd1e`; the new task fingerprint is
   `820dd1e:cd44c9a921e4f6bb21697c1a4c3ab776dc860b2791dd38b887cb5b7dc7f44c6b`.
+- The re-review in `45-review-1-frontend-rfix.md` is **ACCEPT**: `single_leg`
+  now shows 「单腿成交」+ warning, `pair_outcome:null` shows 「查询中」+ info, and
+  the self-check covers both states. This is a front-end wording/test repair
+  only; it changes no trading, backend, API, credential, or risk rule.
 - The raw backend review identifies itself as Opus 4.6. The user-reported
   Sonnet 5 session back-filled dispatch metadata and performed a limited
   spot-check; it did not author a separate review verdict.
-- Before the clean `pre-review` validator can pass, the human operator must
-  append real R9 dispatch receipts to the already completed Task A and Task B
-  implementation packets. Their raw reports do not expose the executed adapter
-  commands or provider-native session IDs; the bookkeeper must not invent them.
-  Real activation and the first live task remain separate human actions.
 - The human operator has now supplied the Task A Claude-GLM runner Session ID
   `694ea9e3-20e9-4f42-800e-940f9530a9bb` and Task B Kimi Session ID
   `session_135dcaae-ea96-456c-960e-00762ebc1fe8`; both are recorded in
@@ -116,6 +114,6 @@ first live task remain separate human actions.
 当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
-本地北京时间: 2026-07-24 11:51:36 CST
-下一步模型: human operator
-下一步任务: execute the narrow Claude-GLM frontend re-review packet and preserve 45-review-1-frontend-rfix.md
+本地北京时间: 2026-07-24 12:25:24 CST
+下一步模型: bookkeeper
+下一步任务: commit the received frontend re-review evidence, run the pre-review gate, then hand the final Codex review packet to the human operator only if that gate passes
