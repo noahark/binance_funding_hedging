@@ -3273,10 +3273,10 @@
       // real-api-v1（12-breakdown §3.4）：pair_outcome / pause_reason 仅做中文标签映射，
       // 未收录的取值原样展示，前端不发明后端语义。
       const HEDGE_PAIR_OUTCOME_LABELS = {
-        accepted_pair: '已受理', confirmed_failed: '已确认失败', querying: '查询中'
+        accepted_pair: '已受理', confirmed_failed: '已确认失败', single_leg: '单腿成交', querying: '查询中'
       };
       const HEDGE_PAIR_OUTCOME_BADGE = {
-        accepted_pair: 'success', confirmed_failed: 'danger', querying: 'info'
+        accepted_pair: 'success', confirmed_failed: 'danger', single_leg: 'warning', querying: 'info'
       };
       const HEDGE_PAUSE_REASON_LABELS = {
         consecutive_submission_failure: '连续提交失败达到阈值'
@@ -3784,7 +3784,8 @@
       function extractHedgeAttempts(doc) {
         const out = [];
         if (!doc || typeof doc !== 'object') return out;
-        [doc.attempts, doc.fills, doc.logs, doc.entries].forEach(list => {
+        const sources = Array.isArray(doc.attempts) ? [doc.attempts] : [doc.fills, doc.logs, doc.entries];
+        sources.forEach(list => {
           if (!Array.isArray(list)) return;
           list.forEach(item => {
             const attempt = normalizeHedgeAttempt(item);
@@ -3817,10 +3818,12 @@
 
       function renderHedgeAttemptCard(attempt) {
         const dirLabel = attempt.direction === 'forward' ? '正向' : attempt.direction === 'reverse' ? '反向' : hedgeText(attempt.direction);
-        const outcomeLabel = attempt.pair_outcome
-          ? (HEDGE_PAIR_OUTCOME_LABELS[attempt.pair_outcome] || String(attempt.pair_outcome))
-          : '—';
-        const outcomeBadge = HEDGE_PAIR_OUTCOME_BADGE[attempt.pair_outcome] || 'muted';
+        const outcomeLabel = attempt.pair_outcome === null
+          ? '查询中'
+          : (HEDGE_PAIR_OUTCOME_LABELS[attempt.pair_outcome] || String(attempt.pair_outcome));
+        const outcomeBadge = attempt.pair_outcome === null
+          ? 'info'
+          : (HEDGE_PAIR_OUTCOME_BADGE[attempt.pair_outcome] || 'muted');
         const linkedTask = attempt.task_id ? findHedgeTask(attempt.task_id) : null;
         const taskLabel = linkedTask ? escapeHtml(linkedTask.coin) : escapeHtml(hedgeText(attempt.task_id));
         return `

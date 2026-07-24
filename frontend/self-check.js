@@ -3855,12 +3855,16 @@ setTimeout(async () => {
       const attemptA = mockHedgeAttempt({ task_id: 'h-att-1', attempt_seq: 2, residual: '0.00000100' });
       const attemptB = mockHedgeAttempt({
         task_id: 'h-att-1', attempt_id: 'att-2', attempt_seq: 1, direction: 'reverse',
-        pair_outcome: 'querying', residual: '-0.00010000',
+        pair_outcome: null, residual: '-0.00010000',
         spot: {
           client_order_id: 'hgo-att2-s', order_id: null, status: 'NEW',
           cumulative_base_qty: '0.00000000', cumulative_quote_amt: '0.00000000', avg_price: '0'
         },
         perp: null
+      });
+      const attemptC = mockHedgeAttempt({
+        task_id: 'h-att-1', attempt_id: 'att-3', attempt_seq: 3, direction: 'forward',
+        pair_outcome: 'single_leg', residual: '0.00000200'
       });
       hedgeLogsGetResponse = { status: 200, body: {
         logs: [
@@ -3869,7 +3873,9 @@ setTimeout(async () => {
           // payload 内嵌 attempt 文档（logs 条目包装）
           { id: 99, task_id: 'h-att-1', ts: '2026-07-23T12:00:00.000000Z', attempt_id: 'att-2', kind: 'attempt', payload: attemptB },
           // 非 attempt 日志条目：必须被忽略
-          { id: 98, task_id: 'h-att-1', ts: '2026-07-23T11:59:00.000000Z', attempt_id: null, kind: 'info', payload: { message: 'scheduler tick' } }
+          { id: 98, task_id: 'h-att-1', ts: '2026-07-23T11:59:00.000000Z', attempt_id: null, kind: 'info', payload: { message: 'scheduler tick' } },
+          // 单腿成交（后端真实取值集之一，domain.py PAIR_SINGLE_LEG）
+          attemptC
         ],
         next_cursor: null
       } };
@@ -3879,16 +3885,16 @@ setTimeout(async () => {
       if (!attCall || attCall.url !== '/api/hedge-open-logs?limit=100' || attCall.method !== 'GET') {
         throw new Error(`尝试时间线应 GET /api/hedge-open-logs?limit=100: ${JSON.stringify(attCall)}`);
       }
-      if (helpers.getHedgeAttempts().length !== 2) {
-        throw new Error(`应提取 2 条 attempt（忽略非 attempt 日志），实际 ${helpers.getHedgeAttempts().length}`);
+      if (helpers.getHedgeAttempts().length !== 3) {
+        throw new Error(`应提取 3 条 attempt（忽略非 attempt 日志），实际 ${helpers.getHedgeAttempts().length}`);
       }
       helpers.setActiveView('hedge-tasks');
       const timeline = elements['hedge-attempt-list'].innerHTML;
       // 十进制字符串逐字：任何浮点重排都会改变这些字面量
-      for (const piece of ['尝试时间线', '第 2 组', '第 1 组', '正向', '反向', '已受理', '查询中',
+      for (const piece of ['尝试时间线', '第 2 组', '第 1 组', '第 3 组', '正向', '反向', '已受理', '查询中', '单腿成交',
         '0.003', 'hgo-att1-s', 'hgo-att1-p', '9001', '9002', 'FILLED',
         '0.36210000', '120.70000000', '0.00000010', 'BNB',
-        '0.00000100', '-0.00010000', 'hgo-att2-s', 'NEW', '0.00000000',
+        '0.00000100', '-0.00010000', '0.00000200', 'hgo-att2-s', 'NEW', '0.00000000',
         '现货腿', '合约腿', '加权均价', '累计成交额', '手续费', '残差 residual']) {
         if (!timeline.includes(piece)) throw new Error(`attempt 时间线缺少「${piece}」`);
       }
