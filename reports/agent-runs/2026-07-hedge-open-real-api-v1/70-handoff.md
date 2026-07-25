@@ -2,15 +2,17 @@
 
 ## Recovery Header
 
-- Active phase: `fixing / task-local backend Review-1 repair is dispatch-ready`.
+- Active phase: `review_1 / renewed backend cross-review is dispatch-ready`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
-  delivery evidence is `8af3f22d92354fdac61a6a057eb25760b924004b`; the latest
+  delivery evidence is `ab3126d73549266a615fe43c1aeaf374b0db2d32`; the latest
   Harness-only main sync is merge `b02c92d20360094a67374bf80bcd588fb154db6c`.
   Fresh task-level Review-1 has split: frontend ACCEPT at `59-review-1-frontend-r2.md`,
-  backend REWORK at `58-review-1-backend-r2.md`. User amendment 21 supersedes
-  unexecuted packet 61; the only active implementation packet is
-  `62-review-1-backend-r2-task-local.dispatch.md`.
+  backend REWORK at `58-review-1-backend-r2.md`. Packet 62 plus the user's
+  final, source-bounded packet-63 repair are now committed at `ab3126d`.
+  Packet 63 removes the long-lived live recovery scan while preserving the
+  task-local worker. The only active packet is the renewed backend Review-1
+  `64-review-1-backend-r3.dispatch.md`.
 - Classification: `MILESTONE`; the mandatory direction panel is complete. The
   user approved a bounded design amendment at
   `15-immediate-loop-and-open-log-amendment.md`; Fable's replacement task
@@ -19,9 +21,10 @@
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `21-task-local-runtime-and-manual-pause-amendment.md`,
-  `22-local-readonly-research-subagent-opt-in.md`, `58-review-1-backend-r2.md`,
-  and `62-review-1-backend-r2-task-local.dispatch.md`.
+- Read next: `status.json`, `25-packet-63-final-reconciliation.md`,
+  `42-final-guardian-scanner-fix.md`,
+  `21-task-local-runtime-and-manual-pause-amendment.md`, and
+  `64-review-1-backend-r3.dispatch.md`.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
@@ -208,3 +211,76 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-25 00:07:54 CST
 下一步模型: Claude-GLM
 下一步任务: complete packet 62 as sole code/test/report author; only the 22-authorized Plan/Explore helpers may remain read-only
+
+## Packet 62 reconciliation hold — 2026-07-25
+
+- Packet 62's implementation report is received at `40-fix-review-1-backend-r2.md`.
+  Its scoped diff is present but deliberately uncommitted; the bookkeeper has
+  independently reproduced 218 focused tests, 894 backend tests, the frontend
+  self-check, the 55-test Harness protocol suite, and `git diff --check`.
+- Do **not** send renewed Review-1 or Review-2, create a delivery evidence
+  commit, enable `APP_HEDGE_EXECUTOR=live`, Start, or a real order. The source
+  needs one user decision first.
+- H-1: in live mode `service.start()` still starts the permanent
+  `HedgeOpenScheduler`, and each periodic `tick()` calls `_recover_workers()`
+  across all running/paused/stopped tasks. This violates amendment 21's
+  one-time startup/manual recovery rule even though it no longer performs
+  synchronous global order queries. Details are in
+  `23-packet-62-reconciliation-hold.md`.
+- `rework_count=3` is exhausted. Await explicit human authorization for a
+  narrowly bounded final correction (one-time live recovery handoff and no
+  recurring live all-task scan), or a human decision to change the amendment.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
+本地北京时间: 2026-07-25 18:41:46 CST
+下一步模型: human
+下一步任务: decide whether to authorize one narrowly bounded final correction for H-1
+
+## Packet 63 — user-authorized final guardian-scanner repair
+
+- The user explicitly authorized one further, source-bounded correction after
+  the H-1 hold. The authority is recorded verbatim in
+  `24-user-authorized-final-guardian-fix.md`; `rework_count/max_rework` is now
+  4 only for this packet.
+- Packet `63-final-guardian-removal.dispatch.md` is the only executable
+  implementation packet. A human operator must run it in a fresh write-capable
+  Claude-GLM session. The packet must keep every uncommitted packet-62 change,
+  make live startup recovery one-time, keep manual Start task-local, and make
+  periodic live tick unable to scan or start workers.
+- This is not permission to enable `APP_HEDGE_EXECUTOR=live`, use Start, read
+  credentials, contact Binance, or place an order. After the implementer stops,
+  the bookkeeper must reconcile the full accumulated diff, run tests, commit
+  evidence, and prepare a renewed provider-isolated backend Review-1.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
+本地北京时间: 2026-07-25 18:48:57 CST
+下一步模型: human
+下一步任务: run packet 63 in a fresh write-capable Claude-GLM session
+
+## Renewed backend Review-1 — packet 64
+
+- Delivery evidence commit: `ab3126d73549266a615fe43c1aeaf374b0db2d32`.
+  Fixed review range: `28c550d87c1ca90983d5bde9c7102d42cffecd4e..ab3126d73549266a615fe43c1aeaf374b0db2d32`.
+  Fixed fingerprint:
+  `ab3126d73549266a615fe43c1aeaf374b0db2d32:4538945aa1e6ed3ea89a4f00f60a7dc71c97cc634dcb042c45d39ecc5a6e9772`.
+- The bookkeeper independently reproduced 48 packet-63 focused tests, 897
+  backend tests, frontend self-check, Harness 55 tests, and `git diff --check`.
+  Packet 63's live path now performs only one recovery handoff at startup;
+  live tick is a no-op and manual Start remains task-local.
+- The frontend source is untouched after its accepted Review-1. The next and
+  only required gate is a fresh provider-isolated backend Review-1 by Claude
+  Sonnet 5, using `64-review-1-backend-r3.dispatch.md`. It must review the
+  whole fixed range, not only the small packet-63 diff.
+- Never enable `APP_HEDGE_EXECUTOR=live`, Start, a real task, credentials, or
+  Binance access. Review is read-only and does not grant any activation.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
+本地北京时间: 2026-07-25 19:41:53 CST
+下一步模型: human
+下一步任务: run packet 64 in a fresh read-only Claude Sonnet 5 session
