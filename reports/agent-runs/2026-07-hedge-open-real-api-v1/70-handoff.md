@@ -2,20 +2,21 @@
 
 ## Recovery Header
 
-- Active phase: `fixing / user-authorized packet-65 settlement and pause repair is dispatch-ready`.
+- Active phase: `review_1 / packet-65 settlement and pause repair is committed; renewed packet-66 backend review is dispatch-ready`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
-  delivery evidence is `ab3126d73549266a615fe43c1aeaf374b0db2d32`; the latest
+  delivery evidence is `9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c`; the latest
   Harness-only main sync is merge `b02c92d20360094a67374bf80bcd588fb154db6c`.
   Fresh task-level Review-1 has split: frontend ACCEPT at `59-review-1-frontend-r2.md`,
   backend REWORK at `58-review-1-backend-r2.md`. Packet 62 plus the user's
-  final, source-bounded packet-63 repair are committed at `ab3126d`. Renewed
+  final, source-bounded packet-63 repair are retained in the reviewed range.
+  Packet 65's authorized repair is committed at `9d1bac0`. Renewed
   backend Review-1 at `64-review-1-backend-r3.md` was executed by user-selected
   Claude Opus 5 (Session `777ebb52-bba4-4b4d-a3b9-5879deaa4d7c`) and returned
   schema-valid REWORK: 429 settlement stickiness and manual pause/delete
   abandonment are P1. The user authorized one fifth narrow repair in
-  `26-user-authorized-settlement-and-pause-fix.md`; the only active packet is
-  `65-fix-review-1-backend-r3.dispatch.md`.
+  `26-user-authorized-settlement-and-pause-fix.md`; packet 65 is complete and
+  the only active packet is `66-review-1-backend-r4.dispatch.md`.
 - Classification: `MILESTONE`; the mandatory direction panel is complete. The
   user approved a bounded design amendment at
   `15-immediate-loop-and-open-log-amendment.md`; Fable's replacement task
@@ -25,9 +26,10 @@
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
 - Read next: `status.json`, `64-review-1-backend-r3.md`,
+  `44-fix-review-1-backend-r3.md`,
   `26-user-authorized-settlement-and-pause-fix.md`,
   `21-task-local-runtime-and-manual-pause-amendment.md`, and
-  `65-fix-review-1-backend-r3.dispatch.md`.
+  `66-review-1-backend-r4.dispatch.md`.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
@@ -287,6 +289,42 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-25 19:41:53 CST
 下一步模型: human
 下一步任务: run packet 64 in a fresh read-only Claude Sonnet 5 session
+
+## Packet 65 reconciled — renewed backend Review-1 packet 66
+
+- GLM completed the user-authorized fifth bounded repair in
+  `44-fix-review-1-backend-r3.md`. The evidence commit is
+  `9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c`; its fixed review range is
+  `28c550d87c1ca90983d5bde9c7102d42cffecd4e..9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c`.
+  Its fixed fingerprint is
+  `9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c:fbf52f40fbebe7018bdf6e460d7f2e4855519c52e3a6403151db420aa13d99db`.
+- Reconciled source scope is exactly `domain.py`, `service.py`, `store.py`,
+  `test_hedge_api.py`, and `test_hedge_task_local.py`; no scheduler, server,
+  frontend, live transport, credentials, or contract file changed. The fix
+  stores the 429 fact on its own attempt, clears stale pause information upon
+  manual resume, allows the same task worker to finish its own already-sent
+  orders after pause/delete, and preserves deleted-task one-time drain recovery.
+- The no-counter settlement now labels a truly accepted/single-leg/failed pair
+  from its actual two legs while keeping the 429 pair out of the failure brake.
+  Backend task documents additionally expose `worker_active` and
+  `last_worker_exit_reason`; frontend display remains an explicitly deferred
+  follow-up.
+- GLM evidence records 229 focused tests, 905 backend tests, frontend self-check,
+  Harness 55, and `git diff --check` as passing. The bookkeeper separately ran
+  the eight new R1–R8 regressions plus packet-63 H-1 regressions (12 passed),
+  frontend self-check, Harness 55, and whitespace validation.
+- `66-review-1-backend-r4.dispatch.md` is the only active formal dispatch. It
+  is a fresh, read-only Claude Opus 5 review; Kimi's quota unavailability remains
+  recorded in `15-kimi-review-1-unavailable.md`. It must inspect the complete
+  fixed range, not merely packet 65. No live activation, Start, credential
+  access, Binance network request, or real order is authorized.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
+本地北京时间: 2026-07-25 22:21:14 CST
+下一步模型: human
+下一步任务: run packet 66 in a fresh read-only Claude Opus 5 session
 
 ## Packet 65 — Opus 5 Review-1 REWORK and user-authorized settlement repair
 

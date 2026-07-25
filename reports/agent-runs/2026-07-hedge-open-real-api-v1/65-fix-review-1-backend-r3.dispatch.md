@@ -1,13 +1,13 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: claude_glm/glm-5.2[1m]
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable:operator did not provide a start timestamp
+completed_at: 2026-07-25T22:21:14+08:00
+session_id: unavailable:GLM runtime/session identifier was not provided in the operator result
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/44-fix-review-1-backend-r3.md
-next_dispatch: none
+next_dispatch: reports/agent-runs/2026-07-hedge-open-real-api-v1/66-review-1-backend-r4.dispatch.md (human operator)
 authorization: user-authorized fifth bounded backend change; 26-user-authorized-settlement-and-pause-fix.md
 ===== END RECEIPT ===== -->
 
