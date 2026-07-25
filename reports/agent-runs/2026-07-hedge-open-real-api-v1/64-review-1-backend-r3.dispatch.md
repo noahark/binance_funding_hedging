@@ -1,14 +1,14 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
-target_model: claude/Claude Sonnet 5
+status: completed
+target_model: claude/Claude Opus 5
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable:operator did not provide a start timestamp
+completed_at: 2026-07-25T20:34:50+08:00
+session_id: 777ebb52-bba4-4b4d-a3b9-5879deaa4d7c
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/64-review-1-backend-r3.md
 next_dispatch: none
-fallback_reason: Kimi remains unavailable by the human operator's prior quota report; Claude is provider-isolated from the reviewed claude_glm backend authors.
+fallback_reason: Kimi remains unavailable by the human operator's prior quota report. The human operator selected Claude Opus 5 instead of the packet's prewritten Claude Sonnet 5 target because this review was judged critical; Anthropic remains provider-isolated from the reviewed claude_glm backend authors.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable） ===== -->

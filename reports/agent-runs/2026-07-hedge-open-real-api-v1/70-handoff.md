@@ -2,17 +2,20 @@
 
 ## Recovery Header
 
-- Active phase: `review_1 / renewed backend cross-review is dispatch-ready`.
+- Active phase: `fixing / user-authorized packet-65 settlement and pause repair is dispatch-ready`.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
   delivery evidence is `ab3126d73549266a615fe43c1aeaf374b0db2d32`; the latest
   Harness-only main sync is merge `b02c92d20360094a67374bf80bcd588fb154db6c`.
   Fresh task-level Review-1 has split: frontend ACCEPT at `59-review-1-frontend-r2.md`,
   backend REWORK at `58-review-1-backend-r2.md`. Packet 62 plus the user's
-  final, source-bounded packet-63 repair are now committed at `ab3126d`.
-  Packet 63 removes the long-lived live recovery scan while preserving the
-  task-local worker. The only active packet is the renewed backend Review-1
-  `64-review-1-backend-r3.dispatch.md`.
+  final, source-bounded packet-63 repair are committed at `ab3126d`. Renewed
+  backend Review-1 at `64-review-1-backend-r3.md` was executed by user-selected
+  Claude Opus 5 (Session `777ebb52-bba4-4b4d-a3b9-5879deaa4d7c`) and returned
+  schema-valid REWORK: 429 settlement stickiness and manual pause/delete
+  abandonment are P1. The user authorized one fifth narrow repair in
+  `26-user-authorized-settlement-and-pause-fix.md`; the only active packet is
+  `65-fix-review-1-backend-r3.dispatch.md`.
 - Classification: `MILESTONE`; the mandatory direction panel is complete. The
   user approved a bounded design amendment at
   `15-immediate-loop-and-open-log-amendment.md`; Fable's replacement task
@@ -21,10 +24,10 @@
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `25-packet-63-final-reconciliation.md`,
-  `42-final-guardian-scanner-fix.md`,
+- Read next: `status.json`, `64-review-1-backend-r3.md`,
+  `26-user-authorized-settlement-and-pause-fix.md`,
   `21-task-local-runtime-and-manual-pause-amendment.md`, and
-  `64-review-1-backend-r3.dispatch.md`.
+  `65-fix-review-1-backend-r3.dispatch.md`.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
@@ -284,6 +287,42 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-25 19:41:53 CST
 下一步模型: human
 下一步任务: run packet 64 in a fresh read-only Claude Sonnet 5 session
+
+## Packet 65 — Opus 5 Review-1 REWORK and user-authorized settlement repair
+
+- The human operator substituted Claude Opus 5 for the packet-64 Sonnet target.
+  Its read-only review is preserved verbatim in `64-review-1-backend-r3.md`;
+  the provider-native session is `777ebb52-bba4-4b4d-a3b9-5879deaa4d7c`. The
+  strict JSON verdict is valid, its fixed fingerprint matches the delivery
+  commit, and it is `REWORK` with two P1 findings.
+- P1-1: after a task is paused by 429 (too many requests) and manually resumed,
+  its old pause reason can remain attached. Later normal attempts may then be
+  settled as failed without updating the task's real counters. P1-2: manually
+  pausing or deleting a task can make its worker exit before it has finished
+  querying its already-submitted orders; without a periodic live scanner, those
+  orders could remain unresolved. Both must be repaired inside that task's own
+  worker, without adding a global guardian.
+- The same authorized repair also corrects the affected single-leg result and
+  residual display data, and adds backend-only worker observability: whether a
+  task worker is active and why its most recent worker exited. The frontend
+  display for those two additive fields is explicitly deferred.
+- The user authorized this narrow fifth repair in
+  `26-user-authorized-settlement-and-pause-fix.md`, including choice A for the
+  additive worker fields. `65-fix-review-1-backend-r3.dispatch.md` is now the
+  sole executable packet for a fresh write-capable Claude-GLM session. It must
+  preserve packet 62's task-local worker model and packet 63's absence of a
+  recurring live scanner.
+- No live activation, credentials, Binance request, Start action, or real
+  order is authorized. After packet 65 stops, the bookkeeper must reconcile
+  the accumulated source diff and tests, create a new evidence commit, and
+  route a renewed provider-isolated backend Review-1.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/70-handoff.md
+本地北京时间: 2026-07-25 21:13:04 CST
+下一步模型: human
+下一步任务: run packet 65 in a fresh write-capable Claude-GLM session, then stop for bookkeeper
 
 ## Packet 64 preflight passed
 

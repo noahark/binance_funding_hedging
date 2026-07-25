@@ -1067,3 +1067,28 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-25 19:02:25 CST
 下一步模型: bookkeeper
 下一步任务: recompute the changed-file fingerprint, reconcile the packet-63 final guardian fix, and run a renewed backend Review-1
+
+===== packet 65 dispatch-ready checkpoint (2026-07-25 21:13:29 CST) =====
+
+Command: scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=dispatch-ready
+status=fixing
+diff_fingerprint=ab3126d73549266a615fe43c1aeaf374b0db2d32:4538945aa1e6ed3ea89a4f00f60a7dc71c97cc634dcb042c45d39ecc5a6e9772
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS
+.......................................................                  [100%]
+55 passed in 1.02s
+
+Command: git diff --check
+Result: PASS
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 21:13:29 CST
+下一步模型: human
+下一步任务: run packet 65 in a fresh write-capable Claude-GLM session
