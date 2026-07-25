@@ -140,6 +140,35 @@ def test_preflight_forward_accept():
     assert pf.balance_ok is True
 
 
+@pytest.mark.parametrize("direction", [D.DIR_FORWARD, D.DIR_REVERSE])
+def test_preflight_missing_est_price_fails_closed_both_directions(direction):
+    """Amendment 21 / dispatch P1#1: price-completeness is direction-independent.
+    A missing (or zero/negative) ``est_price`` cannot size notional or the USDT
+    need and is an UNREADABLE fact, so it fails closed to INCOMPLETE for BOTH
+    forward and reverse — the old reverse branch never checked ``est_price`` and
+    the old forward minNotional path silently skipped notional when it was None.
+    Zero attempt, zero POST, zero failure count: the balance gate is never
+    reached (``balance_ok`` stays None)."""
+    pf = D.compute_preflight(
+        snapshot(balances={"USDT": Decimal("100000"), "BTC": Decimal("100")}, est_price=None),
+        "BTCUSDT", direction, Decimal("0.5"), 3,
+    )
+    assert pf.rejection == D.REJECT_PREFLIGHT_INCOMPLETE
+    assert pf.q_common is not None  # the common grid is still computable
+    assert pf.balance_ok is None    # balance gate never reached -> no sizing
+
+
+@pytest.mark.parametrize("est_price", ["0", "-1"])
+def test_preflight_non_positive_est_price_fails_closed(est_price):
+    """A zero or negative est_price is equally an unreadable sizing fact: it must
+    fail closed to INCOMPLETE (not a filter violation), for both directions."""
+    pf = D.compute_preflight(
+        snapshot(balances={"USDT": Decimal("100000")}, est_price=est_price),
+        "BTCUSDT", D.DIR_FORWARD, Decimal("0.5"), 3,
+    )
+    assert pf.rejection == D.REJECT_PREFLIGHT_INCOMPLETE
+
+
 def test_preflight_forward_insufficient_usdt():
     pf = D.compute_preflight(
         snapshot(balances={"USDT": Decimal("50000")}),

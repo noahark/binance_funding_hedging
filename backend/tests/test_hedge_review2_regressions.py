@@ -3,7 +3,13 @@
 Deterministic, offline, fake-transport only: no network, no Binance, no real
 signing. A fake live executor (duck-typed ``dispatch``/``query_leg``) and a fake
 preflight provider script every exchange observation. Each test first encodes
-the Review-2 defect's invariant, then asserts the rework honors it:
+the Review-2 defect's invariant, then asserts the rework honors it.
+
+Amendment 21 (task-local runtime): the live scheduler ``tick`` no longer
+dispatches inline — it launches a bounded task-local worker. These tests drive
+that worker deterministically via the ``_step`` seam (a synchronous
+``_pump_worker`` round with no background thread and no sleep race) instead of
+the old synchronous live ``tick``.
 
 1. ``target_n=1`` yields at most one attempt row + one POST pair across
    success / confirmed-failed / single-leg, and via concurrent
@@ -23,8 +29,8 @@ the Review-2 defect's invariant, then asserts the rework honors it:
    position aggregation includes any positive-fill non-``FILLED`` leg (A-6).
 7. Error matrix: fatal -> ``stopped``+``stop_reason``; non-fatal -> counter;
    threshold reached -> ``paused``; both-accepted resets consecutive failures;
-   a 429 delays writes process-wide without changing any task's business state
-   (A-7 / I-4 / I-5 / I-2).
+   a confirmed 429 pauses THIS task only (rate_limited) without consuming the
+   failure counter (A-7 / I-4 / I-5 / I-2 / amendment 21).
 8. The §5 ``entries`` projection: additive key, §5 field names, newest-first,
    pagination, ``—``-able nullable fields, pre-``orderId`` error entries, and
    task-event entries (A-8).
@@ -57,7 +63,7 @@ from backend.services.hedge_open_live_client import HedgeHttpResponse
 
 
 class _Clock:
-    """Monotonic + wall clock advanced explicitly between ticks."""
+    """Monotonic + wall clock advanced explicitly between steps."""
 
     def __init__(self, t0: int = 0):
         self.t = t0
@@ -67,6 +73,15 @@ class _Clock:
 
     def wall_us(self) -> int:
         return self.t
+
+
+def _step(svc, task_id, clock, rounds=1):
+    """Deterministic offline replacement for the old synchronous live ``tick``:
+    advance the clock then synchronously pump the task-local worker for ``rounds``
+    rounds via the ``_pump_worker`` test seam (no background thread, no pacing
+    wait, no sleep race). Amendment 21: live dispatch runs on the worker."""
+    clock.t += 1_000_000
+    svc._pump_worker(task_id, max_rounds=rounds)
 
 
 def _filters(step: str = "0.1", *, min_qty: str = "0.0001", max_qty: str = "9000",
@@ -210,10 +225,8 @@ def test_1_target_n_one_yields_at_most_one_attempt_and_one_post(tmp_path, dispat
     svc, clock = _live_svc(tmp_path, exe, provider)
     doc = _create(svc, target_n=1)
     exe.set_script(doc["id"], [dispatch_factory()])
-    clock.t = 1_000_000
-    svc.tick()  # first pair
-    clock.t = 2_000_000
-    svc.tick()  # must NOT start a 2nd pair
+    _step(svc, doc["id"], clock)  # first pair
+    _step(svc, doc["id"], clock)  # must NOT start a 2nd pair
     # An explicit fill-once must NOT add a 2nd pair either (a done task raises
     # 409 here; a still-running one is blocked by the scheduled>=target guard).
     try:
@@ -222,7 +235,7 @@ def test_1_target_n_one_yields_at_most_one_attempt_and_one_post(tmp_path, dispat
         pass
     attempts = svc.store.list_attempts_for_task(doc["id"])
     assert len(attempts) == 1
-    assert exe.dispatch_calls == 1  # exactly one POST pair across scheduler + fill-once
+    assert exe.dispatch_calls == 1  # exactly one POST pair across worker + fill-once
 
 
 # ---------------------------------------------------------------------------
@@ -239,8 +252,7 @@ def test_2_fresh_filters_persist_and_send_fresh_q_common(tmp_path):
     assert doc["q_common"] == "0.5"  # create-time grid
     # Fresh grid step 0.01 before the live send -> floor(0.555, 0.01) = 0.55.
     provider.snapshot = _ok_snapshot(step="0.01")
-    clock.t = 1_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     attempts = svc.store.list_attempts_for_task(doc["id"])
     assert len(attempts) == 1
     # Persisted attempt AND the executor's would-send quantity use the FRESH grid.
@@ -260,8 +272,7 @@ def test_3a_missing_preflight_fact_is_fail_closed(tmp_path):
     doc = _create(svc, target_n=2)
     # Unreadable market step (both lot + market disabled) -> INCOMPLETE, not fatal.
     provider.snapshot = _ok_snapshot(step="0")
-    clock.t = 1_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     # Zero attempt, zero POST, zero failure count, zero simulated dispatch.
     assert svc.store.list_attempts_for_task(doc["id"]) == []
     assert exe.dispatch_calls == 0
@@ -279,10 +290,9 @@ def test_3b_fatal_preflight_fact_stops_task_with_reason_and_log(tmp_path):
     provider = _FakeProvider(_ok_snapshot())
     svc, clock = _live_svc(tmp_path, exe, provider)
     doc = _create(svc, target_n=2)
-    # Insufficient USDT for forward (need q*N*price) -> fatal stop.
+    # Insufficient USDT for forward (need q*N*price) -> fatal stop at preflight.
     provider.snapshot = _ok_snapshot(usdt="1")
-    clock.t = 1_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     task = svc.store.get_task(doc["id"])
     assert task["status"] == D.STATUS_STOPPED
     assert task["stop_reason"] == D.STOP_REASON_INSUFFICIENT_BALANCE
@@ -372,8 +382,7 @@ def test_5_reconciliation_invariants(tmp_path):
         perp=_leg(LEG_UNKNOWN_QUERYING, name="perp"),
         record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
     )])
-    clock.t = 1_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     # Reconcile polls even with Start OFF (I-6): turn the gate off, then poll.
     svc.set_start_gate(False)
     exe.queries.extend([
@@ -382,8 +391,7 @@ def test_5_reconciliation_invariants(tmp_path):
         _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_FILLED,
              executed="0.5", quote="25000", avg="50000"),
     ])
-    clock.t = 2_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     assert exe.query_calls > 0  # reconciled while Start was off
     task = svc.store.get_task(doc["id"])
     assert task["accepted_pair_count"] == 1  # resolved despite gate off
@@ -400,12 +408,10 @@ def test_5b_auth_ambiguity_stays_unknown_then_absent_confirms_failure(tmp_path):
         perp=_leg(LEG_UNKNOWN_QUERYING, name="perp"),
         record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
     )])
-    clock.t = 1_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     # First poll: auth-ambiguity stays UNKNOWN (query_leg None) -> keep querying.
     exe.queries.extend([None, None])
-    clock.t = 2_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     attempts = svc.store.list_attempts_for_task(doc["id"])
     assert attempts[0]["pair_outcome"] is None  # still unresolved, never resent
     # Next poll: explicit absent (confirmed never accepted) -> confirmed failure.
@@ -413,8 +419,7 @@ def test_5b_auth_ambiguity_stays_unknown_then_absent_confirms_failure(tmp_path):
         _leg(LEG_REJECTED, name="spot", error_code="http_404", error_category="absent"),
         _leg(LEG_REJECTED, name="perp", error_code="http_404", error_category="absent"),
     ])
-    clock.t = 3_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     task = svc.store.get_task(doc["id"])
     assert task["fail_count"] == 1
 
@@ -431,13 +436,11 @@ def test_5c_canceled_with_partial_fill_is_terminal_and_retains_fill(tmp_path):
                   executed="0.5", quote="25000", avg="50000"),
         record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
     )])
-    clock.t = 1_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     # Spot poll: accepted + CANCELED but with a partial fill -> terminal, fill kept.
     exe.queries.append(_leg(LEG_ACCEPTED, name="spot", order_id="s1",
                             status=D.LEG_CANCELED, executed="0.2", quote="10000", avg="50000"))
-    clock.t = 2_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     legs = {l["leg"]: l for l in svc.store.list_legs_for_attempt(
         svc.store.list_attempts_for_task(doc["id"])[0]["id"])}
     assert legs["spot"]["terminal"] == 1
@@ -463,8 +466,7 @@ def test_6_partial_fill_fee_residual_and_aggregation(tmp_path):
                   executed="0.5", quote="25000", avg="50000"),
         record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
     )])
-    clock.t = 1_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
     _, page = svc.get_logs(None, None)
     a = page["attempts"][0]
     assert Decimal(a["spot"]["cumulative_quote_amt"]) == Decimal("15000")  # real quote
@@ -497,9 +499,8 @@ def test_7a_fatal_leg_stops_non_fatal_counts_threshold_and_reset(tmp_path):
 
     # 3 non-fatal failures (default threshold 3) -> paused, not stopped.
     exe.set_script(doc["id"], [_failed(), _failed(), _failed()])
-    for i in range(3):
-        clock.t = (i + 1) * 1_000_000
-        svc.tick()
+    for _ in range(3):
+        _step(svc, doc["id"], clock)
     task = svc.store.get_task(doc["id"])
     assert task["status"] == D.STATUS_PAUSED
     assert task["fail_count"] == 3
@@ -511,14 +512,17 @@ def test_7b_fatal_exchange_code_stops_task(tmp_path):
     provider = _FakeProvider(_ok_snapshot())
     svc, clock = _live_svc(tmp_path, exe, provider)
     doc = _create(svc, target_n=5)
+    # An UNCONFIRMED -2010 (no balance proof in the message) stays a fatal stop
+    # (amendment 21 / user constraint: never mistake an unrecoverable fact for a
+    # recoverable pause).
     exe.set_script(doc["id"], [LiveAttemptDispatch(
         attempt_id="x",
         spot=_leg(LEG_REJECTED, name="spot", error_code="-2010", error_category="fatal"),
         perp=_leg(LEG_REJECTED, name="perp", error_code="-2010", error_category="fatal"),
         record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
     )])
-    clock.t = 1_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
+    _step(svc, doc["id"], clock)  # worker drains the stopped pair then exits
     task = svc.store.get_task(doc["id"])
     assert task["status"] == D.STATUS_STOPPED
     assert task["stop_reason"] == D.STOP_REASON_EXCHANGE_FATAL
@@ -538,15 +542,13 @@ def test_7c_both_accepted_resets_consecutive_failures(tmp_path):
         )
 
     exe.set_script(doc["id"], [_failed(), _accepted_pair()])
-    clock.t = 1_000_000
-    svc.tick()  # failure -> consecutive 1
+    _step(svc, doc["id"], clock)  # failure -> consecutive 1
     assert svc.store.get_task(doc["id"])["consecutive_submission_failures"] == 1
-    clock.t = 2_000_000
-    svc.tick()  # success -> consecutive reset
+    _step(svc, doc["id"], clock)  # success -> consecutive reset
     assert svc.store.get_task(doc["id"])["consecutive_submission_failures"] == 0
 
 
-def test_7d_rate_limit_delays_processwide_without_business_state_change(tmp_path):
+def test_7d_rate_limit_pauses_this_task_without_counter(tmp_path):
     exe = _FakeExecutor()
     provider = _FakeProvider(_ok_snapshot())
     svc, clock = _live_svc(tmp_path, exe, provider)
@@ -558,13 +560,20 @@ def test_7d_rate_limit_delays_processwide_without_business_state_change(tmp_path
         perp=_leg(LEG_UNKNOWN_QUERYING, name="perp", rate_limited=True, retry=2),
         record_payload={"transport": "live"}, rate_limited=True, retry_after_seconds=2,
     )])
-    clock.t = 1_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)  # 429 -> pause THIS task + mark the pair for drain
+    # Amendment 21 / user constraint 1: the worker drains the in-flight 429 pair
+    # (confirmed never accepted -> absent) BEFORE it exits, without resending.
+    exe.queries.extend([
+        _leg(LEG_REJECTED, name="spot", error_code="http_404", error_category="absent"),
+        _leg(LEG_REJECTED, name="perp", error_code="http_404", error_category="absent"),
+    ])
+    _step(svc, doc["id"], clock)  # drain to terminal -> settle without the counter
+    _step(svc, doc["id"], clock)  # own empty + paused -> worker exits
     task = svc.store.get_task(doc["id"])
-    # 429 never marks the task failed/paused/stopped/done (I-5).
-    assert task["status"] == D.STATUS_RUNNING
+    # 429 pauses THIS task only and never consumes the failure counter (I-5 / 21).
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
     assert task["fail_count"] == 0
-    assert svc._in_rate_limit_cooldown(clock.t + 1)  # process-wide write delay active
 
 
 # ---------------------------------------------------------------------------
@@ -594,10 +603,8 @@ def test_8_entries_projection_shape_pagination_and_events(tmp_path):
 
     # A pre-orderId error (both rejected) entry, then a balanced accepted entry.
     exe.set_script(doc["id"], [_failed(), _accepted_pair()])
-    clock.t = 1_000_000
-    svc.tick()
-    clock.t = 2_000_000
-    svc.tick()
+    _step(svc, doc["id"], clock)
+    _step(svc, doc["id"], clock)
 
     # Additive key present; legacy keys untouched; entries_next_cursor additive.
     _, page = svc.get_logs(None, None)
@@ -630,8 +637,7 @@ def test_8b_entries_task_event_rows_null_leg_fields(tmp_path):
     svc, clock = _live_svc(tmp_path, exe, provider)
     doc = _create(svc, target_n=2)
     provider.snapshot = _ok_snapshot(usdt="1")  # fatal preflight at send time
-    clock.t = 1_000_000
-    svc.tick()  # fatal stop -> task_stopped event
+    _step(svc, doc["id"], clock)  # fatal stop -> task_stopped event
     _, page = svc.get_logs(None, None)
     events = [e for e in page["entries"] if e["entry_type"] == "task_event"]
     assert events
@@ -662,8 +668,7 @@ def test_8c_entries_unified_stream_paginates_no_dup_no_gap(tmp_path):
     # an event (rank 1) precedes an attempt (rank 0) in DESC order.
     event_ts: list[int] = []
     for i in range(6):
-        clock.t = (i + 1) * 1_000_000
-        svc.tick()  # one accepted pair per tick (per-task serial)
+        _step(svc, doc["id"], clock)  # one accepted pair per step (per-task serial)
         if i % 2 == 0:
             svc.store.record_task_event(
                 doc["id"], "rate_limited",
@@ -742,15 +747,15 @@ def test_9_two_task_independence_and_per_task_sequentiality(tmp_path):
         record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
     )])
     exe.set_script(doc_b["id"], [_accepted_pair(), _accepted_pair()])
-    clock.t = 1_000_000
-    svc.tick()  # tick 1: BOTH dispatched concurrently (independence)
+    _step(svc, doc_a["id"], clock)  # both dispatched (independence)
+    _step(svc, doc_b["id"], clock)
     a_after_1 = len(svc.store.list_attempts_for_task(doc_a["id"]))
     b_after_1 = len(svc.store.list_attempts_for_task(doc_b["id"]))
     assert a_after_1 == 1 and b_after_1 == 1  # each got its first pair this tick
     # A's unresolved pair keeps polling as unknown; B (resolved) is free to advance.
     exe.queries.extend([None, None])
-    clock.t = 2_000_000
-    svc.tick()  # tick 2
+    _step(svc, doc_a["id"], clock)  # tick 2
+    _step(svc, doc_b["id"], clock)
     a_after_2 = len(svc.store.list_attempts_for_task(doc_a["id"]))
     b_after_2 = len(svc.store.list_attempts_for_task(doc_b["id"]))
     # Per-task serial rule (A-9): A never starts pair 2 while pair 1 is in flight;

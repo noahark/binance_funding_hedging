@@ -18,15 +18,15 @@ breakdown §3.5):
    have accepted without a usable body).
 4. 5xx → ``UNKNOWN_QUERYING`` (possibly accepted); HTTP 503 "Service
    Unavailable" / ``-1008`` throttle is a definite failure → ``REJECTED``.
-5. 429 / 400+``-1003`` / 418 → ``UNKNOWN_QUERYING`` + ``rate_limited`` (the
-   shared exchange cooldown gate; not an order rejection).
+5. 429 / 400+``-1003`` / 418 → ``UNKNOWN_QUERYING`` + ``rate_limited`` (a
+   task-local pause signal under amendment 21; not an order rejection).
 6. any other definite 4xx → ``REJECTED`` (confirmed not accepted).
 
 A write POST that comes back unknown is queried ONCE by ``origClientOrderId``
 inside :meth:`LiveHedgeExecutor.dispatch` as a best-effort resolution; a leg that
 is still unknown after that stays ``UNKNOWN_QUERYING`` and is reconciled later by
-the service's reconcile pass (query, never resend). Sustained polling to FILLED
-for accepted-but-unfilled legs likewise lives in the reconcile pass.
+the task's local worker (query, never resend). Sustained polling to FILLED for
+accepted-but-unfilled legs likewise lives in the task's local worker.
 
 This module lives under ``backend/services/`` (it imports the network transport
 and the shared signer) and is injected via the service; ``hedge_open_tasks/**``
@@ -147,15 +147,19 @@ def _decimal_str(value, default: str = "0") -> str:
 class LegDispatch:
     """One leg's POST verdict + the observational fill figures from the response.
 
-    ``error_category`` in {None, "auth", "fatal", "absent"} classifies the
-    exchange response for the error matrix (amendment §Error handling):
-    "auth" = auth/signature/timestamp/permission ambiguity -> stay UNKNOWN and
-    query by client ID (never resend); "fatal" = insufficient balance/margin/
-    filter/min-notional/symbol/mode -> stops the task; "absent" = the order was
-    never accepted (confirmed non-fatal failure). ``error_code`` is the exchange
-    business code when available. ``retry_after_seconds`` carries a stated
-    exchange wait (429/Retry-After) so the service delays new writes without
-    changing any task's business state (amendment row 6).
+    ``error_category`` in {None, "auth", "fatal", "insufficient_funds", "absent"}
+    classifies the exchange response for the error matrix (amendment 21 manual-
+    pause isolation): "auth" = auth/signature/timestamp/permission ambiguity ->
+    stay UNKNOWN and query by client ID (never resend); "insufficient_funds" =
+    a CONFIRMED insufficient balance/margin/available-quantity fact (-2019/-3041
+    unambiguous; -2010 only when its message confirms it) -> pauses THIS task
+    only (worker exits, manual recovery); "fatal" = the remaining hard facts
+    (filter/min-notional/symbol/mode, and an unconfirmed -2010) -> stops the
+    task; "absent" = the order was never accepted (confirmed non-fatal failure).
+    ``error_code`` is the exchange business code when available.
+    ``retry_after_seconds`` carries a stated exchange wait (429/Retry-After) so
+    the task-local worker pauses THIS task without changing any other task's
+    state (amendment 21).
     """
 
     leg: str  # "spot" | "perp"
@@ -179,8 +183,8 @@ class LiveAttemptDispatch:
     spot: LegDispatch
     perp: LegDispatch
     record_payload: dict
-    rate_limited: bool  # any leg surfaced a 429/-1003/418 -> extend shared cooldown
-    retry_after_seconds: Optional[int]  # stated exchange wait (amendment row 6)
+    rate_limited: bool  # any leg surfaced a 429/-1003/418 -> task-local worker pauses THIS task (amendment 21)
+    retry_after_seconds: Optional[int]  # stated exchange wait (amendment 21 rate-limit pause)
 
 
 def _empty_dispatch(
@@ -262,6 +266,16 @@ def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
         if code in D.AUTH_AMBIGUOUS_EXCHANGE_CODES:
             return _empty_dispatch(
                 leg, LEG_UNKNOWN_QUERYING, error_code=code, error_category="auth"
+            )
+        # Amendment 21 manual-pause isolation: a CONFIRMED insufficient balance/
+        # margin/available-quantity fact pauses THIS task only (worker exits,
+        # manual recovery). -2019/-3041 are unambiguous; -2010 is confirmed only
+        # by its message, so an unconfirmed -2010 falls through to fatal stop
+        # below (user constraint: never mistake an unrecoverable fact for a
+        # recoverable pause). Consulted BEFORE FATAL_EXCHANGE_CODES.
+        if D.is_insufficient_funds_code(code, _business_msg(response)):
+            return _empty_dispatch(
+                leg, LEG_REJECTED, error_code=code, error_category="insufficient_funds"
             )
         if code in D.FATAL_EXCHANGE_CODES:
             return _empty_dispatch(

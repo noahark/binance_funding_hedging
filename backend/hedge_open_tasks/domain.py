@@ -126,6 +126,40 @@ DEFAULT_FAILURE_PAUSE_THRESHOLD = 3
 # Pause reason recorded on the task when the threshold is reached.
 PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE = "consecutive_submission_failure"
 
+# Amendment 21 task-local pause reasons (manual recovery; no cross-task linkage).
+# Recorded on the task as ``pause_reason`` alongside ``status=paused``. Unlike a
+# fatal stop, a pause is recoverable: the operator clears the cause and manually
+# resumes (Start/recover) the SAME task. A Chinese display reason is provided by
+# :func:`pause_reason_zh`.
+PAUSE_REASON_RATE_LIMITED = "rate_limited"
+PAUSE_REASON_INSUFFICIENT_BALANCE = "insufficient_balance"
+PAUSE_REASON_INSUFFICIENT_MARGIN = "insufficient_margin"
+PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY = "insufficient_available_qty"
+ALL_PAUSE_REASONS = (
+    PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE,
+    PAUSE_REASON_RATE_LIMITED,
+    PAUSE_REASON_INSUFFICIENT_BALANCE,
+    PAUSE_REASON_INSUFFICIENT_MARGIN,
+    PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY,
+)
+
+# Amendment 21 task-local worker dispatch/drain signals (internal contract between
+# the service's task-local worker and its dispatch/drain helpers). A dispatch or
+# drain round returns one of these so the worker can apply the task-local pause
+# policy (a 429 / a confirmed insufficient-funds fact pauses THIS task only) or
+# exit (a fail-closed / fatal preflight), without touching any other task.
+SIGNAL_RATE_LIMITED = "signal_rate_limited"
+SIGNAL_INSUFFICIENT_BALANCE = "signal_insufficient_balance"
+SIGNAL_INSUFFICIENT_MARGIN = "signal_insufficient_margin"
+SIGNAL_INSUFFICIENT_AVAILABLE_QTY = "signal_insufficient_available_qty"
+SIGNAL_INSUFFICIENT = (
+    SIGNAL_INSUFFICIENT_BALANCE,
+    SIGNAL_INSUFFICIENT_MARGIN,
+    SIGNAL_INSUFFICIENT_AVAILABLE_QTY,
+)
+SIGNAL_PREFLIGHT_INCOMPLETE = "signal_preflight_incomplete"
+SIGNAL_PREFLIGHT_FATAL = "signal_preflight_fatal"
+
 # Fatal-stop reasons (amendment error-matrix rows 1–2 / breakdown I-4). Recorded
 # on the task as the nullable `stop_reason` alongside `status=stopped`. A fatal
 # stop is final for that task; the operator corrects the cause and creates a new
@@ -271,6 +305,47 @@ AUTH_AMBIGUOUS_EXCHANGE_CODES = frozenset(
         "-2018",  # No authority.
     )
 )
+
+# Amendment 21 manual-pause matrix splits the old "fatal balance" set: a
+# CONFIRMED insufficient balance/margin/available-quantity fact now PAUSES the
+# current task only (worker exits, manual recovery, no cross-task linkage),
+# instead of a fatal stop. :func:`is_insufficient_funds_code` decides membership
+# and is consulted BEFORE FATAL_EXCHANGE_CODES in the live classifier. -2019
+# (margin) and -3041 (PM level) are unambiguous; -2010 is overloaded — it is
+# confirmed only by its message, and when the message does NOT prove an
+# insufficient balance it stays a fatal stop (user constraint: never mistake an
+# unrecoverable fact for a recoverable pause). These codes remain listed in
+# FATAL_EXCHANGE_CODES as the conservative fallback so any classification path
+# that does not consult :func:`is_insufficient_funds_code` still stops the task
+# rather than drops the error.
+INSUFFICIENT_FUNDS_CODES = frozenset(
+    (
+        "-2019",  # Margin is insufficient.
+        "-3041",  # PM account level insufficient.
+    )
+)
+INSUFFICIENT_BALANCE_CODE = "-2010"  # Account has insufficient balance/margin (overloaded).
+# Message patterns that confirm a -2010 is an insufficient-available-balance
+# rejection (Binance: "Account has insufficient balance ..."). Conservative: a
+# -2010 whose message does not match is treated as a fatal stop, not a pause.
+_INSUFFICIENT_BALANCE_MSG_RE = re.compile(
+    r"insufficient\s+(?:available\s+)?balance", re.IGNORECASE
+)
+
+
+def is_insufficient_funds_code(code: str | None, msg: str | None) -> bool:
+    """Conservatively classify an exchange code+message as an insufficient-funds
+    (balance/margin/available-quantity) fact eligible for task-local pause
+    (amendment 21). -2019/-3041 are unambiguous; -2010 is overloaded and must be
+    confirmed by its message — when the message does NOT prove an insufficient
+    balance, the caller keeps it as a fatal stop (never a recoverable pause).
+    Returns ``False`` for any other code (including ``None``).
+    """
+    if code in INSUFFICIENT_FUNDS_CODES:
+        return True
+    if code == INSUFFICIENT_BALANCE_CODE and bool(msg) and _INSUFFICIENT_BALANCE_MSG_RE.search(msg):
+        return True
+    return False
 
 # Round-1 scheduler interval is fixed at 1 second (immediate mode, ADR-6).
 DEFAULT_INTERVAL_SECONDS = "1"
@@ -650,9 +725,6 @@ def compute_preflight(
         )
     grid = decimal_lcm(spot_step, perp_step)
     q_common = floor_to_grid(single_amount, grid)
-    filter_reject = _check_common_quantity(
-        q_common, snapshot.spot_filters, snapshot.perp_filters, snapshot.est_price
-    )
     snapshot_record = {
         "available": True,
         "spot_step": str(spot_step),
@@ -661,6 +733,27 @@ def compute_preflight(
         "est_price": str(snapshot.est_price) if snapshot.est_price is not None else None,
         "position_mode": snapshot.position_mode,
     }
+    # Price-completeness is direction-independent (amendment 21 / dispatch P1#1):
+    # a missing/zero/negative est_price cannot size notional or the USDT need, and
+    # is an UNREADABLE fact, so it fails closed to INCOMPLETE (not a filter
+    # violation) for BOTH forward and reverse — zero attempt, zero POST, zero
+    # failure count. This runs before the notional/balance gates so an unreadable
+    # price is never silently skipped: the old reverse branch never checked it,
+    # and the old forward minNotional path (``_check_common_quantity``) skipped
+    # notional when est_price was None instead of rejecting.
+    if snapshot.est_price is None or snapshot.est_price <= 0:
+        return PreflightResult(
+            q_common=q_common,
+            position_side_mode=snapshot.position_mode,
+            balance_ok=None,
+            required=None,
+            available=None,
+            rejection=REJECT_PREFLIGHT_INCOMPLETE,
+            snapshot_record=snapshot_record,
+        )
+    filter_reject = _check_common_quantity(
+        q_common, snapshot.spot_filters, snapshot.perp_filters, snapshot.est_price
+    )
     if filter_reject is not None:
         return PreflightResult(
             q_common=q_common,
@@ -673,20 +766,10 @@ def compute_preflight(
         )
     # Balance gate (ADR-3): forward needs USDT crossMarginFree >= q*N*price;
     # reverse needs base crossMarginFree >= q*N. maxBorrowable is never sellable.
+    # est_price is guaranteed present and positive by the direction-independent
+    # check above, so the forward USDT need can always be sized.
     base = base_asset(coin)
     if direction == DIR_FORWARD:
-        if snapshot.est_price is None or snapshot.est_price <= 0:
-            # A required price fact is missing -> fail-closed INCOMPLETE (I-7):
-            # cannot size the USDT need, but this is not a balance violation.
-            return PreflightResult(
-                q_common=q_common,
-                position_side_mode=snapshot.position_mode,
-                balance_ok=None,
-                required=None,
-                available=None,
-                rejection=REJECT_PREFLIGHT_INCOMPLETE,
-                snapshot_record=snapshot_record,
-            )
         required = q_common * target_n * snapshot.est_price
         available = snapshot.balances.get(QUOTE_ASSET, Decimal(0))
     else:
@@ -1027,4 +1110,22 @@ _STOP_REASON_ZH = {
     STOP_REASON_SYMBOL_UNAVAILABLE: "交易对不可用，任务已终止，请确认后新建任务",
     STOP_REASON_POSITION_MODE_INVALID: "仓位模式无效（需单向 BOTH），任务已终止，请修正后新建任务",
     STOP_REASON_EXCHANGE_FATAL: "交易所致命错误，任务已终止，请检查后新建任务",
+}
+
+
+def pause_reason_zh(reason: str | None) -> str | None:
+    """Safe Chinese display reason for an amendment-21 task-local pause reason.
+    Unlike a stop reason, a pause is recoverable: the operator clears the cause
+    and manually resumes the SAME task."""
+    if reason is None:
+        return None
+    return _PAUSE_REASON_ZH.get(reason, "任务已暂停，请检查后手动恢复")
+
+
+_PAUSE_REASON_ZH = {
+    PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE: "连续提交失败达到阈值，任务已暂停，请检查后手动恢复",
+    PAUSE_REASON_RATE_LIMITED: "触发交易所限频（429），任务已暂停，请等待限频解除后手动恢复",
+    PAUSE_REASON_INSUFFICIENT_BALANCE: "账户可用余额不足，任务已暂停，请补充后手动恢复",
+    PAUSE_REASON_INSUFFICIENT_MARGIN: "保证金不足，任务已暂停，请补充后手动恢复",
+    PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY: "可用数量不足，任务已暂停，请补充后手动恢复",
 }

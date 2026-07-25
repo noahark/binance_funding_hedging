@@ -43,10 +43,10 @@ from .store import HedgeOpenStore, UnknownTaskError
 
 _CREATE_BODY_KEYS = ("coin", "direction", "mode", "single_amount", "target_n")
 
-# Conservative shared exchange rate-limit cooldown (breakdown §3.6 / recon §4.4).
-# A 429 / -1003 / -1008 surfaced by a live leg blocks new sends for this window;
-# it is a local fail-safe, not a Binance SLA.
-RATE_LIMIT_COOLDOWN_US = 60 * 1_000_000
+# Amendment 21 removed the process-wide rate-limit cooldown: a 429 / -1003 / 418
+# surfaced by a live leg now pauses ONLY the task whose worker observed it (the
+# worker exits and the operator manually recovers), and never delays, pauses,
+# stops, counts, or blocks another task. There is no global cooldown state.
 
 # Task-level lifecycle events surfaced on the additive ``entries`` timeline
 # (amendment §5): a fatal stop, a consecutive-failure threshold pause, a
@@ -56,6 +56,7 @@ RATE_LIMIT_COOLDOWN_US = 60 * 1_000_000
 _ENTRY_EVENT_KINDS = (
     "task_stopped",
     "threshold_paused",
+    "task_paused",
     "preflight_incomplete",
     "rate_limited",
 )
@@ -137,6 +138,9 @@ def task_to_doc(task: dict) -> dict:
         "consecutive_submission_failures": task["consecutive_submission_failures"],
         "failure_pause_threshold": task["failure_pause_threshold"],
         "pause_reason": task["pause_reason"],
+        # Amendment 21: the safe Chinese cause of a task-local pause (429 /
+        # insufficient balance/margin/available-qty) alongside status=paused.
+        "pause_reason_zh": task["pause_reason_zh"],
         # Amendment additive (I-4): a fatal stop's reason alongside status=stopped.
         "stop_reason": task["stop_reason"],
         "created_at": D.us_to_iso(task["created_at_us"]),
@@ -359,8 +363,15 @@ class HedgeOpenTaskService:
         self._mono_us = mono_us or _real_mono_us
         self._wall_us = wall_us or _real_wall_us
         self._last_tick_mono: int | None = None
-        self._rate_limited_until_mono: int | None = None
-        self._lock = threading.Lock()  # serializes tick() against itself
+        # Amendment 21 task-local workers: each RUNNING task owns at most ONE
+        # bounded-lifetime worker thread (no global guardian/scanner). ``_workers``
+        # maps task_id -> live worker thread; ``_stop_events`` carries the per-task
+        # interrupt a pause/stop/delete/settle sets to wake a pacing worker. The
+        # scheduler/tick no longer drive immediate dispatch through a global scan;
+        # an HTTP Start/recover or a one-shot recovery discovery launches a worker.
+        self._workers: dict[str, threading.Thread] = {}
+        self._stop_events: dict[str, threading.Event] = {}
+        self._workers_lock = threading.Lock()
         self._scheduler = HedgeOpenScheduler(
             self.tick, self._store.get_interval_us, self._mono_us
         )
@@ -372,10 +383,32 @@ class HedgeOpenTaskService:
         self._store.close()
 
     def start(self) -> None:
+        """Start the runtime (amendment 21 + final guardian fix / H-1).
+
+        LIVE-capable mode: perform ONE durable recovery discovery — find tasks
+        that need cleanup (RUNNING tasks missing a worker; any-status tasks
+        with persisted non-terminal legs), hand each to its own bounded worker,
+        then return. The periodic scheduler is NOT started as a long-lived
+        all-task recovery scanner; a worker that later exits is relaunched only
+        by a manual Start/recover. Packet-62 safety is preserved: pending pairs
+        are queried by their saved client order IDs (never re-POSTed) and a
+        paused/stopped task mid-pair gets a drain-only worker.
+
+        DRY-RUN mode (record/disabled executor): start the scheduler so its
+        synchronous record-transport tick advances cards on the 1s cadence.
+        """
+        if self._live_dispatch_capable():
+            self._recover_workers()
+            return
         self._scheduler.start()
 
     def stop(self) -> None:
         self._scheduler.stop()
+        # Wake every task-local worker so its bounded loop exits promptly.
+        with self._workers_lock:
+            events = list(self._stop_events.values())
+        for ev in events:
+            ev.set()
 
     @property
     def store(self) -> HedgeOpenStore:
@@ -475,6 +508,10 @@ class HedgeOpenTaskService:
         # exposure_alert is ADVISORY (breakdown §4.5): a single-leg exposure no
         # longer freezes scheduling, so it does not block start.
         updated = self._store.set_task_status(task_id, D.STATUS_RUNNING, self._wall_us())
+        # Amendment 21: Start/recover launches THIS task's bounded worker (live
+        # mode) and returns immediately — no global scan, no synchronous POST.
+        if self._live_dispatch_capable():
+            self.ensure_worker(task_id)
         return 200, task_to_doc(updated)
 
     def post_pause(self, task_id: str) -> tuple[int, dict]:
@@ -484,6 +521,7 @@ class HedgeOpenTaskService:
         if task["status"] == D.STATUS_DONE:
             raise D.HedgeError(409, "invalid_state", "cannot pause a done task")
         updated = self._store.set_task_status(task_id, D.STATUS_PAUSED, self._wall_us())
+        self._wake_worker(task_id)  # a manual pause interrupts the worker
         return 200, task_to_doc(updated)
 
     def post_delete(self, task_id: str) -> tuple[int, dict]:
@@ -491,24 +529,33 @@ class HedgeOpenTaskService:
         if task["status"] == D.STATUS_DELETED:
             raise D.HedgeError(409, "invalid_state", "task already deleted")
         updated = self._store.set_task_status(task_id, D.STATUS_DELETED, self._wall_us())
+        self._wake_worker(task_id)  # a delete interrupts the worker
         return 200, task_to_doc(updated)
 
     def post_fill_once(self, task_id: str) -> tuple[int, dict]:
         task = self._get_task_or_404(task_id)
         self._require_fillable(task)
-        task = self._dispatch_one_for_task(task, self._wall_us())
+        if self._live_dispatch_capable():
+            # Amendment 21: every live POST runs through the task-local worker.
+            # fill-once arms the task (running) and launches/refreshes its worker;
+            # it never performs a synchronous live POST here.
+            if task["status"] != D.STATUS_RUNNING:
+                task = self._store.set_task_status(task_id, D.STATUS_RUNNING, self._wall_us())
+            self.ensure_worker(task_id)
+            return 200, task_to_doc(task)
+        task, _ = self._dispatch_one_for_task(task, self._wall_us())
         return 200, task_to_doc(task)
 
     def post_fill_all(self, task_id: str) -> tuple[int, dict]:
         task = self._get_task_or_404(task_id)
         self._require_fillable(task)
         if self._live_mode:
-            # Live fill-all is PROHIBITED (breakdown §3.8): every send must pass
-            # the one-second scheduler + Start/executor gate. Arm the task
-            # (ensure running) and let the scheduler drive; no synchronous POST
-            # loop may run here.
+            # Amendment 21: live fill-all arms the task and launches its worker;
+            # the worker drives every pair (no synchronous live POST loop here).
             if task["status"] != D.STATUS_RUNNING:
                 task = self._store.set_task_status(task_id, D.STATUS_RUNNING, self._wall_us())
+            if self._live_dispatch_capable():
+                self.ensure_worker(task_id)
             return 200, task_to_doc(task)
         now_us = self._wall_us()
         # Record/disabled path only: a bounded synchronous loop that never POSTs.
@@ -518,7 +565,7 @@ class HedgeOpenTaskService:
         while task["status"] == D.STATUS_RUNNING and guard < 10_000:
             if task["success_count"] >= task["target_n"]:
                 break
-            task = self._dispatch_one_for_task(task, now_us)
+            task, _ = self._dispatch_one_for_task(task, now_us)
             guard += 1
             now_us += 1  # keep ts strictly increasing within one call
         return 200, task_to_doc(task)
@@ -787,102 +834,289 @@ class HedgeOpenTaskService:
         self._store.set_start_gate(enabled, self._wall_us())
         return self.get_settings()
 
-    # ----------------------------------------------------- rate-limit cooldown
+    # -------------------------------------------------------- task-local workers
+    #
+    # Amendment 21 binding runtime contract: there is NO long-lived global
+    # guardian/scanner. A task has a bounded-lifetime local worker ONLY while it
+    # is actively running or reconciling its own one active pair. The worker owns
+    # exactly its own pair: preflight -> durable reserve -> concurrent two-leg
+    # submit -> query only its own two legs to terminal -> one atomic settlement
+    # -> pair N+1 only while the task remains running. It exits on
+    # done / paused / stopped / deleted / Start-gate-off / preflight-incomplete
+    # (fail-closed); a one-shot recovery discovery or a manual Start/recover
+    # relaunches it. Per-task ownership is durable: the single-worker registry
+    # below plus the store's atomic in-flight guard (prepare_attempt) prevent two
+    # triggers from owning or sending the same task/pair, and a restart resumes
+    # by querying saved client order IDs only (never resends — ADR-2).
 
-    def _in_rate_limit_cooldown(self, now_mono: int) -> bool:
-        return (
-            self._rate_limited_until_mono is not None
-            and now_mono < self._rate_limited_until_mono
-        )
+    def _wake_worker(self, task_id: str) -> None:
+        """Set a task's stop event so a pacing worker exits its bounded loop."""
+        with self._workers_lock:
+            ev = self._stop_events.get(task_id)
+        if ev is not None:
+            ev.set()
 
-    def _enter_rate_limit_cooldown(
-        self, now_mono: int, retry_after_seconds: float | None = None
+    def ensure_worker(self, task_id: str) -> bool:
+        """Create or durably claim exactly ONE local worker for ``task_id``
+        (amendment 21). Single critical section under ``_workers_lock``: if a
+        live worker already owns the task it is reused; a dead/stale registry
+        entry is replaced. The worker is a daemon thread bounded to this task
+        only — it never scans or queries another task. Returns True iff a worker
+        is (now) running for this task."""
+        with self._workers_lock:
+            existing = self._workers.get(task_id)
+            if existing is not None and existing.is_alive():
+                return True
+            ev = self._stop_events.get(task_id)
+            if ev is None:
+                ev = threading.Event()
+                self._stop_events[task_id] = ev
+            else:
+                ev.clear()
+            thread = threading.Thread(
+                target=self._run_task_worker,
+                args=(task_id,),
+                name=f"hedge-worker-{task_id}",
+                daemon=True,
+            )
+            self._workers[task_id] = thread
+            thread.start()
+            return True
+
+    def _run_task_worker(self, task_id: str) -> None:
+        """The bounded worker loop (amendment 21). Repeatedly runs one round
+        (:meth:`_worker_round`) until the round says exit. Pacing (a wait on the
+        per-task stop event for the scheduler interval) happens ONLY when the
+        task still has in-flight legs to re-query — a pair whose legs resolved
+        terminal advances immediately to pair N+1 (per-task serial, A-9); a round
+        that exits never paces. The executor is invoked with no store transaction
+        held (Q6): every executor call sits between short store transactions,
+        never inside one."""
+        try:
+            while not self._worker_round(task_id):
+                # Pace only while own non-terminal legs wait to be re-queried; a
+                # resolved pair proceeds straight to the next group.
+                if self._store.list_non_terminal_legs_for_task(task_id):
+                    interval_s = (self._store.get_interval_us() or 1) / 1_000_000
+                    ev = self._stop_events.get(task_id)
+                    if ev is not None:
+                        ev.wait(interval_s)
+        except Exception:
+            # Last-resort containment: a worker error must not leak; the task's
+            # durable state is authoritative and a recovery discovery relaunches.
+            pass
+        finally:
+            with self._workers_lock:
+                if self._workers.get(task_id) is threading.current_thread():
+                    self._workers.pop(task_id, None)
+
+    def _pump_worker(self, task_id: str, max_rounds: int = 64) -> int:
+        """TEST SEAM (amendment 21): synchronously run the task-local worker loop
+        body for up to ``max_rounds`` rounds (or until a round exits), with NO
+        background thread and NO pacing wait. This is the deterministic offline
+        replacement for the old synchronous live tick — it lets the review-2
+        regressions drive a task's worker step-by-step without a sleep race.
+        Returns the number of rounds actually run."""
+        rounds = 0
+        while rounds < max_rounds:
+            rounds += 1
+            if self._worker_round(task_id):
+                break
+        return rounds
+
+    def _worker_round(self, task_id: str) -> bool:
+        """One iteration of the worker loop. Returns True when the worker should
+        EXIT (bounded lifecycle), False to continue. Order (Q2: drain-before-
+        exit): non-terminal own legs are ALWAYS queried to terminal first,
+        regardless of task status — so a 429 / insufficient / manual-pause entered
+        mid-pair still drains its in-flight orders before the worker leaves.
+
+        Drain signals (a 429 or a confirmed insufficient-funds fact observed on a
+        leg) pause THIS task only (worker exits after drain); other tasks are
+        untouched. With no in-flight legs, the worker exits unless the task is
+        RUNNING, the Start gate is on, and the target is not yet met — in which
+        case it dispatches one more pair (durable-before-send; no resend)."""
+        stop_event = self._stop_events.get(task_id)
+        if stop_event is not None and stop_event.is_set():
+            return True
+        task = self._store.get_task(task_id)
+        if task is None:
+            return True
+        now_us = self._wall_us()
+        # Q2: drain own non-terminal legs first (rate_limited -> drain-then-exit).
+        drain_signal = self._reconcile_own_legs(task_id, task, now_us)
+        if drain_signal == D.SIGNAL_RATE_LIMITED:
+            self._pause_task_local(
+                task, D.PAUSE_REASON_RATE_LIMITED, None, now_us, kind="rate_limited",
+            )
+            return False  # continue -> next round drains the 429 pair to terminal
+        if drain_signal in D.SIGNAL_INSUFFICIENT:
+            self._pause_task_local(
+                task, self._insufficient_pause_reason(drain_signal), drain_signal, now_us,
+            )
+            return False
+        own = self._store.list_non_terminal_legs_for_task(task_id)
+        if own:
+            return False  # still draining this pair; keep querying (pacing in loop)
+        # No in-flight legs: decide exit vs. next pair.
+        if task["status"] != D.STATUS_RUNNING:
+            return True  # done / paused / stopped / deleted
+        if not self.is_start_gate_on():
+            return True  # gate off -> exit; a recovery discovery relaunches on gate-on
+        if task["scheduled_attempt_count"] >= task["target_n"]:
+            return True  # target met
+        # Dispatch the next pair (preflight -> reserve -> two-leg submit).
+        _, signal = self._dispatch_one_for_task(task, now_us)
+        if signal == D.SIGNAL_RATE_LIMITED:
+            self._pause_task_local(
+                task, D.PAUSE_REASON_RATE_LIMITED, None, now_us, kind="rate_limited",
+            )
+            return False  # 429: drain the just-submitted pair next round, then exit
+        if signal in D.SIGNAL_INSUFFICIENT:
+            self._pause_task_local(
+                task, self._insufficient_pause_reason(signal), signal, now_us,
+            )
+            return False
+        if signal in (D.SIGNAL_PREFLIGHT_INCOMPLETE, D.SIGNAL_PREFLIGHT_FATAL):
+            return True  # fail-closed / fatal -> exit; recovery/manual Start relaunches
+        return False  # dispatched -> next round resolves/drains this pair
+
+    def _reconcile_own_legs(self, task_id: str, task: dict, now_us: int) -> str | None:
+        """Query ONLY this task's non-terminal legs by client order ID to
+        terminal, then settle the pair once (amendment 21: no global scan). The
+        executor is called with no store lock held. Returns a drain signal when a
+        leg surfaces a 429 (rate_limited) or a confirmed insufficient-funds fact;
+        None otherwise. A query that stays inconclusive leaves the leg
+        non-terminal (keep querying, never resend — ADR-2)."""
+        if not hasattr(self._executor, "query_leg"):
+            return None
+        legs = self._store.list_non_terminal_legs_for_task(task_id)
+        if not legs:
+            return None
+        coin = task["coin"] if task is not None else None
+        finalized: set[int] = set()
+        drain_signal: str | None = None
+        for leg in legs:
+            verdict = self._executor.query_leg(leg["leg"], coin, leg["client_order_id"])
+            if verdict is None:
+                continue  # inconclusive — keep querying
+            terminal = self._query_verdict_terminal(verdict)
+            try:
+                self._store.resolve_leg_from_query(
+                    leg["id"],
+                    exchange_status=verdict.exchange_status or D.LEG_UNKNOWN,
+                    order_id=verdict.order_id,
+                    base_qty=verdict.executed_qty,
+                    quote_amt=verdict.cumulative_quote,
+                    fee_amount=None,
+                    fee_asset=None,
+                    now_us=now_us,
+                    terminal=terminal,
+                    error_code=getattr(verdict, "error_code", None),
+                    error_category=getattr(verdict, "error_category", None),
+                )
+            except Exception:
+                continue
+            if getattr(verdict, "error_category", None) == "insufficient_funds":
+                drain_signal = D.SIGNAL_INSUFFICIENT_BALANCE
+            elif getattr(verdict, "rate_limited", False) and drain_signal is None:
+                drain_signal = D.SIGNAL_RATE_LIMITED
+            if terminal:
+                finalized.add(leg["attempt_id"])
+        rate_paused = task.get("pause_reason") == D.PAUSE_REASON_RATE_LIMITED
+        for attempt_id in finalized:
+            try:
+                if rate_paused:
+                    # Amendment 21: a 429-paused pair is closed WITHOUT consuming
+                    # the failure counter; the in-flight guard still clears.
+                    self._store.settle_attempt_no_counters(attempt_id, now_us)
+                else:
+                    self._store.finalize_attempt(attempt_id, now_us)
+            except Exception:
+                pass
+        return drain_signal
+
+    def _pause_task_local(
+        self, task: dict, pause_reason: str, insufficient_signal: str | None,
+        now_us: int, *, kind: str = "task_paused",
     ) -> None:
-        """Enter the shared exchange rate-limit cooldown (breakdown §3.6 / I-5).
+        """Persist a task-local pause (amendment 21): status=paused + the precise
+        safe reason + an audit event, for THIS task only. No cross-task linkage,
+        no consecutive-failure churn. A 429 uses the ``rate_limited`` kind; an
+        insufficient-funds fact uses ``task_paused``. Idempotent on status."""
+        pause_zh = D.pause_reason_zh(pause_reason)
+        updated = self._store.pause_task(task["id"], pause_reason, pause_zh, now_us)
+        payload = {
+            "reason": pause_reason,
+            "reason_zh": pause_zh,
+            "coin": task["coin"],
+            "direction": task["direction"],
+        }
+        if insufficient_signal is not None:
+            payload["signal"] = insufficient_signal
+        self._store.record_task_event(task["id"], kind, payload, now_us)
+        if updated is not None:
+            task.update(updated)
 
-        When the live executor surfaces a server ``Retry-After`` (seconds) we
-        honor it exactly; otherwise we fall back to the conservative fixed
-        window. This is a process-wide technical write delay only — it never
-        marks a task failed/paused/stopped/done, and it never alters another
-        task's business state (amendment row 6)."""
-        if retry_after_seconds:
-            wait_us = int(float(retry_after_seconds) * 1_000_000)
-        else:
-            wait_us = RATE_LIMIT_COOLDOWN_US
-        self._rate_limited_until_mono = now_mono + wait_us
+    @staticmethod
+    def _insufficient_pause_reason(signal: str) -> str:
+        """Map an insufficient-funds drain/dispatch signal to its pause reason."""
+        return {
+            D.SIGNAL_INSUFFICIENT_BALANCE: D.PAUSE_REASON_INSUFFICIENT_BALANCE,
+            D.SIGNAL_INSUFFICIENT_MARGIN: D.PAUSE_REASON_INSUFFICIENT_MARGIN,
+            D.SIGNAL_INSUFFICIENT_AVAILABLE_QTY: D.PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY,
+        }.get(signal, D.PAUSE_REASON_INSUFFICIENT_BALANCE)
 
     # --------------------------------------------------------------- scheduler
 
     def tick(self) -> bool:
-        """Run one tick: reconcile first, then dispatch one pair for EVERY
-        eligible task if due.
+        """One scheduler tick (amendment 21 + final guardian fix / H-1).
 
-        The automatic scheduler respects the global Start gate (§9) and the
-        shared exchange rate-limit cooldown; explicit ``fill-once``/``fill-all``
-        bypass the gate because they are operator manual triggers of the record
-        transport and never POST.
+        LIVE mode: this is a SAFE NO-OP. The one-time durable recovery handoff
+        ran at :meth:`start`; live dispatch/reconcile runs only on the per-task
+        worker that a manual Start/recover (or that single startup handoff)
+        launched. A periodic tick must NEVER scan all tasks, enumerate legs, or
+        launch a worker — so even an accidental call cannot become a long-lived
+        all-task guardian scanner.
 
-        Reconciliation runs FIRST on EVERY tick (amendment I-6): already-
-        persisted non-terminal legs are polled to a final outcome independent of
-        the Start gate, the pacing floor, and the eligible set. A task's
-        unresolved pair blocks only that task's next pair; polling continues even
-        when Start is off, the task is done/paused/stopped, or no task is
-        dispatch-eligible.
-
-        Per-task async cadence (R4-2 / amendment): each eligible running task is
-        dispatched on its OWN worker so a slow live preflight/POST/query on one
-        card cannot block another card's same-tick pair submission. Both legs
-        dispatch concurrently within one pair. The per-task serial rule (one
-        in-flight pair, A-9) — not the interval timer — is the pair-N+1 gate
-        (amendment I-3: ``interval_seconds`` is a worker/poll pacing floor only).
-        Workers are joined before returning so a task still issues at most one
-        pair per tick (no same-task re-entry). Durable-before-send and the
-        timeout→client-ID query (no resend) rule are unchanged.
+        DRY-RUN mode (record/disabled executor): the synchronous dispatch path is
+        preserved (the executor is synchronous and performs no network POST),
+        pacing on the scheduler interval; there is no rate-limit cooldown and no
+        global reconcile scan. Explicit fill-once/fill-all remain operator
+        manual triggers of the record transport and never POST.
         """
-        with self._lock:
-            now = self._mono_us()
-            # Reconcile is never abandoned (I-6): runs every tick, unconditionally.
-            try:
-                self._reconcile_pending(self._wall_us())
-            except Exception:
-                pass
-            # Dispatch pacing baseline (I-3): interval_seconds paces new
-            # submissions uniformly; it never gates pair finality or another task.
-            interval = self._store.get_interval_us()
-            if self._last_tick_mono is None:
-                self._last_tick_mono = now
-                due = True
-            elif now >= self._last_tick_mono + interval:
-                self._last_tick_mono = now
-                due = True
-            else:
-                due = False
-            if not due:
-                return False
-            if not self.is_start_gate_on():
-                return False
-            if self._in_rate_limit_cooldown(now):
-                return False
-            eligible = self._store.list_eligible_tasks()
-            if not eligible:
-                return False
-            now_us = self._wall_us()
-            self._dispatch_eligible_concurrently(eligible, now_us)
-            return True
+        if self._live_dispatch_capable():
+            return False
+        now = self._mono_us()
+        interval = self._store.get_interval_us()
+        if self._last_tick_mono is None:
+            self._last_tick_mono = now
+            due = True
+        elif now >= self._last_tick_mono + interval:
+            self._last_tick_mono = now
+            due = True
+        else:
+            due = False
+        if not due:
+            return False
+        if not self.is_start_gate_on():
+            return False
+        eligible = self._store.list_eligible_tasks()
+        if not eligible:
+            return False
+        now_us = self._wall_us()
+        # Dry-run (record/disabled executor): per-task concurrent dispatch + join
+        # (R4-2). The executor is synchronous and never POSTs; there is no global
+        # reconcile scan and no rate-limit cooldown on this path.
+        self._dispatch_eligible_concurrently(eligible, now_us)
+        return True
 
     def _dispatch_eligible_concurrently(self, eligible: list[dict], now_us: int) -> None:
-        """Dispatch one pair for every eligible task concurrently (R4-2).
-
-        Each task runs on its own worker thread so a slow live preflight/POST/
-        query on one card does not block another card's same-second submission.
-        The workers are joined before this returns: the scheduler therefore
-        advances to the next second only after this tick's pairs are submitted
-        (one pair per second per task, no same-task re-entry across ticks). Each
-        worker is containment-wrapped so one card's failure never stops the
-        others. The executor is invoked with no service lock held by the worker
-        — the store's own RLock still guards its transactions, so
-        durable-before-send and the no-resend client-ID query rule are unchanged.
-        """
+        """Dry-run only: dispatch one pair for every eligible task concurrently
+        (R4-2), joined before returning. The record/disabled executor is
+        synchronous and performs no network POST; each task is containment-wrapped
+        so one card's failure never stops a sibling. Live dispatch is NOT driven
+        here — it runs on the task-local worker (amendment 21)."""
         threads = []
         for task in eligible:
             worker = threading.Thread(
@@ -900,13 +1134,41 @@ class HedgeOpenTaskService:
                 pass
 
     def _dispatch_one_for_task_contained(self, task: dict, now_us: int) -> None:
-        """Per-task dispatch wrapper (R4-2): contains exceptions so one card's
-        failure never stops a sibling card's worker. The dispatch itself is
+        """Dry-run per-task dispatch wrapper (R4-2): contains exceptions so one
+        card's failure never stops a sibling. The dispatch itself is
         :meth:`_dispatch_one_for_task` (durable-before-send; no resend)."""
         try:
             self._dispatch_one_for_task(task, now_us)
         except Exception:
             pass
+
+    def _recover_workers(self) -> None:
+        """One-shot startup recovery discovery (amendment 21 + final guardian
+        fix / H-1): launch a bounded worker for every RUNNING task missing one,
+        and a drain-only worker for any task (any status) whose persisted legs
+        are still non-terminal. Returns after the handoffs. This is invoked ONCE
+        by :meth:`start` (never by a periodic :meth:`tick`); it is NOT a resident
+        scanner — a task whose worker exits is relaunched only by a manual
+        Start/recover."""
+        for task in self._store.list_tasks(D.STATUS_RUNNING):
+            tid = task["id"]
+            with self._workers_lock:
+                has = self._workers.get(tid)
+            if has is not None and has.is_alive():
+                continue
+            self.ensure_worker(tid)
+        # Drain-only recovery for non-running tasks still holding in-flight legs
+        # (e.g. paused/stopped mid-pair): a worker launched on a non-running task
+        # drains its own legs to terminal, then exits (Q2 drain-before-exit).
+        for status in (D.STATUS_PAUSED, D.STATUS_STOPPED):
+            for task in self._store.list_tasks(status):
+                tid = task["id"]
+                if not self._store.list_non_terminal_legs_for_task(tid):
+                    continue
+                with self._workers_lock:
+                    has = self._workers.get(tid)
+                if has is None or not has.is_alive():
+                    self.ensure_worker(tid)
 
     def _live_dispatch_capable(self) -> bool:
         """A real POST is reachable only with a live executor + live mode."""
@@ -997,12 +1259,17 @@ class HedgeOpenTaskService:
             now_us,
         )
 
-    def _dispatch_one_for_task(self, task: dict, now_us: int) -> dict:
+    def _dispatch_one_for_task(self, task: dict, now_us: int) -> tuple[dict, str | None]:
         """Durable-before-send: a fresh preflight (live path only) -> persist the
         immutable attempt + both client IDs + sanitized request shapes in ONE
         transaction BEFORE any executor call (ADR-2). The executor is then
         invoked with no store transaction held; the outcome is resolved in a
         second short transaction.
+
+        Returns ``(task, signal)`` (amendment 21). ``signal`` tells the task-local
+        worker what happened on this pair: ``SIGNAL_RATE_LIMITED`` / a
+        ``SIGNAL_INSUFFICIENT_*`` -> pause THIS task only; ``SIGNAL_PREFLIGHT_*``
+        are fail-closed / fatal (the worker exits); ``None`` is a normal dispatch.
 
         Fresh-preflight-first + fail-closed (A-2/A-3) applies ONLY on the live
         POST path. A fatal fact stops the task (no attempt/POST); an incomplete
@@ -1016,9 +1283,9 @@ class HedgeOpenTaskService:
                 # incomplete read -> fail-closed retry (I-7); fatal -> stop (rows 1–2).
                 if fresh is not None and fresh.fatal:
                     self._stop_task_fatal_preflight(task, fresh, now_us)
-                else:
-                    self._record_preflight_incomplete(task, now_us)
-                return self._store.get_task(task["id"]) or task
+                    return self._store.get_task(task["id"]) or task, D.SIGNAL_PREFLIGHT_FATAL
+                self._record_preflight_incomplete(task, now_us)
+                return self._store.get_task(task["id"]) or task, D.SIGNAL_PREFLIGHT_INCOMPLETE
             q_common = fresh.q_common
             position_side_mode = fresh.position_side_mode
             snapshot_record = fresh.snapshot_record
@@ -1051,7 +1318,7 @@ class HedgeOpenTaskService:
         )
         if attempt is None:
             # Task is no longer eligible (paused/done/deleted/out-of-budget) — no POST.
-            return self._store.get_task(task["id"]) or task
+            return self._store.get_task(task["id"]) or task, None
         ctx = AttemptContext(
             attempt_id=attempt_uuid,
             task_id=task["id"],
@@ -1065,11 +1332,12 @@ class HedgeOpenTaskService:
             target_n=task["target_n"],
             ts_us=now_us,
         )
+        signal: str | None = None
         if live:
-            self._dispatch_live(attempt, ctx, now_us)
+            signal = self._dispatch_live(attempt, ctx, now_us)
         else:
             self._dispatch_simulated(attempt, ctx, now_us)
-        return self._store.get_task(task["id"]) or task
+        return self._store.get_task(task["id"]) or task, signal
 
     def _dispatch_simulated(self, attempt: dict, ctx: AttemptContext, now_us: int) -> None:
         """Record/disabled path (no network POST): a synchronous simulated
@@ -1084,20 +1352,36 @@ class HedgeOpenTaskService:
             # containment: a resolve failure must not kill dispatch.
             pass
 
-    def _dispatch_live(self, attempt: dict, ctx: AttemptContext, now_us: int) -> None:
+    def _dispatch_live(self, attempt: dict, ctx: AttemptContext, now_us: int) -> str | None:
         """Live path: the executor submits both legs concurrently and returns a
         per-leg dispatch verdict (duck-typed; this package never imports the
-        services-layer executor module). Legs with a definite acceptance verdict
-        resolve the pair now; any UNKNOWN_QUERYING leg is marked and left for the
-        reconcile pass — the write POST is never resent (ADR-2).
+        services-layer executor module). Returns an amendment-21 signal:
+
+        * ``SIGNAL_RATE_LIMITED`` — a 429 / -1003 / 418 on a leg. The pair is NOT
+          resolved; any UNKNOWN leg is marked so the worker drains it before it
+          exits (the write POST is never resent — ADR-2). The worker pauses THIS
+          task only and never consumes the failure counter.
+        * a ``SIGNAL_INSUFFICIENT_*`` — a confirmed insufficient balance/margin/
+          available-quantity fact on a leg. A terminal insufficient pair is
+          settled once (clearing the in-flight guard); the worker pauses THIS
+          task only.
+        * ``None`` — a normal dispatch: legs with a definite verdict resolve the
+          pair now; any UNKNOWN leg is marked for the worker's own drain.
         """
         dispatch = self._executor.dispatch(ctx)
+        spot = dispatch.spot
+        perp = dispatch.perp
         retry_after = getattr(dispatch, "retry_after_seconds", None)
-        if getattr(dispatch, "rate_limited", False):
-            # Amendment row 6 / I-5: a process-wide technical write delay for the
-            # stated exchange wait (shared account/IP limit). Never marks any
-            # task failed/paused/stopped/done, never alters another task's state.
-            self._enter_rate_limit_cooldown(self._mono_us(), retry_after)
+        rate_limited = bool(getattr(dispatch, "rate_limited", False))
+        spot_querying = spot.dispatch_state == D.LEG_UNKNOWN_QUERYING
+        perp_querying = perp.dispatch_state == D.LEG_UNKNOWN_QUERYING
+        has_querying = spot_querying or perp_querying
+        if rate_limited:
+            # Amendment 21: pause THIS task only. Do NOT resolve the pair — its
+            # UNKNOWN legs are marked so the worker drains them, then settles the
+            # pair without consuming the failure counter, before exiting.
+            if has_querying:
+                self._mark_legs_querying(attempt, spot, perp, now_us)
             self._store.record_task_event(
                 ctx.task_id,
                 "rate_limited",
@@ -1109,24 +1393,27 @@ class HedgeOpenTaskService:
                 },
                 now_us,
             )
-        spot = dispatch.spot
-        perp = dispatch.perp
-        spot_querying = spot.dispatch_state == D.LEG_UNKNOWN_QUERYING
-        perp_querying = perp.dispatch_state == D.LEG_UNKNOWN_QUERYING
-        if spot_querying or perp_querying:
-            for leg in (spot, perp):
-                state = (
-                    D.LEG_UNKNOWN_QUERYING
-                    if leg.dispatch_state == D.LEG_UNKNOWN_QUERYING
-                    else D.LEG_ACCEPTED_OR_QUERYING
-                )
-                try:
-                    self._store.mark_leg_querying(
-                        attempt["id"], leg.leg, state, leg.order_id, now_us
-                    )
-                except Exception:
-                    pass
-            return
+            return D.SIGNAL_RATE_LIMITED
+        insufficient = self._insufficient_signal_from_legs(spot, perp)
+        if insufficient is not None and not has_querying:
+            # Both legs terminal with a confirmed insufficient-funds fact: settle
+            # the pair once (clearing the in-flight guard); the worker pauses.
+            outcome = self._dispatch_to_outcome(
+                attempt["attempt_uuid"], spot, perp, dispatch.record_payload
+            )
+            try:
+                self._store.resolve_attempt(attempt["id"], outcome, now_us)
+            except Exception:
+                pass
+            return insufficient
+        if insufficient is not None:
+            # Mixed: one leg insufficient-terminal, the other still UNKNOWN — mark
+            # the UNKNOWN leg(s); the worker pauses and drains before exit.
+            self._mark_legs_querying(attempt, spot, perp, now_us)
+            return insufficient
+        if has_querying:
+            self._mark_legs_querying(attempt, spot, perp, now_us)
+            return None
         outcome = self._dispatch_to_outcome(
             attempt["attempt_uuid"], spot, perp, dispatch.record_payload
         )
@@ -1140,6 +1427,41 @@ class HedgeOpenTaskService:
             )
         except Exception:
             pass
+        return None
+
+    def _mark_legs_querying(
+        self, attempt: dict, spot, perp, now_us: int,
+    ) -> None:
+        """Mark a pair's UNKNOWN / accepted-not-yet-final legs for the worker's
+        own drain (the write POST is never resent — ADR-2). A leg already
+        confirmed terminal (REJECTED) is left untouched."""
+        for leg in (spot, perp):
+            if leg.dispatch_state == D.LEG_TERMINAL_RECORDED:
+                continue
+            state = (
+                D.LEG_UNKNOWN_QUERYING
+                if leg.dispatch_state == D.LEG_UNKNOWN_QUERYING
+                else D.LEG_ACCEPTED_OR_QUERYING
+            )
+            try:
+                self._store.mark_leg_querying(
+                    attempt["id"], leg.leg, state, leg.order_id, now_us
+                )
+            except Exception:
+                pass
+
+    @staticmethod
+    def _insufficient_signal_from_legs(spot, perp) -> str | None:
+        """Map a confirmed insufficient-funds leg (``error_category ==
+        "insufficient_funds"``) to its amendment-21 pause signal. ``-2019`` ->
+        margin; any other confirmed code (``-3041`` / msg-confirmed ``-2010``) ->
+        balance. Returns ``None`` when neither leg is insufficient-funds."""
+        for leg in (spot, perp):
+            if getattr(leg, "error_category", None) == "insufficient_funds":
+                if getattr(leg, "error_code", None) == "-2019":
+                    return D.SIGNAL_INSUFFICIENT_MARGIN
+                return D.SIGNAL_INSUFFICIENT_BALANCE
+        return None
 
     @staticmethod
     def _leg_terminal(leg) -> bool:
@@ -1214,55 +1536,6 @@ class HedgeOpenTaskService:
             error_code=error_code,
             error_reason_zh=error_reason_zh,
         )
-
-    def _reconcile_pending(self, now_us: int) -> None:
-        """Query non-terminal legs by client ID and close them when resolved.
-
-        Runs each tick under the scheduler. A leg whose query is still
-        inconclusive stays non-terminal (keep querying, never resend). When both
-        legs of an attempt close, :meth:`finalize_attempt` stamps its pair
-        outcome + counters. Only a live executor (``query_leg``) reconciles.
-        """
-        if not hasattr(self._executor, "query_leg"):
-            return
-        legs = self._store.list_non_terminal_legs()
-        finalized: set[int] = set()
-        for leg in legs:
-            attempt = self._store.get_attempt(leg["attempt_id"])
-            if attempt is None:
-                continue
-            task = self._store.get_task(attempt["task_id"])
-            if task is None:
-                continue
-            verdict = self._executor.query_leg(
-                leg["leg"], task["coin"], leg["client_order_id"]
-            )
-            if verdict is None:
-                continue  # inconclusive — keep querying
-            terminal = self._query_verdict_terminal(verdict)
-            try:
-                self._store.resolve_leg_from_query(
-                    leg["id"],
-                    exchange_status=verdict.exchange_status or D.LEG_UNKNOWN,
-                    order_id=verdict.order_id,
-                    base_qty=verdict.executed_qty,
-                    quote_amt=verdict.cumulative_quote,
-                    fee_amount=None,
-                    fee_asset=None,
-                    now_us=now_us,
-                    terminal=terminal,
-                    error_code=getattr(verdict, "error_code", None),
-                    error_category=getattr(verdict, "error_category", None),
-                )
-            except Exception:
-                continue
-            if terminal:
-                finalized.add(leg["attempt_id"])
-        for attempt_id in finalized:
-            try:
-                self._store.finalize_attempt(attempt_id, now_us)
-            except Exception:
-                pass
 
     @staticmethod
     def _query_verdict_terminal(verdict) -> bool:

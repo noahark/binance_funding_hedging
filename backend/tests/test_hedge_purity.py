@@ -73,6 +73,22 @@ def test_hedge_domain_package_does_not_import_live_adapter():
     assert bad == [], f"hedge_open_tasks references a live-adapter module: {bad}"
 
 
+def test_store_never_invokes_or_holds_an_executor():
+    """Q6 命门 (amendment 21): the store is pure persistence — it must NEVER call
+    an executor and never hold an executor reference. The executor is invoked
+    ONLY by the service's task-local worker, between short store transactions
+    with no lock/transaction held. This static guard pins that as a compile-time
+    fact so a future edit cannot silently re-introduce an executor call under the
+    store lock. (``.execute`` is excluded from the call ban — it collides with
+    the SQLite cursor's ``.execute()``.)"""
+    store_py = HEDGE_PKG / "store.py"
+    text = store_py.read_text(encoding="utf-8")
+    assert not re.search(r"\.\s*(?:dispatch|query_leg|query)\s*\(", text), (
+        "store.py invokes an executor method (Q6 violation)"
+    )
+    assert "self._executor" not in text, "store.py holds an executor reference (Q6)"
+
+
 # ---- 2. frozen allowlist (recon §3.1/§3.2/§4.1) ----
 def test_allowlist_is_exactly_the_frozen_seven_endpoints():
     assert ALLOWLIST == _FROZEN_ALLOWLIST

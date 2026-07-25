@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS hedge_open_task (
     consecutive_submission_failures INTEGER NOT NULL DEFAULT 0,
     failure_pause_threshold         INTEGER NOT NULL DEFAULT 3,
     pause_reason                    TEXT,
+    pause_reason_zh                 TEXT,
     stop_reason                     TEXT
 );
 CREATE TABLE IF NOT EXISTS hedge_open_attempt (
@@ -183,6 +184,7 @@ def _row_to_task(row: sqlite3.Row) -> dict:
         "consecutive_submission_failures": row["consecutive_submission_failures"],
         "failure_pause_threshold": row["failure_pause_threshold"],
         "pause_reason": row["pause_reason"],
+        "pause_reason_zh": row["pause_reason_zh"],
         "stop_reason": row["stop_reason"],
     }
 
@@ -311,6 +313,7 @@ class HedgeOpenStore:
             ("consecutive_submission_failures", "INTEGER NOT NULL DEFAULT 0"),
             ("failure_pause_threshold", "INTEGER NOT NULL DEFAULT 3"),
             ("pause_reason", "TEXT"),
+            ("pause_reason_zh", "TEXT"),
             ("stop_reason", "TEXT"),
         )
         for col, decl in additions:
@@ -1003,6 +1006,32 @@ class HedgeOpenStore:
             )
             return updated_task
 
+    def settle_attempt_no_counters(self, attempt_id: int, now_us: int) -> bool:
+        """Close an attempt whose legs are both terminal WITHOUT touching the
+        task's counters or status (amendment 21). Used for a pair paused by a
+        confirmed 429, where the consecutive-failure counter must NOT be
+        consumed: the legs have already been resolved to terminal by the worker's
+        own drain, and this only stamps ``pair_outcome`` so the in-flight guard
+        clears and a resumed worker can reserve the next group. Returns True iff
+        the attempt was settled here; ``False`` when it is gone, already settled,
+        or its legs are not both terminal yet."""
+        with self._lock, self._conn:
+            attempt = self._conn.execute(
+                "SELECT pair_outcome FROM hedge_open_attempt WHERE id = ?", (attempt_id,)
+            ).fetchone()
+            if attempt is None or attempt["pair_outcome"] is not None:
+                return False
+            legs = self._conn.execute(
+                "SELECT terminal FROM hedge_open_leg WHERE attempt_id = ?", (attempt_id,)
+            ).fetchall()
+            if len(legs) != 2 or not all(row["terminal"] for row in legs):
+                return False
+            self._conn.execute(
+                "UPDATE hedge_open_attempt SET pair_outcome = ? WHERE id = ?",
+                (D.PAIR_CONFIRMED_FAILED, attempt_id),
+            )
+            return True
+
     @staticmethod
     def _exposure_from_legs(spot: sqlite3.Row, perp: sqlite3.Row, ts_us: int) -> dict | None:
         """Build the advisory leg_exposure doc for a reconciled single-leg attempt
@@ -1139,6 +1168,25 @@ class HedgeOpenStore:
             rows = self._conn.execute(
                 "SELECT * FROM hedge_open_leg WHERE terminal = 0"
                 " ORDER BY id ASC"
+            ).fetchall()
+            return [_row_to_leg(r) for r in rows]
+
+    def list_non_terminal_legs_for_task(self, task_id: str) -> list[dict]:
+        """Same unresolved-query selection as :meth:`list_non_terminal_legs` but
+        scoped to ONE task's in-flight pair (amendment 21: a task-local worker
+        queries only its own two legs; no global scan). The ``terminal = 0``
+        predicate is the same leg-level obligation the global scan reads, and
+        pairs with the ``prepare_attempt`` pair-level in-flight guard
+        (``pair_outcome IS NULL``): a worker drains these legs to terminal, then
+        finalizes the pair (clearing the in-flight guard) before reserving the
+        next group."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM hedge_open_leg"
+                " WHERE terminal = 0 AND attempt_id IN"
+                " (SELECT id FROM hedge_open_attempt WHERE task_id = ?)"
+                " ORDER BY id ASC",
+                (task_id,),
             ).fetchall()
             return [_row_to_leg(r) for r in rows]
 
@@ -1306,6 +1354,32 @@ class HedgeOpenStore:
                 "UPDATE hedge_open_task SET status = ?, stop_reason = ?,"
                 " updated_at_us = ? WHERE id = ?",
                 (D.STATUS_STOPPED, stop_reason, now_us, task_id),
+            )
+            if cur.rowcount == 0:
+                return None
+            row = self._conn.execute(
+                "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
+            ).fetchone()
+            return _row_to_task(row) if row is not None else None
+
+    def pause_task(
+        self, task_id: str, pause_reason: str, pause_reason_zh: str, now_us: int,
+    ) -> dict | None:
+        """Set a task to the amendment-21 task-local pause state:
+        ``status=paused`` + ``pause_reason`` + ``pause_reason_zh`` (and clear any
+        stale ``stop_reason``). Used by a task-local worker when a confirmed
+        429/Retry-After or a confirmed insufficient balance/margin/available-
+        quantity fact is observed for THIS task only (no cross-task linkage).
+        Unlike :meth:`stop_task_fatal`, a pause is recoverable: the operator
+        clears the cause and manually resumes the SAME task (Start/recover). No
+        consecutive-failure counter churn. Returns the updated task or ``None``
+        when the task is gone."""
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "UPDATE hedge_open_task SET status = ?, pause_reason = ?,"
+                " pause_reason_zh = ?, stop_reason = NULL, updated_at_us = ?"
+                " WHERE id = ?",
+                (D.STATUS_PAUSED, pause_reason, pause_reason_zh, now_us, task_id),
             )
             if cur.rowcount == 0:
                 return None

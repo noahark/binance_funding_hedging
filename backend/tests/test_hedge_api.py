@@ -36,6 +36,8 @@ _TASK_KEYS = {
     # Real-API attempt/acceptance/pause counters (breakdown §3.4).
     "scheduled_attempt_count", "accepted_pair_count",
     "consecutive_submission_failures", "failure_pause_threshold", "pause_reason",
+    # Amendment 21 additive: localized pause reason alongside pause_reason.
+    "pause_reason_zh",
     # Amendment additive (I-4): nullable stop_reason alongside status=stopped.
     "stop_reason",
     "created_at", "updated_at",
