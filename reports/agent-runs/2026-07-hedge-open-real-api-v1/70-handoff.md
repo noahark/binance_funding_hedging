@@ -2,7 +2,13 @@
 
 ## Recovery Header
 
-- Active phase: `review_1 / packet-66 backend Review-1 returned REWORK with ZERO open P0/P1; the user-authorized sixth bounded repair, packet 67, is dispatch-ready for Claude-GLM`.
+- Active phase: `review_1 / packet-67 sixth bounded repair is committed at b9e1978 and bookkeeper-verified; the renewed backend Review-1, packet 68, is dispatch-ready for a FRESH read-only Claude Opus 5 session`.
+- **Current anchor**: base `28c550d87c1ca90983d5bde9c7102d42cffecd4e`, head
+  `b9e1978eaffd047b7871b8721f511307e75fde68`, fingerprint
+  `b9e1978eaffd047b7871b8721f511307e75fde68:604caada1043e8334f33b1cc73239f1cf6bb19017db1dc68374679cf6ac99ddd`.
+- **`rework_count` is at 6/6.** Any further code change requires a NEW explicit
+  user authorization raising the limit; the bookkeeper must not consume another
+  round on its own.
 - **Bookkeeper handover (2026-07-25)**: the user reported Codex/GPT-5 Codex out of
   quota and instructed this session to take over. Bookkeeper is now
   `claude / Claude Opus 5`, which is ALSO the reviewer of
@@ -42,8 +48,36 @@
   surfaced that an Anthropic fix author would empty the Review-1 cross-review
   pool (Anthropic same-provider, `claude_glm` hard-barred as implementer, Kimi and
   Codex out of quota), **rerouted to Claude-GLM** so Claude Opus 5 stays eligible
-  for the next Review-1. The only active packet is
-  `67-fix-review-1-backend-r4.dispatch.md`.
+  for the next Review-1.
+- **Packet 67 result** (`46-fix-review-1-backend-r4.md`, Claude-GLM, committed at
+  `b9e1978`): both P2s closed with **two production edits only** —
+  `_pump_worker` now registers the per-task stop event on first use and leaves an
+  existing one untouched (`ensure_worker`'s production clear is retained), and
+  `_recover_workers`'s drain-only fallback becomes
+  `(PAUSED, STOPPED, DELETED, DONE)`. R3/R4 gained
+  `svc._stop_events[tid].is_set() is False`; new `test_r9` covers the DONE
+  recovery. `post_pause` / `post_delete` / `_worker_round` semantics unchanged.
+- **Bookkeeper independent verification** (did NOT trust the fix report's
+  reproduction claims — the r3 lesson was exactly such an unverified claim).
+  Own monkeypatch harness, no repository file modified, four cases, all as
+  expected: (A) `_wake_worker` interrupt restored → **R3 and R4 FAIL** at the new
+  assertion (lines 735/761); (B) shipped code → both PASS; (C) `STATUS_DONE`
+  removed → **R9 FAILS** at "recovery launched a drain worker for the DONE card"
+  (line 888), reproducing `66` §4.2; (D) shipped code → R9 PASSES. Tests
+  reproduced locally: **230 focused / 906 backend / frontend self-check / 55
+  Harness / `git diff --check` exit 0**. Scope confirmed clean: only
+  `service.py` (+27/-10, the two authorized points), `test_hedge_task_local.py`
+  (+90), `60-test-output.txt` (append), `46-…md` (new).
+- **Open scope decision for the next reviewer**: the r4 optional item (c), a
+  real-thread variant of R3, was deliberately **not** implemented; GLM's reason is
+  recorded in `46` §2 and
+  `status.json.r4_repair_authorization.reviewer_optional_item_declined`. GLM also
+  self-declared one residual risk in `46` §5 (`_pump_worker` no longer clears, so
+  "same instance: `service.stop()` then `_pump_worker`" would short-circuit; no
+  current test uses that pattern). Both are for packet 68 to judge.
+- The only active packet is `68-review-1-backend-r5.dispatch.md`, which **must
+  run in a fresh read-only session** — the current bookkeeper session authored
+  review r4 and cannot double as the r5 review session.
 - Classification: `MILESTONE`; the mandatory direction panel is complete. The
   user approved a bounded design amendment at
   `15-immediate-loop-and-open-log-amendment.md`; Fable's replacement task
@@ -52,11 +86,11 @@
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `66-review-1-backend-r4.md`,
+- Read next: `status.json`, `68-review-1-backend-r5.dispatch.md`,
+  `66-review-1-backend-r4.md`, `46-fix-review-1-backend-r4.md`,
   `27-user-authorized-r4-repair.md`, `44-fix-review-1-backend-r3.md`,
-  `26-user-authorized-settlement-and-pause-fix.md`,
-  `21-task-local-runtime-and-manual-pause-amendment.md`, and
-  `67-fix-review-1-backend-r4.dispatch.md`.
+  `26-user-authorized-settlement-and-pause-fix.md`, and
+  `21-task-local-runtime-and-manual-pause-amendment.md`.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
