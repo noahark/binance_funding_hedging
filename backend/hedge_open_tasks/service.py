@@ -115,7 +115,7 @@ class DisabledPreflightProvider:
 # ---------------------------------------------------------------------------
 
 
-def task_to_doc(task: dict) -> dict:
+def task_to_doc(task: dict, *, worker_active: bool | None = None) -> dict:
     q_common = task["q_common"]
     return {
         "id": task["id"],
@@ -143,6 +143,13 @@ def task_to_doc(task: dict) -> dict:
         "pause_reason_zh": task["pause_reason_zh"],
         # Amendment additive (I-4): a fatal stop's reason alongside status=stopped.
         "stop_reason": task["stop_reason"],
+        # Review-1 r3 P2-2 (backend-authoritative observability; frontend display
+        # is a follow-up). worker_active is a derived tri-state: True/False while a
+        # live worker owns the task, None in dry-run (not applicable). The exit
+        # reason is the stable machine enum last written by the worker's own exit
+        # branch / error path, cleared on (re-)entering RUNNING.
+        "worker_active": worker_active,
+        "last_worker_exit_reason": task.get("last_worker_exit_reason"),
         "created_at": D.us_to_iso(task["created_at_us"]),
         "updated_at": D.us_to_iso(task["updated_at_us"]),
     }
@@ -485,11 +492,11 @@ class HedgeOpenTaskService:
             preflight.snapshot_record,
             now_us,
         )
-        return 201, task_to_doc(task)
+        return 201, self._doc(task)
 
     def list_tasks(self, status_query: str | None) -> tuple[int, dict]:
         status_filter = D.filter_status_for_list(status_query)
-        tasks = [task_to_doc(t) for t in self._store.list_tasks(status_filter)]
+        tasks = [self._doc(t) for t in self._store.list_tasks(status_filter)]
         return 200, {"tasks": tasks}
 
     def _get_task_or_404(self, task_id: str) -> dict:
@@ -498,13 +505,26 @@ class HedgeOpenTaskService:
             raise D.HedgeError(404, "unknown_task", f"unknown task {task_id}")
         return task
 
+    def _worker_active_for(self, task_id: str) -> bool | None:
+        """Derive the worker_active tri-state for :func:`task_to_doc` (P2-2). In
+        dry-run (no live dispatch) the concept does not apply -> ``None``;
+        otherwise reflect whether a live worker thread currently owns this task."""
+        if not self._live_dispatch_capable():
+            return None
+        with self._workers_lock:
+            thread = self._workers.get(task_id)
+            return bool(thread is not None and thread.is_alive())
+
+    def _doc(self, task: dict) -> dict:
+        return task_to_doc(task, worker_active=self._worker_active_for(task["id"]))
+
     def post_start(self, task_id: str) -> tuple[int, dict]:
         task = self._get_task_or_404(task_id)
         status = task["status"]
         if status == D.STATUS_DELETED:
             raise D.HedgeError(409, "invalid_state", "cannot start a deleted task")
         if status == D.STATUS_DONE:
-            return 200, task_to_doc(task)  # idempotent: done stays done
+            return 200, self._doc(task)  # idempotent: done stays done
         # exposure_alert is ADVISORY (breakdown §4.5): a single-leg exposure no
         # longer freezes scheduling, so it does not block start.
         updated = self._store.set_task_status(task_id, D.STATUS_RUNNING, self._wall_us())
@@ -512,7 +532,7 @@ class HedgeOpenTaskService:
         # mode) and returns immediately — no global scan, no synchronous POST.
         if self._live_dispatch_capable():
             self.ensure_worker(task_id)
-        return 200, task_to_doc(updated)
+        return 200, self._doc(updated)
 
     def post_pause(self, task_id: str) -> tuple[int, dict]:
         task = self._get_task_or_404(task_id)
@@ -520,17 +540,23 @@ class HedgeOpenTaskService:
             raise D.HedgeError(409, "invalid_state", "cannot pause a deleted task")
         if task["status"] == D.STATUS_DONE:
             raise D.HedgeError(409, "invalid_state", "cannot pause a done task")
+        # Amendment 21 / Review-1 r3 P1-2: do NOT interrupt the worker. The
+        # task's own bounded worker keeps draining its in-flight legs to terminal
+        # and settling the pair, then exits on the status check (opens no new
+        # pair while paused).
         updated = self._store.set_task_status(task_id, D.STATUS_PAUSED, self._wall_us())
-        self._wake_worker(task_id)  # a manual pause interrupts the worker
-        return 200, task_to_doc(updated)
+        return 200, self._doc(updated)
 
     def post_delete(self, task_id: str) -> tuple[int, dict]:
         task = self._get_task_or_404(task_id)
         if task["status"] == D.STATUS_DELETED:
             raise D.HedgeError(409, "invalid_state", "task already deleted")
+        # Amendment 21 / Review-1 r3 P1-2: do NOT interrupt the worker. The
+        # task's own bounded worker keeps draining its in-flight legs to terminal
+        # and settling the pair, then exits on the status check (opens no new
+        # pair once deleted).
         updated = self._store.set_task_status(task_id, D.STATUS_DELETED, self._wall_us())
-        self._wake_worker(task_id)  # a delete interrupts the worker
-        return 200, task_to_doc(updated)
+        return 200, self._doc(updated)
 
     def post_fill_once(self, task_id: str) -> tuple[int, dict]:
         task = self._get_task_or_404(task_id)
@@ -542,9 +568,9 @@ class HedgeOpenTaskService:
             if task["status"] != D.STATUS_RUNNING:
                 task = self._store.set_task_status(task_id, D.STATUS_RUNNING, self._wall_us())
             self.ensure_worker(task_id)
-            return 200, task_to_doc(task)
+            return 200, self._doc(task)
         task, _ = self._dispatch_one_for_task(task, self._wall_us())
-        return 200, task_to_doc(task)
+        return 200, self._doc(task)
 
     def post_fill_all(self, task_id: str) -> tuple[int, dict]:
         task = self._get_task_or_404(task_id)
@@ -556,7 +582,7 @@ class HedgeOpenTaskService:
                 task = self._store.set_task_status(task_id, D.STATUS_RUNNING, self._wall_us())
             if self._live_dispatch_capable():
                 self.ensure_worker(task_id)
-            return 200, task_to_doc(task)
+            return 200, self._doc(task)
         now_us = self._wall_us()
         # Record/disabled path only: a bounded synchronous loop that never POSTs.
         # It continues only while the task is still ``running`` and below its
@@ -568,7 +594,7 @@ class HedgeOpenTaskService:
             task, _ = self._dispatch_one_for_task(task, now_us)
             guard += 1
             now_us += 1  # keep ts strictly increasing within one call
-        return 200, task_to_doc(task)
+        return 200, self._doc(task)
 
     def _require_fillable(self, task: dict) -> None:
         status = task["status"]
@@ -849,13 +875,6 @@ class HedgeOpenTaskService:
     # triggers from owning or sending the same task/pair, and a restart resumes
     # by querying saved client order IDs only (never resends — ADR-2).
 
-    def _wake_worker(self, task_id: str) -> None:
-        """Set a task's stop event so a pacing worker exits its bounded loop."""
-        with self._workers_lock:
-            ev = self._stop_events.get(task_id)
-        if ev is not None:
-            ev.set()
-
     def ensure_worker(self, task_id: str) -> bool:
         """Create or durably claim exactly ONE local worker for ``task_id``
         (amendment 21). Single critical section under ``_workers_lock``: if a
@@ -880,6 +899,12 @@ class HedgeOpenTaskService:
                 daemon=True,
             )
             self._workers[task_id] = thread
+            # Review-1 r3 P2-2: a freshly spawned worker has no prior exit
+            # reason (also cleared on entering RUNNING in set_task_status).
+            try:
+                self._store.set_worker_exit_reason(task_id, None, self._wall_us())
+            except Exception:
+                pass
             thread.start()
             return True
 
@@ -904,7 +929,11 @@ class HedgeOpenTaskService:
         except Exception:
             # Last-resort containment: a worker error must not leak; the task's
             # durable state is authoritative and a recovery discovery relaunches.
-            pass
+            try:
+                self._store.set_worker_exit_reason(
+                    task_id, D.WORKER_EXIT_WORKER_ERROR, self._wall_us())
+            except Exception:
+                pass
         finally:
             with self._workers_lock:
                 if self._workers.get(task_id) is threading.current_thread():
@@ -917,12 +946,31 @@ class HedgeOpenTaskService:
         replacement for the old synchronous live tick — it lets the review-2
         regressions drive a task's worker step-by-step without a sleep race.
         Returns the number of rounds actually run."""
+        # P3 (Review-1 r3): initialize the same per-task stop event the real
+        # worker uses (clear), so the pause/delete drain paths are deterministically
+        # testable here and never short-circuit on a stop event left set by a
+        # prior service.stop() in the same instance.
+        with self._workers_lock:
+            ev = self._stop_events.get(task_id)
+            if ev is None:
+                self._stop_events[task_id] = threading.Event()
+            else:
+                ev.clear()
         rounds = 0
         while rounds < max_rounds:
             rounds += 1
             if self._worker_round(task_id):
                 break
         return rounds
+
+    def _worker_exit(self, task_id: str, reason: str) -> bool:
+        """Record the stable worker exit reason (Review-1 r3 P2-2) and tell the
+        loop to stop. Best-effort: a store failure here must not mask the exit."""
+        try:
+            self._store.set_worker_exit_reason(task_id, reason, self._wall_us())
+        except Exception:
+            pass
+        return True
 
     def _worker_round(self, task_id: str) -> bool:
         """One iteration of the worker loop. Returns True when the worker should
@@ -938,10 +986,10 @@ class HedgeOpenTaskService:
         case it dispatches one more pair (durable-before-send; no resend)."""
         stop_event = self._stop_events.get(task_id)
         if stop_event is not None and stop_event.is_set():
-            return True
+            return self._worker_exit(task_id, D.WORKER_EXIT_STOPPED_EVENT)
         task = self._store.get_task(task_id)
         if task is None:
-            return True
+            return self._worker_exit(task_id, D.WORKER_EXIT_TASK_MISSING)
         now_us = self._wall_us()
         # Q2: drain own non-terminal legs first (rate_limited -> drain-then-exit).
         drain_signal = self._reconcile_own_legs(task_id, task, now_us)
@@ -960,11 +1008,11 @@ class HedgeOpenTaskService:
             return False  # still draining this pair; keep querying (pacing in loop)
         # No in-flight legs: decide exit vs. next pair.
         if task["status"] != D.STATUS_RUNNING:
-            return True  # done / paused / stopped / deleted
+            return self._worker_exit(task_id, D.WORKER_EXIT_TASK_NOT_RUNNING)
         if not self.is_start_gate_on():
-            return True  # gate off -> exit; a recovery discovery relaunches on gate-on
+            return self._worker_exit(task_id, D.WORKER_EXIT_START_GATE_OFF)
         if task["scheduled_attempt_count"] >= task["target_n"]:
-            return True  # target met
+            return self._worker_exit(task_id, D.WORKER_EXIT_TARGET_REACHED)
         # Dispatch the next pair (preflight -> reserve -> two-leg submit).
         _, signal = self._dispatch_one_for_task(task, now_us)
         if signal == D.SIGNAL_RATE_LIMITED:
@@ -977,8 +1025,10 @@ class HedgeOpenTaskService:
                 task, self._insufficient_pause_reason(signal), signal, now_us,
             )
             return False
-        if signal in (D.SIGNAL_PREFLIGHT_INCOMPLETE, D.SIGNAL_PREFLIGHT_FATAL):
-            return True  # fail-closed / fatal -> exit; recovery/manual Start relaunches
+        if signal == D.SIGNAL_PREFLIGHT_INCOMPLETE:
+            return self._worker_exit(task_id, D.WORKER_EXIT_PREFLIGHT_INCOMPLETE)
+        if signal == D.SIGNAL_PREFLIGHT_FATAL:
+            return self._worker_exit(task_id, D.WORKER_EXIT_PREFLIGHT_FATAL)
         return False  # dispatched -> next round resolves/drains this pair
 
     def _reconcile_own_legs(self, task_id: str, task: dict, now_us: int) -> str | None:
@@ -1023,12 +1073,15 @@ class HedgeOpenTaskService:
                 drain_signal = D.SIGNAL_RATE_LIMITED
             if terminal:
                 finalized.add(leg["attempt_id"])
-        rate_paused = task.get("pause_reason") == D.PAUSE_REASON_RATE_LIMITED
+        # Review-1 r3 P1-1: "this pair does not count as a failure" is decided by
+        # the ATTEMPT's own rate-limited fact (stamped at the 429 dispatch), NOT by
+        # the task-level pause_reason — which a manual resume has already cleared.
         for attempt_id in finalized:
             try:
-                if rate_paused:
-                    # Amendment 21: a 429-paused pair is closed WITHOUT consuming
-                    # the failure counter; the in-flight guard still clears.
+                attempt = self._store.get_attempt(attempt_id)
+                if attempt is not None and attempt.get("rate_limited"):
+                    # Amendment 21: a 429 pair is closed WITHOUT consuming the
+                    # failure counter; the in-flight guard still clears.
                     self._store.settle_attempt_no_counters(attempt_id, now_us)
                 else:
                     self._store.finalize_attempt(attempt_id, now_us)
@@ -1158,9 +1211,12 @@ class HedgeOpenTaskService:
                 continue
             self.ensure_worker(tid)
         # Drain-only recovery for non-running tasks still holding in-flight legs
-        # (e.g. paused/stopped mid-pair): a worker launched on a non-running task
-        # drains its own legs to terminal, then exits (Q2 drain-before-exit).
-        for status in (D.STATUS_PAUSED, D.STATUS_STOPPED):
+        # (e.g. paused/stopped/deleted mid-pair): a worker launched on a non-running
+        # task drains its own legs to terminal, then exits (Q2 drain-before-exit).
+        # Review-1 r3 P1-2: STATUS_DELETED is included so a deleted card whose
+        # legs were left non-terminal is still drained to terminal on the ONE
+        # startup handoff (no resident scanner).
+        for status in (D.STATUS_PAUSED, D.STATUS_STOPPED, D.STATUS_DELETED):
             for task in self._store.list_tasks(status):
                 tid = task["id"]
                 if not self._store.list_non_terminal_legs_for_task(tid):
@@ -1393,6 +1449,13 @@ class HedgeOpenTaskService:
                 },
                 now_us,
             )
+            # Review-1 r3 P1-1: stamp the per-attempt rate-limited fact so the
+            # reconcile path settles this pair without consuming the failure
+            # counter even after a manual resume has cleared pause_reason.
+            try:
+                self._store.mark_attempt_rate_limited(attempt["id"])
+            except Exception:
+                pass
             return D.SIGNAL_RATE_LIMITED
         insufficient = self._insufficient_signal_from_legs(spot, perp)
         if insufficient is not None and not has_querying:

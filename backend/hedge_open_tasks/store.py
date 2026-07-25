@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS hedge_open_task (
     failure_pause_threshold         INTEGER NOT NULL DEFAULT 3,
     pause_reason                    TEXT,
     pause_reason_zh                 TEXT,
-    stop_reason                     TEXT
+    stop_reason                     TEXT,
+    last_worker_exit_reason         TEXT
 );
 CREATE TABLE IF NOT EXISTS hedge_open_attempt (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,6 +74,7 @@ CREATE TABLE IF NOT EXISTS hedge_open_attempt (
     error_category        TEXT,
     error_code            TEXT,
     error_reason_zh       TEXT,
+    rate_limited          INTEGER NOT NULL DEFAULT 0,
     log_ref               INTEGER,
     created_at_us         INTEGER NOT NULL
 );
@@ -186,6 +188,7 @@ def _row_to_task(row: sqlite3.Row) -> dict:
         "pause_reason": row["pause_reason"],
         "pause_reason_zh": row["pause_reason_zh"],
         "stop_reason": row["stop_reason"],
+        "last_worker_exit_reason": row["last_worker_exit_reason"],
     }
 
 
@@ -228,6 +231,7 @@ def _row_to_attempt(row: sqlite3.Row) -> dict:
         "error_category": row["error_category"],
         "error_code": row["error_code"],
         "error_reason_zh": row["error_reason_zh"],
+        "rate_limited": bool(row["rate_limited"]),
         "log_ref": row["log_ref"],
         "created_at_us": row["created_at_us"],
     }
@@ -315,6 +319,7 @@ class HedgeOpenStore:
             ("pause_reason", "TEXT"),
             ("pause_reason_zh", "TEXT"),
             ("stop_reason", "TEXT"),
+            ("last_worker_exit_reason", "TEXT"),
         )
         for col, decl in additions:
             if col not in task_cols:
@@ -326,6 +331,7 @@ class HedgeOpenStore:
             ("error_category", "TEXT"),
             ("error_code", "TEXT"),
             ("error_reason_zh", "TEXT"),
+            ("rate_limited", "INTEGER NOT NULL DEFAULT 0"),
         )
         for col, decl in attempt_additions:
             if col not in attempt_cols:
@@ -432,10 +438,23 @@ class HedgeOpenStore:
 
     def set_task_status(self, task_id: str, status: str, now_us: int) -> dict:
         with self._lock, self._conn:
-            cur = self._conn.execute(
-                "UPDATE hedge_open_task SET status = ?, updated_at_us = ? WHERE id = ?",
-                (status, now_us, task_id),
-            )
+            # Returning to RUNNING clears the sticky pause state and the worker
+            # exit reason (Review-1 r3 P1-1 / P2-2): a 429/insufficient pause and
+            # a worker-exit reason are NOT sticky across a manual Start/recover —
+            # mirroring pause_task clearing stop_reason on a pause. Every other
+            # status transition touches status + updated_at_us only.
+            if status == D.STATUS_RUNNING:
+                cur = self._conn.execute(
+                    "UPDATE hedge_open_task SET status = ?,"
+                    " pause_reason = NULL, pause_reason_zh = NULL,"
+                    " last_worker_exit_reason = NULL, updated_at_us = ? WHERE id = ?",
+                    (status, now_us, task_id),
+                )
+            else:
+                cur = self._conn.execute(
+                    "UPDATE hedge_open_task SET status = ?, updated_at_us = ? WHERE id = ?",
+                    (status, now_us, task_id),
+                )
             if cur.rowcount == 0:
                 raise UnknownTaskError(task_id)
             row = self._conn.execute(
@@ -659,6 +678,7 @@ class HedgeOpenStore:
     def _apply_task_counters(
         self, task_id: str, category: str, exposure: dict | None, now_us: int,
         *, fatal: bool = False, stop_reason: str | None = None,
+        skip_counters: bool = False,
     ) -> tuple[dict, str | None, str | None]:
         """Apply one pair's acceptance verdict to the task counters + status.
 
@@ -689,7 +709,26 @@ class HedgeOpenStore:
         leg_exposure_json = task["leg_exposure"]
         pause_reason = task["pause_reason"]
         new_stop_reason: str | None = task["stop_reason"]
-        if fatal:
+        new_status: str = task["status"]
+        if skip_counters:
+            # Review-1 r3 P2-1 / amendment 21: a rate-limited pair is settled by
+            # its own per-attempt facts via settle_attempt_no_counters. Derive
+            # ONLY the truthful pair_outcome and the advisory single-leg
+            # leg_exposure here; counters, status, threshold, pause_reason,
+            # stop_reason and audit events stay untouched. The
+            # consecutive-failure brake and fatal-stop remain the job of
+            # finalize_attempt for non-rate-limited pairs.
+            if category == D.ATTEMPT_SUCCESS:
+                pair_outcome = D.PAIR_ACCEPTED
+            elif category == D.ATTEMPT_SINGLE_LEG_EXPOSURE:
+                pair_outcome = D.PAIR_SINGLE_LEG
+                if exposure:
+                    leg_exposure_json = exposure
+            elif category == D.ATTEMPT_FAILED:
+                pair_outcome = D.PAIR_CONFIRMED_FAILED
+            else:
+                pair_outcome = None
+        elif fatal:
             # Amendment rows 1–2 / I-2: stop immediately. The attempt was already
             # counted at reservation; the consecutive-failure counter is untouched
             # (a fatal stop is terminal, not a threshold failure). A fatal pair is
@@ -1008,29 +1047,76 @@ class HedgeOpenStore:
 
     def settle_attempt_no_counters(self, attempt_id: int, now_us: int) -> bool:
         """Close an attempt whose legs are both terminal WITHOUT touching the
-        task's counters or status (amendment 21). Used for a pair paused by a
-        confirmed 429, where the consecutive-failure counter must NOT be
-        consumed: the legs have already been resolved to terminal by the worker's
-        own drain, and this only stamps ``pair_outcome`` so the in-flight guard
-        clears and a resumed worker can reserve the next group. Returns True iff
-        the attempt was settled here; ``False`` when it is gone, already settled,
-        or its legs are not both terminal yet."""
+        task's counters, threshold or status (amendment 21 / Review-1 r3 P2-1).
+        Used for a pair paused by a confirmed 429, where the consecutive-failure
+        counter must NOT be consumed: the legs have already been resolved to
+        terminal by the worker's own drain, and this only stamps the truthful
+        ``pair_outcome`` (derived from the two legs' final orderIds, exactly as
+        :meth:`finalize_attempt` does) plus the advisory single-leg
+        ``leg_exposure``, so the in-flight guard clears and a resumed worker can
+        reserve the next group. Returns True iff the attempt was settled here;
+        ``False`` when it is gone, already settled, or its legs are not both
+        terminal yet."""
         with self._lock, self._conn:
             attempt = self._conn.execute(
-                "SELECT pair_outcome FROM hedge_open_attempt WHERE id = ?", (attempt_id,)
+                "SELECT * FROM hedge_open_attempt WHERE id = ?", (attempt_id,)
             ).fetchone()
             if attempt is None or attempt["pair_outcome"] is not None:
                 return False
             legs = self._conn.execute(
-                "SELECT terminal FROM hedge_open_leg WHERE attempt_id = ?", (attempt_id,)
+                "SELECT * FROM hedge_open_leg WHERE attempt_id = ?", (attempt_id,)
             ).fetchall()
             if len(legs) != 2 or not all(row["terminal"] for row in legs):
                 return False
+            by_leg = {row["leg"]: row for row in legs}
+            spot = by_leg.get("spot")
+            perp = by_leg.get("perp")
+            if spot is None or perp is None:
+                return False
+            spot_accepted = bool(spot["order_id"])
+            perp_accepted = bool(perp["order_id"])
+            if spot_accepted and perp_accepted:
+                category = D.ATTEMPT_SUCCESS
+            elif spot_accepted or perp_accepted:
+                category = D.ATTEMPT_SINGLE_LEG_EXPOSURE
+            else:
+                category = D.ATTEMPT_FAILED
+            exposure = None
+            if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE:
+                exposure = self._exposure_from_legs(spot, perp, now_us)
+            _, pair_outcome, _ = self._apply_task_counters(
+                attempt["task_id"], category, exposure, now_us,
+                skip_counters=True,
+            )
             self._conn.execute(
                 "UPDATE hedge_open_attempt SET pair_outcome = ? WHERE id = ?",
-                (D.PAIR_CONFIRMED_FAILED, attempt_id),
+                (pair_outcome, attempt_id),
             )
             return True
+
+    def mark_attempt_rate_limited(self, attempt_id: int) -> None:
+        """Stamp the per-attempt rate-limited flag (amendment 21 / Review-1 r3
+        P1-1). The reconcile path reads this flag (not the sticky task-level
+        ``pause_reason``) to decide whether a settled pair must skip the
+        consecutive-failure counters via :meth:`settle_attempt_no_counters`."""
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE hedge_open_attempt SET rate_limited = 1 WHERE id = ?",
+                (attempt_id,),
+            )
+
+    def set_worker_exit_reason(
+        self, task_id: str, reason: str | None, now_us: int
+    ) -> None:
+        """Record / clear the last worker exit reason (Review-1 r3 P2-2). Stable
+        machine enum from :data:`domain.ALL_WORKER_EXIT_REASONS`; ``None`` clears
+        it (on (re-)entering RUNNING / spawning a worker)."""
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE hedge_open_task SET last_worker_exit_reason = ?,"
+                " updated_at_us = ? WHERE id = ?",
+                (reason, now_us, task_id),
+            )
 
     @staticmethod
     def _exposure_from_legs(spot: sqlite3.Row, perp: sqlite3.Row, ts_us: int) -> dict | None:

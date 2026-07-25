@@ -40,6 +40,11 @@ _TASK_KEYS = {
     "pause_reason_zh",
     # Amendment additive (I-4): nullable stop_reason alongside status=stopped.
     "stop_reason",
+    # Review-1 r3 P2-2: backend-authoritative worker observability. worker_active
+    # is a derived tri-state (True/False live, None in dry-run); the exit reason
+    # is the stable machine enum written by the worker's own exit branch.
+    "worker_active",
+    "last_worker_exit_reason",
     "created_at", "updated_at",
 }
 _SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds"}

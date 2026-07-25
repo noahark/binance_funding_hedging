@@ -1092,3 +1092,48 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-25 21:13:29 CST
 下一步模型: human
 下一步任务: run packet 65 in a fresh write-capable Claude-GLM session
+
+================================================================
+packet 65 — Review-1 backend r3 self-test (bounded 5th backend fix)
+本地北京时间: 2026-07-25 (CST)
+================================================================
+
+Command 1: .venv/bin/python -m pytest backend/tests/test_hedge_task_local.py backend/tests/test_hedge_service.py backend/tests/test_hedge_review2_regressions.py backend/tests/test_hedge_store.py backend/tests/test_hedge_domain.py backend/tests/test_hedge_api.py backend/tests/test_hedge_purity.py backend/tests/test_hedge_open_live_client.py backend/tests/test_live_hedge_executor.py backend/tests/test_hedge_executor.py -q
+........................................................................ [ 31%]
+........................................................................ [ 62%]
+........................................................................ [ 94%]
+.............                                                            [100%]
+229 passed in 15.40s
+Result: PASS (229 passed)
+
+Command 2: .venv/bin/python -m pytest backend/tests -q
+........................................................................ [  7%]
+........................................................................ [ 15%]
+........................................................................ [ 23%]
+........................................................................ [ 31%]
+........................................................................ [ 39%]
+........................................................................ [ 47%]
+........................................................................ [ 55%]
+........................................................................ [ 63%]
+........................................................................ [ 71%]
+........................................................................ [ 79%]
+........................................................................ [ 87%]
+........................................................................ [ 95%]
+.........................................                                [100%]
+905 passed in 48.52s
+Result: PASS (905 passed)
+
+Command 3: node frontend/self-check.js
+[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、零新任务定时器、localStorage 白名单（仅隐私键）
+
+全部自检通过
+Result: PASS (全部自检通过)
+
+Command 4: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+.......................................................                  [100%]
+55 passed in 1.10s
+Result: PASS (55 passed)
+
+Command 5: git diff --check
+git diff --check exit=0
+Result: PASS (clean)

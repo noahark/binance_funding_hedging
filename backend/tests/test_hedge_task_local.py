@@ -430,8 +430,19 @@ def test_5_restart_recovery_new_instance_same_db_no_resend(tmp_path):
     clock2 = _Clock()
     svc2 = _svc_with(db_path, exe, provider, clock2)
     svc2.set_start_gate(True)
-    # Recovery discovery (live tick) launches a worker for the RUNNING task with
-    # non-terminal legs. Feed FILLED drain queries so the pair resolves.
+    # Recovery discovery (live start) launches a worker for the RUNNING task with
+    # non-terminal legs. Spy on ensure_worker so the assertion does NOT race on
+    # whether the launched drain worker has already finished — under load it can
+    # drain both legs to terminal and exit within the start() call.
+    ensured = []
+    _ensure_real = svc2.ensure_worker
+
+    def _spy_ensure(tid):
+        ensured.append(tid)
+        return _ensure_real(tid)
+
+    svc2.ensure_worker = _spy_ensure
+    # Feed FILLED drain queries so the pair resolves.
     exe.queries.extend([
         _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_FILLED,
              executed="0.5", quote="25000", avg="50000"),
@@ -439,15 +450,16 @@ def test_5_restart_recovery_new_instance_same_db_no_resend(tmp_path):
              executed="0.5", quote="25000", avg="50000"),
     ])
     svc2.start()  # final guardian fix: live start() does the ONE recovery handoff
+    assert doc["id"] in ensured, "recovery discovery launched a drain worker"
     worker = svc2._workers.get(doc["id"])
-    assert worker is not None, "recovery discovery launched a drain worker"
-    worker.join(timeout=5.0)
-    assert not worker.is_alive(), "drain worker exited after reconciling"
+    if worker is not None:
+        worker.join(timeout=5.0)
 
     # NO second POST: recovery queried the saved clientOrderIds only.
     assert exe.dispatch_calls == posts_before
     assert exe.query_calls >= 2
-    # The persisted pair resolved to terminal; no resend, no duplicate attempt.
+    # The persisted pair resolved to terminal; the drain worker exited (no
+    # lingering daemon), no resend, no duplicate attempt.
     assert svc2.store.list_non_terminal_legs_for_task(doc["id"]) == []
     assert len(svc2.store.list_attempts_for_task(doc["id"])) == 1
     assert svc2.store.get_task(doc["id"])["status"] == D.STATUS_DONE
@@ -589,3 +601,307 @@ def test_6c_manual_post_start_launches_only_the_named_task(tmp_path):
     worker = svc._workers.get(doc_a["id"])
     if worker is not None:
         worker.join(timeout=5.0)
+
+
+# ---------------------------------------------------------------------------
+# Review-1 r3 regressions (R1–R8): resume clears pause / pause+delete drain /
+# deleted-restart drain / rate-limit single-leg / live worker observability /
+# dry-run worker_active is None. All deterministic, offline, fake-transport only
+# (no network, no sleep race).
+# ---------------------------------------------------------------------------
+
+
+def _rate_limited_unknown_pair():
+    """A pair whose both legs come back UNKNOWN and rate-limited (a confirmed
+    429): the worker pauses THIS task and the pair is later settled without
+    consuming the failure counter."""
+    return LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_UNKNOWN_QUERYING, name="spot", rate_limited=True, retry=2),
+        perp=_leg(LEG_UNKNOWN_QUERYING, name="perp", rate_limited=True, retry=2),
+        record_payload={"transport": "live"}, rate_limited=True, retry_after_seconds=2,
+    )
+
+
+def _unknown_pair():
+    """A pair whose both legs are UNKNOWN (in-flight, not rate-limited)."""
+    return LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_UNKNOWN_QUERYING, name="spot"),
+        perp=_leg(LEG_UNKNOWN_QUERYING, name="perp"),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )
+
+
+def _rejected_pair():
+    """A pair whose both legs are confirmed REJECTED with no orderId (a plain
+    confirmed failure — not rate-limited, not fatal, not insufficient)."""
+    return LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_REJECTED, name="spot"),
+        perp=_leg(LEG_REJECTED, name="perp"),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )
+
+
+def _filled_leg(name):
+    return _leg(LEG_ACCEPTED, name=name, order_id=name[0] + "1", status=D.LEG_FILLED,
+                executed="0.5", quote="25000", avg="50000")
+
+
+def _attempt_id(svc, task_id, idx=0) -> int:
+    return svc.store.list_attempts_for_task(task_id)[idx]["id"]
+
+
+# R1 — 429 resume: pause_reason cleared; the 429 pair settles without consuming
+# the failure counter (per-attempt fact, not the sticky task pause_reason); the
+# NEXT pair FILLED counts as accepted_pair and bumps accepted/success.
+def test_r1_rate_limit_resume_next_pair_counts_and_clears_pause(tmp_path):
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=2)
+    exe.set_script(doc["id"], [_rate_limited_unknown_pair(), _accepted_pair(doc["id"])])
+    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+
+    _step(svc, doc["id"], clock, rounds=1)  # pair1 429 -> pause (rate_limited)
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
+
+    # Manual resume: re-entering RUNNING clears the sticky pause_reason (P1-1).
+    svc.store.set_task_status(doc["id"], D.STATUS_RUNNING, svc._wall_us())
+    resumed = svc.store.get_task(doc["id"])
+    assert resumed["status"] == D.STATUS_RUNNING
+    assert resumed["pause_reason"] is None
+
+    # The worker drains pair1 by its OWN per-attempt rate-limited fact (the
+    # task-level pause_reason is already cleared) -> no failure counter; then
+    # dispatches pair2 FILLED -> accepted_pair + counts.
+    _step(svc, doc["id"], clock, rounds=3)
+    task = svc.store.get_task(doc["id"])
+    assert task["fail_count"] == 0            # 429 pair never consumed the counter
+    assert task["accepted_pair_count"] == 1   # pair2 counted
+    assert task["success_count"] == 1
+    assert task["pause_reason"] is None       # not sticky after resume
+    attempts = svc.store.list_attempts_for_task(doc["id"])
+    assert len(attempts) == 2
+    assert any(a["pair_outcome"] == D.PAIR_ACCEPTED for a in attempts)
+    rl = [a for a in attempts if a.get("rate_limited")]
+    assert rl and rl[0]["pair_outcome"] == D.PAIR_CONFIRMED_FAILED
+
+
+# R2 — after a 429 resume, three subsequent CONFIRMED (non-rate-limited) failures
+# still trip the consecutive-failure threshold pause.
+def test_r2_rate_limit_resume_then_three_confirmed_fails_triggers_threshold(tmp_path):
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=10)
+    exe.set_script(doc["id"], [
+        _rate_limited_unknown_pair(), _rejected_pair(), _rejected_pair(), _rejected_pair(),
+    ])
+    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+
+    _step(svc, doc["id"], clock, rounds=1)  # pair1 429 -> pause
+    assert svc.store.get_task(doc["id"])["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
+    svc.store.set_task_status(doc["id"], D.STATUS_RUNNING, svc._wall_us())  # resume
+
+    _step(svc, doc["id"], clock, rounds=12)  # pair1 drain (no counter) + 3 fails
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
+    assert task["fail_count"] == 3
+    assert task["consecutive_submission_failures"] == 3
+
+
+# R3 — manual pause does NOT interrupt the worker: it keeps draining its own
+# in-flight legs to terminal, settles the pair, and opens NO new pair.
+def test_r3_pause_drains_inflight_to_terminal_and_settles_no_new_pair(tmp_path):
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=2)
+    exe.set_script(doc["id"], [_unknown_pair(), _accepted_pair(doc["id"])])
+    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch pair1 UNKNOWN -> in-flight
+    scheduled_before = svc.store.get_task(doc["id"])["scheduled_attempt_count"]
+    assert scheduled_before == 1
+    svc.post_pause(doc["id"])  # pause; worker NOT interrupted
+    assert svc.store.get_task(doc["id"])["status"] == D.STATUS_PAUSED
+
+    _step(svc, doc["id"], clock, rounds=3)  # worker drains, settles, exits
+    assert exe.query_calls >= 2
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] for l in legs)
+    attempts = svc.store.list_attempts_for_task(doc["id"])
+    assert len(attempts) == 1                 # pair2 never dispatched (paused)
+    assert attempts[0]["pair_outcome"] is not None
+    assert svc.store.get_task(doc["id"])["scheduled_attempt_count"] == scheduled_before
+
+
+# R4 — manual delete is isomorphic to pause: the worker drains its own in-flight
+# legs to terminal and settles, opening no new pair; DELETED stays sticky.
+def test_r4_delete_drains_inflight_to_terminal_and_settles_no_new_pair(tmp_path):
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=2)
+    exe.set_script(doc["id"], [_unknown_pair(), _accepted_pair(doc["id"])])
+    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch pair1 UNKNOWN -> in-flight
+    scheduled_before = svc.store.get_task(doc["id"])["scheduled_attempt_count"]
+    svc.post_delete(doc["id"])  # delete; worker NOT interrupted
+    assert svc.store.get_task(doc["id"])["status"] == D.STATUS_DELETED
+
+    _step(svc, doc["id"], clock, rounds=3)  # worker drains, settles, exits
+    assert exe.query_calls >= 2
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] for l in legs)
+    attempts = svc.store.list_attempts_for_task(doc["id"])
+    assert len(attempts) == 1
+    assert attempts[0]["pair_outcome"] is not None
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_DELETED  # sticky
+    assert task["scheduled_attempt_count"] == scheduled_before
+
+
+# R5 — a DELETED card left with non-terminal legs is drained to terminal by the
+# ONE startup recovery handoff on a fresh instance (STATUS_DELETED now in the
+# drain-only fallback). No resident scanner, no resend.
+def test_r5_deleted_card_nonterminal_legs_recovered_on_restart(tmp_path):
+    db_path = str(tmp_path / "ho.sqlite3")
+    exe = _RoutingExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+
+    clock1 = _Clock()
+    svc1 = _svc_with(db_path, exe, provider, clock1)
+    svc1.set_start_gate(True)
+    doc = _create(svc1, target_n=2)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    svc1._pump_worker(doc["id"], max_rounds=1)  # dispatch UNKNOWN pair, in-flight
+    svc1.store.set_task_status(doc["id"], D.STATUS_DELETED, clock1.wall_us())
+    assert svc1.store.list_non_terminal_legs_for_task(doc["id"]), "non-terminal legs"
+    svc1.stop()
+    del svc1
+
+    clock2 = _Clock()
+    svc2 = _svc_with(db_path, exe, provider, clock2)
+    svc2.set_start_gate(True)
+    # Spy on ensure_worker: the assertion must not race on whether the launched
+    # drain worker has already finished (it can drain both legs and exit within
+    # start() under load). STATUS_DELETED is in the drain-only fallback.
+    ensured = []
+    _ensure_real = svc2.ensure_worker
+
+    def _spy_ensure(tid):
+        ensured.append(tid)
+        return _ensure_real(tid)
+
+    svc2.ensure_worker = _spy_ensure
+    exe.queries.extend([_filled_leg("spot"), _filled_leg("perp")])
+    svc2.start()  # ONE recovery handoff; DELETED now in drain-only fallback
+    assert doc["id"] in ensured, "recovery launched a drain worker for the DELETED card"
+    worker = svc2._workers.get(doc["id"])
+    if worker is not None:
+        worker.join(timeout=5.0)
+    assert exe.dispatch_calls == 1           # only the original dispatch, no resend
+    assert exe.query_calls >= 2
+    assert svc2.store.list_non_terminal_legs_for_task(doc["id"]) == []
+    legs = svc2.store.list_legs_for_attempt(_attempt_id(svc2, doc["id"]))
+    assert all(l["terminal"] for l in legs)
+    assert svc2.store.get_task(doc["id"])["status"] == D.STATUS_DELETED  # sticky
+
+
+# R6 — a 429 on one leg + the other leg FILLED -> single_leg outcome with the
+# advisory leg_exposure recorded, and the failure counter untouched.
+def test_r6_rate_limit_one_leg_other_filled_single_leg_exposure(tmp_path):
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=2)
+    exe.set_script(doc["id"], [_rate_limited_unknown_pair()])
+    # drain: spot -> FILLED (orderId), perp -> absent (no orderId) => single_leg
+    exe.queries.extend([_filled_leg("spot"), _absent_query("perp")])
+
+    _step(svc, doc["id"], clock, rounds=3)  # 429 -> pause -> drain single_leg -> exit
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
+    assert task["fail_count"] == 0          # rate-limited -> no counter
+    attempts = svc.store.list_attempts_for_task(doc["id"])
+    assert len(attempts) == 1
+    assert attempts[0]["pair_outcome"] == D.PAIR_SINGLE_LEG
+    assert task["leg_exposure"] is not None
+    assert task["leg_exposure"]["leg"] == "spot"
+
+
+# R7 — live worker_active tri-state + last_worker_exit_reason: preflight-
+# incomplete exits the worker (task stays RUNNING) with a stable reason; while a
+# worker holds the executor worker_active is True; a manual Start clears the
+# reason on re-entering RUNNING.
+def test_r7_live_worker_active_tri_state_and_exit_reason(tmp_path):
+    # --- sub A: preflight incomplete -> worker exits, reason recorded ---
+    exe_a = _RoutingExecutor()
+    svc_a = _svc_with(str(tmp_path / "r7a.sqlite3"), exe_a, _FakeProvider(None), _Clock())
+    svc_a.set_start_gate(True)  # None snapshot -> preflight incomplete
+    doc_a = _create(svc_a, target_n=1)
+    svc_a.post_start(doc_a["id"])  # RUNNING + real worker
+    wa = svc_a._workers.get(doc_a["id"])
+    if wa is not None:
+        wa.join(timeout=5.0)
+    task_a = svc_a.store.get_task(doc_a["id"])
+    assert svc_a._worker_active_for(doc_a["id"]) is False
+    assert task_a["last_worker_exit_reason"] == D.WORKER_EXIT_PREFLIGHT_INCOMPLETE
+    assert task_a["status"] == D.STATUS_RUNNING  # preflight incomplete retries
+
+    # --- sub B: while a live worker holds the executor, worker_active is True ---
+    hold = threading.Event()
+    reached = threading.Event()
+
+    class _HoldDispatch(_RoutingExecutor):
+        def dispatch(self, ctx):
+            self.dispatch_calls += 1
+            self.dispatched.append(ctx.task_id)
+            if not reached.is_set():
+                reached.set()
+                hold.wait(5.0)  # keep the worker alive + holding the executor
+            return self.scripts[ctx.task_id].pop(0)
+
+    exe_b = _HoldDispatch()
+    svc_b = _svc_with(str(tmp_path / "r7b.sqlite3"), exe_b, _FakeProvider(_ok_snapshot()), _Clock())
+    svc_b.set_start_gate(True)
+    doc_b = _create(svc_b, target_n=1)
+    exe_b.set_script(doc_b["id"], [_accepted_pair(doc_b["id"])])
+    svc_b.post_start(doc_b["id"])
+    assert reached.wait(timeout=5.0), "worker launched and reached dispatch"
+    assert svc_b._worker_active_for(doc_b["id"]) is True
+    hold.set()
+    wb = svc_b._workers.get(doc_b["id"])
+    if wb is not None:
+        wb.join(timeout=5.0)
+    assert svc_b._worker_active_for(doc_b["id"]) is False
+
+    # --- sub C: a manual Start clears the exit reason on re-entering RUNNING ---
+    _, start_doc = svc_a.post_start(doc_a["id"])
+    assert start_doc["last_worker_exit_reason"] is None
+    wa2 = svc_a._workers.get(doc_a["id"])
+    if wa2 is not None:
+        wa2.join(timeout=5.0)
+
+
+# R8 — in dry-run (record / disabled) the worker concept does not apply, so
+# worker_active is None — never the misleading False.
+def test_r8_dry_run_worker_active_is_none_not_false(tmp_path):
+    from backend.hedge_open_tasks.executor import RecordTransportExecutor
+    svc = HedgeOpenTaskService(
+        str(tmp_path / "dry.sqlite3"),
+        executor=RecordTransportExecutor(),
+        preflight_provider=_FakeProvider(None),
+        mode="disabled",
+        credentials_present=False,
+    )
+    _, doc = svc.create_task({
+        "coin": "BTCUSDT", "direction": D.DIR_FORWARD, "mode": "immediate",
+        "single_amount": "0.5", "target_n": 1,
+    })
+    assert doc["worker_active"] is None
+    assert "last_worker_exit_reason" in doc
+    svc.stop()

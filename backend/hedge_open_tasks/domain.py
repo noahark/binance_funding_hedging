@@ -182,6 +182,33 @@ ALL_STOP_REASONS = (
     STOP_REASON_EXCHANGE_FATAL,
 )
 
+# Worker exit reasons (Review-1 r3 / amendment 21): a stable machine-readable enum
+# written to the task's nullable ``last_worker_exit_reason`` column by each worker
+# exit branch and the exception containment in ``_run_task_worker``, then cleared
+# when the task re-enters RUNNING. It exists so an operator can tell a
+# ``status=running`` live card with NO live worker (it exited and awaits a manual
+# Start/recover) from one that is actively dispatching — without changing any
+# scheduling semantics. A Chinese display reason is a frontend follow-up, so no
+# ``_zh`` companion is frozen here.
+WORKER_EXIT_STOPPED_EVENT = "stopped_event"  # woken by service stop() / a hard stop
+WORKER_EXIT_TASK_MISSING = "task_missing"
+WORKER_EXIT_TASK_NOT_RUNNING = "task_not_running"  # done / paused / stopped / deleted
+WORKER_EXIT_START_GATE_OFF = "start_gate_off"
+WORKER_EXIT_TARGET_REACHED = "target_reached"
+WORKER_EXIT_PREFLIGHT_INCOMPLETE = "preflight_incomplete"  # fail-closed retry
+WORKER_EXIT_PREFLIGHT_FATAL = "preflight_fatal"
+WORKER_EXIT_WORKER_ERROR = "worker_error"  # last-resort exception containment
+ALL_WORKER_EXIT_REASONS = (
+    WORKER_EXIT_STOPPED_EVENT,
+    WORKER_EXIT_TASK_MISSING,
+    WORKER_EXIT_TASK_NOT_RUNNING,
+    WORKER_EXIT_START_GATE_OFF,
+    WORKER_EXIT_TARGET_REACHED,
+    WORKER_EXIT_PREFLIGHT_INCOMPLETE,
+    WORKER_EXIT_PREFLIGHT_FATAL,
+    WORKER_EXIT_WORKER_ERROR,
+)
+
 # Boundary C sanitized block_reason enum (never an environment value). Mirrors
 # the borrow domain's BLOCK_* set; surfaced in the startup lifecycle event when
 # the live executor is configured but cannot execute (no real credential ever
