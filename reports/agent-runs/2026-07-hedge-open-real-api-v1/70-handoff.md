@@ -2,21 +2,48 @@
 
 ## Recovery Header
 
-- Active phase: `review_1 / packet-65 settlement and pause repair is committed; renewed packet-66 backend review is dispatch-ready`.
+- Active phase: `review_1 / packet-66 backend Review-1 returned REWORK with ZERO open P0/P1; the user-authorized sixth bounded repair, packet 67, is dispatch-ready for Claude-GLM`.
+- **Bookkeeper handover (2026-07-25)**: the user reported Codex/GPT-5 Codex out of
+  quota and instructed this session to take over. Bookkeeper is now
+  `claude / Claude Opus 5`, which is ALSO the reviewer of
+  `66-review-1-backend-r4.md`. The dual hat is disclosed in
+  `status.json.bookkeeper.dual_hat_disclosure` and `27-user-authorized-r4-repair.md` §6:
+  it does mechanical bookkeeping/routing only and never treats its own verdict as
+  an acceptance or substitutes for a fresh Review-1.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
-  `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; current HEAD is
+  `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; the reviewed
   delivery evidence is `9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c`; the latest
   Harness-only main sync is merge `b02c92d20360094a67374bf80bcd588fb154db6c`.
   Fresh task-level Review-1 has split: frontend ACCEPT at `59-review-1-frontend-r2.md`,
   backend REWORK at `58-review-1-backend-r2.md`. Packet 62 plus the user's
   final, source-bounded packet-63 repair are retained in the reviewed range.
-  Packet 65's authorized repair is committed at `9d1bac0`. Renewed
-  backend Review-1 at `64-review-1-backend-r3.md` was executed by user-selected
-  Claude Opus 5 (Session `777ebb52-bba4-4b4d-a3b9-5879deaa4d7c`) and returned
-  schema-valid REWORK: 429 settlement stickiness and manual pause/delete
-  abandonment are P1. The user authorized one fifth narrow repair in
-  `26-user-authorized-settlement-and-pause-fix.md`; packet 65 is complete and
-  the only active packet is `66-review-1-backend-r4.dispatch.md`.
+  Packet 65's authorized repair is committed at `9d1bac0`.
+- **Packet 66 result** (`66-review-1-backend-r4.md`, Claude Opus 5, read-only,
+  fingerprint `9d1bac0…:fbf52f40…` re-derived and matching): **REWORK, zero open
+  P0/P1**. The reviewer independently re-verified all four authorized packet-65
+  production fixes as correct — including a **real-thread** reproduction proving a
+  manual pause now drains in-flight legs to terminal, settles the pair, opens no
+  new pair, and exits — and reproduced 229 focused / 905 backend / frontend
+  self-check / 55 Harness / clean `git diff --check` locally, with zero credential,
+  live, scanner, frontend, docs, server or scheduler drift. REWORK rests on two P2s:
+  - **P2-1**: `_pump_worker` unconditionally clears the per-task stop event, so
+    R3/R4 neither reproduced the P1-2 defect nor pin its fix (proved in both
+    directions by monkeypatch, no repo file touched). Acceptance condition
+    `26` §10.1 is objectively unmet and the stage's most dangerous path is
+    unguarded across 905 tests.
+  - **P2-2**: the drain-only startup recovery fallback (`service.py:1219`) omits
+    `STATUS_DONE`, so a target-reaching pair's accepted-but-non-terminal leg is
+    never reconciled after a restart and a hedged pair renders as a permanent
+    naked short in the positions panel. Pre-existing at base, adjacent to the
+    line this round edited.
+- **User authorization for the sixth change**: `27-user-authorized-r4-repair.md`
+  (2026-07-25). Scope = P2-1 + P2-2 only. `max_rework` raised 5 → 6. The user
+  initially named Claude Sonnet 5 as implementer and, after the bookkeeper
+  surfaced that an Anthropic fix author would empty the Review-1 cross-review
+  pool (Anthropic same-provider, `claude_glm` hard-barred as implementer, Kimi and
+  Codex out of quota), **rerouted to Claude-GLM** so Claude Opus 5 stays eligible
+  for the next Review-1. The only active packet is
+  `67-fix-review-1-backend-r4.dispatch.md`.
 - Classification: `MILESTONE`; the mandatory direction panel is complete. The
   user approved a bounded design amendment at
   `15-immediate-loop-and-open-log-amendment.md`; Fable's replacement task
@@ -25,11 +52,11 @@
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `64-review-1-backend-r3.md`,
-  `44-fix-review-1-backend-r3.md`,
+- Read next: `status.json`, `66-review-1-backend-r4.md`,
+  `27-user-authorized-r4-repair.md`, `44-fix-review-1-backend-r3.md`,
   `26-user-authorized-settlement-and-pause-fix.md`,
   `21-task-local-runtime-and-manual-pause-amendment.md`, and
-  `66-review-1-backend-r4.dispatch.md`.
+  `67-fix-review-1-backend-r4.dispatch.md`.
 - Carried evidence: previous round's
   `reports/agent-runs/2026-07-hedge-open-live-v1/{80-user-acceptance.md,design-inputs.md,10-design.md,11-adr.md}`.
 - New raw API recon received:
