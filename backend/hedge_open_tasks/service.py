@@ -946,16 +946,18 @@ class HedgeOpenTaskService:
         replacement for the old synchronous live tick — it lets the review-2
         regressions drive a task's worker step-by-step without a sleep race.
         Returns the number of rounds actually run."""
-        # P3 (Review-1 r3): initialize the same per-task stop event the real
-        # worker uses (clear), so the pause/delete drain paths are deterministically
-        # testable here and never short-circuit on a stop event left set by a
-        # prior service.stop() in the same instance.
+        # P2-1 (Review-1 r4): register the per-task stop event ONLY on first
+        # use (a fresh threading.Event() is already cleared) and leave an
+        # existing one UNTOUCHED. The prior r3 P3 change cleared it on every
+        # call, which swallowed any stop event post_pause / post_delete may
+        # have set — making R3/R4 vacuous (the second _step wiped the pause's
+        # signal, so both passed even with the _wake_worker interrupt present).
+        # Keeping an existing event lets those regressions genuinely fail if the
+        # interrupt is ever re-introduced, while a fresh task still gets a clean
+        # cleared event on its first pump.
         with self._workers_lock:
-            ev = self._stop_events.get(task_id)
-            if ev is None:
+            if self._stop_events.get(task_id) is None:
                 self._stop_events[task_id] = threading.Event()
-            else:
-                ev.clear()
         rounds = 0
         while rounds < max_rounds:
             rounds += 1
@@ -1211,12 +1213,17 @@ class HedgeOpenTaskService:
                 continue
             self.ensure_worker(tid)
         # Drain-only recovery for non-running tasks still holding in-flight legs
-        # (e.g. paused/stopped/deleted mid-pair): a worker launched on a non-running
+        # (e.g. paused/stopped/deleted/done mid-pair): a worker launched on a non-running
         # task drains its own legs to terminal, then exits (Q2 drain-before-exit).
         # Review-1 r3 P1-2: STATUS_DELETED is included so a deleted card whose
         # legs were left non-terminal is still drained to terminal on the ONE
         # startup handoff (no resident scanner).
-        for status in (D.STATUS_PAUSED, D.STATUS_STOPPED, D.STATUS_DELETED):
+        # Review-1 r4 P2-2: STATUS_DONE is included too — a target-reaching pair
+        # may leave an accepted leg at NEW/PARTIALLY_FILLED (terminal=0 by design,
+        # service._leg_terminal); without this the real filled spot leg is never
+        # reconciled after a restart, so a fully hedged final pair would render
+        # permanently as a naked short (aggregate_positions only sums FILLED legs).
+        for status in (D.STATUS_PAUSED, D.STATUS_STOPPED, D.STATUS_DELETED, D.STATUS_DONE):
             for task in self._store.list_tasks(status):
                 tid = task["id"]
                 if not self._store.list_non_terminal_legs_for_task(tid):

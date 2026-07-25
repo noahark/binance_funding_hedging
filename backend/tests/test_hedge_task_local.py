@@ -727,6 +727,12 @@ def test_r3_pause_drains_inflight_to_terminal_and_settles_no_new_pair(tmp_path):
     assert scheduled_before == 1
     svc.post_pause(doc["id"])  # pause; worker NOT interrupted
     assert svc.store.get_task(doc["id"])["status"] == D.STATUS_PAUSED
+    # P2-1 (Review-1 r4): post_pause must NOT set the per-task stop event —
+    # interrupting the worker mid-pair would abandon in-flight REAL orders.
+    # The seam (_pump_worker) no longer clears an existing event, so together
+    # they make R3 genuinely FAIL if the deleted _wake_worker interrupt is ever
+    # re-introduced into post_pause.
+    assert svc._stop_events[doc["id"]].is_set() is False
 
     _step(svc, doc["id"], clock, rounds=3)  # worker drains, settles, exits
     assert exe.query_calls >= 2
@@ -751,6 +757,8 @@ def test_r4_delete_drains_inflight_to_terminal_and_settles_no_new_pair(tmp_path)
     scheduled_before = svc.store.get_task(doc["id"])["scheduled_attempt_count"]
     svc.post_delete(doc["id"])  # delete; worker NOT interrupted
     assert svc.store.get_task(doc["id"])["status"] == D.STATUS_DELETED
+    # P2-1 (Review-1 r4): post_delete must NOT set the per-task stop event.
+    assert svc._stop_events[doc["id"]].is_set() is False
 
     _step(svc, doc["id"], clock, rounds=3)  # worker drains, settles, exits
     assert exe.query_calls >= 2
@@ -809,6 +817,88 @@ def test_r5_deleted_card_nonterminal_legs_recovered_on_restart(tmp_path):
     legs = svc2.store.list_legs_for_attempt(_attempt_id(svc2, doc["id"]))
     assert all(l["terminal"] for l in legs)
     assert svc2.store.get_task(doc["id"])["status"] == D.STATUS_DELETED  # sticky
+
+
+def _accepted_done_with_nonterminal_perp():
+    """P2-2 (Review-1 r4) scenario: an accepted pair that reaches done with one
+    leg accepted-but-NEW (terminal=0 by design). With target_n=1 the first
+    accepted pair pushes the task to done; the perp leg is accepted (orderId
+    returned) but not yet FILLED, so service._leg_terminal leaves it non-terminal
+    for the reconcile pass to poll — exactly the leg a restart must not forget."""
+    return LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_FILLED,
+                  executed="0.5", quote="25000", avg="50000"),
+        perp=_leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_NEW,
+                  executed="0", quote="0", avg=None),
+        record_payload={"transport": "live", "posted": True},
+        rate_limited=False, retry_after_seconds=None,
+    )
+
+
+# R9 — a DONE card left with an accepted-but-non-terminal leg (a target-reaching
+# pair whose perp was accepted+NEW) is drained to terminal by the ONE startup
+# recovery handoff on a fresh instance (STATUS_DONE now in the drain-only
+# fallback). No resident scanner, no resend, status stays done. Mirrors R5
+# (DELETED) but for the target-reaching case; finalize_attempt is idempotent on
+# the already-resolved accepted pair, so the counter is not double-counted.
+def test_r9_done_card_nonterminal_accepted_leg_recovered_on_restart(tmp_path):
+    db_path = str(tmp_path / "ho.sqlite3")
+    exe = _RoutingExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+
+    # --- old service: dispatch the target-reaching pair (spot FILLED, perp
+    #     accepted+NEW). resolve_attempt marks the pair accepted and pushes the
+    #     task to done while leaving the perp leg non-terminal, then stop. ---
+    clock1 = _Clock()
+    svc1 = _svc_with(db_path, exe, provider, clock1)
+    svc1.set_start_gate(True)
+    doc = _create(svc1, target_n=1)
+    exe.set_script(doc["id"], [_accepted_done_with_nonterminal_perp()])
+    svc1._pump_worker(doc["id"], max_rounds=1)  # dispatch -> accepted -> done
+    assert svc1.store.get_task(doc["id"])["status"] == D.STATUS_DONE
+    legs1 = svc1.store.list_legs_for_attempt(_attempt_id(svc1, doc["id"]))
+    perp1 = next(l for l in legs1 if l["leg"] == "perp")
+    assert perp1["terminal"] == 0            # accepted-but-NEW, left for reconcile
+    assert svc1.store.list_non_terminal_legs_for_task(doc["id"]), \
+        "done card holds an accepted-but-non-terminal leg"
+    posts_before = exe.dispatch_calls
+    assert posts_before == 1
+    svc1.stop()
+    del svc1
+
+    # --- new service: fresh instance, SAME db file, SAME executor. The ONE
+    #     recovery handoff drains the accepted-but-NEW perp leg to terminal. ---
+    clock2 = _Clock()
+    svc2 = _svc_with(db_path, exe, provider, clock2)
+    svc2.set_start_gate(True)
+    # Spy on ensure_worker: the assertion must not race on whether the launched
+    # drain worker has already finished (it can drain the leg and exit within
+    # start() under load). STATUS_DONE is now in the drain-only fallback.
+    ensured = []
+    _ensure_real = svc2.ensure_worker
+
+    def _spy_ensure(tid):
+        ensured.append(tid)
+        return _ensure_real(tid)
+
+    svc2.ensure_worker = _spy_ensure
+    exe.queries.extend([_filled_leg("perp")])  # drain: perp -> FILLED (terminal)
+    svc2.start()  # ONE recovery handoff; DONE now in drain-only fallback
+    assert doc["id"] in ensured, "recovery launched a drain worker for the DONE card"
+    worker = svc2._workers.get(doc["id"])
+    if worker is not None:
+        worker.join(timeout=5.0)
+    assert exe.dispatch_calls == posts_before    # only the original dispatch, no resend
+    assert exe.query_calls >= 1
+    assert svc2.store.list_non_terminal_legs_for_task(doc["id"]) == []
+    legs = svc2.store.list_legs_for_attempt(_attempt_id(svc2, doc["id"]))
+    assert all(l["terminal"] for l in legs)
+    perp = next(l for l in legs if l["leg"] == "perp")
+    assert perp["exchange_status"] == D.LEG_FILLED  # reconciled from NEW to FILLED
+    task = svc2.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_DONE            # sticky
+    assert task["accepted_pair_count"] == 1           # finalize_attempt is idempotent
 
 
 # R6 — a 429 on one leg + the other leg FILLED -> single_leg outcome with the
