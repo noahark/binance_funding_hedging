@@ -561,8 +561,8 @@
   "head_sha": "ab3126d73549266a615fe43c1aeaf374b0db2d32",
   "latest_bookkeeper_checkpoint": {
     "branch": "stage/2026-07-hedge-open-real-api-v1",
-    "head_sha": "ab3126d73549266a615fe43c1aeaf374b0db2d32",
-    "git_status": "Packet-62 and packet-63 delivery evidence committed; review dispatch/status evidence pending commit",
+    "head_sha": "43eb494e0e0385607d2e20839d84761d178f10ee",
+    "git_status": "Delivery evidence and renewed Review-1 dispatch are committed; the pre-review validator passed from a clean worktree before recording this output",
     "tests": "897 backend passed; packet-63 focused 48 passed; frontend self-check passed; Harness protocol 55 passed; git diff --check passed",
     "next_action": "human operator runs packet 64 in a fresh read-only Claude Sonnet 5 session; no live action is authorized"
   },
@@ -877,5 +877,5 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/64-review-1-backend-r3.dispatch.md"
   ],
   "next_action": "Human operator runs packet 64 in a fresh read-only Claude Sonnet 5 session. It reviews the complete committed backend range through ab3126d; do not activate live mode, Start, or a first real order.",
-  "updated_at": "2026-07-25T19:38:16+08:00"
+  "updated_at": "2026-07-25T19:43:13+08:00"
 }

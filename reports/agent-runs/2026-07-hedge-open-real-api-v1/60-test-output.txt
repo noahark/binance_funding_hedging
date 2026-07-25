@@ -990,6 +990,29 @@ Session ID 来源: unavailable
 下一步模型: bookkeeper
 下一步任务: create the local delivery-evidence commit, bind the committed fingerprint, and prepare renewed backend Review-1
 
+===== renewed backend Review-1 preflight (2026-07-25 19:43:13 CST) =====
+
+Command: git status --short
+Result: PASS (clean committed worktree before this evidence append)
+
+Command: git diff --binary 28c550d87c1ca90983d5bde9c7102d42cffecd4e..ab3126d73549266a615fe43c1aeaf374b0db2d32 -- . ':(exclude)reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json' | shasum -a 256
+Result: PASS
+4538945aa1e6ed3ea89a4f00f60a7dc71c97cc634dcb042c45d39ecc5a6e9772
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: PASS
+STAGE VALIDATION PASSED
+phase=pre-review
+status=review_1
+diff_fingerprint=ab3126d73549266a615fe43c1aeaf374b0db2d32:4538945aa1e6ed3ea89a4f00f60a7dc71c97cc634dcb042c45d39ecc5a6e9772
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 19:43:13 CST
+下一步模型: human
+下一步任务: run packet 64 in a fresh read-only Claude Sonnet 5 session
+
 ===== reconciliation-hold checkpoint (2026-07-25 18:44:55 CST) =====
 
 Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
