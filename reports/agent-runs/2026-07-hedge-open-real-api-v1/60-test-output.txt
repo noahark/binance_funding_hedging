@@ -1167,3 +1167,23 @@ Session ID 来源: unavailable
 本地北京时间: 2026-07-25 22:25:18 CST
 下一步模型: bookkeeper
 下一步任务: commit the packet-66 Review-1 metadata, then run pre-review validation
+
+===== packet 66 pre-review gate (2026-07-25 22:26:34 CST) =====
+
+Command: scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c:fbf52f40fbebe7018bdf6e460d7f2e4855519c52e3a6403151db420aa13d99db
+
+Command: git status --short; git diff --check
+Result: PASS (clean worktree; no whitespace error)
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 22:26:34 CST
+下一步模型: human
+下一步任务: run packet 66 in a fresh read-only Claude Opus 5 session

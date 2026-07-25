@@ -593,9 +593,9 @@
   "latest_bookkeeper_checkpoint": {
     "branch": "stage/2026-07-hedge-open-real-api-v1",
     "head_sha": "9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c",
-    "git_status": "Packet 65 source/report/test evidence is committed. The bookkeeper reconciled the permitted seven files; packet 66 Review-1 metadata is staged separately pending pre-review validation.",
+    "git_status": "Packet 65 source/report/test evidence and packet-66 review metadata are committed; pre-review validation passed from a clean worktree.",
     "tests": "Packet 65 raw evidence: 229 focused passed; 905 backend passed; frontend self-check passed; Harness protocol 55 passed; git diff --check passed. Bookkeeper independently ran 12 high-risk task-local/H-1 regressions (passed), frontend self-check (passed), Harness protocol 55 (passed), and git diff --check (passed).",
-    "next_action": "run pre-review validation from the clean metadata checkpoint, then human operator runs packet 66 in a fresh read-only Claude Opus 5 session; no live action is authorized"
+    "next_action": "human operator runs packet 66 in a fresh read-only Claude Opus 5 session; no live action is authorized"
   },
   "diff_fingerprint": "9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c:fbf52f40fbebe7018bdf6e460d7f2e4855519c52e3a6403151db420aa13d99db",
   "r4_diff_reconciliation": {
@@ -921,6 +921,6 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/44-fix-review-1-backend-r3.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/66-review-1-backend-r4.dispatch.md"
   ],
-  "next_action": "Bookkeeper runs pre-review validation after committing packet-66 metadata. Then the human operator runs packet 66 in a fresh read-only Claude Opus 5 session, writes report 66, and stops. Do not activate live mode, Start, or a first real order.",
-  "updated_at": "2026-07-25T22:21:14+08:00"
+  "next_action": "Human operator runs packet 66 in a fresh read-only Claude Opus 5 session, writes report 66, and stops for bookkeeper. Do not activate live mode, Start, or a first real order.",
+  "updated_at": "2026-07-25T22:26:34+08:00"
 }
