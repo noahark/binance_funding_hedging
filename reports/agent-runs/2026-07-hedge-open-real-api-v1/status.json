@@ -865,6 +865,12 @@
     "reviewer_prior_involvement": "design",
     "reviewer_prior_involvement_notes": "Same routing as the previous round: Codex is the only provider free of delivery/fix authorship (anthropic barred via the frontend rework, zhipu_glm via the backend, kimi and grok quota-unavailable), running under the documented design-conflict strong-reviewer disclosure. Evidence 46-review-2-routing-disclosure.md.",
     "unrelated_reviewer_unavailable_evidence": "46-review-2-routing-disclosure.md",
+    "fallback_reason": "No provider is both free of delivery/fix authorship and unrelated to the stage design. Anthropic is hard-ineligible because Claude Sonnet 5 wrote the accepted frontend rework; zhipu_glm wrote the backend; kimi and grok are quota-unavailable per recorded operator reports. Codex is the only remaining decision provider and must use the documented design-involvement disclosure.",
+    "design_conflict_override": {
+      "used": true,
+      "reason": "No provider is both unrelated to the stage design and free of delivery/fix authorship. Anthropic is hard-ineligible because Sonnet 5 wrote the frontend rework; use Codex with disclosed prior design involvement.",
+      "unrelated_reviewer_unavailable_evidence": "46-review-2-routing-disclosure.md"
+    },
     "blocked_on": "The renewed backend Review-1 (packet 73) must pass on 28c550d..77c75bd before a new final gate is dispatched. The previous Review-2 REWORK stays pinned to the b9e1978 range it actually reviewed; see previous_review_2_r1.",
     "previous_round_pointer": "previous_review_2_r1"
   },
