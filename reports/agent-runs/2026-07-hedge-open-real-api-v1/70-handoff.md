@@ -2,9 +2,26 @@
 
 ## Recovery Header
 
-- Active phase: `review_2 / final gate returned REWORK on ONE process P1; the user
-  special-approved the fix WITHOUT model review. Stage awaits the user's call:
-  re-open the final gate, or go to live testing with that state recorded.`
+- Active phase: `review_2 / FINAL GATE re-opened — packet 75 dispatch-ready for a fresh read-only Codex session`.
+- **Current anchor**: base `28c550d87c1ca90983d5bde9c7102d42cffecd4e`, head
+  `1c09db491e8f89426b811be990929148f01c1d3c`, fingerprint
+  `1c09db491e8f89426b811be990929148f01c1d3c:a5b08463fb690d52687934ec6227783689e94aebc55a39ed51af461c941e7b78`.
+- **⚠️ Packet 75 is unusual: the reviewed range contains code the BOOKKEEPER
+  wrote.** `77c75bd..1c09db4` is the r8 `scripts/validate-stage.py` fix authored
+  by Claude Opus 5 — the sitting bookkeeper and author of six Review-1 rounds —
+  merged under user special approval with **no model cross-review**. Packet 75
+  asks Codex to review it as **first-and-only reviewer**, not as a re-check, and
+  to spot-check the 18 receipt backfills done alongside it.
+- **Codex is now the last eligible reviewer of any kind.** `anthropic` is barred
+  twice (Sonnet 5 wrote the frontend rework; Opus 5 wrote the r8 fix),
+  `zhipu_glm` is the backend author, `kimi`/`grok` have no quota. Packet 75 tells
+  Codex plainly that nobody can cross-check its verdict and asks it to raise its
+  own caution accordingly.
+- Prior round: `74-review-2-r2.md` returned REWORK on one process P1 (the F6
+  validator missed the seventh-fix dispatch). Business code and all 918 backend
+  tests were accepted with zero findings. That P1's three `required_fixes` are
+  now all complete — receipt sealed, user authorization on file
+  (`29-user-special-approval-r8.md`), fix implemented with 5 new tests.
 - **Final gate result** (`74-review-2-r2.md`, Codex, schema-valid, fingerprint
   matching): **REWORK, one P1 only** — the F6 validator missed the seventh-fix
   dispatch itself (packet 72 sat `pending` with its report already on disk,
