@@ -2,7 +2,25 @@
 
 ## Recovery Header
 
-- Active phase: `review_1 / packet-67 sixth bounded repair is committed at b9e1978 and bookkeeper-verified; the renewed backend Review-1, packet 68, is dispatch-ready for a FRESH read-only Claude Opus 5 session`.
+- Active phase: `review_1 complete on BOTH tasks; STOPPED for a user decision on Review-2 routing`.
+- **BOTH Review-1 gates now pass**: backend **ACCEPT** at `68-review-1-backend-r5.md`
+  (zero P0/P1/P2, four unreachable/observational P3s, schema-valid, fingerprint
+  matching), frontend **ACCEPT** at `59-review-1-frontend-r2.md` (`frontend/**`
+  unchanged since `8af3f22`).
+- **⚠️ Review-2 has no eligible reviewer — user decision required.** AGENTS.md
+  bars the final reviewer from sharing provider identity with ANY delivery-code
+  author, with no override:
+  - `anthropic` — hard-barred, Claude Sonnet 5 authored the accepted frontend rework;
+  - `zhipu_glm` — hard-barred, backend author;
+  - `kimi`, `grok` — quota-unavailable per recorded operator reports;
+  - `codex` — the ONLY remaining eligible provider (already established in
+    `46-review-2-routing-disclosure.md`, via the documented design-involvement
+    disclosure) — went quota-exhausted on 2026-07-25, which is why the bookkeeper
+    role changed hands.
+
+  This is `decision_models_exhausted` unless the user waits for Codex quota or
+  records an explicit waiver. The stage cannot self-accept: `AGENTS.md` forbids a
+  bookkeeper or reviewer from granting its own gate.
 - **Current anchor**: base `28c550d87c1ca90983d5bde9c7102d42cffecd4e`, head
   `b9e1978eaffd047b7871b8721f511307e75fde68`, fingerprint
   `b9e1978eaffd047b7871b8721f511307e75fde68:604caada1043e8334f33b1cc73239f1cf6bb19017db1dc68374679cf6ac99ddd`.
@@ -74,10 +92,24 @@
   `status.json.r4_repair_authorization.reviewer_optional_item_declined`. GLM also
   self-declared one residual risk in `46` §5 (`_pump_worker` no longer clears, so
   "same instance: `service.stop()` then `_pump_worker`" would short-circuit; no
-  current test uses that pattern). Both are for packet 68 to judge.
-- The only active packet is `68-review-1-backend-r5.dispatch.md`, which **must
-  run in a fresh read-only session** — the current bookkeeper session authored
-  review r4 and cannot double as the r5 review session.
+  current test uses that pattern). **Packet 68 judged both**: the declined item (c)
+  is accepted as a reasonable minimal-change trade-off, and the `_pump_worker`
+  residual is verified harmless (no test uses that pattern; production
+  `ensure_worker` still clears).
+- **Packet 68 result** (`68-review-1-backend-r5.md`, Claude Opus 5, fresh
+  read-only session): **ACCEPT**, zero P0/P1/P2. The reviewer re-derived the
+  fingerprint, re-read the code, re-ran the tests, and wrote its own four-part
+  monkeypatch reverse-verification (zero repository files touched) rather than
+  reusing the prior round's conclusions or the bookkeeper's checks. Notable
+  additions beyond what was asked: a load-bearing probe showing the seam fix and
+  the new assertion each carry weight independently; a probe proving the guard
+  also catches the second defect shape recorded in `27` §3.2; and an end-to-end
+  check through `aggregate_positions` (before: `position_qty=0`, `perp_avg=0`;
+  after: `-0.5` / `50000`), confirming P2-2 actually reaches the UI. Four P3s
+  remain — one newly found (`store.pause_task` lacks a status guard, proven
+  production-unreachable) and three carried over — none code-affecting.
+- **No formal dispatch is active.** The stage is stopped at the Review-2 routing
+  decision above.
 - Classification: `MILESTONE`; the mandatory direction panel is complete. The
   user approved a bounded design amendment at
   `15-immediate-loop-and-open-log-amendment.md`; Fable's replacement task
@@ -86,9 +118,10 @@
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `68-review-1-backend-r5.dispatch.md`,
-  `66-review-1-backend-r4.md`, `46-fix-review-1-backend-r4.md`,
-  `27-user-authorized-r4-repair.md`, `44-fix-review-1-backend-r3.md`,
+- Read next: `status.json`, `68-review-1-backend-r5.md` (backend ACCEPT),
+  `59-review-1-frontend-r2.md` (frontend ACCEPT),
+  `46-review-2-routing-disclosure.md` (why only Codex was ever eligible for
+  Review-2), `46-fix-review-1-backend-r4.md`, `27-user-authorized-r4-repair.md`,
   `26-user-authorized-settlement-and-pause-fix.md`, and
   `21-task-local-runtime-and-manual-pause-amendment.md`.
 - Carried evidence: previous round's
