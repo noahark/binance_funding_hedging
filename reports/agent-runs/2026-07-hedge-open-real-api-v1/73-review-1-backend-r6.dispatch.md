@@ -1,13 +1,16 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: claude/Claude Opus 5
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable:no start timestamp was recorded by the operator or the report
+completed_at: 2026-07-26T23:31:00+08:00
+completed_at_source: the "本地北京时间" line in the raw report footer (73-review-1-backend-r6.md:458); the file mtime 23:36 reflects the final write
+session_id: unavailable:the reviewer report footer records that Claude Code did not expose a provider-native Session ID
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/73-review-1-backend-r6.md
-next_dispatch: none
+verdict: ACCEPT (schema-valid; 0 P0/P1; 2 P2; 4 P3; required_fixes empty; diff_fingerprint matched verbatim)
+next_dispatch: reports/agent-runs/2026-07-hedge-open-real-api-v1/74-review-2-r2.dispatch.md (human operator)
+receipt_sealed_by: bookkeeper (Claude Opus 5) on 2026-07-26, immediately on receiving the report. The reviewer itself flagged that --phase pre-review had already turned red on this pending-but-produced receipt — the packet-72 finding-6 check working as designed. Evidence taken only from the report footer; nothing invented.
 fallback_reason: Kimi remains quota-unavailable by the recorded operator report (15-kimi-review-1-unavailable.md). The packet-72 fix author is Claude-GLM/zhipu_glm, so Claude Opus 5 (anthropic) is provider-isolated from every author of the reviewed code, exactly as in rounds r3, r4 and r5.
 session_isolation: MUST be a fresh read-only session. The current bookkeeper session authored the r2/r3/r4/r5 reviews and must not double as the r6 review session (review_1_requires_fresh_read_only_session).
 bookkeeper_disclosure: this stage's bookkeeper is Claude Opus 5 (took over 2026-07-25 after Codex quota exhaustion) and also authored the r2-r5 read-only Review-1 reports. Neither role is code or fix authorship. See status.json.bookkeeper.dual_hat_disclosure and 27-user-authorized-r4-repair.md §6.

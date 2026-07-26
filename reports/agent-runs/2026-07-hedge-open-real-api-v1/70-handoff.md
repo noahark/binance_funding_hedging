@@ -2,7 +2,30 @@
 
 ## Recovery Header
 
-- Active phase: `review_1 / packet-72 seventh bounded repair is committed at 77c75bd and bookkeeper-verified; the renewed backend Review-1 (packet 73) is dispatch-ready for a FRESH read-only Claude Opus 5 session`.
+- Active phase: `review_2 / FINAL GATE dispatch-ready — packet 74 for a fresh read-only Codex session`.
+- **Both Review-1 gates pass on the current range**: backend **ACCEPT** at
+  `73-review-1-backend-r6.md` (0 P0/P1, 2 P2 follow-ups, 4 P3, `required_fixes`
+  empty, schema-valid, fingerprint matching), frontend **ACCEPT** at
+  `59-review-1-frontend-r2.md` (`frontend/**` unchanged since `8af3f22`).
+- **r6 verified independently, not by trusting reports**: it re-derived the
+  fingerprint, confirmed `77c75bd..HEAD` touches only bookkeeping files (so
+  worktree test runs still attribute to the anchor), reproduced 918/227/67/
+  frontend/clean-diff, and ran its own offline probes — F1 three consecutive
+  non-rate-limited `single_leg` pairs reach fail=3/consec=3/paused while a 429
+  pair stays at 0 (the no-counter exception did not regress); F2 a 14-cell
+  classification matrix including the three no-over-correction cases (5xx,
+  transport error, auth 4xx all still `None`) plus a query-429 pausing the card
+  with the pending leg kept and `dispatch_calls=1`; F4 one-round idempotent
+  recovery, no deleted-card resurrection, no resident scanner; F6 both checks
+  effective and the 59/69 backfills verified verbatim against the original
+  footers. It also upheld both bookkeeper adjudications.
+- **⚠️ Two OPEN P2 follow-ups** (both need a NEW user authorization — rework is
+  7/7): (a) a card whose planned attempts are exhausted stays permanently in
+  `running` after a manual Start (`post_start` has no exhaustion check) —
+  display-only, `dispatch_calls` does not grow and the `target_n` hard cap is
+  intact; (b) the new root-status validator check is one-directional and
+  false-positives on the normal Review-2 REWORK → fixing loop, which is exactly
+  what forced the status.json restructure at `d5eb40a`.
 - **Current anchor**: base `28c550d87c1ca90983d5bde9c7102d42cffecd4e`, head
   `77c75bd855c3d1a7a4c91700f9db953919df087f`, fingerprint
   `77c75bd855c3d1a7a4c91700f9db953919df087f:aa0406dae9cb90004d5dd15c2a936ad9a021a0c01a50f985d4efab5900e652dd`.
@@ -150,7 +173,8 @@
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `73-review-1-backend-r6.dispatch.md` (active),
+- Read next: `status.json`, `74-review-2-r2.dispatch.md` (active final gate),
+  `73-review-1-backend-r6.md` (backend ACCEPT), `69-review-2.md` (the six P1s this round answers),
   `28-user-authorized-r7-repair.md` (this round's scope authority),
   `71-fix-review-2-backend-r7.md`, `69-review-2.md`,
   `68-review-1-backend-r5.md` (backend ACCEPT on the prior range),
