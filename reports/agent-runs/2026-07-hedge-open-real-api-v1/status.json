@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-real-api-v1",
-  "status": "review_2",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-real-api-v1",
@@ -798,7 +798,7 @@
   "previous_review_1_r4": {"reviewer": "Claude Opus 5", "provider": "claude", "model": "Claude Opus 5", "open_p0_p1": 0, "open_p2": 2, "open_p3": 3, "verdict": "REWORK", "json_schema_valid": true, "diff_fingerprint": "9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c:fbf52f40fbebe7018bdf6e460d7f2e4855519c52e3a6403151db420aa13d99db", "covers_through_task": "backend", "reviewer_prior_involvement": "none", "reviewer_prior_involvement_notes": "Kimi remains quota-unavailable by 15-kimi-review-1-unavailable.md. The human operator previously selected Claude Opus 5 for this critical backend Review-1; it is provider-isolated from the Claude-GLM/zhipu_glm backend implementation and fix authors. Its prior reviews were read-only evidence, not code authorship. From 2026-07-25 the same model also holds the bookkeeper role after Codex ran out of quota; see bookkeeper.dual_hat_disclosure and 27-user-authorized-r4-repair.md §6.", "fix_start_prompt_present": true, "fix_start_prompt_source": "66-review-1-backend-r4.md", "invalid_json_attempts": 0, "dispatch_path": "66-review-1-backend-r4.dispatch.md", "artifact_path": "66-review-1-backend-r4.md", "next_action": "fix", "status": "backend_review_1_r4_rework_returned_sixth_fix_authorized_and_dispatch_ready", "summary": "Verdict REWORK with ZERO open P0/P1. The reviewer independently re-verified all four authorized packet-65 production fixes as correct, including a real-thread reproduction proving a manual pause now drains in-flight legs to terminal, settles the pair, opens no new pair and exits; it also reproduced 229 focused / 905 backend / frontend self-check / 55 Harness / clean git diff --check locally, and confirmed zero credential, live, scanner, frontend, docs, server or scheduler drift. REWORK rests on two P2s: (1) _pump_worker unconditionally clears the per-task stop event, so R3/R4 neither reproduced the P1-2 defect nor pin its fix, leaving acceptance condition 26 §10.1 objectively unmet and the stage's most dangerous path unguarded across 905 tests; (2) the drain-only recovery fallback omits STATUS_DONE, so a target-reaching pair's accepted-but-non-terminal leg is never reconciled after a restart and a hedged pair renders as a permanent naked short. Both reproduced offline with raw output in 66-review-1-backend-r4.md §4."},
   "previous_review_1_r5": {"reviewer": "Claude Opus 5", "provider": "claude", "model": "Claude Opus 5", "open_p0_p1": 0, "open_p2": 0, "open_p3": 4, "verdict": "ACCEPT", "json_schema_valid": true, "diff_fingerprint": "b9e1978eaffd047b7871b8721f511307e75fde68:604caada1043e8334f33b1cc73239f1cf6bb19017db1dc68374679cf6ac99ddd", "covers_through_task": "backend", "reviewer_prior_involvement": "none", "reviewer_prior_involvement_notes": "Kimi remains quota-unavailable (15-kimi-review-1-unavailable.md); Codex is quota-exhausted as of 2026-07-25. The packet-67 fix author is Claude-GLM/zhipu_glm, so Claude Opus 5 (anthropic) remains provider-isolated from every author of the reviewed code and is eligible, exactly as in rounds r3 and r4. Disclosure: the same model authored the r2/r3/r4 read-only reviews and, since 2026-07-25, holds the bookkeeper role; neither is code or fix authorship. The review MUST run in a fresh read-only session, not this bookkeeper session.", "fix_start_prompt_present": false, "fix_start_prompt_source": null, "invalid_json_attempts": 0, "dispatch_path": "68-review-1-backend-r5.dispatch.md", "artifact_path": "68-review-1-backend-r5.md", "status": "backend_review_1_accepted", "next_action": "continue", "summary": "Packet 67 is committed at b9e1978. It closes the two r4 P2s: R3/R4 now genuinely pin the manual pause/delete drain fix (the seam no longer swallows the stop event), and STATUS_DONE joins the drain-only startup recovery fallback with new regression test_r9. The renewed Review-1 must independently verify the complete 28c550d..b9e1978 range, including that the four packet-65 production fixes and every H-1 / packet-62/63 property still hold."},
   "review_1": {"reviewer": "Claude Opus 5", "provider": "claude", "model": "Claude Opus 5", "open_p0_p1": null, "verdict": null, "json_schema_valid": null, "diff_fingerprint": "77c75bd855c3d1a7a4c91700f9db953919df087f:aa0406dae9cb90004d5dd15c2a936ad9a021a0c01a50f985d4efab5900e652dd", "covers_through_task": "backend", "reviewer_prior_involvement": "none", "reviewer_prior_involvement_notes": "The packet-72 fix author is Claude-GLM/zhipu_glm, so Claude Opus 5 (anthropic) remains provider-isolated from every author of the reviewed code. Disclosure: the same model authored the r2-r5 read-only reviews and holds the bookkeeper role since 2026-07-25; neither is code or fix authorship. Must run in a fresh read-only session, not the bookkeeper session.", "fix_start_prompt_present": null, "fix_start_prompt_source": null, "invalid_json_attempts": 0, "dispatch_path": "73-review-1-backend-r6.dispatch.md", "artifact_path": "73-review-1-backend-r6.md", "status": "backend_review_1_pending_after_user_authorized_seventh_fix", "summary": "Packet 72 is committed at 77c75bd. It closes Review-2 findings 1 (single_leg consecutive-failure accounting + planned-attempt exhaustion), 2 (query classification + typed query-stage rate-limit signal) and 4 (terminal-legs/NULL pair_outcome crash seam), plus the finding-6 validator coverage. Findings 3 and 5 are deferred by explicit user decision. The renewed Review-1 must independently verify the complete 28c550d..77c75bd range."},
-  "review_2": {
+  "previous_review_2_r1": {
     "reviewer": "codex",
     "provider": "codex",
     "model": "GPT-5 Codex",
@@ -850,6 +850,23 @@
       "note": "This REWORK verdict and its diff_fingerprint stay pinned to the b9e1978 range it actually reviewed. A NEW Review-2 is owed on 77c75bd once the renewed Review-1 passes."
     },
     "resolution_artifacts": ["40-fix-review-2-backend.md", "40-fix-review-2-frontend.md", "41-fix-open-log-pagination-backend.md", "41-fix-open-log-pagination-frontend.md", "19-replacement-r4-final-reconciliation.md"]
+  },
+  "review_2": {
+    "reviewer": "codex",
+    "provider": "codex",
+    "model": "GPT-5 Codex",
+    "verdict": null,
+    "json_schema_valid": null,
+    "dispatch_path": null,
+    "artifact_path": null,
+    "diff_fingerprint": null,
+    "covers_through_task": "backend and frontend",
+    "status": "not_yet_dispatched_pending_renewed_review_1",
+    "reviewer_prior_involvement": "design",
+    "reviewer_prior_involvement_notes": "Same routing as the previous round: Codex is the only provider free of delivery/fix authorship (anthropic barred via the frontend rework, zhipu_glm via the backend, kimi and grok quota-unavailable), running under the documented design-conflict strong-reviewer disclosure. Evidence 46-review-2-routing-disclosure.md.",
+    "unrelated_reviewer_unavailable_evidence": "46-review-2-routing-disclosure.md",
+    "blocked_on": "The renewed backend Review-1 (packet 73) must pass on 28c550d..77c75bd before a new final gate is dispatched. The previous Review-2 REWORK stays pinned to the b9e1978 range it actually reviewed; see previous_review_2_r1.",
+    "previous_round_pointer": "previous_review_2_r1"
   },
   "authorized_exceptions": [],
   "main_syncs": [
@@ -1014,6 +1031,7 @@
   },
   "blockers": [
     "Packet 72 (seventh bounded change) is committed at 77c75bd and bookkeeper-verified: Review-2 findings 1, 2, 4 and the finding-6 validator remainder are closed; findings 3 and 5 remain deferred by explicit user decision. rework_count is now 7/7 — ANY further code change needs a NEW written user authorization.",
+    "F6 validator coverage gap, found by the bookkeeper while dispatching packet 73: the new root-status check is ONE-DIRECTIONAL. It correctly fires when a review_2 dispatch exists while the root status is still review_1, but it cannot detect the reverse — a root status parked at review_2 while a Review-1 is being dispatched. Both gates printed PASSED in that state. Handled by resetting the root status to review_1 and demoting the finished Review-2 round to previous_review_2_r1. Recorded for the renewed Review-1 to judge; changing the validator itself would need a NEW user authorization (rework is 7/7).",
     "Two gates are now owed on the new range 28c550d..77c75bd: a renewed backend Review-1 (packet 73, dispatch-ready) and, after it passes, a NEW Review-2. The existing Review-2 REWORK stays pinned to the b9e1978 range it actually reviewed.",
     "Deferred-by-user risk that must stay visible: with finding 3 unfixed, a manual delete/pause landing while a leg is in flight can be overwritten by the late worker result, so the card can resurface as paused and the delete decision is lost. It never auto-dispatches — a human must press Start — but an emergency stop can read as merely paused.",
     "Bookkeeping debt from finding 6 is now CLEARED: packets 66/67/68 receipts are sealed with real sourced evidence (no invented timestamps or session IDs; unavailable fields carry their reason), the Review-2 receipt is sealed, and the root status advanced review_1 -> review_2. Finding 6 also asks for validator coverage of completed receipts and review-2 status — that is a scripts/validate-stage.py change and is NOT yet done.",
