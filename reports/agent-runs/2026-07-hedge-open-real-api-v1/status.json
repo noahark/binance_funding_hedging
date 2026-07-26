@@ -568,8 +568,8 @@
       "next_implementation_report_path": null,
       "implementation_status": "sixth_fix_evidence_committed_review_1_pending",
       "base_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
-      "head_sha": "77c75bd855c3d1a7a4c91700f9db953919df087f",
-      "diff_fingerprint": "77c75bd855c3d1a7a4c91700f9db953919df087f:aa0406dae9cb90004d5dd15c2a936ad9a021a0c01a50f985d4efab5900e652dd",
+      "head_sha": "f441dea53b35ebdd0133cc97e8153f5c0f8bf385",
+      "diff_fingerprint": "f441dea53b35ebdd0133cc97e8153f5c0f8bf385:a5b08463fb690d52687934ec6227783689e94aebc55a39ed51af461c941e7b78",
       "review_1_history": [{"provider": "claude", "model": "Claude Opus 4.6", "artifact_path": "30-review-1-backend.md", "dispatch_path": "30-review-1-backend-opus46.dispatch.md", "verdict": "ACCEPT", "reviewer_prior_involvement": "design", "open_p0_p1": 0, "findings_summary": "Two P2 follow-up improvements only: recvWindow tightening and bounded pending-leg reconciliation.", "fallback_from": {"provider": "kimi", "model": "kimi-k3", "reason": "Human operator reported Kimi quota exhaustion before review dispatch.", "evidence_path": "15-kimi-review-1-unavailable.md"}}],
       "previous_review_1": {"provider": "claude", "model": "Claude Sonnet 5", "artifact_path": "58-review-1-backend-r2.md", "dispatch_path": "58-review-1-backend-r2.dispatch.md", "verdict": "REWORK", "reviewer_prior_involvement": "none", "open_p0_p1": 2, "required_fixes": ["Reverse-direction preflight must reject unreadable/invalid est_price as REJECT_PREFLIGHT_INCOMPLETE.", "Slow pending-order reconciliation must not block an unrelated task's next-pair dispatch."], "fix_start_prompt_source": "58-review-1-backend-r2.md"},
       "previous_review_1_r3": {"provider": "claude", "model": "Claude Opus 5", "artifact_path": "64-review-1-backend-r3.md", "dispatch_path": "64-review-1-backend-r3.dispatch.md", "verdict": "REWORK", "reviewer_prior_involvement": "none", "open_p0_p1": 2, "required_fixes": ["Clear sticky pause_reason/pause_reason_zh on RUNNING and make no-counter settlement attempt-specific.", "Drain in-flight pairs on manual pause/delete and include deleted pending tasks in one-time restart recovery.", "Correct no-counter pair outcome/leg exposure and add user-selected worker observability fields."], "fix_start_prompt_source": "64-review-1-backend-r3.md", "reviewed_head": "ab3126d73549266a615fe43c1aeaf374b0db2d32", "diff_fingerprint": "ab3126d73549266a615fe43c1aeaf374b0db2d32:4538945aa1e6ed3ea89a4f00f60a7dc71c97cc634dcb042c45d39ecc5a6e9772", "model_substitution": "Human operator selected Claude Opus 5 instead of prewritten Claude Sonnet 5 target; receipt and global review record corrected."},
@@ -674,15 +674,15 @@
     "approval_scope": "User approved the immediate-open direction, removal of the stale Manual Close Design Gate, and the canonical PRD restructuring."
   },
   "base_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
-  "head_sha": "77c75bd855c3d1a7a4c91700f9db953919df087f",
+  "head_sha": "f441dea53b35ebdd0133cc97e8153f5c0f8bf385",
   "latest_bookkeeper_checkpoint": {
     "branch": "stage/2026-07-hedge-open-real-api-v1",
-    "head_sha": "77c75bd855c3d1a7a4c91700f9db953919df087f",
+    "head_sha": "f441dea53b35ebdd0133cc97e8153f5c0f8bf385",
     "git_status": "Packet 65 source/report/test evidence and packet-66 review metadata are committed; pre-review validation passed from a clean worktree.",
     "tests": "Packet 65 raw evidence: 229 focused passed; 905 backend passed; frontend self-check passed; Harness protocol 55 passed; git diff --check passed. Bookkeeper independently ran 12 high-risk task-local/H-1 regressions (passed), frontend self-check (passed), Harness protocol 55 (passed), and git diff --check (passed).",
     "next_action": "human operator runs packet 66 in a fresh read-only Claude Opus 5 session; no live action is authorized"
   },
-  "diff_fingerprint": "77c75bd855c3d1a7a4c91700f9db953919df087f:aa0406dae9cb90004d5dd15c2a936ad9a021a0c01a50f985d4efab5900e652dd",
+  "diff_fingerprint": "f441dea53b35ebdd0133cc97e8153f5c0f8bf385:a5b08463fb690d52687934ec6227783689e94aebc55a39ed51af461c941e7b78",
   "r4_diff_reconciliation": {
     "status": "passed",
     "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/13-r4-diff-reconciliation.md",
@@ -1075,6 +1075,7 @@
   },
   "blockers": [
     "FINAL GATE (74-review-2-r2.md) returned REWORK with ONE P1 — the F6 validator missed the seventh-fix dispatch itself. Business code and all 918 backend tests were accepted with zero findings. The user then issued a DIRECT SPECIAL APPROVAL (29-user-special-approval-r8.md) to fix it with NO model cross-review; rework_count 7->8. The final-gate verdict is still REWORK and this approval does not overturn it.",
+    "ANCHOR: the active anchor is now f441dea (the r8 validator fix). Both completed reviews stay pinned to the range they actually reviewed — 73-review-1-backend-r6.md (ACCEPT) and 74-review-2-r2.md (REWORK) both cover 77c75bd. The delta 77c75bd..f441dea is the user-special-approved, UNREVIEWED r8 change plus bookkeeping.",
     "GOVERNANCE: Claude Opus 5 is now a fix author, so anthropic is barred from ANY further review of this stage. Combined with zhipu_glm (backend author), kimi and grok (no quota), only codex remains eligible — and it is the designer, three-time Review-2 author and former bookkeeper. Any further model review needs the user to accept that constraint.",
     "Backend Review-1 r6 returned ACCEPT (73-review-1-backend-r6.md): zero P0/P1, two P2 follow-ups, four P3s, required_fixes empty. The reviewer independently re-derived the fingerprint, confirmed 77c75bd..HEAD touches only bookkeeping files, reproduced every reported test number, ran its own offline probes for F1/F2/F4/F6 instead of trusting the fix report, and upheld both bookkeeper adjudications. Frontend ACCEPT (59-review-1-frontend-r2.md) remains valid — frontend/** unchanged since 8af3f22.",
     "OPEN P2 follow-ups from r6, both needing a NEW user authorization because rework is 7/7: (a) a card whose planned attempts are exhausted stays permanently in `running` after a manual Start because post_start has no exhaustion check — display-only, dispatch_calls does not grow and the target_n hard cap is intact; (b) the new root-status validator check is one-directional and false-positives on the normal Review-2 REWORK -> fixing loop, which is exactly what forced the bookkeeper to restructure status.json at d5eb40a.",
@@ -1180,5 +1181,5 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/29-user-special-approval-r8.md"
   ],
   "next_action": "The final gate returned REWORK on one process P1; the user special-approved the fix without model review (29-user-special-approval-r8.md) and it is implemented, tested and committed. The stage now awaits the user's decision: either re-open the final gate on the new range, or proceed to live testing with the recorded state 'final gate REWORK + user-approved unreviewed fix'. Live activation remains three separate human authorizations: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task.",
-  "updated_at": "2026-07-27T00:30:00+08:00"
+  "updated_at": "2026-07-27T00:45:00+08:00"
 }
