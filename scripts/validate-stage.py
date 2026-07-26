@@ -1033,6 +1033,43 @@ def _collect_review_dispatch_refs(
     return refs
 
 
+def _collect_all_dispatch_refs(
+    status_doc: dict[str, Any],
+) -> list[tuple[str, str | None, Any]]:
+    """finding-6 (74-review-2-r2.md P1): every dispatch receipt status.json
+    references, not just the review ones.
+
+    :func:`_collect_review_dispatch_refs` only reaches review_1/review_2, so an
+    implementation or fix dispatch left pending-with-outputs was invisible —
+    including packet 72, which delivered this very check. Rather than enumerate
+    the authorization/routing keys that happen to exist today (and re-open the
+    same blind spot the next time a key is added), walk the whole document and
+    pick up every ``*.dispatch.md`` reference.
+
+    Review refs keep their ``review_key`` so the root-status phase check still
+    applies to them; everything else carries ``None`` (a fix dispatch has no
+    workflow phase of its own, so only the pending-with-outputs check runs).
+    The dotted label points at the key the reference was found under, so an
+    error names the exact status.json field."""
+    refs: list[tuple[str, str | None, Any]] = list(_collect_review_dispatch_refs(status_doc))
+    seen = {str(value) for _, _, value in refs if _nonempty_string(value)}
+
+    def walk(node: Any, path: str) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                walk(value, f"{path}.{key}" if path else str(key))
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                walk(value, f"{path}[{index}]")
+        elif isinstance(node, str) and node.endswith(".dispatch.md"):
+            if node not in seen:
+                seen.add(node)
+                refs.append((path or "status", None, node))
+
+    walk(status_doc, "")
+    return refs
+
+
 def validate_dispatch_receipt_phase(
     root: Path, stage_dir: Path, status_doc: dict[str, Any]
 ) -> list[str]:
@@ -1042,10 +1079,14 @@ def validate_dispatch_receipt_phase(
 
     (a) a referenced dispatch receipt is still status=pending while its declared
         ``outputs`` file already exists on disk — the receipt was never sealed
-        even though the dispatch produced its artifact;
+        even though the dispatch produced its artifact. Covers EVERY dispatch
+        status.json references (review, implementation and fix alike): scoping
+        this to reviews is what let packet 72 — the dispatch that delivered this
+        check — sit pending with its report on disk (74-review-2-r2.md P1);
     (b) a review's dispatch file is present (the phase was entered) but the root
         status is still parked in an earlier phase — e.g. a review_2 dispatch
-        exists while status=review_1.
+        exists while status=review_1. Only reviews carry a workflow phase, so
+        this half stays scoped to review refs.
 
     Reads status.json dispatch references + receipt blocks only; never mutates
     status.json / 70-handoff.md / any receipt. A missing dispatch file is left
@@ -1054,13 +1095,13 @@ def validate_dispatch_receipt_phase(
     if not _uses_human_operator_protocol(status_doc):
         return errors
     root_status = status_doc.get("status")
-    for label, review_key, dispatch_value in _collect_review_dispatch_refs(status_doc):
+    for label, review_key, dispatch_value in _collect_all_dispatch_refs(status_doc):
         if not _nonempty_string(dispatch_value):
             continue
         path = _resolve_evidence_path(root, stage_dir, dispatch_value)
         if not path.exists():
             continue
-        behind = _root_status_behind_review(root_status, review_key)
+        behind = _root_status_behind_review(root_status, review_key) if review_key else None
         if behind:
             errors.append(f"{label}: {behind}")
         receipt = parse_dispatch_receipt(path.read_text(encoding="utf-8", errors="replace"))

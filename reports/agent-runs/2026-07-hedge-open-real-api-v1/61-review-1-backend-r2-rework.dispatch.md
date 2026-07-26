@@ -1,14 +1,16 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: superseded
 target_model: claude_glm/glm-5.2[1m]
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: n/a:never executed
+completed_at: n/a:never executed
+session_id: n/a:never executed
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/40-fix-review-1-backend-r2.md
 next_dispatch: none
 supersedes: none; final bounded backend repair from 58-review-1-backend-r2.md
+superseded_reason: never executed; superseded by 62-review-1-backend-r2-task-local.dispatch.md; status.json task_runtime_amendment.supersedes_unexecuted_dispatch
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-27. This packet was replaced before any execution, so a terminal 'superseded' state — not 'pending' — is the truthful record. Its declared outputs file exists only because a LATER packet produced it.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable; reviewer-provided fix_start_prompt preserved below） ===== -->

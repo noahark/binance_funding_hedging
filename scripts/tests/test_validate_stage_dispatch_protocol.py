@@ -1096,3 +1096,65 @@ class TestDispatchReceiptPhaseConsistency:
         root, stage_dir = harness
         status = _review2_status(root_status="implementing")
         assert vs.validate_dispatch_receipt_phase(root, stage_dir, status) == []
+
+
+# ---------------------------------------------------------------------------
+# Group 10b: 74-review-2-r2.md P1 — the (a) check must reach EVERY dispatch
+# status.json references, not just review_1/review_2. Packet 72, which shipped
+# the group-10 checks, sat pending-with-outputs precisely because a fix
+# dispatch was outside the collector's reach.
+# ---------------------------------------------------------------------------
+
+
+class TestNonReviewDispatchReceiptsAreChecked:
+    def test_fix_dispatch_pending_with_existing_output_fails(self, harness):
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "72-fix.dispatch.md", status="pending", outputs="71-fix.md")
+        (stage_dir / "71-fix.md").write_text("# fix report\n")
+        status = _review2_status(dispatch_path=None)
+        status["r7_repair_authorization"] = {"active_dispatch": "72-fix.dispatch.md"}
+        errors = vs.validate_dispatch_receipt_phase(root, stage_dir, status)
+        assert any("status=pending" in err and "71-fix.md" in err for err in errors)
+        # the label points at the exact status.json key, not a generic bucket
+        assert any("r7_repair_authorization.active_dispatch" in err for err in errors)
+
+    def test_fix_dispatch_reference_nested_in_a_list_is_reached(self, harness):
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "56-impl.dispatch.md", status="pending", outputs="41-impl.md")
+        (stage_dir / "41-impl.md").write_text("# impl report\n")
+        status = _review2_status(dispatch_path=None)
+        status["scope_amendment"] = {"replacement_dispatches": ["56-impl.dispatch.md"]}
+        errors = vs.validate_dispatch_receipt_phase(root, stage_dir, status)
+        assert any("41-impl.md" in err for err in errors)
+
+    def test_superseded_receipt_with_existing_output_passes(self, harness):
+        # A packet replaced BEFORE execution is terminal, not pending. Its
+        # declared outputs file may exist because a LATER packet produced it,
+        # so a truthful 'superseded' receipt must not be flagged.
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "52-superseded.dispatch.md", status="superseded", outputs="40-fix.md")
+        (stage_dir / "40-fix.md").write_text("# produced by the replacement packet\n")
+        status = _review2_status(dispatch_path=None)
+        status["scope_amendment"] = {"supersedes": ["52-superseded.dispatch.md"]}
+        assert vs.validate_dispatch_receipt_phase(root, stage_dir, status) == []
+
+    def test_non_review_dispatch_never_triggers_the_phase_check(self, harness):
+        # A fix dispatch has no workflow phase of its own, so the root-status
+        # half must stay silent for it even when the root status is early.
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "72-fix.dispatch.md", status="completed", outputs="71-fix.md")
+        (stage_dir / "71-fix.md").write_text("# fix report\n")
+        status = _review2_status(root_status="implementing", dispatch_path=None)
+        status["r7_repair_authorization"] = {"active_dispatch": "72-fix.dispatch.md"}
+        assert vs.validate_dispatch_receipt_phase(root, stage_dir, status) == []
+
+    def test_review_dispatch_is_not_double_reported(self, harness):
+        # review_2's dispatch is collected by the review walker AND appears in
+        # the document walk; it must be reported once, not twice.
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="pending", outputs="69-review-2.md")
+        (stage_dir / "69-review-2.md").write_text("# review-2 verdict\n")
+        status = _review2_status()
+        errors = [e for e in vs.validate_dispatch_receipt_phase(root, stage_dir, status)
+                  if "status=pending" in e]
+        assert len(errors) == 1

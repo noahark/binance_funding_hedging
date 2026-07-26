@@ -1,13 +1,15 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: superseded
 target_model: kimi/kimi-k3
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: n/a:never executed
+completed_at: n/a:never executed
+session_id: n/a:never executed
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-backend.md
 next_dispatch: none
+superseded_reason: replaced before execution by 30-review-1-backend-opus46.dispatch.md (Kimi quota-unavailable); status.json tasks[backend].review_1_history records the opus46 dispatch as the executed one
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-27. This packet was replaced before any execution, so a terminal 'superseded' state — not 'pending' — is the truthful record. Its declared outputs file exists only because a LATER packet produced it.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable） ===== -->

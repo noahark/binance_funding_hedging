@@ -3,9 +3,10 @@ status: completed
 target_model: claude/opus4.6
 adapter_cmd: Antigravity CLI (Claude Opus 4.6 Thinking), human-operator-launched; not a Harness-registry adapter command
 executor: human_operator
-started_at: unavailable (not captured by the original operator run)
+started_at: unavailable:no start timestamp was recorded by the operator or the report
 completed_at: 2026-07-24T00:10:00+08:00
-session_id: 4094d12a-8eff-4a59-9455-05a05adefcc6
+completed_at_source: 30-review-1-backend.md:footer
+session_id: Antigravity CLI conversation 4094d12a-8e
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/30-review-1-backend.md
 next_dispatch: none
 note: The Antigravity/Opus 4.6 session produced a complete review file (verdict ACCEPT,
@@ -18,6 +19,7 @@ note: The Antigravity/Opus 4.6 session produced a complete review file (verdict 
   spot-checked factual claims (DEFAULT_RECV_WINDOW_MS=60_000, single-attempt urlopen
   no-retry, _require_whitelisted raises before signing) against current source. No
   review content was authored or altered by the Sonnet 5 session.
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-27, closing the 74-review-2-r2.md P1 backlog. Evidence is taken ONLY from the produced report's own footer; every field without a recorded source is marked unavailable with its reason. No command, timestamp or Session ID was invented.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable） ===== -->

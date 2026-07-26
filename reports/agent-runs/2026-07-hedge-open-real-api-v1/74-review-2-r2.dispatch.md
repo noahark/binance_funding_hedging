@@ -1,11 +1,12 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: codex/GPT-5 Codex
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable:no start timestamp was recorded by the operator or the report
+completed_at: 2026-07-27T00:09:51+08:00
+completed_at_source: 74-review-2-r2.md:footer
+session_id: unavailable:the produced report's footer records that the runtime did not expose a provider-native Session ID
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/74-review-2-r2.md
 next_dispatch: none
 routing_reason: unchanged from packet 69 — Codex is the ONLY provider eligible as final reviewer. The final reviewer may not share provider identity with ANY delivery-code author, with no override: anthropic is hard-barred (Claude Sonnet 5 authored the accepted frontend rework), zhipu_glm is hard-barred (backend author), kimi and grok are quota-unavailable. Codex never wrote delivery or fix code (model_routing.excluded_from_core_implementation_and_fix = ["codex"]). Full analysis: 46-review-2-routing-disclosure.md.
@@ -14,6 +15,7 @@ second_opinion_check: this is NOT a second opinion. 69-review-2.md returned REWO
 self_review_caution: Codex wrote 69-review-2.md, so this round it is checking whether ITS OWN six findings were correctly resolved. The prompt requires it to re-derive each conclusion from code rather than restate the earlier report, and to say plainly if any of its own prior findings was wrong or overstated.
 bookkeeper_disclosure: the current bookkeeper is Claude Opus 5, which also authored the r2-r6 backend Review-1 reports. The reviewer is again asked to scrutinise that dual hat.
 r10_checklist: task_prompt_path=74-review-2-r2.dispatch.md; self_tests_command per the body; next_dispatch_executor=bookkeeper; pass_branch=write 74-review-2-r2.md ending in a schema-valid JSON verdict and stop; blocker_branch=stop and escalate, the reviewer changes no business file; unavailable_branch failure_classes=[model_unavailable, adapter_missing, command_error, permission_error, timeout] escalating to this dispatch file.
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-27, closing the 74-review-2-r2.md P1 backlog. Evidence is taken ONLY from the produced report's own footer; every field without a recorded source is marked unavailable with its reason. No command, timestamp or Session ID was invented.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable） ===== -->

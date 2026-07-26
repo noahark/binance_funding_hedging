@@ -1,17 +1,19 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: claude_glm/glm-5.2[1m]
 adapter_cmd: claude-glm --model glm-5.2 --permission-mode acceptEdits -p "$(cat <prompt-file>)"
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable:no start timestamp was recorded by the operator or the report
+completed_at: 2026-07-26T22:56:00+08:00
+completed_at_source: filesystem mtime of 71-fix-review-2-backend-r7.md — NOT model-reported; its footer carries only a date
+session_id: unavailable:the produced report's footer records that the runtime did not expose a provider-native Session ID
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/71-fix-review-2-backend-r7.md
 next_dispatch: none
 authorization: user-authorized SEVENTH bounded backend change; 28-user-authorized-r7-repair.md (scope = Review-2 F1 + F2 + F4 + the finding-6 validator coverage ONLY)
 routing_reason: Claude-GLM has owned the backend across all six prior rounds. Routing the fix to zhipu_glm also keeps Claude Opus 5 (anthropic) provider-isolated and therefore eligible for the next backend Review-1.
 bookkeeper_note: the PROMPT BODY below is Review-2's verbatim fix_start_prompt from 69-review-2.md, with a clearly marked bookkeeper preamble that applies the user's scope decision (three of the six P1s are excluded by the user; the finding-6 validator item is added; the allowed-file list is adjusted accordingly). No reviewer evidence was summarized, reordered, or deleted — the excluded items remain readable in the body and in 69-review-2.md.
 r10_checklist: task_prompt_path=72-fix-review-2-backend-r7.dispatch.md; self_tests_command per 28-user-authorized-r7-repair.md §5; next_dispatch_executor=bookkeeper; pass_branch=write 71-fix-review-2-backend-r7.md with real self-test output and stop for bookkeeper; blocker_branch=stop and escalate, packet 72 may not expand beyond the four authorized items; unavailable_branch failure_classes=[model_unavailable, adapter_missing, command_error, permission_error, timeout] escalating to this dispatch file.
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-27, closing the 74-review-2-r2.md P1 backlog. Evidence is taken ONLY from the produced report's own footer; every field without a recorded source is marked unavailable with its reason. No command, timestamp or Session ID was invented.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable） ===== -->

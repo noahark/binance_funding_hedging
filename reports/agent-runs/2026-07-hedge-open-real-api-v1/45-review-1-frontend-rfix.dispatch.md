@@ -1,13 +1,15 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: claude_glm/glm-5.2[1m]
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable:no start timestamp was recorded by the operator or the report
+completed_at: 2026-07-24T12:17:25+08:00
+completed_at_source: 45-review-1-frontend-rfix.md:footer
+session_id: unavailable:the produced report's footer records that the runtime did not expose a provider-native Session ID
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/45-review-1-frontend-rfix.md
 next_dispatch: none
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-27, closing the 74-review-2-r2.md P1 backlog. Evidence is taken ONLY from the produced report's own footer; every field without a recorded source is marked unavailable with its reason. No command, timestamp or Session ID was invented.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable） ===== -->

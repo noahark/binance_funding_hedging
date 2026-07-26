@@ -1,13 +1,15 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: superseded
 target_model: claude/Claude Sonnet 5
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: n/a:never executed
+completed_at: n/a:never executed
+session_id: n/a:never executed
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/40-fix-review-2-frontend.md
 next_dispatch: none
+superseded_reason: superseded before execution by 55-review-2-rework-frontend.dispatch.md; status.json scope_amendment.supersedes
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-27. This packet was replaced before any execution, so a terminal 'superseded' state — not 'pending' — is the truthful record. Its declared outputs file exists only because a LATER packet produced it.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable） ===== -->

@@ -2,7 +2,37 @@
 
 ## Recovery Header
 
-- Active phase: `review_2 / FINAL GATE dispatch-ready — packet 74 for a fresh read-only Codex session`.
+- Active phase: `review_2 / final gate returned REWORK on ONE process P1; the user
+  special-approved the fix WITHOUT model review. Stage awaits the user's call:
+  re-open the final gate, or go to live testing with that state recorded.`
+- **Final gate result** (`74-review-2-r2.md`, Codex, schema-valid, fingerprint
+  matching): **REWORK, one P1 only** — the F6 validator missed the seventh-fix
+  dispatch itself (packet 72 sat `pending` with its report already on disk,
+  because the check only reached `review_1`/`review_2` references).
+  **Business code and all 918 backend tests were accepted with zero findings.**
+- **⚠️ `29-user-special-approval-r8.md` — read before trusting this stage's
+  review chain.** The user ordered the fix done with **no model cross-review at
+  all** (not an ACCEPT, not a waiver — the review step was skipped). Costs, all
+  recorded: Claude Opus 5 is now a **fix author**, so `anthropic` is barred from
+  **any** further review here (previously only the final gate was closed to it);
+  with `zhipu_glm` barred and `kimi`/`grok` out of quota, **only `codex`
+  remains** — itself the designer, three-time Review-2 author and former
+  bookkeeper. One model is now bookkeeper + six-round Review-1 author + Harness
+  code author simultaneously.
+  **The final-gate verdict is still REWORK; the special approval does not
+  overturn it.**
+- **What the r8 change actually did**: `_collect_all_dispatch_refs()` walks the
+  whole `status.json` and checks EVERY `*.dispatch.md` receipt, not just the
+  review ones (+5 tests, 72 passed). Reproduce-then-fix evidence: right after
+  the change it flagged `r7_repair_authorization.active_dispatch` — exactly the
+  drift the final gate reported.
+- **Legacy bookkeeping debt cleared**: the widened check surfaced 18 receipt
+  drifts. 14 sealed as `completed` from each report's own footer only (fields
+  without a record carry `unavailable`; packet 72 used filesystem mtime,
+  explicitly labelled as not model-reported). 4 marked `superseded` — replaced
+  before execution, so `pending` was itself a false record and their declared
+  outputs exist only because a LATER packet produced them. That class was also
+  the false-positive source in the first implementation, now excluded.
 - **Both Review-1 gates pass on the current range**: backend **ACCEPT** at
   `73-review-1-backend-r6.md` (0 P0/P1, 2 P2 follow-ups, 4 P3, `required_fixes`
   empty, schema-valid, fingerprint matching), frontend **ACCEPT** at

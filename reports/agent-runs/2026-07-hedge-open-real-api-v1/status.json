@@ -875,7 +875,11 @@
     "artifact_path": "74-review-2-r2.md",
     "diff_fingerprint": "77c75bd855c3d1a7a4c91700f9db953919df087f:aa0406dae9cb90004d5dd15c2a936ad9a021a0c01a50f985d4efab5900e652dd",
     "covers_through_task": "backend and frontend across the complete 28c550d..77c75bd range",
-    "status": "final_gate_dispatch_ready",
+    "verdict_recorded": "REWORK",
+    "open_p0_p1": 1,
+    "next_action": "human_escalation_required",
+    "findings_summary": "One P1 only: the F6 validator missed the current seventh-fix dispatch — packet 72 sat status=pending while its report 71 was already on disk, and the check did not fire because it only reached review_1/review_2 dispatch references. Business code and all 918 backend tests were accepted with no finding.",
+    "status": "final_gate_rework_answered_by_user_special_approval_r8",
     "self_review_caution": "Codex authored 69-review-2.md, so this round it checks whether ITS OWN six findings were correctly resolved. Packet 74 requires it to re-derive each conclusion from code rather than restate the earlier report, and to say plainly if any of its own prior findings was wrong or overstated.",
     "reviewer_prior_involvement": "design",
     "reviewer_prior_involvement_notes": "Same routing as the previous round: Codex is the only provider free of delivery/fix authorship (anthropic barred via the frontend rework, zhipu_glm via the backend, kimi and grok quota-unavailable), running under the documented design-conflict strong-reviewer disclosure. Evidence 46-review-2-routing-disclosure.md.",
@@ -924,14 +928,14 @@
       "rebind_evidence": "22-local-readonly-research-subagent-opt-in.md"
     }
   ],
-  "rework_count": 7,
-  "max_rework": 7,
+  "rework_count": 8,
+  "max_rework": 8,
   "rework_limit_override": {
     "base_max_rework": 3,
-    "authorized_max_rework": 7,
+    "authorized_max_rework": 8,
     "authorizer": "user",
-    "authorized_at": "2026-07-26T15:00:00+08:00",
-    "evidence_file": "reports/agent-runs/2026-07-hedge-open-real-api-v1/28-user-authorized-r7-repair.md",
+    "authorized_at": "2026-07-27T00:30:00+08:00",
+    "evidence_file": "reports/agent-runs/2026-07-hedge-open-real-api-v1/29-user-special-approval-r8.md",
     "scope": "Packet 72 only: Review-2 findings 1 (single_leg consecutive-failure accounting + planned-attempt exhaustion -> done), 2 (client-ID query classification + query-stage rate-limit signal), 4 (terminal-legs/NULL pair_outcome crash seam) and the finding-6 validator coverage. The user explicitly excluded findings 3 and 5 and every other follow-up.",
     "previous_scope_packet_67": "Packet 67 only: (P2-1) stop _pump_worker from swallowing the per-task stop event and make R3/R4 genuinely pin the manual pause/delete drain fix; (P2-2) add STATUS_DONE to the drain-only startup recovery fallback plus one isomorphic regression. Allowed source file is backend/hedge_open_tasks/service.py at those two points only; no other source file, no frontend, no contract or design document.",
     "previous_override": {
@@ -980,6 +984,25 @@
     "frontend_follow_up": "Display worker_active and last_worker_exit_reason and guide manual recovery; do not include frontend source in packet 65.",
     "implementation_commit": "9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c",
     "review_outcome": "REWORK at 66-review-1-backend-r4.md: all four authorized production fixes verified correct; two P2s remain (vacuous R3/R4 regressions, STATUS_DONE recovery gap). Superseded as the active authorization by 27-user-authorized-r4-repair.md."
+  },
+  "r8_special_approval": {
+    "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/29-user-special-approval-r8.md",
+    "user_approved_at": "2026-07-27T00:30:00+08:00",
+    "change_ordinal": 8,
+    "approval_mode": "USER DIRECT SPECIAL APPROVAL — NO MODEL CROSS-REVIEW AT ALL. This is not an ACCEPT and not a waived review; the review step was skipped outright at the user's instruction (逐字: 第二半你直接修，然后走我直接审核通过特批).",
+    "source_review": "reports/agent-runs/2026-07-hedge-open-real-api-v1/74-review-2-r2.md",
+    "implementer": {"provider": "claude", "model": "Claude Opus 5", "note": "the sitting bookkeeper implemented it"},
+    "scope": "scripts/validate-stage.py finding-6 (a) now walks the whole status.json and checks EVERY *.dispatch.md receipt, not just review_1/review_2, plus 5 new tests. The bookkeeping half (sealing packet 72) is not a code change and consumed no allowance.",
+    "governance_cost": [
+      "No model cross-review whatsoever. 74-review-2-r2.md required the fix to be implemented AND tested; it was, but nothing verified it independently.",
+      "Claude Opus 5 is now a fix author for this stage, so AGENTS.md's hard ban makes anthropic ineligible for ANY further review here — previously only the final gate was closed to it (Sonnet 5 wrote the frontend rework), now Review-1 is closed too.",
+      "Remaining reviewer pool: zhipu_glm and anthropic hard-barred, kimi and grok out of quota. Only codex remains, and it is already the designer, the author of three Review-2 rounds, and the former bookkeeper.",
+      "The bookkeeper's neutrality is impaired: one model is now simultaneously the bookkeeper, the author of six Review-1 rounds, and the author of a piece of Harness code."
+    ],
+    "reproduce_then_fix_evidence": "Immediately after the validator change it flagged r7_repair_authorization.active_dispatch (packet 72) — exactly the drift the final gate reported — proving the fix reaches what it previously missed.",
+    "legacy_receipt_cleanup": "The widened check surfaced 18 receipt drifts. 14 sealed as completed using ONLY each produced report's own footer (54/55/62 have no clock time, 72's footer has only a date so its filesystem mtime was used and explicitly labelled as not model-reported — those fields carry unavailable or an explicit source). 4 marked superseded (30-review-1-backend, 50-review-2, 52, 53, 61): replaced before execution, so pending was itself a false record, and their declared outputs exist only because a LATER packet produced them. That class was also the false-positive source in the first implementation, now excluded by treating non-pending states as terminal. All classifications derive from existing status.json records.",
+    "final_gate_verdict_unchanged": "74-review-2-r2.md remains REWORK. This special approval does not overturn it; it only completes the required fix. Whether to re-open the final gate before live testing is the user's call.",
+    "live_gate_unchanged": true
   },
   "r7_repair_authorization": {
     "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/28-user-authorized-r7-repair.md",
@@ -1051,7 +1074,8 @@
     "live_gate_unchanged": true
   },
   "blockers": [
-    "Packet 72 (seventh bounded change) is committed at 77c75bd and bookkeeper-verified: Review-2 findings 1, 2, 4 and the finding-6 validator remainder are closed; findings 3 and 5 remain deferred by explicit user decision. rework_count is now 7/7 — ANY further code change needs a NEW written user authorization.",
+    "FINAL GATE (74-review-2-r2.md) returned REWORK with ONE P1 — the F6 validator missed the seventh-fix dispatch itself. Business code and all 918 backend tests were accepted with zero findings. The user then issued a DIRECT SPECIAL APPROVAL (29-user-special-approval-r8.md) to fix it with NO model cross-review; rework_count 7->8. The final-gate verdict is still REWORK and this approval does not overturn it.",
+    "GOVERNANCE: Claude Opus 5 is now a fix author, so anthropic is barred from ANY further review of this stage. Combined with zhipu_glm (backend author), kimi and grok (no quota), only codex remains eligible — and it is the designer, three-time Review-2 author and former bookkeeper. Any further model review needs the user to accept that constraint.",
     "Backend Review-1 r6 returned ACCEPT (73-review-1-backend-r6.md): zero P0/P1, two P2 follow-ups, four P3s, required_fixes empty. The reviewer independently re-derived the fingerprint, confirmed 77c75bd..HEAD touches only bookkeeping files, reproduced every reported test number, ran its own offline probes for F1/F2/F4/F6 instead of trusting the fix report, and upheld both bookkeeper adjudications. Frontend ACCEPT (59-review-1-frontend-r2.md) remains valid — frontend/** unchanged since 8af3f22.",
     "OPEN P2 follow-ups from r6, both needing a NEW user authorization because rework is 7/7: (a) a card whose planned attempts are exhausted stays permanently in `running` after a manual Start because post_start has no exhaustion check — display-only, dispatch_calls does not grow and the target_n hard cap is intact; (b) the new root-status validator check is one-directional and false-positives on the normal Review-2 REWORK -> fixing loop, which is exactly what forced the bookkeeper to restructure status.json at d5eb40a.",
     "Two gates are now owed on the new range 28c550d..77c75bd: a renewed backend Review-1 (packet 73, dispatch-ready) and, after it passes, a NEW Review-2. The existing Review-2 REWORK stays pinned to the b9e1978 range it actually reviewed.",
@@ -1151,8 +1175,10 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/71-fix-review-2-backend-r7.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/73-review-1-backend-r6.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/73-review-1-backend-r6.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/74-review-2-r2.dispatch.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/74-review-2-r2.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/74-review-2-r2.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/29-user-special-approval-r8.md"
   ],
-  "next_action": "Human operator runs packet 74 in a fresh read-only Codex session, writes 74-review-2-r2.md ending in a schema-valid JSON verdict, and stops for the bookkeeper. This is the final gate on 28c550d..77c75bd. rework_count is 7/7, so a REWORK verdict requires a NEW written user authorization before any code change. Do not activate live mode, Start, or a first real order.",
-  "updated_at": "2026-07-26T23:45:00+08:00"
+  "next_action": "The final gate returned REWORK on one process P1; the user special-approved the fix without model review (29-user-special-approval-r8.md) and it is implemented, tested and committed. The stage now awaits the user's decision: either re-open the final gate on the new range, or proceed to live testing with the recorded state 'final gate REWORK + user-approved unreviewed fix'. Live activation remains three separate human authorizations: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task.",
+  "updated_at": "2026-07-27T00:30:00+08:00"
 }

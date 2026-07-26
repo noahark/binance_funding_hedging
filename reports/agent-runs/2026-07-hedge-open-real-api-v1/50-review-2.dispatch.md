@@ -1,13 +1,15 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: superseded
 target_model: codex/GPT-5 Codex
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: n/a:never executed
+completed_at: n/a:never executed
+session_id: n/a:never executed
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/50-review-2.md
 next_dispatch: none
+superseded_reason: replaced before execution by 51-review-2-rebound.dispatch.md (Harness rebind, 48-review-2-harness-rebind.md); status.json previous_review_2_r1.previous_dispatch_path records 51 as the executed one
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-27. This packet was replaced before any execution, so a terminal 'superseded' state — not 'pending' — is the truthful record. Its declared outputs file exists only because a LATER packet produced it.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable） ===== -->
