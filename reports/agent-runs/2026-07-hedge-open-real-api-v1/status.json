@@ -837,7 +837,7 @@
       "reason": "decision_models_exhausted: Codex, the only eligible final reviewer, was quota-exhausted from 2026-07-25 (the same event that moved the bookkeeper role to Claude Opus 5). The human operator reported quota restored on 2026-07-26.",
       "no_waiver_used": true
     },
-    "status": "final_gate_rework_returned_pending_user_authorization",
+    "status": "final_gate_rework_returned_seventh_fix_authorized_and_dispatch_ready",
     "resolution_artifacts": ["40-fix-review-2-backend.md", "40-fix-review-2-frontend.md", "41-fix-open-log-pagination-backend.md", "41-fix-open-log-pagination-frontend.md", "19-replacement-r4-final-reconciliation.md"]
   },
   "authorized_exceptions": [],
@@ -876,14 +876,15 @@
     }
   ],
   "rework_count": 6,
-  "max_rework": 6,
+  "max_rework": 7,
   "rework_limit_override": {
     "base_max_rework": 3,
-    "authorized_max_rework": 6,
+    "authorized_max_rework": 7,
     "authorizer": "user",
-    "authorized_at": "2026-07-25T23:20:00+08:00",
-    "evidence_file": "reports/agent-runs/2026-07-hedge-open-real-api-v1/27-user-authorized-r4-repair.md",
-    "scope": "Packet 67 only: (P2-1) stop _pump_worker from swallowing the per-task stop event and make R3/R4 genuinely pin the manual pause/delete drain fix; (P2-2) add STATUS_DONE to the drain-only startup recovery fallback plus one isomorphic regression. Allowed source file is backend/hedge_open_tasks/service.py at those two points only; no other source file, no frontend, no contract or design document.",
+    "authorized_at": "2026-07-26T15:00:00+08:00",
+    "evidence_file": "reports/agent-runs/2026-07-hedge-open-real-api-v1/28-user-authorized-r7-repair.md",
+    "scope": "Packet 72 only: Review-2 findings 1 (single_leg consecutive-failure accounting + planned-attempt exhaustion -> done), 2 (client-ID query classification + query-stage rate-limit signal), 4 (terminal-legs/NULL pair_outcome crash seam) and the finding-6 validator coverage. The user explicitly excluded findings 3 and 5 and every other follow-up.",
+    "previous_scope_packet_67": "Packet 67 only: (P2-1) stop _pump_worker from swallowing the per-task stop event and make R3/R4 genuinely pin the manual pause/delete drain fix; (P2-2) add STATUS_DONE to the drain-only startup recovery fallback plus one isomorphic regression. Allowed source file is backend/hedge_open_tasks/service.py at those two points only; no other source file, no frontend, no contract or design document.",
     "previous_override": {
       "authorized_max_rework": 5,
       "authorized_at": "2026-07-25T20:56:34+08:00",
@@ -931,6 +932,32 @@
     "implementation_commit": "9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c",
     "review_outcome": "REWORK at 66-review-1-backend-r4.md: all four authorized production fixes verified correct; two P2s remain (vacuous R3/R4 regressions, STATUS_DONE recovery gap). Superseded as the active authorization by 27-user-authorized-r4-repair.md."
   },
+  "r7_repair_authorization": {
+    "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/28-user-authorized-r7-repair.md",
+    "user_approved_at": "2026-07-26T15:00:00+08:00",
+    "change_ordinal": 7,
+    "active_dispatch": "reports/agent-runs/2026-07-hedge-open-real-api-v1/72-fix-review-2-backend-r7.dispatch.md",
+    "implementation_report_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/71-fix-review-2-backend-r7.md",
+    "source_review": "reports/agent-runs/2026-07-hedge-open-real-api-v1/69-review-2.md",
+    "implementer": {"provider": "claude_glm", "model": "glm-5.2[1m]"},
+    "user_product_direction": "我们的目标是尽快上线验证，在实盘中再发现问题做优化。不要在设计阶段太关注低概率场景发生的事情 — recorded verbatim. Every scope cut below follows from it: fix only what production will certainly hit, defer low-probability and observability items.",
+    "in_scope": [
+      "Review-2 F1: non-rate-limited, non-fatal single_leg must accrue fail/consecutive counters and trip the snapshotted threshold; planned-attempt exhaustion must settle the task/log to done.",
+      "Review-2 F2: classify_query_response must treat only explicit 404/-2013 as absent, keep malformed 2xx as UNKNOWN_QUERYING, and propagate a typed query-stage rate-limit signal that pauses this task with zero resend. Highest-risk item in this packet: live throttling triggers it with certainty and a misread can call a possibly-filled order unfilled, then open the next pair.",
+      "Review-2 F4: close the crash seam where both legs are terminal but pair_outcome is NULL; no busy loop, no new global guardian/scanner/timer, no extra pair, no double counting.",
+      "Review-2 F6 remainder: validator coverage in scripts/validate-stage.py for (a) pending-but-produced dispatch receipts and (b) root status vs workflow phase mismatch, each with a deterministic test."
+    ],
+    "excluded_by_user": {
+      "review_2_f3_manual_state_overwrite": "User: 删除和暂停会出现点击后状态被运行中任务再改回来的问题也可以暂时不修. Bookkeeper stated the risk once (an emergency delete can surface as paused, losing the delete decision; it never auto-dispatches, a human must press Start). Knock-on benefit: no frontend change, so the frontend Review-1 ACCEPT stays valid and the next review remains backend-only.",
+      "review_2_f5_account_health": "User declined the new GET /papi/v1/account capability; the seven-endpoint allowlist stays frozen.",
+      "review_2_f5_spot_min_notional": "User: finding5金额我会输入的时候做校验的，会输入一个大于最小金额的数量. Bookkeeper noted that the operator inputs a QUANTITY while the exchange enforces a NOTIONAL (quantity x price), so a margin should be left; the user accepted that operating convention.",
+      "cancel_a_queued_delete": "User: 排队期间能否取消删除没必要做.",
+      "aggregate_positions_deleted_filter": "User: 敞口任务卡删除，敞口状态我会从持仓面板核对，下单只记录成交信息.",
+      "command_queue_or_conditional_update": "Both scheme A and scheme B, and the delete-UI wording question, are void now that F3 is deferred.",
+      "carried_p3_and_follow_ups": "r4/r5 P3s (settle-path error columns, ensure_worker reuse race, post_start response ordering), cross-process reservation guard, X-MBX-ORDER-COUNT throttling, frontend display of worker_active — all deferred as low-probability or observability-only."
+    },
+    "live_gate_unchanged": true
+  },
   "r4_repair_authorization": {
     "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/27-user-authorized-r4-repair.md",
     "user_approved_at": "2026-07-25T23:20:00+08:00",
@@ -962,7 +989,8 @@
     "live_gate_unchanged": true
   },
   "blockers": [
-    "REVIEW-2 RETURNED REWORK with SIX P1 blockers (69-review-2.md, next_action=human_escalation_required). rework_count is 6/6, so NO code change may proceed without a NEW written user authorization raising the limit. Two of the six also need product decisions from the user: finding 3 (state-priority scheme A conditional-update vs B command-queue, plus the delete UI semantics) and finding 5 (account-health endpoint and uniMMR policy, which conflicts with the frozen seven-endpoint allowlist).",
+    "Review-2 returned REWORK with six P1 blockers (69-review-2.md). The user authorized a SEVENTH bounded change on 2026-07-26 (28-user-authorized-r7-repair.md, max_rework 6->7) covering findings 1, 2, 4 and the finding-6 validator remainder ONLY. Findings 3 and 5 are explicitly deferred by the user, as is every carried P3/follow-up. Packet 72 is the active dispatch.",
+    "Deferred-by-user risk that must stay visible: with finding 3 unfixed, a manual delete/pause landing while a leg is in flight can be overwritten by the late worker result, so the card can resurface as paused and the delete decision is lost. It never auto-dispatches — a human must press Start — but an emergency stop can read as merely paused.",
     "Bookkeeping debt from finding 6 is now CLEARED: packets 66/67/68 receipts are sealed with real sourced evidence (no invented timestamps or session IDs; unavailable fields carry their reason), the Review-2 receipt is sealed, and the root status advanced review_1 -> review_2. Finding 6 also asks for validator coverage of completed receipts and review-2 status — that is a scripts/validate-stage.py change and is NOT yet done.",
     "Live block remains: do not enable APP_HEDGE_EXECUTOR=live, Start, or a first real task until the range passes Review-2 and the user accepts the stage.",
     "Packet 67 is committed at b9e1978 and closes both r4 P2s (bookkeeper-verified in all four reverse-verification cases). Packet 68 returned ACCEPT with zero P0/P1/P2 and four unreachable/observational P3s. P2/P3 items in r4_repair_authorization.not_in_scope stay recorded future risks.",
@@ -1052,8 +1080,10 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/68-review-1-backend-r5.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/68-review-1-backend-r5.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/69-review-2.dispatch.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/69-review-2.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/69-review-2.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/28-user-authorized-r7-repair.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/72-fix-review-2-backend-r7.dispatch.md"
   ],
-  "next_action": "STOPPED at human_escalation_required. Review-2 returned REWORK with six P1 blockers and rework_count is 6/6. The user must decide: (a) whether to authorize a seventh bounded code change and its scope; (b) finding 3 remediation shape (A conditional-update vs B command-queue) and the delete UI semantics; (c) the account-health endpoint and uniMMR policy for finding 5, which requires resolving the frozen seven-endpoint allowlist. No implementation packet may be prepared before that. Do not activate live mode, Start, or a first real order.",
-  "updated_at": "2026-07-26T14:30:00+08:00"
+  "next_action": "Human operator delivers packet 72 to a fresh write-capable Claude-GLM session. GLM fixes Review-2 findings 1, 2, 4 and the finding-6 validator coverage ONLY, writes 71-fix-review-2-backend-r7.md with its own raw self-test output, and stops for the bookkeeper. Do not activate live mode, Start, or a first real order.",
+  "updated_at": "2026-07-26T15:00:00+08:00"
 }
