@@ -2,25 +2,37 @@
 
 ## Recovery Header
 
-- Active phase: `review_1 complete on BOTH tasks; STOPPED for a user decision on Review-2 routing`.
+- Active phase: `review_2 / final gate dispatch-ready for a fresh read-only Codex session (packet 69)`.
 - **BOTH Review-1 gates now pass**: backend **ACCEPT** at `68-review-1-backend-r5.md`
   (zero P0/P1/P2, four unreachable/observational P3s, schema-valid, fingerprint
   matching), frontend **ACCEPT** at `59-review-1-frontend-r2.md` (`frontend/**`
   unchanged since `8af3f22`).
-- **⚠️ Review-2 has no eligible reviewer — user decision required.** AGENTS.md
-  bars the final reviewer from sharing provider identity with ANY delivery-code
-  author, with no override:
-  - `anthropic` — hard-barred, Claude Sonnet 5 authored the accepted frontend rework;
-  - `zhipu_glm` — hard-barred, backend author;
-  - `kimi`, `grok` — quota-unavailable per recorded operator reports;
-  - `codex` — the ONLY remaining eligible provider (already established in
-    `46-review-2-routing-disclosure.md`, via the documented design-involvement
-    disclosure) — went quota-exhausted on 2026-07-25, which is why the bookkeeper
-    role changed hands.
-
-  This is `decision_models_exhausted` unless the user waits for Codex quota or
-  records an explicit waiver. The stage cannot self-accept: `AGENTS.md` forbids a
-  bookkeeper or reviewer from granting its own gate.
+- **Review-2 routing RESOLVED — packet 69 dispatched to Codex.** The final
+  reviewer may not share provider identity with ANY delivery-code author, with no
+  override: `anthropic` is hard-barred (Claude Sonnet 5 authored the accepted
+  frontend rework), `zhipu_glm` is hard-barred (backend author), `kimi` and
+  `grok` are quota-unavailable. `codex` is the ONLY eligible provider — it never
+  wrote delivery or fix code
+  (`model_routing.excluded_from_core_implementation_and_fix = ["codex"]`) — and
+  runs under the documented design-conflict strong-reviewer disclosure
+  (`46-review-2-routing-disclosure.md`).
+  - The stage was formally halted at `decision_models_exhausted` from
+    2026-07-25 (Codex quota exhaustion, the same event that moved the bookkeeper
+    role) until the operator reported quota restored on 2026-07-26. Recorded in
+    `status.json.review_2.quota_halt`; **no waiver was used**.
+  - Packet 69 requires Codex to disclose four overlaps: it is this stage's
+    designer and direction synthesizer, it authored the earlier Review-2
+    (`50-review-2.md`, stale anchor `01d3a47`), and it was this stage's
+    bookkeeper until 2026-07-25 — so part of the bookkeeping evidence it reviews
+    is its own. Per `AGENTS.md` it must treat the user-approved direction
+    synthesis and PRD as top authority, with `10-design.md` / `11-adr.md` /
+    breakdown as evidence under review rather than authority.
+  - Packet 69 also explicitly asks Codex to **scrutinise the current
+    bookkeeper's dual hat** (Claude Opus 5 is both bookkeeper and the author of
+    the r2/r3/r4/r5 backend Review-1 reports): whether any Review-1 ACCEPT was
+    improperly influenced, whether the bookkeeper's "independent" checks amount
+    to self-certification, and whether any reviewer `fix_start_prompt` was
+    replaced by a controller summary. The stage cannot self-accept.
 - **Current anchor**: base `28c550d87c1ca90983d5bde9c7102d42cffecd4e`, head
   `b9e1978eaffd047b7871b8721f511307e75fde68`, fingerprint
   `b9e1978eaffd047b7871b8721f511307e75fde68:604caada1043e8334f33b1cc73239f1cf6bb19017db1dc68374679cf6ac99ddd`.
@@ -108,8 +120,8 @@
   after: `-0.5` / `50000`), confirming P2-2 actually reaches the UI. Four P3s
   remain — one newly found (`store.pause_task` lacks a status guard, proven
   production-unreachable) and three carried over — none code-affecting.
-- **No formal dispatch is active.** The stage is stopped at the Review-2 routing
-  decision above.
+- The only active packet is `69-review-2.dispatch.md`, which **must run in a
+  fresh read-only Codex session**.
 - Classification: `MILESTONE`; the mandatory direction panel is complete. The
   user approved a bounded design amendment at
   `15-immediate-loop-and-open-log-amendment.md`; Fable's replacement task

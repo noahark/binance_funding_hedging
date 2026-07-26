@@ -769,19 +769,30 @@
       "reason": "No provider is both unrelated to the stage design and free of delivery/fix authorship. Anthropic is hard-ineligible because Sonnet 5 wrote the frontend rework; use Codex with disclosed prior design involvement.",
       "unrelated_reviewer_unavailable_evidence": "46-review-2-routing-disclosure.md"
     },
-    "dispatch_path": "51-review-2-rebound.dispatch.md",
-    "artifact_path": "50-review-2.md",
+    "dispatch_path": "69-review-2.dispatch.md",
+    "artifact_path": "69-review-2.md",
     "open_p0_p1": null,
     "previous_open_p0_p1": 7,
     "verdict": null,
     "previous_verdict": "REWORK",
     "json_schema_valid": null,
-    "diff_fingerprint": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff",
-    "covers_through_task": "backend, frontend, and the main-synced Harness compatibility change",
-    "fix_start_prompt_present": true,
-    "fix_start_prompt_source": "50-review-2.md",
+    "diff_fingerprint": "b9e1978eaffd047b7871b8721f511307e75fde68:604caada1043e8334f33b1cc73239f1cf6bb19017db1dc68374679cf6ac99ddd",
+    "previous_diff_fingerprint": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff",
+    "previous_dispatch_path": "51-review-2-rebound.dispatch.md",
+    "previous_artifact_path": "50-review-2.md",
+    "covers_through_task": "backend and frontend across the complete 28c550d..b9e1978 range",
+    "fix_start_prompt_present": null,
+    "fix_start_prompt_source": null,
     "invalid_json_attempts": 0,
-    "status": "historical_rework_resolved_pending_renewed_review",
+    "second_opinion_check": "Not a second opinion on 50-review-2.md. That verdict was valid, was acted on, and covers the stale 01d3a47 range; packet 69 is the first final-gate review of the current 28c550d..b9e1978 range, so do_not_seek_second_opinion_after_valid_review_2_verdict is not engaged.",
+    "bookkeeper_scrutiny_requested": "Packet 69 explicitly asks the final reviewer to judge whether the current bookkeeper's dual hat (Claude Opus 5 is both bookkeeper since 2026-07-25 and the author of the r2/r3/r4/r5 backend Review-1 reports) damaged the evidence chain — whether any Review-1 ACCEPT was improperly influenced, whether the bookkeeper's independent checks amount to self-certification, and whether any reviewer fix_start_prompt was replaced by a controller summary. The reviewer is also told it was itself this stage's bookkeeper until 2026-07-25, so part of the bookkeeping evidence is its own.",
+    "quota_halt": {
+      "halted_at": "2026-07-26T07:40:00+08:00",
+      "resumed_at": "2026-07-26T08:10:00+08:00",
+      "reason": "decision_models_exhausted: Codex, the only eligible final reviewer, was quota-exhausted from 2026-07-25 (the same event that moved the bookkeeper role to Claude Opus 5). The human operator reported quota restored on 2026-07-26.",
+      "no_waiver_used": true
+    },
+    "status": "final_gate_dispatch_ready",
     "resolution_artifacts": ["40-fix-review-2-backend.md", "40-fix-review-2-frontend.md", "41-fix-open-log-pagination-backend.md", "41-fix-open-log-pagination-frontend.md", "19-replacement-r4-final-reconciliation.md"]
   },
   "authorized_exceptions": [],
@@ -906,7 +917,7 @@
     "live_gate_unchanged": true
   },
   "blockers": [
-    "REVIEW-2 ROUTING IS BLOCKED — user decision required. Both task-level Review-1 gates now pass (backend ACCEPT at 68-review-1-backend-r5.md, frontend ACCEPT at 59-review-1-frontend-r2.md), so the stage is ready for its final gate, but no eligible final reviewer exists. Per AGENTS.md the final reviewer must not share provider identity with ANY delivery-code author, with no override: anthropic is hard-barred because Claude Sonnet 5 authored the accepted frontend rework; zhipu_glm is hard-barred as the backend author; kimi and grok are quota-unavailable per the recorded operator reports; and codex — the only remaining eligible provider, already analysed as such in 46-review-2-routing-disclosure.md and requiring the documented design-involvement disclosure — went quota-exhausted on 2026-07-25 (the reason the bookkeeper role changed hands). This is decision_models_exhausted unless the user waits for Codex quota or records an explicit waiver.",
+    "Review-2 routing is RESOLVED: the human operator reported Codex quota restored on 2026-07-26. Codex remains the ONLY eligible final reviewer (anthropic hard-barred via the frontend rework, zhipu_glm via the backend, kimi and grok quota-unavailable) and is dispatched under the documented design-conflict strong-reviewer disclosure; evidence 46-review-2-routing-disclosure.md. The interim decision_models_exhausted halt and its resolution are recorded in review_2.quota_halt; NO waiver was used.",
     "Live block remains: do not enable APP_HEDGE_EXECUTOR=live, Start, or a first real task until the range passes Review-2 and the user accepts the stage.",
     "Packet 67 is committed at b9e1978 and closes both r4 P2s (bookkeeper-verified in all four reverse-verification cases). Packet 68 returned ACCEPT with zero P0/P1/P2 and four unreachable/observational P3s. P2/P3 items in r4_repair_authorization.not_in_scope stay recorded future risks.",
     "rework_count has reached max_rework (6/6). Any further code change needs a NEW explicit user authorization raising the limit again; the bookkeeper must not consume another round on its own.",
@@ -993,8 +1004,9 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/67-fix-review-1-backend-r4.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/46-fix-review-1-backend-r4.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/68-review-1-backend-r5.dispatch.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/68-review-1-backend-r5.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/68-review-1-backend-r5.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/69-review-2.dispatch.md"
   ],
-  "next_action": "STOPPED FOR A USER DECISION on Review-2 routing: every decision provider is either a delivery-code author (anthropic via the frontend rework, zhipu_glm via the backend) or quota-unavailable (codex, kimi, grok). Both Review-1 gates have passed. The user must either wait for Codex quota to return or record an explicit waiver naming a final reviewer. rework_count is 6/6, so any further code change also needs a new user authorization. Do not activate live mode, Start, or a first real order.",
-  "updated_at": "2026-07-26T07:40:00+08:00"
+  "next_action": "Human operator runs packet 69 in a fresh read-only Codex session, writes 69-review-2.md ending in a schema-valid JSON verdict, and stops for the bookkeeper. rework_count is 6/6, so a REWORK verdict requires a NEW written user authorization before any code change. Do not activate live mode, Start, or a first real order.",
+  "updated_at": "2026-07-26T08:10:00+08:00"
 }
