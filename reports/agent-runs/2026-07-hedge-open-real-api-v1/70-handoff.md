@@ -2,50 +2,70 @@
 
 ## Recovery Header
 
-- Active phase: `review_2 / final gate dispatch-ready for a fresh read-only Codex session (packet 69)`.
-- **BOTH Review-1 gates now pass**: backend **ACCEPT** at `68-review-1-backend-r5.md`
-  (zero P0/P1/P2, four unreachable/observational P3s, schema-valid, fingerprint
-  matching), frontend **ACCEPT** at `59-review-1-frontend-r2.md` (`frontend/**`
-  unchanged since `8af3f22`).
-- **Review-2 routing RESOLVED — packet 69 dispatched to Codex.** The final
-  reviewer may not share provider identity with ANY delivery-code author, with no
-  override: `anthropic` is hard-barred (Claude Sonnet 5 authored the accepted
-  frontend rework), `zhipu_glm` is hard-barred (backend author), `kimi` and
-  `grok` are quota-unavailable. `codex` is the ONLY eligible provider — it never
-  wrote delivery or fix code
-  (`model_routing.excluded_from_core_implementation_and_fix = ["codex"]`) — and
-  runs under the documented design-conflict strong-reviewer disclosure
-  (`46-review-2-routing-disclosure.md`).
-  - The stage was formally halted at `decision_models_exhausted` from
-    2026-07-25 (Codex quota exhaustion, the same event that moved the bookkeeper
-    role) until the operator reported quota restored on 2026-07-26. Recorded in
-    `status.json.review_2.quota_halt`; **no waiver was used**.
-  - Packet 69 requires Codex to disclose four overlaps: it is this stage's
-    designer and direction synthesizer, it authored the earlier Review-2
-    (`50-review-2.md`, stale anchor `01d3a47`), and it was this stage's
-    bookkeeper until 2026-07-25 — so part of the bookkeeping evidence it reviews
-    is its own. Per `AGENTS.md` it must treat the user-approved direction
-    synthesis and PRD as top authority, with `10-design.md` / `11-adr.md` /
-    breakdown as evidence under review rather than authority.
-  - Packet 69 also explicitly asks Codex to **scrutinise the current
-    bookkeeper's dual hat** (Claude Opus 5 is both bookkeeper and the author of
-    the r2/r3/r4/r5 backend Review-1 reports): whether any Review-1 ACCEPT was
-    improperly influenced, whether the bookkeeper's "independent" checks amount
-    to self-certification, and whether any reviewer `fix_start_prompt` was
-    replaced by a controller summary. The stage cannot self-accept.
+- Active phase: `review_1 / packet-72 seventh bounded repair is committed at 77c75bd and bookkeeper-verified; the renewed backend Review-1 (packet 73) is dispatch-ready for a FRESH read-only Claude Opus 5 session`.
 - **Current anchor**: base `28c550d87c1ca90983d5bde9c7102d42cffecd4e`, head
-  `b9e1978eaffd047b7871b8721f511307e75fde68`, fingerprint
-  `b9e1978eaffd047b7871b8721f511307e75fde68:604caada1043e8334f33b1cc73239f1cf6bb19017db1dc68374679cf6ac99ddd`.
-- **`rework_count` is at 6/6.** Any further code change requires a NEW explicit
-  user authorization raising the limit; the bookkeeper must not consume another
-  round on its own.
-- **Bookkeeper handover (2026-07-25)**: the user reported Codex/GPT-5 Codex out of
-  quota and instructed this session to take over. Bookkeeper is now
-  `claude / Claude Opus 5`, which is ALSO the reviewer of
-  `66-review-1-backend-r4.md`. The dual hat is disclosed in
+  `77c75bd855c3d1a7a4c91700f9db953919df087f`, fingerprint
+  `77c75bd855c3d1a7a4c91700f9db953919df087f:aa0406dae9cb90004d5dd15c2a936ad9a021a0c01a50f985d4efab5900e652dd`.
+- **`rework_count` is now 7/7 (exhausted).** Any further code change requires a
+  NEW written user authorization raising the limit.
+- **Two gates are owed on the new range**: the renewed backend Review-1 (packet
+  73) and, after it passes, a NEW Review-2. The existing Review-2 REWORK at
+  `69-review-2.md` stays pinned to the `b9e1978` range it actually reviewed.
+- **Packet 72 result** (`71-fix-review-2-backend-r7.md`, Claude-GLM, committed at
+  `77c75bd`): Review-2 findings **F1** (single_leg now accrues the
+  consecutive-failure brake; planned-attempt exhaustion settles to done), **F2**
+  (only explicit 404/-2013 confirm absence; a malformed 2xx stays
+  UNKNOWN_QUERYING; a query-stage 429/-1003/418 raises a typed rate-limit signal
+  that pauses the card and exits, never resending) and **F4** (an attempt with
+  both legs terminal but `pair_outcome` NULL is recovered idempotently), plus the
+  **F6** validator coverage. Findings **F3 and F5 remain deferred by explicit
+  user decision** (`28-user-authorized-r7-repair.md` §3).
+- **Bookkeeper independent verification** (claims were NOT taken on trust): own
+  17 behaviour assertions, no repository file modified. F2 all four branches
+  pinned — 2xx-without-orderId now stays UNKNOWN_QUERYING; 429 and -1003 return a
+  typed `rate_limited` verdict with `retry_after`; explicit 404 and -2013 are
+  STILL absent (no over-correction); 5xx, transport error and auth 4xx STILL
+  return `None`. F1 — `single_leg` records the outcome, increments
+  `consecutive_submission_failures` to 1, and still records the advisory
+  `leg_exposure`. F4 — a realistic crash gap (both legs terminal, `pair_outcome`
+  NULL, counters rolled back) settles on the next round, restores the real fill
+  to the counters, opens no new pair on a paused card, resends nothing, and does
+  not double count on a second round. All 17 passed. Tests reproduced locally:
+  **918 backend / 67 validator / frontend self-check / `git diff --check` clean**.
+- **⚠️ Semantic change the next reviewer must weigh**: F1 changes the MEANING of
+  an already-frozen API field — `consecutive_submission_failures` now increments
+  on a `single_leg` outcome. The field set is unchanged so the frontend needs no
+  code change and its ACCEPT stands, but UI copy keyed to that counter will now
+  also fire on single-leg pairs. Recorded as a frontend follow-up.
+- **Two adjudications made by the bookkeeper** (packet 73 asks the reviewer to
+  re-check both):
+  1. `backend/tests/test_hedge_api.py` (4 lines) sits outside `28` §4's allowed
+     list while `28` §5's mandatory self-test required it to pass — an internal
+     contradiction in the authorization the bookkeeper wrote. Adjudicated as a
+     **packet defect, not an implementer overreach**; the change is the
+     unavoidable consequence of F1 and the implementer disclosed it.
+  2. Packets **59 and 69 had drifted receipts** (`pending` with outputs already
+     present). Packet 72's new validator caught both on its first run — 59
+     predates this bookkeeper, 69 was this bookkeeper's own oversight. Both are
+     now sealed from existing report-footer evidence; nothing was invented.
+- **Superseded history (kept short on purpose)**: the prior round's backend
+  ACCEPT was `68-review-1-backend-r5.md` on the `b9e1978` range; the frontend
+  ACCEPT is `59-review-1-frontend-r2.md` and still stands (`frontend/**`
+  unchanged since `8af3f22`). Review-2 was dispatched to Codex as packet 69 under
+  the design-conflict strong-reviewer disclosure — Codex is the ONLY eligible
+  final reviewer (anthropic barred via the frontend rework, zhipu_glm via the
+  backend, kimi and grok quota-unavailable), see `46-review-2-routing-disclosure.md`.
+  The stage sat at `decision_models_exhausted` from 2026-07-25 until Codex quota
+  returned on 2026-07-26; **no waiver was used** (`status.json.review_2.quota_halt`).
+  Packet 69 returned REWORK with six P1s and also asked Codex to scrutinise the
+  current bookkeeper's dual hat; packet 72 answered F1/F2/F4/F6 and the user
+  deferred F3/F5.
+- **Bookkeeper handover (2026-07-25)**: the user reported Codex out of quota and
+  instructed this session to take over. Bookkeeper is now `claude / Claude Opus 5`,
+  which also authored the r2/r3/r4/r5 backend Review-1 reports. Disclosed in
   `status.json.bookkeeper.dual_hat_disclosure` and `27-user-authorized-r4-repair.md` §6:
-  it does mechanical bookkeeping/routing only and never treats its own verdict as
-  an acceptance or substitutes for a fresh Review-1.
+  mechanical bookkeeping and routing only — it never treats its own verdict as an
+  acceptance and never substitutes for a fresh Review-1.
 - Stage branch: `stage/2026-07-hedge-open-real-api-v1`, created from local main
   `28c550d87c1ca90983d5bde9c7102d42cffecd4e`; the reviewed
   delivery evidence is `9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c`; the latest
@@ -130,7 +150,10 @@
   local main `5659f79` and merged into this stage as `53831d2`, because the
   pending mandatory panel must use K3. The Harness protocol suite passed
   52/52 and `validate-stage.py --phase checkpoint` passed after the merge.
-- Read next: `status.json`, `68-review-1-backend-r5.md` (backend ACCEPT),
+- Read next: `status.json`, `73-review-1-backend-r6.dispatch.md` (active),
+  `28-user-authorized-r7-repair.md` (this round's scope authority),
+  `71-fix-review-2-backend-r7.md`, `69-review-2.md`,
+  `68-review-1-backend-r5.md` (backend ACCEPT on the prior range),
   `59-review-1-frontend-r2.md` (frontend ACCEPT),
   `46-review-2-routing-disclosure.md` (why only Codex was ever eligible for
   Review-2), `46-fix-review-1-backend-r4.md`, `27-user-authorized-r4-repair.md`,
