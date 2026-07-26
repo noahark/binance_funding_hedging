@@ -1,13 +1,18 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: claude/Claude Opus 5
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: 2026-07-25T22:56:03+08:00
+started_at_source: first `date` command output recorded in the reviewer session that executed this packet
+completed_at: 2026-07-25T23:07:10+08:00
+completed_at_source: the "本地北京时间" line in the raw report footer (66-review-1-backend-r4.md:328)
+session_id: unavailable:the reviewer report footer records that Claude Code did not expose a provider-native Session ID to that session
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/66-review-1-backend-r4.md
-next_dispatch: none
+verdict: REWORK (schema-valid; zero open P0/P1; two P2; diff_fingerprint matched verbatim)
+evidence_commit: e10b395
+next_dispatch: reports/agent-runs/2026-07-hedge-open-real-api-v1/67-fix-review-1-backend-r4.dispatch.md (human operator)
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-26, after Review-2 finding 6 flagged that packets 66/67/68 were left with unsealed receipts. No timestamp or session id was invented; fields without a recorded source are marked unavailable with the reason.
 fallback_reason: Kimi remains unavailable by the recorded human quota report (15-kimi-review-1-unavailable.md). The human operator selected Claude Opus 5 for the prior critical backend Review-1; it remains provider-isolated from the Claude-GLM/zhipu_glm backend implementer and fix author.
 ===== END RECEIPT ===== -->
 

@@ -1,13 +1,17 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: claude_glm/glm-5.2[1m]
 adapter_cmd: claude-glm --model glm-5.2 --permission-mode acceptEdits -p "$(cat <prompt-file>)"
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable:the operator did not report a start timestamp and the GLM report footer records only a date, not a time
+completed_at: 2026-07-26T06:50:29+08:00
+completed_at_source: filesystem mtime of the produced report 46-fix-review-1-backend-r4.md — NOT a model-reported time; the report footer states only "2026-07-26 CST" with no clock time
+session_id: unavailable:the implementation report footer records that the Claude Code / glm-5.2 harness does not expose a provider-native Session ID
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/46-fix-review-1-backend-r4.md
-next_dispatch: none
+result: both authorized P2s fixed with two production edits in service.py only; 230 focused / 906 backend / frontend self-check / 55 Harness / git diff --check clean
+evidence_commit: b9e1978
+next_dispatch: reports/agent-runs/2026-07-hedge-open-real-api-v1/68-review-1-backend-r5.dispatch.md (human operator)
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-26, after Review-2 finding 6 flagged that packets 66/67/68 were left with unsealed receipts. No timestamp or session id was invented; fields without a recorded source are marked unavailable with the reason.
 authorization: user-authorized SIXTH bounded backend change; 27-user-authorized-r4-repair.md (scope = P2-1 + P2-2 only)
 fallback_reason: none. Claude-GLM remains the backend owner across all five prior rounds. The user initially named Claude Sonnet 5 and, after the bookkeeper surfaced the review-routing consequence (an Anthropic fix author would empty the Review-1 cross-review pool: Anthropic barred as same-provider, claude_glm hard-barred as implementer, Kimi and Codex out of quota), selected Claude-GLM so Claude Opus 5 stays eligible for the next Review-1.
 bookkeeper_note: PROMPT BODY is the reviewer's verbatim fix_start_prompt from 66-review-1-backend-r4.md. The single pinpoint substitution is item 2's authorization marker (was "needs user authorization first", now "authorized"), disclosed inline in the body. No reviewer evidence was summarized, reordered, or removed.

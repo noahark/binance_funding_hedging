@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-real-api-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-real-api-v1",
@@ -108,6 +108,49 @@
   },
   "embedded_reviews": {},
   "session_receipts": [
+    {
+      "role": "review_2",
+      "task_id": null,
+      "provider": "codex",
+      "model": "GPT-5 Codex",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The Review-2 report footer records that the current Codex runtime does not expose a provider-native Session ID.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/69-review-2.md",
+      "recorded_at": "2026-07-26T14:07:11+08:00",
+      "recorded_at_source": "report footer 本地北京时间 line",
+      "verdict": "REWORK",
+      "dispatch_path": "69-review-2.dispatch.md"
+    },
+    {
+      "role": "review_1",
+      "task_id": "backend",
+      "provider": "claude",
+      "model": "Claude Opus 5",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The raw Review-1 r5 report footer records that Claude Code did not expose a provider-native Session ID to that session.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/68-review-1-backend-r5.md",
+      "recorded_at": "2026-07-26T07:13:04+08:00",
+      "recorded_at_source": "report footer 本地北京时间 line",
+      "verdict": "ACCEPT",
+      "dispatch_path": "68-review-1-backend-r5.dispatch.md",
+      "evidence_commit": "be2b55f"
+    },
+    {
+      "role": "fix",
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The implementation report footer records that the Claude Code / glm-5.2 harness does not expose a provider-native Session ID.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/46-fix-review-1-backend-r4.md",
+      "recorded_at": "2026-07-26T06:50:29+08:00",
+      "recorded_at_source": "filesystem mtime of the produced report; the footer states only a date, so no model-reported clock time exists",
+      "dispatch_path": "67-fix-review-1-backend-r4.dispatch.md",
+      "evidence_commit": "b9e1978"
+    },
     {
       "role": "review_1",
       "task_id": "backend",
@@ -771,19 +814,21 @@
     },
     "dispatch_path": "69-review-2.dispatch.md",
     "artifact_path": "69-review-2.md",
-    "open_p0_p1": null,
+    "open_p0_p1": 6,
     "previous_open_p0_p1": 7,
-    "verdict": null,
+    "verdict": "REWORK",
     "previous_verdict": "REWORK",
-    "json_schema_valid": null,
+    "json_schema_valid": true,
     "diff_fingerprint": "b9e1978eaffd047b7871b8721f511307e75fde68:604caada1043e8334f33b1cc73239f1cf6bb19017db1dc68374679cf6ac99ddd",
     "previous_diff_fingerprint": "01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff",
     "previous_dispatch_path": "51-review-2-rebound.dispatch.md",
     "previous_artifact_path": "50-review-2.md",
     "covers_through_task": "backend and frontend across the complete 28c550d..b9e1978 range",
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "69-review-2.md",
     "invalid_json_attempts": 0,
+    "next_action": "human_escalation_required",
+    "findings_summary": "Six P1 blockers: (1) non-rate-limited single_leg never accrues the consecutive-failure counter; (2) client-ID query classification closes malformed 2xx as absent and discards query-stage 429; (3) late worker outcomes overwrite a manual delete via the unconditional pause_task/stop_task_fatal updates; (4) a crash between last-leg terminalization and pair settlement leaves an attempt permanently unsettled and can busy-loop; (5) live preflight omits account-health facts and Spot MIN_NOTIONAL; (6) packets 66/67/68 receipts were unsealed and the root status was still review_1, invalidating the Review-2 preflight.",
     "second_opinion_check": "Not a second opinion on 50-review-2.md. That verdict was valid, was acted on, and covers the stale 01d3a47 range; packet 69 is the first final-gate review of the current 28c550d..b9e1978 range, so do_not_seek_second_opinion_after_valid_review_2_verdict is not engaged.",
     "bookkeeper_scrutiny_requested": "Packet 69 explicitly asks the final reviewer to judge whether the current bookkeeper's dual hat (Claude Opus 5 is both bookkeeper since 2026-07-25 and the author of the r2/r3/r4/r5 backend Review-1 reports) damaged the evidence chain — whether any Review-1 ACCEPT was improperly influenced, whether the bookkeeper's independent checks amount to self-certification, and whether any reviewer fix_start_prompt was replaced by a controller summary. The reviewer is also told it was itself this stage's bookkeeper until 2026-07-25, so part of the bookkeeping evidence is its own.",
     "quota_halt": {
@@ -792,7 +837,7 @@
       "reason": "decision_models_exhausted: Codex, the only eligible final reviewer, was quota-exhausted from 2026-07-25 (the same event that moved the bookkeeper role to Claude Opus 5). The human operator reported quota restored on 2026-07-26.",
       "no_waiver_used": true
     },
-    "status": "final_gate_dispatch_ready",
+    "status": "final_gate_rework_returned_pending_user_authorization",
     "resolution_artifacts": ["40-fix-review-2-backend.md", "40-fix-review-2-frontend.md", "41-fix-open-log-pagination-backend.md", "41-fix-open-log-pagination-frontend.md", "19-replacement-r4-final-reconciliation.md"]
   },
   "authorized_exceptions": [],
@@ -917,7 +962,8 @@
     "live_gate_unchanged": true
   },
   "blockers": [
-    "Review-2 routing is RESOLVED: the human operator reported Codex quota restored on 2026-07-26. Codex remains the ONLY eligible final reviewer (anthropic hard-barred via the frontend rework, zhipu_glm via the backend, kimi and grok quota-unavailable) and is dispatched under the documented design-conflict strong-reviewer disclosure; evidence 46-review-2-routing-disclosure.md. The interim decision_models_exhausted halt and its resolution are recorded in review_2.quota_halt; NO waiver was used.",
+    "REVIEW-2 RETURNED REWORK with SIX P1 blockers (69-review-2.md, next_action=human_escalation_required). rework_count is 6/6, so NO code change may proceed without a NEW written user authorization raising the limit. Two of the six also need product decisions from the user: finding 3 (state-priority scheme A conditional-update vs B command-queue, plus the delete UI semantics) and finding 5 (account-health endpoint and uniMMR policy, which conflicts with the frozen seven-endpoint allowlist).",
+    "Bookkeeping debt from finding 6 is now CLEARED: packets 66/67/68 receipts are sealed with real sourced evidence (no invented timestamps or session IDs; unavailable fields carry their reason), the Review-2 receipt is sealed, and the root status advanced review_1 -> review_2. Finding 6 also asks for validator coverage of completed receipts and review-2 status — that is a scripts/validate-stage.py change and is NOT yet done.",
     "Live block remains: do not enable APP_HEDGE_EXECUTOR=live, Start, or a first real task until the range passes Review-2 and the user accepts the stage.",
     "Packet 67 is committed at b9e1978 and closes both r4 P2s (bookkeeper-verified in all four reverse-verification cases). Packet 68 returned ACCEPT with zero P0/P1/P2 and four unreachable/observational P3s. P2/P3 items in r4_repair_authorization.not_in_scope stay recorded future risks.",
     "rework_count has reached max_rework (6/6). Any further code change needs a NEW explicit user authorization raising the limit again; the bookkeeper must not consume another round on its own.",
@@ -1005,8 +1051,9 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/46-fix-review-1-backend-r4.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/68-review-1-backend-r5.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/68-review-1-backend-r5.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/69-review-2.dispatch.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/69-review-2.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/69-review-2.md"
   ],
-  "next_action": "Human operator runs packet 69 in a fresh read-only Codex session, writes 69-review-2.md ending in a schema-valid JSON verdict, and stops for the bookkeeper. rework_count is 6/6, so a REWORK verdict requires a NEW written user authorization before any code change. Do not activate live mode, Start, or a first real order.",
-  "updated_at": "2026-07-26T08:10:00+08:00"
+  "next_action": "STOPPED at human_escalation_required. Review-2 returned REWORK with six P1 blockers and rework_count is 6/6. The user must decide: (a) whether to authorize a seventh bounded code change and its scope; (b) finding 3 remediation shape (A conditional-update vs B command-queue) and the delete UI semantics; (c) the account-health endpoint and uniMMR policy for finding 5, which requires resolving the frozen seven-endpoint allowlist. No implementation packet may be prepared before that. Do not activate live mode, Start, or a first real order.",
+  "updated_at": "2026-07-26T14:30:00+08:00"
 }
