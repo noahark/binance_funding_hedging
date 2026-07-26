@@ -756,19 +756,44 @@ class HedgeOpenStore:
             if new_status == D.STATUS_PAUSED:
                 pause_reason = D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
         elif category == D.ATTEMPT_SINGLE_LEG_EXPOSURE:
-            # Advisory (§4.5): record the exposure but do not touch the
-            # counters or freeze scheduling.
+            # R2-F1 (user authorization 28 §2.1): a non-rate-limited single_leg
+            # counts toward the consecutive-submission-failure brake exactly like
+            # a confirmed failure. The exposure is still recorded; below the
+            # threshold the task keeps running (it is never frozen on one
+            # outcome — breakdown §4.5), but the count now advances so the brake
+            # can no longer be bypassed by always landing on exactly one
+            # accepted leg.
+            new_fail = task["fail_count"] + 1
+            new_consecutive = task["consecutive_submission_failures"] + 1
             pair_outcome = D.PAIR_SINGLE_LEG
             new_status = D.resolve_status_after_attempt(
                 task["status"], category, new_accepted, task["target_n"],
                 new_consecutive, task["failure_pause_threshold"],
             )
+            if new_status == D.STATUS_PAUSED:
+                pause_reason = D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
             if exposure:
                 leg_exposure_json = exposure
         else:
             # ATTEMPT_DISABLED / unknown: preserve status, no counter change.
             pair_outcome = None
             new_status = task["status"]
+        if (
+            not skip_counters
+            and pair_outcome is not None
+            and new_status == D.STATUS_RUNNING
+            and task["scheduled_attempt_count"] >= task["target_n"]
+        ):
+            # R2-F1: the last planned attempt has been settled (a non-None
+            # pair_outcome, the scheduled counter reached target_n at its
+            # reservation, A-1) and no higher-priority paused/stopped/deleted
+            # state applies — complete the task so its status matches the
+            # entries.next_action=completed contract instead of idling in running
+            # with no remaining group to reserve. ``skip_counters`` (a rate-limited
+            # pair settled without touching the brake), an unsettled/disabled
+            # attempt (``pair_outcome is None``), and any non-running status are
+            # left untouched.
+            new_status = D.STATUS_DONE
         self._conn.execute(
             "UPDATE hedge_open_task SET accepted_pair_count = ?,"
             " success_count = ?, fail_count = ?,"
@@ -1275,6 +1300,29 @@ class HedgeOpenStore:
                 (task_id,),
             ).fetchall()
             return [_row_to_leg(r) for r in rows]
+
+    def list_unsettled_terminal_attempts_for_task(self, task_id: str) -> list[dict]:
+        """Return this task's attempts caught in the R2-F4 crash gap
+        (user authorization 28 §2.3): BOTH legs already terminal but the pair
+        ``pair_outcome`` still NULL. Such an attempt has no non-terminal leg for
+        the drain to act on, yet :meth:`prepare_attempt`'s in-flight guard
+        (``pair_outcome IS NULL``) blocks the next group — and the real fill stays
+        off the counters. The reconcile pass finalizes each one idempotently
+        (:meth:`finalize_attempt`, or :meth:`settle_attempt_no_counters` when the
+        attempt was rate-limited). Scoped to ONE task (amendment 21: no global
+        scan); ordered by ``attempt_seq, id`` so recovery is deterministic."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM hedge_open_attempt"
+                " WHERE task_id = ? AND pair_outcome IS NULL"
+                " AND NOT EXISTS ("
+                "  SELECT 1 FROM hedge_open_leg l"
+                "  WHERE l.attempt_id = hedge_open_attempt.id AND l.terminal = 0"
+                " )"
+                " ORDER BY attempt_seq ASC, id ASC",
+                (task_id,),
+            ).fetchall()
+            return [_row_to_attempt(r) for r in rows]
 
     def get_attempt(self, attempt_id: int) -> dict | None:
         with self._lock:

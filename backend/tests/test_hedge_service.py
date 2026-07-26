@@ -192,9 +192,11 @@ def test_injected_single_leg_exposure_is_advisory(tmp_path):
     assert out["leg_exposure"]["leg"] == "spot"
     assert out["leg_exposure"]["qty"] == "0.5"
     assert out["leg_exposure"]["price"] == "1"  # dry-run placeholder (no preflight)
-    # exposure does not increment success/fail or the consecutive counter.
+    # R2-F1: a single_leg records the exposure and counts toward the brake
+    # (fail + consecutive ++); below the threshold it does NOT freeze the task.
     assert out["success_count"] == 0
-    assert out["consecutive_submission_failures"] == 0
+    assert out["fail_count"] == 1
+    assert out["consecutive_submission_failures"] == 1
     # a second fill is still allowed (advisory never blocks scheduling).
     out2 = svc.post_fill_once(doc["id"])[1]
     assert out2["status"] == D.STATUS_RUNNING

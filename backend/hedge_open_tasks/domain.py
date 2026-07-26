@@ -916,10 +916,13 @@ def resolve_status_after_attempt(
 
     ``deleted`` is sticky. A fatal submission (amendment rows 1–2) -> ``stopped``
     immediately, regardless of the failure threshold. An accepted pair reaching
-    the target -> ``done``. Confirmed consecutive *submission* failures reaching
-    the task-snapshotted threshold (``>=``, i.e. the threshold-th) -> ``paused``.
-    A single-leg exposure is ADVISORY: it does NOT change the status (breakdown
-    §4.5) — the task keeps scheduling and the exposure is recorded, never a gate.
+    the target -> ``done``. Confirmed consecutive *submission* failures OR
+    non-rate-limited single-leg exposures reaching the task-snapshotted threshold
+    (``>=``, i.e. the threshold-th) -> ``paused`` (R2-F1 / user authorization 28
+    §2.1: a single_leg counts toward the brake, so it can no longer bypass the
+    consecutive-failure pause by always landing on exactly one accepted leg). A
+    single-leg exposure below the threshold keeps the task running — it is never a
+    freeze on its own (breakdown §4.5) — and the exposure is still recorded.
     Fill / residual / partial values are observational and never reach this
     function.
     """
@@ -930,12 +933,10 @@ def resolve_status_after_attempt(
     if category == ATTEMPT_SUCCESS and accepted_count >= target_n:
         return STATUS_DONE
     if (
-        category == ATTEMPT_FAILED
+        category in (ATTEMPT_FAILED, ATTEMPT_SINGLE_LEG_EXPOSURE)
         and consecutive_failures >= failure_pause_threshold
     ):
         return STATUS_PAUSED
-    # SINGLE_LEG_EXPOSURE is advisory: preserve the current status (a running
-    # task keeps running; it is not frozen and the exposure is not counted).
     return current_status
 
 

@@ -576,6 +576,41 @@ def test_7d_rate_limit_pauses_this_task_without_counter(tmp_path):
     assert task["fail_count"] == 0
 
 
+def test_7e_query_phase_rate_limit_pauses_keeps_pending_no_resend(tmp_path):
+    # R2-F2 (user authorization 28 §2.2): a 429 surfaced during the QUERY phase
+    # (reconcile), NOT the POST. The pair was dispatched with ambiguous legs
+    # (transport error -> UNKNOWN_QUERYING, NOT rate-limited); the worker's drain
+    # then queries them and BOTH come back rate-limited. The worker pauses THIS
+    # task, KEEPS the pending legs non-terminal (the write POST is NEVER resent),
+    # exits, and consumes no failure counter — distinct from test_7d where the
+    # 429 is observed at the POST and the pair later drains to absent.
+    exe = _FakeExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+    svc, clock = _live_svc(tmp_path, exe, provider)
+    doc = _create(svc, target_n=2)
+    exe.set_script(doc["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_UNKNOWN_QUERYING, name="spot"),
+        perp=_leg(LEG_UNKNOWN_QUERYING, name="perp"),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )])
+    _step(svc, doc["id"], clock)  # dispatch ambiguous pair -> mark for drain
+    # The drain queries come back rate-limited (a typed 429 signal, not None).
+    exe.queries.extend([
+        _leg(LEG_UNKNOWN_QUERYING, name="spot", rate_limited=True),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp", rate_limited=True),
+    ])
+    _step(svc, doc["id"], clock)  # query-phase 429 -> pause + keep pending + exit
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
+    assert task["fail_count"] == 0  # rate-limited pair consumes no counter
+    # the pending legs are KEPT non-terminal (no resend of the write POST).
+    assert svc.store.list_non_terminal_legs_for_task(doc["id"]) != []
+    # exactly one POST pair was dispatched — the query 429 triggered no resend.
+    assert exe.dispatch_calls == 1
+
+
 # ---------------------------------------------------------------------------
 # 8. §5 entries projection
 # ---------------------------------------------------------------------------
@@ -762,3 +797,118 @@ def test_9_two_task_independence_and_per_task_sequentiality(tmp_path):
     # B is NOT blocked by A and starts pair 2.
     assert a_after_2 == 1
     assert b_after_2 == 2
+
+
+# ---------------------------------------------------------------------------
+# 10. R2-F4 crash-gap recovery: terminal legs + NULL pair_outcome
+# ---------------------------------------------------------------------------
+
+
+def _seed_crash_gap(store, task_id, *, attempt_uuid="gap-1", spot_oid="os1",
+                    perp_oid="op1", spot_status=D.LEG_FILLED, perp_status=D.LEG_FILLED,
+                    now_us=1_100) -> int:
+    """Construct the R2-F4 crash gap directly (user authorization 28 §2.3):
+    prepare an attempt, then close BOTH legs to terminal WITHOUT settling the
+    pair — simulating a crash between leg-terminalization and pair settlement.
+    Returns the attempt id (pair_outcome stays NULL, no non-terminal leg)."""
+    attempt = store.prepare_attempt(
+        task_id, attempt_uuid, D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, f"cid-{attempt_uuid}-s", {"side": "BUY"},
+        f"cid-{attempt_uuid}-p", {"side": "SELL"}, now_us,
+    )
+    assert attempt is not None
+    legs = {l["leg"]: l for l in store.list_legs_for_attempt(attempt["id"])}
+    store.resolve_leg_from_query(
+        legs["spot"]["id"], exchange_status=spot_status, order_id=spot_oid,
+        base_qty="0.5", quote_amt="25000", fee_amount=None, fee_asset=None,
+        now_us=now_us, terminal=True,
+    )
+    store.resolve_leg_from_query(
+        legs["perp"]["id"], exchange_status=perp_status, order_id=perp_oid,
+        base_qty="0.5", quote_amt="25000", fee_amount=None, fee_asset=None,
+        now_us=now_us, terminal=True,
+    )
+    return attempt["id"]
+
+
+def test_10a_crash_gap_terminal_legs_null_outcome_recovered(tmp_path):
+    # R2-F4 (user authorization 28 §2.3): a crash between leg-terminalization and
+    # pair settlement leaves an attempt with BOTH legs terminal but pair_outcome
+    # still NULL. It has no non-terminal leg to drain, yet prepare_attempt's
+    # in-flight guard (pair_outcome IS NULL) blocks the next group — and the
+    # real fill would stay off the counters. A worker round must idempotently
+    # finalize it (never resend, never recount).
+    exe = _FakeExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+    svc, clock = _live_svc(tmp_path, exe, provider)
+    doc = _create(svc, target_n=1)
+    store = svc.store
+    attempt_id = _seed_crash_gap(store, doc["id"])
+    # Defect proof: the gap pair is terminal-but-unsettled.
+    assert store.list_non_terminal_legs_for_task(doc["id"]) == []
+    assert store.get_attempt(attempt_id)["pair_outcome"] is None
+    _step(svc, doc["id"], clock)  # worker round recovers the gap
+    closed = store.get_attempt(attempt_id)
+    assert closed["pair_outcome"] == D.PAIR_ACCEPTED  # both orderId -> accepted
+    task = store.get_task(doc["id"])
+    assert task["accepted_pair_count"] == 1
+    assert task["status"] == D.STATUS_DONE  # last planned group completed
+
+
+def test_10b_crash_gap_finalize_is_idempotent_no_recount(tmp_path):
+    # R2-F4: finalizing the gap is idempotent — a second worker round does NOT
+    # re-count (finalize is a no-op once pair_outcome is set).
+    exe = _FakeExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+    svc, clock = _live_svc(tmp_path, exe, provider)
+    doc = _create(svc, target_n=1)
+    store = svc.store
+    _seed_crash_gap(store, doc["id"])
+    _step(svc, doc["id"], clock)
+    after1 = store.get_task(doc["id"])
+    assert after1["accepted_pair_count"] == 1
+    _step(svc, doc["id"], clock)  # second round — must not re-count the gap
+    after2 = store.get_task(doc["id"])
+    assert after2["accepted_pair_count"] == 1
+
+
+@pytest.mark.parametrize("status", [D.STATUS_PAUSED, D.STATUS_STOPPED, D.STATUS_DELETED])
+def test_10c_crash_gap_recovered_preserves_terminal_task_status(tmp_path, status):
+    # R2-F4: the gap is recovered for a task in ANY terminal-ish status the
+    # worker may find it in after a restart (paused / stopped / deleted). The
+    # pair is finalized (in-flight guard cleared, real fill booked) WITHOUT
+    # reviving the task to running and WITHOUT opening a new group.
+    exe = _FakeExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+    svc, clock = _live_svc(tmp_path, exe, provider)
+    doc = _create(svc, target_n=2)
+    store = svc.store
+    _seed_crash_gap(store, doc["id"])
+    store.set_task_status(doc["id"], status, 1_200)
+    _step(svc, doc["id"], clock)  # worker recovers the gap, then exits
+    task = store.get_task(doc["id"])
+    assert task["status"] == status  # not revived
+    assert task["accepted_pair_count"] == 1  # real fill booked
+    # no second group opened (the in-flight guard cleared only via finalize).
+    assert len(store.list_attempts_for_task(doc["id"])) == 1
+
+
+def test_10d_crash_gap_rate_limited_settles_without_counter(tmp_path):
+    # R2-F4 + amendment 21: a gap left by a rate-limited pair (attempt.rate_limited
+    # stamped at the 429 dispatch) is recovered via settle_attempt_no_counters —
+    # the pair_outcome is set (in-flight guard clears) but the failure counter is
+    # NOT consumed, exactly like a 429 pair drained the normal way.
+    exe = _FakeExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+    svc, clock = _live_svc(tmp_path, exe, provider)
+    doc = _create(svc, target_n=2)
+    store = svc.store
+    attempt_id = _seed_crash_gap(store, doc["id"])
+    store.mark_attempt_rate_limited(attempt_id)
+    store.set_task_status(doc["id"], D.STATUS_PAUSED, 1_200)
+    _step(svc, doc["id"], clock)
+    closed = store.get_attempt(attempt_id)
+    assert closed["pair_outcome"] is not None  # in-flight guard cleared
+    task = store.get_task(doc["id"])
+    assert task["fail_count"] == 0  # rate-limited pair consumes no counter
+    assert task["consecutive_submission_failures"] == 0

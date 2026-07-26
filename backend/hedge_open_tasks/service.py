@@ -993,13 +993,17 @@ class HedgeOpenTaskService:
         if task is None:
             return self._worker_exit(task_id, D.WORKER_EXIT_TASK_MISSING)
         now_us = self._wall_us()
-        # Q2: drain own non-terminal legs first (rate_limited -> drain-then-exit).
+        # Q2: drain own non-terminal legs first (rate_limited -> pause + exit).
         drain_signal = self._reconcile_own_legs(task_id, task, now_us)
         if drain_signal == D.SIGNAL_RATE_LIMITED:
             self._pause_task_local(
                 task, D.PAUSE_REASON_RATE_LIMITED, None, now_us, kind="rate_limited",
             )
-            return False  # continue -> next round drains the 429 pair to terminal
+            # R2-F2: a query-phase 429 pauses THIS task and EXITS — the pending
+            # legs are kept non-terminal (never resent) and the worker does NOT
+            # loop back into the throttle. The operator resumes manually; a drain-
+            # only worker on recovery re-queries the saved client IDs.
+            return True
         if drain_signal in D.SIGNAL_INSUFFICIENT:
             self._pause_task_local(
                 task, self._insufficient_pause_reason(drain_signal), drain_signal, now_us,
@@ -1041,10 +1045,9 @@ class HedgeOpenTaskService:
         None otherwise. A query that stays inconclusive leaves the leg
         non-terminal (keep querying, never resend — ADR-2)."""
         if not hasattr(self._executor, "query_leg"):
+            self._recover_crash_gaps(task_id, now_us)
             return None
         legs = self._store.list_non_terminal_legs_for_task(task_id)
-        if not legs:
-            return None
         coin = task["coin"] if task is not None else None
         finalized: set[int] = set()
         drain_signal: str | None = None
@@ -1052,6 +1055,15 @@ class HedgeOpenTaskService:
             verdict = self._executor.query_leg(leg["leg"], coin, leg["client_order_id"])
             if verdict is None:
                 continue  # inconclusive — keep querying
+            if getattr(verdict, "rate_limited", False):
+                # R2-F2 (user authorization 28 §2.2): a query-phase 429/-1003/418.
+                # Leave the leg EXACTLY as it is (non-terminal; the write POST is
+                # never resent) and surface the throttle so the worker pauses THIS
+                # task and exits for manual recovery instead of polling into the
+                # ban. The leg is NOT resolved here and NOT added to finalized.
+                if drain_signal is None:
+                    drain_signal = D.SIGNAL_RATE_LIMITED
+                continue
             terminal = self._query_verdict_terminal(verdict)
             try:
                 self._store.resolve_leg_from_query(
@@ -1071,8 +1083,6 @@ class HedgeOpenTaskService:
                 continue
             if getattr(verdict, "error_category", None) == "insufficient_funds":
                 drain_signal = D.SIGNAL_INSUFFICIENT_BALANCE
-            elif getattr(verdict, "rate_limited", False) and drain_signal is None:
-                drain_signal = D.SIGNAL_RATE_LIMITED
             if terminal:
                 finalized.add(leg["attempt_id"])
         # Review-1 r3 P1-1: "this pair does not count as a failure" is decided by
@@ -1089,7 +1099,39 @@ class HedgeOpenTaskService:
                     self._store.finalize_attempt(attempt_id, now_us)
             except Exception:
                 pass
+        # R2-F4 (user authorization 28 §2.3): recover any crash-gap attempt left
+        # with BOTH legs terminal but pair_outcome still NULL — it has no
+        # non-terminal leg for the drain above to act on, yet prepare_attempt's
+        # in-flight guard blocks the next group and the real fill stays off the
+        # counters. Idempotent (finalize/settle no-op once pair_outcome is set);
+        # never resends, never recounts, never opens a new group.
+        self._recover_crash_gaps(task_id, now_us)
         return drain_signal
+
+    def _recover_crash_gaps(self, task_id: str, now_us: int) -> None:
+        """Idempotently finalize this task's crash-gap attempts (R2-F4, user
+        authorization 28 §2.3): attempts whose BOTH legs were closed to terminal
+        but whose pair ``pair_outcome`` is still NULL (a crash between
+        leg-terminalization and pair settlement). Such a gap has no non-terminal
+        leg for the drain to act on, yet ``prepare_attempt``'s in-flight guard
+        blocks the next group and the real fill stays off the counters.
+
+        A task-local one-shot scan only — no global guardian, no timer, no busy
+        loop (amendment 21 / dispatch 28 finding 4). Each attempt is closed the
+        same way the normal drain closes it: rate-limited pairs settle without
+        consuming the failure counter (amendment 21); all others finalize and
+        book the truthful acceptance verdict. ``finalize``/``settle`` are
+        idempotent, so a second pass is a no-op (never recounts, never resends,
+        never opens a new group)."""
+        gaps = self._store.list_unsettled_terminal_attempts_for_task(task_id)
+        for attempt in gaps:
+            try:
+                if attempt.get("rate_limited"):
+                    self._store.settle_attempt_no_counters(attempt["id"], now_us)
+                else:
+                    self._store.finalize_attempt(attempt["id"], now_us)
+            except Exception:
+                pass
 
     def _pause_task_local(
         self, task: dict, pause_reason: str, insufficient_signal: str | None,
@@ -1226,7 +1268,12 @@ class HedgeOpenTaskService:
         for status in (D.STATUS_PAUSED, D.STATUS_STOPPED, D.STATUS_DELETED, D.STATUS_DONE):
             for task in self._store.list_tasks(status):
                 tid = task["id"]
-                if not self._store.list_non_terminal_legs_for_task(tid):
+                # R2-F4: also relaunch for a crash-gap attempt (both legs terminal
+                # but pair_outcome NULL) so the ONE startup handoff finalizes it,
+                # not a resident scanner (finding 4).
+                has_pending = bool(self._store.list_non_terminal_legs_for_task(tid))
+                has_gap = bool(self._store.list_unsettled_terminal_attempts_for_task(tid))
+                if not (has_pending or has_gap):
                     continue
                 with self._workers_lock:
                     has = self._workers.get(tid)

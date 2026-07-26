@@ -161,13 +161,27 @@ def test_query_2xx_with_order_id_is_accepted():
     assert d.order_id == "55"
 
 
-def test_query_2xx_without_order_id_is_rejected():
+def test_query_2xx_without_order_id_stays_unknown():
+    # R2-F2 (user authorization 28 §2.2): a 2xx query missing a valid orderId is
+    # NOT a confirmed absent signal — only an explicit 404 / Binance -2013 is.
+    # A malformed 2xx stays UNKNOWN_QUERYING so the worker keeps querying by
+    # client ID (never resends, never rejects a possibly-accepted order as
+    # absent, which would open the next group on a maybe-already-filled leg).
     d = classify_query_response(_resp(200, {"msg": "absent"}), "spot")
-    assert d.dispatch_state == LEG_REJECTED
+    assert d is not None
+    assert d.dispatch_state == LEG_UNKNOWN_QUERYING
 
 
-def test_query_rate_limited_is_inconclusive_none():
-    assert classify_query_response(_resp(429, {"code": -1003}), "spot") is None
+def test_query_rate_limited_keeps_unknown_with_rate_limited_signal():
+    # R2-F2: a rate-limited query (429 / -1003 / 418) must surface a typed
+    # rate-limit signal — UNKNOWN_QUERYING + rate_limited=True — so the task's
+    # worker can observe the throttle, pause THIS task, keep the pending leg, and
+    # exit for manual recovery. Returning None drops the fact and lets the worker
+    # keep polling straight into the IP ban.
+    d = classify_query_response(_resp(429, {"code": -1003}), "spot")
+    assert d is not None
+    assert d.dispatch_state == LEG_UNKNOWN_QUERYING
+    assert d.rate_limited is True
 
 
 # ---- orderId normalization (acceptance proof must be a positive integer) ----
@@ -223,6 +237,20 @@ def test_dispatch_surfaces_rate_limited_flag_when_any_leg_throttled():
     )
     dispatch = _exe(client).dispatch(_ctx())
     assert dispatch.rate_limited is True
+
+
+def test_dispatch_post_unknown_query_throttled_preserves_rate_limited():
+    # R2-F2: when the POST is ambiguous (no rate-limit verdict of its own) but the
+    # best-effort query surfaces a 429, the merged leg verdict must carry the
+    # rate-limit signal end-to-end. Swallowing the query-time throttle (taking
+    # only the POST's rate_limited=False) hides a real limit from the worker.
+    client = _FakeClient(
+        spot_post=_resp(None, transport_error="timeout"),  # POST ambiguous
+        spot_query=_resp(429, {"code": -1003}),  # best-effort query throttled
+    )
+    dispatch = _exe(client).dispatch(_ctx())
+    assert dispatch.rate_limited is True
+    assert dispatch.spot.dispatch_state == LEG_UNKNOWN_QUERYING
 
 
 def test_dispatch_without_credentials_fails_closed_unknown():

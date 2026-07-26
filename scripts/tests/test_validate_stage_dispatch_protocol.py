@@ -223,6 +223,7 @@ def _write_dispatch(
     executor="human_operator",
     started="2026-07-20T10:00:00+08:00",
     completed="2026-07-20T10:05:00+08:00",
+    outputs="30-review-1.md",
     marker=True,
 ):
     receipt = (
@@ -234,7 +235,7 @@ def _write_dispatch(
         f"started_at:    {started}\n"
         f"completed_at:  {completed}\n"
         f"session_id:    {session_id}\n"
-        "outputs:       30-review-1.md\n"
+        f"outputs:       {outputs}\n"
         "next_dispatch: none\n"
         "===== END RECEIPT ===== -->\n\n"
     )
@@ -975,3 +976,123 @@ class TestSessionFooterUnavailableConsistency:
             "unavailable: runtime exposes no provider-native id",
         )
         assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# Group 10: finding-6 dispatch-receipt / root-status phase consistency
+# (dispatch 72 §7) — validator must machine-check two bookkeeping drifts a
+# human operator (or a stale branch) can introduce. Reads status.json dispatch
+# references + receipt blocks only; never mutates status.json / handoffs.
+# ---------------------------------------------------------------------------
+
+
+def _review2_status(*, root_status="review_2", dispatch_path="review-2.dispatch.md"):
+    return {
+        "stage_id": "fixture-stage",
+        "status": root_status,
+        "dispatch_protocol": vs.HUMAN_OPERATOR_DISPATCH_PROTOCOL,
+        "review_2": {"verdict": "ACCEPT", "reviewer": "kimi", "dispatch_path": dispatch_path},
+    }
+
+
+class TestDispatchReceiptPhaseConsistency:
+    def test_a_pending_receipt_with_existing_output_fails(self, harness):
+        # finding-6 (a): the receipt is still status=pending (never sealed) yet
+        # its declared outputs file is already on disk — the work produced its
+        # artifact but the receipt was never closed.
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="pending", outputs="69-review-2.md")
+        (stage_dir / "69-review-2.md").write_text("# review-2 verdict\n")
+        status = _review2_status()
+        errors = vs.validate_dispatch_receipt_phase(root, stage_dir, status)
+        assert any("status=pending" in err and "69-review-2.md" in err for err in errors)
+
+    def test_a_pending_receipt_with_missing_output_passes(self, harness):
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="pending", outputs="69-review-2.md")
+        status = _review2_status()
+        assert vs.validate_dispatch_receipt_phase(root, stage_dir, status) == []
+
+    def test_a_done_receipt_with_existing_output_passes(self, harness):
+        # A sealed (done) receipt legitimately references its produced output.
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="done", outputs="69-review-2.md")
+        (stage_dir / "69-review-2.md").write_text("# review-2 verdict\n")
+        status = _review2_status()
+        assert vs.validate_dispatch_receipt_phase(root, stage_dir, status) == []
+
+    def test_a_pending_receipt_placeholder_output_passes(self, harness):
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="pending", outputs="none")
+        status = _review2_status()
+        assert vs.validate_dispatch_receipt_phase(root, stage_dir, status) == []
+
+    def test_b_review2_dispatch_with_review1_root_status_fails(self, harness):
+        # finding-6 (b): a review_2 dispatch file exists (the stage ENTERED the
+        # review_2 phase) but the root status is still parked at review_1.
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="done", outputs="69-review-2.md")
+        status = _review2_status(root_status="review_1")
+        errors = vs.validate_dispatch_receipt_phase(root, stage_dir, status)
+        assert any("review_2" in err and "behind" in err for err in errors)
+
+    def test_b_review2_dispatch_with_fixing_root_status_fails(self, harness):
+        # fixing is between review_1 and review_2 — still behind a present
+        # review_2 dispatch.
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="done", outputs="69-review-2.md")
+        status = _review2_status(root_status="fixing")
+        errors = vs.validate_dispatch_receipt_phase(root, stage_dir, status)
+        assert any("review_2" in err and "behind" in err for err in errors)
+
+    def test_b_review2_dispatch_with_review2_root_status_passes(self, harness):
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="done", outputs="69-review-2.md")
+        status = _review2_status(root_status="review_2")
+        assert vs.validate_dispatch_receipt_phase(root, stage_dir, status) == []
+
+    def test_b_review1_dispatch_with_implementing_root_status_fails(self, harness):
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-1.dispatch.md", status="done", outputs="30-review-1.md")
+        status = _single_review_status()
+        status["status"] = "implementing"
+        errors = vs.validate_dispatch_receipt_phase(root, stage_dir, status)
+        assert any("review_1" in err and "behind" in err for err in errors)
+
+    def test_b_exempt_holding_status_skips_phase_check(self, harness):
+        # paused/blocked/escalation freeze the machine without contradicting
+        # which phase was entered — (b) must not second-guess them. (a) is
+        # still independent; use a done receipt so only (b) is exercised.
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="done", outputs="69-review-2.md")
+        status = _review2_status(root_status="paused")
+        assert vs.validate_dispatch_receipt_phase(root, stage_dir, status) == []
+
+    def test_a_and_b_reported_together(self, harness):
+        # Both drifts on one dispatch: pending receipt with an existing output
+        # AND a root status behind the review_2 phase.
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="pending", outputs="69-review-2.md")
+        (stage_dir / "69-review-2.md").write_text("# review-2 verdict\n")
+        status = _review2_status(root_status="review_1")
+        errors = vs.validate_dispatch_receipt_phase(root, stage_dir, status)
+        assert any("status=pending" in err for err in errors)
+        assert any("behind" in err for err in errors)
+
+    def test_legacy_protocol_without_dispatch_protocol_skips(self, harness):
+        # finding-6 applies only to human-operator/v1 stages (the receipt-block
+        # + status-phase model belong to that protocol).
+        root, stage_dir = harness
+        _write_dispatch(stage_dir, "review-2.dispatch.md", status="pending", outputs="69-review-2.md")
+        (stage_dir / "69-review-2.md").write_text("# review-2 verdict\n")
+        status = _review2_status(root_status="review_1")
+        del status["dispatch_protocol"]
+        assert vs.validate_dispatch_receipt_phase(root, stage_dir, status) == []
+
+    def test_missing_dispatch_file_is_not_flagged_here(self, harness):
+        # A missing dispatch file is already reported by validate_review_artifacts;
+        # this check stays silent on it (no double-report) and only flags the
+        # phase/output drifts for dispatches that ARE present.
+        root, stage_dir = harness
+        status = _review2_status(root_status="implementing")
+        assert vs.validate_dispatch_receipt_phase(root, stage_dir, status) == []

@@ -117,19 +117,77 @@ def test_apply_single_leg_records_exposure_advisory(tmp_path):
     _create(store, "t1")
     exposure = {"leg": "spot", "qty": "0.5", "price": "50000", "ts": "2026-07-22T08:00:00.000000Z"}
     # Spot accepted (orderId present), perp confirmed not accepted -> single-leg.
-    # Advisory (breakdown §4.5): the exposure is recorded but the task is NOT
-    # frozen and the attempt is NOT counted toward the pause threshold.
+    # R2-F1: the exposure is recorded AND the attempt counts toward the
+    # consecutive-submission-failure brake (fail + consecutive ++); below the
+    # threshold the task is still NOT frozen (breakdown §4.5).
     task = _apply(
         store, "t1",
         _outcome(category=D.ATTEMPT_SINGLE_LEG_EXPOSURE, perp_status=D.LEG_REJECTED,
                  perp_qty="0", perp_oid=None, exposure=exposure),
         1_100,
     )
-    assert task["status"] == D.STATUS_RUNNING  # advisory: not frozen
+    assert task["status"] == D.STATUS_RUNNING  # below threshold: not frozen
     assert task["leg_exposure"] == exposure
-    assert task["success_count"] == 0  # exposure does not increment counts
-    assert task["fail_count"] == 0
-    assert task["consecutive_submission_failures"] == 0  # not counted toward pause
+    assert task["success_count"] == 0  # a single_leg is not an accepted pair
+    assert task["fail_count"] == 1  # R2-F1: counted toward the brake
+    assert task["consecutive_submission_failures"] == 1  # R2-F1: counted toward pause
+    store.close()
+
+
+def test_apply_single_leg_at_threshold_pauses(tmp_path):
+    # R2-F1 (user authorization 28 §2.1): a non-rate-limited single_leg counts
+    # toward the consecutive-submission-failure brake, exactly like a confirmed
+    # failure. The default threshold is 3; reaching it pauses the task.
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1", target=5)
+    exposure = {"leg": "spot", "qty": "0.5", "price": "50000",
+                "ts": "2026-07-22T08:00:00.000000Z"}
+    # Two single-leg outcomes below the threshold keep the task running but DO
+    # increment the failure + consecutive counters (defect proof: today they do not).
+    for i in range(2):
+        task = _apply(
+            store, "t1",
+            _outcome(category=D.ATTEMPT_SINGLE_LEG_EXPOSURE, perp_status=D.LEG_REJECTED,
+                     perp_qty="0", perp_oid=None, exposure=exposure,
+                     attempt_id=f"sl{i}"),
+            1_100 + i,
+        )
+        assert task["status"] == D.STATUS_RUNNING
+        assert task["fail_count"] == i + 1
+        assert task["consecutive_submission_failures"] == i + 1
+    # The 3rd consecutive single_leg (>= threshold) pauses the task.
+    task = _apply(
+        store, "t1",
+        _outcome(category=D.ATTEMPT_SINGLE_LEG_EXPOSURE, perp_status=D.LEG_REJECTED,
+                 perp_qty="0", perp_oid=None, exposure=exposure, attempt_id="sl2"),
+        2_000,
+    )
+    assert task["fail_count"] == 3
+    assert task["consecutive_submission_failures"] == 3
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
+    store.close()
+
+
+def test_apply_single_leg_drains_planned_to_done(tmp_path):
+    # R2-F1: the last planned attempt (scheduled reaches target_n) resolved as a
+    # single_leg, with the brake NOT yet triggered, completes the task to done —
+    # matching the entries.next_action=completed contract (no higher-priority
+    # paused/stopped/deleted state applies).
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1", target=1)
+    exposure = {"leg": "spot", "qty": "0.5", "price": "50000",
+                "ts": "2026-07-22T08:00:00.000000Z"}
+    task = _apply(
+        store, "t1",
+        _outcome(category=D.ATTEMPT_SINGLE_LEG_EXPOSURE, perp_status=D.LEG_REJECTED,
+                 perp_qty="0", perp_oid=None, exposure=exposure, attempt_id="sl0"),
+        1_100,
+    )
+    assert task["scheduled_attempt_count"] == 1  # the only planned group, now spent
+    assert task["fail_count"] == 1
+    assert task["consecutive_submission_failures"] == 1  # below threshold 3
+    assert task["status"] == D.STATUS_DONE
     store.close()
 
 

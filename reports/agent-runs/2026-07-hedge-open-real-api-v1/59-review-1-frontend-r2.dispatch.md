@@ -1,13 +1,16 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: claude_glm/glm-5.2[1m]
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable:no start timestamp was recorded by the operator or the report
+completed_at: 2026-07-24T22:02:00+08:00
+completed_at_source: the "本地北京时间" line in the raw report footer (59-review-1-frontend-r2.md:173); the file mtime 22:04:08 reflects the final write
+session_id: unavailable:the raw report footer records that the runtime did not expose a provider-native Session ID
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/59-review-1-frontend-r2.md
+verdict: ACCEPT (frontend Review-1; one P3 visual badge-class observation only)
 next_dispatch: none
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-26. This drift predates the current bookkeeper and was found automatically by the new finding-6 validator check delivered in packet 72 — the first run flagged it. Evidence is taken only from the existing report footer and status.json.session_receipts; nothing was invented.
 ===== END RECEIPT ===== -->
 
 <!-- ===== PROMPT BODY（immutable） ===== -->

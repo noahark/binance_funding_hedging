@@ -333,10 +333,33 @@ def test_resolve_success_below_target_stays_running():
 
 
 def test_resolve_single_leg_is_advisory_keeps_running():
-    # A single-leg exposure is ADVISORY (breakdown §4.5): it does NOT change the
-    # status — a running task keeps running and the exposure is recorded, never a
-    # gate and never counted toward the pause threshold.
+    # A single-leg exposure is ADVISORY in the sense it never freezes scheduling
+    # (breakdown §4.5): it does not jump straight to paused on a single outcome.
+    # R2-F1 (user authorization 28 §2.1): a single_leg DOES, however, count toward
+    # the consecutive-submission-failure brake — so below the threshold the task
+    # keeps running and the exposure is recorded, but the count is incremented.
     assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_SINGLE_LEG_EXPOSURE, 1, 3, 0, 3) == D.STATUS_RUNNING
+
+
+def test_resolve_single_leg_at_threshold_is_paused():
+    # R2-F1: a single-leg exposure participates in the consecutive-submission-
+    # failure brake. The threshold-th (>=) consecutive single_leg pauses the task,
+    # exactly like the threshold-th confirmed failure (so the brake is no longer
+    # bypassable by always landing on exactly one accepted leg).
+    assert D.resolve_status_after_attempt(
+        D.STATUS_RUNNING, D.ATTEMPT_SINGLE_LEG_EXPOSURE, 0, 5, 3, 3
+    ) == D.STATUS_PAUSED
+    assert D.resolve_status_after_attempt(
+        D.STATUS_RUNNING, D.ATTEMPT_SINGLE_LEG_EXPOSURE, 0, 5, 4, 3
+    ) == D.STATUS_PAUSED
+
+
+def test_resolve_single_leg_below_threshold_stays_running():
+    # R2-F1: below the threshold a single_leg keeps the task running (the brake
+    # has not fired; the exposure remains advisory-only for this one outcome).
+    assert D.resolve_status_after_attempt(
+        D.STATUS_RUNNING, D.ATTEMPT_SINGLE_LEG_EXPOSURE, 0, 5, 2, 3
+    ) == D.STATUS_RUNNING
 
 
 def test_resolve_failed_at_threshold_is_paused():

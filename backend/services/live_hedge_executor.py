@@ -290,13 +290,26 @@ def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[L
     inconclusive (keep querying — never resend).
 
     recon §3.3: FILLED → accepted+filled; NEW/PARTIALLY_FILLED → accepted but
-    still filling (non-terminal); 404/absent → never accepted (rejected); a
-    rate-limited or transport-failed query → ``None`` (inconclusive).
+    still filling (non-terminal); 404/absent → never accepted (rejected).
+
+    R2-F2 (user authorization 28 §2.2): a 2xx missing a valid orderId is NOT a
+    confirmed absent signal — it stays UNKNOWN_QUERYING (a malformed body must
+    never reject a possibly-accepted order; only an explicit 404 / Binance -2013
+    confirms absent). A rate-limited query (429 / -1003 / 418) returns a TYPED
+    rate-limit signal (UNKNOWN_QUERYING + rate_limited=True) so the task's worker
+    observes the throttle, pauses THIS task, keeps the pending leg, and exits for
+    manual recovery — never resends. A transport-failed or 5xx query stays
+    ``None`` (genuinely inconclusive, keep querying).
     """
     if response.transport_error is not None or response.http_status is None:
         return None
     if _is_rate_limited(response):
-        return None
+        # R2-F2: surface the throttle as a typed signal so the worker can pause
+        # THIS task and keep the pending leg; the query is NOT inconclusive.
+        return _empty_dispatch(
+            leg, LEG_UNKNOWN_QUERYING, rate_limited=True,
+            retry_after_seconds=response.retry_after_seconds,
+        )
     status = response.http_status
     if status >= 500:
         return None  # query itself failed ambiguously — keep querying
@@ -316,8 +329,11 @@ def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[L
         order_id = _normalize_order_id(response.body.get("orderId"))
         exchange_status = response.body.get("status")
         if order_id is None:
-            # No orderId on a 2xx query → treat as absent (rejected).
-            return _empty_dispatch(leg, LEG_REJECTED)
+            # R2-F2: no orderId on a 2xx query is NOT a confirmed absent signal
+            # — only an explicit 404 / -2013 is. A malformed 2xx stays UNKNOWN so
+            # the worker keeps querying by client ID (never resends, never
+            # rejects a possibly-accepted order as absent).
+            return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
         executed_qty = _decimal_str(response.body.get("executedQty"))
         cumulative_quote = _decimal_str(
             response.body.get("cummulativeQuoteQty")
@@ -434,8 +450,10 @@ class LiveHedgeExecutor:
             query_response = querier(symbol, client_order_id, timestamp_ms=self._now_ms())
             resolved = classify_query_response(query_response, leg)
             if resolved is not None:
-                # Preserve the rate-limited signal + wait + error classification
-                # from the original POST.
+                # R2-F2: preserve the rate-limited signal + wait from EITHER the
+                # POST or the best-effort query (a query-time 429 must surface
+                # even when the POST verdict was not itself throttled), and carry
+                # the query's resolved acceptance / error classification.
                 return LegDispatch(
                     leg=resolved.leg,
                     dispatch_state=resolved.dispatch_state,
@@ -444,10 +462,12 @@ class LiveHedgeExecutor:
                     executed_qty=resolved.executed_qty,
                     cumulative_quote=resolved.cumulative_quote,
                     avg_price=resolved.avg_price,
-                    rate_limited=verdict.rate_limited,
+                    rate_limited=verdict.rate_limited or resolved.rate_limited,
                     error_code=resolved.error_code,
                     error_category=resolved.error_category,
-                    retry_after_seconds=verdict.retry_after_seconds,
+                    retry_after_seconds=(
+                        verdict.retry_after_seconds or resolved.retry_after_seconds
+                    ),
                 )
         return verdict
 

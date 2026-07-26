@@ -1406,3 +1406,41 @@ regressed fallback (STATUS_DONE dropped) vs the FIXED fallback (DONE present).
       query_calls after start()                              : 1
       perp terminal after start()                            : 1 (FILLED)
       status after start()                                   : done
+
+================================================================
+71-fix-review-2-backend-r7 — R7 self-test (Review-2 F1+F2+F4 + finding-6 validator)
+model: claude_glm (zhipu_glm)   executor: human_operator   date: 2026-07-26
+scope: 28-user-authorized-r7-repair.md §2 (F1/F2/F4 + finding-6 validator ONLY)
+no real POST / no credentials / no Binance / no live enable / no Start / no commit
+================================================================
+
+### 1) focused 9-file suite (28 §5) — expect green
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+........................................................................ [ 95%]
+...........                                                              [100%]
+227 passed in 14.48s
+
+### 2) backend/tests full — expect green
+........................................................................ [ 78%]
+........................................................................ [ 86%]
+........................................................................ [ 94%]
+......................................................                   [100%]
+918 passed in 47.50s
+
+### 3) frontend self-check — expect all pass
+[PASS] 开单 API 全部同源、零跨域 fetch
+[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、零新任务定时器、localStorage 白名单（仅隐私键）
+
+全部自检通过
+
+### 4) scripts/tests/test_validate_stage_dispatch_protocol.py — expect green
+...................................................................      [100%]
+67 passed in 1.30s
+
+### 5) git diff --check — expect clean
+git diff --check: clean (exit 0)
+
+================================================================
+R7 self-test complete. Stop and await bookkeeper.
+================================================================

@@ -318,7 +318,9 @@ def test_injected_single_leg_exposure_is_advisory(tmp_path):
         assert doc["leg_exposure"]["leg"] == "spot"
         assert doc["leg_exposure"]["qty"] == "0.5"
         assert doc["leg_exposure"]["price"] == "1"  # dry-run placeholder, no preflight
-        assert doc["consecutive_submission_failures"] == 0  # not counted toward pause
+        # R2-F1: a single_leg counts toward the brake; below the threshold it is
+        # still not frozen (running), and a further fill stays allowed.
+        assert doc["consecutive_submission_failures"] == 1
         # a further fill is still allowed (advisory never blocks scheduling).
         status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
         assert status == 200

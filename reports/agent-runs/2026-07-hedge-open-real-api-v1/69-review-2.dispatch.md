@@ -1,13 +1,16 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: codex/GPT-5 Codex
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable:no start timestamp was recorded by the operator or the report
+completed_at: 2026-07-26T14:07:11+08:00
+completed_at_source: the "本地北京时间" line in the raw report footer (69-review-2.md:174)
+session_id: unavailable:the report footer records that the current Codex runtime does not expose a provider-native Session ID
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/69-review-2.md
-next_dispatch: none
+verdict: REWORK (final gate; six P1; next_action=human_escalation_required; schema-valid; fingerprint matched verbatim)
+next_dispatch: reports/agent-runs/2026-07-hedge-open-real-api-v1/72-fix-review-2-backend-r7.dispatch.md (human operator)
+receipt_backfilled_by: bookkeeper (Claude Opus 5) on 2026-07-26. The verdict and session receipt were registered in status.json when the report landed, but this RECEIPT header was left at pending — the bookkeeper's own oversight, caught automatically by the new finding-6 validator check delivered in packet 72 on its first run. Evidence is taken only from the report footer; nothing was invented.
 routing_reason: Codex is the ONLY provider eligible as final reviewer. AGENTS.md bars the final reviewer from sharing provider identity with ANY delivery-code author, with no override: anthropic is hard-barred (Claude Sonnet 5 authored the accepted frontend rework), zhipu_glm is hard-barred (backend author), kimi and grok are quota-unavailable per recorded operator reports. Codex never wrote delivery or fix code (status.json model_routing.excluded_from_core_implementation_and_fix = ["codex"]). Full analysis: 46-review-2-routing-disclosure.md.
 quota_note: Codex quota was exhausted on 2026-07-25 (the reason the bookkeeper role changed hands) and the human operator reported it restored on 2026-07-26. The stage was formally halted at decision_models_exhausted in the interim; this dispatch resumes it.
 design_conflict_override: used. Codex is this stage's designer (00-task.md, 10-design.md, 11-adr.md) and direction synthesizer (06-direction-synthesis.md), and authored the earlier Review-2 (50-review-2.md, REWORK, at the stale anchor 01d3a47). reviewer_prior_involvement must be "design". Evidence: 46-review-2-routing-disclosure.md.
