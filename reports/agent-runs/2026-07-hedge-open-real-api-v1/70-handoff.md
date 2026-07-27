@@ -2,7 +2,31 @@
 
 ## Recovery Header
 
-- Active phase: `review_2 / FINAL GATE re-opened — packet 75 dispatch-ready for a fresh read-only Codex session`.
+- Active phase: `FINAL GATE PASSED — stage delivered, awaiting USER acceptance`.
+- **`75-review-2-r3.md` returned ACCEPT** on `28c550d..1c09db4`: schema-valid,
+  fingerprint verbatim, **zero P0/P1/P2**, one P3, `required_fixes` empty,
+  `next_action = stage_accepted_waiting_user`. 918 backend / 72 Harness /
+  frontend self-check / `validate-stage --phase pre-review` all pass.
+  Codex reviewed the bookkeeper-authored r8 change as **first reviewer**, not a
+  re-check, and spot-checked the receipt backfills.
+- **The one P3, plus one the bookkeeper found while checking it**: the r8
+  cleanup SUMMARY said "18 drifts / 4 superseded"; the truth is **19 / 5**. The
+  per-file list and the sealed receipts themselves were always correct — only
+  the summary counts were wrong. Both corrected in `29`, `status.json` and here,
+  each marked as a correction rather than silently overwritten.
+- **Root status deliberately stays `review_2`.** The gate passed, but stage
+  acceptance is the USER's act, not the bookkeeper's. (It was briefly set to
+  `accepted` and reverted — declaring acceptance on the user's behalf is
+  overreach.)
+- **LIVE GATES REMAIN CLOSED** and are untouched by this ACCEPT:
+  `APP_HEDGE_EXECUTOR=live`, the durable Start gate, and the first real task are
+  three separate human authorizations. Credentials default to empty, and live
+  mode with empty credentials never POSTs.
+- **Permanent governance state** (not undone by the ACCEPT): Claude Opus 5 is a
+  fix author here, so `anthropic` is barred from any further review of this
+  stage; with `zhipu_glm` the backend author and `kimi`/`grok` out of quota,
+  `codex` is the only eligible reviewer left — and nobody can cross-check codex.
+  Any future work on this stage inherits that constraint.
 - **Current anchor**: base `28c550d87c1ca90983d5bde9c7102d42cffecd4e`, head
   `1c09db491e8f89426b811be990929148f01c1d3c`, fingerprint
   `1c09db491e8f89426b811be990929148f01c1d3c:a5b08463fb690d52687934ec6227783689e94aebc55a39ed51af461c941e7b78`.
