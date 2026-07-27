@@ -624,8 +624,8 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Both Review-1 gates returned schema-valid ACCEPT with matching fingerprints and zero P0/P1/P2. Human operator runs 50-review-2.dispatch.md in a fresh read-only Codex session (codex exec, read-only) over the pinned range 6c5b170..319d831. Codex has zero prior involvement in this stage — design, ADR and breakdown went to Claude and both implementations to claude_glm — so no strong-reviewer disclosure override is needed. Live surface stays closed.",
-  "updated_at": "2026-07-27T21:25:00+08:00",
+  "next_action": "Human operator runs 50-review-2.dispatch.md in a fresh read-only Codex session (codex exec --sandbox read-only) over the pinned range 6c5b170..319d831. The packet now discloses the 2026-07-27 live acceptance run: it confirms S1's P0 fix and S3's write path in production, and it surfaced four defects (F-1..F-4) that the bookkeeper determined lie outside this stage's five items — Codex is asked to independently judge that determination. Codex retains zero prior involvement, so no disclosure override is needed. After this gate closes, open the proposed stage 2026-07-hedge-order-truth-v1.",
+  "updated_at": "2026-07-27T22:10:00+08:00",
   "harness_followups": [
     {
       "id": "registry-grok-drift",
@@ -673,5 +673,24 @@
       "severity": "P3",
       "blocking": false
     }
-  ]
+  ],
+  "live_acceptance_findings": {
+    "at": "2026-07-27T22:10:00+08:00",
+    "context": "The user restarted the service in live mode to accept the UI work by hand, opened the Start gate through the new S3 control (version 3->4, not direct SQL), and ran a real NOMUSDT task. No delivery code was changed while diagnosing, so the pinned range, the fingerprint and both Review-1 ACCEPTs are untouched.",
+    "evidence": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/18-live-acceptance-findings.md",
+    "what_this_stage_proved": [
+      "S1's P0 is confirmed resolved in production: the 35-char clientOrderId passed Binance format validation on both legs, -4015 is gone, and the perp leg actually filled.",
+      "S3's write path works end to end; the gate was opened through the new control rather than by direct SQL, and the CAS behaved.",
+      "The additive settings.version field is present on the real wire, not only in tests."
+    ],
+    "defects_found_none_in_scope": {
+      "F-1": "Binance REMOVED cumBase/cumQuote/avgPrice from POST /papi/v1/um/order effective 2026-07-14 (official changelog, verified). _decimal_str(None) silently returns '0', so fill amounts and average prices are wrong for every fill. External contract drift, not a defect of this stage's five items.",
+      "F-2": "Binance uses positive error codes on margin endpoints and negative on UM/CM; domain.py's code tables are all negative literals, so the ENTIRE margin product line is unmatched and falls through to the non-fatal counter default. Previous stage's classification design.",
+      "F-3": "_business_msg() extracts Binance's error message but hedge_open_leg has no column for it and hedge_open_log records only request params — the exchange's own words are discarded.",
+      "F-4": "51169 (MARGIN_TRADE_COEFF_INSUFFICIENT) root cause undetermined. Ruled out: NOMUSDT not margin-tradable (falsified by public exchangeInfo). Ruled out as a remedy: a PAPI test-order endpoint (does not exist; official docs checked). Unproven: concurrency contention."
+    },
+    "outstanding_real_position": "The perp leg filled: SHORT 10000 NOMUSDT, orderId 888412130, unhedged, residual -10000. No close functionality exists (third stage of the programme), so unwinding is a manual user action on Binance. The task settled to done rather than pausing, which is CORRECT per the frozen design — single_leg_exposure is ADVISORY (domain.py:96-99). Whether that remains the right product decision is an open user question, recorded in the proposal, not decided by the bookkeeper.",
+    "user_decision": "Review-2 proceeds as planned; F-1..F-4 plus a new persistence requirement (store the raw order-placement response and the full order-detail query response) open a separate stage. Proposal: reports/agent-runs/_proposals/2026-07-27-hedge-order-truth-and-error-fidelity.md",
+    "disclosed_to_review_2": true
+  }
 }

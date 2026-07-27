@@ -109,6 +109,41 @@ here.
 10. **两份 review-1 的判断是否成立**：它们各报了 2 个 P3、0 个 P0/P1/P2。你是否同意；
     有没有它们漏掉的问题。
 
+## 重要披露：本 stage 的代码在你评审前已经过一次真实实盘验收
+
+**必读**：`reports/agent-runs/2026-07-hedge-open-live-hardening-v1/18-live-acceptance-findings.md`
+
+用户在 review_2 阶段前用 live 模式做了人工验收，通过 S3 的新控件打开闸门，跑了一笔
+真实 NOMUSDT 任务。**没有任何交付代码因此被修改**，钉死的范围与指纹未动，两份
+review-1 的 ACCEPT 依然有效。
+
+那次运行**证明了本 stage 的修复有效**：
+- S1 的 P0 确实解除——35 字符 clientOrderId 通过了币安格式校验，`-4015` 不再出现，
+  合约腿真实成交；
+- S3 的写入路径端到端可用——闸门经新控件打开（version 3→4），不再需要直改 SQL；
+- settings doc 的 additive `version` 字段在真实 wire 上存在。
+
+同时暴露了**四个缺陷（F-1..F-4）**，经 bookkeeper 查证，**没有一个属于本 stage 的
+五项范围**，用户已决定它们进入独立的新 stage：
+
+- **F-1**：币安已于 2026-07-14 从 `POST /papi/v1/um/order` 响应中**移除**
+  `cumBase`/`cumQuote`/`avgPrice` 字段（官方 changelog 已核实）。系统读到 None，
+  经 `_decimal_str` 默认值静默变成 `"0"`，导致成交金额与均价永久为 0。这是**外部
+  契约漂移**，与本轮五项无关。
+- **F-2**：币安 margin 端点用正数错误码、UM/CM 用负数；而 `domain.py` 的错误码表
+  全是负数字面量，因此对 margin 腿的**整段**错误码失效。属上一 stage 的分类表设计。
+- **F-3**：`_business_msg()` 提取了币安错误消息但从未持久化（leg 表无该列）。
+- **F-4**：`51169`（`MARGIN_TRADE_COEFF_INSUFFICIENT`）的根因未定论；已排除"NOM 不
+  支持杠杆"，并已确认 PAPI **没有** test-order 端点。
+
+那次运行还留下一个**真实的单腿敞口**（UM 空头 10000 NOMUSDT 未对冲）。按已冻结设计
+`single_leg_exposure` 是 ADVISORY（只记录、不作为门，`domain.py:96-99`），所以任务
+结算为 `done` 是**符合契约**的行为，不是本轮引入的回归。
+
+**这段披露的用途**：让你在完整信息下判断，而不是让你把 F-1..F-4 计入本轮。若你认为
+其中某条**确实**属于本 stage 五项的实现缺陷（而非上一 stage 的遗留或外部漂移），请
+明确指出并说明理由——那将是对 bookkeeper 判断的有效纠正。
+
 ## 已知开放项（review-1 已记录并判为不阻塞，供你独立复核）
 
 - api-samples 事实页中文写「反斜杠」，但 regex 字符类无反斜杠字面量（`\.`/`\:`

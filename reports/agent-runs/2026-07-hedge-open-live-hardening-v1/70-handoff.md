@@ -2,7 +2,8 @@
 
 ## Recovery Header
 
-- Active phase: `REVIEW-2 — both Review-1 gates returned schema-valid ACCEPT. 50-review-2.dispatch.md awaits human execution in a read-only Codex session.`
+- Active phase: `REVIEW-2 — both Review-1 gates ACCEPT. 50-review-2.dispatch.md awaits a read-only Codex session; it now discloses the 2026-07-27 live acceptance run.`
+- ⚠️ A real naked SHORT 10000 NOMUSDT (orderId 888412130) is outstanding from that run and needs manual unwinding on Binance — the system has no close function.
 - Pinned range: `base 6c5b170` → `head 319d831`; fingerprint `319d8317…:2a457c0f…` (full value in `status.json.diff_fingerprint`).
 - Merged-state rerun (authoritative): backend **979 passed**, frontend **122 PASS**, protocol suite 72 passed, `git diff --check` clean. Evidence `60-test-output.txt`.
 - Owner change 2026-07-27 18:40: Kimi quota did not recover, so **both** tasks are owned by `claude_glm`.
@@ -261,6 +262,48 @@ Integration check to prioritise (direct lesson from last round's three
 cross-seam drifts): the three contract faces the frontend consumes —
 `settings.version`, the start-gate POST shape, and `missing_leg` — must match
 the backend's actual wire shape field for field.
+
+## Live Acceptance Run — 2026-07-27 (during review_2)
+
+The user restarted the service in live mode to accept the UI by hand, opened the
+gate through the new S3 control, and ran a real NOMUSDT task. **No delivery code
+was changed**, so the pinned range, the fingerprint and both Review-1 ACCEPTs
+stand. Full evidence: `18-live-acceptance-findings.md`.
+
+**It confirmed this stage's work in production**: the 35-char clientOrderId
+passed Binance validation on both legs (S1's P0 is genuinely resolved — the perp
+leg filled), the gate was opened through the new control rather than SQL
+(version 3→4, S3's CAS behaved), and `settings.version` is present on the real
+wire.
+
+**It exposed four defects, none inside this stage's five items** — the user
+decided they open a separate stage
+(`_proposals/2026-07-27-hedge-order-truth-and-error-fidelity.md`):
+
+- **F-1** Binance **removed** `cumBase`/`cumQuote`/`avgPrice` from
+  `POST /papi/v1/um/order`, effective **2026-07-14** (official changelog,
+  verified). `_decimal_str(None)` silently yields `"0"`, so every fill records a
+  wrong amount and average price — and the position table's PnL derives from it.
+  External contract drift; the recon that recorded those fields was true when
+  captured and has since gone stale.
+- **F-2** Binance uses **positive** codes on margin endpoints, **negative** on
+  UM/CM. `domain.py`'s tables are all negative literals, so the **entire margin
+  product line** is unmatched and falls through to the non-fatal counter. Not a
+  missing entry for `51169` — a blind spot for a whole class.
+- **F-3** `_business_msg()` extracts Binance's error text, but nothing persists
+  it. Diagnosing the rejection required Binance support because our own records
+  could not answer it.
+- **F-4** `51169` root cause undetermined. Falsified: "NOM is not
+  margin-tradable". Ruled out as a remedy: a PAPI test-order endpoint — it does
+  not exist. Unproven: concurrency contention.
+
+The run also left a real naked short. The task settled to `done` rather than
+pausing, which is **correct per the frozen design** (`single_leg_exposure` is
+advisory, `domain.py:96-99`) — whether that should remain the product behaviour
+is an open user question recorded in the proposal.
+
+The Review-2 packet discloses all of this and explicitly asks Codex to judge the
+bookkeeper's scope determination independently.
 
 ## Gate Record
 
