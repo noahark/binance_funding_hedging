@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-live-hardening-v1",
-  "status": "planned",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-live-hardening-v1",
@@ -26,11 +26,15 @@
     }
   },
   "parallel_mode": {
-    "enabled": false,
+    "enabled": true,
     "contract": "docs/parallel-development-mode.md",
-    "r10_dispatch_tail_required": false,
-    "r4_diff_reconciliation_required": false,
-    "decision_pending": "The development breakdown decides whether backend (S1/S3/S5) and frontend (S2/S4) run in parallel. Intake does not pre-commit; if enabled, r10 and r4 flags flip with it and the dispatch-ready gate applies."
+    "r10_dispatch_tail_required": true,
+    "r4_diff_reconciliation_required": true,
+    "decided_by": "12-development-breakdown.md §1: task boundaries are disjoint (backend/** + api-samples page vs frontend/index.html + self-check.js), the five shared contract faces are frozen in 10-design.md §4, and there is no blocking dependency between the two tasks.",
+    "embedded_review": {
+      "enabled": false,
+      "reason": "v0.5 embedded pre-review is opt-in. The breakdown opts out: this is a MEDIUM stage, both diffs are small, and the reviewer pool is restored, so the formal cross-review gates are sufficient."
+    }
   },
   "local_readonly_research_subagents": {
     "opted_in": false,
@@ -58,19 +62,38 @@
     }
   },
   "embedded_reviews": {},
-  "session_receipts": [],
+  "session_receipts": [
+    {
+      "role": "stage_designer + breakdown_author",
+      "provider": "claude",
+      "model": "Claude Fable 5",
+      "session_id": "9c443dac-2917-4801-bd93-94db85d27de0",
+      "session_id_source": "runtime_env (self-reported by the executing session; navigation metadata only)",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/10-design-and-breakdown.dispatch.md",
+      "raw_output_paths": [
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/10-design.md",
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/11-adr.md",
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/12-development-breakdown.md"
+      ],
+      "executed_at": "2026-07-27T17:59:40+08:00",
+      "executed_by": "human operator",
+      "declared_constraints_met": "design-only: no product source, status.json, 70-handoff.md or PRD modified; no credentials, no Binance request, no service start, no other model invoked"
+    }
+  ],
   "designer": {
     "provider": "claude",
     "model": "Claude Fable 5",
     "backup_model": "Claude Opus 4.8",
     "role": "stage_designer",
-    "status": "dispatch_prepared",
+    "status": "received",
     "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/10-design-and-breakdown.dispatch.md",
     "raw_output_paths": [
       "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/10-design.md",
       "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/11-adr.md"
     ],
     "routing_reason": "Design and breakdown go to Claude provider so Codex stays free of prior involvement and can serve as Review-2 without a strong-reviewer disclosure override.",
+    "executed_model": "Claude Fable 5",
+    "received_at": "2026-07-27T17:59:40+08:00",
     "recorded_at": "2026-07-27T17:33:33+08:00"
   },
   "direction_synthesizer": null,
@@ -78,20 +101,194 @@
     "provider": "claude",
     "model": "Claude Fable 5",
     "backup_model": "Claude Opus 4.8",
-    "status": "dispatch_prepared",
+    "status": "received",
     "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/10-design-and-breakdown.dispatch.md",
     "raw_output_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/12-development-breakdown.md",
     "combined_with_design_dispatch": true,
+    "executed_model": "Claude Fable 5",
+    "received_at": "2026-07-27T17:59:40+08:00",
     "recorded_at": "2026-07-27T17:33:33+08:00"
   },
   "implementer": null,
-  "implementers": [],
+  "implementers": [
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_prepared"
+    },
+    {
+      "task_id": "frontend",
+      "provider": "kimi",
+      "model": "kimi-k3",
+      "status": "dispatch_prepared"
+    }
+  ],
   "fix_authors": [],
   "reviewer_1": null,
-  "review_1_dispatch_plan": null,
+  "review_1_dispatch_plan": {
+    "backend": {
+      "reviewer_provider": "kimi",
+      "reviewer_model": "kimi-k3",
+      "reason": "cross-review isolation: backend is implemented by claude_glm (zhipu_glm identity)",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md",
+      "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md"
+    },
+    "frontend": {
+      "reviewer_provider": "claude_glm",
+      "reviewer_model": "glm-5.2[1m]",
+      "reason": "cross-review isolation: frontend is implemented by kimi",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md",
+      "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md"
+    }
+  },
   "reviewer_2": null,
-  "r10_checklists": {},
-  "tasks": [],
+  "r10_checklists": {
+    "backend": {
+      "task_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/13-implementation-backend.dispatch.md",
+      "self_tests_command": ".venv/bin/python -m pytest backend/tests/test_hedge_domain.py backend/tests/test_hedge_store.py backend/tests/test_hedge_service.py backend/tests/test_hedge_api.py backend/tests/test_hedge_executor.py backend/tests/test_hedge_task_local.py backend/tests/test_hedge_review2_regressions.py backend/tests/test_hedge_open_live_client.py backend/tests/test_live_hedge_executor.py backend/tests/test_hedge_purity.py -q && .venv/bin/python -m pytest backend/tests -q && node frontend/self-check.js && .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q && git diff --check",
+      "pass_branch": "Self-tests all PASS -> write reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-backend.md with test excerpts and full counts, then stop for the bookkeeper. The implementer does not commit and does not touch status.json.",
+      "blocker_branch": "Self-tests FAIL -> repair inside task scope only and rerun; never relax or delete an existing assertion to go green. Anything touching a frozen contract, a shared contract face, or a forbidden file (especially backend/services/live_hedge_executor.py) is an R3 escalation: stop and hand back to the bookkeeper.",
+      "artifact_paths": [
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-backend.md",
+        "reports/api-samples/2026-07-hedge-open-live-hardening-v1/client-order-id-cap.md"
+      ],
+      "next_dispatch_executor": "human_operator",
+      "unavailable_branch": {
+        "failure_classes": [
+          "model_unavailable",
+          "adapter_missing",
+          "command_error",
+          "permission_error",
+          "timeout",
+          "scope_or_contract_dispute"
+        ],
+        "escalation_artifact": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/15-escalation.dispatch.md"
+      }
+    },
+    "frontend": {
+      "task_prompt_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/14-implementation-frontend.dispatch.md",
+      "self_tests_command": "node frontend/self-check.js && .venv/bin/python -m pytest backend/tests -q && git diff --check",
+      "pass_branch": "Self-tests all PASS -> write reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-frontend.md with test excerpts, full counts and the M-2 choice, then stop for the bookkeeper. The implementer does not commit and does not touch status.json.",
+      "blocker_branch": "Self-tests FAIL -> repair inside task scope only and rerun; never relax or delete an existing assertion to go green. A missing or ambiguous backend field, a frozen-contract question, or any file outside frontend/index.html and frontend/self-check.js is an R3 escalation: stop and hand back to the bookkeeper. Never invent a backend field.",
+      "artifact_paths": [
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-frontend.md"
+      ],
+      "next_dispatch_executor": "human_operator",
+      "unavailable_branch": {
+        "failure_classes": [
+          "model_unavailable",
+          "adapter_missing",
+          "command_error",
+          "permission_error",
+          "timeout",
+          "scope_or_contract_dispute"
+        ],
+        "escalation_artifact": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/15-escalation.dispatch.md"
+      }
+    }
+  },
+  "tasks": [
+    {
+      "id": "backend",
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]"
+      },
+      "scope": ["S1", "S3-backend", "S4b", "S5", "settings doc version exposure"],
+      "allowed_files": [
+        "backend/hedge_open_tasks/executor.py",
+        "backend/hedge_open_tasks/service.py",
+        "backend/hedge_open_tasks/store.py",
+        "backend/hedge_open_tasks/domain.py",
+        "backend/hedge_open_tasks/wire_constraints.py",
+        "backend/services/hedge_preflight_provider.py",
+        "backend/app/server.py",
+        "backend/tests/test_hedge_*.py",
+        "backend/tests/test_live_hedge_executor.py",
+        "reports/api-samples/2026-07-hedge-open-live-hardening-v1/client-order-id-cap.md",
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-backend.md"
+      ],
+      "forbidden_files": [
+        "frontend/**",
+        "backend/services/hedge_open_live_client.py",
+        "backend/services/live_hedge_executor.py",
+        "backend/services/binance_signing.py",
+        "backend/hedge_open_tasks/scheduler.py",
+        "backend/config.py",
+        "backend/borrow_tasks/**",
+        "docs/**",
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/status.json",
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/70-handoff.md"
+      ],
+      "dependencies": [],
+      "reviewer": "kimi",
+      "implementation_report_path": "20-implementation-backend.md",
+      "implementation_status": "dispatch_prepared",
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": null,
+      "review_1": {
+        "reviewer": "kimi",
+        "provider": "kimi",
+        "model": "kimi-k3",
+        "verdict": null,
+        "json_schema_valid": null,
+        "diff_fingerprint": null
+      }
+    },
+    {
+      "id": "frontend",
+      "owner": {
+        "provider": "kimi",
+        "model": "kimi-k3"
+      },
+      "scope": ["S2", "S3-frontend", "S4a", "S4b error display"],
+      "allowed_files": [
+        "frontend/index.html",
+        "frontend/self-check.js",
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-frontend.md"
+      ],
+      "forbidden_files": [
+        "backend/**",
+        "docs/**",
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/status.json",
+        "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/70-handoff.md"
+      ],
+      "dependencies": [],
+      "reviewer": "claude_glm",
+      "implementation_report_path": "20-implementation-frontend.md",
+      "implementation_status": "dispatch_prepared",
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": null,
+      "review_1": {
+        "reviewer": "claude_glm",
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]",
+        "verdict": null,
+        "json_schema_valid": null,
+        "diff_fingerprint": null
+      }
+    }
+  ],
+  "bookkeeper_added_checkpoints": [
+    {
+      "id": "M-1",
+      "why": "The start-gate audit row lands in hedge_open_log and reaches the frontend through the legacy logs array, where extractHedgeAttempts (frontend/index.html:3835) treats any item carrying attempt_seq / pair_outcome / spot / perp as an attempt card. Verified by the bookkeeper: the designed payload (enabled / previous_enabled / version / source) carries none of those keys, so isHedgeAttemptShaped rejects it. That is an implicit dependency, so both sides must pin it.",
+      "backend_obligation": "assert the start_gate_changed payload key set is exactly those four and disjoint from the attempt-shape keys",
+      "frontend_obligation": "assert extractHedgeAttempts returns empty for a start_gate_changed log entry",
+      "recorded_in": ["13-implementation-backend.dispatch.md", "14-implementation-frontend.dispatch.md"]
+    },
+    {
+      "id": "M-2",
+      "why": "frontend/self-check.js carries 14 'hgo-' client_order_id literals as display-only mock fixtures. The backend derivation changes to hg{uuid}s|p this round. The design mentions only the 18 backend/tests literals, so the frontend ones were unassigned.",
+      "resolution": "They are arbitrary arguments and need not change; if the frontend implementer changes them it must be done consistently across all 14. The backend is told not to touch them. The choice must be stated in the frontend report.",
+      "recorded_in": ["13-implementation-backend.dispatch.md", "14-implementation-frontend.dispatch.md"]
+    }
+  ],
   "complexity": {
     "classification": "MEDIUM",
     "direction_panel_required": false,
@@ -224,6 +421,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Human operator runs 10-design-and-breakdown.dispatch.md in a fresh Claude Fable 5 session (backup Opus 4.8) and saves the three file blocks as 10-design.md, 11-adr.md and 12-development-breakdown.md. The S3 write-surface decision is closed (symmetric confirmation dialog). No implementation is dispatched; the live surface stays closed (service stopped, start_gate=0).",
-  "updated_at": "2026-07-27T17:33:33+08:00"
+  "next_action": "Human operator runs the two implementation packets, which may go in parallel: 13-implementation-backend.dispatch.md in a fresh write-capable Claude-GLM session, and 14-implementation-frontend.dispatch.md in a fresh write-capable Kimi session. Each implementer runs its self-tests, writes its 20-implementation-*.md report and stops without committing. The bookkeeper then does R4 diff reconciliation, the evidence commit, the fingerprint and the pre-review gate. The live surface stays closed (service stopped, start_gate=0) for the whole implementation and review period.",
+  "updated_at": "2026-07-27T18:20:00+08:00"
 }
