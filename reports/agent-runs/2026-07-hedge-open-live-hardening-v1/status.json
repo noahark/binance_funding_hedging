@@ -245,12 +245,12 @@
       "tradeoff_presented_before_the_choice": "Against: Grok has never run a review gate in this repository, so schema-conforming verdict output is unverified, and invalid verdict JSON is non-accepting evidence that forces a retry in the round that fixes a P0. For: it removes the Anthropic provider acting as both designer and both Review-1 reviewers, adding a genuinely independent third provider identity. The user chose Grok for both gates."
     },
     "backend": {
-      "reviewer_provider": "grok",
-      "reviewer_model": "grok-4.5",
-      "reviewer_identity": "xai_grok",
-      "reason": "cross-provider isolation from the implementer (claude_glm = zhipu_glm identity); Grok has no design involvement in this stage",
-      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md",
-      "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md",
+      "reviewer_provider": "claude",
+      "reviewer_model": "Claude Opus 4.8",
+      "reviewer_identity": "anthropic",
+      "reason": "cross-provider isolation from claude_glm; rerouted off grok-4.5 after its severity miss on this stage's blocking finding",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/31-review-1-backend-r2.dispatch.md",
+      "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/31-review-1-backend-r2.md",
       "model_id_source": "human operator ran `grok models` on 2026-07-27; grok-4.5 is the only available model and the default",
       "read_only_command": "grok --cwd <repo> --model grok-4.5 --permission-mode plan --prompt-file <prompt-file>",
       "command_note": "Written out explicitly instead of referencing agents/registry.yaml#adapters.grok.optional_review_command, which pins the now-nonexistent grok-build. Unverified whether grok-4.5 still accepts --effort high, so the flag set is kept minimal; the operator reports any CLI rejection so the record matches what actually ran."
@@ -425,13 +425,14 @@
         "verdict": "ACCEPT",
         "json_schema_valid": true,
         "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
-        "fingerprint_matches_status": true,
+        "fingerprint_matches_status": false,
         "open_p0_p1": 0,
         "findings_summary": "0 P0/P1/P2, 2 P3 (409 dialog title was never frozen by the design; S3 self-check asserts dialog body via includes rather than full equality). required_fixes empty.",
         "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md",
         "recorded_at": "2026-07-27T21:20:00+08:00",
         "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md",
-        "note": "Frontend code is byte-identical between the round-1 head and the rework head: `git diff 319d831..c91d2da -- frontend/` is EMPTY. Its round-1 ACCEPT therefore reviewed exactly the frontend code that is shipping, but its recorded diff_fingerprint now trails status.diff_fingerprint. Resolution pending a user decision: re-run the gate, or record an authorized_exception of class-1 review_fingerprint_trails_status."
+        "note": "Frontend code is byte-identical between the round-1 head and the rework head (`git diff 319d831..c91d2da -- frontend/` is empty), so this ACCEPT reviewed exactly the frontend code shipping. Its trailing fingerprint is waived by the class-1 record; every negative-list assertion still applies in full.",
+        "fingerprint_trails_status_waived_by": "authorized_exceptions[0] (class-1, scope task:frontend)"
       }
     }
   ],
@@ -588,7 +589,7 @@
     ]
   },
   "review_1": {
-    "status": "complete",
+    "status": "backend_pending_re_review",
     "reviewer": "grok",
     "provider": "grok",
     "model": "grok-4.5",
@@ -598,14 +599,17 @@
     "open_p0_p1": 0,
     "reviewer_prior_involvement": "none",
     "backend": {
-      "verdict": "ACCEPT",
-      "artifact": "30-review-1-backend.md",
-      "findings": "2 P3"
+      "verdict": null,
+      "status": "must be re-run on 6c5b170..c91d2da",
+      "reviewer": "claude",
+      "model": "Claude Opus 4.8",
+      "reroute_reason": "grok-4.5 filed this stage's blocking finding as a residual risk rather than a finding (status.review_1_miss). The user rerouted the backend gate to Claude Opus 4.8 so the reworked code is not re-reviewed by the channel that missed it. Opus 4.8 is provider-isolated from the implementer claude_glm (zhipu_glm); it shares provider identity with the stage designer, which AGENTS.md constrains only for Review-2."
     },
     "frontend": {
       "verdict": "ACCEPT",
       "artifact": "30-review-1-frontend.md",
-      "findings": "2 P3"
+      "findings": "2 P3",
+      "waived_by": "authorized_exceptions[0]"
     },
     "bookkeeper_verification": "Both verdicts parsed, validated against schemas/review-verdict.schema.json, and carry a diff_fingerprint identical to status.diff_fingerprint. Scope separation confirmed: the backend verdict's 27 reviewed_artifacts are all backend-scoped with zero frontend entries. All four P3 findings were spot-checked against the code and are factually correct.",
     "p3_findings_not_fixed_here": "Four P3s across both gates, none in required_fixes. Not repaired in this stage because any edit would move the diff and invalidate the fingerprint both gates just reviewed. Filed as stage follow-ups below."
@@ -643,7 +647,18 @@
     "verdict_round1": "REWORK",
     "status": "must_be_re_run_on_the_new_range"
   },
-  "authorized_exceptions": [],
+  "authorized_exceptions": [
+    {
+      "assertion_id": "review_fingerprint_trails_status",
+      "scope": "task:frontend",
+      "authorizer": "user",
+      "at": "2026-07-28T00:35:00+08:00",
+      "applies_to_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
+      "reason": "The frontend task's Review-1 ACCEPT was recorded against the round-1 range and its fingerprint now trails status because the Review-2 REWORK fix moved the diff. The fix changed only backend files: `git diff 319d831..c91d2da -- frontend/` is EMPTY, so frontend/index.html and frontend/self-check.js are byte-identical between the head that gate reviewed and the head now shipping. The verdict is therefore still materially valid and only its range endpoint moved. The user was offered a re-run of that gate as the no-exception alternative and chose this record instead. The backend gate got no such treatment — backend code really changed, so its Review-1 is re-run from scratch on the new range and rerouted to Claude Opus 4.8; Review-2 is re-run in full.",
+      "evidence_file": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/21-user-authorized-frontend-fingerprint-exception.md",
+      "evidence_sha256": "674ec82a18bca74e12c1a56f7e105503c0c94a92f885545e5928f7a1893349fb"
+    }
+  ],
   "main_syncs": [],
   "rework_count": 1,
   "max_rework": 3,
@@ -662,8 +677,8 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Rework 1 is delivered, reconciled and committed on the NEW range 6c5b170..c91d2da. Backend Review-1 must be re-run on that range (provider-isolated from claude_glm). Frontend needs a user decision: its code is byte-identical to the round-1 head, so either re-run its gate or record a class-1 authorized_exception. Then Review-2 again. rework_count 1 of 3.",
-  "updated_at": "2026-07-28T00:25:00+08:00",
+  "next_action": "Two gates to re-run on the NEW range 6c5b170..c91d2da, both executable in parallel: 31-review-1-backend-r2.dispatch.md in a fresh read-only Claude Opus 4.8 session, and 51-review-2-r2.dispatch.md in a fresh read-only Codex session. The frontend gate is NOT re-run — its trailing fingerprint is waived by authorized_exceptions[0], and the user must verify that evidence file verbatim before releasing. rework_count 1 of 3.",
+  "updated_at": "2026-07-28T00:40:00+08:00",
   "harness_followups": [
     {
       "id": "registry-grok-drift",

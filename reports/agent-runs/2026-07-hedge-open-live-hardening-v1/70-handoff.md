@@ -2,10 +2,10 @@
 
 ## Recovery Header
 
-- Active phase: `REVIEW-2 RETURNED REWORK — one verified P2 (S5 filter wiring). Fix packet 60-fix-review-2-s5.dispatch.md awaits a write-capable Claude-GLM session. rework_count 1/3.`
+- Active phase: `REWORK 1 DELIVERED AND RECONCILED — new range pinned. Backend Review-1 (Opus 4.8) and Review-2 (Codex) both await re-run; they may go in parallel. rework_count 1/3.`
 - ⚠️ A real naked SHORT 10000 NOMUSDT (orderId 888412130) is outstanding from that run and needs manual unwinding on Binance — the system has no close function.
-- Pinned range: `base 6c5b170` → `head 319d831`; fingerprint `319d8317…:2a457c0f…` (full value in `status.json.diff_fingerprint`).
-- Merged-state rerun (authoritative): backend **979 passed**, frontend **122 PASS**, protocol suite 72 passed, `git diff --check` clean. Evidence `60-test-output.txt`.
+- Pinned range: `base 6c5b170` → `head c91d2da`; fingerprint `c91d2da5…:aad2351a…` (full value in `status.json.diff_fingerprint`). The round-1 range `..319d831` is VOID as an acceptance range, kept for audit.
+- Merged-state rerun (authoritative): backend **983 passed** (979 + 4 new), frontend **122 PASS**, protocol 72 passed, clean. Evidence `60-test-output.txt`.
 - Owner change 2026-07-27 18:40: Kimi quota did not recover, so **both** tasks are owned by `claude_glm`.
 - Review-1 routing 2026-07-27 18:55: **Grok, both gates**, explicitly enabled by the user — see `15-user-authorized-grok-review-1.md`. Two separate fresh read-only sessions. Review-2 stays with `codex`, still zero prior involvement.
 - Stage branch: `stage/2026-07-hedge-open-live-hardening-v1`, created from `main` at `4ce968623ff6cf1b574539437871064ca69b9f2d`.
@@ -349,6 +349,64 @@ authority-order judgement, not a failure to read the code.
    fingerprint → backend Review-1 on the new range (provider-isolated from
    `claude_glm`) → Review-2 again.
 4. `rework_count` is **1 of 3**.
+
+## Rework 1 — Delivered And Reconciled (2026-07-28)
+
+The fix closed Review-2's P2 **at a root one layer deeper than the finding
+stated**, and the bookkeeper verified that independently: `compute_preflight`'s
+`snapshot_record` never carried min/max at all — only `step` — so the record
+transport had nothing to pass even had it wanted to. Wiring alone would not have
+sufficed.
+
+- `domain.py:755-771` records each leg's effective MARKET bounds via the
+  **pre-existing** `_qty_bounds` helper (introduced in `1749d94`, well before
+  this rework), reusing its per-constraint `MARKET_LOT_SIZE → LOT_SIZE` fallback
+  rather than writing a second selection rule.
+- `executor.py:303-310` + new `_leg_qty_filters` — each leg reads **its own**
+  step/min/max out of the sanitized snapshot.
+- Four new tests drive `RecordTransportExecutor` itself and assert
+  `offline_constraint`, both legs rejected, `constraint_violations` recorded and
+  **`filled_qty == "0"`** — i.e. no simulated fill — plus a grid-aligned quantity
+  still succeeding, and spot/perp with different filters each using their own.
+
+R4 PASS (`19-r4-diff-reconciliation-rework1.md`): three files, all in packet 60's
+allowed list; zero forbidden-file changes; **ADR-H4 intact** — `wire_constraints`
+is still absent from the live send path.
+
+Worth recording, because it explains why the defect was reachable at all: the
+pre-existing tests stayed green because `q_common = floor_to_grid(single_amount,
+lcm)` mathematically cannot violate either leg's step, and `_check_common_quantity`
+already enforced min/max. The production path never produced a violating
+quantity — the gap was that **the offline transport could not have caught one if
+it ever appeared**, which is precisely what S5 exists to guarantee.
+
+## Gate Routing For Round 2
+
+- **Backend Review-1 → Claude Opus 4.8**, re-run in full on the new range.
+  Rerouted off grok-4.5 after its severity miss on this stage's blocking finding
+  (`status.json.review_1_miss`). Opus 4.8 is provider-isolated from `claude_glm`;
+  it shares provider identity with the designer, which AGENTS.md constrains only
+  for Review-2.
+- **Frontend Review-1 → NOT re-run.** Frontend code is byte-identical between
+  the round-1 head and the rework head (`git diff 319d831..c91d2da -- frontend/`
+  is empty), so its ACCEPT reviewed exactly the code shipping. Its trailing
+  fingerprint is waived by a user-authorized **class-1**
+  `review_fingerprint_trails_status` exception, scope `task:frontend`, evidence
+  `21-user-authorized-frontend-fingerprint-exception.md`, committed and sealed by
+  sha256. **The user must read that evidence file verbatim before releasing** —
+  the validator can enforce the seal but cannot prove the text came from a human.
+- **Review-2 → Codex**, re-run in full, still zero prior involvement.
+
+## Next Action
+
+Two packets, executable **in parallel**, each in its own fresh read-only session:
+
+1. `31-review-1-backend-r2.dispatch.md` → Claude Opus 4.8 → `31-review-1-backend-r2.md`
+2. `51-review-2-r2.dispatch.md` → Codex (`codex exec --sandbox read-only`) → `51-review-2-r2.md`
+
+Both are pinned to `6c5b170..c91d2da`. Both packets tell the reviewer to check
+the acceptance criteria, not just conformance to the design — that authority
+order is exactly what round 1 got wrong.
 
 ## Gate Record
 
