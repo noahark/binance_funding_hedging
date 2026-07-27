@@ -1,13 +1,16 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: codex/GPT-5 Codex
 adapter_cmd:
 executor: human_operator
-started_at:
-completed_at:
-session_id: unavailable:pending human execution
+started_at: unavailable:no start timestamp was recorded by the operator or the report
+completed_at: 2026-07-27T00:53:02+08:00
+completed_at_source: the "本地北京时间" line in the raw report footer (75-review-2-r3.md)
+session_id: unavailable:the report footer records that the current Codex runtime does not expose a provider-native Session ID
 outputs: reports/agent-runs/2026-07-hedge-open-real-api-v1/75-review-2-r3.md
-next_dispatch: none
+verdict: ACCEPT (final gate; schema-valid; fingerprint matched verbatim; zero P0/P1/P2; one P3; required_fixes empty; next_action=stage_accepted_waiting_user)
+next_dispatch: none — the stage now awaits user acceptance
+receipt_sealed_by: bookkeeper (Claude Opus 5) on 2026-07-27, on receiving the report. Evidence taken only from the report footer; nothing invented.
 routing_reason: Codex is now the ONLY eligible reviewer of any kind for this stage. anthropic is hard-barred twice over (Claude Sonnet 5 authored the accepted frontend rework; Claude Opus 5 authored the r8 validator fix under review here), zhipu_glm is hard-barred as the backend author, kimi and grok are quota-unavailable. Codex never wrote delivery or fix code (model_routing.excluded_from_core_implementation_and_fix = ["codex"]). Full analysis: 46-review-2-routing-disclosure.md.
 special_condition: THE REVIEWED RANGE NOW CONTAINS CODE THE BOOKKEEPER WROTE. The 77c75bd..1c09db4 delta is the r8 fix to scripts/validate-stage.py authored by Claude Opus 5 — the sitting bookkeeper and the author of six Review-1 rounds — and it was merged under a user special approval with NO model cross-review of any kind. This dispatch asks Codex to review it as first-and-only reviewer, not as a re-check.
 design_conflict_override: used. Codex is this stage's designer (00-task.md, 10-design.md, 11-adr.md), direction synthesizer (06-direction-synthesis.md), author of three prior Review-2 rounds (50, 69, 74) and this stage's bookkeeper until 2026-07-25. reviewer_prior_involvement must be "design". Evidence: 46-review-2-routing-disclosure.md.

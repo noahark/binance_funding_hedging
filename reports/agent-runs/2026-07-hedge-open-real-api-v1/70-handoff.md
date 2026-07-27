@@ -43,10 +43,11 @@
   review ones (+5 tests, 72 passed). Reproduce-then-fix evidence: right after
   the change it flagged `r7_repair_authorization.active_dispatch` — exactly the
   drift the final gate reported.
-- **Legacy bookkeeping debt cleared**: the widened check surfaced 18 receipt
-  drifts. 14 sealed as `completed` from each report's own footer only (fields
+- **Legacy bookkeeping debt cleared**: the widened check surfaced 19 receipt
+  drifts (14 + 5; the summary first said 18/4 — corrected 2026-07-27 after
+  `75-review-2-r3.md` raised it as a P3). 14 sealed as `completed` from each report's own footer only (fields
   without a record carry `unavailable`; packet 72 used filesystem mtime,
-  explicitly labelled as not model-reported). 4 marked `superseded` — replaced
+  explicitly labelled as not model-reported). 5 marked `superseded` — replaced
   before execution, so `pending` was itself a false record and their declared
   outputs exist only because a LATER packet produced them. That class was also
   the false-positive source in the first implementation, now excluded.

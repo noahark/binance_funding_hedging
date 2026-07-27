@@ -109,6 +109,20 @@
   "embedded_reviews": {},
   "session_receipts": [
     {
+      "role": "review_2",
+      "task_id": null,
+      "provider": "codex",
+      "model": "GPT-5 Codex",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The report footer records that the current Codex runtime does not expose a provider-native Session ID.",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/75-review-2-r3.md",
+      "recorded_at": "2026-07-27T00:53:02+08:00",
+      "recorded_at_source": "report footer 本地北京时间 line",
+      "verdict": "ACCEPT",
+      "dispatch_path": "75-review-2-r3.dispatch.md"
+    },
+    {
       "role": "review_1",
       "task_id": "backend",
       "provider": "claude",
@@ -897,13 +911,19 @@
     "reviewer": "codex",
     "provider": "codex",
     "model": "GPT-5 Codex",
-    "verdict": null,
-    "json_schema_valid": null,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "open_p0_p1": 0,
+    "open_p2": 0,
+    "open_p3": 1,
+    "next_action": "stage_accepted_waiting_user",
+    "required_fixes": [],
+    "findings_summary": "ACCEPT. 918 backend tests, 72 Harness tests, the frontend self-check and validate-stage --phase pre-review all pass. One P3 only: the r8 receipt-cleanup SUMMARY said 4 superseded packets while 5 were listed and recorded. The bookkeeper found the total was off by one as well (18 stated vs 19 actual) and corrected both; the per-file list and the sealed receipts themselves were always correct. No code, receipt terminal state or safety gate is affected.",
     "dispatch_path": "75-review-2-r3.dispatch.md",
     "artifact_path": "75-review-2-r3.md",
     "diff_fingerprint": "1c09db491e8f89426b811be990929148f01c1d3c:a5b08463fb690d52687934ec6227783689e94aebc55a39ed51af461c941e7b78",
     "covers_through_task": "backend and frontend across the complete 28c550d..1c09db4 range",
-    "status": "final_gate_dispatch_ready",
+    "status": "final_gate_accepted",
     "reviewer_prior_involvement": "design",
     "reviewer_prior_involvement_notes": "Codex is the stage designer and direction synthesizer, authored three prior Review-2 rounds (50, 69, 74), and was this stage's bookkeeper until 2026-07-25. It never wrote delivery or fix code, so the hard provider ban does not apply; the design-conflict strong-reviewer disclosure route does.",
     "fallback_reason": "Codex is now the ONLY eligible reviewer of any kind for this stage. anthropic is hard-barred twice over (Claude Sonnet 5 wrote the frontend rework; Claude Opus 5 wrote the r8 validator fix now under review), zhipu_glm is the backend author, kimi and grok are quota-unavailable.",
@@ -1024,7 +1044,7 @@
       "The bookkeeper's neutrality is impaired: one model is now simultaneously the bookkeeper, the author of six Review-1 rounds, and the author of a piece of Harness code."
     ],
     "reproduce_then_fix_evidence": "Immediately after the validator change it flagged r7_repair_authorization.active_dispatch (packet 72) — exactly the drift the final gate reported — proving the fix reaches what it previously missed.",
-    "legacy_receipt_cleanup": "The widened check surfaced 18 receipt drifts. 14 sealed as completed using ONLY each produced report's own footer (54/55/62 have no clock time, 72's footer has only a date so its filesystem mtime was used and explicitly labelled as not model-reported — those fields carry unavailable or an explicit source). 4 marked superseded (30-review-1-backend, 50-review-2, 52, 53, 61): replaced before execution, so pending was itself a false record, and their declared outputs exist only because a LATER packet produced them. That class was also the false-positive source in the first implementation, now excluded by treating non-pending states as terminal. All classifications derive from existing status.json records.",
+    "legacy_receipt_cleanup": "The widened check surfaced 19 receipt drifts (14 completed + 5 superseded). CORRECTION 2026-07-27: this summary first said 18 drifts and 4 superseded; 75-review-2-r3.md raised the 4-vs-5 discrepancy as a P3 and the bookkeeper found the total was off by one too. The per-file list and the sealed receipts themselves were always correct — only this count was wrong. 14 sealed as completed using ONLY each produced report's own footer (54/55/62 have no clock time, 72's footer has only a date so its filesystem mtime was used and explicitly labelled as not model-reported — those fields carry unavailable or an explicit source). 5 marked superseded (30-review-1-backend, 50-review-2, 52, 53, 61): replaced before execution, so pending was itself a false record, and their declared outputs exist only because a LATER packet produced them. That class was also the false-positive source in the first implementation, now excluded by treating non-pending states as terminal. All classifications derive from existing status.json records.",
     "final_gate_verdict_unchanged": "74-review-2-r2.md remains REWORK. This special approval does not overturn it; it only completes the required fix. Whether to re-open the final gate before live testing is the user's call.",
     "live_gate_unchanged": true
   },
@@ -1098,7 +1118,10 @@
     "live_gate_unchanged": true
   },
   "blockers": [
-    "FINAL GATE (74-review-2-r2.md) returned REWORK with ONE P1 — the F6 validator missed the seventh-fix dispatch itself. Business code and all 918 backend tests were accepted with zero findings. The user then issued a DIRECT SPECIAL APPROVAL (29-user-special-approval-r8.md) to fix it with NO model cross-review; rework_count 7->8. The final-gate verdict is still REWORK and this approval does not overturn it.",
+    "ROOT STATUS STAYS review_2 ON PURPOSE: the final gate passed, but stage acceptance is the USER's act, not the bookkeeper's. The bookkeeper briefly set status=accepted and reverted it — declaring acceptance on the user's behalf would be overreach. It advances only when the user accepts.",
+    "FINAL GATE PASSED: 75-review-2-r3.md returned ACCEPT on 28c550d..1c09db4 (schema-valid, fingerprint verbatim, zero P0/P1/P2, one P3, required_fixes empty, next_action=stage_accepted_waiting_user). Codex reviewed the bookkeeper-authored r8 change as FIRST reviewer, not a re-check, and spot-checked the receipt backfills. The stage is delivered and awaits USER ACCEPTANCE.",
+    "LIVE GATES REMAIN CLOSED and are unaffected by this ACCEPT: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task are three separate human authorizations. Credentials are empty by default; live mode with empty credentials never POSTs.",
+    "GOVERNANCE (permanent, not undone by the ACCEPT): Claude Opus 5 is a fix author for this stage, so anthropic is barred from any further review here. With zhipu_glm the backend author and kimi/grok out of quota, codex is the only eligible reviewer left — and nobody can cross-check codex. Any future work on this stage inherits that constraint.",
     "ANCHOR: the active anchor is 1c09db4, the commit packet 75 pins. Commits after it touch only bookkeeping (70-handoff.md, the 75 dispatch, status.json) — the reviewer is asked to re-verify that. Both completed reviews stay pinned to the range they actually reviewed — 73-review-1-backend-r6.md (ACCEPT) and 74-review-2-r2.md (REWORK) both cover 77c75bd. The delta 77c75bd..f441dea is the user-special-approved, UNREVIEWED r8 change plus bookkeeping.",
     "GOVERNANCE: Claude Opus 5 is now a fix author, so anthropic is barred from ANY further review of this stage. Combined with zhipu_glm (backend author), kimi and grok (no quota), only codex remains eligible — and it is the designer, three-time Review-2 author and former bookkeeper. Any further model review needs the user to accept that constraint.",
     "Backend Review-1 r6 returned ACCEPT (73-review-1-backend-r6.md): zero P0/P1, two P2 follow-ups, four P3s, required_fixes empty. The reviewer independently re-derived the fingerprint, confirmed 77c75bd..HEAD touches only bookkeeping files, reproduced every reported test number, ran its own offline probes for F1/F2/F4/F6 instead of trusting the fix report, and upheld both bookkeeper adjudications. Frontend ACCEPT (59-review-1-frontend-r2.md) remains valid — frontend/** unchanged since 8af3f22.",
@@ -1203,8 +1226,9 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/74-review-2-r2.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/74-review-2-r2.md",
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/29-user-special-approval-r8.md",
-    "reports/agent-runs/2026-07-hedge-open-real-api-v1/75-review-2-r3.dispatch.md"
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/75-review-2-r3.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-real-api-v1/75-review-2-r3.md"
   ],
-  "next_action": "Human operator runs packet 75 in a fresh read-only Codex session — the fourth and, given the exhausted reviewer pool, likely last final gate. It must review the bookkeeper-authored r8 change as its FIRST reviewer. Previously: the final gate returned REWORK on one process P1; the user special-approved the fix without model review (29-user-special-approval-r8.md) and it is implemented, tested and committed. The stage now awaits the user's decision: either re-open the final gate on the new range, or proceed to live testing with the recorded state 'final gate REWORK + user-approved unreviewed fix'. Live activation remains three separate human authorizations: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task.",
-  "updated_at": "2026-07-27T01:00:00+08:00"
+  "next_action": "STAGE ACCEPTED BY THE FINAL GATE — awaiting USER acceptance. Nothing is dispatched. Merging to main and any live activation are separate user decisions; the three live gates stay closed. Superseded: human operator runs packet 75 in a fresh read-only Codex session — the fourth and, given the exhausted reviewer pool, likely last final gate. It must review the bookkeeper-authored r8 change as its FIRST reviewer. Previously: the final gate returned REWORK on one process P1; the user special-approved the fix without model review (29-user-special-approval-r8.md) and it is implemented, tested and committed. The stage now awaits the user's decision: either re-open the final gate on the new range, or proceed to live testing with the recorded state 'final gate REWORK + user-approved unreviewed fix'. Live activation remains three separate human authorizations: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task.",
+  "updated_at": "2026-07-27T01:15:00+08:00"
 }

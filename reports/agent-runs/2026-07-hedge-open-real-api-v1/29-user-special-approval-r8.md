@@ -42,12 +42,14 @@
 
 ## 5. 顺带清理的历史簿记债（纯簿记，不消耗额度）
 
-新检查上线后暴露 **18 条**回执漂移，全部处理：
+新检查上线后暴露 **19 条**回执漂移，全部处理：
+
+> **更正（2026-07-27）**：本节初稿把总数写成「18 条」、把 superseded 写成「4 条」，实际是 **19 条 = 14 completed + 5 superseded**。`75-review-2-r3.md` 的 P3 指出了后者；总数那处是 bookkeeper 自查时补正的。逐条清单与终态回执本身**始终正确**，错的只是这段摘要的计数。
 
 - **14 条封存为 `completed`**：证据**只取自各自产出报告的 footer**；
   `54`/`55`/`62` 的 footer 无时刻、`72` 的 footer 只有日期（改用文件 mtime 并**明确标注非模型自报**），
   这些字段一律 `unavailable` 或标注来源。**未发明任何时间或 Session ID。**
-- **4 条改为 `superseded`**（`30-review-1-backend`、`50-review-2`、`52`、`53`、`61`）：
+- **5 条改为 `superseded`**（`30-review-1-backend`、`50-review-2`、`52`、`53`、`61`）：
   这些 packet 在执行前即被取代，停在 `pending` 本身就是错误记录；它们声明的 outputs 文件存在，
   只是因为**后续 packet** 产出了同名文件。这也是我实现中发现的**误报源**，
   已通过"终态不检查"消除。判定依据全部取自 `status.json` 的既有记录
@@ -62,10 +64,14 @@ validate-stage --phase pre-review                        漂移告警全部消�
 
 ## 7. 遗留
 
-`74-review-2-r2.md` 的终审 verdict 仍是 **REWORK**，本次特批**不改变**该 verdict，
-只是按其 `required_fixes` 完成了修复。是否重开终审由用户决定；若不重开，
-本 stage 将以"终审 REWORK + 用户特批修复 + 未复核"的状态进入上线测试，
-该状态已如实记录于 `status.json`。
+**已结清（2026-07-27）**：用户选择重开终审。`75-review-2-r3.dispatch.md` 把本次 r8 改动
+作为**未经任何复核的实现**交给 Codex 首审（而非复核），并请它抽验本文件 §5 的 19 条回执封存。
+`75-review-2-r3.md` 返回 **ACCEPT**（`next_action = stage_accepted_waiting_user`，
+零 `required_fixes`，仅 1 条 P3 —— 即 §5 的计数笔误，已在上方更正）。
+
+因此本 stage **不再**以"终审 REWORK + 未复核特批"的状态进入实盘测试：r8 改动已获得
+一次真实的、由唯一合格审查者做出的首次评审。§3 记录的治理代价（Anthropic 全面出局、
+bookkeeper 中立性受损）**依然成立且不可撤销**，仅"未经复核"这一条已被 `75` 消解。
 
 **实盘门未被本授权解除。**
 
