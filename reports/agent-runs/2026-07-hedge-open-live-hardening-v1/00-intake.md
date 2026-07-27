@@ -120,9 +120,19 @@ The user confirmed on 2026-07-27 that the pool is restored: `codex`,
 previous stage ended down to `codex` alone with nobody able to cross-check it,
 which was the second reason its handoff recommended a new stage.
 
-## Open Question For Design
+## User Decision 2026-07-27 — S3 Write Surface
 
-S3 requires deciding the Start gate's write surface (endpoint shape,
-confirmation semantics, whether it is per-session or durable-only). This belongs
-in `10-design.md` and needs a user decision before implementation, not at
-intake.
+The user chose the **symmetric confirmation dialog**:
+
+- The backend gains a write path for the durable Start gate; direct SQL is no
+  longer required or acceptable as the operating procedure.
+- The frontend offers both directions from the same control. Turning the gate
+  **on** and turning it **off** each require exactly one confirmation dialog.
+  No typed confirmation word, and no asymmetry between the two directions.
+- The design must still specify concurrency safety (the settings row already
+  carries `version`) and must keep the gate closed by default on a fresh
+  install.
+
+This closes the stage's only blocking design question. Details — endpoint path,
+request/response shape, version handling, log record, and the dialog's Chinese
+copy — are decided in `10-design.md`.

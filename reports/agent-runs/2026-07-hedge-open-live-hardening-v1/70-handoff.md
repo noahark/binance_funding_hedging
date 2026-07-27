@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `INTAKE COMPLETE — awaiting the S3 design decision, then stage design (10-design.md). Nothing dispatched.`
+- Active phase: `DESIGN DISPATCH PREPARED — the S3 decision is closed; 10-design-and-breakdown.dispatch.md awaits human execution. No implementation dispatched.`
 - Stage branch: `stage/2026-07-hedge-open-live-hardening-v1`, created from `main` at `4ce968623ff6cf1b574539437871064ca69b9f2d`.
 - Bookkeeper: Claude Opus 5, independent session, writes no delivery code.
 - Complexity: `MEDIUM`, direction panel skipped with user approval (2026-07-27); inherits `2026-07-hedge-open-real-api-v1/06-direction-synthesis.md`.
@@ -37,25 +37,34 @@ with acceptance criteria:
 - **S5** the offline transport must enforce Binance's parameter constraints —
   its absence is why S1 survived nine review rounds.
 
-## Open Decision Before Design
+## Closed Decision — S3 Write Surface (2026-07-27)
 
-**S3's write surface.** Endpoint shape and confirmation semantics for turning
-the durable Start gate on and off. This is a live-risk control, so the design
-must state explicitly what stops an accidental enable. Needs a user decision;
-everything else in the stage can be designed without it.
+The user chose the **symmetric confirmation dialog**: the backend gains a write
+path for the durable Start gate, and the frontend drives both directions from
+one control, each requiring exactly one confirmation dialog. No typed
+confirmation word, no asymmetry between on and off. The design must still
+specify concurrency safety via the settings row's existing `version` column and
+keep the gate closed by default on a fresh install.
+
+Recorded in `00-intake.md` §User Decision and `status.json.scope.S3.user_decision`.
 
 ## Next Action
 
-1. User decides the S3 write surface.
-2. Write `10-design.md` (scope, file boundaries, contracts, test strategy),
-   then `12-development-breakdown.md` — MEDIUM requires the breakdown before any
-   implementer starts.
+1. **Human operator** runs
+   `10-design-and-breakdown.dispatch.md` in a fresh Claude Fable 5 session
+   (backup: Opus 4.8 — record which one ran) and saves its three file blocks as
+   `10-design.md`, `11-adr.md`, `12-development-breakdown.md`.
+2. Bookkeeper archives the raw output, records the session receipt, and
+   commits.
 3. The breakdown decides whether backend (S1/S3/S5) and frontend (S2/S4) run in
    parallel. If parallel, flip `parallel_mode` plus its R10/R4 flags and run
    `scripts/validate-stage.py <stage-id> --phase dispatch-ready` before
    dispatch.
-4. Routing: backend → `claude_glm`, frontend → `kimi`; Review-1 crosses them
-   (backend reviewed by Kimi, frontend by Claude-GLM); Review-2 → `codex`.
+4. Routing: design/breakdown → `claude`; backend → `claude_glm`; frontend →
+   `kimi`; Review-1 crosses them (backend reviewed by Kimi, frontend by
+   Claude-GLM); Review-2 → `codex`. Claude provider deliberately does not write
+   delivery code here, and Codex deliberately has no design involvement, so
+   Review-2 needs no strong-reviewer disclosure override.
    All dispatch is prepared as packets and executed by the human operator.
 
 ## Safety Standing Order

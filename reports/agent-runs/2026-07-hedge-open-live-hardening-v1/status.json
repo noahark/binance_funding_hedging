@@ -59,9 +59,31 @@
   },
   "embedded_reviews": {},
   "session_receipts": [],
-  "designer": null,
+  "designer": {
+    "provider": "claude",
+    "model": "Claude Fable 5",
+    "backup_model": "Claude Opus 4.8",
+    "role": "stage_designer",
+    "status": "dispatch_prepared",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/10-design-and-breakdown.dispatch.md",
+    "raw_output_paths": [
+      "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/10-design.md",
+      "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/11-adr.md"
+    ],
+    "routing_reason": "Design and breakdown go to Claude provider so Codex stays free of prior involvement and can serve as Review-2 without a strong-reviewer disclosure override.",
+    "recorded_at": "2026-07-27T17:33:33+08:00"
+  },
   "direction_synthesizer": null,
-  "breakdown_author": null,
+  "breakdown_author": {
+    "provider": "claude",
+    "model": "Claude Fable 5",
+    "backup_model": "Claude Opus 4.8",
+    "status": "dispatch_prepared",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/10-design-and-breakdown.dispatch.md",
+    "raw_output_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/12-development-breakdown.md",
+    "combined_with_design_dispatch": true,
+    "recorded_at": "2026-07-27T17:33:33+08:00"
+  },
   "implementer": null,
   "implementers": [],
   "fix_authors": [],
@@ -109,7 +131,13 @@
       "severity": "P2",
       "title": "The Start gate has no operator entry point",
       "anchor": "backend/app/server.py:84",
-      "design_decision_required": true
+      "design_decision_required": false,
+      "user_decision": {
+        "at": "2026-07-27",
+        "choice": "symmetric_confirmation_dialog",
+        "detail": "Backend gains a write path for the durable Start gate; the frontend drives both directions from one control, each requiring exactly one confirmation dialog. No typed confirmation word and no asymmetry between on and off. The design must still specify concurrency safety using the existing settings version column and keep the gate closed by default on a fresh install.",
+        "evidence": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/00-intake.md §User Decision 2026-07-27 — S3 Write Surface"
+      }
     },
     "S4": {
       "severity": "followup",
@@ -196,6 +224,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Stage design (10-design.md). One user decision is needed first: the Start gate's write surface for S3 (endpoint shape and confirmation semantics). Nothing is dispatched yet; the live surface is closed (service stopped, start_gate=0).",
+  "next_action": "Human operator runs 10-design-and-breakdown.dispatch.md in a fresh Claude Fable 5 session (backup Opus 4.8) and saves the three file blocks as 10-design.md, 11-adr.md and 12-development-breakdown.md. The S3 write-surface decision is closed (symmetric confirmation dialog). No implementation is dispatched; the live surface stays closed (service stopped, start_gate=0).",
   "updated_at": "2026-07-27T17:33:33+08:00"
 }
