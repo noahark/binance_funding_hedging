@@ -369,7 +369,8 @@
         "open_p0_p1": 0,
         "findings_summary": "0 P0/P1/P2, 2 P3 (api-samples prose says 'backslash' but the regex character class has none — it is an escaped dot and colon; confirm negative-case matrix omits [] and {}). required_fixes empty.",
         "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md",
-        "recorded_at": "2026-07-27T21:25:00+08:00"
+        "recorded_at": "2026-07-27T21:25:00+08:00",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md"
       }
     },
     {
@@ -414,7 +415,8 @@
         "open_p0_p1": 0,
         "findings_summary": "0 P0/P1/P2, 2 P3 (409 dialog title was never frozen by the design; S3 self-check asserts dialog body via includes rather than full equality). required_fixes empty.",
         "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md",
-        "recorded_at": "2026-07-27T21:20:00+08:00"
+        "recorded_at": "2026-07-27T21:20:00+08:00",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md"
       }
     }
   ],
