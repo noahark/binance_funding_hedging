@@ -1,0 +1,9 @@
+# pre-review gate output (review_2 entry) — 2026-07-27 21:35 CST
+# command: python3 scripts/validate-stage.py 2026-07-hedge-open-live-hardening-v1 --phase pre-review
+# Run on a clean committed worktree; written from that run's output and committed afterwards.
+
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-live-hardening-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd

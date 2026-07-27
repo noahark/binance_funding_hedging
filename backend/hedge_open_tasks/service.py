@@ -43,6 +43,11 @@ from .store import HedgeOpenStore, UnknownTaskError
 
 _CREATE_BODY_KEYS = ("coin", "direction", "mode", "single_amount", "target_n")
 
+# S3 (ADR-H2): the start-gate write body. ``confirm`` must be the literal true;
+# ``version`` is the CAS guard; ``enabled`` carries both the open and close
+# directions on one endpoint.
+_START_GATE_BODY_KEYS = ("enabled", "confirm", "version")
+
 # Amendment 21 removed the process-wide rate-limit cooldown: a 429 / -1003 / 418
 # surfaced by a live leg now pauses ONLY the task whose worker observed it (the
 # worker exits and the operator manually recovers), and never delays, pauses,
@@ -171,6 +176,10 @@ def settings_to_doc(settings: dict, executor_mode: str) -> dict:
         "executor_mode": executor_mode,
         "start_gate": bool(settings["start_gate"]),
         "interval_seconds": int(settings["interval_us"]) // 1_000_000,
+        # Additive (S3 / ADR-H2): the settings row's version — the CAS input a
+        # concurrency-safe start-gate write must echo back. Existing field names
+        # and semantics are unchanged.
+        "version": int(settings["version"]),
     }
 
 
@@ -457,6 +466,23 @@ class HedgeOpenTaskService:
             raise D.invalid_field("mode", f"round-1 supports only {D.MODE_IMMEDIATE!r}")
         single_amount = D.validate_single_amount(body.get("single_amount"))
         target_n = D.validate_target_n(body.get("target_n"))
+
+        # S4b (ADR-H5): when the provider can probe leg existence, block creating
+        # a task for a coin confirmed absent on spot and/or UM (e.g. KORUUSDT,
+        # which has no spot leg -> Binance -1121). Only a confirmed-absent leg
+        # (False) blocks; an indeterminate read (None) does NOT — a transient
+        # public-marketdata failure is never escalated to a create-task failure.
+        # The probe is duck-typed (mirrors _live_dispatch_capable): the dry-run
+        # DisabledPreflightProvider has no probe, so dry-run create is unchanged.
+        probe = getattr(self._preflight, "check_symbol_legs", None)
+        if callable(probe):
+            legs = probe(coin)
+            missing = [k for k in ("spot", "perp") if legs.get(k) is False]
+            if missing:
+                raise D.HedgeError(
+                    400, "missing_leg", D.missing_leg_detail(missing),
+                    extra={"missing": missing},
+                )
 
         snapshot = self._preflight.get_snapshot(coin)
         preflight = D.compute_preflight(
@@ -859,6 +885,43 @@ class HedgeOpenTaskService:
         """
         self._store.set_start_gate(enabled, self._wall_us())
         return self.get_settings()
+
+    def put_start_gate(self, body) -> tuple[int, dict]:
+        """Concurrency-safe, confirmation-gated write of the durable Start gate
+        (S3 / ADR-H2 / 10-design §2.3). Open and close share one endpoint; each
+        direction requires an explicit ``confirm: true``.
+
+        Body ``{"enabled": <bool>, "confirm": true, "version": <int>}``:
+        - ``enabled`` strict bool (true=open / false=close);
+        - ``confirm`` must be the literal ``true`` (a bare POST cannot open the
+          gate) — else 400 ``confirmation_required``;
+        - ``version`` strict int (bool excluded) equal to the current settings
+          row's ``version`` — else 409 ``version_conflict`` carrying the current
+          settings doc so the caller can refresh and retry.
+
+        On a hit the gate UPDATE and its ``start_gate_changed`` audit row land in
+        one store transaction; the response is the updated settings doc.
+        """
+        if not isinstance(body, dict):
+            raise D.HedgeError(400, "invalid_json", "request body must be a JSON object")
+        D.reject_unknown_keys(body, _START_GATE_BODY_KEYS)
+        enabled = body.get("enabled")
+        if not isinstance(enabled, bool):
+            raise D.invalid_field("enabled", "must be a boolean")
+        if body.get("confirm") is not True:
+            raise D.HedgeError(
+                400, "confirmation_required", "开单闸门变更必须显式确认"
+            )
+        version = body.get("version")
+        if isinstance(version, bool) or not isinstance(version, int):
+            raise D.invalid_field("version", "must be an integer")
+        result = self._store.set_start_gate_cas(enabled, version, self._wall_us())
+        if result is None:
+            raise D.HedgeError(
+                409, "version_conflict", "设置已被其他会话修改，请刷新后重试",
+                extra={"settings": settings_to_doc(self._store.get_settings(), self._mode)},
+            )
+        return 200, settings_to_doc(result, self._mode)
 
     # -------------------------------------------------------- task-local workers
     #

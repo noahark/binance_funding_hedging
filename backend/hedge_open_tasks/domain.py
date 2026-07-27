@@ -752,10 +752,21 @@ def compute_preflight(
         )
     grid = decimal_lcm(spot_step, perp_step)
     q_common = floor_to_grid(single_amount, grid)
+    # S5 (ADR-H4): each leg's effective MARKET qty bounds (min/max), read with
+    # the same per-constraint MARKET_LOT_SIZE -> LOT_SIZE fallback as the step
+    # (_qty_bounds), recorded so the dry-run record transport can reject a
+    # quantity that violates the symbol's loaded grid/bounds OFFLINE instead of
+    # simulating it as a fill. ``None`` == that bound is disabled on this symbol.
+    spot_min, spot_max = _qty_bounds(snapshot.spot_filters)
+    perp_min, perp_max = _qty_bounds(snapshot.perp_filters)
     snapshot_record = {
         "available": True,
         "spot_step": str(spot_step),
         "perp_step": str(perp_step),
+        "spot_min_qty": str(spot_min) if spot_min is not None else None,
+        "spot_max_qty": str(spot_max) if spot_max is not None else None,
+        "perp_min_qty": str(perp_min) if perp_min is not None else None,
+        "perp_max_qty": str(perp_max) if perp_max is not None else None,
         "grid": str(grid),
         "est_price": str(snapshot.est_price) if snapshot.est_price is not None else None,
         "position_mode": snapshot.position_mode,
@@ -1157,3 +1168,24 @@ _PAUSE_REASON_ZH = {
     PAUSE_REASON_INSUFFICIENT_MARGIN: "保证金不足，任务已暂停，请补充后手动恢复",
     PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY: "可用数量不足，任务已暂停，请补充后手动恢复",
 }
+
+
+def missing_leg_detail(missing: list[str]) -> str:
+    """Frozen Chinese detail for the create-task ``missing_leg`` error (S4b /
+    10-design §2.4b). Names exactly which leg(s) are confirmed absent on Binance.
+
+    ``missing`` is a subset of ``["spot", "perp"]`` — only legs a probe read
+    succeeded on and found absent (``False``); an indeterminate ``None`` leg
+    never reaches here (the service does not block on None).
+    """
+    has_spot = "spot" in missing
+    has_perp = "perp" in missing
+    if has_spot and has_perp:
+        return "该交易对在币安现货与 USDⓈ-M 合约市场均不存在，无法创建对冲任务"
+    if has_spot:
+        return "该交易对在币安现货市场不存在（缺少现货腿），无法创建对冲任务"
+    if has_perp:
+        return "该交易对在币安 USDⓈ-M 合约市场不存在（缺少合约腿），无法创建对冲任务"
+    # No confirmed-absent leg -> the caller should not have raised; return the
+    # neutral both-absent wording rather than raise from the detail helper.
+    return "该交易对在币安现货与 USDⓈ-M 合约市场均不存在，无法创建对冲任务"

@@ -1,0 +1,8 @@
+# dispatch-ready gate output — 2026-07-27 18:22 CST (initial)
+# re-run 2026-07-27 18:42 CST after the frontend owner reassignment (kimi -> claude_glm)
+# command: python3 scripts/validate-stage.py 2026-07-hedge-open-live-hardening-v1 --phase dispatch-ready
+
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-live-hardening-v1
+phase=dispatch-ready
+status=implementing

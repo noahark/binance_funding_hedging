@@ -82,6 +82,12 @@ _HEDGE_OPEN_ROUTES = (
     ),
     (re.compile(r"^/api/hedge-open-tasks$"), ("GET", "POST"), "_hedge_open_tasks"),
     (re.compile(r"^/api/hedge-open-settings$"), ("GET",), "_hedge_open_settings"),
+    # S3 (ADR-H2): concurrency-safe, confirmation-gated Start-gate write.
+    (
+        re.compile(r"^/api/hedge-open-settings/start-gate$"),
+        ("POST",),
+        "_hedge_open_start_gate",
+    ),
     (re.compile(r"^/api/hedge-open-logs$"), ("GET",), "_hedge_open_logs"),
     (re.compile(r"^/api/hedge-open-positions$"), ("GET",), "_hedge_open_positions"),
 )
@@ -100,6 +106,7 @@ def _is_hedge_open_path(path: str) -> bool:
         path == "/api/hedge-open-tasks"
         or path.startswith("/api/hedge-open-tasks/")
         or path == "/api/hedge-open-settings"
+        or path.startswith("/api/hedge-open-settings/")
         or path == "/api/hedge-open-logs"
         or path == "/api/hedge-open-positions"
     )
@@ -557,6 +564,18 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _hedge_open_settings(self):
         self._send_hedge_open(*self.hedge_open_service.get_settings())
+
+    def _hedge_open_start_gate(self):
+        # S3 (ADR-H2): the body carries enabled/confirm/version; the service does
+        # the CAS + same-transaction audit. Errors (400/409) flow through
+        # _safe_hedge as HedgeError -> (status, payload).
+        data, error = self._read_hedge_body(required=True)
+        if error is not None:
+            self._send_hedge_open(*error)
+            return
+        self._send_hedge_open(
+            *self._safe_hedge(self.hedge_open_service.put_start_gate, data)
+        )
 
     def _hedge_open_logs(self):
         query = parse_qs(urlparse(self.path).query)

@@ -163,7 +163,8 @@ const ids = [
   'hedge-attempt-list', 'hedge-attempts-error',
   'hedge-tab-tasks', 'hedge-tab-logs', 'hedge-tasks-panel', 'hedge-logs-panel',
   'hedge-logs-error', 'hedge-log-list', 'hedge-logs-refresh', 'hedge-logs-load-more',
-  'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close'
+  'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close',
+  'hedge-modal-confirm', 'hedge-modal-cancel', 'hedge-start-gate-toggle'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -408,7 +409,9 @@ let borrowExecutionStatusResponse = null;
 let hedgeTasksGetResponse = { status: 200, body: { tasks: [] } };
 let hedgeTasksPostResponse = null;
 let hedgeActionResponses = {};
-let hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'disabled', start_gate: false, interval_seconds: 1 } };
+let hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'disabled', start_gate: false, interval_seconds: 1, version: 1 } };
+// live-hardening v1（10-design §2.3）：POST /api/hedge-open-settings/start-gate 响应槽；未设置时 503。
+let hedgeStartGatePostResponse = null;
 let hedgePositionsGetResponse = { status: 200, body: { positions: [] } };
 // real-api-v1：attempt 时间线数据源（既有 GET /api/hedge-open-logs，路由表不变，?limit=100 无 cursor）。
 let hedgeLogsGetResponse = { status: 200, body: { logs: [], next_cursor: null } };
@@ -684,6 +687,9 @@ global.fetch = async (url, options) => {
   }
   if (urlStr === '/api/hedge-open-settings' && method === 'GET') {
     return buildFetchResponse(hedgeSettingsGetResponse || mockHedge503());
+  }
+  if (urlStr === '/api/hedge-open-settings/start-gate' && method === 'POST') {
+    return buildFetchResponse(hedgeStartGatePostResponse || mockHedge503());
   }
   if (urlStr === '/api/hedge-open-positions' && method === 'GET') {
     return buildFetchResponse(hedgePositionsGetResponse || mockHedge503());
@@ -4310,6 +4316,205 @@ setTimeout(async () => {
       console.log('[PASS] 开单 API 全部同源、零跨域 fetch');
     }
 
+    // 93. S2 live-hardening：running 卡启动按钮条件四象限（10-design §2.2 / §6）
+    //     dry-run running（worker_active===null/缺失）→ disabled；live running+worker_active:false → enabled；
+    //     live running+worker_active:true → disabled；paused → enabled。严格 === false。
+    {
+      helpers.resetHedgeStateForTest();
+      const q1 = mockHedgeTask({ id: 'h-s2-1', status: 'running', worker_active: null });
+      const q2 = mockHedgeTask({ id: 'h-s2-2', status: 'running', worker_active: false });
+      const q3 = mockHedgeTask({ id: 'h-s2-3', status: 'running', worker_active: true });
+      const q4 = mockHedgeTask({ id: 'h-s2-4', status: 'paused', worker_active: false });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [q1, q2, q3, q4] } };
+      await helpers.loadHedgeTasks();
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTaskFilter('all');
+      const cards = elements['hedge-task-list'].innerHTML;
+      function startBtnDisabled(id) {
+        const m = cards.match(new RegExp(`<button[^>]*data-hedge-action="start"[^>]*data-task-id="${id}"[^>]*>`));
+        if (!m) throw new Error(`缺少 ${id} 启动按钮`);
+        return m[0].includes('disabled');
+      }
+      if (!startBtnDisabled('h-s2-1')) throw new Error('dry-run running（worker_active===null）启动按钮应 disabled');
+      if (startBtnDisabled('h-s2-2')) throw new Error('live running+worker_active:false 启动按钮应 enabled');
+      if (!startBtnDisabled('h-s2-3')) throw new Error('live running+worker_active:true 启动按钮应 disabled');
+      if (startBtnDisabled('h-s2-4')) throw new Error('paused 启动按钮应 enabled');
+      helpers.setActiveView('market');
+      console.log('[PASS] S2 running 卡启动按钮四象限：dry-run/worker_active 三态 + paused（严格 === false）');
+    }
+
+    // 94. S4a live-hardening：执行线程行三态 + 八个退出原因中文映射（10-design §2.4a）
+    //     worker_active true→运行中 / false→未运行 / null·缺失→—；八枚举逐字；未知原样；缺失降级 —。
+    {
+      helpers.resetHedgeStateForTest();
+      const exitReasons = [
+        ['stopped_event', '收到停止信号'],
+        ['task_missing', '任务记录缺失'],
+        ['task_not_running', '任务已非运行态'],
+        ['start_gate_off', '全局开单闸门未开启'],
+        ['target_reached', '计划尝试次数已用完'],
+        ['preflight_incomplete', '预检数据不完整（安全退出）'],
+        ['preflight_fatal', '预检发现致命问题'],
+        ['worker_error', 'worker 异常退出']
+      ];
+      const tasks = exitReasons.map(([reason], i) => mockHedgeTask({
+        id: `h-s4a-${i}`, coin: 'AUSDT', status: 'running',
+        worker_active: false, last_worker_exit_reason: reason
+      }));
+      tasks.push(mockHedgeTask({ id: 'h-s4a-true', coin: 'AUSDT', status: 'running', worker_active: true, last_worker_exit_reason: 'worker_error' }));
+      tasks.push(mockHedgeTask({ id: 'h-s4a-null', coin: 'AUSDT', status: 'running', worker_active: null, last_worker_exit_reason: null }));
+      tasks.push(mockHedgeTask({ id: 'h-s4a-missing', coin: 'AUSDT', status: 'running' }));
+      tasks.push(mockHedgeTask({ id: 'h-s4a-unknown', coin: 'AUSDT', status: 'running', worker_active: false, last_worker_exit_reason: 'some_new_reason' }));
+      hedgeTasksGetResponse = { status: 200, body: { tasks } };
+      await helpers.loadHedgeTasks();
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTaskFilter('all');
+      const cards = elements['hedge-task-list'].innerHTML;
+      function cardHtml(id) {
+        const start = cards.indexOf(`data-hedge-task-id="${id}"`);
+        if (start === -1) throw new Error(`缺少任务卡 ${id}`);
+        const next = cards.indexOf('<div class="borrow-task-card"', start + 1);
+        return cards.slice(start, next === -1 ? cards.length : next);
+      }
+      for (let i = 0; i < exitReasons.length; i++) {
+        const label = exitReasons[i][1];
+        const card = cardHtml(`h-s4a-${i}`);
+        if (!card.includes('执行线程：<strong>未运行</strong>')) throw new Error(`卡 h-s4a-${i} worker_active:false 应显示「未运行」`);
+        if (!card.includes(`上次退出原因：<strong>${label}</strong>`)) throw new Error(`卡 h-s4a-${i} 退出原因映射错误（期望 ${label}）`);
+      }
+      if (!cardHtml('h-s4a-true').includes('执行线程：<strong>运行中</strong>')) throw new Error('worker_active:true 应显示「运行中」');
+      const nullCard = cardHtml('h-s4a-null');
+      if (!nullCard.includes('执行线程：<strong>—</strong>') || !nullCard.includes('上次退出原因：<strong>—</strong>')) {
+        throw new Error('worker_active:null / last_worker_exit_reason:null 应降级 —');
+      }
+      const missingCard = cardHtml('h-s4a-missing');
+      if (!missingCard.includes('执行线程：<strong>—</strong>') || !missingCard.includes('上次退出原因：<strong>—</strong>')) {
+        throw new Error('字段缺失（undefined）应降级 —');
+      }
+      if (!cardHtml('h-s4a-unknown').includes('上次退出原因：<strong>some_new_reason</strong>')) {
+        throw new Error('未知退出原因应原样展示');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] S4a 执行线程行：worker_active 三态 + 八个退出原因中文映射逐字 + 未知原样 + 缺失降级 —');
+    }
+
+    // 95. S3 live-hardening：开单闸门对称确认弹窗（10-design §2.3 / §6）
+    //     label 随 start_gate 切换；确认前零 POST；确认后 POST 冻结 body（enabled/confirm/version）；
+    //     取消零请求；409 version_conflict → 重新 GET + 冻结提示，不自动重试（无死循环）。
+    {
+      helpers.resetHedgeStateForTest();
+      helpers.closeHedgeModal();
+      hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'live', start_gate: false, interval_seconds: 1, version: 3 } };
+      await helpers.loadHedgeSettings();
+      if (elements['hedge-start-gate-toggle'].style.display === 'none') throw new Error('闸门控件应显示');
+      if (elements['hedge-start-gate-toggle'].textContent !== '开启开单闸门') {
+        throw new Error(`闸门关时 label 应为「开启开单闸门」: ${elements['hedge-start-gate-toggle'].textContent}`);
+      }
+      hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'live', start_gate: true, interval_seconds: 1, version: 4 } };
+      await helpers.loadHedgeSettings();
+      if (elements['hedge-start-gate-toggle'].textContent !== '关闭开单闸门') {
+        throw new Error(`闸门开时 label 应为「关闭开单闸门」: ${elements['hedge-start-gate-toggle'].textContent}`);
+      }
+      // 点击控件（当前开 → 请求关闭）→ 弹确认（冻结文案），确认前零 POST
+      const markBefore = fetchCallLog.length;
+      helpers.requestHedgeStartGate(false);
+      if (fetchCallLog.length !== markBefore) throw new Error('确认前不应有任何请求');
+      const modal = helpers.getHedgeModal();
+      if (!modal || modal.title !== '关闭全局开单闸门？') throw new Error(`关闭方向弹窗标题错误: ${JSON.stringify(modal)}`);
+      if (!modal.body || !modal.body.includes('任务的 worker 将在下一轮检查时退出')) throw new Error(`关闭方向弹窗正文冻结文案缺失: ${modal && modal.body}`);
+      if (!elements['hedge-modal'].classList.contains('open')) throw new Error('确认弹窗应 open');
+      if (elements['hedge-modal-confirm'].style.display === 'none') throw new Error('确认按钮应显示');
+      if (elements['hedge-modal-cancel'].style.display === 'none') throw new Error('取消按钮应显示');
+      if (elements['hedge-modal-close'].style.display !== 'none') throw new Error('单按钮「知道了」应隐藏');
+      if (elements['hedge-modal-confirm'].textContent !== '确认关闭') throw new Error('确认词应为「确认关闭」');
+      // 取消 → 零请求、弹窗关闭、pending 清空
+      helpers.cancelHedgeStartGate();
+      if (fetchCallLog.length !== markBefore) throw new Error('取消不应产生任何请求');
+      if (helpers.getHedgeModal() !== null || elements['hedge-modal'].classList.contains('open')) throw new Error('取消后弹窗应关闭');
+      if (helpers.getHedgeGatePending() !== null) throw new Error('取消后 pending 应清空');
+      // 开方向冻结文案 + 确认词
+      helpers.requestHedgeStartGate(true);
+      const modalOpen = helpers.getHedgeModal();
+      if (!modalOpen || modalOpen.title !== '开启全局开单闸门？') throw new Error(`开启方向弹窗标题错误: ${JSON.stringify(modalOpen)}`);
+      if (!modalOpen.body.includes('可以向币安发出真实订单')) throw new Error(`开启方向弹窗正文冻结文案缺失: ${modalOpen.body}`);
+      if (elements['hedge-modal-confirm'].textContent !== '确认开启') throw new Error('确认词应为「确认开启」');
+      helpers.cancelHedgeStartGate();
+
+      // 确认 → POST 冻结 body（enabled/confirm/version）；成功后用响应 doc 刷新
+      hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'live', start_gate: false, interval_seconds: 1, version: 3 } };
+      await helpers.loadHedgeSettings();
+      helpers.requestHedgeStartGate(true);
+      hedgeStartGatePostResponse = { status: 200, body: { executor_mode: 'live', start_gate: true, interval_seconds: 1, version: 4 } };
+      const markConfirm = fetchCallLog.length;
+      const rOk = await helpers.confirmHedgeStartGate();
+      if (!rOk.ok) throw new Error('确认开启应成功: ' + rOk.error);
+      const gateCall = fetchCallLog.slice(markConfirm).find(c => c.url === '/api/hedge-open-settings/start-gate');
+      if (!gateCall || gateCall.method !== 'POST') throw new Error('应 POST /api/hedge-open-settings/start-gate');
+      if (JSON.stringify(gateCall.body) !== JSON.stringify({ enabled: true, confirm: true, version: 3 })) {
+        throw new Error(`POST body 与 §2.3 冻结形状不符: ${JSON.stringify(gateCall.body)}`);
+      }
+      if (elements['hedge-start-gate-toggle'].textContent !== '关闭开单闸门') throw new Error('成功后按钮 label 应随响应 doc 刷新为「关闭开单闸门」');
+
+      // 409 version_conflict → 重新 GET settings 刷新 + 冻结提示，只 POST 一次（无死循环）
+      hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'live', start_gate: true, interval_seconds: 1, version: 5 } };
+      await helpers.loadHedgeSettings();
+      helpers.requestHedgeStartGate(false);
+      hedgeStartGatePostResponse = { status: 409, body: { error: 'version_conflict', detail: '设置已被其他会话修改，请刷新后重试', settings: { executor_mode: 'live', start_gate: true, interval_seconds: 1, version: 6 } } };
+      hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'live', start_gate: true, interval_seconds: 1, version: 6 } };
+      const mark409 = fetchCallLog.length;
+      const r409 = await helpers.confirmHedgeStartGate();
+      if (r409.ok || r409.error !== 'version_conflict') throw new Error('409 应返回 version_conflict: ' + JSON.stringify(r409));
+      const calls409 = fetchCallLog.slice(mark409);
+      const post409 = calls409.find(c => c.url === '/api/hedge-open-settings/start-gate');
+      if (!post409 || post409.body.version !== 5) throw new Error('409 POST 应携带当前 version=5');
+      if (!calls409.some(c => c.url === '/api/hedge-open-settings' && c.method === 'GET')) throw new Error('409 后应重新 GET /api/hedge-open-settings 刷新');
+      const postCount409 = calls409.filter(c => c.url === '/api/hedge-open-settings/start-gate').length;
+      if (postCount409 !== 1) throw new Error(`409 路径应只 POST 一次（无死循环），实际 ${postCount409}`);
+      if (!helpers.getHedgeSettings() || helpers.getHedgeSettings().version !== 6) throw new Error('409 后应刷新到新 version=6');
+      const modal409 = helpers.getHedgeModal();
+      if (!modal409 || !modal409.body.includes('设置已被其他会话修改，已刷新，请重试')) {
+        throw new Error(`409 提示文案冻结错误: ${JSON.stringify(modal409)}`);
+      }
+      helpers.closeHedgeModal();
+      console.log('[PASS] S3 开单闸门对称确认：label 随状态 + 冻结文案 + 确认前/取消零请求 + POST 冻结 body(含 version) + 409 刷新提示无死循环');
+    }
+
+    // 96. S4b live-hardening：建卡 missing_leg 错误展示中文 detail（10-design §2.4b）
+    //     既有 hedgeApi 错误通道（err.message=data.detail）经 submitHedgeOpen 兜底 setErr 天然展示。
+    {
+      helpers.resetHedgeStateForTest();
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [] } };
+      document.getElementById('hedge-amount-forward-AUSDT').value = '1';
+      document.getElementById('hedge-count-forward-AUSDT').value = '3';
+      hedgeTasksPostResponse = { status: 400, body: { error: 'missing_leg', detail: '该交易对在币安现货与 USDⓈ-M 合约市场均不存在，无法创建对冲任务', missing: ['spot', 'perp'] } };
+      const rMissing = await helpers.submitHedgeOpen('AUSDT', 'forward', 'immediate');
+      if (rMissing.ok) throw new Error('missing_leg 不应创建任务');
+      if (rMissing.error !== 'missing_leg') throw new Error('应返回 missing_leg 错误码: ' + rMissing.error);
+      const errText = document.getElementById('hedge-error-forward-AUSDT').textContent;
+      if (!errText.includes('该交易对在币安现货与 USDⓈ-M 合约市场均不存在')) {
+        throw new Error(`missing_leg 中文 detail 应就近展示: ${errText}`);
+      }
+      console.log('[PASS] S4b 建卡 missing_leg 错误：中文 detail 经既有 hedgeApi 通道就近展示');
+    }
+
+    // 97. M-1 live-hardening：start_gate_changed 审计行经全量投影进入 logs 数组，
+    //     但其 payload 不含 attempt_seq/pair_outcome/spot/perp，extractHedgeAttempts 必须忽略它，
+    //     不渲染成畸形 attempt 卡（钉住前端侧隐含依赖）。
+    {
+      const doc = {
+        logs: [
+          { task_id: 'start-gate', kind: 'start_gate_changed', ts_us: 1783641600000000,
+            payload: { enabled: true, previous_enabled: false, version: 2, source: 'api' } },
+          mockHedgeAttempt({ task_id: 'h-1', attempt_seq: 1 })
+        ],
+        next_cursor: null
+      };
+      const attempts = helpers.extractHedgeAttempts(doc);
+      if (attempts.length !== 1) throw new Error(`start_gate_changed 应被忽略，仅留 1 条 attempt，实际 ${attempts.length}`);
+      if (attempts[0].attempt_seq !== 1) throw new Error('应保留真 attempt');
+      console.log('[PASS] M-1 start_gate_changed 审计行被 extractHedgeAttempts 忽略（不渲染畸形 attempt）');
+    }
+
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 白名单
     {
       const allowedPatterns = [
@@ -4326,6 +4531,7 @@ setTimeout(async () => {
         /^\/api\/hedge-open-tasks\?status=/,
         /^\/api\/hedge-open-tasks\/[^/]+\/(pause|start|delete|fill-once|fill-all)$/,
         /^\/api\/hedge-open-settings$/,
+        /^\/api\/hedge-open-settings\/start-gate$/,
         /^\/api\/hedge-open-positions$/,
         // real-api-v1：attempt 时间线经既有 logs 路由读取（同源、GET）。
         /^\/api\/hedge-open-logs\?/
@@ -4361,6 +4567,8 @@ setTimeout(async () => {
           if (c.method !== 'GET') throw new Error(`开单任务列表路由非法方法 ${c.method}`);
         } else if (/^\/api\/hedge-open-tasks\/[^/]+\//.test(c.url)) {
           if (c.method !== 'POST') throw new Error(`开单任务动作路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/hedge-open-settings/start-gate') {
+          if (c.method !== 'POST') throw new Error(`闸门变更路由非法方法 ${c.method}`);
         } else if (c.url === '/api/hedge-open-settings' || c.url === '/api/hedge-open-positions') {
           if (c.method !== 'GET') throw new Error(`开单设置/持仓路由非法方法 ${c.method}`);
         } else if (c.url.startsWith('/api/hedge-open-logs')) {

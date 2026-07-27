@@ -1720,6 +1720,52 @@ class HedgeOpenStore:
             )
             return self.get_settings()
 
+    def set_start_gate_cas(
+        self, enabled: bool, expected_version: int, now_us: int,
+    ) -> dict | None:
+        """Compare-and-swap the Start gate with a same-transaction audit row
+        (ADR-H2 / 10-design §2.3). Returns the updated settings doc on hit, or
+        ``None`` on a version mismatch (the caller answers 409 ``version_conflict``).
+
+        The audit row (``hedge_open_log`` kind ``start_gate_changed``, sentinel
+        ``task_id="start-gate"``) is written in the SAME store transaction as the
+        gate UPDATE, so the change and its audit record share one atomic commit.
+        The pre-existing unconditional :meth:`set_start_gate` seam is left
+        untouched (tests use it; additive, unchanged signature)."""
+        with self._lock, self._conn:
+            prev = self._conn.execute(
+                "SELECT start_gate, version FROM hedge_open_settings WHERE id = 1"
+            ).fetchone()
+            if prev is None or prev["version"] != expected_version:
+                return None
+            previous_enabled = bool(prev["start_gate"])
+            cur = self._conn.execute(
+                "UPDATE hedge_open_settings SET start_gate = ?, version = version + 1,"
+                " updated_at_us = ? WHERE id = 1 AND version = ?",
+                (1 if enabled else 0, now_us, expected_version),
+            )
+            if cur.rowcount == 0:
+                return None
+            self._conn.execute(
+                "INSERT INTO hedge_open_log (task_id, ts_us, attempt_id, kind, payload)"
+                " VALUES (?, ?, NULL, ?, ?)",
+                (
+                    "start-gate",
+                    now_us,
+                    "start_gate_changed",
+                    json.dumps(
+                        {
+                            "enabled": bool(enabled),
+                            "previous_enabled": previous_enabled,
+                            "version": expected_version + 1,
+                            "source": "api",
+                        },
+                        ensure_ascii=False,
+                    ),
+                ),
+            )
+            return self.get_settings()
+
     def set_rate_limit_order(self, rate_limit_order: int | None, now_us: int) -> dict:
         with self._lock, self._conn:
             self._conn.execute(

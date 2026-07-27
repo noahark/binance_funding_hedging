@@ -15,6 +15,7 @@ import pytest
 
 from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.executor import AttemptContext
+from backend.hedge_open_tasks.wire_constraints import validate_order_params
 from backend.services.hedge_open_live_client import HedgeHttpResponse
 from backend.services.live_hedge_executor import (
     LEG_ACCEPTED,
@@ -53,9 +54,16 @@ class _FakeClient:
         self.perp_query_count = 0
 
     def post_margin_order(self, params, *, timestamp_ms, recv_window_ms=None):
+        # S5 (ADR-H4): the fake client enforces the SAME offline wire rules as the
+        # record transport, so a format-class defect is rejected here with a
+        # Binance-style -4015 instead of an accepted fill.
+        if validate_order_params(params):
+            return _resp(400, {"code": -4015, "msg": "Illegal characters found in parameter 'newClientOrderId'."})
         return self._spot_post
 
     def post_um_order(self, params, *, timestamp_ms, recv_window_ms=None):
+        if validate_order_params(params):
+            return _resp(400, {"code": -4015, "msg": "Illegal characters found in parameter 'newClientOrderId'."})
         return self._perp_post
 
     def query_margin_order(self, symbol, cid, *, timestamp_ms, recv_window_ms=None):
@@ -195,6 +203,24 @@ def test_order_id_normalization(value, expected):
         assert d.dispatch_state == LEG_UNKNOWN_QUERYING  # no valid orderId -> unknown
     else:
         assert d.order_id == expected
+
+
+# ---- strict fake client: offline wire rules -> Binance-style -4015 (S5) ----
+def test_fake_client_rejects_overlong_client_id_with_binance_style_4015():
+    """S5 (ADR-H4): the strict fake client enforces the same offline wire rules
+    as the record transport, so a too-long ``newClientOrderId`` is rejected with
+    a Binance-style ``-4015`` (the code a real 38-char id returned). A clean body
+    is still accepted (the default scripted 200)."""
+    client = _FakeClient()
+    bad = {
+        "symbol": "BTCUSDT", "side": "BUY", "type": "MARKET",
+        "quantity": "0.5", "newClientOrderId": "x" * 37,
+    }
+    resp = client.post_margin_order(bad, timestamp_ms=1)
+    assert resp.http_status == 400
+    assert resp.body["code"] == -4015
+    good = {**bad, "newClientOrderId": "hgxs"}
+    assert client.post_margin_order(good, timestamp_ms=1).http_status == 200
 
 
 # ---- concurrent two-leg dispatch ----

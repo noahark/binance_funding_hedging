@@ -142,6 +142,78 @@ def test_create_rejects_unknown_and_invalid_fields(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# S4b (ADR-H5): create_task leg-existence interception
+# ---------------------------------------------------------------------------
+
+class _ProbePreflight:
+    """A provider that exposes the S4b leg probe but returns no snapshot, to
+    isolate the create_task interception from preflight math."""
+
+    def __init__(self, legs):
+        self._legs = legs
+
+    def get_snapshot(self, coin):
+        return None  # dry-run path; compute_preflight tolerates a None snapshot
+
+    def check_symbol_legs(self, coin):
+        return self._legs
+
+
+def test_create_blocks_when_spot_leg_confirmed_absent(tmp_path):
+    # KORUUSDT case: spot absent (False, -1121), UM present (True).
+    svc = _svc(tmp_path, preflight=_ProbePreflight({"spot": False, "perp": True}))
+    with pytest.raises(D.HedgeError) as exc:
+        svc.create_task({"coin": "KORUUSDT", "direction": "forward", "mode": "immediate",
+                         "single_amount": "0.5", "target_n": 1})
+    err = exc.value
+    assert err.status == 400
+    assert err.code == "missing_leg"
+    assert err.extra == {"missing": ["spot"]}
+    assert err.detail == "该交易对在币安现货市场不存在（缺少现货腿），无法创建对冲任务"
+
+
+def test_create_blocks_when_perp_leg_confirmed_absent(tmp_path):
+    svc = _svc(tmp_path, preflight=_ProbePreflight({"spot": True, "perp": False}))
+    with pytest.raises(D.HedgeError) as exc:
+        svc.create_task(_create_body())
+    err = exc.value
+    assert err.code == "missing_leg"
+    assert err.extra == {"missing": ["perp"]}
+    assert err.detail == "该交易对在币安 USDⓈ-M 合约市场不存在（缺少合约腿），无法创建对冲任务"
+
+
+def test_create_blocks_when_both_legs_confirmed_absent(tmp_path):
+    svc = _svc(tmp_path, preflight=_ProbePreflight({"spot": False, "perp": False}))
+    with pytest.raises(D.HedgeError) as exc:
+        svc.create_task(_create_body())
+    err = exc.value
+    assert err.extra == {"missing": ["spot", "perp"]}
+    assert err.detail == "该交易对在币安现货与 USDⓈ-M 合约市场均不存在，无法创建对冲任务"
+
+
+def test_create_does_not_block_when_probe_indeterminate(tmp_path):
+    # None (read failed) must NOT block — a transient public-marketdata failure
+    # is never escalated to a create failure (10-design §2.4b).
+    svc = _svc(tmp_path, preflight=_ProbePreflight({"spot": None, "perp": None}))
+    status, _ = svc.create_task(_create_body())
+    assert status == 201
+
+
+def test_create_does_not_block_when_legs_present(tmp_path):
+    svc = _svc(tmp_path, preflight=_ProbePreflight({"spot": True, "perp": True}))
+    status, _ = svc.create_task(_create_body())
+    assert status == 201
+
+
+def test_create_default_provider_has_no_probe_and_does_not_block(tmp_path):
+    # The dry-run DisabledPreflightProvider (default) exposes no probe -> no
+    # interception -> dry-run create is unchanged.
+    svc = _svc(tmp_path)
+    status, _ = svc.create_task(_create_body())
+    assert status == 201
+
+
+# ---------------------------------------------------------------------------
 # Task lifecycle
 # ---------------------------------------------------------------------------
 

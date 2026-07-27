@@ -31,6 +31,7 @@ a live send is never authorized on incomplete facts.
 from __future__ import annotations
 
 import json
+import urllib.error
 import urllib.request
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Optional
@@ -112,6 +113,40 @@ def _find_symbol(symbols: list, coin: str) -> Optional[dict]:
     return None
 
 
+# S4b (ADR-H5): three-state leg existence from a public read result. True =
+# confirmed present; False = confirmed absent; None = indeterminate (read failed
+# or an unexpected shape). The caller never blocks on None — a transient
+# public-marketdata failure is not escalated to a create-task failure.
+
+def _spot_leg_exists(status: Optional[int], body: object, coin: str) -> Optional[bool]:
+    """Spot ``GET /api/v3/exchangeInfo?symbol=`` returns 2xx + the symbol for an
+    existing pair, or HTTP 400 body ``{"code": -1121, ...}`` for an unknown one."""
+    if status is None or status >= 500:
+        return None
+    if status == 400 and isinstance(body, dict) and body.get("code") == -1121:
+        return False
+    if 200 <= status < 300 and isinstance(body, dict):
+        symbols = body.get("symbols")
+        if isinstance(symbols, list) and any(
+            isinstance(s, dict) and s.get("symbol") == coin for s in symbols
+        ):
+            return True
+    return None
+
+
+def _perp_leg_exists(status: Optional[int], body: object, coin: str) -> Optional[bool]:
+    """UM ``GET /fapi/v1/exchangeInfo`` returns the full symbol list; the coin is
+    present (True) or absent (False) on a successful read, None on failure."""
+    if status is None or status >= 500 or not isinstance(body, dict):
+        return None
+    if not 200 <= status < 300:
+        return None
+    symbols = body.get("symbols")
+    if not isinstance(symbols, list):
+        return None
+    return any(isinstance(s, dict) and s.get("symbol") == coin for s in symbols)
+
+
 class HedgePreflightProvider:
     """Read-only preflight data source for the live hedge-open path.
 
@@ -142,6 +177,40 @@ class HedgePreflightProvider:
             return json.loads(raw)
         except Exception:
             return None
+
+    def _read_public_with_status(self, url: str) -> tuple[Optional[int], object]:
+        """Read a public endpoint surfacing the HTTP status + body, so a -1121
+        (an unknown spot symbol returned as HTTP 400 with body
+        ``{"code": -1121, ...}``) can be told apart from a transport failure.
+
+        Returns ``(status, body)`` — ``(None, None)`` on a transport/decode
+        failure. Unlike :meth:`_read_public_json`, an :class:`HTTPError` body is
+        read (Binance ships the error code there) rather than swallowed.
+        """
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": self._user_agent})
+            with self._public_urlopen(req, timeout=self._timeout) as resp:
+                status = getattr(resp, "status", None)
+                if status is None:
+                    status = getattr(resp, "code", None)  # http.client compat
+                raw = resp.read().decode("utf-8", "replace")
+            try:
+                return int(status), json.loads(raw)
+            except (TypeError, ValueError):
+                return None, None
+        except urllib.error.HTTPError as exc:
+            # Binance returns HTTP 400 + body {"code": -1121, "msg": ...} for an
+            # unknown symbol; surface the parsed body so the probe can read it.
+            try:
+                body = json.loads(exc.read().decode("utf-8", "replace"))
+            except Exception:
+                body = None
+            try:
+                return int(exc.code), body
+            except (TypeError, ValueError):
+                return None, body
+        except Exception:
+            return None, None
 
     def _read_spot_filters(self, coin: str) -> Optional[tuple[dict, bool]]:
         data = self._read_public_json(f"{_SPOT_API_BASE}/api/v3/exchangeInfo?symbol={coin}")
@@ -286,3 +355,24 @@ class HedgePreflightProvider:
             rate_limit_order=rate_limit,
             symbol_tradable=spot_tradable and perp_tradable,
         )
+
+    def check_symbol_legs(self, coin: str) -> dict:
+        """Three-state existence probe for a coin's spot + UM legs (S4b / ADR-H5).
+
+        Public-only (unsigned); the probe works without credentials and is safe
+        to call from the dry-run record transport as well as the live path.
+        Returns ``{"spot": True|False|None, "perp": True|False|None}`` where
+        ``True`` = confirmed present, ``False`` = confirmed absent (spot -1121 or
+        perp not in the full exchangeInfo list), and ``None`` = indeterminate (a
+        read failure the caller does NOT block on).
+        """
+        spot_status, spot_body = self._read_public_with_status(
+            f"{_SPOT_API_BASE}/api/v3/exchangeInfo?symbol={coin}"
+        )
+        perp_status, perp_body = self._read_public_with_status(
+            f"{_FAPI_BASE}/fapi/v1/exchangeInfo"
+        )
+        return {
+            "spot": _spot_leg_exists(spot_status, spot_body, coin),
+            "perp": _perp_leg_exists(perp_status, perp_body, coin),
+        }

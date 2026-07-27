@@ -1,0 +1,21 @@
+# Merged-state rerun after the review-2 REWORK fix — bookkeeper, authoritative
+# 2026-07-28, stage 2026-07-hedge-open-live-hardening-v1, rework round 1
+
+$ .venv/bin/python -m pytest backend/tests -q
+...............................................                          [100%]
+983 passed in 51.03s
+
+$ node frontend/self-check.js (tail)
+
+全部自检通过
+PASS lines: 122
+
+$ .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+........................................................................ [100%]
+72 passed in 1.09s
+
+$ git diff --check
+(exit 0)
+
+Baseline before this fix: 979 backend / 122 frontend / 72 protocol.
+Now: 983 backend (+4 new end-to-end record-transport filter tests) / 122 / 72.

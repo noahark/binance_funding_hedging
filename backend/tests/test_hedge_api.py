@@ -47,7 +47,7 @@ _TASK_KEYS = {
     "last_worker_exit_reason",
     "created_at", "updated_at",
 }
-_SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds"}
+_SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds", "version"}
 _ERROR_KEYS = {"error", "detail"}
 _POSITION_KEYS = {
     "coin", "direction", "position_qty", "spot_avg", "perp_avg",
@@ -139,6 +139,15 @@ def _post_create(host, port, body=None):
     return _req(host, port, "POST", "/api/hedge-open-tasks", body=body, content_type=ctype)
 
 
+def _post_start_gate(host, port, body):
+    """POST the start-gate body; return ``(status, content_type, payload)``."""
+    data, ctype = _post_json(body)
+    return _req(
+        host, port, "POST", "/api/hedge-open-settings/start-gate",
+        body=data, content_type=ctype,
+    )
+
+
 def _create_task(host, port, body=None):
     """POST a valid create body and return the parsed task doc (201 expected)."""
     _, _, payload = _post_create(host, port, body)
@@ -204,6 +213,7 @@ def test_settings_default_shape(tmp_path):
         assert settings["executor_mode"] == "disabled"
         assert settings["start_gate"] is False
         assert settings["interval_seconds"] == 1
+        assert settings["version"] == 1  # fresh DB; additive S3 CAS guard
 
 
 def test_settings_reports_live_mode_when_configured(tmp_path):
@@ -211,6 +221,93 @@ def test_settings_reports_live_mode_when_configured(tmp_path):
         status, _, payload = _req(host, port, "GET", "/api/hedge-open-settings")
         assert status == 200
         assert _json(payload)["executor_mode"] == "live"
+
+
+# ===========================================================================
+# Start gate (S3 / ADR-H2): CAS write, confirmation-gated, default off (§2.3)
+# ===========================================================================
+def test_start_gate_default_off_and_bare_post_rejected(tmp_path):
+    with _server(_svc(tmp_path)) as (host, port):
+        # A fresh DB ships with the gate OFF and version 1.
+        _, _, payload = _req(host, port, "GET", "/api/hedge-open-settings")
+        assert _json(payload)["start_gate"] is False
+        # A bare POST without confirm:true cannot open the gate.
+        status, _, payload = _post_start_gate(
+            host, port, {"enabled": True, "confirm": False, "version": 1}
+        )
+        assert status == 400
+        assert _json(payload)["error"] == "confirmation_required"
+        # The gate is still off afterwards.
+        _, _, payload = _req(host, port, "GET", "/api/hedge-open-settings")
+        assert _json(payload)["start_gate"] is False
+
+
+def test_start_gate_confirm_must_be_literal_true(tmp_path):
+    with _server(_svc(tmp_path)) as (host, port):
+        for bad in (1, "true", None):
+            status, _, payload = _post_start_gate(
+                host, port, {"enabled": True, "confirm": bad, "version": 1}
+            )
+            assert status == 400
+            assert _json(payload)["error"] == "confirmation_required"
+
+
+def test_start_gate_open_succeeds_and_increments_version(tmp_path):
+    with _server(_svc(tmp_path)) as (host, port):
+        status, _, payload = _post_start_gate(
+            host, port, {"enabled": True, "confirm": True, "version": 1}
+        )
+        assert status == 200
+        doc = _json(payload)
+        assert set(doc.keys()) == _SETTINGS_KEYS
+        assert doc["start_gate"] is True
+        assert doc["version"] == 2
+
+
+def test_start_gate_close_lowers_gate(tmp_path):
+    with _server(_svc(tmp_path)) as (host, port):
+        _post_start_gate(host, port, {"enabled": True, "confirm": True, "version": 1})
+        status, _, payload = _post_start_gate(
+            host, port, {"enabled": False, "confirm": True, "version": 2}
+        )
+        assert status == 200
+        doc = _json(payload)
+        assert doc["start_gate"] is False
+        assert doc["version"] == 3
+
+
+def test_start_gate_version_conflict_returns_409_with_current_settings(tmp_path):
+    with _server(_svc(tmp_path)) as (host, port):
+        status, _, payload = _post_start_gate(
+            host, port, {"enabled": True, "confirm": True, "version": 99}
+        )
+        assert status == 409
+        body = _json(payload)
+        assert body["error"] == "version_conflict"
+        assert set(body["settings"].keys()) == _SETTINGS_KEYS
+        assert body["settings"]["version"] == 1  # the current doc, for refresh
+
+
+@pytest.mark.parametrize("body, code", [
+    ({"enabled": True, "confirm": True, "version": 1, "x": 1}, "invalid_field"),
+    ({"enabled": "true", "confirm": True, "version": 1}, "invalid_field"),
+    ({"enabled": True, "confirm": True, "version": "1"}, "invalid_field"),
+    ({"enabled": True, "confirm": True, "version": True}, "invalid_field"),
+])
+def test_start_gate_rejects_bad_body(tmp_path, body, code):
+    with _server(_svc(tmp_path)) as (host, port):
+        status, _, payload = _post_start_gate(host, port, body)
+        assert status == 400
+        assert _json(payload)["error"] == code
+
+
+def test_start_gate_subpath_get_is_method_not_allowed(tmp_path):
+    with _server(_svc(tmp_path)) as (host, port):
+        # The new sub-path is POST-only; GET answers 405 (it IS a known
+        # hedge-open route, just not for GET), not 404.
+        status, _, payload = _req(host, port, "GET", "/api/hedge-open-settings/start-gate")
+        assert status == 405
+        assert _json(payload)["error"] == "method_not_allowed"
 
 
 # ===========================================================================
