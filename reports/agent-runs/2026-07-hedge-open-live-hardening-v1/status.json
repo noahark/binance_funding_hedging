@@ -220,7 +220,17 @@
       "dispatched_at": "2026-07-27T18:50:00+08:00"
     }
   ],
-  "fix_authors": [],
+  "fix_authors": [
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_prepared",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-fix-review-2-s5.dispatch.md",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/40-fix-review-2-s5.md",
+      "identity_note": "The fix author may be the original backend implementer; AGENTS.md bans reviewer==implementer, not fixer==implementer. Review-1 on the reworked range must stay provider-isolated from claude_glm."
+    }
+  ],
   "reviewer_1": null,
   "review_1_dispatch_plan": {
     "revised_at": "2026-07-27T18:55:00+08:00",
@@ -582,9 +592,9 @@
     "p3_findings_not_fixed_here": "Four P3s across both gates, none in required_fixes. Not repaired in this stage because any edit would move the diff and invalidate the fingerprint both gates just reviewed. Filed as stage follow-ups below."
   },
   "review_2": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
+    "reviewer": "codex",
+    "provider": "codex",
+    "model": "GPT-5 Codex",
     "primary_provider": "codex",
     "fallback_provider": "claude",
     "fallback_reason": null,
@@ -596,18 +606,25 @@
       "reason": null,
       "unrelated_reviewer_unavailable_evidence": null
     },
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "open_p0_p1": 0,
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
     "covers_through_task": null,
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "reviewer verdict JSON, copied verbatim into reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-fix-review-2-s5.dispatch.md",
+    "invalid_json_attempts": 0,
+    "fingerprint_matches_status": true,
+    "findings_summary": "1 P2: RecordTransportExecutor calls validate_order_params without step_size/min_qty/max_qty, so a quantity violating the symbol grid or bounds is still simulated as a successful fill. 00-task.md S5 requires precision checked against the loaded symbol filters.",
+    "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/50-review-2.md",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/50-review-2.dispatch.md",
+    "next_action": "fix",
+    "bookkeeper_verification": "JSON parsed and validated against schemas/review-verdict.schema.json; diff_fingerprint identical to status. The finding was verified independently against the code, not accepted on the reviewer's word: wire_constraints.py:101-119 implements step/min/max checks, executor.py:303-304 passes none of them, and 00-task.md S5 requires 'quantity/price precision against the symbol filters already loaded'. The validator was built and then not wired in. REWORK is correct.",
+    "recorded_at": "2026-07-27T22:40:00+08:00"
   },
   "authorized_exceptions": [],
   "main_syncs": [],
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {
@@ -624,8 +641,8 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Human operator runs 50-review-2.dispatch.md in a fresh read-only Codex session (codex exec --sandbox read-only) over the pinned range 6c5b170..319d831. The packet now discloses the 2026-07-27 live acceptance run: it confirms S1's P0 fix and S3's write path in production, and it surfaced four defects (F-1..F-4) that the bookkeeper determined lie outside this stage's five items — Codex is asked to independently judge that determination. Codex retains zero prior involvement, so no disclosure override is needed. After this gate closes, open the proposed stage 2026-07-hedge-order-truth-v1.",
-  "updated_at": "2026-07-27T22:10:00+08:00",
+  "next_action": "Review-2 returned REWORK on one verified P2. Human operator runs 60-fix-review-2-s5.dispatch.md in a fresh write-capable Claude-GLM session; its PROMPT BODY is the final reviewer's own fix_start_prompt copied verbatim. The fix wires the loaded spot/perp MARKET quantity step/min/max into the record transport's two validate_order_params calls and adds an end-to-end regression. ADR-H4 stays frozen: wire_constraints must NOT be mounted on the live send path. After the fix returns the diff moves, so: bookkeeper R4 -> merged-state rerun -> evidence commit -> NEW base..head and fingerprint -> backend Review-1 on the new range (provider-isolated from claude_glm) -> Review-2 again. rework_count 1 of 3.",
+  "updated_at": "2026-07-27T22:40:00+08:00",
   "harness_followups": [
     {
       "id": "registry-grok-drift",
@@ -692,5 +709,12 @@
     "outstanding_real_position": "The perp leg filled: SHORT 10000 NOMUSDT, orderId 888412130, unhedged, residual -10000. No close functionality exists (third stage of the programme), so unwinding is a manual user action on Binance. The task settled to done rather than pausing, which is CORRECT per the frozen design — single_leg_exposure is ADVISORY (domain.py:96-99). Whether that remains the right product decision is an open user question, recorded in the proposal, not decided by the bookkeeper.",
     "user_decision": "Review-2 proceeds as planned; F-1..F-4 plus a new persistence requirement (store the raw order-placement response and the full order-detail query response) open a separate stage. Proposal: reports/agent-runs/_proposals/2026-07-27-hedge-order-truth-and-error-fidelity.md",
     "disclosed_to_review_2": true
-  }
+  },
+  "review_1_miss": {
+    "what": "The backend Review-1 (grok-4.5) observed the exact fact Review-2 later blocked on — it wrote in residual_risks that the record transport 'does not pass the symbol filter step/min/max into validate_order_params' — but filed it as an accepted residual risk rather than a finding.",
+    "why_it_differed": "Grok measured it against 10-design §2.5, whose wording makes the grid checks read as optional. Codex measured it against 00-task.md's S5 acceptance criterion, which requires precision to be checked against the loaded symbol filters. AGENTS.md puts the approved requirements above design artifacts for the final gate, so Codex used the correct authority order.",
+    "significance": "This is the first real miss by the Grok review-1 channel, which the user enabled for this stage (15-user-authorized-grok-review-1.md). Recorded as evidence for judging that channel, not as a reason to discard it: the verdicts were schema-valid, fingerprint-matched and on time, and the miss was a severity/authority-order judgement, not a failure to read the code.",
+    "recorded_at": "2026-07-27T22:40:00+08:00"
+  },
+  "status_note": "Held at review_2 rather than 'fixing' on purpose: the validator treats workflow phases as monotonic (fixing=2 < review_2=3), so once a review_2 dispatch exists the root status may not fall back. The stage has entered the final-gate phase and is working through that gate's REWORK; next_action carries the actual in-flight work."
 }

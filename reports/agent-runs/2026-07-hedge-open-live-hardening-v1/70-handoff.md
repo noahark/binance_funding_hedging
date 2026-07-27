@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `REVIEW-2 — both Review-1 gates ACCEPT. 50-review-2.dispatch.md awaits a read-only Codex session; it now discloses the 2026-07-27 live acceptance run.`
+- Active phase: `REVIEW-2 RETURNED REWORK — one verified P2 (S5 filter wiring). Fix packet 60-fix-review-2-s5.dispatch.md awaits a write-capable Claude-GLM session. rework_count 1/3.`
 - ⚠️ A real naked SHORT 10000 NOMUSDT (orderId 888412130) is outstanding from that run and needs manual unwinding on Binance — the system has no close function.
 - Pinned range: `base 6c5b170` → `head 319d831`; fingerprint `319d8317…:2a457c0f…` (full value in `status.json.diff_fingerprint`).
 - Merged-state rerun (authoritative): backend **979 passed**, frontend **122 PASS**, protocol suite 72 passed, `git diff --check` clean. Evidence `60-test-output.txt`.
@@ -304,6 +304,51 @@ is an open user question recorded in the proposal.
 
 The Review-2 packet discloses all of this and explicitly asks Codex to judge the
 bookkeeper's scope determination independently.
+
+## Review-2 — REWORK (GPT-5 Codex, 2026-07-27)
+
+Schema-valid, fingerprint identical to status, zero prior involvement. One P2
+finding, `next_action: fix`, with a complete `fix_start_prompt`.
+
+**The finding, verified by the bookkeeper against the code rather than taken on
+the reviewer's word:**
+
+`RecordTransportExecutor.execute` calls `validate_order_params(spot_params)` and
+`validate_order_params(perp_params)` (`executor.py:303-304`) passing **none** of
+`step_size` / `min_qty` / `max_qty`, while `wire_constraints.py:101-119`
+implements all three. A quantity violating the symbol's grid or bounds is
+therefore still simulated as a successful fill offline. `00-task.md`'s S5
+criterion requires *"quantity/price precision against the symbol filters already
+loaded"* — the validator was built and then not wired in. **REWORK is correct.**
+
+### A real Review-1 miss, recorded
+
+The backend Review-1 (grok-4.5) **saw this exact fact** and filed it in
+`residual_risks` instead of `findings`, reasoning it matched 10-design §2.5's
+optional-grid wording. Review-2 measured against the **acceptance criteria**
+instead — which is the authority order AGENTS.md mandates for the final gate
+(approved requirements outrank design artifacts).
+
+Recorded in `status.json.review_1_miss` as evidence for judging the
+user-enabled Grok channel — not as grounds to discard it. Both Grok verdicts
+were schema-valid, fingerprint-matched and on time; this was a severity and
+authority-order judgement, not a failure to read the code.
+
+## Next Action
+
+1. **Human operator** runs `60-fix-review-2-s5.dispatch.md` in a fresh
+   write-capable Claude-GLM session. Its PROMPT BODY is the final reviewer's own
+   `fix_start_prompt`, **copied verbatim** — the bookkeeper added routing
+   metadata and rewrote nothing.
+2. The fix wires the loaded spot/perp MARKET quantity step/min/max into the
+   record transport's two `validate_order_params` calls and adds an end-to-end
+   regression (not just a direct validator unit test). **ADR-H4 stays frozen**:
+   `wire_constraints` must not be mounted on the live send path.
+3. The diff will move, so the current fingerprint dies with it. Then: bookkeeper
+   R4 → merged-state rerun → evidence commit → **new** `base..head` and
+   fingerprint → backend Review-1 on the new range (provider-isolated from
+   `claude_glm`) → Review-2 again.
+4. `rework_count` is **1 of 3**.
 
 ## Gate Record
 
