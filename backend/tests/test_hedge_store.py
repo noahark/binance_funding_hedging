@@ -7,6 +7,7 @@ and crash-style restart recovery (reopen the same DB file).
 """
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 
 import pytest
@@ -295,6 +296,71 @@ def test_settings_defaults_and_start_gate(tmp_path):
     assert s["executor_mode_snapshot"] == "disabled"
     store.set_start_gate(True, 1_000)
     assert store.get_settings()["start_gate"] == 1
+    store.close()
+
+
+# ---------------------------------------------------------------------------
+# S3 (ADR-H2): compare-and-swap Start-gate write + same-transaction audit row
+# ---------------------------------------------------------------------------
+
+def test_set_start_gate_cas_hits_and_writes_audit_in_same_transaction(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    assert store.get_settings()["version"] == 1
+    result = store.set_start_gate_cas(True, 1, 1_000)
+    assert result is not None
+    assert result["start_gate"] == 1
+    assert result["version"] == 2
+    # The audit row landed in hedge_open_log (the full legacy projection).
+    rows, _ = store.list_logs_page(10, None, None)
+    audits = [r for r in rows if r["kind"] == "start_gate_changed"]
+    assert len(audits) == 1
+    a = audits[0]
+    assert a["task_id"] == "start-gate"  # sentinel: a global fact, no owning task
+    assert a["attempt_id"] is None
+    assert json.loads(a["payload"]) == {
+        "enabled": True, "previous_enabled": False, "version": 2, "source": "api",
+    }
+    store.close()
+
+
+def test_set_start_gate_cas_miss_returns_none_and_writes_nothing(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    # A wrong expected_version -> None, no gate change, no audit row.
+    assert store.set_start_gate_cas(True, 99, 1_000) is None
+    assert store.get_settings()["start_gate"] == 0
+    assert store.get_settings()["version"] == 1
+    rows, _ = store.list_logs_page(10, None, None)
+    assert not any(r["kind"] == "start_gate_changed" for r in rows)
+    store.close()
+
+
+def test_set_start_gate_cas_close_records_previous_enabled_true(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    store.set_start_gate_cas(True, 1, 1_000)       # open (v1 -> v2)
+    result = store.set_start_gate_cas(False, 2, 2_000)  # close (v2 -> v3)
+    assert result["start_gate"] == 0
+    assert result["version"] == 3
+    rows, _ = store.list_logs_page(10, None, None)
+    close = next(r for r in rows if json.loads(r["payload"])["enabled"] is False)
+    assert json.loads(close["payload"])["previous_enabled"] is True
+    store.close()
+
+
+# M-1: pin the implicit dependency. The start_gate_changed audit payload's key
+# set is exactly the four frozen keys AND is disjoint from the attempt-shape keys
+# the frontend (extractHedgeAttempts) uses to detect an attempt card — so a gate
+# event carried in the legacy `logs` array never renders as an attempt.
+_ATTEMPT_SHAPE_KEYS = {"attempt_seq", "pair_outcome", "spot", "perp"}
+
+
+def test_m1_start_gate_audit_payload_keys_disjoint_from_attempt_shape(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    store.set_start_gate_cas(True, 1, 1_000)
+    rows, _ = store.list_logs_page(10, None, None)
+    a = next(r for r in rows if r["kind"] == "start_gate_changed")
+    payload = json.loads(a["payload"])
+    assert set(payload.keys()) == {"enabled", "previous_enabled", "version", "source"}
+    assert set(payload.keys()).isdisjoint(_ATTEMPT_SHAPE_KEYS)
     store.close()
 
 

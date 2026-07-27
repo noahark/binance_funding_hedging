@@ -94,7 +94,10 @@ def test_record_transport_spot_params_shape_forward():
     assert spot["quantity"] == "0.5"
     assert spot["sideEffectType"] == "NO_SIDE_EFFECT"
     assert spot["newOrderRespType"] == "RESULT"
-    assert spot["newClientOrderId"].startswith("hgo-abc123-s")
+    # S1 (ADR-H1): hg + attempt_id + leg suffix; at a full 32-hex uuid the id is
+    # 35 chars, within Binance's 36-char cap. The pre-fix ``hgo-<hex>-s`` form
+    # (38 chars) is gone.
+    assert spot["newClientOrderId"] == "hgabc123s"
     # reduceOnly never appears on the spot leg; no secrets are recorded.
     assert "reduceOnly" not in spot
     for key in _FORBIDDEN_SECRET_KEYS:
@@ -126,7 +129,7 @@ def test_record_transport_marks_posted_false_and_q_common():
     assert out.record_payload["posted"] is False
     assert out.record_payload["q_common"] == "0.5"
     assert out.record_payload["q_common_resolved"] is True
-    assert out.record_payload["client_ids"] == {"spot": "hgo-abc123-s", "perp": "hgo-abc123-p"}
+    assert out.record_payload["client_ids"] == {"spot": "hgabc123s", "perp": "hgabc123p"}
 
 
 def test_record_transport_unrounded_quantity_when_no_q_common():
@@ -137,6 +140,35 @@ def test_record_transport_unrounded_quantity_when_no_q_common():
     assert out.record_payload["q_common"] is None
     assert out.record_payload["q_common_resolved"] is False
     assert out.record_payload["send_quantity"] == "0.555"
+
+
+# ---------------------------------------------------------------------------
+# S1 client-order-id derivation (ADR-H1): ≤36 chars, distinct, charset-safe
+# ---------------------------------------------------------------------------
+def test_client_order_id_derivation_within_cap_distinct_charset_unique():
+    """S1: the two derived ids are ≤36 chars, mutually distinct, over Binance's
+    documented charset, and unique per attempt; the pre-fix 38-char form is gone."""
+    import uuid
+    from backend.hedge_open_tasks.executor import _client_order_ids
+    from backend.hedge_open_tasks.wire_constraints import CLIENT_ORDER_ID_RE
+
+    seen = set()
+    for _ in range(2000):
+        aid = uuid.uuid4().hex
+        assert len(aid) == 32  # uuid4 hex
+        spot, perp = _client_order_ids(aid)
+        assert spot == f"hg{aid}s"
+        assert perp == f"hg{aid}p"
+        assert spot != perp
+        assert len(spot) == 35 and len(perp) == 35  # hg(2) + hex(32) + suffix(1)
+        assert CLIENT_ORDER_ID_RE.match(spot)
+        assert CLIENT_ORDER_ID_RE.match(perp)
+        assert spot not in seen and perp not in seen
+        seen.add(spot)
+        seen.add(perp)
+    # The pre-fix form was 38 chars (over the 36-char cap) and -4015'd; it is gone.
+    bad = f"hgo-{uuid.uuid4().hex}-s"
+    assert len(bad) == 38 > 36
 
 
 # ---------------------------------------------------------------------------

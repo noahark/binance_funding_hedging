@@ -1157,3 +1157,24 @@ _PAUSE_REASON_ZH = {
     PAUSE_REASON_INSUFFICIENT_MARGIN: "保证金不足，任务已暂停，请补充后手动恢复",
     PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY: "可用数量不足，任务已暂停，请补充后手动恢复",
 }
+
+
+def missing_leg_detail(missing: list[str]) -> str:
+    """Frozen Chinese detail for the create-task ``missing_leg`` error (S4b /
+    10-design §2.4b). Names exactly which leg(s) are confirmed absent on Binance.
+
+    ``missing`` is a subset of ``["spot", "perp"]`` — only legs a probe read
+    succeeded on and found absent (``False``); an indeterminate ``None`` leg
+    never reaches here (the service does not block on None).
+    """
+    has_spot = "spot" in missing
+    has_perp = "perp" in missing
+    if has_spot and has_perp:
+        return "该交易对在币安现货与 USDⓈ-M 合约市场均不存在，无法创建对冲任务"
+    if has_spot:
+        return "该交易对在币安现货市场不存在（缺少现货腿），无法创建对冲任务"
+    if has_perp:
+        return "该交易对在币安 USDⓈ-M 合约市场不存在（缺少合约腿），无法创建对冲任务"
+    # No confirmed-absent leg -> the caller should not have raised; return the
+    # neutral both-absent wording rather than raise from the detail helper.
+    return "该交易对在币安现货与 USDⓈ-M 合约市场均不存在，无法创建对冲任务"

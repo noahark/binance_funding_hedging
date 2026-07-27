@@ -21,6 +21,7 @@ from decimal import Decimal
 from typing import Optional, Protocol
 
 from . import domain as D
+from .wire_constraints import validate_order_params
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +128,7 @@ def build_spot_order_params(
         "symbol": coin,
         "side": actions.spot_side,
         "type": D.ORDER_TYPE_MARKET,
-        "quantity": str(quantity),
+        "quantity": D.fmt_decimal(quantity),
         "sideEffectType": actions.spot_side_effect,
         "newClientOrderId": client_order_id,
         "newOrderRespType": D.ORDER_RESP_RESULT,
@@ -148,7 +149,7 @@ def build_perp_order_params(
         "symbol": coin,
         "side": actions.perp_side,
         "type": D.ORDER_TYPE_MARKET,
-        "quantity": str(quantity),
+        "quantity": D.fmt_decimal(quantity),
         "positionSide": actions.perp_position_side,
         "newClientOrderId": client_order_id,
         "newOrderRespType": D.ORDER_RESP_RESULT,
@@ -156,8 +157,15 @@ def build_perp_order_params(
 
 
 def _client_order_ids(attempt_id: str) -> tuple[str, str]:
-    """Derive the two legs' unique client ids from one attempt id (DI-4 §3)."""
-    return f"hgo-{attempt_id}-s", f"hgo-{attempt_id}-p"
+    """Derive the two legs' unique client ids from one attempt id (DI-4 §3).
+
+    ``hg`` + the attempt's uuid4 hex + a leg suffix ``s``/``p`` = 35 chars
+    (2+32+1), within Binance's 36-char ``newClientOrderId`` cap and over the
+    documented charset (ADR-H1). This is the SINGLE derivation point: the dry-run
+    record transport and the live executor both call it, so the offline wire
+    validator (wire_constraints) and the live send agree on one rule.
+    """
+    return f"hg{attempt_id}s", f"hg{attempt_id}p"
 
 
 def _simulate_leg(
@@ -185,6 +193,23 @@ def _simulate_leg(
         "avg_price": None,
         "cumulative_quote": "0",
         "order_id": None,
+    }
+
+
+def _rejected_leg(client_order_id: str) -> dict:
+    """A leg rejected by the offline wire-constraint gate (S5 / ADR-H4).
+
+    Same shape as a :func:`_simulate_leg` REJECTED leg plus the persisted
+    ``client_order_id``, so :func:`domain.classify_attempt` reads it as a
+    confirmed submission failure (no ``order_id`` -> ATTEMPT_FAILED).
+    """
+    return {
+        "status": D.LEG_REJECTED,
+        "filled_qty": "0",
+        "avg_price": None,
+        "cumulative_quote": "0",
+        "order_id": None,
+        "client_order_id": client_order_id,
     }
 
 
@@ -269,6 +294,29 @@ class RecordTransportExecutor:
             "filter_versions": ctx.filter_versions,
             "preflight_snapshot": ctx.preflight_snapshot,
         }
+        # S5 offline wire-constraint gate (ADR-H4): validate BOTH legs against
+        # the single offline exchange-rule copy BEFORE simulating any outcome.
+        # A format defect (a too-long client id, a quantity in scientific
+        # notation, …) is rejected here in the dry-run record transport rather
+        # than acted out as a balanced fill — so such defects fail OFFLINE,
+        # never survive to a real send.
+        violations = [f"spot: {v}" for v in validate_order_params(spot_params)]
+        violations += [f"perp: {v}" for v in validate_order_params(perp_params)]
+        if violations:
+            record_payload["constraint_violations"] = violations
+            self.records.append(record_payload)
+            spot_leg = _rejected_leg(spot_cid)
+            perp_leg = _rejected_leg(perp_cid)
+            return AttemptOutcome(
+                attempt_id=ctx.attempt_id,
+                category=D.classify_attempt(spot_leg, perp_leg),
+                spot=spot_leg,
+                perp=perp_leg,
+                record_payload=record_payload,
+                exposure=None,
+                error_code="offline_constraint",
+                error_reason_zh="离线参数约束校验失败",
+            )
         self.records.append(record_payload)
 
         # Simulated outcome (no network). A conservative price for avg_price: the

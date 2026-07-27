@@ -1,0 +1,22 @@
+# Merged-state test rerun — bookkeeper, authoritative verdict
+# 2026-07-27 20:50 CST, stage 2026-07-hedge-open-live-hardening-v1
+# Both implementation sessions had stopped before this run.
+
+$ .venv/bin/python -m pytest backend/tests -q
+........................................................................ [ 95%]
+...........................................                              [100%]
+979 passed in 50.31s
+
+$ node frontend/self-check.js  (tail)
+[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、零新任务定时器、localStorage 白名单（仅隐私键）
+
+全部自检通过
+
+PASS lines: 122
+
+$ .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+........................................................................ [100%]
+72 passed in 1.14s
+
+$ git diff --check
+(exit 0)

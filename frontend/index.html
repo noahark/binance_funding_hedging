@@ -1150,6 +1150,7 @@
           <div class="borrow-execution-row borrow-settings-row">
             <span class="badge muted" id="hedge-execution-badge">执行状态：加载中</span>
             <span class="muted small" id="hedge-execution-detail"></span>
+            <button class="btn compact" id="hedge-start-gate-toggle" type="button" style="display:none;"></button>
           </div>
 
           <div id="hedge-tasks-panel">
@@ -1196,7 +1197,9 @@
     <h3 id="hedge-modal-title">—</h3>
     <p class="modal-body" id="hedge-modal-body"></p>
     <div class="modal-actions">
+      <button class="btn compact" id="hedge-modal-cancel" type="button" style="display:none;">取消</button>
       <button class="btn compact primary" id="hedge-modal-close" type="button">知道了</button>
+      <button class="btn compact primary" id="hedge-modal-confirm" type="button" style="display:none;">确认</button>
     </div>
   </div>
 
@@ -1271,6 +1274,8 @@
         hedgePositions: [],
         hedgeSettings: null,
         hedgeModal: null,
+        // live-hardening v1（10-design §2.3）：待确认的闸门变更方向（pending 期间未发请求）。
+        hedgeGatePending: null,
         // attempt 时间线（2026-07-hedge-open-real-api-v1，12-breakdown §3.4）：
         // GET /api/hedge-open-logs 返回中 attempt 形状文档的渲染缓存，后端是唯一权威。
         hedgeAttempts: [],
@@ -1360,7 +1365,10 @@
         hedgeModalBackdrop: document.getElementById('hedge-modal-backdrop'),
         hedgeModalTitle: document.getElementById('hedge-modal-title'),
         hedgeModalBody: document.getElementById('hedge-modal-body'),
-        hedgeModalClose: document.getElementById('hedge-modal-close')
+        hedgeModalClose: document.getElementById('hedge-modal-close'),
+        hedgeModalConfirm: document.getElementById('hedge-modal-confirm'),
+        hedgeModalCancel: document.getElementById('hedge-modal-cancel'),
+        hedgeStartGateToggle: document.getElementById('hedge-start-gate-toggle')
       };
 
       function loadPrivacyHidden() {
@@ -3316,6 +3324,18 @@
       const HEDGE_PAUSE_REASON_LABELS = {
         consecutive_submission_failure: '连续提交失败达到阈值'
       };
+      // live-hardening v1（10-design §2.4a）：last_worker_exit_reason 枚举中文映射；
+      // 未收录取值原样展示，前端不发明后端语义。
+      const HEDGE_WORKER_EXIT_REASON_LABELS = {
+        stopped_event: '收到停止信号',
+        task_missing: '任务记录缺失',
+        task_not_running: '任务已非运行态',
+        start_gate_off: '全局开单闸门未开启',
+        target_reached: '计划尝试次数已用完',
+        preflight_incomplete: '预检数据不完整（安全退出）',
+        preflight_fatal: '预检发现致命问题',
+        worker_error: 'worker 异常退出'
+      };
 
       // 开单日志页（15 号修正案 §开单日志页 / 16 号拆分 §5 冻结契约）：entries[].overall_result
       // 与 next_action 中文标签；未收录取值原样展示，前端不发明后端语义。
@@ -3337,6 +3357,21 @@
       function hedgeText(v) {
         if (v === null || v === undefined || v === '') return '—';
         return String(v);
+      }
+
+      // worker_active tri-state → 中文（10-design §2.4a）：true 运行中 / false 未运行 /
+      // null·undefined 缺失 → —。严格布尔判定，null/undefined 落在 — 一侧（dry-run 恒 —）。
+      function hedgeWorkerActiveText(v) {
+        if (v === true) return '运行中';
+        if (v === false) return '未运行';
+        return '—';
+      }
+
+      // last_worker_exit_reason → 中文（10-design §2.4a 冻结映射）；未知取值原样展示，
+      // null/undefined/空降级 —（与 hedgeText 同降级约定）。
+      function hedgeWorkerExitReasonText(v) {
+        if (v === null || v === undefined || v === '') return '—';
+        return HEDGE_WORKER_EXIT_REASON_LABELS[v] || String(v);
       }
 
       // 契约数值字段兼容数字与十进制字符串；无法解析 → NaN → 格式化显示 '—'。
@@ -3433,12 +3468,19 @@
         if (!doc) {
           els.hedgeExecutionBadge.textContent = '执行状态：未加载';
           if (els.hedgeExecutionDetail) els.hedgeExecutionDetail.textContent = '';
+          if (els.hedgeStartGateToggle) els.hedgeStartGateToggle.style.display = 'none';
           return;
         }
         const mode = doc.executor_mode === 'live' ? 'live' : 'dry-run';
         els.hedgeExecutionBadge.textContent = `执行：模式 ${mode} · Start ${doc.start_gate ? '已开启' : '未开启'}`;
         if (els.hedgeExecutionDetail) {
           els.hedgeExecutionDetail.textContent = `调度间隔 ${doc.interval_seconds != null ? doc.interval_seconds : '—'} 秒（后端调度）`;
+        }
+        // live-hardening v1（10-design §2.3）：闸门控件 label 随 start_gate 状态切换。
+        if (els.hedgeStartGateToggle) {
+          const gateOn = !!doc.start_gate;
+          els.hedgeStartGateToggle.textContent = gateOn ? '关闭开单闸门' : '开启开单闸门';
+          els.hedgeStartGateToggle.style.display = '';
         }
       }
 
@@ -3449,6 +3491,48 @@
           if (els.hedgeExecutionBadge) {
             els.hedgeExecutionBadge.textContent = `执行状态：加载失败 (${err.message})`;
           }
+        }
+      }
+
+      // ---- 开单闸门变更（10-design §2.3：对称确认弹窗，开/关同一控件，各恰好一次确认） ----
+      // 点击控件 → 弹一次确认（冻结文案）→ 确认才 POST；取消零请求。version 取自最近一次
+      // GET 缓存的 settings；409 version_conflict → 重新 GET 刷新 + 提示，不自动重试（无死循环）。
+      function requestHedgeStartGate(enabled) {
+        const title = enabled ? '开启全局开单闸门？' : '关闭全局开单闸门？';
+        const body = enabled
+          ? '开启后，实盘模式（live）下被启动的任务可以向币安发出真实订单。此操作立即生效。'
+          : '关闭后，任务的 worker 将在下一轮检查时退出，不再发出新订单；已提交的订单仍会继续查询到终态。';
+        const confirmLabel = enabled ? '确认开启' : '确认关闭';
+        state.hedgeGatePending = { enabled };
+        showHedgeConfirm(title, body, confirmLabel);
+      }
+
+      function cancelHedgeStartGate() {
+        state.hedgeGatePending = null;
+        closeHedgeModal();
+      }
+
+      async function confirmHedgeStartGate() {
+        if (!state.hedgeGatePending) return { ok: false, error: 'no_pending' };
+        const { enabled } = state.hedgeGatePending;
+        state.hedgeGatePending = null;
+        closeHedgeModal();
+        const version = state.hedgeSettings ? state.hedgeSettings.version : null;
+        try {
+          const doc = await hedgeApi('/api/hedge-open-settings/start-gate', {
+            method: 'POST',
+            body: { enabled, confirm: true, version }
+          });
+          renderHedgeExecutionStatus(doc);
+          return { ok: true, settings: doc };
+        } catch (err) {
+          if (err.errorCode === 'version_conflict') {
+            await loadHedgeSettings();
+            showHedgeModal('开单闸门变更', '设置已被其他会话修改，已刷新，请重试');
+            return { ok: false, error: 'version_conflict' };
+          }
+          showHedgeModal('开单闸门变更', err.message || '请求失败');
+          return { ok: false, error: err.errorCode || 'request_failed' };
         }
       }
 
@@ -3485,11 +3569,34 @@
         els.hedgeTaskCount.textContent = String(state.hedgeTasks.filter(t => t.status === 'running').length);
       }
 
-      // ---- 余额不足弹框 ----
+      // ---- 弹框（单按钮通知 / 双按钮确认两态，10-design §2.3） ----
+      // 单按钮（余额不足 / 409 提示等通知）：仅显示「知道了」，清空待确认闸门操作。
       function showHedgeModal(title, body) {
         state.hedgeModal = { title, body };
+        state.hedgeGatePending = null;
         els.hedgeModalTitle.textContent = title;
         els.hedgeModalBody.textContent = body;
+        if (els.hedgeModalConfirm) els.hedgeModalConfirm.style.display = 'none';
+        if (els.hedgeModalCancel) els.hedgeModalCancel.style.display = 'none';
+        if (els.hedgeModalClose) els.hedgeModalClose.style.display = '';
+        els.hedgeModal.classList.add('open');
+        els.hedgeModalBackdrop.classList.add('open');
+        els.hedgeModal.setAttribute('aria-hidden', 'false');
+        els.hedgeModalBackdrop.setAttribute('aria-hidden', 'false');
+      }
+
+      // 双按钮确认（开单闸门对称确认）：显示「取消」+ 动态确认按钮，隐藏「知道了」。
+      // 确认词随方向切换（确认开启 / 确认关闭）；取消或关闭均零请求。
+      function showHedgeConfirm(title, body, confirmLabel) {
+        state.hedgeModal = { title, body, confirmLabel, mode: 'confirm' };
+        els.hedgeModalTitle.textContent = title;
+        els.hedgeModalBody.textContent = body;
+        if (els.hedgeModalConfirm) {
+          els.hedgeModalConfirm.textContent = confirmLabel;
+          els.hedgeModalConfirm.style.display = '';
+        }
+        if (els.hedgeModalCancel) els.hedgeModalCancel.style.display = '';
+        if (els.hedgeModalClose) els.hedgeModalClose.style.display = 'none';
         els.hedgeModal.classList.add('open');
         els.hedgeModalBackdrop.classList.add('open');
         els.hedgeModal.setAttribute('aria-hidden', 'false');
@@ -3498,6 +3605,7 @@
 
       function closeHedgeModal() {
         state.hedgeModal = null;
+        state.hedgeGatePending = null;
         els.hedgeModal.classList.remove('open');
         els.hedgeModalBackdrop.classList.remove('open');
         els.hedgeModal.setAttribute('aria-hidden', 'true');
@@ -3682,13 +3790,19 @@
           : '';
         const inactive = task.status === 'done' || task.status === 'deleted' || task.status === 'stopped' || task.status === 'exposure_alert';
         const pauseDisabled = task.status !== 'running' ? ' disabled' : '';
-        const startDisabled = (task.status !== 'paused' && task.status !== 'exposure_alert') ? ' disabled' : '';
+        const startDisabled = (
+          task.status !== 'paused' &&
+          task.status !== 'exposure_alert' &&
+          !(task.status === 'running' && task.worker_active === false)
+        ) ? ' disabled' : '';
         const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
         const fillDisabled = inactive ? ' disabled' : '';
         const idAttr = escapeHtml(task.id);
         // real-api-v1 增量计数（12-breakdown §3.4，字段缺失时逐项降级为 —）：
         // 已调度组数 / 已受理组数 / 连续提交失败 vs 任务快照阈值；pause_reason 仅展示不推断。
         const countersLine = `<div>已调度 <strong>${hedgeText(task.scheduled_attempt_count)}</strong> 组 · 已受理 <strong>${hedgeText(task.accepted_pair_count)}</strong> 组 · 连续提交失败 <strong>${hedgeText(task.consecutive_submission_failures)}</strong> / 暂停阈值 <strong>${hedgeText(task.failure_pause_threshold)}</strong></div>`;
+        // live-hardening v1（10-design §2.4a）：worker 运行时事实行，恒展示；字段缺失降级 —。
+        const workerLine = `<div>执行线程：<strong>${hedgeWorkerActiveText(task.worker_active)}</strong> · 上次退出原因：<strong>${escapeHtml(hedgeWorkerExitReasonText(task.last_worker_exit_reason))}</strong></div>`;
         const pauseReasonLine = task.pause_reason
           ? `<div class="borrow-task-note">暂停原因：${escapeHtml(HEDGE_PAUSE_REASON_LABELS[task.pause_reason] || String(task.pause_reason))}</div>`
           : '';
@@ -3704,6 +3818,7 @@
               <div>单次币量：<strong>${formatMockPrice(hedgeNum(task.single_amount))}</strong> · 计划尝试次数：<strong>${hedgeText(task.target_n)}</strong></div>
               <div>公共网格量：<strong>${task.q_common != null ? formatMockPrice(hedgeNum(task.q_common)) : '—'}</strong></div>
               ${countersLine}
+              ${workerLine}
               ${exposureLine}
               ${stopReasonLine}
               ${pauseReasonLine}
@@ -4188,6 +4303,12 @@
         els.navHedgeTasks.addEventListener('click', () => setActiveView('hedge-tasks'));
         els.hedgeModalClose.addEventListener('click', closeHedgeModal);
         els.hedgeModalBackdrop.addEventListener('click', closeHedgeModal);
+        if (els.hedgeModalConfirm) els.hedgeModalConfirm.addEventListener('click', confirmHedgeStartGate);
+        if (els.hedgeModalCancel) els.hedgeModalCancel.addEventListener('click', cancelHedgeStartGate);
+        if (els.hedgeStartGateToggle) els.hedgeStartGateToggle.addEventListener('click', () => {
+          const gateOn = !!(state.hedgeSettings && state.hedgeSettings.start_gate);
+          requestHedgeStartGate(!gateOn);
+        });
         // 开单任务筛选按钮经容器事件委托（按钮随 renderHedgeTaskFilters 重渲染）
         els.hedgeTaskFilters.addEventListener('click', (e) => {
           const btn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-hedge-filter]') : null;
@@ -4333,6 +4454,10 @@
         getHedgeAttempts: () => state.hedgeAttempts,
         renderPrivatePanel,
         closeHedgeModal,
+        requestHedgeStartGate,
+        confirmHedgeStartGate,
+        cancelHedgeStartGate,
+        getHedgeGatePending: () => state.hedgeGatePending,
         setHedgeTaskFilter,
         getHedgeTaskFilter: () => state.hedgeTaskFilter,
         getHedgeTasks: () => state.hedgeTasks,
@@ -4349,6 +4474,7 @@
           state.hedgeTasksError = null;
           state.hedgePositions = [];
           state.hedgeSettings = null;
+          state.hedgeGatePending = null;
           state.hedgeAttempts = [];
           state.hedgeAttemptsError = null;
           state.hedgeTab = 'tasks';
