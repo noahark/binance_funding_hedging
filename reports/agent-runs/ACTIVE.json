@@ -1,6 +1,6 @@
 {
-  "active": "2026-07-hedge-open-real-api-v1",
-  "last_completed": "2026-07-hedge-open-live-v1",
-  "note": "Stage 3 design intake is active on stage/2026-07-hedge-open-real-api-v1 from local main 28c550d. It is a MILESTONE design discussion for the user-requested real-API hedge-open round: correct forward quoteOrderQty model, read-only preflight, explicit risk controls, gated live executor, smooth websocket gate, and outstanding live-round follow-ups. Direction panel/synthesis and human approval are required before implementation. No credentials, Binance network calls, live POST, push, or live Start activation are authorized.",
-  "updated_at": "2026-07-23T13:41:25+08:00"
+  "active": null,
+  "last_completed": "2026-07-hedge-open-real-api-v1",
+  "note": "Stage 2026-07-hedge-open-real-api-v1 is ACCEPTED and merged to main. Both Review-1 gates and Review-2 returned ACCEPT; pre-accept passed with no authorized_exception. IMPORTANT: the first real order (2026-07-27, after the gate) was rejected — clientOrderId is 38 chars against Binance's 36-char cap (executor.py:160), so no real order can currently succeed. Two further live-only gaps: a freshly created card cannot be started in live mode, and the global Start gate has no operator entry point. See that stage's 70-handoff.md §First live run and status.json.live_first_run_findings. The next stage should fix those plus the standing follow-ups, and would also restore the reviewer pool — this one is down to codex alone. No live gate is released: APP_HEDGE_EXECUTOR=live, the Start gate and the first real task are three separate human authorizations.",
+  "updated_at": "2026-07-27T09:45:00+08:00"
 }

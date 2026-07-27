@@ -1,14 +1,14 @@
 {
   "stage_id": "2026-07-hedge-open-real-api-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-real-api-v1",
     "created_from_main_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
     "created_at": "2026-07-23T13:41:25+08:00",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "<pending: filled by the merge commit>",
+    "merge_strategy": "no-fast-forward",
     "abandoned_reason": null
   },
   "bookkeeper": {
@@ -1029,6 +1029,17 @@
     "implementation_commit": "9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c",
     "review_outcome": "REWORK at 66-review-1-backend-r4.md: all four authorized production fixes verified correct; two P2s remain (vacuous R3/R4 regressions, STATUS_DONE recovery gap). Superseded as the active authorization by 27-user-authorized-r4-repair.md."
   },
+  "user_acceptance": {
+    "accepted": true,
+    "accepted_at": "2026-07-27T09:45:00+08:00",
+    "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/80-user-acceptance.md",
+    "user_statement": "合并推送，我会起新的终端进行新开stage",
+    "accepted_head": "1c09db491e8f89426b811be990929148f01c1d3c",
+    "accepted_fingerprint": "1c09db491e8f89426b811be990929148f01c1d3c:a5b08463fb690d52687934ec6227783689e94aebc55a39ed51af461c941e7b78",
+    "pre_accept_gate": "PASS with no authorized_exception required",
+    "accepted_with_known_live_blocker": "The P0/P1/P2 in live_first_run_findings were discovered AFTER the final gate, during the first real order. They are runtime/integration gaps no offline review could reach, not regressions of reviewed behaviour, so the ACCEPT stands — but the accepted code is NOT yet usable for real trading (clientOrderId is 38 chars vs Binance's 36-char cap, so every real order returns -4015).",
+    "live_gates_not_released": "APP_HEDGE_EXECUTOR=live, the durable Start gate and the first real task remain three separate human authorizations."
+  },
   "live_first_run_findings": {
     "attempted_at": "2026-07-27T09:00:00+08:00",
     "context": "The user configured APP_HEDGE_EXECUTOR=live plus real hedge credentials, opened the Start gate by direct SQL (no operator entry point exists), and placed a real COOKIEUSDT order. The order was SENT and REJECTED by Binance. No position, no single-leg exposure, no in-flight order resulted.",
@@ -1259,5 +1270,5 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/75-review-2-r3.md"
   ],
   "next_action": "STAGE ACCEPTED BY THE FINAL GATE — awaiting USER acceptance. Nothing is dispatched. Merging to main and any live activation are separate user decisions; the three live gates stay closed. Superseded: human operator runs packet 75 in a fresh read-only Codex session — the fourth and, given the exhausted reviewer pool, likely last final gate. It must review the bookkeeper-authored r8 change as its FIRST reviewer. Previously: the final gate returned REWORK on one process P1; the user special-approved the fix without model review (29-user-special-approval-r8.md) and it is implemented, tested and committed. The stage now awaits the user's decision: either re-open the final gate on the new range, or proceed to live testing with the recorded state 'final gate REWORK + user-approved unreviewed fix'. Live activation remains three separate human authorizations: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task.",
-  "updated_at": "2026-07-27T09:30:00+08:00"
+  "updated_at": "2026-07-27T09:45:00+08:00"
 }
