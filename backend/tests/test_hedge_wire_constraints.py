@@ -211,3 +211,102 @@ def test_record_transport_records_constraint_violations_only_when_defective():
     assert out.category == D.ATTEMPT_SUCCESS
     assert "constraint_violations" not in out.record_payload
     assert out.record_payload["posted"] is False
+
+
+# ---------------------------------------------------------------------------
+# S5 (Review-2 REWORK): the record transport consumes the loaded qty grid/
+# bounds END-TO-END — a quantity that violates the symbol filters already
+# loaded in the preflight snapshot is rejected OFFLINE, not acted out as a fill.
+# ---------------------------------------------------------------------------
+def _ctx_with_qty_filters(
+    spot: dict, perp: dict, *, q_common: str, single_amount: str | None = None,
+) -> AttemptContext:
+    """An AttemptContext whose ``preflight_snapshot`` carries each leg's
+    effective MARKET qty grid/bounds exactly as :func:`domain.compute_preflight`
+    records them (``{leg}_step`` / ``{leg}_min_qty`` / ``{leg}_max_qty``), so the
+    record transport's S5 gate can be exercised end-to-end. ``spot``/``perp`` are
+    ``{"step": ..., "min_qty": ..., "max_qty": ...}`` dicts; any key optional."""
+    snap = {"est_price": "50000"}
+    for key, value in spot.items():
+        snap[f"spot_{key}"] = value
+    for key, value in perp.items():
+        snap[f"perp_{key}"] = value
+    return AttemptContext(
+        attempt_id="a" * 32,  # 32-hex -> 35-char client ids pass the cid gate
+        task_id="t1",
+        coin="BTCUSDT",
+        direction=D.DIR_FORWARD,
+        single_amount=Decimal(single_amount or q_common),
+        q_common=Decimal(q_common),
+        position_side_mode="BOTH",
+        preflight_snapshot=snap,
+        filter_versions={},
+        target_n=3,
+        ts_us=1_000_000,
+    )
+
+
+_GRID_FILTERS = {"step": "0.001", "min_qty": "0.001", "max_qty": "100"}
+
+
+@pytest.mark.parametrize("q_common,fragments", [
+    # 0.0005 is below step_size 0.001 AND below min_qty 0.001 (two violations).
+    ("0.0005", ["multiple of step_size", "below min_qty"]),
+    # 200 exceeds max_qty 100 (step/min still satisfied).
+    ("200", ["exceeds max_qty"]),
+])
+def test_record_transport_rejects_quantity_violating_loaded_filters(q_common, fragments):
+    """S5: a quantity that violates the symbol filters already loaded in the
+    preflight snapshot is rejected OFFLINE — both legs REJECTED with
+    ``offline_constraint``, the violations recorded, and NO simulated fill —
+    rather than acted out as a balanced success (the pre-fix behavior the
+    Review-2 finding reproduced with q_common=0.0005 and step=min=0.001)."""
+    exe = RecordTransportExecutor()
+    ctx = _ctx_with_qty_filters(_GRID_FILTERS, _GRID_FILTERS, q_common=q_common)
+    out = exe.execute(ctx)
+    assert out.category == D.ATTEMPT_FAILED
+    assert out.error_code == "offline_constraint"
+    assert out.error_reason_zh == "离线参数约束校验失败"
+    assert out.spot["status"] == D.LEG_REJECTED
+    assert out.perp["status"] == D.LEG_REJECTED
+    # No simulated fill on a constraint rejection (zero executed qty on both legs).
+    assert out.spot["filled_qty"] == "0"
+    assert out.perp["filled_qty"] == "0"
+    assert out.record_payload["posted"] is False
+    violations = out.record_payload["constraint_violations"]
+    for fragment in fragments:
+        assert any(fragment in v for v in violations), (fragment, violations)
+
+
+def test_record_transport_accepts_grid_aligned_quantity_with_loaded_filters():
+    """S5 positive case: once the loaded filters are honored, a grid-aligned
+    quantity within bounds is still simulated as a balanced fill (success)."""
+    exe = RecordTransportExecutor()
+    ctx = _ctx_with_qty_filters(_GRID_FILTERS, _GRID_FILTERS, q_common="0.003")
+    out = exe.execute(ctx)
+    assert out.category == D.ATTEMPT_SUCCESS
+    assert out.error_code is None
+    assert "constraint_violations" not in out.record_payload
+    assert out.spot["filled_qty"] == "0.003"
+    assert out.perp["filled_qty"] == "0.003"
+
+
+def test_record_transport_applies_per_leg_filters_independently():
+    """S5: the two legs carry their OWN filters. A quantity grid-aligned for
+    spot (step 0.001) but not for perp (step 0.01) is rejected because the perp
+    leg's own filter fails — proving each leg adopts its own loaded filter, not
+    a single shared one."""
+    exe = RecordTransportExecutor()
+    ctx = _ctx_with_qty_filters(
+        {"step": "0.001", "min_qty": "0.001", "max_qty": "100"},
+        {"step": "0.01", "min_qty": "0.01", "max_qty": "100"},
+        q_common="0.005",  # 5 x 0.001 (spot ok) but 0.5 x 0.01 (perp violates)
+    )
+    out = exe.execute(ctx)
+    assert out.category == D.ATTEMPT_FAILED
+    assert out.error_code == "offline_constraint"
+    violations = out.record_payload["constraint_violations"]
+    # The perp leg is the one that violates; the spot leg is clean.
+    assert any(v.startswith("perp:") and "multiple of step_size" in v for v in violations)
+    assert any(v.startswith("perp:") and "below min_qty" in v for v in violations)
+    assert not any(v.startswith("spot:") for v in violations)

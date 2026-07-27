@@ -752,10 +752,21 @@ def compute_preflight(
         )
     grid = decimal_lcm(spot_step, perp_step)
     q_common = floor_to_grid(single_amount, grid)
+    # S5 (ADR-H4): each leg's effective MARKET qty bounds (min/max), read with
+    # the same per-constraint MARKET_LOT_SIZE -> LOT_SIZE fallback as the step
+    # (_qty_bounds), recorded so the dry-run record transport can reject a
+    # quantity that violates the symbol's loaded grid/bounds OFFLINE instead of
+    # simulating it as a fill. ``None`` == that bound is disabled on this symbol.
+    spot_min, spot_max = _qty_bounds(snapshot.spot_filters)
+    perp_min, perp_max = _qty_bounds(snapshot.perp_filters)
     snapshot_record = {
         "available": True,
         "spot_step": str(spot_step),
         "perp_step": str(perp_step),
+        "spot_min_qty": str(spot_min) if spot_min is not None else None,
+        "spot_max_qty": str(spot_max) if spot_max is not None else None,
+        "perp_min_qty": str(perp_min) if perp_min is not None else None,
+        "perp_max_qty": str(perp_max) if perp_max is not None else None,
         "grid": str(grid),
         "est_price": str(snapshot.est_price) if snapshot.est_price is not None else None,
         "position_mode": snapshot.position_mode,

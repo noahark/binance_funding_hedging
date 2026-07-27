@@ -297,11 +297,17 @@ class RecordTransportExecutor:
         # S5 offline wire-constraint gate (ADR-H4): validate BOTH legs against
         # the single offline exchange-rule copy BEFORE simulating any outcome.
         # A format defect (a too-long client id, a quantity in scientific
-        # notation, …) is rejected here in the dry-run record transport rather
-        # than acted out as a balanced fill — so such defects fail OFFLINE,
-        # never survive to a real send.
-        violations = [f"spot: {v}" for v in validate_order_params(spot_params)]
-        violations += [f"perp: {v}" for v in validate_order_params(perp_params)]
+        # notation, …) OR a quantity that violates this symbol's LOADED grid/
+        # bounds (step_size / min_qty / max_qty from the preflight snapshot) is
+        # rejected here in the dry-run record transport rather than acted out
+        # as a balanced fill — so such defects fail OFFLINE, never survive to a
+        # real send.
+        violations = [f"spot: {v}" for v in validate_order_params(
+            spot_params, **_leg_qty_filters(ctx.preflight_snapshot, "spot")
+        )]
+        violations += [f"perp: {v}" for v in validate_order_params(
+            perp_params, **_leg_qty_filters(ctx.preflight_snapshot, "perp")
+        )]
         if violations:
             record_payload["constraint_violations"] = violations
             self.records.append(record_payload)
@@ -356,3 +362,30 @@ def _snapshot_price(preflight_snapshot: dict) -> Decimal:
         return Decimal(str(raw))
     except Exception:  # pragma: no cover - record is sanitized by compute_preflight
         return Decimal(1)
+
+
+def _leg_qty_filters(preflight_snapshot: dict, leg: str) -> dict:
+    """Pull one leg's effective MARKET qty grid/bounds from the sanitized
+    preflight snapshot as :func:`validate_order_params` kwargs (S5 / ADR-H4).
+
+    The snapshot's ``{leg}_step`` / ``{leg}_min_qty`` / ``{leg}_max_qty`` are the
+    effective MARKET values computed ONCE by :func:`domain.compute_preflight`
+    (MARKET_LOT_SIZE -> LOT_SIZE fallback via ``effective_market_step`` /
+    ``_qty_bounds``); this seam consumes them and does NOT re-derive a second
+    filter-selection rule. A field absent from the snapshot (a dry-run record
+    with no loaded filters, or a bound disabled on this symbol) is omitted so
+    the validator treats it as disabled — matching ``compute_preflight``.
+    """
+    if not preflight_snapshot:
+        return {}
+    kwargs: dict = {}
+    step = preflight_snapshot.get(f"{leg}_step")
+    if step is not None:
+        kwargs["step_size"] = step
+    min_qty = preflight_snapshot.get(f"{leg}_min_qty")
+    if min_qty is not None:
+        kwargs["min_qty"] = min_qty
+    max_qty = preflight_snapshot.get(f"{leg}_max_qty")
+    if max_qty is not None:
+        kwargs["max_qty"] = max_qty
+    return kwargs
