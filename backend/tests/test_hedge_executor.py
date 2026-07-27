@@ -80,7 +80,14 @@ def test_record_transport_spot_params_shape_forward():
     exe = RecordTransportExecutor()
     out = exe.execute(_ctx(direction=D.DIR_FORWARD))
     spot = out.record_payload["spot_order_params"]
-    assert spot["endpoint"] == D.SPOT_ORDER_PATH
+    # A-4: the endpoint path and every internal field leave the signed body.
+    # Only the approved wire keys remain; this exact dict is what the live
+    # client signs and posts.
+    assert "endpoint" not in spot
+    assert set(spot.keys()) == {
+        "symbol", "side", "type", "quantity", "sideEffectType",
+        "newClientOrderId", "newOrderRespType",
+    }
     assert spot["symbol"] == "BTCUSDT"
     assert spot["side"] == "BUY"
     assert spot["type"] == "MARKET"
@@ -98,7 +105,13 @@ def test_record_transport_perp_params_shape_reverse_hedge():
     exe = RecordTransportExecutor()
     out = exe.execute(_ctx(direction=D.DIR_REVERSE, position_side_mode="hedge"))
     perp = out.record_payload["perp_order_params"]
-    assert perp["endpoint"] == D.PERP_ORDER_PATH
+    # A-4: only the approved wire keys; the endpoint path is metadata on the
+    # leg row, never signed.
+    assert "endpoint" not in perp
+    assert set(perp.keys()) == {
+        "symbol", "side", "type", "quantity", "positionSide",
+        "newClientOrderId", "newOrderRespType",
+    }
     assert perp["side"] == "BUY"           # reverse opens long
     assert perp["positionSide"] == "LONG"  # hedge mode
     assert perp["quantity"] == "0.5"

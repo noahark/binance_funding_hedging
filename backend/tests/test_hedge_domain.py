@@ -3,8 +3,10 @@
 No SQLite, no HTTP, no network. Covers the round-1 frozen logic: direction
 mapping (ADR-3), common-grid lcm rounding incl. mismatched steps (ADR-2),
 preflight accept/reject incl. insufficient balance and filter violations
-(10-design §5), single-leg classification (ADR-4), the >3-fail termination +
-status transitions, and the carried-forward validation/encoding helpers.
+(10-design §5), acceptance-based single-leg classification (ADR-3/ADR-4 — a leg
+is "accepted" when an orderId was returned, regardless of fill state), the
+``>= threshold`` consecutive-submission-failure pause + status transitions, and
+the carried-forward validation/encoding helpers.
 Filter fixtures mirror the real public BTCUSDT samples captured in
 reports/api-samples/2026-07-hedge-open-live-v1/order-endpoints-filters-recon.md
 (never hardcoded into production code — read per attempt in live mode).
@@ -138,6 +140,35 @@ def test_preflight_forward_accept():
     assert pf.balance_ok is True
 
 
+@pytest.mark.parametrize("direction", [D.DIR_FORWARD, D.DIR_REVERSE])
+def test_preflight_missing_est_price_fails_closed_both_directions(direction):
+    """Amendment 21 / dispatch P1#1: price-completeness is direction-independent.
+    A missing (or zero/negative) ``est_price`` cannot size notional or the USDT
+    need and is an UNREADABLE fact, so it fails closed to INCOMPLETE for BOTH
+    forward and reverse — the old reverse branch never checked ``est_price`` and
+    the old forward minNotional path silently skipped notional when it was None.
+    Zero attempt, zero POST, zero failure count: the balance gate is never
+    reached (``balance_ok`` stays None)."""
+    pf = D.compute_preflight(
+        snapshot(balances={"USDT": Decimal("100000"), "BTC": Decimal("100")}, est_price=None),
+        "BTCUSDT", direction, Decimal("0.5"), 3,
+    )
+    assert pf.rejection == D.REJECT_PREFLIGHT_INCOMPLETE
+    assert pf.q_common is not None  # the common grid is still computable
+    assert pf.balance_ok is None    # balance gate never reached -> no sizing
+
+
+@pytest.mark.parametrize("est_price", ["0", "-1"])
+def test_preflight_non_positive_est_price_fails_closed(est_price):
+    """A zero or negative est_price is equally an unreadable sizing fact: it must
+    fail closed to INCOMPLETE (not a filter violation), for both directions."""
+    pf = D.compute_preflight(
+        snapshot(balances={"USDT": Decimal("100000")}, est_price=est_price),
+        "BTCUSDT", D.DIR_FORWARD, Decimal("0.5"), 3,
+    )
+    assert pf.rejection == D.REJECT_PREFLIGHT_INCOMPLETE
+
+
 def test_preflight_forward_insufficient_usdt():
     pf = D.compute_preflight(
         snapshot(balances={"USDT": Decimal("50000")}),
@@ -199,6 +230,9 @@ def test_preflight_snapshot_none_is_dry_run_unknown():
 
 
 def test_preflight_step_unreadable_rejects():
+    # A required market step that cannot be read is fail-closed INCOMPLETE
+    # (amendment I-7), NOT a below_min_qty filter violation. Conflating the two
+    # would wrongly fatal-stop the task on a missing read instead of retrying.
     bad = {
         "lot_size": {"step_size": "0"},
         "market_lot_size": {"step_size": "0"},
@@ -212,41 +246,52 @@ def test_preflight_step_unreadable_rejects():
         ),
         "BTCUSDT", D.DIR_FORWARD, Decimal("0.5"), 1,
     )
-    assert pf.rejection == D.REJECT_BELOW_MIN_QTY
+    assert pf.rejection == D.REJECT_PREFLIGHT_INCOMPLETE
 
 
 # ---------------------------------------------------------------------------
-# Single-leg classification (ADR-4)
+# Acceptance-based classification (ADR-3 / ADR-4)
 # ---------------------------------------------------------------------------
 
-def _leg(status, qty, price="50000"):
-    return {"status": status, "filled_qty": qty, "avg_price": price, "order_id": "x"}
+def _leg(status, qty, price="50000", order_id="x"):
+    """A leg dict. ``order_id`` is the acceptance signal (ADR-3): a truthy
+    value means the leg was taken by the exchange (FILLED/NEW/PARTIALLY_FILLED
+    with an orderId); ``None`` means it was confirmed not accepted."""
+    return {"status": status, "filled_qty": qty, "avg_price": price, "order_id": order_id}
 
 
 def test_classify_both_filled_aligned_is_success():
     assert D.classify_attempt(_leg("FILLED", "0.5"), _leg("FILLED", "0.5")) == D.ATTEMPT_SUCCESS
 
 
-def test_classify_one_filled_one_rejected_is_exposure():
-    assert D.classify_attempt(_leg("FILLED", "0.5"), _leg("REJECTED", "0")) == D.ATTEMPT_SINGLE_LEG_EXPOSURE
-    assert D.classify_attempt(_leg("REJECTED", "0"), _leg("FILLED", "0.5")) == D.ATTEMPT_SINGLE_LEG_EXPOSURE
+def test_classify_one_accepted_one_rejected_is_exposure():
+    # One leg accepted (orderId present), the other confirmed not accepted ->
+    # single_leg_exposure (advisory, recorded but never a gate).
+    assert D.classify_attempt(_leg("FILLED", "0.5"), _leg("REJECTED", "0", order_id=None)) == D.ATTEMPT_SINGLE_LEG_EXPOSURE
+    assert D.classify_attempt(_leg("REJECTED", "0", order_id=None), _leg("FILLED", "0.5")) == D.ATTEMPT_SINGLE_LEG_EXPOSURE
 
 
 def test_classify_both_filled_mismatched_qty_is_success():
-    # fix-3 (DI-6): 成交数量校验 removed — both legs FILLED is success even when
-    # the filled qtys differ (spot market BUY vs quantity legs cannot pre-align).
+    # DI-6: both legs accepted is success even when the filled qtys differ.
     assert D.classify_attempt(_leg("FILLED", "0.5"), _leg("FILLED", "0.4")) == D.ATTEMPT_SUCCESS
 
 
-def test_classify_neither_filled_is_failed():
-    assert D.classify_attempt(_leg("REJECTED", "0"), _leg("EXPIRED", "0")) == D.ATTEMPT_FAILED
+def test_classify_neither_accepted_is_failed():
+    # Neither leg carries an orderId (confirmed submission failure) -> failed.
+    assert D.classify_attempt(_leg("REJECTED", "0", order_id=None), _leg("EXPIRED", "0", order_id=None)) == D.ATTEMPT_FAILED
+
+
+def test_classify_partial_fill_is_accepted_when_order_id_present():
+    # A PARTIALLY_FILLED leg is still ACCEPTED (orderId present); both partial ->
+    # success, not exposure (ADR-3: acceptance keys the verdict, not fill).
+    assert D.classify_attempt(_leg("PARTIALLY_FILLED", "0.2"), _leg("PARTIALLY_FILLED", "0.3")) == D.ATTEMPT_SUCCESS
 
 
 def test_build_leg_exposure_spot_only_is_section_3_2_shape():
-    # Frozen §3.2: leg_exposure is null|{leg,qty,price,ts}. Spot-only fill ->
-    # leg="spot" with the spot leg's actual qty/price; the failed perp leg is
-    # NOT carried here (its full detail lives in the Fill JSON, §3.3).
-    exp = D.build_leg_exposure(_leg("FILLED", "0.5", "50000"), _leg("REJECTED", "0"), 1)
+    # Frozen §3.2: leg_exposure is null|{leg,qty,price,ts}. Spot accepted, perp
+    # not -> leg="spot" with the spot leg's actual qty/price; the un-accepted
+    # perp leg is NOT carried here (its full detail lives in the leg table, §3.3).
+    exp = D.build_leg_exposure(_leg("FILLED", "0.5", "50000"), _leg("REJECTED", "0", order_id=None), 1)
     assert exp is not None
     assert set(exp.keys()) == {"leg", "qty", "price", "ts"}
     assert exp["leg"] == "spot"
@@ -255,8 +300,8 @@ def test_build_leg_exposure_spot_only_is_section_3_2_shape():
 
 
 def test_build_leg_exposure_perp_only_is_section_3_2_shape():
-    # Perp-only fill -> leg="perp" with the perp leg's actual qty/price.
-    exp = D.build_leg_exposure(_leg("REJECTED", "0"), _leg("FILLED", "0.5", "50000"), 1)
+    # Perp accepted, spot not -> leg="perp" with the perp leg's actual qty/price.
+    exp = D.build_leg_exposure(_leg("REJECTED", "0", order_id=None), _leg("FILLED", "0.5", "50000"), 1)
     assert exp is not None
     assert set(exp.keys()) == {"leg", "qty", "price", "ts"}
     assert exp["leg"] == "perp"
@@ -264,46 +309,83 @@ def test_build_leg_exposure_perp_only_is_section_3_2_shape():
     assert exp["price"] == "50000"
 
 
-def test_build_leg_exposure_none_when_neither_filled():
-    assert D.build_leg_exposure(_leg("REJECTED", "0"), _leg("REJECTED", "0"), 1) is None
+def test_build_leg_exposure_none_when_neither_accepted():
+    assert D.build_leg_exposure(_leg("REJECTED", "0", order_id=None), _leg("REJECTED", "0", order_id=None), 1) is None
 
 
-def test_build_leg_exposure_none_when_both_filled_mismatched():
-    # fix-3 (DI-6): both legs FILLED now classifies as success, so this input no
-    # longer reaches build_leg_exposure in practice; the None here is its
-    # defensive both-filled guard. The full detail lives in the fills table (§3.3).
+def test_build_leg_exposure_none_when_both_accepted():
+    # DI-6: both legs accepted classifies as success, so this never reaches
+    # build_leg_exposure in practice; the None is its defensive both-accepted
+    # guard. The full detail lives in the leg table (§3.3).
     assert D.build_leg_exposure(_leg("FILLED", "0.5"), _leg("FILLED", "0.4"), 1) is None
 
 
 # ---------------------------------------------------------------------------
-# Status transitions + >3-fail termination (ADR-4 / 10-design §7)
+# Status transitions + >=threshold consecutive-failure pause (ADR-3 / 10-design §7)
 # ---------------------------------------------------------------------------
 
 def test_resolve_success_reaching_target_is_done():
-    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_SUCCESS, 3, 3, 0) == D.STATUS_DONE
+    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_SUCCESS, 3, 3, 0, 3) == D.STATUS_DONE
 
 
 def test_resolve_success_below_target_stays_running():
-    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_SUCCESS, 1, 3, 0) == D.STATUS_RUNNING
+    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_SUCCESS, 1, 3, 0, 3) == D.STATUS_RUNNING
 
 
-def test_resolve_single_leg_is_exposure_alert():
-    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_SINGLE_LEG_EXPOSURE, 1, 3, 0) == D.STATUS_EXPOSURE_ALERT
+def test_resolve_single_leg_is_advisory_keeps_running():
+    # A single-leg exposure is ADVISORY in the sense it never freezes scheduling
+    # (breakdown §4.5): it does not jump straight to paused on a single outcome.
+    # R2-F1 (user authorization 28 §2.1): a single_leg DOES, however, count toward
+    # the consecutive-submission-failure brake — so below the threshold the task
+    # keeps running and the exposure is recorded, but the count is incremented.
+    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_SINGLE_LEG_EXPOSURE, 1, 3, 0, 3) == D.STATUS_RUNNING
 
 
-def test_resolve_failed_over_threshold_terminates():
-    # >3 (i.e. the 4th) failed attempt -> paused (terminated plan).
-    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_FAILED, 0, 3, 4) == D.STATUS_PAUSED
+def test_resolve_single_leg_at_threshold_is_paused():
+    # R2-F1: a single-leg exposure participates in the consecutive-submission-
+    # failure brake. The threshold-th (>=) consecutive single_leg pauses the task,
+    # exactly like the threshold-th confirmed failure (so the brake is no longer
+    # bypassable by always landing on exactly one accepted leg).
+    assert D.resolve_status_after_attempt(
+        D.STATUS_RUNNING, D.ATTEMPT_SINGLE_LEG_EXPOSURE, 0, 5, 3, 3
+    ) == D.STATUS_PAUSED
+    assert D.resolve_status_after_attempt(
+        D.STATUS_RUNNING, D.ATTEMPT_SINGLE_LEG_EXPOSURE, 0, 5, 4, 3
+    ) == D.STATUS_PAUSED
 
 
-def test_resolve_failed_at_threshold_stays_running():
-    # exactly 3 failures is NOT >3 -> still running.
-    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_FAILED, 0, 3, 3) == D.STATUS_RUNNING
+def test_resolve_single_leg_below_threshold_stays_running():
+    # R2-F1: below the threshold a single_leg keeps the task running (the brake
+    # has not fired; the exposure remains advisory-only for this one outcome).
+    assert D.resolve_status_after_attempt(
+        D.STATUS_RUNNING, D.ATTEMPT_SINGLE_LEG_EXPOSURE, 0, 5, 2, 3
+    ) == D.STATUS_RUNNING
+
+
+def test_resolve_failed_at_threshold_is_paused():
+    # >= threshold (the 3rd consecutive submission failure) -> paused.
+    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_FAILED, 0, 3, 3, 3) == D.STATUS_PAUSED
+
+
+def test_resolve_failed_over_threshold_is_paused():
+    # 4th consecutive failure (>= 3) -> still paused.
+    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_FAILED, 0, 3, 4, 3) == D.STATUS_PAUSED
+
+
+def test_resolve_failed_below_threshold_stays_running():
+    # 2 failures < 3 threshold -> still running.
+    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_FAILED, 0, 3, 2, 3) == D.STATUS_RUNNING
+
+
+def test_resolve_honors_task_snapshotted_threshold():
+    # The threshold is task-snapshotted; a task that snapshotted 1 pauses on the
+    # very first consecutive submission failure (>= 1).
+    assert D.resolve_status_after_attempt(D.STATUS_RUNNING, D.ATTEMPT_FAILED, 0, 3, 1, 1) == D.STATUS_PAUSED
 
 
 def test_resolve_deleted_is_sticky():
     for category in D.ALL_ATTEMPT_CATEGORIES:
-        assert D.resolve_status_after_attempt(D.STATUS_DELETED, category, 9, 3, 9) == D.STATUS_DELETED
+        assert D.resolve_status_after_attempt(D.STATUS_DELETED, category, 9, 3, 9, 3) == D.STATUS_DELETED
 
 
 # ---------------------------------------------------------------------------

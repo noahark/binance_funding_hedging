@@ -1,0 +1,1446 @@
+===== bookkeeper documentation-integrity checks (2026-07-23 14:47:47 CST) =====
+Command: jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0; both JSON documents parse)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+No product-code tests were run: this checkpoint changes stage design/evidence only.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 14:47:47 CST
+下一步模型: human
+下一步任务: choose forward execution policy and confirm PM account type
+
+===== bookkeeper dispatch-packet integrity checks (2026-07-23 15:27:04 CST) =====
+Command: jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0)
+
+Command: git diff --check
+Result: PASS (exit 0)
+
+Command: git status --short
+Result: expected uncommitted bookkeeper evidence only: ACTIVE pointer, active stage artifacts, and raw API recon.
+
+===== Kimi K3 Harness/main sync checks (2026-07-23 16:34:31 CST) =====
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (52 passed in 1.21s)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+===== panel completion and user-policy intake checks (2026-07-23 19:00:05 CST) =====
+Command: sha256sum reports/agent-runs/2026-07-hedge-open-real-api-v1/direction-drafts/codex.md
+Result: PASS
+ac55ce31611ac1261c437b728dbdd1bc9535f25ea06cae42de3a20170f68fea8
+
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0; stage status parses)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+No product-code tests were run: this checkpoint records direction-panel evidence
+and the user-approved-in-discussion execution-policy input.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 19:00:05 CST
+下一步模型: bookkeeper
+下一步任务: present 06-direction-synthesis.md to the user for approval
+
+===== direction-synthesis checkpoint (2026-07-23 19:05:44 CST) =====
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0; stage status parses)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 19:05:44 CST
+下一步模型: human
+下一步任务: approve or edit 06-direction-synthesis.md before detailed stage design
+
+===== approved PRD restructuring checkpoint (2026-07-23 19:38:44 CST) =====
+Command: ! rg -n '^## Manual Close Design Gate$|Manual close is required before real manual-open' docs/product/PRD.md
+Result: PASS (the stale PRD section and requirement are absent)
+
+Command: ! jq -r '.blockers[]' reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json | rg -i 'manual.close'
+Result: PASS (the stale gate is not an active-stage blocker)
+
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json && git diff --check
+Result: PASS
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+No product-code tests were run: this checkpoint changes approved product/stage
+documentation only.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 19:38:44 CST
+下一步模型: bookkeeper
+下一步任务: prepare detailed stage design and implementation breakdown
+
+===== detailed-design and Opus dispatch checkpoint (2026-07-23 19:49:06 CST) =====
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (stage status parses)
+
+Command: git diff --check
+Result: PASS (no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+No product-code tests were run: this checkpoint adds only detailed design, ADR,
+and a human-operated development-breakdown dispatch packet.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 19:49:06 CST
+下一步模型: human operator
+下一步任务: execute development-breakdown-dispatch.md in fresh Claude Opus 4.8
+
+===== Opus development-breakdown receipt checkpoint (2026-07-23 20:05:26 CST) =====
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (stage status parses)
+
+Command: git diff --check
+Result: PASS (no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+No product-code tests were run: this checkpoint records the raw Opus breakdown
+and its parallel-development recommendation. Implementation dispatch remains
+blocked on a human cadence decision.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 20:05:26 CST
+下一步模型: human
+下一步任务: choose per-task versus globally serialized one-second dispatch
+
+===== direction-draft intake integrity checks (2026-07-23 16:45:40 CST) =====
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0; stage status parses)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+No product-code tests were run: this checkpoint only registers raw direction
+evidence and records its applicability to the frozen execution contract.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 16:45:40 CST
+下一步模型: human operator
+下一步任务: obtain the remaining Codex and Grok direction-panel evidence
+
+===== SHA correction and final checkpoint (2026-07-23 16:36:54 CST) =====
+Initial checkpoint after the main merge failed only because the recorded merge
+SHA ended in `efc` rather than the actual `ef3c`; no source or stage behavior
+was implicated. The bookkeeper corrected the literal SHA in status.json.
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=planned
+
+===== per-task cadence resolution and implementation dispatch-ready gate (2026-07-23 20:18:17 CST) =====
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=dispatch-ready
+status=planned
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (52 passed in 0.98s)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+No product-code implementation test was run at this checkpoint. The passing
+dispatch-ready gate authorizes only human-operated implementation dispatch from
+the two immutable task packets; it does not authorize real Binance access,
+credential access, live activation, Start, or an order.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 20:18:17 CST
+下一步模型: human operator
+下一步任务: run Task A and Task B from their immutable packets in separate implementation terminals
+
+===== implementation intake and R4 reconciliation (2026-07-23 22:32:36 CST) =====
+Command: .venv/bin/python -m pytest backend/tests -q
+Result: PASS (856 passed in 43.12s)
+
+Command: node frontend/self-check.js
+Result: PASS (all self-check assertions passed; zero Binance/direct-cross-origin checks included)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=fixing
+
+R4 source/contract reconciliation found two P1 integration gaps despite passing
+task self-tests. See 13-r4-diff-reconciliation.md. No implementation evidence
+commit or formal review is authorized until the bounded backend R4 correction
+has landed and been re-verified.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 22:32:36 CST
+下一步模型: human operator
+下一步任务: execute backend-r4-fix.prompt.md with Claude-GLM and preserve the raw fix report
+
+===== R4 fix verification and formal Review-1 preparation (2026-07-23 23:17:19 CST) =====
+Command: .venv/bin/python -m pytest backend/tests -q
+Result: PASS (862 passed in 43.58s)
+
+Command: node frontend/self-check.js
+Result: PASS (全部自检通过)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+The R4 implementation resolves the two prior P1 findings: the logs API now
+projects first-class durable attempts for the timeline, and a deterministic
+blocking-executor test proves independent task-card dispatch. No real Binance
+network activity, credential access, live activation, or order occurred.
+
+Formal Review-1 dispatch packets are prepared. The `pre-review` validator is
+intentionally not run yet: completed Task A/Task B implementation packets lack
+the human operator's actual R9 dispatch receipts, and the bookkeeper cannot
+invent adapter commands or session metadata.
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=testing
+diff_fingerprint=d873699d4c06f8dec343c9a6dcfa5fecc22d74b5:fe8b6dc9349dc4d4f847cdc5e6298e2f4e14b4b2332038bf4911d20377d8099c
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: EXPECTED GATE HOLD (exit 1)
+STAGE VALIDATION FAILED
+- pre-review requires status in ['review_1', 'review_2'], got 'testing'
+- task backend implementation dispatch: dispatch file task-A-claude-glm.prompt.md has no DISPATCH RECEIPT block
+- task frontend implementation dispatch: dispatch file task-B-kimi.prompt.md has no DISPATCH RECEIPT block
+
+The required aggregate implementation index was added before this rerun. These
+three remaining messages are procedural: status intentionally remains `testing`
+until the two completed human-dispatch receipts are recorded. They do not
+indicate a source-test, design, or code-contract failure.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-23 23:28:57 CST
+下一步模型: human operator
+下一步任务: fill completed implementation dispatch receipts before formal Review-1 validation and dispatch
+
+===== frontend Review-1 bounded rework verification (2026-07-24 11:47:10 CST) =====
+Command: node frontend/self-check.js
+Result: PASS (全部自检通过，退出码 0)
+
+Bookkeeper verified the committed source repair `820dd1e` is limited to
+frontend/index.html, frontend/self-check.js, and the raw fix report. It renders
+`single_leg`（只成交一条腿）as Chinese "单腿成交" with a warning badge, renders
+`pair_outcome:null`（仍在查询）as "查询中" with an info badge, and adds matching
+self-check coverage. No backend, API contract, order-submission, risk-policy,
+credential, or Binance-network behavior changed.
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=fixing
+diff_fingerprint=820dd1e:661ce0295bdc625d2f9772328f09bec55c70207bc6289feda6916e06149b09b7
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 11:51:36 CST
+下一步模型: human operator
+下一步任务: execute the bounded Claude-GLM frontend re-review packet
+
+===== frontend re-review receipt and Review-2 packet preparation (2026-07-24 12:25:24 CST) =====
+Command: node frontend/self-check.js
+Result: PASS (all checks passed; no Binance or external-domain request, new timer, or
+unsafe localStorage access was reported by the self-check)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=review_2
+diff_fingerprint=820dd1e:661ce0295bdc625d2f9772328f09bec55c70207bc6289feda6916e06149b09b7
+
+The frontend bounded re-review at `45-review-1-frontend-rfix.md` has a
+schema-valid ACCEPT verdict matching its task fingerprint. Backend and frontend
+are both now accepted at Review-1. The fresh read-only final-review packet is
+prepared at `50-review-2.dispatch.md`; its reviewer-routing disclosure is at
+`46-review-2-routing-disclosure.md`. These checks do not activate live trading
+or send a Binance request.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 12:25:24 CST
+下一步模型: bookkeeper
+下一步任务: commit the re-review evidence, run pre-review validation, and dispatch final review only if the required gate passes
+
+===== final-review preflight (2026-07-24 12:25:24 CST) =====
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: EXPECTED GATE HOLD (exit 1)
+STAGE VALIDATION FAILED
+- task backend implementation dispatch: dispatch file task-A-claude-glm.prompt.md has no DISPATCH RECEIPT block
+- task frontend implementation dispatch: dispatch file task-B-kimi.prompt.md has no DISPATCH RECEIPT block
+
+Interpretation: both task-level Review-1 verdicts are accepted, the frontend
+self-check and checkpoint validation pass, and no source/test/trading-policy
+defect was reported here. The two messages concern only historic packet headers
+that predate the receipt form. The raw reports and the operator-provided Session
+IDs are already preserved in `status.json`; do not invent retroactive command
+text or exact start timestamps. See `47-pre-review-gate-hold.md`.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 12:25:24 CST
+下一步模型: bookkeeper
+下一步任务: keep Review-2 undispatched until the separately reviewed Harness receipt compatibility change is available
+
+===== Harness receipt compatibility merge and Review-2 rebind (2026-07-24 12:45:15 CST) =====
+Main-only Harness commit: `9a0fabf fix(harness): accept verified legacy task receipts`
+Stage merge commit: `01d3a47 merge main harness receipt compatibility`
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (55 passed in 1.07s)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=820dd1e:661ce0295bdc625d2f9772328f09bec55c70207bc6289feda6916e06149b09b7
+
+The output printed the pre-rebind source fingerprint because status.json had not
+yet been updated at command time. The correct rebound final-review anchor is
+`01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff`;
+it is independently recomputed from `28c550d..01d3a47` and recorded in
+`48-review-2-harness-rebind.md` / `status.json`.
+
+The new validator compatibility is limited to entirely headerless historic
+implementation packets with matching raw report and recorded session evidence.
+It does not relax review dispatches or a present-but-invalid receipt. No real
+Binance request, credential access, live activation, or order occurred.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 12:45:15 CST
+下一步模型: human operator
+下一步任务: execute only 51-review-2-rebound.dispatch.md in a fresh read-only Codex session
+
+===== rebound final-review gate (2026-07-24 12:51:05 CST) =====
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=pre-review
+status=review_2
+diff_fingerprint=01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff
+
+This was run from a clean committed worktree after the rebound Review-2 packet
+was committed. The final reviewer may now be dispatched through
+`51-review-2-rebound.dispatch.md`. No live trading action is authorized.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 12:51:05 CST
+下一步模型: human operator
+下一步任务: execute only 51-review-2-rebound.dispatch.md in a fresh read-only Codex session
+
+===== Review-2 REWORK validation checkpoint (2026-07-24 13:53:47 CST) =====
+Raw final-review artifact: `50-review-2.md`
+Verdict: `REWORK` (schema-valid; it binds to
+`01d3a4712c89efab79772ce2e5ee2ba415e1e43c:c3368f63670e896cbe585293c4ff7261ba55c165346efd4ea27f672be1b91cff`).
+
+The final reviewer recorded these offline, read-only results:
+
+Command: .venv/bin/python -m pytest backend/tests -q
+Result: PASS (862 passed in 44.33s)
+
+Command: node frontend/self-check.js
+Result: PASS (all self-checks passed)
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (55 passed in 1.01s)
+
+No credentials were read. No Binance connection, private request, real POST,
+Start activation, or live task occurred.
+
+The result is non-accepting despite passing regressions: deterministic offline
+reproduction showed that `target_n=1` can produce five `single_leg` attempts
+while the task remains running. Live mode remains blocked until the planned-
+attempt cap and all Review-2 required fixes are implemented and pass renewed
+review. The bookkeeper also corrected the recorded main-sync SHA to
+`9a0fabf74f004f4a34d8befd3676042963b5e66f`; it will be sealed in the REWORK
+evidence commit.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 13:53:47 CST
+下一步模型: human operator
+下一步任务: execute the two bounded Review-2 repair packets; do not activate live trading
+
+===== bookkeeper REWORK checkpoint checks (2026-07-24 13:56:13 CST) =====
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=fixing
+
+No product code, credential, network, live activation, or exchange action was
+performed by this checkpoint.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 13:56:13 CST
+下一步模型: human operator
+下一步任务: execute the two bounded Review-2 repair packets; do not activate live trading
+
+===== user-approved immediate-loop amendment checkpoint (2026-07-24 14:24:42 CST) =====
+Artifact: `15-immediate-loop-and-open-log-amendment.md`
+
+The user replaced the immediate one-new-pair-per-second rule with one active
+pair at a time per task, while keeping the two legs concurrent. The amendment
+also adds task-local fatal-error handling and a durable paginated opening-log
+page. Packets `52-review-2-rework-backend.dispatch.md` and
+`53-review-2-rework-frontend.dispatch.md` are preserved but superseded before
+human execution.
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=checkpoint
+status=fixing
+
+No product code, credential, network, live activation, or exchange action was
+performed by this design checkpoint.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/15-immediate-loop-and-open-log-amendment.md
+本地北京时间: 2026-07-24 14:24:42 CST
+下一步模型: bookkeeper
+下一步任务: prepare the replacement development breakdown and replacement dispatch packets; do not dispatch 52 or 53
+
+===== replacement breakdown and dispatch-ready checkpoint (2026-07-24 15:32:53 CST) =====
+Raw replacement breakdown: `16-replacement-development-breakdown.md`
+Replacement packets: `54-review-2-rework-backend.dispatch.md` and
+`55-review-2-rework-frontend.dispatch.md`.
+
+Command: jq empty reports/agent-runs/ACTIVE.json reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS (exit 0)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=dispatch-ready
+status=fixing
+
+The gate authorizes only human-operated implementation dispatch from packets
+54 and 55. It does not authorize credentials, Binance network access, live
+mode, Start, a first order, WebSocket code, or use of superseded packets 52/53.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/16-replacement-development-breakdown.md
+本地北京时间: 2026-07-24 15:32:53 CST
+下一步模型: human operator
+下一步任务: execute packets 54 and 55 in separate fresh write-capable sessions; do not activate live trading
+
+===== replacement rework intake + R4 reconciliation (2026-07-24 17:34:20 CST) =====
+Raw implementation reports received:
+- `40-fix-review-2-backend.md`
+- `40-fix-review-2-frontend.md`
+
+Bookkeeper integration checks (after both implementation terminals reported
+stop; all local/offline):
+
+Command: .venv/bin/python -m pytest backend/tests -q
+Result: PASS (880 passed in 44.46s)
+
+Command: node frontend/self-check.js
+Result: PASS (all assertions passed)
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (55 passed in 0.89s)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+R4 conclusion: source boundaries reconcile, but `entries` uses the legacy
+`next_cursor` while task_event rows are not cursor-filtered. This can repeat a
+task event on the opening-log page's second page. No exchange or order behavior
+is affected. The bookkeeper froze the additive correction at
+`17-opening-log-pagination-compatibility.md` and prepared packets 56/57.
+
+No credential access, Binance network request, live activation, Start action,
+or real POST occurred in this checkpoint.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/18-replacement-r4-diff-reconciliation.md
+本地北京时间: 2026-07-24 17:34:20 CST
+下一步模型: human operator
+下一步任务: execute packets 56 and 57; do not activate live trading
+
+===== replacement R4 final reconciliation (2026-07-24 21:19:04 CST) =====
+Raw repair reports:
+- `41-fix-open-log-pagination-backend.md`
+- `41-fix-open-log-pagination-frontend.md`
+
+Command: .venv/bin/python -m pytest backend/tests -q
+Result: PASS (882 passed in 46.25s)
+
+Command: .venv/bin/python -m pytest backend/tests/test_hedge_review2_regressions.py backend/tests/test_hedge_api.py backend/tests/test_hedge_service.py -q
+Result: PASS (63 passed in 13.59s)
+
+Command: node frontend/self-check.js
+Result: PASS (all assertions passed)
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (55 passed in 1.03s)
+
+Command: git diff --check
+Result: PASS (exit 0; no whitespace errors)
+
+The unified entries pagination and frontend consumer reconcile: legacy logs
+pagination remains independent; entries pages are newest-first and duplicate-
+free. No credential access, Binance request, live activation, Start action, or
+real POST occurred.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/19-replacement-r4-final-reconciliation.md
+本地北京时间: 2026-07-24 21:19:04 CST
+下一步模型: bookkeeper
+下一步任务: create the reconciled evidence commit and prepare fresh Review-1 packets
+
+===== renewed Review-1 pre-review gate (2026-07-24 21:26:56 CST) =====
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: PASS
+STAGE VALIDATION PASSED
+phase=pre-review
+status=review_1
+diff_fingerprint=8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320
+
+The check ran on a clean committed worktree after `8af3f22` (delivery evidence)
+and `46c0411` (review-packet metadata). It authorizes only human-operated,
+read-only Review-1 execution from packets 58 and 59. It does not authorize
+live mode, Start, credential access, Binance network access, or a real order.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 21:26:56 CST
+下一步模型: human operator
+下一步任务: run packets 58 and 59 in separate fresh read-only sessions
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+phase=checkpoint
+status=fixing
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+phase=dispatch-ready
+status=fixing
+
+The gate authorizes only human-operated execution of packets 56/57. It does
+not authorize credentials, Binance network access, live mode, Start, a first
+order, WebSocket code, or any superseded packet.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 17:39:24 CST
+下一步模型: human operator
+下一步任务: execute packets 56 and 57; do not activate live trading
+
+===== Review-1 split-result / final backend repair dispatch gate (2026-07-24 22:35:36 CST) =====
+
+Raw Review-1 evidence:
+- Backend: `58-review-1-backend-r2.md` — schema-valid REWORK with two P1 findings.
+- Frontend: `59-review-1-frontend-r2.md` — schema-valid ACCEPT; one P3 visual-only badge class note.
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+phase=dispatch-ready
+status=fixing
+diff_fingerprint=8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320
+
+The gate authorizes only human-operated execution of packet 61. It does not
+authorize credentials, Binance network access, live mode, Start, a first real
+order, or any frontend change. Packet 61 uses the third and final allowed
+rework slot and is limited to the two backend P1 findings.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 22:35:36 CST
+下一步模型: human operator
+下一步任务: run packet 61 in a fresh write-capable Claude-GLM session; do not activate live trading
+
+===== user amendment 21 / task-local packet 62 dispatch gate (2026-07-24 23:15:34 CST) =====
+
+User-approved runtime policy:
+- Do not add a long-lived global guardian/query loop for short opening windows.
+- Each running task owns its bounded local worker and reconciles only its own pair.
+- Confirmed 429 and insufficient balance/margin/available quantity pause only the
+  current task and require manual recovery; the application does not link other
+  task state or scheduling.
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+phase=dispatch-ready
+status=fixing
+diff_fingerprint=8af3f22d92354fdac61a6a057eb25760b924004b:cbd0d92f53cbaaaab444812dd6ce5bd4bcc07aa947a923dd2a33014a74e5d320
+
+Packet 61 remains unexecuted historical evidence. Packet 62 is the only
+authorized human-operated implementation packet. This gate does not authorize
+credentials, Binance network access, live mode, Start, or a first real order.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-24 23:15:34 CST
+下一步模型: human operator
+下一步任务: run packet 62 in a fresh write-capable Claude-GLM session; do not activate live trading
+
+===== Harness local read-only research exception (2026-07-25 00:07:54 CST) =====
+
+Main-only Harness commit: `9ebf4e1a0f394e8ad22ea219cdcfbe1476cae25e`
+Stage exception merge: `b02c92d20360094a67374bf80bcd588fb154db6c`
+Stage opt-in: `22-local-readonly-research-subagent-opt-in.md`
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (55 passed in 0.95s)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+phase=checkpoint
+status=fixing
+diff_fingerprint=b02c92d20360094a67374bf80bcd588fb154db6c:81f74d59d61ef6723b8399beb640e847906c6addb25d7c939313c2aa6a3e3cb0
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+phase=dispatch-ready
+status=fixing
+diff_fingerprint=b02c92d20360094a67374bf80bcd588fb154db6c:81f74d59d61ef6723b8399beb640e847906c6addb25d7c939313c2aa6a3e3cb0
+
+The exception permits only the current packet-62 GLM parent session to use at
+most two same-provider runtime-built-in Plan/Explore helpers as read-only
+internal research. Formal dispatch/review, code authorship, test execution,
+reports, and evidence remain parent-session/human-operated responsibilities.
+No credential access, Binance request, live activation, Start action, or real
+order occurred.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 00:07:54 CST
+下一步模型: Claude-GLM
+下一步任务: complete packet 62 as sole code/test/report author; only the 22-authorized Plan/Explore helpers may remain read-only
+
+================================================================
+packet-62 task-local rework (62-review-1-backend-r2-task-local) — self-tests
+run at: 2026-07-25 17:31:27 CST  (commit pre-bookkeeper)
+================================================================
+
+##### CMD #1: explicit test list (-q) #####
+........................................................................ [ 34%]
+........................................................................ [ 68%]
+...................................................................      [100%]
+211 passed in 13.74s
+
+##### CMD #2: backend/tests -q #####
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 48%]
+........................................................................ [ 56%]
+........................................................................ [ 64%]
+........................................................................ [ 72%]
+........................................................................ [ 80%]
+........................................................................ [ 88%]
+........................................................................ [ 96%]
+..............................                                           [100%]
+894 passed in 45.10s
+
+##### CMD #3: node frontend/self-check.js #####
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明已删除；市场表下北京时间元信息已渲染
+[PASS] 默认渲染 6 行
+[PASS] 拆列存在，合并列消失
+[PASS] 年化三列存在且文案区分预估/已结算
+[PASS] 路由分类列移除，过滤器与字段校验保留
+[PASS] Drawer 宽度与卡片标签约束
+[PASS] 资金费率固定 3 位小数
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 近 24h 列格式化（3 位小数，null→—）
+[PASS] 年化三列格式化（含 null→—）
+[PASS] 结算间隔标注 8h
+[PASS] 无通用排序控件 DOM；可开优先控件存在
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] formatFundingRateFixed 固定小数位百分比
+[PASS] formatUsdt2 2 位 ROUND_HALF_UP
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 资产/负费率状态列中文格式与路由列移除检查
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 净收益列存在与格式
+[PASS] 负值净收益红色样式
+[PASS] vip0_reference 显著标注「基准利率」
+[PASS] sort_basis 标注
+[PASS] 私有面板 verified=true 状态
+[PASS] 时点合一与估值来源卡片删除
+[PASS] 页面不含矛盾运行约束文案
+[PASS] 隐私开关默认隐藏
+[PASS] 隐私开关点击切换
+[PASS] 私有面板 verified=false disabled 占位
+[PASS] 私有面板 verified=false error 占位
+[PASS] 行联动方向标（不带数量）
+[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示
+[PASS] private-panel 在市场表之前
+[PASS] drawer DOM 在应用脚本之前
+[PASS] 成本腿命中行展示借币日利率
+[PASS] VIP0 参考档显示"参考"徽标
+[PASS] 正费率行不展示借币成本子行
+[PASS] opening spread 独立 formatter 三向量
+[PASS] 最终 15 列表头顺序、行单元格数、empty-state colspan 与合并列结构
+[PASS] 正向/反向开单列腿、价、百分比与颜色
+[PASS] Task C 别名移除、开单三行垂直顺序与 flex 布局移除
+[PASS] incomplete 双方向独立显示
+[PASS] stale/unavailable/缺失 降级为 —
+[PASS] 开单列参考报价文案
+[PASS] 负费率状态行感知的六文案派生
+[PASS] 余额卡片三行折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+[PASS] 余额数量整数千分位、小数原样保留
+[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）
+[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）
+[PASS] 低日净收益过滤 UI 行为（有符号 ≤0.03%；大负值隐藏；null 不过滤）
+[PASS] 可开优先展示 re-rank（正费率/可借>0 置顶，可借0/未探测不进，关闭恢复 payload 序）
+[PASS] METAL 资产标签徽章与下拉选项
+[PASS] 借币三态（51061 借光/有额度/未探测/borrow_rate_source=null 但额度已探测）
+[PASS] 抽屉打开、标题、年化值、历史 newest-first
+[PASS] 抽屉关闭按钮
+[PASS] 抽屉 Escape 关闭
+[PASS] 抽屉 backdrop 关闭
+[PASS] 刷新保持抽屉
+[PASS] symbol 消失时抽屉关闭
+[PASS] drawer loading 与 same-origin 请求
+[PASS] available 响应合并到行与表
+[PASS] empty 响应显示无记录
+[PASS] HTTP 502 显示可重试失败状态
+[PASS] 重试按钮重新 fetch 并更新抽屉
+[PASS] stale 响应隔离
+[PASS] response-body race 隔离（res.json() 延迟后切换）
+[PASS] wrong-symbol/schema 响应被拒绝合并
+[PASS] schema_version mismatch 响应被拒绝
+[PASS] 缺 row 字段响应被拒绝
+[PASS] 含 rows 数组响应被拒绝
+[PASS] in-flight 守卫忽略同 symbol 重复点击
+[PASS] refresh_status=timeout 显示 notice 且保留上次行
+[PASS] refresh_status=partial 替换行并显示 warnings notice
+[PASS] 操作单元格两输入一按钮、标签与事件隔离
+[PASS] 创建前预览资产/数量/次数/目标总量/当前全局间隔
+[PASS] 借币任务导航切换、API 加载、空态与真实文案
+[PASS] 借币任务输入本地校验（非法数量/次数不发请求）
+[PASS] HOME 创建 POST 冻结 body、渲染后端 borrowing 文档
+[PASS] 操作单元格 UI 提交路径、本地校验与 API 400 detail
+[PASS] 创建前 fail-closed：未加载/loaded→503 零 POST，加载 interval=5 后恰好一次 POST
+[PASS] maxBorrowableSubline 不再重复「已借完」
+[PASS] 任务状态机按钮矩阵、冻结 mutation 路由/body 与 409 就近显示
+[PASS] latest_result 五类标签、未知阻塞徽标与空结果占位
+[PASS] 筛选成员与软删除可见性
+[PASS] 任务编辑预填、有效/409/只读路径
+[PASS] 借币任务/借币日志顶层 tab 切换与筛选归属
+[PASS] 最小借币量占位符三分支、空输入值与编辑输入不受影响
+[PASS] 借币日志 newest-first 游标分页、加载更多与显式刷新
+[PASS] 全局间隔编辑器 GET/PUT（≥2s）、sub-floor 400 与本地校验
+[PASS] 开单操作列两输入两按钮、平滑开单 disabled+下一轮、立即开单可点、推荐方向按费率符号高亮
+[PASS] 立即开单创建：POST 冻结 body、创建后重拉 ?status=all、非法输入零 POST、invalid_field 行内报错、smooth 拒绝
+[PASS] insufficient_balance 弹框两路径：正向 USDT / 反向现货 stage-1 文案逐字、不建任务
+[PASS] 任务生命周期：pause/start/fill-once/fill-all/delete 冻结路由 + 状态推进 + 软删除筛选与导航徽标
+[PASS] stopped/paused 语义返工：single_leg 提示但继续调度 + stop_reason 终止展示 + 按钮矩阵服从后端 status + invalid_state 409 就近报错
+[PASS] 持仓表从 GET /api/hedge-open-positions 渲染（§3.4 字段逐字）+ 空态
+[PASS] 执行徽标：executor_mode disabled→dry-run / live + start_gate Start 状态
+[PASS] 任务卡 real-api-v1 新字段：调度/受理/连续失败/阈值渲染 + 暂停原因 + 旧文档逐项降级 —
+[PASS] attempt 时间线：logs 取数 + 两腿字段逐字渲染 + payload 内嵌兼容 + 非 attempt 忽略 + 缺腿降级
+[PASS] attempt 时间线降级：空态 + 503 错误横幅 + 恢复
+[PASS] 开单日志顶层 tab 结构位置 + 切换 + 首屏拉取第 1 页（entries_limit）
+[PASS] 开单日志逐字渲染：缺腿降级 — + task_event 全 — + 安全错误 + next_action 中文映射
+[PASS] 开单日志 no-orderId 确认失败行 + newest-first 两页 entries_cursor 分页（不回退旧 next_cursor）+ entry_id 不重复 + 加载更多 + 显式刷新
+[PASS] entries_next_cursor 缺失/非字符串安全降级为没有更多，不回退旧 next_cursor
+[PASS] 开单日志降级：空态 + 503 错误横幅 + 恢复
+[PASS] 开单日志 querying 组渲染查询中/等待终态
+[PASS] 开单 API 全部同源、零跨域 fetch
+[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、零新任务定时器、localStorage 白名单（仅隐私键）
+
+全部自检通过
+self-check-exit=0
+
+##### CMD #4: scripts/tests/test_validate_stage_dispatch_protocol.py -q #####
+.......................................................                  [100%]
+55 passed in 0.78s
+
+##### CMD #5: git diff --check #####
+git-diff-check-exit=0
+
+===== bookkeeper reconciliation of packet 62 (2026-07-25 18:41:46 CST) =====
+
+Command: .venv/bin/python -m pytest backend/tests/test_hedge_domain.py backend/tests/test_hedge_store.py backend/tests/test_hedge_service.py backend/tests/test_hedge_api.py backend/tests/test_hedge_open_live_client.py backend/tests/test_live_hedge_executor.py backend/tests/test_hedge_executor.py backend/tests/test_hedge_purity.py backend/tests/test_hedge_review2_regressions.py backend/tests/test_hedge_task_local.py -q
+Result: PASS (218 passed in 14.78s)
+
+Command: .venv/bin/python -m pytest backend/tests -q
+Result: PASS (894 passed in 45.33s)
+
+Command: node frontend/self-check.js
+Result: PASS (all checks passed, exit 0)
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (55 passed in 0.76s)
+
+Command: git diff --check
+Result: PASS (exit 0)
+
+Reconciliation result: HOLD. `23-packet-62-reconciliation-hold.md` records H-1:
+live `tick()` remains a continuing all-task recovery scanner, which conflicts
+with the amendment-21 one-time startup/manual recovery contract. The rework
+limit is exhausted; do not commit or dispatch review until the human decides.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 18:41:46 CST
+下一步模型: human
+下一步任务: decide whether to authorize one narrowly bounded final correction for H-1
+
+===== packet 63 dispatch-ready validation (2026-07-25 18:52:52 CST) =====
+
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (55 passed in 0.75s)
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+phase=dispatch-ready
+status=fixing
+diff_fingerprint=b02c92d20360094a67374bf80bcd588fb154db6c:81f74d59d61ef6723b8399beb640e847906c6addb25d7c939313c2aa6a3e3cb0
+
+Command: git diff --check
+Result: PASS
+
+Packet 63 is dispatch-ready. Its human-authorized scope is only the live-mode
+one-time recovery handoff and removal of recurring all-task live scanning; it
+inherits the uncommitted packet-62 worker changes and does not authorize live
+activation, Start, credentials, Binance traffic, or an order.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 18:52:52 CST
+下一步模型: human
+下一步任务: run packet 63 in a fresh write-capable Claude-GLM session
+
+===== bookkeeper reconciliation of packet 63 (2026-07-25 19:38:16 CST) =====
+
+Command: .venv/bin/python -m pytest backend/tests/test_hedge_task_local.py backend/tests/test_hedge_service.py backend/tests/test_hedge_review2_regressions.py -q
+Result: PASS (48 passed in 1.43s)
+
+Command: .venv/bin/python -m pytest backend/tests -q
+Result: PASS (897 passed in 45.30s)
+
+Command: node frontend/self-check.js
+Result: PASS (all checks passed, exit 0)
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS (55 passed in 0.83s)
+
+Command: git diff --check
+Result: PASS
+
+Reconciliation result: PASS. Packet 63 removes the live periodic all-task
+recovery scan while preserving packet 62's task-local worker behavior. The
+next gate is a fresh backend Review-1 after the bookkeeper creates the local
+delivery-evidence commit and binds its committed fingerprint.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 19:38:16 CST
+下一步模型: bookkeeper
+下一步任务: create the local delivery-evidence commit, bind the committed fingerprint, and prepare renewed backend Review-1
+
+===== renewed backend Review-1 preflight (2026-07-25 19:43:13 CST) =====
+
+Command: git status --short
+Result: PASS (clean committed worktree before this evidence append)
+
+Command: git diff --binary 28c550d87c1ca90983d5bde9c7102d42cffecd4e..ab3126d73549266a615fe43c1aeaf374b0db2d32 -- . ':(exclude)reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json' | shasum -a 256
+Result: PASS
+4538945aa1e6ed3ea89a4f00f60a7dc71c97cc634dcb042c45d39ecc5a6e9772
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: PASS
+STAGE VALIDATION PASSED
+phase=pre-review
+status=review_1
+diff_fingerprint=ab3126d73549266a615fe43c1aeaf374b0db2d32:4538945aa1e6ed3ea89a4f00f60a7dc71c97cc634dcb042c45d39ecc5a6e9772
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 19:43:13 CST
+下一步模型: human
+下一步任务: run packet 64 in a fresh read-only Claude Sonnet 5 session
+
+===== reconciliation-hold checkpoint (2026-07-25 18:44:55 CST) =====
+
+Command: jq empty reports/agent-runs/2026-07-hedge-open-real-api-v1/status.json
+Result: PASS
+
+Command: git diff --check
+Result: PASS
+
+Command: .venv/bin/python scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase checkpoint
+Result: PASS
+STAGE VALIDATION PASSED
+phase=checkpoint
+status=human_escalation_required
+diff_fingerprint=b02c92d20360094a67374bf80bcd588fb154db6c:81f74d59d61ef6723b8399beb640e847906c6addb25d7c939313c2aa6a3e3cb0
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 18:44:55 CST
+下一步模型: human
+下一步任务: decide whether to authorize one narrowly bounded final correction for H-1
+
+===== packet 63 final-guardian-scanner-fix real test output (2026-07-25 19:02:25 CST) =====
+
+Command: .venv/bin/python -m pytest backend/tests/test_hedge_task_local.py backend/tests/test_hedge_service.py backend/tests/test_hedge_review2_regressions.py -q
+................................................                         [100%]
+48 passed in 1.43s
+exit=0
+
+Command: .venv/bin/python -m pytest backend/tests -q
+........................................................................ [ 96%]
+.................................                                        [100%]
+897 passed in 45.30s
+exit=0
+
+Command: node frontend/self-check.js
+
+全部自检通过
+exit=0
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+.......................................................                  [100%]
+55 passed in 0.73s
+exit=0
+
+Command: git diff --check
+exit=0
+
+当前 Session ID: unavailable (Claude Code / glm-5.2 harness 不暴露 provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 19:02:25 CST
+下一步模型: bookkeeper
+下一步任务: recompute the changed-file fingerprint, reconcile the packet-63 final guardian fix, and run a renewed backend Review-1
+
+===== packet 65 dispatch-ready checkpoint (2026-07-25 21:13:29 CST) =====
+
+Command: scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase dispatch-ready
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=dispatch-ready
+status=fixing
+diff_fingerprint=ab3126d73549266a615fe43c1aeaf374b0db2d32:4538945aa1e6ed3ea89a4f00f60a7dc71c97cc634dcb042c45d39ecc5a6e9772
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS
+.......................................................                  [100%]
+55 passed in 1.02s
+
+Command: git diff --check
+Result: PASS
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 21:13:29 CST
+下一步模型: human
+下一步任务: run packet 65 in a fresh write-capable Claude-GLM session
+
+================================================================
+packet 65 — Review-1 backend r3 self-test (bounded 5th backend fix)
+本地北京时间: 2026-07-25 (CST)
+================================================================
+
+Command 1: .venv/bin/python -m pytest backend/tests/test_hedge_task_local.py backend/tests/test_hedge_service.py backend/tests/test_hedge_review2_regressions.py backend/tests/test_hedge_store.py backend/tests/test_hedge_domain.py backend/tests/test_hedge_api.py backend/tests/test_hedge_purity.py backend/tests/test_hedge_open_live_client.py backend/tests/test_live_hedge_executor.py backend/tests/test_hedge_executor.py -q
+........................................................................ [ 31%]
+........................................................................ [ 62%]
+........................................................................ [ 94%]
+.............                                                            [100%]
+229 passed in 15.40s
+Result: PASS (229 passed)
+
+Command 2: .venv/bin/python -m pytest backend/tests -q
+........................................................................ [  7%]
+........................................................................ [ 15%]
+........................................................................ [ 23%]
+........................................................................ [ 31%]
+........................................................................ [ 39%]
+........................................................................ [ 47%]
+........................................................................ [ 55%]
+........................................................................ [ 63%]
+........................................................................ [ 71%]
+........................................................................ [ 79%]
+........................................................................ [ 87%]
+........................................................................ [ 95%]
+.........................................                                [100%]
+905 passed in 48.52s
+Result: PASS (905 passed)
+
+Command 3: node frontend/self-check.js
+[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、零新任务定时器、localStorage 白名单（仅隐私键）
+
+全部自检通过
+Result: PASS (全部自检通过)
+
+Command 4: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+.......................................................                  [100%]
+55 passed in 1.10s
+Result: PASS (55 passed)
+
+Command 5: git diff --check
+git diff --check exit=0
+Result: PASS (clean)
+
+===== packet 65 bookkeeper reconciliation (2026-07-25 22:25:18 CST) =====
+
+Command: .venv/bin/python -m pytest backend/tests/test_hedge_task_local.py -q -k 'test_r1 or test_r2 or test_r3 or test_r4 or test_r5 or test_r6 or test_r7 or test_r8 or test_6a or test_6b or test_6c or test_4b'
+Result: PASS
+............                                                             [100%]
+12 passed, 6 deselected in 0.20s
+
+Command: node frontend/self-check.js
+Result: PASS (全部自检通过)
+
+Command: .venv/bin/python -m pytest scripts/tests/test_validate_stage_dispatch_protocol.py -q
+Result: PASS
+.......................................................                  [100%]
+55 passed in 0.95s
+
+Command: git diff --check
+Result: PASS
+
+Note: the packet-65 implementer preserved the complete raw backend-suite result
+in the preceding section: 905 passed in 48.52s. The bookkeeper independently
+re-ran the high-risk R1–R8 and H-1 regression subset above, the frontend
+self-check, the Harness protocol suite, and whitespace validation.
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 22:25:18 CST
+下一步模型: bookkeeper
+下一步任务: commit the packet-66 Review-1 metadata, then run pre-review validation
+
+===== packet 66 pre-review gate (2026-07-25 22:26:34 CST) =====
+
+Command: scripts/validate-stage.py 2026-07-hedge-open-real-api-v1 --phase pre-review
+Result: PASS
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-real-api-v1
+phase=pre-review
+status=review_1
+diff_fingerprint=9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c:fbf52f40fbebe7018bdf6e460d7f2e4855519c52e3a6403151db420aa13d99db
+
+Command: git status --short; git diff --check
+Result: PASS (clean worktree; no whitespace error)
+
+当前 Session ID: unavailable (Codex runtime does not expose a provider-native Session ID)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-open-real-api-v1/60-test-output.txt
+本地北京时间: 2026-07-25 22:26:34 CST
+下一步模型: human
+下一步任务: run packet 66 in a fresh read-only Claude Opus 5 session
+
+================================================================================
+packet 67 — fix-review-1-backend-r4 (Review-1 r4: P2-1 + P2-2, 6th bounded change)
+implementer: claude_glm / glm-5.2[1m]   stage: 2026-07-hedge-open-real-api-v1
+anchor 9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c : fbf52f40fbebe7018bdf6e460d7f2e4855519c52e3a6403151db420aa13d99db
+================================================================================
+
+## CMD #1 — focused ten groups
+........................................................................ [ 31%]
+........................................................................ [ 62%]
+........................................................................ [ 93%]
+..............                                                           [100%]
+230 passed in 15.06s
+CMD#1 exit=0
+
+## CMD #2 — full backend/tests
+........................................................................ [  7%]
+........................................................................ [ 15%]
+........................................................................ [ 23%]
+........................................................................ [ 31%]
+........................................................................ [ 39%]
+........................................................................ [ 47%]
+........................................................................ [ 55%]
+........................................................................ [ 63%]
+........................................................................ [ 71%]
+........................................................................ [ 79%]
+........................................................................ [ 87%]
+........................................................................ [ 95%]
+..........................................                               [100%]
+906 passed in 45.71s
+CMD#2 exit=0
+
+## CMD #3 — frontend self-check
+[PASS] 内联脚本语法检查
+[PASS] 默认请求 /api/public-market/snapshot
+[PASS] 数据源标签显示后端 API
+[PASS] 数据说明已删除；市场表下北京时间元信息已渲染
+[PASS] 默认渲染 6 行
+[PASS] 拆列存在，合并列消失
+[PASS] 年化三列存在且文案区分预估/已结算
+[PASS] 路由分类列移除，过滤器与字段校验保留
+[PASS] Drawer 宽度与卡片标签约束
+[PASS] 资金费率固定 3 位小数
+[PASS] 日费率 string-shift 格式化（含 null→—）
+[PASS] 近 24h 列格式化（3 位小数，null→—）
+[PASS] 年化三列格式化（含 null→—）
+[PASS] 结算间隔标注 8h
+[PASS] 无通用排序控件 DOM；可开优先控件存在
+[PASS] 渲染顺序等于 payload 顺序
+[PASS] 时间转换正确
+[PASS] 列名/文案无误导性 settlement/prediction 文案
+[PASS] 无交易按钮/开仓票据
+[PASS] 资金费率格式化 7 个样例
+[PASS] formatFundingRate / formatBeijing* 函数体未变
+[PASS] formatFundingRateFixed 固定小数位百分比
+[PASS] formatUsdt2 2 位 ROUND_HALF_UP
+[PASS] 自动刷新 60s 与倒计时元素存在
+[PASS] 资产/负费率状态列中文格式与路由列移除检查
+[PASS] 侧栏品牌已中文化
+[PASS] 手动刷新后 60s 自动刷新计时器重调度，倒计时计时器保持独立
+[PASS] 净收益列存在与格式
+[PASS] 负值净收益红色样式
+[PASS] vip0_reference 显著标注「基准利率」
+[PASS] sort_basis 标注
+[PASS] 私有面板 verified=true 状态
+[PASS] 时点合一与估值来源卡片删除
+[PASS] 页面不含矛盾运行约束文案
+[PASS] 隐私开关默认隐藏
+[PASS] 隐私开关点击切换
+[PASS] 私有面板 verified=false disabled 占位
+[PASS] 私有面板 verified=false error 占位
+[PASS] 行联动方向标（不带数量）
+[PASS] 优雅降级：新字段缺失不白屏，日费率/净收益 —，间隔不显示
+[PASS] private-panel 在市场表之前
+[PASS] drawer DOM 在应用脚本之前
+[PASS] 成本腿命中行展示借币日利率
+[PASS] VIP0 参考档显示"参考"徽标
+[PASS] 正费率行不展示借币成本子行
+[PASS] opening spread 独立 formatter 三向量
+[PASS] 最终 15 列表头顺序、行单元格数、empty-state colspan 与合并列结构
+[PASS] 正向/反向开单列腿、价、百分比与颜色
+[PASS] Task C 别名移除、开单三行垂直顺序与 flex 布局移除
+[PASS] incomplete 双方向独立显示
+[PASS] stale/unavailable/缺失 降级为 —
+[PASS] 开单列参考报价文案
+[PASS] 负费率状态行感知的六文案派生
+[PASS] 余额卡片三行折算值与隐私遮蔽
+[PASS] value_usdt null 显示占位
+[PASS] value_usdt 合法零显示占位
+[PASS] 余额数量整数千分位、小数原样保留
+[PASS] absDailyRateAtOrBelowThreshold 阈值边界（BigInt）
+[PASS] 低日费率过滤 UI 行为（边界隐藏/超界保留/null 不过滤）
+[PASS] 低日净收益过滤 UI 行为（有符号 ≤0.03%；大负值隐藏；null 不过滤）
+[PASS] 可开优先展示 re-rank（正费率/可借>0 置顶，可借0/未探测不进，关闭恢复 payload 序）
+[PASS] METAL 资产标签徽章与下拉选项
+[PASS] 借币三态（51061 借光/有额度/未探测/borrow_rate_source=null 但额度已探测）
+[PASS] 抽屉打开、标题、年化值、历史 newest-first
+[PASS] 抽屉关闭按钮
+[PASS] 抽屉 Escape 关闭
+[PASS] 抽屉 backdrop 关闭
+[PASS] 刷新保持抽屉
+[PASS] symbol 消失时抽屉关闭
+[PASS] drawer loading 与 same-origin 请求
+[PASS] available 响应合并到行与表
+[PASS] empty 响应显示无记录
+[PASS] HTTP 502 显示可重试失败状态
+[PASS] 重试按钮重新 fetch 并更新抽屉
+[PASS] stale 响应隔离
+[PASS] response-body race 隔离（res.json() 延迟后切换）
+[PASS] wrong-symbol/schema 响应被拒绝合并
+[PASS] schema_version mismatch 响应被拒绝
+[PASS] 缺 row 字段响应被拒绝
+[PASS] 含 rows 数组响应被拒绝
+[PASS] in-flight 守卫忽略同 symbol 重复点击
+[PASS] refresh_status=timeout 显示 notice 且保留上次行
+[PASS] refresh_status=partial 替换行并显示 warnings notice
+[PASS] 操作单元格两输入一按钮、标签与事件隔离
+[PASS] 创建前预览资产/数量/次数/目标总量/当前全局间隔
+[PASS] 借币任务导航切换、API 加载、空态与真实文案
+[PASS] 借币任务输入本地校验（非法数量/次数不发请求）
+[PASS] HOME 创建 POST 冻结 body、渲染后端 borrowing 文档
+[PASS] 操作单元格 UI 提交路径、本地校验与 API 400 detail
+[PASS] 创建前 fail-closed：未加载/loaded→503 零 POST，加载 interval=5 后恰好一次 POST
+[PASS] maxBorrowableSubline 不再重复「已借完」
+[PASS] 任务状态机按钮矩阵、冻结 mutation 路由/body 与 409 就近显示
+[PASS] latest_result 五类标签、未知阻塞徽标与空结果占位
+[PASS] 筛选成员与软删除可见性
+[PASS] 任务编辑预填、有效/409/只读路径
+[PASS] 借币任务/借币日志顶层 tab 切换与筛选归属
+[PASS] 最小借币量占位符三分支、空输入值与编辑输入不受影响
+[PASS] 借币日志 newest-first 游标分页、加载更多与显式刷新
+[PASS] 全局间隔编辑器 GET/PUT（≥2s）、sub-floor 400 与本地校验
+[PASS] 开单操作列两输入两按钮、平滑开单 disabled+下一轮、立即开单可点、推荐方向按费率符号高亮
+[PASS] 立即开单创建：POST 冻结 body、创建后重拉 ?status=all、非法输入零 POST、invalid_field 行内报错、smooth 拒绝
+[PASS] insufficient_balance 弹框两路径：正向 USDT / 反向现货 stage-1 文案逐字、不建任务
+[PASS] 任务生命周期：pause/start/fill-once/fill-all/delete 冻结路由 + 状态推进 + 软删除筛选与导航徽标
+[PASS] stopped/paused 语义返工：single_leg 提示但继续调度 + stop_reason 终止展示 + 按钮矩阵服从后端 status + invalid_state 409 就近报错
+[PASS] 持仓表从 GET /api/hedge-open-positions 渲染（§3.4 字段逐字）+ 空态
+[PASS] 执行徽标：executor_mode disabled→dry-run / live + start_gate Start 状态
+[PASS] 任务卡 real-api-v1 新字段：调度/受理/连续失败/阈值渲染 + 暂停原因 + 旧文档逐项降级 —
+[PASS] attempt 时间线：logs 取数 + 两腿字段逐字渲染 + payload 内嵌兼容 + 非 attempt 忽略 + 缺腿降级
+[PASS] attempt 时间线降级：空态 + 503 错误横幅 + 恢复
+[PASS] 开单日志顶层 tab 结构位置 + 切换 + 首屏拉取第 1 页（entries_limit）
+[PASS] 开单日志逐字渲染：缺腿降级 — + task_event 全 — + 安全错误 + next_action 中文映射
+[PASS] 开单日志 no-orderId 确认失败行 + newest-first 两页 entries_cursor 分页（不回退旧 next_cursor）+ entry_id 不重复 + 加载更多 + 显式刷新
+[PASS] entries_next_cursor 缺失/非字符串安全降级为没有更多，不回退旧 next_cursor
+[PASS] 开单日志降级：空态 + 503 错误横幅 + 恢复
+[PASS] 开单日志 querying 组渲染查询中/等待终态
+[PASS] 开单 API 全部同源、零跨域 fetch
+[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、零新任务定时器、localStorage 白名单（仅隐私键）
+
+全部自检通过
+CMD#3 exit=0
+
+## CMD #4 — harness dispatch protocol
+.......................................................                  [100%]
+55 passed in 0.81s
+CMD#4 exit=0
+
+## CMD #5 — git diff --check
+CMD#5 git diff --check exit=0
+
+## P2-1 reverse verification (monkeypatch in a throwaway process; zero repo files touched)
+========================================================================
+P2-1 reverse-verification (Review-1 r4): R3/R4 with the deleted _wake_worker
+interrupt RE-INTRODUCED into post_pause/post_delete (monkeypatch, zero repo files).
+========================================================================
+
+--- POST_PAUSE (R3) ---
+[A] FIXED seam (_pump_worker no clear) + regressed interrupt -> R3 MUST FAIL:
+      stop_event set right after post_pause      : True
+      query_calls >= 2                          : False (0)
+      both legs terminal                        : False
+      pair settled                              : False
+      no new pair (scheduled unchanged)         : True
+      stop_event NOT set (new P2-1 assertion)   : False
+[B] PRE-FIX seam (_pump_worker clears) + regressed interrupt -> drain vacuously PASSES:
+      stop_event set right after post_pause      : True
+      query_calls >= 2                          : True (2)
+      both legs terminal                        : True
+      pair settled                              : True
+      no new pair (scheduled unchanged)         : True
+      stop_event NOT set (new P2-1 assertion)   : False
+
+--- POST_DELETE (R4) ---
+[A] FIXED seam (_pump_worker no clear) + regressed interrupt -> R4 MUST FAIL:
+      stop_event set right after post_delete      : True
+      query_calls >= 2                          : False (0)
+      both legs terminal                        : False
+      pair settled                              : False
+      no new pair (scheduled unchanged)         : True
+      stop_event NOT set (new P2-1 assertion)   : False
+[B] PRE-FIX seam (_pump_worker clears) + regressed interrupt -> drain vacuously PASSES:
+      stop_event set right after post_delete      : True
+      query_calls >= 2                          : True (2)
+      both legs terminal                        : True
+      pair settled                              : True
+      no new pair (scheduled unchanged)         : True
+      stop_event NOT set (new P2-1 assertion)   : False
+
+## P2-2 reverse verification (R9 done-card recovery; monkeypatch, zero repo files touched)
+========================================================================
+P2-2 reverse verification (Review-1 r4): R9 done-card recovery under the
+regressed fallback (STATUS_DONE dropped) vs the FIXED fallback (DONE present).
+========================================================================
+
+[REGRESSED fallback = (PAUSED, STOPPED, DELETED)] — R9 MUST FAIL:
+      done card built (status, perp terminal before restart) : done, 0
+      ensure_worker called for done card during recovery     : False ([])
+      query_calls after start()                              : 0
+      perp terminal after start()                            : 0 (NEW)
+      non-terminal legs after start()                        : [{'id': 2, 'attempt_id': 1, 'leg': 'perp', 'client_order_id': 'hgo-2ba9089daf6e4845be4e0b4fb2ba19c8-p', 'endpoint': '/papi/v1/um/order', 'request_shape': '{"symbol": "BTCUSDT", "side": "SELL", "type": "MARKET", "quantity": "0.5", "positionSide": "BOTH", "newClientOrderId": "hgo-2ba9089daf6e4845be4e0b4fb2ba19c8-p", "newOrderRespType": "RESULT"}', 'dispatch_state': 'ACCEPTED_OR_QUERYING', 'order_id': 'p1', 'exchange_status': 'NEW', 'cumulative_base_qty': '0', 'cumulative_quote_amt': '0', 'fee_amount': None, 'fee_asset': None, 'error_code': None, 'error_category': None, 'dispatched_at_us': 0, 'last_query_at_us': 0, 'terminal': 0}]
+
+[FIXED fallback = (PAUSED, STOPPED, DELETED, DONE)] — R9 GREEN:
+      done card built (status, perp terminal before restart) : done, 0
+      ensure_worker called for done card during recovery     : True (['4552381a-b5d5-4727-8e8b-6cf4151cd209'])
+      query_calls after start()                              : 1
+      perp terminal after start()                            : 1 (FILLED)
+      status after start()                                   : done
+
+================================================================
+71-fix-review-2-backend-r7 — R7 self-test (Review-2 F1+F2+F4 + finding-6 validator)
+model: claude_glm (zhipu_glm)   executor: human_operator   date: 2026-07-26
+scope: 28-user-authorized-r7-repair.md §2 (F1/F2/F4 + finding-6 validator ONLY)
+no real POST / no credentials / no Binance / no live enable / no Start / no commit
+================================================================
+
+### 1) focused 9-file suite (28 §5) — expect green
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+........................................................................ [ 95%]
+...........                                                              [100%]
+227 passed in 14.48s
+
+### 2) backend/tests full — expect green
+........................................................................ [ 78%]
+........................................................................ [ 86%]
+........................................................................ [ 94%]
+......................................................                   [100%]
+918 passed in 47.50s
+
+### 3) frontend self-check — expect all pass
+[PASS] 开单 API 全部同源、零跨域 fetch
+[PASS] fetch 同源白名单（含开单 §3 路由）、零 Binance/外域、零新任务定时器、localStorage 白名单（仅隐私键）
+
+全部自检通过
+
+### 4) scripts/tests/test_validate_stage_dispatch_protocol.py — expect green
+...................................................................      [100%]
+67 passed in 1.30s
+
+### 5) git diff --check — expect clean
+git diff --check: clean (exit 0)
+
+================================================================
+R7 self-test complete. Stop and await bookkeeper.
+================================================================

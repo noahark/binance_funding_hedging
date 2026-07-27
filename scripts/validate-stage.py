@@ -966,6 +966,160 @@ def validate_review_artifacts(
     return errors
 
 
+# --- finding-6 dispatch-receipt / root-status phase consistency (dispatch 72 §7) ---
+
+# Ordered workflow phases. A review_k dispatch file existing means the stage
+# has ENTERED phase k, so the root status must be at >= that phase. Holding
+# statuses (paused/blocked/escalation/exhausted/abandoned) deliberately have no
+# entry here: they freeze the machine without contradicting which phase was
+# entered, so finding-6 (b) must not second-guess them.
+_STATUS_PHASE = {
+    "planned": 0, "designing": 0, "implementing": 0, "testing": 0,
+    "review_1": 1,
+    "fixing": 2,
+    "review_2": 3,
+    "accepted": 4, "stage_accepted_waiting_user": 4,
+}
+_REVIEW_PHASE = {"review_1": 1, "review_2": 3}
+
+# Receipt `outputs` placeholders that never count as a real produced artifact
+# (mirrors RECEIPT_PLACEHOLDER_COMMANDS for the outputs field).
+_RECEIPT_PLACEHOLDER_OUTPUTS = {"n/a", "na", "pending", "none", "tbd", "-"}
+
+
+def _root_status_behind_review(root_status: Any, review_key: str) -> str | None:
+    """finding-6 (b): return an error string when the root status is parked in
+    a phase earlier than a review whose dispatch file is already present (e.g.
+    a review_2 dispatch exists but status=review_1). None when the status
+    matches/advances the phase, or is a holding status the check must not judge."""
+    review_phase = _REVIEW_PHASE.get(review_key)
+    root_phase = _STATUS_PHASE.get(root_status)
+    if review_phase is None or root_phase is None:
+        return None
+    if root_phase < review_phase:
+        return (
+            f"root status {root_status!r} is behind the {review_key} phase: "
+            f"{review_key}.dispatch_path is present but the root status was not "
+            f"advanced to {review_key}"
+        )
+    return None
+
+
+def _collect_review_dispatch_refs(
+    status_doc: dict[str, Any],
+) -> list[tuple[str, str, Any]]:
+    """finding-6: ``(label, review_key, dispatch_value)`` for every review
+    recorded under status.json — top-level review_1 (single-task) or per-task
+    review_1 (parallel), plus review_2. Mirrors validate_review_artifacts'
+    record collection, but without the verdict gate: phase/output drift is
+    independent of whether a verdict is recorded."""
+    refs: list[tuple[str, str, Any]] = []
+    object_tasks = _object_tasks(status_doc)
+    parallel = len(object_tasks) >= 2
+    if parallel:
+        for task in object_tasks:
+            review = task.get("review_1")
+            if isinstance(review, dict):
+                refs.append(
+                    (f"tasks[{task.get('id')}].review_1", "review_1", review.get("dispatch_path"))
+                )
+    else:
+        review_1 = status_doc.get("review_1")
+        if isinstance(review_1, dict):
+            refs.append(("review_1", "review_1", review_1.get("dispatch_path")))
+    review_2 = status_doc.get("review_2")
+    if isinstance(review_2, dict):
+        refs.append(("review_2", "review_2", review_2.get("dispatch_path")))
+    return refs
+
+
+def _collect_all_dispatch_refs(
+    status_doc: dict[str, Any],
+) -> list[tuple[str, str | None, Any]]:
+    """finding-6 (74-review-2-r2.md P1): every dispatch receipt status.json
+    references, not just the review ones.
+
+    :func:`_collect_review_dispatch_refs` only reaches review_1/review_2, so an
+    implementation or fix dispatch left pending-with-outputs was invisible —
+    including packet 72, which delivered this very check. Rather than enumerate
+    the authorization/routing keys that happen to exist today (and re-open the
+    same blind spot the next time a key is added), walk the whole document and
+    pick up every ``*.dispatch.md`` reference.
+
+    Review refs keep their ``review_key`` so the root-status phase check still
+    applies to them; everything else carries ``None`` (a fix dispatch has no
+    workflow phase of its own, so only the pending-with-outputs check runs).
+    The dotted label points at the key the reference was found under, so an
+    error names the exact status.json field."""
+    refs: list[tuple[str, str | None, Any]] = list(_collect_review_dispatch_refs(status_doc))
+    seen = {str(value) for _, _, value in refs if _nonempty_string(value)}
+
+    def walk(node: Any, path: str) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                walk(value, f"{path}.{key}" if path else str(key))
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                walk(value, f"{path}[{index}]")
+        elif isinstance(node, str) and node.endswith(".dispatch.md"):
+            if node not in seen:
+                seen.add(node)
+                refs.append((path or "status", None, node))
+
+    walk(status_doc, "")
+    return refs
+
+
+def validate_dispatch_receipt_phase(
+    root: Path, stage_dir: Path, status_doc: dict[str, Any]
+) -> list[str]:
+    """finding-6 (dispatch 72 §7): machine-check two bookkeeping drifts a human
+    operator (or a stale branch) can introduce, scoped to human-operator/v1
+    stages only:
+
+    (a) a referenced dispatch receipt is still status=pending while its declared
+        ``outputs`` file already exists on disk — the receipt was never sealed
+        even though the dispatch produced its artifact. Covers EVERY dispatch
+        status.json references (review, implementation and fix alike): scoping
+        this to reviews is what let packet 72 — the dispatch that delivered this
+        check — sit pending with its report on disk (74-review-2-r2.md P1);
+    (b) a review's dispatch file is present (the phase was entered) but the root
+        status is still parked in an earlier phase — e.g. a review_2 dispatch
+        exists while status=review_1. Only reviews carry a workflow phase, so
+        this half stays scoped to review refs.
+
+    Reads status.json dispatch references + receipt blocks only; never mutates
+    status.json / 70-handoff.md / any receipt. A missing dispatch file is left
+    to validate_review_artifacts (no double-report)."""
+    errors: list[str] = []
+    if not _uses_human_operator_protocol(status_doc):
+        return errors
+    root_status = status_doc.get("status")
+    for label, review_key, dispatch_value in _collect_all_dispatch_refs(status_doc):
+        if not _nonempty_string(dispatch_value):
+            continue
+        path = _resolve_evidence_path(root, stage_dir, dispatch_value)
+        if not path.exists():
+            continue
+        behind = _root_status_behind_review(root_status, review_key) if review_key else None
+        if behind:
+            errors.append(f"{label}: {behind}")
+        receipt = parse_dispatch_receipt(path.read_text(encoding="utf-8", errors="replace"))
+        if receipt is None:
+            continue
+        if receipt.get("status") == "pending":
+            outputs = receipt.get("outputs", "")
+            text = str(outputs).strip() if _nonempty_string(outputs) else ""
+            if text and text.lower() not in _RECEIPT_PLACEHOLDER_OUTPUTS:
+                out_path = _resolve_evidence_path(root, stage_dir, text)
+                if out_path.exists():
+                    errors.append(
+                        f"{label}: dispatch receipt is status=pending but its declared "
+                        f"outputs file already exists: {text}"
+                    )
+    return errors
+
+
 def load_registry_text(root: Path) -> str:
     path = root / "agents" / "registry.yaml"
     if not path.exists():
@@ -2209,6 +2363,7 @@ def main() -> int:
                 errors.append(str(exc))
         errors.extend(validate_common(root, stage_dir, status_doc, args.phase))
         errors.extend(validate_stage_branch(root, status_doc, args.phase))
+        errors.extend(validate_dispatch_receipt_phase(root, stage_dir, status_doc))
         errors.extend(validate_parallel_mode(root, stage_dir, status_doc, args.phase))
         if args.phase == "dispatch-ready":
             errors.extend(validate_dispatch_ready(root, stage_dir, status_doc))

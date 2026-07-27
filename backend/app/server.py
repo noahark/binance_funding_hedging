@@ -562,7 +562,17 @@ class _Handler(BaseHTTPRequestHandler):
         query = parse_qs(urlparse(self.path).query)
         cursor = query.get("cursor", [None])[0]
         limit = query.get("limit", [None])[0]
-        self._send_hedge_open(*self._safe_hedge(self.hedge_open_service.get_logs, cursor, limit))
+        # Amendment 17: the additive entries timeline paginates on its own
+        # entries_limit / entries_cursor (independent of the legacy cursor/limit
+        # that still drive logs/attempts/next_cursor). Both are optional and
+        # opaque; parse_qs drops blank values, so ``?entries_cursor=`` is treated
+        # as absent (first page), matching the legacy cursor convention.
+        entries_cursor = query.get("entries_cursor", [None])[0]
+        entries_limit = query.get("entries_limit", [None])[0]
+        self._send_hedge_open(*self._safe_hedge(
+            self.hedge_open_service.get_logs,
+            cursor, limit, entries_cursor, entries_limit,
+        ))
 
     def _hedge_open_positions(self):
         self._send_hedge_open(*self.hedge_open_service.get_positions())
@@ -655,21 +665,46 @@ def _build_borrow_service(config: Config) -> BorrowTaskService:
 
 
 def _build_hedge_service(config: Config) -> HedgeOpenTaskService:
-    """Construct the hedge-open authority (stage 2026-07-hedge-open-live-v1).
+    """Construct the hedge-open authority (stage 2026-07-hedge-open-real-api-v1).
 
-    Executor mode comes from ``APP_HEDGE_EXECUTOR`` (read here, not from
-    ``config.py`` — this stage's file boundary does not include it); default
-    ``disabled``. Round 1 wires only the dry-run record transport: even in
-    ``live`` mode no live executor (real POST) is constructed, so the default
-    disabled/record-transport executor stays and a real POST remains unreachable
-    (ADR-5). The durable SQLite store lives next to the borrow store under the
-    gitignored ``data/`` dir.
+    Executor mode comes from ``config.hedge_executor`` (validated in
+    ``config.py`` from ``APP_HEDGE_EXECUTOR``; default ``disabled``). Default
+    off: only the dry-run record transport is wired. In ``live`` mode the narrow
+    exact-path PAPI adapter is built from the dedicated hedge credentials and
+    injected (with a fresh-preflight provider) — a real POST is still gated
+    downstream by the durable Start gate AND a fresh passing preflight AND the
+    per-send ``_live_dispatch_capable`` check (ADR-4 / breakdown §3.7). Empty
+    credentials keep the process safe: the live executor is constructed but
+    refuses to POST (``credentials_present=False`` ->
+    ``hedge_open_execution_blocked``). The durable SQLite store lives next to the
+    borrow store under the gitignored ``data/`` dir.
     """
-    mode = os.environ.get("APP_HEDGE_EXECUTOR", "disabled")
-    if mode not in {"disabled", "live"}:
-        mode = "disabled"
+    mode = config.hedge_executor
     db_path = config.borrow_db_path.parent / "hedge-open-tasks.sqlite3"
-    return HedgeOpenTaskService(str(db_path), mode=mode)
+    if mode != "live":
+        return HedgeOpenTaskService(str(db_path), mode=mode)
+    from ..services.hedge_open_live_client import HedgeOpenLiveClient
+    from ..services.hedge_preflight_provider import HedgePreflightProvider
+    from ..services.live_hedge_executor import LiveHedgeExecutor
+
+    client = HedgeOpenLiveClient(
+        api_key=config.binance_hedge_api_key,
+        api_secret=config.binance_hedge_api_secret,
+        user_agent=config.user_agent,
+    )
+    executor = LiveHedgeExecutor(client, now_ms=_now_ms)
+    preflight_provider = HedgePreflightProvider(
+        live_client=client,
+        now_ms=_now_ms,
+        user_agent=config.user_agent,
+    )
+    return HedgeOpenTaskService(
+        str(db_path),
+        mode=mode,
+        executor=executor,
+        preflight_provider=preflight_provider,
+        credentials_present=client.credentials_present,
+    )
 
 
 def run(config: Config = None) -> None:
@@ -689,6 +724,17 @@ def run(config: Config = None) -> None:
         mode=hedge_open_service.mode,
         start_gate=hedge_open_service.is_start_gate_on(),
     )
+    # Distinct sanitized startup event when live mode cannot execute because the
+    # dedicated hedge credentials are missing/empty (breakdown §3.7): the process
+    # still starts and serves, emits the frozen blocked marker, and sends zero
+    # signed hedge traffic (the live adapter refuses to POST). Credential presence
+    # is a boolean here; the value is never logged.
+    if config.hedge_executor == "live" and not hedge_open_service.credentials_present:
+        _emit_lifecycle(
+            "hedge_open_execution_blocked",
+            hedge_executor="live",
+            hedge_execution_blocked=hedge_open_domain.BLOCK_HEDGE_CREDENTIALS_MISSING,
+        )
     # Boundary C observability (D2/D7): report sanitized mode + ownership + the
     # frozen startup recovery counts. Only non-secret integer/enum/ownership
     # facts — no credential value, response body, signed data, or env value.

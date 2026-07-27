@@ -32,7 +32,20 @@ from backend.hedge_open_tasks.service import HedgeOpenTaskService
 _TASK_KEYS = {
     "id", "coin", "direction", "mode", "single_amount", "target_n",
     "success_count", "fail_count", "status", "q_common", "position_side_mode",
-    "leg_exposure", "created_at", "updated_at",
+    "leg_exposure",
+    # Real-API attempt/acceptance/pause counters (breakdown §3.4).
+    "scheduled_attempt_count", "accepted_pair_count",
+    "consecutive_submission_failures", "failure_pause_threshold", "pause_reason",
+    # Amendment 21 additive: localized pause reason alongside pause_reason.
+    "pause_reason_zh",
+    # Amendment additive (I-4): nullable stop_reason alongside status=stopped.
+    "stop_reason",
+    # Review-1 r3 P2-2: backend-authoritative worker observability. worker_active
+    # is a derived tri-state (True/False live, None in dry-run); the exit reason
+    # is the stable machine enum written by the worker's own exit branch.
+    "worker_active",
+    "last_worker_exit_reason",
+    "created_at", "updated_at",
 }
 _SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds"}
 _ERROR_KEYS = {"error", "detail"}
@@ -287,46 +300,50 @@ def test_fill_once_advances_then_done_is_invalid_state(tmp_path):
         assert _json(payload)["error"] == "invalid_state"
 
 
-def test_injected_single_leg_exposure_blocks_further_fill(tmp_path):
+def test_injected_single_leg_exposure_is_advisory(tmp_path):
     # The record-transport executor is injectable: seed a single-leg fill so the
-    # exposure drill is reachable end-to-end over HTTP. Frozen §3.2 requires the
-    # Task response's leg_exposure to be {leg,qty,price,ts}; spot-only fill ->
+    # exposure is reachable end-to-end over HTTP. Frozen §3.2 requires the Task
+    # response's leg_exposure to be {leg,qty,price,ts}; spot-only accepted ->
     # leg="spot" with the spot leg's actual qty/price (dry-run placeholder price).
+    # Advisory (breakdown §4.5): the exposure is recorded but the task is NOT
+    # frozen and a further fill is still allowed.
     exe = RecordTransportExecutor([OutcomeSpec.spot_only_filled()])
     with _server(_svc(tmp_path, executor=exe)) as (host, port):
         tid = _create_task(host, port)["id"]
         status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
         assert status == 200
         doc = _json(payload)
-        assert doc["status"] == "exposure_alert"
+        assert doc["status"] == "running"  # advisory: not frozen
         assert set(doc["leg_exposure"].keys()) == {"leg", "qty", "price", "ts"}
         assert doc["leg_exposure"]["leg"] == "spot"
         assert doc["leg_exposure"]["qty"] == "0.5"
         assert doc["leg_exposure"]["price"] == "1"  # dry-run placeholder, no preflight
-        # a further fill while exposed -> invalid_state.
+        # R2-F1: a single_leg counts toward the brake; below the threshold it is
+        # still not frozen (running), and a further fill stays allowed.
+        assert doc["consecutive_submission_failures"] == 1
+        # a further fill is still allowed (advisory never blocks scheduling).
         status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
-        assert status == 409
-        assert _json(payload)["error"] == "invalid_state"
+        assert status == 200
 
 
 def test_injected_perp_only_exposure_http_shape(tmp_path):
-    # §3.2 HTTP regression for the other single-leg direction: perp-only fill ->
-    # leg="perp" with the perp leg's actual qty/price, not the failed spot leg.
+    # §3.2 HTTP regression for the other single-leg direction: perp-only accepted
+    # -> leg="perp" with the perp leg's actual qty/price, not the un-accepted spot
+    # leg. Advisory: the task keeps running and accepts a further fill.
     exe = RecordTransportExecutor([OutcomeSpec.perp_only_filled()])
     with _server(_svc(tmp_path, executor=exe)) as (host, port):
         tid = _create_task(host, port)["id"]
         status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
         assert status == 200
         doc = _json(payload)
-        assert doc["status"] == "exposure_alert"
+        assert doc["status"] == "running"  # advisory: not frozen
         assert set(doc["leg_exposure"].keys()) == {"leg", "qty", "price", "ts"}
         assert doc["leg_exposure"]["leg"] == "perp"
         assert doc["leg_exposure"]["qty"] == "0.5"
         assert doc["leg_exposure"]["price"] == "1"  # dry-run placeholder, no preflight
-        # a further fill while exposed -> invalid_state.
+        # a further fill is still allowed (advisory never blocks scheduling).
         status, _, payload = _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
-        assert status == 409
-        assert _json(payload)["error"] == "invalid_state"
+        assert status == 200
 
 
 # ===========================================================================
@@ -397,7 +414,9 @@ def test_logs_pagination_and_record_transport_payload(tmp_path):
         status, _, payload = _req(host, port, "GET", "/api/hedge-open-logs?limit=2")
         assert status == 200
         page = _json(payload)
-        assert set(page.keys()) == {"logs", "next_cursor"}
+        assert set(page.keys()) == {
+            "logs", "attempts", "entries", "next_cursor", "entries_next_cursor",
+        }
         assert len(page["logs"]) == 2
         assert page["next_cursor"] is not None
         # newest first.
@@ -408,6 +427,74 @@ def test_logs_pagination_and_record_transport_payload(tmp_path):
         # never POSTed.
         assert first["kind"] == "record_transport"
         assert first["payload"]["posted"] is False
+
+
+def test_logs_includes_additive_attempts_timeline(tmp_path):
+    # R4-1 / breakdown §3.4: the logs response carries an additive `attempts`
+    # array (the attempt timeline) over HTTP. Each attempt projects the durable
+    # attempt + both legs with the frozen §3.4 fields; the frontend extractor
+    # (index.html extractHedgeAttempts) scans doc.attempts. legacy logs/cursor
+    # still present.
+    exe = RecordTransportExecutor([OutcomeSpec.spot_only_filled()])
+    with _server(_svc(tmp_path, executor=exe)) as (host, port):
+        tid = _create_task(host, port, _create_body(target_n=2))["id"]
+        _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-once")
+        status, _, payload = _req(host, port, "GET", "/api/hedge-open-logs?limit=10")
+        assert status == 200
+        page = _json(payload)
+        assert "attempts" in page and isinstance(page["attempts"], list)
+        assert len(page["attempts"]) == 1
+        a = page["attempts"][0]
+        # frozen §3.4 fields.
+        assert {"attempt_id", "attempt_seq", "direction", "q_common", "pair_outcome",
+                "spot", "perp", "residual", "ts"} <= set(a.keys())
+        assert a["direction"] == "forward"
+        assert a["pair_outcome"] == "single_leg"  # spot-only accepted
+        # per-leg frozen fields; spot FILLED with cumulative + weighted avg.
+        assert {"client_order_id", "order_id", "status", "cumulative_base_qty",
+                "cumulative_quote_amt", "avg_price"} <= set(a["spot"].keys())
+        assert a["spot"]["status"] == "FILLED"
+        assert a["perp"]["status"] == "REJECTED"
+        # residual is a decimal string over the wire (no float): 0.5 - 0.
+        assert a["residual"] == "0.5"
+        assert isinstance(a["residual"], str)
+        # legacy logs/cursor still present alongside the additive attempts array.
+        assert "logs" in page and "next_cursor" in page
+
+
+def test_logs_entries_pagination_params_threaded_through_http(tmp_path):
+    # Amendment 17 (opening-log-pagination-compatibility): entries_limit /
+    # entries_cursor thread through the HTTP route; the response carries the
+    # independent entries_next_cursor. Legacy limit/cursor still drive
+    # logs/next_cursor and are unaffected. The entries cursor never re-surfaces
+    # an entry across pages (the R4 defect). An invalid entries_cursor is
+    # rejected (fail-closed), not silently treated as page 1.
+    exe = RecordTransportExecutor()
+    with _server(_svc(tmp_path, executor=exe)) as (host, port):
+        tid = _create_task(host, port, _create_body(target_n=3))["id"]
+        _req(host, port, "POST", f"/api/hedge-open-tasks/{tid}/fill-all")
+        status, _, payload = _req(host, port, "GET", "/api/hedge-open-logs?entries_limit=2")
+        assert status == 200
+        page = _json(payload)
+        assert "entries_next_cursor" in page
+        assert len(page["entries"]) <= 2
+        cur = page["entries_next_cursor"]
+        assert cur is not None  # 3 attempts > 2 -> has-more
+        status2, _, payload2 = _req(
+            host, port, "GET", f"/api/hedge-open-logs?entries_limit=2&entries_cursor={cur}"
+        )
+        assert status2 == 200
+        page2 = _json(payload2)
+        ids1 = {e["entry_id"] for e in page["entries"]}
+        ids2 = {e["entry_id"] for e in page2["entries"]}
+        assert ids1 and ids2
+        assert not (ids1 & ids2)  # no duplicate across pages (R4 defect would)
+        assert page2["entries_next_cursor"] is None  # only 1 entry left
+        # Invalid entries_cursor is rejected, not silently treated as page 1.
+        status3, _, _ = _req(
+            host, port, "GET", "/api/hedge-open-logs?entries_cursor=not-a-cursor"
+        )
+        assert status3 == 400
 
 
 # ===========================================================================

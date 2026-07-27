@@ -19,19 +19,37 @@ from backend.hedge_open_tasks.store import HedgeOpenStore
 def _outcome(
     *, category=D.ATTEMPT_SUCCESS, spot_qty="0.5", perp_qty="0.5",
     spot_status=D.LEG_FILLED, perp_status=D.LEG_FILLED, exposure=None,
-    attempt_id="att1",
+    attempt_id="att1", spot_oid="os", perp_oid="op",
 ) -> AttemptOutcome:
     return AttemptOutcome(
         attempt_id=attempt_id,
         category=category,
         spot={"status": spot_status, "filled_qty": spot_qty, "avg_price": "50000",
-              "order_id": "os", "client_order_id": "hgo-att1-s"},
+              "order_id": spot_oid, "client_order_id": f"hgo-{attempt_id}-s"},
         perp={"status": perp_status, "filled_qty": perp_qty, "avg_price": "50000",
-              "order_id": "op", "client_order_id": "hgo-att1-p"},
+              "order_id": perp_oid, "client_order_id": f"hgo-{attempt_id}-p"},
         record_payload={"transport": "dry_run_record", "posted": False,
                         "spot_order_params": {}, "perp_order_params": {}},
         exposure=exposure,
     )
+
+
+def _apply(
+    store: HedgeOpenStore, task_id: str, outcome: AttemptOutcome, now_us: int,
+    *, direction=D.DIR_FORWARD, q_common="0.5",
+):
+    """Durable-before-send + synchronous resolve (the record-transport dispatch
+    flow). ``prepare_attempt`` commits the immutable attempt + both deterministic
+    client IDs in PREPARED, then ``resolve_attempt`` stamps both legs terminal and
+    applies the task counters/pause — mirroring the service's record-transport
+    path (no executor call under the lock)."""
+    attempt = store.prepare_attempt(
+        task_id, outcome.attempt_id, direction, q_common, D.POS_MODE_BOTH,
+        {"est_price": "50000"}, f"hgo-{outcome.attempt_id}-s", {"side": "BUY"},
+        f"hgo-{outcome.attempt_id}-p", {"side": "SELL"}, now_us,
+    )
+    assert attempt is not None, "task must be dispatch-eligible when prepared"
+    return store.resolve_attempt(attempt["id"], outcome, now_us)
 
 
 def _create(store, task_id="t1", direction=D.DIR_FORWARD, target=3, q_common="0.5"):
@@ -85,49 +103,120 @@ def test_list_tasks_excludes_deleted_by_default(tmp_path):
 def test_apply_success_increments_and_completes_at_target(tmp_path):
     store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
     _create(store, "t1", target=3)
-    store.apply_attempt_outcome("t1", _outcome(), 1_100)
-    store.apply_attempt_outcome("t1", _outcome(attempt_id="att2"), 1_200)
-    task = store.apply_attempt_outcome("t1", _outcome(attempt_id="att3"), 1_300)
+    _apply(store, "t1", _outcome(), 1_100)
+    _apply(store, "t1", _outcome(attempt_id="att2"), 1_200)
+    task = _apply(store, "t1", _outcome(attempt_id="att3"), 1_300)
     assert task["success_count"] == 3
+    assert task["accepted_pair_count"] == 3
     assert task["status"] == D.STATUS_DONE
     store.close()
 
 
-def test_apply_single_leg_sets_exposure_and_alert(tmp_path):
+def test_apply_single_leg_records_exposure_advisory(tmp_path):
     store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
     _create(store, "t1")
     exposure = {"leg": "spot", "qty": "0.5", "price": "50000", "ts": "2026-07-22T08:00:00.000000Z"}
-    task = store.apply_attempt_outcome(
-        "t1",
+    # Spot accepted (orderId present), perp confirmed not accepted -> single-leg.
+    # R2-F1: the exposure is recorded AND the attempt counts toward the
+    # consecutive-submission-failure brake (fail + consecutive ++); below the
+    # threshold the task is still NOT frozen (breakdown §4.5).
+    task = _apply(
+        store, "t1",
         _outcome(category=D.ATTEMPT_SINGLE_LEG_EXPOSURE, perp_status=D.LEG_REJECTED,
-                 perp_qty="0", exposure=exposure),
+                 perp_qty="0", perp_oid=None, exposure=exposure),
         1_100,
     )
-    assert task["status"] == D.STATUS_EXPOSURE_ALERT
+    assert task["status"] == D.STATUS_RUNNING  # below threshold: not frozen
     assert task["leg_exposure"] == exposure
-    assert task["success_count"] == 0  # exposure does not increment counts
+    assert task["success_count"] == 0  # a single_leg is not an accepted pair
+    assert task["fail_count"] == 1  # R2-F1: counted toward the brake
+    assert task["consecutive_submission_failures"] == 1  # R2-F1: counted toward pause
     store.close()
 
 
-def test_apply_failed_over_threshold_terminates(tmp_path):
+def test_apply_single_leg_at_threshold_pauses(tmp_path):
+    # R2-F1 (user authorization 28 §2.1): a non-rate-limited single_leg counts
+    # toward the consecutive-submission-failure brake, exactly like a confirmed
+    # failure. The default threshold is 3; reaching it pauses the task.
     store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
     _create(store, "t1", target=5)
-    for i in range(3):
-        task = store.apply_attempt_outcome(
-            "t1", _outcome(category=D.ATTEMPT_FAILED, spot_status=D.LEG_REJECTED,
-                           perp_status=D.LEG_REJECTED, spot_qty="0", perp_qty="0",
-                           attempt_id=f"f{i}"),
+    exposure = {"leg": "spot", "qty": "0.5", "price": "50000",
+                "ts": "2026-07-22T08:00:00.000000Z"}
+    # Two single-leg outcomes below the threshold keep the task running but DO
+    # increment the failure + consecutive counters (defect proof: today they do not).
+    for i in range(2):
+        task = _apply(
+            store, "t1",
+            _outcome(category=D.ATTEMPT_SINGLE_LEG_EXPOSURE, perp_status=D.LEG_REJECTED,
+                     perp_qty="0", perp_oid=None, exposure=exposure,
+                     attempt_id=f"sl{i}"),
             1_100 + i,
         )
-        assert task["status"] == D.STATUS_RUNNING  # 3 failures is not >3
-    task = store.apply_attempt_outcome(
-        "t1", _outcome(category=D.ATTEMPT_FAILED, spot_status=D.LEG_REJECTED,
-                       perp_status=D.LEG_REJECTED, spot_qty="0", perp_qty="0",
-                       attempt_id="f3"),
+        assert task["status"] == D.STATUS_RUNNING
+        assert task["fail_count"] == i + 1
+        assert task["consecutive_submission_failures"] == i + 1
+    # The 3rd consecutive single_leg (>= threshold) pauses the task.
+    task = _apply(
+        store, "t1",
+        _outcome(category=D.ATTEMPT_SINGLE_LEG_EXPOSURE, perp_status=D.LEG_REJECTED,
+                 perp_qty="0", perp_oid=None, exposure=exposure, attempt_id="sl2"),
         2_000,
     )
-    assert task["fail_count"] == 4
-    assert task["status"] == D.STATUS_PAUSED  # >3 -> terminated
+    assert task["fail_count"] == 3
+    assert task["consecutive_submission_failures"] == 3
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
+    store.close()
+
+
+def test_apply_single_leg_drains_planned_to_done(tmp_path):
+    # R2-F1: the last planned attempt (scheduled reaches target_n) resolved as a
+    # single_leg, with the brake NOT yet triggered, completes the task to done —
+    # matching the entries.next_action=completed contract (no higher-priority
+    # paused/stopped/deleted state applies).
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1", target=1)
+    exposure = {"leg": "spot", "qty": "0.5", "price": "50000",
+                "ts": "2026-07-22T08:00:00.000000Z"}
+    task = _apply(
+        store, "t1",
+        _outcome(category=D.ATTEMPT_SINGLE_LEG_EXPOSURE, perp_status=D.LEG_REJECTED,
+                 perp_qty="0", perp_oid=None, exposure=exposure, attempt_id="sl0"),
+        1_100,
+    )
+    assert task["scheduled_attempt_count"] == 1  # the only planned group, now spent
+    assert task["fail_count"] == 1
+    assert task["consecutive_submission_failures"] == 1  # below threshold 3
+    assert task["status"] == D.STATUS_DONE
+    store.close()
+
+
+def test_apply_failed_at_threshold_pauses(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1", target=5)
+    # 2 consecutive submission failures below the threshold (default 3): running.
+    for i in range(2):
+        task = _apply(
+            store, "t1",
+            _outcome(category=D.ATTEMPT_FAILED, spot_status=D.LEG_REJECTED,
+                     perp_status=D.LEG_REJECTED, spot_qty="0", perp_qty="0",
+                     spot_oid=None, perp_oid=None, attempt_id=f"f{i}"),
+            1_100 + i,
+        )
+        assert task["status"] == D.STATUS_RUNNING
+        assert task["consecutive_submission_failures"] == i + 1
+    # 3rd consecutive failure (>= threshold) -> paused.
+    task = _apply(
+        store, "t1",
+        _outcome(category=D.ATTEMPT_FAILED, spot_status=D.LEG_REJECTED,
+                 perp_status=D.LEG_REJECTED, spot_qty="0", perp_qty="0",
+                 spot_oid=None, perp_oid=None, attempt_id="f2"),
+        2_000,
+    )
+    assert task["fail_count"] == 3
+    assert task["consecutive_submission_failures"] == 3
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
     store.close()
 
 
@@ -213,12 +302,69 @@ def test_restart_recovers_persisted_state(tmp_path):
     db = str(tmp_path / "ho.sqlite3")
     store = HedgeOpenStore(db)
     _create(store, "t1", target=3)
-    store.apply_attempt_outcome("t1", _outcome(), 1_100)
-    store.apply_attempt_outcome("t1", _outcome(attempt_id="a2"), 1_200)
+    _apply(store, "t1", _outcome(), 1_100)
+    _apply(store, "t1", _outcome(attempt_id="a2"), 1_200)
     store.close()
     # A new process reopens the same DB and sees the persisted counts.
     store2 = HedgeOpenStore(db)
     task = store2.get_task("t1")
     assert task["success_count"] == 2
+    assert task["accepted_pair_count"] == 2
     assert task["status"] == D.STATUS_RUNNING
     store2.close()
+
+
+# ---------------------------------------------------------------------------
+# Additive-forward migration (breakdown §3.9): a round-1 DB opens cleanly
+# ---------------------------------------------------------------------------
+
+def test_migrate_adds_new_columns_to_round1_db_and_keeps_rows(tmp_path):
+    import sqlite3
+
+    db = str(tmp_path / "round1.sqlite3")
+    # Build a round-1-shaped DB: task table WITHOUT the 5 new columns, no
+    # attempt/leg tables, plus a settings row and one persisted task row.
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE hedge_open_task ("
+        " id TEXT PRIMARY KEY, coin TEXT, direction TEXT, mode TEXT,"
+        " single_amount TEXT, target_n INTEGER, success_count INTEGER DEFAULT 0,"
+        " fail_count INTEGER DEFAULT 0, status TEXT, q_common TEXT,"
+        " position_side_mode TEXT, leg_exposure TEXT, preflight_snapshot TEXT,"
+        " creation_seq INTEGER, created_at_us INTEGER, updated_at_us INTEGER)"
+    )
+    conn.execute(
+        "CREATE TABLE hedge_open_settings ("
+        " id INTEGER PRIMARY KEY, start_gate INTEGER, executor_mode_snapshot TEXT,"
+        " interval_seconds TEXT, interval_us INTEGER, rate_limit_order INTEGER,"
+        " version INTEGER, updated_at_us INTEGER)"
+    )
+    conn.execute(
+        "INSERT INTO hedge_open_task (id, coin, direction, mode, single_amount,"
+        " target_n, success_count, fail_count, status, q_common,"
+        " position_side_mode, leg_exposure, preflight_snapshot,"
+        " creation_seq, created_at_us, updated_at_us)"
+        " VALUES ('legacy','BTCUSDT','forward','immediate','0.5',3,2,0,'running',"
+        "         '0.5','BOTH',NULL,NULL,1,1000,2000)"
+    )
+    conn.commit()
+    conn.close()
+    # Open with the new store: additive-forward migration runs idempotently.
+    store = HedgeOpenStore(db)
+    task = store.get_task("legacy")
+    assert task is not None
+    assert task["success_count"] == 2            # round-1 data preserved
+    assert task["status"] == D.STATUS_RUNNING
+    assert task["q_common"] == "0.5"
+    assert task["failure_pause_threshold"] == 3   # backfilled frozen default
+    assert task["scheduled_attempt_count"] == 0
+    assert task["accepted_pair_count"] == 0
+    assert task["consecutive_submission_failures"] == 0
+    assert task["pause_reason"] is None
+    # New attempt/leg tables exist and are empty for the legacy task.
+    assert store.list_attempts_for_task("legacy") == []
+    # Reopening again is idempotent (no double-ALTER error).
+    store.close()
+    store_again = HedgeOpenStore(db)
+    assert store_again.get_task("legacy")["success_count"] == 2
+    store_again.close()

@@ -91,11 +91,20 @@ def test_single_hmac_exit_in_product_code():
 
 
 def test_urlopen_only_in_designated_http_clients():
-    """Direct-HTTP guard: only the three designated HTTP clients may call urlopen
-    (private_client.py for GET reads, binance_public.py for public market, and
-    portfolio_margin_borrow_client.py for the borrow POST + loan-record GET), so no
-    other product module can bypass them to hit Binance directly."""
-    allowed = {"private_client.py", "binance_public.py", "portfolio_margin_borrow_client.py"}
+    """Direct-HTTP guard: only the designated HTTP clients may call urlopen
+    (private_client.py for GET reads, binance_public.py for public market,
+    portfolio_margin_borrow_client.py for the borrow POST + loan-record GET, and
+    the two hedge-open clients — hedge_open_live_client.py for the PAPI margin/UM
+    POST+query transport and hedge_preflight_provider.py for the public
+    exchangeInfo preflight reads), so no other product module can bypass them to
+    hit Binance directly."""
+    allowed = {
+        "private_client.py",
+        "binance_public.py",
+        "portfolio_margin_borrow_client.py",
+        "hedge_open_live_client.py",
+        "hedge_preflight_provider.py",
+    }
     bad = []
     for py in BACKEND_DIR.rglob("*.py"):
         rel = py.relative_to(REPO_ROOT)
