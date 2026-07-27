@@ -225,10 +225,12 @@
       "task_id": "backend",
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
-      "status": "dispatch_prepared",
+      "status": "delivered",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-fix-review-2-s5.dispatch.md",
       "raw_output_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/40-fix-review-2-s5.md",
-      "identity_note": "The fix author may be the original backend implementer; AGENTS.md bans reviewer==implementer, not fixer==implementer. Review-1 on the reworked range must stay provider-isolated from claude_glm."
+      "identity_note": "The fix author may be the original backend implementer; AGENTS.md bans reviewer==implementer, not fixer==implementer. Review-1 on the reworked range must stay provider-isolated from claude_glm.",
+      "head_sha": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8",
+      "verified_by_bookkeeper": "fix confirmed against the code, not accepted on the report's word"
     }
   ],
   "reviewer_1": null,
@@ -363,24 +365,26 @@
       "dependencies": [],
       "reviewer": "grok",
       "implementation_report_path": "20-implementation-backend.md",
-      "implementation_status": "evidence_committed",
+      "implementation_status": "rework1_evidence_committed",
       "base_sha": "6c5b17002cab189d752177b447ff576356998f58",
-      "head_sha": "319d8317bdf180750197c95078d2ae6c60e6badc",
-      "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
+      "head_sha": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8",
+      "diff_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
       "test_evidence": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "grok",
         "provider": "grok",
         "model": "grok-4.5",
-        "verdict": "ACCEPT",
-        "json_schema_valid": true,
-        "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
+        "verdict": null,
+        "json_schema_valid": null,
+        "diff_fingerprint": null,
         "fingerprint_matches_status": true,
         "open_p0_p1": 0,
         "findings_summary": "0 P0/P1/P2, 2 P3 (api-samples prose says 'backslash' but the regex character class has none — it is an escaped dot and colon; confirm negative-case matrix omits [] and {}). required_fixes empty.",
         "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md",
         "recorded_at": "2026-07-27T21:25:00+08:00",
-        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md"
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md",
+        "status": "must_be_re_reviewed_on_the_new_range",
+        "previous_round1_verdict": "ACCEPT (on the void round-1 range)"
       }
     },
     {
@@ -409,10 +413,10 @@
       "dependencies": [],
       "reviewer": "grok",
       "implementation_report_path": "20-implementation-frontend.md",
-      "implementation_status": "evidence_committed",
+      "implementation_status": "unchanged_since_round1",
       "base_sha": "6c5b17002cab189d752177b447ff576356998f58",
-      "head_sha": "319d8317bdf180750197c95078d2ae6c60e6badc",
-      "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
+      "head_sha": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8",
+      "diff_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
       "test_evidence": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "grok",
@@ -426,7 +430,8 @@
         "findings_summary": "0 P0/P1/P2, 2 P3 (409 dialog title was never frozen by the design; S3 self-check asserts dialog body via includes rather than full equality). required_fixes empty.",
         "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md",
         "recorded_at": "2026-07-27T21:20:00+08:00",
-        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md"
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md",
+        "note": "Frontend code is byte-identical between the round-1 head and the rework head: `git diff 319d831..c91d2da -- frontend/` is EMPTY. Its round-1 ACCEPT therefore reviewed exactly the frontend code that is shipping, but its recorded diff_fingerprint now trails status.diff_fingerprint. Resolution pending a user decision: re-run the gate, or record an authorized_exception of class-1 review_fingerprint_trails_status."
       }
     }
   ],
@@ -518,8 +523,8 @@
     "note": "APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task remain three separate human authorizations. This stage grants none of them."
   },
   "base_sha": "6c5b17002cab189d752177b447ff576356998f58",
-  "head_sha": "319d8317bdf180750197c95078d2ae6c60e6badc",
-  "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
+  "head_sha": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8",
+  "diff_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
   "coverage_waypoints": null,
   "changed_files": [
     "backend/app/server.py",
@@ -539,19 +544,34 @@
     "frontend/index.html",
     "frontend/self-check.js",
     "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/16-r4-diff-reconciliation.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/17-pre-review-validation.txt",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/18-live-acceptance-findings.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/19-r4-diff-reconciliation-rework1.md",
     "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-backend.md",
     "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-frontend.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/40-fix-review-2-s5.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/50-review-2.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/50-review-2.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-fix-review-2-s5.dispatch.md",
     "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/status.json",
+    "reports/agent-runs/ACTIVE.json",
     "reports/api-samples/2026-07-hedge-open-live-hardening-v1/client-order-id-cap.md"
   ],
   "tests": {
     "status": "passed",
-    "run_by": "bookkeeper on the merged state after both implementation sessions stopped; this rerun is the authoritative verdict for the round",
+    "run_by": "bookkeeper on the merged state after the rework session stopped",
     "evidence": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-test-output.txt",
     "commands": [
       {
         "cmd": ".venv/bin/python -m pytest backend/tests -q",
-        "result": "979 passed in 50.31s"
+        "result": "983 passed (baseline 979 + 4 new end-to-end filter tests)"
       },
       {
         "cmd": "node frontend/self-check.js",
@@ -563,10 +583,9 @@
       },
       {
         "cmd": "git diff --check",
-        "result": "clean (exit 0)"
+        "result": "clean"
       }
-    ],
-    "note": "The frontend report cites 963 for the backend suite because it ran while Task A was still writing — the transient the dispatch predicted, not a discrepancy."
+    ]
   },
   "review_1": {
     "status": "complete",
@@ -607,9 +626,9 @@
       "unrelated_reviewer_unavailable_evidence": null
     },
     "open_p0_p1": 0,
-    "verdict": "REWORK",
-    "json_schema_valid": true,
-    "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
+    "verdict": null,
+    "json_schema_valid": null,
+    "diff_fingerprint": null,
     "covers_through_task": null,
     "fix_start_prompt_present": true,
     "fix_start_prompt_source": "reviewer verdict JSON, copied verbatim into reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-fix-review-2-s5.dispatch.md",
@@ -620,7 +639,9 @@
     "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/50-review-2.dispatch.md",
     "next_action": "fix",
     "bookkeeper_verification": "JSON parsed and validated against schemas/review-verdict.schema.json; diff_fingerprint identical to status. The finding was verified independently against the code, not accepted on the reviewer's word: wire_constraints.py:101-119 implements step/min/max checks, executor.py:303-304 passes none of them, and 00-task.md S5 requires 'quantity/price precision against the symbol filters already loaded'. The validator was built and then not wired in. REWORK is correct.",
-    "recorded_at": "2026-07-27T22:40:00+08:00"
+    "recorded_at": "2026-07-27T22:40:00+08:00",
+    "verdict_round1": "REWORK",
+    "status": "must_be_re_run_on_the_new_range"
   },
   "authorized_exceptions": [],
   "main_syncs": [],
@@ -641,8 +662,8 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Review-2 returned REWORK on one verified P2. Human operator runs 60-fix-review-2-s5.dispatch.md in a fresh write-capable Claude-GLM session; its PROMPT BODY is the final reviewer's own fix_start_prompt copied verbatim. The fix wires the loaded spot/perp MARKET quantity step/min/max into the record transport's two validate_order_params calls and adds an end-to-end regression. ADR-H4 stays frozen: wire_constraints must NOT be mounted on the live send path. After the fix returns the diff moves, so: bookkeeper R4 -> merged-state rerun -> evidence commit -> NEW base..head and fingerprint -> backend Review-1 on the new range (provider-isolated from claude_glm) -> Review-2 again. rework_count 1 of 3.",
-  "updated_at": "2026-07-27T22:40:00+08:00",
+  "next_action": "Rework 1 is delivered, reconciled and committed on the NEW range 6c5b170..c91d2da. Backend Review-1 must be re-run on that range (provider-isolated from claude_glm). Frontend needs a user decision: its code is byte-identical to the round-1 head, so either re-run its gate or record a class-1 authorized_exception. Then Review-2 again. rework_count 1 of 3.",
+  "updated_at": "2026-07-28T00:25:00+08:00",
   "harness_followups": [
     {
       "id": "registry-grok-drift",
@@ -716,5 +737,18 @@
     "significance": "This is the first real miss by the Grok review-1 channel, which the user enabled for this stage (15-user-authorized-grok-review-1.md). Recorded as evidence for judging that channel, not as a reason to discard it: the verdicts were schema-valid, fingerprint-matched and on time, and the miss was a severity/authority-order judgement, not a failure to read the code.",
     "recorded_at": "2026-07-27T22:40:00+08:00"
   },
-  "status_note": "Held at review_2 rather than 'fixing' on purpose: the validator treats workflow phases as monotonic (fixing=2 < review_2=3), so once a review_2 dispatch exists the root status may not fall back. The stage has entered the final-gate phase and is working through that gate's REWORK; next_action carries the actual in-flight work."
+  "status_note": "Held at review_2 rather than 'fixing' on purpose: the validator treats workflow phases as monotonic (fixing=2 < review_2=3), so once a review_2 dispatch exists the root status may not fall back. The stage has entered the final-gate phase and is working through that gate's REWORK; next_action carries the actual in-flight work.",
+  "previous_range_round1": {
+    "base_sha": "6c5b17002cab189d752177b447ff576356998f58",
+    "head_sha": "319d8317bdf180750197c95078d2ae6c60e6badc",
+    "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
+    "note": "Round-1 range. Both Review-1 gates ACCEPTed it; Review-2 returned REWORK. Void as an acceptance range once the fix moved the diff."
+  },
+  "r4_diff_reconciliation_rework1": {
+    "performed_by": "bookkeeper",
+    "at": "2026-07-28T00:20:00+08:00",
+    "verdict": "PASS",
+    "artifact": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/19-r4-diff-reconciliation-rework1.md",
+    "summary": "Three files changed, all inside packet 60's allowed list; zero changes to any forbidden file; ADR-H4 intact (wire_constraints still absent from the live send path). The finding is closed at its real root: compute_preflight's snapshot never carried min/max at all, so wiring alone would not have sufficed. The fix reuses the pre-existing _qty_bounds helper (commit 1749d94) rather than writing a second filter-selection rule. The four new tests are behavioural, driving RecordTransportExecutor and asserting no simulated fill on rejection."
+  }
 }

@@ -1,14 +1,14 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: claude_glm/glm-5.2[1m]
-adapter_cmd: (write-capable Claude-GLM session; filled in by the operator on execution)
+adapter_cmd: write-capable Claude-GLM session (glm-5.2[1m]); the operator recorded no exact command line
 executor: human_operator
-started_at: unavailable:not yet executed
-completed_at: unavailable:not yet executed
-session_id: unavailable:not yet executed
+started_at: unavailable:the operator recorded no start timestamp
+completed_at: 2026-07-28T00:05:00+08:00
+session_id: unavailable:the Claude-GLM session exposed no provider-native id to the executing model, as in both round-1 implementation receipts
 outputs: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/40-fix-review-2-s5.md
-next_dispatch: re-review after the fix (backend review-1 + review-2 on the NEW pinned range)
-receipt_sealed_by: bookkeeper (Claude Opus 5). The PROMPT BODY below is the final reviewer's own fix_start_prompt, copied VERBATIM from the verdict JSON in 50-review-2.md. The bookkeeper added routing metadata only and rewrote nothing.
+next_dispatch: backend review-1 + review-2 on the NEW pinned range 6c5b170..c91d2da
+receipt_sealed_by: bookkeeper (Claude Opus 5), on receiving the fix report. The PROMPT BODY below is the final reviewer's own fix_start_prompt, copied VERBATIM from the verdict JSON in 50-review-2.md; the bookkeeper added routing metadata only and rewrote nothing. Fix verified against the code (R4: 19-r4-diff-reconciliation-rework1.md), not accepted on the report's word.
 ===== END RECEIPT ===== -->
 
 # Fix Dispatch — Review-2 REWORK (S5 filter wiring) — Hedge Open Live Hardening v1
