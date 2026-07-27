@@ -107,6 +107,36 @@
       "executed_at": "2026-07-27T17:59:40+08:00",
       "executed_by": "human operator",
       "declared_constraints_met": "design-only: no product source, status.json, 70-handoff.md or PRD modified; no credentials, no Binance request, no service start, no other model invoked"
+    },
+    {
+      "role": "implementation",
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The Claude-GLM session did not expose a provider-native session id to the executing model; it reported unavailable in its own report footer and no runner-level id was captured by the human operator.",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/13-implementation-backend.dispatch.md",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-backend.md",
+      "recorded_at": "2026-07-27T20:39:28+08:00",
+      "executed_by": "human operator",
+      "executor": "human operator",
+      "declared_constraints_met": "no commit, no status.json or 70-handoff.md edit, no credentials, no Binance request, no service start, no Start-gate data change"
+    },
+    {
+      "role": "implementation",
+      "task_id": "frontend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The Claude-GLM session did not expose a provider-native session id to the executing model; it reported unavailable in its own report footer and no runner-level id was captured by the human operator.",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/14-implementation-frontend.dispatch.md",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-frontend.md",
+      "recorded_at": "2026-07-27T20:45:00+08:00",
+      "executed_by": "human operator",
+      "executor": "human operator",
+      "declared_constraints_met": "no commit, no status.json or 70-handoff.md edit, no credentials, no Binance request, no service start, no Start-gate data change"
     }
   ],
   "designer": {
@@ -541,7 +571,7 @@
     }
   },
   "next_action": "Human operator runs the two Review-1 packets in two separate fresh read-only grok-4.5 sessions: 30-review-1-backend.dispatch.md and 30-review-1-frontend.dispatch.md. Each reviews only its own task against the pinned range 6c5b170..319d831. If a verdict is missing or fails schemas/review-verdict.schema.json, retry that gate once, then fall back to Claude Opus 4.8 for it per the pre-authorization in 15-user-authorized-grok-review-1.md. Review-2 (codex) follows. The live surface stays closed.",
-  "updated_at": "2026-07-27T20:55:00+08:00",
+  "updated_at": "2026-07-27T21:05:00+08:00",
   "harness_followups": [
     {
       "id": "registry-grok-drift",
