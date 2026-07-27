@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-live-hardening-v1",
-  "status": "review_1",
+  "status": "review_2",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-live-hardening-v1",
@@ -153,6 +153,23 @@
       "executor": "human operator",
       "verdict": "ACCEPT",
       "json_schema_valid": true
+    },
+    {
+      "role": "review_1",
+      "task_id": "backend",
+      "provider": "grok",
+      "model": "grok-4.5",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The Grok CLI session did not expose a provider-native session id to the reviewing model; it reported unavailable in its own footer.",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md",
+      "recorded_at": "2026-07-27T21:18:00+08:00",
+      "executed_by": "human operator",
+      "executor": "human operator",
+      "verdict": "ACCEPT",
+      "json_schema_valid": true,
+      "late_archive_note": "This gate's raw output was not on disk at the first archiving pass; the operator supplied it afterwards. The pinned range never moved, so it reviews exactly the code the frontend gate reviewed."
     }
   ],
   "designer": {
@@ -345,10 +362,14 @@
         "reviewer": "grok",
         "provider": "grok",
         "model": "grok-4.5",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null,
-        "status": "awaiting_raw_output"
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
+        "fingerprint_matches_status": true,
+        "open_p0_p1": 0,
+        "findings_summary": "0 P0/P1/P2, 2 P3 (api-samples prose says 'backslash' but the regex character class has none — it is an escaped dot and colon; confirm negative-case matrix omits [] and {}). required_fixes empty.",
+        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md",
+        "recorded_at": "2026-07-27T21:25:00+08:00"
       }
     },
     {
@@ -536,22 +557,27 @@
     "note": "The frontend report cites 963 for the backend suite because it ran while Task A was still writing — the transient the dispatch predicted, not a discrepancy."
   },
   "review_1": {
-    "status": "partial",
-    "frontend": {
-      "reviewer": "grok",
-      "model": "grok-4.5",
-      "verdict": "ACCEPT",
-      "json_schema_valid": true,
-      "artifact": "30-review-1-frontend.md"
-    },
+    "status": "complete",
+    "reviewer": "grok",
+    "provider": "grok",
+    "model": "grok-4.5",
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
+    "open_p0_p1": 0,
+    "reviewer_prior_involvement": "none",
     "backend": {
-      "reviewer": "grok",
-      "model": "grok-4.5",
-      "verdict": null,
-      "status": "raw output not on disk"
+      "verdict": "ACCEPT",
+      "artifact": "30-review-1-backend.md",
+      "findings": "2 P3"
     },
-    "note": "The frontend gate returned a schema-valid ACCEPT whose diff_fingerprint matches status.diff_fingerprint exactly, with 0 P0/P1/P2 and an empty required_fixes. The backend gate's raw output is NOT present at reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md and was not found elsewhere in the repository. The stage cannot leave review_1 until that raw output exists and is verified; a model's claim of having reviewed is not evidence (AGENTS.md: evidence is raw diff, test output, artifacts, schema-valid verdicts, committed state).",
-    "reviewer_prior_involvement": "none"
+    "frontend": {
+      "verdict": "ACCEPT",
+      "artifact": "30-review-1-frontend.md",
+      "findings": "2 P3"
+    },
+    "bookkeeper_verification": "Both verdicts parsed, validated against schemas/review-verdict.schema.json, and carry a diff_fingerprint identical to status.diff_fingerprint. Scope separation confirmed: the backend verdict's 27 reviewed_artifacts are all backend-scoped with zero frontend entries. All four P3 findings were spot-checked against the code and are factually correct.",
+    "p3_findings_not_fixed_here": "Four P3s across both gates, none in required_fixes. Not repaired in this stage because any edit would move the diff and invalidate the fingerprint both gates just reviewed. Filed as stage follow-ups below."
   },
   "review_2": {
     "reviewer": null,
@@ -596,8 +622,8 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "BLOCKED ON EVIDENCE: the backend review-1 raw output is missing. 30-review-1-frontend.md is archived with a schema-valid ACCEPT. The human operator must either recover the backend Grok session's complete output to reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md, or re-run 30-review-1-backend.dispatch.md in a fresh read-only grok-4.5 session. The pinned range is unchanged (6c5b170..319d831), so a re-run reviews exactly the same code. Only after that gate is archived and verified does review-2 (codex) get dispatched. Live surface stays closed.",
-  "updated_at": "2026-07-27T21:20:00+08:00",
+  "next_action": "Both Review-1 gates returned schema-valid ACCEPT with matching fingerprints and zero P0/P1/P2. Human operator runs 50-review-2.dispatch.md in a fresh read-only Codex session (codex exec, read-only) over the pinned range 6c5b170..319d831. Codex has zero prior involvement in this stage — design, ADR and breakdown went to Claude and both implementations to claude_glm — so no strong-reviewer disclosure override is needed. Live surface stays closed.",
+  "updated_at": "2026-07-27T21:25:00+08:00",
   "harness_followups": [
     {
       "id": "registry-grok-drift",
@@ -615,5 +641,35 @@
     "verdict": "PASS",
     "artifact": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/16-r4-diff-reconciliation.md",
     "summary": "Boundaries held for both tasks (11 modified + 4 created backend, 2 modified frontend); zero changes to any forbidden file; no R3 escalation raised or needed; neither implementer committed or touched status.json/70-handoff.md. Cross-seam contract check passed on all three faces the frontend consumes (settings.version, start-gate POST body, missing_leg)."
-  }
+  },
+  "stage_followups": [
+    {
+      "id": "p3-api-samples-backslash-prose",
+      "source": "review-1 backend P3",
+      "detail": "reports/api-samples/2026-07-hedge-open-live-hardening-v1/client-order-id-cap.md describes the charset as including a backslash; the regex ^[\\.A-Z\\:/a-z0-9_-]{1,36}$ has no backslash literal (\\. and \\: are an escaped dot and colon). Verified by the bookkeeper as a real prose error in a facts page.",
+      "severity": "P3",
+      "blocking": false
+    },
+    {
+      "id": "p3-confirm-negative-matrix",
+      "source": "review-1 backend P3",
+      "detail": "backend/tests/test_hedge_api.py:244 parametrizes confirm negatives as (1, 'true', None); [] and {} are not covered. The implementation uses `is not True` and is correct; only the regression net is narrower than the predicate.",
+      "severity": "P3",
+      "blocking": false
+    },
+    {
+      "id": "p3-409-dialog-title-unfrozen",
+      "source": "review-1 frontend P3",
+      "detail": "The design froze only the 409 body text, never the dialog title. The frontend used a neutral structural title and disclosed it. Decide whether the title should be frozen.",
+      "severity": "P3",
+      "blocking": false
+    },
+    {
+      "id": "p3-selfcheck-dialog-body-includes",
+      "source": "review-1 frontend P3",
+      "detail": "S3 self-check asserts the dialog bodies with includes() substrings rather than full equality; production copy is verbatim per the design. Optional tightening.",
+      "severity": "P3",
+      "blocking": false
+    }
+  ]
 }

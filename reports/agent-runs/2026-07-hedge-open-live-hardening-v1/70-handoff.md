@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `REVIEW-1 READY — both tasks delivered, R4 reconciliation PASS, evidence committed, fingerprint pinned. Two grok-4.5 packets await human execution.`
+- Active phase: `REVIEW-2 — both Review-1 gates returned schema-valid ACCEPT. 50-review-2.dispatch.md awaits human execution in a read-only Codex session.`
 - Pinned range: `base 6c5b170` → `head 319d831`; fingerprint `319d8317…:2a457c0f…` (full value in `status.json.diff_fingerprint`).
 - Merged-state rerun (authoritative): backend **979 passed**, frontend **122 PASS**, protocol suite 72 passed, `git diff --check` clean. Evidence `60-test-output.txt`.
 - Owner change 2026-07-27 18:40: Kimi quota did not recover, so **both** tasks are owned by `claude_glm`.
@@ -201,20 +201,47 @@ and single derivation point, A-3's literal-`True` confirm check and
 bool-excluding version check, the CAS+audit single transaction, A-4's genuine
 tri-state, M-1's assertions on both sides, and B-1's strict equality.
 
+## Review-1 — Both Gates ACCEPT (grok-4.5, 2026-07-27)
+
+The Grok channel worked: no schema retry was needed and the pre-authorized
+Opus 4.8 fallback went unused.
+
+| Gate | Verdict | Findings |
+| --- | --- | --- |
+| Backend (`30-review-1-backend.md`) | **ACCEPT** | 0 P0/P1/P2, 2 P3 |
+| Frontend (`30-review-1-frontend.md`) | **ACCEPT** | 0 P0/P1/P2, 2 P3 |
+
+Bookkeeper verification of both: JSON parses, validates against
+`schemas/review-verdict.schema.json`, and carries a `diff_fingerprint`
+**identical** to `status.diff_fingerprint` — so both reviewed the pinned range,
+not a moving HEAD. Scope separation confirmed: the backend verdict's 27
+`reviewed_artifacts` are all backend-scoped with zero frontend entries.
+
+The backend gate's raw output was missing at the first archiving pass and the
+operator supplied it afterwards. The pinned range never moved, so it reviews
+exactly the code the frontend gate reviewed.
+
+All four P3s were spot-checked against the code and are **factually correct**,
+including the sharpest one: the api-samples facts page prose says the charset
+includes a backslash, but `^[\.A-Z\:/a-z0-9_-]{1,36}$` has no backslash
+literal — `\.` and `\:` are an escaped dot and colon.
+
+None are repaired in this stage: any edit would move the diff and invalidate the
+fingerprint both gates just reviewed. Filed as `status.json.stage_followups`,
+and listed in the Review-2 packet for independent judgement.
+
 ## Next Action
 
-1. **Human operator** runs the two Review-1 packets in **two separate fresh
-   read-only `grok-4.5` sessions** — one reviewer per task, never both in one
-   session:
-   - `30-review-1-backend.dispatch.md` → `30-review-1-backend.md`
-   - `30-review-1-frontend.dispatch.md` → `30-review-1-frontend.md`
-   Both are pinned to `6c5b170..319d831`; neither may use a moving `HEAD`.
-2. If a verdict is missing or fails `schemas/review-verdict.schema.json`: retry
-   that gate once, then fall back to Claude Opus 4.8 for it — pre-authorized in
-   `15-user-authorized-grok-review-1.md`, so the stage does not stall on an
-   unverified channel.
-3. Bookkeeper archives raw outputs, records verdicts and session receipts.
-4. Review-2 → **codex**, still zero prior involvement.
+1. **Human operator** runs `50-review-2.dispatch.md` in a fresh **read-only
+   Codex** session (`codex exec --sandbox read-only`, not `codex review` —
+   schema-bound nodes use `codex exec`). Output → `50-review-2.md`.
+   Pinned to `6c5b170..319d831`.
+2. Codex has **zero prior involvement**: design/ADR/breakdown → Claude Fable 5,
+   both implementations → `claude_glm`, both Review-1 gates → `grok-4.5`. No
+   strong-reviewer disclosure override is needed.
+3. Bookkeeper archives the verdict. On ACCEPT the stage reaches
+   `stage_accepted_waiting_user` — **merging to main and any live activation
+   remain the user's decisions**, not the gate's.
 
 ## Open Items Carried Into Review (not blockers)
 
