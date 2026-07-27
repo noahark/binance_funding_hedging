@@ -2,7 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: `IMPLEMENTING — packets 13 (backend) and 14 (frontend) both running in two separate Claude-GLM terminals.`
+- Active phase: `REVIEW-1 READY — both tasks delivered, R4 reconciliation PASS, evidence committed, fingerprint pinned. Two grok-4.5 packets await human execution.`
+- Pinned range: `base 6c5b170` → `head 319d831`; fingerprint `319d8317…:2a457c0f…` (full value in `status.json.diff_fingerprint`).
+- Merged-state rerun (authoritative): backend **979 passed**, frontend **122 PASS**, protocol suite 72 passed, `git diff --check` clean. Evidence `60-test-output.txt`.
 - Owner change 2026-07-27 18:40: Kimi quota did not recover, so **both** tasks are owned by `claude_glm`.
 - Review-1 routing 2026-07-27 18:55: **Grok, both gates**, explicitly enabled by the user — see `15-user-authorized-grok-review-1.md`. Two separate fresh read-only sessions. Review-2 stays with `codex`, still zero prior involvement.
 - Stage branch: `stage/2026-07-hedge-open-live-hardening-v1`, created from `main` at `4ce968623ff6cf1b574539437871064ca69b9f2d`.
@@ -159,17 +161,74 @@ it are recorded in `15-user-authorized-grok-review-1.md`. Summary:
   and record the reason plus the invalid-output evidence path. This keeps the
   stage from stalling without anyone inventing a routing change mid-flight.
 
+## Implementation — Delivered 2026-07-27
+
+Both tasks came back and stopped without committing. Delivered:
+
+- **A-1 (S1, P0)**: `hg{attempt_id}s|p`, 35 chars, single derivation point;
+  `live_hedge_executor.py` untouched — it picks the change up by import.
+- **A-2 (S5)**: `wire_constraints.py` validator, wired into the record transport
+  and the strict test fake, with the pre-fix-derivation regression and the
+  api-samples fact page.
+- **A-3 (S3)**: `set_start_gate_cas` (CAS + same-transaction audit row),
+  `put_start_gate`, the route, and `settings_to_doc` carrying `version`.
+- **A-4 (S4b)**: tri-state `check_symbol_legs` probe with a status-surfacing
+  reader that can tell `-1121` from a transport failure; `None` never blocks.
+- **A-5**: the design's unverified `str(Decimal)` concern was **confirmed** —
+  it can emit `1E-7` — so the params seam now uses `fmt_decimal`.
+- **B-1/B-2/B-3/B-4/B-5**: strict `worker_active === false` button condition, the
+  single symmetric gate control with one dialog per direction, the worker
+  state/exit-reason line with the frozen Chinese map, `missing_leg` display
+  pinned by self-check, and five new behavioural self-check sections.
+- **M-1** pinned on both sides; **M-2** resolved as "leave all 14 fixtures
+  alone", consistently.
+
+## R4 Reconciliation — PASS
+
+Full record: `16-r4-diff-reconciliation.md`. In short: every changed file is
+inside its task's allowed list (backend 11 modified + 4 created, frontend 2
+modified); every forbidden file has zero changes; no R3 escalation was raised or
+needed; neither implementer committed or touched `status.json`/`70-handoff.md`.
+
+The **cross-seam contract check** — the direct lesson from last stage's three
+drifts — passed on all three faces: `settings.version` is emitted by
+`settings_to_doc` and read by the frontend; the POST body `{enabled, confirm,
+version}` matches `_START_GATE_BODY_KEYS` field for field; `missing_leg` reaches
+the UI through the generic error channel with its Chinese detail intact.
+
+Bookkeeper spot-checks against the code (not the reports) confirmed A-1's length
+and single derivation point, A-3's literal-`True` confirm check and
+bool-excluding version check, the CAS+audit single transaction, A-4's genuine
+tri-state, M-1's assertions on both sides, and B-1's strict equality.
+
 ## Next Action
 
-1. Both implementation sessions are running. Each runs its self-tests, writes
-   its `20-implementation-*.md` report and **stops without committing**.
-2. Bookkeeper: R4 diff reconciliation against the allowed-file lists, then
-   **rerun the full suites on the merged state** — that rerun, not either
-   implementer's observation, is the authoritative test verdict this round.
-   Then evidence commit, fingerprint, `validate-stage.py --phase pre-review`.
-3. Review-1 packets, executable in parallel but in **two separate read-only
-   `grok-4.5` sessions**: backend and frontend.
-4. Review-2 → **codex**.
+1. **Human operator** runs the two Review-1 packets in **two separate fresh
+   read-only `grok-4.5` sessions** — one reviewer per task, never both in one
+   session:
+   - `30-review-1-backend.dispatch.md` → `30-review-1-backend.md`
+   - `30-review-1-frontend.dispatch.md` → `30-review-1-frontend.md`
+   Both are pinned to `6c5b170..319d831`; neither may use a moving `HEAD`.
+2. If a verdict is missing or fails `schemas/review-verdict.schema.json`: retry
+   that gate once, then fall back to Claude Opus 4.8 for it — pre-authorized in
+   `15-user-authorized-grok-review-1.md`, so the stage does not stall on an
+   unverified channel.
+3. Bookkeeper archives raw outputs, records verdicts and session receipts.
+4. Review-2 → **codex**, still zero prior involvement.
+
+## Open Items Carried Into Review (not blockers)
+
+1. UM-side `newClientOrderId` charset regex is still not independently measured
+   (the 36-char cap is); documented in the api-samples page.
+2. The 409 dialog **title** was never frozen by the design — only its body text
+   was. The frontend used a neutral structural title and flagged it.
+3. Live `create_task` now issues two extra public unsigned GETs; dry-run is
+   unaffected.
+4. `set_start_gate_cas` has never run against the durable production DB, by
+   design — implementers were barred from starting the service. Correctness
+   rests on `tmp_path` tests until an operator exercises it.
+5. ADR-H5's known tradeoff stands: a leg genuinely absent *while* the read also
+   fails is not caught.
 
 Integration check to prioritise (direct lesson from last round's three
 cross-seam drifts): the three contract faces the frontend consumes —
@@ -194,6 +253,6 @@ this stage is a user action, not a stage deliverable.
 当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/70-handoff.md
-本地北京时间: 2026-07-27 18:55:00 CST
+本地北京时间: 2026-07-27 21:00:00 CST
 下一步模型: human operator
-下一步任务: packet 13/14 均在执行中；两份 20-implementation-*.md 出齐后交回 bookkeeper 做 R4 对账。出 review-1 packet 前先跑 `grok models` 确认确切模型 id
+下一步任务: 在两个独立的只读 grok-4.5 会话分别执行 30-review-1-backend 与 30-review-1-frontend packet，范围钉死 6c5b170..319d831
