@@ -56,8 +56,14 @@
     },
     "frontend_owner_reassignment": {
       "at": "2026-07-27T18:40:00+08:00",
-      "from": {"provider": "kimi", "model": "kimi-k3"},
-      "to": {"provider": "claude_glm", "model": "glm-5.2[1m]"},
+      "from": {
+        "provider": "kimi",
+        "model": "kimi-k3"
+      },
+      "to": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]"
+      },
       "reason": "The user reported that Kimi quota did not recover. Task A (backend) was already running in a Claude-GLM session when the reassignment was made; Task B moves to a second, separate Claude-GLM session.",
       "authorized_by": "user",
       "parallelism_still_valid": "The two tasks' allowed-file sets remain disjoint (backend/** + api-samples page vs frontend/index.html + self-check.js), which is what parallel mode requires; a shared owner provider does not by itself couple them.",
@@ -70,9 +76,16 @@
     },
     "reviewer_pool_restored": {
       "at": "2026-07-27",
-      "available": ["codex", "claude_glm", "claude"],
-      "unavailable": ["kimi"],
-      "correction": "Kimi was reported available at intake but its quota did not in fact recover; corrected 2026-07-27T18:40 when the frontend task was reassigned.",
+      "available": [
+        "codex",
+        "claude_glm",
+        "claude",
+        "grok"
+      ],
+      "unavailable": [
+        "kimi"
+      ],
+      "correction": "Kimi was reported available at intake but its quota did not in fact recover (corrected 2026-07-27T18:40). Grok was reported available at 18:55 and explicitly enabled as the Review-1 gate for both tasks.",
       "source": "user confirmation",
       "why_it_matters": "2026-07-hedge-open-real-api-v1 ended with codex as the only reviewer and nobody able to cross-check it; that was the second reason its handoff recommended opening this stage."
     }
@@ -139,32 +152,51 @@
       "task_id": "frontend",
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
-      "status": "dispatch_prepared",
-      "note": "Reassigned from kimi on 2026-07-27 (quota did not recover); runs in a second, separate Claude-GLM terminal."
+      "status": "dispatched",
+      "note": "Reassigned from kimi on 2026-07-27 (quota did not recover); runs in a second, separate Claude-GLM terminal.",
+      "dispatched_at": "2026-07-27T18:50:00+08:00"
     }
   ],
   "fix_authors": [],
   "reviewer_1": null,
   "review_1_dispatch_plan": {
-    "revised_at": "2026-07-27T18:40:00+08:00",
-    "revision_reason": "Both tasks are now implemented by claude_glm (Kimi quota did not recover), so the GLM<->Kimi cross pool is unusable. Review-1 moves to the Claude provider for both tasks: Anthropic wrote no delivery code this stage, so provider-level cross-review isolation from the implementer holds.",
+    "revised_at": "2026-07-27T18:55:00+08:00",
+    "revision_reason": "Second revision the same day. First: Kimi quota did not recover, both tasks moved to claude_glm, so the GLM<->Kimi cross pool became unusable and both gates went to Claude Opus 4.8. Second: the user reported Grok quota is available and explicitly enabled Grok as the Review-1 gate for both tasks, which AGENTS.md requires as an explicit stage-level enablement.",
+    "grok_enablement": {
+      "required_by": "AGENTS.md Hard Gates and agents/registry.yaml adapters.grok.notes — Grok is not a default review gate and must not be substituted into review-1 without explicit user enablement",
+      "authorizer": "user",
+      "at": "2026-07-27T18:55:00+08:00",
+      "evidence_file": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/15-user-authorized-grok-review-1.md",
+      "tradeoff_presented_before_the_choice": "Against: Grok has never run a review gate in this repository, so schema-conforming verdict output is unverified, and invalid verdict JSON is non-accepting evidence that forces a retry in the round that fixes a P0. For: it removes the Anthropic provider acting as both designer and both Review-1 reviewers, adding a genuinely independent third provider identity. The user chose Grok for both gates."
+    },
     "backend": {
-      "reviewer_provider": "claude",
-      "reviewer_model": "Claude Opus 4.8",
-      "reason": "cross-provider isolation from the implementer (claude_glm = zhipu_glm identity); Anthropic authored no delivery code this stage",
-      "designer_overlap_disclosure": "Same provider identity as the stage designer/breakdown author (Claude Fable 5). AGENTS.md constrains designer overlap only for Review-2, so this is admissible for Review-1; a different model and a fresh read-only session keep it separated from the design session.",
+      "reviewer_provider": "grok",
+      "reviewer_model": "TBD — run `grok models` before dispatch and record the exact id; registry lists grok-build and grok-composer-2.5-fast, the user referred to 'Grok 4.5'",
+      "reviewer_identity": "xai_grok",
+      "reason": "cross-provider isolation from the implementer (claude_glm = zhipu_glm identity); Grok has no design involvement in this stage",
+      "read_only_command_ref": "agents/registry.yaml#adapters.grok.optional_review_command",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md",
       "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md"
     },
     "frontend": {
-      "reviewer_provider": "claude",
-      "reviewer_model": "Claude Opus 4.8",
-      "reason": "cross-provider isolation from the implementer (claude_glm = zhipu_glm identity); Anthropic authored no delivery code this stage",
-      "designer_overlap_disclosure": "Same as backend above.",
+      "reviewer_provider": "grok",
+      "reviewer_model": "TBD — same as backend",
+      "reviewer_identity": "xai_grok",
+      "reason": "cross-provider isolation from the implementer (claude_glm = zhipu_glm identity); Grok has no design involvement in this stage",
+      "read_only_command_ref": "agents/registry.yaml#adapters.grok.optional_review_command",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md",
       "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md"
     },
-    "separate_sessions_required": "The two Review-1 gates must run in two distinct fresh read-only sessions; one session must not review both tasks."
+    "separate_sessions_required": "The two Review-1 gates must run in two distinct fresh read-only sessions; one session must not review both tasks.",
+    "invalid_verdict_fallback": {
+      "pre_authorized": true,
+      "rule": "If a Grok verdict is missing or fails schemas/review-verdict.schema.json, that attempt is non-accepting: retry the same gate once, and if it fails again fall back to Claude Opus 4.8 for that gate, recording the fallback reason and the invalid-output evidence path. Pre-authorized in 15-user-authorized-grok-review-1.md so the stage does not stall.",
+      "superseded_routing": {
+        "provider": "claude",
+        "model": "Claude Opus 4.8",
+        "designer_overlap_disclosure": "Shares provider identity with the stage designer/breakdown author (Claude Fable 5). AGENTS.md constrains designer overlap only for Review-2, so this remains admissible for Review-1 if the fallback is used."
+      }
+    }
   },
   "reviewer_2": null,
   "r10_checklists": {
@@ -219,7 +251,13 @@
         "provider": "claude_glm",
         "model": "glm-5.2[1m]"
       },
-      "scope": ["S1", "S3-backend", "S4b", "S5", "settings doc version exposure"],
+      "scope": [
+        "S1",
+        "S3-backend",
+        "S4b",
+        "S5",
+        "settings doc version exposure"
+      ],
       "allowed_files": [
         "backend/hedge_open_tasks/executor.py",
         "backend/hedge_open_tasks/service.py",
@@ -246,7 +284,7 @@
         "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/70-handoff.md"
       ],
       "dependencies": [],
-      "reviewer": "claude",
+      "reviewer": "grok",
       "implementation_report_path": "20-implementation-backend.md",
       "implementation_status": "dispatched",
       "base_sha": null,
@@ -254,9 +292,9 @@
       "diff_fingerprint": null,
       "test_evidence": null,
       "review_1": {
-        "reviewer": "claude",
-        "provider": "claude",
-        "model": "Claude Opus 4.8",
+        "reviewer": "grok",
+        "provider": "grok",
+        "model": null,
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -268,7 +306,12 @@
         "provider": "claude_glm",
         "model": "glm-5.2[1m]"
       },
-      "scope": ["S2", "S3-frontend", "S4a", "S4b error display"],
+      "scope": [
+        "S2",
+        "S3-frontend",
+        "S4a",
+        "S4b error display"
+      ],
       "allowed_files": [
         "frontend/index.html",
         "frontend/self-check.js",
@@ -281,17 +324,17 @@
         "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/70-handoff.md"
       ],
       "dependencies": [],
-      "reviewer": "claude",
+      "reviewer": "grok",
       "implementation_report_path": "20-implementation-frontend.md",
-      "implementation_status": "dispatch_prepared",
+      "implementation_status": "dispatched",
       "base_sha": null,
       "head_sha": null,
       "diff_fingerprint": null,
       "test_evidence": null,
       "review_1": {
-        "reviewer": "claude",
-        "provider": "claude",
-        "model": "Claude Opus 4.8",
+        "reviewer": "grok",
+        "provider": "grok",
+        "model": null,
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -304,13 +347,19 @@
       "why": "The start-gate audit row lands in hedge_open_log and reaches the frontend through the legacy logs array, where extractHedgeAttempts (frontend/index.html:3835) treats any item carrying attempt_seq / pair_outcome / spot / perp as an attempt card. Verified by the bookkeeper: the designed payload (enabled / previous_enabled / version / source) carries none of those keys, so isHedgeAttemptShaped rejects it. That is an implicit dependency, so both sides must pin it.",
       "backend_obligation": "assert the start_gate_changed payload key set is exactly those four and disjoint from the attempt-shape keys",
       "frontend_obligation": "assert extractHedgeAttempts returns empty for a start_gate_changed log entry",
-      "recorded_in": ["13-implementation-backend.dispatch.md", "14-implementation-frontend.dispatch.md"]
+      "recorded_in": [
+        "13-implementation-backend.dispatch.md",
+        "14-implementation-frontend.dispatch.md"
+      ]
     },
     {
       "id": "M-2",
       "why": "frontend/self-check.js carries 14 'hgo-' client_order_id literals as display-only mock fixtures. The backend derivation changes to hg{uuid}s|p this round. The design mentions only the 18 backend/tests literals, so the frontend ones were unassigned.",
       "resolution": "They are arbitrary arguments and need not change; if the frontend implementer changes them it must be done consistently across all 14. The backend is told not to touch them. The choice must be stated in the frontend report.",
-      "recorded_in": ["13-implementation-backend.dispatch.md", "14-implementation-frontend.dispatch.md"]
+      "recorded_in": [
+        "13-implementation-backend.dispatch.md",
+        "14-implementation-frontend.dispatch.md"
+      ]
     }
   ],
   "complexity": {
@@ -445,6 +494,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Packet 13 (backend) is already running in a Claude-GLM session. The human operator starts packet 14 (frontend) in a SECOND, separate Claude-GLM terminal — Kimi quota did not recover, so both tasks are GLM-owned this round. Each implementer runs its self-tests, writes its 20-implementation-*.md report and stops without committing; cross-side test failures during parallel execution are transient and must not be 'fixed' across the boundary. The bookkeeper then does R4 diff reconciliation, reruns the full suites on the merged state (that rerun is the authoritative verdict), makes the evidence commit and fingerprint, and runs the pre-review gate. Review-1 now goes to Claude Opus 4.8 for BOTH tasks in two separate fresh read-only sessions; Review-2 stays with codex. The live surface stays closed (service stopped, start_gate=0) for the whole implementation and review period.",
-  "updated_at": "2026-07-27T18:40:00+08:00"
+  "next_action": "Both implementation packets (13 backend, 14 frontend) are running in two separate Claude-GLM terminals. Each implementer runs its self-tests, writes its 20-implementation-*.md report and stops without committing; cross-side test failures during parallel execution are transient and must not be 'fixed' across the boundary. The bookkeeper then does R4 diff reconciliation, reruns the full suites on the merged state (that rerun is the authoritative verdict), makes the evidence commit and fingerprint, and runs the pre-review gate. Review-1 goes to GROK for BOTH tasks in two separate fresh read-only sessions (user-enabled, see 15-user-authorized-grok-review-1.md); run `grok models` and record the exact model id before dispatch, and use the pre-authorized Claude Opus 4.8 fallback if a Grok verdict fails the schema twice. Review-2 stays with codex. The live surface stays closed (service stopped, start_gate=0) for the whole implementation and review period.",
+  "updated_at": "2026-07-27T18:55:00+08:00"
 }

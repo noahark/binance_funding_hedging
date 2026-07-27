@@ -2,8 +2,9 @@
 
 ## Recovery Header
 
-- Active phase: `IMPLEMENTING — packet 13 (backend) is running; packet 14 (frontend) reassigned to a second Claude-GLM terminal and awaiting execution.`
-- Owner change 2026-07-27 18:40: Kimi quota did not recover, so **both** tasks are owned by `claude_glm`. Review-1 therefore moves to **Claude Opus 4.8 for both tasks** (two separate fresh read-only sessions); Review-2 stays with `codex`, still zero prior involvement.
+- Active phase: `IMPLEMENTING — packets 13 (backend) and 14 (frontend) both running in two separate Claude-GLM terminals.`
+- Owner change 2026-07-27 18:40: Kimi quota did not recover, so **both** tasks are owned by `claude_glm`.
+- Review-1 routing 2026-07-27 18:55: **Grok, both gates**, explicitly enabled by the user — see `15-user-authorized-grok-review-1.md`. Two separate fresh read-only sessions. Review-2 stays with `codex`, still zero prior involvement.
 - Stage branch: `stage/2026-07-hedge-open-live-hardening-v1`, created from `main` at `4ce968623ff6cf1b574539437871064ca69b9f2d`.
 - Bookkeeper: Claude Opus 5, independent session, writes no delivery code.
 - Complexity: `MEDIUM`, direction panel skipped with user approval (2026-07-27); inherits `2026-07-hedge-open-real-api-v1/06-direction-synthesis.md`.
@@ -114,13 +115,8 @@ was already running when the change was made. Recorded in
   api-samples page; frontend touches `frontend/index.html` and
   `frontend/self-check.js`. Nothing overlaps.
 - **Review-1 had to move.** With both implementers on `zhipu_glm`, the
-  GLM↔Kimi cross pool is unusable. Both Review-1 gates go to **Claude Opus 4.8**
-  in two separate fresh read-only sessions — Anthropic wrote no delivery code
-  this stage, so provider-level isolation from the implementer holds. Disclosed:
-  the reviewers share provider identity with the designer (Claude Fable 5);
-  AGENTS.md constrains designer overlap only for Review-2, so this is admissible
-  for Review-1, and a different model plus a fresh session keeps it separated
-  from the design session.
+  GLM↔Kimi cross pool is unusable. It first went to Claude Opus 4.8, then — see
+  the next section — to Grok.
 - **Review-2 is unaffected**: still `codex`, still zero prior involvement, still
   no strong-reviewer disclosure override needed.
 - **New parallel hazard**: both sessions write the same working tree at the same
@@ -131,19 +127,40 @@ was already running when the change was made. Recorded in
   failing, the bookkeeper must treat that as possibly transient and judge it by
   the merged-state rerun, not by the implementer's observation.
 
+## Review-1 → Grok, User-Enabled 2026-07-27 18:55
+
+`AGENTS.md` and `agents/registry.yaml` both forbid substituting Grok into
+Review-1 without explicit stage-level user enablement. That enablement, the
+tradeoff presented before the choice, and the operating conditions attached to
+it are recorded in `15-user-authorized-grok-review-1.md`. Summary:
+
+- **Both** Review-1 gates → Grok (`xai_grok`), two separate fresh **read-only**
+  sessions (`--permission-mode plan`, per the registry's
+  `optional_review_command`). One session must not review both tasks.
+- Identity holds: `xai_grok` ≠ `zhipu_glm` (the implementer), and Grok has no
+  design involvement, so the earlier designer-overlap disclosure no longer
+  applies to Review-1.
+- **Exact model id is still TBD.** The registry only lists `grok-build` and
+  `grok-composer-2.5-fast`; the user referred to "Grok 4.5". Run `grok models`
+  before dispatch and record the id actually used — no guessed id enters the
+  record.
+- **Pre-authorized fallback**: Grok has never run a review gate in this
+  repository, so schema-conforming verdict output is unverified. If a verdict is
+  missing or fails `schemas/review-verdict.schema.json`, that attempt is
+  non-accepting — retry that gate once, then fall back to Claude Opus 4.8 for it
+  and record the reason plus the invalid-output evidence path. This keeps the
+  stage from stalling without anyone inventing a routing change mid-flight.
+
 ## Next Action
 
-1. **Human operator** runs `14-implementation-frontend.dispatch.md` in a
-   **second, separate** write-capable Claude-GLM terminal. Packet 13 is already
-   running in the first one. Each implementer runs its self-tests, writes its
-   `20-implementation-*.md` report and **stops without committing**.
+1. Both implementation sessions are running. Each runs its self-tests, writes
+   its `20-implementation-*.md` report and **stops without committing**.
 2. Bookkeeper: R4 diff reconciliation against the allowed-file lists, then
    **rerun the full suites on the merged state** — that rerun, not either
    implementer's observation, is the authoritative test verdict this round.
    Then evidence commit, fingerprint, `validate-stage.py --phase pre-review`.
-3. Review-1 packets, executable in parallel but in **two separate sessions**:
-   backend → **Claude Opus 4.8**, frontend → **Claude Opus 4.8**. One session
-   must not review both tasks.
+3. Review-1 packets, executable in parallel but in **two separate read-only Grok
+   sessions**: backend and frontend. Confirm the model id first.
 4. Review-2 → **codex**.
 
 Integration check to prioritise (direct lesson from last round's three
@@ -169,6 +186,6 @@ this stage is a user action, not a stage deliverable.
 当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/70-handoff.md
-本地北京时间: 2026-07-27 18:42:00 CST
+本地北京时间: 2026-07-27 18:55:00 CST
 下一步模型: human operator
-下一步任务: packet 13（Claude-GLM 后端）已在执行；在第二个独立的 Claude-GLM 终端执行 packet 14（前端），两份 20-implementation-*.md 出齐后交回 bookkeeper
+下一步任务: packet 13/14 均在执行中；两份 20-implementation-*.md 出齐后交回 bookkeeper 做 R4 对账。出 review-1 packet 前先跑 `grok models` 确认确切模型 id
