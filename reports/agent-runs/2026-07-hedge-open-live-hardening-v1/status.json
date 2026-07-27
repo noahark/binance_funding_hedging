@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-live-hardening-v1",
-  "status": "stage_accepted_waiting_user",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-live-hardening-v1",
@@ -720,8 +720,8 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "BOTH GATES ACCEPT on the pinned range 6c5b170..c91d2da. Backend Review-1 r2 (grok-4.5) and Review-2 r2 (GPT-5 Codex): 0 findings each, schema-valid, fingerprints matching status. The stage is at stage_accepted_waiting_user and stops here. BEFORE ACCEPTING, the user must read 21-user-authorized-frontend-fingerprint-exception.md VERBATIM — the frontend gate's trailing fingerprint is waived by that class-1 record, and AGENTS.md makes human verification of the evidence text the final guarantee the validator cannot enforce. Merging to main and any live activation remain separate user decisions; APP_HEDGE_EXECUTOR=live, the durable Start gate and the first real task are three independent authorizations. NOTE: the Start gate is currently OPEN (opened during the 2026-07-27 live acceptance) and a real naked SHORT 10000 NOMUSDT from that run is still outstanding.",
-  "updated_at": "2026-07-28T01:00:00+08:00",
+  "next_action": "Merge the stage branch into local main with --no-ff, record the merge sha, then close the stage pointer.",
+  "updated_at": "2026-07-28T01:35:00+08:00",
   "harness_followups": [
     {
       "id": "registry-grok-drift",
@@ -833,5 +833,19 @@
     "diff_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
     "authorized_exceptions_applied": 0,
     "evidence": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/22-pre-accept-validation.txt"
+  },
+  "user_acceptance": {
+    "accepted": true,
+    "by": "user",
+    "at": "2026-07-28T01:35:00+08:00",
+    "decision": "accept the stage and merge to main",
+    "evidence": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/80-user-acceptance.md",
+    "disclosed_before_accepting": [
+      "review_1_routing_deviation (packet said Opus 4.8, ran on grok-4.5)",
+      "the class-1 frontend exception was authorized but never applied",
+      "the Start gate is currently OPEN",
+      "a real naked SHORT 10000 NOMUSDT is outstanding"
+    ],
+    "does_not_grant": "Merging is not live authorization. APP_HEDGE_EXECUTOR=live, the durable Start gate and the first real task remain three separate human authorizations, none granted here."
   }
 }
