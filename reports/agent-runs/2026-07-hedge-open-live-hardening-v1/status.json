@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-open-live-hardening-v1",
-  "status": "review_2",
+  "status": "stage_accepted_waiting_user",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-open-live-hardening-v1",
@@ -170,6 +170,38 @@
       "verdict": "ACCEPT",
       "json_schema_valid": true,
       "late_archive_note": "This gate's raw output was not on disk at the first archiving pass; the operator supplied it afterwards. The pinned range never moved, so it reviews exactly the code the frontend gate reviewed."
+    },
+    {
+      "role": "review_1",
+      "task_id": "backend",
+      "provider": "grok",
+      "model": "grok-4.5",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The Grok CLI session did not expose a provider-native session id to the reviewing model.",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/31-review-1-backend-r2.dispatch.md",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/31-review-1-backend-r2.md",
+      "recorded_at": "2026-07-28T00:55:00+08:00",
+      "executed_by": "human operator",
+      "executor": "human operator",
+      "verdict": "ACCEPT",
+      "json_schema_valid": true,
+      "routing_note": "Packet specified Claude Opus 4.8; executed on grok-4.5. See status.review_1_routing_deviation — user accepted and recorded it."
+    },
+    {
+      "role": "review_2",
+      "provider": "codex",
+      "model": "GPT-5 Codex",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The Codex runtime does not expose a provider-native session id.",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/51-review-2-r2.dispatch.md",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/51-review-2-r2.md",
+      "recorded_at": "2026-07-28T00:55:00+08:00",
+      "executed_by": "human operator",
+      "executor": "human operator",
+      "verdict": "ACCEPT",
+      "json_schema_valid": true
     }
   ],
   "designer": {
@@ -374,17 +406,17 @@
         "reviewer": "grok",
         "provider": "grok",
         "model": "grok-4.5",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null,
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
         "fingerprint_matches_status": true,
         "open_p0_p1": 0,
-        "findings_summary": "0 P0/P1/P2, 2 P3 (api-samples prose says 'backslash' but the regex character class has none — it is an escaped dot and colon; confirm negative-case matrix omits [] and {}). required_fixes empty.",
-        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md",
-        "recorded_at": "2026-07-27T21:25:00+08:00",
-        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md",
-        "status": "must_be_re_reviewed_on_the_new_range",
-        "previous_round1_verdict": "ACCEPT (on the void round-1 range)"
+        "findings_summary": "0 findings. Confirmed the Review-2 P2 is closed at its real root, ADR-H4 intact, and S5 meets 00-task.md's acceptance criterion rather than only the design's optional-grid wording.",
+        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/31-review-1-backend-r2.md",
+        "recorded_at": "2026-07-28T01:00:00+08:00",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/31-review-1-backend-r2.dispatch.md",
+        "previous_round1_verdict": "ACCEPT (on the void round-1 range)",
+        "round": 2
       }
     },
     {
@@ -589,21 +621,23 @@
     ]
   },
   "review_1": {
-    "status": "backend_pending_re_review",
+    "status": "complete",
     "reviewer": "grok",
     "provider": "grok",
     "model": "grok-4.5",
     "verdict": "ACCEPT",
     "json_schema_valid": true,
-    "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
+    "diff_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
     "open_p0_p1": 0,
     "reviewer_prior_involvement": "none",
     "backend": {
-      "verdict": null,
-      "status": "must be re-run on 6c5b170..c91d2da",
-      "reviewer": "claude",
-      "model": "Claude Opus 4.8",
-      "reroute_reason": "grok-4.5 filed this stage's blocking finding as a residual risk rather than a finding (status.review_1_miss). The user rerouted the backend gate to Claude Opus 4.8 so the reworked code is not re-reviewed by the channel that missed it. Opus 4.8 is provider-isolated from the implementer claude_glm (zhipu_glm); it shares provider identity with the stage designer, which AGENTS.md constrains only for Review-2."
+      "verdict": "ACCEPT",
+      "reviewer": "grok",
+      "model": "grok-4.5",
+      "artifact": "31-review-1-backend-r2.md",
+      "round": 2,
+      "findings": "0",
+      "routing_deviation_ref": "status.review_1_routing_deviation"
     },
     "frontend": {
       "verdict": "ACCEPT",
@@ -630,22 +664,23 @@
       "unrelated_reviewer_unavailable_evidence": null
     },
     "open_p0_p1": 0,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
+    "verdict": "ACCEPT",
+    "json_schema_valid": true,
+    "diff_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
     "covers_through_task": null,
     "fix_start_prompt_present": true,
     "fix_start_prompt_source": "reviewer verdict JSON, copied verbatim into reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-fix-review-2-s5.dispatch.md",
     "invalid_json_attempts": 0,
     "fingerprint_matches_status": true,
-    "findings_summary": "1 P2: RecordTransportExecutor calls validate_order_params without step_size/min_qty/max_qty, so a quantity violating the symbol grid or bounds is still simulated as a successful fill. 00-task.md S5 requires precision checked against the loaded symbol filters.",
-    "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/50-review-2.md",
-    "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/50-review-2.dispatch.md",
-    "next_action": "fix",
+    "findings_summary": "0 findings, empty required_fixes, next_action stage_accepted_waiting_user.",
+    "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/51-review-2-r2.md",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/51-review-2-r2.dispatch.md",
+    "next_action": "stage_accepted_waiting_user",
     "bookkeeper_verification": "JSON parsed and validated against schemas/review-verdict.schema.json; diff_fingerprint identical to status. The finding was verified independently against the code, not accepted on the reviewer's word: wire_constraints.py:101-119 implements step/min/max checks, executor.py:303-304 passes none of them, and 00-task.md S5 requires 'quantity/price precision against the symbol filters already loaded'. The validator was built and then not wired in. REWORK is correct.",
-    "recorded_at": "2026-07-27T22:40:00+08:00",
+    "recorded_at": "2026-07-28T01:00:00+08:00",
     "verdict_round1": "REWORK",
-    "status": "must_be_re_run_on_the_new_range"
+    "status": "complete",
+    "round": 2
   },
   "authorized_exceptions": [
     {
@@ -677,8 +712,8 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Two gates to re-run on the NEW range 6c5b170..c91d2da, both executable in parallel: 31-review-1-backend-r2.dispatch.md in a fresh read-only Claude Opus 4.8 session, and 51-review-2-r2.dispatch.md in a fresh read-only Codex session. The frontend gate is NOT re-run — its trailing fingerprint is waived by authorized_exceptions[0], and the user must verify that evidence file verbatim before releasing. rework_count 1 of 3.",
-  "updated_at": "2026-07-28T00:40:00+08:00",
+  "next_action": "BOTH GATES ACCEPT on the pinned range 6c5b170..c91d2da. Backend Review-1 r2 (grok-4.5) and Review-2 r2 (GPT-5 Codex): 0 findings each, schema-valid, fingerprints matching status. The stage is at stage_accepted_waiting_user and stops here. BEFORE ACCEPTING, the user must read 21-user-authorized-frontend-fingerprint-exception.md VERBATIM — the frontend gate's trailing fingerprint is waived by that class-1 record, and AGENTS.md makes human verification of the evidence text the final guarantee the validator cannot enforce. Merging to main and any live activation remain separate user decisions; APP_HEDGE_EXECUTOR=live, the durable Start gate and the first real task are three independent authorizations. NOTE: the Start gate is currently OPEN (opened during the 2026-07-27 live acceptance) and a real naked SHORT 10000 NOMUSDT from that run is still outstanding.",
+  "updated_at": "2026-07-28T01:00:00+08:00",
   "harness_followups": [
     {
       "id": "registry-grok-drift",
@@ -725,6 +760,14 @@
       "detail": "S3 self-check asserts the dialog bodies with includes() substrings rather than full equality; production copy is verbatim per the design. Optional tightening.",
       "severity": "P3",
       "blocking": false
+    },
+    {
+      "id": "p3-preflight-snapshot-key-contract-untested",
+      "source": "review-1 backend r2 (grok-4.5) residual, verified by the bookkeeper",
+      "detail": "No test asserts that compute_preflight actually emits spot_min_qty / spot_max_qty / perp_min_qty / perp_max_qty. A grep across backend/ finds those literals only at their definition in domain.py. The end-to-end record-transport tests feed a hand-built snapshot, so if compute_preflight's key names ever drift, the suite stays green while _leg_qty_filters silently reads nothing, returns empty kwargs, and the validator falls back to NOT checking step/min/max — i.e. a silent regression to the pre-fix behaviour. Functionally correct today (the names do match); this is a missing regression lock, and its shape is the same silent-downgrade pattern this stage kept running into.",
+      "severity": "P3",
+      "blocking": false,
+      "why_not_fixed_here": "Any edit moves the diff, voiding both just-passed gates and the freshly sealed frontend exception (which is pinned to the current fingerprint). User decided to carry it forward."
     }
   ],
   "live_acceptance_findings": {
@@ -765,5 +808,13 @@
     "verdict": "PASS",
     "artifact": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/19-r4-diff-reconciliation-rework1.md",
     "summary": "Three files changed, all inside packet 60's allowed list; zero changes to any forbidden file; ADR-H4 intact (wire_constraints still absent from the live send path). The finding is closed at its real root: compute_preflight's snapshot never carried min/max at all, so wiring alone would not have sufficed. The fix reuses the pre-existing _qty_bounds helper (commit 1749d94) rather than writing a second filter-selection rule. The four new tests are behavioural, driving RecordTransportExecutor and asserting no simulated fill on rejection."
+  },
+  "review_1_routing_deviation": {
+    "what": "31-review-1-backend-r2.dispatch.md specified Claude Opus 4.8; the gate was actually executed in a grok-4.5 session.",
+    "hard_gate_status": "NOT breached. AGENTS.md requires review-1 to be provider-isolated from the implementer: xai_grok != zhipu_glm holds. Grok as a review-1 gate was already explicitly user-enabled for this stage (15-user-authorized-grok-review-1.md). The verdict is valid evidence, not a void ballot.",
+    "what_was_deviated_from": "The user's routing decision for THIS round. Opus 4.8 was chosen precisely because grok-4.5 had filed this stage's blocking finding as a residual risk (status.review_1_miss), and the re-review covered that same point — where grok returned ACCEPT with 0 findings.",
+    "mitigation": "Review-2 (GPT-5 Codex, a third provider) independently reviewed the same range in full and also returned ACCEPT.",
+    "user_decision": "Accept the verdict and record the deviation for audit rather than re-run. Decided 2026-07-28.",
+    "recorded_at": "2026-07-28T01:00:00+08:00"
   }
 }

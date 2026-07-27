@@ -1,15 +1,16 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
-target_model: claude/Claude Opus 4.8
-adapter_cmd: (fresh read-only Claude Opus 4.8 session; filled in by the operator on execution)
+status: completed
+target_model: grok/grok-4.5 (packet specified claude/Claude Opus 4.8 — see routing note)
+adapter_cmd: fresh read-only grok-4.5 session (the operator recorded no exact command line)
 executor: human_operator
-started_at: unavailable:not yet executed
-completed_at: unavailable:not yet executed
-session_id: unavailable:not yet executed
+started_at: unavailable:the operator recorded no start timestamp
+completed_at: 2026-07-28T00:55:00+08:00
+session_id: unavailable:the reviewing session exposed no provider-native id
 outputs: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/31-review-1-backend-r2.md
 next_dispatch: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/51-review-2-r2.dispatch.md (human operator; may run in parallel)
-receipt_sealed_by: bookkeeper (Claude Opus 5), prepared before execution.
+receipt_sealed_by: bookkeeper (Claude Opus 5), on archiving the raw output. ROUTING DEVIATION recorded, not hidden: this packet specified Claude Opus 4.8 and the operator executed it on grok-4.5. The hard gate holds (xai_grok != the implementer's zhipu_glm, and grok as a review-1 gate is user-enabled per 15-user-authorized-grok-review-1.md), but it departs from the user's round-2 routing choice, which had moved this gate off grok after its severity miss. The user reviewed the deviation and chose to accept and record it. Mitigation: Review-2 (GPT-5 Codex, a third provider) independently reviewed the same range and also returned ACCEPT. Full record: status.review_1_routing_deviation.
 session_isolation: MUST be a fresh read-only session. The bookkeeper session must not double as this reviewer.
+verdict: ACCEPT (schema-valid; diff_fingerprint identical to status; 0 findings; required_fixes empty)
 ===== END RECEIPT ===== -->
 
 # Review-1 Dispatch (round 2) — Backend — Hedge Open Live Hardening v1

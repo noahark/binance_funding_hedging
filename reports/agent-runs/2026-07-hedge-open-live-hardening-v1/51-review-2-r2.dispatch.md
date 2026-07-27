@@ -1,15 +1,16 @@
 <!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
-status: pending
+status: completed
 target_model: codex/GPT-5 Codex
-adapter_cmd: (fresh read-only codex exec session; filled in by the operator on execution)
+adapter_cmd: codex exec --sandbox read-only (the operator recorded no exact command line)
 executor: human_operator
-started_at: unavailable:not yet executed
-completed_at: unavailable:not yet executed
-session_id: unavailable:not yet executed
+started_at: unavailable:the operator recorded no start timestamp
+completed_at: 2026-07-28T00:55:00+08:00
+session_id: unavailable:the reviewing session exposed no provider-native id
 outputs: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/51-review-2-r2.md
 next_dispatch: bookkeeper archives the verdict; on ACCEPT the stage reaches stage_accepted_waiting_user
-receipt_sealed_by: bookkeeper (Claude Opus 5), prepared before execution.
+receipt_sealed_by: bookkeeper (Claude Opus 5), on archiving the raw output. Executed as specified. Verdict verified against the schema with a fingerprint identical to status.
 session_isolation: MUST be a fresh read-only session, separate from the round-1 review-2 session.
+verdict: ACCEPT (schema-valid; diff_fingerprint identical to status; 0 findings; required_fixes empty)
 ===== END RECEIPT ===== -->
 
 # Review-2 Dispatch (round 2) — Final Gate — Hedge Open Live Hardening v1
