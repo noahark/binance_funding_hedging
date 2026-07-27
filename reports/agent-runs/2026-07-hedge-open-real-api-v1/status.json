@@ -7,7 +7,7 @@
     "created_from_main_sha": "28c550d87c1ca90983d5bde9c7102d42cffecd4e",
     "created_at": "2026-07-23T13:41:25+08:00",
     "merged_back_to_main": true,
-    "merged_back_sha": "<pending: filled by the merge commit>",
+    "merged_back_sha": "f9809ce02a5fe07100596f1f45cf76f256ae497a",
     "merge_strategy": "no-fast-forward",
     "abandoned_reason": null
   },
