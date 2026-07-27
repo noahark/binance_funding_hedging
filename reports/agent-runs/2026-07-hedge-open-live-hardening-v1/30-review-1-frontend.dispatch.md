@@ -1,3 +1,19 @@
+<!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
+status: completed
+target_model: grok/grok-4.5
+adapter_cmd: grok --cwd "/Users/ark/Desktop/ai code/funding_hedging" --model grok-4.5 --permission-mode plan --prompt-file <prompt-body-file>
+executor: human_operator
+started_at: unavailable:the operator recorded no start timestamp and the report footer carries only a completion time
+completed_at: 2026-07-27T20:57:52+08:00
+completed_at_source: the "本地北京时间" line in the raw report footer (30-review-1-frontend.md)
+session_id: unavailable:the reviewer report footer records that the Grok CLI did not expose a provider-native Session ID
+outputs: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md
+verdict: ACCEPT (schema-valid; diff_fingerprint matched status verbatim; 0 P0/P1/P2; 2 P3; required_fixes empty)
+next_dispatch: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/50-review-2.dispatch.md (human operator)
+receipt_sealed_by: bookkeeper (Claude Opus 5), on archiving the raw output. Every field is taken from the report footer or the packet itself; nothing invented. The Grok review-1 routing is user-enabled per 15-user-authorized-grok-review-1.md, and the pre-authorized Claude Opus 4.8 schema-failure fallback went unused because the verdict validated on the first attempt.
+session_isolation: a fresh read-only grok-4.5 session, separate from the other review-1 gate — one reviewer per task.
+===== END RECEIPT ===== -->
+
 # Review-1 Dispatch — Frontend — Hedge Open Live Hardening v1
 
 Human operator: run this in a fresh **read-only `grok-4.5`** session.
