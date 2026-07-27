@@ -50,13 +50,29 @@
       "task_id": "backend"
     },
     "frontend": {
-      "owner_provider": "kimi",
-      "owner_model": "kimi-k3",
+      "owner_provider": "claude_glm",
+      "owner_model": "glm-5.2[1m]",
       "task_id": "frontend"
+    },
+    "frontend_owner_reassignment": {
+      "at": "2026-07-27T18:40:00+08:00",
+      "from": {"provider": "kimi", "model": "kimi-k3"},
+      "to": {"provider": "claude_glm", "model": "glm-5.2[1m]"},
+      "reason": "The user reported that Kimi quota did not recover. Task A (backend) was already running in a Claude-GLM session when the reassignment was made; Task B moves to a second, separate Claude-GLM session.",
+      "authorized_by": "user",
+      "parallelism_still_valid": "The two tasks' allowed-file sets remain disjoint (backend/** + api-samples page vs frontend/index.html + self-check.js), which is what parallel mode requires; a shared owner provider does not by itself couple them.",
+      "consequences": [
+        "Review-1 can no longer use the GLM<->Kimi cross pool: both implementers are now zhipu_glm, so both Review-1 gates move to the Claude provider (Anthropic), which wrote no delivery code this stage.",
+        "Review-2 is unaffected and stays with codex, which retains zero prior involvement, so no strong-reviewer disclosure override is needed.",
+        "Both Review-1 reviewers share provider identity with the stage designer/breakdown author (Claude Fable 5). AGENTS.md constrains only Review-2 on designer overlap, so this is admissible for Review-1; it is disclosed here and the reviewers are routed to Opus 4.8 in fresh read-only sessions to keep model-level separation from the Fable 5 design session.",
+        "Both implementation sessions run against the same working tree at the same time, so each may observe transient failures in the other side's test suite. Packet 14 records how the frontend session must handle that; the bookkeeper's post-stop rerun on the merged state is the authoritative verdict."
+      ]
     },
     "reviewer_pool_restored": {
       "at": "2026-07-27",
-      "available": ["codex", "claude_glm", "kimi", "claude"],
+      "available": ["codex", "claude_glm", "claude"],
+      "unavailable": ["kimi"],
+      "correction": "Kimi was reported available at intake but its quota did not in fact recover; corrected 2026-07-27T18:40 when the frontend task was reassigned.",
       "source": "user confirmation",
       "why_it_matters": "2026-07-hedge-open-real-api-v1 ended with codex as the only reviewer and nobody able to cross-check it; that was the second reason its handoff recommended opening this stage."
     }
@@ -115,32 +131,40 @@
       "task_id": "backend",
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
-      "status": "dispatch_prepared"
+      "status": "dispatched",
+      "dispatched_at": "2026-07-27T18:35:00+08:00",
+      "note": "Human operator started this session before the frontend reassignment."
     },
     {
       "task_id": "frontend",
-      "provider": "kimi",
-      "model": "kimi-k3",
-      "status": "dispatch_prepared"
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_prepared",
+      "note": "Reassigned from kimi on 2026-07-27 (quota did not recover); runs in a second, separate Claude-GLM terminal."
     }
   ],
   "fix_authors": [],
   "reviewer_1": null,
   "review_1_dispatch_plan": {
+    "revised_at": "2026-07-27T18:40:00+08:00",
+    "revision_reason": "Both tasks are now implemented by claude_glm (Kimi quota did not recover), so the GLM<->Kimi cross pool is unusable. Review-1 moves to the Claude provider for both tasks: Anthropic wrote no delivery code this stage, so provider-level cross-review isolation from the implementer holds.",
     "backend": {
-      "reviewer_provider": "kimi",
-      "reviewer_model": "kimi-k3",
-      "reason": "cross-review isolation: backend is implemented by claude_glm (zhipu_glm identity)",
+      "reviewer_provider": "claude",
+      "reviewer_model": "Claude Opus 4.8",
+      "reason": "cross-provider isolation from the implementer (claude_glm = zhipu_glm identity); Anthropic authored no delivery code this stage",
+      "designer_overlap_disclosure": "Same provider identity as the stage designer/breakdown author (Claude Fable 5). AGENTS.md constrains designer overlap only for Review-2, so this is admissible for Review-1; a different model and a fresh read-only session keep it separated from the design session.",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md",
       "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md"
     },
     "frontend": {
-      "reviewer_provider": "claude_glm",
-      "reviewer_model": "glm-5.2[1m]",
-      "reason": "cross-review isolation: frontend is implemented by kimi",
+      "reviewer_provider": "claude",
+      "reviewer_model": "Claude Opus 4.8",
+      "reason": "cross-provider isolation from the implementer (claude_glm = zhipu_glm identity); Anthropic authored no delivery code this stage",
+      "designer_overlap_disclosure": "Same as backend above.",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md",
       "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md"
-    }
+    },
+    "separate_sessions_required": "The two Review-1 gates must run in two distinct fresh read-only sessions; one session must not review both tasks."
   },
   "reviewer_2": null,
   "r10_checklists": {
@@ -222,17 +246,17 @@
         "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/70-handoff.md"
       ],
       "dependencies": [],
-      "reviewer": "kimi",
+      "reviewer": "claude",
       "implementation_report_path": "20-implementation-backend.md",
-      "implementation_status": "dispatch_prepared",
+      "implementation_status": "dispatched",
       "base_sha": null,
       "head_sha": null,
       "diff_fingerprint": null,
       "test_evidence": null,
       "review_1": {
-        "reviewer": "kimi",
-        "provider": "kimi",
-        "model": "kimi-k3",
+        "reviewer": "claude",
+        "provider": "claude",
+        "model": "Claude Opus 4.8",
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -241,8 +265,8 @@
     {
       "id": "frontend",
       "owner": {
-        "provider": "kimi",
-        "model": "kimi-k3"
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]"
       },
       "scope": ["S2", "S3-frontend", "S4a", "S4b error display"],
       "allowed_files": [
@@ -257,7 +281,7 @@
         "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/70-handoff.md"
       ],
       "dependencies": [],
-      "reviewer": "claude_glm",
+      "reviewer": "claude",
       "implementation_report_path": "20-implementation-frontend.md",
       "implementation_status": "dispatch_prepared",
       "base_sha": null,
@@ -265,9 +289,9 @@
       "diff_fingerprint": null,
       "test_evidence": null,
       "review_1": {
-        "reviewer": "claude_glm",
-        "provider": "claude_glm",
-        "model": "glm-5.2[1m]",
+        "reviewer": "claude",
+        "provider": "claude",
+        "model": "Claude Opus 4.8",
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -421,6 +445,6 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Human operator runs the two implementation packets, which may go in parallel: 13-implementation-backend.dispatch.md in a fresh write-capable Claude-GLM session, and 14-implementation-frontend.dispatch.md in a fresh write-capable Kimi session. Each implementer runs its self-tests, writes its 20-implementation-*.md report and stops without committing. The bookkeeper then does R4 diff reconciliation, the evidence commit, the fingerprint and the pre-review gate. The live surface stays closed (service stopped, start_gate=0) for the whole implementation and review period.",
-  "updated_at": "2026-07-27T18:20:00+08:00"
+  "next_action": "Packet 13 (backend) is already running in a Claude-GLM session. The human operator starts packet 14 (frontend) in a SECOND, separate Claude-GLM terminal — Kimi quota did not recover, so both tasks are GLM-owned this round. Each implementer runs its self-tests, writes its 20-implementation-*.md report and stops without committing; cross-side test failures during parallel execution are transient and must not be 'fixed' across the boundary. The bookkeeper then does R4 diff reconciliation, reruns the full suites on the merged state (that rerun is the authoritative verdict), makes the evidence commit and fingerprint, and runs the pre-review gate. Review-1 now goes to Claude Opus 4.8 for BOTH tasks in two separate fresh read-only sessions; Review-2 stays with codex. The live surface stays closed (service stopped, start_gate=0) for the whole implementation and review period.",
+  "updated_at": "2026-07-27T18:40:00+08:00"
 }

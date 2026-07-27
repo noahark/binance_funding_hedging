@@ -1,10 +1,16 @@
 # Implementation Dispatch — Task B (Frontend) — Hedge Open Live Hardening v1
 
-Human operator: run this prompt in a fresh **write-capable Kimi** session
-(`kimi --model kimi-code/kimi-for-coding -p "$(cat <this-prompt-body-file>)"`, or an
-interactive write-capable Kimi session). Task A
-(`13-implementation-backend.dispatch.md`) and Task B are independent and may run in
-parallel.
+Human operator: run this prompt in a fresh **write-capable Claude-GLM**
+(`glm-5.2[1m]`) session — a **separate terminal** from the one already running Task A.
+Task A (`13-implementation-backend.dispatch.md`) and Task B are independent and may
+run in parallel.
+
+**Owner reassigned 2026-07-27**: Kimi quota did not recover, so both tasks are owned
+by `claude_glm` this round. The file boundaries are unchanged and still disjoint, so
+parallel execution stays valid. Consequence recorded by the bookkeeper: Review-1 can
+no longer use the GLM↔Kimi cross pool and moves to the Claude provider (Anthropic)
+for **both** tasks; Review-2 stays with Codex, which still has zero prior
+involvement. See `status.json.model_routing.frontend_owner_reassignment`.
 
 Save the session's raw implementation report as:
 `reports/agent-runs/2026-07-hedge-open-live-hardening-v1/20-implementation-frontend.md`
@@ -110,6 +116,20 @@ node frontend/self-check.js
 .venv/bin/python -m pytest backend/tests -q
 git diff --check
 
+## 并行干扰须知（本轮两个任务在同一个仓库同时进行）
+
+后端任务（任务 A）此刻正在**同一个工作区**里改 `backend/**`。因此：
+
+- `node frontend/self-check.js` 是你的**主判据**，必须全绿。
+- `.venv/bin/python -m pytest backend/tests -q` 可能因为后端正改到一半而出现红色。
+  若失败用例全部落在 `backend/hedge_open_tasks/`、`backend/services/`、
+  `backend/app/server.py` 或 `backend/tests/test_hedge_*` 这些**后端任务正在改动的
+  区域**，那是并行导致的暂态，不是你引入的：在报告里如实记录失败用例名与你的判断，
+  然后继续。
+- **绝对不要**为了让 backend 测试转绿而修改任何 `backend/**` 文件——那是越界，属 R3
+  升级事项。
+- bookkeeper 会在两个任务都停止后，在合并态下复跑全部测试，那一次才是权威判定。
+
 ## 收尾纪律（R10）
 
 - 自测全 PASS → 写 `20-implementation-frontend.md`（改了什么、为什么、测试输出摘录与
@@ -130,11 +150,11 @@ Session ID 来源: runtime_env | hook_payload | cli_output | transcript_path | a
 ```
 
 Current dispatch executor: **human operator**. The bookkeeper does not execute
-Kimi commands or relay this prompt to a model.
+Claude-GLM commands or relay this prompt to a model.
 
 当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/14-implementation-frontend.dispatch.md
 本地北京时间: 2026-07-27 18:20:00 CST
 下一步模型: human operator
-下一步任务: 在全新的写权限 Kimi 终端执行本 packet，产出 20-implementation-frontend.md
+下一步任务: 在与任务 A 分开的、全新的写权限 Claude-GLM 终端执行本 packet，产出 20-implementation-frontend.md

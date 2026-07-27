@@ -2,7 +2,8 @@
 
 ## Recovery Header
 
-- Active phase: `DISPATCH-READY PASSED — design/ADR/breakdown archived, parallel mode on, packets 13 and 14 await human execution. No code written yet.`
+- Active phase: `IMPLEMENTING — packet 13 (backend) is running; packet 14 (frontend) reassigned to a second Claude-GLM terminal and awaiting execution.`
+- Owner change 2026-07-27 18:40: Kimi quota did not recover, so **both** tasks are owned by `claude_glm`. Review-1 therefore moves to **Claude Opus 4.8 for both tasks** (two separate fresh read-only sessions); Review-2 stays with `codex`, still zero prior involvement.
 - Stage branch: `stage/2026-07-hedge-open-live-hardening-v1`, created from `main` at `4ce968623ff6cf1b574539437871064ca69b9f2d`.
 - Bookkeeper: Claude Opus 5, independent session, writes no delivery code.
 - Complexity: `MEDIUM`, direction panel skipped with user approval (2026-07-27); inherits `2026-07-hedge-open-real-api-v1/06-direction-synthesis.md`.
@@ -102,23 +103,48 @@ packets as **M-1** and **M-2** (recorded in
   if changed, all 14 must change together. The backend is told not to touch
   them; the frontend must state its choice.
 
+## Owner Reassignment — 2026-07-27 18:40
+
+Kimi quota did not recover. The user reassigned Task B to `claude_glm`; Task A
+was already running when the change was made. Recorded in
+`status.json.model_routing.frontend_owner_reassignment`.
+
+- **Parallelism is still valid.** Parallel mode requires disjoint allowed-file
+  sets, not distinct owner providers. Backend touches `backend/**` plus the
+  api-samples page; frontend touches `frontend/index.html` and
+  `frontend/self-check.js`. Nothing overlaps.
+- **Review-1 had to move.** With both implementers on `zhipu_glm`, the
+  GLM↔Kimi cross pool is unusable. Both Review-1 gates go to **Claude Opus 4.8**
+  in two separate fresh read-only sessions — Anthropic wrote no delivery code
+  this stage, so provider-level isolation from the implementer holds. Disclosed:
+  the reviewers share provider identity with the designer (Claude Fable 5);
+  AGENTS.md constrains designer overlap only for Review-2, so this is admissible
+  for Review-1, and a different model plus a fresh session keeps it separated
+  from the design session.
+- **Review-2 is unaffected**: still `codex`, still zero prior involvement, still
+  no strong-reviewer disclosure override needed.
+- **New parallel hazard**: both sessions write the same working tree at the same
+  time, and each packet's self-tests include the other side's suite. Packet 14
+  now tells the frontend session how to handle a transient backend failure
+  (record it, never fix across the boundary). Packet 13 was already dispatched
+  and carries no such note, so if its report shows `node frontend/self-check.js`
+  failing, the bookkeeper must treat that as possibly transient and judge it by
+  the merged-state rerun, not by the implementer's observation.
+
 ## Next Action
 
-1. **Human operator** runs the two implementation packets — they are
-   independent and may run in parallel:
-   - `13-implementation-backend.dispatch.md` → fresh write-capable Claude-GLM
-     (`glm-5.2[1m]`), produces `20-implementation-backend.md`;
-   - `14-implementation-frontend.dispatch.md` → fresh write-capable Kimi
-     (`kimi-k3`), produces `20-implementation-frontend.md`.
-   Each implementer runs its self-tests, writes its report and **stops without
-   committing**.
-2. Bookkeeper: R4 diff reconciliation against the allowed-file lists, evidence
-   commit, fingerprint, `validate-stage.py --phase pre-review`.
-3. Review-1 packets, executable in parallel: backend → **kimi**, frontend →
-   **claude_glm** (cross-provider isolation both ways).
-4. Review-2 → **codex**. Claude provider deliberately wrote no delivery code and
-   Codex deliberately has no design involvement, so no strong-reviewer
-   disclosure override is needed this stage.
+1. **Human operator** runs `14-implementation-frontend.dispatch.md` in a
+   **second, separate** write-capable Claude-GLM terminal. Packet 13 is already
+   running in the first one. Each implementer runs its self-tests, writes its
+   `20-implementation-*.md` report and **stops without committing**.
+2. Bookkeeper: R4 diff reconciliation against the allowed-file lists, then
+   **rerun the full suites on the merged state** — that rerun, not either
+   implementer's observation, is the authoritative test verdict this round.
+   Then evidence commit, fingerprint, `validate-stage.py --phase pre-review`.
+3. Review-1 packets, executable in parallel but in **two separate sessions**:
+   backend → **Claude Opus 4.8**, frontend → **Claude Opus 4.8**. One session
+   must not review both tasks.
+4. Review-2 → **codex**.
 
 Integration check to prioritise (direct lesson from last round's three
 cross-seam drifts): the three contract faces the frontend consumes —
@@ -143,6 +169,6 @@ this stage is a user action, not a stage deliverable.
 当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/70-handoff.md
-本地北京时间: 2026-07-27 18:22:00 CST
+本地北京时间: 2026-07-27 18:42:00 CST
 下一步模型: human operator
-下一步任务: 并行执行 packet 13（Claude-GLM 后端）与 packet 14（Kimi 前端），产出两份 20-implementation-*.md 后交回 bookkeeper
+下一步任务: packet 13（Claude-GLM 后端）已在执行；在第二个独立的 Claude-GLM 终端执行 packet 14（前端），两份 20-implementation-*.md 出齐后交回 bookkeeper
