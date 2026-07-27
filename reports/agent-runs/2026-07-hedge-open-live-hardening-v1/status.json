@@ -6,9 +6,9 @@
     "name": "stage/2026-07-hedge-open-live-hardening-v1",
     "created_from_main_sha": "4ce968623ff6cf1b574539437871064ca69b9f2d",
     "created_at": "2026-07-27T17:33:33+08:00",
-    "merged_back_to_main": false,
-    "merged_back_sha": null,
-    "merge_strategy": null,
+    "merged_back_to_main": true,
+    "merged_back_sha": "c8b6bbe05433c7e839cf20892d2d3a4923bc8384",
+    "merge_strategy": "no-fast-forward",
     "abandoned_reason": null
   },
   "bookkeeper": {
@@ -720,8 +720,8 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Merge the stage branch into local main with --no-ff, record the merge sha, then close the stage pointer.",
-  "updated_at": "2026-07-28T01:35:00+08:00",
+  "next_action": "Stage complete and merged to LOCAL main (c8b6bbe, no-ff). NOT pushed — no push was requested. Live activation remains three separate human authorizations, none granted. CARRIED LIVE STATE (user-owned): the Start gate is OPEN and a real naked SHORT 10000 NOMUSDT (orderId 888412130) is outstanding with no close function. NEXT STAGE proposed: _proposals/2026-07-27-hedge-order-truth-and-error-fidelity.md",
+  "updated_at": "2026-07-28T01:45:00+08:00",
   "harness_followups": [
     {
       "id": "registry-grok-drift",
@@ -847,5 +847,13 @@
       "a real naked SHORT 10000 NOMUSDT is outstanding"
     ],
     "does_not_grant": "Merging is not live authorization. APP_HEDGE_EXECUTOR=live, the durable Start gate and the first real task remain three separate human authorizations, none granted here."
+  },
+  "post_merge_verification": {
+    "at": "2026-07-28T01:45:00+08:00",
+    "on": "local main c8b6bbe",
+    "backend_tests": "983 passed",
+    "frontend_self_check": "全部自检通过, 122 PASS",
+    "scripts_tests": "148 passed",
+    "note": "Run on main after the merge, not only on the stage branch."
   }
 }
