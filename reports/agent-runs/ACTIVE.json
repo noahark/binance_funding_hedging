@@ -1,6 +1,6 @@
 {
-  "active": null,
+  "active": "2026-07-hedge-open-live-hardening-v1",
   "last_completed": "2026-07-hedge-open-real-api-v1",
-  "note": "Stage 2026-07-hedge-open-real-api-v1 is ACCEPTED and merged to main. Both Review-1 gates and Review-2 returned ACCEPT; pre-accept passed with no authorized_exception. IMPORTANT: the first real order (2026-07-27, after the gate) was rejected — clientOrderId is 38 chars against Binance's 36-char cap (executor.py:160), so no real order can currently succeed. Two further live-only gaps: a freshly created card cannot be started in live mode, and the global Start gate has no operator entry point. See that stage's 70-handoff.md §First live run and status.json.live_first_run_findings. The next stage should fix those plus the standing follow-ups, and would also restore the reviewer pool — this one is down to codex alone. No live gate is released: APP_HEDGE_EXECUTOR=live, the Start gate and the first real task are three separate human authorizations.",
-  "updated_at": "2026-07-27T09:45:00+08:00"
+  "note": "Stage 2026-07-hedge-open-live-hardening-v1 is at INTAKE COMPLETE on branch stage/2026-07-hedge-open-live-hardening-v1 (from main 4ce9686). MEDIUM, direction panel skipped with user approval; it inherits the real-api-v1 synthesis. Scope is five items: S1 (P0) clientOrderId must be <=36 chars — until it lands no real order can succeed; S2 (P1) a new card cannot be started in live mode; S3 (P2) the Start gate has no operator entry point; S4 show worker_active/last_worker_exit_reason plus a spot+perp existence check at card creation; S5 the offline transport must enforce Binance parameter constraints (the reason S1 escaped nine review rounds). Live surface is CLOSED: the service was stopped and start_gate set to 0 on 2026-07-27 17:32. One user decision blocks design: S3's write surface. Nothing is dispatched. Reviewer pool restored: codex, claude_glm, kimi, claude.",
+  "updated_at": "2026-07-27T17:33:33+08:00"
 }
