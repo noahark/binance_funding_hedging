@@ -69,12 +69,38 @@ stage proceeds on it.
    (`--permission-mode plan`, per `agents/registry.yaml`
    `adapters.grok.optional_review_command`). A reviewer that writes files
    invalidates its own review.
-3. **Exact model must be recorded.** `agents/registry.yaml` lists only
-   `grok-build` and `grok-composer-2.5-fast` as observed models; the user
-   referred to "Grok 4.5". Before dispatch the human operator runs
-   `grok models` and the bookkeeper records the exact model id actually used in
-   `status.json.review_1_dispatch_plan` and the session receipt. No guessed
-   model id enters the record.
+3. **Exact model — resolved 2026-07-27.** The human operator ran `grok models`:
+
+   ```text
+   You are logged in with grok.com.
+   Default model: grok-4.5
+   Available models:
+     * grok-4.5 (default)
+   ```
+
+   The Review-1 model is therefore **`grok-4.5`**.
+
+   **Registry drift, recorded not silently patched**: `agents/registry.yaml`
+   `adapters.grok` still lists `observed_available_models: [grok-build,
+   grok-composer-2.5-fast]`, and its `development_command`, `yolo_command`,
+   `interactive_command` and `optional_review_command` all pin `--model
+   grok-build` or `--model grok-composer-2.5-fast`. **Neither model exists
+   anymore.** Every recorded Grok command in the registry is therefore stale.
+
+   This stage does **not** patch the registry. Harness/registry changes belong on
+   `main`, not inside an active stage branch (AGENTS.md Hard Gates), and folding
+   one in here would widen this stage's diff and put a harness edit in front of
+   reviewers who were dispatched to review a hedge fix. Instead:
+
+   - the Review-1 dispatch packets carry the **actual** command explicitly rather
+     than referring to the registry's stale `optional_review_command`;
+   - the drift is filed as a `main`-side harness follow-up in
+     `status.json.harness_followups`.
+
+   Unverified: whether `grok-4.5` still accepts the `--effort high` flag the old
+   commands used. The packets keep the flag set minimal, and the human operator
+   reports back any CLI rejection so the recorded command matches what actually
+   ran.
 4. **Strict verdict JSON.** The dispatch prompt must carry the anti-relay
    preamble and demand a verdict conforming to
    `schemas/review-verdict.schema.json`. If a verdict is missing or invalid,
@@ -98,6 +124,6 @@ and the fingerprint.
 当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-open-live-hardening-v1/15-user-authorized-grok-review-1.md
-本地北京时间: 2026-07-27 18:55:00 CST
+本地北京时间: 2026-07-27 19:05:00 CST
 下一步模型: human operator
-下一步任务: 等两个实现会话停手；出 review-1 packet 前先跑 `grok models` 确认确切模型 id
+下一步任务: 等两个实现会话停手交回报告；模型 id 已确认为 grok-4.5，review-1 packet 在 R4 对账与指纹之后出

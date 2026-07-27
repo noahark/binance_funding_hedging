@@ -171,21 +171,25 @@
     },
     "backend": {
       "reviewer_provider": "grok",
-      "reviewer_model": "TBD — run `grok models` before dispatch and record the exact id; registry lists grok-build and grok-composer-2.5-fast, the user referred to 'Grok 4.5'",
+      "reviewer_model": "grok-4.5",
       "reviewer_identity": "xai_grok",
       "reason": "cross-provider isolation from the implementer (claude_glm = zhipu_glm identity); Grok has no design involvement in this stage",
-      "read_only_command_ref": "agents/registry.yaml#adapters.grok.optional_review_command",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.dispatch.md",
-      "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md"
+      "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md",
+      "model_id_source": "human operator ran `grok models` on 2026-07-27; grok-4.5 is the only available model and the default",
+      "read_only_command": "grok --cwd <repo> --model grok-4.5 --permission-mode plan --prompt-file <prompt-file>",
+      "command_note": "Written out explicitly instead of referencing agents/registry.yaml#adapters.grok.optional_review_command, which pins the now-nonexistent grok-build. Unverified whether grok-4.5 still accepts --effort high, so the flag set is kept minimal; the operator reports any CLI rejection so the record matches what actually ran."
     },
     "frontend": {
       "reviewer_provider": "grok",
-      "reviewer_model": "TBD — same as backend",
+      "reviewer_model": "grok-4.5",
       "reviewer_identity": "xai_grok",
       "reason": "cross-provider isolation from the implementer (claude_glm = zhipu_glm identity); Grok has no design involvement in this stage",
-      "read_only_command_ref": "agents/registry.yaml#adapters.grok.optional_review_command",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md",
-      "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md"
+      "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md",
+      "model_id_source": "human operator ran `grok models` on 2026-07-27; grok-4.5 is the only available model and the default",
+      "read_only_command": "grok --cwd <repo> --model grok-4.5 --permission-mode plan --prompt-file <prompt-file>",
+      "command_note": "Written out explicitly instead of referencing agents/registry.yaml#adapters.grok.optional_review_command, which pins the now-nonexistent grok-build. Unverified whether grok-4.5 still accepts --effort high, so the flag set is kept minimal; the operator reports any CLI rejection so the record matches what actually ran."
     },
     "separate_sessions_required": "The two Review-1 gates must run in two distinct fresh read-only sessions; one session must not review both tasks.",
     "invalid_verdict_fallback": {
@@ -294,7 +298,7 @@
       "review_1": {
         "reviewer": "grok",
         "provider": "grok",
-        "model": null,
+        "model": "grok-4.5",
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -334,7 +338,7 @@
       "review_1": {
         "reviewer": "grok",
         "provider": "grok",
-        "model": null,
+        "model": "grok-4.5",
         "verdict": null,
         "json_schema_valid": null,
         "diff_fingerprint": null
@@ -495,5 +499,16 @@
     }
   },
   "next_action": "Both implementation packets (13 backend, 14 frontend) are running in two separate Claude-GLM terminals. Each implementer runs its self-tests, writes its 20-implementation-*.md report and stops without committing; cross-side test failures during parallel execution are transient and must not be 'fixed' across the boundary. The bookkeeper then does R4 diff reconciliation, reruns the full suites on the merged state (that rerun is the authoritative verdict), makes the evidence commit and fingerprint, and runs the pre-review gate. Review-1 goes to GROK for BOTH tasks in two separate fresh read-only sessions (user-enabled, see 15-user-authorized-grok-review-1.md); run `grok models` and record the exact model id before dispatch, and use the pre-authorized Claude Opus 4.8 fallback if a Grok verdict fails the schema twice. Review-2 stays with codex. The live surface stays closed (service stopped, start_gate=0) for the whole implementation and review period.",
-  "updated_at": "2026-07-27T18:55:00+08:00"
+  "updated_at": "2026-07-27T19:05:00+08:00",
+  "harness_followups": [
+    {
+      "id": "registry-grok-drift",
+      "found_at": "2026-07-27T19:05:00+08:00",
+      "found_by": "bookkeeper, while resolving the Review-1 model id for this stage",
+      "detail": "agents/registry.yaml adapters.grok is stale: observed_available_models lists grok-build and grok-composer-2.5-fast, and interactive_command / development_command / yolo_command / optional_review_command all pin one of those two. `grok models` on 2026-07-27 reports exactly one model, grok-4.5 (default), so every recorded Grok command in the registry is unusable.",
+      "why_not_fixed_here": "Harness/registry changes land on main, not inside an active stage branch (AGENTS.md Hard Gates). Folding one in would widen this stage's diff and place a harness edit in front of reviewers dispatched to review a hedge fix. This stage instead spells the actual command out in its Review-1 packets.",
+      "action": "On main, refresh adapters.grok observed_available_models and all four command forms against `grok models`, and re-verify whether --effort high is still accepted.",
+      "blocking_this_stage": false
+    }
+  ]
 }

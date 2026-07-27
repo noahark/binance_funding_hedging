@@ -140,10 +140,18 @@ it are recorded in `15-user-authorized-grok-review-1.md`. Summary:
 - Identity holds: `xai_grok` ≠ `zhipu_glm` (the implementer), and Grok has no
   design involvement, so the earlier designer-overlap disclosure no longer
   applies to Review-1.
-- **Exact model id is still TBD.** The registry only lists `grok-build` and
-  `grok-composer-2.5-fast`; the user referred to "Grok 4.5". Run `grok models`
-  before dispatch and record the id actually used — no guessed id enters the
-  record.
+- **Model resolved: `grok-4.5`.** `grok models` reports exactly one available
+  model. Command to use, written out explicitly:
+  `grok --cwd <repo> --model grok-4.5 --permission-mode plan --prompt-file <file>`.
+- **Registry is stale, and this stage does not patch it.**
+  `agents/registry.yaml` `adapters.grok` still pins `grok-build` /
+  `grok-composer-2.5-fast` in all four command forms; neither model exists
+  anymore. Harness edits belong on `main`, not in an active stage branch, and
+  folding one in would widen this stage's diff and put a harness change in front
+  of reviewers dispatched to review a hedge fix. Filed as
+  `status.json.harness_followups[registry-grok-drift]`; the packets carry the
+  real command instead. Unverified: whether `grok-4.5` still accepts
+  `--effort high`, so the flag set stays minimal.
 - **Pre-authorized fallback**: Grok has never run a review gate in this
   repository, so schema-conforming verdict output is unverified. If a verdict is
   missing or fails `schemas/review-verdict.schema.json`, that attempt is
@@ -159,8 +167,8 @@ it are recorded in `15-user-authorized-grok-review-1.md`. Summary:
    **rerun the full suites on the merged state** — that rerun, not either
    implementer's observation, is the authoritative test verdict this round.
    Then evidence commit, fingerprint, `validate-stage.py --phase pre-review`.
-3. Review-1 packets, executable in parallel but in **two separate read-only Grok
-   sessions**: backend and frontend. Confirm the model id first.
+3. Review-1 packets, executable in parallel but in **two separate read-only
+   `grok-4.5` sessions**: backend and frontend.
 4. Review-2 → **codex**.
 
 Integration check to prioritise (direct lesson from last round's three
