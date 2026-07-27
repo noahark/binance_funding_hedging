@@ -137,6 +137,22 @@
       "executed_by": "human operator",
       "executor": "human operator",
       "declared_constraints_met": "no commit, no status.json or 70-handoff.md edit, no credentials, no Binance request, no service start, no Start-gate data change"
+    },
+    {
+      "role": "review_1",
+      "task_id": "frontend",
+      "provider": "grok",
+      "model": "grok-4.5",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The Grok CLI session did not expose a provider-native session id to the reviewing model; it reported unavailable in its own footer.",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md",
+      "recorded_at": "2026-07-27T20:57:52+08:00",
+      "executed_by": "human operator",
+      "executor": "human operator",
+      "verdict": "ACCEPT",
+      "json_schema_valid": true
     }
   ],
   "designer": {
@@ -331,7 +347,8 @@
         "model": "grok-4.5",
         "verdict": null,
         "json_schema_valid": null,
-        "diff_fingerprint": null
+        "diff_fingerprint": null,
+        "status": "awaiting_raw_output"
       }
     },
     {
@@ -369,9 +386,14 @@
         "reviewer": "grok",
         "provider": "grok",
         "model": "grok-4.5",
-        "verdict": null,
-        "json_schema_valid": null,
-        "diff_fingerprint": null
+        "verdict": "ACCEPT",
+        "json_schema_valid": true,
+        "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
+        "fingerprint_matches_status": true,
+        "open_p0_p1": 0,
+        "findings_summary": "0 P0/P1/P2, 2 P3 (409 dialog title was never frozen by the design; S3 self-check asserts dialog body via includes rather than full equality). required_fixes empty.",
+        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md",
+        "recorded_at": "2026-07-27T21:20:00+08:00"
       }
     }
   ],
@@ -514,18 +536,22 @@
     "note": "The frontend report cites 963 for the backend suite because it ran while Task A was still writing — the transient the dispatch predicted, not a discrepancy."
   },
   "review_1": {
-    "reviewer": null,
-    "provider": null,
-    "model": null,
-    "open_p0_p1": null,
-    "verdict": null,
-    "json_schema_valid": null,
-    "diff_fingerprint": null,
-    "covers_through_task": null,
-    "reviewer_prior_involvement": "none",
-    "fix_start_prompt_present": null,
-    "fix_start_prompt_source": null,
-    "invalid_json_attempts": 0
+    "status": "partial",
+    "frontend": {
+      "reviewer": "grok",
+      "model": "grok-4.5",
+      "verdict": "ACCEPT",
+      "json_schema_valid": true,
+      "artifact": "30-review-1-frontend.md"
+    },
+    "backend": {
+      "reviewer": "grok",
+      "model": "grok-4.5",
+      "verdict": null,
+      "status": "raw output not on disk"
+    },
+    "note": "The frontend gate returned a schema-valid ACCEPT whose diff_fingerprint matches status.diff_fingerprint exactly, with 0 P0/P1/P2 and an empty required_fixes. The backend gate's raw output is NOT present at reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md and was not found elsewhere in the repository. The stage cannot leave review_1 until that raw output exists and is verified; a model's claim of having reviewed is not evidence (AGENTS.md: evidence is raw diff, test output, artifacts, schema-valid verdicts, committed state).",
+    "reviewer_prior_involvement": "none"
   },
   "review_2": {
     "reviewer": null,
@@ -570,8 +596,8 @@
       "session_id_is_navigation_only": true
     }
   },
-  "next_action": "Human operator runs the two Review-1 packets in two separate fresh read-only grok-4.5 sessions: 30-review-1-backend.dispatch.md and 30-review-1-frontend.dispatch.md. Each reviews only its own task against the pinned range 6c5b170..319d831. If a verdict is missing or fails schemas/review-verdict.schema.json, retry that gate once, then fall back to Claude Opus 4.8 for it per the pre-authorization in 15-user-authorized-grok-review-1.md. Review-2 (codex) follows. The live surface stays closed.",
-  "updated_at": "2026-07-27T21:05:00+08:00",
+  "next_action": "BLOCKED ON EVIDENCE: the backend review-1 raw output is missing. 30-review-1-frontend.md is archived with a schema-valid ACCEPT. The human operator must either recover the backend Grok session's complete output to reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-backend.md, or re-run 30-review-1-backend.dispatch.md in a fresh read-only grok-4.5 session. The pinned range is unchanged (6c5b170..319d831), so a re-run reviews exactly the same code. Only after that gate is archived and verified does review-2 (codex) get dispatched. Live surface stays closed.",
+  "updated_at": "2026-07-27T21:20:00+08:00",
   "harness_followups": [
     {
       "id": "registry-grok-drift",
