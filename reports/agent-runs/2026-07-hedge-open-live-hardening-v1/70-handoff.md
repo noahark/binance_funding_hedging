@@ -2,7 +2,7 @@
 
 ## Recovery Header
 
-- Active phase: `REWORK 1 DELIVERED AND RECONCILED — new range pinned. Backend Review-1 (Opus 4.8) and Review-2 (Codex) both await re-run; they may go in parallel. rework_count 1/3.`
+- Active phase: `STAGE ACCEPTED BY THE GATES — awaiting USER acceptance. Both round-2 gates ACCEPT, pre-accept PASSED with zero exceptions applied. Nothing is merged; no live gate is granted.`
 - ⚠️ A real naked SHORT 10000 NOMUSDT (orderId 888412130) is outstanding from that run and needs manual unwinding on Binance — the system has no close function.
 - Pinned range: `base 6c5b170` → `head c91d2da`; fingerprint `c91d2da5…:aad2351a…` (full value in `status.json.diff_fingerprint`). The round-1 range `..319d831` is VOID as an acceptance range, kept for audit.
 - Merged-state rerun (authoritative): backend **983 passed** (979 + 4 new), frontend **122 PASS**, protocol 72 passed, clean. Evidence `60-test-output.txt`.
@@ -407,6 +407,87 @@ Two packets, executable **in parallel**, each in its own fresh read-only session
 Both are pinned to `6c5b170..c91d2da`. Both packets tell the reviewer to check
 the acceptance criteria, not just conformance to the design — that authority
 order is exactly what round 1 got wrong.
+
+## Round 2 — Both Gates ACCEPT, pre-accept PASSED
+
+| Gate | Model | Verdict | Findings |
+| --- | --- | --- | --- |
+| Backend Review-1 r2 | grok-4.5 | **ACCEPT** | 0 |
+| Review-2 r2 | GPT-5 Codex | **ACCEPT** | 0 |
+
+Both schema-valid with `diff_fingerprint` identical to status. Codex's
+`next_action` is `stage_accepted_waiting_user`.
+
+`scripts/validate-stage.py … --phase pre-accept` → **PASSED**, evidence
+`22-pre-accept-validation.txt`.
+
+### The authorized exception was never applied — and that is the better outcome
+
+The pre-accept banner prints applied exceptions only when one vouches an
+otherwise-unvouched segment. **It printed none.**
+
+Once the frontend task's anchors were put back on the round-1 range — where its
+delivery was finished and reviewed, and where it has not changed since — the
+task-level fingerprint check passes on its own, and the coverage-waypoint model
+(`W0=6c5b170 → W1=319d831 → W2=c91d2da`) lets the round-1 reviews legitimately
+vouch segment W0→W1. So the frontend ACCEPT is honoured by **structural
+correctness, not by a waiver**.
+
+The record is kept rather than deleted: the user authorized it, it documents the
+reasoning, and it stays pinned to the current fingerprint. It would only ever
+take effect if some future change made the structure genuinely insufficient.
+
+Practical consequence: the "read the exception evidence verbatim before
+releasing" obligation is **advisory** here rather than load-bearing, because
+nothing was actually waived.
+
+### Routing deviation, recorded not hidden
+
+`31-review-1-backend-r2.dispatch.md` specified **Claude Opus 4.8**; the gate was
+executed on **grok-4.5**. The hard gate holds — `xai_grok` ≠ the implementer's
+`zhipu_glm`, and grok as a review-1 gate is user-enabled — so the verdict is
+valid evidence. But it departs from the round-2 routing the user chose precisely
+because grok had filed this stage's blocking finding as a residual risk, and the
+re-review covered that same point with 0 findings. Mitigation: Review-2 (Codex,
+a third provider) independently reviewed the same range in full and also
+ACCEPTed. The user reviewed the deviation and chose to accept and record it
+(`status.json.review_1_routing_deviation`).
+
+## What The User Must Decide Now
+
+The stage stops at `stage_accepted_waiting_user`. Gate acceptance is **not**
+user acceptance, and it authorizes nothing further:
+
+1. **Accept the stage** (or not).
+2. **Merge to `main`** — a separate decision, no-ff onto the local branch.
+3. **Live activation stays three independent authorizations**:
+   `APP_HEDGE_EXECUTOR=live`, the durable Start gate, and the first real task.
+
+⚠️ **Two live-state facts carried over from the 2026-07-27 acceptance run:**
+
+- The **Start gate is currently OPEN** (`start_gate=1`, opened through the new
+  S3 control during that run). It was not closed afterwards at the user's
+  instruction.
+- A real **naked SHORT 10000 NOMUSDT** (orderId `888412130`) is still
+  outstanding and unhedged. The system has no close function — unwinding is a
+  manual action on Binance.
+
+Neither is a stage defect; both are live state the user owns.
+
+## Follow-ups Carried Forward
+
+Five P3s in `status.json.stage_followups`, none blocking:
+the api-samples backslash prose, the `confirm` negative-case matrix, the
+unfrozen 409 dialog title, the self-check `includes` assertions, and the newest
+one — **no test locks the key-name contract between `compute_preflight` and
+`_leg_qty_filters`**, so a future rename would leave the suite green while the
+filter checks silently stop applying. That last one shares the shape this stage
+kept meeting: a silent downgrade hiding a real failure.
+
+Separately, F-1..F-4 from the live run are proposed as
+`2026-07-hedge-order-truth-v1`
+(`_proposals/2026-07-27-hedge-order-truth-and-error-fidelity.md`), including the
+user's requirement to persist raw order responses and full order-detail reads.
 
 ## Gate Record
 

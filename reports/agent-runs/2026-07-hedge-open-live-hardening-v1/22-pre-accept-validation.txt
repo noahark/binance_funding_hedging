@@ -1,0 +1,10 @@
+# pre-accept gate — 2026-07-28 01:20 CST
+# command: python3 scripts/validate-stage.py 2026-07-hedge-open-live-hardening-v1 --phase pre-accept
+# Run on a clean committed worktree; written from that run's output and committed afterwards.
+# NOTE: no 'authorized exceptions applied' line => the class-1 record was never needed.
+
+STAGE VALIDATION PASSED
+stage=reports/agent-runs/2026-07-hedge-open-live-hardening-v1
+phase=pre-accept
+status=stage_accepted_waiting_user
+diff_fingerprint=c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23
