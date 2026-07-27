@@ -2,7 +2,108 @@
 
 ## Recovery Header
 
-- Active phase: `FINAL GATE PASSED — stage delivered, awaiting USER acceptance`.
+- Active phase: `FINAL GATE PASSED — stage delivered, awaiting USER acceptance. FIRST LIVE RUN ATTEMPTED 2026-07-27: it surfaced a P0 that blocks every real order (see below).`
+
+## ⚠️ First live run — 2026-07-27 (read this before any further live attempt)
+
+The user configured `APP_HEDGE_EXECUTOR=live` + real hedge credentials, opened the
+Start gate, and placed a real COOKIEUSDT order. **The order was sent and rejected
+by Binance.** No position was opened, no single-leg exposure, no in-flight order.
+
+**Everything that only a real send can prove now IS proven**: credentials,
+signing, the six read-only preflight endpoints, symbol filters, `q_common`
+derivation, concurrent two-leg submit, rejection handling, reconciliation and
+settlement all behaved correctly. The chain fails at the very last inch.
+
+### P0 — `clientOrderId` is 38 chars, Binance rejects anything over 36
+
+`backend/hedge_open_tasks/executor.py:160`
+
+```python
+return f"hgo-{attempt_id}-s", f"hgo-{attempt_id}-p"
+```
+
+`attempt_id` is a 32-hex UUID, so `hgo-` (4) + 32 + `-s` (2) = **38**. Binance
+caps `newClientOrderId` at 36, so BOTH legs came back `-4015`
+(`CLIENT_ORDER_ID_INVALID`) → both `REJECTED` with no `orderId` → pair
+`confirmed_failed`, `fail_count=1`, task settled to `done` (planned attempts
+exhausted, per R2-F1).
+
+**Consequence: NO real order can currently succeed.** Nothing to do with
+balance, permissions, symbol or size — the params were correct
+(`MARKET` / `2000` / `BUY`+`SELL` / `positionSide=BOTH`) and the log records
+`"posted": true`.
+
+Live evidence in `data/hedge-open-tasks.sqlite3`: task `01e9a662`, both legs
+`error_code=-4015`.
+
+Fix is small — shorten the prefix (e.g. `f"{attempt_id}s"` = 33 chars) while
+keeping the two legs distinct, globally unique and usable for the
+clientOrderId-only reconciliation ADR-2 depends on. Add a `len <= 36` assertion.
+
+**Why nine review rounds missed it**: offline tests use a fake transport that
+never validates length, and `reports/api-samples/` never recorded the 36-char
+cap. Only a real send exposes it.
+
+### P1 — a freshly created card cannot be started in live mode
+
+`frontend/index.html:3685`:
+
+```js
+const startDisabled = (task.status !== 'paused' && task.status !== 'exposure_alert') ? ' disabled' : '';
+```
+
+A new card is `running`, so the 「启动」button is greyed out. But in live mode
+`create_task` does NOT start a worker and `tick()` is a deliberate no-op (the H-1
+fix), so only `post_start` can launch one — and its button is disabled.
+**Deadlock: new card → running → Start disabled → worker never starts.**
+
+Workaround: press 「暂停」 first (card becomes `paused`), then 「启动」.
+Dry-run hid this completely, because there `tick()` auto-dispatches running cards.
+
+### P2 — the global Start gate has no operator entry point at all
+
+`/api/hedge-open-settings` is GET-only (`server.py:84`), the frontend only reads
+it, and `service.set_start_gate()` has no caller anywhere. It was opened for this
+run by writing SQL directly; backup at
+`data/hedge-open-tasks.sqlite3.bak-startgate-20260727-085125`.
+
+```bash
+sqlite3 data/hedge-open-tasks.sqlite3 \
+  "UPDATE hedge_open_settings SET start_gate = 0, version = version + 1, updated_at_us = CAST(strftime('%s','now') AS INTEGER)*1000000 WHERE id = 1;"
+```
+
+### Environment as left on 2026-07-27
+
+- Service PID 15780 on `127.0.0.1:8787`, **live mode, Start gate OPEN, credentials configured**.
+- Cards: 3x `KORUUSDT` `paused` (spot has no such symbol — see below), 1x
+  `COOKIEUSDT` `done` (the rejected order).
+- **No real position, no exposure, no in-flight order.**
+
+### Also observed
+
+`KORUUSDT` exists on USD-M futures but NOT on spot
+(`api/v3/exchangeInfo?symbol=KORUUSDT` → `-1121 Invalid symbol`). Preflight
+correctly failed closed (`{"available": false, "reason": "no_preflight_snapshot"}`)
+and refused to produce `q_common` — the fail-closed design worked. But nothing
+warns at card-creation time, so the card just sits there doing nothing. Related
+to the recorded `1000x`-prefix symbol-mismatch follow-up.
+
+### Does this invalidate the final-gate ACCEPT?
+
+No. `75-review-2-r3.md` reviewed code correctness against the frozen contracts on
+a pinned range, and that verdict stands. These three are runtime/integration gaps
+that no offline review could reach. They are NOT regressions of anything reviewed.
+
+### Recommended next step
+
+Open a NEW stage (e.g. `hedge-open-live-hardening-v1`) covering the P0 + P1 + P2
+plus the standing follow-ups (frontend display of `worker_active` /
+`last_worker_exit_reason`; validate spot+perp both exist at card creation).
+Rationale: `rework_count` is 8/8, this stage is already accepted, and a new stage
+**restores the reviewer pool** — this one is down to codex alone with nobody able
+to cross-check it.
+
 - **`75-review-2-r3.md` returned ACCEPT** on `28c550d..1c09db4`: schema-valid,
   fingerprint verbatim, **zero P0/P1/P2**, one P3, `required_fixes` empty,
   `next_action = stage_accepted_waiting_user`. 918 backend / 72 Harness /

@@ -1029,6 +1029,35 @@
     "implementation_commit": "9d1bac071e30a57fe9c0619fb0c3cd59ccc4ce3c",
     "review_outcome": "REWORK at 66-review-1-backend-r4.md: all four authorized production fixes verified correct; two P2s remain (vacuous R3/R4 regressions, STATUS_DONE recovery gap). Superseded as the active authorization by 27-user-authorized-r4-repair.md."
   },
+  "live_first_run_findings": {
+    "attempted_at": "2026-07-27T09:00:00+08:00",
+    "context": "The user configured APP_HEDGE_EXECUTOR=live plus real hedge credentials, opened the Start gate by direct SQL (no operator entry point exists), and placed a real COOKIEUSDT order. The order was SENT and REJECTED by Binance. No position, no single-leg exposure, no in-flight order resulted.",
+    "what_the_run_proved_works": "Credentials, signing, all six read-only preflight endpoints, symbol filters, q_common derivation, concurrent two-leg submit, rejection handling, reconciliation and settlement all behaved correctly. The chain fails only at the final send validation.",
+    "P0_client_order_id_too_long": {
+      "file": "backend/hedge_open_tasks/executor.py",
+      "line": 160,
+      "detail": "f\"hgo-{attempt_id}-s\" yields 4 + 32 + 2 = 38 chars; Binance caps newClientOrderId at 36. Both legs returned -4015 CLIENT_ORDER_ID_INVALID, both REJECTED with no orderId, pair confirmed_failed, fail_count=1, task settled to done because the planned attempts were exhausted (R2-F1 behaviour).",
+      "impact": "NO real order can currently succeed. Unrelated to balance, permissions, symbol or size — the params were correct and the log records posted=true.",
+      "evidence": "data/hedge-open-tasks.sqlite3 task 01e9a662; both legs error_code=-4015; hedge_open_log record_transport payload shows transport=live, posted=true.",
+      "fix_sketch": "Shorten the prefix (e.g. f\"{attempt_id}s\" = 33 chars) keeping the two legs distinct, globally unique and usable for the clientOrderId-only reconciliation ADR-2 relies on; add a len<=36 assertion test.",
+      "why_nine_review_rounds_missed_it": "Offline tests use a fake transport that never validates length, and reports/api-samples never recorded the 36-char cap. Only a real send exposes it."
+    },
+    "P1_new_card_cannot_be_started_in_live": {
+      "file": "frontend/index.html",
+      "line": 3685,
+      "detail": "startDisabled = (status !== 'paused' && status !== 'exposure_alert'). A new card is 'running', so the Start button is greyed out. In live mode create_task does not start a worker and tick() is a deliberate no-op (H-1), so only post_start can launch one — and its button is disabled. Deadlock.",
+      "workaround": "Press Pause first (card becomes paused), then Start.",
+      "why_missed": "Dry-run hid it entirely: there tick() auto-dispatches running cards."
+    },
+    "P2_start_gate_has_no_operator_entry": {
+      "detail": "/api/hedge-open-settings is GET-only (server.py:84), the frontend only reads it, and service.set_start_gate() has no caller anywhere. The gate was opened for this run by direct SQL.",
+      "backup": "data/hedge-open-tasks.sqlite3.bak-startgate-20260727-085125"
+    },
+    "also_observed_symbol_gap": "KORUUSDT exists on USD-M futures but not on spot (-1121 Invalid symbol). Preflight correctly failed closed and refused q_common, but nothing warns at card-creation time so the card sits idle. Related to the recorded 1000x-prefix symbol-mismatch follow-up.",
+    "does_not_invalidate_the_accept": "75-review-2-r3.md reviewed code correctness against the frozen contracts on a pinned range and that verdict stands. These are runtime/integration gaps no offline review could reach, and are not regressions of anything reviewed.",
+    "recommended_next_step": "Open a NEW stage (e.g. hedge-open-live-hardening-v1) covering P0 + P1 + P2 plus the standing follow-ups (frontend display of worker_active / last_worker_exit_reason; validate spot+perp both exist at card creation). rework_count is 8/8 here, this stage is accepted, and a new stage restores the reviewer pool — this one is down to codex alone with nobody able to cross-check it.",
+    "requires_new_user_authorization": true
+  },
   "r8_special_approval": {
     "artifact_path": "reports/agent-runs/2026-07-hedge-open-real-api-v1/29-user-special-approval-r8.md",
     "user_approved_at": "2026-07-27T00:30:00+08:00",
@@ -1230,5 +1259,5 @@
     "reports/agent-runs/2026-07-hedge-open-real-api-v1/75-review-2-r3.md"
   ],
   "next_action": "STAGE ACCEPTED BY THE FINAL GATE — awaiting USER acceptance. Nothing is dispatched. Merging to main and any live activation are separate user decisions; the three live gates stay closed. Superseded: human operator runs packet 75 in a fresh read-only Codex session — the fourth and, given the exhausted reviewer pool, likely last final gate. It must review the bookkeeper-authored r8 change as its FIRST reviewer. Previously: the final gate returned REWORK on one process P1; the user special-approved the fix without model review (29-user-special-approval-r8.md) and it is implemented, tested and committed. The stage now awaits the user's decision: either re-open the final gate on the new range, or proceed to live testing with the recorded state 'final gate REWORK + user-approved unreviewed fix'. Live activation remains three separate human authorizations: APP_HEDGE_EXECUTOR=live, the durable Start gate, and the first real task.",
-  "updated_at": "2026-07-27T01:15:00+08:00"
+  "updated_at": "2026-07-27T09:30:00+08:00"
 }
