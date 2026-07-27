@@ -559,7 +559,11 @@
   "base_sha": "6c5b17002cab189d752177b447ff576356998f58",
   "head_sha": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8",
   "diff_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
-  "coverage_waypoints": null,
+  "coverage_waypoints": [
+    "6c5b17002cab189d752177b447ff576356998f58",
+    "319d8317bdf180750197c95078d2ae6c60e6badc",
+    "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8"
+  ],
   "changed_files": [
     "backend/app/server.py",
     "backend/hedge_open_tasks/domain.py",
@@ -818,5 +822,6 @@
     "mitigation": "Review-2 (GPT-5 Codex, a third provider) independently reviewed the same range in full and also returned ACCEPT.",
     "user_decision": "Accept the verdict and record the deviation for audit rather than re-run. Decided 2026-07-28.",
     "recorded_at": "2026-07-28T01:00:00+08:00"
-  }
+  },
+  "coverage_waypoints_note": "Three waypoints, two segments. W1 (319d831) is the round-1 delivery point where BOTH tasks were complete and both Review-1 gates ran; W2 (c91d2da) adds the Review-2 rework, which touched backend only. The frontend task's anchors stay on W1 because its delivery was finished and reviewed there and has not changed since (`git diff 319d831..c91d2da -- frontend/` is empty). Declaring W1 explicitly is what lets the class-1 exception for scope task:frontend resolve — the validator requires a task-scoped exception's head_sha to be a real waypoint."
 }
