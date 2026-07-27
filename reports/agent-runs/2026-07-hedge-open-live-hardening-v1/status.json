@@ -412,7 +412,7 @@
         "fingerprint_matches_status": true,
         "open_p0_p1": 0,
         "findings_summary": "0 findings. Confirmed the Review-2 P2 is closed at its real root, ADR-H4 intact, and S5 meets 00-task.md's acceptance criterion rather than only the design's optional-grid wording.",
-        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/31-review-1-backend-r2.md",
+        "artifact_path": "31-review-1-backend-r2.md",
         "recorded_at": "2026-07-28T01:00:00+08:00",
         "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/31-review-1-backend-r2.dispatch.md",
         "previous_round1_verdict": "ACCEPT (on the void round-1 range)",
@@ -447,8 +447,8 @@
       "implementation_report_path": "20-implementation-frontend.md",
       "implementation_status": "unchanged_since_round1",
       "base_sha": "6c5b17002cab189d752177b447ff576356998f58",
-      "head_sha": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8",
-      "diff_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
+      "head_sha": "319d8317bdf180750197c95078d2ae6c60e6badc",
+      "diff_fingerprint": "319d8317bdf180750197c95078d2ae6c60e6badc:2a457c0f559fec81cfba8b9d59602c8630bbec73d7b86b28dddab12c4e554efd",
       "test_evidence": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/60-test-output.txt",
       "review_1": {
         "reviewer": "grok",
@@ -460,12 +460,13 @@
         "fingerprint_matches_status": false,
         "open_p0_p1": 0,
         "findings_summary": "0 P0/P1/P2, 2 P3 (409 dialog title was never frozen by the design; S3 self-check asserts dialog body via includes rather than full equality). required_fixes empty.",
-        "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.md",
+        "artifact_path": "30-review-1-frontend.md",
         "recorded_at": "2026-07-27T21:20:00+08:00",
         "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/30-review-1-frontend.dispatch.md",
         "note": "Frontend code is byte-identical between the round-1 head and the rework head (`git diff 319d831..c91d2da -- frontend/` is empty), so this ACCEPT reviewed exactly the frontend code shipping. Its trailing fingerprint is waived by the class-1 record; every negative-list assertion still applies in full.",
         "fingerprint_trails_status_waived_by": "authorized_exceptions[0] (class-1, scope task:frontend)"
-      }
+      },
+      "task_anchor_note": "This task's base/head/diff_fingerprint deliberately stay on the round-1 range: its delivery was completed and reviewed there and `git diff 319d831..c91d2da -- frontend/` is EMPTY, so the task-level anchors remain truthful and self-consistent. The STAGE-level fingerprint is the round-2 one. The class-1 authorized exception covers the stage-level review_1 assertion; per the validator source, task-level fingerprint checks are never downgraded by an exception, so they must hold on their own — and here they do."
     }
   ],
   "bookkeeper_added_checkpoints": [
@@ -646,7 +647,8 @@
       "waived_by": "authorized_exceptions[0]"
     },
     "bookkeeper_verification": "Both verdicts parsed, validated against schemas/review-verdict.schema.json, and carry a diff_fingerprint identical to status.diff_fingerprint. Scope separation confirmed: the backend verdict's 27 reviewed_artifacts are all backend-scoped with zero frontend entries. All four P3 findings were spot-checked against the code and are factually correct.",
-    "p3_findings_not_fixed_here": "Four P3s across both gates, none in required_fixes. Not repaired in this stage because any edit would move the diff and invalidate the fingerprint both gates just reviewed. Filed as stage follow-ups below."
+    "p3_findings_not_fixed_here": "Four P3s across both gates, none in required_fixes. Not repaired in this stage because any edit would move the diff and invalidate the fingerprint both gates just reviewed. Filed as stage follow-ups below.",
+    "artifact_path": "31-review-1-backend-r2.md"
   },
   "review_2": {
     "reviewer": "codex",
@@ -673,7 +675,7 @@
     "invalid_json_attempts": 0,
     "fingerprint_matches_status": true,
     "findings_summary": "0 findings, empty required_fixes, next_action stage_accepted_waiting_user.",
-    "artifact_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/51-review-2-r2.md",
+    "artifact_path": "51-review-2-r2.md",
     "dispatch_path": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/51-review-2-r2.dispatch.md",
     "next_action": "stage_accepted_waiting_user",
     "bookkeeper_verification": "JSON parsed and validated against schemas/review-verdict.schema.json; diff_fingerprint identical to status. The finding was verified independently against the code, not accepted on the reviewer's word: wire_constraints.py:101-119 implements step/min/max checks, executor.py:303-304 passes none of them, and 00-task.md S5 requires 'quantity/price precision against the symbol filters already loaded'. The validator was built and then not wired in. REWORK is correct.",
