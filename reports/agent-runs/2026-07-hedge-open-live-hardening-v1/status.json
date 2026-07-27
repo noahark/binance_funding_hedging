@@ -697,7 +697,9 @@
       "applies_to_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
       "reason": "The frontend task's Review-1 ACCEPT was recorded against the round-1 range and its fingerprint now trails status because the Review-2 REWORK fix moved the diff. The fix changed only backend files: `git diff 319d831..c91d2da -- frontend/` is EMPTY, so frontend/index.html and frontend/self-check.js are byte-identical between the head that gate reviewed and the head now shipping. The verdict is therefore still materially valid and only its range endpoint moved. The user was offered a re-run of that gate as the no-exception alternative and chose this record instead. The backend gate got no such treatment — backend code really changed, so its Review-1 is re-run from scratch on the new range and rerouted to Claude Opus 4.8; Review-2 is re-run in full.",
       "evidence_file": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/21-user-authorized-frontend-fingerprint-exception.md",
-      "evidence_sha256": "674ec82a18bca74e12c1a56f7e105503c0c94a92f885545e5928f7a1893349fb"
+      "evidence_sha256": "674ec82a18bca74e12c1a56f7e105503c0c94a92f885545e5928f7a1893349fb",
+      "applied": false,
+      "applied_note": "NOT APPLIED — and that is the good outcome. The pre-accept banner prints applied exceptions only when one vouches an otherwise-unvouched segment; it printed none. Once the frontend task's anchors were put back on the round-1 range (where its delivery was finished and reviewed, and where it has not changed since) the task-level fingerprint check passes on its own, and the coverage-waypoint model lets the round-1 reviews legitimately vouch segment W0->W1. So the frontend ACCEPT is honoured by structural correctness, not by a waiver. The record is kept rather than deleted because the user authorized it and it documents the reasoning; it remains pinned to the current fingerprint and would only ever take effect if a future change made the structure genuinely insufficient."
     }
   ],
   "main_syncs": [],
@@ -823,5 +825,13 @@
     "user_decision": "Accept the verdict and record the deviation for audit rather than re-run. Decided 2026-07-28.",
     "recorded_at": "2026-07-28T01:00:00+08:00"
   },
-  "coverage_waypoints_note": "Three waypoints, two segments. W1 (319d831) is the round-1 delivery point where BOTH tasks were complete and both Review-1 gates ran; W2 (c91d2da) adds the Review-2 rework, which touched backend only. The frontend task's anchors stay on W1 because its delivery was finished and reviewed there and has not changed since (`git diff 319d831..c91d2da -- frontend/` is empty). Declaring W1 explicitly is what lets the class-1 exception for scope task:frontend resolve — the validator requires a task-scoped exception's head_sha to be a real waypoint."
+  "coverage_waypoints_note": "Three waypoints, two segments. W1 (319d831) is the round-1 delivery point where BOTH tasks were complete and both Review-1 gates ran; W2 (c91d2da) adds the Review-2 rework, which touched backend only. The frontend task's anchors stay on W1 because its delivery was finished and reviewed there and has not changed since (`git diff 319d831..c91d2da -- frontend/` is empty). Declaring W1 explicitly is what lets the class-1 exception for scope task:frontend resolve — the validator requires a task-scoped exception's head_sha to be a real waypoint.",
+  "acceptance_gate": {
+    "phase": "pre-accept",
+    "result": "PASSED",
+    "at": "2026-07-28T01:20:00+08:00",
+    "diff_fingerprint": "c91d2da5fe38c8b8ecf6bd3fb6c3ee9e0141a3c8:aad2351a429714f07e759304400087c2f0a5ccc33a0111b9532153bf86c50b23",
+    "authorized_exceptions_applied": 0,
+    "evidence": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/22-pre-accept-validation.txt"
+  }
 }
