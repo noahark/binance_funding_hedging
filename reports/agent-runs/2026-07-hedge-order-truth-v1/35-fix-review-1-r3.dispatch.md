@@ -27,23 +27,55 @@ classification semantics* in a data-truth stage, which is riskier than bounding
 growth in the storage layer. The user's rule leaves every business verdict, the
 query loop, resend rules and rate-limit handling completely untouched.
 
-### One clarification the bookkeeper applied, disclosed here
+### The rule, decided by the user 2026-07-28/29
 
-A literal "keep only the very first row" would discard the response that
-*resolves* a leg. Example: drain query 1 returns `NEW` (accepted, still filling,
-non-terminal, persisted); drain query 2 returns `FILLED`. Keeping only the first
-would store "not filled yet" and throw away the resolution — the single most
-valuable piece of T3 evidence.
+> **One raw row per leg per `source`.** Before writing, check whether a row
+> already exists for that leg and that source; if it does, skip.
 
-So 「只存第一条」 is implemented as **do not store the same thing twice**:
+`order_post` and `order_confirm` happen once per leg anyway, so in practice this
+only bites `order_query`, which is the one that repeats.
 
-> For one leg and one `source`, an interaction whose stored content is identical
-> to one already recorded is not written again. A response whose content differs
-> IS written.
+**Do NOT implement a content digest, a content comparison, a UNIQUE index, a
+migration, or a configurable N.** The bookkeeper proposed a digest-based dedupe
+so a changed response (`NEW` → `FILLED`) would still record; the user rejected it
+as over-design and was right on both counts — it is a digest plus an index plus a
+migration plus its own test, and it may not bound anything at all, because
+Binance order-detail bodies carry fields like `updateTime` that can differ
+between polls, so "identical content" would often be false and the rows would
+accumulate anyway. A plain per-leg-per-source cap has neither problem.
 
-Repeated identical malformed-2xx responses collapse to one row. A `NEW → FILLED`
-progression still records both. This is the user's rule in substance, without the
-data-loss flaw.
+What this costs, recorded so it is not rediscovered as a surprise:
+
+- The raw body of the **resolving** query is not kept once an `order_query` row
+  exists for that leg. The leg row still records the outcome
+  (`exchange_status` / `cumulative_quote_amt` / `order_id`), so the business
+  truth is intact; what is lost is the exchange's verbatim text of that final
+  read.
+- If a leg's first `order_query` row is an uninteresting poll, a later `429` is
+  not stored. **The user's explicit call**: 「429 就 429，遇到问题我们再分析问题
+  解决问题，不做无谓的猜想适配方案」. Finding 1's fix still adds the missing
+  persist call, so a rate-limited verdict is recorded whenever that leg has no
+  `order_query` row yet.
+
+### A behaviour to know about, NOT to change in this fix
+
+`backend/hedge_open_tasks/service.py:1075-1077`:
+
+```python
+own = self._store.list_non_terminal_legs_for_task(task_id)
+if own:
+    return False  # still draining this pair; keep querying
+```
+
+While any leg is non-terminal the worker never reaches the dispatch branch below,
+so **the task opens no further pairs**. A leg stuck on a malformed 2xx therefore
+stalls that task's order opening — the row spam was the visible symptom, the
+stall is the real consequence.
+
+This is deliberate and correct: opening another pair while a leg's state is
+unknown would add exposure blind. **Do not change it in this fix.** It is stated
+here only so nobody mistakes the storage cap for a fix to the stall — they are
+different things, and the stall is the frozen safe behaviour.
 
 ## The two findings, both bookkeeper-confirmed
 
@@ -81,34 +113,34 @@ branch keeps returning an UNKNOWN verdict with its raw, exactly as today.
 
 ## Where to implement
 
-Storage-layer dedupe belongs in `store.append_raw_response`
-(`backend/hedge_open_tasks/store.py:1743`). Suggested shape — you choose the
-mechanism, but state what you chose and why:
+In the raw-persistence path — `store.append_raw_response`
+(`backend/hedge_open_tasks/store.py:1743`) or its caller `_persist_leg_raw`
+(`backend/hedge_open_tasks/service.py:1682`), whichever keeps the check inside
+the existing short transaction.
 
-- a `UNIQUE` index over the identifying columns plus a content digest, with
-  `INSERT OR IGNORE`, so the skip is atomic and needs no read-then-write race
-  window; or
-- an explicit "is an identical row already present for this leg+source" check
-  inside the same short transaction.
+The check is one existence test:
 
-Constraints on the mechanism:
+> Is there already a row for this `(attempt_id, leg, source)`? If yes, return
+> without inserting.
 
-- It must stay inside `append_raw_response`'s **own short transaction**, so a
-  dedupe failure still cannot touch the business write. That isolation contract
-  is absolute and is already documented in the method's docstring.
-- Schema changes must be additive and idempotent (`CREATE ... IF NOT EXISTS`),
-  consistent with how `hedge_open_raw_response` was introduced.
-- Existing rows must survive the migration untouched.
+Constraints:
+
+- Stay inside `append_raw_response`'s **own short transaction**, so this can
+  never touch the business write. That isolation is absolute and is already
+  documented in the method's docstring.
+- **No schema change.** No digest column, no UNIQUE index, no migration. If you
+  believe one is warranted, stop and hand back rather than adding it.
+- A skip is not an error: the caller must not log it as a failure or treat it as
+  `raw_persist_failed`.
 
 ## Reading scope and budget
 
-Line ranges, not whole files. **~12 KB / ~4k tokens.**
+Line ranges, not whole files. **~10 KB / ~3k tokens.**
 
 | Anchor | Why |
 | --- | --- |
 | `backend/hedge_open_tasks/service.py:1108-1155` | `_reconcile_own_legs`: the rate-limited branch and the existing `order_query` persist |
 | `backend/hedge_open_tasks/store.py:1743-1800` | `append_raw_response` — where dedupe goes |
-| `backend/hedge_open_tasks/store.py:147-165` | the `hedge_open_raw_response` DDL |
 | `backend/services/live_hedge_executor.py:395-435` | `classify_query_response` — **read only to confirm you must NOT change it** |
 | `reports/agent-runs/2026-07-hedge-order-truth-v1/00-task.md` §T3 | the narrowed criterion and the user's scope decision |
 | `reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.md` | the verdict and the bookkeeper's confirmation |
@@ -118,21 +150,20 @@ this budget, stop and report.
 
 ## Required tests
 
-Offline, deterministic, service-level where the behaviour is service-level:
+Offline and deterministic; service-level where the behaviour is service-level.
+Keep it to these three — do not build a suite:
 
-1. A drain query that returns 429 produces a retrievable `order_query` raw row
-   (`body` / `http_status` / `business_code` / `business_msg`), **and** the task
-   still pauses exactly as it does today, the leg stays non-terminal, and nothing
-   is resent.
-2. Repeated identical malformed-2xx drain responses across multiple worker rounds
-   produce **one** `order_query` row, not one per round, and the leg still stays
-   non-terminal and is still re-queried.
-3. A changed response still records: a query returning `NEW` followed by one
-   returning `FILLED` produces **two** rows. This is the anti-regression lock for
-   the clarification above — without it, a future "simplification" to
-   first-row-only would silently pass.
-4. Raw-persistence failure still does not change any business result.
-5. Existing `test_4f` / `test_4h` contracts continue to hold unchanged.
+1. A drain query returning 429 produces a retrievable `order_query` row when that
+   leg has none yet, **and** the task still pauses exactly as today, the leg
+   stays non-terminal, and nothing is resent.
+2. Repeated malformed-2xx drain responses across several worker rounds produce
+   **exactly one** `order_query` row for that leg — not one per round — and the
+   leg still stays non-terminal and is still re-queried.
+3. Existing `test_4f` / `test_4h` contracts still hold, and a raw-persistence
+   failure still changes no business result.
+
+Do **not** add a test asserting that a changed response writes a second row —
+under this rule it does not, by design.
 
 ## Commands
 

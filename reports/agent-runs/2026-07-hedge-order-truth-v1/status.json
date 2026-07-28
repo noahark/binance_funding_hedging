@@ -871,10 +871,18 @@
       "restart_material": "The reviewer's own fix_start_prompt is preserved verbatim in 32-review-1-r2.md, so this can be restarted without re-deriving it.",
       "blocking": false,
       "why_deferred": "User scope decision 2026-07-28: get live hedging running first, solve edge cases as real scenarios produce them."
+    },
+    {
+      "id": "doc-failure-brake-state-machine",
+      "found_at": "2026-07-29",
+      "source": "user question about the 3-failure brake",
+      "detail": "The failure-brake state machine is implemented and correct but documented nowhere as a whole: cumulative vs consecutive counters, single_leg counting toward the brake, threshold -> paused (resumable) vs fatal -> stopped (immediate, uncounted) vs 429 -> paused (uncounted). It is currently reconstructable only from code comments and amendment records.",
+      "severity": "P3",
+      "blocking": false
     }
   ],
   "next_action": "Human operator runs 35-fix-review-1-r3.dispatch.md in a FRESH write-capable Claude-GLM session. rework 3/3 — the limit, authorized by the user. After the fix: bookkeeper verifies, re-pins the fingerprint, re-runs --phase pre-review, then review-1 round 4. Review-2 still needs its own fresh Codex session.",
-  "updated_at": "2026-07-28T23:20:00+08:00",
+  "updated_at": "2026-07-29T00:20:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -934,9 +942,35 @@
     "at": "2026-07-28",
     "by": "user",
     "rejected": "The reviewer's recommendation for Finding 2 — change classify_query_response so a malformed 2xx returns None instead of an UNKNOWN verdict. The user called the malformed-2xx special-casing scope drift.",
-    "chosen_instead": "A single storage-layer rule: for one leg and one source, do not store the same content twice.",
+    "chosen_instead": "One raw row per leg per source. Before writing, check whether a row already exists for that (attempt_id, leg, source); if it does, skip.",
     "why_it_is_better_not_merely_obeyed": "The reviewer's version changes BUSINESS CLASSIFICATION semantics inside a data-truth stage, which is riskier than bounding growth in the storage layer. The user's rule leaves every business verdict, the query loop, resend rules and rate-limit handling untouched, and still closes both findings.",
-    "bookkeeper_clarification_disclosed": "A literal 'keep only the very first row' would discard the response that RESOLVES a leg — e.g. drain query 1 returns NEW (persisted), query 2 returns FILLED (would be dropped), losing the most valuable T3 evidence. So 只存第一条 is implemented as 'do not store the same thing twice': identical repeats collapse, a changed response still records. A dedicated regression test locks this so a future simplification to first-row-only cannot silently pass.",
-    "recorded_in": "reports/agent-runs/2026-07-hedge-order-truth-v1/35-fix-review-1-r3.dispatch.md §User decision"
+    "bookkeeper_clarification_disclosed": "SUPERSEDED and withdrawn. The bookkeeper first proposed a content-digest dedupe so a changed response (NEW -> FILLED) would still record. The user rejected it as over-design and was right on both counts: it is a digest plus a UNIQUE index plus a migration plus its own regression test, AND it may not bound anything at all — Binance order-detail bodies carry fields such as updateTime that can differ between polls, so 'identical content' would often be false and the rows would accumulate anyway. The packet now specifies a plain per-leg-per-source existence check, with digests, indexes, migrations and a configurable N all explicitly forbidden.",
+    "recorded_in": "reports/agent-runs/2026-07-hedge-order-truth-v1/35-fix-review-1-r3.dispatch.md §User decision",
+    "accepted_costs": [
+      "The resolving query's raw body is not kept once that leg has an order_query row. The leg row still records the outcome, so business truth is intact; the exchange's verbatim text of the final read is lost.",
+      "A later 429 is not stored if an earlier order_query row already exists for that leg. User's explicit call: 429 就 429，遇到问题我们再分析问题解决问题，不做无谓的猜想适配方案."
+    ]
+  },
+  "drain_blocks_dispatch": {
+    "verified_at": "2026-07-29",
+    "where": "backend/hedge_open_tasks/service.py:1075-1077",
+    "behaviour": "While any leg is non-terminal the worker returns False and re-drains, never reaching the dispatch branch, so the task opens NO further pairs until every leg of the current pair is terminal.",
+    "raised_by": "user, who asked whether the query loop blocks order opening",
+    "assessment": "The user is right that it blocks, and the consequence is larger than the row spam: a leg stuck on a malformed 2xx stalls that task's order opening entirely. But the blocking itself is DELIBERATE and correct — opening another pair while a leg's state is unknown would add exposure blind.",
+    "in_scope": false,
+    "why_not": "It is the frozen safe behaviour. The storage cap fixes the row spam only; it does not and should not change the stall.",
+    "operational_note": "A leg stuck in an unknown state means that task stops opening new pairs until it resolves or the operator intervenes."
+  },
+  "failure_brake_verified": {
+    "asked_by": "user, 2026-07-29",
+    "verified_at": "2026-07-29",
+    "implemented": true,
+    "summary": "Two counters: fail_count is a cumulative statistic that never resets; consecutive_submission_failures is the brake and resets to 0 on any accepted pair. The threshold is failure_pause_threshold, default 3 (D.DEFAULT_FAILURE_PAUSE_THRESHOLD), snapshotted per card so it can be set per task. Both a confirmed double-leg failure AND a single_leg outcome advance the brake (R2-F1: otherwise a card could land exactly one leg every time, spawn naked exposure indefinitely and never brake). Reaching the threshold gives status=paused with pause_reason=consecutive_submission_failure — operator-resumable, not a stop. Separately: a fatal exchange fact goes straight to stopped regardless of the count and deliberately does not touch the counter; a 429 pauses via skip_counters and consumes no failure budget.",
+    "anchors": [
+      "backend/hedge_open_tasks/domain.py:1060-1092 resolve_status_after_attempt",
+      "backend/hedge_open_tasks/store.py:880-955 counter branches",
+      "backend/hedge_open_tasks/domain.py:125 DEFAULT_FAILURE_PAUSE_THRESHOLD = 3"
+    ],
+    "documentation_gap": "This state machine lives only in code comments and amendment records; no single document states it. Recorded as follow-up doc-failure-brake-state-machine."
   }
 }
