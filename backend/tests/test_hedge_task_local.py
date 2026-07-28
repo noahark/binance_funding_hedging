@@ -663,6 +663,73 @@ def test_4g_raw_persist_failure_does_not_break_business_write(tmp_path):
     assert events[0]["kind"] == "raw_persist_failed"
 
 
+def test_4i_drain_rate_limited_query_persists_order_query_row(tmp_path):
+    """Review-1 r3 P1-1 (00-task.md §T3): a drain query that comes back
+    rate-limited (a 429 / -1003 / 418) is a CONCLUSIVE verdict whose raw must be
+    persisted — the rate-limited branch previously ``continue``d before reaching
+    the ``_persist_leg_raw`` call. Script an UNKNOWN pair (no POST raw), then
+    return both drain GETs as rate-limited: each leg lands exactly one
+    ``order_query`` row carrying the 429 body, the task pauses rate_limited
+    exactly as today, the legs stay non-terminal, and nothing is resent."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])  # POST UNKNOWN -> no POST raw
+    raw_429 = {"http_status": 429, "transport_error": None, "code": None,
+               "msg": None, "body": '{"code":-1003,"msg":"Request weight limited"}'}
+    exe.queries.extend([
+        _leg(LEG_UNKNOWN_QUERYING, name="spot", rate_limited=True, raw=raw_429),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp", rate_limited=True, raw=raw_429),
+    ])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=1)  # reconcile: both legs 429 -> pause
+    assert exe.query_calls == 2
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2  # the previously-dropped 429 evidence is now retrievable
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["http_status"] == 429 for r in qrows)
+    assert all(r["body"] == raw_429["body"] for r in qrows)
+    # Pause semantics, non-terminal handling, and never-resend are unchanged.
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
+    legs = svc.store.list_legs_for_attempt(attempt["id"])
+    assert all(l["terminal"] == 0 for l in legs)  # legs kept, never resent
+    assert exe.dispatch_calls == 1  # no second dispatch / no resend
+
+
+def test_4j_repeated_malformed_2xx_drain_grows_one_row_per_leg(tmp_path):
+    """Review-1 r3 P1-2 (user rule 2026-07-28/29): a malformed 2xx (no orderId)
+    returns an UNKNOWN verdict, so the leg stays non-terminal and drain re-queries
+    it every worker round. Repeated identical responses across several rounds must
+    produce EXACTLY ONE ``order_query`` row per leg — not one per round — while the
+    leg still stays non-terminal and is still re-queried (a storage cap, not a
+    behaviour change)."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])  # POST UNKNOWN -> no POST raw
+    raw_bad = {"http_status": 200, "transport_error": None, "code": None,
+               "msg": None, "body": '{"status":"NEW"}'}  # 2xx, no orderId -> UNKNOWN
+    # Enough identical malformed-2xx verdicts for several drain rounds (2 legs each).
+    exe.queries.extend([_leg(LEG_UNKNOWN_QUERYING, name="spot", raw=raw_bad)
+                        for _ in range(10)])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=4)  # reconcile re-queries both legs each round
+    assert exe.query_calls > 2  # re-queried across multiple rounds (not stuck)
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2  # exactly one row per leg, NOT one per round
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["body"] == raw_bad["body"] for r in qrows)
+    # The leg is still non-terminal and still being drained (behaviour unchanged).
+    legs = svc.store.list_legs_for_attempt(attempt["id"])
+    assert all(l["terminal"] == 0 for l in legs)
+
+
 # ---------------------------------------------------------------------------
 # 5. Restart recovery on a fresh instance / same DB -> query clientOrderId, no resend
 # ---------------------------------------------------------------------------

@@ -1122,6 +1122,16 @@ class HedgeOpenTaskService:
                 # never resent) and surface the throttle so the worker pauses THIS
                 # task and exits for manual recovery instead of polling into the
                 # ban. The leg is NOT resolved here and NOT added to finalized.
+                # Review-1 r3 P1-1: a rate-limited query is a CONCLUSIVE verdict —
+                # classify_query_response carries its raw — so persist it before
+                # draining. This branch previously `continue`d before reaching the
+                # _persist_leg_raw call below, dropping the evidence. The persist is
+                # control-flow isolated (it can never change this branch's pause
+                # semantics, non-terminal handling, or never-resend guarantee).
+                self._persist_leg_raw(
+                    task_id, leg["attempt_id"], leg["leg"], leg["client_order_id"],
+                    "order_query", getattr(verdict, "raw_response", None), now_us,
+                )
                 if drain_signal is None:
                     drain_signal = D.SIGNAL_RATE_LIMITED
                 continue

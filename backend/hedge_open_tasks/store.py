@@ -1753,7 +1753,15 @@ class HedgeOpenStore:
         the call in try/except and records a ``raw_persist_failed`` task event
         (this method raises so the caller can react). By construction the only body
         source is the exchange response body; request params / signature / API key
-        never reach this table (10-design §3(d))."""
+        never reach this table (10-design §3(d)).
+
+        One raw row per leg per ``source`` (review-1 r3 P1-2, user rule
+        2026-07-28/29): if a row already exists for this ``(attempt_id, leg,
+        source)`` the call returns the existing row id without inserting. This caps
+        the repeating ``order_query`` (a non-terminal leg is re-read every worker
+        round) so the table cannot grow without bound; the first response's body is
+        the one kept. The check is a normal skip, not an error, and stays inside
+        this method's own transaction."""
         body = raw.get("body")
         body_text = body if isinstance(body, str) else (None if body is None else str(body))
         truncated = 0
@@ -1761,6 +1769,19 @@ class HedgeOpenStore:
             body_text = body_text[:D.BODY_MAX_BYTES]
             truncated = 1
         with self._lock, self._conn:
+            # Review-1 r3 P1-2 (user rule 2026-07-28/29): one raw row per leg per
+            # source. ``order_post`` / ``order_confirm`` happen once per leg anyway;
+            # this caps the repeating ``order_query`` (a non-terminal leg is re-read
+            # every worker round) so the table cannot grow without bound. The check
+            # runs inside this method's OWN short transaction, so it can never touch
+            # the business write, and a skip is a normal return — not an error.
+            existing = self._conn.execute(
+                "SELECT id FROM hedge_open_raw_response"
+                " WHERE attempt_id = ? AND leg = ? AND source = ? LIMIT 1",
+                (attempt_id, leg, source),
+            ).fetchone()
+            if existing is not None:
+                return existing["id"]
             cur = self._conn.execute(
                 "INSERT INTO hedge_open_raw_response"
                 " (attempt_id, leg, client_order_id, source, endpoint,"

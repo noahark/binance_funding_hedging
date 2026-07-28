@@ -267,3 +267,67 @@ Session ID 来源: unavailable
 下一步模型: bookkeeper
 下一步任务: 核验修复、重算指纹、重跑 pre-review，然后重派 review-1
 ```
+
+---
+
+## 修复章节 — Review-1 Round 3（两个 P1，按用户决定收窄），2026-07-29
+
+执行 dispatch `35-fix-review-1-r3.dispatch.md`（rework 3/3，用户授权的最后一轮）。本轮**不改任何业务判定语义**：两个 P1 都只在存储层 / 持久化调用上做最小增量。
+
+### 改了什么
+
+**Finding 1（P1-1）— drain 的限频查询从未落库**：`_reconcile_own_legs`（`service.py`）里 `if getattr(verdict, "rate_limited", False):` 分支设 `drain_signal` 后直接 `continue`，**早于**循环体下方的 `_persist_leg_raw(..., "order_query", ...)`。而 `classify_query_response`（`live_hedge_executor.py:400-406`）对 429 / -1003 / 418 返回的是**带 `raw_response` 的确定判定**，证据存在却被丢。
+
+修复：在该分支 `continue` 之前，用既有的 `_persist_leg_raw` 落库（`source="order_query"`）。**未改**该分支的 pause 语义、非终态腿处理、永不重发保证；持久化调用本身享有绝对控制流隔离（`_persist_leg_raw` swallow 全部异常），因此不可能改变这三者。
+
+**Finding 2（P1-2）— 重复的相同查询响应让 raw 表无界增长**：畸形 2xx（无 `orderId`）返回 UNKNOWN 判定 → `_query_verdict_terminal` 为 False → 腿保持非终态 → drain 每个 worker 轮重新查询 → 每轮写一条最多 `BODY_MAX_BYTES` 的行。无界，且与 ADR-T4 声明的「每次 attempt 2–6 行」矛盾。
+
+修复：按用户规则（2026-07-28/29）——**每条腿每个 `source` 只存第一条 raw 行**。
+
+### 选用的去重机制及理由
+
+去重放在 **`store.append_raw_response`（`store.py`）自己的短事务内**：写之前先 `SELECT id ... WHERE attempt_id=? AND leg=? AND source=? LIMIT 1`，命中则直接返回既有行 id、不插入。
+
+- **放在存储层、在该方法自己的 `with self._lock, self._conn:` 事务内**，使「存在性检查 + 插入」原子且与业务写彻底隔离（dispatch 硬约束：绝不触碰业务写）。
+- **纯应用层 check-then-insert，无 schema 变更**：不加 digest 列、不加 UNIQUE 索引、不加迁移（dispatch 明令禁止；bookkeeper 提议的 digest 方案被用户否决——Binance order-detail 体含 `updateTime` 等轮间会变的字段，「内容相同」常常为假，digest 既过度又未必能 bound）。
+- **跳过不是错误**：命中既有行时正常返回（返回既有 id），不抛异常，故调用方不会记 `raw_persist_failed`。
+- `order_post` / `order_confirm` 本就每腿一次，实际只有会重复的 `order_query` 受影响——正是 Finding 2 的症状。
+
+### 已知代价（用户明确接受，记此以免被当成新发现）
+
+- 一条腿的首条 `order_query` 若是无意义 poll，其后的 `429` 不再落库（用户原话：「429 就 429，遇到问题我们再分析问题」）。腿行业仍记录结局（`exchange_status` / `cumulative_quote_amt` / `order_id`），业务真相完整；丢失的只是那最后一次读取的交易所原文。
+- 一旦某腿已有 `order_query` 行，**决定性**那条查询的原文不再保留。
+
+### 不变性确认（reviewer #3 要求）
+
+- **订单判定**：不变。`classify_query_response` / `classify_leg_response` / `_send_one_leg` / `_query_verdict_terminal` / `resolve_leg_from_query` 的返回值与判定路径逐字未改（`live_hedge_executor.py` 本轮**零改动**，明令锁定）。畸形 2xx 分支仍返回带 raw 的 UNKNOWN 判定。
+- **重发规则**：不变。仍是「UNKNOWN 即时 query 一次、drain 持续 query、永不 resend POST」；去重只跳过存储插入，不跳过 `resolve_leg_from_query`，腿仍被持续 re-query。
+- **限频 pause 行为**：不变。Finding 1 只在 rate-limited 分支 `continue` 前补一条持久化调用；`drain_signal` 合并、`_pause_task_local(kind="rate_limited")`、R2-F2「pause 本任务并退出、腿保持非终态、不回环进限频」均未触碰。
+- **raw 写失败隔离**：不变。两条修复路径都走**同一个** `_persist_leg_raw` → `store.append_raw_response`，享有既有的绝对控制流隔离（自己的短事务，失败 swallowed + best-effort `raw_persist_failed` 事件，绝不回滚或阻断已 commit 的业务写）。
+
+### 新增测试（`test_hedge_task_local.py`，仅两条，不搭套件）
+
+1. `test_4i_drain_rate_limited_query_persists_order_query_row`：UNKNOWN pair 的两条 drain GET 返回 429 → 每条腿落**恰好一条** `order_query` 行（带 429 body）、任务仍 `rate_limited` pause、腿仍非终态、`dispatch_calls==1`（无重发）。
+2. `test_4j_repeated_malformed_2xx_drain_grows_one_row_per_leg`：连续多轮畸形 2xx drain 响应 → 每条腿**恰好一条** `order_query` 行（不是每轮一条）、腿仍非终态、`query_calls>2`（仍被持续 re-query）。
+
+既有 `test_4f` / `test_4h` 契约仍成立（与新测试同批跑过），raw 写失败仍不改业务结果（既有 `test_4g` 覆盖）。**未**加「内容变化的响应写第二条行」的测试——按本规则它本来就不写，这是设计。
+
+### 测试证据
+
+`60-test-output.txt`（本轮覆盖后追加）：
+
+- 指定套件（9 套件，含必跑禁改的 `test_hedge_open_live_client` / `test_hedge_purity`）：**319 passed**（基线 317 + test_4i + test_4j）。
+- 全仓 `backend/tests`：**1064 passed in 54.11s**（基线 1062 + test_4i + test_4j），无 failed / error / skip。
+
+解释器 `.venv/bin/python`，全程离线确定性（fake client / fake provider / 临时 SQLite），未发任何真实 POST、未访问凭据、未动 PID 96409、未写生产库 `data/hedge-open-tasks.sqlite3`、未 commit。改动文件仅 `backend/hedge_open_tasks/{service,store}.py` 与 `backend/tests/test_hedge_task_local.py`（均在允许边界内），`live_hedge_executor.py` 等锁定文件零改动。
+
+---
+
+```
+当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md（追加章节）
+本地北京时间: 2026-07-29 00:19:15 CST
+下一步模型: bookkeeper
+下一步任务: 核验修复、重算指纹、重跑 pre-review，然后重派 review-1
+```
