@@ -105,7 +105,45 @@ Storage shape (new columns vs a raw-payload table vs `hedge_open_log` entries),
 retention, and whether raw bodies need redaction are design questions, not
 prejudged here.
 
-### T4 (P2) — Determine the real cause of `51169`, then fix the preflight
+### T4 (P2) — RESOLVED AT INTAKE: `51169` is Binance's platform collateral cap
+
+**Superseded 2026-07-28, before the design was dispatched.** The user attempted a
+NOM transfer-in and a NOM buy by hand in the Binance app and was told, verbatim:
+
+> 代币NOM已达平台抵押金额上限。最大入/买入数量为0。请调低数量或使用其他代币重试。
+
+Binance's official FAQ *Maximum Collateral Limit for Margin Assets* confirms the
+mechanism: a **platform-wide, per-asset** collateral cap shared across all users,
+explicitly covering Portfolio Margin; above 100% utilisation, buying or
+transferring that asset into a margin account is blocked with no exceptions. No
+API endpoint or public data page for the cap or its utilisation is documented.
+
+That is a sufficient cause for `51169 = MARGIN_TRADE_COEFF_INSUFFICIENT` — the
+collateral capacity available for additional NOM is zero — and it explains the
+2026-07-27 asymmetry: the UM perpetual SELL needed no NOM collateral and filled,
+the margin BUY needed it and was blocked.
+
+**Consequences, detailed in `02-collateral-cap-finding.md`:**
+
+- The paid discriminator order is **cancelled**. Its pre-registered reading of
+  "same `51169`" is the branch already reached, so it would spend real money to
+  confirm a known answer. **This stage now places no order at all.**
+- T4's remaining work is a read-only recon for whether any API surface exposes
+  the cap, followed by a preflight decision that follows from the answer. If
+  nothing exposes it, the correct outcome is that the preflight is deliberately
+  left alone and handling belongs to T2.
+- The concurrency-contention hypothesis is unnecessary — not strictly disproven,
+  but no longer needed, and the cap explanation predicts the same failure with
+  zero concurrency.
+- **T2 gains a required verdict for `51169`**: not this account's
+  insufficient funds, not usefully retryable in a task's retry window, not
+  permanent either, and coin- plus direction-specific. Between 90% and 100% of
+  the cap a smaller order can still succeed, so it does not universally mean "no
+  size works".
+
+The original T4 framing is preserved below for audit.
+
+### T4 (P2) — original framing, superseded above
 
 `51169` = `MARGIN_TRADE_COEFF_INSUFFICIENT`. Per Binance support, COEFF is the
 collateral/haircut coefficient — the check is on *discounted effective margin*,

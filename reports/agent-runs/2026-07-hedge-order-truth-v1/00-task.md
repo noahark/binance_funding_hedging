@@ -29,10 +29,10 @@ file wins. Where it disagrees with the raw database rows in
 | T2 | P1 | Error classification must cover positive (margin) codes, structurally | `backend/hedge_open_tasks/domain.py` |
 | T3 | P1 | Persist the raw order-placement response and the full order-detail read | `backend/hedge_open_tasks/store.py` (+ schema), `live_hedge_executor.py` |
 | T5 | P1 | The live exposure timestamp must be real | `backend/hedge_open_tasks/service.py:1688` |
-| T4 | P2 | Determine the real cause of `51169`, then fix the preflight | evidence first; `domain.py` preflight only after |
+| T4 | P2 | `51169`'s cause is **found**; remaining work is a read-only recon, then the preflight decision follows from it | evidence first; `domain.py` preflight only after |
 
-Detail and evidence for each item: `00-intake.md` and
-`01-live-record-evidence.md`.
+Detail and evidence for each item: `00-intake.md`,
+`01-live-record-evidence.md`, and `02-collateral-cap-finding.md`.
 
 ## Acceptance Criteria
 
@@ -77,6 +77,29 @@ Detail and evidence for each item: `00-intake.md` and
   positive unlisted code, and proof that the existing negative-code verdicts are
   unchanged.
 
+**`51169` specifically** — its cause is now known (`02-collateral-cap-finding.md`),
+which turns it from an unclassified code into a case with a required verdict. It
+is:
+
+- **not** an insufficient-funds condition of this account — adding balance does
+  nothing;
+- **not** usefully retryable within a task's retry window — the cap is consumed
+  platform-wide and will not clear in seconds;
+- **not** permanent either — it can clear later, so the coin must not be
+  permanently blacklisted;
+- **coin- and direction-specific** — it blocks the forward direction's spot leg
+  for that asset while the perp leg is unaffected.
+
+The design must decide the task-level outcome and the operator's Chinese message,
+and that message must say what is true: *this coin's platform collateral cap is
+full, the spot leg cannot be bought into the margin account right now, try another
+coin or try later.* Reporting it as 保证金不足 would be actively misleading.
+
+One nuance the design must not flatten: between 90% and 100% of the cap a
+**smaller** order can still succeed (capped at 50,000 USD equivalent). So `51169`
+does not universally mean "no size works" — for NOM today it does, because NOM is
+above 100%.
+
 ### T3
 
 - The complete body Binance returned to an order-placement `POST` is persisted —
@@ -108,28 +131,43 @@ Detail and evidence for each item: `00-intake.md` and
   The implementation report states whether it does; if T1's fix does not restore
   it, that is reported, not silently patched here.
 
-### T4
+### T4 — REVISED 2026-07-28: the cause is found, the paid experiment is cancelled
 
-T4 is **evidence-gated and authorization-gated**. It is not implementation work
-until its discriminator has run.
+`51169`'s cause is established. **NOM is above Binance's platform-wide Maximum
+Collateral Limit**, a per-asset cap shared across all users that explicitly
+covers Portfolio Margin. Above 100% utilisation, buying or transferring that
+asset into a margin account is blocked outright — the user's own Binance app
+reports a maximum buy quantity of `0` for NOM. Full evidence, official quotes and
+reasoning: `02-collateral-cap-finding.md`.
 
-- No preflight change may be designed or implemented before the discriminator
-  result exists. Fixing the preflight against an unproven cause is how the
-  current gate was written.
-- The discriminator is one real margin BUY on NOMUSDT with no concurrent UM
-  order. It requires explicit user authorization separate from opening this
-  stage, and the human operator executes it. It only buys, so it creates no new
-  naked exposure — but it spends real money.
-- The raw request and response land under
+This also explains the 2026-07-27 asymmetry: the UM perpetual SELL does not need
+NOM as collateral, so it filled; the margin BUY does, so it was blocked.
+
+**The discriminator order is cancelled.** Its pre-registered interpretation said
+`same 51169 ⇒ coefficient or wallet placement, not contention` — which is the
+branch already reached. Running it would spend real money to confirm a known
+answer. No order is placed by this stage.
+
+Remaining T4 work, all read-only:
+
+- Recon whether **any** API surface exposes the per-asset collateral cap or its
+  current utilisation. Two official FAQ pages name none; that is not proof of
+  absence in the API. Public documentation reads and signed **GET** reads only —
+  no order, no write. Raw evidence lands under
   `reports/api-samples/2026-07-hedge-order-truth-v1/`.
-- Interpretation is fixed in advance so the result cannot be rationalised after
-  the fact: **success ⇒** concurrency contention with the UM leg is real;
-  **same `51169` ⇒** the cause is the collateral coefficient or wallet
-  placement, not contention.
-- If the user declines or defers, T1/T2/T3/T5 ship and T4 defers with the
-  preflight untouched. That is an acceptable stage outcome, recorded as a
-  follow-up rather than a failure.
+- The preflight decision follows the recon's answer and only then:
+  - **endpoint exists** → the design specifies a real preflight gate against it;
+  - **no endpoint exists** → the preflight *cannot* see this constraint and must
+    not pretend to. Handling then belongs entirely to T2, and the design must say
+    so explicitly rather than adding a gate that guesses.
+- The recon must record that the condition is **time-varying** — the cap is
+  consumed by all users' holdings, so an asset blocked today may clear later. Do
+  not design anything that caches it as a static property of a coin.
 - Do not design around a PAPI test-order endpoint. There is none.
+
+Acceptance for T4 is the recon evidence plus a design decision that follows from
+it. If the recon finds nothing, "the preflight is deliberately not changed, and
+here is why" is a complete and acceptable T4 outcome.
 
 ## Non-Goals
 
@@ -183,5 +221,7 @@ Therefore, for every agent working this stage:
 - Do not start, stop, or restart the backend service.
 - `APP_HEDGE_EXECUTOR=live`, the durable Start gate, and any real order remain
   separate human authorizations. This stage grants none of them.
-- T4's discriminator is the sole exception and is executed by the human operator
-  after explicit authorization.
+- **This stage now places no order at all.** T4's discriminator was cancelled on
+  2026-07-28 once the root cause was established from the exchange's UI and
+  documentation; T4's remaining work is read-only recon. Signed **GET** reads are
+  permitted for that recon; nothing else.

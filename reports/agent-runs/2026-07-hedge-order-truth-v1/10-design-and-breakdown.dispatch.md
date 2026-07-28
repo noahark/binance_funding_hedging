@@ -49,9 +49,11 @@ status.json、70-handoff.md、PRD 或源码。
 ## 必读
 
 - AGENTS.md；agents/developer-discipline.md；
-- reports/agent-runs/2026-07-hedge-order-truth-v1/{00-intake.md,00-task.md,01-live-record-evidence.md,status.json}
+- reports/agent-runs/2026-07-hedge-order-truth-v1/{00-intake.md,00-task.md,01-live-record-evidence.md,02-collateral-cap-finding.md,status.json}
   —— 其中 01-live-record-evidence.md 是 bookkeeper 从生产库直接读出的原始记录，
   是本 stage 最高级别的事实来源，优先于任何转述；
+  02-collateral-cap-finding.md 是 T4 的根因结论（2026-07-28 新增，附官方 FAQ 原文
+  引用），它同时给 T2 的 51169 定了必须满足的语义——**先读它再看 T2 和 T4**；
 - reports/agent-runs/2026-07-hedge-open-live-hardening-v1/18-live-acceptance-findings.md（实盘现场记录）；
 - reports/agent-runs/2026-07-hedge-open-real-api-v1/{10-design.md,11-adr.md}（已冻结契约，
   尤其 ADR-2 的 clientOrderId 对账语义、ADR-3 的 acceptance-not-fill 口径）；
@@ -133,28 +135,42 @@ T5 (P1) 实盘敞口记录的时间戳是 1970。这一项**不在原提案里**
         (d) 现存那条 1970 的记录（hedge_open_task a1d0a9ac）与 T1(e) 的历史数据
             问题一起给结论，不要分头处理。
 
-T4 (P2) 51169 根因未定论。51169 = MARGIN_TRADE_COEFF_INSUFFICIENT；据币安客服，
-        COEFF 是抵押折算系数，校验的是**折算后的有效保证金**，不是名义余额。
-        现有 preflight 闸门比较 crossMarginFree 与 q*N*price（domain.py:794），
-        币安客服明确不肯确认那就是币安校验的字段。
-        已排除：NOMUSDT 不可杠杆交易（公开 exchangeInfo 显示
-        isMarginTradingAllowed: true，与 BTCUSDT 相同）。
-        已排除作为解法：PAPI 的 test-order 端点——**不存在**，不要围绕它设计。
-        未证实：并发的 UM 单吃掉了现货腿需要的保证金（客服说"很可能"，但同一次
-        问答里对余额字段的回答是"没有文档"，所以这是推断）。
-        ⚠️ **T4 是证据闸门 + 授权闸门，本 packet 不要求你设计 preflight 修法。**
-        你要做的只有两件事：
-        (a) 把判别实验写成一份**可以照着执行的精确规程**：一笔真实的 NOMUSDT
-            margin BUY，无并发 UM 单。写清楚下单参数、执行前必须确认的账户状态、
-            要采集哪些原始数据、落到 reports/api-samples/2026-07-hedge-order-truth-v1/
-            的哪个文件、以及执行者是 human operator。它只买不空，不产生新敞口，
-            但花真钱，需要用户单独授权。
-        (b) 把结果解读**预先钉死**，防止事后合理化：成功 ⇒ 与 UM 腿的并发争用属实；
-            仍然 51169 ⇒ 是折算系数或钱包位置问题，不是并发。
-        preflight 的重新设计只能发生在判别实验有结果之后。拿未证实的原因去改
-        preflight，正是现在这个闸门当初被写歪的方式。
-        如果用户不授权，T1/T2/T3/T5 照常交付，T4 顺延且 preflight 不动——这是一个
-        可接受的 stage 结局，记为 follow-up，不算失败。
+T4 (P2) **根因已查明（2026-07-28，本 packet 派发前）。原来那笔判别实验已取消，
+        本 stage 不下任何真实订单。** 必读 02-collateral-cap-finding.md。
+        结论：NOM 触及币安的 **Maximum Collateral Limit（平台级、按币种的抵押额度
+        上限）**。这是**全平台所有用户共用的一个额度**，官方 FAQ 明确适用于
+        Portfolio Margin；用量超过 100% 后，该币种"买入或转入 margin 账户"被直接
+        封禁，无例外。用户在币安 app 里手工试转入和试买 NOM，被告知
+        「代币NOM已达平台抵押金额上限。最大入/买入数量为0。」
+        这就足以解释 51169 = MARGIN_TRADE_COEFF_INSUFFICIENT：可用于追加 NOM 的
+        抵押折算能力就是 0。也顺带解释了 2026-07-27 那次的不对称——UM 永续 SELL
+        不需要 NOM 当抵押品所以成交，margin BUY 需要所以被封。
+        已排除：NOMUSDT 不可杠杆交易（公开 exchangeInfo isMarginTradingAllowed:
+        true）。已排除作为解法：PAPI test-order 端点——**不存在**，不要围绕它设计。
+        已**不再需要**的假设：并发 UM 单吃掉保证金（没被严格否证，但不再必要，且
+        额度上限这个解释预测零并发下也会同样失败）。
+        ⚠️ **本 packet 仍然不要求你直接改 preflight。** T4 剩下的工作全是只读：
+        (a) 摸排：**有没有任何 API 能读到这个按币种的抵押额度上限或它的当前占用？**
+            我今天读的两份官方 FAQ 都没提到任何接口，但"两份 FAQ 没提"不等于
+            "API 里没有"——请把它当作待查事实，不要往任何一边写成结论。
+            只允许公开文档阅读与签名 **GET**；不得下单、不得写任何东西。原始证据
+            落 reports/api-samples/2026-07-hedge-order-truth-v1/。
+        (b) preflight 的结论**跟着摸排结果走**，不要抢跑：
+            有接口 → 设计一个真正的 preflight 闸门；
+            没接口 → preflight **根本看不到**这个约束，那就不许假装看得到，处理
+            责任整个落到 T2，并在设计里把这句话明确写出来。
+            "preflight 有意不动，理由如下"是一个**完整且可接受**的 T4 结论。
+        (c) 记住这个条件是**随时间变化**的：额度被全平台用户的持仓吃掉，今天被封
+            的币以后可能解封，反之亦然。不许把它当成某个币的静态属性缓存起来。
+        对 T2 的影响（必须在 T2 的设计里体现）：51169 现在有了确定的语义——
+        不是本账户保证金不足（加钱没用）；不是任务重试窗口内可重试（额度是全平台
+        消耗的，几秒内不会松）；也不是永久性的（会解封，所以不许永久拉黑该币）；
+        它是**按币种 + 按方向**的（封的是正向的现货买入腿，合约腿不受影响）。
+        还有一个别抹平的细节：额度用量在 **90%–100%** 区间时，**更小的单子仍可能
+        成功**（单次上限 5 万美元等值）——所以 51169 不等于"任何数量都不行"；
+        NOM 今天是超过 100%，才是任何数量都不行。
+        给运维的中文文案必须说真话：这个币的平台抵押额度满了，现货腿现在买不进
+        margin 账户，换币或稍后再试。写成"保证金不足"是**误导**。
 
 ## 三份输出
 
@@ -201,8 +217,9 @@ T5 的时间戳统一。每条给出 context / decision / consequences，并写�
   功能。本 stage 不解决它，也不要设计平单。
 - 不改任何被 real-api-v1 冻结的契约。若你认为 T1 或 T3 必须改，单列为「契约修订
   建议」并说明需要的原始样本，不要直接写进设计当成既定事实。
-- 本 stage 不授予任何实盘权限。T4 的判别实验需要用户单独授权，由 human operator
-  执行。
+- 本 stage 不授予任何实盘权限，且**本 stage 不下任何真实订单**——原来 T4 的那笔
+  判别实验已于 2026-07-28 取消（根因已从交易所 UI 与官方文档查明）。T4 剩下的
+  只读摸排可以做签名 GET，仅此而已。
 - 设计要能被 Claude-GLM 在边界内独立实现，被 Codex 独立复核。
 - 事实来源必须带路径。不确定的地方写「未验证」，不要写成事实。上一轮就是因为一份
   采集时属实的 recon 过期了没人复查，才让 T1 溜到实盘。

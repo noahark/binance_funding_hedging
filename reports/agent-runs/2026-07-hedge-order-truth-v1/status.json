@@ -224,6 +224,15 @@
       "anchor": "backend/hedge_open_tasks/domain.py:306-353",
       "live_proof": "hedge_open_leg id=5: error_code=51169, error_category=NULL",
       "structural_requirement": "adding 51169 as a literal is explicitly insufficient",
+      "required_verdict_for_51169": {
+        "established_by": "reports/agent-runs/2026-07-hedge-order-truth-v1/02-collateral-cap-finding.md",
+        "not_insufficient_funds_of_this_account": "adding balance does nothing",
+        "not_usefully_retryable": "the cap is consumed platform-wide and will not clear within a task's retry window",
+        "not_permanent": "it can clear later; the coin must not be permanently blacklisted",
+        "coin_and_direction_specific": "blocks the forward direction's spot leg for that asset; the perp leg is unaffected",
+        "size_nuance": "between 90% and 100% of the cap a SMALLER order can still succeed (capped at 50,000 USD equivalent), so 51169 does not universally mean 'no size works'. NOM today is above 100%, where it does.",
+        "operator_message_requirement": "Chinese, and truthful: this coin's platform collateral cap is full, the spot leg cannot be bought into the margin account right now, try another coin or try later. Reporting it as 保证金不足 would be actively misleading."
+      },
       "exposure_semantics_settled": {
         "at": "2026-07-28",
         "by": "user",
@@ -246,24 +255,35 @@
     },
     "T4": {
       "severity": "P2",
-      "title": "Determine the real cause of 51169, then fix the preflight",
-      "status": "evidence_gated_and_authorization_gated",
-      "blocked_on": "one real margin BUY on NOMUSDT with no concurrent UM order — requires explicit user authorization separate from opening this stage; executed by the human operator",
+      "title": "51169's cause is FOUND — NOM is above Binance's platform-wide Maximum Collateral Limit",
+      "status": "root_cause_established_paid_experiment_cancelled",
+      "resolved_at": "2026-07-28T14:43:00+08:00",
+      "root_cause": "Binance enforces a platform-wide, per-asset Maximum Collateral Limit shared across ALL users, explicitly covering Portfolio Margin. Above 100% utilisation, buying or transferring that asset into a margin account is blocked with no exceptions. NOM is above 100%: the user's Binance app reports a maximum transfer-in/buy quantity of 0. The collateral capacity available for additional NOM is therefore zero, which is literally what MARGIN_TRADE_COEFF_INSUFFICIENT describes.",
+      "how_it_was_found": "The user attempted a NOM transfer-in and a NOM buy by hand in the Binance app on 2026-07-28 and reported the refusal message verbatim; the bookkeeper then confirmed the mechanism against Binance's official FAQ.",
+      "user_observed_message_verbatim": "代币NOM已达平台抵押金额上限。最大入/买入数量为0。请调低数量或使用其他代币重试。",
+      "also_explains": "The 2026-07-27 asymmetry — the UM perpetual SELL needs no NOM collateral and filled; the margin BUY needs it and was blocked.",
+      "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/02-collateral-cap-finding.md",
+      "sources": [
+        "https://www.binance.com/en/support/faq/detail/dca77ef963294b368b5ebad0affeda09",
+        "https://www.binance.com/en/support/faq/binance-portfolio-margin-mode-transfer-in-limits-position-limits-leverage-supported-collateral-and-rates-937b8e81d03f475c8d7a0d42ec381510"
+      ],
+      "paid_discriminator_cancelled": {
+        "at": "2026-07-28T14:43:00+08:00",
+        "by": "bookkeeper",
+        "why": "Its interpretation was pre-registered as 'same 51169 => coefficient or wallet placement, not contention'. That branch is already reached, and the app reports a maximum buy quantity of 0, so the order would spend real money to confirm a known answer. No user authorization is needed to NOT place an order; running it anyway remains the user's call.",
+        "consequence": "This stage now places NO order at all."
+      },
+      "remaining_work_read_only": [
+        "Recon whether any API surface exposes the per-asset collateral cap or its current utilisation. Two official FAQ pages name none; that is not proof of absence in the API. Public documentation reads and signed GET reads only. Raw evidence under reports/api-samples/2026-07-hedge-order-truth-v1/.",
+        "The preflight decision follows the recon: endpoint exists -> design a real gate against it; no endpoint -> the preflight cannot see this constraint and must not pretend to, and handling belongs entirely to T2. 'Deliberately not changed, and here is why' is a complete T4 outcome."
+      ],
       "ruled_out": [
         "NOMUSDT not margin-tradable — falsified by public exchangeInfo (isMarginTradingAllowed: true)",
         "a PAPI test-order endpoint as a remedy — none exists; official trade docs checked"
       ],
-      "unproven": "that the concurrent UM fill consumed the margin the spot leg needed",
-      "interpretation_fixed_in_advance": {
-        "success": "concurrency contention with the UM leg is real",
-        "same_51169": "the cause is the collateral coefficient or wallet placement, not contention"
-      },
-      "defer_outcome": "If the user declines or defers, T1/T2/T3/T5 ship and T4 defers with the preflight untouched. That is an acceptable stage outcome recorded as a follow-up, not a failure.",
-      "authorization": {
-        "requested": false,
-        "granted": false,
-        "at": null
-      }
+      "no_longer_needed": "The concurrency-contention hypothesis. Not strictly disproven, but unnecessary: the cap explanation predicts the identical failure with zero concurrency.",
+      "time_varying": "The cap is consumed by all users' margin holdings, so an asset blocked today can clear later and vice versa. Nothing may cache it as a static property of a coin.",
+      "product_followup_out_of_scope": "Any coin above its collateral cap is structurally un-hedgeable in the forward direction while the cap holds, and there is no documented way to know before trying. Surfacing that on the opportunity table, or remembering it per-coin with an expiry, is a product question beyond this stage."
     },
     "T5": {
       "severity": "P1",
@@ -369,7 +389,17 @@
       "blocking_this_stage": false
     }
   ],
-  "stage_followups": [],
-  "next_action": "Human operator runs 10-design-and-breakdown.dispatch.md in a Claude Fable 5 session. The designer produces 10-design.md, 11-adr.md and 12-development-breakdown.md, and nothing else.",
-  "updated_at": "2026-07-28T07:26:35+08:00"
+  "stage_followups": [
+    {
+      "id": "collateral-cap-unhedgeable-coins",
+      "found_at": "2026-07-28",
+      "source": "T4 root cause (02-collateral-cap-finding.md)",
+      "detail": "Any coin above its platform-wide Maximum Collateral Limit is structurally un-hedgeable in the forward direction while the cap holds, because the forward direction requires buying the coin into the margin wallet. There is no documented way to know this before trying. Surfacing it on the opportunity table, or remembering it per-coin with an expiry, is a product question.",
+      "severity": "product",
+      "blocking": false,
+      "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
+    }
+  ],
+  "next_action": "Human operator runs 10-design-and-breakdown.dispatch.md in a Claude Fable 5 session. The designer produces 10-design.md, 11-adr.md and 12-development-breakdown.md, and nothing else. The packet was revised 2026-07-28T14:43 after T4's root cause was established: it now carries 02-collateral-cap-finding.md as required reading, T4 is read-only recon rather than a paid experiment, and T2 has a required verdict for 51169.",
+  "updated_at": "2026-07-28T14:43:00+08:00"
 }

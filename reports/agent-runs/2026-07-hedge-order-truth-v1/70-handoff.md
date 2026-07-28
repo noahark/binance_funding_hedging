@@ -38,11 +38,16 @@ had or could have fetched.
 | T2 | P1 | `51169` recorded `error_category = NULL` — the code tables hold only negative literals, so no margin-endpoint code can match |
 | T3 | P1 | Binance's own words are discarded; there is no column for them and no raw payload is stored anywhere |
 | T5 | P1 | The live exposure record is timestamped `1970-01-01` — `service.py:1688` hardcodes `0`; the dry-run path passes a real timestamp, which is why offline tests miss it |
-| T4 | P2 | `51169`'s root cause is undetermined; gated on a user-authorized discriminator order before any preflight change |
+| T4 | P2 | **Cause found 2026-07-28** — NOM is above Binance's platform-wide per-asset Maximum Collateral Limit, so buying it into a margin account is blocked. The paid discriminator is cancelled; remaining work is read-only recon. See `02-collateral-cap-finding.md` |
 
 Primary evidence is `01-live-record-evidence.md` — raw rows read from the
-production database at intake. It outranks every narrative in this stage,
-including this file.
+production database at intake — plus `02-collateral-cap-finding.md` for T4's root
+cause. Both outrank every narrative in this stage, including this file.
+
+**This stage places no order.** T4's paid discriminator was cancelled on
+2026-07-28 once the user's own Binance app and Binance's official FAQ established
+the cause. T2 inherits a required verdict for `51169` as a result — see
+`02-collateral-cap-finding.md` §Consequences.
 
 ## Routing, and the one thing to know about it
 
@@ -78,8 +83,11 @@ apply them:
   T2 must not change this.
 - **The live surface stays open** (user, 2026-07-28). Not a defect; not this
   stage's to close.
-- **T4 does not touch the preflight** until its discriminator has run. Fixing it
-  against an unproven cause is how the current gate was written.
+- **T4's paid discriminator is cancelled** (bookkeeper, 2026-07-28). The cause is
+  established, so the order would spend money to confirm a known answer. The
+  preflight still may not change until the read-only recon says whether any API
+  exposes the collateral cap — and "deliberately not changed, here is why" is a
+  complete T4 outcome.
 
 ## Open items the design must resolve
 
@@ -104,8 +112,8 @@ apply them:
    runs `scripts/validate-stage.py 2026-07-hedge-order-truth-v1 --phase pre-review`.
 5. Review-1 (Codex, fresh read-only session) → Review-2 (Codex, second fresh
    session) → `stage_accepted_waiting_user`.
-6. T4's discriminator is a separate user authorization and can be requested at
-   any point after the design exists; if declined, T4 defers as a follow-up.
+6. T4 needs no user authorization any more — its remaining work is a read-only
+   recon for whether any API exposes the per-asset collateral cap.
 
 Merge to `main` only after explicit user acceptance. Note `main` itself is not
 pushed — the previous two stages are merged locally only.
