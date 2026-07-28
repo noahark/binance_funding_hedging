@@ -126,6 +126,42 @@
       "executed_by": "human operator",
       "declared_constraints_met": "design-only: no product source, status.json, 70-handoff.md, production database or live surface touched",
       "bookkeeper_verification": "Verified independently against acfccbd, not accepted on the report's word. Every hunk lands in a dispatch-named section: 10-design.md §2(a) / §2(c) table / §2(d) / §2(e) / §5 (whole section) / §8 T2 bullet / §11 risks 4 and 7 / footer + appended 修订记录; 11-adr.md classification ADR only; 12-development-breakdown.md §3.5 test line and §4 only. No out-of-scope drift. The substance was read and checked, not skimmed."
+    },
+    {
+      "role": "implementation",
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": "2b5e8d01-45cb-4219-a96f-b0d8604bb6d3",
+      "session_id_source": "operator (reported by the human operator from the running session)",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/13-implementation.dispatch.md",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md",
+      "dispatched_at": "2026-07-28T18:10:00+08:00",
+      "executed_by": "human operator",
+      "status": "in_progress",
+      "context_budget_incident": {
+        "observed_at": "2026-07-28T18:40:00+08:00",
+        "what": "The session reached ~65% of its 1M context (~650k tokens) while still in the reading phase — it had reached service.py's pause helpers / worker region and the locked transport client, and had not begun implementing.",
+        "measured_corpus": "The ENTIRE reading corpus for this task is ~546 KB: 272 KB source (incl. the read-only client), 172 KB tests, 103 KB stage docs — roughly 160k tokens if every file is read once in full.",
+        "assessment": "~650k for a partial read is about 4x the whole corpus budget, so this is not file size; it is read behaviour (repeated whole-file re-reads and/or large search dumps landing in context).",
+        "risk": "W4 (T1) is the largest step and W5 adds a table-rebuild migration. Compaction mid-implementation is what produced three cross-seam drifts in an earlier round of this programme, and what would be lost is exactly the frozen constraints: the verbatim Chinese copy, the file boundaries, and the never-store-a-fabricated-zero rule.",
+        "bookkeeper_own_contribution": "The dispatch listed seven full documents as required reading and gave no line ranges for the 1753-line service.py or the 1784-line store.py.",
+        "user_decision": {
+          "at": "2026-07-28T18:45:00+08:00",
+          "by": "user",
+          "choice": "let the session run all six steps rather than narrowing it to W1+W2 or restarting",
+          "options_presented": [
+            "narrow the running session to W1+W2 then two fresh scoped sessions (bookkeeper's recommendation)",
+            "let it run all six",
+            "kill and restart with three scoped packets"
+          ],
+          "accepted_risk": "compaction during W4/W5 may drop the frozen constraints, and it would surface only at review",
+          "mitigations_put_in_place": [
+            "17-context-guard-note.md — a short paste-in the operator can drop into the running session before W4 or after a compaction; it restates only already-frozen constraints and adds no new requirement",
+            "R4 boundary reconciliation will verify all nine listed items directly against the diff and code rather than accepting the implementation report's word — planned before the evidence arrives, not improvised after"
+          ]
+        }
+      }
     }
   ],
   "designer": {
@@ -616,6 +652,6 @@
       "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
     }
   ],
-  "next_action": "Human operator runs 13-implementation.dispatch.md in a fresh write-capable Claude-GLM session (glm-5.2[1m]) on branch stage/2026-07-hedge-order-truth-v1. In parallel and independently: W0 (one read-only signed GET of the existing real order — see status.w0_prerequisite; human operator only) and T4's read-only collateral-cap recon (documentation cross-read = bookkeeper, signed GETs = human operator). Neither blocks the backend task. When the implementer stops, the bookkeeper does R4 boundary reconciliation, commits evidence, computes the diff fingerprint, runs scripts/validate-stage.py --phase pre-review, then dispatches review-1 to codex in a fresh read-only session.",
-  "updated_at": "2026-07-28T18:05:00+08:00"
+  "next_action": "Claude-GLM session 2b5e8d01 is running 13-implementation.dispatch.md through W1..W6. Context budget is a known accepted risk (status.session_receipts[-1].context_budget_incident): if it compacts, or as a precaution before W4, the operator may paste 17-context-guard-note.md into it. In parallel and independently: W0 (read-only signed GET, human operator) and T4's collateral-cap recon. When the implementer stops: R4 reconciliation against the nine checks in 17-context-guard-note.md §Bookkeeper's own mitigation, then evidence commit, fingerprint, --phase pre-review, then review-1 to codex in a fresh read-only session.",
+  "updated_at": "2026-07-28T18:45:00+08:00"
 }

@@ -1197,30 +1197,51 @@ class HedgeOpenTaskService:
                 pass
 
     def _pause_task_local(
-        self, task: dict, pause_reason: str, insufficient_signal: str | None,
-        now_us: int, *, kind: str = "task_paused",
+        self, task: dict, pause_reason: str, pause_signal: str | None,
+        now_us: int, *, kind: str = "task_paused", pause_zh: str | None = None,
     ) -> None:
         """Persist a task-local pause (amendment 21): status=paused + the precise
         safe reason + an audit event, for THIS task only. No cross-task linkage,
         no consecutive-failure churn. A 429 uses the ``rate_limited`` kind; an
-        insufficient-funds fact uses ``task_paused``. Idempotent on status."""
-        pause_zh = D.pause_reason_zh(pause_reason)
-        updated = self._store.pause_task(task["id"], pause_reason, pause_zh, now_us)
+        insufficient-funds fact or a collateral-cap rejection uses ``task_paused``.
+        ``pause_zh`` overrides the table lookup (used by collateral_cap, whose
+        frozen message carries the blocked asset). Idempotent on status."""
+        reason_zh = pause_zh or D.pause_reason_zh(pause_reason)
+        updated = self._store.pause_task(task["id"], pause_reason, reason_zh, now_us)
         payload = {
             "reason": pause_reason,
-            "reason_zh": pause_zh,
+            "reason_zh": reason_zh,
             "coin": task["coin"],
             "direction": task["direction"],
         }
-        if insufficient_signal is not None:
-            payload["signal"] = insufficient_signal
+        if pause_signal is not None:
+            payload["signal"] = pause_signal
         self._store.record_task_event(task["id"], kind, payload, now_us)
         if updated is not None:
             task.update(updated)
 
+    def _pause_from_signal(
+        self, task: dict, signal: str, now_us: int, *, kind: str = "task_paused",
+    ) -> None:
+        """Map a task-local-pause signal (a confirmed insufficient-funds fact or
+        a collateral-cap rejection) to its precise pause_reason + Chinese message
+        and persist the pause for THIS task only. collateral_cap carries the
+        frozen asset-specific message; insufficient_funds uses the table lookup."""
+        if signal == D.SIGNAL_COLLATERAL_CAP:
+            self._pause_task_local(
+                task, D.PAUSE_REASON_COLLATERAL_CAP_FULL, signal, now_us, kind=kind,
+                pause_zh=D.collateral_cap_pause_reason_zh(D.base_asset(task["coin"])),
+            )
+        else:
+            self._pause_task_local(
+                task, self._pause_reason_for_signal(signal), signal, now_us, kind=kind,
+            )
+
     @staticmethod
-    def _insufficient_pause_reason(signal: str) -> str:
-        """Map an insufficient-funds drain/dispatch signal to its pause reason."""
+    def _pause_reason_for_signal(signal: str) -> str:
+        """Map an insufficient-funds drain/dispatch signal to its pause reason.
+        (collateral_cap is handled by :meth:`_pause_from_signal`, which carries
+        its own asset-specific reason/message.)"""
         return {
             D.SIGNAL_INSUFFICIENT_BALANCE: D.PAUSE_REASON_INSUFFICIENT_BALANCE,
             D.SIGNAL_INSUFFICIENT_MARGIN: D.PAUSE_REASON_INSUFFICIENT_MARGIN,

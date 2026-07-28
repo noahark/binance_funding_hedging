@@ -147,15 +147,21 @@ def _decimal_str(value, default: str = "0") -> str:
 class LegDispatch:
     """One leg's POST verdict + the observational fill figures from the response.
 
-    ``error_category`` in {None, "auth", "fatal", "insufficient_funds", "absent"}
-    classifies the exchange response for the error matrix (amendment 21 manual-
-    pause isolation): "auth" = auth/signature/timestamp/permission ambiguity ->
-    stay UNKNOWN and query by client ID (never resend); "insufficient_funds" =
-    a CONFIRMED insufficient balance/margin/available-quantity fact (-2019/-3041
-    unambiguous; -2010 only when its message confirms it) -> pauses THIS task
-    only (worker exits, manual recovery); "fatal" = the remaining hard facts
-    (filter/min-notional/symbol/mode, and an unconfirmed -2010) -> stops the
-    task; "absent" = the order was never accepted (confirmed non-fatal failure).
+    ``error_category`` in {None, "auth", "fatal", "insufficient_funds",
+    "collateral_cap", "unclassified", "absent"} classifies the exchange response
+    for the error matrix (amendment 21 manual-pause isolation), produced by
+    :func:`domain.classify_exchange_code`: "auth" = auth/signature/timestamp/
+    permission ambiguity -> stay UNKNOWN and query by client ID (never resend);
+    "insufficient_funds" = a CONFIRMED insufficient balance/margin/available-
+    quantity fact (-2019/-3041 unambiguous; -2010 only when its message confirms
+    it) -> pauses THIS task only (worker exits, manual recovery); "fatal" = the
+    remaining hard facts (filter/min-notional/symbol/mode, and an unconfirmed
+    -2010) -> stops the task; "collateral_cap" = 51169, the asset is above
+    Binance's platform collateral cap -> pauses THIS task only; "unclassified" =
+    a business code was present but no rule matched (a counted non-fatal
+    failure); "absent" = the order was never accepted (query-path 404/-2013);
+    ``None`` = the response carried no business code at all. "unclassified" and
+    ``None`` stay distinct (the defect this stage fixes collapsed them).
     ``error_code`` is the exchange business code when available.
     ``retry_after_seconds`` carries a stated exchange wait (429/Retry-After) so
     the task-local worker pauses THIS task without changing any other task's
@@ -255,33 +261,28 @@ def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
             cumulative_quote=cumulative_quote,
             avg_price=avg_price,
         )
-    # Definite 4xx (non-rate-limit). The amendment error matrix splits these:
-    # auth/signature/timestamp/permission ambiguity -> stay UNKNOWN and query by
-    # client ID (never resend, amendment row 5); a fatal code (insufficient
-    # balance/margin/filter/min-notional/symbol/mode) -> confirmed not accepted
-    # AND stops the task (rows 1–2); any other definite rejection -> confirmed
-    # not accepted, a known non-fatal counted failure (row 3).
+    # Definite 4xx (non-rate-limit). The amendment error matrix splits these via
+    # domain.classify_exchange_code (two-layer: shared gateway/business + per-
+    # product). auth/signature/timestamp/permission ambiguity -> stay UNKNOWN and
+    # query by client ID (never resend, amendment row 5); every other definite
+    # rejection -> confirmed not accepted (REJECTED), with error_category carrying
+    # the precise verdict: fatal (rows 1–2 stop), insufficient_funds /
+    # collateral_cap (task-local pause), unclassified (a present-but-unrecognized
+    # code, a counted non-fatal failure), or None (the body carried no business
+    # code at all — still a rejected leg). NULL now means exclusively "no code";
+    # "unclassified" means "a code we could not classify" — they must stay
+    # distinguishable (the defect this stage fixes).
     if 400 <= status < 500:
         code = _business_code(response)
-        if code in D.AUTH_AMBIGUOUS_EXCHANGE_CODES:
+        product = D.PRODUCT_MARGIN if leg == "spot" else D.PRODUCT_UM
+        category = D.classify_exchange_code(product, code, _business_msg(response))
+        if category == D.ERROR_CATEGORY_AUTH:
             return _empty_dispatch(
-                leg, LEG_UNKNOWN_QUERYING, error_code=code, error_category="auth"
+                leg, LEG_UNKNOWN_QUERYING, error_code=code, error_category=category
             )
-        # Amendment 21 manual-pause isolation: a CONFIRMED insufficient balance/
-        # margin/available-quantity fact pauses THIS task only (worker exits,
-        # manual recovery). -2019/-3041 are unambiguous; -2010 is confirmed only
-        # by its message, so an unconfirmed -2010 falls through to fatal stop
-        # below (user constraint: never mistake an unrecoverable fact for a
-        # recoverable pause). Consulted BEFORE FATAL_EXCHANGE_CODES.
-        if D.is_insufficient_funds_code(code, _business_msg(response)):
-            return _empty_dispatch(
-                leg, LEG_REJECTED, error_code=code, error_category="insufficient_funds"
-            )
-        if code in D.FATAL_EXCHANGE_CODES:
-            return _empty_dispatch(
-                leg, LEG_REJECTED, error_code=code, error_category="fatal"
-            )
-        return _empty_dispatch(leg, LEG_REJECTED, error_code=code)
+        return _empty_dispatch(
+            leg, LEG_REJECTED, error_code=code, error_category=category
+        )
     return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
 
 

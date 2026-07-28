@@ -135,12 +135,19 @@ PAUSE_REASON_RATE_LIMITED = "rate_limited"
 PAUSE_REASON_INSUFFICIENT_BALANCE = "insufficient_balance"
 PAUSE_REASON_INSUFFICIENT_MARGIN = "insufficient_margin"
 PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY = "insufficient_available_qty"
+# 51169 / platform collateral cap full (ADR-T3 / 02-collateral-cap-finding.md):
+# the asset is above Binance's platform-wide Maximum Collateral Limit, so the
+# margin BUY leg cannot bring it into the margin account. NOT an account balance
+# fact (adding funds does nothing) — deliberately its own pause reason so the
+# display never renders the false "保证金不足" wording of insufficient_margin.
+PAUSE_REASON_COLLATERAL_CAP_FULL = "collateral_cap_full"
 ALL_PAUSE_REASONS = (
     PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE,
     PAUSE_REASON_RATE_LIMITED,
     PAUSE_REASON_INSUFFICIENT_BALANCE,
     PAUSE_REASON_INSUFFICIENT_MARGIN,
     PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY,
+    PAUSE_REASON_COLLATERAL_CAP_FULL,
 )
 
 # Amendment 21 task-local worker dispatch/drain signals (internal contract between
@@ -157,6 +164,17 @@ SIGNAL_INSUFFICIENT = (
     SIGNAL_INSUFFICIENT_MARGIN,
     SIGNAL_INSUFFICIENT_AVAILABLE_QTY,
 )
+# A confirmed collateral-cap rejection (51169) on a leg pauses THIS task only
+# (ADR-T3): the cap is consumed platform-wide and will not clear in the retry
+# window, and it blocks only the forward spot leg — continuing would repeat the
+# 2026-07-27 naked-short-growth mechanism. Same task-local-pause shape as a
+# SIGNAL_INSUFFICIENT_*; the worker maps either to a pause.
+SIGNAL_COLLATERAL_CAP = "signal_collateral_cap"
+# Every signal whose correct response is a task-local pause (amendment 21). The
+# worker consults this membership to pause THIS task only, then maps the signal
+# to its precise pause_reason. Rate-limit is handled separately (its own pause
+# with a cooldown kind).
+SIGNAL_TASK_LOCAL_PAUSE = SIGNAL_INSUFFICIENT + (SIGNAL_COLLATERAL_CAP,)
 SIGNAL_PREFLIGHT_INCOMPLETE = "signal_preflight_incomplete"
 SIGNAL_PREFLIGHT_FATAL = "signal_preflight_fatal"
 
@@ -359,6 +377,42 @@ _INSUFFICIENT_BALANCE_MSG_RE = re.compile(
     r"insufficient\s+(?:available\s+)?balance", re.IGNORECASE
 )
 
+# ---------------------------------------------------------------------------
+# Error-classification vocabulary + two-layer code classifier (ADR-T3)
+# ---------------------------------------------------------------------------
+
+# The leg-row ``error_category`` values. These are the durable classification a
+# rejected leg carries; the live executor maps a Binance ``code`` to one of them
+# via :func:`classify_exchange_code`. Values are frozen strings, not enums, so
+# the store reads them as plain TEXT.
+ERROR_CATEGORY_AUTH = "auth"  # auth/signature/timestamp/permission ambiguity
+ERROR_CATEGORY_FATAL = "fatal"  # hard fact -> task stops (rows 1–2)
+ERROR_CATEGORY_INSUFFICIENT_FUNDS = "insufficient_funds"  # confirmed -> task-local pause
+ERROR_CATEGORY_ABSENT = "absent"  # order was never accepted (query-path 404/-2013)
+ERROR_CATEGORY_COLLATERAL_CAP = "collateral_cap"  # 51169 -> task-local pause (ADR-T3)
+ERROR_CATEGORY_UNCLASSIFIED = "unclassified"  # a code was present but no rule matched
+
+# Product a leg's endpoint speaks. ``spot`` leg -> margin order endpoint;
+# ``perp`` leg -> UM order endpoint. Same enumeration as the fill-figures source
+# rule (10-design §1(c)).
+PRODUCT_MARGIN = "margin"
+PRODUCT_UM = "um"
+
+# Per-product business-code tables — ONLY product-specific codes live here. Codes
+# whose margin/UM semantics are identical (insufficient balance/margin, filter /
+# min-notional / param violations) are matched product-agnostically by the shared
+# layers inside :func:`classify_exchange_code`, so no negative-code verdict can
+# change when this stage adds the margin positive-code path. A new product-
+# specific code requires live sample evidence before it is seeded (truth
+# discipline; 02-collateral-cap-finding.md is 51169's evidence).
+MARGIN_BUSINESS_CODES: dict[str, str] = {
+    "51169": ERROR_CATEGORY_COLLATERAL_CAP,  # MARGIN_TRADE_COEFF_INSUFFICIENT (platform collateral cap full)
+}
+# No UM-specific code is seeded this stage: every UM code in production so far is
+# a shared negative code already matched by the shared layer. Retained as the
+# explicit per-product extension point so a future UM-specific code lands here.
+UM_BUSINESS_CODES: dict[str, str] = {}
+
 
 def is_insufficient_funds_code(code: str | None, msg: str | None) -> bool:
     """Conservatively classify an exchange code+message as an insufficient-funds
@@ -373,6 +427,49 @@ def is_insufficient_funds_code(code: str | None, msg: str | None) -> bool:
     if code == INSUFFICIENT_BALANCE_CODE and bool(msg) and _INSUFFICIENT_BALANCE_MSG_RE.search(msg):
         return True
     return False
+
+
+def classify_exchange_code(product: str, code: str | None, msg: str | None) -> str | None:
+    """Classify a Binance PAPI business ``code`` into a leg ``error_category``.
+
+    Two-layer lookup (ADR-T3), consulted in order:
+
+    1. **Shared gateway layer** (product-agnostic): auth/signature/timestamp/
+       permission ambiguity. Any papi endpoint — margin included — can return
+       these negative codes (e.g. ``-1021``), so this layer precedes the product
+       layer.
+    2. **Shared business layer** (product-agnostic semantics): a confirmed
+       insufficient-funds fact (:func:`is_insufficient_funds_code`) and the
+       remaining fatal hard facts (``FATAL_EXCHANGE_CODES``). These codes have
+       identical margin/UM semantics, so matching them product-agnostically is
+       what GUARANTEES the stage's hard non-regression constraint: no negative
+       code's verdict changes when the margin positive-code path is added.
+    3. **Per-product business layer**: ``MARGIN_BUSINESS_CODES`` (``51169`` ->
+       ``collateral_cap``) and ``UM_BUSINESS_CODES`` (empty this stage). Only a
+       product-specific code reaches here.
+    4. A code that carries a business value but matches no rule ->
+       ``unclassified``.
+
+    Returns ``None`` ONLY when ``code is None`` (the response carried no business
+    code at all). That stays distinct from ``unclassified`` (a code was present
+    but unrecognized): ``NULL`` means "no code", ``unclassified`` means "code we
+    could not classify" — the two must never collapse (the defect this stage
+    fixes was exactly that they did).
+    """
+    if code is None:
+        return None
+    if code in AUTH_AMBIGUOUS_EXCHANGE_CODES:
+        return ERROR_CATEGORY_AUTH
+    if is_insufficient_funds_code(code, msg):
+        return ERROR_CATEGORY_INSUFFICIENT_FUNDS
+    if code in FATAL_EXCHANGE_CODES:
+        return ERROR_CATEGORY_FATAL
+    if product == PRODUCT_MARGIN and code in MARGIN_BUSINESS_CODES:
+        return MARGIN_BUSINESS_CODES[code]
+    if product == PRODUCT_UM and code in UM_BUSINESS_CODES:
+        return UM_BUSINESS_CODES[code]
+    return ERROR_CATEGORY_UNCLASSIFIED
+
 
 # Round-1 scheduler interval is fixed at 1 second (immediate mode, ADR-6).
 DEFAULT_INTERVAL_SECONDS = "1"
@@ -1168,6 +1265,24 @@ _PAUSE_REASON_ZH = {
     PAUSE_REASON_INSUFFICIENT_MARGIN: "保证金不足，任务已暂停，请补充后手动恢复",
     PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY: "可用数量不足，任务已暂停，请补充后手动恢复",
 }
+
+# 51169 operator message — FROZEN verbatim (10-design §2(d) / ADR-T3). Only the
+# {asset} placeholder is filled at pause time with the leg's base asset. This is
+# the pause_reason_zh for PAUSE_REASON_COLLATERAL_CAP_FULL; it must NOT be
+# reworded, and it must never be replaced by the insufficient_margin wording
+# (which would assert the false "保证金不足" the collateral cap is not).
+COLLATERAL_CAP_FULL_REASON_ZH_TEMPLATE = (
+    "{asset} 已达币安平台级抵押金额上限（该上限为全平台所有用户共享，并非本"
+    "账户保证金不足，追加资金无效）。现货腿当前无法买入保证金账户，可更换"
+    "其他币种或稍后重试；若该币上限占用未满 100%，调小金额也可能成功。"
+)
+
+
+def collateral_cap_pause_reason_zh(asset: str) -> str:
+    """The frozen 51169 operator message with its ``{asset}`` placeholder filled
+    (10-design §2(d)). ``asset`` is the base asset of the blocked coin (NOM for
+    NOMUSDT). Verbatim contract — callers must not reword the result."""
+    return COLLATERAL_CAP_FULL_REASON_ZH_TEMPLATE.format(asset=asset)
 
 
 def missing_leg_detail(missing: list[str]) -> str:
