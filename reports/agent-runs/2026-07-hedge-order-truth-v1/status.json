@@ -100,6 +100,25 @@
       "declared_constraints_met": "design-only: no product source, status.json, 70-handoff.md or PRD modified; no production-database write; no credentials; no Binance private request; no service start; no other model invoked",
       "bookkeeper_verification": "Independently verified, not accepted on the report's word: the archive commit's diff adds exactly those three files and nothing else, and git status showed no other modification. The three artifacts were committed verbatim with no bookkeeper edit.",
       "packet_version_note": "The session's footer timestamp is 2026-07-28T14:45:33, which precedes the packet revision committed at 5fe1a6f (packet rewritten 14:46). These artifacts were therefore produced against the SUPERSEDED packet and never saw 02-collateral-cap-finding.md. See status.design_staleness."
+    },
+    {
+      "role": "stage_designer (narrow revision)",
+      "provider": "claude",
+      "model": "Claude Fable 5",
+      "model_note": "primary, not the Opus 4.8 backup — reported by the operator",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "Claude Code did not expose a provider-native session id to the session; no runner-level id was captured.",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/16-design-revision.dispatch.md",
+      "raw_output_paths": [
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/11-adr.md",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/12-development-breakdown.md"
+      ],
+      "executed_at": "2026-07-28T17:29:00+08:00",
+      "executed_by": "human operator",
+      "declared_constraints_met": "design-only: no product source, status.json, 70-handoff.md, production database or live surface touched",
+      "bookkeeper_verification": "Verified independently against acfccbd, not accepted on the report's word. Every hunk lands in a dispatch-named section: 10-design.md §2(a) / §2(c) table / §2(d) / §2(e) / §5 (whole section) / §8 T2 bullet / §11 risks 4 and 7 / footer + appended 修订记录; 11-adr.md classification ADR only; 12-development-breakdown.md §3.5 test line and §4 only. No out-of-scope drift. The substance was read and checked, not skimmed."
     }
   ],
   "designer": {
@@ -134,6 +153,13 @@
     "recorded_at": "2026-07-28T07:26:35+08:00"
   },
   "design_staleness": {
+    "resolved": true,
+    "resolved_at": "2026-07-28T17:29:00+08:00",
+    "resolved_by": "narrow revision dispatch 16-design-revision.dispatch.md, executed on Claude Fable 5; both stale items closed and verified by the bookkeeper against acfccbd",
+    "resolution_summary": {
+      "S-1": "51169 moved out of insufficient_funds into its own category `collateral_cap` with `pause_reason=collateral_cap_full`, explicitly NOT reusing `insufficient_margin` because its display semantics ('保证金不足') are a false statement about 51169. Task-level outcome stays task-local pause but on new grounds, and the designer added a safety argument the bookkeeper had not made: because the cap blocks only the forward spot leg while the perp leg still fills, continuing to retry reproduces the 2026-07-27 mechanism and GROWS the naked short — so pause is loss-stopping, not just budget-saving. Roll-up priority becomes fatal > auth > collateral_cap > insufficient_funds > unclassified > absent. The 90-100% band gets no mechanism (utilisation is unreadable today, so shrink-and-retry would be guessing) but the design forbids the system from claiming quantity is irrelevant. Operator copy is frozen verbatim and states that the cap is platform-wide, that it is not this account's margin, and that adding funds does not help.",
+      "S-2": "§5 replaced wholesale by a read-only recon: the open question (does any API expose the cap or its utilisation), a four-candidate endpoint table with every endpoint name marked unverified and each row stating what it CANNOT prove, evidence at reports/api-samples/2026-07-hedge-order-truth-v1/collateral-cap-recon.md, a conditional preflight decision where 'no endpoint => deliberately unchanged, and here is why' is a complete outcome, and the discipline that a negative search must be recorded so '查过且没有' stays distinguishable from '没查'. §11 risk 7 and breakdown §4 updated: no authorization is needed to not place an order."
+    },
     "found_at": "2026-07-28T15:00:00+08:00",
     "found_by": "bookkeeper, while archiving the design artifacts",
     "what_happened": "The design session finished at 14:45:33; the packet was revised at 14:46 (commit 5fe1a6f) with T4's newly established root cause. The design therefore never read 02-collateral-cap-finding.md. Verified by content, not only by timestamp: grep for '02-collateral-cap-finding', '抵押额度' and 'Maximum Collateral' returns ZERO hits across all three artifacts.",
@@ -149,7 +175,7 @@
           "10-design.md §2(d) lines 190-192",
           "10-design.md §8 T2 bullet lines 416-418",
           "10-design.md §11 risk 4 lines 483-484",
-          "11-adr.md ADR-T2 lines 78-79, 85",
+          "11-adr.md ADR-T3 lines 78-79, 85 — the revision dispatch and this record originally said ADR-T2, a bookkeeper error: the pointer was derived from grep line numbers without checking the heading. The classification ADR is ADR-T3. Corrected 2026-07-28T17:40.",
           "12-development-breakdown.md line 125"
         ],
         "what": "The design seeds MARGIN_BUSINESS_CODES with 51169 -> insufficient_funds, calls it synonymous with UM's -2019, and maps it to pause_reason=insufficient_margin.",
@@ -168,6 +194,23 @@
         ],
         "what": "§5 specifies the paid discriminator order procedure, and two places instruct the bookkeeper to request the user's authorization for it.",
         "why_obsolete": "The order is cancelled; its pre-registered 'same 51169' branch is already reached and the app reports a maximum buy quantity of 0. No authorization is needed to NOT place an order. Replaced by a read-only recon for whether any API exposes the collateral cap."
+      }
+    ],
+    "known_residuals_after_revision": [
+      {
+        "id": "R-1",
+        "where": "10-design.md §0 目标段 (lines 11-12)",
+        "what": "The overview sentence still describes T4 as 「51169 根因判别实验」 with 「可照做的规程」, i.e. the cancelled paid experiment.",
+        "why_not_fixed": "The revision dispatch deliberately confined the diff to §2 / §5 / §8-T2 / §11 and did not authorize editing §0. The designer flagged it and declared §5 authoritative in the 修订记录. The bookkeeper will not edit a design artifact itself — that would be rewriting review evidence.",
+        "authoritative_source": "10-design.md §5 and 00-task.md §T4",
+        "action": "Disclose in the implementation and both review packets so a reviewer does not file it as a finding and an implementer does not act on it. Cosmetic; not worth a third design pass."
+      },
+      {
+        "id": "R-2",
+        "where": "11-adr.md heading numbering",
+        "what": "ADRs are numbered ADR-T1..ADR-T6 by topic order, NOT aligned to scope ids. ADR-T2 is T1's 'how to represent unknown' decision; ADR-T3 is T2's classification decision; ADR-T4 is T3's raw-response persistence. This already misled the bookkeeper once (see the corrected pointer above).",
+        "why_not_fixed": "Renumbering would rewrite the designer's artifact and invalidate every cross-reference in the design and breakdown.",
+        "action": "Both review packets must state that ADR numbers are topic-sequential and do not correspond to T-ids, so a reviewer checking 'ADR for T2' looks at ADR-T3."
       }
     ],
     "designer_finding_that_survives": {
@@ -427,7 +470,7 @@
     "candidate_for_folding_in": {
       "id": "p3-preflight-snapshot-key-contract-untested",
       "why": "Same silent-downgrade shape as T1 and T2: if compute_preflight's spot_min_qty/spot_max_qty/perp_min_qty/perp_max_qty key names drift, the suite stays green while the offline validator silently stops checking step/min/max.",
-      "decision": "left to the development breakdown; fold in only if genuinely cheap"
+      "decision": "FOLDED IN as work item W6 by 12-development-breakdown.md §5 — a pure test-file change with zero product-code diff, asserting that compute_preflight's snapshot keys match what executor._leg_qty_filters reads. The breakdown judged it genuinely cheap and thematically identical."
     },
     "staying_deferred": [
       "p3-api-samples-backslash-prose",
@@ -457,6 +500,15 @@
   ],
   "stage_followups": [
     {
+      "id": "p3-collateral-cap-band-smaller-size",
+      "found_at": "2026-07-28",
+      "source": "10-design.md §2(d), created by the design revision",
+      "detail": "Between 90% and 100% of an asset's collateral cap a smaller order can still succeed (capped at 50,000 USD equivalent). This stage deliberately builds no shrink-and-retry mechanism because the utilisation figure is unreadable today, so any retry size would be a guess. Actionable ONLY if T4's recon finds utilisation readable.",
+      "severity": "P3",
+      "blocking": false,
+      "guarded_by": "the design also forbids the system from claiming quantity is irrelevant, so the absence of the mechanism does not become a false statement"
+    },
+    {
       "id": "collateral-cap-unhedgeable-coins",
       "found_at": "2026-07-28",
       "source": "T4 root cause (02-collateral-cap-finding.md)",
@@ -466,6 +518,6 @@
       "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
     }
   ],
-  "next_action": "Human operator runs 16-design-revision.dispatch.md in a fresh Claude Fable 5 session. It is a NARROW revision: only T2's 51169 semantics (S-1, a factual error) and T4's replacement by read-only recon (S-2) change, plus the small downstream edits named in the packet. Everything else in the design stands. The bookkeeper then checks that the diff against acfccbd is confined to the named sections before setting file boundaries and preparing the implementation packet.",
-  "updated_at": "2026-07-28T15:05:00+08:00"
+  "next_action": "Design is complete and verified. Bookkeeper's next step: transcribe the breakdown's file boundaries into tasks[0].allowed_files / forbidden_files, then prepare 13-implementation.dispatch.md for claude_glm. That packet must disclose known_residuals R-1 (design §0 still describes the cancelled T4 experiment; §5 and 00-task.md govern) and R-2 (ADR numbers are topic-sequential, so T2's ADR is ADR-T3). Independently of implementation, T4's read-only recon can start: the documentation cross-read is the bookkeeper's to do, the signed GETs are the human operator's, and neither blocks the backend task.",
+  "updated_at": "2026-07-28T17:45:00+08:00"
 }

@@ -69,27 +69,44 @@ accounting" 的诚实化实现。
 
 **Context**：`domain.py:306-353` 三个码集全为负数字面量；币安在 margin 端点用
 正数码、UM/CM 用负数码（刻意区分，客服证实）。实盘 51169 落默认分支,
-`error_category=NULL`——未识别与已识别不可区分是缺陷本体。
+`error_category=NULL`——未识别与已识别不可区分是缺陷本体。**2026-07-28 补**：
+51169 的根因已立（`02-collateral-cap-finding.md`）——NOM 打满币安平台级、按
+币种、全用户共享的 Maximum Collateral Limit；不是本账户资金不足，加钱无效；
+上限时变，不得缓存为币的静态属性。
 
 **Decision**：新纯函数 `domain.classify_exchange_code(product, code, msg)`，
 两层查询：先查产品无关的共享网关层（auth/时间戳/权限歧义负数码，任何 papi
 端点都可能返回，含 margin 端点）；再按 `(product, code)` 查产品业务层——
 `UM_BUSINESS_CODES`（现有负数集合原样迁入，判定不变）与
-`MARGIN_BUSINESS_CODES`（只播种实盘证实的 `51169 → insufficient_funds`，映射
-pause_reason=`insufficient_margin`）。两层未命中 → 显式
+`MARGIN_BUSINESS_CODES`（只播种实盘证实的 `51169 → collateral_cap`——**独立
+新类别**，映射 pause_reason=`collateral_cap_full`，操作员文案冻结于 10-design
+§2(d)，说真话：平台抵押上限已满、现货腿暂时买不进保证金账户、换币或稍后
+重试、追加资金无效）。独立类别的理由：insufficient-funds 路径的契约是
+「a CONFIRMED insufficient balance/margin/available-quantity fact」，51169
+已被证实不是——被误述的条件并不比未分类更好。两层未命中 → 显式
 `error_category="unclassified"` 落库（控制流同今日默认分支：非致命计数），NULL
 从此只表示「无业务码」。pair 结算时按
-`fatal > auth > insufficient_funds > unclassified > absent` 优先级把腿分类上卷
-到 attempt 行。
+`fatal > auth > collateral_cap > insufficient_funds > unclassified > absent`
+优先级把腿分类上卷到 attempt 行（`collateral_cap` 高于 `insufficient_funds`：
+两者都 pause，上卷取更具体的诊断）。
 
-**Consequences**：唯一判定变化是 51169（计数 → task-local pause，更严）；全部
-负数码判定由回归矩阵锁定不变；未来任何未列出的 margin 码可见、可追溯；新增
-margin 码进表需要样本证据（真相纪律）。
+**Consequences**：唯一判定变化是 51169（计数 → task-local pause，更严）——
+pause 的依据是上限事实本身而非 -2019 的语义：上限在任务重试窗口内不会清空，
+且它只挡正向现货腿、perp 腿不受影响，继续重试会重复「perp 成交 / spot 被拒」
+的裸空增长机制。90–100% 占用带内更小的单仍可能成功（单笔上限 50,000 USD
+等值）：分类本身与数量无关，但文案不得声称「任何数量都不行」；缩量重试不在
+本 stage（follow-up `p3-collateral-cap-band-smaller-size`）。上限时变：不缓存
+为币的静态属性、不永久拉黑；pause 为任务级、可恢复。全部负数码判定由回归
+矩阵锁定不变；未来任何未列出的 margin 码可见、可追溯；新增 margin 码进表
+需要样本证据（真相纪律）。
 
-**Rejected**：按符号分流（符号只提示产品不给语义，且 margin 端点也发负数网关
-码如 -1021）；单张扁平合并表（跨产品同值不同义污染 + 规则的核实对象不可追溯）;
-每端点独立全套表（网关码重复、漂移后不一致）；只加 51169 字面量
-（`00-task.md` 明文不充分）。
+**Rejected**：`51169 → insufficient_funds` + pause_reason
+`insufficient_margin`（本 ADR 初稿方案，2026-07-28 被
+`02-collateral-cap-finding.md` 推翻——会向操作员断言「保证金不足」这一伪
+事实，诱导无效的加钱动作）；按符号分流（符号只提示产品不给语义，且 margin
+端点也发负数网关码如 -1021）；单张扁平合并表（跨产品同值不同义污染 + 规则的
+核实对象不可追溯）; 每端点独立全套表（网关码重复、漂移后不一致）；只加
+51169 字面量（`00-task.md` 明文不充分）。
 
 **与既有 ADR 的关系**：amendment 21 的 pause/stop/advisory 控制流全部不变；
 `single_leg_exposure` 维持 ADVISORY（用户 2026-07-28 裁定）。
@@ -174,6 +191,6 @@ null；每行改动同事务写 `data_migration` 审计事件；fixture 测试�
 当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md, 11-adr.md, 12-development-breakdown.md
-本地北京时间: 2026-07-28 14:45:33 CST
+本地北京时间: 2026-07-28 17:29 CST（ADR-T3 于此时刻按 16-design-revision.dispatch.md 修订；其余 ADR 为 14:45:33 原稿）
 下一步模型: bookkeeper
-下一步任务: 归档三份原始设计产物，不要实现代码
+下一步任务: 归档修订后的三份产物并核对 diff 是否只落在指定章节

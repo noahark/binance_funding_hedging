@@ -122,8 +122,11 @@ python3 -m pytest \
 - T1：post-2026-07-14 UM 响应形状（2026-07-27 实测形状为参照）不产生零名义;
   confirm 失败 → NULL + 非终态；margin POST 路径不变；`_leg_final_fields`
   规则表；aggregate NULL 跳过。
-- T2：正数 fatal / 正数 insufficient（51169 → pause + `insufficient_margin`）/
-  正数未列出（`unclassified`）/ 负数码全量回归矩阵 / attempt 上卷。
+- T2：正数 fatal（注入表测机制）/ 正数 insufficient-funds（margin 表内暂无
+  实证码，注入表测机制）/ `51169 → collateral_cap`（task-local pause +
+  `pause_reason=collateral_cap_full` + 10-design §2(d) 冻结文案逐字断言，
+  不落 `insufficient_margin`）/ 正数未列出（`unclassified`）/ 负数码全量
+  回归矩阵 / attempt 上卷（含 `collateral_cap` 位次）。
 - T3：拒单 msg 可从库中查出；成功单也有 raw 行；截断；raw 写失败不改业务结果;
   脱敏断言。
 - T5：**服务级实盘路径**测试（`_dispatch_live` 全链路断言真实 ts；只测
@@ -151,10 +154,15 @@ W0 未落地时 T1 按文档形状实现并显式标注；表重建迁移只在�
 
 ## 4. T4 的位置
 
-T4 **不是实现工作**（`status.json.tasks[].note` 已记）。规程与解读已钉死在
-10-design §5；下一步是 bookkeeper 向用户正式请求授权
-（`scope.T4.authorization.requested` 现为 false）。批准 → human operator 按
-规程执行并落样本；拒绝/顺延 → 记 follow-up，preflight 不动，不阻塞本任务卡。
+T4 **不是实现工作**（`status.json.tasks[].note` 已记）。付费判别实验已于
+2026-07-28 取消（根因已立：`02-collateral-cap-finding.md`；结果已知，下单是
+花真钱确认已知答案）——**不下单不需要请求任何用户授权**。剩余工作 = 只读
+recon，规程钉死在 10-design §5：公开文档核读可由 bookkeeper 完成；签名 GET
+由 human operator 执行；证据落
+`reports/api-samples/2026-07-hedge-order-truth-v1/collateral-cap-recon.md`。
+preflight（`domain.py:806-825`）在 recon 回答落盘前一行不动；「preflight
+有意不动，理由如下」是完整可验收的 T4 结局。recon 与 backend 任务卡互不
+阻塞。
 
 ## 5. 上一 stage 遗留 p3 的折入判断
 
@@ -184,6 +192,6 @@ deferred——全是 UI/文案面，会把数据真实性 diff 搅宽。
 当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md, 11-adr.md, 12-development-breakdown.md
-本地北京时间: 2026-07-28 14:45:33 CST
+本地北京时间: 2026-07-28 17:29 CST（§3.5 T2 测试行与 §4 于此时刻按 16-design-revision.dispatch.md 修订；其余为 14:45:33 原稿）
 下一步模型: bookkeeper
-下一步任务: 归档三份原始设计产物，不要实现代码
+下一步任务: 归档修订后的三份产物并核对 diff 是否只落在指定章节

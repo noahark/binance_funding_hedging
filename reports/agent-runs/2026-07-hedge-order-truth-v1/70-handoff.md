@@ -11,13 +11,16 @@ current_branch:  stage/2026-07-hedge-order-truth-v1
 head:            acfccbd (raw design artifacts archived) + this bookkeeping commit
 worktree:        clean
 rework_count:    0 / 3
-design:          received 2026-07-28 14:45:33, archived verbatim at acfccbd.
-                 Produced against the SUPERSEDED packet — it never saw
-                 02-collateral-cap-finding.md. Two stale items, see
-                 status.design_staleness. NOT re-run; narrow revision only.
-next_action:     human operator runs 16-design-revision.dispatch.md in a
-                 fresh Claude Fable 5 session
-next_model:      claude (Fable 5, backup Opus 4.8)
+design:          COMPLETE. Original received 14:45:33 (archived verbatim at
+                 acfccbd) against the superseded packet; narrowly revised
+                 17:29 on Fable 5. Both stale items closed and the diff
+                 verified confined to the named sections. Two known
+                 cosmetic residuals: status.design_staleness.known_residuals
+                 (R-1 §0 stale T4 sentence, R-2 ADR numbers are topic-
+                 sequential, not T-id aligned).
+next_action:     bookkeeper transcribes file boundaries into status.tasks[0]
+                 and prepares 13-implementation.dispatch.md for claude_glm
+next_model:      claude_glm (glm-5.2[1m]) once that packet exists
 blockers:        none
 ```
 
@@ -116,7 +119,9 @@ that the `DELETE` endpoints lost the same fields — relevant to the future clos
 stage.
 
 It was produced 45 seconds before the packet revision that carried T4's root
-cause, so two items are stale (`status.design_staleness`):
+cause, so two items **were** stale. Both were closed by the narrow revision of
+17:29 (`status.design_staleness.resolution_summary`). What follows is what they
+were and how they were fixed:
 
 - **S-1, a factual error.** The design seeds `51169 → insufficient_funds`, calls
   it synonymous with UM's `-2019`, and maps it to
@@ -128,20 +133,39 @@ cause, so two items are stale (`status.design_staleness`):
   The *structure* of T2 — `(product, code)` keyed tables, gateway layer first,
   explicit `unclassified`, conservative seeding, attempt roll-up — is unaffected
   and good.
+  **Fixed**: `51169` now has its own category `collateral_cap` with
+  `pause_reason=collateral_cap_full`, frozen truthful Chinese copy, and a
+  roll-up priority above `insufficient_funds`. The revision also added a safety
+  argument the bookkeeper had missed: because the cap blocks only the forward
+  spot leg while the perp leg still fills, retrying reproduces the 2026-07-27
+  mechanism and **grows the naked short** — so pausing is loss-stopping, not
+  merely budget-saving.
 - **S-2, obsolete.** §5's paid discriminator procedure, plus two places telling
   the bookkeeper to request authorization for it.
+  **Fixed**: §5 replaced by a read-only recon with a four-candidate endpoint
+  table (every endpoint name marked unverified, each row stating what it cannot
+  prove), a conditional preflight decision where "deliberately unchanged, and
+  here is why" is a complete outcome, and the discipline that a negative search
+  must be recorded so 「查过且没有」 stays distinguishable from 「没查」.
 
-Everything else stands. The revision is narrow by design; `16-design-revision.dispatch.md`
-names the exact sections and warns that drift outside them is visible against
-`acfccbd`.
+Everything else stands, unchanged and unreviewed by the revision.
+
+## Two residuals to carry into every downstream packet
+
+- **R-1** — `10-design.md` §0's overview still describes T4 as the cancelled
+  paid experiment. §5 and `00-task.md` §T4 govern. Not fixed because the
+  revision's diff was deliberately confined to §2/§5/§8/§11, and the bookkeeper
+  does not edit design artifacts. Disclose so no reviewer files it as a finding
+  and no implementer acts on it.
+- **R-2** — `11-adr.md` numbers ADRs by topic, not by T-id. **T2's ADR is
+  `ADR-T3`**; `ADR-T2` is T1's representation decision and `ADR-T4` is T3's
+  persistence decision. This already misled the bookkeeper once.
 
 ## Sequence from here
 
-1. ▶ Human operator runs `16-design-revision.dispatch.md` → revised
-   `10-design.md`, `11-adr.md`, `12-development-breakdown.md`.
-2. Bookkeeper checks the diff against `acfccbd` is confined to the named
-   sections, archives, sets file boundaries in `status.json`, prepares the
-   implementation packet.
+1. ▶ Bookkeeper transcribes the breakdown's boundaries into
+   `status.tasks[0].allowed_files` / `forbidden_files` and prepares
+   `13-implementation.dispatch.md` for `claude_glm`, disclosing R-1 and R-2.
 3. Human operator runs the implementation packet in Claude-GLM.
 4. Bookkeeper verifies boundaries, commits evidence, computes the fingerprint,
    runs `scripts/validate-stage.py 2026-07-hedge-order-truth-v1 --phase pre-review`.

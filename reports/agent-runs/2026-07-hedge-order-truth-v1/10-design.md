@@ -148,9 +148,20 @@ NULL 腿改为**跳过 notional 求和并在该 bucket 上置** `avg_price_incom
    - `UM_BUSINESS_CODES`：现有负数集合原样迁入（-2010/-2019/-3041/-1013/
      -11xx filter 族），判定完全不变；
    - `MARGIN_BUSINESS_CODES`：正数码表，**只播种已被实盘证实的一条**：
-     `51169 → insufficient_funds`（保证金/折算不足族，与 UM 的 -2019 同义，
-     沿用既有 task-local pause 链路）。未经样本证实的 margin 码不预填——
-     本 stage 的纪律是不把文档猜测写成分类事实。
+     `51169 → collateral_cap`（**独立新类别**，依据
+     `02-collateral-cap-finding.md`：NOM 已打满币安平台级、按币种、全用户
+     共享的 Maximum Collateral Limit，margin BUY 因该币抵押容量为零被拒——
+     **不是**本账户资金/保证金不足，加钱无效）。未经样本证实的 margin 码
+     不预填——本 stage 的纪律是不把文档猜测写成分类事实。
+
+   **为什么是独立类别而不是 insufficient_funds 的子原因**：store 对
+   insufficient-funds 路径的文档承诺是「a CONFIRMED insufficient
+   balance/margin/available-quantity fact」，而 51169 已被证实**不是**本
+   账户的余额/保证金事实——归入该类会让类别名对着库里的行说假话，操作员
+   看到的会是「保证金不足」这个伪结论。本 stage 的纪律是未识别与已识别必须
+   可区分；同理，**被误述的条件并不比未分类更好**。若做成子原因，父类别的
+   文案、pause 原因、信号派生全都要为它特判——一个覆盖父类全部语义的子原因
+   就是一个戴错名字的新类别。故独立类别 `collateral_cap`。
 3. 两层都未命中 → 显式返回 `unclassified`（见 2(b)）。
 
 `product` 由腿名派生（`spot→margin`，`perp→um`），与 1(c) 共用同一产品枚举。
@@ -178,25 +189,62 @@ NULL 腿改为**跳过 notional 求和并在该 bucket 上置** `avg_price_incom
 
 | 码 | 产品 | 今天 | 之后 | 方向 |
 | --- | --- | --- | --- | --- |
-| `51169` | margin | 未列出 → 非致命计数 | `insufficient_funds` → task-local pause | **更严** |
+| `51169` | margin | 未列出 → 非致命计数 | `collateral_cap` → task-local pause（`pause_reason=collateral_cap_full`） | **更严** |
 
 所有负数码判定不变（回归测试证明，见 §8）。`unclassified` 与今天的默认分支
 控制流相同。没有任何码从停/暂停变为非致命。
 
-### 2(d) ADVISORY 不动
+### 2(d) 51169 的任务级结果、时变性与操作员文案（ADVISORY 不动）
 
-51169 触发的 pause 走的是既有 insufficient-funds 类别链路（与 -2019 在 UM 腿
-上的行为完全对称，`service._insufficient_signal_from_legs`），与单腿与否无关。
-T2 不引入任何以 single_leg 结果为条件的暂停/冻结。`51169 → 哪个 pause_reason`：
-`insufficient_margin`（COEFF 语义上是折算后保证金不足；映射进
-`_insufficient_pause_reason` 需为 margin 码补一条显式映射）。
+**任务级结果：task-local pause（停止重试），依据是上限事实本身，不继承
+-2019 的理由。** 两条根据：
+1. 上限由全平台持仓占满，任务重试窗口（秒级）内不会清空——重试必然再收
+   51169，纯耗限频预算；
+2. 更要紧的是不对称性：上限只挡**正向**的现货买入腿（买入保证金账户），
+   **perp 腿不受影响**。继续重试会重复 2026-07-27 的机制——每对新 attempt
+   的 perp SELL 都可能成交而 spot BUY 被拒，裸空随重试增长。pause 在这里
+   是止损。
+
+选 pause 而非 stop/fatal：条件时变且按币种（见下），操作员可换币建新任务或
+待上限清空后恢复，不该把任务判死。
+
+**接线**：沿用既有 task-local pause 链路的结构（腿分类 → 信号派生 → pause），
+为新类别补一条显式映射 `collateral_cap → pause_reason="collateral_cap_full"`；
+**不复用** `insufficient_margin`——其展示语义是「保证金不足」，对 51169 是
+伪事实。文案作为 additive wire 字段随 pause 状态下发（字段名实现定）；UI 是
+本 stage 显式非目标，展示接线归既有「原话展示」follow-up，但绝不允许 51169
+走 `insufficient_margin` 的既有展示渲染出伪文案。ADVISORY 不动：pause 的
+触发条件是被拒腿上的分类事实，与单腿与否无关；T2 不引入任何以 single_leg
+结果为条件的暂停/冻结。
+
+**90–100% 占用带**：占用在 90% 与 100% 之间时，更小的单仍可能成功（单笔上限
+50,000 USD 等值），所以 51169 **不**普遍等于「任何数量都不行」——对今天的
+NOM 等于，因为 NOM 已超 100%。决定：本 stage 对该带**不做任何机制**——占用
+率当前无处可读（T4 recon 待答，§5），读不到占用率的缩量重试就是盲猜；系统
+只保证**不作反向声称**：分类与文案都不得写「与数量无关/任何数量都不行」。
+缩量重试若将来要做，记 follow-up `p3-collateral-cap-band-smaller-size`
+（仅当 recon 发现占用率可读时才可操作），本 stage 不实现。
+
+**时变性与不缓存**：上限被全平台用户共同消耗，打满的币可以之后清空、反之
+亦然。分类是对单次响应的无状态判定；任何实现不得把「该币打满」缓存为币的
+静态属性，不得永久拉黑币种；pause 为任务级、操作员可恢复。
+
+**操作员文案（冻结，逐字）**：
+
+> {asset} 已达币安平台级抵押金额上限（该上限为全平台所有用户共享，并非本
+> 账户保证金不足，追加资金无效）。现货腿当前无法买入保证金账户，可更换
+> 其他币种或稍后重试；若该币上限占用未满 100%，调小金额也可能成功。
+
+`{asset}` 为币种占位符。该文案是 `pause_reason="collateral_cap_full"` 的
+展示文案，实现与消费方不得改写措辞。
 
 ### 2(e) attempt 行上卷：做
 
 **决策**：`resolve_attempt` / `finalize_attempt` / `settle_attempt_no_counters`
 在结算 pair 时，把两腿的分类按固定优先级上卷到 attempt 行：
-`fatal > auth > insufficient_funds > unclassified > absent >（无）`，取优先级最
-高一腿的 `error_category` + `error_code`。理由：attempt 是 entries/UI 投影读的
+`fatal > auth > collateral_cap > insufficient_funds > unclassified > absent >（无）`
+（`collateral_cap` 置于 `insufficient_funds` 之上：两者都 pause，上卷取更
+具体的诊断），取优先级最高一腿的 `error_category` + `error_code`。理由：attempt 是 entries/UI 投影读的
 行，今天只有 fatal 上卷（`store.py:968`），造成实盘证据里 attempt 行全 NULL 的
 现状；上卷是纯读腿行的派生写，不改任何控制流。
 
@@ -305,52 +353,81 @@ raise。
 
 ### 4(d) 现存 1970 记录 → §6。
 
-## 5. T4 — 判别实验规程（证据闸门 + 授权闸门）
+## 5. T4 — 抵押上限的只读 recon（付费判别实验已取消）
 
 **本节不设计 preflight 修法。** preflight（`domain.py:806-825` 的
-crossMarginFree 闸门）在判别结果出来前一行不动。
+crossMarginFree 闸门）在 recon 回答前一行不动。
 
-### 5(a) 可照做的精确规程
+### 5(a) 判别实验取消
 
-- **执行者**：human operator，且需用户在本 stage 之外单独授权（花真钱）。
-- **执行前必须确认并记录的账户状态**（全部为只读签名 GET，记录原始响应）：
-  1. `GET /papi/v1/um/openOrders`（或等效确认）：**无任何在途 UM 挂单**，且
-     操作期间不启动任何对冲任务（Start 闸门虽开，`hedge_open_task` 无 running
-     卡即可；操作前用只读查询确认无 running 卡）。
-  2. `GET /papi/v1/balance`：记录 USDT 的 `crossMarginFree` 等全部字段。
-  3. `GET /papi/v1/account`：记录 `uniMMR`、`totalAvailableBalance`、
-     `accountInitialMargin`、`accountMaintMargin`。
-- **下单参数**（与 2026-07-27 失败的那笔现货腿同形，唯一差异是无并发 UM 单）：
+原 §5 规定的付费判别单（无并发 UM 单的 NOMUSDT margin BUY）已于 2026-07-28
+取消。其解读是预先钉死的：「仍然 51169 ⇒ 与并发无关：原因在抵押折算系数或
+钱包位置」——而 `02-collateral-cap-finding.md` 已从交易所自己的 UI（用户
+app 报最大买入数量为 0）与官方 FAQ 到达了这个分支。下这笔单是花真钱确认一个
+已知答案。并发争用假说未被严格证伪，但已不再需要：上限解释预测了零并发下
+完全相同的失败。**本 stage 不下任何单**；不下单不需要任何用户授权。
 
-  ```text
-  POST /papi/v1/margin/order
-  symbol=NOMUSDT  side=BUY  type=MARKET  quantity=10000
-  sideEffectType=NO_SIDE_EFFECT  newOrderRespType=RESULT
-  newClientOrderId=t4disc<YYYYMMDD>a   （≤36 字符，人工唯一）
-  ```
+### 5(b) recon 要回答的问题
 
-  数量取 10000 是为了复刻原始被拒名义规模（~15 USDT @0.00153）；判别的变量
-  必须只有「并发 UM 单」一个。
-- **采集**：原始请求参数（**去掉** signature/timestamp/apikey）、完整原始响应体
-  （成功或 51169 均全文）、下单后一次 `GET /papi/v1/margin/order`
-  （orderId/clientOrderId）订单详情全文、事后一次 `GET /papi/v1/balance`。
-- **落盘**：
-  `reports/api-samples/2026-07-hedge-order-truth-v1/t4-nomusdt-margin-buy-discriminator.md`,
-  含北京时间、每条请求的端点与参数（脱敏）、每条响应全文。
-- **附带效果（如实告知用户）**：该单只买不空；若成交，买入的 10000 NOM 现货恰好
-  对冲了现存的 SHORT 10000 NOMUSDT 裸空——不产生新敞口，反而消掉旧敞口。
+**是否存在任何 API 面，暴露按币种的抵押上限（Maximum Collateral Limit）或
+其当前占用？** 已知事实：两份官方 FAQ（见 `02-collateral-cap-finding.md`
+§Sources）都没有点名任何端点或数据页。FAQ 里的缺席**不是** API 里不存在的
+证明——这是一个开放事实，recon 完成前不得把任何一个答案写成结论。
 
-### 5(b) 结果解读（预先钉死，防事后合理化）
+### 5(c) 方法：只读，两类动作
 
-- **成功（订单被接受）⇒** 与 UM 腿的并发争用属实：同样的余额、同样的参数，无
-  并发时能过，说明 2026-07-27 的 51169 是并发的 UM 成交吃掉了现货腿所需保证金。
-- **仍然 51169 ⇒** 与并发无关：原因在抵押折算系数或钱包位置（COEFF/资产所在
-  账户），preflight 的 `crossMarginFree` 对比对象本身可疑。
-- 不存在第三种解读。任何对结果的进一步引申（包括改 preflight 的具体方案）都是
-  下一次设计的输入，不是本实验的输出。
+1. **公开文档核读**（无签名）：在币安官方 API 文档（margin/SAPI 与
+   Portfolio Margin/PAPI 两处）检索 "collateral" / "Maximum Collateral" /
+   "collateral limit" 相关端点，记录每个命中端点的字段清单与文档 URL。
+   执行者：bookkeeper 或后续设计会话均可。
+2. **签名 GET**（只读；不下单、不写库、不启停服务）：执行者：**human
+   operator**（代理不发私有请求，与 W0 同规）。
 
-**用户不授权/顺延**：T1/T2/T3/T5 照常交付，T4 记为 follow-up，preflight 不动。
-这是可接受的 stage 结局，不算失败（`00-task.md` T4 验收原文）。
+候选端点（本节依据公开文档知识列出，端点名/权限类型**均未验证**，执行时以
+当日官方文档为准，并把核对到的文档 URL 记进证据文件）：
+
+| 候选 | 能证明什么 | 不能证明什么 |
+| --- | --- | --- |
+| `GET /sapi/v1/margin/crossMarginCollateralRatio`（未验证） | 抵押折算率表是否可程序化读取 | 折算率 ≠ 上限占用；即使可读也推不出「打满」 |
+| `GET /sapi/v1/margin/available-inventory`（未验证） | 平台可借库存是否可读 | 借币侧库存 ≠ 抵押上限；NOM 显示 0 也只是暗示，不构成闸门依据 |
+| `GET /papi/v1/account`、`GET /papi/v1/balance`（已在 allowlist） | 响应里是否存在任何按币种上限/占用字段（预期没有——文档未列） | 字段缺席只说明这两个面看不见，不代表别处没有 |
+| PM FAQ 指向的 web「Trading Parameters」页 | 网页上是否展示上限/占用 | 网页数据若无官方 API 镜像，不能成为 preflight 依赖（非官方 bapi 网页端点不是契约材料） |
+
+每条的采集物：请求/检索式（脱敏）、完整响应体或文档截录、一句话判断。
+**没有命中也要记录检索式与检索范围**——「查过且没有」与「没查」必须可区分。
+
+### 5(d) 证据落盘
+
+`reports/api-samples/2026-07-hedge-order-truth-v1/collateral-cap-recon.md`，
+含北京时间、每条动作的端点/文档 URL、原始内容（脱敏）、结论一段。文档核读
+部分与签名 GET 部分可分次补齐，各自署明执行者。
+
+### 5(e) preflight 决策（条件式，recon 回答后才生效）
+
+- **存在**能暴露上限/占用（或直接暴露「最大可入/买数量」——即 app 显示的
+  那个数）的端点 ⇒ 下一个设计增量为 preflight 设计真实闸门：对照该端点的
+  实际响应形状设计，本节不预先猜测字段。闸门必须每次实时读取（见 5(f)），
+  且把「读不到」处理为「不知道」而非「通过」。
+- **不存在** ⇒ preflight **看不见这个约束，就不得假装看得见**：不加任何
+  基于猜测的闸门，处理完全归 T2（精确分类 + task-local pause + 真话文案）。
+  「preflight 有意不动，理由如下」是完整、可验收的 T4 结局；recon 结论段须
+  把这句话连同依据显式写出。
+
+两个分支里，preflight（`domain.py:806-825`）在 recon 回答落盘前都一行不动。
+
+### 5(f) 时变性
+
+上限由全平台所有用户的持仓共同占用：今天打满的币可以之后清空，反之亦然。
+任何实现（含将来可能的闸门）不得把「某币打满」缓存为币的静态属性，不得永久
+拉黑币种；每次判断必须来自当次实时读取或当次交易所拒单。
+
+### 5(g) 机制注记：现存裸空与上限的交互（仅记录事实，本 stage 不行动）
+
+原 §5(a) 曾正确指出：买入 10000 NOM 现货恰好对冲现存 SHORT 10000 NOMUSDT
+裸空、不产生新敞口。该观察现在有更尖锐的后果：**NOM 打满上限期间，这条路
+不可用**——现货买不进保证金账户，裸空无法用「买现货」压平；压平只能在 UM
+上买回永续（perp 腿不受抵押上限影响）。这是机制事实注记：解不解、何时解是
+用户的操作；平单功能属于本计划第三个 stage；两者都不在本 stage 范围。
 
 ## 6. 历史数据处置（T1(e) + T5(d) 合并结论）
 
@@ -413,9 +490,12 @@ fill/residual 数据记录自 POST 响应」的取数口径——单列为契约
   库中 quote 为 NULL；margin POST 带 `cummulativeQuoteQty` 场景直接终态。
   `_leg_final_fields` 规则表逐条单测（None→NULL、"0"→"0"、推算回退、拒绝
   缺失强转 0）。`aggregate_positions` 对 NULL 腿的跳过 + `avg_price_incomplete`。
-- **T2**：正数 fatal（表内暂无→用注入表测机制）、正数 insufficient（51169→
-  pause 链路 + `insufficient_margin` 原因）、正数未列出（`unclassified` 落库、
-  计数器行为与今天一致）、全部负数码判定不变的回归矩阵、attempt 上卷优先级。
+- **T2**：正数 fatal（表内暂无→用注入表测机制）、正数 insufficient-funds
+  （margin 表内暂无实证码→同样用注入表测机制，覆盖 `00-task.md` 该验收行）、
+  `51169 → collateral_cap`（task-local pause + `pause_reason=collateral_cap_full`
+  + §2(d) 冻结文案逐字断言，且不落 `insufficient_margin`）、正数未列出
+  （`unclassified` 落库、计数器行为与今天一致）、全部负数码判定不变的回归
+  矩阵、attempt 上卷优先级（含 `collateral_cap` 位次）。
 - **T3**：假 51169 拒单 → `hedge_open_raw_response` 行可查出 `business_msg`
   与全文 body；成功单同样有行；截断标志；raw 写失败（注入抛错的 store 方法）
   不改变 attempt/leg/task 任何业务结果；脱敏断言（§3(d)）。
@@ -480,21 +560,46 @@ backend/tests/test_live_hedge_executor.py
    margin 成交前，margin 腿金额契约标记「documented, unverified live」。
 3. **表重建迁移作用于生产库（下次重启时）** —— 单事务、幂等、fixture 测试；
    风险窗口是重启瞬间，失败则事务回滚、旧表原样。
-4. **51169 → pause 的行为变化** —— 有意变严（对齐 -2019 的既有语义），已在
-   §2(c) 枚举；评审须确认用户对「margin 保证金不足现在会暂停任务」无异议。
+4. **51169 → pause 的行为变化** —— 有意变严，依据是平台级抵押上限事实
+   （`02-collateral-cap-finding.md`），已在 §2(c) 枚举；评审须确认用户对
+   「触发平台抵押上限的币会暂停任务（文案见 §2(d)：换币或稍后重试、追加
+   资金无效）」无异议。**不是**「margin 保证金不足会暂停任务」——那个提法
+   的前提已被证伪。
 5. **金额未知时 pair 结算推迟** —— 有意（真实未知不该结算）；极端情况需操作员
    介入，与今天 UNKNOWN 腿一致，无新增停摆模式。
 6. **wire 上 `cumulative_quote_amt` 可为 null** —— 前端展示未知值的方式属
    既有「原话展示」follow-up；本 stage 只保证不骗。
-7. **T4 授权未请求**（`status.json.scope.T4.authorization.requested=false`）——
-   规程已备好（§5），由 bookkeeper 向用户正式请求授权，批准与否均不阻塞
-   T1/T2/T3/T5。
+7. **T4 recon 未执行** —— 付费判别实验已取消（§5(a)），本 stage 不下单，
+   不下单不需要任何授权；剩余只读 recon 的签名 GET 部分需 human operator
+   排期，文档核读部分 bookkeeper 即可做。recon 迟迟不做时 preflight 保持
+   不动是安全默认（看不见的约束不假装看见），不阻塞 T1/T2/T3/T5。
+
+## 修订记录
+
+- **2026-07-28 17:29 CST，窄幅修订**（执行模型：Claude Fable 5，依据
+  `16-design-revision.dispatch.md`）。原设计产于 14:45:33，未见 14:46 才入
+  packet 的 `02-collateral-cap-finding.md`（NOM 打满平台级抵押上限）。本次
+  修订仅限以下章节，其余原样：
+  - **§2(a)/(c)/(d)/(e)**：`51169` 由 `insufficient_funds`（pause_reason
+    `insufficient_margin`）改为独立新类别 `collateral_cap`（pause_reason
+    `collateral_cap_full`）——原归类是事实错误：51169 不是本账户资金不足，
+    是平台级按币种抵押上限打满，加钱无效。补 90–100% 占用带、时变不缓存、
+    冻结中文文案；上卷优先级插入 `collateral_cap`。
+  - **§5**：付费判别实验取消（结果已知，花真钱确认已知答案），整节替换为
+    只读 recon 规程（上限/占用是否有 API 可见面）+ 条件式 preflight 决策 +
+    现存裸空的机制注记。
+  - **§8 T2 测试行、§11 风险 4/7**：随上述决定同步。
+  - 同批修订 `11-adr.md` 的分类 ADR（文件内编号 **ADR-T3**；dispatch 称
+    ADR-T2 系笔误，ADR 编号与任务号本就错位）与
+    `12-development-breakdown.md` §3.5 T2 测试行、§4。
+  - 注：§0 目标段仍保留立项时对 T4 的一句旧描述，dispatch 将修订面限定于
+    §2/§5/§8-T2/§11，未授权改 §0；以本文件 §5 为准。
 
 ---
 
 当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
 Session ID 来源: unavailable
 原始输出路径: reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md, 11-adr.md, 12-development-breakdown.md
-本地北京时间: 2026-07-28 14:45:33 CST
+本地北京时间: 2026-07-28 17:29 CST
 下一步模型: bookkeeper
-下一步任务: 归档三份原始设计产物，不要实现代码
+下一步任务: 归档修订后的三份产物并核对 diff 是否只落在指定章节
