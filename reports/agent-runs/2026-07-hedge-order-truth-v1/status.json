@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "designing",
+  "status": "implementing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -51,8 +51,15 @@
     },
     "reviewer_pool": {
       "at": "2026-07-28",
-      "available": ["codex", "claude_glm", "claude", "grok"],
-      "unavailable": ["kimi"],
+      "available": [
+        "codex",
+        "claude_glm",
+        "claude",
+        "grok"
+      ],
+      "unavailable": [
+        "kimi"
+      ],
       "source": "carried from 2026-07-hedge-open-live-hardening-v1 status; kimi quota still not recovered"
     },
     "codex_review_1_enablement": {
@@ -224,7 +231,7 @@
       "task_id": "backend",
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
-      "status": "not_dispatched",
+      "status": "dispatch_prepared",
       "dispatched_at": null,
       "note": "Provisional at intake; the development breakdown fixes the final owner split and may split this into more than one task."
     }
@@ -270,21 +277,101 @@
         "provider": "claude_glm",
         "model": "glm-5.2[1m]"
       },
-      "scope": ["T1", "T2", "T3", "T5"],
-      "allowed_files": [],
-      "forbidden_files": [],
-      "dependencies": [],
+      "scope": [
+        "T1",
+        "T2",
+        "T3",
+        "T5",
+        "W6 fold-in"
+      ],
+      "work_items_in_order": [
+        "W1 T2 classification",
+        "W2 T5 timestamp",
+        "W3 T3 raw persistence",
+        "W4 T1 fill source",
+        "W5 ADR-T6 historical migration",
+        "W6 preflight snapshot key contract test"
+      ],
+      "allowed_files": [
+        "backend/hedge_open_tasks/domain.py",
+        "backend/hedge_open_tasks/store.py",
+        "backend/hedge_open_tasks/service.py",
+        "backend/hedge_open_tasks/executor.py",
+        "backend/services/live_hedge_executor.py",
+        "backend/tests/test_hedge_domain.py",
+        "backend/tests/test_hedge_store.py",
+        "backend/tests/test_hedge_service.py",
+        "backend/tests/test_hedge_executor.py",
+        "backend/tests/test_hedge_task_local.py",
+        "backend/tests/test_hedge_api.py",
+        "backend/tests/test_live_hedge_executor.py",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt"
+      ],
+      "allowed_files_source": "12-development-breakdown.md §3.1, identical to 10-design.md §10. The two report paths are added by the bookkeeper because the implementer must write them.",
+      "forbidden_files": [
+        "backend/services/hedge_open_live_client.py",
+        "backend/services/binance_signing.py",
+        "backend/hedge_open_tasks/wire_constraints.py",
+        "backend/hedge_open_tasks/scheduler.py",
+        "backend/tests/test_hedge_open_live_client.py",
+        "backend/tests/test_hedge_purity.py",
+        "frontend/**",
+        "backend/borrow_tasks/**",
+        "backend/app/server.py",
+        "backend/config.py",
+        "schemas/**",
+        "scripts/**",
+        "docs/**",
+        "data/**",
+        "reports/**",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/status.json",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/70-handoff.md"
+      ],
+      "forbidden_files_note": "Anything not in allowed_files is forbidden by default; ask the bookkeeper first. test_hedge_open_live_client.py and test_hedge_purity.py are must-run but must-not-modify — they have to pass unchanged. hedge_open_live_client.py is locked: needing to change it means a contract amendment, so stop and hand back rather than widening the allowlist.",
+      "dependencies": [
+        "W0 (strongly recommended, not a hard block) — see status.w0_prerequisite"
+      ],
       "reviewer": "codex",
       "implementation_report_path": "20-implementation.md",
-      "implementation_status": "not_started",
-      "base_sha": null,
+      "implementation_status": "dispatch_prepared",
+      "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
       "head_sha": null,
       "diff_fingerprint": null,
       "test_evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
-      "note": "File boundaries are deliberately empty at intake; the development breakdown sets them. T4 is not listed because it is evidence-gated and is not implementation work until its discriminator has run."
+      "note": "T4 is not in scope for this task: its paid experiment was cancelled and its remaining work is a read-only recon that runs independently and blocks nothing here."
     }
   ],
-  "bookkeeper_added_checkpoints": [],
+  "bookkeeper_added_checkpoints": [
+    {
+      "id": "M-1",
+      "why": "12-development-breakdown.md §3.4 writes the deterministic test command as `python3 -m pytest`. On this machine `python3` is the system Python 3.9.6, while the repository's interpreter is `.venv/bin/python` (3.11.15) — which is what the previous stage's 60-test-output.txt actually used. Copying §3.4 verbatim would run against the wrong interpreter or fail outright.",
+      "correction": "The implementation packet uses `.venv/bin/python -m pytest`. This is a mechanical interpreter correction, not a change to the design's test obligations: the suite list, the tee target and the full-repo regression are exactly as §3.4 specifies.",
+      "disclosed_rather_than_silent": true,
+      "recorded_in": [
+        "13-implementation.dispatch.md"
+      ]
+    },
+    {
+      "id": "M-2",
+      "why": "Two design residuals could mislead the implementer if not restated at dispatch time: 10-design.md §0 still describes T4 as the cancelled paid experiment (R-1), and 11-adr.md numbers ADRs by topic so T2's ADR is ADR-T3, not ADR-T2 (R-2).",
+      "correction": "Both are disclosed in the implementation packet and must be disclosed in both review packets.",
+      "recorded_in": [
+        "13-implementation.dispatch.md"
+      ]
+    }
+  ],
+  "w0_prerequisite": {
+    "id": "W0",
+    "what": "One read-only signed GET /papi/v1/um/order for the existing real order (symbol=NOMUSDT, origClientOrderId=hgd1a45d5b7df0423a8840d72556767f82p, or orderId=888412130), raw body redacted of headers/signature, landed at reports/api-samples/2026-07-hedge-order-truth-v1/um-order-detail-post-removal-sample.md",
+    "why_it_matters": "It is the evidence for ADR-T1's contract amendment and it tests T1's CORE UNVERIFIED ASSUMPTION — that the order-detail GET still carries cumQuote/avgPrice after Binance removed them from the POST response. All of T1 is designed on that inference.",
+    "cost": "read-only, free, places no order",
+    "executor": "human operator — agents do not issue private requests",
+    "gate_semantics": "Strongly recommended before implementation and, at the latest, before review-1. NOT a hard block: if deferred, T1 is implemented to the documented GET shape with the NULL representation as the backstop for a wrong assumption, and a later sample that disagrees routes to a fix round.",
+    "falsification_branch": "If the sample proves the GET also lacks the fields, STOP T1's implementation and return to the design layer for the userTrades contract amendment pre-declared in ADR-T1's Rejected section. The implementer must not widen the allowlist to reach it.",
+    "side_benefit": "The sample's cumQuote is the true notional of leg id=6. It is kept as evidence only; the production row still goes to NULL per ADR-T6 and is not backfilled.",
+    "status": "not_done"
+  },
   "complexity": {
     "classification": "MEDIUM",
     "direction_panel_required": false,
@@ -322,8 +409,15 @@
         "announced": "2026-07-13",
         "effective": "2026-07-14",
         "source": "Binance Portfolio Margin changelog, verified 2026-07-27",
-        "removed_fields": ["cumBase", "cumQuote", "avgPrice"],
-        "endpoints": ["POST /papi/v1/um/order", "POST /papi/v1/cm/order"],
+        "removed_fields": [
+          "cumBase",
+          "cumQuote",
+          "avgPrice"
+        ],
+        "endpoints": [
+          "POST /papi/v1/um/order",
+          "POST /papi/v1/cm/order"
+        ],
         "margin_unaffected": "the margin endpoint still returns cummulativeQuoteQty"
       }
     },
@@ -360,7 +454,11 @@
         "hedge_open_leg has error_code/error_category but no message or payload column",
         "hedge_open_log records request params only, never the response"
       ],
-      "design_open_questions": ["storage shape", "retention", "redaction"]
+      "design_open_questions": [
+        "storage shape",
+        "retention",
+        "redaction"
+      ]
     },
     "T4": {
       "severity": "P2",
@@ -518,6 +616,6 @@
       "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
     }
   ],
-  "next_action": "Design is complete and verified. Bookkeeper's next step: transcribe the breakdown's file boundaries into tasks[0].allowed_files / forbidden_files, then prepare 13-implementation.dispatch.md for claude_glm. That packet must disclose known_residuals R-1 (design §0 still describes the cancelled T4 experiment; §5 and 00-task.md govern) and R-2 (ADR numbers are topic-sequential, so T2's ADR is ADR-T3). Independently of implementation, T4's read-only recon can start: the documentation cross-read is the bookkeeper's to do, the signed GETs are the human operator's, and neither blocks the backend task.",
-  "updated_at": "2026-07-28T17:45:00+08:00"
+  "next_action": "Human operator runs 13-implementation.dispatch.md in a fresh write-capable Claude-GLM session (glm-5.2[1m]) on branch stage/2026-07-hedge-order-truth-v1. In parallel and independently: W0 (one read-only signed GET of the existing real order — see status.w0_prerequisite; human operator only) and T4's read-only collateral-cap recon (documentation cross-read = bookkeeper, signed GETs = human operator). Neither blocks the backend task. When the implementer stops, the bookkeeper does R4 boundary reconciliation, commits evidence, computes the diff fingerprint, runs scripts/validate-stage.py --phase pre-review, then dispatches review-1 to codex in a fresh read-only session.",
+  "updated_at": "2026-07-28T18:05:00+08:00"
 }
