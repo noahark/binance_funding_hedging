@@ -8,10 +8,14 @@ status:          designing
 stage_branch:    stage/2026-07-hedge-order-truth-v1
 branch_base:     ecc38418f52b525eb61bf1c72b9b2b41c26130ef (local main)
 current_branch:  stage/2026-07-hedge-order-truth-v1
-head:            see git; intake commit only
-worktree:        clean at intake
+head:            acfccbd (raw design artifacts archived) + this bookkeeping commit
+worktree:        clean
 rework_count:    0 / 3
-next_action:     human operator runs 10-design-and-breakdown.dispatch.md in a
+design:          received 2026-07-28 14:45:33, archived verbatim at acfccbd.
+                 Produced against the SUPERSEDED packet — it never saw
+                 02-collateral-cap-finding.md. Two stale items, see
+                 status.design_staleness. NOT re-run; narrow revision only.
+next_action:     human operator runs 16-design-revision.dispatch.md in a
                  fresh Claude Fable 5 session
 next_model:      claude (Fable 5, backup Opus 4.8)
 blockers:        none
@@ -101,11 +105,42 @@ apply them:
 - Whether `p3-preflight-snapshot-key-contract-untested` (carried from the
   previous stage) is cheap enough to fold in.
 
+## The design, and the one error in it
+
+`10-design.md` / `11-adr.md` / `12-development-breakdown.md` are archived verbatim
+at `acfccbd`. The work is strong — notably §6's historical-data migration
+(rule-based rather than row-specific, refuses network backfill, turns a `FILLED`
+leg's fake `0` notional into `NULL` because "we do not know" is the honest answer)
+and §9's section-by-section review of the stale recon, which additionally caught
+that the `DELETE` endpoints lost the same fields — relevant to the future close
+stage.
+
+It was produced 45 seconds before the packet revision that carried T4's root
+cause, so two items are stale (`status.design_staleness`):
+
+- **S-1, a factual error.** The design seeds `51169 → insufficient_funds`, calls
+  it synonymous with UM's `-2019`, and maps it to
+  `pause_reason=insufficient_margin`. `51169` is *not* this account's margin
+  being short — NOM is above Binance's platform-wide per-asset collateral cap and
+  adding balance does nothing. The operator copy that mapping produces means
+  **保证金不足**, which is exactly the plausible-but-false substitution this stage
+  exists to eliminate. Reasonable given the packet it had; wrong now.
+  The *structure* of T2 — `(product, code)` keyed tables, gateway layer first,
+  explicit `unclassified`, conservative seeding, attempt roll-up — is unaffected
+  and good.
+- **S-2, obsolete.** §5's paid discriminator procedure, plus two places telling
+  the bookkeeper to request authorization for it.
+
+Everything else stands. The revision is narrow by design; `16-design-revision.dispatch.md`
+names the exact sections and warns that drift outside them is visible against
+`acfccbd`.
+
 ## Sequence from here
 
-1. ▶ Human operator runs `10-design-and-breakdown.dispatch.md` → `10-design.md`,
-   `11-adr.md`, `12-development-breakdown.md`.
-2. Bookkeeper archives them, sets file boundaries in `status.json`, prepares the
+1. ▶ Human operator runs `16-design-revision.dispatch.md` → revised
+   `10-design.md`, `11-adr.md`, `12-development-breakdown.md`.
+2. Bookkeeper checks the diff against `acfccbd` is confined to the named
+   sections, archives, sets file boundaries in `status.json`, prepares the
    implementation packet.
 3. Human operator runs the implementation packet in Claude-GLM.
 4. Bookkeeper verifies boundaries, commits evidence, computes the fingerprint,

@@ -79,7 +79,29 @@
     }
   },
   "embedded_reviews": {},
-  "session_receipts": [],
+  "session_receipts": [
+    {
+      "role": "stage_designer + breakdown_author",
+      "provider": "claude",
+      "model": "Claude Fable 5",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The session reported that Claude Code did not expose a provider-native session id to it; no runner-level id was captured by the human operator.",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design-and-breakdown.dispatch.md",
+      "raw_output_paths": [
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/11-adr.md",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/12-development-breakdown.md"
+      ],
+      "executed_at": "2026-07-28T14:45:33+08:00",
+      "executed_by": "human operator",
+      "archived_at": "2026-07-28T15:05:00+08:00",
+      "archive_commit": "acfccbd",
+      "declared_constraints_met": "design-only: no product source, status.json, 70-handoff.md or PRD modified; no production-database write; no credentials; no Binance private request; no service start; no other model invoked",
+      "bookkeeper_verification": "Independently verified, not accepted on the report's word: the archive commit's diff adds exactly those three files and nothing else, and git status showed no other modification. The three artifacts were committed verbatim with no bookkeeper edit.",
+      "packet_version_note": "The session's footer timestamp is 2026-07-28T14:45:33, which precedes the packet revision committed at 5fe1a6f (packet rewritten 14:46). These artifacts were therefore produced against the SUPERSEDED packet and never saw 02-collateral-cap-finding.md. See status.design_staleness."
+    }
+  ],
   "designer": {
     "provider": "claude",
     "model": "Claude Fable 5",
@@ -92,8 +114,10 @@
       "reports/agent-runs/2026-07-hedge-order-truth-v1/11-adr.md"
     ],
     "routing_reason": "The user chose codex for both review gates, which frees the Claude provider to design without creating a Review-2 conflict. Claude designed the previous two stages and carries the frozen-contract context.",
-    "executed_model": null,
-    "received_at": null,
+    "executed_model": "Claude Fable 5",
+    "status_detail": "received; narrow revision dispatched — see status.design_staleness",
+    "received_at": "2026-07-28T14:45:33+08:00",
+    "revision_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/16-design-revision.dispatch.md",
     "recorded_at": "2026-07-28T07:26:35+08:00"
   },
   "direction_synthesizer": null,
@@ -105,9 +129,51 @@
     "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design-and-breakdown.dispatch.md",
     "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/12-development-breakdown.md",
     "combined_with_design_dispatch": true,
-    "executed_model": null,
-    "received_at": null,
+    "executed_model": "Claude Fable 5",
+    "received_at": "2026-07-28T14:45:33+08:00",
     "recorded_at": "2026-07-28T07:26:35+08:00"
+  },
+  "design_staleness": {
+    "found_at": "2026-07-28T15:00:00+08:00",
+    "found_by": "bookkeeper, while archiving the design artifacts",
+    "what_happened": "The design session finished at 14:45:33; the packet was revised at 14:46 (commit 5fe1a6f) with T4's newly established root cause. The design therefore never read 02-collateral-cap-finding.md. Verified by content, not only by timestamp: grep for '02-collateral-cap-finding', '抵押额度' and 'Maximum Collateral' returns ZERO hits across all three artifacts.",
+    "artifacts_left_untouched": "The three artifacts are committed verbatim at acfccbd. The bookkeeper did not edit them; the revision goes back to the designer.",
+    "not_re_run": "T1, T3, T5, the historical-data migration (§6), the schema summary (§7), the stale-recon review (§9) and the file boundaries (§10) are unaffected and stand. Only two items are stale.",
+    "stale_items": [
+      {
+        "id": "S-1",
+        "severity": "factual error",
+        "where": [
+          "10-design.md §2(a) lines 150-153",
+          "10-design.md §2(c) line 181",
+          "10-design.md §2(d) lines 190-192",
+          "10-design.md §8 T2 bullet lines 416-418",
+          "10-design.md §11 risk 4 lines 483-484",
+          "11-adr.md ADR-T2 lines 78-79, 85",
+          "12-development-breakdown.md line 125"
+        ],
+        "what": "The design seeds MARGIN_BUSINESS_CODES with 51169 -> insufficient_funds, calls it synonymous with UM's -2019, and maps it to pause_reason=insufficient_margin.",
+        "why_wrong": "51169 is not an insufficient-funds fact about this account — NOM is above Binance's platform-wide per-asset Maximum Collateral Limit and adding balance does nothing. store's insufficient-funds path is documented as 'a CONFIRMED insufficient balance/margin/available-quantity fact', and insufficient_margin renders operator copy meaning 保证金不足. That is precisely the plausible-but-false substitution this stage exists to eliminate.",
+        "was_reasonable_at_the_time": "Yes — the code's own name is MARGIN_TRADE_COEFF_INSUFFICIENT and the packet carried no better fact. This is packet staleness, not designer error.",
+        "note": "The design's own §11 risk 4 asked review to confirm the user accepts 'margin 保证金不足现在会暂停任务'. That question's premise is false.",
+        "structure_survives": "The (product, code) keyed tables, the shared gateway layer ordering, the explicit unclassified category, conservative seeding, the attempt-row roll-up and the negative-code non-regression matrix are all unaffected and good."
+      },
+      {
+        "id": "S-2",
+        "severity": "obsolete",
+        "where": [
+          "10-design.md §5 lines 308-353",
+          "10-design.md §11 risk 7 lines 489-491",
+          "12-development-breakdown.md §4 lines 152-156"
+        ],
+        "what": "§5 specifies the paid discriminator order procedure, and two places instruct the bookkeeper to request the user's authorization for it.",
+        "why_obsolete": "The order is cancelled; its pre-registered 'same 51169' branch is already reached and the app reports a maximum buy quantity of 0. No authorization is needed to NOT place an order. Replaced by a read-only recon for whether any API exposes the collateral cap."
+      }
+    ],
+    "designer_finding_that_survives": {
+      "what": "§5(a) noted that buying 10000 NOM spot would have HEDGED the outstanding SHORT 10000 NOMUSDT rather than creating new exposure.",
+      "sharpened_consequence": "While NOM is above its cap that route is unavailable — the naked short cannot be flattened by buying spot into the margin account. Flattening it means buying back the perp on UM, which the collateral cap does not touch. Recorded as a factual mechanism note only; unwinding is the user's action and closing functionality is the programme's third stage."
+    }
   },
   "implementer": null,
   "implementers": [
@@ -400,6 +466,6 @@
       "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
     }
   ],
-  "next_action": "Human operator runs 10-design-and-breakdown.dispatch.md in a Claude Fable 5 session. The designer produces 10-design.md, 11-adr.md and 12-development-breakdown.md, and nothing else. The packet was revised 2026-07-28T14:43 after T4's root cause was established: it now carries 02-collateral-cap-finding.md as required reading, T4 is read-only recon rather than a paid experiment, and T2 has a required verdict for 51169.",
-  "updated_at": "2026-07-28T14:43:00+08:00"
+  "next_action": "Human operator runs 16-design-revision.dispatch.md in a fresh Claude Fable 5 session. It is a NARROW revision: only T2's 51169 semantics (S-1, a factual error) and T4's replacement by read-only recon (S-2) change, plus the small downstream edits named in the packet. Everything else in the design stands. The bookkeeper then checks that the diff against acfccbd is confined to the named sections before setting file boundaries and preparing the implementation packet.",
+  "updated_at": "2026-07-28T15:05:00+08:00"
 }
