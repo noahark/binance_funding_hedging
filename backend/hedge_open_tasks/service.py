@@ -1597,6 +1597,21 @@ class HedgeOpenTaskService:
             ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_confirm",
             getattr(perp, "confirm_raw_response", None), now_us,
         )
+        # T3 (§3): the UNKNOWN-POST immediate best-effort query GET (the order-detail
+        # lookup that resolved an inconclusive POST, carried on query_raw_response) is
+        # captured with its own source so the response that decided a leg's fate is
+        # never dropped. Distinct from order_post (the POST body) and order_confirm
+        # (the UM accepted-confirm); mirrors the drain path's order_query capture. A
+        # no-op when the leg carried no such GET (POST was conclusive, or the GET was
+        # itself inconclusive and the leg stayed UNKNOWN for the drain path).
+        self._persist_leg_raw(
+            ctx.task_id, attempt["id"], spot.leg, spot_cid, "order_query",
+            getattr(spot, "query_raw_response", None), now_us,
+        )
+        self._persist_leg_raw(
+            ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_query",
+            getattr(perp, "query_raw_response", None), now_us,
+        )
         if rate_limited:
             # Amendment 21: pause THIS task only. Do NOT resolve the pair — its
             # UNKNOWN legs are marked so the worker drains them, then settles the

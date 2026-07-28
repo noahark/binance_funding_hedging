@@ -267,8 +267,9 @@ class LegDispatch:
     error_code: Optional[str] = None
     error_category: Optional[str] = None
     retry_after_seconds: Optional[int] = None
-    raw_response: Optional[dict] = None  # T3 (10-design §3): sanitized POST (or best-effort query) exchange response for raw persistence
-    confirm_raw_response: Optional[dict] = None  # T1+T3 (§1(b)/§3(b)): sanitized UM inline-confirm GET response (order_detail_query source)
+    raw_response: Optional[dict] = None  # T3 (10-design §3): sanitized POST exchange response for raw persistence (source=order_post)
+    confirm_raw_response: Optional[dict] = None  # T1+T3 (§1(b)/§3(b)): sanitized UM inline-confirm GET response (source=order_confirm)
+    query_raw_response: Optional[dict] = None  # T3 (§3): sanitized order-detail GET body from the UNKNOWN-POST immediate best-effort query (source=order_query) — the response that decided the leg's fate when the POST was inconclusive; distinct from raw_response (POST) and confirm_raw_response (UM accepted confirm)
 
 
 @dataclass(frozen=True)
@@ -563,7 +564,11 @@ class LiveHedgeExecutor:
                 # surface even when the POST verdict was not itself throttled), and
                 # carry the query's resolved acceptance / error classification.
                 # The POST raw is preserved on raw_response (T3 §3(b) POST capture);
-                # any inline-confirm raw rides on confirm_raw_response.
+                # any inline-confirm raw rides on confirm_raw_response. The GET that
+                # just resolved this leg rides on query_raw_response (T3 §3) so it is
+                # persisted separately as source=order_query — never merged onto or
+                # over the POST (the GET is the only record of what happened when the
+                # POST was inconclusive).
                 return LegDispatch(
                     leg=resolved.leg,
                     dispatch_state=resolved.dispatch_state,
@@ -580,6 +585,7 @@ class LiveHedgeExecutor:
                     ),
                     raw_response=verdict.raw_response,
                     confirm_raw_response=verdict.confirm_raw_response,
+                    query_raw_response=resolved.raw_response,
                 )
         return verdict
 

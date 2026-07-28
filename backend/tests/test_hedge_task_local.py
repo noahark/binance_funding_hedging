@@ -22,6 +22,7 @@ worker synchronously through the ``_pump_worker`` test seam.
 """
 from __future__ import annotations
 
+import json
 import threading
 from decimal import Decimal
 
@@ -29,12 +30,15 @@ import pytest
 
 from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.service import HedgeOpenTaskService
+from backend.hedge_open_tasks.wire_constraints import validate_order_params
+from backend.services.hedge_open_live_client import HedgeHttpResponse
 from backend.services.live_hedge_executor import (
     LEG_ACCEPTED,
     LEG_REJECTED,
     LEG_UNKNOWN_QUERYING,
     LegDispatch,
     LiveAttemptDispatch,
+    LiveHedgeExecutor,
 )
 
 
@@ -114,6 +118,45 @@ class _RoutingExecutor:
         if self.queries:
             return self.queries.pop(0)
         return None
+
+
+def _wire_resp(http_status, body=None, transport_error=None) -> HedgeHttpResponse:
+    """A ``HedgeHttpResponse`` whose ``raw_body`` mirrors the real wire text (JSON),
+    so the persisted raw ``body`` column is non-empty and retrievable."""
+    raw_body = json.dumps(body) if isinstance(body, (dict, list)) else (body or "")
+    return HedgeHttpResponse(http_status, body, raw_body, transport_error, None)
+
+
+class _LiveWireClient:
+    """A minimal real-wire fake: scripts per-leg POST + GET ``HedgeHttpResponse``
+    objects the way the real PAPI client returns them, so
+    :class:`LiveHedgeExecutor`.dispatch drives the genuine ``_send_one_leg`` path
+    (POST classify, the UNKNOWN immediate best-effort query, and the UM inline
+    confirm). Used where :class:`_RoutingExecutor` — which fakes ``dispatch``
+    wholesale — cannot exercise the in-executor query."""
+
+    def __init__(self, *, spot_post, perp_post, spot_query, perp_query):
+        self._spot_post = spot_post
+        self._perp_post = perp_post
+        self._spot_query = spot_query
+        self._perp_query = perp_query
+        self.credentials_present = True
+
+    def post_margin_order(self, params, *, timestamp_ms, recv_window_ms=None):
+        if validate_order_params(params):
+            return _wire_resp(400, {"code": -4015, "msg": "Illegal characters in newClientOrderId."})
+        return self._spot_post
+
+    def post_um_order(self, params, *, timestamp_ms, recv_window_ms=None):
+        if validate_order_params(params):
+            return _wire_resp(400, {"code": -4015, "msg": "Illegal characters in newClientOrderId."})
+        return self._perp_post
+
+    def query_margin_order(self, symbol, cid, *, timestamp_ms, recv_window_ms=None):
+        return self._spot_query
+
+    def query_um_order(self, symbol, cid, *, timestamp_ms, recv_window_ms=None):
+        return self._perp_query
 
 
 def _leg(state, *, name="spot", order_id=None, status=None, executed="0",
@@ -523,6 +566,61 @@ def test_4f_drain_query_response_persists_with_order_query_source(tmp_path):
     assert all(r["body"] in (raw_s["body"], raw_p["body"]) for r in qrows)
     assert next(r for r in qrows if r["leg"] == "spot")["endpoint"] == D.SPOT_ORDER_PATH
     assert next(r for r in qrows if r["leg"] == "perp")["endpoint"] == D.PERP_ORDER_PATH
+
+
+def test_4h_dispatch_unknown_post_fallback_query_persists_post_and_query_raw(tmp_path):
+    """T3 §3 (review-1 P1): a POST that returns UNKNOWN (5xx) triggers an immediate
+    best-effort order-detail GET inside ``LiveHedgeExecutor._send_one_leg``. When
+    that GET resolves the leg, the raw table must hold BOTH the POST response
+    (``source=order_post``, the inconclusive 5xx) AND the fallback GET
+    (``source=order_query``, the FILLED body that decided the leg's fate). The GET
+    body was previously discarded. The perp leg's POST is conclusive, so it gets no
+    ``order_query`` row — its only GET is the UM inline confirm (``order_confirm``).
+    Order verdicts are unchanged: the fix only adds the dropped GET row."""
+    client = _LiveWireClient(
+        spot_post=_wire_resp(500, {"msg": "Service Unavailable"}),  # POST -> UNKNOWN
+        spot_query=_wire_resp(200, {                                # GET resolves it
+            "orderId": 1, "status": "FILLED", "executedQty": "0.5",
+            "cummulativeQuoteQty": "25000", "avgPrice": "50000"}),
+        perp_post=_wire_resp(200, {                                 # POST conclusive -> ACCEPTED
+            "orderId": 2, "status": "FILLED", "executedQty": "0.5"}),
+        perp_query=_wire_resp(200, {                                # UM inline confirm
+            "orderId": 2, "status": "FILLED", "cumQuote": "25000", "avgPrice": "50000"}),
+    )
+    exe = LiveHedgeExecutor(client, now_ms=lambda: 1000)
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    _step(svc, doc["id"], clock, rounds=2)
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    rows = svc.store.list_raw_responses_for_attempt(attempt["id"])
+
+    # spot: POST UNKNOWN (5xx) -> immediate fallback GET resolved it. Both the POST
+    # (5xx body) and the GET (FILLED body) persist, on distinct sources — the GET no
+    # longer overwrites the POST, nor is it dropped.
+    spot_rows = [r for r in rows if r["leg"] == "spot"]
+    assert {r["source"] for r in spot_rows} == {"order_post", "order_query"}
+    post = next(r for r in spot_rows if r["source"] == "order_post")
+    assert post["http_status"] == 500
+    query = next(r for r in spot_rows if r["source"] == "order_query")
+    assert query["http_status"] == 200
+    assert query["business_code"] is None          # 2xx FILLED: no business code (NULL)
+    assert query["business_msg"] is None
+    assert query["client_order_id"] is not None    # ties to the resendable clientOrderId
+    assert '"status": "FILLED"' in query["body"]   # GET body retrievable from the DB
+
+    # perp: conclusive POST (accepted) -> its only GET is the UM confirm. No
+    # ``order_query`` row: the in-executor fallback query never ran for this leg.
+    perp_rows = [r for r in rows if r["leg"] == "perp"]
+    assert {r["source"] for r in perp_rows} == {"order_post", "order_confirm"}
+
+    # Order verdict UNCHANGED by the fix: the immediate GET resolved the spot leg to
+    # FILLED with authoritative figures exactly as before (the fix only adds the raw
+    # row); both legs are terminal.
+    legs = svc.store.list_legs_for_attempt(attempt["id"])
+    spot_leg = next(l for l in legs if l["leg"] == "spot")
+    assert spot_leg["exchange_status"] == D.LEG_FILLED
+    assert spot_leg["cumulative_quote_amt"] == "25000"
+    assert spot_leg["terminal"] == 1
 
 
 def test_4g_raw_persist_failure_does_not_break_business_write(tmp_path):

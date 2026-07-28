@@ -214,3 +214,56 @@ Session ID 来源: unavailable
 下一步模型: bookkeeper
 下一步任务: R4 边界核对 + 证据 commit + 指纹 + pre-review 校验，然后派 review-1(codex)
 ```
+
+---
+
+# 追加章节：Review-1 P1 修复（31-fix-review-1.dispatch.md，rework_count 1/3）
+
+## 背景
+
+`30-review-1.md`（codex）P1 finding，经 bookkeeper 独立确认：当一条腿的 POST 返回 `LEG_UNKNOWN_QUERYING` 时，`LiveHedgeExecutor._send_one_leg` 会**立即**做一次 order-detail GET 来定夺该腿命运。修复前，这个即时 fallback GET 的响应被 `classify_query_response` 解析后**丢弃**——返回的 `LegDispatch` 只保留 POST 的 `raw_response`，`resolved.raw_response`（实际决定该腿命运的 GET body）没有出口。因此 `service._dispatch_live` 只写三条 raw 行（spot `order_post` / perp `order_post` / perp `order_confirm`），从未把这条即时 GET 以 `source=order_query` 落库。
+
+这正是 T3「查询订单详情的全量信息落库」最该兜住的硬场景：POST 没给出确定结论，**GET 是唯一记录**，丢了它就等于这条腿的真相不可读。drain 路径（`service.py` reconcile）早已用 `source="order_query"` 正确持久化同类 GET（见 `service.py:1147`），本修复只是让 dispatch 路径**跟随既有模式**，不发明第二套。
+
+## 改了什么（最小范围，3 文件 +144/-3）
+
+1. **`backend/services/live_hedge_executor.py`**
+   - `LegDispatch` 新增 `query_raw_response: Optional[dict] = None` 字段，承载 UNKNOWN-POST 即时 fallback GET 的 sanitized body（`source=order_query`）。与既有 `raw_response`（POST，`source=order_post`）、`confirm_raw_response`（UM accepted 后取金额的 confirm GET，`source=order_confirm`）三者语义分离、一一对应 service 的三种 raw 行。
+   - `_send_one_leg` 的 UNKNOWN 分支（line 567 附近）返回的 `LegDispatch` 增加 `query_raw_response=resolved.raw_response`。`raw_response` 仍 = `verdict.raw_response`（POST body），`confirm_raw_response` 仍 = `verdict.confirm_raw_response`。**GET 不覆盖 POST，POST 不丢失**。
+
+2. **`backend/hedge_open_tasks/service.py`**
+   - `_dispatch_live` 在既有三条 `_persist_leg_raw`（spot/perp `order_post` + perp `order_confirm`）之后，增加 spot 与 perp 各一条 `source="order_query"` 的 `_persist_leg_raw`，读 `getattr(leg, "query_raw_response", None)`。`_persist_leg_raw` 对 `None` 是 no-op，所以**只有真正发生即时 fallback GET 的腿**才会写 `order_query` 行（POST 已经确定的腿，如本测试里的 perp，不会多写）。
+
+3. **`backend/tests/test_hedge_task_local.py`**
+   - 新增 `test_4h_dispatch_unknown_post_fallback_query_persists_post_and_query_raw`（service 级，接在 `test_4f` 之后）。用真实 `LiveHedgeExecutor` + 新增最小 `_LiveWireClient`（镜像 PAPI client 的 POST/GET 接口）+ `_wire_resp`（让 `raw_body` 为真实 JSON 文本）。脚本：spot POST 500（UNKNOWN）→ 即时 GET 200 FILLED；perp POST 200 FILLED（ACCEPTED）→ confirm GET 200 FILLED。断言：
+     - spot 的 raw 行 source 集合 == `{order_post, order_query}`；POST 行 `http_status==500`，GET 行 `http_status==200`、`business_code is None`、`business_msg is None`、`client_order_id is not None`、`body` 含 `"status": "FILLED"`（GET 的 body/code/msg 均可从库检索）。
+     - perp 的 raw 行 source 集合 == `{order_post, order_confirm}`（**无 `order_query`**：perp 的 POST 已经确定，即时 fallback GET 从未对其触发）。
+     - 订单判定不变：spot 腿被即时 GET 定夺为 FILLED 且带权威金额（`exchange_status==FILLED`、`cumulative_quote_amt=="25000"`、`terminal==1`）。
+
+## 不变性确认（reviewer #3 要求）
+
+本修复是**纯增量**：被丢弃的 GET 业务字段本就已用于定夺（`_send_one_leg` 的 UNKNOWN 分支 `resolved.*` 业务字段在修复前后完全相同），修复只是补一个被丢的 raw 副本 + 一条持久化调用。因此：
+
+- **订单判定**：不变。`resolved.dispatch_state / order_id / exchange_status / executed_qty / cumulative_quote / avg_price / error_code / error_category` 在修复前后逐字相同；`leg_is_terminal`、attempt success/failed 分类、spot/perp FILLED 判定路径均未触碰（`_leg_terminal`、`_send_one_leg` 的 confirm 分支、`classify_query_response`、`classify_leg_response` 均未改）。
+- **重发规则**：不变。仍「UNKNOWN 即时 query 一次，永不 resend」，未 POST 的腿不进 drain（drain 用 `executor.query_leg`，与本次新增的 `query_raw_response` 字段无关）。
+- **限频规则**：不变。`rate_limited` / `retry_after_seconds` 的合并逻辑（`verdict.rate_limited or resolved.rate_limited`、`verdict.retry_after_seconds or resolved.retry_after_seconds`）未改，amendment-21 task-local pause 行为不受影响。
+- **raw 写失败行为**：不变。新增的 `order_query` 持久化走**同一个** `_persist_leg_raw` → `store.append_raw_response`，享有既有的绝对控制流隔离（自己的短事务，失败 swallowed + best-effort `raw_persist_failed` 事件，绝不回滚或阻断已 commit 的业务写）。
+
+## 测试证据
+
+`60-test-output.txt`（本阶段分隔标题之后）：
+- 指定套件（9 套件，含必跑禁改的 `test_hedge_open_live_client` / `test_hedge_purity`）：**317 passed**（基线 316 + test_4h）。
+- 全仓 `backend/tests`：**1062 passed in 50.92s**（基线 1061 + test_4h），无 failed/error。
+
+解释器 `.venv/bin/python`（3.11.15），全程离线确定性（fake client / fake provider / 临时 SQLite），未发任何真实 POST、未访问凭据、未动 PID 96409、未写生产库、未 commit。
+
+---
+
+```
+当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md（追加章节）/60-test-output.txt
+本地北京时间: 2026-07-28 21:52 CST
+下一步模型: bookkeeper
+下一步任务: 核验修复、重算指纹、重跑 pre-review，然后重派 review-1
+```
