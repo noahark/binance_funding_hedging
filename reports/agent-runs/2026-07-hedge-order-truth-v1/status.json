@@ -687,6 +687,22 @@
         "scope_limited_to": "guidance only — AGENTS.md bookkeeper packet-authoring section and agents/developer-discipline.md reading discipline, plus optionally docs/harness-design.md. No Hard Gate, no schemas, no validator, no workflows, no registry, so nothing can fail closed and no reviewer-binding rule moves under a reviewer's feet.",
         "codex_eligibility": "registry's codex_eligible_for_implementation_or_fix: false and AGENTS.md's 'Codex is not an implementation or fix author' both scope to STAGE DELIVERY authorship. This is harness documentation on main outside any stage, so neither bars it.",
         "isolation_constraint": "Codex is this stage's Review-1 AND Review-2 gate. If this branch reached stage/2026-07-hedge-order-truth-v1, Codex would review a diff containing its own text. The branch must not be merged into the stage branch, and main must not be merged into the stage branch while this change is on it."
+      },
+      "resolved": true,
+      "resolved_at": "2026-07-28T20:33:26+08:00",
+      "resolution": {
+        "commit": "1bcc7c2f3c0e90d059208f7a746e776b3647c41a",
+        "branch": "harness/dispatch-reading-scope-and-budget",
+        "merged_to": "main (main is now 1bcc7c2, one commit ahead of this stage's base ecc3841)",
+        "review": "waived by the user, as dispatched",
+        "executor": "codex",
+        "files": [
+          "AGENTS.md +20 — a '#### Dispatch Packet Guidance (Non-Hard-Gate)' subsection",
+          "agents/developer-discipline.md +16 — a '## 5. Reading Discipline' section"
+        ],
+        "bookkeeper_verification": "Verified independently: the commit is on main and harness/dispatch-reading-scope-and-budget and is NOT an ancestor of stage/2026-07-hedge-order-truth-v1, so the stage branch and its pinned review range are untouched and Codex-as-reviewer never sees its own authored text. Only the two intended files changed; no schema, validator, workflow, registry or reports path was touched, so nothing can fail closed.",
+        "content_check": "Holds the load-bearing points: it is explicitly non-hard-gate; it states it does not change the reviewer raw-artifacts rule nor the ban on giving reviewers only a bookkeeper narrative; it carries the 'narrow raw pointers are not summaries' clause that stops the raw-artifact rule being cited against scoping; it splits the two causes the way the evidence did (packet scoping vs the session's own reading discipline); and it makes the split threshold an operational guideline rather than a numeric gate.",
+        "stage_impact": "None. This stage does not need the new behaviour, so main is deliberately NOT merged into the stage branch (AGENTS.md). The eventual stage->main merge touches different files and needs no rebase."
       }
     },
     {
@@ -724,7 +740,7 @@
     }
   ],
   "next_action": "Human operator runs 30-review-1.dispatch.md in a FRESH read-only Codex session. Review-2 will need a SECOND, separate fresh Codex session that shares no transcript with it — binding mitigation from 15-user-authorized-codex-review-1.md, because both gates are the same provider this stage.",
-  "updated_at": "2026-07-28T20:05:00+08:00",
+  "updated_at": "2026-07-28T20:40:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
