@@ -434,3 +434,225 @@ def test_migrate_adds_new_columns_to_round1_db_and_keeps_rows(tmp_path):
     store_again = HedgeOpenStore(db)
     assert store_again.get_task("legacy")["success_count"] == 2
     store_again.close()
+
+
+# ---------------------------------------------------------------------------
+# T2 attempt-row category rollup (10-design §2(e)) — stage
+# 2026-07-hedge-order-truth-v1. The attempt row carries the truthful per-pair
+# diagnosis (e.g. 51169 -> collateral_cap) rather than the all-NULL verdict the
+# live evidence showed. The rollup is a pure derived read of the leg rows.
+# ---------------------------------------------------------------------------
+
+
+def _rejected_outcome(
+    *, attempt_id="att1", spot_cat=None, spot_code=None,
+    perp_cat=None, perp_code=None,
+) -> AttemptOutcome:
+    """A failed pair (neither orderId) whose legs may carry a classified exchange
+    code. Mirrors the live dispatch path's rejected LegDispatch shape (status /
+    filled_qty / avg_price / order_id / client_order_id + optional error_*)."""
+    spot = {"status": D.LEG_REJECTED, "filled_qty": "0", "avg_price": "0",
+            "order_id": None, "client_order_id": f"hgo-{attempt_id}-s"}
+    perp = {"status": D.LEG_REJECTED, "filled_qty": "0", "avg_price": "0",
+            "order_id": None, "client_order_id": f"hgo-{attempt_id}-p"}
+    if spot_cat is not None:
+        spot["error_category"] = spot_cat
+        spot["error_code"] = spot_code
+    if perp_cat is not None:
+        perp["error_category"] = perp_cat
+        perp["error_code"] = perp_code
+    return AttemptOutcome(
+        attempt_id=attempt_id, category=D.ATTEMPT_FAILED,
+        spot=spot, perp=perp,
+        record_payload={"transport": "dry_run_record", "posted": False,
+                        "spot_order_params": {}, "perp_order_params": {}},
+        exposure=None,
+    )
+
+
+def test_resolve_attempt_rolls_up_collateral_cap_to_attempt_row(tmp_path):
+    # The core §2(e) fix: a 51169 spot leg surfaces on the ATTEMPT row as
+    # collateral_cap (with its code), not NULL.
+    store = HedgeOpenStore(tmp_path / "h.db")
+    _create(store, task_id="t1", target=5)
+    outcome = _rejected_outcome(
+        spot_cat=D.ERROR_CATEGORY_COLLATERAL_CAP, spot_code="51169",
+    )
+    attempt = store.prepare_attempt(
+        "t1", outcome.attempt_id, D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, f"hgo-{outcome.attempt_id}-s", {"side": "BUY"},
+        f"hgo-{outcome.attempt_id}-p", {"side": "SELL"}, 1_000,
+    )
+    store.resolve_attempt(attempt["id"], outcome, 2_000)
+    row = store.get_attempt(attempt["id"])
+    assert row["error_category"] == D.ERROR_CATEGORY_COLLATERAL_CAP
+    assert row["error_code"] == "51169"
+
+
+def test_resolve_attempt_rollup_fatal_beats_collateral_cap_and_stops(tmp_path):
+    # Priority fatal > collateral_cap: a fatal perp leg wins the attempt row AND
+    # stops the task (the rollup derives fatal the same way the old single-fatal
+    # scan did, so stop semantics are unchanged).
+    store = HedgeOpenStore(tmp_path / "h.db")
+    _create(store, task_id="t1", target=5)
+    outcome = _rejected_outcome(
+        spot_cat=D.ERROR_CATEGORY_COLLATERAL_CAP, spot_code="51169",
+        perp_cat=D.ERROR_CATEGORY_FATAL, perp_code="-1013",
+    )
+    attempt = store.prepare_attempt(
+        "t1", outcome.attempt_id, D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, f"hgo-{outcome.attempt_id}-s", {"side": "BUY"},
+        f"hgo-{outcome.attempt_id}-p", {"side": "SELL"}, 1_000,
+    )
+    store.resolve_attempt(attempt["id"], outcome, 2_000)
+    row = store.get_attempt(attempt["id"])
+    assert row["error_category"] == D.ERROR_CATEGORY_FATAL
+    assert row["error_code"] == "-1013"
+    task = store.get_task("t1")
+    assert task["status"] == D.STATUS_STOPPED
+    assert task["stop_reason"] == D.STOP_REASON_EXCHANGE_FATAL
+
+
+def test_finalize_attempt_rolls_up_category_from_leg_rows(tmp_path):
+    # The reconcile/drain path: both legs were left querying, then resolved to
+    # terminal by client-ID queries. finalize_attempt rolls the leg rows' categories
+    # up to the attempt row — the 51169 spot leg surfaces as collateral_cap.
+    store = HedgeOpenStore(tmp_path / "h.db")
+    _create(store, task_id="t1", target=5)
+    attempt = store.prepare_attempt(
+        "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        "hgo-att1-p", {"side": "SELL"}, 1_000,
+    )
+    legs = {row["leg"]: row for row in store.list_legs_for_attempt(attempt["id"])}
+    store.resolve_leg_from_query(
+        legs["spot"]["id"], exchange_status=D.LEG_REJECTED, order_id=None,
+        base_qty="0", quote_amt="0", fee_amount=None, fee_asset=None,
+        now_us=2_000, terminal=True,
+        error_code="51169", error_category=D.ERROR_CATEGORY_COLLATERAL_CAP,
+    )
+    store.resolve_leg_from_query(
+        legs["perp"]["id"], exchange_status=D.LEG_REJECTED, order_id=None,
+        base_qty="0", quote_amt="0", fee_amount=None, fee_asset=None,
+        now_us=2_000, terminal=True, error_code=None, error_category=None,
+    )
+    store.finalize_attempt(attempt["id"], 3_000)
+    row = store.get_attempt(attempt["id"])
+    assert row["pair_outcome"] is not None
+    assert row["error_category"] == D.ERROR_CATEGORY_COLLATERAL_CAP
+    assert row["error_code"] == "51169"
+
+
+def test_settle_attempt_no_counters_records_rollup_without_stopping(tmp_path):
+    # A 429-settled pair (amendment 21): control flow is unchanged — counters stay
+    # skipped and the task is NOT stopped, even when a leg carries a fatal code.
+    # But §2(e) still records the truthful rolled-up diagnosis on the attempt row.
+    store = HedgeOpenStore(tmp_path / "h.db")
+    _create(store, task_id="t1", target=5)
+    attempt = store.prepare_attempt(
+        "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        "hgo-att1-p", {"side": "SELL"}, 1_000,
+    )
+    store.mark_attempt_rate_limited(attempt["id"])
+    legs = {row["leg"]: row for row in store.list_legs_for_attempt(attempt["id"])}
+    store.resolve_leg_from_query(
+        legs["spot"]["id"], exchange_status=D.LEG_REJECTED, order_id=None,
+        base_qty="0", quote_amt="0", fee_amount=None, fee_asset=None,
+        now_us=2_000, terminal=True,
+        error_code="51169", error_category=D.ERROR_CATEGORY_COLLATERAL_CAP,
+    )
+    store.resolve_leg_from_query(
+        legs["perp"]["id"], exchange_status=D.LEG_REJECTED, order_id=None,
+        base_qty="0", quote_amt="0", fee_amount=None, fee_asset=None,
+        now_us=2_000, terminal=True,
+        error_code="-1013", error_category=D.ERROR_CATEGORY_FATAL,
+    )
+    settled = store.settle_attempt_no_counters(attempt["id"], 3_000)
+    assert settled is True
+    row = store.get_attempt(attempt["id"])
+    assert row["pair_outcome"] is not None
+    # Priority fatal > collateral_cap on the recorded category...
+    assert row["error_category"] == D.ERROR_CATEGORY_FATAL
+    assert row["error_code"] == "-1013"
+    # ...yet the task is NOT stopped (429 settle never stops; a fatal fact would
+    # re-surface and stop on the next dispatch's fresh POST via resolve_attempt).
+    task = store.get_task("t1")
+    assert task["status"] != D.STATUS_STOPPED
+    assert task["stop_reason"] is None
+    assert task["fail_count"] == 0  # counters skipped
+
+
+# ---------------------------------------------------------------------------
+# T3 raw-response persistence (10-design §3) — stage 2026-07-hedge-order-truth-v1.
+# Every real exchange interaction is persisted verbatim (sanitized to the response
+# body only) so the next 51169 is explainable from the DB alone.
+# ---------------------------------------------------------------------------
+
+
+def _prepared_attempt(store, task_id="t1", attempt_id="att1"):
+    _create(store, task_id=task_id, target=5)
+    return store.prepare_attempt(
+        task_id, attempt_id, D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, f"hgo-{attempt_id}-s", {"side": "BUY"},
+        f"hgo-{attempt_id}-p", {"side": "SELL"}, 1_000,
+    )
+
+
+def test_append_raw_response_stores_body_byte_for_byte(tmp_path):
+    # 10-design §3(d): the body is the exchange RESPONSE only, persisted verbatim.
+    store = HedgeOpenStore(tmp_path / "h.db")
+    attempt = _prepared_attempt(store)
+    body = '{"code":51169,"msg":"MARGIN_TRADE_COEFF_INSUFFICIENT"}'
+    raw = {"http_status": 400, "transport_error": None, "code": "51169",
+           "msg": "MARGIN_TRADE_COEFF_INSUFFICIENT", "body": body}
+    store.append_raw_response(
+        attempt["id"], "spot", "hgo-att1-s", "order_post", D.SPOT_ORDER_PATH, raw, 2_000,
+    )
+    rows = store.list_raw_responses_for_attempt(attempt["id"])
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["attempt_id"] == attempt["id"]
+    assert r["leg"] == "spot"
+    assert r["client_order_id"] == "hgo-att1-s"
+    assert r["source"] == "order_post"
+    assert r["endpoint"] == D.SPOT_ORDER_PATH
+    assert r["http_status"] == 400
+    assert r["transport_error"] is None
+    assert r["business_code"] == "51169"
+    assert r["business_msg"] == "MARGIN_TRADE_COEFF_INSUFFICIENT"
+    assert r["body"] == body  # byte-for-byte, no rewriting
+    assert r["body_truncated"] == 0
+    assert r["captured_at_us"] == 2_000
+
+
+def test_append_raw_response_truncates_oversized_body(tmp_path):
+    # 10-design §3(c): body is capped at BODY_MAX_BYTES; the cap is signalled.
+    store = HedgeOpenStore(tmp_path / "h.db")
+    attempt = _prepared_attempt(store)
+    big = "x" * (D.BODY_MAX_BYTES + 100)
+    raw = {"http_status": 200, "transport_error": None, "code": None,
+           "msg": None, "body": big}
+    store.append_raw_response(
+        attempt["id"], "perp", None, "order_query", D.PERP_ORDER_PATH, raw, 3_000,
+    )
+    r = store.list_raw_responses_for_attempt(attempt["id"])[0]
+    assert len(r["body"]) == D.BODY_MAX_BYTES
+    assert r["body_truncated"] == 1
+
+
+def test_raw_response_table_has_no_credential_columns(tmp_path):
+    # 10-design §3(d): credentials live only on the REQUEST side; the raw table
+    # persists the response only. No signature / api key / request column exists.
+    store = HedgeOpenStore(tmp_path / "h.db")
+    cols = {
+        r["name"] for r in store._conn.execute("PRAGMA table_info(hedge_open_raw_response)")
+    }
+    for secret in ("signature", "apikey", "api_key", "x_mbx_apikey", "secret", "request_body"):
+        assert secret not in cols, f"raw table must not carry a {secret!r} column"
+    # The persisted columns are exactly the response-derived set.
+    assert cols == {
+        "id", "attempt_id", "leg", "client_order_id", "source", "endpoint",
+        "http_status", "transport_error", "business_code", "business_msg",
+        "body", "body_truncated", "captured_at_us",
+    }

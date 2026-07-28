@@ -118,12 +118,13 @@ class _RoutingExecutor:
 
 def _leg(state, *, name="spot", order_id=None, status=None, executed="0",
          quote="0", avg=None, rate_limited=False, error_code=None,
-         error_category=None, retry=None) -> LegDispatch:
+         error_category=None, retry=None, raw=None) -> LegDispatch:
     return LegDispatch(
         leg=name, dispatch_state=state, order_id=order_id, exchange_status=status,
         executed_qty=executed, cumulative_quote=quote, avg_price=avg,
         rate_limited=rate_limited, error_code=error_code,
         error_category=error_category, retry_after_seconds=retry,
+        raw_response=raw,
     )
 
 
@@ -369,6 +370,38 @@ def test_4_task_a_insufficient_funds_pauses_and_b_still_dispatches(tmp_path, cod
     assert svc.store.get_task(doc_b["id"])["status"] == D.STATUS_DONE
 
 
+def test_4c_collateral_cap_51169_pauses_with_frozen_message(tmp_path):
+    """T2 (stage 2026-07-hedge-order-truth-v1): a 51169 platform collateral-cap
+    rejection on the margin (spot) leg classifies to ``collateral_cap`` — its OWN
+    category, never ``insufficient_funds`` — and pauses THIS task with the frozen
+    ``collateral_cap_full`` reason + verbatim asset-specific message. The attempt
+    row carries the truthful diagnosis, not NULL (10-design §2(e))."""
+    exe = _RoutingExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+    svc, clock = _live_svc(tmp_path, exe, provider)
+    doc_a = _create(svc, target_n=1)
+    exe.set_script(doc_a["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_REJECTED, name="spot", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP),
+        perp=_leg(LEG_REJECTED, name="perp", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )])
+    _step(svc, doc_a["id"], clock, rounds=3)  # collateral_cap -> pause -> drain -> exit
+    task_a = svc.store.get_task(doc_a["id"])
+    assert task_a["status"] == D.STATUS_PAUSED
+    assert task_a["pause_reason"] == D.PAUSE_REASON_COLLATERAL_CAP_FULL
+    # 10-design §2(d): the operator message is FROZEN verbatim, {asset}=BTC, and
+    # is NOT the insufficient_margin ("保证金不足") wording.
+    assert task_a["pause_reason_zh"] == D.collateral_cap_pause_reason_zh("BTC")
+    # 10-design §2(e): the attempt row rolls the leg diagnosis up — collateral_cap,
+    # not NULL.
+    attempts = svc.store.list_attempts_for_task(doc_a["id"])
+    assert attempts and attempts[0]["error_category"] == D.ERROR_CATEGORY_COLLATERAL_CAP
+    assert attempts[0]["error_code"] == "51169"
+
+
 def test_4b_unconfirmed_minus_2010_stays_fatal_stop_not_pause(tmp_path):
     """User constraint 2: an UNCONFIRMED ``-2010`` (no balance proof in the
     message) is NOT mistaken for a recoverable balance pause — it stays a fatal
@@ -387,6 +420,149 @@ def test_4b_unconfirmed_minus_2010_stays_fatal_stop_not_pause(tmp_path):
     task_a = svc.store.get_task(doc_a["id"])
     assert task_a["status"] == D.STATUS_STOPPED
     assert task_a["stop_reason"] == D.STOP_REASON_EXCHANGE_FATAL
+
+
+def test_4d_live_single_leg_exposure_timestamp_is_settlement_wall_clock(tmp_path):
+    """T5 acceptance (10-design §4(b) / 00-task.md T5): on the LIVE dispatch path
+    (``service._dispatch_to_outcome``), a single-leg exposure's timestamp is the
+    settlement wall clock — NOT the 1970 epoch a forgotten ``0`` rendered. This
+    exercises the live path the bug hid behind; testing only ``executor.py`` does
+    not satisfy T5 (that path already passed ``ctx.ts_us``)."""
+    exe = _RoutingExecutor()
+    base = 1_784_447_999_000_000  # one step (+1_000_000) lands on a 2026 wall clock
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()), clock=_Clock(base))
+    doc = _create(svc, target_n=2)
+    exe.set_script(doc["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_FILLED,
+                  executed="0.5", quote="25000", avg="50000"),
+        perp=_leg(LEG_REJECTED, name="perp", order_id=None),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch -> single_leg exposure
+    settled_ts = base + 1_000_000
+    task = svc.store.get_task(doc["id"])
+    assert task["leg_exposure"] is not None
+    assert task["leg_exposure"]["ts"] == D.us_to_iso(settled_ts)
+    assert task["leg_exposure"]["ts"] != "1970-01-01T00:00:00.000000Z"
+
+
+# ---------------------------------------------------------------------------
+# 4e/4f/4g. T3 raw-response persistence (10-design §3): every POST and every drain
+# query is captured verbatim, so an unexplainable exchange reply is readable from
+# the DB alone — and a raw-persistence failure can never turn a good pair bad.
+# ---------------------------------------------------------------------------
+
+
+def test_4e_collateral_cap_51169_post_rejection_persists_raw_response(tmp_path):
+    """T3 (10-design §3(b)): a 51169 margin POST rejection is persisted verbatim.
+    The dispatch's acceptance test is ``SELECT business_code, business_msg, body
+    FROM hedge_open_raw_response`` — the next unexplainable collateral-cap reply
+    must be explainable from the DB alone, without asking Binance support. Both
+    legs' POST responses land with ``source=order_post`` and the exact body."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    raw = {"http_status": 400, "transport_error": None,
+           "code": "51169", "msg": "MARGIN_TRADE_COEFF_INSUFFICIENT",
+           "body": '{"code":51169,"msg":"MARGIN_TRADE_COEFF_INSUFFICIENT"}'}
+    exe.set_script(doc["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_REJECTED, name="spot", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP, raw=raw),
+        perp=_leg(LEG_REJECTED, name="perp", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP, raw=raw),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )])
+    _step(svc, doc["id"], clock, rounds=2)
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    rows = svc.store.list_raw_responses_for_attempt(attempt["id"])
+    assert len(rows) == 2  # one POST response per leg
+    for r in rows:
+        assert r["source"] == "order_post"
+        assert r["business_code"] == "51169"
+        assert r["business_msg"] == "MARGIN_TRADE_COEFF_INSUFFICIENT"
+        assert r["body"] == '{"code":51169,"msg":"MARGIN_TRADE_COEFF_INSUFFICIENT"}'
+        assert r["body_truncated"] == 0
+        assert r["http_status"] == 400
+    assert next(r for r in rows if r["leg"] == "spot")["endpoint"] == D.SPOT_ORDER_PATH
+    assert next(r for r in rows if r["leg"] == "perp")["endpoint"] == D.PERP_ORDER_PATH
+    # The canonical clientOrderId is captured, so the row ties to a resendable key.
+    assert next(r for r in rows if r["leg"] == "spot")["client_order_id"] is not None
+
+
+def test_4f_drain_query_response_persists_with_order_query_source(tmp_path):
+    """T3 (10-design §3(c)): the best-effort single client-ID query that drains an
+    UNKNOWN leg ALSO persists its response (``source=order_query``), so a 429 / 404
+    at reconcile time is as readable as the POST that started it. Script an
+    UNKNOWN pair (no POST raw), then resolve both legs via FILLED query responses
+    that carry raw bodies — the raw rows must be the drain GETs, not POSTs."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])  # POST UNKNOWN -> no POST raw
+    raw_s = {"http_status": 200, "transport_error": None, "code": None, "msg": None,
+             "body": '{"orderId":"s1","status":"FILLED","executedQty":"0.5"}'}
+    raw_p = {"http_status": 200, "transport_error": None, "code": None, "msg": None,
+             "body": '{"orderId":"p1","status":"FILLED","executedQty":"0.5"}'}
+    exe.queries.extend([
+        _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_FILLED,
+             executed="0.5", quote="25000", avg="50000", raw=raw_s),
+        _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_FILLED,
+             executed="0.5", quote="25000", avg="50000", raw=raw_p),
+    ])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=3)  # reconcile drains both legs -> resolve
+    assert exe.query_calls >= 2
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["business_code"] is None for r in qrows)  # 2xx, no error code
+    assert all(r["body"] in (raw_s["body"], raw_p["body"]) for r in qrows)
+    assert next(r for r in qrows if r["leg"] == "spot")["endpoint"] == D.SPOT_ORDER_PATH
+    assert next(r for r in qrows if r["leg"] == "perp")["endpoint"] == D.PERP_ORDER_PATH
+
+
+def test_4g_raw_persist_failure_does_not_break_business_write(tmp_path):
+    """T3 (10-design §3(e)): control-flow isolation is absolute. A raw-persistence
+    failure (disk full / locked) MUST NOT turn a resolved collateral_cap pair into
+    anything else — the business write stands (pair resolved, task paused), and the
+    failure is best-effort surfaced as a ``raw_persist_failed`` task event rather
+    than swallowed silently."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    raw = {"http_status": 400, "transport_error": None,
+           "code": "51169", "msg": "cap", "body": "{}"}
+    exe.set_script(doc["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_REJECTED, name="spot", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP, raw=raw),
+        perp=_leg(LEG_REJECTED, name="perp", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP, raw=raw),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )])
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("disk full")
+    svc.store.append_raw_response = _boom  # simulate persistence failure
+
+    _step(svc, doc["id"], clock, rounds=2)
+    task = svc.store.get_task(doc["id"])
+    # The business write stands: pair resolved + paused collateral_cap, NOT turned
+    # into a failure by the raw-persistence error.
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_COLLATERAL_CAP_FULL
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    assert attempt["error_category"] == D.ERROR_CATEGORY_COLLATERAL_CAP
+    # No raw row landed (the persist raised both times).
+    assert svc.store.list_raw_responses_for_attempt(attempt["id"]) == []
+    # The failure was surfaced as a best-effort audit event (not silent).
+    events = svc.store.list_task_event_logs(20, kinds=("raw_persist_failed",))
+    assert len(events) >= 1
+    assert events[0]["kind"] == "raw_persist_failed"
 
 
 # ---------------------------------------------------------------------------

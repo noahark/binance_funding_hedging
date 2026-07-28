@@ -144,6 +144,23 @@ CREATE INDEX IF NOT EXISTS idx_hedge_open_fill_task
     ON hedge_open_fill (task_id, ts_us DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_hedge_open_log_ts
     ON hedge_open_log (ts_us DESC, id DESC);
+CREATE TABLE IF NOT EXISTS hedge_open_raw_response (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    attempt_id      INTEGER NOT NULL,
+    leg             TEXT NOT NULL,
+    client_order_id TEXT,
+    source          TEXT NOT NULL,
+    endpoint        TEXT NOT NULL,
+    http_status     INTEGER,
+    transport_error TEXT,
+    business_code   TEXT,
+    business_msg    TEXT,
+    body            TEXT,
+    body_truncated  INTEGER NOT NULL DEFAULT 0,
+    captured_at_us  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_hedge_open_raw_attempt
+    ON hedge_open_raw_response (attempt_id, leg, id);
 """
 
 
@@ -861,20 +878,6 @@ class HedgeOpenStore:
             )
         return _row_to_task(row), pair_outcome, pause_reason
 
-    @staticmethod
-    def _outcome_error(outcome) -> tuple[bool, str | None, str | None, str | None]:
-        """Derive ``(fatal, stop_reason, error_code, error_reason_zh)`` from an
-        outcome (amendment rows 1–2). A live outcome whose ``error_category`` is
-        ``"fatal"`` (an exchange code for insufficient balance/margin/filter/
-        min-notional/symbol/mode) stops the task immediately. The dry-run record
-        transport carries no error category, so it is never fatal here."""
-        error_category = getattr(outcome, "error_category", None)
-        error_code = getattr(outcome, "error_code", None)
-        if error_category == "fatal":
-            stop_reason = D.STOP_REASON_EXCHANGE_FATAL
-            return True, stop_reason, error_code, D.stop_reason_zh(stop_reason)
-        return False, None, error_code, getattr(outcome, "error_reason_zh", None)
-
     def resolve_attempt(
         self, attempt_id: int, outcome: AttemptOutcome, now_us: int,
         *, leg_terminal: dict | None = None,
@@ -899,7 +902,28 @@ class HedgeOpenStore:
         The record-transport log row is written here and linked from the attempt.
         """
         category = outcome.category
-        fatal, stop_reason, error_code, error_reason_zh = self._outcome_error(outcome)
+        # Attempt-row error classification is the leg-level rollup (10-design
+        # §2(e)): the truthful per-pair diagnosis (e.g. 51169 -> collateral_cap)
+        # rather than NULL. fatal is derived from the same rollup; the outcome-
+        # level code/reason remain the fallback when no leg carries a category
+        # (the dry-run record transport's offline_constraint verdict).
+        rollup_cat, rollup_code = D.rollup_leg_error_category(
+            outcome.spot.get("error_category"), outcome.spot.get("error_code"),
+            outcome.perp.get("error_category"), outcome.perp.get("error_code"),
+        )
+        fatal = rollup_cat == D.ERROR_CATEGORY_FATAL
+        stop_reason = D.STOP_REASON_EXCHANGE_FATAL if fatal else None
+        if rollup_cat is not None:
+            error_category = rollup_cat
+            error_code = rollup_code
+            error_reason_zh = D.stop_reason_zh(stop_reason) if fatal else None
+        else:
+            error_category = getattr(outcome, "error_category", None)
+            error_code = getattr(outcome, "error_code", None)
+            error_reason_zh = (
+                D.stop_reason_zh(stop_reason) if fatal
+                else getattr(outcome, "error_reason_zh", None)
+            )
         with self._lock, self._conn:
             attempt = self._conn.execute(
                 "SELECT * FROM hedge_open_attempt WHERE id = ?", (attempt_id,)
@@ -965,7 +989,6 @@ class HedgeOpenStore:
                 task_id, category, outcome.exposure, now_us,
                 fatal=fatal, stop_reason=stop_reason,
             )
-            error_category = "fatal" if fatal else getattr(outcome, "error_category", None)
             self._conn.execute(
                 "UPDATE hedge_open_attempt SET pair_outcome = ?, log_ref = ?,"
                 " error_category = ?, error_code = ?, error_reason_zh = ?"
@@ -1047,26 +1070,28 @@ class HedgeOpenStore:
             exposure = None
             if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE:
                 exposure = self._exposure_from_legs(spot, perp, now_us)
-            # Amendment rows 1–2: a reconciled leg carrying a fatal exchange code
-            # (insufficient balance/margin/filter/etc.) stops the task. The fatal
-            # flag may live on either leg's error_category column.
-            fatal_leg = next(
-                (row for row in legs if row["error_category"] == "fatal"), None
+            # Attempt-row error classification is the leg-level rollup
+            # (10-design §2(e)): the truthful per-pair diagnosis (e.g. 51169 ->
+            # collateral_cap) rather than the bare fatal verdict. fatal is derived
+            # from the same rollup — fatal has the highest priority, so the rollup
+            # surfaces it iff a leg carries it, and the stop semantics are
+            # unchanged (a fatal leg still stops the task here, exactly as before).
+            rollup_cat, rollup_code = D.rollup_leg_error_category(
+                spot["error_category"], spot["error_code"],
+                perp["error_category"], perp["error_code"],
             )
-            fatal = fatal_leg is not None
+            fatal = rollup_cat == D.ERROR_CATEGORY_FATAL
             stop_reason = D.STOP_REASON_EXCHANGE_FATAL if fatal else None
-            error_code = fatal_leg["error_code"] if fatal_leg is not None else None
             error_reason_zh = D.stop_reason_zh(stop_reason) if fatal else None
             updated_task, pair_outcome, _ = self._apply_task_counters(
                 attempt["task_id"], category, exposure, now_us,
                 fatal=fatal, stop_reason=stop_reason,
             )
-            error_category = "fatal" if fatal else None
             self._conn.execute(
                 "UPDATE hedge_open_attempt SET pair_outcome = ?,"
                 " error_category = ?, error_code = ?, error_reason_zh = ?"
                 " WHERE id = ?",
-                (pair_outcome, error_category, error_code, error_reason_zh, attempt_id),
+                (pair_outcome, rollup_cat, rollup_code, error_reason_zh, attempt_id),
             )
             return updated_task
 
@@ -1109,13 +1134,26 @@ class HedgeOpenStore:
             exposure = None
             if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE:
                 exposure = self._exposure_from_legs(spot, perp, now_us)
+            # Attempt-row error classification is the leg-level rollup
+            # (10-design §2(e)): record the truthful per-pair diagnosis. This is a
+            # 429-settled pair, so control flow is unchanged — counters stay
+            # skipped and the task is NOT stopped here (the 429 pause is the flow
+            # control; a genuinely fatal fact re-surfaces on the next dispatch's
+            # fresh POST and stops via resolve_attempt). The rollup is a pure
+            # derived read of the leg rows; error_reason_zh stays NULL because no
+            # stop reason is rendered on this no-stop path.
+            rollup_cat, rollup_code = D.rollup_leg_error_category(
+                spot["error_category"], spot["error_code"],
+                perp["error_category"], perp["error_code"],
+            )
             _, pair_outcome, _ = self._apply_task_counters(
                 attempt["task_id"], category, exposure, now_us,
                 skip_counters=True,
             )
             self._conn.execute(
-                "UPDATE hedge_open_attempt SET pair_outcome = ? WHERE id = ?",
-                (pair_outcome, attempt_id),
+                "UPDATE hedge_open_attempt SET pair_outcome = ?,"
+                " error_category = ?, error_code = ? WHERE id = ?",
+                (pair_outcome, rollup_cat, rollup_code, attempt_id),
             )
             return True
 
@@ -1537,6 +1575,52 @@ class HedgeOpenStore:
                 (task_id, now_us, kind, json.dumps(payload, ensure_ascii=False)),
             )
             return cur.lastrowid
+
+    def append_raw_response(
+        self, attempt_id: int, leg: str, client_order_id: str | None,
+        source: str, endpoint: str, raw: dict, now_us: int,
+    ) -> int:
+        """Persist one raw exchange interaction (T3 / 10-design §3). ``raw`` is the
+        sanitized response dict from :class:`LegDispatch.raw_response`
+        (``http_status`` / ``transport_error`` / ``code`` / ``msg`` / ``body``).
+        The body is truncated to ``BODY_MAX_BYTES`` (``body_truncated=1`` if it was
+        longer). Runs in its OWN short transaction, AFTER the business transaction
+        committed — a failure here MUST NOT change control flow: the caller wraps
+        the call in try/except and records a ``raw_persist_failed`` task event
+        (this method raises so the caller can react). By construction the only body
+        source is the exchange response body; request params / signature / API key
+        never reach this table (10-design §3(d))."""
+        body = raw.get("body")
+        body_text = body if isinstance(body, str) else (None if body is None else str(body))
+        truncated = 0
+        if body_text is not None and len(body_text) > D.BODY_MAX_BYTES:
+            body_text = body_text[:D.BODY_MAX_BYTES]
+            truncated = 1
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "INSERT INTO hedge_open_raw_response"
+                " (attempt_id, leg, client_order_id, source, endpoint,"
+                "  http_status, transport_error, business_code, business_msg,"
+                "  body, body_truncated, captured_at_us)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    attempt_id, leg, client_order_id, source, endpoint,
+                    raw.get("http_status"), raw.get("transport_error"),
+                    raw.get("code"), raw.get("msg"),
+                    body_text, truncated, now_us,
+                ),
+            )
+            return cur.lastrowid
+
+    def list_raw_responses_for_attempt(self, attempt_id: int) -> list[dict]:
+        """All raw-response rows for an attempt, oldest-first (T3 verification)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM hedge_open_raw_response WHERE attempt_id = ?"
+                " ORDER BY id ASC",
+                (attempt_id,),
+            ).fetchall()
+            return [dict(r) for r in rows]
 
     def list_task_event_logs(
         self, limit: int, kinds: tuple[str, ...] | None = None,

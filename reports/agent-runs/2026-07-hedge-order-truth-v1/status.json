@@ -160,7 +160,9 @@
             "17-context-guard-note.md — a short paste-in the operator can drop into the running session before W4 or after a compaction; it restates only already-frozen constraints and adds no new requirement",
             "R4 boundary reconciliation will verify all nine listed items directly against the diff and code rather than accepting the implementation report's word — planned before the evidence arrives, not improvised after"
           ]
-        }
+        },
+        "guard_note_sent": false,
+        "guard_note_note": "The operator chose not to paste 17-context-guard-note.md. That mitigation was optional; the binding one is the bookkeeper's nine-item R4 verification, which is unaffected and still planned."
       }
     }
   ],
@@ -630,6 +632,21 @@
       "detail": "agents/registry.yaml review_1_cross_review_pool is [kimi, claude_glm]. Kimi's quota has not recovered since 2026-07-27, and claude_glm is the default backend implementer — so for any backend stage the registered pool is structurally empty and every stage must reach outside it under an explicit user enablement. That has now happened twice running (grok last stage, codex this stage).",
       "action": "On main, decide whether the registered pool should be widened (codex/claude/grok as standing Review-1 members with recorded constraints) rather than requiring a per-stage user waiver each time.",
       "blocking_this_stage": false
+    },
+    {
+      "id": "dispatch-reading-scope-and-budget",
+      "found_at": "2026-07-28",
+      "found_by": "bookkeeper, after the implementation session reached ~65% of a 1M context before implementing",
+      "detail": "Implementation packets in this harness list whole files under 必读 and give no line ranges. That was tolerable when the modules were small; backend/hedge_open_tasks/service.py is now 1753 lines and store.py 1784. This stage's full reading corpus is ~546 KB / ~160k tokens. Measured split of the incident: the packet's unscoped reading list accounts for roughly that 160k; the remaining ~490k of the observed 650k is the session re-reading whole files and dumping searches into context, which no harness rule causes.",
+      "key_finding": "AGENTS.md's raw-artifact requirement binds REVIEWERS only ('Reviewers are read-only. They must inspect raw artifacts'). It says nothing about how implementers must read. Whole-file 必読 lists in implementation packets are therefore a convention we adopted, not a contract requirement — so narrowing them needs no contract amendment. And even for reviewers the rule bans SUMMARIES REPLACING artifacts, not narrower pointers: 'service.py:1600-1700' is still a raw artifact.",
+      "proposed_actions": [
+        "Implementation packets cite anchors/line ranges for localized work instead of bare file paths, and name whole files only where the task genuinely spans them.",
+        "Packets state an expected reading budget and instruct the session to report if it is blowing past it, rather than discovering it at 65%.",
+        "For a task whose corpus exceeds a threshold, split along the breakdown's own work-item boundaries by default, one session per group, with a bookkeeper checkpoint commit between them.",
+        "Keep the anti-summarization rule intact — narrow the pointer, never substitute a bookkeeper narrative."
+      ],
+      "blocking_this_stage": false,
+      "note": "Second harness gap found this stage; the first is registry-review-1-pool-exhausted. Both land on main, not on this stage branch."
     }
   ],
   "stage_followups": [
@@ -653,5 +670,5 @@
     }
   ],
   "next_action": "Claude-GLM session 2b5e8d01 is running 13-implementation.dispatch.md through W1..W6. Context budget is a known accepted risk (status.session_receipts[-1].context_budget_incident): if it compacts, or as a precaution before W4, the operator may paste 17-context-guard-note.md into it. In parallel and independently: W0 (read-only signed GET, human operator) and T4's collateral-cap recon. When the implementer stops: R4 reconciliation against the nine checks in 17-context-guard-note.md §Bookkeeper's own mitigation, then evidence commit, fingerprint, --phase pre-review, then review-1 to codex in a fresh read-only session.",
-  "updated_at": "2026-07-28T18:45:00+08:00"
+  "updated_at": "2026-07-28T19:00:00+08:00"
 }

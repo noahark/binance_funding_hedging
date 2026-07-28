@@ -471,6 +471,44 @@ def classify_exchange_code(product: str, code: str | None, msg: str | None) -> s
     return ERROR_CATEGORY_UNCLASSIFIED
 
 
+# Attempt-row category rollup priority (10-design §2(e)): when a pair settles,
+# the two legs' categories roll up to ONE attempt-row category by this rank
+# (higher wins). ``collateral_cap`` ranks above ``insufficient_funds``: both
+# pause, but the rollup keeps the more specific diagnosis on the attempt row.
+# A leg with no category (NULL) ranks below ``absent``.
+ERROR_CATEGORY_ROLLUP_PRIORITY = {
+    ERROR_CATEGORY_FATAL: 6,
+    ERROR_CATEGORY_AUTH: 5,
+    ERROR_CATEGORY_COLLATERAL_CAP: 4,
+    ERROR_CATEGORY_INSUFFICIENT_FUNDS: 3,
+    ERROR_CATEGORY_UNCLASSIFIED: 2,
+    ERROR_CATEGORY_ABSENT: 1,
+}
+
+
+def rollup_leg_error_category(
+    spot_category: str | None, spot_code: str | None,
+    perp_category: str | None, perp_code: str | None,
+) -> tuple[str | None, str | None]:
+    """Roll up two legs' error categories to one attempt-row ``(category, code)``
+    by fixed priority (10-design §2(e)). Higher rank wins; a tie prefers spot.
+    Returns ``(None, None)`` when neither leg carries a category. Pure read of
+    leg rows — never changes control flow."""
+    spot_rank = (
+        ERROR_CATEGORY_ROLLUP_PRIORITY.get(spot_category, 0) if spot_category else 0
+    )
+    perp_rank = (
+        ERROR_CATEGORY_ROLLUP_PRIORITY.get(perp_category, 0) if perp_category else 0
+    )
+    if perp_rank > spot_rank:
+        return perp_category, perp_code
+    if spot_rank > 0:
+        return spot_category, spot_code
+    if perp_rank > 0:
+        return perp_category, perp_code
+    return None, None
+
+
 # Round-1 scheduler interval is fixed at 1 second (immediate mode, ADR-6).
 DEFAULT_INTERVAL_SECONDS = "1"
 DEFAULT_INTERVAL_US = 1_000_000
@@ -990,7 +1028,15 @@ def build_leg_exposure(spot_leg: dict | None, perp_leg: dict | None, ts_us: int)
     was accepted (a plain failure, not an exposure) and when both were accepted
     (an accepted pair). The full per-leg detail always lives in the attempt/leg
     tables (§3.3).
+
+    Backstop (10-design §4(a)): a non-positive ``ts_us`` is always a programming
+    error — the exposure timestamp is the wall clock at settlement, never the
+    1970 epoch a forgotten ``0`` would render. Fail loudly (into the worker's
+    exception containment; the task is manually recoverable) rather than emit a
+    timestamp indistinguishable from a real one.
     """
+    if ts_us <= 0:
+        raise invalid_field("ts_us", "exposure timestamp must be positive (wall clock at settlement)")
     spot_accepted = leg_is_accepted(spot_leg)
     perp_accepted = leg_is_accepted(perp_leg)
     if not (spot_accepted or perp_accepted):

@@ -320,6 +320,17 @@ def test_build_leg_exposure_none_when_both_accepted():
     assert D.build_leg_exposure(_leg("FILLED", "0.5"), _leg("FILLED", "0.4"), 1) is None
 
 
+@pytest.mark.parametrize("bad_ts", [0, -1])
+def test_build_leg_exposure_rejects_non_positive_timestamp(bad_ts):
+    # T5 backstop (10-design §4(a)): a non-positive exposure timestamp is always a
+    # programming error — fail loudly rather than render a 1970 epoch.
+    spot = _leg("FILLED", "0.5", "50000")
+    perp = _leg("REJECTED", "0", order_id=None)
+    with pytest.raises(D.HedgeError) as exc:
+        D.build_leg_exposure(spot, perp, bad_ts)
+    assert exc.value.code == "invalid_field"
+
+
 # ---------------------------------------------------------------------------
 # Status transitions + >=threshold consecutive-failure pause (ADR-3 / 10-design §7)
 # ---------------------------------------------------------------------------
@@ -473,3 +484,128 @@ def test_us_to_iso_utc_microsecond():
 def test_hedge_error_payload_carries_extra():
     err = D.HedgeError(400, "insufficient_balance", "x", extra={"required": "1"})
     assert err.as_payload() == {"error": "insufficient_balance", "detail": "x", "required": "1"}
+
+
+# ---------------------------------------------------------------------------
+# T2 error classification (ADR-T3): two-layer code classifier + attempt rollup.
+# Stage 2026-07-hedge-order-truth-v1 — the hard non-regression constraint
+# (10-design §2(c)) is that adding the margin positive-code path (51169 ->
+# collateral_cap) changes NO negative code's verdict. The matrices below prove it.
+# ---------------------------------------------------------------------------
+
+
+def test_classify_51169_margin_is_collateral_cap_not_insufficient():
+    # 02-collateral-cap-finding.md: 51169 is a platform collateral-cap rejection,
+    # NOT an account funds shortage. It is its own category, never insufficient_funds.
+    assert D.classify_exchange_code(D.PRODUCT_MARGIN, "51169", None) == D.ERROR_CATEGORY_COLLATERAL_CAP
+
+
+def test_classify_51169_um_is_unclassified_not_null():
+    # 51169 is margin-specific (the spot/margin leg). On UM it has no seeded rule,
+    # so it is the EXPLICIT unclassified (a code was present but unrecognized) —
+    # never NULL (no code) and never collateral_cap.
+    assert D.classify_exchange_code(D.PRODUCT_UM, "51169", None) == D.ERROR_CATEGORY_UNCLASSIFIED
+
+
+def test_classify_no_code_is_none_distinct_from_unclassified():
+    # NULL (no code) and unclassified (code present, unrecognized) must never
+    # collapse — that collapse was exactly the defect this stage fixes.
+    assert D.classify_exchange_code(D.PRODUCT_MARGIN, None, None) is None
+    assert D.classify_exchange_code(D.PRODUCT_UM, None, None) is None
+
+
+def test_classify_unknown_codes_are_unclassified_on_both_products():
+    assert D.classify_exchange_code(D.PRODUCT_MARGIN, "99999", None) == D.ERROR_CATEGORY_UNCLASSIFIED
+    assert D.classify_exchange_code(D.PRODUCT_UM, "99999", None) == D.ERROR_CATEGORY_UNCLASSIFIED
+    # An unlisted negative code is equally unclassified (not NULL).
+    assert D.classify_exchange_code(D.PRODUCT_MARGIN, "-5000", None) == D.ERROR_CATEGORY_UNCLASSIFIED
+    assert D.classify_exchange_code(D.PRODUCT_UM, "-5000", None) == D.ERROR_CATEGORY_UNCLASSIFIED
+
+
+def _negative_code_expectations() -> list[tuple[str, str]]:
+    """Map every negative code in the vocabulary to the category it must keep on
+    BOTH products. ``-2019``/``-3041`` are insufficient_funds (the insufficient
+    layer precedes the fatal layer); every other fatal-set code (incl. ``-2010``
+    with no message) is fatal; the auth set is auth."""
+    expected: dict[str, str] = {}
+    for code in D.AUTH_AMBIGUOUS_EXCHANGE_CODES:
+        expected[code] = D.ERROR_CATEGORY_AUTH
+    for code in D.INSUFFICIENT_FUNDS_CODES:  # checked before FATAL_EXCHANGE_CODES
+        expected[code] = D.ERROR_CATEGORY_INSUFFICIENT_FUNDS
+    for code in D.FATAL_EXCHANGE_CODES:
+        expected.setdefault(code, D.ERROR_CATEGORY_FATAL)  # -2010 (no msg) -> fatal
+    return sorted(expected.items())
+
+
+@pytest.mark.parametrize("code,expected", _negative_code_expectations())
+def test_classify_negative_codes_keep_verdict_on_both_products(code, expected):
+    """Hard non-regression (10-design §2(c)): every negative code keeps its verdict
+    on BOTH products. Adding the margin positive-code path (51169) perturbed none."""
+    assert D.classify_exchange_code(D.PRODUCT_MARGIN, code, None) == expected
+    assert D.classify_exchange_code(D.PRODUCT_UM, code, None) == expected
+
+
+def test_classify_minus_2010_message_confirms_insufficient_balance():
+    # -2010 is overloaded: only an "insufficient ... balance" message confirms it
+    # as a recoverable pause; without that proof it stays a fatal stop.
+    for msg in ("Account has insufficient balance.", "insufficient available balance for X"):
+        assert D.classify_exchange_code(D.PRODUCT_MARGIN, "-2010", msg) == D.ERROR_CATEGORY_INSUFFICIENT_FUNDS
+        assert D.classify_exchange_code(D.PRODUCT_UM, "-2010", msg) == D.ERROR_CATEGORY_INSUFFICIENT_FUNDS
+
+
+def test_classify_minus_2010_without_balance_message_stays_fatal():
+    assert D.classify_exchange_code(D.PRODUCT_MARGIN, "-2010", "Margin is insufficient.") == D.ERROR_CATEGORY_FATAL
+    assert D.classify_exchange_code(D.PRODUCT_MARGIN, "-2010", None) == D.ERROR_CATEGORY_FATAL
+    assert D.classify_exchange_code(D.PRODUCT_UM, "-2010", None) == D.ERROR_CATEGORY_FATAL
+
+
+def test_collateral_cap_pause_reason_constant_and_frozen_message():
+    # 10-design §2(d) / ADR-T3: pause_reason is the stable machine enum; the
+    # operator message is FROZEN verbatim (only {asset} is filled). It must NOT be
+    # the insufficient_margin wording, which would assert the false "保证金不足".
+    assert D.PAUSE_REASON_COLLATERAL_CAP_FULL == "collateral_cap_full"
+    assert D.collateral_cap_pause_reason_zh("NOM") == (
+        "NOM 已达币安平台级抵押金额上限（该上限为全平台所有用户共享，并非本"
+        "账户保证金不足，追加资金无效）。现货腿当前无法买入保证金账户，可更换"
+        "其他币种或稍后重试；若该币上限占用未满 100%，调小金额也可能成功。"
+    )
+    # The denial "并非本账户保证金不足" is the only appearance of 保证金不足 — the
+    # message never adopts the shortage framing it explicitly rejects.
+    assert "并非本账户保证金不足" in D.collateral_cap_pause_reason_zh("NOM")
+
+
+def test_rollup_returns_none_when_neither_leg_carries_a_category():
+    assert D.rollup_leg_error_category(None, None, None, None) == (None, None)
+    assert D.rollup_leg_error_category(None, "x", None, "y") == (None, None)
+
+
+def test_rollup_collateral_cap_ranks_above_insufficient_funds():
+    # 10-design §2(e): both pause, but collateral_cap is the more specific
+    # diagnosis and ranks higher — it wins the attempt row from either leg.
+    assert D.rollup_leg_error_category(
+        D.ERROR_CATEGORY_COLLATERAL_CAP, "51169",
+        D.ERROR_CATEGORY_INSUFFICIENT_FUNDS, "-2019",
+    ) == (D.ERROR_CATEGORY_COLLATERAL_CAP, "51169")
+    assert D.rollup_leg_error_category(
+        D.ERROR_CATEGORY_INSUFFICIENT_FUNDS, "-2019",
+        D.ERROR_CATEGORY_COLLATERAL_CAP, "51169",
+    ) == (D.ERROR_CATEGORY_COLLATERAL_CAP, "51169")
+
+
+def test_rollup_priority_order_fatal_auth_cap_insufficient_unclassified_absent():
+    # fatal > auth > collateral_cap > insufficient_funds > unclassified > absent.
+    assert D.rollup_leg_error_category(
+        D.ERROR_CATEGORY_AUTH, "-1021", D.ERROR_CATEGORY_FATAL, "-1013",
+    ) == (D.ERROR_CATEGORY_FATAL, "-1013")
+    assert D.rollup_leg_error_category(
+        D.ERROR_CATEGORY_UNCLASSIFIED, "99999", D.ERROR_CATEGORY_ABSENT, "-2013",
+    ) == (D.ERROR_CATEGORY_UNCLASSIFIED, "99999")
+    assert D.rollup_leg_error_category(
+        None, None, D.ERROR_CATEGORY_ABSENT, "-2013",
+    ) == (D.ERROR_CATEGORY_ABSENT, "-2013")
+
+
+def test_rollup_tie_prefers_spot_category_and_code():
+    assert D.rollup_leg_error_category(
+        D.ERROR_CATEGORY_FATAL, "-1013a", D.ERROR_CATEGORY_FATAL, "-1013b",
+    ) == (D.ERROR_CATEGORY_FATAL, "-1013a")

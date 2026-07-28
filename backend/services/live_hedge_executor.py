@@ -82,6 +82,21 @@ def _business_msg(response: HedgeHttpResponse) -> Optional[str]:
     return None
 
 
+def _raw_response_dict(response: HedgeHttpResponse) -> dict:
+    """Build the sanitized raw-response dict carried on :class:`LegDispatch` for
+    T3 persistence (10-design §3). Drawn from the exchange RESPONSE only —
+    http_status / transport_error / business code+msg / raw_body. By construction
+    no request parameter, signature, or API key is present (``HedgeHttpResponse``
+    retains none of them), so the dict is safe to persist verbatim."""
+    return {
+        "http_status": response.http_status,
+        "transport_error": response.transport_error,
+        "code": _business_code(response),
+        "msg": _business_msg(response),
+        "body": response.raw_body,
+    }
+
+
 def _normalize_order_id(value) -> Optional[str]:
     """Arbitrary-precision-positive-integer orderId -> canonical string; never float.
 
@@ -179,6 +194,7 @@ class LegDispatch:
     error_code: Optional[str] = None
     error_category: Optional[str] = None
     retry_after_seconds: Optional[int] = None
+    raw_response: Optional[dict] = None  # T3 (10-design §3): sanitized exchange response for raw persistence
 
 
 @dataclass(frozen=True)
@@ -196,7 +212,7 @@ class LiveAttemptDispatch:
 def _empty_dispatch(
     leg: str, dispatch_state: str, *, rate_limited: bool = False,
     error_code: Optional[str] = None, error_category: Optional[str] = None,
-    retry_after_seconds: Optional[int] = None,
+    retry_after_seconds: Optional[int] = None, raw: Optional[dict] = None,
 ) -> LegDispatch:
     return LegDispatch(
         leg=leg,
@@ -210,26 +226,32 @@ def _empty_dispatch(
         error_code=error_code,
         error_category=error_category,
         retry_after_seconds=retry_after_seconds,
+        raw_response=raw,
     )
 
 
 def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
     """Map one leg's POST response to a dispatch verdict (recon §3.3 + amendment
     §Error handling)."""
+    # T3 (10-design §3): capture every POST interaction's sanitized response —
+    # including transport failures, rate limits, 5xx and rejections — so the next
+    # 51169 is explainable from the DB alone. Built once, threaded through every
+    # return path; persistence is the service's concern (after the business write).
+    raw = _raw_response_dict(response)
     if response.transport_error is not None or response.http_status is None:
-        return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
+        return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING, raw=raw)
     if _is_rate_limited(response):
         # 429 / -1003 / 418: process-wide write delay, never a business verdict.
         return _empty_dispatch(
             leg, LEG_UNKNOWN_QUERYING, rate_limited=True,
-            retry_after_seconds=response.retry_after_seconds,
+            retry_after_seconds=response.retry_after_seconds, raw=raw,
         )
     status = response.http_status
     # 5xx: possibly accepted, EXCEPT a confirmed 503 throttle failure.
     if 500 <= status < 600:
         if status == 503 and _is_throttle_failure(response):
-            return _empty_dispatch(leg, LEG_REJECTED)
-        return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
+            return _empty_dispatch(leg, LEG_REJECTED, raw=raw)
+        return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING, raw=raw)
     # 2xx: a valid orderId is the only acceptance proof.
     if 200 <= status < 300:
         order_id = None
@@ -238,7 +260,7 @@ def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
             order_id = _normalize_order_id(response.body.get("orderId"))
             exchange_status = response.body.get("status")
         if order_id is None:
-            return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
+            return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING, raw=raw)
         executed_qty = "0"
         cumulative_quote = "0"
         avg_price = None
@@ -260,6 +282,7 @@ def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
             executed_qty=executed_qty,
             cumulative_quote=cumulative_quote,
             avg_price=avg_price,
+            raw_response=raw,
         )
     # Definite 4xx (non-rate-limit). The amendment error matrix splits these via
     # domain.classify_exchange_code (two-layer: shared gateway/business + per-
@@ -278,12 +301,13 @@ def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
         category = D.classify_exchange_code(product, code, _business_msg(response))
         if category == D.ERROR_CATEGORY_AUTH:
             return _empty_dispatch(
-                leg, LEG_UNKNOWN_QUERYING, error_code=code, error_category=category
+                leg, LEG_UNKNOWN_QUERYING, error_code=code, error_category=category,
+                raw=raw,
             )
         return _empty_dispatch(
-            leg, LEG_REJECTED, error_code=code, error_category=category
+            leg, LEG_REJECTED, error_code=code, error_category=category, raw=raw,
         )
-    return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
+    return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING, raw=raw)
 
 
 def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[LegDispatch]:
@@ -302,6 +326,9 @@ def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[L
     manual recovery — never resends. A transport-failed or 5xx query stays
     ``None`` (genuinely inconclusive, keep querying).
     """
+    # T3 (10-design §3): capture the sanitized query response on every verdict
+    # path (a None return is a genuinely inconclusive retry — no verdict, no row).
+    raw = _raw_response_dict(response)
     if response.transport_error is not None or response.http_status is None:
         return None
     if _is_rate_limited(response):
@@ -309,7 +336,7 @@ def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[L
         # THIS task and keep the pending leg; the query is NOT inconclusive.
         return _empty_dispatch(
             leg, LEG_UNKNOWN_QUERYING, rate_limited=True,
-            retry_after_seconds=response.retry_after_seconds,
+            retry_after_seconds=response.retry_after_seconds, raw=raw,
         )
     status = response.http_status
     if status >= 500:
@@ -323,7 +350,8 @@ def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[L
         code = _business_code(response)
         if status == 404 or code == "-2013":
             return _empty_dispatch(
-                leg, LEG_REJECTED, error_code=code or "http_404", error_category="absent"
+                leg, LEG_REJECTED, error_code=code or "http_404", error_category="absent",
+                raw=raw,
             )
         return None
     if 200 <= status < 300 and isinstance(response.body, dict):
@@ -334,7 +362,7 @@ def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[L
             # — only an explicit 404 / -2013 is. A malformed 2xx stays UNKNOWN so
             # the worker keeps querying by client ID (never resends, never
             # rejects a possibly-accepted order as absent).
-            return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING)
+            return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING, raw=raw)
         executed_qty = _decimal_str(response.body.get("executedQty"))
         cumulative_quote = _decimal_str(
             response.body.get("cummulativeQuoteQty")
@@ -354,19 +382,22 @@ def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[L
             executed_qty=executed_qty,
             cumulative_quote=cumulative_quote,
             avg_price=avg_price,
+            raw_response=raw,
         )
     return None
 
 
 def dispatch_to_outcome(
-    attempt_id: str, spot: LegDispatch, perp: LegDispatch, record_payload: dict
+    attempt_id: str, spot: LegDispatch, perp: LegDispatch, record_payload: dict,
+    ts_us: int,
 ) -> AttemptOutcome:
     """Build an :class:`AttemptOutcome` from two resolved leg dispatches.
 
     Used when both legs already carry a definite acceptance verdict (ACCEPTED or
     REJECTED). The scheduler counter keys off ``order_id`` presence
     (:func:`domain.classify_attempt`); the leg dicts carry the observational fill
-    figures for accounting.
+    figures for accounting. ``ts_us`` is the settlement wall clock — the live
+    exposure timestamp (10-design §4(a)), mandatory (no safe default).
     """
     spot_leg = {
         "status": _exchange_status_for_outcome(spot),
@@ -384,7 +415,7 @@ def dispatch_to_outcome(
     }
     category = D.classify_attempt(spot_leg, perp_leg)
     exposure = (
-        D.build_leg_exposure(spot_leg, perp_leg, 0) if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE else None
+        D.build_leg_exposure(spot_leg, perp_leg, ts_us) if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE else None
     )
     return AttemptOutcome(
         attempt_id=attempt_id,

@@ -1067,10 +1067,8 @@ class HedgeOpenTaskService:
             # loop back into the throttle. The operator resumes manually; a drain-
             # only worker on recovery re-queries the saved client IDs.
             return True
-        if drain_signal in D.SIGNAL_INSUFFICIENT:
-            self._pause_task_local(
-                task, self._insufficient_pause_reason(drain_signal), drain_signal, now_us,
-            )
+        if drain_signal in D.SIGNAL_TASK_LOCAL_PAUSE:
+            self._pause_from_signal(task, drain_signal, now_us)
             return False
         own = self._store.list_non_terminal_legs_for_task(task_id)
         if own:
@@ -1089,10 +1087,8 @@ class HedgeOpenTaskService:
                 task, D.PAUSE_REASON_RATE_LIMITED, None, now_us, kind="rate_limited",
             )
             return False  # 429: drain the just-submitted pair next round, then exit
-        if signal in D.SIGNAL_INSUFFICIENT:
-            self._pause_task_local(
-                task, self._insufficient_pause_reason(signal), signal, now_us,
-            )
+        if signal in D.SIGNAL_TASK_LOCAL_PAUSE:
+            self._pause_from_signal(task, signal, now_us)
             return False
         if signal == D.SIGNAL_PREFLIGHT_INCOMPLETE:
             return self._worker_exit(task_id, D.WORKER_EXIT_PREFLIGHT_INCOMPLETE)
@@ -1144,7 +1140,15 @@ class HedgeOpenTaskService:
                 )
             except Exception:
                 continue
-            if getattr(verdict, "error_category", None) == "insufficient_funds":
+            # T3 (10-design §3): capture the sanitized query response (the drain
+            # GET that produced this verdict), after the leg-row business write.
+            self._persist_leg_raw(
+                task_id, leg["attempt_id"], leg["leg"], leg["client_order_id"],
+                "order_query", getattr(verdict, "raw_response", None), now_us,
+            )
+            if getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_COLLATERAL_CAP:
+                drain_signal = D.SIGNAL_COLLATERAL_CAP
+            elif getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_INSUFFICIENT_FUNDS:
                 drain_signal = D.SIGNAL_INSUFFICIENT_BALANCE
             if terminal:
                 finalized.add(leg["attempt_id"])
@@ -1570,6 +1574,20 @@ class HedgeOpenTaskService:
         spot_querying = spot.dispatch_state == D.LEG_UNKNOWN_QUERYING
         perp_querying = perp.dispatch_state == D.LEG_UNKNOWN_QUERYING
         has_querying = spot_querying or perp_querying
+        # T3 (10-design §3): capture both legs' sanitized POST responses. This is
+        # an isolated short transaction that can never affect the business write
+        # below; it lands on every POST — accepted, rejected (the 51169 evidence
+        # path), or rate-limited — so the next unexplainable response is readable
+        # from the DB alone.
+        spot_cid, perp_cid = _client_order_ids(attempt["attempt_uuid"])
+        self._persist_leg_raw(
+            ctx.task_id, attempt["id"], spot.leg, spot_cid, "order_post",
+            spot.raw_response, now_us,
+        )
+        self._persist_leg_raw(
+            ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_post",
+            perp.raw_response, now_us,
+        )
         if rate_limited:
             # Amendment 21: pause THIS task only. Do NOT resolve the pair — its
             # UNKNOWN legs are marked so the worker drains them, then settles the
@@ -1595,28 +1613,29 @@ class HedgeOpenTaskService:
             except Exception:
                 pass
             return D.SIGNAL_RATE_LIMITED
-        insufficient = self._insufficient_signal_from_legs(spot, perp)
-        if insufficient is not None and not has_querying:
-            # Both legs terminal with a confirmed insufficient-funds fact: settle
-            # the pair once (clearing the in-flight guard); the worker pauses.
+        pause_signal = self._pause_signal_from_legs(spot, perp)
+        if pause_signal is not None and not has_querying:
+            # Both legs terminal with a confirmed pause-class fact (insufficient
+            # funds or a collateral-cap rejection): settle the pair once (clearing
+            # the in-flight guard); the worker pauses THIS task only.
             outcome = self._dispatch_to_outcome(
-                attempt["attempt_uuid"], spot, perp, dispatch.record_payload
+                attempt["attempt_uuid"], spot, perp, dispatch.record_payload, now_us
             )
             try:
                 self._store.resolve_attempt(attempt["id"], outcome, now_us)
             except Exception:
                 pass
-            return insufficient
-        if insufficient is not None:
-            # Mixed: one leg insufficient-terminal, the other still UNKNOWN — mark
+            return pause_signal
+        if pause_signal is not None:
+            # Mixed: one leg pause-class terminal, the other still UNKNOWN — mark
             # the UNKNOWN leg(s); the worker pauses and drains before exit.
             self._mark_legs_querying(attempt, spot, perp, now_us)
-            return insufficient
+            return pause_signal
         if has_querying:
             self._mark_legs_querying(attempt, spot, perp, now_us)
             return None
         outcome = self._dispatch_to_outcome(
-            attempt["attempt_uuid"], spot, perp, dispatch.record_payload
+            attempt["attempt_uuid"], spot, perp, dispatch.record_payload, now_us
         )
         leg_terminal = {
             spot.leg: self._leg_terminal(spot),
@@ -1651,14 +1670,48 @@ class HedgeOpenTaskService:
             except Exception:
                 pass
 
+    def _persist_leg_raw(
+        self, task_id: str, attempt_id: int, leg_name: str,
+        client_order_id: str | None, source: str, raw: dict | None, now_us: int,
+    ) -> None:
+        """Persist one leg's sanitized raw exchange response (T3 / 10-design §3).
+
+        Control-flow isolation is absolute: :meth:`store.append_raw_response` runs
+        in its OWN short transaction, so a persistence failure can NEVER roll back
+        or fail the business write that already committed. The failure is swallowed
+        and a ``raw_persist_failed`` task event is best-effort recorded (that record
+        failing too is abandoned — control flow outranks audit completeness).
+        No-op when the leg carried no raw response (a record/dry-run transport, or
+        a query that returned no verdict)."""
+        if raw is None:
+            return
+        endpoint = D.SPOT_ORDER_PATH if leg_name == "spot" else D.PERP_ORDER_PATH
+        try:
+            self._store.append_raw_response(
+                attempt_id, leg_name, client_order_id, source, endpoint, raw, now_us,
+            )
+        except Exception:
+            try:
+                self._store.record_task_event(
+                    task_id, "raw_persist_failed",
+                    {"attempt_id": attempt_id, "leg": leg_name, "source": source},
+                    now_us,
+                )
+            except Exception:
+                pass
+
     @staticmethod
-    def _insufficient_signal_from_legs(spot, perp) -> str | None:
-        """Map a confirmed insufficient-funds leg (``error_category ==
-        "insufficient_funds"``) to its amendment-21 pause signal. ``-2019`` ->
-        margin; any other confirmed code (``-3041`` / msg-confirmed ``-2010``) ->
-        balance. Returns ``None`` when neither leg is insufficient-funds."""
+    def _pause_signal_from_legs(spot, perp) -> str | None:
+        """Map a confirmed pause-class leg classification to its amendment-21
+        task-local pause signal. ``insufficient_funds`` -> SIGNAL_INSUFFICIENT_*
+        (``-2019`` margin, else balance); ``collateral_cap`` (51169) ->
+        SIGNAL_COLLATERAL_CAP. Returns ``None`` when neither leg carries a
+        pause-class category."""
         for leg in (spot, perp):
-            if getattr(leg, "error_category", None) == "insufficient_funds":
+            cat = getattr(leg, "error_category", None)
+            if cat == D.ERROR_CATEGORY_COLLATERAL_CAP:
+                return D.SIGNAL_COLLATERAL_CAP
+            if cat == D.ERROR_CATEGORY_INSUFFICIENT_FUNDS:
                 if getattr(leg, "error_code", None) == "-2019":
                     return D.SIGNAL_INSUFFICIENT_MARGIN
                 return D.SIGNAL_INSUFFICIENT_BALANCE
@@ -1676,12 +1729,16 @@ class HedgeOpenTaskService:
         return False
 
     @staticmethod
-    def _dispatch_to_outcome(attempt_uuid, spot, perp, record_payload) -> AttemptOutcome:
+    def _dispatch_to_outcome(attempt_uuid, spot, perp, record_payload, ts_us) -> AttemptOutcome:
         """Build an AttemptOutcome from two resolved live leg dispatches. Keys the
         category off ``order_id`` presence via :func:`domain.classify_attempt`;
         carries the real cumulative quote (A-6) and the machine-readable error
         classification (A-7). A fatal error on either leg surfaces an outcome-
-        level ``error_category="fatal"`` so the store stops the task (rows 1–2)."""
+        level ``error_category="fatal"`` so the store stops the task (rows 1–2).
+
+        ``ts_us`` is the wall clock at settlement (10-design §4(a)): the live
+        exposure timestamp, identical in meaning to the reconcile path's
+        ``_exposure_from_legs``. Mandatory — there is no safe default."""
         spot_leg = {
             "status": D.LEG_REJECTED if spot.dispatch_state == D.LEG_TERMINAL_RECORDED
             else (spot.exchange_status or D.LEG_NEW),
@@ -1706,7 +1763,7 @@ class HedgeOpenTaskService:
         }
         category = D.classify_attempt(spot_leg, perp_leg)
         exposure = (
-            D.build_leg_exposure(spot_leg, perp_leg, 0)
+            D.build_leg_exposure(spot_leg, perp_leg, ts_us)
             if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE
             else None
         )
