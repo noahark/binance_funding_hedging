@@ -80,6 +80,22 @@ For multi-step tasks, state a brief plan:
 Strong success criteria let you loop independently. Weak criteria ("make it
 work") require constant clarification.
 
+## 5. Reading Discipline
+
+**Read the relevant raw evidence once, then return by anchor.**
+
+Packet scopes reduce unnecessary corpus size; this section separately prevents
+the session from spending that saved budget on repeated reads or bulk output.
+
+- Do not re-read a whole file you have already inspected; return to the needed
+  line range or named function instead.
+- Keep searches narrow and retain only the result lines needed for the task;
+  do not flood context with whole-file or bulk-search output.
+- If you materially exceed the packet's stated reading budget, stop and report
+  to the bookkeeper before continuing. Context exhaustion can trigger
+  compaction mid-implementation and lose frozen constraints; this repository
+  has previously found cross-seam drift after that failure mode.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer

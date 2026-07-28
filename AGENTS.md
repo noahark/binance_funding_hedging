@@ -127,6 +127,26 @@ The bookkeeper may:
 - Update `status.json` and `70-handoff.md`.
 - Create local evidence commits before formal review gates.
 
+#### Dispatch Packet Guidance (Non-Hard-Gate)
+
+This is guidance for writing packets, not a new validation gate. It does not
+change the reviewer rule that reviewers "must inspect raw artifacts" or the
+ban on giving reviewers only the bookkeeper's narrative summary.
+It addresses packet-scoping overhead; repeated whole-file reads and oversized
+search output remain the dispatched session's separate reading-discipline duty.
+
+- For localized work, point to raw-artifact anchors: `path:from-to` or a named
+  function/section. List a whole file only when the task genuinely spans it.
+- State an expected reading budget (approximate tokens or the combined KB of
+  the cited ranges). A dispatched session that is materially over budget stops
+  to report to the bookkeeper before continuing.
+- When a task's corpus is large, normally split it along the development
+  breakdown's work-item boundaries into separate sessions with bookkeeper
+  checkpoints. This is an operational guideline, not a numeric hard threshold.
+- Narrow raw pointers are not summaries: they preserve the relevant source
+  evidence. The existing prohibition on replacing raw artifacts with a
+  bookkeeper narrative remains unchanged.
+
 The bookkeeper must not:
 
 - Execute model-dispatch commands or invoke implementation/review/fix model
