@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "implementing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -374,8 +374,8 @@
       "implementation_report_path": "20-implementation.md",
       "implementation_status": "delivered_r4_passed",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-      "head_sha": null,
-      "diff_fingerprint": null,
+      "head_sha": "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
+      "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
       "test_evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
       "note": "T4 is not in scope for this task: its paid experiment was cancelled and its remaining work is a read-only recon that runs independently and blocks nothing here."
     }
@@ -561,10 +561,40 @@
     "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md"
   },
   "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-  "head_sha": null,
-  "diff_fingerprint": null,
+  "head_sha": "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
+  "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
   "coverage_waypoints": [],
-  "changed_files": [],
+  "changed_files": [
+    "backend/hedge_open_tasks/domain.py",
+    "backend/hedge_open_tasks/service.py",
+    "backend/hedge_open_tasks/store.py",
+    "backend/services/live_hedge_executor.py",
+    "backend/tests/test_hedge_api.py",
+    "backend/tests/test_hedge_domain.py",
+    "backend/tests/test_hedge_executor.py",
+    "backend/tests/test_hedge_store.py",
+    "backend/tests/test_hedge_task_local.py",
+    "backend/tests/test_live_hedge_executor.py",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/00-intake.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/00-task.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/02-collateral-cap-finding.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design-and-breakdown.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/11-adr.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/13-implementation.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/15-user-authorized-codex-review-1.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/16-design-revision.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/17-context-guard-note.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/18-harness-followup-dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/19-r4-reconciliation.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/status.json",
+    "reports/agent-runs/ACTIVE.json"
+  ],
   "tests": {
     "status": "passed",
     "run_by": "bookkeeper, independently re-run on the delivered tree",
@@ -691,8 +721,8 @@
       "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
     }
   ],
-  "next_action": "Claude-GLM session 2b5e8d01 is running 13-implementation.dispatch.md through W1..W6. Context budget is a known accepted risk (status.session_receipts[-1].context_budget_incident): if it compacts, or as a precaution before W4, the operator may paste 17-context-guard-note.md into it. In parallel and independently: W0 (read-only signed GET, human operator) and T4's collateral-cap recon. When the implementer stops: R4 reconciliation against the nine checks in 17-context-guard-note.md §Bookkeeper's own mitigation, then evidence commit, fingerprint, --phase pre-review, then review-1 to codex in a fresh read-only session.",
-  "updated_at": "2026-07-28T19:50:00+08:00",
+  "next_action": "Dispatch review-1 to codex in a FRESH read-only session on the pinned range ecc3841..5de9ef3. The packet must carry: the R4 errata (three bookkeeping commits silently contain delivery code, so review the RANGE not commit-by-commit), residual R-1 (design §0 still describes the cancelled T4 experiment), residual R-2 (ADR numbers are topic-sequential; T2's ADR is ADR-T3), the corrected T2(c) verdict-change list, and that W0 is NOT done so T1's core assumption is unverified. Review-2 later needs a SECOND, separate fresh session per the binding mitigations in 15-user-authorized-codex-review-1.md.",
+  "updated_at": "2026-07-28T19:55:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
