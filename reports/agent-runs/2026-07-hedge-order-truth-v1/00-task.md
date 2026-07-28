@@ -38,24 +38,69 @@ Detail and evidence for each item: `00-intake.md`,
 
 ### T1
 
-- A UM/CM leg's `cumulative_quote_amt` reflects the actual traded notional. A
-  filled leg must never store `0` notional against a non-zero filled quantity.
+**NARROWED BY USER DECISION, 2026-07-29** — see §Scope decision below. The rule
+is now: **record what the exchange returned, verbatim; record `NULL` when it
+returned nothing; never derive, convert or substitute.**
+
+- A leg's `cumulative_quote_amt` holds **the exchange's own figure**, stored as
+  received. When the response carried no such figure, the column is `NULL`
+  (unknown) — never a fabricated `0`.
+- No derivation. The column must not be computed from other fields (in
+  particular, not `filled_qty × avg_price`). A derived number in a column whose
+  meaning is "what the exchange said" is itself a substitution.
+- A literal `0` returned by the exchange **is stored as `0`**. It is the
+  exchange's answer, and this stage does not second-guess it. Cross-field
+  consistency (a `FILLED` leg reporting a positive quantity and a zero notional)
+  is explicitly **out of scope** — see §Scope decision.
 - The authoritative source for UM/CM fill figures is no longer the `POST`
   response. The design names the replacement (order-detail `GET`, user-data
   stream, or both) and states **when** the read happens relative to a leg
-  reaching a terminal state — today `last_query_at_us == dispatched_at_us`,
-  meaning the leg is never queried after dispatch.
+  reaching a terminal state.
 - The margin/UM asymmetry is explicit: margin still returns
   `cummulativeQuoteQty`, UM/CM return neither it nor `cumQuote` nor `avgPrice`.
-  The code must express this as a deliberate per-product rule, not an
-  incidental `or` chain.
-- **Failing loudly beats substituting.** When the authoritative figure cannot be
-  obtained, the leg must not record a fabricated `0`. The design decides the
-  representation (null, an explicit `unknown` marker, a retry) and justifies it;
-  what is forbidden is a value indistinguishable from a genuine zero.
+  The code must express this as a deliberate per-product rule, not an incidental
+  `or` chain.
+- **Absent must stay distinguishable from zero.** A missing figure records
+  `NULL`; a zero the exchange actually sent records `0`. The forbidden thing is a
+  value that cannot be told apart from a genuine figure when nothing was
+  received — which is exactly the 2026-07-14 defect.
 - A regression test proves that a UM response lacking `cumQuote`/`avgPrice` —
-  i.e. the real post-2026-07-14 shape — does not produce a zero notional for a
-  filled leg. The 2026-07-27 response shape is the reference case.
+  the real post-2026-07-14 shape — records `NULL` rather than a zero notional for
+  a filled leg. The 2026-07-27 response shape is the reference case.
+
+#### Scope decision — verbatim only, no derivation, no consistency checking
+
+**Decided by the user, 2026-07-29**, after review-1 round 4 raised a P0 saying a
+`FILLED` leg with a positive quantity could still persist a literal `0` notional
+if the exchange sent one:
+
+> 交易所返回 0 没问题吧，到时遇到具体情况再分析呗。而且金额缺失时也不用推算这么
+> 麻烦，查询回来是什么就是什么，有问题我会让模型再去排查的
+
+Two consequences, both deliberate:
+
+1. **The round-4 P0 is declined on scope, not disputed on fact.** The reviewer's
+   chain is correct — `_quote_decimal` keeps a literal `"0"`,
+   `leg_is_terminal_fill` does not cross-check it, and `_leg_final_fields`
+   stores any present value as-is — but storing the exchange's own `0` is now
+   the intended behaviour. Filed as follow-up
+   `p0-contradictory-zero-notional-not-detected`.
+2. **The existing derivation is removed.** `_leg_final_fields` currently falls
+   back to `filled_qty × avg_price` when the figure is absent. That is now
+   forbidden by the first rule, so the code must change to match: absent →
+   `NULL`, full stop.
+
+**The cost, stated so it is not rediscovered as a surprise**: after this,
+`cumulative_quote_amt` means *"what the exchange said"*, not *"the true traded
+notional"*. If the exchange ever returns a contradictory `0` on a real fill, the
+database will hold `0` and the position table's average price and PnL will be
+wrong for that leg, with nothing flagging it. The user's stated plan is to
+investigate such a case when it actually occurs. Accepted risk, not an oversight.
+
+**What this does NOT relax**: the original 2026-07-14 defect stays fixed. A
+*missing* field still records `NULL` and never a coerced `0`, and absent stays
+distinguishable from zero. That is the defect this stage was opened for, and it
+is unaffected.
 
 ### T2
 

@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "review_1",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -308,6 +308,16 @@
       "head_sha": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
       "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md (appended section)",
       "verified_by_bookkeeper": "Confirmed against the code. Finding 1: _persist_leg_raw now runs inside the rate-limited branch before continue, using getattr(verdict, 'raw_response', None). Finding 2: append_raw_response does one existence check for (attempt_id, leg, source) inside its OWN lock and transaction, returning the existing row id — no schema change, no digest, no UNIQUE index, no migration, and a skip returns normally rather than raising into raw_persist_failed. live_hedge_executor.py has a ZERO diff this round, which is mechanical proof that no business verdict moved. test_4j's `query_calls > 2` assertion is what makes it meaningful: several drain rounds really queried while only one row per leg was kept, so it cannot pass trivially. Independently re-run: 1064 passed / 319 in the specified suite. Zero forbidden paths this round and zero across the whole stage. Production DB unchanged. HEAD was still 9a4eab9 when the implementer stopped — it did not commit."
+    },
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_prepared",
+      "round": 4,
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/37-fix-review-1-r4.dispatch.md",
+      "session_note": "fresh session",
+      "scope_note": "Deletes the _leg_final_fields derivation. live_hedge_executor.py must stay at zero diff again."
     }
   ],
   "reviewer_1": {
@@ -409,7 +419,7 @@
       ],
       "reviewer": "codex",
       "implementation_report_path": "20-implementation.md",
-      "implementation_status": "rework3_evidence_committed",
+      "implementation_status": "rework4_dispatched",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
       "head_sha": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
       "diff_fingerprint": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524:3c4d16f387538c9f7f2afdef32b415c5f355a3ae0a255740870252a43abc7a5f",
@@ -425,12 +435,12 @@
         "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
         "fingerprint_matches_status": true,
         "reviewer_prior_involvement": "none",
-        "open_p0_p1": 2,
-        "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.md",
+        "open_p0_p1": 1,
+        "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md",
         "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
         "recorded_at": "2026-07-28T21:10:00+08:00",
-        "round": 3,
-        "status": "complete_round3",
+        "round": 4,
+        "status": "complete_round4",
         "findings_summary": "Round 2, 1 P1 and it is a NEW defect, not a re-report. Round 1 covered the CONCLUSIVE fallback GET; this covers the INCONCLUSIVE query on BOTH paths. classify_query_response builds the raw at live_hedge_executor.py:397 and then discards it on every None return (transport_error/no status, >=500, ambiguous 4xx, malformed 2xx). Neither call site persists it: _send_one_leg falls through to the POST verdict, and drain does `if verdict is None: continue` at service.py:1116. The in-code comment states the intent explicitly — 'a None return is a genuinely inconclusive retry — no verdict, no row' — i.e. persistence was keyed off verdicts, while 00-task.md T3 keys it off READS.",
         "fix_start_prompt_present": true,
         "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
@@ -447,7 +457,11 @@
         "round3_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.dispatch.md",
         "round3_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.md",
         "round3_verdict": "REWORK",
-        "round3_findings_summary": "2 P1, both confirmed against the code. (1) drain's rate-limited branch continues before reaching _persist_leg_raw, so a conclusive 429 verdict's raw is dropped — in scope even after the narrowing, because the narrowed T3 explicitly lists a rate-limit signal among the conclusive verdicts. (2) a malformed 2xx (no usable orderId) returns an UNKNOWN verdict WITH raw rather than None, stays non-terminal, and drain re-queries it every ~1s writing a row each round — unbounded, falsifying ADR-T4's 2-6 rows per attempt."
+        "round3_findings_summary": "2 P1, both confirmed against the code. (1) drain's rate-limited branch continues before reaching _persist_leg_raw, so a conclusive 429 verdict's raw is dropped — in scope even after the narrowing, because the narrowed T3 explicitly lists a rate-limit signal among the conclusive verdicts. (2) a malformed 2xx (no usable orderId) returns an UNKNOWN verdict WITH raw rather than None, stays non-terminal, and drain re-queries it every ~1s writing a row each round — unbounded, falsifying ADR-T4's 2-6 rows per attempt.",
+        "round4_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.dispatch.md",
+        "round4_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md",
+        "round4_verdict": "REWORK",
+        "round4_findings_summary": "1 P0, factually confirmed: _quote_decimal keeps a literal \"0\", leg_is_terminal_fill does not cross-check it (no quote check at all for spot; only `is None` for perp), and _leg_final_fields stores any present parseable value as-is — so FILLED + executedQty>0 + quote=\"0\" would persist a zero notional. Declined on SCOPE by the user, not disputed on fact: the trigger requires a self-contradictory exchange response, unlike the 2026-07-14 defect which was a MISSING field coerced to 0."
       }
     }
   ],
@@ -528,6 +542,20 @@
           "POST /papi/v1/cm/order"
         ],
         "margin_unaffected": "the margin endpoint still returns cummulativeQuoteQty"
+      },
+      "narrowed_by_user": {
+        "at": "2026-07-29",
+        "by": "user",
+        "verbatim": "交易所返回 0 没问题吧，到时遇到具体情况再分析呗。而且金额缺失时也不用推算这么麻烦，查询回来是什么就是什么，有问题我会让模型再去排查的",
+        "rule": "Store the exchange's figure verbatim; NULL when absent; no derivation, no conversion, no cross-field consistency checking.",
+        "two_consequences": [
+          "The round-4 P0 is declined on scope and filed as p0-contradictory-zero-notional-not-detected. A literal 0 from the exchange is now the intended stored value.",
+          "The EXISTING derivation is removed: _leg_final_fields' filled_qty * avg_price fallback is itself a substitution under the new rule, so absent becomes NULL unconditionally. This round DELETES logic rather than adding it."
+        ],
+        "accepted_cost": "cumulative_quote_amt now means 'what the exchange said', not 'the true traded notional'. If the exchange ever returns a contradictory 0 on a real fill, the database holds 0 and that leg's average price and PnL are wrong with nothing flagging it. The user's stated plan is to investigate such a case when it actually occurs.",
+        "not_relaxed": "The 2026-07-14 defect stays fixed: a MISSING field still records NULL and never a coerced 0, and absent stays distinguishable from zero. That is the defect this stage was opened for.",
+        "deletion_safety_checked": "The derivation only fires when the quote is absent AND avg_price is present. The margin leg reads cummulativeQuoteQty from its POST and does not reach that branch; the UM leg takes its figures from the order-detail GET, assumed to carry both. So it covers a case that may not arise. The packet tells the implementer to stop and report if deleting it changes a currently-tested outcome.",
+        "recorded_in": "reports/agent-runs/2026-07-hedge-order-truth-v1/00-task.md §T1 Scope decision"
       }
     },
     "T2": {
@@ -716,12 +744,12 @@
     "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
     "fingerprint_matches_status": true,
     "reviewer_prior_involvement": "none",
-    "open_p0_p1": 2,
-    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.md",
+    "open_p0_p1": 1,
+    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md",
     "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
     "recorded_at": "2026-07-28T21:10:00+08:00",
-    "round": 3,
-    "status": "complete_round3",
+    "round": 4,
+    "status": "complete_round4",
     "findings_summary": "Round 2, 1 P1 and it is a NEW defect, not a re-report. Round 1 covered the CONCLUSIVE fallback GET; this covers the INCONCLUSIVE query on BOTH paths. classify_query_response builds the raw at live_hedge_executor.py:397 and then discards it on every None return (transport_error/no status, >=500, ambiguous 4xx, malformed 2xx). Neither call site persists it: _send_one_leg falls through to the POST verdict, and drain does `if verdict is None: continue` at service.py:1116. The in-code comment states the intent explicitly — 'a None return is a genuinely inconclusive retry — no verdict, no row' — i.e. persistence was keyed off verdicts, while 00-task.md T3 keys it off READS.",
     "fix_start_prompt_present": true,
     "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
@@ -740,7 +768,9 @@
     "round3_verdict": "REWORK",
     "round3_findings_summary": "2 P1, both confirmed against the code. (1) drain's rate-limited branch continues before reaching _persist_leg_raw, so a conclusive 429 verdict's raw is dropped — in scope even after the narrowing, because the narrowed T3 explicitly lists a rate-limit signal among the conclusive verdicts. (2) a malformed 2xx (no usable orderId) returns an UNKNOWN verdict WITH raw rather than None, stays non-terminal, and drain re-queries it every ~1s writing a row each round — unbounded, falsifying ADR-T4's 2-6 rows per attempt.",
     "round4_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.dispatch.md",
-    "round4_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md"
+    "round4_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md",
+    "round4_verdict": "REWORK",
+    "round4_findings_summary": "1 P0, factually confirmed: _quote_decimal keeps a literal \"0\", leg_is_terminal_fill does not cross-check it (no quote check at all for spot; only `is None` for perp), and _leg_final_fields stores any present parseable value as-is — so FILLED + executedQty>0 + quote=\"0\" would persist a zero notional. Declined on SCOPE by the user, not disputed on fact: the trigger requires a self-contradictory exchange response, unlike the 2026-07-14 defect which was a MISSING field coerced to 0."
   },
   "review_2": null,
   "authorized_exceptions": [],
@@ -887,10 +917,20 @@
       "detail": "The failure-brake state machine is implemented and correct but documented nowhere as a whole: cumulative vs consecutive counters, single_leg counting toward the brake, threshold -> paused (resumable) vs fatal -> stopped (immediate, uncounted) vs 429 -> paused (uncounted). It is currently reconstructable only from code comments and amendment records.",
       "severity": "P3",
       "blocking": false
+    },
+    {
+      "id": "p0-contradictory-zero-notional-not-detected",
+      "found_at": "2026-07-29",
+      "source": "review-1 round 4 (codex), declined on scope by the user",
+      "severity": "P0",
+      "detail": "A FILLED leg reporting a positive executedQty together with a literal 0 cumulative quote is stored as 0 and settles terminal. Chain: _quote_decimal keeps a literal \"0\"; leg_is_terminal_fill does not cross-check it (no quote check for spot, only `is None` for perp); _leg_final_fields stores any present parseable value as-is. The reviewer's recommendation was to treat positive-qty-with-zero-notional as unknown — NULL and non-terminal so the existing query-drain re-reads it.",
+      "restart_material": "The reviewer's findings[0] and required_fixes are preserved verbatim in 36-review-1-r4.md.",
+      "blocking": false,
+      "why_deferred": "Never observed; requires a self-contradictory exchange response, unlike the 2026-07-14 defect which was a missing field. User decision 2026-07-29: store what the exchange returns and investigate a real occurrence when it happens."
     }
   ],
-  "next_action": "Human operator runs 36-review-1-r4.dispatch.md in a FRESH read-only Codex session. rework 3/3 is already spent: a further REWORK needs a new explicit user decision before any fix can proceed. Review-2 afterwards needs its own fresh Codex session, isolated from all four review-1 rounds.",
-  "updated_at": "2026-07-29T00:45:00+08:00",
+  "next_action": "Human operator runs 37-fix-review-1-r4.dispatch.md in a FRESH write-capable Claude-GLM session. It is the smallest round yet — it deletes the _leg_final_fields derivation and adjusts the tests that asserted it. Then: bookkeeper verifies, re-pins, re-runs pre-review, and dispatches review-1 round 5.",
+  "updated_at": "2026-07-29T01:30:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -944,7 +984,8 @@
     "escalated_to": "user",
     "user_decision": "authorized the third fix round and specified its approach",
     "verbatim": "这条畸形 2xx完全是脱裤子放屁的漂移需求，按照我说的只存第一条",
-    "note": "The escalation was resolved in-conversation by the release authority. No further rework round is available without a new explicit user decision."
+    "note": "The escalation was resolved in-conversation by the release authority. No further rework round is available without a new explicit user decision.",
+    "rounds_beyond_limit": "Round 4's fix also proceeds past the 3/3 limit on the user's explicit instruction (「写吧」, 2026-07-29), recorded as a further resolution of the same escalation."
   },
   "user_scope_decision_round3": {
     "at": "2026-07-28",
