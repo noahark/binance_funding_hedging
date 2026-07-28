@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -279,10 +279,13 @@
       "task_id": "backend",
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
-      "status": "dispatch_prepared",
+      "status": "delivered",
       "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/31-fix-review-1.dispatch.md",
       "identity_note": "AGENTS.md bans reviewer==implementer, not fixer==implementer, so claude_glm remains the correct fix author. A FRESH session is specified: the implementing session 2b5e8d01 was past 65% context before starting and this narrow fix does not need its history.",
-      "session_note": "must be a new session, not 2b5e8d01"
+      "session_note": "must be a new session, not 2b5e8d01",
+      "head_sha": "33715ae2bcb4fef427f340780155dc4e4c316e28",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md (appended section)",
+      "verified_by_bookkeeper": "Fix confirmed against the code, not accepted on the report's word. The LegDispatch construction at live_hedge_executor.py:568-588 is unchanged field-for-field except the added query_raw_response line, so order verdicts, resend rules and rate-limit handling cannot have moved; the two new persists reuse _persist_leg_raw's isolated transaction, so raw-write failure still cannot fail a business write; it follows the drain path's order_query pattern rather than inventing a second mechanism. test_4h drives the real LiveHedgeExecutor through a wire-level fake so the genuine _send_one_leg path runs, and asserts spot == {order_post, order_query} with the retrievable FILLED body, perp == {order_post, order_confirm} proving no spurious rows, and the spot leg still FILLED/25000/terminal. Independently re-run: 1062 passed, specified suite 317 passed. Zero forbidden paths touched; production DB unchanged (start_gate=1, version=4). The implementer did not commit — HEAD was still cb15932 when it stopped."
     }
   ],
   "reviewer_1": {
@@ -384,10 +387,10 @@
       ],
       "reviewer": "codex",
       "implementation_report_path": "20-implementation.md",
-      "implementation_status": "rework1_dispatched",
+      "implementation_status": "rework1_evidence_committed",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-      "head_sha": "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
-      "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
+      "head_sha": "33715ae2bcb4fef427f340780155dc4e4c316e28",
+      "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
       "test_evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
       "note": "T4 is not in scope for this task: its paid experiment was cancelled and its remaining work is a read-only recon that runs independently and blocks nothing here.",
       "review_1": {
@@ -596,8 +599,8 @@
     "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md"
   },
   "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-  "head_sha": "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
-  "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
+  "head_sha": "33715ae2bcb4fef427f340780155dc4e4c316e28",
+  "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
   "coverage_waypoints": [],
   "changed_files": [
     "backend/hedge_open_tasks/domain.py",
@@ -625,6 +628,10 @@
     "reports/agent-runs/2026-07-hedge-order-truth-v1/18-harness-followup-dispatch.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/19-r4-reconciliation.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/21-pre-review-validation.txt",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/31-fix-review-1.dispatch.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/70-handoff.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/status.json",
@@ -632,15 +639,18 @@
   ],
   "tests": {
     "status": "passed",
-    "run_by": "bookkeeper, independently re-run on the delivered tree",
+    "run_by": "bookkeeper, independently re-run on the fixed tree",
     "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
     "commands": [
       {
         "cmd": ".venv/bin/python -m pytest backend/tests -q",
-        "result": "1061 passed in 50.47s"
+        "result": "1062 passed in 50.72s (baseline 1061 + test_4h)"
+      },
+      {
+        "cmd": "specified 9-suite run",
+        "result": "317 passed in 19.94s (baseline 316 + test_4h)"
       }
-    ],
-    "note": "The implementer reported 316 passed on the specified sub-suite and 1061 on the full suite; the bookkeeper's independent full run matches."
+    ]
   },
   "review_1": {
     "reviewer": "codex",
@@ -794,8 +804,8 @@
       "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
     }
   ],
-  "next_action": "Human operator runs 31-fix-review-1.dispatch.md in a FRESH write-capable Claude-GLM session. The reviewer's fix_start_prompt is reproduced verbatim there; two mechanical corrections (.venv interpreter, do not commit) are disclosed alongside rather than edited into it. The packet uses line-range anchors and a stated ~10 KB reading budget, applying the packet-scoping guidance that landed on main at 1bcc7c2. After the fix: bookkeeper verifies, recomputes the fingerprint, re-runs --phase pre-review, and re-dispatches review-1 on the new range. Review-2 still requires a second fresh Codex session isolated from review-1.",
-  "updated_at": "2026-07-28T21:10:00+08:00",
+  "next_action": "Re-dispatch review-1 to codex on the NEW range ecc3841..33715ae in a fresh read-only session. The packet must state that round 1 returned REWORK on the previous range, that this round's diff adds the fallback-GET persistence, and must carry forward the same three orientation notes (bookkeeping commits contain delivery code so review the range; the report's corrected claims; residuals R-1/R-2) plus W0 still not done. Review-2 afterwards needs a SECOND fresh Codex session isolated from both review-1 rounds.",
+  "updated_at": "2026-07-28T21:40:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -825,5 +835,11 @@
     "at": "2026-07-28T20:00:00+08:00",
     "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/21-pre-review-validation.txt",
     "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8"
+  },
+  "previous_range_round1": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
+    "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
+    "note": "Round-1 range. review-1 returned REWORK on it (one P1). Void as an acceptance range once the fix moved the diff."
   }
 }
