@@ -398,8 +398,8 @@
       "implementation_report_path": "20-implementation.md",
       "implementation_status": "rework2_dispatched",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-      "head_sha": "33715ae2bcb4fef427f340780155dc4e4c316e28",
-      "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
+      "head_sha": "c06c92140a371b3dc577cf7b509f27b61e4a7948",
+      "diff_fingerprint": "c06c92140a371b3dc577cf7b509f27b61e4a7948:4f1e005f72892df4435c64444668a785f382170c7b49e229c3aea23aef3dcaa9",
       "test_evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
       "note": "T4 is not in scope for this task: its paid experiment was cancelled and its remaining work is a read-only recon that runs independently and blocks nothing here.",
       "review_1": {
@@ -625,9 +625,14 @@
     "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md"
   },
   "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-  "head_sha": "33715ae2bcb4fef427f340780155dc4e4c316e28",
-  "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
-  "coverage_waypoints": [],
+  "head_sha": "c06c92140a371b3dc577cf7b509f27b61e4a7948",
+  "diff_fingerprint": "c06c92140a371b3dc577cf7b509f27b61e4a7948:4f1e005f72892df4435c64444668a785f382170c7b49e229c3aea23aef3dcaa9",
+  "coverage_waypoints": [
+    "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
+    "33715ae2bcb4fef427f340780155dc4e4c316e28",
+    "c06c92140a371b3dc577cf7b509f27b61e4a7948"
+  ],
   "changed_files": [
     "backend/hedge_open_tasks/domain.py",
     "backend/hedge_open_tasks/service.py",
@@ -658,6 +663,8 @@
     "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/31-fix-review-1.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/70-handoff.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/status.json",
@@ -706,7 +713,9 @@
     "round2_verdict": "REWORK",
     "bookkeeper_added_requirement": "Row growth is unaddressed by both the finding and required_fixes, and the fix cannot be written without deciding it. ADR-T4 bounds the raw table by asserting 2-6 rows per attempt, but drain re-queries a non-terminal leg every worker round (service.py:986). If every inconclusive query writes a row, a leg stuck UNKNOWN — exactly this fix's target scenario — produces unbounded rows and falsifies ADR-T4's own bound. The fix must either bound persistence (dedupe / first-N / collapse-with-count) or amend ADR-T4's stated bound. Silently breaking the bound is not acceptable, and neither is dropping the evidence again to preserve it. Added to the fix packet as a disclosed bookkeeper requirement, not presented as the reviewer's words.",
     "w0_judgement": "The reviewer again declined to block on W0, re-deriving that call this round rather than inheriting it, as the packet required.",
-    "round2_outcome": "REWORK, then the criterion it was judged against was narrowed by the user rather than the code being changed. The finding is NOT withdrawn or disputed — it is recorded as a deferred P1 follow-up. review-1 must re-judge the unchanged code against the amended 00-task.md."
+    "round2_outcome": "REWORK, then the criterion it was judged against was narrowed by the user rather than the code being changed. The finding is NOT withdrawn or disputed — it is recorded as a deferred P1 follow-up. review-1 must re-judge the unchanged code against the amended 00-task.md.",
+    "round3_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.dispatch.md",
+    "round3_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.md"
   },
   "review_2": null,
   "authorized_exceptions": [],
@@ -848,7 +857,7 @@
     }
   ],
   "next_action": "Human operator runs 34-review-1-r3.dispatch.md in a FRESH read-only Codex session. NO code changed since 33715ae — the range and fingerprint are unchanged; what changed is 00-task.md's T3 criterion, narrowed by the user. The reviewer re-judges the same code against the amended criteria and must be told plainly that its finding was accepted as valid and deferred by the user, not overruled.",
-  "updated_at": "2026-07-28T22:50:00+08:00",
+  "updated_at": "2026-07-28T22:55:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -893,5 +902,6 @@
     "note": "Round-2 range. review-1 returned REWORK on it (one P1, a new defect). Void as an acceptance range once the fix moves the diff."
   },
   "rework_budget_warning": "rework_count is 2 of max 3. A third REWORK hits the limit and routes to human_escalation_required per AGENTS.md. The next fix round should therefore be verified unusually carefully before re-dispatching review-1, and the fix packet must close the whole class (every exchange round-trip leaves a record) rather than only the two paths named in this finding.",
-  "rework_count_note": "rework_count stays at 2. Round 3 involves NO code change — it is a re-review against amended acceptance criteria, not a fix cycle. Incrementing it would misreport the stage as having burned three fix attempts. Recorded explicitly rather than silently not incrementing."
+  "rework_count_note": "rework_count stays at 2. Round 3 involves NO code change — it is a re-review against amended acceptance criteria, not a fix cycle. Incrementing it would misreport the stage as having burned three fix attempts. Recorded explicitly rather than silently not incrementing.",
+  "coverage_waypoints_note": "W0 base; W1 (5de9ef3) round-1 delivery, review-1 r1 REWORK; W2 (33715ae) the round-1 fix, review-1 r2 REWORK; W3 (c06c921) NO code change — only 00-task.md's T3 criterion narrowed by user decision. `git diff 33715ae..c06c921 -- backend/` is EMPTY, so review-1 round 3 judges byte-identical code against amended criteria."
 }
