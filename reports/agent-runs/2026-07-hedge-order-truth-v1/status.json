@@ -1,0 +1,375 @@
+{
+  "stage_id": "2026-07-hedge-order-truth-v1",
+  "status": "designing",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-hedge-order-truth-v1",
+    "created_from_main_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "created_at": "2026-07-28T07:26:35+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "independent_stage_bookkeeper",
+    "provider": "claude",
+    "model": "Claude Opus 5",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null,
+    "previous_bookkeeper": {
+      "provider": "claude",
+      "model": "Claude Opus 5",
+      "handover_reason": "same session role carried over from 2026-07-hedge-open-live-hardening-v1, which it closed as bookkeeper",
+      "handover_at": "2026-07-28T07:26:35+08:00"
+    }
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": true,
+    "r4_diff_reconciliation_required": false,
+    "decided_by": "Provisional at intake. Every scope item (T1/T2/T3/T5) is backend-only and they share the same files — live_hedge_executor.py, store.py, domain.py, service.py — so there is no disjoint boundary to split on. UI work is an explicit non-goal. The development breakdown may overturn this if it finds a genuinely separable second task; if it does, parallel_mode.enabled flips to true and the dispatch-ready gate applies.",
+    "embedded_review": {
+      "enabled": false,
+      "reason": "Single-owner stage; v0.5 embedded pre-review is opt-in and there is no second implementer to cross-review against."
+    }
+  },
+  "local_readonly_research_subagents": {
+    "opted_in": false,
+    "max_per_task": 0,
+    "note": "No implementation prompt has opted in yet. Absent an explicit opt-in in the task prompt, the default prohibition in AGENTS.md remains in force."
+  },
+  "dispatch_protocol": "human-operator/v1",
+  "model_routing": {
+    "note": "Fixed at intake by the user's Review-1 choice and its forced consequence. See 15-user-authorized-codex-review-1.md for the full reasoning and the compliance check. The bookkeeper is Anthropic provider and writes no delivery code, so it is not an implementation or fix author.",
+    "backend": {
+      "owner_provider": "claude_glm",
+      "owner_model": "glm-5.2[1m]",
+      "task_id": "backend"
+    },
+    "reviewer_pool": {
+      "at": "2026-07-28",
+      "available": ["codex", "claude_glm", "claude", "grok"],
+      "unavailable": ["kimi"],
+      "source": "carried from 2026-07-hedge-open-live-hardening-v1 status; kimi quota still not recovered"
+    },
+    "codex_review_1_enablement": {
+      "required_by": "AGENTS.md Hard Gates and agents/registry.yaml review_1_cross_review_pool: [kimi, claude_glm] — codex is not a registered Review-1 gate",
+      "authorizer": "user",
+      "at": "2026-07-28",
+      "evidence_file": "reports/agent-runs/2026-07-hedge-order-truth-v1/15-user-authorized-codex-review-1.md",
+      "pool_could_not_supply_the_gate": "kimi quota unrecovered; claude_glm is the implementer and is barred from reviewing its own code. Review-1 had to come from outside the pool regardless.",
+      "tradeoff_presented_before_the_choice": "Only codex and claude may take the final gate, and the design-involvement override for claude is admissible only when codex is unavailable — which it is not. So codex at Review-1 forced Review-2 to be either claude (requiring a non-claude designer) or codex again (a non-independent final gate). Three routings were put to the user; the bookkeeper recommended grok-designs/claude-finals. The user chose claude-designs/codex-both-gates."
+    },
+    "review_2_independence_loss": {
+      "disclosed": true,
+      "accepted_by": "user",
+      "at": "2026-07-28",
+      "what": "Review-1 and Review-2 are the same provider and model (GPT-5 Codex). The final gate substantially re-confirms its own earlier reading of the same diff rather than challenging it.",
+      "not_a_gate_breach": "AGENTS.md and scripts/validate-stage.py place no constraint on review_1 and review_2 sharing an identity; both are provider-isolated from the implementer, and review_2 has no design involvement, so no disclosure override is claimed or needed.",
+      "failure_mode_this_cannot_catch": "a defect codex is systematically blind to passes both gates",
+      "binding_mitigations": [
+        "Review-1 and Review-2 run in two distinct fresh read-only sessions with no shared transcript or tool state.",
+        "Review-2's packet points at 00-task.md as the top requirements authority, not 10-design.md — the authority-order point that caught the previous stage's blocking finding.",
+        "Review-2's packet must disclose that Review-1 was the same provider and instruct the reviewer to treat its own prior verdict as unproven.",
+        "The Review-1 verdict is committed evidence before Review-2 is dispatched."
+      ]
+    }
+  },
+  "embedded_reviews": {},
+  "session_receipts": [],
+  "designer": {
+    "provider": "claude",
+    "model": "Claude Fable 5",
+    "backup_model": "Claude Opus 4.8",
+    "role": "stage_designer",
+    "status": "dispatch_prepared",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design-and-breakdown.dispatch.md",
+    "raw_output_paths": [
+      "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md",
+      "reports/agent-runs/2026-07-hedge-order-truth-v1/11-adr.md"
+    ],
+    "routing_reason": "The user chose codex for both review gates, which frees the Claude provider to design without creating a Review-2 conflict. Claude designed the previous two stages and carries the frozen-contract context.",
+    "executed_model": null,
+    "received_at": null,
+    "recorded_at": "2026-07-28T07:26:35+08:00"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": {
+    "provider": "claude",
+    "model": "Claude Fable 5",
+    "backup_model": "Claude Opus 4.8",
+    "status": "dispatch_prepared",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design-and-breakdown.dispatch.md",
+    "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/12-development-breakdown.md",
+    "combined_with_design_dispatch": true,
+    "executed_model": null,
+    "received_at": null,
+    "recorded_at": "2026-07-28T07:26:35+08:00"
+  },
+  "implementer": null,
+  "implementers": [
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "not_dispatched",
+      "dispatched_at": null,
+      "note": "Provisional at intake; the development breakdown fixes the final owner split and may split this into more than one task."
+    }
+  ],
+  "fix_authors": [],
+  "reviewer_1": {
+    "provider": "codex",
+    "model": "GPT-5 Codex",
+    "reviewer_identity": "codex",
+    "status": "not_dispatched",
+    "enabled_by": "reports/agent-runs/2026-07-hedge-order-truth-v1/15-user-authorized-codex-review-1.md",
+    "read_only_command": "codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>",
+    "command_source": "agents/registry.yaml adapters.codex.schema_review_command",
+    "fresh_session_required": true,
+    "invalid_verdict_fallback": {
+      "pre_authorized": true,
+      "rule": "A missing verdict, or one failing schemas/review-verdict.schema.json, is non-accepting. Retry this gate once; if it fails again fall back to claude (Fable 5 -> Opus 4.8), recording the fallback reason and the invalid-output evidence path. Admissible without qualification at Review-1: AGENTS.md constrains designer overlap only at Review-2.",
+      "fallback_provider": "claude",
+      "fallback_model": "Claude Fable 5"
+    }
+  },
+  "reviewer_2": {
+    "provider": "codex",
+    "model": "GPT-5 Codex",
+    "reviewer_identity": "codex",
+    "status": "not_dispatched",
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
+    "reviewer_prior_involvement": "none",
+    "same_provider_as_review_1": true,
+    "independence_note": "See model_routing.review_2_independence_loss. Disclosed to and accepted by the user; not a gate breach, but the mitigations listed there are binding on the packet.",
+    "fresh_session_required": true,
+    "invalid_verdict_fallback": {
+      "pre_authorized": true,
+      "rule": "Retry once, then fall back to claude. Because claude is this stage's designer, that fallback is admissible only under the strong-reviewer disclosure override — which becomes available precisely because codex will have failed a runner-level check. Record reviewer_prior_involvement=design and the evidence path if used."
+    }
+  },
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "backend",
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]"
+      },
+      "scope": ["T1", "T2", "T3", "T5"],
+      "allowed_files": [],
+      "forbidden_files": [],
+      "dependencies": [],
+      "reviewer": "codex",
+      "implementation_report_path": "20-implementation.md",
+      "implementation_status": "not_started",
+      "base_sha": null,
+      "head_sha": null,
+      "diff_fingerprint": null,
+      "test_evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
+      "note": "File boundaries are deliberately empty at intake; the development breakdown sets them. T4 is not listed because it is evidence-gated and is not implementation work until its discriminator has run."
+    }
+  ],
+  "bookkeeper_added_checkpoints": [],
+  "complexity": {
+    "classification": "MEDIUM",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": false,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "All scope items are defect repairs and persistence inside the direction already frozen and approved for 2026-07-hedge-open-real-api-v1; no new product direction is introduced.",
+      "T3 adds a storage surface and T1 changes where authoritative fill figures come from, touching an accepted contract's data flow, so it is not LOW: it needs a development breakdown and both review gates.",
+      "The user opened the stage on 2026-07-28 from the standing proposal without requesting a direction panel. user_approved_lightweight_route is recorded as false because the user was never asked that question explicitly; the MEDIUM route permits the skip on existing-synthesis coverage alone, which is the basis relied on here."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {},
+    "skipped_reason": "MEDIUM stage covered by reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md; no new product direction is introduced."
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "not_required",
+    "user_approved": true,
+    "inherited_from": "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md"
+  },
+  "scope": {
+    "T1": {
+      "severity": "P0",
+      "title": "Fill figures are wrong because Binance removed cumQuote/cumBase/avgPrice from UM/CM order responses",
+      "anchors": [
+        "backend/services/live_hedge_executor.py:242-248",
+        "backend/services/live_hedge_executor.py:338-344",
+        "backend/hedge_open_tasks/store.py:660-668"
+      ],
+      "live_proof": "hedge_open_leg id=6: exchange_status=FILLED, cumulative_base_qty=10000, cumulative_quote_amt=0",
+      "external_contract_change": {
+        "announced": "2026-07-13",
+        "effective": "2026-07-14",
+        "source": "Binance Portfolio Margin changelog, verified 2026-07-27",
+        "removed_fields": ["cumBase", "cumQuote", "avgPrice"],
+        "endpoints": ["POST /papi/v1/um/order", "POST /papi/v1/cm/order"],
+        "margin_unaffected": "the margin endpoint still returns cummulativeQuoteQty"
+      }
+    },
+    "T2": {
+      "severity": "P1",
+      "title": "The error-code tables hold only negative literals, so no margin-endpoint code can match",
+      "anchor": "backend/hedge_open_tasks/domain.py:306-353",
+      "live_proof": "hedge_open_leg id=5: error_code=51169, error_category=NULL",
+      "structural_requirement": "adding 51169 as a literal is explicitly insufficient",
+      "exposure_semantics_settled": {
+        "at": "2026-07-28",
+        "by": "user",
+        "decision": "single_leg_exposure stays ADVISORY; a single-leg outcome does not pause the task",
+        "consequence": "T2 does not need to distinguish retryable from must-halt for the sake of exposure control",
+        "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/00-intake.md §Settled At Intake"
+      }
+    },
+    "T3": {
+      "severity": "P1",
+      "title": "Persist the raw order-placement response and the full order-detail read",
+      "user_requirement_verbatim": "记得增加存储下单原始返回订单信息，以及查询订单详情的全量信息",
+      "stated_at": "2026-07-27",
+      "anchors": [
+        "backend/services/live_hedge_executor.py:77",
+        "hedge_open_leg has error_code/error_category but no message or payload column",
+        "hedge_open_log records request params only, never the response"
+      ],
+      "design_open_questions": ["storage shape", "retention", "redaction"]
+    },
+    "T4": {
+      "severity": "P2",
+      "title": "Determine the real cause of 51169, then fix the preflight",
+      "status": "evidence_gated_and_authorization_gated",
+      "blocked_on": "one real margin BUY on NOMUSDT with no concurrent UM order — requires explicit user authorization separate from opening this stage; executed by the human operator",
+      "ruled_out": [
+        "NOMUSDT not margin-tradable — falsified by public exchangeInfo (isMarginTradingAllowed: true)",
+        "a PAPI test-order endpoint as a remedy — none exists; official trade docs checked"
+      ],
+      "unproven": "that the concurrent UM fill consumed the margin the spot leg needed",
+      "interpretation_fixed_in_advance": {
+        "success": "concurrency contention with the UM leg is real",
+        "same_51169": "the cause is the collateral coefficient or wallet placement, not contention"
+      },
+      "defer_outcome": "If the user declines or defers, T1/T2/T3/T5 ship and T4 defers with the preflight untouched. That is an acceptable stage outcome recorded as a follow-up, not a failure.",
+      "authorization": {
+        "requested": false,
+        "granted": false,
+        "at": null
+      }
+    },
+    "T5": {
+      "severity": "P1",
+      "title": "The live exposure record is timestamped 1970",
+      "found_by": "bookkeeper, at intake, while grounding 00-intake.md against the production database",
+      "in_the_proposal": false,
+      "anchors": [
+        "backend/hedge_open_tasks/service.py:1688 — live path passes a hardcoded literal 0 as ts_us",
+        "backend/hedge_open_tasks/domain.py:882-910 — build_leg_exposure renders it via us_to_iso",
+        "backend/hedge_open_tasks/executor.py:342 — the dry-run path passes the real ctx.ts_us, which is why no offline test catches it"
+      ],
+      "live_proof": "hedge_open_task a1d0a9ac: leg_exposure = {\"leg\":\"perp\",\"qty\":\"10000\",\"price\":null,\"ts\":\"1970-01-01T00:00:00.000000Z\"}",
+      "why_in_scope": "Same defect class as T1 and T2 — a fabricated value standing in for information the system had — and it is currently corrupting the durable record of a real outstanding naked position.",
+      "price_null_is_downstream_of_T1": "leg_exposure.price = null follows from the removed avgPrice; the design must confirm T1's fix restores it rather than patching the exposure document separately."
+    }
+  },
+  "live_surface_state_at_intake": {
+    "service_running": true,
+    "service_pid": 96409,
+    "service_mode": "live",
+    "service_uptime_at_capture": "9h31m",
+    "start_gate": 1,
+    "start_gate_version": 4,
+    "task_rows": "5 — 3 paused KORUUSDT cards (never dispatched), 2 done (COOKIEUSDT, NOMUSDT)",
+    "outstanding_position": "real naked SHORT 10000 NOMUSDT, orderId 888412130, unhedged; no close function exists (third stage of the programme)",
+    "user_decision": "The user was offered closing the gate and stopping the service before this stage opened and chose to leave both as they are. The risk is theirs and is not a defect.",
+    "binding_constraint": "No agent working this stage may create a task card, press Start, place an order, touch credentials, start/stop the service, or write to data/hedge-open-tasks.sqlite3. Read-only database access for evidence is permitted. T4's discriminator is the sole exception and requires separate user authorization.",
+    "note": "APP_HEDGE_EXECUTOR=live, the durable Start gate, and any real order remain separate human authorizations. This stage grants none of them.",
+    "captured_at": "2026-07-28T07:26:35+08:00",
+    "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md"
+  },
+  "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+  "head_sha": null,
+  "diff_fingerprint": null,
+  "coverage_waypoints": [],
+  "changed_files": [],
+  "tests": {
+    "status": "not_run",
+    "run_by": null,
+    "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
+    "commands": [],
+    "baseline_on_main": {
+      "at": "2026-07-28T01:45:00+08:00",
+      "on": "local main c8b6bbe",
+      "backend_tests": "983 passed",
+      "frontend_self_check": "全部自检通过, 122 PASS",
+      "scripts_tests": "148 passed",
+      "source": "2026-07-hedge-open-live-hardening-v1 post_merge_verification"
+    }
+  },
+  "review_1": null,
+  "review_2": null,
+  "authorized_exceptions": [],
+  "main_syncs": [],
+  "rework_count": 0,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": false,
+    "reason": null
+  },
+  "terminal_reason": null,
+  "reporting_preferences": {
+    "execution_footer": {
+      "include_provider_native_session_id": true,
+      "include_session_id_source": true,
+      "include_raw_output_path": true,
+      "unknown_session_id_policy": "write unavailable with reason; never invent",
+      "session_id_is_navigation_only": true
+    }
+  },
+  "carried_followups_from_previous_stage": {
+    "source": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/status.json.stage_followups",
+    "default": "not in scope",
+    "candidate_for_folding_in": {
+      "id": "p3-preflight-snapshot-key-contract-untested",
+      "why": "Same silent-downgrade shape as T1 and T2: if compute_preflight's spot_min_qty/spot_max_qty/perp_min_qty/perp_max_qty key names drift, the suite stays green while the offline validator silently stops checking step/min/max.",
+      "decision": "left to the development breakdown; fold in only if genuinely cheap"
+    },
+    "staying_deferred": [
+      "p3-api-samples-backslash-prose",
+      "p3-confirm-negative-matrix",
+      "p3-409-dialog-title-unfrozen",
+      "p3-selfcheck-dialog-body-includes"
+    ],
+    "why_deferred": "folding them in would widen a data-truth diff with unrelated cosmetics"
+  },
+  "harness_followups": [
+    {
+      "id": "registry-grok-drift",
+      "carried_from": "2026-07-hedge-open-live-hardening-v1",
+      "detail": "agents/registry.yaml adapters.grok pins grok-build / grok-composer-2.5-fast; `grok models` reports only grok-4.5. Every recorded Grok command in the registry is unusable.",
+      "action": "On main, refresh adapters.grok observed_available_models and all four command forms, and re-verify whether --effort high is still accepted.",
+      "blocking_this_stage": false,
+      "note": "Not blocking here — this stage routes no work to Grok."
+    },
+    {
+      "id": "registry-review-1-pool-exhausted",
+      "found_at": "2026-07-28",
+      "found_by": "bookkeeper, while routing this stage's Review-1",
+      "detail": "agents/registry.yaml review_1_cross_review_pool is [kimi, claude_glm]. Kimi's quota has not recovered since 2026-07-27, and claude_glm is the default backend implementer — so for any backend stage the registered pool is structurally empty and every stage must reach outside it under an explicit user enablement. That has now happened twice running (grok last stage, codex this stage).",
+      "action": "On main, decide whether the registered pool should be widened (codex/claude/grok as standing Review-1 members with recorded constraints) rather than requiring a per-stage user waiver each time.",
+      "blocking_this_stage": false
+    }
+  ],
+  "stage_followups": [],
+  "next_action": "Human operator runs 10-design-and-breakdown.dispatch.md in a Claude Fable 5 session. The designer produces 10-design.md, 11-adr.md and 12-development-breakdown.md, and nothing else.",
+  "updated_at": "2026-07-28T07:26:35+08:00"
+}
