@@ -138,7 +138,7 @@
       "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md",
       "dispatched_at": "2026-07-28T18:10:00+08:00",
       "executed_by": "human operator",
-      "status": "in_progress",
+      "status": "delivered",
       "context_budget_incident": {
         "observed_at": "2026-07-28T18:40:00+08:00",
         "what": "The session reached ~65% of its 1M context (~650k tokens) while still in the reading phase — it had reached service.py's pause helpers / worker region and the locked transport client, and had not begun implementing.",
@@ -372,7 +372,7 @@
       ],
       "reviewer": "codex",
       "implementation_report_path": "20-implementation.md",
-      "implementation_status": "dispatch_prepared",
+      "implementation_status": "delivered_r4_passed",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
       "head_sha": null,
       "diff_fingerprint": null,
@@ -566,18 +566,16 @@
   "coverage_waypoints": [],
   "changed_files": [],
   "tests": {
-    "status": "not_run",
-    "run_by": null,
+    "status": "passed",
+    "run_by": "bookkeeper, independently re-run on the delivered tree",
     "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
-    "commands": [],
-    "baseline_on_main": {
-      "at": "2026-07-28T01:45:00+08:00",
-      "on": "local main c8b6bbe",
-      "backend_tests": "983 passed",
-      "frontend_self_check": "全部自检通过, 122 PASS",
-      "scripts_tests": "148 passed",
-      "source": "2026-07-hedge-open-live-hardening-v1 post_merge_verification"
-    }
+    "commands": [
+      {
+        "cmd": ".venv/bin/python -m pytest backend/tests -q",
+        "result": "1061 passed in 50.47s"
+      }
+    ],
+    "note": "The implementer reported 316 passed on the specified sub-suite and 1061 on the full suite; the bookkeeper's independent full run matches."
   },
   "review_1": null,
   "review_2": null,
@@ -658,6 +656,19 @@
         "codex_eligibility": "registry's codex_eligible_for_implementation_or_fix: false and AGENTS.md's 'Codex is not an implementation or fix author' both scope to STAGE DELIVERY authorship. This is harness documentation on main outside any stage, so neither bars it.",
         "isolation_constraint": "Codex is this stage's Review-1 AND Review-2 gate. If this branch reached stage/2026-07-hedge-order-truth-v1, Codex would review a diff containing its own text. The branch must not be merged into the stage branch, and main must not be merged into the stage branch while this change is on it."
       }
+    },
+    {
+      "id": "bookkeeper-add-all-during-live-implementer",
+      "found_at": "2026-07-28",
+      "found_by": "bookkeeper, during R4 reconciliation",
+      "detail": "The bookkeeper used `git add -A` for routine stage bookkeeping while an implementer session was live in the same worktree, and silently committed 1700+ lines of delivery code inside three docs commits. Nothing in the harness warns against this: the implementer is told not to commit, but the bookkeeper is never told that `git add -A` is unsafe while an implementer is running.",
+      "proposed_actions": [
+        "Bookkeeper evidence commits use explicit pathspecs (e.g. `git add reports/agent-runs/<stage>/`), never `git add -A`, whenever an implementer session may be live.",
+        "Before any bookkeeping commit during implementation, check `git status` for delivery-file modifications and either exclude them or make them a deliberate, separately-messaged evidence commit.",
+        "Consider stating in AGENTS.md that stage bookkeeping and delivery code never share a commit."
+      ],
+      "blocking_this_stage": false,
+      "note": "Third harness gap this stage, after registry-review-1-pool-exhausted and dispatch-reading-scope-and-budget."
     }
   ],
   "stage_followups": [
@@ -681,5 +692,28 @@
     }
   ],
   "next_action": "Claude-GLM session 2b5e8d01 is running 13-implementation.dispatch.md through W1..W6. Context budget is a known accepted risk (status.session_receipts[-1].context_budget_incident): if it compacts, or as a precaution before W4, the operator may paste 17-context-guard-note.md into it. In parallel and independently: W0 (read-only signed GET, human operator) and T4's collateral-cap recon. When the implementer stops: R4 reconciliation against the nine checks in 17-context-guard-note.md §Bookkeeper's own mitigation, then evidence commit, fingerprint, --phase pre-review, then review-1 to codex in a fresh read-only session.",
-  "updated_at": "2026-07-28T19:15:00+08:00"
+  "updated_at": "2026-07-28T19:50:00+08:00",
+  "r4_diff_reconciliation": {
+    "performed_by": "bookkeeper",
+    "at": "2026-07-28T19:50:00+08:00",
+    "verdict": "PASS",
+    "artifact": "reports/agent-runs/2026-07-hedge-order-truth-v1/19-r4-reconciliation.md",
+    "summary": "All nine checks planned in 17-context-guard-note.md BEFORE the evidence arrived passed: zero forbidden paths touched, the frozen Chinese copy is byte-identical to 10-design §2(d) and asserted verbatim, 51169 maps to collateral_cap with insufficient_margin off its path, the rollup priority is exactly fatal>auth>collateral_cap>insufficient_funds>unclassified>absent, no path can store a fabricated \"0\" (FILL_FIGURES_SOURCE is an explicit per-product table and the old literal-\"0\"-means-absent check is gone), the T5 regression genuinely drives service._dispatch_to_outcome and asserts the ts is not the epoch, the negative-code matrix exists, the production database is substantively unchanged, and the implementer neither committed nor touched status/handoff.",
+    "independent_test_rerun": "bookkeeper re-ran .venv/bin/python -m pytest backend/tests -q on the delivered tree: 1061 passed in 50.47s, matching the report",
+    "bookkeeper_error_found": "see status.bookkeeper_commit_contamination"
+  },
+  "bookkeeper_commit_contamination": {
+    "severity": "process error by the bookkeeper, no effect on delivered code",
+    "what": "Three bookkeeping commits (5aceca9 +179/-42, 8bd03e8 +869/-73, ca3cf1f +687/-60 plus 20-implementation.md and 60-test-output.txt) swept up the implementer's in-progress delivery code, because the bookkeeper ran `git add -A` while a Claude-GLM session was concurrently writing to the same worktree.",
+    "whose_error": "the bookkeeper's. The implementer's report states 未 commit and that is true — it never committed.",
+    "it_explains_the_implementer_finding": "The report's headline finding — that W1/W2/W3 predated the baseline and this stage only did W4+W5+W6 — is WRONG, but the observation behind it was correct and correctly escalated: diffing against HEAD, the implementer really did see its own earlier work already committed, under a docs message. Verified false at the baseline: ecc3841's domain.py has all-negative tables and no collateral_cap, and service.py passes a hardcoded 0 to build_leg_exposure. Those were the defects.",
+    "not_affected": [
+      "delivered code is complete — git status clean, HEAD's tree is the implementer's final state",
+      "diff_fingerprint is computed over base..head so intermediate slicing is irrelevant",
+      "AGENTS.md requires reviewers to use the pinned base..head range, never a moving HEAD, so they see the full delivery diff"
+    ],
+    "damaged": "history readability and honesty — three commit messages describe bookkeeping and silently carry hedge implementation",
+    "decision": "History is NOT rewritten: it would invalidate shas already recorded in status.json and cited in later commit messages, and the harness treats committed state as evidence. 19-r4-reconciliation.md §Errata is the correction of record, and both review packets must carry it.",
+    "t2c_list_reconstructed_by_bookkeeper": "The report omits the required T2(c) verdict-change list on the same false premise. Reconstructed from the range diff: 51169 (margin) goes from unlisted/non-fatal-counter/NULL category to collateral_cap -> task-local pause with pause_reason=collateral_cap_full — STRICTER, and the only verdict change. Every negative code is unchanged, locked by test_classify_negative_codes_keep_verdict_on_both_products. Separately, an unmatched business code now records error_category='unclassified' instead of NULL; control flow is identical, so this is a recorded-value change, not a verdict change."
+  }
 }
