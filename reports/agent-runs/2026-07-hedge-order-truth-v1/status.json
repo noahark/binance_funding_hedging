@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "review_1",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -274,12 +274,22 @@
       "note": "Provisional at intake; the development breakdown fixes the final owner split and may split this into more than one task."
     }
   ],
-  "fix_authors": [],
+  "fix_authors": [
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_prepared",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/31-fix-review-1.dispatch.md",
+      "identity_note": "AGENTS.md bans reviewer==implementer, not fixer==implementer, so claude_glm remains the correct fix author. A FRESH session is specified: the implementing session 2b5e8d01 was past 65% context before starting and this narrow fix does not need its history.",
+      "session_note": "must be a new session, not 2b5e8d01"
+    }
+  ],
   "reviewer_1": {
     "provider": "codex",
     "model": "GPT-5 Codex",
     "reviewer_identity": "codex",
-    "status": "dispatch_prepared",
+    "status": "complete",
     "enabled_by": "reports/agent-runs/2026-07-hedge-order-truth-v1/15-user-authorized-codex-review-1.md",
     "read_only_command": "codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>",
     "command_source": "agents/registry.yaml adapters.codex.schema_review_command",
@@ -374,12 +384,35 @@
       ],
       "reviewer": "codex",
       "implementation_report_path": "20-implementation.md",
-      "implementation_status": "delivered_r4_passed",
+      "implementation_status": "rework1_dispatched",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
       "head_sha": "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
       "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
       "test_evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
-      "note": "T4 is not in scope for this task: its paid experiment was cancelled and its remaining work is a read-only recon that runs independently and blocks nothing here."
+      "note": "T4 is not in scope for this task: its paid experiment was cancelled and its remaining work is a read-only recon that runs independently and blocks nothing here.",
+      "review_1": {
+        "reviewer": "codex",
+        "provider": "codex",
+        "model": "GPT-5 Codex",
+        "role": "first_reviewer",
+        "verdict": "REWORK",
+        "json_schema_valid": true,
+        "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
+        "fingerprint_matches_status": true,
+        "reviewer_prior_involvement": "none",
+        "open_p0_p1": 1,
+        "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.md",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
+        "recorded_at": "2026-07-28T21:10:00+08:00",
+        "round": 1,
+        "status": "complete",
+        "findings_summary": "1 P1: the immediate fallback order-detail GET issued after an UNKNOWN POST (live_hedge_executor.py:558-583) has its raw_response discarded — the new LegDispatch takes every business field from resolved.* but keeps verdict.raw_response (the POST) — so service._dispatch_live never persists it and T3's order-detail criterion fails on exactly the branch where the exchange's words matter most.",
+        "fix_start_prompt_present": true,
+        "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
+        "bookkeeper_verification": "CONFIRMED against the code, not accepted on the reviewer's word. Verified: (a) the discard at live_hedge_executor.py:581 is real; (b) _dispatch_live writes exactly three raw rows (spot order_post, perp order_post, perp order_confirm) and none for the fallback GET; (c) the finding is STRONGER than stated — this is an internal inconsistency, because the drain path at service.py:1147 already persists its query response with source='order_query' citing T3 §3, so the same class of evidence is kept on one path and dropped on another, and the fix has an existing pattern to follow. Schema checks: role/verdict/next_action all in enum, schema_version const 1, all 11 required fields present, fingerprint identical to status.",
+        "severity_assessment": "P1 is right, not P0 — the conclusive-POST, inline-confirm and drain paths all capture correctly, so the gap is one branch; but it is the diagnostically hardest branch, so not P2 either.",
+        "residual_risk_accepted_by_reviewer": "W0's real UM order-detail sample is still not taken. The reviewer judged the NULL representation sufficient to prevent fabricated zeros and declined to block on it. The packet asked for exactly that call; the bookkeeper does not overturn it. W0 carries into review-2."
+      }
     }
   ],
   "bookkeeper_added_checkpoints": [
@@ -609,11 +642,33 @@
     ],
     "note": "The implementer reported 316 passed on the specified sub-suite and 1061 on the full suite; the bookkeeper's independent full run matches."
   },
-  "review_1": null,
+  "review_1": {
+    "reviewer": "codex",
+    "provider": "codex",
+    "model": "GPT-5 Codex",
+    "role": "first_reviewer",
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
+    "fingerprint_matches_status": true,
+    "reviewer_prior_involvement": "none",
+    "open_p0_p1": 1,
+    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.md",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
+    "recorded_at": "2026-07-28T21:10:00+08:00",
+    "round": 1,
+    "status": "complete",
+    "findings_summary": "1 P1: the immediate fallback order-detail GET issued after an UNKNOWN POST (live_hedge_executor.py:558-583) has its raw_response discarded — the new LegDispatch takes every business field from resolved.* but keeps verdict.raw_response (the POST) — so service._dispatch_live never persists it and T3's order-detail criterion fails on exactly the branch where the exchange's words matter most.",
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
+    "bookkeeper_verification": "CONFIRMED against the code, not accepted on the reviewer's word. Verified: (a) the discard at live_hedge_executor.py:581 is real; (b) _dispatch_live writes exactly three raw rows (spot order_post, perp order_post, perp order_confirm) and none for the fallback GET; (c) the finding is STRONGER than stated — this is an internal inconsistency, because the drain path at service.py:1147 already persists its query response with source='order_query' citing T3 §3, so the same class of evidence is kept on one path and dropped on another, and the fix has an existing pattern to follow. Schema checks: role/verdict/next_action all in enum, schema_version const 1, all 11 required fields present, fingerprint identical to status.",
+    "severity_assessment": "P1 is right, not P0 — the conclusive-POST, inline-confirm and drain paths all capture correctly, so the gap is one branch; but it is the diagnostically hardest branch, so not P2 either.",
+    "residual_risk_accepted_by_reviewer": "W0's real UM order-detail sample is still not taken. The reviewer judged the NULL representation sufficient to prevent fabricated zeros and declined to block on it. The packet asked for exactly that call; the bookkeeper does not overturn it. W0 carries into review-2."
+  },
   "review_2": null,
   "authorized_exceptions": [],
   "main_syncs": [],
-  "rework_count": 0,
+  "rework_count": 1,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {
@@ -739,8 +794,8 @@
       "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
     }
   ],
-  "next_action": "Human operator runs 30-review-1.dispatch.md in a FRESH read-only Codex session. Review-2 will need a SECOND, separate fresh Codex session that shares no transcript with it — binding mitigation from 15-user-authorized-codex-review-1.md, because both gates are the same provider this stage.",
-  "updated_at": "2026-07-28T20:40:00+08:00",
+  "next_action": "Human operator runs 31-fix-review-1.dispatch.md in a FRESH write-capable Claude-GLM session. The reviewer's fix_start_prompt is reproduced verbatim there; two mechanical corrections (.venv interpreter, do not commit) are disclosed alongside rather than edited into it. The packet uses line-range anchors and a stated ~10 KB reading budget, applying the packet-scoping guidance that landed on main at 1bcc7c2. After the fix: bookkeeper verifies, recomputes the fingerprint, re-runs --phase pre-review, and re-dispatches review-1 on the new range. Review-2 still requires a second fresh Codex session isolated from review-1.",
+  "updated_at": "2026-07-28T21:10:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
