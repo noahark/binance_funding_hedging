@@ -105,7 +105,15 @@ above 100%.
 - The complete body Binance returned to an order-placement `POST` is persisted —
   success **and** failure — including `code` and `msg`. After this stage, a
   rejection like `51169` can be explained from our own records alone.
-- The complete body of the order-detail read is persisted.
+- The complete body of the order-detail read is persisted **whenever that read
+  produces a conclusive verdict** — a fill, a confirmed rejection, a confirmed
+  absent order, or a rate-limit signal. This covers both the immediate query
+  issued after an inconclusive `POST` and the later drain query.
+
+  **NARROWED BY USER DECISION, 2026-07-28** — see §Scope decision below. An
+  order-detail read that is itself *inconclusive* (transport timeout, `5xx`, an
+  ambiguous `4xx` that is not an explicit `404`/`-2013`, or a malformed `2xx`)
+  is **not** required to leave a raw record in this stage.
 - The storage shape is a design decision (new columns vs a raw-payload table vs
   `hedge_open_log` rows). Whatever is chosen must state its retention behaviour
   and be justified against the existing schema rather than bolted on.
@@ -117,6 +125,45 @@ above 100%.
   legs that already reach `TERMINAL_RECORDED`.
 - A test asserts that a rejection's `msg` is retrievable from the database after
   the fact.
+
+#### Scope decision — inconclusive order-detail reads are deferred
+
+**Decided by the user, 2026-07-28**, after review-1 round 2 raised it as a P1:
+
+> 不需要在超时这件事上纠结这么久，先保证线上正常对冲单成功开起来，这个极端场景
+> 先不考虑这么细节的操作，等以后遇到了再说。目前最紧要的是让项目长时间的运行
+> 起来，边运行边在具体的场景业务中去解决问题。
+
+What is being deferred, precisely: `classify_query_response`
+(`live_hedge_executor.py:395-424`) builds the sanitized raw and then returns
+`None` on transport error / missing status, `>= 500`, an ambiguous `4xx`, and a
+malformed `2xx`. Neither caller persists it — `_send_one_leg` falls through to
+the POST verdict, and drain does `if verdict is None: continue`
+(`service.py:1116`). So a query that *failed to answer* leaves no trace.
+
+**The cost, stated plainly so it is not rediscovered as a surprise**: if a live
+hedge order ends up in the ambiguous state — POST inconclusive, query also
+inconclusive — the database will show the POST but not that we asked, when, or
+what came back. That is the one situation where reconstructing events matters
+most. The user has weighed this against getting the system running and chose to
+run; it is an accepted risk, not an oversight.
+
+**What is NOT deferred**: every conclusive exchange round-trip still leaves a
+record — the `POST` (success or failure), the UM inline confirm, the immediate
+fallback query when it resolves, and the drain query when it resolves. The
+`51169`-class diagnosis that motivated T3 is fully covered, because that
+rejection is a conclusive response.
+
+Carried as follow-up `p1-inconclusive-query-raw-not-persisted` in
+`status.json.stage_followups`, with the reviewer's own `fix_start_prompt`
+preserved in `32-review-1-r2.md` so the work can be restarted without
+re-deriving it.
+
+Also deferred with it: the raw-table row-growth question the bookkeeper raised
+(ADR-T4 bounds the table at 2–6 rows per attempt, but drain re-queries a
+non-terminal leg every worker round, so persisting every inconclusive query
+would need a bound or an ADR amendment). Deferring the persistence defers that
+question too — ADR-T4's stated bound remains true as written.
 
 ### T5
 

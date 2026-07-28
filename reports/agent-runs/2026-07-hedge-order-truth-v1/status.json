@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -549,7 +549,18 @@
         "storage shape",
         "retention",
         "redaction"
-      ]
+      ],
+      "narrowed_by_user": {
+        "at": "2026-07-28",
+        "by": "user",
+        "decision": "Inconclusive order-detail reads (transport timeout, 5xx, ambiguous 4xx, malformed 2xx) are NOT required to leave a raw record in this stage. Conclusive reads still must.",
+        "verbatim": "不需要在超时这件事上纠结这么久，先保证线上正常对冲单成功开起来，这个极端场景先不考虑这么细节的操作，等以后遇到了再说。目前最紧要的是让项目长时间的运行起来，边运行边在具体的场景业务中去解决问题。",
+        "rationale": "The user's priority is getting live hedging running and learning from real scenarios, rather than perfecting a rare failure mode before launch.",
+        "accepted_cost": "If a live order lands in the doubly-ambiguous state (POST inconclusive AND query inconclusive), the database will not record that we asked, when, or what came back — the situation where reconstruction matters most. Stated to the user before they decided; accepted risk, not an oversight.",
+        "not_deferred": "Every CONCLUSIVE round-trip still leaves a record: POST (success and failure), UM inline confirm, immediate fallback query when it resolves, drain query when it resolves. The 51169-class diagnosis that motivated T3 is fully covered, since that rejection is a conclusive response.",
+        "recorded_in": "reports/agent-runs/2026-07-hedge-order-truth-v1/00-task.md §T3 Scope decision",
+        "gate_consequence": "review-1's round-2 REWORK was judged against T3 as written. With T3 narrowed, the same code must be re-judged — the validator requires review_1 verdict == ACCEPT for pre-accept and AGENTS.md does not admit a class-2 exception waiving that, so the only harness-legal route is a re-review against the amended criteria, not a waiver."
+      }
     },
     "T4": {
       "severity": "P2",
@@ -694,7 +705,8 @@
     "round2_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md",
     "round2_verdict": "REWORK",
     "bookkeeper_added_requirement": "Row growth is unaddressed by both the finding and required_fixes, and the fix cannot be written without deciding it. ADR-T4 bounds the raw table by asserting 2-6 rows per attempt, but drain re-queries a non-terminal leg every worker round (service.py:986). If every inconclusive query writes a row, a leg stuck UNKNOWN — exactly this fix's target scenario — produces unbounded rows and falsifies ADR-T4's own bound. The fix must either bound persistence (dedupe / first-N / collapse-with-count) or amend ADR-T4's stated bound. Silently breaking the bound is not acceptable, and neither is dropping the evidence again to preserve it. Added to the fix packet as a disclosed bookkeeper requirement, not presented as the reviewer's words.",
-    "w0_judgement": "The reviewer again declined to block on W0, re-deriving that call this round rather than inheriting it, as the packet required."
+    "w0_judgement": "The reviewer again declined to block on W0, re-deriving that call this round rather than inheriting it, as the packet required.",
+    "round2_outcome": "REWORK, then the criterion it was judged against was narrowed by the user rather than the code being changed. The finding is NOT withdrawn or disputed — it is recorded as a deferred P1 follow-up. review-1 must re-judge the unchanged code against the amended 00-task.md."
   },
   "review_2": null,
   "authorized_exceptions": [],
@@ -823,10 +835,20 @@
       "severity": "product",
       "blocking": false,
       "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
+    },
+    {
+      "id": "p1-inconclusive-query-raw-not-persisted",
+      "found_at": "2026-07-28",
+      "source": "review-1 round 2 (codex), deferred by user scope decision",
+      "severity": "P1",
+      "detail": "classify_query_response (live_hedge_executor.py:395-424) builds the sanitized raw and discards it on every None return — transport error / missing status, >=500, ambiguous 4xx, malformed 2xx. _send_one_leg falls through to the POST verdict and drain does 'if verdict is None: continue' (service.py:1116), so an order-detail query that failed to answer leaves no trace. Fixing it must also settle raw-table row growth: ADR-T4 bounds the table at 2-6 rows per attempt, but drain re-queries a non-terminal leg every worker round, so persisting every inconclusive query needs a bound (dedupe / first-N / collapse-with-count) or an ADR amendment.",
+      "restart_material": "The reviewer's own fix_start_prompt is preserved verbatim in 32-review-1-r2.md, so this can be restarted without re-deriving it.",
+      "blocking": false,
+      "why_deferred": "User scope decision 2026-07-28: get live hedging running first, solve edge cases as real scenarios produce them."
     }
   ],
-  "next_action": "Human operator runs 33-fix-review-1-r2.dispatch.md in a FRESH write-capable Claude-GLM session. rework_count 2/3 — one left before human escalation.",
-  "updated_at": "2026-07-28T22:30:00+08:00",
+  "next_action": "Human operator runs 34-review-1-r3.dispatch.md in a FRESH read-only Codex session. NO code changed since 33715ae — the range and fingerprint are unchanged; what changed is 00-task.md's T3 criterion, narrowed by the user. The reviewer re-judges the same code against the amended criteria and must be told plainly that its finding was accepted as valid and deferred by the user, not overruled.",
+  "updated_at": "2026-07-28T22:50:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -870,5 +892,6 @@
     "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
     "note": "Round-2 range. review-1 returned REWORK on it (one P1, a new defect). Void as an acceptance range once the fix moves the diff."
   },
-  "rework_budget_warning": "rework_count is 2 of max 3. A third REWORK hits the limit and routes to human_escalation_required per AGENTS.md. The next fix round should therefore be verified unusually carefully before re-dispatching review-1, and the fix packet must close the whole class (every exchange round-trip leaves a record) rather than only the two paths named in this finding."
+  "rework_budget_warning": "rework_count is 2 of max 3. A third REWORK hits the limit and routes to human_escalation_required per AGENTS.md. The next fix round should therefore be verified unusually carefully before re-dispatching review-1, and the fix packet must close the whole class (every exchange round-trip leaves a record) rather than only the two paths named in this finding.",
+  "rework_count_note": "rework_count stays at 2. Round 3 involves NO code change — it is a re-review against amended acceptance criteria, not a fix cycle. Incrementing it would misreport the stage as having burned three fix attempts. Recorded explicitly rather than silently not incrementing."
 }
