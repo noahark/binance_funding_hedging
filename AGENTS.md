@@ -157,12 +157,23 @@ The bookkeeper must not:
 - Record credentials, tokens, cookies, private keys, or full environment dumps.
 
 No model session — regardless of provider — may invoke, launch, or relay to
-another model session or adapter command (including `claude-glm -p`, `kimi -p`,
-`codex exec`, or `grok ...`) for a **formal** implementation, fix, embedded
-review, review-1, or review-2 role. All such cross-model dispatch is prepared
-as a stage dispatch file and executed only by the human operator, who copies
-the prepared prompt or command into the selected model terminal and then
-records the resulting raw output or receipt under the stage evidence path. A
+**another** model session or adapter command (including `claude-glm -p`,
+`kimi -p`, `codex exec`, or `grok ...`) for a **formal** implementation, fix,
+embedded review, review-1, or review-2 role. A formal cross-model dispatch
+starts only when the human operator directly opens the selected target-model
+session and sends it the prepared dispatch packet. This may be an interactive
+CLI session; a separate one-shot adapter command is an option, not a
+requirement. Once the human has directly put the packet into that target
+session, the target session is authorized to execute its own packet and use its
+role-permitted tools. That is not a relay or a second model launch.
+
+The human operator may explicitly authorize a yolo/bypass CLI mode to make the
+target session usable. Permission mode never expands the task's authority:
+implementation/fix work remains limited to its file boundary, and a reviewer
+remains behaviorally read-only (no writes, commits, credential access, network
+side effects, or live actions) even if its CLI was opened with yolo/bypass.
+The operator records the interactive launch method or actual adapter command
+and the resulting raw output or receipt under the stage evidence path. A
 model's claim to have launched another model is never formal dispatch evidence.
 
 Narrow implementation-research exception: an implementation or fix prompt may
@@ -405,15 +416,19 @@ dispatching the fix.
 - Product meaning, domain assumptions, external side effects, destructive data
   actions, credentials, public deployment, and risk limit changes require human
   approval.
-- Codex review nodes use `codex exec` in read-only mode with a custom prompt
-  when strict JSON verdict output is required. Do not rely on `codex review`
-  for schema-constrained verdicts.
+- Codex review nodes use a custom prompt with strict JSON verdict output. A
+  native read-only sandbox is preferred when it supports the needed inspection
+  tools; a human may instead directly open an interactive Codex session with
+  explicitly authorized yolo/bypass permissions, but the review itself remains
+  behaviorally read-only. Do not rely on `codex review` for schema-constrained
+  verdicts.
 - Model dispatch preparation must use `docs/model-adapters.md` and
-  `agents/registry.yaml`. No model session of any provider may execute model
-  dispatch; the human operator executes prepared dispatch packets in the target
-  model terminal. A bookkeeper or implementation session lacking a built-in tool
-  for a model is not sufficient to mark that model unavailable; the runner-level
-  adapter check must fail.
+  `agents/registry.yaml`. No model session of any provider may execute a
+  dispatch to another model; the human operator directly opens the target model
+  terminal and sends it the prepared packet. The resulting target session may
+  execute that packet itself. A bookkeeper or implementation session lacking a
+  built-in tool for a model is not sufficient to mark that model unavailable;
+  the runner-level adapter check must fail.
 - Review-2 fallback or strong-reviewer override is allowed only for quota,
   authentication, service availability, timeout, repeated invalid verdict JSON,
   or design-conflict ineligibility of the preferred unrelated reviewer. Do not
@@ -595,9 +610,14 @@ yolo/bypass modes.
 
 Key reminders:
 
-- Codex prompt execution uses `codex exec`.
-- Codex free-form review may use `codex review`, but schema-bound Harness
-  review nodes use read-only `codex exec` with the review prompt.
+- The human may use either a one-shot adapter command or a manually opened,
+  interactive target CLI session. In the latter flow, send the dispatch body or
+  its repository path directly to that fresh target session; it is not asked to
+  launch another model.
+- Codex free-form review may use `codex review`. For schema-bound Harness
+  review, use the custom prompt and required verdict schema; native read-only
+  sandboxing is preferred, while an explicitly user-authorized interactive
+  yolo/bypass session remains behaviorally read-only.
 - `codex -p` is a profile flag, not a prompt flag.
 - Claude review uses the configured Claude adapter model, currently
   `claude-fable-5`; if Fable5 quota is exhausted, the configured backup model is

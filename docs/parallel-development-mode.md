@@ -56,6 +56,11 @@ Fable5 补充与 Hard Gates 的兼容性修正（预审定性、预写 prompt �
   validator 从 review artifact 解析（R12）。新规则经
   `status.json.dispatch_protocol: "human-operator/v1"` 门控，无该字段的历史
   stage 语义与审计证据不变。
+- v0.5.1（2026-07-28）：澄清 human operator 的职责是**直接启动目标会话**，
+  而不是必须构造一次性 adapter shell 命令。人工可进入 Codex/Claude/Kimi 的
+  交互 CLI（含已明确授权的 yolo/bypass）后直接发送 dispatch；该已启动的目标
+  会话可执行自己的 packet 和角色允许的工具，不构成模型转派。权限模式不扩大
+  任务权限；review 仍是行为只读。
 
 ---
 
@@ -82,7 +87,7 @@ Fable5 补充与 Hard Gates 的兼容性修正（预审定性、预写 prompt �
 | bookkeeper / stage operator（单一写者执行会话；旧 stage 文档中称 controller） | **用户指定的独立本地执行会话**（Codex/GPT、Fable5/Opus4.8 会话或其他；**默认不由任一实现者兼任**） | 收证据、跑测试、**串行 commit**、算指纹、跑 validator、推进 status.json、调度正式 review-1 确认与 review-2、处理 R3/R10 升级 | 写产品代码；改写/摘要评审证据 |
 | implementer-A | claude_glm | `backend/**` 等 A scope | commit、写 status.json、算最终指纹、越 scope、启动/转派其他模型会话 |
 | implementer-B | kimi | `frontend/**` 等 B scope | 同上 |
-| embedded reviewer（嵌入预审，opt-in） | 对侧模型的 **fresh read-only 会话**，由 human operator 按 bookkeeper 预写的 dispatch 文件启动 | 按预写 prompt 审对方任务的工作树 diff | 复用实现 transcript；审自己实现的任务；会话内再转派 |
+| embedded reviewer（嵌入预审，opt-in） | 对侧模型的 **fresh、行为只读会话**，由 human operator 直接启动 CLI 后按 bookkeeper 预写的 dispatch 文件执行 | 按预写 prompt 审对方任务的工作树 diff | 复用实现 transcript；审自己实现的任务；会话内再转派 |
 | final reviewer (review-2) | 按 §4-R7 排除/override 规则选定 | 整体终审 | 会话内转派其他模型（发生即该次评审无效） |
 
 **orchestrator 是抽象概念，不是角色**：指本文档 + `stage-delivery.yaml`
@@ -124,8 +129,8 @@ Phase 2  实现者收尾（各终端独立完成，无任何跨模型调用）
 
 Phase 2b 嵌入交叉预审（opt-in；仅 parallel_mode.embedded_review.enabled=true
   时存在；human operator 执行）
-  bookkeeper 准备 dispatch 文件 → human operator 逐字执行，启动 fresh
-  对侧模型 read-only 会话，预审工作树 diff.patch
+  bookkeeper 准备 dispatch 文件 → human operator 直接启动 fresh 对侧模型 CLI，
+  发送 immutable prompt → 目标行为只读会话预审工作树 diff.patch
   预审返回问题 → 实现者只修自己 scope → 可再预审一轮
   （本地循环封顶 2 轮，见 §4-R4；round-2 prompt 仅在 round-1 BLOCKER 且
   scope-contained 时由 bookkeeper 启用）
@@ -134,8 +139,8 @@ Phase 3  串行落盘（bookkeeper）
   收两侧实现报告 +（opt-in 时）全部预审落档 → 复跑测试 → 串行提交
   H_A、H_B → 计算 task 级指纹 → validator(pre-review)
 
-Phase 4  正式 review-1（每任务一次；human operator 执行 dispatch）
-  按 registry 交叉评审规则选定的新鲜 read-only 会话，对 committed 指纹出
+Phase 4  正式 review-1（每任务一次；human operator 直接启动 target session）
+  按 registry 交叉评审规则选定的新鲜、行为只读会话，对 committed 指纹出
   正式 verdict（schema 合规 JSON，独立重算指纹）。verdict 以 validator
   从任务级 artifact（30-review-1-<task-id>.md）解析为准（R12）。
   返回 REWORK → 走正式 rework 流程（计入 rework_count）。
@@ -159,9 +164,11 @@ prompt」的合法操作。执行时**逐字使用**入库版本。没有入库�
 （理由：嵌入模式下派工记录曾由被审代码作者代写，必须把作者对评审输入的
 裁量权压到零。）
 
-**R2 fresh read-only 评审会话。** 预审与正式 review-1 都必须在全新会话中
+**R2 fresh、行为只读评审会话。** 预审与正式 review-1 都必须在全新会话中
 进行，不得复用任何实现/bookkeeper（旧称 controller）transcript；评审依据只能是 raw diff 与
-仓库内落档文件，不接受任何会话内转述。
+仓库内落档文件，不接受任何会话内转述。优先使用 CLI 的 read-only/plan 模式；若
+人工明确授权 yolo/bypass 以便当前目标会话使用工具，该权限不授权写文件、commit、
+读取凭据、网络/实盘操作或修改证据状态。
 
 **R3 本地 fix 限界。** 预审发现的问题，实现者只能在自己任务的 scope 内修。
 凡涉及接口契约、schema、跨任务消费字段、共享文件的改动，一律不得本地 fix，
@@ -252,11 +259,13 @@ ISO 时间。此例外不适用于评审 dispatch，也不适用于已有但填�
 元数据，模型不得把回执字段（status/next_dispatch 等）解读为任务要求。
 向模型转发 dispatch 文件时可以只发 body，或发全文并声明本约定。
 
-**next_dispatch 是路由元数据，执行者只有 human operator**（v0.5）：designer
+**next_dispatch 是路由元数据，启动者只有 human operator**（v0.5）：designer
 必须为每条 next_dispatch 标注执行者，取值只允许 `human_operator`（跨模型
 调用）或 `none`（终点）。`executor: self` 语义废除：任何模型会话——包括
 当前实现终端——都不得执行指向另一模型会话的 dispatch；bookkeeper 准备
-dispatch 文件，human operator 按文件逐字执行并在 RECEIPT 块回填执行记录。
+dispatch 文件，human operator 直接启动目标 CLI 并发送 packet（或选择一次性
+adapter 命令），再在 RECEIPT 块回填执行记录。该已启动的目标会话执行它自己的
+packet，不是 `executor: self` 的跨模型转派。
 PROMPT BODY 与本文档规则冲突时以本文档为准，冲突本身按设计缺陷升级
 bookkeeper，不得按字面执行了事。
 
@@ -345,6 +354,8 @@ grep）：
 ```text
 [HARNESS-EXECUTOR-CONTRACT v1]
 你是本任务的唯一执行者。
+本 dispatch 已由 human operator 直接送入当前目标会话；你就是被指定执行者，
+不是被要求调用、启动或转派另一模型。你可在本会话使用本任务明确允许的工具。
 1. 禁止调用、启动或转派任何正式模型会话或 adapter 命令（包括但不限于
    claude-glm -p、kimi -p、codex exec、grok）。仅当本任务书显式允许时，
    实现/修复会话可使用同 provider/runtime 的只读 Plan/Explore 子代理；它不是

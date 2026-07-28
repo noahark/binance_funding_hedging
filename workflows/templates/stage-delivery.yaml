@@ -443,7 +443,7 @@ stages:
     acceptance:
       - "Implementation tasks have clear owners, dependencies, and file boundaries."
       - "For multi-task stages, status.json records each task with owner, reviewer, base_sha/head_sha/diff_fingerprint, review verdict, and test evidence path."
-      - "For parallel development stages, dispatch packets include the R10 dispatch tail (exact self-test commands, exact artifact paths, and the stop-for-bookkeeper instruction); every cross-model next_dispatch entry is marked executor:human_operator and executed only by the human operator."
+      - "For parallel development stages, dispatch packets include the R10 dispatch tail (exact self-test commands, exact artifact paths, and the stop-for-bookkeeper instruction); every cross-model next_dispatch entry is marked executor:human_operator. The human may directly open the fresh target CLI session and send it the packet; that target session then executes its own packet without relaying to another model."
       - "For parallel development stages, status.json records tasks[].r10_checklist or r10_checklists.<task-id> with machine-readable dispatch-ready fields."
 
   - id: implementation
@@ -485,8 +485,8 @@ stages:
       - "If backend work is the large majority and frontend work is light, dispatch the whole bounded task to claude_glm."
       - "If frontend work is the large majority and backend work is light, dispatch the whole bounded task to kimi."
       - "If backend and frontend work are both substantial and separable, split implementation by domain owner."
-      - "Bookkeeper, Codex/GPT, and Claude sessions prepare implementation dispatch packets only; the human operator executes them in the selected implementer terminal."
-      - "No model session of any provider may invoke, launch, or relay a formal implementation, fix, or review session. An implementation/fix packet may explicitly opt in to the AGENTS.md local read-only same-provider research-subagent exception; it never applies to reviewers or formal evidence. When docs/parallel-development-mode.md applies, the implementer's closing duty is self-tests, the required artifact paths, the implementation report, and stopping for the bookkeeper; any next_dispatch entry for a formal cross-model call is executor:human_operator and is executed only by the human operator."
+      - "Bookkeeper, Codex/GPT, and Claude sessions prepare implementation dispatch packets only; the human operator initiates them by a one-shot command or by directly opening the selected implementer CLI and sending it the packet."
+      - "No model session of any provider may invoke, launch, or relay a formal implementation, fix, or review session. The directly human-started target session may execute its own packet and use role-permitted tools; a user-authorized yolo/bypass mode does not expand its file boundary. An implementation/fix packet may explicitly opt in to the AGENTS.md local read-only same-provider research-subagent exception; it never applies to reviewers or formal evidence. When docs/parallel-development-mode.md applies, the implementer's closing duty is self-tests, the required artifact paths, the implementation report, and stopping for the bookkeeper; any next_dispatch entry for a formal cross-model call is executor:human_operator."
     acceptance:
       - "Changed files match task boundaries or deviations are explained."
       - "Implementation report lists design decisions and tests run."
@@ -512,9 +512,9 @@ stages:
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.raw-output.md"
       - "reports/agent-runs/{{stage_id}}/embedded-review-<task-id>-round<N>.fix-note.md when fixed"
     rules:
-      - "The human operator executes the bookkeeper-prepared dispatch file verbatim in a fresh reviewer session; no model session may invoke, launch, or relay to another model session."
+      - "The human operator initiates the bookkeeper-prepared dispatch in a fresh reviewer session, either one-shot or by directly opening the target CLI and sending it the immutable prompt; no model session may invoke, launch, or relay to another model session."
       - "The implementing terminal never executes the review dispatch; its closing duty ends at self-tests, the diff.patch, and the implementation report."
-      - "The reviewer session must be fresh and read-only/plan mode."
+      - "The reviewer session must be fresh and behaviorally read-only. Prefer read-only/plan mode; an explicitly user-authorized yolo/bypass CLI is allowed only for tool access and never authorizes writes."
       - "Local embedded review/fix loops are capped at two rounds and do not count as stage rework_count."
       - "A scope-contained BLOCKER routes to a local implementation fix, then embedded review round 2 (prewritten round-2 prompt enabled by the bookkeeper)."
       - "Round 2 is the cap. A second BLOCKER, scope/contract dispute, missing evidence, or unsafe fix requirement escalates to bookkeeper-decision."
@@ -579,20 +579,20 @@ stages:
 
   - id: review-1
     preflight:
-      - "Bookkeeper must locally commit reviewed artifacts before preparing the human-executed dispatch packet."
+      - "Bookkeeper must locally commit reviewed artifacts before preparing the human-initiated dispatch packet."
       - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_1."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring the reviewer unavailable."
-      - "Model sessions of any provider prepare review-1 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence. Every review dispatch prompt begins with the [HARNESS-EXECUTOR-CONTRACT v1] preamble marker."
+      - "Model sessions of any provider prepare review-1 dispatch packets only; the human operator starts the fresh target model terminal and sends it the packet (one-shot or interactive), then records raw output evidence. The target session executes this packet itself and must not relay it. Every review dispatch prompt begins with the [HARNESS-EXECUTOR-CONTRACT v1] preamble marker."
     actor:
       selection: rotation.review_1
     skill: code_reviewer
     mode: read_only
     adapter_requirements:
-      kimi: "Use Kimi with --model kimi-code/kimi-for-coding for one-shot prompt execution. For read-only review, enforce read-only behavior in the prompt and wrapper; current Kimi CLI rejects combining --plan or -y with -p."
-      claude_glm: "Use a fresh read-only Claude-GLM session with a schema-bound custom prompt. Do not reuse the implementation/bookkeeper transcript as review evidence."
+      kimi: "The operator may directly open Kimi and send the prompt, or use one-shot execution. Enforce behavioral read-only review in the prompt and wrapper; current Kimi CLI rejects combining --plan or -y with -p."
+      claude_glm: "Use a fresh Claude-GLM session with a schema-bound custom prompt. Prefer plan/read-only; a user-authorized danger mode never permits review writes. Do not reuse the implementation/bookkeeper transcript as review evidence."
       grok: "Grok is not a default review-1 gate. Use only when the user explicitly enables it for the stage."
     requires_raw_artifacts:
       - "workflow YAML"
@@ -682,14 +682,14 @@ stages:
 
   - id: review-2
     preflight:
-      - "Bookkeeper must locally commit reviewed artifacts before preparing the human-executed dispatch packet."
+      - "Bookkeeper must locally commit reviewed artifacts before preparing the human-initiated dispatch packet."
       - "If status.json.stage_branch.name is non-empty, current branch must match it."
       - "status.json status must be review_2."
       - "Run scripts/validate-stage.py {{stage_id}} --phase pre-review and store output in 60-test-output.txt or an adjacent validation log."
       - "Use base_sha..head_sha from status.json for the reviewed diff; do not use a moving HEAD when later Harness commits exist."
       - "Check docs/model-adapters.md and agents/registry.yaml before declaring Codex or Claude unavailable."
       - "If the selected final reviewer participated in direction synthesis, breakdown, or design, record the design-conflict override evidence before preparing dispatch."
-      - "Model sessions of any provider prepare review-2 dispatch packets only; the human operator executes them in the target model terminal and records raw output evidence. Every review dispatch prompt begins with the [HARNESS-EXECUTOR-CONTRACT v1] preamble marker."
+      - "Model sessions of any provider prepare review-2 dispatch packets only; the human operator starts the fresh target model terminal and sends it the packet (one-shot or interactive), then records raw output evidence. The target session executes this packet itself and must not relay it. Every review dispatch prompt begins with the [HARNESS-EXECUTOR-CONTRACT v1] preamble marker."
     actor:
       primary: codex
       fallback: claude
@@ -709,8 +709,8 @@ stages:
     skill: reality_checker
     mode: read_only
     adapter_requirements:
-      codex: "Use read-only codex exec with the configured GPT/Codex adapter default and a schema-bound custom prompt, not codex review."
-      claude: "Use read-only/plan Claude invocation with claude-fable-5 by default; if Fable5 quota is exhausted, use opus4.8 with the same schema-bound prompt."
+      codex: "Use the schema-bound custom prompt, not codex review. The operator may directly open a fresh interactive Codex session; prefer a read-only sandbox, while an explicitly user-authorized yolo session remains behaviorally read-only."
+      claude: "Use a schema-bound custom prompt with claude-fable-5 by default; if Fable5 quota is exhausted, use opus4.8. Prefer read-only/plan; a user-authorized danger mode never permits review writes."
     requires:
       - "reviewer provider != any implementation or fix author provider"
       - "prefer reviewer provider != designer provider"

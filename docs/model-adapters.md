@@ -12,26 +12,48 @@ The registry remains the machine-readable source of routing truth:
 - Use prompt files for long prompts. Avoid shell-quoted multi-line prompts when
   raw artifact paths, diffs, or schemas are included.
 - Set the repository working directory explicitly.
-- Reviewers must run in read-only or plan mode.
+- Reviewers are behaviorally read-only: they must not write files, commit,
+  access credentials, make network/live requests, or perform other side
+  effects. Prefer a native read-only or plan mode where it supports the needed
+  inspection tools.
 - Development/fix agents may use write mode only inside the active stage scope.
-- Yolo/bypass modes require explicit user or runner authorization. They are not
-  default review modes.
+- Yolo/bypass modes require explicit user or runner authorization. They change
+  CLI permissions only; they do not expand the task boundary or permit a review
+  to write. Native read-only/plan remains the default review mode.
 - No model session — regardless of provider — may invoke, launch, or relay a
   formal implementation, fix, or review session or adapter command (including
   `claude-glm -p`, `kimi -p`, `codex exec`, or `grok ...`). Any model session
-  may prepare dispatch prompt files and command templates; the sole executor of
-  those adapter command templates is the human operator, who runs the prepared
-  dispatch packet in the selected model terminal and records the raw output or
-  receipt evidence. A model's claim to have launched another model is never
-  dispatch evidence. An implementation/fix prompt may opt in to the narrow
-  AGENTS.md local read-only research-subagent exception; it never applies to a
-  formal reviewer and never replaces human-operated adapter dispatch.
+  may prepare dispatch prompt files and command templates. The human operator
+  initiates cross-model dispatch either by running a one-shot adapter command
+  or by directly opening an interactive target CLI session and sending it the
+  packet. The already-open target session then executes its own packet; it is
+  not being asked to launch another model. Record the interactive launch method
+  or actual adapter command and raw output/receipt evidence. A model's claim to
+  have launched another model is never dispatch evidence. An implementation/fix
+  prompt may opt in to the narrow AGENTS.md local read-only research-subagent
+  exception; it never applies to a formal reviewer and never replaces
+  human-operated dispatch.
 - A model is unavailable only after the runner-level adapter check fails. A
   bookkeeper or implementation session lacking a built-in tool for that model is
   not enough.
 - For review gates, use `base_sha` and `head_sha` from `status.json`. Do not use
   the moving symbolic `HEAD` when unrelated Harness commits may have happened
   after the reviewed stage commit.
+
+## Operator-Direct Interactive Dispatch
+
+The normal manual workflow is valid without constructing a shell one-shot
+command: the human operator opens a fresh target CLI session in the repository,
+chooses any explicitly authorized permission mode, and sends the immutable
+dispatch body or its repository path to that session. The target session must
+treat this as direct human authorization to execute the packet itself, not as a
+request to invoke another model.
+
+For a review, the packet's no-write rules still apply even when the operator
+used yolo/bypass to allow ordinary tools. The reviewer may inspect and run only
+non-mutating checks allowed by the packet; it must not use that broader CLI
+permission to edit files or create evidence state. Fresh-session and provider
+isolation rules remain unchanged.
 
 ## Session ID Capture And Execution Receipts
 
@@ -172,7 +194,8 @@ Default model policy:
   fails because of quota, auth, or availability, route through the workflow
   fallback rules.
 
-Command templates:
+Non-interactive command templates (optional when the operator uses the
+interactive flow above):
 
 ```bash
 # Schema-bound read-only review.
@@ -184,8 +207,10 @@ codex exec -C <repo> -m gpt-5.5 -s read-only \
 codex exec review --base <base_sha> - < <prompt-file>
 ```
 
-Review-2 Harness gates use `codex exec`, not `codex review`, because the verdict
-must satisfy `schemas/review-verdict.schema.json`.
+When the non-interactive form is used, Review-2 Harness gates use `codex exec`,
+not `codex review`, because the verdict must satisfy
+`schemas/review-verdict.schema.json`. The interactive direct-session flow must
+still produce that same schema-valid verdict.
 
 Do not dispatch implementation or fix tasks to Codex. Backend and frontend
 delivery work routes through Claude-GLM and Kimi according to the stage's domain

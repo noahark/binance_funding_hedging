@@ -330,8 +330,13 @@ model_policies:
   rework_verdict_requires_fix_start_prompt: true
   model_dispatch_execution:
     dispatch_preparation_allowed_for: [bookkeeper, designer, breakdown_author]
-    execution_requires_human_operator: true
-    all_model_sessions_forbidden: true
+    cross_model_dispatch_initiator: human_operator
+    model_sessions_may_not_initiate_or_relay_cross_model_dispatch: true
+    operator_direct_target_session_allowed: true
+    target_session_executes_its_own_packet: true
+    interactive_cli_launch_allowed: true
+    bypass_mode_requires_explicit_user_authorization: true
+    review_behaviorally_read_only_even_when_bypass: true
     applies_to:
       - implementation
       - embedded_pre_review
@@ -340,8 +345,9 @@ model_policies:
       - fix
     notes:
       - "No model session - regardless of provider - may invoke, launch, or relay to another model session or adapter command (including claude-glm -p, kimi -p, codex exec, grok)."
-      - "Any model session may prepare dispatch packets, prompts, routing metadata, and handoff text; only the human operator executes them."
-      - "Human operators execute prepared dispatch packets in the target model terminal and record raw output or receipt evidence."
+      - "Any model session may prepare dispatch packets, prompts, routing metadata, and handoff text; only the human operator initiates a cross-model dispatch."
+      - "The human operator may directly open an interactive target CLI session and send it the packet; no one-shot adapter command is required. That already-open target session executes its own packet and may use role-permitted tools; it must not relay to another model."
+      - "A user-authorized yolo/bypass mode changes CLI permissions, not task authority. Reviewers remain behaviorally read-only."
       - "A model's claim to have launched another model is never dispatch evidence."
       - "Do not mark a target model unavailable merely because the preparing session cannot invoke that model directly."
   parallel_mode:
