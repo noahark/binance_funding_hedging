@@ -1,3 +1,18 @@
+<!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
+status: completed
+target_model: codex/GPT-5 Codex
+adapter_cmd: codex exec -C "/Users/ark/Desktop/ai code/funding_hedging" -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-body-file>
+executor: human_operator
+started_at: unavailable:the operator recorded no start timestamp; the verdict carries no footer time
+completed_at: 2026-07-28T21:10:00+08:00
+completed_at_source: bookkeeper's archiving time — the Codex verdict JSON carried no 本地北京时间 footer, so no reviewer-reported completion time exists
+session_id: unavailable:the Codex runtime exposes no provider-native session id, and the verdict returned no footer carrying one
+outputs: reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.md
+verdict: REWORK (schema-valid; diff_fingerprint matched status verbatim; 1 P1; fix_start_prompt present)
+next_dispatch: reports/agent-runs/2026-07-hedge-order-truth-v1/31-fix-review-1.dispatch.md (human operator)
+receipt_sealed_by: bookkeeper (Claude Opus 5), on archiving the raw output. Codex at review-1 is a user-enabled, stage-level routing exception per 15-user-authorized-codex-review-1.md; the pre-authorized Claude fallback for invalid verdict JSON went unused because the verdict validated on the first attempt. Every field is taken from the packet or the verdict itself; nothing invented.
+===== END RECEIPT ===== -->
+
 # Review-1 Dispatch — `backend` (Codex, fresh read-only session)
 
 Human operator: run in a **fresh, read-only Codex session**. It must share no

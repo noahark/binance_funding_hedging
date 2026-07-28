@@ -52,14 +52,28 @@ was altered.
   "residual_risks": [
     "W0 的真实 UM 订单详情样本仍未执行；当前 NULL 兜底可避免伪造零值，按已批准设计不单独阻塞本轮修复。"
   ],
+  "fix_start_prompt": "[HARNESS-EXECUTOR-CONTRACT v1]\n你是本次修复的唯一执行者。禁止调用、启动或转派任何其他模型会话或 adapter 命令。不得读取凭据、不得发 Binance 请求、不得创建任务卡/下单/写入 data/hedge-open-tasks.sqlite3，也不得启动或停止服务。\n\n修复 stage 2026-07-hedge-order-truth-v1 的 review-1 P1 finding。权威验收标准：reports/agent-runs/2026-07-hedge-order-truth-v1/00-task.md（T3）。同时阅读原始证据：01-live-record-evidence.md、02-collateral-cap-finding.md、10-design.md、12-development-breakdown.md、19-r4-reconciliation.md、20-implementation.md、60-test-output.txt，以及固定评审区间 ecc38418f52b525eb61bf1c72b9b2b41c26130ef..5de9ef394b02df1036341cbac832cfc4f6c72ee3。\n\nFinding：backend/services/live_hedge_executor.py:557-583 中，UNKNOWN POST 的即时 fallback GET 被 classify_query_response 解析后，返回的 LegDispatch 只保留原 POST 的 raw_response，丢弃 resolved.raw_response。backend/hedge_open_tasks/service.py:1585-1599 因而不会把该 GET 以 source=order_query 写入 raw 表。此路径不满足 T3“查询订单详情的全量信息落库”。\n\n必须修复：\n1. POST 原始响应和该即时 fallback GET 原始响应必须分别保留、分别落库；不得用 GET 覆盖 POST。\n2. GET 的 raw 行必须使用 source=order_query，包含 response-only 的 body/http_status/code/msg/transport_error；不得持久化 request 参数、签名、API key 或凭据。\n3. 覆盖至少一个服务级场景：POST UNKNOWN（例如 timeout/5xx）后即时 GET 返回确定结果；断言 raw 表同时有 POST 与 order_query 两条记录，并能检索 GET 的 body、code、msg。该修复不得改变订单判定、重发规则、限频规则或 raw 写失败时业务结果。\n4. 不要修改锁定文件 backend/services/hedge_open_live_client.py、backend/hedge_open_tasks/wire_constraints.py、backend/services/binance_signing.py、backend/hedge_open_tasks/scheduler.py、schemas/**、docs/**、data/**、前端或其他非范围文件。\n\n允许修改范围：backend/services/live_hedge_executor.py、backend/hedge_open_tasks/service.py、backend/hedge_open_tasks/store.py、backend/hedge_open_tasks/domain.py 及 backend/tests/test_hedge_domain.py、test_hedge_store.py、test_hedge_service.py、test_hedge_executor.py、test_hedge_task_local.py、test_hedge_api.py、test_live_hedge_executor.py。尽量采用最小范围改动。\n\n必须执行：\npython3 -m pytest backend/tests/test_hedge_domain.py backend/tests/test_hedge_store.py backend/tests/test_hedge_service.py backend/tests/test_hedge_api.py backend/tests/test_hedge_executor.py backend/tests/test_hedge_task_local.py backend/tests/test_live_hedge_executor.py backend/tests/test_hedge_open_live_client.py backend/tests/test_hedge_purity.py -q\npython3 -m pytest backend/tests -q\n\n完成后更新本 stage 的实现报告和测试证据，生成所需 diff patch，然后停止，交给 bookkeeper。不要改 status.json 或 70-handoff.md。",
   "next_action": "fix"
 }
 ```
 
-The verdict also carried a `fix_start_prompt`. It is reproduced verbatim in
-`31-fix-review-1.dispatch.md` with the bookkeeper's mechanical routing
-corrections disclosed there, per AGENTS.md (the bookkeeper may add routing
-metadata but must not hide or rewrite reviewer evidence).
+`fix_start_prompt` is reproduced above **verbatim as returned**, including the
+reviewer's `python3` test commands. It is also reproduced in
+`31-fix-review-1.dispatch.md`, where the bookkeeper's two mechanical corrections
+(the `.venv` interpreter; do not commit) are disclosed **beside** it rather than
+edited into it, per AGENTS.md — the bookkeeper may add routing metadata but must
+not hide or rewrite reviewer evidence.
+
+### Bookkeeper errata on this archive
+
+The first version of this file omitted `fix_start_prompt` from the JSON block,
+pointing at `31-fix-review-1.dispatch.md` instead. That was wrong: the schema
+conditionally requires the field when `verdict == REWORK`
+(`schemas/review-verdict.schema.json` `allOf[0].if/then`), and more importantly
+AGENTS.md forbids the bookkeeper from altering reviewer evidence. The omission
+was caught by `scripts/validate-stage.py --phase pre-review`, which failed closed
+with `missing required property 'fix_start_prompt'`. The field is restored above.
+The gate did its job.
 
 ---
 
