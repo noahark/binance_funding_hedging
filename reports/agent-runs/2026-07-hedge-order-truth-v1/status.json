@@ -279,7 +279,7 @@
     "provider": "codex",
     "model": "GPT-5 Codex",
     "reviewer_identity": "codex",
-    "status": "not_dispatched",
+    "status": "dispatch_prepared",
     "enabled_by": "reports/agent-runs/2026-07-hedge-order-truth-v1/15-user-authorized-codex-review-1.md",
     "read_only_command": "codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>",
     "command_source": "agents/registry.yaml adapters.codex.schema_review_command",
@@ -289,7 +289,9 @@
       "rule": "A missing verdict, or one failing schemas/review-verdict.schema.json, is non-accepting. Retry this gate once; if it fails again fall back to claude (Fable 5 -> Opus 4.8), recording the fallback reason and the invalid-output evidence path. Admissible without qualification at Review-1: AGENTS.md constrains designer overlap only at Review-2.",
       "fallback_provider": "claude",
       "fallback_model": "Claude Fable 5"
-    }
+    },
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
+    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.md"
   },
   "reviewer_2": {
     "provider": "codex",
@@ -721,8 +723,8 @@
       "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
     }
   ],
-  "next_action": "Dispatch review-1 to codex in a FRESH read-only session on the pinned range ecc3841..5de9ef3. The packet must carry: the R4 errata (three bookkeeping commits silently contain delivery code, so review the RANGE not commit-by-commit), residual R-1 (design §0 still describes the cancelled T4 experiment), residual R-2 (ADR numbers are topic-sequential; T2's ADR is ADR-T3), the corrected T2(c) verdict-change list, and that W0 is NOT done so T1's core assumption is unverified. Review-2 later needs a SECOND, separate fresh session per the binding mitigations in 15-user-authorized-codex-review-1.md.",
-  "updated_at": "2026-07-28T19:55:00+08:00",
+  "next_action": "Human operator runs 30-review-1.dispatch.md in a FRESH read-only Codex session. Review-2 will need a SECOND, separate fresh Codex session that shares no transcript with it — binding mitigation from 15-user-authorized-codex-review-1.md, because both gates are the same provider this stage.",
+  "updated_at": "2026-07-28T20:05:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -745,5 +747,12 @@
     "damaged": "history readability and honesty — three commit messages describe bookkeeping and silently carry hedge implementation",
     "decision": "History is NOT rewritten: it would invalidate shas already recorded in status.json and cited in later commit messages, and the harness treats committed state as evidence. 19-r4-reconciliation.md §Errata is the correction of record, and both review packets must carry it.",
     "t2c_list_reconstructed_by_bookkeeper": "The report omits the required T2(c) verdict-change list on the same false premise. Reconstructed from the range diff: 51169 (margin) goes from unlisted/non-fatal-counter/NULL category to collateral_cap -> task-local pause with pause_reason=collateral_cap_full — STRICTER, and the only verdict change. Every negative code is unchanged, locked by test_classify_negative_codes_keep_verdict_on_both_products. Separately, an unmatched business code now records error_category='unclassified' instead of NULL; control flow is identical, so this is a recorded-value change, not a verdict change."
+  },
+  "pre_review_gate": {
+    "phase": "pre-review",
+    "result": "PASSED",
+    "at": "2026-07-28T20:00:00+08:00",
+    "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/21-pre-review-validation.txt",
+    "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8"
   }
 }
