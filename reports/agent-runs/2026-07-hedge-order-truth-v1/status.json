@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "review_1",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -286,6 +286,15 @@
       "head_sha": "33715ae2bcb4fef427f340780155dc4e4c316e28",
       "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md (appended section)",
       "verified_by_bookkeeper": "Fix confirmed against the code, not accepted on the report's word. The LegDispatch construction at live_hedge_executor.py:568-588 is unchanged field-for-field except the added query_raw_response line, so order verdicts, resend rules and rate-limit handling cannot have moved; the two new persists reuse _persist_leg_raw's isolated transaction, so raw-write failure still cannot fail a business write; it follows the drain path's order_query pattern rather than inventing a second mechanism. test_4h drives the real LiveHedgeExecutor through a wire-level fake so the genuine _send_one_leg path runs, and asserts spot == {order_post, order_query} with the retrievable FILLED body, perp == {order_post, order_confirm} proving no spurious rows, and the spot leg still FILLED/25000/terminal. Independently re-run: 1062 passed, specified suite 317 passed. Zero forbidden paths touched; production DB unchanged (start_gate=1, version=4). The implementer did not commit — HEAD was still cb15932 when it stopped."
+    },
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_prepared",
+      "round": 2,
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/33-fix-review-1-r2.dispatch.md",
+      "session_note": "must be a new session again"
     }
   ],
   "reviewer_1": {
@@ -387,7 +396,7 @@
       ],
       "reviewer": "codex",
       "implementation_report_path": "20-implementation.md",
-      "implementation_status": "rework1_evidence_committed",
+      "implementation_status": "rework2_dispatched",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
       "head_sha": "33715ae2bcb4fef427f340780155dc4e4c316e28",
       "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
@@ -400,21 +409,27 @@
         "role": "first_reviewer",
         "verdict": "REWORK",
         "json_schema_valid": true,
-        "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
+        "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
         "fingerprint_matches_status": true,
         "reviewer_prior_involvement": "none",
         "open_p0_p1": 1,
-        "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.md",
+        "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md",
         "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
         "recorded_at": "2026-07-28T21:10:00+08:00",
-        "round": 1,
-        "status": "complete",
-        "findings_summary": "1 P1: the immediate fallback order-detail GET issued after an UNKNOWN POST (live_hedge_executor.py:558-583) has its raw_response discarded — the new LegDispatch takes every business field from resolved.* but keeps verdict.raw_response (the POST) — so service._dispatch_live never persists it and T3's order-detail criterion fails on exactly the branch where the exchange's words matter most.",
+        "round": 2,
+        "status": "complete_round2",
+        "findings_summary": "Round 2, 1 P1 and it is a NEW defect, not a re-report. Round 1 covered the CONCLUSIVE fallback GET; this covers the INCONCLUSIVE query on BOTH paths. classify_query_response builds the raw at live_hedge_executor.py:397 and then discards it on every None return (transport_error/no status, >=500, ambiguous 4xx, malformed 2xx). Neither call site persists it: _send_one_leg falls through to the POST verdict, and drain does `if verdict is None: continue` at service.py:1116. The in-code comment states the intent explicitly — 'a None return is a genuinely inconclusive retry — no verdict, no row' — i.e. persistence was keyed off verdicts, while 00-task.md T3 keys it off READS.",
         "fix_start_prompt_present": true,
         "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
-        "bookkeeper_verification": "CONFIRMED against the code, not accepted on the reviewer's word. Verified: (a) the discard at live_hedge_executor.py:581 is real; (b) _dispatch_live writes exactly three raw rows (spot order_post, perp order_post, perp order_confirm) and none for the fallback GET; (c) the finding is STRONGER than stated — this is an internal inconsistency, because the drain path at service.py:1147 already persists its query response with source='order_query' citing T3 §3, so the same class of evidence is kept on one path and dropped on another, and the fix has an existing pattern to follow. Schema checks: role/verdict/next_action all in enum, schema_version const 1, all 11 required fields present, fingerprint identical to status.",
+        "bookkeeper_verification": "CONFIRMED against the code. The decisive evidence is live_hedge_executor.py:395-424, where `raw = _raw_response_dict(response)` is built and then dropped on each `return None`. Both call sites verified. This is the third instance of the stage's recurring theme: evidence the system already held was thrown away. The round-2 packet's widened question — a systematic sweep of every exchange round-trip including a query that itself fails or times out — is what surfaced it, so the widening earned its keep.",
         "severity_assessment": "P1 is right, not P0 — the conclusive-POST, inline-confirm and drain paths all capture correctly, so the gap is one branch; but it is the diagnostically hardest branch, so not P2 either.",
-        "residual_risk_accepted_by_reviewer": "W0's real UM order-detail sample is still not taken. The reviewer judged the NULL representation sufficient to prevent fabricated zeros and declined to block on it. The packet asked for exactly that call; the bookkeeper does not overturn it. W0 carries into review-2."
+        "residual_risk_accepted_by_reviewer": "W0's real UM order-detail sample is still not taken. The reviewer judged the NULL representation sufficient to prevent fabricated zeros and declined to block on it. The packet asked for exactly that call; the bookkeeper does not overturn it. W0 carries into review-2.",
+        "round1_verdict": "REWORK",
+        "round2_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.dispatch.md",
+        "round2_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md",
+        "round2_verdict": "REWORK",
+        "bookkeeper_added_requirement": "Row growth is unaddressed by both the finding and required_fixes, and the fix cannot be written without deciding it. ADR-T4 bounds the raw table by asserting 2-6 rows per attempt, but drain re-queries a non-terminal leg every worker round (service.py:986). If every inconclusive query writes a row, a leg stuck UNKNOWN — exactly this fix's target scenario — produces unbounded rows and falsifies ADR-T4's own bound. The fix must either bound persistence (dedupe / first-N / collapse-with-count) or amend ADR-T4's stated bound. Silently breaking the bound is not acceptable, and neither is dropping the evidence again to preserve it. Added to the fix packet as a disclosed bookkeeper requirement, not presented as the reviewer's words.",
+        "w0_judgement": "The reviewer again declined to block on W0, re-deriving that call this round rather than inheriting it, as the packet required."
       }
     }
   ],
@@ -659,29 +674,32 @@
     "role": "first_reviewer",
     "verdict": "REWORK",
     "json_schema_valid": true,
-    "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
+    "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
     "fingerprint_matches_status": true,
     "reviewer_prior_involvement": "none",
     "open_p0_p1": 1,
-    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.md",
+    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md",
     "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
     "recorded_at": "2026-07-28T21:10:00+08:00",
-    "round": 1,
-    "status": "round2_dispatched",
-    "findings_summary": "1 P1: the immediate fallback order-detail GET issued after an UNKNOWN POST (live_hedge_executor.py:558-583) has its raw_response discarded — the new LegDispatch takes every business field from resolved.* but keeps verdict.raw_response (the POST) — so service._dispatch_live never persists it and T3's order-detail criterion fails on exactly the branch where the exchange's words matter most.",
+    "round": 2,
+    "status": "complete_round2",
+    "findings_summary": "Round 2, 1 P1 and it is a NEW defect, not a re-report. Round 1 covered the CONCLUSIVE fallback GET; this covers the INCONCLUSIVE query on BOTH paths. classify_query_response builds the raw at live_hedge_executor.py:397 and then discards it on every None return (transport_error/no status, >=500, ambiguous 4xx, malformed 2xx). Neither call site persists it: _send_one_leg falls through to the POST verdict, and drain does `if verdict is None: continue` at service.py:1116. The in-code comment states the intent explicitly — 'a None return is a genuinely inconclusive retry — no verdict, no row' — i.e. persistence was keyed off verdicts, while 00-task.md T3 keys it off READS.",
     "fix_start_prompt_present": true,
     "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
-    "bookkeeper_verification": "CONFIRMED against the code, not accepted on the reviewer's word. Verified: (a) the discard at live_hedge_executor.py:581 is real; (b) _dispatch_live writes exactly three raw rows (spot order_post, perp order_post, perp order_confirm) and none for the fallback GET; (c) the finding is STRONGER than stated — this is an internal inconsistency, because the drain path at service.py:1147 already persists its query response with source='order_query' citing T3 §3, so the same class of evidence is kept on one path and dropped on another, and the fix has an existing pattern to follow. Schema checks: role/verdict/next_action all in enum, schema_version const 1, all 11 required fields present, fingerprint identical to status.",
+    "bookkeeper_verification": "CONFIRMED against the code. The decisive evidence is live_hedge_executor.py:395-424, where `raw = _raw_response_dict(response)` is built and then dropped on each `return None`. Both call sites verified. This is the third instance of the stage's recurring theme: evidence the system already held was thrown away. The round-2 packet's widened question — a systematic sweep of every exchange round-trip including a query that itself fails or times out — is what surfaced it, so the widening earned its keep.",
     "severity_assessment": "P1 is right, not P0 — the conclusive-POST, inline-confirm and drain paths all capture correctly, so the gap is one branch; but it is the diagnostically hardest branch, so not P2 either.",
     "residual_risk_accepted_by_reviewer": "W0's real UM order-detail sample is still not taken. The reviewer judged the NULL representation sufficient to prevent fabricated zeros and declined to block on it. The packet asked for exactly that call; the bookkeeper does not overturn it. W0 carries into review-2.",
     "round1_verdict": "REWORK",
     "round2_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.dispatch.md",
-    "round2_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md"
+    "round2_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md",
+    "round2_verdict": "REWORK",
+    "bookkeeper_added_requirement": "Row growth is unaddressed by both the finding and required_fixes, and the fix cannot be written without deciding it. ADR-T4 bounds the raw table by asserting 2-6 rows per attempt, but drain re-queries a non-terminal leg every worker round (service.py:986). If every inconclusive query writes a row, a leg stuck UNKNOWN — exactly this fix's target scenario — produces unbounded rows and falsifies ADR-T4's own bound. The fix must either bound persistence (dedupe / first-N / collapse-with-count) or amend ADR-T4's stated bound. Silently breaking the bound is not acceptable, and neither is dropping the evidence again to preserve it. Added to the fix packet as a disclosed bookkeeper requirement, not presented as the reviewer's words.",
+    "w0_judgement": "The reviewer again declined to block on W0, re-deriving that call this round rather than inheriting it, as the packet required."
   },
   "review_2": null,
   "authorized_exceptions": [],
   "main_syncs": [],
-  "rework_count": 1,
+  "rework_count": 2,
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {
@@ -807,8 +825,8 @@
       "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
     }
   ],
-  "next_action": "Human operator runs 32-review-1-r2.dispatch.md in a FRESH read-only Codex session — not the round-1 session. Review-2 afterwards needs a THIRD, separate fresh Codex session isolated from both review-1 rounds (binding mitigation in 15-user-authorized-codex-review-1.md, since all gates are the same provider this stage).",
-  "updated_at": "2026-07-28T21:55:00+08:00",
+  "next_action": "Human operator runs 33-fix-review-1-r2.dispatch.md in a FRESH write-capable Claude-GLM session. rework_count 2/3 — one left before human escalation.",
+  "updated_at": "2026-07-28T22:30:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -845,5 +863,12 @@
     "head_sha": "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
     "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
     "note": "Round-1 range. review-1 returned REWORK on it (one P1). Void as an acceptance range once the fix moved the diff."
-  }
+  },
+  "previous_range_round2": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "33715ae2bcb4fef427f340780155dc4e4c316e28",
+    "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
+    "note": "Round-2 range. review-1 returned REWORK on it (one P1, a new defect). Void as an acceptance range once the fix moves the diff."
+  },
+  "rework_budget_warning": "rework_count is 2 of max 3. A third REWORK hits the limit and routes to human_escalation_required per AGENTS.md. The next fix round should therefore be verified unusually carefully before re-dispatching review-1, and the fix packet must close the whole class (every exchange round-trip leaves a record) rather than only the two paths named in this finding."
 }
