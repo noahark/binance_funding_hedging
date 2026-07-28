@@ -285,6 +285,67 @@ def test_aggregate_positions_excludes_deleted_tasks(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# T1 fill-figure NULL contract (10-design §1(d)) — stage 2026-07-hedge-order-truth-v1.
+# ---------------------------------------------------------------------------
+
+
+def test_leg_final_fields_t1_null_contract(tmp_path):
+    """T1 §1(d) quote NULL contract, each branch: present value verbatim, a true
+    "0" preserved (the old ``not in (..., "0", ...)`` check treated it as missing
+    — the defect), missing+derivable -> filled_qty*avg_price, missing+underivable
+    -> NULL. A missing figure is NEVER coerced to 0."""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+
+    def quote_of(**leg):
+        return store._leg_final_fields(leg)[3]
+
+    # present value -> verbatim
+    assert quote_of(status="FILLED", filled_qty="0.5",
+                    cumulative_quote="25000", avg_price="50000") == "25000"
+    # true zero preserved as a real "0" string (NOT collapsed to missing/NULL)
+    assert quote_of(status="FILLED", filled_qty="0", cumulative_quote="0") == "0"
+    # missing + derivable -> filled_qty * avg_price (Decimal-exact; tolerates scale)
+    assert Decimal(quote_of(status="FILLED", filled_qty="0.5",
+                            cumulative_quote=None, avg_price="50000")) == Decimal("25000")
+    # missing + underivable -> NULL (the T1 fix: unknown, not a fake 0)
+    assert quote_of(status="FILLED", filled_qty="0.5",
+                    cumulative_quote=None, avg_price=None) is None
+    # missing, no fill -> NULL
+    assert quote_of(status="NEW", filled_qty="0", cumulative_quote=None) is None
+    store.close()
+
+
+def test_aggregate_positions_skips_null_quote_and_flags_incomplete(tmp_path):
+    """T1 §1(d): a leg with a real fill but a NULL quote (unknown figure)
+    contributes its qty to the position but NOT its notional — averaging an
+    unknown as 0 would drag the avg price down. The bucket is flagged
+    ``avg_price_incomplete`` instead, so a reader knows the avg is partial."""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "tn", direction=D.DIR_FORWARD, target=1)
+    attempt = store.prepare_attempt(
+        "tn", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        "hgo-att1-p", {"side": "SELL"}, 1_000,
+    )
+    perp_leg = next(l for l in store.list_legs_for_attempt(attempt["id"])
+                    if l["leg"] == "perp")
+    # Resolve the perp leg FILLED with base>0 but quote=NULL (T1 unknown figure).
+    store.resolve_leg_from_query(
+        perp_leg["id"], exchange_status=D.LEG_FILLED, order_id="op",
+        base_qty="0.5", quote_amt=None, fee_amount=None, fee_asset=None,
+        now_us=2_000, terminal=True,
+    )
+    pos = next(p for p in store.aggregate_positions() if p["coin"] == "BTCUSDT")
+    # The perp's real qty contributes (FORWARD perp = a short -> -0.5), but its
+    # NULL notional is skipped so the avg is computed over nothing for that side.
+    assert Decimal(pos["position_qty"]) == Decimal("-0.5")
+    assert pos["perp_avg_price_incomplete"] is True      # flagged incomplete
+    assert Decimal(pos["perp_avg"]) == Decimal("0")      # notional skipped -> 0/qty
+    assert pos["spot_avg_price_incomplete"] is False      # spot side untouched
+    store.close()
+
+
+# ---------------------------------------------------------------------------
 # Settings + restart recovery
 # ---------------------------------------------------------------------------
 
@@ -434,6 +495,63 @@ def test_migrate_adds_new_columns_to_round1_db_and_keeps_rows(tmp_path):
     store_again = HedgeOpenStore(db)
     assert store_again.get_task("legacy")["success_count"] == 2
     store_again.close()
+
+
+# ---------------------------------------------------------------------------
+# T1(e)/T5(d) historical-data migration (10-design §6) — stage
+# 2026-07-hedge-order-truth-v1. M1 rewrites a FILLED leg's placeholder '0' quote
+# to NULL; M2 rewrites a 1970 leg_exposure ts to the accepting leg's real
+# dispatched_at_us ISO. Each change audited as data_migration; idempotent on a
+# second reopen.
+# ---------------------------------------------------------------------------
+
+
+def test_migrate_m1_m2_repair_defect_rows_audit_then_idempotent(tmp_path):
+    db = str(tmp_path / "ho.sqlite3")
+    store = HedgeOpenStore(db)
+    _create(store, "t1", direction=D.DIR_FORWARD, target=1)
+    attempt = store.prepare_attempt(
+        "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        "hgo-att1-p", {"side": "SELL"}, 5_000_000,
+    )
+    perp_leg_id = next(l["id"] for l in store.list_legs_for_attempt(attempt["id"])
+                       if l["leg"] == "perp")
+    # Plant the defect state: a FILLED perp leg with base>0 but the placeholder
+    # '0' quote (T1), and a leg_exposure frozen at the 1970 epoch (T5).
+    with store._lock:
+        store._conn.execute(
+            "UPDATE hedge_open_leg SET exchange_status = ?, cumulative_base_qty = '0.5',"
+            " cumulative_quote_amt = '0', order_id = 'op',"
+            " dispatch_state = ?, dispatched_at_us = ?, terminal = 1 WHERE id = ?",
+            (D.LEG_FILLED, D.LEG_TERMINAL_RECORDED, 5_000_000, perp_leg_id),
+        )
+        store._conn.execute(
+            "UPDATE hedge_open_task SET leg_exposure = ? WHERE id = ?",
+            (json.dumps({"leg": "perp", "qty": "0.5", "price": None,
+                         "ts": "1970-01-01T00:00:00.000000Z"}), "t1"),
+        )
+        store._conn.commit()
+    store.close()
+
+    # Reopen -> M1/M2 fire and repair.
+    store2 = HedgeOpenStore(db)
+    leg = next(l for l in store2.list_legs_for_attempt(attempt["id"]) if l["leg"] == "perp")
+    assert leg["cumulative_quote_amt"] is None          # M1: placeholder 0 -> NULL
+    expo = store2.get_task("t1")["leg_exposure"]
+    assert expo["ts"] == D.us_to_iso(5_000_000)          # M2: real dispatched_at_us ISO
+    assert expo["ts"] != "1970-01-01T00:00:00.000000Z"
+    assert expo["price"] is None                         # M2 leaves price null (M1 unknown)
+    events = store2.list_task_event_logs(50, kinds=("data_migration",))
+    assert len(events) == 2                              # one M1 + one M2
+    fields = {json.loads(e["payload"])["field"] for e in events}
+    assert fields == {"cumulative_quote_amt", "leg_exposure.ts"}
+    store2.close()
+
+    # Second reopen -> idempotent (no new data_migration events).
+    store3 = HedgeOpenStore(db)
+    assert len(store3.list_task_event_logs(50, kinds=("data_migration",))) == 2
+    store3.close()
 
 
 # ---------------------------------------------------------------------------

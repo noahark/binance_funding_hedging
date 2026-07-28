@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS hedge_open_leg (
     order_id             TEXT,
     exchange_status      TEXT,
     cumulative_base_qty  TEXT NOT NULL DEFAULT '0',
-    cumulative_quote_amt TEXT NOT NULL DEFAULT '0',
+    cumulative_quote_amt TEXT,
     fee_amount           TEXT,
     fee_asset            TEXT,
     error_code           TEXT,
@@ -296,11 +296,13 @@ def _num(value) -> Decimal:
 
 
 class HedgeOpenStore:
-    def __init__(self, db_path: str, *, executor_mode_snapshot: str = "disabled"):
+    def __init__(self, db_path: str, *, executor_mode_snapshot: str = "disabled",
+                 now_us: int = 0):
         self._lock = threading.RLock()
         parent = os.path.dirname(os.path.abspath(db_path))
         if parent and not os.path.isdir(parent):
             os.makedirs(parent, exist_ok=True)
+        self._migrate_now_us = now_us  # T1(e)/T5(d) §6 data-migration audit ts_us
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
@@ -361,6 +363,154 @@ class HedgeOpenStore:
         for col, decl in leg_additions:
             if col not in leg_cols:
                 self._conn.execute(f"ALTER TABLE hedge_open_leg ADD COLUMN {col} {decl}")
+        # T1 §1(d)/§7: ``cumulative_quote_amt`` was NOT NULL DEFAULT '0' — a missing
+        # figure stored indistinguishably from a true zero (the T1 defect). SQLite
+        # cannot relax NOT NULL in place, so rebuild the leg table inside this
+        # transaction (CREATE new -> INSERT SELECT -> DROP -> RENAME -> re-index).
+        # The PRAGMA notnull probe guards idempotency: runs once on legacy DBs,
+        # no-op once the column is already nullable.
+        leg_quote_notnull = next(
+            (r["notnull"] for r in self._conn.execute(
+                "PRAGMA table_info(hedge_open_leg)") if r["name"] == "cumulative_quote_amt"),
+            0,
+        )
+        if leg_quote_notnull:
+            self._conn.execute(
+                "CREATE TABLE hedge_open_leg__new ("
+                " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                " attempt_id INTEGER NOT NULL,"
+                " leg TEXT NOT NULL,"
+                " client_order_id TEXT NOT NULL UNIQUE,"
+                " endpoint TEXT NOT NULL,"
+                " request_shape TEXT NOT NULL,"
+                " dispatch_state TEXT NOT NULL,"
+                " order_id TEXT,"
+                " exchange_status TEXT,"
+                " cumulative_base_qty TEXT NOT NULL DEFAULT '0',"
+                " cumulative_quote_amt TEXT,"
+                " fee_amount TEXT,"
+                " fee_asset TEXT,"
+                " error_code TEXT,"
+                " error_category TEXT,"
+                " dispatched_at_us INTEGER,"
+                " last_query_at_us INTEGER,"
+                " terminal INTEGER NOT NULL DEFAULT 0)"
+            )
+            self._conn.execute(
+                "INSERT INTO hedge_open_leg__new"
+                " (id, attempt_id, leg, client_order_id, endpoint, request_shape,"
+                "  dispatch_state, order_id, exchange_status, cumulative_base_qty,"
+                "  cumulative_quote_amt, fee_amount, fee_asset, error_code,"
+                "  error_category, dispatched_at_us, last_query_at_us, terminal)"
+                " SELECT id, attempt_id, leg, client_order_id, endpoint, request_shape,"
+                "  dispatch_state, order_id, exchange_status, cumulative_base_qty,"
+                "  cumulative_quote_amt, fee_amount, fee_asset, error_code,"
+                "  error_category, dispatched_at_us, last_query_at_us, terminal"
+                " FROM hedge_open_leg"
+            )
+            self._conn.execute("DROP TABLE hedge_open_leg")
+            self._conn.execute("ALTER TABLE hedge_open_leg__new RENAME TO hedge_open_leg")
+            self._conn.execute(
+                "CREATE INDEX idx_hedge_open_leg_attempt"
+                " ON hedge_open_leg (attempt_id, leg ASC)"
+            )
+            self._conn.execute(
+                "CREATE INDEX idx_hedge_open_leg_query"
+                " ON hedge_open_leg (terminal, dispatch_state)"
+            )
+        # T1(e) M1 (§6): a FILLED leg with a positive fill but quote='0' is the T1
+        # defect's leftover — '0' was the missing-figure placeholder, now NULL (the
+        # honest "unknown"). Rule-based (not order-id-named) so the upgrade also
+        # repairs rows written during the gap before the live service restarts.
+        # Idempotent: once NULL the WHERE no longer matches. No network backfill —
+        # the real figure lives at Binance; a single-row hardcoded repair would be
+        # worse than an honest NULL.
+        m1_rows = self._conn.execute(
+            "SELECT l.id, a.task_id FROM hedge_open_leg l"
+            " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
+            " WHERE l.exchange_status = ? AND l.cumulative_base_qty > 0"
+            " AND l.cumulative_quote_amt = ?",
+            (D.LEG_FILLED, "0"),
+        ).fetchall()
+        if m1_rows:
+            self._conn.execute(
+                "UPDATE hedge_open_leg SET cumulative_quote_amt = NULL"
+                " WHERE exchange_status = ? AND cumulative_base_qty > 0"
+                " AND cumulative_quote_amt = ?",
+                (D.LEG_FILLED, "0"),
+            )
+            for r in m1_rows:
+                self._conn.execute(
+                    "INSERT INTO hedge_open_log"
+                    " (task_id, ts_us, attempt_id, kind, payload)"
+                    " VALUES (?, ?, NULL, ?, ?)",
+                    (
+                        r["task_id"], self._migrate_now_us, "data_migration",
+                        json.dumps(
+                            {
+                                "table": "hedge_open_leg", "row_id": r["id"],
+                                "field": "cumulative_quote_amt",
+                                "before": "0", "after": None,
+                                "reason": "T1(e): filled leg placeholder 0 quote -> NULL",
+                            },
+                            ensure_ascii=False,
+                        ),
+                    ),
+                )
+        # T5(d) M2 (§6): a leg_exposure ts rendered as the 1970 epoch (a forgotten
+        # 0) is rewritten to the accepting leg's dispatched_at_us ISO — the real
+        # moment of that single-leg event (within ~1s). price stays null (unknown,
+        # see M1). Idempotent on the ts shape.
+        epoch_ts = "1970-01-01T00:00:00.000000Z"
+        m2_rows = self._conn.execute(
+            "SELECT id, leg_exposure FROM hedge_open_task"
+            " WHERE leg_exposure LIKE ?",
+            (f"%{epoch_ts}%",),
+        ).fetchall()
+        for row in m2_rows:
+            task_id = row["id"]
+            try:
+                expo = json.loads(row["leg_exposure"])
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(expo, dict) or expo.get("ts") != epoch_ts:
+                continue
+            leg_name = expo.get("leg")
+            if leg_name not in ("spot", "perp"):
+                continue
+            leg_row = self._conn.execute(
+                "SELECT l.dispatched_at_us FROM hedge_open_leg l"
+                " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
+                " WHERE a.task_id = ? AND l.leg = ?"
+                " AND l.dispatched_at_us IS NOT NULL"
+                " ORDER BY l.dispatched_at_us DESC LIMIT 1",
+                (task_id, leg_name),
+            ).fetchone()
+            if leg_row is None:
+                continue
+            real_ts = D.us_to_iso(leg_row["dispatched_at_us"])
+            expo["ts"] = real_ts
+            self._conn.execute(
+                "UPDATE hedge_open_task SET leg_exposure = ? WHERE id = ?",
+                (json.dumps(expo, ensure_ascii=False), task_id),
+            )
+            self._conn.execute(
+                "INSERT INTO hedge_open_log"
+                " (task_id, ts_us, attempt_id, kind, payload)"
+                " VALUES (?, ?, NULL, ?, ?)",
+                (
+                    task_id, self._migrate_now_us, "data_migration",
+                    json.dumps(
+                        {
+                            "table": "hedge_open_task", "row_id": task_id,
+                            "field": "leg_exposure.ts",
+                            "before": epoch_ts, "after": real_ts,
+                            "reason": "T5(d): 1970 exposure ts -> accepting leg dispatched_at_us",
+                        },
+                        ensure_ascii=False,
+                    ),
+                ),
+            )
 
     def close(self) -> None:
         with self._lock:
@@ -656,16 +806,24 @@ class HedgeOpenStore:
 
     def _leg_final_fields(
         self, leg_outcome: dict
-    ) -> tuple[str, str | None, str, str, str | None, str | None]:
+    ) -> tuple[str, str | None, str, str | None, str | None, str | None]:
         """Return ``(exchange_status, order_id, base_qty, quote_amt, fee_amount,
-        fee_asset)`` for one resolved leg outcome (A-6).
+        fee_asset)`` for one resolved leg outcome (A-6 + T1 §1(d)).
 
-        Persists the ACTUAL cumulative quote when the outcome carries one (the
-        live path returns the exchange's ``cummulativeQuoteQty``); otherwise it
-        falls back to ``filled_qty * avg_price`` in Decimal (no binary float). A
-        non-FILLED leg records zero fill figures but keeps any returned orderId
-        (proof of acceptance) and any partial cumulative figures it carried.
-        Available fee figures pass through verbatim.
+        ``quote_amt`` follows the T1 NULL contract — NULL = unknown (the response
+        carried no figure), "0" = a real zero fill, never a missing figure coerced
+        to 0:
+
+        * a present ``cumulative_quote`` is stored verbatim (a real figure,
+          including a true "0");
+        * a MISSING ``cumulative_quote`` (None/empty) with a positive fill +
+          avg_price is derived as ``filled_qty * avg_price`` (real data);
+        * otherwise (missing figure, nothing to derive from) it is NULL.
+
+        The old ``not in (None, "", "0", 0)`` check that treated a literal "0" as
+        missing was the T1 defect itself and is gone. ``base_qty`` (filled_qty)
+        keeps the "0" default — an accepted not-yet-filled leg genuinely executes
+        zero. Fee figures pass through verbatim.
         """
         status = leg_outcome.get("status") or D.LEG_UNKNOWN
         order_id = leg_outcome.get("order_id")
@@ -674,20 +832,24 @@ class HedgeOpenStore:
         cumulative_quote = leg_outcome.get("cumulative_quote")
         fee_amount = leg_outcome.get("fee_amount")
         fee_asset = leg_outcome.get("fee_asset")
-        if cumulative_quote not in (None, "", "0", 0):
+        quote: Decimal | None
+        if cumulative_quote is None or cumulative_quote == "":
+            # Missing figure: derive from real data if possible, else NULL (unknown).
+            if filled_qty > 0 and avg_price is not None:
+                quote = filled_qty * _num(avg_price)
+            else:
+                quote = None
+        else:
             try:
                 quote = Decimal(str(cumulative_quote))
             except InvalidOperation:
-                quote = Decimal(0)
-        elif filled_qty > 0 and avg_price is not None:
-            quote = filled_qty * _num(avg_price)
-        else:
-            quote = Decimal(0)
+                # Unparseable present value: unknown, never a coerced 0.
+                quote = None
         return (
             status,
             order_id,
             str(filled_qty),
-            str(quote),
+            str(quote) if quote is not None else None,
             str(fee_amount) if fee_amount is not None else None,
             str(fee_asset) if fee_asset is not None else None,
         )
@@ -1376,7 +1538,7 @@ class HedgeOpenStore:
         exchange_status: str,
         order_id: str | None,
         base_qty: str,
-        quote_amt: str,
+        quote_amt: str | None,
         fee_amount: str | None,
         fee_asset: str | None,
         now_us: int,
@@ -1390,7 +1552,9 @@ class HedgeOpenStore:
         (``terminal=False``); the caller re-derives the task counters via the
         attempt's pair outcome when both legs close. ``error_code``/``error_category``
         carry the exchange business code + its classification (fatal / absent /
-        auth) so a fatal reconciled leg can stop the task."""
+        auth) so a fatal reconciled leg can stop the task. ``quote_amt`` may be
+        ``None`` — a FILLED UM leg whose order-detail GET came back without a figure
+        records NULL (T1 §1(d): unknown, not a coerced 0)."""
         with self._lock, self._conn:
             self._conn.execute(
                 "UPDATE hedge_open_leg SET exchange_status = ?,"
@@ -1718,6 +1882,8 @@ class HedgeOpenStore:
                     "perp_qty": Decimal(0),
                     "perp_notional": Decimal(0),
                     "position_qty": Decimal(0),
+                    "spot_incomplete": False,
+                    "perp_incomplete": False,
                 },
             )
 
@@ -1741,13 +1907,24 @@ class HedgeOpenStore:
                 continue
             b = _bucket(row["coin"], row["direction"])
             q = _num(row["cumulative_base_qty"])
-            notional = _num(row["cumulative_quote_amt"])
+            # T1 §1(d): a NULL quote (unknown figure) contributes its REAL qty but
+            # NOT its notional — averaging an unknown as 0 would drag the avg price
+            # down. The bucket is flagged avg_price_incomplete instead, so a reader
+            # knows the avg is computed over a partial notional set.
+            quote_raw = row["cumulative_quote_amt"]
+            notional = None if quote_raw is None else _num(quote_raw)
             if row["leg"] == "spot":
                 b["spot_qty"] += q
-                b["spot_notional"] += notional
+                if notional is not None:
+                    b["spot_notional"] += notional
+                else:
+                    b["spot_incomplete"] = True
             else:
                 b["perp_qty"] += q
-                b["perp_notional"] += notional
+                if notional is not None:
+                    b["perp_notional"] += notional
+                else:
+                    b["perp_incomplete"] = True
                 sign = Decimal(-1) if row["direction"] == D.DIR_FORWARD else Decimal(1)
                 b["position_qty"] += sign * q
 
@@ -1762,6 +1939,10 @@ class HedgeOpenStore:
                     "position_qty": D.fmt_decimal(b["position_qty"]),
                     "spot_avg": D.fmt_decimal(spot_avg),
                     "perp_avg": D.fmt_decimal(perp_avg),
+                    # T1 §1(d): additive — true when any contributing leg had a NULL
+                    # quote, so the avg above is over a partial notional set.
+                    "spot_avg_price_incomplete": b["spot_incomplete"],
+                    "perp_avg_price_incomplete": b["perp_incomplete"],
                     "open_basis_rate": "0",
                     "price_pnl": "0",
                     "accrued_funding": "0",

@@ -230,6 +230,105 @@ def test_query_2xx_carries_raw_response():
     assert d.raw_response["body"] == raw_body
 
 
+# ---- T1 fill-figure sourcing (10-design §1) — stage 2026-07-hedge-order-truth-v1.
+# The margin/UM asymmetry is an intentional per-product rule: the spot (margin)
+# POST RESULT carries cummulativeQuoteQty (authoritative); the perp (UM) POST only
+# proves acceptance — its 2026-07-14 RESULT body dropped cumQuote/avgPrice, so the
+# authoritative figures come from the order-detail GET (inline confirm here). A
+# missing figure is None (NULL), never a coerced "0".
+def test_post_margin_2xx_carries_quote_from_post_result():
+    resp = _resp(200, {"orderId": 1, "status": "FILLED", "executedQty": "0.5",
+                       "cummulativeQuoteQty": "25000"})
+    d = classify_leg_response(resp, "spot")
+    assert d.dispatch_state == LEG_ACCEPTED
+    assert d.cumulative_quote == "25000"  # authoritative from the POST RESULT
+    assert d.avg_price is None
+    assert leg_is_terminal_fill(d) is True  # margin FILLED -> terminal
+
+
+def test_post_um_2xx_carries_no_quote_acceptance_only():
+    # The UM POST body has orderId/status/executedQty but NO cumQuote/avgPrice
+    # (the 2026-07-14 removal). classify must NOT synthesize a quote from the POST.
+    resp = _resp(200, {"orderId": 7, "status": "FILLED", "executedQty": "0.5"})
+    d = classify_leg_response(resp, "perp")
+    assert d.dispatch_state == LEG_ACCEPTED
+    assert d.order_id == "7"
+    assert d.executed_qty == "0.5"
+    assert d.cumulative_quote is None  # POST is acceptance-only for UM
+    assert d.avg_price is None
+
+
+def test_post_um_2xx_carries_post_raw_response():
+    raw_body = '{"orderId":2,"status":"FILLED","executedQty":"0.5"}'
+    resp = HedgeHttpResponse(200, {"orderId": 2, "status": "FILLED",
+                                    "executedQty": "0.5"}, raw_body, None, None)
+    d = classify_leg_response(resp, "perp")
+    assert d.raw_response is not None  # POST raw still captured even w/o quote
+    assert set(d.raw_response.keys()) == _RAW_KEYS
+    assert d.raw_response["body"] == raw_body
+    assert d.confirm_raw_response is None  # classify_leg_response does POST only
+
+
+def test_dispatch_um_accepted_confirms_figures_inline():
+    # T1 §1(b): a UM leg POST-accepted immediately confirms its authoritative
+    # figures via the order-detail GET; the merged dispatch carries the GET's
+    # cumQuote/avgPrice and is a terminal fill.
+    client = _FakeClient(
+        perp_post=_resp(200, {"orderId": 2, "status": "FILLED", "executedQty": "0.5"}),
+        perp_query=_resp(200, {"orderId": 2, "status": "FILLED", "executedQty": "0.5",
+                                "cumQuote": "25000", "avgPrice": "50000"}),
+    )
+    dispatch = _exe(client).dispatch(_ctx())
+    assert dispatch.perp.dispatch_state == LEG_ACCEPTED
+    assert dispatch.perp.cumulative_quote == "25000"  # from the inline confirm GET
+    assert dispatch.perp.avg_price == "50000"
+    assert leg_is_terminal_fill(dispatch.perp) is True
+    assert client.perp_query_count == 1  # exactly one inline confirm GET
+    assert client.spot_query_count == 0  # margin leg needs no confirm
+
+
+def test_dispatch_um_confirm_inconclusive_keeps_nonterminal_quote_none():
+    # T1 §1(b): a 5xx confirm is inconclusive — the leg keeps POST acceptance but
+    # stays non-terminal with quote=None, drained next round. Never a coerced 0.
+    client = _FakeClient(
+        perp_post=_resp(200, {"orderId": 2, "status": "FILLED", "executedQty": "0.5"}),
+        perp_query=_resp(500, {}),
+    )
+    dispatch = _exe(client).dispatch(_ctx())
+    assert dispatch.perp.dispatch_state == LEG_ACCEPTED  # POST acceptance kept
+    assert dispatch.perp.cumulative_quote is None        # unknown, not 0
+    assert leg_is_terminal_fill(dispatch.perp) is False  # non-terminal -> drain
+
+
+def test_dispatch_um_confirm_404_does_not_overturn_post_acceptance():
+    # T1 §1(b): a POST-just-accepted UM order 404-ing on the immediate confirm is
+    # eventual-consistency noise, NOT a real absent signal — the POST orderId
+    # stands; the leg keeps acceptance with quote=None and drains later.
+    client = _FakeClient(
+        perp_post=_resp(200, {"orderId": 2, "status": "FILLED", "executedQty": "0.5"}),
+        perp_query=_resp(404),
+    )
+    dispatch = _exe(client).dispatch(_ctx())
+    assert dispatch.perp.dispatch_state == LEG_ACCEPTED  # NOT overturned to REJECTED
+    assert dispatch.perp.order_id == "2"
+    assert dispatch.perp.cumulative_quote is None
+
+
+def test_dispatch_um_confirm_carries_confirm_raw_response():
+    # T1+T3 §3(b): the UM inline-confirm GET response rides on confirm_raw_response
+    # for raw persistence (source=order_confirm); the POST raw stays on raw_response.
+    client = _FakeClient(
+        perp_post=_resp(200, {"orderId": 2, "status": "FILLED", "executedQty": "0.5"}),
+        perp_query=_resp(200, {"orderId": 2, "status": "FILLED",
+                                "cumQuote": "25000", "avgPrice": "50000"}),
+    )
+    dispatch = _exe(client).dispatch(_ctx())
+    assert dispatch.perp.confirm_raw_response is not None
+    assert set(dispatch.perp.confirm_raw_response.keys()) == _RAW_KEYS
+    assert dispatch.perp.raw_response is not None  # POST raw still present
+    assert dispatch.spot.confirm_raw_response is None  # margin leg does not confirm
+
+
 # ---- orderId normalization (acceptance proof must be a positive integer) ----
 @pytest.mark.parametrize("value,expected", [
     (123, "123"), ("456", "456"), ("007", "7"), (0, None), (-1, None),

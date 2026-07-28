@@ -646,7 +646,18 @@
         "Keep the anti-summarization rule intact — narrow the pointer, never substitute a bookkeeper narrative."
       ],
       "blocking_this_stage": false,
-      "note": "Second harness gap found this stage; the first is registry-review-1-pool-exhausted. Both land on main, not on this stage branch."
+      "note": "Second harness gap found this stage; the first is registry-review-1-pool-exhausted. Both land on main, not on this stage branch.",
+      "dispatched": {
+        "at": "2026-07-28T19:15:00+08:00",
+        "by": "user decision",
+        "executor": "codex, write-capable, fresh session",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/18-harness-followup-dispatch.md",
+        "branch": "from main ecc3841, merged back to main; NEVER into the live stage branch",
+        "review": "waived by the user",
+        "scope_limited_to": "guidance only — AGENTS.md bookkeeper packet-authoring section and agents/developer-discipline.md reading discipline, plus optionally docs/harness-design.md. No Hard Gate, no schemas, no validator, no workflows, no registry, so nothing can fail closed and no reviewer-binding rule moves under a reviewer's feet.",
+        "codex_eligibility": "registry's codex_eligible_for_implementation_or_fix: false and AGENTS.md's 'Codex is not an implementation or fix author' both scope to STAGE DELIVERY authorship. This is harness documentation on main outside any stage, so neither bars it.",
+        "isolation_constraint": "Codex is this stage's Review-1 AND Review-2 gate. If this branch reached stage/2026-07-hedge-order-truth-v1, Codex would review a diff containing its own text. The branch must not be merged into the stage branch, and main must not be merged into the stage branch while this change is on it."
+      }
     }
   ],
   "stage_followups": [
@@ -670,5 +681,5 @@
     }
   ],
   "next_action": "Claude-GLM session 2b5e8d01 is running 13-implementation.dispatch.md through W1..W6. Context budget is a known accepted risk (status.session_receipts[-1].context_budget_incident): if it compacts, or as a precaution before W4, the operator may paste 17-context-guard-note.md into it. In parallel and independently: W0 (read-only signed GET, human operator) and T4's collateral-cap recon. When the implementer stops: R4 reconciliation against the nine checks in 17-context-guard-note.md §Bookkeeper's own mitigation, then evidence commit, fingerprint, --phase pre-review, then review-1 to codex in a fresh read-only session.",
-  "updated_at": "2026-07-28T19:00:00+08:00"
+  "updated_at": "2026-07-28T19:15:00+08:00"
 }

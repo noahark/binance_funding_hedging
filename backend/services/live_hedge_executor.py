@@ -64,6 +64,79 @@ _BAN_COOLDOWN_SECONDS = Decimal("300")
 # does not pin an exact resume; this is a local fail-safe, not a Binance SLA).
 _RATE_LIMIT_COOLDOWN_SECONDS = Decimal("60")
 
+# T1 (10-design §1(c)): the margin/UM asymmetry in fill-figure sourcing is an
+# intentional, named rule — NOT an `or` chain. The margin (spot) leg's POST RESULT
+# still carries ``cummulativeQuoteQty`` (the 2026-07-14 removal did not touch
+# margin); the UM (perp) leg's POST only proves acceptance — its RESULT body no
+# longer carries quote/avgPrice, so the authoritative figures come from the
+# order-detail GET (inline confirm here, drain in the worker). When Binance next
+# changes one product's response, the edit is to THIS named rule, not a stray
+# take-value site. ``leg`` ("spot" | "perp") is the product discriminator.
+FILL_FIGURES_SOURCE = {
+    "spot": "post_response",        # margin: POST RESULT body carries cummulativeQuoteQty
+    "perp": "order_detail_query",   # UM: POST proves acceptance only; figures via GET
+}
+
+
+def _quote_decimal(raw) -> Optional[str]:
+    """Coerce one fill-figure field to a decimal string, or ``None`` when the
+    response did not carry it (T1 §1(d): ``None`` = unknown, never a coerced 0)."""
+    if raw is None or isinstance(raw, bool) or raw == "":
+        return None
+    try:
+        text = format(Decimal(str(raw)), "f")
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    return text or None
+
+
+def _avg_price_decimal(raw) -> Optional[str]:
+    """avgPrice is informational; a literal 0 / missing -> None (no usable price)."""
+    if raw in (None, "", "0", 0) or isinstance(raw, bool):
+        return None
+    return _quote_decimal(raw)
+
+
+def _post_figures(body, leg: str) -> tuple[str, Optional[str], Optional[str]]:
+    """Fill figures from a POST RESULT body, by product (T1 §1(c)).
+
+    Returns ``(executed_qty, cumulative_quote, avg_price)``. The margin leg reads
+    ``cummulativeQuoteQty`` authoritatively from the POST; the UM leg's POST only
+    proves acceptance, so its quote/avg_price are ``None`` here (the inline confirm
+    GET supplies them). ``executed_qty`` keeps the ``"0"`` default — an accepted
+    not-yet-filled leg genuinely has zero executed qty (a true value).
+    """
+    if not isinstance(body, dict):
+        return ("0", None, None)
+    executed = _decimal_str(body.get("executedQty"))
+    if leg == "spot":
+        quote = _quote_decimal(body.get("cummulativeQuoteQty"))
+    else:  # UM POST is acceptance-only (2026-07-14 RESULT dropped quote/avgPrice)
+        quote = None
+    avg = _avg_price_decimal(body.get("avgPrice"))
+    return (executed, quote, avg)
+
+
+def _query_figures(body, leg: str) -> tuple[str, Optional[str], Optional[str]]:
+    """Fill figures from an order-detail GET body, by product (T1 §1(c)).
+
+    margin reads ``cummulativeQuoteQty``; UM reads ``cumQuote`` (falling back to the
+    ``cummulativeQuoteQty`` spelling for compatibility) + ``avgPrice``. The
+    response-not-carried case is ``None`` (NULL), not a coerced 0.
+    """
+    if not isinstance(body, dict):
+        return ("0", None, None)
+    executed = _decimal_str(body.get("executedQty"))
+    if leg == "spot":
+        quote = _quote_decimal(body.get("cummulativeQuoteQty"))
+    else:  # UM order detail: cumQuote (Binance UM spelling), cummulativeQuoteQty fallback
+        raw = body.get("cumQuote")
+        if raw in (None, ""):
+            raw = body.get("cummulativeQuoteQty")
+        quote = _quote_decimal(raw)
+    avg = _avg_price_decimal(body.get("avgPrice"))
+    return (executed, quote, avg)
+
 
 def _business_code(response: HedgeHttpResponse) -> Optional[str]:
     body = response.body
@@ -188,13 +261,14 @@ class LegDispatch:
     order_id: Optional[str]
     exchange_status: Optional[str]  # FILLED | NEW | PARTIALLY_FILLED | REJECTED | EXPIRED | UNKNOWN
     executed_qty: str
-    cumulative_quote: str
+    cumulative_quote: Optional[str]
     avg_price: Optional[str]
     rate_limited: bool = False
     error_code: Optional[str] = None
     error_category: Optional[str] = None
     retry_after_seconds: Optional[int] = None
-    raw_response: Optional[dict] = None  # T3 (10-design §3): sanitized exchange response for raw persistence
+    raw_response: Optional[dict] = None  # T3 (10-design §3): sanitized POST (or best-effort query) exchange response for raw persistence
+    confirm_raw_response: Optional[dict] = None  # T1+T3 (§1(b)/§3(b)): sanitized UM inline-confirm GET response (order_detail_query source)
 
 
 @dataclass(frozen=True)
@@ -220,7 +294,7 @@ def _empty_dispatch(
         order_id=None,
         exchange_status=None,
         executed_qty="0",
-        cumulative_quote="0",
+        cumulative_quote=None,
         avg_price=None,
         rate_limited=rate_limited,
         error_code=error_code,
@@ -261,19 +335,10 @@ def classify_leg_response(response: HedgeHttpResponse, leg: str) -> LegDispatch:
             exchange_status = response.body.get("status")
         if order_id is None:
             return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING, raw=raw)
-        executed_qty = "0"
-        cumulative_quote = "0"
-        avg_price = None
-        if isinstance(response.body, dict):
-            executed_qty = _decimal_str(response.body.get("executedQty"))
-            # margin: cummulativeQuoteQty ; UM: cumQuote
-            cumulative_quote = _decimal_str(
-                response.body.get("cummulativeQuoteQty")
-                if response.body.get("cummulativeQuoteQty") is not None
-                else response.body.get("cumQuote")
-            )
-            avg_price_raw = response.body.get("avgPrice")
-            avg_price = _decimal_str(avg_price_raw) if avg_price_raw not in (None, "0", 0) else None
+        # T1 §1(c): fill figures come from the POST only for the margin (spot) leg;
+        # the UM (perp) POST proves acceptance alone, so its quote/avg_price stay
+        # None here and are filled by the inline confirm GET in _send_one_leg.
+        executed_qty, cumulative_quote, avg_price = _post_figures(response.body, leg)
         return LegDispatch(
             leg=leg,
             dispatch_state=LEG_ACCEPTED,
@@ -363,14 +428,10 @@ def classify_query_response(response: HedgeHttpResponse, leg: str) -> Optional[L
             # the worker keeps querying by client ID (never resends, never
             # rejects a possibly-accepted order as absent).
             return _empty_dispatch(leg, LEG_UNKNOWN_QUERYING, raw=raw)
-        executed_qty = _decimal_str(response.body.get("executedQty"))
-        cumulative_quote = _decimal_str(
-            response.body.get("cummulativeQuoteQty")
-            if response.body.get("cummulativeQuoteQty") is not None
-            else response.body.get("cumQuote")
-        )
-        avg_price_raw = response.body.get("avgPrice")
-        avg_price = _decimal_str(avg_price_raw) if avg_price_raw not in (None, "0", 0) else None
+        # T1 §1(c): order-detail GET figures, by product (margin reads
+        # cummulativeQuoteQty; UM reads cumQuote with a cummulativeQuoteQty
+        # fallback). A field the response did not carry is None (NULL), not a 0.
+        executed_qty, cumulative_quote, avg_price = _query_figures(response.body, leg)
         # NEW/PARTIALLY_FILLED → accepted, still filling (non-terminal downstream).
         # FILLED/CANCELED/EXPIRED/REJECTED carry their own terminal meaning; the
         # service maps REJECTED/CANCELED/EXPIRED to a confirmed-not-filled leg.
@@ -440,11 +501,22 @@ def _exchange_status_for_outcome(leg: LegDispatch) -> str:
 
 
 def leg_is_terminal_fill(leg: LegDispatch) -> bool:
-    """A leg is a terminal fill when accepted+FILLED, or confirmed rejected."""
+    """A leg is a terminal fill when confirmed rejected, or accepted+FILLED with
+    authoritative figures (T1 §1(b)).
+
+    A UM (perp) FILLED leg whose authoritative quote is still unknown (the inline
+    confirm GET came back inconclusive) is NOT terminal — it stays for the
+    worker's drain. The margin (spot) leg reads its quote from the POST RESULT, so
+    an accepted+FILLED spot leg is terminal as before."""
     if leg.dispatch_state == LEG_REJECTED:
         return True
     if leg.dispatch_state == LEG_ACCEPTED:
-        return leg.exchange_status == D.LEG_FILLED
+        if leg.exchange_status != D.LEG_FILLED:
+            return False
+        # T1 §1(b): a UM FILLED leg needs its authoritative quote known to settle.
+        if leg.leg != "spot" and leg.cumulative_quote is None:
+            return False
+        return True
     return False
 
 
@@ -478,14 +550,20 @@ class LiveHedgeExecutor:
             response = self._client.post_um_order(params, timestamp_ms=self._now_ms())
             querier = self._client.query_um_order
         verdict = classify_leg_response(response, leg)
+        # T1 §1(b): a UM (perp) leg whose POST proved acceptance still lacks
+        # authoritative fill figures — confirm them via the order-detail GET now.
+        if leg != "spot" and verdict.dispatch_state == LEG_ACCEPTED:
+            verdict = self._confirm_um_figures(symbol, client_order_id, verdict)
         if verdict.dispatch_state == LEG_UNKNOWN_QUERYING:
             query_response = querier(symbol, client_order_id, timestamp_ms=self._now_ms())
             resolved = classify_query_response(query_response, leg)
             if resolved is not None:
                 # R2-F2: preserve the rate-limited signal + wait from EITHER the
-                # POST or the best-effort query (a query-time 429 must surface
-                # even when the POST verdict was not itself throttled), and carry
-                # the query's resolved acceptance / error classification.
+                # POST/confirm or the best-effort query (a query-time 429 must
+                # surface even when the POST verdict was not itself throttled), and
+                # carry the query's resolved acceptance / error classification.
+                # The POST raw is preserved on raw_response (T3 §3(b) POST capture);
+                # any inline-confirm raw rides on confirm_raw_response.
                 return LegDispatch(
                     leg=resolved.leg,
                     dispatch_state=resolved.dispatch_state,
@@ -500,8 +578,77 @@ class LiveHedgeExecutor:
                     retry_after_seconds=(
                         verdict.retry_after_seconds or resolved.retry_after_seconds
                     ),
+                    raw_response=verdict.raw_response,
+                    confirm_raw_response=verdict.confirm_raw_response,
                 )
         return verdict
+
+    def _confirm_um_figures(
+        self, symbol: str, client_order_id: str, post_verdict: LegDispatch,
+    ) -> LegDispatch:
+        """T1 §1(b): a UM (perp) leg whose POST proved acceptance (orderId) still
+        lacks authoritative fill figures — the 2026-07-14 UM RESULT body dropped
+        cumQuote/avgPrice. Immediately confirm via the order-detail GET and merge.
+
+        A confirm that returns an accepted verdict WITH a known quote merges the
+        authoritative figures (executed_qty / cumulative_quote / avg_price / a
+        refined status). Any other confirm outcome — inconclusive (timeout / 5xx),
+        a malformed 2xx, or even a literal 404/-2013 (a POST-just-accepted order
+        404-ing is eventual-consistency noise, NOT a real absent signal) — leaves
+        the leg ACCEPTED with ``cumulative_quote=None`` so it is non-terminal and
+        the worker drains it next round (query, never resend). The confirm GET's
+        sanitized response rides on ``confirm_raw_response`` for T3 capture; the
+        POST raw on ``raw_response`` is preserved either way.
+        """
+        query_response = self._client.query_um_order(
+            symbol, client_order_id, timestamp_ms=self._now_ms(),
+        )
+        confirmed = classify_query_response(query_response, "perp")
+        confirm_raw = _raw_response_dict(query_response)
+        rate_limited = post_verdict.rate_limited or (
+            confirmed.rate_limited if confirmed is not None else False
+        )
+        retry_after = post_verdict.retry_after_seconds or (
+            confirmed.retry_after_seconds if confirmed is not None else None
+        )
+        if (
+            confirmed is not None
+            and confirmed.dispatch_state == LEG_ACCEPTED
+            and confirmed.cumulative_quote is not None
+        ):
+            # Authoritative figures confirmed: merge them onto the POST acceptance.
+            return LegDispatch(
+                leg=post_verdict.leg,
+                dispatch_state=post_verdict.dispatch_state,
+                order_id=post_verdict.order_id,
+                exchange_status=confirmed.exchange_status or post_verdict.exchange_status,
+                executed_qty=confirmed.executed_qty,
+                cumulative_quote=confirmed.cumulative_quote,
+                avg_price=confirmed.avg_price,
+                rate_limited=rate_limited,
+                error_code=post_verdict.error_code,
+                error_category=post_verdict.error_category,
+                retry_after_seconds=retry_after,
+                raw_response=post_verdict.raw_response,
+                confirm_raw_response=confirm_raw,
+            )
+        # Confirm inconclusive / no figures: keep POST acceptance, quote unknown,
+        # leg non-terminal (drain later). Never coerce the missing figure to 0.
+        return LegDispatch(
+            leg=post_verdict.leg,
+            dispatch_state=post_verdict.dispatch_state,
+            order_id=post_verdict.order_id,
+            exchange_status=post_verdict.exchange_status,
+            executed_qty=post_verdict.executed_qty,
+            cumulative_quote=None,
+            avg_price=None,
+            rate_limited=rate_limited,
+            error_code=post_verdict.error_code,
+            error_category=post_verdict.error_category,
+            retry_after_seconds=retry_after,
+            raw_response=post_verdict.raw_response,
+            confirm_raw_response=confirm_raw,
+        )
 
     def dispatch(self, ctx) -> LiveAttemptDispatch:
         """Submit both legs concurrently and return their dispatch verdicts.
@@ -583,7 +730,7 @@ def _error_leg(leg: str, exc: Optional[BaseException]) -> LegDispatch:
         order_id=None,
         exchange_status=None,
         executed_qty="0",
-        cumulative_quote="0",
+        cumulative_quote=None,
         avg_price=None,
         rate_limited=False,
     )

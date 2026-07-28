@@ -21,6 +21,7 @@ from backend.hedge_open_tasks.executor import (
     DisabledHedgeExecutor,
     OutcomeSpec,
     RecordTransportExecutor,
+    _leg_qty_filters,
 )
 from backend.hedge_open_tasks.service import HedgeOpenTaskService
 
@@ -326,3 +327,63 @@ def test_poisoned_env_secrets_never_leak(tmp_path, monkeypatch):
     blob = json.dumps([tasks, logs, settings])
     for secret in secrets.values():
         assert secret not in blob
+
+
+# ---------------------------------------------------------------------------
+# W6 — preflight snapshot key-name contract (10-design §5 / §9 S5 / ADR-H4)
+# 2026-07-hedge-order-truth-v1. compute_preflight writes one leg's effective
+# MARKET qty step/bounds into the sanitized snapshot record as ``{leg}_step`` /
+# ``{leg}_min_qty`` / ``{leg}_max_qty``; _leg_qty_filters reads those exact keys
+# when sizing each leg's POST params. This test pins the seam so the writer
+# (domain) and the reader (executor) cannot drift apart without a failing test,
+# and that a bound the writer disables (None) the reader omits (disabled) —
+# never coercing a missing bound to 0.
+# ---------------------------------------------------------------------------
+
+
+def test_preflight_snapshot_keys_and_qty_filters_reader_agree():
+    # spot: MARKET_LOT_SIZE carries step + min + max (all enabled).
+    # perp: MARKET disabled (step/min/max all 0), LOT_SIZE carries step + min;
+    #       max disabled. Exercises both "bound present" and "bound disabled"
+    #       paths on the same record.
+    snapshot = D.PreflightSnapshot(
+        spot_filters={
+            "market_lot_size": {"step_size": "0.0001", "min_qty": "0.0002", "max_qty": "999"},
+            "lot_size": {"step_size": "0.00001", "min_qty": "0.00001", "max_qty": "9000"},
+        },
+        perp_filters={
+            "market_lot_size": {"step_size": "0", "min_qty": "0", "max_qty": "0"},
+            "lot_size": {"step_size": "0.001", "min_qty": "0.002", "max_qty": "0"},
+        },
+        balances={"USDT": Decimal("1000000")},
+        position_mode=D.POS_MODE_BOTH,
+        est_price=Decimal("50000"),
+        symbol_tradable=True,
+    )
+    pf = D.compute_preflight(snapshot, "BTCUSDT", D.DIR_FORWARD, Decimal("0.5"), 3)
+    record = pf.snapshot_record
+    assert record["available"] is True
+
+    # Writer↔reader contract per leg: every key the writer emits, the reader
+    # consumes with an equal value; every key the writer disables (None), the
+    # reader omits. Symmetric across step/min/max and both legs.
+    for leg in ("spot", "perp"):
+        for record_key, kwarg in (
+            (f"{leg}_step", "step_size"),
+            (f"{leg}_min_qty", "min_qty"),
+            (f"{leg}_max_qty", "max_qty"),
+        ):
+            filters = _leg_qty_filters(record, leg)
+            written = record[record_key]
+            if written is not None:
+                assert filters[kwarg] == written
+            else:
+                assert kwarg not in filters
+
+    # Value identity through the seam (string-for-string).
+    assert _leg_qty_filters(record, "spot") == {
+        "step_size": "0.0001", "min_qty": "0.0002", "max_qty": "999",
+    }
+    assert _leg_qty_filters(record, "perp") == {
+        "step_size": "0.001", "min_qty": "0.002",
+    }  # perp max_qty disabled -> absent, never coerced to 0

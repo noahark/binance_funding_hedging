@@ -360,7 +360,11 @@ class HedgeOpenTaskService:
         mono_us: Callable[[], int] | None = None,
         wall_us: Callable[[], int] | None = None,
     ):
-        self._store = HedgeOpenStore(db_path, executor_mode_snapshot=mode)
+        self._mono_us = mono_us or _real_mono_us
+        self._wall_us = wall_us or _real_wall_us
+        self._store = HedgeOpenStore(
+            db_path, executor_mode_snapshot=mode, now_us=self._wall_us(),
+        )
         # Default executor is the dry-run record transport (ADR-4): it records
         # the would-send params and returns a simulated outcome, and performs NO
         # network POST. A real POST is reachable only under APP_HEDGE_EXECUTOR=
@@ -376,8 +380,6 @@ class HedgeOpenTaskService:
         # computes this from the live client; default False for dry-run). The
         # value is a boolean only — never a credential value (Boundary C).
         self._credentials_present = bool(credentials_present)
-        self._mono_us = mono_us or _real_mono_us
-        self._wall_us = wall_us or _real_wall_us
         self._last_tick_mono: int | None = None
         # Amendment 21 task-local workers: each RUNNING task owns at most ONE
         # bounded-lifetime worker thread (no global guardian/scanner). ``_workers``
@@ -1588,6 +1590,13 @@ class HedgeOpenTaskService:
             ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_post",
             perp.raw_response, now_us,
         )
+        # T1+T3 (§1(b)/§3(b)): the UM leg's inline-confirm GET (the authoritative
+        # figures query) is captured with its own source so POST vs confirm stay
+        # distinguishable in the raw table.
+        self._persist_leg_raw(
+            ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_confirm",
+            getattr(perp, "confirm_raw_response", None), now_us,
+        )
         if rate_limited:
             # Amendment 21: pause THIS task only. Do NOT resolve the pair — its
             # UNKNOWN legs are marked so the worker drains them, then settles the
@@ -1719,13 +1728,24 @@ class HedgeOpenTaskService:
 
     @staticmethod
     def _leg_terminal(leg) -> bool:
-        """A live leg is terminal when confirmed rejected, or accepted+FILLED.
-        An accepted leg that is NEW/PARTIALLY_FILLED stays non-terminal for the
-        reconcile pass to poll to FILLED."""
+        """A live leg is terminal when confirmed rejected, or accepted+FILLED with
+        authoritative figures (T1 §1(b)).
+
+        A UM (perp) FILLED leg whose authoritative quote is still unknown (the
+        inline confirm GET came back inconclusive) is NOT terminal — the worker
+        drains it next round (query, never resend). The margin (spot) leg reads its
+        quote from the POST RESULT, so an accepted+FILLED spot leg is terminal as
+        before. An accepted leg that is NEW/PARTIALLY_FILLED stays non-terminal for
+        the reconcile pass to poll to FILLED."""
         if leg.dispatch_state == D.LEG_TERMINAL_RECORDED:
             return True
         if leg.dispatch_state == D.LEG_ACCEPTED_OR_QUERYING:
-            return leg.exchange_status == D.LEG_FILLED
+            if leg.exchange_status != D.LEG_FILLED:
+                return False
+            # T1 §1(b): a UM FILLED leg needs its authoritative quote known.
+            if getattr(leg, "leg", None) != "spot" and getattr(leg, "cumulative_quote", None) is None:
+                return False
+            return True
         return False
 
     @staticmethod
