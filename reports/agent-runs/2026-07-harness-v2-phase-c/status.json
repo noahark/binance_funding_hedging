@@ -1,21 +1,23 @@
 {
   "schema_version": "2",
-  "revision": 1,
+  "revision": 2,
   "stage_id": "2026-07-harness-v2-phase-c",
-  "phase": "implementation",
-  "checkpoint": "c0-inventory-complete",
+  "phase": "review_2",
+  "checkpoint": "phase-c-delivery-committed",
   "base_sha": "a15368c8ff9c0989968100e874e9ecb799a01c7d",
-  "delivery_sha": null,
-  "ledger_sha": "a15368c8ff9c0989968100e874e9ecb799a01c7d",
+  "delivery_sha": "0412ba16e2fa5003c087be9c4a824cb4e022d4b4",
+  "ledger_sha": "0412ba16e2fa5003c087be9c4a824cb4e022d4b4",
   "current_task": {
-    "id": "harness-v2-phase-c",
-    "state": "running",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-c/12-phase-c.dispatch.md"
+    "id": "harness-v2-phase-c-review",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-c/21-phase-c-fable5-review.dispatch.md"
   },
   "next": {
-    "actor": "codex",
-    "action": "execute-phase-c-required-changes"
+    "actor": "human_operator",
+    "action": "start-fable5-phase-c-review"
   },
   "rework_count": 0,
-  "blockers": []
+  "blockers": [
+    "phase_e: Git main does not yet contain the v1 hedge-order-truth stage; resolve and prove ancestry before cutover"
+  ]
 }
