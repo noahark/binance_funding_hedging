@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "review_1",
+  "status": "fixing",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -332,6 +332,16 @@
       "scope_note": "Deletes M1 (keeps M2) and threads an explicit decisive flag into raw persistence. live_hedge_executor.py should stay at zero diff; if the flag genuinely requires touching it, that change must be the flag alone and disclosed.",
       "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
       "verified_by_bookkeeper": "Confirmed against the code. M1 is gone with zero remnants and M2 is intact. The decisive column is additive and guarded (CREATE plus ALTER with DEFAULT 0 backfill). append_raw_response takes decisive keyword-only; the caller decides it via _query_verdict_decisive (fill / rejection-expiry-cancellation / absent / rate-limit), never re-derived from the body in the store; replacement happens only when the incoming response is decisive AND the existing row is not, and a decisive row is never replaced, so first-decisive-wins holds. Check and replace are both inside the method's own lock and transaction. live_hedge_executor.py has a zero diff for the third round running; cumulative forbidden-path touches across the whole stage remain zero; production DB unchanged. The fourth guard test (FILLED then NEW leaves FILLED) is present — it is what distinguishes a real flag from last-write-wins. Independently re-run: 1069 passed, specified suite 324. HEAD was still b733a7d when the implementer stopped."
+    },
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_prepared",
+      "round": 6,
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/41-fix-review-1-r6.dispatch.md",
+      "session_note": "fresh session",
+      "scope_note": "Projection layer only. store.py and live_hedge_executor.py are both off-limits this round — the persistence layer is already correct."
     }
   ],
   "reviewer_1": {
@@ -433,7 +443,7 @@
       ],
       "reviewer": "codex",
       "implementation_report_path": "20-implementation.md",
-      "implementation_status": "rework5_evidence_committed",
+      "implementation_status": "rework6_dispatched",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
       "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
       "diff_fingerprint": "95ac1a549c640f7ff01cf7773e577228ffc663e8:1ea0690a232325b25ce2ed02c24a85aa825378d1ac60e7f478b65df5ce56455b",
@@ -449,12 +459,12 @@
         "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
         "fingerprint_matches_status": true,
         "reviewer_prior_involvement": "none",
-        "open_p0_p1": 2,
-        "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.md",
+        "open_p0_p1": 1,
+        "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
         "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
         "recorded_at": "2026-07-28T21:10:00+08:00",
-        "round": 5,
-        "status": "complete_round5",
+        "round": 6,
+        "status": "complete_round6",
         "findings_summary": "Round 2, 1 P1 and it is a NEW defect, not a re-report. Round 1 covered the CONCLUSIVE fallback GET; this covers the INCONCLUSIVE query on BOTH paths. classify_query_response builds the raw at live_hedge_executor.py:397 and then discards it on every None return (transport_error/no status, >=500, ambiguous 4xx, malformed 2xx). Neither call site persists it: _send_one_leg falls through to the POST verdict, and drain does `if verdict is None: continue` at service.py:1116. The in-code comment states the intent explicitly — 'a None return is a genuinely inconclusive retry — no verdict, no row' — i.e. persistence was keyed off verdicts, while 00-task.md T3 keys it off READS.",
         "fix_start_prompt_present": true,
         "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
@@ -479,7 +489,11 @@
         "round5_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.dispatch.md",
         "round5_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.md",
         "round5_verdict": "REWORK",
-        "round5_findings_summary": "2 P1, both confirmed, and both are the two earlier user scope decisions colliding. (1) the M1 migration rewrites FILLED+qty>0+quote='0' to NULL — exactly the cross-field inference the 2026-07-29 T1 decision put out of scope, applied to history. (2) the one-row-per-leg-per-source dedupe drops the decisive order-detail response when an earlier non-decisive poll took the slot — contradicting the T3 text the BOOKKEEPER itself wrote, which names a fill, a confirmed rejection, a confirmed absent order and a rate-limit signal as conclusive verdicts that must be persisted."
+        "round5_findings_summary": "2 P1, both confirmed, and both are the two earlier user scope decisions colliding. (1) the M1 migration rewrites FILLED+qty>0+quote='0' to NULL — exactly the cross-field inference the 2026-07-29 T1 decision put out of scope, applied to history. (2) the one-row-per-leg-per-source dedupe drops the decisive order-detail response when an earlier non-decisive poll took the slot — contradicting the T3 text the BOOKKEEPER itself wrote, which names a fill, a confirmed rejection, a confirmed absent order and a rate-limit signal as conclusive verdicts that must be persisted.",
+        "round6_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.dispatch.md",
+        "round6_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
+        "round6_verdict": "REWORK",
+        "round6_findings_summary": "1 P1, confirmed, and the sharpest finding of the six rounds. The store now records an unobtainable notional as NULL, but three projection helpers in service.py (_leg_to_doc, _entry_spot_leg, _entry_perp_leg) read it with `or \"0\"`, so the API serves \"0\" for the notional AND \"0\" for the average price. This is the 2026-07-14 defect one layer up — the same missing-becomes-zero substitution, untouched because the scope was drawn around the executor and the store. It also breaks the frozen wire contract (12-development-breakdown.md:81, cumulative_quote_amt: string|null)."
       }
     }
   ],
@@ -772,12 +786,12 @@
     "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
     "fingerprint_matches_status": true,
     "reviewer_prior_involvement": "none",
-    "open_p0_p1": 2,
-    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.md",
+    "open_p0_p1": 1,
+    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
     "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
     "recorded_at": "2026-07-28T21:10:00+08:00",
-    "round": 5,
-    "status": "complete_round5",
+    "round": 6,
+    "status": "complete_round6",
     "findings_summary": "Round 2, 1 P1 and it is a NEW defect, not a re-report. Round 1 covered the CONCLUSIVE fallback GET; this covers the INCONCLUSIVE query on BOTH paths. classify_query_response builds the raw at live_hedge_executor.py:397 and then discards it on every None return (transport_error/no status, >=500, ambiguous 4xx, malformed 2xx). Neither call site persists it: _send_one_leg falls through to the POST verdict, and drain does `if verdict is None: continue` at service.py:1116. The in-code comment states the intent explicitly — 'a None return is a genuinely inconclusive retry — no verdict, no row' — i.e. persistence was keyed off verdicts, while 00-task.md T3 keys it off READS.",
     "fix_start_prompt_present": true,
     "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
@@ -804,7 +818,9 @@
     "round5_verdict": "REWORK",
     "round5_findings_summary": "2 P1, both confirmed, and both are the two earlier user scope decisions colliding. (1) the M1 migration rewrites FILLED+qty>0+quote='0' to NULL — exactly the cross-field inference the 2026-07-29 T1 decision put out of scope, applied to history. (2) the one-row-per-leg-per-source dedupe drops the decisive order-detail response when an earlier non-decisive poll took the slot — contradicting the T3 text the BOOKKEEPER itself wrote, which names a fill, a confirmed rejection, a confirmed absent order and a rate-limit signal as conclusive verdicts that must be persisted.",
     "round6_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.dispatch.md",
-    "round6_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md"
+    "round6_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
+    "round6_verdict": "REWORK",
+    "round6_findings_summary": "1 P1, confirmed, and the sharpest finding of the six rounds. The store now records an unobtainable notional as NULL, but three projection helpers in service.py (_leg_to_doc, _entry_spot_leg, _entry_perp_leg) read it with `or \"0\"`, so the API serves \"0\" for the notional AND \"0\" for the average price. This is the 2026-07-14 defect one layer up — the same missing-becomes-zero substitution, untouched because the scope was drawn around the executor and the store. It also breaks the frozen wire contract (12-development-breakdown.md:81, cumulative_quote_amt: string|null)."
   },
   "review_2": null,
   "authorized_exceptions": [],
@@ -971,8 +987,8 @@
       "blocking": false
     }
   ],
-  "next_action": "Human operator runs 40-review-1-r6.dispatch.md in a FRESH read-only Codex session. Round 6.",
-  "updated_at": "2026-07-29T03:00:00+08:00",
+  "next_action": "Human operator runs 41-fix-review-1-r6.dispatch.md in a FRESH write-capable Claude-GLM session. Three `or \"0\"` fallbacks deleted plus tests. Then: bookkeeper verifies, re-pins, re-runs pre-review, dispatches review-1 round 7.",
+  "updated_at": "2026-07-29T03:40:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -1103,5 +1119,11 @@
     "head_sha": "2712fbaed284d777708a9f74ecb3b1cabe22d155",
     "diff_fingerprint": "2712fbaed284d777708a9f74ecb3b1cabe22d155:6f33425af859e34c2b7793d5d08f163deddb506823aeb0d00c016c43a110b6a4",
     "note": "Round-5 range. review-1 returned REWORK (two P1). Void once the fix moved the diff."
+  },
+  "round6_note": {
+    "not_a_scope_collision": "Rounds 3 and 5 were driven by criteria moving under already-written text. Round 6 is a genuine, previously-unexamined instance of exactly the defect class the stage exists to eliminate. The reviewer earned this one.",
+    "why_it_matters_more_than_its_size": "The database being right is invisible; the operator looks at the screen, and the screen shows a fabricated 0 for both the notional and the average price — the position table's average price being precisely the figure this stage was opened to make trustworthy.",
+    "user_decision": "The user's first instinct was to skip it, reasoning that a 0 on screen can be investigated when it appears — sound, and newly possible because T3 puts the exchange's own response in hedge_open_raw_response. The bookkeeper supplied one fact that changed the calculus: narrowing the criteria would itself cost another review-1 round, exactly as fixing does, so the two paths cost the same and the fix is about six lines more. On that basis the user chose to fix it.",
+    "task_md_unchanged": "The code moves to meet the criteria, as in round 5. 00-task.md is not touched."
   }
 }
