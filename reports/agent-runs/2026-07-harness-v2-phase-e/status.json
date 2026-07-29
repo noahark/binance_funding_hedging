@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 14,
+  "revision": 15,
   "stage_id": "2026-07-harness-v2-phase-e",
   "bookkeeper": "codex",
   "phase": "human-decision",
   "checkpoint": "task2-verified-awaiting-authority-consolidation-decision",
   "base_sha": "0cbd523f285fb2974189f2d329a3ff7f236167b2",
-  "delivery_sha": null,
-  "ledger_sha": "02239ff6e7d8636cef092d1352a8761f51d77a18",
+  "delivery_sha": "052fe54ec7dadb2d3f45e9cb7d55bf69d4e8eb6a",
+  "ledger_sha": "052fe54ec7dadb2d3f45e9cb7d55bf69d4e8eb6a",
   "current_task": {
     "id": "phase-e-task2-summary-limit-receipt",
     "state": "verified",
