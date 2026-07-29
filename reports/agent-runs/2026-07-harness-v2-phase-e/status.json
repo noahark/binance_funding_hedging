@@ -1,16 +1,16 @@
 {
   "schema_version": "2",
-  "revision": 2,
+  "revision": 3,
   "stage_id": "2026-07-harness-v2-phase-e",
   "phase": "implementation",
-  "checkpoint": "handoff-display-rework-dispatched",
+  "checkpoint": "handoff-display-cn-labels-dispatched",
   "base_sha": "ecf27fb2ddc12335a3e47c8e62e14f7b018fe511",
   "delivery_sha": null,
-  "ledger_sha": "ecf27fb2ddc12335a3e47c8e62e14f7b018fe511",
+  "ledger_sha": "e149b521f7d326474b9f4933b0904d9fbea83129",
   "current_task": {
-    "id": "phase-e-handoff-display-polish",
+    "id": "phase-e-handoff-display-polish-cn",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/11-handoff-display-fix-glm.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/12-handoff-display-chinese-labels-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
