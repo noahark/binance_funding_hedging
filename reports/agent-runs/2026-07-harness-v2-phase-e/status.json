@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 4,
   "stage_id": "2026-07-harness-v2-phase-e",
   "phase": "implementation",
-  "checkpoint": "handoff-display-cn-labels-dispatched",
+  "checkpoint": "explicit-result-recipient-dispatched",
   "base_sha": "ecf27fb2ddc12335a3e47c8e62e14f7b018fe511",
   "delivery_sha": null,
-  "ledger_sha": "e149b521f7d326474b9f4933b0904d9fbea83129",
+  "ledger_sha": "e3547040a7509ef92c69178f0cceba638a90bfe2",
   "current_task": {
-    "id": "phase-e-handoff-display-polish-cn",
+    "id": "phase-e-explicit-result-recipient",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/12-handoff-display-chinese-labels-glm.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/13-explicit-result-recipient-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-claude-glm-task"
   },
-  "rework_count": 1,
+  "rework_count": 2,
   "blockers": []
 }
