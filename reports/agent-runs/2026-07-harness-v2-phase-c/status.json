@@ -1,0 +1,21 @@
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "2026-07-harness-v2-phase-c",
+  "phase": "implementation",
+  "checkpoint": "c0-inventory-complete",
+  "base_sha": "a15368c8ff9c0989968100e874e9ecb799a01c7d",
+  "delivery_sha": null,
+  "ledger_sha": "a15368c8ff9c0989968100e874e9ecb799a01c7d",
+  "current_task": {
+    "id": "harness-v2-phase-c",
+    "state": "running",
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-c/12-phase-c.dispatch.md"
+  },
+  "next": {
+    "actor": "codex",
+    "action": "execute-phase-c-required-changes"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
