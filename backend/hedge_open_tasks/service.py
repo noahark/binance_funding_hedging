@@ -1131,6 +1131,7 @@ class HedgeOpenTaskService:
                 self._persist_leg_raw(
                     task_id, leg["attempt_id"], leg["leg"], leg["client_order_id"],
                     "order_query", getattr(verdict, "raw_response", None), now_us,
+                    decisive=True,
                 )
                 if drain_signal is None:
                     drain_signal = D.SIGNAL_RATE_LIMITED
@@ -1157,6 +1158,7 @@ class HedgeOpenTaskService:
             self._persist_leg_raw(
                 task_id, leg["attempt_id"], leg["leg"], leg["client_order_id"],
                 "order_query", getattr(verdict, "raw_response", None), now_us,
+                decisive=self._query_verdict_decisive(verdict),
             )
             if getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_COLLATERAL_CAP:
                 drain_signal = D.SIGNAL_COLLATERAL_CAP
@@ -1595,10 +1597,12 @@ class HedgeOpenTaskService:
         self._persist_leg_raw(
             ctx.task_id, attempt["id"], spot.leg, spot_cid, "order_post",
             spot.raw_response, now_us,
+            decisive=True,
         )
         self._persist_leg_raw(
             ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_post",
             perp.raw_response, now_us,
+            decisive=True,
         )
         # T1+T3 (§1(b)/§3(b)): the UM leg's inline-confirm GET (the authoritative
         # figures query) is captured with its own source so POST vs confirm stay
@@ -1606,6 +1610,7 @@ class HedgeOpenTaskService:
         self._persist_leg_raw(
             ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_confirm",
             getattr(perp, "confirm_raw_response", None), now_us,
+            decisive=True,
         )
         # T3 (§3): the UNKNOWN-POST immediate best-effort query GET (the order-detail
         # lookup that resolved an inconclusive POST, carried on query_raw_response) is
@@ -1617,10 +1622,12 @@ class HedgeOpenTaskService:
         self._persist_leg_raw(
             ctx.task_id, attempt["id"], spot.leg, spot_cid, "order_query",
             getattr(spot, "query_raw_response", None), now_us,
+            decisive=self._query_verdict_decisive(spot),
         )
         self._persist_leg_raw(
             ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_query",
             getattr(perp, "query_raw_response", None), now_us,
+            decisive=self._query_verdict_decisive(perp),
         )
         if rate_limited:
             # Amendment 21: pause THIS task only. Do NOT resolve the pair — its
@@ -1707,8 +1714,15 @@ class HedgeOpenTaskService:
     def _persist_leg_raw(
         self, task_id: str, attempt_id: int, leg_name: str,
         client_order_id: str | None, source: str, raw: dict | None, now_us: int,
+        *, decisive: bool = False,
     ) -> None:
         """Persist one leg's sanitized raw exchange response (T3 / 10-design §3).
+
+        ``decisive`` marks this response as one of the four conclusive verdicts §T3
+        requires persisted; the caller decides it from the verdict it already holds
+        and it governs the store's one-row-per-leg-per-source replace rule (a
+        decisive response replaces a prior non-decisive placeholder; a decisive row
+        is never replaced).
 
         Control-flow isolation is absolute: :meth:`store.append_raw_response` runs
         in its OWN short transaction, so a persistence failure can NEVER roll back
@@ -1723,6 +1737,7 @@ class HedgeOpenTaskService:
         try:
             self._store.append_raw_response(
                 attempt_id, leg_name, client_order_id, source, endpoint, raw, now_us,
+                decisive=decisive,
             )
         except Exception:
             try:
@@ -1856,6 +1871,24 @@ class HedgeOpenTaskService:
                 D.LEG_CANCELED,
             )
         return False
+
+    @staticmethod
+    def _query_verdict_decisive(verdict) -> bool:
+        """Whether a query verdict is one of the four conclusive (decisive)
+        responses 00-task.md §T3 requires persisted: a fill (FILLED), a confirmed
+        rejection (REJECTED / EXPIRED / CANCELED), a confirmed absent order
+        (error_category=absent, i.e. 404 / -2013), or a rate-limit signal
+        (429 / -1003 / 418). NEW / PARTIALLY_FILLED and inconclusive verdicts
+        (UNKNOWN, no status) are NOT decisive: they insert a placeholder row that a
+        later decisive response replaces, and they never replace one. Decided here,
+        from the verdict the caller already holds — never re-derived from the raw
+        body inside the store."""
+        if getattr(verdict, "rate_limited", False):
+            return True
+        if getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_ABSENT:
+            return True
+        status = getattr(verdict, "exchange_status", None)
+        return status in (D.LEG_FILLED, D.LEG_REJECTED, D.LEG_EXPIRED, D.LEG_CANCELED)
 
     @staticmethod
     def _failed_outcome(ctx: AttemptContext, reason: str) -> AttemptOutcome:

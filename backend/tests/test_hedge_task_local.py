@@ -730,6 +730,110 @@ def test_4j_repeated_malformed_2xx_drain_grows_one_row_per_leg(tmp_path):
     assert all(l["terminal"] == 0 for l in legs)
 
 
+def test_4k_drain_new_then_filled_replaces_placeholder_order_query_row(tmp_path):
+    """Review-1 r5 P1 (00-task.md §T3): a first non-decisive order_query (NEW)
+    inserts a placeholder row; the later FILLED query (decisive) REPLACES that row
+    in place. One order_query row per leg survives, holding the FILLED body and
+    stamped decisive — the conclusive verdict §T3 requires persisted is the one
+    kept, not the earlier NEW."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])  # POST UNKNOWN -> no POST raw
+    raw_new = {"http_status": 200, "transport_error": None, "code": None,
+               "msg": None, "body": '{"orderId":"s1","status":"NEW"}'}
+    raw_filled = {"http_status": 200, "transport_error": None, "code": None,
+                  "msg": None,
+                  "body": '{"orderId":"s1","status":"FILLED","executedQty":"0.5"}'}
+    exe.queries.extend([
+        _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_FILLED,
+             executed="0.5", quote="25000", avg="50000", raw=raw_filled),
+        _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_FILLED,
+             executed="0.5", quote="25000", avg="50000", raw=raw_filled),
+    ])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=2)  # reconcile: NEW (placeholder) then FILLED
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2  # one row per leg — the NEW placeholder was replaced, not doubled
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["body"] == raw_filled["body"] for r in qrows)  # FILLED won, not NEW
+    assert all(r["decisive"] == 1 for r in qrows)
+
+
+def test_4l_drain_new_then_confirmed_absent_replaces_placeholder_order_query_row(tmp_path):
+    """Review-1 r5 P1 (00-task.md §T3): a confirmed-absent order-detail read
+    (404 / -2013) is decisive, so it replaces a prior non-decisive placeholder —
+    one order_query row per leg holding the absent response."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    raw_new = {"http_status": 200, "transport_error": None, "code": None,
+               "msg": None, "body": '{"orderId":"s1","status":"NEW"}'}
+    raw_absent = {"http_status": 404, "transport_error": None, "code": "-2013",
+                  "msg": "Order does not exist.",
+                  "body": '{"code":-2013,"msg":"Order does not exist."}'}
+    exe.queries.extend([
+        _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_REJECTED, name="spot", error_code="-2013", quote=None,
+             error_category=D.ERROR_CATEGORY_ABSENT, raw=raw_absent),
+        _leg(LEG_REJECTED, name="perp", error_code="-2013", quote=None,
+             error_category=D.ERROR_CATEGORY_ABSENT, raw=raw_absent),
+    ])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=2)  # reconcile: NEW then confirmed-absent
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["body"] == raw_absent["body"] for r in qrows)  # absent won, not NEW
+    assert all(r["business_code"] == "-2013" for r in qrows)
+    assert all(r["decisive"] == 1 for r in qrows)
+
+
+def test_4m_drain_new_then_rate_limited_replaces_placeholder_and_pauses(tmp_path):
+    """Review-1 r5 P1 (00-task.md §T3): a rate-limit signal (429 / -1003 / 418) is
+    decisive, so it replaces a prior non-decisive placeholder — one order_query row
+    per leg holding the 429 body. The task still pauses rate_limited exactly as
+    today, the legs stay non-terminal, and nothing is resent."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    raw_new = {"http_status": 200, "transport_error": None, "code": None,
+               "msg": None, "body": '{"orderId":"s1","status":"NEW"}'}
+    raw_429 = {"http_status": 429, "transport_error": None, "code": None,
+               "msg": None, "body": '{"code":-1003,"msg":"Request weight limited"}'}
+    exe.queries.extend([
+        _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_UNKNOWN_QUERYING, name="spot", rate_limited=True, raw=raw_429),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp", rate_limited=True, raw=raw_429),
+    ])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=2)  # reconcile: NEW then 429 -> pause
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["body"] == raw_429["body"] for r in qrows)  # 429 won, not NEW
+    assert all(r["decisive"] == 1 for r in qrows)
+    # Pause semantics, non-terminal handling, and never-resend are unchanged.
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
+    legs = svc.store.list_legs_for_attempt(attempt["id"])
+    assert all(l["terminal"] == 0 for l in legs)
+    assert exe.dispatch_calls == 1  # no second dispatch / no resend
+
+
 # ---------------------------------------------------------------------------
 # 5. Restart recovery on a fresh instance / same DB -> query clientOrderId, no resend
 # ---------------------------------------------------------------------------

@@ -534,11 +534,13 @@ def test_migrate_adds_new_columns_to_round1_db_and_keeps_rows(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# T1(e)/T5(d) historical-data migration (10-design §6) — stage
-# 2026-07-hedge-order-truth-v1. M1 rewrites a FILLED leg's placeholder '0' quote
-# to NULL; M2 rewrites a 1970 leg_exposure ts to the accepting leg's real
-# dispatched_at_us ISO. Each change audited as data_migration; idempotent on a
-# second reopen.
+# T1/T5(d) historical-data migration (10-design §6) — stage
+# 2026-07-hedge-order-truth-v1. M1 (rewrite a FILLED leg's placeholder '0' quote
+# to NULL) was REMOVED in review-1 r5: that cross-field rewrite is exactly the
+# derivation 00-task.md §T1 (2026-07-29 Scope decision) put out of scope — a
+# literal '0' the exchange sent is kept verbatim. M2 remains: it rewrites a 1970
+# leg_exposure ts to the accepting leg's real dispatched_at_us ISO. M2's change
+# is audited as data_migration; idempotent on a second reopen.
 # ---------------------------------------------------------------------------
 
 
@@ -553,8 +555,11 @@ def test_migrate_m1_m2_repair_defect_rows_audit_then_idempotent(tmp_path):
     )
     perp_leg_id = next(l["id"] for l in store.list_legs_for_attempt(attempt["id"])
                        if l["leg"] == "perp")
-    # Plant the defect state: a FILLED perp leg with base>0 but the placeholder
-    # '0' quote (T1), and a leg_exposure frozen at the 1970 epoch (T5).
+    # Plant the defect state: a FILLED perp leg with base>0 and a literal '0'
+    # quote, and a leg_exposure frozen at the 1970 epoch (T5). After review-1 r5
+    # the '0' is KEPT verbatim (T1 2026-07-29 Scope decision: store what the
+    # exchange returned; a literal 0 is the exchange's answer, not a placeholder
+    # this stage rewrites); only the 1970 ts is repaired (M2).
     with store._lock:
         store._conn.execute(
             "UPDATE hedge_open_leg SET exchange_status = ?, cumulative_base_qty = '0.5',"
@@ -570,23 +575,23 @@ def test_migrate_m1_m2_repair_defect_rows_audit_then_idempotent(tmp_path):
         store._conn.commit()
     store.close()
 
-    # Reopen -> M1/M2 fire and repair.
+    # Reopen -> M2 fires and repairs the ts; M1 is gone, so the literal '0' stays.
     store2 = HedgeOpenStore(db)
     leg = next(l for l in store2.list_legs_for_attempt(attempt["id"]) if l["leg"] == "perp")
-    assert leg["cumulative_quote_amt"] is None          # M1: placeholder 0 -> NULL
+    assert leg["cumulative_quote_amt"] == "0"           # M1 removed: literal '0' kept verbatim
     expo = store2.get_task("t1")["leg_exposure"]
     assert expo["ts"] == D.us_to_iso(5_000_000)          # M2: real dispatched_at_us ISO
     assert expo["ts"] != "1970-01-01T00:00:00.000000Z"
-    assert expo["price"] is None                         # M2 leaves price null (M1 unknown)
+    assert expo["price"] is None                         # M2 leaves price null (unknown)
     events = store2.list_task_event_logs(50, kinds=("data_migration",))
-    assert len(events) == 2                              # one M1 + one M2
+    assert len(events) == 1                              # M2 only — M1 was removed
     fields = {json.loads(e["payload"])["field"] for e in events}
-    assert fields == {"cumulative_quote_amt", "leg_exposure.ts"}
+    assert fields == {"leg_exposure.ts"}
     store2.close()
 
     # Second reopen -> idempotent (no new data_migration events).
     store3 = HedgeOpenStore(db)
-    assert len(store3.list_task_event_logs(50, kinds=("data_migration",))) == 2
+    assert len(store3.list_task_event_logs(50, kinds=("data_migration",))) == 1
     store3.close()
 
 
@@ -795,6 +800,36 @@ def test_append_raw_response_truncates_oversized_body(tmp_path):
     assert r["body_truncated"] == 1
 
 
+def test_append_raw_response_decisive_row_not_overwritten_by_later_non_decisive(tmp_path):
+    # Review-1 r5 P1 (00-task.md §T3): a decisive row is never replaced — first
+    # decisive wins. A first FILLED (decisive) row must survive a later NEW
+    # (non-decisive) response for the same (attempt, leg, source): same row id, the
+    # FILLED body kept, the row still stamped decisive. This is the guard that
+    # proves the flag is real and not a last-write-wins overwrite.
+    store = HedgeOpenStore(tmp_path / "h.db")
+    attempt = _prepared_attempt(store)
+    raw_filled = {"http_status": 200, "transport_error": None, "code": None,
+                  "msg": None, "body": '{"status":"FILLED"}'}
+    raw_new = {"http_status": 200, "transport_error": None, "code": None,
+               "msg": None, "body": '{"status":"NEW"}'}
+    rid = store.append_raw_response(
+        attempt["id"], "spot", "cid", "order_query", D.SPOT_ORDER_PATH, raw_filled, 1_000,
+        decisive=True,
+    )
+    rid2 = store.append_raw_response(
+        attempt["id"], "spot", "cid", "order_query", D.SPOT_ORDER_PATH, raw_new, 2_000,
+        decisive=False,
+    )
+    assert rid == rid2  # same row — the decisive row was not replaced
+    rows = store.list_raw_responses_for_attempt(attempt["id"])
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["body"] == raw_filled["body"]  # FILLED kept, not the later NEW
+    assert r["decisive"] == 1
+    assert r["captured_at_us"] == 1_000     # untouched (not overwritten at 2_000)
+    store.close()
+
+
 def test_raw_response_table_has_no_credential_columns(tmp_path):
     # 10-design §3(d): credentials live only on the REQUEST side; the raw table
     # persists the response only. No signature / api key / request column exists.
@@ -804,9 +839,11 @@ def test_raw_response_table_has_no_credential_columns(tmp_path):
     }
     for secret in ("signature", "apikey", "api_key", "x_mbx_apikey", "secret", "request_body"):
         assert secret not in cols, f"raw table must not carry a {secret!r} column"
-    # The persisted columns are exactly the response-derived set.
+    # The persisted columns are exactly the response-derived set (plus the
+    # ``decisive`` verdict flag — review-1 r5 — which is response-derived, not a
+    # credential).
     assert cols == {
         "id", "attempt_id", "leg", "client_order_id", "source", "endpoint",
         "http_status", "transport_error", "business_code", "business_msg",
-        "body", "body_truncated", "captured_at_us",
+        "body", "body_truncated", "captured_at_us", "decisive",
     }

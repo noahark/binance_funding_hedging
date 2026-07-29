@@ -157,7 +157,8 @@ CREATE TABLE IF NOT EXISTS hedge_open_raw_response (
     business_msg    TEXT,
     body            TEXT,
     body_truncated  INTEGER NOT NULL DEFAULT 0,
-    captured_at_us  INTEGER NOT NULL
+    captured_at_us  INTEGER NOT NULL,
+    decisive        INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_hedge_open_raw_attempt
     ON hedge_open_raw_response (attempt_id, leg, id);
@@ -418,49 +419,27 @@ class HedgeOpenStore:
                 "CREATE INDEX idx_hedge_open_leg_query"
                 " ON hedge_open_leg (terminal, dispatch_state)"
             )
-        # T1(e) M1 (§6): a FILLED leg with a positive fill but quote='0' is the T1
-        # defect's leftover — '0' was the missing-figure placeholder, now NULL (the
-        # honest "unknown"). Rule-based (not order-id-named) so the upgrade also
-        # repairs rows written during the gap before the live service restarts.
-        # Idempotent: once NULL the WHERE no longer matches. No network backfill —
-        # the real figure lives at Binance; a single-row hardcoded repair would be
-        # worse than an honest NULL.
-        m1_rows = self._conn.execute(
-            "SELECT l.id, a.task_id FROM hedge_open_leg l"
-            " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
-            " WHERE l.exchange_status = ? AND l.cumulative_base_qty > 0"
-            " AND l.cumulative_quote_amt = ?",
-            (D.LEG_FILLED, "0"),
-        ).fetchall()
-        if m1_rows:
+        # T3 (review-1 r5 P1): hedge_open_raw_response gains a ``decisive`` flag
+        # marking rows holding one of the four conclusive verdicts 00-task.md §T3
+        # requires persisted (a fill, a confirmed rejection, a confirmed absent
+        # order, or a rate-limit signal). A decisive row is never replaced — first
+        # decisive wins — and a later decisive response replaces only a prior
+        # non-decisive placeholder (NEW / PARTIALLY_FILLED). Additive ALTER guard ->
+        # idempotent; legacy rows backfill to 0 (non-decisive), the honest default
+        # for rows whose verdict shape this migration cannot reconstruct.
+        raw_cols = {
+            r["name"] for r in self._conn.execute("PRAGMA table_info(hedge_open_raw_response)")
+        }
+        if "decisive" not in raw_cols:
             self._conn.execute(
-                "UPDATE hedge_open_leg SET cumulative_quote_amt = NULL"
-                " WHERE exchange_status = ? AND cumulative_base_qty > 0"
-                " AND cumulative_quote_amt = ?",
-                (D.LEG_FILLED, "0"),
+                "ALTER TABLE hedge_open_raw_response"
+                " ADD COLUMN decisive INTEGER NOT NULL DEFAULT 0"
             )
-            for r in m1_rows:
-                self._conn.execute(
-                    "INSERT INTO hedge_open_log"
-                    " (task_id, ts_us, attempt_id, kind, payload)"
-                    " VALUES (?, ?, NULL, ?, ?)",
-                    (
-                        r["task_id"], self._migrate_now_us, "data_migration",
-                        json.dumps(
-                            {
-                                "table": "hedge_open_leg", "row_id": r["id"],
-                                "field": "cumulative_quote_amt",
-                                "before": "0", "after": None,
-                                "reason": "T1(e): filled leg placeholder 0 quote -> NULL",
-                            },
-                            ensure_ascii=False,
-                        ),
-                    ),
-                )
         # T5(d) M2 (§6): a leg_exposure ts rendered as the 1970 epoch (a forgotten
         # 0) is rewritten to the accepting leg's dispatched_at_us ISO — the real
-        # moment of that single-leg event (within ~1s). price stays null (unknown,
-        # see M1). Idempotent on the ts shape.
+        # moment of that single-leg event (within ~1s). price stays null (unknown —
+        # the historical avg_price was never stored and cannot be reconstructed).
+        # Idempotent on the ts shape.
         epoch_ts = "1970-01-01T00:00:00.000000Z"
         m2_rows = self._conn.execute(
             "SELECT id, leg_exposure FROM hedge_open_task"
@@ -1742,6 +1721,7 @@ class HedgeOpenStore:
     def append_raw_response(
         self, attempt_id: int, leg: str, client_order_id: str | None,
         source: str, endpoint: str, raw: dict, now_us: int,
+        *, decisive: bool = False,
     ) -> int:
         """Persist one raw exchange interaction (T3 / 10-design §3). ``raw`` is the
         sanitized response dict from :class:`LegDispatch.raw_response`
@@ -1755,43 +1735,74 @@ class HedgeOpenStore:
         never reach this table (10-design §3(d)).
 
         One raw row per leg per ``source`` (review-1 r3 P1-2, user rule
-        2026-07-28/29): if a row already exists for this ``(attempt_id, leg,
-        source)`` the call returns the existing row id without inserting. This caps
-        the repeating ``order_query`` (a non-terminal leg is re-read every worker
-        round) so the table cannot grow without bound; the first response's body is
-        the one kept. The check is a normal skip, not an error, and stays inside
-        this method's own transaction."""
+        2026-07-28/29). ``decisive`` marks the incoming response as one of the four
+        conclusive verdicts §T3 requires persisted (a fill / confirmed rejection /
+        confirmed absent / rate-limit); the CALLER decides it from the verdict it
+        already holds — it is never re-derived here from the body. With no row yet
+        the response is inserted (``decisive`` stored on the row). If a row already
+        exists: a decisive response replaces a prior NON-decisive row's content in
+        place (a NEW / PARTIALLY_FILLED placeholder gives way to the conclusive
+        verdict that superseded it) and stamps that row decisive; a decisive row is
+        never replaced — first decisive wins, so the record cannot churn (a later
+        NEW cannot overwrite an earlier FILLED); a non-decisive response leaves the
+        existing row untouched. This caps the repeating ``order_query`` (a
+        non-terminal leg is re-read every worker round) so the table cannot grow
+        without bound, while keeping the conclusive body. The check + replace run
+        inside this method's own transaction; a skip is a normal return, not an
+        error."""
         body = raw.get("body")
         body_text = body if isinstance(body, str) else (None if body is None else str(body))
         truncated = 0
         if body_text is not None and len(body_text) > D.BODY_MAX_BYTES:
             body_text = body_text[:D.BODY_MAX_BYTES]
             truncated = 1
+        decisive_flag = 1 if decisive else 0
         with self._lock, self._conn:
-            # Review-1 r3 P1-2 (user rule 2026-07-28/29): one raw row per leg per
-            # source. ``order_post`` / ``order_confirm`` happen once per leg anyway;
-            # this caps the repeating ``order_query`` (a non-terminal leg is re-read
-            # every worker round) so the table cannot grow without bound. The check
-            # runs inside this method's OWN short transaction, so it can never touch
-            # the business write, and a skip is a normal return — not an error.
+            # Review-1 r3 P1-2 + r5 P1 (user rule 2026-07-28/29): one raw row per
+            # leg per source. ``order_post`` / ``order_confirm`` happen once per leg
+            # anyway; this caps the repeating ``order_query`` (a non-terminal leg is
+            # re-read every worker round) so the table cannot grow without bound,
+            # while keeping the conclusive body. The check + replace run inside this
+            # method's OWN short transaction, so they can never touch the business
+            # write; a skip is a normal return — not an error.
             existing = self._conn.execute(
-                "SELECT id FROM hedge_open_raw_response"
+                "SELECT id, decisive FROM hedge_open_raw_response"
                 " WHERE attempt_id = ? AND leg = ? AND source = ? LIMIT 1",
                 (attempt_id, leg, source),
             ).fetchone()
             if existing is not None:
+                # A decisive response replaces a prior NON-decisive row's content in
+                # place (a NEW / PARTIALLY_FILLED placeholder gives way to the
+                # conclusive verdict that superseded it). A decisive row is never
+                # replaced — first decisive wins — and a non-decisive response never
+                # overwrites anything, so the record cannot churn (no later NEW over
+                # an earlier FILLED).
+                if decisive_flag and not existing["decisive"]:
+                    self._conn.execute(
+                        "UPDATE hedge_open_raw_response"
+                        " SET client_order_id = ?, endpoint = ?, http_status = ?,"
+                        " transport_error = ?, business_code = ?, business_msg = ?,"
+                        " body = ?, body_truncated = ?, captured_at_us = ?,"
+                        " decisive = 1 WHERE id = ?",
+                        (
+                            client_order_id, endpoint, raw.get("http_status"),
+                            raw.get("transport_error"), raw.get("code"),
+                            raw.get("msg"), body_text, truncated, now_us,
+                            existing["id"],
+                        ),
+                    )
                 return existing["id"]
             cur = self._conn.execute(
                 "INSERT INTO hedge_open_raw_response"
                 " (attempt_id, leg, client_order_id, source, endpoint,"
                 "  http_status, transport_error, business_code, business_msg,"
-                "  body, body_truncated, captured_at_us)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "  body, body_truncated, captured_at_us, decisive)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     attempt_id, leg, client_order_id, source, endpoint,
                     raw.get("http_status"), raw.get("transport_error"),
                     raw.get("code"), raw.get("msg"),
-                    body_text, truncated, now_us,
+                    body_text, truncated, now_us, decisive_flag,
                 ),
             )
             return cur.lastrowid

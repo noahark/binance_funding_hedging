@@ -394,3 +394,98 @@ Session ID 来源: unavailable
 下一步模型: bookkeeper
 下一步任务: 核验、重算指纹、重跑 pre-review，然后重派 review-1
 ```
+
+## 修复章节 — Review-1 Round 5（两个 P1：删 M1 迁移 + decisive 原地替换）
+
+两个 finding 均已确认，且都是「两个更早的 scope 决定相撞」的后果——本轮**让代码匹配标准**，`00-task.md` 不变。权威是 `00-task.md` §T1（verbatim-only）与 §T3（四种确证判决须落库）。范围由 `39-fix-review-1-r5.dispatch.md` 冻结。
+
+### Fix 1 — 删除 M1 迁移
+
+`backend/hedge_open_tasks/store.py`，`_migrate`（原 421-459 行）：**整段删除 M1**（选 `exchange_status='FILLED' AND cumulative_base_qty>0 AND cumulative_quote_amt='0'` 改写为 `NULL` 的跨字段推理 + 其 `data_migration` 审计写入）。
+
+- 它正是用户 2026-07-29 T1 决定划出 scope 的那种跨字段一致性检查（「存交易所返回的原值，缺字段存 NULL，不做跨字段校验」），却套用在历史数据上；它无法区分伪造占位符 `0` 与交易所实际返回的字面 `0`。
+- 不收窄、不 special-case `leg 6`、不硬编码 orderId。`leg 6` 的 `0` 原样保留，其背景已在 `01-live-record-evidence.md`。
+- **M2 保留**（1970 epoch 的 `leg_exposure.ts` 改写为接受腿的 `dispatched_at_us` ISO——这是 T5，与交易所金额无关）。删除后 `_migrate` 仍跑 M2、仍幂等。
+- 删后的空位换成 `hedge_open_raw_response` 的 `decisive` 列加列迁移（见 Fix 2），仍走既有 `ALTER TABLE ADD COLUMN` + PRAGMA 守卫的幂等模式。
+
+**翻转的既有测试**：`backend/tests/test_hedge_store.py::test_migrate_m1_m2_repair_defect_rows_audit_then_idempotent`（测试名保留——它被 `38-review-1-r5.md` / 本报告 / dispatch 引用，改名会断 grep 追溯；语义已在段落注释与本章节说明）。改前锁定 M1 改写（`quote IS NULL`、2 条审计、fields 含 `cumulative_quote_amt`）；改后断言**相反**：
+
+- `cumulative_quote_amt == "0"`（M1 已删：字面 `0` 原样保留）；
+- M2 仍修 `ts`（`== us_to_iso(5_000_000)`、`!= 1970`、`price is None`）；
+- 审计 `len == 1`（仅 M2），`fields == {"leg_exposure.ts"}`；
+- 二次重开幂等（事件数仍 1）。
+
+同步更新其上方段落注释（M1 已移除、M2 保留）。
+
+### Fix 2 — decisive 标志：一条确证判决原地替换非确证占位行
+
+规则仍是「每腿每 source 一行」（review-1 r3 P1-2）；变的是**哪一行胜出**：行已存在 **且** 来者是 decisive → 原地替换该行内容；否则如现在跳过。**decisive 行永不被替换**（first decisive wins），哪怕来者也是 decisive——记录不会反复。
+
+#### 为什么需要一列（不在 store 内从 body 反推）
+
+「first decisive wins」要求替换检查时知道**既有行**是否 decisive。dispatch 明令「不在 store 内从 raw body 反推 decisiveness」。故 `hedge_open_raw_response` 增 `decisive INTEGER NOT NULL DEFAULT 0` 一列（CREATE TABLE + `_migrate` 的 `ALTER` 加列守卫；遗留行回填 0——对历史行无法重构判决形状的诚实默认）。替换逻辑：
+
+- 无行 → INSERT（带上 `decisive`）；
+- 有行 + 来者 decisive + 既有非 decisive → `UPDATE` 原行全部内容字段并置 `decisive=1`；
+- 有行 + 来者 decisive + 既有 decisive → 跳过（first decisive wins）；
+- 有行 + 来者非 decisive → 跳过（如现在）。
+
+`UPDATE`/`SELECT id, decisive` 与既有存在性检查一样，跑在 `append_raw_response` **自有的短事务与锁内**，绝不触碰业务写；跳过是正常返回。
+
+#### decisive 在哪决定、怎么穿线
+
+decisive **由调用方从其已有的判决决定**，不进 store 反推。新增 `service.py::_query_verdict_decisive(verdict)`（紧邻 `_query_verdict_terminal`）：`rate_limited`（429/-1003/418）**或** `error_category == absent`（404/-2013）**或** `exchange_status ∈ {FILLED, REJECTED, EXPIRED, CANCELED}` → decisive；NEW / PARTIALLY_FILLED / 不决（UNKNOWN 无 status）→ 非 decisive。与 §T3 四种确证判决一一对应。
+
+`_persist_leg_raw` 增 keyword-only `decisive: bool = False` 并转发给 `append_raw_response(decisive=...)`。7 个调用点：
+
+- drain 限频分支（service.py 限频 `if` 内）：`decisive=True`（该分支必为 429 类）；
+- drain 已判决分支（resolve 后）：`decisive=self._query_verdict_decisive(verdict)`；
+- immediate-fallback 的 `order_post`(spot/perp)、`order_confirm`(perp)：`decisive=True`（POST/confirm 是确证往返，每腿只写一次，标志不影响行为——dispatch 明示「unaffected either way」）；
+- immediate-fallback 的 `order_query`(spot/perp)：`decisive=self._query_verdict_decisive(spot/perp)`（腿对象的 `exchange_status`/`error_category` 来自 `resolved`；`order_query` 与 drain 的 `order_query` 共享同一 `(attempt, leg, 'order_query')` 桶，故两者间也会发生替换）。
+
+`order_post`/`order_confirm`/immediate-fallback 的持久化（T3）行为不变；`live_hedge_executor.py` 零改动。
+
+### 四项回归测试
+
+service 层（`test_hedge_task_local.py`，离线确定性，`_RoutingExecutor` 脚本驱动 drain）：
+
+1. `test_4k_drain_new_then_filled_replaces_placeholder_order_query_row`：先 NEW（非 decisive，插占位行）后 FILLED → 每腿**一**行 `order_query`，持有 FILLED body、`decisive==1`。
+2. `test_4l_drain_new_then_confirmed_absent_replaces_placeholder_order_query_row`：先 NEW 后 404/-2013（absent） → 每腿一行，持有 absent body、`business_code=="-2013"`、`decisive==1`。
+3. `test_4m_drain_new_then_rate_limited_replaces_placeholder_and_pauses`：先 NEW 后 429 → 每腿一行持有 429 body、`decisive==1`，**且任务照常 `STATUS_PAUSED`/`PAUSE_REASON_RATE_LIMITED`、两腿 `terminal==0`、`dispatch_calls==1`**（暂停语义/不重发不变）。
+
+store 层（`test_hedge_store.py`，dispatch 点名的护栏）：
+
+4. `test_append_raw_response_decisive_row_not_overwritten_by_later_non_decisive`：先 FILLED（decisive）后 NEW（非 decisive）→ 同一行 id、body 仍为 FILLED、`decisive==1`、`captured_at_us` 未被改写——**证明标志真实存在，而非 last-write-wins 覆盖**。
+
+既有 `test_4i`/`test_4j` 仍通过：`test_4j` 的 `query_calls > 2` 仍成立（重复同形轮询下每腿仍一行）。另更新 `test_raw_response_table_has_no_credential_columns` 的期望列集加入 `decisive`（响应派生标志，非凭据）。
+
+### 不变性确认（§What must not change 全部 intact）
+
+- **T1**：缺失 → `NULL`、不推算；交易所字面 `0` 存 `0`。删 M1 正是让它对历史数据也如此。
+- **T2**：`51169 → collateral_cap`、`pause_reason=collateral_cap_full`、冻结中文文案——未触。
+- **T3**：`order_post`/`order_confirm`/immediate-fallback 持久化不变；四种确证判决仍落库（现在且能覆盖先前的非确证占位行）。
+- **T5**：live-path 时间戳与 M2——未触（M2 保留）。
+- **凭据/签名/API key 不入 raw 表**：`decisive` 是判决标志，非凭据；列集测试仍断言无任何凭位列。
+- **raw 写失败不改业务结果**：`_persist_leg_raw` 的 try/except + `raw_persist_failed` 隔离不变（`test_4g` 仍通过）。
+- **订单判决 / 重发规则 / 限频暂停语义 / terminality**：全未触；`live_hedge_executor.py` 零 diff。
+
+### 测试证据
+
+`60-test-output.txt`（本轮覆盖）：
+
+- 指定套件（9 套件，含必跑禁改的 `test_hedge_open_live_client` / `test_hedge_purity`）：**324 passed in 20.39s**（基线 320 + 新增 4）。
+- 全仓 `backend/tests`：**1069 passed in 51.16s**（基线 1065 + 新增 4），无 failed / error / skip。
+- 已知 flaky `test_hedge_api.py::test_oversized_body_is_body_too_large`：本轮**通过**（未触发 `ConnectionResetError`，无需重跑；归档 `p3-flaky-oversized-body-test` 未变）。
+
+delta 全部来自 4 条新增测试；被翻转/更新的既有测试（迁移测试、列集测试）计数不变（仅改预期/加列）。解释器 `.venv/bin/python`，全程离线确定性（临时 SQLite），未发真实 POST、未访问凭据、未动 PID 96409、未写生产库 `data/hedge-open-tasks.sqlite3`、未 commit。改动文件：`backend/hedge_open_tasks/store.py`、`backend/hedge_open_tasks/service.py`、`backend/tests/test_hedge_store.py`、`backend/tests/test_hedge_task_local.py`（均在允许边界内）；`live_hedge_executor.py` 等锁定文件零改动。
+
+---
+
+```
+当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md（追加章节）/60-test-output.txt
+本地北京时间: 2026-07-29 12:38:53 CST
+下一步模型: bookkeeper
+下一步任务: 核验、重算指纹、重跑 pre-review，然后重派 review-1
+```
