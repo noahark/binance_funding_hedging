@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -313,11 +313,13 @@
       "task_id": "backend",
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
-      "status": "dispatch_prepared",
+      "status": "delivered",
       "round": 4,
       "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/37-fix-review-1-r4.dispatch.md",
       "session_note": "fresh session",
-      "scope_note": "Deletes the _leg_final_fields derivation. live_hedge_executor.py must stay at zero diff again."
+      "scope_note": "Deletes the _leg_final_fields derivation. live_hedge_executor.py must stay at zero diff again.",
+      "head_sha": "2712fbaed284d777708a9f74ecb3b1cabe22d155",
+      "verified_by_bookkeeper": "Confirmed against the code. The derivation is gone: an absent cumulative_quote now yields NULL unconditionally, the present-value branch is untouched (a literal '0' still stores as '0', now intended), and the unparseable branch is untouched. The orphaned avg_price local was removed with it and no reference survives in the function body; the docstring was corrected rather than left stale. live_hedge_executor.py has a zero diff again, and the cumulative forbidden-path count across the whole stage is still zero. Tests: the helper-level assertion that expected 0.5*50000=25000 now expects NULL, and a NEW test locks the same behaviour one layer down at resolve_attempt -> leg row, so the derivation cannot be reinstated at the persistence layer without a failure. Independently re-run: 1065 passed (1064 + 1), specified suite 320. Production DB unchanged. HEAD was still f21f6f7 when the implementer stopped."
     }
   ],
   "reviewer_1": {
@@ -419,10 +421,10 @@
       ],
       "reviewer": "codex",
       "implementation_report_path": "20-implementation.md",
-      "implementation_status": "rework4_dispatched",
+      "implementation_status": "rework4_evidence_committed",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-      "head_sha": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
-      "diff_fingerprint": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524:3c4d16f387538c9f7f2afdef32b415c5f355a3ae0a255740870252a43abc7a5f",
+      "head_sha": "2712fbaed284d777708a9f74ecb3b1cabe22d155",
+      "diff_fingerprint": "2712fbaed284d777708a9f74ecb3b1cabe22d155:6f33425af859e34c2b7793d5d08f163deddb506823aeb0d00c016c43a110b6a4",
       "test_evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
       "note": "T4 is not in scope for this task: its paid experiment was cancelled and its remaining work is a read-only recon that runs independently and blocks nothing here.",
       "review_1": {
@@ -671,14 +673,15 @@
     "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md"
   },
   "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-  "head_sha": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
-  "diff_fingerprint": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524:3c4d16f387538c9f7f2afdef32b415c5f355a3ae0a255740870252a43abc7a5f",
+  "head_sha": "2712fbaed284d777708a9f74ecb3b1cabe22d155",
+  "diff_fingerprint": "2712fbaed284d777708a9f74ecb3b1cabe22d155:6f33425af859e34c2b7793d5d08f163deddb506823aeb0d00c016c43a110b6a4",
   "coverage_waypoints": [
     "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
     "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
     "33715ae2bcb4fef427f340780155dc4e4c316e28",
     "c06c92140a371b3dc577cf7b509f27b61e4a7948",
-    "baced322e7871ffdcb2a3ad9208da3d1b5dd2524"
+    "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
+    "2712fbaed284d777708a9f74ecb3b1cabe22d155"
   ],
   "changed_files": [
     "backend/hedge_open_tasks/domain.py",
@@ -713,7 +716,11 @@
     "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.dispatch.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/35-fix-review-1-r3.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/37-fix-review-1-r4.dispatch.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/70-handoff.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/status.json",
@@ -726,11 +733,11 @@
     "commands": [
       {
         "cmd": ".venv/bin/python -m pytest backend/tests -q",
-        "result": "1064 passed in 53.99s (baseline 1062 + test_4i + test_4j)"
+        "result": "1065 passed in 51.06s (baseline 1064 + the new persistence-layer lock)"
       },
       {
         "cmd": "specified 9-suite run",
-        "result": "319 passed in 20.50s (baseline 317 + 2)"
+        "result": "320 passed in 20.04s (baseline 319 + 1)"
       }
     ]
   },
@@ -770,7 +777,9 @@
     "round4_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.dispatch.md",
     "round4_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md",
     "round4_verdict": "REWORK",
-    "round4_findings_summary": "1 P0, factually confirmed: _quote_decimal keeps a literal \"0\", leg_is_terminal_fill does not cross-check it (no quote check at all for spot; only `is None` for perp), and _leg_final_fields stores any present parseable value as-is — so FILLED + executedQty>0 + quote=\"0\" would persist a zero notional. Declined on SCOPE by the user, not disputed on fact: the trigger requires a self-contradictory exchange response, unlike the 2026-07-14 defect which was a MISSING field coerced to 0."
+    "round4_findings_summary": "1 P0, factually confirmed: _quote_decimal keeps a literal \"0\", leg_is_terminal_fill does not cross-check it (no quote check at all for spot; only `is None` for perp), and _leg_final_fields stores any present parseable value as-is — so FILLED + executedQty>0 + quote=\"0\" would persist a zero notional. Declined on SCOPE by the user, not disputed on fact: the trigger requires a self-contradictory exchange response, unlike the 2026-07-14 defect which was a MISSING field coerced to 0.",
+    "round5_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.dispatch.md",
+    "round5_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.md"
   },
   "review_2": null,
   "authorized_exceptions": [],
@@ -929,8 +938,8 @@
       "why_deferred": "Never observed; requires a self-contradictory exchange response, unlike the 2026-07-14 defect which was a missing field. User decision 2026-07-29: store what the exchange returns and investigate a real occurrence when it happens."
     }
   ],
-  "next_action": "Human operator runs 37-fix-review-1-r4.dispatch.md in a FRESH write-capable Claude-GLM session. It is the smallest round yet — it deletes the _leg_final_fields derivation and adjusts the tests that asserted it. Then: bookkeeper verifies, re-pins, re-runs pre-review, and dispatches review-1 round 5.",
-  "updated_at": "2026-07-29T01:30:00+08:00",
+  "next_action": "Human operator runs 38-review-1-r5.dispatch.md in a FRESH read-only Codex session. Round 5. Review-2 afterwards needs its own fresh session, isolated from all five review-1 rounds.",
+  "updated_at": "2026-07-29T02:00:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -976,7 +985,7 @@
   },
   "rework_budget_warning": "rework_count is 2 of max 3. A third REWORK hits the limit and routes to human_escalation_required per AGENTS.md. The next fix round should therefore be verified unusually carefully before re-dispatching review-1, and the fix packet must close the whole class (every exchange round-trip leaves a record) rather than only the two paths named in this finding.",
   "rework_count_note": "rework_count stays at 2. Round 3 involves NO code change — it is a re-review against amended acceptance criteria, not a fix cycle. Incrementing it would misreport the stage as having burned three fix attempts. Recorded explicitly rather than silently not incrementing.",
-  "coverage_waypoints_note": "W0 base; W1 round-1 delivery (review-1 r1 REWORK); W2 round-1 fix (r2 REWORK); W3 T3 narrowed by user, NO code change (r3 REWORK); W4 round-3 fix for r3's two P1s.",
+  "coverage_waypoints_note": "W0 base; W1 round-1 delivery (r1 REWORK); W2 round-1 fix (r2 REWORK); W3 T3 narrowed, no code (r3 REWORK); W4 round-3 fix (r4 REWORK, P0 declined on scope); W5 round-4 fix — removes the notional derivation.",
   "rework_limit_reached": {
     "at": "2026-07-28T23:20:00+08:00",
     "count": "3 of max 3",
@@ -1027,5 +1036,11 @@
     "head_sha": "c06c92140a371b3dc577cf7b509f27b61e4a7948",
     "diff_fingerprint": "c06c92140a371b3dc577cf7b509f27b61e4a7948:4f1e005f72892df4435c64444668a785f382170c7b49e229c3aea23aef3dcaa9",
     "note": "Round-3 range. review-1 returned REWORK on it (two P1). Void as an acceptance range once the fix moved the diff."
+  },
+  "previous_range_round4": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
+    "diff_fingerprint": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524:3c4d16f387538c9f7f2afdef32b415c5f355a3ae0a255740870252a43abc7a5f",
+    "note": "Round-4 range. review-1 returned REWORK on it (1 P0, declined on scope). Void once the fix moved the diff."
   }
 }
