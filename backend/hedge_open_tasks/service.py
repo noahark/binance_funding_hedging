@@ -212,14 +212,22 @@ def _leg_to_doc(leg: dict | None) -> dict:
     """
     leg = leg or {}
     base = D.Decimal(leg.get("cumulative_base_qty") or "0")
-    quote = D.Decimal(leg.get("cumulative_quote_amt") or "0")
-    avg = D.fmt_decimal(quote / base) if base > 0 else None
+    raw_quote = leg.get("cumulative_quote_amt")
+    if raw_quote is None:
+        # NULL notional passes through as JSON null, not "0" (review-1 r6); an
+        # unknown notional is also an unknown average price, so do not divide.
+        quote_amt = None
+        avg = None
+    else:
+        quote = D.Decimal(raw_quote)
+        quote_amt = D.fmt_decimal(quote)
+        avg = D.fmt_decimal(quote / base) if base > 0 else None
     doc = {
         "client_order_id": leg.get("client_order_id"),
         "order_id": leg.get("order_id"),
         "status": leg.get("exchange_status"),
         "cumulative_base_qty": D.fmt_decimal(base),
-        "cumulative_quote_amt": D.fmt_decimal(quote),
+        "cumulative_quote_amt": quote_amt,
         "avg_price": avg,
     }
     if leg.get("fee_amount") is not None:
@@ -274,15 +282,23 @@ def _entry_side(direction: str | None, position_side_mode: str | None) -> tuple[
 def _entry_spot_leg(leg: dict | None, spot_side: str | None) -> dict:
     leg = leg or {}
     base = D.Decimal(leg.get("cumulative_base_qty") or "0")
-    quote = D.Decimal(leg.get("cumulative_quote_amt") or "0")
-    avg = D.fmt_decimal(quote / base) if base > 0 else None
+    raw_quote = leg.get("cumulative_quote_amt")
+    if raw_quote is None:
+        # NULL notional passes through as JSON null, not "0" (review-1 r6); an
+        # unknown notional is also an unknown average price, so do not divide.
+        quote_amt = None
+        avg = None
+    else:
+        quote = D.Decimal(raw_quote)
+        quote_amt = D.fmt_decimal(quote)
+        avg = D.fmt_decimal(quote / base) if base > 0 else None
     return {
         "side": spot_side,
         "client_order_id": leg.get("client_order_id"),
         "order_id": leg.get("order_id"),
         "status": leg.get("exchange_status"),
         "cumulative_base_qty": D.fmt_decimal(base),
-        "cumulative_quote_amt": D.fmt_decimal(quote),
+        "cumulative_quote_amt": quote_amt,
         "avg_price": avg,
         "fee_amount": leg.get("fee_amount"),
         "fee_asset": leg.get("fee_asset"),
@@ -292,15 +308,23 @@ def _entry_spot_leg(leg: dict | None, spot_side: str | None) -> dict:
 def _entry_perp_leg(leg: dict | None, perp_side: str | None) -> dict:
     leg = leg or {}
     base = D.Decimal(leg.get("cumulative_base_qty") or "0")
-    quote = D.Decimal(leg.get("cumulative_quote_amt") or "0")
-    avg = D.fmt_decimal(quote / base) if base > 0 else None
+    raw_quote = leg.get("cumulative_quote_amt")
+    if raw_quote is None:
+        # NULL notional passes through as JSON null, not "0" (review-1 r6); an
+        # unknown notional is also an unknown average price, so do not divide.
+        quote_amt = None
+        avg = None
+    else:
+        quote = D.Decimal(raw_quote)
+        quote_amt = D.fmt_decimal(quote)
+        avg = D.fmt_decimal(quote / base) if base > 0 else None
     return {
         "side": perp_side,
         "client_order_id": leg.get("client_order_id"),
         "order_id": leg.get("order_id"),
         "status": leg.get("exchange_status"),
         "cumulative_base_qty": D.fmt_decimal(base),
-        "cumulative_quote_amt": D.fmt_decimal(quote),
+        "cumulative_quote_amt": quote_amt,
         "avg_price": avg,
     }
 
@@ -360,7 +384,11 @@ class HedgeOpenTaskService:
         mono_us: Callable[[], int] | None = None,
         wall_us: Callable[[], int] | None = None,
     ):
-        self._store = HedgeOpenStore(db_path, executor_mode_snapshot=mode)
+        self._mono_us = mono_us or _real_mono_us
+        self._wall_us = wall_us or _real_wall_us
+        self._store = HedgeOpenStore(
+            db_path, executor_mode_snapshot=mode, now_us=self._wall_us(),
+        )
         # Default executor is the dry-run record transport (ADR-4): it records
         # the would-send params and returns a simulated outcome, and performs NO
         # network POST. A real POST is reachable only under APP_HEDGE_EXECUTOR=
@@ -376,8 +404,6 @@ class HedgeOpenTaskService:
         # computes this from the live client; default False for dry-run). The
         # value is a boolean only — never a credential value (Boundary C).
         self._credentials_present = bool(credentials_present)
-        self._mono_us = mono_us or _real_mono_us
-        self._wall_us = wall_us or _real_wall_us
         self._last_tick_mono: int | None = None
         # Amendment 21 task-local workers: each RUNNING task owns at most ONE
         # bounded-lifetime worker thread (no global guardian/scanner). ``_workers``
@@ -1067,10 +1093,8 @@ class HedgeOpenTaskService:
             # loop back into the throttle. The operator resumes manually; a drain-
             # only worker on recovery re-queries the saved client IDs.
             return True
-        if drain_signal in D.SIGNAL_INSUFFICIENT:
-            self._pause_task_local(
-                task, self._insufficient_pause_reason(drain_signal), drain_signal, now_us,
-            )
+        if drain_signal in D.SIGNAL_TASK_LOCAL_PAUSE:
+            self._pause_from_signal(task, drain_signal, now_us)
             return False
         own = self._store.list_non_terminal_legs_for_task(task_id)
         if own:
@@ -1089,10 +1113,8 @@ class HedgeOpenTaskService:
                 task, D.PAUSE_REASON_RATE_LIMITED, None, now_us, kind="rate_limited",
             )
             return False  # 429: drain the just-submitted pair next round, then exit
-        if signal in D.SIGNAL_INSUFFICIENT:
-            self._pause_task_local(
-                task, self._insufficient_pause_reason(signal), signal, now_us,
-            )
+        if signal in D.SIGNAL_TASK_LOCAL_PAUSE:
+            self._pause_from_signal(task, signal, now_us)
             return False
         if signal == D.SIGNAL_PREFLIGHT_INCOMPLETE:
             return self._worker_exit(task_id, D.WORKER_EXIT_PREFLIGHT_INCOMPLETE)
@@ -1124,6 +1146,17 @@ class HedgeOpenTaskService:
                 # never resent) and surface the throttle so the worker pauses THIS
                 # task and exits for manual recovery instead of polling into the
                 # ban. The leg is NOT resolved here and NOT added to finalized.
+                # Review-1 r3 P1-1: a rate-limited query is a CONCLUSIVE verdict —
+                # classify_query_response carries its raw — so persist it before
+                # draining. This branch previously `continue`d before reaching the
+                # _persist_leg_raw call below, dropping the evidence. The persist is
+                # control-flow isolated (it can never change this branch's pause
+                # semantics, non-terminal handling, or never-resend guarantee).
+                self._persist_leg_raw(
+                    task_id, leg["attempt_id"], leg["leg"], leg["client_order_id"],
+                    "order_query", getattr(verdict, "raw_response", None), now_us,
+                    decisive=True,
+                )
                 if drain_signal is None:
                     drain_signal = D.SIGNAL_RATE_LIMITED
                 continue
@@ -1144,7 +1177,16 @@ class HedgeOpenTaskService:
                 )
             except Exception:
                 continue
-            if getattr(verdict, "error_category", None) == "insufficient_funds":
+            # T3 (10-design §3): capture the sanitized query response (the drain
+            # GET that produced this verdict), after the leg-row business write.
+            self._persist_leg_raw(
+                task_id, leg["attempt_id"], leg["leg"], leg["client_order_id"],
+                "order_query", getattr(verdict, "raw_response", None), now_us,
+                decisive=self._query_verdict_decisive(verdict),
+            )
+            if getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_COLLATERAL_CAP:
+                drain_signal = D.SIGNAL_COLLATERAL_CAP
+            elif getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_INSUFFICIENT_FUNDS:
                 drain_signal = D.SIGNAL_INSUFFICIENT_BALANCE
             if terminal:
                 finalized.add(leg["attempt_id"])
@@ -1197,30 +1239,51 @@ class HedgeOpenTaskService:
                 pass
 
     def _pause_task_local(
-        self, task: dict, pause_reason: str, insufficient_signal: str | None,
-        now_us: int, *, kind: str = "task_paused",
+        self, task: dict, pause_reason: str, pause_signal: str | None,
+        now_us: int, *, kind: str = "task_paused", pause_zh: str | None = None,
     ) -> None:
         """Persist a task-local pause (amendment 21): status=paused + the precise
         safe reason + an audit event, for THIS task only. No cross-task linkage,
         no consecutive-failure churn. A 429 uses the ``rate_limited`` kind; an
-        insufficient-funds fact uses ``task_paused``. Idempotent on status."""
-        pause_zh = D.pause_reason_zh(pause_reason)
-        updated = self._store.pause_task(task["id"], pause_reason, pause_zh, now_us)
+        insufficient-funds fact or a collateral-cap rejection uses ``task_paused``.
+        ``pause_zh`` overrides the table lookup (used by collateral_cap, whose
+        frozen message carries the blocked asset). Idempotent on status."""
+        reason_zh = pause_zh or D.pause_reason_zh(pause_reason)
+        updated = self._store.pause_task(task["id"], pause_reason, reason_zh, now_us)
         payload = {
             "reason": pause_reason,
-            "reason_zh": pause_zh,
+            "reason_zh": reason_zh,
             "coin": task["coin"],
             "direction": task["direction"],
         }
-        if insufficient_signal is not None:
-            payload["signal"] = insufficient_signal
+        if pause_signal is not None:
+            payload["signal"] = pause_signal
         self._store.record_task_event(task["id"], kind, payload, now_us)
         if updated is not None:
             task.update(updated)
 
+    def _pause_from_signal(
+        self, task: dict, signal: str, now_us: int, *, kind: str = "task_paused",
+    ) -> None:
+        """Map a task-local-pause signal (a confirmed insufficient-funds fact or
+        a collateral-cap rejection) to its precise pause_reason + Chinese message
+        and persist the pause for THIS task only. collateral_cap carries the
+        frozen asset-specific message; insufficient_funds uses the table lookup."""
+        if signal == D.SIGNAL_COLLATERAL_CAP:
+            self._pause_task_local(
+                task, D.PAUSE_REASON_COLLATERAL_CAP_FULL, signal, now_us, kind=kind,
+                pause_zh=D.collateral_cap_pause_reason_zh(D.base_asset(task["coin"])),
+            )
+        else:
+            self._pause_task_local(
+                task, self._pause_reason_for_signal(signal), signal, now_us, kind=kind,
+            )
+
     @staticmethod
-    def _insufficient_pause_reason(signal: str) -> str:
-        """Map an insufficient-funds drain/dispatch signal to its pause reason."""
+    def _pause_reason_for_signal(signal: str) -> str:
+        """Map an insufficient-funds drain/dispatch signal to its pause reason.
+        (collateral_cap is handled by :meth:`_pause_from_signal`, which carries
+        its own asset-specific reason/message.)"""
         return {
             D.SIGNAL_INSUFFICIENT_BALANCE: D.PAUSE_REASON_INSUFFICIENT_BALANCE,
             D.SIGNAL_INSUFFICIENT_MARGIN: D.PAUSE_REASON_INSUFFICIENT_MARGIN,
@@ -1549,6 +1612,47 @@ class HedgeOpenTaskService:
         spot_querying = spot.dispatch_state == D.LEG_UNKNOWN_QUERYING
         perp_querying = perp.dispatch_state == D.LEG_UNKNOWN_QUERYING
         has_querying = spot_querying or perp_querying
+        # T3 (10-design §3): capture both legs' sanitized POST responses. This is
+        # an isolated short transaction that can never affect the business write
+        # below; it lands on every POST — accepted, rejected (the 51169 evidence
+        # path), or rate-limited — so the next unexplainable response is readable
+        # from the DB alone.
+        spot_cid, perp_cid = _client_order_ids(attempt["attempt_uuid"])
+        self._persist_leg_raw(
+            ctx.task_id, attempt["id"], spot.leg, spot_cid, "order_post",
+            spot.raw_response, now_us,
+            decisive=True,
+        )
+        self._persist_leg_raw(
+            ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_post",
+            perp.raw_response, now_us,
+            decisive=True,
+        )
+        # T1+T3 (§1(b)/§3(b)): the UM leg's inline-confirm GET (the authoritative
+        # figures query) is captured with its own source so POST vs confirm stay
+        # distinguishable in the raw table.
+        self._persist_leg_raw(
+            ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_confirm",
+            getattr(perp, "confirm_raw_response", None), now_us,
+            decisive=True,
+        )
+        # T3 (§3): the UNKNOWN-POST immediate best-effort query GET (the order-detail
+        # lookup that resolved an inconclusive POST, carried on query_raw_response) is
+        # captured with its own source so the response that decided a leg's fate is
+        # never dropped. Distinct from order_post (the POST body) and order_confirm
+        # (the UM accepted-confirm); mirrors the drain path's order_query capture. A
+        # no-op when the leg carried no such GET (POST was conclusive, or the GET was
+        # itself inconclusive and the leg stayed UNKNOWN for the drain path).
+        self._persist_leg_raw(
+            ctx.task_id, attempt["id"], spot.leg, spot_cid, "order_query",
+            getattr(spot, "query_raw_response", None), now_us,
+            decisive=self._query_verdict_decisive(spot),
+        )
+        self._persist_leg_raw(
+            ctx.task_id, attempt["id"], perp.leg, perp_cid, "order_query",
+            getattr(perp, "query_raw_response", None), now_us,
+            decisive=self._query_verdict_decisive(perp),
+        )
         if rate_limited:
             # Amendment 21: pause THIS task only. Do NOT resolve the pair — its
             # UNKNOWN legs are marked so the worker drains them, then settles the
@@ -1574,28 +1678,29 @@ class HedgeOpenTaskService:
             except Exception:
                 pass
             return D.SIGNAL_RATE_LIMITED
-        insufficient = self._insufficient_signal_from_legs(spot, perp)
-        if insufficient is not None and not has_querying:
-            # Both legs terminal with a confirmed insufficient-funds fact: settle
-            # the pair once (clearing the in-flight guard); the worker pauses.
+        pause_signal = self._pause_signal_from_legs(spot, perp)
+        if pause_signal is not None and not has_querying:
+            # Both legs terminal with a confirmed pause-class fact (insufficient
+            # funds or a collateral-cap rejection): settle the pair once (clearing
+            # the in-flight guard); the worker pauses THIS task only.
             outcome = self._dispatch_to_outcome(
-                attempt["attempt_uuid"], spot, perp, dispatch.record_payload
+                attempt["attempt_uuid"], spot, perp, dispatch.record_payload, now_us
             )
             try:
                 self._store.resolve_attempt(attempt["id"], outcome, now_us)
             except Exception:
                 pass
-            return insufficient
-        if insufficient is not None:
-            # Mixed: one leg insufficient-terminal, the other still UNKNOWN — mark
+            return pause_signal
+        if pause_signal is not None:
+            # Mixed: one leg pause-class terminal, the other still UNKNOWN — mark
             # the UNKNOWN leg(s); the worker pauses and drains before exit.
             self._mark_legs_querying(attempt, spot, perp, now_us)
-            return insufficient
+            return pause_signal
         if has_querying:
             self._mark_legs_querying(attempt, spot, perp, now_us)
             return None
         outcome = self._dispatch_to_outcome(
-            attempt["attempt_uuid"], spot, perp, dispatch.record_payload
+            attempt["attempt_uuid"], spot, perp, dispatch.record_payload, now_us
         )
         leg_terminal = {
             spot.leg: self._leg_terminal(spot),
@@ -1630,14 +1735,56 @@ class HedgeOpenTaskService:
             except Exception:
                 pass
 
+    def _persist_leg_raw(
+        self, task_id: str, attempt_id: int, leg_name: str,
+        client_order_id: str | None, source: str, raw: dict | None, now_us: int,
+        *, decisive: bool = False,
+    ) -> None:
+        """Persist one leg's sanitized raw exchange response (T3 / 10-design §3).
+
+        ``decisive`` marks this response as one of the four conclusive verdicts §T3
+        requires persisted; the caller decides it from the verdict it already holds
+        and it governs the store's one-row-per-leg-per-source replace rule (a
+        decisive response replaces a prior non-decisive placeholder; a decisive row
+        is never replaced).
+
+        Control-flow isolation is absolute: :meth:`store.append_raw_response` runs
+        in its OWN short transaction, so a persistence failure can NEVER roll back
+        or fail the business write that already committed. The failure is swallowed
+        and a ``raw_persist_failed`` task event is best-effort recorded (that record
+        failing too is abandoned — control flow outranks audit completeness).
+        No-op when the leg carried no raw response (a record/dry-run transport, or
+        a query that returned no verdict)."""
+        if raw is None:
+            return
+        endpoint = D.SPOT_ORDER_PATH if leg_name == "spot" else D.PERP_ORDER_PATH
+        try:
+            self._store.append_raw_response(
+                attempt_id, leg_name, client_order_id, source, endpoint, raw, now_us,
+                decisive=decisive,
+            )
+        except Exception:
+            try:
+                self._store.record_task_event(
+                    task_id, "raw_persist_failed",
+                    {"attempt_id": attempt_id, "leg": leg_name, "source": source},
+                    now_us,
+                )
+            except Exception:
+                pass
+
     @staticmethod
-    def _insufficient_signal_from_legs(spot, perp) -> str | None:
-        """Map a confirmed insufficient-funds leg (``error_category ==
-        "insufficient_funds"``) to its amendment-21 pause signal. ``-2019`` ->
-        margin; any other confirmed code (``-3041`` / msg-confirmed ``-2010``) ->
-        balance. Returns ``None`` when neither leg is insufficient-funds."""
+    def _pause_signal_from_legs(spot, perp) -> str | None:
+        """Map a confirmed pause-class leg classification to its amendment-21
+        task-local pause signal. ``insufficient_funds`` -> SIGNAL_INSUFFICIENT_*
+        (``-2019`` margin, else balance); ``collateral_cap`` (51169) ->
+        SIGNAL_COLLATERAL_CAP. Returns ``None`` when neither leg carries a
+        pause-class category."""
         for leg in (spot, perp):
-            if getattr(leg, "error_category", None) == "insufficient_funds":
+            cat = getattr(leg, "error_category", None)
+            if cat == D.ERROR_CATEGORY_COLLATERAL_CAP:
+                return D.SIGNAL_COLLATERAL_CAP
+            if cat == D.ERROR_CATEGORY_INSUFFICIENT_FUNDS:
                 if getattr(leg, "error_code", None) == "-2019":
                     return D.SIGNAL_INSUFFICIENT_MARGIN
                 return D.SIGNAL_INSUFFICIENT_BALANCE
@@ -1645,22 +1792,37 @@ class HedgeOpenTaskService:
 
     @staticmethod
     def _leg_terminal(leg) -> bool:
-        """A live leg is terminal when confirmed rejected, or accepted+FILLED.
-        An accepted leg that is NEW/PARTIALLY_FILLED stays non-terminal for the
-        reconcile pass to poll to FILLED."""
+        """A live leg is terminal when confirmed rejected, or accepted+FILLED with
+        authoritative figures (T1 §1(b)).
+
+        A UM (perp) FILLED leg whose authoritative quote is still unknown (the
+        inline confirm GET came back inconclusive) is NOT terminal — the worker
+        drains it next round (query, never resend). The margin (spot) leg reads its
+        quote from the POST RESULT, so an accepted+FILLED spot leg is terminal as
+        before. An accepted leg that is NEW/PARTIALLY_FILLED stays non-terminal for
+        the reconcile pass to poll to FILLED."""
         if leg.dispatch_state == D.LEG_TERMINAL_RECORDED:
             return True
         if leg.dispatch_state == D.LEG_ACCEPTED_OR_QUERYING:
-            return leg.exchange_status == D.LEG_FILLED
+            if leg.exchange_status != D.LEG_FILLED:
+                return False
+            # T1 §1(b): a UM FILLED leg needs its authoritative quote known.
+            if getattr(leg, "leg", None) != "spot" and getattr(leg, "cumulative_quote", None) is None:
+                return False
+            return True
         return False
 
     @staticmethod
-    def _dispatch_to_outcome(attempt_uuid, spot, perp, record_payload) -> AttemptOutcome:
+    def _dispatch_to_outcome(attempt_uuid, spot, perp, record_payload, ts_us) -> AttemptOutcome:
         """Build an AttemptOutcome from two resolved live leg dispatches. Keys the
         category off ``order_id`` presence via :func:`domain.classify_attempt`;
         carries the real cumulative quote (A-6) and the machine-readable error
         classification (A-7). A fatal error on either leg surfaces an outcome-
-        level ``error_category="fatal"`` so the store stops the task (rows 1–2)."""
+        level ``error_category="fatal"`` so the store stops the task (rows 1–2).
+
+        ``ts_us`` is the wall clock at settlement (10-design §4(a)): the live
+        exposure timestamp, identical in meaning to the reconcile path's
+        ``_exposure_from_legs``. Mandatory — there is no safe default."""
         spot_leg = {
             "status": D.LEG_REJECTED if spot.dispatch_state == D.LEG_TERMINAL_RECORDED
             else (spot.exchange_status or D.LEG_NEW),
@@ -1685,7 +1847,7 @@ class HedgeOpenTaskService:
         }
         category = D.classify_attempt(spot_leg, perp_leg)
         exposure = (
-            D.build_leg_exposure(spot_leg, perp_leg, 0)
+            D.build_leg_exposure(spot_leg, perp_leg, ts_us)
             if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE
             else None
         )
@@ -1733,6 +1895,24 @@ class HedgeOpenTaskService:
                 D.LEG_CANCELED,
             )
         return False
+
+    @staticmethod
+    def _query_verdict_decisive(verdict) -> bool:
+        """Whether a query verdict is one of the four conclusive (decisive)
+        responses 00-task.md §T3 requires persisted: a fill (FILLED), a confirmed
+        rejection (REJECTED / EXPIRED / CANCELED), a confirmed absent order
+        (error_category=absent, i.e. 404 / -2013), or a rate-limit signal
+        (429 / -1003 / 418). NEW / PARTIALLY_FILLED and inconclusive verdicts
+        (UNKNOWN, no status) are NOT decisive: they insert a placeholder row that a
+        later decisive response replaces, and they never replace one. Decided here,
+        from the verdict the caller already holds — never re-derived from the raw
+        body inside the store."""
+        if getattr(verdict, "rate_limited", False):
+            return True
+        if getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_ABSENT:
+            return True
+        status = getattr(verdict, "exchange_status", None)
+        return status in (D.LEG_FILLED, D.LEG_REJECTED, D.LEG_EXPIRED, D.LEG_CANCELED)
 
     @staticmethod
     def _failed_outcome(ctx: AttemptContext, reason: str) -> AttemptOutcome:

@@ -22,6 +22,7 @@ worker synchronously through the ``_pump_worker`` test seam.
 """
 from __future__ import annotations
 
+import json
 import threading
 from decimal import Decimal
 
@@ -29,12 +30,15 @@ import pytest
 
 from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.service import HedgeOpenTaskService
+from backend.hedge_open_tasks.wire_constraints import validate_order_params
+from backend.services.hedge_open_live_client import HedgeHttpResponse
 from backend.services.live_hedge_executor import (
     LEG_ACCEPTED,
     LEG_REJECTED,
     LEG_UNKNOWN_QUERYING,
     LegDispatch,
     LiveAttemptDispatch,
+    LiveHedgeExecutor,
 )
 
 
@@ -116,14 +120,54 @@ class _RoutingExecutor:
         return None
 
 
+def _wire_resp(http_status, body=None, transport_error=None) -> HedgeHttpResponse:
+    """A ``HedgeHttpResponse`` whose ``raw_body`` mirrors the real wire text (JSON),
+    so the persisted raw ``body`` column is non-empty and retrievable."""
+    raw_body = json.dumps(body) if isinstance(body, (dict, list)) else (body or "")
+    return HedgeHttpResponse(http_status, body, raw_body, transport_error, None)
+
+
+class _LiveWireClient:
+    """A minimal real-wire fake: scripts per-leg POST + GET ``HedgeHttpResponse``
+    objects the way the real PAPI client returns them, so
+    :class:`LiveHedgeExecutor`.dispatch drives the genuine ``_send_one_leg`` path
+    (POST classify, the UNKNOWN immediate best-effort query, and the UM inline
+    confirm). Used where :class:`_RoutingExecutor` — which fakes ``dispatch``
+    wholesale — cannot exercise the in-executor query."""
+
+    def __init__(self, *, spot_post, perp_post, spot_query, perp_query):
+        self._spot_post = spot_post
+        self._perp_post = perp_post
+        self._spot_query = spot_query
+        self._perp_query = perp_query
+        self.credentials_present = True
+
+    def post_margin_order(self, params, *, timestamp_ms, recv_window_ms=None):
+        if validate_order_params(params):
+            return _wire_resp(400, {"code": -4015, "msg": "Illegal characters in newClientOrderId."})
+        return self._spot_post
+
+    def post_um_order(self, params, *, timestamp_ms, recv_window_ms=None):
+        if validate_order_params(params):
+            return _wire_resp(400, {"code": -4015, "msg": "Illegal characters in newClientOrderId."})
+        return self._perp_post
+
+    def query_margin_order(self, symbol, cid, *, timestamp_ms, recv_window_ms=None):
+        return self._spot_query
+
+    def query_um_order(self, symbol, cid, *, timestamp_ms, recv_window_ms=None):
+        return self._perp_query
+
+
 def _leg(state, *, name="spot", order_id=None, status=None, executed="0",
          quote="0", avg=None, rate_limited=False, error_code=None,
-         error_category=None, retry=None) -> LegDispatch:
+         error_category=None, retry=None, raw=None) -> LegDispatch:
     return LegDispatch(
         leg=name, dispatch_state=state, order_id=order_id, exchange_status=status,
         executed_qty=executed, cumulative_quote=quote, avg_price=avg,
         rate_limited=rate_limited, error_code=error_code,
         error_category=error_category, retry_after_seconds=retry,
+        raw_response=raw,
     )
 
 
@@ -369,6 +413,38 @@ def test_4_task_a_insufficient_funds_pauses_and_b_still_dispatches(tmp_path, cod
     assert svc.store.get_task(doc_b["id"])["status"] == D.STATUS_DONE
 
 
+def test_4c_collateral_cap_51169_pauses_with_frozen_message(tmp_path):
+    """T2 (stage 2026-07-hedge-order-truth-v1): a 51169 platform collateral-cap
+    rejection on the margin (spot) leg classifies to ``collateral_cap`` — its OWN
+    category, never ``insufficient_funds`` — and pauses THIS task with the frozen
+    ``collateral_cap_full`` reason + verbatim asset-specific message. The attempt
+    row carries the truthful diagnosis, not NULL (10-design §2(e))."""
+    exe = _RoutingExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+    svc, clock = _live_svc(tmp_path, exe, provider)
+    doc_a = _create(svc, target_n=1)
+    exe.set_script(doc_a["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_REJECTED, name="spot", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP),
+        perp=_leg(LEG_REJECTED, name="perp", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )])
+    _step(svc, doc_a["id"], clock, rounds=3)  # collateral_cap -> pause -> drain -> exit
+    task_a = svc.store.get_task(doc_a["id"])
+    assert task_a["status"] == D.STATUS_PAUSED
+    assert task_a["pause_reason"] == D.PAUSE_REASON_COLLATERAL_CAP_FULL
+    # 10-design §2(d): the operator message is FROZEN verbatim, {asset}=BTC, and
+    # is NOT the insufficient_margin ("保证金不足") wording.
+    assert task_a["pause_reason_zh"] == D.collateral_cap_pause_reason_zh("BTC")
+    # 10-design §2(e): the attempt row rolls the leg diagnosis up — collateral_cap,
+    # not NULL.
+    attempts = svc.store.list_attempts_for_task(doc_a["id"])
+    assert attempts and attempts[0]["error_category"] == D.ERROR_CATEGORY_COLLATERAL_CAP
+    assert attempts[0]["error_code"] == "51169"
+
+
 def test_4b_unconfirmed_minus_2010_stays_fatal_stop_not_pause(tmp_path):
     """User constraint 2: an UNCONFIRMED ``-2010`` (no balance proof in the
     message) is NOT mistaken for a recoverable balance pause — it stays a fatal
@@ -387,6 +463,375 @@ def test_4b_unconfirmed_minus_2010_stays_fatal_stop_not_pause(tmp_path):
     task_a = svc.store.get_task(doc_a["id"])
     assert task_a["status"] == D.STATUS_STOPPED
     assert task_a["stop_reason"] == D.STOP_REASON_EXCHANGE_FATAL
+
+
+def test_4d_live_single_leg_exposure_timestamp_is_settlement_wall_clock(tmp_path):
+    """T5 acceptance (10-design §4(b) / 00-task.md T5): on the LIVE dispatch path
+    (``service._dispatch_to_outcome``), a single-leg exposure's timestamp is the
+    settlement wall clock — NOT the 1970 epoch a forgotten ``0`` rendered. This
+    exercises the live path the bug hid behind; testing only ``executor.py`` does
+    not satisfy T5 (that path already passed ``ctx.ts_us``)."""
+    exe = _RoutingExecutor()
+    base = 1_784_447_999_000_000  # one step (+1_000_000) lands on a 2026 wall clock
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()), clock=_Clock(base))
+    doc = _create(svc, target_n=2)
+    exe.set_script(doc["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_FILLED,
+                  executed="0.5", quote="25000", avg="50000"),
+        perp=_leg(LEG_REJECTED, name="perp", order_id=None),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch -> single_leg exposure
+    settled_ts = base + 1_000_000
+    task = svc.store.get_task(doc["id"])
+    assert task["leg_exposure"] is not None
+    assert task["leg_exposure"]["ts"] == D.us_to_iso(settled_ts)
+    assert task["leg_exposure"]["ts"] != "1970-01-01T00:00:00.000000Z"
+
+
+# ---------------------------------------------------------------------------
+# 4e/4f/4g. T3 raw-response persistence (10-design §3): every POST and every drain
+# query is captured verbatim, so an unexplainable exchange reply is readable from
+# the DB alone — and a raw-persistence failure can never turn a good pair bad.
+# ---------------------------------------------------------------------------
+
+
+def test_4e_collateral_cap_51169_post_rejection_persists_raw_response(tmp_path):
+    """T3 (10-design §3(b)): a 51169 margin POST rejection is persisted verbatim.
+    The dispatch's acceptance test is ``SELECT business_code, business_msg, body
+    FROM hedge_open_raw_response`` — the next unexplainable collateral-cap reply
+    must be explainable from the DB alone, without asking Binance support. Both
+    legs' POST responses land with ``source=order_post`` and the exact body."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    raw = {"http_status": 400, "transport_error": None,
+           "code": "51169", "msg": "MARGIN_TRADE_COEFF_INSUFFICIENT",
+           "body": '{"code":51169,"msg":"MARGIN_TRADE_COEFF_INSUFFICIENT"}'}
+    exe.set_script(doc["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_REJECTED, name="spot", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP, raw=raw),
+        perp=_leg(LEG_REJECTED, name="perp", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP, raw=raw),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )])
+    _step(svc, doc["id"], clock, rounds=2)
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    rows = svc.store.list_raw_responses_for_attempt(attempt["id"])
+    assert len(rows) == 2  # one POST response per leg
+    for r in rows:
+        assert r["source"] == "order_post"
+        assert r["business_code"] == "51169"
+        assert r["business_msg"] == "MARGIN_TRADE_COEFF_INSUFFICIENT"
+        assert r["body"] == '{"code":51169,"msg":"MARGIN_TRADE_COEFF_INSUFFICIENT"}'
+        assert r["body_truncated"] == 0
+        assert r["http_status"] == 400
+    assert next(r for r in rows if r["leg"] == "spot")["endpoint"] == D.SPOT_ORDER_PATH
+    assert next(r for r in rows if r["leg"] == "perp")["endpoint"] == D.PERP_ORDER_PATH
+    # The canonical clientOrderId is captured, so the row ties to a resendable key.
+    assert next(r for r in rows if r["leg"] == "spot")["client_order_id"] is not None
+
+
+def test_4f_drain_query_response_persists_with_order_query_source(tmp_path):
+    """T3 (10-design §3(c)): the best-effort single client-ID query that drains an
+    UNKNOWN leg ALSO persists its response (``source=order_query``), so a 429 / 404
+    at reconcile time is as readable as the POST that started it. Script an
+    UNKNOWN pair (no POST raw), then resolve both legs via FILLED query responses
+    that carry raw bodies — the raw rows must be the drain GETs, not POSTs."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])  # POST UNKNOWN -> no POST raw
+    raw_s = {"http_status": 200, "transport_error": None, "code": None, "msg": None,
+             "body": '{"orderId":"s1","status":"FILLED","executedQty":"0.5"}'}
+    raw_p = {"http_status": 200, "transport_error": None, "code": None, "msg": None,
+             "body": '{"orderId":"p1","status":"FILLED","executedQty":"0.5"}'}
+    exe.queries.extend([
+        _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_FILLED,
+             executed="0.5", quote="25000", avg="50000", raw=raw_s),
+        _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_FILLED,
+             executed="0.5", quote="25000", avg="50000", raw=raw_p),
+    ])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=3)  # reconcile drains both legs -> resolve
+    assert exe.query_calls >= 2
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["business_code"] is None for r in qrows)  # 2xx, no error code
+    assert all(r["body"] in (raw_s["body"], raw_p["body"]) for r in qrows)
+    assert next(r for r in qrows if r["leg"] == "spot")["endpoint"] == D.SPOT_ORDER_PATH
+    assert next(r for r in qrows if r["leg"] == "perp")["endpoint"] == D.PERP_ORDER_PATH
+
+
+def test_4h_dispatch_unknown_post_fallback_query_persists_post_and_query_raw(tmp_path):
+    """T3 §3 (review-1 P1): a POST that returns UNKNOWN (5xx) triggers an immediate
+    best-effort order-detail GET inside ``LiveHedgeExecutor._send_one_leg``. When
+    that GET resolves the leg, the raw table must hold BOTH the POST response
+    (``source=order_post``, the inconclusive 5xx) AND the fallback GET
+    (``source=order_query``, the FILLED body that decided the leg's fate). The GET
+    body was previously discarded. The perp leg's POST is conclusive, so it gets no
+    ``order_query`` row — its only GET is the UM inline confirm (``order_confirm``).
+    Order verdicts are unchanged: the fix only adds the dropped GET row."""
+    client = _LiveWireClient(
+        spot_post=_wire_resp(500, {"msg": "Service Unavailable"}),  # POST -> UNKNOWN
+        spot_query=_wire_resp(200, {                                # GET resolves it
+            "orderId": 1, "status": "FILLED", "executedQty": "0.5",
+            "cummulativeQuoteQty": "25000", "avgPrice": "50000"}),
+        perp_post=_wire_resp(200, {                                 # POST conclusive -> ACCEPTED
+            "orderId": 2, "status": "FILLED", "executedQty": "0.5"}),
+        perp_query=_wire_resp(200, {                                # UM inline confirm
+            "orderId": 2, "status": "FILLED", "cumQuote": "25000", "avgPrice": "50000"}),
+    )
+    exe = LiveHedgeExecutor(client, now_ms=lambda: 1000)
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    _step(svc, doc["id"], clock, rounds=2)
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    rows = svc.store.list_raw_responses_for_attempt(attempt["id"])
+
+    # spot: POST UNKNOWN (5xx) -> immediate fallback GET resolved it. Both the POST
+    # (5xx body) and the GET (FILLED body) persist, on distinct sources — the GET no
+    # longer overwrites the POST, nor is it dropped.
+    spot_rows = [r for r in rows if r["leg"] == "spot"]
+    assert {r["source"] for r in spot_rows} == {"order_post", "order_query"}
+    post = next(r for r in spot_rows if r["source"] == "order_post")
+    assert post["http_status"] == 500
+    query = next(r for r in spot_rows if r["source"] == "order_query")
+    assert query["http_status"] == 200
+    assert query["business_code"] is None          # 2xx FILLED: no business code (NULL)
+    assert query["business_msg"] is None
+    assert query["client_order_id"] is not None    # ties to the resendable clientOrderId
+    assert '"status": "FILLED"' in query["body"]   # GET body retrievable from the DB
+
+    # perp: conclusive POST (accepted) -> its only GET is the UM confirm. No
+    # ``order_query`` row: the in-executor fallback query never ran for this leg.
+    perp_rows = [r for r in rows if r["leg"] == "perp"]
+    assert {r["source"] for r in perp_rows} == {"order_post", "order_confirm"}
+
+    # Order verdict UNCHANGED by the fix: the immediate GET resolved the spot leg to
+    # FILLED with authoritative figures exactly as before (the fix only adds the raw
+    # row); both legs are terminal.
+    legs = svc.store.list_legs_for_attempt(attempt["id"])
+    spot_leg = next(l for l in legs if l["leg"] == "spot")
+    assert spot_leg["exchange_status"] == D.LEG_FILLED
+    assert spot_leg["cumulative_quote_amt"] == "25000"
+    assert spot_leg["terminal"] == 1
+
+
+def test_4g_raw_persist_failure_does_not_break_business_write(tmp_path):
+    """T3 (10-design §3(e)): control-flow isolation is absolute. A raw-persistence
+    failure (disk full / locked) MUST NOT turn a resolved collateral_cap pair into
+    anything else — the business write stands (pair resolved, task paused), and the
+    failure is best-effort surfaced as a ``raw_persist_failed`` task event rather
+    than swallowed silently."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    raw = {"http_status": 400, "transport_error": None,
+           "code": "51169", "msg": "cap", "body": "{}"}
+    exe.set_script(doc["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_REJECTED, name="spot", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP, raw=raw),
+        perp=_leg(LEG_REJECTED, name="perp", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP, raw=raw),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )])
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("disk full")
+    svc.store.append_raw_response = _boom  # simulate persistence failure
+
+    _step(svc, doc["id"], clock, rounds=2)
+    task = svc.store.get_task(doc["id"])
+    # The business write stands: pair resolved + paused collateral_cap, NOT turned
+    # into a failure by the raw-persistence error.
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_COLLATERAL_CAP_FULL
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    assert attempt["error_category"] == D.ERROR_CATEGORY_COLLATERAL_CAP
+    # No raw row landed (the persist raised both times).
+    assert svc.store.list_raw_responses_for_attempt(attempt["id"]) == []
+    # The failure was surfaced as a best-effort audit event (not silent).
+    events = svc.store.list_task_event_logs(20, kinds=("raw_persist_failed",))
+    assert len(events) >= 1
+    assert events[0]["kind"] == "raw_persist_failed"
+
+
+def test_4i_drain_rate_limited_query_persists_order_query_row(tmp_path):
+    """Review-1 r3 P1-1 (00-task.md §T3): a drain query that comes back
+    rate-limited (a 429 / -1003 / 418) is a CONCLUSIVE verdict whose raw must be
+    persisted — the rate-limited branch previously ``continue``d before reaching
+    the ``_persist_leg_raw`` call. Script an UNKNOWN pair (no POST raw), then
+    return both drain GETs as rate-limited: each leg lands exactly one
+    ``order_query`` row carrying the 429 body, the task pauses rate_limited
+    exactly as today, the legs stay non-terminal, and nothing is resent."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])  # POST UNKNOWN -> no POST raw
+    raw_429 = {"http_status": 429, "transport_error": None, "code": None,
+               "msg": None, "body": '{"code":-1003,"msg":"Request weight limited"}'}
+    exe.queries.extend([
+        _leg(LEG_UNKNOWN_QUERYING, name="spot", rate_limited=True, raw=raw_429),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp", rate_limited=True, raw=raw_429),
+    ])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=1)  # reconcile: both legs 429 -> pause
+    assert exe.query_calls == 2
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2  # the previously-dropped 429 evidence is now retrievable
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["http_status"] == 429 for r in qrows)
+    assert all(r["body"] == raw_429["body"] for r in qrows)
+    # Pause semantics, non-terminal handling, and never-resend are unchanged.
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
+    legs = svc.store.list_legs_for_attempt(attempt["id"])
+    assert all(l["terminal"] == 0 for l in legs)  # legs kept, never resent
+    assert exe.dispatch_calls == 1  # no second dispatch / no resend
+
+
+def test_4j_repeated_malformed_2xx_drain_grows_one_row_per_leg(tmp_path):
+    """Review-1 r3 P1-2 (user rule 2026-07-28/29): a malformed 2xx (no orderId)
+    returns an UNKNOWN verdict, so the leg stays non-terminal and drain re-queries
+    it every worker round. Repeated identical responses across several rounds must
+    produce EXACTLY ONE ``order_query`` row per leg — not one per round — while the
+    leg still stays non-terminal and is still re-queried (a storage cap, not a
+    behaviour change)."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])  # POST UNKNOWN -> no POST raw
+    raw_bad = {"http_status": 200, "transport_error": None, "code": None,
+               "msg": None, "body": '{"status":"NEW"}'}  # 2xx, no orderId -> UNKNOWN
+    # Enough identical malformed-2xx verdicts for several drain rounds (2 legs each).
+    exe.queries.extend([_leg(LEG_UNKNOWN_QUERYING, name="spot", raw=raw_bad)
+                        for _ in range(10)])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=4)  # reconcile re-queries both legs each round
+    assert exe.query_calls > 2  # re-queried across multiple rounds (not stuck)
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2  # exactly one row per leg, NOT one per round
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["body"] == raw_bad["body"] for r in qrows)
+    # The leg is still non-terminal and still being drained (behaviour unchanged).
+    legs = svc.store.list_legs_for_attempt(attempt["id"])
+    assert all(l["terminal"] == 0 for l in legs)
+
+
+def test_4k_drain_new_then_filled_replaces_placeholder_order_query_row(tmp_path):
+    """Review-1 r5 P1 (00-task.md §T3): a first non-decisive order_query (NEW)
+    inserts a placeholder row; the later FILLED query (decisive) REPLACES that row
+    in place. One order_query row per leg survives, holding the FILLED body and
+    stamped decisive — the conclusive verdict §T3 requires persisted is the one
+    kept, not the earlier NEW."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])  # POST UNKNOWN -> no POST raw
+    raw_new = {"http_status": 200, "transport_error": None, "code": None,
+               "msg": None, "body": '{"orderId":"s1","status":"NEW"}'}
+    raw_filled = {"http_status": 200, "transport_error": None, "code": None,
+                  "msg": None,
+                  "body": '{"orderId":"s1","status":"FILLED","executedQty":"0.5"}'}
+    exe.queries.extend([
+        _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_FILLED,
+             executed="0.5", quote="25000", avg="50000", raw=raw_filled),
+        _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_FILLED,
+             executed="0.5", quote="25000", avg="50000", raw=raw_filled),
+    ])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=2)  # reconcile: NEW (placeholder) then FILLED
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2  # one row per leg — the NEW placeholder was replaced, not doubled
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["body"] == raw_filled["body"] for r in qrows)  # FILLED won, not NEW
+    assert all(r["decisive"] == 1 for r in qrows)
+
+
+def test_4l_drain_new_then_confirmed_absent_replaces_placeholder_order_query_row(tmp_path):
+    """Review-1 r5 P1 (00-task.md §T3): a confirmed-absent order-detail read
+    (404 / -2013) is decisive, so it replaces a prior non-decisive placeholder —
+    one order_query row per leg holding the absent response."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    raw_new = {"http_status": 200, "transport_error": None, "code": None,
+               "msg": None, "body": '{"orderId":"s1","status":"NEW"}'}
+    raw_absent = {"http_status": 404, "transport_error": None, "code": "-2013",
+                  "msg": "Order does not exist.",
+                  "body": '{"code":-2013,"msg":"Order does not exist."}'}
+    exe.queries.extend([
+        _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_REJECTED, name="spot", error_code="-2013", quote=None,
+             error_category=D.ERROR_CATEGORY_ABSENT, raw=raw_absent),
+        _leg(LEG_REJECTED, name="perp", error_code="-2013", quote=None,
+             error_category=D.ERROR_CATEGORY_ABSENT, raw=raw_absent),
+    ])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=2)  # reconcile: NEW then confirmed-absent
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["body"] == raw_absent["body"] for r in qrows)  # absent won, not NEW
+    assert all(r["business_code"] == "-2013" for r in qrows)
+    assert all(r["decisive"] == 1 for r in qrows)
+
+
+def test_4m_drain_new_then_rate_limited_replaces_placeholder_and_pauses(tmp_path):
+    """Review-1 r5 P1 (00-task.md §T3): a rate-limit signal (429 / -1003 / 418) is
+    decisive, so it replaces a prior non-decisive placeholder — one order_query row
+    per leg holding the 429 body. The task still pauses rate_limited exactly as
+    today, the legs stay non-terminal, and nothing is resent."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    raw_new = {"http_status": 200, "transport_error": None, "code": None,
+               "msg": None, "body": '{"orderId":"s1","status":"NEW"}'}
+    raw_429 = {"http_status": 429, "transport_error": None, "code": None,
+               "msg": None, "body": '{"code":-1003,"msg":"Request weight limited"}'}
+    exe.queries.extend([
+        _leg(LEG_ACCEPTED, name="spot", order_id="s1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_ACCEPTED, name="perp", order_id="p1", status=D.LEG_NEW, raw=raw_new),
+        _leg(LEG_UNKNOWN_QUERYING, name="spot", rate_limited=True, raw=raw_429),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp", rate_limited=True, raw=raw_429),
+    ])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _step(svc, doc["id"], clock, rounds=2)  # reconcile: NEW then 429 -> pause
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    qrows = [r for r in svc.store.list_raw_responses_for_attempt(attempt["id"])
+             if r["source"] == "order_query"]
+    assert len(qrows) == 2
+    assert {r["leg"] for r in qrows} == {"spot", "perp"}
+    assert all(r["body"] == raw_429["body"] for r in qrows)  # 429 won, not NEW
+    assert all(r["decisive"] == 1 for r in qrows)
+    # Pause semantics, non-terminal handling, and never-resend are unchanged.
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
+    legs = svc.store.list_legs_for_attempt(attempt["id"])
+    assert all(l["terminal"] == 0 for l in legs)
+    assert exe.dispatch_calls == 1  # no second dispatch / no resend
 
 
 # ---------------------------------------------------------------------------

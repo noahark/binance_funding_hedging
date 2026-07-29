@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS hedge_open_leg (
     order_id             TEXT,
     exchange_status      TEXT,
     cumulative_base_qty  TEXT NOT NULL DEFAULT '0',
-    cumulative_quote_amt TEXT NOT NULL DEFAULT '0',
+    cumulative_quote_amt TEXT,
     fee_amount           TEXT,
     fee_asset            TEXT,
     error_code           TEXT,
@@ -144,6 +144,24 @@ CREATE INDEX IF NOT EXISTS idx_hedge_open_fill_task
     ON hedge_open_fill (task_id, ts_us DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_hedge_open_log_ts
     ON hedge_open_log (ts_us DESC, id DESC);
+CREATE TABLE IF NOT EXISTS hedge_open_raw_response (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    attempt_id      INTEGER NOT NULL,
+    leg             TEXT NOT NULL,
+    client_order_id TEXT,
+    source          TEXT NOT NULL,
+    endpoint        TEXT NOT NULL,
+    http_status     INTEGER,
+    transport_error TEXT,
+    business_code   TEXT,
+    business_msg    TEXT,
+    body            TEXT,
+    body_truncated  INTEGER NOT NULL DEFAULT 0,
+    captured_at_us  INTEGER NOT NULL,
+    decisive        INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_hedge_open_raw_attempt
+    ON hedge_open_raw_response (attempt_id, leg, id);
 """
 
 
@@ -279,11 +297,13 @@ def _num(value) -> Decimal:
 
 
 class HedgeOpenStore:
-    def __init__(self, db_path: str, *, executor_mode_snapshot: str = "disabled"):
+    def __init__(self, db_path: str, *, executor_mode_snapshot: str = "disabled",
+                 now_us: int = 0):
         self._lock = threading.RLock()
         parent = os.path.dirname(os.path.abspath(db_path))
         if parent and not os.path.isdir(parent):
             os.makedirs(parent, exist_ok=True)
+        self._migrate_now_us = now_us  # T1(e)/T5(d) §6 data-migration audit ts_us
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
@@ -344,6 +364,132 @@ class HedgeOpenStore:
         for col, decl in leg_additions:
             if col not in leg_cols:
                 self._conn.execute(f"ALTER TABLE hedge_open_leg ADD COLUMN {col} {decl}")
+        # T1 §1(d)/§7: ``cumulative_quote_amt`` was NOT NULL DEFAULT '0' — a missing
+        # figure stored indistinguishably from a true zero (the T1 defect). SQLite
+        # cannot relax NOT NULL in place, so rebuild the leg table inside this
+        # transaction (CREATE new -> INSERT SELECT -> DROP -> RENAME -> re-index).
+        # The PRAGMA notnull probe guards idempotency: runs once on legacy DBs,
+        # no-op once the column is already nullable.
+        leg_quote_notnull = next(
+            (r["notnull"] for r in self._conn.execute(
+                "PRAGMA table_info(hedge_open_leg)") if r["name"] == "cumulative_quote_amt"),
+            0,
+        )
+        if leg_quote_notnull:
+            self._conn.execute(
+                "CREATE TABLE hedge_open_leg__new ("
+                " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                " attempt_id INTEGER NOT NULL,"
+                " leg TEXT NOT NULL,"
+                " client_order_id TEXT NOT NULL UNIQUE,"
+                " endpoint TEXT NOT NULL,"
+                " request_shape TEXT NOT NULL,"
+                " dispatch_state TEXT NOT NULL,"
+                " order_id TEXT,"
+                " exchange_status TEXT,"
+                " cumulative_base_qty TEXT NOT NULL DEFAULT '0',"
+                " cumulative_quote_amt TEXT,"
+                " fee_amount TEXT,"
+                " fee_asset TEXT,"
+                " error_code TEXT,"
+                " error_category TEXT,"
+                " dispatched_at_us INTEGER,"
+                " last_query_at_us INTEGER,"
+                " terminal INTEGER NOT NULL DEFAULT 0)"
+            )
+            self._conn.execute(
+                "INSERT INTO hedge_open_leg__new"
+                " (id, attempt_id, leg, client_order_id, endpoint, request_shape,"
+                "  dispatch_state, order_id, exchange_status, cumulative_base_qty,"
+                "  cumulative_quote_amt, fee_amount, fee_asset, error_code,"
+                "  error_category, dispatched_at_us, last_query_at_us, terminal)"
+                " SELECT id, attempt_id, leg, client_order_id, endpoint, request_shape,"
+                "  dispatch_state, order_id, exchange_status, cumulative_base_qty,"
+                "  cumulative_quote_amt, fee_amount, fee_asset, error_code,"
+                "  error_category, dispatched_at_us, last_query_at_us, terminal"
+                " FROM hedge_open_leg"
+            )
+            self._conn.execute("DROP TABLE hedge_open_leg")
+            self._conn.execute("ALTER TABLE hedge_open_leg__new RENAME TO hedge_open_leg")
+            self._conn.execute(
+                "CREATE INDEX idx_hedge_open_leg_attempt"
+                " ON hedge_open_leg (attempt_id, leg ASC)"
+            )
+            self._conn.execute(
+                "CREATE INDEX idx_hedge_open_leg_query"
+                " ON hedge_open_leg (terminal, dispatch_state)"
+            )
+        # T3 (review-1 r5 P1): hedge_open_raw_response gains a ``decisive`` flag
+        # marking rows holding one of the four conclusive verdicts 00-task.md §T3
+        # requires persisted (a fill, a confirmed rejection, a confirmed absent
+        # order, or a rate-limit signal). A decisive row is never replaced — first
+        # decisive wins — and a later decisive response replaces only a prior
+        # non-decisive placeholder (NEW / PARTIALLY_FILLED). Additive ALTER guard ->
+        # idempotent; legacy rows backfill to 0 (non-decisive), the honest default
+        # for rows whose verdict shape this migration cannot reconstruct.
+        raw_cols = {
+            r["name"] for r in self._conn.execute("PRAGMA table_info(hedge_open_raw_response)")
+        }
+        if "decisive" not in raw_cols:
+            self._conn.execute(
+                "ALTER TABLE hedge_open_raw_response"
+                " ADD COLUMN decisive INTEGER NOT NULL DEFAULT 0"
+            )
+        # T5(d) M2 (§6): a leg_exposure ts rendered as the 1970 epoch (a forgotten
+        # 0) is rewritten to the accepting leg's dispatched_at_us ISO — the real
+        # moment of that single-leg event (within ~1s). price stays null (unknown —
+        # the historical avg_price was never stored and cannot be reconstructed).
+        # Idempotent on the ts shape.
+        epoch_ts = "1970-01-01T00:00:00.000000Z"
+        m2_rows = self._conn.execute(
+            "SELECT id, leg_exposure FROM hedge_open_task"
+            " WHERE leg_exposure LIKE ?",
+            (f"%{epoch_ts}%",),
+        ).fetchall()
+        for row in m2_rows:
+            task_id = row["id"]
+            try:
+                expo = json.loads(row["leg_exposure"])
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(expo, dict) or expo.get("ts") != epoch_ts:
+                continue
+            leg_name = expo.get("leg")
+            if leg_name not in ("spot", "perp"):
+                continue
+            leg_row = self._conn.execute(
+                "SELECT l.dispatched_at_us FROM hedge_open_leg l"
+                " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
+                " WHERE a.task_id = ? AND l.leg = ?"
+                " AND l.dispatched_at_us IS NOT NULL"
+                " ORDER BY l.dispatched_at_us DESC LIMIT 1",
+                (task_id, leg_name),
+            ).fetchone()
+            if leg_row is None:
+                continue
+            real_ts = D.us_to_iso(leg_row["dispatched_at_us"])
+            expo["ts"] = real_ts
+            self._conn.execute(
+                "UPDATE hedge_open_task SET leg_exposure = ? WHERE id = ?",
+                (json.dumps(expo, ensure_ascii=False), task_id),
+            )
+            self._conn.execute(
+                "INSERT INTO hedge_open_log"
+                " (task_id, ts_us, attempt_id, kind, payload)"
+                " VALUES (?, ?, NULL, ?, ?)",
+                (
+                    task_id, self._migrate_now_us, "data_migration",
+                    json.dumps(
+                        {
+                            "table": "hedge_open_task", "row_id": task_id,
+                            "field": "leg_exposure.ts",
+                            "before": epoch_ts, "after": real_ts,
+                            "reason": "T5(d): 1970 exposure ts -> accepting leg dispatched_at_us",
+                        },
+                        ensure_ascii=False,
+                    ),
+                ),
+            )
 
     def close(self) -> None:
         with self._lock:
@@ -639,38 +785,49 @@ class HedgeOpenStore:
 
     def _leg_final_fields(
         self, leg_outcome: dict
-    ) -> tuple[str, str | None, str, str, str | None, str | None]:
+    ) -> tuple[str, str | None, str, str | None, str | None, str | None]:
         """Return ``(exchange_status, order_id, base_qty, quote_amt, fee_amount,
-        fee_asset)`` for one resolved leg outcome (A-6).
+        fee_asset)`` for one resolved leg outcome (A-6 + T1 §1(d)).
 
-        Persists the ACTUAL cumulative quote when the outcome carries one (the
-        live path returns the exchange's ``cummulativeQuoteQty``); otherwise it
-        falls back to ``filled_qty * avg_price`` in Decimal (no binary float). A
-        non-FILLED leg records zero fill figures but keeps any returned orderId
-        (proof of acceptance) and any partial cumulative figures it carried.
-        Available fee figures pass through verbatim.
+        ``quote_amt`` follows the T1 NULL contract — NULL = unknown (the response
+        carried no figure), "0" = a real zero fill, never a missing figure coerced
+        to 0:
+
+        * a present ``cumulative_quote`` is stored verbatim (a real figure,
+          including a true "0");
+        * a MISSING ``cumulative_quote`` (None/empty) is NULL (unknown) — even
+          when ``filled_qty`` and ``avg_price`` are present, no figure is derived
+          (review-1 r4, 2026-07-29);
+        * an unparseable present value is also NULL.
+
+        The old ``not in (None, "", "0", 0)`` check that treated a literal "0" as
+        missing was the T1 defect itself and is gone. ``base_qty`` (filled_qty)
+        keeps the "0" default — an accepted not-yet-filled leg genuinely executes
+        zero. Fee figures pass through verbatim.
         """
         status = leg_outcome.get("status") or D.LEG_UNKNOWN
         order_id = leg_outcome.get("order_id")
         filled_qty = _num(leg_outcome.get("filled_qty"))
-        avg_price = leg_outcome.get("avg_price")
         cumulative_quote = leg_outcome.get("cumulative_quote")
         fee_amount = leg_outcome.get("fee_amount")
         fee_asset = leg_outcome.get("fee_asset")
-        if cumulative_quote not in (None, "", "0", 0):
+        quote: Decimal | None
+        if cumulative_quote is None or cumulative_quote == "":
+            # Missing figure: NULL (unknown). Review-1 r4 (2026-07-29) removed the
+            # filled_qty * avg_price derivation — the column records what the
+            # exchange said, never a substituted figure.
+            quote = None
+        else:
             try:
                 quote = Decimal(str(cumulative_quote))
             except InvalidOperation:
-                quote = Decimal(0)
-        elif filled_qty > 0 and avg_price is not None:
-            quote = filled_qty * _num(avg_price)
-        else:
-            quote = Decimal(0)
+                # Unparseable present value: unknown, never a coerced 0.
+                quote = None
         return (
             status,
             order_id,
             str(filled_qty),
-            str(quote),
+            str(quote) if quote is not None else None,
             str(fee_amount) if fee_amount is not None else None,
             str(fee_asset) if fee_asset is not None else None,
         )
@@ -861,20 +1018,6 @@ class HedgeOpenStore:
             )
         return _row_to_task(row), pair_outcome, pause_reason
 
-    @staticmethod
-    def _outcome_error(outcome) -> tuple[bool, str | None, str | None, str | None]:
-        """Derive ``(fatal, stop_reason, error_code, error_reason_zh)`` from an
-        outcome (amendment rows 1–2). A live outcome whose ``error_category`` is
-        ``"fatal"`` (an exchange code for insufficient balance/margin/filter/
-        min-notional/symbol/mode) stops the task immediately. The dry-run record
-        transport carries no error category, so it is never fatal here."""
-        error_category = getattr(outcome, "error_category", None)
-        error_code = getattr(outcome, "error_code", None)
-        if error_category == "fatal":
-            stop_reason = D.STOP_REASON_EXCHANGE_FATAL
-            return True, stop_reason, error_code, D.stop_reason_zh(stop_reason)
-        return False, None, error_code, getattr(outcome, "error_reason_zh", None)
-
     def resolve_attempt(
         self, attempt_id: int, outcome: AttemptOutcome, now_us: int,
         *, leg_terminal: dict | None = None,
@@ -899,7 +1042,28 @@ class HedgeOpenStore:
         The record-transport log row is written here and linked from the attempt.
         """
         category = outcome.category
-        fatal, stop_reason, error_code, error_reason_zh = self._outcome_error(outcome)
+        # Attempt-row error classification is the leg-level rollup (10-design
+        # §2(e)): the truthful per-pair diagnosis (e.g. 51169 -> collateral_cap)
+        # rather than NULL. fatal is derived from the same rollup; the outcome-
+        # level code/reason remain the fallback when no leg carries a category
+        # (the dry-run record transport's offline_constraint verdict).
+        rollup_cat, rollup_code = D.rollup_leg_error_category(
+            outcome.spot.get("error_category"), outcome.spot.get("error_code"),
+            outcome.perp.get("error_category"), outcome.perp.get("error_code"),
+        )
+        fatal = rollup_cat == D.ERROR_CATEGORY_FATAL
+        stop_reason = D.STOP_REASON_EXCHANGE_FATAL if fatal else None
+        if rollup_cat is not None:
+            error_category = rollup_cat
+            error_code = rollup_code
+            error_reason_zh = D.stop_reason_zh(stop_reason) if fatal else None
+        else:
+            error_category = getattr(outcome, "error_category", None)
+            error_code = getattr(outcome, "error_code", None)
+            error_reason_zh = (
+                D.stop_reason_zh(stop_reason) if fatal
+                else getattr(outcome, "error_reason_zh", None)
+            )
         with self._lock, self._conn:
             attempt = self._conn.execute(
                 "SELECT * FROM hedge_open_attempt WHERE id = ?", (attempt_id,)
@@ -965,7 +1129,6 @@ class HedgeOpenStore:
                 task_id, category, outcome.exposure, now_us,
                 fatal=fatal, stop_reason=stop_reason,
             )
-            error_category = "fatal" if fatal else getattr(outcome, "error_category", None)
             self._conn.execute(
                 "UPDATE hedge_open_attempt SET pair_outcome = ?, log_ref = ?,"
                 " error_category = ?, error_code = ?, error_reason_zh = ?"
@@ -1047,26 +1210,28 @@ class HedgeOpenStore:
             exposure = None
             if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE:
                 exposure = self._exposure_from_legs(spot, perp, now_us)
-            # Amendment rows 1–2: a reconciled leg carrying a fatal exchange code
-            # (insufficient balance/margin/filter/etc.) stops the task. The fatal
-            # flag may live on either leg's error_category column.
-            fatal_leg = next(
-                (row for row in legs if row["error_category"] == "fatal"), None
+            # Attempt-row error classification is the leg-level rollup
+            # (10-design §2(e)): the truthful per-pair diagnosis (e.g. 51169 ->
+            # collateral_cap) rather than the bare fatal verdict. fatal is derived
+            # from the same rollup — fatal has the highest priority, so the rollup
+            # surfaces it iff a leg carries it, and the stop semantics are
+            # unchanged (a fatal leg still stops the task here, exactly as before).
+            rollup_cat, rollup_code = D.rollup_leg_error_category(
+                spot["error_category"], spot["error_code"],
+                perp["error_category"], perp["error_code"],
             )
-            fatal = fatal_leg is not None
+            fatal = rollup_cat == D.ERROR_CATEGORY_FATAL
             stop_reason = D.STOP_REASON_EXCHANGE_FATAL if fatal else None
-            error_code = fatal_leg["error_code"] if fatal_leg is not None else None
             error_reason_zh = D.stop_reason_zh(stop_reason) if fatal else None
             updated_task, pair_outcome, _ = self._apply_task_counters(
                 attempt["task_id"], category, exposure, now_us,
                 fatal=fatal, stop_reason=stop_reason,
             )
-            error_category = "fatal" if fatal else None
             self._conn.execute(
                 "UPDATE hedge_open_attempt SET pair_outcome = ?,"
                 " error_category = ?, error_code = ?, error_reason_zh = ?"
                 " WHERE id = ?",
-                (pair_outcome, error_category, error_code, error_reason_zh, attempt_id),
+                (pair_outcome, rollup_cat, rollup_code, error_reason_zh, attempt_id),
             )
             return updated_task
 
@@ -1109,13 +1274,26 @@ class HedgeOpenStore:
             exposure = None
             if category == D.ATTEMPT_SINGLE_LEG_EXPOSURE:
                 exposure = self._exposure_from_legs(spot, perp, now_us)
+            # Attempt-row error classification is the leg-level rollup
+            # (10-design §2(e)): record the truthful per-pair diagnosis. This is a
+            # 429-settled pair, so control flow is unchanged — counters stay
+            # skipped and the task is NOT stopped here (the 429 pause is the flow
+            # control; a genuinely fatal fact re-surfaces on the next dispatch's
+            # fresh POST and stops via resolve_attempt). The rollup is a pure
+            # derived read of the leg rows; error_reason_zh stays NULL because no
+            # stop reason is rendered on this no-stop path.
+            rollup_cat, rollup_code = D.rollup_leg_error_category(
+                spot["error_category"], spot["error_code"],
+                perp["error_category"], perp["error_code"],
+            )
             _, pair_outcome, _ = self._apply_task_counters(
                 attempt["task_id"], category, exposure, now_us,
                 skip_counters=True,
             )
             self._conn.execute(
-                "UPDATE hedge_open_attempt SET pair_outcome = ? WHERE id = ?",
-                (pair_outcome, attempt_id),
+                "UPDATE hedge_open_attempt SET pair_outcome = ?,"
+                " error_category = ?, error_code = ? WHERE id = ?",
+                (pair_outcome, rollup_cat, rollup_code, attempt_id),
             )
             return True
 
@@ -1338,7 +1516,7 @@ class HedgeOpenStore:
         exchange_status: str,
         order_id: str | None,
         base_qty: str,
-        quote_amt: str,
+        quote_amt: str | None,
         fee_amount: str | None,
         fee_asset: str | None,
         now_us: int,
@@ -1352,7 +1530,9 @@ class HedgeOpenStore:
         (``terminal=False``); the caller re-derives the task counters via the
         attempt's pair outcome when both legs close. ``error_code``/``error_category``
         carry the exchange business code + its classification (fatal / absent /
-        auth) so a fatal reconciled leg can stop the task."""
+        auth) so a fatal reconciled leg can stop the task. ``quote_amt`` may be
+        ``None`` — a FILLED UM leg whose order-detail GET came back without a figure
+        records NULL (T1 §1(d): unknown, not a coerced 0)."""
         with self._lock, self._conn:
             self._conn.execute(
                 "UPDATE hedge_open_leg SET exchange_status = ?,"
@@ -1538,6 +1718,105 @@ class HedgeOpenStore:
             )
             return cur.lastrowid
 
+    def append_raw_response(
+        self, attempt_id: int, leg: str, client_order_id: str | None,
+        source: str, endpoint: str, raw: dict, now_us: int,
+        *, decisive: bool = False,
+    ) -> int:
+        """Persist one raw exchange interaction (T3 / 10-design §3). ``raw`` is the
+        sanitized response dict from :class:`LegDispatch.raw_response`
+        (``http_status`` / ``transport_error`` / ``code`` / ``msg`` / ``body``).
+        The body is truncated to ``BODY_MAX_BYTES`` (``body_truncated=1`` if it was
+        longer). Runs in its OWN short transaction, AFTER the business transaction
+        committed — a failure here MUST NOT change control flow: the caller wraps
+        the call in try/except and records a ``raw_persist_failed`` task event
+        (this method raises so the caller can react). By construction the only body
+        source is the exchange response body; request params / signature / API key
+        never reach this table (10-design §3(d)).
+
+        One raw row per leg per ``source`` (review-1 r3 P1-2, user rule
+        2026-07-28/29). ``decisive`` marks the incoming response as one of the four
+        conclusive verdicts §T3 requires persisted (a fill / confirmed rejection /
+        confirmed absent / rate-limit); the CALLER decides it from the verdict it
+        already holds — it is never re-derived here from the body. With no row yet
+        the response is inserted (``decisive`` stored on the row). If a row already
+        exists: a decisive response replaces a prior NON-decisive row's content in
+        place (a NEW / PARTIALLY_FILLED placeholder gives way to the conclusive
+        verdict that superseded it) and stamps that row decisive; a decisive row is
+        never replaced — first decisive wins, so the record cannot churn (a later
+        NEW cannot overwrite an earlier FILLED); a non-decisive response leaves the
+        existing row untouched. This caps the repeating ``order_query`` (a
+        non-terminal leg is re-read every worker round) so the table cannot grow
+        without bound, while keeping the conclusive body. The check + replace run
+        inside this method's own transaction; a skip is a normal return, not an
+        error."""
+        body = raw.get("body")
+        body_text = body if isinstance(body, str) else (None if body is None else str(body))
+        truncated = 0
+        if body_text is not None and len(body_text) > D.BODY_MAX_BYTES:
+            body_text = body_text[:D.BODY_MAX_BYTES]
+            truncated = 1
+        decisive_flag = 1 if decisive else 0
+        with self._lock, self._conn:
+            # Review-1 r3 P1-2 + r5 P1 (user rule 2026-07-28/29): one raw row per
+            # leg per source. ``order_post`` / ``order_confirm`` happen once per leg
+            # anyway; this caps the repeating ``order_query`` (a non-terminal leg is
+            # re-read every worker round) so the table cannot grow without bound,
+            # while keeping the conclusive body. The check + replace run inside this
+            # method's OWN short transaction, so they can never touch the business
+            # write; a skip is a normal return — not an error.
+            existing = self._conn.execute(
+                "SELECT id, decisive FROM hedge_open_raw_response"
+                " WHERE attempt_id = ? AND leg = ? AND source = ? LIMIT 1",
+                (attempt_id, leg, source),
+            ).fetchone()
+            if existing is not None:
+                # A decisive response replaces a prior NON-decisive row's content in
+                # place (a NEW / PARTIALLY_FILLED placeholder gives way to the
+                # conclusive verdict that superseded it). A decisive row is never
+                # replaced — first decisive wins — and a non-decisive response never
+                # overwrites anything, so the record cannot churn (no later NEW over
+                # an earlier FILLED).
+                if decisive_flag and not existing["decisive"]:
+                    self._conn.execute(
+                        "UPDATE hedge_open_raw_response"
+                        " SET client_order_id = ?, endpoint = ?, http_status = ?,"
+                        " transport_error = ?, business_code = ?, business_msg = ?,"
+                        " body = ?, body_truncated = ?, captured_at_us = ?,"
+                        " decisive = 1 WHERE id = ?",
+                        (
+                            client_order_id, endpoint, raw.get("http_status"),
+                            raw.get("transport_error"), raw.get("code"),
+                            raw.get("msg"), body_text, truncated, now_us,
+                            existing["id"],
+                        ),
+                    )
+                return existing["id"]
+            cur = self._conn.execute(
+                "INSERT INTO hedge_open_raw_response"
+                " (attempt_id, leg, client_order_id, source, endpoint,"
+                "  http_status, transport_error, business_code, business_msg,"
+                "  body, body_truncated, captured_at_us, decisive)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    attempt_id, leg, client_order_id, source, endpoint,
+                    raw.get("http_status"), raw.get("transport_error"),
+                    raw.get("code"), raw.get("msg"),
+                    body_text, truncated, now_us, decisive_flag,
+                ),
+            )
+            return cur.lastrowid
+
+    def list_raw_responses_for_attempt(self, attempt_id: int) -> list[dict]:
+        """All raw-response rows for an attempt, oldest-first (T3 verification)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM hedge_open_raw_response WHERE attempt_id = ?"
+                " ORDER BY id ASC",
+                (attempt_id,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def list_task_event_logs(
         self, limit: int, kinds: tuple[str, ...] | None = None,
     ) -> list[dict]:
@@ -1634,6 +1913,8 @@ class HedgeOpenStore:
                     "perp_qty": Decimal(0),
                     "perp_notional": Decimal(0),
                     "position_qty": Decimal(0),
+                    "spot_incomplete": False,
+                    "perp_incomplete": False,
                 },
             )
 
@@ -1657,13 +1938,24 @@ class HedgeOpenStore:
                 continue
             b = _bucket(row["coin"], row["direction"])
             q = _num(row["cumulative_base_qty"])
-            notional = _num(row["cumulative_quote_amt"])
+            # T1 §1(d): a NULL quote (unknown figure) contributes its REAL qty but
+            # NOT its notional — averaging an unknown as 0 would drag the avg price
+            # down. The bucket is flagged avg_price_incomplete instead, so a reader
+            # knows the avg is computed over a partial notional set.
+            quote_raw = row["cumulative_quote_amt"]
+            notional = None if quote_raw is None else _num(quote_raw)
             if row["leg"] == "spot":
                 b["spot_qty"] += q
-                b["spot_notional"] += notional
+                if notional is not None:
+                    b["spot_notional"] += notional
+                else:
+                    b["spot_incomplete"] = True
             else:
                 b["perp_qty"] += q
-                b["perp_notional"] += notional
+                if notional is not None:
+                    b["perp_notional"] += notional
+                else:
+                    b["perp_incomplete"] = True
                 sign = Decimal(-1) if row["direction"] == D.DIR_FORWARD else Decimal(1)
                 b["position_qty"] += sign * q
 
@@ -1678,6 +1970,10 @@ class HedgeOpenStore:
                     "position_qty": D.fmt_decimal(b["position_qty"]),
                     "spot_avg": D.fmt_decimal(spot_avg),
                     "perp_avg": D.fmt_decimal(perp_avg),
+                    # T1 §1(d): additive — true when any contributing leg had a NULL
+                    # quote, so the avg above is over a partial notional set.
+                    "spot_avg_price_incomplete": b["spot_incomplete"],
+                    "perp_avg_price_incomplete": b["perp_incomplete"],
                     "open_basis_rate": "0",
                     "price_pnl": "0",
                     "accrued_funding": "0",

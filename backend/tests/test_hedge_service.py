@@ -423,6 +423,96 @@ def test_get_logs_attempts_residual_is_signed_decimal_no_float(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Review-1 round 6: a NULL notional must pass through the projection layer
+# (review-1 r6 P1). The store records an unknown notional as NULL; the API
+# projection must NOT re-fabricate it as "0" on either the attempts (§3.4) or
+# entries (§5) timeline, and avg_price must be null too — dividing an unknown
+# by a real quantity is the original defect one layer up. A REAL "0" still
+# projects as the string "0".
+# ---------------------------------------------------------------------------
+
+
+class _NullQuoteExecutor:
+    """Record/dry-run transport whose FILLED legs carry a positive fill but NO
+    ``cumulative_quote`` key, so the store records the notional as NULL (T1
+    verbatim rule). Exercises the projection-layer NULL pass-through."""
+
+    def execute(self, ctx):
+        return AttemptOutcome(
+            attempt_id=ctx.attempt_id,
+            category=D.ATTEMPT_SUCCESS,
+            spot={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
+                  "order_id": f"s-{ctx.attempt_id}", "client_order_id": f"hgo-{ctx.attempt_id}-s"},
+            perp={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
+                  "order_id": f"p-{ctx.attempt_id}", "client_order_id": f"hgo-{ctx.attempt_id}-p"},
+            record_payload={"transport": "null_quote_test", "posted": False},
+            exposure=None,
+        )
+
+
+class _RealZeroQuoteExecutor:
+    """Record transport whose FILLED legs carry an explicit real
+    ``cumulative_quote`` of "0" (an exchange that returned a literal zero
+    notional), to pin that a REAL "0" still projects as the string "0" —
+    distinct from an absent/NULL notional (review-1 r6 regression guard)."""
+
+    def execute(self, ctx):
+        return AttemptOutcome(
+            attempt_id=ctx.attempt_id,
+            category=D.ATTEMPT_SUCCESS,
+            spot={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "0",
+                  "cumulative_quote": "0",
+                  "order_id": f"s-{ctx.attempt_id}", "client_order_id": f"hgo-{ctx.attempt_id}-s"},
+            perp={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "0",
+                  "cumulative_quote": "0",
+                  "order_id": f"p-{ctx.attempt_id}", "client_order_id": f"hgo-{ctx.attempt_id}-p"},
+            record_payload={"transport": "real_zero_quote_test", "posted": False},
+            exposure=None,
+        )
+
+
+def test_null_notional_projects_null_on_attempts_and_entries(tmp_path):
+    # A FILLED leg with a positive base but a NULL notional must project JSON
+    # null for BOTH cumulative_quote_amt and avg_price on every projection path
+    # — attempts (§3.4, _leg_to_doc) and entries (§5, _entry_spot_leg /
+    # _entry_perp_leg) — not the fabricated "0"/"0" the old `or "0"` fallback
+    # produced. The store already records NULL; this proves the wire carries it.
+    svc = _svc(tmp_path, executor=_NullQuoteExecutor())
+    _, doc = svc.create_task(_create_body(target_n=1))
+    svc.post_fill_once(doc["id"])
+    _, page = svc.get_logs(None, None)
+    a = page["attempts"][0]
+    for leg in (a["spot"], a["perp"]):
+        assert leg["cumulative_base_qty"] == "0.5"    # positive fill recorded
+        assert leg["cumulative_quote_amt"] is None     # NULL passes through, not "0"
+        assert leg["avg_price"] is None                # unknown notional -> no average
+    e = next(x for x in page["entries"] if x["entry_type"] == "attempt")
+    for leg in (e["spot"], e["perp"]):
+        assert leg["cumulative_base_qty"] == "0.5"
+        assert leg["cumulative_quote_amt"] is None
+        assert leg["avg_price"] is None
+
+
+def test_real_zero_notional_still_projects_string_zero(tmp_path):
+    # Regression guard: a REAL "0" notional (the exchange returned a literal
+    # zero) must still project as the STRING "0" and run the existing arithmetic
+    # (0 / 0.5 == "0"), distinct from an absent/NULL notional. This is what stops
+    # a future "simplification" from collapsing every zero into null.
+    svc = _svc(tmp_path, executor=_RealZeroQuoteExecutor())
+    _, doc = svc.create_task(_create_body(target_n=1))
+    svc.post_fill_once(doc["id"])
+    _, page = svc.get_logs(None, None)
+    a = page["attempts"][0]
+    for leg in (a["spot"], a["perp"]):
+        assert leg["cumulative_quote_amt"] == "0"   # real zero stays "0"
+        assert leg["avg_price"] == "0"              # 0 / 0.5 == "0"
+    e = next(x for x in page["entries"] if x["entry_type"] == "attempt")
+    for leg in (e["spot"], e["perp"]):
+        assert leg["cumulative_quote_amt"] == "0"
+        assert leg["avg_price"] == "0"
+
+
+# ---------------------------------------------------------------------------
 # R4-2: per-task independent asynchronous cadence (PRD §6.3 / 05-cadence-resolution)
 # ---------------------------------------------------------------------------
 

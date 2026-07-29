@@ -51,6 +51,7 @@ _SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds", "version"}
 _ERROR_KEYS = {"error", "detail"}
 _POSITION_KEYS = {
     "coin", "direction", "position_qty", "spot_avg", "perp_avg",
+    "spot_avg_price_incomplete", "perp_avg_price_incomplete",
     "open_basis_rate", "price_pnl", "accrued_funding", "borrow_interest",
     "net_pnl",
 }

@@ -1,0 +1,1203 @@
+{
+  "stage_id": "2026-07-hedge-order-truth-v1",
+  "status": "accepted",
+  "workflow": "stage-delivery",
+  "stage_branch": {
+    "name": "stage/2026-07-hedge-order-truth-v1",
+    "created_from_main_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "created_at": "2026-07-28T07:26:35+08:00",
+    "merged_back_to_main": false,
+    "merged_back_sha": null,
+    "merge_strategy": null,
+    "abandoned_reason": null
+  },
+  "bookkeeper": {
+    "id": "independent_stage_bookkeeper",
+    "provider": "claude",
+    "model": "Claude Opus 5",
+    "session_role": "bookkeeper",
+    "also_implementer": false,
+    "dual_hat_disclosure": null,
+    "previous_bookkeeper": {
+      "provider": "claude",
+      "model": "Claude Opus 5",
+      "handover_reason": "same session role carried over from 2026-07-hedge-open-live-hardening-v1, which it closed as bookkeeper",
+      "handover_at": "2026-07-28T07:26:35+08:00"
+    }
+  },
+  "parallel_mode": {
+    "enabled": false,
+    "contract": "docs/parallel-development-mode.md",
+    "r10_dispatch_tail_required": true,
+    "r4_diff_reconciliation_required": false,
+    "decided_by": "Provisional at intake. Every scope item (T1/T2/T3/T5) is backend-only and they share the same files — live_hedge_executor.py, store.py, domain.py, service.py — so there is no disjoint boundary to split on. UI work is an explicit non-goal. The development breakdown may overturn this if it finds a genuinely separable second task; if it does, parallel_mode.enabled flips to true and the dispatch-ready gate applies.",
+    "embedded_review": {
+      "enabled": false,
+      "reason": "Single-owner stage; v0.5 embedded pre-review is opt-in and there is no second implementer to cross-review against."
+    }
+  },
+  "local_readonly_research_subagents": {
+    "opted_in": false,
+    "max_per_task": 0,
+    "note": "No implementation prompt has opted in yet. Absent an explicit opt-in in the task prompt, the default prohibition in AGENTS.md remains in force."
+  },
+  "dispatch_protocol": "human-operator/v1",
+  "model_routing": {
+    "note": "Fixed at intake by the user's Review-1 choice and its forced consequence. See 15-user-authorized-codex-review-1.md for the full reasoning and the compliance check. The bookkeeper is Anthropic provider and writes no delivery code, so it is not an implementation or fix author.",
+    "backend": {
+      "owner_provider": "claude_glm",
+      "owner_model": "glm-5.2[1m]",
+      "task_id": "backend"
+    },
+    "reviewer_pool": {
+      "at": "2026-07-28",
+      "available": [
+        "codex",
+        "claude_glm",
+        "claude",
+        "grok"
+      ],
+      "unavailable": [
+        "kimi"
+      ],
+      "source": "carried from 2026-07-hedge-open-live-hardening-v1 status; kimi quota still not recovered"
+    },
+    "codex_review_1_enablement": {
+      "required_by": "AGENTS.md Hard Gates and agents/registry.yaml review_1_cross_review_pool: [kimi, claude_glm] — codex is not a registered Review-1 gate",
+      "authorizer": "user",
+      "at": "2026-07-28",
+      "evidence_file": "reports/agent-runs/2026-07-hedge-order-truth-v1/15-user-authorized-codex-review-1.md",
+      "pool_could_not_supply_the_gate": "kimi quota unrecovered; claude_glm is the implementer and is barred from reviewing its own code. Review-1 had to come from outside the pool regardless.",
+      "tradeoff_presented_before_the_choice": "Only codex and claude may take the final gate, and the design-involvement override for claude is admissible only when codex is unavailable — which it is not. So codex at Review-1 forced Review-2 to be either claude (requiring a non-claude designer) or codex again (a non-independent final gate). Three routings were put to the user; the bookkeeper recommended grok-designs/claude-finals. The user chose claude-designs/codex-both-gates."
+    },
+    "review_2_independence_loss": {
+      "disclosed": true,
+      "accepted_by": "user",
+      "at": "2026-07-28",
+      "what": "Review-1 and Review-2 are the same provider and model (GPT-5 Codex). The final gate substantially re-confirms its own earlier reading of the same diff rather than challenging it.",
+      "not_a_gate_breach": "AGENTS.md and scripts/validate-stage.py place no constraint on review_1 and review_2 sharing an identity; both are provider-isolated from the implementer, and review_2 has no design involvement, so no disclosure override is claimed or needed.",
+      "failure_mode_this_cannot_catch": "a defect codex is systematically blind to passes both gates",
+      "binding_mitigations": [
+        "Review-1 and Review-2 run in two distinct fresh read-only sessions with no shared transcript or tool state.",
+        "Review-2's packet points at 00-task.md as the top requirements authority, not 10-design.md — the authority-order point that caught the previous stage's blocking finding.",
+        "Review-2's packet must disclose that Review-1 was the same provider and instruct the reviewer to treat its own prior verdict as unproven.",
+        "The Review-1 verdict is committed evidence before Review-2 is dispatched."
+      ]
+    }
+  },
+  "embedded_reviews": {},
+  "session_receipts": [
+    {
+      "role": "stage_designer + breakdown_author",
+      "provider": "claude",
+      "model": "Claude Fable 5",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "The session reported that Claude Code did not expose a provider-native session id to it; no runner-level id was captured by the human operator.",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design-and-breakdown.dispatch.md",
+      "raw_output_paths": [
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/11-adr.md",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/12-development-breakdown.md"
+      ],
+      "executed_at": "2026-07-28T14:45:33+08:00",
+      "executed_by": "human operator",
+      "archived_at": "2026-07-28T15:05:00+08:00",
+      "archive_commit": "acfccbd",
+      "declared_constraints_met": "design-only: no product source, status.json, 70-handoff.md or PRD modified; no production-database write; no credentials; no Binance private request; no service start; no other model invoked",
+      "bookkeeper_verification": "Independently verified, not accepted on the report's word: the archive commit's diff adds exactly those three files and nothing else, and git status showed no other modification. The three artifacts were committed verbatim with no bookkeeper edit.",
+      "packet_version_note": "The session's footer timestamp is 2026-07-28T14:45:33, which precedes the packet revision committed at 5fe1a6f (packet rewritten 14:46). These artifacts were therefore produced against the SUPERSEDED packet and never saw 02-collateral-cap-finding.md. See status.design_staleness."
+    },
+    {
+      "role": "stage_designer (narrow revision)",
+      "provider": "claude",
+      "model": "Claude Fable 5",
+      "model_note": "primary, not the Opus 4.8 backup — reported by the operator",
+      "session_id": null,
+      "session_id_source": "unavailable",
+      "unavailable_reason": "Claude Code did not expose a provider-native session id to the session; no runner-level id was captured.",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/16-design-revision.dispatch.md",
+      "raw_output_paths": [
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/11-adr.md",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/12-development-breakdown.md"
+      ],
+      "executed_at": "2026-07-28T17:29:00+08:00",
+      "executed_by": "human operator",
+      "declared_constraints_met": "design-only: no product source, status.json, 70-handoff.md, production database or live surface touched",
+      "bookkeeper_verification": "Verified independently against acfccbd, not accepted on the report's word. Every hunk lands in a dispatch-named section: 10-design.md §2(a) / §2(c) table / §2(d) / §2(e) / §5 (whole section) / §8 T2 bullet / §11 risks 4 and 7 / footer + appended 修订记录; 11-adr.md classification ADR only; 12-development-breakdown.md §3.5 test line and §4 only. No out-of-scope drift. The substance was read and checked, not skimmed."
+    },
+    {
+      "role": "implementation",
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "session_id": "2b5e8d01-45cb-4219-a96f-b0d8604bb6d3",
+      "session_id_source": "operator (reported by the human operator from the running session)",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/13-implementation.dispatch.md",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md",
+      "dispatched_at": "2026-07-28T18:10:00+08:00",
+      "executed_by": "human operator",
+      "status": "delivered",
+      "context_budget_incident": {
+        "observed_at": "2026-07-28T18:40:00+08:00",
+        "what": "The session reached ~65% of its 1M context (~650k tokens) while still in the reading phase — it had reached service.py's pause helpers / worker region and the locked transport client, and had not begun implementing.",
+        "measured_corpus": "The ENTIRE reading corpus for this task is ~546 KB: 272 KB source (incl. the read-only client), 172 KB tests, 103 KB stage docs — roughly 160k tokens if every file is read once in full.",
+        "assessment": "~650k for a partial read is about 4x the whole corpus budget, so this is not file size; it is read behaviour (repeated whole-file re-reads and/or large search dumps landing in context).",
+        "risk": "W4 (T1) is the largest step and W5 adds a table-rebuild migration. Compaction mid-implementation is what produced three cross-seam drifts in an earlier round of this programme, and what would be lost is exactly the frozen constraints: the verbatim Chinese copy, the file boundaries, and the never-store-a-fabricated-zero rule.",
+        "bookkeeper_own_contribution": "The dispatch listed seven full documents as required reading and gave no line ranges for the 1753-line service.py or the 1784-line store.py.",
+        "user_decision": {
+          "at": "2026-07-28T18:45:00+08:00",
+          "by": "user",
+          "choice": "let the session run all six steps rather than narrowing it to W1+W2 or restarting",
+          "options_presented": [
+            "narrow the running session to W1+W2 then two fresh scoped sessions (bookkeeper's recommendation)",
+            "let it run all six",
+            "kill and restart with three scoped packets"
+          ],
+          "accepted_risk": "compaction during W4/W5 may drop the frozen constraints, and it would surface only at review",
+          "mitigations_put_in_place": [
+            "17-context-guard-note.md — a short paste-in the operator can drop into the running session before W4 or after a compaction; it restates only already-frozen constraints and adds no new requirement",
+            "R4 boundary reconciliation will verify all nine listed items directly against the diff and code rather than accepting the implementation report's word — planned before the evidence arrives, not improvised after"
+          ]
+        },
+        "guard_note_sent": false,
+        "guard_note_note": "The operator chose not to paste 17-context-guard-note.md. That mitigation was optional; the binding one is the bookkeeper's nine-item R4 verification, which is unaffected and still planned."
+      }
+    }
+  ],
+  "designer": {
+    "provider": "claude",
+    "model": "Claude Fable 5",
+    "backup_model": "Claude Opus 4.8",
+    "role": "stage_designer",
+    "status": "dispatch_prepared",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design-and-breakdown.dispatch.md",
+    "raw_output_paths": [
+      "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md",
+      "reports/agent-runs/2026-07-hedge-order-truth-v1/11-adr.md"
+    ],
+    "routing_reason": "The user chose codex for both review gates, which frees the Claude provider to design without creating a Review-2 conflict. Claude designed the previous two stages and carries the frozen-contract context.",
+    "executed_model": "Claude Fable 5",
+    "status_detail": "received; narrow revision dispatched — see status.design_staleness",
+    "received_at": "2026-07-28T14:45:33+08:00",
+    "revision_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/16-design-revision.dispatch.md",
+    "recorded_at": "2026-07-28T07:26:35+08:00"
+  },
+  "direction_synthesizer": null,
+  "breakdown_author": {
+    "provider": "claude",
+    "model": "Claude Fable 5",
+    "backup_model": "Claude Opus 4.8",
+    "status": "dispatch_prepared",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design-and-breakdown.dispatch.md",
+    "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/12-development-breakdown.md",
+    "combined_with_design_dispatch": true,
+    "executed_model": "Claude Fable 5",
+    "received_at": "2026-07-28T14:45:33+08:00",
+    "recorded_at": "2026-07-28T07:26:35+08:00"
+  },
+  "design_staleness": {
+    "resolved": true,
+    "resolved_at": "2026-07-28T17:29:00+08:00",
+    "resolved_by": "narrow revision dispatch 16-design-revision.dispatch.md, executed on Claude Fable 5; both stale items closed and verified by the bookkeeper against acfccbd",
+    "resolution_summary": {
+      "S-1": "51169 moved out of insufficient_funds into its own category `collateral_cap` with `pause_reason=collateral_cap_full`, explicitly NOT reusing `insufficient_margin` because its display semantics ('保证金不足') are a false statement about 51169. Task-level outcome stays task-local pause but on new grounds, and the designer added a safety argument the bookkeeper had not made: because the cap blocks only the forward spot leg while the perp leg still fills, continuing to retry reproduces the 2026-07-27 mechanism and GROWS the naked short — so pause is loss-stopping, not just budget-saving. Roll-up priority becomes fatal > auth > collateral_cap > insufficient_funds > unclassified > absent. The 90-100% band gets no mechanism (utilisation is unreadable today, so shrink-and-retry would be guessing) but the design forbids the system from claiming quantity is irrelevant. Operator copy is frozen verbatim and states that the cap is platform-wide, that it is not this account's margin, and that adding funds does not help.",
+      "S-2": "§5 replaced wholesale by a read-only recon: the open question (does any API expose the cap or its utilisation), a four-candidate endpoint table with every endpoint name marked unverified and each row stating what it CANNOT prove, evidence at reports/api-samples/2026-07-hedge-order-truth-v1/collateral-cap-recon.md, a conditional preflight decision where 'no endpoint => deliberately unchanged, and here is why' is a complete outcome, and the discipline that a negative search must be recorded so '查过且没有' stays distinguishable from '没查'. §11 risk 7 and breakdown §4 updated: no authorization is needed to not place an order."
+    },
+    "found_at": "2026-07-28T15:00:00+08:00",
+    "found_by": "bookkeeper, while archiving the design artifacts",
+    "what_happened": "The design session finished at 14:45:33; the packet was revised at 14:46 (commit 5fe1a6f) with T4's newly established root cause. The design therefore never read 02-collateral-cap-finding.md. Verified by content, not only by timestamp: grep for '02-collateral-cap-finding', '抵押额度' and 'Maximum Collateral' returns ZERO hits across all three artifacts.",
+    "artifacts_left_untouched": "The three artifacts are committed verbatim at acfccbd. The bookkeeper did not edit them; the revision goes back to the designer.",
+    "not_re_run": "T1, T3, T5, the historical-data migration (§6), the schema summary (§7), the stale-recon review (§9) and the file boundaries (§10) are unaffected and stand. Only two items are stale.",
+    "stale_items": [
+      {
+        "id": "S-1",
+        "severity": "factual error",
+        "where": [
+          "10-design.md §2(a) lines 150-153",
+          "10-design.md §2(c) line 181",
+          "10-design.md §2(d) lines 190-192",
+          "10-design.md §8 T2 bullet lines 416-418",
+          "10-design.md §11 risk 4 lines 483-484",
+          "11-adr.md ADR-T3 lines 78-79, 85 — the revision dispatch and this record originally said ADR-T2, a bookkeeper error: the pointer was derived from grep line numbers without checking the heading. The classification ADR is ADR-T3. Corrected 2026-07-28T17:40.",
+          "12-development-breakdown.md line 125"
+        ],
+        "what": "The design seeds MARGIN_BUSINESS_CODES with 51169 -> insufficient_funds, calls it synonymous with UM's -2019, and maps it to pause_reason=insufficient_margin.",
+        "why_wrong": "51169 is not an insufficient-funds fact about this account — NOM is above Binance's platform-wide per-asset Maximum Collateral Limit and adding balance does nothing. store's insufficient-funds path is documented as 'a CONFIRMED insufficient balance/margin/available-quantity fact', and insufficient_margin renders operator copy meaning 保证金不足. That is precisely the plausible-but-false substitution this stage exists to eliminate.",
+        "was_reasonable_at_the_time": "Yes — the code's own name is MARGIN_TRADE_COEFF_INSUFFICIENT and the packet carried no better fact. This is packet staleness, not designer error.",
+        "note": "The design's own §11 risk 4 asked review to confirm the user accepts 'margin 保证金不足现在会暂停任务'. That question's premise is false.",
+        "structure_survives": "The (product, code) keyed tables, the shared gateway layer ordering, the explicit unclassified category, conservative seeding, the attempt-row roll-up and the negative-code non-regression matrix are all unaffected and good."
+      },
+      {
+        "id": "S-2",
+        "severity": "obsolete",
+        "where": [
+          "10-design.md §5 lines 308-353",
+          "10-design.md §11 risk 7 lines 489-491",
+          "12-development-breakdown.md §4 lines 152-156"
+        ],
+        "what": "§5 specifies the paid discriminator order procedure, and two places instruct the bookkeeper to request the user's authorization for it.",
+        "why_obsolete": "The order is cancelled; its pre-registered 'same 51169' branch is already reached and the app reports a maximum buy quantity of 0. No authorization is needed to NOT place an order. Replaced by a read-only recon for whether any API exposes the collateral cap."
+      }
+    ],
+    "known_residuals_after_revision": [
+      {
+        "id": "R-1",
+        "where": "10-design.md §0 目标段 (lines 11-12)",
+        "what": "The overview sentence still describes T4 as 「51169 根因判别实验」 with 「可照做的规程」, i.e. the cancelled paid experiment.",
+        "why_not_fixed": "The revision dispatch deliberately confined the diff to §2 / §5 / §8-T2 / §11 and did not authorize editing §0. The designer flagged it and declared §5 authoritative in the 修订记录. The bookkeeper will not edit a design artifact itself — that would be rewriting review evidence.",
+        "authoritative_source": "10-design.md §5 and 00-task.md §T4",
+        "action": "Disclose in the implementation and both review packets so a reviewer does not file it as a finding and an implementer does not act on it. Cosmetic; not worth a third design pass."
+      },
+      {
+        "id": "R-2",
+        "where": "11-adr.md heading numbering",
+        "what": "ADRs are numbered ADR-T1..ADR-T6 by topic order, NOT aligned to scope ids. ADR-T2 is T1's 'how to represent unknown' decision; ADR-T3 is T2's classification decision; ADR-T4 is T3's raw-response persistence. This already misled the bookkeeper once (see the corrected pointer above).",
+        "why_not_fixed": "Renumbering would rewrite the designer's artifact and invalidate every cross-reference in the design and breakdown.",
+        "action": "Both review packets must state that ADR numbers are topic-sequential and do not correspond to T-ids, so a reviewer checking 'ADR for T2' looks at ADR-T3."
+      }
+    ],
+    "designer_finding_that_survives": {
+      "what": "§5(a) noted that buying 10000 NOM spot would have HEDGED the outstanding SHORT 10000 NOMUSDT rather than creating new exposure.",
+      "sharpened_consequence": "While NOM is above its cap that route is unavailable — the naked short cannot be flattened by buying spot into the margin account. Flattening it means buying back the perp on UM, which the collateral cap does not touch. Recorded as a factual mechanism note only; unwinding is the user's action and closing functionality is the programme's third stage."
+    }
+  },
+  "implementer": null,
+  "implementers": [
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_prepared",
+      "dispatched_at": null,
+      "note": "Provisional at intake; the development breakdown fixes the final owner split and may split this into more than one task."
+    }
+  ],
+  "fix_authors": [
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "delivered",
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/31-fix-review-1.dispatch.md",
+      "identity_note": "AGENTS.md bans reviewer==implementer, not fixer==implementer, so claude_glm remains the correct fix author. A FRESH session is specified: the implementing session 2b5e8d01 was past 65% context before starting and this narrow fix does not need its history.",
+      "session_note": "must be a new session, not 2b5e8d01",
+      "head_sha": "33715ae2bcb4fef427f340780155dc4e4c316e28",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md (appended section)",
+      "verified_by_bookkeeper": "Fix confirmed against the code, not accepted on the report's word. The LegDispatch construction at live_hedge_executor.py:568-588 is unchanged field-for-field except the added query_raw_response line, so order verdicts, resend rules and rate-limit handling cannot have moved; the two new persists reuse _persist_leg_raw's isolated transaction, so raw-write failure still cannot fail a business write; it follows the drain path's order_query pattern rather than inventing a second mechanism. test_4h drives the real LiveHedgeExecutor through a wire-level fake so the genuine _send_one_leg path runs, and asserts spot == {order_post, order_query} with the retrievable FILLED body, perp == {order_post, order_confirm} proving no spurious rows, and the spot leg still FILLED/25000/terminal. Independently re-run: 1062 passed, specified suite 317 passed. Zero forbidden paths touched; production DB unchanged (start_gate=1, version=4). The implementer did not commit — HEAD was still cb15932 when it stopped."
+    },
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "dispatch_prepared",
+      "round": 2,
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/33-fix-review-1-r2.dispatch.md",
+      "session_note": "must be a new session again"
+    },
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "delivered",
+      "round": 3,
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/35-fix-review-1-r3.dispatch.md",
+      "session_note": "fresh session again",
+      "scope_note": "live_hedge_executor.py is explicitly OFF-limits this round: the fix must not touch business classification.",
+      "head_sha": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
+      "raw_output_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md (appended section)",
+      "verified_by_bookkeeper": "Confirmed against the code. Finding 1: _persist_leg_raw now runs inside the rate-limited branch before continue, using getattr(verdict, 'raw_response', None). Finding 2: append_raw_response does one existence check for (attempt_id, leg, source) inside its OWN lock and transaction, returning the existing row id — no schema change, no digest, no UNIQUE index, no migration, and a skip returns normally rather than raising into raw_persist_failed. live_hedge_executor.py has a ZERO diff this round, which is mechanical proof that no business verdict moved. test_4j's `query_calls > 2` assertion is what makes it meaningful: several drain rounds really queried while only one row per leg was kept, so it cannot pass trivially. Independently re-run: 1064 passed / 319 in the specified suite. Zero forbidden paths this round and zero across the whole stage. Production DB unchanged. HEAD was still 9a4eab9 when the implementer stopped — it did not commit."
+    },
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "delivered",
+      "round": 4,
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/37-fix-review-1-r4.dispatch.md",
+      "session_note": "fresh session",
+      "scope_note": "Deletes the _leg_final_fields derivation. live_hedge_executor.py must stay at zero diff again.",
+      "head_sha": "2712fbaed284d777708a9f74ecb3b1cabe22d155",
+      "verified_by_bookkeeper": "Confirmed against the code. The derivation is gone: an absent cumulative_quote now yields NULL unconditionally, the present-value branch is untouched (a literal '0' still stores as '0', now intended), and the unparseable branch is untouched. The orphaned avg_price local was removed with it and no reference survives in the function body; the docstring was corrected rather than left stale. live_hedge_executor.py has a zero diff again, and the cumulative forbidden-path count across the whole stage is still zero. Tests: the helper-level assertion that expected 0.5*50000=25000 now expects NULL, and a NEW test locks the same behaviour one layer down at resolve_attempt -> leg row, so the derivation cannot be reinstated at the persistence layer without a failure. Independently re-run: 1065 passed (1064 + 1), specified suite 320. Production DB unchanged. HEAD was still f21f6f7 when the implementer stopped."
+    },
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "delivered",
+      "round": 5,
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/39-fix-review-1-r5.dispatch.md",
+      "session_note": "fresh session",
+      "scope_note": "Deletes M1 (keeps M2) and threads an explicit decisive flag into raw persistence. live_hedge_executor.py should stay at zero diff; if the flag genuinely requires touching it, that change must be the flag alone and disclosed.",
+      "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
+      "verified_by_bookkeeper": "Confirmed against the code. M1 is gone with zero remnants and M2 is intact. The decisive column is additive and guarded (CREATE plus ALTER with DEFAULT 0 backfill). append_raw_response takes decisive keyword-only; the caller decides it via _query_verdict_decisive (fill / rejection-expiry-cancellation / absent / rate-limit), never re-derived from the body in the store; replacement happens only when the incoming response is decisive AND the existing row is not, and a decisive row is never replaced, so first-decisive-wins holds. Check and replace are both inside the method's own lock and transaction. live_hedge_executor.py has a zero diff for the third round running; cumulative forbidden-path touches across the whole stage remain zero; production DB unchanged. The fourth guard test (FILLED then NEW leaves FILLED) is present — it is what distinguishes a real flag from last-write-wins. Independently re-run: 1069 passed, specified suite 324. HEAD was still b733a7d when the implementer stopped."
+    },
+    {
+      "task_id": "backend",
+      "provider": "claude_glm",
+      "model": "glm-5.2[1m]",
+      "status": "delivered",
+      "round": 6,
+      "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/41-fix-review-1-r6.dispatch.md",
+      "session_note": "fresh session",
+      "scope_note": "Projection layer only. store.py and live_hedge_executor.py are both off-limits this round — the persistence layer is already correct.",
+      "head_sha": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6",
+      "verified_by_bookkeeper": "Confirmed against the code. All three helpers pass NULL through as JSON null and emit a null average instead of dividing; a real '0' still takes the existing arithmetic and still projects as '0'; cumulative_base_qty's own `or \"0\"` is untouched as instructed. One edge the report did not raise was checked: the old `or \"0\"` also absorbed an empty string while `is None` does not — the write paths only ever store a decimal string or NULL and the production rows confirm it, so the narrower guard is safe. No existing test asserted the old behaviour, so none needed inverting. live_hedge_executor.py and store.py are both at zero diff. Independently re-run: 1071 passed, specified suite 326."
+    }
+  ],
+  "reviewer_1": {
+    "provider": "codex",
+    "model": "GPT-5 Codex",
+    "reviewer_identity": "codex",
+    "status": "round2_dispatch_prepared",
+    "enabled_by": "reports/agent-runs/2026-07-hedge-order-truth-v1/15-user-authorized-codex-review-1.md",
+    "read_only_command": "codex exec -C <repo> -m gpt-5.5 -s read-only --output-schema schemas/review-verdict.schema.json - < <prompt-file>",
+    "command_source": "agents/registry.yaml adapters.codex.schema_review_command",
+    "fresh_session_required": true,
+    "invalid_verdict_fallback": {
+      "pre_authorized": true,
+      "rule": "A missing verdict, or one failing schemas/review-verdict.schema.json, is non-accepting. Retry this gate once; if it fails again fall back to claude (Fable 5 -> Opus 4.8), recording the fallback reason and the invalid-output evidence path. Admissible without qualification at Review-1: AGENTS.md constrains designer overlap only at Review-2.",
+      "fallback_provider": "claude",
+      "fallback_model": "Claude Fable 5"
+    },
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
+    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.md"
+  },
+  "reviewer_2": {
+    "provider": "codex",
+    "model": "GPT-5 Codex",
+    "reviewer_identity": "codex",
+    "status": "not_dispatched",
+    "primary_provider": "codex",
+    "fallback_provider": "claude",
+    "reviewer_prior_involvement": "none",
+    "same_provider_as_review_1": true,
+    "independence_note": "See model_routing.review_2_independence_loss. Disclosed to and accepted by the user; not a gate breach, but the mitigations listed there are binding on the packet.",
+    "fresh_session_required": true,
+    "invalid_verdict_fallback": {
+      "pre_authorized": true,
+      "rule": "Retry once, then fall back to claude. Because claude is this stage's designer, that fallback is admissible only under the strong-reviewer disclosure override — which becomes available precisely because codex will have failed a runner-level check. Record reviewer_prior_involvement=design and the evidence path if used."
+    }
+  },
+  "r10_checklists": {},
+  "tasks": [
+    {
+      "id": "backend",
+      "owner": {
+        "provider": "claude_glm",
+        "model": "glm-5.2[1m]"
+      },
+      "scope": [
+        "T1",
+        "T2",
+        "T3",
+        "T5",
+        "W6 fold-in"
+      ],
+      "work_items_in_order": [
+        "W1 T2 classification",
+        "W2 T5 timestamp",
+        "W3 T3 raw persistence",
+        "W4 T1 fill source",
+        "W5 ADR-T6 historical migration",
+        "W6 preflight snapshot key contract test"
+      ],
+      "allowed_files": [
+        "backend/hedge_open_tasks/domain.py",
+        "backend/hedge_open_tasks/store.py",
+        "backend/hedge_open_tasks/service.py",
+        "backend/hedge_open_tasks/executor.py",
+        "backend/services/live_hedge_executor.py",
+        "backend/tests/test_hedge_domain.py",
+        "backend/tests/test_hedge_store.py",
+        "backend/tests/test_hedge_service.py",
+        "backend/tests/test_hedge_executor.py",
+        "backend/tests/test_hedge_task_local.py",
+        "backend/tests/test_hedge_api.py",
+        "backend/tests/test_live_hedge_executor.py",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt"
+      ],
+      "allowed_files_source": "12-development-breakdown.md §3.1, identical to 10-design.md §10. The two report paths are added by the bookkeeper because the implementer must write them.",
+      "forbidden_files": [
+        "backend/services/hedge_open_live_client.py",
+        "backend/services/binance_signing.py",
+        "backend/hedge_open_tasks/wire_constraints.py",
+        "backend/hedge_open_tasks/scheduler.py",
+        "backend/tests/test_hedge_open_live_client.py",
+        "backend/tests/test_hedge_purity.py",
+        "frontend/**",
+        "backend/borrow_tasks/**",
+        "backend/app/server.py",
+        "backend/config.py",
+        "schemas/**",
+        "scripts/**",
+        "docs/**",
+        "data/**",
+        "reports/**",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/status.json",
+        "reports/agent-runs/2026-07-hedge-order-truth-v1/70-handoff.md"
+      ],
+      "forbidden_files_note": "Anything not in allowed_files is forbidden by default; ask the bookkeeper first. test_hedge_open_live_client.py and test_hedge_purity.py are must-run but must-not-modify — they have to pass unchanged. hedge_open_live_client.py is locked: needing to change it means a contract amendment, so stop and hand back rather than widening the allowlist.",
+      "dependencies": [
+        "W0 (strongly recommended, not a hard block) — see status.w0_prerequisite"
+      ],
+      "reviewer": "codex",
+      "implementation_report_path": "20-implementation.md",
+      "implementation_status": "rework6_evidence_committed",
+      "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+      "head_sha": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6",
+      "diff_fingerprint": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6:05d0233047696ff966c3fa6d682f96c8cf9bd3a0df08f59882a4f06b1b97fef2",
+      "test_evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
+      "note": "T4 is not in scope for this task: its paid experiment was cancelled and its remaining work is a read-only recon that runs independently and blocks nothing here.",
+      "review_1": {
+        "reviewer": "codex",
+        "provider": "codex",
+        "model": "GPT-5 Codex",
+        "role": "first_reviewer",
+        "verdict": "REWORK",
+        "json_schema_valid": true,
+        "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
+        "fingerprint_matches_status": true,
+        "reviewer_prior_involvement": "none",
+        "open_p0_p1": 1,
+        "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
+        "recorded_at": "2026-07-28T21:10:00+08:00",
+        "round": 6,
+        "status": "complete_round6",
+        "findings_summary": "Round 2, 1 P1 and it is a NEW defect, not a re-report. Round 1 covered the CONCLUSIVE fallback GET; this covers the INCONCLUSIVE query on BOTH paths. classify_query_response builds the raw at live_hedge_executor.py:397 and then discards it on every None return (transport_error/no status, >=500, ambiguous 4xx, malformed 2xx). Neither call site persists it: _send_one_leg falls through to the POST verdict, and drain does `if verdict is None: continue` at service.py:1116. The in-code comment states the intent explicitly — 'a None return is a genuinely inconclusive retry — no verdict, no row' — i.e. persistence was keyed off verdicts, while 00-task.md T3 keys it off READS.",
+        "fix_start_prompt_present": true,
+        "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
+        "bookkeeper_verification": "CONFIRMED against the code. The decisive evidence is live_hedge_executor.py:395-424, where `raw = _raw_response_dict(response)` is built and then dropped on each `return None`. Both call sites verified. This is the third instance of the stage's recurring theme: evidence the system already held was thrown away. The round-2 packet's widened question — a systematic sweep of every exchange round-trip including a query that itself fails or times out — is what surfaced it, so the widening earned its keep.",
+        "severity_assessment": "P1 is right, not P0 — the conclusive-POST, inline-confirm and drain paths all capture correctly, so the gap is one branch; but it is the diagnostically hardest branch, so not P2 either.",
+        "residual_risk_accepted_by_reviewer": "W0's real UM order-detail sample is still not taken. The reviewer judged the NULL representation sufficient to prevent fabricated zeros and declined to block on it. The packet asked for exactly that call; the bookkeeper does not overturn it. W0 carries into review-2.",
+        "round1_verdict": "REWORK",
+        "round2_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.dispatch.md",
+        "round2_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md",
+        "round2_verdict": "REWORK",
+        "bookkeeper_added_requirement": "Row growth is unaddressed by both the finding and required_fixes, and the fix cannot be written without deciding it. ADR-T4 bounds the raw table by asserting 2-6 rows per attempt, but drain re-queries a non-terminal leg every worker round (service.py:986). If every inconclusive query writes a row, a leg stuck UNKNOWN — exactly this fix's target scenario — produces unbounded rows and falsifies ADR-T4's own bound. The fix must either bound persistence (dedupe / first-N / collapse-with-count) or amend ADR-T4's stated bound. Silently breaking the bound is not acceptable, and neither is dropping the evidence again to preserve it. Added to the fix packet as a disclosed bookkeeper requirement, not presented as the reviewer's words.",
+        "w0_judgement": "The reviewer again declined to block on W0, re-deriving that call this round rather than inheriting it, as the packet required.",
+        "round2_outcome": "REWORK, then the criterion it was judged against was narrowed by the user rather than the code being changed. The finding is NOT withdrawn or disputed — it is recorded as a deferred P1 follow-up. review-1 must re-judge the unchanged code against the amended 00-task.md.",
+        "round3_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.dispatch.md",
+        "round3_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.md",
+        "round3_verdict": "REWORK",
+        "round3_findings_summary": "2 P1, both confirmed against the code. (1) drain's rate-limited branch continues before reaching _persist_leg_raw, so a conclusive 429 verdict's raw is dropped — in scope even after the narrowing, because the narrowed T3 explicitly lists a rate-limit signal among the conclusive verdicts. (2) a malformed 2xx (no usable orderId) returns an UNKNOWN verdict WITH raw rather than None, stays non-terminal, and drain re-queries it every ~1s writing a row each round — unbounded, falsifying ADR-T4's 2-6 rows per attempt.",
+        "round4_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.dispatch.md",
+        "round4_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md",
+        "round4_verdict": "REWORK",
+        "round4_findings_summary": "1 P0, factually confirmed: _quote_decimal keeps a literal \"0\", leg_is_terminal_fill does not cross-check it (no quote check at all for spot; only `is None` for perp), and _leg_final_fields stores any present parseable value as-is — so FILLED + executedQty>0 + quote=\"0\" would persist a zero notional. Declined on SCOPE by the user, not disputed on fact: the trigger requires a self-contradictory exchange response, unlike the 2026-07-14 defect which was a MISSING field coerced to 0.",
+        "round5_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.dispatch.md",
+        "round5_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.md",
+        "round5_verdict": "REWORK",
+        "round5_findings_summary": "2 P1, both confirmed, and both are the two earlier user scope decisions colliding. (1) the M1 migration rewrites FILLED+qty>0+quote='0' to NULL — exactly the cross-field inference the 2026-07-29 T1 decision put out of scope, applied to history. (2) the one-row-per-leg-per-source dedupe drops the decisive order-detail response when an earlier non-decisive poll took the slot — contradicting the T3 text the BOOKKEEPER itself wrote, which names a fill, a confirmed rejection, a confirmed absent order and a rate-limit signal as conclusive verdicts that must be persisted.",
+        "round6_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.dispatch.md",
+        "round6_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
+        "round6_verdict": "REWORK",
+        "round6_findings_summary": "1 P1, confirmed, and the sharpest finding of the six rounds. The store now records an unobtainable notional as NULL, but three projection helpers in service.py (_leg_to_doc, _entry_spot_leg, _entry_perp_leg) read it with `or \"0\"`, so the API serves \"0\" for the notional AND \"0\" for the average price. This is the 2026-07-14 defect one layer up — the same missing-becomes-zero substitution, untouched because the scope was drawn around the executor and the store. It also breaks the frozen wire contract (12-development-breakdown.md:81, cumulative_quote_amt: string|null)."
+      }
+    }
+  ],
+  "bookkeeper_added_checkpoints": [
+    {
+      "id": "M-1",
+      "why": "12-development-breakdown.md §3.4 writes the deterministic test command as `python3 -m pytest`. On this machine `python3` is the system Python 3.9.6, while the repository's interpreter is `.venv/bin/python` (3.11.15) — which is what the previous stage's 60-test-output.txt actually used. Copying §3.4 verbatim would run against the wrong interpreter or fail outright.",
+      "correction": "The implementation packet uses `.venv/bin/python -m pytest`. This is a mechanical interpreter correction, not a change to the design's test obligations: the suite list, the tee target and the full-repo regression are exactly as §3.4 specifies.",
+      "disclosed_rather_than_silent": true,
+      "recorded_in": [
+        "13-implementation.dispatch.md"
+      ]
+    },
+    {
+      "id": "M-2",
+      "why": "Two design residuals could mislead the implementer if not restated at dispatch time: 10-design.md §0 still describes T4 as the cancelled paid experiment (R-1), and 11-adr.md numbers ADRs by topic so T2's ADR is ADR-T3, not ADR-T2 (R-2).",
+      "correction": "Both are disclosed in the implementation packet and must be disclosed in both review packets.",
+      "recorded_in": [
+        "13-implementation.dispatch.md"
+      ]
+    }
+  ],
+  "w0_prerequisite": {
+    "id": "W0",
+    "what": "One read-only signed GET /papi/v1/um/order for the existing real order (symbol=NOMUSDT, origClientOrderId=hgd1a45d5b7df0423a8840d72556767f82p, or orderId=888412130), raw body redacted of headers/signature, landed at reports/api-samples/2026-07-hedge-order-truth-v1/um-order-detail-post-removal-sample.md",
+    "why_it_matters": "It is the evidence for ADR-T1's contract amendment and it tests T1's CORE UNVERIFIED ASSUMPTION — that the order-detail GET still carries cumQuote/avgPrice after Binance removed them from the POST response. All of T1 is designed on that inference.",
+    "cost": "read-only, free, places no order",
+    "executor": "human operator — agents do not issue private requests",
+    "gate_semantics": "Strongly recommended before implementation and, at the latest, before review-1. NOT a hard block: if deferred, T1 is implemented to the documented GET shape with the NULL representation as the backstop for a wrong assumption, and a later sample that disagrees routes to a fix round.",
+    "falsification_branch": "If the sample proves the GET also lacks the fields, STOP T1's implementation and return to the design layer for the userTrades contract amendment pre-declared in ADR-T1's Rejected section. The implementer must not widen the allowlist to reach it.",
+    "side_benefit": "The sample's cumQuote is the true notional of leg id=6. It is kept as evidence only; the production row still goes to NULL per ADR-T6 and is not backfilled.",
+    "status": "not_done"
+  },
+  "complexity": {
+    "classification": "MEDIUM",
+    "direction_panel_required": false,
+    "existing_synthesis_covers_task": true,
+    "user_approved_lightweight_route": false,
+    "lightweight_skip_allowed": true,
+    "rationale": [
+      "All scope items are defect repairs and persistence inside the direction already frozen and approved for 2026-07-hedge-open-real-api-v1; no new product direction is introduced.",
+      "T3 adds a storage surface and T1 changes where authoritative fill figures come from, touching an accepted contract's data flow, so it is not LOW: it needs a development breakdown and both review gates.",
+      "The user opened the stage on 2026-07-28 from the standing proposal without requesting a direction panel. user_approved_lightweight_route is recorded as false because the user was never asked that question explicitly; the MEDIUM route permits the skip on existing-synthesis coverage alone, which is the basis relied on here."
+    ]
+  },
+  "direction_panel": {
+    "panel_key": null,
+    "members": {},
+    "skipped_reason": "MEDIUM stage covered by reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md; no new product direction is introduced."
+  },
+  "direction_synthesis": {
+    "provider": "codex",
+    "status": "not_required",
+    "user_approved": true,
+    "inherited_from": "reports/agent-runs/2026-07-hedge-open-real-api-v1/06-direction-synthesis.md"
+  },
+  "scope": {
+    "T1": {
+      "severity": "P0",
+      "title": "Fill figures are wrong because Binance removed cumQuote/cumBase/avgPrice from UM/CM order responses",
+      "anchors": [
+        "backend/services/live_hedge_executor.py:242-248",
+        "backend/services/live_hedge_executor.py:338-344",
+        "backend/hedge_open_tasks/store.py:660-668"
+      ],
+      "live_proof": "hedge_open_leg id=6: exchange_status=FILLED, cumulative_base_qty=10000, cumulative_quote_amt=0",
+      "external_contract_change": {
+        "announced": "2026-07-13",
+        "effective": "2026-07-14",
+        "source": "Binance Portfolio Margin changelog, verified 2026-07-27",
+        "removed_fields": [
+          "cumBase",
+          "cumQuote",
+          "avgPrice"
+        ],
+        "endpoints": [
+          "POST /papi/v1/um/order",
+          "POST /papi/v1/cm/order"
+        ],
+        "margin_unaffected": "the margin endpoint still returns cummulativeQuoteQty"
+      },
+      "narrowed_by_user": {
+        "at": "2026-07-29",
+        "by": "user",
+        "verbatim": "交易所返回 0 没问题吧，到时遇到具体情况再分析呗。而且金额缺失时也不用推算这么麻烦，查询回来是什么就是什么，有问题我会让模型再去排查的",
+        "rule": "Store the exchange's figure verbatim; NULL when absent; no derivation, no conversion, no cross-field consistency checking.",
+        "two_consequences": [
+          "The round-4 P0 is declined on scope and filed as p0-contradictory-zero-notional-not-detected. A literal 0 from the exchange is now the intended stored value.",
+          "The EXISTING derivation is removed: _leg_final_fields' filled_qty * avg_price fallback is itself a substitution under the new rule, so absent becomes NULL unconditionally. This round DELETES logic rather than adding it."
+        ],
+        "accepted_cost": "cumulative_quote_amt now means 'what the exchange said', not 'the true traded notional'. If the exchange ever returns a contradictory 0 on a real fill, the database holds 0 and that leg's average price and PnL are wrong with nothing flagging it. The user's stated plan is to investigate such a case when it actually occurs.",
+        "not_relaxed": "The 2026-07-14 defect stays fixed: a MISSING field still records NULL and never a coerced 0, and absent stays distinguishable from zero. That is the defect this stage was opened for.",
+        "deletion_safety_checked": "The derivation only fires when the quote is absent AND avg_price is present. The margin leg reads cummulativeQuoteQty from its POST and does not reach that branch; the UM leg takes its figures from the order-detail GET, assumed to carry both. So it covers a case that may not arise. The packet tells the implementer to stop and report if deleting it changes a currently-tested outcome.",
+        "recorded_in": "reports/agent-runs/2026-07-hedge-order-truth-v1/00-task.md §T1 Scope decision"
+      }
+    },
+    "T2": {
+      "severity": "P1",
+      "title": "The error-code tables hold only negative literals, so no margin-endpoint code can match",
+      "anchor": "backend/hedge_open_tasks/domain.py:306-353",
+      "live_proof": "hedge_open_leg id=5: error_code=51169, error_category=NULL",
+      "structural_requirement": "adding 51169 as a literal is explicitly insufficient",
+      "required_verdict_for_51169": {
+        "established_by": "reports/agent-runs/2026-07-hedge-order-truth-v1/02-collateral-cap-finding.md",
+        "not_insufficient_funds_of_this_account": "adding balance does nothing",
+        "not_usefully_retryable": "the cap is consumed platform-wide and will not clear within a task's retry window",
+        "not_permanent": "it can clear later; the coin must not be permanently blacklisted",
+        "coin_and_direction_specific": "blocks the forward direction's spot leg for that asset; the perp leg is unaffected",
+        "size_nuance": "between 90% and 100% of the cap a SMALLER order can still succeed (capped at 50,000 USD equivalent), so 51169 does not universally mean 'no size works'. NOM today is above 100%, where it does.",
+        "operator_message_requirement": "Chinese, and truthful: this coin's platform collateral cap is full, the spot leg cannot be bought into the margin account right now, try another coin or try later. Reporting it as 保证金不足 would be actively misleading."
+      },
+      "exposure_semantics_settled": {
+        "at": "2026-07-28",
+        "by": "user",
+        "decision": "single_leg_exposure stays ADVISORY; a single-leg outcome does not pause the task",
+        "consequence": "T2 does not need to distinguish retryable from must-halt for the sake of exposure control",
+        "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/00-intake.md §Settled At Intake"
+      }
+    },
+    "T3": {
+      "severity": "P1",
+      "title": "Persist the raw order-placement response and the full order-detail read",
+      "user_requirement_verbatim": "记得增加存储下单原始返回订单信息，以及查询订单详情的全量信息",
+      "stated_at": "2026-07-27",
+      "anchors": [
+        "backend/services/live_hedge_executor.py:77",
+        "hedge_open_leg has error_code/error_category but no message or payload column",
+        "hedge_open_log records request params only, never the response"
+      ],
+      "design_open_questions": [
+        "storage shape",
+        "retention",
+        "redaction"
+      ],
+      "narrowed_by_user": {
+        "at": "2026-07-28",
+        "by": "user",
+        "decision": "Inconclusive order-detail reads (transport timeout, 5xx, ambiguous 4xx, malformed 2xx) are NOT required to leave a raw record in this stage. Conclusive reads still must.",
+        "verbatim": "不需要在超时这件事上纠结这么久，先保证线上正常对冲单成功开起来，这个极端场景先不考虑这么细节的操作，等以后遇到了再说。目前最紧要的是让项目长时间的运行起来，边运行边在具体的场景业务中去解决问题。",
+        "rationale": "The user's priority is getting live hedging running and learning from real scenarios, rather than perfecting a rare failure mode before launch.",
+        "accepted_cost": "If a live order lands in the doubly-ambiguous state (POST inconclusive AND query inconclusive), the database will not record that we asked, when, or what came back — the situation where reconstruction matters most. Stated to the user before they decided; accepted risk, not an oversight.",
+        "not_deferred": "Every CONCLUSIVE round-trip still leaves a record: POST (success and failure), UM inline confirm, immediate fallback query when it resolves, drain query when it resolves. The 51169-class diagnosis that motivated T3 is fully covered, since that rejection is a conclusive response.",
+        "recorded_in": "reports/agent-runs/2026-07-hedge-order-truth-v1/00-task.md §T3 Scope decision",
+        "gate_consequence": "review-1's round-2 REWORK was judged against T3 as written. With T3 narrowed, the same code must be re-judged — the validator requires review_1 verdict == ACCEPT for pre-accept and AGENTS.md does not admit a class-2 exception waiving that, so the only harness-legal route is a re-review against the amended criteria, not a waiver."
+      }
+    },
+    "T4": {
+      "severity": "P2",
+      "title": "51169's cause is FOUND — NOM is above Binance's platform-wide Maximum Collateral Limit",
+      "status": "root_cause_established_paid_experiment_cancelled",
+      "resolved_at": "2026-07-28T14:43:00+08:00",
+      "root_cause": "Binance enforces a platform-wide, per-asset Maximum Collateral Limit shared across ALL users, explicitly covering Portfolio Margin. Above 100% utilisation, buying or transferring that asset into a margin account is blocked with no exceptions. NOM is above 100%: the user's Binance app reports a maximum transfer-in/buy quantity of 0. The collateral capacity available for additional NOM is therefore zero, which is literally what MARGIN_TRADE_COEFF_INSUFFICIENT describes.",
+      "how_it_was_found": "The user attempted a NOM transfer-in and a NOM buy by hand in the Binance app on 2026-07-28 and reported the refusal message verbatim; the bookkeeper then confirmed the mechanism against Binance's official FAQ.",
+      "user_observed_message_verbatim": "代币NOM已达平台抵押金额上限。最大入/买入数量为0。请调低数量或使用其他代币重试。",
+      "also_explains": "The 2026-07-27 asymmetry — the UM perpetual SELL needs no NOM collateral and filled; the margin BUY needs it and was blocked.",
+      "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/02-collateral-cap-finding.md",
+      "sources": [
+        "https://www.binance.com/en/support/faq/detail/dca77ef963294b368b5ebad0affeda09",
+        "https://www.binance.com/en/support/faq/binance-portfolio-margin-mode-transfer-in-limits-position-limits-leverage-supported-collateral-and-rates-937b8e81d03f475c8d7a0d42ec381510"
+      ],
+      "paid_discriminator_cancelled": {
+        "at": "2026-07-28T14:43:00+08:00",
+        "by": "bookkeeper",
+        "why": "Its interpretation was pre-registered as 'same 51169 => coefficient or wallet placement, not contention'. That branch is already reached, and the app reports a maximum buy quantity of 0, so the order would spend real money to confirm a known answer. No user authorization is needed to NOT place an order; running it anyway remains the user's call.",
+        "consequence": "This stage now places NO order at all."
+      },
+      "remaining_work_read_only": [
+        "Recon whether any API surface exposes the per-asset collateral cap or its current utilisation. Two official FAQ pages name none; that is not proof of absence in the API. Public documentation reads and signed GET reads only. Raw evidence under reports/api-samples/2026-07-hedge-order-truth-v1/.",
+        "The preflight decision follows the recon: endpoint exists -> design a real gate against it; no endpoint -> the preflight cannot see this constraint and must not pretend to, and handling belongs entirely to T2. 'Deliberately not changed, and here is why' is a complete T4 outcome."
+      ],
+      "ruled_out": [
+        "NOMUSDT not margin-tradable — falsified by public exchangeInfo (isMarginTradingAllowed: true)",
+        "a PAPI test-order endpoint as a remedy — none exists; official trade docs checked"
+      ],
+      "no_longer_needed": "The concurrency-contention hypothesis. Not strictly disproven, but unnecessary: the cap explanation predicts the identical failure with zero concurrency.",
+      "time_varying": "The cap is consumed by all users' margin holdings, so an asset blocked today can clear later and vice versa. Nothing may cache it as a static property of a coin.",
+      "product_followup_out_of_scope": "Any coin above its collateral cap is structurally un-hedgeable in the forward direction while the cap holds, and there is no documented way to know before trying. Surfacing that on the opportunity table, or remembering it per-coin with an expiry, is a product question beyond this stage."
+    },
+    "T5": {
+      "severity": "P1",
+      "title": "The live exposure record is timestamped 1970",
+      "found_by": "bookkeeper, at intake, while grounding 00-intake.md against the production database",
+      "in_the_proposal": false,
+      "anchors": [
+        "backend/hedge_open_tasks/service.py:1688 — live path passes a hardcoded literal 0 as ts_us",
+        "backend/hedge_open_tasks/domain.py:882-910 — build_leg_exposure renders it via us_to_iso",
+        "backend/hedge_open_tasks/executor.py:342 — the dry-run path passes the real ctx.ts_us, which is why no offline test catches it"
+      ],
+      "live_proof": "hedge_open_task a1d0a9ac: leg_exposure = {\"leg\":\"perp\",\"qty\":\"10000\",\"price\":null,\"ts\":\"1970-01-01T00:00:00.000000Z\"}",
+      "why_in_scope": "Same defect class as T1 and T2 — a fabricated value standing in for information the system had — and it is currently corrupting the durable record of a real outstanding naked position.",
+      "price_null_is_downstream_of_T1": "leg_exposure.price = null follows from the removed avgPrice; the design must confirm T1's fix restores it rather than patching the exposure document separately."
+    }
+  },
+  "live_surface_state_at_intake": {
+    "service_running": true,
+    "service_pid": 96409,
+    "service_mode": "live",
+    "service_uptime_at_capture": "9h31m",
+    "start_gate": 1,
+    "start_gate_version": 4,
+    "task_rows": "5 — 3 paused KORUUSDT cards (never dispatched), 2 done (COOKIEUSDT, NOMUSDT)",
+    "outstanding_position": "real naked SHORT 10000 NOMUSDT, orderId 888412130, unhedged; no close function exists (third stage of the programme)",
+    "user_decision": "The user was offered closing the gate and stopping the service before this stage opened and chose to leave both as they are. The risk is theirs and is not a defect.",
+    "binding_constraint": "No agent working this stage may create a task card, press Start, place an order, touch credentials, start/stop the service, or write to data/hedge-open-tasks.sqlite3. Read-only database access for evidence is permitted. T4's discriminator is the sole exception and requires separate user authorization.",
+    "note": "APP_HEDGE_EXECUTOR=live, the durable Start gate, and any real order remain separate human authorizations. This stage grants none of them.",
+    "captured_at": "2026-07-28T07:26:35+08:00",
+    "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md"
+  },
+  "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+  "head_sha": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6",
+  "diff_fingerprint": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6:05d0233047696ff966c3fa6d682f96c8cf9bd3a0df08f59882a4f06b1b97fef2",
+  "coverage_waypoints": [
+    "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
+    "33715ae2bcb4fef427f340780155dc4e4c316e28",
+    "c06c92140a371b3dc577cf7b509f27b61e4a7948",
+    "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
+    "2712fbaed284d777708a9f74ecb3b1cabe22d155",
+    "95ac1a549c640f7ff01cf7773e577228ffc663e8",
+    "34ad0ca47f1f802030a694a798e8bb49ef8b55c6"
+  ],
+  "changed_files": [
+    "backend/hedge_open_tasks/domain.py",
+    "backend/hedge_open_tasks/service.py",
+    "backend/hedge_open_tasks/store.py",
+    "backend/services/live_hedge_executor.py",
+    "backend/tests/test_hedge_api.py",
+    "backend/tests/test_hedge_domain.py",
+    "backend/tests/test_hedge_executor.py",
+    "backend/tests/test_hedge_service.py",
+    "backend/tests/test_hedge_store.py",
+    "backend/tests/test_hedge_task_local.py",
+    "backend/tests/test_live_hedge_executor.py",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/00-intake.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/00-task.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/02-collateral-cap-finding.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design-and-breakdown.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/10-design.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/11-adr.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/12-development-breakdown.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/13-implementation.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/15-user-authorized-codex-review-1.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/16-design-revision.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/17-context-guard-note.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/18-harness-followup-dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/19-r4-reconciliation.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/21-pre-review-validation.txt",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/31-fix-review-1.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/35-fix-review-1-r3.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/37-fix-review-1-r4.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/39-fix-review-1-r5.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/41-fix-review-1-r6.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/42-production-db-write-incident.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/70-handoff.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/status.json",
+    "reports/agent-runs/ACTIVE.json"
+  ],
+  "tests": {
+    "status": "passed",
+    "run_by": "bookkeeper, independently re-run on the fixed tree",
+    "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
+    "commands": [
+      {
+        "cmd": ".venv/bin/python -m pytest backend/tests -q",
+        "result": "1071 passed in 54.41s (baseline 1069 + 2)"
+      },
+      {
+        "cmd": "specified 9-suite run",
+        "result": "326 passed in 20.64s (baseline 324 + 2)"
+      }
+    ]
+  },
+  "review_1": {
+    "reviewer": "codex",
+    "provider": "codex",
+    "model": "GPT-5 Codex",
+    "role": "first_reviewer",
+    "verdict": "REWORK",
+    "json_schema_valid": true,
+    "diff_fingerprint": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6:05d0233047696ff966c3fa6d682f96c8cf9bd3a0df08f59882a4f06b1b97fef2",
+    "fingerprint_matches_status": true,
+    "reviewer_prior_involvement": "none",
+    "open_p0_p1": 1,
+    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/43-review-1-r7.md",
+    "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
+    "recorded_at": "2026-07-29T00:00:00+08:00",
+    "round": 7,
+    "status": "complete_round7_final",
+    "findings_summary": "Round 2, 1 P1 and it is a NEW defect, not a re-report. Round 1 covered the CONCLUSIVE fallback GET; this covers the INCONCLUSIVE query on BOTH paths. classify_query_response builds the raw at live_hedge_executor.py:397 and then discards it on every None return (transport_error/no status, >=500, ambiguous 4xx, malformed 2xx). Neither call site persists it: _send_one_leg falls through to the POST verdict, and drain does `if verdict is None: continue` at service.py:1116. The in-code comment states the intent explicitly — 'a None return is a genuinely inconclusive retry — no verdict, no row' — i.e. persistence was keyed off verdicts, while 00-task.md T3 keys it off READS.",
+    "fix_start_prompt_present": true,
+    "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
+    "bookkeeper_verification": "CONFIRMED against the code. The decisive evidence is live_hedge_executor.py:395-424, where `raw = _raw_response_dict(response)` is built and then dropped on each `return None`. Both call sites verified. This is the third instance of the stage's recurring theme: evidence the system already held was thrown away. The round-2 packet's widened question — a systematic sweep of every exchange round-trip including a query that itself fails or times out — is what surfaced it, so the widening earned its keep.",
+    "severity_assessment": "P1 is right, not P0 — the conclusive-POST, inline-confirm and drain paths all capture correctly, so the gap is one branch; but it is the diagnostically hardest branch, so not P2 either.",
+    "residual_risk_accepted_by_reviewer": "W0's real UM order-detail sample is still not taken. The reviewer judged the NULL representation sufficient to prevent fabricated zeros and declined to block on it. The packet asked for exactly that call; the bookkeeper does not overturn it. W0 carries into review-2.",
+    "round1_verdict": "REWORK",
+    "round2_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.dispatch.md",
+    "round2_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/32-review-1-r2.md",
+    "round2_verdict": "REWORK",
+    "bookkeeper_added_requirement": "Row growth is unaddressed by both the finding and required_fixes, and the fix cannot be written without deciding it. ADR-T4 bounds the raw table by asserting 2-6 rows per attempt, but drain re-queries a non-terminal leg every worker round (service.py:986). If every inconclusive query writes a row, a leg stuck UNKNOWN — exactly this fix's target scenario — produces unbounded rows and falsifies ADR-T4's own bound. The fix must either bound persistence (dedupe / first-N / collapse-with-count) or amend ADR-T4's stated bound. Silently breaking the bound is not acceptable, and neither is dropping the evidence again to preserve it. Added to the fix packet as a disclosed bookkeeper requirement, not presented as the reviewer's words.",
+    "w0_judgement": "The reviewer again declined to block on W0, re-deriving that call this round rather than inheriting it, as the packet required.",
+    "round2_outcome": "REWORK, then the criterion it was judged against was narrowed by the user rather than the code being changed. The finding is NOT withdrawn or disputed — it is recorded as a deferred P1 follow-up. review-1 must re-judge the unchanged code against the amended 00-task.md.",
+    "round3_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.dispatch.md",
+    "round3_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/34-review-1-r3.md",
+    "round3_verdict": "REWORK",
+    "round3_findings_summary": "2 P1, both confirmed against the code. (1) drain's rate-limited branch continues before reaching _persist_leg_raw, so a conclusive 429 verdict's raw is dropped — in scope even after the narrowing, because the narrowed T3 explicitly lists a rate-limit signal among the conclusive verdicts. (2) a malformed 2xx (no usable orderId) returns an UNKNOWN verdict WITH raw rather than None, stays non-terminal, and drain re-queries it every ~1s writing a row each round — unbounded, falsifying ADR-T4's 2-6 rows per attempt.",
+    "round4_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.dispatch.md",
+    "round4_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md",
+    "round4_verdict": "REWORK",
+    "round4_findings_summary": "1 P0, factually confirmed: _quote_decimal keeps a literal \"0\", leg_is_terminal_fill does not cross-check it (no quote check at all for spot; only `is None` for perp), and _leg_final_fields stores any present parseable value as-is — so FILLED + executedQty>0 + quote=\"0\" would persist a zero notional. Declined on SCOPE by the user, not disputed on fact: the trigger requires a self-contradictory exchange response, unlike the 2026-07-14 defect which was a MISSING field coerced to 0.",
+    "round5_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.dispatch.md",
+    "round5_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.md",
+    "round5_verdict": "REWORK",
+    "round5_findings_summary": "2 P1, both confirmed, and both are the two earlier user scope decisions colliding. (1) the M1 migration rewrites FILLED+qty>0+quote='0' to NULL — exactly the cross-field inference the 2026-07-29 T1 decision put out of scope, applied to history. (2) the one-row-per-leg-per-source dedupe drops the decisive order-detail response when an earlier non-decisive poll took the slot — contradicting the T3 text the BOOKKEEPER itself wrote, which names a fill, a confirmed rejection, a confirmed absent order and a rate-limit signal as conclusive verdicts that must be persisted.",
+    "round6_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.dispatch.md",
+    "round6_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
+    "round6_verdict": "REWORK",
+    "round6_findings_summary": "1 P1, confirmed, and the sharpest finding of the six rounds. The store now records an unobtainable notional as NULL, but three projection helpers in service.py (_leg_to_doc, _entry_spot_leg, _entry_perp_leg) read it with `or \"0\"`, so the API serves \"0\" for the notional AND \"0\" for the average price. This is the 2026-07-14 defect one layer up — the same missing-becomes-zero substitution, untouched because the scope was drawn around the executor and the store. It also breaks the frozen wire contract (12-development-breakdown.md:81, cumulative_quote_amt: string|null).",
+    "round7_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/43-review-1-r7.dispatch.md",
+    "round7_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/43-review-1-r7.md",
+    "round7_findings_summary": "Round 7, 1 P1, CONFIRMED: store._exposure_from_legs (store.py:1334-1337) coerces a NULL cumulative_quote_amt through _num (store.py:292-296, None -> Decimal(0)) and computes price=0E+1 for a single-leg fill settled by the deferred-query path. Third layer of the fabricated-zero family (round 4 wire, round 6 API projection, round 7 reconciled-exposure builder). Direct live path (service._dispatch_to_outcome) is correct and untouched.",
+    "round7_bookkeeper_verification": "CONFIRMED by code read: _num(None)==Decimal(0); both call sites (store.py:1212, 1276) are deferred-query reconciliation. Verdict paste was terminal-wrapped; bookkeeper mechanically rejoined wrapped lines and re-validated against schemas/review-verdict.schema.json: VALID. Fingerprint recomputed 2026-07-29 and matches.",
+    "final_disposition": "REWORK stands as the final review-1 verdict. Fix declined by the user on scope (speculative scenario, defer until observed live). No round 8. Stage closed by explicit user acceptance; see user_decision_round7."
+  },
+  "review_2": null,
+  "authorized_exceptions": [],
+  "main_syncs": [],
+  "rework_count": 3,
+  "max_rework": 3,
+  "blockers": [],
+  "human_escalation": {
+    "required": true,
+    "reason": "Round-7 verdict returned next_action=human_escalation_required (rework cap 3/3 exhausted since round 3; the fix_start_prompt itself conditioned execution on explicit human authorization).",
+    "resolved_at": "2026-07-29",
+    "resolved_by": "user",
+    "resolution": "Fix NOT authorized. The user declined the round-7 P1 on scope, terminated review-1 at round 7, and ordered the stage branch merged to main regardless of the verdict. Recorded verbatim in 43-review-1-r7.md and 00-task.md."
+  },
+  "terminal_reason": "user_accepted_with_open_p1: review-1 ended REWORK at round 7 (rework cap 3/3), review-2 not run; the user explicitly accepted the stage and ordered the merge, deferring the confirmed P1 as follow-up p1-deferred-exposure-null-quote-zero-price.",
+  "reporting_preferences": {
+    "execution_footer": {
+      "include_provider_native_session_id": true,
+      "include_session_id_source": true,
+      "include_raw_output_path": true,
+      "unknown_session_id_policy": "write unavailable with reason; never invent",
+      "session_id_is_navigation_only": true
+    }
+  },
+  "carried_followups_from_previous_stage": {
+    "source": "reports/agent-runs/2026-07-hedge-open-live-hardening-v1/status.json.stage_followups",
+    "default": "not in scope",
+    "candidate_for_folding_in": {
+      "id": "p3-preflight-snapshot-key-contract-untested",
+      "why": "Same silent-downgrade shape as T1 and T2: if compute_preflight's spot_min_qty/spot_max_qty/perp_min_qty/perp_max_qty key names drift, the suite stays green while the offline validator silently stops checking step/min/max.",
+      "decision": "FOLDED IN as work item W6 by 12-development-breakdown.md §5 — a pure test-file change with zero product-code diff, asserting that compute_preflight's snapshot keys match what executor._leg_qty_filters reads. The breakdown judged it genuinely cheap and thematically identical."
+    },
+    "staying_deferred": [
+      "p3-api-samples-backslash-prose",
+      "p3-confirm-negative-matrix",
+      "p3-409-dialog-title-unfrozen",
+      "p3-selfcheck-dialog-body-includes"
+    ],
+    "why_deferred": "folding them in would widen a data-truth diff with unrelated cosmetics"
+  },
+  "harness_followups": [
+    {
+      "id": "registry-grok-drift",
+      "carried_from": "2026-07-hedge-open-live-hardening-v1",
+      "detail": "agents/registry.yaml adapters.grok pins grok-build / grok-composer-2.5-fast; `grok models` reports only grok-4.5. Every recorded Grok command in the registry is unusable.",
+      "action": "On main, refresh adapters.grok observed_available_models and all four command forms, and re-verify whether --effort high is still accepted.",
+      "blocking_this_stage": false,
+      "note": "Not blocking here — this stage routes no work to Grok."
+    },
+    {
+      "id": "registry-review-1-pool-exhausted",
+      "found_at": "2026-07-28",
+      "found_by": "bookkeeper, while routing this stage's Review-1",
+      "detail": "agents/registry.yaml review_1_cross_review_pool is [kimi, claude_glm]. Kimi's quota has not recovered since 2026-07-27, and claude_glm is the default backend implementer — so for any backend stage the registered pool is structurally empty and every stage must reach outside it under an explicit user enablement. That has now happened twice running (grok last stage, codex this stage).",
+      "action": "On main, decide whether the registered pool should be widened (codex/claude/grok as standing Review-1 members with recorded constraints) rather than requiring a per-stage user waiver each time.",
+      "blocking_this_stage": false
+    },
+    {
+      "id": "dispatch-reading-scope-and-budget",
+      "found_at": "2026-07-28",
+      "found_by": "bookkeeper, after the implementation session reached ~65% of a 1M context before implementing",
+      "detail": "Implementation packets in this harness list whole files under 必读 and give no line ranges. That was tolerable when the modules were small; backend/hedge_open_tasks/service.py is now 1753 lines and store.py 1784. This stage's full reading corpus is ~546 KB / ~160k tokens. Measured split of the incident: the packet's unscoped reading list accounts for roughly that 160k; the remaining ~490k of the observed 650k is the session re-reading whole files and dumping searches into context, which no harness rule causes.",
+      "key_finding": "AGENTS.md's raw-artifact requirement binds REVIEWERS only ('Reviewers are read-only. They must inspect raw artifacts'). It says nothing about how implementers must read. Whole-file 必読 lists in implementation packets are therefore a convention we adopted, not a contract requirement — so narrowing them needs no contract amendment. And even for reviewers the rule bans SUMMARIES REPLACING artifacts, not narrower pointers: 'service.py:1600-1700' is still a raw artifact.",
+      "proposed_actions": [
+        "Implementation packets cite anchors/line ranges for localized work instead of bare file paths, and name whole files only where the task genuinely spans them.",
+        "Packets state an expected reading budget and instruct the session to report if it is blowing past it, rather than discovering it at 65%.",
+        "For a task whose corpus exceeds a threshold, split along the breakdown's own work-item boundaries by default, one session per group, with a bookkeeper checkpoint commit between them.",
+        "Keep the anti-summarization rule intact — narrow the pointer, never substitute a bookkeeper narrative."
+      ],
+      "blocking_this_stage": false,
+      "note": "Second harness gap found this stage; the first is registry-review-1-pool-exhausted. Both land on main, not on this stage branch.",
+      "dispatched": {
+        "at": "2026-07-28T19:15:00+08:00",
+        "by": "user decision",
+        "executor": "codex, write-capable, fresh session",
+        "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/18-harness-followup-dispatch.md",
+        "branch": "from main ecc3841, merged back to main; NEVER into the live stage branch",
+        "review": "waived by the user",
+        "scope_limited_to": "guidance only — AGENTS.md bookkeeper packet-authoring section and agents/developer-discipline.md reading discipline, plus optionally docs/harness-design.md. No Hard Gate, no schemas, no validator, no workflows, no registry, so nothing can fail closed and no reviewer-binding rule moves under a reviewer's feet.",
+        "codex_eligibility": "registry's codex_eligible_for_implementation_or_fix: false and AGENTS.md's 'Codex is not an implementation or fix author' both scope to STAGE DELIVERY authorship. This is harness documentation on main outside any stage, so neither bars it.",
+        "isolation_constraint": "Codex is this stage's Review-1 AND Review-2 gate. If this branch reached stage/2026-07-hedge-order-truth-v1, Codex would review a diff containing its own text. The branch must not be merged into the stage branch, and main must not be merged into the stage branch while this change is on it."
+      },
+      "resolved": true,
+      "resolved_at": "2026-07-28T20:33:26+08:00",
+      "resolution": {
+        "commit": "1bcc7c2f3c0e90d059208f7a746e776b3647c41a",
+        "branch": "harness/dispatch-reading-scope-and-budget",
+        "merged_to": "main (main is now 1bcc7c2, one commit ahead of this stage's base ecc3841)",
+        "review": "waived by the user, as dispatched",
+        "executor": "codex",
+        "files": [
+          "AGENTS.md +20 — a '#### Dispatch Packet Guidance (Non-Hard-Gate)' subsection",
+          "agents/developer-discipline.md +16 — a '## 5. Reading Discipline' section"
+        ],
+        "bookkeeper_verification": "Verified independently: the commit is on main and harness/dispatch-reading-scope-and-budget and is NOT an ancestor of stage/2026-07-hedge-order-truth-v1, so the stage branch and its pinned review range are untouched and Codex-as-reviewer never sees its own authored text. Only the two intended files changed; no schema, validator, workflow, registry or reports path was touched, so nothing can fail closed.",
+        "content_check": "Holds the load-bearing points: it is explicitly non-hard-gate; it states it does not change the reviewer raw-artifacts rule nor the ban on giving reviewers only a bookkeeper narrative; it carries the 'narrow raw pointers are not summaries' clause that stops the raw-artifact rule being cited against scoping; it splits the two causes the way the evidence did (packet scoping vs the session's own reading discipline); and it makes the split threshold an operational guideline rather than a numeric gate.",
+        "stage_impact": "None. This stage does not need the new behaviour, so main is deliberately NOT merged into the stage branch (AGENTS.md). The eventual stage->main merge touches different files and needs no rebase."
+      }
+    },
+    {
+      "id": "bookkeeper-add-all-during-live-implementer",
+      "found_at": "2026-07-28",
+      "found_by": "bookkeeper, during R4 reconciliation",
+      "detail": "The bookkeeper used `git add -A` for routine stage bookkeeping while an implementer session was live in the same worktree, and silently committed 1700+ lines of delivery code inside three docs commits. Nothing in the harness warns against this: the implementer is told not to commit, but the bookkeeper is never told that `git add -A` is unsafe while an implementer is running.",
+      "proposed_actions": [
+        "Bookkeeper evidence commits use explicit pathspecs (e.g. `git add reports/agent-runs/<stage>/`), never `git add -A`, whenever an implementer session may be live.",
+        "Before any bookkeeping commit during implementation, check `git status` for delivery-file modifications and either exclude them or make them a deliberate, separately-messaged evidence commit.",
+        "Consider stating in AGENTS.md that stage bookkeeping and delivery code never share a commit."
+      ],
+      "blocking_this_stage": false,
+      "note": "Third harness gap this stage, after registry-review-1-pool-exhausted and dispatch-reading-scope-and-budget."
+    },
+    {
+      "id": "harness-production-db-write-guard",
+      "found_at": "2026-07-29",
+      "found_by": "bookkeeper, after the migration ran against the production database",
+      "detail": "Every packet forbade writing to data/hedge-open-tasks.sqlite3, but the prohibition is instruction-only and nothing mechanically prevented it. Constructing a HedgeOpenStore against that path runs _migrate() as a side effect, so a single stray construction in a test or a manual check mutates production.",
+      "proposed_actions": [
+        "Refuse to run migrations when the resolved database path is inside data/ unless an explicit environment flag is set.",
+        "Make R4 reconciliation's production-database check diff actual rows against the intake snapshot, never `git status` on a gitignored path."
+      ],
+      "blocking_this_stage": false,
+      "note": "Fourth harness gap this stage, after registry-review-1-pool-exhausted, dispatch-reading-scope-and-budget and bookkeeper-add-all-during-live-implementer."
+    }
+  ],
+  "stage_followups": [
+    {
+      "id": "p3-collateral-cap-band-smaller-size",
+      "found_at": "2026-07-28",
+      "source": "10-design.md §2(d), created by the design revision",
+      "detail": "Between 90% and 100% of an asset's collateral cap a smaller order can still succeed (capped at 50,000 USD equivalent). This stage deliberately builds no shrink-and-retry mechanism because the utilisation figure is unreadable today, so any retry size would be a guess. Actionable ONLY if T4's recon finds utilisation readable.",
+      "severity": "P3",
+      "blocking": false,
+      "guarded_by": "the design also forbids the system from claiming quantity is irrelevant, so the absence of the mechanism does not become a false statement"
+    },
+    {
+      "id": "collateral-cap-unhedgeable-coins",
+      "found_at": "2026-07-28",
+      "source": "T4 root cause (02-collateral-cap-finding.md)",
+      "detail": "Any coin above its platform-wide Maximum Collateral Limit is structurally un-hedgeable in the forward direction while the cap holds, because the forward direction requires buying the coin into the margin wallet. There is no documented way to know this before trying. Surfacing it on the opportunity table, or remembering it per-coin with an expiry, is a product question.",
+      "severity": "product",
+      "blocking": false,
+      "why_not_here": "Out of this stage's scope (data truth, not opportunity selection), and it depends on T4's recon answer about whether the cap is readable at all."
+    },
+    {
+      "id": "p1-inconclusive-query-raw-not-persisted",
+      "found_at": "2026-07-28",
+      "source": "review-1 round 2 (codex), deferred by user scope decision",
+      "severity": "P1",
+      "detail": "classify_query_response (live_hedge_executor.py:395-424) builds the sanitized raw and discards it on every None return — transport error / missing status, >=500, ambiguous 4xx, malformed 2xx. _send_one_leg falls through to the POST verdict and drain does 'if verdict is None: continue' (service.py:1116), so an order-detail query that failed to answer leaves no trace. Fixing it must also settle raw-table row growth: ADR-T4 bounds the table at 2-6 rows per attempt, but drain re-queries a non-terminal leg every worker round, so persisting every inconclusive query needs a bound (dedupe / first-N / collapse-with-count) or an ADR amendment.",
+      "restart_material": "The reviewer's own fix_start_prompt is preserved verbatim in 32-review-1-r2.md, so this can be restarted without re-deriving it.",
+      "blocking": false,
+      "why_deferred": "User scope decision 2026-07-28: get live hedging running first, solve edge cases as real scenarios produce them."
+    },
+    {
+      "id": "doc-failure-brake-state-machine",
+      "found_at": "2026-07-29",
+      "source": "user question about the 3-failure brake",
+      "detail": "The failure-brake state machine is implemented and correct but documented nowhere as a whole: cumulative vs consecutive counters, single_leg counting toward the brake, threshold -> paused (resumable) vs fatal -> stopped (immediate, uncounted) vs 429 -> paused (uncounted). It is currently reconstructable only from code comments and amendment records.",
+      "severity": "P3",
+      "blocking": false
+    },
+    {
+      "id": "p0-contradictory-zero-notional-not-detected",
+      "found_at": "2026-07-29",
+      "source": "review-1 round 4 (codex), declined on scope by the user",
+      "severity": "P0",
+      "detail": "A FILLED leg reporting a positive executedQty together with a literal 0 cumulative quote is stored as 0 and settles terminal. Chain: _quote_decimal keeps a literal \"0\"; leg_is_terminal_fill does not cross-check it (no quote check for spot, only `is None` for perp); _leg_final_fields stores any present parseable value as-is. The reviewer's recommendation was to treat positive-qty-with-zero-notional as unknown — NULL and non-terminal so the existing query-drain re-reads it.",
+      "restart_material": "The reviewer's findings[0] and required_fixes are preserved verbatim in 36-review-1-r4.md.",
+      "blocking": false,
+      "why_deferred": "Never observed; requires a self-contradictory exchange response, unlike the 2026-07-14 defect which was a missing field. User decision 2026-07-29: store what the exchange returns and investigate a real occurrence when it happens."
+    },
+    {
+      "id": "p3-flaky-oversized-body-test",
+      "found_at": "2026-07-29",
+      "source": "review-1 round 5",
+      "detail": "backend/tests/test_hedge_api.py::test_oversized_body_is_body_too_large failed once with ConnectionResetError during the reviewer's run and passed on isolated re-run. The bookkeeper's two independent full-suite runs on the same tree were green. Suspected flakiness in the test's HTTP client teardown rather than a product defect.",
+      "severity": "P3",
+      "blocking": false
+    },
+    {
+      "id": "p1-deferred-exposure-null-quote-zero-price",
+      "found_at": "2026-07-29",
+      "source": "review-1 round 7 (codex), declined by user scope decision (00-task.md T1 §Scope decision 2026-07-29)",
+      "severity": "P1",
+      "blocking": false,
+      "detail": "store._exposure_from_legs (store.py:1334-1337) passes cumulative_quote_amt through _num, so NULL becomes Decimal(0) and a single-leg fill settled via the deferred-query path persists leg_exposure.price='0E+1' instead of None; task_to_doc returns it to the API as-is. The direct live path (service._dispatch_to_outcome) correctly keeps avg_price=None. Fix shape (from the round-7 verdict): NULL quote -> price=None without calling _num; genuine '0' keeps zero-price semantics; regression = prepare_attempt -> resolve_leg_from_query(FILLED, base>0, quote=None) + other leg REJECTED -> finalize_attempt asserts price is None. The ready-to-send fix prompt is preserved in 43-review-1-r7.md fix_start_prompt.",
+      "why_deferred": "User judged the scenario speculative until observed live and ended the stage at the 3/3 rework cap rather than fund another round on the same defect family."
+    }
+  ],
+  "next_action": "None. Stage closed 2026-07-29: bookkeeping committed on the stage branch, then merged to local main by explicit user order (not pushed).",
+  "updated_at": "2026-07-29",
+  "r4_diff_reconciliation": {
+    "performed_by": "bookkeeper",
+    "at": "2026-07-28T19:50:00+08:00",
+    "verdict": "PASS",
+    "artifact": "reports/agent-runs/2026-07-hedge-order-truth-v1/19-r4-reconciliation.md",
+    "summary": "All nine checks planned in 17-context-guard-note.md BEFORE the evidence arrived passed: zero forbidden paths touched, the frozen Chinese copy is byte-identical to 10-design §2(d) and asserted verbatim, 51169 maps to collateral_cap with insufficient_margin off its path, the rollup priority is exactly fatal>auth>collateral_cap>insufficient_funds>unclassified>absent, no path can store a fabricated \"0\" (FILL_FIGURES_SOURCE is an explicit per-product table and the old literal-\"0\"-means-absent check is gone), the T5 regression genuinely drives service._dispatch_to_outcome and asserts the ts is not the epoch, the negative-code matrix exists, the production database is substantively unchanged, and the implementer neither committed nor touched status/handoff.",
+    "independent_test_rerun": "bookkeeper re-ran .venv/bin/python -m pytest backend/tests -q on the delivered tree: 1061 passed in 50.47s, matching the report",
+    "bookkeeper_error_found": "see status.bookkeeper_commit_contamination"
+  },
+  "bookkeeper_commit_contamination": {
+    "severity": "process error by the bookkeeper, no effect on delivered code",
+    "what": "Three bookkeeping commits (5aceca9 +179/-42, 8bd03e8 +869/-73, ca3cf1f +687/-60 plus 20-implementation.md and 60-test-output.txt) swept up the implementer's in-progress delivery code, because the bookkeeper ran `git add -A` while a Claude-GLM session was concurrently writing to the same worktree.",
+    "whose_error": "the bookkeeper's. The implementer's report states 未 commit and that is true — it never committed.",
+    "it_explains_the_implementer_finding": "The report's headline finding — that W1/W2/W3 predated the baseline and this stage only did W4+W5+W6 — is WRONG, but the observation behind it was correct and correctly escalated: diffing against HEAD, the implementer really did see its own earlier work already committed, under a docs message. Verified false at the baseline: ecc3841's domain.py has all-negative tables and no collateral_cap, and service.py passes a hardcoded 0 to build_leg_exposure. Those were the defects.",
+    "not_affected": [
+      "delivered code is complete — git status clean, HEAD's tree is the implementer's final state",
+      "diff_fingerprint is computed over base..head so intermediate slicing is irrelevant",
+      "AGENTS.md requires reviewers to use the pinned base..head range, never a moving HEAD, so they see the full delivery diff"
+    ],
+    "damaged": "history readability and honesty — three commit messages describe bookkeeping and silently carry hedge implementation",
+    "decision": "History is NOT rewritten: it would invalidate shas already recorded in status.json and cited in later commit messages, and the harness treats committed state as evidence. 19-r4-reconciliation.md §Errata is the correction of record, and both review packets must carry it.",
+    "t2c_list_reconstructed_by_bookkeeper": "The report omits the required T2(c) verdict-change list on the same false premise. Reconstructed from the range diff: 51169 (margin) goes from unlisted/non-fatal-counter/NULL category to collateral_cap -> task-local pause with pause_reason=collateral_cap_full — STRICTER, and the only verdict change. Every negative code is unchanged, locked by test_classify_negative_codes_keep_verdict_on_both_products. Separately, an unmatched business code now records error_category='unclassified' instead of NULL; control flow is identical, so this is a recorded-value change, not a verdict change."
+  },
+  "pre_review_gate": {
+    "phase": "pre-review",
+    "result": "PASSED",
+    "at": "2026-07-28T21:50:00+08:00",
+    "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/21-pre-review-validation.txt",
+    "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
+    "first_attempt_failed": "The gate first FAILED closed on two bookkeeper errors and was fixed before passing: (1) the archived verdict omitted fix_start_prompt, which the schema conditionally requires on REWORK and which AGENTS.md forbids the bookkeeper from removing — restored verbatim with an errata note; (2) 30-review-1.dispatch.md had no R9 DISPATCH RECEIPT block — sealed. Recorded because the gate catching a bookkeeper error is exactly what it exists for."
+  },
+  "previous_range_round1": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
+    "diff_fingerprint": "5de9ef394b02df1036341cbac832cfc4f6c72ee3:8259b7cc6266e5a9e9d0f85e99f4928980f65e31be9b9457e5481c730d1b03c8",
+    "note": "Round-1 range. review-1 returned REWORK on it (one P1). Void as an acceptance range once the fix moved the diff."
+  },
+  "previous_range_round2": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "33715ae2bcb4fef427f340780155dc4e4c316e28",
+    "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
+    "note": "Round-2 range. review-1 returned REWORK on it (one P1, a new defect). Void as an acceptance range once the fix moves the diff."
+  },
+  "rework_budget_warning": "rework_count is 2 of max 3. A third REWORK hits the limit and routes to human_escalation_required per AGENTS.md. The next fix round should therefore be verified unusually carefully before re-dispatching review-1, and the fix packet must close the whole class (every exchange round-trip leaves a record) rather than only the two paths named in this finding.",
+  "rework_count_note": "rework_count stays at 2. Round 3 involves NO code change — it is a re-review against amended acceptance criteria, not a fix cycle. Incrementing it would misreport the stage as having burned three fix attempts. Recorded explicitly rather than silently not incrementing.",
+  "coverage_waypoints_note": "W0 base; W1 delivery (r1 REWORK); W2 fix (r2 REWORK); W3 T3 narrowed, no code (r3 REWORK); W4 fix (r4 REWORK, P0 declined on scope); W5 T1 narrowed + derivation removed (r5 REWORK); W6 M1 deleted + decisive replace.",
+  "rework_limit_reached": {
+    "at": "2026-07-28T23:20:00+08:00",
+    "count": "3 of max 3",
+    "agents_md_rule": "AGENTS.md: 'Each stage has a finite rework limit. Default: 3.' Hitting it routes to human_escalation_required.",
+    "escalated_to": "user",
+    "user_decision": "authorized the third fix round and specified its approach",
+    "verbatim": "这条畸形 2xx完全是脱裤子放屁的漂移需求，按照我说的只存第一条",
+    "note": "The escalation was resolved in-conversation by the release authority. No further rework round is available without a new explicit user decision.",
+    "rounds_beyond_limit": "Round 4's fix also proceeds past the 3/3 limit on the user's explicit instruction (「写吧」, 2026-07-29), recorded as a further resolution of the same escalation."
+  },
+  "user_scope_decision_round3": {
+    "at": "2026-07-28",
+    "by": "user",
+    "rejected": "The reviewer's recommendation for Finding 2 — change classify_query_response so a malformed 2xx returns None instead of an UNKNOWN verdict. The user called the malformed-2xx special-casing scope drift.",
+    "chosen_instead": "One raw row per leg per source. Before writing, check whether a row already exists for that (attempt_id, leg, source); if it does, skip.",
+    "why_it_is_better_not_merely_obeyed": "The reviewer's version changes BUSINESS CLASSIFICATION semantics inside a data-truth stage, which is riskier than bounding growth in the storage layer. The user's rule leaves every business verdict, the query loop, resend rules and rate-limit handling untouched, and still closes both findings.",
+    "bookkeeper_clarification_disclosed": "SUPERSEDED and withdrawn. The bookkeeper first proposed a content-digest dedupe so a changed response (NEW -> FILLED) would still record. The user rejected it as over-design and was right on both counts: it is a digest plus a UNIQUE index plus a migration plus its own regression test, AND it may not bound anything at all — Binance order-detail bodies carry fields such as updateTime that can differ between polls, so 'identical content' would often be false and the rows would accumulate anyway. The packet now specifies a plain per-leg-per-source existence check, with digests, indexes, migrations and a configurable N all explicitly forbidden.",
+    "recorded_in": "reports/agent-runs/2026-07-hedge-order-truth-v1/35-fix-review-1-r3.dispatch.md §User decision",
+    "accepted_costs": [
+      "The resolving query's raw body is not kept once that leg has an order_query row. The leg row still records the outcome, so business truth is intact; the exchange's verbatim text of the final read is lost.",
+      "A later 429 is not stored if an earlier order_query row already exists for that leg. User's explicit call: 429 就 429，遇到问题我们再分析问题解决问题，不做无谓的猜想适配方案."
+    ]
+  },
+  "drain_blocks_dispatch": {
+    "verified_at": "2026-07-29",
+    "where": "backend/hedge_open_tasks/service.py:1075-1077",
+    "behaviour": "While any leg is non-terminal the worker returns False and re-drains, never reaching the dispatch branch, so the task opens NO further pairs until every leg of the current pair is terminal.",
+    "raised_by": "user, who asked whether the query loop blocks order opening",
+    "assessment": "The user is right that it blocks, and the consequence is larger than the row spam: a leg stuck on a malformed 2xx stalls that task's order opening entirely. But the blocking itself is DELIBERATE and correct — opening another pair while a leg's state is unknown would add exposure blind.",
+    "in_scope": false,
+    "why_not": "It is the frozen safe behaviour. The storage cap fixes the row spam only; it does not and should not change the stall.",
+    "operational_note": "A leg stuck in an unknown state means that task stops opening new pairs until it resolves or the operator intervenes."
+  },
+  "failure_brake_verified": {
+    "asked_by": "user, 2026-07-29",
+    "verified_at": "2026-07-29",
+    "implemented": true,
+    "summary": "Two counters: fail_count is a cumulative statistic that never resets; consecutive_submission_failures is the brake and resets to 0 on any accepted pair. The threshold is failure_pause_threshold, default 3 (D.DEFAULT_FAILURE_PAUSE_THRESHOLD), snapshotted per card so it can be set per task. Both a confirmed double-leg failure AND a single_leg outcome advance the brake (R2-F1: otherwise a card could land exactly one leg every time, spawn naked exposure indefinitely and never brake). Reaching the threshold gives status=paused with pause_reason=consecutive_submission_failure — operator-resumable, not a stop. Separately: a fatal exchange fact goes straight to stopped regardless of the count and deliberately does not touch the counter; a 429 pauses via skip_counters and consumes no failure budget.",
+    "anchors": [
+      "backend/hedge_open_tasks/domain.py:1060-1092 resolve_status_after_attempt",
+      "backend/hedge_open_tasks/store.py:880-955 counter branches",
+      "backend/hedge_open_tasks/domain.py:125 DEFAULT_FAILURE_PAUSE_THRESHOLD = 3"
+    ],
+    "documentation_gap": "This state machine lives only in code comments and amendment records; no single document states it. Recorded as follow-up doc-failure-brake-state-machine."
+  },
+  "previous_range_round3": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "c06c92140a371b3dc577cf7b509f27b61e4a7948",
+    "diff_fingerprint": "c06c92140a371b3dc577cf7b509f27b61e4a7948:4f1e005f72892df4435c64444668a785f382170c7b49e229c3aea23aef3dcaa9",
+    "note": "Round-3 range. review-1 returned REWORK on it (two P1). Void as an acceptance range once the fix moved the diff."
+  },
+  "previous_range_round4": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
+    "diff_fingerprint": "baced322e7871ffdcb2a3ad9208da3d1b5dd2524:3c4d16f387538c9f7f2afdef32b415c5f355a3ae0a255740870252a43abc7a5f",
+    "note": "Round-4 range. review-1 returned REWORK on it (1 P0, declined on scope). Void once the fix moved the diff."
+  },
+  "bookkeeper_error_t3_contradiction": {
+    "at": "2026-07-29",
+    "found_by": "review-1 round 5",
+    "what": "When narrowing T3 the bookkeeper wrote into 00-task.md that an order-detail read must be persisted 'whenever that read produces a conclusive verdict — a fill, a confirmed rejection, a confirmed absent order, or a rate-limit signal'. It then wrote the round-3 fix packet specifying one row per leg per source, first wins, which drops exactly those responses when an earlier non-conclusive poll took the slot.",
+    "mitigating": "The bookkeeper did warn the user that a literal first-only rule would discard the resolving response, and the user chose it anyway.",
+    "not_mitigating": "The bookkeeper failed to notice the rule contradicted the T3 text it had itself written days earlier. The reviewer caught a contradiction the bookkeeper created.",
+    "resolution": "Round-5 fix makes the code match the criteria (decisive replaces non-decisive, still one row), so 00-task.md needs no further change."
+  },
+  "user_decision_round5": {
+    "at": "2026-07-29",
+    "by": "user",
+    "finding_1": "Delete M1 outright. Do not rewrite history on a cross-field guess; leg 6 keeps its 0 and 01-live-record-evidence.md carries the background.",
+    "finding_2": "Keep the one-row-per-leg-per-source bound, but let a DECISIVE response atomically replace an earlier non-decisive order_query row.",
+    "critical_constraint_added_by_user": "Do NOT let every later response overwrite. An explicit `decisive` flag must be passed and replacement happens only for the four verdict types T3 names — otherwise a later NEW would overwrite an earlier FILLED, the same bug with the sign reversed. The bookkeeper extended this to: a decisive row is never replaced, so first decisive wins and the record cannot churn.",
+    "named_regressions": [
+      "NEW/PARTIALLY_FILLED then FILLED",
+      "non-decisive then 404/-2013",
+      "non-decisive then 429"
+    ],
+    "flaky_test": "The reviewer's ConnectionResetError on test_oversized_body_is_body_too_large is to be recorded as a flaky-test note in the evidence, not fixed or silenced; full suites re-run after the fix."
+  },
+  "adr_t6_partially_superseded": "11-adr.md ADR-T6 specifies M1 as part of the historical-data migration. Deleting M1 supersedes that half; M2 stands. Like the earlier design/task conflicts the ADR is not rewritten — 00-task.md governs — and this is recorded so a reviewer does not file it as a finding.",
+  "previous_range_round5": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "2712fbaed284d777708a9f74ecb3b1cabe22d155",
+    "diff_fingerprint": "2712fbaed284d777708a9f74ecb3b1cabe22d155:6f33425af859e34c2b7793d5d08f163deddb506823aeb0d00c016c43a110b6a4",
+    "note": "Round-5 range. review-1 returned REWORK (two P1). Void once the fix moved the diff."
+  },
+  "round6_note": {
+    "not_a_scope_collision": "Rounds 3 and 5 were driven by criteria moving under already-written text. Round 6 is a genuine, previously-unexamined instance of exactly the defect class the stage exists to eliminate. The reviewer earned this one.",
+    "why_it_matters_more_than_its_size": "The database being right is invisible; the operator looks at the screen, and the screen shows a fabricated 0 for both the notional and the average price — the position table's average price being precisely the figure this stage was opened to make trustworthy.",
+    "user_decision": "The user's first instinct was to skip it, reasoning that a 0 on screen can be investigated when it appears — sound, and newly possible because T3 puts the exchange's own response in hedge_open_raw_response. The bookkeeper supplied one fact that changed the calculus: narrowing the criteria would itself cost another review-1 round, exactly as fixing does, so the two paths cost the same and the fix is about six lines more. On that basis the user chose to fix it.",
+    "task_md_unchanged": "The code moves to meet the criteria, as in round 5. 00-task.md is not touched."
+  },
+  "production_db_write_incident": {
+    "found_at": "2026-07-29",
+    "found_by": "bookkeeper, while verifying the round-6 fix",
+    "missed_at": "R4 reconciliation check #8",
+    "what": "store._migrate() ran against data/hedge-open-tasks.sqlite3 at 2026-07-28 18:51:42 CST, applying M1 and M2. It wrote its own audit events (hedge_open_log id 5 and 6), which is how this was found.",
+    "cause": "Something constructed a HedgeOpenStore against that path with the new code; constructing one runs _migrate(). The running service PID 96409 is NOT the cause — up since 2026-07-27 21:50, still holding old code. The exact invocation is unrecoverable; the window coincides with the first implementation session.",
+    "full_diff_vs_intake": {
+      "leg_6_cumulative_quote_amt": "'0' -> NULL (M1)",
+      "task_a1d0a9ac_leg_exposure_ts": "1970-01-01T00:00:00.000000Z -> 2026-07-27T14:14:29.799447Z (M2)",
+      "everything_else": "unchanged — 5 tasks, 4 legs, 0 raw rows, start_gate=1, version=4, no order placed, no card created, gate untouched"
+    },
+    "data_assessment": "Both values are now MORE correct. M2 stands on its own merits (still in the code, timestamp matches the live run). M1's repair is orphaned — M1 was deleted in round 6 and the user's round-5 decision forbade rewriting history on a cross-field guess — but it is substantively right: leg 6's '0' was NEVER the exchange's word. Binance removed cumQuote on 2026-07-14 and the old _decimal_str(None) coerced the absence into '0'. Under the settled verbatim-only rule, NULL is the correct value for that row.",
+    "recommendation": "Leave it NULL. Restoring '0' would put a known fabrication back into the record. The audit event preserves before='0' if ever revisited.",
+    "bookkeeper_verification_failure": "R4 check #8 was 'production database unchanged'. It was discharged by looking at `git status data/` — a gitignored path that can never show anything — and at the settings row, which the migration does not touch. The bookkeeper DID observe the mtime move to 18:51 and concluded it was the running service: an assumption presented as a verification. The intake snapshot needed for a real comparison was already on disk in 01-live-record-evidence.md and was not used.",
+    "no_backup_available": "The two hedge-open-tasks.sqlite3.bak-* files predate the live run and contain no leg rows, so a restore was never possible. The audit event is the only record of the prior value, and it exists only because the migration was designed to write one.",
+    "forward_risk": "None from current code: M1 is gone and M2 is idempotent. When PID 96409 restarts it will add the decisive column additively and find nothing to repair.",
+    "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/42-production-db-write-incident.md",
+    "disclosure": "Carried into the round-7 review packet and the review-2 packet; the user is informed before acceptance.",
+    "user_decision": {
+      "at": "2026-07-29",
+      "by": "user",
+      "decision": "leg 6 stays NULL — do not restore the '0'.",
+      "rationale": "The '0' was the old defect's output, never the exchange's word, so NULL is the truthful value under the settled verbatim-only rule. The audit event preserves before='0' if ever revisited."
+    }
+  },
+  "previous_range_round6": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
+    "diff_fingerprint": "95ac1a549c640f7ff01cf7773e577228ffc663e8:1ea0690a232325b25ce2ed02c24a85aa825378d1ac60e7f478b65df5ce56455b",
+    "note": "Round-6 range. review-1 returned REWORK (1 P1). Void once the fix moved the diff."
+  },
+  "user_decision_round7": {
+    "at": "2026-07-29",
+    "by": "user",
+    "decision": "Decline the round-7 P1 (deferred-query single-leg exposure writes price=0 for NULL quote). Defer until the scenario is actually observed live. Close the stage and merge to main regardless of the review outcome.",
+    "user_words": "这个小问题感觉非常无所谓，不如等以后遇到了再解决，不需要在一个臆想场景不断的浪费 token",
+    "gate_disclosure": "review_1 final verdict is REWORK and review_2 was never dispatched, so validate-stage.py --phase accept cannot PASS. AGENTS.md RC4 v1 admits no class-2 authorized exception (waiving verdict==ACCEPT), so none is recorded. The merge is by explicit user acceptance over the harness gate — the non-green gate is preserved in evidence, not painted green. Precedent: stage 1 review-2 user waiver."
+  }
+}
