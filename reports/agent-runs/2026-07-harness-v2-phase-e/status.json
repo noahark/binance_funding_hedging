@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 11,
+  "revision": 12,
   "stage_id": "2026-07-harness-v2-phase-e",
   "bookkeeper": "codex",
   "phase": "implementation",
-  "checkpoint": "task2-cn-protocol-correction-dispatched",
+  "checkpoint": "task2-result-authority-dedup-dispatched",
   "base_sha": "0cbd523f285fb2974189f2d329a3ff7f236167b2",
   "delivery_sha": null,
-  "ledger_sha": "f3df8eab76e88fb0dbbca492ad6abb40e82c035d",
+  "ledger_sha": "685e69bd8c88875180a4459022ae087138eac7ec",
   "current_task": {
-    "id": "phase-e-task2-cn-protocol-correction",
+    "id": "phase-e-task2-result-authority-dedup",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/62-phase-e-task2-cn-protocol-correction-glm.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/63-phase-e-task2-result-authority-dedup-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-claude-glm-task2-cn-protocol-correction"
+    "action": "start-prepared-claude-glm-task2-result-authority-dedup"
   },
   "rework_count": 0,
   "blockers": []
