@@ -929,6 +929,18 @@
       ],
       "blocking_this_stage": false,
       "note": "Third harness gap this stage, after registry-review-1-pool-exhausted and dispatch-reading-scope-and-budget."
+    },
+    {
+      "id": "harness-production-db-write-guard",
+      "found_at": "2026-07-29",
+      "found_by": "bookkeeper, after the migration ran against the production database",
+      "detail": "Every packet forbade writing to data/hedge-open-tasks.sqlite3, but the prohibition is instruction-only and nothing mechanically prevented it. Constructing a HedgeOpenStore against that path runs _migrate() as a side effect, so a single stray construction in a test or a manual check mutates production.",
+      "proposed_actions": [
+        "Refuse to run migrations when the resolved database path is inside data/ unless an explicit environment flag is set.",
+        "Make R4 reconciliation's production-database check diff actual rows against the intake snapshot, never `git status` on a gitignored path."
+      ],
+      "blocking_this_stage": false,
+      "note": "Fourth harness gap this stage, after registry-review-1-pool-exhausted, dispatch-reading-scope-and-budget and bookkeeper-add-all-during-live-implementer."
     }
   ],
   "stage_followups": [
@@ -988,7 +1000,7 @@
     }
   ],
   "next_action": "Human operator runs 41-fix-review-1-r6.dispatch.md in a FRESH write-capable Claude-GLM session. Three `or \"0\"` fallbacks deleted plus tests. Then: bookkeeper verifies, re-pins, re-runs pre-review, dispatches review-1 round 7.",
-  "updated_at": "2026-07-29T03:40:00+08:00",
+  "updated_at": "2026-07-29T13:00:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -1125,5 +1137,24 @@
     "why_it_matters_more_than_its_size": "The database being right is invisible; the operator looks at the screen, and the screen shows a fabricated 0 for both the notional and the average price — the position table's average price being precisely the figure this stage was opened to make trustworthy.",
     "user_decision": "The user's first instinct was to skip it, reasoning that a 0 on screen can be investigated when it appears — sound, and newly possible because T3 puts the exchange's own response in hedge_open_raw_response. The bookkeeper supplied one fact that changed the calculus: narrowing the criteria would itself cost another review-1 round, exactly as fixing does, so the two paths cost the same and the fix is about six lines more. On that basis the user chose to fix it.",
     "task_md_unchanged": "The code moves to meet the criteria, as in round 5. 00-task.md is not touched."
+  },
+  "production_db_write_incident": {
+    "found_at": "2026-07-29",
+    "found_by": "bookkeeper, while verifying the round-6 fix",
+    "missed_at": "R4 reconciliation check #8",
+    "what": "store._migrate() ran against data/hedge-open-tasks.sqlite3 at 2026-07-28 18:51:42 CST, applying M1 and M2. It wrote its own audit events (hedge_open_log id 5 and 6), which is how this was found.",
+    "cause": "Something constructed a HedgeOpenStore against that path with the new code; constructing one runs _migrate(). The running service PID 96409 is NOT the cause — up since 2026-07-27 21:50, still holding old code. The exact invocation is unrecoverable; the window coincides with the first implementation session.",
+    "full_diff_vs_intake": {
+      "leg_6_cumulative_quote_amt": "'0' -> NULL (M1)",
+      "task_a1d0a9ac_leg_exposure_ts": "1970-01-01T00:00:00.000000Z -> 2026-07-27T14:14:29.799447Z (M2)",
+      "everything_else": "unchanged — 5 tasks, 4 legs, 0 raw rows, start_gate=1, version=4, no order placed, no card created, gate untouched"
+    },
+    "data_assessment": "Both values are now MORE correct. M2 stands on its own merits (still in the code, timestamp matches the live run). M1's repair is orphaned — M1 was deleted in round 6 and the user's round-5 decision forbade rewriting history on a cross-field guess — but it is substantively right: leg 6's '0' was NEVER the exchange's word. Binance removed cumQuote on 2026-07-14 and the old _decimal_str(None) coerced the absence into '0'. Under the settled verbatim-only rule, NULL is the correct value for that row.",
+    "recommendation": "Leave it NULL. Restoring '0' would put a known fabrication back into the record. The audit event preserves before='0' if ever revisited.",
+    "bookkeeper_verification_failure": "R4 check #8 was 'production database unchanged'. It was discharged by looking at `git status data/` — a gitignored path that can never show anything — and at the settings row, which the migration does not touch. The bookkeeper DID observe the mtime move to 18:51 and concluded it was the running service: an assumption presented as a verification. The intake snapshot needed for a real comparison was already on disk in 01-live-record-evidence.md and was not used.",
+    "no_backup_available": "The two hedge-open-tasks.sqlite3.bak-* files predate the live run and contain no leg rows, so a restore was never possible. The audit event is the only record of the prior value, and it exists only because the migration was designed to write one.",
+    "forward_risk": "None from current code: M1 is gone and M2 is idempotent. When PID 96409 restarts it will add the decisive column additively and find nothing to repair.",
+    "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/42-production-db-write-incident.md",
+    "disclosure": "Carried into the round-7 review packet and the review-2 packet; the user is informed before acceptance."
   }
 }

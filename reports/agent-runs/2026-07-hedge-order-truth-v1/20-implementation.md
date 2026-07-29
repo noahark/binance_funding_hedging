@@ -489,3 +489,121 @@ Session ID 来源: unavailable
 下一步模型: bookkeeper
 下一步任务: 核验、重算指纹、重跑 pre-review，然后重派 review-1
 ```
+
+---
+
+## Round 6 fix — review-1 r6 P1：API 投影层不再把 NULL 伪造为零
+
+`41-fix-review-1-r6.dispatch.md` 的修复执行记录。本阶段最小的修复：删掉三个
+`or "0"` fallback；其余全是测试。
+
+### 缺陷（review-1 r6，P1）
+
+`backend/hedge_open_tasks/service.py` 的三个投影 helper（`_leg_to_doc`、
+`_entry_spot_leg`、`_entry_perp_leg`）都这样读金额：
+
+```python
+base  = D.Decimal(leg.get("cumulative_base_qty") or "0")
+quote = D.Decimal(leg.get("cumulative_quote_amt") or "0")   # NULL -> 0
+avg   = D.fmt_decimal(quote / base) if base > 0 else None    # 0/10000 -> "0"
+```
+
+store 已正确把不可得的 notional 记为 `NULL`，但这三个函数把 `NULL` 读成 `"0"`
+并输出给 API，连带 `avg_price` 也变成 `"0"`。这正是本阶段要消除的「缺失与真实零
+不可区分」缺陷——只是发生在一层之上的投影层（2026-07-14 执行器里的
+`_decimal_str(None) -> "0"` 的同族），因为当初范围圈在 executor 与 store 周围，
+投影层的三处从未被审过。它也违反冻结契约 `12-development-breakdown.md:81`：
+`cumulative_quote_amt: string|null`。
+
+### 改动的三个 call site（均在 `backend/hedge_open_tasks/service.py`）
+
+三处改为同一形态：当 `cumulative_quote_amt` 为 `None`（NULL/缺失）时，投影输出
+JSON `null` 且 `avg_price` 也为 `null`（不除法）；真实 `"0"` 仍走原算术输出 `"0"`。
+
+- `_leg_to_doc`（attempts 投影，§3.4，约 213-231）
+- `_entry_spot_leg`（entries 投影，§5，约 283-305）
+- `_entry_perp_leg`（entries 投影，§5，约 308-326）
+
+统一改法（三处一致）：
+
+```python
+raw_quote = leg.get("cumulative_quote_amt")
+if raw_quote is None:
+    # NULL notional passes through as JSON null, not "0" (review-1 r6); an
+    # unknown notional is also an unknown average price, so do not divide.
+    quote_amt = None
+    avg = None
+else:
+    quote = D.Decimal(raw_quote)
+    quote_amt = D.fmt_decimal(quote)
+    avg = D.fmt_decimal(quote / base) if base > 0 else None
+```
+
+字典里 `"cumulative_quote_amt": D.fmt_decimal(quote)` 改为
+`"cumulative_quote_amt": quote_amt`。
+
+遵守 dispatch 的硬约束：
+
+- `cumulative_base_qty` 的 `or "0"` **未动**（无成交量的腿确实是零 base，不在本
+  finding 范围）。
+- 未恢复任何推算、未加跨字段一致性检查、未改 T1 的「原话或 NULL」语义。
+- 未动 docstring（原描述仍是真命题的充分条件，非错误；保持最小改动）。
+
+### 被更新/翻转的既有测试预期：**无**
+
+全量 1071 条全绿，**没有任何既有测试断言旧的伪 `"0"`**。逐一核对：现有断言要么
+针对**真实** quote（如 `test_hedge_service.py:372` 的 `avg_price == "1"` 来自
+`RecordTransportExecutor` 的真 quote；`test_hedge_task_local.py:622` 的
+`"25000"`、`test_hedge_review2_regressions.py:472` 的 `"15000"`），要么只断言 key
+存在（`test_hedge_api.py:553`），要么是 store 层的真零
+（`test_hedge_store.py:581` 的字面 `"0"`——store 层未触、且本就是真零）。
+NULL 来源腿投影出 `"0"` 的旧行为在此前没有任何测试固化，故无需翻转既有断言。
+
+### 新增测试（`backend/tests/test_hedge_service.py`，服务层、无 HTTP 监听）
+
+通过注入 executor + `post_fill_once` + `get_logs` 走真实投影路径（store 记 NULL
+→ 投影读 NULL → wire），覆盖 attempts（`_leg_to_doc`）与 entries
+（`_entry_spot_leg` / `_entry_perp_leg`）两条路径、spot 与 perp 两条腿：
+
+1. `test_null_notional_projects_null_on_attempts_and_entries`：FILLED 腿、正
+   `cumulative_base_qty`（0.5）、NULL `cumulative_quote_amt` → attempts 与 entries
+   的 spot/perp 均断言 `cumulative_quote_amt is None` **且** `avg_price is None`。
+   （在旧代码下此用例会把 NULL 投成 `"0"` 而失败，故为真守卫。）
+2. `test_real_zero_notional_still_projects_string_zero`：FILLED 腿、正 base、
+   真实 `cumulative_quote="0"` → 断言 `cumulative_quote_amt == "0"` 且
+   `avg_price == "0"`（0/0.5）。这是回归钉：阻止日后「简化」把每个零都改成 null。
+
+两个 executor stub（`_NullQuoteExecutor` / `_RealZeroQuoteExecutor`）仿照文件既有
+的 `_BlockingExecutor`/`_FastExecutor` 模式，直接短路返回 outcome（不经网络、不
+经 `RecordTransportExecutor` 的 quote 计算，以便精确构造 NULL 与真零两种来源）。
+
+### 不变性确认（dispatch 要求确认未触）
+
+- **store 层**：`backend/hedge_open_tasks/store.py` 零改动——持久化层早已正确
+  （NULL=未知、`"0"`=真零），本次只修投影层。
+- **T1（原话语义）**：未触。投影层现在与 store 一致地透传 NULL；不推算、不抹零。
+- **T2 / T3 / T5**：未触（`live_hedge_executor.py` 等锁定文件零 diff）。
+- **wire 契约**：现在真正满足 `cumulative_quote_amt: string|null`。
+
+### 测试证据（`60-test-output.txt`，本轮覆盖）
+
+- 指定套件（dispatch 所列 9 套件）：**326 passed in 20.36s**（基线 324 + 新增 2）。
+- 全仓 `backend/tests`：**1071 passed in 53.76s**（基线 1069 + 新增 2），无
+  failed / error / skip。
+- 已知 flaky `test_hedge_api.py::test_oversized_body_is_body_too_large`：本轮**两
+  次运行均通过**（未触发 `ConnectionResetError`，无需隔离重跑）。
+- 新增 2 条测试已显式单跑确认被收集且通过。
+
+全程离线确定性（临时 SQLite），未发真实 POST、未访问凭据、未动 PID 96409、未写
+生产库 `data/hedge-open-tasks.sqlite3`、**未 commit**（停在 bookkeeper 前）。
+改动文件：`backend/hedge_open_tasks/service.py`、
+`backend/tests/test_hedge_service.py`（均在 dispatch 允许边界内）。
+
+```
+当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md（追加章节）/60-test-output.txt
+本地北京时间: 2026-07-29 13:52:52 CST
+下一步模型: bookkeeper
+下一步任务: 核验、重算指纹、重跑 pre-review，然后重派 review-1
+```
