@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -337,11 +337,13 @@
       "task_id": "backend",
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
-      "status": "dispatch_prepared",
+      "status": "delivered",
       "round": 6,
       "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/41-fix-review-1-r6.dispatch.md",
       "session_note": "fresh session",
-      "scope_note": "Projection layer only. store.py and live_hedge_executor.py are both off-limits this round — the persistence layer is already correct."
+      "scope_note": "Projection layer only. store.py and live_hedge_executor.py are both off-limits this round — the persistence layer is already correct.",
+      "head_sha": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6",
+      "verified_by_bookkeeper": "Confirmed against the code. All three helpers pass NULL through as JSON null and emit a null average instead of dividing; a real '0' still takes the existing arithmetic and still projects as '0'; cumulative_base_qty's own  untouched as instructed. One edge the report did not raise was checked: the old  also absorbed an empty string while  does not — the write paths only ever store a decimal string or NULL and the production rows confirm it, so the narrower guard is safe. No existing test asserted the old behaviour. live_hedge_executor.py and store.py both at zero diff. Independently re-run: 1071 passed, specified suite 326."
     }
   ],
   "reviewer_1": {
@@ -443,10 +445,10 @@
       ],
       "reviewer": "codex",
       "implementation_report_path": "20-implementation.md",
-      "implementation_status": "rework6_dispatched",
+      "implementation_status": "rework6_evidence_committed",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-      "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
-      "diff_fingerprint": "95ac1a549c640f7ff01cf7773e577228ffc663e8:1ea0690a232325b25ce2ed02c24a85aa825378d1ac60e7f478b65df5ce56455b",
+      "head_sha": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6",
+      "diff_fingerprint": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6:05d0233047696ff966c3fa6d682f96c8cf9bd3a0df08f59882a4f06b1b97fef2",
       "test_evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
       "note": "T4 is not in scope for this task: its paid experiment was cancelled and its remaining work is a read-only recon that runs independently and blocks nothing here.",
       "review_1": {
@@ -703,8 +705,8 @@
     "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md"
   },
   "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-  "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
-  "diff_fingerprint": "95ac1a549c640f7ff01cf7773e577228ffc663e8:1ea0690a232325b25ce2ed02c24a85aa825378d1ac60e7f478b65df5ce56455b",
+  "head_sha": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6",
+  "diff_fingerprint": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6:05d0233047696ff966c3fa6d682f96c8cf9bd3a0df08f59882a4f06b1b97fef2",
   "coverage_waypoints": [
     "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
     "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
@@ -712,7 +714,8 @@
     "c06c92140a371b3dc577cf7b509f27b61e4a7948",
     "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
     "2712fbaed284d777708a9f74ecb3b1cabe22d155",
-    "95ac1a549c640f7ff01cf7773e577228ffc663e8"
+    "95ac1a549c640f7ff01cf7773e577228ffc663e8",
+    "34ad0ca47f1f802030a694a798e8bb49ef8b55c6"
   ],
   "changed_files": [
     "backend/hedge_open_tasks/domain.py",
@@ -722,6 +725,7 @@
     "backend/tests/test_hedge_api.py",
     "backend/tests/test_hedge_domain.py",
     "backend/tests/test_hedge_executor.py",
+    "backend/tests/test_hedge_service.py",
     "backend/tests/test_hedge_store.py",
     "backend/tests/test_hedge_task_local.py",
     "backend/tests/test_live_hedge_executor.py",
@@ -755,6 +759,10 @@
     "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.dispatch.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/39-fix-review-1-r5.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/41-fix-review-1-r6.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/42-production-db-write-incident.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/70-handoff.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/status.json",
@@ -767,14 +775,13 @@
     "commands": [
       {
         "cmd": ".venv/bin/python -m pytest backend/tests -q",
-        "result": "1069 passed in 51.90s (baseline 1065 + 4)"
+        "result": "1071 passed in 54.41s (baseline 1069 + 2)"
       },
       {
         "cmd": "specified 9-suite run",
-        "result": "324 passed in 20.11s (baseline 320 + 4)"
+        "result": "326 passed in 20.64s (baseline 324 + 2)"
       }
-    ],
-    "flaky_note": "p3-flaky-oversized-body-test did not trigger in either bookkeeper run this round."
+    ]
   },
   "review_1": {
     "reviewer": "codex",
@@ -820,7 +827,9 @@
     "round6_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.dispatch.md",
     "round6_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
     "round6_verdict": "REWORK",
-    "round6_findings_summary": "1 P1, confirmed, and the sharpest finding of the six rounds. The store now records an unobtainable notional as NULL, but three projection helpers in service.py (_leg_to_doc, _entry_spot_leg, _entry_perp_leg) read it with `or \"0\"`, so the API serves \"0\" for the notional AND \"0\" for the average price. This is the 2026-07-14 defect one layer up — the same missing-becomes-zero substitution, untouched because the scope was drawn around the executor and the store. It also breaks the frozen wire contract (12-development-breakdown.md:81, cumulative_quote_amt: string|null)."
+    "round6_findings_summary": "1 P1, confirmed, and the sharpest finding of the six rounds. The store now records an unobtainable notional as NULL, but three projection helpers in service.py (_leg_to_doc, _entry_spot_leg, _entry_perp_leg) read it with `or \"0\"`, so the API serves \"0\" for the notional AND \"0\" for the average price. This is the 2026-07-14 defect one layer up — the same missing-becomes-zero substitution, untouched because the scope was drawn around the executor and the store. It also breaks the frozen wire contract (12-development-breakdown.md:81, cumulative_quote_amt: string|null).",
+    "round7_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/43-review-1-r7.dispatch.md",
+    "round7_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/43-review-1-r7.md"
   },
   "review_2": null,
   "authorized_exceptions": [],
@@ -999,8 +1008,8 @@
       "blocking": false
     }
   ],
-  "next_action": "Human operator runs 41-fix-review-1-r6.dispatch.md in a FRESH write-capable Claude-GLM session. Three `or \"0\"` fallbacks deleted plus tests. Then: bookkeeper verifies, re-pins, re-runs pre-review, dispatches review-1 round 7.",
-  "updated_at": "2026-07-29T13:00:00+08:00",
+  "next_action": "Human operator runs 43-review-1-r7.dispatch.md in a FRESH read-only Codex session. Round 7.",
+  "updated_at": "2026-07-29T13:20:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -1155,6 +1164,18 @@
     "no_backup_available": "The two hedge-open-tasks.sqlite3.bak-* files predate the live run and contain no leg rows, so a restore was never possible. The audit event is the only record of the prior value, and it exists only because the migration was designed to write one.",
     "forward_risk": "None from current code: M1 is gone and M2 is idempotent. When PID 96409 restarts it will add the decisive column additively and find nothing to repair.",
     "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/42-production-db-write-incident.md",
-    "disclosure": "Carried into the round-7 review packet and the review-2 packet; the user is informed before acceptance."
+    "disclosure": "Carried into the round-7 review packet and the review-2 packet; the user is informed before acceptance.",
+    "user_decision": {
+      "at": "2026-07-29",
+      "by": "user",
+      "decision": "leg 6 stays NULL — do not restore the '0'.",
+      "rationale": "The '0' was the old defect's output, never the exchange's word, so NULL is the truthful value under the settled verbatim-only rule. The audit event preserves before='0' if ever revisited."
+    }
+  },
+  "previous_range_round6": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
+    "diff_fingerprint": "95ac1a549c640f7ff01cf7773e577228ffc663e8:1ea0690a232325b25ce2ed02c24a85aa825378d1ac60e7f478b65df5ce56455b",
+    "note": "Round-6 range. review-1 returned REWORK (1 P1). Void once the fix moved the diff."
   }
 }
