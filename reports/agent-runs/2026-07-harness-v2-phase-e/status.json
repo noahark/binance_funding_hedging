@@ -10,7 +10,7 @@
   "ledger_sha": "0cbd523f285fb2974189f2d329a3ff7f236167b2",
   "current_task": {
     "id": "phase-e-task2-cn-results-and-v1-retirement",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/50-phase-e-task2-glm.dispatch.md"
   },
   "next": {
