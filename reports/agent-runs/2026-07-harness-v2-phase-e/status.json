@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 6,
+  "revision": 7,
   "stage_id": "2026-07-harness-v2-phase-e",
   "bookkeeper": "codex",
-  "phase": "implementation",
-  "checkpoint": "bookkeeper-single-value-dispatched",
+  "phase": "review-1",
+  "checkpoint": "task1-delivery-sealed-review1-dispatched",
   "base_sha": "ecf27fb2ddc12335a3e47c8e62e14f7b018fe511",
-  "delivery_sha": null,
-  "ledger_sha": "75ae97e09319ac2dec317674783874b89d5db64d",
+  "delivery_sha": "ade66ee389e0c865c9cb8a95a805da711eb83ff6",
+  "ledger_sha": "ade66ee389e0c865c9cb8a95a805da711eb83ff6",
   "current_task": {
-    "id": "phase-e-bookkeeper-single-value",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/15-bookkeeper-single-value-glm.dispatch.md"
+    "id": "phase-e-task1-review-1-grok45",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/30-phase-e-task1-grok45-review.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-claude-glm-task"
+    "action": "start-prepared-grok45-review-1"
   },
   "rework_count": 3,
   "blockers": []
