@@ -1,635 +1,154 @@
-# AGENTS.md - AI Project Harness Rules
+# AGENTS.md - Minimal Project Harness
 
-This file is the single startup document for agents working in this repository.
-Read it before making changes, then read the active workflow and stage files.
+This is the single startup guide. Read it before acting, then disclose only files required by the current task.
 
-## Session Bootstrap
+## 1. Project Development Principle
 
-To resume an existing session, locate the active stage in one hop, then stop:
+Ship a usable version quickly and learn from real feedback. Solve problems that exist, have evidence, and have clear acceptance criteria. Do not add abstractions, compatibility layers, or defensive machinery for hypothetical scenarios. Fix a concrete problem with the smallest sufficient change.
 
-1. Read `reports/agent-runs/ACTIVE.json`. It names the active stage, or carries
-   `active: null` when no stage is in flight.
-2. If a stage is active, read that stage's `70-handoff.md` recovery header (the
-   `## Recovery Header` block at the top) and `status.json`. That is enough to
-   resume the common case.
-3. Read the workflow YAML section only for the phase you are about to act on or
-   gate; you need not read the whole workflow just to resume.
+Known live exposure, money risk, open gates, missing close capability, observed model mismatch, proven review gaps, cheap validation, and fail-closed safety still require action.
 
-## Startup Read Budget
+## 2. Harness Design Principle
 
-A new terminal session reads only, in this order:
+Use minimal changes and progressive disclosure. Startup holds only universal rules; role, skill, task, and evidence details are read on demand. Prefer changing an existing authority file. Add a file only for an independent lifecycle, owner, or startup duty.
+
+Before adding structure, identify its maintainer, reader, unique duty, and why an existing authority cannot hold it. If unclear, do not add it.
+
+## 3. Safety Kernel
+
+1. Money, orders, live gates, credentials, destructive data actions, risk-limit changes, deployment, and external side effects require explicit human authorization.
+2. No model may start, call, relay to, assign, or impersonate another model session. The human operator starts the next terminal from a prepared packet.
+3. An implementer may modify only dispatch-approved files. It must not overwrite the human's or another terminal's work; insufficient scope is a blocker.
+4. An implementation or fix author cannot review its own delivery. Formal review uses a fresh read-only session.
+5. Review isolation follows the model vendor, not the CLI wrapper.
+6. Formal review uses the committed `base_sha..delivery_sha` recorded in `status.json`, never moving `HEAD` or an uncommitted worktree.
+7. A review without an explicit, well-formed `ACCEPT` is non-accepting.
+
+## 4. Startup
+
+When the human delivers a task packet, read in this order:
 
 1. `AGENTS.md`;
-2. the active workflow section needed for the next action;
-3. the active stage located through `reports/agent-runs/ACTIVE.json`: its
-   `status.json`, the `70-handoff.md` recovery header, and named
-   `status.current_inputs` needed for that action.
+2. the delivered `<task>.dispatch.md`;
+3. `reports/agent-runs/ACTIVE.json`;
+4. `PROJECT_STATE.md`;
+5. the active stage's `status.json`;
+6. the matching section of `agents/roles.md`;
+7. `agents/developer-discipline.md` for implementation or fix work;
+8. at most one skill named by the dispatch;
+9. only source files and evidence explicitly required for the task.
 
-Do not recursively scan `reports/agent-runs/` or read any `history/` directory
-at startup. Historical artifacts are cold audit evidence and are read only
-when an exact review, audit, or finding reference names them.
+The packet is the session entry; `status.json` verifies it. Stop if stage, task, target model, or revision differs.
 
-## Project State
+Without a packet, read `ACTIVE.json`, `PROJECT_STATE.md`, and active `status.json` when present, then wait. Do not scan `reports/agent-runs/`, completed stages, or `history/`.
 
-Product as built: the repository contains a Binance funding snapshot workstation
-with optional private signed GET enrichment (balances, positions, borrow
-validation, borrow cost, sort basis) and an **optional live Portfolio Margin
-borrow path** (durable SQLite tasks, global Start, `POST /papi/v1/marginLoan`
-when `APP_BORROW_EXECUTOR=live`). Frontend: opportunity table, private account
-panels, borrow tasks/logs.
+| File | Sole responsibility |
+|---|---|
+| `AGENTS.md` | Startup, hard rules, navigation, and default flow |
+| `PROJECT_STATE.md` | Cross-stage live risks, follow-ups, last archive |
+| `ACTIVE.json` | Active stage pointer only |
+| `<stage>/status.json` | Current stage progress and routing |
+| `<task>.dispatch.md` | Current task scope, files, checks, role, model, skill |
+| `agents/roles.md` | Role duties, model routing, provider identity |
+| `agents/developer-discipline.md` | Shared implementation and fix discipline |
+| `agents/skills/*.md` | One task-specific capability, read on demand |
+| `<stage>/evidence/*` | Raw tests, reports, verdicts, and samples |
+| `docs/model-adapters.md` | Human-only terminal startup or CLI diagnosis |
 
-No spot/perp market-order, repay, transfer, or full accounting execution surface
-is implemented yet. Manual hedge execution and broader accounting remain future
-stages. Live-borrow classification and UI ops patches from 2026-07-22 are
-recorded in `docs/planning/CHANGELOG-2026-07-22-live-borrow-ops.md` and
-DEC-2026-07-22-001…003.
+Target at most about 8K tokens for startup and 15K for a loaded task. Required high-risk evidence may exceed the target with a recorded reason; never skip necessary evidence.
 
-Harness as built: multiple manual delivery stages have run, with evidence under
-`reports/agent-runs/`. The Harness contract is currently held at the DRAFT-2
-decision baseline
-(`reports/agent-runs/2026-07-harness-flow-optimization-v1/05-harness-environment-snapshot.md`,
-see DEC-2026-07-10-002).
+## 5. Role Routing
 
-Known open gaps: API naming still uses the historical
-`/api/public-market/snapshot` route and `public-market-snapshot/v1` wire version,
-borrowability semantics still distinguish borrow evidence outside the generic
-`verified` flag, and manual execution is not yet implemented.
+Read only the target role section in `agents/roles.md`.
 
-## Authority Order
+| Task | Role and additional reading |
+|---|---|
+| Requirements, design, breakdown | `Planner` + one named planning skill |
+| Backend, API, schema, data | `Implementer` + discipline + implementation skill |
+| Frontend, UI, client integration | `Implementer` + discipline + implementation skill |
+| Bounded finding repair | `Implementer` + discipline + repair skill |
+| Review-1 | `Reviewer` + `agents/skills/code-reviewer.md` |
+| Review-2 | `Reviewer` + `agents/skills/reality-checker.md` |
+| State verification and next packet | `Stage Recorder` |
 
-When documents conflict, use this order:
+GLM owns backend by default and Kimi frontend. Codex/GPT or Claude normally plans and performs decision review. Full routing and provider identity live only in `agents/roles.md`.
 
-1. `AGENTS.md` - repository-level agent rules and safety gates.
-2. `workflows/templates/*.yaml` - executable workflow contracts.
-3. `docs/parallel-development-mode.md` - optional parallel implementation and
-   embedded cross-review mode contract.
-4. `schemas/*.schema.json` - machine-readable output contracts.
-5. `agents/registry.yaml` - model, adapter, and skill routing.
-6. `docs/model-adapters.md` - local CLI adapter commands and availability
-   checks.
-7. `agents/skills/*.md` - role skill prompts and local overrides.
-8. `agents/developer-discipline.md` - developer execution discipline for
-   implementation and fix work.
-9. `reports/agent-runs/<stage>/` - current stage facts and evidence.
-10. `docs/*.md` - product, architecture, and design notes.
+## 6. Default Delivery Flow
 
-`agents/developer-discipline.md` is subordinate to the hard gates above. It
-should guide developer behavior only when it does not conflict with this file,
-workflow YAML, schemas, registry routing, or stage facts. Root `CLAUDE.md` is
-kept only as a compatibility pointer for Claude Code.
+1. Human and a senior Planner decide the product goal, release boundary, non-goals, and acceptance criteria.
+2. Planner creates bounded backend/frontend tasks only when safely separable.
+3. GLM and/or Kimi implement, self-test, report, and stop.
+4. Stage Recorder verifies results and seals a committed delivery range.
+5. High-risk work receives review-1; justified low-risk work may go directly to one independent final review.
+6. The original implementer fixes an explicit finding with the smallest change.
+7. A model explains effect, problems, and choices in plain Chinese; Human may make a business pre-decision.
+8. An unrelated senior model performs review-2.
+9. After review-2 `ACCEPT`, a model explains the verdict and remaining risk; Human makes the final decision.
+10. Merge, deployment, or live activation requires explicit human authorization.
 
-## Canonical Paths
+Models prepare dispatch packets; only the human operator starts the selected
+model terminal.
 
-Drafts, model outputs, intermediate plans, reviews, and test logs must stay in:
+## 7. Task Result Protocol
 
-```text
-reports/agent-runs/<stage-id>/
-```
-
-Approved project documents must use these paths:
+Every task ends with:
 
 ```text
-docs/product/PRD.md
-docs/architecture/ARCHITECTURE.md
-docs/architecture/ADR/
-docs/development/DEVELOPMENT_GUIDE.md
-docs/planning/ROADMAP.md
-docs/planning/DECISIONS.md
+[TASK_RESULT v2]
+task_id: <id>
+outcome: completed | blocked | failed
+summary: <short result>
+artifacts: [<paths>]
+checks: [<command and pass/fail>]
+blockers: [<none or concrete blockers>]
+[/TASK_RESULT]
 ```
 
-Do not write model drafts directly into canonical docs. Promote synthesized
-content into `docs/` only after user approval.
-
-## Roles
-
-### Orchestrator And Bookkeeper
-
-The orchestrator is an abstract workflow concept: `AGENTS.md`, workflow YAML,
-schemas, and active stage files define the state machine. It is not a specific
-model, terminal, or transcript.
-
-The bookkeeper, also called the stage operator, is the single write authority
-for stage state, evidence commits, review dispatch, and handoff files. The
-default bookkeeper should be an independent local execution session rather than
-one of the implementation terminals. GLM5.2 through Claude Code
-(`claude-glm`) may be assigned as bookkeeper only when the stage explicitly
-records that assignment. If the same session must act as both implementer and
-bookkeeper, disclose it in `status.json` and `70-handoff.md`; review-2 must
-evaluate that dual-hat risk.
-
-The bookkeeper may:
-
-- Read workflow YAML and stage files.
-- Create and update `reports/agent-runs/<stage>/`.
-- Prepare dispatch packets, prompts, routing metadata, and handoff text for
-  implementation, review, and fix models.
-- Collect raw artifacts and verify that required evidence exists.
-- Update `status.json` and `70-handoff.md`.
-- Create local evidence commits before formal review gates.
-
-#### Dispatch Packet Guidance (Non-Hard-Gate)
-
-This is guidance for writing packets, not a new validation gate. It does not
-change the reviewer rule that reviewers "must inspect raw artifacts" or the
-ban on giving reviewers only the bookkeeper's narrative summary.
-It addresses packet-scoping overhead; repeated whole-file reads and oversized
-search output remain the dispatched session's separate reading-discipline duty.
-
-- For localized work, point to raw-artifact anchors: `path:from-to` or a named
-  function/section. List a whole file only when the task genuinely spans it.
-- State an expected reading budget (approximate tokens or the combined KB of
-  the cited ranges). A dispatched session that is materially over budget stops
-  to report to the bookkeeper before continuing.
-- When a task's corpus is large, normally split it along the development
-  breakdown's work-item boundaries into separate sessions with bookkeeper
-  checkpoints. This is an operational guideline, not a numeric hard threshold.
-- Narrow raw pointers are not summaries: they preserve the relevant source
-  evidence. The existing prohibition on replacing raw artifacts with a
-  bookkeeper narrative remains unchanged.
-
-The bookkeeper must not:
-
-- Execute model-dispatch commands or invoke implementation/review/fix model
-  terminals.
-- Declare final acceptance.
-- Hide, summarize, or rewrite implementation evidence before review.
-- Feed reviewers only its own narrative summary.
-- Record credentials, tokens, cookies, private keys, or full environment dumps.
-
-No model session — regardless of provider — may invoke, launch, or relay to
-**another** model session or adapter command (including `claude-glm -p`,
-`kimi -p`, `codex exec`, or `grok ...`) for a **formal** implementation, fix,
-embedded review, review-1, or review-2 role. A formal cross-model dispatch
-starts only when the human operator directly opens the selected target-model
-session and sends it the prepared dispatch packet. This may be an interactive
-CLI session; a separate one-shot adapter command is an option, not a
-requirement. Once the human has directly put the packet into that target
-session, the target session is authorized to execute its own packet and use its
-role-permitted tools. That is not a relay or a second model launch.
-
-The human operator may explicitly authorize a yolo/bypass CLI mode to make the
-target session usable. Permission mode never expands the task's authority:
-implementation/fix work remains limited to its file boundary, and a reviewer
-remains behaviorally read-only (no writes, commits, credential access, network
-side effects, or live actions) even if its CLI was opened with yolo/bypass.
-The operator records the interactive launch method or actual adapter command
-and the resulting raw output or receipt under the stage evidence path. A
-model's claim to have launched another model is never formal dispatch evidence.
-
-Narrow implementation-research exception: an implementation or fix prompt may
-explicitly permit a runtime-built-in, same-provider **local read-only research
-subagent** (for example Plan/Explore). It may only inspect the active task's
-listed repository files and return internal notes to its parent session. It may
-not write files, run write-capable commands, access credentials or networks,
-invoke an adapter/terminal, spawn another subagent, perform a formal review,
-produce a verdict, or become evidence. The parent remains the sole code author,
-test runner, report author, and accountable execution session. This exception
-does not apply to reviewers, bookkeepers, direction panels, or any formal
-cross-provider/model dispatch. The prompt and stage evidence must record the
-opt-in and the maximum number of local research subagents; absent that explicit
-opt-in, the default prohibition remains in force.
-
-### Human Operator Boundaries
-
-The human operator supplies product decisions, authorization, external
-configuration, and model-terminal execution. Do not ask the human operator to
-manually edit business source code, canonical product documents, or stage
-evidence: the assigned model or bookkeeper performs those repository writes and
-records the human's decision.
-
-The exception is local security configuration that only the human should
-operate, such as entering or rotating API keys, secrets, permissions, and
-environment settings. Agents must never request, read, print, or store the
-secret value itself. They may explain the required configuration by name and
-verify safe non-secret state only when the user authorizes it.
-
-### Communication With The Human
-
-When explaining a product, review, risk, or implementation issue to the human,
-lead with plain Chinese and the practical effect. On first use, translate every
-English technical term, abbreviation, status, or scenario in parentheses; for
-example, `single_leg`（只成交了一条腿）and `REWORK`（需要返工）. Do not make the
-human infer meaning from raw English identifiers, framework rules, or code
-paths. Keep process detail secondary to the business decision and the next
-useful action.
-
-### Designers
-
-Before a milestone direction or requirement set is frozen, the bookkeeper must
-run the registered direction panel for that round. The panel is declared in the
-workflow/registry or in the approved stage intake before drafting starts.
-When a registry panel key is derived from a stage id, replace hyphens with
-underscores; for example, `2026-07-initial-direction` maps to
-`2026_07_initial_direction`. The active panel key must be recorded in
-`00-intake.md` or `status.json` before synthesis.
-
-Each registered direction model writes one independent draft to:
+A review task also returns:
 
 ```text
-reports/agent-runs/<stage-id>/direction-drafts/<model-id>.md
+verdict: ACCEPT | REWORK
+findings_path: <path | none>
+fix_requirements_path: <path | none>
 ```
 
-If a registered model is unavailable or quota-exhausted, the stage must record
-`direction-drafts/<model-id>.unavailable.md` with the reason. Drafts preserve
-source model identity and must not be replaced by bookkeeper summaries.
+`outcome: completed` means the review ran; only `verdict: ACCEPT` passes. `REWORK` requires findings and executable repair requirements. Missing or ambiguous verdict data is non-accepting.
 
-The configured direction synthesizer, normally GPT/Codex, reads the raw draft
-files and produces `06-direction-synthesis.md` for user review. The synthesizer
-may be one of the panel models, but its synthesis is not a substitute for a
-missing independent draft unless the user explicitly approves that shortcut.
-Development does not begin until the user approves or edits the synthesis.
+The v2 `status.json` fields are exactly: `schema_version`, `revision`, `stage_id`, `phase`, `checkpoint`, `base_sha`, `delivery_sha`, `ledger_sha`, `current_task`, `next`, `rework_count`, and `blockers`.
 
-After user approval, the stage designer creates the next stage scope, file
-boundaries, non-goals, acceptance criteria, and test strategy.
+An implementer may move only its own task from `dispatched` or `running` to `reported`. Stage Recorder is the only other normal `status.json` writer and alone may verify results, set `next`, or record a gate result. Reviewers are read-only; Human transfers their raw result to Stage Recorder.
 
-For `MEDIUM`, `HIGH`, and `MILESTONE` stages, a development breakdown author
-then narrows implementation boundaries before coding starts. The default
-breakdown author is Claude provider, using Fable5 first and Opus4.8 after
-Fable5 quota exhaustion, unless the registry or user selects another model. The
-breakdown must record owner split, allowed files, forbidden files, API/data
-contracts, test evidence, risk points, and review focus. This is design
-involvement for review-2 disclosure purposes.
+Write a verified live incident to `PROJECT_STATE.md` immediately. Never present repository history as a current runtime check.
 
-### Implementers
+## 8. Review Rules
 
-Implementers are domain-routed by default: Claude-GLM owns backend, API
-contract, schema, normalization, external-sample, and data-semantics work; Kimi
-owns frontend, UI, client integration, and frontend test work. Codex/GPT is not
-an implementation or fix author in this Harness.
+- Orders, positions, borrowing, repayment, transfer, money/PnL meaning, accounting, live gates, risk limits, credentials, and controlling contracts are high-risk and require review-1 plus review-2.
+- A low-risk documentation or mechanical change may use one independent final review only when its dispatch records why.
+- Review-1 checks code, contracts, tests, and seams. Review-2 checks the requirement, actual effect, evidence, operational risk, and release readiness.
+- Reviewers inspect raw artifacts and fixed `base_sha..delivery_sha`, not only a summary.
+- Provider isolation and model selection follow `agents/roles.md`.
+- Review-1 `REWORK` returns to review-1 after repair and retest.
+- A narrow review-2 finding returns directly to review-2 after repair, retest, and a new commit.
+- A review-2 repair that expands files, changes a contract, or adds risk must pass review-1 again.
+- Maximum rework count is three; beyond it Human chooses to narrow, redesign, accept a limitation, or stop.
 
-For mixed tasks, route by dominant workload. If backend work is the large
-majority and frontend work is light integration or display wiring, the whole
-bounded task may be dispatched to Claude-GLM. If frontend work is the large
-majority and backend work is light endpoint or schema glue, the whole bounded
-task may be dispatched to Kimi. If backend and frontend work are both
-substantial and separable, split implementation by domain owner. Grok or another
-explicitly registered model may write code only when the user or stage
-explicitly enables it. Implementers may write code only within the active task
-scope and file boundary.
+## 9. Stage Completion
 
-An implementer's closing duty is exactly: run the task's self-tests, generate
-the task diff patch when the stage requires one, write the implementation
-report, and stop for the bookkeeper. Implementers never invoke, launch, or
-relay a formal model session; the only exception is an explicitly permitted
-local read-only research subagent under the rule above. Cross-model review is
-dispatched only by the human operator from bookkeeper-prepared dispatch files.
+Before closing a stage, Stage Recorder:
 
-The generic workflow actor pool is only an eligibility list. Stage-specific
-owner and exclusion rules in `status.json.model_routing` must be applied before
-dispatch. A model excluded from current-stage core work must not receive
-implementation or fix tasks unless the user explicitly re-enables it.
+1. promotes durable product or architecture decisions to canonical documents;
+2. moves unresolved live risks and follow-ups to `PROJECT_STATE.md`;
+3. records the last completed stage and Git archive reference;
+4. preserves full evidence under a tag or archive branch;
+5. removes the completed stage directory from the normal worktree;
+6. sets `ACTIVE.json` to `{"active": null}`.
 
-### Reviewers
+Audit a completed stage only in a separate worktree from its exact archive. Review `ACCEPT` does not merge, deploy, activate live behavior, or replace final human acceptance.
 
-Review-1 uses a cross-review pool with the `code_reviewer` skill. If the
-implementer is `claude_glm`, review-1 uses Kimi. If the implementer is Kimi,
-review-1 uses Claude-GLM. For any other implementer, the bookkeeper chooses the
-first available reviewer from the registered cross-review pool that does not
-share provider identity with the implementer. Review-2 is the final gate and
-uses GPT/Codex first, then Claude when GPT/Codex is unavailable,
-quota-exhausted, or when the workflow's strong-reviewer override is required.
-If both decision models are unavailable and no override path is valid, the
-workflow stops with `decision_models_exhausted`.
+## 10. Human Boundary And Communication
 
-A reviewer must not be the implementer or fix author of the reviewed code. This
-is a hard ban with no disclosure override. A stage's final reviewer should
-preferably differ from its designer, direction synthesizer, or development
-breakdown author. Codex/GPT and Claude provider may perform final review despite
-prior design involvement only through the strong-reviewer disclosure override
-defined below; Claude uses Fable5 first and Opus4.8 after Fable5 quota
-exhaustion under the same Anthropic provider identity. Reviewers are read-only.
-They must inspect raw artifacts:
+Human does not review code or technical documents and does not manually edit code, documents, stage evidence, or state. Models perform implementation, modification, testing, technical review, and progress recording. Human reads model-terminal output and decides requirements, priority, risk authorization, business acceptance, merge, deployment, and live operation.
 
-- Workflow YAML and `00-task.md`.
-- `10-design.md`, `11-adr.md`, and `06-direction-synthesis.md` when present.
-- The actual git diff or patch.
-- Test output in `60-test-output.txt`.
-- Implementation and fix reports.
-- Relevant source files.
+When Human input is required, use plain Chinese and state: what happened, practical effect, recommended choice, and alternatives. Translate English terms, abbreviations, and statuses on first use. Do not hand raw diffs, JSON, code, or technical-review work to Human.
 
-Self-review identity is checked at two granularities:
-
-- `review-1` uses provider-level cross-review isolation. It must not share
-  provider identity, session state, prompt transcript, or tool state with the
-  implementer of the reviewed task.
-- `review-2` uses provider-level isolation from all implementation and fix
-  authors. The final reviewer must not share the provider identity of any model
-  that wrote delivery code in the reviewed stage.
-- `review-2` prefers provider-level isolation from the designer, direction
-  synthesizer, and development breakdown author. If no unrelated decision model
-  is available after a runner-level check, Codex/GPT or Claude provider may
-  review with a recorded design-involvement disclosure. Claude uses Fable5 first
-  and Opus4.8 after Fable5 quota exhaustion under the same Anthropic provider
-  identity.
-
-Provider identity means model vendor, not CLI wrapper. `claude_glm` is
-`zhipu_glm`, not Anthropic, even though it is accessed through Claude Code.
-
-Strong-reviewer disclosure override:
-
-- It applies only to prior direction synthesis, development breakdown, or stage
-  design involvement. It never applies to implementation or fix authorship.
-- It is allowed only after the unrelated decision model fails a runner-level
-  availability check for quota, authentication, service, timeout, or repeated
-  invalid verdict output. The failure evidence path must be recorded.
-- The review verdict must include `reviewer_prior_involvement` and the stage
-  status must record the fallback reason and evidence file.
-- The review-2 prompt must treat the user's approved direction synthesis, PRD,
-  and product documents as the top-level requirements. The design and breakdown
-  artifacts are reviewed evidence, not the highest authority.
-- `scripts/validate-stage.py` must fail acceptance if these disclosure fields or
-  evidence paths are missing.
-
-Reviewer output must end with a strict JSON verdict matching
-`schemas/review-verdict.schema.json`. If the JSON is missing or invalid, the
-review attempt is non-accepting and must route to retry, fallback, fix, or one
-of the allowed terminal stop reasons.
-
-Every reviewer dispatch prompt must begin with the fixed anti-relay preamble
-(the `[HARNESS-EXECUTOR-CONTRACT v1]` marker line, defined in
-`docs/parallel-development-mode.md`). A reviewer that invokes, launches, or
-relays to another model session inside its review session invalidates that
-review attempt.
-
-If a reviewer returns `REWORK`, the verdict JSON must include
-`fix_start_prompt`: a ready-to-send repair prompt for the fix implementer. The
-prompt must preserve raw artifact paths, findings, required fixes, file
-boundaries, exact test commands, and acceptance criteria. The bookkeeper may add
-mechanical routing metadata, but must not hide or rewrite reviewer evidence when
-dispatching the fix.
-
-## Hard Gates
-
-- Git is required. No git repository means no diff fingerprint and no review.
-- Review gates require a committed repository state. The bookkeeper is
-  authorized to create local stage commits before review; this does not imply
-  user approval to push, merge, deploy, or mark the stage accepted.
-- New delivery stages use a stage branch named `stage/<stage-id>` unless the
-  stage intake records an explicit user-approved exception. The bookkeeper
-  creates the branch at H_intake, and all stage commits before user acceptance
-  stay on that branch.
-- `review-2 ACCEPT` moves the stage only to `stage_accepted_waiting_user`; it
-  does not authorize merging the stage branch to `main`. Merge or fast-forward
-  back to `main` requires explicit user acceptance after review.
-- `base_sha`, `head_sha`, and `diff_fingerprint` are anchored to commits on
-  the active stage branch. Review prompts must use the status-recorded
-  `<base_sha>..<head_sha>` range, never a moving `HEAD`.
-- Diff fingerprint is defined as a single committed-state scheme:
-  `head_sha + ":" + sha256(git diff --binary <base_sha>..<head_sha> -- . ":(exclude)reports/agent-runs/<stage-id>/status.json")`.
-  `status.json` is excluded because it records the fingerprint and would
-  otherwise be self-referential. Do not invent alternate fingerprint fields or
-  worktree fingerprint protocols.
-- Model claims are not evidence. Evidence is raw diff, test output, artifacts,
-  schema-valid verdicts, and committed repository state. Uncommitted state is
-  allowed only for in-progress checkpoints before a review gate.
-- A contract amendment that modifies a previously frozen contract must carry
-  raw public samples that ground the change, landed under
-  `reports/api-samples/<stage>/`. Synthetic fixtures may supplement coverage
-  but never replace fact evidence. A stage that amends a contract from
-  synthetic fixtures alone must record the missing live sample as a follow-up
-  and re-enter review when the live sample is added.
-- Before dispatching `review-1`, dispatching `review-2`, or writing an accepted
-  terminal state, run `scripts/validate-stage.py <stage-id> --phase <phase>` and
-  preserve the output in the stage evidence.
-- Before entering implementation for a parallel development stage, run
-  `scripts/validate-stage.py <stage-id> --phase dispatch-ready` and preserve the
-  output in the stage evidence. This gate checks the R10 checklist, task prompt
-  paths, embedded pre-review prompt paths, cross-review routing, and failure
-  escalation branches before any implementer starts coding.
-- Unknown status values, unknown fingerprint protocols, or bookkeeper/model-invented
-  state machine transitions fail closed and route to `human_escalation_required`
-  unless the Harness schema, docs, and validator are updated first.
-- Final reviewer should differ from the stage designer, direction synthesizer,
-  or breakdown author. Codex/GPT and Claude provider may use the documented
-  strong-reviewer disclosure override when no unrelated decision model is
-  available; Claude uses Fable5 first and Opus4.8 after Fable5 quota exhaustion.
-- Reviewer must not be the implementer or fix author of the reviewed task. This
-  has no override.
-- Reviewer input must be raw artifacts and file paths, not only bookkeeper
-  summaries.
-- Invalid verdict JSON fails closed as non-accepting evidence. It cannot pass a
-  gate and must route to retry, fallback, fix, or an allowed terminal stop
-  reason.
-- Failing tests do not enter final review unless the task is explicitly to
-  document or triage the failure.
-- Each stage has a finite rework limit. Default: 3.
-- Product meaning, domain assumptions, external side effects, destructive data
-  actions, credentials, public deployment, and risk limit changes require human
-  approval.
-- Codex review nodes use a custom prompt with strict JSON verdict output. A
-  native read-only sandbox is preferred when it supports the needed inspection
-  tools; a human may instead directly open an interactive Codex session with
-  explicitly authorized yolo/bypass permissions, but the review itself remains
-  behaviorally read-only. Do not rely on `codex review` for schema-constrained
-  verdicts.
-- Model dispatch preparation must use `docs/model-adapters.md` and
-  `agents/registry.yaml`. No model session of any provider may execute a
-  dispatch to another model; the human operator directly opens the target model
-  terminal and sends it the prepared packet. The resulting target session may
-  execute that packet itself. A bookkeeper or implementation session lacking a
-  built-in tool for a model is not sufficient to mark that model unavailable;
-  the runner-level adapter check must fail.
-- Review-2 fallback or strong-reviewer override is allowed only for quota,
-  authentication, service availability, timeout, repeated invalid verdict JSON,
-  or design-conflict ineligibility of the preferred unrelated reviewer. Do not
-  ask Claude for a second opinion after a valid GPT/Codex verdict.
-- Review-1 uses the configured cross-review pool. Grok is not a default review
-  gate and must not be substituted into review-1 unless the user explicitly
-  enables it for the stage.
-- Stages using `docs/parallel-development-mode.md` must follow that document's
-  R1-R10 rules (v0.5 semantics). In particular, implementation task prompts
-  must include the R10 dispatch tail (self-test commands, exact artifact
-  paths, and the stop-for-bookkeeper instruction), and the bookkeeper must
-  perform R4 diff reconciliation before creating H_A/H_B evidence commits.
-  R10 checklist data belongs in `status.json` task metadata or dispatch
-  RECEIPT metadata, not inside immutable PROMPT BODY text.
-- All cross-model dispatch executions are human-operator-executed. Stage data
-  recording `next_dispatch_executor: self` (or any model) for a cross-model
-  dispatch fails closed.
-- Harness/template sync lands on `main` only and must not be mixed into an
-  active stage branch unless that stage needs the new Harness behavior. If
-  `main` is merged into a stage branch by exception, record the reason, rerun
-  tests and validator, recompute fingerprints, and re-enter or mechanically
-  rebind review gates as the changed diff requires. Rebase is forbidden.
-- Pre-accept authorized exceptions (RC4): a review whose `diff_fingerprint`
-  legitimately trails `status.diff_fingerprint` may be downgraded to
-  PASS-with-exception ONLY by a compliant `status.authorized_exceptions[]`
-  record. The admissible `assertion_id` whitelist is source-enumerated in
-  `scripts/validate-stage.py` (`AUTHORIZED_EXCEPTION_ASSERTION_IDS`); stage
-  data may REFERENCE an exception class but cannot DEFINE one. Each record
-  requires `authorizer == "user"` (literal), a non-empty `reason`, a parseable
-  ISO-8601 `at`, `applies_to_fingerprint == status.diff_fingerprint` (the waiver
-  is pinned to one diff and auto-expires the next time the fingerprint changes),
-  and a repo-relative git-tracked `evidence_file` sealed by `evidence_sha256`
-  (the sha256 of its committed blob): the validator reads the committed content,
-  rejects absolute/outside/untracked paths and any digest mismatch. v1 admits
-  only class-1 `review_fingerprint_trails_status`; class-2 (waiving
-  `verdict == ACCEPT`) is NOT admitted. Anti-self-grant is two layers, not a
-  proof: the literal + pin + committed+sealed evidence make a forged waiver
-  non-silent (it must be committed into reviewed history and surfaced in the
-  banner), but code cannot prove the evidence text came from a human — the
-  final guarantee is mandatory human verification of the evidence verbatim
-  before release (the banner is the trigger), a workflow obligation the
-  validator cannot mechanically enforce. Release is never silent: on PASS the
-  validator prints
-  `PASS (N authorized exceptions applied: <id>@<scope>, …)`.
-- Authorized exceptions can NEVER waive the negative list, even with a record
-  present: (1) `status.diff_fingerprint` recomputes consistently, (2) clean
-  worktree, (3) reviewer identity separation, (4) an exception record's own
-  `evidence_file` being a committed, digest-sealed repo-relative file, (5) an
-  exception record's own structural integrity (fields, authorizer,
-  `assertion_id`, fingerprint pin, `reason`, `at`). The exemption mechanism
-  cannot exempt itself; any malformed record fails closed and invalidates every
-  exception.
-
-## Standard Stage Delivery
-
-The intended stage delivery flow is:
-
-1. After user requirement discussion, classify the work as `LOW`, `MEDIUM`,
-   `HIGH`, or `MILESTONE`.
-2. Collect independent direction drafts from the registered direction panel for
-   the current round when a milestone direction or requirement set is being
-   frozen. Each available panel member must produce a raw draft, or the run must
-   record an explicit unavailable/quota note for that model.
-3. Have the configured direction synthesizer, normally GPT/Codex, synthesize the
-   raw drafts into a final direction and requirements document for user review.
-4. Wait for user approval before development starts.
-5. Bookkeeper creates and records `stage/<stage-id>` at H_intake before stage
-   commits begin.
-6. Design stage scope and acceptance criteria.
-7. Run development detail breakdown for `MEDIUM`, `HIGH`, or `MILESTONE`
-   stages.
-8. Split implementation tasks.
-9. For parallel development stages, validate dispatch completeness with
-   `scripts/validate-stage.py <stage-id> --phase dispatch-ready` before
-   launching implementers.
-10. Implement the bounded task.
-11. Run deterministic tests, lint, type checks, or replay checks.
-12. For parallel development stages, run embedded cross-review checkpoints from
-   `docs/parallel-development-mode.md` before the formal review gate; these
-   checkpoints do not replace committed-state review-1.
-13. Commit the bounded stage artifacts locally on the stage branch, compute the
-   standard
-   `diff_fingerprint`, run `scripts/validate-stage.py <stage-id> --phase
-   pre-review`, then review raw artifacts.
-14. If review returns `REWORK`, use the reviewer-provided `fix_start_prompt`
-   to launch the fix task.
-15. Repeat only within the bounded stage until `review-2 ACCEPT`, then stop at
-   `stage_accepted_waiting_user`. Merge back to `main` only after explicit user
-   acceptance.
-
-Lightweight bugfixes or mechanical follow-up tasks may skip the direction panel
-when the user explicitly approves that shortcut or an existing synthesis already
-covers the task.
-
-Complexity routing:
-
-- `LOW`: skip direction panel only when covered by an existing synthesis or user
-  approval; otherwise ask the user to confirm the lightweight route.
-- `MEDIUM`: skip direction panel when covered by an existing synthesis or user
-  approval; proceed to stage design.
-- `HIGH`: run direction panel by default, unless the user explicitly narrows the
-  task and accepts a lightweight route.
-- `MILESTONE`: always run the registered direction panel and configured
-  synthesis.
-
-## Terminal Stop Reasons
-
-The workflow may stop only for these terminal reasons:
-
-1. Both decision models, GPT/Codex and Claude, are quota-exhausted or otherwise
-   unavailable, so no decision or final review can continue.
-2. All development models are quota-exhausted or otherwise unavailable, so no
-   implementation or fix task can continue.
-3. The stage task passes review, enters `stage_accepted_waiting_user`, and then
-   waits for explicit user acceptance before any merge to `main`.
-4. Human escalation is required because the workflow hit a non-automatable
-   product decision, missing evidence that models cannot collect, repeated
-   invalid verdict output, or the rework limit.
-
-Other failures, including invalid JSON, failed tests, missing artifacts, or a
-single model failure, are routed to retry, fix, fallback, or evidence collection
-inside the active workflow before escalating to one of these terminal reasons.
-
-## Output Footer
-
-Every model-facing report, handoff, review narrative, and significant
-bookkeeper response should end with:
-
-```text
-当前 Session ID: <provider-native id | unavailable (reason)>
-Session ID 来源: <runtime_env | hook_payload | cli_output | transcript_path | active_session_registry | operator | unavailable>
-原始输出路径: <stage raw artifact path | unavailable (reason)>
-本地北京时间: YYYY-MM-DD HH:MM:SS CST
-下一步模型: <model-or-human>
-下一步任务: <specific next task>
-```
-
-The timestamp must come from a local `date` command, not from model memory.
-Session IDs must come from provider/runtime evidence and must never be guessed.
-If the current model cannot see its provider-native ID, write `unavailable`
-with the reason; the runner or human operator may add the verified ID to
-`status.json.session_receipts`. Follow
-`docs/model-adapters.md#session-id-capture-and-execution-receipts` for the
-provider-specific lookup and verification order. A Session ID is navigation
-metadata, not a credential, raw review artifact, provider identity, or a
-cross-provider transcript locator. The raw output path and committed artifacts
-remain the review evidence, while `status.json` remains the authoritative
-machine-readable state. For strict JSON verdicts, place the footer before the
-final JSON block or inside schema-approved fields so the final JSON contract
-remains parseable.
-
-## Checkpoint Requirements
-
-Before reporting completion, switching stage, compacting context, or asking
-another model to continue, update:
-
-- `status.json`
-- `70-handoff.md`
-- The active role report, such as `20-implementation.md`, `30-review-1.md`, or
-  `50-review-2.md`
-- `60-test-output.txt` when tests or command checks were run
-- `status.json.session_receipts` for completed model executions, including an
-  explicit unavailable reason when no provider-native Session ID can be
-  verified
-
-The checkpoint must include current branch, `stage_branch` metadata, HEAD if
-available, git status, changed files, test status, open findings, blockers, and
-next action.
-
-Checkpoints before review may be uncommitted. Review gates may not be
-uncommitted.
-
-## Local Command Notes
-
-`docs/model-adapters.md` is the local command runbook. It records the currently
-observed command forms for Codex, Claude, Claude-GLM, Grok, and Kimi, including
-read-only review, write-capable development where applicable, and explicit
-yolo/bypass modes.
-
-Key reminders:
-
-- The human may use either a one-shot adapter command or a manually opened,
-  interactive target CLI session. In the latter flow, send the dispatch body or
-  its repository path directly to that fresh target session; it is not asked to
-  launch another model.
-- Codex free-form review may use `codex review`. For schema-bound Harness
-  review, use the custom prompt and required verdict schema; native read-only
-  sandboxing is preferred, while an explicitly user-authorized interactive
-  yolo/bypass session remains behaviorally read-only.
-- `codex -p` is a profile flag, not a prompt flag.
-- Claude review uses the configured Claude adapter model, currently
-  `claude-fable-5`; if Fable5 quota is exhausted, the configured backup model is
-  `opus4.8`, unless the registry or user changes it.
-- Review-1 uses Kimi and Claude-GLM as a cross-review pool. Grok development,
-  when explicitly enabled, uses `grok-composer-2.5-fast`; Grok is not a default
-  review gate.
-- Kimi one-shot execution uses the explicit latest coding alias:
-  `kimi --model kimi-code/kimi-for-coding -p "$(cat <prompt-file>)"`.
-- Current Kimi CLI behavior rejects combining `--plan` or `-y` with `-p`; do
-  not document or dispatch those combinations as one-shot prompt commands.
-- `claude-glm` is a local shell alias/function. Invoke through an adapter and do
-  not record its expanded environment.
-- YAML files describe intent and routing. Command details belong in adapters or
-  runner code, not arbitrary shell snippets embedded in tasks.
+Starting a prepared model terminal executes an already-made dispatch decision. It does not make Human the technical reviewer, repository editor, or autonomous model router.
