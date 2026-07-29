@@ -1,0 +1,14 @@
+# validate-stage.py --phase pre-accept, run 2026-07-29 on a clean committed
+# worktree at stage close (bookkeeping commit c7412b3).
+# Expected NON-PASS, preserved as evidence of the gate the user's explicit
+# acceptance overrode — see 43-review-1-r7.md §Gate consequence.
+
+STAGE VALIDATION FAILED
+- missing required stage file: 50-review-2.md
+- review_1: parsed artifact verdict must be ACCEPT, got 'REWORK'
+- review_2 must be an object
+exit_code=1
+
+# Close-out test run, same day, full backend suite:
+# .venv/bin/python -m pytest backend/tests -q
+# -> 1071 passed in 53.54s
