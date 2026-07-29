@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "review_1",
+  "status": "accepted",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -790,15 +790,15 @@
     "role": "first_reviewer",
     "verdict": "REWORK",
     "json_schema_valid": true,
-    "diff_fingerprint": "33715ae2bcb4fef427f340780155dc4e4c316e28:f3db91f60350b5e8ba2db2237b89baba2c8e77d4d0c477fc9635602d869fa4ab",
+    "diff_fingerprint": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6:05d0233047696ff966c3fa6d682f96c8cf9bd3a0df08f59882a4f06b1b97fef2",
     "fingerprint_matches_status": true,
     "reviewer_prior_involvement": "none",
     "open_p0_p1": 1,
-    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md",
+    "artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/43-review-1-r7.md",
     "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/30-review-1.dispatch.md",
-    "recorded_at": "2026-07-28T21:10:00+08:00",
-    "round": 6,
-    "status": "complete_round6",
+    "recorded_at": "2026-07-29T00:00:00+08:00",
+    "round": 7,
+    "status": "complete_round7_final",
     "findings_summary": "Round 2, 1 P1 and it is a NEW defect, not a re-report. Round 1 covered the CONCLUSIVE fallback GET; this covers the INCONCLUSIVE query on BOTH paths. classify_query_response builds the raw at live_hedge_executor.py:397 and then discards it on every None return (transport_error/no status, >=500, ambiguous 4xx, malformed 2xx). Neither call site persists it: _send_one_leg falls through to the POST verdict, and drain does `if verdict is None: continue` at service.py:1116. The in-code comment states the intent explicitly — 'a None return is a genuinely inconclusive retry — no verdict, no row' — i.e. persistence was keyed off verdicts, while 00-task.md T3 keys it off READS.",
     "fix_start_prompt_present": true,
     "fix_start_prompt_source": "reviewer verdict JSON, reproduced verbatim in 31-fix-review-1.dispatch.md",
@@ -829,7 +829,10 @@
     "round6_verdict": "REWORK",
     "round6_findings_summary": "1 P1, confirmed, and the sharpest finding of the six rounds. The store now records an unobtainable notional as NULL, but three projection helpers in service.py (_leg_to_doc, _entry_spot_leg, _entry_perp_leg) read it with `or \"0\"`, so the API serves \"0\" for the notional AND \"0\" for the average price. This is the 2026-07-14 defect one layer up — the same missing-becomes-zero substitution, untouched because the scope was drawn around the executor and the store. It also breaks the frozen wire contract (12-development-breakdown.md:81, cumulative_quote_amt: string|null).",
     "round7_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/43-review-1-r7.dispatch.md",
-    "round7_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/43-review-1-r7.md"
+    "round7_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/43-review-1-r7.md",
+    "round7_findings_summary": "Round 7, 1 P1, CONFIRMED: store._exposure_from_legs (store.py:1334-1337) coerces a NULL cumulative_quote_amt through _num (store.py:292-296, None -> Decimal(0)) and computes price=0E+1 for a single-leg fill settled by the deferred-query path. Third layer of the fabricated-zero family (round 4 wire, round 6 API projection, round 7 reconciled-exposure builder). Direct live path (service._dispatch_to_outcome) is correct and untouched.",
+    "round7_bookkeeper_verification": "CONFIRMED by code read: _num(None)==Decimal(0); both call sites (store.py:1212, 1276) are deferred-query reconciliation. Verdict paste was terminal-wrapped; bookkeeper mechanically rejoined wrapped lines and re-validated against schemas/review-verdict.schema.json: VALID. Fingerprint recomputed 2026-07-29 and matches.",
+    "final_disposition": "REWORK stands as the final review-1 verdict. Fix declined by the user on scope (speculative scenario, defer until observed live). No round 8. Stage closed by explicit user acceptance; see user_decision_round7."
   },
   "review_2": null,
   "authorized_exceptions": [],
@@ -838,10 +841,13 @@
   "max_rework": 3,
   "blockers": [],
   "human_escalation": {
-    "required": false,
-    "reason": null
+    "required": true,
+    "reason": "Round-7 verdict returned next_action=human_escalation_required (rework cap 3/3 exhausted since round 3; the fix_start_prompt itself conditioned execution on explicit human authorization).",
+    "resolved_at": "2026-07-29",
+    "resolved_by": "user",
+    "resolution": "Fix NOT authorized. The user declined the round-7 P1 on scope, terminated review-1 at round 7, and ordered the stage branch merged to main regardless of the verdict. Recorded verbatim in 43-review-1-r7.md and 00-task.md."
   },
-  "terminal_reason": null,
+  "terminal_reason": "user_accepted_with_open_p1: review-1 ended REWORK at round 7 (rework cap 3/3), review-2 not run; the user explicitly accepted the stage and ordered the merge, deferring the confirmed P1 as follow-up p1-deferred-exposure-null-quote-zero-price.",
   "reporting_preferences": {
     "execution_footer": {
       "include_provider_native_session_id": true,
@@ -1006,10 +1012,19 @@
       "detail": "backend/tests/test_hedge_api.py::test_oversized_body_is_body_too_large failed once with ConnectionResetError during the reviewer's run and passed on isolated re-run. The bookkeeper's two independent full-suite runs on the same tree were green. Suspected flakiness in the test's HTTP client teardown rather than a product defect.",
       "severity": "P3",
       "blocking": false
+    },
+    {
+      "id": "p1-deferred-exposure-null-quote-zero-price",
+      "found_at": "2026-07-29",
+      "source": "review-1 round 7 (codex), declined by user scope decision (00-task.md T1 §Scope decision 2026-07-29)",
+      "severity": "P1",
+      "blocking": false,
+      "detail": "store._exposure_from_legs (store.py:1334-1337) passes cumulative_quote_amt through _num, so NULL becomes Decimal(0) and a single-leg fill settled via the deferred-query path persists leg_exposure.price='0E+1' instead of None; task_to_doc returns it to the API as-is. The direct live path (service._dispatch_to_outcome) correctly keeps avg_price=None. Fix shape (from the round-7 verdict): NULL quote -> price=None without calling _num; genuine '0' keeps zero-price semantics; regression = prepare_attempt -> resolve_leg_from_query(FILLED, base>0, quote=None) + other leg REJECTED -> finalize_attempt asserts price is None. The ready-to-send fix prompt is preserved in 43-review-1-r7.md fix_start_prompt.",
+      "why_deferred": "User judged the scenario speculative until observed live and ended the stage at the 3/3 rework cap rather than fund another round on the same defect family."
     }
   ],
-  "next_action": "Human operator runs 43-review-1-r7.dispatch.md in a FRESH read-only Codex session. Round 7.",
-  "updated_at": "2026-07-29T13:20:00+08:00",
+  "next_action": "None. Stage closed 2026-07-29: bookkeeping committed on the stage branch, then merged to local main by explicit user order (not pushed).",
+  "updated_at": "2026-07-29",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -1177,5 +1192,12 @@
     "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
     "diff_fingerprint": "95ac1a549c640f7ff01cf7773e577228ffc663e8:1ea0690a232325b25ce2ed02c24a85aa825378d1ac60e7f478b65df5ce56455b",
     "note": "Round-6 range. review-1 returned REWORK (1 P1). Void once the fix moved the diff."
+  },
+  "user_decision_round7": {
+    "at": "2026-07-29",
+    "by": "user",
+    "decision": "Decline the round-7 P1 (deferred-query single-leg exposure writes price=0 for NULL quote). Defer until the scenario is actually observed live. Close the stage and merge to main regardless of the review outcome.",
+    "user_words": "这个小问题感觉非常无所谓，不如等以后遇到了再解决，不需要在一个臆想场景不断的浪费 token",
+    "gate_disclosure": "review_1 final verdict is REWORK and review_2 was never dispatched, so validate-stage.py --phase accept cannot PASS. AGENTS.md RC4 v1 admits no class-2 authorized exception (waiving verdict==ACCEPT), so none is recorded. The merge is by explicit user acceptance over the harness gate — the non-green gate is preserved in evidence, not painted green. Precedent: stage 1 review-2 user waiver."
   }
 }

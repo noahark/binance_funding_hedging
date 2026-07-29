@@ -4,23 +4,21 @@
 
 ```text
 stage_id:        2026-07-hedge-order-truth-v1
-status:          designing
-stage_branch:    stage/2026-07-hedge-order-truth-v1
+status:          accepted (CLOSED 2026-07-29 by explicit user acceptance)
+stage_branch:    stage/2026-07-hedge-order-truth-v1 (merged to local main, not pushed)
 branch_base:     ecc38418f52b525eb61bf1c72b9b2b41c26130ef (local main)
-current_branch:  stage/2026-07-hedge-order-truth-v1
-head:            acfccbd (raw design artifacts archived) + this bookkeeping commit
-worktree:        clean
-rework_count:    0 / 3
-design:          COMPLETE. Original received 14:45:33 (archived verbatim at
-                 acfccbd) against the superseded packet; narrowly revised
-                 17:29 on Fable 5. Both stale items closed and the diff
-                 verified confined to the named sections. Two known
-                 cosmetic residuals: status.design_staleness.known_residuals
-                 (R-1 §0 stale T4 sentence, R-2 ADR numbers are topic-
-                 sequential, not T-id aligned).
-next_action:     bookkeeper transcribes file boundaries into status.tasks[0]
-                 and prepares 13-implementation.dispatch.md for claude_glm
-next_model:      claude_glm (glm-5.2[1m]) once that packet exists
+reviewed_range:  ecc38418..34ad0ca4 (fingerprint pinned in status.json, recomputes)
+rework_count:    3 / 3 (cap hit at round 3; rounds 4-7 ran on amended criteria)
+review_1:        FINAL = REWORK at round 7 (codex). The round-7 P1 is CONFIRMED
+                 (store._exposure_from_legs coerces NULL quote to a zero price on
+                 the deferred-query path) and DECLINED by the user on scope —
+                 filed as follow-up p1-deferred-exposure-null-quote-zero-price.
+review_2:        never dispatched (user closed the stage at round 7)
+gate:            validate-stage.py --phase accept does NOT pass and no class-2
+                 exception exists to make it pass. Merge was by explicit user
+                 acceptance; see 43-review-1-r7.md §Gate consequence.
+next_action:     none — stage closed. The deferred P1's ready-to-send fix prompt
+                 is preserved in 43-review-1-r7.md fix_start_prompt.
 blockers:        none
 ```
 

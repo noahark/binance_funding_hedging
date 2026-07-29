@@ -102,6 +102,23 @@ investigate such a case when it actually occurs. Accepted risk, not an oversight
 distinguishable from zero. That is the defect this stage was opened for, and it
 is unaffected.
 
+#### Scope decision — the round-7 exposure-builder gap is deferred, stage closes
+
+**Decided by the user, 2026-07-29**, after review-1 round 7 raised a P1: the
+deferred-query reconciliation path (`store._exposure_from_legs`) still coerces a
+`NULL` `cumulative_quote_amt` to `Decimal(0)` and writes a zero
+`leg_exposure.price` for a single-leg fill settled by drain:
+
+> 这个小问题感觉非常无所谓，不如等以后遇到了再解决，不需要在一个臆想场景不断
+> 的浪费 token
+
+The finding is confirmed on fact (see `43-review-1-r7.md`) and declined on
+scope: the triggering scenario has not been observed live, and the user ends
+the stage rather than fund a fourth sweep of the same defect family. Filed as
+follow-up `p1-deferred-exposure-null-quote-zero-price`. Review-1 terminates at
+round 7 with `REWORK`; the merge to `main` is by explicit user acceptance, with
+the non-green gate disclosed in the stage evidence.
+
 ### T2
 
 - A positive margin-endpoint error code is classified by the same rules as its
