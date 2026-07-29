@@ -1,6 +1,6 @@
 {
   "stage_id": "2026-07-hedge-order-truth-v1",
-  "status": "fixing",
+  "status": "review_1",
   "workflow": "stage-delivery",
   "stage_branch": {
     "name": "stage/2026-07-hedge-order-truth-v1",
@@ -325,11 +325,13 @@
       "task_id": "backend",
       "provider": "claude_glm",
       "model": "glm-5.2[1m]",
-      "status": "dispatch_prepared",
+      "status": "delivered",
       "round": 5,
       "dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/39-fix-review-1-r5.dispatch.md",
       "session_note": "fresh session",
-      "scope_note": "Deletes M1 (keeps M2) and threads an explicit decisive flag into raw persistence. live_hedge_executor.py should stay at zero diff; if the flag genuinely requires touching it, that change must be the flag alone and disclosed."
+      "scope_note": "Deletes M1 (keeps M2) and threads an explicit decisive flag into raw persistence. live_hedge_executor.py should stay at zero diff; if the flag genuinely requires touching it, that change must be the flag alone and disclosed.",
+      "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
+      "verified_by_bookkeeper": "Confirmed against the code. M1 is gone with zero remnants and M2 is intact. The decisive column is additive and guarded (CREATE plus ALTER with DEFAULT 0 backfill). append_raw_response takes decisive keyword-only; the caller decides it via _query_verdict_decisive (fill / rejection-expiry-cancellation / absent / rate-limit), never re-derived from the body in the store; replacement happens only when the incoming response is decisive AND the existing row is not, and a decisive row is never replaced, so first-decisive-wins holds. Check and replace are both inside the method's own lock and transaction. live_hedge_executor.py has a zero diff for the third round running; cumulative forbidden-path touches across the whole stage remain zero; production DB unchanged. The fourth guard test (FILLED then NEW leaves FILLED) is present — it is what distinguishes a real flag from last-write-wins. Independently re-run: 1069 passed, specified suite 324. HEAD was still b733a7d when the implementer stopped."
     }
   ],
   "reviewer_1": {
@@ -431,10 +433,10 @@
       ],
       "reviewer": "codex",
       "implementation_report_path": "20-implementation.md",
-      "implementation_status": "rework5_dispatched",
+      "implementation_status": "rework5_evidence_committed",
       "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-      "head_sha": "2712fbaed284d777708a9f74ecb3b1cabe22d155",
-      "diff_fingerprint": "2712fbaed284d777708a9f74ecb3b1cabe22d155:6f33425af859e34c2b7793d5d08f163deddb506823aeb0d00c016c43a110b6a4",
+      "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
+      "diff_fingerprint": "95ac1a549c640f7ff01cf7773e577228ffc663e8:1ea0690a232325b25ce2ed02c24a85aa825378d1ac60e7f478b65df5ce56455b",
       "test_evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
       "note": "T4 is not in scope for this task: its paid experiment was cancelled and its remaining work is a read-only recon that runs independently and blocks nothing here.",
       "review_1": {
@@ -687,15 +689,16 @@
     "evidence": "reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md"
   },
   "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
-  "head_sha": "2712fbaed284d777708a9f74ecb3b1cabe22d155",
-  "diff_fingerprint": "2712fbaed284d777708a9f74ecb3b1cabe22d155:6f33425af859e34c2b7793d5d08f163deddb506823aeb0d00c016c43a110b6a4",
+  "head_sha": "95ac1a549c640f7ff01cf7773e577228ffc663e8",
+  "diff_fingerprint": "95ac1a549c640f7ff01cf7773e577228ffc663e8:1ea0690a232325b25ce2ed02c24a85aa825378d1ac60e7f478b65df5ce56455b",
   "coverage_waypoints": [
     "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
     "5de9ef394b02df1036341cbac832cfc4f6c72ee3",
     "33715ae2bcb4fef427f340780155dc4e4c316e28",
     "c06c92140a371b3dc577cf7b509f27b61e4a7948",
     "baced322e7871ffdcb2a3ad9208da3d1b5dd2524",
-    "2712fbaed284d777708a9f74ecb3b1cabe22d155"
+    "2712fbaed284d777708a9f74ecb3b1cabe22d155",
+    "95ac1a549c640f7ff01cf7773e577228ffc663e8"
   ],
   "changed_files": [
     "backend/hedge_open_tasks/domain.py",
@@ -735,6 +738,9 @@
     "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.dispatch.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/36-review-1-r4.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/37-fix-review-1-r4.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.dispatch.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.md",
+    "reports/agent-runs/2026-07-hedge-order-truth-v1/39-fix-review-1-r5.dispatch.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/60-test-output.txt",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/70-handoff.md",
     "reports/agent-runs/2026-07-hedge-order-truth-v1/status.json",
@@ -747,13 +753,14 @@
     "commands": [
       {
         "cmd": ".venv/bin/python -m pytest backend/tests -q",
-        "result": "1065 passed in 51.06s (baseline 1064 + the new persistence-layer lock)"
+        "result": "1069 passed in 51.90s (baseline 1065 + 4)"
       },
       {
         "cmd": "specified 9-suite run",
-        "result": "320 passed in 20.04s (baseline 319 + 1)"
+        "result": "324 passed in 20.11s (baseline 320 + 4)"
       }
-    ]
+    ],
+    "flaky_note": "p3-flaky-oversized-body-test did not trigger in either bookkeeper run this round."
   },
   "review_1": {
     "reviewer": "codex",
@@ -795,7 +802,9 @@
     "round5_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.dispatch.md",
     "round5_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/38-review-1-r5.md",
     "round5_verdict": "REWORK",
-    "round5_findings_summary": "2 P1, both confirmed, and both are the two earlier user scope decisions colliding. (1) the M1 migration rewrites FILLED+qty>0+quote='0' to NULL — exactly the cross-field inference the 2026-07-29 T1 decision put out of scope, applied to history. (2) the one-row-per-leg-per-source dedupe drops the decisive order-detail response when an earlier non-decisive poll took the slot — contradicting the T3 text the BOOKKEEPER itself wrote, which names a fill, a confirmed rejection, a confirmed absent order and a rate-limit signal as conclusive verdicts that must be persisted."
+    "round5_findings_summary": "2 P1, both confirmed, and both are the two earlier user scope decisions colliding. (1) the M1 migration rewrites FILLED+qty>0+quote='0' to NULL — exactly the cross-field inference the 2026-07-29 T1 decision put out of scope, applied to history. (2) the one-row-per-leg-per-source dedupe drops the decisive order-detail response when an earlier non-decisive poll took the slot — contradicting the T3 text the BOOKKEEPER itself wrote, which names a fill, a confirmed rejection, a confirmed absent order and a rate-limit signal as conclusive verdicts that must be persisted.",
+    "round6_dispatch_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.dispatch.md",
+    "round6_artifact_path": "reports/agent-runs/2026-07-hedge-order-truth-v1/40-review-1-r6.md"
   },
   "review_2": null,
   "authorized_exceptions": [],
@@ -962,8 +971,8 @@
       "blocking": false
     }
   ],
-  "next_action": "Human operator runs 39-fix-review-1-r5.dispatch.md in a FRESH write-capable Claude-GLM session. This round makes the CODE match the criteria, so 00-task.md does not change. Then: bookkeeper verifies, re-pins, re-runs pre-review, and dispatches review-1 round 6.",
-  "updated_at": "2026-07-29T02:30:00+08:00",
+  "next_action": "Human operator runs 40-review-1-r6.dispatch.md in a FRESH read-only Codex session. Round 6.",
+  "updated_at": "2026-07-29T03:00:00+08:00",
   "r4_diff_reconciliation": {
     "performed_by": "bookkeeper",
     "at": "2026-07-28T19:50:00+08:00",
@@ -1009,7 +1018,7 @@
   },
   "rework_budget_warning": "rework_count is 2 of max 3. A third REWORK hits the limit and routes to human_escalation_required per AGENTS.md. The next fix round should therefore be verified unusually carefully before re-dispatching review-1, and the fix packet must close the whole class (every exchange round-trip leaves a record) rather than only the two paths named in this finding.",
   "rework_count_note": "rework_count stays at 2. Round 3 involves NO code change — it is a re-review against amended acceptance criteria, not a fix cycle. Incrementing it would misreport the stage as having burned three fix attempts. Recorded explicitly rather than silently not incrementing.",
-  "coverage_waypoints_note": "W0 base; W1 round-1 delivery (r1 REWORK); W2 round-1 fix (r2 REWORK); W3 T3 narrowed, no code (r3 REWORK); W4 round-3 fix (r4 REWORK, P0 declined on scope); W5 round-4 fix — removes the notional derivation.",
+  "coverage_waypoints_note": "W0 base; W1 delivery (r1 REWORK); W2 fix (r2 REWORK); W3 T3 narrowed, no code (r3 REWORK); W4 fix (r4 REWORK, P0 declined on scope); W5 T1 narrowed + derivation removed (r5 REWORK); W6 M1 deleted + decisive replace.",
   "rework_limit_reached": {
     "at": "2026-07-28T23:20:00+08:00",
     "count": "3 of max 3",
@@ -1088,5 +1097,11 @@
     ],
     "flaky_test": "The reviewer's ConnectionResetError on test_oversized_body_is_body_too_large is to be recorded as a flaky-test note in the evidence, not fixed or silenced; full suites re-run after the fix."
   },
-  "adr_t6_partially_superseded": "11-adr.md ADR-T6 specifies M1 as part of the historical-data migration. Deleting M1 supersedes that half; M2 stands. Like the earlier design/task conflicts the ADR is not rewritten — 00-task.md governs — and this is recorded so a reviewer does not file it as a finding."
+  "adr_t6_partially_superseded": "11-adr.md ADR-T6 specifies M1 as part of the historical-data migration. Deleting M1 supersedes that half; M2 stands. Like the earlier design/task conflicts the ADR is not rewritten — 00-task.md governs — and this is recorded so a reviewer does not file it as a finding.",
+  "previous_range_round5": {
+    "base_sha": "ecc38418f52b525eb61bf1c72b9b2b41c26130ef",
+    "head_sha": "2712fbaed284d777708a9f74ecb3b1cabe22d155",
+    "diff_fingerprint": "2712fbaed284d777708a9f74ecb3b1cabe22d155:6f33425af859e34c2b7793d5d08f163deddb506823aeb0d00c016c43a110b6a4",
+    "note": "Round-5 range. review-1 returned REWORK (two P1). Void once the fix moved the diff."
+  }
 }
