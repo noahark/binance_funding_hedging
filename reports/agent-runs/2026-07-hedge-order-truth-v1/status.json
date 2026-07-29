@@ -343,7 +343,7 @@
       "session_note": "fresh session",
       "scope_note": "Projection layer only. store.py and live_hedge_executor.py are both off-limits this round — the persistence layer is already correct.",
       "head_sha": "34ad0ca47f1f802030a694a798e8bb49ef8b55c6",
-      "verified_by_bookkeeper": "Confirmed against the code. All three helpers pass NULL through as JSON null and emit a null average instead of dividing; a real '0' still takes the existing arithmetic and still projects as '0'; cumulative_base_qty's own  untouched as instructed. One edge the report did not raise was checked: the old  also absorbed an empty string while  does not — the write paths only ever store a decimal string or NULL and the production rows confirm it, so the narrower guard is safe. No existing test asserted the old behaviour. live_hedge_executor.py and store.py both at zero diff. Independently re-run: 1071 passed, specified suite 326."
+      "verified_by_bookkeeper": "Confirmed against the code. All three helpers pass NULL through as JSON null and emit a null average instead of dividing; a real '0' still takes the existing arithmetic and still projects as '0'; cumulative_base_qty's own `or \"0\"` is untouched as instructed. One edge the report did not raise was checked: the old `or \"0\"` also absorbed an empty string while `is None` does not — the write paths only ever store a decimal string or NULL and the production rows confirm it, so the narrower guard is safe. No existing test asserted the old behaviour, so none needed inverting. live_hedge_executor.py and store.py are both at zero diff. Independently re-run: 1071 passed, specified suite 326."
     }
   ],
   "reviewer_1": {
