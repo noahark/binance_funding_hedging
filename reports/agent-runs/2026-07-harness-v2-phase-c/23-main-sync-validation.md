@@ -35,10 +35,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider backend/tests -q
 1071 passed in 61.65s
 ```
 
-## Remaining Condition
+## Review Evidence Resolution
 
-Fable5 Phase C `ACCEPT` was transferred by Human, but the full raw
-`TASK_RESULT v2` output is not present in the current context or worktrees.
-`22-phase-c-fable5-review.md` records that limitation without reconstructing
-reviewer output. Attach the original before changing the review task from
-`reported` to `verified`.
+The reissued full Fable5 review and `TASK_RESULT v2` were transferred by Human
+and preserved in `22-phase-c-fable5-review.md`. Its verdict is `ACCEPT`, its
+outcome is `completed`, and it reports no blockers. Stage Recorder verified the
+fixed review range and moved the review task from `reported` to `verified`.
