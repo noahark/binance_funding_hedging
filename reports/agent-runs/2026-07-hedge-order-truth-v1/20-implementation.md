@@ -331,3 +331,66 @@ Session ID 来源: unavailable
 下一步模型: bookkeeper
 下一步任务: 核验修复、重算指纹、重跑 pre-review，然后重派 review-1
 ```
+
+## 修复章节 — Review-1 Round 4（删除推算，verbatim-only）
+
+本轮**只删逻辑、不加逻辑**（除一条测试外）。范围由用户 2026-07-29 决定：`00-task.md` §T1 已改写为「交易所返回什么存什么；没返回存 NULL；不推算、不换算、不加工」。Review-1 r4 的 P0（正成交量 FILLED 腿可能落字面 `0` 名义）**按 scope 拒绝**（事实链成立，但存储交易所自己的 `0` 现为预期行为），归档为 follow-up `p0-contradictory-zero-notional-not-detected`。权威是 `00-task.md` §T1，本章节只是其执行记录。
+
+### 删了什么
+
+`backend/hedge_open_tasks/store.py`，`_leg_final_fields`（约 807-854 行）：删除缺失金额时的 `filled_qty * avg_price` 推算。
+
+- 改前：`cumulative_quote` 缺失（None/空）时，若 `filled_qty > 0` 且 `avg_price` 在，则 `quote = filled_qty * avg_price`（推算）。
+- 改后：`cumulative_quote` 缺失即 `NULL`（unknown），**无条件**，哪怕 `filled_qty` 与 `avg_price` 都在也不推算。
+- 连带移除因此变成孤儿的局部变量 `avg_price = leg_outcome.get("avg_price")`（本改动造成的孤儿，按准则清理）。
+- 同步更新该方法 docstring 里描述推算的那条 bullet（否则文档与代码不符）。
+
+**未改**：present 值原样存储的 `else` 分支（字面 `"0"` 也原样存——这正是新规则的预期行为）；unparseable → `NULL` 的 `except InvalidOperation` 分支；`base_qty` 的 `"0"` 默认；`_quote_decimal`、`leg_is_terminal_fill`、终态判定；`live_hedge_executor.py` 零改动。
+
+### 为什么删它是安全的（自行复核确认）
+
+推算仅在「quote 缺失 **且** `avg_price` 在」时触发。margin 腿从 POST 读 `cummulativeQuoteQty`，不走该分支；UM 腿按设计从 order-detail GET 取数（假定两字段都在）。故该分支覆盖的是实践中可能不出现的情形。删除后未发现任何**当前被测试覆盖**的路径因此改变语义——唯一变化的是「缺失 quote + 有 avg_price + 正成交量」这一断言（见下），已按新预期更新，而非绕过。
+
+### 既有测试的改动（更新而非删除）
+
+`backend/tests/test_hedge_store.py::test_leg_final_fields_t1_null_contract`：
+
+- 改前断言（原 307-309 行）：`Decimal(quote_of(status="FILLED", filled_qty="0.5", cumulative_quote=None, avg_price="50000")) == Decimal("25000")`（锁定推算 0.5×50000）。
+- 改后断言：同一输入 `is None`（缺失即 NULL，无推算）。
+- 同步更新该测试 docstring，去掉「missing+derivable」描述。
+
+这是全仓**唯一**因删除推算而需改预期的断言。其余涉及 quote 的测试均不受影响：`_accepted_pair` / review2 的 `quote="25000"` 走 `resolve_leg_from_query`（显式 `quote_amt`，不经 `_leg_final_fields`）；`test_aggregate_positions_forward_short_reverse_long` 走 `insert_fill`（把 `avg_price` 原样写入 fill 表，不经 `_leg_final_fields`）；`live_hedge_executor` 测试锁定文件本身；service/api 的 `cumulative_quote_amt` 仅键存在性检查。
+
+### 新增测试（`test_hedge_store.py`，仅一条）
+
+`test_resolve_attempt_persists_null_quote_when_absent_no_derivation`：在**持久化层**（`prepare_attempt` + `resolve_attempt` → 读回 leg 行）断言：outcome 带 `avg_price="50000"`、`filled_qty="0.5"` 但**无** `cumulative_quote` 时，spot/perp 两腿的 `cumulative_quote_amt` 均为 `None`。把「删除推算」锁定在落库层（helper 层由更新后的 `test_leg_final_fields_t1_null_contract` 覆盖），防止该 fallback 被悄悄恢复。
+
+dispatch 要求的三项保证均已锁定：(1) 缺失 quote + 正成交量 + 有 avg_price → NULL（本条 + 既有单测）；(2) 字面 `"0"` → 存 `"0"`（既有单测 present 分支，未改）；(3) 2026-07-14 缺陷保持修复——UM 缺 `cumQuote`/`avgPrice` → NULL、永不胁迫为 0（既有单测 underivable → NULL 各分支）。
+
+### 不变性确认
+
+- **终态判定**：不变。`leg_is_terminal_fill` / `_query_verdict_terminal` / terminality 全未触碰。
+- **订单判定 / 重发规则**：不变。`classify_query_response`、永不 resend POST、UNKNOWN/ACCEPTED query-drain 均未动；`live_hedge_executor.py` 零 diff。
+- **限频处理**：不变。rate-limited 落库（r3 Finding 1，`continue` 前）与每腿每 source 一行的存储上限（r3 Finding 2，`append_raw_response` 自有锁内）均保持，本轮未触及。
+- **raw 持久化 / raw 写失败隔离**：不变。本轮不涉及 raw 路径。
+- **51169 → collateral_cap 映射及其冻结文案**：不变。
+
+### 测试证据
+
+`60-test-output.txt`（本轮覆盖后追加）：
+
+- 指定套件（9 套件，含必跑禁改的 `test_hedge_open_live_client` / `test_hedge_purity`）：**320 passed**（基线 319 + 新增 1）。
+- 全仓 `backend/tests`：**1065 passed in 51.23s**（基线 1064 + 新增 1），无 failed / error / skip。
+
+delta 全部来自那一条新增测试；被更新的既有测试 `test_leg_final_fields_t1_null_contract` 计数不变（仅改预期）。解释器 `.venv/bin/python`，全程离线确定性（临时 SQLite），未发真实 POST、未访问凭据、未动 PID 96409、未写生产库、未 commit。改动文件仅 `backend/hedge_open_tasks/store.py` 与 `backend/tests/test_hedge_store.py`（均在允许边界内），`live_hedge_executor.py` 等锁定文件零改动。
+
+---
+
+```
+当前 Session ID: unavailable (Claude Code 未向本会话暴露 provider-native session id)
+Session ID 来源: unavailable
+原始输出路径: reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md（追加章节）
+本地北京时间: 2026-07-29 01:33:14 CST
+下一步模型: bookkeeper
+下一步任务: 核验、重算指纹、重跑 pre-review，然后重派 review-1
+```

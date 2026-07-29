@@ -292,8 +292,9 @@ def test_aggregate_positions_excludes_deleted_tasks(tmp_path):
 def test_leg_final_fields_t1_null_contract(tmp_path):
     """T1 §1(d) quote NULL contract, each branch: present value verbatim, a true
     "0" preserved (the old ``not in (..., "0", ...)`` check treated it as missing
-    — the defect), missing+derivable -> filled_qty*avg_price, missing+underivable
-    -> NULL. A missing figure is NEVER coerced to 0."""
+    — the defect), a missing figure is NULL even with avg_price present (no
+    derivation — review-1 r4), missing+underivable -> NULL. A missing figure is
+    NEVER coerced to 0."""
     store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
 
     def quote_of(**leg):
@@ -304,14 +305,49 @@ def test_leg_final_fields_t1_null_contract(tmp_path):
                     cumulative_quote="25000", avg_price="50000") == "25000"
     # true zero preserved as a real "0" string (NOT collapsed to missing/NULL)
     assert quote_of(status="FILLED", filled_qty="0", cumulative_quote="0") == "0"
-    # missing + derivable -> filled_qty * avg_price (Decimal-exact; tolerates scale)
-    assert Decimal(quote_of(status="FILLED", filled_qty="0.5",
-                            cumulative_quote=None, avg_price="50000")) == Decimal("25000")
+    # missing + avg_price present -> still NULL (review-1 r4: no derivation; the
+    # old filled_qty * avg_price fallback is gone)
+    assert quote_of(status="FILLED", filled_qty="0.5",
+                    cumulative_quote=None, avg_price="50000") is None
     # missing + underivable -> NULL (the T1 fix: unknown, not a fake 0)
     assert quote_of(status="FILLED", filled_qty="0.5",
                     cumulative_quote=None, avg_price=None) is None
     # missing, no fill -> NULL
     assert quote_of(status="NEW", filled_qty="0", cumulative_quote=None) is None
+    store.close()
+
+
+def test_resolve_attempt_persists_null_quote_when_absent_no_derivation(tmp_path):
+    """Review-1 r4 (user decision 2026-07-29): a resolved leg whose outcome
+    carried no ``cumulative_quote`` but a positive fill + ``avg_price`` used to
+    derive ``filled_qty * avg_price`` into ``cumulative_quote_amt``. Under the
+    verbatim rule the store records NULL — no derivation, ever. This locks the
+    removed fallback at the persistence layer (resolve_attempt -> leg row), not
+    just at the helper (covered by test_leg_final_fields_t1_null_contract), so it
+    cannot be silently reinstated."""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "tn", direction=D.DIR_FORWARD, target=1)
+    attempt = store.prepare_attempt(
+        "tn", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        "hgo-att1-p", {"side": "SELL"}, 1_000,
+    )
+    # avg_price present and filled_qty > 0, but NO cumulative_quote: the old path
+    # derived 0.5 * 50000 = 25000; the verbatim rule stores NULL on both legs.
+    outcome = AttemptOutcome(
+        attempt_id="att1", category=D.ATTEMPT_SUCCESS,
+        spot={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
+              "order_id": "os", "client_order_id": "hgo-att1-s"},
+        perp={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
+              "order_id": "op", "client_order_id": "hgo-att1-p"},
+        record_payload={"transport": "dry_run_record", "posted": False,
+                        "spot_order_params": {}, "perp_order_params": {}},
+        exposure=None,
+    )
+    store.resolve_attempt(attempt["id"], outcome, 1_100)
+    legs = {leg["leg"]: leg for leg in store.list_legs_for_attempt(attempt["id"])}
+    assert legs["spot"]["cumulative_quote_amt"] is None
+    assert legs["perp"]["cumulative_quote_amt"] is None
     store.close()
 
 

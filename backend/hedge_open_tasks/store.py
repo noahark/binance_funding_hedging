@@ -816,9 +816,10 @@ class HedgeOpenStore:
 
         * a present ``cumulative_quote`` is stored verbatim (a real figure,
           including a true "0");
-        * a MISSING ``cumulative_quote`` (None/empty) with a positive fill +
-          avg_price is derived as ``filled_qty * avg_price`` (real data);
-        * otherwise (missing figure, nothing to derive from) it is NULL.
+        * a MISSING ``cumulative_quote`` (None/empty) is NULL (unknown) — even
+          when ``filled_qty`` and ``avg_price`` are present, no figure is derived
+          (review-1 r4, 2026-07-29);
+        * an unparseable present value is also NULL.
 
         The old ``not in (None, "", "0", 0)`` check that treated a literal "0" as
         missing was the T1 defect itself and is gone. ``base_qty`` (filled_qty)
@@ -828,17 +829,15 @@ class HedgeOpenStore:
         status = leg_outcome.get("status") or D.LEG_UNKNOWN
         order_id = leg_outcome.get("order_id")
         filled_qty = _num(leg_outcome.get("filled_qty"))
-        avg_price = leg_outcome.get("avg_price")
         cumulative_quote = leg_outcome.get("cumulative_quote")
         fee_amount = leg_outcome.get("fee_amount")
         fee_asset = leg_outcome.get("fee_asset")
         quote: Decimal | None
         if cumulative_quote is None or cumulative_quote == "":
-            # Missing figure: derive from real data if possible, else NULL (unknown).
-            if filled_qty > 0 and avg_price is not None:
-                quote = filled_qty * _num(avg_price)
-            else:
-                quote = None
+            # Missing figure: NULL (unknown). Review-1 r4 (2026-07-29) removed the
+            # filled_qty * avg_price derivation — the column records what the
+            # exchange said, never a substituted figure.
+            quote = None
         else:
             try:
                 quote = Decimal(str(cumulative_quote))
