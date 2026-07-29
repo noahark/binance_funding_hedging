@@ -33,9 +33,9 @@ other roles report through `TASK_RESULT`. Git history is not a runtime check.
 
 ## Last Completed
 
-- stage: `2026-07-harness-v2-phase-c`
-- archive_ref: `archive/2026-07-harness-v2-phase-c`
-- recorded_completed_at: `2026-07-29`
+- stage: `2026-07-harness-v2-phase-d`
+- archive_ref: `archive/2026-07-harness-v2-phase-d`
+- recorded_completed_at: `2026-07-30`
 
 ## Update Rule
 
