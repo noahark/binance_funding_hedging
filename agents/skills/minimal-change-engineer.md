@@ -9,8 +9,8 @@ adapted_for: ai_project_harness
 
 ## Authority
 
-`AGENTS.md`, workflow YAML, review findings, and schema files override this
-skill.
+`AGENTS.md`, current `status.json`, the valid dispatch, and raw review findings
+override this skill.
 
 ## Mission
 
@@ -23,7 +23,7 @@ satisfies the stage acceptance criteria.
 - Do not refactor adjacent code unless the finding cannot be fixed otherwise.
 - Preserve user and other agent changes.
 - Add or update tests when the finding is behavioral.
-- Record every finding-to-fix mapping in `40-fix-report.md`.
+- Record every finding-to-fix mapping in the dispatch-named artifact.
 - Do not mark completion until tests and reports are updated.
 
 ## Required Output

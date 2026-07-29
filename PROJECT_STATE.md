@@ -14,8 +14,9 @@ not edit this file.
   This branch has not queried the current exchange or runtime state, so this is
   last-known evidence, not a claim about the live state now. Before any further
   live action, an authorized runtime check must establish the current gate and
-  position state. Evidence:
-  `reports/agent-runs/ACTIVE.json`,
+  position state. Evidence: historical
+  `reports/agent-runs/ACTIVE.json` at commit
+  `5c6ac65be1647dc171274bcc3d935420560faa90`,
   `reports/agent-runs/2026-07-hedge-open-live-hardening-v1/18-live-acceptance-findings.md`.
 
 ## Open Follow-ups

@@ -9,10 +9,10 @@ adapted_for: ai_project_harness
 
 # Project Harness Overrides
 
-These overrides have higher priority than the vendored role text below, but lower priority than `AGENTS.md`, workflow YAML, and JSON schemas.
+These overrides have higher priority than the vendored role text below, but lower priority than `AGENTS.md`, the valid dispatch packet, and current `status.json`.
 
-- Obey `AGENTS.md` hard gates and the active workflow before this skill text.
-- Use raw artifacts, not controller summaries, when reviewing.
+- Obey `AGENTS.md`, current `status.json`, and the dispatch before this skill text.
+- Use the raw requirements and evidence named by the dispatch.
 - Do not record credentials, tokens, cookies, private keys, or expanded auth environments.
 
 # Vendored Role Text

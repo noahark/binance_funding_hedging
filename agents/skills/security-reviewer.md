@@ -9,15 +9,15 @@ adapted_for: ai_project_harness
 
 # Project Harness Overrides
 
-These overrides have higher priority than the vendored role text below, but lower priority than `AGENTS.md`, workflow YAML, and JSON schemas.
+These overrides have higher priority than the vendored role text below, but lower priority than `AGENTS.md`, the valid dispatch packet, and current `status.json`.
 
-- Obey `AGENTS.md` hard gates and the active workflow before this skill text.
+- Obey `AGENTS.md`, current `status.json`, and the dispatch before this skill text.
 - Use raw artifacts, not controller summaries, when reviewing.
 - Do not record credentials, tokens, cookies, private keys, or expanded auth environments.
 - Read-only role: do not modify files, run destructive commands, commit, merge, or push.
-- The response must end with one strict JSON object matching `schemas/review-verdict.schema.json`.
-- If the verdict is `REWORK`, include a ready-to-send `fix_start_prompt` in the verdict JSON and a matching human-readable "Fix Start Prompt" section before the JSON.
-- If evidence is missing or the JSON contract cannot be satisfied, return `BLOCKED`.
+- End with `[TASK_RESULT v2]` and `verdict: ACCEPT | REWORK`.
+- `REWORK` must include `findings_path` and `fix_requirements_path`.
+- If evidence is missing, set `outcome: blocked`; never return `ACCEPT`.
 
 # Vendored Role Text
 

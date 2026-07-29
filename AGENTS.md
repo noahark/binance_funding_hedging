@@ -1,6 +1,6 @@
 # AGENTS.md - Minimal Project Harness
 
-This is the single startup guide. Read it before acting, then disclose only files required by the current task.
+This is the single startup guide. Read it before acting, then load only files required by the current task.
 
 ## 1. Project Development Principle
 
@@ -53,7 +53,6 @@ Without a packet, read `ACTIVE.json`, `PROJECT_STATE.md`, and active `status.jso
 | `agents/developer-discipline.md` | Shared implementation and fix discipline |
 | `agents/skills/*.md` | One task-specific capability, read on demand |
 | `<stage>/evidence/*` | Raw tests, reports, verdicts, and samples |
-| `docs/model-adapters.md` | Human-only terminal startup or CLI diagnosis |
 
 Target at most about 8K tokens for startup and 15K for a loaded task. Required high-risk evidence may exceed the target with a recorded reason; never skip necessary evidence.
 

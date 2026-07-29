@@ -159,6 +159,54 @@ dispatch without becoming an implementer, reviewer, or autonomous dispatcher.
 - Reviewers remain read-only. The human operator transfers their raw
   `TASK_RESULT` to Stage Recorder.
 
+### Minimal State And Dispatch Shape
+
+Create current-stage `status.json` with exactly these top-level fields:
+
+```json
+{
+  "schema_version": "2",
+  "revision": 1,
+  "stage_id": "<stage-id>",
+  "phase": "<current-phase>",
+  "checkpoint": "<last-verified-checkpoint>",
+  "base_sha": "<committed-base>",
+  "delivery_sha": null,
+  "ledger_sha": "<latest-state-commit>",
+  "current_task": {
+    "id": "<task-id>",
+    "state": "dispatched",
+    "dispatch": "<repo-relative-dispatch-path>"
+  },
+  "next": {
+    "actor": "human_operator",
+    "action": "start-prepared-task"
+  },
+  "rework_count": 0,
+  "blockers": []
+}
+```
+
+A dispatch packet contains only:
+
+```text
+Identity: task_id, target_role, target_model, provider, status_revision,
+          required_skill (zero or one)
+Goal
+Allowed Files
+Inputs
+Acceptance Checks
+Stop
+```
+
+Prepare the dispatch first, then make the last `status.json` revision point to
+it. Do not modify that revision before Human starts the target terminal.
+
+`ledger_sha` is the last committed baseline verified before the current status
+update. It intentionally does not try to name the commit containing itself.
+`delivery_sha` names the committed delivery under review; review packets never
+replace it with a later bookkeeping commit.
+
 ### Required Behavior
 
 - Verify task output, changed files, commits, tests, verdicts, and evidence

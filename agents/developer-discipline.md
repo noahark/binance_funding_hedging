@@ -5,8 +5,8 @@ It applies to every implementation-capable model, including Claude-GLM, Kimi,
 and Grok or another non-Codex model when explicitly enabled for implementation
 or fix work.
 
-In this repository, `AGENTS.md`, workflow YAML, schemas, registry routing, and
-stage facts have higher authority and must be followed first.
+In this repository, `AGENTS.md`, the valid dispatch packet, current
+`status.json`, and task acceptance criteria have higher authority.
 
 Source note: adapted from the widely used `CLAUDE.md` guidance in
 `multica-ai/andrej-karpathy-skills`.

@@ -9,7 +9,8 @@ adapted_for: ai_project_harness
 
 ## Authority
 
-`AGENTS.md`, workflow YAML, and schema files override this skill.
+`AGENTS.md`, current `status.json`, the valid dispatch, and user decisions
+override this skill.
 
 ## Mission
 

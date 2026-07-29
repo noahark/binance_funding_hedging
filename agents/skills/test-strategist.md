@@ -9,7 +9,8 @@ adapted_for: ai_project_harness
 
 ## Authority
 
-`AGENTS.md`, workflow YAML, and product acceptance criteria override this skill.
+`AGENTS.md`, current `status.json`, the valid dispatch, and product acceptance
+criteria override this skill.
 
 ## Mission
 
