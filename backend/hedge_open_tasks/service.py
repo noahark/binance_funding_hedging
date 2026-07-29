@@ -212,14 +212,22 @@ def _leg_to_doc(leg: dict | None) -> dict:
     """
     leg = leg or {}
     base = D.Decimal(leg.get("cumulative_base_qty") or "0")
-    quote = D.Decimal(leg.get("cumulative_quote_amt") or "0")
-    avg = D.fmt_decimal(quote / base) if base > 0 else None
+    raw_quote = leg.get("cumulative_quote_amt")
+    if raw_quote is None:
+        # NULL notional passes through as JSON null, not "0" (review-1 r6); an
+        # unknown notional is also an unknown average price, so do not divide.
+        quote_amt = None
+        avg = None
+    else:
+        quote = D.Decimal(raw_quote)
+        quote_amt = D.fmt_decimal(quote)
+        avg = D.fmt_decimal(quote / base) if base > 0 else None
     doc = {
         "client_order_id": leg.get("client_order_id"),
         "order_id": leg.get("order_id"),
         "status": leg.get("exchange_status"),
         "cumulative_base_qty": D.fmt_decimal(base),
-        "cumulative_quote_amt": D.fmt_decimal(quote),
+        "cumulative_quote_amt": quote_amt,
         "avg_price": avg,
     }
     if leg.get("fee_amount") is not None:
@@ -274,15 +282,23 @@ def _entry_side(direction: str | None, position_side_mode: str | None) -> tuple[
 def _entry_spot_leg(leg: dict | None, spot_side: str | None) -> dict:
     leg = leg or {}
     base = D.Decimal(leg.get("cumulative_base_qty") or "0")
-    quote = D.Decimal(leg.get("cumulative_quote_amt") or "0")
-    avg = D.fmt_decimal(quote / base) if base > 0 else None
+    raw_quote = leg.get("cumulative_quote_amt")
+    if raw_quote is None:
+        # NULL notional passes through as JSON null, not "0" (review-1 r6); an
+        # unknown notional is also an unknown average price, so do not divide.
+        quote_amt = None
+        avg = None
+    else:
+        quote = D.Decimal(raw_quote)
+        quote_amt = D.fmt_decimal(quote)
+        avg = D.fmt_decimal(quote / base) if base > 0 else None
     return {
         "side": spot_side,
         "client_order_id": leg.get("client_order_id"),
         "order_id": leg.get("order_id"),
         "status": leg.get("exchange_status"),
         "cumulative_base_qty": D.fmt_decimal(base),
-        "cumulative_quote_amt": D.fmt_decimal(quote),
+        "cumulative_quote_amt": quote_amt,
         "avg_price": avg,
         "fee_amount": leg.get("fee_amount"),
         "fee_asset": leg.get("fee_asset"),
@@ -292,15 +308,23 @@ def _entry_spot_leg(leg: dict | None, spot_side: str | None) -> dict:
 def _entry_perp_leg(leg: dict | None, perp_side: str | None) -> dict:
     leg = leg or {}
     base = D.Decimal(leg.get("cumulative_base_qty") or "0")
-    quote = D.Decimal(leg.get("cumulative_quote_amt") or "0")
-    avg = D.fmt_decimal(quote / base) if base > 0 else None
+    raw_quote = leg.get("cumulative_quote_amt")
+    if raw_quote is None:
+        # NULL notional passes through as JSON null, not "0" (review-1 r6); an
+        # unknown notional is also an unknown average price, so do not divide.
+        quote_amt = None
+        avg = None
+    else:
+        quote = D.Decimal(raw_quote)
+        quote_amt = D.fmt_decimal(quote)
+        avg = D.fmt_decimal(quote / base) if base > 0 else None
     return {
         "side": perp_side,
         "client_order_id": leg.get("client_order_id"),
         "order_id": leg.get("order_id"),
         "status": leg.get("exchange_status"),
         "cumulative_base_qty": D.fmt_decimal(base),
-        "cumulative_quote_amt": D.fmt_decimal(quote),
+        "cumulative_quote_amt": quote_amt,
         "avg_price": avg,
     }
 
