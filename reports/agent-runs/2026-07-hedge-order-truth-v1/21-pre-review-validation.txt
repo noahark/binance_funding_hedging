@@ -2,4 +2,4 @@ STAGE VALIDATION PASSED
 stage=reports/agent-runs/2026-07-hedge-order-truth-v1
 phase=pre-review
 status=review_1
-diff_fingerprint=baced322e7871ffdcb2a3ad9208da3d1b5dd2524:3c4d16f387538c9f7f2afdef32b415c5f355a3ae0a255740870252a43abc7a5f
+diff_fingerprint=2712fbaed284d777708a9f74ecb3b1cabe22d155:6f33425af859e34c2b7793d5d08f163deddb506823aeb0d00c016c43a110b6a4
