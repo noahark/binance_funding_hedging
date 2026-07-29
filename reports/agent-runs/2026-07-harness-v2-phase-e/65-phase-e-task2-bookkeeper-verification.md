@@ -22,7 +22,7 @@
 
 ## Receipt Correction
 
-The raw GLM result's `结果摘要` is 304 Unicode code points when counted exactly
+The committed raw GLM result's `结果摘要` is 305 Unicode code points when counted exactly
 as the new protocol requires. The hard maximum is 300 total characters,
 including Chinese, English, spaces, and punctuation.
 
