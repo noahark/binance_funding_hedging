@@ -1,7 +1,7 @@
 # Project State
 
-Startup reads this cross-stage state. Keep it under 2 KB. Stage Recorder writes;
-other roles report through `TASK_RESULT`. Git history is not a runtime check.
+Startup reads this cross-stage state. Keep it under 2 KB. Git history is not a
+runtime check.
 
 ## Live Risks
 

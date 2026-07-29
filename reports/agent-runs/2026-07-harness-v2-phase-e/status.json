@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 13,
+  "revision": 14,
   "stage_id": "2026-07-harness-v2-phase-e",
   "bookkeeper": "codex",
-  "phase": "implementation",
-  "checkpoint": "task2-summary-limit-receipt-dispatched",
+  "phase": "human-decision",
+  "checkpoint": "task2-verified-awaiting-authority-consolidation-decision",
   "base_sha": "0cbd523f285fb2974189f2d329a3ff7f236167b2",
   "delivery_sha": null,
-  "ledger_sha": "4886cbc7d0acd36f9f7e1318afedd243c32c3f1c",
+  "ledger_sha": "02239ff6e7d8636cef092d1352a8761f51d77a18",
   "current_task": {
     "id": "phase-e-task2-summary-limit-receipt",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/66-phase-e-task2-summary-limit-receipt-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-claude-glm-task2-summary-limit-receipt"
+    "action": "decide-phase-e-authority-consolidation-before-review"
   },
   "rework_count": 0,
   "blockers": []

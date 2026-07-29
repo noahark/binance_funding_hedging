@@ -15,7 +15,7 @@ give a model permission to launch another model or expand task scope.
 - Stay inside the dispatch file boundary. Stop and report if the boundary is
   insufficient or overlaps another terminal's work.
 - Preserve raw evidence. Do not replace test output, findings, or model output
-  with a controller summary.
+  with a narrative summary.
 - Never record credentials, tokens, cookies, private keys, or expanded secret
   environments.
 
@@ -146,10 +146,11 @@ Human terminal launch. Only the human operator starts a prepared model terminal.
 
 ### Verdict
 
-- Return `verdict: ACCEPT | REWORK`.
-- `REWORK` must name `findings_path` and `fix_requirements_path`.
-- A missing, ambiguous, or malformed verdict is non-accepting.
-- The reviewer remains read-only and returns raw `TASK_RESULT` to the human
+- Return the review result and its closure through the Task Result Protocol in
+  `AGENTS.md`; that file alone owns the result and review-closure fields, so do
+  not restate them here.
+- A missing, ambiguous, or malformed result is non-accepting.
+- The reviewer remains read-only and returns the raw result to the human
   operator for Bookkeeper synchronization.
 
 ## Bookkeeper
@@ -249,7 +250,7 @@ replace it with a later bookkeeping commit.
   repository history separately from current runtime evidence.
 - Prepare the next dispatch packet, then make the final `status.json` revision
   point to that packet. Do not bump the revision again before human delivery.
-- Enforce a default rework limit of three.
+- Enforce the `rework_count` rule defined in `AGENTS.md`.
 - Prepare model-facing instructions, but never start or relay to the model
   terminal.
 

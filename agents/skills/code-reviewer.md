@@ -12,12 +12,13 @@ adapted_for: ai_project_harness
 These overrides have higher priority than the vendored role text below, but lower priority than `AGENTS.md`, the valid dispatch packet, and current `status.json`.
 
 - Obey `AGENTS.md`, current `status.json`, and the dispatch before this skill text.
-- Use raw artifacts, not controller summaries, when reviewing.
+- Use raw artifacts, not narrative summaries, when reviewing.
 - Do not record credentials, tokens, cookies, private keys, or expanded auth environments.
 - Read-only role: do not modify files, run destructive commands, commit, merge, or push.
-- End with `[TASK_RESULT v2]` and `verdict: ACCEPT | REWORK`.
-- `REWORK` must include `findings_path` and `fix_requirements_path`.
-- If evidence is missing, set `outcome: blocked`; never return `ACCEPT`.
+- Return the review result through the Task Result Protocol and review closure
+  defined in `AGENTS.md`; that file owns the result and review-closure fields,
+  so do not restate them or the result template here.
+- Fail-closed: if required evidence is missing, the result is non-accepting.
 
 # Vendored Role Text
 

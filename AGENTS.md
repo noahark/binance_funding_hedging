@@ -94,32 +94,36 @@ Every task ends with:
 
 ```text
 [TASK_RESULT v2]
-task_id: <id>
-outcome: completed | blocked | failed
-summary: <short result>
-artifacts: [<paths>]
-checks: [<command and pass/fail>]
-blockers: [<none or concrete blockers>]
+任务 ID: <id>
+执行结果: completed（完成） | blocked（阻塞） | failed（失败）
+结果摘要: <不超过 300 个总字符>
+产物: [<paths>]
+检查结果: [<最多八项，合并重复检查>]
+阻塞项: [<none or concrete blockers>]
 [/TASK_RESULT]
 ```
 
 A review task also returns:
 
 ```text
-verdict: ACCEPT | REWORK
-findings_path: <path | none>
-fix_requirements_path: <path | none>
+评审结论: ACCEPT（接受） | REWORK（返工）
+问题记录: <path | none>
+修复要求: <path | none>
 ```
 
-`outcome: completed` means the review ran; only `verdict: ACCEPT` passes. `REWORK` requires findings and executable repair requirements. Missing or ambiguous verdict data is non-accepting.
+`执行结果: completed` means the review ran; only `评审结论: ACCEPT` passes. `REWORK` requires findings and executable repair requirements. Missing or ambiguous review-closure data is non-accepting.
 
 ### Compact Output Rules
 
-For every low-risk task with `outcome: completed`:
-- Summary targets at most 300 Chinese characters.
-- Checks are normally at most eight grouped, non-duplicative PASS/FAIL items.
+For every low-risk task with `执行结果: completed`:
+- `结果摘要` is a hard maximum of 300 total characters (Chinese, English,
+  numbers, spaces, and punctuation), not a soft target and not a Han-character
+  count.
+- `检查结果` is a hard maximum of eight grouped, non-duplicative items.
 
-Required high-risk or `REWORK` evidence may exceed the target when necessary.
+Required high-risk or `REWORK` evidence may exceed the summary target when
+necessary; put detailed findings and repair requirements in the review evidence
+referenced by `问题记录` and `修复要求`.
 
 ### Chinese Handoff Labels (Inside Result Block)
 
@@ -149,7 +153,7 @@ model cannot start, call, relay to, or assign the next model.
 
 The closing line `[/TASK_RESULT]` must be the final non-whitespace output. No session ID footer, next-model instruction, or any other text may follow it.
 
-The v2 `status.json` fields are exactly: `schema_version`, `revision`, `stage_id`, `bookkeeper`, `phase`, `checkpoint`, `base_sha`, `delivery_sha`, `ledger_sha`, `current_task`, `next`, `rework_count`, and `blockers`.
+The complete `status.json` field shape lives only in the Bookkeeper section of `agents/roles.md`; do not restate it here.
 
 An implementer may move only its own task from `dispatched` or `running` to `reported`. Bookkeeper is the only other normal `status.json` writer and alone may verify results, set `next`, or record a gate result. Reviewers are read-only; Human transfers their raw result to Bookkeeper.
 
@@ -165,7 +169,7 @@ Write a verified live incident to `PROJECT_STATE.md` immediately. Never present 
 - Review-1 `REWORK` returns to review-1 after repair and retest.
 - A narrow review-2 finding returns directly to review-2 after repair, retest, and a new commit.
 - A review-2 repair that expands files, changes a contract, or adds risk must pass review-1 again.
-- Maximum rework count is three; beyond it Human chooses to narrow, redesign, accept a limitation, or stop.
+- `rework_count` counts only formal `REWORK` repair rounds for the current task. It resets to zero for a new task and does not count Human requirement refinement or pre-dispatch packet correction. The maximum is three; beyond it Human chooses to narrow, redesign, accept a limitation, or stop.
 
 ## 9. Stage Completion
 

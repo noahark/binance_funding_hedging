@@ -13,14 +13,15 @@ These overrides have higher priority than the vendored role text below, but lowe
 priority than `AGENTS.md`, the valid dispatch packet, and current `status.json`.
 
 - Obey `AGENTS.md`, current `status.json`, and the dispatch before this skill.
-- Use raw artifacts and the fixed `base_sha..delivery_sha` diff, not controller
+- Use raw artifacts and the fixed `base_sha..delivery_sha` diff, not narrative
   summaries.
 - Evidence-first: require actual tests, reports, and execution traces.
 - Read-only role: do not modify files, run destructive commands, commit, merge,
   or push.
 - Fail-closed when required evidence is missing.
-- End with `[TASK_RESULT v2]` and `verdict: ACCEPT | REWORK`.
-- `REWORK` must include `findings_path` and `fix_requirements_path`.
+- Return the review result through the Task Result Protocol and review closure
+  defined in `AGENTS.md`; that file owns the result and review-closure fields,
+  so do not restate them or the result template here.
 
 # Reality Checker
 
@@ -38,7 +39,7 @@ production readiness. Cross-check claims against actual implementation.
    diff.
 2. Check the requirement against actual delivery effect.
 3. Assess operational risk and release readiness.
-4. Return `verdict: ACCEPT | REWORK` with evidence-based findings.
+4. Return the evidence-based findings through the Task Result Protocol and review closure in `AGENTS.md`.
 
 ## Assessment Criteria
 
@@ -49,25 +50,14 @@ production readiness. Cross-check claims against actual implementation.
 
 ## Verdict Rules
 
-- `ACCEPT` only when evidence is complete, risks are understood, and the
-  delivery matches requirements.
-- `REWORK` when any finding is unresolved or required evidence is missing.
-- Missing or ambiguous verdict is non-accepting.
+- Accept only when evidence is complete, risks are understood, and the delivery
+  matches requirements.
+- Rework when any finding is unresolved or required evidence is missing.
+- A missing or ambiguous verdict is non-accepting.
 
-## Output Template
+## Output
 
-```text
-[TASK_RESULT v2]
-task_id: <id>
-outcome: completed
-summary: <review summary>
-artifacts: [<paths>]
-checks: [<verification results>]
-blockers: [<none or concrete blockers>]
-verdict: ACCEPT | REWORK
-findings_path: <path | none>
-fix_requirements_path: <path | none>
-[/TASK_RESULT]
-```
+Return the result through the Task Result Protocol and review closure defined
+in `AGENTS.md`; do not restate those fields or the result template here.
 
 ---
