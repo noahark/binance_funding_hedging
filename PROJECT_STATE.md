@@ -33,8 +33,8 @@ other roles report through `TASK_RESULT`. Git history is not a runtime check.
 
 ## Last Completed
 
-- stage: `2026-07-hedge-order-truth-v1`
-- archive_ref: `3113a5d`
+- stage: `2026-07-harness-v2-phase-c`
+- archive_ref: `archive/2026-07-harness-v2-phase-c`
 - recorded_completed_at: `2026-07-29`
 
 ## Update Rule
