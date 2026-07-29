@@ -6,7 +6,7 @@
 - target_role: `Implementer`
 - target_model: `claude_glm`
 - provider: `zhipu_glm`
-- status_revision: `1`
+- status_revision: `2`
 - required_skill: `agents/skills/minimal-change-engineer.md`
 
 ## Goal
@@ -21,6 +21,12 @@ changing its provenance purpose:
 Replace them with the minimum accurate v2 wording: this file records provenance
 only, while runtime behavior and task output follow `AGENTS.md`, the valid
 dispatch, current `status.json`, and `TASK_RESULT v2`.
+
+The Human-approved later review route for this rehearsal is Grok 4.5
+(`xai`) for review-1 because Kimi quota is unavailable, followed by Opus 5
+(`anthropic`) for review-2. Fable5 is not used in this stage to conserve its
+separate paid quota. This routing is context only: the current GLM session must
+not start or contact either reviewer.
 
 ## Allowed Files
 
