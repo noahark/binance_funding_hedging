@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 15,
+  "revision": 16,
   "stage_id": "2026-07-harness-v2-phase-e",
   "bookkeeper": "codex",
-  "phase": "human-decision",
-  "checkpoint": "task2-verified-awaiting-authority-consolidation-decision",
-  "base_sha": "0cbd523f285fb2974189f2d329a3ff7f236167b2",
-  "delivery_sha": "052fe54ec7dadb2d3f45e9cb7d55bf69d4e8eb6a",
-  "ledger_sha": "052fe54ec7dadb2d3f45e9cb7d55bf69d4e8eb6a",
+  "phase": "implementation",
+  "checkpoint": "task3-active-authority-convergence-dispatched",
+  "base_sha": "3183a89a080e7e7f08fb5a8e194df1327378d78b",
+  "delivery_sha": null,
+  "ledger_sha": "3183a89a080e7e7f08fb5a8e194df1327378d78b",
   "current_task": {
-    "id": "phase-e-task2-summary-limit-receipt",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/66-phase-e-task2-summary-limit-receipt-glm.dispatch.md"
+    "id": "phase-e-task3-active-authority-convergence",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/71-phase-e-task3-active-authority-convergence-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "decide-phase-e-authority-consolidation-before-review"
+    "action": "start-prepared-claude-glm-task3-active-authority-convergence"
   },
   "rework_count": 0,
   "blockers": []
