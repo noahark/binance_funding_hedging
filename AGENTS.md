@@ -68,7 +68,7 @@ Read only the target role section in `agents/roles.md`.
 | Bounded finding repair | `Implementer` + discipline + repair skill |
 | Review-1 | `Reviewer` + `agents/skills/code-reviewer.md` |
 | Review-2 | `Reviewer` + `agents/skills/reality-checker.md` |
-| State verification and next packet | `Stage Recorder` |
+| State verification and next packet | `Bookkeeper` |
 
 GLM owns backend by default and Kimi frontend. Codex/GPT or Claude normally plans and performs decision review. Full routing and provider identity live only in `agents/roles.md`.
 
@@ -77,7 +77,7 @@ GLM owns backend by default and Kimi frontend. Codex/GPT or Claude normally plan
 1. Human and a senior Planner decide the product goal, release boundary, non-goals, and acceptance criteria.
 2. Planner creates bounded backend/frontend tasks only when safely separable.
 3. GLM and/or Kimi implement, self-test, report, and stop.
-4. Stage Recorder verifies results and seals a committed delivery range.
+4. Bookkeeper verifies results and seals a committed delivery range.
 5. High-risk work receives review-1; justified low-risk work may go directly to one independent final review.
 6. The original implementer fixes an explicit finding with the smallest change.
 7. A model explains effect, problems, and choices in plain Chinese; Human may make a business pre-decision.
@@ -113,9 +113,45 @@ fix_requirements_path: <path | none>
 
 `outcome: completed` means the review ran; only `verdict: ACCEPT` passes. `REWORK` requires findings and executable repair requirements. Missing or ambiguous verdict data is non-accepting.
 
-The v2 `status.json` fields are exactly: `schema_version`, `revision`, `stage_id`, `phase`, `checkpoint`, `base_sha`, `delivery_sha`, `ledger_sha`, `current_task`, `next`, `rework_count`, and `blockers`.
+### Compact Output Rules
 
-An implementer may move only its own task from `dispatched` or `running` to `reported`. Stage Recorder is the only other normal `status.json` writer and alone may verify results, set `next`, or record a gate result. Reviewers are read-only; Human transfers their raw result to Stage Recorder.
+For every low-risk task with `outcome: completed`:
+- Summary targets at most 300 Chinese characters.
+- Checks are normally at most eight grouped, non-duplicative PASS/FAIL items.
+
+Required high-risk or `REWORK` evidence may exceed the target when necessary.
+
+### Chinese Handoff Labels (Inside Result Block)
+
+Every formal `[TASK_RESULT v2]` must contain these three Chinese handoff lines:
+
+```text
+本地北京时间: <YYYY-MM-DD HH:MM:SS CST from local date>
+下一步模型: <readable role/model name with transfer note>
+下一步任务: <concrete evidence path, state transition, next gate, target model when known>
+```
+
+- `本地北京时间` uses exact format `YYYY-MM-DD HH:MM:SS CST`, produced by:
+  `date '+%Y-%m-%d %H:%M:%S CST'`.
+- `下一步模型` reads the single model id at `status.json.bookkeeper`, written as
+  a readable model name with a transfer note, such as
+  `Codex（Bookkeeper，经 human_operator 转交）`, not an internal enum. It does not
+  read dispatch metadata.
+- `下一步任务` states the concrete evidence path, state transition, next gate,
+  and the later reviewer or planned target model when known. It keeps the next
+  planned reviewer separate from the immediate Bookkeeper named above; they are
+  different steps. Do not use vague text.
+
+These fields are informational only and never authorize dispatch. The current
+model cannot start, call, relay to, or assign the next model.
+
+### Final Output Marker
+
+The closing line `[/TASK_RESULT]` must be the final non-whitespace output. No session ID footer, next-model instruction, or any other text may follow it.
+
+The v2 `status.json` fields are exactly: `schema_version`, `revision`, `stage_id`, `bookkeeper`, `phase`, `checkpoint`, `base_sha`, `delivery_sha`, `ledger_sha`, `current_task`, `next`, `rework_count`, and `blockers`.
+
+An implementer may move only its own task from `dispatched` or `running` to `reported`. Bookkeeper is the only other normal `status.json` writer and alone may verify results, set `next`, or record a gate result. Reviewers are read-only; Human transfers their raw result to Bookkeeper.
 
 Write a verified live incident to `PROJECT_STATE.md` immediately. Never present repository history as a current runtime check.
 
@@ -133,7 +169,7 @@ Write a verified live incident to `PROJECT_STATE.md` immediately. Never present 
 
 ## 9. Stage Completion
 
-Before closing a stage, Stage Recorder:
+Before closing a stage, Bookkeeper:
 
 1. promotes durable product or architecture decisions to canonical documents;
 2. moves unresolved live risks and follow-ups to `PROJECT_STATE.md`;

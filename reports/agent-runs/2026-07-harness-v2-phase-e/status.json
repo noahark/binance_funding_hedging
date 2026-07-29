@@ -10,7 +10,7 @@
   "ledger_sha": "75ae97e09319ac2dec317674783874b89d5db64d",
   "current_task": {
     "id": "phase-e-bookkeeper-single-value",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/15-bookkeeper-single-value-glm.dispatch.md"
   },
   "next": {

@@ -9,7 +9,7 @@ give a model permission to launch another model or expand task scope.
 - The human-delivered dispatch packet names `target_role`, `target_model`,
   allowed files, acceptance checks, and at most one required skill.
 - A model's self-check against `target_model` is only a warning tripwire. The
-  operator's launch record and Stage Recorder verification establish the actual
+  operator's launch record and Bookkeeper verification establish the actual
   model identity.
 - No model may start, call, relay to, or impersonate another model session.
 - Stay inside the dispatch file boundary. Stop and report if the boundary is
@@ -124,7 +124,9 @@ Claude Code running GLM is still a Zhipu provider session, not Anthropic.
 ### Review-1
 
 - Default skill: `agents/skills/code-reviewer.md`.
-- For `claude_glm` implementation, prefer Kimi.
+- For `claude_glm` implementation, Kimi is the preferred cross-provider review-1
+  model when available.
+- Grok 4.5 is a Human-approved fallback when Kimi quota or service is unavailable.
 - For Kimi implementation, prefer `claude_glm`.
 - Inspect correctness, contracts, tests, integration seams, and the fixed
   `base_sha..delivery_sha` diff.
@@ -132,9 +134,15 @@ Claude Code running GLM is still a Zhipu provider session, not Anthropic.
 ### Review-2
 
 - Default skill: `agents/skills/reality-checker.md`.
-- Prefer Codex/GPT, then Claude Fable, with Opus as the Claude fallback.
+- Opus 5 is the default review-2 model.
+- Fable5 is used only when Human explicitly selects its separate paid quota.
 - Judge the user's approved requirement, actual delivery effect, evidence,
   operational risk, and release readiness.
+
+### Routing Hints
+
+Routing hints in model output never replace Bookkeeper verification and
+Human terminal launch. Only the human operator starts a prepared model terminal.
 
 ### Verdict
 
@@ -142,9 +150,9 @@ Claude Code running GLM is still a Zhipu provider session, not Anthropic.
 - `REWORK` must name `findings_path` and `fix_requirements_path`.
 - A missing, ambiguous, or malformed verdict is non-accepting.
 - The reviewer remains read-only and returns raw `TASK_RESULT` to the human
-  operator for Stage Recorder synchronization.
+  operator for Bookkeeper synchronization.
 
-## Stage Recorder
+## Bookkeeper
 
 ### Purpose
 
@@ -153,11 +161,11 @@ dispatch without becoming an implementer, reviewer, or autonomous dispatcher.
 
 ### Write Authority
 
-- Except for an implementer marking only its own task `reported`, Stage Recorder
+- Except for an implementer marking only its own task `reported`, Bookkeeper
   is the sole normal writer of `status.json`.
-- Stage Recorder is the normal writer of `PROJECT_STATE.md`.
+- Bookkeeper is the normal writer of `PROJECT_STATE.md`.
 - Reviewers remain read-only. The human operator transfers their raw
-  `TASK_RESULT` to Stage Recorder.
+  `TASK_RESULT` to Bookkeeper.
 
 ### Minimal State And Dispatch Shape
 
@@ -168,6 +176,7 @@ Create current-stage `status.json` with exactly these top-level fields:
   "schema_version": "2",
   "revision": 1,
   "stage_id": "<stage-id>",
+  "bookkeeper": "<canonical-model-id>",
   "phase": "<current-phase>",
   "checkpoint": "<last-verified-checkpoint>",
   "base_sha": "<committed-base>",
@@ -187,6 +196,21 @@ Create current-stage `status.json` with exactly these top-level fields:
 }
 ```
 
+### SHA Discipline
+
+Every SHA in `status.json` must come directly from `git rev-parse` output.
+Validate the written value against Git before commit.
+
+`base_sha` is defined as the committed HEAD immediately before preparing the task
+packet. It is direct and non-self-referential: the SHA exists before the packet
+preparation begins.
+
+### Context Size
+
+When a dispatch requests context size, require actual byte-count command output
+(`wc -c` on individual files, `du -sb` on directories) rather than model
+estimation.
+
 A dispatch packet contains only:
 
 ```text
@@ -198,6 +222,14 @@ Inputs
 Acceptance Checks
 Stop
 ```
+
+`status.json.bookkeeper` is the single canonical model id of the Bookkeeper for
+this stage. Human assigns it at stage intake and Bookkeeper records that
+decision. Do not store a provider beside it; provider identity comes from the
+model/provider mapping above. A mid-stage handover needs a new Human decision
+and status revision, but changes only this one value, for example:
+`"bookkeeper": "opus5"`. A task result returns to this one Bookkeeper; dispatch
+does not duplicate the identity.
 
 Prepare the dispatch first, then make the last `status.json` revision point to
 it. Do not modify that revision before Human starts the target terminal.
@@ -223,6 +255,6 @@ replace it with a later bookkeeping commit.
 
 ### Stop Point
 
-Stage Recorder cannot declare review acceptance, merge, deployment, live
+Bookkeeper cannot declare review acceptance, merge, deployment, live
 activation, or a product decision. It reports verified state and choices in
 plain Chinese so the human can decide.
