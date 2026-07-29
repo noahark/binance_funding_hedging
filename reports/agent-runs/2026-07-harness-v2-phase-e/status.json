@@ -10,7 +10,7 @@
   "ledger_sha": "3183a89a080e7e7f08fb5a8e194df1327378d78b",
   "current_task": {
     "id": "phase-e-task3-active-authority-convergence",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/71-phase-e-task3-active-authority-convergence-glm.dispatch.md"
   },
   "next": {
