@@ -1,12 +1,12 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 4,
   "stage_id": "2026-07-harness-v2-phase-c",
   "phase": "review_2",
-  "checkpoint": "phase-c-review-reported",
+  "checkpoint": "main-synced-tests-passed",
   "base_sha": "a15368c8ff9c0989968100e874e9ecb799a01c7d",
   "delivery_sha": "0412ba16e2fa5003c087be9c4a824cb4e022d4b4",
-  "ledger_sha": "0412ba16e2fa5003c087be9c4a824cb4e022d4b4",
+  "ledger_sha": "85068365e2a5cd4f14b5f31db56fa0e178f4e603",
   "current_task": {
     "id": "harness-v2-phase-c-review",
     "state": "reported",

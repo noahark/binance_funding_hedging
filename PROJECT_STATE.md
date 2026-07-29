@@ -1,44 +1,42 @@
 # Project State
 
-This small file holds facts that remain relevant across stages. It is read at
-startup, so keep it current and under roughly 2 KB. Stage Recorder is the normal
-writer. Implementers and reviewers report facts through `TASK_RESULT`; they do
-not edit this file.
+Startup reads this cross-stage state. Keep it under 2 KB. Stage Recorder writes;
+other roles report through `TASK_RESULT`. Git history is not a runtime check.
 
 ## Live Risks
 
-- `[OPEN][RUNTIME-UNVERIFIED]` Repository records dated 2026-07-28 say the
-  durable Start gate was open and a real naked `SHORT 10000 NOMUSDT`
-  (`orderId 888412130`) remained outstanding after the 2026-07-27 live
-  acceptance run. The same records say the system had no close function.
-  This branch has not queried the current exchange or runtime state, so this is
-  last-known evidence, not a claim about the live state now. Before any further
-  live action, an authorized runtime check must establish the current gate and
-  position state. Evidence: historical
-  `reports/agent-runs/ACTIVE.json` at commit
-  `5c6ac65be1647dc171274bcc3d935420560faa90`,
-  `reports/agent-runs/2026-07-hedge-open-live-hardening-v1/18-live-acceptance-findings.md`.
+- `[OPEN][RUNTIME-UNVERIFIED]` At `7180f61`, records say the service and Start
+  gate may be live and a naked `SHORT 10000 NOMUSDT` (`orderId 888412130`) may
+  remain while no close function exists. Current runtime/exchange state was not
+  queried. Require an authorized read-only check before live action. No agent
+  may create cards/orders, touch credentials, start/stop service, or write the
+  live task database.
+  Evidence: `git show 7180f61:reports/agent-runs/ACTIVE.json` and
+  `reports/agent-runs/2026-07-hedge-order-truth-v1/01-live-record-evidence.md`.
 
 ## Open Follow-ups
 
-- `[OPEN]` The next order-truth work must address F-1 through F-4 from the live
-  run and persist raw order-placement responses plus full order-detail query
-  responses. Source:
-  `reports/agent-runs/2026-07-hedge-open-live-hardening-v1/18-live-acceptance-findings.md`.
-- `[OPEN]` Five non-blocking P3 follow-ups remain to be migrated into the next
-  applicable stage. Their authoritative details remain in
-  `reports/agent-runs/2026-07-hedge-open-live-hardening-v1/status.json`
+- `[OPEN][ACCEPTED-LIMITATION]` Order-truth merged by explicit Human acceptance
+  after review-1 `REWORK`; review-2 did not run. Confirmed P1: a deferred-query
+  single-leg fill with NULL quote persists exposure price as zero, not NULL.
+  Human chose observe-first handling.
+  Evidence: `43-review-1-r7.md` and `61-validate-pre-accept-final.txt` under
+  `reports/agent-runs/2026-07-hedge-order-truth-v1/`.
+- `[OPEN][DEFERRED]` Six other order-truth follow-ups remain: two collateral-cap
+  items, bounded inconclusive-query evidence, brake documentation,
+  contradictory zero notional, and one flaky oversized-body test.
+  Details: `git show 3113a5d:reports/agent-runs/2026-07-hedge-order-truth-v1/status.json`
+  under `stage_followups`.
+- `[OPEN][LEGACY-P3]` Five older non-blocking hardening follow-ups remain in
+  `git show 7180f61:reports/agent-runs/2026-07-hedge-open-live-hardening-v1/status.json`
   under `stage_followups`.
 
 ## Last Completed
 
-- stage: `2026-07-hedge-open-live-hardening-v1`
-- archive_ref: `c8b6bbe`
-- recorded_completed_at: `2026-07-28T01:45:00+08:00`
+- stage: `2026-07-hedge-order-truth-v1`
+- archive_ref: `3113a5d`
+- recorded_completed_at: `2026-07-29`
 
 ## Update Rule
 
-Record a newly verified live incident immediately; do not wait for stage
-completion. Always distinguish repository-recorded history from a current
-runtime check. Remove resolved risks and migrated follow-ups instead of growing
-this file into a changelog.
+Record live incidents immediately; remove resolved or migrated items.
