@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 8,
+  "revision": 9,
   "stage_id": "2026-07-harness-v2-phase-e",
   "bookkeeper": "codex",
-  "phase": "review-2",
-  "checkpoint": "task1-review1-accepted-review2-dispatched",
+  "phase": "human-decision",
+  "checkpoint": "task1-review2-accepted-waiting-human",
   "base_sha": "ecf27fb2ddc12335a3e47c8e62e14f7b018fe511",
   "delivery_sha": "ade66ee389e0c865c9cb8a95a805da711eb83ff6",
-  "ledger_sha": "2ab97a0740e26a938c27fad0e3a7d87351f161d5",
+  "ledger_sha": "e8614ea06e81ea528b97496c90357a72906bec16",
   "current_task": {
     "id": "phase-e-task1-review-2-opus5",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/40-phase-e-task1-opus5-review.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-opus5-review-2"
+    "action": "decide-phase-e-task2-model-and-rework-count-policy"
   },
   "rework_count": 3,
   "blockers": []
