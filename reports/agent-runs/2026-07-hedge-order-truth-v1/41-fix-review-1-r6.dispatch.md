@@ -1,3 +1,18 @@
+<!-- ===== DISPATCH RECEIPT（执行者/记账者填写） =====
+status: completed
+target_model: claude_glm/glm-5.2[1m]
+adapter_cmd: operator-run Claude-GLM session (write-capable), packet pasted from this file
+executor: human_operator
+started_at: unavailable:the operator recorded no start timestamp
+completed_at: 2026-07-29T13:00:00+08:00
+completed_at_source: bookkeeper's archiving time
+session_id: unavailable:the Claude-GLM session did not expose a provider-native session id
+outputs: reports/agent-runs/2026-07-hedge-order-truth-v1/20-implementation.md (appended), 60-test-output.txt
+verdict: n/a (fix dispatch, not a review)
+next_dispatch: reports/agent-runs/2026-07-hedge-order-truth-v1/43-review-1-r7.dispatch.md (human operator)
+receipt_sealed_by: bookkeeper (Claude Opus 5) after verifying the fix independently: 1071 passed, specified suite 326, zero forbidden-path touches, live_hedge_executor.py and store.py both at zero diff.
+===== END RECEIPT ===== -->
+
 # Fix Dispatch — Review-1 Round 6 (one P1: the API layer re-fabricates the zero)
 
 Human operator: run in a **fresh, write-capable Claude-GLM session**
