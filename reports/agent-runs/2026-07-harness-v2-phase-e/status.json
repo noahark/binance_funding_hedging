@@ -1,21 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 4,
+  "revision": 5,
   "stage_id": "2026-07-harness-v2-phase-e",
+  "bookkeeper": {
+    "model": "codex",
+    "provider": "openai"
+  },
   "phase": "implementation",
-  "checkpoint": "explicit-result-recipient-dispatched",
+  "checkpoint": "bookkeeper-single-authority-dispatched",
   "base_sha": "ecf27fb2ddc12335a3e47c8e62e14f7b018fe511",
   "delivery_sha": null,
-  "ledger_sha": "e3547040a7509ef92c69178f0cceba638a90bfe2",
+  "ledger_sha": "fef4d28fefc975e798a3044ed53d6c2e981f6099",
   "current_task": {
-    "id": "phase-e-explicit-result-recipient",
+    "id": "phase-e-bookkeeper-single-authority",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/13-explicit-result-recipient-glm.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/14-bookkeeper-single-authority-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-claude-glm-task"
   },
-  "rework_count": 2,
+  "rework_count": 3,
   "blockers": []
 }
