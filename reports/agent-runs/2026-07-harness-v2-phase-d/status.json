@@ -9,7 +9,7 @@
   "ledger_sha": "e8bf65be0ed253984d798d0c2351dd5b2509006f",
   "current_task": {
     "id": "phase-d-upstream-wording-cleanup",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-d/10-upstream-cleanup-glm.dispatch.md"
   },
   "next": {
