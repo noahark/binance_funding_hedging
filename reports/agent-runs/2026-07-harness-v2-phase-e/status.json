@@ -10,7 +10,7 @@
   "ledger_sha": "685e69bd8c88875180a4459022ae087138eac7ec",
   "current_task": {
     "id": "phase-e-task2-result-authority-dedup",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/63-phase-e-task2-result-authority-dedup-glm.dispatch.md"
   },
   "next": {
