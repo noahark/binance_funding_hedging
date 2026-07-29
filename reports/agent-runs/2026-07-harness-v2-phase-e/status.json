@@ -1,20 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 5,
+  "revision": 6,
   "stage_id": "2026-07-harness-v2-phase-e",
-  "bookkeeper": {
-    "model": "codex",
-    "provider": "openai"
-  },
+  "bookkeeper": "codex",
   "phase": "implementation",
-  "checkpoint": "bookkeeper-single-authority-dispatched",
+  "checkpoint": "bookkeeper-single-value-dispatched",
   "base_sha": "ecf27fb2ddc12335a3e47c8e62e14f7b018fe511",
   "delivery_sha": null,
-  "ledger_sha": "fef4d28fefc975e798a3044ed53d6c2e981f6099",
+  "ledger_sha": "75ae97e09319ac2dec317674783874b89d5db64d",
   "current_task": {
-    "id": "phase-e-bookkeeper-single-authority",
+    "id": "phase-e-bookkeeper-single-value",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/14-bookkeeper-single-authority-glm.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/15-bookkeeper-single-value-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
