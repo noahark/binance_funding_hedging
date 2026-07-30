@@ -204,6 +204,8 @@ Create current-stage `status.json` with exactly these top-level fields:
 }
 ```
 
+`stage_id` 采用 `YYYY-MM-DD-<kebab-case 描述>-v<N>`，日期取开阶段当天的本地日期；stage 目录名必须与 `stage_id` 完全一致。已有 stage **不重命名**——旧名被归档标签、`PROJECT_STATE.md` 的 git 指针与 `docs/planning/DECISIONS.md` 的来源列引用，改名会打断可追溯性。stage 常跨天，该日期只表示开始日、不表示当天做了哪些改动；按日查改动用 `git log --since=<日> --until=<次日> --date=short`。
+
 ### Task State Vocabulary
 
 `current_task.state` has exactly three values:
