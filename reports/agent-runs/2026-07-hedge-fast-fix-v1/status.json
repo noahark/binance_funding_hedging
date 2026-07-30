@@ -1,0 +1,27 @@
+{
+  "schema_version": "2",
+  "revision": 2,
+  "stage_id": "2026-07-hedge-fast-fix-v1",
+  "bookkeeper": "grok",
+  "phase": "awaiting_findings",
+  "checkpoint": "f4_f5_f6_confirm_preserve_loading_fixed",
+  "base_sha": "a5160474a1b78468d1513fc14539232fdf36d7aa",
+  "delivery_sha": null,
+  "ledger_sha": "a5160474a1b78468d1513fc14539232fdf36d7aa",
+  "current_task": null,
+  "next": {
+    "actor": "human_operator",
+    "action": "report-next-finding-or-accept"
+  },
+  "fixed": ["F1-price-native-decimals", "F2-direction-colors"],
+  "rework_count": 0,
+  "blockers": [],
+  "mode": {
+    "kind": "fast_fix",
+    "implementer": "grok",
+    "dual_hat": true,
+    "dual_hat_note": "Human authorized same-session Grok to open the stage and apply small fixes. Formal multi-model review still applies when a finding is HIGH_RISK.",
+    "commit_default": false,
+    "live_orders": false
+  }
+}
