@@ -484,6 +484,14 @@
       font-size: 18px;
       font-weight: 700;
     }
+    .overview-card .value.risk-warn { color: var(--danger); }
+    .overview-card .value.risk-ok { color: var(--success); }
+    .overview-card .hint {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
     .account-section {
       margin-bottom: var(--space-5);
     }
@@ -1135,6 +1143,7 @@
           <div id="borrow-logs-panel" style="display:none;">
             <div class="borrow-logs-toolbar">
               <button class="btn compact" id="borrow-logs-refresh" type="button">刷新</button>
+              <button class="btn compact" id="borrow-logs-clear" type="button" title="删除历史借币尝试记录（保留进行中/待对账）">清空日志</button>
             </div>
             <div class="status-banner error" id="borrow-logs-error" style="display:none; margin-bottom: var(--space-3);"></div>
             <div id="borrow-log-list"></div>
@@ -1358,6 +1367,7 @@
         borrowLogsError: document.getElementById('borrow-logs-error'),
         borrowLogList: document.getElementById('borrow-log-list'),
         borrowLogsRefresh: document.getElementById('borrow-logs-refresh'),
+        borrowLogsClear: document.getElementById('borrow-logs-clear'),
         borrowLogsLoadMore: document.getElementById('borrow-logs-load-more'),
         borrowExecutionBadge: document.getElementById('borrow-execution-badge'),
         borrowExecutionStart: document.getElementById('borrow-execution-start'),
@@ -2636,6 +2646,38 @@
         const updateTime = timeSource ? formatBeijing(new Date(timeSource).getTime()) : '—';
         els.privatePanelSubtitle.textContent = `资产更新时间 ${updateTime}`;
         const total = maskAmount(pa.total_value_usdt);
+        const spotValueText = maskAmount(pa.spot_value_usdt);
+        const pm = (pa.pm_account && typeof pa.pm_account === 'object') ? pa.pm_account : {};
+        // 统一净资产优先 accountEquity；缺失时后端 total 回退钱包毛额，此处仍展示权益字段。
+        const unifiedNetText = maskAmount(pm.account_equity_usdt);
+        // uniMMR = equity / maint margin；越高越安全。展示为倍数与约百分比。
+        const uniMmrText = (() => {
+          const raw = pm.uni_mmr;
+          if (raw === null || raw === undefined || raw === '') return '—';
+          if (state.privacyHidden) return '****';
+          const n = Number(raw);
+          if (!Number.isFinite(n)) return escapeHtml(String(raw));
+          const pct = (n * 100).toFixed(2);
+          return `${formatHedgeDecimal(raw)}×（约 ${pct}%）`;
+        })();
+        const uniMmrCls = (() => {
+          const n = Number(pm.uni_mmr);
+          if (!Number.isFinite(n)) return '';
+          if (n < 1.2) return 'risk-warn';
+          if (n >= 1.5) return 'risk-ok';
+          return '';
+        })();
+        const leverageText = (() => {
+          const raw = pm.leverage_ratio;
+          if (raw === null || raw === undefined || raw === '') return '—';
+          if (state.privacyHidden) return '****';
+          return `${formatHedgeDecimal(raw)}×`;
+        })();
+        const statusText = pm.account_status ? escapeHtml(String(pm.account_status)) : '—';
+        const debtText = maskAmount(pm.total_debt_usdt);
+        const availableText = maskAmount(pm.total_available_balance_usdt);
+        const initMarginText = maskAmount(pm.account_initial_margin_usdt);
+        const maintMarginText = maskAmount(pm.account_maint_margin_usdt);
 
         const unifiedBalances = Array.isArray(pa.balances_unified) && pa.balances_unified.length > 0
           ? pa.balances_unified.map(b => {
@@ -2670,6 +2712,7 @@
                   <tr>
                     <th>标的</th>
                     <th>方向</th>
+                    <th>仓位价值 (USDT)</th>
                     <th>数量</th>
                     <th>开仓价</th>
                     <th>标记价</th>
@@ -2684,6 +2727,7 @@
                       <tr>
                         <td class="mono">${escapeHtml(p.symbol || '—')}</td>
                         <td><span class="direction-badge ${dir}">${dirLabel}</span></td>
+                        <td class="mono">${maskAmount(p.notional_usdt)}</td>
                         <td class="mono">${maskAmount(p.position_amt)}</td>
                         <td class="mono">${maskAmount(p.entry_price)}</td>
                         <td class="mono">${maskAmount(p.mark_price)}</td>
@@ -2702,6 +2746,42 @@
             <div class="overview-card">
               <div class="label">总资产估值 (USDT)</div>
               <div class="value">${total}</div>
+              <div class="hint">现货账户估值 + 统一账户净资产</div>
+            </div>
+            <div class="overview-card">
+              <div class="label">现货账户估值 (USDT)</div>
+              <div class="value">${spotValueText}</div>
+              <div class="hint">现货 free + locked 折 USDT</div>
+            </div>
+            <div class="overview-card">
+              <div class="label">统一账户净资产 (USDT)</div>
+              <div class="value">${unifiedNetText}</div>
+              <div class="hint">papi accountEquity（接近 App 统一账户净资产）</div>
+            </div>
+            <div class="overview-card">
+              <div class="label">借币负债 (USDT)</div>
+              <div class="value">${debtText}</div>
+              <div class="hint">统一账户 crossMarginBorrowed 折算合计</div>
+            </div>
+            <div class="overview-card">
+              <div class="label">杠杆率</div>
+              <div class="value">${leverageText}</div>
+              <div class="hint">总资产估值 ÷ 统一账户净资产</div>
+            </div>
+            <div class="overview-card">
+              <div class="label">强平风险率 (uniMMR)</div>
+              <div class="value ${uniMmrCls}">${uniMmrText}</div>
+              <div class="hint">越高越安全；约 &lt;120% 风险升高，≥150% 较宽裕</div>
+            </div>
+            <div class="overview-card">
+              <div class="label">总可用余额 (USDT)</div>
+              <div class="value">${availableText}</div>
+              <div class="hint">统一账户 totalAvailableBalance</div>
+            </div>
+            <div class="overview-card">
+              <div class="label">初始 / 维持保证金</div>
+              <div class="value" style="font-size:14px;">${initMarginText} / ${maintMarginText}</div>
+              <div class="hint">账户状态：${statusText}</div>
             </div>
           </div>
 
@@ -3167,6 +3247,18 @@
         return `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
       }
 
+      // 任务卡展示：创建时间倒序（新在前）。后端 list 已 DESC；本地补丁后再渲染时仍保证顺序。
+      function sortTasksNewestFirst(tasks) {
+        return (tasks || []).slice().sort((a, b) => {
+          const ta = a && a.created_at != null ? String(a.created_at) : '';
+          const tb = b && b.created_at != null ? String(b.created_at) : '';
+          if (ta !== tb) return ta < tb ? 1 : -1;
+          const ia = a && a.id != null ? String(a.id) : '';
+          const ib = b && b.id != null ? String(b.id) : '';
+          return ia < ib ? 1 : ia > ib ? -1 : 0;
+        });
+      }
+
       function renderBorrowTasks() {
         renderBorrowTaskFilters();
         if (state.borrowTasksError) {
@@ -3176,9 +3268,10 @@
           els.borrowTasksError.style.display = 'none';
           els.borrowTasksError.textContent = '';
         }
-        const tasks = state.borrowTaskFilter === 'all'
+        const filtered = state.borrowTaskFilter === 'all'
           ? state.borrowTasks
           : state.borrowTasks.filter(t => t.status === state.borrowTaskFilter);
+        const tasks = sortTasksNewestFirst(filtered);
         if (tasks.length === 0) {
           const emptyText = state.borrowTasks.length === 0
             ? '<strong>暂无借币任务</strong><br/><span class="muted small">在市场表「借币」列输入单次借币数量与成功次数并确认后创建</span>'
@@ -3305,6 +3398,41 @@
         }
         renderBorrowLogs();
         return state.borrowLogsError ? { ok: false, error: state.borrowLogsError } : { ok: true };
+      }
+
+      // 清空历史借币尝试记录：二次确认后 POST /api/borrow-logs/clear。
+      function requestClearBorrowLogs() {
+        state.marketActionPending = { kind: 'borrow_clear_logs' };
+        state.hedgeGatePending = null;
+        showHedgeConfirm(
+          '清空借币日志？',
+          '将删除历史借币尝试记录以释放本地空间。进行中或待对账的尝试会保留，任务本身不会删除。此操作不可恢复。',
+          '确认清空'
+        );
+        return { ok: true, pending: true };
+      }
+
+      async function clearBorrowLogs() {
+        try {
+          const doc = await borrowApi('/api/borrow-logs/clear', {
+            method: 'POST',
+            body: { confirm: true },
+          });
+          state.borrowLogs = { entries: [], nextCursor: null, loaded: false };
+          state.borrowLogsError = null;
+          await loadBorrowLogs(true);
+          const deleted = doc && doc.deleted_count != null ? doc.deleted_count : '—';
+          const retained = doc && doc.retained_unresolved_count != null ? doc.retained_unresolved_count : '—';
+          showHedgeModal(
+            '借币日志已清空',
+            `已删除 ${deleted} 条历史记录；保留进行中/待对账 ${retained} 条。`
+          );
+          return { ok: true, doc };
+        } catch (err) {
+          state.borrowLogsError = err.message || '清空借币日志失败';
+          renderBorrowLogs();
+          return { ok: false, error: state.borrowLogsError };
+        }
       }
 
       function borrowLogTimeText(entry) {
@@ -3803,6 +3931,9 @@
         if (pending.kind === 'hedge_open') {
           return submitHedgeOpen(pending.symbol, pending.direction, pending.mode);
         }
+        if (pending.kind === 'borrow_clear_logs') {
+          return clearBorrowLogs();
+        }
         return { ok: false, error: 'unknown_pending' };
       }
 
@@ -3990,9 +4121,10 @@
           els.hedgeTasksError.style.display = state.hedgeTasksError ? '' : 'none';
           els.hedgeTasksError.textContent = state.hedgeTasksError || '';
         }
-        const tasks = state.hedgeTaskFilter === 'all'
+        const filtered = state.hedgeTaskFilter === 'all'
           ? state.hedgeTasks
           : state.hedgeTasks.filter(t => t.status === state.hedgeTaskFilter);
+        const tasks = sortTasksNewestFirst(filtered);
         if (tasks.length === 0) {
           const emptyText = state.hedgeTasks.length === 0
             ? '<strong>暂无开单任务</strong><br/><span class="muted small">在市场表「正向开单 / 反向开单」操作列输入单次币量与计划尝试次数，点击立即开单创建（平滑开单下一轮接入）</span>'
@@ -4567,6 +4699,9 @@
         els.borrowTabLogs.addEventListener('click', () => setBorrowTab('logs'));
         els.borrowIntervalConfirm.addEventListener('click', () => { submitSchedulerInterval(); });
         els.borrowLogsRefresh.addEventListener('click', () => { loadBorrowLogs(true); });
+        if (els.borrowLogsClear) {
+          els.borrowLogsClear.addEventListener('click', () => { requestClearBorrowLogs(); });
+        }
         els.borrowLogsLoadMore.addEventListener('click', () => { loadBorrowLogs(false); });
         // Boundary C 执行控制：幂等全局 Start/Stop（无 body）；2s 显示轮询仅刷新投影。
         els.borrowExecutionStart.addEventListener('click', () => { submitExecutionToggle('start'); });
@@ -4676,6 +4811,8 @@
         setBorrowTab,
         getBorrowTab: () => state.borrowTab,
         loadBorrowLogs,
+        requestClearBorrowLogs,
+        clearBorrowLogs,
         getBorrowLogs: () => state.borrowLogs,
         multiplyDecimalString,
         renderBorrowPreview,

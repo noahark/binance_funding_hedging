@@ -50,6 +50,13 @@ _BY_ABS: dict[str, dict[str, str]] = {
         "message_en": "Invalid API-key, IP, or permissions for action.",
         "message_zh": "API Key 无效、IP 不在白名单或权限不足。",
     },
+    # Futures / PM trading code occasionally returned on signed money paths
+    # (display-only; classification still treats any definite 4xx as known_rejection).
+    "2019": {
+        "name": "MARGIN_NOT_SUFFICIENT",
+        "message_en": "Margin is insufficient.",
+        "message_zh": "保证金不足，请补充保证金后重试。",
+    },
     # --- classic margin borrow family (margin_trading docs) ---
     "3006": {
         "name": "EXCEED_MAX_BORROWABLE",

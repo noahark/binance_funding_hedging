@@ -897,6 +897,158 @@ def _infer_position_side(position_amt) -> Optional[str]:
     return None
 
 
+def _um_notional_usdt(position: dict) -> Optional[str]:
+    """UM position notional value in USDT (absolute). Prefer exchange ``notional``;
+    fallback ``|positionAmt * markPrice|``. Display-only; never in total_value.
+    """
+    raw = position.get("notional")
+    if raw is not None and raw != "":
+        try:
+            return _quantize_rate(abs(Decimal(str(raw))))
+        except (InvalidOperation, ValueError, TypeError):
+            pass
+    try:
+        amt = Decimal(str(position.get("positionAmt") or "0"))
+        mark = Decimal(str(position.get("markPrice") or "0"))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if amt == 0:
+        return _quantize_rate(Decimal(0))
+    if mark == 0:
+        return None
+    try:
+        return _quantize_rate(abs(amt * mark))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
+def _raw_dec_field(raw) -> Optional[str]:
+    """Pass through a finite decimal field as a plain string, else None."""
+    if raw is None or raw == "":
+        return None
+    try:
+        value = Decimal(str(raw))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if not value.is_finite():
+        return None
+    return format(value, "f")
+
+
+def _empty_pm_account_summary() -> dict:
+    """Null PM account summary (disabled / fetch failed)."""
+    return {
+        "account_equity_usdt": None,
+        "actual_equity_usdt": None,
+        "total_available_balance_usdt": None,
+        "account_initial_margin_usdt": None,
+        "account_maint_margin_usdt": None,
+        "uni_mmr": None,
+        "account_status": None,
+        "total_debt_usdt": None,
+        "leverage_ratio": None,
+        "source": None,
+    }
+
+
+def _sum_priced_amount(
+    rows: List[dict],
+    amount_fn,
+    price_map: Dict[str, str],
+    warnings: List[str],
+) -> Decimal:
+    """Sum USDT values for a list of balance rows via ``amount_fn(row)``."""
+    total = Decimal(0)
+    for x in rows:
+        if not isinstance(x, dict):
+            continue
+        total += _usdt_value(x.get("asset"), amount_fn(x), price_map, warnings)
+    return total
+
+
+def _sum_cross_margin_debt_usdt(
+    unified_list: List[dict],
+    price_map: Dict[str, str],
+    warnings: List[str],
+) -> Optional[Decimal]:
+    """Σ(crossMarginBorrowed priced) for unified rows. None when no usable debt."""
+    total = Decimal(0)
+    any_debt = False
+    for x in unified_list:
+        if not isinstance(x, dict):
+            continue
+        borrowed = x.get("crossMarginBorrowed")
+        if borrowed is None or borrowed == "" or borrowed == "0" or borrowed == "0.0":
+            # Still price zeros as 0 without flagging; skip empty.
+            if borrowed in ("0", "0.0", "0.00000000"):
+                any_debt = True
+            continue
+        try:
+            amt = Decimal(str(borrowed))
+        except (InvalidOperation, ValueError, TypeError):
+            continue
+        if amt == 0:
+            any_debt = True
+            continue
+        any_debt = True
+        total += _usdt_value(x.get("asset"), borrowed, price_map, warnings)
+    if not any_debt:
+        # No borrowed fields present at all -> treat as 0 debt when we have rows.
+        if not unified_list:
+            return None
+        return Decimal(0)
+    return total
+
+
+def _project_pm_account_summary(
+    pm_account: Optional[dict],
+    unified_list: List[dict],
+    price_map: Dict[str, str],
+    total_value: Optional[Decimal],
+    warnings: List[str],
+) -> dict:
+    """Map ``GET /papi/v1/account`` + balance debt into display fields.
+
+    Equity / uniMMR / margins come from the account object; total debt is the
+    priced sum of ``crossMarginBorrowed`` on unified balances (not a papi field).
+    Leverage ratio = total_value_usdt / account_equity when both > 0
+    (combined spot+unified net total vs unified equity).
+    """
+    out = _empty_pm_account_summary()
+    debt = _sum_cross_margin_debt_usdt(unified_list, price_map, warnings)
+    if debt is not None:
+        out["total_debt_usdt"] = _quantize_rate(debt)
+
+    if not isinstance(pm_account, dict):
+        return out
+
+    out["source"] = "papi_v1_account"
+    out["account_equity_usdt"] = _raw_dec_field(pm_account.get("accountEquity"))
+    out["actual_equity_usdt"] = _raw_dec_field(pm_account.get("actualEquity"))
+    out["total_available_balance_usdt"] = _raw_dec_field(
+        pm_account.get("totalAvailableBalance")
+    )
+    out["account_initial_margin_usdt"] = _raw_dec_field(
+        pm_account.get("accountInitialMargin")
+    )
+    out["account_maint_margin_usdt"] = _raw_dec_field(
+        pm_account.get("accountMaintMargin")
+    )
+    out["uni_mmr"] = _raw_dec_field(pm_account.get("uniMMR"))
+    status = pm_account.get("accountStatus")
+    out["account_status"] = str(status) if status is not None and status != "" else None
+
+    equity_raw = out["account_equity_usdt"]
+    if equity_raw is not None and total_value is not None:
+        try:
+            equity = Decimal(equity_raw)
+            if equity > 0 and total_value.is_finite():
+                out["leverage_ratio"] = _quantize_rate(total_value / equity)
+        except (InvalidOperation, ValueError, TypeError, ZeroDivisionError):
+            pass
+    return out
+
+
 def assemble_private_account(
     unified: Optional[List[dict]],
     spot: Optional[List[dict]],
@@ -905,6 +1057,7 @@ def assemble_private_account(
     *,
     checked_at: Optional[str],
     error: Optional[str],
+    pm_account: Optional[dict] = None,
 ) -> dict:
     """Three-state ``private_account`` block (§1.4).
 
@@ -915,20 +1068,31 @@ def assemble_private_account(
     filled. Otherwise ``verified=true`` with available arrays (a failed single
     source degrades to an empty array, not a block-level failure).
 
-    Anti-double-count hard rule (§1.4, asserted in tests): ``total_value_usdt``
-    = ``Σ(unified totalWalletBalance priced) + Σ(spot free+locked priced)``;
-    the unified ``totalWalletBalance`` already includes um/cm/crossMargin
-    sub-accounts (never re-added), and ``um_positions`` is an exposure view whose
-    nominal value is NEVER counted. Returns ``(block, warnings)``.
+    Valuation split (2026-07 fast-fix):
+
+    - ``spot_value_usdt`` = Σ(spot free+locked priced)
+    - ``unified_wallet_value_usdt`` = Σ(unified totalWalletBalance priced)
+      (wallet gross; may include borrowed assets; um/cm never re-added)
+    - ``pm_account.account_equity_usdt`` = papi ``accountEquity`` (unified net)
+    - ``total_value_usdt`` = ``spot_value_usdt`` + unified net, where unified net
+      prefers ``accountEquity`` and falls back to ``unified_wallet_value_usdt``
+      when the account endpoint is unavailable
+
+    ``um_positions`` nominal is NEVER counted. Returns ``(block, warnings)``.
 
     v0.4 additive: each balance row carries ``value_usdt`` (8-place decimal
     string | null) computed by the same price map. Missing/bad amount or price
     -> null with warning; valid zero -> ``"0.00000000"``. The frontend must not
-    re-derive ``total_value_usdt`` from row values.
+    re-derive totals from row values for the combined headline.
 
     Additive liability field on each unified row: ``cross_margin_borrowed`` from
     Binance ``crossMarginBorrowed`` (full-cross margin debt). Raw string | null;
-    never folded into ``total_value_usdt``.
+    never folded into wallet or equity totals.
+
+    Additive ``pm_account`` summary (E3b ``GET /papi/v1/account``): equity,
+    available balance, margins, uniMMR, status, priced total debt, and a simple
+    leverage ratio. Failed account fetch leaves these null without failing the
+    balance block.
     """
     warnings: List[str] = []
     if unified is None and spot is None:
@@ -939,6 +1103,9 @@ def assemble_private_account(
                 "balances_spot": [],
                 "um_positions": [],
                 "total_value_usdt": None,
+                "spot_value_usdt": None,
+                "unified_wallet_value_usdt": None,
+                "pm_account": _empty_pm_account_summary(),
                 "valuation": {
                     "price_source": _PRIVATE_ACCOUNT_PRICE_SOURCE,
                     "priced_at": None,
@@ -984,34 +1151,61 @@ def assemble_private_account(
                 "value_usdt": _quantize_rate(value) if value is not None else None,
             }
         )
-    um_out = [
-        {
-            "symbol": p.get("symbol"),
-            "position_side": _infer_position_side(p.get("positionAmt")),
-            "position_amt": p.get("positionAmt"),
-            "entry_price": p.get("entryPrice"),
-            "mark_price": p.get("markPrice"),
-            "unrealized_profit": p.get("unRealizedProfit"),
-            "liquidation_price": p.get("liquidationPrice"),
-        }
-        for p in um_list
-        if isinstance(p, dict)
-    ]
+    um_out = []
+    for p in um_list:
+        if not isinstance(p, dict):
+            continue
+        um_out.append(
+            {
+                "symbol": p.get("symbol"),
+                "position_side": _infer_position_side(p.get("positionAmt")),
+                "notional_usdt": _um_notional_usdt(p),
+                "position_amt": p.get("positionAmt"),
+                "entry_price": p.get("entryPrice"),
+                "mark_price": p.get("markPrice"),
+                "unrealized_profit": p.get("unRealizedProfit"),
+                "liquidation_price": p.get("liquidationPrice"),
+            }
+        )
     # v1.1-ui-polish-2: private account balance arrays are sorted by value_usdt
     # DESC, nulls last, asset ASC tie-break, original input order for same asset.
     unified_out = [row for _, row in sorted(enumerate(unified_out), key=_balance_sort_key)]
     spot_out = [row for _, row in sorted(enumerate(spot_out), key=_balance_sort_key)]
-    total = Decimal(0)
-    for x in unified_list:
-        if isinstance(x, dict):
-            total += _usdt_value(
-                x.get("asset"), x.get("totalWalletBalance"), price_map, warnings
-            )
-    for x in spot_list:
-        if isinstance(x, dict):
-            total += _usdt_value(
-                x.get("asset"), _add_dec(x.get("free"), x.get("locked")), price_map, warnings
-            )
+    unified_wallet = _sum_priced_amount(
+        unified_list,
+        lambda r: r.get("totalWalletBalance"),
+        price_map,
+        warnings,
+    )
+    spot_value = _sum_priced_amount(
+        spot_list,
+        lambda r: _add_dec(r.get("free"), r.get("locked")),
+        price_map,
+        warnings,
+    )
+    # Project PM summary first so we can prefer accountEquity for unified net.
+    # Temporary total for leverage is recomputed after equity resolution.
+    pm_summary = _project_pm_account_summary(
+        pm_account, unified_list, price_map, None, warnings,
+    )
+    equity_raw = pm_summary.get("account_equity_usdt")
+    if equity_raw is not None:
+        try:
+            unified_net = Decimal(equity_raw)
+        except (InvalidOperation, ValueError, TypeError):
+            unified_net = unified_wallet
+    else:
+        # Account endpoint missing: fall back to wallet gross (legacy path).
+        unified_net = unified_wallet
+    total = spot_value + unified_net
+    # Leverage = combined total / unified equity when equity present.
+    if equity_raw is not None:
+        try:
+            equity = Decimal(equity_raw)
+            if equity > 0 and total.is_finite():
+                pm_summary["leverage_ratio"] = _quantize_rate(total / equity)
+        except (InvalidOperation, ValueError, TypeError, ZeroDivisionError):
+            pass
     return (
         {
             "verified": True,
@@ -1019,6 +1213,9 @@ def assemble_private_account(
             "balances_spot": spot_out,
             "um_positions": um_out,
             "total_value_usdt": _quantize_rate(total),
+            "spot_value_usdt": _quantize_rate(spot_value),
+            "unified_wallet_value_usdt": _quantize_rate(unified_wallet),
+            "pm_account": pm_summary,
             "valuation": {
                 "price_source": _PRIVATE_ACCOUNT_PRICE_SOURCE,
                 "priced_at": checked_at,

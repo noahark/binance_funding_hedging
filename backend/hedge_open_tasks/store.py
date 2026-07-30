@@ -587,23 +587,26 @@ class HedgeOpenStore:
     def list_tasks(self, status_filter: str | None = None) -> list[dict]:
         """List tasks per the resolved status filter from
         :func:`domain.filter_status_for_list` (frozen §3.1).
+
+        UI / API listing is newest-first (``creation_seq DESC``). Scheduler
+        eligibility uses its own ASC query and is unchanged.
         """
         with self._lock:
             if status_filter is None:
                 rows = self._conn.execute(
                     "SELECT * FROM hedge_open_task"
-                    " WHERE status != ? ORDER BY creation_seq ASC, id ASC",
+                    " WHERE status != ? ORDER BY creation_seq DESC, id DESC",
                     (D.STATUS_DELETED,),
                 ).fetchall()
             elif status_filter == D.LIST_ALL:
                 rows = self._conn.execute(
                     "SELECT * FROM hedge_open_task"
-                    " ORDER BY creation_seq ASC, id ASC",
+                    " ORDER BY creation_seq DESC, id DESC",
                 ).fetchall()
             else:
                 rows = self._conn.execute(
                     "SELECT * FROM hedge_open_task WHERE status = ?"
-                    " ORDER BY creation_seq ASC, id ASC",
+                    " ORDER BY creation_seq DESC, id DESC",
                     (status_filter,),
                 ).fetchall()
             return [_row_to_task(r) for r in rows]

@@ -286,6 +286,28 @@ class BorrowTaskService:
             "next_cursor": next_cursor,
         }
 
+    def clear_logs(self, body) -> tuple[int, dict]:
+        """Delete historical borrow attempt rows (UI log cleanup).
+
+        Requires ``{"confirm": true}``. Preserves attempts still referenced by
+        task ``unresolved_attempt_id`` (in-flight / recon).
+        """
+        if not isinstance(body, dict):
+            raise D.BorrowError(400, "invalid_json", "request body must be a JSON object")
+        if body.get("confirm") is not True:
+            raise D.invalid_field("confirm", "must be true to clear borrow logs")
+        # Reject unknown keys so the destructive action cannot be silently
+        # extended by a mistyped payload.
+        extra = set(body.keys()) - {"confirm"}
+        if extra:
+            raise D.invalid_field("body", f"unknown fields: {sorted(extra)}")
+        result = self._store.clear_attempt_logs()
+        return 200, {
+            "schema_version": D.SCHEMA_VERSION,
+            "deleted_count": result["deleted_count"],
+            "retained_unresolved_count": result["retained_unresolved_count"],
+        }
+
     def _parse_limit(self, limit_raw) -> int:
         if limit_raw is None:
             return D.LIMIT_DEFAULT

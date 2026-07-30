@@ -11,5 +11,7 @@
 | F5 | fixed | LOW | 行情自动刷新整表重绘冲掉操作列输入 | `captureMarketOpInputs` / `restoreMarketOpInputs` |
 | F6 | fixed | LOW | 立即开单创建慢时导航数字无反馈 | 创建中徽标 spinner，回显后恢复 running 计数 |
 | F7 | fixed | LOW | 立即开单卡「立即成交所有」与启动功效重合 | 仅 `mode===smooth` 展示该按钮；立即开单隐藏 |
+| F8 | fixed | LOW | 借币 `-2019` 无中文说明，只见 known_rejection | `binance_error_codes` 增加 2019→保证金不足（仅展示映射） |
+| F9 | fixed | LOW | 总资产估值用钱包毛额，缺权益/负债/风险 | 60s `GET /papi/v1/account` + 概览卡：权益/负债/杠杆/uniMMR 等 |
 
 状态：`open` | `in_progress` | `fixed` | `wontfix` | `deferred`

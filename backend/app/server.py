@@ -45,6 +45,7 @@ _BORROW_ROUTES = (
     (re.compile(r"^/api/borrow-tasks/(?P<task_id>[^/]+)/edit$"), ("POST",), "_borrow_edit"),
     (re.compile(r"^/api/borrow-tasks$"), ("GET", "POST"), "_borrow_tasks"),
     (re.compile(r"^/api/borrow-logs$"), ("GET",), "_borrow_logs"),
+    (re.compile(r"^/api/borrow-logs/clear$"), ("POST",), "_borrow_logs_clear"),
     (re.compile(r"^/api/borrow-scheduler-settings$"), ("GET", "PUT"), "_borrow_settings"),
     # Boundary C execution control (§3.2): read-only status + idempotent global
     # Start/Stop. These never carry secrets and never accept a body field.
@@ -423,6 +424,13 @@ class _Handler(BaseHTTPRequestHandler):
         cursor = query.get("cursor", [None])[0]
         limit = query.get("limit", [None])[0]
         self._send_borrow(*self._safe(self.borrow_service.get_logs, cursor, limit))
+
+    def _borrow_logs_clear(self):
+        data, error = self._read_json_body(required=True)
+        if error is not None:
+            self._send_borrow(*error)
+            return
+        self._send_borrow(*self._safe(self.borrow_service.clear_logs, data))
 
     def _borrow_settings(self):
         if self.command == "GET":

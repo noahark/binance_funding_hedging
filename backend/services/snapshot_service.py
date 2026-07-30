@@ -705,15 +705,19 @@ class SnapshotService:
             checked_at = None
             private_account, account_warnings = assemble_private_account(
                 None, None, None, {}, checked_at=None, error=private_error,
+                pm_account=None,
             )
         else:
             unified = self._private.fetch_unified_balances()
             um_positions = self._private.fetch_um_positions()
             spot_balances = self._private.fetch_spot_balances()
+            fetch_pm = getattr(self._private, "fetch_pm_account", None)
+            pm_account = fetch_pm() if callable(fetch_pm) else None
             checked_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             private_account, account_warnings = assemble_private_account(
                 unified, spot_balances, um_positions, price_map,
                 checked_at=checked_at, error=private_error,
+                pm_account=pm_account,
             )
 
         # portfolio_by_asset: reuse on click and overlay ONLY the selected
@@ -817,6 +821,7 @@ class SnapshotService:
             checked_at = None
             private_account, account_warnings = assemble_private_account(
                 None, None, None, {}, checked_at=None, error=private_error,
+                pm_account=None,
             )
             portfolio_by_asset = {}
         else:
@@ -824,10 +829,12 @@ class SnapshotService:
             unified = self._cached_source_value("unified_balances")
             um_positions = self._cached_source_value("um_positions")
             spot_balances = self._cached_source_value("spot_balances")
+            pm_account = self._cached_source_value("pm_account")
             checked_at = self._account_checked_at
             private_account, account_warnings = assemble_private_account(
                 unified, spot_balances, um_positions, price_map,
                 checked_at=checked_at, error=private_error,
+                pm_account=pm_account,
             )
             # portfolio_by_asset from the per-asset max-borrowable cache; only
             # cursor-attempted universe assets are present (the rest render
@@ -1132,12 +1139,16 @@ class SnapshotService:
                         time.monotonic(), info,
                     )
             panels_refreshed = False
-            panel_fetchers = (
+            panel_fetchers = [
                 ("price_map", self.client.fetch_ticker_price_map),
                 ("unified_balances", self._private.fetch_unified_balances),
                 ("um_positions", self._private.fetch_um_positions),
                 ("spot_balances", self._private.fetch_spot_balances),
-            )
+            ]
+            # E3b optional on test stubs that predate fetch_pm_account.
+            fetch_pm = getattr(self._private, "fetch_pm_account", None)
+            if callable(fetch_pm):
+                panel_fetchers.append(("pm_account", fetch_pm))
             for sid, fetcher in panel_fetchers:
                 if self._source_due(sid, now, ttl_a):
                     try:

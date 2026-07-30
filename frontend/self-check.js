@@ -156,7 +156,7 @@ const ids = [
   'borrow-task-filters',
   'borrow-tab-tasks', 'borrow-tab-logs', 'borrow-tasks-panel', 'borrow-logs-panel',
   'borrow-interval-input', 'borrow-interval-confirm', 'borrow-interval-error', 'borrow-interval-note',
-  'borrow-tasks-error', 'borrow-logs-error', 'borrow-log-list', 'borrow-logs-refresh', 'borrow-logs-load-more',
+  'borrow-tasks-error', 'borrow-logs-error', 'borrow-log-list', 'borrow-logs-refresh', 'borrow-logs-clear', 'borrow-logs-load-more',
   'borrow-execution-badge', 'borrow-execution-start', 'borrow-execution-stop', 'borrow-execution-detail',
   'nav-hedge-tasks', 'hedge-task-count', 'hedge-task-view', 'hedge-task-list', 'hedge-task-filters',
   'hedge-execution-badge', 'hedge-execution-detail', 'hedge-tasks-error',
@@ -398,6 +398,7 @@ let borrowTasksGetResponse = null;
 let borrowTasksPostResponse = null;
 let borrowActionResponses = {};
 let borrowLogsResponses = [];
+let borrowLogsClearResponse = null;
 let borrowSettingsGetResponse = null;
 let borrowSettingsPutResponse = null;
 // Boundary C 执行控制响应槽（§3.2）；未设置时回放默认 disabled 投影。
@@ -659,6 +660,12 @@ global.fetch = async (url, options) => {
   }
   if (urlStr.startsWith('/api/borrow-logs?') && method === 'GET') {
     return buildFetchResponse(borrowLogsResponses.length > 0 ? borrowLogsResponses.shift() : mockBorrow503());
+  }
+  if (urlStr === '/api/borrow-logs/clear' && method === 'POST') {
+    return buildFetchResponse(borrowLogsClearResponse || {
+      status: 200,
+      body: { schema_version: 'borrow-tasks/v1', deleted_count: 0, retained_unresolved_count: 0 },
+    });
   }
   if (urlStr === '/api/borrow-scheduler-settings' && method === 'GET') {
     return buildFetchResponse(borrowSettingsGetResponse || mockBorrow503());
@@ -1280,6 +1287,15 @@ setTimeout(async () => {
     if (!privateBody.includes('总资产估值')) {
       throw new Error('私有面板未渲染总资产估值');
     }
+    // PM / valuation split cards (missing pm_account still shows labels with —)
+    for (const label of [
+      '现货账户估值', '统一账户净资产', '借币负债', '杠杆率',
+      '强平风险率', '总可用余额', '初始 / 维持保证金',
+    ]) {
+      if (!privateBody.includes(label)) {
+        throw new Error(`私有面板概览缺少「${label}」`);
+      }
+    }
     if (!privateBody.includes('统一账户余额')) {
       throw new Error('私有面板未渲染统一账户余额');
     }
@@ -1306,6 +1322,12 @@ setTimeout(async () => {
     }
     if (!privateBody.includes('UM 持仓')) {
       throw new Error('私有面板未渲染 UM 持仓');
+    }
+    // designFixture 含 um_positions 时表头应有仓位价值列（方向与数量之间）
+    if (Array.isArray(designFixture.private_account.um_positions)
+        && designFixture.private_account.um_positions.length > 0
+        && !privateBody.includes('仓位价值')) {
+      throw new Error('UM 持仓表应有仓位价值列');
     }
     console.log('[PASS] 私有面板 verified=true 状态');
 
@@ -1392,8 +1414,8 @@ setTimeout(async () => {
     // 28. 行联动方向标（不带数量）
     const linkageFixture = JSON.parse(JSON.stringify(designFixture));
     linkageFixture.private_account.um_positions = [
-      { symbol: 'AUSDT', position_side: 'LONG', position_amt: '1.5', entry_price: '1.00000000', mark_price: '1.00000000', unrealized_profit: '0.00000000' },
-      { symbol: 'CUSDT', position_side: 'SHORT', position_amt: '-2.0', entry_price: '3.00000000', mark_price: '3.00000000', unrealized_profit: '0.00000000' }
+      { symbol: 'AUSDT', position_side: 'LONG', notional_usdt: '1.50000000', position_amt: '1.5', entry_price: '1.00000000', mark_price: '1.00000000', unrealized_profit: '0.00000000' },
+      { symbol: 'CUSDT', position_side: 'SHORT', notional_usdt: '6.00000000', position_amt: '-2.0', entry_price: '3.00000000', mark_price: '3.00000000', unrealized_profit: '0.00000000' }
     ];
     helpers.ingestSnapshot(linkageFixture);
     const linkageTbody = elements['market-table-body'].innerHTML;
@@ -3509,6 +3531,46 @@ setTimeout(async () => {
       console.log('[PASS] 借币日志 newest-first 游标分页、加载更多与显式刷新');
     }
 
+    // 74b. 清空借币日志：确认前零 POST；确认后 POST /api/borrow-logs/clear + 重拉第 1 页
+    {
+      helpers.setActiveView('borrow-tasks');
+      helpers.setBorrowTab('logs');
+      await new Promise(r => setTimeout(r, 0));
+      if (!document.getElementById('borrow-logs-clear')) {
+        throw new Error('应有清空日志按钮 #borrow-logs-clear');
+      }
+      const mark = fetchCallLog.length;
+      const pend = helpers.requestClearBorrowLogs();
+      if (!pend.ok || !pend.pending) throw new Error('清空应进入确认 pending');
+      if (fetchCallLog.length !== mark) throw new Error('清空确认前不应发请求');
+      const modal = helpers.getHedgeModal();
+      if (!modal || !modal.title.includes('清空借币日志')) {
+        throw new Error('清空确认弹窗标题错误: ' + JSON.stringify(modal));
+      }
+      helpers.cancelHedgeStartGate();
+      if (helpers.getMarketActionPending() !== null) throw new Error('取消后 pending 应清空');
+
+      helpers.requestClearBorrowLogs();
+      borrowLogsClearResponse = {
+        status: 200,
+        body: { schema_version: 'borrow-tasks/v1', deleted_count: 12, retained_unresolved_count: 1 },
+      };
+      borrowLogsResponses = [{ status: 200, body: { schema_version: 'borrow-tasks/v1', entries: [], next_cursor: null } }];
+      const markClear = fetchCallLog.length;
+      const rClear = await helpers.confirmMarketAction();
+      if (!rClear.ok) throw new Error('确认清空应成功: ' + rClear.error);
+      const clearCall = fetchCallLog.slice(markClear).find(c => c.url === '/api/borrow-logs/clear');
+      if (!clearCall || clearCall.method !== 'POST') throw new Error('应 POST /api/borrow-logs/clear');
+      if (JSON.stringify(clearCall.body) !== JSON.stringify({ confirm: true })) {
+        throw new Error('清空 body 应为 {confirm:true}: ' + JSON.stringify(clearCall.body));
+      }
+      if (!fetchCallLog.slice(markClear).some(c => c.method === 'GET' && c.url.startsWith('/api/borrow-logs?'))) {
+        throw new Error('清空后应重拉借币日志第 1 页');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 清空借币日志：确认前零请求 + POST clear + 重拉列表');
+    }
+
     // 75. 全局间隔编辑器：GET 渲染、PUT 合法十进制（≥2s）、sub-floor 400 就近显示
     {
       borrowSettingsGetResponse = { status: 200, body: MOCK_SETTINGS_DEFAULT };
@@ -3862,15 +3924,22 @@ setTimeout(async () => {
       if (cards.includes('模拟盘口') || cards.includes('本地模拟')) {
         throw new Error('任务卡不应再渲染模拟盘口/本地模拟文案');
       }
-      const runExpStart = cards.indexOf('data-hedge-task-id="h-exp-1"');
-      const pauseExpStart = cards.indexOf('data-hedge-task-id="h-exp-2"');
-      const termStart = cards.indexOf('data-hedge-task-id="h-term-1"');
-      if (runExpStart === -1 || pauseExpStart === -1 || termStart === -1) {
+      // 任务卡按创建时间倒序渲染，勿假设 id 在 HTML 中的先后；按卡片边界截取。
+      function extractHedgeCard(html, taskId) {
+        const marker = `data-hedge-task-id="${taskId}"`;
+        const start = html.indexOf(marker);
+        if (start === -1) return null;
+        const cardStart = html.lastIndexOf('<div class="borrow-task-card"', start);
+        const from = cardStart === -1 ? start : cardStart;
+        const next = html.indexOf('data-hedge-task-id="', start + marker.length);
+        return next === -1 ? html.slice(from) : html.slice(from, next);
+      }
+      const runCard = extractHedgeCard(cards, 'h-exp-1');
+      const pauseCard = extractHedgeCard(cards, 'h-exp-2');
+      const termCard = extractHedgeCard(cards, 'h-term-1');
+      if (!runCard || !pauseCard || !termCard) {
         throw new Error('缺少 running/paused/stopped 任务卡');
       }
-      const runCard = cards.slice(runExpStart, pauseExpStart);
-      const pauseCard = cards.slice(pauseExpStart, termStart);
-      const termCard = cards.slice(termStart);
       // running：暂停可用、启动 disabled（已在运行）、成交按钮可用（单腿只是提示，不冻结调度）。
       const runPauseBtn = runCard.match(/<button[^>]*data-hedge-action="pause"[^>]*>/)[0];
       if (runPauseBtn.includes('disabled')) throw new Error('running 任务暂停按钮应可用');
@@ -4685,6 +4754,7 @@ setTimeout(async () => {
         /^\/api\/borrow-tasks$/,
         /^\/api\/borrow-tasks\/[^/]+\/(start|pause|delete|edit)$/,
         /^\/api\/borrow-logs\?/,
+        /^\/api\/borrow-logs\/clear$/,
         /^\/api\/borrow-scheduler-settings$/,
         // Boundary C execution control (exact anchored paths, no prefix/wildcard).
         /^\/api\/borrow-execution\/(status|start|stop)$/,
@@ -4735,6 +4805,8 @@ setTimeout(async () => {
           if (c.method !== 'GET') throw new Error(`开单设置/持仓路由非法方法 ${c.method}`);
         } else if (c.url.startsWith('/api/hedge-open-logs')) {
           if (c.method !== 'GET') throw new Error(`开单日志路由非法方法 ${c.method}`);
+        } else if (c.url === '/api/borrow-logs/clear') {
+          if (c.method !== 'POST') throw new Error(`清空借币日志路由非法方法 ${c.method}`);
         } else if (c.method !== 'GET') {
           throw new Error(`只读路由非法方法 ${c.method}: ${c.url}`);
         }

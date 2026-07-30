@@ -574,10 +574,100 @@
           "items": { "$ref": "#/$defs/um_position" }
         },
         "total_value_usdt": {
+          "description": "spot_value_usdt + unified net (accountEquity, else unified wallet gross).",
           "anyOf": [
             { "$ref": "#/$defs/decimal_string" },
             { "type": "null" }
           ]
+        },
+        "spot_value_usdt": {
+          "description": "Σ(spot free+locked priced in USDT).",
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "unified_wallet_value_usdt": {
+          "description": "Σ(unified totalWalletBalance priced); wallet gross, not net equity.",
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
+        },
+        "pm_account": {
+          "description": "Portfolio Margin account summary from GET /papi/v1/account (additive). Null fields when channel off or fetch failed.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "account_equity_usdt",
+            "actual_equity_usdt",
+            "total_available_balance_usdt",
+            "account_initial_margin_usdt",
+            "account_maint_margin_usdt",
+            "uni_mmr",
+            "account_status",
+            "total_debt_usdt",
+            "leverage_ratio",
+            "source"
+          ],
+          "properties": {
+            "account_equity_usdt": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "actual_equity_usdt": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "total_available_balance_usdt": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "account_initial_margin_usdt": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "account_maint_margin_usdt": {
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "uni_mmr": {
+              "description": "Unified maintenance margin ratio (equity / maint margin). Higher is safer.",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "account_status": { "type": ["string", "null"] },
+            "total_debt_usdt": {
+              "description": "Priced sum of crossMarginBorrowed on unified balances.",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "leverage_ratio": {
+              "description": "total_value_usdt / account_equity when both positive (wallet valuation vs equity).",
+              "anyOf": [
+                { "$ref": "#/$defs/decimal_string" },
+                { "type": "null" }
+              ]
+            },
+            "source": {
+              "type": ["string", "null"],
+              "description": "papi_v1_account when account endpoint contributed; null when unavailable."
+            }
+          }
         },
         "valuation": {
           "type": "object",
@@ -598,6 +688,7 @@
       "required": [
         "symbol",
         "position_side",
+        "notional_usdt",
         "position_amt",
         "entry_price",
         "mark_price",
@@ -609,6 +700,13 @@
         "position_side": {
           "type": ["string", "null"],
           "enum": ["LONG", "SHORT", null]
+        },
+        "notional_usdt": {
+          "description": "Absolute UM position value in USDT (from notional or |amt*mark|).",
+          "anyOf": [
+            { "$ref": "#/$defs/decimal_string" },
+            { "type": "null" }
+          ]
         },
         "position_amt": {
           "anyOf": [

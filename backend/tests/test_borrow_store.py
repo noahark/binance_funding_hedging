@@ -47,9 +47,10 @@ def test_restart_preserves_tasks_settings_cursor_attempts(tmp_path):
 
     s2 = BorrowTaskStore(path)
     tasks = s2.list_tasks()
-    assert [t["id"] for t in tasks] == ["A", "B"]
-    assert tasks[1]["status"] == "paused"
-    assert tasks[0]["latest_result_category"] == D.RESULT_EXECUTION_DISABLED
+    # Newest first (B created after A).
+    assert [t["id"] for t in tasks] == ["B", "A"]
+    assert tasks[0]["status"] == "paused"
+    assert tasks[1]["latest_result_category"] == D.RESULT_EXECUTION_DISABLED
     settings = s2.get_settings()
     assert settings["interval_seconds"] == "2.5"
     assert settings["interval_us"] == 2_500_000
@@ -131,8 +132,34 @@ def test_list_tasks_creation_order_includes_soft_deleted(tmp_path):
     s.create_task("C", "XRP", "1", 1, NOW + 2)
     s.set_task_status("B", "deleted", NOW + 3)
     tasks = s.list_tasks()
-    assert [t["id"] for t in tasks] == ["A", "B", "C"]  # creation order, deleted retained
+    # Newest first for UI listing; soft-deleted rows stay in the list.
+    assert [t["id"] for t in tasks] == ["C", "B", "A"]
     assert tasks[1]["status"] == "deleted"
+
+
+def test_clear_attempt_logs_keeps_unresolved_marker(tmp_path):
+    s = _store(tmp_path)
+    s.create_task("A", "BTC", "1", 1, NOW)
+    s.create_task("B", "ETH", "1", 1, NOW + 1)
+    # Finished attempt on A
+    att_a = s.insert_pending_attempt("A", "BTC", "1", NOW + 2, NOW + 3, "A")
+    s.resolve_attempt(att_a["id"], _disabled(), NOW + 4)
+    # Unresolved (unknown) on B — must be retained
+    att_b = s.insert_pending_attempt("B", "ETH", "1", NOW + 5, NOW + 6, "B")
+    s.resolve_attempt(
+        att_b["id"], ExecutorResult(result_category=D.RESULT_UNKNOWN, reason="unk"), NOW + 7
+    )
+    page, _ = s.list_attempts_page(50, None, None)
+    assert len(page) >= 2
+    result = s.clear_attempt_logs()
+    assert result["deleted_count"] >= 1
+    assert result["retained_unresolved_count"] == 1
+    page2, _ = s.list_attempts_page(50, None, None)
+    assert len(page2) == 1
+    assert page2[0]["id"] == att_b["id"]
+    # Unresolved marker still points at retained row
+    task_b = s.get_task("B")
+    assert task_b["unresolved_attempt_id"] == att_b["id"]
 
 
 def test_list_eligible_excludes_non_borrowing_and_unresolved(tmp_path):

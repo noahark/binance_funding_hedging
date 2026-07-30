@@ -22,6 +22,19 @@ def test_lookup_pm_pool_empty_51061():
     assert "loanable" in hit["message_en"].lower() or "可贷" in hit["message_zh"]
 
 
+def test_lookup_margin_insufficient_2019():
+    """-2019 Margin is insufficient — display map for borrow log / task card."""
+    for raw in ("-2019", "2019", "+2019"):
+        hit = lookup_binance_error_code(raw)
+        assert hit is not None
+        assert hit["name"] == "MARGIN_NOT_SUFFICIENT"
+        assert "insufficient" in hit["message_en"].lower()
+        assert "保证金不足" in hit["message_zh"]
+    fields = business_code_display_fields("-2019")
+    assert fields["business_code_name"] == "MARGIN_NOT_SUFFICIENT"
+    assert "保证金不足" in fields["business_code_message_zh"]
+
+
 def test_lookup_unknown_returns_none():
     assert lookup_binance_error_code("99999") is None
     assert lookup_binance_error_code(None) is None

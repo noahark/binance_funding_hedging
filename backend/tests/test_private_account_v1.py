@@ -435,8 +435,64 @@ def test_assemble_private_account_maps_cross_margin_borrowed():
     by_asset = {b["asset"]: b for b in block["balances_unified"]}
     assert by_asset["CETUS"]["cross_margin_borrowed"] == "1"
     assert by_asset["USDT"]["cross_margin_borrowed"] == "0"
-    # Liability is display-only: total still from totalWalletBalance only.
+    # No equity: total falls back to unified wallet + spot.
+    assert block["unified_wallet_value_usdt"] == "10.05000000"
+    assert block["spot_value_usdt"] == "0.00000000"
     assert block["total_value_usdt"] == "10.05000000"
+    # Debt sum is priced separately under pm_account.total_debt_usdt.
+    assert block["pm_account"]["total_debt_usdt"] == "0.05000000"
+
+
+def test_assemble_private_account_pm_account_equity_and_leverage():
+    unified = [
+        {"asset": "USDT", "totalWalletBalance": "500", "crossMarginBorrowed": "100"},
+    ]
+    spot = [
+        {"asset": "USDT", "free": "50", "locked": "0"},
+    ]
+    pm = {
+        "accountEquity": "397.8",
+        "actualEquity": "397.5",
+        "totalAvailableBalance": "200.1",
+        "accountInitialMargin": "50",
+        "accountMaintMargin": "20",
+        "uniMMR": "5.167",
+        "accountStatus": "NORMAL",
+    }
+    block, _ = assemble_private_account(
+        unified, spot, [], {}, checked_at="t", error=None, pm_account=pm,
+    )
+    pa = block["pm_account"]
+    assert pa["source"] == "papi_v1_account"
+    assert pa["account_equity_usdt"] == "397.8"
+    assert pa["actual_equity_usdt"] == "397.5"
+    assert pa["total_available_balance_usdt"] == "200.1"
+    assert pa["account_initial_margin_usdt"] == "50"
+    assert pa["account_maint_margin_usdt"] == "20"
+    assert pa["uni_mmr"] == "5.167"
+    assert pa["account_status"] == "NORMAL"
+    assert pa["total_debt_usdt"] == "100.00000000"
+    # Spot 50 + unified equity 397.8 = 447.8 (not wallet gross 500).
+    assert block["spot_value_usdt"] == "50.00000000"
+    assert block["unified_wallet_value_usdt"] == "500.00000000"
+    assert block["total_value_usdt"] == "447.80000000"
+    # leverage = total (447.8) / equity (397.8)
+    assert pa["leverage_ratio"] == "1.12569130"
+
+
+def test_assemble_private_account_pm_account_null_when_fetch_missing():
+    block, _ = assemble_private_account(
+        [{"asset": "USDT", "totalWalletBalance": "1"}],
+        [], [], {}, checked_at="t", error=None, pm_account=None,
+    )
+    pa = block["pm_account"]
+    assert pa["source"] is None
+    assert pa["account_equity_usdt"] is None
+    assert pa["uni_mmr"] is None
+    assert pa["total_debt_usdt"] == "0.00000000"
+    # Fallback: total uses unified wallet when equity missing.
+    assert block["total_value_usdt"] == "1.00000000"
+    assert block["unified_wallet_value_usdt"] == "1.00000000"
 
 
 def test_assemble_private_account_anti_double_count():
@@ -457,7 +513,10 @@ def test_assemble_private_account_anti_double_count():
         unified, spot, um, price_map, checked_at="2026-07-06T00:00:00Z", error=None
     )
     assert block["verified"] is True
-    # 90000 + 100 + 7500 + 50 = 97650; um nominal (10*60000=600000) excluded.
+    # No equity: total = unified wallet (90100) + spot (7550) = 97650.
+    # um nominal (10*60000=600000) excluded.
+    assert block["unified_wallet_value_usdt"] == "90100.00000000"
+    assert block["spot_value_usdt"] == "7550.00000000"
     assert block["total_value_usdt"] == "97650.00000000"
     assert block["balances_unified"] == [
         {
@@ -490,6 +549,10 @@ def test_assemble_private_account_disabled_state():
     assert block["balances_spot"] == []
     assert block["um_positions"] == []
     assert block["total_value_usdt"] is None
+    assert block["spot_value_usdt"] is None
+    assert block["unified_wallet_value_usdt"] is None
+    assert block["pm_account"]["account_equity_usdt"] is None
+    assert block["pm_account"]["source"] is None
     assert block["checked_at"] is None
     assert block["valuation"]["priced_at"] is None
     assert block["error"] == "private_channel_disabled"
@@ -537,6 +600,35 @@ def test_assemble_private_account_um_positions_have_no_value_usdt():
         [], [], [{"symbol": "BTCUSDT", "positionAmt": "1"}], {}, checked_at="t", error=None
     )
     assert "value_usdt" not in block["um_positions"][0]
+
+
+def test_assemble_private_account_um_notional_usdt():
+    # Prefer exchange notional (absolute); fallback |amt * mark|.
+    block, _ = assemble_private_account(
+        [],
+        [],
+        [{
+            "symbol": "BTCUSDT",
+            "positionAmt": "-0.5",
+            "markPrice": "60000",
+            "notional": "-30000.12",
+        }],
+        {},
+        checked_at="t",
+        error=None,
+    )
+    pos = block["um_positions"][0]
+    assert pos["position_side"] == "SHORT"
+    assert pos["notional_usdt"] == "30000.12000000"
+    block2, _ = assemble_private_account(
+        [],
+        [],
+        [{"symbol": "ETHUSDT", "positionAmt": "2", "markPrice": "3000"}],
+        {},
+        checked_at="t",
+        error=None,
+    )
+    assert block2["um_positions"][0]["notional_usdt"] == "6000.00000000"
 
 
 def test_assemble_private_account_partial_failure_keeps_verified():

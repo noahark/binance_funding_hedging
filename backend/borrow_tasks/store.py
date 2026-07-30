@@ -322,11 +322,42 @@ class BorrowTaskStore:
             return _row_to_task(row) if row is not None else None
 
     def list_tasks(self) -> list[dict]:
+        """UI / API listing: newest first (creation_seq DESC).
+
+        Scheduler round-robin uses :meth:`list_eligible_tasks` (ASC) and is
+        intentionally unchanged.
+        """
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM borrow_task ORDER BY creation_seq ASC, id ASC"
+                "SELECT * FROM borrow_task ORDER BY creation_seq DESC, id DESC"
             ).fetchall()
             return [_row_to_task(r) for r in rows]
+
+    def clear_attempt_logs(self) -> dict:
+        """Delete historical attempt rows used by the borrow log page.
+
+        Keeps any attempt still referenced by ``borrow_task.unresolved_attempt_id``
+        so an in-flight / recon marker is never orphaned. Does not delete tasks
+        or settings.
+        """
+        with self._lock, self._conn:
+            before = self._conn.execute(
+                "SELECT COUNT(*) FROM borrow_attempt"
+            ).fetchone()[0]
+            self._conn.execute(
+                "DELETE FROM borrow_attempt WHERE id NOT IN ("
+                "  SELECT unresolved_attempt_id FROM borrow_task"
+                "  WHERE unresolved_attempt_id IS NOT NULL"
+                ")"
+            )
+            after = self._conn.execute(
+                "SELECT COUNT(*) FROM borrow_attempt"
+            ).fetchone()[0]
+            deleted = int(before) - int(after)
+            return {
+                "deleted_count": deleted,
+                "retained_unresolved_count": int(after),
+            }
 
     def list_eligible_tasks(self) -> list[dict]:
         """Tasks selectable by the round-robin scheduler (breakdown §3.8 / §4.6).

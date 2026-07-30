@@ -62,6 +62,8 @@ WHITELIST: Dict[Tuple[str, str], str] = {
     ("GET", "/papi/v1/margin/maxBorrowable"): "https://papi.binance.com",
     ("GET", "/papi/v1/balance"): "https://papi.binance.com",
     ("GET", "/papi/v1/um/positionRisk"): "https://papi.binance.com",
+    # E3b — PM account equity / uniMMR risk summary (60s with balances).
+    ("GET", "/papi/v1/account"): "https://papi.binance.com",
     # E1/E1b — discovery-only; registered but NOT called by snapshot assembly.
     ("GET", "/papi/v1/margin/marginInterestHistory"): "https://papi.binance.com",
     ("GET", "/papi/v1/portfolio/interest-history"): "https://papi.binance.com",
@@ -117,7 +119,7 @@ class PrivateClient:
         self._timeout = timeout
         self._recv_window = recv_window
         self._ttl = ttl_seconds          # 1h group: rate chain + maxBorrowable
-        self._fast_ttl = fast_ttl_seconds  # 60s group: E3/E4/E6 account balances
+        self._fast_ttl = fast_ttl_seconds  # 60s group: E3/E3b/E4/E6 account balances
         self.audit_log: list = []
         self.last_error: Optional[str] = None
         self._cache: Dict[Tuple[str, str, Tuple[Tuple[str, str], ...]], Tuple[float, Any]] = {}
@@ -570,6 +572,22 @@ class PrivateClient:
         except PrivateEndpointError as exc:
             self.last_error = f"um_positionrisk_failed:{exc.reason}"
             return None
+
+    def fetch_pm_account(self) -> Optional[dict]:
+        """E3b ``/papi/v1/account`` (60s TTL) — PM account equity / risk summary.
+
+        Returns the raw account object or ``None`` (disabled/failed). Used for
+        ``accountEquity`` / ``uniMMR`` / margin fields; independent of the
+        per-asset ``/papi/v1/balance`` list. Failures do not disable balances.
+        """
+        if not self.enabled:
+            return None
+        try:
+            data = self._cached_get("GET", "/papi/v1/account", ttl=self._fast_ttl)
+        except PrivateEndpointError as exc:
+            self.last_error = f"papi_account_failed:{exc.reason}"
+            return None
+        return data if isinstance(data, dict) else None
 
     def fetch_spot_balances(self) -> Optional[List[dict]]:
         """E6 ``/api/v3/account`` (60s TTL, omitZeroBalances=true) — spot balances.

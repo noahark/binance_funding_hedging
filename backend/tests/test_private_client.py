@@ -131,21 +131,23 @@ def test_whitelist_rejects_delete_on_whitelisted_path():
         PrivateClient._require_whitelisted("DELETE", "/papi/v1/margin/maxBorrowable")
 
 
-def test_whitelist_accepts_exactly_twelve_get_endpoints():
-    assert len(private_client.WHITELIST) == 12
+def test_whitelist_accepts_exactly_thirteen_get_endpoints():
+    assert len(private_client.WHITELIST) == 13
     for method, path in private_client.WHITELIST:
         assert method == "GET"
         assert PrivateClient._require_whitelisted(method, path)
 
 
-def test_whitelist_matches_status_json_endpoint_whitelist():
-    """The whitelisted pairs must equal status.json endpoint_whitelist (12)."""
+def test_whitelist_superset_of_private_account_v1_and_includes_pm_account():
+    """Historical private-account-v1 set remains; /papi/v1/account is additive."""
     import json as _json
     status = _json.loads(
         (REPO_ROOT / "reports/agent-runs/2026-07-private-account-v1/status.json").read_text()
     )
     expected = {tuple(pair) for pair in status["endpoint_whitelist"]}
-    assert set(private_client.WHITELIST.keys()) == expected
+    keys = set(private_client.WHITELIST.keys())
+    assert expected.issubset(keys)
+    assert ("GET", "/papi/v1/account") in keys
 
 
 def test_whitelist_base_urls_match_2A_appendix():
@@ -156,6 +158,7 @@ def test_whitelist_base_urls_match_2A_appendix():
         "/papi/v1/margin/maxBorrowable",
         "/papi/v1/balance",
         "/papi/v1/um/positionRisk",
+        "/papi/v1/account",
         "/papi/v1/margin/marginInterestHistory",
         "/papi/v1/portfolio/interest-history",
     }
