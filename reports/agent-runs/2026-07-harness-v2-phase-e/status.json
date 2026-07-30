@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 20,
+  "revision": 21,
   "stage_id": "2026-07-harness-v2-phase-e",
   "bookkeeper": "codex",
-  "phase": "review-1",
-  "checkpoint": "task3-review1-receipt-correction-dispatched",
+  "phase": "review-2",
+  "checkpoint": "task3-review2-dispatched",
   "base_sha": "3183a89a080e7e7f08fb5a8e194df1327378d78b",
   "delivery_sha": "af7ef6aef9f58b1a87ae597b7be4ba8e67ed0e97",
-  "ledger_sha": "588dabe97ccd010ad73fbc467335a21b1c685f52",
+  "ledger_sha": "48de5199bdbba131d4204599f6bd7401e7bc9281",
   "current_task": {
-    "id": "phase-e-task3-review-1-grok45-receipt",
+    "id": "phase-e-task3-review-2-opus5",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/83-phase-e-task3-grok45-review-receipt-correction.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-phase-e/90-phase-e-task3-opus5-review.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-grok45-review-1-receipt-correction"
+    "action": "start-prepared-opus5-review-2"
   },
   "rework_count": 0,
   "blockers": []
