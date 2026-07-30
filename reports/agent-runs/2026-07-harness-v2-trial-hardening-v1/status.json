@@ -1,26 +1,26 @@
 {
   "schema_version": "2",
-  "revision": 14,
+  "revision": 15,
   "stage_id": "2026-07-harness-v2-trial-hardening-v1",
   "bookkeeper": "opus5",
-  "phase": "review-1",
-  "checkpoint": "kimi-unavailable-review-1-rerouted-to-grok45",
+  "phase": "review-2",
+  "checkpoint": "batch-a-review-1-accept-verified-review-2-dispatched",
   "base_sha": "c6f23f690599799f5f7c55b004bc4b1cb5039a0d",
   "delivery_sha": "41387b440758e9b19aa1333a0c76dcfe8e28d5ec",
   "ledger_sha": "c0d80451f60897d996c9f4726e9a62939aab5704",
   "current_task": {
-    "id": "harness-v2-trial-hardening-batch-a-review-1-grok45",
+    "id": "harness-v2-trial-hardening-batch-a-review-2-fable5",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-trial-hardening-v1/72-grok45-batch-a-review-1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-trial-hardening-v1/80-fable5-batch-a-review-2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-grok45-batch-a-review-1"
+    "action": "start-prepared-fable5-batch-a-review-2"
   },
   "rework_count": 0,
   "blockers": [
-    "contested-ruling-not-independent: 字节预算 contested 由写下该检查的同一 Bookkeeper 裁定采信（O7 首次真实发生），已列为 review-1 具名审查项 S1/S2，评审可否决",
-    "review-2-packet-pending: review-2 指派 Fable5（anthropic），按决定 8 的节奏仅在 review-1 ACCEPT 后另行派包",
-    "batch-b-not-authorized: 批次 B 与 G11 目录清理均未授权；G1/G14 仍为 OPEN（决定 1、11 知情接受）"
+    "merge-not-authorized: review-2 的 ACCEPT 不构成合并授权，合并到 main 须 Human 明确授权",
+    "batch-a-residuals-R1-R4: 无硬字节刹、散文同根因、contested 裁决者不独立、G1/G14 仍 OPEN，四项已转 review-2 具名审查",
+    "batch-b-not-authorized: 批次 B 与 G11 目录清理均未授权"
   ]
 }
