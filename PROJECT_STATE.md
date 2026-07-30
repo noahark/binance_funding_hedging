@@ -1,6 +1,6 @@
 # Project State
 
-Cross-stage state, read at startup. Keep under 2 KB. Git history is not a runtime
+Cross-stage state, read at startup. Keep under 8 KB. Git history is not a runtime
 check.
 
 ## Live Risks
