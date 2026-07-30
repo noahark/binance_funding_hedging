@@ -1,43 +1,47 @@
 # Project State
 
-Startup reads this cross-stage state. Keep it under 2 KB. Git history is not a
-runtime check.
+Cross-stage state, read at startup. Keep under 2 KB. Git history is not a runtime
+check.
 
 ## Live Risks
 
-- `[CLOSED][HUMAN-REPORTED 2026-07-30]` The naked `SHORT 10000 NOMUSDT`
-  (`orderId 888412130`) was hedged by a manual spot buy. Human-reported, not
-  agent-verified.
 - `[OPEN][RUNTIME-UNVERIFIED]` The Start gate may still be live and no close
   function exists. No agent may create orders, touch credentials, control the
-  service, or write the live task database; an authorized read-only check must
-  precede any live action. Evidence: `git show 7180f61:.../ACTIVE.json`.
+  service, or write the live task DB; an authorized read-only check must precede
+  any live action.
 
 ## Open Follow-ups
 
-- `[OPEN][ACCEPTED-LIMITATION]` Human accepted order-truth after review-1
-  `REWORK` without review-2. A deferred-query single-leg fill with NULL quote
-  stores exposure price as zero. Observe first.
-  Evidence: archived `43-review-1-r7.md` and `61-validate-pre-accept-final.txt`.
-- `[OPEN][DEFERRED]` Six order-truth items remain: two collateral-cap items,
-  inconclusive-query evidence, brake documentation, contradictory zero
-  notional, and one flaky oversized-body test. See `stage_followups` in
-  `git show 3113a5d:reports/agent-runs/2026-07-hedge-order-truth-v1/status.json`.
-- `[OPEN][LEGACY-P3]` Five hardening follow-ups remain in `stage_followups` at
-  `git show 7180f61:reports/agent-runs/2026-07-hedge-open-live-hardening-v1/status.json`.
-- `[OPEN][HARNESS-WORDING]` Next Harness edit: keep packets to the six-section
-  shape, drop the superseded v1 branch document's stale approved/pending
-  impression, keep Startup skill navigation from becoming a second routing
-  authority.
-- `[OPEN][HARNESS-HYGIENE]` 39 completed stage directories remain in
-  `reports/agent-runs/`, against AGENTS.md §9.5. Removal is a separate cleanup.
+- `[OPEN][DEFERRED]` Three discarded-failure sites, by decision: `service.py:1141`
+  (inconclusive query, needs log-rate design), `:1632` (dry-run, no order),
+  `live_hedge_executor.py:690-702` (`_error_leg` drops the send reason; needs a
+  `LegDispatch` change). Plus: should these events reach the `entries` timeline?
+  Human decides. Audit: `archive/2026-07-unknown-not-zero-v1` file `71-`.
+- `[OPEN][RESIDUAL]` `_rate_limit_stamp_pending` is in-process: a restart between a
+  failed stamp and settlement costs one failure count (task pauses one early,
+  fail-closed). Durable fix = a new column.
+- `[OPEN][RESIDUAL]` The money-zero tripwire is a speed bump, not a proof: five
+  evasions + `fee_amount` outside the money names. DEC-2026-07-30-001.
+- `[OPEN][DEFERRED]` Five order-truth items + five hardening P3s: `stage_followups`
+  in `git show 3113a5d:` and `git show 7180f61:`.
+- `[OPEN][HARNESS-HYGIENE]` ~39 completed stage dirs still in `reports/agent-runs/`,
+  against AGENTS.md §9.5.
+- `[HUMAN-OWNED]` The 19 Harness v2 findings are being fixed by Human with Codex on
+  a separate branch. **No model may open a Harness stage or plan from
+  `docs/planning/harness-v2-trial-findings-2026-07-30.md`**, incl. the withdrawn
+  `task2-same-family-rework-rule`.
+
+## Next Priority
+
+Main line: live testing of the immediate-hedge scenario.
 
 ## Last Completed
 
-- stage: `2026-07-harness-v2-phase-e`
-- archive_ref: `archive/2026-07-harness-v2-phase-e`
+- stage: `2026-07-unknown-not-zero-v1`
+- archive_ref: `archive/2026-07-unknown-not-zero-v1`
 - recorded_completed_at: `2026-07-30`
 
 ## Update Rule
 
-Record live incidents immediately; remove resolved or migrated items.
+Record live incidents at once; remove resolved items. Over budget: evict resolved
+first, then oldest, keeping a git reference.
