@@ -163,14 +163,17 @@ _QUANTITY_NAMES = {
     "filled_qty", "cumulative_base_qty", "base_qty", "executed_qty", "qty",
 }
 
-# A money identifier assigned from one of these WITHOUT a safe marker is a silent
-# zero coercion. _num(None) -> Decimal(0); _decimal_str(None) -> "0" by default.
+# A money identifier fed by any of these WITHOUT ``default=None`` is a silent
+# zero fabrication (10-unknown-not-zero D5 point 4). _num(None) -> Decimal(0);
+# _decimal_str(None) -> "0" by default; ``or "0"`` and ``.get(…, "0")`` fabricate
+# a zero when the source is missing. All four are FLAGGED together (task1b R1: the
+# delivery wrongly treated the last two as safe markers that suppressed a finding).
 _COERCER_RE = re.compile(r"\b(?:_num|_decimal_str)\s*\(")
-# Safe markers: an explicit keep-unknown default, or an explicit real-zero
-# fallback, makes the zero intentional rather than fabricated.
+_OR_ZERO_RE = re.compile(r"""\bor\s+["']0["']""")
+_GET_ZERO_RE = re.compile(r"""\.get\([^)]*,\s*["']0["']\s*\)""")
+# The one genuine keep-unknown marker: an explicit default=None (None stays None,
+# never 0). Everything above is a fabrication, never "safe".
 _SAFE_DEFAULT_RE = re.compile(r"default\s*=\s*None")
-_SAFE_OR_ZERO_RE = re.compile(r"""\bor\s+["']0["']""")
-_SAFE_GET_ZERO_RE = re.compile(r"""\.get\([^)]*,\s*["']0["']\s*\)""")
 # SQL: a value-seeding statement whose column list may name a money column.
 _SQL_STMT_RE = re.compile(r"\b(?:INSERT\s+INTO|UPDATE)\b", re.IGNORECASE)
 _ALLOWLIST_MARKER = "# money-zero-ok:"
@@ -185,29 +188,48 @@ def _is_money_name(name: str) -> bool:
 
 
 def _uses_unsafe_coercer(text: str) -> bool:
-    if not _COERCER_RE.search(text):
-        return False
+    """True when the RHS fabricates a zero from a missing money figure.
+
+    ``default=None`` is the one genuine keep-unknown marker (None stays None).
+    Otherwise any of ``_num(`/``_decimal_str(` (None -> 0), ``or "0"`` /
+    ``or '0'``, or ``.get(…, "0")`` / ``.get(…, '0')`` is a fabrication and is
+    flagged — task1b R1. ``_num(` need not appear for ``or "0"`` to fire, so
+    ``avg_price = D.Decimal(x or "0")`` is no longer invisible."""
     if _SAFE_DEFAULT_RE.search(text):
         return False
-    if _SAFE_OR_ZERO_RE.search(text):
-        return False
-    if _SAFE_GET_ZERO_RE.search(text):
-        return False
-    return True
+    return bool(_COERCER_RE.search(text)
+                or _OR_ZERO_RE.search(text)
+                or _GET_ZERO_RE.search(text))
 
 
 def _find_python_money_coercions(lines):
     """A money identifier assigned from, or a dict entry keyed by a money
-    identifier whose value contains, _num(/_decimal_str( without a safe marker."""
+    identifier whose value contains, a zero-fabricating construct without
+    ``default=None``.
+
+    The assignment target may be a bare name, a subscript ``obj["key"]``, or an
+    attribute ``obj.attr`` (optionally chained), with ``=`` or an augmented op
+    ``+=`` / ``-=`` / ``*=`` / ``/=`` (task1b R2: the old bare-name ``=`` rule hid
+    S2's ``b["spot_notional"] += q * _num(…)``). A target is money if ANY of its
+    identifier tokens is a money name."""
     out = []
-    assign_re = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)\s*(.+)$")
-    dict_re = re.compile(r"""["']([A-Za-z_][A-Za-z0-9_]*)["']\s*:\s*([^,}\n]+)""")
+    lhs_re = re.compile(
+        r"^\s*([A-Za-z_]\w*(?:\[[^\]]*\]|\.[A-Za-z_]\w*)*)\s*"
+        r"((?:\+|-|\*|/)?=)(?!=)\s*(.+)$"
+    )
+    dict_re = re.compile(r"""["']([A-Za-z_]\w*)["']\s*:\s*([^,}\n]+)""")
     for i, line in enumerate(lines, 1):
-        m = assign_re.match(line)
-        if m and _is_money_name(m.group(1)) and _uses_unsafe_coercer(m.group(2)):
-            out.append((i, line.strip(),
-                        f"money field '{m.group(1)}' assigned from a zero-coercing parser"))
-            continue
+        m = lhs_re.match(line)
+        if m:
+            target, op, rhs = m.group(1), m.group(2), m.group(3)
+            money_tok = next((t for t in re.findall(r"[A-Za-z_]\w*", target)
+                              if _is_money_name(t)), None)
+            if money_tok is not None and _uses_unsafe_coercer(rhs):
+                kind = "augmented " if op != "=" else ""
+                out.append((i, line.strip(),
+                            f"money field '{money_tok}' {kind}assigned from a "
+                            f"zero-coercing parser"))
+                continue
         m = dict_re.search(line)
         if m and _is_money_name(m.group(1)) and _uses_unsafe_coercer(m.group(2)):
             out.append((i, line.strip(),
@@ -224,10 +246,12 @@ def _is_string_fragment(line: str) -> bool:
 
 def _sql_statement_anchor(lines, idx):
     """Walk up from the ``'0'`` line to the nearest INSERT INTO / UPDATE line,
-    staying inside one statement (continuation lines are string fragments).
-    Returns the anchor line index, or None if the ``'0'`` is not inside such a
-    statement (e.g. a CREATE TABLE column default)."""
-    j = idx - 1
+    staying inside one statement (continuation lines are string fragments), and
+    including the ``'0'`` line itself so a single-line ``INSERT … '0'`` anchors
+    (task1b R3a). Returns the anchor line index, or None if the ``'0'`` is not
+    inside such a statement (e.g. a CREATE TABLE column default, which is not a
+    string fragment)."""
+    j = idx
     while j >= 0:
         if _SQL_STMT_RE.search(lines[j]):
             return j
@@ -370,11 +394,52 @@ def test_detector_does_not_flag_quantity_default():
 
 
 def test_detector_does_not_flag_allowlisted_or_safe_line():
-    """An allow-listed line (``# money-zero-ok``) and a safe coercion
-    (``default=None`` / ``or "0"``) are not reported by the public detector."""
+    """An allow-listed line (``# money-zero-ok``) and a ``default=None`` coercion
+    are not reported. task1b R1 narrowed "safe" to ``default=None`` only: ``or "0"``
+    and ``.get(…, "0")`` now FLAG (see test_detector_flags_or_zero_money_coercion),
+    so they no longer appear here."""
     src = (
         'avg_price = _num(x)  # money-zero-ok: deliberate zero for a dry-run stub\n'
         'price = _decimal_str(v, default=None)\n'
-        'quote = _num(q) or "0"\n'
     )
     assert find_money_zero_defaults(src, "<synth>") == []
+
+
+def test_detector_flags_or_zero_money_coercion():
+    """task1b R1: a money identifier fed by ``or "0"`` / ``or '0'`` /
+    ``.get(…, "0")`` / ``.get(…, '0')`` is flagged, with or without ``_num(`` /
+    ``_decimal_str(` on the same line. These fabricated a real-looking zero when
+    the source was missing — the r6 / API-projection shape."""
+    src = (
+        'avg_price = D.Decimal(x or "0")\n'           # no _num( at all
+        'quote = _num(q) or "0"\n'                     # _num( AND or "0"
+        "notional = d.get('cumulative_quote_amt', '0')\n"
+        "price = _decimal_str(v) or '0'\n"
+    )
+    lines = {ln for ln, _t, _r in find_money_zero_defaults(src, "<synth>")}
+    assert {1, 2, 3, 4} <= lines, "all four or-zero/get-zero money coercions must flag"
+
+
+def test_detector_flags_subscript_or_attribute_augmented_money_target():
+    """task1b R2: a money-named subscript/attribute target with an augmented
+    assignment — the exact shape of S2 (``b["spot_notional"] += q * _num(…)``) —
+    is flagged, where the old bare-name ``=`` rule saw nothing. A bare quantity
+    subscript (``b["spot_qty"] += q``) is not money and stays unflagged."""
+    src = (
+        'b["spot_notional"] += q * _num(row["spot_avg_price"])\n'
+        'self.cumulative_quote -= fee * _decimal_str(x)\n'
+        'b["spot_qty"] += q\n'
+    )
+    lines = {ln for ln, _t, _r in find_money_zero_defaults(src, "<synth>")}
+    assert 1 in lines and 2 in lines, "subscript/attribute money targets must flag"
+    assert 3 not in lines, "quantity subscript must not flag"
+
+
+def test_detector_anchors_single_line_sql_insert():
+    """task1b R3a: a single-line ``INSERT INTO … '0'`` naming a money column is
+    anchored and flagged. The anchor walk now starts at the ``'0'`` line, so the
+    statement no longer has to span lines to be seen."""
+    src = 'store.execute("INSERT INTO t (cumulative_quote_amt) VALUES (\'0\')")\n'
+    findings = find_money_zero_defaults(src, "<synth>")
+    assert findings, "single-line INSERT money-column '0' must be flagged"
+    assert findings[0][0] == 1
