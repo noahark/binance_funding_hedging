@@ -4,6 +4,13 @@ Author: Opus 5, as Bookkeeper of `2026-07-unknown-not-zero-v1` (the first stage
 run entirely under v2). Recorded 2026-07-30 at Human's request, to be verified and
 turned into fixes by an independent model later. **Nothing here is actioned.**
 
+**Hold — Human decision D-9, 2026-07-30.** Human is vetting these findings against
+Codex personally. Until Human says that is finished, no model may open a Harness
+stage, write a Harness plan, or dispatch Harness work from this document. That
+includes `task2-same-family-rework-rule` (G12), which was withdrawn from stage
+`2026-07-unknown-not-zero-v1` into this batch under D-7 and is therefore held too.
+This list is not a backlog. Record the vetting outcome per finding in this file.
+
 Baseline: v2 merged to `main` at `ac8d493`; v1 baseline for comparison is
 `7180f61`. The v2 merge removed 9,269 lines and added 2,382 — including
 `scripts/validate-stage.py` (2,414 lines) and
@@ -333,6 +340,11 @@ Bookkeeper's handling was to record the decision only in the stage's evidence
 files and leave `status.json` stale on scope until the review returned —
 disclosed in `01-human-decisions.md` D-7 — which means the file the contract calls
 the current-stage authority was knowingly behind for the duration.
+
+**Second occurrence, same stage.** Human's decision D-9 (hold the Harness batch
+pending personal vetting) arrived while the review-2 terminal was running on
+`status_revision: 12`, and had to be parked in an evidence file for the same
+reason. Two hits in one stage on a rule that does not exist.
 
 Candidate fix: distinguish the fields a running terminal's self-check is
 sensitive to from the rest, so scope and decision records can be updated without

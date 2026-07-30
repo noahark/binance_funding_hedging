@@ -185,3 +185,34 @@ F2 goes to `claude_glm` as `task1c-f2-settlement-visibility`
 (`44-f2-repair-glm.dispatch.md`). It then re-enters review-1 and returns to
 review-2, per `AGENTS.md:181`, because it touches `service.py` which was forbidden
 in the reviewed range.
+
+## D-9 No Harness stage until Human has vetted the findings list — 2026-07-30
+
+Human will personally check the 19 findings in
+`docs/planning/harness-v2-trial-findings-2026-07-30.md` against Codex before any
+Harness work is planned.
+
+So on stage close: `ACTIVE.json` goes to `{"active": null}` and **stays there**. No
+model may open a Harness stage, prepare a Harness plan, or dispatch Harness work
+from that document until Human says the vetting is done. The document's own header
+already says "Nothing here is actioned"; this decision makes the gate explicit so a
+later session does not read the list as a backlog and start planning from it.
+
+`task2-same-family-rework-rule`, withdrawn from this stage under D-7, is inside that
+batch and therefore inside this hold. It is not pending work.
+
+The vetting result belongs in the findings document itself — as a per-finding
+confirm/reject with Codex's reasoning — not in a new file.
+
+### Sequencing note — status.json again deliberately not revised
+
+Same hazard as D-7 and for the same reason. `status.json` stays at **revision 12**
+with `current_task = review2r2-task1-codex`; that packet carries
+`status_revision: 12`, and `AGENTS.md:45` halts a started terminal on a revision
+mismatch. This decision does not touch review-2's range (`ac8d493..7cadb88`) or its
+questions, so bumping the revision could only harm. Recorded here; it reaches
+`status.json` at stage close.
+
+This is the second time in one stage that a Human decision arriving mid-flight had
+to be parked in an evidence file — added as reinforcing evidence to Harness finding
+G17.
