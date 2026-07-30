@@ -159,6 +159,21 @@ Appended as they occur.
   bookkeeping commits alongside the implementation. The review packets must say
   so explicitly. Candidate v2 wording fix: define `base_sha` as the commit the
   implementer starts from.
+- Gap: v2 has no plan/design review step at all. Written up separately in
+  `06-v2-gap-plan-review.md` with a recommended one-sentence §8 fix, prompted by
+  Human asking where a pre-implementation Codex review fits.
+- Friction: the named Planner skill `agents/skills/task-planner.md` is vendored
+  web-agency boilerplate (Laravel, FluxUI, Playwright, `ai/memory-bank/` paths).
+  Requiring a Planner to load one skill is currently closer to a compliance
+  ritual than to help. `software-architect.md` is genuinely applicable; the
+  Planner-skill menu should say which is the default for a backend defect stage.
+  See `01-human-decisions.md` §D-4 for the disclosed deviation.
+- Friction: v2 dropped `docs/model-adapters.md`, so how to launch each model
+  terminal is now undocumented and lives only with the Human operator.
+- Friction: `status.json`'s field set is exactly fixed, with no field for routing
+  decisions (review-1 model, branch, disclosed deviations). They went into
+  `01-human-decisions.md`. This is probably the right call, but the contract
+  should name where such decisions live, or each stage invents a filename.
 - Friction: `PROJECT_STATE.md` has a hard 2 KB budget and was already at 2 KB.
   Recording one new fact required trimming two existing entries. The budget is
   right, but there is no stated rule for what gets evicted first.
