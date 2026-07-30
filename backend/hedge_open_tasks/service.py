@@ -1202,8 +1202,12 @@ class HedgeOpenTaskService:
                     self._store.settle_attempt_no_counters(attempt_id, now_us)
                 else:
                     self._store.finalize_attempt(attempt_id, now_us)
-            except Exception:
-                pass
+            except Exception as exc:
+                # F2 (review-2): stop discarding. A settlement exception left
+                # pair_outcome NULL, silently stalling the task on prepare's
+                # in-flight guard. Record an operator-visible event before the
+                # worker continues (R1); keep catching so the worker survives (R2).
+                self._record_settlement_failure(task_id, attempt_id, exc, now_us)
         # R2-F4 (user authorization 28 §2.3): recover any crash-gap attempt left
         # with BOTH legs terminal but pair_outcome still NULL — it has no
         # non-terminal leg for the drain above to act on, yet prepare_attempt's
@@ -1235,8 +1239,49 @@ class HedgeOpenTaskService:
                     self._store.settle_attempt_no_counters(attempt["id"], now_us)
                 else:
                     self._store.finalize_attempt(attempt["id"], now_us)
-            except Exception:
-                pass
+            except Exception as exc:
+                # F2 (review-2): the same discarding defect on the crash-gap
+                # recovery loop — the mechanism meant to unstick this exact
+                # state. Record an operator-visible event (R1); the worker
+                # survives (R2) and the loop retries next round (R3).
+                self._record_settlement_failure(task_id, attempt["id"], exc, now_us)
+
+    def _record_settlement_failure(
+        self, task_id: str, attempt_id: int, exc: BaseException, now_us: int,
+    ) -> None:
+        """F2 (review-2): record an operator-visible event for a settlement
+        exception the caller caught, so a discarded failure no longer leaves
+        ``pair_outcome = NULL`` — ``prepare_attempt``'s in-flight guard — with
+        nothing visible to the operator.
+
+        Uses the existing ``record_task_event`` channel the logs page already
+        reads, carrying the task, the attempt, and the exception type and message
+        — enough to diagnose, without credentials, headers, tokens, or a request
+        body. R3: no new pause reason, task status, or product semantics — the
+        crash-gap loop already retries every worker round, so a transient cause
+        self-heals and a permanent one produces a repeated, visible event.
+
+        R2: the recording itself is guarded so a failure to record cannot raise
+        and take the worker down (with every other task). This inner guard wraps
+        ONLY this audit write — not settlement business logic — and is not a
+        second blanket ``except: pass`` around the settlement call."""
+        try:
+            self._store.record_task_event(
+                task_id,
+                "settlement_failed",
+                {
+                    "attempt_id": attempt_id,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                },
+                now_us,
+            )
+        except Exception:
+            # R2: narrow inner guard. A failure to record this audit event must
+            # not raise (it would kill the worker and every other task). It guards
+            # ONLY this write; the settlement exception was already caught by the
+            # caller and control flow is unaffected.
+            pass
 
     def _pause_task_local(
         self, task: dict, pause_reason: str, pause_signal: str | None,

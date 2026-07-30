@@ -490,6 +490,95 @@ def test_4d_live_single_leg_exposure_timestamp_is_settlement_wall_clock(tmp_path
     assert task["leg_exposure"]["ts"] != "1970-01-01T00:00:00.000000Z"
 
 
+# F2 (review-2): a discarded settlement exception silently stalls the task. The
+# bare ``except Exception: pass`` at both settlement call sites used to swallow
+# ANY failure from finalize_attempt — the T5 ``ts_us <= 0`` backstop, a DB error,
+# a future rollup bug — leaving pair_outcome NULL, which is precisely
+# prepare_attempt's in-flight guard. With an injected zero clock the T5 backstop
+# fires on a terminal single-leg attempt; the exception must be recorded (not
+# swallowed), the worker must survive, and the attempt must stay unsettled.
+
+
+def test_drain_settlement_failure_is_recorded_not_swallowed(tmp_path):
+    """F2 drain site (``_reconcile_own_legs`` -> ``finalize_attempt``): a real
+    service settlement path driven with an injected zero clock. A single-leg
+    pair dispatched with one UNKNOWN leg is drained to a FILLED accepted spot +
+    REJECTED perp; finalize_attempt then raises the T5 ``ts_us <= 0`` backstop.
+    The exception must not escape (worker continues), an operator-visible event
+    must be recorded naming the failure, and the attempt must stay unsettled."""
+    exe = _RoutingExecutor()
+    svc, _clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()), clock=_Clock(0))
+    doc = _create(svc, target_n=1)
+    # An UNKNOWN pair (has_querying -> legs marked for drain; the dispatch path
+    # does NOT compute exposure, so the zero clock does not raise here).
+    exe.set_script(doc["id"], [_unknown_pair()])
+    # Drain resolves both legs to terminal: spot -> FILLED accepted, perp ->
+    # absent REJECTED, i.e. a single-leg pair whose exposure build_leg_exposure
+    # raises on ts_us <= 0.
+    exe.queries.extend([_filled_leg("spot"), _absent_query("perp")])
+
+    svc._pump_worker(doc["id"], max_rounds=1)  # round 1: dispatch -> in-flight
+    # round 2: drain -> finalize(ts_us=0) raises. The exception must not escape.
+    svc._pump_worker(doc["id"], max_rounds=1)
+
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    assert attempt["pair_outcome"] is None  # still unsettled — no fabrication
+    # Both settlement sites fire on this round: the drain raise leaves a crash-gap
+    # that the crash-gap loop then hits, so BOTH must record — fixing only one
+    # site would leave the count at 1.
+    events = svc.store.list_task_event_logs(20, kinds=("settlement_failed",))
+    assert len(events) >= 2
+    payload = json.loads(events[0]["payload"])
+    assert payload["attempt_id"] == attempt["id"]
+    assert "ts_us" in payload["error"]  # names the T5 timestamp backstop
+    # No credentials / headers / tokens / request body leak into the event.
+    assert set(payload) <= {"attempt_id", "error_type", "error"}
+
+
+def test_crash_gap_settlement_failure_is_recorded(tmp_path):
+    """F2 crash-gap site (``_recover_crash_gaps`` -> ``finalize_attempt``): the
+    second bare except, on the loop meant to unstick exactly this state. A
+    crash-gap attempt (both legs terminal, pair_outcome NULL) that is also
+    single-leg raises the T5 backstop under a zero clock; that exception too must
+    be recorded, not swallowed. Constructs the gap directly (the state a crash
+    between leg-terminalization and pair settlement leaves), then drives one
+    worker round through the real recovery path — isolating the crash-gap site
+    from the drain site above."""
+    exe = _RoutingExecutor()
+    svc, _clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()), clock=_Clock(0))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    svc._pump_worker(doc["id"], max_rounds=1)  # dispatch UNKNOWN pair, in-flight
+    # Simulate the crash gap: close both legs to terminal WITHOUT settling the
+    # pair (one accepted, one rejected -> single-leg), as a crash would leave it.
+    attempt_id = _attempt_id(svc, doc["id"])
+    legs = svc.store.list_legs_for_attempt(attempt_id)
+    spot = next(l for l in legs if l["leg"] == "spot")
+    perp = next(l for l in legs if l["leg"] == "perp")
+    svc.store.resolve_leg_from_query(
+        spot["id"], exchange_status=D.LEG_FILLED, order_id="s1",
+        base_qty="0.5", quote_amt="25000", fee_amount=None, fee_asset=None,
+        now_us=0, terminal=True,
+    )
+    svc.store.resolve_leg_from_query(
+        perp["id"], exchange_status=D.LEG_REJECTED, order_id=None,
+        base_qty="0", quote_amt="0", fee_amount=None, fee_asset=None,
+        now_us=0, terminal=True,
+    )
+    assert svc.store.get_attempt(attempt_id)["pair_outcome"] is None  # crash-gap
+
+    # Recovery round: the crash-gap loop finalizes -> build_leg_exposure(0) raises.
+    # Recorded, not swallowed; the worker survives.
+    svc._pump_worker(doc["id"], max_rounds=1)
+
+    events = svc.store.list_task_event_logs(20, kinds=("settlement_failed",))
+    assert len(events) >= 1
+    payload = json.loads(events[0]["payload"])
+    assert payload["attempt_id"] == attempt_id
+    assert "ts_us" in payload["error"]
+    assert svc.store.get_attempt(attempt_id)["pair_outcome"] is None  # unsettled
+
+
 # ---------------------------------------------------------------------------
 # 4e/4f/4g. T3 raw-response persistence (10-design §3): every POST and every drain
 # query is captured verbatim, so an unexplainable exchange reply is readable from
