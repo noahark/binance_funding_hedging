@@ -47,6 +47,39 @@ less independent review-2 candidate. Recommended final routing:
 
 Provider isolation from the implementer holds for every reviewer listed.
 
+## D-7 `task2-same-family-rework-rule` withdrawn from this stage — 2026-07-30
+
+Human decided to withdraw task2 and fold it into the Harness fix batch tracked by
+`docs/planning/harness-v2-trial-findings-2026-07-30.md`.
+
+Reason: task2 edits `AGENTS.md` §8, and the findings collected during this stage
+added three more §8-area rules — G12 (the same brake), G15 (whether a pre-review
+Bookkeeper rejection consumes rework budget), G16 (an implementer's channel to
+contest an acceptance check). Two separate edits to one section would likely see
+the second rewrite the first, and each contract edit is `HIGH_RISK` requiring two
+reviews.
+
+Withdrawn, not cancelled. This stage's scope is now `task1` only: the code family
+closed plus the static guard.
+
+### Sequencing note — status.json deliberately not revised for this
+
+`status.json` stays at **revision 8** with `current_task = review2-task1-codex`.
+The review-2 packet carries `status_revision: 8`, and `AGENTS.md:45` tells a
+started terminal to stop if the revision differs. Bumping the revision to record a
+scope change that does not touch review-2's range (`ac8d493..851dd08`, which never
+contained task2) would risk halting a running final review for no benefit.
+
+`40-review-2-codex.dispatch.md` settled-ground item 7 therefore still reads
+"task2 is still pending and outside this range". That sentence is now stale in one
+direction only — the operative instruction, *do not file the stage as incomplete*,
+is more true after the withdrawal than before. The packet was left untouched
+because editing a possibly-executing dispatch is worse than a stale sentence that
+errs safe.
+
+The scope change lands in `status.json` at the next revision after review-2
+returns. Recorded as Harness finding G17.
+
 ## D-6 Review-2 is Codex, with disclosed design involvement — 2026-07-30
 
 Human selected Codex over Fable 5 and over a second Grok round.

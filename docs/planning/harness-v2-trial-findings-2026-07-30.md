@@ -276,13 +276,49 @@ scratch (then stop citing them as a defect source in stage documents). Either is
 fine; the current state means a stage's stated evidence can vanish with a
 `git clean`.
 
-### G12. Same-root-cause brake — already scheduled, do not re-raise
+### G17. A Human decision arriving mid-flight has nowhere to go
+
+`AGENTS.md:45` tells a started terminal to stop if the stage, task, target model,
+or **revision** differs from its packet. `roles.md:253-254` covers the window
+before start ("do not modify that revision before Human starts the target
+terminal"). Neither covers what happens when a Human decision arrives *while* a
+terminal is running.
+
+Hit for real: Human withdrew `task2` (decision D-7) after the review-2 packet had
+been handed over carrying `status_revision: 8`. Recording the scope change in
+`status.json` would have bumped the revision and risked halting a running final
+review, over a change that did not touch that review's range at all. The
+Bookkeeper's handling was to record the decision only in the stage's evidence
+files and leave `status.json` stale on scope until the review returned —
+disclosed in `01-human-decisions.md` D-7 — which means the file the contract calls
+the current-stage authority was knowingly behind for the duration.
+
+Candidate fix: distinguish the fields a running terminal's self-check is
+sensitive to from the rest, so scope and decision records can be updated without
+tripping it. One sentence: the self-check compares `stage_id`, `current_task.id`,
+and `target_model`, and a `revision` bump alone is not a mismatch.
+
+### G12. Same-root-cause brake — now part of this batch (was: this stage's task2)
 
 v2 closed half of the v1 problem: `AGENTS.md:182` caps `rework_count` at three and
 routes past it to a Human choice, which removes the "amended criteria" bypass the
 previous stage used to reach round 7 on a cap of 3. What is still missing is a
-brake on repeated point fixes to one root cause. That is `task2` of the current
-stage, already planned. Listed for completeness.
+brake on repeated point fixes to one root cause: two consecutive `REWORK` rounds
+attributed to the same root cause should forbid another point fix and require one
+exhaustive root-cause pass with a path-enumeration list.
+
+This was originally `task2` of stage `2026-07-unknown-not-zero-v1`. **Human
+withdrew it from that stage on 2026-07-30 (decision D-7) and folded it into this
+batch**, because G12, G15 and G16 all edit `AGENTS.md` §8 and two separate edits to
+one section would see the second rewrite the first. So it is now in scope here, not
+elsewhere — treat it as a first-class item of this batch and design it together
+with G15 (what counts as a round) and G16 (contesting a criterion), since all three
+answer the same question from different sides.
+
+Evidence for why it is worth having: the previous stage spent seven review rounds
+on one defect family, each round fixing the site the reviewer named. The stage that
+followed it — this one — found two more sites of the same family that all seven
+rounds had missed.
 
 ---
 
@@ -339,9 +375,10 @@ These are not equal. If only some get done:
 |---|---|---|
 | Do first | G1, G14, G2 | G1 and G14 are the same hole from two sides — the contract specifies a result/verdict shape and nothing checks it; both were exercised for real this stage, and one shared ~30-line checker closes them. G2 has measured value from this stage |
 | Do first, needs a decision not just wording | G15 | Whether a pre-review Bookkeeper rejection consumes rework budget. Left open, the cap is evadable by renaming a task; the current handling is disclosed but is the Bookkeeper's judgement, not a rule |
-| Cheap and clearly right | G3, G4, G5, G6, G10, G13 | Each is one to three lines in an authority that already exists, or one `git add` |
+| Do together, one §8 edit | G12, G15, G16 | All three answer "what counts as a round, and who may contest what" from different sides. G12 arrived here by Human decision D-7 (withdrawn from a stage so §8 is edited once, not twice) |
+| Cheap and clearly right | G3, G4, G5, G6, G10, G13, G17 | Each is one to three lines in an authority that already exists, or one `git add` |
 | Needs judgement | G7, G8 | G7 needs a threshold nobody has picked; G8 needs someone to decide whether to adapt or drop a vendored skill |
-| Already owned | G11, G12 | Filed elsewhere; do not duplicate |
+| Already owned | G11 | Filed in `PROJECT_STATE.md`; do not duplicate |
 | Leave alone | W1-W6 | |
 
 **Pattern across G1, G14, G15 and G12.** Four of the five highest-priority findings

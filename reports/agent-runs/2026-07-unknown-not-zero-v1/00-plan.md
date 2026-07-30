@@ -158,14 +158,27 @@ review-2 required for both tasks.
 | Task | Scope | Role/model |
 |---|---|---|
 | `task1-unknown-not-zero` | §4a + §4b + §5 + §6, backend only | Implementer `claude_glm` (backend default) |
-| `task2-same-family-rework-rule` | One rule in AGENTS.md §8: two consecutive `REWORK` rounds on the same root cause forbid another point fix and require one exhaustive root-cause pass | Implementer `claude_glm` (contract edit, as in phase E) |
+| ~~`task2-same-family-rework-rule`~~ | **WITHDRAWN 2026-07-30 by Human decision D-7** — folded into the Harness batch | — |
 
-Task 2 is deliberately narrow because v2 already closed half of the original
-complaint: `AGENTS.md:182` now caps `rework_count` at three and routes past it to
-a Human choice, which removes the "amended criteria" bypass the last stage used
-to reach round 7. What v2 still lacks is the same-root-cause brake.
+Task 2 was to add one rule to `AGENTS.md` §8: two consecutive `REWORK` rounds on
+the same root cause forbid another point fix and require one exhaustive root-cause
+pass. It was already narrow, because v2 had closed half the original complaint —
+`AGENTS.md:182` caps `rework_count` at three and routes past it to a Human choice,
+removing the "amended criteria" bypass the previous stage used to reach round 7.
 
-Sequential, task 1 first. Review routing at dispatch time:
+It is **withdrawn from this stage**, not cancelled. Reason (D-7): running it here
+would edit `AGENTS.md` §8 twice in short order, because the Harness findings
+collected during this stage include three more §8-area rules —
+G12 (this same brake), G15 (whether a pre-review Bookkeeper rejection consumes
+rework budget) and G16 (an implementer's channel to contest an acceptance check).
+The second edit would likely have to rewrite the first one's wording, and each
+contract edit is `HIGH_RISK` needing two reviews. One batch is cheaper and
+internally consistent.
+
+So this stage delivers exactly its core: the code family closed, plus the guard.
+Scope is now `task1` only.
+
+Review routing at dispatch time:
 
 - Review-1: cross-provider vs `zhipu_glm` → Kimi preferred (`roles.md:132-133`),
   Grok 4.5 the Human-approved fallback if Kimi quota is still unavailable.
