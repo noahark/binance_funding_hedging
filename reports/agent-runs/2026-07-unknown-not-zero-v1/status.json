@@ -10,7 +10,7 @@
   "ledger_sha": "07f91d362656d48862951563bf89d63fe701cc69",
   "current_task": {
     "id": "task1d-state-write-visibility",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/72-state-write-visibility-glm.dispatch.md"
   },
   "next": {
