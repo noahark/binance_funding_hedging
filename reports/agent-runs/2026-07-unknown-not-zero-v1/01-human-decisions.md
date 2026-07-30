@@ -47,6 +47,35 @@ less independent review-2 candidate. Recommended final routing:
 
 Provider isolation from the implementer holds for every reviewer listed.
 
+## D-6 Review-2 is Codex, with disclosed design involvement — 2026-07-30
+
+Human selected Codex over Fable 5 and over a second Grok round.
+
+Disclosure required by `agents/roles.md:125-127`: **Codex ran this stage's plan
+review** (`task0-plan-review`, verdict `REWORK`), so it has prior design
+involvement in the artifact it is now asked to finally review. Human was told
+this and chose it anyway, for the reason that it is uniquely placed to judge
+whether its own four findings were actually resolved rather than papered over.
+
+What still holds, unwaived:
+
+- Provider isolation from every implementation and fix author: implementer is
+  `claude_glm` = `zhipu_glm`; Codex = `openai`. `roles.md:123-124` satisfied.
+- Fresh read-only session, no shared transcript with the plan review.
+
+What is lost, stated plainly: independence at the final gate. Codex will partly be
+confirming its own earlier reading. Mitigations carried into the packet, following
+the precedent set for the previous stage's same-provider review pair:
+
+1. The packet names `00-plan.md` (the requirement) as top authority, not any
+   design narrative.
+2. The packet tells Codex to treat its own round-0 verdict as **unproven** and to
+   re-derive rather than recall.
+3. Review-1's verdict was committed (`c29cd9d`) before this packet was prepared.
+4. The residual risks review-1 found are disclosed in the packet rather than left
+   for Codex to rediscover, so its round is spent on release readiness rather than
+   on re-running review-1.
+
 ## D-5 Unknown quantity stays out of scope — 2026-07-30
 
 The plan review (J2) escalated to Human whether unknown **quantity** joins the
