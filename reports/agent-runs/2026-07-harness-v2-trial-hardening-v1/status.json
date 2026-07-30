@@ -7,7 +7,7 @@
   "checkpoint": "batch-a-merged-to-main-stage-closed",
   "base_sha": "c6f23f690599799f5f7c55b004bc4b1cb5039a0d",
   "delivery_sha": "41387b440758e9b19aa1333a0c76dcfe8e28d5ec",
-  "ledger_sha": "cfe5cd633ac9dd9ec790fb3ef29b7350aa94d143",
+  "ledger_sha": "b52df234fc2691c726308f3c4316581b2c18a65c",
   "current_task": {
     "id": "harness-v2-trial-hardening-batch-a-review-2-fable5",
     "state": "verified",
