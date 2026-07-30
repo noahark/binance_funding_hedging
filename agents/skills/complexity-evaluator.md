@@ -14,26 +14,14 @@ override this skill.
 
 ## Mission
 
-Classify the next work item only far enough to choose the v2 review path. Do not
-create speculative coordination or revive the retired direction-panel route.
-
-## Classification
-
-- `LOW_RISK`: documentation or mechanical work with no business, money, live,
-  credential, contract, or destructive effect.
-- `HIGH_RISK`: orders, positions, borrowing, repayment, transfer, money/PnL or
-  accounting meaning, live gates, risk limits, credentials, controlling
-  contracts, destructive actions, or an unclear test oracle.
-
-## Routing
-
-- `LOW_RISK`: one independent final review is allowed when the dispatch records
-  the reason.
-- `HIGH_RISK`: require review-1 and review-2.
+Optional analysis aid: apply §3 Safety Kernel and §8 Review Rules in
+`AGENTS.md` to recommend the Human-authorization gates and review path for the
+next work item. This skill owns no classification list or review route of its
+own and must not create speculative coordination or revive the retired
+direction-panel route.
 
 ## Required Output
 
-- Classification: `LOW_RISK` or `HIGH_RISK`.
+- Recommended Human-authorization gates, citing §3 Safety Kernel.
+- Recommended review path, citing §8 Review Rules.
 - Reasoning in 3-7 bullets.
-- Required human authorization.
-- Required review path.

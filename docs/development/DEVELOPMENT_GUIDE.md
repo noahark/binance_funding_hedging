@@ -202,21 +202,9 @@ No project-wide lint or typecheck command is currently defined.
 
 ## Model Routing
 
-- Claude-GLM owns backend API contract discovery, backend implementation, and
-  Binance field semantics.
-- Kimi owns frontend UI and backend API integration after the contract is
-  frozen.
-- Codex is not an implementation or fix author.
-- If backend/API/schema/normalization work is the large majority and frontend
-  work is light integration or display wiring, dispatch the whole bounded task
-  to Claude-GLM.
-- If frontend/UI/client-integration work is the large majority and backend work
-  is light endpoint or schema glue, dispatch the whole bounded task to Kimi.
-- If backend and frontend work are both substantial and separable, split
-  implementation by domain owner.
-- Grok is excluded from core backend, contract, and fix tasks for the current
-  public-market phase. It may be used only for non-critical UI sketches after
-  explicit user approval.
+Active model routing and provider identity live only in `agents/roles.md`. This
+guide does not maintain a second route table or model-specific exception; apply
+the roles file when assigning implementer or review work.
 
 ## Review And Release
 

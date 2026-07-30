@@ -6,8 +6,8 @@ give a model permission to launch another model or expand task scope.
 
 ## Shared Rules
 
-- The human-delivered dispatch packet names `target_role`, `target_model`,
-  allowed files, acceptance checks, and at most one required skill.
+- The human-delivered dispatch packet follows the exact shape in the Bookkeeper
+  section below.
 - A model's self-check against `target_model` is only a warning tripwire. The
   operator's launch record and Bookkeeper verification establish the actual
   model identity.
@@ -18,6 +18,11 @@ give a model permission to launch another model or expand task scope.
   with a narrative summary.
 - Never record credentials, tokens, cookies, private keys, or expanded secret
   environments.
+- Skill cardinality: a generic dispatch names zero or one `required_skill`; an
+  Implementer dispatch names exactly one, chosen from its implementation or
+  bounded-repair skill. Planner and Reviewer follow zero or one as their own
+  section states. The Implementer rule is a stricter role-specific limit, not a
+  conflict with the generic maximum.
 
 ## Planner
 
@@ -83,8 +88,8 @@ Do not load both implementation and repair skills for one task.
 - Commit only when the dispatch grants that responsibility.
 - Return the `TASK_RESULT` required by `AGENTS.md`.
 - With write permission, the implementer may move only its own task from
-  `dispatched` or `running` to `reported`. It cannot write `verified`, select
-  the next actor, or declare acceptance.
+  `dispatched` to `reported`. It cannot write `verified`, select the next
+  actor, or declare acceptance.
 - If a live incident occurs, stop the current action and report it immediately;
   do not wait for the rest of the task to finish.
 
@@ -107,7 +112,7 @@ Provider identity means the model vendor, not the CLI wrapper:
 | Claude Fable or Opus | `anthropic` |
 | Grok | `xai` |
 
-Claude Code running GLM is still a Zhipu provider session, not Anthropic.
+Claude Code using GLM is still a Zhipu provider session, not Anthropic.
 
 ### Isolation
 
@@ -196,6 +201,19 @@ Create current-stage `status.json` with exactly these top-level fields:
   "blockers": []
 }
 ```
+
+### Task State Vocabulary
+
+`current_task.state` has exactly three values:
+
+- `dispatched`: the active packet is ready or executing;
+- `reported`: the implementer recorded that its raw result has returned;
+- `verified`: Bookkeeper independently verified the raw result and evidence.
+
+v2 uses only these three states; there is no separate in-progress write. An
+implementer may move only `dispatched` to `reported`. Bookkeeper may move
+`dispatched` or `reported` to `verified` after raw evidence arrives. Unknown
+values are non-advancing and require Human clarification.
 
 ### SHA Discipline
 

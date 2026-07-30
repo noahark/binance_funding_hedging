@@ -8,6 +8,12 @@ Draft decisions belong in `reports/agent-runs/<stage-id>/` until user approval.
 
 ## Decision Log
 
+> Note: historical Harness routing/workflow decisions recorded below (including
+> `DEC-2026-07-05-001` stage-branch mode and `DEC-2026-07-08-001` model routing)
+> are not active runtime authority after Harness v2. Current behavior comes only
+> from `AGENTS.md`, `agents/roles.md`, the active `status.json`, and the active
+> dispatch. The rows are preserved as decision history; do not rewrite them.
+
 | ID | Date | Decision | Owner | Source |
 |---|---|---|---|---|
 | DEC-2026-07-22-006 | 2026-07-22 | Market-table filters: **日费率** hide uses **absolute value** `\|daily\| ≤ 0.03%`. **日净收益** hide uses **signed** `net ≤ 0.03%` (all negatives and small positives hidden; null not hidden). Labels: keep `\|日费率\|`; net filter text is `隐藏 日净收益 ≤ 0.03%` without bars. Both filters are frontend-only and stack. | User / Grok | `frontend/index.html`, `docs/planning/CHANGELOG-2026-07-22-market-table-filters.md` |

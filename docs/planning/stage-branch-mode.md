@@ -1,5 +1,11 @@
 # Stage 分支制（stage-branch mode）— 已批准，待执行
 
+> **SUPERSEDED BY HARNESS V2 — HISTORICAL EVIDENCE ONLY.** This document is
+> retained as history. Its `head_sha`, diff fingerprint, validator gate, YAML
+> workflow, `70-handoff.md`, automatic `stage/<stage-id>` creation, and merge
+> mechanics are not active instructions under Harness v2; active branch, SHA, and
+> merge policy lives in `AGENTS.md` §9.
+
 状态：**APPROVED-PENDING**（DEC-2026-07-05-001）。
 执行时点：`2026-07-phase2-borrow-sort-v1` 完成（用户验收）之后、下一个
 stage 的 H_intake 之前。执行路径：模板仓 `ai_project_harness` 先行修订

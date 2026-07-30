@@ -14,7 +14,11 @@ Use minimal changes and progressive disclosure. Startup holds only universal rul
 
 Before adding structure, identify its maintainer, reader, unique duty, and why an existing authority cannot hold it. If unclear, do not add it.
 
+During a Harness change, each rule, field shape, state vocabulary, routing mapping, or numeric limit has a single detailed active authority. Other active files may point to it or give a scoped one-line reminder, but must not copy a field list, enum set, numeric limit, or full workflow. When a Harness modification encounters another independently executable definition, consolidate it within the authorized scope or report it. This requirement applies when modifying Harness contracts, not to ordinary product tasks.
+
 ## 3. Safety Kernel
+
+These are Human-authorization gates: the actions below require explicit Human authorization before a model performs them. They are a different classification from the review-topology risk in §8 Review Rules.
 
 1. Money, orders, live gates, credentials, destructive data actions, risk-limit changes, deployment, and external side effects require explicit human authorization.
 2. No model may start, call, relay to, assign, or impersonate another model session. The human operator starts the next terminal from a prepared packet.
@@ -48,7 +52,7 @@ Without a packet, read `ACTIVE.json`, `PROJECT_STATE.md`, and active `status.jso
 | `PROJECT_STATE.md` | Cross-stage live risks, follow-ups, last archive |
 | `ACTIVE.json` | Active stage pointer only |
 | `<stage>/status.json` | Current stage progress and routing |
-| `<task>.dispatch.md` | Current task scope, files, checks, role, model, skill |
+| `<task>.dispatch.md` | Current task scope; the exact packet shape lives in the Bookkeeper section of `agents/roles.md` |
 | `agents/roles.md` | Role duties, model routing, provider identity |
 | `agents/developer-discipline.md` | Shared implementation and fix discipline |
 | `agents/skills/*.md` | One task-specific capability, read on demand |
@@ -70,15 +74,15 @@ Read only the target role section in `agents/roles.md`.
 | Review-2 | `Reviewer` + `agents/skills/reality-checker.md` |
 | State verification and next packet | `Bookkeeper` |
 
-GLM owns backend by default and Kimi frontend. Codex/GPT or Claude normally plans and performs decision review. Full routing and provider identity live only in `agents/roles.md`.
+Detailed model routing and provider identity live only in `agents/roles.md`; this file does not restate them.
 
 ## 6. Default Delivery Flow
 
 1. Human and a senior Planner decide the product goal, release boundary, non-goals, and acceptance criteria.
 2. Planner creates bounded backend/frontend tasks only when safely separable.
-3. GLM and/or Kimi implement, self-test, report, and stop.
+3. The dispatched implementer implements, self-tests, reports, and stops.
 4. Bookkeeper verifies results and seals a committed delivery range.
-5. High-risk work receives review-1; justified low-risk work may go directly to one independent final review.
+5. Review routing follows §8 Review Rules.
 6. The original implementer fixes an explicit finding with the smallest change.
 7. A model explains effect, problems, and choices in plain Chinese; Human may make a business pre-decision.
 8. An unrelated senior model performs review-2.
@@ -137,14 +141,18 @@ Every formal `[TASK_RESULT v2]` must contain these three Chinese handoff lines:
 
 - `本地北京时间` uses exact format `YYYY-MM-DD HH:MM:SS CST`, produced by:
   `date '+%Y-%m-%d %H:%M:%S CST'`.
-- `下一步模型` reads the single model id at `status.json.bookkeeper`, written as
-  a readable model name with a transfer note, such as
-  `Codex（Bookkeeper，经 human_operator 转交）`, not an internal enum. It does not
-  read dispatch metadata.
-- `下一步任务` states the concrete evidence path, state transition, next gate,
-  and the later reviewer or planned target model when known. It keeps the next
-  planned reviewer separate from the immediate Bookkeeper named above; they are
-  different steps. Do not use vague text.
+- `下一步模型` names the immediate next workflow actor in readable form, not an
+  internal enum:
+  - after an Implementer or Reviewer returns a task result, show the current
+    `status.json.bookkeeper`, because Bookkeeper is the immediate recipient;
+  - after Bookkeeper prepares a dispatch, show that dispatch's `target_model` in
+    readable form and state that Human starts it;
+  - while waiting for a Human decision, show `Human（决策者）`.
+  A later planned reviewer must not appear here; it may appear in `下一步任务`
+  only as part of the concrete follow-on sequence.
+- `下一步任务` describes the action of that same immediate actor: the concrete
+  evidence path, state transition, next gate, and any later reviewer only when
+  it is part of the follow-on sequence. Do not use vague text.
 
 These fields are informational only and never authorize dispatch. The current
 model cannot start, call, relay to, or assign the next model.
@@ -155,14 +163,16 @@ The closing line `[/TASK_RESULT]` must be the final non-whitespace output. No se
 
 The complete `status.json` field shape lives only in the Bookkeeper section of `agents/roles.md`; do not restate it here.
 
-An implementer may move only its own task from `dispatched` or `running` to `reported`. Bookkeeper is the only other normal `status.json` writer and alone may verify results, set `next`, or record a gate result. Reviewers are read-only; Human transfers their raw result to Bookkeeper.
+An implementer may move only its own task from `dispatched` to `reported`. Bookkeeper is the only other normal `status.json` writer and alone may verify results, set `next`, or record a gate result. Reviewers are read-only; Human transfers their raw result to Bookkeeper.
 
 Write a verified live incident to `PROJECT_STATE.md` immediately. Never present repository history as a current runtime check.
 
 ## 8. Review Rules
 
-- Orders, positions, borrowing, repayment, transfer, money/PnL meaning, accounting, live gates, risk limits, credentials, and controlling contracts are high-risk and require review-1 plus review-2.
-- A low-risk documentation or mechanical change may use one independent final review only when its dispatch records why.
+This section defines review-topology risk: which task changes require review-1 plus review-2. It alone defines the `LOW_RISK` and `HIGH_RISK` review routes, which are a different classification from the Human-authorization gates in §3 Safety Kernel.
+
+- `HIGH_RISK`: orders, positions, borrowing, repayment, transfer, money/PnL meaning, accounting, live gates, risk limits, credentials, controlling contracts, Harness safety or workflow contract changes, or an unclear acceptance oracle — require review-1 plus review-2.
+- `LOW_RISK`: a documentation or mechanical change with none of the above may use one independent final review only when its dispatch records why.
 - Review-1 checks code, contracts, tests, and seams. Review-2 checks the requirement, actual effect, evidence, operational risk, and release readiness.
 - Reviewers inspect raw artifacts and fixed `base_sha..delivery_sha`, not only a summary.
 - Provider isolation and model selection follow `agents/roles.md`.
@@ -172,6 +182,8 @@ Write a verified live incident to `PROJECT_STATE.md` immediately. Never present 
 - `rework_count` counts only formal `REWORK` repair rounds for the current task. It resets to zero for a new task and does not count Human requirement refinement or pre-dispatch packet correction. The maximum is three; beyond it Human chooses to narrow, redesign, accept a limitation, or stop.
 
 ## 9. Stage Completion
+
+Harness v2 branch, SHA, and merge policy: v2 does not require automatic `stage/<stage-id>` branch creation or a mandatory branch name; Human selects the branch or worktree for the bounded work; formal review stays anchored only to the committed `base_sha..delivery_sha`; and merge to `main` stays forbidden without explicit Human authorization.
 
 Before closing a stage, Bookkeeper:
 
