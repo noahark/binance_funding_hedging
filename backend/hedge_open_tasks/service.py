@@ -414,6 +414,15 @@ class HedgeOpenTaskService:
         self._workers: dict[str, threading.Thread] = {}
         self._stop_events: dict[str, threading.Event] = {}
         self._workers_lock = threading.Lock()
+        # task1d S2/R3 (review-2 audit): in-process set of attempts whose
+        # ``mark_attempt_rate_limited`` stamp FAILED at dispatch and must be retried
+        # before settlement, so a 429 pair is never finalized as an ordinary
+        # failure (consuming the counter the design exempts). An attempt belongs to
+        # exactly one task and that task owns one worker thread, so each id is only
+        # ever touched by its own worker; individual set ops are GIL-atomic. Not a
+        # new column/status — it is the next-round retry R3 sanctions (a process
+        # restart loses it, same crash window the system already has).
+        self._rate_limit_stamp_pending: set[int] = set()
         self._scheduler = HedgeOpenScheduler(
             self.tick, self._store.get_interval_us, self._mono_us
         )
@@ -1175,7 +1184,24 @@ class HedgeOpenTaskService:
                     error_code=getattr(verdict, "error_code", None),
                     error_category=getattr(verdict, "error_category", None),
                 )
-            except Exception:
+            except Exception as exc:
+                # S1 (task1d): a discarded resolve_leg_from_query left the leg in
+                # its stale state with nothing visible (R1). R2: do NOT skip the
+                # raw capture — append_raw_response runs in its own transaction,
+                # isolated from the leg-row write that just failed, so the
+                # exchange's own query words are exactly the evidence needed to
+                # diagnose (the old ``continue`` dropped them). The leg is not
+                # added to ``finalized`` (it was not recorded terminal), so the
+                # next worker round re-queries and re-reconciles it; the write POST
+                # is never resent (ADR-2).
+                self._record_state_write_failure(
+                    task_id, leg["attempt_id"], "resolve_leg_from_query", exc, now_us,
+                )
+                self._persist_leg_raw(
+                    task_id, leg["attempt_id"], leg["leg"], leg["client_order_id"],
+                    "order_query", getattr(verdict, "raw_response", None), now_us,
+                    decisive=self._query_verdict_decisive(verdict),
+                )
                 continue
             # T3 (10-design §3): capture the sanitized query response (the drain
             # GET that produced this verdict), after the leg-row business write.
@@ -1196,7 +1222,9 @@ class HedgeOpenTaskService:
         for attempt_id in finalized:
             try:
                 attempt = self._store.get_attempt(attempt_id)
-                if attempt is not None and attempt.get("rate_limited"):
+                if attempt is not None and self._rate_limited_for_settlement(
+                    task_id, attempt_id, attempt, now_us
+                ):
                     # Amendment 21: a 429 pair is closed WITHOUT consuming the
                     # failure counter; the in-flight guard still clears.
                     self._store.settle_attempt_no_counters(attempt_id, now_us)
@@ -1235,7 +1263,9 @@ class HedgeOpenTaskService:
         gaps = self._store.list_unsettled_terminal_attempts_for_task(task_id)
         for attempt in gaps:
             try:
-                if attempt.get("rate_limited"):
+                if self._rate_limited_for_settlement(
+                    task_id, attempt["id"], attempt, now_us
+                ):
                     self._store.settle_attempt_no_counters(attempt["id"], now_us)
                 else:
                     self._store.finalize_attempt(attempt["id"], now_us)
@@ -1282,6 +1312,79 @@ class HedgeOpenTaskService:
             # ONLY this write; the settlement exception was already caught by the
             # caller and control flow is unaffected.
             pass
+
+    def _record_state_write_failure(
+        self, task_id: str, attempt_id: int, operation: str,
+        exc: BaseException, now_us: int,
+    ) -> None:
+        """task1d (review-2 audit, S1-S5): record an operator-visible event for a
+        discarded ``self._store.*`` state-write exception the caller caught. A
+        discarded failure left the system believing something false about an order
+        or a task, with nothing visible — the class-(A) defect family this stage
+        closes. Mirrors :meth:`_record_settlement_failure` (F2) but is a DISTINCT
+        persisted kind, ``state_write_failed``, so it is an accurate label for
+        ``mark_leg_querying`` / ``resolve_leg_from_query`` too, and F2's reviewed
+        ``settlement_failed`` rows and assertions stay untouched (no rename, no
+        reuse, no data migration).
+
+        ``operation`` names the store call (``resolve_leg_from_query``,
+        ``mark_attempt_rate_limited``, ``resolve_attempt``, ``mark_leg_querying``);
+        the payload adds it to the attempt / exception-type / message F2 carries —
+        enough to diagnose, without credentials, headers, tokens, or a request body.
+
+        R2: the recording itself is guarded so a failure to record cannot raise and
+        take the worker down (with every other task). This inner guard wraps ONLY
+        this audit write — not the caller's business logic — and is not a second
+        blanket ``except: pass`` around the state write."""
+        try:
+            self._store.record_task_event(
+                task_id,
+                "state_write_failed",
+                {
+                    "attempt_id": attempt_id,
+                    "operation": operation,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                },
+                now_us,
+            )
+        except Exception:
+            # R2: narrow inner guard. A failure to record this audit event must not
+            # raise (it would kill the worker and every other task). It guards ONLY
+            # this write; the state-write exception was already caught by the caller
+            # and control flow is unaffected.
+            pass
+
+    def _rate_limited_for_settlement(
+        self, task_id: str, attempt_id: int, attempt: dict, now_us: int,
+    ) -> bool:
+        """task1d S2/R3 (review-2 audit): should this attempt settle WITHOUT the
+        consecutive-failure counter (a 429 pair)? The durable ``rate_limited``
+        column decides when the dispatch-time stamp succeeded. When that stamp
+        FAILED — the attempt is still in ``_rate_limit_stamp_pending`` — R3
+        requires a retry of the stamp before settlement (the crash-gap loop
+        re-enters every round), so it is retried here; and whether that retry
+        succeeds or fails, a 429 pair must NEVER be finalized as an ordinary
+        failure, so a still-pending stamp also settles without the counter (the
+        repeated failure is re-recorded via :meth:`_record_state_write_failure`,
+        not swallowed). No new column, status, or operator copy — the in-process
+        retry is the next-round mechanism R3 sanctions.
+
+        ``attempt`` is the row the caller already holds. The pending case ignores
+        it (the set is authoritative); the non-pending case reads its
+        ``rate_limited`` (authoritative there), so a stale row from the crash-gap
+        scan cannot mis-classify a stamp that failed at dispatch."""
+        if attempt_id in self._rate_limit_stamp_pending:
+            try:
+                self._store.mark_attempt_rate_limited(attempt_id)
+            except Exception as exc:
+                self._record_state_write_failure(
+                    task_id, attempt_id, "mark_attempt_rate_limited", exc, now_us,
+                )
+            else:
+                self._rate_limit_stamp_pending.discard(attempt_id)
+            return True
+        return bool(attempt.get("rate_limited"))
 
     def _pause_task_local(
         self, task: dict, pause_reason: str, pause_signal: str | None,
@@ -1720,8 +1823,17 @@ class HedgeOpenTaskService:
             # counter even after a manual resume has cleared pause_reason.
             try:
                 self._store.mark_attempt_rate_limited(attempt["id"])
-            except Exception:
-                pass
+            except Exception as exc:
+                # S2 (task1d): the rate-limited fact was lost, so a later reconcile
+                # would settle this pair as an ordinary failure and consume the
+                # counter the design exempts. Record the failure (R1) and remember
+                # the stamp is pending so settlement retries it before deciding and
+                # never finalizes a 429 pair as ordinary (R3 — see
+                # _rate_limited_for_settlement). Keep catching (R2).
+                self._record_state_write_failure(
+                    ctx.task_id, attempt["id"], "mark_attempt_rate_limited", exc, now_us,
+                )
+                self._rate_limit_stamp_pending.add(attempt["id"])
             return D.SIGNAL_RATE_LIMITED
         pause_signal = self._pause_signal_from_legs(spot, perp)
         if pause_signal is not None and not has_querying:
@@ -1733,8 +1845,15 @@ class HedgeOpenTaskService:
             )
             try:
                 self._store.resolve_attempt(attempt["id"], outcome, now_us)
-            except Exception:
-                pass
+            except Exception as exc:
+                # S3 (task1d): orders already sent and both legs terminal; a
+                # discarded resolve_attempt leaves pair_outcome NULL and the
+                # in-flight guard stalls the task. Record the failure (R1); keep
+                # catching (R2). The crash-gap loop re-enters every round and
+                # retries the settlement (R3).
+                self._record_state_write_failure(
+                    ctx.task_id, attempt["id"], "resolve_attempt", exc, now_us,
+                )
             return pause_signal
         if pause_signal is not None:
             # Mixed: one leg pause-class terminal, the other still UNKNOWN — mark
@@ -1755,8 +1874,14 @@ class HedgeOpenTaskService:
             self._store.resolve_attempt(
                 attempt["id"], outcome, now_us, leg_terminal=leg_terminal
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            # S4 (task1d): the main path — a real order placed and its conclusion
+            # never persisted. Record the failure (R1); keep catching (R2). Any
+            # non-terminal leg is drained and the crash-gap loop retries next round
+            # (R3); the write POST is never resent (ADR-2).
+            self._record_state_write_failure(
+                ctx.task_id, attempt["id"], "resolve_attempt", exc, now_us,
+            )
         return None
 
     def _mark_legs_querying(
@@ -1777,8 +1902,16 @@ class HedgeOpenTaskService:
                 self._store.mark_leg_querying(
                     attempt["id"], leg.leg, state, leg.order_id, now_us
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                # S5 (task1d): a leg needing drain was never marked, so an in-flight
+                # order would never be reconciled by client ID. Record the failure
+                # (R1); keep catching (R2). The leg keeps its pre-failure state, so
+                # the worker treats it as it already was — ADR-2 still holds (the
+                # write POST is never resent); a fatal fact re-surfaces on the next
+                # dispatch's fresh POST.
+                self._record_state_write_failure(
+                    attempt["task_id"], attempt["id"], "mark_leg_querying", exc, now_us,
+                )
 
     def _persist_leg_raw(
         self, task_id: str, attempt_id: int, leg_name: str,

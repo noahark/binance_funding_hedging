@@ -579,6 +579,180 @@ def test_crash_gap_settlement_failure_is_recorded(tmp_path):
     assert svc.store.get_attempt(attempt_id)["pair_outcome"] is None  # unsettled
 
 
+# task1d (review-2 audit): five post-POST sites discarded a failed self._store.*
+# state write, leaving the system believing something false about an order or a
+# task with nothing operator-visible. Each now records a ``state_write_failed``
+# task event (carrying the operation name + exception, no credentials) and keeps
+# the worker alive; nothing is fabricated and the write POST is never resent. One
+# deterministic fault-injection test per site drives the real service path with
+# the named store call forced to raise.
+
+
+def test_s1_resolve_leg_write_failure_records_and_preserves_raw(tmp_path):
+    """S1 (``_reconcile_own_legs`` -> ``resolve_leg_from_query``): the old
+    ``except Exception: continue`` discarded the leg write AND skipped the raw
+    capture right after it — losing the exchange's own query words. Force the leg
+    write to raise; the failure is recorded (state_write_failed), the raw response
+    is STILL captured (R2), the worker continues, and the leg stays unsettled."""
+    exe = _RoutingExecutor()
+    svc, _clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()), clock=_Clock(0))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    # A terminal query verdict CARRYING a raw response, so the drain reaches
+    # resolve_leg_from_query and the raw capture has something to persist.
+    raw = {"http_status": 200, "transport_error": None, "code": None,
+           "msg": "ok", "body": "{\"status\":\"FILLED\"}"}
+    exe.queries.extend([_leg(LEG_ACCEPTED, name="spot", order_id="s1",
+                             status=D.LEG_FILLED, executed="0.5", quote="25000",
+                             avg="50000", raw=raw)])
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("boom-resolve_leg_from_query")
+    svc.store.resolve_leg_from_query = _boom
+
+    svc._pump_worker(doc["id"], max_rounds=1)  # dispatch UNKNOWN pair
+    svc._pump_worker(doc["id"], max_rounds=1)  # drain -> resolve_leg_from_query raises
+
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    assert attempt["pair_outcome"] is None  # leg not recorded terminal -> unsettled
+    events = svc.store.list_task_event_logs(20, kinds=("state_write_failed",))
+    assert len(events) >= 1
+    payload = json.loads(events[0]["payload"])
+    assert payload["operation"] == "resolve_leg_from_query"
+    assert "boom-resolve_leg_from_query" in payload["error"]
+    assert set(payload) <= {"attempt_id", "operation", "error_type", "error"}
+    # R2: the raw response was STILL captured despite the leg write failing.
+    rows = svc.store.list_raw_responses_for_attempt(attempt["id"])
+    assert any(r["source"] == "order_query" for r in rows)
+
+
+def test_s2_rate_limit_stamp_failure_settles_without_consuming_counter(tmp_path):
+    """S2/R3 (``_dispatch_live`` -> ``mark_attempt_rate_limited``): if the
+    per-attempt rate-limit stamp fails at dispatch, a later reconcile used to
+    settle the 429 pair as an ordinary failure and consume the counter the design
+    exempts. Force the stamp to fail; the failure is recorded, and settlement
+    retries the stamp before deciding — the pair settles WITHOUT the counter and
+    the worker continues."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_UNKNOWN_QUERYING, name="spot", rate_limited=True, retry=2),
+        perp=_leg(LEG_UNKNOWN_QUERYING, name="perp", rate_limited=True, retry=2),
+        record_payload={"transport": "live"}, rate_limited=True, retry_after_seconds=2,
+    )])
+    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("boom-mark_attempt_rate_limited")
+    svc.store.mark_attempt_rate_limited = _boom
+
+    _step(svc, doc["id"], clock, rounds=3)  # 429 -> pause -> drain -> settle
+
+    task = svc.store.get_task(doc["id"])
+    assert task["fail_count"] == 0  # R3: 429 pair never consumed the counter
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    assert attempt["pair_outcome"] is not None  # settled (recovered), not stalled
+    events = svc.store.list_task_event_logs(20, kinds=("state_write_failed",))
+    assert len(events) >= 1
+    payload = json.loads(events[0]["payload"])
+    assert payload["operation"] == "mark_attempt_rate_limited"
+    assert set(payload) <= {"attempt_id", "operation", "error_type", "error"}
+
+
+def test_s3_pause_class_resolve_attempt_failure_is_recorded(tmp_path):
+    """S3 (``_dispatch_live`` -> pause-class ``resolve_attempt``): orders already
+    sent and both legs terminal with a confirmed collateral-cap fact; a discarded
+    resolve_attempt leaves pair_outcome NULL and the in-flight guard stalls the
+    task. Force resolve_attempt to raise; the failure is recorded, the pause still
+    takes effect, and the pair stays unsettled (not fabricated)."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    raw = {"http_status": 400, "transport_error": None,
+           "code": "51169", "msg": "cap", "body": "{}"}
+    exe.set_script(doc["id"], [LiveAttemptDispatch(
+        attempt_id="x",
+        spot=_leg(LEG_REJECTED, name="spot", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP, raw=raw),
+        perp=_leg(LEG_REJECTED, name="perp", error_code="51169",
+                  error_category=D.ERROR_CATEGORY_COLLATERAL_CAP, raw=raw),
+        record_payload={"transport": "live"}, rate_limited=False, retry_after_seconds=None,
+    )])
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("boom-resolve_attempt")
+    svc.store.resolve_attempt = _boom
+
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch -> S3 resolve raises
+
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED  # the pause still took effect
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    assert attempt["pair_outcome"] is None  # resolve failed -> not fabricated
+    events = svc.store.list_task_event_logs(20, kinds=("state_write_failed",))
+    assert len(events) >= 1
+    payload = json.loads(events[0]["payload"])
+    assert payload["operation"] == "resolve_attempt"
+    assert set(payload) <= {"attempt_id", "operation", "error_type", "error"}
+
+
+def test_s4_normal_resolve_attempt_failure_is_recorded(tmp_path):
+    """S4 (``_dispatch_live`` -> normal ``resolve_attempt``): the main path — a
+    real order placed (both legs accepted) and its conclusion never persisted.
+    Force resolve_attempt to raise; the failure is recorded, the worker continues,
+    and the pair stays unsettled (its conclusion is not fabricated)."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_accepted_pair(doc["id"])])
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("boom-resolve_attempt")
+    svc.store.resolve_attempt = _boom
+
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch -> S4 resolve raises
+
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    assert attempt["pair_outcome"] is None  # conclusion not fabricated
+    events = svc.store.list_task_event_logs(20, kinds=("state_write_failed",))
+    assert len(events) >= 1
+    payload = json.loads(events[0]["payload"])
+    assert payload["operation"] == "resolve_attempt"
+    assert set(payload) <= {"attempt_id", "operation", "error_type", "error"}
+
+
+def test_s5_mark_leg_querying_failure_is_recorded(tmp_path):
+    """S5 (``_mark_legs_querying`` -> ``mark_leg_querying``): a leg needing drain
+    was never marked, so an in-flight order would never be reconciled by client
+    ID. Force mark_leg_querying to raise; the failure is recorded, the worker
+    continues, and the leg is not fabricated into a querying state (it stays
+    PREPARED)."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("boom-mark_leg_querying")
+    svc.store.mark_leg_querying = _boom
+
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> mark_legs_querying
+
+    events = svc.store.list_task_event_logs(20, kinds=("state_write_failed",))
+    assert len(events) >= 1
+    payload = json.loads(events[0]["payload"])
+    assert payload["operation"] == "mark_leg_querying"
+    assert set(payload) <= {"attempt_id", "operation", "error_type", "error"}
+    # Not fabricated: the legs stay PREPARED (the write failed), never marked
+    # querying, never terminal.
+    attempt = svc.store.list_attempts_for_task(doc["id"])[0]
+    legs = svc.store.list_legs_for_attempt(attempt["id"])
+    assert all(l["dispatch_state"] == D.LEG_PREPARED for l in legs)
+    assert all(not l["terminal"] for l in legs)
+
+
 # ---------------------------------------------------------------------------
 # 4e/4f/4g. T3 raw-response persistence (10-design §3): every POST and every drain
 # query is captured verbatim, so an unexplainable exchange reply is readable from
