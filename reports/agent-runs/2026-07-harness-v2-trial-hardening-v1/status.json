@@ -7,7 +7,7 @@
   "checkpoint": "batch-a-verified-contested-sustained-review-1-dispatched",
   "base_sha": "c6f23f690599799f5f7c55b004bc4b1cb5039a0d",
   "delivery_sha": "41387b440758e9b19aa1333a0c76dcfe8e28d5ec",
-  "ledger_sha": "c6f23f690599799f5f7c55b004bc4b1cb5039a0d",
+  "ledger_sha": "9e905f69cd7272eab6dc6cc141b65f256df1a94b",
   "current_task": {
     "id": "harness-v2-trial-hardening-batch-a-review-1-kimi",
     "state": "dispatched",
