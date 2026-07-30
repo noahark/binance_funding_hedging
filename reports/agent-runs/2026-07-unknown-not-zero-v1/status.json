@@ -1,27 +1,22 @@
 {
   "schema_version": "2",
-  "revision": 14,
+  "revision": 15,
   "stage_id": "2026-07-unknown-not-zero-v1",
   "bookkeeper": "opus5",
-  "phase": "audit-complete-awaiting-human-repair-scope",
-  "checkpoint": "discarded-failure-family-enumerated-8-class-A-sites-6-unfixed",
+  "phase": "state-write-repair-dispatched",
+  "checkpoint": "D-10-five-sites-repaired-three-deferred-main-line-next",
   "base_sha": "ac8d493a903051394fc9fda3ca467590a6e2f837",
   "delivery_sha": "7cadb88da501cc024a8f15fd5de067ee80679c07",
-  "ledger_sha": "42452b29474e36294b50894f58a39f90d779c498",
+  "ledger_sha": "07f91d362656d48862951563bf89d63fe701cc69",
   "current_task": {
-    "id": "audit-discarded-failures-codex",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/70-exception-swallow-audit-codex.dispatch.md"
+    "id": "task1d-state-write-visibility",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/72-state-write-visibility-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "decide-repair-scope"
+    "action": "start-prepared-task"
   },
   "rework_count": 2,
-  "blockers": [
-    "Closed list delivered: 8 class-A discarded-failure sites, 2 already fixed by F2 as the template, 6 unfixed, 3 balance sites D-8-excluded. Detail and Bookkeeper verification: 71-audit-result-and-scope-decision.md",
-    "The 6 are not homogeneous. Five (service.py:1178/1723/1736/1758/1780) are one uniform post-POST state-write fix using F2's reviewed template. Three each need their own design decision: :1141 needs log-rate design and was already Human-deferred as p1-inconclusive-query-raw-not-persisted; :1632 is dry-run only with no order placed; live_hedge_executor.py:690-702 needs a LegDispatch data-contract change.",
-    "Product-semantics question for Human: should settlement/discard events appear on the entries timeline, not only the logs page? _ENTRY_EVENT_KINDS excludes them today. Operator-interface meaning, not an implementer's choice.",
-    "rework_count 2 of 3. Human scope decision required before any repair is dispatched. Bookkeeper recommends repairing the five uniform sites here and giving the other three plus the timeline question their own stage with this audit as its plan."
-  ]
+  "blockers": []
 }

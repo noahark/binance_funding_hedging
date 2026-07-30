@@ -216,3 +216,45 @@ questions, so bumping the revision could only harm. Recorded here; it reaches
 This is the second time in one stage that a Human decision arriving mid-flight had
 to be parked in an evidence file — added as reinforcing evidence to Harness finding
 G17.
+
+## D-10 Repair five, defer three, then return to the main line — 2026-07-30
+
+Human's judgement on the audited family, recorded with its reasoning because it
+sets the priority for what follows:
+
+> 这里面都是极端异常情况出现的问题么？如果是的话我们整理一下修复文案给 glm 进行开发，
+> 后续马上回到 以我在线上测试立即对冲场景为主线，来继续进行主线开发，以后遇到现实场景再修
+
+**Are they extreme? Substantially yes, with two caveats stated to Human before the
+decision.** Every site triggers only when a `self._store.*` write raises. In-process
+that will not happen from lock contention (single connection behind an `RLock`), so
+the realistic triggers are: a second process opening the database — **which happened
+on 2026-07-28** — a disk or I/O failure, or a future code change that adds a raise
+inside a store method. The last is not hypothetical: this stage's own D4 added such a
+raise, which is how F2 was found. All consequences are fail-closed — a task stalls; no
+order is misplaced and no money moves. The loss is accounting and diagnosability, not
+capital safety.
+
+**Decision**: repair the five uniform post-POST sites now
+(`service.py:1178/1723/1736/1758/1780`, packet
+`72-state-write-visibility-glm.dispatch.md`), then close this stage and return to the
+main line — live testing of the immediate-hedge scenario — fixing the rest when a real
+scenario demands it.
+
+**Deferred, each with a reason, all to `PROJECT_STATE.md` at stage close:**
+
+| Item | Why deferred |
+|---|---|
+| `service.py:1141` inconclusive query | Needs log-rate design; already Human-deferred once as `p1-inconclusive-query-raw-not-persisted` |
+| `service.py:1632` dry-run `resolve_attempt` | Dry-run path, **no order is placed**; lowest risk of the eight |
+| `live_hedge_executor.py:690-702` | Needs a `LegDispatch` contract change; safety unaffected (the leg is still drained), only diagnosability lost |
+| `entries` timeline visibility | Operator-interface meaning; needs Human approval, not an implementer's choice |
+| `hedge_preflight_provider.py:263/267/270` | Excluded earlier by D-8 |
+
+Not silently dropped: the packet lists each as out of scope by name and forbids
+touching them, and the audit (`71-...`) is their ready-made plan whenever they are
+picked up.
+
+**Main-line priority after this stage**: live immediate-hedge testing. No Harness
+stage either — that is separately held under D-9 pending Human's own vetting of the
+19 findings.
