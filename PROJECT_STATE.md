@@ -27,9 +27,8 @@ check.
 - `[OPEN][HARNESS-HYGIENE]` ~39 completed stage dirs still in `reports/agent-runs/`,
   against AGENTS.md §9.5.
 - `[OPEN][HARNESS-DEFERRED]` v2 findings: batch A (gates) merged. Batch B and
-  residuals R3/R4 wait for a real problem, by Human decision 2026-07-31. G1/G14
-  stay OPEN, knowingly accepted: no receipt-format check. Detail:
-  `archive/2026-07-harness-v2-trial-hardening-v1` file `22-`.
+  R3/R4 wait for a real problem (Human, 2026-07-31). G1/G14 stay OPEN, knowingly
+  accepted: no receipt-format check. Detail in the archive below, file `22-`.
 
 ## Next Priority
 
