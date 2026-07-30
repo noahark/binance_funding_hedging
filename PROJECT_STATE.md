@@ -26,10 +26,10 @@ check.
   in `git show 3113a5d:` and `git show 7180f61:`.
 - `[OPEN][HARNESS-HYGIENE]` ~39 completed stage dirs still in `reports/agent-runs/`,
   against AGENTS.md §9.5.
-- `[HUMAN-OWNED]` The 19 v2 findings belong to approved stage
-  `2026-07-harness-v2-trial-hardening-v1`, now in independent plan review;
-  implementation waits for that ACCEPT plus Human re-authorization. No other
-  model may plan from `harness-v2-trial-findings-2026-07-30.md`.
+- `[OPEN][HARNESS-DEFERRED]` v2 findings: batch A (gates) merged. Batch B and
+  residuals R3/R4 wait for a real problem, by Human decision 2026-07-31. G1/G14
+  stay OPEN, knowingly accepted: no receipt-format check. Detail:
+  `archive/2026-07-harness-v2-trial-hardening-v1` file `22-`.
 
 ## Next Priority
 
@@ -37,9 +37,9 @@ Main line: live testing of the immediate-hedge scenario.
 
 ## Last Completed
 
-- stage: `2026-07-unknown-not-zero-v1`
-- archive_ref: `archive/2026-07-unknown-not-zero-v1`
-- recorded_completed_at: `2026-07-30`
+- stage: `2026-07-harness-v2-trial-hardening-v1`
+- archive_ref: `archive/2026-07-harness-v2-trial-hardening-v1`
+- recorded_completed_at: `2026-07-31`
 
 ## Update Rule
 
