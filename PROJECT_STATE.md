@@ -5,13 +5,13 @@ runtime check.
 
 ## Live Risks
 
-- `[OPEN][RUNTIME-UNVERIFIED]` At `7180f61`, records say the Start gate may be
-  live and a naked `SHORT 10000 NOMUSDT` (`orderId 888412130`) may remain while
-  no close function exists. This was not runtime-checked. Require an authorized
-  read-only check before live action; no agent may create orders, touch
-  credentials, control the service, or write the live task database.
-  Evidence: `git show 7180f61:reports/agent-runs/ACTIVE.json` and archived
-  `2026-07-hedge-order-truth-v1/01-live-record-evidence.md`.
+- `[CLOSED][HUMAN-REPORTED 2026-07-30]` The naked `SHORT 10000 NOMUSDT`
+  (`orderId 888412130`) was hedged by a manual spot buy. Human-reported, not
+  agent-verified.
+- `[OPEN][RUNTIME-UNVERIFIED]` The Start gate may still be live and no close
+  function exists. No agent may create orders, touch credentials, control the
+  service, or write the live task database; an authorized read-only check must
+  precede any live action. Evidence: `git show 7180f61:.../ACTIVE.json`.
 
 ## Open Follow-ups
 
@@ -25,10 +25,12 @@ runtime check.
   `git show 3113a5d:reports/agent-runs/2026-07-hedge-order-truth-v1/status.json`.
 - `[OPEN][LEGACY-P3]` Five hardening follow-ups remain in `stage_followups` at
   `git show 7180f61:reports/agent-runs/2026-07-hedge-open-live-hardening-v1/status.json`.
-- `[OPEN][HARNESS-WORDING]` On the next related Harness edit, keep new dispatch
-  packets to the six-section shape, remove the superseded v1 branch document's
-  stale approved/pending impression, and keep Startup skill navigation from
-  becoming a second detailed routing authority.
+- `[OPEN][HARNESS-WORDING]` Next Harness edit: keep packets to the six-section
+  shape, drop the superseded v1 branch document's stale approved/pending
+  impression, keep Startup skill navigation from becoming a second routing
+  authority.
+- `[OPEN][HARNESS-HYGIENE]` 39 completed stage directories remain in
+  `reports/agent-runs/`, against AGENTS.md §9.5. Removal is a separate cleanup.
 
 ## Last Completed
 
