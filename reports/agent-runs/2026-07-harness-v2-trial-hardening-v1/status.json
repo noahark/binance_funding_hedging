@@ -1,25 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 11,
+  "revision": 12,
   "stage_id": "2026-07-harness-v2-trial-hardening-v1",
   "bookkeeper": "opus5",
-  "phase": "design-accepted",
-  "checkpoint": "o5-declined-awaiting-human-implementation-authorization",
-  "base_sha": "0bea9c084b8209b19113b169eaf152ab33455884",
-  "delivery_sha": "2fb1d47edfb2c34065f37c34d425516ea582f1b6",
-  "ledger_sha": "f88c77f63ae12a2dc31ce9977f3526edeebfbcca",
+  "phase": "implementation",
+  "checkpoint": "batch-a-authorized-and-dispatched",
+  "base_sha": "c6f23f690599799f5f7c55b004bc4b1cb5039a0d",
+  "delivery_sha": null,
+  "ledger_sha": "c6f23f690599799f5f7c55b004bc4b1cb5039a0d",
   "current_task": {
-    "id": "harness-v2-trial-hardening-review-2-fable5",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-trial-hardening-v1/50-fable5-review-2.dispatch.md"
+    "id": "harness-v2-trial-hardening-batch-a-gates",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-trial-hardening-v1/60-batch-a-gates-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "human-decide-whether-to-authorize-batch-a-implementation"
+    "action": "start-prepared-claude-glm-batch-a"
   },
   "rework_count": 0,
   "blockers": [
-    "implementation-gate-closed: 按 Human 决定 3，进入实现需 Human 单独授权；决定 11 仅解除 O5 这一疑虑，不构成该授权",
-    "batch-a-must-carry: 批次 A 实现 dispatch 须原样写入 O1 澄清与 O2(W6 引用扫描误用)/O3(1.5KB 口径)/O4(勘误豁免收口，权威两句见 22 号文件 §14.2，不得改写)"
+    "batch-b-not-authorized: 批次 B 与 G11 目录清理均未授权，本次授权仅覆盖批次 A",
+    "G1-G14-open-residual: 结果与评审闭包格式无机制校验，Human 已知情接受（决定 1、11）；批次 A 交付后仍须标记为 OPEN"
   ]
 }
