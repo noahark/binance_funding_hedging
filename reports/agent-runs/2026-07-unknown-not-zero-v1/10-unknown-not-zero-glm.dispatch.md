@@ -90,8 +90,10 @@ No network access, no credentials, no starting or stopping the service, no write
 of any kind to `data/**`. Read-only queries against `data/**` are also not needed
 for this task; do not perform them.
 
-Commit: yes, on the branch Human names at launch, one commit per deliverable
-group or one for all — your choice. Do not merge, do not touch `main`.
+Commit: yes, on branch `stage/2026-07-unknown-not-zero-v1` (Human selected it; it
+already exists and points at this stage's latest bookkeeping commit). Check it
+out before the first edit and verify with `git branch --show-current`. One commit per deliverable group or one
+for all — your choice. Do not merge, do not touch `main`.
 
 ## Inputs
 

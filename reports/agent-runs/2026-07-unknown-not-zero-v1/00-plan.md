@@ -153,3 +153,12 @@ Appended as they occur.
   status/evidence shape. This stage's own §5 tripwire is the same idea applied
   to product code — worth noting that the Harness deleted its version of it in
   the same week.
+- Friction: `base_sha` is defined as "committed HEAD immediately before preparing
+  the packet" (`roles.md:223`), which is anti-self-reference but not
+  review-range purity — so `base_sha..delivery_sha` will contain this stage's
+  bookkeeping commits alongside the implementation. The review packets must say
+  so explicitly. Candidate v2 wording fix: define `base_sha` as the commit the
+  implementer starts from.
+- Friction: `PROJECT_STATE.md` has a hard 2 KB budget and was already at 2 KB.
+  Recording one new fact required trimming two existing entries. The budget is
+  right, but there is no stated rule for what gets evicted first.

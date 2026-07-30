@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 1,
+  "revision": 2,
   "stage_id": "2026-07-unknown-not-zero-v1",
   "bookkeeper": "opus5",
   "phase": "task1-dispatched",
-  "checkpoint": "plan-and-task1-packet-prepared",
+  "checkpoint": "task1-packet-corrected-with-human-selected-branch",
   "base_sha": "ac8d493a903051394fc9fda3ca467590a6e2f837",
   "delivery_sha": null,
-  "ledger_sha": "ac8d493a903051394fc9fda3ca467590a6e2f837",
+  "ledger_sha": "cbcf111beab50011cb8687f450e051d305f01cd0",
   "current_task": {
     "id": "task1-unknown-not-zero",
     "state": "dispatched",
