@@ -22,13 +22,9 @@ check.
   fail-closed). Durable fix = a new column.
 - `[OPEN][RESIDUAL]` The money-zero tripwire is a speed bump, not a proof: five
   evasions + `fee_amount` outside the money names. DEC-2026-07-30-001.
-- `[OPEN][DEFERRED]` Five order-truth items + five hardening P3s: `stage_followups`
-  in `git show 3113a5d:` and `git show 7180f61:`.
-- `[OPEN][HARNESS-HYGIENE]` ~39 completed stage dirs still in `reports/agent-runs/`,
-  against AGENTS.md §9.5.
-- `[OPEN][HARNESS-DEFERRED]` v2 findings: batch A (gates) merged. Batch B and
-  R3/R4 wait for a real problem (Human, 2026-07-31). G1/G14 stay OPEN, knowingly
-  accepted: no receipt-format check. Detail in the archive below, file `22-`.
+- `[OPEN][HARNESS-HYGIENE]` ~39 completed stage dirs in `reports/agent-runs/`, vs §9.5.
+- `[OPEN][HARNESS-DEFERRED]` v2 findings: batch A merged; batch B + R3/R4 wait for a
+  real problem (Human 2026-07-31). G1/G14 OPEN by decision. Detail: archive `22-`.
 
 ## Next Priority
 

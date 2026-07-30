@@ -1,10 +1,10 @@
 {
   "schema_version": "2",
-  "revision": 17,
+  "revision": 18,
   "stage_id": "2026-07-harness-v2-trial-hardening-v1",
   "bookkeeper": "opus5",
   "phase": "closing",
-  "checkpoint": "merge-blocked-by-in-flight-stage-hedge-fast-fix-v1",
+  "checkpoint": "batch-a-merged-to-main-stage-closed",
   "base_sha": "c6f23f690599799f5f7c55b004bc4b1cb5039a0d",
   "delivery_sha": "41387b440758e9b19aa1333a0c76dcfe8e28d5ec",
   "ledger_sha": "cfe5cd633ac9dd9ec790fb3ef29b7350aa94d143",
@@ -15,12 +15,11 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "let-fast-fix-stage-commit-then-fast-forward-main"
+    "action": "decide-whether-to-remove-stage-directory-per-section-9-5"
   },
   "rework_count": 0,
   "blockers": [
-    "merge-blocked: main 被 /Users/ark/Desktop/ai code/funding_hedging 工作树占用且有 462 行未提交改动（阶段 2026-07-hedge-fast-fix-v1，bookkeeper grok）；未强行更新 main，未触碰该工作树，未推送 origin。main 是本分支祖先，合并为快进，待对方落定",
-    "stage-dir-retention-open: §9.5 要求移除已完成 stage 目录，但十条 Human 决定的唯一详细记录（22-）在其中，待 Human 裁定",
-    "batch-b-deferred: 批次 B 与 R3/R4 按决定 13 待真实问题触发；G11 目录清理仍须单独授权"
+    "stage-dir-retention-open: §9.5 要求移除已完成 stage 目录，但十条 Human 决定的唯一详细记录（22-）在其中，待 Human 裁定删或留",
+    "batch-b-deferred: 批次 B 与 R3/R4 按决定 13 待真实问题触发；G6 已在 2026-07-31 两次真实触发；G11 目录清理仍须单独授权"
   ]
 }
