@@ -10,7 +10,7 @@
   "ledger_sha": "6aed41660f7784c0341380a101ba3a618082f34c",
   "current_task": {
     "id": "task1b-d5-repair",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/22-d5-repair-glm.dispatch.md"
   },
   "next": {
