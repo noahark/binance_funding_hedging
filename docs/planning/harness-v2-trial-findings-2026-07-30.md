@@ -254,6 +254,47 @@ return `completed` while marking a named acceptance check as contested, with its
 reason and substitute evidence, and the Bookkeeper must rule on it explicitly
 before sealing. Cheap, and it makes the honest path the documented one.
 
+### G18. A pre-existing defect found during review blocks a delivery that did not cause it
+
+v2's review rules make no distinction between a finding **inside** the reviewed
+range and a pre-existing defect **surfaced** while reviewing it. Both arrive as
+`REWORK` blockers against the current delivery.
+
+Hit for real. Review-2 of `task1` returned three findings; **F1 was never
+introduced by that delivery** — the balance path (`hedge_preflight_provider.py`
+skipping a row, `domain.py:947` turning the gap into `available = 0`, and
+`REJECT_INSUFFICIENT_BALANCE` being fatal) predates `ac8d493` entirely and sits in
+files the delivery was forbidden to touch. It nevertheless blocked the delivery,
+and the only available exit was a Human scope decision (D-8) to drop it.
+
+The tension is genuine, not a drafting slip. The review packets **deliberately**
+asked both reviewers to sweep the whole subsystem for money sites the closed list
+had missed — that instruction is why S4 and this were found at all, and it should
+stay. What is missing is what a sweep finding does to the gate.
+
+Candidate fix: require a verdict to classify each finding as in-range or
+pre-existing. In-range findings gate the delivery; pre-existing ones are recorded
+and routed as their own work, and do not gate unless Human says so. Without it,
+every scoped delivery is hostage to the whole system's debt, and the exit is always
+a Human interrupt — which is the expensive path this Harness exists to avoid.
+
+### G19. No erratum mechanism for a delivered artifact that turns out to be wrong
+
+Shared rules say "Preserve raw evidence. Do not replace test output, findings, or
+model output with a narrative summary" (`roles.md:17-18`). That covers replacement.
+Nothing says how to **correct** a delivered artifact that is wrong — which happened
+three times in one stage: the plan asserted an M1 that had been deleted, the
+Bookkeeper's V1 evidence mislabelled quantity sites as money sites, and both the
+plan and the implementer's result report overstated the guard.
+
+The Bookkeeper invented a convention on the spot: correct your own documents in
+place with a dated note saying what changed and why; for another actor's delivered
+artifact, **append a clearly-marked erratum and do not edit their prose**. It works
+and it kept the record honest, but the next stage will invent its own version.
+
+Candidate fix: one sentence stating that rule, so a correction never looks like a
+quiet rewrite and nobody has to decide the etiquette mid-stage.
+
 ### G13. The proposals directory is not versioned, and the workflow depends on it
 
 `reports/agent-runs/_proposals/` is excluded by `.git/info/exclude:8` — a
@@ -374,9 +415,9 @@ These are not equal. If only some get done:
 | Priority | Findings | Why |
 |---|---|---|
 | Do first | G1, G14, G2 | G1 and G14 are the same hole from two sides — the contract specifies a result/verdict shape and nothing checks it; both were exercised for real this stage, and one shared ~30-line checker closes them. G2 has measured value from this stage |
-| Do first, needs a decision not just wording | G15 | Whether a pre-review Bookkeeper rejection consumes rework budget. Left open, the cap is evadable by renaming a task; the current handling is disclosed but is the Bookkeeper's judgement, not a rule |
+| Do first, needs a decision not just wording | G15, G18 | G15: whether a pre-review Bookkeeper rejection consumes rework budget — left open, the cap is evadable by renaming a task. G18: whether a pre-existing defect surfaced during review gates the current delivery — left open, every scoped delivery is hostage to the whole system's debt and the only exit is a Human interrupt |
 | Do together, one §8 edit | G12, G15, G16 | All three answer "what counts as a round, and who may contest what" from different sides. G12 arrived here by Human decision D-7 (withdrawn from a stage so §8 is edited once, not twice) |
-| Cheap and clearly right | G3, G4, G5, G6, G10, G13, G17 | Each is one to three lines in an authority that already exists, or one `git add` |
+| Cheap and clearly right | G3, G4, G5, G6, G10, G13, G17, G19 | Each is one to three lines in an authority that already exists, or one `git add` |
 | Needs judgement | G7, G8 | G7 needs a threshold nobody has picked; G8 needs someone to decide whether to adapt or drop a vendored skill |
 | Already owned | G11 | Filed in `PROJECT_STATE.md`; do not duplicate |
 | Leave alone | W1-W6 | |
