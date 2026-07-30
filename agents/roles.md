@@ -16,6 +16,7 @@ give a model permission to launch another model or expand task scope.
   insufficient or overlaps another terminal's work.
 - Preserve raw evidence. Do not replace test output, findings, or model output
   with a narrative summary.
+- 勘误（Errata）。自己的已交付文档可就地更正，但须附日期说明改了什么、为什么；他人的已交付产物只可追加显著标记的勘误，不得编辑其散文；原始模型输出、测试输出与 verdict 永不编辑，只以追加勘误更正。勘误判据（权威原文）：产物勘误仅限不改变交付效果的编辑性更正——只修正文字、格式、引用路径或证据标注，且更正后交付物的代码行为、契约语义、验收标准、各项检查的通过状态与评审结论均须与更正前一致；其计数后果（越此线即修复）见 `AGENTS.md` §8。
 - Never record credentials, tokens, cookies, private keys, or expanded secret
   environments.
 - Skill cardinality: a generic dispatch names zero or one `required_skill`; an
@@ -157,6 +158,7 @@ Human terminal launch. Only the human operator starts a prepared model terminal.
 - A missing, ambiguous, or malformed result is non-accepting.
 - The reviewer remains read-only and returns the raw result to the human
   operator for Bookkeeper synchronization.
+- `REWORK` 的每条发现须按 `AGENTS.md` §8 的范围三分类标注并附证据，此处不重述分类规则。
 
 ## Bookkeeper
 
@@ -214,6 +216,8 @@ v2 uses only these three states; there is no separate in-progress write. An
 implementer may move only `dispatched` to `reported`. Bookkeeper may move
 `dispatched` or `reported` to `verified` after raw evidence arrives. Unknown
 values are non-advancing and require Human clarification.
+
+拒收落盘：Bookkeeper 核验未通过时，`current_task.state` 保持 `reported`，不得写 `verified`；拒收事实、依据与可复现命令写入该阶段的 Bookkeeper 核验记录，同时在 `status.json.blockers` 写一条具名条目，随后的修复任务按 §8 递增 `rework_count`，改名或拆分不清零。仍只用上述三态，不新增第四态。
 
 ### SHA Discipline
 

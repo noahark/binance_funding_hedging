@@ -107,6 +107,8 @@ Every task ends with:
 [/TASK_RESULT]
 ```
 
+未识别的标签行、不在枚举内的取值、或错误的收尾标记，使整个结果块不合规，Bookkeeper 不得据以封存。按 Human 决定 1，回执只需清楚、可读、能定位产物、结论和下一步，由 Bookkeeper 核验是否足以推进。
+
 A review task also returns:
 
 ```text
@@ -128,6 +130,10 @@ For every low-risk task with `执行结果: completed`:
 Required high-risk or `REWORK` evidence may exceed the summary target when
 necessary; put detailed findings and repair requirements in the review evidence
 referenced by `问题记录` and `修复要求`.
+
+### Acceptance-Check Verdict States
+
+`检查结果` 的每一项标注 `pass`、`fail` 或 `contested`。`contested` 项必须携带：被质疑检查的原文名称、质疑理由、替代证据（可执行命令或已提交路径）。`contested` 不等于 `pass`：只要存在 `contested` 项，`执行结果: completed` 即不可封存，Bookkeeper 必须显式裁定后状态才能推进——驳回（该检查成立，走一轮修复并按 §8 递增 `rework_count`），或采信（Bookkeeper 按勘误规则更正该验收检查，不消耗返工预算，因为缺陷在 packet 不在交付）。
 
 ### Chinese Handoff Labels (Inside Result Block)
 
@@ -180,6 +186,11 @@ This section defines review-topology risk: which task changes require review-1 p
 - A narrow review-2 finding returns directly to review-2 after repair, retest, and a new commit.
 - A review-2 repair that expands files, changes a contract, or adds risk must pass review-1 again.
 - `rework_count` counts only formal `REWORK` repair rounds for the current task. It resets to zero for a new task and does not count Human requirement refinement or pre-dispatch packet correction. The maximum is three; beyond it Human chooses to narrow, redesign, accept a limitation, or stop.
+- `rework_count` 绑定**交付物**（最初被 dispatch 的可交付成果），不绑定 `current_task.id`：首次交付存在之后，任何为修复缺陷而进行的新实现任务递增一次，无论发现来自 review-1、review-2 还是 Bookkeeper 验证；改名或拆分修复任务不重置计数，只有 Human 同意的新交付范围才重置为零。凡为响应评审发现或 Bookkeeper 拒收而改动上述任何一项（指 `agents/roles.md` Shared Rules 勘误判据所列各项）的再交付，无论载体是代码还是文档，一律按修复任务递增 `rework_count`。
+- **同根因刹车**：连续两轮 `REWORK` 被归因于同一根因时，禁止第三次点补丁；下一个修复任务必须是一次穷举根因扫描，枚举该缺陷家族在受审范围内的全部站点（含已修与未修），并对清单外站点给出不适用理由，扫描本身仍算一轮。本规则不新增计数器、数值限额或 `status.json` 字段——“连续两轮”是条件不是限额。根因由评审者在 `问题记录` 中命名，Bookkeeper 在修复 dispatch 的 `Goal` 中原样引用。
+- **发现的范围三分类**：评审者须为每条 `REWORK` 发现标注三者之一——`in-range`（由本次交付引入或触碰，阻塞交付，走修复轮）；`pre-existing-independent`（引入提交早于 `base_sha` 且不在本次交付文件内，不阻塞，记为后续项）；`pre-existing-release-critical`（同前，但涉及资金、实盘、账务含义或安全，不机械阻塞交付，但阻塞合并/发布，作为“合并前由 Human 决定”的具名事项上交）。`pre-existing-*` 必须附早于 `base_sha` 的引入提交引用（`git blame` 或 `git log -L`），Bookkeeper 封存前核验该引用，无此证据者只是观察；不新增第三个 verdict 值，发现全为范围外时评审者返回 `ACCEPT`，`问题记录` 照常填路径，`修复要求` 指向后续项或 `none`；Human 可明确授权“已知风险暂不修，仍允许合并”，该记录须含问题事实、可能影响、接受理由、临时限制或观察方式、后续复看条件，且仅针对本次合并——部署、实盘操作与风险参数调整仍须单独授权，已发生的实盘风险仍须写入 `PROJECT_STATE.md`。
+- **评审范围口径**：`base_sha..delivery_sha` 区间可能包含本阶段自身的控制提交（dispatch、`status.json`、阶段报告）；它们是评审者的上下文而非受审交付，针对它们的发现按上面的三分类记为范围外。`base_sha` 的定义不变（其权威在 `agents/roles.md` 的 SHA Discipline）。
+- **计划评审**：`HIGH_RISK` 任务在实现开始前须经一次独立的、跨 provider 的只读计划评审；其 verdict 返回 Planner，不触碰 `rework_count`（已由上文 pre-dispatch packet correction 豁免覆盖，不在此重复）。不新增角色、不新增技能，不改 §5 与 §6。
 
 ## 9. Stage Completion
 
