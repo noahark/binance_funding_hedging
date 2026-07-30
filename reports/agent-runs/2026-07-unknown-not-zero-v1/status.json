@@ -1,26 +1,22 @@
 {
   "schema_version": "2",
-  "revision": 9,
+  "revision": 10,
   "stage_id": "2026-07-unknown-not-zero-v1",
   "bookkeeper": "opus5",
-  "phase": "review-2-REWORK-awaiting-human-scope-decision",
-  "checkpoint": "review-2-REWORK-verified-three-findings-confirmed-task2-withdrawn",
+  "phase": "f2-repair-dispatched",
+  "checkpoint": "F1-dropped-by-human-D8-F3-done-by-bookkeeper-F2-dispatched",
   "base_sha": "ac8d493a903051394fc9fda3ca467590a6e2f837",
   "delivery_sha": "851dd088183037564b0e0afb5ffe1347ce3665a0",
-  "ledger_sha": "fba7beb8ba891fadadc4ad0bd91aab1fa165efed",
+  "ledger_sha": "e64196b0c62acac299fa4bcc66a554ad9bc0fec7",
   "current_task": {
-    "id": "review2-task1-codex",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/40-review-2-codex.dispatch.md"
+    "id": "task1c-f2-settlement-visibility",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/44-f2-repair-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "decide-repair-scope"
+    "action": "start-prepared-task"
   },
   "rework_count": 1,
-  "blockers": [
-    "F1 (P1) confirmed: a 2xx balance response missing an asset or carrying an unparseable crossMarginFree yields available=0 -> REJECT_INSUFFICIENT_BALANCE, which is FATAL and permanently stops the task with a false reason. Fix touches hedge_preflight_provider.py and the PreflightResult contract in domain.py, both forbidden in task1. Sub-case ambiguity (an absent row may legitimately mean a zero balance) cannot be settled without an authorized read-only live observation. Human scope decision required: 42-scope-decision-request.md",
-    "F2 (P1) confirmed: service.py:1205 and :1238 wrap finalize_attempt in bare `except Exception: pass`, so any settlement failure leaves pair_outcome NULL, trips the in-flight guard, and is invisible; the crash-gap recovery loop swallows it too. D4 made this reachable by one more path.",
-    "F3 (P2) confirmed: 00-plan.md:15 and :95 and 20-task1-glm-result.md:11 overstate the guard."
-  ]
+  "blockers": []
 }

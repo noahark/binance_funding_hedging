@@ -156,3 +156,32 @@ fixed that.
 The underlying v2 issue — a named planning skill that is mostly non-applicable
 vendored boilerplate, which makes "read one skill" a compliance ritual — is
 recorded in `00-plan.md` §9 as a trial observation.
+
+## D-8 F1 dropped; only F2 and F3 repaired — 2026-07-30
+
+Review-2 returned three findings. Human decided: **F1 is ignored, with no
+follow-up filed** — 「后续遇到问题再具体情况具体分析解决」. F2 and F3 are repaired in
+this stage.
+
+F1 is the balance-missing→fabricated-zero path that permanently stops a task with
+a false reason (`41-review-2-codex-result.md` §F1). Human's judgement, recorded
+without hedging: the trigger needs a malformed or truncated balance response, the
+failure is fail-closed (it stops a task; it never places an order or moves money),
+and the cost of a domain-contract change on a fatal-stop admission path is not
+worth paying speculatively. No `PROJECT_STATE.md` entry is created, by decision.
+
+`43-balance-shape-evidence.md` is kept anyway — not as a follow-up, but so that
+whoever meets this in the field does not repeat the investigation. It also records
+that the Bookkeeper's claim "this cannot be determined from the repository" was
+**wrong**: Human pointed out the account-balance panel already carries the data,
+and it does. The request for an authorized live `get_balance` read is withdrawn.
+
+F3 was done by the Bookkeeper rather than dispatched: `00-plan.md` §1 and §5 were
+the Bookkeeper's own overstatements and are corrected in place, and an erratum is
+appended to `20-task1-glm-result.md` **without editing the implementer's delivered
+prose** — this harness does not rewrite delivered evidence.
+
+F2 goes to `claude_glm` as `task1c-f2-settlement-visibility`
+(`44-f2-repair-glm.dispatch.md`). It then re-enters review-1 and returns to
+review-2, per `AGENTS.md:181`, because it touches `service.py` which was forbidden
+in the reviewed range.

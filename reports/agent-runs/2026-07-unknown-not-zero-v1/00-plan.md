@@ -12,8 +12,18 @@ migration (r5), API projection (r6), reconciled exposure (r7). The rounds fixed
 call sites; none touched the helper that produces the zero. So the eighth site
 was always going to exist.
 
-This stage closes the family instead of a site, and adds the two cheap guards
-whose absence let the last stage go wrong in the first place.
+This stage addresses the family at its root instead of one site, and adds the two
+cheap guards whose absence let the last stage go wrong in the first place.
+
+**Corrected 2026-07-30 after review-2 (F3).** The original wording said this stage
+"closes the family". It does not, and no static tooling can. What it does: fixes
+every site two independent sweeps could find, removes the helper that produced the
+zeros, deletes the duplicated rule that caused the drift, and installs a tripwire
+that catches the four known shapes. Five ways past that tripwire are confirmed
+(`31-review-1-grok45-result.md`). It is a speed bump against accidental
+reintroduction, not a proof of absence — and the site list was extended by three
+separate readers after being declared exhaustive, which is the honest measure of
+how closed it is.
 
 ## 2. Goal
 
@@ -92,7 +102,7 @@ independent sweep found it (`07-plan-review-verdict.md`). The list is therefore
 "exhaustive as far as two independent sweeps reach", not proven closed. That is
 precisely why §5's guard, not this table, is the durable deliverable.
 
-## 5. Guard to add (this is what prevents round 8)
+## 5. Guard to add (a tripwire against accidental reintroduction — not a guarantee)
 
 A static tripwire in `backend/tests/test_hedge_purity.py`, mirroring that file's
 existing import/allowlist guards. The plan review (J4) rejected the first

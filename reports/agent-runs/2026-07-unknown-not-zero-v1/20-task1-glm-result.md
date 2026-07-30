@@ -258,3 +258,29 @@ clean implementation-only range (the `base_sha` anti-self-reference caveat in
 下一步任务: 证据 reports/agent-runs/2026-07-unknown-not-zero-v1/20-task1-glm-result.md；状态 current_task.state dispatched→reported（delivery_sha 6c250f4）；先由 Bookkeeper（opus5）核对 base_sha..delivery_sha 范围与文件边界，再交 review-1（Kimi 优先，Grok 4.5 兜底）；review-2 终审模型待 Human 决策（roles.md §125：Opus5 兼任 Planner/记账人，倾向未参与规划者）。
 [/TASK_RESULT]
 ```
+
+---
+
+## Bookkeeper erratum — appended 2026-07-30, the report above is NOT edited
+
+Review-2 (F3) found that line 11-12 of this report overstates the deliverable:
+
+> The "missing exchange figure becomes `0`" family is closed at the root in one
+> pass, not site by site …
+
+The implementer's prose is left exactly as delivered — this harness does not
+rewrite delivered evidence. The correction is recorded here instead:
+
+**The family is not closed.** What was delivered: every site two independent
+sweeps could find is fixed, the zero-producing helper is restricted, the duplicated
+rule is deleted, and a static tripwire covers four known shapes. Confirmed limits:
+
+- Five ways past the tripwire exist — `or Decimal(0)`, `or 0`, a ternary,
+  laundering a coercion through an intermediate variable, and `fee_amount` being
+  outside the money-name set (`31-review-1-grok45-result.md`).
+- The site list was extended after being declared exhaustive by the plan review
+  (S4), by Bookkeeper verification (the guard blind to S2), and by review-2
+  (`domain.py:947/950`, the balance path).
+
+The overstatement is not the implementer's alone: `00-plan.md` §1 and §5 carried
+the same claim in the Bookkeeper's own words and have been corrected in place.
