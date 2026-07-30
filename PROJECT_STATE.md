@@ -33,7 +33,8 @@ check.
 
 ## Next Priority
 
-Main line: live testing of the immediate-hedge scenario.
+- Active stage: `2026-07-hedge-fast-fix-v1` (Human reports small findings; same-session Grok applies minimal fixes). No live orders.
+- Main line: live testing of the immediate-hedge scenario.
 
 ## Last Completed
 

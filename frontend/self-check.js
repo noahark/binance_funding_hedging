@@ -3848,8 +3848,12 @@ setTimeout(async () => {
         '单腿敞口：合约腿已成交 0.3 @ 88.1', '任务仍继续调度下一组', '任务当前处于「暂停」',
         '任务已终止（致命错误，不再补发）：现货可用余额不足', '需人工修正原因后新建任务',
         '计划尝试次数', '公共网格量', '暂停原因：连续提交失败达到阈值',
-        '删除', '成交1次', '立即成交所有']) {
+        '删除', '成交1次']) {
         if (!cards.includes(piece)) throw new Error(`开单任务卡缺少「${piece}」`);
+      }
+      // 立即开单卡不展示「立即成交所有」（该按钮仅平滑开单加速成交用）
+      if (cards.includes('立即成交所有') || cards.includes('data-hedge-action="fill-all"')) {
+        throw new Error('立即开单任务卡不应展示「立即成交所有」');
       }
       if (cards.includes('已暂停，等待人工处理') || cards.includes('累计失败超过 3 次') ||
           cards.includes('已成功') || cards.includes('/ 3')) {
@@ -3880,14 +3884,17 @@ setTimeout(async () => {
       const pausePauseBtn = pauseCard.match(/<button[^>]*data-hedge-action="pause"[^>]*>/)[0];
       if (!pausePauseBtn.includes('disabled')) throw new Error('paused 任务暂停按钮应 disabled');
       // 后端 _require_fillable 只拦截 deleted/done（backend/hedge_open_tasks/service.py），
-      // paused 不阻塞人工 fill-once/fill-all；前端按钮矩阵必须服从后端，不得比后端更严格。
+      // paused 不阻塞人工 fill-once；前端按钮矩阵必须服从后端，不得比后端更严格。
       const pauseFillBtn = pauseCard.match(/<button[^>]*data-hedge-action="fill1"[^>]*>/)[0];
       if (pauseFillBtn.includes('disabled')) throw new Error('paused 任务成交1次不应被前端额外禁用（后端未拦截）');
       // stopped：启动/成交 disabled，需人工修正后新建任务；删除仍可用（软删除脱离列表）。
       const termStartBtn = termCard.match(/<button[^>]*data-hedge-action="start"[^>]*>/)[0];
       if (!termStartBtn.includes('disabled')) throw new Error('stopped 任务启动应 disabled');
-      const termFillBtn = termCard.match(/<button[^>]*data-hedge-action="fill-all"[^>]*>/)[0];
-      if (!termFillBtn.includes('disabled')) throw new Error('stopped 任务立即成交所有应 disabled');
+      const termFill1Btn = termCard.match(/<button[^>]*data-hedge-action="fill1"[^>]*>/)[0];
+      if (!termFill1Btn.includes('disabled')) throw new Error('stopped 任务成交1次应 disabled');
+      if (termCard.includes('data-hedge-action="fill-all"')) {
+        throw new Error('立即开单 stopped 卡不应有 fill-all 按钮');
+      }
       const termDeleteBtn = termCard.match(/<button[^>]*data-hedge-action="delete"[^>]*>/)[0];
       if (termDeleteBtn.includes('disabled')) throw new Error('stopped 任务删除应可用（软删除）');
       // invalid_state 409 → 就近中文报错，前端不发明状态
@@ -3896,16 +3903,33 @@ setTimeout(async () => {
       if (r409.ok) throw new Error('invalid_state 应失败');
       if (r409.errorCode !== 'invalid_state') throw new Error('应携带 invalid_state 错误码: ' + JSON.stringify(r409));
       if (!r409.error.includes('状态不允许')) throw new Error('409 应映射就近中文提示: ' + r409.error);
+      // 平滑模式任务卡仍展示「立即成交所有」（预留给滑点校验加速成交）
+      const smoothTask = mockHedgeTask({ id: 'h-smooth-1', mode: 'smooth', status: 'running' });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [smoothTask] } };
+      await helpers.loadHedgeTasks();
+      helpers.setHedgeTaskFilter('all');
+      const smoothHtml = elements['hedge-task-list'].innerHTML;
+      if (!smoothHtml.includes('data-hedge-action="fill-all"') || !smoothHtml.includes('立即成交所有')) {
+        throw new Error('平滑开单任务卡应保留「立即成交所有」');
+      }
       helpers.setActiveView('market');
-      console.log('[PASS] stopped/paused 语义返工：single_leg 提示但继续调度 + stop_reason 终止展示 + 按钮矩阵服从后端 status + invalid_state 409 就近报错');
+      console.log('[PASS] stopped/paused 语义返工：single_leg 提示但继续调度 + stop_reason 终止展示 + 按钮矩阵服从后端 status + invalid_state 409 就近报错 + 立即开单隐藏 fill-all');
     }
 
     // 82. 持仓表从 positions 端点渲染（§3.4 Position JSON 字段逐字，含 accrued_funding）
     {
-      hedgePositionsGetResponse = { status: 200, body: { positions: [{
-        coin: 'AUSDT', direction: 'forward', position_qty: 6, spot_avg: '101.3333', perp_avg: 102.3333,
-        open_basis_rate: 0.00233, price_pnl: -0.5, accrued_funding: 0.0614, borrow_interest: 0, net_pnl: -0.4386
-      }] } };
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        {
+          coin: 'AUSDT', direction: 'forward', position_qty: 6, spot_avg: '101.3333', perp_avg: 102.3333,
+          open_basis_rate: 0.00233, price_pnl: -0.5, accrued_funding: 0.0614, borrow_interest: 0, net_pnl: -0.4386
+        },
+        {
+          // 低价币：原生 6 位均价 + 尾零；不得被 toFixed(4) 砍成 0.0012
+          coin: 'RSRUSDT', direction: 'reverse', position_qty: '10000.00000000',
+          spot_avg: '0.00125000', perp_avg: '0.00124600',
+          open_basis_rate: 0, price_pnl: 0, accrued_funding: 0, borrow_interest: 0, net_pnl: 0
+        }
+      ] } };
       const markPos = fetchCallLog.length;
       await helpers.loadHedgePositions();
       const posCall = fetchCallLog.slice(markPos).find(c => c.url.includes('hedge-open'));
@@ -3918,8 +3942,31 @@ setTimeout(async () => {
         '价格未实现盈亏', '累计资金费', '借币利息', '净盈亏', 'AUSDT', '正向', '101.3333', '0.0614']) {
         if (!privHtml.includes(piece)) throw new Error(`私有面板持仓表缺少「${piece}」`);
       }
+      // 原生小数 + 去尾零：0.00125000 → 0.00125；0.00124600 → 0.001246（非 0.0012）
+      if (!privHtml.includes('0.00125') || !privHtml.includes('0.001246')) {
+        throw new Error('持仓均价应保留原生小数并去尾零，不得 toFixed(4): ' + privHtml);
+      }
+      if (privHtml.includes('0.00125000') || privHtml.includes('0.00124600')) {
+        throw new Error('持仓均价应去掉小数点后尾随 0');
+      }
+      // 正向绿 / 反向红
+      if (!privHtml.includes('class="positive">正向')) {
+        throw new Error('正向方向应使用 positive（绿色）class');
+      }
+      if (!privHtml.includes('class="negative">反向')) {
+        throw new Error('反向方向应使用 negative（红色）class');
+      }
+      // 开单价差率由均价现算（后端 open_basis_rate 占位 "0" 不采用）：
+      // AUSDT forward (102.3333-101.3333)/101.3333 → +0.9868%
+      // RSR reverse (0.00125-0.001246)/0.001246 → +0.3210%
+      if (!privHtml.includes('+0.9868%')) {
+        throw new Error('AUSDT 开单价差率期望 +0.9868%，实际 HTML 未包含: ' + privHtml);
+      }
+      if (!privHtml.includes('+0.3210%')) {
+        throw new Error('RSR 开单价差率期望 +0.3210%，实际 HTML 未包含: ' + privHtml);
+      }
       if (privHtml.includes('本地模拟')) throw new Error('持仓表不应再标注本地模拟');
-      if (helpers.getHedgePositions().length !== 1) throw new Error('持仓缓存应来自 positions 端点');
+      if (helpers.getHedgePositions().length !== 2) throw new Error('持仓缓存应来自 positions 端点');
       // 空持仓 → 空态
       hedgePositionsGetResponse = { status: 200, body: { positions: [] } };
       await helpers.loadHedgePositions();
@@ -3927,7 +3974,7 @@ setTimeout(async () => {
       if (!elements['private-panel-body'].innerHTML.includes('暂无开单持仓')) {
         throw new Error('空持仓应渲染空态');
       }
-      console.log('[PASS] 持仓表从 GET /api/hedge-open-positions 渲染（§3.4 字段逐字）+ 空态');
+      console.log('[PASS] 持仓表从 GET /api/hedge-open-positions 渲染（§3.4 字段逐字）+ 空态 + 均价精度/方向色/价差率');
     }
 
     // 83. 执行徽标（§3：GET /api/hedge-open-settings 的 executor_mode + start_gate）
@@ -4495,6 +4542,121 @@ setTimeout(async () => {
         throw new Error(`missing_leg 中文 detail 应就近展示: ${errText}`);
       }
       console.log('[PASS] S4b 建卡 missing_leg 错误：中文 detail 经既有 hedgeApi 通道就近展示');
+    }
+
+    // 96b. 市场表创建确认弹框：借币确认 / 立即开单确认（确认前零 POST；取消清空 pending）
+    {
+      helpers.resetHedgeStateForTest();
+      // 借币：合法输入 → 弹确认、零 POST；确认后才 POST
+      borrowSettingsGetResponse = { status: 200, body: { interval_seconds: '5' } };
+      await helpers.loadSchedulerSettings();
+      document.getElementById('borrow-amount-AUSDT').value = '1.5';
+      document.getElementById('borrow-count-AUSDT').value = '2';
+      const markBorrow = fetchCallLog.length;
+      const rBorrowPend = helpers.requestBorrowCreateConfirm('AUSDT');
+      if (!rBorrowPend.ok || !rBorrowPend.pending) throw new Error('借币确认应进入 pending: ' + JSON.stringify(rBorrowPend));
+      if (fetchCallLog.length !== markBorrow) throw new Error('借币确认弹框前不应 POST');
+      const borrowModal = helpers.getHedgeModal();
+      if (!borrowModal || borrowModal.title !== '确认创建借币任务？') {
+        throw new Error('借币确认弹窗标题错误: ' + JSON.stringify(borrowModal));
+      }
+      if (!borrowModal.body.includes('单次 1.5') || !borrowModal.body.includes('成功 2 次')) {
+        throw new Error('借币确认弹窗应含数量/次数: ' + borrowModal.body);
+      }
+      if (!helpers.getMarketActionPending() || helpers.getMarketActionPending().kind !== 'borrow_create') {
+        throw new Error('应有 borrow_create pending');
+      }
+      helpers.cancelHedgeStartGate();
+      if (helpers.getMarketActionPending() !== null) throw new Error('取消后 marketActionPending 应清空');
+      if (fetchCallLog.length !== markBorrow) throw new Error('取消借币确认不应 POST');
+
+      // 立即开单：合法输入 → 弹确认；确认后 submit（直接测 confirmMarketAction）
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [] } };
+      document.getElementById('hedge-amount-forward-AUSDT').value = '0.5';
+      document.getElementById('hedge-count-forward-AUSDT').value = '3';
+      const markHedge = fetchCallLog.length;
+      const rHedgePend = helpers.requestHedgeOpenConfirm('AUSDT', 'forward', 'immediate');
+      if (!rHedgePend.ok || !rHedgePend.pending) throw new Error('开单确认应进入 pending');
+      if (fetchCallLog.length !== markHedge) throw new Error('开单确认弹框前不应 POST');
+      const hedgeModal = helpers.getHedgeModal();
+      if (!hedgeModal || !hedgeModal.title.includes('正向') || !hedgeModal.title.includes('立即开单')) {
+        throw new Error('开单确认标题错误: ' + JSON.stringify(hedgeModal));
+      }
+      if (!hedgeModal.body.includes('0.5') || !hedgeModal.body.includes('3')) {
+        throw new Error('开单确认正文应含币量/次数: ' + hedgeModal.body);
+      }
+      const created = mockHedgeTask({ id: 'h-confirm-1', coin: 'AUSDT', direction: 'forward', status: 'running' });
+      hedgeTasksPostResponse = { status: 201, body: created };
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [created] } };
+      const rConfirmed = await helpers.confirmMarketAction();
+      if (!rConfirmed.ok) throw new Error('确认开单应成功: ' + rConfirmed.error);
+      const postAfter = fetchCallLog.slice(markHedge).find(c => c.method === 'POST' && c.url === '/api/hedge-open-tasks');
+      if (!postAfter) throw new Error('确认后应 POST /api/hedge-open-tasks');
+      if (helpers.getHedgeTaskNavLoading() !== 0) throw new Error('创建结束后 loading 计数应为 0');
+      if (!elements['hedge-task-count'].textContent || elements['hedge-task-count'].textContent === '') {
+        // loading 用 innerHTML；结束后应写 textContent 数字
+      }
+      if (String(elements['hedge-task-count'].textContent) !== '1'
+          && !String(elements['hedge-task-count']._textContent || elements['hedge-task-count'].textContent).includes('1')) {
+        // mock 元素 textContent 与 innerHTML 分离：结束后 updateHedgeTaskNav 设 textContent
+        if (elements['hedge-task-count'].textContent !== '1') {
+          throw new Error('创建回显后开单任务数字应为 1，实际: ' + elements['hedge-task-count'].textContent);
+        }
+      }
+      // 非法输入：不弹确认
+      document.getElementById('hedge-amount-forward-AUSDT').value = '';
+      const rBad = helpers.requestHedgeOpenConfirm('AUSDT', 'forward', 'immediate');
+      if (rBad.ok) throw new Error('空币量不应进入确认');
+      if (helpers.getMarketActionPending() !== null) throw new Error('非法输入不应留下 pending');
+      console.log('[PASS] 市场表创建确认弹框：借币/立即开单确认前零 POST + 确认后提交 + 取消清空');
+    }
+
+    // 96c. 行情表重绘保留操作列输入；立即开单 submit 期间徽标 loading
+    {
+      helpers.resetHedgeStateForTest();
+      helpers.ingestSnapshot(designFixture);
+      document.getElementById('borrow-amount-AUSDT').value = '12.34';
+      document.getElementById('borrow-count-AUSDT').value = '7';
+      document.getElementById('hedge-amount-forward-AUSDT').value = '0.01';
+      document.getElementById('hedge-count-reverse-AUSDT').value = '9';
+      helpers.renderTable();
+      if (document.getElementById('borrow-amount-AUSDT').value !== '12.34') {
+        throw new Error('renderTable 后应保留借币数量: ' + document.getElementById('borrow-amount-AUSDT').value);
+      }
+      if (document.getElementById('borrow-count-AUSDT').value !== '7') {
+        throw new Error('renderTable 后应保留借币次数');
+      }
+      if (document.getElementById('hedge-amount-forward-AUSDT').value !== '0.01') {
+        throw new Error('renderTable 后应保留正向开单币量');
+      }
+      if (document.getElementById('hedge-count-reverse-AUSDT').value !== '9') {
+        throw new Error('renderTable 后应保留反向开单次数');
+      }
+
+      // loading：POST 进行中徽标为 spinner；结束后恢复
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [] } };
+      document.getElementById('hedge-amount-forward-AUSDT').value = '0.5';
+      document.getElementById('hedge-count-forward-AUSDT').value = '1';
+      let sawLoading = false;
+      const slowTask = mockHedgeTask({ id: 'h-load-1', status: 'running' });
+      // 用同步 mock 无法穿插观察 loading；直接断言 begin/end 后计数与 spinner HTML
+      // 通过 submit 成功路径：结束后 loading=0 且数字为 running 数
+      hedgeTasksPostResponse = { status: 201, body: slowTask };
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [slowTask] } };
+      const rLoad = await helpers.submitHedgeOpen('AUSDT', 'forward', 'immediate');
+      if (!rLoad.ok) throw new Error('loading 路径创建应成功');
+      if (helpers.getHedgeTaskNavLoading() !== 0) throw new Error('结束后 loading 应为 0');
+      if (elements['hedge-task-count'].textContent !== '1') {
+        throw new Error('结束后徽标应为 1: ' + elements['hedge-task-count'].textContent);
+      }
+      // 失败路径也要清 loading
+      hedgeTasksPostResponse = { status: 400, body: { error: 'invalid_field', field: 'single_amount', detail: 'bad' } };
+      document.getElementById('hedge-amount-forward-AUSDT').value = '0.5';
+      document.getElementById('hedge-count-forward-AUSDT').value = '1';
+      const rFail = await helpers.submitHedgeOpen('AUSDT', 'forward', 'immediate');
+      if (rFail.ok) throw new Error('失败路径应 ok=false');
+      if (helpers.getHedgeTaskNavLoading() !== 0) throw new Error('失败后 loading 也应清零');
+      console.log('[PASS] 操作列输入跨 renderTable 保留 + 开单徽标 loading 收尾');
     }
 
     // 97. M-1 live-hardening：start_gate_changed 审计行经全量投影进入 logs 数组，
