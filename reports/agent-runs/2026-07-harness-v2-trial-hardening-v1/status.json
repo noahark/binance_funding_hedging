@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 9,
+  "revision": 10,
   "stage_id": "2026-07-harness-v2-trial-hardening-v1",
   "bookkeeper": "opus5",
   "phase": "design-accepted",
-  "checkpoint": "review-2-accept-verified-implementation-gate-closed",
+  "checkpoint": "o4-clarified-awaiting-human-implementation-authorization",
   "base_sha": "0bea9c084b8209b19113b169eaf152ab33455884",
   "delivery_sha": "2fb1d47edfb2c34065f37c34d425516ea582f1b6",
-  "ledger_sha": "2fb1d47edfb2c34065f37c34d425516ea582f1b6",
+  "ledger_sha": "09ebb28721d90e38fe46388843fbef0779f73614",
   "current_task": {
     "id": "harness-v2-trial-hardening-review-2-fable5",
     "state": "verified",
@@ -20,7 +20,7 @@
   "rework_count": 0,
   "blockers": [
     "implementation-gate-closed: 按 Human 决定 3，两道计划评审通过不解除闸门，进入实现需 Human 再次授权",
-    "O2-O4-must-enter-batch-a-dispatch: 批次 A 实现 dispatch 须原样写入 O1 澄清与 O2/O3/O4；O3 口径不明时须先向 Fable5 索取澄清",
-    "G1-G14-open-residual: 结果与评审闭包格式无机制校验；四次评审回执四次传输受损（第四次伤及字符），建议按 O5 设复议触发线"
+    "batch-a-must-carry: 批次 A 实现 dispatch 须原样写入 O1 澄清与已确证的 O2(W6 引用扫描误用)/O3(1.5KB 口径)/O4(勘误豁免收口，权威两句见 22 号文件 §14.2)；O5/O7/O8 编号未确证，如需逐条引用须再向 Fable5 索取",
+    "G1-G14-open-residual: 结果与评审闭包格式无机制校验；五次模型回执中四次传输受损（一次伤及字符）、两次出现\"结论要求下游照做但无可引用正文\"，建议按 O5 设复议触发线"
   ]
 }
