@@ -10,7 +10,7 @@
   "ledger_sha": "4cdc01b0433e708ade957cef43d0c7aefbefc362",
   "current_task": {
     "id": "task1-unknown-not-zero",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/10-unknown-not-zero-glm.dispatch.md"
   },
   "next": {
