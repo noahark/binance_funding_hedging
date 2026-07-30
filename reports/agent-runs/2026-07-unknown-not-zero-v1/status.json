@@ -1,22 +1,26 @@
 {
   "schema_version": "2",
-  "revision": 8,
+  "revision": 9,
   "stage_id": "2026-07-unknown-not-zero-v1",
   "bookkeeper": "opus5",
-  "phase": "review-2-dispatched",
-  "checkpoint": "review-2-routed-to-codex-with-disclosed-design-involvement",
+  "phase": "review-2-REWORK-awaiting-human-scope-decision",
+  "checkpoint": "review-2-REWORK-verified-three-findings-confirmed-task2-withdrawn",
   "base_sha": "ac8d493a903051394fc9fda3ca467590a6e2f837",
   "delivery_sha": "851dd088183037564b0e0afb5ffe1347ce3665a0",
-  "ledger_sha": "c29cd9d7922d4caed0af6d34d0ca1a23592211f8",
+  "ledger_sha": "fba7beb8ba891fadadc4ad0bd91aab1fa165efed",
   "current_task": {
     "id": "review2-task1-codex",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/40-review-2-codex.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "decide-repair-scope"
   },
-  "rework_count": 0,
-  "blockers": []
+  "rework_count": 1,
+  "blockers": [
+    "F1 (P1) confirmed: a 2xx balance response missing an asset or carrying an unparseable crossMarginFree yields available=0 -> REJECT_INSUFFICIENT_BALANCE, which is FATAL and permanently stops the task with a false reason. Fix touches hedge_preflight_provider.py and the PreflightResult contract in domain.py, both forbidden in task1. Sub-case ambiguity (an absent row may legitimately mean a zero balance) cannot be settled without an authorized read-only live observation. Human scope decision required: 42-scope-decision-request.md",
+    "F2 (P1) confirmed: service.py:1205 and :1238 wrap finalize_attempt in bare `except Exception: pass`, so any settlement failure leaves pair_outcome NULL, trips the in-flight guard, and is invisible; the crash-gap recovery loop swallows it too. D4 made this reachable by one more path.",
+    "F3 (P2) confirmed: 00-plan.md:15 and :95 and 20-task1-glm-result.md:11 overstate the guard."
+  ]
 }
