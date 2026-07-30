@@ -8,6 +8,7 @@ and crash-style restart recovery (reopen the same DB file).
 from __future__ import annotations
 
 import json
+import sqlite3
 from decimal import Decimal
 
 import pytest
@@ -575,8 +576,9 @@ def test_migrate_m1_m2_repair_defect_rows_audit_then_idempotent(tmp_path):
         store._conn.commit()
     store.close()
 
-    # Reopen -> M2 fires and repairs the ts; M1 is gone, so the literal '0' stays.
-    store2 = HedgeOpenStore(db)
+    # Reopen with the opt-in flag (D6) -> M2 fires and repairs the ts; M1 is gone,
+    # so the literal '0' stays. A default construction would leave the row untouched.
+    store2 = HedgeOpenStore(db, repair_legacy_exposure_ts=True)
     leg = next(l for l in store2.list_legs_for_attempt(attempt["id"]) if l["leg"] == "perp")
     assert leg["cumulative_quote_amt"] == "0"           # M1 removed: literal '0' kept verbatim
     expo = store2.get_task("t1")["leg_exposure"]
@@ -589,10 +591,224 @@ def test_migrate_m1_m2_repair_defect_rows_audit_then_idempotent(tmp_path):
     assert fields == {"leg_exposure.ts"}
     store2.close()
 
-    # Second reopen -> idempotent (no new data_migration events).
-    store3 = HedgeOpenStore(db)
+    # Second reopen (opt-in again) -> idempotent: the ts is no longer the 1970
+    # epoch, so M2's SELECT finds nothing and no new data_migration event is added.
+    store3 = HedgeOpenStore(db, repair_legacy_exposure_ts=True)
     assert len(store3.list_task_event_logs(50, kinds=("data_migration",))) == 1
     store3.close()
+
+
+def _leg_row(order_id, base, quote):
+    """A minimal hedge_open_leg-shaped sqlite3.Row for ``_exposure_from_legs``
+    unit tests — the three columns the adapter reads."""
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE leg(order_id TEXT, cumulative_base_qty TEXT,"
+        " cumulative_quote_amt TEXT)"
+    )
+    conn.execute("INSERT INTO leg VALUES (?, ?, ?)", (order_id, base, quote))
+    return conn.execute("SELECT * FROM leg").fetchone()
+
+
+# ---------------------------------------------------------------------------
+# D1 / D4 — _exposure_from_legs delegates to domain.build_leg_exposure.
+# S1: a NULL quote yields price = None, not a fabricated zero (the deleted store
+# copy turned _num(NULL) into Decimal(0) and wrote "0E+1"). D4: one rule, not two
+# that drift. Backstop: ts_us <= 0 raises (the T5 fix the deleted copy lacked).
+# ---------------------------------------------------------------------------
+
+
+def test_exposure_from_legs_null_quote_is_unknown_not_zero_price():
+    """D1/S1 pairing (missing figure): an accepted, filled leg with a NULL quote
+    reports ``price = None`` — unknown, never a coerced zero."""
+    spot = _leg_row("os", "0.5", None)        # accepted, real qty, NULL quote
+    perp = _leg_row(None, "0", None)          # not accepted
+    expo = HedgeOpenStore._exposure_from_legs(spot, perp, 5_000_000)
+    assert expo["leg"] == "spot"
+    assert expo["price"] is None              # S1 fix: unknown, not "0E+1"
+    assert expo["qty"] == "0.5"
+    assert expo["ts"] == D.us_to_iso(5_000_000)
+
+
+def test_exposure_from_legs_real_zero_quote_is_zero_price():
+    """D1/S1 pairing (real zero): a real exchange ``"0"`` quote on an accepted,
+    filled leg is a true zero — ``price = "0"``. This is the r5 category no static
+    guard can reach (a real zero vs a fabricated one at rest): only the pairing
+    with the test above covers it."""
+    spot = _leg_row("os", "0.5", "0")         # accepted, real qty, REAL "0" quote
+    perp = _leg_row(None, "0", None)
+    expo = HedgeOpenStore._exposure_from_legs(spot, perp, 5_000_000)
+    assert Decimal(expo["price"]) == Decimal("0")  # real "0" -> numeric zero (str form varies)
+
+
+def test_exposure_from_legs_real_figure_price_is_quote_over_base():
+    """D4: delegating to domain.build_leg_exposure preserves the deleted store
+    copy's observable output for a real figure — ``price = quote / base``."""
+    spot = _leg_row("os", "0.5", "25000")     # price = 25000 / 0.5 = 50000
+    perp = _leg_row(None, "0", None)
+    expo = HedgeOpenStore._exposure_from_legs(spot, perp, 5_000_000)
+    assert Decimal(expo["price"]) == Decimal("50000")  # quote / base, value unchanged
+    assert expo["qty"] == "0.5"
+
+
+def test_exposure_from_legs_non_positive_ts_raises():
+    """D4 backstop: build_leg_exposure raises on ``ts_us <= 0`` (the T5 fix). The
+    deleted store copy did not, so this is a new failure mode on the reconcile
+    path, contained by the worker's exception handling. Cover it so a future
+    change is not mistaken for a regression."""
+    spot = _leg_row("os", "0.5", "25000")
+    perp = _leg_row(None, "0", None)
+    with pytest.raises(D.HedgeError):
+        HedgeOpenStore._exposure_from_legs(spot, perp, 0)
+
+
+# ---------------------------------------------------------------------------
+# D2 — fill_rows loop: a NULL avg_price (unknown) adds no fabricated 0 notional
+# and sets the incomplete flag (the leg_rows path's policy); a real "0" avg_price
+# is a true zero and contributes 0 without flagging.
+# ---------------------------------------------------------------------------
+
+
+def test_aggregate_positions_fill_null_avg_price_excluded_and_flagged(tmp_path):
+    """D2/S2 (missing figure): a legacy fill row FILLED with a real qty but a NULL
+    avg_price must NOT add a fabricated 0 to its notional. Its qty still counts;
+    the bucket is flagged incomplete (same policy as the leg_rows path)."""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "tn", direction=D.DIR_FORWARD, target=1)
+    store.insert_fill(
+        "tn", "att1",
+        AttemptOutcome(
+            attempt_id="att1", category=D.ATTEMPT_SUCCESS,
+            spot={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": None,
+                  "order_id": "os", "client_order_id": "hgo-att1-s"},
+            perp={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
+                  "order_id": "op", "client_order_id": "hgo-att1-p"},
+            record_payload={"transport": "dry_run_record", "posted": False,
+                            "spot_order_params": {}, "perp_order_params": {}},
+            exposure=None,
+        ),
+        1_000,
+    )
+    pos = next(p for p in store.aggregate_positions() if p["coin"] == "BTCUSDT")
+    assert pos["spot_avg_price_incomplete"] is True   # NULL avg -> flagged
+    assert Decimal(pos["spot_avg"]) == Decimal("0")   # notional skipped -> 0/qty
+    assert pos["perp_avg_price_incomplete"] is False  # real perp avg unaffected
+    assert Decimal(pos["perp_avg"]) == Decimal("50000")
+    store.close()
+
+
+def test_aggregate_positions_fill_real_zero_avg_price_contributes_zero(tmp_path):
+    """D2/S2 pairing (real zero): a real exchange ``"0"`` avg_price is a true zero,
+    not missing — it contributes 0 notional (q * 0) and does NOT set the
+    incomplete flag. The r5 category: a real zero stays distinct from unknown."""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "tn", direction=D.DIR_FORWARD, target=1)
+    store.insert_fill(
+        "tn", "att1",
+        AttemptOutcome(
+            attempt_id="att1", category=D.ATTEMPT_SUCCESS,
+            spot={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "0",
+                  "order_id": "os", "client_order_id": "hgo-att1-s"},
+            perp={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
+                  "order_id": "op", "client_order_id": "hgo-att1-p"},
+            record_payload={"transport": "dry_run_record", "posted": False,
+                            "spot_order_params": {}, "perp_order_params": {}},
+            exposure=None,
+        ),
+        1_000,
+    )
+    pos = next(p for p in store.aggregate_positions() if p["coin"] == "BTCUSDT")
+    assert pos["spot_avg_price_incomplete"] is False  # real "0" is not unknown
+    assert Decimal(pos["spot_avg"]) == Decimal("0")   # 0.5 * 0 / 0.5
+    assert Decimal(pos["perp_avg"]) == Decimal("50000")
+    store.close()
+
+
+# ---------------------------------------------------------------------------
+# D6 — default construction performs no semantic row rewrite (the 2026-07-28
+# incident is structurally impossible, not forbidden by prose). Additive DDL
+# still writes the file; this asserts only "no row rewrite".
+# ---------------------------------------------------------------------------
+
+
+def test_default_construction_leaves_legacy_exposure_ts_untouched(tmp_path):
+    """D6: a default ``HedgeOpenStore`` construction mutates no existing row. The
+    1970-epoch leg_exposure ts that M2 would rewrite stays exactly as planted —
+    the row-mutating repair is opt-in, and no production caller passes the flag."""
+    db = str(tmp_path / "ho.sqlite3")
+    store = HedgeOpenStore(db)
+    _create(store, "t1", direction=D.DIR_FORWARD, target=1)
+    with store._lock:
+        store._conn.execute(
+            "UPDATE hedge_open_task SET leg_exposure = ? WHERE id = ?",
+            (json.dumps({"leg": "perp", "qty": "0.5", "price": None,
+                         "ts": "1970-01-01T00:00:00.000000Z"}), "t1"),
+        )
+        store._conn.commit()
+    store.close()
+
+    # Default reopen -> the repairable row is untouched (no M2, no data_migration).
+    store2 = HedgeOpenStore(db)
+    expo = store2.get_task("t1")["leg_exposure"]
+    assert expo["ts"] == "1970-01-01T00:00:00.000000Z"   # untouched
+    assert store2.list_task_event_logs(50, kinds=("data_migration",)) == []
+    store2.close()
+
+
+# ---------------------------------------------------------------------------
+# D7 — prepare_attempt seeds an UNKNOWN quote (NULL), not a self-authored '0'.
+# S4: the dispatch-state update never touches either figure column, so the seeded
+# unknown survives into the in-flight projection the UI reads.
+# ---------------------------------------------------------------------------
+
+
+def test_prepare_attempt_seeds_unknown_quote_not_zero(tmp_path):
+    """D7/S4: a freshly prepared leg carries an UNKNOWN quote (NULL) — no exchange
+    contact has happened, so seeding a zero figure would fabricate money the
+    exchange never returned. cumulative_base_qty keeps its '0' seed (NOT NULL
+    column; quantity is a non-goal §3)."""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1", target=1)
+    attempt = store.prepare_attempt(
+        "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        "hgo-att1-p", {"side": "SELL"}, 1_000,
+    )
+    legs = {leg["leg"]: leg for leg in store.list_legs_for_attempt(attempt["id"])}
+    assert legs["spot"]["cumulative_quote_amt"] is None    # D7: NULL, not '0'
+    assert legs["perp"]["cumulative_quote_amt"] is None
+    assert legs["spot"]["cumulative_base_qty"] == "0"      # qty seed unchanged
+    assert legs["perp"]["cumulative_base_qty"] == "0"
+    store.close()
+
+
+def test_inflight_leg_projects_unknown_notional_not_zero(tmp_path):
+    """D7/S4 (the live consequence): a dispatched leg holding a real order_id and
+    sitting at exchange_status = NEW — not yet resolved — still projects an
+    UNKNOWN notional (NULL), not the self-authored '0' it was seeded with before
+    D7. list_attempts_page is the projection the UI reads for in-flight legs."""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "t1", target=1)
+    attempt = store.prepare_attempt(
+        "t1", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        "hgo-att1-p", {"side": "SELL"}, 1_000,
+    )
+    # Spot sent + accepted (real order_id, NEW/polling); perp still querying. The
+    # dispatch-state update moves neither figure column.
+    store.mark_leg_querying(
+        attempt["id"], "spot", D.LEG_ACCEPTED_OR_QUERYING, "os", 2_000,
+    )
+    store.mark_leg_querying(
+        attempt["id"], "perp", D.LEG_UNKNOWN_QUERYING, None, 2_000,
+    )
+    page = store.list_attempts_page(10, None, None)
+    _attempt, spot_leg, perp_leg = page[0]
+    assert spot_leg["order_id"] == "os"                    # in-flight, accepted
+    assert spot_leg["cumulative_quote_amt"] is None        # unknown, not '0'
+    assert perp_leg["cumulative_quote_amt"] is None
+    store.close()
 
 
 # ---------------------------------------------------------------------------
