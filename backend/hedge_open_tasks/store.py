@@ -290,15 +290,36 @@ def _row_to_log(row: sqlite3.Row) -> dict:
 
 
 def _num(value) -> Decimal:
+    """Quantity / comparison parser only. ``None`` or an unparseable value
+    becomes ``Decimal(0)`` — correct for a quantity (a not-yet-filled leg
+    genuinely has zero fill) or a magnitude comparison, but NEVER for a money
+    figure, where a missing exchange value must stay unknown. Money figures
+    (price / notional / quote / avg_price) use :func:`_num_or_none`."""
     try:
         return Decimal(str(value)) if value is not None else Decimal(0)
     except InvalidOperation:
         return Decimal(0)
 
 
+def _num_or_none(value) -> Decimal | None:
+    """Money-figure parser: preserve the unknown. ``None`` or an unparseable
+    value returns ``None`` instead of ``Decimal(0)``, so a missing exchange
+    figure can never become a fabricated zero. A real ``"0"`` from the exchange
+    still parses to ``Decimal(0)``. Use this at every money site; :func:`_num`
+    stays reserved for quantity and comparison callers — ``_num`` silently
+    turning a missing figure into ``Decimal(0)`` was the root (S3) of the
+    r4/r5/r6/r7 family this stage closes."""
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        return None
+
+
 class HedgeOpenStore:
     def __init__(self, db_path: str, *, executor_mode_snapshot: str = "disabled",
-                 now_us: int = 0):
+                 now_us: int = 0, repair_legacy_exposure_ts: bool = False):
         self._lock = threading.RLock()
         parent = os.path.dirname(os.path.abspath(db_path))
         if parent and not os.path.isdir(parent):
@@ -308,7 +329,7 @@ class HedgeOpenStore:
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
         with self._lock, self._conn:
-            self._migrate()
+            self._migrate(repair_legacy_exposure_ts=repair_legacy_exposure_ts)
             cur = self._conn.execute(
                 "SELECT COUNT(*) FROM hedge_open_settings WHERE id = 1"
             )
@@ -326,7 +347,7 @@ class HedgeOpenStore:
                     ),
                 )
 
-    def _migrate(self) -> None:
+    def _migrate(self, *, repair_legacy_exposure_ts: bool = False) -> None:
         """Additive-forward migration (breakdown §3.9). New columns are added
         with per-column ALTER guards and backfilled to the frozen defaults;
         pre-existing rows keep their data and stay readable. Idempotent."""
@@ -439,57 +460,62 @@ class HedgeOpenStore:
         # 0) is rewritten to the accepting leg's dispatched_at_us ISO — the real
         # moment of that single-leg event (within ~1s). price stays null (unknown —
         # the historical avg_price was never stored and cannot be reconstructed).
-        # Idempotent on the ts shape.
-        epoch_ts = "1970-01-01T00:00:00.000000Z"
-        m2_rows = self._conn.execute(
-            "SELECT id, leg_exposure FROM hedge_open_task"
-            " WHERE leg_exposure LIKE ?",
-            (f"%{epoch_ts}%",),
-        ).fetchall()
-        for row in m2_rows:
-            task_id = row["id"]
-            try:
-                expo = json.loads(row["leg_exposure"])
-            except (TypeError, ValueError):
-                continue
-            if not isinstance(expo, dict) or expo.get("ts") != epoch_ts:
-                continue
-            leg_name = expo.get("leg")
-            if leg_name not in ("spot", "perp"):
-                continue
-            leg_row = self._conn.execute(
-                "SELECT l.dispatched_at_us FROM hedge_open_leg l"
-                " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
-                " WHERE a.task_id = ? AND l.leg = ?"
-                " AND l.dispatched_at_us IS NOT NULL"
-                " ORDER BY l.dispatched_at_us DESC LIMIT 1",
-                (task_id, leg_name),
-            ).fetchone()
-            if leg_row is None:
-                continue
-            real_ts = D.us_to_iso(leg_row["dispatched_at_us"])
-            expo["ts"] = real_ts
-            self._conn.execute(
-                "UPDATE hedge_open_task SET leg_exposure = ? WHERE id = ?",
-                (json.dumps(expo, ensure_ascii=False), task_id),
-            )
-            self._conn.execute(
-                "INSERT INTO hedge_open_log"
-                " (task_id, ts_us, attempt_id, kind, payload)"
-                " VALUES (?, ?, NULL, ?, ?)",
-                (
-                    task_id, self._migrate_now_us, "data_migration",
-                    json.dumps(
-                        {
-                            "table": "hedge_open_task", "row_id": task_id,
-                            "field": "leg_exposure.ts",
-                            "before": epoch_ts, "after": real_ts,
-                            "reason": "T5(d): 1970 exposure ts -> accepting leg dispatched_at_us",
-                        },
-                        ensure_ascii=False,
+        # Idempotent on the ts shape. D6: this row-mutating repair is opt-in
+        # (``repair_legacy_exposure_ts``); the additive DDL above stays automatic
+        # (a database must be usable). No production caller passes the flag —
+        # production was migrated 2026-07-28, so a default construction never
+        # rewrites a row (the 2026-07-28 silent-rewrite incident).
+        if repair_legacy_exposure_ts:
+            epoch_ts = "1970-01-01T00:00:00.000000Z"
+            m2_rows = self._conn.execute(
+                "SELECT id, leg_exposure FROM hedge_open_task"
+                " WHERE leg_exposure LIKE ?",
+                (f"%{epoch_ts}%",),
+            ).fetchall()
+            for row in m2_rows:
+                task_id = row["id"]
+                try:
+                    expo = json.loads(row["leg_exposure"])
+                except (TypeError, ValueError):
+                    continue
+                if not isinstance(expo, dict) or expo.get("ts") != epoch_ts:
+                    continue
+                leg_name = expo.get("leg")
+                if leg_name not in ("spot", "perp"):
+                    continue
+                leg_row = self._conn.execute(
+                    "SELECT l.dispatched_at_us FROM hedge_open_leg l"
+                    " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
+                    " WHERE a.task_id = ? AND l.leg = ?"
+                    " AND l.dispatched_at_us IS NOT NULL"
+                    " ORDER BY l.dispatched_at_us DESC LIMIT 1",
+                    (task_id, leg_name),
+                ).fetchone()
+                if leg_row is None:
+                    continue
+                real_ts = D.us_to_iso(leg_row["dispatched_at_us"])
+                expo["ts"] = real_ts
+                self._conn.execute(
+                    "UPDATE hedge_open_task SET leg_exposure = ? WHERE id = ?",
+                    (json.dumps(expo, ensure_ascii=False), task_id),
+                )
+                self._conn.execute(
+                    "INSERT INTO hedge_open_log"
+                    " (task_id, ts_us, attempt_id, kind, payload)"
+                    " VALUES (?, ?, NULL, ?, ?)",
+                    (
+                        task_id, self._migrate_now_us, "data_migration",
+                        json.dumps(
+                            {
+                                "table": "hedge_open_task", "row_id": task_id,
+                                "field": "leg_exposure.ts",
+                                "before": epoch_ts, "after": real_ts,
+                                "reason": "T5(d): 1970 exposure ts -> accepting leg dispatched_at_us",
+                            },
+                            ensure_ascii=False,
+                        ),
                     ),
-                ),
-            )
+                )
 
     def close(self) -> None:
         with self._lock:
@@ -745,7 +771,7 @@ class HedgeOpenStore:
                 "  dispatch_state, order_id, exchange_status,"
                 "  cumulative_base_qty, cumulative_quote_amt, fee_amount,"
                 "  fee_asset, dispatched_at_us, last_query_at_us, terminal)"
-                " VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, '0', '0', NULL, NULL,"
+                " VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, '0', NULL, NULL, NULL,"  # money-zero-ok: '0' seeds cumulative_base_qty (qty, NOT NULL DEFAULT '0', non-goal §3); cumulative_quote_amt is NULL (D7), not a fabricated money zero
                 "         NULL, NULL, 0)",
                 (
                     attempt_id,
@@ -762,7 +788,7 @@ class HedgeOpenStore:
                 "  dispatch_state, order_id, exchange_status,"
                 "  cumulative_base_qty, cumulative_quote_amt, fee_amount,"
                 "  fee_asset, dispatched_at_us, last_query_at_us, terminal)"
-                " VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, '0', '0', NULL, NULL,"
+                " VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, '0', NULL, NULL, NULL,"  # money-zero-ok: '0' seeds cumulative_base_qty (qty, NOT NULL DEFAULT '0', non-goal §3); cumulative_quote_amt is NULL (D7), not a fabricated money zero
                 "         NULL, NULL, 0)",
                 (
                     attempt_id,
@@ -1322,25 +1348,45 @@ class HedgeOpenStore:
             )
 
     @staticmethod
+    def _leg_row_to_exposure_input(leg_row: sqlite3.Row) -> dict:
+        """Map one ``hedge_open_leg`` row onto the dict shape
+        :func:`domain.build_leg_exposure` reads: ``order_id`` (acceptance),
+        ``filled_qty`` (the qty figure) and ``avg_price`` (the price figure).
+
+        ``avg_price`` is derived as ``quote / base`` exactly as the deleted store
+        copy derived ``price``, so observable output is unchanged for every real
+        figure — only a NULL/unknown quote now yields ``price = None`` instead of
+        the fabricated zero string S1 produced. ``cumulative_base_qty`` is NOT
+        NULL in practice, but a NULL is guarded to ``Decimal(0)`` so it can never
+        render as the string ``"None"`` under :func:`domain.build_leg_exposure`.
+        """
+        base_raw = leg_row["cumulative_base_qty"]
+        base = _num(base_raw)  # quantity: _num is correct (NULL -> Decimal(0) guard)
+        quote = _num_or_none(leg_row["cumulative_quote_amt"])  # money: keep unknown
+        avg_price = quote / base if (base > 0 and quote is not None) else None
+        return {
+            "order_id": leg_row["order_id"],
+            "filled_qty": str(base),
+            "avg_price": avg_price,
+        }
+
+    @staticmethod
     def _exposure_from_legs(spot: sqlite3.Row, perp: sqlite3.Row, ts_us: int) -> dict | None:
         """Build the advisory leg_exposure doc for a reconciled single-leg attempt
-        from the two closed leg rows (mirrors :func:`domain.build_leg_exposure`)."""
-        spot_accepted = bool(spot["order_id"])
-        perp_accepted = bool(perp["order_id"])
-        if not (spot_accepted or perp_accepted):
-            return None
-        if spot_accepted and perp_accepted:
-            return None
-        leg_row = spot if spot_accepted else perp
-        base = _num(leg_row["cumulative_base_qty"])
-        quote = _num(leg_row["cumulative_quote_amt"])
-        price = str(quote / base) if base > 0 else None
-        return {
-            "leg": "spot" if spot_accepted else "perp",
-            "qty": str(base),
-            "price": price,
-            "ts": D.us_to_iso(ts_us),
-        }
+        from the two closed leg rows. Delegates to :func:`domain.build_leg_exposure`
+        — the single implementation of the leg-exposure rule (D4 deleted the hand
+        copy whose drift produced S1, where a NULL quote became a fabricated zero
+        price).
+
+        ``build_leg_exposure`` raises on ``ts_us <= 0`` (the T5 backstop); the
+        deleted copy did not, so this is a new failure mode on the reconcile path
+        (contained by the worker's exception handling).
+        """
+        return D.build_leg_exposure(
+            HedgeOpenStore._leg_row_to_exposure_input(spot),
+            HedgeOpenStore._leg_row_to_exposure_input(perp),
+            ts_us,
+        )
 
     def list_legs_for_attempt(self, attempt_id: int) -> list[dict]:
         with self._lock:
@@ -1923,11 +1969,23 @@ class HedgeOpenStore:
             if row["spot_status"] == D.LEG_FILLED:
                 q = _num(row["spot_filled_qty"])
                 b["spot_qty"] += q
-                b["spot_notional"] += q * _num(row["spot_avg_price"])
+                # T1 §1(d) / S2: a NULL avg_price (unknown figure) must not add a
+                # fabricated 0 notional — skip it and set the incomplete flag, the
+                # same policy the leg_rows loop below uses. A real "0" avg_price
+                # still contributes 0 (q * 0) without flagging.
+                spot_avg = _num_or_none(row["spot_avg_price"])
+                if spot_avg is not None:
+                    b["spot_notional"] += q * spot_avg
+                else:
+                    b["spot_incomplete"] = True
             if row["perp_status"] == D.LEG_FILLED:
                 q = _num(row["perp_filled_qty"])
                 b["perp_qty"] += q
-                b["perp_notional"] += q * _num(row["perp_avg_price"])
+                perp_avg = _num_or_none(row["perp_avg_price"])
+                if perp_avg is not None:
+                    b["perp_notional"] += q * perp_avg
+                else:
+                    b["perp_incomplete"] = True
                 sign = Decimal(-1) if row["direction"] == D.DIR_FORWARD else Decimal(1)
                 b["position_qty"] += sign * q
         for row in leg_rows:
@@ -1943,7 +2001,7 @@ class HedgeOpenStore:
             # down. The bucket is flagged avg_price_incomplete instead, so a reader
             # knows the avg is computed over a partial notional set.
             quote_raw = row["cumulative_quote_amt"]
-            notional = None if quote_raw is None else _num(quote_raw)
+            notional = _num_or_none(quote_raw)
             if row["leg"] == "spot":
                 b["spot_qty"] += q
                 if notional is not None:
