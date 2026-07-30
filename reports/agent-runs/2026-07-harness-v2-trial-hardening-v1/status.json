@@ -1,25 +1,24 @@
 {
   "schema_version": "2",
-  "revision": 5,
+  "revision": 6,
   "stage_id": "2026-07-harness-v2-trial-hardening-v1",
   "bookkeeper": "opus5",
-  "phase": "design",
-  "checkpoint": "main-integrated-findings-reconciled-d9-hold-surfaced",
+  "phase": "plan-review",
+  "checkpoint": "d9-released-for-this-stage-plan-review-1-dispatched",
   "base_sha": "0bea9c084b8209b19113b169eaf152ab33455884",
-  "delivery_sha": null,
-  "ledger_sha": "0bea9c084b8209b19113b169eaf152ab33455884",
+  "delivery_sha": "f90609dd0682f6007867127925829cd86f8bd062",
+  "ledger_sha": "f90609dd0682f6007867127925829cd86f8bd062",
   "current_task": {
-    "id": "harness-v2-trial-hardening-design-opus5",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-07-harness-v2-trial-hardening-v1/10-opus5-design.dispatch.md"
+    "id": "harness-v2-trial-hardening-plan-review-1-grok45",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-harness-v2-trial-hardening-v1/40-grok45-plan-review-1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "human-resolve-d9-hold-and-select-plan-review-model"
+    "action": "start-prepared-grok45-plan-review-1"
   },
   "rework_count": 0,
   "blockers": [
-    "d9-hold-and-project-state-prohibition: PROJECT_STATE.md 的 [HUMAN-OWNED] 条目与 D-9 仍以现在时禁止任何模型从 findings 文档撰写 Harness 计划，评审终端启动即会停机，须 Human 更新该条目",
-    "plan-review-pending: 设计尚未经非 anthropic provider 的独立计划评审，且该评审的模型尚未由 Human 选定"
+    "implementation-gate-closed: review-1 返回 ACCEPT 且 Human 再次授权前不得进入实现；Fable5 review-2 包仅在 ACCEPT 后另行准备"
   ]
 }
