@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 10,
+  "revision": 11,
   "stage_id": "2026-07-unknown-not-zero-v1",
   "bookkeeper": "opus5",
-  "phase": "f2-repair-dispatched",
-  "checkpoint": "F1-dropped-by-human-D8-F3-done-by-bookkeeper-F2-dispatched",
+  "phase": "review-1-r2-dispatched",
+  "checkpoint": "task1c-verified-by-mutation-test-delivery-resealed-at-7cadb88",
   "base_sha": "ac8d493a903051394fc9fda3ca467590a6e2f837",
-  "delivery_sha": "851dd088183037564b0e0afb5ffe1347ce3665a0",
-  "ledger_sha": "e64196b0c62acac299fa4bcc66a554ad9bc0fec7",
+  "delivery_sha": "7cadb88da501cc024a8f15fd5de067ee80679c07",
+  "ledger_sha": "e8650117810a88c9733235205cced025ec769bdf",
   "current_task": {
-    "id": "task1c-f2-settlement-visibility",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/44-f2-repair-glm.dispatch.md"
+    "id": "review1r2-task1c-grok45",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/50-review-1-r2-grok45.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
