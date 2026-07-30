@@ -1,22 +1,26 @@
 {
   "schema_version": "2",
-  "revision": 12,
+  "revision": 13,
   "stage_id": "2026-07-unknown-not-zero-v1",
   "bookkeeper": "opus5",
-  "phase": "review-2-r2-dispatched",
-  "checkpoint": "review-1-r2-ACCEPT-verified-final-gate-dispatched",
+  "phase": "exhaustive-audit-dispatched-after-review-2-REWORK",
+  "checkpoint": "review-2-r2-REWORK-verified-family-not-closed-audit-before-repair",
   "base_sha": "ac8d493a903051394fc9fda3ca467590a6e2f837",
   "delivery_sha": "7cadb88da501cc024a8f15fd5de067ee80679c07",
-  "ledger_sha": "292907b54c5e60ef7149c369c7e293d7be48ae56",
+  "ledger_sha": "406d83aee7f180adbba4f8307d172b4578f88ce7",
   "current_task": {
-    "id": "review2r2-task1-codex",
+    "id": "audit-discarded-failures-codex",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/60-review-2-r2-codex.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/70-exception-swallow-audit-codex.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-task"
   },
-  "rework_count": 1,
-  "blockers": []
+  "rework_count": 2,
+  "blockers": [
+    "Review-2 r2 P1 CONFIRMED: service.py:1723/1736/1758/1780 discard failures of mark_attempt_rate_limited, resolve_attempt (x2) and mark_leg_querying. All four are AFTER the POST, so a real order can exist with no recorded conclusion and nothing operator-visible.",
+    "The family is not enumerated. A full sweep finds 13 such sites in service.py plus 1 in store.py, in three shapes (pass / continue / nested); at least four are classified by nobody. The Bookkeeper's earlier 'exhaustive' claim of 3 sites came from a grep truncated by | head and was false - recorded in 61-review-2-r2-codex-result.md.",
+    "No repair is dispatched until the audit returns a closed classified list. Repair scope (this stage or its own) is then a Human decision. rework_count is 2 of 3."
+  ]
 }
