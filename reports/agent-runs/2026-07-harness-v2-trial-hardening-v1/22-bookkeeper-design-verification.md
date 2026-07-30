@@ -1499,3 +1499,95 @@ review-1 + review-2。Human 以"授权你直接改动"跳过两道评审，形�
 
 小副作用：这阵子新名字会排在旧名字前面（数字排在字母前），列表看着分两坨，等旧目录清理
 掉就好了。
+
+---
+
+## 24. 两个孤儿登记处：标注 + 全量审计（追加于 2026-07-31）
+
+本章为**追加**内容，上文 §0–§23 一字未改。同属阶段关闭后由 Human 直接授权的快修
+（第三次使用该形态，见 §22、§23）。
+
+### 24.1 起因
+
+Human 追问"这个登记处还有没有别的地方有同样功能"。**第一次回答答窄了**——只搜了活跃
+契约，结论"没有重复"在那个范围内成立，但全仓库扫描后发现两个契约外的遗留登记处。此处
+如实记录该更正。
+
+### 24.2 引用关系实测
+
+| 文件 | 活跃契约引用 | canonical 文档引用 | 其他 |
+|---|---|---|---|
+| `reports/agent-runs/STAGE_INDEX.md` | **0** | `DECISIONS.md` **2 行**（其一 `DEC-2026-07-31-002` 是本会话今日新增，把它列为"改名会打断的引用"，事实成立） | 3 个已归档 stage 的证据 |
+| `reports/follow-ups/README.md` | **0** | **0**（`docs/README.md`、`ROADMAP.md`、`DECISIONS.md` 均未列） | 3 个已归档 stage + **本目录内 5 份兄弟文件**（自引用闭环） |
+| `docs/README.md` | 0 | — | **判定正常**：它是 `docs/` 的目录索引，作用是往外指（PRD/ARCHITECTURE/ADR/DEVELOPMENT_GUIDE/ROADMAP），不声称管待办，无需契约点名 |
+
+`STAGE_INDEX.md` 过时程度实测：自称日期 `2026-07-14`，索引 **19** 个 stage，实际
+**43** 个，漏登 **24 个（56%）**。其头部"记账人应当更新本索引"的义务**只存在于它自己
+身上**——`AGENTS.md` 全文 0 处提及它（当年 Fable5 已查过同一事实）。
+
+### 24.3 背景：这次漂移不是没人发现，是排期到"以后"而以后没来
+
+`2026-07-docs-truth-sync-v1` 整个 stage 就是在修这几个导航文件的漂移，其收尾记录写着：
+
+> 延后 Stage B（生成化）：P0-5、P1-7(STAGE_INDEX/ROADMAP)、P1-13(manifest)
+> `status.json`: STAGE_INDEX/ROADMAP registration **deferred to Stage B generation**
+
+当时方案是"让 `STAGE_INDEX` 从 `status.json` 自动生成"，方向正确，但被延后；随后 v2
+重建删掉了整套机制，这件事再无人接手。
+
+### 24.4 `reports/follow-ups/` 全量审计（11 份内容文件，逐条核验）
+
+| 文件 | 判定 | 核验依据 |
+|---|---|---|
+| `2026-07-borrowability-51061-zero-mapping.md` | **已解决** | 修复提交 `c880a554…` 实测存在 |
+| `2026-07-ui-filter-balance-metal-v1-residuals.md` — **R1** | **已解决** | 实测 `backend/services/snapshot_service.py:1181,1194` 现用 `{CRYPTO, METAL}`，不再是 `CRYPTO-only` |
+| 同上 — **R2** | **仍然开着** | 币安公开接口无金属现货腿，METAL 借币候选路径仅合成 fixture 覆盖，需 live sample。**外部依赖，无代码可改** |
+| 同上 — **R3** | 忽略 | 报告产物行尾空格，原处置即为忽略 |
+| `2026-07-auto-review-pipeline-design-note.md` | **已退役** | `DEC-2026-07-14-002`；`docs/auto-review-pipeline.md` 与 `scripts/auto-review-runner.py` 已删 |
+| `2026-07-auto-review-pipeline-review-fable5.md` | **已退役** | 同上 |
+| `2026-07-post-main-docs-hygiene-and-semantic-conflicts.md` | **已执行完** | 文件自带 banner：2026-07-12 已按 Grok cross-review 的 Batch A1/A2/B 落地 |
+| `…-codex-semantic-sync-plan.md` | 同上（交叉评审材料） | 同上 |
+| `…-glm52-counterproposal.md` | 同上 | 同上 |
+| `…-grok-cross-review.md` | 同上（被采纳的那份） | 同上 |
+| `2026-07-docs-sync-method-opus4.8.md` | **已被 v2 取代** | v1 时期的文档同步方法论 |
+| `2026-07-harness-known-issues-registry.md`（K1–K7） | **整份失效** | 全部依赖 v2 已删除的机制：`validate-stage.py` 的 fixture / `known_red` / `assertion_id` 白名单 / `coverage_waypoints[]` / `ALLOWED_STATUSES` / 指纹。其自述"规范落点"为 `docs/harness-design.md`——**该文件已在 v2 合并中删除** |
+| `2026-07-harness-mechanical-gates.md` | **整份失效** | 五项均建立在 `stage-delivery.yaml` 的 `skill:` 字段与 auto-runner 之上，两者均已删除 |
+
+**结论：11 份文件里只有一条真正开着，即 `R2`。**
+
+一处值得记下的呼应：`2026-07-harness-mechanical-gates.md` 的主题句是"**凡靠 prompt／
+人纪律的边界必漂移，凡机械校验的边界才稳**"——这与本阶段 `G1`/`G14` 的判断完全同型，
+只是那份文件所提的机械门连同 v1 机制一起被删了，而 `G1`/`G14` 的机制按 Human 决定 1、11
+知情接受不加。两者一并作为历史留档。
+
+### 24.5 已执行的改动（a 部分）
+
+在两个孤儿文件**头部各加一段横幅**，注明已停止维护、零活跃引用、当前唯一待办登记处是
+`PROJECT_STATE.md`，并写明保留理由（`STAGE_INDEX` 的 19 个 stage 名被归档标签与
+`DECISIONS.md` 引用，不得据以判断当前状态、不得重命名）。
+
+**未做**：未删除任何文件、未改写两个文件的正文内容、未搬动 `reports/follow-ups/` 中的
+任何条目、未修改 `PROJECT_STATE.md`（`R2` 是否入板留给 Human 决定）、未推 `origin`。
+
+### 24.6 给 Human 的中文小结
+
+两件都做完了。
+
+**a（贴标签）**：两个孤儿文件头上各加了一段醒目提示——已停止维护、只作历史参考、当前
+唯一的待办登记处是 `PROJECT_STATE.md`。正文一个字没删，因为 `STAGE_INDEX` 里那 19 个
+阶段名还被归档标签和决策档案引用着。
+
+**b（扫一遍）**：`reports/follow-ups/` 11 份文件全查了，**只有一条还真开着**：
+
+> **R2** —— 币安公开接口至今没有金属（XAU/XAG/铜等）的现货腿，所以"金属 + 负费率进入
+> 借币候选"这条路只有假数据覆盖过，没有真实样本。**这是外部依赖，我们没代码可改**，
+> 只能等接口出现。
+
+其余全是：已经修好的（两条，我实测确认过代码）、已经退役的（自动评审流水线）、已经做
+完的（7-12 那批文档整理）、以及**随 v1 一起作废的**——最后这类挺讽刺：那份"Harness 已知
+问题台账"的 K1 到 K7，全都建立在 v2 已经删掉的校验器和模板上，连它自己声明的"规范落点"
+`docs/harness-design.md` 都不存在了。**一份关于问题的清单，自己先变成了问题。**
+
+**要不要把 R2 记进状态板，您定。** 我倾向记——它是唯一真开着的，而且现在状态板有 6 KB
+余量，一行的事。但按您"等真实问题触发"的原则，不记也说得通：它挂在外部接口上，币安不
+出金属现货腿，它就永远不会触发。

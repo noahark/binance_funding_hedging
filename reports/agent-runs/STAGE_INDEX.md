@@ -1,6 +1,17 @@
 # Stage Index
 
-Status: as-built index, 2026-07-14
+> **【已停止维护 2026-07-31，仅作历史参考】**
+> 本索引停在 `2026-07-14`：43 个 stage 目录中只登记了 19 个，漏登 24 个（56%）。
+> 活跃契约（`AGENTS.md`、`agents/**`、`PROJECT_STATE.md`）对本文件**零引用**。
+> 下面那句"记账人应当更新本索引"的义务**只存在于本文件自身**，从未进入任何契约。
+> - 阶段真值：各 stage 的 `status.json` 与 git 历史；
+> - 唯一的跨阶段待办登记处：`PROJECT_STATE.md`；
+> - 最近完成的阶段：见 `PROJECT_STATE.md` 的 `Last Completed`。
+>
+> 保留本文件，是因为其中 19 个 stage 名被归档标签与 `docs/planning/DECISIONS.md`
+> 引用；**不要**据此判断当前状态，也不要重命名其中的 stage。
+
+Status: as-built index, 2026-07-14（已过时，见上方横幅）
 
 This human-readable index summarizes `reports/agent-runs/*/status.json`. The
 stage `status.json` files remain authoritative. The bookkeeper should update

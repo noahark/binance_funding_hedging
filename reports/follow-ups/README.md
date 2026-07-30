@@ -1,5 +1,26 @@
 # Follow-Up Index
 
+> **【已停止维护 2026-07-31，仅作历史参考】**
+> 本目录与本索引是 Harness v1 时期的 follow-up 登记处。活跃契约
+> （`AGENTS.md`、`agents/**`、`PROJECT_STATE.md`）与 canonical 文档（`docs/**`）
+> 对本文件**零引用**——只有已归档的 stage 证据和本目录内的兄弟文件在指它。
+>
+> **当前唯一的跨阶段待办登记处是 `PROJECT_STATE.md`。**
+>
+> 2026-07-31 全量审计结论（逐条核验记录见归档
+> `archive/2026-07-harness-v2-trial-hardening-v1` 文件 `22-` §24）：
+> - 本目录 11 份内容文件中，**只有一条仍然真正开着**——
+>   `2026-07-ui-filter-balance-metal-v1-residuals.md` 的 **R2**：币安公开接口尚无
+>   金属现货腿，METAL 借币候选路径只有合成 fixture 覆盖，需等 live sample。
+>   属外部依赖，无代码可改。
+> - 其余均为**已解决**（51061 映射；R1 注释漂移已实测修复，
+>   `snapshot_service.py` 现用 `{CRYPTO, METAL}`）、**已退役**
+>   （auto-review-pipeline，DEC-2026-07-14-002）、**已执行完**（docs-hygiene
+>   Batch A1/A2/B，2026-07-12）、或**随 v1 机制一并失效**
+>   （`2026-07-harness-known-issues-registry.md` 的 K1–K7 与
+>   `2026-07-harness-mechanical-gates.md` 全部建立在 v2 已删除的
+>   `validate-stage.py` / `stage-delivery.yaml` / `docs/harness-design.md` 之上）。
+
 The source follow-up files remain authoritative. This index records whether an
 item is resolved or remains open without rewriting the original follow-up
 evidence.
