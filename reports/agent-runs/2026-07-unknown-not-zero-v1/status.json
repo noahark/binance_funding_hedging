@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 16,
+  "revision": 17,
   "stage_id": "2026-07-unknown-not-zero-v1",
   "bookkeeper": "opus5",
-  "phase": "review-1-r3-dispatched",
-  "checkpoint": "task1d-verified-five-sites-delivery-resealed-at-7bd2bce",
+  "phase": "review-2-r3-dispatched-final-gate",
+  "checkpoint": "review-1-r3-ACCEPT-verified-two-site-mutation-evidence",
   "base_sha": "ac8d493a903051394fc9fda3ca467590a6e2f837",
   "delivery_sha": "7bd2bcef7882a642f8bee64192770da924b7e5c6",
-  "ledger_sha": "9939b0ca40af44592033672214a1f77167fccfc9",
+  "ledger_sha": "cf4a0407c6002928422859b8c4ee6d2216268c27",
   "current_task": {
-    "id": "review1r3-task1d-grok45",
+    "id": "review2r3-task1-codex",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/80-review-1-r3-grok45.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/90-review-2-r3-codex.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
