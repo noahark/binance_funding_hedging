@@ -357,3 +357,86 @@ findings 文档开启 Harness 阶段或撰写 Harness 计划"，按契约它应�
 必读的。我如果现在把独立评审派出去，那个评审模型一开机读到这句话，按规矩就该停下来。
 所以我停在这里，没有准备评审启动包。需要您给两句话：一是那条禁令怎么改（本阶段已获授权
 继续、设计已完成），二是这次独立评审用哪家模型。
+
+---
+
+## 10. D-9 收口与 review-1 派工（追加于 2026-07-30）
+
+本章为**追加**内容，上文 §0–§9 一字未改。**本文件（§8 决定原文、§8.2 逐条处置、
+本章授权记录）是这十条 Human 设计决定的唯一详细记录**；按 Human 决定第 4 条，不复制
+到 `docs/planning/DECISIONS.md`，也不新建 `decisions.md`。
+
+### 10.1 Human 最终决定（原文登记）
+
+1. D-9 不再禁止已获 Human 认可的本 stage 进行独立计划评审。
+2. 该放行只适用于 `2026-07-harness-v2-trial-hardening-v1`；未获 Human 认可的、临时从
+   findings 自行扩展的 Harness 计划仍禁止。
+3. 独立计划评审通过且 Human 再次授权前，不得进入实现。
+4. 十条 Human 设计决定的唯一详细记录是本 stage 既有 `22-bookkeeper-design-verification.md`；
+   不得复制到 `DECISIONS.md`。
+5. findings 文档只能追加简短 Human 更新，并指向 `22`；不得改写原始 D-9 内容。
+6. `PROJECT_STATE.md` 是当前状态，应将旧的全面暂停令更新为本 stage 可进入独立计划
+   评审、实施仍关闭的当前事实。
+7. review-1 指定 Grok 4.5（provider: `xai`）。
+8. review-2 将由 Fable5 执行，但只能在 review-1 `ACCEPT` 后另行派包。Fable5 与本设计
+   作者 Opus5 同属 `anthropic` provider；届时必须在 review-2 包中披露这是 Human 明确
+   选择，且其不替代 Grok 的跨 provider 独立初审。
+
+### 10.2 已执行的文档收口
+
+| 文件 | 改动 | 依据 |
+|---|---|---|
+| `PROJECT_STATE.md` | `[HUMAN-OWNED]` 条目由"任何模型不得从 findings 文档开启 Harness 阶段或计划"改为当前事实：本 stage 已获认可、正在独立计划评审、实施须待 `ACCEPT` 与 Human 再授权；其他模型仍不得从该文档撰写计划 | 决定 1、2、3、6 |
+| `docs/planning/harness-v2-trial-findings-2026-07-30.md` | 在 D-9 段之后**追加**一段 Human update，明示"上文原文保留未改"，并指向本文件 §8 / §8.2 / §10 | 决定 5 |
+| 本文件 | 追加本 §10 | 决定 4 |
+
+`PROJECT_STATE.md` 收口后实测 2,044 字节（预算 2,048，余量 4 字节）。这正是设计 `G6`
+描述的窘境：预算合理但没有淘汰规则，下一条新增事实将无处安放。此处如实记录，不越权
+淘汰他人条目。
+
+### 10.3 固定计划评审范围
+
+- `base_sha`: `0bea9c084b8209b19113b169eaf152ab33455884`（`main` 整合提交，维持不变）
+- `delivery_sha`: 本次 D-9 收口提交（见 §10.5）
+
+**须向评审者明示的一点**：受审设计 `20-opus5-design.md` 由更早的提交 `128e564` 引入，
+它是 `0bea9c0` 的祖先，因此**不在** `base_sha..delivery_sha` 区间内。该固定区间承载的是
+D-9 收口的三处文档改动。计划评审的对象是设计文档本身，故 review-1 包要求评审者按
+`delivery_sha` 那一刻的树读取 `20-opus5-design.md`（内容 blob `3f26dd5`），使读取仍然
+确定、可复现。此事实写入 review-1 包的 `Inputs`，不隐去。
+
+### 10.4 review-1 派工
+
+- 模型: Grok 4.5，provider `xai`，角色 `Reviewer`，技能 `agents/skills/code-reviewer.md`
+- 包路径: `reports/agent-runs/2026-07-harness-v2-trial-hardening-v1/40-grok45-plan-review-1.dispatch.md`
+- provider 隔离核验: 设计作者为 Opus 5（`anthropic`），评审者为 `xai`，跨 provider 成立；
+  Grok 未参与本设计的撰写或本阶段的记账。
+- **未准备 Fable5 review-2 包**，按决定 8，仅在 Grok 返回 `ACCEPT` 后由 Bookkeeper 另行准备。
+
+### 10.5 `status.json` 本轮变更（revision 5 → 6）
+
+| 字段 | 前 | 后 |
+|---|---|---|
+| `revision` | 5 | 6 |
+| `phase` | `design` | `plan-review` |
+| `checkpoint` | `main-integrated-findings-reconciled-d9-hold-surfaced` | `d9-released-for-this-stage-plan-review-1-dispatched` |
+| `delivery_sha` | `null` | D-9 收口提交 SHA |
+| `current_task` | 设计任务 / `verified` | `harness-v2-trial-hardening-plan-review-1-grok45` / `dispatched` / `40-grok45-plan-review-1.dispatch.md` |
+| `next.action` | `human-resolve-d9-hold-and-select-plan-review-model` | `start-prepared-grok45-plan-review-1` |
+| `blockers` | 两项 | 一项：实施闸门关闭，须 review-1 `ACCEPT` 且 Human 再授权 |
+
+保持不变：`schema_version`、`stage_id`、`bookkeeper`（`opus5`）、`base_sha`、
+`rework_count`（`0`）。顶层字段仍为 13 个。`ledger_sha` 更新为 D-9 收口提交，即本次
+状态更新之前最后一个已提交基线，仍不自指。
+
+### 10.6 给 Human 的中文小结
+
+三处文档都按您的说法改好了：主状态文件里那条"全面停"换成了现在的事实——本阶段已获
+认可、正在做独立评审、实施仍然关着；findings 文档只在 D-9 那段后面**加**了一段说明，
+原文一个字没动；十条决定仍然只存在于这份核验记录里，没有抄进决策文档。
+
+Grok 4.5 的评审启动包已经备好，等您启动终端。Fable5 的复审包我没有准备，按您的说法要
+等 Grok 给出通过之后再单独备。
+
+提醒一件小事：主状态文件现在是 2,044 字节，离 2,048 的上限只剩 4 字节。下次再有新事实
+要记，就必须先淘汰一条旧的——这正是设计里 `G6` 说的那个问题，目前还没有淘汰规则。

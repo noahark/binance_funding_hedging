@@ -26,10 +26,10 @@ check.
   in `git show 3113a5d:` and `git show 7180f61:`.
 - `[OPEN][HARNESS-HYGIENE]` ~39 completed stage dirs still in `reports/agent-runs/`,
   against AGENTS.md §9.5.
-- `[HUMAN-OWNED]` The 19 Harness v2 findings are being fixed by Human with Codex on
-  a separate branch. **No model may open a Harness stage or plan from
-  `docs/planning/harness-v2-trial-findings-2026-07-30.md`**, incl. the withdrawn
-  `task2-same-family-rework-rule`.
+- `[HUMAN-OWNED]` The 19 v2 findings belong to approved stage
+  `2026-07-harness-v2-trial-hardening-v1`, now in independent plan review;
+  implementation waits for that ACCEPT plus Human re-authorization. No other
+  model may plan from `harness-v2-trial-findings-2026-07-30.md`.
 
 ## Next Priority
 

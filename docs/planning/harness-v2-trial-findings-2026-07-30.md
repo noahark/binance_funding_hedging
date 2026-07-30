@@ -11,6 +11,18 @@ includes `task2-same-family-rework-rule` (G12), which was withdrawn from stage
 `2026-07-unknown-not-zero-v1` into this batch under D-7 and is therefore held too.
 This list is not a backlog. Record the vetting outcome per finding in this file.
 
+**Human update to D-9, 2026-07-30.** The text above is preserved unchanged; this
+paragraph is appended, not a rewrite. Human has released the hold for the approved
+stage `2026-07-harness-v2-trial-hardening-v1` only: that stage may take its design
+to an independent plan review. Implementation stays closed until that review
+returns `ACCEPT` and Human re-authorizes. The hold still applies to any other
+Harness plan expanded from this document without Human approval, including
+`task2-same-family-rework-rule` (G12). The single detailed record of Human's ten
+design decisions and of the per-finding disposition is
+`reports/agent-runs/2026-07-harness-v2-trial-hardening-v1/22-bookkeeper-design-verification.md`
+(§8 for the decisions, §8.2 for the per-finding disposition, §10 for this release);
+it is deliberately not copied into `docs/planning/DECISIONS.md`.
+
 Baseline: v2 merged to `main` at `ac8d493`; v1 baseline for comparison is
 `7180f61`. The v2 merge removed 9,269 lines and added 2,382 — including
 `scripts/validate-stage.py` (2,414 lines) and
