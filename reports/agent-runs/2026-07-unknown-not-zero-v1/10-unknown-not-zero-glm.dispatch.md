@@ -6,9 +6,14 @@ Identity:
   target_role:     Implementer
   target_model:    claude_glm
   provider:        zhipu_glm
-  status_revision: 1
+  status_revision: 4
   required_skill:  agents/skills/senior-developer.md
 ```
+
+Revised 2026-07-30 after the plan review (`07-plan-review-verdict.md`) returned
+`REWORK` on the first version of this packet: D5 rewritten as an executable rule,
+D6 corrected to M2-only, D7 added. This is a pre-dispatch packet correction, not a
+repair round — `rework_count` stays 0 and your full budget is intact.
 
 ## Goal
 
@@ -49,23 +54,90 @@ in `store.py`, and call the domain function. Constraints:
 - If the adapter cannot be written without changing `domain.build_leg_exposure`'s
   contract, stop and report a blocker. Do not change the domain contract.
 
-**D5 — tripwire.** Add a static guard to `backend/tests/test_hedge_purity.py`,
-in the style of that file's existing import and allowlist guards: within
-`backend/hedge_open_tasks/**`, no money figure (a target or dict key named
-`price`, `avg_price`, `notional`, `quote`, `cumulative_quote*`) may be produced by
-a zero-defaulting construct (`_num(`, `or "0"`, `, "0")`). Provide an inline
-allow-list marker for a justified exception so exceptions are visible in review.
-Demonstrate the guard fails on a deliberately reintroduced coercion, then revert
-the probe; report both results.
+**D5 — tripwire.** Add a static guard to `backend/tests/test_hedge_purity.py`, in
+the style of that file's existing import and allowlist guards. The first version
+of this deliverable was prose and the plan review rejected it as under-specified;
+S4 (D7) proved a SQL literal escapes it. Build it to this exact shape:
+
+1. **Structure.** A pure function, e.g. `find_money_zero_defaults(source, path)`,
+   returning `(line_number, matched_text, reason)` tuples. Tests call it over both
+   real repository files and synthetic snippets, so it must be callable — do not
+   inline it in one test body.
+2. **Scope.** Every `.py` file under `backend/hedge_open_tasks/`, plus
+   `backend/services/live_hedge_executor.py`. That second path is r4's layer and
+   was wrongly excluded before.
+3. **Money identifiers.** `price`, `avg_price`, `notional`, `quote`,
+   `cumulative_quote_amt`, `cumulative_quote`, and any name ending `_notional`,
+   `_avg_price`, or `_quote`. Quantity names are explicitly **not** money:
+   `filled_qty`, `cumulative_base_qty`, `base_qty`, `executed_qty`, `qty`.
+4. **Two detections.**
+   - *Python*: a money identifier assigned from, or a dict entry keyed by a money
+     identifier whose value contains, `_num(`, `_decimal_str(` without an explicit
+     `default=None`, `or "0"`, `or '0'`, or `.get(…, "0")` / `.get(…, '0')`.
+   - *SQL*: inside a string containing `INSERT INTO` or `UPDATE`, a `'0'` literal
+     positionally corresponding to a money column named in that statement's column
+     list. If positional mapping proves unreliable across this repository's
+     statements, fall back to the deliberately blunt rule "a money column name
+     appears in the column list of an `INSERT`/`UPDATE` whose values contain a
+     `'0'` literal" and allow-list the justified cases. A blunt rule with visible
+     exceptions is acceptable; a rule that misses S4 is not.
+5. **Allow-list.** Exactly one format: a trailing same-line comment
+   `# money-zero-ok: <reason>`. The guard must also assert that every marker in
+   the tree still sits on a line its own detector flags, so a marker cannot
+   survive as a blanket exemption after the code beneath it moves.
+6. **Meta-tests — three, permanent, not a manual probe.** Feed the function
+   synthetic sources and assert it flags: (a) a Python coercion into `avg_price`;
+   (b) a SQL `INSERT` seeding a money column with `'0'`; (c) a construct in
+   `backend/services/live_hedge_executor.py`'s scope. Also assert it does **not**
+   flag a quantity default or an allow-listed line.
+
+State in your report which historical rounds this guard would have caught. Do not
+claim it catches r5 (the migration that over-nulled a real `'0'`) — no static
+pattern can, and that inflated claim is the kind of thing this stage exists to
+remove.
 
 **D6 — implicit-migration guard.** `HedgeOpenStore.__init__` (`store.py:299-311`)
-calls `_migrate()`, which performs additive DDL **and** two row-mutating repairs
-(M1 `'0'→NULL`, M2 `1970→real ts`, around `store.py:400-460`). On 2026-07-28 that
-rewrote two rows in the production database with no caller intending it. Separate
-the row-mutating repairs from construction: DDL stays automatic, the repairs run
-only under an explicit keyword argument defaulting to off. No production caller
-passes it — M1/M2 have already been applied. Add a test proving a repairable row
-survives a default construction unchanged. Do not gate the DDL.
+calls `_migrate()`, which performs additive DDL **and** one row-mutating repair.
+On 2026-07-28 that rewrote two rows in the production database with no caller
+intending it.
+
+⚠️ **Corrected fact — read before touching the migration.** Only **M2** exists:
+the `leg_exposure.ts` `1970 → real timestamp` UPDATE at `store.py:472-478`. **M1
+was deleted deliberately at commit `95ac1a5`** during the previous stage. An
+earlier version of this packet said "M1/M2"; that was a Planner error. **Do not
+recreate, restore, or reimplement M1 under any reading of this deliverable.** If
+you believe a deliverable requires M1, that is a blocker.
+
+Move M2's row UPDATE behind an explicit keyword argument defaulting to off. DDL
+stays automatic and ungated. No production caller passes the flag — M2 has already
+been applied. Add a test proving a repairable row survives a default construction
+unchanged.
+
+Accuracy requirement for your report: D6 buys "no semantic row rewrite on default
+construction". It does **not** buy "never writes the database file" — additive DDL
+still writes. The `hedge_open_leg` rebuild at `store.py:379-420` is separately
+guarded by a `PRAGMA table_info` probe (`store.py:367-378`) and no-ops on an
+already-migrated database; leave that guard exactly as it is.
+
+**D7 — S4, the seeded zero (found by the plan review).** `prepare_attempt` inserts
+both PREPARED legs with the SQL literal `cumulative_quote_amt = '0'`
+(`store.py:748` and `:765`) — a figure the system authors for itself before any
+exchange contact. Change both to `NULL`. The column is already nullable
+(`store.py:92`); no migration is involved.
+
+Why this matters, so you size it correctly: the dispatch-state update at
+`store.py:1155` never touches either figure column, so a leg that has been sent,
+holds a real `order_id`, and sits at `exchange_status = NEW` keeps that
+self-authored zero — and `list_attempts_page` projects in-flight legs to the UI on
+purpose (`store.py:1366-1372`).
+
+Do **not** change `cumulative_base_qty`'s `'0'` seed. That column is
+`TEXT NOT NULL DEFAULT '0'` (`store.py:91`); changing it needs a live-table schema
+rebuild and Human ruled it out of this stage (`00-plan.md` §3).
+
+Expect existing tests to assert the old `'0'`. Update those assertions — but if one
+encodes a product rule rather than an incidental value, stop and report it instead
+of rewriting the rule.
 
 ## Allowed Files
 
@@ -105,7 +177,8 @@ alone are 98 KB and would blow the task budget):
 | `reports/agent-runs/2026-07-unknown-not-zero-v1/00-plan.md` | whole (9 KB) | Highest authority for this task. §4 is the closed site list, §3 the non-goals |
 | `agents/developer-discipline.md` | whole (3.6 KB) | Required |
 | `agents/skills/senior-developer.md` | whole (11 KB) | The one named skill |
-| `backend/hedge_open_tasks/store.py` | `285-300`, `790-830`, `1300-1350`, `1580-1620`, `1880-1980`, `299-315`, `395-465` | The sites |
+| `reports/agent-runs/2026-07-unknown-not-zero-v1/07-plan-review-verdict.md` | whole | Why D5/D6/D7 read as they do, and what must not be weakened |
+| `backend/hedge_open_tasks/store.py` | `285-300`, `299-315`, `360-420`, `465-485`, `735-780`, `790-830`, `1080-1100`, `1145-1165`, `1300-1350`, `1525-1550`, `1580-1620`, `1880-1980` | The sites. `735-780` is D7, `1145-1165` is the update path that never overwrites the figures, `360-420`/`465-485` is D6 |
 | `backend/hedge_open_tasks/domain.py` | `1017-1053` | `build_leg_exposure` only |
 | `backend/tests/test_hedge_purity.py` | whole (6.4 KB) | The guard style to mirror |
 | `backend/tests/test_hedge_store.py` | search-only, do not read whole | Find the existing temp-SQLite fixtures and reuse them |
@@ -126,17 +199,26 @@ Pass conditions:
 
 1. Both commands green. The full-suite baseline is 1071 passed; a lower total is
    a blocker, a higher total is expected from the new tests.
-2. Per-site regressions exist and are deterministic (temp SQLite, no clock or
-   network dependence): D1 covers `NULL` quote → `price is None` **and** real
-   `"0"` → zero price; D2 covers `NULL avg_price` → notional excluded plus
-   incomplete flag set, **and** real `"0"`/real price unaffected; D6 covers the
-   untouched repairable row.
+2. Per-site regressions exist, deterministic (temp SQLite, no clock or network
+   dependence), and **paired** — one case for the missing figure and one for a
+   real exchange `'0'`, at every site. The pairing is what covers the one defect
+   category D5's static guard cannot reach:
+   - D1: `NULL` quote → `price is None`; real `"0"` → zero price.
+   - D2: `NULL avg_price` → notional excluded and the incomplete flag set; real
+     `"0"` and a real price unaffected.
+   - D7: a freshly prepared leg has `cumulative_quote_amt is None`; and an
+     in-flight leg — dispatched, real `order_id`, `exchange_status = NEW`, not yet
+     resolved — still reports an unknown notional rather than zero, through
+     whatever projection the API layer uses.
+   - D6: the repairable row is untouched by a default construction.
 3. `grep -n "_num(" backend/hedge_open_tasks/store.py` output appears in your
    report with a one-line classification per remaining caller (money vs
    quantity/comparison). Any money caller left must be justified.
-4. The D5 probe result is reported: the guard failed on the reintroduced
-   coercion, and the probe is reverted.
+4. The three D5 meta-tests are present and named in your report, with the
+   statement of which historical rounds the guard covers and which it cannot.
 5. `git status --short` shows no file outside Allowed Files.
+6. Your report states plainly that D6 prevents semantic row rewriting and does
+   not prevent all writes.
 
 ## Stop
 

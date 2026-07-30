@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 4,
   "stage_id": "2026-07-unknown-not-zero-v1",
   "bookkeeper": "opus5",
-  "phase": "task0-plan-review-dispatched",
-  "checkpoint": "plan-review-requested-by-human-before-implementation",
+  "phase": "task1-dispatched-after-plan-revision",
+  "checkpoint": "task0-plan-review-verified-REWORK-plan-and-packet-revised",
   "base_sha": "ac8d493a903051394fc9fda3ca467590a6e2f837",
   "delivery_sha": null,
-  "ledger_sha": "2c777013875b67cbb3eb9913c05c7a6c01e20794",
+  "ledger_sha": "4cdc01b0433e708ade957cef43d0c7aefbefc362",
   "current_task": {
-    "id": "task0-plan-review",
+    "id": "task1-unknown-not-zero",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/05-plan-review-codex.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/10-unknown-not-zero-glm.dispatch.md"
   },
   "next": {
     "actor": "human_operator",

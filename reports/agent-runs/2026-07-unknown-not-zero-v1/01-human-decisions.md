@@ -47,10 +47,27 @@ less independent review-2 candidate. Recommended final routing:
 
 Provider isolation from the implementer holds for every reviewer listed.
 
-## D-4 Planner skill compliance — deviation, disclosed
+## D-5 Unknown quantity stays out of scope — 2026-07-30
 
-`roles.md:47-50` requires the Planner to select at most one skill. `00-plan.md`
-was produced without loading one. Both candidates were read afterwards:
+The plan review (J2) escalated to Human whether unknown **quantity** joins the
+stage. Human was given the decisive fact — `cumulative_quote_amt` is nullable so
+the amount fix costs two SQL literals, while `cumulative_base_qty` is
+`TEXT NOT NULL DEFAULT '0'` so the quantity fix costs a live-table rebuild — and
+decided: **amount only, quantity out, no follow-up filed**. Rationale recorded in
+`00-plan.md` §3. Reopening it needs a new Human decision, not an implementer's or
+a reviewer's judgement.
+
+## D-4 Planner skill: zero skills, a compliant choice — corrected 2026-07-30
+
+**Correction.** The first version of this entry called the missing skill a rule
+violation. It is not. `roles.md:21-25` — "Planner and Reviewer follow zero or one
+as their own section states" — and `roles.md:47` — "Select **at most** one skill"
+— both permit zero. The plan review (J7) caught the over-declaration and it is
+withdrawn. What remains true and is not withdrawn: the plan was checked against
+`software-architect.md` **after** it was written, not before.
+
+`00-plan.md` was produced without loading a skill. Both candidates were read
+afterwards:
 
 - `agents/skills/task-planner.md` — vendored web-agency PM role. Its concrete
   guidance is Laravel/Livewire/FluxUI, `ai/memory-bank/site-setup.md` paths,
@@ -65,8 +82,15 @@ was produced without loading one. Both candidates were read afterwards:
   would have caught is now fixed by the D4 blocker rule in the dispatch
   (do not change the domain contract; report a blocker instead).
 
-Recorded as a real deviation, not waived. Its practical effect on this plan is
-assessed as nil, and the plan-review packet asks Codex to test that claim rather
-than take it. The underlying v2 issue — a named planning skill that is mostly
-non-applicable vendored boilerplate, which makes "read one skill" a compliance
-ritual — is recorded in `00-plan.md` §9 as a trial observation.
+The plan review was asked to test the "practical effect is nil" claim rather than
+take it, and largely upheld it: the review found no plan defect traceable to the
+missing skill. Its four substantive findings (S4, D5's looseness, the M1 error,
+the quantity scope question) are all evidence-and-code errors, not
+design-methodology errors — which is worth knowing, because it says the missing
+skill was not the hole. **The hole was verifying claims about the code from
+previous stage documents instead of from the code**, and no skill would have
+fixed that.
+
+The underlying v2 issue — a named planning skill that is mostly non-applicable
+vendored boilerplate, which makes "read one skill" a compliance ritual — is
+recorded in `00-plan.md` §9 as a trial observation.
