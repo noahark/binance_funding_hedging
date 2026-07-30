@@ -10,7 +10,7 @@
   "ledger_sha": "e64196b0c62acac299fa4bcc66a554ad9bc0fec7",
   "current_task": {
     "id": "task1c-f2-settlement-visibility",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-unknown-not-zero-v1/44-f2-repair-glm.dispatch.md"
   },
   "next": {
