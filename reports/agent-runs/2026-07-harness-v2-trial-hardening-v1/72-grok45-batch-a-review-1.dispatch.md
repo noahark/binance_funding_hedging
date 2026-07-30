@@ -1,23 +1,30 @@
-# Harness v2 Trial Hardening — 批次 A review-1 (Kimi)
+# Harness v2 Trial Hardening — 批次 A review-1 (Grok 4.5)
 
-> **【已作废 2026-07-31】** 本包从未被启动。Kimi 配额不可用（Human 于 2026-07-31 报告），
-> 按 `agents/roles.md:134` 回退至 Grok 4.5（`xai`），不需要新豁免。
-> 有效包为 `72-grok45-batch-a-review-1.dispatch.md`。**不要启动本包。**
+本包**取代** `70-kimi-review-1.dispatch.md`（Kimi 配额不可用，Human 于 2026-07-31 报告；
+按 `agents/roles.md:134` 属既有回退，不需要新豁免）。`70-` 从未被启动。
 
 ## Identity
 
-- task_id: `harness-v2-trial-hardening-batch-a-review-1-kimi`
+- task_id: `harness-v2-trial-hardening-batch-a-review-1-grok45`
 - target_role: `Reviewer`
-- target_model: `kimi`
-- provider: `moonshot`
-- status_revision: `13`
+- target_model: `grok-4.5`
+- provider: `xai`
+- status_revision: `14`
 - required_skill: `agents/skills/code-reviewer.md`
 
 ## Goal
 
 对批次 A 的 Harness 契约改动做 review-1。受审交付是对 `AGENTS.md` §7/§8 与
 `agents/roles.md` 三个子节的 15 行新增，实现者为 `claude_glm`（provider `zhipu_glm`）。
-你的 provider 是 `moonshot`，跨 provider 独立性成立。
+
+**隔离与前情披露**：
+
+- 你的 provider 是 `xai`，与实现者 `zhipu_glm` 跨 provider，隔离成立
+  （`agents/roles.md:122`）。你不是本交付的实现或修复作者。
+- **你已参与过本阶段**：你完成了设计阶段的 plan-review-1 两轮（第一轮 `REWORK`、第二轮
+  `ACCEPT`）。据此披露，本轮你评审的是**实现**而非设计，前次参与不构成隔离冲突，但请
+  注意不要把"设计我已经看过"当作放松实现核查的理由。
+- 后续 review-2 由 Fable5（`anthropic`）执行，与实现者亦跨 provider；它不替代本轮。
 
 这是**契约文本评审，不是代码评审**：判断规则本身是否可执行、是否留有绕过口子、是否
 制造重复权威、是否削弱既有保留项。
@@ -46,13 +53,15 @@
 `HEAD` 或改动工作树，不得启动、调用或指派其他模型，不得访问凭据或执行任何实盘动作。
 
 本包**预先指定**你的原始输出归档路径为
-`reports/agent-runs/2026-07-harness-v2-trial-hardening-v1/71-kimi-review-1-raw.md`；
+`reports/agent-runs/2026-07-harness-v2-trial-hardening-v1/73-grok45-batch-a-review-1-raw.md`；
 若结论为 `REWORK`，`问题记录` 与 `修复要求` 均填写该路径，并把完整发现与可执行修复要求
 写在返回结果正文中，由 Human 转交 Bookkeeper 落盘。你自己不要创建该文件。
 
-**回执格式请求**：此前五份模型回执中有四份在传输中受损（换行压平，一次伤及字符）。当前
-无任何机制校验回执格式（这正是本批次仍标记为 OPEN 的 `G1`/`G14` 残留）。请把每个标签
-单独成行输出。
+**回执格式请求**：此前六份模型回执中有四份在传输中受损（换行压平，一次伤及字符），
+其中两份是你的。当前无任何机制校验回执格式（这正是本批次仍标记为 OPEN 的 `G1`/`G14`
+残留）。请把每个标签单独成行输出。若你有编号的观察项，请把每条的正文一并写出——上一轮
+`F1` 与 Fable5 的 `O2`–`O8` 都出现过"只给编号不给正文"，导致 Bookkeeper 重建映射时出错
+一次。
 
 ## Inputs
 
@@ -60,8 +69,7 @@
 
 - `base_sha`: `c6f23f690599799f5f7c55b004bc4b1cb5039a0d`
 - `delivery_sha`: `41387b440758e9b19aa1333a0c76dcfe8e28d5ec`
-- 受审差异：`git diff c6f23f6..41387b4 -- AGENTS.md agents/roles.md`（共 15 行新增、
-  0 行删除）
+- 受审差异：`git diff c6f23f6..41387b4 -- AGENTS.md agents/roles.md`（15 行新增、0 行删除）
 
 **范围口径**（本次交付新写入的 §8 规则，现场适用）：区间内还包含本阶段自身的控制提交
 （`60-` dispatch 与 `status.json` revision 12）。它们是上下文而非受审交付。
