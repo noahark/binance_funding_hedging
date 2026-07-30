@@ -244,3 +244,116 @@ Bookkeeper 据此记录的直接后果（事实陈述，不重开已决事项）
 还剩两件需要您点头才能往下走：一是授权把这条分支整合到最新主线、重算基准点、再把这段
 时间新冒出的问题重新对一遍账；二是授权由**别家模型**做一次独立的设计评审。这两件没做
 之前，我不会准备任何实现或评审的启动包。
+
+---
+
+## 9. main 整合与 findings 对账（追加于 2026-07-30，Human 口头授权）
+
+本章为**追加**内容，上文 §0–§8 一字未改。记录 Human 于 2026-07-30 给出"授权"后
+Bookkeeper `opus5` 执行的整合与对账，及其查出的一处授权冲突。
+
+### 9.1 已执行的动作
+
+| 动作 | 结果 |
+|---|---|
+| 提交本阶段记账产物 | `128e564` bookkeeper: opus5 design verified, Human decisions recorded (revision 4) |
+| 整合 `main` 到本分支 | `0bea9c0` bookkeeper: integrate main@a516047 into the harness stage branch |
+| 冲突处理 | 唯一冲突为 `reports/agent-runs/ACTIVE.json`；`main` 侧为 `null`（产品阶段已关闭），本分支侧为本 Harness 阶段。取本分支值，因为当前活动阶段确为本阶段 |
+| `main` 是否被改动 | 否。`git rev-parse main` 前后均为 `a5160474a1b78468d1513fc14539232fdf36d7aa`，未合并回 `main`、未推送 |
+| 整合校验 | `git merge-base --is-ancestor main HEAD` → 真 |
+| 新基准 | `git rev-parse HEAD` = `0bea9c084b8209b19113b169eaf152ab33455884` |
+| 工作树 | 干净；`git diff --check` 退出码 0 |
+
+### 9.2 findings 快照对账
+
+对比对象：快照 `be789d6:docs/planning/harness-v2-trial-findings-2026-07-30.md`
+（blob `f8c825c`）与 `main` 上当时最新版本（blob `07a6691`）。
+
+差异：**12 行新增，无删除、无改写**，全部由提交 `406d83a`
+（`bookkeeper: hold the harness batch pending Human vetting (D-9)`）引入。
+
+分流结果：
+
+1. **无新增 G 条目。** 十九条 G 与六条 W 的编号、内容、证据均未变动，`20-opus5-design.md`
+   对它们的裁决不受影响，无需改写设计。
+2. **`G17` 新增一次同阶段复现**（文中"Second occurrence, same stage"）：D-9 决策在
+   review-2 终端运行于 `status_revision: 12` 时抵达，同样只能停放在证据文件里。这是对
+   既有 `G17` 的证据加强，不是新问题，设计中 `G17` 的处置不变。
+3. **新增一条治理性 Hold 决策 D-9**，见 §9.3。这是本次对账唯一需要 Human 处理的事项。
+
+### 9.3 查出的授权冲突：D-9 / `[HUMAN-OWNED]` 条目
+
+整合后进入本分支的两处文本，直接约束本阶段正在做的事：
+
+`docs/planning/harness-v2-trial-findings-2026-07-30.md`（`main` 版，D-9）：
+
+> Hold — Human decision D-9, 2026-07-30. Human is vetting these findings against
+> Codex personally. Until Human says that is finished, no model may open a Harness
+> stage, write a Harness plan, or dispatch Harness work from this document. ...
+> Record the vetting outcome per finding in this file.
+
+`PROJECT_STATE.md`（`main` 版，第 29–32 行）：
+
+> `[HUMAN-OWNED]` The 19 Harness v2 findings are being fixed by Human with Codex on
+> a separate branch. **No model may open a Harness stage or plan from
+> `docs/planning/harness-v2-trial-findings-2026-07-30.md`**, incl. the withdrawn
+> `task2-same-family-rework-rule`.
+
+**时序证据**（`git show -s --format='%h %ad'`，ISO 本地时间）：
+
+- `406d83a` D-9 记录：`2026-07-30 19:52:45 +0800`
+- `14c98a7` 本 Harness 阶段开启：`2026-07-30 20:20:24 +0800`
+
+即本阶段是在 D-9 之后、由 Codex 作为 Bookkeeper、在独立分支
+`codex/harness-v2-trial-hardening` 上开启的。`PROJECT_STATE.md` 中"Human 与 Codex 在
+独立分支上处理这十九条"所描述的，正是本阶段本身。因此本阶段**不是**违反 D-9 的并行
+开工，而是 D-9 所指的那个受认可载体；`00-intake.md` 的 Design-Only Gate 是其配套限制。
+
+**但仍有一处必须由 Human 处理的实际障碍**：上述禁令文本仍以现在时留在
+`PROJECT_STATE.md` 中，而 `PROJECT_STATE.md` 属 `AGENTS.md` §4 的启动必读文件。下一个
+被启动的独立计划评审终端（非 anthropic provider）在启动阶段就会读到"任何模型不得从该
+findings 文档开启 Harness 阶段或撰写 Harness 计划"，按契约它应当停止。**在该条目被更新
+之前派工，等于明知会让评审终端在启动即停机。**
+
+同时，D-9 要求"把每条 finding 的 vetting 结果记录在该文件中"，该记录尚未写入。Human
+本轮给出的十条决定实质上已覆盖其中多条，但它们目前只存在于本核验记录 §8。
+
+### 9.4 因此未做的事
+
+- **未准备独立计划评审的 dispatch packet。** 原因是 §9.3 的启动即停机风险，以及评审
+  模型尚未由 Human 选定（计划评审是设计新提的机制，`agents/roles.md` 对它没有默认路由）。
+- 未编辑 `PROJECT_STATE.md`、`docs/planning/harness-v2-trial-findings-2026-07-30.md`、
+  `docs/planning/DECISIONS.md`——这三处都承载 Human 自己的决策记录，改动前需要 Human 的
+  明确说法。
+- 未合并回 `main`、未推送、未部署、未访问凭据、未启动或指派任何模型。
+
+### 9.5 `status.json` 本轮变更（revision 4 → 5）
+
+| 字段 | 前 | 后 |
+|---|---|---|
+| `revision` | 4 | 5 |
+| `checkpoint` | `human-design-decisions-recorded-awaiting-main-integration` | `main-integrated-findings-reconciled-d9-hold-surfaced` |
+| `base_sha` | `6471873…` | `0bea9c084b8209b19113b169eaf152ab33455884` |
+| `ledger_sha` | `14c98a7…` | `0bea9c084b8209b19113b169eaf152ab33455884` |
+| `blockers` | 两项 | 两项：移除 `main-not-integrated`，新增 `d9-hold-and-project-state-prohibition`，保留 `plan-review-pending` |
+| `next.action` | `human-authorize-main-integration-then-independent-plan-review` | `human-resolve-d9-hold-and-select-plan-review-model` |
+
+保持不变：`schema_version`、`stage_id`、`bookkeeper`、`phase`、`delivery_sha`（`null`）、
+`current_task`（设计任务 `verified`）、`rework_count`（`0`）。顶层字段仍为 13 个。
+`base_sha` 与 `ledger_sha` 均取自 `git rev-parse` 并已校验存在（W2）。
+
+### 9.6 给 Human 的中文小结
+
+整合做完了：本分支已经带上最新主线，主线本身一个字没动，也没有推送。冲突只有一个小
+文件，取了本阶段的值。对账结果是好消息——十九条问题一条没变、没新增，设计不用改；只多
+了一条对已有问题 `G17` 的补充例证。
+
+但对账把一件事翻了出来：您 19:52 写下的 D-9 暂停决定，以及 `PROJECT_STATE.md` 里那条
+"任何模型不得从这份 findings 文档开启 Harness 阶段或撰写计划"。本阶段是 20:20 才开的，
+由 Codex 记账、在独立分支上——也就是说这条禁令描述的就是本阶段自己，本阶段不是违规的
+并行开工。
+
+问题出在下一步：那条禁令的文字还是"现在进行时"，而 `PROJECT_STATE.md` 是每个终端启动
+必读的。我如果现在把独立评审派出去，那个评审模型一开机读到这句话，按规矩就该停下来。
+所以我停在这里，没有准备评审启动包。需要您给两句话：一是那条禁令怎么改（本阶段已获授权
+继续、设计已完成），二是这次独立评审用哪家模型。
