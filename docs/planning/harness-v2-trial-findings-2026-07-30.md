@@ -231,6 +231,29 @@ rework budget, and give it a state or a counter so it cannot be hidden by task
 renaming. This is closely related to G12's same-root-cause brake — both are about
 what counts as a round.
 
+### G16. No channel exists for an implementer to contest an acceptance check
+
+The `task1b-d5-repair` packet required, as acceptance evidence, a non-empty
+detector hit list over a pre-fix file. That check was **wrong** — the Bookkeeper
+had mislabelled seven quantity sites as money sites, and the defect category it
+cited had been repaired a stage earlier, so the evidence was obtainable only by
+mis-flagging quantity, i.e. by damaging the guard to satisfy a Bookkeeper
+(corrected in `24-bookkeeper-verification-task1b.md` §2).
+
+The implementer handled it correctly: it fixed the real code defect, stated the
+disagreement objectively, supplied alternative proof, and refused to comply
+silently. But v2 gave it nowhere to put that. §7's fields are 执行结果 / 结果摘要 /
+产物 / 检查结果 / 阻塞项 — none of which is "I met the intent and dispute this
+criterion". It ended up as prose inside `检查结果` and a qualified `阻塞项: none`,
+which worked only because the model was careful and the reader was paying
+attention. A less careful implementer's cheapest path is to widen a definition
+until the check goes green.
+
+Candidate fix: one sentence in §7 or the Implementer section — an implementer may
+return `completed` while marking a named acceptance check as contested, with its
+reason and substitute evidence, and the Bookkeeper must rule on it explicitly
+before sealing. Cheap, and it makes the honest path the documented one.
+
 ### G13. The proposals directory is not versioned, and the workflow depends on it
 
 `reports/agent-runs/_proposals/` is excluded by `.git/info/exclude:8` — a
