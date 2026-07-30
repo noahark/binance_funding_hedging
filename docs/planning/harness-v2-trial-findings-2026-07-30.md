@@ -178,6 +178,59 @@ Against `AGENTS.md` §9.5, which requires removing a completed stage directory a
 close. Already filed in `PROJECT_STATE.md` as `[OPEN][HARNESS-HYGIENE]`. Listed
 here only so it is not raised twice.
 
+### G14. An implementer invented its own result schema, and nothing objected
+
+The first `[TASK_RESULT v2]` returned for `task1-unknown-not-zero` (`claude_glm`)
+replaced §7's nine mandated Chinese labels with eleven invented English fields —
+`model`, `provider`, `status_revision`, `result: DONE`, `delivery_sha`, `branch`,
+`blockers`, `summary`, `notes`, `handoff_model` — copied the dispatch's `Identity`
+block into the result, and closed with `[/TASK_RESULT v2]` instead of
+`[/TASK_RESULT]`. Human caught it by eye and had the implementer redo it; the
+corrected block is compliant.
+
+Two separate problems:
+
+1. **No mechanism.** This is G1 seen from the other side. §7 specifies the label
+   set, `AGENTS.md:162` specifies the closing marker, and nothing checks either.
+   A ~30-line checker over the result block would have caught all four violations
+   deterministically. Notably the invented fields were *plausible* — `delivery_sha`
+   and `branch` are things a Bookkeeper wants — which is exactly why prose
+   conformance fails: a helpful-looking deviation reads as an improvement.
+2. **The invented fields carried authority they should not have.** `result: DONE`
+   is not one of §7's three values, and `delivery_sha: 6c250f4` is a field only the
+   Bookkeeper may set (`roles.md:170-171`). A downstream reader could have taken a
+   self-declared delivery SHA as sealed state.
+
+Candidate fix: a small result-block validator, shared with G1's verdict checker —
+the same routine can check both, since a review result is a task result plus three
+closure lines. Alternatively state in §7 that unrecognised fields are ignored and
+an unrecognised closing marker is non-accepting, so at least the contract says
+what happens.
+
+### G15. No route exists for "Bookkeeper verification found a defect before review-1"
+
+Verification of `task1-unknown-not-zero` failed on D5: the delivered static guard
+implemented a different rule than the dispatch specified, missing two of the four
+defect categories it claimed (`21-bookkeeper-verification.md` §2). The findings are
+objective and reproduced, so sending them to review-1 would waste a round.
+
+But v2 has no vocabulary for this. `current_task.state` has exactly three values —
+`dispatched`, `reported`, `verified` (`roles.md:207-216`) — and no way to say
+"reported, verified, and rejected". `rework_count` counts "formal `REWORK` repair
+rounds" (`AGENTS.md:182`), which a Bookkeeper rejection is not. §6 step 6 gives
+repair authority only after a review finding.
+
+The Bookkeeper's chosen handling: keep `rework_count` at 0 and carry the repair as
+a distinct task `task1b-d5-repair`. **That reading is favourable to the implementer
+and gameable** — the same reasoning would let a Bookkeeper route unlimited repair
+rounds around the three-round cap by renaming the task each time. It was disclosed
+rather than quietly used.
+
+Candidate fix: say explicitly whether a pre-review Bookkeeper rejection consumes
+rework budget, and give it a state or a counter so it cannot be hidden by task
+renaming. This is closely related to G12's same-root-cause brake — both are about
+what counts as a round.
+
 ### G13. The proposals directory is not versioned, and the workflow depends on it
 
 `reports/agent-runs/_proposals/` is excluded by `.git/info/exclude:8` — a
@@ -261,11 +314,19 @@ These are not equal. If only some get done:
 
 | Priority | Findings | Why |
 |---|---|---|
-| Do first | G1, G2 | Both are "a rule exists with no mechanism". G1 is a safety regression; G2 has measured value from this stage |
+| Do first | G1, G14, G2 | G1 and G14 are the same hole from two sides — the contract specifies a result/verdict shape and nothing checks it; both were exercised for real this stage, and one shared ~30-line checker closes them. G2 has measured value from this stage |
+| Do first, needs a decision not just wording | G15 | Whether a pre-review Bookkeeper rejection consumes rework budget. Left open, the cap is evadable by renaming a task; the current handling is disclosed but is the Bookkeeper's judgement, not a rule |
 | Cheap and clearly right | G3, G4, G5, G6, G10, G13 | Each is one to three lines in an authority that already exists, or one `git add` |
 | Needs judgement | G7, G8 | G7 needs a threshold nobody has picked; G8 needs someone to decide whether to adapt or drop a vendored skill |
 | Already owned | G11, G12 | Filed elsewhere; do not duplicate |
 | Leave alone | W1-W6 | |
+
+**Pattern across G1, G14, G15 and G12.** Four of the five highest-priority findings
+are the same species: v2 kept v1's rules and deleted v1's mechanisms. The contract
+still says what a verdict must contain, what a result must contain, what counts as
+a rework round — and there is now no code that checks any of it. v2's minimalism
+was right about the 2,414-line validator being too much; the lesson is not that
+zero was the correct replacement.
 
 Constraint any fix must respect: `AGENTS.md` §2 forbids a second detailed active
 authority for any rule, field shape, state vocabulary, routing map, or numeric
