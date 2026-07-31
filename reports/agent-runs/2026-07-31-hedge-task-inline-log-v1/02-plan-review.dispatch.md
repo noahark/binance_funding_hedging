@@ -5,29 +5,57 @@
 
 ## Identity
 
-- task_id: 2026-07-31-hedge-task-inline-log-v1-plan-review
-- target_role: Reviewer（计划评审，只读）
+- task_id: 2026-07-31-hedge-task-inline-log-v1-plan-review-r2
+- target_role: Reviewer（计划评审 **round 2**，只读）
 - target_model: `grok`（Human 2026-07-31 决定：kimi 额度不可用，改派 grok）
 - provider: `xai`
-- status_revision: 3
+- status_revision: 4
 - required_skill: `agents/skills/software-architect.md`
+
+## Round 2 背景（必读）
+
+你在 round 1 返回了 `REWORK`。两件事随后发生：
+
+1. **你 round 1 的全部发现已被采纳并落盘**（`04-plan-review-r1-verdict.md`），
+   `00-task.md` 已按你的「packet 修订要求」五条逐条修订。Bookkeeper 已复核你引用的
+   `test_hedge_store.py:174-192`、`store.py:899-916`、`service.py:622-650` 三处，属实。
+   已写进 packet 的：971 收口有效不得重写、COOKIEUSDT 判定为过时诊断、真实残留路径
+   （paused 优先 + post_start 不检查配额）、三个再武装入口、终态沿用 `done`、`done` 的
+   两种含义要在前端区分、`skip_counters` 路径要扫、清单外三处不得并入。
+   - 一个流程提醒：你的 `问题记录` / `修复要求` 写了 `none`，正文是 Human 追加转交的。
+     **本轮请把发现清单与修订要求的路径或全文随回执一起交出**，否则 Bookkeeper 无法封存。
+2. **Human 变更了需求**，`00-task.md` 的 Goal 3 已被整体重写、原 Goal 3 的配额收口部分
+   下移为 Goal 4（packet 现为 `status_revision: 4`）：所有**非人工**原因导致的 `paused`
+   一律改为直接进入 `deleted` 终态，`paused` 此后只剩人工手动暂停。这是新增的一大块，
+   你 round 1 没有评过，请重点评。
 
 ## Goal
 
-对实现 packet `00-task.md` 做一次只读计划评审，判断它在实现开始前是否成立。重点：
+对修订后的实现 packet `00-task.md` 做一次只读计划评审，判断它在实现开始前是否成立。重点：
 
-1. **F10 方向 B 是否正确**：packet 否决了方向 A（把调度上限改成 `accepted >= target_n`），
-   理由是那会突破用户设定的「计划 N 组」资金上限、且 A-1 上限在预留事务中原子生效。
-   这个判断是否成立？方向 B 能否真正消除「重启不生效」的死锁？
-2. **根因家族清单是否完整**：packet 列出 `scheduled >= target_n` 的四处站点
-   （`service.py:1116`、`store.py:686`、`:736`、`:971`）。是否有遗漏站点，或有站点
-   不属于该家族？
-3. **验收标准是否可执行**：8 条 Acceptance Checks 是否每条都有明确的通过/不通过判据，
+1. **「六种自动暂停全改删除」是否会造成新的资金或运维风险**。Bookkeeper 曾建议只改
+   `consecutive_submission_failure` 一种（其余五种是限流/余额/保证金/数量/抵押额度打满，
+   都是补一下就能继续的外部临时状况），**Human 明确选择六种全改**。这是已定的产品决策，
+   不要求你推翻它；请评估它的**实现风险**并指出 packet 是否已把风险约束住：
+   - 单腿敞口达阈值 → 自动删除，敞口是否会从界面消失（packet AC5 的硬约束是否足够）；
+   - 429 限流 → 自动删除，是否会在一次限频窗口内批量删掉多张卡；
+   - 自动删除与 worker drain 在途腿的时序（packet AC6）。
+2. **`paused` 只剩人工来源这一不变量是否可验证**：AC4 要求用全量搜索证明，这个判据够不够。
+3. **Goal 3 与 Goal 4 是否正交**：你在 round 1 指出的真实残留路径是「`paused` 优先于
+   配额收口 → `post_start` 不检查配额 → 静默再武装」。Goal 3 把六种自动暂停改成
+   `deleted` 之后，该路径的触发者只剩**人工暂停**（`deleted` 的 `post_start` 已抛 409）。
+   请评：① packet 的 AC2 用人工暂停构造红测是否仍能复现这条路径；② 两条 Goal 会不会
+   互相掩盖，导致某个死锁面在测试里看不见了却仍然存在。
+4. **根因家族清单是否完整**：`scheduled >= target_n` 的四处站点（`service.py:1116`、
+   `store.py:686`、`:736`、`:971`）加上 `stopped` 的 `post_start` 入口，是否有遗漏。
+   自动暂停站点清单（Inputs 里列的 `PAUSE_REASON_*` / `_pause_from_signal` 等）是否有遗漏。
+5. **验收标准是否可执行**：12 条 Acceptance Checks 是否每条都有明确的通过/不通过判据，
    有没有「靠人工观察」或口径含糊的条目。
-4. **文件边界是否够用且不过宽**：Allowed Files 是否足以完成 Goal，是否包含了不必要的
-   文件（尤其 `server.py` 的可选参数是否必要，能否只靠前端过滤而不改后端契约）。
-5. **Stop 条款是否覆盖真实风险**：资金语义、暂停阈值、轮询、scope 蔓延。
-6. **未识别的风险**：packet 没写但实现时一定会撞上的问题。
+6. **文件边界是否够用且不过宽**：Allowed Files 是否足以完成已扩大的 Goal（六种暂停改
+   删除会触碰更多 `service.py` / `domain.py` 路径），是否包含不必要的文件（尤其
+   `server.py` 的可选参数是否必要，能否只靠前端过滤而不改后端契约）。
+7. **Stop 条款是否覆盖真实风险**：资金语义、阈值触发条件、在途单、轮询、scope 蔓延。
+8. **未识别的风险**：packet 没写但实现时一定会撞上的问题。
 
 ## Allowed Files
 
