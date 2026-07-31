@@ -28,7 +28,9 @@ check.
 
 ## Next Priority
 
-- Active stage: `2026-07-hedge-fast-fix-v1` (Human reports small findings; same-session Grok applies minimal fixes). No live orders.
+- Active stage: `2026-07-31-hedge-task-inline-log-v1` (task-card inline log + F10 restart
+  deadlock; HIGH_RISK, bookkeeper opus5). No live orders.
+- Idle, not closed: `2026-07-hedge-fast-fix-v1` (`awaiting_findings`, no current task).
 - Main line: live testing of the immediate-hedge scenario.
 
 ## Last Completed
