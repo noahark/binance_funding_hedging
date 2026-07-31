@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 3,
+  "revision": 4,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "fake_ui_prototype",
-  "checkpoint": "fake_ui_delivery_verified_and_sealed_awaiting_human_shape_feedback",
-  "base_sha": "87ff428a22052a050f3a2b0b86a5650e62bda110",
-  "delivery_sha": "63f50071daafd03763c3a684857b573fe9449ef7",
-  "ledger_sha": "af687cccd82f63d824a9b0d0d694124ef4d81a56",
+  "phase": "planning",
+  "checkpoint": "fake_ui_closed_as_design_probe_plan_dispatch_prepared",
+  "base_sha": "afa3d5228e64ed2399e3d24b6971245e20950d9f",
+  "delivery_sha": null,
+  "ledger_sha": "afa3d5228e64ed2399e3d24b6971245e20950d9f",
   "current_task": {
-    "id": "fake-ui-positions-and-cards-v1",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fake-ui-positions-and-cards-v1.dispatch.md"
+    "id": "plan-hedge-task-lifecycle-v1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/plan-hedge-task-lifecycle-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "review-fake-ui-preview-and-choose-review-timing"
+    "action": "start-prepared-task"
   },
   "rework_count": 0,
   "blockers": []
