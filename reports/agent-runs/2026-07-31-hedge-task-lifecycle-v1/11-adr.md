@@ -4,52 +4,59 @@
 - 关联：`10-design.md`。本文件为其中需要立 ADR 的决策点补 Context / Decision / Consequences。
 - 模板来源：`agents/skills/software-architect.md` 的 ADR 模板。
 
+> **修订说明（2026-07-31，`plan-revision-backend-merge-v1`）**：按 Human D14 重写 **ADR-001**——其前一版本判定「后端合并被事实堵死（须扩白名单/新增读路径 = 新增限频权重）」，该前提被 Bookkeeper 核查推翻（`build_server` 同时注入两服务、`get_snapshot()` live 零上游纯读，见 `04-backend-merge-decision.md` F-A/F-B 与 `10-design.md` §0 事实 17-20）。Context 如实记录此事（不粉饰、不改写历史），Decision 改为后端合并，Consequences 重估；顺带更正前一版的 `index.html:2106` 错误引用（`directionForPosition` 实际在 `:2198`）。**ADR-002、ADR-003 不受 D14/D15 影响，原样保留。** 本次修订不计 `rework_count`（仍 0）。
+
 ---
 
-## ADR-001: 持仓合并在前端做（frontend join），不改后端、不扩白名单
+## ADR-001: 持仓合并在后端做（backend merge，按 D14）
 
 ### Status
-Proposed
+Proposed（取代前一版「前端 join」裁定）
 
 ### Context
 
-① 要一张合并持仓表：以交易所真实 UM 持仓为骨架，匹配置现货/杠杆账户资产与任务卡成交记录（`02-scope-decisions.md` D5/D6）。问题是在哪一层做这次合并。两个候选：
+① 要一张合并持仓表：以交易所真实 UM 持仓为骨架，匹配置现货/杠杆账户资产与任务卡成交记录（`02-scope-decisions.md` D5/D6）。问题是在哪一层做这次合并。
 
-- **后端合并**：在 hedge 服务里把 `private_account` 的 um 余额与 `aggregate_positions` 合并后经 `GET /api/hedge-open-positions` 返回。
-- **前端合并**：在 `index.html` 里把已在手的 `state.snapshot.private_account` 与 `state.hedgePositions` 两片 state join。
+**前一版的判断与它被推翻的过程（如实记录）**：前一版 ADR-001 判定「后端合并被事实堵死」——理由是 hedge 服务够不到 `private_account`，而 `private_client.py` 白名单冻结不可扩，故后端合并须扩白名单或新增读路径 = **新增限频权重**；据此选了前端 join。
 
-后端合并被事实堵死（`10-design.md` 事实 15）：
+**该前提的前半句成立、结论不成立**，由 Bookkeeper 在 `04-backend-merge-decision.md` 核查并经作者复核（`10-design.md` §0 事实 17-20）：
 
-- hedge 服务够不到 `private_account`——`um_positions` / `balances_unified` / `balances_spot` 是经 `private_client.py` 的 snapshot 路径产出，而 `hedge_preflight_provider.py:14-19` 注释明写 "`private_client.py`'s frozen whitelist cannot be extended and lacks them"，白名单**冻结不可扩**。
-- hedge 服务自己的 `HedgeOpenLiveClient` allowlist 只含三个 preflight 端点，**不含** snapshot 端点。给后端合并喂 `private_account`，要么扩冻结白名单（禁止），要么给 `HedgeOpenLiveClient` 新增 snapshot 端点 + 新读路径 = 新增限频权重（snapshot 路径已为「UM 持仓」面板抓过一次，再抓是重复抓取）。
+- **F-A**（`server.py:632-642` `build_server`）：`_Handler.service = service`（`SnapshotService`，产出 `private_account`）与 `_Handler.hedge_open_service = hedge_open_service` 注入**同一个 `_Handler` 类**；处理 `/api/hedge-open-positions` 的 `_hedge_open_positions`（`server.py:607-608`）**两服务皆在手**。
+- **F-B**（`snapshot_service.py:237-257` `get_snapshot()`）：docstring 原文 `live: zero-upstream pure read of the published state`；live 分支 `state = self._published_state; return state.snapshot`——读的是后台已发布状态，**零新增交易所请求、零新增限频权重**。
+- **F-C**：首次发布前 live 读抛 `SnapshotNotReady`（server 映射 503）；offline 是同步构建 + 60s 缓存。
+- **F-D**（`snapshot.py:1097-1116`）：`private_account` 不可用时的降级形状已定义（`verified: false`、三数组空、金额 `null`、`error` 带原因）。
 
-而前端两源已在手（事实 16），合并是纯派生，**零新增交易所请求、零新增限频权重**。
+即：**后端合并可在服务器层完成，不扩任何白名单，也不产生任何新的交易所请求**。前一版所述代价不存在。
 
-更关键的是 ① 的本目的——**资金可见性**：`aggregate_positions` 两条查询都带 `WHERE t.status != deleted`（`store.py:1950`/`:1960`），任务一删其已成交腿就从该接口消失，而账户敞口仍在。② 落地后这会变成常态。前端合并以 `um_positions`（真实持仓，**独立于任务状态**）为骨架，于是「任务被删但敞口仍在」由构造解决——后端 `WHERE` 因此本轮不必改。
-
-fake UI `63f5007` 已用前端 join 证伪了形状并经 Human 认可，是展示形状基准。
+Human 据此于 `04-backend-merge-decision.md` 作 **D14（合并改为后端做）** 与 **D15（保留被删任务成本基——改 `aggregate_positions` 两条 `WHERE`）**。本 ADR 按已定决策设计后端做法，**不重新比较前后端优劣**（红线 #7）。
 
 ### Decision
 
-在**前端 `index.html` 做合并**，消费 `state.snapshot.private_account` 与 `state.hedgePositions`。
+在**后端服务器层做合并**：
 
-- **不改**后端 `aggregate_positions`（其 `WHERE != DELETED` 保留，见 `10-design.md` 非目标 #7）。
-- **不扩** `private_client.py` 白名单，**不给** `HedgeOpenLiveClient` 加 snapshot 端点。
-- 合并表取代既有「UM 持仓」面板与 `renderHedgePositionsSection`（D6「合并成一张表，现有 UM 持仓表并入」）。
-- 合并表消费后端同一份 `pair_outcome`/`leg_exposure` 判定，不自行重推单腿敞口（避免双源漂移，fake-ui §9 #6）。
+- `_hedge_open_positions`（`server.py:607`）handler 内调 `self.service.get_snapshot()` 取 `private_account`，调 `hedge_open_service` 取 `aggregate_positions`，经一个**纯合并函数** `merge_positions(positions_rows, private_account)` 合并后返回。
+- **就地改 `GET /api/hedge-open-positions`**（N1）：唯一消费者是前端、本任务同步重写渲染器；不新开端点、不留兼容层（红线 #6）。
+- **降级契约**（N2）：`SnapshotNotReady` / `verified:false` 时持仓接口**不整体失败**，仍返回本地记账行 + `account:{verified:false,error}`，HTTP 200。
+- **D15**（N3）：`aggregate_positions` 两条查询（`store.py:1950`/`:1960`）去 `WHERE != DELETED`，已删任务已成交腿计入，带 `includes_deleted_task` 标记。
+- 合并函数为纯函数（可测，N5）；handler 仅装配，不注入 `SnapshotService` 到 `HedgeOpenTaskService`（保持两服务解耦）。
 
 ### Consequences
 
 **变容易**：
-- 无后端 reach 问题、无白名单扩展、无新交易所请求/限频权重。
-- 与经 Human 认可的 fake 形状一致（acceptance #8）。
-- 资金可见性（删卡不丢敞口）由构造保证，不依赖后端改 `WHERE`。
-- 可逆性高：纯前端渲染改动，回退即恢复两张旧表。
+- 合并逻辑在 Python（**可测**，六场景/符号对齐/降级/D15 均可确定性单测，N5），胜过 JS 侧「比 SQL 难测」。
+- 口径唯一：接口与界面同一份合并数字，消除前端 join 的双源漂移。
+- D15 正面回应 `PROJECT_STATE.md` 被标「Blocks that change」的 `[OPEN][MONEY-VISIBILITY]`：被删任务成本基不再消失。
+- 零新增交易所请求/限频权重（F-B）。
+- 可逆性高：回退 handler 即恢复旧 `get_positions`。
 
-**变难**：
-- 合并逻辑在 JS（比 SQL 难测）。缓解：`self-check.js` 断言 + 复用既有 `directionForPosition`（按大写 `LONG`/`SHORT` 判，`index.html:2106`）与统一的 base-asset 归一函数（三处共用）。
-- 两张渲染器（合并表 + 任务卡）各自派生视图，口径漂移风险。缓解：单腿敞口等判定**只读后端 verdict**，前端不重推。
-- 既有「UM 持仓」面板与 `renderHedgePositionsSection` 被取代（删除/替换）——属本任务范围内（D6），非副作用。
+**变难**（前一版「放弃的难测」变为下列新代价）：
+- 须处理账户未就绪/不可用的降级（N2）：错误处理会让持仓接口误 503 或混入脏数据。
+- 改既有接口契约（N1）：§3.4 Position JSON 形状变更（虽唯一消费者同步改）。
+- 与 `SnapshotService` 发布时序耦合：持仓接口现依赖已发布状态，后台滞后则带陈旧账户数据（靠 `checked_at`/`verified` 暴露）。
+- `aggregate_positions` 语义变化（D15/N3）：已删任务腿开始计入，需 `includes_deleted_task` 标记防误读。
+- 合并函数虽纯，但后端多一处装配逻辑与两源读点不一致的固有问题（见 `10-design.md` §7.1）。
+
+> 前一版引用更正：`directionForPosition` 实际在 `index.html:2198`（非旧写的 `:2106`）。
 
 ---
 
@@ -121,4 +128,4 @@ Proposed（偏离 `PROJECT_STATE.md` follow-up「拆分两间隔」的旧建议�
 **变难 / 放弃**：
 - DRY-RUN `tick()` 跑快 10 倍（无害，record-only）。
 - 偏离 `PROJECT_STATE.md`「拆分」旧建议——以事实 8 为据主动推翻，须在评审中说明。
-- 10 任务并发在途腿时聚合查询仍可达 ~100 req/s（币安请求权重限约 1200/min ≈ 20/s）——靠抖动 + 退避自调；若实测不足，全局限流器为证据触发的后续项（非目标 #8）。
+- 10 任务并发在途腿时聚合查询仍可达 ~100 req/s（币安请求权重限约 1200/min ≈ 20/s）——靠抖动 + 退避自调；若实测不足，全局限流器为证据触发的后续项（非目标 §3 #7）。
