@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 7,
+  "revision": 8,
   "stage_id": "2026-07-31-hedge-task-inline-log-v1",
   "bookkeeper": "opus5",
   "phase": "plan_review",
-  "checkpoint": "plan_review_r3_sealed_packet_revised_to_r7",
+  "checkpoint": "plan_review_r4_dispatched_to_deepseek",
   "base_sha": "42de1aff364e7c979d2fbb5dc56f1dec65287cc7",
   "delivery_sha": null,
-  "ledger_sha": "93c86913f46a218a87410812e8f1a0b1de5fdb97",
+  "ledger_sha": "bcca41963e476648d2c1d0a04537fb7aac1ad554",
   "current_task": {
-    "id": "2026-07-31-hedge-task-inline-log-v1-plan-review-r3",
-    "state": "verified",
+    "id": "2026-07-31-hedge-task-inline-log-v1-plan-review-r4",
+    "state": "dispatched",
     "dispatch": "reports/agent-runs/2026-07-31-hedge-task-inline-log-v1/02-plan-review.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "decide-dispatch-implementation-or-one-more-plan-review"
+    "action": "start-plan-review-r4-terminal-deepseek"
   },
   "rework_count": 0,
   "blockers": []

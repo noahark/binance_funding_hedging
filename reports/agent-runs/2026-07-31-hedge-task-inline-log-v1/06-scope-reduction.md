@@ -60,6 +60,21 @@ ADR-T3 的逐字冻结契约，注释明写 `must NOT be reworded`，严禁被�
 
 完整原始记录：`04-plan-review-r1-verdict.md`、`05-plan-review-r2-verdict.md`。
 
+## Stage 收尾待办：`agents/roles.md` 补 DeepSeek 的 provider identity
+
+Human 2026-07-31 把计划评审 round 4 改派给 **DeepSeek Pro**。`agents/roles.md` 的
+provider identity 表（`claude_glm→zhipu_glm` / `kimi→moonshot` / `codex→openai` /
+`Claude→anthropic` / `Grok→xai`）**没有 DeepSeek 一行**。
+
+- 本 stage 内按 `deepseek` 为独立厂商记录，隔离据此判定。
+- **不在评审中途改 `roles.md`**：provider 映射是 Harness 路由契约，其唯一权威在
+  `roles.md`（`AGENTS.md` §2），中途修改属 Harness 变更，应走自己的评审。
+- 因此列为 **stage 收尾待办**（`AGENTS.md` §9 第 1 条：把持久决策提升到权威文档）。
+
+顺带的好消息：改派后四方 provider 完全不重叠（计划评审 deepseek / 实现 zhipu_glm /
+review-1 xai / review-2 openai），前三轮「计划评审与 review-1 同为 grok/xai」的设计参与
+污染随之消失，review-1 不再需要披露。
+
 ## 计数与流程
 
 - `rework_count` 保持 **0**：范围收窄属 Human requirement refinement，按 `AGENTS.md` §8
