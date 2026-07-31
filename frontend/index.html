@@ -4235,7 +4235,7 @@
             <div class="borrow-op-error" id="hedge-task-error-${idAttr}" role="alert" aria-live="polite"></div>
             <div class="hedge-task-log-wrap" id="hedge-task-log-${idAttr}"${logExpanded ? '' : ' hidden'}>
               <table>
-                <thead><tr><th>进展</th><th>状态</th><th>成交时间</th><th>合约订单号</th><th>现货订单号</th><th>合约均价</th><th>现货均价</th><th>合约数量</th><th>现货数量</th><th>错误原因</th></tr></thead>
+                <thead><tr><th>进展</th><th>状态</th><th>尝试时间</th><th>合约订单号</th><th>现货订单号</th><th>合约均价</th><th>现货均价</th><th>合约数量</th><th>现货数量</th><th>错误原因</th></tr></thead>
                 <tbody>${logExpanded ? hedgeTaskLogRowsHtml(task.id) : ''}</tbody>
               </table>
             </div>
@@ -4243,7 +4243,7 @@
       }
 
       // ---- 任务卡内嵌日志（真实数据；2026-07-31-hedge-task-inline-log-v1）----
-      // 列：进展 / 状态 / 成交时间 / 合约订单号 / 现货订单号 / 合约均价 / 现货均价 /
+      // 列：进展 / 状态 / 尝试时间 / 合约订单号 / 现货订单号 / 合约均价 / 现货均价 /
       // 合约数量 / 现货数量 / 错误原因。倒序（最新在上）。钱的口径见 00-task 硬约束：
       // 均价/数量原样透传（仅 hedgeText，不经 formatHedgeDecimal/hedgeNum）；未受理腿按
       // order_id 门控三格一律 —；错误原因回退链 error_reason_zh → error_code/error_category
@@ -4270,13 +4270,11 @@
         return text === '—' ? '<td class="log-muted">—</td>' : `<td>${escapeHtml(text)}</td>`;
       }
 
-      // 成交时间：仅当至少一腿已受理（有 order_id）时展示 attempt 创建时间（北京时间，
-      // 复用 hedgeLogEntryTimeText，其内部已 escape），否则 —。避免给未成交行挂「成交时间」
-      // 造成资金去向误读；accepted 的部分成交亦如实展示，不整行清空。
+      // 尝试时间：该次 attempt 的创建时间（attempt.ts，北京时间，复用 hedgeLogEntryTimeText，
+      // 其内部已 escape）。系统里没有成交时刻（attempt 表只有 created_at_us，在预发送事务写入、
+      // 早于两腿 POST；leg 表只有 dispatched_at_us / last_query_at_us，交易所 transactTime 未落库），
+      // 故列名取「尝试时间」、每行展示该次尝试何时发生；attempt.ts 缺失才 —。
       function hedgeLogTimeCell(attempt) {
-        const spot = attempt.spot || {};
-        const perp = attempt.perp || {};
-        if (!(spot.order_id || perp.order_id)) return '<td class="log-muted">—</td>';
         const text = hedgeLogEntryTimeText(attempt.ts);
         return text === '—' ? '<td class="log-muted">—</td>' : `<td>${text}</td>`;
       }

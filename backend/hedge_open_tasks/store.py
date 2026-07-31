@@ -268,6 +268,7 @@ def _row_to_leg(row: sqlite3.Row) -> dict:
         "exchange_status": row["exchange_status"],
         "cumulative_base_qty": row["cumulative_base_qty"],
         "cumulative_quote_amt": row["cumulative_quote_amt"],
+        "avg_price": row["avg_price"],
         "fee_amount": row["fee_amount"],
         "fee_asset": row["fee_asset"],
         "error_code": row["error_code"],
@@ -381,6 +382,9 @@ class HedgeOpenStore:
         leg_additions = (
             ("error_code", "TEXT"),
             ("error_category", "TEXT"),
+            # Part B（Human 2026-07-31）：交易所返回的权威 avgPrice 原话落库——只记观测值，
+            # 不推导、不替 cumulative_quote_amt 的 NULL 契约。既有行该列为 NULL。
+            ("avg_price", "TEXT"),
         )
         for col, decl in leg_additions:
             if col not in leg_cols:
@@ -814,9 +818,9 @@ class HedgeOpenStore:
 
     def _leg_final_fields(
         self, leg_outcome: dict
-    ) -> tuple[str, str | None, str, str | None, str | None, str | None]:
+    ) -> tuple[str, str | None, str, str | None, str | None, str | None, str | None]:
         """Return ``(exchange_status, order_id, base_qty, quote_amt, fee_amount,
-        fee_asset)`` for one resolved leg outcome (A-6 + T1 §1(d)).
+        fee_asset, avg_price)`` for one resolved leg outcome (A-6 + T1 §1(d) + Part B).
 
         ``quote_amt`` follows the T1 NULL contract — NULL = unknown (the response
         carried no figure), "0" = a real zero fill, never a missing figure coerced
@@ -840,6 +844,9 @@ class HedgeOpenStore:
         cumulative_quote = leg_outcome.get("cumulative_quote")
         fee_amount = leg_outcome.get("fee_amount")
         fee_asset = leg_outcome.get("fee_asset")
+        # avg_price：交易所返回的原话（执行器 _avg_price_decimal 已把 "0"/缺失映射为 None），
+        # 原样透传，不推导、不替 quote 的 NULL 契约（Part B，Human 2026-07-31）。
+        avg_price = leg_outcome.get("avg_price")
         quote: Decimal | None
         if cumulative_quote is None or cumulative_quote == "":
             # Missing figure: NULL (unknown). Review-1 r4 (2026-07-29) removed the
@@ -859,6 +866,7 @@ class HedgeOpenStore:
             str(quote) if quote is not None else None,
             str(fee_amount) if fee_amount is not None else None,
             str(fee_asset) if fee_asset is not None else None,
+            avg_price,
         )
 
     def _apply_task_counters(
@@ -1101,22 +1109,22 @@ class HedgeOpenStore:
                 raise UnknownTaskError(f"attempt {attempt_id}")
             task_id = attempt["task_id"]
 
-            spot_status, spot_oid, spot_base, spot_quote, spot_fee, spot_fee_asset = (
+            spot_status, spot_oid, spot_base, spot_quote, spot_fee, spot_fee_asset, spot_avg = (
                 self._leg_final_fields(outcome.spot)
             )
-            perp_status, perp_oid, perp_base, perp_quote, perp_fee, perp_fee_asset = (
+            perp_status, perp_oid, perp_base, perp_quote, perp_fee, perp_fee_asset, perp_avg = (
                 self._leg_final_fields(outcome.perp)
             )
             terminal_map = leg_terminal or {}
-            for leg_name, oid, status, base, quote, fee_amt, fee_asset in (
-                ("spot", spot_oid, spot_status, spot_base, spot_quote, spot_fee, spot_fee_asset),
-                ("perp", perp_oid, perp_status, perp_base, perp_quote, perp_fee, perp_fee_asset),
+            for leg_name, oid, status, base, quote, fee_amt, fee_asset, avg_price in (
+                ("spot", spot_oid, spot_status, spot_base, spot_quote, spot_fee, spot_fee_asset, spot_avg),
+                ("perp", perp_oid, perp_status, perp_base, perp_quote, perp_fee, perp_fee_asset, perp_avg),
             ):
                 leg_outcome = outcome.spot if leg_name == "spot" else outcome.perp
                 is_terminal = 1 if terminal_map.get(leg_name, True) else 0
                 self._conn.execute(
                     "UPDATE hedge_open_leg SET order_id = ?, exchange_status = ?,"
-                    " cumulative_base_qty = ?, cumulative_quote_amt = ?,"
+                    " cumulative_base_qty = ?, cumulative_quote_amt = ?, avg_price = ?,"
                     " fee_amount = ?, fee_asset = ?,"
                     " error_code = ?, error_category = ?,"
                     " dispatch_state = ?, terminal = ?,"
@@ -1128,6 +1136,7 @@ class HedgeOpenStore:
                         status,
                         base,
                         quote,
+                        avg_price,
                         fee_amt,
                         fee_asset,
                         leg_outcome.get("error_code"),
@@ -1572,6 +1581,7 @@ class HedgeOpenStore:
         terminal: bool = True,
         error_code: str | None = None,
         error_category: str | None = None,
+        avg_price: str | None = None,
     ) -> None:
         """Apply one client-ID query result to a leg (breakdown §3.5). A terminal
         status (FILLED/REJECTED/EXPIRED/CANCELED) closes the leg (retaining any
@@ -1586,7 +1596,7 @@ class HedgeOpenStore:
             self._conn.execute(
                 "UPDATE hedge_open_leg SET exchange_status = ?,"
                 " order_id = COALESCE(?, order_id),"
-                " cumulative_base_qty = ?, cumulative_quote_amt = ?,"
+                " cumulative_base_qty = ?, cumulative_quote_amt = ?, avg_price = ?,"
                 " fee_amount = ?, fee_asset = ?,"
                 " error_code = ?, error_category = ?,"
                 " dispatch_state = ?, terminal = ?,"
@@ -1596,6 +1606,7 @@ class HedgeOpenStore:
                     order_id,
                     base_qty,
                     quote_amt,
+                    avg_price,
                     fee_amount,
                     fee_asset,
                     error_code,

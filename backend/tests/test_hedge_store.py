@@ -1063,3 +1063,77 @@ def test_raw_response_table_has_no_credential_columns(tmp_path):
         "http_status", "transport_error", "business_code", "business_msg",
         "body", "body_truncated", "captured_at_us", "decisive",
     }
+
+
+def test_resolve_leg_from_query_persists_avg_price(tmp_path):
+    # Part B / AC5b：事后 GET 补数据的路径（resolve_leg_from_query）必须把 avg_price 落库——
+    # 合约腿的均价正靠它补回来（币安 2026-07-14 从 UM POST 移除 quote/avgPrice，靠 GET 补）。
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "tn", target=1)
+    attempt = store.prepare_attempt(
+        "tn", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        "hgo-att1-p", {"side": "SELL"}, 1_000,
+    )
+    perp_leg = next(l for l in store.list_legs_for_attempt(attempt["id"]) if l["leg"] == "perp")
+    # 模拟事后 GET 带回 avgPrice、quote 仍缺失（2026-07-14 后 UM 形态）。
+    store.resolve_leg_from_query(
+        perp_leg["id"],
+        exchange_status=D.LEG_FILLED,
+        order_id="op",
+        base_qty="0.5",
+        quote_amt=None,
+        avg_price="50123.45",
+        fee_amount=None, fee_asset=None,
+        now_us=2_000,
+        terminal=True,
+    )
+    legs = {l["leg"]: l for l in store.list_legs_for_attempt(attempt["id"])}
+    assert legs["perp"]["avg_price"] == "50123.45"          # 落库
+    assert legs["perp"]["cumulative_quote_amt"] is None     # quote NULL 契约不变（不推导）
+    # 展示层也走优先级 ①（NULL quote + 在场 avg → 展示 avg）。
+    from backend.hedge_open_tasks.service import attempt_to_doc
+    doc = attempt_to_doc(
+        {"task_id": "tn", "attempt_uuid": "att1", "attempt_seq": 1,
+         "direction": D.DIR_FORWARD, "q_common": "0.5",
+         "pair_outcome": D.PAIR_ACCEPTED, "created_at_us": 1_000},
+        legs["spot"], legs["perp"],
+    )
+    assert doc["perp"]["avg_price"] == "50123.45"
+    store.close()
+
+
+def test_avg_price_migration_idempotent_and_preserves_existing_rows(tmp_path):
+    # Part B / AC6：加 avg_price 列的 migration 必须幂等（列只加一次、重开不报错），
+    # 且既有 leg 行的 cumulative_base_qty / cumulative_quote_amt / order_id / avg_price
+    # 等字段跨重开逐字不变。
+    db = str(tmp_path / "ho.sqlite3")
+    store = HedgeOpenStore(db)
+    _create(store, "tn", target=1)
+    attempt = store.prepare_attempt(
+        "tn", "att1", D.DIR_FORWARD, "0.5", D.POS_MODE_BOTH,
+        {"est_price": "50000"}, "hgo-att1-s", {"side": "BUY"},
+        "hgo-att1-p", {"side": "SELL"}, 1_000,
+    )
+    outcome = AttemptOutcome(
+        attempt_id="att1", category=D.ATTEMPT_SUCCESS,
+        spot={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
+              "cumulative_quote": "25000", "order_id": "os", "client_order_id": "hgo-att1-s"},
+        perp={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
+              "cumulative_quote": "25000", "order_id": "op", "client_order_id": "hgo-att1-p"},
+        record_payload={"transport": "dry_run_record", "posted": False,
+                        "spot_order_params": {}, "perp_order_params": {}},
+        exposure=None,
+    )
+    store.resolve_attempt(attempt["id"], outcome, 2_000)
+    store.close()
+    # 连续再开两次：若 migration 不幂等会抛 duplicate column；既有行字段必须逐字不变。
+    for _ in range(2):
+        s2 = HedgeOpenStore(db)
+        legs = {l["leg"]: l for l in s2.list_legs_for_attempt(attempt["id"])}
+        for leg, want_oid in ((legs["spot"], "os"), (legs["perp"], "op")):
+            assert leg["cumulative_base_qty"] == "0.5"
+            assert leg["cumulative_quote_amt"] == "25000"
+            assert leg["order_id"] == want_oid
+            assert leg["avg_price"] == "50000"      # 落库值跨重开保留
+        s2.close()

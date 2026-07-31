@@ -202,33 +202,49 @@ def log_to_doc(row: dict) -> dict:
     }
 
 
+def _resolve_avg_price(leg: dict, local_avg: str | None) -> str | None:
+    """均价三级优先级（Part B，Human 2026-07-31 决定改用交易所返回的权威均价）：
+    ① 库里存的 ``avg_price``（交易所原话，非推导）→ ② 本地 ``quote / base`` 计算
+    → ③ ``None``。三处腿投影（``_leg_to_doc`` / ``_entry_spot_leg`` /
+    ``_entry_perp_leg``）共用此函数，保证同一笔钱在 attempts 与 entries 两流展示同一价格。
+
+    与 review-1 r6「不得用未知成交额做除法」不冲突：除法只发生在 ``local_avg``（仅当
+    quote 在场）；存的是交易所原话。为空/NULL 退回 ``local_avg``，既有历史行不受影响。
+    """
+    stored = leg.get("avg_price")
+    if stored is None or stored == "":
+        return local_avg
+    return stored
+
+
 def _leg_to_doc(leg: dict | None) -> dict:
     """Project one mutable leg row to the frozen §3.4 per-leg shape.
 
-    Decimal fields stay strings; ``avg_price`` is the weighted average
-    ``cumulative_quote_amt / cumulative_base_qty`` (None when there is no base
-    fill yet — a PREPARED/REJECTED leg). The spot leg carries
+    Decimal fields stay strings; ``avg_price`` 优先取库里存的交易所权威值，否则用
+    ``cumulative_quote_amt / cumulative_base_qty`` 本地加权均价（None when there is no
+    base fill yet — a PREPARED/REJECTED leg）。The spot leg carries
     ``fee_amount``/``fee_asset`` only when they were recorded.
     """
     leg = leg or {}
     base = D.Decimal(leg.get("cumulative_base_qty") or "0")
     raw_quote = leg.get("cumulative_quote_amt")
     if raw_quote is None:
-        # NULL notional passes through as JSON null, not "0" (review-1 r6); an
-        # unknown notional is also an unknown average price, so do not divide.
+        # NULL notional passes through as JSON null, not "0" (review-1 r6); the
+        # local average stays None (do not divide an unknown notional) — but a
+        # stored exchange avg_price still wins via _resolve_avg_price.
         quote_amt = None
-        avg = None
+        local_avg = None
     else:
         quote = D.Decimal(raw_quote)
         quote_amt = D.fmt_decimal(quote)
-        avg = D.fmt_decimal(quote / base) if base > 0 else None
+        local_avg = D.fmt_decimal(quote / base) if base > 0 else None
     doc = {
         "client_order_id": leg.get("client_order_id"),
         "order_id": leg.get("order_id"),
         "status": leg.get("exchange_status"),
         "cumulative_base_qty": D.fmt_decimal(base),
         "cumulative_quote_amt": quote_amt,
-        "avg_price": avg,
+        "avg_price": _resolve_avg_price(leg, local_avg),
     }
     if leg.get("fee_amount") is not None:
         doc["fee_amount"] = leg.get("fee_amount")
@@ -290,14 +306,15 @@ def _entry_spot_leg(leg: dict | None, spot_side: str | None) -> dict:
     base = D.Decimal(leg.get("cumulative_base_qty") or "0")
     raw_quote = leg.get("cumulative_quote_amt")
     if raw_quote is None:
-        # NULL notional passes through as JSON null, not "0" (review-1 r6); an
-        # unknown notional is also an unknown average price, so do not divide.
+        # NULL notional passes through as JSON null, not "0" (review-1 r6); the
+        # local average stays None (do not divide an unknown notional) — but a
+        # stored exchange avg_price still wins via _resolve_avg_price.
         quote_amt = None
-        avg = None
+        local_avg = None
     else:
         quote = D.Decimal(raw_quote)
         quote_amt = D.fmt_decimal(quote)
-        avg = D.fmt_decimal(quote / base) if base > 0 else None
+        local_avg = D.fmt_decimal(quote / base) if base > 0 else None
     return {
         "side": spot_side,
         "client_order_id": leg.get("client_order_id"),
@@ -305,7 +322,7 @@ def _entry_spot_leg(leg: dict | None, spot_side: str | None) -> dict:
         "status": leg.get("exchange_status"),
         "cumulative_base_qty": D.fmt_decimal(base),
         "cumulative_quote_amt": quote_amt,
-        "avg_price": avg,
+        "avg_price": _resolve_avg_price(leg, local_avg),
         "fee_amount": leg.get("fee_amount"),
         "fee_asset": leg.get("fee_asset"),
     }
@@ -316,14 +333,15 @@ def _entry_perp_leg(leg: dict | None, perp_side: str | None) -> dict:
     base = D.Decimal(leg.get("cumulative_base_qty") or "0")
     raw_quote = leg.get("cumulative_quote_amt")
     if raw_quote is None:
-        # NULL notional passes through as JSON null, not "0" (review-1 r6); an
-        # unknown notional is also an unknown average price, so do not divide.
+        # NULL notional passes through as JSON null, not "0" (review-1 r6); the
+        # local average stays None (do not divide an unknown notional) — but a
+        # stored exchange avg_price still wins via _resolve_avg_price.
         quote_amt = None
-        avg = None
+        local_avg = None
     else:
         quote = D.Decimal(raw_quote)
         quote_amt = D.fmt_decimal(quote)
-        avg = D.fmt_decimal(quote / base) if base > 0 else None
+        local_avg = D.fmt_decimal(quote / base) if base > 0 else None
     return {
         "side": perp_side,
         "client_order_id": leg.get("client_order_id"),
@@ -331,7 +349,7 @@ def _entry_perp_leg(leg: dict | None, perp_side: str | None) -> dict:
         "status": leg.get("exchange_status"),
         "cumulative_base_qty": D.fmt_decimal(base),
         "cumulative_quote_amt": quote_amt,
-        "avg_price": avg,
+        "avg_price": _resolve_avg_price(leg, local_avg),
     }
 
 
@@ -1205,6 +1223,7 @@ class HedgeOpenTaskService:
                     order_id=verdict.order_id,
                     base_qty=verdict.executed_qty,
                     quote_amt=verdict.cumulative_quote,
+                    avg_price=verdict.avg_price,
                     fee_amount=None,
                     fee_asset=None,
                     now_us=now_us,

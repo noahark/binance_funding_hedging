@@ -434,8 +434,29 @@ def test_get_logs_attempts_residual_is_signed_decimal_no_float(tmp_path):
 
 class _NullQuoteExecutor:
     """Record/dry-run transport whose FILLED legs carry a positive fill but NO
-    ``cumulative_quote`` key, so the store records the notional as NULL (T1
-    verbatim rule). Exercises the projection-layer NULL pass-through."""
+    ``cumulative_quote`` and NO ``avg_price`` (no price information at all), so
+    the store records both notional and avg_price as NULL. r6 反造假内核守卫
+    （拆分后第一支，见 test_null_notional_projects_null_on_attempts_and_entries）。"""
+
+    def execute(self, ctx):
+        return AttemptOutcome(
+            attempt_id=ctx.attempt_id,
+            category=D.ATTEMPT_SUCCESS,
+            spot={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": None,
+                  "order_id": f"s-{ctx.attempt_id}", "client_order_id": f"hgo-{ctx.attempt_id}-s"},
+            perp={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": None,
+                  "order_id": f"p-{ctx.attempt_id}", "client_order_id": f"hgo-{ctx.attempt_id}-p"},
+            record_payload={"transport": "null_quote_test", "posted": False},
+            exposure=None,
+        )
+
+
+class _NullQuoteWithAvgExecutor:
+    """Record transport whose FILLED legs carry a positive fill and an exchange
+    ``avg_price`` but NO ``cumulative_quote`` (the 2026-07-14 UM shape: POST
+    drops quote, the order-detail GET supplies avgPrice). Part B 新语义守卫
+    （拆分后第二支）：NULL quote + 在场交易所 avg → 两流展示该 avg、值相同；
+    quote 仍为 NULL（不推导）。"""
 
     def execute(self, ctx):
         return AttemptOutcome(
@@ -445,7 +466,7 @@ class _NullQuoteExecutor:
                   "order_id": f"s-{ctx.attempt_id}", "client_order_id": f"hgo-{ctx.attempt_id}-s"},
             perp={"status": D.LEG_FILLED, "filled_qty": "0.5", "avg_price": "50000",
                   "order_id": f"p-{ctx.attempt_id}", "client_order_id": f"hgo-{ctx.attempt_id}-p"},
-            record_payload={"transport": "null_quote_test", "posted": False},
+            record_payload={"transport": "null_quote_with_avg_test", "posted": False},
             exposure=None,
         )
 
@@ -472,11 +493,10 @@ class _RealZeroQuoteExecutor:
 
 
 def test_null_notional_projects_null_on_attempts_and_entries(tmp_path):
-    # A FILLED leg with a positive base but a NULL notional must project JSON
-    # null for BOTH cumulative_quote_amt and avg_price on every projection path
-    # — attempts (§3.4, _leg_to_doc) and entries (§5, _entry_spot_leg /
-    # _entry_perp_leg) — not the fabricated "0"/"0" the old `or "0"` fallback
-    # produced. The store already records NULL; this proves the wire carries it.
+    # r6 反造假内核（拆分后第一支；Human 2026-07-31 决定改用交易所返回的权威均价）。
+    # 一个 FILLED 腿有成交量、但既无成交额也无 avg_price（_NullQuoteExecutor）→ 两流
+    # 的 cumulative_quote_amt 与 avg_price 都必须为 null：不得用未知成交额做除法造出
+    # 价格（review-1 r6 原意）。有交易所 avg_price 时的相反语义见下一用例。
     svc = _svc(tmp_path, executor=_NullQuoteExecutor())
     _, doc = svc.create_task(_create_body(target_n=1))
     svc.post_fill_once(doc["id"])
@@ -491,6 +511,29 @@ def test_null_notional_projects_null_on_attempts_and_entries(tmp_path):
         assert leg["cumulative_base_qty"] == "0.5"
         assert leg["cumulative_quote_amt"] is None
         assert leg["avg_price"] is None
+
+
+def test_null_quote_with_exchange_avg_projects_on_both_streams(tmp_path):
+    # r6 拆分第二支 / Part B 新语义（Human 2026-07-31）：一个 FILLED 腿的成交额为 NULL
+    # 但带了交易所返回的 avg_price（_NullQuoteWithAvgExecutor，即 2026-07-14 后 UM 的
+    # 形态：POST 不带 quote、GET 带回 avgPrice）→ 两流都展示该 avg_price、且值相同；
+    # quote 仍为 NULL（不得用 avg_price 反推成交额）。本地算在此为 None，故展示库存值
+    # 即证明走了优先级 ①。
+    svc = _svc(tmp_path, executor=_NullQuoteWithAvgExecutor())
+    _, doc = svc.create_task(_create_body(target_n=1))
+    svc.post_fill_once(doc["id"])
+    _, page = svc.get_logs(None, None)
+    a = page["attempts"][0]
+    for leg in (a["spot"], a["perp"]):
+        assert leg["cumulative_base_qty"] == "0.5"
+        assert leg["cumulative_quote_amt"] is None      # quote NULL 契约不变
+        assert leg["avg_price"] == "50000"               # 交易所权威值优先
+    e = next(x for x in page["entries"] if x["entry_type"] == "attempt")
+    for leg in (e["spot"], e["perp"]):
+        assert leg["cumulative_quote_amt"] is None
+        assert leg["avg_price"] == "50000"               # entries 流与 attempts 流一致
+    # 两流同一笔钱的均价必须相同（不可一个流显示、一个流显示 —）。
+    assert a["spot"]["avg_price"] == e["spot"]["avg_price"] == "50000"
 
 
 def test_real_zero_notional_still_projects_string_zero(tmp_path):
@@ -720,3 +763,33 @@ def test_get_logs_task_id_returns_all_attempts_unpaged(tmp_path):
     # Contrast: no task_id -> the legacy global page is capped at LIMIT_DEFAULT.
     _, global_page = svc.get_logs(None, None)
     assert len(global_page["attempts"]) == 50
+
+
+def test_avg_price_priority_three_levels_both_streams():
+    # Part B（Human 2026-07-31）：avg_price 三级优先级 ① 库存交易所值 → ② 本地 quote/base
+    # → ③ None。attempts 流（_leg_to_doc）与 entries 流（_entry_spot_leg/_entry_perp_leg）
+    # 必须用完全相同的优先级——同一笔钱在两处显示同一价格。
+    from backend.hedge_open_tasks.service import (
+        _leg_to_doc, _entry_spot_leg, _entry_perp_leg,
+    )
+    # ① 库存 avg 在场，且刻意与本地算不同（本地 25000/0.5=50000，库存 99999）→ 展示库存值。
+    leg_stored = {"cumulative_base_qty": "0.5", "cumulative_quote_amt": "25000",
+                  "avg_price": "99999"}
+    assert _leg_to_doc(leg_stored)["avg_price"] == "99999"
+    assert _entry_spot_leg(leg_stored, "BUY")["avg_price"] == "99999"
+    assert _entry_perp_leg(leg_stored, "SELL")["avg_price"] == "99999"
+    # ② 库存 avg 为 NULL、quote/base 齐全（既有历史行）→ 本地计算，与修复前完全一致。
+    leg_local = {"cumulative_base_qty": "0.5", "cumulative_quote_amt": "25000",
+                 "avg_price": None}
+    assert _leg_to_doc(leg_local)["avg_price"] == "50000"
+    assert _entry_spot_leg(leg_local, "BUY")["avg_price"] == "50000"
+    assert _entry_perp_leg(leg_local, "SELL")["avg_price"] == "50000"
+    # ② 变体：库存 avg 缺键（旧行没这列的等价）→ 同样退回本地计算。
+    leg_no_key = {"cumulative_base_qty": "0.5", "cumulative_quote_amt": "25000"}
+    assert _leg_to_doc(leg_no_key)["avg_price"] == "50000"
+    # ③ 库存 avg 与 quote 均缺失 → None（不是 "0"）。
+    leg_none = {"cumulative_base_qty": "0.5", "cumulative_quote_amt": None,
+                "avg_price": None}
+    assert _leg_to_doc(leg_none)["avg_price"] is None
+    assert _entry_spot_leg(leg_none, "BUY")["avg_price"] is None
+    assert _entry_perp_leg(leg_none, "SELL")["avg_price"] is None

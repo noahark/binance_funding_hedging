@@ -4216,7 +4216,7 @@ setTimeout(async () => {
     // 86a. 任务卡内嵌日志（2026-07-31-hedge-task-inline-log-v1，AC1/AC2/AC3/AC4/AC6/AC7/AC9）：
     //      四状态徽标冻结映射 + 钱原样透传(均价带尾零) + 未受理腿 order_id 门控三格 — +
     //      错误原因回退链(zh→机器字段→「原因未记录」) + 进展=attempt_seq/target_n + 真卡 toggle +
-    //      fake 已清。列序：进展/状态/成交时间/合约订单号/现货订单号/合约均价/现货均价/合约数量/现货数量/错误原因。
+    //      fake 已清。列序：进展/状态/尝试时间/合约订单号/现货订单号/合约均价/现货均价/合约数量/现货数量/错误原因。
     {
       helpers.resetHedgeStateForTest();
       hedgeTaskLogsGetResponse = null;
@@ -4270,6 +4270,25 @@ setTimeout(async () => {
       }
       if (card.includes('badge compact warning') || card.includes('>已成交<')) {
         throw new Error('不得出现失效的 warning class 或 fake 的「已成交」文案');
+      }
+
+      // Part A（R2-F1）：列头改「尝试时间」并去掉 order_id 门控——四种状态每一行都显示该次
+      // 尝试的时间（北京时间 YYYY-MM-DD HH:MM:SS）。重点是无 order_id 的行（进行中/确认失败）
+      // 也不再被抹成 —；全量不出现「成交时间」字样。仅 attempt.ts 缺失才 —。
+      if (!card.includes('<th>尝试时间</th>') || card.includes('成交时间')) {
+        throw new Error('Part A 列头应为「尝试时间」，不得残留「成交时间」: ' + card);
+      }
+      const beijingRe = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/;
+      const rowTds = (row) => row.match(/<td[^>]*>.*?<\/td>/g) || [];
+      for (const seq of ['5/10', '4/10', '3/10', '2/10', '1/10']) {
+        const idx = card.indexOf(`<strong>${seq}</strong>`);
+        if (idx === -1) throw new Error(`Part A 缺少进展行 ${seq}`);
+        const rs = card.lastIndexOf('<tr>', idx);
+        const re = card.indexOf('</tr>', idx);
+        const tds = rowTds(card.slice(rs, re));
+        if (tds.length < 3 || !beijingRe.test(tds[2])) {
+          throw new Error(`Part A 行 ${seq} 第 3 列应显示北京时间（尝试时间），实际: ${tds[2]}`);
+        }
       }
 
       // AC2：钱原样透传——均价带尾零逐字（formatHedgeDecimal 会去成 120.7 / 120.703）。
