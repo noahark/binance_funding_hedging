@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 18,
+  "revision": 19,
   "stage_id": "2026-07-31-hedge-task-inline-log-v1",
   "bookkeeper": "opus5",
-  "phase": "review_2_fix2",
-  "checkpoint": "review_1_fix2_accept_sealed",
+  "phase": "awaiting_merge_decision",
+  "checkpoint": "review_1_and_review_2_both_accept_on_e9ba135",
   "base_sha": "42de1aff364e7c979d2fbb5dc56f1dec65287cc7",
   "delivery_sha": "e9ba135541959272d3f6c10d789af702a79f61a7",
-  "ledger_sha": "c1b1e9b625917ebc51e3acded0eb68e4b51ea5fb",
+  "ledger_sha": "6dde3ecc41f2944b9273d6976537978d3fbfc14a",
   "current_task": {
     "id": "2026-07-31-hedge-task-inline-log-v1-fix-2",
     "state": "verified",
@@ -15,7 +15,7 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-review-2-fix2-terminal-codex"
+    "action": "decide-merge-to-main"
   },
   "rework_count": 2,
   "blockers": []
