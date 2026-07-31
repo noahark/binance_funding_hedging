@@ -22,15 +22,14 @@ check.
   (10 tasks x 10/s = 100 req/s) and a 429 currently pauses the task. If done:
   split "dispatch interval" from "re-query interval", add a floor, fix the
   integer-divide display, and consider 429 backoff instead of pause.
-- `[OPEN][MONEY-ACCURACY]` Displayed fill average price is computed locally as
-  `cumulative_quote_amt / cumulative_base_qty` (`service.py:224`), not the
-  exchange's own figure. `live_hedge_executor.py:116` already parses Binance
-  `avgPrice`, but `hedge_open_leg` has no `avg_price` column (`store.py:85-99`),
-  so the authoritative value is discarded. Human 2026-07-31: use the returned
-  figure instead — it is more precise. Needs a schema + write-path change, so it
-  is out of scope for the read-only inline-log stage. Consequence today: perp avg
-  is often blank because Binance dropped quote/avgPrice from the UM POST result
-  (2026-07-14) and the backfill GET may not land.
+- `[OPEN][RESIDUAL]` Perp average price can still read blank. Fixed in stage
+  `2026-07-31-hedge-task-inline-log-v1` (delivery `d85a2d3`): `hedge_open_leg`
+  now has an `avg_price` column, both write paths persist the exchange's own
+  `avgPrice`, and all three leg projections prefer it over the local
+  `quote / base` division. What remains is upstream — Binance dropped
+  quote/avgPrice from the UM POST result (2026-07-14), so a perp leg's figures
+  only arrive via the order-detail GET; until that GET lands, the column is
+  legitimately unknown and renders as an em-dash rather than a fabricated zero.
 - `[OPEN][MONEY-VISIBILITY]` `aggregate_positions` (`store.py:1934-1951`) excludes
   `deleted` tasks, so a deleted task's already-filled legs vanish from
   `GET /api/hedge-open-positions` while the account exposure remains. Pre-existing
