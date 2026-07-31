@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 4,
+  "revision": 5,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "planning",
-  "checkpoint": "fake_ui_closed_as_design_probe_plan_dispatch_prepared",
+  "phase": "plan_review",
+  "checkpoint": "plan_verified_and_sealed_b370401_plan_review_dispatch_prepared",
   "base_sha": "afa3d5228e64ed2399e3d24b6971245e20950d9f",
-  "delivery_sha": null,
-  "ledger_sha": "afa3d5228e64ed2399e3d24b6971245e20950d9f",
+  "delivery_sha": "b3704016d166fe01f2c09b05952e2b79c35232cd",
+  "ledger_sha": "b3704016d166fe01f2c09b05952e2b79c35232cd",
   "current_task": {
-    "id": "plan-hedge-task-lifecycle-v1",
+    "id": "plan-review-deepseek-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/plan-hedge-task-lifecycle-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/plan-review-deepseek-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
