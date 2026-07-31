@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 6,
+  "revision": 7,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "planning",
-  "checkpoint": "p1_re_decided_backend_merge_plan_revision_dispatched",
+  "phase": "plan_review",
+  "checkpoint": "plan_revision_verified_sealed_c1cc10e_plan_review_v2_dispatched",
   "base_sha": "afa3d5228e64ed2399e3d24b6971245e20950d9f",
-  "delivery_sha": null,
-  "ledger_sha": "b3704016d166fe01f2c09b05952e2b79c35232cd",
+  "delivery_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
+  "ledger_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
   "current_task": {
-    "id": "plan-revision-backend-merge-v1",
+    "id": "plan-review-deepseek-v2",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/plan-revision-backend-merge-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/plan-review-deepseek-v2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
