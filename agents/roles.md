@@ -112,6 +112,7 @@ Provider identity means the model vendor, not the CLI wrapper:
 | `codex` / GPT | `openai` |
 | Claude Fable or Opus | `anthropic` |
 | Grok | `xai` |
+| DeepSeek | `deepseek` |
 
 Claude Code using GLM is still a Zhipu provider session, not Anthropic.
 

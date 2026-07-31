@@ -12,6 +12,12 @@ check.
 
 ## Open Follow-ups
 
+- `[OPEN][RESIDUAL]` `resolve_leg_from_query` writes `avg_price` / `quote_amt`
+  without `COALESCE`, so a later query returning `None` overwrites a value already
+  known. Unreachable today (Binance's order-detail GET returns quote and avgPrice
+  together); becomes reachable if that changes. Introduced with the avg_price
+  column (stage `2026-07-31-hedge-task-inline-log-v1`), following the existing
+  `quote_amt` pattern. review-2 ruled it non-blocking for merge.
 - `[OPEN][DEFERRED]` Human wants the order re-query interval cut from 1s to ~100ms
   so fill figures land sooner (2026-07-31, deferred to its own stage). Facts found
   while scoping it: the interval is hard-coded 1s with no setter
@@ -60,15 +66,19 @@ check.
 
 ## Next Priority
 
-- Active stage: `2026-07-31-hedge-task-inline-log-v1` (task-card inline log + F10 restart
-  deadlock; HIGH_RISK, bookkeeper opus5). No live orders.
+- No active stage. Next: the four items Human deferred out of the inline-log
+  stage — task-card restart deadlock (incl. auto-pause -> auto-delete), the
+  positions-visibility gap, the 100ms re-query interval, and the O1 overwrite
+  guard. See the follow-ups above; evidence for the first two is in archive tag
+  `archive/2026-07-31-hedge-task-inline-log-v1`, files `04-` `05-` `06-`.
 - Idle, not closed: `2026-07-hedge-fast-fix-v1` (`awaiting_findings`, no current task).
-- Main line: live testing of the immediate-hedge scenario.
+- Main line: live testing of the immediate-hedge scenario. The inline log is now
+  merged but has had **no runtime verification** (review-2, 2026-07-31).
 
 ## Last Completed
 
-- stage: `2026-07-harness-v2-trial-hardening-v1`
-- archive_ref: `archive/2026-07-harness-v2-trial-hardening-v1`
+- stage: `2026-07-31-hedge-task-inline-log-v1`
+- archive_ref: `archive/2026-07-31-hedge-task-inline-log-v1` (delivery `e9ba135`)
 - recorded_completed_at: `2026-07-31`
 
 ## Update Rule
