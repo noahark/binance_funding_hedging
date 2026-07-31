@@ -24,6 +24,18 @@
 
 冻结区间 `git diff --check <base>..<head>` 对 `reports/agent-runs/2026-07-ui-filter-balance-metal-v1/task-serial-claude-glm.prompt.md:5-7` 报 trailing whitespace，实为 `。` 后的 markdown 硬换行双空格，位于 bookkeeper 派发 prompt 报告产物、**非产品代码**。工作区形式 `git diff --check`（验收实际执行形式）clean。证据卫生小项。
 
+## R2 勘误（2026-07-31）
+
+R2 不是当前生产缺陷。真实币安金属行没有现货腿，因此被分类为
+`PERP_ONLY_EXCLUDED`，负费率状态为 `DISABLED_PERP_ONLY`，前端按设计显示
+“仅合约：无现货腿”，借币入口显示 `—`，不会进入真实的
+`select_borrow_candidates` 候选集合。
+
+现有测试人为构造了 `spot` 且允许杠杆的 METAL 输入，用于验证**未来**出现真实金属
+现货腿时的候选逻辑。故本条改为“条件性测试覆盖提醒”，不作为当前开放产品风险，
+不写入 `PROJECT_STATE.md`。若未来接口确实出现可用金属现货腿，再补真实 API 样本并
+重新评审。原始 R2 记录保留，本段为追加勘误。
+
 ---
 
 本地北京时间: 2026-07-08 13:42:10 CST

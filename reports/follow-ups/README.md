@@ -9,10 +9,11 @@
 >
 > 2026-07-31 全量审计结论（逐条核验记录见归档
 > `archive/2026-07-harness-v2-trial-hardening-v1` 文件 `22-` §24）：
-> - 本目录 11 份内容文件中，**只有一条仍然真正开着**——
->   `2026-07-ui-filter-balance-metal-v1-residuals.md` 的 **R2**：币安公开接口尚无
->   金属现货腿，METAL 借币候选路径只有合成 fixture 覆盖，需等 live sample。
->   属外部依赖，无代码可改。
+> - 本目录 11 份内容文件中，**没有已确认的当前生产代码问题**。
+>   原 R2 是条件性测试覆盖说明：当前币安金属标的没有现货腿，生产分类为
+>   `PERP_ONLY_EXCLUDED`，借币入口正确显示 `—`；只有测试人为构造现货腿时，
+>   才验证未来可能出现的 METAL 候选路径。它不是当前开放风险，不写入
+>   `PROJECT_STATE.md`；未来真实出现现货腿时再补 live sample 并复核。
 > - 其余均为**已解决**（51061 映射；R1 注释漂移已实测修复，
 >   `snapshot_service.py` 现用 `{CRYPTO, METAL}`）、**已退役**
 >   （auto-review-pipeline，DEC-2026-07-14-002）、**已执行完**（docs-hygiene
@@ -38,8 +39,11 @@ Source: `2026-07-borrowability-51061-zero-mapping.md`.
 
 - R1: resolved by `2026-07-borrowability-error-zero-mapping-v1`; the
   `snapshot_service.py` comments now use `{CRYPTO, METAL}`.
-- R2: open product fact. A METAL spot-leg live sample is required before the
-  candidate path can re-enter review.
+- R2: conditional test-coverage note, not an open production issue. Current
+  live METAL rows have no spot leg, are classified `PERP_ONLY_EXCLUDED`, and
+  correctly stay out of the borrow-candidate path. The synthetic test covers
+  only the future case where a real margin-spot leg appears; then a live sample
+  and review are required.
 - R3: ignored by the original disposition. The report-artifact trailing
   whitespace requires no action.
 
