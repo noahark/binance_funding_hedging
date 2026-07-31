@@ -464,3 +464,39 @@ def test_leg_is_terminal_fill():
     assert leg_is_terminal_fill(_leg_dispatch(state=LEG_ACCEPTED, status=D.LEG_NEW)) is False
     assert leg_is_terminal_fill(_leg_dispatch(state=LEG_REJECTED)) is True
     assert leg_is_terminal_fill(_leg_dispatch(state=LEG_UNKNOWN_QUERYING)) is False
+
+
+# ---- R2-Rerun-F1: avgPrice 的数值零（含币安 "0.00000"）不是真实成交价 ----
+
+def test_avg_price_decimal_drops_any_numeric_zero_keeps_nonzero_verbatim():
+    # 解析层：任何可解析为数值零的输入（"0"、"0.00000"、"0E-8"、"-0"、0）一律 None；
+    # 非零值逐字原样（不补零/截断/科学计数法）；缺失/不可解析 -> None。
+    from backend.services.live_hedge_executor import _avg_price_decimal
+    for zero in ["0", "0.00000", "0.0", "0E-8", "-0", "0e0", 0]:
+        assert _avg_price_decimal(zero) is None, f"{zero!r} 应判为数值零 -> None"
+    assert _avg_price_decimal("50000.12") == "50000.12"     # 非零逐字
+    assert _avg_price_decimal("0.0000123") == "0.0000123"   # 极小但非零，逐字保留
+    for missing in [None, "", "abc", True, False]:
+        assert _avg_price_decimal(missing) is None, f"{missing!r} 缺失/不可解析 -> None"
+
+
+def test_quote_decimal_real_zero_is_preserved_not_dropped():
+    # 硬约束【易错】：成交额的 "0" 是真实零成交（合法值），与均价零含义不同——
+    # _quote_decimal 不得跟着 _avg_price_decimal 把 "0" 丢掉，T1 NULL 契约完好。
+    from backend.services.live_hedge_executor import _quote_decimal
+    assert _quote_decimal("0") == "0"
+    assert _quote_decimal("0.00000") == "0.00000"
+    assert _quote_decimal("25000") == "25000"
+
+
+def test_query_zero_avg_price_is_not_a_real_price():
+    # 端到端（AC3/AC4）：合约腿「已受理但未成交」的订单详情（status=NEW、avgPrice="0.00000"）
+    # 经 classify_query_response 后 avg_price 为 None（前端渲染 —，页面上不出现 0）；
+    # 非零 avgPrice 仍优先取用。
+    body_zero = {"orderId": 55, "status": "NEW", "executedQty": "0", "avgPrice": "0.00000"}
+    d_zero = classify_query_response(_resp(200, body_zero), "perp")
+    assert d_zero is not None and d_zero.dispatch_state == LEG_ACCEPTED
+    assert d_zero.avg_price is None                  # 零均价不落库、不展示
+    body_real = {"orderId": 55, "status": "FILLED", "executedQty": "0.5", "avgPrice": "50000.12"}
+    d_real = classify_query_response(_resp(200, body_real), "perp")
+    assert d_real is not None and d_real.avg_price == "50000.12"   # 真实均价照常

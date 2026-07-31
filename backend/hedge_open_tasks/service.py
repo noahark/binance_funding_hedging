@@ -210,10 +210,20 @@ def _resolve_avg_price(leg: dict, local_avg: str | None) -> str | None:
 
     与 review-1 r6「不得用未知成交额做除法」不冲突：除法只发生在 ``local_avg``（仅当
     quote 在场）；存的是交易所原话。为空/NULL 退回 ``local_avg``，既有历史行不受影响。
+
+    纵深防御（R2-Rerun-F1）：库存值为**数值零**（如遗留脏数据 ``"0.00000"``、或未来别的
+    写入路径漏网）时视为未知，退回 ``local_avg``（②），绝不把 ``0`` 当真实成交价展示——
+    均价为零在业务上不可能是真实成交。解析层（``_avg_price_decimal``）已挡新数据，此层是
+    最后一道关，护住已落库的脏数据与未来路径。
     """
     stored = leg.get("avg_price")
     if stored is None or stored == "":
         return local_avg
+    try:
+        if D.Decimal(str(stored)) == 0:
+            return local_avg
+    except Exception:
+        pass
     return stored
 
 

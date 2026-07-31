@@ -793,3 +793,30 @@ def test_avg_price_priority_three_levels_both_streams():
     assert _leg_to_doc(leg_none)["avg_price"] is None
     assert _entry_spot_leg(leg_none, "BUY")["avg_price"] is None
     assert _entry_perp_leg(leg_none, "SELL")["avg_price"] is None
+
+
+def test_resolve_avg_price_zero_stored_falls_back_to_local_both_streams():
+    # R2-Rerun-F1 展示层纵深防御：库存均价为数值零（遗留脏数据 "0.00000"，或未来别的写入
+    # 路径漏网）时视为未知，退回本地 quote/base 计算；非零库存仍优先。attempts 与 entries
+    # 两流一致——页面上该单元格不出现 0。
+    from backend.hedge_open_tasks.service import (
+        _leg_to_doc, _entry_spot_leg, _entry_perp_leg,
+    )
+    # 库存为零、quote/base 齐全 -> 退回本地算（不展示 0.00000）
+    leg_zero = {"cumulative_base_qty": "0.5", "cumulative_quote_amt": "25000",
+                "avg_price": "0.00000"}
+    assert _leg_to_doc(leg_zero)["avg_price"] == "50000"         # 25000/0.5
+    assert _entry_spot_leg(leg_zero, "BUY")["avg_price"] == "50000"
+    assert _entry_perp_leg(leg_zero, "SELL")["avg_price"] == "50000"
+    # 库存为零、quote 也缺失 -> None（不是 "0"/"0.00000"）
+    leg_zero_no_quote = {"cumulative_base_qty": "0.5", "cumulative_quote_amt": None,
+                         "avg_price": "0"}
+    assert _leg_to_doc(leg_zero_no_quote)["avg_price"] is None
+    assert _entry_spot_leg(leg_zero_no_quote, "BUY")["avg_price"] is None
+    assert _entry_perp_leg(leg_zero_no_quote, "SELL")["avg_price"] is None
+    # 非零库存仍优先（Part B 主语义不受影响）
+    leg_real = {"cumulative_base_qty": "0.5", "cumulative_quote_amt": "25000",
+                "avg_price": "99999"}
+    assert _leg_to_doc(leg_real)["avg_price"] == "99999"
+    assert _entry_spot_leg(leg_real, "BUY")["avg_price"] == "99999"
+    assert _entry_perp_leg(leg_real, "SELL")["avg_price"] == "99999"

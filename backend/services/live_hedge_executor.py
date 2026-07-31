@@ -91,8 +91,27 @@ def _quote_decimal(raw) -> Optional[str]:
 
 
 def _avg_price_decimal(raw) -> Optional[str]:
-    """avgPrice is informational; a literal 0 / missing -> None (no usable price)."""
-    if raw in (None, "", "0", 0) or isinstance(raw, bool):
+    """avgPrice is informational; any **numeric zero** or missing/unparseable
+    value -> ``None``; a non-zero value passes through :func:`_quote_decimal`
+    verbatim (no formatting change).
+
+    Numeric-zero detection (R2-Rerun-F1): Binance USDⓈ-M returns
+    ``avgPrice="0.00000"`` for an accepted-but-unfilled order, and ``"0.00000"``
+    is not equal to the literal ``"0"`` the old ``raw in (..., "0", ...)`` check
+    tested for — so it slipped through and displayed as a real price. ``Decimal``
+    compares by value, so ``Decimal("0.00000") == 0`` and ``Decimal("0E-8") == 0``
+    both catch every zero spelling. A zero avgPrice is never a real fill price.
+
+    Distinct from :func:`_quote_decimal`: a quote ``"0"`` is a REAL zero fill
+    (kept), whereas an avgPrice zero is unknown (dropped). Do not unify them.
+    """
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        value = Decimal(str(raw))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if value == 0:
         return None
     return _quote_decimal(raw)
 
