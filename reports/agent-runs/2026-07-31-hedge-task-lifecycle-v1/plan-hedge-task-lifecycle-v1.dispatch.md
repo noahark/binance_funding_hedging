@@ -23,26 +23,25 @@ Identity:
 
 **展示形状不需要你重新设计** —— 已由 fake UI 交付 `63f5007` 确定并经 Human 认可。你的任务是把它变成可实现、可验证的方案。
 
-### 你必须裁定的九个决策点
+### 你必须裁定的八个决策点
 
 方案里每一个都要有明确结论、理由、以及**放弃了什么**（`software-architect.md` 的 trade-off 要求）。含糊或"视情况而定"不算裁定。
 
 - **P1 合并在哪一层做**：前端 join（`state.snapshot.private_account` 与 `state.hedgePositions` 已同时在浏览器内，零新增交易所请求、零新增限频权重）vs 后端合并（口径单一，但 hedge service 目前够不到 `private_account`，且 `private_client.py` 的端点白名单已冻结不可扩展 —— 见 `hedge_preflight_provider.py` 文件头的偏离说明）。**这是本方案最关键的一个决定**，必须出 ADR。
-- **P2 同币双向**（Human 要求单独成案，D11）：本地按 `(coin, direction)` 分桶会出两行，币安 UM 只有一个净持仓。两行如何挂到一个真实仓上？不得与 P3 混为一谈论述。
-- **P3 手工部分平仓后的偏离**：本地累加数量只增不减，手工卖掉一半现货后本地仍是原数而真实余额减半。差额显示与否、如何显示。
-- **P4 ②③ 相撞**（必须解决，不得回避）：`rate_limited`（429）正是六种非人工暂停之一（`domain.py:135`）。② 落地后一次限流即删卡；③ 又把查询量放大 10 倍（10 个任务 × 10 次/秒 = 100 次/秒）。给出解法（限流退避而非删卡 / 429 作为例外保留暂停 / 不做③ / 其他），并说明为何该解法不与 Human 已定的"六种全改"冲突。
-- **P5 ② 的死锁修法**：真实残留路径是 `post_start`（`service.py:616`）不检查计划配额就置 `running` + 拉起 worker，而 worker 立刻因 `scheduled_attempt_count >= target_n` 退出（`service.py:1172`），任务留在 `running` 无进展；复现条件 `target_n == failure_pause_threshold`。再武装入口共三个：`post_start`（`:616`）、`post_fill_once`（`:656`）、`post_fill_all`（`:670`），且 `post_start` 不挡 `stopped`。
-- **P6 自动删除的边界**：不得终止正在 drain 在途腿的 worker（`post_delete` 现有行为是不打断、drain 到终态再退出，`service.py:645`）。同时说明被自动删除的任务，其已成交的腿如何仍然出现在合并持仓表里（这正是 ① 要解决的）。
-- **P7 ③ 的前置与拆分**：`service.py:178` 用 `// 1_000_000` 整除，亚秒值会显示成 `0`，改之前先修显示；现在"下单调度间隔"与"订单重查间隔"共用一个值但语义不同（`store.py:19`、`scheduler.py:5` 注释均为 fixed 1s），是否拆分；是否加下限。
-- **P8 占位零的处理**：`price_pnl` / `accrued_funding` / `borrow_interest` / `net_pnl` 在 `store.py:2050-2053` 是字面量 `"0"`，从未计算过。哪些本轮接真值（合约腿未实现盈亏可由 `um_positions[].unrealized_profit` 提供）、哪些画"暂无"、哪些画"未知"。**不得继续渲染成 `0.00`。**
-- **P9 交付拆分与顺序**：四项拆成几个可交付任务、各自的文件边界、先后依赖（① 必须在 ② 之前，③ 必须在 ② 之后）、每个任务标 `HIGH_RISK` 还是 `LOW_RISK` 及理由。
+- **P2 手工部分平仓后的偏离**：本地累加数量只增不减，手工卖掉一半现货后本地仍是原数而真实余额减半。差额显示与否、如何显示。
+- **P3 ②③ 相撞**（必须解决，不得回避）：`rate_limited`（429）正是六种非人工暂停之一（`domain.py:135`）。② 落地后一次限流即删卡；③ 又把查询量放大 10 倍（10 个任务 × 10 次/秒 = 100 次/秒）。给出解法（限流退避而非删卡 / 429 作为例外保留暂停 / 不做③ / 其他），并说明为何该解法不与 Human 已定的"六种全改"冲突。
+- **P4 ② 的死锁修法**：真实残留路径是 `post_start`（`service.py:616`）不检查计划配额就置 `running` + 拉起 worker，而 worker 立刻因 `scheduled_attempt_count >= target_n` 退出（`service.py:1172`），任务留在 `running` 无进展；复现条件 `target_n == failure_pause_threshold`。再武装入口共三个：`post_start`（`:616`）、`post_fill_once`（`:656`）、`post_fill_all`（`:670`），且 `post_start` 不挡 `stopped`。
+- **P5 自动删除的边界**：不得终止正在 drain 在途腿的 worker（`post_delete` 现有行为是不打断、drain 到终态再退出，`service.py:645`）。同时说明被自动删除的任务，其已成交的腿如何仍然出现在合并持仓表里（这正是 ① 要解决的）。
+- **P6 ③ 的前置与拆分**：`service.py:178` 用 `// 1_000_000` 整除，亚秒值会显示成 `0`，改之前先修显示；现在"下单调度间隔"与"订单重查间隔"共用一个值但语义不同（`store.py:19`、`scheduler.py:5` 注释均为 fixed 1s），是否拆分；是否加下限。
+- **P7 占位零的处理**：`price_pnl` / `accrued_funding` / `borrow_interest` / `net_pnl` 在 `store.py:2050-2053` 是字面量 `"0"`，从未计算过。哪些本轮接真值（合约腿未实现盈亏可由 `um_positions[].unrealized_profit` 提供）、哪些画"暂无"、哪些画"未知"。**不得继续渲染成 `0.00`。**
+- **P8 交付拆分与顺序**：四项拆成几个可交付任务、各自的文件边界、先后依赖（① 必须在 ② 之前，③ 必须在 ② 之后）、每个任务标 `HIGH_RISK` 还是 `LOW_RISK` 及理由。
 
 ## Allowed Files
 
 **只可新建这三份文档，不得修改任何代码文件：**
 
-- `reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/10-design.md` —— 方案主体，含上述九个决策点的裁定
-- `reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/11-adr.md` —— 至少覆盖 P1 与 P2 两个 ADR（`software-architect.md` 的 ADR 模板）
+- `reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/10-design.md` —— 方案主体，含上述八个决策点的裁定
+- `reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/11-adr.md` —— 至少覆盖 P1 的 ADR（`software-architect.md` 的 ADR 模板）；其余决策点认为需要立 ADR 的自行追加
 - `reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/12-development-breakdown.md` —— 可交付任务拆分与验收标准
 
 `backend/`、`frontend/`、`status.json` 及其他任何文件**一律不得改动**。边界不足即为阻塞项，报告并停止。
@@ -55,7 +54,7 @@ Identity:
 |---|---|---|
 | 本 dispatch | —（当前文件） | 全部 |
 | `02-scope-decisions.md` | 7647 | 全部 —— **字段事实与 Human 决策的权威来源** |
-| `03-fake-ui-outcome-and-plan-scope.md` | 5346 | 全部 —— D9-D12 与多次开单的已核实事实 |
+| `03-fake-ui-outcome-and-plan-scope.md` | 6382 | 全部 —— D9-D13 与多次开单的已核实事实。**注意 D13 撤销了 D11**，同币双向已移出本轮范围 |
 | `01-intake-brief.md` | 8588 | §「四项待办与依赖关系」与「必须守住的红线」。**注意：该文件的代码行号已全部过期**，一律以本 dispatch 下方的锚点表为准 |
 | `20-fake-ui-implementation.md` | 12638 | §5 占位零三分类、§9 接线风险清单 |
 | `AGENTS.md` | 16587 | §1 §3 §8 |
@@ -120,12 +119,12 @@ Identity:
 
 每项在 `[TASK_RESULT v2]` 的 `检查结果` 里按 `AGENTS.md` §7 标注 `pass` / `fail` / `contested`。
 
-1. **九个决策点 P1-P9 全部有明确裁定**，每个含结论、理由、放弃了什么；无"视情况而定"式空转。
-2. **P1 与 P2 各出一份 ADR**，含 Context / Decision / Consequences，明确写出该决定使什么变容易、什么变难。
-3. **P4（②③ 相撞）有可执行解法**，并说明为何不与 Human 已定的「六种全改」冲突。
+1. **八个决策点 P1-P8 全部有明确裁定**，每个含结论、理由、放弃了什么；无"视情况而定"式空转。
+2. **P1 出一份 ADR**，含 Context / Decision / Consequences，明确写出该决定使什么变容易、什么变难。
+3. **P3（②③ 相撞）有可执行解法**，并说明为何不与 Human 已定的「六种全改」冲突。
 4. **A-1 家族四站完整覆盖**：方案若改动其中任一站，必须逐站说明其余三站受不受影响；清单外三处须给出不适用的理由（`AGENTS.md` §8 同根因刹车的穷举要求）。
 5. **交付拆分可执行**：每个任务有 `Allowed Files` 级别的文件边界、验收标准、`HIGH_RISK`/`LOW_RISK` 标注与理由、以及依赖顺序（① 在 ② 前，③ 在 ② 后）。
-6. **非目标显式列出**：本轮明确不做的事情逐条写清（例如资金费与借币利息的数据源、`done` 语义、1000x 符号剥离），避免实现阶段悄悄扩围。
+6. **非目标显式列出**：本轮明确不做的事情逐条写清（例如资金费与借币利息的数据源、`done` 语义、1000x 符号剥离、**同币双向**），避免实现阶段悄悄扩围。**同币双向已由 Human 于 2026-07-31 移出本轮范围**（D13），不得作为设计问题展开；方案对它只需一句话：若该情况出现，按 D7「都显示，标清楚」两行照实并列，**不做净额合并、不告警、不触发任何自动动作**。
 7. **六条红线逐条确认**：在方案里逐条声明遵守，其中 51169 与 A-1 两条须指出方案中哪一处保证了它。
 8. **展示形状与 fake 一致**：与 `63f5007` 预览形状不同之处逐条列出并说明原因；未列出的即视为一致。
 9. **不引入无证据支撑的抽象**：方案中每个新增模块、层次或接口，都要指出它解决的是哪个**已观察到的**问题。
