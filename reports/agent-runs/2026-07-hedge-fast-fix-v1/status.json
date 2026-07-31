@@ -1,8 +1,8 @@
 {
   "schema_version": "2",
-  "revision": 2,
+  "revision": 3,
   "stage_id": "2026-07-hedge-fast-fix-v1",
-  "bookkeeper": "grok",
+  "bookkeeper": "claude_glm",
   "phase": "awaiting_findings",
   "checkpoint": "f4_f5_f6_confirm_preserve_loading_fixed",
   "base_sha": "a5160474a1b78468d1513fc14539232fdf36d7aa",
@@ -18,9 +18,9 @@
   "blockers": [],
   "mode": {
     "kind": "fast_fix",
-    "implementer": "grok",
+    "implementer": "claude_glm",
     "dual_hat": true,
-    "dual_hat_note": "Human authorized same-session Grok to open the stage and apply small fixes. Formal multi-model review still applies when a finding is HIGH_RISK.",
+    "dual_hat_note": "Stage opened and run by same-session Grok dual-hat (F1/F2 fixed). On 2026-07-31 Human switched the same-session dual-hat to claude_glm for continued fast-fix work. Formal multi-model review still applies when a finding is HIGH_RISK.",
     "commit_default": false,
     "live_orders": false
   }
