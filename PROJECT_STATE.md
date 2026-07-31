@@ -66,10 +66,10 @@ check.
 
 ## Next Priority
 
-- No active stage. Next: the four items Human deferred out of the inline-log
-  stage — task-card restart deadlock (incl. auto-pause -> auto-delete), the
-  positions-visibility gap, the 100ms re-query interval, and the O1 overwrite
-  guard. See the follow-ups above; evidence for the first two is in archive tag
+- Active stage: `2026-07-31-hedge-task-lifecycle-v1` (all four deferred items in
+  one stage, per Human). HIGH_RISK: task state machine + money visibility + live
+  write path. Scope decisions still open — see its `01-intake-brief.md`. Evidence
+  from the prior stage is in archive tag
   `archive/2026-07-31-hedge-task-inline-log-v1`, files `04-` `05-` `06-`.
 - Idle, not closed: `2026-07-hedge-fast-fix-v1` (`awaiting_findings`, no current task).
 - Main line: live testing of the immediate-hedge scenario. The inline log is now
