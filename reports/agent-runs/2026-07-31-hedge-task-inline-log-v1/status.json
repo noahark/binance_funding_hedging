@@ -1,22 +1,24 @@
 {
   "schema_version": "2",
-  "revision": 15,
+  "revision": 16,
   "stage_id": "2026-07-31-hedge-task-inline-log-v1",
   "bookkeeper": "opus5",
-  "phase": "review_2_rerun",
-  "checkpoint": "review_1_rerun_accept_sealed",
+  "phase": "fix_2",
+  "checkpoint": "review_2_rerun_rework_zero_avg_price",
   "base_sha": "42de1aff364e7c979d2fbb5dc56f1dec65287cc7",
   "delivery_sha": "d85a2d3c1953d635dee59c8a1ccfccdbc40ba73b",
-  "ledger_sha": "d0095cf10dc2b419117327b145c1c26afaf051ab",
+  "ledger_sha": "097e395b8a618a65b86b621d52b31cc67ba0b7f4",
   "current_task": {
-    "id": "2026-07-31-hedge-task-inline-log-v1-fix-1",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-inline-log-v1/15-fix.dispatch.md"
+    "id": "2026-07-31-hedge-task-inline-log-v1-fix-2",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-inline-log-v1/22-fix2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-review-2-rerun-terminal-codex"
+    "action": "start-fix2-terminal-claude-glm"
   },
-  "rework_count": 1,
-  "blockers": []
+  "rework_count": 2,
+  "blockers": [
+    "R2-Rerun-F1: exchange \"0.00000\" avgPrice persisted and shown as a real price (in-range, review-2 rerun)"
+  ]
 }
