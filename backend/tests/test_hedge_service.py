@@ -25,7 +25,7 @@ from backend.hedge_open_tasks.executor import (
     OutcomeSpec,
     RecordTransportExecutor,
 )
-from backend.hedge_open_tasks.service import HedgeOpenTaskService, PreflightProvider
+from backend.hedge_open_tasks.service import HedgeOpenTaskService, PreflightProvider, attempt_to_doc
 
 
 class _Clock:
@@ -662,3 +662,61 @@ def _wait_until(predicate, timeout=5):
             return True
         time.sleep(0.01)
     return False
+
+
+def test_attempt_to_doc_projects_error_fields():
+    # The task-card inline log (2026-07-31-hedge-task-inline-log-v1) consumes
+    # error_reason_zh / error_code / error_category off the attempts projection,
+    # so attempt_to_doc must pass the attempt row's columns through verbatim.
+    # error_reason_zh is frequently NULL for non-fatal rollups (store.py:1088).
+    attempt = {
+        "task_id": "t1", "attempt_uuid": "u1", "attempt_seq": 7,
+        "direction": D.DIR_FORWARD, "q_common": "0.5",
+        "pair_outcome": D.PAIR_CONFIRMED_FAILED,
+        "error_category": "fatal", "error_code": "-2010",
+        "error_reason_zh": "账户余额不足", "created_at_us": 1000,
+    }
+    doc = attempt_to_doc(attempt, None, None)
+    assert doc["error_category"] == "fatal"
+    assert doc["error_code"] == "-2010"
+    assert doc["error_reason_zh"] == "账户余额不足"
+    # NULL passthrough — the common non-fatal case (must stay None, not "0"/"—").
+    attempt_null = dict(attempt, error_category=None, error_code=None, error_reason_zh=None)
+    doc_null = attempt_to_doc(attempt_null, None, None)
+    assert doc_null["error_category"] is None
+    assert doc_null["error_code"] is None
+    assert doc_null["error_reason_zh"] is None
+
+
+def test_get_logs_task_id_returns_all_attempts_unpaged(tmp_path):
+    # task_id mode (AC5) returns the task's FULL attempt set in one shot: not
+    # bounded by the default page size (50), not mixed with the entries cursor,
+    # and scoped to just that task. Without task_id the legacy contract is
+    # unchanged (newest LIMIT_DEFAULT page). Read path only — no state machine.
+    exe = RecordTransportExecutor()  # balanced accepted_pair fills
+    svc = _svc(tmp_path, executor=exe)
+    _, t1 = svc.create_task(_create_body(target_n=60))
+    _, t2 = svc.create_task(_create_body(target_n=60))
+    for _ in range(51):
+        svc.post_fill_once(t1["id"])
+    svc.post_fill_once(t2["id"])  # one attempt on another task
+    status, page = svc.get_logs(None, None, task_id=t1["id"])
+    assert status == 200
+    assert set(page.keys()) == {
+        "logs", "attempts", "entries", "next_cursor", "entries_next_cursor",
+    }
+    # task_id mode empties the secondary streams and uses no cursor.
+    assert page["logs"] == []
+    assert page["entries"] == []
+    assert page["next_cursor"] is None
+    assert page["entries_next_cursor"] is None
+    # Full set (51 > LIMIT_DEFAULT=50), all from t1, distinct sequences 1..51.
+    assert len(page["attempts"]) == 51
+    assert all(a["task_id"] == t1["id"] for a in page["attempts"])
+    assert sorted(a["attempt_seq"] for a in page["attempts"]) == list(range(1, 52))
+    # error fields are projected on this path too (NULL for accepted fills).
+    for a in page["attempts"]:
+        assert "error_reason_zh" in a and "error_code" in a and "error_category" in a
+    # Contrast: no task_id -> the legacy global page is capped at LIMIT_DEFAULT.
+    _, global_page = svc.get_logs(None, None)
+    assert len(global_page["attempts"]) == 50

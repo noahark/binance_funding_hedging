@@ -1330,6 +1330,9 @@
         hedgeTaskFilter: 'running',
         // 任务卡「展开日志」的展开状态（task id 集合）：重渲染后据此恢复展开，避免自动刷新收起。
         hedgeLogExpanded: new Set(),
+        // 任务卡内嵌日志缓存（task id → { loading, attempts, error }）：展开时拉取该任务
+        // 全部 attempt（GET /api/hedge-open-logs?task_id=…），随既有 tick 重取，不新增定时器。
+        hedgeTaskLogs: {},
         // 开单日志页（15 号修正案 §开单日志页 / 16 号拆分 §5）：开单任务旁独立 tab，交互对齐
         // 借币日志页（newest-first、刷新、加载更多）；GET /api/hedge-open-logs 的 entries 数组
         // 是唯一数据源，后端是唯一权威。
@@ -3564,7 +3567,7 @@
         accepted_pair: '已受理', confirmed_failed: '已确认失败', single_leg: '单腿成交', querying: '查询中'
       };
       const HEDGE_PAIR_OUTCOME_BADGE = {
-        accepted_pair: 'success', confirmed_failed: 'danger', single_leg: 'warning', querying: 'info'
+        accepted_pair: 'success', confirmed_failed: 'danger', single_leg: 'warn', querying: 'info'
       };
       const HEDGE_PAUSE_REASON_LABELS = {
         consecutive_submission_failure: '连续提交失败达到阈值'
@@ -3733,6 +3736,12 @@
           state.hedgeTasksError = null;
         } catch (err) {
           state.hedgeTasksError = err.message || '开单任务加载失败';
+        }
+        // 内嵌日志随既有快照 tick 重取（§3.11 刷新策略：显示刷新，非执行时钟；不新增定时器）：
+        // 仅刷新当前展开且仍存在的任务，保持金额/尝试行新鲜；展开状态由 hedgeLogExpanded 保持。
+        const openIds = state.hedgeLogExpanded ? [...state.hedgeLogExpanded] : [];
+        if (openIds.length) {
+          await Promise.all(openIds.map(id => findHedgeTask(id) ? loadHedgeTaskLogs(id) : Promise.resolve()));
         }
         updateHedgeTaskNav();
         if (state.activeView === 'hedge-tasks') renderHedgeTasks();
@@ -4151,12 +4160,10 @@
             : `<strong>暂无「${HEDGE_TASK_FILTER_LABELS[state.hedgeTaskFilter]}」任务</strong>`;
           emptyCard = `<div class="empty-state">${emptyText}</div>`;
         }
-        // F10-fake 预览：仅在「全部」筛选下追加示例卡——fake 卡不属于任何状态
-        // 分类，在具体状态筛选下显示会破坏「筛选无匹配则空」的语义与自检断言。
-        const showFakePreview = state.hedgeTaskFilter === 'all';
-        els.hedgeTaskList.innerHTML = emptyCard + tasks.map(task => renderHedgeTaskCard(task)).join('') + (showFakePreview ? renderHedgeTaskCardFake() : '');
+        // 任务卡内嵌日志：真卡自带 toggle，始终绑定（不再依赖 fake 预览分支）。
+        els.hedgeTaskList.innerHTML = emptyCard + tasks.map(task => renderHedgeTaskCard(task)).join('');
         bindHedgeTaskControls();
-        if (showFakePreview) bindHedgeTaskLogToggles();
+        bindHedgeTaskLogToggles();
       }
 
       function renderHedgeTaskCard(task) {
@@ -4186,6 +4193,8 @@
         const deleteDisabled = task.status === 'deleted' ? ' disabled' : '';
         const fillDisabled = inactive ? ' disabled' : '';
         const idAttr = escapeHtml(task.id);
+        // 任务卡内嵌日志展开状态：重渲染时据此恢复（state.hedgeLogExpanded 跨刷新保持）。
+        const logExpanded = !!(state.hedgeLogExpanded && state.hedgeLogExpanded.has(task.id));
         // 「立即成交所有」仅平滑开单需要（滑点校验过长时加速成交）；立即开单与启动
         // 功效重合，任务卡不展示该按钮。后端 fill-all 路由仍保留，供平滑模式接入。
         const showFillAll = task.mode === 'smooth';
@@ -4221,68 +4230,139 @@
               <button class="btn compact action-delete" type="button" data-hedge-action="delete" data-task-id="${idAttr}"${deleteDisabled}>删除</button>
               <button class="btn compact primary" type="button" data-hedge-action="fill1" data-task-id="${idAttr}"${fillDisabled}>成交1次</button>
               ${showFillAll ? `<button class="btn compact primary" type="button" data-hedge-action="fill-all" data-task-id="${idAttr}"${fillDisabled}>立即成交所有</button>` : ''}
+              <button class="btn compact" type="button" data-hedge-log-toggle="${idAttr}">${logExpanded ? '收起日志' : '展开日志'}</button>
             </div>
             <div class="borrow-op-error" id="hedge-task-error-${idAttr}" role="alert" aria-live="polite"></div>
-          </div>`;
-      }
-
-      // F10-fake 预览（2026-07-hedge-fast-fix-v1）：在开单任务列表末尾追加一张
-      // 示例卡，演示「展开日志/收起日志」与内嵌开单日志表格。纯前端假数据，
-      // 不接后端 attempt/leg、不动真实任务卡；验收通过后由独立 stage 接真实数据。
-      // 列：进展 / 状态 / 成交时间 / 合约订单号 / 现货订单号 / 合约均价 / 现货均价 /
-      // 合约数量 / 现货数量 / 错误原因。进展按「真实尝试次数」累计（含失败/单腿），
-      // 倒序：进行中那一行数据暂空。展开状态记入 state.hedgeLogExpanded，跨刷新保持。
-      const HEDGE_FAKE_TASK_ID = 'fake-preview';
-      function renderHedgeTaskCardFake() {
-        const dis = ' disabled title="示例卡，仅预览日志展开"';
-        // 倒序：进行中(4/10) 置顶；其下为历史，按成交时间倒序向下。
-        // 字段值为 '—' 的单元格渲染为 log-muted（灰）；单腿成交只填现货腿。
-        const rows = [
-          { n: 4, status: '进行中', badge: 'info', time: '—', perpOid: '—', spotOid: '—', perpAvg: '—', spotAvg: '—', perpQty: '—', spotQty: '—', err: '' },
-          { n: 3, status: '失败', badge: 'danger', time: '—', perpOid: '—', spotOid: '—', perpAvg: '—', spotAvg: '—', perpQty: '—', spotQty: '—', err: '账户余额不足（code -2010）' },
-          { n: 2, status: '单腿成交', badge: 'warn', time: '07-31 12:40:15', perpOid: '—', spotOid: '78345512', perpAvg: '—', spotAvg: '0.0123', perpQty: '—', spotQty: '2000', err: '合约腿未受理·单腿敞口' },
-          { n: 1, status: '已成交', badge: 'success', time: '07-31 12:30:02', perpOid: '78345678', spotOid: '78345677', perpAvg: '0.0124', spotAvg: '0.0122', perpQty: '2000', spotQty: '2000', err: '' },
-        ];
-        const cell = v => v === '—' ? '<td class="log-muted">—</td>' : `<td>${escapeHtml(v)}</td>`;
-        const tbody = rows.map(r => {
-          const errCell = r.err ? `<td>${escapeHtml(r.err)}</td>` : '<td class="log-muted">—</td>';
-          return `<tr><td><strong>${r.n}/10</strong></td><td><span class="badge compact ${r.badge}">${r.status}</span></td>${cell(r.time)}${cell(r.perpOid)}${cell(r.spotOid)}${cell(r.perpAvg)}${cell(r.spotAvg)}${cell(r.perpQty)}${cell(r.spotQty)}${errCell}</tr>`;
-        }).join('');
-        const expanded = !!(state.hedgeLogExpanded && state.hedgeLogExpanded.has(HEDGE_FAKE_TASK_ID));
-        return `
-          <div class="borrow-task-card" data-hedge-task-id="${HEDGE_FAKE_TASK_ID}" style="margin-top: var(--space-4); border-style: dashed;">
-            <div class="borrow-task-head">
-              <h3>示例预览·日志展开</h3>
-              <span class="badge success">正向</span>
-              <span class="badge info">立即</span>
-              <span class="badge muted">示例</span>
-              <span class="muted small" title="任务唯一标识，交流问题时用于定位">#${HEDGE_FAKE_TASK_ID}</span>
-            </div>
-            <div class="borrow-task-lines">
-              <div>单次币量：<strong>2000</strong> · 计划尝试次数：<strong>10</strong></div>
-              <div>公共网格量：<strong>2000</strong></div>
-              <div>已调度 <strong>4</strong> 组 · 已受理 <strong>1</strong> 组 · 连续提交失败 <strong>2</strong> / 暂停阈值 <strong>3</strong></div>
-              <div>执行线程：<strong>未运行</strong> · 上次退出原因：<strong>—</strong></div>
-              <div class="borrow-task-note">这是用于验收「展开日志」交互的示例卡，数据均为假数据，操作按钮不可用。</div>
-            </div>
-            <div class="borrow-task-controls">
-              <button class="btn compact action-pause" type="button"${dis}>暂停</button>
-              <button class="btn compact action-start" type="button"${dis}>启动</button>
-              <button class="btn compact action-delete" type="button"${dis}>删除</button>
-              <button class="btn compact primary" type="button"${dis}>成交1次</button>
-              <button class="btn compact" type="button" data-hedge-log-toggle="${HEDGE_FAKE_TASK_ID}">${expanded ? '收起日志' : '展开日志'}</button>
-            </div>
-            <div class="hedge-task-log-wrap" id="hedge-task-log-${HEDGE_FAKE_TASK_ID}"${expanded ? '' : ' hidden'}>
+            <div class="hedge-task-log-wrap" id="hedge-task-log-${idAttr}"${logExpanded ? '' : ' hidden'}>
               <table>
                 <thead><tr><th>进展</th><th>状态</th><th>成交时间</th><th>合约订单号</th><th>现货订单号</th><th>合约均价</th><th>现货均价</th><th>合约数量</th><th>现货数量</th><th>错误原因</th></tr></thead>
-                <tbody>${tbody}</tbody>
+                <tbody>${logExpanded ? hedgeTaskLogRowsHtml(task.id) : ''}</tbody>
               </table>
             </div>
           </div>`;
       }
 
-      // 展开日志 toggle：真实 DOM 事件委托（与 bindHedgeTaskControls 同模式）。
-      // 展开状态记入 state.hedgeLogExpanded，使自动刷新重渲染后仍保持展开/收起。
+      // ---- 任务卡内嵌日志（真实数据；2026-07-31-hedge-task-inline-log-v1）----
+      // 列：进展 / 状态 / 成交时间 / 合约订单号 / 现货订单号 / 合约均价 / 现货均价 /
+      // 合约数量 / 现货数量 / 错误原因。倒序（最新在上）。钱的口径见 00-task 硬约束：
+      // 均价/数量原样透传（仅 hedgeText，不经 formatHedgeDecimal/hedgeNum）；未受理腿按
+      // order_id 门控三格一律 —；错误原因回退链 error_reason_zh → error_code/error_category
+      // →「原因未记录」，前端不编造任何中文业务句。
+
+      // 状态单元格：null 走显式「进行中」分支——它不在 HEDGE_PAIR_OUTCOME_LABELS/_BADGE
+      // 的键集里（那两个常量只有 accepted_pair/confirmed_failed/single_leg/querying）。
+      function hedgeAttemptStatusCell(outcome) {
+        if (outcome === null || outcome === undefined) {
+          return '<td><span class="badge compact info">进行中</span></td>';
+        }
+        const label = HEDGE_PAIR_OUTCOME_LABELS[outcome] || String(outcome);
+        const badge = HEDGE_PAIR_OUTCOME_BADGE[outcome] || 'muted';
+        return `<td><span class="badge compact ${badge}">${escapeHtml(label)}</span></td>`;
+      }
+
+      // 单腿单元格（订单号 / 均价 / 数量）：该腿 order_id 缺失 → 三格一律 —
+      // （即便 cumulative_base_qty === "0"——「未受理」≠「成交了 0 个」）；order_id 存在则
+      // 原样透传该字段，缺失值降级 —。金额格只用 hedgeText。
+      function hedgeLogLegCell(leg, field) {
+        const l = leg || {};
+        const noOrder = l.order_id === null || l.order_id === undefined || l.order_id === '';
+        const text = noOrder ? '—' : hedgeText(l[field]);
+        return text === '—' ? '<td class="log-muted">—</td>' : `<td>${escapeHtml(text)}</td>`;
+      }
+
+      // 成交时间：仅当至少一腿已受理（有 order_id）时展示 attempt 创建时间（北京时间，
+      // 复用 hedgeLogEntryTimeText，其内部已 escape），否则 —。避免给未成交行挂「成交时间」
+      // 造成资金去向误读；accepted 的部分成交亦如实展示，不整行清空。
+      function hedgeLogTimeCell(attempt) {
+        const spot = attempt.spot || {};
+        const perp = attempt.perp || {};
+        if (!(spot.order_id || perp.order_id)) return '<td class="log-muted">—</td>';
+        const text = hedgeLogEntryTimeText(attempt.ts);
+        return text === '—' ? '<td class="log-muted">—</td>' : `<td>${text}</td>`;
+      }
+
+      // 错误原因单元格（回退链，钉死）：error_reason_zh → error_code/error_category（机器字段
+      // 原样）→ 失败/单腿行固定占位「原因未记录」；accepted/进行中无错误数据时为 —。
+      function hedgeLogErrorCell(attempt) {
+        const zh = attempt.error_reason_zh;
+        if (zh !== null && zh !== undefined && zh !== '') {
+          return `<td>${escapeHtml(zh)}</td>`;
+        }
+        const parts = [attempt.error_category, attempt.error_code]
+          .filter(v => v !== null && v !== undefined && v !== '')
+          .map(v => escapeHtml(hedgeText(v)));
+        if (parts.length) return `<td>${parts.join(' / ')}</td>`;
+        if (attempt.pair_outcome === 'confirmed_failed' || attempt.pair_outcome === 'single_leg') {
+          return '<td>原因未记录</td>';
+        }
+        return '<td class="log-muted">—</td>';
+      }
+
+      // 单个任务的内嵌日志 tbody HTML（倒序：attempt_seq 降序，最新/进行中在上）。
+      // 「进展」= attempt_seq / target_n（target_n 取自任务卡，同任务恒定；不用任务级
+      // scheduled_attempt_count，否则所有行数字相同）。slot 未就绪时给加载/空/错占位行。
+      function hedgeTaskLogRowsHtml(taskId) {
+        const slot = state.hedgeTaskLogs[taskId];
+        if (!slot) return '<tr><td colspan="10" class="log-muted">加载中…</td></tr>';
+        if (slot.error && (!slot.attempts || slot.attempts.length === 0)) {
+          return `<tr><td colspan="10" class="log-muted">加载失败：${escapeHtml(slot.error)}</td></tr>`;
+        }
+        const attempts = Array.isArray(slot.attempts) ? slot.attempts : [];
+        if (attempts.length === 0) {
+          return '<tr><td colspan="10" class="log-muted">暂无尝试记录</td></tr>';
+        }
+        const task = findHedgeTask(taskId);
+        const targetN = task && task.target_n != null ? task.target_n : '';
+        const ordered = attempts.slice().sort((a, b) => {
+          const sa = a.attempt_seq == null ? -Infinity : Number(a.attempt_seq);
+          const sb = b.attempt_seq == null ? -Infinity : Number(b.attempt_seq);
+          return sb - sa;
+        });
+        return ordered.map(a => {
+          const seqText = a.attempt_seq == null ? '—' : `${a.attempt_seq}/${targetN}`;
+          const seqCell = seqText === '—'
+            ? '<td class="log-muted">—</td>'
+            : `<td><strong>${escapeHtml(seqText)}</strong></td>`;
+          return `<tr>${seqCell}${hedgeAttemptStatusCell(a.pair_outcome)}${hedgeLogTimeCell(a)}${hedgeLogLegCell(a.perp, 'order_id')}${hedgeLogLegCell(a.spot, 'order_id')}${hedgeLogLegCell(a.perp, 'avg_price')}${hedgeLogLegCell(a.spot, 'avg_price')}${hedgeLogLegCell(a.perp, 'cumulative_base_qty')}${hedgeLogLegCell(a.spot, 'cumulative_base_qty')}${hedgeLogErrorCell(a)}</tr>`;
+        }).join('');
+      }
+
+      // 拉取某任务的全部尝试日志（GET /api/hedge-open-logs?task_id=…，仅读路径），缓存到
+      // state.hedgeTaskLogs 并补丁该任务日志表 tbody。in-flight 去重，避免 tick 与手点叠加。
+      async function loadHedgeTaskLogs(taskId) {
+        if (!taskId) return;
+        const prev = state.hedgeTaskLogs[taskId];
+        if (prev && prev.loading) return;
+        state.hedgeTaskLogs[taskId] = {
+          loading: true,
+          attempts: (prev && prev.attempts) || [],
+          error: null,
+        };
+        patchHedgeTaskLogTable(taskId);
+        try {
+          const doc = await hedgeApi('/api/hedge-open-logs?task_id=' + encodeURIComponent(taskId));
+          const attempts = Array.isArray(doc && doc.attempts) ? doc.attempts : [];
+          state.hedgeTaskLogs[taskId] = { loading: false, attempts, error: null };
+        } catch (err) {
+          state.hedgeTaskLogs[taskId] = {
+            loading: false,
+            attempts: (prev && prev.attempts) || [],
+            error: err.message || '尝试日志加载失败',
+          };
+        }
+        patchHedgeTaskLogTable(taskId);
+      }
+
+      // 把缓存中的 tbody 补丁进当前 DOM 的该任务日志表（重渲染或拉取后调用）。
+      function patchHedgeTaskLogTable(taskId) {
+        const wrap = document.getElementById('hedge-task-log-' + taskId);
+        if (!wrap || typeof wrap.querySelector !== 'function') return;
+        const tbody = wrap.querySelector('tbody');
+        if (tbody) tbody.innerHTML = hedgeTaskLogRowsHtml(taskId);
+      }
+
+      // 展开日志 toggle：真实 DOM 事件委托（与 bindHedgeTaskControls 同模式），真卡始终绑定。
+      // 展开状态记入 state.hedgeLogExpanded，使自动刷新重渲染后仍保持展开/收起；展开即拉取。
       function bindHedgeTaskLogToggles() {
         if (typeof els.hedgeTaskList.querySelectorAll !== 'function') return;
         els.hedgeTaskList.querySelectorAll('[data-hedge-log-toggle]').forEach(btn => {
@@ -4297,6 +4377,7 @@
               if (willOpen) state.hedgeLogExpanded.add(id);
               else state.hedgeLogExpanded.delete(id);
             }
+            if (willOpen) loadHedgeTaskLogs(id);
           });
         });
       }
@@ -4937,6 +5018,10 @@
         renderHedgeAttempts,
         extractHedgeAttempts,
         getHedgeAttempts: () => state.hedgeAttempts,
+        // 任务卡内嵌日志（2026-07-31-hedge-task-inline-log-v1）。
+        loadHedgeTaskLogs,
+        getHedgeLogExpanded: () => state.hedgeLogExpanded,
+        getHedgeTaskLogs: () => state.hedgeTaskLogs,
         renderPrivatePanel,
         closeHedgeModal,
         requestHedgeStartGate,
@@ -4972,6 +5057,8 @@
           state.hedgeTab = 'tasks';
           state.hedgeLogs = { entries: [], nextCursor: null, loaded: false };
           state.hedgeLogsError = null;
+          state.hedgeLogExpanded = new Set();
+          state.hedgeTaskLogs = {};
           updateHedgeTaskNav();
         }
       };

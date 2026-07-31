@@ -596,9 +596,12 @@ class _Handler(BaseHTTPRequestHandler):
         # as absent (first page), matching the legacy cursor convention.
         entries_cursor = query.get("entries_cursor", [None])[0]
         entries_limit = query.get("entries_limit", [None])[0]
+        # 任务卡内嵌日志（2026-07-31-hedge-task-inline-log-v1）：可选 task_id 过滤，
+        # 仅读路径——有值时 get_logs 一次返回该任务全部 attempt+leg，不分页。
+        task_id = query.get("task_id", [None])[0]
         self._send_hedge_open(*self._safe_hedge(
             self.hedge_open_service.get_logs,
-            cursor, limit, entries_cursor, entries_limit,
+            cursor, limit, entries_cursor, entries_limit, task_id,
         ))
 
     def _hedge_open_positions(self):

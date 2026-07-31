@@ -419,6 +419,9 @@ let hedgeLogsGetResponse = { status: 200, body: { logs: [], next_cursor: null } 
 // 17 号兼容修正：开单日志页分页队列（?entries_limit=50[&entries_cursor=...]，响应带
 // entries_next_cursor），与上面 attempt 时间线的 ?limit=100 请求区分，逐页 shift；未设置时 503。
 let hedgeLogPageResponses = [];
+// 任务卡内嵌日志（2026-07-31-hedge-task-inline-log-v1）：?task_id=… 请求的响应槽，
+// 一次返回该任务全部 attempt（含双腿与错误字段）；未设置时 503。
+let hedgeTaskLogsGetResponse = null;
 
 function mockHedge503() {
   return { status: 503, body: { error: 'hedge_service_unavailable', detail: 'mock 未设置该路由响应' } };
@@ -709,6 +712,10 @@ global.fetch = async (url, options) => {
     if (urlStr === '/api/hedge-open-logs?limit=100') {
       return buildFetchResponse(hedgeLogsGetResponse || mockHedge503());
     }
+    // 任务卡内嵌日志：?task_id=… 一次返回该任务全部 attempt（独立于日志页分页队列）。
+    if (urlStr.includes('task_id=')) {
+      return buildFetchResponse(hedgeTaskLogsGetResponse || mockHedge503());
+    }
     return buildFetchResponse(hedgeLogPageResponses.length > 0 ? hedgeLogPageResponses.shift() : mockHedge503());
   }
   throw new Error(`Unexpected fetch URL: ${urlStr} (${method})`);
@@ -718,8 +725,8 @@ global.document = {
   getElementById: (id) => {
     if (!elements[id]) {
       // 借币任务操作控件为按 symbol/任务 id（字符串 UUID）动态生成的 id，按需惰性 mock（最小 mock 能力补足）；
-      // 开单 fake 原型的操作列输入/行内错误与任务动作错误元素同样按需惰性 mock。
-      if (/^(borrow-(amount|count|error|preview)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+|hedge-(amount|count|error)-(forward|reverse)-[A-Za-z0-9_]+|hedge-task-error-[A-Za-z0-9-]+)$/.test(id)) return makeElement(id);
+      // 开单市场表操作列输入/行内错误、任务动作错误元素，与任务卡内嵌日志容器同样按需惰性 mock。
+      if (/^(borrow-(amount|count|error|preview)-[A-Za-z0-9_]+|task-edit-(amount|count|error)-[A-Za-z0-9_-]+|hedge-(amount|count|error)-(forward|reverse)-[A-Za-z0-9_]+|hedge-task-error-[A-Za-z0-9-]+|hedge-task-log-[A-Za-z0-9_-]+)$/.test(id)) return makeElement(id);
       throw new Error(`未 mock 的元素: ${id}`);
     }
     return elements[id];
@@ -4204,6 +4211,155 @@ setTimeout(async () => {
       await helpers.loadHedgeAttempts();
       helpers.setActiveView('market');
       console.log('[PASS] attempt 时间线降级：空态 + 503 错误横幅 + 恢复');
+    }
+
+    // 86a. 任务卡内嵌日志（2026-07-31-hedge-task-inline-log-v1，AC1/AC2/AC3/AC4/AC6/AC7/AC9）：
+    //      四状态徽标冻结映射 + 钱原样透传(均价带尾零) + 未受理腿 order_id 门控三格 — +
+    //      错误原因回退链(zh→机器字段→「原因未记录」) + 进展=attempt_seq/target_n + 真卡 toggle +
+    //      fake 已清。列序：进展/状态/成交时间/合约订单号/现货订单号/合约均价/现货均价/合约数量/现货数量/错误原因。
+    {
+      helpers.resetHedgeStateForTest();
+      hedgeTaskLogsGetResponse = null;
+      const inlineTask = mockHedgeTask({ id: 'h-inline-1', coin: 'AUSDT', target_n: 10 });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [inlineTask] } };
+      await helpers.loadHedgeTasks();
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTaskFilter('all');
+      helpers.getHedgeLogExpanded().add('h-inline-1');
+      // 四状态 + 钱/错误各路径夹具（均价刻意带尾零，验原样透传不经 formatHedgeDecimal）。
+      const inlineAttempts = [
+        // 进行中（pair_outcome null）：两腿无 order_id → 全 —；状态 进行中/info
+        mockHedgeAttempt({ task_id: 'h-inline-1', attempt_id: 'att-ip', attempt_seq: 5, pair_outcome: null,
+          spot: { client_order_id: 's5', order_id: null, status: 'NEW', cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null },
+          perp: { client_order_id: 'p5', order_id: null, status: 'NEW', cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null } }),
+        // 已受理（双腿 filled，默认均价 120.70000000 / 120.70300000 带尾零）
+        mockHedgeAttempt({ task_id: 'h-inline-1', attempt_id: 'att-ok', attempt_seq: 4 }),
+        // 单腿成交（spot filled order_id 77741；perp 未受理 order_id null, cumulative_base_qty '0'）→ perp 三格 —
+        mockHedgeAttempt({ task_id: 'h-inline-1', attempt_id: 'att-sl', attempt_seq: 3, pair_outcome: 'single_leg',
+          spot: { client_order_id: 's3', order_id: '77741', status: 'FILLED', cumulative_base_qty: '2000', cumulative_quote_amt: '24.6', avg_price: '0.0123' },
+          perp: { client_order_id: 'p3', order_id: null, status: 'REJECTED', cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null } }),
+        // 确认失败：有中文原因（回退链 ①）
+        mockHedgeAttempt({ task_id: 'h-inline-1', attempt_id: 'att-fzh', attempt_seq: 2, pair_outcome: 'confirmed_failed',
+          spot: { client_order_id: 's2', order_id: null, status: 'REJECTED', cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null },
+          perp: { client_order_id: 'p2', order_id: null, status: 'REJECTED', cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null },
+          error_reason_zh: '账户余额不足', error_code: '-2010', error_category: 'insufficient_balance' }),
+        // 确认失败：仅有机器字段（回退链 ②）
+        mockHedgeAttempt({ task_id: 'h-inline-1', attempt_id: 'att-fc', attempt_seq: 1, pair_outcome: 'confirmed_failed',
+          spot: { client_order_id: 's1', order_id: null, status: 'REJECTED', cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null },
+          perp: { client_order_id: 'p1', order_id: null, status: 'REJECTED', cumulative_base_qty: '0', cumulative_quote_amt: '0', avg_price: null },
+          error_reason_zh: null, error_code: '-2010', error_category: 'collateral_cap' }),
+      ];
+      hedgeTaskLogsGetResponse = { status: 200, body: { attempts: inlineAttempts } };
+      const markInline = fetchCallLog.length;
+      await helpers.loadHedgeTaskLogs('h-inline-1');
+      const inlineCall = fetchCallLog.slice(markInline).find(c => c.url.includes('hedge-open-logs'));
+      if (!inlineCall || inlineCall.url !== '/api/hedge-open-logs?task_id=h-inline-1' || inlineCall.method !== 'GET') {
+        throw new Error('内嵌日志应 GET /api/hedge-open-logs?task_id=…: ' + JSON.stringify(inlineCall));
+      }
+      helpers.renderHedgeTasks();
+      const card = elements['hedge-task-list'].innerHTML;
+
+      // AC1：四状态冻结映射（文案 + badge class）。注意 single_leg=warn（非 warning）。
+      for (const piece of [
+        '<span class="badge compact info">进行中</span>',
+        '<span class="badge compact success">已受理</span>',
+        '<span class="badge compact warn">单腿成交</span>',
+        '<span class="badge compact danger">已确认失败</span>'
+      ]) {
+        if (!card.includes(piece)) throw new Error(`AC1 状态徽标缺少「${piece}」: ${card}`);
+      }
+      if (card.includes('badge compact warning') || card.includes('>已成交<')) {
+        throw new Error('不得出现失效的 warning class 或 fake 的「已成交」文案');
+      }
+
+      // AC2：钱原样透传——均价带尾零逐字（formatHedgeDecimal 会去成 120.7 / 120.703）。
+      for (const piece of ['120.70000000', '120.70300000', '0.003']) {
+        if (!card.includes(piece)) throw new Error(`AC2 均价/数量应原样透传（含尾零）缺少「${piece}」: ${card}`);
+      }
+
+      // AC3：未受理腿门控——单腿行的 perp 订单号/均价/数量三格一律 —（即便 cumulative_base_qty==='0'）。
+      const slIdx = card.indexOf('77741');
+      if (slIdx === -1) throw new Error('AC3 缺少单腿行标记 77741');
+      const slRowStart = card.lastIndexOf('<tr>', slIdx);
+      const slRowEnd = card.indexOf('</tr>', slIdx);
+      const slRow = card.slice(slRowStart, slRowEnd);
+      const slMuted = (slRow.match(/<td class="log-muted">—<\/td>/g) || []).length;
+      if (slMuted !== 3) throw new Error(`AC3 单腿行 perp 三格应全为 —（实际 muted 数 ${slMuted}）: ${slRow}`);
+      if (!slRow.includes('>77741</td>') || !slRow.includes('0.0123') || !slRow.includes('>2000</td>')) {
+        throw new Error('AC3 单腿行 spot 订单号/均价/数量应展示: ' + slRow);
+      }
+      // 整表不得出现裸 '<td>0</td>'（未受理腿的 "0" 必须被门控成 —，不是「成交了 0 个」）。
+      if (card.includes('<td>0</td>')) throw new Error('AC3 未受理腿的 "0" 不应作为成交数量展示: ' + card);
+
+      // AC4：错误原因回退链——① 中文原文 ② 机器字段原样 ③ 占位「原因未记录」；不编造业务句。
+      if (!card.includes('账户余额不足')) throw new Error('AC4① 应展示 error_reason_zh 原文');
+      if (!card.includes('collateral_cap / -2010')) throw new Error('AC4② 应展示机器字段原样: ' + card);
+      if (!card.includes('>原因未记录<')) throw new Error('AC4③ 失败/单腿行无错误数据应展示固定占位');
+      // 单腿行无错误字段 → 错误格恰为占位（非编造句、非 —）
+      if (!slRow.includes('>原因未记录<')) throw new Error('AC4 单腿行错误格应为占位: ' + slRow);
+
+      // AC6：进展 = attempt_seq / target_n（每行序号各异；不用 scheduled_attempt_count）。
+      for (const seq of ['5/10', '4/10', '3/10', '2/10', '1/10']) {
+        if (!card.includes(`<strong>${seq}</strong>`)) throw new Error(`AC6 进展列缺少「${seq}」: ${card}`);
+      }
+
+      // AC7 + AC9：真卡自带 toggle 且展开可见；fake 卡/示例文案已清。
+      if (!card.includes('data-hedge-log-toggle="h-inline-1"')) throw new Error('AC7 真卡应内嵌 toggle 按钮');
+      if (!card.includes('id="hedge-task-log-h-inline-1"')) throw new Error('AC7 真卡应内嵌日志表容器');
+      if (card.includes('id="hedge-task-log-h-inline-1" hidden')) throw new Error('AC7 展开后日志表应可见（未 hidden）');
+      if (card.includes('示例预览') || card.includes('fake-preview') || card.includes('示例卡')) {
+        throw new Error('AC9 fake 卡残留: ' + card);
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 任务卡内嵌日志 AC1/AC2/AC3/AC4/AC6/AC7/AC9：四状态徽标 + 钱原样透传 + 未受理腿门控 + 错误回退链 + 进展列 + 真卡 toggle + fake 已清');
+    }
+
+    // 86b. 任务卡内嵌日志（AC5/AC7）：task_id 一次全量取数（attempt 数 > 默认页大小 50）、
+    //      不与 entries_cursor 共用游标、倒序（最新在上）、展开状态跨渲染保持。
+    {
+      helpers.resetHedgeStateForTest();
+      hedgeTaskLogsGetResponse = null;
+      const manyTask = mockHedgeTask({ id: 'h-inline-many', coin: 'BUSDT', target_n: 60 });
+      hedgeTasksGetResponse = { status: 200, body: { tasks: [manyTask] } };
+      await helpers.loadHedgeTasks();
+      helpers.setActiveView('hedge-tasks');
+      helpers.setHedgeTaskFilter('all');
+      helpers.getHedgeLogExpanded().add('h-inline-many');
+      // 51 条 attempt（>默认页大小 50），attempt_seq 1..51。
+      const manyAttempts = [];
+      for (let i = 1; i <= 51; i++) {
+        manyAttempts.push(mockHedgeAttempt({
+          task_id: 'h-inline-many', attempt_id: 'att-many-' + i, attempt_seq: i,
+          ts: `2026-07-23T12:00:${String(i).padStart(2, '0')}.000000Z`
+        }));
+      }
+      hedgeTaskLogsGetResponse = { status: 200, body: { attempts: manyAttempts } };
+      const markMany = fetchCallLog.length;
+      await helpers.loadHedgeTaskLogs('h-inline-many');
+      const manyCall = fetchCallLog.slice(markMany).find(c => c.url.includes('hedge-open-logs'));
+      if (!manyCall || manyCall.url !== '/api/hedge-open-logs?task_id=h-inline-many' || manyCall.method !== 'GET') {
+        throw new Error('AC5 应 GET /api/hedge-open-logs?task_id=…: ' + JSON.stringify(manyCall));
+      }
+      if (manyCall.url.includes('entries_cursor')) {
+        throw new Error('AC5 task_id 请求不得混用 entries_cursor: ' + manyCall.url);
+      }
+      if (helpers.getHedgeTaskLogs()['h-inline-many'].attempts.length !== 51) {
+        throw new Error('AC5 应一次拿到全部 51 条 attempt');
+      }
+      helpers.renderHedgeTasks();
+      const manyCard = elements['hedge-task-list'].innerHTML;
+      const bodyRows = (manyCard.match(/<td><strong>\d+\/60<\/strong><\/td>/g) || []).length;
+      if (bodyRows !== 51) throw new Error(`AC5 应渲染全部 51 行进展（>50），实际 ${bodyRows}`);
+      const firstSeq = manyCard.match(/<td><strong>(\d+)\/60<\/strong>/);
+      if (!firstSeq || firstSeq[1] !== '51') {
+        throw new Error(`AC5 首行应为最新 attempt_seq=51（倒序），实际 ${firstSeq && firstSeq[1]}`);
+      }
+      // AC7：展开状态跨重渲染保持（容器可见，未 hidden）。
+      if (manyCard.includes('id="hedge-task-log-h-inline-many" hidden')) {
+        throw new Error('AC7 展开状态未跨渲染保持');
+      }
+      helpers.setActiveView('market');
+      console.log('[PASS] 任务卡内嵌日志 AC5/AC7：task_id 全量取数(51>50) + 不混 entries_cursor + 倒序 + 展开跨渲染保持');
     }
 
     // 88. 开单日志顶层 tab（15 号修正案 §开单日志页 / 16 号拆分 §5 / 17 号兼容修正）：

@@ -258,6 +258,12 @@ def attempt_to_doc(
         "direction": attempt.get("direction"),
         "q_common": attempt.get("q_common"),
         "pair_outcome": attempt.get("pair_outcome"),
+        # attempt-level error rollup（store.py:1085-1166 写入）：失败/单腿行的中文原因常为
+        # NULL（非 fatal rollup），消费方按 error_reason_zh → error_code/error_category →
+        # 占位 回退。仅投影既有列，不改写入语义。
+        "error_category": attempt.get("error_category"),
+        "error_code": attempt.get("error_code"),
+        "error_reason_zh": attempt.get("error_reason_zh"),
         "spot": _leg_to_doc(spot_leg),
         "perp": _leg_to_doc(perp_leg),
         "residual": D.fmt_decimal(spot_base - perp_base),
@@ -673,7 +679,29 @@ class HedgeOpenTaskService:
     def get_logs(
         self, cursor_str, limit_raw,
         entries_cursor_str=None, entries_limit_raw=None,
+        task_id=None,
     ) -> tuple[int, dict]:
+        # task_id 模式（开单任务卡内嵌日志）：一次返回该任务的**全部** attempt + 两条腿，
+        # 不分页、不与 entries_cursor 共用游标（amendment 17 已证明两套游标共用会重演 R4
+        # 缺陷）。内嵌表只消费 attempts；logs/entries 在此模式下为空，避免与全局游标混用。
+        # 无 task_id 时下方既有契约完全不变。
+        if task_id is not None:
+            task_attempts = []
+            for attempt in self._store.list_attempts_for_task(task_id):
+                legs = {
+                    leg["leg"]: leg
+                    for leg in self._store.list_legs_for_attempt(attempt["id"])
+                }
+                task_attempts.append(
+                    attempt_to_doc(attempt, legs.get("spot"), legs.get("perp"))
+                )
+            return 200, {
+                "logs": [],
+                "attempts": task_attempts,
+                "entries": [],
+                "next_cursor": None,
+                "entries_next_cursor": None,
+            }
         limit = self._parse_limit(limit_raw)
         cursor_ts, cursor_id = self._parse_cursor(cursor_str)
         rows, has_more = self._store.list_logs_page(limit, cursor_ts, cursor_id)
