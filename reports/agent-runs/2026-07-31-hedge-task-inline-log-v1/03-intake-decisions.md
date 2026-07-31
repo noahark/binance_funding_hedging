@@ -45,14 +45,21 @@
   Inputs / Acceptance Checks / Stop），草稿里的「路由」「待 Human 决策」两段已移除
   （路由信息进 status/本文件）。
 
-## 计划评审 provider 建议
+## 计划评审 provider（Human 已决：grok）
 
-首选 `kimi`（moonshot）。四个 provider 完全不重叠：计划评审 moonshot / implementer
-zhipu_glm / review-1 xai / review-2 openai，且 kimi 未参与 packet 定稿。
+原建议首选 `kimi`（moonshot），四 provider 完全不重叠。**2026-07-31 更正**：Human 报
+kimi 额度不可用，决定改派备选 `grok`（xai），`02-plan-review.dispatch.md` 的 Identity
+已同步为 `grok` / `xai`。此为 pre-dispatch packet correction，按 `AGENTS.md` §8 不计入
+`rework_count`。
 
-备选 `grok`（xai）：若 kimi 额度或服务不可用。代价是计划评审与 review-1 同 provider，
-须在结论中披露设计参与事实（`agents/roles.md` Reviewer「Prefer a final reviewer that did
-not plan or design the stage… disclose it」）。不建议让 `codex` 兼任计划评审——它是
-review-2 终审，让终审带上设计参与是最不该污染的一条。
+采纳后的路由：计划评审 grok(xai) / implementer claude_glm(zhipu_glm) / review-1
+grok(xai) / review-2 codex(openai)。
+
+- 合规性：review-1 的跨 provider 要求满足（xai ≠ zhipu_glm，grok 不是实现作者）。
+- 代价：grok 兼任计划评审与 review-1，即在 review-1 阶段评审一份自己批准过计划的实现。
+  `agents/roles.md` Reviewer 要求披露该设计参与事实，已写入计划评审 packet 的强制披露
+  条款，并要求 grok 在计划阶段就把方向异议说尽。
+- 终审 review-2（codex / openai）保持完全独立，未参与任何设计——这是最该保住的一条。
+- 未让 `codex` 兼任计划评审，正是为了不污染终审。
 
 本终端（opus5）定稿了 packet，因此不担任本 stage 的计划评审。

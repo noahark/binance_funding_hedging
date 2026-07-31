@@ -7,8 +7,8 @@
 
 - task_id: 2026-07-31-hedge-task-inline-log-v1-plan-review
 - target_role: Reviewer（计划评审，只读）
-- target_model: `kimi`（首选；不可用时的备选见「Inputs」末条，由 Human 决定）
-- provider: `moonshot`
+- target_model: `grok`（Human 2026-07-31 决定：kimi 额度不可用，改派 grok）
+- provider: `xai`
 - status_revision: 3
 - required_skill: `agents/skills/software-architect.md`
 
@@ -44,9 +44,15 @@ Bookkeeper 落盘；本终端不写 `status.json`、不写 evidence 文件。
   `backend/app/server.py`、`frontend/index.html`（fake 原型在 `:4229` 起）。
 - 基线：`base_sha = 42de1aff364e7c979d2fbb5dc56f1dec65287cc7`。
 - provider 隔离：implementer = `claude_glm`（zhipu_glm），review-1 = `grok`（xai），
-  review-2 = `codex`（openai），本 packet 定稿者 = `opus5`（anthropic）。计划评审须
-  与以上任一不重叠为佳；kimi 不可用时 Human 可改派 grok，但须在结论中披露「计划评审
-  与 review-1 同为 xai」这一设计参与事实。
+  review-2 = `codex`（openai），本 packet 定稿者 = `opus5`（anthropic）。
+  - **本终端的隔离状态（须在结论中原样披露）**：你（grok / xai）同时是本 stage 的
+    review-1。跨 provider 要求满足（xai ≠ zhipu_glm，你不是实现作者，`AGENTS.md` §8
+    与 `agents/roles.md` Reviewer 的 review-1 隔离成立），终审 review-2（codex / openai）
+    完全独立、未参与任何设计。但你在 review-1 阶段将评审一份**你自己批准过计划**的
+    实现，`agents/roles.md` 要求披露这一设计参与事实。请在 `[TASK_RESULT v2]` 中写明
+    一行：「计划评审与 review-1 同为 grok/xai，本轮已参与计划批准」。
+  - 由此带来的评审要求：**若你认为 packet 的某个方向可疑，此刻就要说**。计划评审
+    ACCEPT 之后，你在 review-1 阶段再推翻自己批准的方向，代价是一整轮返工。
 
 ## Acceptance Checks
 
