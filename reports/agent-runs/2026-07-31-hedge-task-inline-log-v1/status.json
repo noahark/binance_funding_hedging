@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 5,
+  "revision": 6,
   "stage_id": "2026-07-31-hedge-task-inline-log-v1",
   "bookkeeper": "opus5",
   "phase": "plan_review",
-  "checkpoint": "plan_review_r2_rework_sealed_packet_revised_to_r5",
+  "checkpoint": "scope_reduced_to_inline_log_only_packet_r6",
   "base_sha": "42de1aff364e7c979d2fbb5dc56f1dec65287cc7",
   "delivery_sha": null,
-  "ledger_sha": "beeddc9dc3107f6bbb420ab48854a2b8155edb44",
+  "ledger_sha": "2a7447906a3eaac43d63392f4c2bd6c7b3771737",
   "current_task": {
     "id": "2026-07-31-hedge-task-inline-log-v1-plan-review-r3",
     "state": "dispatched",
@@ -15,7 +15,7 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-plan-review-r3-terminal"
+    "action": "start-plan-review-terminal"
   },
   "rework_count": 0,
   "blockers": []

@@ -12,6 +12,20 @@ check.
 
 ## Open Follow-ups
 
+- `[OPEN][MONEY-VISIBILITY]` `aggregate_positions` (`store.py:1934-1951`) excludes
+  `deleted` tasks, so a deleted task's already-filled legs vanish from
+  `GET /api/hedge-open-positions` while the account exposure remains. Pre-existing
+  (manual delete triggers it today); it becomes routine if auto-pause ever turns
+  into auto-delete. Found by plan review r2 (grok), verified. Blocks that change.
+  Detail: stage `2026-07-31-hedge-task-inline-log-v1` file `06-`.
+- `[OPEN][DEFERRED]` Task-card restart deadlock, moved out of the inline-log stage
+  by Human 2026-07-31; needs its own stage. Covers F10, the Human-approved
+  "six auto-pause reasons -> auto-delete" change, quota-exhausted closeout, and the
+  three re-arm entries (`post_start` / `fill-once` / `fill-all`). Two plan-review
+  rounds of verified findings are preserved in stage
+  `2026-07-31-hedge-task-inline-log-v1` files `04-`, `05-`, `06-` — read those
+  before re-deriving anything. F10's COOKIEUSDT diagnosis is stale.
+
 - `[OPEN][DEFERRED]` Three discarded-failure sites, by decision: `service.py:1141`
   (inconclusive query, needs log-rate design), `:1632` (dry-run, no order),
   `live_hedge_executor.py:690-702` (`_error_leg` drops the send reason; needs a
