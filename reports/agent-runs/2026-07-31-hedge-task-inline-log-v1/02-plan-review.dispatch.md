@@ -5,57 +5,59 @@
 
 ## Identity
 
-- task_id: 2026-07-31-hedge-task-inline-log-v1-plan-review-r2
-- target_role: Reviewer（计划评审 **round 2**，只读）
+- task_id: 2026-07-31-hedge-task-inline-log-v1-plan-review-r3
+- target_role: Reviewer（计划评审 **round 3，窄范围复评**，只读）
 - target_model: `grok`（Human 2026-07-31 决定：kimi 额度不可用，改派 grok）
 - provider: `xai`
-- status_revision: 4
+- status_revision: 5
 - required_skill: `agents/skills/software-architect.md`
 
-## Round 2 背景（必读）
+## Round 3 背景（必读）
 
-你在 round 1 返回了 `REWORK`。两件事随后发生：
+你在 round 2 返回 `REWORK`，携带完整正文、发现清单 R2-F1..F5 与五条修订要求，已封存于
+`05-plan-review-r2-verdict.md`。Bookkeeper 复核了你引用的 `store.py:1934-1951`（持仓
+聚合排除 `deleted`）与 `domain.py:1315-1324`（51169 冻结模板），**两条阻塞均属实**，
+并已按你的修订要求 1-4 全部改完，第 5 条「不改」的内容原样保持。
 
-1. **你 round 1 的全部发现已被采纳并落盘**（`04-plan-review-r1-verdict.md`），
-   `00-task.md` 已按你的「packet 修订要求」五条逐条修订。Bookkeeper 已复核你引用的
-   `test_hedge_store.py:174-192`、`store.py:899-916`、`service.py:622-650` 三处，属实。
-   已写进 packet 的：971 收口有效不得重写、COOKIEUSDT 判定为过时诊断、真实残留路径
-   （paused 优先 + post_start 不检查配额）、三个再武装入口、终态沿用 `done`、`done` 的
-   两种含义要在前端区分、`skip_counters` 路径要扫、清单外三处不得并入。
-   - 一个流程提醒：你的 `问题记录` / `修复要求` 写了 `none`，正文是 Human 追加转交的。
-     **本轮请把发现清单与修订要求的路径或全文随回执一起交出**，否则 Bookkeeper 无法封存。
-2. **Human 变更了需求**，`00-task.md` 的 Goal 3 已被整体重写、原 Goal 3 的配额收口部分
-   下移为 Goal 4（packet 现为 `status_revision: 4`）：所有**非人工**原因导致的 `paused`
-   一律改为直接进入 `deleted` 终态，`paused` 此后只剩人工手动暂停。这是新增的一大块，
-   你 round 1 没有评过，请重点评。
+`00-task.md` 现为 `status_revision: 5`。本轮是**窄范围复评**：只判断两条阻塞是否已闭合，
+不重评已通过的部分。
+
+### 修订要点（供你核对）
+
+1. **R2-F1**：AC5 由「敞口告警 / 持仓视图 / 已删除筛选**至少其一**」改为硬性要求——
+   自动删除后该任务的已成交腿**仍须计入** `GET /api/hedge-open-positions`，即修改
+   `aggregate_positions` 不再因 `deleted` 丢弃已成交 fill/leg（或等价且默认可见的方案）；
+   「已删除筛选可见」降为附加验收，不能单独满足。`aggregate_positions` 修复已写入
+   Goal 3 与 Allowed Files 的 `store.py` 说明。回报须写明用户在默认视图哪里看到这笔钱。
+2. **R2-F2**：Goal 3 增加例外条款——51169 的 `COLLATERAL_CAP_FULL_REASON_ZH_TEMPLATE`
+   正文逐字冻结，只允许追加固定删除后缀，严禁换成「保证金不足」话术；其余五条可改为
+   删除语义。Stop 增加同款禁令。AC3 增加「冻结正文逐字未变」的断言要求。
+3. **R2-F3**：Goal 1 的进度口径交叉引用由 Goal 3 改指 Goal 4；Goal 4 的 COOKIEUSDT
+   「卡在 running」动机句降级为历史注记。
+4. **R2-F4**：AC4 点名搜索符号（`pause_task` / `_pause_task_local` / `_pause_from_signal` /
+   `STATUS_PAUSED` 赋值点 / `resolve_status_after_attempt` 返回值）；Stop 补持仓不丢腿与
+   51169 冻结两条；Goal 3 增加事件 kind payload / `reason_zh` 与 `_entry_next_action`
+   （`service.py:366-367`）的时间线语义对齐要求。
+5. **R2-F5（观察）**：429 连环删卡的运维后果已写入 Goal 3（明确不加防抖）；AC12 说明
+   既有 `STATUS_PAUSED` 断言转红属预期，须逐个改为 `deleted` 期望并说明，禁止为让测试
+   变绿而弱化 Goal 3 语义。
 
 ## Goal
 
-对修订后的实现 packet `00-task.md` 做一次只读计划评审，判断它在实现开始前是否成立。重点：
+**窄范围复评，只回答四个问题**：
 
-1. **「六种自动暂停全改删除」是否会造成新的资金或运维风险**。Bookkeeper 曾建议只改
-   `consecutive_submission_failure` 一种（其余五种是限流/余额/保证金/数量/抵押额度打满，
-   都是补一下就能继续的外部临时状况），**Human 明确选择六种全改**。这是已定的产品决策，
-   不要求你推翻它；请评估它的**实现风险**并指出 packet 是否已把风险约束住：
-   - 单腿敞口达阈值 → 自动删除，敞口是否会从界面消失（packet AC5 的硬约束是否足够）；
-   - 429 限流 → 自动删除，是否会在一次限频窗口内批量删掉多张卡；
-   - 自动删除与 worker drain 在途腿的时序（packet AC6）。
-2. **`paused` 只剩人工来源这一不变量是否可验证**：AC4 要求用全量搜索证明，这个判据够不够。
-3. **Goal 3 与 Goal 4 是否正交**：你在 round 1 指出的真实残留路径是「`paused` 优先于
-   配额收口 → `post_start` 不检查配额 → 静默再武装」。Goal 3 把六种自动暂停改成
-   `deleted` 之后，该路径的触发者只剩**人工暂停**（`deleted` 的 `post_start` 已抛 409）。
-   请评：① packet 的 AC2 用人工暂停构造红测是否仍能复现这条路径；② 两条 Goal 会不会
-   互相掩盖，导致某个死锁面在测试里看不见了却仍然存在。
-4. **根因家族清单是否完整**：`scheduled >= target_n` 的四处站点（`service.py:1116`、
-   `store.py:686`、`:736`、`:971`）加上 `stopped` 的 `post_start` 入口，是否有遗漏。
-   自动暂停站点清单（Inputs 里列的 `PAUSE_REASON_*` / `_pause_from_signal` 等）是否有遗漏。
-5. **验收标准是否可执行**：12 条 Acceptance Checks 是否每条都有明确的通过/不通过判据，
-   有没有「靠人工观察」或口径含糊的条目。
-6. **文件边界是否够用且不过宽**：Allowed Files 是否足以完成已扩大的 Goal（六种暂停改
-   删除会触碰更多 `service.py` / `domain.py` 路径），是否包含不必要的文件（尤其
-   `server.py` 的可选参数是否必要，能否只靠前端过滤而不改后端契约）。
-7. **Stop 条款是否覆盖真实风险**：资金语义、阈值触发条件、在途单、轮询、scope 蔓延。
-8. **未识别的风险**：packet 没写但实现时一定会撞上的问题。
+1. **R2-F1 是否闭合**：修订后的 Goal 3 资金硬约束 + AC5，是否足以保证「自动删除后
+   账户里的敞口在默认视图仍看得见」？判据是否还有可被绕过的空隙？
+2. **R2-F2 是否闭合**：51169 的「正文冻结 + 只追加后缀」写法，是否既满足删除语义又
+   不破坏 ADR-T3 冻结契约？AC3 的断言要求够不够。
+3. **改动有没有引入新问题**：`aggregate_positions` 不再排除 `deleted` 是一处契约变更
+   （`GET /api/hedge-open-positions` 的输出会变），是否会影响其它已冻结的资金投影、
+   前端展示或既有测试？有没有更小的改法？
+4. **是否可以开工**：若两条阻塞已闭合且无新问题，返回 `ACCEPT`；否则给出仍未闭合的
+   具体判据与最小修订。
+
+不要重评已通过的部分（Goal 3/4 正交、家族清单、文件边界、drain 约束、r1 五条），除非
+本轮修订破坏了它们。
 
 ## Allowed Files
 
@@ -64,12 +66,15 @@ Bookkeeper 落盘；本终端不写 `status.json`、不写 evidence 文件。
 
 ## Inputs
 
-- 本 stage：`reports/agent-runs/2026-07-31-hedge-task-inline-log-v1/00-task.md`（受审对象）、
-  `status.json`、`01-intake-to-opus5.md`（交接背景）。
+- 本 stage：`reports/agent-runs/2026-07-31-hedge-task-inline-log-v1/00-task.md`（受审对象，
+  `status_revision: 5`）、`status.json`、`04-plan-review-r1-verdict.md`、
+  `05-plan-review-r2-verdict.md`（你前两轮的结论与 Bookkeeper 处置）。
 - 授权文件：`AGENTS.md`（尤其 §3 安全内核、§8 评审规则）、`agents/roles.md` Reviewer 段。
-- F10 诊断：`reports/agent-runs/2026-07-hedge-fast-fix-v1/findings.md`（F10 行）。
-- 代码（只读）：`backend/hedge_open_tasks/service.py`、`store.py`、`domain.py`、
-  `backend/app/server.py`、`frontend/index.html`（fake 原型在 `:4229` 起）。
+- 本轮重点代码（只读）：`backend/hedge_open_tasks/store.py:1934-1951`
+  （`aggregate_positions` 排除 `deleted`）、`backend/hedge_open_tasks/domain.py:1315-1324`
+  （51169 冻结模板）、`backend/app/server.py` 的 `_hedge_open_positions`、
+  `frontend/index.html` 的持仓与任务筛选展示。
+- 其余代码（按需只读）：`service.py`、`domain.py`、`frontend/index.html`。
 - 基线：`base_sha = 42de1aff364e7c979d2fbb5dc56f1dec65287cc7`。
 - provider 隔离：implementer = `claude_glm`（zhipu_glm），review-1 = `grok`（xai），
   review-2 = `codex`（openai），本 packet 定稿者 = `opus5`（anthropic）。
@@ -84,11 +89,13 @@ Bookkeeper 落盘；本终端不写 `status.json`、不写 evidence 文件。
 
 ## Acceptance Checks
 
-- 逐条回答上述 Goal 6 项，每项给出明确判断与依据（引用文件:行号）。
+- 逐条回答上述 Goal 四项，每项给出明确判断与依据（引用文件:行号）。
 - 对每条问题标注严重度（阻塞实现 / 建议修改 / 观察），阻塞项须给出可执行的修改要求。
 - 返回 `[TASK_RESULT v2]`，含 `评审结论: ACCEPT | REWORK`、`问题记录`、`修复要求`
   （按 AGENTS §7）。计划评审的 REWORK 表示 packet 需修订后才可实现，不计入
   `rework_count`。
+- `问题记录` / `修复要求` 沿用 round 2 的做法（`inline-full-text` + 正文清单），
+  不要写 `none`。
 
 ## Stop
 
