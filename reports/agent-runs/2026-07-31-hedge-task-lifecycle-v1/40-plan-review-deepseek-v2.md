@@ -36,9 +36,30 @@
 
 **(b) 评审的 `本地北京时间` 存疑。** 回执写 `2026-07-31 20:30:00 CST`，早于其评审对象 Planner 修订回执的 `23:11:34 CST`，且为整点整分整秒，不似 `date '+%Y-%m-%d %H:%M:%S CST'` 输出。属证据卫生问题，不影响 verdict 有效性；后续 review dispatch 保留该字段要求，并在 packet 中点明须由 `date` 命令产生。
 
-## 2. 待 Human 裁定：R1
+## 2. R1 —— 已由 Human 裁定（D16）
 
-评审对 R1 的结论是「技术论证成立，但最终取舍权在 Human，不构成技术 `REWORK`」。即：`rate_limited` 是否从「六种自动删除」中剥离改为退避，仍需 Human 拍板。Task 2 与 Task 3 依赖该裁定；**Task 1 不依赖**，可先行实现。
+评审对 R1 的结论是「技术论证成立，但最终取舍权在 Human，不构成技术 `REWORK`」。
+
+### D16（2026-07-31，Human 裁定）
+
+**`rate_limited` 改为退避，其余五种改自动删除。ADR-002 按原案执行；③ 照做。**
+
+即最终形态为「**五种删 + 一种退避**」：
+
+| 暂停原因 | 新行为 |
+|---|---|
+| `consecutive_submission_failure` | 自动删除（写 `DELETED`，保留 `pause_reason` + `pause_reason_zh`） |
+| `insufficient_balance` | 自动删除（同上） |
+| `insufficient_margin` | 自动删除（同上） |
+| `insufficient_available_qty` | 自动删除（同上） |
+| `collateral_cap_full` | 自动删除（同上，51169 文案逐字冻结） |
+| **`rate_limited`** | **不删不暂停，改为指数退避 + 抖动重试**（两处 worker 429 站点 `service.py:1152-1160`、`:1176-1180`） |
+
+`paused` 此后只剩人工手动暂停 —— 与 Human 最初「六种全改」的**意图**一致，仅在**手段**上把 `rate_limited` 由「删」细化为「退避」。
+
+回退方案（坚持字面六删则不做 ③）**未被采纳**，`hedge-leg-requery-cadence-v1`（Task 3，③）**保留在本 stage 范围内**。
+
+该裁定解除了 Task 2 与 Task 3 的阻塞。Task 1 从不依赖它。
 
 ## 3. 评审原文（逐字保留，未经改写）
 

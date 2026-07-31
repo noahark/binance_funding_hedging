@@ -1,10 +1,10 @@
 {
   "schema_version": "2",
-  "revision": 8,
+  "revision": 9,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
   "phase": "implementation",
-  "checkpoint": "plan_review_accept_sealed_task1_dispatched_r1_awaiting_human",
+  "checkpoint": "r1_ruled_d16_five_delete_one_backoff_task1_dispatched",
   "base_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
   "delivery_sha": null,
   "ledger_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
@@ -18,7 +18,5 @@
     "action": "start-prepared-task"
   },
   "rework_count": 0,
-  "blockers": [
-    "R1 待 Human 裁定：rate_limited 是否从六种自动删除中剥离改为退避（ADR-002）。仅阻塞 Task 2/3，不阻塞 Task 1。"
-  ]
+  "blockers": []
 }
