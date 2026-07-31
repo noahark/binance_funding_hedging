@@ -164,7 +164,11 @@ const ids = [
   'hedge-tab-tasks', 'hedge-tab-logs', 'hedge-tasks-panel', 'hedge-logs-panel',
   'hedge-logs-error', 'hedge-log-list', 'hedge-logs-refresh', 'hedge-logs-load-more',
   'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close',
-  'hedge-modal-confirm', 'hedge-modal-cancel', 'hedge-start-gate-toggle'
+  'hedge-modal-confirm', 'hedge-modal-cancel', 'hedge-start-gate-toggle',
+  // 假数据·预览（设计探针，2026-07-31-hedge-task-lifecycle-v1）：新增静态元素，须注册以避免
+  // eval(script) 时 els 的 getElementById 抛「未 mock 的元素」。
+  'hedge-fake-preview-toggle', 'hedge-fake-preview-panel',
+  'hedge-fake-preview-scenarios', 'hedge-fake-preview-body'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -4919,6 +4923,36 @@ setTimeout(async () => {
       if (attempts.length !== 1) throw new Error(`start_gate_changed 应被忽略，仅留 1 条 attempt，实际 ${attempts.length}`);
       if (attempts[0].attempt_seq !== 1) throw new Error('应保留真 attempt');
       console.log('[PASS] M-1 start_gate_changed 审计行被 extractHedgeAttempts 忽略（不渲染畸形 attempt）');
+    }
+
+    // 98. 假数据·预览（2026-07-31-hedge-task-lifecycle-v1）：默认关闭、开关可切、
+    //     51169 冻结文案逐字渲染、打开预览零网络请求。纯前端探针，不触真实渲染路径。
+    {
+      const panel = document.getElementById('hedge-fake-preview-panel');
+      const toggle = document.getElementById('hedge-fake-preview-toggle');
+      if (!panel || !toggle) throw new Error('假数据预览 DOM 缺失');
+      // 默认关闭：bindHedgeFakePreview 在 eval 时按 state.hedgeFakePreviewOpen=false 显式赋 hidden=true。
+      if (panel.hidden !== true) throw new Error('假数据预览默认应为关闭（hidden=true）');
+      const clickHandlers = toggle.listeners && toggle.listeners.click;
+      if (!clickHandlers || !clickHandlers.length) throw new Error('假数据预览开关未绑定 click');
+      // 打开预览不应发起任何网络请求（假数据为脚本内常量，acceptance #3）。
+      const mark = fetchCallLog.length;
+      clickHandlers[0]();
+      if (panel.hidden !== false) throw new Error('点击开关后预览应展开（hidden=false）');
+      if (fetchCallLog.length !== mark) throw new Error('打开假数据预览发起了网络请求（应为纯前端假数据）');
+      const bodyHtml = document.getElementById('hedge-fake-preview-body').innerHTML;
+      // 51169 冻结文案逐字渲染（acceptance #8）：含其特征句段。
+      if (!bodyHtml.includes('已达币安平台级抵押金额上限')) throw new Error('预览未渲染 51169 冻结文案');
+      if (!bodyHtml.includes('追加资金无效')) throw new Error('51169 冻结文案不完整（缺「追加资金无效」）');
+      // 严禁「保证金不足」假事实替换冻结文案（acceptance #8）：冻结文案唯一含「保证金不足」之处是
+      // 否定句「并非本账户保证金不足」，属逐字原文，故此处只断言「并非本账户保证金不足」存在。
+      if (!bodyHtml.includes('并非本账户保证金不足')) throw new Error('冻结文案否定句缺失');
+      // 两个真实渲染函数未被预览调用污染：预览 body 用独立 fake 函数，真实列表不含 fake 卡标识。
+      if (bodyHtml.includes('data-hedge-task-id')) throw new Error('预览误用真实任务卡 data-hedge-task-id 属性');
+      // 再次点击应收起。
+      clickHandlers[0]();
+      if (panel.hidden !== true) throw new Error('再次点击开关应收起预览');
+      console.log('[PASS] 假数据·预览：默认关闭 + 开关可切 + 51169 冻结文案逐字渲染 + 打开零网络请求');
     }
 
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 白名单
