@@ -1,22 +1,24 @@
 {
   "schema_version": "2",
-  "revision": 7,
+  "revision": 8,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "plan_review",
-  "checkpoint": "plan_revision_verified_sealed_c1cc10e_plan_review_v2_dispatched",
-  "base_sha": "afa3d5228e64ed2399e3d24b6971245e20950d9f",
-  "delivery_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
+  "phase": "implementation",
+  "checkpoint": "plan_review_accept_sealed_task1_dispatched_r1_awaiting_human",
+  "base_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
+  "delivery_sha": null,
   "ledger_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
   "current_task": {
-    "id": "plan-review-deepseek-v2",
+    "id": "hedge-merged-positions-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/plan-review-deepseek-v2.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/hedge-merged-positions-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-task"
   },
   "rework_count": 0,
-  "blockers": []
+  "blockers": [
+    "R1 待 Human 裁定：rate_limited 是否从六种自动删除中剥离改为退避（ADR-002）。仅阻塞 Task 2/3，不阻塞 Task 1。"
+  ]
 }
