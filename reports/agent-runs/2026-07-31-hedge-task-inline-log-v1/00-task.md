@@ -1,7 +1,10 @@
 # 00-task：2026-07-31-hedge-task-inline-log-v1（实现 dispatch packet）
 
-> 定稿状态：**revision 7——已按计划评审 round 3 的三条阻塞 + 三条建议全部修订**
-> （verdict 见 `07-plan-review-r3-verdict.md`，Bookkeeper 已逐条复核代码引用属实）。
+> 定稿状态：**revision 9 —— 计划评审已 `ACCEPT`，本 packet 可实现**。
+> 计划评审 round 4（DeepSeek Pro / deepseek，全新独立方）返回 `ACCEPT`，确认 grok
+> round 3 的六条修订已全部正确落实、Bookkeeper 三项追加判断成立、无新阻塞问题；
+> 其两条非阻塞观察（O-1 优先扩 `attempt_to_doc`、O-2 `null` 需显式分支）已并入本文。
+> verdict 见 `08-plan-review-r4-verdict.md`。
 > 范围：本 stage 只做开单任务日志，「任务卡卡住」相关已全部移出（`06-scope-reduction.md`）。
 > 起草者 claude_glm，定稿者 opus5。
 
@@ -11,7 +14,7 @@
 - target_role: Implementer
 - target_model: `claude_glm`
 - provider: `zhipu_glm`
-- status_revision: 7
+- status_revision: 9
 - required_skill: `agents/skills/senior-developer.md`
 - 风险分级: **HIGH_RISK**（保持不变。理由：本 stage 向用户展示成交价格、成交数量与
   订单号——用户据此判断钱的去向；展示错误等同于错误的账务信息。且 §8 的 `LOW_RISK`
@@ -60,7 +63,10 @@
 - **失败与单腿成交行的错误原因**：
   - 主字段 = `error_reason_zh`。**但它当前不在 `attempt_to_doc` 的投影里**
     （`service.py:239-265` 只投 `pair_outcome` / `spot` / `perp` / `residual` / `ts` 等），
-    须在**读路径**上补投（扩 `attempt_to_doc` 加字段，或内嵌表改用 `entries` 同源字段）。
+    须在**读路径**上补投。**优先做法：扩 `attempt_to_doc` 加字段**
+    （`error_reason_zh` / `error_code` / `error_category`）——内嵌表消费的就是 `attempts`
+    数组，同源最省。改用 `entries` 字段是次选，仅在扩投影不可行时采用并说明理由。
+    （计划评审 r4 观察 O-1）
   - **且它经常是 `NULL`**：`store.py:1085-1095` 对非 fatal 的 rollup 写
     `error_reason_zh = None`（普通确认失败与单腿都走这条）。因此「凡失败/单腿行必有
     非空中文原因」在只读范围内**做不到**，原约束已按此收窄。
@@ -76,6 +82,11 @@
 | `pair_outcome` | 中文 | badge class |
 |---|---|---|
 | `null`（未结算） | 进行中 | `info` |
+（`null` **不是** `HEDGE_PAIR_OUTCOME_LABELS` / `_BADGE` 的键——那两个常量只有
+`accepted_pair` / `confirmed_failed` / `single_leg` / `querying`。所以「进行中」必须走
+**显式 `null` 分支**，不能指望查表命中；既有代码 `index.html:4466` 就是这么写的，照做。
+计划评审 r4 观察 O-2。）
+
 | `accepted_pair` | **已受理** | `success` |
 | `confirmed_failed` | 已确认失败 | `danger` |
 | `single_leg` | 单腿成交 | `warn` |
