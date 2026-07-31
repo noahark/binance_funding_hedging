@@ -1,21 +1,21 @@
 {
   "schema_version": "2",
-  "revision": 9,
+  "revision": 10,
   "stage_id": "2026-07-31-hedge-task-inline-log-v1",
   "bookkeeper": "opus5",
-  "phase": "implementation",
-  "checkpoint": "plan_review_accepted_r4_deepseek",
+  "phase": "review_1",
+  "checkpoint": "delivery_verified_and_sealed",
   "base_sha": "42de1aff364e7c979d2fbb5dc56f1dec65287cc7",
-  "delivery_sha": null,
-  "ledger_sha": "77cb7e884c8007c56246476f86cb9cd53ff65ce9",
+  "delivery_sha": "b14f55ce8c264635860bd5b54d61229b17bd9faa",
+  "ledger_sha": "7f0d8fc06f1c64d4a29547d5029e0949177d141e",
   "current_task": {
     "id": "2026-07-31-hedge-task-inline-log-v1",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-07-31-hedge-task-inline-log-v1/00-task.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-implementer-terminal-claude-glm"
+    "action": "start-review-1-terminal-grok"
   },
   "rework_count": 0,
   "blockers": []

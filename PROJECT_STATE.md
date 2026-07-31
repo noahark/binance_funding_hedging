@@ -12,6 +12,15 @@ check.
 
 ## Open Follow-ups
 
+- `[OPEN][MONEY-ACCURACY]` Displayed fill average price is computed locally as
+  `cumulative_quote_amt / cumulative_base_qty` (`service.py:224`), not the
+  exchange's own figure. `live_hedge_executor.py:116` already parses Binance
+  `avgPrice`, but `hedge_open_leg` has no `avg_price` column (`store.py:85-99`),
+  so the authoritative value is discarded. Human 2026-07-31: use the returned
+  figure instead — it is more precise. Needs a schema + write-path change, so it
+  is out of scope for the read-only inline-log stage. Consequence today: perp avg
+  is often blank because Binance dropped quote/avgPrice from the UM POST result
+  (2026-07-14) and the backfill GET may not land.
 - `[OPEN][MONEY-VISIBILITY]` `aggregate_positions` (`store.py:1934-1951`) excludes
   `deleted` tasks, so a deleted task's already-filled legs vanish from
   `GET /api/hedge-open-positions` while the account exposure remains. Pre-existing
