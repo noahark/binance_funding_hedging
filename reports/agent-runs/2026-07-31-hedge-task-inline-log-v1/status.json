@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 12,
+  "revision": 13,
   "stage_id": "2026-07-31-hedge-task-inline-log-v1",
   "bookkeeper": "opus5",
   "phase": "fix_1",
-  "checkpoint": "fix_1_scope_extended_to_write_path_by_human",
+  "checkpoint": "fix_1_partA_done_partB_repatched_after_two_packet_gaps",
   "base_sha": "42de1aff364e7c979d2fbb5dc56f1dec65287cc7",
   "delivery_sha": "b14f55ce8c264635860bd5b54d61229b17bd9faa",
-  "ledger_sha": "891f61d7a487afb3d9b74089089620b89444079f",
+  "ledger_sha": "526fb77db7ffcb47553e0139f46a254f00ad9db9",
   "current_task": {
     "id": "2026-07-31-hedge-task-inline-log-v1-fix-1",
     "state": "dispatched",
@@ -19,7 +19,7 @@
   },
   "rework_count": 1,
   "blockers": [
-    "R2-F1: log table time column asserts fill time but shows attempt creation time (review-2, in-range)",
-    "Fix scope extended to schema+write path by Human 2026-07-31; requires re-running review-1 before review-2 (AGENTS.md 8)"
+    "Fix scope extended to schema+write path by Human 2026-07-31; requires re-running review-1 before review-2 (AGENTS.md 8)",
+    "avg_price becomes a money-semantics contract change: exchange value first, local computation as fallback (review-1 r6 guard split per Bookkeeper ruling)"
   ]
 }
