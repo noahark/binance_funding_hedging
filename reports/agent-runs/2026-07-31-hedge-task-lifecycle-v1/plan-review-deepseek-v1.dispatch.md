@@ -1,5 +1,14 @@
 # Dispatch —— plan-review-deepseek-v1（计划评审，只读）
 
+> **⚠️ 作废 2026-07-31（bookkeeper opus5）—— 本 packet 从未交付，不要执行。**
+> 签发后、交付前，Bookkeeper 核查发现受审方案 `b370401` 的 ADR-001 前提不成立
+> （后端合并并非做不到：`server.py:632-642` 两服务同 handler，`snapshot_service.py:237-257`
+> live 取数零上游请求）。Human 据此改定 **D14 合并改后端做**、**D15 保留删卡成本基**，
+> 见 `04-backend-merge-decision.md`。方案正由 `plan-revision-backend-merge-v1` 修订，
+> 本 packet 的评审对象 `afa3d52..b370401` 已被取代。
+> 修订完成后按新 `delivery_sha` 重新签发，届时 R1/R2/R4/R5 与 C1-C5 大部分仍适用，
+> **R3 已由 D15 直接解决、不再是评审判断题**。
+
 ```text
 Identity:
   task_id:         plan-review-deepseek-v1
