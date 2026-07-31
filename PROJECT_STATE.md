@@ -12,6 +12,16 @@ check.
 
 ## Open Follow-ups
 
+- `[OPEN][DEFERRED]` Human wants the order re-query interval cut from 1s to ~100ms
+  so fill figures land sooner (2026-07-31, deferred to its own stage). Facts found
+  while scoping it: the interval is hard-coded 1s with no setter
+  (`store.py:19`, `scheduler.py:5`); `service.py:178` integer-divides by 1e6 so
+  sub-second values display as `0`; in live mode it paces only leg re-query, NOT
+  order cadence (the next pair waits for both legs terminal, A-9), so it does not
+  raise order frequency; but query weight scales with it per running task
+  (10 tasks x 10/s = 100 req/s) and a 429 currently pauses the task. If done:
+  split "dispatch interval" from "re-query interval", add a floor, fix the
+  integer-divide display, and consider 429 backoff instead of pause.
 - `[OPEN][MONEY-ACCURACY]` Displayed fill average price is computed locally as
   `cumulative_quote_amt / cumulative_base_qty` (`service.py:224`), not the
   exchange's own figure. `live_hedge_executor.py:116` already parses Binance
