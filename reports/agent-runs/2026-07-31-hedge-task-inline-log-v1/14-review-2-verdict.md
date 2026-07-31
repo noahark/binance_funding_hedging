@@ -71,7 +71,27 @@ Human 决定」的具名事项上交。
   （`agents/roles.md` 拒收落盘规则）。
 - **`rework_count` 由 0 递增为 1**（`AGENTS.md` §8：首次交付存在后，为修复缺陷的新实现
   任务递增一次，无论发现来自 review-1、review-2 还是 Bookkeeper 验证）。
-- 修复路由：R2-F1 是**窄的 review-2 发现**，修复不扩文件、不改契约、不加风险，按 §8
-  「窄的 review-2 发现修复后直接回 review-2」——修复完成后重回 `codex`，不必重跑 review-1。
-- 合约均价（`pre-existing-release-critical`）作为**合并前的具名事项**上交 Human 决定，
-  不阻塞本轮修复。
+- 修复路由：~~R2-F1 是窄的 review-2 发现，修复后直接回 review-2~~ —— **已被 Human 决定
+  推翻，见下方勘误。**
+- 合约均价（`pre-existing-release-critical`）作为**合并前的具名事项**上交 Human 决定。
+
+## 勘误（2026-07-31，Human 决定后追加）
+
+Human 决定把「均价改用交易所返回值」**并入本轮修复**，不另立 stage。
+
+Bookkeeper 先前告知 Human「这不是小改动」，**该判断有误并已更正**：交易所的 `avgPrice`
+执行器早已解析（`live_hedge_executor.py:93-97/116/137`）并已传到写库那一层（`:467/474`），
+只是 `hedge_open_leg` 无该列而被丢弃。落库改动是六处加性修改，代码量确实很小——Human
+的判断是对的。（中途一度以为该值存在 `hedge_open_fill` 表，查证后确认那条路径已废弃：
+`insert_fill` 仅测试调用，实盘走 attempt/leg 表。）
+
+代价不在代码量，而在流程与风险面，已向 Human 说明并获授权：
+
+1. **碰 schema 与写路径**，超出本 stage 原有的「只动读路径」边界，该边界曾由计划评审
+   批准、review-1 验证。Human 的决定构成 `AGENTS.md` §3 #1 所需的数据写入授权。
+2. **修复路由改变**：按 §8「review-2 阶段的修复若扩文件、改契约或增风险，须重过
+   review-1」，本轮修复完成后**必须重跑 review-1，然后才回 review-2**，不再适用窄发现
+   的快路径。已记入 `status.json.blockers`。
+3. `rework_count` 仍为 **1**：范围扩大不额外递增，仍是同一交付物的第一次修复轮。
+
+修复 packet 见 `15-fix.dispatch.md`（Part A = R2-F1，Part B = 均价落库）。

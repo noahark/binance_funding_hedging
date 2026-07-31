@@ -4,7 +4,7 @@
   "stage_id": "2026-07-31-hedge-task-inline-log-v1",
   "bookkeeper": "opus5",
   "phase": "fix_1",
-  "checkpoint": "review_2_rework_r2f1_time_column",
+  "checkpoint": "fix_1_scope_extended_to_write_path_by_human",
   "base_sha": "42de1aff364e7c979d2fbb5dc56f1dec65287cc7",
   "delivery_sha": "b14f55ce8c264635860bd5b54d61229b17bd9faa",
   "ledger_sha": "891f61d7a487afb3d9b74089089620b89444079f",
@@ -19,6 +19,7 @@
   },
   "rework_count": 1,
   "blockers": [
-    "R2-F1: log table time column asserts fill time but shows attempt creation time (review-2, in-range)"
+    "R2-F1: log table time column asserts fill time but shows attempt creation time (review-2, in-range)",
+    "Fix scope extended to schema+write path by Human 2026-07-31; requires re-running review-1 before review-2 (AGENTS.md 8)"
   ]
 }
