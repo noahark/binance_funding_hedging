@@ -1,22 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 14,
+  "revision": 15,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "review_2",
-  "checkpoint": "review1_accept_sealed_review2_dispatched",
+  "phase": "implementation",
+  "checkpoint": "review2_rework_f3_sealed_fix_round_2_dispatched_budget_2of3",
   "base_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
   "delivery_sha": "6d6aa7bee34134b5f51a760d3ff0c1204c3f3dc4",
   "ledger_sha": "6d6aa7bee34134b5f51a760d3ff0c1204c3f3dc4",
   "current_task": {
-    "id": "review-2-codex-task1",
+    "id": "fix-merged-positions-mismatch-labels-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-2-codex-task1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-merged-positions-mismatch-labels-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-task"
   },
-  "rework_count": 1,
-  "blockers": []
+  "rework_count": 2,
+  "blockers": [
+    "F3 [review-2 阻塞] 合并表未标记 no_task/no_um 两类错配，且 no_task 行的现货/合约均价显示为 0（假成本）。未做到 Human 决策 D7 的「标清楚」，且属未披露的形状偏离（fake 有整列「状态」，10-design §5 却声称形状不变）。依据 43-review-2-codex-task1.md。",
+    "发布就绪：review-2 判定当前不可合并；即使复审 ACCEPT，发布前仍须 Human 单独授权一次只读运行时冒烟检查（本交付从未在真实服务上运行过）。"
+  ]
 }
