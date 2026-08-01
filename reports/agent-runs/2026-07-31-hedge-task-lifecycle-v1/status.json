@@ -1,27 +1,29 @@
 {
   "schema_version": "2",
-  "revision": 26,
+  "revision": 27,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "task_3_verified_awaiting_review_1",
-  "checkpoint": "d8522df_verified_all_functional_checks_pass_bk_t3_002_live_db_write_recorded",
+  "phase": "review_1_dispatched",
+  "checkpoint": "review_1_routed_to_codex_after_grok_quota_exhausted_review_2_now_unfilled",
   "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
   "delivery_sha": "d8522dfd6f4a3fa64c27d383a900a8e7f84df7fc",
-  "ledger_sha": "c8754256ad01bb2badbd936835c17cac07a7e00e",
+  "ledger_sha": "48257df59602609978ef4d024b24a231dc53f0a2",
   "current_task": {
-    "id": "fix-cadence-500ms-and-absent-tolerance-v1",
-    "state": "verified",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-cadence-500ms-and-absent-tolerance-v1.dispatch.md"
+    "id": "review-1-codex-task3",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-1-codex-task3.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-review-1-grok"
+    "action": "start-prepared-task"
   },
   "rework_count": 0,
   "blockers": [
-    "BK-T3-002（已核实实盘事件）：实盘库 data/hedge-open-tasks.sqlite3 于 2026-08-01 23:45:48 被写入（interval_us 1000000→500000），突破 packet 的 data/ 只读红线与 PROJECT_STATE 的「无 agent 可写实盘任务库」。实现者归因「运行中服务应用迁移」已被证伪（PID 57852 于 19:33 启动、4h36m 未重启、server.py 只在启动时构造 store、迁移代码晚 4 小时才存在）。影响良性：仅间隔设置变为正确值，未触碰任何资金数据。验收 11c 判 fail，不据此拒收代码。证据见 27- §3，已入 PROJECT_STATE。",
-    "PAUSE_REASON_ORDER_STATE_UNKNOWN 为新增的第七个暂停原因，Bookkeeper 采信（缺陷在 packet 措辞，红线 #3 约束的是任务状态枚举）。**Task 2 具名输入**：它既不属于自动删除的五种，也不属于退避的一种，应保留为人工暂停。裁定见 27- §4。",
-    "BK-T3-001（原拒收项）已解：迁移三场景实测通过（旧默认 1s→500ms、自定义 250ms 保留、新库 500ms、重开幂等）。",
+    "**review-2 目前无可用人选**（Human 须裁定）：codex 原为本轮 review-2，因 grok 无额度被 Human 改派 review-1。剩余人选皆有问题——grok 无额度；deepseek 提出了本次交付的第 5/6 项且做过本 stage 计划评审，设计参与过深；opus5 是 review-2 默认模型但同时是本 stage Bookkeeper 与两份 packet 的作者，按 roles.md「Prefer a final reviewer that did not plan or design the stage」不宜担任；Fable5 须 Human 显式启用其独立付费额度。HIGH_RISK 按 §8 需要 review-1 + review-2。",
+    "路由偏离已记录：roles.md 的 review-1 首选为 Kimi、Grok 为 Human 批准的备选，本次改用 codex（provider openai，与实现者 zhipu_glm 隔离成立，硬规则通过）。偏离理由为 grok 无额度、Human 决定。",
+    "已在 review-1 packet 中显著披露：本次交付第 5/6 项由 deepseek 在 26- 提出、Bookkeeper 采纳后写入 packet，故第 4-6 项在 codex 之前未经任何与其设计无关的模型审查。",
+    "BK-T3-002（已核实实盘事件）：实盘库于 2026-08-01 23:45:48 被写入（interval_us 1000000→500000），突破 data/ 只读红线；实现者归因已被证伪；影响良性，未触碰资金数据。验收 11c 判 fail，未据此拒收。已入 PROJECT_STATE，交 review-1/review-2 独立评价。证据见 27- §3。",
+    "PAUSE_REASON_ORDER_STATE_UNKNOWN 为新增第七个暂停原因，Bookkeeper 采信（27- §4）。**Task 2 具名输入**：既不属自动删除的五种，也不属退避的一种，应保留为人工暂停。",
     "Task 2（hedge-task-lifecycle-v1）仍暂缓（Human 2026-08-01）；F4 随之推迟，按 46- §3.3 须在合并 main 前重新交 Human 裁定。",
     "Task 1 已合并但 review-2 的发布前置（只读真机冒烟，清单 49-）未执行。",
     "bStock 下单路径修复 3dc6756 已合入 main 且零评审；首次建 bStock 任务即触发未评审的实盘下单行为。"
