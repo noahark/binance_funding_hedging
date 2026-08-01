@@ -6,11 +6,11 @@
   "phase": "task_3_rescoped_500ms_fix_dispatched",
   "checkpoint": "deepseek_independent_check_returned_all_six_upheld_new_scope_packet_prepared",
   "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
-  "delivery_sha": null,
+  "delivery_sha": "d8522dfd6f4a3fa64c27d383a900a8e7f84df7fc",
   "ledger_sha": "585c97764418f7999833bebbecfbe06dd147424c",
   "current_task": {
     "id": "fix-cadence-500ms-and-absent-tolerance-v1",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-cadence-500ms-and-absent-tolerance-v1.dispatch.md"
   },
   "next": {
