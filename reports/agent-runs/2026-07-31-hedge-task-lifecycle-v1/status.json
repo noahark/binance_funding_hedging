@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 18,
+  "revision": 19,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "review_1",
-  "checkpoint": "f4_accepted_as_limitation_fix_deferred_to_task2_review1_r4_confirm_dispatched",
+  "phase": "review_2",
+  "checkpoint": "review1_accept_all_four_rounds_sealed_review2_r2_dispatched",
   "base_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
   "delivery_sha": "ef53a025114933e8c472d9ae89f8ebfb35d19513",
   "ledger_sha": "ef53a025114933e8c472d9ae89f8ebfb35d19513",
   "current_task": {
-    "id": "review-1-grok-task1-r4",
+    "id": "review-2-codex-task1-r2",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-1-grok-task1-r4.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-2-codex-task1-r2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
