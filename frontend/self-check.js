@@ -1331,8 +1331,12 @@ setTimeout(async () => {
     if (!privateBody.includes('现货账户余额')) {
       throw new Error('私有面板未渲染现货账户余额');
     }
-    if (!privateBody.includes('UM 持仓')) {
-      throw new Error('私有面板未渲染 UM 持仓');
+    // R3 (fix-merged-positions-n2-ui-v1): 原 `includes('UM 持仓')` 断言验证的是那张
+    // 已被删除的独立 UM 持仓子表；它之所以仍绿，是因子表删除后改由「合并持仓表」承载，
+    // 而新表副标题「（UM 持仓为骨架）」恰好命中子串。改为验证合并持仓表的 section 标题
+    // 确实渲染（这才是新结构下有意义的对象），不删除断言。
+    if (!privateBody.includes('对冲开单持仓')) {
+      throw new Error('合并持仓表（对冲开单持仓 section）未渲染');
     }
     // designFixture 含 um_positions 时表头应有仓位价值列（方向与数量之间）
     if (Array.isArray(designFixture.private_account.um_positions)
@@ -4055,6 +4059,55 @@ setTimeout(async () => {
         throw new Error('空持仓应渲染空态');
       }
       console.log('[PASS] 持仓表从 GET /api/hedge-open-positions 渲染（§3.4 字段逐字）+ 空态 + 均价精度/方向色/价差率');
+    }
+
+    // 82b. R1/R2 渲染证据（fix-merged-positions-n2-ui-v1）
+    {
+      // R1：账户未就绪（snapshot verified=false + positions account.verified=false）——
+      //     合并表仍渲染、未就绪横幅出现、本地 coin 行可见。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'BTCUSDT', direction: 'forward', position_qty: '-0.5', spot_avg: '50000', perp_avg: '50000', includes_deleted_task: false }
+      ], account: { verified: false, error: 'snapshot_not_ready', checked_at: null } } };
+      const r1Fixture = JSON.parse(JSON.stringify(designFixture));
+      r1Fixture.private_account = { verified: false, error: 'snapshot_not_ready', balances_unified: [], balances_spot: [], um_positions: [], checked_at: null };
+      helpers.ingestSnapshot(r1Fixture);
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const r1Body = elements['private-panel-body'].innerHTML;
+      if (elements['private-panel'].style.display === 'none') {
+        throw new Error('R1: 账户未就绪时私有面板不应隐藏');
+      }
+      if (!r1Body.includes('账户数据未就绪')) {
+        throw new Error('R1: 账户未就绪横幅未出现');
+      }
+      if (!r1Body.includes('对冲开单持仓')) {
+        throw new Error('R1: 合并持仓表 section 未渲染');
+      }
+      if (!r1Body.includes('BTCUSDT')) {
+        throw new Error('R1: 本地记账行未渲染（降级下合并表应可见）');
+      }
+
+      // R2：有 UM 持仓但 unrealized_profit 缺失 —— 未实现盈亏渲染「暂无」而非 0.00。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'BTCUSDT', direction: 'forward', um_position_amt: '-0.5', um_notional_usdt: '100', unrealized_profit: null, price_pnl: null, spot_avg: '50000', perp_avg: '50000', includes_deleted_task: false }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      helpers.ingestSnapshot(designFixture); // verified=true → verified 块渲染合并表
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const r2Body = elements['private-panel-body'].innerHTML;
+      // 价格未实现盈亏是合并表第 8 列（index 7）。
+      const pnlCell = getRowCell(r2Body, 'BTCUSDT', 7);
+      if (!pnlCell.includes('暂无')) {
+        throw new Error('R2: 缺 unrealized_profit 时未实现盈亏应渲染「暂无」: ' + pnlCell);
+      }
+      if (pnlCell.includes('0.00')) {
+        throw new Error('R2: 缺 unrealized_profit 时不得画 0.00: ' + pnlCell);
+      }
+
+      // 恢复默认 mock 与 fixture，避免影响后续用例。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] R1/R2 渲染证据：账户未就绪合并表+横幅+本地行可见；缺 upnl 未实现盈亏画「暂无」不画 0');
     }
 
     // 83. 执行徽标（§3：GET /api/hedge-open-settings 的 executor_mode + start_gate）

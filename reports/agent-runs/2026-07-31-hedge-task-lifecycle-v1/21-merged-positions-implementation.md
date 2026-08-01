@@ -8,6 +8,8 @@
 
 权威规格：`12-development-breakdown.md` 的 `## Task 1`，决策依据 `10-design.md` P1 / N1-N5、`11-adr.md` ADR-001。计划评审 `deepseek` 已 `ACCEPT`，无 `in-range` 发现（`40-plan-review-deepseek-v2.md`）。
 
+> **修订说明（2026-08-01，`fix-merged-positions-n2-ui-v1`，修复轮 1/3）**：review-1（`grok`，`41-review-1-grok-task1.md`）对本交付（`969c455`）判 `REWORK`，两条 `in-range` 发现 F1（阻塞）/F2 + Bookkeeper 追加的测试完整性项。按 `minimal-change-engineer.md` 就地更正本报告并附本轮修复记录（§10）。`rework_count` 由 `0` → `1`。本轮只做 R1-R4；评审其余建议（混合桶均价单测、HTTP 级 N2 断言、强平价 title、注释更正）已由 Human 推后、未纳入；已接受限制 A/B 未触碰。
+
 ## 0. 边界与改动范围
 
 仅改动 dispatch 允许的文件；`scheduler.py`、`private_client.py`、`hedge_preflight_provider.py` 白名单、`domain.py` 的暂停原因集与 51169 文案区（`:1315-1324`）、`status.json`（`current_task.state` 以外）**一律未触**。
@@ -88,3 +90,40 @@
 - `rate_limited` 剥离属 Task 2/3，本任务未动。
 - 未合并、未推送、未接触凭证或实盘路径。
 - 一处透明性说明：dispatch Identity 写 `status_revision: 8`，而 `status.json` 当前 `revision: 9`——差异源自 Bookkeeper 在签发本 Task 1 dispatch 后又落了 D16（rate_limited 裁定，与本任务无关）一记控制提交；`status.json.current_task` 仍精确指向本 dispatch、`state=dispatched`，backend 代码 base_sha..HEAD 无差异，故锚点成立、按本 dispatch 执行。
+
+## 10. 修复轮 1/3（fix-merged-positions-n2-ui-v1）—— R1-R4
+
+修复 review-1（grok，`41-review-1-grok-task1.md`）F1/F2 + Bookkeeper 测试完整性项，按 `minimal-change-engineer.md` 只改必需之处。
+
+### R1｜F1（阻塞）：账户未就绪时合并表仍须可见
+- **根因**：`renderPrivatePanel` 在 `pa` 缺失（`display:none;return`）或 `pa.verified!==true`（整页替换为「私有账户未读取」后 `return`）两条路径下都不调用 `renderHedgeMergedPositions`；`loadHedgePositions` 又仅在 `verified===true` 时重绘。后端 N2 数据进了 state，真实降级窗口用户看不见。
+- **改法**（`frontend/index.html`）：
+  - `renderPrivatePanel`：`!pa` → `!pa && !hasPositions` 才隐藏（无账户且无本地持仓才无可展示）；其余显示面板。`!pa || pa.verified!==true` 分支在「私有账户未读取」占位后**追加 `renderHedgeMergedPositions()`**。
+  - `loadHedgePositions`：重绘去掉 `verified===true` 门闩，改为「面板当前可见 或 本地持仓非空」即重绘。
+- **兼容性**：test 29（优雅降级，`!pa` 且无持仓）仍隐藏面板；test 26/27（verified=false）占位文案逐字保留、合并表追加其后，断言用 `includes` 不受影响。
+
+### R2｜F2：有 UM 但 unrealized_profit 缺失时不得画 0
+- **根因**：`_merge_build_row` 在 upnl 不可解析时保留桶占位 `price_pnl="0"`；前端 `hasUm` 只看 `um_position_amt`，为真即画占位，冒充真值。
+- **改法**：
+  - 后端（`domain._merge_build_row`）：`price_pnl = upnl if _merge_num(upnl) is not None else None`——可解析（含真值 `"0"`）才写真值，否则 `None`。真值 0 与缺失可区分。
+  - 前端（`renderHedgeMergedPositions`）：PnL 仅在 `hasUm && unrealized_profit 可解析` 时画数字，否则「暂无」。
+  - 测试（`test_merge_missing_sentinel_values`）：不再锁「缺失→`price_pnl=="0"`」；改为缺失→`None`，并补真值 `"0"` 保留用例。
+
+### R3｜被掏空的断言（Bookkeeper §1.1 / 评审 O4）
+- `self-check.js` 原 `includes('UM 持仓')` 验证的是已删除的独立 UM 子表；删除后改由合并表承载，副标题「（UM 持仓为骨架）」恰好命中子串而仍绿——断言空转。
+- **改法**：改为验证合并表 section 标题 `includes('对冲开单持仓')`（新结构下有意义的对象），未删除。
+
+### R4｜补渲染断言并验证可失败
+- 新增 self-check 块 82b：
+  - R1 证据：`verified=false` + 本地 BTCUSDT 行 → 面板不隐藏、`账户数据未就绪` 横幅出现、`对冲开单持仓` section 与 `BTCUSDT` 行可见。
+  - R2 证据：有 UM（`um_position_amt`）但 `unrealized_profit=null` → PnL 单元格（合并表第 8 列）含「暂无」、不含 `0.00`。
+- **可失败性已实测**：临时回退 R2（`pnlReal=hasUm`）→ R2 断言红（单元格渲染 `—` 而非「暂无」，`EXIT=1`）；临时移除 `!verified` 分支的合并表 → R1 断言红（横幅缺席，`EXIT=1`）。两探测均已还原，全绿。
+
+### 本轮改动文件
+`backend/hedge_open_tasks/domain.py`（R2，仅 upnl/price_pnl 一处）、`frontend/index.html`（R1+R2 渲染）、`backend/tests/test_positions_merge.py`（R2 测试）、`frontend/self-check.js`（R3+R4）。`store.py`/`server.py`/`service.py` 本轮未改。
+
+### 测试结果（本轮）
+后端 `1126 passed`；前端 `129 PASS / 0 FAIL，EXIT=0`。原始输出覆盖于 `61-merged-positions-test-output.txt`。
+
+### 未触碰
+禁改区（`scheduler.py`/`private_client.py`/`hedge_preflight_provider.py` 白名单、51169 文案区 `domain.py:1315-1324`、暂停原因集）、已接受限制 A/B（`single_leg_exposure` 判据、`spot_balance`/`drift` 资金池来源）、Task 2/3 范围、被 Human 推后的评审建议（混合桶均价单测、HTTP 级 N2 断言、强平价 title、注释更正）——均未改。

@@ -1442,8 +1442,11 @@ def _merge_build_row(coin, direction, bucket, um, spot_by_asset, borrowed_by_ass
         # placeholder so the UI renders a true figure, not 0.00.
         upnl = um.get("unrealized_profit")
         row["unrealized_profit"] = upnl
-        if _merge_num(upnl) is not None:
-            row["price_pnl"] = upnl
+        # R2 (fix-merged-positions-n2-ui-v1): a missing/unparseable upnl must NOT
+        # masquerade as the bucket's "0" placeholder. Surface the real figure
+        # (including a true "0") only when it is parseable; otherwise price_pnl is
+        # None so the UI renders 暂无 and a real 0 stays distinguishable from missing.
+        row["price_pnl"] = upnl if _merge_num(upnl) is not None else None
     else:
         row["um_position_side"] = None
         row["um_position_amt"] = None

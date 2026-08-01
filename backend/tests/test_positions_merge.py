@@ -118,16 +118,22 @@ def test_merge_single_leg_exposure():
 
 def test_merge_missing_sentinel_values():
     # (e) account verified but figures missing: liquidation_price "0" sentinel
-    # preserved, unrealized_profit None -> price_pnl stays the placeholder "0".
+    # preserved, unrealized_profit None. R2 (fix-merged-positions-n2-ui-v1): a
+    # missing upnl must NOT paint the "0" placeholder as a real PnL — price_pnl is
+    # None (missing), and a true "0" upnl stays a real figure (distinguishable).
     positions = [_bucket("BTCUSDT", D.DIR_FORWARD, spot_qty="0.5", perp_qty="0.5",
                          spot_avg="50000", perp_avg="50000")]
-    pa = _pa(ums=[_um("BTCUSDT", "SHORT", "-0.5", unrealized_profit=None,
-                      liquidation_price="0")])
-    merged, _ = D.merge_positions(positions, pa)
-    r = merged[0]
+    pa_missing = _pa(ums=[_um("BTCUSDT", "SHORT", "-0.5", unrealized_profit=None,
+                              liquidation_price="0")])
+    r = D.merge_positions(positions, pa_missing)[0][0]
     assert r["um_liquidation_price"] == "0"  # sentinel preserved verbatim, not dropped
     assert r["unrealized_profit"] is None
-    assert r["price_pnl"] == "0"  # no real PnL figure -> stays placeholder
+    assert r["price_pnl"] is None  # missing -> None, NOT the "0" placeholder
+    # a true "0" upnl is a real figure and must be distinguishable from missing
+    pa_zero = _pa(ums=[_um("BTCUSDT", "SHORT", "-0.5", unrealized_profit="0",
+                           liquidation_price="0")])
+    r0 = D.merge_positions(positions, pa_zero)[0][0]
+    assert r0["price_pnl"] == "0" and r0["unrealized_profit"] == "0"
 
 
 def test_merge_empty():

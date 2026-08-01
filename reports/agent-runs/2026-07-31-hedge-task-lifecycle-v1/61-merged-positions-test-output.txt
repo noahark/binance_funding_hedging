@@ -1,4 +1,4 @@
-### backend pytest (full suite)
+### backend pytest (full suite) — fix-merged-positions-n2-ui-v1
 ........................................................................ [  6%]
 ........................................................................ [ 12%]
 ........................................................................ [ 19%]
@@ -15,9 +15,9 @@
 ........................................................................ [ 89%]
 ........................................................................ [ 95%]
 ..............................................                           [100%]
-1126 passed in 52.26s
+1126 passed in 53.22s
 
-### frontend self-check
+### frontend self-check — fix-merged-positions-n2-ui-v1
 [PASS] 内联脚本语法检查
 [PASS] 默认请求 /api/public-market/snapshot
 [PASS] 数据源标签显示后端 API
@@ -124,6 +124,7 @@
 [PASS] 任务生命周期：pause/start/fill-once/fill-all/delete 冻结路由 + 状态推进 + 软删除筛选与导航徽标
 [PASS] stopped/paused 语义返工：single_leg 提示但继续调度 + stop_reason 终止展示 + 按钮矩阵服从后端 status + invalid_state 409 就近报错 + 立即开单隐藏 fill-all
 [PASS] 持仓表从 GET /api/hedge-open-positions 渲染（§3.4 字段逐字）+ 空态 + 均价精度/方向色/价差率
+[PASS] R1/R2 渲染证据：账户未就绪合并表+横幅+本地行可见；缺 upnl 未实现盈亏画「暂无」不画 0
 [PASS] 执行徽标：executor_mode disabled→dry-run / live + start_gate Start 状态
 [PASS] 任务卡 real-api-v1 新字段：调度/受理/连续失败/阈值渲染 + 暂停原因 + 旧文档逐项降级 —
 [PASS] attempt 时间线：logs 取数 + 两腿字段逐字渲染 + payload 内嵌兼容 + 非 attempt 忽略 + 缺腿降级

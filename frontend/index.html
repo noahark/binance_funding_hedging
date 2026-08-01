@@ -2737,21 +2737,28 @@
 
       function renderPrivatePanel() {
         const pa = state.snapshot && state.snapshot.private_account;
-        if (!pa) {
+        // R1 (fix-merged-positions-n2-ui-v1): the merged positions table is local
+        // bookkeeping and must render even when the account snapshot is absent or
+        // not verified. Hide the panel only when there is nothing to show at all
+        // (no account block AND no local positions); the merged table + a not-ready
+        // notice cover the degraded cases below.
+        const hasPositions = Array.isArray(state.hedgePositions) && state.hedgePositions.length > 0;
+        if (!pa && !hasPositions) {
           els.privatePanel.style.display = 'none';
           return;
         }
         els.privatePanel.style.display = '';
 
-        if (pa.verified !== true) {
-          const errorDetail = pa.error ? `（${escapeHtml(pa.error)}）` : '';
+        if (!pa || pa.verified !== true) {
+          const errorDetail = (pa && pa.error) ? `（${escapeHtml(pa.error)}）` : '';
           els.privatePanelSubtitle.textContent = '私有账户未读取';
           els.privatePanelBody.innerHTML = `
             <div class="empty-state">
               <strong>私有账户未读取</strong><br/>
               未配置 API key 或私有只读请求失败，未获取到账户资产数据${errorDetail}<br/>
-              <span class="muted small">请检查 API key 权限、IP 白名单或后端私有通道配置；系统不会执行交易或划转</span>
+              <span class="muted small">请检查 API key 权限、IP 白名单或后端私有通道配置；本地对冲持仓（任务记账）仍展示在下方；系统不会执行交易或划转</span>
             </div>
+            ${renderHedgeMergedPositions()}
           `;
           return;
         }
@@ -3806,9 +3813,12 @@
         } catch (err) {
           // 加载失败保留上次缓存，不清空已渲染持仓
         }
-        if (els.privatePanel.style.display !== 'none' &&
-            state.snapshot && state.snapshot.private_account &&
-            state.snapshot.private_account.verified === true) {
+        // R1: redraw whenever the merged table may render — including the
+        // account-not-ready path (the table is independent of
+        // private_account.verified). Drop the verified===true gate and also render
+        // when local positions just loaded (the panel may need to become visible).
+        if (els.privatePanel.style.display !== 'none' ||
+            (Array.isArray(state.hedgePositions) && state.hedgePositions.length > 0)) {
           renderPrivatePanel();
         }
       }
@@ -4491,10 +4501,13 @@
           // 展示用：由均价现算，不读后端占位 open_basis_rate:"0"。
           const basisRate = computeHedgeOpenBasisRate(p.spot_avg, p.perp_avg, p.direction);
           const basisCls = classForSignedNumber(basisRate);
-          // 未实现盈亏：仅当存在真实 UM 持仓时才有真值；否则「暂无」（不画 0.00）。
+          // 未实现盈亏：仅当存在真实 UM 持仓且 unrealized_profit 可解析时才有真值；
+          // 否则「暂无」（不画 0.00）。R2：真值 0 与缺失必须可区分。
           const hasUm = !(p.um_position_amt === null || p.um_position_amt === undefined || p.um_position_amt === '');
-          const pnlCls = hasUm ? classForSignedNumber(hedgeNum(p.price_pnl)) : '';
-          const pnlText = hasUm ? formatHedgeSigned(p.price_pnl) : '<span class="muted small">暂无</span>';
+          const upnlPresent = !(p.unrealized_profit === null || p.unrealized_profit === undefined || p.unrealized_profit === '');
+          const pnlReal = hasUm && upnlPresent;
+          const pnlCls = pnlReal ? classForSignedNumber(hedgeNum(p.price_pnl)) : '';
+          const pnlText = pnlReal ? formatHedgeSigned(p.price_pnl) : '<span class="muted small">暂无</span>';
           // 行标记（只展示、不动作）。
           const markers = [];
           if (p.single_leg_exposure) markers.push('<span class="risk-warn small">单腿敞口</span>');
