@@ -605,7 +605,26 @@ class _Handler(BaseHTTPRequestHandler):
         ))
 
     def _hedge_open_positions(self):
-        self._send_hedge_open(*self.hedge_open_service.get_positions())
+        # Backend merge (Task 1 / D14, 11-adr.md ADR-001): join the task-record
+        # position buckets with the snapshot's private_account. This handler is
+        # the composition root that holds both services; SnapshotService is NOT
+        # injected into HedgeOpenTaskService (the two stay decoupled — the merge
+        # is a pure function in hedge_open_domain). N2: a cold or unverified
+        # account NEVER 503s this endpoint — the local bookkeeping rows still
+        # return, with account-derived fields nulled and account_meta reporting
+        # the cause. get_snapshot() is a zero-upstream pure read (F-B), so this
+        # adds no exchange request.
+        _, body = self.hedge_open_service.get_positions()
+        positions = body.get("positions", []) if isinstance(body, dict) else []
+        private_account = None
+        try:
+            snapshot = self.service.get_snapshot()
+        except SnapshotNotReady:
+            snapshot = None
+        if isinstance(snapshot, dict) and isinstance(snapshot.get("private_account"), dict):
+            private_account = snapshot["private_account"]
+        merged, account_meta = hedge_open_domain.merge_positions(positions, private_account)
+        self._send_hedge_open(200, {"positions": merged, "account": account_meta})
 
     def _serve_static(self, path: str):
         if path == "/":

@@ -1939,27 +1939,28 @@ class HedgeOpenStore:
         attempt/leg rows (breakdown §3.4). avg = Σ(qty*price)/Σqty per leg.
         ``position_qty`` is the signed perp net (forward SELL -> negative short,
         reverse BUY -> positive long). Fields with no source this round stay
-        ``"0"`` so the frozen Position JSON shape is stable.
+        ``"0"`` so the frozen Position JSON shape is stable. D15 (2026-07-31):
+        deleted tasks' already-filled legs are NO LONGER excluded — each bucket
+        sets ``includes_deleted_task`` so the UI can mark rows that mix live and
+        deleted sources (the deleted task's cost basis must stay visible once ②
+        makes auto-delete routine). ``spot_qty``/``perp_qty`` are emitted so the
+        merge layer can compare recorded vs real quantities (P2 drift, single-leg).
         """
         with self._lock:
             fill_rows = self._conn.execute(
                 "SELECT f.spot_status, f.spot_filled_qty, f.spot_avg_price,"
                 " f.perp_status, f.perp_filled_qty, f.perp_avg_price,"
-                " t.coin, t.direction"
+                " t.coin, t.direction, t.status"
                 " FROM hedge_open_fill f JOIN hedge_open_task t ON t.id = f.task_id"
-                " WHERE t.status != ?"
                 " ORDER BY f.ts_us ASC, f.id ASC",
-                (D.STATUS_DELETED,),
             ).fetchall()
             leg_rows = self._conn.execute(
                 "SELECT l.leg, l.exchange_status, l.cumulative_base_qty,"
-                " l.cumulative_quote_amt, t.coin, t.direction"
+                " l.cumulative_quote_amt, t.coin, t.direction, t.status"
                 " FROM hedge_open_leg l"
                 " JOIN hedge_open_attempt a ON a.id = l.attempt_id"
                 " JOIN hedge_open_task t ON t.id = a.task_id"
-                " WHERE t.status != ?"
                 " ORDER BY a.created_at_us ASC, l.id ASC",
-                (D.STATUS_DELETED,),
             ).fetchall()
 
         buckets: dict[tuple[str, str], dict] = {}
@@ -1975,11 +1976,14 @@ class HedgeOpenStore:
                     "position_qty": Decimal(0),
                     "spot_incomplete": False,
                     "perp_incomplete": False,
+                    "includes_deleted": False,
                 },
             )
 
         for row in fill_rows:
             b = _bucket(row["coin"], row["direction"])
+            if row["status"] == D.STATUS_DELETED:
+                b["includes_deleted"] = True
             if row["spot_status"] == D.LEG_FILLED:
                 q = _num(row["spot_filled_qty"])
                 b["spot_qty"] += q
@@ -2009,6 +2013,8 @@ class HedgeOpenStore:
             if _num(row["cumulative_base_qty"]) <= 0:
                 continue
             b = _bucket(row["coin"], row["direction"])
+            if row["status"] == D.STATUS_DELETED:
+                b["includes_deleted"] = True
             q = _num(row["cumulative_base_qty"])
             # T1 §1(d): a NULL quote (unknown figure) contributes its REAL qty but
             # NOT its notional — averaging an unknown as 0 would drag the avg price
@@ -2040,12 +2046,16 @@ class HedgeOpenStore:
                     "coin": coin,
                     "direction": direction,
                     "position_qty": D.fmt_decimal(b["position_qty"]),
+                    "spot_qty": D.fmt_decimal(b["spot_qty"]),
+                    "perp_qty": D.fmt_decimal(b["perp_qty"]),
                     "spot_avg": D.fmt_decimal(spot_avg),
                     "perp_avg": D.fmt_decimal(perp_avg),
                     # T1 §1(d): additive — true when any contributing leg had a NULL
                     # quote, so the avg above is over a partial notional set.
                     "spot_avg_price_incomplete": b["spot_incomplete"],
                     "perp_avg_price_incomplete": b["perp_incomplete"],
+                    # D15: true when any contributing leg belongs to a deleted task.
+                    "includes_deleted_task": b["includes_deleted"],
                     "open_basis_rate": "0",
                     "price_pnl": "0",
                     "accrued_funding": "0",

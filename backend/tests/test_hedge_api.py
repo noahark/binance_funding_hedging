@@ -50,10 +50,18 @@ _TASK_KEYS = {
 _SETTINGS_KEYS = {"executor_mode", "start_gate", "interval_seconds", "version"}
 _ERROR_KEYS = {"error", "detail"}
 _POSITION_KEYS = {
-    "coin", "direction", "position_qty", "spot_avg", "perp_avg",
-    "spot_avg_price_incomplete", "perp_avg_price_incomplete",
-    "open_basis_rate", "price_pnl", "accrued_funding", "borrow_interest",
-    "net_pnl",
+    # aggregate_positions bucket fields (D15 added spot_qty / perp_qty /
+    # includes_deleted_task; spot_avg/perp_avg etc. unchanged)
+    "coin", "direction", "position_qty", "spot_qty", "perp_qty",
+    "spot_avg", "perp_avg", "spot_avg_price_incomplete", "perp_avg_price_incomplete",
+    "includes_deleted_task", "open_basis_rate", "price_pnl", "accrued_funding",
+    "borrow_interest", "net_pnl",
+    # merge layer (Task 1 / D14, 11-adr.md ADR-001): the matched UM position,
+    # spot balance, cross-margin borrow, unrealized PnL, and the single-leg /
+    # drift markers. Null when no UM position or account not verified (N2).
+    "um_position_side", "um_position_amt", "um_notional_usdt", "um_entry_price",
+    "um_mark_price", "um_liquidation_price", "unrealized_profit", "spot_balance",
+    "cross_margin_borrowed", "single_leg_exposure", "drift",
 }
 
 

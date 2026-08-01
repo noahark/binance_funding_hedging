@@ -276,12 +276,28 @@ def test_aggregate_positions_forward_short_reverse_long(tmp_path):
     store.close()
 
 
-def test_aggregate_positions_excludes_deleted_tasks(tmp_path):
+def test_aggregate_positions_includes_deleted_tasks_d15(tmp_path):
+    # N-1 / D15 (2026-07-31): this was ``test_aggregate_positions_excludes_deleted_tasks``
+    # and asserted ``aggregate_positions() == []`` (a deleted task's legs were excluded
+    # by ``WHERE t.status != deleted``). D15 inverts that — deleted tasks' already-filled
+    # legs now COUNT so their cost basis stays visible once ② makes auto-delete routine.
+    # Same fixture as test_aggregate_positions_forward_short_reverse_long; only the
+    # task status differs. The test is updated (not deleted) to lock the new behavior:
+    # the row is present, carries the same signed qty / avg, and is flagged
+    # ``includes_deleted_task`` so the UI can mark it as a mixed/deleted source.
     store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
     _create(store, "tf", direction=D.DIR_FORWARD)
     store.insert_fill("tf", "af", _outcome(attempt_id="af"), 1_100)
     store.set_task_status("tf", D.STATUS_DELETED, 2_000)
-    assert store.aggregate_positions() == []
+    positions = store.aggregate_positions()
+    assert len(positions) == 1
+    p = positions[0]
+    assert p["coin"] == "BTCUSDT"
+    assert p["direction"] == D.DIR_FORWARD
+    assert p["includes_deleted_task"] is True
+    assert Decimal(p["position_qty"]) == Decimal("-0.5")  # forward perp SELL still counted
+    assert Decimal(p["spot_avg"]) == Decimal("50000")
+    assert Decimal(p["perp_avg"]) == Decimal("50000")
     store.close()
 
 

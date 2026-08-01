@@ -417,7 +417,7 @@ let hedgeActionResponses = {};
 let hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'disabled', start_gate: false, interval_seconds: 1, version: 1 } };
 // live-hardening v1（10-design §2.3）：POST /api/hedge-open-settings/start-gate 响应槽；未设置时 503。
 let hedgeStartGatePostResponse = null;
-let hedgePositionsGetResponse = { status: 200, body: { positions: [] } };
+let hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
 // real-api-v1：attempt 时间线数据源（既有 GET /api/hedge-open-logs，路由表不变，?limit=100 无 cursor）。
 let hedgeLogsGetResponse = { status: 200, body: { logs: [], next_cursor: null } };
 // 17 号兼容修正：开单日志页分页队列（?entries_limit=50[&entries_cursor=...]，响应带
@@ -4009,7 +4009,7 @@ setTimeout(async () => {
           spot_avg: '0.00125000', perp_avg: '0.00124600',
           open_basis_rate: 0, price_pnl: 0, accrued_funding: 0, borrow_interest: 0, net_pnl: 0
         }
-      ] } };
+      ], account: { verified: true, error: null, checked_at: null } } };
       const markPos = fetchCallLog.length;
       await helpers.loadHedgePositions();
       const posCall = fetchCallLog.slice(markPos).find(c => c.url.includes('hedge-open'));
@@ -4048,7 +4048,7 @@ setTimeout(async () => {
       if (privHtml.includes('本地模拟')) throw new Error('持仓表不应再标注本地模拟');
       if (helpers.getHedgePositions().length !== 2) throw new Error('持仓缓存应来自 positions 端点');
       // 空持仓 → 空态
-      hedgePositionsGetResponse = { status: 200, body: { positions: [] } };
+      hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       if (!elements['private-panel-body'].innerHTML.includes('暂无开单持仓')) {
