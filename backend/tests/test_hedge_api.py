@@ -62,6 +62,9 @@ _POSITION_KEYS = {
     "um_position_side", "um_position_amt", "um_notional_usdt", "um_entry_price",
     "um_mark_price", "um_liquidation_price", "unrealized_profit", "spot_balance",
     "cross_margin_borrowed", "single_leg_exposure", "drift",
+    # G1 (fix-merged-positions-mismatch-labels-v1): explicit UM-vs-task match
+    # status so the UI never infers 'no task' / 'no UM' from all-zero fields.
+    "match_status",
 }
 
 

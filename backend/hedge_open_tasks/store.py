@@ -1973,6 +1973,16 @@ class HedgeOpenStore:
                     "spot_notional": Decimal(0),
                     "perp_qty": Decimal(0),
                     "perp_notional": Decimal(0),
+                    # G5 (fix-merged-positions-mismatch-labels-v1): the avg-price
+                    # denominator counts ONLY legs whose notional is KNOWN. A leg
+                    # with an unknown notional (NULL quote, or a literal "0" quote
+                    # with a real fill — Binance dropped the UM fill quote on
+                    # 2026-07-14 and the live write path persisted the unknown as
+                    # "0") still contributes its real qty to spot_qty / perp_qty /
+                    # position_qty for DISPLAY, but is excluded here so it cannot
+                    # drag the avg to half its true value (RSRUSDT: 12.46/20000).
+                    "spot_qty_priced": Decimal(0),
+                    "perp_qty_priced": Decimal(0),
                     "position_qty": Decimal(0),
                     "spot_incomplete": False,
                     "perp_incomplete": False,
@@ -1990,10 +2000,11 @@ class HedgeOpenStore:
                 # T1 §1(d) / S2: a NULL avg_price (unknown figure) must not add a
                 # fabricated 0 notional — skip it and set the incomplete flag, the
                 # same policy the leg_rows loop below uses. A real "0" avg_price
-                # still contributes 0 (q * 0) without flagging.
+                # still contributes 0 (q * 0) without flagging (the r5 category).
                 spot_avg = _num_or_none(row["spot_avg_price"])
                 if spot_avg is not None:
                     b["spot_notional"] += q * spot_avg
+                    b["spot_qty_priced"] += q
                 else:
                     b["spot_incomplete"] = True
             if row["perp_status"] == D.LEG_FILLED:
@@ -2002,6 +2013,7 @@ class HedgeOpenStore:
                 perp_avg = _num_or_none(row["perp_avg_price"])
                 if perp_avg is not None:
                     b["perp_notional"] += q * perp_avg
+                    b["perp_qty_priced"] += q
                 else:
                     b["perp_incomplete"] = True
                 sign = Decimal(-1) if row["direction"] == D.DIR_FORWARD else Decimal(1)
@@ -2016,22 +2028,33 @@ class HedgeOpenStore:
             if row["status"] == D.STATUS_DELETED:
                 b["includes_deleted"] = True
             q = _num(row["cumulative_base_qty"])
-            # T1 §1(d): a NULL quote (unknown figure) contributes its REAL qty but
-            # NOT its notional — averaging an unknown as 0 would drag the avg price
-            # down. The bucket is flagged avg_price_incomplete instead, so a reader
-            # knows the avg is computed over a partial notional set.
+            # T1 §1(d) + G5: an unknown notional contributes its REAL qty (for
+            # display / position_qty) but NOT its notional — averaging an unknown
+            # as 0 would drag the avg price down. The bucket is flagged
+            # avg_price_incomplete instead, so a reader knows the avg is computed
+            # over a partial notional set. G5 extends 'unknown' to a literal "0"
+            # quote WITH a real fill: Binance dropped the UM fill quote on
+            # 2026-07-14 and the live write path persisted the unknown as "0"
+            # (not NULL), so a "0" quote is the same sentinel here. It is excluded
+            # from the avg's priced denominator + notional (44-runtime-observation
+            # §3: RSRUSDT perp = (0 + 12.46) / 20000 = half the true 0.001246).
+            # The fill_rows loop above keeps the r5 policy (a real "0" avg_price is
+            # a true zero) — a different column with a deliberately different rule.
             quote_raw = row["cumulative_quote_amt"]
             notional = _num_or_none(quote_raw)
+            known_notional = notional is not None and notional != 0
             if row["leg"] == "spot":
                 b["spot_qty"] += q
-                if notional is not None:
+                if known_notional:
                     b["spot_notional"] += notional
+                    b["spot_qty_priced"] += q
                 else:
                     b["spot_incomplete"] = True
             else:
                 b["perp_qty"] += q
-                if notional is not None:
+                if known_notional:
                     b["perp_notional"] += notional
+                    b["perp_qty_priced"] += q
                 else:
                     b["perp_incomplete"] = True
                 sign = Decimal(-1) if row["direction"] == D.DIR_FORWARD else Decimal(1)
@@ -2039,8 +2062,18 @@ class HedgeOpenStore:
 
         positions = []
         for (coin, direction), b in buckets.items():
-            spot_avg = b["spot_notional"] / b["spot_qty"] if b["spot_qty"] > 0 else Decimal(0)
-            perp_avg = b["perp_notional"] / b["perp_qty"] if b["perp_qty"] > 0 else Decimal(0)
+            # G5: the avg denominator is the PRICED qty (legs with a known
+            # notional), not the full display qty — so an unknown-notional leg
+            # can never drag the avg. When every leg on a side is unknown the
+            # priced qty is 0 and the avg falls back to 0 (flagged incomplete).
+            spot_avg = (
+                b["spot_notional"] / b["spot_qty_priced"]
+                if b["spot_qty_priced"] > 0 else Decimal(0)
+            )
+            perp_avg = (
+                b["perp_notional"] / b["perp_qty_priced"]
+                if b["perp_qty_priced"] > 0 else Decimal(0)
+            )
             positions.append(
                 {
                     "coin": coin,

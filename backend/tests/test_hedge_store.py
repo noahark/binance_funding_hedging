@@ -741,6 +741,43 @@ def test_aggregate_positions_fill_real_zero_avg_price_contributes_zero(tmp_path)
     store.close()
 
 
+def test_aggregate_positions_literal_zero_quote_treated_as_unknown_g5(tmp_path):
+    """G5 (fix-merged-positions-mismatch-labels-v1 / 44-runtime-observation §3):
+    a literal "0" quote WITH a real fill is the same unknown sentinel as NULL
+    (Binance dropped the UM fill quote on 2026-07-14; the live write path
+    persisted the unknown as "0", not NULL). It must NOT enter the avg as a real
+    0. Real data shape: RSRUSDT forward perp, two fills of 10000 each — one quote
+    "0", one "12.46". The avg must be 12.46/10000 = 0.001246 (the true price),
+    NOT (0 + 12.46)/20000 = 0.000623 (half its true value, what the real machine
+    showed), and perp_avg_price_incomplete must be True. The real qty still
+    counts for display (position_qty = -20000)."""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "tn", direction=D.DIR_FORWARD, target=2)
+
+    def _perp_quote_outcome(att_id, perp_quote):
+        return AttemptOutcome(
+            attempt_id=att_id, category=D.ATTEMPT_SUCCESS,
+            spot={"status": D.LEG_FILLED, "filled_qty": "10000",
+                  "cumulative_quote": "500", "avg_price": "0.005",
+                  "order_id": f"os-{att_id}", "client_order_id": f"hgo-{att_id}-s"},
+            perp={"status": D.LEG_FILLED, "filled_qty": "10000",
+                  "cumulative_quote": perp_quote, "avg_price": None,
+                  "order_id": f"op-{att_id}", "client_order_id": f"hgo-{att_id}-p"},
+            record_payload={"transport": "dry_run_record", "posted": False,
+                            "spot_order_params": {}, "perp_order_params": {}},
+            exposure=None,
+        )
+
+    _apply(store, "tn", _perp_quote_outcome("att1", "0"), 1_100)
+    _apply(store, "tn", _perp_quote_outcome("att2", "12.46"), 1_200)
+    pos = next(p for p in store.aggregate_positions() if p["coin"] == "BTCUSDT")
+    assert pos["perp_avg_price_incomplete"] is True        # the "0" leg flagged it
+    assert Decimal(pos["perp_avg"]) == Decimal("0.001246")  # true price, not dragged
+    assert Decimal(pos["perp_avg"]) != Decimal("0.000623")  # regression guard: NOT half
+    assert Decimal(pos["position_qty"]) == Decimal("-20000")  # real qty still counts
+    store.close()
+
+
 # ---------------------------------------------------------------------------
 # D6 — default construction performs no semantic row rewrite (the 2026-07-28
 # incident is structurally impossible, not forbidden by prose). Additive DDL

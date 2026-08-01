@@ -4110,6 +4110,75 @@ setTimeout(async () => {
       console.log('[PASS] R1/R2 渲染证据：账户未就绪合并表+横幅+本地行可见；缺 upnl 未实现盈亏画「暂无」不画 0');
     }
 
+    // 82c. G1/G2/G5 渲染证据（fix-merged-positions-mismatch-labels-v1）
+    {
+      helpers.ingestSnapshot(designFixture); // verified=true → 合并表渲染
+      // G1+G2: no_task 行（有 UM、无任务记录）—— 本地成本列显示 — 而非 0，标记「无任务记录」。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'MUUSDT', direction: 'forward', match_status: 'no_task',
+          um_position_amt: '-0.1', um_notional_usdt: '82', um_entry_price: '918',
+          unrealized_profit: '0.5', price_pnl: '0.5',
+          spot_avg: null, perp_avg: null, position_qty: null,
+          spot_avg_price_incomplete: false, perp_avg_price_incomplete: false,
+          includes_deleted_task: false }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      let body = elements['private-panel-body'].innerHTML;
+      const noTaskSpot = getRowCell(body, 'MUUSDT', 10);
+      const noTaskPerp = getRowCell(body, 'MUUSDT', 11);
+      const noTaskMark = getRowCell(body, 'MUUSDT', 16);
+      if (!noTaskSpot.includes('—') || noTaskSpot.includes('0')) {
+        throw new Error('G2: no_task 现货均价应显示 — 而非 0: ' + noTaskSpot);
+      }
+      if (!noTaskPerp.includes('—') || noTaskPerp.includes('0')) {
+        throw new Error('G2: no_task 合约均价应显示 — 而非 0: ' + noTaskPerp);
+      }
+      if (!noTaskMark.includes('无任务记录')) {
+        throw new Error('G1: no_task 行应标记「无任务记录」: ' + noTaskMark);
+      }
+
+      // G1: no_um 行（有任务记录、无 UM）—— 标记「交易所无仓」。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'XYZUSDT', direction: 'forward', match_status: 'no_um',
+          um_position_amt: null, spot_avg: '1.20', perp_avg: '1.21',
+          spot_avg_price_incomplete: false, perp_avg_price_incomplete: false,
+          includes_deleted_task: false }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      body = elements['private-panel-body'].innerHTML;
+      const noUmMark = getRowCell(body, 'XYZUSDT', 16);
+      if (!noUmMark.includes('交易所无仓')) {
+        throw new Error('G1: no_um 行应标记「交易所无仓」: ' + noUmMark);
+      }
+
+      // G5: 不完整标记可见（合约均价在部分未知金额的成交上算）。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'RSRUSDT', direction: 'forward', match_status: 'normal',
+          um_position_amt: '-20000', um_notional_usdt: '24.92',
+          spot_avg: '0.001247', perp_avg: '0.001246',
+          spot_avg_price_incomplete: false, perp_avg_price_incomplete: true,
+          includes_deleted_task: false }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      body = elements['private-panel-body'].innerHTML;
+      const g5Mark = getRowCell(body, 'RSRUSDT', 16);
+      if (!g5Mark.includes('均价不完整')) {
+        throw new Error('G5: 不完整均价应显示「均价不完整」标记: ' + g5Mark);
+      }
+      const g5Perp = getRowCell(body, 'RSRUSDT', 11);
+      if (!g5Perp.includes('title=')) {
+        throw new Error('G5: 不完整合约均价单元格应带 title 说明: ' + g5Perp);
+      }
+
+      // 恢复默认 mock 与 fixture。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] G1/G2/G5：no_task 成本—+「无任务记录」、no_um「交易所无仓」、不完整均价「均价不完整」+title');
+    }
+
     // 83. 执行徽标（§3：GET /api/hedge-open-settings 的 executor_mode + start_gate）
     {
       hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'disabled', start_gate: false, interval_seconds: 1 } };

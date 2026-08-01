@@ -127,3 +127,93 @@
 
 ### 未触碰
 禁改区（`scheduler.py`/`private_client.py`/`hedge_preflight_provider.py` 白名单、51169 文案区 `domain.py:1315-1324`、暂停原因集）、已接受限制 A/B（`single_leg_exposure` 判据、`spot_balance`/`drift` 资金池来源）、Task 2/3 范围、被 Human 推后的评审建议（混合桶均价单测、HTTP 级 N2 断言、强平价 title、注释更正）——均未改。
+
+## 11. 修复轮 2/3（fix-merged-positions-mismatch-labels-v1）—— F3 + G1-G7 + 同根因穷举
+
+修复 review-2（codex，`43-review-2-codex-task1.md`）`in-range` 阻塞 **F3** + Human 真机追加的 **G5/G6/G7**（`44-runtime-observation-task1.md`），按 `minimal-change-engineer.md` 只改必需之处。`rework_count` 由 `1` 递增为 **`2`**（上限 3，仅剩 1 次）。review-2 发布就绪结论：当前不可合并。
+
+### 11.0 两个设计决策（在回执中声明，影响评审路由）
+
+1. **G1 用新增显式字段 `match_status`（Option B），不是前端靠全零反推（Option A）。** 后端 `_merge_build_row` 是唯一同时知道「UM 侧是否存在」与「任务侧是否存在」的位置；显式字段（`normal`/`no_task`/`no_um`）比前端从「全零」反推稳妥——靠全零反推正是本 stage 反复出问题的那类歧义，也是 Bookkeeper 倾向。**代价**：新增一个接口键属契约扩展，按 `AGENTS.md` §8 **须先回 review-1（grok），再回 review-2（codex）**（评审轮次不消耗 `rework_count`，只消耗时间）。
+2. **G5 把「字面 `0` 名义额 + 真实成交量」与 `NULL` 名义额同等对待（Policy Y）。** 即：未知名义额既不计入均价的分子（名义额）也**不计入分母**（成交量），并置 incomplete 标记；用独立的 `*_qty_priced` 累加器，使展示用的 `position_qty`/`spot_qty`/`perp_qty` 保持真实值不变。这样 RSRUSDT 合约均价 = `12.46/10000 = 0.001246`（真值），而非 `(0+12.46)/20000 = 0.000623`（被腰斩）。dispatch G5 要求 1「不计入名义额」+ 要求 3「均价不被拉低」只有在此读法下同时成立。
+
+### 11.1 G1-G7 改动逐条（finding→fix 映射）
+
+| 项 | 改动 | 位置 |
+|---|---|---|
+| **G1** 错配两类有真实文案 | 后端合并层新增 `match_status`；前端在「标记」列渲染简短标签「无任务记录」/「交易所无仓」，推测原因放 `title` 悬停 | `domain.py:_merge_build_row`、`index.html:renderHedgeMergedPositions` markers |
+| **G2** no_task 不得显示假 0 成本 | `_merge_empty_bucket_row` 的成本字段（`position_qty`/`spot_qty`/`perp_qty`/`spot_avg`/`perp_avg`）由 `"0"` 改 `None`；前端 `formatHedgeDecimal(None)`→`—`、价差率 `computeHedgeOpenBasisRate(null,…)`→`—` | `domain.py:_merge_empty_bucket_row`（前端无需改，null 已走 —） |
+| **G3** 两类错配 + G5 不完整标记的渲染断言 | 新增 self-check 块 82c：no_task 成本列=`—`且不含`0`、标记含「无任务记录」；no_um 标记含「交易所无仓」；incomplete 标记含「均价不完整」+均价单元格带 `title` | `self-check.js` 82c |
+| **G4** 不回退 | 后端 `1127 passed`、前端 `130 PASS/0 FAIL`；D15/N2/精确键集/`merge_positions` 纯度/禁改区/F1F2 全保持 | 见 §11.4 |
+| **G5** 字面 `0` 名义额按未知 | `aggregate_positions` 新增 `spot_qty_priced`/`perp_qty_priced` 分母；leg_rows 把 `quote is None or 0` 当未知（排除分子分母+置标记）；均价=`notional/priced_qty`；前端显示 incomplete 标记+均价 `title` | `store.py:aggregate_positions`、`index.html` markers+avg title |
+| **G6** 全仓借款同币多行不重复 | 前端按 base 资产去重：同币首行显示真值（带 `title`「账户级·按资产·勿竖向相加」），其余行显示「同↑」 | `index.html:renderHedgeMergedPositions` borrowCell |
+| **G7** 均价小数位收敛 | 新增 `formatHedgeAvgPrice`（8 位有效数字），用于「现货均价」「合约均价」两列；缺失仍 `—`、真实 0 仍 `0`，**极小真值永不因收敛抹成 0** | `index.html:formatHedgeAvgPrice` |
+
+### 11.2 同根因穷举（§8 同根因刹车）—— 合并表「每列 × 六场景」显示口径
+
+本交付两轮 REWORK 同根因：**展示层没有如实告知用户**（降级整表不显示 → 缺失盈亏画 0 → 错配行不标注且假成本显示 0）。下表把合并表每一列在六个场景下显示什么逐格写明（真值 / 「暂无」/ `—` / 标记文案），标出**本轮改动**的格子，并覆盖「金额为字面 0」情形。目的是一次扫完，不再出现第三类「看起来像真数字的假数字」。
+
+源类：**真值**=有真实数据源的数字；**暂无**=本轮无数据源（资金费/借币利息/净盈亏）画「暂无」；**—**=拿不到/缺失/无记录；**[标记]**=标记列徽标。
+
+| 列 | normal | no_task | no_um | single_leg | missing | empty |
+|---|---|---|---|---|---|---|
+| 币种 | 真值 | 真值 | 真值 | 真值 | 真值 | 空态 |
+| 方向 | 真值 | 真值 | 真值 | 真值 | 真值 | 空态 |
+| 仓位价值 | 真值 | 真值 | **—** | 真值/— | **—** | 空态 |
+| 持仓数量 | 真值(UM) | 真值(UM) | 真值(本地) | 真值 | 真值(本地) | 空态 |
+| 合约开仓价 | 真值 | 真值 | **—** | 真值/— | **—** | 空态 |
+| 标记价 | 真值 | 真值 | **—** | 真值/— | **—** | 空态 |
+| 强平价 | 真值(sentinel 0 照显) | 真值 | **—** | 真值/— | **—** | 空态 |
+| 价格未实现盈亏 | 真值/暂无 | 真值/暂无 | **暂无** | 真值/暂无 | **暂无** | 空态 |
+| 现货余额 | 真值/— | 真值/— | 真值/— | 真值/— | **—** | 空态 |
+| 全仓借款 | 真值/— | 真值/— | 真值/— | 真值/— | **—** | 空态 |
+| 现货均价 | 真值 | **—**【G2】 | 真值 | 真值/— | 真值/— | 空态 |
+| 合约均价 | 真值 | **—**【G2】 | 真值 | —/真值 | 真值/— | 空态 |
+| 开单价差率 | 真值 | **—**【G2】 | 真值 | 真值/— | 真值/— | 空态 |
+| 累计资金费 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | 空态 |
+| 借币利息 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | 空态 |
+| 净盈亏 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | 空态 |
+| 标记 | — 或徽标 | **「无任务记录」**【G1】 | **「交易所无仓」**【G1】 | 「单腿敞口」(既有) | 「交易所无仓」+横幅 | 空态 |
+
+派生展示（清单外）：
+- **全仓借款去重**【G6】：同币多行时，首行显示真值（带 `title`「账户级·按资产·同币多行勿竖向相加」），其余行显示「同↑」——`normal`/`no_task`/`no_um`/`single_leg`/`missing` 五场景统一适用。
+- **均价小数位**【G7】：`现货均价`/`合约均价` 两列在所有有真值的格子统一收敛到 8 位有效数字（消除除法超长尾数），缺失仍 `—`。
+- **「账户数据未就绪」横幅**：仅 `missing`（`account.verified=false`）场景在表头上方出现。
+- **`title` 悬停**：均价单元格在 incomplete 时带说明（G5）；全仓借款单元格带账户级说明（G6）；错配标记带推测原因（G1）。
+
+**额外覆盖——「金额为字面 0」情形（G5，归入 normal/no_um 的子情形）**：一条腿 `cumulative_quote_amt` 为字面 `"0"`（币安 2026-07-14 移除 UM 下单返回的成交金额，实盘写路径把未知存成 `"0"`）且 `cumulative_base_qty > 0` 时：
+- `合约均价`/`现货均价`：显示**仅在已知金额成交上算的真实均价**（如 RSRUSDT `0.001246`，不被 0 拉低成 `0.000623`）；
+- `持仓数量`：仍显示真实成交量（如 `-20000`，未知金额腿的数量照常计入展示）；
+- `标记`：追加「**均价不完整**」【G5】；该均价单元格带 `title`「部分成交金额未知，均价为不完整口径」；
+- 后端 `perp_avg_price_incomplete`/`spot_avg_price_incomplete` 置真。
+- **写入端把未知存成 `"0"` 属 pre-existing（早于 base_sha 的实盘写路径），本轮不改写入端**；只改读取/展示侧不得把它当真值（dispatch G5 范围说明）。
+
+清单外站点的**不适用理由**：
+- `fill_rows` 循环（`hedge_open_fill.avg_price`）有**刻意不同**的策略（r5：真实 `"0"` avg_price 是真零、不置 incomplete，`test_hedge_store.py:717` 锁定）。它与 leg_rows 的 `cumulative_quote_amt` 是不同列、不同策略，**不是同一缺陷站点**；本轮不动（动了会反转 r5 既定决策、超出 G5 范围）。`fill_rows` 已同步喂 `*_qty_priced` 分母，保持均价口径一致。
+- `single_leg_exposure` 判据、`spot_balance`/`drift` 资金池来源 = 已接受限制 A/B（`22-` §5），Human 已决定本轮不修，不纳入。
+- 强平价 title、HTTP 级 N2 断言、混合桶均价单测 = Human 推后项（`42-` §2），不纳入。
+
+### 11.3 G3 断言可失败性（已实测）
+
+- 临时把 `index.html` 的 no_task 标记分支改为 `if (false && …)` → self-check 82c 报 `[FAIL] G1: no_task 行应标记「无任务记录」`（`EXIT=1`），还原后绿。
+- 临时把 incomplete 标记分支改为 `if (false && …)` → 82c 报 `[FAIL] G5: 不完整均价应显示「均价不完整」标记`（`EXIT=1`），还原后绿。
+- 后端 G5 测试 `test_aggregate_positions_literal_zero_quote_treated_as_unknown_g5` 同时断言 `perp_avg == 0.001246` 与 `!= 0.000623`（回归守卫：若 leg_rows 仍把 `"0"` 当真值，均价会变 `0.000623`，断言红）。
+
+### 11.4 测试结果（本轮）
+
+- 后端 `python3 -m pytest backend/tests -q`：**1127 passed**（+1：G5 锁定用例；`_POSITION_KEYS` 扩为 27 键含 `match_status`；`test_positions_merge` 加 match_status/no_task-None 断言）。
+- 前端 `node frontend/self-check.js`：**130 PASS / 0 FAIL，EXIT=0**（+1：82c 块）。
+- 原始输出覆盖于 `61-merged-positions-test-output.txt`。
+
+### 11.5 本轮改动文件
+
+`backend/hedge_open_tasks/domain.py`（G1 match_status + G2 no_task None）、`backend/hedge_open_tasks/store.py`（G5 priced-qty + 字面0按未知）、`backend/tests/{test_hedge_api.py, test_hedge_store.py, test_positions_merge.py}`、`frontend/index.html`（G1/G2/G5/G6/G7 渲染）、`frontend/self-check.js`（G3 82c）。`server.py`/`service.py` 本轮未改（match_status 由 `merge_positions` 在 domain 层产出，handler 无需动）。
+
+### 11.6 评审路由声明 + §5 差异同步
+
+- **路由**：本轮**新增接口键 `match_status`** → 契约扩展 → 按本 dispatch「评审路由」段，**先回 review-1（grok），再回 review-2（codex）**。
+- **`10-design.md` §5 已同步**：补登「状态标识列（match_status：正常/无任务记录/交易所无仓）」与「均价不完整标记（G5）」「全仓借款去重（G6）」「均价 8 位有效数字收敛（G7）」四项，使「未列即一致」重新成立（见 `10-design.md` §5 末新增条目）。
+
+### 11.7 未触碰（重申）
+
+禁改区（`scheduler.py`/`private_client.py`/`hedge_preflight_provider.py` 白名单、`domain.py:1315-1324` 51169 文案区、暂停原因集）零差异；已接受限制 A/B、Task 2/3 范围、推后项（强平价 title、HTTP N2 断言、混合桶均价单测、注释更正）均未触碰。未合并、未推送、未接触凭证或实盘路径。

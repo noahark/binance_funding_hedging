@@ -1402,15 +1402,23 @@ def _merge_direction_for_side(side):
 
 def _merge_empty_bucket_row(coin, direction):
     """A merged row's bucket-side defaults when only the UM side exists (no task
-    record for this symbol — fake scenario 'no_task')."""
+    record for this symbol — fake scenario 'no_task').
+
+    G2 (fix-merged-positions-mismatch-labels-v1): there is NO local bookkeeping
+    for this symbol, so its cost-basis fields are unknown (``None``), not ``"0"``.
+    A ``"0"`` rendered as a real figure reads as "filled at price 0" — a fake
+    cost indistinguishable from a real zero (the money-zero family this stage
+    keeps closing). The UI renders ``None`` as ``—`` (P7 'unavailable'). The P7
+    'no source' placeholders (accrued_funding / borrow_interest / net_pnl) stay
+    ``"0"`` because the UI maps them to 「暂无」 via pendingCell, not to a cost."""
     return {
         "coin": coin,
         "direction": direction,
-        "position_qty": "0",
-        "spot_qty": "0",
-        "perp_qty": "0",
-        "spot_avg": "0",
-        "perp_avg": "0",
+        "position_qty": None,
+        "spot_qty": None,
+        "perp_qty": None,
+        "spot_avg": None,
+        "perp_avg": None,
         "spot_avg_price_incomplete": False,
         "perp_avg_price_incomplete": False,
         "includes_deleted_task": False,
@@ -1480,6 +1488,22 @@ def _merge_build_row(coin, direction, bucket, um, spot_by_asset, borrowed_by_ass
         and real_spot is not None
         and real_spot < recorded_spot
     )
+
+    # G1 (fix-merged-positions-mismatch-labels-v1): an explicit match-status so
+    # the UI never has to infer 'no task record' / 'no UM position' from
+    # all-zero fields — that inference is exactly the ambiguity this stage kept
+    # tripping on. The merge layer is the one place that knows BOTH sides.
+    #   normal  : UM position + task bucket both present
+    #   no_task : UM position but no task record (manual order / card deleted)
+    #   no_um   : task record but no UM position (possibly liquidated / closed)
+    if um is not None and bucket is not None:
+        row["match_status"] = "normal"
+    elif um is not None and bucket is None:
+        row["match_status"] = "no_task"
+    elif um is None and bucket is not None:
+        row["match_status"] = "no_um"
+    else:
+        row["match_status"] = "normal"
     return row
 
 

@@ -67,6 +67,7 @@ def test_merge_normal_matched_um_and_task():
     assert r["price_pnl"] == "12.5"  # real unrealized PnL overlays the "0" placeholder
     assert r["unrealized_profit"] == "12.5"
     assert r["single_leg_exposure"] is False and r["drift"] is False
+    assert r["match_status"] == "normal"  # G1: both sides present
 
 
 def test_merge_no_task_1000x_honest_non_match():
@@ -83,6 +84,10 @@ def test_merge_no_task_1000x_honest_non_match():
     assert r["um_position_amt"] == "1000"
     assert r["spot_balance"] is None  # 1000PEPE != PEPE, no fabricated alignment
     assert r["cross_margin_borrowed"] is None
+    assert r["match_status"] == "no_task"  # G1: UM present, no task record
+    # G2: no local bookkeeping -> cost basis is unknown (None), NOT a fake "0"
+    assert r["spot_avg"] is None and r["perp_avg"] is None
+    assert r["spot_qty"] is None and r["perp_qty"] is None and r["position_qty"] is None
 
 
 def test_merge_normal_symbol_aligns_to_spot():
@@ -106,6 +111,7 @@ def test_merge_no_um_task_only():
     assert r["coin"] == "BTCUSDT"
     assert r["um_position_amt"] is None and r["um_position_side"] is None
     assert r["spot_avg"] == "50000" and r["perp_avg"] == "50000"
+    assert r["match_status"] == "no_um"  # G1: task record, no UM position
 
 
 def test_merge_single_leg_exposure():
@@ -114,6 +120,7 @@ def test_merge_single_leg_exposure():
                          spot_avg="50000", perp_avg="0")]
     merged, _ = D.merge_positions(positions, _pa())
     assert merged[0]["single_leg_exposure"] is True
+    assert merged[0]["match_status"] == "no_um"  # bucket present, no UM (single_leg is a separate marker)
 
 
 def test_merge_missing_sentinel_values():

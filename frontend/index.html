@@ -3711,6 +3711,22 @@
         return s;
       }
 
+      // G7 (fix-merged-positions-mismatch-labels-v1): avg-price columns统一收敛到
+      // 8 位有效数字，消除除法产生的超长尾数（真机 RSRUSDT 反向现货均价曾显示
+      // 27 位）。用「有效数字」而非「固定小数位」：极小真值（如 0.000623）永不
+      // 因收敛被抹成 0——那会退回本 stage 反复出现的同一类假零问题。缺失仍为 —，
+      // 真实 0 仍显示 0（与缺失可区分）。仅用于 spot_avg / perp_avg 两列。
+      function formatHedgeAvgPrice(v) {
+        if (v === null || v === undefined || v === '') return '—';
+        const n = hedgeNum(v);
+        if (!Number.isFinite(n)) return '—';
+        if (n === 0) return formatHedgeDecimal(v);
+        const sign = n < 0 ? '-' : '';
+        const order = Math.floor(Math.log10(Math.abs(n)));
+        const decimals = Math.max(0, 7 - order); // 8 sig figs total
+        return formatHedgeDecimal(sign + Math.abs(n).toFixed(decimals));
+      }
+
       // 历史名 formatMockPrice：语义同 formatHedgeDecimal（不再 toFixed(4)）。
       function formatMockPrice(n) {
         return formatHedgeDecimal(n);
@@ -4490,6 +4506,12 @@
           return `<span class="mono">${formatter(v)}</span>`;
         };
         const hasRows = Array.isArray(positions) && positions.length > 0;
+        // G6: cross-margin borrow is an account-level, per-asset figure — NOT a
+        // per-row property. When the same asset spans several rows (e.g. a coin
+        // hedged both forward and reverse) the value would otherwise repeat and a
+        // vertical sum would double-count the debt. Show it on the first row for
+        // each asset and mark repeats so the column never reads as summable.
+        const seenBorrowAsset = new Set();
         const rowsHtml = hasRows ? positions.map(p => {
           const dirLabel = p.direction === 'forward' ? '正向'
             : p.direction === 'reverse' ? '反向'
@@ -4510,10 +4532,35 @@
           const pnlText = pnlReal ? formatHedgeSigned(p.price_pnl) : '<span class="muted small">暂无</span>';
           // 行标记（只展示、不动作）。
           const markers = [];
+          // G1: explicit match status — the backend knows both sides, so the UI
+          // never infers 'no task' / 'no UM' from all-zero fields (the ambiguity
+          // this stage kept tripping on). Short label; inferred cause in the title.
+          if (p.match_status === 'no_task') markers.push('<span class="risk-warn small" title="交易所有持仓，但本地无对应任务记录（手工单或任务卡已删）">无任务记录</span>');
+          else if (p.match_status === 'no_um') markers.push('<span class="risk-warn small" title="本地有任务记录，但交易所无对应持仓（可能已强平或手工平仓）">交易所无仓</span>');
           if (p.single_leg_exposure) markers.push('<span class="risk-warn small">单腿敞口</span>');
+          // G5: surface the backend incomplete flags — the avg is averaged over a
+          // partial (unknown-notional) fill set, so the reader knows it is partial.
+          if (p.spot_avg_price_incomplete || p.perp_avg_price_incomplete) markers.push('<span class="risk-warn small" title="该均价在部分成交（金额未知）上计算，非完整口径">均价不完整</span>');
           if (p.drift) markers.push('<span class="risk-warn small">本地记录与实际不一致</span>');
           if (p.includes_deleted_task) markers.push('<span class="muted small">含已删除任务记录，均价为混合值</span>');
           const markerText = markers.length ? markers.join(' ') : '<span class="muted">—</span>';
+          // G6: per-asset borrow dedup (see seenBorrowAsset above).
+          const borrowAsset = (typeof p.coin === 'string' && p.coin.endsWith('USDT'))
+            ? p.coin.slice(0, -4) : p.coin;
+          const hasBorrow = !(p.cross_margin_borrowed === null
+            || p.cross_margin_borrowed === undefined || p.cross_margin_borrowed === '');
+          const borrowSeen = hasBorrow && seenBorrowAsset.has(borrowAsset);
+          if (hasBorrow && !borrowSeen) seenBorrowAsset.add(borrowAsset);
+          const borrowCell = !hasBorrow
+            ? '<span class="muted">—</span>'
+            : (borrowSeen
+              ? '<span class="muted small" title="账户级（按资产）；同币多行请勿竖向相加">同↑</span>'
+              : `<span class="mono" title="账户级（按资产）；同币多行请勿竖向相加">${maskAmount(p.cross_margin_borrowed)}</span>`);
+          // G5: a title on the avg cell when its incomplete flag is set.
+          const spotAvgTitle = p.spot_avg_price_incomplete
+            ? ' title="部分成交金额未知，均价为不完整口径"' : '';
+          const perpAvgTitle = p.perp_avg_price_incomplete
+            ? ' title="部分成交金额未知，均价为不完整口径"' : '';
           return `
                       <tr>
                         <td class="mono">${escapeHtml(p.coin)}</td>
@@ -4525,9 +4572,9 @@
                         <td class="mono">${umCell(p.um_liquidation_price)}</td>
                         <td class="mono ${pnlCls}">${pnlText}</td>
                         <td class="mono">${umCell(p.spot_balance)}</td>
-                        <td class="mono">${umCell(p.cross_margin_borrowed)}</td>
-                        <td class="mono">${formatHedgeDecimal(p.spot_avg)}</td>
-                        <td class="mono">${formatHedgeDecimal(p.perp_avg)}</td>
+                        <td class="mono">${borrowCell}</td>
+                        <td class="mono"${spotAvgTitle}>${formatHedgeAvgPrice(p.spot_avg)}</td>
+                        <td class="mono"${perpAvgTitle}>${formatHedgeAvgPrice(p.perp_avg)}</td>
                         <td class="mono ${basisCls}">${formatHedgeBasisPct(basisRate)}</td>
                         <td class="mono">${pendingCell(p.accrued_funding, formatHedgeDecimal)}</td>
                         <td class="mono">${pendingCell(p.borrow_interest, formatHedgeDecimal)}</td>
