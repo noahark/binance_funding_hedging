@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 23,
+  "revision": 24,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "task_3_dispatched",
-  "checkpoint": "task3_cadence_packet_prepared_task2_deferred_by_human",
+  "phase": "task_3_rejected_fix_dispatched",
+  "checkpoint": "bk_t3_001_rejected_cadence_never_applies_to_existing_db_fix_packet_prepared",
   "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
   "delivery_sha": null,
-  "ledger_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
+  "ledger_sha": "aac779d21ba8925ff2466ef22a6f609949c3b65f",
   "current_task": {
-    "id": "hedge-leg-requery-cadence-v1",
-    "state": "reported",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/hedge-leg-requery-cadence-v1.dispatch.md"
+    "id": "fix-cadence-existing-db-v1",
+    "state": "dispatched",
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-cadence-existing-db-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
@@ -19,9 +19,11 @@
   },
   "rework_count": 0,
   "blockers": [
-    "Human 2026-08-01 决定 Task 2（hedge-task-lifecycle-v1）暂缓，先做 Task 3；执行顺序与 12- 的依赖声明相反，已在 Task 3 dispatch 中明示并删除依赖 Task 2 的验收标准 5。",
+    "BK-T3-001（拒收，阻塞）：aac779d 的 1s→100ms 对既有数据库无效。DEFAULT_INTERVAL_US 只在建库种子处引用，_migrate 不碰 hedge_open_settings，且该表无任何运行时写入途径；实盘库实测仍为 interval_us=1000000。1140 测试全绿因测试一律用 tmp_path 新库。依据与复现见 24-bookkeeper-rejection-task3.md，修复 packet 为 fix-cadence-existing-db-v1。",
+    "rework_count 不因 BK-T3-001 递增（保持 0）：缺陷在 packet 与已批准的 ADR-003，非交付；裁定与理由见 24- §4。",
+    "Human 2026-08-01 决定 Task 2（hedge-task-lifecycle-v1）暂缓，先做 Task 3；ADR-002 的 429 退避机制本轮不做，撞 429 仍走既有 fail-closed 暂停路径。Human 已接受该代价。",
     "F4（账户读不到时谎称「交易所无仓」）随 Task 2 一并推迟。按 46- §3.3，Task 2 未做即须在合并 main 前把该限制重新交 Human 裁定——Task 3 若先行合并，此项须先结清。",
-    "Task 3 已知代价：100ms 重查提高 429 概率，而 ADR-002 的退避机制属 Task 2、本轮不做；撞 429 仍走既有 fail-closed 暂停路径（不丢钱、不删卡，但任务可能更频繁需人工恢复）。Human 已接受。",
+    "观察 A（不阻塞，待 Human 决定是否扩边界）：抖动区间 [0.75,1.0] 使平均实际间隔 87.5ms<标称 100ms，请求量比标称高约 14%；在不做 429 退避的前提下方向偏激进。缺陷在 packet 验收 4，见 24- §3。",
     "Task 1 已合并但 review-2 的发布前置（完整只读真机冒烟）未执行，清单 49- 仍可对 main 补跑；其「账户未就绪路径」一项待 F4 修复后内容才稳定。",
     "bStock 下单路径修复 3dc6756 已合入 main 且零评审；首次建 bStock 任务即触发未评审的实盘下单行为。"
   ]
