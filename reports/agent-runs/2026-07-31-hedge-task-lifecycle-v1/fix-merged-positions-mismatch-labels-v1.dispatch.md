@@ -1,5 +1,14 @@
 # Dispatch —— fix-merged-positions-mismatch-labels-v1（Task 1 修复轮 2/3）
 
+> **勘误 2026-08-01（bookkeeper opus5）—— 已执行完毕，本节仅作留档。**
+> 本派工单曾有一次收紧更正（G6 改为不做、G7 定为固定 8 位小数、路由定死），
+> 该更正的提交 `25edb98` **因工作区分支切换而脱离引用，从未进入 stage 分支**，
+> 实现者读到并执行的是本文件当前版本。事件经过与影响见
+> `45-bookkeeper-incident-lost-packet-correction.md`。
+> **Human 已于 2026-08-01 裁定：两处偏离均按已交付形态保留**（8 位有效数字、
+> 借款去重保留），故本文件当前的 G6 / G7 表述即为最终有效表述，无需追加修复轮，
+> 亦不消耗返工预算。
+
 ```text
 Identity:
   task_id:         fix-merged-positions-mismatch-labels-v1
