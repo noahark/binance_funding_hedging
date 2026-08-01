@@ -19,7 +19,6 @@ and merely arms the task — breakdown §3.8).
 from __future__ import annotations
 
 import json
-import random
 import threading
 import time
 import uuid
@@ -214,17 +213,6 @@ def settings_to_doc(settings: dict, executor_mode: str) -> dict:
         # and semantics are unchanged.
         "version": int(settings["version"]),
     }
-
-
-# Re-query pacing jitter (ADR-003): workers sharing a nominal cadence would
-# otherwise align into a synchronized query pulse. Each pacing wait is shrunk by
-# a bounded random factor — always positive, never exceeding the nominal
-# interval — so the pulses spread without raising the cadence above nominal.
-_PACING_JITTER_MIN = 0.75
-
-
-def paced_wait_seconds(interval_s: float) -> float:
-    return interval_s * random.uniform(_PACING_JITTER_MIN, 1.0)
 
 
 def log_to_doc(row: dict) -> dict:
@@ -1123,7 +1111,11 @@ class HedgeOpenTaskService:
                     interval_s = (self._store.get_interval_us() or 1) / 1_000_000
                     ev = self._stop_events.get(task_id)
                     if ev is not None:
-                        ev.wait(paced_wait_seconds(interval_s))
+                        # Deterministic pacing wait (cadence-500ms task): the
+                        # prior [0.75, 1.0] jitter is removed — it was never
+                        # requested and it cut the first-query safety margin by
+                        # up to 25% while doing nothing for the rate limit.
+                        ev.wait(interval_s)
         except Exception:
             # Last-resort containment: a worker error must not leak; the task's
             # durable state is authoritative and a recovery discovery relaunches.
@@ -1202,6 +1194,18 @@ class HedgeOpenTaskService:
             # loop back into the throttle. The operator resumes manually; a drain-
             # only worker on recovery re-queries the saved client IDs.
             return True
+        if drain_signal == D.SIGNAL_ORDER_STATE_UNKNOWN:
+            # Cadence-500ms task: a leg that stayed inconclusive (5xx / timeout /
+            # malformed 2xx) past the tolerance window. NOT a confirmed-absent
+            # signal (R2-F2), so it is NOT terminalized — it is left non-terminal
+            # (never resent) and THIS task pauses for manual verification, then
+            # the worker exits. The operator checks the order on the exchange and
+            # manually resumes; recovery re-queries by client ID only.
+            self._pause_task_local(
+                task, D.PAUSE_REASON_ORDER_STATE_UNKNOWN, drain_signal, now_us,
+                kind="order_state_unknown",
+            )
+            return True
         if drain_signal in D.SIGNAL_TASK_LOCAL_PAUSE:
             self._pause_from_signal(task, drain_signal, now_us)
             return False
@@ -1235,9 +1239,14 @@ class HedgeOpenTaskService:
         """Query ONLY this task's non-terminal legs by client order ID to
         terminal, then settle the pair once (amendment 21: no global scan). The
         executor is called with no store lock held. Returns a drain signal when a
-        leg surfaces a 429 (rate_limited) or a confirmed insufficient-funds fact;
-        None otherwise. A query that stays inconclusive leaves the leg
-        non-terminal (keep querying, never resend — ADR-2)."""
+        leg surfaces a 429 (rate_limited), a confirmed insufficient-funds fact,
+        or — past the absent/inconclusive tolerance window — an order whose state
+        stayed inconclusive; None otherwise. Within that window a 404 / -2013 is
+        eventual-consistency noise (mirrors ``_confirm_um_figures``) and an
+        inconclusive response is genuinely unknown, so the leg stays non-terminal
+        and is re-queried; only after the window does a 404 / -2013 confirm
+        absent, while a still-inconclusive leg escalates to manual recovery
+        (never resent, never equated with absent — ADR-2 / R2-F2)."""
         if not hasattr(self._executor, "query_leg"):
             self._recover_crash_gaps(task_id, now_us)
             return None
@@ -1248,8 +1257,23 @@ class HedgeOpenTaskService:
             verdict = self._executor.query_leg(
                 leg["leg"], _leg_query_symbol(leg, task), leg["client_order_id"]
             )
+            # Absent/inconclusive tolerance window (cadence-500ms task), counted
+            # from the leg's POST dispatch time. A legacy row never stamped with
+            # an anchor is treated as window-not-elapsed, so its prior behaviour
+            # is unchanged.
+            dispatched_at_us = leg.get("dispatched_at_us")
+            window_elapsed = (
+                dispatched_at_us is not None
+                and (now_us - dispatched_at_us) >= D.ABSENT_TOLERANCE_WINDOW_US
+            )
             if verdict is None:
-                continue  # inconclusive — keep querying
+                # Inconclusive (transport error / 5xx / ambiguous 4xx): keep
+                # querying within the tolerance window; once it elapses this is
+                # NOT an absent signal (R2-F2) — escalate to manual recovery
+                # instead of polling on indefinitely.
+                if window_elapsed and drain_signal is None:
+                    drain_signal = D.SIGNAL_ORDER_STATE_UNKNOWN
+                continue
             if getattr(verdict, "rate_limited", False):
                 # R2-F2 (user authorization 28 §2.2): a query-phase 429/-1003/418.
                 # Leave the leg EXACTLY as it is (non-terminal; the write POST is
@@ -1271,6 +1295,14 @@ class HedgeOpenTaskService:
                     drain_signal = D.SIGNAL_RATE_LIMITED
                 continue
             terminal = self._query_verdict_terminal(verdict)
+            # Absent tolerance window: a 404 / -2013 on a leg dispatched within
+            # the window is eventual-consistency noise, NOT a confirmed-absent
+            # signal (mirrors _confirm_um_figures). Keep it non-terminal and
+            # re-query; only once the window elapses is a 404 / -2013 a confirmed
+            # absent terminal (the prior behaviour, just deferred ~5s).
+            if (terminal and not window_elapsed
+                    and getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_ABSENT):
+                terminal = False
             try:
                 self._store.resolve_leg_from_query(
                     leg["id"],
@@ -1316,6 +1348,14 @@ class HedgeOpenTaskService:
                 drain_signal = D.SIGNAL_COLLATERAL_CAP
             elif getattr(verdict, "error_category", None) == D.ERROR_CATEGORY_INSUFFICIENT_FUNDS:
                 drain_signal = D.SIGNAL_INSUFFICIENT_BALANCE
+            elif (not terminal and window_elapsed
+                    and verdict.dispatch_state == D.LEG_UNKNOWN_QUERYING
+                    and drain_signal is None):
+                # Inconclusive (5xx / timeout / malformed 2xx) past the tolerance
+                # window: NOT a confirmed-absent signal (R2-F2 — never equate
+                # "unknown" with "absent"). Escalate to manual recovery instead of
+                # polling on; the leg was left non-terminal above.
+                drain_signal = D.SIGNAL_ORDER_STATE_UNKNOWN
             if terminal:
                 finalized.add(leg["attempt_id"])
         # Review-1 r3 P1-1: "this pair does not count as a failure" is decided by

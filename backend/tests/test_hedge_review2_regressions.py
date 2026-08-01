@@ -419,6 +419,13 @@ def test_5b_auth_ambiguity_stays_unknown_then_absent_confirms_failure(tmp_path):
         _leg(LEG_REJECTED, name="spot", error_code="http_404", error_category="absent"),
         _leg(LEG_REJECTED, name="perp", error_code="http_404", error_category="absent"),
     ])
+    # Constrained authorization (cadence-500ms packet): a 404 / -2013 within the
+    # absent-tolerance window (~5s from dispatch) is eventual-consistency noise,
+    # not a confirmed-absent terminal, so the legs would keep querying and the
+    # failure would NOT count. Advance the clock past the window so the absent
+    # poll confirms failure. Only the clock advance changes; the core assertion
+    # (absent confirmed -> fail_count == 1) is unchanged.
+    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
     _step(svc, doc["id"], clock)
     task = svc.store.get_task(doc["id"])
     assert task["fail_count"] == 1

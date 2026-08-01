@@ -520,6 +520,19 @@ class HedgeOpenStore:
                         ),
                     ),
                 )
+        # BK-T3-001 (cadence-500ms task): backfill the re-query interval on
+        # EXISTING databases whose settings row still holds the legacy 1s default,
+        # so the new 500ms default actually takes effect — the seed INSERT above
+        # only covers brand-new databases (``COUNT(*) == 0``), so a pre-existing
+        # settings row kept its build-time 1_000_000 forever. Only the EXACT legacy
+        # default is rewritten; a deliberately customized value is preserved.
+        # Idempotent: a second run finds interval_us != 1_000_000 and is a no-op.
+        self._conn.execute(
+            "UPDATE hedge_open_settings"
+            " SET interval_us = ?, interval_seconds = ?"
+            " WHERE id = 1 AND interval_us = ?",
+            (D.DEFAULT_INTERVAL_US, D.DEFAULT_INTERVAL_SECONDS, 1_000_000),
+        )
 
     def close(self) -> None:
         with self._lock:

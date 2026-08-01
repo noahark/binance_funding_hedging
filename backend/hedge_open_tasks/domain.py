@@ -141,6 +141,13 @@ PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY = "insufficient_available_qty"
 # fact (adding funds does nothing) — deliberately its own pause reason so the
 # display never renders the false "保证金不足" wording of insufficient_margin.
 PAUSE_REASON_COLLATERAL_CAP_FULL = "collateral_cap_full"
+# Cadence-500ms task: an order-detail query that stayed inconclusive (5xx /
+# timeout / malformed 2xx) for the whole ABSENT_TOLERANCE_WINDOW since dispatch.
+# The worker could neither confirm acceptance nor absence, so it pauses THIS task
+# for manual verification and leaves the leg non-terminal (never resent, never
+# misjudged absent — R2-F2). Recoverable: the operator checks the order on the
+# exchange and manually resumes; recovery re-queries by client ID only.
+PAUSE_REASON_ORDER_STATE_UNKNOWN = "order_state_unknown"
 ALL_PAUSE_REASONS = (
     PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE,
     PAUSE_REASON_RATE_LIMITED,
@@ -148,6 +155,7 @@ ALL_PAUSE_REASONS = (
     PAUSE_REASON_INSUFFICIENT_MARGIN,
     PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY,
     PAUSE_REASON_COLLATERAL_CAP_FULL,
+    PAUSE_REASON_ORDER_STATE_UNKNOWN,
 )
 
 # Amendment 21 task-local worker dispatch/drain signals (internal contract between
@@ -177,6 +185,11 @@ SIGNAL_COLLATERAL_CAP = "signal_collateral_cap"
 SIGNAL_TASK_LOCAL_PAUSE = SIGNAL_INSUFFICIENT + (SIGNAL_COLLATERAL_CAP,)
 SIGNAL_PREFLIGHT_INCOMPLETE = "signal_preflight_incomplete"
 SIGNAL_PREFLIGHT_FATAL = "signal_preflight_fatal"
+# Cadence-500ms task: a drain query that stayed inconclusive past the tolerance
+# window. Handled separately (like SIGNAL_RATE_LIMITED) — it pauses THIS task for
+# manual recovery with the leg left non-terminal, and is NOT a confirmed-absent
+# signal, so it is deliberately outside SIGNAL_TASK_LOCAL_PAUSE.
+SIGNAL_ORDER_STATE_UNKNOWN = "signal_order_state_unknown"
 
 # Fatal-stop reasons (amendment error-matrix rows 1–2 / breakdown I-4). Recorded
 # on the task as the nullable `stop_reason` alongside `status=stopped`. A fatal
@@ -509,14 +522,25 @@ def rollup_leg_error_category(
     return None, None
 
 
-# Re-query cadence (ADR-003): the in-flight leg re-query interval defaults to
-# 100ms so fills land sooner. MIN_INTERVAL_US is the floor clamped at the read
-# site — a sub-floor misconfiguration can never turn the worker into a busy
-# poll, and the settings display applies the same floor so the UI never asserts
-# a value below what actually takes effect.
-DEFAULT_INTERVAL_SECONDS = "0.1"
-DEFAULT_INTERVAL_US = 100_000
+# Re-query cadence (ADR-003 / cadence-500ms task): the in-flight leg re-query
+# interval defaults to 500ms so fills land sooner. MIN_INTERVAL_US is the floor
+# clamped at the read site — a sub-floor misconfiguration can never turn the
+# worker into a busy poll, and the settings display applies the same floor so
+# the UI never asserts a value below what actually takes effect.
+DEFAULT_INTERVAL_SECONDS = "0.5"
+DEFAULT_INTERVAL_US = 500_000
 MIN_INTERVAL_US = 50_000
+
+# Absent/inconclusive tolerance window (cadence-500ms task). A 404 / -2013 or a
+# 5xx / timeout / malformed-2xx on a freshly POSTed leg is eventual-consistency
+# noise, NOT a confirmed-absent signal — this mirrors the UM confirm path
+# (``_confirm_um_figures``, whose docstring states a POST-just-accepted order
+# 404-ing is noise, not absence). The task-local worker keeps re-querying the leg
+# within this window counted from ``hedge_open_leg.dispatched_at_us``; only after
+# it elapses does a 404 / -2013 confirm absent (terminal), while a leg that is
+# STILL inconclusive escalates to manual recovery (it is never equated with
+# absent — R2-F2). ~5s = the legacy JS getSpotOrderInfo retry of 10 × 500ms.
+ABSENT_TOLERANCE_WINDOW_US = 5_000_000
 
 # HTTP body cap and log page bounds (mirror borrow_tasks §3.6 / §3.7).
 BODY_MAX_BYTES = 16384
@@ -1336,6 +1360,7 @@ _PAUSE_REASON_ZH = {
     PAUSE_REASON_INSUFFICIENT_BALANCE: "账户可用余额不足，任务已暂停，请补充后手动恢复",
     PAUSE_REASON_INSUFFICIENT_MARGIN: "保证金不足，任务已暂停，请补充后手动恢复",
     PAUSE_REASON_INSUFFICIENT_AVAILABLE_QTY: "可用数量不足，任务已暂停，请补充后手动恢复",
+    PAUSE_REASON_ORDER_STATE_UNKNOWN: "订单状态在容忍窗口（约 5 秒）内持续不明，无法确认是否已被交易所接受，任务已暂停。请到交易所核对订单后手动恢复（恢复后仅按既有 clientOrderId 重查，不重发下单）",
 }
 
 # 51169 operator message — FROZEN verbatim (10-design §2(d) / ADR-T3). Only the

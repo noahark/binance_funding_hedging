@@ -28,9 +28,7 @@ from backend.hedge_open_tasks.executor import (
 from backend.hedge_open_tasks.service import (
     HedgeOpenTaskService,
     PreflightProvider,
-    _PACING_JITTER_MIN,
     attempt_to_doc,
-    paced_wait_seconds,
     settings_to_doc,
 )
 
@@ -356,22 +354,13 @@ def test_settings_doc_renders_subsecond_interval():
     assert doc["interval_seconds"] == 0.1
 
 
-def test_default_cadence_seeds_100ms(tmp_path):
-    # Acceptance 2: a fresh store seeds the 100ms re-query cadence.
+def test_default_cadence_seeds_500ms(tmp_path):
+    # Acceptance 1: a fresh store seeds the 500ms re-query cadence.
     from backend.hedge_open_tasks.store import HedgeOpenStore
 
     store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
-    assert store.get_interval_us() == 100_000
+    assert store.get_interval_us() == 500_000
     store.close()
-
-
-def test_requery_wait_is_100ms_within_jitter():
-    # Acceptance 2: the in-flight leg re-query wait is the nominal 100ms
-    # interval shrunk by a bounded jitter — every sample inside (0.075, 0.1];
-    # no sleep race is involved.
-    wait = paced_wait_seconds(0.1)
-    assert 0 < wait <= 0.1
-    assert wait >= 0.1 * _PACING_JITTER_MIN
 
 
 def test_floor_clamps_effective_cadence(tmp_path):
@@ -404,16 +393,6 @@ def test_floor_display_matches_effective_value(tmp_path):
     assert doc["interval_seconds"] == round(effective / 1_000_000, 3)
     assert doc["interval_seconds"] != round(1000 / 1_000_000, 3)  # not the raw value
     store.close()
-
-
-def test_pacing_jitter_is_positive_bounded_and_varies():
-    # Acceptance 4: the jitter is real (samples vary), always strictly positive,
-    # and never exceeds the nominal interval.
-    nominal = 0.1
-    samples = [paced_wait_seconds(nominal) for _ in range(500)]
-    assert all(0 < s <= nominal for s in samples)
-    assert min(samples) >= nominal * _PACING_JITTER_MIN
-    assert len({round(s, 9) for s in samples}) > 1  # not degenerate/constant
 
 
 # ---------------------------------------------------------------------------

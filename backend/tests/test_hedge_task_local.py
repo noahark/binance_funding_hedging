@@ -540,6 +540,16 @@ def test_drain_settlement_failure_is_recorded_not_swallowed(tmp_path):
     exe.queries.extend([_filled_leg("spot"), _absent_query("perp")])
 
     svc._pump_worker(doc["id"], max_rounds=1)  # round 1: dispatch -> in-flight
+    # The wall clock stays at zero (that is what trips finalize_attempt's
+    # ts_us<=0 backstop below); move only the dispatch anchor behind the
+    # absent-tolerance window so the perp drain's 404 confirms absent (single-
+    # leg) at now_us=0. The absent verdict, the zero clock, and the single-leg
+    # settlement-exception core are all unchanged.
+    with svc.store._lock, svc.store._conn:
+        svc.store._conn.execute(
+            "UPDATE hedge_open_leg SET dispatched_at_us = ? WHERE terminal = 0",
+            (-D.ABSENT_TOLERANCE_WINDOW_US - 1,),
+        )
     # round 2: drain -> finalize(ts_us=0) raises. The exception must not escape.
     svc._pump_worker(doc["id"], max_rounds=1)
 
@@ -670,7 +680,11 @@ def test_s2_rate_limit_stamp_failure_settles_without_consuming_counter(tmp_path)
         raise RuntimeError("boom-mark_attempt_rate_limited")
     svc.store.mark_attempt_rate_limited = _boom
 
-    _step(svc, doc["id"], clock, rounds=3)  # 429 -> pause -> drain -> settle
+    _step(svc, doc["id"], clock, rounds=1)  # 429 dispatch -> pause (rate_limited)
+    # Age past the absent-tolerance window so the drain's 404 / -2013 confirms
+    # absent (within ~5s of dispatch a 404 is eventual-consistency noise).
+    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
+    _step(svc, doc["id"], clock, rounds=2)  # drain (post-window) -> settle
 
     task = svc.store.get_task(doc["id"])
     assert task["fail_count"] == 0  # R3: 429 pair never consumed the counter
@@ -1120,6 +1134,68 @@ def test_4m_drain_new_then_rate_limited_replaces_placeholder_and_pauses(tmp_path
 
 
 # ---------------------------------------------------------------------------
+# Cadence-500ms task: absent/inconclusive tolerance window (acceptance 5 & 6).
+# A 404 / -2013 on a freshly POSTed leg is eventual-consistency noise (mirrors
+# _confirm_um_figures), and a still-inconclusive leg is genuinely unknown — so
+# within the window neither confirms absent; only after it does a 404 / -2013
+# confirm absent, while a still-inconclusive leg escalates to manual recovery
+# (never equated with absent — R2-F2).
+# ---------------------------------------------------------------------------
+
+
+def test_absent_within_window_stays_nonterminal_then_confirms_after_window(tmp_path):
+    """Acceptance 5: a 404 / -2013 received WITHIN the tolerance window of
+    dispatch leaves the leg non-terminal (keep querying, never resend); the SAME
+    404 received AFTER the window confirms absent (terminal -> failure)."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+
+    # Within the window: a 404 must NOT confirm absent — legs stay non-terminal.
+    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+    _step(svc, doc["id"], clock, rounds=1)
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] == 0 for l in legs)  # still draining, never resent
+    assert svc.store.list_attempts_for_task(doc["id"])[0]["pair_outcome"] is None
+
+    # After the window elapses: the same 404 confirms absent -> terminal failure.
+    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
+    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+    _step(svc, doc["id"], clock, rounds=2)
+    assert svc.store.get_task(doc["id"])["fail_count"] == 1  # absent confirmed
+
+
+def test_inconclusive_past_window_pauses_for_manual_recovery_not_absent(tmp_path):
+    """Acceptance 6 (R2-F2): a leg whose queries stay inconclusive (malformed 2xx
+    -> UNKNOWN_QUERYING) PAST the tolerance window is NEVER equated with absent.
+    It is left non-terminal and the task pauses for manual recovery
+    (order_state_unknown) — not confirmed-failed, never resent."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+
+    # Age past the window, then return inconclusive (NOT a 404 / -2013).
+    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
+    exe.queries.extend([
+        _leg(LEG_UNKNOWN_QUERYING, name="spot"),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp"),
+    ])
+    _step(svc, doc["id"], clock, rounds=2)  # drain past window -> pause
+
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_ORDER_STATE_UNKNOWN
+    assert task["fail_count"] == 0  # never confirmed absent / failed
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] == 0 for l in legs)  # left non-terminal, never resent
+    assert exe.dispatch_calls == 1  # no resend
+
+
+# ---------------------------------------------------------------------------
 # 5. Restart recovery on a fresh instance / same DB -> query clientOrderId, no resend
 # ---------------------------------------------------------------------------
 
@@ -1407,6 +1483,8 @@ def test_r1_rate_limit_resume_next_pair_counts_and_clears_pause(tmp_path):
     # The worker drains pair1 by its OWN per-attempt rate-limited fact (the
     # task-level pause_reason is already cleared) -> no failure counter; then
     # dispatches pair2 FILLED -> accepted_pair + counts.
+    # Age past the absent-tolerance window so pair1's drain 404 confirms absent.
+    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
     _step(svc, doc["id"], clock, rounds=3)
     task = svc.store.get_task(doc["id"])
     assert task["fail_count"] == 0            # 429 pair never consumed the counter
@@ -1434,6 +1512,10 @@ def test_r2_rate_limit_resume_then_three_confirmed_fails_triggers_threshold(tmp_
     _step(svc, doc["id"], clock, rounds=1)  # pair1 429 -> pause
     assert svc.store.get_task(doc["id"])["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
     svc.store.set_task_status(doc["id"], D.STATUS_RUNNING, svc._wall_us())  # resume
+    # Age past the absent-tolerance window so pair1's drain 404 confirms absent
+    # (the three later _rejected_pair dispatches are terminal at dispatch and
+    # are unaffected by the window).
+    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
 
     _step(svc, doc["id"], clock, rounds=12)  # pair1 drain (no counter) + 3 fails
     task = svc.store.get_task(doc["id"])
@@ -1464,6 +1546,8 @@ def test_r3_pause_drains_inflight_to_terminal_and_settles_no_new_pair(tmp_path):
     # re-introduced into post_pause.
     assert svc._stop_events[doc["id"]].is_set() is False
 
+    # Age past the absent-tolerance window so the drain's 404 confirms absent.
+    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
     _step(svc, doc["id"], clock, rounds=3)  # worker drains, settles, exits
     assert exe.query_calls >= 2
     legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
@@ -1490,6 +1574,8 @@ def test_r4_delete_drains_inflight_to_terminal_and_settles_no_new_pair(tmp_path)
     # P2-1 (Review-1 r4): post_delete must NOT set the per-task stop event.
     assert svc._stop_events[doc["id"]].is_set() is False
 
+    # Age past the absent-tolerance window so the drain's 404 confirms absent.
+    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
     _step(svc, doc["id"], clock, rounds=3)  # worker drains, settles, exits
     assert exe.query_calls >= 2
     legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
@@ -1641,7 +1727,11 @@ def test_r6_rate_limit_one_leg_other_filled_single_leg_exposure(tmp_path):
     # drain: spot -> FILLED (orderId), perp -> absent (no orderId) => single_leg
     exe.queries.extend([_filled_leg("spot"), _absent_query("perp")])
 
-    _step(svc, doc["id"], clock, rounds=3)  # 429 -> pause -> drain single_leg -> exit
+    _step(svc, doc["id"], clock, rounds=1)  # 429 dispatch -> pause (rate_limited)
+    # Age past the absent-tolerance window so the perp drain 404 confirms absent
+    # (-> single-leg: spot FILLED, perp confirmed-absent).
+    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
+    _step(svc, doc["id"], clock, rounds=2)  # drain single_leg -> settle -> exit
     task = svc.store.get_task(doc["id"])
     assert task["status"] == D.STATUS_PAUSED
     assert task["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
