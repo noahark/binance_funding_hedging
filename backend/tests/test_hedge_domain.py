@@ -65,6 +65,25 @@ def test_direction_mapping_forward_one_way():
     assert a.spot_side_effect == "NO_SIDE_EFFECT"
 
 
+def test_preflight_record_keeps_resolved_bstock_spot_symbol():
+    pf = D.compute_preflight(
+        D.PreflightSnapshot(
+            spot_filters=spot_filters_btcusdt(),
+            perp_filters=perp_filters_btcusdt(),
+            balances={"USDT": Decimal("100000")},
+            position_mode=D.POS_MODE_BOTH,
+            est_price=Decimal("100"),
+            spot_symbol="TSLABUSDT",
+        ),
+        "TSLAUSDT",
+        D.DIR_FORWARD,
+        Decimal("0.5"),
+        1,
+    )
+    assert pf.rejection is None
+    assert pf.snapshot_record["spot_symbol"] == "TSLABUSDT"
+
+
 def test_direction_mapping_forward_hedge():
     a = D.direction_to_leg_actions(D.DIR_FORWARD, D.POS_MODE_HEDGE)
     assert a.spot_side == "BUY"

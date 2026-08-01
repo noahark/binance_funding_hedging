@@ -63,13 +63,14 @@ def _perp_filters():
     }
 
 
-def _snapshot(balances, *, position_mode="BOTH", est_price="50000"):
+def _snapshot(balances, *, position_mode="BOTH", est_price="50000", spot_symbol=None):
     return D.PreflightSnapshot(
         spot_filters=_spot_filters(),
         perp_filters=_perp_filters(),
         balances=balances,
         position_mode=position_mode,
         est_price=Decimal(est_price) if est_price else None,
+        spot_symbol=spot_symbol,
     )
 
 
@@ -103,6 +104,29 @@ def test_create_with_preflight_resolves_q_common(tmp_path):
     assert doc["position_side_mode"] == "BOTH"
     assert doc["status"] == D.STATUS_RUNNING
     assert doc["success_count"] == 0
+
+
+def test_service_records_resolved_bstock_spot_symbol(tmp_path):
+    executor = RecordTransportExecutor()
+    preflight = _StubPreflight(
+        _snapshot(
+            {"USDT": Decimal("100000")},
+            est_price="100",
+            spot_symbol="TSLABUSDT",
+        )
+    )
+    svc = _svc(tmp_path, executor=executor, preflight=preflight)
+    status, doc = svc.create_task({
+        "coin": "TSLAUSDT",
+        "direction": D.DIR_FORWARD,
+        "mode": "immediate",
+        "single_amount": "0.5",
+        "target_n": 1,
+    })
+    assert status == 201
+    svc.post_fill_once(doc["id"])
+    assert executor.records[0]["spot_order_params"]["symbol"] == "TSLABUSDT"
+    assert executor.records[0]["perp_order_params"]["symbol"] == "TSLAUSDT"
 
 
 def test_create_default_provider_is_dry_run_no_q_common(tmp_path):

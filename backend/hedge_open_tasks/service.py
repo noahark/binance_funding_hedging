@@ -43,6 +43,29 @@ from .store import HedgeOpenStore, UnknownTaskError
 
 _CREATE_BODY_KEYS = ("coin", "direction", "mode", "single_amount", "target_n")
 
+
+def _leg_query_symbol(leg: dict, task: dict) -> str:
+    """Use the immutable symbol recorded for this leg when reconciling it.
+
+    The request shape is persisted before the POST, so it is the authoritative
+    symbol for a non-terminal order even if a later public refresh resolves the
+    market differently.  The task preflight is the fallback for legacy rows.
+    """
+    coin = task["coin"]
+    if leg.get("leg") != "spot":
+        return coin
+    shape = leg.get("request_shape")
+    if isinstance(shape, str):
+        try:
+            shape = json.loads(shape)
+        except (TypeError, json.JSONDecodeError):
+            shape = None
+    if isinstance(shape, dict):
+        symbol = shape.get("symbol")
+        if isinstance(symbol, str) and symbol:
+            return symbol
+    return D.spot_order_symbol(coin, task.get("preflight_snapshot"))
+
 # S3 (ADR-H2): the start-gate write body. ``confirm`` must be the literal true;
 # ``version`` is the CAS guard; ``enabled`` carries both the open and close
 # directions on one endpoint.
@@ -1198,11 +1221,12 @@ class HedgeOpenTaskService:
             self._recover_crash_gaps(task_id, now_us)
             return None
         legs = self._store.list_non_terminal_legs_for_task(task_id)
-        coin = task["coin"] if task is not None else None
         finalized: set[int] = set()
         drain_signal: str | None = None
         for leg in legs:
-            verdict = self._executor.query_leg(leg["leg"], coin, leg["client_order_id"])
+            verdict = self._executor.query_leg(
+                leg["leg"], _leg_query_symbol(leg, task), leg["client_order_id"]
+            )
             if verdict is None:
                 continue  # inconclusive — keep querying
             if getattr(verdict, "rate_limited", False):
@@ -1741,7 +1765,12 @@ class HedgeOpenTaskService:
             task["direction"], position_side_mode or D.POS_MODE_BOTH
         )
         send_qty = q_common if q_common is not None else D.Decimal(task["single_amount"])
-        spot_shape = build_spot_order_params(task["coin"], actions, send_qty, spot_cid)
+        spot_shape = build_spot_order_params(
+            D.spot_order_symbol(task["coin"], snapshot_record),
+            actions,
+            send_qty,
+            spot_cid,
+        )
         perp_shape = build_perp_order_params(task["coin"], actions, send_qty, perp_cid)
         q_common_str = D.fmt_decimal(q_common) if q_common is not None else task["single_amount"]
         attempt = self._store.prepare_attempt(

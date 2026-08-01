@@ -113,6 +113,20 @@ def _find_symbol(symbols: list, coin: str) -> Optional[dict]:
     return None
 
 
+def _bstock_spot_alias(coin: str, perp_symbol: Optional[dict]) -> Optional[str]:
+    """Return the B-suffix spot pair only for a TRADIFI perpetual."""
+    if not isinstance(perp_symbol, dict):
+        return None
+    if perp_symbol.get("contractType") != "TRADIFI_PERPETUAL":
+        return None
+    base = perp_symbol.get("baseAsset")
+    quote = perp_symbol.get("quoteAsset")
+    if not isinstance(base, str) or not isinstance(quote, str) or not base or not quote:
+        return None
+    alias = f"{base}B{quote}"
+    return alias if alias != coin else None
+
+
 # S4b (ADR-H5): three-state leg existence from a public read result. True =
 # confirmed present; False = confirmed absent; None = indeterminate (read failed
 # or an unexpected shape). The caller never blocks on None — a transient
@@ -222,7 +236,7 @@ class HedgePreflightProvider:
         tradable = symbol.get("status") == "TRADING"
         return _parse_spot_filters(symbol), tradable
 
-    def _read_perp_filters(self, coin: str) -> Optional[tuple[dict, bool]]:
+    def _read_perp_filters(self, coin: str) -> Optional[tuple[dict, bool, dict]]:
         data = self._read_public_json(f"{_FAPI_BASE}/fapi/v1/exchangeInfo")
         if not isinstance(data, dict):
             return None
@@ -230,7 +244,29 @@ class HedgePreflightProvider:
         if symbol is None:
             return None
         tradable = symbol.get("status") == "TRADING"
-        return _parse_perp_filters(symbol), tradable
+        return _parse_perp_filters(symbol), tradable, symbol
+
+    def _read_spot_leg(
+        self, coin: str, perp_symbol: dict
+    ) -> Optional[tuple[dict, bool, str]]:
+        """Resolve exact spot first, then the frozen bStock B-suffix alias."""
+        exact = self._read_spot_filters(coin)
+        if exact is not None and exact[1]:
+            return exact[0], exact[1], coin
+
+        alias = _bstock_spot_alias(coin, perp_symbol)
+        if alias is not None:
+            aliased = self._read_spot_filters(alias)
+            if aliased is not None:
+                return aliased[0], aliased[1], alias
+            # An exact non-trading/missing bStock symbol is not enough to
+            # authorize a send when the alias read is incomplete.
+            if exact is None or not exact[1]:
+                return None
+
+        if exact is not None:
+            return exact[0], exact[1], coin
+        return None
 
     def _read_est_price(self, coin: str) -> Optional[Decimal]:
         """Conservative spot price for the forward min-notional estimate."""
@@ -325,12 +361,18 @@ class HedgePreflightProvider:
         """
         if self._client is None or not self._client.credentials_present:
             return None
-        spot = self._read_spot_filters(coin)
         perp = self._read_perp_filters(coin)
+        perp_symbol = perp[2] if perp is not None else None
+        spot = (
+            self._read_spot_leg(coin, perp_symbol)
+            if perp_symbol is not None
+            else None
+        )
         balances = self._read_balances()
         position_mode = self._read_position_mode()
         rate_limit = self._read_rate_limit_order()
-        est_price = self._read_est_price(coin)
+        spot_symbol = spot[2] if spot is not None else coin
+        est_price = self._read_est_price(spot_symbol)
         # Any read gap fails closed — never assemble a half-populated snapshot
         # (amendment clause 3: account/symbol status, position mode, price/
         # balance, NOTIONAL/MIN_NOTIONAL, the current order rate-limit fact; a
@@ -344,8 +386,8 @@ class HedgePreflightProvider:
             or rate_limit is None
         ):
             return None
-        spot_filters, spot_tradable = spot
-        perp_filters, perp_tradable = perp
+        spot_filters, spot_tradable, spot_symbol = spot
+        perp_filters, perp_tradable, _ = perp
         return D.PreflightSnapshot(
             spot_filters=spot_filters,
             perp_filters=perp_filters,
@@ -354,6 +396,7 @@ class HedgePreflightProvider:
             est_price=est_price,
             rate_limit_order=rate_limit,
             symbol_tradable=spot_tradable and perp_tradable,
+            spot_symbol=spot_symbol if spot_symbol != coin else None,
         )
 
     def check_symbol_legs(self, coin: str) -> dict:
@@ -372,7 +415,15 @@ class HedgePreflightProvider:
         perp_status, perp_body = self._read_public_with_status(
             f"{_FAPI_BASE}/fapi/v1/exchangeInfo"
         )
-        return {
-            "spot": _spot_leg_exists(spot_status, spot_body, coin),
-            "perp": _perp_leg_exists(perp_status, perp_body, coin),
-        }
+        spot = _spot_leg_exists(spot_status, spot_body, coin)
+        perp = _perp_leg_exists(perp_status, perp_body, coin)
+        if spot is False and isinstance(perp_body, dict):
+            perp_symbol = _find_symbol(perp_body.get("symbols", []), coin)
+            alias = _bstock_spot_alias(coin, perp_symbol)
+            if alias is not None:
+                alias_status, alias_body = self._read_public_with_status(
+                    f"{_SPOT_API_BASE}/api/v3/exchangeInfo?symbol={alias}"
+                )
+                if _spot_leg_exists(alias_status, alias_body, alias) is True:
+                    spot = True
+        return {"spot": spot, "perp": perp}
