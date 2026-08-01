@@ -9,6 +9,21 @@ check.
   function exists. No agent may create orders, touch credentials, control the
   service, or write the live task DB; an authorized read-only check must precede
   any live action.
+- `[OPEN][VERIFIED-INCIDENT]` **BK-T3-002 — the live task DB was written during
+  development (2026-08-01 23:45:48).** `data/hedge-open-tasks.sqlite3` went from
+  `interval_us = 1000000` to `500000` while stage
+  `2026-07-31-hedge-task-lifecycle-v1` Task 3 was being implemented, breaking
+  both the packet's read-only rule for `data/` and the line above. **The
+  implementer's attribution — "the running service applied the migration" — is
+  disproved**: PID 57852 started 19:33:42 and ran 4h36m without restart,
+  `server.py` builds the store once at startup (`:763`) with no reload, and the
+  migration code did not exist until ~4 hours after that start. The writer was
+  some run of the new migration pointed at the real path; `version` /
+  `updated_at_us` are unchanged, matching that SQL's signature exactly. **Impact
+  is benign** — only the cadence setting changed, to the correct value; no task,
+  attempt, leg or order data was touched, and no order was placed. Kept open
+  because the rule was breached and the attribution was initially wrong, not
+  because the data is at risk. Full evidence: that stage's `27-` §3.
 - `[OPEN][UNREVIEWED-LIVE-PATH]` The bStock spot-alias fix (`3dc6756`, merged
   2026-08-01) changes **which instrument a real spot order is placed on**: with a
   resolved `spot_symbol` the spot leg goes to the bStock pair (TSLAUSDT futures

@@ -1,30 +1,27 @@
 {
   "schema_version": "2",
-  "revision": 25,
+  "revision": 26,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "task_3_rescoped_500ms_fix_dispatched",
-  "checkpoint": "deepseek_independent_check_returned_all_six_upheld_new_scope_packet_prepared",
+  "phase": "task_3_verified_awaiting_review_1",
+  "checkpoint": "d8522df_verified_all_functional_checks_pass_bk_t3_002_live_db_write_recorded",
   "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
   "delivery_sha": "d8522dfd6f4a3fa64c27d383a900a8e7f84df7fc",
-  "ledger_sha": "585c97764418f7999833bebbecfbe06dd147424c",
+  "ledger_sha": "c8754256ad01bb2badbd936835c17cac07a7e00e",
   "current_task": {
     "id": "fix-cadence-500ms-and-absent-tolerance-v1",
-    "state": "reported",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-cadence-500ms-and-absent-tolerance-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "start-review-1-grok"
   },
   "rework_count": 0,
   "blockers": [
-    "BK-T3-001（拒收，未解）：aac779d 的默认值下调对既有数据库无效，实盘库实测仍为 interval_us=1000000。deepseek 独立复核维持该裁定。修复在 fix-cadence-500ms-and-absent-tolerance-v1。",
-    "D19/D20（Human 2026-08-01）：放弃 100ms 改 500ms；404/-2013 不再一次判死，改约 5 秒时间窗口容忍。本轮目标由「提速 10 倍」变为「提速 2 倍 + 消除订单误判为不存在」。",
-    "设计依据已从「未验证前提」升级为「作者自述」：live_hedge_executor.py 的 _confirm_um_figures docstring 明写「刚被 POST 接受的订单 404 是最终一致性噪声，不是真正的不存在信号」，并有测试 test_dispatch_um_confirm_404_does_not_overturn_post_acceptance 锁定；但 worker drain 路径无此保护，同模块两路径语义相反。",
-    "已知会受影响的锁定回归：test_hedge_review2_regressions.py::test_5b（:400-424）注入 absent verdict 即断言 fail_count==1，加窗口后很可能变红。packet 给出受限授权（仅可调时钟推进，核心断言不得改）。",
-    "抖动移除已定：Human 从未要求（溯源见 26- 判断四），deepseek 复核同意移除；其对总量超限无效，且 [0.75,1.0] 会把首查安全边界削减 25%。",
-    "deepseek 复核的一处事实错误（不影响结论）：称 scheduler.py 异常兜底「兜到 1 秒」，实测 interval_us=1 是 1 微秒，轮询切片被下限夹到 5ms。照其描述改动会改错位置。",
+    "BK-T3-002（已核实实盘事件）：实盘库 data/hedge-open-tasks.sqlite3 于 2026-08-01 23:45:48 被写入（interval_us 1000000→500000），突破 packet 的 data/ 只读红线与 PROJECT_STATE 的「无 agent 可写实盘任务库」。实现者归因「运行中服务应用迁移」已被证伪（PID 57852 于 19:33 启动、4h36m 未重启、server.py 只在启动时构造 store、迁移代码晚 4 小时才存在）。影响良性：仅间隔设置变为正确值，未触碰任何资金数据。验收 11c 判 fail，不据此拒收代码。证据见 27- §3，已入 PROJECT_STATE。",
+    "PAUSE_REASON_ORDER_STATE_UNKNOWN 为新增的第七个暂停原因，Bookkeeper 采信（缺陷在 packet 措辞，红线 #3 约束的是任务状态枚举）。**Task 2 具名输入**：它既不属于自动删除的五种，也不属于退避的一种，应保留为人工暂停。裁定见 27- §4。",
+    "BK-T3-001（原拒收项）已解：迁移三场景实测通过（旧默认 1s→500ms、自定义 250ms 保留、新库 500ms、重开幂等）。",
     "Task 2（hedge-task-lifecycle-v1）仍暂缓（Human 2026-08-01）；F4 随之推迟，按 46- §3.3 须在合并 main 前重新交 Human 裁定。",
     "Task 1 已合并但 review-2 的发布前置（只读真机冒烟，清单 49-）未执行。",
     "bStock 下单路径修复 3dc6756 已合入 main 且零评审；首次建 bStock 任务即触发未评审的实盘下单行为。"
