@@ -4,7 +4,7 @@
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
   "phase": "implementation",
-  "checkpoint": "review2_rework_f3_sealed_fix_round_2_dispatched_budget_2of3",
+  "checkpoint": "review2_rework_f3_plus_runtime_findings_fix_round_2_dispatched_budget_2of3",
   "base_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
   "delivery_sha": "6d6aa7bee34134b5f51a760d3ff0c1204c3f3dc4",
   "ledger_sha": "6d6aa7bee34134b5f51a760d3ff0c1204c3f3dc4",
@@ -19,7 +19,8 @@
   },
   "rework_count": 2,
   "blockers": [
-    "F3 [review-2 阻塞] 合并表未标记 no_task/no_um 两类错配，且 no_task 行的现货/合约均价显示为 0（假成本）。未做到 Human 决策 D7 的「标清楚」，且属未披露的形状偏离（fake 有整列「状态」，10-design §5 却声称形状不变）。依据 43-review-2-codex-task1.md。",
-    "发布就绪：review-2 判定当前不可合并；即使复审 ACCEPT，发布前仍须 Human 单独授权一次只读运行时冒烟检查（本交付从未在真实服务上运行过）。"
+    "F3 [review-2 阻塞] 合并表未标记 no_task/no_um 两类错配，且 no_task 行现货/合约均价显示为 0（假成本）。依据 43-review-2-codex-task1.md。",
+    "G5 [真机发现] 合约腿成交金额被存为字面 '0' 时污染均价：RSRUSDT 正向实际显示合约均价 0.000623（真实约 0.001246）、价差率 -100%（真实约 +0.3%），且不完整标记未触发也从不渲染。依据 44-runtime-observation-task1.md §3。",
+    "发布就绪：review-2 判定当前不可合并；发布前仍须 Human 授权的完整只读冒烟检查（本次真机观察仅覆盖部分路径，见 44- §6）。"
   ]
 }
