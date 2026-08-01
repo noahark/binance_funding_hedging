@@ -1,22 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 11,
+  "revision": 12,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "review_1",
-  "checkpoint": "task1_verified_with_two_human_accepted_limitations_review1_dispatched",
+  "phase": "implementation",
+  "checkpoint": "review1_rework_sealed_f1_f2_fix_dispatched",
   "base_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
   "delivery_sha": "969c4557a293a257b3c81c26c5a9c224f6b7f037",
   "ledger_sha": "969c4557a293a257b3c81c26c5a9c224f6b7f037",
   "current_task": {
-    "id": "review-1-grok-task1",
+    "id": "fix-merged-positions-n2-ui-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-1-grok-task1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-merged-positions-n2-ui-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-task"
   },
-  "rework_count": 0,
-  "blockers": []
+  "rework_count": 1,
+  "blockers": [
+    "F1 [review-1 阻塞] 账户未就绪/未验证时前端不渲染合并表与未就绪横幅，后端已返回的本地行与 D15 成本基被丢弃。依据 41-review-1-grok-task1.md。",
+    "F2 [review-1] 有 UM 持仓但 unrealized_profit 缺失时未实现盈亏渲染为 0.00，占位零冒充真值。依据同上。"
+  ]
 }
