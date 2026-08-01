@@ -1,25 +1,26 @@
 {
   "schema_version": "2",
-  "revision": 19,
+  "revision": 20,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "review_2",
-  "checkpoint": "review1_accept_all_four_rounds_sealed_review2_r2_dispatched",
+  "phase": "awaiting_release_gate",
+  "checkpoint": "task1_both_reviews_accept_awaiting_human_smoke_check_and_merge_decision",
   "base_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
   "delivery_sha": "ef53a025114933e8c472d9ae89f8ebfb35d19513",
   "ledger_sha": "ef53a025114933e8c472d9ae89f8ebfb35d19513",
   "current_task": {
     "id": "review-2-codex-task1-r2",
-    "state": "dispatched",
+    "state": "verified",
     "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-2-codex-task1-r2.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "run-preflight-smoke-then-decide-merge"
   },
   "rework_count": 2,
   "blockers": [
-    "Task 2 必须一并修 F4：账户读不到时 match_status 不得输出 no_um。要求见 46-review-1-grok-task1-r3.md §3.3。若 Task 2 未做，合并 main 前须重新交 Human 裁定。",
-    "发布就绪：合并前须 review-1 与 review-2 通过，且须 Human 单独授权一次完整只读运行时冒烟检查。"
+    "合并前置：须 Human 授权并完成 ef53a02 的完整只读真机冒烟检查，清单见 49-preflight-smoke-checklist.md（44- 只覆盖了 6d6aa7b 与正常账户读，不等同于本次发布检查）。",
+    "Task 2 须一并修 F4（账户读不到时不得输出 no_um），要求见 46- §3.3；未修则合并 main 前须重新交 Human 裁定。",
+    "交付随附四条用户须知（48- §4）：均价为已知金额子集口径、F4 辨别法、限制 A/B 仍在、match_status 为新键须前后端同发。"
   ]
 }
