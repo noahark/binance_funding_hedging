@@ -766,6 +766,11 @@ class PreflightSnapshot:
     # TRADING. False (read but not tradable) is a fatal fact (amendment rows 1–2);
     # a missing read fails the whole snapshot closed upstream instead.
     symbol_tradable: bool = True
+    # The spot leg normally uses ``coin``.  bStocks resolve to the public
+    # B-suffix pair (for example TSLAUSDT -> TSLABUSDT); keep that resolved
+    # symbol in the preflight result so the order path cannot fall back to the
+    # futures symbol when building the margin request.
+    spot_symbol: str | None = None
 
 
 @dataclass(frozen=True)
@@ -784,6 +789,20 @@ def base_asset(coin: str) -> str:
     if not coin.endswith(QUOTE_ASSET):
         raise invalid_field("coin", f"coin must be a {QUOTE_ASSET}-margined symbol")
     return coin[: -len(QUOTE_ASSET)]
+
+
+def spot_order_symbol(coin: str, preflight_snapshot: dict | None) -> str:
+    """Return the resolved spot symbol for an order or query.
+
+    The task's ``coin`` is the canonical futures symbol.  A live preflight may
+    carry a different spot symbol for bStocks; absent that internal field,
+    ordinary symbols continue to use the canonical value.
+    """
+    if isinstance(preflight_snapshot, dict):
+        resolved = preflight_snapshot.get("spot_symbol")
+        if isinstance(resolved, str) and resolved:
+            return resolved
+    return coin
 
 
 def _check_common_quantity(
@@ -906,6 +925,8 @@ def compute_preflight(
         "est_price": str(snapshot.est_price) if snapshot.est_price is not None else None,
         "position_mode": snapshot.position_mode,
     }
+    if snapshot.spot_symbol and snapshot.spot_symbol != coin:
+        snapshot_record["spot_symbol"] = snapshot.spot_symbol
     # Price-completeness is direction-independent (amendment 21 / dispatch P1#1):
     # a missing/zero/negative est_price cannot size notional or the USDT need, and
     # is an UNREADABLE fact, so it fails closed to INCOMPLETE (not a filter

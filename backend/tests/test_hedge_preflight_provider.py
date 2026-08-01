@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import json
 import urllib.error
+from types import SimpleNamespace
 
 from backend.services.hedge_preflight_provider import (
     HedgePreflightProvider,
@@ -157,6 +158,93 @@ def test_check_symbol_legs_uses_correct_public_endpoints():
     perp_url = [u for u in fake.urls if "fapi" in u][0]
     assert spot_url.endswith(f"/api/v3/exchangeInfo?symbol={COIN}")
     assert perp_url.endswith("/fapi/v1/exchangeInfo")
+
+
+class _BstockUrlopen:
+    """URL-aware public fixture for the TSLAUSDT -> TSLABUSDT case."""
+
+    def __init__(self):
+        self.urls = []
+
+    @staticmethod
+    def _spot_symbol(symbol):
+        return {
+            "symbol": symbol,
+            "status": "TRADING",
+            "filters": [
+                {"filterType": "LOT_SIZE", "stepSize": "0.001", "minQty": "0.001", "maxQty": "1000"},
+                {"filterType": "MARKET_LOT_SIZE", "stepSize": "0.001", "minQty": "0.001", "maxQty": "1000"},
+                {"filterType": "NOTIONAL", "minNotional": "5", "applyMinToMarket": True},
+            ],
+        }
+
+    def __call__(self, req, timeout=None):
+        url = req.full_url
+        self.urls.append(url)
+        if "fapi" in url:
+            return _Resp(200, {"symbols": [{
+                "symbol": "TSLAUSDT",
+                "status": "TRADING",
+                "contractType": "TRADIFI_PERPETUAL",
+                "baseAsset": "TSLA",
+                "quoteAsset": "USDT",
+                "filters": [
+                    {"filterType": "LOT_SIZE", "stepSize": "0.001", "minQty": "0.001", "maxQty": "1000"},
+                    {"filterType": "MARKET_LOT_SIZE", "stepSize": "0.001", "minQty": "0.001", "maxQty": "1000"},
+                    {"filterType": "MIN_NOTIONAL", "notional": "5"},
+                ],
+            }]})
+        if "ticker/price" in url:
+            assert url.endswith("symbol=TSLABUSDT")
+            return _Resp(200, {"price": "100"})
+        if url.endswith("symbol=TSLAUSDT"):
+            raise _http_error(400, {"code": -1121, "msg": "Invalid symbol"})
+        if url.endswith("symbol=TSLABUSDT"):
+            return _Resp(200, {"symbols": [self._spot_symbol("TSLABUSDT")]})
+        raise AssertionError(f"unexpected public URL: {url}")
+
+
+class _BstockPrivate:
+    credentials_present = True
+
+    @staticmethod
+    def get_balance(*, timestamp_ms):
+        return SimpleNamespace(
+            transport_error=None,
+            http_status=200,
+            body=[{"asset": "USDT", "crossMarginFree": "100000"}],
+        )
+
+    @staticmethod
+    def get_position_side_dual(*, timestamp_ms):
+        return SimpleNamespace(transport_error=None, http_status=200, body={"dualSidePosition": False})
+
+    @staticmethod
+    def get_rate_limit_order(*, timestamp_ms):
+        return SimpleNamespace(
+            transport_error=None,
+            http_status=200,
+            body=[{"rateLimitType": "ORDERS", "limit": 100}],
+        )
+
+
+def test_bstock_alias_is_accepted_by_symbol_probe():
+    fake = _BstockUrlopen()
+    prov = HedgePreflightProvider(now_ms=lambda: 0, public_urlopen=fake)
+    assert prov.check_symbol_legs("TSLAUSDT") == {"spot": True, "perp": True}
+    assert any(url.endswith("symbol=TSLABUSDT") for url in fake.urls)
+
+
+def test_bstock_alias_flows_into_preflight_snapshot_and_price_read():
+    fake = _BstockUrlopen()
+    prov = HedgePreflightProvider(
+        live_client=_BstockPrivate(), now_ms=lambda: 0, public_urlopen=fake,
+    )
+    snapshot = prov.get_snapshot("TSLAUSDT")
+    assert snapshot is not None
+    assert snapshot.spot_symbol == "TSLABUSDT"
+    assert snapshot.est_price == 100
+    assert any("ticker/price?symbol=TSLABUSDT" in url for url in fake.urls)
 
 
 def test_disabled_preflight_provider_has_no_leg_probe():

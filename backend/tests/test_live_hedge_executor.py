@@ -52,8 +52,13 @@ class _FakeClient:
         self.credentials_present = creds
         self.spot_query_count = 0
         self.perp_query_count = 0
+        self.spot_post_symbols = []
+        self.perp_post_symbols = []
+        self.spot_query_symbols = []
+        self.perp_query_symbols = []
 
     def post_margin_order(self, params, *, timestamp_ms, recv_window_ms=None):
+        self.spot_post_symbols.append(params["symbol"])
         # S5 (ADR-H4): the fake client enforces the SAME offline wire rules as the
         # record transport, so a format-class defect is rejected here with a
         # Binance-style -4015 instead of an accepted fill.
@@ -62,24 +67,30 @@ class _FakeClient:
         return self._spot_post
 
     def post_um_order(self, params, *, timestamp_ms, recv_window_ms=None):
+        self.perp_post_symbols.append(params["symbol"])
         if validate_order_params(params):
             return _resp(400, {"code": -4015, "msg": "Illegal characters found in parameter 'newClientOrderId'."})
         return self._perp_post
 
     def query_margin_order(self, symbol, cid, *, timestamp_ms, recv_window_ms=None):
         self.spot_query_count += 1
+        self.spot_query_symbols.append(symbol)
         return self._spot_query or _resp(404)
 
     def query_um_order(self, symbol, cid, *, timestamp_ms, recv_window_ms=None):
         self.perp_query_count += 1
+        self.perp_query_symbols.append(symbol)
         return self._perp_query or _resp(404)
 
 
-def _ctx() -> AttemptContext:
+def _ctx(*, spot_symbol=None) -> AttemptContext:
+    snapshot = {"est_price": "50000"}
+    if spot_symbol is not None:
+        snapshot["spot_symbol"] = spot_symbol
     return AttemptContext(
         attempt_id="att1", task_id="t1", coin="BTCUSDT", direction=D.DIR_FORWARD,
         single_amount=Decimal("0.5"), q_common=Decimal("0.5"),
-        position_side_mode=D.POS_MODE_BOTH, preflight_snapshot={"est_price": "50000"},
+        position_side_mode=D.POS_MODE_BOTH, preflight_snapshot=snapshot,
         filter_versions={}, target_n=3, ts_us=1000,
     )
 
@@ -370,6 +381,18 @@ def test_dispatch_both_accepted_needs_no_query():
     assert dispatch.rate_limited is False
     assert client.spot_query_count == 0  # accepted synchronously -> no query
     assert dispatch.record_payload["posted"] is True
+
+
+def test_dispatch_uses_bstock_alias_for_spot_post_and_query():
+    client = _FakeClient(
+        spot_post=_resp(500, {"msg": "timeout"}),
+        spot_query=_resp(200, {"orderId": 11, "status": "FILLED", "executedQty": "0.5"}),
+    )
+    dispatch = _exe(client).dispatch(_ctx(spot_symbol="TSLABUSDT"))
+    assert dispatch.record_payload["spot_order_params"]["symbol"] == "TSLABUSDT"
+    assert dispatch.record_payload["perp_order_params"]["symbol"] == "BTCUSDT"
+    assert client.spot_post_symbols == ["TSLABUSDT"]
+    assert client.spot_query_symbols == ["TSLABUSDT"]
 
 
 def test_dispatch_unknown_leg_resolved_by_single_client_id_query():
