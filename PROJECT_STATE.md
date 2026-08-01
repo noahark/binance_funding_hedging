@@ -70,16 +70,6 @@ still be run against `main`.
   together); becomes reachable if that changes. Introduced with the avg_price
   column (stage `2026-07-31-hedge-task-inline-log-v1`), following the existing
   `quote_amt` pattern. review-2 ruled it non-blocking for merge.
-- `[OPEN][DEFERRED]` Human wants the order re-query interval cut from 1s to ~100ms
-  so fill figures land sooner (2026-07-31, deferred to its own stage). Facts found
-  while scoping it: the interval is hard-coded 1s with no setter
-  (`store.py:19`, `scheduler.py:5`); `service.py:178` integer-divides by 1e6 so
-  sub-second values display as `0`; in live mode it paces only leg re-query, NOT
-  order cadence (the next pair waits for both legs terminal, A-9), so it does not
-  raise order frequency; but query weight scales with it per running task
-  (10 tasks x 10/s = 100 req/s) and a 429 currently pauses the task. If done:
-  split "dispatch interval" from "re-query interval", add a floor, fix the
-  integer-divide display, and consider 429 backoff instead of pause.
 - `[OPEN][RESIDUAL]` Perp average price can still read blank. Fixed in stage
   `2026-07-31-hedge-task-inline-log-v1` (delivery `d85a2d3`): `hedge_open_leg`
   now has an `avg_price` column, both write paths persist the exchange's own
@@ -88,20 +78,11 @@ still be run against `main`.
   quote/avgPrice from the UM POST result (2026-07-14), so a perp leg's figures
   only arrive via the order-detail GET; until that GET lands, the column is
   legitimately unknown and renders as an em-dash rather than a fabricated zero.
-- `[OPEN][MONEY-VISIBILITY]` `aggregate_positions` (`store.py:1934-1951`) excludes
-  `deleted` tasks, so a deleted task's already-filled legs vanish from
-  `GET /api/hedge-open-positions` while the account exposure remains. Pre-existing
-  (manual delete triggers it today); it becomes routine if auto-pause ever turns
-  into auto-delete. Found by plan review r2 (grok), verified. Blocks that change.
-  Detail: stage `2026-07-31-hedge-task-inline-log-v1` file `06-`.
-- `[OPEN][DEFERRED]` Task-card restart deadlock, moved out of the inline-log stage
-  by Human 2026-07-31; needs its own stage. Covers F10, the Human-approved
-  "six auto-pause reasons -> auto-delete" change, quota-exhausted closeout, and the
-  three re-arm entries (`post_start` / `fill-once` / `fill-all`). Two plan-review
-  rounds of verified findings are preserved in stage
-  `2026-07-31-hedge-task-inline-log-v1` files `04-`, `05-`, `06-` — read those
-  before re-deriving anything. F10's COOKIEUSDT diagnosis is stale.
-
+- `[OPEN][DEFERRED]` Task-card deadlock, the six-reasons auto-delete and the
+  re-query cadence are now Task 2 / Task 3 of the active stage (see Next
+  Priority). Verified findings and anchors: that stage's `01-` `10-` `12-`;
+  earlier plan-review rounds in archive `2026-07-31-hedge-task-inline-log-v1`
+  files `04-` `05-` `06-`. F10's COOKIEUSDT diagnosis is stale.
 - `[OPEN][DEFERRED]` Three discarded-failure sites, by decision: `service.py:1141`
   (inconclusive query, needs log-rate design), `:1632` (dry-run, no order),
   `live_hedge_executor.py:690-702` (`_error_leg` drops the send reason; needs a
