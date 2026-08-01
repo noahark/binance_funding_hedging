@@ -1,5 +1,13 @@
 # Dispatch —— fake-ui-positions-and-cards-v1
 
+> **勘误 2026-07-31（bookkeeper opus5，作者本人就地更正）**：下方 §Inputs 数据形状 A 原将
+> `position_side` 写为小写 `"long" | "short"`，与真实契约不符 —— `snapshot.py:893-895`
+> 的 `_infer_position_side` 返回**大写** `"LONG"` / `"SHORT"`，零仓为 `null`，
+> 前端 `index.html:2198-2204` 的 `directionForPosition` 亦按大写比对。已改为大写。
+> 由实现者在交付回执中作为 packet 勘误报出，属 packet 缺陷而非交付缺陷，按 `AGENTS.md` §7
+> 采信更正，**不递增 `rework_count`**。本次更正不改变交付效果：实现者已按真实契约（大写）
+> 造数据，验收检查通过状态与结论均不变。
+
 ```text
 Identity:
   task_id:         fake-ui-positions-and-cards-v1
@@ -82,7 +90,7 @@ Identity:
 
 ```text
 symbol             字符串，如 "BTCUSDT"；1000x 倍率币为 "1000PEPEUSDT"
-position_side      "long" | "short"（由 position_amt 符号推出）
+position_side      "LONG" | "SHORT" | null（大写；由 position_amt 符号推出，为零时 null）
 notional_usdt      字符串
 position_amt       字符串，带符号，空头为负，如 "-0.153"
 entry_price        字符串

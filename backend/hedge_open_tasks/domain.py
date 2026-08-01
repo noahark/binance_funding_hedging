@@ -1350,3 +1350,242 @@ def missing_leg_detail(missing: list[str]) -> str:
     # No confirmed-absent leg -> the caller should not have raised; return the
     # neutral both-absent wording rather than raise from the detail helper.
     return "该交易对在币安现货与 USDⓈ-M 合约市场均不存在，无法创建对冲任务"
+
+
+# ------------------------------------------------------------------
+# Position merge (Task 1 / D14): join aggregate_positions buckets with the
+# snapshot's private_account so /api/hedge-open-positions returns one merged
+# row per UM symbol (the real exchange position is the skeleton) with
+# task-record cost, spot/borrow, unrealized PnL, and position-level markers.
+# Pure: no service refs, no I/O — the HTTP handler (server.py) supplies both
+# inputs (10-design.md P1 / N1-N5, 11-adr.md ADR-001).
+# ------------------------------------------------------------------
+
+def _merge_base_asset(symbol):
+    """Strip the USDT quote suffix to get the base asset for spot/borrow matching.
+
+    Does NOT strip the 1000x multiplier prefix (BONK/FLOKI/LUNC/PEPE/SHIB/XEC):
+    ``1000PEPEUSDT`` -> ``1000PEPE`` will not equal the spot asset ``PEPE``, which
+    is the honest 'no automatic alignment' outcome for those six (non-goal #5 /
+    02-scope-decisions.md §2.3)."""
+    if not isinstance(symbol, str) or not symbol:
+        return None
+    return symbol[:-4] if symbol.endswith("USDT") and len(symbol) > 4 else symbol
+
+
+def _merge_num(value):
+    """Parse a wire decimal string to Decimal, or ``None`` (never a coerced 0)."""
+    if value is None or value == "":
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def _merge_side_for_direction(direction):
+    # forward = buy spot + open SHORT perp; reverse = sell spot + open LONG perp.
+    if direction == DIR_FORWARD:
+        return "SHORT"
+    if direction == DIR_REVERSE:
+        return "LONG"
+    return None
+
+
+def _merge_direction_for_side(side):
+    if side == "SHORT":
+        return DIR_FORWARD
+    if side == "LONG":
+        return DIR_REVERSE
+    return None
+
+
+def _merge_empty_bucket_row(coin, direction):
+    """A merged row's bucket-side defaults when only the UM side exists (no task
+    record for this symbol — fake scenario 'no_task').
+
+    G2 (fix-merged-positions-mismatch-labels-v1): there is NO local bookkeeping
+    for this symbol, so its cost-basis fields are unknown (``None``), not ``"0"``.
+    A ``"0"`` rendered as a real figure reads as "filled at price 0" — a fake
+    cost indistinguishable from a real zero (the money-zero family this stage
+    keeps closing). The UI renders ``None`` as ``—`` (P7 'unavailable'). The P7
+    'no source' placeholders (accrued_funding / borrow_interest / net_pnl) stay
+    ``"0"`` because the UI maps them to 「暂无」 via pendingCell, not to a cost."""
+    return {
+        "coin": coin,
+        "direction": direction,
+        "position_qty": None,
+        "spot_qty": None,
+        "perp_qty": None,
+        "spot_avg": None,
+        "perp_avg": None,
+        "spot_avg_price_incomplete": False,
+        "perp_avg_price_incomplete": False,
+        "includes_deleted_task": False,
+        "open_basis_rate": "0",
+        "price_pnl": "0",
+        "accrued_funding": "0",
+        "borrow_interest": "0",
+        "net_pnl": "0",
+    }
+
+
+def _merge_build_row(coin, direction, bucket, um, spot_by_asset, borrowed_by_asset):
+    """Build one merged row: bucket fields + matched UM position + spot/borrow +
+    unrealized PnL + the single-leg / drift markers."""
+    row = dict(bucket) if bucket else _merge_empty_bucket_row(coin, direction)
+    if coin is not None:
+        row["coin"] = coin
+    if direction is not None:
+        row["direction"] = direction
+
+    if um is not None:
+        row["um_position_side"] = um.get("position_side")
+        row["um_position_amt"] = um.get("position_amt")
+        row["um_notional_usdt"] = um.get("notional_usdt")
+        row["um_entry_price"] = um.get("entry_price")
+        row["um_mark_price"] = um.get("mark_price")
+        row["um_liquidation_price"] = um.get("liquidation_price")
+        # P7: unrealized PnL has a real source — surface it and overlay the "0"
+        # placeholder so the UI renders a true figure, not 0.00.
+        upnl = um.get("unrealized_profit")
+        row["unrealized_profit"] = upnl
+        # R2 (fix-merged-positions-n2-ui-v1): a missing/unparseable upnl must NOT
+        # masquerade as the bucket's "0" placeholder. Surface the real figure
+        # (including a true "0") only when it is parseable; otherwise price_pnl is
+        # None so the UI renders 暂无 and a real 0 stays distinguishable from missing.
+        row["price_pnl"] = upnl if _merge_num(upnl) is not None else None
+    else:
+        row["um_position_side"] = None
+        row["um_position_amt"] = None
+        row["um_notional_usdt"] = None
+        row["um_entry_price"] = None
+        row["um_mark_price"] = None
+        row["um_liquidation_price"] = None
+        row["unrealized_profit"] = None
+
+    base_asset = _merge_base_asset(row.get("coin"))
+    real_spot = spot_by_asset.get(base_asset) if base_asset else None
+    row["spot_balance"] = fmt_decimal(real_spot) if real_spot is not None else None
+    row["cross_margin_borrowed"] = (
+        borrowed_by_asset.get(base_asset) if base_asset else None
+    )
+
+    # single_leg_exposure: the task filled its spot leg but not its perp leg
+    # (one orderId) — a real naked-spot exposure. Derived from the task bucket
+    # (spot_qty>0, perp_qty==0), not re-derived on the frontend.
+    spot_qty = _merge_num(row.get("spot_qty")) or Decimal(0)
+    perp_qty = _merge_num(row.get("perp_qty")) or Decimal(0)
+    row["single_leg_exposure"] = bucket is not None and spot_qty > 0 and perp_qty == 0
+
+    # drift: the real spot balance is LESS than the task-record accumulation —
+    # the operator manually reduced the hedge's spot leg (P2). Only the
+    # risk-relevant direction is flagged (real < recorded); no auto-action.
+    recorded_spot = _merge_num(row.get("spot_qty"))
+    row["drift"] = (
+        recorded_spot is not None
+        and recorded_spot > 0
+        and real_spot is not None
+        and real_spot < recorded_spot
+    )
+
+    # G1 (fix-merged-positions-mismatch-labels-v1): an explicit match-status so
+    # the UI never has to infer 'no task record' / 'no UM position' from
+    # all-zero fields — that inference is exactly the ambiguity this stage kept
+    # tripping on. The merge layer is the one place that knows BOTH sides.
+    #   normal  : UM position + task bucket both present
+    #   no_task : UM position but no task record (manual order / card deleted)
+    #   no_um   : task record but no UM position (possibly liquidated / closed)
+    if um is not None and bucket is not None:
+        row["match_status"] = "normal"
+    elif um is not None and bucket is None:
+        row["match_status"] = "no_task"
+    elif um is None and bucket is not None:
+        row["match_status"] = "no_um"
+    else:
+        row["match_status"] = "normal"
+    return row
+
+
+def merge_positions(positions, private_account):
+    """Merge task-record position buckets with the snapshot's private_account.
+
+    ``positions`` is the list from :func:`HedgeOpenStore.aggregate_positions`
+    (buckets keyed by ``(coin, direction)``). ``private_account`` is the snapshot
+    block (``verified``, ``um_positions``, ``balances_unified``, ``balances_spot``,
+    ``checked_at``, ``error``) or ``None`` when the account snapshot is not ready
+    or not verified.
+
+    Returns ``(merged_rows, account_meta)``. The UM positions are the skeleton
+    (one row per real exchange position); task buckets with no matching UM
+    position are appended as 'no_um' rows so their cost basis stays visible (D15).
+    Each row keeps the bucket fields and adds the matched UM position, spot
+    balance, cross-margin borrow, unrealized PnL, and the ``single_leg_exposure``
+    / ``drift`` markers. ``account_meta`` reports availability so the caller never
+    has to 503 on a cold account (N2): when ``private_account`` is ``None`` or
+    ``verified`` is false the local bookkeeping rows are still returned with the
+    account-derived fields nulled.
+
+    Pure: takes plain dicts, returns plain dicts, holds no service reference and
+    performs no I/O — directly unit-testable.
+    """
+    pa = private_account or {}
+    verified = bool(pa.get("verified"))
+    um_positions = pa.get("um_positions") if verified else None
+    unified = pa.get("balances_unified") if verified else None
+    spot = pa.get("balances_spot") if verified else None
+    account_meta = {
+        "verified": verified,
+        "error": None if verified else (pa.get("error") or "snapshot_not_ready"),
+        "checked_at": pa.get("checked_at"),
+    }
+
+    spot_by_asset = {}
+    for row in spot or []:
+        if isinstance(row, dict) and row.get("asset"):
+            free = _merge_num(row.get("free")) or Decimal(0)
+            locked = _merge_num(row.get("locked")) or Decimal(0)
+            spot_by_asset[row["asset"]] = free + locked
+    borrowed_by_asset = {}
+    for row in unified or []:
+        if isinstance(row, dict) and row.get("asset"):
+            borrowed_by_asset[row["asset"]] = row.get("cross_margin_borrowed")
+
+    bucket_by_key = {}
+    for p in positions or []:
+        bucket_by_key.setdefault((p.get("coin"), p.get("direction")), p)
+
+    merged = []
+    matched_buckets = set()
+
+    # 1. UM skeleton rows (the real exchange positions).
+    for u in um_positions or []:
+        if not isinstance(u, dict):
+            continue
+        symbol = u.get("symbol")
+        direction = _merge_direction_for_side(u.get("position_side"))
+        bucket = None
+        if direction is not None and symbol is not None:
+            key = (symbol, direction)
+            bucket = bucket_by_key.get(key)
+            if bucket is not None:
+                matched_buckets.add(key)
+        merged.append(
+            _merge_build_row(symbol, direction, bucket, u, spot_by_asset, borrowed_by_asset)
+        )
+
+    # 2. Task buckets whose symbol has no matching UM position ('no_um': the
+    #    exchange has no position — possibly liquidated / manually closed). Their
+    #    cost basis still shows (D15).
+    for p in positions or []:
+        key = (p.get("coin"), p.get("direction"))
+        if key in matched_buckets:
+            continue
+        merged.append(
+            _merge_build_row(
+                p.get("coin"), p.get("direction"), p, None, spot_by_asset, borrowed_by_asset
+            )
+        )
+
+    merged.sort(key=lambda r: ((r.get("coin") or ""), (r.get("direction") or "")))
+    return merged, account_meta

@@ -164,7 +164,11 @@ const ids = [
   'hedge-tab-tasks', 'hedge-tab-logs', 'hedge-tasks-panel', 'hedge-logs-panel',
   'hedge-logs-error', 'hedge-log-list', 'hedge-logs-refresh', 'hedge-logs-load-more',
   'hedge-modal', 'hedge-modal-backdrop', 'hedge-modal-title', 'hedge-modal-body', 'hedge-modal-close',
-  'hedge-modal-confirm', 'hedge-modal-cancel', 'hedge-start-gate-toggle'
+  'hedge-modal-confirm', 'hedge-modal-cancel', 'hedge-start-gate-toggle',
+  // 假数据·预览（设计探针，2026-07-31-hedge-task-lifecycle-v1）：新增静态元素，须注册以避免
+  // eval(script) 时 els 的 getElementById 抛「未 mock 的元素」。
+  'hedge-fake-preview-toggle', 'hedge-fake-preview-panel',
+  'hedge-fake-preview-scenarios', 'hedge-fake-preview-body'
 ];
 ids.forEach(id => { elements[id] = makeElement(id); });
 
@@ -413,7 +417,7 @@ let hedgeActionResponses = {};
 let hedgeSettingsGetResponse = { status: 200, body: { executor_mode: 'disabled', start_gate: false, interval_seconds: 1, version: 1 } };
 // live-hardening v1（10-design §2.3）：POST /api/hedge-open-settings/start-gate 响应槽；未设置时 503。
 let hedgeStartGatePostResponse = null;
-let hedgePositionsGetResponse = { status: 200, body: { positions: [] } };
+let hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
 // real-api-v1：attempt 时间线数据源（既有 GET /api/hedge-open-logs，路由表不变，?limit=100 无 cursor）。
 let hedgeLogsGetResponse = { status: 200, body: { logs: [], next_cursor: null } };
 // 17 号兼容修正：开单日志页分页队列（?entries_limit=50[&entries_cursor=...]，响应带
@@ -1327,8 +1331,12 @@ setTimeout(async () => {
     if (!privateBody.includes('现货账户余额')) {
       throw new Error('私有面板未渲染现货账户余额');
     }
-    if (!privateBody.includes('UM 持仓')) {
-      throw new Error('私有面板未渲染 UM 持仓');
+    // R3 (fix-merged-positions-n2-ui-v1): 原 `includes('UM 持仓')` 断言验证的是那张
+    // 已被删除的独立 UM 持仓子表；它之所以仍绿，是因子表删除后改由「合并持仓表」承载，
+    // 而新表副标题「（UM 持仓为骨架）」恰好命中子串。改为验证合并持仓表的 section 标题
+    // 确实渲染（这才是新结构下有意义的对象），不删除断言。
+    if (!privateBody.includes('对冲开单持仓')) {
+      throw new Error('合并持仓表（对冲开单持仓 section）未渲染');
     }
     // designFixture 含 um_positions 时表头应有仓位价值列（方向与数量之间）
     if (Array.isArray(designFixture.private_account.um_positions)
@@ -4005,7 +4013,7 @@ setTimeout(async () => {
           spot_avg: '0.00125000', perp_avg: '0.00124600',
           open_basis_rate: 0, price_pnl: 0, accrued_funding: 0, borrow_interest: 0, net_pnl: 0
         }
-      ] } };
+      ], account: { verified: true, error: null, checked_at: null } } };
       const markPos = fetchCallLog.length;
       await helpers.loadHedgePositions();
       const posCall = fetchCallLog.slice(markPos).find(c => c.url.includes('hedge-open'));
@@ -4044,13 +4052,131 @@ setTimeout(async () => {
       if (privHtml.includes('本地模拟')) throw new Error('持仓表不应再标注本地模拟');
       if (helpers.getHedgePositions().length !== 2) throw new Error('持仓缓存应来自 positions 端点');
       // 空持仓 → 空态
-      hedgePositionsGetResponse = { status: 200, body: { positions: [] } };
+      hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
       await helpers.loadHedgePositions();
       helpers.renderPrivatePanel();
       if (!elements['private-panel-body'].innerHTML.includes('暂无开单持仓')) {
         throw new Error('空持仓应渲染空态');
       }
       console.log('[PASS] 持仓表从 GET /api/hedge-open-positions 渲染（§3.4 字段逐字）+ 空态 + 均价精度/方向色/价差率');
+    }
+
+    // 82b. R1/R2 渲染证据（fix-merged-positions-n2-ui-v1）
+    {
+      // R1：账户未就绪（snapshot verified=false + positions account.verified=false）——
+      //     合并表仍渲染、未就绪横幅出现、本地 coin 行可见。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'BTCUSDT', direction: 'forward', position_qty: '-0.5', spot_avg: '50000', perp_avg: '50000', includes_deleted_task: false }
+      ], account: { verified: false, error: 'snapshot_not_ready', checked_at: null } } };
+      const r1Fixture = JSON.parse(JSON.stringify(designFixture));
+      r1Fixture.private_account = { verified: false, error: 'snapshot_not_ready', balances_unified: [], balances_spot: [], um_positions: [], checked_at: null };
+      helpers.ingestSnapshot(r1Fixture);
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const r1Body = elements['private-panel-body'].innerHTML;
+      if (elements['private-panel'].style.display === 'none') {
+        throw new Error('R1: 账户未就绪时私有面板不应隐藏');
+      }
+      if (!r1Body.includes('账户数据未就绪')) {
+        throw new Error('R1: 账户未就绪横幅未出现');
+      }
+      if (!r1Body.includes('对冲开单持仓')) {
+        throw new Error('R1: 合并持仓表 section 未渲染');
+      }
+      if (!r1Body.includes('BTCUSDT')) {
+        throw new Error('R1: 本地记账行未渲染（降级下合并表应可见）');
+      }
+
+      // R2：有 UM 持仓但 unrealized_profit 缺失 —— 未实现盈亏渲染「暂无」而非 0.00。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'BTCUSDT', direction: 'forward', um_position_amt: '-0.5', um_notional_usdt: '100', unrealized_profit: null, price_pnl: null, spot_avg: '50000', perp_avg: '50000', includes_deleted_task: false }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      helpers.ingestSnapshot(designFixture); // verified=true → verified 块渲染合并表
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      const r2Body = elements['private-panel-body'].innerHTML;
+      // 价格未实现盈亏是合并表第 8 列（index 7）。
+      const pnlCell = getRowCell(r2Body, 'BTCUSDT', 7);
+      if (!pnlCell.includes('暂无')) {
+        throw new Error('R2: 缺 unrealized_profit 时未实现盈亏应渲染「暂无」: ' + pnlCell);
+      }
+      if (pnlCell.includes('0.00')) {
+        throw new Error('R2: 缺 unrealized_profit 时不得画 0.00: ' + pnlCell);
+      }
+
+      // 恢复默认 mock 与 fixture，避免影响后续用例。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] R1/R2 渲染证据：账户未就绪合并表+横幅+本地行可见；缺 upnl 未实现盈亏画「暂无」不画 0');
+    }
+
+    // 82c. G1/G2/G5 渲染证据（fix-merged-positions-mismatch-labels-v1）
+    {
+      helpers.ingestSnapshot(designFixture); // verified=true → 合并表渲染
+      // G1+G2: no_task 行（有 UM、无任务记录）—— 本地成本列显示 — 而非 0，标记「无任务记录」。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'MUUSDT', direction: 'forward', match_status: 'no_task',
+          um_position_amt: '-0.1', um_notional_usdt: '82', um_entry_price: '918',
+          unrealized_profit: '0.5', price_pnl: '0.5',
+          spot_avg: null, perp_avg: null, position_qty: null,
+          spot_avg_price_incomplete: false, perp_avg_price_incomplete: false,
+          includes_deleted_task: false }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      let body = elements['private-panel-body'].innerHTML;
+      const noTaskSpot = getRowCell(body, 'MUUSDT', 10);
+      const noTaskPerp = getRowCell(body, 'MUUSDT', 11);
+      const noTaskMark = getRowCell(body, 'MUUSDT', 16);
+      if (!noTaskSpot.includes('—') || noTaskSpot.includes('0')) {
+        throw new Error('G2: no_task 现货均价应显示 — 而非 0: ' + noTaskSpot);
+      }
+      if (!noTaskPerp.includes('—') || noTaskPerp.includes('0')) {
+        throw new Error('G2: no_task 合约均价应显示 — 而非 0: ' + noTaskPerp);
+      }
+      if (!noTaskMark.includes('无任务记录')) {
+        throw new Error('G1: no_task 行应标记「无任务记录」: ' + noTaskMark);
+      }
+
+      // G1: no_um 行（有任务记录、无 UM）—— 标记「交易所无仓」。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'XYZUSDT', direction: 'forward', match_status: 'no_um',
+          um_position_amt: null, spot_avg: '1.20', perp_avg: '1.21',
+          spot_avg_price_incomplete: false, perp_avg_price_incomplete: false,
+          includes_deleted_task: false }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      body = elements['private-panel-body'].innerHTML;
+      const noUmMark = getRowCell(body, 'XYZUSDT', 16);
+      if (!noUmMark.includes('交易所无仓')) {
+        throw new Error('G1: no_um 行应标记「交易所无仓」: ' + noUmMark);
+      }
+
+      // G5: 不完整标记可见（合约均价在部分未知金额的成交上算）。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [
+        { coin: 'RSRUSDT', direction: 'forward', match_status: 'normal',
+          um_position_amt: '-20000', um_notional_usdt: '24.92',
+          spot_avg: '0.001247', perp_avg: '0.001246',
+          spot_avg_price_incomplete: false, perp_avg_price_incomplete: true,
+          includes_deleted_task: false }
+      ], account: { verified: true, error: null, checked_at: null } } };
+      await helpers.loadHedgePositions();
+      helpers.renderPrivatePanel();
+      body = elements['private-panel-body'].innerHTML;
+      const g5Mark = getRowCell(body, 'RSRUSDT', 16);
+      if (!g5Mark.includes('均价不完整')) {
+        throw new Error('G5: 不完整均价应显示「均价不完整」标记: ' + g5Mark);
+      }
+      const g5Perp = getRowCell(body, 'RSRUSDT', 11);
+      if (!g5Perp.includes('title=')) {
+        throw new Error('G5: 不完整合约均价单元格应带 title 说明: ' + g5Perp);
+      }
+
+      // 恢复默认 mock 与 fixture。
+      hedgePositionsGetResponse = { status: 200, body: { positions: [], account: { verified: true, error: null, checked_at: null } } };
+      helpers.ingestSnapshot(designFixture);
+      console.log('[PASS] G1/G2/G5：no_task 成本—+「无任务记录」、no_um「交易所无仓」、不完整均价「均价不完整」+title');
     }
 
     // 83. 执行徽标（§3：GET /api/hedge-open-settings 的 executor_mode + start_gate）
@@ -4919,6 +5045,36 @@ setTimeout(async () => {
       if (attempts.length !== 1) throw new Error(`start_gate_changed 应被忽略，仅留 1 条 attempt，实际 ${attempts.length}`);
       if (attempts[0].attempt_seq !== 1) throw new Error('应保留真 attempt');
       console.log('[PASS] M-1 start_gate_changed 审计行被 extractHedgeAttempts 忽略（不渲染畸形 attempt）');
+    }
+
+    // 98. 假数据·预览（2026-07-31-hedge-task-lifecycle-v1）：默认关闭、开关可切、
+    //     51169 冻结文案逐字渲染、打开预览零网络请求。纯前端探针，不触真实渲染路径。
+    {
+      const panel = document.getElementById('hedge-fake-preview-panel');
+      const toggle = document.getElementById('hedge-fake-preview-toggle');
+      if (!panel || !toggle) throw new Error('假数据预览 DOM 缺失');
+      // 默认关闭：bindHedgeFakePreview 在 eval 时按 state.hedgeFakePreviewOpen=false 显式赋 hidden=true。
+      if (panel.hidden !== true) throw new Error('假数据预览默认应为关闭（hidden=true）');
+      const clickHandlers = toggle.listeners && toggle.listeners.click;
+      if (!clickHandlers || !clickHandlers.length) throw new Error('假数据预览开关未绑定 click');
+      // 打开预览不应发起任何网络请求（假数据为脚本内常量，acceptance #3）。
+      const mark = fetchCallLog.length;
+      clickHandlers[0]();
+      if (panel.hidden !== false) throw new Error('点击开关后预览应展开（hidden=false）');
+      if (fetchCallLog.length !== mark) throw new Error('打开假数据预览发起了网络请求（应为纯前端假数据）');
+      const bodyHtml = document.getElementById('hedge-fake-preview-body').innerHTML;
+      // 51169 冻结文案逐字渲染（acceptance #8）：含其特征句段。
+      if (!bodyHtml.includes('已达币安平台级抵押金额上限')) throw new Error('预览未渲染 51169 冻结文案');
+      if (!bodyHtml.includes('追加资金无效')) throw new Error('51169 冻结文案不完整（缺「追加资金无效」）');
+      // 严禁「保证金不足」假事实替换冻结文案（acceptance #8）：冻结文案唯一含「保证金不足」之处是
+      // 否定句「并非本账户保证金不足」，属逐字原文，故此处只断言「并非本账户保证金不足」存在。
+      if (!bodyHtml.includes('并非本账户保证金不足')) throw new Error('冻结文案否定句缺失');
+      // 两个真实渲染函数未被预览调用污染：预览 body 用独立 fake 函数，真实列表不含 fake 卡标识。
+      if (bodyHtml.includes('data-hedge-task-id')) throw new Error('预览误用真实任务卡 data-hedge-task-id 属性');
+      // 再次点击应收起。
+      clickHandlers[0]();
+      if (panel.hidden !== true) throw new Error('再次点击开关应收起预览');
+      console.log('[PASS] 假数据·预览：默认关闭 + 开关可切 + 51169 冻结文案逐字渲染 + 打开零网络请求');
     }
 
     // 76. 无泄漏证明：fetch 同源白名单、无 Binance/外域、无新任务定时器、localStorage 白名单

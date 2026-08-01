@@ -276,12 +276,28 @@ def test_aggregate_positions_forward_short_reverse_long(tmp_path):
     store.close()
 
 
-def test_aggregate_positions_excludes_deleted_tasks(tmp_path):
+def test_aggregate_positions_includes_deleted_tasks_d15(tmp_path):
+    # N-1 / D15 (2026-07-31): this was ``test_aggregate_positions_excludes_deleted_tasks``
+    # and asserted ``aggregate_positions() == []`` (a deleted task's legs were excluded
+    # by ``WHERE t.status != deleted``). D15 inverts that — deleted tasks' already-filled
+    # legs now COUNT so their cost basis stays visible once ② makes auto-delete routine.
+    # Same fixture as test_aggregate_positions_forward_short_reverse_long; only the
+    # task status differs. The test is updated (not deleted) to lock the new behavior:
+    # the row is present, carries the same signed qty / avg, and is flagged
+    # ``includes_deleted_task`` so the UI can mark it as a mixed/deleted source.
     store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
     _create(store, "tf", direction=D.DIR_FORWARD)
     store.insert_fill("tf", "af", _outcome(attempt_id="af"), 1_100)
     store.set_task_status("tf", D.STATUS_DELETED, 2_000)
-    assert store.aggregate_positions() == []
+    positions = store.aggregate_positions()
+    assert len(positions) == 1
+    p = positions[0]
+    assert p["coin"] == "BTCUSDT"
+    assert p["direction"] == D.DIR_FORWARD
+    assert p["includes_deleted_task"] is True
+    assert Decimal(p["position_qty"]) == Decimal("-0.5")  # forward perp SELL still counted
+    assert Decimal(p["spot_avg"]) == Decimal("50000")
+    assert Decimal(p["perp_avg"]) == Decimal("50000")
     store.close()
 
 
@@ -722,6 +738,43 @@ def test_aggregate_positions_fill_real_zero_avg_price_contributes_zero(tmp_path)
     assert pos["spot_avg_price_incomplete"] is False  # real "0" is not unknown
     assert Decimal(pos["spot_avg"]) == Decimal("0")   # 0.5 * 0 / 0.5
     assert Decimal(pos["perp_avg"]) == Decimal("50000")
+    store.close()
+
+
+def test_aggregate_positions_literal_zero_quote_treated_as_unknown_g5(tmp_path):
+    """G5 (fix-merged-positions-mismatch-labels-v1 / 44-runtime-observation §3):
+    a literal "0" quote WITH a real fill is the same unknown sentinel as NULL
+    (Binance dropped the UM fill quote on 2026-07-14; the live write path
+    persisted the unknown as "0", not NULL). It must NOT enter the avg as a real
+    0. Real data shape: RSRUSDT forward perp, two fills of 10000 each — one quote
+    "0", one "12.46". The avg must be 12.46/10000 = 0.001246 (the true price),
+    NOT (0 + 12.46)/20000 = 0.000623 (half its true value, what the real machine
+    showed), and perp_avg_price_incomplete must be True. The real qty still
+    counts for display (position_qty = -20000)."""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    _create(store, "tn", direction=D.DIR_FORWARD, target=2)
+
+    def _perp_quote_outcome(att_id, perp_quote):
+        return AttemptOutcome(
+            attempt_id=att_id, category=D.ATTEMPT_SUCCESS,
+            spot={"status": D.LEG_FILLED, "filled_qty": "10000",
+                  "cumulative_quote": "500", "avg_price": "0.005",
+                  "order_id": f"os-{att_id}", "client_order_id": f"hgo-{att_id}-s"},
+            perp={"status": D.LEG_FILLED, "filled_qty": "10000",
+                  "cumulative_quote": perp_quote, "avg_price": None,
+                  "order_id": f"op-{att_id}", "client_order_id": f"hgo-{att_id}-p"},
+            record_payload={"transport": "dry_run_record", "posted": False,
+                            "spot_order_params": {}, "perp_order_params": {}},
+            exposure=None,
+        )
+
+    _apply(store, "tn", _perp_quote_outcome("att1", "0"), 1_100)
+    _apply(store, "tn", _perp_quote_outcome("att2", "12.46"), 1_200)
+    pos = next(p for p in store.aggregate_positions() if p["coin"] == "BTCUSDT")
+    assert pos["perp_avg_price_incomplete"] is True        # the "0" leg flagged it
+    assert Decimal(pos["perp_avg"]) == Decimal("0.001246")  # true price, not dragged
+    assert Decimal(pos["perp_avg"]) != Decimal("0.000623")  # regression guard: NOT half
+    assert Decimal(pos["position_qty"]) == Decimal("-20000")  # real qty still counts
     store.close()
 
 

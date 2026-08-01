@@ -827,6 +827,73 @@
     .hedge-task-log-wrap td.log-muted {
       color: var(--muted);
     }
+    /* 假数据·预览（设计探针，2026-07-31-hedge-task-lifecycle-v1）：默认关闭的纯前端假数据区块。
+       标注风格对齐 F10-fake 先例（虚线边框 + 显著「假数据」徽标），与真实渲染路径完全隔离。 */
+    .hedge-fake-preview-toolbar {
+      margin-top: var(--space-4);
+    }
+    .hedge-fake-preview {
+      margin-top: var(--space-3);
+      padding: var(--space-3);
+      border: 1px dashed var(--danger);
+      border-radius: 8px;
+      background: var(--danger-soft);
+    }
+    .hedge-fake-preview-head {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-3);
+    }
+    .hedge-fake-preview-scenarios {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-3);
+    }
+    .hedge-fake-preview-scenarios .btn.active-scenario {
+      border-color: var(--danger);
+      background: var(--surface-2);
+    }
+    .hedge-fake-preview h4 {
+      margin: var(--space-3) 0 var(--space-2);
+      font-size: 13px;
+    }
+    .hedge-fake-preview .fk-note {
+      color: var(--muted);
+      font-size: 12px;
+      margin: var(--space-1) 0 var(--space-2);
+    }
+    .hedge-fake-preview .fk-legend {
+      color: var(--muted);
+      font-size: 11px;
+      margin: var(--space-2) 0;
+    }
+    .hedge-fake-preview table {
+      width: 100%;
+      font-size: 12px;
+    }
+    .hedge-fake-preview th {
+      white-space: nowrap;
+    }
+    /* 占位零三分类（dispatch「关于占位零」）：真值 / 暂无数据源 / 拿不到 视觉可区分。 */
+    .fk-real { color: inherit; }
+    .fk-none { color: var(--muted); font-style: italic; }
+    .fk-unknown { color: var(--faint); }
+    .fk-row-danger td { background: rgba(220, 38, 38, 0.07); }
+    .fk-row-muted td { color: var(--muted); }
+    .fk-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: var(--space-2) var(--space-3);
+      margin-top: var(--space-2);
+      background: var(--surface-2);
+    }
+    .fk-card.fk-deleted {
+      border-style: dashed;
+      border-color: var(--danger);
+    }
     /* 任务操作按钮主题：启动=绿、暂停=灰、删除=红；显式禁用态覆盖主题色 */
     .btn.action-start {
       border-color: #a8dbc0;
@@ -1200,6 +1267,22 @@
             <div class="borrow-task-list" id="hedge-task-list"></div>
             <div class="status-banner error" id="hedge-attempts-error" style="display:none; margin-top: var(--space-3);"></div>
             <div id="hedge-attempt-list" style="margin-top: var(--space-4);"></div>
+
+            <!-- 假数据·预览（设计探针，2026-07-31-hedge-task-lifecycle-v1）：纯前端假数据常量，
+                 默认关闭，不接后端、不动真实渲染路径；仅用于真实实现开工前确认展示形状。
+                 打开路径：开单任务视图 → 本页底部「🧪 假数据 · 预览」按钮。 -->
+            <div class="hedge-fake-preview-toolbar">
+              <button class="btn compact" id="hedge-fake-preview-toggle" type="button"
+                      aria-expanded="false" aria-controls="hedge-fake-preview-panel">🧪 假数据 · 预览（设计探针，默认关闭）</button>
+            </div>
+            <section class="hedge-fake-preview" id="hedge-fake-preview-panel" hidden aria-label="假数据预览（设计探针）">
+              <div class="hedge-fake-preview-head">
+                <span class="badge danger">假数据 · 预览</span>
+                <span class="muted small">本区块所有数字均为脚本内假数据常量，不发起任何网络请求，不代表任何真实账户；仅用于在真实实现开工前确认合并持仓表与任务卡的展示形状。</span>
+              </div>
+              <div id="hedge-fake-preview-scenarios" class="hedge-fake-preview-scenarios" role="group" aria-label="预览场景选择"></div>
+              <div id="hedge-fake-preview-body"></div>
+            </section>
           </div>
 
           <div id="hedge-logs-panel" style="display:none;">
@@ -1330,6 +1413,10 @@
         hedgeTaskFilter: 'running',
         // 任务卡「展开日志」的展开状态（task id 集合）：重渲染后据此恢复展开，避免自动刷新收起。
         hedgeLogExpanded: new Set(),
+        // 假数据·预览（设计探针，2026-07-31-hedge-task-lifecycle-v1）：默认关闭；
+        // hedgeFakePreviewScenario 为合并持仓表当前所选场景（normal/no_task/no_um/single_leg/missing/empty）。
+        hedgeFakePreviewOpen: false,
+        hedgeFakePreviewScenario: 'normal',
         // 任务卡内嵌日志缓存（task id → { loading, attempts, error }）：展开时拉取该任务
         // 全部 attempt（GET /api/hedge-open-logs?task_id=…），随既有 tick 重取，不新增定时器。
         hedgeTaskLogs: {},
@@ -1420,7 +1507,12 @@
         hedgeModalClose: document.getElementById('hedge-modal-close'),
         hedgeModalConfirm: document.getElementById('hedge-modal-confirm'),
         hedgeModalCancel: document.getElementById('hedge-modal-cancel'),
-        hedgeStartGateToggle: document.getElementById('hedge-start-gate-toggle')
+        hedgeStartGateToggle: document.getElementById('hedge-start-gate-toggle'),
+        // 假数据·预览（设计探针）：开关、面板、场景容器、内容容器。
+        hedgeFakePreviewToggle: document.getElementById('hedge-fake-preview-toggle'),
+        hedgeFakePreviewPanel: document.getElementById('hedge-fake-preview-panel'),
+        hedgeFakePreviewScenarios: document.getElementById('hedge-fake-preview-scenarios'),
+        hedgeFakePreviewBody: document.getElementById('hedge-fake-preview-body')
       };
 
       function loadPrivacyHidden() {
@@ -2645,21 +2737,28 @@
 
       function renderPrivatePanel() {
         const pa = state.snapshot && state.snapshot.private_account;
-        if (!pa) {
+        // R1 (fix-merged-positions-n2-ui-v1): the merged positions table is local
+        // bookkeeping and must render even when the account snapshot is absent or
+        // not verified. Hide the panel only when there is nothing to show at all
+        // (no account block AND no local positions); the merged table + a not-ready
+        // notice cover the degraded cases below.
+        const hasPositions = Array.isArray(state.hedgePositions) && state.hedgePositions.length > 0;
+        if (!pa && !hasPositions) {
           els.privatePanel.style.display = 'none';
           return;
         }
         els.privatePanel.style.display = '';
 
-        if (pa.verified !== true) {
-          const errorDetail = pa.error ? `（${escapeHtml(pa.error)}）` : '';
+        if (!pa || pa.verified !== true) {
+          const errorDetail = (pa && pa.error) ? `（${escapeHtml(pa.error)}）` : '';
           els.privatePanelSubtitle.textContent = '私有账户未读取';
           els.privatePanelBody.innerHTML = `
             <div class="empty-state">
               <strong>私有账户未读取</strong><br/>
               未配置 API key 或私有只读请求失败，未获取到账户资产数据${errorDetail}<br/>
-              <span class="muted small">请检查 API key 权限、IP 白名单或后端私有通道配置；系统不会执行交易或划转</span>
+              <span class="muted small">请检查 API key 权限、IP 白名单或后端私有通道配置；本地对冲持仓（任务记账）仍展示在下方；系统不会执行交易或划转</span>
             </div>
+            ${renderHedgeMergedPositions()}
           `;
           return;
         }
@@ -2726,43 +2825,6 @@
             `).join('')
           : '<span class="muted small">无数据</span>';
 
-        const umPositions = Array.isArray(pa.um_positions) && pa.um_positions.length > 0
-          ? `
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>标的</th>
-                    <th>方向</th>
-                    <th>仓位价值 (USDT)</th>
-                    <th>数量</th>
-                    <th>开仓价</th>
-                    <th>标记价</th>
-                    <th>未实现盈亏</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${pa.um_positions.map(p => {
-                    const dir = directionForPosition(p);
-                    const dirLabel = dir === 'long' ? '多' : '空';
-                    return `
-                      <tr>
-                        <td class="mono">${escapeHtml(p.symbol || '—')}</td>
-                        <td><span class="direction-badge ${dir}">${dirLabel}</span></td>
-                        <td class="mono">${maskAmount(p.notional_usdt)}</td>
-                        <td class="mono">${maskAmount(p.position_amt)}</td>
-                        <td class="mono">${maskAmount(p.entry_price)}</td>
-                        <td class="mono">${maskAmount(p.mark_price)}</td>
-                        <td class="mono">${maskAmount(p.unrealized_profit)}</td>
-                      </tr>
-                    `;
-                  }).join('')}
-                </tbody>
-              </table>
-            </div>
-          `
-          : '<div class="empty-state"><span class="muted small">当前无 UM 持仓</span></div>';
-
         els.privatePanelBody.innerHTML = `
           <div class="private-overview">
             <div class="overview-card">
@@ -2817,12 +2879,7 @@
             <div class="balance-grid">${spotBalances}</div>
           </div>
 
-          <div class="account-section">
-            <h3>UM 持仓</h3>
-            ${umPositions}
-          </div>
-
-          ${renderHedgePositionsSection()}
+          ${renderHedgeMergedPositions()}
         `;
       }
 
@@ -3654,6 +3711,22 @@
         return s;
       }
 
+      // G7 (fix-merged-positions-mismatch-labels-v1): avg-price columns统一收敛到
+      // 8 位有效数字，消除除法产生的超长尾数（真机 RSRUSDT 反向现货均价曾显示
+      // 27 位）。用「有效数字」而非「固定小数位」：极小真值（如 0.000623）永不
+      // 因收敛被抹成 0——那会退回本 stage 反复出现的同一类假零问题。缺失仍为 —，
+      // 真实 0 仍显示 0（与缺失可区分）。仅用于 spot_avg / perp_avg 两列。
+      function formatHedgeAvgPrice(v) {
+        if (v === null || v === undefined || v === '') return '—';
+        const n = hedgeNum(v);
+        if (!Number.isFinite(n)) return '—';
+        if (n === 0) return formatHedgeDecimal(v);
+        const sign = n < 0 ? '-' : '';
+        const order = Math.floor(Math.log10(Math.abs(n)));
+        const decimals = Math.max(0, 7 - order); // 8 sig figs total
+        return formatHedgeDecimal(sign + Math.abs(n).toFixed(decimals));
+      }
+
       // 历史名 formatMockPrice：语义同 formatHedgeDecimal（不再 toFixed(4)）。
       function formatMockPrice(n) {
         return formatHedgeDecimal(n);
@@ -3752,12 +3825,16 @@
         try {
           const doc = await hedgeApi('/api/hedge-open-positions');
           state.hedgePositions = Array.isArray(doc && doc.positions) ? doc.positions : [];
+          state.hedgeAccountMeta = (doc && doc.account) || null;
         } catch (err) {
           // 加载失败保留上次缓存，不清空已渲染持仓
         }
-        if (els.privatePanel.style.display !== 'none' &&
-            state.snapshot && state.snapshot.private_account &&
-            state.snapshot.private_account.verified === true) {
+        // R1: redraw whenever the merged table may render — including the
+        // account-not-ready path (the table is independent of
+        // private_account.verified). Drop the verified===true gate and also render
+        // when local positions just loaded (the panel may need to become visible).
+        if (els.privatePanel.style.display !== 'none' ||
+            (Array.isArray(state.hedgePositions) && state.hedgePositions.length > 0)) {
           renderPrivatePanel();
         }
       }
@@ -4404,68 +4481,498 @@
         if (el) el.textContent = msg || '';
       }
 
-      // ---- 持仓表（§3.4 Position JSON 逐字渲染；数据仅来自 GET /api/hedge-open-positions） ----
-      function renderHedgePositionsSection() {
+      // ---- 合并持仓表（Task 1 / D14，11-adr.md ADR-001）----
+      // 后端 /api/hedge-open-positions 已把真实 UM 持仓（骨架）与任务记账成本、
+      // 现货/借款、未实现盈亏合并好；前端只渲染。占位零三分类（P7）：真值 / 暂无 /
+      // 拿不到(—)。标记：单腿敞口 / 本地记录与实际不一致 / 含已删除任务记录。
+      function renderHedgeMergedPositions() {
         const positions = state.hedgePositions;
-        if (positions.length === 0) {
+        // account is absent until the first positions load; only an explicit
+        // verified:false (the endpoint reported the account not ready) raises the
+        // N2 banner — never an unknown/未加载 state.
+        const account = state.hedgeAccountMeta;
+        const accountBanner = (account && account.verified === false)
+          ? `<div class="empty-state"><span class="muted small">账户数据未就绪（${escapeHtml(account.error || 'snapshot_not_ready')}）：仅显示本地任务记录，交易所持仓与现货余额列暂缺</span></div>`
+          : '';
+        // 拿不到：真实契约缺失/币安 sentinel（强平价 "0"）→ —。
+        const umCell = (v) => (v === null || v === undefined || v === '')
+          ? '<span class="muted">—</span>'
+          : maskAmount(v);
+        // 暂无 vs 真值：资金费/借币利息/净盈亏本轮无实时数据源，后端恒 "0" 占位 → 「暂无」；
+        // 仅当出现真实非零值（未来接入数据源）才显示数字。
+        const pendingCell = (v, formatter) => {
+          const blank = v === null || v === undefined || v === '' || v === '0' || v === 0;
+          if (blank) return '<span class="muted small">暂无</span>';
+          return `<span class="mono">${formatter(v)}</span>`;
+        };
+        const hasRows = Array.isArray(positions) && positions.length > 0;
+        // G6: cross-margin borrow is an account-level, per-asset figure — NOT a
+        // per-row property. When the same asset spans several rows (e.g. a coin
+        // hedged both forward and reverse) the value would otherwise repeat and a
+        // vertical sum would double-count the debt. Show it on the first row for
+        // each asset and mark repeats so the column never reads as summable.
+        const seenBorrowAsset = new Set();
+        const rowsHtml = hasRows ? positions.map(p => {
+          const dirLabel = p.direction === 'forward' ? '正向'
+            : p.direction === 'reverse' ? '反向'
+            : hedgeText(p.direction);
+          // 正向绿 / 反向红（复用 .positive / .negative 色板）。
+          const dirCls = p.direction === 'forward' ? 'positive'
+            : p.direction === 'reverse' ? 'negative'
+            : 'muted';
+          // 展示用：由均价现算，不读后端占位 open_basis_rate:"0"。
+          const basisRate = computeHedgeOpenBasisRate(p.spot_avg, p.perp_avg, p.direction);
+          const basisCls = classForSignedNumber(basisRate);
+          // 未实现盈亏：仅当存在真实 UM 持仓且 unrealized_profit 可解析时才有真值；
+          // 否则「暂无」（不画 0.00）。R2：真值 0 与缺失必须可区分。
+          const hasUm = !(p.um_position_amt === null || p.um_position_amt === undefined || p.um_position_amt === '');
+          const upnlPresent = !(p.unrealized_profit === null || p.unrealized_profit === undefined || p.unrealized_profit === '');
+          const pnlReal = hasUm && upnlPresent;
+          const pnlCls = pnlReal ? classForSignedNumber(hedgeNum(p.price_pnl)) : '';
+          const pnlText = pnlReal ? formatHedgeSigned(p.price_pnl) : '<span class="muted small">暂无</span>';
+          // 行标记（只展示、不动作）。
+          const markers = [];
+          // G1: explicit match status — the backend knows both sides, so the UI
+          // never infers 'no task' / 'no UM' from all-zero fields (the ambiguity
+          // this stage kept tripping on). Short label; inferred cause in the title.
+          if (p.match_status === 'no_task') markers.push('<span class="risk-warn small" title="交易所有持仓，但本地无对应任务记录（手工单或任务卡已删）">无任务记录</span>');
+          else if (p.match_status === 'no_um') markers.push('<span class="risk-warn small" title="本地有任务记录，但交易所无对应持仓（可能已强平或手工平仓）">交易所无仓</span>');
+          if (p.single_leg_exposure) markers.push('<span class="risk-warn small">单腿敞口</span>');
+          // G5: surface the backend incomplete flags — the avg is averaged over a
+          // partial (unknown-notional) fill set, so the reader knows it is partial.
+          if (p.spot_avg_price_incomplete || p.perp_avg_price_incomplete) markers.push('<span class="risk-warn small" title="该均价在部分成交（金额未知）上计算，非完整口径">均价不完整</span>');
+          if (p.drift) markers.push('<span class="risk-warn small">本地记录与实际不一致</span>');
+          if (p.includes_deleted_task) markers.push('<span class="muted small">含已删除任务记录，均价为混合值</span>');
+          const markerText = markers.length ? markers.join(' ') : '<span class="muted">—</span>';
+          // G6: per-asset borrow dedup (see seenBorrowAsset above).
+          const borrowAsset = (typeof p.coin === 'string' && p.coin.endsWith('USDT'))
+            ? p.coin.slice(0, -4) : p.coin;
+          const hasBorrow = !(p.cross_margin_borrowed === null
+            || p.cross_margin_borrowed === undefined || p.cross_margin_borrowed === '');
+          const borrowSeen = hasBorrow && seenBorrowAsset.has(borrowAsset);
+          if (hasBorrow && !borrowSeen) seenBorrowAsset.add(borrowAsset);
+          const borrowCell = !hasBorrow
+            ? '<span class="muted">—</span>'
+            : (borrowSeen
+              ? '<span class="muted small" title="账户级（按资产）；同币多行请勿竖向相加">同↑</span>'
+              : `<span class="mono" title="账户级（按资产）；同币多行请勿竖向相加">${maskAmount(p.cross_margin_borrowed)}</span>`);
+          // G5: a title on the avg cell when its incomplete flag is set.
+          const spotAvgTitle = p.spot_avg_price_incomplete
+            ? ' title="部分成交金额未知，均价为不完整口径"' : '';
+          const perpAvgTitle = p.perp_avg_price_incomplete
+            ? ' title="部分成交金额未知，均价为不完整口径"' : '';
           return `
-          <div class="account-section">
-            <h3>对冲开单持仓</h3>
-            <div class="empty-state"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></div>
-          </div>`;
-        }
+                      <tr>
+                        <td class="mono">${escapeHtml(p.coin)}</td>
+                        <td class="${dirCls}">${dirLabel}</td>
+                        <td class="mono">${umCell(p.um_notional_usdt)}</td>
+                        <td class="mono">${hasUm ? maskAmount(p.um_position_amt) : formatHedgeDecimal(p.position_qty)}</td>
+                        <td class="mono">${umCell(p.um_entry_price)}</td>
+                        <td class="mono">${umCell(p.um_mark_price)}</td>
+                        <td class="mono">${umCell(p.um_liquidation_price)}</td>
+                        <td class="mono ${pnlCls}">${pnlText}</td>
+                        <td class="mono">${umCell(p.spot_balance)}</td>
+                        <td class="mono">${borrowCell}</td>
+                        <td class="mono"${spotAvgTitle}>${formatHedgeAvgPrice(p.spot_avg)}</td>
+                        <td class="mono"${perpAvgTitle}>${formatHedgeAvgPrice(p.perp_avg)}</td>
+                        <td class="mono ${basisCls}">${formatHedgeBasisPct(basisRate)}</td>
+                        <td class="mono">${pendingCell(p.accrued_funding, formatHedgeDecimal)}</td>
+                        <td class="mono">${pendingCell(p.borrow_interest, formatHedgeDecimal)}</td>
+                        <td class="mono">${pendingCell(p.net_pnl, formatHedgeSigned)}</td>
+                        <td class="small">${markerText}</td>
+                      </tr>
+                    `;
+        }).join('') : `<tr><td colspan="17"><span class="muted small">暂无开单持仓；任务成交后按币种聚合展示</span></td></tr>`;
+        // 表头恒渲染（含「仓位价值」），即使空持仓也保留列结构。
         return `
           <div class="account-section">
-            <h3>对冲开单持仓</h3>
+            <h3>对冲开单持仓 <span class="muted small">（UM 持仓为骨架）</span></h3>
+            ${accountBanner}
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th>币种</th>
                     <th>方向</th>
+                    <th>仓位价值</th>
                     <th>持仓数量</th>
+                    <th>合约开仓价</th>
+                    <th>标记价</th>
+                    <th>强平价</th>
+                    <th>价格未实现盈亏</th>
+                    <th>现货余额</th>
+                    <th>全仓借款</th>
                     <th>现货均价</th>
                     <th>合约均价</th>
                     <th>开单价差率</th>
-                    <th>价格未实现盈亏</th>
                     <th>累计资金费</th>
                     <th>借币利息</th>
                     <th>净盈亏</th>
+                    <th>标记</th>
                   </tr>
                 </thead>
-                <tbody>
-                  ${positions.map(p => {
-                    const dirLabel = p.direction === 'forward' ? '正向'
-                      : p.direction === 'reverse' ? '反向'
-                      : hedgeText(p.direction);
-                    // 正向绿 / 反向红（复用 .positive / .negative 色板）。
-                    const dirCls = p.direction === 'forward' ? 'positive'
-                      : p.direction === 'reverse' ? 'negative'
-                      : 'muted';
-                    const priceCls = classForSignedNumber(hedgeNum(p.price_pnl));
-                    const netCls = classForSignedNumber(hedgeNum(p.net_pnl));
-                    // 展示用：由均价现算，不读后端占位 open_basis_rate:"0"。
-                    const basisRate = computeHedgeOpenBasisRate(p.spot_avg, p.perp_avg, p.direction);
-                    const basisCls = classForSignedNumber(basisRate);
-                    return `
-                      <tr>
-                        <td class="mono">${escapeHtml(p.coin)}</td>
-                        <td class="${dirCls}">${dirLabel}</td>
-                        <td class="mono">${formatHedgeDecimal(p.position_qty)}</td>
-                        <td class="mono">${formatHedgeDecimal(p.spot_avg)}</td>
-                        <td class="mono">${formatHedgeDecimal(p.perp_avg)}</td>
-                        <td class="mono ${basisCls}">${formatHedgeBasisPct(basisRate)}</td>
-                        <td class="mono ${priceCls}">${formatHedgeSigned(p.price_pnl)}</td>
-                        <td class="mono">${formatHedgeDecimal(p.accrued_funding)}</td>
-                        <td class="mono">${formatHedgeDecimal(p.borrow_interest)}</td>
-                        <td class="mono ${netCls}">${formatHedgeSigned(p.net_pnl)}</td>
-                      </tr>
-                    `;
-                  }).join('')}
-                </tbody>
+                <tbody>${rowsHtml}</tbody>
               </table>
             </div>
           </div>`;
+      }
+
+      // ==================== 假数据·预览（设计探针，2026-07-31-hedge-task-lifecycle-v1） ====================
+      // 纯前端假数据原型：在真实实现开工前，让 Human 看清「合并持仓表」与「新规则任务卡」的展示形状。
+      // 不接后端、不发起任何网络请求、不改 renderHedgePositionsSection / renderHedgeTaskCard 两个真实
+      // 渲染函数（评审可按逐字未变核验）。假数据字段名/类型/取值形状照真实契约原样造（见 dispatch §数据形状），
+      // 以降低随后 fake→真实接线的漂移成本（hedge-open-live-v1 曾 3 次抓修跨 seam 漂移）。
+      //
+      // 字段事实权威：backend/domain/snapshot.py（um_positions 装配，1158-1168）、store.py:2050-2053
+      // （任务记账占位零）、domain.py:1305-1324（暂停/冻结文案）。注：dispatch §A 把 position_side 写成
+      // 小写 long/short，实为后端 _infer_position_side 返回的大写 LONG/SHORT（snapshot.py:894-895），
+      // 现有真实前端 directionForPosition 也判大写——此处照真实契约用大写（见实现报告 packet 勘误）。
+
+      // 51169 冻结文案（ADR-T3 / domain.py:1315-1324 COLLATERAL_CAP_FULL_REASON_ZH_TEMPLATE）。
+      // must NOT be reworded；{asset} 占位符填入被卡币种的 base asset。此处逐字复制为单字符串字面量，
+      // 仅填入 asset=ORDI（ORDIUSDT 的 base asset），不做任何改写或缩写。
+      const HEDGE_FAKE_PREVIEW_51169_TEXT = 'ORDI 已达币安平台级抵押金额上限（该上限为全平台所有用户共享，并非本账户保证金不足，追加资金无效）。现货腿当前无法买入保证金账户，可更换其他币种或稍后重试；若该币上限占用未满 100%，调小金额也可能成功。';
+
+      // 其余五种非人工暂停原因的现行中文（domain.py:1306-1310 _PAUSE_REASON_ZH 逐字复制）。
+      // 注：这五条现行文案仍含「任务已暂停…手动恢复」，与新规则「自动删除」语义不一致；真实实现时
+      // 需 Human 决定是否改写（collateral_cap_full 已冻结、严禁改写，其余五条未冻结）。
+      const HEDGE_FAKE_PREVIEW_PAUSE_REASON_ZH = {
+        consecutive_submission_failure: '连续提交失败达到阈值，任务已暂停，请检查后手动恢复',
+        rate_limited: '触发交易所限频（429），任务已暂停，请等待限频解除后手动恢复',
+        insufficient_balance: '账户可用余额不足，任务已暂停，请补充后手动恢复',
+        insufficient_margin: '保证金不足，任务已暂停，请补充后手动恢复',
+        insufficient_available_qty: '可用数量不足，任务已暂停，请补充后手动恢复'
+        // collateral_cap_full 用上方冻结全文 HEDGE_FAKE_PREVIEW_51169_TEXT，不在此映射。
+      };
+
+      // 六个场景的假数据（字段名/类型/小数位风格照真实契约；数值为说明形状的占位，非真实账户）。
+      // um: A 真实合约持仓；unified: B 统一账户资产；spot: C 现货账户资产；tasks: D 任务卡本地记账。
+      const HEDGE_FAKE_PREVIEW_SCENARIOS = [
+        {
+          key: 'normal', label: '(a) 正常对冲仓',
+          desc: '真实合约持仓、账户资产、任务记录三者对得上（正向：现货买入 + 合约做空）。',
+          um: [
+            { symbol: 'BTCUSDT', position_side: 'SHORT', notional_usdt: '4286.20', position_amt: '-0.0700', entry_price: '61231.50', mark_price: '61231.40', unrealized_profit: '-0.01', liquidation_price: '138005.30' },
+            { symbol: 'ETHUSDT', position_side: 'SHORT', notional_usdt: '5120.00', position_amt: '-1.6000', entry_price: '3200.00', mark_price: '3198.50', unrealized_profit: '2.40', liquidation_price: '5603.10' }
+          ],
+          unified: [
+            { asset: 'BTC', total_balance: '0.0700', cross_margin_borrowed: '0.0700', value_usdt: '4286.20' },
+            { asset: 'ETH', total_balance: '1.6000', cross_margin_borrowed: '1.6000', value_usdt: '5120.00' },
+            { asset: 'USDT', total_balance: '12.39', cross_margin_borrowed: null, value_usdt: '12.39' }
+          ],
+          spot: [
+            { asset: 'BTC', free: '0.0700', locked: '0.0000', value_usdt: '4286.20' },
+            { asset: 'USDT', free: '5.00', locked: '0.00', value_usdt: '5.00' }
+          ],
+          tasks: [
+            { coin: 'BTCUSDT', direction: 'forward', position_qty: '-0.0700', spot_avg: '61230.10', perp_avg: '61231.50' },
+            { coin: 'ETHUSDT', direction: 'forward', position_qty: '-1.6000', spot_avg: '3200.00', perp_avg: '3200.00' }
+          ]
+        },
+        {
+          key: 'no_task', label: '(b) 真实有仓·无任务记录',
+          desc: '交易所有真实持仓，但本地无任务记录（手工单，或任务卡已被删）；成本类列留空而非填零。1000PEPEUSDT 为 1000x 倍率币——当前建不了对冲任务，却可能以手工仓存在（其现货余额挂在 PEPE 资产上，与 1000PEPE 不自动对齐）。',
+          um: [
+            { symbol: '1000PEPEUSDT', position_side: 'LONG', notional_usdt: '156.45', position_amt: '150000', entry_price: '0.001042', mark_price: '0.001043', unrealized_profit: '0.15', liquidation_price: '0' },
+            { symbol: 'SOLUSDT', position_side: 'LONG', notional_usdt: '318.40', position_amt: '2.0000', entry_price: '160.00', mark_price: '159.20', unrealized_profit: '-1.60', liquidation_price: '0' }
+          ],
+          unified: [
+            { asset: 'SOL', total_balance: '2.0000', cross_margin_borrowed: null, value_usdt: '318.40' },
+            { asset: 'USDT', total_balance: '200.00', cross_margin_borrowed: null, value_usdt: '200.00' }
+          ],
+          spot: [
+            { asset: 'PEPE', free: '150000', locked: '0', value_usdt: '156.45' },
+            { asset: 'USDT', free: '200.00', locked: '0.00', value_usdt: '200.00' }
+          ],
+          tasks: []
+        },
+        {
+          key: 'no_um', label: '(c) 有记录·交易所无仓',
+          desc: '本地有任务记录，但交易所已无对应合约持仓（可能已被强平或手工平掉）；单独区分展示，只留任务腿均价。',
+          um: [],
+          unified: [{ asset: 'USDT', total_balance: '300.00', cross_margin_borrowed: null, value_usdt: '300.00' }],
+          spot: [{ asset: 'USDT', free: '300.00', locked: '0.00', value_usdt: '300.00' }],
+          tasks: [
+            { coin: 'BTCUSDT', direction: 'forward', position_qty: '-0.0500', spot_avg: '61000.00', perp_avg: '61005.00' }
+          ]
+        },
+        {
+          key: 'single_leg', label: '(d) 单腿敞口',
+          desc: '正向任务：现货腿已成交、合约腿无对应持仓——本系统最危险状态，必须一眼可辨（行高亮 + 危险标记）。',
+          um: [],
+          unified: [
+            { asset: 'ETH', total_balance: '1.6000', cross_margin_borrowed: null, value_usdt: '5117.60' },
+            { asset: 'USDT', total_balance: '50.00', cross_margin_borrowed: null, value_usdt: '50.00' }
+          ],
+          spot: [{ asset: 'ETH', free: '1.6000', locked: '0.0000', value_usdt: '5117.60' }],
+          tasks: [
+            { coin: 'ETHUSDT', direction: 'forward', position_qty: '-1.6000', spot_avg: '3198.50', perp_avg: null, spot_avg_price_incomplete: false, perp_avg_price_incomplete: true }
+          ]
+        },
+        {
+          key: 'missing', label: '(e) 数据拿不到',
+          desc: '同一行同时出现：合约均价缺失（币安 2026-07-14 移除 POST 返回的 avgPrice）、liquidation_price 为 "0"、cross_margin_borrowed 为 null。',
+          um: [
+            { symbol: 'BTCUSDT', position_side: 'SHORT', notional_usdt: '3050.00', position_amt: '-0.0500', entry_price: '61000.00', mark_price: '61000.00', unrealized_profit: '-2.30', liquidation_price: '0' }
+          ],
+          unified: [{ asset: 'BTC', total_balance: '0.0500', cross_margin_borrowed: null, value_usdt: '3050.00' }],
+          spot: [],
+          tasks: [
+            { coin: 'BTCUSDT', direction: 'forward', position_qty: '-0.0500', spot_avg: '60998.00', perp_avg: null, perp_avg_price_incomplete: true }
+          ]
+        },
+        {
+          key: 'empty', label: '(f) 完全空仓',
+          desc: '交易所无任何 UM 持仓、本地无任务记录、账户仅有 USDT 余额。',
+          um: [],
+          unified: [{ asset: 'USDT', total_balance: '1000.00', cross_margin_borrowed: null, value_usdt: '1000.00' }],
+          spot: [{ asset: 'USDT', free: '1000.00', locked: '0.00', value_usdt: '1000.00' }],
+          tasks: []
+        }
+      ];
+
+      // 由合约符号推 base asset：去 USDT 后缀（不剥离 1000 前缀，以暴露 1000x 现货/合约资产名不对齐）。
+      function fkBaseAsset(symbol) {
+        return String(symbol || '').replace(/USDT$/, '');
+      }
+      function fkFindBalance(arr, asset) {
+        return (arr || []).find(b => b.asset === asset) || null;
+      }
+      function fkFindTask(tasks, symbol) {
+        return (tasks || []).find(t => t.coin === symbol) || null;
+      }
+      // 行状态：正常 / 无任务记录 / 交易所无持仓 / 单腿敞口（danger）。
+      function fkRowStatus(umPos, task) {
+        if (umPos && task) return { label: '正常', cls: 'muted' };
+        if (umPos && !task) return { label: '无任务记录（手工单/卡已删）', cls: 'warn' };
+        if (!umPos && task) {
+          const spotFilled = task.spot_avg != null && task.spot_avg !== '';
+          const perpMissing = task.perp_avg == null || task.perp_avg === '';
+          if (task.direction === 'forward' && spotFilled && perpMissing) {
+            return { label: '单腿敞口：现货腿已成交，合约腿无持仓', cls: 'danger' };
+          }
+          return { label: '交易所无持仓（可能已强平/手工平）', cls: 'warn' };
+        }
+        return { label: '—', cls: 'muted' };
+      }
+      // 占位零三分类单元格（dispatch「关于占位零」）。
+      function fkCellReal(v) {
+        return `<td class="mono fk-real">${escapeHtml(formatHedgeDecimal(v))}</td>`;
+      }
+      function fkCellPnl(v) {
+        return `<td class="mono ${classForSignedNumber(hedgeNum(v))}">${escapeHtml(formatHedgeSigned(v))}</td>`;
+      }
+      function fkCellNone() {
+        return `<td class="fk-none">暂无</td>`;
+      }
+      function fkCellUnknown(token) {
+        return `<td class="fk-unknown">${escapeHtml(token == null ? '—' : token)}</td>`;
+      }
+
+      // 场景选择按钮（当前场景高亮；点击经容器事件委托切换）。
+      function renderHedgeFakePreviewScenarios() {
+        const current = state.hedgeFakePreviewScenario || 'normal';
+        els.hedgeFakePreviewScenarios.innerHTML = HEDGE_FAKE_PREVIEW_SCENARIOS.map(s =>
+          `<button class="btn compact${s.key === current ? ' active-scenario' : ''}" type="button" data-fake-scenario="${escapeHtml(s.key)}">${escapeHtml(s.label)}</button>`
+        ).join('');
+      }
+
+      // ① 合并持仓表：以真实合约持仓为骨架，一行一个标的，横向拼账户资产与任务记录。
+      function renderHedgeFakeMergedPositionsTable(scenario) {
+        const um = scenario.um || [];
+        const tasks = scenario.tasks || [];
+        const umSymbols = um.map(p => p.symbol);
+        const taskOnly = tasks.filter(t => !umSymbols.includes(t.coin));
+        const rows = um.map(p => ({ symbol: p.symbol, umPos: p, task: fkFindTask(tasks, p.symbol) }));
+        taskOnly.forEach(t => rows.push({ symbol: t.coin, umPos: null, task: t }));
+
+        const head = `<h4>① 合并持仓表（假数据）</h4>` +
+          `<div class="fk-note">${escapeHtml(scenario.desc)}</div>` +
+          `<div class="fk-legend">数据归属：真实合约持仓=方向/数量/开仓价/标记价/强平价/未实现盈亏 · 账户资产=现货余额/全仓借款 · 任务记录=两腿均价/价差率 · <span class="fk-none">暂无</span>=暂无数据源（资金费/借币利息本轮不接）· <span class="fk-unknown">—</span>=拿不到（合约均价缺失）· <span class="fk-unknown">null</span>=真实契约 null</div>`;
+
+        if (rows.length === 0) {
+          return head + `<div class="empty-state"><span class="muted small">当前无任何合约持仓，也无任务记录（完全空仓）。</span></div>`;
+        }
+
+        const thead = `<thead><tr>` +
+          `<th>标的</th><th>状态</th><th>方向</th><th>仓位价值(USDT)</th><th>数量</th><th>开仓价</th><th>标记价</th>` +
+          `<th>强平价</th><th>未实现盈亏</th><th>现货余额 free/locked</th><th>全仓借款</th>` +
+          `<th>现货均价</th><th>合约均价</th><th>开单价差率</th><th>累计资金费</th><th>借币利息</th>` +
+          `</tr></thead>`;
+
+        let sumNotional = 0;
+        let sumUpnl = 0;
+        const tbody = rows.map(r => {
+          const { symbol, umPos, task } = r;
+          const base = fkBaseAsset(symbol);
+          const unifiedBal = fkFindBalance(scenario.unified, base);
+          const spotBal = fkFindBalance(scenario.spot, base);
+          const status = fkRowStatus(umPos, task);
+          const rowCls = status.cls === 'danger' ? 'fk-row-danger' : (status.cls === 'warn' ? 'fk-row-muted' : '');
+
+          if (umPos) {
+            const notionalNum = hedgeNum(umPos.notional_usdt);
+            if (Number.isFinite(notionalNum)) sumNotional += notionalNum;
+            const upnlNum = hedgeNum(umPos.unrealized_profit);
+            if (Number.isFinite(upnlNum)) sumUpnl += upnlNum;
+          }
+
+          const dirCell = umPos
+            ? `<td><span class="direction-badge ${directionForPosition(umPos)}">${directionForPosition(umPos) === 'long' ? '多' : '空'}</span></td>`
+            : `<td class="fk-unknown">—（无仓）</td>`;
+          const notionalCell = umPos ? fkCellReal(umPos.notional_usdt) : fkCellUnknown('—');
+          const qtyCell = umPos ? fkCellReal(umPos.position_amt) : fkCellUnknown('—');
+          const entryCell = umPos ? fkCellReal(umPos.entry_price) : fkCellUnknown('—');
+          const markCell = umPos ? fkCellReal(umPos.mark_price) : fkCellUnknown('—');
+          // 强平价：真实字符串；币安无值时返回 "0"（如实体现），缺失/null → null 标记。
+          const liqCell = !umPos
+            ? fkCellUnknown('—')
+            : (umPos.liquidation_price === '0'
+                ? `<td class="mono" title="币安返回 0 表示该仓当前无强平价">0</td>`
+                : (umPos.liquidation_price == null ? fkCellUnknown('null') : fkCellReal(umPos.liquidation_price)));
+          const upnlCell = umPos ? fkCellPnl(umPos.unrealized_profit) : fkCellUnknown('—');
+          // 现货余额：按 base asset 匹配；1000x 币 base 与现货资产名不对齐 → 无匹配 → —。
+          const spotCell = spotBal
+            ? `<td class="mono fk-real">${escapeHtml(formatHedgeDecimal(spotBal.free))} / ${escapeHtml(formatHedgeDecimal(spotBal.locked))}</td>`
+            : fkCellUnknown('—');
+          // 全仓借款：真实 cross_margin_borrowed 为 字符串|null；null 如实显示。
+          const borrowCell = !unifiedBal
+            ? fkCellUnknown('—')
+            : (unifiedBal.cross_margin_borrowed == null
+                ? `<td class="fk-unknown" title="真实契约值 null：该资产无全仓借款字段">null</td>`
+                : fkCellReal(unifiedBal.cross_margin_borrowed));
+          const spotAvg = task && task.spot_avg != null && task.spot_avg !== '' ? task.spot_avg : null;
+          const perpAvg = task && task.perp_avg != null && task.perp_avg !== '' ? task.perp_avg : null;
+          const spotAvgCell = spotAvg ? fkCellReal(spotAvg) : fkCellUnknown('—');
+          const perpAvgCell = perpAvg ? fkCellReal(perpAvg) : fkCellUnknown('—');
+          const basis = (spotAvg && perpAvg && task) ? computeHedgeOpenBasisRate(spotAvg, perpAvg, task.direction) : NaN;
+          const basisCell = Number.isFinite(basis)
+            ? `<td class="mono ${classForSignedNumber(basis)}">${escapeHtml(formatHedgeBasisPct(basis))}</td>`
+            : fkCellUnknown('—');
+          // 成本类：后端占位零 "0"，本轮不接数据源 → 显示「暂无」而非 0.00。
+          const fundingCell = fkCellNone();
+          const interestCell = fkCellNone();
+
+          return `<tr class="${rowCls}">` +
+            `<td class="mono">${escapeHtml(symbol)}</td>` +
+            `<td><span class="fk-pill ${status.cls}">${escapeHtml(status.label)}</span></td>` +
+            dirCell + notionalCell + qtyCell + entryCell + markCell + liqCell + upnlCell +
+            spotCell + borrowCell + spotAvgCell + perpAvgCell + basisCell + fundingCell + interestCell +
+            `</tr>`;
+        }).join('');
+
+        const tfoot = `<tfoot><tr>` +
+          `<td class="mono"><strong>合计</strong></td><td colspan="3" class="muted small">仓位价值合计 / 未实现盈亏合计（仅合约腿真值可加；成本类暂无数据源）</td>` +
+          `<td class="mono fk-real">${escapeHtml(formatHedgeDecimal(sumNotional))}</td>` +
+          `<td colspan="4"></td>` +
+          `<td class="mono ${classForSignedNumber(sumUpnl)}">${escapeHtml(formatHedgeSigned(sumUpnl))}</td>` +
+          `<td colspan="7"></td>` +
+          `</tr></tfoot>`;
+
+        return head + `<div class="table-wrap"><table>${thead}<tbody>${tbody}</tbody>${tfoot}</table></div>`;
+      }
+
+      // ② 任务卡预览（新规则）：六种非人工暂停原因改为自动删除后的卡片样子 + 人工暂停对照 + 完成卡变体。
+      // 纯展示试画，不新增任何状态值，不改后端语义（Human 已决定 done 语义本轮不处理）。
+      function renderHedgeFakeTaskCardPreview() {
+        const reasonRows = [
+          ['consecutive_submission_failure', '连续提交失败达到阈值'],
+          ['rate_limited', '触发交易所限频（429）'],
+          ['insufficient_balance', '账户可用余额不足'],
+          ['insufficient_margin', '保证金不足'],
+          ['insufficient_available_qty', '可用数量不足'],
+          ['collateral_cap_full', '抵押上限已满（平台级）']
+        ];
+        const reasonTable = `<div class="table-wrap"><table>` +
+          `<thead><tr><th>非人工暂停原因（key）</th><th>新规则下行为</th><th>旧行为（对照）</th></tr></thead>` +
+          `<tbody>${reasonRows.map(([k, label]) =>
+            `<tr><td class="mono">${escapeHtml(k)}</td>` +
+            `<td>自动软删除（不再进入「暂停」）${k === 'collateral_cap_full' ? '；原因文案逐字冻结，见下方 ORDIUSDT 卡' : ''}</td>` +
+            `<td class="fk-none">暂停 + 显示「${escapeHtml(label)}」</td></tr>`
+          ).join('')}</tbody></table></div>`;
+
+        const dis = ' disabled title="示例卡，仅预览展示形状"';
+        const buttons = `<div class="borrow-task-controls">` +
+          `<button class="btn compact action-pause" type="button"${dis}>暂停</button>` +
+          `<button class="btn compact action-start" type="button"${dis}>启动</button>` +
+          `<button class="btn compact action-delete" type="button"${dis}>删除</button>` +
+          `</div>`;
+
+        const cardCcy = `<div class="fk-card fk-deleted" data-fake-card="collateral_cap_full">` +
+          `<div class="borrow-task-head"><h3>ORDIUSDT</h3>` +
+          `<span class="badge success">正向</span><span class="badge info">立即</span>` +
+          `<span class="badge danger">已删除</span><span class="muted small">#fake-ccy</span></div>` +
+          `<div class="borrow-task-lines">` +
+          `<div>单次币量：<strong>5</strong> · 计划尝试次数：<strong>10</strong></div>` +
+          `<div>已调度 <strong>3</strong> 组 · 已受理 <strong>0</strong> 组 · 连续提交失败 <strong>3</strong> / 暂停阈值 <strong>3</strong></div>` +
+          `<div class="borrow-task-note"><strong>自动删除（原非人工暂停 · collateral_cap_full）：</strong>${escapeHtml(HEDGE_FAKE_PREVIEW_51169_TEXT)}</div>` +
+          `</div>${buttons}</div>`;
+
+        const cardRate = `<div class="fk-card fk-deleted" data-fake-card="rate_limited">` +
+          `<div class="borrow-task-head"><h3>SOLUSDT</h3>` +
+          `<span class="badge success">正向</span><span class="badge info">立即</span>` +
+          `<span class="badge danger">已删除</span><span class="muted small">#fake-rate</span></div>` +
+          `<div class="borrow-task-lines">` +
+          `<div>已调度 <strong>2</strong> 组 · 已受理 <strong>0</strong> 组</div>` +
+          `<div class="borrow-task-note"><strong>自动删除（原非人工暂停 · rate_limited）：</strong>${escapeHtml(HEDGE_FAKE_PREVIEW_PAUSE_REASON_ZH.rate_limited)}（新规则下不再进入「暂停」，直接软删除）</div>` +
+          `</div>${buttons}</div>`;
+
+        const cardManual = `<div class="fk-card" data-fake-card="manual_pause">` +
+          `<div class="borrow-task-head"><h3>BTCUSDT</h3>` +
+          `<span class="badge success">正向</span><span class="badge info">立即</span>` +
+          `<span class="badge muted">暂停</span><span class="muted small">#fake-manual</span></div>` +
+          `<div class="borrow-task-lines">` +
+          `<div>已调度 <strong>5</strong> 组 · 已受理 <strong>3</strong> 组</div>` +
+          `<div class="borrow-task-note">人工暂停（Human 点击「暂停」）：无 pause_reason。新规则下人工暂停仍显示为「暂停」，不自动删除——与非人工原因的「已删除」可区分。</div>` +
+          `</div>${buttons}</div>`;
+
+        const cardDone = `<div class="fk-card" data-fake-card="done_variant">` +
+          `<div class="borrow-task-head"><h3>ETHUSDT</h3>` +
+          `<span class="badge success">正向</span><span class="badge info">立即</span>` +
+          `<span class="badge info">完成</span><span class="muted small">#fake-done</span></div>` +
+          `<div class="borrow-task-lines">` +
+          `<div>已调度 <strong>10</strong> 组 · 已受理 <strong>10</strong> 组 · <strong>计划 10 次 · 实际成功 7 次</strong></div>` +
+          `<div class="borrow-task-note">纯展示试画：在现有「已调度/已受理」计数基础上追加「计划 N 次 / 实际成功 M 次」，使完成结果一眼可读。不新增状态值、不改后端 done 语义（Human 已决定本轮不处理 done 语义，仅供其看过后决定要不要）。</div>` +
+          `</div>${buttons}</div>`;
+
+        return `<h4>② 任务卡预览（新规则·假数据）</h4>` +
+          `<div class="fk-note">新规则预览：下列六种非人工暂停原因将自动软删除任务（不再进入「暂停」）；人工暂停仍显示为「暂停」。删除原因文案沿用后端现行中文——其中 collateral_cap_full 为 ADR-T3 冻结文案（must NOT be reworded），逐字见下方 ORDIUSDT 卡片。</div>` +
+          reasonTable +
+          `<div class="fk-note">卡片形态示例（左到右：collateral_cap_full 自动删除 / rate_limited 自动删除 / 人工暂停 / 完成变体）：</div>` +
+          cardCcy + cardRate + cardManual + cardDone;
+      }
+
+      function renderHedgeFakePreviewBody() {
+        const scenarioKey = state.hedgeFakePreviewScenario || 'normal';
+        const scenario = HEDGE_FAKE_PREVIEW_SCENARIOS.find(s => s.key === scenarioKey) || HEDGE_FAKE_PREVIEW_SCENARIOS[0];
+        els.hedgeFakePreviewBody.innerHTML =
+          renderHedgeFakeTaskCardPreview() +
+          renderHedgeFakeMergedPositionsTable(scenario);
+      }
+
+      // 开关 + 场景委托绑定（与 bindHedgeTaskControls 同模式：容器事件委托）。
+      function bindHedgeFakePreview() {
+        // 初始关闭：与 HTML hidden 一致；mock 下显式赋值以便自检断言（makeElement 不解析 hidden 属性）。
+        els.hedgeFakePreviewPanel.hidden = !state.hedgeFakePreviewOpen;
+        els.hedgeFakePreviewToggle.addEventListener('click', () => {
+          state.hedgeFakePreviewOpen = !state.hedgeFakePreviewOpen;
+          els.hedgeFakePreviewPanel.hidden = !state.hedgeFakePreviewOpen;
+          els.hedgeFakePreviewToggle.setAttribute('aria-expanded', String(state.hedgeFakePreviewOpen));
+          els.hedgeFakePreviewToggle.textContent = state.hedgeFakePreviewOpen
+            ? '收起假数据 · 预览'
+            : '🧪 假数据 · 预览（设计探针，默认关闭）';
+          if (state.hedgeFakePreviewOpen) {
+            renderHedgeFakePreviewScenarios();
+            renderHedgeFakePreviewBody();
+          }
+        });
+        els.hedgeFakePreviewScenarios.addEventListener('click', (e) => {
+          const btn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-fake-scenario]') : null;
+          if (!btn) return;
+          state.hedgeFakePreviewScenario = btn.getAttribute('data-fake-scenario');
+          renderHedgeFakePreviewScenarios();
+          renderHedgeFakePreviewBody();
+        });
       }
 
       // ---- attempt 时间线（2026-07-hedge-open-real-api-v1，12-breakdown §3.4） ----
@@ -4873,6 +5380,8 @@
         els.hedgeTabLogs.addEventListener('click', () => setHedgeTab('logs'));
         els.hedgeLogsRefresh.addEventListener('click', () => { loadHedgeLogs(true); });
         els.hedgeLogsLoadMore.addEventListener('click', () => { loadHedgeLogs(false); });
+        // 假数据·预览（设计探针）：开关 + 场景委托绑定；默认关闭，纯前端假数据。
+        bindHedgeFakePreview();
         els.borrowTabTasks.addEventListener('click', () => setBorrowTab('tasks'));
         els.borrowTabLogs.addEventListener('click', () => setBorrowTab('logs'));
         els.borrowIntervalConfirm.addEventListener('click', () => { submitSchedulerInterval(); });
