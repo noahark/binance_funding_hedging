@@ -280,7 +280,12 @@ class RecordTransportExecutor:
         q_resolved = ctx.q_common is not None
         send_qty = ctx.q_common if ctx.q_common is not None else ctx.single_amount
         spot_cid, perp_cid = _client_order_ids(ctx.attempt_id)
-        spot_params = build_spot_order_params(ctx.coin, actions, send_qty, spot_cid)
+        spot_params = build_spot_order_params(
+            D.spot_order_symbol(ctx.coin, ctx.preflight_snapshot),
+            actions,
+            send_qty,
+            spot_cid,
+        )
         perp_params = build_perp_order_params(ctx.coin, actions, send_qty, perp_cid)
         record_payload = {
             "transport": "dry_run_record",

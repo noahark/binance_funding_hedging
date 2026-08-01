@@ -105,6 +105,23 @@ def test_record_transport_spot_params_shape_forward():
         assert key not in spot
 
 
+def test_record_transport_uses_resolved_bstock_spot_symbol():
+    ctx = _ctx()
+    ctx = AttemptContext(
+        **{
+            **ctx.__dict__,
+            "coin": "TSLAUSDT",
+            "preflight_snapshot": {
+                **ctx.preflight_snapshot,
+                "spot_symbol": "TSLABUSDT",
+            },
+        },
+    )
+    out = RecordTransportExecutor().execute(ctx)
+    assert out.record_payload["spot_order_params"]["symbol"] == "TSLABUSDT"
+    assert out.record_payload["perp_order_params"]["symbol"] == "TSLAUSDT"
+
+
 def test_record_transport_perp_params_shape_reverse_hedge():
     exe = RecordTransportExecutor()
     out = exe.execute(_ctx(direction=D.DIR_REVERSE, position_side_mode="hedge"))
