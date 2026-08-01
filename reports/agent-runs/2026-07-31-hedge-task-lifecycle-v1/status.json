@@ -1,17 +1,17 @@
 {
   "schema_version": "2",
-  "revision": 21,
+  "revision": 22,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
   "phase": "task_1_merged_awaiting_task_2",
-  "checkpoint": "task1_merged_to_local_main_d597fef_limitations_promoted_task2_next",
+  "checkpoint": "task1_merged_handoff_50_written_awaiting_new_bookkeeper_window",
   "base_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
   "delivery_sha": "ef53a025114933e8c472d9ae89f8ebfb35d19513",
   "ledger_sha": "ef53a025114933e8c472d9ae89f8ebfb35d19513",
   "current_task": null,
   "next": {
     "actor": "human_operator",
-    "action": "authorize-task-2-planning-dispatch"
+    "action": "start-new-opus5-bookkeeper-window-for-task-2"
   },
   "rework_count": 0,
   "blockers": [
