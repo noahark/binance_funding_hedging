@@ -224,7 +224,7 @@ def test_settings_default_shape(tmp_path):
         assert set(settings.keys()) == _SETTINGS_KEYS
         assert settings["executor_mode"] == "disabled"
         assert settings["start_gate"] is False
-        assert settings["interval_seconds"] == 1
+        assert settings["interval_seconds"] == 0.1  # ADR-003: 100ms default cadence
         assert settings["version"] == 1  # fresh DB; additive S3 CAS guard
 
 

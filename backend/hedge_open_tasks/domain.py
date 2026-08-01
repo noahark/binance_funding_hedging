@@ -509,9 +509,14 @@ def rollup_leg_error_category(
     return None, None
 
 
-# Round-1 scheduler interval is fixed at 1 second (immediate mode, ADR-6).
-DEFAULT_INTERVAL_SECONDS = "1"
-DEFAULT_INTERVAL_US = 1_000_000
+# Re-query cadence (ADR-003): the in-flight leg re-query interval defaults to
+# 100ms so fills land sooner. MIN_INTERVAL_US is the floor clamped at the read
+# site — a sub-floor misconfiguration can never turn the worker into a busy
+# poll, and the settings display applies the same floor so the UI never asserts
+# a value below what actually takes effect.
+DEFAULT_INTERVAL_SECONDS = "0.1"
+DEFAULT_INTERVAL_US = 100_000
+MIN_INTERVAL_US = 50_000
 
 # HTTP body cap and log page bounds (mirror borrow_tasks §3.6 / §3.7).
 BODY_MAX_BYTES = 16384

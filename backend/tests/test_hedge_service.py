@@ -25,7 +25,14 @@ from backend.hedge_open_tasks.executor import (
     OutcomeSpec,
     RecordTransportExecutor,
 )
-from backend.hedge_open_tasks.service import HedgeOpenTaskService, PreflightProvider, attempt_to_doc
+from backend.hedge_open_tasks.service import (
+    HedgeOpenTaskService,
+    PreflightProvider,
+    _PACING_JITTER_MIN,
+    attempt_to_doc,
+    paced_wait_seconds,
+    settings_to_doc,
+)
 
 
 class _Clock:
@@ -332,6 +339,81 @@ def test_tick_no_eligible_task_returns_false(tmp_path):
     svc = _svc(tmp_path, clock=clock)
     svc.set_start_gate(True)
     assert svc.tick() is False  # no tasks at all
+
+
+# ---------------------------------------------------------------------------
+# Re-query cadence (ADR-003): subsecond display, floor + display consistency,
+# ~100ms cadence, bounded positive jitter.
+# ---------------------------------------------------------------------------
+
+
+def test_settings_doc_renders_subsecond_interval():
+    # Acceptance 1: interval_us=100_000 must NOT collapse to 0 (the old integer
+    # division did). The UI prints this value verbatim -> "调度间隔 0.1 秒".
+    doc = settings_to_doc(
+        {"start_gate": 0, "interval_us": 100_000, "version": 1}, "disabled"
+    )
+    assert doc["interval_seconds"] == 0.1
+
+
+def test_default_cadence_seeds_100ms(tmp_path):
+    # Acceptance 2: a fresh store seeds the 100ms re-query cadence.
+    from backend.hedge_open_tasks.store import HedgeOpenStore
+
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    assert store.get_interval_us() == 100_000
+    store.close()
+
+
+def test_requery_wait_is_100ms_within_jitter():
+    # Acceptance 2: the in-flight leg re-query wait is the nominal 100ms
+    # interval shrunk by a bounded jitter — every sample inside (0.075, 0.1];
+    # no sleep race is involved.
+    wait = paced_wait_seconds(0.1)
+    assert 0 < wait <= 0.1
+    assert wait >= 0.1 * _PACING_JITTER_MIN
+
+
+def test_floor_clamps_effective_cadence(tmp_path):
+    # Acceptance 3a: a sub-floor misconfiguration is clamped at the read site,
+    # so the worker never busy-polls below MIN_INTERVAL_US.
+    from backend.hedge_open_tasks.store import HedgeOpenStore
+
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    with store._lock, store._conn:
+        store._conn.execute(
+            "UPDATE hedge_open_settings SET interval_us = 1000 WHERE id = 1"
+        )
+    assert store.get_interval_us() == D.MIN_INTERVAL_US
+    store.close()
+
+
+def test_floor_display_matches_effective_value(tmp_path):
+    # Acceptance 3b (root-cause guard): the settings display reports the clamped
+    # EFFECTIVE value, not the raw misconfigured one, and equals what the worker
+    # actually honours.
+    from backend.hedge_open_tasks.store import HedgeOpenStore
+
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    with store._lock, store._conn:
+        store._conn.execute(
+            "UPDATE hedge_open_settings SET interval_us = 1000 WHERE id = 1"
+        )
+    effective = store.get_interval_us()
+    doc = settings_to_doc(store.get_settings(), "disabled")
+    assert doc["interval_seconds"] == round(effective / 1_000_000, 3)
+    assert doc["interval_seconds"] != round(1000 / 1_000_000, 3)  # not the raw value
+    store.close()
+
+
+def test_pacing_jitter_is_positive_bounded_and_varies():
+    # Acceptance 4: the jitter is real (samples vary), always strictly positive,
+    # and never exceeds the nominal interval.
+    nominal = 0.1
+    samples = [paced_wait_seconds(nominal) for _ in range(500)]
+    assert all(0 < s <= nominal for s in samples)
+    assert min(samples) >= nominal * _PACING_JITTER_MIN
+    assert len({round(s, 9) for s in samples}) > 1  # not degenerate/constant
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@
   "ledger_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
   "current_task": {
     "id": "hedge-leg-requery-cadence-v1",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/hedge-leg-requery-cadence-v1.dispatch.md"
   },
   "next": {

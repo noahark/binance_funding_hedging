@@ -2117,10 +2117,15 @@ class HedgeOpenStore:
             }
 
     def get_interval_us(self) -> int:
+        # Clamp at the read site (ADR-003): the worker throttle, the DRY-RUN
+        # tick and the scheduler wake all derive the effective cadence from this
+        # value, so a sub-floor misconfiguration is contained here rather than
+        # letting the worker busy-poll.
         with self._lock:
-            return self._conn.execute(
+            raw = self._conn.execute(
                 "SELECT interval_us FROM hedge_open_settings WHERE id = 1"
             ).fetchone()[0]
+            return max(int(raw), D.MIN_INTERVAL_US)
 
     def set_start_gate(self, enabled: bool, now_us: int) -> dict:
         with self._lock, self._conn:

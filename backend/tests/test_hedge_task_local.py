@@ -335,6 +335,28 @@ def test_2_concurrent_start_yields_one_worker_one_reservation(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# A-9 (ADR-003 acceptance 5): the cadence drop must not raise order frequency
+# ---------------------------------------------------------------------------
+
+
+def test_a9_cadence_drop_does_not_raise_order_frequency(tmp_path):
+    """Per-task serial dispatch (A-9: one pair reaches terminal before the next
+    is dispatched) lives in _worker_round, which _pump_worker drives with NO
+    pacing wait — so the 1s -> 100ms cadence change is structurally invisible to
+    order frequency. A target_n=3 task whose every dispatch resolves terminal
+    must yield exactly 3 dispatches and 3 attempts, one per pair."""
+    exe = _RoutingExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+    svc, clock = _live_svc(tmp_path, exe, provider)
+    doc = _create(svc, target_n=3)
+    exe.set_script(doc["id"], [_accepted_pair(doc["id"]) for _ in range(3)])
+    svc._pump_worker(doc["id"], max_rounds=12)
+    assert exe.dispatch_calls == 3
+    assert len(svc.store.list_attempts_for_task(doc["id"])) == 3
+    assert svc.store.get_task(doc["id"])["scheduled_attempt_count"] == 3
+
+
+# ---------------------------------------------------------------------------
 # 3. A's confirmed 429 -> paused + counter untouched + worker drains + B dispatches
 # ---------------------------------------------------------------------------
 

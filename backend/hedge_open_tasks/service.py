@@ -19,6 +19,7 @@ and merely arms the task — breakdown §3.8).
 from __future__ import annotations
 
 import json
+import random
 import threading
 import time
 import uuid
@@ -194,16 +195,36 @@ def fill_to_doc(fill: dict) -> dict:
     }
 
 
+def _interval_seconds_doc(interval_us) -> float:
+    """The cadence the UI prints, in seconds (ADR-003). Sub-second aware: the
+    raw microsecond value is clamped to the same floor the worker honours, then
+    divided — so a 100ms cadence renders as 0.1 (not the 0 the old integer
+    division produced) and a sub-floor misconfiguration reports the effective
+    value, never the misconfigured one."""
+    return round(max(int(interval_us), D.MIN_INTERVAL_US) / 1_000_000, 3)
+
+
 def settings_to_doc(settings: dict, executor_mode: str) -> dict:
     return {
         "executor_mode": executor_mode,
         "start_gate": bool(settings["start_gate"]),
-        "interval_seconds": int(settings["interval_us"]) // 1_000_000,
+        "interval_seconds": _interval_seconds_doc(settings["interval_us"]),
         # Additive (S3 / ADR-H2): the settings row's version — the CAS input a
         # concurrency-safe start-gate write must echo back. Existing field names
         # and semantics are unchanged.
         "version": int(settings["version"]),
     }
+
+
+# Re-query pacing jitter (ADR-003): workers sharing a nominal cadence would
+# otherwise align into a synchronized query pulse. Each pacing wait is shrunk by
+# a bounded random factor — always positive, never exceeding the nominal
+# interval — so the pulses spread without raising the cadence above nominal.
+_PACING_JITTER_MIN = 0.75
+
+
+def paced_wait_seconds(interval_s: float) -> float:
+    return interval_s * random.uniform(_PACING_JITTER_MIN, 1.0)
 
 
 def log_to_doc(row: dict) -> dict:
@@ -1102,7 +1123,7 @@ class HedgeOpenTaskService:
                     interval_s = (self._store.get_interval_us() or 1) / 1_000_000
                     ev = self._stop_events.get(task_id)
                     if ev is not None:
-                        ev.wait(interval_s)
+                        ev.wait(paced_wait_seconds(interval_s))
         except Exception:
             # Last-resort containment: a worker error must not leak; the task's
             # durable state is authoritative and a recovery discovery relaunches.
