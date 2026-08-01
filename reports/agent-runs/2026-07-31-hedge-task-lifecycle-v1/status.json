@@ -1,26 +1,25 @@
 {
   "schema_version": "2",
-  "revision": 17,
+  "revision": 18,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "implementation",
-  "checkpoint": "review1_r3_rework_f4_sealed_fix_round_3_dispatched_budget_at_ceiling",
+  "phase": "review_1",
+  "checkpoint": "f4_accepted_as_limitation_fix_deferred_to_task2_review1_r4_confirm_dispatched",
   "base_sha": "c1cc10e8fb491f83fe4c09f565b34e06c2de0a50",
   "delivery_sha": "ef53a025114933e8c472d9ae89f8ebfb35d19513",
   "ledger_sha": "ef53a025114933e8c472d9ae89f8ebfb35d19513",
   "current_task": {
-    "id": "fix-match-status-account-unavailable-v1",
+    "id": "review-1-grok-task1-r4",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-match-status-account-unavailable-v1.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-1-grok-task1-r4.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-task"
   },
-  "rework_count": 3,
+  "rework_count": 2,
   "blockers": [
-    "F4 [review-1 r3 阻塞] 账户未读到（verified=false 或 private_account 缺失）时 match_status 仍输出 no_um，前端渲染「交易所无仓」+「可能已强平」title —— 断言了未曾查证的事实，与 F1 打开的冷账户路径直接冲突。Bookkeeper 实测：账户块内确有该 UM 持仓时仍标 no_um。依据 46-review-1-grok-task1-r3.md。",
-    "返工预算已达上限 3/3：本轮修复为最后一轮。若再出 REWORK，须 Human 在缩小范围/重新设计/接受为已知限制/停止中四选一，Bookkeeper 不得自行再派修复。",
-    "发布就绪：合并前须 review-1 与 review-2 复审通过，且须 Human 单独授权一次完整只读运行时冒烟检查。"
+    "Task 2 必须一并修 F4：账户读不到时 match_status 不得输出 no_um。要求见 46-review-1-grok-task1-r3.md §3.3。若 Task 2 未做，合并 main 前须重新交 Human 裁定。",
+    "发布就绪：合并前须 review-1 与 review-2 通过，且须 Human 单独授权一次完整只读运行时冒烟检查。"
   ]
 }

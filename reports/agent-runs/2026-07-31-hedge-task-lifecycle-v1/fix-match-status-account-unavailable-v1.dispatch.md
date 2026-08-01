@@ -1,5 +1,12 @@
 # Dispatch —— fix-match-status-account-unavailable-v1（Task 1 修复轮 3/3 —— **最后一轮**）
 
+> **⚠️ 作废 2026-08-01（bookkeeper opus5）—— 本 packet 从未交付，不要执行。**
+> Human 在知悉「`verified=false` 任何时刻都可能发生、并非只在启动期」这一更正后，
+> 决定 **F4 接受为已知限制、Task 1 不再修，修复折入 Task 2 的范围**。
+> 五要素记录与转入 Task 2 的具体要求见 `46-review-1-grok-task1-r3.md` §3。
+> 第 3 轮修复从未发生，`rework_count` 由 `3` **回落为 `2`**。Task 1 交付保持在 `ef53a02`。
+> 本文件仅作留档。
+
 ```text
 Identity:
   task_id:         fix-match-status-account-unavailable-v1
