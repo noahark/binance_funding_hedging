@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
-  "revision": 29,
+  "revision": 30,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "fix_retry_counter_dispatched",
-  "checkpoint": "f1_remedy_switched_from_time_window_to_in_memory_retry_counter_per_human",
+  "phase": "fix_verified_pending_one_authorization_confirmation",
+  "checkpoint": "f1_f5_all_technically_pass_1152_green_test_5b_authorization_claim_unconfirmed",
   "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
-  "delivery_sha": "d8522dfd6f4a3fa64c27d383a900a8e7f84df7fc",
-  "ledger_sha": "0aac1855e90b99c37d04659b7fb2908b1768f9a4",
+  "delivery_sha": "f70e6ca20ac283e78db8d14a78efe4018d3564c1",
+  "ledger_sha": "f70e6ca20ac283e78db8d14a78efe4018d3564c1",
   "current_task": {
     "id": "fix-review1-retry-counter-v1",
     "state": "reported",
@@ -15,17 +15,17 @@
   },
   "next": {
     "actor": "human_operator",
-    "action": "start-prepared-task"
+    "action": "confirm-test-5b-authorization-then-bookkeeper-seals"
   },
   "rework_count": 1,
   "blockers": [
-    "F1 修法已改：Bookkeeper 曾擅自把 Human 要求的『重试 10 次计数』替换为『距下单 5 秒的时间窗口』，理由（需新增 DB 字段）不成立——计数器无需持久化。两者不等价：请求超时 DEFAULT_TIMEOUT_SECONDS=10 秒 > 窗口 5 秒，一次超时即吃光窗口、实际只查 1 次；且时间窗口需锚点，锚点缺失正是 F1 的根因。改回内存计数后 F1 从根上消失。Human 2026-08-02 决定：只在内存、重启重新计数。",
-    "实现者改派 deepseek（Human 决定，试验其效果）。**后果**：deepseek 执行后即成为 fix author，按 §3 #4 永久失去本交付评审资格；它此前已因提出本交付第 5/6 项与做过计划评审而不宜评审。review-2 人选池因此只剩 Fable5（须 Human 显式启用独立付费额度）。",
-    "review-1（codex）REWORK 的 F1-F5 五条经 Bookkeeper 逐条独立复验全部成立（27- §6.3）；d8522df 的 verified 已撤销。",
-    "Bookkeeper 自身两处核验错误已记录（27- §6）：把两个 signal 产生点误判为『双保险』（实为覆盖缺口，F4）；验收 2 记 pass 却未执行 packet 要求的破坏验证（删除迁移后 1140 仍全绿，F5）。",
-    "根因写入 packet Goal：新增收口路径未与既有契约全面接线（F1 缺锚点 / F2 缺状态粘性 / F3 缺 entries 接线）。要求交同族扫描清单，不接受三点补丁。",
-    "BK-T3-002 经 codex 独立确认为**发布门**：代码返工通过后仍不得自动合并、部署或启用实盘，须 Human 单独裁定。packet 已加严 data/ 红线并新增运行留痕要求。",
-    "PAUSE_REASON_ORDER_STATE_UNKNOWN 采信裁定不变（27- §4），为 Task 2 具名输入。",
+    "**待 Human 确认（唯一未决）**：实现者改了 packet「不得改动」清单内的 test_hedge_review2_regressions.py::test_5b，声称「经 Human 批准最小改写」，Bookkeeper 无此授权记录。改动本身必要正确（本 packet 删除了 test_5b 引用的 ABSENT_TOLERANCE_WINDOW_US，不改必然报错），核心断言 fail_count==1 逐字未改——**这是 packet 自相矛盾（要求删常量却把引用它的文件列入禁改），Bookkeeper 上轮曾给过受限授权、本轮忘记延续**。待确认的是声明的事实性，非改动的正确性。详见 30- §3。",
+    "F1-F5 技术验收全部通过：窗口常量全仓库无残留；无锚点腿探针查满 10 次正常收口（terminal[1,1]、残留计数 0）；deleted/done/stopped 三态全部保持；两个 signal 产生点单点破坏各自转红（上轮假阴性已消除）；删除迁移 SQL 转红 2 条（Bookkeeper 上轮漏做的破坏验证）；独立复跑 1152 passed。",
+    "本轮实现者未再触碰 data/：实盘库 mtime 仍为 08-01 23:45:48、interval_us 仍为 500000、留痕清单与观察一致（三重确认）。加严的留痕要求生效。",
+    "范围外顺带修复（交 review-1 判断）：F3 补全 _event_to_entry 的 task_paused 映射，该 kind 此前落入 wait 分支得到 overall_result=None，即既有 insufficient_*/collateral_cap_full 事件在 entries 上一直投影错误。属 pre-existing，但其修复是 F3 接线的必然结果，无法分离。详见 30- §4。",
+    "BK-T3-002 仍为**发布门**（codex 独立确认）：代码返工通过后仍不得自动合并、部署或启用实盘，须 Human 单独裁定。",
+    "**review-2 人选池已空**：codex 用于 review-1；grok 无额度；deepseek 已成为本交付 fix author，按 §3 #4 永久丧失评审资格；opus5 为本 stage Bookkeeper 兼全部 packet 作者。仅剩 Fable5，须 Human 显式启用独立付费额度。HIGH_RISK 按 §8 需两道评审。",
+    "PAUSE_REASON_ORDER_STATE_UNKNOWN 采信裁定不变，为 Task 2 具名输入（27- §4）。",
     "Task 2 仍暂缓；F4（账户读不到谎称交易所无仓）随之推迟，按 46- §3.3 须在合并 main 前重新交 Human 裁定。",
     "Task 1 已合并但 review-2 的发布前置（只读真机冒烟，清单 49-）未执行。",
     "bStock 下单路径修复 3dc6756 已合入 main 且零评审。"
