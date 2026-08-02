@@ -885,7 +885,7 @@ class HedgeOpenStore:
     def _apply_task_counters(
         self, task_id: str, category: str, exposure: dict | None, now_us: int,
         *, fatal: bool = False, stop_reason: str | None = None,
-        skip_counters: bool = False,
+        skip_counters: bool = False, suppress_done: bool = False,
     ) -> tuple[dict, str | None, str | None]:
         """Apply one pair's acceptance verdict to the task counters + status.
 
@@ -903,6 +903,15 @@ class HedgeOpenStore:
           the task threshold pauses with ``consecutive_submission_failure``.
         - single-leg (one orderId) -> ADVISORY: counts unchanged, ``leg_exposure``
           recorded, scheduling never blocked (§4.5).
+
+        fix-runtime-seam-scan: ``suppress_done`` keeps a just-settled attempt from
+        pushing the task to ``done`` when the settlement is a pause-class fact
+        (insufficient funds / collateral cap) whose task-local pause is applied
+        right after this settlement — a ``done`` here would make the conditional
+        pause write (running/paused only) miss and silently drop the pause
+        semantics (amendment 21: an insufficient fact pauses THIS task, no
+        threshold wait). Counters still advance; only the auto-done promotion is
+        suppressed so the pause can land.
         """
         task = _row_to_task(
             self._conn.execute(
@@ -987,6 +996,7 @@ class HedgeOpenStore:
             new_status = task["status"]
         if (
             not skip_counters
+            and not suppress_done
             and pair_outcome is not None
             and new_status == D.STATUS_RUNNING
             and task["scheduled_attempt_count"] >= task["target_n"]
@@ -1070,7 +1080,7 @@ class HedgeOpenStore:
 
     def resolve_attempt(
         self, attempt_id: int, outcome: AttemptOutcome, now_us: int,
-        *, leg_terminal: dict | None = None,
+        *, leg_terminal: dict | None = None, suppress_done: bool = False,
     ) -> dict:
         """Resolve both legs to their acceptance/fill verdict and apply the task
         counters + pause (breakdown §3.3/§3.6). Runs in a second short transaction
@@ -1179,6 +1189,7 @@ class HedgeOpenStore:
             updated_task, pair_outcome, _ = self._apply_task_counters(
                 task_id, category, outcome.exposure, now_us,
                 fatal=fatal, stop_reason=stop_reason,
+                suppress_done=suppress_done,
             )
             self._conn.execute(
                 "UPDATE hedge_open_attempt SET pair_outcome = ?, log_ref = ?,"
@@ -1735,12 +1746,20 @@ class HedgeOpenStore:
         preflight fact or a fatal reconciled leg is detected. Final for that
         task; the operator corrects the cause and creates a NEW task. No counter
         churn — a stopped task never dispatches again. Returns the updated task
-        or ``None`` when the task is gone."""
+        or ``None`` when the task is gone.
+
+        fix-runtime-seam-scan (same stale-snapshot family as :meth:`pause_task`):
+        CONDITIONAL write — the stop only applies while the task is currently
+        ``running`` or ``paused``. A concurrent ``post_delete`` during the
+        no-lock preflight network read cannot be resurrected to ``stopped`` by a
+        stale worker snapshot. ``None`` covers both a missing task and a
+        non-stoppable state; the caller still records its visible event."""
         with self._lock, self._conn:
             cur = self._conn.execute(
                 "UPDATE hedge_open_task SET status = ?, stop_reason = ?,"
-                " updated_at_us = ? WHERE id = ?",
-                (D.STATUS_STOPPED, stop_reason, now_us, task_id),
+                " updated_at_us = ? WHERE id = ? AND status IN (?, ?)",
+                (D.STATUS_STOPPED, stop_reason, now_us, task_id,
+                 D.STATUS_RUNNING, D.STATUS_PAUSED),
             )
             if cur.rowcount == 0:
                 return None
@@ -1751,7 +1770,7 @@ class HedgeOpenStore:
 
     def pause_task(
         self, task_id: str, pause_reason: str, pause_reason_zh: str, now_us: int,
-    ) -> dict | None:
+    ) -> tuple[dict | None, bool]:
         """Set a task to the amendment-21 task-local pause state:
         ``status=paused`` + ``pause_reason`` + ``pause_reason_zh`` (and clear any
         stale ``stop_reason``). Used by a task-local worker when a confirmed
@@ -1759,21 +1778,31 @@ class HedgeOpenStore:
         quantity fact is observed for THIS task only (no cross-task linkage).
         Unlike :meth:`stop_task_fatal`, a pause is recoverable: the operator
         clears the cause and manually resumes the SAME task (Start/recover). No
-        consecutive-failure counter churn. Returns the updated task or ``None``
-        when the task is gone."""
+        consecutive-failure counter churn.
+
+        fix-runtime-seam-scan (F2-P1 root fix): CONDITIONAL write — the pause
+        only applies while the task is currently ``running`` or ``paused``. A
+        concurrent ``post_delete`` / ``post_stop`` / target-``done`` during an
+        in-flight executor query therefore cannot be resurrected to ``paused``
+        by a stale worker snapshot. Returns ``(updated_task, applied)``:
+        ``applied=True`` means the conditional UPDATE hit and the status was
+        rewritten; ``applied=False`` means the task was gone or in a
+        non-pauseable state and NO status was changed (the caller still records
+        its visible event, so the closure is not lost)."""
         with self._lock, self._conn:
             cur = self._conn.execute(
                 "UPDATE hedge_open_task SET status = ?, pause_reason = ?,"
                 " pause_reason_zh = ?, stop_reason = NULL, updated_at_us = ?"
-                " WHERE id = ?",
-                (D.STATUS_PAUSED, pause_reason, pause_reason_zh, now_us, task_id),
+                " WHERE id = ? AND status IN (?, ?)",
+                (D.STATUS_PAUSED, pause_reason, pause_reason_zh, now_us, task_id,
+                 D.STATUS_RUNNING, D.STATUS_PAUSED),
             )
             if cur.rowcount == 0:
-                return None
+                return None, False
             row = self._conn.execute(
                 "SELECT * FROM hedge_open_task WHERE id = ?", (task_id,)
             ).fetchone()
-            return _row_to_task(row) if row is not None else None
+            return _row_to_task(row), True
 
     def record_task_event(
         self, task_id: str, kind: str, payload: dict, now_us: int,

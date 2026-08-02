@@ -414,6 +414,70 @@ def test_settings_defaults_and_start_gate(tmp_path):
     store.close()
 
 
+# fix-runtime-seam-scan (F2-P1 root fix): pause_task / stop_task_fatal are now
+# CONDITIONAL writes — a stale worker snapshot (taken before a no-lock executor
+# query) must never resurrect a task that a concurrent post_delete / post_stop /
+# target-done moved out of running/paused.
+
+
+def test_pause_task_conditional_write_hits_only_running_or_paused(tmp_path):
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    task = store.create_task(
+        "t1", "BTCUSDT", D.DIR_FORWARD, "immediate", "0.5", 1,
+        None, None, None, 1_000,
+    )
+    # running -> hit.
+    updated, applied = store.pause_task("t1", "insufficient_balance", "zh", 2_000)
+    assert applied is True
+    assert updated["status"] == D.STATUS_PAUSED
+    assert updated["pause_reason"] == "insufficient_balance"
+    # paused -> hit (idempotent).
+    _, applied = store.pause_task("t1", "rate_limited", "zh2", 3_000)
+    assert applied is True
+    assert store.get_task("t1")["status"] == D.STATUS_PAUSED
+    # deleted -> MISS: status untouched, caller can distinguish (None, False).
+    store.set_task_status("t1", D.STATUS_DELETED, 4_000)
+    updated, applied = store.pause_task("t1", "insufficient_balance", "zh", 5_000)
+    assert applied is False
+    assert updated is None
+    assert store.get_task("t1")["status"] == D.STATUS_DELETED
+    assert store.get_task("t1")["pause_reason"] == "rate_limited"  # 未被改写
+    # done / stopped -> MISS as well.
+    for status in (D.STATUS_DONE, D.STATUS_STOPPED):
+        store.set_task_status("t1", status, 6_000)
+        _, applied = store.pause_task("t1", "insufficient_balance", "zh", 7_000)
+        assert applied is False
+        assert store.get_task("t1")["status"] == status
+    store.close()
+
+
+def test_stop_task_fatal_conditional_write_misses_on_non_running(tmp_path):
+    """同族：stop_task_fatal 也是条件写——deleted/done/stopped 不被旧快照复活为
+    stopped；running/paused 可正常 stop。"""
+    store = HedgeOpenStore(str(tmp_path / "ho.sqlite3"))
+    store.create_task(
+        "t2", "BTCUSDT", D.DIR_FORWARD, "immediate", "0.5", 1,
+        None, None, None, 1_000,
+    )
+    # deleted -> MISS (None), status untouched.
+    store.set_task_status("t2", D.STATUS_DELETED, 2_000)
+    assert store.stop_task_fatal("t2", "symbol_unavailable", 3_000) is None
+    assert store.get_task("t2")["status"] == D.STATUS_DELETED
+    # running -> hit.
+    store.set_task_status("t2", D.STATUS_RUNNING, 4_000)
+    updated = store.stop_task_fatal("t2", "symbol_unavailable", 5_000)
+    assert updated is not None
+    assert updated["status"] == D.STATUS_STOPPED
+    assert updated["stop_reason"] == "symbol_unavailable"
+    # stopped -> MISS (already terminal).
+    store.set_task_status("t2", D.STATUS_RUNNING, 6_000)
+    store.set_task_status("t2", D.STATUS_STOPPED, 7_000)
+    assert store.stop_task_fatal("t2", "exchange_fatal", 8_000) is None
+    assert store.get_task("t2")["status"] == D.STATUS_STOPPED
+    assert store.get_task("t2")["stop_reason"] == "symbol_unavailable"  # unchanged
+    store.close()
+
+
 # F5 (review-1): the ``_migrate`` interval backfill must be under automated
 # regression — deleting the backfill SQL used to leave all 1140 tests green.
 # Construct a legacy-db settings row directly (seed first, then rewrite the row

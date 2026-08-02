@@ -22,8 +22,10 @@ worker synchronously through the ``_pump_worker`` test seam.
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import threading
+import time
 from decimal import Decimal
 
 import pytest
@@ -1380,6 +1382,201 @@ def test_inconclusive_cap_drain_keeps_non_running_status_sticky(tmp_path, status
     events = svc.store.list_task_event_logs(20, kinds=("task_paused",))
     assert any(
         json.loads(e["payload"]).get("reason") == D.PAUSE_REASON_ORDER_STATE_UNKNOWN
+        for e in events
+    )
+
+
+# ---------------------------------------------------------------------------
+# fix-runtime-seam-scan (F2-P1 root fix): the SAME family, exercised CONCURRENTLY.
+# The static tests above set the terminal status BEFORE the drain; they cannot
+# cover the window where post_delete lands DURING a no-lock executor query and a
+# stale worker snapshot then writes status. The store-side conditional write
+# (pause_task / stop_task_fatal: running/paused only) must keep the sticky
+# status, still record the event, and never resend.
+# ---------------------------------------------------------------------------
+
+
+class _BarrierQueryExecutor(_RoutingExecutor):
+    """F2-P1 并发回归辅助：第一次 query_leg 调用阻塞，让测试在 executor 查询
+    进行中执行 post_delete（真线程 worker 才能产生这个交错——_pump_worker 是
+    同步测试缝，无法在查询中途插入外部写）。release 后按脚本返回 verdict。
+    ``reentered`` 标记 worker 已进入第二轮查询（第一轮 drain 已处理完）。"""
+
+    def __init__(self):
+        super().__init__()
+        self.query_started = threading.Event()
+        self.release = threading.Event()
+        self.reentered = threading.Event()
+        self._qcount = 0
+
+    def query_leg(self, leg_name, coin, cid):
+        self._qcount += 1
+        if self._qcount == 1:
+            self.query_started.set()
+            self.release.wait(10.0)
+        elif self._qcount == 2:
+            self.reentered.set()
+        return super().query_leg(leg_name, coin, cid)
+
+
+def _wait_worker_past_first_drain(svc, exe, task_id, timeout=8.0):
+    """等待 worker 完成第一轮 drain 的状态写（退出，或进入第二轮查询——
+    reentered 说明第一轮已处理完）。并发测试的确定性锚点，无 sleep 竞态。"""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        worker = svc._workers.get(task_id)
+        if worker is None or exe.reentered.is_set():
+            return
+        time.sleep(0.01)
+    raise AssertionError("worker did not finish the first drain round")
+
+
+def _wait_for_event(svc, kinds, reason, timeout=8.0):
+    """轮询等待 kind/reason 匹配的任务事件（并发测试用；事件由 worker 线程写）。"""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        events = svc.store.list_task_event_logs(50, kinds=kinds)
+        if any(json.loads(e["payload"]).get("reason") == reason for e in events):
+            return
+        time.sleep(0.01)
+    raise AssertionError(f"event kind={kinds} reason={reason} never recorded")
+
+
+def test_concurrent_delete_during_drain_rate_limited_keeps_deleted(tmp_path):
+    """F2-P1 并发回归（429 站点，pre-existing-release-critical）：executor 查询
+    进行中 post_delete，429 drain 收口不得把已删除任务复活为 paused。最终状态
+    deleted、腿非终态、无重发、rate_limited 事件仍记录。破坏 pause_task 的
+    条件写（改回无条件）即失败。"""
+    exe = _BarrierQueryExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    svc.ensure_worker(doc["id"])  # 真线程 worker
+    assert exe.query_started.wait(5.0), "worker never reached the drain query"
+    svc.post_delete(doc["id"])  # 查询进行中删除
+    exe.queries.extend([
+        _leg(LEG_UNKNOWN_QUERYING, name="spot", rate_limited=True),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp", rate_limited=True),
+    ])
+    exe.release.set()
+    _wait_for_event(svc, ("rate_limited",), D.PAUSE_REASON_RATE_LIMITED)
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_DELETED  # 粘性，未被复活为 paused
+    assert task["pause_reason"] is None
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] == 0 for l in legs)  # 429 不 resolve
+    assert exe.dispatch_calls == 1  # 无重发
+    svc.stop()
+    worker = svc._workers.get(doc["id"])
+    if worker is not None:
+        worker.join(timeout=5.0)
+
+
+def test_concurrent_delete_during_drain_insufficient_keeps_deleted(tmp_path):
+    """F2-P1 并发回归（insufficient_* 站点，pre-existing-release-critical）：
+    查询进行中 post_delete + drain 返回 insufficient 分类 -> 不得复活为 paused。"""
+    exe = _BarrierQueryExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    svc.ensure_worker(doc["id"])
+    assert exe.query_started.wait(5.0), "worker never reached the drain query"
+    svc.post_delete(doc["id"])
+    exe.queries.extend([
+        _leg(LEG_UNKNOWN_QUERYING, name="spot", error_code="-2019",
+             error_category=D.ERROR_CATEGORY_INSUFFICIENT_FUNDS),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp", error_code="-2019",
+             error_category=D.ERROR_CATEGORY_INSUFFICIENT_FUNDS),
+    ])
+    exe.release.set()
+    _wait_for_event(svc, ("task_paused",), D.PAUSE_REASON_INSUFFICIENT_BALANCE)
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_DELETED  # 粘性
+    assert task["pause_reason"] is None
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] == 0 for l in legs)  # 非终态（UNKNOWN_QUERYING）
+    assert exe.dispatch_calls == 1  # 无重发
+    svc.stop()
+    worker = svc._workers.get(doc["id"])
+    if worker is not None:
+        worker.join(timeout=5.0)
+
+
+def test_concurrent_delete_during_drain_order_state_unknown_keeps_deleted(tmp_path):
+    """F2-P1 并发回归（order_state_unknown 站点，in-range）：查询进行中
+    post_delete + 计数达上限的 inconclusive -> 不得复活为 paused。"""
+    exe = _BarrierQueryExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    svc.ensure_worker(doc["id"])
+    assert exe.query_started.wait(5.0), "worker never reached the drain query"
+    svc.post_delete(doc["id"])
+    # 第 10 次查询（计数达上限）返回畸形 2xx -> SIGNAL_ORDER_STATE_UNKNOWN。
+    exe.queries.extend([None] * (2 * (D.LEG_QUERY_MAX_RETRIES - 1)))
+    exe.queries.extend([
+        _leg(LEG_UNKNOWN_QUERYING, name="spot"),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp"),
+    ])
+    exe.release.set()
+    _wait_for_event(svc, ("task_paused",), D.PAUSE_REASON_ORDER_STATE_UNKNOWN)
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_DELETED  # 粘性
+    assert task["pause_reason"] is None
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] == 0 for l in legs)  # 非终态
+    assert exe.dispatch_calls == 1  # 无重发
+    svc.stop()
+    worker = svc._workers.get(doc["id"])
+    if worker is not None:
+        worker.join(timeout=5.0)
+
+
+class _BarrierFatalProvider:
+    """同族（_stop_task_fatal_preflight）辅助：get_snapshot 阻塞（模拟 preflight
+    网络读取），返回 symbol_tradable=False 的 snapshot -> fatal preflight。"""
+
+    def __init__(self, snapshot, started, release):
+        self._snapshot = snapshot
+        self.started = started
+        self.release = release
+
+    def get_snapshot(self, coin):
+        self.started.set()
+        self.release.wait(10.0)
+        return self._snapshot
+
+
+def test_concurrent_delete_during_fatal_preflight_keeps_deleted(tmp_path):
+    """运行时接缝族 #1 同族确认：fatal preflight 的 preflight 网络读取（无锁）
+    期间 post_delete，旧快照不得把已删除任务复活为 stopped。stop_task_fatal 的
+    条件写守卫（running/paused only）保证粘性；task_stopped 事件仍记录。"""
+    started = threading.Event()
+    release = threading.Event()
+    fatal_snapshot = dataclasses.replace(_ok_snapshot(), symbol_tradable=False)
+    exe = _RoutingExecutor()
+    # 创建任务用正常 provider（create_task 本身会做一次 preflight 检查）；
+    # 随后替换为「阻塞 + fatal」的 provider，让 worker 的下一轮 preflight 读取
+    # 产生并发窗口。
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=2)
+    svc._preflight = _BarrierFatalProvider(fatal_snapshot, started, release)
+    svc.ensure_worker(doc["id"])
+    # round1: drain(无腿) -> 旧快照 running -> dispatch -> preflight 网络读取（阻塞）。
+    assert started.wait(5.0), "worker never reached the preflight read"
+    svc.post_delete(doc["id"])  # preflight 读取进行中删除
+    release.set()
+    worker = svc._workers.get(doc["id"])
+    if worker is not None:
+        worker.join(timeout=10.0)
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_DELETED  # 未被复活为 stopped
+    assert task["stop_reason"] is None
+    assert exe.dispatch_calls == 0  # fatal preflight 在任何 POST 之前 -> 无下单、无重发
+    # task_stopped 事件仍记录（可见；状态未被改写）。
+    events = svc.store.list_task_event_logs(50, kinds=("task_stopped",))
+    assert any(
+        json.loads(e["payload"]).get("stop_reason") == D.STOP_REASON_SYMBOL_UNAVAILABLE
         for e in events
     )
 

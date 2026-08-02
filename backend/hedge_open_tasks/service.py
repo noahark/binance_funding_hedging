@@ -1583,9 +1583,19 @@ class HedgeOpenTaskService:
         no consecutive-failure churn. A 429 uses the ``rate_limited`` kind; an
         insufficient-funds fact or a collateral-cap rejection uses ``task_paused``.
         ``pause_zh`` overrides the table lookup (used by collateral_cap, whose
-        frozen message carries the blocked asset). Idempotent on status."""
+        frozen message carries the blocked asset). Idempotent on status.
+
+        fix-runtime-seam-scan (F2-P1 root fix): the store applies the pause as a
+        CONDITIONAL write (current status running/paused only). When the
+        condition misses — e.g. a concurrent post_delete landed while the worker
+        was inside a no-lock executor query — NO status is rewritten, the audit
+        event is STILL recorded (the closure stays visible on the entries
+        timeline), and the caller's stale snapshot is not refreshed (the next
+        worker round re-reads authoritative state)."""
         reason_zh = pause_zh or D.pause_reason_zh(pause_reason)
-        updated = self._store.pause_task(task["id"], pause_reason, reason_zh, now_us)
+        updated, applied = self._store.pause_task(
+            task["id"], pause_reason, reason_zh, now_us,
+        )
         payload = {
             "reason": pause_reason,
             "reason_zh": reason_zh,
@@ -1595,7 +1605,7 @@ class HedgeOpenTaskService:
         if pause_signal is not None:
             payload["signal"] = pause_signal
         self._store.record_task_event(task["id"], kind, payload, now_us)
-        if updated is not None:
+        if applied and updated is not None:
             task.update(updated)
 
     def _signal_order_state_unknown_recovery(
@@ -2063,11 +2073,18 @@ class HedgeOpenTaskService:
             # Both legs terminal with a confirmed pause-class fact (insufficient
             # funds or a collateral-cap rejection): settle the pair once (clearing
             # the in-flight guard); the worker pauses THIS task only.
+            # fix-runtime-seam-scan: ``suppress_done`` — a terminal pause-class
+            # settlement must NOT auto-promote the task to done past the pause
+            # the worker applies right after (the conditional pause write would
+            # then miss and the amendment-21 "insufficient -> pause THIS task,
+            # no threshold wait" contract would silently degrade to done).
             outcome = self._dispatch_to_outcome(
                 attempt["attempt_uuid"], spot, perp, dispatch.record_payload, now_us
             )
             try:
-                self._store.resolve_attempt(attempt["id"], outcome, now_us)
+                self._store.resolve_attempt(
+                    attempt["id"], outcome, now_us, suppress_done=True,
+                )
             except Exception as exc:
                 # S3 (task1d): orders already sent and both legs terminal; a
                 # discarded resolve_attempt leaves pair_outcome NULL and the
