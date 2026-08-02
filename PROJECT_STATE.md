@@ -15,21 +15,15 @@ check.
   authorisation. Ordinary symbols unaffected and no bStock task exists today —
   **the first bStock task created will exercise unreviewed live order behaviour.**
 - `[CLOSED][VERIFIED-INCIDENT]` **BK-T3-002 — the live task DB was written during
-  development** (2026-08-01 23:45:48), changing **the cadence of a running live
-  service** rather than data at rest. Value written was correct; no
-  task/attempt/leg/order data touched. **Root cause, found after merge**: the
-  Task 3 interval backfill rewrote a row **unconditionally on every store
-  construction**, outside the opt-in guard DEC-2026-07-30-003 had added three days
-  earlier for exactly this. It was never a stray run — any construction against
-  the real DB rewrote it by design. Missed by the packet (never checked the
-  decision log), three review-1 rounds, review-2 and the Bookkeeper.
-  **Fixed 2026-08-02 (`9c6b3b2`, DEC-2026-08-02-002)**: the cadence now comes from
-  the code constant, the migration is deleted, and a byte-level regression asserts
-  that constructing a store never writes — the test that would have caught this.
-  **Two operating rules stand:** ① verify `interval_us=500000 version=4` against
-  snapshot `data/…bak-premerge-20260802-161143` before each service start;
-  ② **development and verification runs never touch the real `data/` path.**
-  Evidence: archive `27-` §3, `39-` §1.2.
+  development** (2026-08-01 23:45:48). Root cause: Task 3's interval backfill
+  rewrote a row on every store construction, outside the opt-in guard in
+  DEC-2026-07-30-003; this was missed by the packet, reviews, and Bookkeeper.
+  **Fixed 2026-08-02 (`9c6b3b2`, DEC-2026-08-02-002)**: the migration is deleted,
+  cadence comes from the code constant, and a byte-level no-write regression
+  covers store construction. Before service start verify
+  `interval_us=500000 version=4` against the pre-merge snapshot; development
+  and verification never use the real `data/` path. Evidence: archives `27-`,
+  `39-` §1.2.
 
 ## Merged Position Table — Accepted Limitations (Task 1, merged 2026-08-01)
 
@@ -47,27 +41,26 @@ know.** None costs money directly; each can mislead an operating decision.
   `verified: false` from an expired key / changed IP / Binance error), every row
   still reports `no_um` and prints 交易所无仓 with a liquidation hint — verified to
   do so even when the account block *does* contain that position.
-  **Re-decided 2026-08-02**: Task 2 was to fix it, Task 2 is deferred, and Human
-  authorised the Task 3 merge after seeing review-2's finding, so F4 **stays
-  accepted**. That finding is why it must stay visible: **one exchange-side outage
-  triggers both** `order_state_unknown` (task pauses, "go check the exchange")
-  **and** F4's false 交易所无仓 — the moment you most need to verify is the moment
-  the table is least trustworthy, and believing it can lead to rebuilding a task
-  that already has a live leg. **Rule while accepted: when the 账户数据未就绪
-  banner is on screen, verify on Binance, not in this table.** Fix is fully
-  specified in the archive `46-` §3.3 and should be scheduled on its own.
-- `[OPEN][RELEASE-GATE]` The read-only smoke run review-2 made its ACCEPT
-  conditional on was **never executed** (Human authorised the merge without it).
-  Checklist: archive `49-`. **Now a hard prerequisite for the next live
-  activation** (review-2, 2026-08-02) — its account-not-ready item covers F4.
+  **Re-decided 2026-08-02**: Task 2 was to fix it, Task 2 is deferred, and F4
+  **stays accepted**. An exchange outage can trigger both
+  `order_state_unknown` (pause and verify) and this false claim, so the table is
+  least trustworthy when it matters most. **Operator rule: 「交易所无仓」本身
+  永远不足以证明仓位没了 —— 去币安核实。横幅只覆盖三条路径中的两条，
+  它不出现，什么也证明不了。**
+  Opus5 identified a third path: `verified=true` can hide
+  a missing UM-side read. A task bucket plus no matching UM is `no_um` only
+  after a successful UM-granular read; the reported root cause is
+  `backend/domain/snapshot.py` near `:1098` and `:1120`. This remains deferred.
+- `[OPEN][RELEASE-GATE]` The read-only smoke run was never executed. Checklist:
+  archive `49-`; it is a hard prerequisite for the next
+  live activation. Its B-6 covers private-channel-off, but not F4's third path;
+  add that case before the gate is used.
 
 ## Task 3 — Cadence + Absent Tolerance (merged 2026-08-02)
 
-Delivery `d2ac353`. Re-query cadence **1s -> 500ms** (not the 100ms originally
-asked — Human switched to match the legacy JS strategy) plus a **10-try per-leg
-retry budget** before a `404`/`-2013` is believed. Both reviews ACCEPT after three
-review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**; code evidence
-is the strongest this project has produced.
+Delivery `d2ac353`. Re-query cadence **1s -> 500ms** plus a **10-try per-leg
+retry budget** before a `404`/`-2013` is believed. Both reviews ACCEPT after
+three review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**.
 
 - `[OPEN][OPERATING-LIMIT]` **Run at most ~5 tasks draining concurrently.** The
   worker queries *every* non-terminal leg each round, so two legs in flight is
@@ -116,11 +109,10 @@ is the strongest this project has produced.
 - **No active stage.** `2026-07-31-hedge-task-lifecycle-v1` closed 2026-08-02:
   Task 1 (`ef53a02`) and Task 3 (`d2ac353`) merged and pushed, Task 2 designed but
   deliberately not built (DEC-2026-08-02-003).
-- Highest-value next pieces, in order: **F4's fix** (fully specified, and the one
-  limitation that can mislead an operating decision during an outage);
-  **the task-card Chinese gap** (two-line frontend change); then the deferred
-  lifecycle rework itself — read `docs/planning/deferred-hedge-task-lifecycle.md`
-  first, it holds five problems the frozen design docs do not.
+- F4 is fully specified and plan-reviewed, but **deliberately not implemented**;
+  restart from this stage's archive closure record and the Opus5 report §9.
+  It remains an accepted release/runtime limitation. Other queued work includes
+  the task-card Chinese gap and the deferred lifecycle rework.
 - Idle, not closed: `2026-07-hedge-fast-fix-v1` (`awaiting_findings`).
 - Main line: live testing of the immediate-hedge scenario — still **no runtime
   verification** of the hedge-open path.
@@ -131,6 +123,11 @@ is the strongest this project has produced.
 - archive_ref: `archive/2026-07-31-hedge-task-lifecycle-v1` (Task 1 `ef53a02`,
   Task 3 `d2ac353`; Task 2 designed but not built, see
   `docs/planning/deferred-hedge-task-lifecycle.md`)
+- recorded_completed_at: `2026-08-02`
+
+- stage: `2026-08-02-hedge-f4-account-availability-v1`
+- archive_ref: `archive/2026-08-02-hedge-f4-account-availability-v1`
+  (closed before planner execution; F4 deliberately deferred; see `70-stage-closure.md`)
 - recorded_completed_at: `2026-08-02`
 
 ## Update Rule

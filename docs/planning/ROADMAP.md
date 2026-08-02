@@ -32,10 +32,10 @@ Hedge-open display honesty, then runtime verification. Detail and acceptance
 state for every item below live in `PROJECT_STATE.md`.
 
 - **F4 — the position table claims "exchange has no position" without checking.**
-  Highest priority: it fires from the same outage that makes a task ask the
-  operator to go verify on the exchange, so the moment you most need the table is
-  the moment it is least trustworthy. Fix fully specified; scheduled on its own
-  rather than waiting for the deferred lifecycle rework.
+  The fix is fully specified and plan-reviewed, deliberately not implemented.
+  It remains an accepted limitation and release/runtime concern; if restarted,
+  read the archived stage closure record and the Opus5 report §9. The third-path
+  smoke coverage is also a follow-up to archive `49-`.
 - **Task-card pause reasons render 1 of 7 in Chinese** — the frontend never reads
   the `pause_reason_zh` the backend already returns. Two-line change.
 - **Run the read-only smoke checklist** (`archive/2026-07-31-hedge-task-lifecycle-v1`
