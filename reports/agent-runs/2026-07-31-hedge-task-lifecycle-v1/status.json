@@ -1,31 +1,32 @@
 {
   "schema_version": "2",
-  "revision": 31,
+  "revision": 32,
   "stage_id": "2026-07-31-hedge-task-lifecycle-v1",
   "bookkeeper": "opus5",
-  "phase": "review_1_r2_dispatched",
-  "checkpoint": "f70e6ca_sealed_verified_after_human_confirmed_test5b_authorization",
+  "phase": "same_root_cause_brake_triggered_runtime_seam_scan_dispatched",
+  "checkpoint": "review1_r2_rework_f1p1_f2p1_concurrency_races_reverified_rework_count_2_of_3",
   "base_sha": "9faa716396cbbe67ebeec272ad6b3dd443bba583",
   "delivery_sha": "f70e6ca20ac283e78db8d14a78efe4018d3564c1",
-  "ledger_sha": "5bb495af651ef9a3beb02a12323794045bd2185e",
+  "ledger_sha": "165598e3978aabf19bd6f670281fc53691e82660",
   "current_task": {
-    "id": "review-1-gpt-task3-r2",
+    "id": "fix-runtime-seam-scan-v1",
     "state": "dispatched",
-    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/review-1-gpt-task3-r2.dispatch.md"
+    "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-runtime-seam-scan-v1.dispatch.md"
   },
   "next": {
     "actor": "human_operator",
     "action": "start-prepared-task"
   },
-  "rework_count": 1,
+  "rework_count": 2,
   "blockers": [
-    "BK-T3-002 **发布门**（codex 上轮独立认定）：实盘库曾于 2026-08-01 23:45:48 被开发期写入；即使 review-1/review-2 通过，也不得自动合并、部署或启用实盘，须 Human 单独裁定。本轮实现者未再触碰 data/（mtime/值/留痕三重确认）。",
-    "review-2 已定 Fable5（anthropic），Human 显式启用其独立付费额度。隔离核验：与本交付两位作者（claude_glm=zhipu_glm、deepseek=deepseek）provider 均不同，且本 stage 零参与，符合 roles.md「Prefer a final reviewer that did not plan or design the stage」。",
-    "review-1 复审派给 GPT（openai），与上轮 codex 同 provider，符合 §8「Review-1 REWORK 修复后返回 review-1」。",
-    "范围外顺带修复待 review-1 定性：F3 补全 _event_to_entry 的 task_paused 映射，纠正了既有 insufficient_*/collateral_cap_full 事件在 entries 上一直投影错误的 pre-existing 缺陷；因是 F3 接线的必然结果而无法分离。详见 30- §4。",
-    "Bookkeeper packet 缺陷已留档（30- §7）：要求删除 ABSENT_TOLERANCE_WINDOW_US 却把引用它的 test_hedge_review2_regressions.py 列入禁改，且未延续上轮的受限授权。下次删除常量时须同步授权所有引用点。",
-    "PAUSE_REASON_ORDER_STATE_UNKNOWN 采信裁定不变，为 Task 2 具名输入（27- §4）：既不属自动删除的五种，也不属退避的一种。",
-    "前端 HEDGE_PAUSE_REASON_LABELS 缺 order_state_unknown，会原样显示英文键值。已记为非阻塞后续项。",
+    "**§8 同根因刹车已触发**（判定见 32- §3）：连续两轮 REWORK 归因同一根因——新增路径未与既有契约接线，第一轮漏静态面、第二轮漏运行时面，且同为 F1/F2 两个编号、F2 后果相同（终态被改 paused）。下一轮**禁止点补丁**，修复任务必须是运行时接缝穷举扫描。评审者根因原文已在 packet Goal 中逐字引用。",
+    "**rework_count 1→2，上限 3，仅剩 1 次**。若本轮后再 REWORK，须由 Human 在「缩小范围/重新设计/接受限制/停止」中选择，Bookkeeper 不得自行再派修复。",
+    "F1-P1（in-range，P1）：worker 的 finally 先持锁从 _workers 摘除、释放锁后才清理计数，两步不原子；ensure_worker 可在空窗启动新 worker，旧 worker 随后把新计数 pop 清零 → 腿重获完整 10 次预算、收口被推迟、反复重入时预算上限失效。生产入口 post_start/post_fill_once/post_fill_all/_recover_workers 均可触发，非仅测试可达。另 close() 无确定 join 顺序，计数可残留。",
+    "F2-P1（in-range，P1）：_worker_round 读 task 快照后无锁调用 executor 查询，收口时仍用旧快照，而 store.pause_task 的 UPDATE 无状态条件。Bookkeeper 探针实证：查询进行中 post_delete → 最终 status=paused（期望 deleted）。post_delete 的既有设计就是不打断 worker 继续 drain，故该交错是设计允许的正常入口；上一轮三态测试在 drain 前静态设状态，结构上无法覆盖该时间窗。",
+    "F3/F4/F5 经评审者判定**已修复**（entries 接线含 API 断言、两 signal 产生点各有独立测试、迁移回归可失败）。",
+    "F3 顺带修复的定性（评审者给出、Bookkeeper 采信）：_event_to_entry 缺 task_paused 映射由 8af3f22d 引入，早于 base_sha，标注 pre-existing-release-critical；其修复是 F3 接线不可分离的必然结果，不另立返工项，当前交付已修好。",
+    "BK-T3-002 **发布门维持**（评审者独立复核）：本轮未新增 data/ 写入（mtime/值/区间三重确认），但不能抹除 2026-08-01 的历史事故；两道评审通过后合并、部署或实盘启用仍须 Human 单独裁定。",
+    "本轮实现者暂定 deepseek（上一轮 F1-F5 修复质量高、熟悉该代码区）；Human 可改派。review-1 复审仍为 gpt（openai），review-2 为 Fable5（anthropic，Human 已显式启用付费额度）。",
     "Task 2 仍暂缓；F4（账户读不到谎称交易所无仓）随之推迟，按 46- §3.3 须在合并 main 前重新交 Human 裁定。",
     "Task 1 已合并但 review-2 的发布前置（只读真机冒烟，清单 49-）未执行。",
     "bStock 下单路径修复 3dc6756 已合入 main 且零评审。"
