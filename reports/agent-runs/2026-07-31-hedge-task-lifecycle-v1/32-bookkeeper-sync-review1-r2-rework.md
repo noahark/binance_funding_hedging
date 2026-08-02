@@ -126,3 +126,71 @@ Bookkeeper 探针（在第 `2N-1` 次查询进行中把任务改为 `deleted`）
 
 评审者在区间 `git diff --check` 中发现 `23-cadence-implementation.md:82` 有尾随空格，
 属控制提交上下文而非受审交付，**未据此提出产品返工**。Bookkeeper 同意，不处理。
+
+---
+
+## 7. 追加（2026-08-02）：Bookkeeper 先导扫描的发现 + F1-P1 接受为限制
+
+### 7.1 F2-P1 的根比评审所述更深：这是既有缺陷家族，不是新引入
+
+Human 指出「之前设计的是暂停和删除在当前下单查询之后执行」。**该记忆经核实成立**：
+`post_delete` 的实现注释（Amendment 21 / Review-1 r3 P1-2）原文：
+
+> do NOT interrupt the worker. The task's own bounded worker keeps draining its
+> in-flight legs to terminal and settling the pair, **then exits on the status
+> check** (opens no new pair once deleted).
+
+即原设计为「drain 期间不改状态，查完到状态检查点才退出」。**但实现从未完整遵守**：
+`_worker_round` 的 drain 阶段有**三个**站点用查询前的旧快照写任务状态。
+
+Bookkeeper 探针（查询进行中执行 `post_delete`）：
+
+```text
+429 限频（既有）              期望 deleted / 实际 paused   pause_reason=rate_limited          ✗ 被复活
+余额不足 insufficient（既有）  期望 deleted / 实际 paused   pause_reason=insufficient_balance  ✗ 被复活
+订单状态不明（本轮新增）        期望 deleted / 实际 paused   pause_reason=order_state_unknown   ✗ 被复活
+```
+
+**范围三分类**：
+
+| 站点 | 分类 |
+|---|---|
+| `SIGNAL_ORDER_STATE_UNKNOWN` | **`in-range`**（本次交付引入） |
+| `SIGNAL_RATE_LIMITED`（429） | **`pre-existing-release-critical`**（早于 `base_sha`，涉及任务生命周期与资金可见性） |
+| `SIGNAL_TASK_LOCAL_PAUSE`（`insufficient_*` / `collateral_cap_full`） | **`pre-existing-release-critical`**（同上） |
+
+### 7.2 修法随之改变：在根上修，一次覆盖三条
+
+`store.pause_task` **全项目只有一个调用者**（`service.py:1588`，`_pause_task_local` 内）。
+因此在该 `UPDATE` 上加状态条件（仅 `running`/`paused` 命中），**一处改动即覆盖三条路径**，
+远优于在三个调用点各加守卫。
+
+这正是 §8 同根因刹车所要求的「穷举根因扫描」的成果——**Bookkeeper 在派工前已完成家族
+定位**，实现者据此修根并补齐扫描，不必从零摸索。
+
+### 7.3 F1-P1：Human 决定接受为已知限制（`AGENTS.md` §8 五要素）
+
+- **问题事实**：`_run_task_worker` 的 `finally` 先在持 `_workers_lock` 时从 `_workers`
+  摘除本线程，**释放锁之后**才调 `_clear_task_leg_retries`。两步不原子；空窗内
+  `ensure_worker` 可启动同任务新 worker，新 worker 写入的计数随后被旧 worker 清零。
+  另 `close()` 无确定 join 顺序，计数可残留。
+- **可能影响**：该腿重新获得完整 10 次查询预算，收口推迟约 5 秒（10 × 500ms）；反复重入
+  时预算上限实际失效。**不造成资金错误、不误判订单状态、不重发下单。**
+- **接受理由**：三个触发入口 `post_start` / `post_fill_once` / `post_fill_all`
+  **全部是人工点击**；第四个入口 `_recover_workers` 只在服务启动时运行，彼时旧进程已终止，
+  不构成交错。竞态窗口 = `_clear_task_leg_retries` 遍历该任务 attempts/legs 的耗时，
+  本地 SQLite 为**毫秒级**，而人工点击为秒级反应。Human 判定场景过窄，代价与收益不相称。
+- **临时限制 / 观察方式**：若发现某条腿的 `order_query` 记录行数**明显超过 10 次**，
+  应首先怀疑本条。
+- **后续复看条件**：**若将来引入任何非人工触发 `ensure_worker` 的路径**（自动重启、自动
+  补单、定时重试等），竞态窗口将由人类反应速度变为机器速度，**本条必须重新评估**。
+
+### 7.4 本轮范围（据以重写 packet）
+
+1. **主修**：`pause_task` 条件写，一次覆盖三条 drain 收口路径；未命中时只记事件、不改状态。
+2. **三条并发回归测试**（429 / `insufficient_*` / `order_state_unknown` 各一条）。
+3. **补齐运行时接缝扫描**：确认该家族无第四个站点，并覆盖其它运行时接缝族。
+   已知待确认线索：`_stop_task_fatal_preflight`（`service.py:1828`，经
+   `_dispatch_one_for_task` 调用）同样在网络调用后用旧 `task` 写 `stopped`，
+   虽位于状态检查之后，仍须确认是否属同族。
+4. **F1-P1 移出修复范围**（见 §7.3）。
