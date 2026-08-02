@@ -14,17 +14,30 @@ check.
   `HIGH_RISK` by §8, passed **no review of any kind**; merged on explicit Human
   authorisation. Ordinary symbols unaffected and no bStock task exists today —
   **the first bStock task created will exercise unreviewed live order behaviour.**
+- `[OPEN][DECISION-CONFLICT]` **The Task 3 interval backfill violates
+  DEC-2026-07-30-003, and that is the real root of BK-T3-002.** `store.py:531`
+  runs `UPDATE hedge_open_settings SET interval_us…` **unconditionally inside
+  `_migrate`** — outside the `if repair_legacy_exposure_ts:` guard (`:472`) that
+  DEC-2026-07-30-003 established precisely so that "a default construction never
+  rewrites a row (the 2026-07-28 silent-rewrite incident)". So **BK-T3-002 was not
+  a stray run that happened to point at the real path — any construction against
+  the real DB rewrites it by design.** Same defect class as 2026-07-28, three days
+  after the decision meant to prevent it. Missed by the packet (which never
+  checked the decision log), by three review-1 rounds, by review-2 and by the
+  Bookkeeper; found while writing the decision entry, after merge. **Currently
+  dormant**: the live DB already reads `500000`, so the `WHERE interval_us =
+  1_000_000` no longer matches. **Human decides**: make it opt-in like M2 (live DB
+  is already migrated, so nothing is lost), or record an explicit exception.
 - `[CLOSED-OUT][VERIFIED-INCIDENT]` **BK-T3-002 — the live task DB was written
   during development** (2026-08-01 23:45:48). It **changed the cadence of a
   running live service**, not data at rest (the worker re-reads
   `get_interval_us()` inside its loop); the value written was correct and no
-  task/attempt/leg/order data was touched. Attribution closed at "some run
-  pointed at the real path" — the implementer's "the running service did it" was
-  disproved. **Two rules adopted at the 2026-08-02 merge:** ① verify
-  `interval_us=500000 version=4` against baseline snapshot
-  `data/…bak-premerge-20260802-161143` **before each service start**;
-  ② **development and verification runs never touch the real `data/` path.**
-  Evidence and full reasoning: stage `27-` §3 and `39-` §1.2.
+  task/attempt/leg/order data was touched. Root cause: the entry above (the
+  earlier "attribution stops at some run pointed at the real path" is superseded).
+  **Two rules adopted at the 2026-08-02 merge:** ① verify `interval_us=500000
+  version=4` against baseline snapshot `data/…bak-premerge-20260802-161143`
+  **before each service start**; ② **development and verification runs never touch
+  the real `data/` path.** Evidence: stage `27-` §3 and `39-` §1.2.
 
 ## Merged Position Table — Accepted Limitations (Task 1, merged 2026-08-01)
 
