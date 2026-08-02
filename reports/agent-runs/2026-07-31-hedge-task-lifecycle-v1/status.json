@@ -10,7 +10,7 @@
   "ledger_sha": "0aac1855e90b99c37d04659b7fb2908b1768f9a4",
   "current_task": {
     "id": "fix-review1-retry-counter-v1",
-    "state": "dispatched",
+    "state": "reported",
     "dispatch": "reports/agent-runs/2026-07-31-hedge-task-lifecycle-v1/fix-review1-retry-counter-v1.dispatch.md"
   },
   "next": {

@@ -415,18 +415,18 @@ def test_5b_auth_ambiguity_stays_unknown_then_absent_confirms_failure(tmp_path):
     attempts = svc.store.list_attempts_for_task(doc["id"])
     assert attempts[0]["pair_outcome"] is None  # still unresolved, never resent
     # Next poll: explicit absent (confirmed never accepted) -> confirmed failure.
+    # fix-review1-retry-counter (Human-approved minimal adaptation): a 404 / -2013
+    # below the LEG_QUERY_MAX_RETRIES cap is eventual-consistency noise, not a
+    # confirmed-absent terminal, so the legs would keep querying and the failure
+    # would NOT count. Fill the cap with inconclusive (None) polls so the LAST
+    # (10th) query is the absent poll. Only the mechanism adaptation changes; the
+    # core assertion (absent confirmed -> fail_count == 1) is unchanged.
+    exe.queries.extend([None] * (2 * (D.LEG_QUERY_MAX_RETRIES - 2)))
     exe.queries.extend([
         _leg(LEG_REJECTED, name="spot", error_code="http_404", error_category="absent"),
         _leg(LEG_REJECTED, name="perp", error_code="http_404", error_category="absent"),
     ])
-    # Constrained authorization (cadence-500ms packet): a 404 / -2013 within the
-    # absent-tolerance window (~5s from dispatch) is eventual-consistency noise,
-    # not a confirmed-absent terminal, so the legs would keep querying and the
-    # failure would NOT count. Advance the clock past the window so the absent
-    # poll confirms failure. Only the clock advance changes; the core assertion
-    # (absent confirmed -> fail_count == 1) is unchanged.
-    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
-    _step(svc, doc["id"], clock)
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES - 1)
     task = svc.store.get_task(doc["id"])
     assert task["fail_count"] == 1
 

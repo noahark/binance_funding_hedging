@@ -606,6 +606,44 @@ def test_logs_entries_pagination_params_threaded_through_http(tmp_path):
         assert status3 == 400
 
 
+def test_logs_entries_surfaces_order_state_unknown_manual_verification_event(tmp_path):
+    # F3 (review-1): the order_state_unknown manual-verification closure must be
+    # visible on the additive entries timeline with overall_result=task_paused /
+    # next_action=paused and the Chinese reason. The event is recorded with the
+    # existing ``task_paused`` kind (F3 reuse), so it must pass the
+    # _ENTRY_EVENT_KINDS filter AND map through _event_to_entry as a pause — the
+    # old code either filtered it out (kind order_state_unknown) or rendered it
+    # as a wait with overall_result=None (task_paused fell through the mapping).
+    clock = _Clock()
+    svc = _svc(tmp_path, mode="live", clock=clock)
+    svc.set_start_gate(True)
+    with _server(svc) as (host, port):
+        tid = _create_task(host, port, _create_body(target_n=1))["id"]
+        reason_zh = D.pause_reason_zh(D.PAUSE_REASON_ORDER_STATE_UNKNOWN)
+        svc.store.record_task_event(
+            tid, "task_paused",
+            {
+                "reason": D.PAUSE_REASON_ORDER_STATE_UNKNOWN,
+                "reason_zh": reason_zh,
+                "coin": "BTCUSDT",
+                "direction": D.DIR_FORWARD,
+                "signal": D.SIGNAL_ORDER_STATE_UNKNOWN,
+            },
+            svc._wall_us(),
+        )
+        status, _, payload = _req(
+            host, port, "GET", "/api/hedge-open-logs?entries_limit=10"
+        )
+        assert status == 200
+        page = _json(payload)
+        events = [e for e in page["entries"] if e["entry_type"] == "task_event"]
+        assert events, "the manual-verification event must reach the entries timeline"
+        pause = next(e for e in events if e["error_reason_zh"] == reason_zh)
+        assert pause["overall_result"] == "task_paused"
+        assert pause["next_action"] == "paused"
+        assert pause["error_reason_zh"] == reason_zh
+
+
 # ===========================================================================
 # Positions projection (§3.3)
 # ===========================================================================

@@ -365,6 +365,16 @@ def _absent_query(name):
     return _leg(LEG_REJECTED, name=name, error_code="http_404", error_category="absent")
 
 
+def _retry_cap_queries(exe, *, final, already=0, cap=D.LEG_QUERY_MAX_RETRIES):
+    """F1 辅助：把每条腿已查询 ``already`` 次后的共享查询队列，推进到第 ``cap``
+    次（收口）查询恰好消费 ``final``（两个 verdict）。queries 是 spot/perp 交替
+    消费的共享 deque，所以每轮占位需要 2 个 None；调用方随后 pump ``cap - already``
+    轮，使两条腿的第 ``cap`` 次查询同时拿到 ``final`` 并各自按最后一次结果分流
+    （404 / -2013 -> absent 终态；inconclusive -> 人工暂停）。"""
+    exe.queries.extend([None] * (2 * (cap - 1 - already)))
+    exe.queries.extend(final)
+
+
 def test_3_task_a_rate_limit_pauses_without_counter_and_b_still_dispatches(tmp_path):
     """Dispatch item 4 + user constraint 1: A's confirmed 429 pauses THIS task
     only (rate_limited), the worker DRAINS its in-flight pair to terminal before
@@ -534,24 +544,17 @@ def test_drain_settlement_failure_is_recorded_not_swallowed(tmp_path):
     # An UNKNOWN pair (has_querying -> legs marked for drain; the dispatch path
     # does NOT compute exposure, so the zero clock does not raise here).
     exe.set_script(doc["id"], [_unknown_pair()])
-    # Drain resolves both legs to terminal: spot -> FILLED accepted, perp ->
-    # absent REJECTED, i.e. a single-leg pair whose exposure build_leg_exposure
-    # raises on ts_us <= 0.
-    exe.queries.extend([_filled_leg("spot"), _absent_query("perp")])
+    # F1 计数机制：absent 只在第 LEG_QUERY_MAX_RETRIES 次查询时确认终态。占位到
+    # 上限前一步，第 10 次查询 spot -> FILLED accepted、perp -> absent REJECTED，
+    # 即 single-leg 终态 -> finalize(ts_us=0) 抛 T5（wall clock 保持 0）。
+    _retry_cap_queries(exe, final=[_filled_leg("spot"), _absent_query("perp")])
 
     svc._pump_worker(doc["id"], max_rounds=1)  # round 1: dispatch -> in-flight
     # The wall clock stays at zero (that is what trips finalize_attempt's
-    # ts_us<=0 backstop below); move only the dispatch anchor behind the
-    # absent-tolerance window so the perp drain's 404 confirms absent (single-
-    # leg) at now_us=0. The absent verdict, the zero clock, and the single-leg
-    # settlement-exception core are all unchanged.
-    with svc.store._lock, svc.store._conn:
-        svc.store._conn.execute(
-            "UPDATE hedge_open_leg SET dispatched_at_us = ? WHERE terminal = 0",
-            (-D.ABSENT_TOLERANCE_WINDOW_US - 1,),
-        )
-    # round 2: drain -> finalize(ts_us=0) raises. The exception must not escape.
-    svc._pump_worker(doc["id"], max_rounds=1)
+    # ts_us<=0 backstop below); no dispatched_at_us anchor is involved — the
+    # retry counter alone drives the absent confirmation at the cap.
+    # rounds 2..11: 9 轮 None 占位 + 第 10 轮终态收口 -> finalize raises.
+    svc._pump_worker(doc["id"], max_rounds=D.LEG_QUERY_MAX_RETRIES)
 
     attempt = svc.store.list_attempts_for_task(doc["id"])[0]
     assert attempt["pair_outcome"] is None  # still unsettled — no fabrication
@@ -674,17 +677,16 @@ def test_s2_rate_limit_stamp_failure_settles_without_consuming_counter(tmp_path)
         perp=_leg(LEG_UNKNOWN_QUERYING, name="perp", rate_limited=True, retry=2),
         record_payload={"transport": "live"}, rate_limited=True, retry_after_seconds=2,
     )])
-    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+    # F1 计数机制：404 在第 LEG_QUERY_MAX_RETRIES 次查询才确认 absent（原为推进
+    # 时钟过容忍窗口）。占位到上限前一步，第 10 次查询 404 -> settle。
+    _retry_cap_queries(exe, final=[_absent_query("spot"), _absent_query("perp")])
 
     def _boom(*_a, **_k):
         raise RuntimeError("boom-mark_attempt_rate_limited")
     svc.store.mark_attempt_rate_limited = _boom
 
     _step(svc, doc["id"], clock, rounds=1)  # 429 dispatch -> pause (rate_limited)
-    # Age past the absent-tolerance window so the drain's 404 / -2013 confirms
-    # absent (within ~5s of dispatch a 404 is eventual-consistency noise).
-    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
-    _step(svc, doc["id"], clock, rounds=2)  # drain (post-window) -> settle
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES)  # drain (at cap) -> settle
 
     task = svc.store.get_task(doc["id"])
     assert task["fail_count"] == 0  # R3: 429 pair never consumed the counter
@@ -1143,34 +1145,35 @@ def test_4m_drain_new_then_rate_limited_replaces_placeholder_and_pauses(tmp_path
 # ---------------------------------------------------------------------------
 
 
-def test_absent_within_window_stays_nonterminal_then_confirms_after_window(tmp_path):
-    """Acceptance 5: a 404 / -2013 received WITHIN the tolerance window of
-    dispatch leaves the leg non-terminal (keep querying, never resend); the SAME
-    404 received AFTER the window confirms absent (terminal -> failure)."""
+def test_absent_below_retry_cap_stays_nonterminal_then_confirms_at_cap(tmp_path):
+    """F1 (acceptance 5): a 404 / -2013 received BEFORE the retry cap leaves the
+    leg non-terminal (keep querying, never resend); the SAME 404 received AT the
+    cap (the LEG_QUERY_MAX_RETRIES-th query) confirms absent (terminal ->
+    failure). No dispatched_at_us anchor is involved."""
     exe = _RoutingExecutor()
     svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
     doc = _create(svc, target_n=1)
     exe.set_script(doc["id"], [_unknown_pair()])
     _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
 
-    # Within the window: a 404 must NOT confirm absent — legs stay non-terminal.
+    # Below the cap: a 404 must NOT confirm absent — legs stay non-terminal.
     exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
     _step(svc, doc["id"], clock, rounds=1)
     legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
     assert all(l["terminal"] == 0 for l in legs)  # still draining, never resent
     assert svc.store.list_attempts_for_task(doc["id"])[0]["pair_outcome"] is None
 
-    # After the window elapses: the same 404 confirms absent -> terminal failure.
-    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
-    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
-    _step(svc, doc["id"], clock, rounds=2)
+    # At the cap (10th query): the same 404 confirms absent -> terminal failure.
+    _retry_cap_queries(exe, already=1,
+                       final=[_absent_query("spot"), _absent_query("perp")])
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES - 1)
     assert svc.store.get_task(doc["id"])["fail_count"] == 1  # absent confirmed
 
 
-def test_inconclusive_past_window_pauses_for_manual_recovery_not_absent(tmp_path):
-    """Acceptance 6 (R2-F2): a leg whose queries stay inconclusive (malformed 2xx
-    -> UNKNOWN_QUERYING) PAST the tolerance window is NEVER equated with absent.
-    It is left non-terminal and the task pauses for manual recovery
+def test_inconclusive_at_retry_cap_pauses_for_manual_recovery_not_absent(tmp_path):
+    """F1 (acceptance 6, R2-F2): a leg whose queries stay inconclusive (malformed
+    2xx -> UNKNOWN_QUERYING) for the whole retry budget is NEVER equated with
+    absent. It is left non-terminal and the task pauses for manual recovery
     (order_state_unknown) — not confirmed-failed, never resent."""
     exe = _RoutingExecutor()
     svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
@@ -1178,13 +1181,12 @@ def test_inconclusive_past_window_pauses_for_manual_recovery_not_absent(tmp_path
     exe.set_script(doc["id"], [_unknown_pair()])
     _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
 
-    # Age past the window, then return inconclusive (NOT a 404 / -2013).
-    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
-    exe.queries.extend([
+    # The 10th (cap) query is still inconclusive (NOT a 404 / -2013).
+    _retry_cap_queries(exe, final=[
         _leg(LEG_UNKNOWN_QUERYING, name="spot"),
         _leg(LEG_UNKNOWN_QUERYING, name="perp"),
     ])
-    _step(svc, doc["id"], clock, rounds=2)  # drain past window -> pause
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES)  # drain to cap -> pause
 
     task = svc.store.get_task(doc["id"])
     assert task["status"] == D.STATUS_PAUSED
@@ -1193,6 +1195,193 @@ def test_inconclusive_past_window_pauses_for_manual_recovery_not_absent(tmp_path
     legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
     assert all(l["terminal"] == 0 for l in legs)  # left non-terminal, never resent
     assert exe.dispatch_calls == 1  # no resend
+
+
+# ---------------------------------------------------------------------------
+# fix-review1-retry-counter (F1): no-anchor legs, restart semantics, counter
+# cleanup, and the verdict-None signal site (F4).
+# ---------------------------------------------------------------------------
+
+
+def test_no_anchor_leg_404_confirms_absent_at_retry_cap(tmp_path):
+    """F1 acceptance 1 (404): a leg WITHOUT dispatched_at_us (legacy row /
+    crash gap) still counts its retries and closes at the cap — the 10th query
+    404 confirms absent terminal. Must fail if the counter is removed (no anchor
+    = infinite re-query, the F1 root cause)."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    # 抹掉 dispatched_at_us：旧库行 / prepare_attempt 落库后崩溃间隙的真实形态。
+    with svc.store._lock, svc.store._conn:
+        svc.store._conn.execute(
+            "UPDATE hedge_open_leg SET dispatched_at_us = NULL WHERE terminal = 0"
+        )
+    _retry_cap_queries(exe, final=[_absent_query("spot"), _absent_query("perp")])
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES)
+    task = svc.store.get_task(doc["id"])
+    assert task["fail_count"] == 1  # absent confirmed despite no anchor
+    assert task["status"] != D.STATUS_PAUSED  # a confirmed absent is a failure
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] == 1 for l in legs)
+
+
+def test_no_anchor_leg_inconclusive_pauses_at_retry_cap(tmp_path):
+    """F1 acceptance 1 (inconclusive): a leg WITHOUT dispatched_at_us whose
+    queries stay inconclusive for the whole budget escalates to manual recovery
+    (paused, order_state_unknown) — never equated with absent, never resent."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    with svc.store._lock, svc.store._conn:
+        svc.store._conn.execute(
+            "UPDATE hedge_open_leg SET dispatched_at_us = NULL WHERE terminal = 0"
+        )
+    _retry_cap_queries(exe, final=[
+        _leg(LEG_UNKNOWN_QUERYING, name="spot"),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp"),
+    ])
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES)
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_ORDER_STATE_UNKNOWN
+    assert task["fail_count"] == 0
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] == 0 for l in legs)  # non-terminal, never resent
+    assert exe.dispatch_calls == 1
+
+
+def test_restart_resets_retry_counter_and_recovers_without_resend(tmp_path):
+    """F1 acceptance 2: the retry counter is process-local — a fresh service on
+    the SAME db restarts the budget from zero (matching the legacy JS loop), and
+    the recovery path re-queries by client ID only (never resends)."""
+    db_path = str(tmp_path / "ho.sqlite3")
+    exe = _RoutingExecutor()
+    provider = _FakeProvider(_ok_snapshot())
+
+    clock1 = _Clock()
+    svc1 = _svc_with(db_path, exe, provider, clock1)
+    svc1.set_start_gate(True)
+    doc = _create(svc1, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    svc1._pump_worker(doc["id"], max_rounds=1)  # dispatch UNKNOWN pair
+    # 数 3 次（未达上限），腿保持非终态。
+    exe.queries.extend([None] * 6)
+    svc1._pump_worker(doc["id"], max_rounds=3)
+    legs1 = svc1.store.list_legs_for_attempt(_attempt_id(svc1, doc["id"]))
+    assert all(l["terminal"] == 0 for l in legs1)
+    assert svc1._leg_query_retries == {legs1[0]["id"]: 3, legs1[1]["id"]: 3}
+    posts_before = exe.dispatch_calls
+    assert posts_before == 1
+    svc1.stop()
+    del svc1
+
+    # 新实例：计数从零重新开始；恢复按 clientOrderId 重查、不重发；达上限的
+    # 404 判 absent（收口需要重新数满 10 次，而不是按原计数或原下单时间）。
+    clock2 = _Clock()
+    svc2 = _svc_with(db_path, exe, provider, clock2)
+    svc2.set_start_gate(True)
+    assert svc2._leg_query_retries == {}  # fresh budget after restart
+    _retry_cap_queries(exe, final=[_absent_query("spot"), _absent_query("perp")])
+    svc2._pump_worker(doc["id"], max_rounds=D.LEG_QUERY_MAX_RETRIES)
+    assert exe.dispatch_calls == posts_before  # no resend
+    task = svc2.store.get_task(doc["id"])
+    assert task["fail_count"] == 1  # absent confirmed on the fresh budget
+    legs2 = svc2.store.list_legs_for_attempt(_attempt_id(svc2, doc["id"]))
+    assert all(l["terminal"] == 1 for l in legs2)
+
+
+def test_retry_counter_cleared_on_terminal_leg_and_worker_exit(tmp_path):
+    """F1 acceptance 3: the in-process retry dict does not grow without bound —
+    a leg reaching terminal state clears its entry, and a worker exit clears
+    every entry of its task (including non-terminal legs left by a
+    manual-recovery pause)."""
+    # 子 A：pump 路径，腿终态即清理（不走 worker finally）。
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    _retry_cap_queries(exe, final=[_absent_query("spot"), _absent_query("perp")])
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES)
+    assert svc._leg_query_retries == {}  # terminal legs cleared their entries
+
+    # 子 B：真线程 worker 自然退出（inconclusive 达上限 -> 人工暂停 -> 退出），
+    # 非终态腿的计数也被 worker 退出清理。
+    db_path = str(tmp_path / "b.sqlite3")
+    exe_b = _RoutingExecutor()
+    svc_b = _svc_with(db_path, exe_b, _FakeProvider(_ok_snapshot()), _Clock())
+    svc_b.set_start_gate(True)
+    doc_b = _create(svc_b, target_n=1)
+    exe_b.set_script(doc_b["id"], [_unknown_pair()])
+    svc_b._pump_worker(doc_b["id"], max_rounds=1)  # dispatch -> in-flight
+    exe_b.queries.extend([None] * (2 * D.LEG_QUERY_MAX_RETRIES))
+    svc_b.ensure_worker(doc_b["id"])
+    wb = svc_b._workers.get(doc_b["id"])
+    if wb is not None:
+        wb.join(timeout=15.0)
+    assert svc_b.store.get_task(doc_b["id"])["status"] == D.STATUS_PAUSED
+    assert svc_b._leg_query_retries == {}  # worker exit cleared the counters
+
+
+def test_inconclusive_verdict_none_at_cap_pauses_manual_recovery(tmp_path):
+    """F4 (review-1): a drain query returning None (transport error / 5xx /
+    timeout) at the retry cap is its OWN signal site — the task pauses manually,
+    the legs stay non-terminal, the failure counter is untouched, nothing is
+    resent. Deleting the verdict-None signal site in ``_reconcile_own_legs``
+    must fail this test (the malformed-2xx site alone must not mask it)."""
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    # 10 次查询全部返回 None：verdict is None 分支。
+    exe.queries.extend([None] * (2 * D.LEG_QUERY_MAX_RETRIES))
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES)
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == D.STATUS_PAUSED
+    assert task["pause_reason"] == D.PAUSE_REASON_ORDER_STATE_UNKNOWN
+    assert task["fail_count"] == 0  # failure counter untouched
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] == 0 for l in legs)  # non-terminal, never resent
+    assert exe.dispatch_calls == 1
+
+
+# ---------------------------------------------------------------------------
+# F2 (review-1): the retry-cap inconclusive drain must NOT rewrite a non-running
+# task's sticky status (deleted / done / stopped) to paused — the event is still
+# recorded, the legs stay non-terminal, nothing is resent.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("status", [D.STATUS_DELETED, D.STATUS_DONE, D.STATUS_STOPPED])
+def test_inconclusive_cap_drain_keeps_non_running_status_sticky(tmp_path, status):
+    exe = _RoutingExecutor()
+    svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
+    doc = _create(svc, target_n=1)
+    exe.set_script(doc["id"], [_unknown_pair()])
+    _step(svc, doc["id"], clock, rounds=1)  # dispatch UNKNOWN -> in-flight
+    svc.store.set_task_status(doc["id"], status, svc._wall_us())
+    _retry_cap_queries(exe, final=[
+        _leg(LEG_UNKNOWN_QUERYING, name="spot"),
+        _leg(LEG_UNKNOWN_QUERYING, name="perp"),
+    ])
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES)
+    task = svc.store.get_task(doc["id"])
+    assert task["status"] == status  # sticky — NOT rewritten to paused
+    assert task["pause_reason"] is None
+    legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
+    assert all(l["terminal"] == 0 for l in legs)  # non-terminal, never resent
+    assert exe.dispatch_calls == 1
+    # 可见人工核对事件仍被记录（F2：记录事件但不改状态、不重发）。
+    events = svc.store.list_task_event_logs(20, kinds=("task_paused",))
+    assert any(
+        json.loads(e["payload"]).get("reason") == D.PAUSE_REASON_ORDER_STATE_UNKNOWN
+        for e in events
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1467,7 +1656,8 @@ def test_r1_rate_limit_resume_next_pair_counts_and_clears_pause(tmp_path):
     svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
     doc = _create(svc, target_n=2)
     exe.set_script(doc["id"], [_rate_limited_unknown_pair(), _accepted_pair(doc["id"])])
-    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+    # F1 计数机制：pair1 的 404 在第 LEG_QUERY_MAX_RETRIES 次查询确认 absent。
+    _retry_cap_queries(exe, final=[_absent_query("spot"), _absent_query("perp")])
 
     _step(svc, doc["id"], clock, rounds=1)  # pair1 429 -> pause (rate_limited)
     task = svc.store.get_task(doc["id"])
@@ -1483,9 +1673,7 @@ def test_r1_rate_limit_resume_next_pair_counts_and_clears_pause(tmp_path):
     # The worker drains pair1 by its OWN per-attempt rate-limited fact (the
     # task-level pause_reason is already cleared) -> no failure counter; then
     # dispatches pair2 FILLED -> accepted_pair + counts.
-    # Age past the absent-tolerance window so pair1's drain 404 confirms absent.
-    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
-    _step(svc, doc["id"], clock, rounds=3)
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES + 4)
     task = svc.store.get_task(doc["id"])
     assert task["fail_count"] == 0            # 429 pair never consumed the counter
     assert task["accepted_pair_count"] == 1   # pair2 counted
@@ -1507,17 +1695,16 @@ def test_r2_rate_limit_resume_then_three_confirmed_fails_triggers_threshold(tmp_
     exe.set_script(doc["id"], [
         _rate_limited_unknown_pair(), _rejected_pair(), _rejected_pair(), _rejected_pair(),
     ])
-    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+    # F1 计数机制：pair1 的 404 在第 LEG_QUERY_MAX_RETRIES 次查询确认 absent。
+    _retry_cap_queries(exe, final=[_absent_query("spot"), _absent_query("perp")])
 
     _step(svc, doc["id"], clock, rounds=1)  # pair1 429 -> pause
     assert svc.store.get_task(doc["id"])["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED
     svc.store.set_task_status(doc["id"], D.STATUS_RUNNING, svc._wall_us())  # resume
-    # Age past the absent-tolerance window so pair1's drain 404 confirms absent
     # (the three later _rejected_pair dispatches are terminal at dispatch and
-    # are unaffected by the window).
-    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
+    # are unaffected by the retry budget).
 
-    _step(svc, doc["id"], clock, rounds=12)  # pair1 drain (no counter) + 3 fails
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES + 8)  # pair1 drain (no counter) + 3 fails
     task = svc.store.get_task(doc["id"])
     assert task["status"] == D.STATUS_PAUSED
     assert task["pause_reason"] == D.PAUSE_REASON_CONSECUTIVE_SUBMISSION_FAILURE
@@ -1532,7 +1719,8 @@ def test_r3_pause_drains_inflight_to_terminal_and_settles_no_new_pair(tmp_path):
     svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
     doc = _create(svc, target_n=2)
     exe.set_script(doc["id"], [_unknown_pair(), _accepted_pair(doc["id"])])
-    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+    # F1 计数机制：drain 的 404 在第 LEG_QUERY_MAX_RETRIES 次查询确认 absent。
+    _retry_cap_queries(exe, final=[_absent_query("spot"), _absent_query("perp")])
 
     _step(svc, doc["id"], clock, rounds=1)  # dispatch pair1 UNKNOWN -> in-flight
     scheduled_before = svc.store.get_task(doc["id"])["scheduled_attempt_count"]
@@ -1546,9 +1734,8 @@ def test_r3_pause_drains_inflight_to_terminal_and_settles_no_new_pair(tmp_path):
     # re-introduced into post_pause.
     assert svc._stop_events[doc["id"]].is_set() is False
 
-    # Age past the absent-tolerance window so the drain's 404 confirms absent.
-    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
-    _step(svc, doc["id"], clock, rounds=3)  # worker drains, settles, exits
+    # F1 计数机制：无时钟推进；计数到上限后 404 确认 absent，worker 收尾退出。
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES)  # worker drains, settles, exits
     assert exe.query_calls >= 2
     legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
     assert all(l["terminal"] for l in legs)
@@ -1565,7 +1752,8 @@ def test_r4_delete_drains_inflight_to_terminal_and_settles_no_new_pair(tmp_path)
     svc, clock = _live_svc(tmp_path, exe, _FakeProvider(_ok_snapshot()))
     doc = _create(svc, target_n=2)
     exe.set_script(doc["id"], [_unknown_pair(), _accepted_pair(doc["id"])])
-    exe.queries.extend([_absent_query("spot"), _absent_query("perp")])
+    # F1 计数机制：drain 的 404 在第 LEG_QUERY_MAX_RETRIES 次查询确认 absent。
+    _retry_cap_queries(exe, final=[_absent_query("spot"), _absent_query("perp")])
 
     _step(svc, doc["id"], clock, rounds=1)  # dispatch pair1 UNKNOWN -> in-flight
     scheduled_before = svc.store.get_task(doc["id"])["scheduled_attempt_count"]
@@ -1574,9 +1762,7 @@ def test_r4_delete_drains_inflight_to_terminal_and_settles_no_new_pair(tmp_path)
     # P2-1 (Review-1 r4): post_delete must NOT set the per-task stop event.
     assert svc._stop_events[doc["id"]].is_set() is False
 
-    # Age past the absent-tolerance window so the drain's 404 confirms absent.
-    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
-    _step(svc, doc["id"], clock, rounds=3)  # worker drains, settles, exits
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES)  # worker drains, settles, exits
     assert exe.query_calls >= 2
     legs = svc.store.list_legs_for_attempt(_attempt_id(svc, doc["id"]))
     assert all(l["terminal"] for l in legs)
@@ -1725,13 +1911,12 @@ def test_r6_rate_limit_one_leg_other_filled_single_leg_exposure(tmp_path):
     doc = _create(svc, target_n=2)
     exe.set_script(doc["id"], [_rate_limited_unknown_pair()])
     # drain: spot -> FILLED (orderId), perp -> absent (no orderId) => single_leg
-    exe.queries.extend([_filled_leg("spot"), _absent_query("perp")])
+    # F1 计数机制：perp 的 404 在第 LEG_QUERY_MAX_RETRIES 次查询确认 absent
+    # (-> single-leg: spot FILLED, perp confirmed-absent)。
+    _retry_cap_queries(exe, final=[_filled_leg("spot"), _absent_query("perp")])
 
     _step(svc, doc["id"], clock, rounds=1)  # 429 dispatch -> pause (rate_limited)
-    # Age past the absent-tolerance window so the perp drain 404 confirms absent
-    # (-> single-leg: spot FILLED, perp confirmed-absent).
-    clock.t += D.ABSENT_TOLERANCE_WINDOW_US
-    _step(svc, doc["id"], clock, rounds=2)  # drain single_leg -> settle -> exit
+    _step(svc, doc["id"], clock, rounds=D.LEG_QUERY_MAX_RETRIES)  # drain single_leg -> settle
     task = svc.store.get_task(doc["id"])
     assert task["status"] == D.STATUS_PAUSED
     assert task["pause_reason"] == D.PAUSE_REASON_RATE_LIMITED

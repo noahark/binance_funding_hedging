@@ -15,6 +15,7 @@ import pytest
 
 from backend.hedge_open_tasks import domain as D
 from backend.hedge_open_tasks.executor import AttemptOutcome
+from backend.hedge_open_tasks.service import settings_to_doc
 from backend.hedge_open_tasks.store import HedgeOpenStore
 
 
@@ -411,6 +412,73 @@ def test_settings_defaults_and_start_gate(tmp_path):
     store.set_start_gate(True, 1_000)
     assert store.get_settings()["start_gate"] == 1
     store.close()
+
+
+# F5 (review-1): the ``_migrate`` interval backfill must be under automated
+# regression — deleting the backfill SQL used to leave all 1140 tests green.
+# Construct a legacy-db settings row directly (seed first, then rewrite the row
+# to the legacy default), reopen the store, and assert the rewrite.
+
+
+def test_migrate_backfills_legacy_interval_default_and_is_idempotent(tmp_path):
+    """F5: a settings row still holding the legacy 1s default (1_000_000) is
+    rewritten to the new 500ms default on open; re-opening again is a no-op
+    (idempotent). Deleting the backfill SQL in ``HedgeOpenStore._migrate`` must
+    fail this test."""
+    db = str(tmp_path / "ho.sqlite3")
+    store = HedgeOpenStore(db)
+    with store._lock, store._conn:
+        store._conn.execute(
+            "UPDATE hedge_open_settings SET interval_us = 1_000_000,"
+            " interval_seconds = '1.0' WHERE id = 1"
+        )
+    store.close()
+
+    reopened = HedgeOpenStore(db)
+    assert reopened.get_settings()["interval_us"] == D.DEFAULT_INTERVAL_US
+    assert reopened.get_interval_us() == D.DEFAULT_INTERVAL_US
+    reopened.close()
+
+    # Idempotent: a third open finds the value already migrated and changes nothing.
+    reopened2 = HedgeOpenStore(db)
+    assert reopened2.get_settings()["interval_us"] == D.DEFAULT_INTERVAL_US
+    reopened2.close()
+
+
+def test_migrate_preserves_custom_interval_value(tmp_path):
+    """F5: a deliberately customized interval (250_000) survives the backfill —
+    only the EXACT legacy default is rewritten."""
+    db = str(tmp_path / "ho.sqlite3")
+    store = HedgeOpenStore(db)
+    with store._lock, store._conn:
+        store._conn.execute(
+            "UPDATE hedge_open_settings SET interval_us = 250_000,"
+            " interval_seconds = '0.25' WHERE id = 1"
+        )
+    store.close()
+
+    reopened = HedgeOpenStore(db)
+    assert reopened.get_settings()["interval_us"] == 250_000
+    assert reopened.get_interval_us() == 250_000
+    reopened.close()
+
+
+def test_migrate_interval_seconds_api_shape(tmp_path):
+    """F5: the settings API doc's ``interval_seconds`` reflects the backfilled
+    value (0.5), i.e. the wire shape matches the effective cadence."""
+    db = str(tmp_path / "ho.sqlite3")
+    store = HedgeOpenStore(db)
+    with store._lock, store._conn:
+        store._conn.execute(
+            "UPDATE hedge_open_settings SET interval_us = 1_000_000,"
+            " interval_seconds = '1.0' WHERE id = 1"
+        )
+    store.close()
+
+    reopened = HedgeOpenStore(db)
+    doc = settings_to_doc(reopened.get_settings(), "disabled")
+    assert doc["interval_seconds"] == 0.5
+    reopened.close()
 
 
 # ---------------------------------------------------------------------------
