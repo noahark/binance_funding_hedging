@@ -9,136 +9,116 @@ check.
   function exists. No agent may create orders, touch credentials, control the
   service, or write the live task DB; an authorized read-only check must precede
   any live action.
-- `[OPEN][VERIFIED-INCIDENT]` **BK-T3-002 — the live task DB was written during
-  development (2026-08-01 23:45:48).** `data/hedge-open-tasks.sqlite3` went from
-  `interval_us = 1000000` to `500000` while stage
-  `2026-07-31-hedge-task-lifecycle-v1` Task 3 was being implemented, breaking
-  both the packet's read-only rule for `data/` and the line above. **The
-  implementer's attribution — "the running service applied the migration" — is
-  disproved**: PID 57852 started 19:33:42 and ran 4h36m without restart,
-  `server.py` builds the store once at startup (`:763`) with no reload, and the
-  migration code did not exist until ~4 hours after that start. The writer was
-  some run of the new migration pointed at the real path; `version` /
-  `updated_at_us` are unchanged, matching that SQL's signature exactly. **Impact
-  is benign** — only the cadence setting changed, to the correct value; no task,
-  attempt, leg or order data was touched, and no order was placed. Kept open
-  because the rule was breached and the attribution was initially wrong, not
-  because the data is at risk. Full evidence: that stage's `27-` §3.
-  **Severity raised by review-2 (2026-08-02), missed by both review-1 rounds and
-  the Bookkeeper**: the base worker re-reads `get_interval_us()` **inside its
-  loop**, so that write did not merely alter data at rest — **it changed the
-  cadence of a running live service** (latent until the next worker round).
-  Classify it as an unauthorised change to running live behaviour, not as a file
-  edit. Merge-time actions Human must decide: snapshot the live DB with a
-  recorded baseline; adopt "development and verification runs never touch the
-  real `data/` path"; record "attribution stops at some run pointed at the real
-  path" as an accepted end of investigation. Detail: that stage's `39-` §1.2.
 - `[OPEN][UNREVIEWED-LIVE-PATH]` The bStock spot-alias fix (`3dc6756`, merged
-  2026-08-01) changes **which instrument a real spot order is placed on**: with a
-  resolved `spot_symbol` the spot leg goes to the bStock pair (TSLAUSDT futures
-  -> TSLABUSDT spot). It is `HIGH_RISK` by §8 (orders) and passed **no plan
-  review, no review-1 and no review-2**. Merged on explicit Human authorisation;
-  Human declined an operational restriction. Ordinary symbols are unaffected
-  (absent `spot_symbol` the path still uses `coin`) and no bStock task exists
-  today, so blast radius is currently nil — **the first bStock task created will
-  exercise unreviewed live order behaviour.** The earlier
-  `2026-07-public-market-bstock-alias-v1` stage covered the public-market alias
-  only, not the order path.
+  2026-08-01) changes **which instrument a real spot order is placed on**.
+  `HIGH_RISK` by §8, passed **no review of any kind**; merged on explicit Human
+  authorisation. Ordinary symbols unaffected and no bStock task exists today —
+  **the first bStock task created will exercise unreviewed live order behaviour.**
+- `[CLOSED-OUT][VERIFIED-INCIDENT]` **BK-T3-002 — the live task DB was written
+  during development** (2026-08-01 23:45:48). It **changed the cadence of a
+  running live service**, not data at rest (the worker re-reads
+  `get_interval_us()` inside its loop); the value written was correct and no
+  task/attempt/leg/order data was touched. Attribution closed at "some run
+  pointed at the real path" — the implementer's "the running service did it" was
+  disproved. **Two rules adopted at the 2026-08-02 merge:** ① verify
+  `interval_us=500000 version=4` against baseline snapshot
+  `data/…bak-premerge-20260802-161143` **before each service start**;
+  ② **development and verification runs never touch the real `data/` path.**
+  Evidence and full reasoning: stage `27-` §3 and `39-` §1.2.
 
-## Merged Position Table — Known Limitations (Task 1, merged 2026-08-01)
+## Merged Position Table — Accepted Limitations (Task 1, merged 2026-08-01)
 
-Three accepted limitations shipped with the backend-merged position table. All
-three are the same class: **the display asserting something it does not know.**
-None costs money directly; each can mislead an operating decision.
+All three are the same class: **the display asserting something it does not
+know.** None costs money directly; each can mislead an operating decision.
 
-- `[OPEN][ACCEPTED]` **A — single-leg marker under-reports.** The flag is
-  `spot_qty > 0 and perp_qty == 0`, so it only catches a perp leg that is
-  entirely absent; an aggregated partial imbalance (spot 2.0 / perp 1.0) reads as
-  "no exposure". Spec required consuming the backend `pair_outcome` /
-  `leg_exposure` verdict. **Do not treat that marker as the authoritative
-  exposure judgement.** Complete history is the per-attempt inline log.
-- `[OPEN][ACCEPTED]` **B — spot balance and drift read the wrong pool.** Both
-  read the classic spot account (`/api/v3/account`) while the hedge's spot leg is
-  a margin order into the unified account. The `drift` flag (manual-reduction
-  detection) is therefore **permanently inert**. Do not read the spot-balance
-  column as "this hedge's spot holding", and do not read an absent drift marker
-  as "records agree".
+- `[OPEN][ACCEPTED]` **A** — the single-leg marker only fires when the perp leg is
+  entirely absent, so a partial imbalance (spot 2.0 / perp 1.0) reads as "no
+  exposure". Not the authoritative exposure verdict; the per-attempt inline log is.
+- `[OPEN][ACCEPTED]` **B** — spot balance and drift read the classic spot account
+  while the hedge buys into the unified account, so the **drift flag is
+  permanently inert**. An absent drift marker does not mean "records agree".
 - `[OPEN][ACCEPTED]` **F4 — "exchange has no position" is claimed without
-  checking.** When the account cannot be read (`SnapshotNotReady`, or
-  `verified: false` from any failed signed read — an expired key, a changed IP
-  allowlist, a Binance error), every local row still reports
-  `match_status = no_um` and the UI prints 交易所无仓 with a liquidation hint.
-  Verified: it does this even when the account block actually contains that UM
-  position. **Telltale: if the 账户数据未就绪 banner is on screen, the row's
-  match state is not trustworthy.** **Task 2 must fix this** (contract, display
-  and three failing-capable tests specified in the stage's `46-` §3.3); if Task 2
-  ships without it, the limitation returns to Human for a fresh decision.
+  checking.** Whenever the account cannot be read (`SnapshotNotReady`, or
+  `verified: false` from an expired key / changed IP / Binance error), every row
+  still reports `no_um` and prints 交易所无仓 with a liquidation hint — verified to
+  do so even when the account block *does* contain that position.
+  **Re-decided 2026-08-02**: Task 2 was to fix it, Task 2 is deferred, and Human
+  authorised the Task 3 merge after seeing review-2's finding, so F4 **stays
+  accepted**. That finding is why it must stay visible: **one exchange-side outage
+  triggers both** `order_state_unknown` (task pauses, "go check the exchange")
+  **and** F4's false 交易所无仓 — the moment you most need to verify is the moment
+  the table is least trustworthy, and believing it can lead to rebuilding a task
+  that already has a live leg. **Rule while accepted: when the 账户数据未就绪
+  banner is on screen, verify on Binance, not in this table.** Fix is fully
+  specified in the stage's `46-` §3.3 and should be scheduled on its own.
+- `[OPEN][RELEASE-GATE]` The read-only smoke run review-2 made its ACCEPT
+  conditional on was **never executed** (Human authorised the merge without it).
+  Checklist: that stage's `49-`. **Now a hard prerequisite for the next live
+  activation** (review-2, 2026-08-02) — its account-not-ready item covers F4.
 
-Also true of the merged table, by design rather than defect: an average marked
-均价不完整 covers only the priced share of the fills and is **not** the full cost
-basis; `match_status` is a new API key, so frontend and backend must ship
-together.
+## Task 3 — Cadence + Absent Tolerance (merged 2026-08-02)
 
-`[OPEN][RELEASE-GATE-SKIPPED]` review-2's ACCEPT was conditional on a full
-read-only smoke run against the final delivery `ef53a02`, covering the
-account-not-ready path, unified-account spot matching, snapshot staleness and
-zero trading side effects. **Human authorised the merge without executing it.**
-The checklist survives in the stage as `49-preflight-smoke-checklist.md` and can
-still be run against `main`.
+Delivery `d2ac353`. Re-query cadence **1s -> 500ms** (not the 100ms originally
+asked — Human switched to match the legacy JS strategy) plus a **10-try per-leg
+retry budget** before a `404`/`-2013` is believed. Both reviews ACCEPT after three
+review-1 rounds; `rework_count` 2/3. Runtime evidence is **zero**; code evidence
+is the strongest this project has produced.
+
+- `[OPEN][OPERATING-LIMIT]` **Run at most ~5 tasks draining concurrently.** The
+  worker queries *every* non-terminal leg each round, so two legs in flight is
+  **4 req/s per task** against Binance's ~20/s weight budget. (An earlier
+  Bookkeeper figure of "2/s, ~10 tasks" was a single-leg misreading.) Human's
+  lever is symbol count; the durable fix is Task 2's `rate_limited` backoff.
+  review-2 also advises a minimum-size first live order with the log page open.
+- `[OPEN][ACCEPTED]` **F1-P1** — worker handoff can clear a re-entering worker's
+  retry counters (leg regains its full budget, settlement ~5s late; no money
+  error, no resend). Accepted because all three `ensure_worker` entries are manual
+  clicks and the window is milliseconds. **Re-review the moment any non-manual
+  path to `ensure_worker` appears.** Five elements: stage `32-` §7.3.
+- `[OPEN][FOLLOW-UP]` Task-card pause reasons render **1 of 7** in Chinese — the
+  frontend never reads the `pause_reason_zh` the backend already returns. The log
+  timeline *is* wired (via `error_reason_zh`), so the frozen 51169 text and the
+  new `order_state_unknown` guidance are reachable there, just not on the card.
+  `pre-existing-independent` (`d873699`). Two-line frontend fix; should not wait
+  for the deferred Task 2.
+- `[OPEN][FOLLOW-UP]` `exposure_alert` is a **dead status** — nothing writes it,
+  so the frontend badge can never appear. `pre-existing-independent` (`d90f2f1`).
+- `[OPEN][FOLLOW-UP]` A deleted task's `order_state_unknown` settlement records
+  `kind=task_paused` with text saying "task paused… resume manually" — it was
+  neither paused nor is it resumable. Mild form of the family above.
 
 ## Open Follow-ups
 
 - `[OPEN][RESIDUAL]` `resolve_leg_from_query` writes `avg_price` / `quote_amt`
-  without `COALESCE`, so a later query returning `None` overwrites a value already
-  known. Unreachable today (Binance's order-detail GET returns quote and avgPrice
-  together); becomes reachable if that changes. Introduced with the avg_price
-  column (stage `2026-07-31-hedge-task-inline-log-v1`), following the existing
-  `quote_amt` pattern. review-2 ruled it non-blocking for merge.
-- `[OPEN][RESIDUAL]` Perp average price can still read blank. Fixed in stage
-  `2026-07-31-hedge-task-inline-log-v1` (delivery `d85a2d3`): `hedge_open_leg`
-  now has an `avg_price` column, both write paths persist the exchange's own
-  `avgPrice`, and all three leg projections prefer it over the local
-  `quote / base` division. What remains is upstream — Binance dropped
-  quote/avgPrice from the UM POST result (2026-07-14), so a perp leg's figures
-  only arrive via the order-detail GET; until that GET lands, the column is
-  legitimately unknown and renders as an em-dash rather than a fabricated zero.
-- `[OPEN][DEFERRED]` Task-card deadlock, the six-reasons auto-delete and the
-  re-query cadence are now Task 2 / Task 3 of the active stage (see Next
-  Priority). Verified findings and anchors: that stage's `01-` `10-` `12-`;
-  earlier plan-review rounds in archive `2026-07-31-hedge-task-inline-log-v1`
-  files `04-` `05-` `06-`. F10's COOKIEUSDT diagnosis is stale.
-- `[OPEN][DEFERRED]` Three discarded-failure sites, by decision: `service.py:1141`
-  (inconclusive query, needs log-rate design), `:1632` (dry-run, no order),
-  `live_hedge_executor.py:690-702` (`_error_leg` drops the send reason; needs a
-  `LegDispatch` change). Plus: should these events reach the `entries` timeline?
-  Human decides. Audit: `archive/2026-07-unknown-not-zero-v1` file `71-`.
-- `[OPEN][RESIDUAL]` `_rate_limit_stamp_pending` is in-process: a restart between a
-  failed stamp and settlement costs one failure count (task pauses one early,
-  fail-closed). Durable fix = a new column.
+  without `COALESCE`, so a later `None` overwrites a known value. Unreachable
+  today. Was to ride Task 2.
+- `[OPEN][RESIDUAL]` Perp average price can read blank — upstream: Binance dropped
+  quote/avgPrice from the UM POST result (2026-07-14), so figures only arrive via
+  the order-detail GET. Renders as an em-dash, not a fabricated zero.
+- `[OPEN][DEFERRED]` Three discarded-failure sites, by decision: `service.py:1141`,
+  `:1632`, `live_hedge_executor.py:690-702`. Should these reach the `entries`
+  timeline? Human decides. Audit: `archive/2026-07-unknown-not-zero-v1` file `71-`.
+- `[OPEN][RESIDUAL]` `_rate_limit_stamp_pending` is in-process: a restart mid-stamp
+  costs one failure count (pauses one early, fail-closed). Fix = a new column.
 - `[OPEN][RESIDUAL]` The money-zero tripwire is a speed bump, not a proof: five
   evasions + `fee_amount` outside the money names. DEC-2026-07-30-001.
-- `[OPEN][HARNESS-HYGIENE]` ~39 completed stage dirs in `reports/agent-runs/`, vs §9.5.
-- `[OPEN][HARNESS-DEFERRED]` v2 findings: batch A merged; batch B + R3/R4 wait for a
-  real problem (Human 2026-07-31). G1/G14 OPEN by decision. Detail: archive `22-`.
+- `[OPEN][HARNESS]` ~39 completed stage dirs in `reports/agent-runs/`, vs §9.5.
+  v2 findings: batch A merged; batch B + R3/R4 wait for a real problem, G1/G14
+  OPEN by decision (Human 2026-07-31). Detail: archive `22-`.
 
 ## Next Priority
 
-- Active stage: `2026-07-31-hedge-task-lifecycle-v1`. **Task 1 (merged position
-  table) is merged to local `main` 2026-08-01 (merge `d597fef`, delivery
-  `ef53a02`); not pushed.** Serial chain continues: **Task 2**
-  (`hedge-task-lifecycle-v1` — deadlock fix + five reasons auto-delete +
-  `rate_limited` backoff + the `COALESCE` guard), then **Task 3**
-  (`hedge-leg-requery-cadence-v1` — 1s -> 100ms). Task 2 rebases on `ef53a02`
-  and **must also fix F4** (above). `rework_count` resets for each new
-  deliverable. Decisions D1-D16 live in the stage's `02-` `03-` `04-` and
-  `46-` §3.
-- Carried into Task 3 as a named input: `scheduler.py:51-56` derives its wake
-  slice from `interval_us`, so dropping to 100ms raises the scheduler thread's
-  wake rate about fivefold (floored at 5ms, no exchange traffic since live
-  `tick()` returns immediately).
+- Active stage: `2026-07-31-hedge-task-lifecycle-v1`. **Task 1 (`ef53a02`) and
+  Task 3 (`d2ac353`) are merged and pushed.** Remaining: **Task 2** (deadlock fix
+  + five-reason auto-delete + `rate_limited` backoff + the `COALESCE` guard), now
+  **design-questioned and deferred** (Human 2026-08-02: "does not look right
+  either"). **Read the stage's `36-` before restarting it** — it holds five
+  problems the frozen design docs do not, including the two dead/mis-wired display
+  paths above and why `order_state_unknown` must stay a manual pause.
+  **F4 need not ride Task 2**; schedule it separately.
 - Idle, not closed: `2026-07-hedge-fast-fix-v1` (`awaiting_findings`, no current task).
-- Main line: live testing of the immediate-hedge scenario. The inline log is now
-  merged but has had **no runtime verification** (review-2, 2026-07-31).
+- Main line: live testing of the immediate-hedge scenario — still **no runtime
+  verification** of the hedge-open path.
 
 ## Last Completed
 
